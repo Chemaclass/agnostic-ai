@@ -1,10 +1,12 @@
 package cli
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -444,6 +446,105 @@ func TestImportFromWindsurf_UsesConfiguredRulesDir(t *testing.T) {
 	got := filepath.Join(dir, "rules", "house.md")
 	if _, err := os.Stat(got); err != nil {
 		t.Errorf("missing imported spec %s: %v", got, err)
+	}
+}
+
+// skipUnlessCanDenyDirReads skips a test that relies on chmod 0o000
+// actually blocking a directory read: Windows ignores the Unix mode
+// bits, and root ignores them too, so the test's own precondition
+// would be silently false rather than exercising the unreadable-dir
+// path.
+func skipUnlessCanDenyDirReads(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod 0o000 does not deny directory reads on windows")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores mode 0o000")
+	}
+}
+
+// TestImportFromWindsurf_SurvivesUnreadableDirUnderNodeModules pins the
+// #1124 review regression: windsurfScopedRulesDirs used to prune
+// node_modules outright, so it never read into it. #1123 stopped
+// pruning by name (CheckScopePath accepts node_modules as a scope
+// name too), so the shared scopedRulesDirs walker now descends into
+// it, and an unrelated unreadable directory inside it (permission
+// bits, a broken cache directory, ...) used to abort the whole scoped
+// scan with the root rules already imported, leaving agents, skills,
+// and every scoped rule unimported. The walk must warn and skip past
+// it instead.
+func TestImportFromWindsurf_SurvivesUnreadableDirUnderNodeModules(t *testing.T) {
+	skipUnlessCanDenyDirReads(t)
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".devin", "rules", "root.md"), "# root\n\nroot body\n")
+	writeFile(t, filepath.Join(dir, "backend", ".devin", "rules", "auth.md"), "# auth\n\nauth body\n")
+	unreadable := filepath.Join(dir, "node_modules", "cache")
+	if err := os.MkdirAll(unreadable, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(unreadable, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(unreadable, 0o755) })
+
+	var buf bytes.Buffer
+	prev := logOut
+	logOut = &buf
+	defer func() { logOut = prev }()
+
+	if err := importFromWindsurf(dir, rootSources(), nil); err != nil {
+		t.Fatalf("import must survive an unreadable directory, got: %v", err)
+	}
+	if !strings.Contains(buf.String(), "node_modules") {
+		t.Errorf("expected a warning naming the unreadable path, got: %s", buf.String())
+	}
+	for _, p := range []string{
+		filepath.Join("rules", "root.md"),
+		filepath.Join("rules", "backend", "auth.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
+			t.Errorf("missing imported spec %s: %v", p, err)
+		}
+	}
+}
+
+// TestImportFromWindsurf_SurvivesUnreadableHiddenDir is the same
+// #1124 review regression for a hidden directory: an earlier draft of
+// windsurfScopedRulesDirs pruned every hidden directory outright, so
+// it never read into one either.
+func TestImportFromWindsurf_SurvivesUnreadableHiddenDir(t *testing.T) {
+	skipUnlessCanDenyDirReads(t)
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".devin", "rules", "root.md"), "# root\n\nroot body\n")
+	writeFile(t, filepath.Join(dir, "backend", ".devin", "rules", "auth.md"), "# auth\n\nauth body\n")
+	unreadable := filepath.Join(dir, ".cache")
+	if err := os.MkdirAll(unreadable, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(unreadable, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(unreadable, 0o755) })
+
+	var buf bytes.Buffer
+	prev := logOut
+	logOut = &buf
+	defer func() { logOut = prev }()
+
+	if err := importFromWindsurf(dir, rootSources(), nil); err != nil {
+		t.Fatalf("import must survive an unreadable directory, got: %v", err)
+	}
+	if !strings.Contains(buf.String(), ".cache") {
+		t.Errorf("expected a warning naming the unreadable path, got: %s", buf.String())
+	}
+	for _, p := range []string{
+		filepath.Join("rules", "root.md"),
+		filepath.Join("rules", "backend", "auth.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
+			t.Errorf("missing imported spec %s: %v", p, err)
+		}
 	}
 }
 

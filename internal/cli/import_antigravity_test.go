@@ -132,6 +132,49 @@ func TestImportFromAntigravity_ReadsHiddenAndVendorScopedRulesDirs(t *testing.T)
 	}
 }
 
+// TestImportFromAntigravity_SurvivesUnreadableDirUnderVendor pins the
+// #1124 review regression for antigravity's own importer: an unrelated
+// unreadable directory under a scope name like `vendor` (permission
+// bits, a broken cache directory, ...), reached now that
+// scopedRulesDirs no longer prunes by bare directory name, must not
+// abort the whole scoped scan and leave the root rules already
+// imported with everything else missing. See the same regression on
+// the windsurf side, TestImportFromWindsurf_SurvivesUnreadableDirUnderNodeModules.
+func TestImportFromAntigravity_SurvivesUnreadableDirUnderVendor(t *testing.T) {
+	skipUnlessCanDenyDirReads(t)
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".agents", "rules", "root.md"), "# root\n\nroot body\n")
+	writeFile(t, filepath.Join(dir, "backend", ".agents", "rules", "auth.md"), "# auth\n\nauth body\n")
+	unreadable := filepath.Join(dir, "vendor", "cache")
+	if err := os.MkdirAll(unreadable, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(unreadable, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(unreadable, 0o755) })
+
+	var buf bytes.Buffer
+	prev := logOut
+	logOut = &buf
+	defer func() { logOut = prev }()
+
+	if err := importFromAntigravity(dir, rootSources(), nil); err != nil {
+		t.Fatalf("import must survive an unreadable directory, got: %v", err)
+	}
+	if !strings.Contains(buf.String(), "vendor") {
+		t.Errorf("expected a warning naming the unreadable path, got: %s", buf.String())
+	}
+	for _, p := range []string{
+		filepath.Join("rules", "root.md"),
+		filepath.Join("rules", "backend", "auth.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
+			t.Errorf("missing imported spec %s: %v", p, err)
+		}
+	}
+}
+
 // TestImportFromAntigravity_SkipsGitAndOwnOutputDirs confirms the scan
 // still prunes `.git` (never a legitimate scope) and Antigravity's own
 // output roots (`.agents`, `.agent`), which the non-scoped import call
