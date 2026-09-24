@@ -457,6 +457,18 @@ function test_reader_text_keeps_the_space_between_words() {
     "$(printf 'Markdown Content:\nrun foobar\n' | reader_text)"
 }
 
+function test_reader_text_keeps_whitespace_inside_a_code_fence() {
+  assert_not_equals \
+    "$(printf 'Markdown Content:\n```yaml\npermissions:\n  allow: x\n```\n' | reader_text)" \
+    "$(printf 'Markdown Content:\n```yaml\npermissions:\nallow: x\n```\n' | reader_text)"
+}
+
+function test_reader_text_still_collapses_prose_around_a_code_fence() {
+  assert_equals \
+    "$(printf 'Markdown Content:\nSet it:\n\n\n```\na  b\n```\nDone.\n' | reader_text)" \
+    "$(printf 'Markdown Content:\nSet   it:\n```\na  b\n```\n\nDone.\n' | reader_text)"
+}
+
 function test_reader_text_drops_the_page_updated_stamp() {
   assert_equals \
     "$(printf 'Markdown Content:\nHooks.\nPage updated:September 2, 2026\n' | reader_text)" \

@@ -174,22 +174,36 @@ strip_html() {
 # as "Video unavailable" and a lazy image as "Loading image..." on some
 # fetches only, so both drop, and so does image markup: an image is not a
 # config claim. Kiro's "Page updated: <date>" stamp drops too; the proxy
-# renders it with and without the space after the colon. Whitespace runs
-# collapse to one space, never to none, so "foo bar" and "foobar" differ.
+# renders it with and without the space after the colon. Prose whitespace
+# collapses to one space, never to none, so "foo bar" and "foobar" differ.
+# Fenced code keeps its lines and indentation verbatim: in YAML or shell a
+# newline or an indent is part of the claim.
 reader_text() {
   awk '
-    { all = all $0 "\n" }
-    /^Markdown Content:/ && !seen { seen = 1; body = ""; next }
-    /^Video unavailable[ \t\r]*$/ { next }
-    /^Page updated:/ { next }
-    seen { body = body $0 "\n" }
+    function flush(   p) {
+      p = prose
+      gsub(/Loading image\.\.\./, "", p)
+      gsub(/!\[[^]]*\]\([^)]*\)/, "", p)
+      gsub(/[ \t\r\n]+/, " ", p)
+      sub(/^ /, "", p)
+      sub(/ $/, "", p)
+      if (p != "") out = out (out != "" ? " " : "") p
+      prose = ""
+    }
+    { all[++na] = $0 }
+    /^Markdown Content:/ && !seen { seen = 1; nb = 0; next }
+    seen { body[++nb] = $0 }
     END {
-      out = seen ? body : all
-      gsub(/Loading image\.\.\./, "", out)
-      gsub(/!\[[^]]*\]\([^)]*\)/, "", out)
-      gsub(/[ \t\r\n]+/, " ", out)
-      sub(/^ /, "", out)
-      sub(/ $/, "", out)
+      n = seen ? nb : na
+      for (i = 1; i <= n; i++) {
+        l = seen ? body[i] : all[i]
+        sub(/\r$/, "", l)
+        if (l ~ /^[ \t]*```/) { flush(); out = out (out != "" ? "\n" : "") l; fence = !fence; continue }
+        if (fence) { out = out "\n" l; continue }
+        if (l ~ /^Video unavailable[ \t]*$/ || l ~ /^Page updated:/) continue
+        prose = prose l "\n"
+      }
+      flush()
       print out
     }
   ' "$@"
