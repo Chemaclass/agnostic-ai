@@ -34,6 +34,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: scripts/docfetch.sh --out "$RUNNER_TEMP/watch" | tail -n 1
 
+      - name: Keep the fetched pages
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: vendor-watch-pages
+          path: ${{ runner.temp }}/watch
+          retention-days: 14
+
       - name: Publish moved pages
         env:
           GH_TOKEN: ${{ github.token }}
