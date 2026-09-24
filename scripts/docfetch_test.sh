@@ -707,10 +707,38 @@ function test_word_delta_marks_removed_and_added_words_with_context() {
   assert_contains "apply to" "$out"
 }
 
-function test_word_delta_is_empty_when_only_whitespace_moved() {
-  printf 'a  b\n  c\n' >"$FIXTURES/old.txt"
-  printf 'a b c\n' >"$FIXTURES/new.txt"
+function test_word_delta_is_empty_when_the_texts_match() {
+  printf 'a b c\n' >"$FIXTURES/old.txt"
+  cp "$FIXTURES/old.txt" "$FIXTURES/new.txt"
   assert_empty "$(word_delta "$FIXTURES/old.txt" "$FIXTURES/new.txt")"
+}
+
+function test_word_delta_shows_an_indentation_change_as_lines() {
+  # Same words, different YAML: `b` moves from a child of `a` to a sibling.
+  printf 'Markdown\n```yaml\na:\n  b: 1\n```\n' >"$FIXTURES/old.txt"
+  printf 'Markdown\n```yaml\na:\nb: 1\n```\n' >"$FIXTURES/new.txt"
+  local out
+  out=$(word_delta "$FIXTURES/old.txt" "$FIXTURES/new.txt")
+  assert_contains "# whitespace" "$out"
+  assert_contains "-  b: 1" "$out"
+  assert_contains "+b: 1" "$out"
+}
+
+function test_delta_label_calls_a_line_only_delta_whitespace_only() {
+  : >"$FIXTURES/vocab"
+  printf '# whitespace\n@@ -1 +1 @@\n-  b: 1\n+b: 1\n' >"$FIXTURES/d"
+  assert_equals "whitespace-only" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
+}
+
+function test_fetch_one_drops_a_stale_extract_from_an_earlier_mode() {
+  # Same run dir, same stem: an HTML fetch wrote .txt, a later fetch of the
+  # same row lands in a body-hashed mode. The old .txt must not survive.
+  local stem="$FIXTURES/run/pages/claude/docs-1-x.example-a.md"
+  mkdir -p "$(dirname "$stem")"
+  printf 'stale extract\n' >"$stem.txt"
+  stub_curl "https://x.example/a.md|200|$(printf 'fresh markdown %.0s' $(seq 1 40))"
+  fetch_one claude docs https://x.example/a.md "$FIXTURES/run" 1 >/dev/null
+  assert_file_not_exists "$stem.txt"
 }
 
 function test_word_delta_prints_one_line_per_distant_change() {

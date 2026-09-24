@@ -39,7 +39,9 @@ Read-only means no repository or GitHub changes. Temporary reproduction projects
    `[-removed-]` and `{+added+}` words with context. Read `mentions:`
    rows first (a path or key we write moved), then `prose`. A
    `chrome-only` or `whitespace-only` row still gets its delta read: the
-   label ranks the reading order and never clears a row by itself.
+   label ranks the reading order and never clears a row by itself. A
+   `whitespace-only` delta shows the moved lines under a `# whitespace`
+   header, since indentation in a YAML or shell example changes meaning.
 3. Read the saved changelog delta, or the body when there is no delta,
    newest entry first. It names what moved since the last audit faster
    than the docs do.

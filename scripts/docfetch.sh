@@ -382,7 +382,22 @@ hashed_file() {
 # word_delta <old> <new> prints one line per changed region, words compared
 # with whitespace ignored: context, then [-removed-] and {+added+}. Most
 # extracted pages are one long line, so a line diff would print the page.
+# When no word moved but the hash did, the change sits in line breaks or
+# indentation, which modes that keep code verbatim preserve because YAML
+# and shell read them. Then it prints the line diff instead, marked with a
+# "# whitespace" header, capped so a reflowed page cannot flood it.
 word_delta() {
+  local words
+  words=$(word_delta_words "$1" "$2")
+  if [ -n "$words" ]; then
+    printf '%s\n' "$words"
+  elif ! cmp -s "$1" "$2"; then
+    printf '# whitespace\n'
+    { diff -U2 "$1" "$2" || true; } | awk 'NR > 2 && NR <= 202 { print substr($0, 1, 400) }'
+  fi
+}
+
+word_delta_words() {
   local a b
   a=$(mktemp)
   b=$(mktemp)
@@ -446,6 +461,10 @@ delta_vocab() {
 #   prose             anything else
 # A label ranks what an auditor reads first. It never skips a row.
 delta_label() {
+  if [ "$(head -n 1 "$1")" = "# whitespace" ]; then
+    printf 'whitespace-only\n'
+    return 0
+  fi
   awk -v vocab="$2" '
     BEGIN {
       while ((getline t < vocab) > 0) if (t != "") terms[++nt] = t
@@ -582,6 +601,10 @@ fetch_one() {
   stem="$dir/pages/$target/$kind-$idx-$(slugify "$url")"
   mkdir -p "$dir/pages/$target"
   body="$stem.body"
+  # A rerun into the same run directory must not leave an earlier fetch's
+  # extracted text or delta behind: hashed_file trusts that .txt exists
+  # only when this fetch's mode wrote it.
+  rm -f "$stem.txt" "$stem.delta"
 
   local result code_line
   if [ -n "$force_proxy" ]; then
