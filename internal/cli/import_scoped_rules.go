@@ -1,10 +1,13 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
@@ -39,6 +42,18 @@ func scopedRulesDirs(root, rulesDir string, ownOutputSubtrees map[string]bool, s
 	var scopes []string
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
+			// `path == root` has to be checked before the SkipDir
+			// branch below, not after: root is always a directory, so
+			// checking d.IsDir() first meant this case never ran (#1124
+			// second review). An unreadable project root is not a
+			// stray directory the scan can shrug off -- it means the
+			// scan saw nothing at all, silently, while the root-level
+			// rules import (which does not go through this walker)
+			// still succeeded, so import as a whole reported success
+			// with every scoped rule missing.
+			if path == root {
+				return walkErr
+			}
 			// This walker now descends into directories an earlier
 			// draft pruned outright (node_modules, vendor, every
 			// hidden directory), since CheckScopePath accepts any of
@@ -51,17 +66,10 @@ func scopedRulesDirs(root, rulesDir string, ownOutputSubtrees map[string]bool, s
 			// unimported, with the root-level rules already written
 			// by the time this ran, so import completed with source
 			// specs only partly reconstructed (#1124 review). Warn
-			// and skip past the one directory instead. `path == root`
-			// is the one case worth still failing on: it means the
-			// project root itself could not be read, which is not a
-			// stray unrelated directory but the scan having nothing
-			// to scan at all.
+			// and skip past the one directory instead.
 			summaryf("  ! skipping unreadable %s while scanning for scoped rules: %v\n", path, walkErr)
 			if d != nil && d.IsDir() {
 				return fs.SkipDir
-			}
-			if path == root {
-				return walkErr
 			}
 			return nil
 		}
@@ -90,6 +98,60 @@ func scopedRulesDirs(root, rulesDir string, ownOutputSubtrees map[string]bool, s
 	}
 	sort.Strings(scopes)
 	return scopes, nil
+}
+
+// preflightRulesDirs confirms every rules directory an import is about
+// to read -- rulesDir at root, plus `<scope>/rulesDir` for every
+// scope scopedRulesDirs already discovered -- can actually be read,
+// before any of them is imported. Shared by importFromWindsurf and
+// importFromAntigravity (#1124 review): discovery only Stats a
+// candidate directory to confirm it exists (dirExists), which
+// succeeds even when the directory's own contents cannot actually be
+// read, so a scope can be recorded whose rules dir is unreadable.
+// Without this preflight, the root rules dir imports first,
+// overwriting its destination, and only then does a later scoped
+// import reach the unreadable directory and fail, leaving the
+// already-overwritten destination with no way back to its previous
+// content. A missing directory is not a failure here, the same as
+// importRulesDirectoryWith's own `os.Stat` + `fs.ErrNotExist` check:
+// the root's own rulesDir is not guaranteed to exist yet on a project
+// with no native rules at all.
+//
+// This checks one level deep only, `os.ReadDir` plus opening every
+// `.md` file it lists, matching the exact failure this guards against
+// (the directory itself unreadable). It does not recurse into a
+// deeper unreadable subdirectory nested inside a rules dir; the real
+// import's own walk still surfaces that case as an ordinary import
+// error, just not necessarily before another destination has already
+// been written.
+func preflightRulesDirs(root, rulesDir string, scopes []string) error {
+	dirs := make([]string, 0, len(scopes)+1)
+	dirs = append(dirs, rulesDir)
+	for _, scope := range scopes {
+		dirs = append(dirs, filepath.Join(scope, rulesDir))
+	}
+	for _, d := range dirs {
+		full := filepath.Join(root, d)
+		entries, err := os.ReadDir(full)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("preflight %s: %w", full, err)
+		}
+		for _, entry := range entries {
+			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
+				continue
+			}
+			p := filepath.Join(full, entry.Name())
+			f, err := os.Open(p)
+			if err != nil {
+				return fmt.Errorf("preflight %s: %w", p, err)
+			}
+			_ = f.Close()
+		}
+	}
+	return nil
 }
 
 // rulesDirFromCfg returns the project-relative `outputs.<target>.rules-dir`

@@ -221,6 +221,15 @@ func importFromWindsurf(root string, src config.Sources, cfg *config.Config) err
 	if err != nil {
 		return err
 	}
+	// Discovery only Stats each candidate rules dir; preflight actually
+	// reads every one of them, root included, before any is imported,
+	// so a directory that exists but cannot be read (dirExists passed,
+	// the real read fails) aborts before the root import can overwrite
+	// its destination out from under a scoped import that then fails
+	// (#1124 review).
+	if err := preflightRulesDirs(root, rulesDir, scopes); err != nil {
+		return err
+	}
 	c, err := importRulesDirectoryWith(root, rulesDir, src, rulesDirImportOpts{
 		NormalizeMeta: normalizeWindsurfRuleMeta,
 	})
