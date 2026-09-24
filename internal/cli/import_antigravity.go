@@ -134,16 +134,24 @@ func antigravityImportMainFile(root string) string {
 // pruned `packages/api/config` too, and a legitimate
 // `packages/api/config/.agents/rules/auth.md` scope never imported
 // (#1114 review). `.agents` and `.agent` are excluded the same way, at
-// the root only, so a scope whose own name happens to be `.agents` (or
-// one further down the tree) is never mistaken for the tool's own
-// output root.
+// the root only, but only after checking whether that root-level
+// directory is itself a scope: a project can legitimately have a
+// `.agents/.agents/rules/<name>.md` (a rule scoped to a directory that
+// happens to be named `.agents`), and `CheckScopePath` at emission
+// time does not reject that name any more than it rejects `.github` or
+// `vendor`. An earlier draft pruned `.agents` / `.agent` before ever
+// checking, so that one scope name could emit but never import back
+// (#1114 review). Descendants of either root stay pruned either way:
+// nothing past that level is a distinct scope, whether or not the
+// level itself qualifies as one.
 func antigravityScopedRulesDirs(root, rulesDir string, src config.Sources) ([]string, error) {
-	skipDirs := map[string]bool{".git": true, ".agents": true, ".agent": true}
+	skipDirs := map[string]bool{".git": true}
 	for _, p := range []string{src.Agents, src.Skills, src.Rules, src.Hooks, src.MCPs} {
 		if p != "" {
 			skipDirs[filepath.ToSlash(filepath.Clean(p))] = true
 		}
 	}
+	ownOutputRoots := map[string]bool{".agents": true, ".agent": true}
 	var scopes []string
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -160,6 +168,12 @@ func antigravityScopedRulesDirs(root, rulesDir string, src config.Sources) ([]st
 			return err
 		}
 		rel = filepath.ToSlash(rel)
+		if ownOutputRoots[rel] {
+			if dirExists(filepath.Join(path, rulesDir)) {
+				scopes = append(scopes, rel)
+			}
+			return fs.SkipDir
+		}
 		if skipDirs[rel] {
 			return fs.SkipDir
 		}

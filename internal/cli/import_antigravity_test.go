@@ -155,6 +155,62 @@ func TestImportFromAntigravity_SkipsGitAndOwnOutputDirs(t *testing.T) {
 	}
 }
 
+// TestImportFromAntigravity_ScopeNamedLikeOwnOutputRootStillImports is
+// the fourth-review regression: `.agents` and `.agent` are pruned as
+// Antigravity's own output roots before ever checking whether that
+// root-level directory is itself a scope, so a rule legitimately
+// scoped to a directory named `.agents` (or `.agent`) -- emission
+// accepts it the same as `.github` or `vendor` -- could never import
+// back. Covers the plural default: `.agents/.agents/rules/<name>.md`
+// must still import as scope `.agents`, while the plain (non-doubled)
+// `.agents/rules/root.md` stays exclusively the root import's file,
+// not a scope copy.
+func TestImportFromAntigravity_ScopeNamedLikeOwnOutputRootStillImports(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".agents", "rules", "root.md"), "# root\n\nroot body\n")
+	writeFile(t, filepath.Join(dir, ".agents", ".agents", "rules", "scoped.md"), "# scoped\n\nscoped-in-agents body\n")
+
+	if err := importFromAntigravity(dir, rootSources(), nil); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, p := range []string{
+		filepath.Join("rules", "root.md"),
+		filepath.Join("rules", ".agents", "scoped.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
+			t.Errorf("missing imported spec %s: %v", p, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, "rules", ".agents", "root.md")); !os.IsNotExist(err) {
+		t.Errorf("the plain (non-doubled) .agents/rules/root.md must stay the root import's file, not a scope copy, err=%v", err)
+	}
+}
+
+// TestImportFromAntigravity_LegacyScopeNamedLikeOwnOutputRootStillImports
+// is the same fourth-review regression for the legacy singular default:
+// with no `.agents/rules` on disk, antigravityImportDir falls back to
+// `.agent/rules`, and `.agent/.agent/rules/<name>.md` must still import
+// as scope `.agent`.
+func TestImportFromAntigravity_LegacyScopeNamedLikeOwnOutputRootStillImports(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".agent", "rules", "root.md"), "# root\n\nroot body\n")
+	writeFile(t, filepath.Join(dir, ".agent", ".agent", "rules", "scoped.md"), "# scoped\n\nscoped-in-agent body\n")
+
+	if err := importFromAntigravity(dir, rootSources(), nil); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, p := range []string{
+		filepath.Join("rules", "root.md"),
+		filepath.Join("rules", ".agent", "scoped.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
+			t.Errorf("missing imported spec %s: %v", p, err)
+		}
+	}
+}
+
 // TestImportFromAntigravity_NestedScopeMatchingSourceRootNameStillImports
 // regresses the second-review finding: pruning by directory basename at
 // every depth, not just the exact root-relative source path, treated

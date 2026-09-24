@@ -202,12 +202,21 @@ func (s *Session) MigrateLegacyFile(cfg *config.Config, target, legacyName, defa
 //
 // Skipped, like MigrateLegacyFile, on dryRun, during capture mode, when
 // the legacy file is missing or carries no provenance marker, and when
-// sync.unmanaged matches either the legacy path or the backup
-// destination. Both ownership checks run before the backup is written,
-// so an unmanaged legacy or backup path is never touched. An existing
-// `<legacyPath>.bak` is never overwritten: migration is skipped with a
-// warning instead, so a second sync cannot silently discard an earlier
-// backup's content.
+// sync.unmanaged matches the legacy path. An existing `<legacyPath>.bak`
+// is never overwritten and the legacy file is never simply left in
+// place either: leaving it in place while the loop above no longer
+// declares it a managed output was itself a data-loss bug (a file
+// present in an older, already-persisted sync ledger but absent from
+// this run's output set reads as an orphan to the next run's sweep,
+// which deletes it on the strength of its own provenance marker,
+// discarding whatever bytes it held that were not yet in any backup,
+// #1114 review). MigrateLegacyPath instead numbers past a taken name
+// (`.bak`, `.bak.1`, `.bak.2`, ...) until it finds one that is neither
+// on disk nor sync.unmanaged, and always removes the legacy file once
+// its current bytes are safely parked there. Exhausting the search
+// bound (1000 names) is the one case that still leaves the legacy file
+// in place, with a warning; that ceiling is not expected to bite in
+// practice.
 // A real I/O failure on the backup write or the legacy removal is
 // returned, not swallowed, so a caller wired into a transaction can
 // roll the whole sync pass back instead of leaving a half-moved file.
@@ -219,16 +228,14 @@ func (s *Session) MigrateLegacyPath(target, legacyPath, defaultNewPath string, d
 	if err != nil || !bytes.Contains(data, []byte(ProvenanceMarker)) || s.skipUnmanaged(legacyPath) {
 		return nil
 	}
-	backupPath := legacyPath + ".bak"
-	if s.skipUnmanaged(backupPath) {
-		return nil
+	backupPath, err := s.uniqueUntrackedBackupPath(legacyPath)
+	if err != nil {
+		return err
 	}
-	if _, err := os.Stat(backupPath); err == nil {
-		_, _ = fmt.Fprintf(Warner, "%s: %s already exists; leaving %s in place (remove or rename the old backup first)\n",
-			target, backupPath, legacyPath)
+	if backupPath == "" {
+		_, _ = fmt.Fprintf(Warner, "%s: could not find a free backup name for %s after %d attempts; leaving it in place\n",
+			target, legacyPath, maxUntrackedBackupAttempts)
 		return nil
-	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("stat %s: %w", backupPath, err)
 	}
 	if err := s.writeUntrackedFile(backupPath, string(data), dryRun); err != nil {
 		return fmt.Errorf("backup %s: %w", legacyPath, err)
@@ -240,6 +247,38 @@ func (s *Session) MigrateLegacyPath(target, legacyPath, defaultNewPath string, d
 	_, _ = fmt.Fprintf(Warner, "%s: renamed legacy %s to %s; new layout writes %s\n",
 		target, legacyPath, filepath.Base(backupPath), newName)
 	return nil
+}
+
+// maxUntrackedBackupAttempts bounds the numbered-suffix search in
+// uniqueUntrackedBackupPath so a pathological pile of prior `.bak.N`
+// files (or an unmanaged pattern matching all of them) cannot loop
+// forever.
+const maxUntrackedBackupAttempts = 1000
+
+// uniqueUntrackedBackupPath returns the first of `<legacyPath>.bak`,
+// `<legacyPath>.bak.1`, `<legacyPath>.bak.2`, ... that is neither
+// already on disk nor sync.unmanaged, so MigrateLegacyPath can always
+// park a legacy file's current bytes somewhere instead of discarding
+// them when an earlier backup already claims the conventional name.
+// "" (with a nil error) means every candidate within the search bound
+// collided.
+func (s *Session) uniqueUntrackedBackupPath(legacyPath string) (string, error) {
+	for i := 0; i < maxUntrackedBackupAttempts; i++ {
+		candidate := legacyPath + ".bak"
+		if i > 0 {
+			candidate = fmt.Sprintf("%s.%d", candidate, i)
+		}
+		if s.IsUnmanaged(candidate) {
+			continue
+		}
+		if _, err := os.Stat(candidate); err == nil {
+			continue
+		} else if !os.IsNotExist(err) {
+			return "", fmt.Errorf("stat %s: %w", candidate, err)
+		}
+		return candidate, nil
+	}
+	return "", nil
 }
 
 // legacyFilePath resolves legacyName against the directory holding the
