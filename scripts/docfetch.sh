@@ -176,8 +176,9 @@ strip_html() {
 # config claim. Kiro's "Page updated: <date>" stamp drops too; the proxy
 # renders it with and without the space after the colon. Prose whitespace
 # collapses to one space, never to none, so "foo bar" and "foobar" differ.
-# Fenced code keeps its lines and indentation verbatim: in YAML or shell a
-# newline or an indent is part of the claim.
+# Code keeps its lines and indentation verbatim, whether fenced with
+# backticks or tildes or indented four spaces: in YAML or shell a newline
+# or an indent is part of the claim.
 reader_text() {
   awk '
     function flush(   p) {
@@ -198,8 +199,15 @@ reader_text() {
       for (i = 1; i <= n; i++) {
         l = seen ? body[i] : all[i]
         sub(/\r$/, "", l)
-        if (l ~ /^[ \t]*```/) { flush(); out = out (out != "" ? "\n" : "") l; fence = !fence; continue }
-        if (fence) { out = out "\n" l; continue }
+        if (l ~ /^[ \t]*(```|~~~)/) {
+          mark = l
+          sub(/^[ \t]*/, "", mark)
+          mark = substr(mark, 1, 1)
+          if (fence == "") { flush(); fence = mark; out = out (out != "" ? "\n" : "") l; continue }
+          if (mark == fence) { fence = ""; out = out "\n" l; continue }
+        }
+        if (fence != "") { out = out "\n" l; continue }
+        if (l ~ /^(    |\t)[^ \t]/) { flush(); out = out (out != "" ? "\n" : "") l; continue }
         if (l ~ /^Video unavailable[ \t]*$/ || l ~ /^Page updated:/) continue
         prose = prose l "\n"
       }

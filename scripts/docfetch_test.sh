@@ -463,6 +463,24 @@ function test_reader_text_keeps_whitespace_inside_a_code_fence() {
     "$(printf 'Markdown Content:\n```yaml\npermissions:\nallow: x\n```\n' | reader_text)"
 }
 
+function test_reader_text_keeps_whitespace_inside_a_tilde_fence() {
+  assert_not_equals \
+    "$(printf 'Markdown Content:\n~~~yaml\na:\n  allow: x\n~~~\n' | reader_text)" \
+    "$(printf 'Markdown Content:\n~~~yaml\na:\nallow: x\n~~~\n' | reader_text)"
+}
+
+function test_reader_text_keeps_indented_code_verbatim() {
+  assert_not_equals \
+    "$(printf 'Markdown Content:\nConfig:\n\n    a:\n      allow: x\n' | reader_text)" \
+    "$(printf 'Markdown Content:\nConfig:\n\n    a:\n    allow: x\n' | reader_text)"
+}
+
+function test_reader_text_does_not_close_a_backtick_fence_on_tildes() {
+  assert_not_equals \
+    "$(printf 'Markdown Content:\n```\n~~~\na:\n  b\n```\n' | reader_text)" \
+    "$(printf 'Markdown Content:\n```\n~~~\na:\nb\n```\n' | reader_text)"
+}
+
 function test_reader_text_still_collapses_prose_around_a_code_fence() {
   assert_equals \
     "$(printf 'Markdown Content:\nSet it:\n\n\n```\na  b\n```\nDone.\n' | reader_text)" \
