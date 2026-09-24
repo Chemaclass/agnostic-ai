@@ -29,10 +29,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # --mirrors also saves each scraped page's .md copy, for the #1127
+      # measurement: download two days' artifacts and run
+      # `scripts/docfetch.sh --compare-mirrors <day1> <day2>`. It never
+      # touches docfetch.tsv, so the issue below is unaffected.
       - name: Fetch vendor pages
         env:
           GH_TOKEN: ${{ github.token }}
-        run: scripts/docfetch.sh --out "$RUNNER_TEMP/watch" | tail -n 1
+        run: scripts/docfetch.sh --mirrors --out "$RUNNER_TEMP/watch" | tail -n 1
 
       - name: Publish moved pages
         env:

@@ -902,3 +902,86 @@ function test_fetch_one_keeps_the_sorted_json_it_hashed() {
   assert_equals "json" "$(printf '%s' "$row" | cut -f5)"
   assert_equals '"a": 2,' "$(sed -n 2p "$FIXTURES/run/pages/openhands/docs-1-x.example-api.txt" | sed 's/^ *//')"
 }
+
+# ---- mirror measurement (#1127) ----------------------------------------------
+
+function test_mirror_url_appends_md_to_the_page_path() {
+  assert_equals "https://kiro.dev/docs/hooks.md" "$(mirror_url https://kiro.dev/docs/hooks/)"
+  assert_equals "https://x.example/a/b.md" "$(mirror_url 'https://x.example/a/b?tab=ide#top')"
+}
+
+function test_mirror_one_hashes_a_served_markdown_copy() {
+  local md
+  md="$(printf '# Hooks\n\nHooks run on events. %.0s' 1 2 3 4 5 6 7 8 9 10 11 12)"
+  stub_curl "https://kiro.dev/docs/hooks.md|200|$md"
+  local row
+  row=$(mirror_one kiro docs https://kiro.dev/docs/hooks/ "$FIXTURES/run" 1 reader-proxy)
+  assert_equals "https://kiro.dev/docs/hooks.md" "$(printf '%s' "$row" | cut -f4)"
+  assert_equals "200" "$(printf '%s' "$row" | cut -f5)"
+  assert_matches '^[0-9a-f]{64}$' "$(printf '%s' "$row" | cut -f6)"
+}
+
+function test_mirror_one_rejects_an_html_answer() {
+  stub_curl "https://x.example/*|200|<!DOCTYPE html><html><body>$(printf 'shell %.0s' $(seq 1 60))</body></html>"
+  assert_equals "-" "$(mirror_one amp docs https://x.example/docs/tools "$FIXTURES/run" 1 html | cut -f6)"
+}
+
+function test_mirror_one_skips_rows_that_are_not_scraped_html() {
+  stub_curl "https://x.example/*|200|$(printf 'text %.0s' $(seq 1 60))"
+  assert_empty "$(mirror_one amp docs https://x.example/llms.txt "$FIXTURES/run" 1 text)"
+}
+
+# seed_compare <dir> <html sha> <mirror sha> writes one run with one mirrored row.
+function seed_compare() {
+  mkdir -p "$1"
+  printf 'kiro\tdocs\thttps://kiro.dev/docs/hooks/\t200\treader-proxy\t%s\t2026-09-24\tchanged\thttps://kiro.dev/docs/hooks/\tpages/x.body\n' \
+    "$2" >"$1/docfetch.tsv"
+  printf 'kiro\tdocs\thttps://kiro.dev/docs/hooks/\thttps://kiro.dev/docs/hooks.md\t200\t%s\n' "$3" >"$1/mirrors.tsv"
+}
+
+function test_compare_mirrors_counts_moves_per_representation() {
+  seed_compare "$FIXTURES/a" aaa mmm
+  seed_compare "$FIXTURES/b" bbb mmm
+  local out
+  out=$(compare_mirrors "$FIXTURES/a" "$FIXTURES/b")
+  assert_contains "$(printf 'kiro.dev\t1\t1\t0')" "$out"
+  assert_contains "$(printf 'total\t1\t1\t0')" "$out"
+}
+
+function test_compare_mirrors_ignores_rows_without_a_mirror_in_both_runs() {
+  seed_compare "$FIXTURES/a" aaa mmm
+  seed_compare "$FIXTURES/b" bbb -
+  assert_contains "$(printf 'total\t0\t0\t0')" "$(compare_mirrors "$FIXTURES/a" "$FIXTURES/b")"
+}
+
+function test_fetch_target_writes_mirror_rows_only_when_asked() {
+  local md
+  md="$(printf 'Hooks run on events. %.0s' $(seq 1 20))"
+  stub_curl "https://code.claude.com/*.md|200|$md" \
+    "https://*|200|<html><body><main>$(printf 'Real page text. %.0s' $(seq 1 60))</main></body></html>"
+  function resolve_urls() { printf 'docs\thttps://code.claude.com/docs/en/hooks\n'; }
+  fetch_target claude "$FIXTURES/plain" >/dev/null
+  assert_file_not_exists "$FIXTURES/plain/rows/claude.mirrors"
+  DOCFETCH_MIRRORS=1 fetch_target claude "$FIXTURES/mirr" >/dev/null
+  assert_equals 1 "$(grep -c . "$FIXTURES/mirr/rows/claude.mirrors")"
+}
+
+function test_compare_mirrors_mode_requires_two_runs() {
+  local status=0
+  docfetch_main --compare-mirrors "$FIXTURES/a" 2>/dev/null || status=$?
+  assert_equals 2 "$status"
+}
+
+function test_compare_mirrors_mode_rejects_a_run_without_mirrors() {
+  mkdir -p "$FIXTURES/a" "$FIXTURES/b"
+  : >"$FIXTURES/a/docfetch.tsv"
+  : >"$FIXTURES/b/docfetch.tsv"
+  local status=0
+  docfetch_main --compare-mirrors "$FIXTURES/a" "$FIXTURES/b" 2>/dev/null || status=$?
+  assert_equals 1 "$status"
+}
+
+function test_compare_mirrors_accepts_the_same_run_twice() {
+  seed_compare "$FIXTURES/a" aaa mmm
+  assert_contains "$(printf 'total\t1\t0\t0')" "$(compare_mirrors "$FIXTURES/a" "$FIXTURES/a")"
+}

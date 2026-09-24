@@ -38,12 +38,18 @@ docfetch_usage() {
 Usage: scripts/docfetch.sh [--out DIR] [<target>...]
        scripts/docfetch.sh --urls <target>...
        scripts/docfetch.sh --update <docfetch.tsv> [<target>...]
+       scripts/docfetch.sh --compare-mirrors <run dir a> <run dir b>
 
   (no args)      fetch every registered target's docs and changelog URLs
   <target>...    fetch only the named targets
   --out DIR      run directory (default local/target-audit/<utc date>-run)
   --urls         print "<target>\t<kind>\t<url>" without fetching
   --update FILE  merge a run's rows into scripts/target-audit/sources.lock
+  --mirrors      also fetch each scraped page's .md copy into mirrors.tsv
+                 (measurement only, never hashed into the lock)
+  --compare-mirrors A B
+                 per host, how many mirrored rows moved as scraped text and
+                 as Markdown copy between two runs
   -h, --help     this message
 EOF
 }
@@ -779,13 +785,73 @@ fetch_one() {
     "$status" "$final" "${body#"$dir"/}"
 }
 
+# mirror_url <url> prints the Markdown copy many docs hosts serve next to
+# a page: the path without its query, fragment, or trailing slash, plus .md.
+mirror_url() {
+  local u="${1%%#*}"
+  u="${u%%\?*}"
+  printf '%s.md\n' "${u%/}"
+}
+
+# mirror_one <target> <kind> <url> <dir> <index> <mode> fetches the Markdown
+# copy of a scraped page and prints "<target> <kind> <url> <mirror url>
+# <http> <sha>", sha "-" when no usable copy answers. It prints nothing for
+# rows that are not scraped HTML. This is the measurement for #1127: does
+# the copy move less often than the scraped page? It never feeds the lock.
+mirror_one() {
+  local target="$1" kind="$2" url="$3" dir="$4" idx="$5" mode="$6" murl stem code sha="-"
+  case "$mode" in html | meta-refresh | reader-proxy) ;; *) return 0 ;; esac
+  murl=$(mirror_url "$url")
+  stem="$dir/pages/$target/$kind-$idx-$(slugify "$url")"
+  mkdir -p "$dir/pages/$target"
+  code=$(docfetch_curl "$murl" "$stem.mirror.md" | cut -f1)
+  if [ "$code" = "200" ] && [ "$(wc -c <"$stem.mirror.md")" -ge 200 ] &&
+    ! head -c 300 "$stem.mirror.md" | grep -qi '<html\|<!doctype'; then
+    reader_text "$stem.mirror.md" >"$stem.mirror.txt"
+    sha=$(sha256_of "$stem.mirror.txt")
+  else
+    rm -f "$stem.mirror.md"
+  fi
+  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$target" "$kind" "$url" "$murl" "$code" "$sha"
+}
+
+# compare_mirrors <run a> <run b> prints, per host and in total, how many
+# mirrored rows each representation saw move between two runs:
+# "<host> <rows> <scraped moved> <mirror moved>". Only rows with a usable
+# copy in both runs count. Feed it consecutive daily vendor-watch artifacts.
+compare_mirrors() {
+  # Files are told apart by position, not name: the same run given twice
+  # is a valid (all-zero) comparison.
+  awk -F '\t' '
+    FNR == 1 { f++ }
+    f == 1 { ha[$3] = $6; next }
+    f == 2 { if ($6 != "-") ma[$3] = $6; next }
+    f == 3 { hb[$3] = $6; next }
+    f == 4 {
+      if ($6 == "-" || !($3 in ma) || !($3 in ha) || !($3 in hb)) next
+      host = $3
+      sub(/^https?:\/\//, "", host)
+      sub(/\/.*$/, "", host)
+      rows[host]++; total++
+      if (ha[$3] != hb[$3]) { hm[host]++; th++ }
+      if (ma[$3] != $6) { mm[host]++; tm++ }
+    }
+    END {
+      print "host\trows\tscraped_moved\tmirror_moved"
+      for (h in rows) printf "%s\t%d\t%d\t%d\n", h, rows[h], hm[h], mm[h] | "sort"
+      close("sort")
+      printf "total\t%d\t%d\t%d\n", total, th, tm
+    }
+  ' "$1/docfetch.tsv" "$1/mirrors.tsv" "$2/docfetch.tsv" "$2/mirrors.tsv"
+}
+
 # fetch_target <target> <dir> fetches one target's URLs. A "- fetch:
 # reader-proxy" line in its source section sends every URL through the
 # proxy: a host that blocks some networks (kiro.dev, cursor.com) otherwise
 # serves HTML to one machine and a proxy copy to another, and the two
 # representations never hash the same.
 fetch_target() {
-  local target="$1" dir="$2" idx=0 kind url proxy=""
+  local target="$1" dir="$2" idx=0 kind url proxy="" row
   if source_sections "$target" | grep -q '^- fetch: reader-proxy'; then
     proxy=1
   fi
@@ -795,7 +861,11 @@ fetch_target() {
   while IFS=$'\t' read -r kind url; do
     [ -n "$url" ] || continue
     idx=$((idx + 1))
-    fetch_one "$target" "$kind" "$url" "$dir" "$idx" "$proxy"
+    row=$(fetch_one "$target" "$kind" "$url" "$dir" "$idx" "$proxy")
+    printf '%s\n' "$row"
+    if [ -n "${DOCFETCH_MIRRORS:-}" ]; then
+      mirror_one "$target" "$kind" "$url" "$dir" "$idx" "$(printf '%s' "$row" | cut -f5)" >>"$dir/rows/$target.mirrors"
+    fi
   done < <(resolve_urls "$target")
 }
 
@@ -854,6 +924,14 @@ docfetch_main() {
         mode=update
         shift
         ;;
+      --mirrors)
+        export DOCFETCH_MIRRORS=1
+        shift
+        ;;
+      --compare-mirrors)
+        mode=compare
+        shift
+        ;;
       --out)
         if [ -z "${2:-}" ]; then
           echo "--out needs a directory" >&2
@@ -876,6 +954,21 @@ docfetch_main() {
       for t in "$@"; do
         resolve_urls "$t" | awk -v t="$t" -F '\t' '{ print t "\t" $1 "\t" $2 }'
       done
+      return 0
+      ;;
+    compare)
+      if [ -z "${1:-}" ] || [ -z "${2:-}" ]; then
+        echo "--compare-mirrors needs two run directories" >&2
+        return 2
+      fi
+      local d
+      for d in "$1" "$2"; do
+        if [ ! -r "$d/docfetch.tsv" ] || [ ! -r "$d/mirrors.tsv" ]; then
+          echo "no docfetch.tsv and mirrors.tsv in $d (fetch with --mirrors)" >&2
+          return 1
+        fi
+      done
+      compare_mirrors "$1" "$2"
       return 0
       ;;
     update)
@@ -925,6 +1018,10 @@ docfetch_main() {
   sort -t"$(printf '\t')" -k8,8 -k1,1 "$out/docfetch.tsv" |
     awk -F '\t' '{ print $8 "\t" $1 "\t" $2 "\t" $5 "\t" $4 "\t" $3 }'
   write_deltas "$out"
+  if [ -n "${DOCFETCH_MIRRORS:-}" ]; then
+    cat "$out/rows/"*.mirrors >"$out/mirrors.tsv" 2>/dev/null || : >"$out/mirrors.tsv"
+    awk -F '\t' '{ n++; if ($6 != "-") ok++ } END { printf "mirrors: %d of %d scraped rows serve a Markdown copy\n", ok, n }' "$out/mirrors.tsv"
+  fi
   awk -F '\t' '
     { n[$8]++; total++; t[$1] = 1 }
     END {
