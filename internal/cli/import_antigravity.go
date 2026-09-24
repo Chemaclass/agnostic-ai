@@ -109,6 +109,33 @@ func antigravityImportMainFile(root string) string {
 	return antigravityMainFiles[0]
 }
 
+// antigravityOwnOutputSubtrees are the root-relative directories
+// Antigravity's own adapter writes as always-unscoped output: the
+// plural default and, where one exists, the legacy singular form
+// (antigravity.go's defaultRulesDir/defaultSkillsDir/defaultAgentsDir/
+// legacyRulesDir/legacySkillsDir, duplicated here since adapter
+// constants are unexported the same way antigravityMCPFile already
+// duplicates defaultMCPFile). `.agents/plugins` is included too: the
+// vendor reserves that path for plugin manifests
+// (antigravity.google/docs/plugins) even though agnostic-ai only
+// writes under it when a per-kind output key is pointed there
+// explicitly. These are pruned by exact root-relative path so import
+// does not misread the tool's own rules/skills/agents/plugins tree as
+// a nested scope, but `.agents` and `.agent` themselves are not in
+// this set: a project can legitimately scope a rule to a directory
+// that shares one of those two names, or nest a scope inside one of
+// them (`.agents/pkg/.agents/rules/<name>.md`), and pruning either
+// root outright, the way an earlier draft did, missed both (#1114
+// review).
+var antigravityOwnOutputSubtrees = map[string]bool{
+	".agents/rules":   true,
+	".agents/skills":  true,
+	".agents/agents":  true,
+	".agents/plugins": true,
+	".agent/rules":    true,
+	".agent/skills":   true,
+}
+
 // antigravityScopedRulesDirs returns every project sub-directory
 // holding its own copy of rulesDir, sorted, root excluded. Antigravity
 // reads "a `.agents/rules/` directory ... in any subdirectory of your
@@ -121,37 +148,30 @@ func antigravityImportMainFile(root string) string {
 // (matching windsurfScopedRulesDirs), silently orphaned
 // `.github/.agents/rules/release.md` on the next full sync (#1114).
 // Only `.git` (never a legitimate scope, and large enough that walking
-// it is wasted work) and agnostic-ai's own source and output roots are
-// pruned: the configured source directories, plus both the plural and
-// legacy singular Antigravity output roots, since import's own
-// non-scoped call already reads whichever of those two is active and
-// a `.agents/rules` or `.agent/rules` nested inside the other would
-// only be that same output tree, not a user scope.
+// it is wasted work), agnostic-ai's own configured source directories,
+// and antigravityOwnOutputSubtrees are pruned.
 //
 // Pruning matches the exact root-relative path, never a bare directory
 // name at any depth: an earlier draft skipped every directory named
 // after a source root's first segment, so `sources.rules: config/rules`
 // pruned `packages/api/config` too, and a legitimate
 // `packages/api/config/.agents/rules/auth.md` scope never imported
-// (#1114 review). `.agents` and `.agent` are excluded the same way, at
-// the root only, but only after checking whether that root-level
-// directory is itself a scope: a project can legitimately have a
-// `.agents/.agents/rules/<name>.md` (a rule scoped to a directory that
-// happens to be named `.agents`), and `CheckScopePath` at emission
-// time does not reject that name any more than it rejects `.github` or
-// `vendor`. An earlier draft pruned `.agents` / `.agent` before ever
-// checking, so that one scope name could emit but never import back
-// (#1114 review). Descendants of either root stay pruned either way:
-// nothing past that level is a distinct scope, whether or not the
-// level itself qualifies as one.
+// (#1114 review). `.agents` and `.agent` themselves are walked, not
+// pruned, for the same reason: an earlier draft special-cased them to
+// check-then-skip at the root only, which still missed a scope nested
+// one level deeper, `.agents/pkg/.agents/rules/<name>.md` (#1114
+// review); walking them like any other directory, and pruning only
+// their known output subtrees, finds a scope at any depth underneath.
 func antigravityScopedRulesDirs(root, rulesDir string, src config.Sources) ([]string, error) {
 	skipDirs := map[string]bool{".git": true}
+	for k := range antigravityOwnOutputSubtrees {
+		skipDirs[k] = true
+	}
 	for _, p := range []string{src.Agents, src.Skills, src.Rules, src.Hooks, src.MCPs} {
 		if p != "" {
 			skipDirs[filepath.ToSlash(filepath.Clean(p))] = true
 		}
 	}
-	ownOutputRoots := map[string]bool{".agents": true, ".agent": true}
 	var scopes []string
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -168,12 +188,6 @@ func antigravityScopedRulesDirs(root, rulesDir string, src config.Sources) ([]st
 			return err
 		}
 		rel = filepath.ToSlash(rel)
-		if ownOutputRoots[rel] {
-			if dirExists(filepath.Join(path, rulesDir)) {
-				scopes = append(scopes, rel)
-			}
-			return fs.SkipDir
-		}
 		if skipDirs[rel] {
 			return fs.SkipDir
 		}
