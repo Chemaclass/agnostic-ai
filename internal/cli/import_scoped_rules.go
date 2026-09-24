@@ -67,3 +67,17 @@ func scopedRulesDirs(root, rulesDir string, ownOutputSubtrees map[string]bool, s
 	sort.Strings(scopes)
 	return scopes, nil
 }
+
+// rulesDirFromCfg returns the project-relative `outputs.<target>.rules-dir`
+// path when configured, otherwise "". Shared by antigravityRulesDirFromCfg
+// and windsurfRulesDirFromCfg: the target name was the only difference
+// between the two (#1123 ref pass).
+func rulesDirFromCfg(cfg *config.Config, target string) string {
+	if cfg == nil {
+		return ""
+	}
+	if o, ok := cfg.Outputs[target]; ok {
+		return o.RulesDir
+	}
+	return ""
+}

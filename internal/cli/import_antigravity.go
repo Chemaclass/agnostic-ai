@@ -87,13 +87,7 @@ func antigravityImportDir(root string, cfg *config.Config) string {
 // antigravityRulesDirFromCfg returns the project-relative
 // `outputs.antigravity.rules-dir` path when configured, otherwise "".
 func antigravityRulesDirFromCfg(cfg *config.Config) string {
-	if cfg == nil {
-		return ""
-	}
-	if o, ok := cfg.Outputs["antigravity"]; ok {
-		return o.RulesDir
-	}
-	return ""
+	return rulesDirFromCfg(cfg, "antigravity")
 }
 
 // antigravityImportMainFile returns the first existing candidate

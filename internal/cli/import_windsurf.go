@@ -65,13 +65,7 @@ var windsurfOwnOutputSubtrees = map[string]bool{
 // windsurfRulesDirFromCfg returns the project-relative
 // `outputs.windsurf.rules-dir` path when configured, otherwise "".
 func windsurfRulesDirFromCfg(cfg *config.Config) string {
-	if cfg == nil {
-		return ""
-	}
-	if o, ok := cfg.Outputs["windsurf"]; ok {
-		return o.RulesDir
-	}
-	return ""
+	return rulesDirFromCfg(cfg, "windsurf")
 }
 
 // windsurfImportDir returns `outputs.windsurf.rules-dir` verbatim when
