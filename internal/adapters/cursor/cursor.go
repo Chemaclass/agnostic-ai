@@ -12,6 +12,20 @@
 // .cursor/BUGBOT.md (root and per scope), background agent bootstrap in
 // .cursor/environment.json, and ignore lists in .cursorignore.
 //
+// A BUGBOT.md file counts as one rule to Bugbot:
+// cursor.com/docs/bugbot#rule-limits documents "Each rule is truncated
+// at 30,000 characters when included in a review. The combined rules
+// Bugbot includes for a review are capped at 100,000 characters." Since
+// same-scope review specs concatenate into one file, several
+// comfortably-sized specs can still add up past the per-file cap once
+// combined. agnostic-ai never truncates on the author's behalf, so an
+// over-cap file still emits in full; sync raises a surface-gap note
+// instead (target-audit 2026-09-24, #1125). The 100,000-character
+// combined budget spans every rule source Bugbot reads for one
+// review -- team rules, repository rules, and every BUGBOT.md on the
+// path from the changed file up to the root -- most of which live
+// outside this repo, so it is not checked here.
+//
 // An MCP spec's `disabled: true` has no file-based equivalent here:
 // cursor.com/docs/mcp documents no `disabled` (or `enabled`) key
 // anywhere in its server schema, only a sidebar UI toggle. The emitter
@@ -44,6 +58,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -65,6 +80,20 @@ const (
 	defaultIgnoreFile  = ".cursorignore"
 	defaultHooksFile   = ".cursor/hooks.json"
 )
+
+// reviewCharLimit is Bugbot's per-file cap: "Each rule is truncated at
+// 30,000 characters when included in a review"
+// (cursor.com/docs/bugbot#rule-limits). A BUGBOT.md counts as one rule,
+// so this is measured on the emitted file, not the spec body: several
+// same-scope review specs that are each small can still concatenate
+// past it.
+const reviewCharLimit = 30000
+
+// reviewTooLongReason is the user-facing half of the over-cap note.
+const reviewTooLongReason = "Cursor Bugbot truncates a BUGBOT.md over 30,000 characters; split the review across scopes"
+
+// reviewTooLongSurface names what the over-cap file misses.
+const reviewTooLongSurface = "Bugbot's review in full"
 
 var caps = emit.Capabilities{
 	Target:   target,
@@ -317,7 +346,10 @@ func command(e spec.Entry) string {
 // `EffectiveScope` the same way rules do: an unscoped spec lands at
 // `.cursor/BUGBOT.md`, a spec under `reviews/backend/` lands at
 // `backend/.cursor/BUGBOT.md`. Specs sharing a scope concatenate into
-// that scope's single file. The basename is overridable via
+// that scope's single file, so the emitted file can pass Bugbot's
+// 30,000-character per-rule cap even when every contributing spec is
+// small; a scope whose file does buffers a surface-gap note counting
+// every spec that landed in it. The basename is overridable via
 // `outputs.cursor.review-file`.
 func emitReviews(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if len(b.Reviews) == 0 {
@@ -333,6 +365,7 @@ func emitReviews(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun b
 		}
 		byScope[scope] = append(byScope[scope], r)
 	}
+	over := 0
 	for _, scope := range scopeOrder {
 		if emit.ScopeEscapesRoot(scope) {
 			// A frontmatter `scope: ../x` would anchor BUGBOT.md outside the
@@ -347,11 +380,16 @@ func emitReviews(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun b
 			}
 			sb.WriteString(strings.TrimRight(r.Body, "\n"))
 		}
+		content := emit.WithHeader(sb.String()+"\n", emit.FormatMarkdown)
+		if utf8.RuneCountInString(content) > reviewCharLimit {
+			over += len(byScope[scope])
+		}
 		path := filepath.Join(scope, ".cursor", base)
-		if err := sess.WriteFile(path, emit.WithHeader(sb.String()+"\n", emit.FormatMarkdown), dryRun); err != nil {
+		if err := sess.WriteFile(path, content, dryRun); err != nil {
 			return err
 		}
 	}
+	emit.NoteSurfaceGap(target, spec.KindReview, over, reviewTooLongSurface, reviewTooLongReason)
 	return nil
 }
 

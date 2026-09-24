@@ -6,6 +6,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### Added
+
+- Cursor: `sync` warns when an emitted `BUGBOT.md` passes Bugbot's 30,000-character per-file cap, instead of letting it truncate silently (#1125).
+
 ## v0.67.0 - 2026-09-24
 
 ### Added
