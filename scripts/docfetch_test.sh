@@ -20,6 +20,7 @@ function set_up() {
   FIXTURES=$(mktemp -d)
   export TARGET_AUDIT_LOCK="$FIXTURES/sources.lock"
   LOCK="$TARGET_AUDIT_LOCK"
+  export DOCFETCH_SNAPSHOTS="$FIXTURES/snapshots"
 }
 
 function tear_down() {
@@ -692,4 +693,212 @@ function test_fetch_one_notices_a_new_release_tag() {
   local second
   second=$(fetch_one crush changelog https://github.com/charmbracelet/crush/releases "$FIXTURES/run" 2)
   assert_not_equals "$(printf '%s' "$first" | cut -f6)" "$(printf '%s' "$second" | cut -f6)"
+}
+
+# ---- word_delta --------------------------------------------------------------
+
+function test_word_delta_marks_removed_and_added_words_with_context() {
+  printf 'Rules load from .cursor/rules and apply to every file.\n' >"$FIXTURES/old.txt"
+  printf 'Rules load from .cursor/rules and apply to matching files.\n' >"$FIXTURES/new.txt"
+  local out
+  out=$(word_delta "$FIXTURES/old.txt" "$FIXTURES/new.txt")
+  assert_contains "[-every file.-]" "$out"
+  assert_contains "{+matching files.+}" "$out"
+  assert_contains "apply to" "$out"
+}
+
+function test_word_delta_is_empty_when_the_texts_match() {
+  printf 'a b c\n' >"$FIXTURES/old.txt"
+  cp "$FIXTURES/old.txt" "$FIXTURES/new.txt"
+  assert_empty "$(word_delta "$FIXTURES/old.txt" "$FIXTURES/new.txt")"
+}
+
+function test_word_delta_shows_an_indentation_change_as_lines() {
+  # Same words, different YAML: `b` moves from a child of `a` to a sibling.
+  printf 'Markdown\n```yaml\na:\n  b: 1\n```\n' >"$FIXTURES/old.txt"
+  printf 'Markdown\n```yaml\na:\nb: 1\n```\n' >"$FIXTURES/new.txt"
+  local out
+  out=$(word_delta "$FIXTURES/old.txt" "$FIXTURES/new.txt")
+  assert_contains "# whitespace" "$out"
+  assert_contains "-  b: 1" "$out"
+  assert_contains "+b: 1" "$out"
+}
+
+function test_delta_label_calls_a_line_only_delta_whitespace_only() {
+  : >"$FIXTURES/vocab"
+  printf '# whitespace\n@@ -1 +1 @@\n-  b: 1\n+b: 1\n' >"$FIXTURES/d"
+  assert_equals "whitespace-only" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
+}
+
+function test_fetch_one_drops_a_stale_extract_from_an_earlier_mode() {
+  # Same run dir, same stem: an HTML fetch wrote .txt, a later fetch of the
+  # same row lands in a body-hashed mode. The old .txt must not survive.
+  local stem="$FIXTURES/run/pages/claude/docs-1-x.example-a.md"
+  mkdir -p "$(dirname "$stem")"
+  printf 'stale extract\n' >"$stem.txt"
+  stub_curl "https://x.example/a.md|200|$(printf 'fresh markdown %.0s' $(seq 1 40))"
+  fetch_one claude docs https://x.example/a.md "$FIXTURES/run" 1 >/dev/null
+  assert_file_not_exists "$stem.txt"
+}
+
+function test_word_delta_prints_one_line_per_distant_change() {
+  {
+    printf 'start '
+    printf 'filler %.0s' $(seq 1 60)
+    printf 'end\n'
+  } >"$FIXTURES/old.txt"
+  sed -e 's/^start/begin/' -e 's/end$/finish/' "$FIXTURES/old.txt" >"$FIXTURES/new.txt"
+  assert_equals 2 "$(word_delta "$FIXTURES/old.txt" "$FIXTURES/new.txt" | grep -c .)"
+}
+
+# ---- delta_label -------------------------------------------------------------
+
+function test_delta_label_names_a_path_we_write() {
+  printf '.cursor/BUGBOT.md\nalwaysApply\n' >"$FIXTURES/vocab"
+  printf 'Each [-rule-]{+.cursor/BUGBOT.md file+} is truncated\n' >"$FIXTURES/d"
+  assert_equals "mentions:.cursor/BUGBOT.md" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
+}
+
+function test_delta_label_ignores_a_vocabulary_hit_in_context_only() {
+  printf '.cursor/BUGBOT.md\n' >"$FIXTURES/vocab"
+  printf 'Create .cursor/BUGBOT.md files [-now-]{+today+}\n' >"$FIXTURES/d"
+  assert_equals "prose" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
+}
+
+function test_delta_label_calls_known_page_chrome_chrome() {
+  : >"$FIXTURES/vocab"
+  printf 'Search... [-Ask Assistant \xe2\x8c\x98 I-] Navigation\n' >"$FIXTURES/d"
+  printf 'Dismiss {+[](https://kiro.dev/) K+} Changelog\n' >>"$FIXTURES/d"
+  printf 'faster. {+Loading diagram...+} Instead\n' >>"$FIXTURES/d"
+  assert_equals "chrome-only" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
+}
+
+function test_delta_label_keeps_prose_that_sits_beside_chrome() {
+  : >"$FIXTURES/vocab"
+  printf 'x {+Loading diagram... Rules now need a trigger key+} y\n' >"$FIXTURES/d"
+  assert_equals "prose" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
+}
+
+function test_delta_label_calls_an_empty_delta_whitespace_only() {
+  : >"$FIXTURES/vocab"
+  : >"$FIXTURES/d"
+  assert_equals "whitespace-only" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
+}
+
+# ---- delta_vocab -------------------------------------------------------------
+
+function test_delta_vocab_keeps_paths_and_keys_but_not_plain_words() {
+  local out
+  out=$(delta_vocab cursor)
+  assert_contains ".cursor/BUGBOT.md" "$out"
+  assert_contains ".cursor/rules" "$out"
+  assert_not_contains "$(printf '\nmodel\n')" "$(printf '\n%s\n' "$out")"
+}
+
+# ---- snapshots and deltas ----------------------------------------------------
+
+# seed_run <dir> <url> <text> writes a one-row changed run with its hashed text.
+# The row's hash is the real digest of its text, as fetch_one writes it.
+function seed_run() {
+  local dir="$1" url="$2" text="$3"
+  mkdir -p "$dir/pages/cursor"
+  printf '%s\n' "$text" >"$dir/pages/cursor/docs-1-x.txt"
+  : >"$dir/pages/cursor/docs-1-x.body"
+  printf 'cursor\tdocs\t%s\t200\thtml\t%s\t2026-09-24\tchanged\t%s\tpages/cursor/docs-1-x.body\n' \
+    "$url" "$(sha256_of "$dir/pages/cursor/docs-1-x.txt")" "$url" >"$dir/docfetch.tsv"
+}
+
+function test_update_saves_the_hashed_text_as_the_snapshot() {
+  seed_run "$FIXTURES/run" https://cursor.com/docs/bugbot "Bugbot reads .cursor/BUGBOT.md"
+  lock_merge "$FIXTURES/run/docfetch.tsv"
+  assert_equals "Bugbot reads .cursor/BUGBOT.md" "$(cat "$(snapshot_path https://cursor.com/docs/bugbot)")"
+}
+
+function test_update_leaves_unselected_targets_snapshots_alone() {
+  seed_run "$FIXTURES/run" https://cursor.com/docs/bugbot "new text"
+  lock_merge "$FIXTURES/run/docfetch.tsv" claude
+  assert_file_not_exists "$(snapshot_path https://cursor.com/docs/bugbot)"
+}
+
+function test_write_deltas_diffs_a_changed_row_against_its_snapshot() {
+  seed_run "$FIXTURES/old" https://cursor.com/docs/bugbot "Each rule is truncated at 30,000 characters"
+  lock_merge "$FIXTURES/old/docfetch.tsv"
+  seed_run "$FIXTURES/run" https://cursor.com/docs/bugbot "Each rule is truncated at 40,000 characters"
+  write_deltas "$FIXTURES/run" >/dev/null
+  assert_contains "[-30,000-]{+40,000+}" "$(cat "$FIXTURES/run/pages/cursor/docs-1-x.delta")"
+  assert_contains "$(printf 'cursor\tdocs\thttps://cursor.com/docs/bugbot\tprose')" \
+    "$(cat "$FIXTURES/run/deltas.tsv")"
+}
+
+function test_write_deltas_labels_a_row_without_a_snapshot() {
+  seed_run "$FIXTURES/run" https://cursor.com/docs/bugbot "first sight"
+  write_deltas "$FIXTURES/run" >/dev/null
+  assert_equals "no-snapshot" "$(cut -f4 "$FIXTURES/run/deltas.tsv")"
+  assert_file_not_exists "$FIXTURES/run/pages/cursor/docs-1-x.delta"
+}
+
+function test_write_deltas_prints_a_label_count() {
+  seed_run "$FIXTURES/run" https://cursor.com/docs/bugbot "first sight"
+  assert_equals "deltas: 1 (1 no-snapshot)" "$(write_deltas "$FIXTURES/run")"
+}
+
+function test_write_deltas_survives_the_scripts_strict_mode() {
+  # docfetch.sh runs under set -euo pipefail, and diff exits 1 on any
+  # difference. bashunit does not, so run it the way the script does.
+  seed_run "$FIXTURES/old" https://cursor.com/docs/bugbot "old words here"
+  lock_merge "$FIXTURES/old/docfetch.tsv"
+  seed_run "$FIXTURES/run" https://cursor.com/docs/bugbot "new words here"
+  local out
+  out=$(bash -c 'set -euo pipefail; source "$1"; write_deltas "$2"' _ "$SCRIPT_DIR/docfetch.sh" "$FIXTURES/run")
+  assert_equals "deltas: 1 (1 prose)" "$out"
+}
+
+function test_update_keeps_the_last_good_snapshot_over_an_app_shell() {
+  seed_run "$FIXTURES/good" https://cursor.com/docs/bugbot "real page text"
+  lock_merge "$FIXTURES/good/docfetch.tsv"
+  seed_run "$FIXTURES/shell" https://cursor.com/docs/bugbot "<div id=app></div>"
+  sed -i.bak -e 's/\thtml\t[0-9a-f]*\t/\tapp-shell\t-\t/' -e 's/\tchanged\t/\tfailed\t/' "$FIXTURES/shell/docfetch.tsv"
+  lock_merge "$FIXTURES/shell/docfetch.tsv"
+  assert_equals "real page text" "$(cat "$(snapshot_path https://cursor.com/docs/bugbot)")"
+}
+
+function test_word_delta_marks_a_capped_whitespace_diff_truncated() {
+  local i
+  for i in $(seq 1 300); do printf '  key%d: v\n' "$i"; done >"$FIXTURES/old.txt"
+  for i in $(seq 1 300); do printf 'key%d: v\n' "$i"; done >"$FIXTURES/new.txt"
+  word_delta "$FIXTURES/old.txt" "$FIXTURES/new.txt" >"$FIXTURES/d"
+  assert_contains "# truncated: " "$(cat "$FIXTURES/d")"
+  : >"$FIXTURES/vocab"
+  assert_equals "whitespace-only:truncated" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
+}
+
+function test_write_deltas_distrusts_a_snapshot_the_lock_does_not_match() {
+  # The snapshot came from an older audit; the tracked lock moved since
+  # (a pull, a branch switch). The vendor then reverts to the old text.
+  seed_run "$FIXTURES/old" https://cursor.com/docs/bugbot "rules cap at 30,000"
+  lock_merge "$FIXTURES/old/docfetch.tsv"
+  seed_run "$FIXTURES/newer" https://cursor.com/docs/bugbot "rules cap at 40,000"
+  awk -F '\t' -v OFS='\t' 'NR <= 2 { print; next } { $6 = "'"$(sha256_of "$FIXTURES/newer/pages/cursor/docs-1-x.txt")"'"; print }' \
+    "$LOCK" >"$LOCK.new" && mv "$LOCK.new" "$LOCK"
+  seed_run "$FIXTURES/run" https://cursor.com/docs/bugbot "rules cap at 30,000"
+  write_deltas "$FIXTURES/run" >/dev/null
+  assert_equals "no-snapshot" "$(cut -f4 "$FIXTURES/run/deltas.tsv")"
+}
+
+function test_json_text_sorts_keys_one_value_per_line() {
+  printf '{"b":1,"a":{"d":2,"c":3}}' >"$FIXTURES/j"
+  json_text "$FIXTURES/j" "$FIXTURES/j.txt"
+  assert_equals '"a": {' "$(sed -n 2p "$FIXTURES/j.txt" | sed 's/^ *//')"
+  assert_equals "$(json_sum "$FIXTURES/j")" "$(json_sum "$FIXTURES/j.txt")"
+}
+
+function test_fetch_one_keeps_the_sorted_json_it_hashed() {
+  function docfetch_curl() {
+    printf '{"z":1,"a":2}' >"$2"
+    printf '200\t%s\tapplication/json\n' "$1"
+  }
+  local row
+  row=$(fetch_one openhands docs https://x.example/api "$FIXTURES/run" 1)
+  assert_equals "json" "$(printf '%s' "$row" | cut -f5)"
+  assert_equals '"a": 2,' "$(sed -n 2p "$FIXTURES/run/pages/openhands/docs-1-x.example-api.txt" | sed 's/^ *//')"
 }

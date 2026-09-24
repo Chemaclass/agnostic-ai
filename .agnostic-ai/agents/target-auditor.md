@@ -33,14 +33,25 @@ Read-only means no repository or GitHub changes. Temporary reproduction projects
 ## Method, per target
 
 1. Run `scripts/target-facts.sh <target>`. This is the claim under test.
-2. Read the saved changelog body first, newest entry first. It names
-   what moved since the last audit faster than the docs do.
-3. Read the saved `.txt` text of pages whose status is `new` or
-   `changed`. The hash ignores navigation, footers, the `<head>`, a
-   "last modified" stamp, and a router payload's sidebar, so a `changed`
-   row nearly always carries a content edit. When an earlier run's copy of
-   the same page exists locally, diff the two to find the edit, then quote
-   this run's copy. A page marked
+2. Read the run's `deltas.tsv` rows for your targets. Each `new` or
+   `changed` row has a label and, when a snapshot of the last audited text
+   exists, a `.delta` file beside its page: one line per changed region,
+   `[-removed-]` and `{+added+}` words with context. Read `mentions:`
+   rows first (a path or key we write moved), then `prose`. A
+   `chrome-only` or `whitespace-only` row still gets its delta read: the
+   label ranks the reading order and never clears a row by itself. A
+   `whitespace-only` delta shows the moved lines under a `# whitespace`
+   header, since indentation in a YAML or shell example changes meaning;
+   `whitespace-only:truncated` means the line diff was capped, so read the
+   full page.
+3. Read the saved changelog delta, or the body when there is no delta,
+   newest entry first. It names what moved since the last audit faster
+   than the docs do.
+4. Read the delta of each changed page, then quote this run's `.txt` copy.
+   Open the full page when the delta leaves scope or precedence unclear,
+   or when the row is `no-snapshot`. The hash ignores navigation,
+   footers, the `<head>`, a "last modified" stamp, and a router payload's
+   sidebar, so a `changed` row usually carries a content edit. A page marked
    `unchanged` was fetched fresh this run and its visible text hashes
    identical to the committed lock, so open the saved copy only when a
    changelog entry or a candidate finding points at it. A status of
@@ -58,7 +69,7 @@ Read-only means no repository or GitHub changes. Temporary reproduction projects
    separate files the vendor's own tool produced from files another tool
    wrote into the same folder. Averaging a contaminated corpus produces a
    schema no vendor actually accepts.
-4. Compare, in this order (highest value first):
+5. Compare, in this order (highest value first):
    - **Path drift**: does the tool still read the exact path we write? A
      moved skills, rules, or agents dir silently breaks every user. Check
      the `import` side of the same path too. `agnostic-ai import
@@ -78,21 +89,21 @@ Read-only means no repository or GitHub changes. Temporary reproduction projects
      including concepts outside the current spec kinds. Record this as a
      capability signal, not a drift finding, unless it also meets the
      finding rules below.
-5. Verify before reporting. Re-read the exact sentence in the vendor doc
+6. Verify before reporting. Re-read the exact sentence in the vendor doc
    and the exact line in our source. If either is ambiguous, downgrade
    the finding to `unconfirmed` and say what would settle it.
-6. Never generalize one target's answer to another, even an adjacent
+7. Never generalize one target's answer to another, even an adjacent
    one. Field names and tool vocabularies split between tools (Qoder uses
    Claude-style tool names, Augment its own). Check each target
    separately and say so per target.
-7. Treat a lead in your prompt as a question, not a fact. Confirm the
+8. Treat a lead in your prompt as a question, not a fact. Confirm the
    whole claim against the source, including the part handed to you.
-8. For each capability signal, inspect the current spec, adapter, config,
+9. For each capability signal, inspect the current spec, adapter, config,
    and target passthroughs. Try the smallest realistic representation in
    a temporary project when an existing kind or `x-<target>` escape hatch
    could cover it. Record the reproduction and result. Do not recommend a
    generic schema from documentation alone.
-9. Compare another target only after opening that target's own vendor
+10. Compare another target only after opening that target's own vendor
    evidence and checking its semantics independently. Similar names are
    not equivalent behavior. Omit unverified targets from the comparison.
 

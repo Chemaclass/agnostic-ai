@@ -9,6 +9,11 @@
 # content moved. Every URL is still fetched on every run, so the lock decides
 # what a model reads, never whether the evidence is current.
 #
+# Each new or changed row also gets a word diff against the text the last
+# audit read (local/target-audit/snapshots/, written by --update), saved as
+# <page>.delta, and a label in the run's deltas.tsv: mentions:<paths>,
+# prose, chrome-only, whitespace-only, or no-snapshot.
+#
 # Usage:
 #   scripts/docfetch.sh                      # every target, into today's run dir
 #   scripts/docfetch.sh claude zed           # only the named targets
@@ -16,7 +21,7 @@
 #   scripts/docfetch.sh --urls claude        # resolved URLs, no network
 #   scripts/docfetch.sh --update RUN/docfetch.tsv [target...]
 #
-# Portable: POSIX-ish bash + awk + grep + curl only. No GNU-only flags.
+# Portable: POSIX-ish bash + awk + grep + diff + curl only. No GNU-only flags.
 
 set -euo pipefail
 
@@ -349,6 +354,246 @@ json_sum() {
   rm -f "$sorted"
 }
 
+# Snapshots hold the text each lock row's hash was taken from, so a later
+# run can show what moved instead of only that something did. They live
+# beside the gitignored reports and move with the lock: only --update
+# writes them, after an auditor read the run.
+snapshot_dir() {
+  printf '%s\n' "${DOCFETCH_SNAPSHOTS:-$DOCFETCH_ROOT/local/target-audit/snapshots}"
+}
+
+# snapshot_path <url> prints where that URL's snapshot lives. The name is a
+# digest: a slug cut to a readable length can collide.
+snapshot_path() {
+  printf '%s/%s.txt\n' "$(snapshot_dir)" "$(printf '%s' "$1" | sha256_of /dev/stdin | cut -c1-16)"
+}
+
+# hashed_file <run dir> <body path> prints the file a row's hash was taken
+# from: the extracted text when the mode writes one, else the body.
+hashed_file() {
+  local stem="$1/${2%.body}"
+  if [ -f "$stem.txt" ]; then
+    printf '%s\n' "$stem.txt"
+  else
+    printf '%s\n' "$1/$2"
+  fi
+}
+
+# word_delta <old> <new> prints one line per changed region, words compared
+# with whitespace ignored: context, then [-removed-] and {+added+}. Most
+# extracted pages are one long line, so a line diff would print the page.
+# When no word moved but the hash did, the change sits in line breaks or
+# indentation, which modes that keep code verbatim preserve because YAML
+# and shell read them. Then it prints the line diff instead, marked with a
+# "# whitespace" header, capped so a reflowed page cannot flood it.
+word_delta() {
+  local words
+  words=$(word_delta_words "$1" "$2")
+  if [ -n "$words" ]; then
+    printf '%s\n' "$words"
+  elif ! cmp -s "$1" "$2"; then
+    printf '# whitespace\n'
+    # Past the cap, say so: a silent cut could hide the one indent that
+    # matters, and the label carries it so the auditor opens the page.
+    { diff -U2 "$1" "$2" || true; } | awk '
+      NR <= 2 { next }
+      ++n <= 200 { print substr($0, 1, 400); next }
+      { more++ }
+      END { if (more) printf "# truncated: %d more diff lines, read the page\n", more }
+    '
+  fi
+}
+
+word_delta_words() {
+  local a b
+  a=$(mktemp)
+  b=$(mktemp)
+  tr -s '[:space:]' '\n' <"$1" | grep . >"$a" || true
+  tr -s '[:space:]' '\n' <"$2" | grep . >"$b" || true
+  # diff exits 1 when the files differ; under pipefail that would abort the run.
+  { diff -U8 "$a" "$b" || true; } | awk '
+    function close_run() {
+      if (run == "-") line = line "-]"
+      else if (run == "+") line = line "+}"
+      run = ""
+    }
+    function flush() {
+      close_run()
+      if (line != "") print line
+      line = ""
+    }
+    NR <= 2 && /^(---|\+\+\+) / { next }
+    /^@@/ { flush(); next }
+    {
+      c = substr($0, 1, 1)
+      w = substr($0, 2)
+      if (c == " ") {
+        close_run()
+        line = line (line != "" ? " " : "") w
+      } else if (c == "-" || c == "+") {
+        if (run != c) {
+          # A replacement reads as one unit: "[-old-]{+new+}".
+          sep = (line != "" && !(run == "-" && c == "+")) ? " " : ""
+          close_run()
+          line = line sep (c == "-" ? "[-" : "{+")
+          run = c
+        } else {
+          line = line " "
+        }
+        line = line w
+      }
+    }
+    END { flush() }
+  '
+  rm -f "$a" "$b"
+}
+
+# delta_vocab <target> prints the paths and keys our claims about a target
+# name: backticked tokens from target-facts.sh that carry a path or key
+# shape. Plain words ("model", "description") would match every page.
+delta_vocab() {
+  # shellcheck disable=SC2016 # literal backticks, not a command substitution
+  dump_target "$1" 2>/dev/null | grep -o '`[^`]*`' | tr -d '`' | tr '<>*{}()[]", ' '\n' |
+    awk '
+      { sub(/[\/.:]+$/, "") }
+      length($0) >= 5 && ($0 ~ /[\/._]/ || $0 ~ /^[a-z]+-[a-z-]+$/ || $0 ~ /^[a-z]+[A-Z][A-Za-z]+$/) && !seen[$0]++
+    ' || true
+}
+
+# delta_label <delta> <vocab> prints one label for a delta, judged on the
+# removed and added words only, never on context:
+#   mentions:<terms>  a path or key we write moved (first three terms)
+#   chrome-only       nothing but known page chrome moved
+#   whitespace-only   no word moved; only spacing or line breaks did
+#   prose             anything else
+# A label ranks what an auditor reads first. It never skips a row.
+delta_label() {
+  if [ "$(head -n 1 "$1")" = "# whitespace" ]; then
+    if grep -q '^# truncated: ' "$1"; then
+      printf 'whitespace-only:truncated\n'
+    else
+      printf 'whitespace-only\n'
+    fi
+    return 0
+  fi
+  awk -v vocab="$2" '
+    BEGIN {
+      while ((getline t < vocab) > 0) if (t != "") terms[++nt] = t
+      close(vocab)
+      chrome[1] = "Loading image..."
+      chrome[2] = "Loading diagram..."
+      chrome[3] = "Ask Assistant"
+      chrome[4] = "Assistant Responses are generated using AI and may contain mistakes."
+      chrome[5] = "On this page"
+      chrome[6] = "Copy page"
+      chrome[7] = "\342\214\230 I"
+      chrome[8] = "\342\214\230 K"
+      nc = 8
+    }
+    {
+      rest = $0
+      while (match(rest, /\[-[^]]*-\]|\{\+[^}]*\+\}/)) {
+        seg = substr(rest, RSTART + 2, RLENGTH - 4)
+        rest = substr(rest, RSTART + RLENGTH)
+        moved = moved " " seg
+        for (i = 1; i <= nc; i++) {
+          while ((p = index(seg, chrome[i])) > 0)
+            seg = substr(seg, 1, p - 1) " " substr(seg, p + length(chrome[i]))
+        }
+        gsub(/\[\]\([^)]*\)/, " ", seg)
+        gsub(/(^|[ ])K([ ]|$)/, " ", seg)
+        gsub(/[ \t]+/, "", seg)
+        if (seg != "") prose = 1
+        segs++
+      }
+    }
+    END {
+      if (segs == 0) { print "whitespace-only"; exit }
+      hit = ""
+      for (i = 1; i <= nt && n < 3; i++)
+        if (index(moved, terms[i]) > 0) { hit = hit (n++ ? "," : "") terms[i] }
+      if (hit != "") print "mentions:" hit
+      else if (prose) print "prose"
+      else print "chrome-only"
+    }
+  ' "$1"
+}
+
+# write_deltas <run dir> writes <stem>.delta for every new or changed row
+# that has a snapshot, and deltas.tsv with one labelled row each, then
+# prints a one-line count by label.
+write_deltas() {
+  local dir="$1" target kind url status body snap hashed label vocab
+  : >"$dir/deltas.tsv"
+  vocab=$(mktemp -d)
+  while IFS=$'\t' read -r target kind url _ _ _ _ status _ body; do
+    case "$status" in new | changed) ;; *) continue ;; esac
+    [ -n "$body" ] || continue
+    snap=$(snapshot_path "$url")
+    if [ ! -f "$snap" ] || ! snapshot_matches_lock "$url" "$snap"; then
+      printf '%s\t%s\t%s\tno-snapshot\t\n' "$target" "$kind" "$url" >>"$dir/deltas.tsv"
+      continue
+    fi
+    [ -f "$vocab/$target" ] || delta_vocab "$target" >"$vocab/$target"
+    hashed=$(hashed_file "$dir" "$body")
+    word_delta "$snap" "$hashed" >"${hashed%.*}.delta"
+    label=$(delta_label "${hashed%.*}.delta" "$vocab/$target")
+    printf '%s\t%s\t%s\t%s\t%s\n' "$target" "$kind" "$url" "$label" "${hashed%.*}.delta" >>"$dir/deltas.tsv"
+  done <"$dir/docfetch.tsv"
+  rm -rf "$vocab"
+  awk -F '\t' '
+    { l = $4; sub(/:.*/, "", l); n[l]++; total++ }
+    END {
+      out = ""
+      split("mentions prose chrome-only whitespace-only no-snapshot", order, " ")
+      for (i = 1; i <= 5; i++) if (n[order[i]]) out = out (out != "" ? ", " : "") n[order[i]] " " order[i]
+      printf "deltas: %d%s\n", total, (out != "" ? " (" out ")" : "")
+    }
+  ' "$dir/deltas.tsv"
+}
+
+# snapshot_save <docfetch.tsv> [target...] copies each fetched row's hashed
+# text into the snapshot store, for the selected targets only.
+snapshot_save() {
+  local file="$1" dir target url code body snap
+  shift
+  dir=$(dirname "$file")
+  mkdir -p "$(snapshot_dir)"
+  while IFS=$'\t' read -r target _ url code mode sha _ status _ body; do
+    case "$target" in '#'* | '') continue ;; esac
+    # An app shell or soft 404 answers 200 with no page in it; keep the
+    # last good snapshot so the recovered page diffs against real text.
+    [ "$code" = "200" ] && [ "$status" != "failed" ] && [ "$sha" != "-" ] || continue
+    case "$mode" in app-shell | soft-404 | failed) continue ;; esac
+    [ -n "$body" ] && [ -f "$dir/$body" ] || continue
+    if [ "$#" -gt 0 ]; then
+      case " $* " in *" $target "*) ;; *) continue ;; esac
+    fi
+    snap=$(snapshot_path "$url")
+    cp "$(hashed_file "$dir" "$body")" "$snap"
+  done <"$file"
+}
+
+# json_text <body> <out> writes a JSON body key-sorted and indented, one
+# value per line, so a snapshot and a delta see what json_sum hashed and a
+# minified document does not diff as one word. No jq, or not JSON: no file,
+# and hashed_file falls back to the body, which is what was hashed then.
+json_text() {
+  command -v jq >/dev/null 2>&1 && jq -S . "$1" >"$2" 2>/dev/null || rm -f "$2"
+}
+
+# snapshot_matches_lock <url> <snapshot> succeeds when the snapshot is the
+# text the committed lock row was hashed from. Snapshots are local and the
+# lock is tracked: after a pull or a branch switch they can disagree, and
+# a delta against the wrong text hides a vendor revert.
+snapshot_matches_lock() {
+  local locked
+  [ -r "$LOCK" ] || return 1
+  locked=$(awk -F '\t' -v u="$1" '$3 == u { print $6; exit }' "$LOCK")
+  [ -n "$locked" ] && [ "$locked" != "-" ] || return 1
+  [ "$(sha256_of "$2")" = "$locked" ] || [ "$(json_sum "$2")" = "$locked" ]
+}
+
 # row_status <url> <mode> <sha> compares one row against the committed lock.
 row_status() {
   local url="$1" mode="$2" sha="$3" locked
@@ -391,6 +636,10 @@ fetch_one() {
   stem="$dir/pages/$target/$kind-$idx-$(slugify "$url")"
   mkdir -p "$dir/pages/$target"
   body="$stem.body"
+  # A rerun into the same run directory must not leave an earlier fetch's
+  # extracted text or delta behind: hashed_file trusts that .txt exists
+  # only when this fetch's mode wrote it.
+  rm -f "$stem.txt" "$stem.delta"
 
   local result code_line
   if [ -n "$force_proxy" ]; then
@@ -494,6 +743,7 @@ fetch_one() {
       ;;
     json)
       result=$(json_sum "$body")
+      json_text "$body" "$stem.txt"
       ;;
     router-data)
       if delta_text "$body" >"$stem.txt" && [ -s "$stem.txt" ]; then
@@ -501,6 +751,7 @@ fetch_one() {
       else
         rm -f "$stem.txt"
         result=$(json_sum "$body")
+        json_text "$body" "$stem.txt"
       fi
       ;;
     reader-proxy)
@@ -584,6 +835,7 @@ lock_merge() {
     ' "$file" | sort -t"$(printf '\t')" -k1,1 -k2,2 -k3,3
   } >"$tmp"
   mv "$tmp" "$LOCK"
+  snapshot_save "$file" "$@"
 }
 
 docfetch_main() {
@@ -672,6 +924,7 @@ docfetch_main() {
   cat "$out/rows/"*.tsv >"$out/docfetch.tsv"
   sort -t"$(printf '\t')" -k8,8 -k1,1 "$out/docfetch.tsv" |
     awk -F '\t' '{ print $8 "\t" $1 "\t" $2 "\t" $5 "\t" $4 "\t" $3 }'
+  write_deltas "$out"
   awk -F '\t' '
     { n[$8]++; total++; t[$1] = 1 }
     END {
