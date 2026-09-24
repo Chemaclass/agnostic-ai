@@ -173,12 +173,15 @@ strip_html() {
 # without that line is kept whole. The proxy also renders an embedded video
 # as "Video unavailable" and a lazy image as "Loading image..." on some
 # fetches only, so both drop, and so does image markup: an image is not a
-# config claim. Whitespace runs collapse to one space.
+# config claim. Kiro's "Page updated: <date>" stamp drops too; the proxy
+# renders it with and without the space after the colon. Whitespace runs
+# collapse to one space, never to none, so "foo bar" and "foobar" differ.
 reader_text() {
   awk '
     { all = all $0 "\n" }
     /^Markdown Content:/ && !seen { seen = 1; body = ""; next }
     /^Video unavailable[ \t\r]*$/ { next }
+    /^Page updated:/ { next }
     seen { body = body $0 "\n" }
     END {
       out = seen ? body : all
@@ -446,10 +449,8 @@ fetch_one() {
       fi
       ;;
     reader-proxy)
-      # The saved text keeps its spaces for auditors; the hash drops them,
-      # because the proxy reflows "updated: X" into "updated:X" between runs.
       reader_text "$body" >"$stem.txt"
-      result=$(tr -d ' ' <"$stem.txt" | sha256_of /dev/stdin)
+      result=$(sha256_of "$stem.txt")
       ;;
     app-shell | soft-404)
       result="-"
@@ -580,11 +581,27 @@ docfetch_main() {
   [ -n "$out" ] || out="$ROOT/local/target-audit/$(date -u +%Y-%m-%d)-run"
   mkdir -p "$out/rows"
 
-  local t
+  # Wait on each worker by PID: a bare `wait` returns 0 even when one
+  # failed, and the run would then publish a docfetch.tsv missing a target.
+  # A worker that exits 0 with fewer rows than its URLs is incomplete too.
+  local t pids=() failed=""
   for t in $targets; do
     fetch_target "$t" "$out" >"$out/rows/$t.tsv" &
+    pids+=("$!")
   done
-  wait
+  local i=0
+  for t in $targets; do
+    if ! wait "${pids[$i]}"; then
+      failed="$failed $t"
+    elif [ "$(grep -c . <"$out/rows/$t.tsv")" -lt "$(resolve_urls "$t" | grep -c .)" ]; then
+      failed="$failed $t"
+    fi
+    i=$((i + 1))
+  done
+  if [ -n "$failed" ]; then
+    echo "docfetch: incomplete run for:$failed" >&2
+    return 1
+  fi
 
   cat "$out/rows/"*.tsv >"$out/docfetch.tsv"
   sort -t"$(printf '\t')" -k8,8 -k1,1 "$out/docfetch.tsv" |

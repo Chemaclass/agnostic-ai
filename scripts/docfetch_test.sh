@@ -387,11 +387,20 @@ function test_reader_text_ignores_images_and_their_loading_placeholder() {
     "$(printf 'Markdown Content:\nSee [Loading image...![Image 1](https://x/k.png)](https://x) hooks.\n' | reader_text)"
 }
 
-function test_fetch_one_ignores_whitespace_inside_a_reader_proxy_line() {
+function test_fetch_one_hashes_joined_words_differently() {
   local first second
-  stub_curl "https://r.jina.ai/*|200|$(printf 'Markdown Content:\nLast updated: September 23\n')" "https://kiro.dev/*|403|"
+  stub_curl "https://r.jina.ai/*|200|$(printf 'Markdown Content:\nrun foo bar\n')" "https://kiro.dev/*|403|"
   first=$(fetch_one kiro docs https://kiro.dev/docs/x/ "$FIXTURES/run" 1 | cut -f6)
-  stub_curl "https://r.jina.ai/*|200|$(printf 'Markdown Content:\nLast updated:September 23\n')" "https://kiro.dev/*|403|"
+  stub_curl "https://r.jina.ai/*|200|$(printf 'Markdown Content:\nrun foobar\n')" "https://kiro.dev/*|403|"
+  second=$(fetch_one kiro docs https://kiro.dev/docs/x/ "$FIXTURES/run" 1 | cut -f6)
+  assert_not_equals "$first" "$second"
+}
+
+function test_fetch_one_ignores_a_reflowed_page_updated_stamp() {
+  local first second
+  stub_curl "https://r.jina.ai/*|200|$(printf 'Markdown Content:\nHooks.\nPage updated: September 2, 2026\n')" "https://kiro.dev/*|403|"
+  first=$(fetch_one kiro docs https://kiro.dev/docs/x/ "$FIXTURES/run" 1 | cut -f6)
+  stub_curl "https://r.jina.ai/*|200|$(printf 'Markdown Content:\nHooks.\nPage updated:September 2, 2026\n')" "https://kiro.dev/*|403|"
   second=$(fetch_one kiro docs https://kiro.dev/docs/x/ "$FIXTURES/run" 1 | cut -f6)
   assert_equals "$first" "$second"
 }
@@ -403,6 +412,55 @@ function test_fetch_one_hashes_a_reader_proxy_page_without_its_timestamp() {
   stub_curl "https://r.jina.ai/*|200|$(reader_page "Thu, 24 Sep 2026 08:00:00 GMT" $'\n')" "https://kiro.dev/*|403|"
   second=$(fetch_one kiro docs https://kiro.dev/docs/steering/ "$FIXTURES/run" 1 | cut -f6)
   assert_equals "$first" "$second"
+}
+
+# ---- docfetch_main: incomplete runs --------------------------------------------
+
+# stub_targets <failing> <short> installs a fetch_target that writes one row
+# per resolved URL, exits nonzero for <failing>, and drops a row for <short>.
+function stub_targets() {
+  STUB_FAIL="$1"
+  STUB_SHORT="$2"
+  function fetch_target() {
+    [ "$1" = "$STUB_FAIL" ] && return 1
+    resolve_urls "$1" | awk -F '\t' -v t="$1" -v short="$STUB_SHORT" '
+      t == short && NR == 1 { next }
+      { print t "\t" $1 "\t" $2 "\t200\thtml\tsha\t2026-09-24\tunchanged\t" $2 "\tpages/x" }
+    '
+  }
+}
+
+function test_main_succeeds_when_every_target_completes() {
+  stub_targets "" ""
+  local status=0
+  docfetch_main --out "$FIXTURES/run" claude zed >/dev/null 2>&1 || status=$?
+  assert_equals 0 "$status"
+}
+
+function test_main_fails_when_a_target_worker_fails() {
+  stub_targets zed ""
+  local status=0
+  docfetch_main --out "$FIXTURES/run" claude zed >/dev/null 2>&1 || status=$?
+  assert_not_equals 0 "$status"
+}
+
+function test_main_fails_when_a_target_returns_fewer_rows_than_urls() {
+  stub_targets "" zed
+  local status=0
+  docfetch_main --out "$FIXTURES/run" claude zed >/dev/null 2>&1 || status=$?
+  assert_not_equals 0 "$status"
+}
+
+function test_reader_text_keeps_the_space_between_words() {
+  assert_not_equals \
+    "$(printf 'Markdown Content:\nrun foo bar\n' | reader_text)" \
+    "$(printf 'Markdown Content:\nrun foobar\n' | reader_text)"
+}
+
+function test_reader_text_drops_the_page_updated_stamp() {
+  assert_equals \
+    "$(printf 'Markdown Content:\nHooks.\nPage updated:September 2, 2026\n' | reader_text)" \
+    "$(printf 'Markdown Content:\nHooks.\nPage updated: September 3, 2026\n' | reader_text)"
 }
 
 # ---- lock_merge --------------------------------------------------------------
