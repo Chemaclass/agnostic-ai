@@ -8,33 +8,27 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Added
 
-- A daily `vendor-watch` workflow files one issue listing the targets whose vendor docs moved, with no AI or API key involved (#1119).
-- Kilo: hook specs emit as `.kilo/plugin/<name>.ts` plugin modules, auto-loaded at startup (#1105).
-- Antigravity: a `scope`d rule emits to `<scope>/.agents/rules/<name>.md` instead of skipping with a coverage note (#1114).
+- Antigravity: a `scope`d rule emits to `<scope>/.agents/rules/<name>.md` instead of being skipped (#1114).
+- Kilo: hook specs emit as `.kilo/plugin/<name>.ts` modules Kilo loads at startup (#1105).
+- A daily `vendor-watch` workflow opens one issue listing targets whose vendor docs moved, with no AI or API key (#1119).
 
 ### Changed
 
-- Antigravity: the entry-point file moves from `.agent/AGENTS.md` to `.agents/AGENTS.md`. Sync renames a managed old file to `.agent/AGENTS.md.bak` (#1114).
+- Antigravity: the entry point moves to `.agents/AGENTS.md`; the old `.agent/AGENTS.md` is kept as `.bak`. Run `agnostic-ai sync` and commit the move (#1114).
 
 ### Fixed
 
-- Windsurf: `import windsurf` reads a scoped rule under any directory name and honors `outputs.windsurf.rules-dir` (#1123).
-- Windsurf, Antigravity: an unreadable directory in the project no longer aborts `import` partway through or leaves a spec half-overwritten (#1123).
-- Antigravity: every rule now carries the `trigger` frontmatter Antigravity requires, so rules stop being silently discarded (#1113).
-- Antigravity: the oversized-rule note fires at Antigravity's documented 24,000-byte cap and names truncation, not a 12,000-character guess with an unknown outcome (#1114).
-- OpenCode, Kilo: plugin hooks pass commands to the shell unchanged, match tool names exactly, and block a tool only when a command exits 2 (#1110).
-- OpenCode, Kilo: a hook with `disabled: true` writes no plugin module, and a matcher JavaScript reads differently from RE2 emits no guard (#1110).
-- Target audits read the cross-target notes from the target behavior page again. Since those notes moved there, the fact dump printed no shared rows for any target.
-- Target audits no longer flag reader-proxy pages (Kiro, Cursor) or utility-class HTML (Amp) as changed when only fetch noise moved (#1119).
-- Target audits hash a vendor page the same on macOS and Linux; macOS kept only the first line of every code block (#1122).
-- Target audits ignore site chrome when hashing a vendor page: navigation, footers, the page `<head>`, "last modified" stamps, and the sidebar inside a router payload. A rebuilt docs site no longer marks every page changed, and a router-data page is saved as its own text instead of the whole payload.
+- Antigravity: every rule carries the `trigger` frontmatter Antigravity requires. Without it, Antigravity discarded every rule sync wrote (#1113).
+- Antigravity: `manual` and unknown triggers survive `import` and sync, and the size note uses the documented 24,000-byte cap (#1113, #1114).
+- OpenCode, Kilo: plugin hooks run commands unchanged, match tool names exactly, block only on exit 2, and skip disabled hooks (#1110).
+- Import: Windsurf finds scoped rules under any directory and honors `outputs.windsurf.rules-dir`; an unreadable folder no longer half-imports (#1123).
+- Target audits hash vendor pages the same on macOS and Linux, ignore fetch noise and site chrome, and read cross-target notes again (#1119, #1122).
 
 ### Site
 
-- The playground is simpler: edit a spec and see what Claude Code, Codex, Copilot, Gemini, and Cursor receive as you type, with a link to the other targets. It offers the seven kinds a newcomer meets first, and its agent and settings samples set a per-target model and effort so each tool's own key shows. The target picker and Download button are gone, each file path shows once, and the header gains the Targets link other pages have.
-- The playground renders settings specs. It read them as Markdown, so only the instruction files appeared.
-- The target matrix drops the Code review and Dev setup columns, which two and three tools read, and names those tools under the table instead. The docs sidebar lists every target under Targets while you browse that section.
-- The landing hero keeps every rail label inside the hero on wide screens, the "one spec" and "native output" labels share one row on narrow screens, and the file note loses its left border.
+- The playground is simpler: edit a spec and watch five tools' output as you type. Settings specs render, and samples show per-target model and effort.
+- Docs: the sidebar lists every target, the matrix drops two rarely read columns, and the Windsurf page calls `.windsurfignore` legacy (#1116).
+- The landing hero keeps its rail labels inside the hero on wide screens and on one row on narrow ones.
 
 ## v0.66.0 - 2026-09-23
 
