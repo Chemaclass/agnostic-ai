@@ -4,9 +4,9 @@
 // `.agents/rules/*.md`, custom subagents from
 // `.agents/agents/<name>/agent.md`,
 // and skills from a folder per skill under
-// `.agents/skills/<name>/SKILL.md`. This adapter emits all three. Antigravity
-// "defaults to `.agents/rules`, but still maintains backward
-// compatibility for `.agent/rules`" (antigravity.google/docs/rules-workflows?tab=ide),
+// `.agents/skills/<name>/SKILL.md`. This adapter emits all three. The
+// vendor's directory-scoped rules discovery lists `.agents/rules/*.md`
+// "and legacy `<dir>/.agent/rules/*.md`" (antigravity.google/docs/rules),
 // and the same wording covers skills (/docs/skills?tab=ide). This
 // adapter defaults to the plural form and sweeps a stale managed tree at
 // the pre-plural `.agent/rules` / `.agent/skills` paths on sync, the
@@ -16,20 +16,29 @@
 // windsurf already emit into, so identical skill folders dedupe there
 // once an adapter's default lands on it.
 //
-// A rule emits as a bare Markdown file, which is Antigravity's
-// always-on mode. The vendor lists four activation modes (Manual,
-// Always on, Model decision, Glob pattern) as prose about the
-// Customizations panel and names no frontmatter key, no file format,
-// and no example for any of them, so a spec's `globs` or
-// `alwaysApply: false` has nowhere to land and drops with a coverage
-// note (see rule.go).
+// Every rule file starts with YAML frontmatter, the first bytes of the
+// file: "Every `.md` file inside `rules/` must start with YAML
+// frontmatter declaring a valid `trigger`. ... If a file ... omits
+// frontmatter or specifies an unrecognized `trigger` value ...,
+// Antigravity silently discards the rule" (antigravity.google/docs/rules).
+// `alwaysApply` decides first, mirroring windsurf and cursor: `true` or
+// unset writes `trigger: always_on` outright, ignoring `globs`.
+// `alwaysApply: false` then maps `globs` onto `trigger: glob` plus a
+// quoted, comma-joined `globs` string, a bare `description` onto
+// `trigger: model_decision`, and neither onto `trigger: manual`, the
+// vendor's own "load only on an @-mention" mode. Every branch lands on
+// a trigger whose vendor-required companion field is already in hand,
+// so nothing here falls back or reports a coverage note. `description`
+// carries through whenever the spec has one, on every trigger (see
+// rule.go, #1113).
 //
 // The same page caps the file: "Rules files are limited to 12,000
 // characters each". An over-cap rule still emits, since the vendor does
 // not say whether it truncates or rejects, but it reports a coverage
 // note so the author hears it from `sync` rather than from agent
-// behavior. The count is taken on the text that lands, provenance
-// header and heading included (target-audit 2026-09-19, #896).
+// behavior. The count is taken on the text that lands, frontmatter,
+// provenance header, and heading included (target-audit 2026-09-19,
+// #896).
 //
 // `sync --global` writes skills to `~/.gemini/config/skills/`. The
 // vendor's IDE tab rows that path as the global scope and calls
@@ -152,7 +161,8 @@ func (Adapter) Name() string { return target }
 
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
-// Emit writes per-rule files under .agents/rules/, one subagent file
+// Emit writes per-rule files under .agents/rules/, each carrying the
+// mandatory `trigger` frontmatter (see rule.go), one subagent file
 // per agent under .agents/agents/<name>/agent.md, a folder per skill under
 // .agents/skills/<name>/SKILL.md, .agents/mcp_config.json for MCP
 // servers, .agents/hooks.json for hooks, and, when opted in via
@@ -168,16 +178,18 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	rulesDir := emit.OutputRulesDir(cfg, target, defaultRulesDir)
 	// Agents and skills emit through their native layouts below, so
 	// suppress the rule-form `agent-<name>.md` / `skill-<name>.md`
-	// output from RulesDirectory.
+	// output from RulesDirectory. FormatRule writes the mandatory
+	// trigger frontmatter every rule file needs (#1113).
 	if err := sess.RulesDirectory(b, emit.RulesDirOpts{
 		Dir:        rulesDir,
 		SkipAgents: true,
 		SkipSkills: true,
+		FormatRule: rule,
 	}, dryRun); err != nil {
 		return err
 	}
-	noteRuleActivation(b.Rules)
 	noteOversizedRules(b.Rules)
+	noteInvalidTriggerOverrides(b.Rules)
 	if rulesDir != legacyRulesDir {
 		if err := sess.RemoveGeneratedTree(legacyRulesDir, dryRun); err != nil {
 			return err

@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -69,6 +70,87 @@ func TestAntigravityRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 			t.Errorf("byte mismatch at %s (first=%d bytes, second=%d bytes)\n%s",
 				p, len(first[p]), len(second[p]), unifiedDiffLines(first[p], second[p]))
 		}
+	}
+}
+
+// TestAntigravityRoundTrip_ManualTriggerWithDescriptionStaysManual is
+// the regression test for #1117's review: a hand-authored
+// `trigger: manual` rule that also carries a `description` (the vendor
+// recommends one on every rule) must not silently upgrade to
+// `model_decision` after an `import` + `sync` cycle. `manual` means
+// "load only on an @-mention"; `model_decision` means "load
+// automatically when relevant" -- a real broadening of activation.
+func TestAntigravityRoundTrip_ManualTriggerWithDescriptionStaysManual(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(`version: 1
+sources:
+  rules: .agnostic-ai/rules
+targets:
+  - antigravity
+gitignore:
+  enabled: false
+`), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, ".agents", "rules"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, ".agents", "rules", "checklist.md"),
+		[]byte("---\ntrigger: manual\ndescription: Release checklist, read on demand.\n---\n\nConfirm the changelog and version bump.\n"), 0o644))
+
+	runCmd(t, "import", "antigravity")
+	must(t, os.RemoveAll(filepath.Join(dir, ".agents")))
+	runCmd(t, "sync", "-t", "antigravity")
+
+	raw, err := os.ReadFile(filepath.Join(dir, ".agents", "rules", "checklist.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(raw)
+	if !strings.Contains(got, "trigger: manual\n") {
+		t.Errorf("a manual rule with a description must round-trip as manual, not get promoted to model_decision:\n%s", got)
+	}
+	if strings.Contains(got, "trigger: model_decision") {
+		t.Errorf("must not silently broaden manual to model_decision:\n%s", got)
+	}
+	if !strings.Contains(got, "description: Release checklist, read on demand.") {
+		t.Errorf("expected the description to still carry through:\n%s", got)
+	}
+}
+
+// TestAntigravityRoundTrip_UnknownTriggerDoesNotBroadenToAlwaysOn is
+// the second regression test for #1117's review: an unrecognized
+// `trigger` value must not round-trip into `always_on`, Antigravity's
+// most active mode, just because agnostic-ai could not map it onto a
+// generic field.
+func TestAntigravityRoundTrip_UnknownTriggerDoesNotBroadenToAlwaysOn(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(`version: 1
+sources:
+  rules: .agnostic-ai/rules
+targets:
+  - antigravity
+gitignore:
+  enabled: false
+`), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, ".agents", "rules"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, ".agents", "rules", "typo.md"),
+		[]byte("---\ntrigger: alwaysOn\n---\n\nUse tabs.\n"), 0o644))
+
+	runCmd(t, "import", "antigravity")
+	must(t, os.RemoveAll(filepath.Join(dir, ".agents")))
+	runCmd(t, "sync", "-t", "antigravity")
+
+	raw, err := os.ReadFile(filepath.Join(dir, ".agents", "rules", "typo.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(raw)
+	if strings.Contains(got, "trigger: always_on") {
+		t.Errorf("an unrecognized trigger must not round-trip into always_on:\n%s", got)
+	}
+	if !strings.Contains(got, "trigger: manual\n") {
+		t.Errorf("an unrecognized trigger must fall to the narrowest mode, manual:\n%s", got)
 	}
 }
 

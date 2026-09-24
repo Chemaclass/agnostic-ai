@@ -68,6 +68,50 @@ func antigravityImportDir(root string) string {
 	return antigravityRulesDirs[0]
 }
 
+// normalizeAntigravityRuleMeta turns Antigravity's `trigger` frontmatter
+// key into the generic `alwaysApply` the spec format uses, so a synced
+// rule imports to the spec it came from (#1113). The singular `glob`
+// spelling the vendor also accepts folds onto the plural `globs` key
+// `rulesDirFileContent` reads.
+//
+// `trigger` itself is never deleted: it stays in meta so the
+// `NativeKeys: []string{"trigger"}` passed to importRulesDirectoryWith
+// below lifts it, verbatim, into `x-antigravity.trigger`, alongside the
+// generic mapping. Collapsing straight to `alwaysApply` and dropping
+// the original value lost information the generic fields cannot
+// recover alone: a `manual` rule that also carries a `description`
+// (the vendor recommends one on every rule) re-derived as
+// `model_decision` on the next sync, turning an explicit
+// @-mention-only rule into an automatically-loaded one, and an
+// unrecognized trigger value re-derived as `always_on`, the most
+// active mode (#1117 review). rule.go's ruleTrigger reads the native
+// override back and honors it first for exactly that reason.
+//
+// An unrecognized trigger value gets no generic `alwaysApply` mapping
+// and a warning, so it round-trips inert (native override present,
+// generic fields silent) rather than silently landing on some default.
+func normalizeAntigravityRuleMeta(meta map[string]any) {
+	if _, hasGlobs := meta["globs"]; !hasGlobs {
+		if g, ok := meta["glob"]; ok {
+			meta["globs"] = g
+		}
+	}
+	delete(meta, "glob")
+
+	trigger, ok := meta["trigger"].(string)
+	if !ok {
+		return
+	}
+	switch trigger {
+	case "always_on":
+		meta["alwaysApply"] = true
+	case "glob", "model_decision", "manual":
+		meta["alwaysApply"] = false
+	default:
+		summaryf("  ! antigravity rule trigger %q is not always_on/glob/model_decision/manual; kept verbatim under x-antigravity.trigger\n", trigger)
+	}
+}
+
 // importFromAntigravity reads an existing Antigravity project under
 // root and writes specs into the configured source directories.
 //
@@ -76,7 +120,11 @@ func antigravityImportDir(root string) string {
 //     agents, the rest to rules; the provenance header and the leading
 //     `# <heading>\n` block are stripped from each body). The
 //     `agent-<name>.md` form covers projects synced before agents moved
-//     to their own directory (#638).
+//     to their own directory (#638). The mandatory `trigger` frontmatter
+//     translates back to `alwaysApply` / `globs` / `description` via
+//     normalizeAntigravityRuleMeta (#1113) and survives verbatim under
+//     `x-antigravity.trigger` too (#1117 review); a pre-#1113 bare rule
+//     file carries no frontmatter at all and imports unchanged.
 //   - `.agents/agents/<name>/agent.md` (the preferred native subagent form)
 //     reconstructs agents, byte-for-byte minus the provenance header,
 //     so `model` and any `x-antigravity` key round-trip untouched. A
@@ -95,7 +143,11 @@ func importFromAntigravity(root string, src config.Sources, cfg *config.Config) 
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.MCPs); err != nil {
 		return err
 	}
-	c, err := importRulesDirectory(root, antigravityImportDir(root), src)
+	c, err := importRulesDirectoryWith(root, antigravityImportDir(root), src, rulesDirImportOpts{
+		NormalizeMeta: normalizeAntigravityRuleMeta,
+		NativeTarget:  "antigravity",
+		NativeKeys:    []string{"trigger"},
+	})
 	if err != nil {
 		return err
 	}
