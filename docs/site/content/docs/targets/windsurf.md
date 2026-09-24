@@ -18,8 +18,8 @@ AGENTS.md                            # shared pointer body (dedup with the other
 <scope>/.devin/rules/<name>.md       # one per scoped rule
 .devin/agents/<name>.md              # one per agent (custom subagent profile)
 .agents/skills/<name>/SKILL.md       # one folder per skill (shared tree with codex/amp/zed/crush/openhands)
-.devinignore                         # when ignore entries exist (indexing)
-.windsurfignore                      # when ignore entries exist (agent file access)
+.devinignore                         # when ignore entries exist (indexing and agent access)
+.windsurfignore                      # when ignore entries exist (legacy name, older builds)
 .devin/mcp_config.json               # when MCP entries exist
 .devin/hooks.v1.json                 # when hook entries exist
 .devin/config.json                   # when settings entries carry permission rules
