@@ -617,6 +617,55 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	return nil
 }
 
+// writeUntrackedFile writes content to path like WriteFile, with the
+// same unmanaged/capture/dry-run guards, project-root check, path
+// locking, and transaction logging (so a Rollback later in the same
+// pass still restores whatever path held before, or removes it if it
+// did not exist), but it never touches capturing, recording (the
+// gitignore block builder), or detailed recording (the sync ledger
+// that proves ownership for the next run's orphan sweep).
+//
+// Used for side content a caller writes deliberately outside its own
+// managed-output set, such as MigrateLegacyPath's `.bak` copy: that
+// file must survive the *next* sync untouched, not get treated as a
+// generated output this run wrote and a later run stopped writing,
+// which is exactly what the orphan sweep deletes (#1114 review).
+func (s *Session) writeUntrackedFile(path, content string, dryRun bool) error {
+	if s.skipUnmanaged(path) {
+		return nil
+	}
+	if s.IsCapturing() || dryRun {
+		return nil
+	}
+	if escapesProjectRoot(path) {
+		return fmt.Errorf("refusing to write outside the project root: %s", path)
+	}
+	defer lockPath(path)()
+	if err := mkdirAll(filepath.Dir(path), dirPerm); err != nil {
+		return fmt.Errorf("mkdir %s: %w", filepath.Dir(path), err)
+	}
+	if s.transacting {
+		pre, readErr := os.ReadFile(path)
+		info, statErr := os.Stat(path)
+		s.mu.Lock()
+		switch {
+		case readErr == nil:
+			preMode := filePerm
+			if statErr == nil {
+				preMode = info.Mode().Perm()
+			}
+			s.txLog = append(s.txLog, txEntry{path: path, content: pre, mode: preMode})
+		case os.IsNotExist(readErr):
+			s.txLog = append(s.txLog, txEntry{path: path, content: nil})
+		}
+		s.mu.Unlock()
+	}
+	if err := writeFileAt(path, content, filePerm, false); err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
+	}
+	return nil
+}
+
 // IsAbsent reports whether err means a file or directory cannot be
 // read because it is not there. The path not existing (fs.ErrNotExist)
 // is the obvious case. The other is the js/wasm playground, which has

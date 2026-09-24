@@ -265,6 +265,7 @@ func importFromAntigravity(root string, src config.Sources, cfg *config.Config) 
 		NormalizeMeta: normalizeAntigravityRuleMeta,
 		NativeTarget:  "antigravity",
 		NativeKeys:    []string{"trigger"},
+		FlatOnly:      true,
 	})
 	if err != nil {
 		return err
@@ -279,6 +280,7 @@ func importFromAntigravity(root string, src config.Sources, cfg *config.Config) 
 			NormalizeMeta: normalizeAntigravityRuleMeta,
 			NativeTarget:  "antigravity",
 			NativeKeys:    []string{"trigger"},
+			FlatOnly:      true,
 		})
 		if err != nil {
 			return err

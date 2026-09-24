@@ -199,6 +199,40 @@ func TestImportFromAntigravity_ScopedRulesFollowRulesDirOverride(t *testing.T) {
 	}
 }
 
+// TestImportFromAntigravity_SkipsNestedRuleFiles pins the fourth-review
+// finding: Antigravity "scans only immediate `.md` children inside
+// `.agents/rules/` ... ignores files nested in subdirectories", so a
+// file one level deeper than a rules root (root or scoped) is dormant
+// there and must not import at all.
+func TestImportFromAntigravity_SkipsNestedRuleFiles(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".agents", "rules", "root.md"), "# root\n\nroot body\n")
+	writeFile(t, filepath.Join(dir, ".agents", "rules", "archive", "old.md"), "# old\n\nroot-nested body\n")
+	writeFile(t, filepath.Join(dir, "backend", ".agents", "rules", "auth.md"), "# auth\n\nauth body\n")
+	writeFile(t, filepath.Join(dir, "backend", ".agents", "rules", "archive", "old.md"), "# old\n\nscoped-nested body\n")
+
+	if err := importFromAntigravity(dir, rootSources(), nil); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, p := range []string{
+		filepath.Join("rules", "root.md"),
+		filepath.Join("rules", "backend", "auth.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
+			t.Errorf("missing imported spec %s: %v", p, err)
+		}
+	}
+	for _, p := range []string{
+		filepath.Join("rules", "archive", "old.md"),
+		filepath.Join("rules", "backend", "archive", "old.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(dir, p)); !os.IsNotExist(err) {
+			t.Errorf("a dormant nested rule file must not import: %s exists, err=%v", p, err)
+		}
+	}
+}
+
 func TestImportFromAntigravity_ImportsNestedAgentProfiles(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".agents/agents/reviewer/agent.md"),

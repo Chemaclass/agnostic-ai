@@ -179,13 +179,26 @@ func (s *Session) MigrateLegacyFile(cfg *config.Config, target, legacyName, defa
 // same-directory join cannot express (antigravity's
 // `.agent/AGENTS.md` -> `.agents/AGENTS.md`, #1114).
 //
-// Both halves of the move go through the session's transaction-aware
-// WriteFile and RemoveOwned, not a bare os.Rename, so a
-// StartTransaction / Rollback pair spanning the rest of the sync pass
-// undoes it cleanly: the backup is a brand-new file (removed on
-// rollback) and the legacy file's removal is transaction-logged with
-// its prior bytes (restored on rollback). A caller with no open
-// transaction sees the same net effect MigrateLegacyFile always had.
+// Both halves of the move go through session-owned writes, not a bare
+// os.Rename, so a StartTransaction / Rollback pair spanning the rest of
+// the sync pass undoes it cleanly: the backup is a brand-new file
+// (removed on rollback) and the legacy file's removal is
+// transaction-logged with its prior bytes (restored on rollback). A
+// caller with no open transaction sees the same net effect
+// MigrateLegacyFile always had.
+//
+// The backup itself writes through writeUntrackedFile, not WriteFile:
+// it carries the legacy file's own provenance marker (it is a byte
+// copy), so recording it into the sync ledger the way an ordinary
+// generated output is recorded left it looking, to the next sync, like
+// output this run stopped writing. Antigravity's own migration no
+// longer touches `.agent/AGENTS.md` on that next run (it is already
+// gone), so the ledger never re-records the backup, and the orphan
+// sweep deleted a user's preserved bytes as if they were a stale
+// generated file (#1114 review). The pre-Session `os.Rename` version
+// of this migration (amp, warp) never had that failure mode, since a
+// bare rename touches no bookkeeping at all; writeUntrackedFile
+// restores that guarantee while keeping the write transaction-aware.
 //
 // Skipped, like MigrateLegacyFile, on dryRun, during capture mode, when
 // the legacy file is missing or carries no provenance marker, and when
@@ -217,7 +230,7 @@ func (s *Session) MigrateLegacyPath(target, legacyPath, defaultNewPath string, d
 	} else if !os.IsNotExist(err) {
 		return fmt.Errorf("stat %s: %w", backupPath, err)
 	}
-	if err := s.WriteFile(backupPath, string(data), dryRun); err != nil {
+	if err := s.writeUntrackedFile(backupPath, string(data), dryRun); err != nil {
 		return fmt.Errorf("backup %s: %w", legacyPath, err)
 	}
 	if _, err := s.RemoveOwned(legacyPath, "", dryRun); err != nil {

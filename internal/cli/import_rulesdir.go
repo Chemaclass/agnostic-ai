@@ -44,6 +44,18 @@ type rulesDirImportOpts struct {
 	// to another native surface. The walker prunes each one before it can
 	// misclassify its Markdown files as rules.
 	SkipDirs map[string]bool
+	// FlatOnly limits the walk to srcDir's immediate `.md` children,
+	// pruning every subdirectory instead of descending into it and
+	// preserving it as scope. Set for a target whose own rules loader
+	// only scans one level deep, so a nested file is dormant there:
+	// Antigravity "scans only immediate `.md` children inside
+	// `.agents/rules/` ... ignores files nested in subdirectories"
+	// (antigravity.google/docs/rules). Importing a nested file anyway
+	// activated it on the next sync, since sync's own scope routing
+	// reads it as `<dir>/.agents/rules/<name>.md` from a fresh
+	// subdirectory rather than the dormant nested copy it came from
+	// (#1114 review).
+	FlatOnly bool
 	// NativeTarget and NativeKeys retain conditions the portable rule fields
 	// cannot represent without changing their meaning.
 	NativeTarget string
@@ -96,6 +108,9 @@ func importRulesDirectoryWith(root, srcDir string, src config.Sources, opts rule
 		if d.IsDir() {
 			if path == full {
 				return nil
+			}
+			if opts.FlatOnly {
+				return filepath.SkipDir
 			}
 			rel, err := filepath.Rel(full, path)
 			if err != nil {
