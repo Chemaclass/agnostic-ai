@@ -244,6 +244,148 @@ func TestEmit_Rule_AlwaysApplyFalseNoDescriptionNoGlobs_TriggersManual(t *testin
 	}
 }
 
+// The regression this PR fixes (#1117 review): a rule imported back
+// from a native `trigger: manual` file that also carries a
+// `description` (the vendor recommends one on every rule) must render
+// as `manual` again, not `model_decision`. Without honoring the
+// `x-antigravity.trigger` override import now writes
+// (normalizeAntigravityRuleMeta), the generic fields alone
+// (`alwaysApply: false` + a description, no globs) would re-derive
+// `model_decision`, silently turning an explicit @-mention-only rule
+// into an automatically-loaded one.
+func TestEmit_Rule_XAntigravityTriggerManual_OverridesModelDecisionDerivation(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "checklist", Body: "body", Meta: map[string]any{
+			"alwaysApply":   false,
+			"description":   "Release checklist, read on demand.",
+			"x-antigravity": map[string]any{"trigger": "manual"},
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(filepath.Join(dir, ".agents", "rules", "checklist.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(raw)
+	if !strings.Contains(got, "trigger: manual\n") {
+		t.Errorf("expected the override to keep trigger: manual, got:\n%s", got)
+	}
+	if strings.Contains(got, "model_decision") {
+		t.Errorf("must not silently broaden manual to model_decision, got:\n%s", got)
+	}
+	if !strings.Contains(got, "description: Release checklist, read on demand.\n") {
+		t.Errorf("expected the description to still carry through, got:\n%s", got)
+	}
+	if emit.PendingCoverageNotesCount() != 0 {
+		t.Errorf("a valid override must not buffer a coverage note, got: %s", buf.String())
+	}
+}
+
+// The override wins even against a generic `alwaysApply: true`, which
+// alone would resolve to `always_on`: an explicit `x-antigravity`
+// trigger states the author's intent more precisely than the generic
+// fields can, the same precedence `x-<target>` blocks get everywhere
+// else in this adapter family.
+func TestEmit_Rule_XAntigravityTrigger_OverridesGenericAlwaysApply(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	swapNoteWarner(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "scoped", Body: "body", Meta: map[string]any{
+			"alwaysApply":   true,
+			"globs":         "**/*.py",
+			"x-antigravity": map[string]any{"trigger": "glob"},
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(filepath.Join(dir, ".agents", "rules", "scoped.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(raw)
+	if !strings.Contains(got, "trigger: glob\n") {
+		t.Errorf("expected the override to win over alwaysApply: true, got:\n%s", got)
+	}
+	if !strings.Contains(got, `globs: '**/*.py'`) {
+		t.Errorf("expected globs to still carry through under the glob override, got:\n%s", got)
+	}
+}
+
+// An `x-antigravity.trigger` naming a value outside
+// always_on/glob/model_decision/manual falls to `manual`, the narrowest
+// mode, and buffers a coverage note -- never `always_on`, Antigravity's
+// most active mode, which a naive re-derivation from the generic fields
+// alone would produce (#1117 review).
+func TestEmit_Rule_XAntigravityTriggerUnknown_FallsToManualWithNote(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "typo", Body: "body", Meta: map[string]any{
+			"x-antigravity": map[string]any{"trigger": "alwaysOn"},
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(filepath.Join(dir, ".agents", "rules", "typo.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(raw)
+	if !strings.Contains(got, "trigger: manual\n") {
+		t.Errorf("expected the unknown override to fall to manual, got:\n%s", got)
+	}
+	if strings.Contains(got, "trigger: always_on") {
+		t.Errorf("an unrecognized override must never fall to always_on, got:\n%s", got)
+	}
+
+	emit.FlushCoverageNotes()
+	if !strings.Contains(buf.String(), "`trigger` on 1 rule has no effect on antigravity") {
+		t.Errorf("expected a coverage note for the unrecognized override, got: %s", buf.String())
+	}
+}
+
+// `x-antigravity.trigger: glob` with no `globs` in hand cannot honor
+// the override (the vendor requires `globs` for that trigger), so it
+// falls to `manual` with a coverage note, the same treatment an
+// unrecognized value gets.
+func TestEmit_Rule_XAntigravityTriggerGlob_WithoutGlobs_FallsToManualWithNote(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "no-globs", Body: "body", Meta: map[string]any{
+			"x-antigravity": map[string]any{"trigger": "glob"},
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(filepath.Join(dir, ".agents", "rules", "no-globs.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "trigger: manual\n") {
+		t.Errorf("expected the unmet-requirement override to fall to manual, got:\n%s", raw)
+	}
+	emit.FlushCoverageNotes()
+	if !strings.Contains(buf.String(), "`trigger` on 1 rule has no effect on antigravity") {
+		t.Errorf("expected a coverage note, got: %s", buf.String())
+	}
+}
+
 // An always-on rule (alwaysApply unset, or explicitly true) loses
 // nothing and buffers no note.
 func TestEmit_Rule_AlwaysOnNotesNothing(t *testing.T) {

@@ -65,7 +65,7 @@ func rule(e spec.Entry) string {
 // when ruleTrigger chose triggerGlob, so the `globs:` line only appears
 // there.
 func ruleFrontmatter(m map[string]any) string {
-	trigger, desc, globs := ruleTrigger(m)
+	trigger, desc, globs, _ := ruleTrigger(m)
 	var b strings.Builder
 	b.WriteString("---\n")
 	b.WriteString("trigger: " + trigger + "\n")
@@ -79,11 +79,50 @@ func ruleFrontmatter(m map[string]any) string {
 	return b.String()
 }
 
-// ruleTrigger resolves one rule's frontmatter trigger from its generic
-// `globs` / `alwaysApply` / `description` fields. The mapping mirrors
-// the one windsurf's `activationFrontmatter` applies to the same three
-// fields (internal/adapters/windsurf/windsurf.go, #628), itself mirroring
-// cursor's `.mdc` renderer:
+// invalidTriggerOverrideReason is the user-facing half of the coverage
+// note noteInvalidTriggerOverrides buffers.
+const invalidTriggerOverrideReason = "the rule's native antigravity trigger is either not one of always_on/glob/model_decision/manual, or is missing the companion field that trigger needs (globs for glob, description for model_decision); it renders as trigger: manual instead"
+
+// noteInvalidTriggerOverrides buffers one coverage note per rule whose
+// `x-antigravity.trigger` override (see ruleTrigger) could not be
+// honored, so it rendered as `manual` instead.
+func noteInvalidTriggerOverrides(rules []spec.Entry) {
+	invalid := 0
+	for _, r := range rules {
+		m := emit.ResolveMeta(r.Meta, target)
+		if _, _, _, bad := ruleTrigger(m); bad {
+			invalid++
+		}
+	}
+	emit.NoteFieldNoOp(target, spec.KindRule, "trigger", invalid, invalidTriggerOverrideReason)
+}
+
+// ruleTrigger resolves one rule's frontmatter trigger.
+//
+// An `x-antigravity.trigger` override wins outright when present:
+// `emit.ResolveMeta` already flattens it onto the top-level `trigger`
+// key ahead of this call, and `import antigravity` writes it whenever
+// a native `.agents/rules/*.md` file carried its own `trigger` value
+// (normalizeAntigravityRuleMeta, internal/cli/import_antigravity.go).
+// Without honoring it, a re-emit had to re-derive activation from the
+// generic `globs` / `alwaysApply` / `description` fields alone, which
+// cannot always recover the original intent: a `manual` rule that also
+// carries a `description` (the vendor recommends one on every rule)
+// re-derived as `model_decision`, turning an explicit @-mention-only
+// rule into an automatically-loaded one, and an unrecognized trigger
+// value silently re-derived as `always_on`, Antigravity's most active
+// mode, on the very next sync (#1117 review). The override still
+// answers to the vendor's own required companion field: `glob` without
+// `globs`, or `model_decision` without `description`, has nowhere to
+// land, so both fall to `manual` with a coverage note
+// (noteInvalidTriggerOverrides), the same fallback an unrecognized
+// value gets. `manual` is the narrowest mode Antigravity documents and
+// needs no companion field, so it is always a safe landing spot.
+//
+// With no override, the trigger derives from the generic fields, the
+// same mapping windsurf's `activationFrontmatter` applies to the same
+// three fields (internal/adapters/windsurf/windsurf.go, #628), itself
+// mirroring cursor's `.mdc` renderer:
 //
 //	alwaysApply true or unset          -> always_on
 //	alwaysApply false + globs          -> glob
@@ -101,39 +140,50 @@ func ruleFrontmatter(m map[string]any) string {
 // `!ok || always` check and cursor's `always := true` default both
 // treat a missing key as always-on, so this adapter does too, and
 // `globs` alone (no `alwaysApply: false`) still resolves to
-// `always_on`.
-//
-// Every branch reaches a trigger with no unmet vendor requirement:
-// `glob` only fires with `globs` in hand, `model_decision` only fires
-// with `description` in hand, and `manual` needs neither ("The agent
-// injects the rule only when you explicitly @-mention it in chat",
-// antigravity.google/docs/rules), so there is no coverage note to raise
-// here (#1113; an earlier draft of this fix fell back to `always_on`
-// with a note for `alwaysApply: false` + no globs + no description,
-// which promotes a rule that opted out of always-on, the exact bug
-// #628 fixed for windsurf).
+// `always_on`. Every one of these four branches reaches a trigger with
+// no unmet vendor requirement, so none of them can set the invalid
+// return.
 //
 // `description` is returned whenever the spec has one, independent of
 // the chosen trigger ("recommended for all rules", same page), and
 // `globs` is returned only when the trigger is `glob`, so
 // ruleFrontmatter never writes a key the chosen trigger has no use for.
-func ruleTrigger(m map[string]any) (trigger, desc, globs string) {
+func ruleTrigger(m map[string]any) (trigger, desc, globs string, invalid bool) {
 	desc, _ = m["description"].(string)
+	rawGlobs := ruleGlobs(m)
+
+	if override, ok := m["trigger"].(string); ok {
+		switch override {
+		case triggerAlwaysOn:
+			return triggerAlwaysOn, desc, "", false
+		case triggerGlob:
+			if rawGlobs != "" {
+				return triggerGlob, desc, rawGlobs, false
+			}
+		case triggerModelDecision:
+			if desc != "" {
+				return triggerModelDecision, desc, "", false
+			}
+		case triggerManual:
+			return triggerManual, desc, "", false
+		}
+		return triggerManual, desc, "", true
+	}
+
 	always := true
 	if v, ok := m["alwaysApply"].(bool); ok {
 		always = v
 	}
 	if always {
-		return triggerAlwaysOn, desc, ""
+		return triggerAlwaysOn, desc, "", false
 	}
-	globs = ruleGlobs(m)
 	switch {
-	case globs != "":
-		return triggerGlob, desc, globs
+	case rawGlobs != "":
+		return triggerGlob, desc, rawGlobs, false
 	case desc != "":
-		return triggerModelDecision, desc, ""
+		return triggerModelDecision, desc, "", false
 	default:
-		return triggerManual, desc, ""
+		return triggerManual, desc, "", false
 	}
 }
 
