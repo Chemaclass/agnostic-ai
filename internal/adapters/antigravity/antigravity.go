@@ -21,15 +21,16 @@
 // frontmatter declaring a valid `trigger`. ... If a file ... omits
 // frontmatter or specifies an unrecognized `trigger` value ...,
 // Antigravity silently discards the rule" (antigravity.google/docs/rules).
-// A spec's `globs` maps onto `trigger: glob` plus a quoted,
-// comma-joined `globs` string; `alwaysApply: false` with no `globs`
-// maps onto `trigger: model_decision`, which needs a `description` the
-// vendor marks required, so a rule with neither falls back to
-// `trigger: always_on` and reports a coverage note instead of writing a
-// trigger the vendor's own table calls invalid for want of that field;
-// every other rule writes `trigger: always_on`. `description` carries
-// through whenever the spec has one, on every trigger (see rule.go,
-// #1113).
+// `alwaysApply` decides first, mirroring windsurf and cursor: `true` or
+// unset writes `trigger: always_on` outright, ignoring `globs`.
+// `alwaysApply: false` then maps `globs` onto `trigger: glob` plus a
+// quoted, comma-joined `globs` string, a bare `description` onto
+// `trigger: model_decision`, and neither onto `trigger: manual`, the
+// vendor's own "load only on an @-mention" mode. Every branch lands on
+// a trigger whose vendor-required companion field is already in hand,
+// so nothing here falls back or reports a coverage note. `description`
+// carries through whenever the spec has one, on every trigger (see
+// rule.go, #1113).
 //
 // The same page caps the file: "Rules files are limited to 12,000
 // characters each". An over-cap rule still emits, since the vendor does
@@ -187,7 +188,6 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}, dryRun); err != nil {
 		return err
 	}
-	noteRuleActivation(b.Rules)
 	noteOversizedRules(b.Rules)
 	if rulesDir != legacyRulesDir {
 		if err := sess.RemoveGeneratedTree(legacyRulesDir, dryRun); err != nil {

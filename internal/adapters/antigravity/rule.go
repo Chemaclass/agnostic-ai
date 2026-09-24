@@ -37,46 +37,15 @@ func noteOversizedRules(rules []spec.Entry) {
 	emit.NoteSurfaceGap(target, spec.KindRule, over, ruleTooLongSurface, ruleTooLongReason)
 }
 
-// Antigravity's three rule triggers this adapter can reach without
-// guessing an unwritten frontmatter shape. `manual` is documented too,
-// but nothing in the portable rule spec asks for "load only on an
-// @-mention", so this adapter never writes it (see rule() and
-// ruleTrigger()).
+// Antigravity's four documented rule triggers, all reachable from the
+// portable spec's `globs` / `alwaysApply` / `description` fields (see
+// ruleTrigger).
 const (
 	triggerAlwaysOn      = "always_on"
 	triggerGlob          = "glob"
 	triggerModelDecision = "model_decision"
+	triggerManual        = "manual"
 )
-
-// modelDecisionNeedsDescriptionReason is the user-facing half of the
-// one coverage note this adapter still buffers for rule activation.
-// antigravity.google/docs/rules marks `description` "Required for
-// model_decision" but its own caution text only confirms that a
-// missing frontmatter block, or an unrecognized `trigger` value, gets
-// the rule silently discarded; it says nothing about a valid trigger
-// missing its required companion field. Guessing either "still
-// discarded" or "loads anyway, minus the description" would be
-// unverified, so this adapter picks the one outcome that needs no
-// description and is itself vendor-documented: `always_on`, which puts
-// the full rule body in the prompt regardless of a description.
-const modelDecisionNeedsDescriptionReason = "an alwaysApply: false rule with no globs would need trigger: model_decision, but antigravity.google/docs/rules requires a description for that trigger and does not say what happens on an otherwise-valid trigger missing one, so the rule stays trigger: always_on instead"
-
-// noteRuleActivation buffers one coverage note per rule whose
-// `alwaysApply: false` could not select `model_decision` for lack of a
-// description, so it fell back to `always_on` (see ruleTrigger). Every
-// other activation field this adapter used to drop -- `globs` and
-// `alwaysApply` on their own -- now has a frontmatter key to land in;
-// see rule.go's package-level rule() for the mapping (#1113).
-func noteRuleActivation(rules []spec.Entry) {
-	fellBack := 0
-	for _, r := range rules {
-		m := emit.ResolveMeta(r.Meta, target)
-		if _, _, _, ok := ruleTrigger(m); ok {
-			fellBack++
-		}
-	}
-	emit.NoteFieldNoOp(target, spec.KindRule, "alwaysApply", fellBack, modelDecisionNeedsDescriptionReason)
-}
 
 // rule renders one rule file for RulesDirectory: mandatory YAML
 // frontmatter as the very first bytes, then the provenance header (via
@@ -92,16 +61,18 @@ func rule(e spec.Entry) string {
 }
 
 // ruleFrontmatter renders the frontmatter block in the vendor's own key
-// order (trigger, description, globs).
+// order (trigger, description, globs). globs is only ever non-empty
+// when ruleTrigger chose triggerGlob, so the `globs:` line only appears
+// there.
 func ruleFrontmatter(m map[string]any) string {
-	trigger, desc, globs, _ := ruleTrigger(m)
+	trigger, desc, globs := ruleTrigger(m)
 	var b strings.Builder
 	b.WriteString("---\n")
 	b.WriteString("trigger: " + trigger + "\n")
 	if desc != "" {
 		b.WriteString("description: " + emit.YAMLScalar(desc) + "\n")
 	}
-	if trigger == triggerGlob {
+	if globs != "" {
 		b.WriteString("globs: " + emit.YAMLScalar(globs) + "\n")
 	}
 	b.WriteString("---\n\n")
@@ -109,39 +80,61 @@ func ruleFrontmatter(m map[string]any) string {
 }
 
 // ruleTrigger resolves one rule's frontmatter trigger from its generic
-// `globs` / `alwaysApply` / `description` fields:
+// `globs` / `alwaysApply` / `description` fields. The mapping mirrors
+// the one windsurf's `activationFrontmatter` applies to the same three
+// fields (internal/adapters/windsurf/windsurf.go, #628), itself mirroring
+// cursor's `.mdc` renderer:
 //
-//	globs set                          -> glob
-//	alwaysApply: false, no globs,
-//	  description set                  -> model_decision
-//	alwaysApply: false, no globs,
-//	  no description                   -> always_on (fellBack: true)
-//	anything else (including unset)    -> always_on
+//	alwaysApply true or unset          -> always_on
+//	alwaysApply false + globs          -> glob
+//	alwaysApply false + description    -> model_decision
+//	alwaysApply false, neither         -> manual
 //
-// globs wins over alwaysApply even when alwaysApply is explicitly true,
-// matching the order the fix in #1113 was specified in: a spec that
-// declares both is asking to scope the rule, and `glob` is the only
-// trigger with a home for that. Returns the description and the
-// (possibly comma-joined) globs string alongside the trigger so both
-// rule() and noteRuleActivation derive the same decision from one
-// place.
-func ruleTrigger(m map[string]any) (trigger, desc, globs string, fellBack bool) {
+// `alwaysApply` decides first and wins outright: an `alwaysApply: true`
+// rule ignores `globs` entirely, the same choice cursor's `mdc()` makes
+// ("An alwaysApply:true rule ignores globs entirely ... omit it", #443),
+// so a rule seeded by `new rule` (`globs: "**/*"` and `alwaysApply: true`
+// together, docs/site/content/docs/spec-format.md#rules) stays
+// `always_on`: turning it into `trigger: glob` would only activate the
+// rule when the agent touches a matching file, not on every turn.
+// `alwaysApply` unset behaves the same as `true`: windsurf's own
+// `!ok || always` check and cursor's `always := true` default both
+// treat a missing key as always-on, so this adapter does too, and
+// `globs` alone (no `alwaysApply: false`) still resolves to
+// `always_on`.
+//
+// Every branch reaches a trigger with no unmet vendor requirement:
+// `glob` only fires with `globs` in hand, `model_decision` only fires
+// with `description` in hand, and `manual` needs neither ("The agent
+// injects the rule only when you explicitly @-mention it in chat",
+// antigravity.google/docs/rules), so there is no coverage note to raise
+// here (#1113; an earlier draft of this fix fell back to `always_on`
+// with a note for `alwaysApply: false` + no globs + no description,
+// which promotes a rule that opted out of always-on, the exact bug
+// #628 fixed for windsurf).
+//
+// `description` is returned whenever the spec has one, independent of
+// the chosen trigger ("recommended for all rules", same page), and
+// `globs` is returned only when the trigger is `glob`, so
+// ruleFrontmatter never writes a key the chosen trigger has no use for.
+func ruleTrigger(m map[string]any) (trigger, desc, globs string) {
 	desc, _ = m["description"].(string)
+	always := true
+	if v, ok := m["alwaysApply"].(bool); ok {
+		always = v
+	}
+	if always {
+		return triggerAlwaysOn, desc, ""
+	}
 	globs = ruleGlobs(m)
-	always, hasAlways := m["alwaysApply"].(bool)
-
-	trigger = triggerAlwaysOn
 	switch {
 	case globs != "":
-		trigger = triggerGlob
-	case hasAlways && !always:
-		trigger = triggerModelDecision
+		return triggerGlob, desc, globs
+	case desc != "":
+		return triggerModelDecision, desc, ""
+	default:
+		return triggerManual, desc, ""
 	}
-	if trigger == triggerModelDecision && desc == "" {
-		trigger = triggerAlwaysOn
-		fellBack = true
-	}
-	return trigger, desc, globs, fellBack
 }
 
 // ruleGlobs reads the generic `globs` field as a comma-joined string.

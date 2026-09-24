@@ -50,18 +50,87 @@ func TestEmit_Rule_Bare_TriggersAlwaysOn(t *testing.T) {
 	}
 }
 
-// A rule with `globs` writes `trigger: glob` and carries the globs
-// value verbatim, quoted per the vendor's own worked example ("Wrap
-// patterns starting with `*` in quotes so YAML does not treat `*` as an
-// alias anchor"). This used to drop silently with a coverage note; now
-// it has a frontmatter key to land in and no note fires (#1113).
-func TestEmit_Rule_Globs_TriggersGlob(t *testing.T) {
+// `alwaysApply` decides first and wins outright, matching windsurf's
+// `activationFrontmatter` (#628) and cursor's `mdc()` ("An
+// alwaysApply:true rule ignores globs entirely", #443): `globs` set
+// alongside `alwaysApply: true` still writes `trigger: always_on`, with
+// no `globs:` key at all. This is the exact shape `new rule` seeds
+// (`globs: "**/*"` and `alwaysApply: true` together,
+// docs/site/content/docs/spec-format.md#rules); turning it into
+// `trigger: glob` would activate the rule only when the agent touches a
+// matching file, not on every turn (#1113).
+func TestEmit_Rule_GlobsWithAlwaysApplyTrue_StaysAlwaysOn(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "seeded", Body: "body", Meta: map[string]any{
+			"globs":       "**/*",
+			"alwaysApply": true,
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(filepath.Join(dir, ".agents", "rules", "seeded.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(raw)
+	if !strings.Contains(got, "trigger: always_on\n") {
+		t.Errorf("expected trigger: always_on for a seeded rule, got:\n%s", got)
+	}
+	if strings.Contains(got, "globs:") {
+		t.Errorf("an always_on rule must not carry a globs key, got:\n%s", got)
+	}
+	if emit.PendingCoverageNotesCount() != 0 {
+		t.Errorf("must not buffer a coverage note, got: %s", buf.String())
+	}
+}
+
+// `globs` alone, with no explicit `alwaysApply: false`, also stays
+// `always_on`: an unset `alwaysApply` behaves like `true` (windsurf's
+// `!ok || always` check and cursor's `always := true` default both
+// treat a missing key that way), so this adapter does too.
+func TestEmit_Rule_GlobsAlone_StaysAlwaysOn(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	swapNoteWarner(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "py-style", Body: "body", Meta: map[string]any{
+			"globs": "**/*.py",
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(filepath.Join(dir, ".agents", "rules", "py-style.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(raw)
+	if !strings.Contains(got, "trigger: always_on\n") {
+		t.Errorf("expected trigger: always_on, got:\n%s", got)
+	}
+	if strings.Contains(got, "globs:") {
+		t.Errorf("an always_on rule must not carry a globs key, got:\n%s", got)
+	}
+}
+
+// `alwaysApply: false` with `globs` writes `trigger: glob` and carries
+// the globs value verbatim, quoted per the vendor's own worked example
+// ("Wrap patterns starting with `*` in quotes so YAML does not treat
+// `*` as an alias anchor"). No coverage note fires (#1113).
+func TestEmit_Rule_AlwaysApplyFalseWithGlobs_TriggersGlob(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	buf := swapNoteWarner(t)
 
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "py-style", Body: "body", Meta: map[string]any{
-			"globs": "**/*.py",
+			"globs":       "**/*.py",
+			"alwaysApply": false,
 		}},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
@@ -93,7 +162,8 @@ func TestEmit_Rule_GlobsList_CommaJoins(t *testing.T) {
 
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "ts-style", Body: "body", Meta: map[string]any{
-			"globs": []any{"*.ts", "*.tsx"},
+			"globs":       []any{"*.ts", "*.tsx"},
+			"alwaysApply": false,
 		}},
 	}
 	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
@@ -143,14 +213,13 @@ func TestEmit_Rule_AlwaysApplyFalseWithDescription_TriggersModelDecision(t *test
 	}
 }
 
-// `alwaysApply: false` with neither `globs` nor `description` cannot
-// safely become `trigger: model_decision`: the vendor's own table
-// marks `description` required there, and says nothing about what
-// happens on an otherwise-valid trigger missing it. This adapter falls
-// back to `trigger: always_on`, the one mode that needs no companion
-// field, and reports the fallback as a coverage note rather than
-// guessing (#1113).
-func TestEmit_Rule_AlwaysApplyFalseNoDescriptionNoGlobs_FallsBackToAlwaysOn(t *testing.T) {
+// `alwaysApply: false` with neither `globs` nor `description` writes
+// `trigger: manual`, the vendor's "load only on an @-mention" mode,
+// which needs no companion field. This is the same bug #628 fixed for
+// windsurf: a rule that opted out of always-on must not get promoted
+// back to it for lack of a description, so there is no fallback and no
+// coverage note (#1113).
+func TestEmit_Rule_AlwaysApplyFalseNoDescriptionNoGlobs_TriggersManual(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	buf := swapNoteWarner(t)
 
@@ -167,17 +236,11 @@ func TestEmit_Rule_AlwaysApplyFalseNoDescriptionNoGlobs_FallsBackToAlwaysOn(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(raw), "trigger: always_on\n") {
-		t.Errorf("expected the fallback trigger: always_on, got:\n%s", raw)
+	if !strings.Contains(string(raw), "trigger: manual\n") {
+		t.Errorf("expected trigger: manual, got:\n%s", raw)
 	}
-
-	emit.FlushCoverageNotes()
-	out := buf.String()
-	if !strings.Contains(out, "`alwaysApply` on 1 rule has no effect on antigravity") {
-		t.Errorf("expected a fallback coverage note, got: %s", out)
-	}
-	if !strings.Contains(out, "description") {
-		t.Errorf("expected the note to explain the missing description, got: %s", out)
+	if emit.PendingCoverageNotesCount() != 0 {
+		t.Errorf("must not buffer a coverage note, got: %s", buf.String())
 	}
 }
 
@@ -199,8 +262,9 @@ func TestEmit_Rule_AlwaysOnNotesNothing(t *testing.T) {
 	}
 }
 
-// `x-antigravity` overrides the generic frontmatter, so a rule that
-// clears its globs there has nothing left to lose.
+// `x-antigravity` overrides the generic frontmatter, so a rule whose
+// override clears its globs falls through to `manual` instead of
+// `glob`, proving the override actually lands before ruleTrigger runs.
 func TestEmit_Rule_TargetOverrideClearsGlobs(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	swapNoteWarner(t)
@@ -208,6 +272,7 @@ func TestEmit_Rule_TargetOverrideClearsGlobs(t *testing.T) {
 	entries := []spec.Entry{
 		{Kind: spec.KindRule, Name: "py-style", Body: "body", Meta: map[string]any{
 			"globs":          "**/*.py",
+			"alwaysApply":    false,
 			"x-antigravity":  map[string]any{"globs": ""},
 			"someOtherThing": 1,
 		}},
@@ -222,8 +287,8 @@ func TestEmit_Rule_TargetOverrideClearsGlobs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(raw), "trigger: always_on\n") {
-		t.Errorf("expected the cleared globs to fall back to trigger: always_on, got:\n%s", raw)
+	if !strings.Contains(string(raw), "trigger: manual\n") {
+		t.Errorf("expected the cleared globs to fall through to trigger: manual, got:\n%s", raw)
 	}
 }
 
