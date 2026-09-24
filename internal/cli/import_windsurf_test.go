@@ -548,6 +548,86 @@ func TestImportFromWindsurf_SurvivesUnreadableHiddenDir(t *testing.T) {
 	}
 }
 
+// TestImportFromWindsurf_UnreadableRootAbortsBeforeAnyWrite pins the
+// second #1124 review regression: the `path == root` check in
+// scopedRulesDirs sat after the `d.IsDir()` -> SkipDir branch, so it
+// never ran -- root is always a directory, so that branch always fired
+// first. With the project root unreadable (mode 0111: searchable, not
+// listable), WalkDir could not list it, the walker treated that the
+// same as skipping an ordinary unrelated directory, and
+// scopedRulesDirs returned zero scopes with no error. Root-level rules
+// still imported, the command reported success, and every scoped rule
+// silently went missing, which orphan-sweeps them on the next sync.
+// The root dir's own unreadability has to abort the whole import
+// instead, before anything is written. Every source dir is
+// pre-created, and its own contents are written, before the chmod
+// below: creating a new entry under an unreadable root would fail for
+// an unrelated reason (no write permission), which is not what this
+// test is pinning.
+func TestImportFromWindsurf_UnreadableRootAbortsBeforeAnyWrite(t *testing.T) {
+	skipUnlessCanDenyDirReads(t)
+	dir := t.TempDir()
+	src := rootSources()
+	for _, d := range []string{src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs, src.Settings} {
+		if err := os.MkdirAll(filepath.Join(dir, d), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeFile(t, filepath.Join(dir, ".devin", "rules", "root.md"), "# root\n\nroot body\n")
+	writeFile(t, filepath.Join(dir, "backend", ".devin", "rules", "auth.md"), "# auth\n\nauth body\n")
+
+	if err := os.Chmod(dir, 0o111); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
+
+	if err := importFromWindsurf(dir, src, nil); err == nil {
+		t.Fatal("expected an error when the project root itself cannot be read")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "rules", "root.md")); !os.IsNotExist(err) {
+		t.Errorf("root rule must not import when the scoped-rules scan could not even see the tree, err=%v", err)
+	}
+}
+
+// TestImportFromWindsurf_UnreadableScopedRulesDirLeavesRootDestinationUntouched
+// pins the third #1124 review regression: discovery only Stats a
+// candidate scope's rules dir to confirm it exists (dirExists), which
+// succeeds even when the directory itself cannot actually be read, so
+// `scopedRulesDirs` can legitimately record a scope whose rules dir is
+// unreadable. Without a preflight, the root rules dir imports first,
+// overwriting its destination, and only then does the scoped import
+// reach the unreadable directory and fail -- the command errors, but
+// the destination it already overwrote stays overwritten. The fix
+// preflights every discovered rules dir, root included, before any of
+// them is imported, so a failure here leaves the existing destination
+// byte-identical.
+func TestImportFromWindsurf_UnreadableScopedRulesDirLeavesRootDestinationUntouched(t *testing.T) {
+	skipUnlessCanDenyDirReads(t)
+	dir := t.TempDir()
+	src := rootSources()
+	original := "---\nname: root\n---\n\noriginal body, must survive\n"
+	writeFile(t, filepath.Join(dir, src.Rules, "root.md"), original)
+	writeFile(t, filepath.Join(dir, ".devin", "rules", "root.md"), "# root\n\nnew body that must never land\n")
+
+	unreadable := filepath.Join(dir, "backend", ".devin", "rules")
+	if err := os.MkdirAll(unreadable, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(unreadable, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(unreadable, 0o755) })
+
+	if err := importFromWindsurf(dir, src, nil); err == nil {
+		t.Fatal("expected an error when a discovered scoped rules dir cannot be read")
+	}
+
+	got := readFile(t, filepath.Join(dir, src.Rules, "root.md"))
+	if got != original {
+		t.Errorf("root destination must stay byte-identical when the scoped import fails, got:\n%s", got)
+	}
+}
+
 // TestImportFromWindsurf_ScopedRulesFollowRulesDirOverride pins #1123's
 // second finding for a scoped rules dir: emission honors
 // `outputs.windsurf.rules-dir` for a scoped rule too
