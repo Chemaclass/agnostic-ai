@@ -324,6 +324,25 @@ function test_fetch_one_goes_straight_to_the_reader_proxy_when_forced() {
   assert_equals "reader-proxy" "$(printf '%s' "$row" | cut -f5)"
 }
 
+function test_fetch_one_retries_a_rate_limited_proxy_fetch() {
+  PROXY_CALLS="$FIXTURES/proxy.calls"
+  : >"$PROXY_CALLS"
+  function docfetch_curl() {
+    printf 'x\n' >>"$PROXY_CALLS"
+    if [ "$(grep -c . <"$PROXY_CALLS")" -lt 3 ]; then
+      : >"$2"
+      printf '429\t%s\ttext/plain\n' "$1"
+      return 0
+    fi
+    printf 'Markdown Content:\nKiro reference %.0s' 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 >"$2"
+    printf '200\t%s\ttext/plain\n' "$1"
+  }
+  local row
+  row=$(DOCFETCH_RETRY_SLEEP=0 fetch_one kiro docs https://kiro.dev/docs/x/ "$FIXTURES/run" 1 proxy)
+  assert_equals "200" "$(printf '%s' "$row" | cut -f4)"
+  assert_equals "3" "$(grep -c . <"$PROXY_CALLS")"
+}
+
 function test_fetch_target_forces_the_proxy_for_a_target_marked_fetch_reader_proxy() {
   stub_curl "https://r.jina.ai/*|200|$(printf 'Markdown Content:\nKiro reference %.0s' 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20)" \
     "https://kiro.dev/*|200|<html><body><p>direct copy served to some networks only</p></body></html>"

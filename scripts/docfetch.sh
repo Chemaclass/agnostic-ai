@@ -123,6 +123,19 @@ docfetch_curl() {
     printf '000\t%s\t\n' "$url"
 }
 
+# proxy_curl <url> <out> fetches <url> through the reader proxy. The free
+# tier answers 429 once a runner sends a burst of pages, so a rate-limited
+# fetch waits and retries, three times, with a growing pause.
+proxy_curl() {
+  local url="$1" out="$2" attempt line
+  for attempt in 1 2 3 4; do
+    line=$(docfetch_curl "$READER_PROXY/$url" "$out")
+    [ "${line%%	*}" = "429" ] && [ "$attempt" -lt 4 ] || break
+    sleep $((${DOCFETCH_RETRY_SLEEP:-15} * attempt))
+  done
+  printf '%s\n' "$line"
+}
+
 # strip_html <file> prints the page's visible text, so a nonce or a rebuilt
 # script bundle does not read as a documentation change. Navigation, footers,
 # the <head>, and a "last modified" stamp are site chrome: a reordered sidebar
@@ -373,7 +386,7 @@ fetch_one() {
 
   local result code_line
   if [ -n "$force_proxy" ]; then
-    code_line=$(docfetch_curl "$READER_PROXY/$fetch_url" "$body")
+    code_line=$(proxy_curl "$fetch_url" "$body")
     mode=reader-proxy
   else
     code_line=$(docfetch_curl "$fetch_url" "$body")
@@ -384,7 +397,7 @@ fetch_one() {
 
   case "$force_proxy:$code" in
     :403 | :429 | :000 | :5??)
-      code_line=$(docfetch_curl "$READER_PROXY/$fetch_url" "$body")
+      code_line=$(proxy_curl "$fetch_url" "$body")
       code=$(printf '%s' "$code_line" | cut -f1)
       final=$(printf '%s' "$code_line" | cut -f2)
       ctype=$(printf '%s' "$code_line" | cut -f3)
