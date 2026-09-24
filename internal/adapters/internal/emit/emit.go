@@ -617,6 +617,76 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	return nil
 }
 
+// createUntrackedFileExclusive atomically claims path as a brand-new
+// file holding content, or reports that something already occupies it,
+// with the same capture/dry-run guards, project-root check, path
+// locking, and transaction logging (so a Rollback later in the same
+// pass removes the file this created) that WriteFile has, but it never
+// touches capturing, recording (the gitignore block builder), or
+// detailed recording (the sync ledger that proves ownership for the
+// next run's orphan sweep).
+//
+// Used for side content a caller writes deliberately outside its own
+// managed-output set, such as one candidate in MigrateLegacyPath's
+// numbered `.bak` search: that file must survive the *next* sync
+// untouched, not get treated as a generated output this run wrote and
+// a later run stopped writing, which is exactly what the orphan sweep
+// deletes (#1114 review).
+//
+// The claim goes through os.OpenFile with O_CREATE|O_EXCL, not a
+// separate os.Stat-then-os.WriteFile: that TOCTOU pair both raced
+// against a concurrent writer and, worse, let a dangling symlink at
+// path pass the existence check (os.Stat follows the link and reports
+// "not found" for a dangling target) only for the write that followed
+// to create the file at wherever the link actually pointed, possibly
+// outside the project. O_EXCL fails on any existing directory entry at
+// path, symlink included, dangling or not, without ever following it
+// (#1114 review). ok is false, with a nil error, exactly when path was
+// already taken; err is any other I/O failure, and unmanaged is
+// checked by the caller before this is reached, once per candidate,
+// since a numbered search tries several paths and only the caller
+// knows the whole set.
+func (s *Session) createUntrackedFileExclusive(path, content string, dryRun bool) (ok bool, err error) {
+	if s.IsCapturing() || dryRun {
+		return false, nil
+	}
+	if escapesProjectRoot(path) {
+		return false, fmt.Errorf("refusing to write outside the project root: %s", path)
+	}
+	defer lockPath(path)()
+	if err := mkdirAll(filepath.Dir(path), dirPerm); err != nil {
+		return false, fmt.Errorf("mkdir %s: %w", filepath.Dir(path), err)
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, filePerm)
+	if err != nil {
+		if errors.Is(err, fs.ErrExist) {
+			return false, nil
+		}
+		return false, fmt.Errorf("create %s: %w", path, err)
+	}
+	_, writeErr := f.WriteString(content)
+	closeErr := f.Close()
+	if err := firstNonNil(writeErr, closeErr); err != nil {
+		_ = os.Remove(path)
+		return false, fmt.Errorf("write %s: %w", path, err)
+	}
+	if s.transacting {
+		s.mu.Lock()
+		s.txLog = append(s.txLog, txEntry{path: path, content: nil})
+		s.mu.Unlock()
+	}
+	return true, nil
+}
+
+func firstNonNil(errs ...error) error {
+	for _, err := range errs {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // IsAbsent reports whether err means a file or directory cannot be
 // read because it is not there. The path not existing (fs.ErrNotExist)
 // is the obvious case. The other is the js/wasm playground, which has

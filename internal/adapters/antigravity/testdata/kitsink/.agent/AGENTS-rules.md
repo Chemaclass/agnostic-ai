@@ -19,6 +19,11 @@ rule 2 body
 <!-- source: rules/r3.md -->
 rule 3 body
 
+### r4
+
+<!-- source: rules/backend/r4.md -->
+scoped rule body
+
 ## Agents
 
 ### alpha

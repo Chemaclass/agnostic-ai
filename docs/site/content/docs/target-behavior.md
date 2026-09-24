@@ -15,7 +15,7 @@ These details apply across multiple adapters. For one tool's output tree and con
 
 ## Directory-specific instructions
 
-Rules with `scope` use native file conditions or nested instruction documents on 19 targets. Six targets skip them because native scope or its serialized format is unverified. See the [scope matrix and compatibility rules](@/docs/scoped-context.md#native-support) before combining tools. Target pages describe ordinary rules unless a scoped case is stated.
+Rules with `scope` use native file conditions or nested instruction documents on 20 targets. Five targets skip them because native scope is unverified. See the [scope matrix and compatibility rules](@/docs/scoped-context.md#native-support) before combining tools. Target pages describe ordinary rules unless a scoped case is stated.
 
 ## Entry-point files
 
@@ -29,7 +29,7 @@ Rules with `scope` use native file conditions or nested instruction documents on
 | `CONVENTIONS.md` | [aider](@/docs/targets/aider.md) |
 | `.github/copilot-instructions.md` | [copilot](@/docs/targets/copilot.md) |
 | `.rules` | [zed](@/docs/targets/zed.md) |
-| `.agent/AGENTS.md` | [antigravity](@/docs/targets/antigravity.md) |
+| `.agents/AGENTS.md` | [antigravity](@/docs/targets/antigravity.md) |
 
 Targets sharing a path write it once; dedup is automatic. Targets absent from the table above (cursor, continue) have no root entry-point: they emit only per-file artifacts under their own directory.
 

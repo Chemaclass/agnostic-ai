@@ -13,7 +13,7 @@ import (
 // TestAntigravityRoundTrip_SyncImportSyncIsByteEqual is the
 // antigravity audit's byte-stability gate from #343:
 //
-//	sync antigravity -> snapshot .agents/* (rules, agents, mcp) + .agent/AGENTS.md
+//	sync antigravity -> snapshot .agents/* (rules, agents, mcp, AGENTS.md)
 //	                 -> wipe source specs
 //	                 -> import antigravity
 //	                 -> wipe emit
@@ -151,6 +151,523 @@ gitignore:
 	}
 	if !strings.Contains(got, "trigger: manual\n") {
 		t.Errorf("an unrecognized trigger must fall to the narrowest mode, manual:\n%s", got)
+	}
+}
+
+// TestAntigravityScopedRoundTrip_ManualStaysManual is the scoped
+// counterpart of TestAntigravityRoundTrip_ManualTriggerWithDescriptionStaysManual
+// (second review of #1118): a scoped rule's `PrepareScopedRules` pass
+// always forces `alwaysApply: false` and a non-empty `globs` from the
+// scope pattern, so the generic mapping alone would always re-derive
+// `glob`, never `manual`, on the next sync. Only the preserved
+// `x-antigravity.trigger` override (`import`'s `NativeKeys`) stops that
+// broadening, and only when scope prep does not also strip the trigger
+// key back out.
+func TestAntigravityScopedRoundTrip_ManualStaysManual(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(`version: 1
+sources:
+  rules: .agnostic-ai/rules
+targets:
+  - antigravity
+gitignore:
+  enabled: false
+`), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, "backend", ".agents", "rules"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, "backend", ".agents", "rules", "manual-only.md"),
+		[]byte("---\ntrigger: manual\n---\n\nOnly load this on an @-mention.\n"), 0o644))
+
+	runCmd(t, "import", "antigravity")
+	must(t, os.RemoveAll(filepath.Join(dir, "backend")))
+	runCmd(t, "sync", "-t", "antigravity")
+
+	raw, err := os.ReadFile(filepath.Join(dir, "backend", ".agents", "rules", "manual-only.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(raw)
+	if !strings.Contains(got, "trigger: manual\n") {
+		t.Errorf("a scoped manual rule must round-trip as manual, not get promoted to glob by the scope's own forced globs:\n%s", got)
+	}
+	if strings.Contains(got, "trigger: glob") {
+		t.Errorf("must not silently broaden manual to glob:\n%s", got)
+	}
+}
+
+// TestAntigravityScopedRoundTrip_ManualWithDescriptionStaysManual is the
+// scoped variant with a description attached, so a naive re-derivation
+// from the generic fields alone would land on `model_decision` instead
+// of `glob`, an equally real broadening of activation (second review of
+// #1118).
+func TestAntigravityScopedRoundTrip_ManualWithDescriptionStaysManual(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(`version: 1
+sources:
+  rules: .agnostic-ai/rules
+targets:
+  - antigravity
+gitignore:
+  enabled: false
+`), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, "backend", ".agents", "rules"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, "backend", ".agents", "rules", "checklist.md"),
+		[]byte("---\ntrigger: manual\ndescription: Release checklist, read on demand.\n---\n\nConfirm the changelog and version bump.\n"), 0o644))
+
+	runCmd(t, "import", "antigravity")
+	must(t, os.RemoveAll(filepath.Join(dir, "backend")))
+	runCmd(t, "sync", "-t", "antigravity")
+
+	raw, err := os.ReadFile(filepath.Join(dir, "backend", ".agents", "rules", "checklist.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(raw)
+	if !strings.Contains(got, "trigger: manual\n") {
+		t.Errorf("a scoped manual rule with a description must round-trip as manual, not model_decision or glob:\n%s", got)
+	}
+	if !strings.Contains(got, "description: Release checklist, read on demand.") {
+		t.Errorf("expected the description to still carry through:\n%s", got)
+	}
+}
+
+// TestAntigravityScopedRoundTrip_UnknownTriggerStaysManual is the scoped
+// variant of TestAntigravityRoundTrip_UnknownTriggerDoesNotBroadenToAlwaysOn:
+// an unrecognized trigger on a scoped rule must fall to `manual`, not
+// silently broaden to `glob` from the scope's own forced globs (second
+// review of #1118).
+func TestAntigravityScopedRoundTrip_UnknownTriggerStaysManual(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(`version: 1
+sources:
+  rules: .agnostic-ai/rules
+targets:
+  - antigravity
+gitignore:
+  enabled: false
+`), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, "backend", ".agents", "rules"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, "backend", ".agents", "rules", "typo.md"),
+		[]byte("---\ntrigger: alwaysOn\n---\n\nUse tabs.\n"), 0o644))
+
+	runCmd(t, "import", "antigravity")
+	must(t, os.RemoveAll(filepath.Join(dir, "backend")))
+	runCmd(t, "sync", "-t", "antigravity")
+
+	raw, err := os.ReadFile(filepath.Join(dir, "backend", ".agents", "rules", "typo.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(raw)
+	if strings.Contains(got, "trigger: glob") || strings.Contains(got, "trigger: always_on") {
+		t.Errorf("an unrecognized trigger on a scoped rule must fall to manual, not glob or always_on:\n%s", got)
+	}
+	if !strings.Contains(got, "trigger: manual\n") {
+		t.Errorf("an unrecognized trigger must fall to the narrowest mode, manual:\n%s", got)
+	}
+}
+
+// TestAntigravityRoundTrip_LegacyBackupSurvivesASecondFullSync is the
+// third-review regression for #1118: writing `.agent/AGENTS.md.bak`
+// through the same tracked path a generated output uses recorded it in
+// the sync ledger. The next full sync no longer touches
+// `.agent/AGENTS.md` (it is already gone), so the backup never
+// re-appears in that sync's written set, and the orphan sweep deleted
+// it -- its own copied provenance marker "proved" ownership. Two
+// consecutive full syncs must leave the backup byte-identical.
+func TestAntigravityRoundTrip_LegacyBackupSurvivesASecondFullSync(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(`version: 1
+targets:
+  - antigravity
+gitignore:
+  enabled: false
+`), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, ".agent"), 0o755))
+	const legacy = "# AI Project Conventions\n\nGenerated by agnostic-ai. Do not edit by hand.\n\nstale.\n"
+	must(t, os.WriteFile(filepath.Join(dir, ".agent", "AGENTS.md"), []byte(legacy), 0o644))
+
+	runCmd(t, "sync", "-t", "antigravity")
+
+	bakPath := filepath.Join(dir, ".agent", "AGENTS.md.bak")
+	first, err := os.ReadFile(bakPath)
+	if err != nil {
+		t.Fatalf("missing backup after first sync: %v", err)
+	}
+	if string(first) != legacy {
+		t.Fatalf("backup does not match the original legacy content:\n%s", first)
+	}
+
+	runCmd(t, "sync", "-t", "antigravity")
+
+	second, err := os.ReadFile(bakPath)
+	if err != nil {
+		t.Fatalf("backup did not survive a second full sync (orphan-swept?): %v", err)
+	}
+	if string(second) != string(first) {
+		t.Errorf("backup changed across a second sync\nfirst:  %q\nsecond: %q", first, second)
+	}
+}
+
+// TestAntigravityRoundTrip_LegacyContentSurvivesAnExistingBackup is the
+// fourth-review regression: a legacy path already recorded in an
+// older, already-persisted sync ledger (simulated here directly in
+// `.agnostic-ai/.sync-state`, the way a project upgraded straight from
+// a pre-#1114 release would carry it) reads as an orphan the moment
+// this run's migration no longer declares it a managed output. Until
+// this fix, an already-taken `.bak` name made MigrateLegacyPath leave
+// the legacy file in place "to be safe", which was the opposite: the
+// orphan sweep then deleted it on the strength of its own copied
+// provenance marker, and its current bytes -- different from the
+// stale `.bak` -- were gone for good. One sync must now end with both
+// byte sets on disk.
+func TestAntigravityRoundTrip_LegacyContentSurvivesAnExistingBackup(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(`version: 1
+targets:
+  - antigravity
+gitignore:
+  enabled: false
+`), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai", ".sync-state"),
+		[]byte(`{"version":3,"synced_at":"2026-01-01T00:00:00Z","outputs":[".agent/AGENTS.md"]}`), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, ".agent"), 0o755))
+	const older = "Generated by agnostic-ai. Do not edit by hand.\n\nolder backup content.\n"
+	must(t, os.WriteFile(filepath.Join(dir, ".agent", "AGENTS.md.bak"), []byte(older), 0o644))
+	const current = "Generated by agnostic-ai. Do not edit by hand.\n\ncurrent legacy content, never backed up.\n"
+	must(t, os.WriteFile(filepath.Join(dir, ".agent", "AGENTS.md"), []byte(current), 0o644))
+
+	runCmd(t, "sync", "-t", "antigravity")
+
+	if _, err := os.Stat(filepath.Join(dir, ".agent", "AGENTS.md")); !os.IsNotExist(err) {
+		t.Errorf("legacy file should be removed once its bytes are backed up, err=%v", err)
+	}
+	gotOlder, err := os.ReadFile(filepath.Join(dir, ".agent", "AGENTS.md.bak"))
+	if err != nil {
+		t.Fatalf("existing backup must survive: %v", err)
+	}
+	if string(gotOlder) != older {
+		t.Errorf("existing backup must not be overwritten\nwant: %q\ngot:  %q", older, gotOlder)
+	}
+	gotCurrent, err := os.ReadFile(filepath.Join(dir, ".agent", "AGENTS.md.bak.1"))
+	if err != nil {
+		t.Fatalf("current legacy content must land in a numbered backup: %v", err)
+	}
+	if string(gotCurrent) != current {
+		t.Errorf("numbered backup should carry the legacy file's current bytes\nwant: %q\ngot:  %q", current, gotCurrent)
+	}
+}
+
+// TestAntigravityRoundTrip_ErrorsRatherThanExposeLegacyFileToOrphanSweep
+// is the fifth-review regression: when every backup candidate is
+// unmanaged (a `sync.unmanaged` glob covering the whole `.bak*` family,
+// simulating a user who marked their own backup convention as
+// hands-off), migration used to warn and return success, leaving
+// `.agent/AGENTS.md` in place with no copy of its bytes anywhere. With
+// a prior ledger entry for that path (the same upgrade-from-pre-#1114
+// scenario as the fourth-review test), the very next orphan sweep in
+// that same sync deleted it. The fix aborts the whole sync instead:
+// `.agent/AGENTS.md` must survive byte-identical and the sweep must
+// never run.
+func TestAntigravityRoundTrip_ErrorsRatherThanExposeLegacyFileToOrphanSweep(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(`version: 1
+targets:
+  - antigravity
+sync:
+  unmanaged:
+    - .agent/AGENTS.md.bak*
+gitignore:
+  enabled: false
+`), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai", ".sync-state"),
+		[]byte(`{"version":3,"synced_at":"2026-01-01T00:00:00Z","outputs":[".agent/AGENTS.md"]}`), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, ".agent"), 0o755))
+	const legacy = "Generated by agnostic-ai. Do not edit by hand.\n\nnever backed up.\n"
+	must(t, os.WriteFile(filepath.Join(dir, ".agent", "AGENTS.md"), []byte(legacy), 0o644))
+
+	runCmdExpectErr(t, "sync", "-t", "antigravity")
+
+	got, err := os.ReadFile(filepath.Join(dir, ".agent", "AGENTS.md"))
+	if err != nil {
+		t.Fatalf("legacy file must survive a failed sync: %v", err)
+	}
+	if string(got) != legacy {
+		t.Errorf("legacy file must survive byte-identical\nwant: %q\ngot:  %q", legacy, got)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".agent", "AGENTS.md.bak")); !os.IsNotExist(err) {
+		t.Errorf("no backup should exist when every candidate is unmanaged, err=%v", err)
+	}
+}
+
+// TestAntigravityRoundTrip_NestedRuleFileStaysDormant is the
+// import -> sync regression for the third review's second finding:
+// Antigravity "scans only immediate `.md` children inside
+// `.agents/rules/` ... ignores files nested in subdirectories", so a
+// file one level deeper is dormant there. Importing it anyway, and
+// preserving its subdirectory as a portable scope, reconstructed a
+// spec that the next sync placed at a fresh `<dir>/.agents/rules/`
+// root -- a real directory Antigravity does scan -- silently promoting
+// a dormant file to active. Covers both the root rules dir and a
+// scoped one, since both import paths share the same walker.
+func TestAntigravityRoundTrip_NestedRuleFileStaysDormant(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(`version: 1
+sources:
+  rules: .agnostic-ai/rules
+targets:
+  - antigravity
+gitignore:
+  enabled: false
+`), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, ".agents", "rules"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, ".agents", "rules", "root.md"), []byte("# root\n\nroot body\n"), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, ".agents", "rules", "archive"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, ".agents", "rules", "archive", "old.md"), []byte("# old\n\ndormant root-level body\n"), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, "backend", ".agents", "rules"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, "backend", ".agents", "rules", "auth.md"), []byte("# auth\n\nauth body\n"), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, "backend", ".agents", "rules", "archive"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, "backend", ".agents", "rules", "archive", "old.md"), []byte("# old\n\ndormant scoped body\n"), 0o644))
+
+	runCmd(t, "import", "antigravity")
+
+	for _, p := range []string{
+		filepath.Join(".agnostic-ai", "rules", "root.md"),
+		filepath.Join(".agnostic-ai", "rules", "backend", "auth.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
+			t.Errorf("missing imported spec %s: %v", p, err)
+		}
+	}
+	assertNoFileContains(t, filepath.Join(dir, ".agnostic-ai", "rules"), "dormant root-level body")
+	assertNoFileContains(t, filepath.Join(dir, ".agnostic-ai", "rules"), "dormant scoped body")
+
+	must(t, os.RemoveAll(filepath.Join(dir, ".agents")))
+	must(t, os.RemoveAll(filepath.Join(dir, "backend")))
+	runCmd(t, "sync", "-t", "antigravity")
+
+	for _, p := range []string{
+		filepath.Join(".agents", "rules", "archive", "old.md"),
+		filepath.Join("archive", ".agents", "rules", "old.md"),
+		filepath.Join("backend", "archive", ".agents", "rules", "old.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(dir, p)); !os.IsNotExist(err) {
+			t.Errorf("a dormant nested rule must not be activated by sync: %s exists (err=%v)", p, err)
+		}
+	}
+}
+
+// TestAntigravityRoundTrip_ScopeNamedLikeOwnOutputRoot is the
+// fourth-review import->sync regression: a rule scoped to a directory
+// literally named `.agents` emits to `.agents/.agents/rules/<name>.md`
+// (CheckScopePath accepts that name the same as `.github` or
+// `vendor`), but import pruned the root `.agents` directory as
+// Antigravity's own output root before ever checking whether it also
+// held a scoped rules dir, so that one scope name could emit but never
+// import back.
+func TestAntigravityRoundTrip_ScopeNamedLikeOwnOutputRoot(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(`version: 1
+sources:
+  rules: .agnostic-ai/rules
+targets:
+  - antigravity
+gitignore:
+  enabled: false
+`), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, ".agents", ".agents", "rules"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, ".agents", ".agents", "rules", "scoped.md"),
+		[]byte("# scoped\n\nscoped-in-dot-agents body\n"), 0o644))
+
+	runCmd(t, "import", "antigravity")
+
+	importedSpec := filepath.Join(dir, ".agnostic-ai", "rules", ".agents", "scoped.md")
+	if _, err := os.Stat(importedSpec); err != nil {
+		t.Fatalf("missing imported spec %s: %v", importedSpec, err)
+	}
+
+	must(t, os.RemoveAll(filepath.Join(dir, ".agents")))
+	runCmd(t, "sync", "-t", "antigravity")
+
+	raw, err := os.ReadFile(filepath.Join(dir, ".agents", ".agents", "rules", "scoped.md"))
+	if err != nil {
+		t.Fatalf("scope .agents did not re-emit at .agents/.agents/rules/scoped.md: %v", err)
+	}
+	if !strings.Contains(string(raw), "scoped-in-dot-agents body") {
+		t.Errorf("expected the scoped body to round-trip, got:\n%s", raw)
+	}
+}
+
+// TestAntigravityRoundTrip_LegacyScopeNamedLikeOwnOutputRoot is the
+// same fourth-review regression for the legacy singular default:
+// `.agent/.agent/rules/<name>.md` must round-trip once
+// `outputs.antigravity.rules-dir` points both emission and import at
+// `.agent/rules`.
+func TestAntigravityRoundTrip_LegacyScopeNamedLikeOwnOutputRoot(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(`version: 1
+sources:
+  rules: .agnostic-ai/rules
+targets:
+  - antigravity
+outputs:
+  antigravity:
+    rules-dir: .agent/rules
+gitignore:
+  enabled: false
+`), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, ".agent", ".agent", "rules"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, ".agent", ".agent", "rules", "scoped.md"),
+		[]byte("# scoped\n\nscoped-in-dot-agent body\n"), 0o644))
+
+	runCmd(t, "import", "antigravity")
+
+	importedSpec := filepath.Join(dir, ".agnostic-ai", "rules", ".agent", "scoped.md")
+	if _, err := os.Stat(importedSpec); err != nil {
+		t.Fatalf("missing imported spec %s: %v", importedSpec, err)
+	}
+
+	must(t, os.RemoveAll(filepath.Join(dir, ".agent")))
+	runCmd(t, "sync", "-t", "antigravity")
+
+	raw, err := os.ReadFile(filepath.Join(dir, ".agent", ".agent", "rules", "scoped.md"))
+	if err != nil {
+		t.Fatalf("scope .agent did not re-emit at .agent/.agent/rules/scoped.md: %v", err)
+	}
+	if !strings.Contains(string(raw), "scoped-in-dot-agent body") {
+		t.Errorf("expected the scoped body to round-trip, got:\n%s", raw)
+	}
+}
+
+// TestAntigravityRoundTrip_DeeperScopeInsideOwnOutputRoot is the
+// fifth-review import->sync regression: a rule scoped to `.agents/pkg`
+// emits to `.agents/pkg/.agents/rules/<name>.md`, one level deeper than
+// the root `.agents` directory the earlier fix already checked. The
+// walker pruned `.agents`'s descendants outright once it confirmed the
+// root itself was not a scope, so a scope nested any further inside
+// never imported back.
+func TestAntigravityRoundTrip_DeeperScopeInsideOwnOutputRoot(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(`version: 1
+sources:
+  rules: .agnostic-ai/rules
+targets:
+  - antigravity
+gitignore:
+  enabled: false
+`), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, ".agents", "pkg", ".agents", "rules"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, ".agents", "pkg", ".agents", "rules", "scoped.md"),
+		[]byte("# scoped\n\nscoped-in-dot-agents-pkg body\n"), 0o644))
+
+	runCmd(t, "import", "antigravity")
+
+	importedSpec := filepath.Join(dir, ".agnostic-ai", "rules", ".agents", "pkg", "scoped.md")
+	if _, err := os.Stat(importedSpec); err != nil {
+		t.Fatalf("missing imported spec %s: %v", importedSpec, err)
+	}
+
+	must(t, os.RemoveAll(filepath.Join(dir, ".agents")))
+	runCmd(t, "sync", "-t", "antigravity")
+
+	raw, err := os.ReadFile(filepath.Join(dir, ".agents", "pkg", ".agents", "rules", "scoped.md"))
+	if err != nil {
+		t.Fatalf("scope .agents/pkg did not re-emit at .agents/pkg/.agents/rules/scoped.md: %v", err)
+	}
+	if !strings.Contains(string(raw), "scoped-in-dot-agents-pkg body") {
+		t.Errorf("expected the scoped body to round-trip, got:\n%s", raw)
+	}
+}
+
+// TestAntigravityRoundTrip_DeeperLegacyScopeInsideOwnOutputRoot is the
+// same fifth-review regression for the legacy singular default:
+// `.agent/pkg/.agent/rules/<name>.md` must round-trip once
+// `outputs.antigravity.rules-dir` points both emission and import at
+// `.agent/rules`.
+func TestAntigravityRoundTrip_DeeperLegacyScopeInsideOwnOutputRoot(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(`version: 1
+sources:
+  rules: .agnostic-ai/rules
+targets:
+  - antigravity
+outputs:
+  antigravity:
+    rules-dir: .agent/rules
+gitignore:
+  enabled: false
+`), 0o644))
+	must(t, os.MkdirAll(filepath.Join(dir, ".agent", "pkg", ".agent", "rules"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, ".agent", "pkg", ".agent", "rules", "scoped.md"),
+		[]byte("# scoped\n\nscoped-in-dot-agent-pkg body\n"), 0o644))
+
+	runCmd(t, "import", "antigravity")
+
+	importedSpec := filepath.Join(dir, ".agnostic-ai", "rules", ".agent", "pkg", "scoped.md")
+	if _, err := os.Stat(importedSpec); err != nil {
+		t.Fatalf("missing imported spec %s: %v", importedSpec, err)
+	}
+
+	must(t, os.RemoveAll(filepath.Join(dir, ".agent")))
+	runCmd(t, "sync", "-t", "antigravity")
+
+	raw, err := os.ReadFile(filepath.Join(dir, ".agent", "pkg", ".agent", "rules", "scoped.md"))
+	if err != nil {
+		t.Fatalf("scope .agent/pkg did not re-emit at .agent/pkg/.agent/rules/scoped.md: %v", err)
+	}
+	if !strings.Contains(string(raw), "scoped-in-dot-agent-pkg body") {
+		t.Errorf("expected the scoped body to round-trip, got:\n%s", raw)
+	}
+}
+
+// assertNoFileContains fails the test if any file under root contains
+// substr.
+func assertNoFileContains(t *testing.T, root, substr string) {
+	t.Helper()
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			if os.IsNotExist(walkErr) {
+				return nil
+			}
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if strings.Contains(string(data), substr) {
+			t.Errorf("%s unexpectedly contains %q (a dormant nested file must not import)", path, substr)
+		}
+		return nil
+	})
+	if err != nil && !os.IsNotExist(err) {
+		t.Fatalf("walk %s: %v", root, err)
 	}
 }
 

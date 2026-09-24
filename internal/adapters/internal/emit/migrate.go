@@ -163,23 +163,131 @@ const ProvenanceMarker = header.Marker
 //     directory derived from cfg.Outputs[target].File (or the default
 //     output path), so a custom output location migrates correctly.
 //
-// On success, renames `<rootDir>/<legacyName>` to `<rootDir>/<legacyName>.bak`
-// and prints a one-line warning to Warner.
+// Errors are swallowed (logged nowhere) to keep this call site's
+// existing void contract for amp and warp; a target that needs the
+// error propagated, or whose legacy and new paths sit in different
+// directories, should call MigrateLegacyPath directly instead.
 func (s *Session) MigrateLegacyFile(cfg *config.Config, target, legacyName, defaultNewPath string, dryRun bool) {
-	if dryRun || s.IsCapturing() {
-		return
-	}
 	legacyPath := legacyFilePath(cfg, target, legacyName, defaultNewPath)
+	_ = s.MigrateLegacyPath(target, legacyPath, defaultNewPath, dryRun)
+}
+
+// MigrateLegacyPath is MigrateLegacyFile for a legacy path that is
+// already fully resolved, rather than a bare filename joined against
+// the new default's own directory. Use it when the legacy and current
+// paths sit in different directories, which legacyFilePath's
+// same-directory join cannot express (antigravity's
+// `.agent/AGENTS.md` -> `.agents/AGENTS.md`, #1114).
+//
+// Both halves of the move go through session-owned writes, not a bare
+// os.Rename, so a StartTransaction / Rollback pair spanning the rest of
+// the sync pass undoes it cleanly: the backup is a brand-new file
+// (removed on rollback) and the legacy file's removal is
+// transaction-logged with its prior bytes (restored on rollback). A
+// caller with no open transaction sees the same net effect
+// MigrateLegacyFile always had.
+//
+// The backup itself claims its name through createUntrackedFileExclusive,
+// not WriteFile: it carries the legacy file's own provenance marker (it
+// is a byte copy), so recording it into the sync ledger the way an
+// ordinary generated output is recorded left it looking, to the next
+// sync, like output this run stopped writing. Antigravity's own
+// migration no longer touches `.agent/AGENTS.md` on that next run (it
+// is already gone), so the ledger never re-records the backup, and the
+// orphan sweep deleted a user's preserved bytes as if they were a stale
+// generated file (#1114 review). The pre-Session `os.Rename` version of
+// this migration (amp, warp) never had that failure mode, since a bare
+// rename touches no bookkeeping at all; createUntrackedFileExclusive
+// restores that guarantee while keeping the write transaction-aware.
+//
+// Skipped, like MigrateLegacyFile, on dryRun, during capture mode, when
+// the legacy file is missing or carries no provenance marker, and when
+// sync.unmanaged matches the legacy path. An existing `<legacyPath>.bak`
+// is never overwritten, and the legacy file is never simply left in
+// place either: leaving it in place once an earlier draft of this fix
+// ran out of names to try was itself a data-loss bug (a file present
+// in an older, already-persisted sync ledger but absent from this run's
+// output set reads as an orphan to the next run's sweep, which deletes
+// it on the strength of its own provenance marker, discarding whatever
+// bytes it held that were not yet in any backup, #1114 review).
+// MigrateLegacyPath instead numbers past a taken name (`.bak`, `.bak.1`,
+// `.bak.2`, ...) until it finds one it can atomically claim; exhausting
+// the search bound (1000 names, or every remaining candidate being
+// sync.unmanaged) now returns an error instead of silently leaving the
+// legacy file exposed to the next sweep, so the whole sync pass aborts
+// before the sweep ever runs and the legacy file survives untouched
+// (#1114 review).
+// A real I/O failure on the backup write or the legacy removal is
+// returned, not swallowed, so a caller wired into a transaction can
+// roll the whole sync pass back instead of leaving a half-moved file.
+func (s *Session) MigrateLegacyPath(target, legacyPath, defaultNewPath string, dryRun bool) error {
+	if dryRun || s.IsCapturing() {
+		return nil
+	}
 	data, err := os.ReadFile(legacyPath)
 	if err != nil || !bytes.Contains(data, []byte(ProvenanceMarker)) || s.skipUnmanaged(legacyPath) {
-		return
+		return nil
 	}
-	if err := os.Rename(legacyPath, legacyPath+".bak"); err != nil {
-		return
+	backupPath, err := s.claimUntrackedBackupPath(legacyPath, string(data), dryRun)
+	if err != nil {
+		return err
+	}
+	if backupPath == "" {
+		return fmt.Errorf("%s: could not find a free backup name for %s after %d attempts; refusing to leave it exposed to the next orphan sweep",
+			target, legacyPath, maxUntrackedBackupAttempts)
+	}
+	if _, err := s.RemoveOwned(legacyPath, "", dryRun); err != nil {
+		return fmt.Errorf("remove %s: %w", legacyPath, err)
 	}
 	newName := filepath.Base(defaultNewPath)
-	_, _ = fmt.Fprintf(Warner, "%s: renamed legacy %s to %s.bak; new layout writes %s\n",
-		target, legacyPath, legacyPath, newName)
+	_, _ = fmt.Fprintf(Warner, "%s: renamed legacy %s to %s; new layout writes %s\n",
+		target, legacyPath, filepath.Base(backupPath), newName)
+	return nil
+}
+
+// maxUntrackedBackupAttempts bounds the numbered-suffix search in
+// claimUntrackedBackupPath so a pathological pile of prior `.bak.N`
+// files (or an unmanaged pattern matching all of them) cannot loop
+// forever.
+const maxUntrackedBackupAttempts = 1000
+
+// claimUntrackedBackupPath atomically claims and writes the first of
+// `<legacyPath>.bak`, `<legacyPath>.bak.1`, `<legacyPath>.bak.2`, ...
+// that is neither sync.unmanaged nor already occupied, so
+// MigrateLegacyPath can always park a legacy file's current bytes
+// somewhere instead of discarding them when an earlier backup already
+// claims the conventional name. "" (with a nil error) means every
+// candidate within the search bound was unmanaged or taken.
+//
+// Each candidate goes through createUntrackedFileExclusive rather than
+// a separate os.Stat existence check followed by a write: that
+// check-then-write pair both raced a concurrent writer for the same
+// name and, worse, treated a dangling symlink at a candidate path as
+// "free" (os.Stat follows the link and reports the link itself
+// missing), so the write that followed created a file at wherever the
+// symlink actually pointed, possibly outside the project (#1114
+// review). O_EXCL folds the existence check and the claim into one
+// atomic operation and never follows a symlink at the final path
+// component, so both the race and the escape are closed at the same
+// time, and no separate Lstat pre-check is needed to get there.
+func (s *Session) claimUntrackedBackupPath(legacyPath, content string, dryRun bool) (string, error) {
+	for i := 0; i < maxUntrackedBackupAttempts; i++ {
+		candidate := legacyPath + ".bak"
+		if i > 0 {
+			candidate = fmt.Sprintf("%s.%d", candidate, i)
+		}
+		if s.IsUnmanaged(candidate) {
+			continue
+		}
+		ok, err := s.createUntrackedFileExclusive(candidate, content, dryRun)
+		if err != nil {
+			return "", fmt.Errorf("backup %s: %w", legacyPath, err)
+		}
+		if ok {
+			return candidate, nil
+		}
+	}
+	return "", nil
 }
 
 // legacyFilePath resolves legacyName against the directory holding the

@@ -55,7 +55,7 @@ var entryPointPaths = map[string]string{
 	"aider":       "CONVENTIONS.md",
 	"zed":         ".rules",
 	"copilot":     ".github/copilot-instructions.md",
-	"antigravity": ".agent/AGENTS.md",
+	"antigravity": ".agents/AGENTS.md",
 }
 
 // ConventionalEntryPointPaths returns the distinct conventional root

@@ -32,13 +32,31 @@
 // carries through whenever the spec has one, on every trigger (see
 // rule.go, #1113).
 //
-// The same page caps the file: "Rules files are limited to 12,000
-// characters each". An over-cap rule still emits, since the vendor does
-// not say whether it truncates or rejects, but it reports a coverage
-// note so the author hears it from `sync` rather than from agent
-// behavior. The count is taken on the text that lands, frontmatter,
-// provenance header, and heading included (target-audit 2026-09-19,
-// #896).
+// The same page caps one rule file at 24,000 bytes: "Antigravity
+// truncates any single rule file that exceeds 24,000 bytes (after
+// expanding `@[label](path)` includes)". An over-cap rule still emits in
+// full, since agnostic-ai never truncates on the author's behalf, but
+// `sync` reports a coverage note naming the truncation so the author
+// hears it before Antigravity cuts the file, not after. The count is
+// taken on the bytes that land, frontmatter, provenance header, and
+// heading included (target-audit 2026-09-24, #1114). A separate
+// 20,000-token budget covers every `always_on` rule together: past it,
+// Antigravity demotes its largest rules from inline text to a
+// `path: description` pointer, so this adapter raises no note for that
+// budget and a `description` is worth setting on every rule to keep the
+// pointer useful.
+//
+// A rule with a `scope` emits into a copy of the rules directory nested
+// at that scope, `<scope>/.agents/rules/<name>.md`, rather than dropping
+// with a coverage note: "You can place ... a `.agents/rules/` directory
+// ... in any subdirectory of your project. Whenever Antigravity reads or
+// edits a file, it walks up the directory tree ..., loading rules at
+// each level" (antigravity.google/docs/rules). The frontmatter is the
+// same `rule()` renderer every unscoped file gets, and the file never
+// nests deeper than one level inside the scope: "Antigravity scans only
+// immediate `.md` children inside `.agents/rules/` ... ignores files
+// nested in subdirectories," so a rule two directories deep loses its
+// own subdirectory structure the same way an unscoped rule already does.
 //
 // `sync --global` writes skills to `~/.gemini/config/skills/`. The
 // vendor's IDE tab rows that path as the global scope and calls
@@ -73,15 +91,26 @@
 // (`mainAgent`, `subagent`, `commandExecutionPolicy`, `mcpServers`,
 // `skills`/`plugins`) reaches the file through `x-antigravity` too.
 //
-// The `.agent/AGENTS.md` entry-point is written centrally by `sync`
+// The `.agents/AGENTS.md` entry-point is written centrally by `sync`
 // as a slim pointer to the source specs (one body shared with every
-// other target's entry-point file). No Antigravity page documents an
-// AGENTS.md-family project file, so that path is an agnostic-ai
-// convention picked to stay clear of the project-root `AGENTS.md`
-// codex, amp, and warp own. Every rule body still lands in the
-// documented `.agents/rules/` tree. When `outputs.antigravity.rules-file`
-// is set, this adapter instead writes the legacy merged layout at that
-// path so users on older workflows keep their behavior.
+// other target's entry-point file). The vendor now documents this
+// exact path per subdirectory, `<dir>/.agents/AGENTS.md` alongside
+// `<dir>/.agents/GEMINI.md`, "AGENTS.md and GEMINI.md do not use
+// frontmatter ... continuously active (always_on)"
+// (antigravity.google/docs/rules), still clear of the project-root
+// `AGENTS.md` codex, amp, and warp own. It replaces the pre-#1114
+// `.agent/AGENTS.md` default, which named no documented read path; Emit
+// sweeps a managed leftover there aside to `.agent/AGENTS.md.bak`
+// (sweepLegacyEntryPoint), the same intent as `amp` and `warp` migrating
+// their own renamed entry-point files, written by hand here because the
+// rename crosses directories, not just filenames, which
+// emit.MigrateLegacyFile does not resolve on its own. `import
+// antigravity` reads the new path first, falling back to the old one
+// only when the new one is absent. Every rule body
+// still lands in the documented `.agents/rules/` tree. When
+// `outputs.antigravity.rules-file` is set, this adapter instead writes
+// the legacy merged layout at that path so users on older workflows
+// keep their behavior.
 //
 // MCP servers land in `.agents/mcp_config.json`, a single `mcpServers`
 // object (antigravity.google/docs/mcp?tab=ide). Remote servers require the
@@ -132,6 +161,15 @@ const (
 	// the matching outputs.antigravity.* key). See the package doc.
 	legacyRulesDir  = ".agent/rules"
 	legacySkillsDir = ".agent/skills"
+	// defaultEntryPointFile and legacyEntryPointFile mirror the
+	// EntryPointPath map in internal/adapters/internal/emit/entrypoint.go
+	// (adapter packages cannot import each other's private state, so the
+	// literal is duplicated the way legacyRulesDir already is). sync
+	// writes defaultEntryPointFile centrally; Emit only sweeps the
+	// pre-#1114 legacy path aside once it carries the agnostic-ai
+	// provenance marker. See the package doc.
+	defaultEntryPointFile = ".agents/AGENTS.md"
+	legacyEntryPointFile  = ".agent/AGENTS.md"
 	// defaultAgentsDir is Antigravity's workspace subagent path:
 	// Antigravity discovers nested workspace profiles at
 	// `.agents/agents/<name>/agent.md` (antigravity.google/docs/subagents).
@@ -162,29 +200,38 @@ func (Adapter) Name() string { return target }
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
 // Emit writes per-rule files under .agents/rules/, each carrying the
-// mandatory `trigger` frontmatter (see rule.go), one subagent file
+// mandatory `trigger` frontmatter (see rule.go), a nested copy under
+// `<scope>/.agents/rules/` for a scoped rule, one subagent file
 // per agent under .agents/agents/<name>/agent.md, a folder per skill under
 // .agents/skills/<name>/SKILL.md, .agents/mcp_config.json for MCP
 // servers, .agents/hooks.json for hooks, and, when opted in via
 // outputs.antigravity.rules-file, a
 // legacy merged document at that path. A stale managed tree at the
 // pre-plural `.agent/rules` / `.agent/skills` defaults is swept unless
-// the user explicitly opted into that legacy path. The `.agent/AGENTS.md`
-// entry-point is written by `sync`, not here.
+// the user explicitly opted into that legacy path. The `.agents/AGENTS.md`
+// entry-point is written by `sync`, not here; Emit only sweeps a managed
+// leftover at the pre-#1114 `.agent/AGENTS.md` path aside.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
+		return err
+	}
+	if err := sweepLegacyEntryPoint(sess, cfg, dryRun); err != nil {
 		return err
 	}
 	rulesDir := emit.OutputRulesDir(cfg, target, defaultRulesDir)
 	// Agents and skills emit through their native layouts below, so
 	// suppress the rule-form `agent-<name>.md` / `skill-<name>.md`
 	// output from RulesDirectory. FormatRule writes the mandatory
-	// trigger frontmatter every rule file needs (#1113).
+	// trigger frontmatter every rule file needs (#1113). ScopeAtRoot
+	// places a scoped rule's copy of the rules directory inside the
+	// scope (`<scope>/.agents/rules/<name>.md`), matching the vendor's
+	// own directory-scoped discovery (#1114).
 	if err := sess.RulesDirectory(b, emit.RulesDirOpts{
-		Dir:        rulesDir,
-		SkipAgents: true,
-		SkipSkills: true,
-		FormatRule: rule,
+		Dir:         rulesDir,
+		SkipAgents:  true,
+		SkipSkills:  true,
+		FormatRule:  rule,
+		ScopeAtRoot: true,
 	}, dryRun); err != nil {
 		return err
 	}
@@ -228,4 +275,26 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 
 	return sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "AGENTS.md"}, dryRun)
+}
+
+// sweepLegacyEntryPoint renames a managed `.agent/AGENTS.md` left by a
+// pre-#1114 sync aside to `.agent/AGENTS.md.bak`, so the user notices
+// the move to the documented `.agents/AGENTS.md` path. It delegates to
+// emit.Session.MigrateLegacyPath, which MigrateLegacyFile cannot do
+// here: that helper resolves the legacy name against the new default's
+// own directory, which fits amp's `AGENT.md` -> `AGENTS.md` and warp's
+// `WARP.md` -> `AGENTS.md` (same directory, different filename) and not
+// this rename, which crosses directories (`.agent/` to `.agents/`).
+// MigrateLegacyPath moves both halves through the session's
+// transaction-aware WriteFile and RemoveOwned, so a Rollback later in
+// the same sync pass restores `.agent/AGENTS.md` instead of leaving the
+// move half-done, and it never overwrites an existing `.bak`. A
+// project with `outputs.antigravity.file` set is skipped entirely: the
+// pre-#1114 default only ever wrote `.agent/AGENTS.md` when
+// unconfigured, so an override never had a legacy file to sweep.
+func sweepLegacyEntryPoint(sess *emit.Session, cfg *config.Config, dryRun bool) error {
+	if emit.EntryPointPath(cfg, target) != defaultEntryPointFile {
+		return nil
+	}
+	return sess.MigrateLegacyPath(target, legacyEntryPointFile, defaultEntryPointFile, dryRun)
 }

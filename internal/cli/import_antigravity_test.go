@@ -81,6 +81,264 @@ func TestImportFromAntigravity_ReadsPluralRulesDir(t *testing.T) {
 	}
 }
 
+// TestImportFromAntigravity_ReadsScopedRulesDirs is the import half of
+// the scoped-rules fix: sync writes a scoped rule to
+// `<scope>/.agents/rules/<name>.md`, outside the project's own rules
+// tree, so import has to scan the project for that layout too (#1114).
+func TestImportFromAntigravity_ReadsScopedRulesDirs(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".agents", "rules", "root.md"), "# root\n\nroot body\n")
+	writeFile(t, filepath.Join(dir, "backend", ".agents", "rules", "auth.md"), "# auth\n\nauth body\n")
+	writeFile(t, filepath.Join(dir, "backend", "api", ".agents", "rules", "limits.md"), "# limits\n\nlimits body\n")
+
+	if err := importFromAntigravity(dir, rootSources(), nil); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, p := range []string{
+		filepath.Join("rules", "root.md"),
+		filepath.Join("rules", "backend", "auth.md"),
+		filepath.Join("rules", "backend", "api", "limits.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
+			t.Errorf("missing imported spec %s: %v", p, err)
+		}
+	}
+}
+
+// TestImportFromAntigravity_ReadsHiddenAndVendorScopedRulesDirs pins
+// #1114's import-side fix: `CheckScopePath` accepts a scope like
+// `.github`, `vendor`, or `node_modules`, so emission can write a
+// scoped rule under any of them, and import must round-trip it instead
+// of pruning the directory before ever looking inside it.
+func TestImportFromAntigravity_ReadsHiddenAndVendorScopedRulesDirs(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".github", ".agents", "rules", "release.md"), "# release\n\nrelease body\n")
+	writeFile(t, filepath.Join(dir, "vendor", ".agents", "rules", "pkg.md"), "# pkg\n\npkg body\n")
+	writeFile(t, filepath.Join(dir, "node_modules", ".agents", "rules", "pkg2.md"), "# pkg2\n\npkg2 body\n")
+
+	if err := importFromAntigravity(dir, rootSources(), nil); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, p := range []string{
+		filepath.Join("rules", ".github", "release.md"),
+		filepath.Join("rules", "vendor", "pkg.md"),
+		filepath.Join("rules", "node_modules", "pkg2.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
+			t.Errorf("missing imported spec %s: %v", p, err)
+		}
+	}
+}
+
+// TestImportFromAntigravity_SkipsGitAndOwnOutputDirs confirms the scan
+// still prunes `.git` (never a legitimate scope) and Antigravity's own
+// output roots (`.agents`, `.agent`), which the non-scoped import call
+// already reads; walking into them looking for a nested copy of
+// themselves would either find nothing or misread the tool's own tree
+// as a scope.
+func TestImportFromAntigravity_SkipsGitAndOwnOutputDirs(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".git", ".agents", "rules", "ignored.md"), "# ignored\n\nignored body\n")
+	writeFile(t, filepath.Join(dir, ".agents", "rules", "root.md"), "# root\n\nroot body\n")
+
+	if err := importFromAntigravity(dir, rootSources(), nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, "rules", "ignored.md")); !os.IsNotExist(err) {
+		t.Errorf(".git must never be scanned for scopes, err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "rules", "root.md")); err != nil {
+		t.Errorf("missing imported spec rules/root.md: %v", err)
+	}
+}
+
+// TestImportFromAntigravity_ScopeNamedLikeOwnOutputRootStillImports is
+// the fourth-review regression: `.agents` and `.agent` are pruned as
+// Antigravity's own output roots before ever checking whether that
+// root-level directory is itself a scope, so a rule legitimately
+// scoped to a directory named `.agents` (or `.agent`) -- emission
+// accepts it the same as `.github` or `vendor` -- could never import
+// back. Covers the plural default: `.agents/.agents/rules/<name>.md`
+// must still import as scope `.agents`, while the plain (non-doubled)
+// `.agents/rules/root.md` stays exclusively the root import's file,
+// not a scope copy.
+func TestImportFromAntigravity_ScopeNamedLikeOwnOutputRootStillImports(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".agents", "rules", "root.md"), "# root\n\nroot body\n")
+	writeFile(t, filepath.Join(dir, ".agents", ".agents", "rules", "scoped.md"), "# scoped\n\nscoped-in-agents body\n")
+
+	if err := importFromAntigravity(dir, rootSources(), nil); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, p := range []string{
+		filepath.Join("rules", "root.md"),
+		filepath.Join("rules", ".agents", "scoped.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
+			t.Errorf("missing imported spec %s: %v", p, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, "rules", ".agents", "root.md")); !os.IsNotExist(err) {
+		t.Errorf("the plain (non-doubled) .agents/rules/root.md must stay the root import's file, not a scope copy, err=%v", err)
+	}
+}
+
+// TestImportFromAntigravity_LegacyScopeNamedLikeOwnOutputRootStillImports
+// is the same fourth-review regression for the legacy singular default:
+// with no `.agents/rules` on disk, antigravityImportDir falls back to
+// `.agent/rules`, and `.agent/.agent/rules/<name>.md` must still import
+// as scope `.agent`.
+func TestImportFromAntigravity_LegacyScopeNamedLikeOwnOutputRootStillImports(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".agent", "rules", "root.md"), "# root\n\nroot body\n")
+	writeFile(t, filepath.Join(dir, ".agent", ".agent", "rules", "scoped.md"), "# scoped\n\nscoped-in-agent body\n")
+
+	if err := importFromAntigravity(dir, rootSources(), nil); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, p := range []string{
+		filepath.Join("rules", "root.md"),
+		filepath.Join("rules", ".agent", "scoped.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
+			t.Errorf("missing imported spec %s: %v", p, err)
+		}
+	}
+}
+
+// TestImportFromAntigravity_DeeperScopeInsideOwnOutputRootStillImports
+// is the fifth-review regression: the walker used to check only
+// whether the root `.agents` directory was itself a scope and then
+// prune its descendants outright, so a scope nested one level deeper
+// -- `.agents/pkg`, emitted at `.agents/pkg/.agents/rules/` -- never
+// imported. Only the known unscoped output subtrees
+// (rules/skills/agents/plugins) are pruned now; everything else under
+// `.agents` is still walked, at any depth.
+func TestImportFromAntigravity_DeeperScopeInsideOwnOutputRootStillImports(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".agents", "rules", "root.md"), "# root\n\nroot body\n")
+	writeFile(t, filepath.Join(dir, ".agents", "pkg", ".agents", "rules", "scoped.md"), "# scoped\n\nscoped-in-agents-pkg body\n")
+
+	if err := importFromAntigravity(dir, rootSources(), nil); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, p := range []string{
+		filepath.Join("rules", "root.md"),
+		filepath.Join("rules", ".agents", "pkg", "scoped.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
+			t.Errorf("missing imported spec %s: %v", p, err)
+		}
+	}
+}
+
+// TestImportFromAntigravity_DeeperLegacyScopeInsideOwnOutputRootStillImports
+// is the same fifth-review regression for the legacy singular default:
+// `.agent/pkg/.agent/rules/<name>.md` must still import as scope
+// `.agent/pkg`.
+func TestImportFromAntigravity_DeeperLegacyScopeInsideOwnOutputRootStillImports(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".agent", "rules", "root.md"), "# root\n\nroot body\n")
+	writeFile(t, filepath.Join(dir, ".agent", "pkg", ".agent", "rules", "scoped.md"), "# scoped\n\nscoped-in-agent-pkg body\n")
+
+	if err := importFromAntigravity(dir, rootSources(), nil); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, p := range []string{
+		filepath.Join("rules", "root.md"),
+		filepath.Join("rules", ".agent", "pkg", "scoped.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
+			t.Errorf("missing imported spec %s: %v", p, err)
+		}
+	}
+}
+
+// TestImportFromAntigravity_NestedScopeMatchingSourceRootNameStillImports
+// regresses the second-review finding: pruning by directory basename at
+// every depth, not just the exact root-relative source path, treated
+// `packages/api/config` as the configured `config/rules` source root
+// and pruned it, so `packages/api/config/.agents/rules/auth.md` never
+// imported (#1114 review).
+func TestImportFromAntigravity_NestedScopeMatchingSourceRootNameStillImports(t *testing.T) {
+	dir := t.TempDir()
+	src := rootSources()
+	src.Rules = filepath.Join("config", "rules")
+	writeFile(t, filepath.Join(dir, "packages", "api", "config", ".agents", "rules", "auth.md"), "# auth\n\nauth body\n")
+
+	if err := importFromAntigravity(dir, src, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	got := filepath.Join(dir, "config", "rules", "packages", "api", "config", "auth.md")
+	if _, err := os.Stat(got); err != nil {
+		t.Errorf("missing imported spec %s: %v", got, err)
+	}
+}
+
+// TestImportFromAntigravity_ScopedRulesFollowRulesDirOverride pins the
+// third-review finding: emission honors `outputs.antigravity.rules-dir`
+// for a scoped rule too (`<scope>/<rules-dir>/<name>.md`), so import
+// must resolve the same configured directory instead of only ever
+// looking for `.agents/rules` / `.agent/rules` (#1114 review).
+func TestImportFromAntigravity_ScopedRulesFollowRulesDirOverride(t *testing.T) {
+	dir := t.TempDir()
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{"antigravity": {RulesDir: filepath.Join(".agent", "rules")}},
+	}
+	writeFile(t, filepath.Join(dir, "backend", ".agent", "rules", "auth.md"), "# auth\n\nauth body\n")
+
+	if err := importFromAntigravity(dir, rootSources(), cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	got := filepath.Join(dir, "rules", "backend", "auth.md")
+	if _, err := os.Stat(got); err != nil {
+		t.Errorf("missing imported spec %s: %v", got, err)
+	}
+}
+
+// TestImportFromAntigravity_SkipsNestedRuleFiles pins the fourth-review
+// finding: Antigravity "scans only immediate `.md` children inside
+// `.agents/rules/` ... ignores files nested in subdirectories", so a
+// file one level deeper than a rules root (root or scoped) is dormant
+// there and must not import at all.
+func TestImportFromAntigravity_SkipsNestedRuleFiles(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".agents", "rules", "root.md"), "# root\n\nroot body\n")
+	writeFile(t, filepath.Join(dir, ".agents", "rules", "archive", "old.md"), "# old\n\nroot-nested body\n")
+	writeFile(t, filepath.Join(dir, "backend", ".agents", "rules", "auth.md"), "# auth\n\nauth body\n")
+	writeFile(t, filepath.Join(dir, "backend", ".agents", "rules", "archive", "old.md"), "# old\n\nscoped-nested body\n")
+
+	if err := importFromAntigravity(dir, rootSources(), nil); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, p := range []string{
+		filepath.Join("rules", "root.md"),
+		filepath.Join("rules", "backend", "auth.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
+			t.Errorf("missing imported spec %s: %v", p, err)
+		}
+	}
+	for _, p := range []string{
+		filepath.Join("rules", "archive", "old.md"),
+		filepath.Join("rules", "backend", "archive", "old.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(dir, p)); !os.IsNotExist(err) {
+			t.Errorf("a dormant nested rule file must not import: %s exists, err=%v", p, err)
+		}
+	}
+}
+
 func TestImportFromAntigravity_ImportsNestedAgentProfiles(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".agents/agents/reviewer/agent.md"),
@@ -428,10 +686,33 @@ func TestImportFromAntigravity_UnknownTriggerPreservedVerbatimAndWarns(t *testin
 
 func TestImportFromAntigravity_MirrorsAgentsMD(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, ".agent"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, ".agents"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	body := "# Project\n\nTop-level instructions.\n"
+	writeFile(t, filepath.Join(dir, ".agents", "AGENTS.md"), body)
+
+	if err := importFromAntigravity(dir, rootSources(), nil); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, agnosticMainFile))
+	if err != nil {
+		t.Fatalf("missing %s: %v", agnosticMainFile, err)
+	}
+	if string(got) != body {
+		t.Errorf("%s not byte-identical to .agents/AGENTS.md. got %q", agnosticMainFile, got)
+	}
+}
+
+// A project synced before #1114 only has the legacy `.agent/AGENTS.md`.
+// Import falls back to it when the preferred `.agents/AGENTS.md` is
+// absent.
+func TestImportFromAntigravity_MirrorsLegacyAgentsMD(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".agent"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	body := "# Project\n\nLegacy top-level instructions.\n"
 	writeFile(t, filepath.Join(dir, ".agent", "AGENTS.md"), body)
 
 	if err := importFromAntigravity(dir, rootSources(), nil); err != nil {

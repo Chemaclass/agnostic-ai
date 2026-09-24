@@ -191,13 +191,14 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - watch: MCP fields beyond stdio `command`/`args`/`env`/`cwd`, remote `serverUrl`/`headers`, and `disabled`. `description`, `roots` and a `type` discriminant are unconfirmed and omitted on purpose; do not file them as missing. A fourth subagent `model` tier beyond `inherit`/`flash`/`pro`. Docs catching up on `inheritCustomizations`, the `rules:` key and `skills.json`/`agents.json`/`rules.json` discovery; they appear only in Hub changelog prose, so do not model them.
 - quirk: append `.md` to a docs path for a clean markdown mirror. `changelog.md` 404s, but the changelog HTML reads fine with curl plus a tag-strip. Pass `--compressed`; one edge returned raw brotli.
 - quirk: old `/docs/ide/rules|skills|mcp|hooks` are refresh stubs to the `?tab=ide` pages. `https://antigravity.google/llms.txt` lists the canonical set.
-- decision: rules emit as a bare file with a drop note. The four activation modes have no documented frontmatter key; Windsurf's `trigger:`/`globs:` is a guess, not evidence (#865).
-- decision: `.agent/AGENTS.md` is our convention to keep codex, amp and warp clear at the root. No docs page names `AGENTS.md` (#865).
+- decision: every rule starts with `trigger` frontmatter; a file without it is silently discarded. Mapping follows windsurf and cursor: `alwaysApply` true or unset is `always_on`, false with `globs` is `glob`, false with `description` is `model_decision`, false alone is `manual` (#1113, supersedes #865).
+- decision: `.agents/AGENTS.md` is the documented per-subdirectory entry point (`<dir>/.agents/AGENTS.md`), still clear of codex/amp/warp's root `AGENTS.md` (#1114, corrects #865, which predates the docs page naming it).
+- decision: a scoped rule emits to `<scope>/.agents/rules/<name>.md`, the vendor's own directory-scoped discovery; never nested deeper than one level (#1114).
 - trap: hooks (`.agents/hooks.json`) run in the IDE: `transcriptPath` resolves under `~/.gemini/antigravity-ide`. Do not re-open.
 - decision: subagents emit to nested `.agents/agents/<name>/agent.md` (#717). Never write a generic `tools`: the vocabulary (`view_file`, `run_command`) has zero Claude overlap and an unmapped name can hang the subagent. Use `x-antigravity.tools`.
 - decision: global skills go to `~/.gemini/config/skills/`; `~/.gemini/antigravity/skills/` is legacy (#896).
 - trap: `/docs/slash-commands` says `/learn` writes `.antigravity/rules.md`. Every rules page says `.agents/rules/`. Likely stale copy; only running `/learn` in the IDE settles it. Do not file on the prose.
-- note: rules files cap at 12,000 characters, a coverage note; truncate or reject is undocumented.
+- note: a rules file caps at 24,000 bytes and truncates over it, a coverage note (#1114, corrects the earlier 12,000-character/undocumented-outcome reading). A separate 20,000-token aggregate budget across `always_on` rules demotes the largest to a path-plus-description pointer; docs-only, no note.
 
 ## junie
 

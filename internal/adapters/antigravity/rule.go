@@ -2,35 +2,38 @@ package antigravity
 
 import (
 	"strings"
-	"unicode/utf8"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// ruleCharLimit is the cap Antigravity states for one rules file:
-// "Rules files are limited to 12,000 characters each"
+// ruleByteLimit is the per-file cap Antigravity states for one rules
+// file: "Antigravity truncates any single rule file that exceeds
+// 24,000 bytes (after expanding `@[label](path)` includes)"
 // (antigravity.google/docs/rules).
-const ruleCharLimit = 12000
+const ruleByteLimit = 24000
 
-// ruleTooLongReason is the user-facing half of the over-cap note. The
-// vendor states the limit and not what happens past it, so the note
-// does not claim truncation or rejection, only that the file is over.
-const ruleTooLongReason = "Antigravity limits a rules file to 12,000 characters and does not say whether it truncates or rejects a longer one; split the rule"
+// ruleTooLongReason is the user-facing half of the over-cap note,
+// naming the vendor's own documented outcome: truncation, not
+// rejection.
+const ruleTooLongReason = "Antigravity truncates a rules file over 24,000 bytes; split the rule"
 
 // ruleTooLongSurface names what the over-cap rule misses.
 const ruleTooLongSurface = "its rules loader in full"
 
 // noteOversizedRules buffers one note per rule whose emitted file runs
-// past the vendor's stated character cap. Measured on the text rule
-// actually writes, frontmatter, provenance header, and heading
+// past the vendor's stated per-file byte cap. Measured on the bytes
+// rule actually writes, frontmatter, provenance header, and heading
 // included, not on the spec body, so a rule that only clears the cap
 // once agnostic-ai's own preamble is added still reports
-// (target-audit 2026-09-19, #896).
+// (target-audit 2026-09-19, #896; cap corrected to bytes, #1114). The
+// separate 20,000-token aggregate budget across every always_on rule
+// degrades gracefully to a path-plus-description pointer, so it raises
+// no note here; see the package doc and the target page.
 func noteOversizedRules(rules []spec.Entry) {
 	over := 0
 	for _, r := range rules {
-		if utf8.RuneCountInString(rule(r)) > ruleCharLimit {
+		if len(rule(r)) > ruleByteLimit {
 			over++
 		}
 	}
