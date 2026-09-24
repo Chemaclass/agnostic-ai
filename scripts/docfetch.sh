@@ -123,10 +123,34 @@ docfetch_curl() {
     printf '000\t%s\t\n' "$url"
 }
 
+# proxy_curl <url> <out> fetches <url> through the reader proxy. The free
+# tier answers 429 once a runner sends a burst of pages, so a rate-limited
+# fetch waits and retries, three times, with a growing pause. The pauses
+# draw on one budget per target (DOCFETCH_RETRY_BUDGET seconds, kept in
+# DOCFETCH_RETRY_STATE), so a proxy that stays down fails the remaining
+# rows fast instead of outliving the workflow timeout with no report.
+proxy_curl() {
+  local url="$1" out="$2" attempt line pause spent
+  for attempt in 1 2 3 4; do
+    line=$(docfetch_curl "$READER_PROXY/$url" "$out")
+    [ "${line%%	*}" = "429" ] && [ "$attempt" -lt 4 ] || break
+    pause=$((${DOCFETCH_RETRY_SLEEP:-15} * attempt))
+    spent=$(cat "${DOCFETCH_RETRY_STATE:-/dev/null}" 2>/dev/null || true)
+    spent=${spent:-0}
+    [ $((spent + pause)) -lt "${DOCFETCH_RETRY_BUDGET:-120}" ] || break
+    [ -n "${DOCFETCH_RETRY_STATE:-}" ] && echo $((spent + pause)) >"$DOCFETCH_RETRY_STATE"
+    sleep "$pause"
+  done
+  printf '%s\n' "$line"
+}
+
 # strip_html <file> prints the page's visible text, so a nonce or a rebuilt
 # script bundle does not read as a documentation change. Navigation, footers,
 # the <head>, and a "last modified" stamp are site chrome: a reordered sidebar
 # or a rebuild date would otherwise mark every page on the host as changed.
+# The separator is the class "[<]", not the string "<": macOS awk also
+# splits on newlines for a one-character string, which dropped every line
+# after the first of a multi-line text node there but not on Linux.
 # A tag ends at the first ">" outside a quoted attribute: utility-class sites
 # put ">" inside class values ("[&>*:first-child]:rounded-r-none"), and
 # cutting there leaked the class list into the text on every deploy.
@@ -144,7 +168,7 @@ strip_html() {
     }
     { all = all $0 "\n" }
     END {
-      n = split(all, parts, "<")
+      n = split(all, parts, "[<]")
       out = parts[1]
       for (i = 2; i <= n; i++) {
         p = parts[i]
@@ -358,7 +382,7 @@ slugify() {
 
 # fetch_one <target> <kind> <url> <dir> <index> prints one run row.
 fetch_one() {
-  local target="$1" kind="$2" url="$3" dir="$4" idx="$5"
+  local target="$1" kind="$2" url="$3" dir="$4" idx="$5" force_proxy="${6:-}"
   local fetch_url mode rewrite body ctype code final text_len refresh alt host stem
   rewrite=$(github_rewrite "$url")
   fetch_url=${rewrite%%	*}
@@ -369,14 +393,19 @@ fetch_one() {
   body="$stem.body"
 
   local result code_line
-  code_line=$(docfetch_curl "$fetch_url" "$body")
+  if [ -n "$force_proxy" ]; then
+    code_line=$(proxy_curl "$fetch_url" "$body")
+    mode=reader-proxy
+  else
+    code_line=$(docfetch_curl "$fetch_url" "$body")
+  fi
   code=$(printf '%s' "$code_line" | cut -f1)
   final=$(printf '%s' "$code_line" | cut -f2)
   ctype=$(printf '%s' "$code_line" | cut -f3)
 
-  case "$code" in
-    403 | 429 | 000 | 5??)
-      code_line=$(docfetch_curl "$READER_PROXY/$fetch_url" "$body")
+  case "$force_proxy:$code" in
+    :403 | :429 | :000 | :5??)
+      code_line=$(proxy_curl "$fetch_url" "$body")
       code=$(printf '%s' "$code_line" | cut -f1)
       final=$(printf '%s' "$code_line" | cut -f2)
       ctype=$(printf '%s' "$code_line" | cut -f3)
@@ -499,12 +528,23 @@ fetch_one() {
     "$status" "$final" "${body#"$dir"/}"
 }
 
+# fetch_target <target> <dir> fetches one target's URLs. A "- fetch:
+# reader-proxy" line in its source section sends every URL through the
+# proxy: a host that blocks some networks (kiro.dev, cursor.com) otherwise
+# serves HTML to one machine and a proxy copy to another, and the two
+# representations never hash the same.
 fetch_target() {
-  local target="$1" dir="$2" idx=0 kind url
+  local target="$1" dir="$2" idx=0 kind url proxy=""
+  if source_sections "$target" | grep -q '^- fetch: reader-proxy'; then
+    proxy=1
+  fi
+  mkdir -p "$dir/rows"
+  export DOCFETCH_RETRY_STATE="$dir/rows/.retry-$target"
+  rm -f "$DOCFETCH_RETRY_STATE"
   while IFS=$'\t' read -r kind url; do
     [ -n "$url" ] || continue
     idx=$((idx + 1))
-    fetch_one "$target" "$kind" "$url" "$dir" "$idx"
+    fetch_one "$target" "$kind" "$url" "$dir" "$idx" "$proxy"
   done < <(resolve_urls "$target")
 }
 
