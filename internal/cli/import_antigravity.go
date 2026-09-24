@@ -68,6 +68,34 @@ func antigravityImportDir(root string) string {
 	return antigravityRulesDirs[0]
 }
 
+// normalizeAntigravityRuleMeta turns Antigravity's `trigger` frontmatter
+// key back into the generic `alwaysApply` the spec format uses, so a
+// synced rule imports to the spec it came from (#1113). The singular
+// `glob` spelling the vendor also accepts folds onto the plural `globs`
+// key `rulesDirFileContent` reads. An unrecognized trigger value is
+// left alone rather than guessed at, matching normalizeWindsurfRuleMeta.
+func normalizeAntigravityRuleMeta(meta map[string]any) {
+	if _, hasGlobs := meta["globs"]; !hasGlobs {
+		if g, ok := meta["glob"]; ok {
+			meta["globs"] = g
+		}
+	}
+	delete(meta, "glob")
+
+	trigger, ok := meta["trigger"].(string)
+	if !ok {
+		return
+	}
+	switch trigger {
+	case "always_on":
+		delete(meta, "trigger")
+		meta["alwaysApply"] = true
+	case "glob", "model_decision", "manual":
+		delete(meta, "trigger")
+		meta["alwaysApply"] = false
+	}
+}
+
 // importFromAntigravity reads an existing Antigravity project under
 // root and writes specs into the configured source directories.
 //
@@ -76,7 +104,10 @@ func antigravityImportDir(root string) string {
 //     agents, the rest to rules; the provenance header and the leading
 //     `# <heading>\n` block are stripped from each body). The
 //     `agent-<name>.md` form covers projects synced before agents moved
-//     to their own directory (#638).
+//     to their own directory (#638). The mandatory `trigger` frontmatter
+//     translates back to `alwaysApply` / `globs` / `description` via
+//     normalizeAntigravityRuleMeta (#1113); a pre-#1113 bare rule file
+//     carries no frontmatter at all and imports unchanged.
 //   - `.agents/agents/<name>/agent.md` (the preferred native subagent form)
 //     reconstructs agents, byte-for-byte minus the provenance header,
 //     so `model` and any `x-antigravity` key round-trip untouched. A
@@ -95,7 +126,9 @@ func importFromAntigravity(root string, src config.Sources, cfg *config.Config) 
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.MCPs); err != nil {
 		return err
 	}
-	c, err := importRulesDirectory(root, antigravityImportDir(root), src)
+	c, err := importRulesDirectoryWith(root, antigravityImportDir(root), src, rulesDirImportOpts{
+		NormalizeMeta: normalizeAntigravityRuleMeta,
+	})
 	if err != nil {
 		return err
 	}
