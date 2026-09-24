@@ -20,6 +20,7 @@ function set_up() {
   FIXTURES=$(mktemp -d)
   export TARGET_AUDIT_LOCK="$FIXTURES/sources.lock"
   LOCK="$TARGET_AUDIT_LOCK"
+  export DOCFETCH_SNAPSHOTS="$FIXTURES/snapshots"
 }
 
 function tear_down() {
@@ -692,4 +693,133 @@ function test_fetch_one_notices_a_new_release_tag() {
   local second
   second=$(fetch_one crush changelog https://github.com/charmbracelet/crush/releases "$FIXTURES/run" 2)
   assert_not_equals "$(printf '%s' "$first" | cut -f6)" "$(printf '%s' "$second" | cut -f6)"
+}
+
+# ---- word_delta --------------------------------------------------------------
+
+function test_word_delta_marks_removed_and_added_words_with_context() {
+  printf 'Rules load from .cursor/rules and apply to every file.\n' >"$FIXTURES/old.txt"
+  printf 'Rules load from .cursor/rules and apply to matching files.\n' >"$FIXTURES/new.txt"
+  local out
+  out=$(word_delta "$FIXTURES/old.txt" "$FIXTURES/new.txt")
+  assert_contains "[-every file.-]" "$out"
+  assert_contains "{+matching files.+}" "$out"
+  assert_contains "apply to" "$out"
+}
+
+function test_word_delta_is_empty_when_only_whitespace_moved() {
+  printf 'a  b\n  c\n' >"$FIXTURES/old.txt"
+  printf 'a b c\n' >"$FIXTURES/new.txt"
+  assert_empty "$(word_delta "$FIXTURES/old.txt" "$FIXTURES/new.txt")"
+}
+
+function test_word_delta_prints_one_line_per_distant_change() {
+  {
+    printf 'start '
+    printf 'filler %.0s' $(seq 1 60)
+    printf 'end\n'
+  } >"$FIXTURES/old.txt"
+  sed -e 's/^start/begin/' -e 's/end$/finish/' "$FIXTURES/old.txt" >"$FIXTURES/new.txt"
+  assert_equals 2 "$(word_delta "$FIXTURES/old.txt" "$FIXTURES/new.txt" | grep -c .)"
+}
+
+# ---- delta_label -------------------------------------------------------------
+
+function test_delta_label_names_a_path_we_write() {
+  printf '.cursor/BUGBOT.md\nalwaysApply\n' >"$FIXTURES/vocab"
+  printf 'Each [-rule-]{+.cursor/BUGBOT.md file+} is truncated\n' >"$FIXTURES/d"
+  assert_equals "mentions:.cursor/BUGBOT.md" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
+}
+
+function test_delta_label_ignores_a_vocabulary_hit_in_context_only() {
+  printf '.cursor/BUGBOT.md\n' >"$FIXTURES/vocab"
+  printf 'Create .cursor/BUGBOT.md files [-now-]{+today+}\n' >"$FIXTURES/d"
+  assert_equals "prose" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
+}
+
+function test_delta_label_calls_known_page_chrome_chrome() {
+  : >"$FIXTURES/vocab"
+  printf 'Search... [-Ask Assistant \xe2\x8c\x98 I-] Navigation\n' >"$FIXTURES/d"
+  printf 'Dismiss {+[](https://kiro.dev/) K+} Changelog\n' >>"$FIXTURES/d"
+  printf 'faster. {+Loading diagram...+} Instead\n' >>"$FIXTURES/d"
+  assert_equals "chrome-only" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
+}
+
+function test_delta_label_keeps_prose_that_sits_beside_chrome() {
+  : >"$FIXTURES/vocab"
+  printf 'x {+Loading diagram... Rules now need a trigger key+} y\n' >"$FIXTURES/d"
+  assert_equals "prose" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
+}
+
+function test_delta_label_calls_an_empty_delta_whitespace_only() {
+  : >"$FIXTURES/vocab"
+  : >"$FIXTURES/d"
+  assert_equals "whitespace-only" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
+}
+
+# ---- delta_vocab -------------------------------------------------------------
+
+function test_delta_vocab_keeps_paths_and_keys_but_not_plain_words() {
+  local out
+  out=$(delta_vocab cursor)
+  assert_contains ".cursor/BUGBOT.md" "$out"
+  assert_contains ".cursor/rules" "$out"
+  assert_not_contains "$(printf '\nmodel\n')" "$(printf '\n%s\n' "$out")"
+}
+
+# ---- snapshots and deltas ----------------------------------------------------
+
+# seed_run <dir> <url> <text> writes a one-row changed run with its hashed text.
+function seed_run() {
+  local dir="$1" url="$2" text="$3"
+  mkdir -p "$dir/pages/cursor"
+  printf '%s\n' "$text" >"$dir/pages/cursor/docs-1-x.txt"
+  : >"$dir/pages/cursor/docs-1-x.body"
+  printf 'cursor\tdocs\t%s\t200\thtml\tabc\t2026-09-24\tchanged\t%s\tpages/cursor/docs-1-x.body\n' \
+    "$url" "$url" >"$dir/docfetch.tsv"
+}
+
+function test_update_saves_the_hashed_text_as_the_snapshot() {
+  seed_run "$FIXTURES/run" https://cursor.com/docs/bugbot "Bugbot reads .cursor/BUGBOT.md"
+  lock_merge "$FIXTURES/run/docfetch.tsv"
+  assert_equals "Bugbot reads .cursor/BUGBOT.md" "$(cat "$(snapshot_path https://cursor.com/docs/bugbot)")"
+}
+
+function test_update_leaves_unselected_targets_snapshots_alone() {
+  seed_run "$FIXTURES/run" https://cursor.com/docs/bugbot "new text"
+  lock_merge "$FIXTURES/run/docfetch.tsv" claude
+  assert_file_not_exists "$(snapshot_path https://cursor.com/docs/bugbot)"
+}
+
+function test_write_deltas_diffs_a_changed_row_against_its_snapshot() {
+  seed_run "$FIXTURES/old" https://cursor.com/docs/bugbot "Each rule is truncated at 30,000 characters"
+  lock_merge "$FIXTURES/old/docfetch.tsv"
+  seed_run "$FIXTURES/run" https://cursor.com/docs/bugbot "Each rule is truncated at 40,000 characters"
+  write_deltas "$FIXTURES/run" >/dev/null
+  assert_contains "[-30,000-]{+40,000+}" "$(cat "$FIXTURES/run/pages/cursor/docs-1-x.delta")"
+  assert_contains "$(printf 'cursor\tdocs\thttps://cursor.com/docs/bugbot\tprose')" \
+    "$(cat "$FIXTURES/run/deltas.tsv")"
+}
+
+function test_write_deltas_labels_a_row_without_a_snapshot() {
+  seed_run "$FIXTURES/run" https://cursor.com/docs/bugbot "first sight"
+  write_deltas "$FIXTURES/run" >/dev/null
+  assert_equals "no-snapshot" "$(cut -f4 "$FIXTURES/run/deltas.tsv")"
+  assert_file_not_exists "$FIXTURES/run/pages/cursor/docs-1-x.delta"
+}
+
+function test_write_deltas_prints_a_label_count() {
+  seed_run "$FIXTURES/run" https://cursor.com/docs/bugbot "first sight"
+  assert_equals "deltas: 1 (1 no-snapshot)" "$(write_deltas "$FIXTURES/run")"
+}
+
+function test_write_deltas_survives_the_scripts_strict_mode() {
+  # docfetch.sh runs under set -euo pipefail, and diff exits 1 on any
+  # difference. bashunit does not, so run it the way the script does.
+  seed_run "$FIXTURES/old" https://cursor.com/docs/bugbot "old words here"
+  lock_merge "$FIXTURES/old/docfetch.tsv"
+  seed_run "$FIXTURES/run" https://cursor.com/docs/bugbot "new words here"
+  local out
+  out=$(bash -c 'set -euo pipefail; source "$1"; write_deltas "$2"' _ "$SCRIPT_DIR/docfetch.sh" "$FIXTURES/run")
+  assert_equals "deltas: 1 (1 prose)" "$out"
 }
