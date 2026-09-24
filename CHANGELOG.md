@@ -18,6 +18,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Fixed
 
+- Windsurf: `import windsurf` reads a scoped rule under any directory name and honors `outputs.windsurf.rules-dir` (#1123).
 - Antigravity: every rule now carries the `trigger` frontmatter Antigravity requires, so rules stop being silently discarded (#1113).
 - Antigravity: the oversized-rule note fires at Antigravity's documented 24,000-byte cap and names truncation, not a 12,000-character guess with an unknown outcome (#1114).
 - OpenCode, Kilo: plugin hooks pass commands to the shell unchanged, match tool names exactly, and block a tool only when a command exits 2 (#1110).

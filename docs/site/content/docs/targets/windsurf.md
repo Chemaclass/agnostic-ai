@@ -87,7 +87,7 @@ Devin Local does not pick the surface back up: "Workflows are not available with
 
 `import windsurf` also reads `permissions` back from `.devin/config.json`. Devin's `Exec` is a prefix matcher with no exact-command form, so it imports as the portable prefix spelling `Bash(<cmd>:*)` rather than the narrower `Bash(<cmd>)`.
 
-`agnostic-ai import windsurf` reads rules from `.devin/rules/`, falling back to legacy `.windsurf/rules/`, and reclassifies each file by [filename prefix](@/docs/cli-reference.md#filename-prefix-reclassification).
+`agnostic-ai import windsurf` reads rules from `outputs.windsurf.rules-dir` when set, the same path emission writes to; unconfigured, it falls back to `.devin/rules/`, then legacy `.windsurf/rules/`, and reclassifies each file by [filename prefix](@/docs/cli-reference.md#filename-prefix-reclassification). It also scans the whole project tree for a scoped copy of that directory (`<scope>/<rules-dir>/*.md`) to reconstruct a scoped rule. `CheckScopePath` rejects nothing about a name like `.github`, `vendor`, or `node_modules`, so a rule scoped there imports back too, not just a scope with a plain visible name (#1123).
 
 Skills import from `.agents/skills/`, `.devin/skills/`, then `.windsurf/skills/`. The first same-name skill wins. Bundled assets and executable modes survive, and native `triggers` move under `x-windsurf` as described under **Skills**.
 

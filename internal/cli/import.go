@@ -154,7 +154,7 @@ func runImport(root, source string, cfg *config.Config) error {
 	case "crush":
 		return importFromCrush(root, src)
 	case "windsurf":
-		return importFromWindsurf(root, src)
+		return importFromWindsurf(root, src, cfg)
 	case "trae":
 		return importFromTrae(root, src)
 	case "junie":
