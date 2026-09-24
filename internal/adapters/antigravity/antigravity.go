@@ -143,10 +143,6 @@
 package antigravity
 
 import (
-	"bytes"
-	"fmt"
-	"os"
-
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -219,7 +215,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
-	sweepLegacyEntryPoint(sess, cfg, dryRun)
+	if err := sweepLegacyEntryPoint(sess, cfg, dryRun); err != nil {
+		return err
+	}
 	rulesDir := emit.OutputRulesDir(cfg, target, defaultRulesDir)
 	// Agents and skills emit through their native layouts below, so
 	// suppress the rule-form `agent-<name>.md` / `skill-<name>.md`
@@ -281,30 +279,22 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 
 // sweepLegacyEntryPoint renames a managed `.agent/AGENTS.md` left by a
 // pre-#1114 sync aside to `.agent/AGENTS.md.bak`, so the user notices
-// the move to the documented `.agents/AGENTS.md` path. It mirrors
-// emit.Session.MigrateLegacyFile in spirit, but that helper resolves
-// the legacy name against the new default's own directory, which fits
-// amp's `AGENT.md` -> `AGENTS.md` and warp's `WARP.md` -> `AGENTS.md`
-// (same directory, different filename) and not this rename, which
-// crosses directories (`.agent/` to `.agents/`). A hand-authored file
-// (no agnostic-ai provenance marker) is left untouched, and so is a
-// project with `outputs.antigravity.file` set: the pre-#1114 default
-// only ever wrote `.agent/AGENTS.md` when unconfigured, so an override
-// never had a legacy file to sweep.
-func sweepLegacyEntryPoint(sess *emit.Session, cfg *config.Config, dryRun bool) {
-	if dryRun || sess.IsCapturing() {
-		return
-	}
+// the move to the documented `.agents/AGENTS.md` path. It delegates to
+// emit.Session.MigrateLegacyPath, which MigrateLegacyFile cannot do
+// here: that helper resolves the legacy name against the new default's
+// own directory, which fits amp's `AGENT.md` -> `AGENTS.md` and warp's
+// `WARP.md` -> `AGENTS.md` (same directory, different filename) and not
+// this rename, which crosses directories (`.agent/` to `.agents/`).
+// MigrateLegacyPath moves both halves through the session's
+// transaction-aware WriteFile and RemoveOwned, so a Rollback later in
+// the same sync pass restores `.agent/AGENTS.md` instead of leaving the
+// move half-done, and it never overwrites an existing `.bak`. A
+// project with `outputs.antigravity.file` set is skipped entirely: the
+// pre-#1114 default only ever wrote `.agent/AGENTS.md` when
+// unconfigured, so an override never had a legacy file to sweep.
+func sweepLegacyEntryPoint(sess *emit.Session, cfg *config.Config, dryRun bool) error {
 	if emit.EntryPointPath(cfg, target) != defaultEntryPointFile {
-		return
+		return nil
 	}
-	data, err := os.ReadFile(legacyEntryPointFile)
-	if err != nil || !bytes.Contains(data, []byte(emit.ProvenanceMarker)) || sess.IsUnmanaged(legacyEntryPointFile) {
-		return
-	}
-	if err := os.Rename(legacyEntryPointFile, legacyEntryPointFile+".bak"); err != nil {
-		return
-	}
-	_, _ = fmt.Fprintf(emit.Warner, "%s: renamed legacy %s to %s.bak; new layout writes %s\n",
-		target, legacyEntryPointFile, legacyEntryPointFile, defaultEntryPointFile)
+	return sess.MigrateLegacyPath(target, legacyEntryPointFile, defaultEntryPointFile, dryRun)
 }

@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -95,11 +94,22 @@ func antigravityImportMainFile(root string) string {
 // holding its own copy of rulesDir, sorted, root excluded. Antigravity
 // reads "a `.agents/rules/` directory ... in any subdirectory of your
 // project" (antigravity.google/docs/rules), which is where sync writes
-// a scoped rule, so import has to look there too. Hidden directories,
-// vendor trees, and the project's own spec dirs are pruned, matching
-// windsurfScopedRulesDirs (#628, #1114).
+// a scoped rule, so import has to look there too. `CheckScopePath`
+// rejects nothing about a name like `.github`, `vendor`, or
+// `node_modules`, so emission accepts a scope there and import must be
+// able to round-trip it: pruning by a hidden-dir prefix or a
+// hardcoded name list, the way an earlier draft of this function did
+// (matching windsurfScopedRulesDirs), silently orphaned
+// `.github/.agents/rules/release.md` on the next full sync (#1114).
+// Only `.git` (never a legitimate scope, and large enough that walking
+// it is wasted work) and agnostic-ai's own source and output roots are
+// pruned: the configured source directories, plus both the plural and
+// legacy singular Antigravity output roots, since import's own
+// non-scoped call already reads whichever of those two is active and
+// a `.agents/rules` or `.agent/rules` nested inside the other would
+// only be that same output tree, not a user scope.
 func antigravityScopedRulesDirs(root, rulesDir string, src config.Sources) ([]string, error) {
-	skipDirs := map[string]bool{"node_modules": true, "vendor": true}
+	skipDirs := map[string]bool{".git": true, ".agents": true, ".agent": true}
 	for _, p := range []string{src.Agents, src.Skills, src.Rules, src.Hooks, src.MCPs} {
 		if p != "" {
 			skipDirs[firstSegment(p)] = true
@@ -116,7 +126,7 @@ func antigravityScopedRulesDirs(root, rulesDir string, src config.Sources) ([]st
 		if path == root {
 			return nil
 		}
-		if strings.HasPrefix(d.Name(), ".") || skipDirs[d.Name()] {
+		if skipDirs[d.Name()] {
 			return fs.SkipDir
 		}
 		if !dirExists(filepath.Join(path, rulesDir)) {

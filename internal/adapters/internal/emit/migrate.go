@@ -163,23 +163,70 @@ const ProvenanceMarker = header.Marker
 //     directory derived from cfg.Outputs[target].File (or the default
 //     output path), so a custom output location migrates correctly.
 //
-// On success, renames `<rootDir>/<legacyName>` to `<rootDir>/<legacyName>.bak`
-// and prints a one-line warning to Warner.
+// Errors are swallowed (logged nowhere) to keep this call site's
+// existing void contract for amp and warp; a target that needs the
+// error propagated, or whose legacy and new paths sit in different
+// directories, should call MigrateLegacyPath directly instead.
 func (s *Session) MigrateLegacyFile(cfg *config.Config, target, legacyName, defaultNewPath string, dryRun bool) {
-	if dryRun || s.IsCapturing() {
-		return
-	}
 	legacyPath := legacyFilePath(cfg, target, legacyName, defaultNewPath)
+	_ = s.MigrateLegacyPath(target, legacyPath, defaultNewPath, dryRun)
+}
+
+// MigrateLegacyPath is MigrateLegacyFile for a legacy path that is
+// already fully resolved, rather than a bare filename joined against
+// the new default's own directory. Use it when the legacy and current
+// paths sit in different directories, which legacyFilePath's
+// same-directory join cannot express (antigravity's
+// `.agent/AGENTS.md` -> `.agents/AGENTS.md`, #1114).
+//
+// Both halves of the move go through the session's transaction-aware
+// WriteFile and RemoveOwned, not a bare os.Rename, so a
+// StartTransaction / Rollback pair spanning the rest of the sync pass
+// undoes it cleanly: the backup is a brand-new file (removed on
+// rollback) and the legacy file's removal is transaction-logged with
+// its prior bytes (restored on rollback). A caller with no open
+// transaction sees the same net effect MigrateLegacyFile always had.
+//
+// Skipped, like MigrateLegacyFile, on dryRun, during capture mode, when
+// the legacy file is missing or carries no provenance marker, and when
+// sync.unmanaged matches either the legacy path or the backup
+// destination. Both ownership checks run before the backup is written,
+// so an unmanaged legacy or backup path is never touched. An existing
+// `<legacyPath>.bak` is never overwritten: migration is skipped with a
+// warning instead, so a second sync cannot silently discard an earlier
+// backup's content.
+// A real I/O failure on the backup write or the legacy removal is
+// returned, not swallowed, so a caller wired into a transaction can
+// roll the whole sync pass back instead of leaving a half-moved file.
+func (s *Session) MigrateLegacyPath(target, legacyPath, defaultNewPath string, dryRun bool) error {
+	if dryRun || s.IsCapturing() {
+		return nil
+	}
 	data, err := os.ReadFile(legacyPath)
 	if err != nil || !bytes.Contains(data, []byte(ProvenanceMarker)) || s.skipUnmanaged(legacyPath) {
-		return
+		return nil
 	}
-	if err := os.Rename(legacyPath, legacyPath+".bak"); err != nil {
-		return
+	backupPath := legacyPath + ".bak"
+	if s.skipUnmanaged(backupPath) {
+		return nil
+	}
+	if _, err := os.Stat(backupPath); err == nil {
+		_, _ = fmt.Fprintf(Warner, "%s: %s already exists; leaving %s in place (remove or rename the old backup first)\n",
+			target, backupPath, legacyPath)
+		return nil
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("stat %s: %w", backupPath, err)
+	}
+	if err := s.WriteFile(backupPath, string(data), dryRun); err != nil {
+		return fmt.Errorf("backup %s: %w", legacyPath, err)
+	}
+	if _, err := s.RemoveOwned(legacyPath, "", dryRun); err != nil {
+		return fmt.Errorf("remove %s: %w", legacyPath, err)
 	}
 	newName := filepath.Base(defaultNewPath)
-	_, _ = fmt.Fprintf(Warner, "%s: renamed legacy %s to %s.bak; new layout writes %s\n",
-		target, legacyPath, legacyPath, newName)
+	_, _ = fmt.Fprintf(Warner, "%s: renamed legacy %s to %s; new layout writes %s\n",
+		target, legacyPath, filepath.Base(backupPath), newName)
+	return nil
 }
 
 // legacyFilePath resolves legacyName against the directory holding the

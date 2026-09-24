@@ -106,6 +106,55 @@ func TestImportFromAntigravity_ReadsScopedRulesDirs(t *testing.T) {
 	}
 }
 
+// TestImportFromAntigravity_ReadsHiddenAndVendorScopedRulesDirs pins
+// #1114's import-side fix: `CheckScopePath` accepts a scope like
+// `.github`, `vendor`, or `node_modules`, so emission can write a
+// scoped rule under any of them, and import must round-trip it instead
+// of pruning the directory before ever looking inside it.
+func TestImportFromAntigravity_ReadsHiddenAndVendorScopedRulesDirs(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".github", ".agents", "rules", "release.md"), "# release\n\nrelease body\n")
+	writeFile(t, filepath.Join(dir, "vendor", ".agents", "rules", "pkg.md"), "# pkg\n\npkg body\n")
+	writeFile(t, filepath.Join(dir, "node_modules", ".agents", "rules", "pkg2.md"), "# pkg2\n\npkg2 body\n")
+
+	if err := importFromAntigravity(dir, rootSources(), nil); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, p := range []string{
+		filepath.Join("rules", ".github", "release.md"),
+		filepath.Join("rules", "vendor", "pkg.md"),
+		filepath.Join("rules", "node_modules", "pkg2.md"),
+	} {
+		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
+			t.Errorf("missing imported spec %s: %v", p, err)
+		}
+	}
+}
+
+// TestImportFromAntigravity_SkipsGitAndOwnOutputDirs confirms the scan
+// still prunes `.git` (never a legitimate scope) and Antigravity's own
+// output roots (`.agents`, `.agent`), which the non-scoped import call
+// already reads; walking into them looking for a nested copy of
+// themselves would either find nothing or misread the tool's own tree
+// as a scope.
+func TestImportFromAntigravity_SkipsGitAndOwnOutputDirs(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".git", ".agents", "rules", "ignored.md"), "# ignored\n\nignored body\n")
+	writeFile(t, filepath.Join(dir, ".agents", "rules", "root.md"), "# root\n\nroot body\n")
+
+	if err := importFromAntigravity(dir, rootSources(), nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, "rules", "ignored.md")); !os.IsNotExist(err) {
+		t.Errorf(".git must never be scanned for scopes, err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "rules", "root.md")); err != nil {
+		t.Errorf("missing imported spec rules/root.md: %v", err)
+	}
+}
+
 func TestImportFromAntigravity_ImportsNestedAgentProfiles(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".agents/agents/reviewer/agent.md"),
