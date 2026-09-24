@@ -211,13 +211,19 @@ func importFromWindsurf(root string, src config.Sources, cfg *config.Config) err
 		return err
 	}
 	rulesDir := windsurfImportDir(root, cfg)
-	c, err := importRulesDirectoryWith(root, rulesDir, src, rulesDirImportOpts{
-		NormalizeMeta: normalizeWindsurfRuleMeta,
-	})
+	// Scoped discovery runs before any import write below: a genuine
+	// scopedRulesDirs failure (the project root itself unreadable, not
+	// a stray directory elsewhere in the tree, which the walker now
+	// warns about and skips past on its own) then aborts with nothing
+	// imported yet, rather than leaving the root-level rules already
+	// written and everything else missing (#1124 review).
+	scopes, err := windsurfScopedRulesDirs(root, rulesDir, src)
 	if err != nil {
 		return err
 	}
-	scopes, err := windsurfScopedRulesDirs(root, rulesDir, src)
+	c, err := importRulesDirectoryWith(root, rulesDir, src, rulesDirImportOpts{
+		NormalizeMeta: normalizeWindsurfRuleMeta,
+	})
 	if err != nil {
 		return err
 	}

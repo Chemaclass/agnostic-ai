@@ -245,16 +245,23 @@ func importFromAntigravity(root string, src config.Sources, cfg *config.Config) 
 		return err
 	}
 	rulesDir := antigravityImportDir(root, cfg)
+	// Scoped discovery runs before any import write below: a genuine
+	// antigravityScopedRulesDirs failure (the project root itself
+	// unreadable, not a stray directory elsewhere in the tree, which
+	// the walker now warns about and skips past on its own) then
+	// aborts with nothing imported yet, rather than leaving the
+	// root-level rules already written and everything else missing
+	// (#1124 review).
+	scopes, err := antigravityScopedRulesDirs(root, rulesDir, src)
+	if err != nil {
+		return err
+	}
 	c, err := importRulesDirectoryWith(root, rulesDir, src, rulesDirImportOpts{
 		NormalizeMeta: normalizeAntigravityRuleMeta,
 		NativeTarget:  "antigravity",
 		NativeKeys:    []string{"trigger"},
 		FlatOnly:      true,
 	})
-	if err != nil {
-		return err
-	}
-	scopes, err := antigravityScopedRulesDirs(root, rulesDir, src)
 	if err != nil {
 		return err
 	}

@@ -39,7 +39,31 @@ func scopedRulesDirs(root, rulesDir string, ownOutputSubtrees map[string]bool, s
 	var scopes []string
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
-			return walkErr
+			// This walker now descends into directories an earlier
+			// draft pruned outright (node_modules, vendor, every
+			// hidden directory), since CheckScopePath accepts any of
+			// them as a scope name (#1123). That means a directory
+			// this scan has no reason to care about, and no
+			// permission over, can still turn up mid-walk: a
+			// restrictive mode, a broken symlink, a directory removed
+			// between listing and reading. Aborting the whole scan on
+			// that alone left every scope discovered after it
+			// unimported, with the root-level rules already written
+			// by the time this ran, so import completed with source
+			// specs only partly reconstructed (#1124 review). Warn
+			// and skip past the one directory instead. `path == root`
+			// is the one case worth still failing on: it means the
+			// project root itself could not be read, which is not a
+			// stray unrelated directory but the scan having nothing
+			// to scan at all.
+			summaryf("  ! skipping unreadable %s while scanning for scoped rules: %v\n", path, walkErr)
+			if d != nil && d.IsDir() {
+				return fs.SkipDir
+			}
+			if path == root {
+				return walkErr
+			}
+			return nil
 		}
 		if !d.IsDir() {
 			return nil
