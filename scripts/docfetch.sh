@@ -449,9 +449,7 @@ fetch_one() {
       # The saved text keeps its spaces for auditors; the hash drops them,
       # because the proxy reflows "updated: X" into "updated:X" between runs.
       reader_text "$body" >"$stem.txt"
-      tr -d ' ' <"$stem.txt" >"$stem.hash"
-      result=$(sha256_of "$stem.hash")
-      rm -f "$stem.hash"
+      result=$(tr -d ' ' <"$stem.txt" | sha256_of /dev/stdin)
       ;;
     app-shell | soft-404)
       result="-"

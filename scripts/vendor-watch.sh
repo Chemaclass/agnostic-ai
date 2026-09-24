@@ -68,36 +68,33 @@ vendor_watch_marker() {
 }
 
 # vendor_watch_marker_keys reads an issue body on stdin and prints the keys
-# held in its marker.
+# held in its marker. With "rest" it prints the body without the marker.
 vendor_watch_marker_keys() {
-  awk -v open="$VENDOR_WATCH_MARKER" '
+  awk -v open="$VENDOR_WATCH_MARKER" -v want="${1:-keys}" '
     $0 == open { inside = 1; next }
     inside && $0 == "-->" { inside = 0; next }
-    inside && NF { print }
+    inside { if (want == "keys" && NF) print; next }
+    want == "rest" { print }
   '
 }
 
 # vendor_watch_publish <tsv> opens the rolling issue, or comments on the open
 # one with only the pages it has not reported yet and refreshes its marker.
 vendor_watch_publish() {
-  local tsv="$1" number body seen report keys
-  seen=$(mktemp)
-  trap 'rm -f "$seen"' RETURN
-
+  local tsv="$1" number body="" seen="" report keys
   number=$(gh issue list --label "$VENDOR_WATCH_LABEL" --state open \
     --json number --jq '.[0].number // empty')
-  body=""
   if [ -n "$number" ]; then
     body=$(gh issue view "$number" --json body --jq .body)
-    printf '%s\n' "$body" | vendor_watch_marker_keys >"$seen"
+    seen=$(printf '%s\n' "$body" | vendor_watch_marker_keys)
   fi
 
-  report=$(vendor_watch_report "$tsv" "$seen")
+  report=$(vendor_watch_report "$tsv" <(printf '%s\n' "$seen"))
   if [ -z "$report" ]; then
     echo "vendor-watch: nothing new to report"
     return 0
   fi
-  keys=$( (cat "$seen"; vendor_watch_keys "$tsv") | sort -u)
+  keys=$(printf '%s\n%s\n' "$seen" "$(vendor_watch_keys "$tsv")" | grep . | sort -u)
 
   if [ -z "$number" ]; then
     gh label create "$VENDOR_WATCH_LABEL" --color c5def5 \
@@ -111,12 +108,7 @@ vendor_watch_publish() {
   fi
 
   gh issue comment "$number" --body "$report"
-  gh issue edit "$number" --body "$(printf '%s\n' "$body" |
-    awk -v open="$VENDOR_WATCH_MARKER" '
-      $0 == open { inside = 1; next }
-      inside { if ($0 == "-->") inside = 0; next }
-      { print }
-    ')
+  gh issue edit "$number" --body "$(printf '%s\n' "$body" | vendor_watch_marker_keys rest)
 $(vendor_watch_marker "$keys")"
 }
 

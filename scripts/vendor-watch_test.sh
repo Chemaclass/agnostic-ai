@@ -92,6 +92,25 @@ function test_keys_pair_each_moved_url_with_its_hash() {
   assert_not_contains "hooks" "$keys"
 }
 
+function test_marker_rest_keeps_the_body_without_the_marker() {
+  local body
+  body="intro text
+$(vendor_watch_marker "$(printf 'u1\ts1')")
+outro"
+  assert_equals "$(printf 'intro text\noutro')" "$(printf '%s' "$body" | vendor_watch_marker_keys rest)"
+}
+
+function test_publish_keeps_every_reported_key_in_the_refreshed_marker() {
+  local tsv
+  tsv=$(run_tsv)
+  GH_OPEN_ISSUE=42
+  GH_ISSUE_BODY="old body
+$(vendor_watch_marker "$(printf 'https://old.example/page\tzzz')")"
+  vendor_watch_publish "$tsv" >/dev/null
+  assert_contains "https://old.example/page" "$(grep 'issue edit 42' "$GH_CALLS" -A20)"
+  assert_contains "https://cursor.com/docs/rules" "$(grep 'issue edit 42' "$GH_CALLS" -A20)"
+}
+
 function test_marker_round_trips_through_an_issue_body() {
   local body
   body="intro text
