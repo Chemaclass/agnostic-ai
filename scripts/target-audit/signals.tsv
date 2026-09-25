@@ -25,14 +25,14 @@ cap-project-config-trust-gates	2026-09-15	2026-09-15
 cap-project-default-model-settings	2026-09-15	2026-09-16			
 cap-project-default-reasoning-effort	2026-09-18	2026-09-23	spec-candidate	1069	published; the settings effort field shipped in v0.66.0 from the 1069 design (claude, copilot, codex, factory).
 cap-project-demo-environments	2026-09-21	2026-09-21			
-cap-project-extension-bundles	2026-09-15	2026-09-18			published
+cap-project-extension-bundles	2026-09-15	2026-09-25			published; factory: project .factory/settings.json enabledPlugins and extraKnownMarketplaces install as project scope (docs.factory.ai/harness/plugins); reachable through x-factory today.
 cap-project-index-exclusions	2026-09-15	2026-09-15			
 cap-project-model-allowlist	2026-09-16	2026-09-18			
 cap-project-parameterized-recipes	2026-09-23	2026-09-23	watch		goose discovers committed recipes in ./.goose/recipes/ (goose-docs.ai storing-recipes); v1.52.0 hardens recipe params and consent. No kind or x-goose route writes that path. Question: does a second target document a committed, parameterized task file the command kind cannot carry? Read the recipe field list directly first.
 cap-project-permission-policy	2026-09-18	2026-09-18			
 cap-project-provider-policy	2026-09-18	2026-09-18			
 cap-prompt-hook-continue-on-block	2026-09-15	2026-09-15			
-cap-rule-activation-policy	2026-09-22	2026-09-24	adapter-gap	1029,1113	Qoder manual, model, and file activation metadata is lost on import and emission; existing metadata can represent it. Antigravity now documents trigger/description/globs rule frontmatter (antigravity.google/docs/rules, 2026-09-24); the same metadata maps onto it (#1113).
+cap-rule-activation-policy	2026-09-22	2026-09-24	adapter-gap	1029,1113	Both legs shipped: Qoder rule activation metadata round-trips (#1032), and Antigravity rules carry trigger frontmatter (#1117).
 cap-scheduled-project-agents	2026-09-15	2026-09-15			
 cap-session-start-prompt-injection	2026-09-15	2026-09-15			
 cap-subagent-project-context-exclusion	2026-09-15	2026-09-15			
