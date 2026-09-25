@@ -69,6 +69,8 @@ agnostic-ai import claude codex --dry-run --diff   # review content and conflict
 
 `import all` imports every tool detected from its marker, so a repo with only a `CLAUDE.md` imports it as a rule. A detected tool with no importer is skipped with a `skipping <tool>` line and does not fail the run.
 
+`import all` reads an entry file such as `CLAUDE.md` or `GEMINI.md` only when it is a file inside the project. One that links outside is skipped with a `skipped <file>` note, since detection alone started that import. Naming the tool (`import claude`) follows the link.
+
 | Flag | Effect |
 |---|---|
 | `--dry-run` | List every file the import would write, once each, without file bodies. Runs the import in a temporary copy of the project (without `.git`), so the list matches a real import. Writes nothing to the project. |

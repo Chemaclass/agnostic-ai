@@ -20,7 +20,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - `init` with no terminal and nothing piped enables the detected tools or the default set, not all 25 targets. Pass `--all` for every target (#1136).
 - `init` and `import all` detect a project that has only a root `CLAUDE.md` or `GEMINI.md`, so an existing Claude or Gemini setup is picked up instead of the default target set.
-- `import gemini` skips a nested `GEMINI.md` that links outside the project instead of copying the linked file into `.agnostic-ai/`.
+- `import all` skips an entry file that links outside the project, such as a symlinked `CLAUDE.md`, instead of copying it into `.agnostic-ai/` (#1138).
 
 ## v0.67.0 - 2026-09-24
 

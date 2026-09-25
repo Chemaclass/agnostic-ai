@@ -243,6 +243,8 @@ func importAll(root string, cfg *config.Config) error {
 	}
 	setImportRunSources(detected)
 	defer setImportRunSources(nil)
+	importAllSkippedEntryFiles = map[string]bool{}
+	defer func() { importAllSkippedEntryFiles = nil }()
 	var errs []string
 	for _, t := range detected {
 		_, _ = fmt.Fprintf(os.Stdout, "→ importing from %s\n", t)

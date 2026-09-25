@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
@@ -124,7 +123,7 @@ func importJunieRulesAndAgents(root string, src config.Sources) (rulesDirCounts,
 	c.agents = agents
 
 	path := filepath.Join(root, junieEntryPointFile)
-	data, err := os.ReadFile(path)
+	data, err := readEntryFile(root, path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return c, nil
 	}
