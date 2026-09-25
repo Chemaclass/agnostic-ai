@@ -892,11 +892,11 @@ compare_mirrors() {
 
 # fetch_target <target> <dir> fetches one target's URLs. A "- fetch:
 # reader-proxy" line in its source section sends every URL through the
-# proxy: a host that blocks some networks (kiro.dev, cursor.com) otherwise
-# serves HTML to one machine and a proxy copy to another, and the two
-# representations never hash the same.
+# proxy but a .md mirror, which serves plain text directly: a host that
+# blocks some networks (kiro.dev, cursor.com) otherwise serves HTML to
+# one machine and a proxy copy to another, and the two never hash alike.
 fetch_target() {
-  local target="$1" dir="$2" idx=0 kind url proxy="" row
+  local target="$1" dir="$2" idx=0 kind url proxy="" force row
   if source_sections "$target" | grep -q '^- fetch: reader-proxy'; then
     proxy=1
   fi
@@ -908,7 +908,9 @@ fetch_target() {
   while IFS=$'\t' read -r kind url; do
     [ -n "$url" ] || continue
     idx=$((idx + 1))
-    row=$(fetch_one "$target" "$kind" "$url" "$dir" "$idx" "$proxy")
+    force=$proxy
+    case "$url" in *.md) force="" ;; esac
+    row=$(fetch_one "$target" "$kind" "$url" "$dir" "$idx" "$force")
     printf '%s\n' "$row"
     if [ -n "${DOCFETCH_MIRRORS:-}" ]; then
       mirror_one "$target" "$kind" "$url" "$dir" "$idx" "$(printf '%s' "$row" | cut -f5)" >>"$dir/rows/$target.mirrors"

@@ -15,6 +15,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### Changed
 
 - The "unsupported by" sync warning now suggests removing unused targets from `targets:` before silencing it with `on-unsupported: silent`.
+- Target audits read the Markdown copy of 92 vendor pages on ten docs hosts, so a site rebuild that only changes navigation or a cookie banner no longer marks them changed (#1127).
 
 ### Fixed
 
