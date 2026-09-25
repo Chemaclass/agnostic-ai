@@ -376,6 +376,15 @@ snapshot_file() {
   printf '%s/%s.txt\n' "$(snapshot_dir)" "$1"
 }
 
+# snapshot_valid <file> <sha> succeeds when the file's text hashes to sha,
+# by either normalization docfetch uses (raw bytes, or sorted JSON). The
+# name alone is not proof: a partial write or a damaged cache restore keeps
+# the name and loses the bytes.
+snapshot_valid() {
+  [ -f "$1" ] || return 1
+  [ "$(sha256_of "$1")" = "$2" ] || [ "$(json_sum "$1")" = "$2" ]
+}
+
 # locked_sha <url> prints the committed lock row's hash, if any.
 locked_sha() {
   [ -r "$LOCK" ] || return 0
@@ -546,7 +555,8 @@ write_deltas() {
     [ -n "$body" ] || continue
     locked=$(locked_sha "$url")
     snap=$(snapshot_file "${locked:--}")
-    if [ -z "$locked" ] || [ "$locked" = "-" ] || [ ! -f "$snap" ]; then
+    if [ -z "$locked" ] || [ "$locked" = "-" ] || ! snapshot_valid "$snap" "$locked"; then
+      rm -f "$snap"
       printf '%s\t%s\t%s\tno-snapshot\t\n' "$target" "$kind" "$url" >>"$dir/deltas.tsv"
       continue
     fi
@@ -582,7 +592,15 @@ snapshot_store() {
     case "$mode" in app-shell | soft-404 | failed) continue ;; esac
     [ -n "$body" ] && [ -f "$dir/$body" ] || continue
     snap=$(snapshot_file "$sha")
-    [ -f "$snap" ] || cp "$(hashed_file "$dir" "$body")" "$snap"
+    snapshot_valid "$snap" "$sha" && continue
+    # Through a temp file and a rename, so a killed run never leaves half a
+    # snapshot under a good name; a text that does not hash to sha is not kept.
+    cp "$(hashed_file "$dir" "$body")" "$snap.tmp.$$"
+    if snapshot_valid "$snap.tmp.$$" "$sha"; then
+      mv "$snap.tmp.$$" "$snap"
+    else
+      rm -f "$snap.tmp.$$"
+    fi
   done <"$file"
 }
 

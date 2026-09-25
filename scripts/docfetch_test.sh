@@ -1026,3 +1026,21 @@ function test_fetch_target_rewrites_mirror_rows_on_a_rerun() {
   DOCFETCH_MIRRORS=1 fetch_target claude "$FIXTURES/run" >/dev/null
   assert_equals 1 "$(grep -c . "$FIXTURES/run/rows/claude.mirrors")"
 }
+
+function test_a_fetch_replaces_a_truncated_snapshot() {
+  seed_run "$FIXTURES/run" https://cursor.com/docs/bugbot "the full page text"
+  mkdir -p "$DOCFETCH_SNAPSHOTS"
+  printf 'the full' >"$(snapshot_file "$(row_sha "$FIXTURES/run")")"
+  write_deltas "$FIXTURES/run" >/dev/null
+  assert_equals "the full page text" "$(cat "$(snapshot_file "$(row_sha "$FIXTURES/run")")")"
+}
+
+function test_a_corrupt_snapshot_at_the_lock_hash_reads_no_snapshot() {
+  seed_run "$FIXTURES/a" https://cursor.com/docs/bugbot "rules cap at 30,000"
+  lock_merge "$FIXTURES/a/docfetch.tsv"
+  printf 'damaged by a cache restore\n' >"$(snapshot_file "$(row_sha "$FIXTURES/a")")"
+  seed_run "$FIXTURES/run" https://cursor.com/docs/bugbot "rules cap at 40,000"
+  write_deltas "$FIXTURES/run" >/dev/null
+  assert_equals "no-snapshot" "$(cut -f4 "$FIXTURES/run/deltas.tsv")"
+  assert_file_not_exists "$(snapshot_file "$(row_sha "$FIXTURES/a")")"
+}
