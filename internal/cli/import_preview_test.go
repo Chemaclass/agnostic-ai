@@ -259,7 +259,7 @@ func TestCopyImportPreviewTree_KeepsInProjectSymlinksAndSkipsGit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := copyImportPreviewTree(src, dst); err != nil {
+	if _, err := copyImportPreviewTree(src, dst); err != nil {
 		t.Fatalf("copy: %v", err)
 	}
 
@@ -272,6 +272,29 @@ func TestCopyImportPreviewTree_KeepsInProjectSymlinksAndSkipsGit(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dst, ".git")); !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf(".git must not be copied: %v", err)
+	}
+}
+
+// The copy turns a link leaving the project into a regular file, yet an
+// `import all` preview must still skip it, as the real run does.
+func TestPlanImportPreview_ImportAllNotesEntryFileLinkedOutsideTheProject(t *testing.T) {
+	outside := filepath.Join(t.TempDir(), "CLAUDE.md")
+	writeFile(t, outside, "# elsewhere\n")
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
+	writeFile(t, filepath.Join(dir, ".claude", "settings.json"), "{}\n")
+	if err := os.Symlink(outside, filepath.Join(dir, "CLAUDE.md")); err != nil {
+		t.Skipf("symlinks unsupported: %v", err)
+	}
+	testutil.Chdir(t, dir)
+	out := captureSummary(t)
+
+	if _, err := planImportPreview([]string{"all"}); err != nil {
+		t.Fatalf("preview: %v", err)
+	}
+
+	if got := strings.Count(out.String(), "skipped CLAUDE.md"); got != 1 {
+		t.Errorf("noted the skipped entry file %d times, want once:\n%s", got, out.String())
 	}
 }
 

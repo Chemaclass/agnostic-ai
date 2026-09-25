@@ -1,8 +1,10 @@
 package integration
 
 import (
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -48,4 +50,43 @@ func TestImportClaude_FollowsEntryFileLinkedOutsideTheProject(t *testing.T) {
 	runCmd(t, "import", "claude")
 
 	assertContains(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), externalInstructions)
+}
+
+func TestImportAllDryRun_LeavesOutEntryFileLinkedOutsideTheProject(t *testing.T) {
+	projectWithExternalEntryFile(t, ".claude", "CLAUDE.md")
+
+	out := captureStdout(t, func() { runCmd(t, "import", "all", "--dry-run", "--diff") })
+
+	if strings.Contains(out, externalInstructions) {
+		t.Errorf("import all --dry-run previewed the external entry file:\n%s", out)
+	}
+}
+
+func TestImportClaudeDryRun_PreviewsEntryFileLinkedOutsideTheProject(t *testing.T) {
+	projectWithExternalEntryFile(t, ".claude", "CLAUDE.md")
+
+	out := captureStdout(t, func() { runCmd(t, "import", "claude", "--dry-run", "--diff") })
+
+	if !strings.Contains(out, externalInstructions) {
+		t.Errorf("import claude --dry-run should preview the linked entry file:\n%s", out)
+	}
+}
+
+// captureStdout returns what fn writes to os.Stdout.
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	r, w, err := os.Pipe()
+	must(t, err)
+	orig := os.Stdout
+	os.Stdout = w
+	t.Cleanup(func() { os.Stdout = orig })
+	done := make(chan string)
+	go func() {
+		data, _ := io.ReadAll(r)
+		done <- string(data)
+	}()
+	fn()
+	os.Stdout = orig
+	_ = w.Close()
+	return <-done
 }
