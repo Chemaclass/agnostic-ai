@@ -443,7 +443,7 @@ Some fields apply only to certain targets and are ignored elsewhere.
 | [Cursor](@/docs/targets/cursor.md) | `envFile`, `auth` |
 | [Copilot / VS Code](@/docs/targets/copilot.md) | `envFile`, `dev`, `sandboxEnabled` (VS Code file only), `tools` (Copilot CLI files only) |
 | [Continue](@/docs/targets/continue.md) | `connectionTimeout`, `requestOptions` |
-| [OpenHands](@/docs/targets/openhands.md) | `api_key`, which turns the entry into `{ url, api_key }` |
+| [OpenHands](@/docs/targets/openhands.md) | `api_key`, which turns the entry into `{ url, api_key }`; `auth` (`oauth`, OpenHands' only documented value), or a truthy `oauth`, which turns a shttp entry into `{ url, auth: "oauth" }` |
 
 On Amp, set `x-amp.includeTools`. Use `x-factory`, `x-kilo`, or `x-continue` to override the matching top-level options for that target.
 

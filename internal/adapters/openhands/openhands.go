@@ -53,16 +53,17 @@
 // `command`, `args`, `env`), and `sse_servers` / `shttp_servers`
 // (`shttp_servers` is OpenHands' streamable-HTTP transport, the
 // cross-tool spec's `type: http`). Each sse/shttp element is a bare URL
-// string, or the vendor's documented `{ url, api_key, timeout }` object
-// once the entry sets a top-level `api_key` and/or (shttp only) a
-// `timeout` meta field; OpenHands has no header-map field for these, so
-// a spec's `headers` value never reaches it and surfaces a coverage
-// note instead of vanishing silently, and `timeout` on an sse entry
-// gets the same treatment since the vendor documents it for shttp only
-// (#588). Read config_toml.go's serverValue for the exact mapping this
-// defends. OpenHands has no `type` field of its own; transport is
-// implied by which array a server lands in. The TOML rendering reuses
-// the same field writers Codex's `[mcp_servers.<name>]` tables use (see
+// string, or the vendor's documented `{ url, api_key, timeout, auth }`
+// object once the entry sets a top-level `api_key` and/or (shttp only)
+// a `timeout` or `auth`/`oauth` meta field; OpenHands has no header-map
+// field for these, so a spec's `headers` value never reaches it and
+// surfaces a coverage note instead of vanishing silently, and
+// `timeout` and `oauth` on an sse entry get the same treatment since
+// the vendor documents both for shttp only (#588, #1157). Read
+// config_toml.go's serverValue for the exact mapping this defends.
+// OpenHands has no `type` field of its own; transport is implied by
+// which array a server lands in. The TOML rendering reuses the same
+// field writers Codex's `[mcp_servers.<name>]` tables use (see
 // internal/adapters/internal/emit/toml.go) rather than a second
 // hand-rolled copy.
 //
@@ -200,17 +201,20 @@ func noteDroppedAgentColor(agents []spec.Entry) {
 // emitMCPConfig sorts mcps into OpenHands' three [mcp] arrays, surfaces
 // a coverage note for any transport that maps to none of them (rather
 // than guessing a bucket), for any remote entry whose `headers` cannot
-// reach OpenHands' single-`api_key` credential field, and for any sse
-// entry whose `timeout` has no effect there (shttp-only), and writes
-// the merged TOML when at least one server rendered.
+// reach OpenHands' single-`api_key` credential field, for any sse entry
+// whose `timeout` has no effect there (shttp-only), and for any sse
+// entry whose `oauth` has no effect there either (shttp-only, #1157),
+// and writes the merged TOML when at least one server rendered.
 func emitMCPConfig(sess *emit.Session, mcps []spec.Entry, path string, dryRun bool) error {
-	stdio, sse, shttp, unmapped, headersNoOp, timeoutNoOp := mcpTransportBuckets(mcps)
+	stdio, sse, shttp, unmapped, headersNoOp, timeoutNoOp, oauthNoOp := mcpTransportBuckets(mcps)
 	emit.NoteCoverageGap(target, spec.KindMCP, unmapped,
 		"no OpenHands [mcp] array for this transport")
 	emit.NoteFieldNoOp(target, spec.KindMCP, "headers", headersNoOp,
 		"OpenHands sse/shttp servers take a single api_key string, not a headers map; set meta.api_key directly")
 	emit.NoteFieldNoOp(target, spec.KindMCP, "timeout", timeoutNoOp,
 		"OpenHands documents timeout for shttp_servers only, not sse_servers")
+	emit.NoteFieldNoOp(target, spec.KindMCP, "oauth", oauthNoOp,
+		"OpenHands documents auth = \"oauth\" for shttp_servers only, not sse_servers")
 	doc := renderConfigTOML(stdio, sse, shttp)
 	if doc == "" {
 		return nil
