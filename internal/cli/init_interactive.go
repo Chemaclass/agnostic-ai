@@ -257,7 +257,13 @@ func markerPresent(root, marker string) bool {
 		_, err := os.Stat(path)
 		return err == nil
 	}
-	// Both sides absolute: callers pass ".", and a link may be absolute.
+	return regularFileInside(root, path)
+}
+
+// regularFileInside reports whether path resolves, through any symlinks,
+// to a regular file inside root. Both sides are made absolute first:
+// callers pass root ".", and a link may be absolute.
+func regularFileInside(root, path string) bool {
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		return false
