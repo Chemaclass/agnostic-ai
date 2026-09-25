@@ -721,3 +721,19 @@ func TestScaffold_NextStepsPointAtCompletion(t *testing.T) {
 		t.Errorf("next steps should point at shell completion:\n%s", buf.String())
 	}
 }
+
+// --quiet means errors only, so the non-interactive fallback notice goes
+// quiet with it while the choice itself is unchanged.
+func TestFallbackInitTargets_QuietPrintsNothing(t *testing.T) {
+	prev := verbosity
+	verbosity = levelQuiet
+	t.Cleanup(func() { verbosity = prev })
+	var buf bytes.Buffer
+	got := fallbackInitTargets(&buf, nil)
+	if buf.Len() != 0 {
+		t.Errorf("--quiet must print nothing, got %q", buf.String())
+	}
+	if len(got) != len(config.DefaultTargets()) {
+		t.Errorf("quiet must not change the choice: got %v", got)
+	}
+}

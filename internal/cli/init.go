@@ -151,6 +151,9 @@ func fallbackInitTargets(stderr io.Writer, detected []string) []string {
 	if len(targets) == 0 {
 		targets, kind = config.DefaultTargets(), "default"
 	}
+	if verbosity < levelDefault {
+		return targets // --quiet: errors only
+	}
 	_, _ = fmt.Fprintf(stderr,
 		"no target list piped; enabled %d %s targets: %s (pass --all, or pipe \"claude,codex\")\n",
 		len(targets), kind, strings.Join(targets, ", "))
