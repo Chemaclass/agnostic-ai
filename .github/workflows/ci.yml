@@ -65,6 +65,7 @@ jobs:
           cache: true
 
       - name: Vet
+        if: matrix.os != 'ubuntu-latest'
         run: go vet ./...
 
       - name: Test
@@ -210,8 +211,57 @@ jobs:
       - name: Run shell tests
         run: make test-shell
 
+  editor_changes:
+    name: Editor changes
+    runs-on: ubuntu-latest
+    outputs:
+      vscode: ${{ steps.filter.outputs.vscode }}
+      jetbrains: ${{ steps.filter.outputs.jetbrains }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - id: filter
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.sha }}
+        run: |
+          case "$EVENT_NAME" in
+            pull_request)
+              base=$(git merge-base "$PR_BASE" "$PR_HEAD" || true)
+              head=$PR_HEAD
+              ;;
+            push)
+              base=$PUSH_BEFORE
+              head=$PUSH_AFTER
+              ;;
+            *)
+              printf 'vscode=true\njetbrains=true\n' >> "$GITHUB_OUTPUT"
+              exit 0
+              ;;
+          esac
+
+          if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null || ! git cat-file -e "$head^{commit}" 2>/dev/null; then
+            printf 'vscode=true\njetbrains=true\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          for editor in vscode jetbrains; do
+            if git diff --quiet "$base" "$head" -- "editors/$editor/" .github/workflows/ci.yml cmd/agnostic-ai/ internal/cli/ internal/config/ internal/spec/ docs/schemas/config.schema.json; then
+              echo "$editor=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "$editor=true" >> "$GITHUB_OUTPUT"
+            fi
+          done
+
   vscode:
     name: VS Code extension
+    needs: editor_changes
+    if: ${{ !cancelled() && (needs.editor_changes.result != 'success' || needs.editor_changes.outputs.vscode == 'true') }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -239,6 +289,8 @@ jobs:
 
   jetbrains:
     name: JetBrains plugin
+    needs: editor_changes
+    if: ${{ !cancelled() && (needs.editor_changes.result != 'success' || needs.editor_changes.outputs.jetbrains == 'true') }}
     runs-on: ubuntu-latest
     defaults:
       run:
