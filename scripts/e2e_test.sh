@@ -23,11 +23,13 @@ function set_up_before_script() {
 }
 
 # Each test gets its own scaffolded project so ordering never matters.
+# --all because the sync test below covers every registered target, and a
+# non-interactive init without it enables only the default set.
 function set_up() {
   PROJECT="$(mktemp -d)"
   cd "$PROJECT" || return 1
   git init -q .
-  "$BIN" init --demo >/dev/null 2>&1
+  "$BIN" init --all --demo >/dev/null 2>&1
 }
 
 function tear_down() {

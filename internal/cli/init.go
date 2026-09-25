@@ -3,6 +3,8 @@ package cli
 import (
 	"embed"
 	"fmt"
+	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -33,6 +35,8 @@ func newInitCmd() *cobra.Command {
 			"and whether to keep a managed .gitignore block of every emitted target path (default yes); " +
 			"pipe a comma-separated list to skip the target prompt, or pass --all / -a " +
 			"to skip both prompts and enable every supported target. " +
+			"With no terminal and nothing piped, init enables the CLIs it detects in the project, " +
+			"or the default target set when it detects none, and prints which it picked. " +
 			"The managed .gitignore block is on by default; pass --gitignore=false to commit generated outputs instead. " +
 			"Pass --demo to seed example specs: a minimal one per source folder, plus the memory-curator skill. " +
 			"Pass --preset <name> to seed idiomatic specs for a stack (go, ts-react, python). " +
@@ -83,12 +87,14 @@ func newInitCmd() *cobra.Command {
 			}
 			targets := allTargetNames()
 			if !all {
-				picked, err := selectTargetsForSync(cmd.InOrStdin(), cmd.ErrOrStderr(), detectExistingTargets("."))
+				detected := detectExistingTargets(".")
+				picked, err := selectTargetsForSync(cmd.InOrStdin(), cmd.ErrOrStderr(), detected)
 				if err != nil {
 					return err
 				}
-				if len(picked) > 0 {
-					targets = picked
+				targets = picked
+				if len(targets) == 0 {
+					targets = fallbackInitTargets(cmd.ErrOrStderr(), detected)
 				}
 			}
 			gitignoreEnabled, err := resolveGitignoreChoice(cmd, all, gitignore)
@@ -132,6 +138,23 @@ func newInitCmd() *cobra.Command {
 		return availablePresets(), cobra.ShellCompDirectiveNoFileComp
 	})
 	return cmd
+}
+
+// fallbackInitTargets picks the targets for an init that got no
+// selection: stdin is not a terminal and nothing was piped. The CLIs the
+// project already uses win; otherwise config.DefaultTargets(). Never
+// every target: amp and warp collide with codex on AGENTS.md, and
+// --all is the explicit opt-in for that. One stderr line names the
+// choice so a CI log shows what was enabled and how to change it.
+func fallbackInitTargets(stderr io.Writer, detected []string) []string {
+	targets, kind := detected, "detected"
+	if len(targets) == 0 {
+		targets, kind = config.DefaultTargets(), "default"
+	}
+	_, _ = fmt.Fprintf(stderr,
+		"no target list piped; enabled %d %s targets: %s (pass --all, or pipe \"claude,codex\")\n",
+		len(targets), kind, strings.Join(targets, ", "))
+	return targets
 }
 
 // resolveGitignoreChoice picks the effective gitignore.enabled value
