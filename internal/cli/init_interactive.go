@@ -257,7 +257,12 @@ func markerPresent(root, marker string) bool {
 		_, err := os.Stat(path)
 		return err == nil
 	}
-	resolved, err := filepath.EvalSymlinks(path)
+	// Both sides absolute: callers pass ".", and a link may be absolute.
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return false
+	}
+	resolved, err := filepath.EvalSymlinks(abs)
 	if err != nil {
 		return false
 	}
@@ -265,7 +270,11 @@ func markerPresent(root, marker string) bool {
 	if err != nil || !info.Mode().IsRegular() {
 		return false
 	}
-	base, err := filepath.EvalSymlinks(root)
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return false
+	}
+	base, err := filepath.EvalSymlinks(absRoot)
 	if err != nil {
 		return false
 	}

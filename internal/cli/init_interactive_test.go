@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestParsePipedSelection_Names(t *testing.T) {
@@ -276,5 +278,25 @@ func TestDetectExistingTargets_RootEntryFileStaysInsideTheProject(t *testing.T) 
 	}
 	if got := detectExistingTargets(wrongType); len(got) != 0 {
 		t.Errorf("a directory named GEMINI.md is not a marker, got %v", got)
+	}
+}
+
+// Production callers pass root ".". An absolute link that stays inside
+// the project must still count.
+func TestDetectExistingTargets_AbsoluteInProjectLinkFromDotRoot(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	target := filepath.Join(dir, "docs", "claude.md")
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("# here\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, "CLAUDE.md"); err != nil {
+		t.Skipf("symlinks unsupported: %v", err)
+	}
+	if got := detectExistingTargets("."); !equalStrings(got, []string{"claude"}) {
+		t.Errorf("absolute in-project link from root \".\": got %v", got)
 	}
 }
