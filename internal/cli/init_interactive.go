@@ -241,11 +241,11 @@ func detectExistingTargets(root string) []string {
 }
 
 // rootFileMarkers are the entry files that count as markers. Unlike the
-// tool directories, they are ordinary names a project may symlink, so
-// they must stay inside the project: `import all` acts on detection, and
-// a CLAUDE.md linking to a file elsewhere on the machine would copy that
-// file into the project's sources. An explicit `import claude` still
-// reads such a link.
+// tool directories, they are ordinary names a project may symlink, so a
+// link that leaves the project does not count: detection alone never
+// widens what `import all` reads. Importers' own entry-file reads still
+// follow links, including when a directory marker such as `.claude/`
+// triggered them; that policy is #1138.
 var rootFileMarkers = map[string]bool{"CLAUDE.md": true, "GEMINI.md": true}
 
 // markerPresent reports whether marker exists under root. A root entry
