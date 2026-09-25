@@ -13,40 +13,37 @@ target_id = "openhands"
 ## Output
 
 ```
-AGENTS.md                          # canonical entry-point pointer body + inlined always-on rules (written by sync, shared path)
+AGENTS.md                          # pointer body + inlined always-on rules (shared path)
 .agents/agents/<name>.md           # one project agent (shared with Goose)
-.agents/skills/<name>/SKILL.md     # one folder per skill, plus one per path-triggered rule (shared tree with codex/amp/zed/crush)
+.agents/skills/<name>/SKILL.md     # one folder per skill or path-triggered rule (shared with codex/amp/zed/crush)
 config.toml                        # when MCP entries exist
 .openhands/hooks.json              # when hook entries exist
 .openhands/setup.sh                # when an environment spec sets `install`
 ```
 
-All Hands [OpenHands](https://docs.openhands.dev/overview/skills) reads the root `AGENTS.md` natively and loads skills from `.agents/skills/`, the same cross-tool tree codex, amp, zed, and crush emit. The render is byte-identical, so the shared tree dedupes into one write.
+[OpenHands](https://docs.openhands.dev/overview/skills) reads the root `AGENTS.md` and loads skills from `.agents/skills/`, the same tree codex, amp, zed, and crush emit. The render is byte-identical, so the shared tree is written once.
 
-Local conversations also auto-register top-level project agents from `.agents/agents/<name>.md`, the vendor's primary project path. The shared Goose/OpenHands renderer writes `name`, `description`, optional free-form `model`, and the prompt body byte-identically.
+Local conversations auto-register project agents from `.agents/agents/<name>.md`. The shared Goose/OpenHands renderer writes `name`, `description`, optional free-form `model`, and the prompt body.
 
-A generic `tools` list is omitted with a coverage note because OpenHands uses its own `file_editor` and `terminal` vocabulary. Set `x-openhands.tools` with native names and move `outputs.openhands.agents-dir` to the documented secondary `.openhands/agents` path when an OpenHands profile must differ from Goose's shared file.
+- A generic `tools` list is omitted with a coverage note, because OpenHands uses its own tool names (`file_editor`, `terminal`). Set `x-openhands.tools` with native names, and move `outputs.openhands.agents-dir` to the secondary `.openhands/agents` path when the OpenHands profile must differ from Goose's.
+- A portable `color` is omitted with a coverage note. [Goose's agent frontmatter](https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/custom-agents.md) has no `color`, and adding it for OpenHands alone would break the shared file. Set `x-openhands.color` to a [Rich color name](https://rich.readthedocs.io/en/stable/appendix/colors.html) to emit it.
 
-A portable `color` is omitted with a coverage note too. OpenHands does document the field, but [Goose's own agent frontmatter](https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/custom-agents.md) is `name`, `description`, and `model` only, so a `color` key in the shared renderer would be dead weight in every Goose agent file, and emitting it for OpenHands alone would break the byte-identity that shared path depends on. Set `x-openhands.color` to a [Rich color name](https://rich.readthedocs.io/en/stable/appendix/colors.html) to put it in the file for this target.
+An always-on rule (no `globs`/`paths` and no source-layout or frontmatter scope) inlines into the `## Rules` block of `AGENTS.md`, like every AGENTS.md-family target. A scoped rule emits as a **path-triggered rule**: `.agents/skills/<name>/SKILL.md` with a `paths:` list. OpenHands [loads it only when a matching file is touched](https://docs.openhands.dev/overview/skills/path), so it costs no context until then. This adapter writes the folder form (the vendor also accepts a flat `.md`), so path-triggered rules share `outputs.openhands.skills-dir` with skills. A catch-all `globs`/`paths` value stays inlined.
 
-An always-on rule (no `globs`/`paths` value and no source-layout or frontmatter scope) inlines into the shared `AGENTS.md` `## Rules` block, same as every other AGENTS.md-family target. A rule that carries one of those instead emits as a **path-triggered rule**: `.agents/skills/<name>/SKILL.md` with a `paths:` frontmatter list, OpenHands' own [deterministic per-file mechanism](https://docs.openhands.dev/overview/skills/path): "guaranteed to load for the files they scope, with no reliance on the model choosing them", and "zero baseline cost" to the context window until a matching file is touched.
-
-The vendor documents two locations for this, a flat `.md` file and a folder; this adapter writes the folder form, so a path-triggered rule shares `outputs.openhands.skills-dir` with regular skills instead of needing a separate rules-dir key. A catch-all `globs`/`paths` value stays inlined because it scopes to every file.
-
-- **Hooks**: land in `.openhands/hooks.json` (override via `outputs.openhands.hooks-file`), the file OpenHands reads "per-repository" and honors "across Cloud, CLI, and local GUI setups" ([docs.openhands.dev/openhands/usage/customization/hooks](https://docs.openhands.dev/openhands/usage/customization/hooks)).
-  - Six events: `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Stop`, `SessionStart`, `SessionEnd`. OpenHands' own layout keys them in snake_case with no wrapper, and documents the Claude form as equally valid: "PascalCase event keys (e.g., `PreToolUse`) and the `{\"hooks\": {...}}` wrapper are both supported, so you can share hook scripts between the two tools". This adapter emits that shared form, so one renderer serves both targets and a hook spec renders comparably across them.
-  - Per entry: `command`, `type` (always `command`), optional `timeout` (seconds, vendor default 60) and `async`. A `matcher` only applies to the two ToolUse events.
-  - **OpenHands names its own tools**, and the vendor flags the trap itself ("tool names (e.g., `terminal` vs `Bash`)"), so a matcher carried over from a Claude spec parses and then matches nothing. That case surfaces a coverage note rather than a guessed rename, since only `terminal` is documented alongside `*` and regex, leaving no vendor-stated counterpart for the rest.
-- **MCP**: merges into `./config.toml` under a `[mcp]` table with three arrays instead of a `type` field: `stdio_servers` (`[[mcp.stdio_servers]]` tables carrying `name`/`command`/`args`/`env`) and `sse_servers` / `shttp_servers` (`shttp_servers` is OpenHands' streamable-HTTP transport, the cross-tool spec's `type: http`).
-  - Each remote element is a bare URL string, OpenHands' simplest documented form, or the vendor's `{ url, api_key, timeout }` object once the entry sets a top-level `api_key` and/or (shttp only) `timeout` field. TOML allows mixing both forms in one array, as OpenHands' own example does.
-  - `timeout` (int, 1-3600 seconds, default 60, vendor example `timeout = 1800`) is documented for the SHTTP tab only; an sse entry that sets it gets a coverage note instead of a silent no-op.
-  - The spec's generic `headers` field has no equivalent here (OpenHands documents only the single `api_key` credential, never a header map) and surfaces a coverage note instead of reaching the target with the credential silently missing.
-  - A transport OpenHands documents no array for (e.g. `type: ws`) reaches neither array and surfaces a coverage note instead of guessing one.
-  - The project-tier `config.toml` is managed (its `[mcp]` table is overwritten each sync); keep unmanaged OpenHands config elsewhere.
-- **Environments**: an environment spec's `install` field writes `.openhands/setup.sh`, the vendor's [documented repository bootstrap script](https://docs.openhands.dev/openhands/usage/customization/repository) ("You can add a `.openhands/setup.sh` file, which will run every time OpenHands begins working with your repository... an ideal location for installing dependencies, setting environment variables, and performing other setup tasks").
-  - The script gets a `#!/bin/bash` shebang, then the provenance header, then `install` verbatim as the body. OpenHands chmods the script itself before running it (`chmod +x {script} && source {script}`), so this file needs no executable bit set on write.
-  - `terminals` (Cursor's long-running dev processes) has no equivalent here, since the script runs once, synchronously, at repo start; it surfaces a coverage note instead of being silently dropped.
-  - Multiple environment specs merge the same way Cursor's do: last spec's `install` wins.
+- **Hooks**: land in `.openhands/hooks.json` (override via `outputs.openhands.hooks-file`), which OpenHands [reads per repository across Cloud, CLI, and local GUI](https://docs.openhands.dev/openhands/usage/customization/hooks).
+  - Six events: `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Stop`, `SessionStart`, `SessionEnd`. OpenHands' native form uses snake_case keys with no wrapper, but it also accepts the Claude form (PascalCase keys inside a `{"hooks": {...}}` wrapper). This adapter emits the Claude form, so one renderer serves both targets.
+  - Per entry: `command`, `type` (always `command`), optional `timeout` (seconds, vendor default 60) and `async`. A `matcher` applies only to the two ToolUse events.
+  - OpenHands uses its own tool names (`terminal`, not `Bash`), so a matcher from a Claude spec matches nothing. That case gets a coverage note instead of a guessed rename, because only `terminal` (plus `*` and regex) is documented.
+- **MCP**: merges into `./config.toml` under a `[mcp]` table with three arrays instead of a `type` field: `stdio_servers` (`[[mcp.stdio_servers]]` tables with `name`/`command`/`args`/`env`), `sse_servers`, and `shttp_servers` (streamable HTTP, the spec's `type: http`).
+  - Each remote element is a bare URL string, or a `{ url, api_key, timeout }` object when the entry sets `api_key` and/or (shttp only) `timeout`. Both forms can mix in one array.
+  - `timeout` (int, 1-3600 seconds, default 60) is documented for shttp only. An sse entry that sets it gets a coverage note.
+  - Generic `headers` have no equivalent (OpenHands documents only `api_key`) and get a coverage note.
+  - A transport with no documented array (e.g. `type: ws`) is not written and gets a coverage note.
+  - The project `config.toml` is managed: its `[mcp]` table is overwritten on each sync. Keep unmanaged OpenHands config elsewhere.
+- **Environments**: an environment spec's `install` writes `.openhands/setup.sh`, the [repository setup script](https://docs.openhands.dev/openhands/usage/customization/repository) OpenHands runs each time it starts working with the repo.
+  - The script has a `#!/bin/bash` shebang, the provenance header, then `install` verbatim. OpenHands runs `chmod +x` itself, so no executable bit is set on write.
+  - `terminals` (Cursor's long-running dev processes) has no equivalent, since the script runs once at repo start. It gets a coverage note.
+  - Multiple environment specs merge like Cursor's: the last spec's `install` wins.
 
 ## Import
 
@@ -65,13 +62,13 @@ The vendor documents two locations for this, a flat `.md` file and a folder; thi
 | `.openhands/setup.sh` | `<environments>/openhands-setup.yaml` with the script as `install` |
 | `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
 
-`.agents/skills/` wins over the legacy trees on a name clash, the precedence OpenHands applies. Hooks read in both layouts: the native snake_case keys (`pre_tool_use`) come back as `PreToolUse`.
+`.agents/skills/` wins over the legacy trees on a name clash, as in OpenHands. Hooks import from both layouts: snake_case keys (`pre_tool_use`) come back as `PreToolUse`.
 
-Lossy fields, none of which change what OpenHands loads:
+Lossy fields (none change what OpenHands loads):
 
-- An `sse_servers` or `shttp_servers` entry carries no name, so the MCP spec is named after the URL host (`docs-example-test`). The next sync may list a bucket's servers in a different order.
+- `sse_servers` and `shttp_servers` entries have no name, so the MCP spec is named after the URL host (`docs-example-test`). The next sync may reorder a bucket's servers.
 - A rule's source-layout scope comes back as the `paths` glob it widened to.
-- An environment spec's name and `terminals` do not survive; the setup script holds only `install`.
+- An environment spec's name and `terminals` are lost; the setup script holds only `install`.
 
 ## Config keys
 
@@ -90,11 +87,11 @@ Lossy fields, none of which change what OpenHands loads:
    - `ls AGENTS.md .agents/agents/ .agents/skills/ config.toml .openhands/setup.sh`
    - `test -f .agents/agents/*.md`
    - `test -f .agents/skills/*/SKILL.md`
-   - `head -1 config.toml` for the provenance comment
+   - `head -1 config.toml` shows the provenance comment.
 3. Launch OpenHands:
    - The context loads `AGENTS.md`.
    - Each `.agents/skills/<name>/` appears as a skill.
-   - A path-triggered rule's `.agents/skills/<name>/SKILL.md` injects only when a file matching its `paths:` globs is touched.
-   - Each `[mcp]` server from `config.toml` connects.
+   - A path-triggered rule injects only when a file matching its `paths:` globs is touched.
+   - Each `[mcp]` server in `config.toml` connects.
    - `.openhands/setup.sh` runs at session start.
-   - Each `.openhands/hooks.json` entry fires on its event (check `OPENHANDS_EVENT_TYPE` in the hook's environment to confirm which).
+   - Each `.openhands/hooks.json` entry fires on its event (`OPENHANDS_EVENT_TYPE` in the hook's environment shows which).

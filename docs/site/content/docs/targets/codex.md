@@ -13,36 +13,36 @@ target_id = "codex"
 ## Output
 
 ```
-AGENTS.md                                    # canonical entry-point pointer body (written by sync)
-.codex/agents/<name>.toml                    # one TOML per agent (Codex CLI's native path)
-.agents/skills/<name>/SKILL.md               # one folder per skill (the path Codex CLI scans)
-.agents/skills/<name>/agents/openai.yaml     # optional, when x-codex provides UI/policy/deps
+AGENTS.md                                    # entry-point pointer body (written by sync)
+.codex/agents/<name>.toml                    # one TOML per agent
+.agents/skills/<name>/SKILL.md               # one folder per skill (the path Codex scans)
+.agents/skills/<name>/agents/openai.yaml     # when x-codex provides UI/policy/deps
 .codex/config.toml                           # when settings or MCP entries exist
 .codex/hooks.json                            # when hook entries exist
 .codex/rules/default.rules                   # opt-in, from outputs.codex.exec-policies
 .codex/prompts/<name>.md                     # opt-in via outputs.codex.commands-dir (deprecated by Codex)
 ```
 
-- **Rules**: unscoped rules inline into the root `AGENTS.md`. A rule with `scope: services/payments` instead reaches `services/payments/AGENTS.md`. A `globs` field alone does not create a directory scope. Remove legacy `outputs.codex.rules-file` overrides before using scoped rules. See [scoped context](@/docs/scoped-context.md) for selector and runtime limits.
-- **Agents**: [Codex custom agents](https://learn.chatgpt.com/docs/agent-configuration/subagents) use one TOML file per agent with `name`, `description`, and `developer_instructions`, plus optional session config such as `model`, `model_reasoning_effort`, `sandbox_mode`, and `mcp_servers`, set under `x-codex`. Those four are the vendor's own example list. Any other `config.toml` key it names works the same way. A generic `tools: [Read, Bash, ...]` list is not emitted because Codex defines `tools` as a config table, not a tool allowlist. Sync reports the dropped field. Use `x-codex.tools` for native settings such as `web_search` and `view_image`. Use a per-target `model` map when another CLI's model name, such as `sonnet`, must not reach Codex.
+- **Rules**: unscoped rules inline into the root `AGENTS.md`. A rule with `scope: services/payments` reaches `services/payments/AGENTS.md` instead. A `globs` field alone does not create a directory scope. Remove legacy `outputs.codex.rules-file` overrides before using scoped rules. See [scoped context](@/docs/scoped-context.md) for selector and runtime limits.
+- **Agents**: [Codex custom agents](https://learn.chatgpt.com/docs/agent-configuration/subagents) are one TOML file each, with `name`, `description`, and `developer_instructions`. Session config such as `model`, `model_reasoning_effort`, `sandbox_mode`, `mcp_servers`, or any other `config.toml` key goes under `x-codex`. A generic `tools: [Read, Bash, ...]` list is dropped and reported, because Codex `tools` is a config table, not an allowlist. Use `x-codex.tools` for native settings such as `web_search` and `view_image`. Use a per-target `model` map to keep another CLI's model name, such as `sonnet`, out of Codex.
 
-  The portable top-level `effort` field also reaches `model_reasoning_effort` directly, no `x-codex` needed. Codex's `ReasoningEffort` type accepts any non-empty string: the names the vendor documents for subagents (`ultra`, `max`, `xhigh`, `high`, `medium`, `low`) and the wider config-level enum ([learn.chatgpt.com/docs/config-file/config-reference](https://learn.chatgpt.com/docs/config-file/config-reference.md): `minimal`, `low`, `medium`, `high`, `xhigh`) all parse, and any other string still lands as a custom effort label rather than failing to load (`codex-rs/protocol/src/openai_models.rs`, `ReasoningEffort::Custom`). So `effort: xhigh` and `effort: max` reach Codex unchanged, the same value Factory's own stricter enum rejects. Only Qoder's integer effort budget has no string form there and is dropped with a coverage note. `x-codex.model_reasoning_effort` still wins when the author sets it explicitly.
-- **Skills**: [Codex skills layout](https://learn.chatgpt.com/docs/build-skills), one folder per skill under `.agents/skills/` (the directory Codex scans from the cwd up to the repo root) with a required `SKILL.md` (frontmatter `name` + `description`, plus body). A scoped source skill moves the native directory under that scope: for example `skills/services/api/review/SKILL.md` becomes `services/api/.agents/skills/review/SKILL.md`. `import codex` restores the scope and bundled assets.
+  The portable `effort` field writes `model_reasoning_effort` directly. Codex accepts any non-empty string: the documented names (`minimal`, `low`, `medium`, `high`, `xhigh`, `max`, `ultra`) parse, and anything else loads as a custom label ([config reference](https://learn.chatgpt.com/docs/config-file/config-reference.md)). So `effort: xhigh` and `effort: max` reach Codex unchanged (Factory rejects them). Only Qoder's integer effort budget is dropped, with a coverage note. An explicit `x-codex.model_reasoning_effort` wins.
+- **Skills**: [Codex skills](https://learn.chatgpt.com/docs/build-skills) are one folder per skill under `.agents/skills/`, which Codex scans from the cwd up to the repo root. Each needs a `SKILL.md` with `name` and `description` frontmatter. A scoped skill moves under its scope: `skills/services/api/review/SKILL.md` becomes `services/api/.agents/skills/review/SKILL.md`. `import codex` restores the scope and bundled assets.
 
-  When the spec carries `x-codex.interface`, `x-codex.policy`, or `x-codex.dependencies`, an `agents/openai.yaml` is also written for UI customization and policy declarations. Amp reads the root path, so identical emitted bytes dedupe and enabling both targets is safe. A stale managed tree at the pre-v0.43 `.codex/skills/` default is swept on sync.
-- **Hooks**: land in `.codex/hooks.json` (override via `outputs.codex.hooks-file`). Hooks route by `event` frontmatter (`SessionStart`, `SubagentStart`, `UserPromptSubmit`, `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PreCompact`, `PostCompact`, `Stop`, `SubagentStop`, `SessionEnd`, `Interrupt`) into per-event arrays with `matcher` and `command`.
+  When the spec sets `x-codex.interface`, `x-codex.policy`, or `x-codex.dependencies`, sync also writes `agents/openai.yaml` for UI and policy. Amp reads the same root path and the bytes are identical, so enabling both targets is safe. A stale managed tree at the old `.codex/skills/` default is swept.
+- **Hooks**: land in `.codex/hooks.json` (override with `outputs.codex.hooks-file`), grouped by `event` (`SessionStart`, `SubagentStart`, `UserPromptSubmit`, `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PreCompact`, `PostCompact`, `Stop`, `SubagentStop`, `SessionEnd`, `Interrupt`) with `matcher` and `command`.
 
-  Optional `timeout`, `statusMessage`, `commandWindows`, `additionalContextLimit`, and `async` pass through and survive `import codex`. `async` runs the hook in the background instead of blocking the session. An explicit `additionalContextLimit: 0` is preserved, since Codex uses it to pass complete hook context.
+  Optional `timeout`, `statusMessage`, `commandWindows`, `additionalContextLimit`, and `async` pass through and survive `import codex`. `async` runs the hook in the background. An explicit `additionalContextLimit: 0` is kept, since Codex uses it to pass the full hook context.
 
-  `import codex` also reads hooks straight out of a hand-authored `.codex/config.toml`, in the vendor's own documented inline shape: `[[hooks.<event>]]` carries `matcher` alone, and a nested `[[hooks.<event>.hooks]]` array carries the command fields ([learn.chatgpt.com/docs/hooks](https://learn.chatgpt.com/docs/hooks.md), "Equivalent inline TOML in config.toml"). A flat `[[hooks.<event>]]` table with `matcher` and `command` on the same table also still decodes, for configs written before this shape was added. The vendor has never documented that flat form (#669).
+  `import codex` also reads hooks from a hand-authored `.codex/config.toml` in the [documented inline shape](https://learn.chatgpt.com/docs/hooks.md): `[[hooks.<event>]]` holds `matcher`, and a nested `[[hooks.<event>.hooks]]` holds the command fields. The older, undocumented flat table with `matcher` and `command` together still decodes.
 
-  A hook spec with `type: mcp_tool` calls a tool on an already-connected MCP server instead of running a shell command. [learn.chatgpt.com/docs/hooks](https://learn.chatgpt.com/docs/hooks.md) says it "sends structured arguments directly to the tool and uses the same trust review and output contract as a command hook." `server` and `tool` are required; `input` (an argument-template object) is optional, and it shares `timeout`/`statusMessage` with the command shape. It emits as `{type, server, tool, input, timeout, statusMessage}` in the same `hooks.json`, and `import codex` reads it back from there (#693).
-- **Exec policies**: opt-in. Set `outputs.codex.exec-policies` (inline list) or `outputs.codex.exec-policies-file` (external YAML) to write `.codex/rules/default.rules` in Codex's Starlark `prefix_rule(...)` form. Unset writes nothing. A settings spec's portable `permissions` lists do not feed this: `prefix_rule` matches a token list rather than a glob, and only shell rules would have anywhere to go, so they raise a coverage note pointing here instead.
-- **MCP**: lands in `.codex/config.toml`. Servers emit as `[mcp_servers.<name>]`. Stdio servers use `command`/`args`/`env`/`cwd` plus the mixed `env_vars` array, whose entries are names or `{name, source}` objects with `source` set to `local` or `remote`. A spec's `disabled: true` writes `enabled = false`. HTTP/SSE servers use `url`/`bearer_token_env_var`/`http_headers`/`env_http_headers`/`auth` (`oauth` or `chatgpt`)/`http_headers_helper` (a local command printing header JSON, documented for a locally connected HTTP server only).
+  A hook with `type: mcp_tool` calls a tool on a connected MCP server instead of a shell command, with the same trust review and output contract as a command hook ([hooks docs](https://learn.chatgpt.com/docs/hooks.md)). `server` and `tool` are required, `input` (an argument template) is optional, and `timeout`/`statusMessage` apply. It emits as `{type, server, tool, input, timeout, statusMessage}` in `hooks.json` and imports back.
+- **Exec policies**: opt-in. Set `outputs.codex.exec-policies` (inline list) or `outputs.codex.exec-policies-file` (external YAML) to write `.codex/rules/default.rules` as Starlark `prefix_rule(...)` calls. Portable `permissions` lists do not feed this, because `prefix_rule` matches token lists, not globs. They raise a coverage note pointing here.
+- **MCP**: lands in `.codex/config.toml` as `[mcp_servers.<name>]`. Stdio servers use `command`/`args`/`env`/`cwd` plus `env_vars`, whose entries are names or `{name, source}` objects with `source` set to `local` or `remote`. HTTP/SSE servers use `url`/`bearer_token_env_var`/`http_headers`/`env_http_headers`/`auth` (`oauth` or `chatgpt`)/`http_headers_helper` (a local command printing header JSON, documented for local HTTP servers only). `disabled: true` writes `enabled = false`.
 
-  A server name that TOML cannot carry as a bare key is quoted. Codex CLI 0.152.0 widened the accepted server-name charset to include `:`, `@`, `/`, and `.` for package-style names such as `npm:@modelcontextprotocol/server-sequential.thinking` (openai/codex#41700), and this adapter quotes those too so one such name does not invalidate the whole file (#706). Import stores a slash-bearing name in one percent-encoded YAML filename and keeps the exact name inside the spec, so import followed by sync is lossless (#711).
+  Server names that are not bare TOML keys are quoted, including package-style names with `:`, `@`, `/`, or `.` (accepted since Codex CLI 0.152.0), such as `npm:@modelcontextprotocol/server-sequential.thinking`. Import stores a slash-bearing name in a percent-encoded YAML filename and keeps the exact name in the spec, so import then sync is lossless.
 
-  These fields carry no transport restriction and emit on either shape: `enabled_tools`/`disabled_tools` ([learn.chatgpt.com/docs/config-file/config-reference](https://learn.chatgpt.com/docs/config-file/config-reference.md), #661), plus `required`, `startup_timeout_sec`, `startup_timeout_ms` (the vendor's own millisecond alias for the same startup timeout; set one or the other, #735), `tool_timeout_sec`, `default_tools_approval_mode`, and `experimental_environment`. `disabled_tools` applies after `enabled_tools`.
+  These fields emit on any transport: `enabled_tools`/`disabled_tools` ([config reference](https://learn.chatgpt.com/docs/config-file/config-reference.md); `disabled_tools` applies after `enabled_tools`), `required`, `startup_timeout_sec` or its millisecond alias `startup_timeout_ms` (set one), `tool_timeout_sec`, `default_tools_approval_mode`, and `experimental_environment`.
 
   | Field | Default | Meaning |
   |-------|---------|---------|
@@ -50,15 +50,13 @@ AGENTS.md                                    # canonical entry-point pointer bod
   | `startup_timeout_sec` / `startup_timeout_ms` | `10` / `10000` | Server startup timeout. |
   | `tool_timeout_sec` | `60` | Per-tool execution timeout. |
   | `default_tools_approval_mode` | unset | `auto`, `prompt`, `writes`, or `approve`, unless a per-tool override exists. |
-  | `experimental_environment` | unset | `local` or `remote`. `remote` starts a stdio server through a remote executor; the vendor documents HTTP remote placement as not yet implemented. |
+  | `experimental_environment` | unset | `local` or `remote`. `remote` starts a stdio server through a remote executor; HTTP remote placement is not implemented yet. |
 
-  `scopes`, `oauth_resource` (the RFC 8707 resource parameter), and an `[mcp_servers.<id>.oauth]` sub-table, `{client_id, callback_url, callback_port}`, authenticate to an MCP HTTP server and land on the http/sse shape alongside `auth` (#693).
+  `scopes`, `oauth_resource` (the RFC 8707 resource parameter), and an `[mcp_servers.<id>.oauth]` sub-table `{client_id, callback_url, callback_port}` land on the HTTP/SSE shape next to `auth`.
 
-  A `tools` map emits the vendor's per-tool sub-tables, `[mcp_servers.<name>.tools.<tool>]`, whose keys pass through verbatim. The vendor documents two today: `output_token_limit` ("Token budget for one MCP tool's output, before the standard 20% serialization allowance", shipped in Codex v0.153.0) and a per-tool approval override; the table gains entries without warning, so nothing is mapped key by key. A tool name that TOML cannot carry as a bare key is quoted.
-
-  These sub-tables are written last in the server's table, because a TOML sub-table header ends its parent: a server-level scalar emitted after one would be read as a key of the tool. The whole block was dropped in silence before #678. All of these fields survive `import codex`. The project-tier config.toml is managed (overwritten each sync); put unmanaged Codex config in `~/.codex/config.toml`.
-- **Settings**: the last portable `model` value writes to `.codex/config.toml`. `outputs.codex.config.model` wins over the portable value. A portable `effort` writes `model_reasoning_effort` the same way, below `outputs.codex.config.model-reasoning-effort`. Any string passes, since the config reference says "Available levels depend on the model and client". A captured `.agnostic-ai/overlays/codex.config.toml` remains the highest-precedence layer for backward compatibility, so an imported `model` there wins over both and is never duplicated. Codex is the one settings target with no `x-<target>` passthrough: this file is TOML rendered from that overlay plus `outputs.codex.config`, so an `x-codex` block on a settings spec raises a coverage note naming both routes rather than emitting.
-- **Commands**: not emitted by default. Codex loads custom prompts from `~/.codex/prompts/` only (no project-level discovery) and [deprecates them in favor of skills](https://learn.chatgpt.com/docs/custom-prompts), so a project-tier prompts tree would never be read; `sync` prints a coverage note instead and sweeps a stale managed `.codex/prompts/` tree. Set `outputs.codex.commands-dir` to emit the legacy layout anyway.
+  A `tools` map emits per-tool sub-tables, `[mcp_servers.<name>.tools.<tool>]`, with keys passed through verbatim. Codex documents `output_token_limit` (token budget for one tool's output, since v0.153.0) and a per-tool approval override. Tool names that are not bare TOML keys are quoted. These sub-tables are written last, so later server scalars are not read as tool keys. All of these fields survive `import codex`. The project `config.toml` is overwritten each sync; put unmanaged Codex config in `~/.codex/config.toml`.
+- **Settings**: the last portable `model` writes to `.codex/config.toml`, below `outputs.codex.config.model`. A portable `effort` writes `model_reasoning_effort` the same way, below `outputs.codex.config.model-reasoning-effort`. Any string passes, since available levels depend on the model and client. A captured `.agnostic-ai/overlays/codex.config.toml` has the highest precedence, so an imported `model` there wins and is never duplicated. Codex has no `x-<target>` settings passthrough: an `x-codex` block on a settings spec raises a coverage note naming the overlay and `outputs.codex.config` instead.
+- **Commands**: not emitted by default. Codex reads custom prompts only from `~/.codex/prompts/` and [deprecates them in favor of skills](https://learn.chatgpt.com/docs/custom-prompts). `sync` prints a coverage note and sweeps a stale managed `.codex/prompts/` tree. Set `outputs.codex.commands-dir` to emit the legacy layout anyway.
 
 ## Config keys
 
@@ -75,7 +73,7 @@ AGENTS.md                                    # canonical entry-point pointer bod
 
 ## Codex config
 
-The `outputs.codex.config` block declares first-class `.codex/config.toml` global keys, written into the project-tier config on each sync. A portable Settings spec can set the same project `model`; `outputs.codex.config.model` wins when both exist. Keys not listed here belong in the user-level `~/.codex/config.toml`, which Codex merges last.
+The `outputs.codex.config` block sets first-class `.codex/config.toml` keys, written to the project config on each sync. It wins over a portable Settings spec `model`. Keys not listed here belong in `~/.codex/config.toml`, which Codex merges last.
 
 ```yaml
 outputs:
@@ -110,9 +108,15 @@ outputs:
 | `profiles` | map | Named `[profiles.<name>]` blocks. Each entry overrides top-level fields when Codex runs with `--profile <name>`. Supported keys: `model`, `sandbox`, `approval-policy`, `model-reasoning-effort`, `model-reasoning-summary`, `model-provider`. |
 | `model-providers` | map | Named `[model_providers.<id>]` blocks declaring backends Codex can call. Supported keys: `name`, `base-url`, `wire-api`, `api-key-env`, `env-key`. Reference an `id` from `profiles.<name>.model-provider`. |
 
+Sync also reads `.agnostic-ai/overlays/codex.config.toml` (captured by `import codex`) and writes it before the spec-derived `[mcp_servers.*]` sections. The overlay keeps every other `.codex/config.toml` key (`model`, `sandbox`, `approval_policy`, `notify`, `[history]`, `[profiles.*]`, `[model_providers.*]`, ...), so wiping `.codex/` between import and sync loses nothing.
+
+- `model` precedence, low to high: portable Settings spec, `outputs.codex.config.model`, overlay.
+- The overlay wins any other conflict with `outputs.codex.config.*`. The lower value is dropped to keep the TOML valid.
+- On import, a top-level `model_reasoning_effort` moves to `effort` in `<settings>/codex.yaml` when no settings spec sets `effort`, so every target syncs it. `[profiles.*]` values, and a value another settings spec shadows, stay in the overlay.
+
 ### Codex exec-policies
 
-`outputs.codex.exec-policies` (list) or `outputs.codex.exec-policies-file` (path to a YAML list) declares Codex CLI's Starlark exec-policy DSL, rendered into `.codex/rules/default.rules` on sync. Each entry allow- or forbid-lists a shell command prefix.
+`outputs.codex.exec-policies` (list) or `outputs.codex.exec-policies-file` (path to a YAML list) declares Codex's Starlark exec-policy rules, rendered into `.codex/rules/default.rules`. Each entry allows, forbids, or prompts for a shell command prefix.
 
 ```yaml
 outputs:
@@ -134,15 +138,13 @@ outputs:
 | `justification` | no | Free-form comment emitted above the rule as a `#` line. |
 | `match` | no | Example matches rendered as commented `# match: ...` lines below the rule. Documentation only; Codex CLI ignores them. |
 
-For many policies, keep them in a separate YAML file and point `exec-policies-file: ./.agnostic-ai/codex.exec-policies.yaml`. Inline entries render first, then file entries. Order matters: Codex evaluates rules top-down.
+For many policies, use a separate file: `exec-policies-file: ./.agnostic-ai/codex.exec-policies.yaml`. Inline entries render first, then file entries. Order matters: Codex evaluates rules top-down.
 
-`agnostic-ai import codex` against a project that ships `.codex/rules/default.rules` captures every `prefix_rule(...)` call into `.agnostic-ai/overlays/codex.exec-policies.yaml`. The codex emitter auto-loads that overlay when no inline list and no explicit `exec-policies-file` is set, so the round-trip is byte-content-preserving with no extra config.
-
-The codex emitter also reads `.agnostic-ai/overlays/codex.config.toml` (captured by `agnostic-ai import codex`) and prepends its body before the spec-derived `[mcp_servers.*]` sections. The overlay carries every other `.codex/config.toml` key the user has configured (`model`, `sandbox`, `approval_policy`, `notify`, `[history]`, `[profiles.*]`, `[model_providers.*]`, ...) so wiping `.codex/` between `import` and `sync` no longer drops them. For `model`, precedence from low to high is portable Settings spec, `outputs.codex.config.model`, captured overlay. A top-level `model_reasoning_effort` is the exception on import: when no settings spec sets `effort`, it moves to `effort` in `<settings>/codex.yaml`, so every target syncs it. `[profiles.*]` values stay in the overlay, and so does a top-level value another settings spec shadows. The overlay also wins any other conflict with `outputs.codex.config.*`; the lower value is dropped to keep the TOML valid.
+`import codex` captures every `prefix_rule(...)` in `.codex/rules/default.rules` into `.agnostic-ai/overlays/codex.exec-policies.yaml`. Sync loads that overlay when neither an inline list nor `exec-policies-file` is set, so the round-trip preserves content with no extra config.
 
 ## Import
 
-`agnostic-ai import codex` walks the project for `AGENTS.md` at any depth and reads the rest of the Codex tree:
+`agnostic-ai import codex` finds `AGENTS.md` at any depth and reads the rest of the Codex tree:
 
 | Source | Becomes |
 |--------|---------|
@@ -158,17 +160,15 @@ The codex emitter also reads `.agnostic-ai/overlays/codex.config.toml` (captured
 | `.codex/config.toml` remaining keys (model, sandbox, approval_policy, notify, `[history]`, `[profiles.*]`, `[model_providers.*]`, …) | `.agnostic-ai/overlays/codex.config.toml` (`hooks` + `mcp_servers` stripped) |
 | `.codex/prompts/*.md` | `<commands>/<name>.md` (byte-identical copy, so user-authored prompts round-trip) |
 
-Slug collisions across files are deduplicated (`style.md`, `style-2.md`). The walk skips hidden directories, the configured source directories, `node_modules/`, and `vendor/`.
+Slug collisions are deduplicated (`style.md`, `style-2.md`). The walk skips hidden directories, the configured source directories, `node_modules/`, and `vendor/`.
 
-`sync -t codex` prepends the overlay before the spec-derived sections, so every captured key survives a `.codex/` wipe. Keys set in only one place pass through unchanged; see [Codex config](#codex-config) for what happens when both declare the same key. The [exec-policies overlay](#codex-exec-policies) is captured the same way.
+`sync -t codex` writes the overlay back, so every captured key survives a `.codex/` wipe. See [Codex config](#codex-config) for conflicts when both sides set a key. The [exec-policies overlay](#codex-exec-policies) works the same way.
 
 ## Verify
 
-1. Install: `npm install -g @openai/codex` ([quickstart](https://learn.chatgpt.com/docs/codex/cli)); `codex --version` to confirm PATH.
-2. Check the tree: `agnostic-ai sync -t codex`, then `ls .codex/agents/ .agents/skills/`, `test -f .codex/config.toml && head -1 .codex/config.toml`, `test -f .codex/hooks.json && jq '.hooks | keys' .codex/hooks.json`. First line of config.toml must be the `# Generated by agnostic-ai` provenance comment.
-3. Validate syntax: `toml-test .codex/config.toml` and `jq empty .codex/hooks.json` should both exit `0`.
-4. `codex run "list one rule from this project"`. Codex picks up `AGENTS.md`, the agents, and skill folders. Look for `loaded N agents` / `loaded N skills`.
-5. Trigger a hook by firing the targeted `event` (e.g. an `Edit` for a `PostToolUse` hook); the `command` appears in the hook log.
-6. `codex mcp list` shows every `[mcp_servers.<name>]`. Disabled servers appear with the disabled flag.
-
-The audit issue [#329](https://github.com/Chemaclass/agnostic-ai/issues/329) tracks this smoke checklist; close its "Real CLI smoke" box only after every step passes against the live Codex CLI build in the linked PR.
+1. Install: `npm install -g @openai/codex` ([quickstart](https://learn.chatgpt.com/docs/codex/cli)), then `codex --version`.
+2. Run `agnostic-ai sync -t codex`, then `ls .codex/agents/ .agents/skills/`, `head -1 .codex/config.toml`, and `jq '.hooks | keys' .codex/hooks.json`. The first line of `config.toml` must be the `# Generated by agnostic-ai` comment.
+3. `toml-test .codex/config.toml` and `jq empty .codex/hooks.json` both exit `0`.
+4. `codex run "list one rule from this project"` loads `AGENTS.md`, agents, and skills. Look for `loaded N agents` / `loaded N skills`.
+5. Fire a hook's `event` (e.g. an `Edit` for a `PostToolUse` hook). The `command` appears in the hook log.
+6. `codex mcp list` shows every `[mcp_servers.<name>]`, with disabled servers flagged.

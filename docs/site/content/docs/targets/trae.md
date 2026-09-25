@@ -13,7 +13,7 @@ target_id = "trae"
 ## Output
 
 ```
-AGENTS.md                     # canonical entry-point pointer body (written by sync, shared path)
+AGENTS.md                     # pointer body (shared path)
 .trae/rules/<name>.md         # one per rule
 .trae/agents/<name>.md        # one per agent (project subagent)
 .trae/skills/<name>/SKILL.md  # one folder per skill
@@ -23,40 +23,38 @@ AGENTS.md                     # canonical entry-point pointer body (written by s
 .trae/mcp.json                # MCP server registry
 ```
 
-ByteDance [Trae](https://docs.trae.ai/ide/rules) reads persistent rules from `.trae/rules/` and the root `AGENTS.md` natively, and project subagents from `.trae/agents/`.
+ByteDance [Trae](https://docs.trae.ai/ide/rules) reads rules from `.trae/rules/`, the root `AGENTS.md`, and project subagents from `.trae/agents/`.
 
-- **Rules**: every `.trae/rules/*.md` file carries `description` / `globs` / `alwaysApply` YAML frontmatter, the same three-field activation matrix Cursor's `.mdc` rules use.
-  - `alwaysApply` defaults to `true`. A `true` rule omits `globs` entirely. `alwaysApply: false` with no explicit `globs` falls back to the Claude spelling (`paths`, comma-joined).
-  - The Trae docs document all three keys but not what a file carrying none of them defaults to, so this adapter always emits them rather than leave the activation mode to guesswork (#607).
-  - Set `x-trae.scene: git_message` on a rule to mark it for AI-generated Git commit messages. The vendor states the field "is compatible with existing fields such as alwaysApply, description, and globs", so it merges onto the same block instead of gating behind it (#635).
-- **Agents**: one project subagent per agent at `.trae/agents/<name>.md`, the path [Trae's subagents doc](https://docs.trae.ai/ide/subagents) tables as `{project_folder}/.trae/agents/{my_agent}.md`.
-  - Frontmatter carries `name` and `description` (both required), plus optional `model`, `tools`, `disallowedTools`, and `mcpServers`. The body after the closing delimiter is the system prompt.
-  - Agents used to flatten into `.trae/rules/agent-<name>.md`, which reached the rules loader instead of the subagent loader and dropped every field rule frontmatter has no key for (target-audit 2026-08-27, #638). A managed copy at the old name is swept for every current agent.
-  - `tools` passes through with no translation table: Trae's vocabulary is Claude-style and covers agnostic-ai's set exactly (`Bash`, `Edit`, `Glob`, `Grep`, `Read`, `Write`, `WebFetch`, `WebSearch`, plus `Skill`, `LSP`, `TodoWrite`, and `mcp__<server>__<tool>`). It is comma-joined into the string spelling the vendor documents rather than a YAML list.
-  - `model` is the opposite case: Trae accepts "Only built-in models provided by TraeCode", a table of its own IDs (`gpt-5.4`, `minimax-m3`, ...) with no overlap with a cross-target `model:` value, so a bare generic model drops with a coverage note. Name one for Trae with `model: {trae: <id>}` or `x-trae.model`. `disallowedTools` and `mcpServers` reach the file through `x-trae` the same way. `x-trae.disallowedTools` is a denylist that wins over `tools` and is comma-joined like it.
-  - Subagents sit behind a switch: "Go to Settings > Beta > Subagents, ensure that the Enable Subagents Directory switch is toggled on." The vendor never states its default, so a project may need that switch flipped before the emitted files load.
-- **Skills**: one folder per skill under `.trae/skills/<name>/SKILL.md`, [Trae's native skills layout](https://docs.trae.ai/ide/skills). The SKILL.md frontmatter carries `name` + `description`. Sibling assets (`examples/`, `templates/`, `resources/`) copy byte-for-byte alongside it. A flat file directly under `.trae/rules/` never loads as a skill, so this is a folder, not a rule-form file.
-- **Commands**: one `.md` per command under `.trae/commands/<name>.md`, `name` + `description` frontmatter and the body as the prompt.
-  - This shape is vendor-confirmed rather than reverse-engineered: [Trae's slash-commands doc](https://docs.trae.ai/ide/slash-commands) tables the same two frontmatter fields, `Name` and `Description`, matching what this adapter already emitted from real `.trae/commands/*.md` files. Only `name` and `description` are documented, so nothing else emits.
-  - Nesting under `.trae/commands/` is bounded at 3 levels, not merely organizational: the vendor's own example tree marks a file 3 levels deep as the deepest readable one and a file 4 levels deep as exceeding the limit, so this adapter still writes every command flat rather than risk crossing it.
-- **MCP servers**: merge into `.trae/mcp.json` under a root `mcpServers` map, [confirmed by a direct fetch of Trae's own MCP doc](https://docs.trae.ai/ide/add-mcp-servers).
-  - Stdio entries carry `command` (required) plus optional `args` / `env`. HTTP entries carry `url` (required) plus optional `headers`. Neither carries a `type` field: Trae tells the two apart by which of `command` or `url` is present, so this adapter never writes one.
-  - `disabled` has no documented per-server key either (only a project-level MCP toggle under Settings > MCP), so a spec's `disabled: true` is stripped with a coverage note instead of written dead.
-  - The vendor doc cautions that a stdio `command` must not contain spaces, or parsing fails.
-- **Hooks**: written to `.trae/hooks.json`, the project tier of [Trae's hook configuration reference](https://docs.trae.ai/ide/hook-configuration-reference): "Project Hook | `$PROJECT_FOLDER/.trae/hooks.json` | Applies only to the current project or workspace" (target-audit 2026-09-11, #729).
-  - The file is an integer `version` envelope ("The default value is 1, and currently only 1 is supported") around a `hooks` map keyed by event, each event holding the same `{matcher, hooks: [{type, command, timeout}]}` groups Claude Code, Codex, OpenHands, and Qoder already get, so one hook spec feeds all five.
-  - Trae documents [six events](https://docs.trae.ai/ide/automate-actions-with-hooks) (`SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`, `Notification`) and three fields per entry: `type` ("currently only `command` is supported"), `command`, and `timeout` (seconds, default 30).
-  - A spec's `loop_limit` also emits, Trae's own group-level field capping how often a `Stop` hook may block the agent from stopping. Leave it unset for the vendor default of 5.
-  - **The matcher vocabulary is the trap here.** Trae's hook `tool_name` table is not its subagent `tools` table: it reads `Read`, `Write`, `Edit`, `Glob`, `Grep`, `LS`, `RunCommand`, `WebSearch`, `WebFetch`, `AskUserQuestion`, `Skill`, and `mcp__<serverName>__<toolName>`. The terminal tool is `RunCommand`, not `Bash`, and there is no `TodoWrite`, so a Claude-style `matcher: Bash` parses as a valid regex and then matches nothing. That case emits verbatim with a coverage note rather than a guessed rename, the same line OpenHands and Crush hold.
-  - `matcher` is read on `PreToolUse`, `PostToolUse`, and `Notification` only. On `Notification` it selects a notification type (`idle_prompt`, `permission_prompt`, ...) rather than a tool.
-  - Project hooks are enabled through Settings > Hooks behind a security-consent panel ("read the warning message. After confirming there is no risk, click the Enable button"), the same shape as the project-level MCP toggle this adapter already emits past, so the file is inert until a user flips it.
+- **Rules**: every `.trae/rules/*.md` file carries `description`, `globs`, and `alwaysApply` frontmatter, the same activation fields as Cursor's `.mdc` rules.
+  - `alwaysApply` defaults to `true`, and a `true` rule omits `globs`. `alwaysApply: false` with no `globs` falls back to the Claude `paths` list, comma-joined.
+  - Trae does not document the default for a file with none of the keys, so all three are always written.
+  - `x-trae.scene: git_message` marks a rule for AI-generated commit messages. It combines with the other activation fields.
+- **Agents**: one project subagent per agent at `.trae/agents/<name>.md` ([subagents docs](https://docs.trae.ai/ide/subagents)).
+  - Frontmatter carries `name` and `description` (required), plus optional `model`, `tools`, `disallowedTools`, and `mcpServers`. The body is the system prompt.
+  - A managed copy at the old `.trae/rules/agent-<name>.md` path is swept for every current agent.
+  - `tools` passes through untranslated, because Trae uses Claude-style names (`Bash`, `Edit`, `Glob`, `Grep`, `Read`, `Write`, `WebFetch`, `WebSearch`, plus `Skill`, `LSP`, `TodoWrite`, and `mcp__<server>__<tool>`). It is written as a comma-joined string, not a YAML list.
+  - Trae accepts only its own built-in model IDs (`gpt-5.4`, `minimax-m3`, ...), so a generic `model` drops with a coverage note. Set one with `model: {trae: <id>}` or `x-trae.model`.
+  - `disallowedTools` and `mcpServers` come from `x-trae`. `x-trae.disallowedTools` is a comma-joined denylist that wins over `tools`.
+  - Subagents need Settings > Beta > Subagents > Enable Subagents Directory turned on. Trae does not state the default.
+- **Skills**: one folder per skill at `.trae/skills/<name>/SKILL.md` ([skills docs](https://docs.trae.ai/ide/skills)) with `name` and `description` frontmatter. Sibling assets (`examples/`, `templates/`, `resources/`) copy byte-for-byte. A flat file under `.trae/rules/` never loads as a skill.
+- **Commands**: one file per command at `.trae/commands/<name>.md`, with `name` and `description` frontmatter and the body as the prompt ([slash-commands docs](https://docs.trae.ai/ide/slash-commands)). No other fields are documented, so none are written.
+  - Trae reads commands up to 3 levels deep. This adapter writes every command flat.
+- **MCP servers**: merge into `.trae/mcp.json` under a root `mcpServers` map ([MCP docs](https://docs.trae.ai/ide/add-mcp-servers)).
+  - Stdio entries carry `command` (required) plus optional `args` and `env`. HTTP entries carry `url` (required) plus optional `headers`. No `type` is written: Trae infers it from `command` or `url`.
+  - Trae has no per-server `disabled` key, only a project-level toggle under Settings > MCP, so `disabled: true` is stripped with a coverage note.
+  - A stdio `command` must not contain spaces, or Trae fails to parse it.
+- **Hooks**: written to `.trae/hooks.json`, the project tier of Trae's [hook configuration](https://docs.trae.ai/ide/hook-configuration-reference).
+  - The file wraps a `hooks` map in a `version` field (always 1). Each event holds `{matcher, hooks: [{type, command, timeout}]}` groups, the same shape as Claude Code, Codex, OpenHands, and Qoder, so one hook spec feeds all five.
+  - Six [events](https://docs.trae.ai/ide/automate-actions-with-hooks): `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`, `Notification`. Per entry: `type` (only `command`), `command`, and `timeout` (seconds, default 30).
+  - A spec's `loop_limit` also emits. It caps how often a `Stop` hook may block the agent. Leave it unset for the default of 5.
+  - **Watch the matcher names.** Hook `tool_name` values differ from subagent `tools`: `Read`, `Write`, `Edit`, `Glob`, `Grep`, `LS`, `RunCommand`, `WebSearch`, `WebFetch`, `AskUserQuestion`, `Skill`, and `mcp__<serverName>__<toolName>`. The terminal tool is `RunCommand`, not `Bash`, and there is no `TodoWrite`. A `matcher: Bash` emits verbatim with a coverage note, because it matches nothing.
+  - `matcher` applies to `PreToolUse`, `PostToolUse`, and `Notification` only. On `Notification` it selects a notification type (`idle_prompt`, `permission_prompt`, ...).
+  - Project hooks stay inert until you enable them under Settings > Hooks and accept the security warning.
 
-  Trae also reads Claude Code's hook file: "Additionally, TraeCode supports reading hook configurations from Claude Code", with `$PROJECT_FOLDER/.claude/settings.json` and `.claude/settings.local.json` in its own Project Hook table, and "If both Claude Code hooks and TraeCode hooks are enabled at the same time, TraeCode will read all enabled hook configurations and execute them in combination."
-
-  A repo syncing `claude` and `trae` together therefore runs every hook twice, but only after you turn it on: [automate-actions-with-hooks](https://docs.trae.ai/ide/automate-actions-with-hooks) says "Toggle the **Import Hook configuration in CLAUDE** switch on", and it is off by default, behind the same security-warning panel (#756).
-- **Ignore**: ignore specs emit as `.trae/.ignore`, the path Trae's own Settings > Indexing & Docs flow creates: "TraeCode automatically creates the `.ignore` file in the `.trae/` folder and opens this file in the editor" ([docs.trae.ai/ide/ignore-files](https://docs.trae.ai/ide/ignore-files), target-audit 2026-09-11, #728).
-  - The filename is a bare `.ignore`, scoped by the directory rather than a tool prefix. It supplements `.gitignore`, which Trae already honors by default, and governs codebase indexing plus `#Workspace` / `#Folder` context ("any ignored files or folders will not be included as context").
-  - Unlike every other ignore target, it does not apply on save: "The `.ignore` file will take effect after re-indexing is complete", so a freshly synced pattern needs a Build under Settings > Indexing & Docs before it holds.
+  Trae can also read Claude Code's hooks from `.claude/settings.json` and `.claude/settings.local.json`, and runs all enabled sources together. So syncing `claude` and `trae` runs every hook twice once you turn on **Import Hook configuration in CLAUDE**. That switch is off by default, behind the same security warning.
+- **Ignore**: ignore specs emit as `.trae/.ignore`, the file Trae's Settings > Indexing & Docs creates ([ignore docs](https://docs.trae.ai/ide/ignore-files)).
+  - It supplements `.gitignore`, which Trae already honors, and excludes paths from indexing and `#Workspace` / `#Folder` context.
+  - It applies only after re-indexing. Run a Build under Settings > Indexing & Docs after a sync.
   - Multiple specs concatenate. Override via `outputs.trae.ignore-file`.
 
 Agent names must start with an ASCII letter, end with a letter or digit, contain only letters, digits or hyphens, and be at most 50 characters. Sync rejects invalid names before writing the native agent.
@@ -75,9 +73,9 @@ Agent names must start with an ASCII letter, end with a letter or digit, contain
 | `.trae/mcp.json` (`mcpServers.<name>`) | `<mcps>/<name>.yaml`, a `url`-only entry inferring `type: http` |
 | `.trae/.ignore` | an ignore spec |
 
-Commands sharing an event and a matcher collapse into one spec whose `command:` is a list, because the emit side merges them back into one group. The `version` envelope is read past: the vendor pegs it at 1, so a spec field would have nothing to vary. A `loop_limit` of 0 does not reach the spec either, since Trae treats it and an absent key identically.
+Commands sharing an event and matcher collapse into one spec with a `command:` list, since sync merges them into one group. The `version` field is not imported (it is always 1), and neither is a `loop_limit` of 0, which Trae treats as unset.
 
-The global hook tier (`~/.trae/hooks.json`) sits outside the project and is not read.
+The global `~/.trae/hooks.json` is not read.
 
 ## Config keys
 

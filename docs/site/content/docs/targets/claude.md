@@ -23,22 +23,27 @@ CLAUDE.md                # canonical entry-point pointer body (written by sync)
 .mcp.json
 ```
 
-- **Rules**: one file per spec under `.claude/rules/`. Claude Code discovers every `.md` file under that directory (recursively) at session start, so emitted rules load with no extra wiring. A spec with the cross-tool `globs` field (or a native `paths` list) emits `paths:` frontmatter, which scopes the rule to matching files.
-- **Legacy rules modes**: `outputs.claude.rules-mode: import` appends a sentinel-marked block of `@.claude/rules/<name>.md` imports to the pointer body, round-trip-stripped on `import`. It predates native rules loading, so keep it only for Claude Code versions older than the `.claude/rules/` rollout. `outputs.claude.rules-file: CLAUDE.md` concatenates rule bodies into a single file instead, and skips the pointer-body write for `claude` because the adapter owns that exact path. Point `rules-file` at any other path and `CLAUDE.md` is still written, with an `@<path>` import wiring the merged file in: a file outside `.claude/rules/` is on no Claude Code auto-load path, and a project with no `CLAUDE.md` at all makes Claude Code read `AGENTS.md` instead.
-- **Skills**: one folder per skill at `.claude/skills/<name>/SKILL.md`. The adapter manages no frontmatter keys, so every `x-claude` key passes through, for example `disable-model-invocation: true`.
-- **Commands**: one file per spec at `.claude/commands/<name>.md`. Spec `deploy` becomes `/deploy`. Frontmatter passes through; body is the prompt template.
-- **Agents**: one file per spec at `.claude/agents/<name>.md`. Resolved frontmatter passes through, so a portable `effort` (scalar or per-target map) is written verbatim and not validated; Claude Code documents `low`, `medium`, `high`, `xhigh`, and `max`. See [per-target `model` and `effort`](@/docs/spec-format.md#per-target-model-and-effort).
-- **Global agents**: `sync --global --only claude` writes `~/.claude/agents/<name>.md`. See [global configuration](@/docs/configuration.md#global-configuration) for source paths and setup.
-- **MCP**: written into `.mcp.json` under the standard `mcpServers` map. Stdio entries use `command`/`args`/`env` with no `type`; remote entries use `type` plus `url`/`headers`. Every entry also accepts `timeout` (per-tool-call execution timeout in milliseconds; values under 1000 are ignored) and `alwaysLoad` (load the server's tools at session start instead of deferring them behind tool search, "available on all server types").
+- **Rules**: one file per spec under `.claude/rules/`. Claude Code loads every `.md` file there (recursively) at session start. A spec with the cross-tool `globs` field (or a native `paths` list) emits `paths:` frontmatter, which scopes the rule to matching files.
+- **Legacy rules modes**: `outputs.claude.rules-mode: import` appends a sentinel-marked block of `@.claude/rules/<name>.md` imports to the pointer body, which `import` strips. Use it only on Claude Code versions without native `.claude/rules/` loading. `outputs.claude.rules-file: CLAUDE.md` concatenates rule bodies into that one file and skips the pointer-body write. Any other `rules-file` path still writes `CLAUDE.md` with an `@<path>` import, because a file outside `.claude/rules/` is not auto-loaded, and without `CLAUDE.md` Claude Code reads `AGENTS.md` instead.
+- **Skills**: one folder per skill at `.claude/skills/<name>/SKILL.md`. Every `x-claude` key passes through, for example `disable-model-invocation: true`.
+- **Commands**: one file per spec at `.claude/commands/<name>.md`. Spec `deploy` becomes `/deploy`. Frontmatter passes through; the body is the prompt template.
+- **Agents**: one file per spec at `.claude/agents/<name>.md`. Resolved frontmatter passes through, so a portable `effort` (scalar or per-target map) is written verbatim and not validated. Claude Code documents `low`, `medium`, `high`, `xhigh`, and `max`. See [per-target `model` and `effort`](@/docs/spec-format.md#per-target-model-and-effort).
+- **Global agents**: `sync --global --only claude` writes `~/.claude/agents/<name>.md`. See [global configuration](@/docs/configuration.md#global-configuration).
+- **MCP**: written to `.mcp.json` under `mcpServers`. Stdio entries use `command`/`args`/`env` with no `type`; remote entries use `type` plus `url`/`headers`. Every entry also accepts `timeout` (per-tool-call timeout in milliseconds; values under 1000 are ignored) and `alwaysLoad` (load the server's tools at session start instead of deferring them behind tool search).
+  - `http`, `sse`, and `ws` entries also accept `headersHelper` (a command whose output merges into the connection headers, for non-OAuth auth) and an `oauth` object `{clientId, callbackPort, authServerMetadataUrl, scopes}`, where `scopes` is one space-separated string ([Claude Code MCP docs](https://code.claude.com/docs/en/mcp)). `oauth.clientSecret` is never written; Claude Code keeps it in the system keychain.
+  - A spec's `roots` list still emits, but Claude Code documents no per-server `roots` key, so treat it as passthrough. Claude Code derives roots from the launch directory plus directories added with `--add-dir`, `/add-dir`, or `additionalDirectories` ([Claude Code MCP docs](https://code.claude.com/docs/en/mcp)).
+  - `disabled: true` adds the server to `disabledMcpjsonServers` in project settings. See [`disabled` support by target](@/docs/spec-format.md#disabled-support-by-target).
+  - Each sync replaces `.mcp.json` as a whole from MCP specs. Import hand-authored servers first.
+- **First-class settings**: `outputs.claude.settings.*` declares model, outputStyle, statusLine, permissions, enabledPlugins, env, apiKeyHelper, cleanupPeriodDays, attribution, bashOutputMaxChars, and taskOutputMaxChars. The last two need Claude Code v2.1.261 or later, and taskOutputMaxChars is a no-op from v2.1.277. The deprecated includeCoAuthoredBy stays available for older versions. Copilot CLI also reads enabledPlugins, see [Copilot](@/docs/targets/copilot.md). See [Claude settings](#claude-settings) for precedence.
 
-  An `http`, `sse`, or `ws` entry additionally accepts `headersHelper`, a command run at connection time whose output merges into the connection headers, for "an authentication scheme other than OAuth, such as Kerberos, short-lived tokens, or an internal SSO". It also accepts an `oauth` object, `{clientId, callbackPort, authServerMetadataUrl, scopes}`, where `scopes` is one space-separated string ([code.claude.com/docs/en/mcp](https://code.claude.com/docs/en/mcp), target-audit 2026-08-27, #634). `oauth.clientSecret` is never written: the vendor keeps the secret in the system keychain, "not in your config". A `roots` list still emits when a spec declares one, but no Claude Code page documents `roots` as a per-server `.mcp.json` key, so treat it as passthrough rather than a supported field. Claude Code derives roots itself: it "answers `roots/list` with the session's launch directory plus every additional working directory you've granted with `--add-dir`, `/add-dir`, or the `additionalDirectories` setting" ([code.claude.com/docs/en/mcp](https://code.claude.com/docs/en/mcp), target-audit 2026-09-20). `disabled: true` adds the server to `disabledMcpjsonServers` in project settings; see [`disabled` support by target](@/docs/spec-format.md#disabled-support-by-target).
-- **First-class settings**: `outputs.claude.settings.*` declares model, outputStyle, statusLine, permissions, enabledPlugins, env, apiKeyHelper, cleanupPeriodDays, attribution, bashOutputMaxChars, and taskOutputMaxChars. The last two need Claude Code v2.1.261 or later (#679), and taskOutputMaxChars is a no-op from Claude Code v2.1.277 on. The deprecated includeCoAuthoredBy key remains available for older Claude Code versions. enabledPlugins reaches more than Claude Code: Copilot CLI reads the same file, see [Copilot](@/docs/targets/copilot.md). These settings merge above the captured overlay and below the spec-derived hooks. See [Claude settings](#claude-settings).
+Hooks support `command`, `http`, `mcp_tool`, and `prompt` handlers:
 
-Hooks support `command`, `http`, `mcp_tool`, and `prompt` handlers. HTTP uses `url`, optional `headers`, and `allowedEnvVars`. MCP uses `server`, `tool`, and optional `input`. Prompt uses `prompt`, optional `model`, and `continueOnBlock`. When `continueOnBlock: true`, a blocking prompt result returns its reason to Claude and the turn continues. `import claude` preserves these handlers alongside command hooks. Experimental agent handlers are not emitted. See [hook fields](@/docs/spec-format.md#hooks).
+- HTTP: `url`, optional `headers`, and `allowedEnvVars`.
+- MCP: `server`, `tool`, and optional `input`.
+- Prompt: `prompt`, optional `model`, and `continueOnBlock`. With `continueOnBlock: true`, a blocking result returns its reason to Claude and the turn continues.
+- All stable handlers keep `timeout`, `statusMessage`, `if`, and `once`. `args`, `async`, `asyncRewake`, and `shell` apply to command handlers only. A `command` list becomes one handler per entry; setting `args` switches to exec form, with the executable in `command`.
 
-Stable handlers keep `timeout`, `statusMessage`, `if`, and `once`. `args`, `async`, `asyncRewake`, and `shell` apply to command handlers only. A `command` list becomes one handler per entry. Setting `args` switches to exec form, which keeps the executable in `command`.
-
-`once` is written but has no effect here. [Hooks](https://code.claude.com/docs/en/hooks) says it is "Only honored for hooks declared in skill frontmatter; ignored in settings files and agent frontmatter", and every portable hook lands in `.claude/settings.json`. `sync` prints a note saying so (#1078).
+`import claude` preserves all of these handlers. Experimental agent handlers are not emitted. `once` is written but has no effect, because [Claude Code hooks](https://code.claude.com/docs/en/hooks) honor it only in skill frontmatter and every portable hook lands in `.claude/settings.json`; `sync` prints a note. See [hook fields](@/docs/spec-format.md#hooks).
 
 `event` passes through verbatim. Common events:
 
@@ -55,9 +60,7 @@ Stable handlers keep `timeout`, `statusMessage`, `if`, and `once`. `args`, `asyn
 | `SessionStart` / `SessionEnd` | When a session begins / terminates. |
 | `PreCompact` / `PostCompact` | Around context compaction. |
 
-Claude Code defines more events (`Setup`, `InstructionsLoaded`, `TaskCompleted`, `TeammateIdle`, `FileChanged`, ...), and any documented name works. See the [Claude Code hooks reference](https://code.claude.com/docs/en/hooks) for the full list.
-
-The MCP file is managed as a whole document. Each sync replaces `.mcp.json` from MCP specs. Import hand-authored servers before syncing.
+Any other documented event works too (`Setup`, `InstructionsLoaded`, `TaskCompleted`, `TeammateIdle`, `FileChanged`, ...). See the [Claude Code hooks reference](https://code.claude.com/docs/en/hooks).
 
 ## Config keys
 
@@ -73,15 +76,15 @@ The MCP file is managed as a whole document. Each sync replaces `.mcp.json` from
 | `outputs.claude.mcp-file` | `.mcp.json` | |
 | `outputs.claude.settings` | | first-class settings block |
 
-`import claude` and `agnostic-ai doctor` read the same resolved paths, so a moved directory round-trips and an unmanaged file under it is still reported (#852).
+`import claude` and `agnostic-ai doctor` read the same resolved paths, so a moved directory round-trips and unmanaged files under it are still reported.
 
-`dir` moves the whole tool directory: with `dir: vendor/.claude`, rules land in `vendor/.claude/rules/` and commands in `vendor/.claude/commands/`, and `{{rules_dir}}` and the other path variables resolve there too. A per-kind key overrides that path on its own. Moving `dir` after a sync leaves the old rules and commands behind until the next full sync sweeps them as orphans, and Claude Code auto-loads only a project-root `.claude/rules/`, so a moved rules directory needs `rules-mode: import` to reach the session.
+`dir` moves the whole tool directory: with `dir: vendor/.claude`, rules land in `vendor/.claude/rules/`, commands in `vendor/.claude/commands/`, and `{{rules_dir}}` and the other path variables resolve there. A per-kind key overrides its own path. After moving `dir`, the old files stay until the next full sync sweeps them as orphans. Claude Code auto-loads only a project-root `.claude/rules/`, so a moved rules directory needs `rules-mode: import`.
 
-With `gitignore.enabled`, the managed `.gitignore` block also lists `/.claude/agent-memory-local/` and `/.claude/settings.local.json`, following `outputs.claude.dir`. Subagent memory written under `memory: project` lives in `.claude/agent-memory/` and stays out of the block because Claude Code documents it as shareable via version control, while `memory: local` is machine-local. A store already committed before this changed stays tracked until `git rm -r --cached .claude/agent-memory-local` removes it, because an ignore line does not untrack files.
+With `gitignore.enabled`, the managed `.gitignore` block also lists `/.claude/agent-memory-local/` and `/.claude/settings.local.json`, following `outputs.claude.dir`. `.claude/agent-memory/` (`memory: project`) stays out because Claude Code documents it as shareable. An ignore line does not untrack files, so run `git rm -r --cached .claude/agent-memory-local` if that store is already committed.
 
 ## Agent memory
 
-A top-level `memory` key gives a subagent a directory that survives across sessions. Claude Code is the only target that acts on it. Junie copies the key into its own agent file unchanged, and every other adapter drops it, so the same spec stays portable.
+A top-level `memory` key gives a subagent a directory that persists across sessions. Only Claude Code acts on it. Junie copies the key into its agent file unchanged, and every other adapter drops it.
 
 ```yaml
 ---
@@ -93,19 +96,27 @@ memory: project
 
 | Scope | Directory | Git |
 |---|---|---|
-| `user` | `~/.claude/agent-memory/<name>/` | outside the repository, so git never sees it |
-| `project` | `.claude/agent-memory/<name>/` | documented as shareable via version control, so commit it if the team wants it shared |
-| `local` | `.claude/agent-memory-local/<name>/` | documented as not to be checked into version control |
+| `user` | `~/.claude/agent-memory/<name>/` | outside the repository |
+| `project` | `.claude/agent-memory/<name>/` | shareable; commit it if the team wants it shared |
+| `local` | `.claude/agent-memory-local/<name>/` | do not commit |
 
-Claude Code creates and writes the directory on first use. agnostic-ai emits the frontmatter key and never reads or writes the store.
+Claude Code creates the directory on first use. agnostic-ai emits the frontmatter key and never reads or writes the store.
 
-This is subagent memory, separate from the session auto memory store under `~/.claude/projects/<project>/memory/`, which agnostic-ai leaves alone. It still depends on auto memory being enabled: with `autoMemoryEnabled` off, or `CLAUDE_CODE_DISABLE_AUTO_MEMORY` set, the `memory` key has no effect. See [Memory and local state](@/docs/target-behavior.md#memory-and-local-state).
+This is separate from session auto memory under `~/.claude/projects/<project>/memory/`, which agnostic-ai leaves alone. It still needs auto memory enabled: with `autoMemoryEnabled` off or `CLAUDE_CODE_DISABLE_AUTO_MEMORY` set, `memory` has no effect. See [Memory and local state](@/docs/target-behavior.md#memory-and-local-state).
 
-Disabled MCP policy uses `.claude/.agnostic-ai-mcp-disabled.json` to track only generated rejection entries. Re-enabling a server removes its generated rejection while preserving manual entries and unrelated settings. Keep this state file with generated settings. Both paths follow `outputs.claude.dir` and must be managed together. A disabled server requires the project `.mcp.json` path; custom MCP paths fail with an actionable error. Import restores disabled state from the project rejection list and excludes generated rejections from the settings overlay, so later syncs cannot restore a re-enabled server's old rejection.
+Disabled MCP servers are tracked in `.claude/.agnostic-ai-mcp-disabled.json`, which lists only generated rejection entries. Re-enabling a server removes its generated rejection and keeps manual entries and unrelated settings. Keep this file with the generated settings; both follow `outputs.claude.dir`. A disabled server requires the project `.mcp.json` path; a custom MCP path fails with an actionable error. Import restores disabled state from the project rejection list and keeps generated rejections out of the settings overlay, so a re-enabled server's old rejection does not come back.
 
 ## Claude settings
 
-The `outputs.claude.settings` block declares first-class `.claude/settings.json` keys. The full layering, low to high precedence, is: captured overlay (from `import claude`) < agnostic `settings` specs (`.agnostic-ai/settings/`, the cross-tool source for `permissions`, `model`, and `effort`, which lands as `effortLevel` when it is `low`, `medium`, `high`, or `xhigh`) < this `outputs.claude.settings` config < spec-derived `hooks` block < an `x-claude` block on a settings spec. Keys you do not set fall through to the lower layers. The `x-claude` block is last because it is the most specific statement of intent: an author writing Claude Code's own spelling means that key. On a key a lower layer already wrote, the two merge instead of the block replacing it: `x-claude.permissions.deny` adds its rules to the translated deny list, and only a scalar such as `model` is replaced outright.
+The `outputs.claude.settings` block declares first-class `.claude/settings.json` keys. Layers, from lowest to highest precedence:
+
+1. Captured overlay (from `import claude`).
+2. Agnostic `settings` specs (`.agnostic-ai/settings/`), the cross-tool source for `permissions`, `model`, and `effort`. `effort` lands as `effortLevel` when it is `low`, `medium`, `high`, or `xhigh`.
+3. This `outputs.claude.settings` block.
+4. The spec-derived `hooks` block.
+5. An `x-claude` block on a settings spec.
+
+Unset keys fall through to lower layers. `x-claude` merges with what lower layers wrote: `x-claude.permissions.deny` adds to the translated deny list, and only scalars such as `model` are replaced.
 
 ```yaml
 outputs:
@@ -147,16 +158,16 @@ outputs:
 | `outputStyle` | string | One of the Claude Code output styles. |
 | `apiKeyHelper` | string | Path to a script that prints an API key on stdout. |
 | `cleanupPeriodDays` | integer | Days of conversation history to retain. |
-| `bashOutputMaxChars` | integer | How much command output Claude Code takes inline before spilling it to a file, up to 128000. Needs Claude Code v2.1.261 or later. |
-| `taskOutputMaxChars` | integer | Deprecated. The same budget for background-task output, up to 128000. Claude Code v2.1.277 removed the TaskOutput tool, and its changelog says the setting and `TASK_MAX_OUTPUT_LENGTH` "no longer have any effect". It still emits, because the `stable` dist-tag was 2.1.267 when this was checked and the key works there. Needed Claude Code v2.1.261 or later. |
-| `attribution` | object | Current attribution controls. `commit` and `pr` set the text for commits and pull requests; an explicit empty string disables that attribution. `sessionUrl` controls whether the Claude session URL is included. |
+| `bashOutputMaxChars` | integer | Inline command output limit before it spills to a file, up to 128000. Needs Claude Code v2.1.261 or later. |
+| `taskOutputMaxChars` | integer | Deprecated. The same limit for background-task output, up to 128000. Needs v2.1.261 or later, and has no effect from v2.1.277 (which removed the TaskOutput tool and `TASK_MAX_OUTPUT_LENGTH`). Still emitted because it works on the older `stable` release. |
+| `attribution` | object | `commit` and `pr` set the attribution text for commits and pull requests; an empty string disables it. `sessionUrl` controls whether the session URL is included. |
 | `includeCoAuthoredBy` | boolean | Deprecated Claude Code setting. Use `attribution`; when both are present, `attribution` takes precedence. |
-| `enabledPlugins` | map of string to boolean | `plugin-id@marketplace-id` keys mapped to `true` to enable them. Matches the `enabledPlugins` object in Claude Code's settings schema; a plain list cannot express the required `@marketplace-id` qualifier. |
+| `enabledPlugins` | map of string to boolean | `plugin-id@marketplace-id` keys mapped to `true` to enable them, matching Claude Code's settings schema. |
 | `env` | map of strings | Environment variables exported into Claude sessions. |
 | `statusLine` | object | `type`, `command`, and optional `padding`, `refreshInterval` (seconds, minimum 1), and `hideVimModeIndicator`. |
 | `permissions` | object | `allow`, `deny`, `ask` lists of tool-pattern strings. |
 
-Any setting not declared here round-trips through the overlay captured during `agnostic-ai import claude` (written to `.agnostic-ai/overlays/claude.settings.json`). When both the overlay and `outputs.claude.settings.*` declare the same scalar key, the first-class config block wins. The `permissions` lists are the exception: their `allow`/`deny`/`ask` entries are unioned across the overlay, any `settings` spec, and this config, so no layer silently drops another's rules.
+Any other setting round-trips through the overlay captured by `agnostic-ai import claude` (`.agnostic-ai/overlays/claude.settings.json`). For a scalar key set in both, this config block wins. `permissions` `allow`/`deny`/`ask` lists are the exception: they are unioned across the overlay, `settings` specs, and this block, so no layer drops another's rules.
 
 ## Import
 
@@ -172,25 +183,25 @@ Any setting not declared here round-trips through the overlay captured during `a
 | `.claude/agents/*.md` | `<agents>/<name>.md` (byte-identical copy) |
 | `.claude/skills/<name>/SKILL.md` | `<skills>/<name>/SKILL.md` |
 | `.claude/commands/*.md` | `<commands>/<name>.md` (byte-identical copy) |
-| `.claude/settings.json` hooks | `<hooks>/<event>[-<matcher-slug>]-<hash8>.yaml` (command hooks retain their command grouping; HTTP, MCP-tool, and prompt handlers retain their native fields in separate stable specs) |
+| `.claude/settings.json` hooks | `<hooks>/<event>[-<matcher-slug>]-<hash8>.yaml` (command hooks keep their grouping; HTTP, MCP-tool, and prompt handlers keep their native fields in separate specs) |
 | `.claude/settings.json` non-hook keys | `.agnostic-ai/overlays/claude.settings.json` |
 | `.mcp.json` (`mcpServers.<name>`) | `<mcps>/<name>.yaml` (one spec per server) |
 
-When `.claude/rules/` exists (even if empty), slicing `CLAUDE.md` is skipped so the on-disk rules layout is the single source of truth for rule files. `.agnostic-ai/AGNOSTIC_AI.md` is still written from `CLAUDE.md` to keep a CLI-agnostic top-level instructions file alongside `CLAUDE.md` / `AGENTS.md` / `GEMINI.md`.
+When `.claude/rules/` exists (even if empty), `CLAUDE.md` is not sliced, so the on-disk rules are the single source for rule files. `.agnostic-ai/AGNOSTIC_AI.md` is still written from `CLAUDE.md`.
 
-The instructions file is looked up in the order Claude Code itself reads: `CLAUDE.md`, `.claude/CLAUDE.md`, `AGENTS.md`, `.claude/AGENTS.md`. Since v2.1.277 a session with no `CLAUDE.md` at or above the working directory loads `AGENTS.md`, so a repo set up for other coding agents has its real instructions captured instead of the generic pointer template. The root `AGENTS.md` rung is skipped when `codex`, `amp`, `warp`, `crush`, `kiro`, or `opencode` imports in the same invocation, since that file is their own main file and only one importer may slice it.
+The instructions file is looked up in Claude Code's own order: `CLAUDE.md`, `.claude/CLAUDE.md`, `AGENTS.md`, `.claude/AGENTS.md`. Since v2.1.277, a session with no `CLAUDE.md` at or above the working directory loads `AGENTS.md`, so repos set up for other agents get their real instructions captured. The root `AGENTS.md` step is skipped when `codex`, `amp`, `warp`, `crush`, `kiro`, or `opencode` imports in the same run, since only one importer may slice that file.
 
-The settings overlay captures every non-`hooks` key of `.claude/settings.json` (statusLine, enabledPlugins, model overrides, any other top-level key). `sync -t claude` layers the spec-derived `hooks` key on top, so it reproduces the full settings.json after `.claude/` is wiped. Re-run `import claude` after editing settings.json by hand. For precedence against `outputs.claude.settings`, see [Claude settings](#claude-settings).
+The settings overlay captures every non-`hooks` key of `.claude/settings.json`. `sync -t claude` layers the spec-derived `hooks` on top, reproducing the full file after `.claude/` is wiped. Re-run `import claude` after editing settings.json by hand. For precedence, see [Claude settings](#claude-settings).
 
-`effortLevel` is the one key import moves out of the overlay. A value Claude Code accepts, with no other settings spec setting `effort`, becomes `effort` in `<settings>/claude.yaml`, so every target syncs it. When another settings spec already sets a different effort, the value goes under `x-claude.effortLevel` in that file instead, so Claude keeps its own. A value Claude Code rejects stays in the overlay.
+`effortLevel` is the one key import moves out of the overlay. A valid value becomes `effort` in `<settings>/claude.yaml`, so every target syncs it, unless another settings spec already sets a different effort; then it goes under `x-claude.effortLevel` in that file. An invalid value stays in the overlay.
 
-Each imported MCP spec round-trips to every MCP-aware target on the next `sync`: codex, copilot, cursor, continue, amp, zed, warp, gemini, opencode.
+Imported MCP specs sync to every MCP-aware target: codex, copilot, cursor, continue, amp, zed, warp, gemini, opencode.
 
 ## Verify
 
 1. Install: `npm install -g @anthropic-ai/claude-code` (or the desktop app; both read the same files).
-2. Check the tree: `ls CLAUDE.md .claude/agents/ .claude/skills/ .claude/rules/ .claude/commands/ .claude/settings.json .mcp.json` and `grep "Generated by agnostic-ai" .claude/agents/*.md .claude/rules/*.md .claude/commands/*.md` for the provenance header (it sits after the YAML frontmatter, so `head -1` would only show `---`).
+2. Check the tree: `ls CLAUDE.md .claude/agents/ .claude/skills/ .claude/rules/ .claude/commands/ .claude/settings.json .mcp.json`. Check provenance with `grep "Generated by agnostic-ai" .claude/agents/*.md .claude/rules/*.md .claude/commands/*.md` (the header follows the frontmatter, so `head -1` shows only `---`).
 3. Validate JSON: `python -m json.tool .claude/settings.json > /dev/null && python -m json.tool .mcp.json > /dev/null`.
-4. Launch `claude` from the project root. `/agents`, `/skills`, and the slash-command picker list every entry. The MCP picker shows each `.mcp.json` server green.
-5. Trigger a matcher action (e.g. an `Edit` for `PostToolUse`/`Edit`); the hook command runs with no "schema mismatch" in the log.
+4. Run `claude` from the project root. `/agents`, `/skills`, and the slash-command picker list every entry. The MCP picker shows each `.mcp.json` server green.
+5. Trigger a matcher action (for example an `Edit` for `PostToolUse`/`Edit`). The hook runs with no "schema mismatch" in the log.
 6. Confirm `outputs.claude.settings.*` keys under `/config`.
