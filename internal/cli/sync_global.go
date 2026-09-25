@@ -518,6 +518,9 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		if g.skills != "" {
 			dir := g.path(home, g.skills)
 			for _, skill := range b.Skills {
+				if !skill.EmitsTo(target) {
+					continue
+				}
 				if err := addGlobalSkill(filepath.Join(dir, skill.Name), skill.Path, add); err != nil {
 					return nil, next, err
 				}
@@ -528,7 +531,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		}
 		next.Hooks[target] = map[string][]any{}
 		path := g.path(home, g.hooks)
-		hooks := b.Hooks
+		hooks := b.HooksFor(target)
 		if g.bridge && body != "" {
 			bridge, command, script, mode := globalContextBridge(filepath.Dir(path), body, g.bridgeKey)
 			if err := add(bridge, []byte(script), mode); err != nil {

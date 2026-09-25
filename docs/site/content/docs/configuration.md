@@ -369,6 +369,7 @@ Source root: `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when `AGNOSTIC_AI_HOME` i
 
 - It targets every supported tool by default. Which `sync` flags it accepts is in the [CLI reference](@/docs/cli-reference.md#sync).
 - Nested rules and rules with scope, path, glob, or target conditions are rejected. Commands, MCP servers, settings, inheritance, and merging with project specs are unsupported.
+- Hooks and skills honor `target`, `targets`, and `targets-exclude`. Set hook events for each target explicitly; sync does not translate event names.
 - Agents use each target's native format, metadata overrides, and include/exclude filters. Eighteen targets have global agent output; see [global output](@/docs/target-behavior.md#global-output) for paths and discovery limits. Unsupported targets warn and skip agents.
 - Output is real files, never symlinks. Ownership is recorded per target in `$AGNOSTIC_AI_HOME/state/global.json`. Sync keeps unrelated text, JSON keys, hooks, skills, and agents, and removes only recorded artifacts for the targets in the run, so `--only` never sweeps another target. A hooks file whose managed entries did not change is left byte for byte; a rewrite keeps its key order and indent.
 - An unmanaged agent, skill, or rule collision, damaged marker, invalid native JSON, or corrupt state stops the run before writes.

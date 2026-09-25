@@ -6,6 +6,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### Fixed
+
+- Global sync respects target filters on hooks and skills, and removes managed hooks when their target is excluded (#1148).
+
 ## v0.68.0 - 2026-09-25
 
 ### Changed
