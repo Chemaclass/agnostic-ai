@@ -100,7 +100,8 @@ func runImportInCopy(args []string, inspect func(project, shadow string, rec *im
 	if err := os.Mkdir(shadow, 0o700); err != nil {
 		return rec, fmt.Errorf("%s: %w", shadow, err)
 	}
-	if err := copyImportPreviewTree(project, shadow); err != nil {
+	outsideFiles, err := copyImportPreviewTree(project, shadow)
+	if err != nil {
 		return rec, fmt.Errorf("copy project for preview: %w", err)
 	}
 
@@ -116,8 +117,8 @@ func runImportInCopy(args []string, inspect func(project, shadow string, rec *im
 	if err != nil {
 		return rec, fmt.Errorf("getwd: %w", err)
 	}
-	importRecording, importSandbox = rec, sandbox
-	defer func() { importRecording, importSandbox = nil, "" }()
+	importRecording, importSandbox, importSandboxOutsideFiles = rec, sandbox, outsideFiles
+	defer func() { importRecording, importSandbox, importSandboxOutsideFiles = nil, "", nil }()
 
 	runErr := runImportArgs(args)
 	if inspect != nil {
@@ -249,23 +250,26 @@ func isBinary(data []byte) bool {
 // inside the project is recreated as a relative link, so the copy keeps
 // the same shape; one that resolves outside is copied by content, so no
 // preview write can reach a file outside the copy. Dangling links, sockets,
-// and devices are skipped.
-func copyImportPreviewTree(src, dst string) error {
+// and devices are skipped. It returns the copied files that came from
+// outside the project, relative to dst.
+func copyImportPreviewTree(src, dst string) (map[string]bool, error) {
 	root, err := filepath.EvalSymlinks(src)
 	if err != nil {
-		return fmt.Errorf("%s: %w", src, err)
+		return nil, fmt.Errorf("%s: %w", src, err)
 	}
-	c := previewCopier{root: root, dstRoot: dst, visited: map[string]bool{}}
-	return c.copyDir(root, dst)
+	c := previewCopier{root: root, dstRoot: dst, visited: map[string]bool{}, outsideFiles: map[string]bool{}}
+	return c.outsideFiles, c.copyDir(root, dst)
 }
 
 // previewCopier holds the state of one copyImportPreviewTree call.
 // visited guards against a cycle of symlinks to directories outside the
-// project.
+// project. outside is set while copying a directory linked from outside.
 type previewCopier struct {
-	root    string
-	dstRoot string
-	visited map[string]bool
+	root         string
+	dstRoot      string
+	visited      map[string]bool
+	outside      bool
+	outsideFiles map[string]bool
 }
 
 func (c previewCopier) copyDir(from, to string) error {
@@ -297,10 +301,19 @@ func (c previewCopier) copyDir(from, to string) error {
 			}
 			return os.Mkdir(target, info.Mode().Perm()|0o700)
 		case d.Type().IsRegular():
+			if c.outside {
+				c.noteOutsideFile(target)
+			}
 			return copyPreviewFile(path, target, info.Mode().Perm())
 		}
 		return nil
 	})
+}
+
+func (c previewCopier) noteOutsideFile(target string) {
+	if rel, err := filepath.Rel(c.dstRoot, target); err == nil {
+		c.outsideFiles[rel] = true
+	}
 }
 
 func (c previewCopier) copySymlink(link, target string) error {
@@ -321,6 +334,7 @@ func (c previewCopier) copySymlink(link, target string) error {
 		return fmt.Errorf("%s: %w", link, err)
 	}
 	if !info.IsDir() {
+		c.noteOutsideFile(target)
 		return copyPreviewFile(resolved, target, info.Mode().Perm())
 	}
 	if c.visited[resolved] {
@@ -330,6 +344,7 @@ func (c previewCopier) copySymlink(link, target string) error {
 	if err := os.Mkdir(target, info.Mode().Perm()|0o700); err != nil {
 		return fmt.Errorf("%s: %w", target, err)
 	}
+	c.outside = true
 	return c.copyDir(resolved, target)
 }
 

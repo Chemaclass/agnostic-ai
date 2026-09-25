@@ -284,5 +284,6 @@ func regularFileInside(root, path string) bool {
 		return false
 	}
 	rel, err := filepath.Rel(base, resolved)
-	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) &&
+		!importSandboxOutsideFiles[rel]
 }
