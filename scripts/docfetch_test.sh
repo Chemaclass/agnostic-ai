@@ -808,16 +808,15 @@ function seed_run() {
     "$url" "$(sha256_of "$dir/pages/cursor/docs-1-x.txt")" "$url" >"$dir/docfetch.tsv"
 }
 
-function test_update_saves_the_hashed_text_as_the_snapshot() {
-  seed_run "$FIXTURES/run" https://cursor.com/docs/bugbot "Bugbot reads .cursor/BUGBOT.md"
-  lock_merge "$FIXTURES/run/docfetch.tsv"
-  assert_equals "Bugbot reads .cursor/BUGBOT.md" "$(cat "$(snapshot_path https://cursor.com/docs/bugbot)")"
+# row_sha <run dir> prints the one seeded row's hash.
+function row_sha() {
+  cut -f6 "$1/docfetch.tsv"
 }
 
-function test_update_leaves_unselected_targets_snapshots_alone() {
-  seed_run "$FIXTURES/run" https://cursor.com/docs/bugbot "new text"
-  lock_merge "$FIXTURES/run/docfetch.tsv" claude
-  assert_file_not_exists "$(snapshot_path https://cursor.com/docs/bugbot)"
+function test_a_fetch_stores_its_text_under_its_hash() {
+  seed_run "$FIXTURES/run" https://cursor.com/docs/bugbot "Bugbot reads .cursor/BUGBOT.md"
+  write_deltas "$FIXTURES/run" >/dev/null
+  assert_equals "Bugbot reads .cursor/BUGBOT.md" "$(cat "$(snapshot_file "$(row_sha "$FIXTURES/run")")")"
 }
 
 function test_write_deltas_diffs_a_changed_row_against_its_snapshot() {
@@ -853,13 +852,11 @@ function test_write_deltas_survives_the_scripts_strict_mode() {
   assert_equals "deltas: 1 (1 prose)" "$out"
 }
 
-function test_update_keeps_the_last_good_snapshot_over_an_app_shell() {
-  seed_run "$FIXTURES/good" https://cursor.com/docs/bugbot "real page text"
-  lock_merge "$FIXTURES/good/docfetch.tsv"
+function test_a_failed_row_stores_no_snapshot() {
   seed_run "$FIXTURES/shell" https://cursor.com/docs/bugbot "<div id=app></div>"
   sed -i.bak -e 's/\thtml\t[0-9a-f]*\t/\tapp-shell\t-\t/' -e 's/\tchanged\t/\tfailed\t/' "$FIXTURES/shell/docfetch.tsv"
-  lock_merge "$FIXTURES/shell/docfetch.tsv"
-  assert_equals "real page text" "$(cat "$(snapshot_path https://cursor.com/docs/bugbot)")"
+  write_deltas "$FIXTURES/shell" >/dev/null
+  assert_empty "$(ls "$DOCFETCH_SNAPSHOTS" 2>/dev/null)"
 }
 
 function test_word_delta_marks_a_capped_whitespace_diff_truncated() {
@@ -872,17 +869,50 @@ function test_word_delta_marks_a_capped_whitespace_diff_truncated() {
   assert_equals "whitespace-only:truncated" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
 }
 
-function test_write_deltas_distrusts_a_snapshot_the_lock_does_not_match() {
-  # The snapshot came from an older audit; the tracked lock moved since
-  # (a pull, a branch switch). The vendor then reverts to the old text.
-  seed_run "$FIXTURES/old" https://cursor.com/docs/bugbot "rules cap at 30,000"
-  lock_merge "$FIXTURES/old/docfetch.tsv"
-  seed_run "$FIXTURES/newer" https://cursor.com/docs/bugbot "rules cap at 40,000"
-  awk -F '\t' -v OFS='\t' 'NR <= 2 { print; next } { $6 = "'"$(sha256_of "$FIXTURES/newer/pages/cursor/docs-1-x.txt")"'"; print }' \
-    "$LOCK" >"$LOCK.new" && mv "$LOCK.new" "$LOCK"
+function test_a_delta_follows_the_lock_not_the_last_fetch() {
+  # Text A was audited, then text B (the lock moved, say by a pull). The
+  # vendor reverts to A. The delta must show B -> A, not an empty diff
+  # against A that some earlier local fetch left behind.
+  seed_run "$FIXTURES/a" https://cursor.com/docs/bugbot "rules cap at 30,000"
+  lock_merge "$FIXTURES/a/docfetch.tsv"
+  seed_run "$FIXTURES/b" https://cursor.com/docs/bugbot "rules cap at 40,000"
+  lock_merge "$FIXTURES/b/docfetch.tsv"
   seed_run "$FIXTURES/run" https://cursor.com/docs/bugbot "rules cap at 30,000"
   write_deltas "$FIXTURES/run" >/dev/null
+  assert_contains "[-40,000-]{+30,000+}" "$(cat "$FIXTURES/run/pages/cursor/docs-1-x.delta")"
+}
+
+function test_a_lock_hash_with_no_stored_text_reads_no_snapshot() {
+  # A fresh machine: the lock names a hash this checkout never fetched.
+  seed_run "$FIXTURES/a" https://cursor.com/docs/bugbot "rules cap at 30,000"
+  lock_merge "$FIXTURES/a/docfetch.tsv"
+  rm -rf "$DOCFETCH_SNAPSHOTS"
+  seed_run "$FIXTURES/run" https://cursor.com/docs/bugbot "rules cap at 40,000"
+  write_deltas "$FIXTURES/run" >/dev/null
   assert_equals "no-snapshot" "$(cut -f4 "$FIXTURES/run/deltas.tsv")"
+}
+
+function test_snapshot_prune_keeps_locked_and_recent_text() {
+  seed_run "$FIXTURES/a" https://cursor.com/docs/bugbot "locked text"
+  lock_merge "$FIXTURES/a/docfetch.tsv"
+  printf 'old unlocked\n' >"$(snapshot_file deadbeef)"
+  printf 'new unlocked\n' >"$(snapshot_file cafef00d)"
+  touch -t 202601010000 "$(snapshot_file deadbeef)" "$(snapshot_file "$(row_sha "$FIXTURES/a")")"
+  snapshot_prune
+  assert_file_not_exists "$(snapshot_file deadbeef)"
+  assert_file_exists "$(snapshot_file cafef00d)"
+  assert_file_exists "$(snapshot_file "$(row_sha "$FIXTURES/a")")"
+}
+
+function test_lock_prune_drops_urls_no_source_lists() {
+  {
+    echo "# lock"
+    printf 'claude\tdocs\thttps://code.claude.com/docs/en/memory\t200\thtml\taaa\t2026-09-01\n'
+    printf 'junie\tdocs\thttps://junie.example/removed.html\t200\thtml\tbbb\t2026-09-01\n'
+  } >"$LOCK"
+  lock_prune 2>/dev/null
+  assert_contains "code.claude.com/docs/en/memory" "$(cat "$LOCK")"
+  assert_not_contains "junie.example/removed" "$(cat "$LOCK")"
 }
 
 function test_json_text_sorts_keys_one_value_per_line() {
@@ -995,4 +1025,22 @@ function test_fetch_target_rewrites_mirror_rows_on_a_rerun() {
   DOCFETCH_MIRRORS=1 fetch_target claude "$FIXTURES/run" >/dev/null
   DOCFETCH_MIRRORS=1 fetch_target claude "$FIXTURES/run" >/dev/null
   assert_equals 1 "$(grep -c . "$FIXTURES/run/rows/claude.mirrors")"
+}
+
+function test_a_fetch_replaces_a_truncated_snapshot() {
+  seed_run "$FIXTURES/run" https://cursor.com/docs/bugbot "the full page text"
+  mkdir -p "$DOCFETCH_SNAPSHOTS"
+  printf 'the full' >"$(snapshot_file "$(row_sha "$FIXTURES/run")")"
+  write_deltas "$FIXTURES/run" >/dev/null
+  assert_equals "the full page text" "$(cat "$(snapshot_file "$(row_sha "$FIXTURES/run")")")"
+}
+
+function test_a_corrupt_snapshot_at_the_lock_hash_reads_no_snapshot() {
+  seed_run "$FIXTURES/a" https://cursor.com/docs/bugbot "rules cap at 30,000"
+  lock_merge "$FIXTURES/a/docfetch.tsv"
+  printf 'damaged by a cache restore\n' >"$(snapshot_file "$(row_sha "$FIXTURES/a")")"
+  seed_run "$FIXTURES/run" https://cursor.com/docs/bugbot "rules cap at 40,000"
+  write_deltas "$FIXTURES/run" >/dev/null
+  assert_equals "no-snapshot" "$(cut -f4 "$FIXTURES/run/deltas.tsv")"
+  assert_file_not_exists "$(snapshot_file "$(row_sha "$FIXTURES/a")")"
 }

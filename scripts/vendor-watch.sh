@@ -37,16 +37,28 @@ vendor_watch_keys() {
 # vendor_watch_report <tsv> <seen-keys-file> prints the Markdown report of
 # moved rows whose key is not in the seen file, grouped by target. It prints
 # nothing when every moved row was already reported.
+# When the run left a deltas.tsv beside it, each moved page also carries
+# its delta label (mentions:<paths>, prose, chrome-only, ...), so the reader
+# can tell a config change from page chrome before spending an audit.
 vendor_watch_report() {
-  awk -F '\t' -v seen="$2" '
-    BEGIN { while ((getline line < seen) > 0) done[line] = 1 }
+  local deltas
+  deltas="$(dirname "$1")/deltas.tsv"
+  [ -r "$deltas" ] || deltas=/dev/null
+  awk -F '\t' -v seen="$2" -v deltas="$deltas" '
+    BEGIN {
+      while ((getline line < seen) > 0) done[line] = 1
+      while ((getline line < deltas) > 0) {
+        split(line, d, "\t")
+        if (d[3] != "" && d[4] != "") tag[d[3]] = d[4]
+      }
+    }
     $8 != "new" && $8 != "changed" && $8 != "failed" { next }
     {
       key = $3 "\t" ($8 == "failed" ? "failed-" $4 : $6)
       if (key in done) next
       label = ($8 == "failed") ? "failed (HTTP " $4 ")" : $8
       if (!($1 in rows)) order[++n] = $1
-      rows[$1] = rows[$1] "- " label ": " $3 "\n"
+      rows[$1] = rows[$1] "- " label ": " $3 (($3 in tag) ? " (`" tag[$3] "`)" : "") "\n"
     }
     END {
       if (n == 0) exit

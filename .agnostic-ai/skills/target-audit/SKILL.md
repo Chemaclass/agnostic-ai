@@ -98,7 +98,7 @@ Select critical changes using the capability reference's priority rules. Each sy
 
 List moved or broken source URLs with verified replacements. Apply corrections to the canonical `.agnostic-ai/skills/target-audit/references/sources.md` during this run, even in report-only mode. Edit source specs, never generated native copies.
 
-After the report is written, run `scripts/docfetch.sh --update local/target-audit/<date>-run/docfetch.tsv <targets that produced a coverage row>`. The lock and the text snapshots under `local/target-audit/snapshots/` move only after a run finishes, so a crash never marks a page as seen that no auditor read, and the next run's deltas start from what this run read. Leave the lock change in the working tree beside the source corrections, in report-only mode too.
+After the report is written, run `scripts/docfetch.sh --update local/target-audit/<date>-run/docfetch.tsv <targets that produced a coverage row>`. The lock moves only after a run finishes, so a crash never marks a page as seen that no auditor read. Text snapshots under `local/target-audit/snapshots/` are stored by hash on every fetch, so the next run's deltas diff against exactly the text this lock names; `--update` also drops lock rows for URLs no source lists and snapshots the lock stopped naming 30 days ago. Leave the lock change in the working tree beside the source corrections, in report-only mode too.
 
 ## 5. File and fix
 

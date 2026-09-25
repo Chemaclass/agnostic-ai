@@ -10,7 +10,7 @@
 # what a model reads, never whether the evidence is current.
 #
 # Each new or changed row also gets a word diff against the text the last
-# audit read (local/target-audit/snapshots/, written by --update), saved as
+# audit read (local/target-audit/snapshots/<lock sha>.txt), saved as
 # <page>.delta, and a label in the run's deltas.tsv: mentions:<paths>,
 # prose, chrome-only, whitespace-only, or no-snapshot.
 #
@@ -360,18 +360,35 @@ json_sum() {
   rm -f "$sorted"
 }
 
-# Snapshots hold the text each lock row's hash was taken from, so a later
-# run can show what moved instead of only that something did. They live
-# beside the gitignored reports and move with the lock: only --update
-# writes them, after an auditor read the run.
+# Snapshots hold fetched text by the hash docfetch took of it, so a later
+# run can show what moved instead of only that something did. A delta is
+# taken against snapshots/<the lock row's sha>.txt: content-addressed, it
+# can never disagree with the lock, whatever branch or pull moved the lock,
+# and any machine that fetched the same text can serve it (the vendor
+# watcher caches the directory between CI runs). Every fetch stores what it
+# hashed; --update prunes files the lock no longer names after 30 days.
 snapshot_dir() {
   printf '%s\n' "${DOCFETCH_SNAPSHOTS:-$DOCFETCH_ROOT/local/target-audit/snapshots}"
 }
 
-# snapshot_path <url> prints where that URL's snapshot lives. The name is a
-# digest: a slug cut to a readable length can collide.
-snapshot_path() {
-  printf '%s/%s.txt\n' "$(snapshot_dir)" "$(printf '%s' "$1" | sha256_of /dev/stdin | cut -c1-16)"
+# snapshot_file <sha> prints where the text with that hash lives.
+snapshot_file() {
+  printf '%s/%s.txt\n' "$(snapshot_dir)" "$1"
+}
+
+# snapshot_valid <file> <sha> succeeds when the file's text hashes to sha,
+# by either normalization docfetch uses (raw bytes, or sorted JSON). The
+# name alone is not proof: a partial write or a damaged cache restore keeps
+# the name and loses the bytes.
+snapshot_valid() {
+  [ -f "$1" ] || return 1
+  [ "$(sha256_of "$1")" = "$2" ] || [ "$(json_sum "$1")" = "$2" ]
+}
+
+# locked_sha <url> prints the committed lock row's hash, if any.
+locked_sha() {
+  [ -r "$LOCK" ] || return 0
+  awk -F '\t' -v u="$1" '$3 == u { print $6; exit }' "$LOCK"
 }
 
 # hashed_file <run dir> <body path> prints the file a row's hash was taken
@@ -529,14 +546,17 @@ delta_label() {
 # that has a snapshot, and deltas.tsv with one labelled row each, then
 # prints a one-line count by label.
 write_deltas() {
-  local dir="$1" target kind url status body snap hashed label vocab
+  local dir="$1" target kind url status body snap hashed label vocab locked
+  snapshot_store "$dir/docfetch.tsv"
   : >"$dir/deltas.tsv"
   vocab=$(mktemp -d)
   while IFS=$'\t' read -r target kind url _ _ _ _ status _ body; do
     case "$status" in new | changed) ;; *) continue ;; esac
     [ -n "$body" ] || continue
-    snap=$(snapshot_path "$url")
-    if [ ! -f "$snap" ] || ! snapshot_matches_lock "$url" "$snap"; then
+    locked=$(locked_sha "$url")
+    snap=$(snapshot_file "${locked:--}")
+    if [ -z "$locked" ] || [ "$locked" = "-" ] || ! snapshot_valid "$snap" "$locked"; then
+      rm -f "$snap"
       printf '%s\t%s\t%s\tno-snapshot\t\n' "$target" "$kind" "$url" >>"$dir/deltas.tsv"
       continue
     fi
@@ -558,26 +578,63 @@ write_deltas() {
   ' "$dir/deltas.tsv"
 }
 
-# snapshot_save <docfetch.tsv> [target...] copies each fetched row's hashed
-# text into the snapshot store, for the selected targets only.
-snapshot_save() {
-  local file="$1" dir target url code body snap
-  shift
+# snapshot_store <docfetch.tsv> saves each fetched row's hashed text under
+# its hash. A file named by a hash only ever holds that text, so storing
+# every fetch is safe: the lock decides which one a delta reads.
+snapshot_store() {
+  local file="$1" dir target url code mode sha status body snap
   dir=$(dirname "$file")
   mkdir -p "$(snapshot_dir)"
   while IFS=$'\t' read -r target _ url code mode sha _ status _ body; do
     case "$target" in '#'* | '') continue ;; esac
-    # An app shell or soft 404 answers 200 with no page in it; keep the
-    # last good snapshot so the recovered page diffs against real text.
-    [ "$code" = "200" ] && [ "$status" != "failed" ] && [ "$sha" != "-" ] || continue
+    # An app shell or soft 404 answers 200 with no page in it: no hash, no file.
+    [ "$code" = "200" ] && [ "$status" != "failed" ] && [ -n "$sha" ] && [ "$sha" != "-" ] || continue
     case "$mode" in app-shell | soft-404 | failed) continue ;; esac
     [ -n "$body" ] && [ -f "$dir/$body" ] || continue
-    if [ "$#" -gt 0 ]; then
-      case " $* " in *" $target "*) ;; *) continue ;; esac
+    snap=$(snapshot_file "$sha")
+    snapshot_valid "$snap" "$sha" && continue
+    # Through a temp file and a rename, so a killed run never leaves half a
+    # snapshot under a good name; a text that does not hash to sha is not kept.
+    cp "$(hashed_file "$dir" "$body")" "$snap.tmp.$$"
+    if snapshot_valid "$snap.tmp.$$" "$sha"; then
+      mv "$snap.tmp.$$" "$snap"
+    else
+      rm -f "$snap.tmp.$$"
     fi
-    snap=$(snapshot_path "$url")
-    cp "$(hashed_file "$dir" "$body")" "$snap"
   done <"$file"
+}
+
+# snapshot_prune deletes snapshots the lock no longer names once they are
+# older than DOCFETCH_SNAPSHOT_DAYS (30): recent ones may still be the
+# base of an audit branch that has not merged yet.
+snapshot_prune() {
+  local sdir f sha
+  sdir=$(snapshot_dir)
+  [ -d "$sdir" ] && [ -r "$LOCK" ] || return 0
+  find "$sdir" -type f -name '*.txt' -mtime +"${DOCFETCH_SNAPSHOT_DAYS:-30}" | while read -r f; do
+    sha=$(basename "$f" .txt)
+    awk -F '\t' -v s="$sha" '$6 == s { found = 1; exit } END { exit !found }' "$LOCK" || rm -f "$f"
+  done
+}
+
+# lock_prune drops lock rows whose URL no registered target lists any more,
+# so a moved or removed source stops counting as audited.
+lock_prune() {
+  local current tmp t
+  [ -r "$LOCK" ] || return 0
+  current=$(mktemp)
+  for t in $(list_targets); do
+    resolve_urls "$t" | cut -f2
+  done >"$current"
+  tmp=$(mktemp)
+  awk -F '\t' -v cur="$current" '
+    BEGIN { while ((getline u < cur) > 0) keep[u] = 1 }
+    /^#/ || ($3 in keep) { print; next }
+    { dropped++ }
+    END { if (dropped) printf "lock: dropped %d row(s) for URLs no source lists\n", dropped > "/dev/stderr" }
+  ' "$LOCK" >"$tmp"
+  mv "$tmp" "$LOCK"
+  rm -f "$current"
 }
 
 # json_text <body> <out> writes a JSON body key-sorted and indented, one
@@ -586,18 +643,6 @@ snapshot_save() {
 # and hashed_file falls back to the body, which is what was hashed then.
 json_text() {
   command -v jq >/dev/null 2>&1 && jq -S . "$1" >"$2" 2>/dev/null || rm -f "$2"
-}
-
-# snapshot_matches_lock <url> <snapshot> succeeds when the snapshot is the
-# text the committed lock row was hashed from. Snapshots are local and the
-# lock is tracked: after a pull or a branch switch they can disagree, and
-# a delta against the wrong text hides a vendor revert.
-snapshot_matches_lock() {
-  local locked
-  [ -r "$LOCK" ] || return 1
-  locked=$(awk -F '\t' -v u="$1" '$3 == u { print $6; exit }' "$LOCK")
-  [ -n "$locked" ] && [ "$locked" != "-" ] || return 1
-  [ "$(sha256_of "$2")" = "$locked" ] || [ "$(json_sum "$2")" = "$locked" ]
 }
 
 # row_status <url> <mode> <sha> compares one row against the committed lock.
@@ -907,7 +952,7 @@ lock_merge() {
     ' "$file" | sort -t"$(printf '\t')" -k1,1 -k2,2 -k3,3
   } >"$tmp"
   mv "$tmp" "$LOCK"
-  snapshot_save "$file" "$@"
+  snapshot_store "$file"
 }
 
 docfetch_main() {
@@ -980,7 +1025,9 @@ docfetch_main() {
       fi
       local file="$1"
       shift
-      lock_merge "$file" "$@"
+      lock_merge "$file" "$@" || return
+      lock_prune
+      snapshot_prune
       return
       ;;
   esac

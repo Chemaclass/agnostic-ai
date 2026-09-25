@@ -21,7 +21,6 @@ antigravity	docs	https://antigravity.google/docs/ide/workflows	200	html	0423e6ee
 antigravity	docs	https://antigravity.google/docs/mcp?tab=ide	200	html	236638f9b210d929670e345a03d6b444ddd338778abc691fa44136350e02431f	2026-09-22
 antigravity	docs	https://antigravity.google/docs/plugins	200	html	63c75310c978d1e5d86a95ef98f2062e641357216118a17f745f40886cb5b76b	2026-09-22
 antigravity	docs	https://antigravity.google/docs/rules	200	html	a119e7536f314cf7e9d74fcdc6d1f0e3cb87557830157c013a10fb66b71d6851	2026-09-24
-antigravity	docs	https://antigravity.google/docs/rules-workflows?tab=ide	200	meta-refresh	a119e7536f314cf7e9d74fcdc6d1f0e3cb87557830157c013a10fb66b71d6851	2026-09-24
 antigravity	docs	https://antigravity.google/docs/skills?tab=ide	200	html	bd81b34904a420c266303e9dc0c773f62bd3d9a139f86b68de449985e1dd2bd4	2026-09-22
 antigravity	docs	https://antigravity.google/docs/slash-commands	200	html	2ed7838af19e90b86d938762a2d127acf2182160cda75811c026c3922b9a4d40	2026-09-24
 antigravity	docs	https://antigravity.google/docs/subagents	200	html	0fe74373d7c7f0571ef3bb619c2f2617752a29defd7085d75b9c91664dbc7ee4	2026-09-23
@@ -113,13 +112,11 @@ jules	changelog	https://jules.google/docs/changelog/	200	html	94ba5b0ded038d5f50
 jules	docs	https://jules.google/docs	200	html	c648501d2a6994eb5a16b74df1505bfd205ede672fa19b94e922135cbc5c4a0e	2026-09-22
 junie	changelog	https://junie.jetbrains.com/blog/	200	html	894ac58b8b3f2a0dcf076b6a8a4155c871a8f0cdf1c9477c72c05eb9b853367a	2026-09-22
 junie	changelog	https://plugins.jetbrains.com/api/plugins/26104/updates?size=20	200	json	92f9081f28570d494ea284d5daf8921937ee3f3122b6f9e2ab0ef11af66c7ea6	2026-09-23
-junie	changelog	https://plugins.jetbrains.com/plugin/26104-junie-the-ai-coding-agent-by-jetbrains/versions	200	app-shell	-	2026-09-22
 junie	docs	https://junie.jetbrains.com/docs/action-allowlist-junie-cli.html	200	html	217595614a236656e52be2593b867920f7ad575da71c618f0c8abc89a18af748	2026-09-23
 junie	docs	https://junie.jetbrains.com/docs/agent-skills.html	200	html	9b7af260ea22f9a37dd9a08248ad487ae50b239bc7701b9b06461665aa7131b2	2026-09-23
 junie	docs	https://junie.jetbrains.com/docs/custom-llm-models.html	200	html	7fb607f08fdf4c92b142f0686907f461ee72955e2c5fa554060c3c778be29e7c	2026-09-23
 junie	docs	https://junie.jetbrains.com/docs/custom-slash-commands.html	200	html	8b8fb5b7f2ef20436ee4af190ac933a70be787e296a168ab39551f285bcf90fa	2026-09-23
 junie	docs	https://junie.jetbrains.com/docs/environment-variables.html	200	html	b6e8e6148b6649183cff9d130e9eb658b634ba4b43aa3706930cb17b4a8720d4	2026-09-23
-junie	docs	https://junie.jetbrains.com/docs/get-started-with-junie.html	200	app-shell	-	2026-09-22
 junie	docs	https://junie.jetbrains.com/docs/guidelines-and-memory.html	200	html	caff788199d960933e43e03772a9ce014fb577ec2f9a94a40646248379f8a585	2026-09-23
 junie	docs	https://junie.jetbrains.com/docs/junie-cli-configuration.html	200	html	4bb23e839bcac9f9e13f921189b8b89a0c4b8a6f86b73727eb9a1d413d50a9f8	2026-09-23
 junie	docs	https://junie.jetbrains.com/docs/junie-cli-demo.html	200	html	1504b77d166d3a6aed3c9de8e3349fab50672099bbfe440d8f1c4e8e94e0e6e4	2026-09-23
@@ -221,7 +218,6 @@ windsurf	docs	https://docs.devin.ai/desktop/cascade/memories	200	html	33187370cc
 windsurf	docs	https://docs.devin.ai/desktop/cascade/skills	200	html	cbb5ae4bddab9b63e7eaa8ffcf36c47d668c773c6f07ae85139b9a1d2d751672	2026-09-22
 windsurf	docs	https://docs.devin.ai/desktop/cascade/workflows	200	html	d7d6d0b175481cdc654c423dc7237b09e859cf3e4301f7ea93c53c5d967595b5	2026-09-22
 windsurf	docs	https://docs.devin.ai/desktop/context-awareness/devin-ignore	200	html	d326d31d9cc88fc25bbc66ccad5d7631370b11eb4edbbb9b9c2a03e2965eeb26	2026-09-24
-windsurf	docs	https://docs.devin.ai/desktop/context-awareness/windsurf-ignore	200	html	d326d31d9cc88fc25bbc66ccad5d7631370b11eb4edbbb9b9c2a03e2965eeb26	2026-09-24
 windsurf	docs	https://docs.devin.ai/desktop/devin-local	200	html	639a059de3a45bd13470873c7d308d664717dd6963176a7318dba6afd0495119	2026-09-22
 zed	changelog	https://zed.dev/releases	200	html	18e2fa71df4481400a42d223cf49451b58af9f4939cf7a5e6db0fa7189c1d940	2026-09-23
 zed	docs	https://zed.dev/docs/ai/instructions	200	html	a52d64173b8e7872cc7c1cb09d101f30ceb532c6f4a50693c001b885a27bbf1f	2026-09-22
