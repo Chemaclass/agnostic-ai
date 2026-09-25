@@ -6,17 +6,19 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+## v0.68.0 - 2026-09-25
+
+### Changed
+
+- Noninteractive `init` enables detected tools or the default set. Pass `--all` to enable every target (#1136).
+- Unsupported-kind warnings suggest removing unused `targets:` before suppressing them with `on-unsupported: silent` (#1135).
+
 ### Added
 
 - Cursor: `sync` warns when emitted `BUGBOT.md` files exceed Bugbot's 30,000-character file cap or 100,000-character review budget (#1125, #1126).
 
-### Changed
-
-- Unsupported-kind warnings suggest removing unused `targets:` before suppressing them with `on-unsupported: silent` (#1135).
-
 ### Fixed
 
-- Noninteractive `init` enables detected tools or the default set. Pass `--all` to enable every target (#1136).
 - `init` and `import all` detect a root `CLAUDE.md` or `GEMINI.md` as an existing project (#1137).
 - `import all` and `--dry-run` skip entry files linked outside the project and report them as skipped (#1138, #1139, #1141, #1142).
 
