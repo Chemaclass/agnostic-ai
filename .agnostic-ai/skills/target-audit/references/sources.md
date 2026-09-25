@@ -236,7 +236,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 
 - docs: https://github.com/charmbracelet/crush (README is the reference) · https://raw.githubusercontent.com/charmbracelet/crush/main/schema.json (the vendor's published JSON schema, and the only place the MCP property set appears closed) · https://github.com/charmbracelet/crush/blob/main/docs/hooks/README.md
 - changelog: https://github.com/charmbracelet/crush/releases (the feed carries a rolling `nightly` tag whose timestamp bumps daily while its body stays static artifact-verification boilerplate; it reads like a daily ship and is not one, so compare against the newest real version tag, target-audit 2026-09-07)
-- watch: the `crush.json` `mcp` block; agents or commands surfaces; `crushrc` / `.crushrc`, the Bash config format now preferred over JSON (#674); a second hook event beyond `PreToolUse`.
+- watch: the `crush.json` `mcp` block; agents or commands surfaces; `crushrc` / `.crushrc`, the Bash config format now preferred over JSON (#674); a second hook event beyond `PreToolUse`; MCP channel fields (`channel_enabled`, `channel_reply`) after a stable release (in main's schema since 2026-09-25, absent in v0.96.1).
 - quirk: the rolling `nightly` release bumps daily with static boilerplate. Compare against the newest real version tag.
 - decision: map MCP fields explicitly. `schema.json` sets `"additionalProperties": false` on `MCPConfig`, so a passthrough typo breaks the config.
 - decision: `timeout` stays unmapped. Crush reads seconds (default 10); the spec uses milliseconds, so 5000 would mean 5000 seconds.

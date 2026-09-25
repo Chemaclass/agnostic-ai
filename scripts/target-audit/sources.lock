@@ -73,16 +73,16 @@ copilot	docs	https://docs.github.com/en/copilot/reference/hooks-reference.md	200
 crush	changelog	https://github.com/charmbracelet/crush/releases	200	github-api	6a3c5909fb532f30c63048094fdbed831ee37cf3f2f5d685bbd74aeff22a19e6	2026-09-25
 crush	docs	https://github.com/charmbracelet/crush	200	raw-github	4a72550d9d6d9b8274f1639ef4fbef3ee14c917b9dec0fad71ca7c3bb5d2cfc6	2026-09-22
 crush	docs	https://github.com/charmbracelet/crush/blob/main/docs/hooks/README.md	200	raw-github	0871ecba435c774b38650046a10341cccf07661c78a4bf803ce585c8740f4d38	2026-09-22
-crush	docs	https://raw.githubusercontent.com/charmbracelet/crush/main/schema.json	200	text	a4d21ef4bcef2965de1ec9eebee0a57aef1bf2c62315157f349f6988162ecffc	2026-09-22
+crush	docs	https://raw.githubusercontent.com/charmbracelet/crush/main/schema.json	200	text	2106a74bccf80fa8d8ae025c5f4833be4c26e092186fdff6466d78a7102ac2c5	2026-09-25
 cursor	changelog	https://cursor.com/changelog	200	reader-proxy	67dfa32f89544c5b21d485c6ac9d678da7ac74cb0c19a0e24e2d1d0053f57e5a	2026-09-24
 cursor	docs	https://cursor.com/docs/bugbot	200	reader-proxy	9c30ce8937eb95fdea40ca2a101f27887cd08edf10b1979c86ea69f535c81f82	2026-09-24
 cursor	docs	https://cursor.com/docs/hooks	200	reader-proxy	edb0d388b7743bf62a49848f8f71b6edcac2c3555996ca8fa64c3838d1d0b544	2026-09-24
 cursor	docs	https://cursor.com/docs/mcp	200	reader-proxy	1cd0265281aae01edeadaa048afeee6ebd8c901a85774ed991b2fe43045c37e4	2026-09-24
-cursor	docs	https://cursor.com/docs/reference/third-party-hooks.md	200	reader-proxy	9459317bb22e7993aeab75261080380a41f0c0d40e74a5044725333e570f9012	2026-09-24
+cursor	docs	https://cursor.com/docs/reference/third-party-hooks.md	200	markdown-mirror	c2d2e67fd529f5d14feaaab22b3662f9eac2d21a4c54846f3e28fca6d63292c6	2026-09-25
 cursor	docs	https://cursor.com/docs/rules	200	reader-proxy	edbf22e76649f01343a48361dc2a5faae0a9877592d4b1d22e1e0a3a65ed9805	2026-09-24
 cursor	docs	https://cursor.com/docs/skills	200	reader-proxy	18e2faf801bfd5bd8c8d8749a37a0e4674bc1d689153788febce667a59ecd5e1	2026-09-24
 cursor	docs	https://cursor.com/docs/subagents	200	reader-proxy	8da7e3a36d25075f5a639dd6934831720f8b6c05e10b492066148de715633816	2026-09-24
-cursor	docs	https://cursor.com/help/customization/skills.md	200	reader-proxy	f396591b2f80c95cdf7dd333542d2b3b15e49f5e6ecff6464811bf3133c9ae33	2026-09-24
+cursor	docs	https://cursor.com/help/customization/skills.md	200	markdown-mirror	7d551fc7939d4632228c7f178f89475113a1ad503000f890271ee95a4aee3a49	2026-09-25
 factory	changelog	https://docs.factory.ai/changelog/release-notes.md	200	markdown-mirror	e9e01ffaa2fb52d6a014d66d4407da611d2e2b66b4052bb86a4ec0ca24f39f1a	2026-09-24
 factory	docs	https://docs.factory.ai/	200	html	212481a9d2f35400539aadc169403388eb7b1ef611ae3fe12dbc7f1db053f273	2026-09-22
 factory	docs	https://docs.factory.ai/autonomy-and-safety/sandbox.md	200	markdown-mirror	fd25fcd53c06a1f64ec4e0d83eb3b97e7d23a17e832a991c59c262b222631c2c	2026-09-25
@@ -137,7 +137,7 @@ kilo	docs	https://kilo.ai/docs/customize/custom-rules	200	html	8a0b79959e9e92d10
 kilo	docs	https://kilo.ai/docs/customize/custom-subagents	200	html	26ae84fff5daad886b46d12e2b87047aac11f8c223b722f51d827e11a48d11a3	2026-09-22
 kilo	docs	https://kilo.ai/docs/customize/skills	200	html	cdc320d1955a1b11f32807b13ca70e39cfe68517d249147096bd6b7e095a5e47	2026-09-23
 kilo	docs	https://kilo.ai/docs/getting-started/settings/auto-approving-actions	200	html	3d660caed47c7252466c544bcec647c9e1b470d71a56bfea50f9bf9e11208568	2026-09-22
-kiro	changelog	https://kiro.dev/changelog/	200	reader-proxy	ab9e6f560311f40dd736a1168d48e44caf6febf6aa81e68db2eb79b92c65edc1	2026-09-25
+kiro	changelog	https://kiro.dev/changelog/	200	reader-proxy	f62752e3338c4a0936f5aca2c9ddd5da60de64a47aee87f6c5cc78e67fa0f484	2026-09-25
 kiro	docs	https://kiro.dev/docs/cli/v3/hooks-migration.md	200	markdown-mirror	47257b52caedeec916a92a82c7c3e20a22889b37c47c4688dfb989f70370f13f	2026-09-25
 kiro	docs	https://kiro.dev/docs/custom-agents.md	200	markdown-mirror	4901ef1d9bb61a831849697619ca484a4b0517ac23ea3afd94de5fd399799400	2026-09-25
 kiro	docs	https://kiro.dev/docs/custom-agents/configuration-reference.md	200	markdown-mirror	80484017b11180fe9e27f9ee5f71c0e8812afa53591793d162bfb7027b99a4c3	2026-09-25
@@ -170,6 +170,7 @@ openhands	docs	https://docs.openhands.dev/overview/skills/path	200	html	35845786
 openhands	docs	https://docs.openhands.dev/sdk/guides/agent-file-based	200	html	90c57fe1f71e42346e64d46326b949247d5eff12c95a09c58daeeb25dd847d7b	2026-09-22
 qoder	changelog	https://docs.qoder.com/release-notes/desktop.md	200	markdown-mirror	82bef796cc4931048754dc4497f2b77837c2771d3ffb62256b7352445e52b5b8	2026-09-24
 qoder	changelog	https://docs.qoder.com/release-notes/qoder-cli.md	200	markdown-mirror	539cbefc242c212590fa3248daf6039e855226288f0181f0810f7c92019194f0	2026-09-24
+qoder	docs	https://docs.qoder.com/cli/Skills.md	200	markdown-mirror	c40f99c6382f998547c18783a4ffd7cb22740d6340b936ed8dd484f2dd07b237	2026-09-25
 qoder	docs	https://docs.qoder.com/cli/commands.md	200	markdown-mirror	05f8f47cf709adc33f9d8c90e665213e471371249d5410eab0d3512fb6531239	2026-09-25
 qoder	docs	https://docs.qoder.com/cli/config-scope.md	200	markdown-mirror	d3bce256c0fcfdeafc269d8bbf756ac25a3693020227af095094f046368abb2f	2026-09-25
 qoder	docs	https://docs.qoder.com/cli/hooks-reference.md	200	markdown-mirror	695e7fdbc3f17f14181863dcec7149137e3d5991b48e6fc8453e7b767c4b7633	2026-09-25
@@ -180,7 +181,6 @@ qoder	docs	https://docs.qoder.com/cli/memory.md	200	markdown-mirror	6698230aca88
 qoder	docs	https://docs.qoder.com/cli/permissions.md	200	markdown-mirror	6f483f3ae5c8d2a6cd704e04137516b74cea4bb717f1dac05738ae57f381bba9	2026-09-25
 qoder	docs	https://docs.qoder.com/cli/settings-reference.md	200	markdown-mirror	ad3b59ab957bf799e2d0013ac1d135413b61e1adc704f176ac64f320d034c9d4	2026-09-25
 qoder	docs	https://docs.qoder.com/cli/settings.md	200	markdown-mirror	9f643742b6f619e2dad9a177a1668d461359598b2aa143b4e067a77321158f4f	2026-09-25
-qoder	docs	https://docs.qoder.com/cli/Skills.md	200	markdown-mirror	c40f99c6382f998547c18783a4ffd7cb22740d6340b936ed8dd484f2dd07b237	2026-09-25
 qoder	docs	https://docs.qoder.com/cli/subagent.md	200	markdown-mirror	bf536a0db661663ce4c75fae1fb82a3cb380679af03b85328a15e5188b782368	2026-09-25
 qoder	docs	https://docs.qoder.com/extensions/skills.md	200	markdown-mirror	2c1471069017c0ec4f3e499f8d270fe8b65c413579c547213b0c91ffee09bb0f	2026-09-25
 qoder	docs	https://docs.qoder.com/extensions/subagent.md	200	markdown-mirror	fbb291b96ac225dfe34fda3116a3877ae37f452586a39ba763ddf3bee272399e	2026-09-25
