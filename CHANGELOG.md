@@ -8,6 +8,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Added
 
+- Global sync loads personal overrides from `local/`; `list --global` shows each effective spec's layer (#1153).
+
 - Agents map `readonly: true` to Codex's read-only sandbox and report a coverage note on targets that drop `readonly` (#1149).
 
 ### Fixed

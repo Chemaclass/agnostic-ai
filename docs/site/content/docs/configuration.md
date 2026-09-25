@@ -354,7 +354,7 @@ Only `project` honors custom `sources` paths; `project-user` uses fixed kind dir
 
 ## Global configuration
 
-`agnostic-ai sync --global` installs user-level instructions, rules, hooks, and skills for 22 of the 25 targets ([global output](@/docs/target-behavior.md#global-output) lists paths). It works from any directory and loads no `agnostic-ai.yaml`, packs, local overrides, or project specs.
+`agnostic-ai sync --global` installs user-level instructions, rules, hooks, and skills for 22 of the 25 targets ([global output](@/docs/target-behavior.md#global-output) lists paths). It works from any directory and loads no `agnostic-ai.yaml`, packs, or project specs. Personal overrides live in the source root's `local/` directory.
 
 Source root: `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when `AGNOSTIC_AI_HOME` is unset.
 
@@ -364,8 +364,24 @@ Source root: `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when `AGNOSTIC_AI_HOME` i
 ├── agents/*.md
 ├── rules/*.md
 ├── hooks/*.yaml
-└── skills/<name>/SKILL.md
+├── skills/<name>/SKILL.md
+└── local/                  # optional personal layer
+    ├── AGNOSTIC_AI.md
+    ├── agents/*.md
+    ├── rules/*.md
+    ├── hooks/*.yaml
+    └── skills/<name>/SKILL.md
 ```
+
+Specs in `local/` replace shared specs with the same kind and name. The local spec replaces the whole entry, including its metadata and skill assets; fields are never merged. New names append. `local/AGNOSTIC_AI.md` comes last in the managed instructions block, after shared agreements and effective rules. Without `local/`, sync uses the shared home alone.
+
+Before adding personal files, add this entry to the source root's `.gitignore`:
+
+```gitignore
+/local/
+```
+
+For example, `local/skills/reviewer/SKILL.md` replaces `skills/reviewer/SKILL.md`. Run `agnostic-ai list --global` to see the effective specs with their `global` or `global-local` layer. Global layers never merge with project specs.
 
 - It targets every supported tool by default. Which `sync` flags it accepts is in the [CLI reference](@/docs/cli-reference.md#sync).
 - Nested rules and rules with scope, path, glob, or target conditions are rejected. Commands, MCP servers, settings, inheritance, and merging with project specs are unsupported.

@@ -19,7 +19,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
-	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -128,13 +127,8 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		}
 	}
 	targets = usable
-	sourceHome := os.Getenv("AGNOSTIC_AI_HOME")
-	if sourceHome == "" {
-		sourceHome = filepath.Join(home, ".agnostic-ai")
-	}
-	source := sourceHome
-	cfg := &config.Config{Sources: config.Sources{Rules: "rules", Hooks: "hooks", Skills: "skills", Agents: "agents"}}
-	bundle, err := spec.LoadBundle(source, cfg)
+	source := globalSourceHome(home)
+	bundle, err := spec.LoadLayered(globalLayers(source))
 	if err != nil {
 		return err
 	}
@@ -160,12 +154,12 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 			return fmt.Errorf("global rule %q is scoped or conditional; global rules must apply unconditionally", rule.Name)
 		}
 	}
-	instructions, err := os.ReadFile(filepath.Join(source, "AGNOSTIC_AI.md"))
-	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("read %s: %w", filepath.Join(source, "AGNOSTIC_AI.md"), err)
+	instructions, err := globalInstructions(source, bundle.Rules)
+	if err != nil {
+		return err
 	}
 
-	statePath := filepath.Join(sourceHome, "state", "global.json")
+	statePath := filepath.Join(source, "state", "global.json")
 	old, err := loadGlobalState(statePath)
 	if err != nil {
 		return err
@@ -436,12 +430,6 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		return err
 	}
 	body := strings.TrimSpace(string(intro))
-	for _, rule := range b.Rules {
-		if body != "" {
-			body += "\n\n"
-		}
-		body += "## " + rule.Name + "\n\n" + strings.TrimSpace(rule.Body)
-	}
 	managed := globalStart + "\n" + body + "\n" + globalEnd
 	for _, target := range targets {
 		g := globalTargets[target]

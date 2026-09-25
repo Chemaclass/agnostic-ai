@@ -43,6 +43,8 @@ agnostic-ai sync --check
 
 Use `agnostic-ai sync --global` for [user-level configuration](https://agnostic-ai.org/docs/configuration/#global-configuration). Global hooks and skills honor each spec's target filters. Skill metadata renders per target, while shared directories stay neutral. Agents with `readonly: true` use Cursor's read-only mode or Codex's read-only sandbox.
 
+Keep personal global overrides in `~/.agnostic-ai/local/` and add `/local/` to that home's `.gitignore`. `agnostic-ai list --global` shows which layer supplies each spec.
+
 ## Daily commands
 
 ```bash
