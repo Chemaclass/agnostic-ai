@@ -90,7 +90,10 @@ func importGeminiRules(root, dstDir string, src config.Sources) (int, error) {
 	used := map[string]int{}
 	count := 0
 	for _, f := range files {
-		data, err := os.ReadFile(f.path)
+		data, err := readEntryFile(root, f.path)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
 		if err != nil {
 			return count, fmt.Errorf("read %s: %w", f.path, err)
 		}

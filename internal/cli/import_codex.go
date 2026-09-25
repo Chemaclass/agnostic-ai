@@ -166,7 +166,10 @@ func importCodexRules(root, dstDir string, src config.Sources, opts importCodexO
 	used := map[string]int{}
 	count := 0
 	for _, f := range files {
-		raw, err := os.ReadFile(f.path)
+		raw, err := readEntryFile(root, f.path)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
 		if err != nil {
 			return count, fmt.Errorf("read %s: %w", f.path, err)
 		}
@@ -378,7 +381,7 @@ func importCodexRulesFile(root, dstDir string, opts importCodexOpts) (int, error
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(root, path)
 	}
-	data, err := os.ReadFile(path)
+	data, err := readEntryFile(root, path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return 0, nil
 	}

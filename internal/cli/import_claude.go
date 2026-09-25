@@ -189,10 +189,10 @@ func mirrorClaudeMainFile(root string) (result mirrorResult, srcName string, pro
 		if rung.sharedEntryPoint && claimed {
 			continue
 		}
-		if _, statErr := os.Stat(filepath.Join(root, rung.name)); statErr != nil {
+		result, err = mirrorMainFile(root, rung.name)
+		if err == nil && result == mirrorAbsent {
 			continue
 		}
-		result, err = mirrorMainFile(root, rung.name)
 		return result, rung.name, rung.nested && result != mirrorAbsent, err
 	}
 	return mirrorAbsent, claudeMainFile, false, nil
@@ -244,7 +244,7 @@ const (
 func mirrorMainFile(root, srcName string) (mirrorResult, error) {
 	src := filepath.Join(root, srcName)
 	dst := filepath.Join(root, agnosticMainFile)
-	data, err := os.ReadFile(src)
+	data, err := readEntryFile(root, src)
 	if errors.Is(err, fs.ErrNotExist) {
 		return mirrorAbsent, nil
 	}

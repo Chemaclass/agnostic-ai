@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -128,7 +127,7 @@ var mergedDocSourceCommentRE = regexp.MustCompile(`(?m)^[ \t]*<!--\s*source:\s*[
 // byte-stable instead of nesting the wrapper deeper on every cycle.
 func sliceMainFileByH2(root, srcName, dstDir string) (int, error) {
 	src := filepath.Join(root, srcName)
-	data, err := os.ReadFile(src)
+	data, err := readEntryFile(root, src)
 	if errors.Is(err, fs.ErrNotExist) {
 		return 0, nil
 	}
@@ -285,7 +284,7 @@ func writeAgentMD(path, name, description string, tags []string, body string) er
 // same way and does hold the bodies, so the test cannot live inside
 // sliceMainFileByH2, which sees both.
 func isGeneratedPointerBody(root, name string) bool {
-	data, err := os.ReadFile(filepath.Join(root, name))
+	data, err := readEntryFile(root, filepath.Join(root, name))
 	if err != nil {
 		return false
 	}

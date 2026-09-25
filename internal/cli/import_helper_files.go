@@ -73,7 +73,10 @@ func captureHelperFiles(root, tool string, exclude ...string) ([]string, error) 
 		if !info.Mode().IsRegular() {
 			continue
 		}
-		body, err := os.ReadFile(src)
+		body, err := readEntryFile(root, src)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
 		if err != nil {
 			return captured, fmt.Errorf("read %s: %w", src, err)
 		}
