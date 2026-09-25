@@ -734,3 +734,32 @@ func readFile(t *testing.T, path string) string {
 	}
 	return string(b)
 }
+
+func TestEmit_AgentReadonlyMapsToSandbox(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		meta map[string]any
+		want string
+	}{
+		{"readonly", map[string]any{"readonly": true}, `sandbox_mode = "read-only"`},
+		{"override", map[string]any{"readonly": true, "x-codex": map[string]any{"sandbox_mode": "workspace-write"}}, `sandbox_mode = "workspace-write"`},
+		{"false", map[string]any{"readonly": false}, ""},
+		{"null override", map[string]any{"readonly": true, "x-codex": map[string]any{"sandbox_mode": nil}}, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			entry := spec.Entry{Kind: spec.KindAgent, Name: "reviewer", Body: "Review code.", Meta: tc.meta}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{entry}), &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			got := readFile(t, filepath.Join(dir, ".codex", "agents", "reviewer.toml"))
+			if tc.want == "" {
+				if strings.Contains(got, "sandbox_mode") {
+					t.Errorf("unexpected sandbox mode: %s", got)
+				}
+			} else if !strings.Contains(got, tc.want) || strings.Count(got, "sandbox_mode") != 1 {
+				t.Errorf("want %s once: %s", tc.want, got)
+			}
+		})
+	}
+}

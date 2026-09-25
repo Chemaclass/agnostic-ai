@@ -77,6 +77,7 @@ Report concise findings with `file:line` references.
 | `model` | no | unset | Preferred model: a string for every target, or a map per target. See [per-target `model` and `effort`](#per-target-model-and-effort). |
 | `effort` | no | unset | Reasoning effort: a string or integer for every target, or a map per target. See [per-target `model` and `effort`](#per-target-model-and-effort). |
 | `color` | no | unset | Badge color. See [`color` support by target](#color-support-by-target). |
+| `readonly` | no | unset | `true` restricts Cursor agents and maps to Codex `sandbox_mode = "read-only"`. An explicit `x-codex.sandbox_mode` wins. Other targets report a coverage note. `false` sets no Codex sandbox mode. |
 | `memory` | no | unset | Persistent memory scope for the agent: `user`, `project`, or `local`. |
 
 Any other frontmatter field passes through unchanged.

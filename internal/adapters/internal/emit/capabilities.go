@@ -94,6 +94,7 @@ func ReportUnsupported(c Capabilities, b spec.Bundle, mode string) error {
 	}
 	if c.supports(spec.KindAgent) {
 		noteDroppedAgentFields(c, b.Agents)
+		NoteDroppedAgentReadonly(c.Target, b.Agents)
 	}
 	return nil
 }
@@ -123,6 +124,22 @@ func noteDroppedAgentFields(c Capabilities, agents []spec.Entry) {
 		}
 		NoteFieldNoOp(c.Target, spec.KindAgent, t.field, dropped, reason)
 	}
+}
+
+func NoteDroppedAgentReadonly(target string, agents []spec.Entry) {
+	if target == "codex" || target == "cursor" {
+		return
+	}
+	dropped := 0
+	for _, agent := range agents {
+		if _, portable := agent.Meta["readonly"]; !portable {
+			continue
+		}
+		if _, set := ResolveMeta(agent.Meta, target)["readonly"].(bool); set {
+			dropped++
+		}
+	}
+	NoteFieldNoOp(target, spec.KindAgent, "readonly", dropped, "the agent file has no read-only mode")
 }
 
 func noteDroppedSettingsEffort(target string, settings []spec.Entry) {
