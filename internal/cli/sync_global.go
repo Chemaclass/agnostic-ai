@@ -516,12 +516,13 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			}
 		}
 		if g.skills != "" {
+			adapters.NoteDroppedSkillFields(target, b.Skills)
 			dir := g.path(home, g.skills)
 			for _, skill := range b.Skills {
 				if !skill.EmitsTo(target) {
 					continue
 				}
-				if err := addGlobalSkill(filepath.Join(dir, skill.Name), skill.Path, add); err != nil {
+				if err := addGlobalSkill(filepath.Join(dir, skill.Name), skill, target, sharedGlobalSkillsDir(home, dir), add); err != nil {
 					return nil, next, err
 				}
 			}
@@ -633,15 +634,36 @@ func handEditedGlobalFiles(writes []globalWrite, removals []string, old globalSt
 	return edited, nil
 }
 
-// addGlobalSkill copies a source skill folder (SKILL.md plus sibling
-// assets) into dst through add.
-func addGlobalSkill(dst, specPath string, add func(string, []byte, fs.FileMode) error) error {
-	root := filepath.Dir(specPath)
+func sharedGlobalSkillsDir(home, dir string) bool {
+	readers := 0
+	for _, target := range globalTargets {
+		if target.skills != "" && target.path(home, target.skills) == dir {
+			readers++
+			if readers > 1 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func addGlobalSkill(dst string, skill spec.Entry, target string, shared bool, add func(string, []byte, fs.FileMode) error) error {
+	rendered, err := adapters.RenderSkillMarkdown(target, skill, shared)
+	if err != nil {
+		return err
+	}
+	if err := add(filepath.Join(dst, "SKILL.md"), []byte(rendered), 0o644); err != nil {
+		return err
+	}
+	if filepath.Base(skill.Path) != "SKILL.md" {
+		return nil
+	}
+	root := filepath.Dir(skill.Path)
 	return filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if d.IsDir() {
+		if d.IsDir() || path == skill.Path {
 			return nil
 		}
 		rel, err := filepath.Rel(root, path)

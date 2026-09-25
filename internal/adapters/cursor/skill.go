@@ -47,7 +47,7 @@ func skillMarkdown(s spec.Entry) string {
 			keys = append(keys, k)
 		}
 	}
-	exclude := append([]string(nil), keys...)
+	exclude := append(append([]string(nil), keys...), "model", "effort")
 	emit.MergeCustomTargetMeta(meta, &keys, s.Meta, target, exclude...)
 	front := emit.FrontmatterOrdered(meta, keys)
 	body := strings.TrimSpace(s.Body)
@@ -55,4 +55,8 @@ func skillMarkdown(s spec.Entry) string {
 		return front + "\n"
 	}
 	return front + "\n" + body + "\n"
+}
+
+func (Adapter) SkillMarkdown(skill spec.Entry) string {
+	return skillMarkdown(skill)
 }

@@ -81,3 +81,7 @@ func openaiYAML(s spec.Entry) string {
 	}
 	return string(data)
 }
+
+func (Adapter) SkillMarkdown(skill spec.Entry) string {
+	return skillMarkdown(skill)
+}

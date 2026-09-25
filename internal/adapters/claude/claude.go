@@ -142,7 +142,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	for _, s := range b.Skills {
 		folder := filepath.Join(skillsDir, s.Name)
 		path := filepath.Join(folder, "SKILL.md")
-		body := emit.WithHeader(emit.DocumentStyled(s.Meta, s.MetaKeys, s.MetaStyles, s.Body, target), emit.FormatMarkdown)
+		body := emit.WithHeader((Adapter{}).SkillMarkdown(s), emit.FormatMarkdown)
 		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}

@@ -92,6 +92,9 @@ func ReportUnsupported(c Capabilities, b spec.Bundle, mode string) error {
 	if c.supports(spec.KindSettings) && !slices.Contains(c.SettingsFields, "effort") {
 		noteDroppedSettingsEffort(c.Target, b.Settings)
 	}
+	if c.supports(spec.KindSkill) {
+		NoteDroppedSkillFields(c.Target, b.Skills)
+	}
 	if c.supports(spec.KindAgent) {
 		noteDroppedAgentFields(c, b.Agents)
 		NoteDroppedAgentReadonly(c.Target, b.Agents)
