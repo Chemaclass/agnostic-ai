@@ -125,18 +125,17 @@ func importRulesDirectoryWith(root, srcDir string, src config.Sources, opts rule
 		if err != nil {
 			return err
 		}
+		var data []byte
 		if path == full {
 			if opts.FileRuleName == "" {
 				return nil
 			}
 			rel = opts.FileRuleName + ".md"
-		} else if !strings.HasSuffix(d.Name(), ".md") {
-			return nil
-		}
-		var data []byte
-		if path == full {
 			data, err = readEntryFile(root, path)
 		} else {
+			if !strings.HasSuffix(d.Name(), ".md") {
+				return nil
+			}
 			data, err = os.ReadFile(path)
 		}
 		if errors.Is(err, fs.ErrNotExist) {
