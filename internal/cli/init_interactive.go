@@ -231,11 +231,44 @@ func detectExistingTargets(root string) []string {
 	picked := map[string]bool{}
 	for _, t := range allTargets {
 		for _, marker := range targetMarkers[t.Name] {
-			if _, err := os.Stat(filepath.Join(root, marker)); err == nil {
+			if markerPresent(root, marker) {
 				picked[t.Name] = true
 				break
 			}
 		}
 	}
 	return filterToCanonicalOrder(picked)
+}
+
+// rootFileMarkers are the entry files that count as markers. Unlike the
+// tool directories, they are ordinary names a project may symlink, so
+// they must stay inside the project: `import all` acts on detection, and
+// a CLAUDE.md linking to a file elsewhere on the machine would copy that
+// file into the project's sources. An explicit `import claude` still
+// reads such a link.
+var rootFileMarkers = map[string]bool{"CLAUDE.md": true, "GEMINI.md": true}
+
+// markerPresent reports whether marker exists under root. A root entry
+// file must be a regular file, or a symlink that resolves to one inside
+// root.
+func markerPresent(root, marker string) bool {
+	path := filepath.Join(root, marker)
+	if !rootFileMarkers[marker] {
+		_, err := os.Stat(path)
+		return err == nil
+	}
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return false
+	}
+	info, err := os.Stat(resolved)
+	if err != nil || !info.Mode().IsRegular() {
+		return false
+	}
+	base, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(base, resolved)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
