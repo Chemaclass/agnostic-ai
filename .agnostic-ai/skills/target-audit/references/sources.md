@@ -31,7 +31,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - watch: `.claude/rules/` native loading, settings.json keys, plugin and marketplace keys. The `.mcp.json` per-server fields `headersHelper`, `timeout`, `alwaysLoad` and `oauth`, emitted behind `emit.WithClaudeMCPExtras()`. The AGENTS.md fallback default, its Bedrock/Vertex/Foundry carve-out, the toggle gaining project scope, and `.claude/AGENTS.md` leaving the read list. Stable hook handler common fields, apart from command-only options.
 - decision: `oauth.clientSecret` is not emitted. The secret "is stored securely in your system keychain ... not in your config".
 - decision: experimental agent hooks stay excluded. Command, HTTP, MCP-tool and prompt handlers emit and import.
-- quirk: when `/settings-reference` and the CHANGELOG disagree, prefer the CHANGELOG. The reference still documents `taskOutputMaxChars` without a marker, though v2.1.277 made it a no-op. It marks other keys deprecated, so a missing marker means stale.
+- quirk: when `/settings-reference` and the CHANGELOG disagree, prefer the CHANGELOG. The reference once documented `taskOutputMaxChars` without a marker after v2.1.277 made it a no-op; since 2026-09-25 it carries "Removed in v2.1.277". A missing deprecation marker there has meant stale before.
 - quirk: date a CHANGELOG entry by parsing the `## <version>` headings. Summarised fetches and flat dumps misdated it twice.
 - decision: we keep emitting `taskOutputMaxChars` while npm `stable` sits below 2.1.277.
 - trap: `.claude/settings.json` is not claude-only. Copilot CLI reads a five-key subset, `enabledPlugins` and `hooks` included (#956).
@@ -82,6 +82,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - trap: `agentStop` pairs with `Stop`, not `AgentStop`. Grepping `AgentStop` finds nothing; no pairing was dropped.
 - trap: hook sources combine, and the CLI also reads `.claude/settings.json` for five keys, `enabledPlugins` and `hooks` among them. One spec targeting claude and copilot runs twice (#755, #956).
 - trap: `exec`/`args` are "Only supported in Copilot CLI"; cloud agent honors only `bash`/`command`.
+- quirk: both VS Code MCP URLs 404 since 2026-09-25, yet vscode-docs `toc.json` lists them. Recheck before swapping citations.
 - trap: there is no project `.copilot/settings.json`. Every mention is `~/.copilot/settings.json`; the repo file is `.github/copilot/settings.json`.
 - trap: permissions are MDM-only (#917). Unlisted repository keys "are silently ignored", and `~/.copilot/permissions-config.json` "doesn't support deny rules".
 - trap: no VS Code page documents a per-server `roots` key. When a field claim repeats across targets, check `BuildRoots` in `emit/mcp.go` and every page it feeds.
@@ -168,6 +169,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - changelog: https://docs.warp.dev/changelog/2026.md (dated release entries; advance the year when a new annual page appears) · https://docs.warp.dev/changelog.md (year index, retained to detect new annual pages; the old getting-started path redirects here)
 - watch: a native rules-dir surface (today: AGENTS.md, `.agents/skills/`, workflows, `.warp/.mcp.json`); another move of the MCP page (it 308s from `/knowledge-and-collaboration/mcp`); whether either MCP table gains `description`, `disabled` or `roots`.
 - fact: Warp indexes ten default skill directories, `.agents/skills/` recommended (#590). `.opencode/skills/` is one, so Warp reads OpenCode skills with no extra write. Native `.agents/skills/` folders with bundled assets import (#765).
+- fact: Warp also loads project MCP servers from Claude Code's `.mcp.json`, Codex's `.codex/config.toml` and `.agents/.mcp.json`, each needing explicit approval. No same-name dedupe is documented (#1158).
 - trap: the env var is `WARP_SKILL_DIRS`, not `SKILLS_DIRS` (#663). It serves Cloud agents indexing skills outside the repo. It does not extend the ten defaults.
 - fact: the MCP command table has `command`/`args`/`env`/`working_directory` (Warp's name for `cwd`, #606). The URL table has only `url`/`headers`, no discriminant (#592).
 - decision: we emit no `description`, `disabled` or `roots` (#641). `disabled` raises a coverage note; the other two go through `x-warp`.
