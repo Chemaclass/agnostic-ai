@@ -39,6 +39,7 @@ Design issues need the capability reference's evidence, representation test, ind
 | Breaking | One PR per target and breaking finding |
 | Missing-feature and degraded | One additive batch |
 | Cosmetic and audit-source corrections | One docs PR, including `scripts/target-audit/sources.lock` and `signals.tsv` |
+| No findings | One `chore(target-audit)` PR with the lock update alone |
 
 Settle every bucket before spawning. Give each `adapter-fixer` the issue links and verbatim finding blocks, including vendor quote, repository line, and reproduction. If newer research changes the issue's conclusion, include the URL, extraction method, and command that establishes it. Do not ask fixers to trust a summary or infer one vendor's schema from another.
 
