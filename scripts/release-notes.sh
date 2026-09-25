@@ -1,36 +1,57 @@
 #!/usr/bin/env bash
-#
-# release-notes.sh — emit GitHub release notes for a tag from CHANGELOG.md.
-#
-# Usage:
-#   scripts/release-notes.sh vX.Y.Z [CHANGELOG path] [owner/repo]
-#
-# Echoes the body of the matching `## [vX.Y.Z]` section from CHANGELOG.md
-# plus a footer linking to the full changelog. Exits non-zero if the
-# section is missing.
-#
-# Defaults: CHANGELOG.md, repo derived from `gh repo view` when unset.
-# Used by .github/workflows/release.yml to feed `goreleaser release
-# --release-notes=NOTES.md` and by scripts/release.sh as a local sanity
-# check.
+
+# Usage: scripts/release-notes.sh vX.Y.Z [CHANGELOG] [owner/repo]
 
 set -Eeuo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck disable=SC1091
-source "$SCRIPT_DIR/release.sh"
+extract_changelog_section() {
+  local file="$1" ver="$2"
+  grep -Eq "^## (\[${ver}\]|${ver}( |$))" "$file" || return 1
+  awk -v ver="$ver" '
+    /^## / {
+      if ($0 ~ "^## \\[" ver "\\]" || $0 ~ "^## " ver "( |$)") {
+        in_section=1
+        next
+      }
+      if (in_section) exit
+    }
+    in_section { lines[++n]=$0 }
+    END {
+      end=n
+      while (end > 0 && lines[end] ~ /^[[:space:]]*$/) end--
+      start=1
+      while (start <= end && lines[start] ~ /^[[:space:]]*$/) start++
+      for (i=start; i<=end; i++) print lines[i]
+    }
+  ' "$file"
+}
 
-ver="${1:?usage: $0 vX.Y.Z [CHANGELOG] [owner/repo]}"
-changelog="${2:-CHANGELOG.md}"
-repo="${3:-}"
+format_release_notes() {
+  local ver="$1" changelog="$2" repo="$3" section archive
+  archive="$(dirname "$changelog")/docs/CHANGELOG-archive.md"
+  section="$(extract_changelog_section "$changelog" "$ver" 2>/dev/null)" \
+    || section="$(extract_changelog_section "$archive" "$ver" 2>/dev/null)" \
+    || { printf 'error: no [%s] section in %s\n' "$ver" "$changelog" >&2; return 1; }
+  cat <<EOF
+$section
 
-if [[ -z "$repo" ]]; then
-  if command -v gh >/dev/null 2>&1; then
+---
+
+[Full changelog](https://github.com/$repo/blob/main/CHANGELOG.md) · [README](https://github.com/$repo#readme)
+EOF
+}
+
+main() {
+  local ver="${1:?usage: $0 vX.Y.Z [CHANGELOG] [owner/repo]}"
+  local changelog="${2:-CHANGELOG.md}"
+  local repo="${3:-}"
+  if [[ -z "$repo" ]]; then
+    command -v gh >/dev/null 2>&1 || { printf 'error: repo not provided and gh not available\n' >&2; return 1; }
     repo="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
-  else
-    printf 'error: repo not provided and gh not available\n' >&2
-    exit 1
   fi
-fi
+  format_release_notes "$ver" "$changelog" "$repo"
+}
 
-format_release_notes "$ver" "$changelog" "$repo"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

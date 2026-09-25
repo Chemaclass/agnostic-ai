@@ -17,27 +17,14 @@ record and keep verified upstream CLI and model news separate.
 
 Run `make site-build site-test` before the release commit. Confirm the article,
 archive, RSS GUID, `.html` compatibility alias, and sitemap route are generated.
-The version, changelog, and briefing must share one commit and tag.
+The version, changelog, and briefing must share one commit. Push that commit,
+wait for its full three-OS CI run, then sign and push the tag.
 
-The mechanical release script remains available:
+The `cut-release` skill is the release procedure. The tag workflow uses
+`scripts/release-notes.sh` to build GitHub Release notes from the dated
+`CHANGELOG.md` section.
 
-```bash
-scripts/release.sh vX.Y.Z              # bump + tag + push
-scripts/release.sh vX.Y.Z --dry-run    # preview only
-scripts/release.sh vX.Y.Z --no-push    # commit + tag locally
-```
-
-The script does not author or validate the editorial briefing. Use the release
-skill when publishing a normal release. The script:
-
-1. Validates: clean tree, on `main`, in sync with `origin/main`, tag absent.
-2. Runs `gofmt -s -l`, `go vet`, `go test ./...`, `agnostic-ai sync --check`.
-3. Bumps `version` in `cmd/agnostic-ai/main.go`.
-4. Drops empty `### ` subsections from `[Unreleased]`, then promotes it to `## vX.Y.Z - YYYY-MM-DD` (no brackets) and inserts a fresh empty `[Unreleased]` block.
-5. Commits `chore(release): vX.Y.Z`, creates annotated tag `vX.Y.Z`.
-6. Pushes `main` + tag. CI runs GoReleaser; release notes come from `scripts/release-notes.sh` against the matching `CHANGELOG.md` section.
-
-After the push, watch both workflows:
+After pushing the tag, watch both workflows:
 
 - `Release` builds artifacts and publishes the GitHub Release from the tag.
 - `Pages` deploys the Zola site and playground automatically from the release
@@ -80,7 +67,7 @@ The `distribution` job checks all seven afterwards. A parent on the registry who
 
 ### npm dist-tags
 
-`npm publish` with no `--tag` writes `latest`, and `latest` is what an unpinned `npm install agnostic-ai` resolves. The release workflow fires on every `v*` tag and `scripts/release.sh` accepts a prerelease, so an untagged prerelease publish would replace the stable release for everyone.
+`npm publish` with no `--tag` writes `latest`, and `latest` is what an unpinned `npm install agnostic-ai` resolves. The release workflow fires on every `v*` tag, including prereleases, so an untagged prerelease publish would replace the stable release for everyone.
 
 `npm_dist_tag` in `scripts/npm-publish.sh` derives the tag from the version, and both the provenance publish and the plain retry pass it:
 

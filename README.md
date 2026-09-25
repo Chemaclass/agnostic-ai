@@ -57,7 +57,7 @@ Support spans [Claude Code, Codex, Cursor, Gemini CLI, Copilot, and more](https:
 ```bash
 make tools      # install pinned development tools once
 make build
-make preflight  # format, vet, lint, and Go tests
+make preflight  # format, lint, and Go tests
 ```
 
 This repository keeps its own agent setup in `.agnostic-ai/`. Edit those source specs, then run `./agnostic-ai sync`. Most native output is ignored by Git; `.openhands/setup.sh` is tracked for bootstrap. See [CONTRIBUTING.md](CONTRIBUTING.md) for checks by change type and the [architecture guide](docs/internal/architecture.md) for the Go packages.

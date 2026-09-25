@@ -45,9 +45,8 @@ Then post one PR comment listing the commit that applied the findings, the issue
 
 Before every push, all green:
 
-- `SKIP_JETBRAINS=1 make ci-local` (say so when Gradle cannot download; CI gates JetBrains)
-- `make test-shell`
-- `make site-test`, counting skips, not the exit code
+- `make ci-local`; use `SKIP_JETBRAINS=1` only when Java or Gradle is unavailable, report the skip, and check JetBrains CI when its inputs changed
+- `make site-test` when site content changes, counting skips, not the exit code
 - `./agnostic-ai sync --check`. Drift only in gitignored generated files after a fresh checkout is a stale ledger: run `sync`, confirm 0 tracked files change.
 - CHANGELOG bullets pass the length check in `.agnostic-ai/agents/changelog-curator.md`.
 
@@ -62,7 +61,7 @@ For each PR, oldest first, or the one that moves shared files (`sources.lock`, `
 3. `gh pr merge <N> --squash --admin --delete-branch`.
 4. Fast-forward local `main` from `origin/main` and delete the local branch. Stop if `main` has unpublished commits; never reset them away.
 
-PR checks run on Linux only. After the last merge, wait for the `CI` workflow on the new `main` head and confirm every job passed, Windows included. A red main is the first thing to fix.
+PR Go tests run on Linux only. After the last merge, wait for the `CI` workflow on the new `main` head and confirm every job passed, Windows included. A red main is the first thing to fix.
 
 ## 7. Report
 

@@ -21,7 +21,7 @@ test-race:
 
 # e2e_test.sh drives the built binary, so build first.
 test-shell: build
-	bashunit scripts/release_test.sh scripts/target-facts_test.sh scripts/docfetch_test.sh \
+	bashunit scripts/release-notes_test.sh scripts/target-facts_test.sh scripts/docfetch_test.sh \
 		scripts/install_test.sh scripts/npm-binaries_test.sh scripts/npm-publish_test.sh \
 		scripts/e2e_test.sh scripts/vendor-watch_test.sh
 
@@ -61,11 +61,9 @@ fmt-check:
 vet:
 	go vet ./...
 
-# preflight runs every gate the CI Lint and Test jobs run, in the same
-# order. Use this before `git push` (or wire it into a pre-push hook via
-# `make hooks`) so PR checks never surface a `make preflight`-fixable
-# error. Mirrors .github/workflows/ci.yml.
-preflight: fmt-check vet lint test
+# golangci-lint already runs govet on this OS. CI vets macOS and Windows
+# separately, so a standalone local vet adds no coverage to this gate.
+preflight: fmt-check lint test
 	@echo "preflight: ok"
 
 # ci-local runs every CI job that can run on this machine, so a release can
@@ -95,11 +93,9 @@ ci-local: fmt-check test-race build lint
 ifeq ($(SKIP_JETBRAINS),1)
 	@echo "ci-local: SKIPPED the JetBrains plugin. This run did NOT gate it."
 else
-	@cd editors/jetbrains && ./gradlew --no-daemon --version >/dev/null 2>&1 || { \
-		echo "ci-local: the gradle wrapper cannot fetch its distribution."; \
-		echo "  It downloads once and caches. Run this where the network reaches"; \
-		echo "  services.gradle.org, or re-run with SKIP_JETBRAINS=1 and rely on"; \
-		echo "  the remote CI run for that one job."; \
+	@cd editors/jetbrains && ./gradlew --no-daemon --version >/dev/null || { \
+		echo "ci-local: JetBrains Gradle could not start. Check Java and Gradle download access."; \
+		echo "  Use SKIP_JETBRAINS=1 only when the JetBrains CI job is covered remotely."; \
 		exit 1; }
 	cd editors/jetbrains && ./gradlew --no-daemon test
 endif

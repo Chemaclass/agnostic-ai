@@ -30,23 +30,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # A pull request tests on Linux alone; every other trigger tests all three.
-  #
-  # The three are not equally cheap in wall-clock: Linux finishes in about a
-  # minute and a half, macOS in under two, Windows in three to four and a
-  # half. Windows therefore sets how long every PR waits to go green, and it
-  # is the platform least likely to catch anything, because the portability
-  # this project actually has to get right is path handling and shell
-  # quoting, which the integration suite exercises on Linux too.
-  #
-  # Nothing is skipped, only deferred. Every push to main runs all three, so
-  # a platform break is caught on the merge commit rather than never, and the
-  # nightly run catches a break that arrives from a dependency rather than
-  # from a commit. `workflow_dispatch` gives a full run on demand, which is
-  # the one to use before cutting a release.
-  #
-  # This is a latency decision, not a billing one: the repository is public,
-  # so standard runners cost nothing (#982).
+  # Pull requests test on Linux; main, nightly, and manual runs test all three
+  # operating systems. Run the full matrix on the release commit before tagging.
   test:
     name: Test
     strategy:

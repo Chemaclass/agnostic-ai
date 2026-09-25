@@ -31,11 +31,11 @@ Use a temporary project when experimenting with imported or generated files. Ada
 | Docs site (`docs/site/`) | `make site-serve` to preview, then `make site-check` and `make site-test`, with the pinned Zola. See [Docs site](#docs-site) |
 | Editor extension | Follow its [development guide](../../editors/README.md) and CI job |
 
-`make preflight` covers formatting, vet, lint, and Go tests. It does not run every job in [CI](../../.github/workflows/ci.yml), including race tests, shell tests, schema drift, WASM builds, and extension builds.
+`make preflight` covers formatting, lint (including `govet`), and Go tests. It does not run every job in [CI](../../.github/workflows/ci.yml), including race tests, shell tests, schema drift, WASM builds, and extension builds.
 
 `make lint` names the problem when `golangci-lint` is missing or not the pinned version; rerun `make tools` after a pin bump. A linter older than your Go toolchain reports that as a typecheck failure in files you never touched.
 
-A pull request runs the Go tests on Linux only. Windows and macOS run on every push to `main`, once a night, and on demand with `gh workflow run ci.yml --ref main`. Windows is the slowest job by a wide margin and decides how long a PR waits, while the portability that actually breaks here, path handling and shell quoting, is exercised on Linux too. So nothing is skipped, only deferred to the merge commit. Dispatch a full run before cutting a release.
+A pull request runs the Go tests on Linux only. Windows and macOS run on every push to `main`, once a night, and on demand with `gh workflow run ci.yml --ref main`. Editor jobs on pull requests run when their source or dependencies change. Confirm a full three-OS run before cutting a release.
 
 ## Docs site
 
@@ -65,7 +65,7 @@ Never edit `docs/site/templates/` just to satisfy a newer Zola. Moving versions 
 
 ## Generated project configuration
 
-The repository's `.agnostic-ai/` specs generate root entry points and tool folders. Those outputs are ignored. Never edit or commit them as source.
+The repository's `.agnostic-ai/` specs generate root entry points and tool folders. Most output is ignored; `.openhands/setup.sh` is tracked for bootstrap. Edit specs and review any tracked output change after syncing.
 
 The repository's output ignore block is maintained by hand. Preserve hierarchical patterns such as `**/AGENTS.md` and the `!internal/adapters/*/testdata/**` exception that keeps golden fixtures tracked. Add new adapter paths to [.gitignore](../../.gitignore).
 

@@ -14,6 +14,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Changed
 
+- Local Git hooks now check formatting and commit messages quickly; run `make preflight` before pushing.
+- Release preparation follows one documented workflow; the partial release script is gone.
 - Removed repository agent hooks that could not read tool input reliably and ran expensive checks on each edit.
 - The README puts setup and daily commands first and keeps the CI, npm, Homebrew, and downloads badges.
 - The "unsupported by" sync warning now suggests removing unused targets from `targets:` before silencing it with `on-unsupported: silent`.

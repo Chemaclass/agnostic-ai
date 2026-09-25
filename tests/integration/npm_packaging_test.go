@@ -251,8 +251,8 @@ func TestReleaseWorkflow_DistributionChecksEveryNpmPackage(t *testing.T) {
 //
 // npm defaults a publish with no `--tag` to `latest`, and `latest` is what
 // an unpinned `npm install agnostic-ai` resolves. The release workflow fires
-// on every `v*` tag and scripts/release.sh accepts a prerelease, so one
-// `v0.64.0-beta.1` would replace the stable release on all seven packages.
+// on every `v*` tag, including prereleases. An untagged `v0.64.0-beta.1`
+// would replace the stable release on all seven packages.
 // The plain retry is a second publish and needs the flag just as much.
 func TestNpmPublish_TagsEveryPublishAttempt(t *testing.T) {
 	script := readRepoFile(t, npmPublishScript)

@@ -11,15 +11,13 @@ x-claude:
 
 ## Purpose
 
-Process every open GitHub issue that is **unassigned** or **assigned to the current user (`@me`)**, one after another, by delegating each to the `gh-issue` skill. Stop on first hard failure so it can be inspected.
+Process every open GitHub issue that is **unassigned** or **assigned to the current user (`@me`)** through the `gh-issue` skill. Record blockers and continue independent issues when the worktree is safe.
 
 ## Args
 
 - `--limit N` — process at most N issues this run (default: all).
 - `--label foo` — only issues carrying label `foo`.
 - `--dry-run` — list issues that would be processed; do not invoke `gh-issue`.
-
-Strip leading `#` if user passes `#123` style.
 
 ## Phase 1: Discover
 
@@ -79,33 +77,13 @@ For each issue in the queue:
    - Only `$me` listed → already mine, proceed (skip self-assign step).
    - Any other login present → skip this issue.
 
-2. Invoke the `gh-issue` skill with the issue number. That skill owns:
-   - self-assign via `gh issue edit <num> --add-assignee @me` (no-op if already assigned).
-   - branch from fresh `main` (prefix from labels: `fix/`, `feat/`, `docs/`).
-   - TDD implementation.
-   - `go test ./...` green locally.
-   - regen of derived artifacts (schema / sync / playground) when applicable.
-   - changelog entry under `## [Unreleased]`.
-   - commit with `Related to #<num>`.
-   - final diff review before committing.
-   - PR opened with `--assignee Chemaclass`, matching label, `Closes #<num>` in body.
-   - CI checked, PR merged when allowed, and local `main` updated.
+2. Invoke the `gh-issue` skill with the issue number. It owns assignment, implementation, checks, docs, PR creation, CI, merge, and local main sync.
 
-3. Confirm the PR merged and local `main` is clean. If the PR awaits approval or a check is red, stop and report its state. Otherwise continue with the next issue.
+3. Record the outcome. Continue with the next independent issue when local `main` is clean. If a PR awaits approval, a check fails, or an external dependency blocks it, record the blocker and continue other actionable issues.
 
 ## Stop Conditions
 
-Halt the loop and surface the failure when:
-
-- `gh-issue` errors out or leaves the worktree dirty.
-- `go test ./...` fails after implementation.
-- `agnostic-ai sync --check` drifts after spec/adapter edits.
-- CI stays red after one fix attempt.
-- Merge is blocked by branch protection beyond `--admin` bypass.
-- `--limit` reached.
-- Queue empty.
-
-Do **not** retry blindly. Report which issue failed and why.
+Stop when the worktree is dirty, local `main` cannot safely advance, or an issue leaves uncommitted changes that prevent switching. Report each blocked issue and its concrete next step. Do not retry blindly.
 
 ## Dry Run
 
@@ -120,6 +98,4 @@ With `--dry-run`, only execute Phase 1 and print the queue. No assignment, no br
 
 ## Notes
 
-- Treat GitHub CI as the full quality gate; locally run focused tests during implementation, full `go test ./...` once before commit.
-- Never split bundled changes into multiple PRs unless the issue explicitly demands it.
-- One concern per PR (`.agnostic-ai/rules/go-style.md`). Open separate PRs for refactors that the issue did not ask for.
+- `gh-issue` owns validation and PR scope. Keep this skill focused on discovery, ordering, and progress across issues.

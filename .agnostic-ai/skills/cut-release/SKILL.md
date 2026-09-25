@@ -19,28 +19,18 @@ The user asks to release, tag, ship, or cut a new version.
 1. Confirm working tree clean and on `main`. `git pull --ff-only`.
 2. `make ci-local`. Not `make preflight`. Refuse to proceed on any failure.
 
-   `preflight` is fmt-check, vet, lint and tests. It is the gate for a normal
-   change, and it is not enough to cut a release: it skips the race detector,
-   the WASM build, schema drift, `agnostic-ai lint`, the shell suite, and both
-   editor extensions. `ci-local` runs every one of those, in the workflow's
-   own order.
+   `preflight` covers formatting, lint (including govet), and Go tests. A
+   release also needs race tests, the WASM build, schema drift, spec lint, shell
+   tests, and both editor extensions. `ci-local` runs those checks.
 
-   `SKIP_JETBRAINS=1` exists because the gradle wrapper downloads its
-   distribution on a cold machine and some environments cannot reach it. If
-   you use it, say so in the release report: that job was not gated locally.
+   `SKIP_JETBRAINS=1` exists for machines without Java or access to the Gradle
+   distribution. If you use it, say so in the release report: that job was
+   not gated locally.
 
-   Two gaps `ci-local` cannot close, both needing the remote run:
-
-   - It tests on this machine's OS alone. A pull request now tests on Linux
-     only (#982), so the macOS and Windows jobs may never have run against
-     this tree.
-   - It cannot run the plugin version-bump job, which compares a pull request
-     against its merge base.
-
-   So also confirm the CI run for the current `main` commit is green across
-   all three platforms. Every push to `main` runs the full matrix, so it is
-   usually already there; if it is not, dispatch one with
-   `gh workflow run ci.yml --ref main` and wait for it before tagging.
+   `ci-local` tests on this machine's OS alone. Step 8 checks the exact
+   release commit across all three OSes. The plugin version-bump job is
+   PR-only; if the plugin changed since the last release, confirm that its
+   PR check passed.
 3. Decide next version per semver:
    - patch: bug fixes only
    - minor: additive features
@@ -66,8 +56,11 @@ The user asks to release, tag, ship, or cut a new version.
    `make site-build site-test`.
 7. Confirm the version file, dated changelog section, and briefing are all
    staged for the same commit. Commit `chore(release): vX.Y.Z`, GPG-signed.
-8. Tag that commit with `git tag -s vX.Y.Z -m "vX.Y.Z"`.
-9. Push branch and tag: `git push && git push origin vX.Y.Z`.
+8. Push `main` and wait for the CI run on that exact commit. Confirm Linux,
+   macOS, Windows, and every other job that ran passed. If no run starts,
+   dispatch `gh workflow run ci.yml --ref main` and wait for that run.
+9. Tag the green commit with `git tag -s vX.Y.Z -m "vX.Y.Z"`, then push the
+   tag with `git push origin vX.Y.Z`.
 10. Watch the `Release` workflow for the tag and the `Pages` workflow for the
     release commit on `main`. If either fails, fix the root cause. Do not delete
     and retag without clear reason. If the automatic Pages run is absent, use

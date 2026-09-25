@@ -14,7 +14,7 @@ make build
 ./agnostic-ai sync  # this repository's own tool config
 ```
 
-Run `./agnostic-ai` or `go run ./cmd/agnostic-ai` so you use your checkout. Project instructions live in `.agnostic-ai/`. The files sync generates are ignored, so edit the specs, never the output.
+Run `./agnostic-ai` or `go run ./cmd/agnostic-ai` so you use your checkout. Project instructions live in `.agnostic-ai/`. Most generated files are ignored; `.openhands/setup.sh` is tracked for bootstrap. Edit the specs, then sync.
 
 ## Make a change
 
@@ -35,7 +35,7 @@ Branch, keep the change to one outcome, and add tests for behavior you change.
 make preflight
 ```
 
-It runs formatting, vet, lint, and the Go tests. CI adds race, shell, schema, WASM, and editor jobs. [Checks by change type](docs/internal/contributing.md#choose-checks-for-your-change) says which of those your change needs. `make hooks` installs a pre-push hook that runs preflight.
+It runs formatting, lint (including `govet`), and the Go tests. CI adds race, shell, schema, WASM, and editor jobs. [Checks by change type](docs/internal/contributing.md#choose-checks-for-your-change) says which of those your change needs. `make hooks` installs quick formatting and commit-message checks.
 
 ## Submit
 
