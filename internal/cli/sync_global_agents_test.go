@@ -298,3 +298,28 @@ func TestSyncGlobal_AgentsPreserveExistingStateAndNativeSettings(t *testing.T) {
 		})
 	}
 }
+
+func TestSyncGlobal_AgentReadonlyMapsAndReportsLoss(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\nreadonly: true\n---\nReview code.\n")
+	_, warnings, err := runGlobalAgentTest("--only", "codex,cursor,claude")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(home, ".codex", "agents", "reviewer.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `sandbox_mode = "read-only"`) {
+		t.Errorf("readonly missing from Codex agent: %s", data)
+	}
+	if !strings.Contains(warnings, "`readonly` on 1 agent has no effect on claude") {
+		t.Errorf("missing global readonly note: %s", warnings)
+	}
+	if strings.Contains(warnings, "has no effect on codex") || strings.Contains(warnings, "has no effect on cursor") {
+		t.Errorf("supported readonly got note: %s", warnings)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "codex,cursor,claude", "--check"); err != nil {
+		t.Fatal(err)
+	}
+}

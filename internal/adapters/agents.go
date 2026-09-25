@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -33,6 +34,7 @@ func RenderAgents(target string, agents []spec.Entry, dir string) ([]CapturedFil
 	if !ok {
 		return nil, fmt.Errorf("%s: native agent emission is unsupported", target)
 	}
+	emit.NoteDroppedAgentReadonly(target, b.Agents)
 	sess := NewSession()
 	sess.SetUserTier()
 	sess.StartCapture()

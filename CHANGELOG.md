@@ -6,6 +6,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### Added
+
+- Agents map `readonly: true` to Codex's read-only sandbox and report a coverage note on targets that drop `readonly` (#1149).
+
 ### Fixed
 
 - Global sync respects target filters on hooks and skills, and removes managed hooks when their target is excluded (#1148).

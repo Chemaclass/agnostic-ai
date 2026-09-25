@@ -21,7 +21,7 @@ import (
 //	model                  (optional, from frontmatter or x-codex.model)
 //	model_reasoning_effort (optional, from x-codex.model_reasoning_effort or
 //	                        the portable `effort` field; see effort.go)
-//	sandbox_mode           (optional, from x-codex)
+//	sandbox_mode           (optional, from readonly or x-codex)
 //	nickname_candidates    (optional, []string from x-codex)
 //	tools                  (optional config table from x-codex)
 //
@@ -62,7 +62,12 @@ func agentTOML(a spec.Entry) string {
 	if v, ok := codexReasoningEffort(meta); ok {
 		emit.WriteTOMLString(&sb, "model_reasoning_effort", v)
 	}
-	if v := stringOr(meta, "sandbox_mode", ""); v != "" {
+	sandboxMode := stringOr(meta, "sandbox_mode", "")
+	custom, _ := a.Meta["x-codex"].(map[string]any)
+	if _, explicit := custom["sandbox_mode"]; !explicit && sandboxMode == "" && meta["readonly"] == true {
+		sandboxMode = "read-only"
+	}
+	if v := sandboxMode; v != "" {
 		emit.WriteTOMLString(&sb, "sandbox_mode", v)
 	}
 	emit.WriteTOMLMultiline(&sb, "developer_instructions", instructions)
