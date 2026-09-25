@@ -97,3 +97,56 @@ func CopyEmittedTree(srcDir, dstDir string, skipRel ...string) error {
 		return os.WriteFile(dst, data, 0o644)
 	})
 }
+
+// AssertGoldenTree compares emitted files with a checked-in tree. Set
+// UPDATE_GOLDEN=1 to replace the expected tree after reviewing output.
+func AssertGoldenTree(t *testing.T, outputDir, expectedDir string, skipRel ...string) {
+	t.Helper()
+	skip := make(map[string]bool, len(skipRel))
+	for _, rel := range skipRel {
+		skip[rel] = true
+	}
+
+	if os.Getenv("UPDATE_GOLDEN") == "1" {
+		if err := os.RemoveAll(expectedDir); err != nil {
+			t.Fatalf("clean expected dir: %v", err)
+		}
+		if err := CopyEmittedTree(outputDir, expectedDir, skipRel...); err != nil {
+			t.Fatalf("copy: %v", err)
+		}
+		t.Logf("kit-sink golden updated: %s", expectedDir)
+		return
+	}
+
+	want, err := LoadExpectedTree(expectedDir)
+	if err != nil {
+		t.Fatalf("load expected: %v", err)
+	}
+	got := make(map[string]string)
+	for _, rel := range WalkRel(t, outputDir) {
+		if skip[rel] || strings.HasPrefix(rel, ".agnostic-ai/") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(outputDir, rel))
+		if err != nil {
+			t.Fatalf("read %s: %v", rel, err)
+		}
+		got[rel] = string(data)
+	}
+
+	for rel, wantBody := range want {
+		gotBody, ok := got[rel]
+		if !ok {
+			t.Errorf("missing expected output %s (run UPDATE_GOLDEN=1 to accept)", rel)
+			continue
+		}
+		if gotBody != wantBody {
+			t.Errorf("content mismatch: %s\n--- want ---\n%s\n--- got ---\n%s", rel, wantBody, gotBody)
+		}
+	}
+	for rel := range got {
+		if _, ok := want[rel]; !ok {
+			t.Errorf("unexpected output file: %s (run UPDATE_GOLDEN=1 to accept)", rel)
+		}
+	}
+}
