@@ -6,17 +6,21 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
-### Added
-
-- Global sync loads personal overrides from `local/`; `list --global` shows each effective spec's layer (#1153).
-
-- Agents map `readonly: true` to Codex's read-only sandbox and report a coverage note on targets that drop `readonly` (#1149).
+## v0.68.1 - 2026-09-25
 
 ### Fixed
 
+- Global sync respects target filters on hooks and skills, and removes managed hooks when their target is excluded (#1148).
 - Global sync renders skill metadata per target, keeps shared skill directories neutral, and preserves bundled assets (#1150).
 
-- Global sync respects target filters on hooks and skills, and removes managed hooks when their target is excluded (#1148).
+### Added
+
+- Agents map `readonly: true` to Codex's read-only sandbox and report a coverage note on targets that drop `readonly` (#1149).
+- Global sync loads personal overrides from `local/`; `list --global` shows each effective spec's layer (#1153).
+
+### Site
+
+- Target reference pages explain current behavior more directly and correct the Factory settings merge key list.
 
 ## v0.68.0 - 2026-09-25
 
