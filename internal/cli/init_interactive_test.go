@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestParsePipedSelection_Names(t *testing.T) {
@@ -221,5 +223,80 @@ func TestDetectExistingTargets_GooseMarkersDoNotClaimNeighbors(t *testing.T) {
 	}
 	if got := detectExistingTargets(dir); slices.Contains(got, "goose") {
 		t.Errorf("goose claimed an openhands/antigravity project: %v", got)
+	}
+}
+
+// A project that only has a root CLAUDE.md or GEMINI.md already uses that
+// CLI; each file is written by exactly one target, so it is an exclusive
+// marker. AGENTS.md stays out: most of the registry reads it.
+func TestDetectExistingTargets_RootEntryFiles(t *testing.T) {
+	dir := t.TempDir()
+	for _, f := range []string{"CLAUDE.md", "GEMINI.md", "AGENTS.md"} {
+		if err := os.WriteFile(filepath.Join(dir, f), []byte("# x\n"), 0o644); err != nil {
+			t.Fatalf("write %s: %v", f, err)
+		}
+	}
+	got := detectExistingTargets(dir)
+	want := []string{"claude", "gemini"}
+	if !equalStrings(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+// The root entry-file markers never pull a file from outside the project
+// into automatic detection (and so into `import all`): a symlink counts
+// only when it resolves inside root, and the marker must be a file.
+func TestDetectExistingTargets_RootEntryFileStaysInsideTheProject(t *testing.T) {
+	outside := t.TempDir()
+	secret := filepath.Join(outside, "CLAUDE.md")
+	if err := os.WriteFile(secret, []byte("# elsewhere\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	dir := t.TempDir()
+	if err := os.Symlink(secret, filepath.Join(dir, "CLAUDE.md")); err != nil {
+		t.Skipf("symlinks unsupported: %v", err)
+	}
+	if got := detectExistingTargets(dir); len(got) != 0 {
+		t.Errorf("a CLAUDE.md linking outside the project must not be detected, got %v", got)
+	}
+
+	inside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(inside, "docs.md"), []byte("# here\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("docs.md", filepath.Join(inside, "CLAUDE.md")); err != nil {
+		t.Fatal(err)
+	}
+	if got := detectExistingTargets(inside); !equalStrings(got, []string{"claude"}) {
+		t.Errorf("a CLAUDE.md linking inside the project is detected, got %v", got)
+	}
+
+	wrongType := t.TempDir()
+	if err := os.Mkdir(filepath.Join(wrongType, "GEMINI.md"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := detectExistingTargets(wrongType); len(got) != 0 {
+		t.Errorf("a directory named GEMINI.md is not a marker, got %v", got)
+	}
+}
+
+// Production callers pass root ".". An absolute link that stays inside
+// the project must still count.
+func TestDetectExistingTargets_AbsoluteInProjectLinkFromDotRoot(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	target := filepath.Join(dir, "docs", "claude.md")
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("# here\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, "CLAUDE.md"); err != nil {
+		t.Skipf("symlinks unsupported: %v", err)
+	}
+	if got := detectExistingTargets("."); !equalStrings(got, []string{"claude"}) {
+		t.Errorf("absolute in-project link from root \".\": got %v", got)
 	}
 }

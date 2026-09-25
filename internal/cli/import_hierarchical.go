@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -21,7 +22,8 @@ type hierarchicalFile struct {
 // Hidden directories, common vendor trees, and the project's own
 // agnostic source dirs are skipped so unrelated copies (vendored
 // projects, scaffolds) do not slip in. Used by codex / gemini and
-// any other importer with subtree-scoped main files.
+// any other importer with subtree-scoped main files. A match that does
+// not resolve to a regular file inside root is skipped with a note.
 func findHierarchicalMainFiles(root, filename string, src config.Sources) ([]hierarchicalFile, error) {
 	var out []hierarchicalFile
 	skipDirs := map[string]bool{"node_modules": true, "vendor": true}
@@ -42,6 +44,15 @@ func findHierarchicalMainFiles(root, filename string, src config.Sources) ([]hie
 			return nil
 		}
 		if d.Name() != filename {
+			return nil
+		}
+		// The walk runs on detection alone under `import all`, and what it
+		// reads lands in the project's sources: a copy that links out of
+		// the project is skipped, not imported.
+		if !regularFileInside(root, path) {
+			if verbosity >= levelDefault {
+				_, _ = fmt.Fprintf(os.Stderr, "  skipped %s: not a file inside the project\n", path)
+			}
 			return nil
 		}
 		rel, err := filepath.Rel(root, path)

@@ -182,7 +182,8 @@ func promptGitignoreEnable(in io.Reader) (bool, error) {
 // indicate the project already uses that CLI. A target is "detected"
 // when at least one of its markers exists. Markers are chosen to be
 // exclusive (no shared root files like AGENTS.md) so detection does not
-// over-tick.
+// over-tick. A root CLAUDE.md or GEMINI.md qualifies: each is written by
+// one target only, and it is the most common trace of an existing setup.
 //
 // Exclusivity is why goose's markers look thin. `.goosehints` is
 // written only under the `outputs.goose.rules-file` opt-in, so a
@@ -196,9 +197,9 @@ func promptGitignoreEnable(in io.Reader) (bool, error) {
 // project carrying rules and nothing else stays undetected, and needs
 // an explicit `import goose`.
 var targetMarkers = map[string][]string{
-	"claude":      {".claude"},
+	"claude":      {".claude", "CLAUDE.md"},
 	"codex":       {".codex", ".agents/agents"},
-	"gemini":      {".gemini"},
+	"gemini":      {".gemini", "GEMINI.md"},
 	"cursor":      {".cursor"},
 	"copilot":     {".github/copilot-instructions.md", ".github/instructions"},
 	"aider":       {".aider.conf.yml", ".aider.conf.yaml"},
@@ -230,11 +231,59 @@ func detectExistingTargets(root string) []string {
 	picked := map[string]bool{}
 	for _, t := range allTargets {
 		for _, marker := range targetMarkers[t.Name] {
-			if _, err := os.Stat(filepath.Join(root, marker)); err == nil {
+			if markerPresent(root, marker) {
 				picked[t.Name] = true
 				break
 			}
 		}
 	}
 	return filterToCanonicalOrder(picked)
+}
+
+// rootFileMarkers are the entry files that count as markers. Unlike the
+// tool directories, they are ordinary names a project may symlink, so a
+// link that leaves the project does not count: detection alone never
+// widens what `import all` reads. Importers' own entry-file reads still
+// follow links, including when a directory marker such as `.claude/`
+// triggered them; that policy is #1138.
+var rootFileMarkers = map[string]bool{"CLAUDE.md": true, "GEMINI.md": true}
+
+// markerPresent reports whether marker exists under root. A root entry
+// file must be a regular file, or a symlink that resolves to one inside
+// root.
+func markerPresent(root, marker string) bool {
+	path := filepath.Join(root, marker)
+	if !rootFileMarkers[marker] {
+		_, err := os.Stat(path)
+		return err == nil
+	}
+	return regularFileInside(root, path)
+}
+
+// regularFileInside reports whether path resolves, through any symlinks,
+// to a regular file inside root. Both sides are made absolute first:
+// callers pass root ".", and a link may be absolute.
+func regularFileInside(root, path string) bool {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return false
+	}
+	resolved, err := filepath.EvalSymlinks(abs)
+	if err != nil {
+		return false
+	}
+	info, err := os.Stat(resolved)
+	if err != nil || !info.Mode().IsRegular() {
+		return false
+	}
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return false
+	}
+	base, err := filepath.EvalSymlinks(absRoot)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(base, resolved)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
