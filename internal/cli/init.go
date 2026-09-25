@@ -154,9 +154,13 @@ func fallbackInitTargets(stderr io.Writer, detected []string) []string {
 	if verbosity < levelDefault {
 		return targets // --quiet: errors only
 	}
+	noun := "targets"
+	if len(targets) == 1 {
+		noun = "target"
+	}
 	_, _ = fmt.Fprintf(stderr,
-		"no target list piped; enabled %d %s targets: %s (pass --all, or pipe \"claude,codex\")\n",
-		len(targets), kind, strings.Join(targets, ", "))
+		"no target list piped; enabled %d %s %s: %s (pass --all, or pipe \"claude,codex\")\n",
+		len(targets), kind, noun, strings.Join(targets, ", "))
 	return targets
 }
 

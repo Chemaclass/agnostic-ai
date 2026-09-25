@@ -737,3 +737,11 @@ func TestFallbackInitTargets_QuietPrintsNothing(t *testing.T) {
 		t.Errorf("quiet must not change the choice: got %v", got)
 	}
 }
+
+func TestFallbackInitTargets_SingularForOneTarget(t *testing.T) {
+	var buf bytes.Buffer
+	fallbackInitTargets(&buf, []string{"claude"})
+	if want := "enabled 1 detected target: claude"; !strings.Contains(buf.String(), want) {
+		t.Errorf("want %q, got %q", want, buf.String())
+	}
+}

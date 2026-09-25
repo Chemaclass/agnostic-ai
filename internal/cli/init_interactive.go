@@ -182,7 +182,8 @@ func promptGitignoreEnable(in io.Reader) (bool, error) {
 // indicate the project already uses that CLI. A target is "detected"
 // when at least one of its markers exists. Markers are chosen to be
 // exclusive (no shared root files like AGENTS.md) so detection does not
-// over-tick.
+// over-tick. A root CLAUDE.md or GEMINI.md qualifies: each is written by
+// one target only, and it is the most common trace of an existing setup.
 //
 // Exclusivity is why goose's markers look thin. `.goosehints` is
 // written only under the `outputs.goose.rules-file` opt-in, so a
@@ -196,9 +197,9 @@ func promptGitignoreEnable(in io.Reader) (bool, error) {
 // project carrying rules and nothing else stays undetected, and needs
 // an explicit `import goose`.
 var targetMarkers = map[string][]string{
-	"claude":      {".claude"},
+	"claude":      {".claude", "CLAUDE.md"},
 	"codex":       {".codex", ".agents/agents"},
-	"gemini":      {".gemini"},
+	"gemini":      {".gemini", "GEMINI.md"},
 	"cursor":      {".cursor"},
 	"copilot":     {".github/copilot-instructions.md", ".github/instructions"},
 	"aider":       {".aider.conf.yml", ".aider.conf.yaml"},

@@ -19,6 +19,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### Fixed
 
 - `init` with no terminal and nothing piped enables the detected tools or the default set, not all 25 targets. Pass `--all` for every target (#1136).
+- `init` and `import all` detect a project that has only a root `CLAUDE.md` or `GEMINI.md`, so an existing Claude or Gemini setup is picked up instead of the default target set.
 
 ## v0.67.0 - 2026-09-24
 

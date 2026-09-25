@@ -223,3 +223,20 @@ func TestDetectExistingTargets_GooseMarkersDoNotClaimNeighbors(t *testing.T) {
 		t.Errorf("goose claimed an openhands/antigravity project: %v", got)
 	}
 }
+
+// A project that only has a root CLAUDE.md or GEMINI.md already uses that
+// CLI; each file is written by exactly one target, so it is an exclusive
+// marker. AGENTS.md stays out: most of the registry reads it.
+func TestDetectExistingTargets_RootEntryFiles(t *testing.T) {
+	dir := t.TempDir()
+	for _, f := range []string{"CLAUDE.md", "GEMINI.md", "AGENTS.md"} {
+		if err := os.WriteFile(filepath.Join(dir, f), []byte("# x\n"), 0o644); err != nil {
+			t.Fatalf("write %s: %v", f, err)
+		}
+	}
+	got := detectExistingTargets(dir)
+	want := []string{"claude", "gemini"}
+	if !equalStrings(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
