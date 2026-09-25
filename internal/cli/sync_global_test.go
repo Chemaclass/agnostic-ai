@@ -377,3 +377,98 @@ func TestSyncGlobal_DropsAHooksFileThatHasNothingLeftInIt(t *testing.T) {
 		t.Errorf("managed hook survived its source:\n%s", data)
 	}
 }
+
+func TestSyncGlobal_FiltersHooksAndSkillsByTarget(t *testing.T) {
+	for _, tc := range []struct {
+		name, filter string
+	}{
+		{"target", "target: cursor\n"},
+		{"targets", "targets: [cursor]\n"},
+		{"targets-exclude", "targets-exclude: [claude, codex]\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			t.Setenv("USERPROFILE", home)
+			t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, "source"))
+			t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+			source := filepath.Join(home, "source")
+			mustWriteGlobalTest(t, filepath.Join(source, "hooks", "cursor.yaml"), "name: cursor\n"+tc.filter+"event: beforeShellExecution\ncommand: cursor-command\n")
+			mustWriteGlobalTest(t, filepath.Join(source, "hooks", "shell.yaml"), "name: shell\ntargets: [claude, codex]\nevent: PreToolUse\nmatcher: Bash\ncommand: shell-command\n")
+			mustWriteGlobalTest(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\n"+tc.filter+"---\nReview code.\n")
+			for _, check := range []bool{false, false, true} {
+				root := NewRootCmd("test")
+				args := []string{"sync", "--global", "--only", "claude,codex,cursor"}
+				if check {
+					args = append(args, "--check")
+				}
+				root.SetArgs(args)
+				if err := root.Execute(); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for target, path := range map[string]string{"claude": ".claude/settings.json", "codex": ".codex/hooks.json", "cursor": ".cursor/hooks.json"} {
+				data, err := os.ReadFile(filepath.Join(home, path))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if strings.Contains(string(data), "beforeShellExecution") != (target == "cursor") || strings.Contains(string(data), "PreToolUse") != (target != "cursor") {
+					t.Errorf("%s received wrong events: %s", target, data)
+				}
+			}
+			for _, dir := range []string{".claude", ".agents", ".cursor"} {
+				data, err := os.ReadFile(filepath.Join(home, dir, "skills", "review", "SKILL.md"))
+				if dir == ".cursor" {
+					if err != nil || !strings.Contains(string(data), "Review code.") {
+						t.Errorf("Cursor skill: %q, %v", data, err)
+					}
+				} else if !os.IsNotExist(err) {
+					t.Errorf("excluded skill in %s: %v", dir, err)
+				}
+			}
+		})
+	}
+}
+
+func TestSyncGlobal_RemovesHooksWhenTargetExcluded(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(home, "source"))
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	source := filepath.Join(home, "source", "hooks", "shell.yaml")
+	mustWriteGlobalTest(t, source, "name: shell\nevent: PreToolUse\ncommand: managed-command\n")
+	path := filepath.Join(home, ".cursor", "hooks.json")
+	mustWriteGlobalTest(t, path, `{"hooks":{"beforeShellExecution":[{"command":"user-command"}]}}`)
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "--global", "--only", "claude,cursor"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteGlobalTest(t, source, "name: shell\ntarget: claude\nevent: PreToolUse\ncommand: managed-command\n")
+	for _, check := range []bool{false, true} {
+		root = NewRootCmd("test")
+		args := []string{"sync", "--global", "--only", "claude,cursor"}
+		if check {
+			args = append(args, "--check")
+		}
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "managed-command") || !strings.Contains(string(data), "user-command") {
+		t.Errorf("retargeted hooks: %s", data)
+	}
+	state, err := loadGlobalState(filepath.Join(home, "source", "state", "global.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(state.Hooks["cursor"]) != 0 || len(state.Hooks["claude"]) != 1 {
+		t.Errorf("retargeted ownership: %v", state.Hooks)
+	}
+}
