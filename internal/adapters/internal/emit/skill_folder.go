@@ -20,6 +20,7 @@ import (
 // `sync.shared-skills` links folders across trees only when the
 // rendered bytes match.
 func SkillMarkdown(s spec.Entry, target string, exclude ...string) string {
+	exclude = append(append([]string(nil), exclude...), "model", "effort")
 	resolved := ResolveMeta(s.Meta, target)
 	desc, _ := resolved["description"].(string)
 	if desc == "" {
@@ -92,4 +93,19 @@ func (s *Session) WriteScopedSkillFolders(skills []spec.Entry, target, skillsDir
 		}
 	}
 	return nil
+}
+
+func NoteDroppedSkillFields(target string, skills []spec.Entry) {
+	if target == "claude" {
+		return
+	}
+	for _, field := range []string{"model", "effort"} {
+		dropped := 0
+		for _, skill := range skills {
+			if value := ResolveMeta(skill.Meta, target)[field]; value != nil && value != "" {
+				dropped++
+			}
+		}
+		NoteFieldNoOp(target, spec.KindSkill, field, dropped, "the skill file has no "+field+" field")
+	}
 }

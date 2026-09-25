@@ -41,7 +41,7 @@ agnostic-ai sync --check
 
 `init` selects your tools. `new` creates your first rule under `.agnostic-ai/`; replace its TODO text before syncing. Generated files such as `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules/` are outputs. Keep the specs as your source of truth.
 
-Use `agnostic-ai sync --global` for [user-level configuration](https://agnostic-ai.org/docs/configuration/#global-configuration). Global hooks and skills honor each spec's target filters. Agents with `readonly: true` use Cursor's read-only mode or Codex's read-only sandbox.
+Use `agnostic-ai sync --global` for [user-level configuration](https://agnostic-ai.org/docs/configuration/#global-configuration). Global hooks and skills honor each spec's target filters. Skill metadata renders per target, while shared directories stay neutral. Agents with `readonly: true` use Cursor's read-only mode or Codex's read-only sandbox.
 
 ## Daily commands
 

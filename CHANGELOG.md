@@ -12,6 +12,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Fixed
 
+- Global sync renders skill metadata per target, keeps shared skill directories neutral, and preserves bundled assets (#1150).
+
 - Global sync respects target filters on hooks and skills, and removes managed hooks when their target is excluded (#1148).
 
 ## v0.68.0 - 2026-09-25
