@@ -180,3 +180,14 @@ function test_main_rejects_an_unknown_command() {
   (vendor_watch_main nope 2>/dev/null) || status=$?
   assert_equals 1 "$status"
 }
+
+function test_report_tags_each_page_with_its_delta_label() {
+  run_tsv >/dev/null
+  printf 'kiro\tdocs\thttps://kiro.dev/docs/steering/\tchrome-only\tpages/x.delta\n' >"$FIXTURES/deltas.tsv"
+  printf 'cursor\tdocs\thttps://cursor.com/docs/rules\tmentions:.cursor/rules\tpages/y.delta\n' >>"$FIXTURES/deltas.tsv"
+  local out
+  out=$(vendor_watch_report "$FIXTURES/docfetch.tsv" /dev/null)
+  assert_contains '- changed: https://kiro.dev/docs/steering/ (`chrome-only`)' "$out"
+  assert_contains '- new: https://cursor.com/docs/rules (`mentions:.cursor/rules`)' "$out"
+  assert_contains '- failed (HTTP 404): https://zed.dev/docs/ai/mcp' "$out"
+}

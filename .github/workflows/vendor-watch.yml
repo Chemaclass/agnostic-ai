@@ -29,15 +29,41 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # Fetched text keyed by its hash, carried between runs so the issue
+      # can label each moved page against the text the lock names. Content-
+      # addressed, so a stale cache is only a miss ("no-snapshot").
+      - name: Restore page snapshots
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ runner.temp }}/snapshots
+          key: docfetch-snapshots-${{ github.run_id }}
+          restore-keys: docfetch-snapshots-
+
       - name: Fetch vendor pages
         env:
           GH_TOKEN: ${{ github.token }}
+          DOCFETCH_SNAPSHOTS: ${{ runner.temp }}/snapshots
         run: scripts/docfetch.sh --out "$RUNNER_TEMP/watch" | tail -n 1
 
       - name: Publish moved pages
         env:
           GH_TOKEN: ${{ github.token }}
         run: scripts/vendor-watch.sh publish "$RUNNER_TEMP/watch/docfetch.tsv"
+
+      # Drop what the lock does not name after 30 days, then keep the rest.
+      # mkdir: a fetch that died early still leaves a path for the cache step.
+      - name: Prune page snapshots
+        if: always()
+        env:
+          DOCFETCH_SNAPSHOTS: ${{ runner.temp }}/snapshots
+        run: mkdir -p "$DOCFETCH_SNAPSHOTS" && bash -c 'source scripts/docfetch.sh && snapshot_prune'
+
+      - name: Cache page snapshots
+        if: always()
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ runner.temp }}/snapshots
+          key: docfetch-snapshots-${{ github.run_id }}
 
       # Measurement for #1127, after the issue is published and allowed to
       # fail: a second fetch that also saves each scraped page's .md copy.
