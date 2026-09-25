@@ -12,6 +12,7 @@ cap-agent-scoped-mcp-allowlist	2026-09-18	2026-09-18
 cap-agent-shared-board	2026-09-15	2026-09-21			
 cap-agent-skill-scoping	2026-09-18	2026-09-18			
 cap-agent-tool-permission-policy	2026-09-15	2026-09-15			
+cap-cosmos-daemon-pool-config	2026-09-25	2026-09-25	watch		augment Auggie CLI 0.35.0 (2026-08-13): "declarative configuration for daemon pools"; Cosmos daemons page lists a project-scope daemon-config.json with no stated path or availability tier.
 cap-cross-tool-config-import-toggle	2026-09-18	2026-09-18			
 cap-directory-scoped-skills	2026-09-15	2026-09-21			published
 cap-fail-closed-hook-policy	2026-09-15	2026-09-15			
