@@ -1,116 +1,65 @@
 # agnostic-ai
 
-**One spec. Every AI CLI.**
-
-Write shared instructions, rules, skills, agents, hooks, and MCP configuration once. `agnostic-ai sync` writes the native files for the coding tools your team uses.
-
-## Why agnostic-ai
-
-Every AI coding tool ships its own config file. Adopt three and your instructions live in three places. They drift. Switching tools means rewriting work you already did. That is lock-in, delivered one config file at a time.
-
-agnostic-ai makes that configuration yours. One source in your repository, plain Markdown and YAML. Every tool reads a generated copy. Adding a tool costs nothing. Dropping one costs nothing.
-
-- **You own the source.** Plain files in your repo. No account, no database, no service.
-- **Generated files are outputs.** Never a second source of truth. `sync` overwrites them, `sync --check` proves it.
-- **No tool is privileged.** Adding a target never changes what the others get.
-- **A sync layer, not a platform.** agnostic-ai should be easy to stop using.
+**One source to rule them all.** Write agents, skills, rules, hooks, and MCP configuration once. `agnostic-ai sync` turns those specs into native files for the AI coding tools you use.
 
 [![CI](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/agnostic-ai?logo=npm&label=npm)](https://www.npmjs.com/package/agnostic-ai)
 [![Homebrew](https://img.shields.io/badge/Homebrew-Chemaclass%2Ftap-FBB040?logo=homebrew&logoColor=111)](https://github.com/Chemaclass/homebrew-tap/blob/master/Casks/agnostic-ai.rb)
-[![GitHub Release](https://img.shields.io/github/v/release/Chemaclass/agnostic-ai?include_prereleases)](https://github.com/Chemaclass/agnostic-ai/releases)
 [![Downloads](https://img.shields.io/github/downloads/Chemaclass/agnostic-ai/total)](https://github.com/Chemaclass/agnostic-ai/releases)
-[![Go](https://img.shields.io/github/go-mod/go-version/Chemaclass/agnostic-ai)](go.mod)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## Get started
+AI tools store instructions in different files. Keeping those files by hand makes them drift. agnostic-ai keeps the editable source in plain Markdown and YAML in your repository. It needs no account or service.
 
-### With a coding agent
+## Set up with a coding agent
 
-Paste this into Claude Code, Codex CLI, Cursor, or another coding agent:
+Paste this into Claude Code, Codex, Cursor, or another coding agent:
 
 ```text
 Set up agnostic-ai in this repository. Follow https://agnostic-ai.org/agent-setup.txt exactly. Preserve existing AI tool behavior, import native configuration before syncing, and finish with agnostic-ai sync --check. Summarize the targets selected and every file changed.
 ```
 
-The [agent setup guide](https://agnostic-ai.org/docs/agent-setup/) explains the safety contract and each command.
+The [agent setup guide](https://agnostic-ai.org/docs/agent-setup/) explains each step.
 
-### Manually
+## Set up manually
 
-Install the CLI with whichever route fits the machine:
+Install with Homebrew on macOS or Linux, or npm on a machine with Node 18 or newer:
 
-| Platform | Route | Command |
-|---|---|---|
-| macOS and Linux | Homebrew | `brew install --cask Chemaclass/tap/agnostic-ai` |
-| Any platform with Node 18 or newer | npm | `npm install -g agnostic-ai` |
-| macOS and Linux without Homebrew | install script | `curl -fsSL https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.sh \| bash` |
+```bash
+brew install --cask Chemaclass/tap/agnostic-ai
+# or
+npm install -g agnostic-ai
+```
 
-Windows, Go, and manual download are in [all install options](https://agnostic-ai.org/docs/installation/). Then run:
+See [all install options](https://agnostic-ai.org/docs/installation/) for Windows, Go, and direct downloads. If the project already has native AI tool files, follow the [migration guide](https://agnostic-ai.org/docs/migration/) before the first sync.
 
-```console
-agnostic-ai init --demo
+```bash
+agnostic-ai init
+agnostic-ai new rule team-conventions
+# edit .agnostic-ai/rules/team-conventions.md
 agnostic-ai sync
+agnostic-ai sync --check
 ```
 
-Choose your tools during setup. The demo creates sample specs under `.agnostic-ai/`, and `sync` writes their native configuration. Already have tool configuration? Follow the [migration guide](https://agnostic-ai.org/docs/migration/) before the first sync. `agnostic-ai import claude codex --dry-run --diff` shows what an import would change, and which tools disagree, before it writes anything.
+`init` selects your tools. `new` creates your first rule under `.agnostic-ai/`; replace its TODO text before syncing. Generated files such as `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules/` are outputs. Keep the specs as your source of truth.
 
-[Follow the tutorial](https://agnostic-ai.org/docs/getting-started/) · [Try the playground](https://agnostic-ai.org/playground/)
+## Daily commands
 
-## How it works
-
-```text
-.agnostic-ai/                 agnostic-ai sync        Native tool files
-  AGNOSTIC_AI.md          ───────────────────────►      CLAUDE.md, AGENTS.md, ...
-  rules/                                               .cursor/rules/, ...
-  skills/                                              .claude/skills/, ...
-  agents/, hooks/, mcps/, ...
+```bash
+agnostic-ai import claude codex --dry-run --diff  # preview existing tool config
+agnostic-ai compare claude cursor                # see what each tool keeps or drops
+agnostic-ai why AGENTS.md                        # trace an output to its source
+agnostic-ai sync --check                         # find local drift
 ```
 
-Specs use Markdown with YAML frontmatter, or YAML for structured configuration. For example, `.agnostic-ai/rules/conventional-commits.md`:
+Support spans [Claude Code, Codex, Cursor, Gemini CLI, Copilot, and more](https://agnostic-ai.org/docs/targets/#capability-matrix). Each tool supports a different set of spec kinds. The [spec format](https://agnostic-ai.org/docs/spec-format/) and [target reference](https://agnostic-ai.org/docs/targets/) show the exact paths and fields.
 
-```markdown
----
-name: conventional-commits
-description: Use Conventional Commits.
-alwaysApply: true
----
+## Develop agnostic-ai
 
-Use feat:, fix:, docs:, refactor:, test:, or chore: prefixes.
-Keep the subject under 72 characters.
+```bash
+make tools      # install pinned development tools once
+make build
+make preflight  # format, vet, lint, and Go tests
 ```
 
-Sync writes the rule to each selected tool's native location. Edit the source spec, then sync again. `agnostic-ai why <file>` names the spec behind any generated file, and the [VS Code extension](editors/vscode/) opens it for you. The [spec format](https://agnostic-ai.org/docs/spec-format/) covers rules, skills, agents, hooks, MCP servers, commands, settings, reviews, environments, and ignore files.
+This repository keeps its own agent setup in `.agnostic-ai/`. Edit those source specs, then run `./agnostic-ai sync`. Most native output is ignored by Git; `.openhands/setup.sh` is tracked for bootstrap. See [CONTRIBUTING.md](CONTRIBUTING.md) for checks by change type and the [architecture guide](docs/internal/architecture.md) for the Go packages.
 
-Three of those ten do more than carry instructions. A [review](https://agnostic-ai.org/docs/spec-format/#reviews) spec is guidance for a code-review bot, which Cursor Bugbot and Goose read. An [environment](https://agnostic-ai.org/docs/spec-format/#environments) spec says how an agent boots your dev environment, for Cursor, Amp, and OpenHands. An [ignore](https://agnostic-ai.org/docs/spec-format/#ignore) spec holds gitignore-syntax patterns an agent must not read or index, and writes a native exclusion file for ten targets.
-
-## Supported targets
-
-agnostic-ai supports Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, and [20 more targets](https://agnostic-ai.org/docs/targets/#capability-matrix). Support varies by spec kind. Gemini default-model settings and Qoder HTTP/prompt hooks emit natively. An agent's `effort` reaches Codex as `model_reasoning_effort`. Import preserves Cline, Continue, and Qoder rule activation and supported compatible skill roots. The target reference lists every capability, native path, and opt-in setting.
-
-Before you switch tools, `agnostic-ai compare claude cursor` shows which agent fields and rule activation settings each target keeps, translates, or drops. It writes nothing.
-
-The [AI tooling updates](https://agnostic-ai.org/updates/) explain important upstream CLI and model changes, their developer impact, and the current agnostic-ai support state.
-
-## Find your next step
-
-| I want to... | Read |
-|---|---|
-| Let a coding agent install and configure agnostic-ai | [Agent setup](https://agnostic-ai.org/docs/agent-setup/) |
-| Install or upgrade the CLI | [Installation](https://agnostic-ai.org/docs/installation/) |
-| Sync my first rule | [Getting started](https://agnostic-ai.org/docs/getting-started/) |
-| Bring existing tool config into one source | [Migration](https://agnostic-ai.org/docs/migration/) |
-| Write a skill, agent, hook, or MCP spec | [Spec format](https://agnostic-ai.org/docs/spec-format/) |
-| Keep an agent out of build output and secrets | [Ignore specs](https://agnostic-ai.org/docs/spec-format/#ignore) |
-| See what changes before switching tools | [compare](https://agnostic-ai.org/docs/cli-reference/#compare) |
-| Change targets or output paths | [Configuration](https://agnostic-ai.org/docs/configuration/) |
-| Automate sync for a team | [CI](https://agnostic-ai.org/docs/ci/) and [Git hooks](https://agnostic-ai.org/docs/git-hooks/) |
-| Run a project-owned harness test | [Verification gate](https://agnostic-ai.org/docs/cli-reference/#verify) |
-| Add directory-specific instructions | [Scoped context](https://agnostic-ai.org/docs/scoped-context/) |
-| See which Cursor instructions are configured for a source file | [explain --file](https://agnostic-ai.org/docs/cli-reference/#explain) |
-| Share specs across repositories | [Packs](https://agnostic-ai.org/docs/packs/) |
-| Diagnose missing or stale output | [Troubleshooting](https://agnostic-ai.org/docs/troubleshooting/) |
-| Check that links in generated skills resolve | [`doctor --check-references`](https://agnostic-ai.org/docs/troubleshooting/#broken-skill-references) |
-| Track upstream target changes and proposed support | [AI tooling updates](https://agnostic-ai.org/updates/) |
-| Work on agnostic-ai | [Contributing](CONTRIBUTING.md) |
-
-[All documentation](https://agnostic-ai.org/docs/) · [CLI reference](https://agnostic-ai.org/docs/cli-reference/) · [Editor extensions](editors/) · [Claude Code plugin](plugins/agnostic-ai/) · [Changelog](CHANGELOG.md)
+[Getting started](https://agnostic-ai.org/docs/getting-started/) · [Playground](https://agnostic-ai.org/playground/) · [Editor extensions](editors/) · [Claude Code plugin](plugins/agnostic-ai/) · [CLI reference](https://agnostic-ai.org/docs/cli-reference/) · [Changelog](CHANGELOG.md)

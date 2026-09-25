@@ -26,11 +26,11 @@ func New() *Adapter { return &Adapter{} }
 
 func (Adapter) Name() string { return target }
 
-func (Adapter) Emit(b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
     if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
         return err
     }
-    // ... write per-kind output via emit helpers ...
+    // ... write per-kind output through sess, using emit.Output* paths ...
     return nil
 }
 ```

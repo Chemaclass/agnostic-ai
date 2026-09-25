@@ -3,8 +3,6 @@ name: pr-sweep
 description: Review every open PR, apply the review findings, and merge each one once CI is green.
 argument-hint: "[PR-number ...] [--no-merge]"
 disable-model-invocation: false
-x-claude:
-  allowed-tools: "Read, Edit, Write, Bash(gh *), Bash(git *), Bash(go *), Bash(make *), Bash(./agnostic-ai *), Skill(code-review)"
 ---
 
 # PR sweep
@@ -21,7 +19,7 @@ Skip PRs by other authors and drafts; report them. Empty list: stop.
 
 ## 2. Review
 
-Run `code-review high <N>` for every PR, in parallel. Wait for all results before editing anything.
+Use the `code-reviewer` agent for Go diffs when available. Review other diffs against the project rules. Independent reviews may run in parallel; read every result before editing.
 
 ## 3. Verify each finding
 
@@ -62,7 +60,7 @@ For each PR, oldest first, or the one that moves shared files (`sources.lock`, `
 1. Wait for checks on the current head SHA: `gh pr checks <N>`. Missing or pending checks are not green.
 2. If `mergeStateStatus` is not `CLEAN`, rebase on `origin/main`, keep both sides of shared docs, rerun the gate, force-push with `--force-with-lease`, and wait again.
 3. `gh pr merge <N> --squash --admin --delete-branch`.
-4. Reset local `main` to `origin/main` and delete the local branch.
+4. Fast-forward local `main` from `origin/main` and delete the local branch. Stop if `main` has unpublished commits; never reset them away.
 
 PR checks run on Linux only. After the last merge, wait for the `CI` workflow on the new `main` head and confirm every job passed, Windows included. A red main is the first thing to fix.
 

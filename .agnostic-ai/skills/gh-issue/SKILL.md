@@ -28,6 +28,8 @@ Read both the issue body **and every comment** as requirements input. Maintainer
 
 3. **Create a branch** from fresh `origin/main` based on the issue type:
 
+   Check that the worktree is clean. Fetch `origin/main`, stop if local `main` has unpublished commits, then fast-forward it. Never discard local work.
+
    Determine the branch prefix from labels:
    - `bug` → `fix/`
    - `enhancement` → `feat/`
@@ -37,20 +39,24 @@ Read both the issue body **and every comment** as requirements input. Maintainer
    Branch name format: `<prefix><issue-number>-<slug>`
 
    ```bash
-   git checkout main && git pull --ff-only
-   git checkout -b <branch-name>
+   test -z "$(git status --porcelain)" || exit 1
+   git fetch origin main
+   git switch main
+   test "$(git rev-list --count origin/main..main)" -eq 0 || exit 1
+   git pull --ff-only
+   git switch -c <branch-name>
    ```
 
-### Phase 2: Plan
+### Phase 2: Design
 
-4. **Enter Plan Mode** to design the implementation:
+4. **Design the implementation** before editing:
    - Explore the codebase to understand affected areas.
    - Identify files that need changes.
-   - Respect adapter independence: `.claude/rules/no-cross-adapter-imports.md`.
-   - Honor the adapter skeleton: `.claude/rules/adapter-pattern.md`.
+   - Respect adapter independence: `.agnostic-ai/rules/no-cross-adapter-imports.md`.
+   - Honor the adapter skeleton: `.agnostic-ai/rules/adapter-pattern.md`.
    - Plan the TDD approach (what tests to write first).
 
-5. **Create implementation plan** with:
+5. **Keep a short implementation plan** with:
    - Summary of what the issue requires.
    - List of files to create/modify.
    - Test strategy (unit per package, integration under `tests/integration`).
@@ -58,12 +64,12 @@ Read both the issue body **and every comment** as requirements input. Maintainer
 
 ### Phase 3: Implement
 
-6. **After plan approval**, implement following TDD:
+6. **Implement following TDD**:
    - Write failing tests first (`*_test.go` next to the code under test).
    - Implement minimum code to pass.
    - Refactor while keeping tests green.
-   - Wrap returned errors per `.claude/rules/error-wrapping.md`.
-   - Follow `.claude/rules/test-conventions.md` (use `t.TempDir()`, `testutil.Chdir`, behavior-named tests).
+   - Wrap returned errors per `.agnostic-ai/rules/error-wrapping.md`.
+   - Follow `.agnostic-ai/rules/test-conventions.md` (use `t.TempDir()`, `testutil.Chdir`, behavior-named tests).
 
 7. **Run full test suite**:
    ```bash
@@ -72,20 +78,22 @@ Read both the issue body **and every comment** as requirements input. Maintainer
    Fix ALL failures before proceeding.
 
 8. **Regenerate derived artifacts when touched**:
-   - Edited `internal/config/config.go` struct tags → `go run ./cmd/schemagen` (see `.claude/skills/regen-schema/`).
-   - Edited specs under `.agnostic-ai/` or any adapter → `agnostic-ai sync` then `./agnostic-ai sync --check` (see `.claude/skills/run-sync-check/`).
-   - Touched code reachable from `cmd/agnostic-ai-wasm` → rebuild the playground (see `.claude/skills/playground-rebuild/`).
+   - Edited `internal/config/config.go` struct tags → `go run ./cmd/schemagen` (see `.agnostic-ai/skills/regen-schema/SKILL.md`).
+   - Edited specs under `.agnostic-ai/` or any adapter → `go run ./cmd/agnostic-ai sync` then `go run ./cmd/agnostic-ai sync --check` (see `.agnostic-ai/skills/run-sync-check/SKILL.md`).
+   - Touched code reachable from `cmd/agnostic-ai-wasm` → rebuild the playground (see `.agnostic-ai/skills/playground-rebuild/SKILL.md`).
 
 ### Phase 4: Ship
 
-9. **Update CHANGELOG.md** — add one bullet under `## [Unreleased]`, grouped as `Added`, `Changed`, `Fixed`, or `Removed` per `.claude/rules/docs-sync.md`. Follow the entry rules in `.agnostic-ai/agents/changelog-curator.md`: one sentence, at most 160 characters, the effect a user sees, then `(#N)`. Detail goes on the docs page, not in the bullet. Skip only for pure refactors or test-only changes.
+9. **Update CHANGELOG.md for user-visible changes**: add one bullet under `## [Unreleased]`, grouped as `Added`, `Changed`, `Fixed`, or `Removed` per `.agnostic-ai/rules/docs-sync.md`. Follow the entry rules in `.agnostic-ai/agents/changelog-curator.md`: one sentence, at most 160 characters, the effect a user sees, then `(#N)`. Detail goes on the docs page, not in the bullet.
 
 10. **Update user docs when behavior is visible**:
     - New or changed flag, target, or output field → `docs/site/content/docs/targets/<target>.md` (and `target-behavior.md` for cross-target notes) and `docs/site/content/docs/configuration.md`.
     - New or changed spec field → `docs/site/content/docs/spec-format.md`.
     - New command or capability → `README.md`.
 
-11. **Commit changes** using Conventional Commits (`.claude/rules/conventional-commits.md`):
+11. **Review the final diff**. Remove duplication, dead code, debug output, naming drift, and speculative abstractions. Check the rules in `.agnostic-ai/rules/`. Re-run only checks needed for review fixes.
+
+12. **Commit changes** using Conventional Commits (`.agnostic-ai/rules/conventional-commits.md`):
     ```bash
     git add <specific-files>
     git commit -m "<type>(<scope>): <description>
@@ -94,40 +102,15 @@ Read both the issue body **and every comment** as requirements input. Maintainer
     ```
     Use `ref:` (not `refactor:`) for refactor commits. Subject under 72 chars. Body explains why, not what. Never mention AI assistance.
 
-12. **Final refactor commit (mandatory, last commit before PR)**:
-    Re-review every file touched by this change. Look for:
-    - duplication introduced by the new code (extract or reuse).
-    - dead branches, unused params, leftover debug.
-    - naming drift vs. surrounding package conventions.
-    - violations of `.claude/rules/adapter-pattern.md`, `no-cross-adapter-imports.md`, `error-wrapping.md`, `go-style.md`, `plain-english.md`.
-    - over-engineering: speculative abstractions, premature interfaces, helpers used once.
-
-    Apply fixes. Re-run `go test ./...`. Commit as a separate `ref(...)` commit — must be the final commit on the branch before PR:
-    ```bash
-    git commit -m "ref(<scope>): polish <area> after #<issue-number>
-
-    Related to #<issue-number>"
-    ```
-    If review surfaces zero changes, record that fact in the PR body instead of skipping silently.
-
 13. **Push and create PR**:
+    Write a PR body file with a short summary, checks run, and `Closes #<issue-number>`. Set `body_file` to its path and pass it to `gh pr create`:
     ```bash
     git push -u origin <branch-name>
     gh pr create \
       --assignee Chemaclass \
       --label "<bug|enhancement|documentation>" \
       --title "<type>(<scope>): <description>" \
-      --body "$(cat <<'EOF'
-    ## Summary
-    <1-3 bullets>
-
-    ## Test plan
-    - [ ] go test ./...
-    - [ ] agnostic-ai sync --check (if specs/adapters touched)
-
-    Closes #<issue-number>
-    EOF
-    )"
+      --body-file "$body_file"
     ```
     Match the label to the issue type. Use `Closes #<num>` so merge auto-closes the issue.
 
@@ -148,22 +131,26 @@ Read both the issue body **and every comment** as requirements input. Maintainer
 
 16. **Sync local main** after merge:
     ```bash
-    git checkout main && git fetch origin main && git reset --hard origin/main
+    test -z "$(git status --porcelain)" || exit 1
+    git fetch origin main
+    git switch main
+    test "$(git rev-list --count origin/main..main)" -eq 0 || exit 1
+    git pull --ff-only
     ```
+    Stop and report if local `main` is ahead of `origin/main`; never discard local commits.
 
 ## Checklist
 - [ ] Issue fetched and understood (body + comments)
 - [ ] Self-assigned
 - [ ] Branch created from fresh `origin/main`
-- [ ] Plan created and approved
+- [ ] Implementation plan checked against the issue
 - [ ] Tests written first (TDD)
 - [ ] Implementation complete
 - [ ] `go test ./...` passes
 - [ ] Derived artifacts regenerated (schema / sync / playground) when applicable
 - [ ] Changelog updated under `## [Unreleased]`
 - [ ] User docs updated when behavior is visible
-- [ ] Feature commit with `Related to #<num>`
-- [ ] Final `ref(...)` commit (last commit on branch)
+- [ ] Final diff reviewed and committed with `Related to #<num>`
 - [ ] PR created with `Chemaclass` assignee, matching label, `Closes #<num>`
 - [ ] CI green (`gh pr checks --watch`)
 - [ ] PR merged via `--admin --squash` (or `--auto` fallback if admin blocked)

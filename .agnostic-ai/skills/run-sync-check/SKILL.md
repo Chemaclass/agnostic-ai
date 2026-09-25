@@ -5,19 +5,14 @@ description: Run agnostic-ai sync --check, interpret the diff, and pick the righ
 
 # run-sync-check
 
-Verifies that emitted target files match what the current specs would produce.
+Checks local generated files against the current specs and adapters. Most generated files are ignored by Git in this repository; `.openhands/setup.sh` is tracked for bootstrap.
 
 ## Steps
 
-1. Build the binary if changed: `make build`.
-2. Run `./agnostic-ai sync --check`. Exit 0 means the working tree matches the bundle.
-3. If exit is non-zero, the tool prints a unified diff per drifting file.
-4. Decide:
-   - Source edited, emitted file lags -> run `agnostic-ai sync` to refresh.
-   - Adapter edited, emitted files would change -> intentional. Run `agnostic-ai sync` and review the diff in `git diff`.
-   - Neither edited but check still drifts -> capture mode skipped reading existing files. Re-run with `agnostic-ai sync` and inspect.
-5. Never edit emitted files by hand to silence the check. The next sync rewrites them.
+1. Run `go run ./cmd/agnostic-ai sync --check`. Exit 0 means the local generated files match. On drift, inspect the unified diff printed by the command; `git diff` cannot show ignored output.
+2. Run `go run ./cmd/agnostic-ai sync` for intended changes, then repeat `go run ./cmd/agnostic-ai sync --check`.
+3. Check `git status --short` for source and tracked output changes. Never edit generated files by hand to silence drift.
 
 ## CI
 
-`sync --check` is the gate. A drift exits 1 and fails the workflow. The fix is always to re-sync locally and commit, never to edit the emitted file.
+CI runs spec lint. It cannot compare ignored output in a fresh checkout, so `sync --check` is a local check, not a CI gate.

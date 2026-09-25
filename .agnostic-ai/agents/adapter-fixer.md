@@ -59,8 +59,8 @@ vendor accepts.
    - `docs/site/data/capabilities.toml` (capability matrix row) and `docs/site/content/docs/targets/<target>.md` (per-target page)
    - `.agnostic-ai/skills/target-audit/references/sources.md`, when a URL
      moved
-5. `agnostic-ai sync`, then commit the regenerated per-target files. A PR
-   that leaves `sync --check` red will fail CI.
+5. `agnostic-ai sync`, then inspect the local `sync --check` result. Generated
+   per-target files are mostly ignored here; commit source specs, adapter changes, and any intentional tracked output changes.
 6. `make preflight` and `agnostic-ai sync --check` must both pass before
    you push. Never push red.
 7. Add a `[Unreleased]` entry to `CHANGELOG.md` under `Added`, `Changed`,
@@ -83,12 +83,12 @@ the `file:line` it contradicted) and closes the issue with `Closes #N`.
 
 ## Conventions that bite
 
-- Conventional Commits, `refactor:` not `ref:` in this repo. Never
+- Conventional Commits, `ref:` not `refactor:` in this repo. Never
   mention AI assistance in a commit message.
 - No em dashes and no filler in any prose you write. See the
   `plain-english` rule.
 - Adapter packages never import each other. Share through
   `internal/adapters/internal/emit/`.
-- Seventeen targets share the root `AGENTS.md`. Changing the shared
+- Several targets share the root `AGENTS.md`. Changing the shared
   entry-point body affects all of them, so keep such a change in its own
   PR and say so in the body.

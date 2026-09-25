@@ -42,6 +42,7 @@ gh issue list \
 ```
 
 Merge:
+- If either query returns 200 rows, repeat it with a larger `--limit` until the result count falls below that limit.
 - Deduplicate by `number`.
 - Keep only issues whose `assignees` array is empty **or** contains the current user (`gh api user -q .login`).
 - Drop issues assigned to anyone else (defensive).
@@ -56,12 +57,14 @@ Print the queue: `#<num> <title> [assignee]` per line, where `[assignee]` is `un
 Before touching any issue:
 
 ```bash
-git status --porcelain
+test -z "$(git status --porcelain)" || exit 1
 git fetch origin main
-git checkout main && git reset --hard origin/main
+git switch main
+test "$(git rev-list --count origin/main..main)" -eq 0 || exit 1
+git pull --ff-only
 ```
 
-Abort if worktree dirty. Never auto-stash.
+Abort if the worktree is dirty or local `main` is ahead of `origin/main`. Never auto-stash or discard local commits.
 
 ## Phase 3: Process Loop
 
@@ -84,27 +87,11 @@ For each issue in the queue:
    - regen of derived artifacts (schema / sync / playground) when applicable.
    - changelog entry under `## [Unreleased]`.
    - commit with `Related to #<num>`.
-   - **mandatory final refactor pass** over every touched file (separate `ref(...)` commit) before opening the PR.
+   - final diff review before committing.
    - PR opened with `--assignee Chemaclass`, matching label, `Closes #<num>` in body.
+   - CI checked, PR merged when allowed, and local `main` updated.
 
-3. After `gh-issue` returns, wait for CI green on the PR:
-   ```bash
-   gh pr checks --watch
-   ```
-   Fix red checks on the branch before moving on.
-
-4. Merge when allowed:
-   ```bash
-   gh pr merge --squash --admin --delete-branch
-   ```
-   Fall back to `--auto --squash --delete-branch` if `--admin` is rejected.
-
-5. Sync `main` for next iteration:
-   ```bash
-   git checkout main && git fetch origin main && git reset --hard origin/main
-   ```
-
-6. Continue with next issue.
+3. Confirm the PR merged and local `main` is clean. If the PR awaits approval or a check is red, stop and report its state. Otherwise continue with the next issue.
 
 ## Stop Conditions
 
@@ -135,4 +122,4 @@ With `--dry-run`, only execute Phase 1 and print the queue. No assignment, no br
 
 - Treat GitHub CI as the full quality gate; locally run focused tests during implementation, full `go test ./...` once before commit.
 - Never split bundled changes into multiple PRs unless the issue explicitly demands it.
-- One concern per PR (`.claude/rules/go-style.md`). Open separate PRs for refactors that the issue did not ask for.
+- One concern per PR (`.agnostic-ai/rules/go-style.md`). Open separate PRs for refactors that the issue did not ask for.

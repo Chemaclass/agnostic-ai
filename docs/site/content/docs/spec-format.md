@@ -276,12 +276,14 @@ Use `feat:`, `fix:`, `docs:`, etc. Subject under 72 chars.
 Pure YAML, no markdown body.
 
 ```yaml
-name: format-on-save
-description: Run formatter after Edit/Write tools modify files.
-event: PostToolUse
-matcher: "Edit|Write"
-command: "npx prettier --write \"$CLAUDE_FILE_PATHS\""
+name: session-status
+description: Show repository status when a session starts.
+targets: [claude, codex]
+event: SessionStart
+command: "git status --short"
 ```
+
+Command hooks receive event JSON on stdin. When a command needs the edited path or shell command, read it from the target's documented `tool_input` fields instead of assuming an environment variable exists.
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
