@@ -211,3 +211,20 @@ func TestReportUnsupported_AgentFieldReasonOverridesDefault(t *testing.T) {
 		t.Errorf("expected the target reason, got:\n%s", got)
 	}
 }
+
+// The hint names the real fix first: a warning about a target nobody uses
+// goes away when the target leaves `targets:`. Silencing is the fallback.
+func TestFlushCapabilityWarnings_HintSuggestsDroppingUnusedTargets(t *testing.T) {
+	buf := swapWarner(t)
+	caps := Capabilities{Target: "aider", Supports: []spec.Kind{spec.KindRule}}
+	if err := ReportUnsupported(caps, spec.Bundle{Hooks: []spec.Entry{{Name: "h1"}}}, OnUnsupportedWarn); err != nil {
+		t.Fatal(err)
+	}
+	FlushCapabilityWarnings()
+	got := buf.String()
+	for _, want := range []string{"remove targets you do not use from `targets:`", "`on-unsupported: silent`"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("hint should mention %q, got:\n%s", want, got)
+		}
+	}
+}

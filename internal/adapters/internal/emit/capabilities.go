@@ -179,7 +179,7 @@ func FlushCapabilityWarnings() {
 		_, _ = fmt.Fprintf(Warner, "  %s %d %s unsupported by %s\n",
 			bang, k.n, pluralizeKind(k.k, k.n), strings.Join(targets, ", "))
 	}
-	_, _ = fmt.Fprintln(Warner, "    fix: set `on-unsupported: silent` in agnostic-ai.yaml to hide these")
+	_, _ = fmt.Fprintln(Warner, "    fix: remove targets you do not use from `targets:` in agnostic-ai.yaml, or set `on-unsupported: silent` to hide these")
 	capabilityWarnState.pending = nil
 }
 

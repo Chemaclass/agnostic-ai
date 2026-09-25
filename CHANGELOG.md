@@ -12,6 +12,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - Target audits write a word diff for every vendor page that moved since the last audit, labelled by whether it touches a path or key agnostic-ai writes, so auditors read the change instead of the page (#1127).
 - The daily vendor-watch issue labels each moved page (`mentions:<paths>`, `prose`, `chrome-only`, ...), from page snapshots stored by content hash and cached between runs; `docfetch.sh --update` drops lock rows for sources that no longer exist (#1127).
 
+### Changed
+
+- The "unsupported by" sync warning now suggests removing unused targets from `targets:` before silencing it with `on-unsupported: silent`.
+
 ## v0.67.0 - 2026-09-24
 
 ### Added
