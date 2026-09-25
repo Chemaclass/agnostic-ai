@@ -8,26 +8,25 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Added
 
-- Cursor: `sync` warns when an emitted `BUGBOT.md` passes Bugbot's 30,000-character per-file cap, or when a scope and its ancestors pass the 100,000-character per-review budget, instead of letting Bugbot truncate or omit rules silently (#1125).
-- Target audits write a word diff for every vendor page that moved since the last audit, labelled by whether it touches a path or key agnostic-ai writes, so auditors read the change instead of the page (#1127).
-- The daily vendor-watch issue labels each moved page (`mentions:<paths>`, `prose`, `chrome-only`, ...), from page snapshots stored by content hash and cached between runs; `docfetch.sh --update` drops lock rows for sources that no longer exist (#1127).
+- Cursor: `sync` warns when emitted `BUGBOT.md` files exceed Bugbot's 30,000-character file cap or 100,000-character review budget (#1125, #1126).
 
 ### Changed
 
-- Local Git hooks now check formatting and commit messages quickly; run `make preflight` before pushing.
-- Release preparation follows one documented workflow; the partial release script is gone.
-- Removed repository agent hooks that could not read tool input reliably and ran expensive checks on each edit.
-- The README puts setup and daily commands first and keeps the CI, npm, Homebrew, and downloads badges.
-- The "unsupported by" sync warning now suggests removing unused targets from `targets:` before silencing it with `on-unsupported: silent`.
-- Target audits read the Markdown copy of 92 vendor pages on ten docs hosts, so a site rebuild that only changes navigation or a cookie banner no longer marks them changed (#1127).
+- Unsupported-kind warnings suggest removing unused `targets:` before suppressing them with `on-unsupported: silent` (#1135).
 
 ### Fixed
 
-- The hook spec guide shows a runnable Claude and Codex example and explains that hook input arrives as JSON on stdin.
-- `init` with no terminal and nothing piped enables the detected tools or the default set, not all 25 targets. Pass `--all` for every target (#1136).
-- `init` and `import all` detect a project that has only a root `CLAUDE.md` or `GEMINI.md`, so an existing Claude or Gemini setup is picked up instead of the default target set.
-- `import all` skips an entry file that links outside the project, such as a symlinked `CLAUDE.md`, instead of copying it into `.agnostic-ai/` (#1138).
-- `import all --dry-run` skips an entry file linked outside the project with the same `skipped` note as the real run, instead of previewing its content (#1141).
+- Noninteractive `init` enables detected tools or the default set. Pass `--all` to enable every target (#1136).
+- `init` and `import all` detect a root `CLAUDE.md` or `GEMINI.md` as an existing project (#1137).
+- `import all` and `--dry-run` skip entry files linked outside the project and report them as skipped (#1138, #1139, #1141, #1142).
+
+### Project
+
+- Vendor watch filters page chrome and labels meaningful vendor docs changes in its daily issue (#1127).
+
+### Site
+
+- The README leads with setup and daily commands; the hook guide has a runnable Claude and Codex example.
 
 ## v0.67.0 - 2026-09-24
 
