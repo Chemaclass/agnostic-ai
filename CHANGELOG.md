@@ -16,6 +16,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - The "unsupported by" sync warning now suggests removing unused targets from `targets:` before silencing it with `on-unsupported: silent`.
 
+### Fixed
+
+- `init` with no terminal and nothing piped enables the detected tools or the default set, not all 25 targets. Pass `--all` for every target (#1136).
+
 ## v0.67.0 - 2026-09-24
 
 ### Added

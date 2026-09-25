@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -446,7 +448,7 @@ func TestInitCmd_Interactive_PipedWithDemo(t *testing.T) {
 	}
 }
 
-func TestInitCmd_PipedEmptyFallsBackToAll(t *testing.T) {
+func TestInitCmd_PipedEmptyFallsBackToDefaults(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	silence(t)
@@ -457,14 +459,131 @@ func TestInitCmd_PipedEmptyFallsBackToAll(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	cfg, err := os.ReadFile(filepath.Join(dir, "agnostic-ai.yaml"))
+	if got, want := configuredTargets(t, dir), config.DefaultTargets(); !slices.Equal(got, want) {
+		t.Errorf("empty piped line must fall back to the default targets\ngot  %v\nwant %v", got, want)
+	}
+}
+
+// devNullStdin opens the null device as an *os.File so init sees what a
+// CI job or `init < /dev/null` gives it: stdin that is neither a
+// terminal nor a pipe with data.
+func devNullStdin(t *testing.T) *os.File {
+	t.Helper()
+	f, err := os.Open(os.DevNull)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"  - claude\n", "  - codex\n", "  - opencode\n"} {
-		if !strings.Contains(string(cfg), want) {
-			t.Errorf("config missing %q on fallback:\n%s", want, cfg)
+	t.Cleanup(func() { _ = f.Close() })
+	return f
+}
+
+// configuredTargets returns the targets list init wrote to the config.
+func configuredTargets(t *testing.T, dir string) []string {
+	t.Helper()
+	cfg, err := config.Load(dir)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	return cfg.Targets
+}
+
+func TestInitCmd_NoTTYNoPipe_EmptyRepoEnablesDefaultTargets(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	stderr := &bytes.Buffer{}
+	root := NewRootCmd("test")
+	root.SetIn(devNullStdin(t))
+	root.SetErr(stderr)
+	root.SetArgs([]string{"init", "--demo"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	got := configuredTargets(t, dir)
+	if want := config.DefaultTargets(); !slices.Equal(got, want) {
+		t.Errorf("non-interactive init must enable the default targets, not all\ngot  %v\nwant %v", got, want)
+	}
+	for _, colliding := range []string{"amp", "warp"} {
+		if slices.Contains(got, colliding) {
+			t.Errorf("%s collides with codex on AGENTS.md and must not be enabled by default: %v", colliding, got)
 		}
+	}
+	msg := stderr.String()
+	for _, want := range []string{
+		"no target list piped; enabled 20 default targets: claude, codex,",
+		`(pass --all, or pipe "claude,codex")`,
+	} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("stderr missing %q:\n%s", want, msg)
+		}
+	}
+}
+
+func TestInitCmd_NoTTYNoPipe_EnablesDetectedTargets(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	for _, marker := range []string{".claude", ".cursor"} {
+		if err := os.MkdirAll(filepath.Join(dir, marker), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	stderr := &bytes.Buffer{}
+	root := NewRootCmd("test")
+	root.SetIn(devNullStdin(t))
+	root.SetErr(stderr)
+	root.SetArgs([]string{"init"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if got, want := configuredTargets(t, dir), []string{"claude", "cursor"}; !slices.Equal(got, want) {
+		t.Errorf("non-interactive init must enable the detected targets\ngot  %v\nwant %v", got, want)
+	}
+	want := "no target list piped; enabled 2 detected targets: claude, cursor"
+	if !strings.Contains(stderr.String(), want) {
+		t.Errorf("stderr missing %q:\n%s", want, stderr.String())
+	}
+}
+
+func TestInitCmd_AllFlagEnablesEveryTarget(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	stderr := &bytes.Buffer{}
+	root := NewRootCmd("test")
+	root.SetIn(devNullStdin(t))
+	root.SetErr(stderr)
+	root.SetArgs([]string{"init", "--all"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if got, want := configuredTargets(t, dir), allTargetNames(); !slices.Equal(got, want) {
+		t.Errorf("--all must enable every supported target\ngot  %v\nwant %v", got, want)
+	}
+	if strings.Contains(stderr.String(), "no target list piped") {
+		t.Errorf("--all is an explicit choice and must not print the fallback notice:\n%s", stderr.String())
+	}
+}
+
+func TestInitCmd_PipedListWinsOverDetectedTargets(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	if err := os.MkdirAll(filepath.Join(dir, ".cursor"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	root := NewRootCmd("test")
+	root.SetIn(strings.NewReader("claude,codex\n"))
+	root.SetArgs([]string{"init"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if got, want := configuredTargets(t, dir), []string{"claude", "codex"}; !slices.Equal(got, want) {
+		t.Errorf("a piped list must win over detection\ngot  %v\nwant %v", got, want)
 	}
 }
 
@@ -600,5 +719,21 @@ func TestScaffold_NextStepsPointAtCompletion(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "agnostic-ai completion <shell>") {
 		t.Errorf("next steps should point at shell completion:\n%s", buf.String())
+	}
+}
+
+// --quiet means errors only, so the non-interactive fallback notice goes
+// quiet with it while the choice itself is unchanged.
+func TestFallbackInitTargets_QuietPrintsNothing(t *testing.T) {
+	prev := verbosity
+	verbosity = levelQuiet
+	t.Cleanup(func() { verbosity = prev })
+	var buf bytes.Buffer
+	got := fallbackInitTargets(&buf, nil)
+	if buf.Len() != 0 {
+		t.Errorf("--quiet must print nothing, got %q", buf.String())
+	}
+	if len(got) != len(config.DefaultTargets()) {
+		t.Errorf("quiet must not change the choice: got %v", got)
 	}
 }
