@@ -15,6 +15,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### Fixed
 
 - Global sync writes the Codex skill policy file and warns when a manual-only skill stays model-invocable on a target (#1156).
+- `.junie/AGENTS.md` honors `sync.resolve-imports`; a legacy `rules-file` entry point gets local instructions; `sync --watch` sees a new local layer (#1172).
 
 ## v0.68.1 - 2026-09-25
 

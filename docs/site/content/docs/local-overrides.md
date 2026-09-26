@@ -63,6 +63,7 @@ Answer in Spanish. Run `make test` before every commit.
 ```
 
 - The shared `.agnostic-ai/AGNOSTIC_AI.md` does not change.
+- A legacy [`outputs.<target>.rules-file`](@/docs/configuration.md#entry-point-files) that names the entry point gets the block too, after the rule bodies.
 - `::target` fences and `@path` imports work as in the [shared file](@/docs/configuration.md#per-target-paragraphs).
 - `agnostic-ai import` drops the marked block, so local instructions never land in `.agnostic-ai/`. Import still captures local specs that sync emitted, such as a local rule inlined into `AGENTS.md`, so review the diff after an import.
 - Generated entry points are ignored by default. If your project commits them, the local text reaches the commit too.

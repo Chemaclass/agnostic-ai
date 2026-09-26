@@ -45,6 +45,9 @@ type MergedOpts struct {
 	// has no native skill execution; the intro should explain how to
 	// invoke them (typically: read the source file).
 	SkillsIntro string
+	// local is the project-local text appended last in its marked
+	// block. Set by EmitLegacyRulesFile only.
+	local string
 }
 
 // MergedDocument writes a single markdown file with rules, agents, and
@@ -106,7 +109,7 @@ func (s *Session) MergedDocument(b spec.Bundle, opts MergedOpts, dryRun bool) er
 		}
 	}
 
-	return s.WriteFile(opts.OutFile, sb.String(), dryRun)
+	return s.WriteFile(opts.OutFile, AppendLocalInstructions(sb.String(), opts.local), dryRun)
 }
 
 // WriteSection writes a "### <heading>" block followed by source

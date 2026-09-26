@@ -343,6 +343,8 @@ func writeInstruction(sess *emit.Session, dir, applyTo string, e spec.Entry, dry
 // outputs.copilot.rules-file path (when set). No-op when the user has
 // not opted into the legacy concatenated layout; `sync` writes the
 // canonical pointer body to `.github/copilot-instructions.md` instead.
+// The project-local instructions follow when rulesFile is that entry
+// point (see emit.AppendLegacyEntryPointLocal).
 func emitLegacyRulesFile(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	rulesFile := emit.OutputRulesFile(cfg, target, "")
 	if rulesFile == "" {
@@ -359,7 +361,11 @@ func emitLegacyRulesFile(sess *emit.Session, b spec.Bundle, cfg *config.Config, 
 	for _, r := range alwaysOn {
 		emit.WriteSection(&sb, r.Name, r)
 	}
-	return sess.WriteFile(rulesFile, sb.String(), dryRun)
+	content, err := emit.AppendLegacyEntryPointLocal(cfg, target, sb.String())
+	if err != nil {
+		return err
+	}
+	return sess.WriteFile(rulesFile, content, dryRun)
 }
 
 func alwaysOnRules(rules []spec.Entry) []spec.Entry {

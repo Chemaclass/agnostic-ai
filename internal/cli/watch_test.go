@@ -704,3 +704,95 @@ func waitForFile(t *testing.T, path string, timeout time.Duration) {
 	}
 	t.Fatalf("timed out waiting for %s", path)
 }
+
+// assertWatchPicksUpNewLocalInstructions starts a watch in a project with
+// no project-user dir, creates it with an AGNOSTIC_AI.md, and waits
+// for the text to reach CLAUDE.md. The directory is the usual way a user
+// starts personal instructions, so its creation must not need a restart.
+func assertWatchPicksUpNewLocalInstructions(t *testing.T, forcePoll bool) {
+	t.Helper()
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	buf := captureWatchOutput(t)
+	done := make(chan error, 1)
+	go func() {
+		done <- watchSync(ctx, 20*time.Millisecond, ".", []string{"claude"}, false, false, "off", forcePoll, 1)
+	}()
+	waitForOutput(t, buf, "watching", 10*time.Second)
+	if _, err := os.Stat(defaultProjectUser); err == nil {
+		t.Fatalf("%s must not exist before the watch starts", defaultProjectUser)
+	}
+	claudeMD := filepath.Join(dir, "CLAUDE.md")
+	if _, err := os.Stat(claudeMD); err != nil {
+		t.Fatalf("initial sync did not write CLAUDE.md: %v", err)
+	}
+
+	if err := os.MkdirAll(defaultProjectUser, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(defaultProjectUser, "AGNOSTIC_AI.md"), []byte("Watched local line.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	deadline := time.Now().Add(3 * time.Second)
+	var got []byte
+	for time.Now().Before(deadline) {
+		got, _ = os.ReadFile(claudeMD)
+		if strings.Contains(string(got), "Watched local line.") {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if !strings.Contains(string(got), "Watched local line.") {
+		t.Errorf("watch did not pick up a new %s/AGNOSTIC_AI.md:\n%s", defaultProjectUser, got)
+	}
+
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestWatchSync_PicksUpLocalDirCreatedMidSession(t *testing.T) {
+	assertWatchPicksUpNewLocalInstructions(t, false)
+}
+
+func TestWatchSync_PollPicksUpLocalDirCreatedMidSession(t *testing.T) {
+	assertWatchPicksUpNewLocalInstructions(t, true)
+}
+
+// The project-user dir's parent is watched only to see that dir appear.
+// Anything else sync writes there must not count, or every sync would
+// trigger the next one.
+func TestIsParentNoise_KeepsOnlyWatchedInputs(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	cfg, _, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	watched := watchDirs(".", cfg)
+	parent := projectUserParent(".")
+	inputs := parentInputNames(parent, watched)
+
+	for name, want := range map[string]bool{
+		filepath.Join(parent, "GENERATED.md"):                    true,
+		filepath.Join(parent, ".generated"):                      true,
+		filepath.Join(".", defaultProjectUser):                   false,
+		filepath.Join(".", defaultProjectUser, "AGNOSTIC_AI.md"): false,
+		filepath.Join(parent, "nested", "file.md"):               false,
+	} {
+		if got := isParentNoise(parent, name, inputs); got != want {
+			t.Errorf("isParentNoise(%q) = %v, want %v", name, got, want)
+		}
+	}
+	for _, p := range watched {
+		if isParentNoise(parent, p, inputs) {
+			t.Errorf("watched path %q must never be noise", p)
+		}
+	}
+}

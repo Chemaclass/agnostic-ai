@@ -508,7 +508,9 @@ func loadSettingsOverlay(dryRun bool) (*emit.OrderedJSON, bool, error) {
 // writeRules emits rules per-file under `.claude/rules/<name>.md` by
 // default; Claude Code discovers every `.md` under that directory at
 // session start. Setting `outputs.claude.rules-file` switches back to
-// the legacy single-file concatenated layout (typically CLAUDE.md).
+// the legacy single-file concatenated layout (typically CLAUDE.md),
+// which then also carries the project-local instructions (see
+// emit.AppendLegacyEntryPointLocal).
 func writeRules(sess *emit.Session, rules []spec.Entry, cfg *config.Config, dryRun bool) error {
 	if len(rules) == 0 {
 		return nil
@@ -519,7 +521,11 @@ func writeRules(sess *emit.Session, rules []spec.Entry, cfg *config.Config, dryR
 		for _, r := range rules {
 			sb.WriteString("## " + r.Name + "\n\n" + r.Body + "\n\n")
 		}
-		return sess.WriteFile(rulesFile, sb.String(), dryRun)
+		content, err := emit.AppendLegacyEntryPointLocal(cfg, target, sb.String())
+		if err != nil {
+			return err
+		}
+		return sess.WriteFile(rulesFile, content, dryRun)
 	}
 	rulesDir := emit.OutputRulesDir(cfg, target, emit.OutputSubDir(cfg, target, "rules", defaultRulesDir))
 	for _, r := range rules {
