@@ -193,6 +193,15 @@ function test_publish_stays_quiet_when_every_changed_text_was_fetched_before() {
   assert_not_contains "issue create" "$(cat "$GH_CALLS")"
 }
 
+function test_publish_leaves_a_known_page_out_of_the_reported_marker() {
+  local tsv
+  tsv=$(run_tsv)
+  printf 'https://kiro.dev/docs/steering/\taaa\n' >"$FIXTURES/known"
+  vendor_watch_publish "$tsv" "$FIXTURES/known" >/dev/null
+  assert_contains "https://cursor.com/docs/rules" "$(cat "$GH_CALLS")"
+  assert_not_contains "https://kiro.dev/docs/steering/" "$(cat "$GH_CALLS")"
+}
+
 function test_publish_does_nothing_on_a_quiet_run() {
   row kiro https://kiro.dev/docs/hooks/ bbb unchanged >"$FIXTURES/quiet.tsv"
   vendor_watch_publish "$FIXTURES/quiet.tsv" >/dev/null

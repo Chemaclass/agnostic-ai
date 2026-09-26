@@ -30,10 +30,13 @@ VENDOR_WATCH_LABEL="vendor-watch"
 VENDOR_WATCH_TITLE="Vendor docs changed since the last target audit"
 VENDOR_WATCH_MARKER="<!-- vendor-watch:keys"
 
-# vendor_watch_keys <tsv> prints one "<url>\t<hash>" key per moved row. A
-# failed row has no hash, so its key carries the HTTP code instead.
+# vendor_watch_keys <tsv> [known-pages-file] prints one "<url>\t<hash>" key
+# per moved row the report names, leaving out a changed row whose pair is
+# known. A failed row has no hash, so its key carries the HTTP code instead.
 vendor_watch_keys() {
-  awk -F '\t' '
+  awk -F '\t' -v known="${2:-/dev/null}" '
+    BEGIN { while ((getline line < known) > 0) fetched[line] = 1 }
+    $8 == "changed" && (($3 "\t" $6) in fetched) { next }
     $8 == "new" || $8 == "changed" { print $3 "\t" $6 }
     $8 == "failed" { print $3 "\tfailed-" $4 }
   ' "$1" | sort -u
@@ -141,7 +144,7 @@ vendor_watch_publish() {
     echo "vendor-watch: nothing new to report"
     return 0
   fi
-  keys=$(printf '%s\n%s\n' "$seen" "$(vendor_watch_keys "$tsv")" | grep . | sort -u)
+  keys=$(printf '%s\n%s\n' "$seen" "$(vendor_watch_keys "$tsv" "$known")" | grep . | sort -u)
 
   if [ -z "$number" ]; then
     gh label create "$VENDOR_WATCH_LABEL" --color c5def5 \
