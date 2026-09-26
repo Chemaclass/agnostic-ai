@@ -325,19 +325,20 @@ func joinMatcherSegments(segments []string) string {
 	return strings.Join(cp, "|")
 }
 
-// HookMatcherKey folds matcher to the segment set buildHooksJSON groups
-// handlers by: a handler lands under whichever spelling of that set its
-// group saw first.
-func (Adapter) HookMatcherKey(matcher string) string {
-	seen := map[string]bool{}
-	var segments []string
-	for _, seg := range matcherSegments(matcher) {
-		if !seen[seg] {
-			seen[seg] = true
-			segments = append(segments, seg)
+// HookMatcherCovers reports whether every segment of spec is a segment
+// of native. buildHooksJSON joins the segments of every spec that runs
+// one command, and writes the group under the order it saw first.
+func (Adapter) HookMatcherCovers(native, spec string) bool {
+	segments := map[string]bool{}
+	for _, seg := range matcherSegments(native) {
+		segments[seg] = true
+	}
+	for _, seg := range matcherSegments(spec) {
+		if !segments[seg] {
+			return false
 		}
 	}
-	return joinMatcherSegments(segments)
+	return true
 }
 
 // hookIntMeta reads an int-typed meta key, accepting int / int64 /

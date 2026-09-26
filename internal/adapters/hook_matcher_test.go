@@ -2,18 +2,22 @@ package adapters
 
 import "testing"
 
-func TestHookMatcherKey_FoldsOnlyWhereTheTargetRespellsTheMatcher(t *testing.T) {
+func TestHookMatcherCovers_FoldsOnlyWhereTheTargetRespellsTheMatcher(t *testing.T) {
 	cases := []struct {
-		target, matcher, want string
+		target, native, spec string
+		want                 bool
 	}{
-		{"codex", "Write | Edit|Write", "Edit|Write"},
-		{"codex", "", ""},
-		{"claude", "Write|Edit", "Write|Edit"},
-		{"nonexistent", "Write|Edit", "Write|Edit"},
+		{"codex", "Edit|Write", "Write | Edit|Write", true},
+		{"codex", "Write|Edit", "Edit", true},
+		{"codex", "Edit", "Edit|Write", false},
+		{"codex", "", "", true},
+		{"claude", "Edit|Write", "Write|Edit", false},
+		{"claude", "Edit", "Edit", true},
+		{"nonexistent", "Edit|Write", "Edit", false},
 	}
 	for _, tc := range cases {
-		if got := HookMatcherKey(tc.target, tc.matcher); got != tc.want {
-			t.Errorf("HookMatcherKey(%q, %q) = %q, want %q", tc.target, tc.matcher, got, tc.want)
+		if got := HookMatcherCovers(tc.target, tc.native, tc.spec); got != tc.want {
+			t.Errorf("HookMatcherCovers(%q, %q, %q) = %v, want %v", tc.target, tc.native, tc.spec, got, tc.want)
 		}
 	}
 }

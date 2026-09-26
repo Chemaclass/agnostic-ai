@@ -1,20 +1,20 @@
 package adapters
 
-// HookMatcherFolder is implemented by a target that may write a hook
-// matcher in another spelling than the spec declares, such as a
-// reordered alternation.
-type HookMatcherFolder interface {
-	// HookMatcherKey returns the form two matchers share when the
-	// target treats them as one.
-	HookMatcherKey(matcher string) string
+// HookMatcherCoverer is implemented by a target that may write a hook
+// matcher in another form than the spec declares, such as a reordered
+// alternation or one joined with other specs' matchers.
+type HookMatcherCoverer interface {
+	// HookMatcherCovers reports whether the native matcher can be what
+	// the target wrote for a spec declaring the spec matcher.
+	HookMatcherCovers(native, spec string) bool
 }
 
-// HookMatcherKey returns the form target folds matcher to, or matcher
-// itself when target writes it verbatim. Import compares a native
-// matcher with a spec's through it.
-func HookMatcherKey(target, matcher string) string {
-	if folder, ok := registry[target].(HookMatcherFolder); ok {
-		return folder.HookMatcherKey(matcher)
+// HookMatcherCovers reports whether target could write the native
+// matcher for a spec declaring spec. Without the interface, only an
+// identical matcher does.
+func HookMatcherCovers(target, native, spec string) bool {
+	if coverer, ok := registry[target].(HookMatcherCoverer); ok {
+		return coverer.HookMatcherCovers(native, spec)
 	}
-	return matcher
+	return native == spec
 }

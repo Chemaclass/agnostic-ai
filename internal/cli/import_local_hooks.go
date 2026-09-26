@@ -18,39 +18,51 @@ import (
 // imported hook is matched on its event, matcher, and handler instead.
 type localHooks struct {
 	entries []spec.Entry
-	// byTarget maps, per target, a hook identity to the local spec name.
-	// Built on first use: only the imported targets need one.
-	byTarget map[string]map[string]string
+	// byTarget maps, per target, an event and handler to the local
+	// specs that render it. Built on first use: only the imported
+	// targets need one.
+	byTarget map[string]map[string][]localHookMatcher
+}
+
+// localHookMatcher is one local spec's matcher for an event and handler.
+type localHookMatcher struct {
+	matcher, name string
 }
 
 func newLocalHooks(entries []spec.Entry) *localHooks {
-	return &localHooks{entries: entries, byTarget: map[string]map[string]string{}}
+	return &localHooks{entries: entries, byTarget: map[string]map[string][]localHookMatcher{}}
 }
 
 // owner names the local hook whose target rendering holds handler key
 // for event and matcher, or returns "". Adapters differ on whether they
-// apply `x-<target>` overrides to hooks, so both views count.
+// apply `x-<target>` overrides to hooks, so both views count. A target
+// may join matchers on emit, so a handler whose matcher covers a local
+// spec's is that spec's, even when a shared spec feeds it too: the
+// shared spec is already in the source.
 func (l *localHooks) owner(target, event, matcher, key string) string {
 	index, ok := l.byTarget[target]
 	if !ok {
-		index = map[string]string{}
+		index = map[string][]localHookMatcher{}
 		for _, e := range l.entries {
 			for _, meta := range []map[string]any{e.Meta, adapters.ResolveMeta(e.Meta, target)} {
 				for _, k := range hookHandlerKeys(target, meta) {
-					id := hookIdentity(target, hookEventKey(meta), hookMatcher(meta), k)
-					if _, taken := index[id]; !taken {
-						index[id] = e.Name
-					}
+					id := hookIdentity(hookEventKey(meta), k)
+					index[id] = append(index[id], localHookMatcher{matcher: hookMatcher(meta), name: e.Name})
 				}
 			}
 		}
 		l.byTarget[target] = index
 	}
-	return index[hookIdentity(target, event, matcher, key)]
+	for _, local := range index[hookIdentity(event, key)] {
+		if adapters.HookMatcherCovers(target, matcher, local.matcher) {
+			return local.name
+		}
+	}
+	return ""
 }
 
-func hookIdentity(target, event, matcher, key string) string {
-	return event + "\x00" + adapters.HookMatcherKey(target, matcher) + "\x00" + key
+func hookIdentity(event, key string) string {
+	return event + "\x00" + key
 }
 
 // hookEventKey folds case, dashes, and underscores, so `pre-tool-use`,
