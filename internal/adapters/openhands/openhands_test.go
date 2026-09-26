@@ -436,6 +436,179 @@ func TestEmit_MCP_SHTTPTimeoutAndAPIKeyCombine(t *testing.T) {
 	}
 }
 
+// A shttp entry with `oauth` set upgrades to the vendor's documented
+// OAuth object form: "Add the auth field to your server configuration:
+// shttp_servers = [ { url = "...", auth = "oauth" } ]"
+// (docs.openhands.dev/openhands/usage/settings/mcp-settings, OAuth
+// Authentication > Config File). `oauth` carries no client
+// id/secret to map: FastMCP handles the browser flow out of band, so
+// any truthy value is enough to turn the flag on.
+func TestEmit_MCP_SHTTPOAuthEmitsAuthField(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "notion", Meta: map[string]any{
+			"type": "http", "url": "https://mcp.notion.com/mcp", "oauth": true,
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "config.toml"))
+	if !strings.Contains(got, `{ url = "https://mcp.notion.com/mcp", auth = "oauth" }`) {
+		t.Errorf("missing auth = \"oauth\" object form in %s", got)
+	}
+}
+
+// `oauth: {}` (an empty map, the shape the reproduction in #1157 used)
+// counts as set too: OpenHands' flag has no sub-fields to check for
+// emptiness, unlike Claude's/Kiro's/VS Code's client-object `oauth`.
+func TestEmit_MCP_SHTTPOAuthEmptyMapStillEmitsAuthField(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "notion", Meta: map[string]any{
+			"type": "http", "url": "https://mcp.notion.com/mcp", "oauth": map[string]any{},
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "config.toml"))
+	if !strings.Contains(got, `{ url = "https://mcp.notion.com/mcp", auth = "oauth" }`) {
+		t.Errorf("missing auth = \"oauth\" object form in %s", got)
+	}
+}
+
+// `oauth: false` leaves the flag off, matching Crush's/Factory's/
+// Kilo's own "oauth: false disables it" convention for the same field
+// name.
+func TestEmit_MCP_SHTTPOAuthFalseStaysBareURL(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "notion", Meta: map[string]any{
+			"type": "http", "url": "https://mcp.notion.com/mcp", "oauth": false,
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "config.toml"))
+	if !strings.Contains(got, `shttp_servers = ["https://mcp.notion.com/mcp"]`) {
+		t.Errorf("oauth: false must stay a bare URL, got: %s", got)
+	}
+}
+
+// An explicit `auth: oauth` extra field is also accepted, mirroring
+// Codex's own `auth` string field for the same vendor-documented value
+// and giving `import openhands` (which reads config.toml's `auth` key
+// back verbatim) a re-sync path that reproduces the same file.
+func TestEmit_MCP_SHTTPExplicitAuthFieldPassesThrough(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "notion", Meta: map[string]any{
+			"type": "http", "url": "https://mcp.notion.com/mcp", "auth": "oauth",
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "config.toml"))
+	if !strings.Contains(got, `{ url = "https://mcp.notion.com/mcp", auth = "oauth" }`) {
+		t.Errorf("missing auth = \"oauth\" object form in %s", got)
+	}
+}
+
+// Codex also reads an `auth` string (`oauth` | `chatgpt`), and both
+// targets are on by default. Only the value OpenHands documents may
+// reach its file; any other stays out, so a truthy `oauth` still wins.
+func TestEmit_MCP_SHTTPUndocumentedAuthValueStaysOut(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		meta map[string]any
+		want string
+	}{
+		{"chatgpt alone", map[string]any{"auth": "chatgpt"}, `"https://mcp.example.com/mcp"`},
+		{"chatgpt with oauth", map[string]any{"auth": "chatgpt", "oauth": true}, `{ url = "https://mcp.example.com/mcp", auth = "oauth" }`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			meta := map[string]any{"type": "http", "url": "https://mcp.example.com/mcp"}
+			for k, v := range tc.meta {
+				meta[k] = v
+			}
+			entries := []spec.Entry{{Kind: spec.KindMCP, Name: "remote", Meta: meta}}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			got := readFile(t, filepath.Join(dir, "config.toml"))
+			if !strings.Contains(got, tc.want) || strings.Contains(got, "chatgpt") {
+				t.Errorf("want %s, got %s", tc.want, got)
+			}
+		})
+	}
+}
+
+// auth combines with api_key and timeout in that order when every
+// field is set on the same shttp entry.
+func TestEmit_MCP_SHTTPAuthCombinesWithAPIKeyAndTimeout(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "notion", Meta: map[string]any{
+			"type": "http", "url": "https://mcp.notion.com/mcp",
+			"api_key": "secret", "timeout": 1800, "oauth": true,
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "config.toml"))
+	want := `{ url = "https://mcp.notion.com/mcp", api_key = "secret", timeout = 1800, auth = "oauth" }`
+	if !strings.Contains(got, want) {
+		t.Errorf("missing combined object form, want %q in %s", want, got)
+	}
+}
+
+// `auth` (like `oauth`) is documented for shttp_servers only, not
+// sse_servers, so an sse entry that sets `oauth` gets a coverage note
+// instead of a silently inert field.
+func TestEmit_MCP_SSEOAuthSurfacesCoverageNote(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	buf := &strings.Builder{}
+	prev := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = prev })
+
+	entries := []spec.Entry{
+		{Kind: spec.KindMCP, Name: "notion", Meta: map[string]any{
+			"type": "sse", "url": "https://mcp.notion.com/sse", "oauth": true,
+		}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+	note := buf.String()
+	for _, want := range []string{"`oauth`", "1 mcp", "openhands", "shttp"} {
+		if !strings.Contains(note, want) {
+			t.Errorf("expected coverage note to mention %q, got: %s", want, note)
+		}
+	}
+
+	got := readFile(t, filepath.Join(dir, "config.toml"))
+	if !strings.Contains(got, `sse_servers = ["https://mcp.notion.com/sse"]`) {
+		t.Errorf("entry itself should still reach openhands via url, got: %s", got)
+	}
+	if strings.Contains(got, "auth") {
+		t.Errorf("auth must not reach the sse_servers form, got: %s", got)
+	}
+}
+
 // timeout is documented for shttp_servers only, not sse_servers, so an
 // sse entry that sets it gets a coverage note instead of a silently
 // inert field: the vendor never confirms it does anything there.

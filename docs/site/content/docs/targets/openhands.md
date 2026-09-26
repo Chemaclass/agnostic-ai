@@ -35,8 +35,9 @@ An always-on rule (no `globs`/`paths` and no source-layout or frontmatter scope)
   - Per entry: `command`, `type` (always `command`), optional `timeout` (seconds, vendor default 60) and `async`. A `matcher` applies only to the two ToolUse events.
   - OpenHands uses its own tool names (`terminal`, not `Bash`), so a matcher from a Claude spec matches nothing. That case gets a coverage note instead of a guessed rename, because only `terminal` (plus `*` and regex) is documented.
 - **MCP**: merges into `./config.toml` under a `[mcp]` table with three arrays instead of a `type` field: `stdio_servers` (`[[mcp.stdio_servers]]` tables with `name`/`command`/`args`/`env`), `sse_servers`, and `shttp_servers` (streamable HTTP, the spec's `type: http`).
-  - Each remote element is a bare URL string, or a `{ url, api_key, timeout }` object when the entry sets `api_key` and/or (shttp only) `timeout`. Both forms can mix in one array.
+  - Each remote element is a bare URL string, or a `{ url, api_key, timeout, auth }` object when the entry sets `api_key`, `oauth`/`auth`, and/or (shttp only) `timeout`. Both forms can mix in one array.
   - `timeout` (int, 1-3600 seconds, default 60) is documented for shttp only. An sse entry that sets it gets a coverage note.
+  - A truthy `oauth`, or an explicit `auth: oauth` extra field, turns a shttp entry into `{ url, auth: "oauth" }`, the [OAuth authentication flag](https://docs.openhands.dev/openhands/usage/settings/mcp-settings) OpenHands documents for servers like Notion MCP. OpenHands stores no client id or secret in `config.toml`; FastMCP runs the browser authorization flow out of band, so presence is all agnostic-ai reads. `oauth` is shttp-only too; an sse entry that sets it gets a coverage note.
   - Generic `headers` have no equivalent (OpenHands documents only `api_key`) and get a coverage note.
   - A transport with no documented array (e.g. `type: ws`) is not written and gets a coverage note.
   - The project `config.toml` is managed: its `[mcp]` table is overwritten on each sync. Keep unmanaged OpenHands config elsewhere.

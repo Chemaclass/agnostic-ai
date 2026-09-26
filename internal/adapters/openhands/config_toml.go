@@ -91,14 +91,23 @@ func writeServerArray(sb *strings.Builder, key string, entries []spec.Entry, sht
 // entry the same way api_key does; an sse entry that sets it is a
 // no-op the caller (mcpTransportBuckets' timeoutNoOp) turns into a
 // coverage note instead (#588).
+//
+// `auth` is the vendor's own OAuth flag, documented on the SHTTP tab
+// only ("Add the auth field to your server configuration:
+// shttp_servers = [ { url = "...", auth = "oauth" } ]"), so it
+// upgrades a shttp entry the same way, gated on the same shttp
+// parameter. authValue reads it from either the portable `oauth` field
+// or an explicit `auth` string (#1157).
 func serverValue(m spec.Entry, shttp bool) string {
 	url, _ := m.Meta["url"].(string)
 	apiKey, _ := m.Meta["api_key"].(string)
 	timeout := 0
+	auth := ""
 	if shttp {
 		timeout = intMeta(m.Meta, "timeout")
+		auth = authValue(m.Meta)
 	}
-	if apiKey == "" && timeout == 0 {
+	if apiKey == "" && timeout == 0 && auth == "" {
 		return `"` + emit.EscapeTOMLBasic(url) + `"`
 	}
 	out := `{ url = "` + emit.EscapeTOMLBasic(url) + `"`
@@ -108,7 +117,43 @@ func serverValue(m spec.Entry, shttp bool) string {
 	if timeout != 0 {
 		out += fmt.Sprintf(", timeout = %d", timeout)
 	}
+	if auth != "" {
+		out += `, auth = "` + emit.EscapeTOMLBasic(auth) + `"`
+	}
 	return out + " }"
+}
+
+// authValue resolves a remote entry's OAuth flag to the string OpenHands
+// writes as `auth`: "oauth", the only value the vendor documents, or "".
+// An explicit `auth: oauth` lets `import openhands` (which copies
+// config.toml's `auth` key back unchanged) re-sync to the same file.
+// Any other `auth` string belongs to another target, such as Codex's
+// `chatgpt`, and never reaches OpenHands. Otherwise a truthy portable
+// `oauth` value maps to "oauth"; OpenHands stores no client id/secret
+// in config.toml (FastMCP handles the browser flow out of band), so
+// presence is all there is to read.
+func authValue(meta map[string]any) string {
+	if auth, _ := meta["auth"].(string); auth == "oauth" || hasOAuth(meta) {
+		return "oauth"
+	}
+	return ""
+}
+
+// hasOAuth reports whether the spec's `oauth` field is truthy. A bool
+// is read as-is, so `oauth: false` leaves the flag off, the same
+// "false disables it" convention crush, factory, and kilo already use
+// for the same field name. Any other present, non-nil value (`true`,
+// a map, even an empty one, as in the #1157 reproduction) counts as
+// set, since OpenHands' flag has no sub-fields to check for emptiness.
+func hasOAuth(meta map[string]any) bool {
+	v, ok := meta["oauth"]
+	if !ok || v == nil {
+		return false
+	}
+	if b, ok := v.(bool); ok {
+		return b
+	}
+	return true
 }
 
 // intMeta reads an int-typed meta key, accepting int / int64 / float64
@@ -157,9 +202,15 @@ func intMeta(meta map[string]any, key string) int {
 // bucket only: the vendor documents that field under the SHTTP tab,
 // never for sse_servers, so an sse entry that sets it never reaches
 // serverValue's object form (see serverValue's shttp parameter).
-func mcpTransportBuckets(mcps []spec.Entry) (stdio, sse, shttp []spec.Entry, unmapped, headersNoOp, timeoutNoOp int) {
+//
+// oauthNoOp is the same idea again, for the `oauth`/`auth` OAuth flag
+// (#1157): the vendor's only worked `auth = "oauth"` example is on the
+// SHTTP tab, so an sse entry with `oauth` set (per authValue) never
+// reaches serverValue's object form either.
+func mcpTransportBuckets(mcps []spec.Entry) (stdio, sse, shttp []spec.Entry, unmapped, headersNoOp, timeoutNoOp, oauthNoOp int) {
 	hasHeaders := func(m spec.Entry) bool { return len(emit.StringMap(m.Meta["headers"])) > 0 }
 	hasTimeout := func(m spec.Entry) bool { return intMeta(m.Meta, "timeout") != 0 }
+	wantsOAuth := func(m spec.Entry) bool { return authValue(m.Meta) != "" }
 	for _, m := range mcps {
 		if m.Name == "" {
 			continue
@@ -182,6 +233,9 @@ func mcpTransportBuckets(mcps []spec.Entry) (stdio, sse, shttp []spec.Entry, unm
 				if hasTimeout(m) {
 					timeoutNoOp++
 				}
+				if wantsOAuth(m) {
+					oauthNoOp++
+				}
 			}
 		case "http":
 			if url, _ := m.Meta["url"].(string); url != "" {
@@ -198,5 +252,5 @@ func mcpTransportBuckets(mcps []spec.Entry) (stdio, sse, shttp []spec.Entry, unm
 	slices.SortFunc(stdio, byName)
 	slices.SortFunc(sse, byName)
 	slices.SortFunc(shttp, byName)
-	return stdio, sse, shttp, unmapped, headersNoOp, timeoutNoOp
+	return stdio, sse, shttp, unmapped, headersNoOp, timeoutNoOp, oauthNoOp
 }

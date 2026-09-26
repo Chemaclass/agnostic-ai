@@ -34,6 +34,8 @@ func seedOpenhandsBundle(t *testing.T, dir string) {
 		"name: docs\ntype: sse\nurl: https://docs.example.test/sse\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "search.yaml"),
 		"name: search\ntype: http\nurl: https://search.example.test/mcp\napi_key: secret\ntimeout: 1800\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "notion.yaml"),
+		"name: notion\ntype: http\nurl: https://mcp.notion.com/mcp\noauth: true\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "environments", "dev.yaml"),
 		"name: dev\ninstall: |\n  go mod download\n  make tools\n")
 }
@@ -57,6 +59,9 @@ func TestImportOpenhands_RoundTripFixedPoint(t *testing.T) {
 			t.Fatalf("first sync wrote no %s: %v", want, keys(first))
 		}
 	}
+	if !strings.Contains(first["config.toml"], `{ url = "https://mcp.notion.com/mcp", auth = "oauth" }`) {
+		t.Fatalf("first sync did not emit the oauth shttp entry:\n%s", first["config.toml"])
+	}
 
 	if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai")); err != nil {
 		t.Fatalf("wipe source specs: %v", err)
@@ -73,6 +78,10 @@ func TestImportOpenhands_RoundTripFixedPoint(t *testing.T) {
 	env := readFile(t, filepath.Join(dir, ".agnostic-ai", "environments", "openhands-setup.yaml"))
 	if !strings.Contains(env, "go mod download") || strings.Contains(env, "#!/bin/bash") {
 		t.Errorf("setup script not reconstructed as an install body:\n%s", env)
+	}
+	notion := readFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "mcp-notion-com.yaml"))
+	if !strings.Contains(notion, "auth: oauth") {
+		t.Errorf("oauth shttp entry not reconstructed with auth: oauth:\n%s", notion)
 	}
 
 	execCLI(t, "sync", "-t", "openhands")
