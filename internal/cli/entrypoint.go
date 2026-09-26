@@ -83,7 +83,7 @@ type entryPointFile struct {
 // shared AGENTS.md keeps a codex-only block for every AGENTS.md reader; a
 // shared file is never split. AGNOSTIC_AI.md itself keeps the fences.
 //
-// The git-ignored `.agnostic-ai.local/AGNOSTIC_AI.md`, when present,
+// The git-ignored `.agnostic-ai/local/AGNOSTIC_AI.md`, when present,
 // extends the shared body in a sentinel-marked block after the rules
 // block, so personal text has the last word and import can drop it.
 // Fences and imports resolve in it exactly as in the shared body.

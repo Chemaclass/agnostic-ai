@@ -116,7 +116,7 @@ func TestBuildManagedBlock_IncludesFixedEntries(t *testing.T) {
 		"/agnostic-ai.local.yaml",
 		"/.agnostic-ai/.sync-state",
 		"/.agnostic-ai/packs/",
-		"/.agnostic-ai.local/",
+		"/.agnostic-ai/local/",
 	} {
 		found := false
 		for _, e := range block {

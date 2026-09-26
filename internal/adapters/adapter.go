@@ -315,7 +315,7 @@ const (
 )
 
 // ReadLocalInstructions returns the trimmed text of the project-local
-// `.agnostic-ai.local/AGNOSTIC_AI.md`, or "" when absent (re-exported
+// `.agnostic-ai/local/AGNOSTIC_AI.md`, or "" when absent (re-exported
 // from the emit layer).
 func ReadLocalInstructions() (string, error) {
 	return emit.ReadLocalInstructions()

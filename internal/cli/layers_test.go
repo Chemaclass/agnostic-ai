@@ -72,3 +72,22 @@ func TestResolveLayers_ProjectAndProjectUserPrecedenceOrder(t *testing.T) {
 		}
 	}
 }
+
+// The local layer lives inside the source dir, the same shape as the
+// global ~/.agnostic-ai/local/. The old sibling folder is not read.
+func TestResolveLayers_ReadsLocalInsideTheSourceDirOnly(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".agnostic-ai.local"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if layers := resolveLayers(root, &config.Config{Sources: defaultLayerSources()}); len(layers) != 1 {
+		t.Fatalf("old .agnostic-ai.local was loaded: %+v", layers)
+	}
+	if err := os.MkdirAll(filepath.Join(root, ".agnostic-ai", "local"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	layers := resolveLayers(root, &config.Config{Sources: defaultLayerSources()})
+	if len(layers) != 2 || layers[1].Root != filepath.Join(root, ".agnostic-ai", "local") {
+		t.Fatalf("want .agnostic-ai/local as the project-user layer, got %+v", layers)
+	}
+}
