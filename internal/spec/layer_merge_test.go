@@ -1,6 +1,7 @@
 package spec
 
 import (
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -253,5 +254,32 @@ func TestLoadLayered_NestedNullUnderATargetMapStillDeletes(t *testing.T) {
 	iface, _ := x["interface"].(map[string]any)
 	if _, ok := iface["icon"]; ok || iface["color"] != "blue" {
 		t.Errorf("interface = %v, want icon removed and color kept", iface)
+	}
+}
+
+// A local skill folder that cannot be read must fail the load, not fall
+// back to the shared assets.
+func TestLoadLayered_UnreadableLocalSkillFolderFails(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads any directory")
+	}
+	base, local := t.TempDir(), t.TempDir()
+	mustWrite(t, filepath.Join(base, "skills", "lint", "SKILL.md"), "---\nname: lint\n---\nShared.\n")
+	mustWrite(t, filepath.Join(base, "skills", "lint", "check.sh"), "echo shared\n")
+	mustWrite(t, filepath.Join(local, "skills", "lint", "SKILL.md"), "---\nname: lint\n---\n")
+	locked := filepath.Join(local, "skills", "lint", "scripts")
+	mustWrite(t, filepath.Join(locked, "check.sh"), "echo mine\n")
+	if err := os.Chmod(locked, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(locked, 0o755) })
+
+	src := defaultsForTest().Sources
+	_, err := LoadLayered([]Layer{
+		{Name: "project", Root: base, Sources: src},
+		{Name: "project-user", Root: local, Sources: src, Extends: true},
+	})
+	if err == nil || !strings.Contains(err.Error(), "scripts") {
+		t.Fatalf("err = %v, want a failure naming the unreadable folder", err)
 	}
 }
