@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -15,8 +16,8 @@ import (
 
 // localImportGuard keeps an import from storing a spec the project local
 // layer supplies. Sync renders `.agnostic-ai/local/` specs into the same
-// native files import reads back, so without it a personal rule, agent,
-// or skill would land in the shared source, and a shared spec the local
+// native files import reads, so without it a personal rule, agent, or
+// skill would land in the shared source, and a shared spec the local
 // layer extends would be overwritten with the merged content (#1174).
 //
 // Importers read back what they wrote (a later source merges into an
@@ -28,19 +29,44 @@ type localImportGuard struct {
 	dirs map[string]spec.Kind
 	// names holds, per kind, the names the local layer declares.
 	names map[spec.Kind]map[string]bool
+	// hooks indexes the local hook specs by content, the only identity
+	// native hook settings keep.
+	hooks *localHooks
+	// hooksDir is the shared hooks directory, absolute, or "".
+	hooksDir string
+	// overlays maps an overlay file, absolute, to the kind whose specs
+	// sync renders into the native file the overlay captures.
+	overlays map[string]spec.Kind
 	// skipped collects "<kind> <name>" labels for the closing note.
 	skipped map[string]bool
+	// kept lists the merged kinds whose import the run undid.
+	kept map[spec.Kind]bool
 	// saved holds, per absolute path of a local spec file the run wrote,
 	// the file as it was before the run (nil when it did not exist).
 	saved map[string]*savedImportFile
 	// created lists the directories the run made for a local spec.
 	created []string
+	// skillFiles and skillDirs hold every skill write. Which skill a file
+	// belongs to is known only once its folder holds a SKILL.md, so they
+	// are sorted out when the run ends.
+	skillFiles map[string]*savedImportFile
+	skillDirs  []string
 }
 
 // savedImportFile is a file's content and mode before an import.
 type savedImportFile struct {
 	data []byte
 	mode fs.FileMode
+}
+
+// mergedKinds are the kinds every target merges into one native file
+// that keeps no spec names. A local spec of such a kind cannot be told
+// apart from the shared ones on import, so the whole kind stays as it
+// was.
+var mergedKinds = map[spec.Kind]string{
+	spec.KindSettings:    "settings",
+	spec.KindReview:      "reviews",
+	spec.KindEnvironment: "environments",
 }
 
 // importLocal is the active guard, or nil when the project has no local
@@ -84,10 +110,14 @@ func newLocalImportGuard(root string, cfg *config.Config) (*localImportGuard, er
 		return nil, nil
 	}
 	g := &localImportGuard{
-		dirs:    map[string]spec.Kind{},
-		names:   map[spec.Kind]map[string]bool{},
-		skipped: map[string]bool{},
-		saved:   map[string]*savedImportFile{},
+		dirs:       map[string]spec.Kind{},
+		names:      map[spec.Kind]map[string]bool{},
+		hooks:      newLocalHooks(bundle.Hooks),
+		overlays:   map[string]spec.Kind{},
+		skipped:    map[string]bool{},
+		kept:       map[spec.Kind]bool{},
+		saved:      map[string]*savedImportFile{},
+		skillFiles: map[string]*savedImportFile{},
 	}
 	for _, e := range entries {
 		if g.names[e.Kind] == nil {
@@ -104,6 +134,18 @@ func newLocalImportGuard(root string, cfg *config.Config) (*localImportGuard, er
 			return nil, fmt.Errorf("%s: %w", dir, err)
 		}
 		g.dirs[abs] = kind
+		if kind == spec.KindHook {
+			g.hooksDir = abs
+		}
+	}
+	// The Claude and Codex overlays capture the native settings file,
+	// model and permissions included.
+	for _, path := range []string{claudeOverlayPath(root), codexOverlayPath(root)} {
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", path, err)
+		}
+		g.overlays[abs] = spec.KindSettings
 	}
 	return g, nil
 }
@@ -125,41 +167,69 @@ func sourceDirsByKind(s config.Sources) map[spec.Kind]string {
 }
 
 // track records the state of path before an importer writes it, when
-// the write stores a local spec in the shared source. data is nil for a
-// directory.
-func (g *localImportGuard) track(path string, data []byte, isDir bool) {
-	kind, rel, ok := g.locate(path)
-	if !ok {
-		return
-	}
-	name, ok := g.localName(kind, rel, data, isDir)
-	if !ok {
-		return
-	}
-	g.skipped[string(kind)+" "+name] = true
+// the write may store a local spec in the shared source. data is nil for
+// a directory. A destination it cannot read fails the write: taking it
+// for a missing file would delete it when the run ends.
+func (g *localImportGuard) track(path string, data []byte, isDir bool) error {
 	abs, err := filepath.Abs(path)
 	if err != nil {
-		return
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	if kind, ok := g.overlays[abs]; ok {
+		if len(g.names[kind]) == 0 {
+			return nil
+		}
+		g.kept[kind] = true
+		return g.save(abs, g.saved, &g.created)
+	}
+	kind, rel, _, ok := g.locate(abs)
+	if !ok {
+		return nil
+	}
+	switch {
+	case kind == spec.KindSkill && len(g.names[kind]) > 0:
+		if isDir {
+			g.skillDirs = g.appendMissingDirs(g.skillDirs, abs)
+			return nil
+		}
+		return g.save(abs, g.skillFiles, &g.skillDirs)
+	case mergedKinds[kind] != "" && len(g.names[kind]) > 0:
+		g.kept[kind] = true
+	default:
+		label, ok := g.localName(kind, rel, data, isDir)
+		if !ok {
+			return nil
+		}
+		g.skipped[label] = true
 	}
 	if isDir {
-		g.trackDirs(abs)
-		return
+		g.created = g.appendMissingDirs(g.created, abs)
+		return nil
 	}
-	if _, seen := g.saved[abs]; seen {
-		return
+	return g.save(abs, g.saved, &g.created)
+}
+
+// save keeps the content of abs as it is now in files, once, and records
+// the directories an importer will create for it in dirs.
+func (g *localImportGuard) save(abs string, files map[string]*savedImportFile, dirs *[]string) error {
+	if _, seen := files[abs]; seen {
+		return nil
 	}
-	g.trackDirs(filepath.Dir(abs))
+	*dirs = g.appendMissingDirs(*dirs, filepath.Dir(abs))
 	info, err := os.Stat(abs)
+	if errors.Is(err, fs.ErrNotExist) {
+		files[abs] = nil
+		return nil
+	}
 	if err != nil {
-		g.saved[abs] = nil
-		return
+		return fmt.Errorf("%s: %w", abs, err)
 	}
 	prior, err := os.ReadFile(abs)
 	if err != nil {
-		g.saved[abs] = nil
-		return
+		return fmt.Errorf("%s: %w", abs, err)
 	}
-	g.saved[abs] = &savedImportFile{data: prior, mode: info.Mode().Perm()}
+	files[abs] = &savedImportFile{data: prior, mode: info.Mode().Perm()}
+	return nil
 }
 
 // leaves reports whether path is a local spec's file in the shared
@@ -169,37 +239,40 @@ func (g *localImportGuard) leaves(path string) bool {
 	if g == nil {
 		return false
 	}
-	kind, rel, ok := g.locate(path)
-	if !ok {
+	kind, rel, _, ok := g.locate(path)
+	if !ok || kind == spec.KindSkill {
 		return false
 	}
-	name, ok := g.localName(kind, rel, nil, false)
+	label, ok := g.localName(kind, rel, nil, false)
 	if ok {
-		g.skipped[string(kind)+" "+name] = true
+		g.skipped[label] = true
 	}
 	return ok
 }
 
-// trackDirs records dir and each missing parent inside a kind directory.
-func (g *localImportGuard) trackDirs(dir string) {
+// appendMissingDirs adds dir and each missing parent inside a kind
+// directory to dirs. A directory it cannot stat counts as present, so it
+// is never removed.
+func (g *localImportGuard) appendMissingDirs(dirs []string, dir string) []string {
 	for {
-		if _, _, inside := g.locate(dir); !inside {
-			return
+		if _, _, _, inside := g.locate(dir); !inside {
+			return dirs
 		}
-		if _, err := os.Stat(dir); err == nil {
-			return
+		if _, err := os.Stat(dir); !errors.Is(err, fs.ErrNotExist) {
+			return dirs
 		}
-		if !slices.Contains(g.created, dir) {
-			g.created = append(g.created, dir)
+		if !slices.Contains(dirs, dir) {
+			dirs = append(dirs, dir)
 		}
 		dir = filepath.Dir(dir)
 	}
 }
 
-// restore puts every tracked file back as it was before the run, removes
-// the directories the run made for local specs, and drops the writes
-// from a dry-run recording.
+// restore puts every local spec file back as it was before the run,
+// removes the directories the run made for local specs, and drops the
+// writes from a dry-run recording.
 func (g *localImportGuard) restore() error {
+	g.claimLocalSkills()
 	var errs []error
 	for path, prior := range g.saved {
 		if !inImportSandbox(path) {
@@ -236,53 +309,104 @@ func (g *localImportGuard) restore() error {
 	return errors.Join(errs...)
 }
 
+// claimLocalSkills moves the skill writes that belong to a local skill
+// into saved and created. A skill is the folder holding its SKILL.md, or
+// a flat `<name>.md`; its name is that folder's or file's.
+func (g *localImportGuard) claimLocalSkills() {
+	var roots []string
+	for path, prior := range g.skillFiles {
+		root, name := g.skillOwner(path)
+		if root == "" {
+			continue
+		}
+		g.saved[path] = prior
+		g.skipped[string(spec.KindSkill)+" "+name] = true
+		if !slices.Contains(roots, root) {
+			roots = append(roots, root)
+		}
+	}
+	for _, dir := range g.skillDirs {
+		for _, root := range roots {
+			if dir == root || strings.HasPrefix(dir, root+string(filepath.Separator)) {
+				g.created = append(g.created, dir)
+				break
+			}
+		}
+	}
+}
+
+// skillOwner returns the local skill a skill file belongs to, as its
+// root and name, or "" when it belongs to no local skill.
+func (g *localImportGuard) skillOwner(path string) (string, string) {
+	_, _, base, ok := g.locate(path)
+	if !ok {
+		return "", ""
+	}
+	names := g.names[spec.KindSkill]
+	for dir := filepath.Dir(path); dir != base && strings.HasPrefix(dir, base); dir = filepath.Dir(dir) {
+		if _, err := os.Stat(filepath.Join(dir, "SKILL.md")); err == nil {
+			if name := filepath.Base(dir); names[name] {
+				return dir, name
+			}
+			return "", ""
+		}
+	}
+	if filepath.Ext(path) != ".md" {
+		return "", ""
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", ""
+	}
+	for _, name := range specNamesOf(spec.KindSkill, filepath.Base(path), data) {
+		if names[name] {
+			return path, name
+		}
+	}
+	return "", ""
+}
+
 // locate finds the shared source directory holding path and returns its
-// kind and path relative to it, with forward slashes.
-func (g *localImportGuard) locate(path string) (spec.Kind, string, bool) {
+// kind, the path relative to it with forward slashes, and the directory.
+func (g *localImportGuard) locate(path string) (spec.Kind, string, string, bool) {
 	abs, err := filepath.Abs(path)
 	if err != nil {
-		return "", "", false
+		return "", "", "", false
 	}
 	// The deepest match wins, so a kind directory nested in another
 	// still claims its own files.
 	var kind spec.Kind
-	var rel string
+	var rel, base string
 	for dir, k := range g.dirs {
 		r, err := filepath.Rel(dir, abs)
 		if err != nil || r == "." || r == ".." || strings.HasPrefix(r, ".."+string(filepath.Separator)) {
 			continue
 		}
 		if rel == "" || len(r) < len(rel) {
-			kind, rel = k, r
+			kind, rel, base = k, r, dir
 		}
 	}
-	return kind, filepath.ToSlash(rel), rel != ""
+	return kind, filepath.ToSlash(rel), base, rel != ""
 }
 
-// localName returns the local spec name a write under a kind directory
-// belongs to. A skill owns its whole folder, assets included; any other
-// spec is one file named after it or declaring its name.
+// localName returns the "<kind> <name>" label of the local spec a write
+// under a kind directory belongs to. A spec is one file named after it
+// or declaring its name. An imported hook has a generated name, so it
+// also matches on content. Skills are sorted out by claimLocalSkills.
 func (g *localImportGuard) localName(kind spec.Kind, rel string, data []byte, isDir bool) (string, bool) {
 	names := g.names[kind]
-	if len(names) == 0 {
+	if len(names) == 0 || isDir {
 		return "", false
 	}
-	segments := strings.Split(rel, "/")
-	if kind == spec.KindSkill {
-		folders := segments
-		if !isDir {
-			folders = segments[:len(segments)-1]
-		}
-		if i := slices.IndexFunc(folders, func(s string) bool { return names[s] }); i >= 0 {
-			return folders[i], true
-		}
-	}
-	if isDir {
-		return "", false
-	}
-	for _, name := range specNamesOf(kind, segments[len(segments)-1], data) {
+	base := rel[strings.LastIndex(rel, "/")+1:]
+	for _, name := range specNamesOf(kind, base, data) {
 		if names[name] {
-			return name, true
+			return string(kind) + " " + name, true
+		}
+	}
+	if kind == spec.KindHook {
+		if name, ok := g.localHookName(data); ok {
+			return string(kind) + " " + name, true
 		}
 	}
 	return "", false
@@ -308,17 +432,22 @@ func specNamesOf(kind spec.Kind, base string, data []byte) []string {
 	return names
 }
 
-// printNote lists the local specs the import left out, if any.
+// printNote lists the local specs the import left out and the merged
+// kinds it kept as they were, if any.
 func (g *localImportGuard) printNote() {
-	if len(g.skipped) == 0 {
-		return
+	if len(g.skipped) > 0 {
+		labels := slices.Sorted(maps.Keys(g.skipped))
+		_, _ = fmt.Fprintf(os.Stdout,
+			"  note: left %d local spec(s) out of the shared source; edit them under %s/: %s\n",
+			len(labels), defaultProjectUser, strings.Join(labels, ", "))
 	}
-	labels := make([]string, 0, len(g.skipped))
-	for l := range g.skipped {
-		labels = append(labels, l)
+	if len(g.kept) > 0 {
+		kinds := make(map[string]bool, len(g.kept))
+		for k := range g.kept {
+			kinds[mergedKinds[k]] = true
+		}
+		_, _ = fmt.Fprintf(os.Stdout,
+			"  note: kept the shared %s as they were; %s/ feeds the same native files, so import cannot tell its specs apart\n",
+			strings.Join(slices.Sorted(maps.Keys(kinds)), ", "), defaultProjectUser)
 	}
-	slices.Sort(labels)
-	_, _ = fmt.Fprintf(os.Stdout,
-		"  note: left %d local spec(s) out of the shared source; edit them under %s/: %s\n",
-		len(labels), defaultProjectUser, strings.Join(labels, ", "))
 }

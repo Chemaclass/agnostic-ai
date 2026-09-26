@@ -106,7 +106,7 @@ func writeWindsurfHookGroup(dstDir, event string, g windsurfHookGroup) (int, err
 			}
 			count++
 		default:
-			if h.Command == "" {
+			if h.Command == "" || importLocal.dropsHookCommand("windsurf", event, g.Matcher, h.Command) {
 				continue
 			}
 			commands = append(commands, h.Command)

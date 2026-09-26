@@ -76,7 +76,9 @@ func (r *importRecorder) record(path string, data []byte) {
 // when the run ends (see localImportGuard).
 func importWriteFile(path string, data []byte, mode fs.FileMode) error {
 	if importLocal != nil && inImportSandbox(path) {
-		importLocal.track(path, data, false)
+		if err := importLocal.track(path, data, false); err != nil {
+			return err
+		}
 	}
 	if importRecording != nil {
 		importRecording.record(path, data)
@@ -91,7 +93,9 @@ func importWriteFile(path string, data []byte, mode fs.FileMode) error {
 // and dir resolves outside its sandbox.
 func importMkdirAll(dir string, perm fs.FileMode) error {
 	if importLocal != nil && inImportSandbox(dir) {
-		importLocal.track(dir, nil, true)
+		if err := importLocal.track(dir, nil, true); err != nil {
+			return err
+		}
 	}
 	if !inImportSandbox(dir) {
 		return nil

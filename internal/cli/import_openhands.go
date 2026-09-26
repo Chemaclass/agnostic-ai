@@ -280,6 +280,9 @@ func importOpenhandsHooks(src, dstDir string) (int, error) {
 			entries := make([]groupedHookEntry, 0, len(g.Hooks))
 			var extra map[string]any
 			for _, h := range g.Hooks {
+				if h.Command != "" && importLocal.dropsHookCommand("openhands", event, g.Matcher, h.Command) {
+					continue
+				}
 				entries = append(entries, h.groupedHookEntry)
 				if h.Async {
 					extra = map[string]any{"async": true}
