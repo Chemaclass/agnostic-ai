@@ -94,6 +94,9 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 			if !ok {
 				return nil
 			}
+			// inotify joins names onto the watch path unclean, so a watch on
+			// "." reports "./file" where kqueue reports "file".
+			ev.Name = filepath.Clean(ev.Name)
 			if isIgnoredEvent(ev) || isWatchNoise(ev, watched) {
 				continue
 			}
