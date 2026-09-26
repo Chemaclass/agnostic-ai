@@ -140,7 +140,9 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 			if !ok {
 				return nil
 			}
-			fmt.Fprintf(os.Stderr, "! watch: %v\n", err)
+			if err := watchError(err); err != nil {
+				return err
+			}
 		case <-fire:
 			printWatchEvent(lastEvent)
 			paths := mapKeys(changed)
@@ -158,6 +160,18 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 			}
 		}
 	}
+}
+
+// watchError logs a watcher error and keeps the session. An event
+// overflow ends it like a failed registration: the kernel dropped
+// events, possibly the creation of a new source dir that will then
+// never be watched.
+func watchError(err error) error {
+	if errors.Is(err, fsnotify.ErrEventOverflow) {
+		return fmt.Errorf("%w: %w", errWatchLost, err)
+	}
+	fmt.Fprintf(os.Stderr, "! watch: %v\n", err)
+	return nil
 }
 
 // watchSyncPoll is the original mtime-poll loop. Used as a fallback
@@ -269,6 +283,10 @@ func firstOf(paths []string) string {
 	return paths[0]
 }
 
+// armPause runs between the two registration phases of armWatches. Tests
+// swap it to change the tree inside that window.
+var armPause = func() {}
+
 // watchAdd registers one path with the watcher. Tests swap it to force a
 // registration failure, such as an exhausted inotify limit.
 var watchAdd = func(w *fsnotify.Watcher, p string) error { return w.Add(p) }
@@ -331,6 +349,7 @@ func armWatches(w *fsnotify.Watcher, root string, watched []string) error {
 	if err := addWatchPaths(w, watched); err != nil {
 		return err
 	}
+	armPause()
 	existing := make(map[string]struct{}, len(w.WatchList()))
 	for _, p := range w.WatchList() {
 		existing[filepath.Clean(p)] = struct{}{}
@@ -351,7 +370,9 @@ func armWatches(w *fsnotify.Watcher, root string, watched []string) error {
 		}
 		existing[anchor] = struct{}{}
 	}
-	return nil
+	// An input created before its anchor's watch took hold raised no
+	// event, so it is registered here.
+	return addWatchPaths(w, watched)
 }
 
 // dropWatchesUnder removes the watches on path and below it. Some
@@ -463,6 +484,7 @@ func watchDirs(root string, cfg *config.Config) []string {
 		filepath.Join(root, config.ConfigFileName),
 		filepath.Join(root, config.LegacyConfigFileName),
 		filepath.Join(root, config.LocalOverrideFileName),
+		filepath.Join(root, adapters.AgnosticEntryPointPath),
 	}
 	for _, src := range []string{
 		cfg.Sources.Agents,
@@ -626,6 +648,7 @@ func isFullSyncPath(root, cp string) bool {
 		config.ConfigFileName,
 		config.LegacyConfigFileName,
 		config.LocalOverrideFileName,
+		adapters.AgnosticEntryPointPath,
 		adapters.ProjectLocalEntryPointPath,
 	} {
 		if cp == filepath.Clean(filepath.Join(root, name)) {

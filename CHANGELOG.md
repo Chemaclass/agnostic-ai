@@ -23,6 +23,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `.junie/AGENTS.md` honors `sync.resolve-imports`; a legacy `rules-file` entry point gets local instructions; `sync --watch` sees a new local layer (#1172).
 - `import` no longer copies specs from `.agnostic-ai/local/` into the shared source or overwrites a shared spec with its local version, hooks and their scripts included; shared settings, reviews, and environments stay as they were when the local layer feeds them (#1174).
 - `sync --watch` sees `agnostic-ai.local.yaml`, `.agnostic-ai/overlays/`, and source dirs created mid-session, and now watches commands (#1179).
+- `sync --watch` re-syncs when `.agnostic-ai/AGNOSTIC_AI.md` changes, and falls back to polling when the OS drops file events (#1184).
 
 ## v0.68.1 - 2026-09-25
 
