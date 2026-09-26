@@ -166,3 +166,23 @@ func TestLoadLayered_NonExtendingLayerStillReplacesTheWholeEntry(t *testing.T) {
 		t.Errorf("project over a pack must replace whole, got model %v body %q", got.Meta["model"], got.Body)
 	}
 }
+
+// Two local files with one name are an authoring mistake that lint
+// reports; sync still extends the shared spec exactly once, with the
+// winner, so inherited fields stay and ::parent never leaks.
+func TestLoadLayered_LocalDuplicateStillExtendsTheSharedSpec(t *testing.T) {
+	t.Parallel()
+	base, local := t.TempDir(), t.TempDir()
+	mustWrite(t, filepath.Join(base, "rules", "style.md"), "---\nname: style\ndescription: Shared\n---\nShared.\n")
+	mustWrite(t, filepath.Join(local, "rules", "a.md"), "---\nname: style\n---\nFirst.\n")
+	mustWrite(t, filepath.Join(local, "rules", "b.md"), "---\nname: style\n---\n::parent\nSecond.\n")
+
+	b := loadExtending(t, base, local)
+	got := b.Rules[0]
+	if got.Body != "Shared.\nSecond.\n" || got.Meta["description"] != "Shared" {
+		t.Errorf("got description %v body %q", got.Meta["description"], got.Body)
+	}
+	if len(b.Shadowed) != 1 || filepath.Base(b.Shadowed[0].Path) != "a.md" {
+		t.Errorf("shadowed = %+v, want a.md", b.Shadowed)
+	}
+}

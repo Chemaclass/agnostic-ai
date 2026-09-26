@@ -61,6 +61,7 @@ Host writes one JSON document to stdin and reads one JSON document from stdout. 
 | `target` | Exact name from `agnostic-ai.yaml`. Multiplex via symlinks at multiple target names. |
 | `dry_run` | Lets the adapter skip side effects an in-tree adapter wouldn't normally do. Host honors dry-run on its own when writing `files`. |
 | `config.sources` / `config.outputs` | Mirror `agnostic-ai.yaml` after defaults. Adapters honoring per-target output paths read `outputs[target]`. |
+| `specs.*[].asset_dir` | Folder whose sibling files ship with a skill. Absent for flat files. Differs from `path`'s folder when a local skill that only edits fields inherits the shared skill's assets, so copy assets from here, not from `path`. |
 
 ### Output
 

@@ -77,6 +77,10 @@ type SpecEntry struct {
 	Meta     map[string]any `json:"meta,omitempty"`
 	MetaKeys []string       `json:"meta_keys,omitempty"`
 	Body     string         `json:"body,omitempty"`
+	// AssetDir is the folder whose sibling files ship with a skill. It
+	// differs from path's folder when a local skill inherits the shared
+	// skill's assets. Additive: older adapters ignore it.
+	AssetDir string `json:"asset_dir,omitempty"`
 }
 
 // Output is the JSON document the adapter writes to its stdout.
@@ -197,6 +201,7 @@ func entriesToWire(entries []spec.Entry) []SpecEntry {
 			Meta:     e.Meta,
 			MetaKeys: e.MetaKeys,
 			Body:     e.Body,
+			AssetDir: e.SkillAssetDir(),
 		}
 	}
 	return out

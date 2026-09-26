@@ -623,20 +623,16 @@ func mergeEntries(base, src []Entry, extends bool) ([]Entry, []Entry) {
 	if len(src) == 0 {
 		return base, nil
 	}
-	var shadowed []Entry
+	src, shadowed := dedupeLayer(src)
 	idx := make(map[string]int, len(base))
 	for i, e := range base {
 		idx[e.Name] = i
 	}
 	for _, e := range src {
 		if i, ok := idx[e.Name]; ok {
-			switch {
-			case base[i].Layer == e.Layer:
-				shadowed = append(shadowed, base[i])
-				base[i] = e
-			case extends:
+			if extends {
 				base[i] = extendEntry(base[i], e)
-			default:
+			} else {
 				base[i] = e
 			}
 			continue
@@ -648,6 +644,26 @@ func mergeEntries(base, src []Entry, extends bool) ([]Entry, []Entry) {
 		base = append(base, e)
 	}
 	return base, shadowed
+}
+
+// dedupeLayer keeps the last entry of each name in one layer, at the
+// first one's position, and returns the ones it dropped. Resolving the
+// clash before merging lets the winner extend the lower layer exactly
+// once.
+func dedupeLayer(src []Entry) ([]Entry, []Entry) {
+	var shadowed []Entry
+	idx := make(map[string]int, len(src))
+	out := make([]Entry, 0, len(src))
+	for _, e := range src {
+		if i, ok := idx[e.Name]; ok {
+			shadowed = append(shadowed, out[i])
+			out[i] = e
+			continue
+		}
+		idx[e.Name] = len(out)
+		out = append(out, e)
+	}
+	return out, shadowed
 }
 
 // assignScopes derives Entry.Scope from the source layout. For markdown

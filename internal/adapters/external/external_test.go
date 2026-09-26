@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -209,5 +210,25 @@ func TestEncodeOutput_DefaultsProtocolVersion(t *testing.T) {
 	}
 	if got.ProtocolVersion != ProtocolVersion {
 		t.Errorf("ProtocolVersion=%d, want %d", got.ProtocolVersion, ProtocolVersion)
+	}
+}
+
+// A local skill that only edits fields keeps the shared folder's assets.
+// The wire entry names that folder, so an adapter can ship them.
+func TestEntriesToWire_CarriesTheInheritedAssetDir(t *testing.T) {
+	entries := []spec.Entry{
+		{Kind: spec.KindSkill, Name: "lint", Path: "local/skills/lint/SKILL.md", AssetDir: "shared/skills/lint"},
+		{Kind: spec.KindSkill, Name: "own", Path: "shared/skills/own/SKILL.md"},
+		{Kind: spec.KindRule, Name: "flat", Path: "shared/rules/flat.md"},
+	}
+	wire := entriesToWire(entries)
+	if wire[0].AssetDir != "shared/skills/lint" {
+		t.Errorf("inherited asset dir = %q", wire[0].AssetDir)
+	}
+	if wire[1].AssetDir != filepath.Join("shared", "skills", "own") {
+		t.Errorf("own asset dir = %q", wire[1].AssetDir)
+	}
+	if wire[2].AssetDir != "" {
+		t.Errorf("flat entry asset dir = %q, want empty", wire[2].AssetDir)
 	}
 }
