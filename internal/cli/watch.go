@@ -47,15 +47,17 @@ func watchSync(ctx context.Context, pollInterval time.Duration, root string, tar
 	return watchSyncPoll(ctx, pollInterval, root, targets, dryRun, backup, gitignoreFlag, jobs, reconcile)
 }
 
-// errWatchLost marks a watcher registration that failed mid-session, for
-// example on an exhausted inotify limit. The paths it missed would never
-// raise an event, so the caller switches to polling instead of keeping a
-// watch that only looks alive.
-var errWatchLost = errors.New("watch registration failed mid-session")
+// errWatchLost marks a watch that stopped seeing every change mid-session:
+// a registration failed, for example on an exhausted inotify limit, or
+// the OS dropped events. The changes it missed would never raise an
+// event, so the caller switches to polling instead of keeping a watch
+// that only looks alive.
+var errWatchLost = errors.New("watch lost mid-session")
 
 // watchSyncFsnotify watches via OS file events. Returns the first
 // unrecoverable setup error so the caller can fall back to polling.
-// Per-event errors during the loop are logged and the loop continues.
+// A watcher error that means lost events ends the loop with errWatchLost;
+// any other is logged and the loop continues.
 func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRun, backup bool, gitignoreFlag string, jobs int) error {
 	cfg, err := config.Load(root)
 	if err != nil {
@@ -167,7 +169,8 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 // events, possibly the creation of a new source dir that will then
 // never be watched.
 func watchError(err error) error {
-	if errors.Is(err, fsnotify.ErrEventOverflow) {
+	// The Windows backend reports a too-small read buffer as a plain error.
+	if errors.Is(err, fsnotify.ErrEventOverflow) || strings.Contains(err.Error(), "events have likely been missed") {
 		return fmt.Errorf("%w: %w", errWatchLost, err)
 	}
 	fmt.Fprintf(os.Stderr, "! watch: %v\n", err)
@@ -283,8 +286,8 @@ func firstOf(paths []string) string {
 	return paths[0]
 }
 
-// armPause runs between the two registration phases of armWatches. Tests
-// swap it to change the tree inside that window.
+// armPause runs in armWatches between registering the inputs and their
+// anchors. Tests swap it to change the tree inside that window.
 var armPause = func() {}
 
 // watchAdd registers one path with the watcher. Tests swap it to force a
@@ -350,10 +353,27 @@ func armWatches(w *fsnotify.Watcher, root string, watched []string) error {
 		return err
 	}
 	armPause()
+	// An input created before its anchor's watch took hold raised no
+	// event, so registration repeats until a pass adds no anchor.
+	for {
+		added, err := addWatchAnchors(w, root, watched)
+		if err != nil || !added {
+			return err
+		}
+		if err := addWatchPaths(w, watched); err != nil {
+			return err
+		}
+	}
+}
+
+// addWatchAnchors registers the nearest existing ancestor of each watched
+// path not yet under watch, and reports whether it added any.
+func addWatchAnchors(w *fsnotify.Watcher, root string, watched []string) (bool, error) {
 	existing := make(map[string]struct{}, len(w.WatchList()))
 	for _, p := range w.WatchList() {
 		existing[filepath.Clean(p)] = struct{}{}
 	}
+	added := false
 	for _, p := range watched {
 		anchor, ok := watchAnchor(root, p)
 		if !ok {
@@ -366,13 +386,12 @@ func armWatches(w *fsnotify.Watcher, root string, watched []string) error {
 			if errors.Is(err, fs.ErrNotExist) {
 				continue
 			}
-			return fmt.Errorf("watch %s: %w", anchor, err)
+			return added, fmt.Errorf("watch %s: %w", anchor, err)
 		}
 		existing[anchor] = struct{}{}
+		added = true
 	}
-	// An input created before its anchor's watch took hold raised no
-	// event, so it is registered here.
-	return addWatchPaths(w, watched)
+	return added, nil
 }
 
 // dropWatchesUnder removes the watches on path and below it. Some

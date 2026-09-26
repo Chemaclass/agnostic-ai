@@ -1068,6 +1068,9 @@ func TestWatchError_OverflowEndsTheSessionAsALostWatch(t *testing.T) {
 	if err := watchError(fsnotify.ErrEventOverflow); !errors.Is(err, errWatchLost) {
 		t.Errorf("overflow: got %v, want errWatchLost", err)
 	}
+	if err := watchError(errors.New("Windows system assumed buffer larger than it is, events have likely been missed")); !errors.Is(err, errWatchLost) {
+		t.Errorf("windows missed events: got %v, want errWatchLost", err)
+	}
 	if err := watchError(errors.New("read failed")); err != nil {
 		t.Errorf("other error: got %v, want the session kept", err)
 	}
