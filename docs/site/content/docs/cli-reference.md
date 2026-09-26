@@ -457,7 +457,7 @@ agnostic-ai graph --format mermaid --target claude
 
 ## why
 
-Show an emitted file's adapter, source spec(s), `outputs.<target>.*` keys, and last sync time. Full guide in [why](@/docs/why.md).
+Show an emitted file's adapter, source spec(s), `outputs.<target>.*` keys, and last sync time. Full guide in [why](@/docs/trace.md).
 
 ```bash
 agnostic-ai why .claude/rules/no-console-log.md --format json

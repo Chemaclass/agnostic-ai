@@ -57,4 +57,4 @@ Add a second tool with a different format, such as Codex TOML agents or Cursor `
 ## Next steps
 
 - New here: start with [Getting started](@/docs/getting-started.md).
-- To trace a generated file back to its spec: see [`agnostic-ai why <file>`](@/docs/why.md).
+- To trace a generated file back to its spec: see [`agnostic-ai why <file>`](@/docs/trace.md).
