@@ -24,6 +24,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `import` keeps `.agnostic-ai/local/` specs, hooks, and scripts out of the shared source, and leaves shared specs and settings untouched (#1174).
 - `sync --watch` sees `agnostic-ai.local.yaml`, `.agnostic-ai/overlays/`, and source dirs created mid-session, and now watches commands (#1179).
 - `sync --watch` re-syncs when `.agnostic-ai/AGNOSTIC_AI.md` changes, and falls back to polling when the OS drops file events (#1184).
+- On macOS, `sync --watch` keeps watching a source tree that is moved away and recreated under the same name in one step (#1188).
 - `import codex` keeps a local hook out of the shared source when Codex reorders its matcher or joins it with another hook's that runs the same command (#1185).
 
 ## v0.68.1 - 2026-09-25

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -99,11 +100,24 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 			// inotify joins names onto the watch path unclean, so a watch on
 			// "." reports "./file" where kqueue reports "file".
 			ev.Name = filepath.Clean(ev.Name)
-			watchEventSeen(ev)
+			newDir := false
+			if ev.Op&(fsnotify.Create|fsnotify.Rename|fsnotify.Remove) != 0 {
+				info, err := os.Stat(ev.Name)
+				newDir = err == nil && info.IsDir()
+			}
 			if ev.Op&(fsnotify.Rename|fsnotify.Remove) != 0 {
 				dropWatchesUnder(w, ev.Name)
+				// The move can be reported after its path was recreated, so
+				// the directory there now is armed as a new one.
+				if newDir {
+					ev.Op |= fsnotify.Create
+				}
 			}
-			if isIgnoredEvent(ev) || isWatchNoise(ev, watched) {
+			var stale []string
+			if newDir {
+				stale = dropStaleWatches(w)
+			}
+			if len(stale) == 0 && (isIgnoredEvent(ev) || isWatchNoise(ev, watched)) {
 				continue
 			}
 			// New directory holding or leading to a watched input: add it
@@ -112,20 +126,21 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 			// not recorded as a change. Files written into it before the
 			// watch took hold raise no event of their own, so they are
 			// recorded here; later ones attribute the re-sync themselves.
-			if ev.Op&fsnotify.Create != 0 {
-				if info, err := os.Stat(ev.Name); err == nil && info.IsDir() {
-					if err := armWatches(w, root, watched); err != nil {
-						return fmt.Errorf("%w: %w", errWatchLost, err)
-					}
-					files := sortedPaths(collectMtimes(inputsUnder(ev.Name, watched)))
-					if len(files) == 0 {
-						continue
-					}
-					for _, f := range files {
-						changed[f] = struct{}{}
-					}
-					ev.Name = files[0]
+			if newDir {
+				if err := armWatches(w, root, watched); err != nil {
+					return fmt.Errorf("%w: %w", errWatchLost, err)
 				}
+				var files []string
+				for _, d := range append(stale, ev.Name) {
+					files = append(files, sortedPaths(collectMtimes(inputsUnder(d, watched)))...)
+				}
+				if len(files) == 0 {
+					continue
+				}
+				for _, f := range files {
+					changed[f] = struct{}{}
+				}
+				ev.Name = files[0]
 			}
 			lastEvent = ev.Name
 			changed[filepath.Clean(ev.Name)] = struct{}{}
@@ -291,13 +306,53 @@ func firstOf(paths []string) string {
 // anchors. Tests swap it to change the tree inside that window.
 var armPause = func() {}
 
-// watchEventSeen runs for every event the fsnotify loop receives. Tests
-// swap it to wait until the watch has seen a change.
-var watchEventSeen = func(fsnotify.Event) {}
+// watchAdd registers one path with the watcher and records the identity
+// of a directory it watches. Tests swap it to force a registration
+// failure, such as an exhausted inotify limit.
+var watchAdd = func(w *fsnotify.Watcher, p string) error {
+	// Taken before the watch: a directory replaced in between then reads
+	// as stale and is re-armed, instead of hiding behind its new identity.
+	info, statErr := os.Stat(p)
+	if err := w.Add(p); err != nil {
+		return err
+	}
+	if statErr == nil && info.IsDir() {
+		watchedDirs.Store(watchedDir{w, filepath.Clean(p)}, info)
+	}
+	return nil
+}
 
-// watchAdd registers one path with the watcher. Tests swap it to force a
-// registration failure, such as an exhausted inotify limit.
-var watchAdd = func(w *fsnotify.Watcher, p string) error { return w.Add(p) }
+// watchedDirs maps each watched directory to its identity when its watch
+// was added.
+var watchedDirs sync.Map
+
+type watchedDir struct {
+	w    *fsnotify.Watcher
+	path string
+}
+
+// dropStaleWatches removes the watches on directories whose path now
+// names another directory, or none, and returns those paths sorted.
+// kqueue diffs a directory listing, so a tree moved away and recreated
+// under the same name within one diff raises no event for that name.
+func dropStaleWatches(w *fsnotify.Watcher) []string {
+	var stale []string
+	for _, p := range w.WatchList() {
+		key := watchedDir{w, filepath.Clean(p)}
+		prior, ok := watchedDirs.Load(key)
+		if !ok {
+			continue
+		}
+		if info, err := os.Stat(p); err == nil && os.SameFile(prior.(os.FileInfo), info) {
+			continue
+		}
+		_ = w.Remove(p)
+		watchedDirs.Delete(key)
+		stale = append(stale, key.path)
+	}
+	sort.Strings(stale)
+	return stale
+}
 
 // addWatchPaths registers a file or directory and (for directories) every
 // nested subdirectory with the watcher. Already-watched paths are
@@ -406,6 +461,7 @@ func dropWatchesUnder(w *fsnotify.Watcher, path string) {
 	for _, p := range w.WatchList() {
 		if pathWithin(path, p) {
 			_ = w.Remove(p)
+			watchedDirs.Delete(watchedDir{w, filepath.Clean(p)})
 		}
 	}
 }
