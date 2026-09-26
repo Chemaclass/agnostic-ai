@@ -727,8 +727,9 @@ function test_word_delta_shows_an_indentation_change_as_lines() {
 
 function test_delta_label_calls_a_line_only_delta_whitespace_only() {
   : >"$FIXTURES/vocab"
-  printf '# whitespace\n@@ -1 +1 @@\n-  b: 1\n+b: 1\n' >"$FIXTURES/d"
-  assert_equals "whitespace-only" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
+  printf 'a:\n  b: 1\n' >"$FIXTURES/old.txt"
+  printf 'a:\nb: 1\n' >"$FIXTURES/new.txt"
+  assert_equals "whitespace-only" "$(label_of "$FIXTURES/vocab")"
 }
 
 function test_fetch_one_drops_a_stale_extract_from_an_earlier_mode() {
@@ -754,36 +755,81 @@ function test_word_delta_prints_one_line_per_distant_change() {
 
 # ---- delta_label -------------------------------------------------------------
 
+# label_of <vocab> labels the change from old.txt to new.txt the way
+# write_deltas does.
+label_of() {
+  word_delta "$FIXTURES/old.txt" "$FIXTURES/new.txt" >"$FIXTURES/d"
+  moved_words "$FIXTURES/old.txt" "$FIXTURES/new.txt" >"$FIXTURES/m"
+  delta_label "$FIXTURES/d" "$FIXTURES/m" "$1"
+}
+
+function test_moved_words_prints_each_run_from_the_diff_records() {
+  printf 'Use array[-1] and keep it\n' >"$FIXTURES/old.txt"
+  printf 'Use array[-1] {+x+} and drop it\n' >"$FIXTURES/new.txt"
+  assert_equals "$(printf '{+x+}\nkeep\ndrop')" "$(moved_words "$FIXTURES/old.txt" "$FIXTURES/new.txt")"
+}
+
 function test_delta_label_names_a_path_we_write() {
   printf '.cursor/BUGBOT.md\nalwaysApply\n' >"$FIXTURES/vocab"
-  printf 'Each [-rule-]{+.cursor/BUGBOT.md file+} is truncated\n' >"$FIXTURES/d"
-  assert_equals "mentions:.cursor/BUGBOT.md" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
+  printf 'Each rule is truncated\n' >"$FIXTURES/old.txt"
+  printf 'Each .cursor/BUGBOT.md file is truncated\n' >"$FIXTURES/new.txt"
+  assert_equals "mentions:.cursor/BUGBOT.md" "$(label_of "$FIXTURES/vocab")"
 }
 
 function test_delta_label_ignores_a_vocabulary_hit_in_context_only() {
   printf '.cursor/BUGBOT.md\n' >"$FIXTURES/vocab"
-  printf 'Create .cursor/BUGBOT.md files [-now-]{+today+}\n' >"$FIXTURES/d"
-  assert_equals "prose" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
+  printf 'Create .cursor/BUGBOT.md files now\n' >"$FIXTURES/old.txt"
+  printf 'Create .cursor/BUGBOT.md files today\n' >"$FIXTURES/new.txt"
+  assert_equals "prose" "$(label_of "$FIXTURES/vocab")"
 }
 
 function test_delta_label_calls_known_page_chrome_chrome() {
   : >"$FIXTURES/vocab"
-  printf 'Search... [-Ask Assistant \xe2\x8c\x98 I-] Navigation\n' >"$FIXTURES/d"
-  printf 'Dismiss {+[](https://kiro.dev/) K+} Changelog\n' >>"$FIXTURES/d"
-  printf 'faster. {+Loading diagram...+} Instead\n' >>"$FIXTURES/d"
-  assert_equals "chrome-only" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
+  printf 'Search... Ask Assistant \xe2\x8c\x98 I Navigation Dismiss Changelog faster. Instead\n' >"$FIXTURES/old.txt"
+  printf 'Search... Navigation Dismiss [](https://kiro.dev/) K Changelog faster. Loading diagram... Instead\n' >"$FIXTURES/new.txt"
+  assert_equals "chrome-only" "$(label_of "$FIXTURES/vocab")"
 }
 
 function test_delta_label_keeps_prose_that_sits_beside_chrome() {
   : >"$FIXTURES/vocab"
-  printf 'x {+Loading diagram... Rules now need a trigger key+} y\n' >"$FIXTURES/d"
-  assert_equals "prose" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
+  printf 'x y\n' >"$FIXTURES/old.txt"
+  printf 'x Loading diagram... Rules now need a trigger key y\n' >"$FIXTURES/new.txt"
+  assert_equals "prose" "$(label_of "$FIXTURES/vocab")"
+}
+
+function test_delta_label_reads_a_removed_passage_holding_a_link() {
+  : >"$FIXTURES/vocab"
+  printf 'FAQ See [Cloud subagents](https://cursor.com/docs/subagents) for details end\n' >"$FIXTURES/old.txt"
+  printf 'FAQ end\n' >"$FIXTURES/new.txt"
+  assert_equals "prose" "$(label_of "$FIXTURES/vocab")"
+}
+
+function test_delta_label_reads_an_added_passage_holding_a_brace() {
+  printf 'mcpServers\n' >"$FIXTURES/vocab"
+  printf 'Set now\n' >"$FIXTURES/old.txt"
+  printf 'Set {"mcpServers": {}} in the file now\n' >"$FIXTURES/new.txt"
+  assert_equals "mentions:mcpServers" "$(label_of "$FIXTURES/vocab")"
+}
+
+# Vendor text can hold what the rendered delta uses as markers.
+function test_delta_label_ignores_marker_lookalikes_in_vendor_text() {
+  printf 'alwaysApply\n.cursor/BUGBOT.md\n' >"$FIXTURES/vocab"
+  printf 'Use array[-1] value\n' >"$FIXTURES/old.txt"
+  printf 'Use array[-1] important value\n' >"$FIXTURES/new.txt"
+  assert_equals "prose" "$(label_of "$FIXTURES/vocab")"
+  printf 'x changed [foo-](url) alwaysApply y\n' >"$FIXTURES/old.txt"
+  printf 'x y\n' >"$FIXTURES/new.txt"
+  assert_equals "mentions:alwaysApply" "$(label_of "$FIXTURES/vocab")"
+  printf 'array[-1] .cursor/BUGBOT.md ordinary\n' >"$FIXTURES/old.txt"
+  printf 'array[-1] .cursor/BUGBOT.md\n' >"$FIXTURES/new.txt"
+  assert_equals "prose" "$(label_of "$FIXTURES/vocab")"
 }
 
 function test_delta_label_calls_an_empty_delta_whitespace_only() {
   : >"$FIXTURES/vocab"
   : >"$FIXTURES/d"
-  assert_equals "whitespace-only" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
+  : >"$FIXTURES/m"
+  assert_equals "whitespace-only" "$(delta_label "$FIXTURES/d" "$FIXTURES/m" "$FIXTURES/vocab")"
 }
 
 # ---- delta_vocab -------------------------------------------------------------
@@ -867,7 +913,7 @@ function test_word_delta_marks_a_capped_whitespace_diff_truncated() {
   word_delta "$FIXTURES/old.txt" "$FIXTURES/new.txt" >"$FIXTURES/d"
   assert_contains "# truncated: " "$(cat "$FIXTURES/d")"
   : >"$FIXTURES/vocab"
-  assert_equals "whitespace-only:truncated" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
+  assert_equals "whitespace-only:truncated" "$(label_of "$FIXTURES/vocab")"
 }
 
 function test_a_delta_follows_the_lock_not_the_last_fetch() {

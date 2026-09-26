@@ -427,14 +427,38 @@ word_delta() {
   fi
 }
 
-word_delta_words() {
+# word_diff <old> <new> <context> diffs the two texts one word per line.
+word_diff() {
   local a b
   a=$(mktemp)
   b=$(mktemp)
   tr -s '[:space:]' '\n' <"$1" | grep . >"$a" || true
   tr -s '[:space:]' '\n' <"$2" | grep . >"$b" || true
   # diff exits 1 when the files differ; under pipefail that would abort the run.
-  { diff -U8 "$a" "$b" || true; } | awk '
+  diff -U"$3" "$a" "$b" || true
+  rm -f "$a" "$b"
+}
+
+# moved_words <old> <new> prints each run of removed or added words on its
+# own line, read from the diff records rather than the rendered delta, so
+# vendor text that looks like a delta marker cannot shift a boundary.
+moved_words() {
+  word_diff "$1" "$2" 0 | awk '
+    function flush() { if (line != "") print line; line = ""; run = "" }
+    NR <= 2 && /^(---|\+\+\+) / { next }
+    /^@@/ { flush(); next }
+    {
+      c = substr($0, 1, 1)
+      if (c != run) flush()
+      run = c
+      line = line (line != "" ? " " : "") substr($0, 2)
+    }
+    END { flush() }
+  '
+}
+
+word_delta_words() {
+  word_diff "$1" "$2" 8 | awk '
     function close_run() {
       if (run == "-") line = line "-]"
       else if (run == "+") line = line "+}"
@@ -468,7 +492,6 @@ word_delta_words() {
     }
     END { flush() }
   '
-  rm -f "$a" "$b"
 }
 
 # delta_vocab <target> prints the paths and keys our claims about a target
@@ -483,8 +506,8 @@ delta_vocab() {
     ' || true
 }
 
-# delta_label <delta> <vocab> prints one label for a delta, judged on the
-# removed and added words only, never on context:
+# delta_label <delta> <moved> <vocab> prints one label for a delta, judged
+# on the moved_words runs only, never on context:
 #   mentions:<terms>  a path or key we write moved (first three terms)
 #   chrome-only       nothing but known page chrome moved
 #   whitespace-only   no word moved; only spacing or line breaks did
@@ -499,7 +522,7 @@ delta_label() {
     fi
     return 0
   fi
-  awk -v vocab="$2" '
+  awk -v vocab="$3" '
     BEGIN {
       while ((getline t < vocab) > 0) if (t != "") terms[++nt] = t
       close(vocab)
@@ -514,21 +537,17 @@ delta_label() {
       nc = 8
     }
     {
-      rest = $0
-      while (match(rest, /\[-[^]]*-\]|\{\+[^}]*\+\}/)) {
-        seg = substr(rest, RSTART + 2, RLENGTH - 4)
-        rest = substr(rest, RSTART + RLENGTH)
-        moved = moved " " seg
-        for (i = 1; i <= nc; i++) {
-          while ((p = index(seg, chrome[i])) > 0)
-            seg = substr(seg, 1, p - 1) " " substr(seg, p + length(chrome[i]))
-        }
-        gsub(/\[\]\([^)]*\)/, " ", seg)
-        gsub(/(^|[ ])K([ ]|$)/, " ", seg)
-        gsub(/[ \t]+/, "", seg)
-        if (seg != "") prose = 1
-        segs++
+      seg = $0
+      moved = moved " " seg
+      for (i = 1; i <= nc; i++) {
+        while ((p = index(seg, chrome[i])) > 0)
+          seg = substr(seg, 1, p - 1) " " substr(seg, p + length(chrome[i]))
       }
+      gsub(/\[\]\([^)]*\)/, " ", seg)
+      gsub(/(^|[ ])K([ ]|$)/, " ", seg)
+      gsub(/[ \t]+/, "", seg)
+      if (seg != "") prose = 1
+      segs++
     }
     END {
       if (segs == 0) { print "whitespace-only"; exit }
@@ -539,7 +558,7 @@ delta_label() {
       else if (prose) print "prose"
       else print "chrome-only"
     }
-  ' "$1"
+  ' "$2"
 }
 
 # write_deltas <run dir> writes <stem>.delta for every new or changed row
@@ -563,7 +582,8 @@ write_deltas() {
     [ -f "$vocab/$target" ] || delta_vocab "$target" >"$vocab/$target"
     hashed=$(hashed_file "$dir" "$body")
     word_delta "$snap" "$hashed" >"${hashed%.*}.delta"
-    label=$(delta_label "${hashed%.*}.delta" "$vocab/$target")
+    moved_words "$snap" "$hashed" >"$vocab/moved"
+    label=$(delta_label "${hashed%.*}.delta" "$vocab/moved" "$vocab/$target")
     printf '%s\t%s\t%s\t%s\t%s\n' "$target" "$kind" "$url" "$label" "${hashed%.*}.delta" >>"$dir/deltas.tsv"
   done <"$dir/docfetch.tsv"
   rm -rf "$vocab"
