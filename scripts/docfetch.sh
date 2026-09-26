@@ -968,6 +968,8 @@ lock_merge() {
         close(lock)
       }
       /^#/ || NF < 7 { next }
+      # A failed fetch read nothing, so the page keeps the hash last read.
+      $8 == "failed" || $6 == "-" { next }
       count > 0 && !($1 in selected) { next }
       { keep[$3] = $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5 "\t" $6 "\t" $7; owner[$3] = $1 }
       END { for (u in keep) print keep[u] }
