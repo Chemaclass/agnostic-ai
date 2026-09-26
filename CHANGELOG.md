@@ -10,6 +10,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - OpenHands: a shttp MCP server's `oauth` field (or an explicit `auth: oauth`) emits `auth = "oauth"` in `config.toml`, and import reads it back (#1157).
 
+### Fixed
+
+- Global sync writes the Codex skill policy file and warns when a manual-only skill stays model-invocable on a target (#1156).
+
 ## v0.68.1 - 2026-09-25
 
 ### Fixed

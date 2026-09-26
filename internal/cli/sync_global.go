@@ -43,6 +43,10 @@ type globalState struct {
 	Version int                 `json:"version"`
 	Files   []string            `json:"files"`
 	Agents  map[string][]string `json:"agents,omitempty"`
+	// Skills records the files each target placed under its skills
+	// directory. Several targets share ~/.agents/skills/, so a sync of
+	// one must keep what the others placed there.
+	Skills map[string][]string `json:"skills,omitempty"`
 	// Sums maps each owned file to the sum of what sync last wrote there,
 	// covering only the managed block of an instructions file.
 	Sums map[string]string `json:"sums,omitempty"`
@@ -381,10 +385,15 @@ func loadGlobalState(path string) (globalState, error) {
 }
 
 func buildGlobalWrites(home, source string, targets []string, intro []byte, b spec.Bundle, old globalState, agentErr func(string, error) error) ([]globalWrite, globalState, error) {
-	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, AgentEfforts: map[string]map[string]string{}}
+	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, AgentEfforts: map[string]map[string]string{}}
 	for target, paths := range old.Agents {
 		if !slices.Contains(targets, target) {
 			next.Agents[target] = append([]string(nil), paths...)
+		}
+	}
+	for target, paths := range old.Skills {
+		if !slices.Contains(targets, target) {
+			next.Skills[target] = append([]string(nil), paths...)
 		}
 	}
 	for target, efforts := range old.AgentEfforts {
@@ -403,7 +412,13 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	for _, target := range targets {
 		g := globalTargets[target]
 		next.Files = removePaths(next.Files, old.Agents[target])
+		next.Files = removePaths(next.Files, old.Skills[target])
 		for _, tree := range g.trees(home) {
+			// A state without per-target skill records predates them,
+			// so its skills tree is swept whole, as before.
+			if old.Skills != nil && g.skills != "" && tree == g.path(home, g.skills) {
+				continue
+			}
 			next.Files = removePathPrefix(next.Files, tree+string(filepath.Separator))
 		}
 		next.Files = removePaths(next.Files, g.files(home))
@@ -506,11 +521,25 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		if g.skills != "" {
 			adapters.NoteDroppedSkillFields(target, b.Skills)
 			dir := g.path(home, g.skills)
+			if err := adapters.NoteManualOnlySkillDrops(target, b.Skills, sharedGlobalSkillsDir(home, dir)); err != nil {
+				return nil, next, err
+			}
+			addSkill := func(path string, data []byte, mode fs.FileMode) error {
+				if err := add(path, data, mode); err != nil {
+					return err
+				}
+				next.Skills[target] = append(next.Skills[target], path)
+				return nil
+			}
 			for _, skill := range b.Skills {
 				if !skill.EmitsTo(target) {
 					continue
 				}
-				if err := addGlobalSkill(filepath.Join(dir, skill.Name), skill, target, sharedGlobalSkillsDir(home, dir), add); err != nil {
+				overlays, err := globalSkillOverlays(home, dir, skill)
+				if err != nil {
+					return nil, next, err
+				}
+				if err := addGlobalSkill(filepath.Join(dir, skill.Name), skill, target, sharedGlobalSkillsDir(home, dir), overlays, addSkill); err != nil {
 					return nil, next, err
 				}
 			}
@@ -550,6 +579,9 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		}
 	}
 	for _, paths := range next.Agents {
+		next.Files = append(next.Files, paths...)
+	}
+	for _, paths := range next.Skills {
 		next.Files = append(next.Files, paths...)
 	}
 	sort.Strings(next.Files)
@@ -635,13 +667,44 @@ func sharedGlobalSkillsDir(home, dir string) bool {
 	return false
 }
 
-func addGlobalSkill(dst string, skill spec.Entry, target string, shared bool, add func(string, []byte, fs.FileMode) error) error {
+// globalSkillOverlays lists the relative paths any target reading dir
+// renders beside SKILL.md for skill. A bundled asset at one of those
+// paths never ships there, so every co-writer of a shared tree agrees
+// and the spec-rendered file wins, as in project sync.
+func globalSkillOverlays(home, dir string, skill spec.Entry) (map[string]bool, error) {
+	overlays := map[string]bool{}
+	for _, name := range slices.Sorted(maps.Keys(globalTargets)) {
+		g := globalTargets[name]
+		if g.skills == "" || g.path(home, g.skills) != dir || !skill.EmitsTo(name) {
+			continue
+		}
+		sidecars, err := adapters.RenderSkillSidecars(name, skill)
+		if err != nil {
+			return nil, err
+		}
+		for rel := range sidecars {
+			overlays[rel] = true
+		}
+	}
+	return overlays, nil
+}
+
+func addGlobalSkill(dst string, skill spec.Entry, target string, shared bool, overlays map[string]bool, add func(string, []byte, fs.FileMode) error) error {
 	rendered, err := adapters.RenderSkillMarkdown(target, skill, shared)
 	if err != nil {
 		return err
 	}
 	if err := add(filepath.Join(dst, "SKILL.md"), []byte(rendered), 0o644); err != nil {
 		return err
+	}
+	sidecars, err := adapters.RenderSkillSidecars(target, skill)
+	if err != nil {
+		return err
+	}
+	for _, rel := range slices.Sorted(maps.Keys(sidecars)) {
+		if err := add(filepath.Join(dst, rel), []byte(sidecars[rel]), 0o644); err != nil {
+			return err
+		}
 	}
 	if filepath.Base(skill.Path) != "SKILL.md" {
 		return nil
@@ -657,6 +720,9 @@ func addGlobalSkill(dst string, skill spec.Entry, target string, shared bool, ad
 		rel, err := filepath.Rel(root, path)
 		if err != nil {
 			return err
+		}
+		if overlays[rel] {
+			return nil
 		}
 		data, err := os.ReadFile(path)
 		if err != nil {
