@@ -13,6 +13,8 @@ func TestSuggestName(t *testing.T) {
 		"Claude": "claude",
 		"codx":   "codex",
 		"kilo":   "kiro",
+		"cdoex":  "codex",
+		"clien":  "cline",
 		"zzzzzz": "",
 		"":       "",
 		"claude": "",
@@ -24,6 +26,12 @@ func TestSuggestName(t *testing.T) {
 	}
 }
 
+func TestSuggestName_TieSuggestsNothing(t *testing.T) {
+	if got := SuggestName("kigo", []string{"kilo", "kiro"}); got != "" {
+		t.Errorf("a tie should suggest nothing, got %q", got)
+	}
+}
+
 func TestResolve_UnknownTargetSuggestsClosestBuiltIn(t *testing.T) {
 	_, err := Resolve("claud")
 	if err == nil {
@@ -31,5 +39,8 @@ func TestResolve_UnknownTargetSuggestsClosestBuiltIn(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "did you mean claude?") {
 		t.Errorf("error lacks a suggestion: %v", err)
+	}
+	if !strings.Contains(err.Error(), "agnostic-ai-adapter-claud on PATH") {
+		t.Errorf("error lost the external adapter hint: %v", err)
 	}
 }

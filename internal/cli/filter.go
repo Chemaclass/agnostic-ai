@@ -41,14 +41,17 @@ func filterTargets(configured, only, except []string) ([]string, error) {
 
 // notATargetError explains why name is not among targets: a likely typo of
 // one of them, a real adapter this run does not include, or no adapter.
+// Callers differ in where their targets come from (config, -t, the global
+// set), so the message states the fact and leaves the remedy out.
 func notATargetError(name string, targets []string) error {
 	if s := adapters.SuggestName(name, targets); s != "" {
 		return errs.Coded(errs.CodeSyncTargetUnknown, "unknown target: %s (did you mean %s?)", name, s)
 	}
 	if slices.Contains(adapters.Names(), name) {
-		return errs.Coded(errs.CodeSyncTargetUnknown,
-			"%s is not in this run's targets (%s); add it to agnostic-ai.yaml or pass -t %s",
-			name, strings.Join(targets, ", "), name)
+		if len(targets) == 0 {
+			return errs.Coded(errs.CodeSyncTargetUnknown, "%s is not in this run's targets", name)
+		}
+		return errs.Coded(errs.CodeSyncTargetUnknown, "%s is not in this run's targets (%s)", name, strings.Join(targets, ", "))
 	}
 	return errs.Coded(errs.CodeSyncTargetUnknown, "unknown target: %s", name)
 }

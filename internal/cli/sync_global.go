@@ -104,6 +104,9 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	}
 	for _, target := range targets {
 		if _, ok := globalTargets[target]; !ok {
+			if s := adapters.SuggestName(target, globalTargetNames()); s != "" {
+				return fmt.Errorf("--global: unsupported target %q (did you mean %s?)", target, s)
+			}
 			return fmt.Errorf("--global: unsupported target %q (supported: %s)", target, strings.Join(globalTargetNames(), ", "))
 		}
 	}
