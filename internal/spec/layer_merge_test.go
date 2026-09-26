@@ -240,3 +240,18 @@ func TestLoadLayered_LocalKeepsATargetDeleteMarker(t *testing.T) {
 		t.Errorf("x-codex = %v, want the shared effort kept", x)
 	}
 }
+
+// Only direct children of x-<target> are resolver markers; deeper nulls
+// delete like anywhere else.
+func TestLoadLayered_NestedNullUnderATargetMapStillDeletes(t *testing.T) {
+	t.Parallel()
+	base, local := t.TempDir(), t.TempDir()
+	mustWrite(t, filepath.Join(base, "skills", "lint", "SKILL.md"), "---\nname: lint\nx-codex:\n  interface:\n    icon: star\n    color: blue\n---\nBody.\n")
+	mustWrite(t, filepath.Join(local, "skills", "lint", "SKILL.md"), "---\nname: lint\nx-codex:\n  interface:\n    icon: null\n---\n")
+
+	x, _ := loadExtending(t, base, local).Skills[0].Meta["x-codex"].(map[string]any)
+	iface, _ := x["interface"].(map[string]any)
+	if _, ok := iface["icon"]; ok || iface["color"] != "blue" {
+		t.Errorf("interface = %v, want icon removed and color kept", iface)
+	}
+}

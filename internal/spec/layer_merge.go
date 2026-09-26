@@ -37,13 +37,13 @@ func extendEntry(base, over Entry) Entry {
 }
 
 func mergeMeta(base, over map[string]any) map[string]any {
-	return mergeMap(base, over, false)
+	return mergeMap(base, over, true, false)
 }
 
-// mergeMap merges over into base. keepNull holds inside an x-<target>
-// map, where null is the target resolver's delete marker, not a merge
-// instruction.
-func mergeMap(base, over map[string]any, keepNull bool) map[string]any {
+// mergeMap merges over into base. keepNull holds for the direct children
+// of an x-<target> map, where null is the target resolver's delete
+// marker, not a merge instruction.
+func mergeMap(base, over map[string]any, top, keepNull bool) map[string]any {
 	out := make(map[string]any, len(base)+len(over))
 	for k, v := range base {
 		out[k] = v
@@ -55,7 +55,7 @@ func mergeMap(base, over map[string]any, keepNull bool) map[string]any {
 		}
 		if om, ok := v.(map[string]any); ok {
 			if bm, ok := out[k].(map[string]any); ok {
-				out[k] = mergeMap(bm, om, keepNull || strings.HasPrefix(k, "x-"))
+				out[k] = mergeMap(bm, om, false, top && strings.HasPrefix(k, "x-"))
 				continue
 			}
 		}
