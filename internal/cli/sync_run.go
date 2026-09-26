@@ -462,7 +462,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 			ledgerSession = append(ledgerSession, adapters.AgnosticEntryPointPath)
 		}
 	}
-	applied := shared.apply(mainSess, dryRun)
+	applied := shared.apply(dryRun)
 	ledgerSession = adjustLedgerForLinks(ledgerSession, applied)
 	if gitignoreOn {
 		for _, l := range applied {
@@ -694,7 +694,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 		gitignoreEntries = append(gitignoreEntries, mainSess.StopRecording()...)
 	}
 
-	applied := shared.apply(mainSess, dryRun)
+	applied := shared.apply(dryRun)
 	ledgerSession = adjustLedgerForLinks(ledgerSession, applied)
 	for _, l := range applied {
 		out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: l.path, Action: "link"})

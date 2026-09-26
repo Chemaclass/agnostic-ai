@@ -3,6 +3,7 @@ package cli
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -364,9 +365,9 @@ func (st *sharedSkillsState) capturedDiffersUnder(p string) bool {
 // the real trees. The link is created at a temporary name first so a
 // filesystem without symlink support (e.g. Windows without the
 // privilege) degrades to real copies without ever losing the tree.
-// Folders that still contain user-authored files after the managed
-// sweep keep their real copy. Returns the links now in place.
-func (st *sharedSkillsState) apply(sess *adapters.Session, dryRun bool) []skillLink {
+// A folder holding any file this run did not render keeps its real copy,
+// untouched. Returns the links now in place.
+func (st *sharedSkillsState) apply(dryRun bool) []skillLink {
 	var applied []skillLink
 	warned := false
 	warnf := func(format string, a ...any) {
@@ -386,6 +387,12 @@ func (st *sharedSkillsState) apply(sess *adapters.Session, dryRun bool) []skillL
 			applied = append(applied, l)
 			continue
 		}
+		// A file this run does not render (hand-authored, or edited since)
+		// keeps the folder a real copy. Dry-run wrote nothing, so it can
+		// only check which paths the run renders, not their bytes.
+		if !st.folderIsRendered(l.path, !dryRun) {
+			continue
+		}
 		if dryRun {
 			summaryf("  would link %s -> %s\n", l.path, rel)
 			continue
@@ -400,18 +407,7 @@ func (st *sharedSkillsState) apply(sess *adapters.Session, dryRun bool) []skillL
 			warnf("%v", err)
 			continue
 		}
-		if err := sess.RemoveGeneratedTree(l.path, false); err != nil {
-			_ = os.Remove(tmp)
-			warnf("%v", err)
-			continue
-		}
-		if _, err := os.Lstat(l.path); err == nil {
-			// User-authored files kept the folder alive; it cannot
-			// become a link.
-			_ = os.Remove(tmp)
-			continue
-		}
-		if err := os.Rename(tmp, l.path); err != nil {
+		if err := swapInLink(l.path, tmp); err != nil {
 			_ = os.Remove(tmp)
 			warnf("%v", err)
 			continue
@@ -423,6 +419,70 @@ func (st *sharedSkillsState) apply(sess *adapters.Session, dryRun bool) []skillL
 		summaryf("  linked %d shared skill folder%s\n", created, plural(created))
 	}
 	return applied
+}
+
+// errNotRendered stops a walk at the first file this sync does not render.
+var errNotRendered = errors.New("file not rendered by this sync")
+
+// folderIsRendered reports whether every entry under dir is a regular file
+// this sync renders at that path, holding the rendered bytes when
+// checkBytes is set. A missing dir holds nothing foreign.
+func (st *sharedSkillsState) folderIsRendered(dir string, checkBytes bool) bool {
+	if _, err := os.Lstat(dir); os.IsNotExist(err) {
+		return true
+	}
+	err := filepath.WalkDir(dir, func(p string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+		rendered, ok := st.captured[p]
+		if !ok || !d.Type().IsRegular() {
+			return errNotRendered
+		}
+		if !checkBytes {
+			return nil
+		}
+		data, err := os.ReadFile(p)
+		if err != nil || !rendered[string(data)] {
+			return errNotRendered
+		}
+		return nil
+	})
+	return err == nil
+}
+
+// swapInLink replaces the folder at path with the symlink at tmp. The
+// folder first moves aside in one rename, outside the skills root, so a
+// failure at any step puts it back whole instead of half removed.
+func swapInLink(path, tmp string) error {
+	if _, err := os.Lstat(path); os.IsNotExist(err) {
+		return os.Rename(tmp, path)
+	}
+	asideDir, err := os.MkdirTemp(filepath.Dir(filepath.Dir(path)), ".agnostic-skill-")
+	if err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	aside := filepath.Join(asideDir, filepath.Base(path))
+	if err := os.Rename(path, aside); err != nil {
+		_ = os.Remove(asideDir)
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		if backErr := os.Rename(aside, path); backErr != nil {
+			return fmt.Errorf("%s: %w; the folder is at %s", path, err, aside)
+		}
+		_ = os.Remove(asideDir)
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	// asideDir is the fresh MkdirTemp directory above, holding only the
+	// moved folder, whose files folderIsRendered proved this sync wrote.
+	if err := os.RemoveAll(asideDir); err != nil {
+		fmt.Fprintf(os.Stderr, "! shared-skills: linked %s but could not remove its old copy at %s: %v\n", path, asideDir, err)
+	}
+	return nil
 }
 
 // adjustLedgerForLinks rewrites the sync ledger after the link swap:

@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -320,5 +321,136 @@ func TestPlanSkillLinks_NoLinkForSingleOrDivergentFolders(t *testing.T) {
 	}
 	if links := planSkillLinks(captures, nil); len(links) != 0 {
 		t.Errorf("divergent folders must not link, got %+v", links)
+	}
+}
+
+// A skill folder with verbatim assets (no provenance header) must still
+// collapse into a link, and never lose its SKILL.md on the way.
+func TestSync_SharedSkills_FolderWithAssetsBecomesLink(t *testing.T) {
+	dir := setupSharedSkillsFixture(t, sharedSkillsCfg)
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy", "SKILL.md"),
+		"---\nname: deploy\ndescription: Ship it\n---\nDeploy.\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy", "references", "notes.md"), "notes\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	for run := 1; run <= 2; run++ {
+		if err := runSync(t); err != nil {
+			t.Fatal(err)
+		}
+		link := filepath.Join(dir, ".cursor", "skills", "deploy")
+		if _, err := os.Stat(filepath.Join(link, "SKILL.md")); err != nil {
+			t.Fatalf("run %d: cursor lost deploy/SKILL.md: %v", run, err)
+		}
+		fi, err := os.Lstat(link)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if fi.Mode()&os.ModeSymlink == 0 {
+			t.Errorf("run %d: %s should be a symlink", run, link)
+		}
+	}
+}
+
+// A hand-authored file inside a managed skill folder keeps the folder a
+// real copy, and the generated files beside it stay in place.
+func TestSync_SharedSkills_HandAuthoredFileInsideFolderKeepsSkill(t *testing.T) {
+	dir := setupSharedSkillsFixture(t, sharedSkillsCfg)
+	testutil.Chdir(t, dir)
+	silence(t)
+	mustWriteFile(t, filepath.Join(dir, ".cursor", "skills", "greet", "mine.md"), "hand-authored\n")
+
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+
+	folder := filepath.Join(dir, ".cursor", "skills", "greet")
+	if _, err := os.Stat(filepath.Join(folder, "SKILL.md")); err != nil {
+		t.Fatalf("cursor lost greet/SKILL.md: %v", err)
+	}
+	if got := readFile(t, filepath.Join(folder, "mine.md")); got != "hand-authored\n" {
+		t.Errorf("hand-authored file changed: %q", got)
+	}
+}
+
+// A folder whose files cannot all be deleted (a read-only asset dir, a file
+// held open on Windows) must still end up with a readable SKILL.md.
+func TestSync_SharedSkills_UndeletableAssetKeepsSkillReadable(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("needs POSIX permissions enforced for the current user")
+	}
+	dir := setupSharedSkillsFixture(t, "version: 1\ntargets: [codex, cursor]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy", "SKILL.md"),
+		"---\nname: deploy\ndescription: Ship it\n---\nDeploy.\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy", "references", "notes.md"), "notes\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	locked := filepath.Join(dir, ".cursor", "skills", "deploy", "references")
+	if err := os.Chmod(locked, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { restoreWritable(t, filepath.Join(dir, ".cursor")) })
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), sharedSkillsCfg)
+
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, ".cursor", "skills", "deploy", "SKILL.md")); err != nil {
+		t.Errorf("cursor lost deploy/SKILL.md: %v", err)
+	}
+}
+
+// restoreWritable makes every directory under root writable again so
+// t.TempDir cleanup can remove it.
+func restoreWritable(t *testing.T, root string) {
+	t.Helper()
+	_ = filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
+		if err == nil && d.IsDir() {
+			_ = os.Chmod(p, 0o755)
+		}
+		return nil
+	})
+}
+
+func TestSync_SharedSkills_DryRunDoesNotPromiseALinkItWillNotMake(t *testing.T) {
+	dir := setupSharedSkillsFixture(t, sharedSkillsCfg)
+	testutil.Chdir(t, dir)
+	silence(t)
+	mustWriteFile(t, filepath.Join(dir, ".cursor", "skills", "greet", "mine.md"), "hand-authored\n")
+	buf := captureLog(t)
+
+	if err := runSync(t, "--dry-run"); err != nil {
+		t.Fatal(err)
+	}
+
+	if strings.Contains(buf.String(), "would link .cursor/skills/greet") {
+		t.Errorf("dry-run promised a link the real sync refuses:\n%s", buf.String())
+	}
+}
+
+// Turning shared-skills on after a plain sync leaves the old per-file
+// ledger entries under the folder that becomes a link. The sweep must not
+// remove them through the link, which would delete the canonical copy.
+func TestSync_SharedSkills_EnablingAfterPlainSyncKeepsCanonical(t *testing.T) {
+	dir := setupSharedSkillsFixture(t, "version: 1\ntargets: [codex, cursor]\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), sharedSkillsCfg)
+
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, p := range []string{".agents/skills/greet/SKILL.md", ".cursor/skills/greet/SKILL.md"} {
+		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
+			t.Errorf("%s missing after enabling shared-skills: %v", p, err)
+		}
 	}
 }
