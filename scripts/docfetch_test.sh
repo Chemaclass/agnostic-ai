@@ -780,6 +780,18 @@ function test_delta_label_keeps_prose_that_sits_beside_chrome() {
   assert_equals "prose" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
 }
 
+function test_delta_label_reads_a_removed_passage_holding_a_link() {
+  : >"$FIXTURES/vocab"
+  printf 'FAQ [-See [Cloud subagents](https://cursor.com/docs/subagents) for details-] end\n' >"$FIXTURES/d"
+  assert_equals "prose" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
+}
+
+function test_delta_label_reads_an_added_passage_holding_a_brace() {
+  printf 'mcpServers\n' >"$FIXTURES/vocab"
+  printf 'Set {+{"mcpServers": {}} in the file+} now\n' >"$FIXTURES/d"
+  assert_equals "mentions:mcpServers" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
+}
+
 function test_delta_label_calls_an_empty_delta_whitespace_only() {
   : >"$FIXTURES/vocab"
   : >"$FIXTURES/d"

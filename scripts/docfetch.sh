@@ -515,9 +515,17 @@ delta_label() {
     }
     {
       rest = $0
-      while (match(rest, /\[-[^]]*-\]|\{\+[^}]*\+\}/)) {
-        seg = substr(rest, RSTART + 2, RLENGTH - 4)
-        rest = substr(rest, RSTART + RLENGTH)
+      # Scan to the closing marker itself: moved text often holds a
+      # Markdown link or a JSON brace, which a bracket class stops at.
+      while (1) {
+        a = index(rest, "[-"); b = index(rest, "{+")
+        if (a == 0 && b == 0) break
+        if (a > 0 && (b == 0 || a < b)) { start = a; end_mark = "-]" } else { start = b; end_mark = "+}" }
+        tail = substr(rest, start + 2)
+        e = index(tail, end_mark)
+        if (e == 0) break
+        seg = substr(tail, 1, e - 1)
+        rest = substr(tail, e + 2)
         moved = moved " " seg
         for (i = 1; i <= nc; i++) {
           while ((p = index(seg, chrome[i])) > 0)
