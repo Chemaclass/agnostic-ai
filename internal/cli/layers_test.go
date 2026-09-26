@@ -3,9 +3,11 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestResolveLayers_ProjectOnlyByDefault(t *testing.T) {
@@ -89,5 +91,58 @@ func TestResolveLayers_ReadsLocalInsideTheSourceDirOnly(t *testing.T) {
 	layers := resolveLayers(root, &config.Config{Sources: defaultLayerSources()})
 	if len(layers) != 2 || layers[1].Root != filepath.Join(root, ".agnostic-ai", "local") {
 		t.Fatalf("want .agnostic-ai/local as the project-user layer, got %+v", layers)
+	}
+}
+
+// The local layer edits one field and extends the body of a shared spec,
+// while the committed spec stays the source of truth.
+func TestSync_ProjectLocalLayerOverridesAFieldAndExtendsTheBody(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "custom", "SKILL.md"),
+		"---\nname: custom\ndescription: Custom skill\nmodel:\n  claude: sonnet\n---\nfoo for\n")
+	writeFile(t, filepath.Join(dir, defaultProjectUser, "skills", "custom", "SKILL.md"),
+		"---\nname: custom\nmodel:\n  claude: opus\n---\n::parent\nbar baz\n")
+
+	execCLI(t, "sync")
+
+	got := readFile(t, filepath.Join(dir, ".claude", "skills", "custom", "SKILL.md"))
+	for _, want := range []string{"model: opus", "description: Custom skill", "foo for\nbar baz"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "sonnet") || strings.Contains(got, "::parent") {
+		t.Errorf("shared model or marker leaked:\n%s", got)
+	}
+}
+
+// A local skill that only edits fields keeps the shared folder's assets,
+// while the local file stays the spec's identity for path-based commands.
+func TestSync_LocalSkillEditingFieldsShipsSharedAssetsAndKeepsItsPath(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "lint", "SKILL.md"), "---\nname: lint\ndescription: Shared lint\n---\nRun check.sh.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "lint", "check.sh"), "echo shared\n")
+	local := filepath.Join(defaultProjectUser, "skills", "lint", "SKILL.md")
+	writeFile(t, filepath.Join(dir, local), "---\nname: lint\ndescription: My lint\n---\n")
+
+	execCLI(t, "sync")
+
+	if got := readFile(t, filepath.Join(dir, ".claude", "skills", "lint", "check.sh")); got != "echo shared\n" {
+		t.Errorf("shared asset not shipped: %q", got)
+	}
+	got := readFile(t, filepath.Join(dir, ".claude", "skills", "lint", "SKILL.md"))
+	if !strings.Contains(got, "description: My lint") || !strings.Contains(got, "Run check.sh.") {
+		t.Errorf("SKILL.md is not the merged spec:\n%s", got)
+	}
+
+	out := captureStdout(t, func() { execCLI(t, "render", local, "--target", "claude") })
+	if !strings.Contains(out, "My lint") {
+		t.Errorf("render of the local file did not load the merged spec:\n%s", out)
 	}
 }

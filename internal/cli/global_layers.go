@@ -21,7 +21,7 @@ func globalLayers(source string) []spec.Layer {
 	sources := config.Sources{Agents: "agents", Skills: "skills", Rules: "rules", Hooks: "hooks"}
 	return []spec.Layer{
 		{Name: "global", Root: source, Sources: sources},
-		{Name: "global-local", Root: filepath.Join(source, "local"), Sources: sources},
+		{Name: "global-local", Root: filepath.Join(source, "local"), Sources: sources, Extends: true},
 	}
 }
 

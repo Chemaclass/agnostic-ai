@@ -706,20 +706,25 @@ func addGlobalSkill(dst string, skill spec.Entry, target string, shared bool, ov
 			return err
 		}
 	}
-	if filepath.Base(skill.Path) != "SKILL.md" {
+	root := skill.SkillAssetDir()
+	if root == "" {
 		return nil
 	}
-	root := filepath.Dir(skill.Path)
 	return filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if d.IsDir() || path == skill.Path {
+		if d.IsDir() {
 			return nil
 		}
 		rel, err := filepath.Rel(root, path)
 		if err != nil {
 			return err
+		}
+		// The rendered SKILL.md, not the asset folder's own copy, which
+		// is the shared one when a local skill inherits its assets.
+		if rel == "SKILL.md" {
+			return nil
 		}
 		if overlays[rel] {
 			return nil

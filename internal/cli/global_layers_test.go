@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestSyncGlobal_LocalLayerReplacesSharedSpecsAndAppendsAgreements(t *testing.T) {
+func TestSyncGlobal_LocalLayerExtendsSharedSpecsAndAppendsAgreements(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Shared agreements.\n")
 	mustWriteGlobalTest(t, filepath.Join(source, "skills", "reviewer", "SKILL.md"), "---\nname: reviewer\nmodel: opus\n---\nShared skill.\n")
@@ -49,9 +49,14 @@ func TestSyncGlobal_LocalLayerReplacesSharedSpecsAndAppendsAgreements(t *testing
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(string(data), expected) || strings.Contains(string(data), "Shared") || strings.Contains(string(data), "shared-") || strings.Contains(string(data), "model") {
-			t.Errorf("%s did not replace shared spec: %s", path, data)
+		if !strings.Contains(string(data), expected) || strings.Contains(string(data), "Shared") || strings.Contains(string(data), "shared-command") {
+			t.Errorf("%s did not override the shared spec: %s", path, data)
 		}
+	}
+	// Fields the local spec leaves out are inherited, not dropped.
+	data, err := os.ReadFile(filepath.Join(home, ".claude", "agents", "reviewer.md"))
+	if err != nil || !strings.Contains(string(data), "model: shared-model") {
+		t.Errorf("local agent lost the shared model: %s", data)
 	}
 	for _, dir := range []string{".claude", ".agents"} {
 		if _, err := os.Stat(filepath.Join(home, dir, "skills", "reviewer", "shared.txt")); !os.IsNotExist(err) {

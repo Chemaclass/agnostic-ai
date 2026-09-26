@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -77,6 +78,14 @@ type SpecEntry struct {
 	Meta     map[string]any `json:"meta,omitempty"`
 	MetaKeys []string       `json:"meta_keys,omitempty"`
 	Body     string         `json:"body,omitempty"`
+	// AssetDir is the folder whose sibling files ship with a skill,
+	// always path's folder for a folder skill.
+	AssetDir string `json:"asset_dir,omitempty"`
+	// SourcePath is the file the author edits, set only when it is not
+	// path: a local skill that edits fields of a shared one keeps the
+	// shared SKILL.md as path, so an adapter reading assets from path's
+	// folder still ships them.
+	SourcePath string `json:"source_path,omitempty"`
 }
 
 // Output is the JSON document the adapter writes to its stdout.
@@ -191,12 +200,16 @@ func entriesToWire(entries []spec.Entry) []SpecEntry {
 		out[i] = SpecEntry{
 			Kind:     string(e.Kind),
 			Name:     e.Name,
-			Path:     e.Path,
+			Path:     wirePath(e),
 			Scope:    e.Scope,
 			Layer:    e.Layer,
 			Meta:     e.Meta,
 			MetaKeys: e.MetaKeys,
 			Body:     e.Body,
+			AssetDir: e.SkillAssetDir(),
+		}
+		if out[i].Path != e.Path {
+			out[i].SourcePath = e.Path
 		}
 	}
 	return out
@@ -266,4 +279,13 @@ func validateName(name string) error {
 		return fmt.Errorf("external adapter: name %q must not start with '-'", name)
 	}
 	return nil
+}
+
+// wirePath keeps protocol v1's meaning of path, the folder a skill's
+// assets come from, for a local skill that inherits a shared folder.
+func wirePath(e spec.Entry) string {
+	if dir := e.SkillAssetDir(); dir != "" && dir != filepath.Dir(e.Path) {
+		return filepath.Join(dir, "SKILL.md")
+	}
+	return e.Path
 }

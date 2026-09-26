@@ -28,7 +28,7 @@ func (s *Session) PropagateSkillAssets(sk spec.Entry, dstDir string, skip func(r
 	if !FolderBasedSkill(sk) {
 		return nil
 	}
-	return s.CopyTree(filepath.Dir(sk.Path), dstDir, skip, dryRun)
+	return s.CopyTree(sk.SkillAssetDir(), dstDir, skip, dryRun)
 }
 
 // SkipSKILLMd is the common sibling-asset skip predicate: it excludes the
@@ -48,7 +48,7 @@ func SkillHasBundledAssets(s spec.Entry, skip func(rel string) bool) bool {
 	if !FolderBasedSkill(s) {
 		return false
 	}
-	root := filepath.Dir(s.Path)
+	root := s.SkillAssetDir()
 	found := false
 	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !d.Type().IsRegular() {
@@ -81,7 +81,7 @@ func RelinkBundledAssets(sk spec.Entry, body, fromDir, folder string) string {
 	if err != nil {
 		return body
 	}
-	root := filepath.Dir(sk.Path)
+	root := sk.SkillAssetDir()
 	return mdlink.RewriteLocal(body, func(l mdlink.Link) (string, bool) {
 		rel := filepath.Clean(filepath.FromSlash(l.Dest))
 		if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
@@ -94,10 +94,11 @@ func RelinkBundledAssets(sk spec.Entry, body, fromDir, folder string) string {
 	})
 }
 
-// FolderBasedSkill reports whether the skill spec owns its own directory
-// (`<name>/SKILL.md`) rather than living as a flat file (`<name>.md`).
-// Folder-based skills own their sibling assets; flat-file skills share the
-// parent skills directory and have no per-skill assets to propagate.
+// FolderBasedSkill reports whether the skill has a folder of sibling
+// assets (`<name>/SKILL.md`, or a local override inheriting the shared
+// folder) rather than living as a flat file (`<name>.md`). Flat-file
+// skills share the parent skills directory and have no per-skill assets
+// to propagate.
 func FolderBasedSkill(s spec.Entry) bool {
-	return s.Path != "" && filepath.Base(s.Path) == "SKILL.md"
+	return s.SkillAssetDir() != ""
 }

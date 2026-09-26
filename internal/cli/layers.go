@@ -72,6 +72,7 @@ func resolveProjectUserLayer(projectRoot string) (spec.Layer, bool) {
 		Name:    layerNameProjectUser,
 		Root:    pu,
 		Sources: defaultLayerSources(),
+		Extends: true,
 	}, true
 }
 
