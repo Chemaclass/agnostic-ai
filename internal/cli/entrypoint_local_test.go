@@ -163,3 +163,108 @@ func TestPlanWatchResync_ProjectLocalInstructionsForceFull(t *testing.T) {
 		t.Errorf("local instructions are a known input, got reason %q", plan.reason)
 	}
 }
+
+// `outputs.<target>.rules-file` naming the target's own entry point is the
+// legacy layout: the adapter owns that file and the central writer skips
+// it. The local text still belongs in the file the tool reads.
+func TestSync_AppendsProjectLocalInstructionsToLegacyRulesFileEntryPoint(t *testing.T) {
+	for _, tc := range []struct{ target, path string }{
+		{"claude", "CLAUDE.md"},
+		{"codex", "AGENTS.md"},
+		{"gemini", "GEMINI.md"},
+		{"copilot", filepath.Join(".github", "copilot-instructions.md")},
+	} {
+		t.Run(tc.target, func(t *testing.T) {
+			testutil.TempCwd(t)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\noutputs:\n  "+tc.target+":\n    rules-file: "+filepath.ToSlash(tc.path)+"\n")
+			writeFile(t, filepath.Join(".agnostic-ai", "rules", "r1.md"), "---\nname: r1\n---\nRule line.\n")
+			writeAgnosticFile(t, sharedInstructions)
+			writeFile(t, filepath.Join(defaultProjectUser, "AGNOSTIC_AI.md"), "Local line.\n\n::target "+tc.target+"\nFenced line.\n::end\n\n::target cursor\nForeign line.\n::end\n")
+			if out, err := runCLI(t, "sync"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+
+			data, err := os.ReadFile(tc.path)
+			if err != nil {
+				t.Fatalf("%s not written: %v", tc.path, err)
+			}
+			got := string(data)
+			rules, local := strings.Index(got, "Rule line."), strings.Index(got, "Local line.")
+			if rules < 0 || local < 0 || local < rules {
+				t.Errorf("%s: want the local text after the rule bodies:\n%s", tc.path, got)
+			}
+			if !strings.Contains(got, adapters.LocalStartMarker) || !strings.Contains(got, "Fenced line.") {
+				t.Errorf("%s: want the marked local block with its %s fence:\n%s", tc.path, tc.target, got)
+			}
+			if strings.Contains(got, "Foreign line.") {
+				t.Errorf("%s: a fence for another target leaked:\n%s", tc.path, got)
+			}
+			if out, err := runCLI(t, "sync", "--check"); err != nil {
+				t.Errorf("sync --check after sync: %v\n%s", err, out)
+			}
+		})
+	}
+}
+
+// Two targets whose legacy rules-file is one shared AGENTS.md write the
+// same merged document. A local fence for one of them must reach both
+// writes alike, as in the central shared file, or they collide.
+func TestSync_SharedLegacyRulesFileKeepsOneLocalView(t *testing.T) {
+	testutil.TempCwd(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex, amp]\noutputs:\n  codex:\n    rules-file: AGENTS.md\n  amp:\n    rules-file: AGENTS.md\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "rules", "r1.md"), "---\nname: r1\n---\nRule line.\n")
+	writeAgnosticFile(t, sharedInstructions)
+	writeFile(t, filepath.Join(defaultProjectUser, "AGNOSTIC_AI.md"), "Local line.\n\n::target codex\nCodex line.\n::end\n")
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+
+	data, err := os.ReadFile("AGENTS.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "Codex line.") {
+		t.Errorf("AGENTS.md: want the codex fence kept for its codex reader:\n%s", data)
+	}
+}
+
+// With no rule for the legacy document to concatenate, the adapter still
+// owns the entry point and the central writer still skips it, so the
+// local text alone must keep the file written.
+func TestSync_LegacyRulesFileEntryPointWithoutRulesKeepsLocalInstructions(t *testing.T) {
+	scoped := "---\nname: go-only\nglobs: \"**/*.go\"\n---\nScoped line.\n"
+	for _, tc := range []struct{ name, target, path, rule string }{
+		{"claude", "claude", "CLAUDE.md", ""},
+		{"codex", "codex", "AGENTS.md", ""},
+		{"gemini", "gemini", "GEMINI.md", ""},
+		{"copilot", "copilot", filepath.Join(".github", "copilot-instructions.md"), ""},
+		{"copilot scoped rules only", "copilot", filepath.Join(".github", "copilot-instructions.md"), scoped},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			testutil.TempCwd(t)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\noutputs:\n  "+tc.target+":\n    rules-file: "+filepath.ToSlash(tc.path)+"\n")
+			if tc.rule != "" {
+				writeFile(t, filepath.Join(".agnostic-ai", "rules", "go-only.md"), tc.rule)
+			}
+			writeAgnosticFile(t, sharedInstructions)
+			writeFile(t, filepath.Join(defaultProjectUser, "AGNOSTIC_AI.md"), localInstructions)
+			if out, err := runCLI(t, "sync"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+
+			data, err := os.ReadFile(tc.path)
+			if err != nil {
+				t.Fatalf("%s not written: %v", tc.path, err)
+			}
+			if !strings.Contains(string(data), adapters.LocalStartMarker) || !strings.Contains(string(data), "Local line.") {
+				t.Errorf("%s: want the marked local block:\n%s", tc.path, data)
+			}
+			if strings.Contains(string(data), "Scoped line.") {
+				t.Errorf("%s: a scoped rule belongs in its own file:\n%s", tc.path, data)
+			}
+			if out, err := runCLI(t, "sync", "--check"); err != nil {
+				t.Errorf("sync --check after sync: %v\n%s", err, out)
+			}
+		})
+	}
+}

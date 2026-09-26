@@ -58,9 +58,20 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 	}
 	defer func() { _ = w.Close() }()
 
-	if err := addWatchPaths(w, watchDirs(root, cfg)); err != nil {
+	watched := watchDirs(root, cfg)
+	if err := addWatchPaths(w, watched); err != nil {
 		return err
 	}
+	// The project-user dir's parent, not recursively, so the dir raises
+	// an event when it is created mid-session. isParentNoise drops every
+	// other entry of that parent, sync's own writes included.
+	parent := projectUserParent(root)
+	if dirExists(parent) {
+		if err := w.Add(parent); err != nil {
+			return fmt.Errorf("watch %s: %w", parent, err)
+		}
+	}
+	inputs := parentInputNames(parent, watched)
 
 	printWatchBanner(len(w.WatchList()), "fsnotify")
 
@@ -84,18 +95,26 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 			if !ok {
 				return nil
 			}
-			if isIgnoredEvent(ev) {
+			if isIgnoredEvent(ev) || isParentNoise(parent, ev.Name, inputs) {
 				continue
 			}
 			// New directory under a watched root: add it so children
 			// emit events too. fsnotify is not recursive on its own. A
 			// bare directory carries no spec content, so it is not
-			// recorded as a change; the child file events attribute the
-			// re-sync.
+			// recorded as a change. Files written into it before the
+			// watch took hold raise no event of their own, so they are
+			// recorded here; later ones attribute the re-sync themselves.
 			if ev.Op&fsnotify.Create != 0 {
 				if info, err := os.Stat(ev.Name); err == nil && info.IsDir() {
 					_ = addWatchPaths(w, []string{ev.Name})
-					continue
+					files := sortedPaths(collectMtimes([]string{ev.Name}))
+					if len(files) == 0 {
+						continue
+					}
+					for _, f := range files {
+						changed[f] = struct{}{}
+					}
+					ev.Name = files[0]
 				}
 			}
 			lastEvent = ev.Name
@@ -125,7 +144,9 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 			// Pick up source roots that may have appeared (e.g. a
 			// hooks/ dir created mid-session) by re-reading config.
 			if newCfg, err := config.Load(root); err == nil {
-				_ = addWatchPaths(w, watchDirs(root, newCfg))
+				watched = watchDirs(root, newCfg)
+				_ = addWatchPaths(w, watched)
+				inputs = parentInputNames(parent, watched)
 			}
 		}
 	}
@@ -278,6 +299,45 @@ func addWatchPaths(w *fsnotify.Watcher, paths []string) error {
 	return nil
 }
 
+// projectUserParent returns the directory holding the project-user dir.
+// fsnotify mode watches it, not recursively, so the project-user dir is
+// seen when it is created after the watch starts.
+func projectUserParent(root string) string {
+	return filepath.Dir(filepath.Join(root, defaultProjectUser))
+}
+
+// parentInputNames returns the names of the watched paths that sit
+// directly in parent, the project-user dir among them even while it is
+// missing (watchDirs always lists it).
+func parentInputNames(parent string, watched []string) map[string]bool {
+	names := map[string]bool{}
+	for _, p := range watched {
+		if filepath.Dir(filepath.Clean(p)) == filepath.Clean(parent) {
+			names[filepath.Base(p)] = true
+		}
+	}
+	return names
+}
+
+// isParentNoise reports whether name is a direct child of parent that
+// sync does not read, such as a CLAUDE.md or .claude/ sync itself
+// writes. parent is watched only to see the project-user dir appear, so
+// reacting to these would re-sync on every sync.
+func isParentNoise(parent, name string, inputs map[string]bool) bool {
+	cp := filepath.Clean(name)
+	return filepath.Dir(cp) == filepath.Clean(parent) && !inputs[filepath.Base(cp)]
+}
+
+// sortedPaths returns the paths of an mtime snapshot, sorted.
+func sortedPaths(mtimes map[string]time.Time) []string {
+	out := make([]string, 0, len(mtimes))
+	for p := range mtimes {
+		out = append(out, filepath.Clean(p))
+	}
+	sort.Strings(out)
+	return out
+}
+
 // isIgnoredEvent filters out events that should never trigger a re-sync:
 // chmod-only events (editor "touch" on save) and writes to the .sync-state
 // file we own.
@@ -319,10 +379,10 @@ func watchDirs(root string, cfg *config.Config) []string {
 			paths = append(paths, filepath.Join(root, src))
 		}
 	}
-	pu := filepath.Join(root, defaultProjectUser)
-	if dirExists(pu) {
-		paths = append(paths, pu)
-	}
+	// Listed even before it exists: poll mode then sees its files
+	// appear, and fsnotify mode skips it until the parent watch reports
+	// its creation.
+	paths = append(paths, filepath.Join(root, defaultProjectUser))
 	overlay := filepath.Join(root, agnosticOverlayDir)
 	if dirExists(overlay) {
 		paths = append(paths, overlay)

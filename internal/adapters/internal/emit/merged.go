@@ -45,6 +45,9 @@ type MergedOpts struct {
 	// has no native skill execution; the intro should explain how to
 	// invoke them (typically: read the source file).
 	SkillsIntro string
+	// local is the project-local text appended last in its marked
+	// block. Set by EmitLegacyRulesFile only.
+	local string
 }
 
 // MergedDocument writes a single markdown file with rules, agents, and
@@ -53,9 +56,10 @@ type MergedOpts struct {
 //
 // Returns nil without writing when the bundle has no rules, agents, or
 // skills, so a fresh `init` followed by `sync` does not pollute the
-// project root with empty stub files.
+// project root with empty stub files. Local text alone still writes the
+// file: an entry point this document owns has no other writer.
 func (s *Session) MergedDocument(b spec.Bundle, opts MergedOpts, dryRun bool) error {
-	if len(b.Rules) == 0 && len(b.Agents) == 0 && len(b.Skills) == 0 {
+	if len(b.Rules) == 0 && len(b.Agents) == 0 && len(b.Skills) == 0 && strings.TrimSpace(opts.local) == "" {
 		return nil
 	}
 	if opts.RulesHeading == "" {
@@ -106,7 +110,7 @@ func (s *Session) MergedDocument(b spec.Bundle, opts MergedOpts, dryRun bool) er
 		}
 	}
 
-	return s.WriteFile(opts.OutFile, sb.String(), dryRun)
+	return s.WriteFile(opts.OutFile, AppendLocalInstructions(sb.String(), opts.local), dryRun)
 }
 
 // WriteSection writes a "### <heading>" block followed by source

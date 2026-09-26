@@ -616,3 +616,66 @@ func TestEmit_EntryPointAppendsProjectLocalInstructions(t *testing.T) {
 		t.Errorf("a claude-only fence leaked into junie:\n%s", got)
 	}
 }
+
+// writeFiles writes each path with its content, creating parent dirs.
+func writeFiles(t *testing.T, files map[string]string) {
+	t.Helper()
+	for path, content := range files {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// Junie cannot follow `@path` lines, so sync.resolve-imports applies to
+// .junie/AGENTS.md exactly as to the central entry points: in the shared
+// body and in the project-local block alike.
+func TestEmit_EntryPointAppliesResolveImports(t *testing.T) {
+	for _, tc := range []struct {
+		mode      string
+		wantText  bool
+		wantToken bool
+	}{
+		{emit.ImportModeInline, true, false},
+		{emit.ImportModeStrip, false, false},
+		{emit.ImportModePassthrough, false, true},
+	} {
+		t.Run(tc.mode, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			writeFiles(t, map[string]string{
+				emit.AgnosticEntryPointPath:        "Shared line.\n\n@docs/shared.md\n",
+				emit.ProjectLocalEntryPointPath:    "Local line.\n\n@docs/local.md\n",
+				filepath.Join("docs", "shared.md"): "Shared import text.\n",
+				filepath.Join("docs", "local.md"):  "Local import text.\n",
+			})
+
+			cfg := &config.Config{Sync: config.SyncConfig{ResolveImports: tc.mode}}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
+				t.Fatal(err)
+			}
+			got := readFile(t, filepath.Join(dir, defaultEntryFile))
+			for _, name := range []string{"Shared", "Local"} {
+				if strings.Contains(got, name+" import text.") != tc.wantText {
+					t.Errorf("%s import: want inlined text %v:\n%s", name, tc.wantText, got)
+				}
+				if strings.Contains(got, "@docs/"+strings.ToLower(name)+".md") != tc.wantToken {
+					t.Errorf("%s import: want literal @path %v:\n%s", name, tc.wantToken, got)
+				}
+			}
+		})
+	}
+}
+
+func TestEmit_EntryPointNamesTheLocalFileOnAMissingInlineImport(t *testing.T) {
+	testutil.TempCwd(t)
+	writeFiles(t, map[string]string{emit.ProjectLocalEntryPointPath: "@docs/missing.md\n"})
+
+	cfg := &config.Config{Sync: config.SyncConfig{ResolveImports: emit.ImportModeInline}}
+	err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false)
+	if err == nil || !strings.Contains(err.Error(), emit.ProjectLocalEntryPointPath) || !strings.Contains(err.Error(), "docs/missing.md") {
+		t.Errorf("want an error naming the local file and the missing import, got %v", err)
+	}
+}

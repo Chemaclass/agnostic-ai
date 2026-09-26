@@ -292,11 +292,11 @@ func emitEntryPoint(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if emit.InlinesRulesIntoEntryPoint(target) {
 		body = emit.AppendRulesAppendix(body, emit.RenderRulesAppendix(b))
 	}
-	local, err := emit.ReadLocalInstructions()
+	local, err := emit.LocalInstructionsView(cfg, []string{target})
 	if err != nil {
 		return err
 	}
-	body = emit.AppendLocalInstructions(body, spec.FilterFences(local, []string{target}))
+	body = emit.AppendLocalInstructions(body, local)
 	return sess.WriteFile(defaultEntryFile, emit.WithHeader(body, emit.FormatMarkdown), dryRun)
 }
 
@@ -311,11 +311,13 @@ func emitEntryPoint(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 // shared root AGENTS.md, which the central entry-point renderer already
 // fence-filters per its several readers), so the body is filtered here
 // for the single reader "junie": a ::target fence for another tool must
-// not leak its paragraph, or its marker lines, into this file.
+// not leak its paragraph, or its marker lines, into this file. Junie
+// cannot follow `@path` lines, so sync.resolve-imports applies here as
+// in every central entry point.
 func entryPointBody(cfg *config.Config) (string, error) {
 	data, err := os.ReadFile(emit.AgnosticEntryPointPath)
 	if err == nil {
-		return spec.FilterFences(emit.StripHeader(string(data)), []string{target}), nil
+		return emit.EntryPointView(cfg, []string{target}, emit.AgnosticEntryPointPath, emit.StripHeader(string(data)))
 	}
 	if !errors.Is(err, fs.ErrNotExist) {
 		return "", fmt.Errorf("%s: %w", emit.AgnosticEntryPointPath, err)
