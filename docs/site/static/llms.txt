@@ -37,7 +37,7 @@ stop duplicating prompt files per tool.
 - [Troubleshooting](https://agnostic-ai.org/docs/troubleshooting/): diagnose setup, sync, and CI problems.
 
 - [Getting started](https://agnostic-ai.org/docs/getting-started/): install, init, first sync.
-- [Why](https://agnostic-ai.org/docs/why/): trace an output file to its source specs.
+- [Trace generated files](https://agnostic-ai.org/docs/trace/): trace an output file to its source specs with `agnostic-ai why`.
 - [Spec format](https://agnostic-ai.org/docs/spec-format/): the frontmatter and body of every spec kind.
 - [Targets](https://agnostic-ai.org/docs/targets/): all 25 tools, their capability matrix, and the exact paths written per tool.
 - [AI tooling updates guide](https://agnostic-ai.org/docs/target-updates/): evidence rules, classifications, and the publishing workflow.

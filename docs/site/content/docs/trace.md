@@ -2,6 +2,7 @@
 title = "Trace generated files"
 description = "Trace a generated file back to the specs and adapter that produced it."
 weight = 90
+aliases = ["/docs/why/"]
 
 [extra]
 group = "Workflows"
