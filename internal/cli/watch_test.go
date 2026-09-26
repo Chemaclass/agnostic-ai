@@ -13,6 +13,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
@@ -229,10 +230,10 @@ func TestWatchDirs_IncludesOverlayDir(t *testing.T) {
 	}
 }
 
-// TestWatchDirs_OmitsOverlayDirWhenAbsent makes sure we do not register
-// a non-existent overlay dir (would surface as a setup error on some
-// platforms). Only watch when the directory has actually been created.
-func TestWatchDirs_OmitsOverlayDirWhenAbsent(t *testing.T) {
+// Every input is listed before it exists, so poll mode sees it appear and
+// fsnotify mode knows which new entry of a watched parent counts. A
+// missing path is skipped when the watcher registers it.
+func TestWatchDirs_ListsInputsBeforeTheyExist(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
 
@@ -240,10 +241,18 @@ func TestWatchDirs_OmitsOverlayDirWhenAbsent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := filepath.Join(".", agnosticOverlayDir)
-	for _, p := range watchDirs(".", cfg) {
-		if p == want {
-			t.Errorf("watchDirs should not list %s when it does not exist", want)
+	got := watchDirs(".", cfg)
+	for _, want := range []string{
+		agnosticOverlayDir,
+		"agnostic-ai.local.yaml",
+		"agnostic.config.yaml",
+		filepath.Join(".agnostic-ai", "commands"),
+	} {
+		if _, err := os.Stat(want); err == nil {
+			t.Fatalf("%s must not exist in the fixture", want)
+		}
+		if !slices.Contains(got, filepath.Join(".", want)) {
+			t.Errorf("watchDirs missing %s\ngot %v", want, got)
 		}
 	}
 }
@@ -765,10 +774,10 @@ func TestWatchSync_PollPicksUpLocalDirCreatedMidSession(t *testing.T) {
 	assertWatchPicksUpNewLocalInstructions(t, true)
 }
 
-// The project-user dir's parent is watched only to see that dir appear.
+// The parents of the inputs are watched only to see an input appear.
 // Anything else sync writes there must not count, or every sync would
 // trigger the next one.
-func TestIsParentNoise_KeepsOnlyWatchedInputs(t *testing.T) {
+func TestIsWatchNoise_KeepsOnlyWatchedInputs(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
 	cfg, _, err := loadProject(".")
@@ -776,23 +785,248 @@ func TestIsParentNoise_KeepsOnlyWatchedInputs(t *testing.T) {
 		t.Fatal(err)
 	}
 	watched := watchDirs(".", cfg)
-	parent := projectUserParent(".")
-	inputs := parentInputNames(parent, watched)
+	if err := os.WriteFile("CLAUDE.md", []byte("generated\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(".claude", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir("specs", 0o755); err != nil {
+		t.Fatal(err)
+	}
 
-	for name, want := range map[string]bool{
-		filepath.Join(parent, "GENERATED.md"):                    true,
-		filepath.Join(parent, ".generated"):                      true,
-		filepath.Join(".", defaultProjectUser):                   false,
-		filepath.Join(".", defaultProjectUser, "AGNOSTIC_AI.md"): false,
-		filepath.Join(parent, "nested", "file.md"):               false,
+	for _, tc := range []struct {
+		name string
+		op   fsnotify.Op
+		want bool
+	}{
+		{"CLAUDE.md", fsnotify.Write, true},
+		{".claude", fsnotify.Create, true},
+		{filepath.Join(".agnostic-ai", ".generated"), fsnotify.Create, true},
+		{filepath.Join(".agnostic-ai", "nested", "file.md"), fsnotify.Write, true},
+		{config.LocalOverrideFileName, fsnotify.Create, false},
+		{defaultProjectUser, fsnotify.Create, false},
+		{filepath.Join(defaultProjectUser, "AGNOSTIC_AI.md"), fsnotify.Write, false},
+		{filepath.Join(agnosticOverlayDir, codexOverlayFile), fsnotify.Write, false},
+		{".agnostic-ai", fsnotify.Write, true},
 	} {
-		if got := isParentNoise(parent, name, inputs); got != want {
-			t.Errorf("isParentNoise(%q) = %v, want %v", name, got, want)
+		if got := isWatchNoise(fsnotify.Event{Name: tc.name, Op: tc.op}, watched); got != tc.want {
+			t.Errorf("isWatchNoise(%s %q) = %v, want %v", tc.op, tc.name, got, tc.want)
 		}
 	}
 	for _, p := range watched {
-		if isParentNoise(parent, p, inputs) {
+		if isWatchNoise(fsnotify.Event{Name: p, Op: fsnotify.Write}, watched) {
 			t.Errorf("watched path %q must never be noise", p)
 		}
+	}
+}
+
+// A directory created on the way to a missing input counts only while it
+// leads to one, so the watch can arm it and see the input appear.
+func TestIsWatchNoise_KeepsDirectoryLeadingToMissingInput(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	writeTestFile(t, config.ConfigFileName, "version: 1\nsources:\n  rules: specs/team/rules\n")
+	cfg, _, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	watched := watchDirs(".", cfg)
+	if err := os.Mkdir("specs", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir("other", 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if isWatchNoise(fsnotify.Event{Name: "specs", Op: fsnotify.Create}, watched) {
+		t.Error("a created dir leading to a missing input must not be noise")
+	}
+	if !isWatchNoise(fsnotify.Event{Name: "other", Op: fsnotify.Create}, watched) {
+		t.Error("a created dir leading nowhere must be noise")
+	}
+	if !isWatchNoise(fsnotify.Event{Name: "specs", Op: fsnotify.Write}, watched) {
+		t.Error("only the creation of a leading dir counts")
+	}
+}
+
+func TestWatchAnchor_StopsAtNearestExistingDirInsideRoot(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	if err := os.MkdirAll(filepath.Join("a", "b"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		path, want string
+		ok         bool
+	}{
+		{filepath.Join("a", "b", "c", "d"), filepath.Join("a", "b"), true},
+		{filepath.Join("x", "y", "z"), ".", true},
+		{"agnostic-ai.yaml", ".", true},
+		{filepath.Join("..", "missing-sibling", "rules"), "", false},
+	} {
+		got, ok := watchAnchor(".", tc.path)
+		if got != tc.want || ok != tc.ok {
+			t.Errorf("watchAnchor(%q) = %q, %v; want %q, %v", tc.path, got, ok, tc.want, tc.ok)
+		}
+	}
+}
+
+// startWatch runs watchSync in the background, returns once the watcher
+// is armed, and hands back its output. The returned stop cancels the
+// watch and fails the test if it returned an error.
+func startWatch(t *testing.T, targets []string, forcePoll bool) (*safeBuffer, func()) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	buf := captureWatchOutput(t)
+	done := make(chan error, 1)
+	go func() {
+		done <- watchSync(ctx, 20*time.Millisecond, ".", targets, false, false, "off", forcePoll, 1)
+	}()
+	waitForOutput(t, buf, "watching", 10*time.Second)
+	return buf, func() {
+		t.Helper()
+		cancel()
+		if err := <-done; err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// waitForFileContaining blocks until path holds want, or fails.
+func waitForFileContaining(t *testing.T, path, want string, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	var got []byte
+	for time.Now().Before(deadline) {
+		got, _ = os.ReadFile(path)
+		if strings.Contains(string(got), want) {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %q in %s; got:\n%s", want, path, got)
+}
+
+func writeTestFile(t *testing.T, path, body string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// assertWatchPicksUpNewLocalOverride creates agnostic-ai.local.yaml after
+// the watch starts and waits for the full re-sync it must trigger.
+func assertWatchPicksUpNewLocalOverride(t *testing.T, forcePoll bool) {
+	t.Helper()
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	buf, stop := startWatch(t, []string{"claude"}, forcePoll)
+	defer stop()
+
+	writeTestFile(t, config.LocalOverrideFileName, "version: 1\n")
+	waitForOutput(t, buf, "change · "+config.LocalOverrideFileName, 5*time.Second)
+	waitForOutput(t, buf, "full re-sync", 5*time.Second)
+}
+
+func TestWatchSync_PicksUpLocalOverrideCreatedMidSession(t *testing.T) {
+	assertWatchPicksUpNewLocalOverride(t, false)
+}
+
+func TestWatchSync_PollPicksUpLocalOverrideCreatedMidSession(t *testing.T) {
+	assertWatchPicksUpNewLocalOverride(t, true)
+}
+
+// assertWatchPicksUpNewOverlayDir creates the overlay dir and a codex
+// overlay after the watch starts and waits for its key in the output.
+func assertWatchPicksUpNewOverlayDir(t *testing.T, forcePoll bool) {
+	t.Helper()
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	_, stop := startWatch(t, []string{"codex"}, forcePoll)
+	defer stop()
+
+	writeTestFile(t, filepath.Join(agnosticOverlayDir, codexOverlayFile), "model = \"o4-late\"\n")
+	waitForFileContaining(t, filepath.Join(dir, ".codex", "config.toml"), "o4-late", 5*time.Second)
+}
+
+func TestWatchSync_PicksUpOverlayDirCreatedMidSession(t *testing.T) {
+	assertWatchPicksUpNewOverlayDir(t, false)
+}
+
+func TestWatchSync_PollPicksUpOverlayDirCreatedMidSession(t *testing.T) {
+	assertWatchPicksUpNewOverlayDir(t, true)
+}
+
+// assertWatchPicksUpNewCommandsDir creates the commands source dir after
+// the watch starts. Commands are a source kind like any other.
+func assertWatchPicksUpNewCommandsDir(t *testing.T, forcePoll bool) {
+	t.Helper()
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	_, stop := startWatch(t, []string{"claude"}, forcePoll)
+	defer stop()
+
+	writeTestFile(t, filepath.Join(".agnostic-ai", "commands", "deploy.md"),
+		"---\nname: deploy\ndescription: deploy the app\n---\nrun deploy\n")
+	waitForFileContaining(t, filepath.Join(dir, ".claude", "commands", "deploy.md"), "run deploy", 5*time.Second)
+}
+
+func TestWatchSync_PicksUpCommandsDirCreatedMidSession(t *testing.T) {
+	assertWatchPicksUpNewCommandsDir(t, false)
+}
+
+func TestWatchSync_PollPicksUpCommandsDirCreatedMidSession(t *testing.T) {
+	assertWatchPicksUpNewCommandsDir(t, true)
+}
+
+// assertWatchPicksUpNestedSourceDir points a source at a path whose
+// parent is missing too, then creates the whole chain mid-session.
+func assertWatchPicksUpNestedSourceDir(t *testing.T, forcePoll bool) {
+	t.Helper()
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeTestFile(t, config.ConfigFileName, "version: 1\nsources:\n  rules: specs/team/rules\n")
+	_, stop := startWatch(t, []string{"claude"}, forcePoll)
+	defer stop()
+
+	writeTestFile(t, filepath.Join("specs", "team", "rules", "r2.md"), "---\nname: r2\n---\nlate rule body\n")
+	waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "r2.md"), "late rule body", 5*time.Second)
+}
+
+func TestWatchSync_PicksUpNestedSourceDirCreatedMidSession(t *testing.T) {
+	assertWatchPicksUpNestedSourceDir(t, false)
+}
+
+func TestWatchSync_PollPicksUpNestedSourceDirCreatedMidSession(t *testing.T) {
+	assertWatchPicksUpNestedSourceDir(t, true)
+}
+
+// Watching the project root to see new inputs appear must not turn the
+// files sync writes there into triggers, or every sync would start the
+// next one.
+func TestWatchSync_OwnWritesDoNotRetrigger(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeTestFile(t, config.ConfigFileName, "version: 1\ntargets: [claude]\n")
+	buf, stop := startWatch(t, nil, false)
+	defer stop()
+
+	// The override adds targets, so the re-sync writes new files at the
+	// root, right next to the inputs the root watch exists for.
+	writeTestFile(t, config.LocalOverrideFileName, "targets: [claude, codex, gemini]\n")
+	waitForFile(t, filepath.Join(dir, "AGENTS.md"), 5*time.Second)
+	waitForFile(t, filepath.Join(dir, "GEMINI.md"), 5*time.Second)
+	time.Sleep(600 * time.Millisecond)
+	if n := strings.Count(buf.String(), "] change · "); n != 1 {
+		t.Errorf("want exactly one re-sync, got %d:\n%s", n, buf.String())
 	}
 }
