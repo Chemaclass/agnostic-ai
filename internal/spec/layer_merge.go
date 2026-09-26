@@ -93,6 +93,11 @@ func expandParent(body, parent string) string {
 		return body
 	}
 	parent = strings.TrimRight(parent, "\n")
+	// A shared body may end inside an open ::target fence; close it so
+	// the local lines after ::parent still reach every target.
+	if strings.Contains(parent, targetFenceOpen) {
+		parent += "\n::end"
+	}
 	lines := strings.Split(body, "\n")
 	out := make([]string, 0, len(lines))
 	for _, line := range lines {

@@ -161,7 +161,7 @@ foo for
 bar baz
 ```
 
-`::parent` must start at column 0 and stand alone on its line, like the `::target` and `::end` fences. A `::parent` line in a local spec with a new name has nothing to extend, so sync drops it.
+`::parent` must start at column 0 and stand alone on its line, like the `::target` and `::end` fences. Keep it outside a `::target` fence: fences do not nest, so the shared body's own fences would end yours. A fence the shared body leaves open is closed after it, so your lines still reach every target. A `::parent` line in a local spec with a new name has nothing to extend, so sync drops it.
 
 ## Skill assets
 

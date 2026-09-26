@@ -3,6 +3,7 @@ package spec
 import (
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -201,5 +202,23 @@ func TestLoadLayered_LocalFileLocationDecidesTheScope(t *testing.T) {
 		if got := loadExtending(t, base, local).Rules[0].Scope; got != tc.want {
 			t.Errorf("shared %s, local %s: scope = %q, want %q", tc.shared, tc.local, got, tc.want)
 		}
+	}
+}
+
+// A shared body may end inside an open ::target fence. Text the local
+// spec adds after ::parent must still reach every target.
+func TestLoadLayered_ParentClosesAnOpenFenceBeforeLocalText(t *testing.T) {
+	t.Parallel()
+	base, local := t.TempDir(), t.TempDir()
+	mustWrite(t, filepath.Join(base, "rules", "style.md"), "---\nname: style\n---\nShared.\n::target claude\nClaude only.\n")
+	mustWrite(t, filepath.Join(local, "rules", "style.md"), "---\nname: style\n---\n::parent\nFor everyone.\n")
+
+	got := loadExtending(t, base, local).Rules[0]
+	codex := got.BodyFor("codex")
+	if !strings.Contains(codex, "For everyone.") || strings.Contains(codex, "Claude only.") {
+		t.Errorf("codex body = %q", codex)
+	}
+	if claude := got.BodyFor("claude"); !strings.Contains(claude, "Claude only.") || !strings.Contains(claude, "For everyone.") {
+		t.Errorf("claude body = %q", claude)
 	}
 }
