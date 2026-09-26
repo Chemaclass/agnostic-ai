@@ -104,14 +104,15 @@ func (Adapter) SkillSidecars(skill spec.Entry) map[string]string {
 	return skillSidecars(skill)
 }
 
-// SkillManualOnly reports whether the openai.yaml policy keeps Codex
-// from invoking the skill on its own. Codex reads no
-// disable-model-invocation key, so this policy is its only marker.
-func (Adapter) SkillManualOnly(skill spec.Entry) bool {
+// SkillInvocationPolicySet reports whether the spec sets Codex's own
+// invocation policy. Codex reads no disable-model-invocation key, so
+// that openai.yaml policy is its only marker; either value is the
+// author's explicit choice.
+func (Adapter) SkillInvocationPolicySet(skill spec.Entry) bool {
 	x, _ := skill.Meta["x-codex"].(map[string]any)
 	policy, _ := x["policy"].(map[string]any)
-	implicit, ok := policy["allow_implicit_invocation"].(bool)
-	return ok && !implicit
+	_, ok := policy["allow_implicit_invocation"].(bool)
+	return ok
 }
 
 func (Adapter) SkillManualOnlyField() string {

@@ -18,10 +18,12 @@ type SkillSidecarRenderer interface {
 }
 
 // ManualOnlySkillReader is implemented by adapters whose manual-only
-// marker lives outside SKILL.md frontmatter. SkillManualOnlyField names
-// that marker for the coverage note.
+// marker lives outside SKILL.md frontmatter. An explicit value of that
+// marker, either way, is the author's choice and silences the note, as
+// an explicit x-<target> field does on crush and factory.
+// SkillManualOnlyField names the marker for the coverage note.
 type ManualOnlySkillReader interface {
-	SkillManualOnly(skill spec.Entry) bool
+	SkillInvocationPolicySet(skill spec.Entry) bool
 	SkillManualOnlyField() string
 }
 
@@ -77,7 +79,7 @@ func NoteManualOnlySkillDrops(target string, skills []spec.Entry, shared bool) e
 		if manual, _ := emit.ResolveMeta(skill.Meta, target)["disable-model-invocation"].(bool); !manual {
 			continue
 		}
-		if hasReader && reader.SkillManualOnly(skill) {
+		if hasReader && reader.SkillInvocationPolicySet(skill) {
 			continue
 		}
 		rendered, err := RenderSkillMarkdown(target, skill, shared)

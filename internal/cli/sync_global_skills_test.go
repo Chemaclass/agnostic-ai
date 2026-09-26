@@ -164,3 +164,51 @@ func TestSyncGlobal_ReportsManualOnlySkillsThatStayModelInvocable(t *testing.T) 
 		t.Errorf("claude keeps the marker: %s", warnings)
 	}
 }
+
+func TestSyncGlobal_PartialSyncOfSharedSkillsKeepsCodexPolicy(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "skills", "gh-issues", "SKILL.md"), globalManualOnlySkill)
+	sidecar := filepath.Join(home, ".agents", "skills", "gh-issues", "agents", "openai.yaml")
+	for _, only := range []string{"codex,amp", "amp", "amp"} {
+		if _, _, err := runGlobalAgentTest("--only", only); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(sidecar); err != nil {
+			t.Fatalf("--only %s removed the codex policy: %v", only, err)
+		}
+	}
+	if _, _, err := runGlobalAgentTest("--only", "amp", "--check"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSyncGlobal_BundledOpenAIYAMLYieldsToCodexPolicy(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	folder := filepath.Join(source, "skills", "gh-issues")
+	mustWriteGlobalTest(t, filepath.Join(folder, "SKILL.md"), globalManualOnlySkill)
+	mustWriteGlobalTest(t, filepath.Join(folder, "agents", "openai.yaml"), "policy:\n  allow_implicit_invocation: true\n")
+	for _, only := range []string{"amp,codex", "codex,amp"} {
+		if _, _, err := runGlobalAgentTest("--only", only); err != nil {
+			t.Fatalf("--only %s: %v", only, err)
+		}
+		data, err := os.ReadFile(filepath.Join(home, ".agents", "skills", "gh-issues", "agents", "openai.yaml"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(data), "allow_implicit_invocation: false") {
+			t.Errorf("--only %s: bundled asset won over the spec policy: %s", only, data)
+		}
+	}
+}
+
+func TestSyncGlobal_ExplicitCodexInvocationPolicySilencesManualOnlyNote(t *testing.T) {
+	_, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "skills", "lint", "SKILL.md"), "---\nname: lint\ndescription: Lint.\ndisable-model-invocation: true\nx-codex:\n  policy:\n    allow_implicit_invocation: true\n---\nLint.\n")
+	_, warnings, err := runGlobalAgentTest("--only", "codex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(warnings, "disable-model-invocation") {
+		t.Errorf("explicit codex policy still noted: %s", warnings)
+	}
+}
