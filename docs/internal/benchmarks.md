@@ -99,7 +99,7 @@ slow run attributes to a specific adapter without a profile:
 ```
 → claude: 12 created, 3 updated, 0 unchanged in 42ms
 → codex: 40 created, 0 updated, 2 unchanged in 210ms
-✓ synced 2 targets · 55 files · 260ms
+✓ synced 2 targets · 52 created · 3 updated · 260ms
 ```
 
 Each per-target time is measured around that target's emit and reported

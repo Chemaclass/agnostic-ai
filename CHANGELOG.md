@@ -6,6 +6,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### Changed
+
+- `sync` ends with what it changed: the specs edited since the last sync, the files created, updated, and removed, and the changed files git still has to commit. A run with nothing to do says `up to date`.
+
 ### Site
 
 - The `why` command guide moves to `/docs/trace/` (the old URL redirects), and the footer "Why agnostic-ai" link now opens the case for the tool.

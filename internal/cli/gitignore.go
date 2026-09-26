@@ -365,23 +365,30 @@ func ensureManagedGitignore(root string) error {
 // home. The file is created if missing. An empty entries list removes
 // the block.
 func updateGitignore(root string, cfg *config.Config, entries []string) error {
-	path := ".gitignore"
+	_, _, err := writeGitignoreBlock(root, cfg, entries)
+	return err
+}
+
+// writeGitignoreBlock is updateGitignore that also returns the file's
+// project-relative path and whether its bytes changed.
+func writeGitignoreBlock(root string, cfg *config.Config, entries []string) (rel string, changed bool, err error) {
+	rel = ".gitignore"
 	if cfg.Gitignore.Path != "" {
-		path = cfg.Gitignore.Path
+		rel = cfg.Gitignore.Path
 	}
-	path = filepath.Join(root, path)
+	path := filepath.Join(root, rel)
 	existing, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("read %s: %w", path, err)
+		return rel, false, fmt.Errorf("read %s: %w", path, err)
 	}
 	updated := replaceManagedBlock(stripLooseFixedDuplicates(string(existing)), entries)
 	if updated == string(existing) {
-		return nil
+		return rel, false, nil
 	}
 	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
-		return fmt.Errorf("write %s: %w", path, err)
+		return rel, false, fmt.Errorf("write %s: %w", path, err)
 	}
-	return nil
+	return rel, true, nil
 }
 
 // replaceManagedBlock returns content with the agnostic-ai managed block
