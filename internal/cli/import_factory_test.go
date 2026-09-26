@@ -105,6 +105,44 @@ func TestImportFactory_DroidWithNativeOnlyToolsKeepsThemUnderXFactory(t *testing
 	}
 }
 
+// A `readonly: true` agent emits `tools: read-only` (#1162). That
+// category string has no portable spelling, so import keeps it under
+// x-factory.tools rather than guessing it means readonly: true back;
+// re-emitting the imported spec must still reach the same droid file,
+// since x-factory.tools wins outright over readonly on the way out.
+func TestImportFactory_ReadonlyDroidRoundTripsThroughXFactoryTools(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [factory]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "scout.md"),
+		"---\nname: scout\ndescription: Explores\nreadonly: true\n---\n\nLook around.\n")
+
+	execCLI(t, "sync", "-t", "factory")
+	first := snapshotEmitted(t, dir)
+	droidBefore := first[".factory/droids/scout.md"]
+	if !strings.Contains(droidBefore, "tools: read-only") {
+		t.Fatalf("first sync did not emit tools: read-only:\n%s", droidBefore)
+	}
+
+	if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai")); err != nil {
+		t.Fatalf("wipe source specs: %v", err)
+	}
+	execCLI(t, "import", "factory")
+
+	got := readFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "scout.md"))
+	if strings.Contains(got, "readonly:") {
+		t.Errorf("expected tools: read-only to stay under x-factory.tools, not readonly:true, got:\n%s", got)
+	}
+	if !strings.Contains(got, "x-factory:") || !strings.Contains(got, "tools: read-only") {
+		t.Errorf("expected tools: read-only to round-trip under x-factory:\n%s", got)
+	}
+
+	execCLI(t, "sync", "-t", "factory")
+	second := snapshotEmitted(t, dir)
+	assertEmittedEqual(t, first, second)
+}
+
 // Factory still loads the legacy `.factory/hooks/hooks.json` when the
 // current file is absent.
 func TestImportFactory_ReadsLegacyHooksFile(t *testing.T) {

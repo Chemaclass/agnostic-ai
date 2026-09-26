@@ -271,6 +271,156 @@ func TestEmit_Agent_XFactoryToolsCategoryStringPassesThrough(t *testing.T) {
 	}
 }
 
+// A portable `readonly: true` with no explicit tools maps to Factory's
+// own `read-only` category (docs.factory.ai/harness/subagents, "Tool
+// categories" table: `Read`, `LS`, `Grep`, `Glob`), the same way readonly
+// maps to Codex's `sandbox_mode = "read-only"` (#1149) and to Cursor's
+// own `readonly` field (#1152). No coverage note fires, since the field
+// now has a home.
+func TestEmit_Agent_ReadonlyEmitsToolsReadOnlyCategory(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "scout", Meta: map[string]any{"readonly": true}, Body: "body"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".factory/droids/scout.md"))
+	if !strings.Contains(got, "tools: read-only") {
+		t.Errorf("expected readonly: true to emit tools: read-only, got:\n%s", got)
+	}
+	if n := emit.PendingCoverageNotesCount(); n != 0 {
+		t.Errorf("expected no coverage note once readonly maps to tools: read-only, got %d", n)
+	}
+}
+
+// A droid gets MCP tools on top of `tools`, and an absent `mcpServers`
+// inherits every server, so `tools: read-only` alone is no read-only
+// boundary. readonly writes `mcpServers: []` unless the author listed
+// servers, which stays their explicit choice.
+func TestEmit_Agent_ReadonlyExcludesInheritedMCPServers(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		meta map[string]any
+		want string
+	}{
+		{"omitted", map[string]any{"readonly": true}, "mcpServers: []"},
+		{"listed", map[string]any{"readonly": true, "mcpServers": []any{"docs"}}, "- docs"},
+		{"x-factory listed", map[string]any{"readonly": true, "x-factory": map[string]any{"mcpServers": []any{"docs"}}}, "- docs"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			entries := []spec.Entry{{Kind: spec.KindAgent, Name: "scout", Meta: tc.meta, Body: "body"}}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			got := readFile(t, filepath.Join(dir, ".factory/droids/scout.md"))
+			if !strings.Contains(got, tc.want) {
+				t.Errorf("want %q in:\n%s", tc.want, got)
+			}
+		})
+	}
+}
+
+// `readonly: false` is the no-op direction: nothing about `tools` changes.
+func TestEmit_Agent_ReadonlyFalseEmitsNoTools(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+
+	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "scout", Meta: map[string]any{"readonly": false}, Body: "body"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".factory/droids/scout.md"))
+	if strings.Contains(got, "tools:") {
+		t.Errorf("expected readonly: false to emit no tools key, got:\n%s", got)
+	}
+	if n := emit.PendingCoverageNotesCount(); n != 0 {
+		t.Errorf("expected no coverage note for readonly: false, got %d", n)
+	}
+}
+
+// A portable `tools` list beside `readonly: true` is a contradiction: the
+// author asked for a specific allowlist and a coarse read-only intent at
+// once. Factory's `read-only` category never grants more than Read, LS,
+// Grep, Glob, so readonly wins outright over the list rather than
+// narrowing it, and the override surfaces one coverage note naming the
+// escape hatch.
+func TestEmit_Agent_ReadonlyOverridesPortableToolsListWithNote(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	buf := &strings.Builder{}
+	prevWarner := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = prevWarner })
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent, Name: "scout",
+			Meta: map[string]any{"readonly": true, "tools": []any{"Read", "Bash"}},
+			Body: "body",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".factory/droids/scout.md"))
+	if !strings.Contains(got, "tools: read-only") {
+		t.Errorf("expected readonly: true to win over the portable list, got:\n%s", got)
+	}
+	if strings.Contains(got, "Execute") {
+		t.Errorf("expected readonly: true to drop Execute from the list, got:\n%s", got)
+	}
+	emit.FlushCoverageNotes()
+	out := buf.String()
+	if !strings.Contains(out, "`tools` on 1 agent has no effect on factory") {
+		t.Errorf("expected a note naming the overridden agent, got: %s", out)
+	}
+	if !strings.Contains(out, "x-factory.tools") {
+		t.Errorf("expected the note to name the escape hatch, got: %s", out)
+	}
+}
+
+// x-factory.tools is the one channel trusted to already speak Factory's
+// own vocabulary, so it wins outright over readonly too, the same way it
+// wins outright over the generic tools list.
+func TestEmit_Agent_ReadonlyXFactoryToolsOverrideWinsOutright(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent, Name: "scout",
+			Meta: map[string]any{
+				"readonly":  true,
+				"x-factory": map[string]any{"tools": []any{"Execute"}},
+			},
+			Body: "body",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".factory/droids/scout.md"))
+	if !strings.Contains(got, "- Execute") {
+		t.Errorf("expected x-factory.tools to win over readonly, got:\n%s", got)
+	}
+	if strings.Contains(got, "read-only") {
+		t.Errorf("expected no read-only category once x-factory.tools overrides it, got:\n%s", got)
+	}
+	if n := emit.PendingCoverageNotesCount(); n != 0 {
+		t.Errorf("expected no coverage note once x-factory.tools rescues readonly, got %d", n)
+	}
+}
+
 // The translation table is the single place Factory's vocabulary lives;
 // a unit-level check pins the three renames and both drop rules without
 // going through a file write.
