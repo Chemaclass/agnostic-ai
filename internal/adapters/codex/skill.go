@@ -1,7 +1,9 @@
 package codex
 
 import (
+	"maps"
 	"path/filepath"
+	"slices"
 
 	"gopkg.in/yaml.v3"
 
@@ -43,12 +45,24 @@ func emitSkill(sess *emit.Session, s spec.Entry, skillsDir string, dryRun bool) 
 		return err
 	}
 
-	if yamlBody := openaiYAML(s); yamlBody != "" {
-		if err := sess.WriteFile(filepath.Join(folder, "agents", "openai.yaml"), emit.WithHeader(yamlBody, emit.FormatYAML), dryRun); err != nil {
+	sidecars := skillSidecars(s)
+	for _, rel := range slices.Sorted(maps.Keys(sidecars)) {
+		if err := sess.WriteFile(filepath.Join(folder, rel), sidecars[rel], dryRun); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// skillSidecars returns the files Codex reads beside SKILL.md, keyed by
+// path relative to the skill folder. Project and global sync both write
+// them, so a policy set once reaches Codex from either scope.
+func skillSidecars(s spec.Entry) map[string]string {
+	yamlBody := openaiYAML(s)
+	if yamlBody == "" {
+		return nil
+	}
+	return map[string]string{filepath.Join("agents", "openai.yaml"): emit.WithHeader(yamlBody, emit.FormatYAML)}
 }
 
 // skillMarkdown renders SKILL.md through the shared renderer, excluding
@@ -84,4 +98,22 @@ func openaiYAML(s spec.Entry) string {
 
 func (Adapter) SkillMarkdown(skill spec.Entry) string {
 	return skillMarkdown(skill)
+}
+
+func (Adapter) SkillSidecars(skill spec.Entry) map[string]string {
+	return skillSidecars(skill)
+}
+
+// SkillManualOnly reports whether the openai.yaml policy keeps Codex
+// from invoking the skill on its own. Codex reads no
+// disable-model-invocation key, so this policy is its only marker.
+func (Adapter) SkillManualOnly(skill spec.Entry) bool {
+	x, _ := skill.Meta["x-codex"].(map[string]any)
+	policy, _ := x["policy"].(map[string]any)
+	implicit, ok := policy["allow_implicit_invocation"].(bool)
+	return ok && !implicit
+}
+
+func (Adapter) SkillManualOnlyField() string {
+	return "x-codex.policy.allow_implicit_invocation: false"
 }

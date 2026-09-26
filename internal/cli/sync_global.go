@@ -506,6 +506,9 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		if g.skills != "" {
 			adapters.NoteDroppedSkillFields(target, b.Skills)
 			dir := g.path(home, g.skills)
+			if err := adapters.NoteManualOnlySkillDrops(target, b.Skills, sharedGlobalSkillsDir(home, dir)); err != nil {
+				return nil, next, err
+			}
 			for _, skill := range b.Skills {
 				if !skill.EmitsTo(target) {
 					continue
@@ -643,6 +646,17 @@ func addGlobalSkill(dst string, skill spec.Entry, target string, shared bool, ad
 	if err := add(filepath.Join(dst, "SKILL.md"), []byte(rendered), 0o644); err != nil {
 		return err
 	}
+	// Sidecars rendered from the spec win over a bundled asset at the
+	// same path, as in project sync.
+	sidecars, err := adapters.RenderSkillSidecars(target, skill)
+	if err != nil {
+		return err
+	}
+	for _, rel := range slices.Sorted(maps.Keys(sidecars)) {
+		if err := add(filepath.Join(dst, rel), []byte(sidecars[rel]), 0o644); err != nil {
+			return err
+		}
+	}
 	if filepath.Base(skill.Path) != "SKILL.md" {
 		return nil
 	}
@@ -657,6 +671,9 @@ func addGlobalSkill(dst string, skill spec.Entry, target string, shared bool, ad
 		rel, err := filepath.Rel(root, path)
 		if err != nil {
 			return err
+		}
+		if _, ok := sidecars[rel]; ok {
+			return nil
 		}
 		data, err := os.ReadFile(path)
 		if err != nil {
