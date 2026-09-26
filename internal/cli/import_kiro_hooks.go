@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -236,6 +237,12 @@ func readKiroHookAction(e *kiroHookEntry, action map[string]any, path, label str
 // writeKiroHookSpec renders one group as a single hook spec. Reports
 // false when the group duplicates a spec an earlier file already wrote.
 func writeKiroHookSpec(dstDir string, group []kiroHookEntry, used map[string]bool) (bool, error) {
+	group = slices.DeleteFunc(group, func(e kiroHookEntry) bool {
+		return e.command != "" && importLocal.dropsHookCommand("kiro", e.trigger, e.matcher, e.command)
+	})
+	if len(group) == 0 {
+		return false, nil
+	}
 	first := group[0]
 	var commands []string
 	for _, e := range group {

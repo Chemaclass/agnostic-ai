@@ -76,7 +76,6 @@ func (r *importRecorder) record(path string, data []byte) {
 // when the run ends (see localImportGuard).
 func importWriteFile(path string, data []byte, mode fs.FileMode) error {
 	if importLocal != nil && inImportSandbox(path) {
-		data = importLocal.stripLocalHandlers(path, data)
 		if err := importLocal.track(path, data, false); err != nil {
 			return err
 		}

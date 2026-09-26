@@ -197,7 +197,7 @@ In the global layer, `local/AGNOSTIC_AI.md` comes last in the managed instructio
 
 `agnostic-ai import` keeps local specs out of `.agnostic-ai/`. Sync writes them into the same native files import reads, such as a local rule inlined into `AGENTS.md` or a local agent in `.claude/agents/`. Import writes no shared file for a name the local layer declares, and a shared spec the local layer extends keeps its own content. The run lists the local specs it left out.
 
-Native hook settings drop the spec name, so import matches a hook by its event, matcher, and handler instead. A local handler that shares a native entry with a shared one is removed from the imported hook.
+Native hook settings drop the spec name, so import matches a hook by its event, matcher, and handler instead. A local handler that shares a native entry with a shared one is removed from the imported hook, and a hook script only local hooks run stays out of `.agnostic-ai/scripts/`.
 
 Settings, reviews, and environments merge into one native file per target. When the local layer holds a spec of one of these kinds, import leaves every shared spec of that kind as it was and says so.
 

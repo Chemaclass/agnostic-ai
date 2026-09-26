@@ -198,13 +198,12 @@ func captureClaudeHookEventOrder(root string, rawHooks json.RawMessage) error {
 			return nil
 		}
 		name, _ := key.(string)
-		if name != "" {
-			events = append(events, name)
-		}
-		// Skip the matcher-group value; we only care about key order.
-		var skip json.RawMessage
-		if err := dec.Decode(&skip); err != nil {
+		var groups json.RawMessage
+		if err := dec.Decode(&groups); err != nil {
 			return nil
+		}
+		if name != "" && !importLocal.feedsOnlyLocalHooks(name, groups) {
+			events = append(events, name)
 		}
 	}
 	if len(events) == 0 {

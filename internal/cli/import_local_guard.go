@@ -31,7 +31,9 @@ type localImportGuard struct {
 	names map[spec.Kind]map[string]bool
 	// hooks indexes the local hook specs by content, the only identity
 	// native hook settings keep.
-	hooks []localHook
+	hooks *localHooks
+	// hooksDir is the shared hooks directory, absolute, or "".
+	hooksDir string
 	// overlays maps an overlay file, absolute, to the kind whose specs
 	// sync renders into the native file the overlay captures.
 	overlays map[string]spec.Kind
@@ -132,6 +134,9 @@ func newLocalImportGuard(root string, cfg *config.Config) (*localImportGuard, er
 			return nil, fmt.Errorf("%s: %w", dir, err)
 		}
 		g.dirs[abs] = kind
+		if kind == spec.KindHook {
+			g.hooksDir = abs
+		}
 	}
 	// The Claude and Codex overlays capture the native settings file,
 	// model and permissions included.

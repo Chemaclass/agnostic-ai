@@ -320,3 +320,108 @@ func assertNoLocalContentShared(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// Importers fold the fields of every handler in a native group onto one
+// spec, so a local handler must leave before that, not after.
+func TestImport_SharedHookKeepsNoFieldOfALocalHandlerInItsGroup(t *testing.T) {
+	for _, source := range []string{"claude", "factory", "goose", "openhands", "trae", "windsurf", "kiro"} {
+		t.Run(source, func(t *testing.T) {
+			testutil.TempCwd(t)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+source+"]\n")
+			writeAgnosticFile(t, "# Shared\n")
+			writeFile(t, filepath.Join(".agnostic-ai", "hooks", "start.yaml"), "name: start\nevent: SessionStart\ncommand: echo shared-start\n")
+			local := filepath.FromSlash(defaultProjectUser)
+			writeFile(t, filepath.Join(local, "hooks", "zlocal.yaml"),
+				"name: zlocal\nevent: SessionStart\ncommand: echo local-start\ntimeout: 99\nasync: true\nshell: powershell\nstatusMessage: local-msg\n")
+			if out, err := runCLI(t, "sync"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+
+			out := importCapturing(t, source)
+
+			for name, data := range sharedHookFiles(t) {
+				if name == "start.yaml" {
+					continue
+				}
+				for _, field := range []string{"local-", "99", "async", "powershell"} {
+					if strings.Contains(data, field) {
+						t.Errorf("%s carries %q from the local handler:\n%s", name, field, data)
+					}
+				}
+			}
+			if !strings.Contains(out, "hook zlocal") {
+				t.Errorf("want the note to name the local hook:\n%s", out)
+			}
+		})
+	}
+}
+
+// Sync rewrites a hook script path to each target's hooks directory and
+// applies x-<target> overrides, so a local hook must still match there.
+func TestImport_MatchesLocalHooksAsEachTargetRendersThem(t *testing.T) {
+	cases := []struct {
+		source, hook string
+	}{
+		{"codex", "name: guard\nevent: PreToolUse\nmatcher: Bash\ncommand: bash .claude/hooks/local-guard.sh\n"},
+		{"gemini", "name: guard\nevent: BeforeTool\ncommand: [echo local-a, echo local-b]\nx-gemini:\n  matcher: run_shell_command\n"},
+		{"gemini", "name: guard\nevent: BeforeTool\ncommand: echo base\nx-gemini:\n  command: bash .codex/hooks/local-guard.sh\n"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.source, func(t *testing.T) {
+			testutil.TempCwd(t)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, "+tc.source+"]\n")
+			writeAgnosticFile(t, "# Shared\n")
+			writeFile(t, filepath.Join(defaultProjectUser, "hooks", "guard.yaml"), tc.hook)
+			if out, err := runCLI(t, "sync"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+
+			out := importCapturing(t, tc.source)
+
+			assertNoLocalContentShared(t)
+			if !strings.Contains(out, "hook guard") {
+				t.Errorf("want the note to name the local hook:\n%s", out)
+			}
+		})
+	}
+}
+
+// A hook script only local hooks run stays out of the scripts stash; a
+// script a shared hook runs is still captured.
+func TestImport_LeavesLocalHookScriptsOutOfTheSharedSource(t *testing.T) {
+	testutil.TempCwd(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeAgnosticFile(t, "# Shared\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "hooks", "lint.yaml"), "name: lint\nevent: PostToolUse\ncommand: bash .claude/hooks/lint.sh\n")
+	writeFile(t, filepath.Join(defaultProjectUser, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\nmatcher: Bash\ncommand: bash .claude/hooks/guard.sh\n")
+	writeFile(t, filepath.Join(".claude", "hooks", "guard.sh"), "echo local-secret\n")
+	writeFile(t, filepath.Join(".claude", "hooks", "lint.sh"), "echo lint\n")
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+
+	importCapturing(t, "claude")
+
+	assertNotExist(t, filepath.Join(".agnostic-ai", "scripts", "claude", "guard.sh"))
+	if _, err := os.Stat(filepath.Join(".agnostic-ai", "scripts", "claude", "lint.sh")); err != nil {
+		t.Errorf("shared hook script not captured: %v", err)
+	}
+	assertNoLocalContentShared(t)
+}
+
+func TestImport_HookEventOrderLeavesEventsOnlyLocalHooksFeed(t *testing.T) {
+	syncWithLocalHooks(t)
+
+	importCapturing(t, "claude")
+
+	data, err := os.ReadFile(filepath.Join(".agnostic-ai", "overlays", "claude.settings.hook-events.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "PreToolUse") {
+		t.Errorf("captured an event only a local hook feeds:\n%s", data)
+	}
+	if !strings.Contains(string(data), "SessionStart") {
+		t.Errorf("dropped the event a shared hook feeds:\n%s", data)
+	}
+}

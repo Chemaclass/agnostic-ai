@@ -61,7 +61,7 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 					count += n
 					continue
 				}
-				if h.Command == "" {
+				if h.Command == "" || importLocal.dropsHookCommand("claude", event, g.Matcher, h.Command) {
 					continue
 				}
 				cmds = append(cmds, h.Command)

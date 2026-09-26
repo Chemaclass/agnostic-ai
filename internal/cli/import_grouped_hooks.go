@@ -62,7 +62,7 @@ func writeGroupedHookSpec(dstDir, target, event, matcher string, entries []group
 		if h.Type != "" && h.Type != "command" {
 			continue
 		}
-		if h.Command == "" {
+		if h.Command == "" || importLocal.dropsHookCommand(target, event, matcher, h.Command) {
 			continue
 		}
 		commands = append(commands, h.Command)

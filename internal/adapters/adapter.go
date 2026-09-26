@@ -95,6 +95,16 @@ func SetWarner(w io.Writer) { emit.Warner = w }
 // printing. Used by tests and by `sync --watch` before each new pass.
 func ResetCapabilityWarnings() { emit.ResetCapabilityWarnings() }
 
+// ResolveMeta re-exports emit.ResolveMeta: a spec's meta as target sees
+// it, with its `x-<target>` keys flattened on top.
+func ResolveMeta(meta map[string]any, target string) map[string]any {
+	return emit.ResolveMeta(meta, target)
+}
+
+// RewriteHookPath re-exports emit.RewriteHookPath, which points a hook
+// command at target's own hooks directory.
+func RewriteHookPath(cmd, target string) string { return emit.RewriteHookPath(cmd, target) }
+
 // FlushCapabilityWarnings prints any buffered capability warnings,
 // grouped by kind, then clears the buffer. Call once at the end of a
 // sync pass.
