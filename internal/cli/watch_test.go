@@ -1123,45 +1123,64 @@ func TestWatchSync_OwnWritesDoNotRetrigger(t *testing.T) {
 }
 
 // A source tree moved away and recreated must not keep the watches of
-// the moved directories, or edits in the new tree raise no event.
-//
-// The test recreates the tree only once the watch has seen the move: kqueue
-// diffs a directory listing, so a move and a recreate inside one diff
-// leave the name in place and raise no event for it.
-func TestWatchSync_WatchesSourceTreeRecreatedAfterRename(t *testing.T) {
+// the moved directories, or edits in the new tree raise no event. A move
+// and a recreate inside one kqueue diff raise no event for the moved
+// name, so the watch must also notice the stale directories on the next
+// directory it sees created.
+func TestWatchSync_WatchesSourceTreeMovedAndRecreatedInOneStep(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("windows cannot rename a directory while it is watched")
 	}
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
 	silence(t)
-	moved := make(chan struct{}, 1)
-	prev := watchEventSeen
-	watchEventSeen = func(ev fsnotify.Event) {
-		if ev.Name == ".agnostic-ai" && ev.Op&(fsnotify.Rename|fsnotify.Remove) != 0 {
-			select {
-			case moved <- struct{}{}:
-			default:
-			}
-		}
-	}
-	t.Cleanup(func() { watchEventSeen = prev })
 	_, stop := startWatch(t, []string{"claude"}, false)
 	defer stop()
 
 	if err := os.Rename(".agnostic-ai", "moved"); err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case <-moved:
-	case <-time.After(5 * time.Second):
-		t.Fatal("timed out waiting for the watch to see .agnostic-ai move")
-	}
 	writeTestFile(t, filepath.Join(".agnostic-ai", "rules", "r2.md"), "---\nname: r2\n---\nback rule body\n")
 	waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "r2.md"), "back rule body", 5*time.Second)
 
 	writeTestFile(t, filepath.Join(".agnostic-ai", "rules", "r3.md"), "---\nname: r3\n---\nlater rule body\n")
 	waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "r3.md"), "later rule body", 5*time.Second)
+}
+
+func TestDropStaleWatches_FindsADirRecreatedUnderItsName(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("windows cannot rename a directory while it is watched")
+	}
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	rules := filepath.Join(".agnostic-ai", "rules")
+	if err := os.MkdirAll(rules, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	w, err := fsnotify.NewWatcher()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = w.Close() }()
+	if err := armWatches(w, ".", []string{rules}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Rename(".agnostic-ai", "moved"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(rules, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if stale := dropStaleWatches(w); !slices.Contains(stale, rules) {
+		t.Errorf("stale = %v; want it to hold %s", stale, rules)
+	}
+	if err := armWatches(w, ".", []string{rules}); err != nil {
+		t.Fatal(err)
+	}
+	if stale := dropStaleWatches(w); len(stale) != 0 {
+		t.Errorf("after re-arming, stale = %v; want none", stale)
+	}
 }
 
 // A directory removed before its watch is added is no lost watch: the
