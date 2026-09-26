@@ -57,8 +57,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: scripts/vendor-watch.sh publish "$RUNNER_TEMP/watch/docfetch.tsv" "$RUNNER_TEMP/known-pages"
 
+      # Only after a successful publish: a page recorded but never reported
+      # would stay quiet on the next run.
       - name: Record fetched pages
-        if: always()
         env:
           DOCFETCH_SNAPSHOTS: ${{ runner.temp }}/snapshots
         run: |

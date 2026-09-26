@@ -223,3 +223,13 @@ function test_report_tags_each_page_with_its_delta_label() {
   assert_contains '- new: https://cursor.com/docs/rules (`mentions:.cursor/rules`)' "$out"
   assert_contains '- failed (HTTP 404): https://zed.dev/docs/ai/mcp' "$out"
 }
+
+# A page recorded after a failed publish would never be reported: the
+# record step must run only when publishing succeeded.
+function test_workflow_records_pages_only_after_a_successful_publish() {
+  local step
+  step=$(awk '/- name: Record fetched pages/ { on = 1 } on && /^      - name: / && !/Record fetched pages/ { exit } on' \
+    "$SCRIPT_DIR/../.github/workflows/vendor-watch.yml")
+  assert_contains "vendor_watch_record" "$step"
+  assert_not_contains "if:" "$step"
+}
