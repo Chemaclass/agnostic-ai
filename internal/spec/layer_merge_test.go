@@ -136,14 +136,18 @@ func TestLoadLayered_LocalSkillKeepsSharedAssetsUnlessItShipsItsOwn(t *testing.T
 	mustWrite(t, filepath.Join(base, "skills", "lint", "check.sh"), "echo shared\n")
 	mustWrite(t, filepath.Join(local, "skills", "lint", "SKILL.md"), "---\nname: lint\ndescription: Mine\n---\n")
 
-	if got := loadExtending(t, base, local).Skills[0].Path; got != baseSkill {
-		t.Errorf("path = %q, want the shared folder for its assets", got)
+	localSkill := filepath.Join(local, "skills", "lint", "SKILL.md")
+	got := loadExtending(t, base, local).Skills[0]
+	if got.Path != localSkill {
+		t.Errorf("path = %q, want the local file the author edits", got.Path)
+	}
+	if got.SkillAssetDir() != filepath.Dir(baseSkill) {
+		t.Errorf("asset dir = %q, want the shared folder", got.SkillAssetDir())
 	}
 
-	localSkill := filepath.Join(local, "skills", "lint", "SKILL.md")
 	mustWrite(t, filepath.Join(local, "skills", "lint", "check.sh"), "echo mine\n")
-	if got := loadExtending(t, base, local).Skills[0].Path; got != localSkill {
-		t.Errorf("path = %q, want the local folder once it ships assets", got)
+	if got := loadExtending(t, base, local).Skills[0].SkillAssetDir(); got != filepath.Dir(localSkill) {
+		t.Errorf("asset dir = %q, want the local folder once it ships assets", got)
 	}
 }
 

@@ -118,3 +118,31 @@ func TestSync_ProjectLocalLayerOverridesAFieldAndExtendsTheBody(t *testing.T) {
 		t.Errorf("shared model or marker leaked:\n%s", got)
 	}
 }
+
+// A local skill that only edits fields keeps the shared folder's assets,
+// while the local file stays the spec's identity for path-based commands.
+func TestSync_LocalSkillEditingFieldsShipsSharedAssetsAndKeepsItsPath(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "lint", "SKILL.md"), "---\nname: lint\ndescription: Shared lint\n---\nRun check.sh.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "lint", "check.sh"), "echo shared\n")
+	local := filepath.Join(defaultProjectUser, "skills", "lint", "SKILL.md")
+	writeFile(t, filepath.Join(dir, local), "---\nname: lint\ndescription: My lint\n---\n")
+
+	execCLI(t, "sync")
+
+	if got := readFile(t, filepath.Join(dir, ".claude", "skills", "lint", "check.sh")); got != "echo shared\n" {
+		t.Errorf("shared asset not shipped: %q", got)
+	}
+	got := readFile(t, filepath.Join(dir, ".claude", "skills", "lint", "SKILL.md"))
+	if !strings.Contains(got, "description: My lint") || !strings.Contains(got, "Run check.sh.") {
+		t.Errorf("SKILL.md is not the merged spec:\n%s", got)
+	}
+
+	out := captureStdout(t, func() { execCLI(t, "render", local, "--target", "claude") })
+	if !strings.Contains(out, "My lint") {
+		t.Errorf("render of the local file did not load the merged spec:\n%s", out)
+	}
+}

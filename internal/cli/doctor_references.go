@@ -140,8 +140,8 @@ func skillSourceFor(emitted string, skills []spec.Entry) string {
 				continue
 			}
 			rel := strings.Join(segs[i+1:], "/")
-			if rel != "" && filepath.Base(sk.Path) == "SKILL.md" {
-				candidate := filepath.Join(filepath.Dir(sk.Path), filepath.FromSlash(rel))
+			if dir := sk.SkillAssetDir(); rel != "" && dir != "" {
+				candidate := filepath.Join(dir, filepath.FromSlash(rel))
 				if _, err := os.Stat(candidate); err == nil {
 					return filepath.ToSlash(candidate)
 				}

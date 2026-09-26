@@ -77,6 +77,22 @@ type Entry struct {
 	// style was the YAML default (PlainStyle, value 0).
 	MetaStyles map[string]yaml.Style
 	Body       string
+	// AssetDir is the skill folder whose assets ship when it is not the
+	// one holding Path: a local skill that only edits fields keeps the
+	// shared folder's assets. Read it through SkillAssetDir.
+	AssetDir string
+}
+
+// SkillAssetDir returns the folder whose sibling files ship with a skill,
+// or "" for a flat-file or in-memory skill.
+func (e Entry) SkillAssetDir() string {
+	if e.AssetDir != "" {
+		return e.AssetDir
+	}
+	if e.Path != "" && filepath.Base(e.Path) == "SKILL.md" {
+		return filepath.Dir(e.Path)
+	}
+	return ""
 }
 
 // Description returns the entry's description from frontmatter, or "" if
