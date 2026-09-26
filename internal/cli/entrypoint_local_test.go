@@ -105,7 +105,12 @@ func TestImport_KeepsProjectLocalInstructionsOutOfSharedSpecs(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// The local layer is the source of that text; only the shared specs
+	// must stay free of it.
 	err := filepath.WalkDir(".agnostic-ai", func(path string, d fs.DirEntry, err error) error {
+		if err == nil && d.IsDir() && path == filepath.FromSlash(defaultProjectUser) {
+			return filepath.SkipDir
+		}
 		if err != nil || d.IsDir() {
 			return err
 		}

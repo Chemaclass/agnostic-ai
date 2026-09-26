@@ -282,7 +282,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 // source comment + optional description + body) every other inlining
 // target's entry-point carries. Agents no longer inline here (#604);
 // they emit natively via emitAgents instead. The project-local
-// instructions (.agnostic-ai.local/AGNOSTIC_AI.md) follow last, as in
+// instructions (.agnostic-ai/local/AGNOSTIC_AI.md) follow last, as in
 // every entry point the central renderer writes.
 func emitEntryPoint(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	body, err := entryPointBody(cfg)

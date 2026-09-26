@@ -15,7 +15,9 @@ const (
 	layerNameProject     = "project"
 	layerNameProjectUser = "project-user"
 
-	defaultProjectUser = ".agnostic-ai.local"
+	// defaultProjectUser sits inside the source dir, the same shape as the
+	// global `~/.agnostic-ai/local/`.
+	defaultProjectUser = config.SourceBaseDir + "/local"
 )
 
 // defaultLayerSources is the fixed source layout used by the project-user
@@ -60,7 +62,7 @@ func resolveProjectLayer(projectRoot string, cfg *config.Config) spec.Layer {
 }
 
 // resolveProjectUserLayer returns the project-user layer when
-// `<projectRoot>/.agnostic-ai.local` exists.
+// `<projectRoot>/.agnostic-ai/local` exists.
 func resolveProjectUserLayer(projectRoot string) (spec.Layer, bool) {
 	pu := filepath.Join(projectRoot, defaultProjectUser)
 	if !dirExists(pu) {

@@ -136,7 +136,7 @@ func TestScaffold_GitignoreContainsLocalOverrideAndSyncState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read .gitignore: %v", err)
 	}
-	for _, want := range []string{"agnostic-ai.local.yaml", ".agnostic-ai/.sync-state", ".agnostic-ai.local/"} {
+	for _, want := range []string{"agnostic-ai.local.yaml", ".agnostic-ai/.sync-state", ".agnostic-ai/local/"} {
 		if !strings.Contains(string(got), want+"\n") {
 			t.Errorf("missing %q in .gitignore:\n%s", want, got)
 		}

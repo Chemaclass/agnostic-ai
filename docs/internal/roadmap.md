@@ -10,7 +10,7 @@ Project layers, low to high precedence:
 
 - **packs**: shared defaults installed into the project.
 - **project** (`agnostic-ai.yaml` `sources`): checked-in specs.
-- **project-user** (`<project>/.agnostic-ai.local/`, gitignored): per-developer overrides.
+- **project-user** (`<project>/.agnostic-ai/local/`, gitignored): per-developer overrides.
 
 Native global configuration (`$AGNOSTIC_AI_HOME` or `~/.agnostic-ai/`) is a separate source for `sync --global` and does not participate in project layering.
 

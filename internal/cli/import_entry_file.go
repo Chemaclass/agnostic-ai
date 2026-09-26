@@ -19,7 +19,7 @@ var importAllSkippedEntryFiles map[string]bool
 //
 // The project-local instructions block sync appends to entry points is
 // dropped here, before any importer mirrors or slices the file, so the
-// git-ignored `.agnostic-ai.local/AGNOSTIC_AI.md` text never lands in
+// git-ignored `.agnostic-ai/local/AGNOSTIC_AI.md` text never lands in
 // the committed sources.
 func readEntryFile(root, path string) ([]byte, error) {
 	if importAllSkippedEntryFiles == nil || regularFileInside(root, path) {

@@ -110,7 +110,7 @@ func NewRootCmd(version string) *cobra.Command {
 }
 
 // loadProject loads config and project-scoped specs. Packs have lower
-// precedence than project specs, while .agnostic-ai.local has higher
+// precedence than project specs, while .agnostic-ai/local has higher
 // precedence. User-level specs are installed only by sync --global.
 func loadProject(root string) (*config.Config, spec.Bundle, error) {
 	cfg, sources, err := config.LoadWithSources(root)

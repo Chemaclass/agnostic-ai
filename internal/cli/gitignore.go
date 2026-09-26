@@ -23,7 +23,7 @@ const (
 // fixedManagedEntries are the always-ignored agnostic-ai paths that are
 // not discovered from sync output: the local-override config, the sync
 // state file, the installed-packs dir, and the project-local spec
-// layer (`.agnostic-ai.local/`). They live inside the managed
+// layer (`.agnostic-ai/local/`). They live inside the managed
 // block (not as loose lines) so one block owns every agnostic-ai
 // gitignore entry: anchored, deduplicated, and refreshed on each write.
 //

@@ -15,28 +15,27 @@ There are two local layers:
 
 | Layer | Root | Loaded by | Inspect with |
 |---|---|---|---|
-| `project-user` | `<project>/.agnostic-ai.local/` | `agnostic-ai sync` in that project | `agnostic-ai list` |
+| `project-user` | `<project>/.agnostic-ai/local/` | `agnostic-ai sync` in that project | `agnostic-ai list` |
 | `global-local` | `~/.agnostic-ai/local/` (or `$AGNOSTIC_AI_HOME/local/`) | `agnostic-ai sync --global` | `agnostic-ai list --global` |
 
 A layer loads only when its directory exists. The two never mix: project sync ignores `~/.agnostic-ai/`, and global sync ignores every project.
 
 ## Layout
 
-The project layer mirrors `.agnostic-ai/` with fixed directory names:
+Both layers have the same shape: a `local/` folder inside the source directory, mirroring it.
 
 ```text
-my-project/
-├── .agnostic-ai/                  # committed
-│   ├── AGNOSTIC_AI.md
-│   ├── rules/testing.md
-│   └── skills/review/SKILL.md
-└── .agnostic-ai.local/            # ignored
+my-project/.agnostic-ai/
+├── AGNOSTIC_AI.md                 # shared, committed
+├── rules/testing.md
+├── skills/review/SKILL.md
+└── local/                         # yours: ignored, still synced
     ├── AGNOSTIC_AI.md             # extends the shared instructions
     ├── rules/scratch-notes.md     # new name: appends
     └── skills/review/SKILL.md     # same name: replaces the shared skill
 ```
 
-It reads every spec kind: `agents/`, `skills/`, `rules/`, `hooks/`, `mcps/`, `commands/`, `settings/`, `reviews/`, `environments/`, and `ignore/`. Custom `sources` paths in `agnostic-ai.yaml` apply to `.agnostic-ai/` only.
+It reads every spec kind: `agents/`, `skills/`, `rules/`, `hooks/`, `mcps/`, `commands/`, `settings/`, `reviews/`, `environments/`, and `ignore/`. The folder stays at `.agnostic-ai/local/` even when custom `sources` paths in `agnostic-ai.yaml` move the shared specs.
 
 The global layer reads `AGNOSTIC_AI.md`, `agents/`, `skills/`, `rules/`, and `hooks/`. See [global configuration](@/docs/configuration.md#global-configuration).
 
@@ -46,14 +45,14 @@ A local spec with the same kind and name as a shared one replaces the whole entr
 
 ```text
 .agnostic-ai/skills/review/SKILL.md         # shared
-.agnostic-ai.local/skills/review/SKILL.md   # wins on this machine
+.agnostic-ai/local/skills/review/SKILL.md   # wins on this machine
 ```
 
 A local spec with a new name appends to the shared set. Every target receives it like any other spec.
 
 ## Extend the instructions
 
-`.agnostic-ai.local/AGNOSTIC_AI.md` extends `.agnostic-ai/AGNOSTIC_AI.md`. Sync appends its text to every entry-point file it writes (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, and the rest), after the shared body and any inlined rules:
+`.agnostic-ai/local/AGNOSTIC_AI.md` extends `.agnostic-ai/AGNOSTIC_AI.md`. Sync appends its text to every entry-point file it writes (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, and the rest), after the shared body and any inlined rules:
 
 ```md
 <!-- agnostic-ai:local:start -->
@@ -72,7 +71,7 @@ In the global layer, `local/AGNOSTIC_AI.md` comes last in the managed instructio
 
 ## Stay out of Git
 
-`init` and `sync` keep `/.agnostic-ai.local/` in the managed `.gitignore` block, next to `/agnostic-ai.local.yaml`. Nothing to add by hand. See [gitignore](@/docs/configuration.md#gitignore).
+`init` and `sync` keep `/.agnostic-ai/local/` in the managed `.gitignore` block, next to `/agnostic-ai.local.yaml`. Nothing to add by hand. See [gitignore](@/docs/configuration.md#gitignore).
 
 For the global layer, add this line to `~/.agnostic-ai/.gitignore` when that home is a Git repository:
 
@@ -97,4 +96,4 @@ rule    scratch-notes    project-user
 
 ## Watch
 
-`sync --watch` watches `.agnostic-ai.local/`. An edit to a local spec or to `.agnostic-ai.local/AGNOSTIC_AI.md` triggers a full re-sync. See [`sync --watch`](@/docs/cli-reference.md#sync).
+`sync --watch` watches `.agnostic-ai/local/`. An edit to a local spec or to `.agnostic-ai/local/AGNOSTIC_AI.md` triggers a full re-sync. See [`sync --watch`](@/docs/cli-reference.md#sync).
