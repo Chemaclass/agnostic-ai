@@ -9,6 +9,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### Changed
 
 - `sync` ends with what it changed: the specs edited since the last sync, the files created, updated, and removed, and the changed files git still has to commit. A run with nothing to do says `up to date`.
+- Warnings and notes repeated from the previous sync collapse into one line, and `sync -v` shows them again. The old hint said to delete `.agnostic-ai/.sync-state`, which also dropped the record the orphan sweep relies on.
 
 ### Site
 

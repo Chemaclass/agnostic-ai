@@ -81,3 +81,24 @@ func TestSync_DroppedSummary_SilentWhenDisabled(t *testing.T) {
 		t.Errorf("summary must stay silent when the flag is off, got:\n%s", buf.String())
 	}
 }
+
+// With warnings but no coverage notes, the empty notes buffer must not
+// count as a change, or the summary repeats on every sync.
+func TestSync_DroppedSummary_SilentWhenUnchanged(t *testing.T) {
+	dir := setupDroppedFixture(t, true)
+	testutil.Chdir(t, dir)
+	silence(t)
+	buf := captureLog(t)
+	if err := runSync(t); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	buf.Reset()
+
+	if err := runSync(t); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+
+	if strings.Contains(buf.String(), "dropped summary") {
+		t.Errorf("an unchanged summary re-printed:\n%s", buf.String())
+	}
+}

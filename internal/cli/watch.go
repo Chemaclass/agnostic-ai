@@ -36,6 +36,10 @@ func watchSync(ctx context.Context, pollInterval time.Duration, root string, tar
 	if err := runSyncOnce(root, targets, dryRun, backup, gitignoreFlag, jobs); err != nil {
 		return err
 	}
+	// -v showed every warning on the first pass; each save after it
+	// reports only what changed.
+	showRepeatedDrops = false
+	defer func() { showRepeatedDrops = true }()
 	reconcile := false
 	if !forcePoll {
 		err := watchSyncFsnotify(ctx, root, targets, dryRun, backup, gitignoreFlag, jobs)
