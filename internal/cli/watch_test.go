@@ -16,6 +16,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -875,6 +876,36 @@ func TestWatchAnchor_StopsAtNearestExistingDirInsideRoot(t *testing.T) {
 	}
 }
 
+// An input created between the two registration phases gets its
+// parent's watch too late to report it, so it must be watched itself.
+func TestArmWatches_WatchesAnInputCreatedWhileArming(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	if err := os.MkdirAll(filepath.Join("specs", "team"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	rules := filepath.Join("specs", "team", "rules")
+	prev := armPause
+	armPause = func() {
+		if err := os.MkdirAll(rules, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Cleanup(func() { armPause = prev })
+	w, err := fsnotify.NewWatcher()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = w.Close() }()
+
+	if err := armWatches(w, ".", []string{rules}); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.ContainsFunc(w.WatchList(), func(p string) bool { return filepath.Clean(p) == rules }) {
+		t.Errorf("want %s watched, got %v", rules, w.WatchList())
+	}
+}
+
 // A source beside the project must not put the folder holding the
 // project, such as the home directory, under watch.
 func TestWatchAnchor_NeverAnchorsOnAnAncestorOfRoot(t *testing.T) {
@@ -1008,6 +1039,41 @@ func TestWatchSync_PicksUpCommandsDirCreatedMidSession(t *testing.T) {
 
 func TestWatchSync_PollPicksUpCommandsDirCreatedMidSession(t *testing.T) {
 	assertWatchPicksUpNewCommandsDir(t, true)
+}
+
+// assertWatchPicksUpSharedInstructionsEdit edits AGNOSTIC_AI.md after the
+// watch starts and waits for the entry point to carry the new body.
+func assertWatchPicksUpSharedInstructionsEdit(t *testing.T, forcePoll bool) {
+	t.Helper()
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	_, stop := startWatch(t, []string{"claude"}, forcePoll)
+	defer stop()
+
+	writeTestFile(t, adapters.AgnosticEntryPointPath, "# Project\n\nedited shared instructions\n")
+	waitForFileContaining(t, filepath.Join(dir, "CLAUDE.md"), "edited shared instructions", 5*time.Second)
+}
+
+func TestWatchSync_PicksUpSharedInstructionsEdit(t *testing.T) {
+	assertWatchPicksUpSharedInstructionsEdit(t, false)
+}
+
+func TestWatchSync_PollPicksUpSharedInstructionsEdit(t *testing.T) {
+	assertWatchPicksUpSharedInstructionsEdit(t, true)
+}
+
+func TestWatchError_OverflowEndsTheSessionAsALostWatch(t *testing.T) {
+	silence(t)
+	if err := watchError(fsnotify.ErrEventOverflow); !errors.Is(err, errWatchLost) {
+		t.Errorf("overflow: got %v, want errWatchLost", err)
+	}
+	if err := watchError(errors.New("Windows system assumed buffer larger than it is, events have likely been missed")); !errors.Is(err, errWatchLost) {
+		t.Errorf("windows missed events: got %v, want errWatchLost", err)
+	}
+	if err := watchError(errors.New("read failed")); err != nil {
+		t.Errorf("other error: got %v, want the session kept", err)
+	}
 }
 
 // assertWatchPicksUpNestedSourceDir points a source at a path whose
