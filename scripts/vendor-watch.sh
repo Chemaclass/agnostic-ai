@@ -49,7 +49,9 @@ VENDOR_WATCH_SEEN_FILE="seen-pages.tsv"
 vendor_watch_seen() {
   [ -r "$1/$VENDOR_WATCH_SEEN_FILE" ] || return 0
   while IFS=$'\t' read -r url sha; do
-    [ -n "$sha" ] && [ -f "$1/$sha.txt" ] && printf '%s\t%s\n' "$url" "$sha"
+    if [ -n "$sha" ] && [ -f "$1/$sha.txt" ]; then
+      printf '%s\t%s\n' "$url" "$sha"
+    fi
   done <"$1/$VENDOR_WATCH_SEEN_FILE" | sort -u
 }
 
@@ -62,7 +64,9 @@ vendor_watch_record() {
     vendor_watch_seen "$2"
     awk -F '\t' '$8 != "failed" && $6 != "" && $6 != "-" { print $3 "\t" $6 }' "$1" |
       while IFS=$'\t' read -r url sha; do
-        [ -f "$2/$sha.txt" ] && printf '%s\t%s\n' "$url" "$sha"
+        if [ -f "$2/$sha.txt" ]; then
+          printf '%s\t%s\n' "$url" "$sha"
+        fi
       done
   } | sort -u >"$tmp"
   mkdir -p "$2"

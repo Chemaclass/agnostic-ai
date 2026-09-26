@@ -109,6 +109,21 @@ function test_record_keeps_each_fetched_page_while_its_snapshot_lives() {
   assert_empty "$(vendor_watch_seen "$FIXTURES/missing")"
 }
 
+# The workflow runs these under set -e: a pruned last pair must not fail it.
+function test_seen_and_record_succeed_when_the_last_pair_lost_its_snapshot() {
+  mkdir -p "$FIXTURES/snapshots"
+  : >"$FIXTURES/snapshots/aaa.txt"
+  printf 'https://kiro.dev/docs/steering/\taaa\nhttps://gone.example/page\tzzz\n' >"$FIXTURES/snapshots/seen-pages.tsv"
+  local status=0
+  (set -euo pipefail; vendor_watch_seen "$FIXTURES/snapshots" >/dev/null) || status=$?
+  assert_equals 0 "$status"
+  status=0
+  row kiro https://gone.example/page yyy changed >"$FIXTURES/pruned.tsv"
+  (set -euo pipefail; vendor_watch_record "$FIXTURES/pruned.tsv" "$FIXTURES/snapshots") || status=$?
+  assert_equals 0 "$status"
+  assert_equals "$(printf 'https://kiro.dev/docs/steering/\taaa')" "$(vendor_watch_seen "$FIXTURES/snapshots")"
+}
+
 function test_keys_pair_each_moved_url_with_its_hash() {
   local keys
   keys=$(vendor_watch_keys "$(run_tsv)")
