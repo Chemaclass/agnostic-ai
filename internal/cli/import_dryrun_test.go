@@ -150,14 +150,15 @@ func TestImport_DryRunDoesNotWritePermissionsSpec(t *testing.T) {
 }
 
 // Every importer write must pass through importWriteFile, or dry-run
-// writes it to disk and the diff preview cannot attribute it.
+// writes it to disk and the diff preview cannot attribute it. The local
+// guard only puts back files importWriteFile wrote, inside the sandbox.
 func TestImporters_WriteOnlyThroughImportWriteFile(t *testing.T) {
 	files, err := filepath.Glob("import*.go")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, f := range files {
-		if strings.HasSuffix(f, "_test.go") || f == "import_write.go" || f == "import_preview.go" {
+		if strings.HasSuffix(f, "_test.go") || f == "import_write.go" || f == "import_preview.go" || f == "import_local_guard.go" {
 			continue
 		}
 		data, err := os.ReadFile(f)

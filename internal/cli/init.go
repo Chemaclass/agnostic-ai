@@ -119,7 +119,9 @@ func newInitCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("load config after init: %w", err)
 			}
-			return runImport(".", fromCLI, cfg)
+			return withLocalImportGuard(".", cfg, func() error {
+				return runImport(".", fromCLI, cfg)
+			})
 		},
 	}
 	cmd.Flags().BoolVar(&demo, "demo", false,

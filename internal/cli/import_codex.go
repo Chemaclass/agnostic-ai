@@ -408,6 +408,9 @@ func importCodexRulesFile(root, dstDir string, opts importCodexOpts) (int, error
 
 func writeCodexRule(dstDir, name, description, globs, body string) error {
 	path := filepath.Join(dstDir, name+".md")
+	if importLocal.leaves(path) {
+		return nil
+	}
 
 	// A claude-imported rule already at this slug owns the canonical
 	// content; emit a one-line skip notice and keep the existing spec
