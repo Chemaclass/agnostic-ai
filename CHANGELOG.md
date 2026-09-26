@@ -11,6 +11,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `sync` ends with what it changed: the specs edited since the last sync, the files created, updated, and removed, and the changed files git still has to commit. A run with nothing to do says `up to date`.
 - Warnings and notes repeated from the previous sync collapse into one line, and `sync -v` shows them again. The old hint said to delete `.agnostic-ai/.sync-state`, which also dropped the record the orphan sweep relies on.
 
+### Fixed
+
+- `sync -t <name>` with a mistyped target failed only with a warning and reported the run up to date, also under `--check`. It now exits non-zero, and target errors suggest the closest name: `unknown target: claud (did you mean claude? no agnostic-ai-adapter-claud on PATH)`.
+
 ### Site
 
 - The `why` command guide moves to `/docs/trace/` (the old URL redirects), and the footer "Why agnostic-ai" link now opens the case for the tool.

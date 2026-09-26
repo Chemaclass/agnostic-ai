@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 )
 
@@ -71,6 +72,15 @@ func newSyncCmd() *cobra.Command {
 			cfg, _, err := loadProject(".")
 			if err != nil {
 				return err
+			}
+			// A config target may name an external adapter a teammate has
+			// not installed, so emit only warns about it. A name typed on
+			// the command line is a request, and a typo must not pass as
+			// "up to date".
+			for _, t := range targets {
+				if _, err := adapters.Resolve(t); err != nil {
+					return err
+				}
 			}
 			base := targets
 			if len(base) == 0 {

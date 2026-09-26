@@ -159,8 +159,9 @@ func TestSyncJSON_UnknownTargetRecordsError(t *testing.T) {
 	silence(t)
 
 	const bogus = "definitely-not-a-real-target"
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, "+bogus+"]\n")
 	root := NewRootCmd("test")
-	root.SetArgs([]string{"sync", "-t", "claude," + bogus, "--json"})
+	root.SetArgs([]string{"sync", "--json"})
 	out := &bytes.Buffer{}
 	root.SetOut(out)
 	if err := root.Execute(); err != nil {

@@ -278,3 +278,22 @@ func TestBlockingRemovals_KeepsOnlyParentsOfMissingFiles(t *testing.T) {
 		t.Errorf("blockingRemovals = %+v, want only .clinerules", got)
 	}
 }
+
+func TestSync_MistypedTargetFlagFailsBeforeWriting(t *testing.T) {
+	for _, args := range [][]string{{"sync", "-t", "claud"}, {"sync", "-t", "claud", "--check"}} {
+		dir := setupFixture(t)
+		testutil.Chdir(t, dir)
+		silence(t)
+
+		root := NewRootCmd("test")
+		root.SetArgs(args)
+		err := root.Execute()
+
+		if err == nil || !strings.Contains(err.Error(), "did you mean claude?") {
+			t.Errorf("%v: want a typo error, got %v", args, err)
+		}
+		if _, statErr := os.Stat(filepath.Join(dir, ".agnostic-ai", ".sync-state")); statErr == nil {
+			t.Errorf("%v: sync wrote state despite the typo", args)
+		}
+	}
+}

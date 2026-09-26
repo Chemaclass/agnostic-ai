@@ -1,7 +1,10 @@
 package cli
 
 import (
+	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestFilterTargets_NoFilter(t *testing.T) {
@@ -66,5 +69,41 @@ func TestFilterTargets_ExceptAll(t *testing.T) {
 	}
 	if len(got) != 0 {
 		t.Errorf("expected empty result, got %v", got)
+	}
+}
+
+func TestFilterTargets_TypoSuggestsConfiguredTarget(t *testing.T) {
+	_, err := filterTargets([]string{"claude", "cursor"}, []string{"cursr"}, nil)
+
+	if err == nil || !strings.Contains(err.Error(), "did you mean cursor?") {
+		t.Errorf("want a suggestion, got %v", err)
+	}
+}
+
+func TestFilterTargets_KnownAdapterOutsideRunNamesTheRunTargets(t *testing.T) {
+	_, err := filterTargets([]string{"claude"}, []string{"codex"}, nil)
+
+	if err == nil || !strings.HasSuffix(err.Error(), "codex is not in this run's targets (claude)") {
+		t.Errorf("got %v", err)
+	}
+}
+
+func TestFilterTargets_EmptyRunOmitsTheList(t *testing.T) {
+	_, err := filterTargets(nil, []string{"codex"}, nil)
+
+	if err == nil || !strings.HasSuffix(err.Error(), "codex is not in this run's targets") {
+		t.Errorf("got %v", err)
+	}
+}
+
+func TestSyncGlobal_MistypedTargetSuggestsClosestName(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	silence(t)
+
+	err := runSync(t, "--global", "-t", "claud")
+
+	if err == nil || !strings.Contains(err.Error(), "did you mean claude?") {
+		t.Errorf("got %v", err)
 	}
 }

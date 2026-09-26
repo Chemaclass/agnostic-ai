@@ -521,6 +521,11 @@ func Resolve(name string) (Adapter, error) {
 		return a, nil
 	}
 	if errors.Is(err, exec.ErrNotFound) {
+		if s := SuggestName(name, Names()); s != "" {
+			return nil, errs.Coded(errs.CodeSyncTargetUnknown,
+				"unknown target: %s (did you mean %s? no %s%s on PATH)",
+				name, s, external.BinaryPrefix, name)
+		}
 		return nil, errs.Coded(errs.CodeSyncTargetUnknown,
 			"unknown target: %s (no built-in adapter and no %s%s on PATH)",
 			name, external.BinaryPrefix, name)

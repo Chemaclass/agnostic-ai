@@ -59,7 +59,7 @@ var registry = map[Code]Entry{
 		Code:  CodeSyncTargetUnknown,
 		Title: "Unknown sync target",
 		Cause: "A target requested via `--target`, `--only`, or the config is not a built-in adapter and no `agnostic-ai-adapter-<name>` binary is on PATH.",
-		Fix:   "Check the target name spelling. Built-ins: claude, codex, gemini, cursor, copilot, aider, cline, windsurf, continue, amp, zed, warp, opencode, antigravity. External adapters live on PATH as `agnostic-ai-adapter-<name>`.",
+		Fix:   "Use the name the error suggests, or pick one from https://agnostic-ai.org/docs/targets/. External adapters live on PATH as `agnostic-ai-adapter-<name>`.",
 	},
 	CodeFlagConflict: {
 		Code:  CodeFlagConflict,
