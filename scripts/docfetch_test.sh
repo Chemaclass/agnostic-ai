@@ -611,6 +611,13 @@ function test_lock_merge_honours_a_target_filter() {
   assert_not_contains "https://z.example/1" "$(cat "$LOCK")"
 }
 
+function test_lock_merge_keeps_the_locked_hash_when_a_row_failed() {
+  write_lock "https://a.example/1" "old"
+  printf 'claude\tdocs\thttps://a.example/1\t401\treader-proxy\t-\t2026-09-26\tfailed\thttps://r.jina.ai/https://a.example/1\t\n' >"$FIXTURES/run.tsv"
+  lock_merge "$FIXTURES/run.tsv"
+  assert_contains "https://a.example/1	200	html	old" "$(cat "$LOCK")"
+}
+
 function test_lock_merge_sorts_by_target() {
   {
     run_row zed https://z.example/1 zzz 2026-09-22
