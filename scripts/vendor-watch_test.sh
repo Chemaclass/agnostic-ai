@@ -84,6 +84,31 @@ function test_report_names_a_page_again_when_its_hash_moves_again() {
   assert_contains "https://kiro.dev/docs/steering/" "$(vendor_watch_report "$FIXTURES/next.tsv" "$FIXTURES/seen")"
 }
 
+function test_report_skips_a_changed_page_whose_text_the_runner_fetched_before() {
+  printf 'https://kiro.dev/docs/steering/\taaa\nhttps://cursor.com/docs/rules\tccc\n' >"$FIXTURES/known"
+  local out
+  out=$(vendor_watch_report "$(run_tsv)" /dev/null "$FIXTURES/known")
+  assert_not_contains "https://kiro.dev/docs/steering/" "$out"
+  assert_contains "- new: https://cursor.com/docs/rules" "$out"
+  assert_contains "- failed (HTTP 404): https://zed.dev/docs/ai/mcp" "$out"
+}
+
+function test_report_names_a_page_that_now_serves_text_seen_only_on_another_url() {
+  printf 'https://other.example/page\taaa\n' >"$FIXTURES/known"
+  assert_contains "https://kiro.dev/docs/steering/" "$(vendor_watch_report "$(run_tsv)" /dev/null "$FIXTURES/known")"
+}
+
+function test_record_keeps_each_fetched_page_while_its_snapshot_lives() {
+  mkdir -p "$FIXTURES/snapshots"
+  : >"$FIXTURES/snapshots/aaa.txt"
+  : >"$FIXTURES/snapshots/bbb.txt"
+  printf 'https://gone.example/page\tzzz\n' >"$FIXTURES/snapshots/seen-pages.tsv"
+  vendor_watch_record "$(run_tsv)" "$FIXTURES/snapshots"
+  assert_equals "$(printf 'https://kiro.dev/docs/hooks/\tbbb\nhttps://kiro.dev/docs/steering/\taaa')" \
+    "$(vendor_watch_seen "$FIXTURES/snapshots")"
+  assert_empty "$(vendor_watch_seen "$FIXTURES/missing")"
+}
+
 function test_keys_pair_each_moved_url_with_its_hash() {
   local keys
   keys=$(vendor_watch_keys "$(run_tsv)")
@@ -161,6 +186,22 @@ $(vendor_watch_marker "$(vendor_watch_keys "$tsv")")"
   assert_not_contains "issue edit" "$(cat "$GH_CALLS")"
 }
 
+function test_publish_stays_quiet_when_every_changed_text_was_fetched_before() {
+  row kiro https://kiro.dev/docs/steering/ aaa changed >"$FIXTURES/flap.tsv"
+  printf 'https://kiro.dev/docs/steering/\taaa\n' >"$FIXTURES/known"
+  vendor_watch_publish "$FIXTURES/flap.tsv" "$FIXTURES/known" >/dev/null
+  assert_not_contains "issue create" "$(cat "$GH_CALLS")"
+}
+
+function test_publish_leaves_a_known_page_out_of_the_reported_marker() {
+  local tsv
+  tsv=$(run_tsv)
+  printf 'https://kiro.dev/docs/steering/\taaa\n' >"$FIXTURES/known"
+  vendor_watch_publish "$tsv" "$FIXTURES/known" >/dev/null
+  assert_contains "https://cursor.com/docs/rules" "$(cat "$GH_CALLS")"
+  assert_not_contains "https://kiro.dev/docs/steering/" "$(cat "$GH_CALLS")"
+}
+
 function test_publish_does_nothing_on_a_quiet_run() {
   row kiro https://kiro.dev/docs/hooks/ bbb unchanged >"$FIXTURES/quiet.tsv"
   vendor_watch_publish "$FIXTURES/quiet.tsv" >/dev/null
@@ -190,4 +231,14 @@ function test_report_tags_each_page_with_its_delta_label() {
   assert_contains '- changed: https://kiro.dev/docs/steering/ (`chrome-only`)' "$out"
   assert_contains '- new: https://cursor.com/docs/rules (`mentions:.cursor/rules`)' "$out"
   assert_contains '- failed (HTTP 404): https://zed.dev/docs/ai/mcp' "$out"
+}
+
+# A page recorded after a failed publish would never be reported: the
+# record step must run only when publishing succeeded.
+function test_workflow_records_pages_only_after_a_successful_publish() {
+  local step
+  step=$(awk '/- name: Record fetched pages/ { on = 1 } on && /^      - name: / && !/Record fetched pages/ { exit } on' \
+    "$SCRIPT_DIR/../.github/workflows/vendor-watch.yml")
+  assert_contains "vendor_watch_record" "$step"
+  assert_not_contains "if:" "$step"
 }

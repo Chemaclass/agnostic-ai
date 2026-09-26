@@ -13,9 +13,14 @@
 # the keys it has reported in a hidden marker, so a page that stays changed
 # is reported once, and again only when its text moves a second time.
 #
+# A changed page whose URL already served that exact text on an earlier run
+# is not news: a stale CDN copy or a proxy alternating between renders would
+# otherwise report daily (#1167). The runner keeps those URL and hash pairs
+# beside its snapshots, for as long as each snapshot lives.
+#
 # Usage:
-#   scripts/vendor-watch.sh report <docfetch.tsv> [seen-keys-file]
-#   scripts/vendor-watch.sh publish <docfetch.tsv>
+#   scripts/vendor-watch.sh report <docfetch.tsv> [seen-keys-file] [known-pages-file]
+#   scripts/vendor-watch.sh publish <docfetch.tsv> [known-pages-file]
 #
 # Portable: bash + awk + sort + the gh CLI. No GNU-only flags.
 
@@ -25,18 +30,49 @@ VENDOR_WATCH_LABEL="vendor-watch"
 VENDOR_WATCH_TITLE="Vendor docs changed since the last target audit"
 VENDOR_WATCH_MARKER="<!-- vendor-watch:keys"
 
-# vendor_watch_keys <tsv> prints one "<url>\t<hash>" key per moved row. A
-# failed row has no hash, so its key carries the HTTP code instead.
+# vendor_watch_keys <tsv> [known-pages-file] prints one "<url>\t<hash>" key
+# per moved row the report names, leaving out a changed row whose pair is
+# known. A failed row has no hash, so its key carries the HTTP code instead.
 vendor_watch_keys() {
-  awk -F '\t' '
+  awk -F '\t' -v known="${2:-/dev/null}" '
+    BEGIN { while ((getline line < known) > 0) fetched[line] = 1 }
+    $8 == "changed" && (($3 "\t" $6) in fetched) { next }
     $8 == "new" || $8 == "changed" { print $3 "\t" $6 }
     $8 == "failed" { print $3 "\tfailed-" $4 }
   ' "$1" | sort -u
 }
 
-# vendor_watch_report <tsv> <seen-keys-file> prints the Markdown report of
-# moved rows whose key is not in the seen file, grouped by target. It prints
-# nothing when every moved row was already reported.
+VENDOR_WATCH_SEEN_FILE="seen-pages.tsv"
+
+# vendor_watch_seen <snapshot dir> prints each "<url>\t<hash>" pair the runner
+# fetched on an earlier run and still holds the snapshot for.
+vendor_watch_seen() {
+  [ -r "$1/$VENDOR_WATCH_SEEN_FILE" ] || return 0
+  while IFS=$'\t' read -r url sha; do
+    [ -n "$sha" ] && [ -f "$1/$sha.txt" ] && printf '%s\t%s\n' "$url" "$sha"
+  done <"$1/$VENDOR_WATCH_SEEN_FILE" | sort -u
+}
+
+# vendor_watch_record <tsv> <snapshot dir> adds the run's fetched pages to the
+# seen pairs, dropping pairs whose snapshot was pruned.
+vendor_watch_record() {
+  local tmp
+  tmp=$(mktemp)
+  {
+    vendor_watch_seen "$2"
+    awk -F '\t' '$8 != "failed" && $6 != "" && $6 != "-" { print $3 "\t" $6 }' "$1" |
+      while IFS=$'\t' read -r url sha; do
+        [ -f "$2/$sha.txt" ] && printf '%s\t%s\n' "$url" "$sha"
+      done
+  } | sort -u >"$tmp"
+  mkdir -p "$2"
+  mv "$tmp" "$2/$VENDOR_WATCH_SEEN_FILE"
+}
+
+# vendor_watch_report <tsv> <seen-keys-file> [known-pages-file] prints the
+# Markdown report of moved rows whose key is not in the seen file and, for a
+# changed row, whose URL and hash are not a known pair, grouped by target. It
+# prints nothing when every moved row was already reported.
 # When the run left a deltas.tsv beside it, each moved page also carries
 # its delta label (mentions:<paths>, prose, chrome-only, ...), so the reader
 # can tell a config change from page chrome before spending an audit.
@@ -44,9 +80,10 @@ vendor_watch_report() {
   local deltas
   deltas="$(dirname "$1")/deltas.tsv"
   [ -r "$deltas" ] || deltas=/dev/null
-  awk -F '\t' -v seen="$2" -v deltas="$deltas" '
+  awk -F '\t' -v seen="$2" -v known="${3:-/dev/null}" -v deltas="$deltas" '
     BEGIN {
       while ((getline line < seen) > 0) done[line] = 1
+      while ((getline line < known) > 0) fetched[line] = 1
       while ((getline line < deltas) > 0) {
         split(line, d, "\t")
         if (d[3] != "" && d[4] != "") tag[d[3]] = d[4]
@@ -56,6 +93,7 @@ vendor_watch_report() {
     {
       key = $3 "\t" ($8 == "failed" ? "failed-" $4 : $6)
       if (key in done) next
+      if ($8 == "changed" && (($3 "\t" $6) in fetched)) next
       label = ($8 == "failed") ? "failed (HTTP " $4 ")" : $8
       if (!($1 in rows)) order[++n] = $1
       rows[$1] = rows[$1] "- " label ": " $3 (($3 in tag) ? " (`" tag[$3] "`)" : "") "\n"
@@ -93,7 +131,7 @@ vendor_watch_marker_keys() {
 # vendor_watch_publish <tsv> opens the rolling issue, or comments on the open
 # one with only the pages it has not reported yet and refreshes its marker.
 vendor_watch_publish() {
-  local tsv="$1" number body="" seen="" report keys
+  local tsv="$1" known="${2:-/dev/null}" number body="" seen="" report keys
   number=$(gh issue list --label "$VENDOR_WATCH_LABEL" --state open \
     --json number --jq '.[0].number // empty')
   if [ -n "$number" ]; then
@@ -101,12 +139,12 @@ vendor_watch_publish() {
     seen=$(printf '%s\n' "$body" | vendor_watch_marker_keys)
   fi
 
-  report=$(vendor_watch_report "$tsv" <(printf '%s\n' "$seen"))
+  report=$(vendor_watch_report "$tsv" <(printf '%s\n' "$seen") "$known")
   if [ -z "$report" ]; then
     echo "vendor-watch: nothing new to report"
     return 0
   fi
-  keys=$(printf '%s\n%s\n' "$seen" "$(vendor_watch_keys "$tsv")" | grep . | sort -u)
+  keys=$(printf '%s\n%s\n' "$seen" "$(vendor_watch_keys "$tsv" "$known")" | grep . | sort -u)
 
   if [ -z "$number" ]; then
     gh label create "$VENDOR_WATCH_LABEL" --color c5def5 \
@@ -130,8 +168,8 @@ vendor_watch_main() {
   case "$cmd" in
     report | publish) ;;
     *)
-      echo "Usage: scripts/vendor-watch.sh report <docfetch.tsv> [seen-keys-file]" >&2
-      echo "       scripts/vendor-watch.sh publish <docfetch.tsv>" >&2
+      echo "Usage: scripts/vendor-watch.sh report <docfetch.tsv> [seen-keys-file] [known-pages-file]" >&2
+      echo "       scripts/vendor-watch.sh publish <docfetch.tsv> [known-pages-file]" >&2
       return 1
       ;;
   esac
@@ -140,8 +178,8 @@ vendor_watch_main() {
     return 1
   fi
   case "$cmd" in
-    report) vendor_watch_report "$1" "${2:-/dev/null}" ;;
-    publish) vendor_watch_publish "$1" ;;
+    report) vendor_watch_report "$1" "${2:-/dev/null}" "${3:-/dev/null}" ;;
+    publish) vendor_watch_publish "$1" "${2:-/dev/null}" ;;
   esac
 }
 

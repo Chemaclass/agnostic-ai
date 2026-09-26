@@ -39,6 +39,13 @@ jobs:
           key: docfetch-snapshots-${{ github.run_id }}
           restore-keys: docfetch-snapshots-
 
+      # A changed page whose URL served that exact text on an earlier run is
+      # a stale copy or an alternating render, not news (#1167).
+      - name: List known pages
+        env:
+          DOCFETCH_SNAPSHOTS: ${{ runner.temp }}/snapshots
+        run: bash -c 'source scripts/vendor-watch.sh && vendor_watch_seen "$DOCFETCH_SNAPSHOTS"' >"$RUNNER_TEMP/known-pages"
+
       - name: Fetch vendor pages
         env:
           GH_TOKEN: ${{ github.token }}
@@ -48,7 +55,16 @@ jobs:
       - name: Publish moved pages
         env:
           GH_TOKEN: ${{ github.token }}
-        run: scripts/vendor-watch.sh publish "$RUNNER_TEMP/watch/docfetch.tsv"
+        run: scripts/vendor-watch.sh publish "$RUNNER_TEMP/watch/docfetch.tsv" "$RUNNER_TEMP/known-pages"
+
+      # Only after a successful publish: a page recorded but never reported
+      # would stay quiet on the next run.
+      - name: Record fetched pages
+        env:
+          DOCFETCH_SNAPSHOTS: ${{ runner.temp }}/snapshots
+        run: |
+          [ -r "$RUNNER_TEMP/watch/docfetch.tsv" ] || exit 0
+          bash -c 'source scripts/vendor-watch.sh && vendor_watch_record "$RUNNER_TEMP/watch/docfetch.tsv" "$DOCFETCH_SNAPSHOTS"'
 
       # Drop what the lock does not name after 30 days, then keep the rest.
       # mkdir: a fetch that died early still leaves a path for the cache step.
