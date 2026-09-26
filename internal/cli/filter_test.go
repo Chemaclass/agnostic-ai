@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -66,5 +67,21 @@ func TestFilterTargets_ExceptAll(t *testing.T) {
 	}
 	if len(got) != 0 {
 		t.Errorf("expected empty result, got %v", got)
+	}
+}
+
+func TestFilterTargets_TypoSuggestsConfiguredTarget(t *testing.T) {
+	_, err := filterTargets([]string{"claude", "cursor"}, []string{"cursr"}, nil)
+
+	if err == nil || !strings.Contains(err.Error(), "did you mean cursor?") {
+		t.Errorf("want a suggestion, got %v", err)
+	}
+}
+
+func TestFilterTargets_KnownAdapterOutsideRunSaysHowToAddIt(t *testing.T) {
+	_, err := filterTargets([]string{"claude"}, []string{"codex"}, nil)
+
+	if err == nil || !strings.Contains(err.Error(), "codex is not in this run's targets (claude)") {
+		t.Errorf("got %v", err)
 	}
 }

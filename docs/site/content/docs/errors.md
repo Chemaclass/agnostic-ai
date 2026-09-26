@@ -90,6 +90,8 @@ The argument to `agnostic-ai import` matches no registered source.
 
 A target requested via `--target`, `--only`, or the config is not a built-in adapter and no `agnostic-ai-adapter-<name>` binary is on PATH.
 
+A name passed with `--target` fails the run. A config target that does not resolve only warns, so a teammate without an external adapter can still sync. When the name is one edit from a built-in (two for longer names), the message suggests it: `unknown target: claud (did you mean claude?)`.
+
 **Fix:** check the spelling. Built-ins: `claude`, `codex`, `gemini`, `cursor`, `copilot`, `aider`, `cline`, `windsurf`, `continue`, `amp`, `zed`, `warp`, `opencode`, `antigravity`, `junie`, `kiro`, `crush`, `trae`, `qoder`, `openhands`, `factory`, `kilo`, `jules`, `goose`, `augment`. External adapters live on PATH as `agnostic-ai-adapter-<name>`.
 
 ### AAI-302: Mutually exclusive flags

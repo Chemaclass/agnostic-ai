@@ -111,15 +111,16 @@ func TestSync_DryRunDoesNotWrite(t *testing.T) {
 	}
 }
 
-func TestSync_UnknownTargetIsSkipped(t *testing.T) {
+func TestSync_UnknownConfigTargetIsSkipped(t *testing.T) {
 	dir := setupFixture(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, no-such-target]\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 
 	root := NewRootCmd("test")
-	root.SetArgs([]string{"sync", "-t", "no-such-target"})
+	root.SetArgs([]string{"sync"})
 	if err := root.Execute(); err != nil {
-		t.Errorf("unknown target should not be a fatal error: %v", err)
+		t.Errorf("an unresolved config target should not be a fatal error: %v", err)
 	}
 }
 
