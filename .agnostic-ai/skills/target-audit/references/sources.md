@@ -68,7 +68,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - trap: Cursor also loads `.claude/skills/`, `.codex/skills/` and their `~/` forms, same switch (#957). Say "read from three roots, precedence undocumented", never "loaded three times". The non-merging sentence on `/docs/skills` is about Codex's loader.
 - decision: cursor stdio MCP entries emit `type` (the field table marks it required, #895). Keep it cursor-only: Claude Code reads a missing `type` as stdio, and the shared builder serves claude, kiro, junie, qoder, factory and copilot.
 - trap: `/docs/mcp` rows **Roots** as "Supported". That is the protocol capability, not a config key; no per-server field table has `roots`.
-- quirk: `cursor.com/docs/<page>.md` times out on curl, so it looks dead. Use `https://r.jina.ai/https://cursor.com/docs/<page>`.
+- quirk: `r.jina.ai` refuses anonymous requests from low-reputation networks (401, target-audit 2026-09-26). Plain `curl -sL https://cursor.com/docs/<page>.md` served all six pages that day; it has also timed out before.
 - note: prompt hooks emit `type`, `prompt`, optional `model` and common options (#768).
 
 ## copilot
