@@ -82,7 +82,6 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - trap: `agentStop` pairs with `Stop`, not `AgentStop`. Grepping `AgentStop` finds nothing; no pairing was dropped.
 - trap: hook sources combine, and the CLI also reads `.claude/settings.json` for five keys, `enabledPlugins` and `hooks` among them. One spec targeting claude and copilot runs twice (#755, #956).
 - trap: `exec`/`args` are "Only supported in Copilot CLI"; cloud agent honors only `bash`/`command`.
-- quirk: both VS Code MCP URLs 404 since 2026-09-25, yet vscode-docs `toc.json` lists them. Recheck before swapping citations.
 - trap: there is no project `.copilot/settings.json`. Every mention is `~/.copilot/settings.json`; the repo file is `.github/copilot/settings.json`.
 - trap: permissions are MDM-only (#917). Unlisted repository keys "are silently ignored", and `~/.copilot/permissions-config.json` "doesn't support deny rules".
 - trap: no VS Code page documents a per-server `roots` key. When a field claim repeats across targets, check `BuildRoots` in `emit/mcp.go` and every page it feeds.
