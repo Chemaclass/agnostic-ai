@@ -37,7 +37,7 @@ func (l *localHooks) owner(target, event, matcher, key string) string {
 		for _, e := range l.entries {
 			for _, meta := range []map[string]any{e.Meta, adapters.ResolveMeta(e.Meta, target)} {
 				for _, k := range hookHandlerKeys(target, meta) {
-					id := hookIdentity(hookEventKey(meta), hookMatcher(meta), k)
+					id := hookIdentity(target, hookEventKey(meta), hookMatcher(meta), k)
 					if _, taken := index[id]; !taken {
 						index[id] = e.Name
 					}
@@ -46,11 +46,11 @@ func (l *localHooks) owner(target, event, matcher, key string) string {
 		}
 		l.byTarget[target] = index
 	}
-	return index[hookIdentity(event, matcher, key)]
+	return index[hookIdentity(target, event, matcher, key)]
 }
 
-func hookIdentity(event, matcher, key string) string {
-	return event + "\x00" + matcher + "\x00" + key
+func hookIdentity(target, event, matcher, key string) string {
+	return event + "\x00" + adapters.HookMatcherKey(target, matcher) + "\x00" + key
 }
 
 // hookEventKey folds case, dashes, and underscores, so `pre-tool-use`,

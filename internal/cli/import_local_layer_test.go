@@ -386,6 +386,43 @@ func TestImport_MatchesLocalHooksAsEachTargetRendersThem(t *testing.T) {
 	}
 }
 
+// Some targets respell a matcher or an event on emit, so a local hook
+// must still match in the spelling the native file carries.
+func TestImport_MatchesLocalHooksAsEachTargetSpellsThem(t *testing.T) {
+	cases := []struct {
+		name, source, shared, local string
+	}{
+		{"codex matcher order", "codex",
+			"name: edit\nevent: PreToolUse\nmatcher: Edit|Write\ncommand: echo shared-edit\n",
+			"name: zguard\nevent: PreToolUse\nmatcher: Write|Edit\ncommand: echo local-guard\nstatusMessage: local-msg\n"},
+		{"codex matcher spacing", "codex",
+			"name: edit\nevent: PreToolUse\nmatcher: Bash|Edit\ncommand: echo shared-edit\n",
+			"name: zguard\nevent: PreToolUse\nmatcher: Bash | Edit\ncommand: echo local-guard\n"},
+		{"crush event spelling", "crush",
+			"name: edit\nevent: PreToolUse\nmatcher: bash\ncommand: echo shared-edit\n",
+			"name: zguard\nevent: pre_tool_use\nmatcher: bash\ncommand: echo local-guard\n"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			testutil.TempCwd(t)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.source+"]\n")
+			writeAgnosticFile(t, "# Shared\n")
+			writeFile(t, filepath.Join(".agnostic-ai", "hooks", "edit.yaml"), tc.shared)
+			writeFile(t, filepath.Join(defaultProjectUser, "hooks", "zguard.yaml"), tc.local)
+			if out, err := runCLI(t, "sync"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+
+			out := importCapturing(t, tc.source)
+
+			assertNoLocalContentShared(t)
+			if !strings.Contains(out, "hook zguard") {
+				t.Errorf("want the note to name the local hook:\n%s", out)
+			}
+		})
+	}
+}
+
 // A hook script only local hooks run stays out of the scripts stash; a
 // script a shared hook runs is still captured.
 func TestImport_LeavesLocalHookScriptsOutOfTheSharedSource(t *testing.T) {

@@ -325,6 +325,21 @@ func joinMatcherSegments(segments []string) string {
 	return strings.Join(cp, "|")
 }
 
+// HookMatcherKey folds matcher to the segment set buildHooksJSON groups
+// handlers by: a handler lands under whichever spelling of that set its
+// group saw first.
+func (Adapter) HookMatcherKey(matcher string) string {
+	seen := map[string]bool{}
+	var segments []string
+	for _, seg := range matcherSegments(matcher) {
+		if !seen[seg] {
+			seen[seg] = true
+			segments = append(segments, seg)
+		}
+	}
+	return joinMatcherSegments(segments)
+}
+
 // hookIntMeta reads an int-typed meta key, accepting int / int64 /
 // float64 (yaml.v3 decodes numerics as int). Returns 0 when missing or
 // the wrong type.
