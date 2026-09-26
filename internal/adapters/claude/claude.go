@@ -512,9 +512,6 @@ func loadSettingsOverlay(dryRun bool) (*emit.OrderedJSON, bool, error) {
 // which then also carries the project-local instructions (see
 // emit.AppendLegacyEntryPointLocal).
 func writeRules(sess *emit.Session, rules []spec.Entry, cfg *config.Config, dryRun bool) error {
-	if len(rules) == 0 {
-		return nil
-	}
 	if rulesFile := emit.OutputRulesFile(cfg, target, ""); rulesFile != "" {
 		var sb strings.Builder
 		sb.WriteString(emit.HeaderBlock(emit.FormatMarkdown))
@@ -524,6 +521,11 @@ func writeRules(sess *emit.Session, rules []spec.Entry, cfg *config.Config, dryR
 		content, err := emit.AppendLegacyEntryPointLocal(cfg, target, sb.String())
 		if err != nil {
 			return err
+		}
+		// With no rules, only a local block keeps the file: the central
+		// writer skips an entry point this document owns.
+		if len(rules) == 0 && content == sb.String() {
+			return nil
 		}
 		return sess.WriteFile(rulesFile, content, dryRun)
 	}

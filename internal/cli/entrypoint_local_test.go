@@ -227,3 +227,44 @@ func TestSync_SharedLegacyRulesFileKeepsOneLocalView(t *testing.T) {
 		t.Errorf("AGENTS.md: want the codex fence kept for its codex reader:\n%s", data)
 	}
 }
+
+// With no rule for the legacy document to concatenate, the adapter still
+// owns the entry point and the central writer still skips it, so the
+// local text alone must keep the file written.
+func TestSync_LegacyRulesFileEntryPointWithoutRulesKeepsLocalInstructions(t *testing.T) {
+	scoped := "---\nname: go-only\nglobs: \"**/*.go\"\n---\nScoped line.\n"
+	for _, tc := range []struct{ name, target, path, rule string }{
+		{"claude", "claude", "CLAUDE.md", ""},
+		{"codex", "codex", "AGENTS.md", ""},
+		{"gemini", "gemini", "GEMINI.md", ""},
+		{"copilot", "copilot", filepath.Join(".github", "copilot-instructions.md"), ""},
+		{"copilot scoped rules only", "copilot", filepath.Join(".github", "copilot-instructions.md"), scoped},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			testutil.TempCwd(t)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\noutputs:\n  "+tc.target+":\n    rules-file: "+filepath.ToSlash(tc.path)+"\n")
+			if tc.rule != "" {
+				writeFile(t, filepath.Join(".agnostic-ai", "rules", "go-only.md"), tc.rule)
+			}
+			writeAgnosticFile(t, sharedInstructions)
+			writeFile(t, filepath.Join(defaultProjectUser, "AGNOSTIC_AI.md"), localInstructions)
+			if out, err := runCLI(t, "sync"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+
+			data, err := os.ReadFile(tc.path)
+			if err != nil {
+				t.Fatalf("%s not written: %v", tc.path, err)
+			}
+			if !strings.Contains(string(data), adapters.LocalStartMarker) || !strings.Contains(string(data), "Local line.") {
+				t.Errorf("%s: want the marked local block:\n%s", tc.path, data)
+			}
+			if strings.Contains(string(data), "Scoped line.") {
+				t.Errorf("%s: a scoped rule belongs in its own file:\n%s", tc.path, data)
+			}
+			if out, err := runCLI(t, "sync", "--check"); err != nil {
+				t.Errorf("sync --check after sync: %v\n%s", err, out)
+			}
+		})
+	}
+}
