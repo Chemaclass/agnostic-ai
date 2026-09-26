@@ -101,10 +101,12 @@ func runImportArgs(args []string) error {
 	if err != nil {
 		return fmt.Errorf("load config: %w (run `agnostic-ai init` first)", err)
 	}
-	if len(args) == 1 {
-		return runImport(".", args[0], cfg)
-	}
-	return runImportMany(".", args, cfg)
+	return withLocalImportGuard(".", cfg, func() error {
+		if len(args) == 1 {
+			return runImport(".", args[0], cfg)
+		}
+		return runImportMany(".", args, cfg)
+	})
 }
 
 // runImport dispatches to the per-source importer.

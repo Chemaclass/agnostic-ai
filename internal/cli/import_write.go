@@ -71,8 +71,13 @@ func (r *importRecorder) record(path string, data []byte) {
 }
 
 // importWriteFile writes data to path with the given mode, recording it
-// for a dry-run report. Replaces os.WriteFile across all importers.
+// for a dry-run report. Replaces os.WriteFile across all importers. A
+// write that stores a project local spec in the shared source is undone
+// when the run ends (see localImportGuard).
 func importWriteFile(path string, data []byte, mode fs.FileMode) error {
+	if importLocal != nil && inImportSandbox(path) {
+		importLocal.track(path, data, false)
+	}
 	if importRecording != nil {
 		importRecording.record(path, data)
 	}
@@ -85,6 +90,9 @@ func importWriteFile(path string, data []byte, mode fs.FileMode) error {
 // importMkdirAll creates dir and its parents, unless a dry-run is active
 // and dir resolves outside its sandbox.
 func importMkdirAll(dir string, perm fs.FileMode) error {
+	if importLocal != nil && inImportSandbox(dir) {
+		importLocal.track(dir, nil, true)
+	}
 	if !inImportSandbox(dir) {
 		return nil
 	}
