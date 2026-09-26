@@ -50,7 +50,7 @@ When an entry names a file, a symbol, or a page as the thing to trust, check tha
 
 ## Vendor-specific routes
 
-Appending `.md` to a docs path works on factory, qoder, augment, openhands, and cline (all Mintlify), on antigravity and cursor (a Vercel raw route, not Mintlify), and on kiro, whose pages link to it in-page as "View as Markdown". It also works on learn.chatgpt.com, docs.devin.ai, docs.github.com, docs.warp.dev, and opencode.ai. It does not work on kilo or trae. On antigravity it covers the `/docs/` tree only; `antigravity.google/changelog.md` 404s.
+Appending `.md` to a docs path works on factory, qoder, augment, openhands, and cline (all Mintlify), on antigravity and cursor (a Vercel raw route, not Mintlify), and on kiro, whose pages link to it in-page as "View as Markdown". It also works on code.claude.com, learn.chatgpt.com, docs.devin.ai, docs.github.com, docs.warp.dev, and opencode.ai. It does not work on kilo or trae. On antigravity it covers the `/docs/` tree only; `antigravity.google/changelog.md` 404s.
 
 amp: `llms.txt` serves every page at `https://ampcode.com/docs/markdown/<path>`, and the older `/docs/<path>/markdown` form 404s. `https://ampcode.com/llms.txt` indexes every docs page in one call and states the rule itself. The page count moves, so re-count it rather than trusting a number recorded anywhere.
 
