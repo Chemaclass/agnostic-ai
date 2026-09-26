@@ -81,7 +81,7 @@ cursor	docs	https://cursor.com/docs/mcp	200	reader-proxy	2e51e8541e5fc5eb3282f47
 cursor	docs	https://cursor.com/docs/reference/third-party-hooks.md	200	markdown-mirror	c2d2e67fd529f5d14feaaab22b3662f9eac2d21a4c54846f3e28fca6d63292c6	2026-09-25
 cursor	docs	https://cursor.com/docs/rules	200	reader-proxy	edbf22e76649f01343a48361dc2a5faae0a9877592d4b1d22e1e0a3a65ed9805	2026-09-24
 cursor	docs	https://cursor.com/docs/skills	200	reader-proxy	18e2faf801bfd5bd8c8d8749a37a0e4674bc1d689153788febce667a59ecd5e1	2026-09-24
-cursor	docs	https://cursor.com/docs/subagents	200	reader-proxy	8da7e3a36d25075f5a639dd6934831720f8b6c05e10b492066148de715633816	2026-09-26
+cursor	docs	https://cursor.com/docs/subagents	200	reader-proxy	ae095db8a397712528923c464d56c415d55afd67f88bd7d0e8ed4fa4a9a9638d	2026-09-26
 cursor	docs	https://cursor.com/help/customization/skills.md	200	markdown-mirror	7d551fc7939d4632228c7f178f89475113a1ad503000f890271ee95a4aee3a49	2026-09-25
 factory	changelog	https://docs.factory.ai/changelog/release-notes.md	200	markdown-mirror	7a7196d9f5cc59f8175d2cf4d18f5636ce20c3e7abba5118cebf9f25bae0a197	2026-09-26
 factory	docs	https://docs.factory.ai/	200	html	212481a9d2f35400539aadc169403388eb7b1ef611ae3fe12dbc7f1db053f273	2026-09-22
