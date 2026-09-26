@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -34,15 +35,23 @@ func watchSync(ctx context.Context, pollInterval time.Duration, root string, tar
 	if err := runSyncOnce(root, targets, dryRun, backup, gitignoreFlag, jobs); err != nil {
 		return err
 	}
+	reconcile := false
 	if !forcePoll {
 		err := watchSyncFsnotify(ctx, root, targets, dryRun, backup, gitignoreFlag, jobs)
 		if err == nil || ctx.Err() != nil {
 			return err
 		}
 		fmt.Fprintf(os.Stderr, "! fsnotify unavailable (%v); falling back to polling\n", err)
+		reconcile = errors.Is(err, errWatchLost)
 	}
-	return watchSyncPoll(ctx, pollInterval, root, targets, dryRun, backup, gitignoreFlag, jobs)
+	return watchSyncPoll(ctx, pollInterval, root, targets, dryRun, backup, gitignoreFlag, jobs, reconcile)
 }
+
+// errWatchLost marks a watcher registration that failed mid-session, for
+// example on an exhausted inotify limit. The paths it missed would never
+// raise an event, so the caller switches to polling instead of keeping a
+// watch that only looks alive.
+var errWatchLost = errors.New("watch registration failed mid-session")
 
 // watchSyncFsnotify watches via OS file events. Returns the first
 // unrecoverable setup error so the caller can fall back to polling.
@@ -96,7 +105,9 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 			// recorded here; later ones attribute the re-sync themselves.
 			if ev.Op&fsnotify.Create != 0 {
 				if info, err := os.Stat(ev.Name); err == nil && info.IsDir() {
-					_ = armWatches(w, root, watched)
+					if err := armWatches(w, root, watched); err != nil {
+						return fmt.Errorf("%w: %w", errWatchLost, err)
+					}
 					files := sortedPaths(collectMtimes(inputsUnder(ev.Name, watched)))
 					if len(files) == 0 {
 						continue
@@ -135,7 +146,9 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 			// hooks/ dir created mid-session) by re-reading config.
 			if newCfg, err := config.Load(root); err == nil {
 				watched = watchDirs(root, newCfg)
-				_ = armWatches(w, root, watched)
+				if err := armWatches(w, root, watched); err != nil {
+					return fmt.Errorf("%w: %w", errWatchLost, err)
+				}
 			}
 		}
 	}
@@ -143,13 +156,21 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 
 // watchSyncPoll is the original mtime-poll loop. Used as a fallback
 // when fsnotify fails (e.g. some network mounts) or with --watch-poll.
-func watchSyncPoll(ctx context.Context, interval time.Duration, root string, targets []string, dryRun, backup bool, gitignoreFlag string, jobs int) error {
+// With reconcile set it re-syncs once after taking its baseline, so a
+// change the lost fsnotify watch saw but never synced still lands, and a
+// change made after the baseline is still caught by the next tick.
+func watchSyncPoll(ctx context.Context, interval time.Duration, root string, targets []string, dryRun, backup bool, gitignoreFlag string, jobs int, reconcile bool) error {
 	cfg, err := config.Load(root)
 	if err != nil {
 		return err
 	}
 	watched := watchDirs(root, cfg)
 	snapshot := collectMtimes(watched)
+	if reconcile {
+		if err := runSyncOnce(root, targets, dryRun, backup, gitignoreFlag, jobs); err != nil {
+			fmt.Fprintf(os.Stderr, "! sync: %v\n", err)
+		}
+	}
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -242,6 +263,10 @@ func firstOf(paths []string) string {
 	return paths[0]
 }
 
+// watchAdd registers one path with the watcher. Tests swap it to force a
+// registration failure, such as an exhausted inotify limit.
+var watchAdd = func(w *fsnotify.Watcher, p string) error { return w.Add(p) }
+
 // addWatchPaths registers a file or directory and (for directories) every
 // nested subdirectory with the watcher. Already-watched paths are
 // silently skipped. Missing paths are skipped without error so callers
@@ -255,7 +280,7 @@ func addWatchPaths(w *fsnotify.Watcher, paths []string) error {
 		if _, ok := existing[p]; ok {
 			return nil
 		}
-		if err := w.Add(p); err != nil {
+		if err := watchAdd(w, p); err != nil {
 			return fmt.Errorf("watch %s: %w", p, err)
 		}
 		existing[p] = struct{}{}
@@ -309,7 +334,7 @@ func armWatches(w *fsnotify.Watcher, root string, watched []string) error {
 		if _, ok := existing[anchor]; ok {
 			continue
 		}
-		if err := w.Add(anchor); err != nil {
+		if err := watchAdd(w, anchor); err != nil {
 			return fmt.Errorf("watch %s: %w", anchor, err)
 		}
 		existing[anchor] = struct{}{}

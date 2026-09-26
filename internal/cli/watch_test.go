@@ -3,11 +3,13 @@ package cli
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1029,4 +1031,60 @@ func TestWatchSync_OwnWritesDoNotRetrigger(t *testing.T) {
 	if n := strings.Count(buf.String(), "] change · "); n != 1 {
 		t.Errorf("want exactly one re-sync, got %d:\n%s", n, buf.String())
 	}
+}
+
+// failWatchAdd makes watcher registration fail for any path containing
+// marker once the returned switch is on, the way an exhausted inotify
+// limit fails partway through a session.
+func failWatchAdd(t *testing.T, marker string) *atomic.Bool {
+	t.Helper()
+	var on atomic.Bool
+	prev := watchAdd
+	watchAdd = func(w *fsnotify.Watcher, p string) error {
+		if on.Load() && strings.Contains(filepath.ToSlash(p), marker) {
+			return errors.New("no space left on device")
+		}
+		return prev(w, p)
+	}
+	t.Cleanup(func() { watchAdd = prev })
+	return &on
+}
+
+// A directory the watch cannot register when it appears must not go
+// dark: its first file syncs, and so does every later one.
+func TestWatchSync_KeepsWatchingWhenNewDirCannotBeRegistered(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	fail := failWatchAdd(t, ".agnostic-ai/commands")
+	_, stop := startWatch(t, []string{"claude"}, false)
+	defer stop()
+	fail.Store(true)
+
+	writeTestFile(t, filepath.Join(".agnostic-ai", "commands", "deploy.md"),
+		"---\nname: deploy\ndescription: deploy the app\n---\nrun deploy\n")
+	waitForFileContaining(t, filepath.Join(dir, ".claude", "commands", "deploy.md"), "run deploy", 5*time.Second)
+
+	writeTestFile(t, filepath.Join(".agnostic-ai", "commands", "ship.md"),
+		"---\nname: ship\ndescription: ship the app\n---\nrun ship\n")
+	waitForFileContaining(t, filepath.Join(dir, ".claude", "commands", "ship.md"), "run ship", 5*time.Second)
+}
+
+// A source dir the watch cannot register after a config reload must not
+// go dark either: later edits in it still sync.
+func TestWatchSync_KeepsWatchingWhenReloadedSourceCannotBeRegistered(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeTestFile(t, filepath.Join("extra", "rules", "r2.md"), "---\nname: r2\n---\nextra rule body\n")
+	fail := failWatchAdd(t, "extra")
+	_, stop := startWatch(t, []string{"claude"}, false)
+	defer stop()
+	fail.Store(true)
+
+	writeTestFile(t, config.ConfigFileName, "version: 1\nsources:\n  rules: extra/rules\n")
+	waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "r2.md"), "extra rule body", 5*time.Second)
+
+	writeTestFile(t, filepath.Join("extra", "rules", "r3.md"), "---\nname: r3\n---\nlater rule body\n")
+	waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "r3.md"), "later rule body", 5*time.Second)
 }
