@@ -39,6 +39,14 @@ jobs:
           key: docfetch-snapshots-${{ github.run_id }}
           restore-keys: docfetch-snapshots-
 
+      # Before the fetch, which snapshots every text it reads: a changed page
+      # whose text is already here was fetched on an earlier run, so it is a
+      # stale copy or an alternating render, not news (#1167).
+      - name: List known page texts
+        env:
+          DOCFETCH_SNAPSHOTS: ${{ runner.temp }}/snapshots
+        run: bash -c 'source scripts/vendor-watch.sh && vendor_watch_known_texts "$DOCFETCH_SNAPSHOTS"' >"$RUNNER_TEMP/known-texts"
+
       - name: Fetch vendor pages
         env:
           GH_TOKEN: ${{ github.token }}
@@ -48,7 +56,7 @@ jobs:
       - name: Publish moved pages
         env:
           GH_TOKEN: ${{ github.token }}
-        run: scripts/vendor-watch.sh publish "$RUNNER_TEMP/watch/docfetch.tsv"
+        run: scripts/vendor-watch.sh publish "$RUNNER_TEMP/watch/docfetch.tsv" "$RUNNER_TEMP/known-texts"
 
       # Drop what the lock does not name after 30 days, then keep the rest.
       # mkdir: a fetch that died early still leaves a path for the cache step.

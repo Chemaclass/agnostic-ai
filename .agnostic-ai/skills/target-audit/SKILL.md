@@ -110,7 +110,7 @@ Finish with the top findings, recommended next actions, report link, and issue/P
 
 ## Scheduling and invariants
 
-The `vendor-watch` workflow (`.github/workflows/vendor-watch.yml`) runs `scripts/docfetch.sh` daily with no AI and posts moved pages to one open issue labeled `vendor-watch`. `scripts/vendor-watch.sh` keys each page by URL and hash, so a page is reported once per text change. Start a run from that issue: audit the targets it lists, and close it once the lock moves.
+The `vendor-watch` workflow (`.github/workflows/vendor-watch.yml`) runs `scripts/docfetch.sh` daily with no AI and posts moved pages to one open issue labeled `vendor-watch`. `scripts/vendor-watch.sh` keys each page by URL and hash, so a page is reported once per text change. A changed page whose text the runner already fetched stays quiet: a stale CDN copy or an alternating render is not news. A page that returns to earlier text within the 30-day snapshot window is therefore reported only by the next full audit. Start a run from that issue: audit the targets it lists, and close it once the lock moves.
 
 Weekly runs are sufficient for the full registry. A scheduler wraps this skill; unattended runs should use `--fix` or default issue filing so results survive outside ignored local files.
 

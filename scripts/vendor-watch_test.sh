@@ -84,6 +84,24 @@ function test_report_names_a_page_again_when_its_hash_moves_again() {
   assert_contains "https://kiro.dev/docs/steering/" "$(vendor_watch_report "$FIXTURES/next.tsv" "$FIXTURES/seen")"
 }
 
+function test_report_skips_a_changed_page_whose_text_the_runner_fetched_before() {
+  printf 'aaa\nccc\n' >"$FIXTURES/known"
+  local out
+  out=$(vendor_watch_report "$(run_tsv)" /dev/null "$FIXTURES/known")
+  assert_not_contains "https://kiro.dev/docs/steering/" "$out"
+  assert_contains "- new: https://cursor.com/docs/rules" "$out"
+  assert_contains "- failed (HTTP 404): https://zed.dev/docs/ai/mcp" "$out"
+}
+
+function test_known_texts_lists_each_stored_snapshot_hash() {
+  mkdir -p "$FIXTURES/snapshots"
+  : >"$FIXTURES/snapshots/aaa.txt"
+  : >"$FIXTURES/snapshots/bbb.txt"
+  : >"$FIXTURES/snapshots/ccc.txt.tmp.123"
+  assert_equals "$(printf 'aaa\nbbb')" "$(vendor_watch_known_texts "$FIXTURES/snapshots")"
+  assert_empty "$(vendor_watch_known_texts "$FIXTURES/missing")"
+}
+
 function test_keys_pair_each_moved_url_with_its_hash() {
   local keys
   keys=$(vendor_watch_keys "$(run_tsv)")
@@ -159,6 +177,13 @@ $(vendor_watch_marker "$(vendor_watch_keys "$tsv")")"
   assert_not_contains "issue comment" "$(cat "$GH_CALLS")"
   assert_not_contains "issue create" "$(cat "$GH_CALLS")"
   assert_not_contains "issue edit" "$(cat "$GH_CALLS")"
+}
+
+function test_publish_stays_quiet_when_every_changed_text_was_fetched_before() {
+  row kiro https://kiro.dev/docs/steering/ aaa changed >"$FIXTURES/flap.tsv"
+  printf 'aaa\n' >"$FIXTURES/known"
+  vendor_watch_publish "$FIXTURES/flap.tsv" "$FIXTURES/known" >/dev/null
+  assert_not_contains "issue create" "$(cat "$GH_CALLS")"
 }
 
 function test_publish_does_nothing_on_a_quiet_run() {
