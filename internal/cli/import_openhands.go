@@ -311,7 +311,7 @@ func pascalHookEvent(key string) string {
 // importOpenhandsMCP reads the `[mcp]` table of `config.toml` and writes
 // one MCP spec per server. Other tables in the file are not ours to
 // read. A stdio server carries its own `name`; an sse or shttp element
-// is a URL string or a `{ url, api_key, timeout }` table with no name,
+// is a URL string or a `{ url, api_key, timeout, auth }` table with no name,
 // so the name comes from the URL host.
 func importOpenhandsMCP(src, dstDir string) (int, error) {
 	data, err := os.ReadFile(src)

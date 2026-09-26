@@ -521,6 +521,36 @@ func TestEmit_MCP_SHTTPExplicitAuthFieldPassesThrough(t *testing.T) {
 	}
 }
 
+// Codex also reads an `auth` string (`oauth` | `chatgpt`), and both
+// targets are on by default. Only the value OpenHands documents may
+// reach its file; any other stays out, so a truthy `oauth` still wins.
+func TestEmit_MCP_SHTTPUndocumentedAuthValueStaysOut(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		meta map[string]any
+		want string
+	}{
+		{"chatgpt alone", map[string]any{"auth": "chatgpt"}, `"https://mcp.example.com/mcp"`},
+		{"chatgpt with oauth", map[string]any{"auth": "chatgpt", "oauth": true}, `{ url = "https://mcp.example.com/mcp", auth = "oauth" }`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			meta := map[string]any{"type": "http", "url": "https://mcp.example.com/mcp"}
+			for k, v := range tc.meta {
+				meta[k] = v
+			}
+			entries := []spec.Entry{{Kind: spec.KindMCP, Name: "remote", Meta: meta}}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			got := readFile(t, filepath.Join(dir, "config.toml"))
+			if !strings.Contains(got, tc.want) || strings.Contains(got, "chatgpt") {
+				t.Errorf("want %s, got %s", tc.want, got)
+			}
+		})
+	}
+}
+
 // auth combines with api_key and timeout in that order when every
 // field is set on the same shttp entry.
 func TestEmit_MCP_SHTTPAuthCombinesWithAPIKeyAndTimeout(t *testing.T) {

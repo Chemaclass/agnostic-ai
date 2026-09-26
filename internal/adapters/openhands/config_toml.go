@@ -124,19 +124,16 @@ func serverValue(m spec.Entry, shttp bool) string {
 }
 
 // authValue resolves a remote entry's OAuth flag to the string OpenHands
-// writes as `auth`. An explicit `auth` string passes through verbatim,
-// the same convention Codex's own `auth` field (`oauth` | `chatgpt`)
-// uses, and lets `import openhands` (which copies config.toml's `auth`
-// key back into the MCP spec unchanged) re-sync to the same file.
-// Otherwise a truthy portable `oauth` value maps to `"oauth"`, the only
-// value the vendor documents; OpenHands stores no client id/secret in
-// config.toml (FastMCP handles the browser flow out of band), so
+// writes as `auth`: "oauth", the only value the vendor documents, or "".
+// An explicit `auth: oauth` lets `import openhands` (which copies
+// config.toml's `auth` key back unchanged) re-sync to the same file.
+// Any other `auth` string belongs to another target, such as Codex's
+// `chatgpt`, and never reaches OpenHands. Otherwise a truthy portable
+// `oauth` value maps to "oauth"; OpenHands stores no client id/secret
+// in config.toml (FastMCP handles the browser flow out of band), so
 // presence is all there is to read.
 func authValue(meta map[string]any) string {
-	if auth, _ := meta["auth"].(string); auth != "" {
-		return auth
-	}
-	if hasOAuth(meta) {
+	if auth, _ := meta["auth"].(string); auth == "oauth" || hasOAuth(meta) {
 		return "oauth"
 	}
 	return ""
