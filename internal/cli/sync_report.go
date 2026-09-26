@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -86,7 +85,7 @@ func (r *syncReport) render(w io.Writer, targets int, elapsed time.Duration, ver
 		for i, s := range r.specs {
 			labels[i] = s.mark + " " + s.label
 		}
-		_, _ = fmt.Fprintf(w, "  %s → %s\n", strings.Join(labels, ", "), r.fanOut())
+		_, _ = fmt.Fprintf(w, "  %s → %s\n", capPaths(labels, verbose), r.fanOut())
 	}
 	r.renderPaths(w, term.Colorize(w, "+", term.Green), r.created, verbose)
 	r.renderPaths(w, term.Colorize(w, "~", term.Yellow), r.updated, verbose)
@@ -173,7 +172,12 @@ func entrySum(e spec.Entry) string {
 	if err != nil {
 		meta = []byte(fmt.Sprint(e.Meta))
 	}
-	_, _ = fmt.Fprintf(h, "%s\x00%s\x00", meta, e.Body)
+	// Key order and quoting style reach the output, so they count too.
+	styles, err := json.Marshal(e.MetaStyles)
+	if err != nil {
+		styles = []byte(fmt.Sprint(e.MetaStyles))
+	}
+	_, _ = fmt.Fprintf(h, "%s\x00%s\x00%s\x00%s\x00", meta, strings.Join(e.MetaKeys, "\x01"), styles, e.Body)
 	if dir := e.SkillAssetDir(); dir != "" {
 		_ = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
 			if err != nil || d.IsDir() {
@@ -227,6 +231,16 @@ func diffSpecSums(prev, cur map[string]string) []specChange {
 // what the user has to commit. Outside a git work tree, or when git is
 // missing or slow, it returns nothing: the hint is a convenience.
 func gitPending(root string, changed []string) []string {
+	if len(changed) == 0 {
+		return nil
+	}
+	// Porcelain paths are relative to the repository root; strip the
+	// project's own prefix so they match the lists above.
+	prefix, ok := runGit(root, "rev-parse", "--show-prefix")
+	if !ok {
+		return nil
+	}
+	prefix = strings.TrimSpace(prefix)
 	var pending []string
 	for start := 0; start < len(changed); start += gitPathsPerCall {
 		end := min(start+gitPathsPerCall, len(changed))
@@ -234,7 +248,9 @@ func gitPending(root string, changed []string) []string {
 		if !ok {
 			return nil
 		}
-		pending = append(pending, got...)
+		for _, p := range got {
+			pending = append(pending, strings.TrimPrefix(p, prefix))
+		}
 	}
 	sort.Strings(pending)
 	return pending
@@ -244,27 +260,37 @@ func gitPending(root string, changed []string) []string {
 const gitPathsPerCall = 500
 
 func gitStatusPaths(root string, paths []string) ([]string, bool) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	args := append([]string{"--literal-pathspecs", "status", "--porcelain=v1", "-z", "--untracked-files=all", "--"}, paths...)
-	cmd := exec.CommandContext(ctx, "git", args...)
-	cmd.Dir = root
-	out, err := cmd.Output()
-	if err != nil {
+	out, ok := runGit(root, append([]string{"status", "--porcelain=v1", "-z", "--untracked-files=all", "--"}, paths...)...)
+	if !ok {
 		return nil, false
 	}
 	var pending []string
-	recs := bytes.Split(out, []byte{0})
+	recs := strings.Split(out, "\x00")
 	for i := 0; i < len(recs); i++ {
 		rec := recs[i]
 		if len(rec) <= 3 {
 			continue
 		}
-		pending = append(pending, string(rec[3:]))
+		pending = append(pending, rec[3:])
 		// A staged rename or copy carries its source path as the next record.
 		if rec[0] == 'R' || rec[0] == 'C' {
 			i++
 		}
 	}
 	return pending, true
+}
+
+// runGit runs a read-only git command in root. --no-optional-locks keeps
+// status from rewriting the index, so a sync (or --watch loop) never makes
+// a concurrent git add or commit fail on index.lock.
+func runGit(root string, args ...string) (string, bool) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "git", append([]string{"--no-optional-locks", "--literal-pathspecs"}, args...)...)
+	cmd.Dir = root
+	out, err := cmd.Output()
+	if err != nil {
+		return "", false
+	}
+	return string(out), true
 }

@@ -64,7 +64,7 @@ func TestSyncReport_SpecLineNamesSourcesAndFanOut(t *testing.T) {
 
 	got := renderReport(r, 2, false)
 
-	if !strings.HasPrefix(got, "  ~ rule testing, + skill deploy → 3 files in 2 targets\n") {
+	if !strings.HasPrefix(got, "  ~ rule testing  + skill deploy → 3 files in 2 targets\n") {
 		t.Errorf("got:\n%s", got)
 	}
 }
@@ -118,7 +118,10 @@ func TestEntrySum_SkillAssetEditChangesSum(t *testing.T) {
 	}
 }
 
-func TestGitPending_ReportsTrackedAndUntrackedButNotIgnored(t *testing.T) {
+// gitRepo initializes a git repository in a fresh temp dir and returns the
+// dir plus a helper that runs git there.
+func gitRepo(t *testing.T) (string, func(args ...string)) {
+	t.Helper()
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not installed")
 	}
@@ -132,6 +135,11 @@ func TestGitPending_ReportsTrackedAndUntrackedButNotIgnored(t *testing.T) {
 		}
 	}
 	git("init", "-q")
+	return dir, git
+}
+
+func TestGitPending_ReportsTrackedAndUntrackedButNotIgnored(t *testing.T) {
+	dir, git := gitRepo(t)
 	mustWriteFile(t, filepath.Join(dir, ".gitignore"), "ignored.md\n")
 	mustWriteFile(t, filepath.Join(dir, "tracked.md"), "v1")
 	mustWriteFile(t, filepath.Join(dir, "same.md"), "v1")
@@ -145,6 +153,28 @@ func TestGitPending_ReportsTrackedAndUntrackedButNotIgnored(t *testing.T) {
 
 	if want := []string{"new.md", "tracked.md"}; !slices.Equal(got, want) {
 		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestGitPending_PathsAreRelativeToAProjectInASubdirectory(t *testing.T) {
+	dir, _ := gitRepo(t)
+	sub := filepath.Join(dir, "sub")
+	mustWriteFile(t, filepath.Join(sub, "new.md"), "x")
+
+	got := gitPending(sub, []string{"new.md"})
+
+	if want := []string{"new.md"}; !slices.Equal(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestEntrySum_KeyOrderChangesSum(t *testing.T) {
+	a := spec.Entry{Kind: spec.KindRule, Name: "r", MetaKeys: []string{"description", "globs"}}
+	b := a
+	b.MetaKeys = []string{"globs", "description"}
+
+	if entrySum(a) == entrySum(b) {
+		t.Error("reordering frontmatter keys should change the sum")
 	}
 }
 
@@ -182,5 +212,53 @@ func TestRunSyncOnce_ReportNamesTheEditedSpec(t *testing.T) {
 	}
 	if !strings.Contains(out, "✓ synced 2 targets · ") || !strings.Contains(out, " updated · ") {
 		t.Errorf("missing summary counts in:\n%s", out)
+	}
+}
+
+func TestRunSyncOnce_PartialRunKeepsTheSpecBaseline(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, cursor]\n")
+	rule := filepath.Join(dir, ".agnostic-ai", "rules", "testing.md")
+	mustWriteFile(t, rule, "---\ndescription: Tests.\n---\n\nWrite tests.\n")
+	silence(t)
+	buf := captureLog(t)
+	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, rule, "---\ndescription: Tests.\n---\n\nWrite more tests.\n")
+	if err := runSyncOnce(".", []string{"claude"}, false, false, "off", 1); err != nil {
+		t.Fatal(err)
+	}
+	buf.Reset()
+
+	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(buf.String(), "  ~ rule testing → ") {
+		t.Errorf("full run after a partial one should still name the spec:\n%s", buf.String())
+	}
+}
+
+func TestRunSyncOnce_ReportsAGitignoreRewrite(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "testing.md"), "---\ndescription: Tests.\n---\n\nWrite tests.\n")
+	silence(t)
+	buf := captureLog(t)
+
+	if err := runSyncOnce(".", nil, false, false, "on", 1); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), ".gitignore") {
+		t.Errorf("first run with gitignore on should list .gitignore:\n%s", buf.String())
+	}
+	buf.Reset()
+
+	if err := runSyncOnce(".", nil, false, false, "on", 1); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(buf.String(), ".gitignore") {
+		t.Errorf("an unchanged .gitignore should not be listed:\n%s", buf.String())
 	}
 }

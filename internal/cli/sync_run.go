@@ -466,10 +466,13 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 		}
 		gitignoreEntries = append(gitignoreEntries, gitignoreHintsForTargets(cfg, effectiveTargets)...)
 		block := buildManagedBlock(cfg, gitignoreEntries)
-		if err := updateGitignore(root, cfg, block); err != nil {
+		rel, changed, err := writeGitignoreBlock(root, cfg, block)
+		if err != nil {
 			return fmt.Errorf("gitignore: %w", err)
 		}
-		summaryf("→ updated .gitignore\n")
+		if changed {
+			report.updated = append(report.updated, filepath.ToSlash(rel))
+		}
 	}
 
 	// Concurrent emission appends capability warnings / coverage notes in
@@ -523,9 +526,17 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 		summaryf("%s would sync %d target%s · %s\n", tick(), len(effectiveTargets), plural(len(effectiveTargets)), shortDuration(time.Since(start)))
 		return nil
 	}
-	ledger.specSums = specSums(cfg, b)
-	report.specs = diffSpecSums(prev.SpecSums, ledger.specSums)
-	report.pending = gitPending(root, report.changedPaths())
+	sums := specSums(cfg, b)
+	report.specs = diffSpecSums(prev.SpecSums, sums)
+	// A partial run leaves other targets on older specs; keep the old
+	// baseline so the run that updates them still names the change.
+	ledger.specSums = prev.SpecSums
+	if coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
+		ledger.specSums = sums
+	}
+	if verbosity >= levelDefault {
+		report.pending = gitPending(root, report.changedPaths())
+	}
 	if err := writeStateFile(root, report.filesChanged(), digest, notesDigest, ledger); err != nil {
 		fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 	}
@@ -707,7 +718,10 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 		// JSON path does not print warnings or notes, so preserve the
 		// previous digests so the next non-JSON run can still
 		// sticky-suppress.
-		ledger.specSums = specSums(cfg, b)
+		ledger.specSums = prev.SpecSums
+		if len(out.Errors) == 0 && coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
+			ledger.specSums = specSums(cfg, b)
+		}
 		if err := writeStateFile(root, len(out.Writes), prev.WarningsDigest, prev.NotesDigest, ledger); err != nil {
 			fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 		}
