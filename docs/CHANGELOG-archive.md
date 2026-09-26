@@ -7,10 +7,10 @@ Releases v0.1.0 through v0.59.0. Everything from v0.60.0 on lives in [CHANGELOG.
 ### Added
 
 - `agnostic-ai verify` fails CI on stale generated output and fingerprints the harness for a project-owned verifier (#834).
-- Portable model settings round-trip through Codex, Copilot, OpenCode, Junie, Qoder, and Kilo, with shared allow, deny, and ask permissions on Qoder (#806, #827).
-- Goose and OpenHands emit project agents to `.agents/agents/<name>.md`, and Goose hook specs emit a full Open Plugins package across 12 lifecycle events (#631, #629).
+- Portable model settings round-trip through Codex, Copilot, OpenCode, Junie, Qoder, and Kilo, plus allow, deny, and ask permissions on Qoder (#806, #827).
+- Goose and OpenHands emit project agents to `.agents/agents/<name>.md`, and Goose hooks emit an Open Plugins package across 12 events (#631, #629).
 - Amp environment specs emit `.agents/setup` scripts and supervised `.amp/services.yaml` services (#637).
-- Augment and Factory emit native commands, Augment ignore specs emit to `.augmentignore`, and directory-scoped skills stay scoped on Codex, Cursor, Warp, and OpenCode (#630, #808, #805).
+- Augment and Factory emit commands, Augment writes `.augmentignore`, and scoped skills stay scoped on Codex, Cursor, Warp, and OpenCode (#630, #808, #805).
 
 ### Changed
 
@@ -27,10 +27,10 @@ Releases v0.1.0 through v0.59.0. Everything from v0.60.0 on lives in [CHANGELOG.
 ### Site
 
 - `agnostic-ai.org` is the canonical site, built with Zola 0.22.0 from shared templates, with legacy URLs and feed identifiers stable.
-- User guides live at `/docs/`, sharing one Markdown source with the repository and `llms-full.txt`, and `/agent-setup.txt` gives a coding agent a safe setup path.
+- User guides live at `/docs/` from the same Markdown as the repository and `llms-full.txt`, and `/agent-setup.txt` gives a coding agent a safe setup path.
 - The landing page leads with a copy-ready install command, a three-step activation path, and a ten-target comparison.
-- The capability matrix filters and shares comparisons by URL, and the playground covers all ten spec kinds with CI checking both against adapter declarations.
-- Release briefings ship with each release, keeping the changelog separate from verified upstream news, and the updates archive filters editions by target and search term.
+- The capability matrix filters and shares comparisons by URL; the playground covers all ten spec kinds; CI checks both against adapter declarations.
+- Each release ships a briefing kept apart from verified upstream news, and the updates archive filters editions by target and search term.
 
 ## v0.58.0 - 2026-09-14
 
@@ -53,7 +53,7 @@ Releases v0.1.0 through v0.59.0. Everything from v0.60.0 on lives in [CHANGELOG.
 
 ### Added
 
-- `sync.unmanaged` lists user-owned output paths that sync never writes, copies, or removes, and that `doctor`, the ledger, the `.gitignore` block, and `revert` all leave alone (#781).
+- `sync.unmanaged` lists user-owned output paths that sync, `doctor`, the ledger, the `.gitignore` block, and `revert` all leave alone (#781).
 - `::target` fences work in `.agnostic-ai/AGNOSTIC_AI.md`, so a fenced paragraph reaches only the entry-point files a listed target reads (#781).
 - Claude emits and imports HTTP, MCP-tool, and prompt hooks; Cursor emits native prompt hooks (#767, #768).
 - Ignore specs reach Crush's `.crushignore` and Kilo's `.kilocodeignore`, and review specs reach Goose's `.agents/REVIEW.md` (#770, #773, #771).
@@ -62,16 +62,16 @@ Releases v0.1.0 through v0.59.0. Everything from v0.60.0 on lives in [CHANGELOG.
 ### Fixed
 
 - Hook scripts from `.agnostic-ai/scripts/` go through the sync session, so a failed sync rolls them back and deleting the hook sweeps the script (#789).
-- Deleting a skill removes its bundled files from every target, and sync no longer leaves stale output behind or reports every prior output as an orphan (#781, #785).
-- `::target` fences survive a round trip: `import` keeps a fenced entry point, `validate` accepts external adapters, and a dropped fence leaves no blank line (#781, #790).
-- Sync preserves what it does not own: VS Code `inputs` and `sandbox`, Continue, Factory, and Kilo MCP options, and hand-authored ignore file order (#757, #769, #763, #774, #775, #761).
+- Deleting a skill removes its bundled files from every target, and sync stops leaving stale output or flagging every prior output as an orphan (#781, #785).
+- `::target` fences survive `import`, pass `validate` with external adapters, and leave no blank line when dropped (#781, #790).
+- Sync keeps what it does not own: VS Code `inputs` and `sandbox`, extra MCP options, and hand-authored ignore file order (#757, #769, #763, #774, #775, #761).
 - Native output matches what each tool loads, on Gemini hooks, Zed skill names, and Kiro timeouts and actions (#762, #766, #772).
 
 ## v0.56.1 - 2026-09-12
 
 ### Fixed
 
-- `curl -fsSL ... | bash` installs again: `latest_version` piped curl into `grep -m1`, so curl took EPIPE and `pipefail` propagated it, and the tag resolved while the install died. Piped into `/bin/sh` it previously exited 0 having installed nothing.
+- `curl -fsSL ... | bash` installs again, and a run piped into `/bin/sh` no longer exits 0 having installed nothing.
 
 ## v0.56.0 - 2026-09-12
 
@@ -85,41 +85,41 @@ Three changes make a previously green repo fail. All three are deliberate.
 
 ### Added
 
-- Hook specs reach five more targets: Copilot at `.github/hooks/agnostic-ai.json` across 14 events, Factory across nine, Trae across six, Crush on `PreToolUse` only, and Augment across five with timeouts in milliseconds (#629).
-- Hook specs accept `args`, which switches a Claude Code hook to exec form so a path carrying a space or `$` runs as written; Qoder emits the same form, and Copilot maps it onto its own `exec` key with a coverage note naming the CLI-only trade (#732, #746, #755).
-- Ignore specs reach Kiro (`.kiroignore`), Trae (`.trae/.ignore`), and Junie (`.aiignore`), which all three document; until now every ignore spec skipped on them with a warning (#728).
-- Gemini agents emit as native subagents at `.gemini/agents/<name>.md`, so an agent is delegatable, invokable with `@name`, and listed by `/agents`, with `tools` translated onto Gemini's own names (#733).
-- `lint` reports an MCP server missing the field its transport requires (LINT008): most targets wrote a server object with nothing to start or connect to, and the rest dropped it in silence (#747).
+- Hook specs reach five more targets: Copilot (`.github/hooks/agnostic-ai.json`, 14 events), Factory, Trae, Crush (`PreToolUse` only), and Augment (#629).
+- Hook specs accept `args` to run in exec form, so a path with a space or `$` runs as written on Claude Code, Qoder, and Copilot (#732, #746, #755).
+- Ignore specs reach Kiro (`.kiroignore`), Trae (`.trae/.ignore`), and Junie (`.aiignore`) instead of skipping with a warning (#728).
+- Gemini agents emit as native subagents at `.gemini/agents/<name>.md`, invokable with `@name` and listed by `/agents` (#733).
+- `lint` reports an MCP server missing the field its transport requires, which targets wrote as a dead entry or dropped (LINT008, #747).
 
 ### Changed
 
-- Gemini agents no longer write `.gemini/commands/<name>.toml` by default and a managed file left there is swept; set `outputs.gemini.emit-agents-as-commands: true` to keep the `/name` prompt (#733).
+- Gemini agents stop emitting `.gemini/commands/<name>.toml` and sweep old copies; set `outputs.gemini.emit-agents-as-commands: true` to keep `/name` (#733).
 - Qoder hook events sort in the vendor's own order, so `.qoder/settings.json` changes bytes once for a project mixing documented and custom event names (#744).
 
 ### Fixed
 
-- `sync` no longer silently destroys a hand-authored ignore file on seven targets: it fails with `AAI-103`, names the patterns that would be lost, and writes nothing. `import <target>` reads the file into an ignore spec (#754).
-- `sync` no longer deletes every user-authored key in a JSONC config file. `kilo.jsonc` and two siblings document `//` comments that `encoding/json` rejects, and the swallowed parse error took credentials and permission settings with it (#725).
-- `import gemini` reads `.gemini/commands/*.toml` again and writes them to `<commands>/`, after #748 turned that read into a fallback and any project with one subagent lost every command (#750).
-- Continue MCP servers reach the shapes its schema accepts: `streamable-http` for `type: http`, `headers` under `requestOptions`, `env` on stdio only, and a coverage note for `ws` or a missing required field (#726, #730, #739).
-- Warp skips an MCP entry missing `command` or `url` instead of writing a server with nothing to launch, Crush accepts every hook-event spelling it documents, and Codex keeps `startup_timeout_ms` through a round trip (#731, #735, #753).
+- `sync` fails with `AAI-103` instead of overwriting a hand-authored ignore file on seven targets; run `import <target>` to read it into an ignore spec (#754).
+- `sync` no longer deletes every user-authored key in a JSONC config such as `kilo.jsonc`, credentials and permission settings included (#725).
+- `import gemini` reads `.gemini/commands/*.toml` again, after #748 made one subagent in a project hide every command (#750).
+- Continue MCP servers match its schema: `streamable-http` for `type: http`, `headers` under `requestOptions`, and a coverage note for `ws` (#726, #730, #739).
+- Warp skips an MCP entry with nothing to launch, Crush accepts each documented event spelling, and Codex round-trips `startup_timeout_ms` (#731, #735, #753).
 - `sync -t amp` stops writing Agent specs to the directory Amp's own migration tells users to delete, and sweeps what a previous sync left there (#727).
-- `validate` accepts Qoder's four documented hook events, Cursor's five matcher-consuming ones stop raising LINT005, and a Kilo command named `goal` surfaces a coverage note for the name Kilo reserves (#734, #736, #744).
-- Docs correct stale vendor claims across Copilot, Trae, Zed, Qoder, Factory, Cursor, and the spec-format skills list, and record that `.claude/settings.json` has become a cross-tool hook file, so syncing `claude` beside `copilot` can run a hook twice (#737, #745, #755, #756).
+- `validate` accepts Qoder's documented hook events and Cursor's matchers, and a Kilo command named `goal` raises a coverage note (#734, #736, #744).
+- Docs fix stale vendor claims and warn that `claude` plus `copilot` can run a hook twice through `.claude/settings.json` (#737, #745, #755, #756).
 
 ## v0.55.0 - 2026-09-10
 
 ### Added
 
-- Windsurf hooks emit to `.devin/hooks.v1.json` across eight events, with `type` accepting `prompt` as well as `command`, and `import windsurf` reads them back (#629).
+- Windsurf hooks emit to `.devin/hooks.v1.json` across eight events, `type: prompt` included, and `import windsurf` reads them back (#629).
 - Qoder hooks emit to `.qoder/settings.json` across 23 events, matching Claude Code's tool-name matcher vocabulary (#629).
 - Kilo Code and Qoder commands emit natively, with the `description` frontmatter each vendor requires; both previously skipped with a warning (#630).
-- Trae rule frontmatter merges `x-trae` custom keys, most notably `scene: git_message`: the merge helper commands already used was never called, so no custom key reached a rule file (#635).
+- Trae rule frontmatter merges `x-trae` custom keys such as `scene: git_message`, which never reached a rule file before (#635).
 
 ### Fixed
 
-- Kiro skills emit natively to `.kiro/skills/<name>/SKILL.md` instead of flattening into steering, keeping bundled assets and reaching Kiro's own skill picker; a stale flattened copy is swept (#642).
-- `import codex` reads inline hooks in the vendor's documented nested shape, which every vendor example uses and which previously imported as zero hooks with no warning (#669).
+- Kiro skills emit natively to `.kiro/skills/<name>/SKILL.md` with bundled assets, and a stale flattened copy in steering is swept (#642).
+- `import codex` reads inline hooks in the vendor's documented nested shape, which previously imported as zero hooks (#669).
 - Docs list every target that emits hooks and commands natively, after both enumerations drifted behind the adapters (#629, #630).
 - Amp, Junie, Trae, Kiro, Warp, and Cursor docs drop stale vendor citations and add vendor-confirmed fields (#647).
 
@@ -127,16 +127,16 @@ Three changes make a previously green repo fail. All three are deliberate.
 
 ### Added
 
-- Directory-specific rules via `new rule --scope`, with native scoped output for 19 targets: scoped bodies stay out of root instructions, and preflight rejects unsafe shared readers and destination conflicts (#704).
+- `new rule --scope` adds directory-specific rules with native scoped output for 19 targets, kept out of root instructions (#704).
 - The site and playground move onto a single amber accent on ink, with every foreground/background pair checked against WCAG AA.
 
 ### Changed
 
-- Documentation starts with a focused first-rule tutorial and dedicated installation, migration, and troubleshooting guides; scoped-context docs add a runnable walkthrough.
+- Docs start with a first-rule tutorial and dedicated installation, migration, and troubleshooting guides, plus a runnable scoped-context walkthrough.
 
 ### Fixed
 
-- Codex: an MCP server name with a package-style character, now allowed by Codex CLI 0.152.0, wrote a TOML table header its own parser rejects, breaking every server in the file (#706).
+- Codex: an MCP server name with a package-style character no longer writes a TOML header that breaks every server in the file (#706).
 - Windsurf: `outputs.windsurf.workflows-dir` warns instead of writing files nothing reads, since Devin removed the only agent that ever read a Workflow (#707).
 - Junie docs name `allowPromptArgument` as vendor-documented, and the Kiro MCP comment drops an implied confirmation it never had (#708).
 
@@ -144,15 +144,15 @@ Three changes make a previously green repo fail. All three are deliberate.
 
 ### Added
 
-- OpenHands hooks emit to `.openhands/hooks.json` across six events; a matcher copied from a Claude spec raises a coverage note, since OpenHands names its own tools (#629).
-- MCP passthrough gaps close on codex and copilot: eight documented Codex keys plus an `oauth` sub-table, and VS Code's `cwd`, `envFile`, `dev`, and `sandboxEnabled`, all previously dropped in silence (#692).
-- Codex hooks gain `type: mcp_tool`, which calls a connected server's tool instead of running a shell command and was silently dropped before (#693).
-- The published site is findable: canonical URL, Open Graph and Twitter cards, structured data, `llms.txt`, `sitemap.xml`, and `robots.txt` with real commit dates.
+- OpenHands hooks emit to `.openhands/hooks.json` across six events; a matcher copied from a Claude spec raises a coverage note (#629).
+- Codex and Copilot MCP entries keep documented keys they dropped before, including Codex `oauth` and VS Code `envFile` and `sandboxEnabled` (#692).
+- Codex hooks gain `type: mcp_tool`, which calls a connected server's tool instead of running a shell command (#693).
+- The site is findable: canonical URL, Open Graph and Twitter cards, structured data, `llms.txt`, `sitemap.xml`, and `robots.txt`.
 
 ### Fixed
 
-- `sync --jobs` no longer fails intermittently with `invalid argument` when two targets share a directory: macOS raises `EINVAL` where the retry only handled `ENOENT` (#701).
-- Warp: sync warns when a hand-authored `WARP.md` sits beside the `AGENTS.md` it just wrote, since Warp reads `WARP.md` first and every synced rule was reaching nowhere (#691).
+- `sync --jobs` no longer fails intermittently with `invalid argument` on macOS when two targets share a directory (#701).
+- Warp: sync warns when a hand-authored `WARP.md` sits beside the generated `AGENTS.md`, since Warp reads `WARP.md` first and ignores synced rules (#691).
 - Cursor skills promote the documented `icon` and `color` to first-class keys, which previously reached the file only through `x-cursor` (#694).
 - The generated entry-point body offers `.geminiignore` instead of the `.aiexclude` this tool stopped writing in #625 (#651).
 
@@ -160,292 +160,286 @@ Three changes make a previously green repo fail. All three are deliberate.
 
 ### Changed
 
-- The npm publish no longer rides on every package-manager push succeeding: it gates on the release archives being present and skips cleanly when that version is already on the registry, so a re-run is safe.
+- The npm publish gates on the release archives, not on every package-manager push, and skips a version already on the registry, so a re-run is safe.
 
 ## v0.52.0 - 2026-09-07
 
 ### Added
 
-- `agnostic-ai sync --global` installs shared user-level instructions, rules, hooks, and skills from `$AGNOSTIC_AI_HOME` as native configuration for 22 of the 25 targets, each at its documented user-level path, preserving unrelated native content (#680).
-- Codex MCP servers emit the vendor's per-tool sub-tables from a `tools` map, covering `output_token_limit` and the per-tool approval override, both dropped in silence before (#678).
-- `outputs.claude.settings.bashOutputMaxChars` and `.taskOutputMaxChars` raise how much output Claude Code takes inline before spilling to a file, up to 128K characters (#679).
+- `sync --global` installs user-level instructions, rules, hooks, and skills from `$AGNOSTIC_AI_HOME` at the documented path of 22 of 25 targets (#680).
+- Codex MCP servers emit per-tool sub-tables from a `tools` map, covering `output_token_limit` and the per-tool approval override (#678).
+- `outputs.claude.settings.bashOutputMaxChars` and `.taskOutputMaxChars` raise how much output Claude Code keeps inline, up to 128K characters (#679).
 
 ### Changed
 
 - Ordinary project sync no longer loads `~/.agnostic-ai/` as a low-precedence spec layer; it is now the explicit global source for `sync --global` (#680).
-- Crush docs record that `crush.json` is the vendor's deprecated legacy format, frozen from new fields and merged with `crushrc`; emission is unchanged (#674).
+- Crush docs record that `crush.json` is the vendor's deprecated legacy format, merged with `crushrc`; emission is unchanged (#674).
 
 ### Fixed
 
-- `sync --global` removes a hooks file it has nothing left to put in, instead of leaving a `{"hooks": {}}` shell; a file holding any other key is kept (#680).
-- `sync --jobs` no longer fails intermittently on a directory two adapters share: a write now recreates a parent the prune removed, and the prune accepts a directory another target just wrote into.
-- Kiro and Antigravity adapter docs record a vocabulary conflict between two vendor pages and drop a stale "stays unconfirmed" note the vendor's own payload settles; behavior is unchanged (#675).
+- `sync --global` removes a hooks file left with nothing in it instead of writing `{"hooks": {}}`; a file holding other keys is kept (#680).
+- `sync --jobs` no longer fails intermittently on a directory two adapters share.
+- Kiro and Antigravity docs record a conflict between two vendor pages and drop a stale "stays unconfirmed" note (#675).
 
 ## v0.51.0 - 2026-09-04
 
 ### Added
 
-- MCP servers stop dropping documented vendor fields on ten targets. Claude Code gains `timeout` and `alwaysLoad`, plus `headersHelper` and an `oauth` object on a remote server; Gemini `timeout`, `trust`, `description`, `includeTools`, `excludeTools`; Codex `http_headers_helper`, `enabled_tools`, `disabled_tools`; Cursor a stdio server's `envFile` and a remote server's static-OAuth `auth`; Kiro `autoApprove`, `disabledTools`, and a remote server's `oauth` and `oauthScopes`; Crush `disabled`, `sessionless`, `enabled_tools`, `disabled_tools`; OpenCode a local server's `cwd` and either transport's `timeout`; Qoder the nine fields on the vendor's "Common Optional Fields" table plus a stdio server's `cwd`. Amp and Zed reach theirs through `x-amp` and `x-zed`. Every field was vendor-documented and dropped in silence before, with no coverage note (#634, #641, #661).
-- Augment MCP servers merge into `<workspace>/.augment/settings.json` under `mcpServers`, alongside `shell`, `theme`, and other Auggie CLI settings the file already holds. MCP specs previously reached no Augment surface at all (#633).
-- Copilot MCP servers also emit to `.github/mcp.json`, the file Copilot CLI reads. The CLI does not read `.vscode/mcp.json` and calls its `servers` key unsupported, so a Copilot CLI user with no VS Code in the loop previously got no MCP server at all. Override with `outputs.copilot.cli-mcp-file` (#646).
-- Agents reach the subagent loader on Windsurf, Trae, and Antigravity. Each writes a native profile file (`.devin/agents/<name>.md`, `.trae/agents/<name>.md`, `.agents/agents/<name>.md`) instead of flattening into an always-on rule file, so `model`, `tools`, and the other documented frontmatter fields stop being dropped. A stale `agent-<name>.md` in the rules directory is swept on the next sync (#638).
-- Windsurf translates an agent's `tools` onto Devin's own `read`/`edit`/`grep`/`glob`/`exec` vocabulary under the key `allowed-tools`. Antigravity never writes a generic `tools` list, because its vocabulary shares no name with agnostic-ai's and the vendor warns an unmapped name can hang the subagent; set `x-antigravity.tools` instead (#638).
-- Windsurf writes the shared root `AGENTS.md`, the file Devin CLI reads automatically and its docs call the recommended way to give a project rules. A windsurf-only repo had no root entry point at all before, so unscoped rules reached Devin through no path (#645).
-- Factory and Goose emit skills to the shared `.agents/skills/` tree. Neither had a skill surface before, so a skill spec reached either target only by accident, through another enabled target's write (#632).
-- OpenHands emits a rule carrying `globs`/`paths` or a source-layout scope as a native path-triggered rule (`.agents/skills/<name>/SKILL.md`, `paths:` frontmatter), the vendor's deterministic per-file mechanism. The rule now loads only for the files it scopes, at zero context cost until touched, instead of an always-on block in `AGENTS.md` (#643).
-- OpenHands emits an environment spec's `install` field as `.openhands/setup.sh`, the vendor's documented repository bootstrap script. Environment specs previously reached no OpenHands surface at all (#662).
-- Codex hooks accept `async: true` to run a command hook in the background instead of blocking the session on it. `import codex` reads it back from `.codex/hooks.json` (#636).
+- MCP servers stop dropping vendor-documented fields on ten targets, such as Claude Code `timeout` and Kiro `oauth` (#634, #641, #661).
+- Augment MCP servers merge into `.augment/settings.json` under `mcpServers`, keeping the file's other settings (#633).
+- Copilot MCP servers also emit to `.github/mcp.json`, the file Copilot CLI reads; override with `outputs.copilot.cli-mcp-file` (#646).
+- Agents reach the subagent loader on Windsurf, Trae, and Antigravity with `model` and `tools`; stale `agent-<name>.md` rules are swept (#638).
+- Windsurf maps an agent's `tools` onto Devin's own names under `allowed-tools`; on Antigravity, set `x-antigravity.tools` (#638).
+- Windsurf writes the shared root `AGENTS.md` that Devin CLI reads, so unscoped rules reach a windsurf-only repo (#645).
+- Factory and Goose emit skills to the shared `.agents/skills/` tree; neither had a skill surface before (#632).
+- OpenHands emits a scoped rule as a path-triggered `.agents/skills/<name>/SKILL.md`, so it loads only for matching files, not always from `AGENTS.md` (#643).
+- OpenHands emits an environment spec's `install` field as `.openhands/setup.sh`, the vendor's repository bootstrap script (#662).
+- Codex hooks accept `async: true` to run in the background, and `import codex` reads it back (#636).
 
 ### Changed
 
-- Qoder MCP servers move from the project-root `.mcp.json` to `.qoder/settings.json`, Qoder's own documented project-level location. The old path is Claude Code's, and the two targets' documented per-server fields have diverged far enough that sharing it would trip sync's collision check. Delete a leftover `.mcp.json` by hand in a Qoder-only project: it still loads and outranks the new file. In a project that also targets Claude Code, that file is Claude Code's and stays, so Qoder resolves a same-named server from it and the fields above do not take effect (#641).
-- Warp MCP servers no longer emit `description`, `disabled`, or `roots`. Warp publishes two closed property tables and names none of the three, so the keys did nothing. `disabled` now raises a coverage note, and the other two stay reachable through `x-warp` (#641).
-- Codex's sweep of its pre-v0.26 `.agents/agents/` agents tree is scoped to `.toml`, the extension Codex agents use. Antigravity's subagents live in that same vendor-documented directory as `.md`, so the wholesale sweep deleted them and whichever adapter ran last decided whether the project had subagents at all (#638).
+- Qoder MCP servers move from `.mcp.json` to `.qoder/settings.json`. In a Qoder-only project, delete the leftover `.mcp.json`, which still outranks it (#641).
+- Warp MCP servers stop emitting `description`, `disabled`, and `roots`, which Warp ignores; use `x-warp` to keep one (#641).
+- Codex's sweep of its old `.agents/agents/` tree only removes `.toml`, so it no longer deletes Antigravity subagents in the same directory (#638).
 
 ### Fixed
 
-- Cline rules that set `alwaysApply: false` carry a `paths` glob array, Cline's one documented conditional, so a rule scoped to `src/components/**` stops loading on every request (#639).
-- Continue rules carry `name`, `globs`, `alwaysApply`, and `description` frontmatter, with `globs` falling back to the rule's source-layout scope. No rule file carried frontmatter before, so every scoped rule was always-on. `x-continue.regex` reaches the file too (#639).
-- `validate` accepts `PreModelSwitch`/`PostModelSwitch` (Claude), `Interrupt` (Codex), and `AgentSpawn` (Kiro) hook events instead of rejecting them as unknown. All three already reached their target's emitted file correctly; only `validate`'s allowlist was stale, which broke CI for a project with a correct spec (#660).
-- Warp's skills doc names `WARP_SKILL_DIRS`, scoped to Cloud agents indexing skills outside the repo, not the general `SKILLS_DIRS` this repo's own docs and adapter comment claimed. A user who exported `SKILLS_DIRS` got nothing (#663).
-- Kilo Code's docs note `.kilo/kilo.jsonc` outranks the root `kilo.jsonc` this adapter writes when both files exist. Documented as a caveat: the vendor's config precedence is a merge across named sources, not an exclusive first-match read, so this stays a doc clarification rather than a behavior change (#644).
+- Scoped Cline and Continue rules stop loading on every request, using Cline's `paths` and Continue's `globs`; `x-continue.regex` reaches the file too (#639).
+- `validate` accepts the `PreModelSwitch`, `PostModelSwitch`, `Interrupt`, and `AgentSpawn` hook events, which already emitted correctly but failed CI (#660).
+- Warp's skills doc names `WARP_SKILL_DIRS` for Cloud agents, not the `SKILLS_DIRS` it claimed before, which did nothing (#663).
+- Kilo Code's docs note that `.kilo/kilo.jsonc` outranks the root `kilo.jsonc` this adapter writes when both exist (#644).
 
 ## v0.50.0 - 2026-08-28
 
 ### Added
 
-- `outputs.copilot.root-mcp-file` writes Copilot's MCP servers to a workspace-root `.mcp.json` under `mcpServers`, the key Copilot CLI and VS Code's Agent Host accept (neither reads `.vscode/mcp.json`, whose `servers` key the vendor calls unsupported). Opt-in, so no project gains a root file it did not ask for (#610, #622).
-- Path variables in spec bodies: `{{$SKILLS_DIR}}`, `{{$AGENTS_DIR}}`, `{{$COMMANDS_DIR}}`, `{{$RULES_DIR}}`, and `{{$MCP_FILE}}` expand to each target's own location, so one spec can say where files go without hardcoding one tool's layout. An `outputs.<target>.<field>` override wins, and a variable a target has no surface for is left verbatim with a coverage note rather than blanked (#616).
-- `lint` flags frontmatter keys that near-miss a key agnostic-ai owns (`allowed_tools`, `allowedTools`, `allowed-tools`, `disallowed_tools`, `max_turns`, `model_name`). Such a key parses, emits, and does nothing, so a tool restriction can look set while the agent runs unrestricted. Warn severity, so `lint --strict` gates it; the message suggests moving a genuinely target-native key under `x-<target>` (#617).
+- `outputs.copilot.root-mcp-file` opts in to writing Copilot MCP servers to a root `.mcp.json`, the file Copilot CLI and VS Code's Agent Host read (#610, #622).
+- Spec bodies expand path variables such as `{{$SKILLS_DIR}}` and `{{$MCP_FILE}}` to each target's own location, honoring `outputs.<target>` overrides (#616).
+- `lint` warns on frontmatter keys that near-miss one agnostic-ai owns, such as `allowed_tools`, which parse but leave the agent unrestricted (#617).
 
 ### Changed
 
-- `validate` exits 1 when it reports any issue, and `doctor --check-globs` exits 1 when a rule's globs match no files. Both printed the problem and exited 0 before, so a CI step could not gate on either: one project sat 24 versions behind with 23 invalid specs and a green pipeline for months (#617).
+- `validate` exits 1 when it reports any issue, and `doctor --check-globs` exits 1 when a rule's globs match no files, so CI can gate on both (#617).
 
 ### Fixed
 
-- Zed rules reach Zed again. `sync` writes zed's entry-point to `.rules`, which Zed reads before `.github/copilot-instructions.md`; enabling copilot and zed together handed Zed copilot's pointer-only file, and every rule silently stopped applying (#624).
-- OpenCode's entry point moved from `.opencode/AGENTS.md` to the root `AGENTS.md`, the only file OpenCode's upward lookup opens, so rule bodies now reach a project that syncs opencode alone. A managed file at the old path is swept on sync, a hand-authored one is kept, and `import opencode` still reads it when the root file is absent (#623).
-- Windsurf scoped rules and agents now land at `<scope>/.devin/rules/<name>.md`, a location Devin discovers, instead of `.devin/rules/<scope>/<name>.md`, which no documented discovery path reached. A windsurf rule that sets `alwaysApply: false` also carries the matching `trigger` frontmatter now, so it stops being silently promoted to always-on (#628).
-- Gemini ignore specs emit as `.geminiignore`, the file Gemini CLI actually reads. They went to `.aiexclude` before, which belongs to Gemini Code Assist, so every excluded path stayed visible to `@` file references and file search. A managed `.aiexclude` is removed on the next sync (#625).
-- Kiro hook files write `"version": "v1"`, the string value the vendor schema documents, instead of the number `1`. A parser that validates the field would reject the file and none of the project's hooks would fire (#626).
-- Factory droids translate `tools` onto Droid CLI's own IDs (`Bash` to `Execute`, `Write` to `Create`, `WebFetch` to `FetchUrl`) instead of writing Claude-style names Droid CLI rejects as unknown, which failed the whole droid at load time and kept it out of the picker (#627).
+- Zed rules reach Zed again: sync writes its entry point to `.rules`, so enabling copilot beside zed no longer hides every rule (#624).
+- OpenCode's entry point moves from `.opencode/AGENTS.md` to the root `AGENTS.md`, the file OpenCode reads; a managed file at the old path is swept (#623).
+- Windsurf scoped rules land at `<scope>/.devin/rules/<name>.md`, where Devin finds them, and `alwaysApply: false` rules carry a matching `trigger` (#628).
+- Gemini ignore specs emit as `.geminiignore`, the file Gemini CLI reads, and a managed `.aiexclude` is removed (#625).
+- Kiro hook files write `"version": "v1"` as the schema documents instead of the number `1`, which a validating parser rejects (#626).
+- Factory droids translate `tools` onto Droid CLI's own IDs, so a droid no longer fails to load on Claude-style names (#627).
 
 ## v0.49.0 - 2026-08-13
 
 ### Added
 
-- Junie subagents emit natively at `.junie/agents/<name>.md` instead of flattening into `.junie/AGENTS.md` prose, so `tools`, `model`, `mcpServers` and the rest of the frontmatter reach Junie instead of being dropped. Override with `outputs.junie.agents-dir` (#604).
+- Junie subagents emit at `.junie/agents/<name>.md`, so `tools`, `model`, and `mcpServers` reach Junie. Override with `outputs.junie.agents-dir` (#604).
 - Junie slash commands emit at `.junie/commands/<name>.md`. Command specs targeting junie previously had no emission path at all (#605).
-- Windsurf MCP servers emit to `.devin/mcp_config.json`, the project file Devin Local reads. The adapter declared no MCP support before, so every MCP spec skipped with a warning (#587).
-- Trae rules and agents carry `description` / `globs` / `alwaysApply` frontmatter, so a glob-scoped or manually-triggered rule can finally express that on Trae (#607).
-- A Goose rule scoped to a subdirectory writes a nested `<scope>/.goosehints` instead of flattening into the root document. Still behind the `outputs.goose.rules-file` opt-in (#608).
-- Antigravity and OpenCode MCP servers pass through any `x-antigravity` / `x-opencode` field beyond the documented set, including Antigravity's `authProviderType`, `oauth`, `disabledTools` and OpenCode's pre-registered `oauth` credentials (#588).
-- `import antigravity` reads `.agents/mcp_config.json` back into MCP specs. It previously returned zero for every project, so a synced setup could not round-trip (#589).
-- OpenHands streamable-HTTP MCP servers emit the optional `timeout` field. An `sse_servers` entry that sets it gets a coverage note, since OpenHands documents it only for SHTTP (#588).
+- Windsurf MCP servers emit to `.devin/mcp_config.json`, the project file Devin Local reads, instead of skipping every MCP spec (#587).
+- Trae rules and agents carry `description`, `globs`, and `alwaysApply` frontmatter, so a glob-scoped or manual rule works on Trae (#607).
+- With the `outputs.goose.rules-file` opt-in, a Goose rule scoped to a subdirectory writes a nested `<scope>/.goosehints` (#608).
+- Antigravity and OpenCode MCP servers pass through extra `x-antigravity` and `x-opencode` fields, such as their `oauth` settings (#588).
+- `import antigravity` reads `.agents/mcp_config.json` back into MCP specs, so a synced setup round-trips (#589).
+- OpenHands streamable-HTTP MCP servers emit `timeout`; an `sse_servers` entry that sets it gets a coverage note (#588).
 - Qoder agents emit `color`, matching Augment and Kilo Code (#588).
 
 ### Fixed
 
-- crush emits a `type: sse` MCP entry as `"type": "sse"` instead of collapsing it to `"type": "http"`. Crush routes the two to different SDK transports, so an SSE-only server failed to connect (#586).
-- Warp MCP stdio entries emit `working_directory` when a spec sets `cwd`, which was previously dropped with no warning. The seven other targets sharing that builder are unchanged, since only Warp's docs confirm a destination key (#606).
-- Warp MCP entries no longer carry a `type` discriminant, which Warp does not document (#592).
-- The four `TestWatchSync_*` tests no longer flake on Windows CI. They now wait for the watcher to arm before editing a watched file, instead of racing its baseline snapshot (#585).
-- Duplicated `trae` and `qoder` rows in the `docs/user/targets.md` and `README.md` capability tables are collapsed, each cell resolved against adapter source. A test now fails the build if a target appears twice in one table (#597).
-- `docs/user/spec-format.md` listed two targets as having no project-scoped MCP file where the registry has five, and `targets.md` omitted Antigravity from the targets honoring `disabled` (#597).
-- `docs/user/spec-format.md` gains a `color` support-by-target table: Augment, Kilo Code, and Qoder share the key but document different value spaces, so it is portable in name only (#609).
-- `docs/user/targets.md` documents zed's `x-zed.disable-model-invocation` skill passthrough, records windsurf's unwritten `.devin/mcp_config.local.json` scope as a deliberate won't-fix, and merges two contradictory Skills bullets left by the same-day Warp (#557) and Qoder (#558) skills work (#590, #609).
-- Amp skills scope their own MCP servers through `x-amp.mcpServers`, which the existing passthrough already emitted. Documented rather than built: no spec change was needed (#591).
-- Warp's workflow doc link, its skill-scan directory count (four to ten), Junie's lookup-order note, and five dead `sources.md` citations are corrected (#590).
+- Crush emits a `type: sse` MCP entry as `"type": "sse"` instead of `"http"`, so an SSE-only server connects (#586).
+- Warp MCP stdio entries emit `working_directory` from a spec's `cwd` instead of dropping it, and no longer carry the undocumented `type` field (#592, #606).
+- The `sync --watch` tests no longer flake on Windows CI: they wait for the watcher to arm before editing a file (#585).
+- Capability tables drop duplicate `trae` and `qoder` rows, a test rejects duplicates, and the MCP and `disabled` target lists are corrected (#597).
+- `docs/user/spec-format.md` adds a `color` table by target: Augment, Kilo Code, and Qoder share the key but not its values (#609).
+- Targets docs cover `x-zed.disable-model-invocation`, mark windsurf's local MCP file won't-fix, and merge two Skills bullets (#557, #558, #590, #609).
+- Amp skills scope their own MCP servers through `x-amp.mcpServers`, which the passthrough already emitted; this is now documented (#591).
+- Warp's workflow doc link, its skill-scan directory count, Junie's lookup-order note, and five dead `sources.md` citations are corrected (#590).
 
 ### Changed
 
-- The `target-audit` skill records four lessons from the 2026-08-09 run: address agents by spawn ID, watch for shared-doc edits where both sides land intact, expect fixers to correct the orchestrator's prompt, and try an existing escape hatch before filing a schema question.
+- The `target-audit` skill records four lessons from the 2026-08-09 run, such as addressing agents by spawn ID.
 
 ## v0.48.1 - 2026-08-09
 
 ### Changed
 
-- `golang.org/x/sync` moves from 0.15.0 to 0.19.0. Dependabot proposed 0.22.0 (#514), but every release from 0.20.0 onward declares `go 1.25.0`, which would have raised the minimum toolchain for anyone installing with `go install`. 0.19.0 is the newest release still declaring `go 1.24.0`, matching this project's own `go.mod`, and `errgroup` is the only package used from it.
+- `golang.org/x/sync` moves to 0.19.0, not Dependabot's 0.22.0 (#514), which would raise the minimum Go for `go install` to 1.25.
 
 ### Fixed
 
-- The install docs stated Go 1.23+ while `go.mod` has required 1.24.0 for some time. The landing page and the contributing guide now both say 1.24+.
+- The install docs, landing page, and contributing guide say Go 1.24+, matching `go.mod`.
 
 ## v0.48.0 - 2026-08-09
 
 ### Added
 
-- `lint` now fails on a spec whose frontmatter opens with `---` and never closes (LINT006). Such a file parses as body-only, so the raw YAML survives as body text and every adapter writes it through: a single forgotten delimiter emitted ten structurally broken files across ten targets while `validate`, `lint`, and `sync` all exited 0, and the agent silently never loaded in any tool.
-- `scripts/e2e_test.sh` drives the built binary against a throwaway project and runs in CI via `make test-shell`: scaffold, sync, re-sync determinism, dry-run isolation, import round-trip, malformed specs, and backup/revert. It covers whole-pipeline properties no unit test can observe, and it is what surfaced LINT006.
+- `lint` fails on a spec whose frontmatter opens with `---` and never closes (LINT006), which every target otherwise wrote out as a broken file.
+- `scripts/e2e_test.sh` drives the built binary through scaffold, sync, import, and revert on a throwaway project, and runs in CI via `make test-shell`.
 
 ### Fixed
 
-- `lint` now detects two specs of the same kind declaring the same `name` (#582). The loader collapses them, so one body silently reaches no target: two rules named `dupe` reported "ok, 1 spec(s) clean" while one was discarded. LINT003 existed for this but could never fire, because the collapse happened before lint saw the entries; the loader now records the discarded spec and lint reads it. Overriding a spec from a higher layer is unaffected, which is the documented way to replace one.
-- `lint` no longer reports several hooks sharing an event and matcher as a collision (#582). They all run, verified against the emitted output for claude, codex, and cursor, so `gofmt` and `vet` on the same save was flagged as an error for no reason. Issue #171 specified this check as same event **and name**, which is what LINT003 now covers, so the LINT002 code is retired rather than renumbered. This repo's own specs tripped it three times, which is why `lint` had never been gated in CI; a `Spec lint` job now runs it.
-- The LSP reported a different set of lint findings than `lint` itself, having never been given the newest rule. Both now share one collector.
-- The first `sync` in a fresh project no longer gitignores `.agnostic-ai/AGNOSTIC_AI.md` (#580). `sync` writes that file on the first run and records it like any emitted path, so `init && sync && git add -A && git commit` silently left the shared instruction body out of the repository, and a teammate cloning it regenerated every target from an empty body. The second sync removed the entry again, which also made the first `.gitignore` differ from every later one.
-- The install docs no longer advertise channels that are not published. `npx agnostic-ai`, `winget install Chemaclass.agnostic-ai`, and `scoop install agnostic-ai` all 404 today, because each is gated on a release secret that is not configured yet, so every copy button for them handed users a failing command. The landing page drops the npx tab and points its Windows tab at the PowerShell install script, which works. `docs/user/getting-started.md` and the plugin install skill mark the three as unpublished instead of "from the next release", which stopped being true once releases shipped without them.
+- `lint` reports two specs of the same kind with the same `name` (LINT003), which the loader silently collapsed into one (#582).
+- `lint` no longer flags hooks that share an event and matcher, since they all run; LINT002 is retired and CI now runs `lint` (#171, #582).
+- The LSP reports the same lint findings as `lint`.
+- The first `sync` in a fresh project no longer gitignores `.agnostic-ai/AGNOSTIC_AI.md`, so the first commit includes the shared instruction body (#580).
+- The install docs mark `npx`, `winget`, and `scoop` as unpublished, and the landing's Windows tab points at the PowerShell install script.
 
 ## v0.47.1 - 2026-08-09
 
 ### Fixed
 
-- A `tools` list on a Cursor agent now surfaces a coverage note instead of vanishing. Cursor subagents document only `name`, `description`, `model`, `readonly`, and `is_background`, so an allowlist cannot restrict them; kilo, augment, and codex already warned in the identical situation while cursor stayed silent. `docs/user/spec-format.md` gains a per-target `tools` table, since one `tools: [Read, Bash]` spec produces five different outcomes across targets and Kiro's translation grants more than the name it came from.
+- A `tools` list on a Cursor agent raises a coverage note instead of vanishing, and `docs/user/spec-format.md` gains a per-target `tools` table.
 
 ## v0.47.0 - 2026-08-08
 
 ### Added
 
-- Kilo Code agents now emit `color` and `mode` when a spec sets them, matching Kilo's own agent Configuration Options table; `disable`, `hidden`, `steps`, `temperature`, and `top_p` stay reachable through `x-kilo` (#562).
-- Qoder skills emit into their own native folder tree, `.qoder/skills/<name>/SKILL.md`, instead of skipping with an unsupported-kind warning. Qoder's doc does not list `.agents/skills/` as a compatible path, unlike Kilo Code, Augment, and OpenHands, so this is Qoder's own tree rather than a dedupe target for the shared one. `import qoder` reconstructs skills from the new folder tree (#558).
-- Kiro agents translate a spec's generic `tools` list onto Kiro's own documented category tags (`Read`/`Grep`/`Glob` to `read`, `Write`/`Edit` to `write`, `Bash` to `shell`, `WebFetch`/`WebSearch` to `web`) instead of a permanent no-op. A name outside that set surfaces a coverage note rather than writing an unconfirmed value; `x-kiro.tools` still wins outright over the translation (#559).
-- `sync -t warp` now writes native skill folders at `.agents/skills/<name>/SKILL.md`, the shared tree codex, amp, and zed already emit into. Warp's docs recommend this path over the other three it also scans (`.warp/skills/`, `.claude/skills/`, `.codex/skills/`); skills previously stayed source-dir only with a permanent coverage note (#557).
+- Kilo Code agents emit `color` and `mode`; `disable`, `hidden`, `steps`, `temperature`, and `top_p` stay reachable through `x-kilo` (#562).
+- Qoder skills emit to `.qoder/skills/<name>/SKILL.md` instead of skipping with a warning, and `import qoder` reads them back (#558).
+- Kiro agents translate a spec's `tools` list onto Kiro's `read`, `write`, `shell`, and `web` tags; other names raise a coverage note (#559).
+- `sync -t warp` writes skills to `.agents/skills/<name>/SKILL.md`, the shared tree Warp's docs recommend, instead of a coverage note (#557).
 
 ### Changed
 
-- The `target-audit` skill and its auditor agent record what two weeks of running them taught: a client-side meta-refresh stub defeats WebFetch and reads as an absent doc rather than a moved one, `gh pr checks` beats `statusCheckRollup` because the rollup serves stale conclusions, a wait loop must not read "no data" as "finished", platform status is worth checking before diagnosing a broken branch, and a merged PR does not reliably close its issue.
+- The `target-audit` skill and auditor agent record two weeks of lessons, such as trusting `gh pr checks` over the stale `statusCheckRollup`.
 
 ### Fixed
 
-- The capability-map parity test now runs in both directions. It already caught a target gaining a capability without being registered; it now also catches one that stops supporting a kind and is left in the map, which happened when amp's `Command` support was removed and only a human reading the diff noticed.
+- The capability-map parity test also catches a target that drops a kind but stays in the map.
 - The release workflow now skips optional npm publishing when `NPM_TOKEN` is absent instead of attempting to publish with `setup-node`'s placeholder credential.
-- `import zed` no longer drops MCP servers from a `.zed/settings.json` that agnostic-ai itself emitted. The reader accepted only a nested `command: {path, args, env}` object, while Zed documents (and the zed adapter writes) `command` as a plain string with `args` and `env` beside it; remote `url` servers were skipped outright for having no `command` key. All three shapes now import (#546).
-- `sync -t junie` now writes rule and agent bodies to the file Junie reads: inlined into `.junie/AGENTS.md`, the only file its guidelines lookup opens once a project has synced. The prior `.junie/rules/` output sat outside that lookup order entirely, so every Rule and Agent spec was invisible to Junie; a stale copy from an older sync is now swept. `import junie` reads the new location, with the old directory still honored as a fallback for projects synced before this fix (#552).
-- OpenCode MCP servers now write `"enabled": false` when a spec sets `disabled: true`, the key OpenCode's own docs carry; a disabled spec previously rendered with no disable state at all, so OpenCode ran the server anyway. `import opencode` reads `enabled: false` back into `disabled: true` (#555).
-- `sync -t amp` no longer writes Command specs to `.agents/commands/`. Amp's manual documents no file-based command surface; commands register programmatically, and the vendor's own migration guidance is to delete the old command file rather than move it. A Command spec targeting amp now skips with a warning instead of landing in a file Amp never reads (#553).
-- Antigravity MCP servers now emit `headers` on remote entries, `cwd` on stdio entries, and `disabled` on both. All three were vendor-confirmed but previously omitted from `.agents/mcp_config.json`; `disabled` uses Antigravity's own key, unlike codex and kilo which map it to `enabled: false` (#556).
-- `sync -t openhands` now emits OpenHands' documented `{ url, api_key }` object for an sse/shttp MCP entry that sets `api_key`, instead of always writing a bare URL string with no way to carry a credential. An entry whose only auth is the cross-tool spec's `headers` field (OpenHands has no header-map equivalent) now surfaces a coverage note instead of reaching OpenHands with the credential silently missing (#554).
-- `sync -t factory` no longer writes a frontmatter-only file for an agent spec with an empty body. Droid CLI's own schema calls that body invalid; the agent now skips with a coverage note instead (#561).
-- `sync -t trae` now emits `.trae/mcp.json`, the project-scoped MCP registry Trae's own docs describe: `command`/`args`/`env` for stdio, `url`/`headers` for HTTP, no `type` field either way. This adapter declared no MCP support at all before, so every MCP spec targeting trae skipped with a warning instead of reaching the IDE (#560).
-- Refreshed vendor doc citations and stale adapter claims from the 2026-08-08 audit: Codex's remaining `developers.openai.com` links now point at `learn.chatgpt.com`, Factory's citation follows its `harness/subagents` rebrand, and `sources.md` gains missing evidence pages for augment, qoder, trae, antigravity, and goose. Corrected doc comments and `docs/user/targets.md` prose for windsurf (`.agents/skills/` is a cross-agent-compatibility path, not Devin Desktop's native tree), qoder (list syntax for `tools` is documented), antigravity (hooks have a documented schema; IDE execution stays the open question), zed (the `x-zed` Task passthrough is generic, not a fixed field list), gemini (`.agents/skills/` precedence over `.gemini/skills/` within a tier), and cline (the Workflows doc page is dead with no confirmed replacement, so the export is unconfirmed). Continue's dead `/hub/assistants/intro` citation now points at `docs.continue.dev/reference`, and the `assistants-dir` framing no longer claims a project-scoped directory Continue itself discovers (#563).
+- `import zed` reads every MCP server shape the `.zed/settings.json` it writes can hold, including string `command` and remote `url` entries (#546).
+- `sync -t junie` inlines rule and agent bodies into `.junie/AGENTS.md`, the file Junie reads, instead of `.junie/rules/`; `import junie` reads both (#552).
+- OpenCode MCP servers write `"enabled": false` for a `disabled: true` spec, so OpenCode no longer runs a disabled server (#555).
+- `sync -t amp` no longer writes Command specs to `.agents/commands/`, which Amp never reads; they skip with a warning (#553).
+- Antigravity MCP servers emit `headers` on remote entries, `cwd` on stdio entries, and `disabled` on both (#556).
+- `sync -t openhands` writes `{ url, api_key }` for an sse or shttp MCP entry with `api_key`; a `headers`-only credential raises a coverage note (#554).
+- `sync -t factory` skips an agent spec with an empty body with a coverage note instead of writing a file Droid rejects (#561).
+- `sync -t trae` emits MCP servers to `.trae/mcp.json`, the project registry Trae documents, instead of skipping every MCP spec (#560).
+- Vendor doc citations and stale target claims are refreshed from the 2026-08-08 audit, including Codex links moving to `learn.chatgpt.com` (#563).
 
 ## v0.46.0 - 2026-08-07
 
 ### Added
 
-- Install scripts for machines with no package manager: `curl -fsSL .../scripts/install.sh | bash` on macOS and Linux, `irm .../scripts/install.ps1 | iex` on Windows. Each resolves the latest release, verifies the archive against `checksums.txt`, installs to a PATH directory (`/usr/local/bin` or `~/.local/bin`; `%LOCALAPPDATA%\Programs\agnostic-ai` on Windows, added to the user PATH), and takes `AGNOSTIC_AI_VERSION` / `AGNOSTIC_AI_INSTALL_DIR` (`-Version` / `-InstallDir`) overrides. A weekly workflow runs both against a real release on Linux, macOS, and Windows runners.
-- Windows package managers: `winget install Chemaclass.agnostic-ai` and `scoop install agnostic-ai` from the `Chemaclass/scoop-bucket` bucket. Both manifests are generated at release time.
-- npm wrapper: `npx agnostic-ai <command>` with no install, or `npm install -g agnostic-ai`. The package downloads the prebuilt binary for the platform and verifies its checksum. It fetches on first run when npm blocks install scripts, which npm 11 does by default.
-- Claude Code plugin marketplace in this repo: `/plugin marketplace add Chemaclass/agnostic-ai` then `/plugin install agnostic-ai@chemaclass`. Ships `install`, `init`, `sync`, and `import` skills.
+- `scripts/install.sh` (macOS, Linux) and `scripts/install.ps1` (Windows) install the latest release without a package manager and verify its checksum.
+- Windows package managers: `winget install Chemaclass.agnostic-ai` and `scoop install agnostic-ai` from the `Chemaclass/scoop-bucket` bucket.
+- npm wrapper: `npx agnostic-ai <command>` with no install, or `npm install -g agnostic-ai`; it downloads and verifies the platform binary.
+- Claude Code plugin with four skills: `/plugin marketplace add Chemaclass/agnostic-ai`, then `/plugin install agnostic-ai@chemaclass`.
 - `upgrade` recognizes Scoop, winget, and npm installs and prints their update command instead of falling back to a manual download.
 
 ### Fixed
 
-- `sync` no longer fails intermittently with `mkdir <dir>: invalid argument` (or `no such file or directory`) when parallel emitters create the first two children of a shared directory. `os.MkdirAll` transiently rejects a concurrent create of the same parent with an error it does not absorb; directory creation now retries briefly. Affects any target pair sharing an output root, and surfaced as `.agents/` gained a second child (#526).
+- `sync` no longer fails at random with `mkdir <dir>: invalid argument` when two targets create the first children of a shared directory (#526).
 
 ## v0.45.0 - 2026-08-02
 
 ### Added
 
-- MCP servers propagate to three more targets: `factory` (`.factory/mcp.json`, including native `disabled` support), `qoder` (`.mcp.json`, the identical file and schema Claude Code already writes there, deduplicated when both are enabled), and `openhands` (`./config.toml` `[mcp]`, split into `stdio_servers`/`sse_servers`/`shttp_servers` arrays since OpenHands has no `type` field). MCP coverage is now 17 of 25 targets. `validate` and `sync --watch` also stop treating MCP specs as orphaned or unaffected on a `qoder`/`factory`/`openhands`-only project.
-- `target-audit` skill plus a `target-auditor` agent: a repeatable, parallel audit of every registered adapter against its vendor's current docs, reporting evidence-backed drift (moved paths, new native surfaces, schema changes, deprecations) and optionally filing one issue per finding. Backed by `scripts/target-facts.sh`, which derives batches from the adapter registry and dumps a target's declared capabilities, default output paths, adapter package doc, and `docs/user/targets.md` rows in one call, and by a per-target list of vendor doc and changelog URLs that `tests/integration/target_audit_sources_test.go` keeps in sync with the registry.
-- `target-audit --fix` closes what it finds: after filing issues it spawns one `adapter-fixer` agent per fix bucket, each in its own git worktree, each opening a PR with the finding's evidence and `Closes #N`. Buckets by severity, not by tool: one PR per breaking finding, one batched PR for additive native surfaces, one docs PR for the rest. It never merges, so audit, fix, and merge stay three separate actors.
-- MCP servers accept `type: ws`. A WebSocket entry previously matched no transport branch and was written with no `command`, no `url`, and no `type`: a malformed server object emitted with no warning on both `.mcp.json` (Claude Code) and `.cursor/mcp.json`. It now shares the remote shape (`url`, `headers`, explicit `type`), which is what Claude Code and Qoder both document.
-- Seven new targets (#479): `qoder` (Alibaba Qoder: native `.qoder/rules/<name>.md`, one file per rule), `openhands` (All Hands OpenHands: the shared `.agents/skills/<name>/SKILL.md` tree), `factory` (Factory Droid: `.factory/droids/<name>.md` with `x-factory` passthrough), `kilo` (Kilo Code: `.kilo/agents/<name>.md` + `kilo.jsonc` `mcp`), `jules` (Google Jules, cloud: shared `AGENTS.md` only), `goose` (Block Goose: opt-in `.goosehints`), and `augment` (Augment Code: opt-in `.augment-guidelines`). All seven read the shared root `AGENTS.md` pointer. `qoder`, `openhands`, `factory`, and `kilo` join the default set (now 20 of 25); `jules`, `goose`, and `augment` stay opt-in; `kilo` brings MCP to 14 of 25 targets; `import qoder` captures its rules dir.
-- Antigravity MCP servers land in `.agents/mcp_config.json` under `mcpServers`. Remote entries use `serverUrl`: Antigravity's doc says the legacy `url` / `httpUrl` names are not supported, so the shared `mcpServers`-with-`url` builder does not apply here. stdio entries carry `command`, `args`, and `env`.
-- Augment gets three native surfaces it was missing entirely: one file per rule at `.augment/rules/<name>.md` (`type: agent_requested` with `alwaysApply: false`, otherwise the vendor default `always_apply` stays implicit), one file per agent at `.augment/agents/<name>.md`, and skills into the shared `.agents/skills/<name>/SKILL.md` tree. An agent's generic `tools` list is never Augment's own vocabulary, so it now surfaces a coverage note instead of silently restricting nothing; `x-augment.tools` / `x-augment.disabled_tools` reach Augment's real per-tool access control directly.
-- Trae gains two native surfaces. Skills now emit as a folder per skill (`.trae/skills/<name>/SKILL.md`) instead of a flat rule-form file, so bundled sibling assets (`examples/`, `templates/`, `resources/`) reach Trae instead of being silently dropped. Commands emit at `.trae/commands/<name>.md` with `name` + `description` frontmatter, the only keys confirmed native to Trae's command loader. `import trae` reconstructs both, plus the old flat skill form for projects synced before this fix.
-- Kiro agents now emit natively at `.kiro/agents/<name>.md` (`description`, optional `model`), the surface Kiro's own agent picker reads, instead of a flattened `.kiro/steering/agent-<name>.md` file the picker never saw; a stale copy from an older sync is now swept. Kiro's tool-identifier vocabulary is not documented anywhere, so an agent's generic `tools` list surfaces a coverage note instead of silently restricting nothing; `x-kiro.tools` reaches Kiro's own vocabulary directly once you know it.
-- Kiro hooks land in `.kiro/hooks/<name>.json`, one file per hook (`{version, hooks: [{name, trigger, matcher, action, timeout, enabled}]}`), Kiro's fifth adapter with native hooks alongside Claude Code, Codex, Gemini, and Cursor. `disabled: true` writes `"enabled": false`.
-- Kilo Code skills emit into the shared `.agents/skills/<name>/SKILL.md` tree, the compatibility path Kilo Code itself documents as loaded by default, deduping with Codex, Amp, Zed, Crush, OpenHands, Windsurf, and Augment instead of adding a second on-disk copy under `.kilo/skills/`.
-- Qoder agents now emit natively at `.qoder/agents/<name>.md` (`name`/`description` required; optional `model`, `tools`, `skills`, `mcpServers`). `tools` renders as Qoder's documented comma-separated string, safe as a straight passthrough since Qoder's own tool vocabulary is Claude-style; `import qoder` reconstructs it as a list so every other target keeps working too (#529).
+- MCP servers reach `factory` (`.factory/mcp.json`), `qoder` (`.mcp.json`, shared with Claude Code), and `openhands` (`config.toml`), now 17 of 25 targets.
+- The `target-audit` skill audits every adapter against vendor docs and files issues; `--fix` spawns `adapter-fixer` agents that open PRs but never merge.
+- MCP servers accept `type: ws`, emitted with the remote shape (`url`, `headers`, `type`) instead of a malformed entry.
+- Seven new targets (#479): `qoder`, `openhands`, `factory`, and `kilo` join the default set, while `jules`, `goose`, and `augment` stay opt-in.
+- Antigravity MCP servers land in `.agents/mcp_config.json`, with `serverUrl` for remote entries as Antigravity requires.
+- Augment gets native rules, agents, and skills under `.augment/rules/`, `.augment/agents/`, and `.agents/skills/`; restrict tools with `x-augment.tools`.
+- Trae skills emit as folders that keep bundled assets, commands emit at `.trae/commands/<name>.md`, and `import trae` reads both.
+- Kiro agents emit at `.kiro/agents/<name>.md`, where Kiro's agent picker reads them; set tools with `x-kiro.tools`, since a generic `tools` list raises a note.
+- Kiro hooks land in `.kiro/hooks/<name>.json`, one file per hook; `disabled: true` writes `"enabled": false`.
+- Kilo Code skills emit into the shared `.agents/skills/<name>/SKILL.md` tree, which Kilo loads by default, instead of a second copy under `.kilo/skills/`.
+- Qoder agents emit at `.qoder/agents/<name>.md` with `model`, `tools`, `skills`, and `mcpServers`, and `import qoder` reads them back (#529).
 - Windsurf ignore specs merge into `.devinignore`, gitignore syntax under a provenance header, matching the shape Aider, Cursor, and Gemini already use (#530).
-- Crush MCP http/sse entries accept `oauth`, `oauth_client_id`, `oauth_client_secret`, and `oauth_callback_port`, shipped in Crush v0.87.0 (#531). Crush skills accept `x-crush.user-invocable: true` to also add the skill to the command palette (ctrl+p) (#540).
-- Codex and Gemini MCP stdio servers accept `cwd` (working directory for the server process), added to the cross-tool MCP spec; Codex http servers also accept `auth` (`oauth` or `chatgpt`) (#532). Codex hooks accept `additionalContextLimit`, a token threshold for how much hook output reaches the model (#533).
-- Warp workflows accept `x-warp` passthrough for documented YAML fields (`shells`, `arguments`, `source_url`, `author`, `author_url`) that had no native surface before; `import warp` captures them back (#538). Zed Tasks accept the same kind of `x-zed` passthrough for `cwd`, `env`, `shell`, `reveal`, `hide`, `save`, `allow_concurrent_runs`, `use_new_terminal`, `tags`, and `reevaluate_context`; `import zed` captures them back (#539).
-- Kilo Code rules now also emit at `.kilo/rules/<name>.md`, each one referenced by path in `kilo.jsonc`'s `instructions` array (#535). Kilo Code's own precedence order ranks project `instructions` above AGENTS.md, so a rule now reaches it there too instead of relying solely on the lower-ranked AGENTS.md, where a user's own `instructions` entry could otherwise silently win a conflict.
+- Crush MCP http and sse entries accept `oauth` settings (#531), and `x-crush.user-invocable: true` adds a skill to the command palette (#540).
+- Codex and Gemini MCP stdio servers accept `cwd`, Codex http servers accept `auth` (#532), and Codex hooks accept `additionalContextLimit` (#533).
+- Warp workflows and Zed Tasks accept `x-warp` and `x-zed` passthrough for their documented fields, and `import` reads them back (#538, #539).
+- Kilo Code rules also emit at `.kilo/rules/<name>.md`, listed in `kilo.jsonc` `instructions`, which Kilo ranks above AGENTS.md (#535).
 
 ### Fixed
 
-- Claude hook validation now accepts `DirectoryAdded`. First-class Claude settings now support the current `attribution` block and the `statusLine.refreshInterval` and `statusLine.hideVimModeIndicator` options, while retaining deprecated `includeCoAuthoredBy` compatibility.
-- Codex MCP servers now emit and import the documented `env_vars` and `env_http_headers` shapes. `import codex` also preserves hook `commandWindows`, keeps an explicit `additionalContextLimit: 0`, and prefers native `.codex/agents` files over legacy `.agents/agents` copies (#532, #547).
-- Codex agents no longer emit a generic Claude-style `tools = ["Read", ...]` array, which current Codex parses as its unrelated `tools` config table and rejects with `WebSearchToolConfigInput`. The field now reports a coverage note, while `x-codex.tools` emits native `[tools]` settings. The repository's own agent specs also scope `sonnet` to Claude so Codex inherits a valid native model.
-- Codex legacy cleanup no longer removes the shared `.agents` root while parallel target workers create rules, skills, or commands beneath it. Concurrent sync no longer fails at random with `mkdir .agents/...` errors.
-- Kilo Code MCP servers now write `"enabled": false` when a spec sets `disabled: true`; Kilo Code's own documented schema carries an `enabled` key and this adapter previously wrote no disable state at all, so a disabled spec produced a fully enabled server with no warning.
-- Kilo Code MCP servers now write under the `mcp` key with `type: "local"`/`"remote"`, one combined `command` array, and `environment` in place of `env`; the previous `mcpServers` shape was never read by Kilo Code. Agent frontmatter drops `name` (Kilo Code takes it from the filename) and `tools` (Kilo Code has no such key); a spec's `tools` allowlist now surfaces a coverage note instead of looking like it restricted the agent.
-- `docs/user/targets.md` drops Warp from the MCP `type`-field list (Warp's schema has no such key), adds the `SessionEnd` Codex hook event the emitter already sends, calls Codex exec policies Starlark instead of Skylark, marks Gemini's hook list as a non-exhaustive example instead of all 11 events, and confirms the Amp `.agents/commands/` path is no longer read now that command removal has held since 2026-01-29.
-- Refreshed ten stale vendor doc URLs in the target-audit skill's `references/sources.md`: Codex's six doc pages moved to `learn.chatgpt.com` (one, `/rules`, pointed at the wrong topic), Kilo moved to `kilo.ai`, and Claude, Gemini, Antigravity, Junie, Cline, Continue, and Cursor each get a corrected or added entry. Trae joins the client-rendered-docs warning list.
-- Codex exec-policy `decision` now accepts `allow`, `forbidden`, `prompt`; `ask` was never a valid Codex CLI literal and rendered a rule Codex silently ignored, and the vendor-correct `prompt` used to fail validation.
-- `outputs.claude.settings.enabledPlugins` is now a map of `plugin-id@marketplace-id` to boolean, matching Claude Code's own settings schema; the previous list-of-strings shape could not express the required marketplace qualifier and never actually enabled a plugin.
-- MCP `disabled: true` now maps to Codex's real `enabled = false` key instead of a `disabled` key Codex never reads. Claude Code, Cursor, and Copilot have no file-based way to pre-disable a project-scoped MCP server at all, so agnostic-ai stops writing the field for them and reports a coverage note instead of silently doing nothing.
-- Cline and Windsurf skills emit as a folder per skill (`.cline/skills/<name>/SKILL.md`, `.agents/skills/<name>/SKILL.md`, the latter shared with Codex, Amp, Zed, Crush, and OpenHands) instead of a flat `skill-<name>.md` file that neither tool ever loaded as a skill. `import cline` and `import windsurf` reconstruct skills from the new folder tree, and still read the old flat form for projects synced before this fix.
-- Cline rules and agents now default to `.cline/rules` and `.cline/agents` (#534), the layout Cline's current config reference documents; the older docs page still lists `.clinerules` as the primary rule format, so that path stays reachable via `outputs.cline.rules-dir` and a stale managed copy there is swept on sync. Agents move into their own native directory instead of sharing the rules directory behind an `agent-` filename prefix. `import cline` reads whichever rules path exists, preferring the new one, and reconstructs agents from the new native directory.
-- Antigravity rules and skills now default to `.agents/rules` / `.agents/skills`, the plural paths Antigravity itself now prefers. The old `.agent/rules` / `.agent/skills` singular form still reads for backward compatibility, but a stale managed copy there is swept on sync, and `.agents/skills` is also the tree Codex, Amp, Zed, Crush, and OpenHands already write, so skills dedupe there too. `import antigravity` reads whichever path exists, preferring the plural form.
-- The `targetsSupportingKind` map in `internal/cli` is now enforced against what each adapter declares, so a target that gains a capability can no longer be omitted from it. That map drives the orphan-kind validator and incremental `sync --watch`; when it drifted, users were told their specs were dead weight and the affected targets were skipped on re-sync. It had drifted for `antigravity` (skills), `factory`/`qoder`/`openhands` (MCP), and `augment` (agents and skills). All four are corrected.
-- Junie skills emit as a folder per skill (`.junie/skills/<name>/SKILL.md`, Junie's Native Agent Skills layout shipped 2026-07-31) instead of a flat `skill-<name>.md` file that never loaded as a skill and dropped any bundled asset. `import junie` reconstructs skills from the new folder tree and still reads the old flat form for projects synced before this fix.
-- Junie now also writes its preferred entry-point file, `.junie/AGENTS.md`, alongside the shared root `AGENTS.md`: Junie checks `.junie/AGENTS.md` first and only falls back to the root file when the `.junie` folder holds none, so relying on the root file alone risked it never being read.
-- Cursor rules with `alwaysApply: false` and no `globs` no longer default to `globs: "**/*"`. A description-only rule now stays relevance-selected ("Apply Intelligently") instead of attaching to every file, and a rule with neither description nor globs stays manual-only (`@`-mention), matching Cursor's own rule-type matrix. (#536)
-- `validate` now recognizes all 11 documented Gemini hook events instead of 4. `BeforeAgent`, `AfterAgent`, `Notification`, `PreCompress`, `BeforeModel`, `AfterModel`, and `BeforeToolSelection` no longer report as unknown, even though the emitter already sent them through unchanged. (#537)
+- Claude hooks accept `DirectoryAdded`, and Claude settings support `attribution`, `statusLine.refreshInterval`, and `statusLine.hideVimModeIndicator`.
+- Codex MCP servers emit and import `env_vars` and `env_http_headers`, and `import codex` keeps hook `commandWindows` and prefers `.codex/agents` (#532, #547).
+- Codex agents no longer emit a Claude-style `tools` array that Codex rejects; it raises a coverage note, and `x-codex.tools` emits native `[tools]`.
+- Concurrent sync no longer fails at random with `mkdir .agents/...` errors when Codex legacy cleanup races other targets.
+- Kilo Code MCP servers write the `mcp` key Kilo reads, with `type`, one `command` array, `environment`, and `"enabled": false` for a disabled spec.
+- Kilo Code agents drop the `name` and `tools` frontmatter Kilo ignores; a `tools` allowlist raises a coverage note.
+- `docs/user/targets.md` corrects Warp's MCP `type` field, Codex's `SessionEnd` event and Starlark policies, Gemini's hook list, and Amp's commands path.
+- Ten stale vendor doc URLs in the target-audit sources are refreshed, including Codex's move to `learn.chatgpt.com` and Kilo's to `kilo.ai`.
+- Codex exec-policy `decision` takes `allow`, `forbidden`, or `prompt`; the old `ask` wrote a rule Codex ignored.
+- `outputs.claude.settings.enabledPlugins` is a map of `plugin-id@marketplace-id` to boolean, matching Claude Code, so a plugin actually enables.
+- MCP `disabled: true` maps to Codex's `enabled = false`; Claude Code, Cursor, and Copilot get a coverage note, since they cannot pre-disable a project server.
+- Cline and Windsurf skills emit as a folder per skill that each tool loads, and `import cline` and `import windsurf` read both the new and old forms.
+- Cline rules and agents default to `.cline/rules` and `.cline/agents`; keep `.clinerules` with `outputs.cline.rules-dir` (#534).
+- Antigravity rules and skills default to `.agents/rules` and `.agents/skills`, where skills dedupe with other targets; stale `.agent/` copies are swept.
+- `validate` and `sync --watch` no longer call specs dead weight or skip `antigravity`, `factory`, `qoder`, `openhands`, and `augment`.
+- Junie skills emit as `.junie/skills/<name>/SKILL.md` with their assets, and `import junie` reads both the new and old flat forms.
+- Junie also writes `.junie/AGENTS.md`, which it reads before the root `AGENTS.md`.
+- Cursor rules with `alwaysApply: false` and no `globs` stay relevance-selected or manual instead of attaching to every file (#536).
+- `validate` recognizes all 11 documented Gemini hook events instead of 4 (#537).
 ## v0.44.0 - 2026-07-24
 
 ### Added
 
-- `new --dry-run` previews a spec scaffold (destination path plus rendered frontmatter and body) without writing it, and `init`'s post-scaffold next steps now point at `agnostic-ai completion <shell>` for shell tab-completion (#495).
-- `import kiro` and `import crush` close the last round-trip gap: every one of the 18 emitted targets now imports back. `kiro` reads `.kiro/steering/*.md` (mapping `inclusion: always` to unscoped rules and `fileMatch` + `fileMatchPattern` to `globs:` rules, plus `agent-`/`skill-` steering files) and `.kiro/settings/mcp.json`; `crush` reads the inlined `## Rules` block in `AGENTS.md`, `.agents/skills/<name>/SKILL.md`, and the `crush.json` `mcp` map (#494).
-- `--profile <file>` (or `AGNOSTIC_AI_PROFILE`) writes a `runtime/pprof` CPU profile of the run, and `sync --verbose` appends per-target wall time (`in Nms`) to each target line, so a slow sync attributes to a specific adapter. Off by default, stdlib profiler only (#491).
-- `sync --check` gains actionable drift output: `--diff` prints a unified diff per drifted file (truncated when large), `--format=github` emits GitHub Actions `::error` annotations that surface inline on the PR, and a failing check now prints the reconcile command (`agnostic-ai sync`) on stderr and points its error and the config-error hints at `agnostic-ai doctor`. Exit codes and the `--json` schema are unchanged (#488).
-- `sync --jobs <n>` emits targets in parallel (default: one worker per CPU; `1` forces serial). The emitted tree, summary, JSON, gitignore block, and warnings stay byte-identical regardless of the worker count (#487).
+- `new --dry-run` previews a spec scaffold without writing it, and `init` points at `agnostic-ai completion <shell>` for tab completion (#495).
+- `import kiro` and `import crush` read their rules, skills, and MCP back, so all 18 emitted targets now import (#494).
+- `--profile <file>` writes a CPU profile, and `sync --verbose` shows per-target wall time, so a slow sync points at one adapter (#491).
+- `sync --check --diff` prints a diff per drifted file, `--format=github` emits PR annotations, and a failing check prints the fix command (#488).
+- `sync --jobs <n>` emits targets in parallel, one worker per CPU by default; `1` forces serial (#487).
 
 ### Changed
 
-- `sync --watch` re-emits incrementally: a spec change re-syncs only the targets that emit that kind (a rule hits every rule-emitting target; a `claude`-scoped agent hits only claude) instead of every target, and the summary names what re-emitted. Config and overlay edits, deletes, and renames still trigger a full re-sync (#490).
+- `sync --watch` re-syncs only the targets that emit the changed spec's kind; config edits, deletes, and renames still re-sync everything (#490).
 
 ## v0.43.0 - 2026-07-20
 
 ### Changed
 
-- Gemini skills emit natively as `.gemini/skills/<name>/SKILL.md` folders with bundled assets, the workspace tier Gemini CLI scans; the `emit-skills-as-commands` opt-in now only adds the command form (#439).
-- Zed joins the shared `AGENTS.md` entry-point (rules inlined) and emits skills natively at `.agents/skills/<name>/SKILL.md`, the tree Codex and Amp share; the merged `.rules` document is now opt-in via `outputs.zed.rules-file` (#439).
-- OpenCode agents emit natively as `.opencode/agents/<name>.md` subagent definitions (frontmatter `description`, `mode`, `model`, `temperature`, `permission`) and skills as `.opencode/skills/<name>/SKILL.md` folders; agents no longer flatten to slash commands (#439).
-- Copilot agents emit natively as `.github/agents/<name>.agent.md` custom-agent profiles and skills as `.github/skills/<name>/SKILL.md` folders, replacing the flattened `agent-`/`skill-` `.instructions.md` copies (#439).
+- Gemini skills emit natively as `.gemini/skills/<name>/SKILL.md` folders with bundled assets; `emit-skills-as-commands` now only adds the command form (#439).
+- Zed reads the shared `AGENTS.md` and gets native skills under `.agents/skills/`; the merged `.rules` file is opt-in via `outputs.zed.rules-file` (#439).
+- OpenCode agents emit natively as subagents under `.opencode/agents/` and skills under `.opencode/skills/`, no longer flattened to commands (#439).
+- Copilot agents emit natively as `.github/agents/<name>.agent.md` and skills under `.github/skills/`, replacing flattened `.instructions.md` copies (#439).
 - Cline joins the shared root `AGENTS.md` entry-point, which current Cline reads as cross-tool project instructions (#439).
-- All SKILL.md emitters render through one shared function, so the byte parity the shared `.agents/skills` tree and `sync.shared-skills` depend on is enforced structurally; Antigravity SKILL.md gains `x-antigravity` frontmatter passthrough as a result (#439).
-- Windsurf rules emit to `.devin/rules/`, the path Devin Desktop (the renamed Windsurf) prefers; managed leftovers at `.windsurf/rules/` are swept, `import windsurf` reads whichever tree exists, and `outputs.windsurf.rules-dir: .windsurf/rules` keeps the old layout (#473).
+- All SKILL.md emitters share one renderer, so shared `.agents/skills` trees stay byte-identical; Antigravity SKILL.md gains `x-antigravity` passthrough (#439).
+- Windsurf rules move to `.devin/rules/`, where Devin Desktop looks; keep the old path with `outputs.windsurf.rules-dir: .windsurf/rules` (#473).
 
-- Codex `skills-dir` default moved from `.codex/skills` to `.agents/skills`, the directory Codex CLI scans; `.codex/skills` was never read. Sync sweeps the stale managed tree. Amp emits the same layout at the same path; identical bytes dedupe.
-- Codex commands no longer emit to `.codex/prompts` by default: Codex loads custom prompts from `~/.codex/prompts` only and deprecates them in favor of skills. `sync` prints a coverage note and sweeps the stale managed tree; set `outputs.codex.commands-dir` to keep the legacy layout.
-- Cursor skills emit natively as `.cursor/skills/<name>/SKILL.md` folders with bundled assets propagated byte-for-byte (Cursor 2.4+ Agent Skills), replacing the flattened `skill-<name>.mdc` copies that dropped assets (#430, #439).
-- Cursor commands emit to `.cursor/commands/` by default, Cursor's standard commands location; the `outputs.cursor.commands-dir` opt-in gate is gone (#439).
-- Cursor agents emit natively as subagents at `.cursor/agents/<name>.md` (Cursor 2.4+), with optional `model`, `readonly`, and `is_background` frontmatter. The flattened agent `.mdc` and agent-as-command emissions are gone; the ledger sweeps stale copies (#439).
-- Cursor Bugbot files moved to where Bugbot reads them: `.cursor/BUGBOT.md` at the root and `<scope>/.cursor/BUGBOT.md` per scope, instead of the stale repo-root `BUGBOT.md`.
+- Codex skills move from `.codex/skills`, which Codex never read, to `.agents/skills`, the directory it scans; Amp writes the same tree.
+- Codex reads prompts only from `~/.codex/prompts`, so commands no longer emit to `.codex/prompts`; set `outputs.codex.commands-dir` to keep them.
+- Cursor emits natively: skills under `.cursor/skills/`, subagents under `.cursor/agents/`, and commands to `.cursor/commands/` by default (#430, #439).
+- Cursor Bugbot files move to where Bugbot reads them: `.cursor/BUGBOT.md` at the root and `<scope>/.cursor/BUGBOT.md` per scope.
 - Claude rules drop the Cursor-only `alwaysApply` frontmatter on emit; Claude's rule schema defines only `paths` and an unscoped rule is always-on already.
-- Collision detection compares content, not only paths: byte-identical writes from several targets (codex + amp skills, shared legacy rules-file) dedupe instead of erroring; only divergent content collides.
-- Claude docs and comments no longer claim `.claude/rules/` is inert: current Claude Code auto-loads the directory, so `outputs.claude.rules-mode: import` is only needed on older versions.
+- Targets writing byte-identical content to one path dedupe instead of erroring; only divergent content collides.
+- Docs stop calling `.claude/rules/` inert: current Claude Code loads it, so `outputs.claude.rules-mode: import` only matters on older versions.
 
 ### Added
 
-- Four new targets (#474): `junie` (JetBrains Junie: `.junie/rules/` + `.junie/mcp/mcp.json`), `kiro` (AWS Kiro: `.kiro/steering/` with inclusion-mode frontmatter mapped per kind + `.kiro/settings/mcp.json`), `crush` (Charm Crush: shared `.agents/skills/` tree + `crush.json` `mcp` merge), and `trae` (ByteDance Trae: `.trae/rules/`). All four read the shared root `AGENTS.md` pointer; all join the default target set (now 16); `import junie` and `import trae` capture their rules dirs.
-- Claude rules: the cross-tool `globs` field emits as native `paths:` frontmatter in `.claude/rules/*.md`, and a Claude-spelled `paths` list maps back to Cursor `globs`, so one spec scopes a rule on both tools.
-- Hook specs carry the current Claude command-hook schema: `async`, `asyncRewake`, `shell`, `if`, and `once` emit into `.claude/settings.json` and survive `import claude` round-trips; `commandWindows` emits into `.codex/hooks.json`; `timeout`, `loop_limit`, and `failClosed` pass through to `.cursor/hooks.json`.
-- `validate` recognizes the current hook event vocabularies: all documented Claude Code events (`PermissionRequest`, `SubagentStart`, `PostToolUseFailure`, `TaskCompleted`, ...) and Codex's `SubagentStart`/`SubagentStop`/`PermissionRequest`.
+- Four new default targets, all reading the root `AGENTS.md`: `junie`, `kiro`, `crush`, and `trae`; `import junie` and `import trae` read their rules (#474).
+- Claude rules take `globs`: it emits as `paths:` in `.claude/rules/*.md`, and `paths` maps back to Cursor `globs`, so one spec scopes both tools.
+- Hook specs pass through current per-tool fields, such as Claude's `async` and `if`, Codex's `commandWindows`, and Cursor's `failClosed`.
+- `validate` knows every documented Claude Code hook event and Codex's `SubagentStart`, `SubagentStop`, and `PermissionRequest`.
 - `import cursor` captures native `.cursor/agents/*.md`, `.cursor/skills/<name>/` folders (full tree), and `.cursor/commands/*.md` alongside rules.
-- `sync.shared-skills` opt-in links byte-identical emitted skill folders across targets to one canonical copy (`.agents/skills/<name>` preferred) via per-skill relative symlinks instead of N real trees; divergent renders keep real copies (#437).
-- `import gemini` captures `.gemini/skills/` folders; `import opencode` captures `.opencode/agents/`, `.opencode/skills/`, and routes `.opencode/commands/` to command specs; `import copilot` captures `.github/agents/*.agent.md` and `.github/skills/` folders (#439).
+- `sync.shared-skills` opt-in symlinks byte-identical skill folders across targets to one copy, preferring `.agents/skills/<name>` (#437).
+- Import reads the new native trees: `.gemini/skills/`, `.opencode/agents/` and `.opencode/skills/`, `.github/agents/*.agent.md`, and `.github/skills/` (#439).
 
 ## v0.42.0 - 2026-07-03
 
 ### Changed
 
-- Managed `.gitignore` block header now warns the listed paths are not committed: a fresh clone or `git worktree` lacks them until `agnostic-ai sync` runs. Points readers at a post-checkout hook.
+- The managed `.gitignore` header warns that listed paths are not committed, so a fresh clone or worktree needs `agnostic-ai sync`.
 
 ### Added
 
 - "Why not symlinks" doc explaining how agnostic-ai compares to symlinks, manual copies, and shared-file `@`-includes, plus when a simpler option suffices.
-- The managed `.gitignore` block now ignores Claude Code's local artifacts when `claude` is an enabled target: `/.claude/agent-memory/` and `/.claude/settings.local.json`. They persist across `sync` runs instead of needing manual entries. (#469)
+- The managed `.gitignore` block ignores Claude Code's `/.claude/agent-memory/` and `/.claude/settings.local.json` when `claude` is enabled. (#469)
 
 ## v0.41.0 - 2026-06-19
 
 ### Added
 
-- `sync.dropped-summary` config: opt-in per-target summary of what each target could not fully emit (unsupported kinds dropped, downgraded kinds and the opt-in key that would carry them), regrouping the existing kind-grouped warnings by target. (#441)
+- `sync.dropped-summary` opt-in prints, per target, what it could not fully emit and the key that would carry it. (#441)
 
 ### Fixed
 
-- `doctor --fix` no longer deletes user-authored keys from config files agnostic-ai merges into rather than owns (`opencode.json`, `.amp/settings.json`, `.gemini/settings.json`, `.zed/settings.json`, `.aider.conf.yml`, `.claude/settings.json`). `doctor`, `sync --check`, and `status` ran the adapters in capture mode with the existing-file read skipped, so these files always reported false drift and `--fix` overwrote them with the managed keys only. Capture now reads them, extending the overlay fix from #215. (#465)
-- A spec whose `x-<target>` block introduces two or more new frontmatter keys now emits them in a stable alphabetical order. Map-iteration order previously leaked into the emitted bytes, so a clean tree could flip-flop and `sync --check` flagged false drift in CI.
-- A spec `name:` containing path separators or `..` is rejected at load instead of being used as an output filename, closing a path traversal that could write files outside the project tree. `sync` also refuses any emitted path that escapes the project root as defense-in-depth.
-- Gemini command/skill/agent TOML now honors an `x-gemini.description` override instead of always emitting the top-level (Claude-side) description, matching how Codex resolves per-target descriptions.
+- `doctor --fix` keeps your own keys in merged files such as `opencode.json`, and `doctor` and `sync --check` stop reporting false drift there. (#215, #465)
+- An `x-<target>` block adding several new frontmatter keys emits them in stable order, so `sync --check` stops flagging false drift.
+- A spec `name:` with path separators or `..` is rejected, and `sync` refuses any path outside the project root, closing a path traversal.
+- Gemini TOML honors an `x-gemini.description` override instead of always using the top-level description.
 
 ## v0.40.0 - 2026-06-17
 
@@ -455,14 +449,14 @@ Three changes make a previously green repo fail. All three are deliberate.
 - `review` kind (`.agnostic-ai/reviews/*.md`): Cursor emits scope-located `BUGBOT.md` files. (#433)
 - `environment` kind (`.agnostic-ai/environments/*.yaml`): Cursor emits `.cursor/environment.json`. (#434)
 - `ignore` kind (`.agnostic-ai/ignore/*.md`): one list emits Cursor `.cursorignore`, Gemini `.aiexclude`, Aider `.aiderignore`. (#435)
-- `command` kind emits natively to Gemini (`.gemini/commands/*.toml`), OpenCode and Amp (`*.md`), alongside Claude and Codex. Cursor emits Custom Commands when `commands-dir` is set. (#436)
+- `command` kind emits natively to Gemini (`.gemini/commands/*.toml`), OpenCode, and Amp, and to Cursor when `commands-dir` is set. (#436)
 - Cursor hooks: `hook` kind emits `.cursor/hooks.json`. Override via `outputs.cursor.hooks-file`. (#438)
 - `doctor`: "Unmanaged config" block lists agentic files on disk not generated from `.agnostic-ai/`, each with the `import` to adopt it. (#440)
 - `validate`: warns for each declared `sources.<kind>` whose directory is missing. (#444)
 
 ### Fixed
 
-- Cursor `.mdc` emit preserves frontmatter: no synthesized `globs: "**/*"` on always-apply rules, no re-quoted scalar globs, no trailing space on empty `description:`. Adopting agnostic-ai on existing Cursor rules now diffs clean. (#443)
+- Cursor `.mdc` emit preserves your frontmatter, so adopting agnostic-ai on existing Cursor rules diffs clean. (#443)
 - `validate` / `lint` stop flagging `command` specs as orphaned when only Gemini, OpenCode, Amp, or Cursor are enabled. (#436)
 - `import` strips the provenance header when seeding `.agnostic-ai/AGNOSTIC_AI.md`, so import→sync stays byte-stable. (#429)
 - `import cursor` drops the catch-all `globs` and empty `description`, so always-apply rules round-trip stable. (#429)
@@ -473,8 +467,8 @@ Three changes make a previously green repo fail. All three are deliberate.
 
 ### Added
 
-- `outputs.claude.rules-mode: import` wires the emitted `.claude/rules/*.md` files into the `CLAUDE.md` pointer body via sentinel-marked `@`-imports, so Claude Code loads them without losing the pointer body. (#424)
-- `sync.resolve-imports` (`passthrough` | `strip` | `inline`) controls how `@path` file-import lines in the shared entry-point body reach targets that cannot resolve them, instead of always copying dead reference lines verbatim. (#425)
+- `outputs.claude.rules-mode: import` adds `@`-imports for `.claude/rules/*.md` to the `CLAUDE.md` pointer, so Claude Code loads them. (#424)
+- `sync.resolve-imports` (`passthrough`, `strip`, `inline`) sets how `@path` import lines reach targets that cannot resolve them. (#425)
 
 ### Changed
 
@@ -485,9 +479,9 @@ Three changes make a previously green repo fail. All three are deliberate.
 ### Fixed
 
 - `import` walks rule directories recursively for cursor, claude, and copilot, preserving nested subdirectories instead of dropping them. (#411)
-- Nested rule, agent, and skill specs emit under the tool's rules directory (e.g. `.cursor/rules/backend/auth.mdc`) instead of a stray `<scope>/` tree at the repo root. (#412)
+- Nested rule, agent, and skill specs emit under the tool's rules directory (`.cursor/rules/backend/auth.mdc`), not a stray `<scope>/` tree at the root. (#412)
 - `import` quotes `description` frontmatter containing `: `, quotes, or surrounding whitespace, so imported specs pass `validate`. (#413)
-- Managed `.gitignore` ignores generated subdirectories (`/.claude/rules/`) instead of the whole tool dir (`/.claude/`), keeping hand-authored siblings tracked. (#414)
+- Managed `.gitignore` ignores generated subdirectories such as `/.claude/rules/` instead of all of `/.claude/`, so hand-written siblings stay tracked. (#414)
 - `import` warns when another target's entry-point holds unique content the next `sync` would overwrite. (#415)
 
 ## v0.37.0 - 2026-06-14
@@ -517,33 +511,33 @@ Three changes make a previously green repo fail. All three are deliberate.
 
 ### Added
 
-- New `sync.target-overview` config flag. When enabled, each target entry-point file (CLAUDE.md, AGENTS.md, ...) gains a generated appendix listing where that tool's generated artifacts live, honoring `outputs.<target>.*` overrides. Shared entry-points list each consumer; `import` strips the appendix so the AGNOSTIC_AI.md round-trip stays lossless. (#397)
+- `sync.target-overview` opt-in appends to each entry-point file a list of where that tool's generated files live; `import` strips it again. (#397)
 
 ## v0.34.0 - 2026-06-06
 
 ### Changed
 
-- The `sources:` block is now optional. Any omitted kind defaults to `.agnostic-ai/<kind>`, matching the tree `init` scaffolds. Previously the default was a bare `agents/` dir. Custom source paths are unaffected.
+- The `sources:` block is optional; an omitted kind defaults to `.agnostic-ai/<kind>`, the tree `init` scaffolds.
 
 ### Fixed
 
-- Docs now state that `sync` enables 12 targets by default and that Amp and Warp are opt-in (they share the root `AGENTS.md` entry-point with Codex). README and `docs/user/targets.md` previously implied all 14 targets sync out of the box.
+- Docs state that `sync` enables 12 targets by default, with Amp and Warp opt-in, instead of implying all 14.
 
 ## v0.33.0 - 2026-06-05
 
 ### Added
 
-- `gitignore.allow` config: a list of re-allow patterns emitted as `!`-prefixed lines at the end of the managed `.gitignore` block. Keeps a tracked file (e.g. a `testdata/AGENTS.md` fixture) from being ignored by a broader rule, without hand-editing the block. Closes #388.
+- `gitignore.allow` re-allows patterns at the end of the managed `.gitignore` block, so a tracked file such as a fixture `AGENTS.md` stays tracked. Closes #388.
 
 ### Changed
 
-- `init` now writes `gitignore.enabled: true` by default, so a fresh project ignores its generated outputs (`.claude/`, `.codex/`, `CLAUDE.md`, `AGENTS.md`, ...) and keeps `.agnostic-ai/` as the only committed copy. The TTY prompt defaults to yes and non-interactive runs take the default; pass `init --gitignore=false` to commit outputs instead. Existing configs without a `gitignore` key are unaffected.
+- `init` writes `gitignore.enabled: true` by default, so generated outputs stay out of git; pass `init --gitignore=false` to commit them.
 
 ### Fixed
 
-- `cleanup` now removes only the `.bak` backups `sync --backup` wrote (scoped to emitted target files and entry-point files), instead of every `*.bak` under the project. Unrelated backups (vim, manual saves, other tools) are no longer destroyed. Closes #390.
-- `revert` now restores the entry-point files (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `AGNOSTIC_AI.md`) from their `.bak`, matching adapter-emitted files. A `sync --backup` then `revert` round-trip previously left the user's original content orphaned in `.bak`; `revert --force` now also deletes the generated entry-point files. Closes #389.
-- Flat-file skills (`.agnostic-ai/skills/<name>.md`) no longer leak their sibling skills' bodies into each emitted skill folder. Sibling-asset propagation now applies only to folder-based skills (`<name>/SKILL.md`), which own their directory. Affects the claude, codex, amp, and antigravity targets. Closes #387.
+- `cleanup` removes only the `.bak` backups `sync --backup` wrote, not every `*.bak` in the project. Closes #390.
+- `revert` restores entry-point files such as `CLAUDE.md` and `AGENTS.md` from `.bak`, and `revert --force` deletes the generated ones. Closes #389.
+- Flat-file skills no longer copy sibling skills' bodies into each emitted skill folder on claude, codex, amp, and antigravity. Closes #387.
 
 ## v0.32.1 - 2026-06-04
 
@@ -553,7 +547,7 @@ Three changes make a previously green repo fail. All three are deliberate.
 
 ### Fixed
 
-- Docs: realigned README, targets.md, configuration.md, and spec-format.md with actual adapter behavior. Notably: Gemini hook events emit verbatim, Codex hooks live in `.codex/hooks.json`, `amp`/`warp` dedupe `AGENTS.md` with Codex (no collision), Zed hooks emit via `outputs.zed.tasks-file`, and the documented `outputs.*` keys are complete.
+- Docs: README, targets.md, configuration.md, and spec-format.md match adapter behavior, including hook paths, `AGENTS.md` dedupe, and every `outputs.*` key.
 
 ## v0.32.0 - 2026-06-03
 
@@ -564,7 +558,7 @@ Three changes make a previously green repo fail. All three are deliberate.
 
 ### Changed
 
-- Amp skills moved from `.agents/commands/skill-<name>.md` to native `.agents/skills/<name>/SKILL.md`; `outputs.amp.emit-skills-as-commands` no longer affects Amp. (#377)
+- Amp skills move from `.agents/commands/` to native `.agents/skills/<name>/SKILL.md`; `outputs.amp.emit-skills-as-commands` no longer affects Amp. (#377)
 - Docs: Codex hooks emit to `.codex/hooks.json`, not `config.toml`. (#377)
 
 ### Fixed
@@ -579,17 +573,17 @@ Three changes make a previously green repo fail. All three are deliberate.
 
 ### Added
 
-- Custom keys under `x-<target>` now emit to every target with an output surface: Claude/Codex `SKILL.md`, Copilot `.instructions.md`, OpenCode and Amp command frontmatter, and Gemini command TOML (scalars and string arrays). Keys stay target-scoped, emit in sorted order, and never leak across adapters. Closes #367 (#368, #369).
+- `x-<target>` keys reach every target with frontmatter or TOML to hold them, stay scoped to that target, and emit in sorted order. Closes #367 (#368, #369).
 
 ### Changed
 
-- Docs: simplified `README.md` and every `docs/user/` and `docs/internal/` page. Same facts, fewer words, plain English. Added a one-line entry-style convention to `CHANGELOG.md`.
+- Docs: `README.md` and every `docs/` page say the same facts in fewer words; `CHANGELOG.md` gains an entry-style line.
 
 ## v0.30.0 - 2026-06-02
 
 ### Changed
 
-- The managed `.gitignore` block collapses generated output directories to a single rule (`/.claude/`) instead of listing every file beneath them. Root-level outputs (`/AGENTS.md`) and entries under a source directory (`/.agnostic-ai/.sync-state`) stay precise so committed specs are never ignored.
+- The managed `.gitignore` block ignores each generated directory with one rule such as `/.claude/` instead of listing every file in it.
 
 ## v0.29.0 - 2026-06-02
 
@@ -603,8 +597,8 @@ Three changes make a previously green repo fail. All three are deliberate.
 
 ### Fixed
 
-- Restored overlay helper files (e.g. `.claude/README.md`) now flow through the recorded write path, so they land in the managed `.gitignore` block and the output ledger instead of being written silently. They were emitted via raw `os.WriteFile`, leaking as untracked and escaping orphan tracking.
-- `sync --only`/`--except` no longer deletes un-synced targets' files. The orphan sweep compared the full prior ledger against the partial run's subset; partial runs now carry the prior ledger forward and defer cleanup to the next full sync.
+- Restored overlay helper files such as `.claude/README.md` land in the managed `.gitignore` block and the output ledger instead of showing up untracked.
+- `sync --only` and `--except` no longer delete the files of targets they skip; cleanup waits for the next full sync.
 - Managed `.gitignore` entries are root-anchored (`/AGENTS.md`), so a generated path no longer ignores a same-named file nested elsewhere. (#362)
 - `import claude` propagates a nested `.claude/CLAUDE.md`'s instructions to every target, not just the claude overlay. (#361)
 - Playground: optional source reads treat a missing `js/wasm` filesystem as absent instead of failing with `ENOSYS`.
@@ -614,7 +608,7 @@ Three changes make a previously green repo fail. All three are deliberate.
 
 ### Added
 
-- Per-target models: `model:` frontmatter accepts a map keyed by target (e.g. `model: {claude: opus, codex: gpt-5.5}`). A bare string applies to every target. Optional `default` sets a fallback; omit it and unlisted targets use their own native default.
+- Per-target models: `model:` accepts a map such as `{claude: opus, codex: gpt-5.5}`, with an optional `default`; a bare string applies to every target.
 
 ## v0.27.0 - 2026-05-29
 
@@ -626,14 +620,14 @@ Three changes make a previously green repo fail. All three are deliberate.
 
 ### Changed
 
-- Provenance header carries a "do not edit" hint and is now emitted on every generated file (aider conf, amp commands, copilot instructions + chatmodes, gemini TOMLs, opencode commands, warp workflows).
+- Every generated file carries the provenance header with a "do not edit" hint.
 
 ### Fixed
 
-- Per-target 10/10 audit landed for every adapter (aider, amp, antigravity, claude, cline, codex, continue, copilot, cursor, gemini, opencode, warp, windsurf, zed): kit-sink golden, capability parity, provenance coverage, and byte-equal sync -> import -> sync where the adapter supports it.
+- Every adapter passes a full audit: golden output, capability parity, provenance headers, and byte-equal sync -> import -> sync where supported.
 - Cursor `.mdc` frontmatter double-quotes `globs:` so `**/*` parses as a YAML string instead of an anchor reference.
-- Shared `sliceMainFileByH2` importer unwraps `## Rules` / `## Agents` / `## Skills` H2 wrappers and strips provenance preamble + `<!-- source: ... -->` comments so legacy concatenated rules-file layouts (aider, amp, warp, zed, opencode, copilot) reach a byte-equal fixed point on round-trip.
-- `import codex` parses `outputs.codex.rules-file`, captures MCP `description` / `disabled` / `roots` fields, and `.codex/config.toml` is cleaned up when sync renders nothing for it; codex sweeps legacy `.agents/agents/` + `.agents/skills/` trees on sync.
+- Import unwraps `## Rules`, `## Agents`, and `## Skills` wrappers and provenance comments, so legacy concatenated rules files round-trip byte-equal.
+- `import codex` reads `outputs.codex.rules-file` and more MCP fields; sync removes an empty `.codex/config.toml` and legacy `.agents/` trees.
 - Shared MCP JSON importer synthesizes `type: http` from url-bearing entries so claude/amp/opencode pick the http transport branch on emit.
 - Per-adapter `testdata/kitsink/` trees ship in git even when the underlying patterns are gitignored.
 
@@ -641,11 +635,11 @@ Three changes make a previously green repo fail. All three are deliberate.
 
 ### Changed
 
-- `agnostic-ai upgrade` (and the install/upgrade docs in `README.md` + `docs/user/getting-started.md`) now print `brew upgrade --cask Chemaclass/tap/agnostic-ai`. The explicit `--cask` flag avoids ambiguity with the formula namespace and matches how the tap publishes the binary.
+- `agnostic-ai upgrade` and the install docs print `brew upgrade --cask Chemaclass/tap/agnostic-ai`, which avoids ambiguity with the formula namespace.
 
 ### Fixed
 
-- `agnostic-ai upgrade --run` aborts pre-flight with a `rm + brew install --cask` hint when `<brew>/bin/agnostic-ai` is a regular file (or symlink outside the brew prefix), instead of letting `brew upgrade --cask` fail and revert into a half-broken install.
+- `upgrade --run` stops before a doomed `brew upgrade --cask` when `<brew>/bin/agnostic-ai` is a stray file, and prints a `rm + brew install --cask` hint.
 
 ## v0.26.0 - 2026-05-25
 
@@ -655,17 +649,17 @@ Three changes make a previously green repo fail. All three are deliberate.
 - Hook frontmatter accepts `target: <name>` or `targets: [a, b]` to scope a hook to specific CLIs. Closes #249.
 - `agnostic-ai doctor` flags divergent hook script bodies across tools and suggests consolidating to `.agnostic-ai/scripts/<basename>`. Closes #251.
 - `outputs.codex.exec-policies` / `outputs.codex.exec-policies-file` render Codex CLI's `prefix_rule(...)` DSL into `.codex/rules/default.rules`. Closes #254.
-- Codex hooks emit into `.codex/hooks.json` with matcher-aware dedupe and `timeout` + `statusMessage` support. Override via `outputs.codex.hooks-file`. Closes #255.
-- `target:` / `targets:` / `target-exclude:` / `targets-exclude:` frontmatter scoping applies to every spec kind (agents, skills, rules, commands, mcps), not just hooks. Closes #292.
+- Codex hooks emit into `.codex/hooks.json` with matcher-aware dedupe, `timeout`, and `statusMessage`; override with `outputs.codex.hooks-file`. Closes #255.
+- `target:`, `targets:`, and their `-exclude` forms scope every spec kind, not only hooks. Closes #292.
 - Per-target body fences: wrap prose in `::target codex` / `::end` markers to emit that block only to the named target. Closes #293.
 - `import claude` / `import codex` auto-set `target: <tool>` on agents/skills present in only one tool's tree. Closes #299.
-- `import codex` auto-fences divergent agent/skill bodies: shared prose stays un-fenced, each tool's unique section gets wrapped in `::target` blocks. Closes #300.
+- `import codex` auto-fences divergent agent and skill bodies: shared prose stays plain, each tool's own section goes in a `::target` block. Closes #300.
 
 ### Changed
 
 - `import <tool>` auto-sets `target: <tool>` on imported hooks so codex-specific scripts no longer leak into claude `settings.json`. Closes #257.
 - Codex `agents-dir` default changed from `.agents/agents` to `.codex/agents`. Override via `outputs.codex.agents-dir`. Closes #252.
-- Codex `skills-dir` default changed from `.agents/skills` to `.codex/skills`. `shared-subagents` now defaults to `true` regardless of whether claude is enabled. Closes #253.
+- Codex `skills-dir` defaults to `.codex/skills`, and `shared-subagents` defaults to `true` whether or not claude is enabled. Closes #253.
 
 ### Fixed
 
@@ -682,7 +676,7 @@ Three changes make a previously green repo fail. All three are deliberate.
 - Claude skill emit skips `agents/openai.yaml` (codex-only metadata) from the source skill folder. Closes #288, #289.
 - `.codex/hooks.json` emits events in lifecycle order (`PreToolUse` before `PostToolUse`). Closes #290, #291.
 - Codex agent TOML emits keys in codex-docs convention order for byte-stable round-trips. Closes #294, #295.
-- Routing keys (`target`, `targets`, `target-exclude`, `targets-exclude`) stripped from emitted frontmatter so they do not leak into generated files. Closes #303.
+- Routing keys (`target`, `targets`, and their `-exclude` forms) no longer leak into emitted frontmatter. Closes #303.
 - Auto-fenced spec bodies no longer contain spurious blank lines between sections. Closes #306.
 - `import codex` quotes plain-scalar SKILL.md frontmatter values containing `#` so strict YAML no longer truncates descriptions at the first hash. Closes #317.
 
@@ -717,57 +711,57 @@ Three changes make a previously green repo fail. All three are deliberate.
 
 ### Changed
 
-- Capability warnings group by kind across all targets in one line: `! 5 hooks unsupported by cursor, copilot, aider, ...` replaces eight near-identical per-target lines. Suppression hint prints once per flush.
-- `sync -v` prints per-target `created / updated / unchanged` counts and a footer that counts only files that actually changed (skips unchanged content via detailed recording).
+- Capability warnings group by kind across targets in one line, such as `! 5 hooks unsupported by cursor, copilot, aider, ...`, with one suppression hint.
+- `sync -v` prints per-target `created / updated / unchanged` counts, and the footer counts only files that changed.
 - Status symbols are colorized on tty (`✓` green, `!` yellow, `✗` red). Honors `NO_COLOR=1`. Pipes and redirects stay plain.
-- `sync --watch` banner shows path count and backend: `→ watching 9 paths (fsnotify) · Ctrl+C to exit`. Each re-sync is preceded by a timestamped event line (`[HH:MM:SS] change · <path>`).
-- Capability warnings sticky-suppress when unchanged: the SHA-256 of the buffered `(target, kind, count)` set is stored in `.agnostic-ai/.sync-state` and compared on the next run. Repeat runs print a single-line reminder instead of the full block. Delete the state file to re-show.
+- The `sync --watch` banner shows the path count and backend, and each re-sync starts with a timestamped `[HH:MM:SS] change · <path>` line.
+- Unchanged capability warnings shrink to a one-line reminder on repeat runs. Delete `.agnostic-ai/.sync-state` to show the full block again.
 
 ## v0.23.0 - 2026-05-17
 
 ### Added
 
-- `agnostic-ai upgrade` command: prints upgrade command per install method (Homebrew, `go install`, binary). `--run` execs it. `--check` flags `PATH`-shadowed copies.
+- `agnostic-ai upgrade` prints the upgrade command for your install method; `--run` runs it and `--check` flags `PATH`-shadowed copies.
 - Integration tests: `sync --check` and `doctor --fix` are zero-drift no-ops after `import claude` / `import codex` / both. Closes #232.
 - README: `brew upgrade` line + releases page link.
-- Docs (`targets.md`, `configuration.md`, `cli-reference.md`): v0.22 import-side changes (`import codex` reads `.codex/prompts/*.md` + captures `.codex/config.toml` overlay, `import claude` reads `.mcp.json`) with per-target overlay precedence.
+- Docs cover the v0.22 import changes: `import codex` reads `.codex/prompts/` and `.codex/config.toml`, and `import claude` reads `.mcp.json`.
 - Import summary prints `→ <overlay> seeded from <native>` for `import claude` and `import codex` when overlay file written. Closes #231.
-- `sync --watch` watches `.agnostic-ai/overlays/`: hand-edits to `claude.settings.json` / `codex.config.toml` trigger re-emit within 50 ms debounce. Documented in `cli-reference.md` + `configuration.md`. Closes #234.
-- Integration tests for six round-trip edge cases: re-run `import claude` overwrites overlay (no double-stomp); empty `.codex/config.toml` writes no overlay; overlay+first-class collision on `codex.config.*` resolves overlay-wins; MCP server with `env` + http MCP with `headers` survive claude→codex→claude; folded (`>`) / literal (`|`) frontmatter scalars keep style after import+sync; skill with nested assets (exec script, `agents/openai.yaml`, fixtures subdir) round-trips claude→codex→claude with exec bit intact. Closes #233.
+- `sync --watch` re-emits when you edit `.agnostic-ai/overlays/`, such as `claude.settings.json` or `codex.config.toml`. Closes #234.
+- Integration tests cover six round-trip edge cases, such as MCP `env` and `headers`, folded YAML scalars, and skill assets keeping exec bits. Closes #233.
 
 ## v0.22.0 - 2026-05-17
 
 ### Added
 
-- Chained round-trip integration tests covering `claude → import → sync codex → wipe specs → import → sync claude` (and the inverse codex-first chain). Each kind that both adapters support (agents, skills, rules, hooks, MCPs, commands) must survive the full chain semantically. The codex chain additionally asserts that the captured overlay carries `model`, `[profiles.*]`, and other non-managed `.codex/config.toml` keys through both syncs.
-- `import codex` now reads `.codex/prompts/*.md` and writes them byte-for-byte into the commands source dir. Previously the directory was skipped, so any user-authored Codex slash prompts were silently dropped during import and overwritten on the next `sync --target codex`.
-- `import codex` captures every `.codex/config.toml` key outside `hooks` and `mcp_servers` into `.agnostic-ai/overlays/codex.config.toml`. The codex emitter layers the overlay before the spec-derived sections on each sync, so `model`, `sandbox`, `approval_policy`, `notify`, `[history]`, `[profiles.*]`, `[model_providers.*]`, and any future Codex keys survive a wipe of `.codex/` between import and sync. Mirrors the existing claude settings overlay.
-- `import claude` now reads `.mcp.json` and writes one yaml per `mcpServers.<name>` entry into the mcps source dir. Previously the file was skipped, so MCP servers configured in a Claude Code project were silently dropped during import and never round-tripped to other adapters.
+- Integration tests chain `claude → import → sync codex → import → sync claude` and the inverse, checking that every shared kind survives.
+- `import codex` reads `.codex/prompts/*.md` into commands, so Codex slash prompts are no longer dropped and overwritten on the next sync.
+- `import codex` saves other `.codex/config.toml` keys, such as `model`, to `.agnostic-ai/overlays/codex.config.toml`, and sync writes them back.
+- `import claude` reads `.mcp.json`, one MCP spec per server, so Claude Code MCP servers reach other targets instead of being dropped.
 
 ### Changed
 
-- Codex agent TOML now emits agent-scoped `[mcp_servers.<name>]` (and any other nested-table) keys carried under the spec's `x-codex` passthrough. Previously `writeXCodexExtras` only handled scalars, arrays, and inline string tables, so a `[mcp_servers.fs]` block inside an imported agent.toml would be silently lost on the next sync. Nested-table values emit last in the agent file so the document stays TOML-valid.
-- Claude `.claude/settings.json` always emits the hooks block via ordered JSON now, even on the first sync of a fresh project. Inner objects keep `{matcher, hooks}` and `{type, command}` in lifecycle order instead of the alpha-sorted `{command, type}` / `{hooks, matcher}` that the legacy `MergeJSONFile` path produced. Existing user-edited keys in `settings.json` continue to survive until the next `import claude` captures them into the overlay.
+- Codex agent TOML keeps nested tables under `x-codex`, such as an agent-scoped `[mcp_servers.<name>]`, instead of dropping them on the next sync.
+- `.claude/settings.json` writes hooks in lifecycle order with `{matcher, hooks}` and `{type, command}` key order, even on a first sync.
 
 ### Fixed
 
-- Frontmatter scalar styles now round-trip: a hand-authored plain `argument-hint: <ver>` stays plain on re-emit instead of being force-quoted to `"<ver>"`, and a hand-authored double-quoted scalar stays double-quoted. The spec loader captures per-key value styles into a new `Entry.MetaStyles` map and the emitter (`FrontmatterStyled` / `DocumentStyled`) replays them. The legacy angle-bracket auto-promotion in `preferDoubleQuotes` is dropped; explicit source-style preservation makes it unnecessary.
+- Frontmatter keeps each scalar's source quoting: a plain `argument-hint: <ver>` stays plain and a double-quoted value stays double-quoted.
 
 ## v0.21.0 - 2026-05-16
 
 ### Changed
 
-- Goreleaser config migrated from deprecated `brews:` to `homebrew_casks:`. Releases now publish to the tap as casks (`Casks/agnostic-ai.rb`) with a post-install hook removing the macOS quarantine attribute. The legacy `Formula/agnostic-ai.rb` stops receiving updates on the next release. Closes #225.
+- Releases publish a Homebrew cask (`Casks/agnostic-ai.rb`) that clears macOS quarantine; `Formula/agnostic-ai.rb` stops getting updates. Closes #225.
 
 ### Removed
 
-- `autoSync` config field, `sync --auto-sync=yes|no` flag, first-run auto-sync prompt, and the generated `auto-sync` rule spec. The feature added a separate prompt, flag, and persisted config field for marginal value; agents already have the `docs-sync` rule and `run-sync-check` skill to decide when to re-sync. Existing `autoSync:` keys in user configs are silently ignored.
+- `autoSync`, `sync --auto-sync`, the first-run auto-sync prompt, and the `auto-sync` rule. Existing `autoSync:` keys are ignored.
 
 ## v0.20.0 - 2026-05-16
 
 ### Fixed
 
-- Frontmatter emit no longer force-quotes plain `description:` scalars. yaml.v3 does not auto-wrap plain scalars, so long descriptions round-trip on one line without added quotes. Closes #226.
+- Frontmatter emit no longer force-quotes plain `description:` scalars, so long descriptions stay on one line. Closes #226.
 
 ## v0.19.0 - 2026-05-16
 
@@ -783,7 +777,7 @@ Three changes make a previously green repo fail. All three are deliberate.
 
 ### Fixed
 
-- `doctor` reads the settings overlay in capture mode, matching real sync output. `--fix` no longer strips `enabledPlugins` / `statusLine` and no longer reports false drift after a clean sync. Import overlay also keeps source key order. Closes #215.
+- `doctor --fix` keeps `enabledPlugins` and `statusLine`, a clean sync reports no drift, and import keeps overlay key order. Closes #215.
 - Frontmatter scalars containing `<`/`>` keep their quotes; long descriptions no longer wrap at 80 cols. Closes #218.
 
 ## v0.18.0 - 2026-05-16
@@ -798,10 +792,10 @@ Three changes make a previously green repo fail. All three are deliberate.
 ### Changed
 
 - Frontmatter emit preserves source key order, uses 2-space sequence indent, prefers double quotes. Closes #190, #191, #193.
-- `.claude/settings.json` keeps overlay key order, emits `{type, command}` / `{matcher, hooks}` in documented order, events in lifecycle sequence (`PreToolUse` before `PostToolUse`). `MergeJSONFile` (codex / opencode) inherits the same. Closes #192.
-- Capability warnings (`on-unsupported: warn`) collapse to one line per (target, kind) with a count + `on-unsupported: silent` hint. `sync --watch` resets between runs. Closes #204.
+- `.claude/settings.json` keeps overlay key order and writes hook keys and events in documented order; codex and opencode JSON match. Closes #192.
+- Capability warnings collapse to one line per target and kind, with a count and an `on-unsupported: silent` hint. Closes #204.
 - `import --dry-run` lists paths + count instead of dumping file bodies. Matches `sync --plan`. Closes #205.
-- `doctor` drift splits into "missing" vs "stale — edited locally since last sync". Closes #207.
+- `doctor` drift splits into "missing" vs "stale (edited locally since last sync)". Closes #207.
 
 ### Fixed
 
@@ -834,7 +828,7 @@ Three changes make a previously green repo fail. All three are deliberate.
 
 ### Changed
 
-- `sync`: uses `AGNOSTIC_AI.md` as the entry-point body source and distributes its content to `CLAUDE.md`, `AGENTS.md`, etc. Seeds the template when absent. Preserves content written by `import <target>`.
+- `sync` distributes `AGNOSTIC_AI.md` to `CLAUDE.md`, `AGENTS.md`, and other entry points, seeds it when absent, and keeps content written by `import <target>`.
 - `AGNOSTIC_AI.md` is no longer auto-added to `.gitignore`; commit it as a source file.
 - `outputs` key in `agnostic-ai.yaml` is fully optional; omitted when empty in the JSON envelope sent to external adapters.
 
@@ -842,7 +836,7 @@ Three changes make a previously green repo fail. All three are deliberate.
 
 ### Changed
 
-- `scripts/release.sh`: refuse to cut a release when no commits exist past the last tag or when `CHANGELOG [Unreleased]` has no entries. Prevents shipping an identical binary or empty release notes.
+- `scripts/release.sh` refuses to cut a release with no new commits or an empty `[Unreleased]` section.
 
 ## v0.14.2 - 2026-05-15
 
@@ -865,7 +859,7 @@ Three changes make a previously green repo fail. All three are deliberate.
 - `sync.collision-policy`: `prompt`, `prefer-spec`, `fail` (#167).
 - `import all`: detect and import every installed CLI (#160).
 - `init --from <cli>`, `init --dry-run`, `import --dry-run` (#158, #160).
-- `agnostic-ai lint`: LINT001–LINT005 semantic checks, `--strict` (#171, #177).
+- `agnostic-ai lint`: LINT001 to LINT005 semantic checks, `--strict` (#171, #177).
 - `agnostic-ai doctor`: `mcp` / `install` / `config` subcommands, `--json` (#159).
 - `agnostic-ai install-hook`: pre-commit `sync --check`, `--shared` for `.githooks/` (#169).
 - MCP spec: `description`, `disabled`, `roots` (#177).
@@ -882,11 +876,11 @@ Three changes make a previously green repo fail. All three are deliberate.
 - `AAI-NNN` error codes; `agnostic-ai explain <code>` (#163).
 - `agnostic-ai why <file>` traces a file back to adapter/specs/config/timestamp, `--format json` (#164).
 - `agnostic-ai graph` spec → target → file. Formats: text, mermaid, dot, json. Filters: `--target`, `--spec`, `--kind` (#172).
-- `claude`: first-class `outputs.claude.settings.*` block (`model`, `outputStyle`, `apiKeyHelper`, etc.). Layers over captured overlay; spec hooks still win for `hooks` key (#177).
+- `claude`: `outputs.claude.settings.*` sets keys such as `model` and `outputStyle` over the captured overlay; spec hooks still win for `hooks` (#177).
 
 ### Changed
 
-- **BREAKING**: `sync` writes a uniform pointer body to every target's entry-point plus `.agnostic-ai/AGNOSTIC_AI.md`. Opt back into legacy concat via `outputs.<target>.rules-file` (#153).
+- **BREAKING**: every entry point gets one pointer body, plus `.agnostic-ai/AGNOSTIC_AI.md`. Set `outputs.<target>.rules-file` for the old concat (#153).
 - `import` next-steps suggest `sync` + hint other detected CLIs.
 - `init` next-steps adapt to context.
 - `init` adds `.agnostic-ai/.sync-state` to `.gitignore` (#151).
@@ -940,7 +934,7 @@ Three changes make a previously green repo fail. All three are deliberate.
 ### claude
 
 - Rules emit per-file under `.claude/rules/<name>.md`. `CLAUDE.md` untouched. Set `outputs.claude.rules-file: CLAUDE.md` for legacy concat.
-- `.claude/settings.json` preserves user keys across sync. `import claude` captures into `.agnostic-ai/overlays/claude.settings.json`; sync layers spec hooks on top.
+- `.claude/settings.json` keeps user keys: `import claude` saves them to `.agnostic-ai/overlays/claude.settings.json`, and sync adds spec hooks on top.
 - Hooks merge by `event` + `matcher`; `command:` accepts string or list.
 
 ### codex
@@ -1008,7 +1002,7 @@ Three changes make a previously green repo fail. All three are deliberate.
 - WASM playground at `docs/playground/` (#43).
 - `validate` rejects unknown hook `event:` with supported list (#112); warns on hook/MCP with no consumer (#114).
 - `doctor` resolves stdio MCP `command:` on PATH; install hints for missing npx/uvx/python/docker (#113).
-- Per-target opt-in native surfaces (existing rule emission preserved): Copilot Custom Chat Modes (#105), Cursor Custom Commands (#104), Cline Workflows (#106), Windsurf Workflows (#107), Continue Assistants (#108), Zed Tasks (#109), Warp Workflows (#110).
+- Opt-in native surfaces: Copilot chat modes, Cursor commands, Cline, Windsurf, and Warp workflows, Continue assistants, Zed tasks (#104, #105, #106, #107, #108, #109, #110).
 
 ### Changed
 
@@ -1031,8 +1025,8 @@ Three changes make a previously green repo fail. All three are deliberate.
   - **OpenCode** (#66): `.opencode/commands/<name>.md` per agent.
   - **Amp** (#67): hierarchical `AGENTS.md` + `.agents/commands/<name>.md`.
   - **Warp** (#68): hierarchical `AGENTS.md` (agents inlined).
-- Hooks + MCP propagation: Codex `.codex/config.toml` (#78), Gemini `.gemini/settings.json` (#79), Continue `.continue/mcpServers/<name>.yaml` (#80), Amp `.amp/settings.json` (#81), Zed `.zed/settings.json` (#82), Warp `.warp/.mcp.json` (#83), OpenCode `opencode.json` (#84).
-- Shared emit helpers: `MigrateLegacyFile`, `MergeJSONFile`, `WriteReference`, `GroupRulesByScope`, TOML writers. New `config.Output` fields: `instructions-dir`, `commands-dir`, `mcp-dir`, `emit-skills-as-commands`.
+- Hooks and MCP reach Codex (#78), Gemini (#79), Continue (#80), Amp (#81), Zed (#82), Warp (#83), and OpenCode (#84) config files.
+- New `outputs` fields: `instructions-dir`, `commands-dir`, `mcp-dir`, `emit-skills-as-commands`.
 - `sync --json`, `sync --check --json`, `revert --json`, `doctor --json` (schema v1).
 - `agnostic-ai status`: project name, layers, spec counts, targets, last sync, drift count. `--json`.
 - First-sync target picker (#92): interactive multi-select when config still lists every target. Selection persisted.
@@ -1042,7 +1036,7 @@ Three changes make a previously green repo fail. All three are deliberate.
 ### Added
 
 - `sync --only <targets>` / `sync --except <targets>` filters (mutually exclusive). `revert` gains same flags.
-- `agnostic-ai validate --fix`: rewrite specs for autofixable issues (backfills missing `name:` from filename / parent dir). Plain `validate` flags fixable issues with `*`.
+- `agnostic-ai validate --fix` rewrites autofixable specs, such as backfilling a missing `name:`; plain `validate` marks fixable issues with `*`.
 - Plugin protocol v1 for external adapters (`agnostic-ai-adapter-<target>` on PATH; JSON over stdin/stdout). Docs at `docs/internal/plugin-protocol.md`.
 - `adapters.Resolve(name)`: lookup site with built-in → external fallback.
 - `agnostic-ai packs add|remove|update|list`: shareable spec packs from Git URLs. Pinned in `agnostic.packs.lock`. Load as a layer before project specs.
