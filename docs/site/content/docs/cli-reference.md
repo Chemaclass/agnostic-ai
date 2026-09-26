@@ -313,7 +313,7 @@ A drifting `--check` exits non-zero in every format. Stderr names the fix, `agno
 
 ### Watch mode
 
-`sync --watch` watches `agnostic-ai.yaml`, `agnostic-ai.local.yaml`, every `sources.*` directory, `.agnostic-ai.local/`, and `.agnostic-ai/overlays/` (including `claude.settings.json` / `codex.config.toml`). It uses fsnotify with a 50 ms debounce, polls every 200 ms where fsnotify fails, and exits on Ctrl+C.
+`sync --watch` watches `agnostic-ai.yaml`, `agnostic-ai.local.yaml`, every `sources.*` directory, `.agnostic-ai/local/`, and `.agnostic-ai/overlays/` (including `claude.settings.json` / `codex.config.toml`), also when one appears after the watch starts. It uses fsnotify with a 50 ms debounce, polls every 200 ms where fsnotify fails, and exits on Ctrl+C.
 
 A spec change re-syncs only targets that emit that kind (a `claude`-scoped agent hits only claude), and the summary names them. Config and overlay edits, deletes, and renames re-sync everything.
 
