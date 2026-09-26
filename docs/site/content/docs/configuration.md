@@ -343,7 +343,7 @@ Last wins:
 
 ## Layered specs
 
-Specs load from three layers, lowest first. Higher layers override by spec name per kind; new names append. `agnostic-ai list` shows each spec's layer.
+Specs load from three layers, lowest first. Higher layers override by spec name per kind; new names append. The `project-user` layer merges into the shared spec field by field instead of replacing it; see [local overrides](@/docs/local-overrides.md#override-fields). `agnostic-ai list` shows each spec's layer.
 
 | Layer | Root | Loaded when |
 |-------|------|-------------|
@@ -374,7 +374,7 @@ Source root: `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when `AGNOSTIC_AI_HOME` i
     └── skills/<name>/SKILL.md
 ```
 
-Specs in `local/` replace shared specs with the same kind and name. The local spec replaces the whole entry, including its metadata and skill assets; fields are never merged. New names append. `local/AGNOSTIC_AI.md` comes last in the managed instructions block, after shared agreements and effective rules. Without `local/`, sync uses the shared home alone.
+Specs in `local/` merge into shared specs with the same kind and name, field by field, and a `::parent` line extends the shared body; see [local overrides](@/docs/local-overrides.md#override-fields). New names append. `local/AGNOSTIC_AI.md` comes last in the managed instructions block, after shared agreements and effective rules. Without `local/`, sync uses the shared home alone.
 
 Before adding personal files, add this entry to the source root's `.gitignore`:
 

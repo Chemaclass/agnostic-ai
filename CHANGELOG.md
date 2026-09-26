@@ -11,6 +11,11 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - OpenHands: a shttp MCP server's `oauth` field (or an explicit `auth: oauth`) emits `auth = "oauth"` in `config.toml`, and import reads it back (#1157).
 - Agents map `readonly: true` to Factory's `tools: read-only` and no inherited MCP servers, overriding a portable tools list (#1162).
 - Project specs in `.agnostic-ai/local/` override shared ones, its `AGNOSTIC_AI.md` extends every entry point, and it stays gitignored (#1172).
+- A local spec edits one field of a shared spec and keeps the rest; a `::parent` line in its body extends the shared body.
+
+### Changed
+
+- Specs in `~/.agnostic-ai/local/` merge into shared ones instead of replacing them. Set a field to `null` to drop it.
 
 ### Fixed
 
