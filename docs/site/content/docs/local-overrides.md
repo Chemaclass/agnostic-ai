@@ -106,7 +106,7 @@ The frontmatter merges key by key, the same way `agnostic-ai.local.yaml` merges 
 | `null` | removes the key |
 | missing | keeps the shared value |
 
-So `tools: [Read]` replaces the whole shared list, and `tools: null` drops it. `x-claude:` merges with the shared `x-claude:` like any other map.
+So `tools: [Read]` replaces the whole shared list, and `tools: null` drops it. Inside an `x-<target>` map, `null` keeps its usual meaning: `x-codex.model: null` drops `model` for Codex only. `x-claude:` merges with the shared `x-claude:` like any other map.
 
 Where the local file sits decides its scope. `local/rules/style.md` applies to the whole project even when the shared `rules/backend/style.md` applies to `backend/` only.
 

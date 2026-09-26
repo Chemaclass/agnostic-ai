@@ -222,3 +222,21 @@ func TestLoadLayered_ParentClosesAnOpenFenceBeforeLocalText(t *testing.T) {
 		t.Errorf("claude body = %q", claude)
 	}
 }
+
+// Inside x-<target>, null is a delete marker for the target resolver,
+// not a merge instruction: it must survive the merge.
+func TestLoadLayered_LocalKeepsATargetDeleteMarker(t *testing.T) {
+	t.Parallel()
+	base, local := t.TempDir(), t.TempDir()
+	mustWrite(t, filepath.Join(base, "agents", "reviewer.md"), "---\nname: reviewer\nmodel: sonnet\nx-codex:\n  effort: high\n---\nBody.\n")
+	mustWrite(t, filepath.Join(local, "agents", "reviewer.md"), "---\nname: reviewer\nx-codex:\n  model: null\n---\n")
+
+	got := loadExtending(t, base, local).Agents[0]
+	x, _ := got.Meta["x-codex"].(map[string]any)
+	if v, ok := x["model"]; !ok || v != nil {
+		t.Errorf("x-codex = %v, want model: null kept beside effort", x)
+	}
+	if x["effort"] != "high" {
+		t.Errorf("x-codex = %v, want the shared effort kept", x)
+	}
+}
