@@ -70,14 +70,14 @@ func StripRulesAppendix(body string) string {
 
 // StripGeneratedAppendices reverses every sentinel-marked edit sync may
 // make to an entry-point file, leaving the canonical pointer body. It
-// removes the rules, agents, and target-overview appendices and restores
+// removes the rules, agents, project-local, and target-overview blocks and restores
 // resolved `@`-imports (inline mode) to their lone `@path` lines. Import
 // uses it so the AGNOSTIC_AI.md round-trip stays lossless regardless of
 // which transforms a target carried. The agents appendix (see
 // agents_appendix.go) is junie-only today, but stripping it
 // unconditionally costs nothing on bodies that never had one.
 func StripGeneratedAppendices(body string) string {
-	return restoreImportInlines(StripAgentsAppendix(StripRulesAppendix(StripTargetOverview(body))))
+	return restoreImportInlines(StripAgentsAppendix(StripRulesAppendix(StripLocalInstructions(StripTargetOverview(body)))))
 }
 
 // inlineRulesTargets are the entry-point targets whose underlying CLI has

@@ -80,4 +80,4 @@ Packs load before the project and personal project layers:
 packs  →  project  →  project-user
 ```
 
-Higher layers override by `(kind, name)`. A project rule named `conventional-commits` masks the pack rule with the same name, which is how you adapt a pack convention to one project.
+`project-user` is your ignored [local layer](@/docs/local-overrides.md). Higher layers override by `(kind, name)`. A project rule named `conventional-commits` masks the pack rule with the same name, which is how you adapt a pack convention to one project.

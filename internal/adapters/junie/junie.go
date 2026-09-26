@@ -281,7 +281,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 // appended. Uses the same WriteSection rendering (`### <name>` +
 // source comment + optional description + body) every other inlining
 // target's entry-point carries. Agents no longer inline here (#604);
-// they emit natively via emitAgents instead.
+// they emit natively via emitAgents instead. The project-local
+// instructions (.agnostic-ai.local/AGNOSTIC_AI.md) follow last, as in
+// every entry point the central renderer writes.
 func emitEntryPoint(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	body, err := entryPointBody(cfg)
 	if err != nil {
@@ -290,6 +292,11 @@ func emitEntryPoint(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if emit.InlinesRulesIntoEntryPoint(target) {
 		body = emit.AppendRulesAppendix(body, emit.RenderRulesAppendix(b))
 	}
+	local, err := emit.ReadLocalInstructions()
+	if err != nil {
+		return err
+	}
+	body = emit.AppendLocalInstructions(body, spec.FilterFences(local, []string{target}))
 	return sess.WriteFile(defaultEntryFile, emit.WithHeader(body, emit.FormatMarkdown), dryRun)
 }
 

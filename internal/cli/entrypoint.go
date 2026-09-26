@@ -82,6 +82,11 @@ type entryPointFile struct {
 // block reaches a path when any of that path's consumers is listed, so a
 // shared AGENTS.md keeps a codex-only block for every AGENTS.md reader; a
 // shared file is never split. AGNOSTIC_AI.md itself keeps the fences.
+//
+// The git-ignored `.agnostic-ai.local/AGNOSTIC_AI.md`, when present,
+// extends the shared body in a sentinel-marked block after the rules
+// block, so personal text has the last word and import can drop it.
+// Fences and imports resolve in it exactly as in the shared body.
 func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, body string) ([]entryPointFile, error) {
 	body = adapters.StripGeneratedAppendices(body)
 
@@ -101,15 +106,16 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 		consumers[path] = append(consumers[path], t)
 	}
 
+	local, err := adapters.ReadLocalInstructions()
+	if err != nil {
+		return nil, err
+	}
+
 	files := make([]entryPointFile, 0, len(order))
 	for _, path := range order {
-		content := spec.FilterFences(body, consumers[path])
-		if !pathSupportsFileImports(consumers[path]) {
-			resolved, err := adapters.ApplyImportMode(content, cfg.Sync.ResolveImports)
-			if err != nil {
-				return nil, fmt.Errorf("resolve imports for %s: %w", path, err)
-			}
-			content = resolved
+		content, err := entryPointView(cfg, path, consumers[path], body)
+		if err != nil {
+			return nil, err
 		}
 		if inliners := pathRuleInliners(cfg, consumers[path]); len(inliners) > 0 {
 			var rulesAppendix string
@@ -125,6 +131,13 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 			content = adapters.AppendRulesAppendix(content, adapters.RenderRulesImportAppendix(cfg, importer, adapters.EntryPointRules(b, importer)))
 		} else if importer := pathLegacyRulesFileImporter(cfg, consumers[path]); importer != "" {
 			content = adapters.AppendRulesAppendix(content, adapters.RenderLegacyRulesFileImportAppendix(cfg, importer))
+		}
+		if local != "" {
+			localView, err := entryPointView(cfg, path, consumers[path], local)
+			if err != nil {
+				return nil, err
+			}
+			content = adapters.AppendLocalInstructions(content, localView)
 		}
 		if cfg.Sync.TargetOverview {
 			var sections []adapters.TargetArtifacts
@@ -149,6 +162,21 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 		})
 	}
 	return files, nil
+}
+
+// entryPointView returns text as the readers of path see it: ::target
+// fences resolved for those readers, and `@path` imports rewritten per
+// sync.resolve-imports when a reader cannot follow them.
+func entryPointView(cfg *config.Config, path string, readers []string, text string) (string, error) {
+	view := spec.FilterFences(text, readers)
+	if pathSupportsFileImports(readers) {
+		return view, nil
+	}
+	resolved, err := adapters.ApplyImportMode(view, cfg.Sync.ResolveImports)
+	if err != nil {
+		return "", fmt.Errorf("resolve imports for %s: %w", path, err)
+	}
+	return resolved, nil
 }
 
 // pathRuleInliners returns the targets consuming an entry-point path
