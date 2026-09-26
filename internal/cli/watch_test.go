@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -874,6 +875,27 @@ func TestWatchAnchor_StopsAtNearestExistingDirInsideRoot(t *testing.T) {
 	}
 }
 
+// A source beside the project must not put the folder holding the
+// project, such as the home directory, under watch.
+func TestWatchAnchor_NeverAnchorsOnAnAncestorOfRoot(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "proj"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "shared"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	testutil.Chdir(t, filepath.Join(dir, "proj"))
+
+	if got, ok := watchAnchor(".", filepath.Join("..", "rules")); ok {
+		t.Errorf("watchAnchor(../rules) = %q; want no anchor", got)
+	}
+	want := filepath.Join("..", "shared")
+	if got, ok := watchAnchor(".", filepath.Join("..", "shared", "rules")); !ok || got != want {
+		t.Errorf("watchAnchor(../shared/rules) = %q, %v; want %q, true", got, ok, want)
+	}
+}
+
 // startWatch runs watchSync in the background, returns once the watcher
 // is armed, and hands back its output. The returned stop cancels the
 // watch and fails the test if it returned an error.
@@ -1033,16 +1055,59 @@ func TestWatchSync_OwnWritesDoNotRetrigger(t *testing.T) {
 	}
 }
 
+// A source tree moved away and recreated must not keep the watches of
+// the moved directories, or edits in the new tree raise no event.
+func TestWatchSync_WatchesSourceTreeRecreatedAfterRename(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	_, stop := startWatch(t, []string{"claude"}, false)
+	defer stop()
+
+	if err := os.Rename(".agnostic-ai", "moved"); err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, filepath.Join(".agnostic-ai", "rules", "r2.md"), "---\nname: r2\n---\nback rule body\n")
+	waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "r2.md"), "back rule body", 5*time.Second)
+
+	writeTestFile(t, filepath.Join(".agnostic-ai", "rules", "r3.md"), "---\nname: r3\n---\nlater rule body\n")
+	waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "r3.md"), "later rule body", 5*time.Second)
+}
+
+// A directory removed before its watch is added is no lost watch: the
+// session keeps its OS events instead of dropping to polling.
+func TestWatchSync_StaysOnFsnotifyWhenNewDirIsGoneBeforeItsWatch(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	fail := failWatchAddWith(t, ".agnostic-ai/commands", fs.ErrNotExist)
+	buf, stop := startWatch(t, []string{"claude"}, false)
+	defer stop()
+	fail.Store(true)
+
+	writeTestFile(t, filepath.Join(".agnostic-ai", "commands", "deploy.md"),
+		"---\nname: deploy\ndescription: deploy the app\n---\nrun deploy\n")
+	waitForFileContaining(t, filepath.Join(dir, ".claude", "commands", "deploy.md"), "run deploy", 5*time.Second)
+	if strings.Contains(buf.String(), "(poll)") {
+		t.Errorf("want the fsnotify watch kept, got:\n%s", buf.String())
+	}
+}
+
 // failWatchAdd makes watcher registration fail for any path containing
 // marker once the returned switch is on, the way an exhausted inotify
 // limit fails partway through a session.
 func failWatchAdd(t *testing.T, marker string) *atomic.Bool {
+	return failWatchAddWith(t, marker, errors.New("no space left on device"))
+}
+
+// failWatchAddWith is failWatchAdd with the error registration returns.
+func failWatchAddWith(t *testing.T, marker string, failure error) *atomic.Bool {
 	t.Helper()
 	var on atomic.Bool
 	prev := watchAdd
 	watchAdd = func(w *fsnotify.Watcher, p string) error {
 		if on.Load() && strings.Contains(filepath.ToSlash(p), marker) {
-			return errors.New("no space left on device")
+			return failure
 		}
 		return prev(w, p)
 	}

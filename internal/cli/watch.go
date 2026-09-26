@@ -97,6 +97,9 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 			// inotify joins names onto the watch path unclean, so a watch on
 			// "." reports "./file" where kqueue reports "file".
 			ev.Name = filepath.Clean(ev.Name)
+			if ev.Op&(fsnotify.Rename|fsnotify.Remove) != 0 {
+				dropWatchesUnder(w, ev.Name)
+			}
 			if isIgnoredEvent(ev) || isWatchNoise(ev, watched) {
 				continue
 			}
@@ -284,6 +287,9 @@ func addWatchPaths(w *fsnotify.Watcher, paths []string) error {
 			return nil
 		}
 		if err := watchAdd(w, p); err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return nil
+			}
 			return fmt.Errorf("watch %s: %w", p, err)
 		}
 		existing[p] = struct{}{}
@@ -338,6 +344,9 @@ func armWatches(w *fsnotify.Watcher, root string, watched []string) error {
 			continue
 		}
 		if err := watchAdd(w, anchor); err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
 			return fmt.Errorf("watch %s: %w", anchor, err)
 		}
 		existing[anchor] = struct{}{}
@@ -345,12 +354,31 @@ func armWatches(w *fsnotify.Watcher, root string, watched []string) error {
 	return nil
 }
 
+// dropWatchesUnder removes the watches on path and below it. Some
+// backends keep a moved directory's watches listed under the old path,
+// so a tree recreated there would be skipped as already watched.
+func dropWatchesUnder(w *fsnotify.Watcher, path string) {
+	for _, p := range w.WatchList() {
+		if pathWithin(path, p) {
+			_ = w.Remove(p)
+		}
+	}
+}
+
 // watchAnchor returns the nearest existing directory above p. For an
 // input inside root the walk stops at root. For one outside root only
-// the direct parent qualifies, so a stray source path never puts a home
-// or filesystem root under watch.
+// the direct parent qualifies, and never a folder holding root, so a
+// source beside the project never puts a home or filesystem root under
+// watch.
 func watchAnchor(root, p string) (string, bool) {
 	dir := filepath.Dir(filepath.Clean(p))
+	if !pathWithin(root, dir) {
+		absDir, errDir := filepath.Abs(dir)
+		absRoot, errRoot := filepath.Abs(root)
+		if errDir != nil || errRoot != nil || pathWithin(absDir, absRoot) {
+			return "", false
+		}
+	}
 	for {
 		if info, err := os.Stat(dir); err == nil && info.IsDir() {
 			return dir, true
