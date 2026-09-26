@@ -47,7 +47,7 @@ cline	changelog	https://github.com/cline/cline/releases	200	github-api	c8690d060
 cline	docs	https://docs.cline.bot/customization/cline-rules.md	200	markdown-mirror	cf7dcbab151963676d857f26f02dfd730cda55e9f4ee6d2baf2f255e193f5d5c	2026-09-25
 cline	docs	https://docs.cline.bot/customization/skills.md	200	markdown-mirror	6f8562d51b02f3bdb9616d7efda38ea8b7799dfc06693720b6056307a21a3512	2026-09-25
 cline	docs	https://docs.cline.bot/getting-started/config.md	200	markdown-mirror	3bba119c6c9456c4fe36b5760aaca1fae61aa73c081db94ec17ec6fdcdd98d5b	2026-09-25
-codex	changelog	https://learn.chatgpt.com/docs/changelog	200	html	58580545077e9a59a484403ba8a980cbca723353c3ed3b65a5bccf6d1fc94636	2026-09-26
+codex	changelog	https://learn.chatgpt.com/docs/changelog	200	html	6a823da42132fff36ac768b4b4ba44530c9a77db3a454f1a066273708e3aab1a	2026-09-26
 codex	docs	https://learn.chatgpt.com/docs/agent-configuration/agents-md.md	200	markdown-mirror	9d1f87a2d1cb55b4782b95abe710692b35b9659789c2db31a22c7074a3383e8e	2026-09-25
 codex	docs	https://learn.chatgpt.com/docs/agent-configuration/rules.md	200	markdown-mirror	04c837d168686d94e4fce70cac20e40fa6e5a7bc07047938dc699edcd546d5d3	2026-09-25
 codex	docs	https://learn.chatgpt.com/docs/agent-configuration/subagents.md	200	markdown-mirror	966d32437448762ff38e7b37fff41186841fe6ca39e55a28466b69a73c417152	2026-09-25
