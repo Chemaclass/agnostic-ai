@@ -184,6 +184,12 @@ func sweepLedgerOrphans(sess *adapters.Session, prior []string, priorSums map[st
 			}
 			continue
 		}
+		// A file whose folder became a shared-skills link is not an
+		// orphan: the link replaced it and carries its own ledger entry,
+		// and removing through it would delete the canonical copy.
+		if underSymlinkedDir(p) {
+			continue
+		}
 		ok, err := sess.RemoveOwned(p, priorSums[p], false)
 		if err != nil {
 			return removed, kept, err
@@ -197,6 +203,17 @@ func sweepLedgerOrphans(sess *adapters.Session, prior []string, priorSums map[st
 		}
 	}
 	return removed, kept, nil
+}
+
+// underSymlinkedDir reports whether any directory between path and the
+// working directory is a symlink.
+func underSymlinkedDir(path string) bool {
+	for dir := filepath.Dir(path); dir != "." && dir != "/" && dir != ""; dir = filepath.Dir(dir) {
+		if fi, err := os.Lstat(dir); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func fileExists(path string) bool {

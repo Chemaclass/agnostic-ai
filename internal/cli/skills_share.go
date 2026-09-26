@@ -367,7 +367,7 @@ func (st *sharedSkillsState) capturedDiffersUnder(p string) bool {
 // privilege) degrades to real copies without ever losing the tree.
 // A folder holding any file this run did not render keeps its real copy,
 // untouched. Returns the links now in place.
-func (st *sharedSkillsState) apply(sess *adapters.Session, dryRun bool) []skillLink {
+func (st *sharedSkillsState) apply(dryRun bool) []skillLink {
 	var applied []skillLink
 	warned := false
 	warnf := func(format string, a ...any) {
@@ -387,14 +387,14 @@ func (st *sharedSkillsState) apply(sess *adapters.Session, dryRun bool) []skillL
 			applied = append(applied, l)
 			continue
 		}
-		if dryRun {
-			summaryf("  would link %s -> %s\n", l.path, rel)
+		// A file this run does not render (hand-authored, or edited since)
+		// keeps the folder a real copy. Dry-run wrote nothing, so it can
+		// only check which paths the run renders, not their bytes.
+		if !st.folderIsRendered(l.path, !dryRun) {
 			continue
 		}
-		owned, ok := st.renderedFilesUnder(l.path)
-		if !ok {
-			// A file this run did not render (hand-authored, or edited
-			// since) keeps the folder a real copy, generated files included.
+		if dryRun {
+			summaryf("  would link %s -> %s\n", l.path, rel)
 			continue
 		}
 		tmp := l.path + ".agnostic-link"
@@ -407,30 +407,7 @@ func (st *sharedSkillsState) apply(sess *adapters.Session, dryRun bool) []skillL
 			warnf("%v", err)
 			continue
 		}
-		// Skill assets carry no provenance header, so prove ownership by
-		// the bytes this run rendered; the tree sweep then drops the
-		// emptied directories.
-		var rmErr error
-		for _, f := range owned {
-			if _, rmErr = sess.RemoveOwned(f.path, f.sum, false); rmErr != nil {
-				break
-			}
-		}
-		if rmErr == nil {
-			rmErr = sess.RemoveGeneratedTree(l.path, false)
-		}
-		if rmErr != nil {
-			_ = os.Remove(tmp)
-			warnf("%v", rmErr)
-			continue
-		}
-		if _, err := os.Lstat(l.path); err == nil {
-			// User-authored files kept the folder alive; it cannot
-			// become a link.
-			_ = os.Remove(tmp)
-			continue
-		}
-		if err := os.Rename(tmp, l.path); err != nil {
+		if err := swapInLink(l.path, tmp); err != nil {
 			_ = os.Remove(tmp)
 			warnf("%v", err)
 			continue
@@ -444,21 +421,16 @@ func (st *sharedSkillsState) apply(sess *adapters.Session, dryRun bool) []skillL
 	return applied
 }
 
-// ownedFile is a file on disk with the content sum that proves this sync
-// rendered it.
-type ownedFile struct {
-	path string
-	sum  string
-}
-
-// errNotRendered stops a walk at the first file this sync did not render.
+// errNotRendered stops a walk at the first file this sync does not render.
 var errNotRendered = errors.New("file not rendered by this sync")
 
-// renderedFilesUnder lists every file under dir with its content sum when
-// each one holds bytes this run rendered for that path. ok is false when
-// any entry is something else: a file the run did not render, edited
-// bytes, or a non-regular file such as a nested link.
-func (st *sharedSkillsState) renderedFilesUnder(dir string) (files []ownedFile, ok bool) {
+// folderIsRendered reports whether every entry under dir is a regular file
+// this sync renders at that path, holding the rendered bytes when
+// checkBytes is set. A missing dir holds nothing foreign.
+func (st *sharedSkillsState) folderIsRendered(dir string, checkBytes bool) bool {
+	if _, err := os.Lstat(dir); os.IsNotExist(err) {
+		return true
+	}
 	err := filepath.WalkDir(dir, func(p string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -466,17 +438,51 @@ func (st *sharedSkillsState) renderedFilesUnder(dir string) (files []ownedFile, 
 		if d.IsDir() {
 			return nil
 		}
-		if !d.Type().IsRegular() {
+		rendered, ok := st.captured[p]
+		if !ok || !d.Type().IsRegular() {
 			return errNotRendered
+		}
+		if !checkBytes {
+			return nil
 		}
 		data, err := os.ReadFile(p)
-		if err != nil || !st.captured[p][string(data)] {
+		if err != nil || !rendered[string(data)] {
 			return errNotRendered
 		}
-		files = append(files, ownedFile{path: p, sum: adapters.ContentSum(string(data))})
 		return nil
 	})
-	return files, err == nil
+	return err == nil
+}
+
+// swapInLink replaces the folder at path with the symlink at tmp. The
+// folder first moves aside in one rename, outside the skills root, so a
+// failure at any step puts it back whole instead of half removed.
+func swapInLink(path, tmp string) error {
+	if _, err := os.Lstat(path); os.IsNotExist(err) {
+		return os.Rename(tmp, path)
+	}
+	asideDir, err := os.MkdirTemp(filepath.Dir(filepath.Dir(path)), ".agnostic-skill-")
+	if err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	aside := filepath.Join(asideDir, filepath.Base(path))
+	if err := os.Rename(path, aside); err != nil {
+		_ = os.Remove(asideDir)
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		if backErr := os.Rename(aside, path); backErr != nil {
+			return fmt.Errorf("%s: %w; the folder is at %s", path, err, aside)
+		}
+		_ = os.Remove(asideDir)
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	// asideDir is the fresh MkdirTemp directory above, holding only the
+	// moved folder, whose files folderIsRendered proved this sync wrote.
+	if err := os.RemoveAll(asideDir); err != nil {
+		fmt.Fprintf(os.Stderr, "! shared-skills: linked %s but could not remove its old copy at %s: %v\n", path, asideDir, err)
+	}
+	return nil
 }
 
 // adjustLedgerForLinks rewrites the sync ledger after the link swap:
