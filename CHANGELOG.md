@@ -14,6 +14,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### Fixed
 
 - `sync -t <name>` with a mistyped target failed only with a warning and reported the run up to date, also under `--check`. It now exits non-zero, and target errors suggest the closest name: `unknown target: claud (did you mean claude? no agnostic-ai-adapter-claud on PATH)`.
+- With `sync.shared-skills: true`, a skill with bundled files (such as `references/`) lost its `SKILL.md` in every target folder except the canonical one, and each sync recreated it. So did a skill folder holding a hand-authored file. Such folders now become links, or stay whole real copies.
 
 ### Site
 

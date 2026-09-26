@@ -322,3 +322,52 @@ func TestPlanSkillLinks_NoLinkForSingleOrDivergentFolders(t *testing.T) {
 		t.Errorf("divergent folders must not link, got %+v", links)
 	}
 }
+
+// A skill folder with verbatim assets (no provenance header) must still
+// collapse into a link, and never lose its SKILL.md on the way.
+func TestSync_SharedSkills_FolderWithAssetsBecomesLink(t *testing.T) {
+	dir := setupSharedSkillsFixture(t, sharedSkillsCfg)
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy", "SKILL.md"),
+		"---\nname: deploy\ndescription: Ship it\n---\nDeploy.\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "deploy", "references", "notes.md"), "notes\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	for run := 1; run <= 2; run++ {
+		if err := runSync(t); err != nil {
+			t.Fatal(err)
+		}
+		link := filepath.Join(dir, ".cursor", "skills", "deploy")
+		if _, err := os.Stat(filepath.Join(link, "SKILL.md")); err != nil {
+			t.Fatalf("run %d: cursor lost deploy/SKILL.md: %v", run, err)
+		}
+		fi, err := os.Lstat(link)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if fi.Mode()&os.ModeSymlink == 0 {
+			t.Errorf("run %d: %s should be a symlink", run, link)
+		}
+	}
+}
+
+// A hand-authored file inside a managed skill folder keeps the folder a
+// real copy, and the generated files beside it stay in place.
+func TestSync_SharedSkills_HandAuthoredFileInsideFolderKeepsSkill(t *testing.T) {
+	dir := setupSharedSkillsFixture(t, sharedSkillsCfg)
+	testutil.Chdir(t, dir)
+	silence(t)
+	mustWriteFile(t, filepath.Join(dir, ".cursor", "skills", "greet", "mine.md"), "hand-authored\n")
+
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+
+	folder := filepath.Join(dir, ".cursor", "skills", "greet")
+	if _, err := os.Stat(filepath.Join(folder, "SKILL.md")); err != nil {
+		t.Fatalf("cursor lost greet/SKILL.md: %v", err)
+	}
+	if got := readFile(t, filepath.Join(folder, "mine.md")); got != "hand-authored\n" {
+		t.Errorf("hand-authored file changed: %q", got)
+	}
+}
