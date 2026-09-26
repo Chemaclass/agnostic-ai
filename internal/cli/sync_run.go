@@ -482,8 +482,9 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 
 	digest := adapters.CapabilityWarningsDigest()
 	notesDigest := adapters.CoverageNotesDigest()
-	warningsUnchanged := digest != "" && digest == prev.WarningsDigest
-	notesUnchanged := notesDigest != "" && notesDigest == prev.NotesDigest
+	// -v re-shows what the previous sync already printed.
+	warningsUnchanged := !verbose && digest != "" && digest == prev.WarningsDigest
+	notesUnchanged := !verbose && notesDigest != "" && notesDigest == prev.NotesDigest
 	// Render the per-target summary only when at least one of the buffers
 	// actually changed, so it honors the same unchanged-since-last-sync
 	// suppression as the kind-grouped flushes below instead of re-printing
@@ -492,21 +493,23 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	if cfg.Sync.DroppedSummary && verbosity >= levelDefault && dropsChanged {
 		adapters.RenderDroppedSummary(logOut)
 	}
+	var hidden []string
 	if warningsUnchanged {
 		n := adapters.PendingCapabilityWarningsCount()
-		summaryf("  (%d capability warning%s unchanged since last sync; delete %s to re-show)\n",
-			n, plural(n), stateFilePath(root))
+		hidden = append(hidden, fmt.Sprintf("%d capability warning%s", n, plural(n)))
 		adapters.ResetCapabilityWarnings()
 	} else {
 		adapters.FlushCapabilityWarnings()
 	}
 	if notesUnchanged {
 		n := adapters.PendingCoverageNotesCount()
-		summaryf("  (%d coverage note%s unchanged since last sync; delete %s to re-show)\n",
-			n, plural(n), stateFilePath(root))
+		hidden = append(hidden, fmt.Sprintf("%d coverage note%s", n, plural(n)))
 		adapters.ResetCoverageNotes()
 	} else {
 		adapters.FlushCoverageNotes()
+	}
+	if len(hidden) > 0 {
+		summaryf("  (%s unchanged since last sync; -v shows them)\n", strings.Join(hidden, " and "))
 	}
 	ledger, kept, removed, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, effectiveTargets, cfg.Targets, dryRun)
 	if sweepErr != nil {

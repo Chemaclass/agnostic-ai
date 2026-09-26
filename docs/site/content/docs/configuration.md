@@ -263,7 +263,7 @@ Applies when an adapter receives a spec kind it does not support (e.g. `hooks` f
   note: 1 agent reaches warp only via outputs.warp.workflows-dir
 ```
 
-Setting the named key clears the note. Notes matching the previous sync are suppressed; delete `.agnostic-ai/.sync-state` to show them again.
+Setting the named key clears the note. Warnings and notes that match the previous sync collapse into one count line; `sync -v` shows them again.
 
 | Target | Kind | Set this to emit |
 |--------|------|------------------|
