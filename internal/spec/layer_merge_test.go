@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -260,6 +261,9 @@ func TestLoadLayered_NestedNullUnderATargetMapStillDeletes(t *testing.T) {
 // A local skill folder that cannot be read must fail the load, not fall
 // back to the shared assets.
 func TestLoadLayered_UnreadableLocalSkillFolderFails(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod 0o000 does not deny directory reads on windows")
+	}
 	if os.Geteuid() == 0 {
 		t.Skip("root reads any directory")
 	}
