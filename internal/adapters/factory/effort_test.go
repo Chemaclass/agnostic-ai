@@ -13,7 +13,7 @@ import (
 // note. `mcpServers` narrows which servers a droid may reach, and
 // losing it leaves the droid with the session's full tool surface.
 func TestDroidMarkdown_EmitsPortableMCPScopeAndEffort(t *testing.T) {
-	body, _ := droidMarkdown(spec.Entry{
+	body, _, _ := droidMarkdown(spec.Entry{
 		Kind: spec.KindAgent, Name: "architect", Body: "Design it.",
 		Meta: map[string]any{
 			"description": "Design work",
@@ -37,7 +37,7 @@ func TestDroidMarkdown_EmitsPortableMCPScopeAndEffort(t *testing.T) {
 // empty list must therefore reach the droid file, or a droid meant to
 // have no MCP access silently gets every server.
 func TestDroidMarkdown_KeepsEmptyMCPServersList(t *testing.T) {
-	body, _ := droidMarkdown(spec.Entry{
+	body, _, _ := droidMarkdown(spec.Entry{
 		Kind: spec.KindAgent, Name: "offline", Body: "No MCP.",
 		Meta: map[string]any{"description": "No MCP", "mcpServers": []any{}},
 	})

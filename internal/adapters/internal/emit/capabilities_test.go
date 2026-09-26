@@ -230,13 +230,13 @@ func TestFlushCapabilityWarnings_HintSuggestsDroppingUnusedTargets(t *testing.T)
 }
 
 func TestReportUnsupported_NotesDroppedReadonly(t *testing.T) {
-	for _, target := range []string{"claude", "codex", "cursor", "gemini", "copilot"} {
+	for _, target := range []string{"claude", "codex", "cursor", "factory", "gemini", "copilot"} {
 		t.Run(target, func(t *testing.T) {
 			got := droppedAgentFieldNotes(t, Capabilities{Target: target},
 				spec.Entry{Name: "reviewer", Meta: map[string]any{"readonly": true}},
 				spec.Entry{Name: "writer", Meta: map[string]any{"readonly": false}},
 				spec.Entry{Name: "default"})
-			if target == "codex" || target == "cursor" {
+			if target == "codex" || target == "cursor" || target == "factory" {
 				if got != "" {
 					t.Errorf("supported readonly got note: %s", got)
 				}

@@ -130,7 +130,7 @@ func noteDroppedAgentFields(c Capabilities, agents []spec.Entry) {
 }
 
 func NoteDroppedAgentReadonly(target string, agents []spec.Entry) {
-	if target == "codex" || target == "cursor" {
+	if target == "codex" || target == "cursor" || target == "factory" {
 		return
 	}
 	dropped := 0

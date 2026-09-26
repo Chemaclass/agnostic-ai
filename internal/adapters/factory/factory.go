@@ -50,6 +50,20 @@
 // reach a category name (`read-only`, `edit`, `execute`, `web`, `mcp`)
 // or a registered MCP tool ID, neither of which the cross-tool list can
 // express.
+//
+// The portable `readonly: true` maps onto that same `read-only` category
+// ("Analysis and file exploration" over `Read`, `LS`, `Grep`, `Glob`,
+// docs.factory.ai/harness/subagents), so a portable readonly agent gets
+// a real Factory tool boundary instead of the field silently dropping.
+// It wins outright over any portable `tools` list on the same agent
+// rather than narrowing it, because the category can never grant more
+// than read-only and a narrowed list still could (an empty intersection
+// would omit `tools` and grant every tool). The override folds into a
+// coverage note naming `x-factory.tools` as the escape hatch for a
+// custom list. An explicit `x-factory.tools` still wins over `readonly`
+// itself, the same as it wins over the generic list, and `readonly:
+// false` is a no-op.
+//
 // Droid CLI's own schema requires a non-empty system prompt after the
 // frontmatter ("The body after the frontmatter is the system prompt
 // and cannot be empty", docs.factory.ai/harness/subagents), so an
@@ -257,19 +271,23 @@ func factoryMCPs(entries []spec.Entry) []spec.Entry {
 // the skip count surfaces through a coverage note so a spec left empty
 // by accident does not disappear without a trace. A `tools` name with
 // no Factory ID drops the same way, folded into one field note per sync
-// (see tools.go).
+// (see tools.go), and a portable tools list superseded by `readonly:
+// true` folds into its own note (see droidMarkdown).
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
 	noteUnsupportedEffort(agents)
-	var emptyBody, droppedTools int
+	var emptyBody, droppedTools, readonlyOverrodeTools int
 	for _, a := range agents {
 		if strings.TrimSpace(a.Body) == "" {
 			emptyBody++
 			continue
 		}
 		path := filepath.Join(dir, a.Name+".md")
-		md, dropped := droidMarkdown(a)
+		md, dropped, overrodeList := droidMarkdown(a)
 		if dropped {
 			droppedTools++
+		}
+		if overrodeList {
+			readonlyOverrodeTools++
 		}
 		if err := sess.WriteFile(path, emit.WithHeader(md, emit.FormatMarkdown), dryRun); err != nil {
 			return err
@@ -279,6 +297,8 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 		"empty spec body; Droid CLI requires a non-empty system prompt")
 	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", droppedTools,
 		"name(s) outside Factory's tool-ID table (Read, LS, Grep, Glob, Create, Edit, ApplyPatch, Execute, WebSearch, FetchUrl) fail Droid CLI's load-time validation and are dropped; set x-factory.tools for a category name or an MCP tool ID")
+	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", readonlyOverrodeTools,
+		"readonly: true replaces the portable tools list with the tools: read-only category so the droid never exceeds Read, LS, Grep, Glob; set x-factory.tools to keep a custom list instead")
 	return nil
 }
 
@@ -294,9 +314,20 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 // the Claude-style table would misread Factory's own vocabulary as
 // unknown. xFactorySetsTools guards the same case, so the override wins
 // outright instead of merging alongside a translated value.
+//
+// A portable `readonly: true` maps onto Factory's own `read-only`
+// category ("Analysis and file exploration", `Read`, `LS`, `Grep`,
+// `Glob`; docs.factory.ai/harness/subagents), the same coarse mapping
+// #1149 gives Codex's `sandbox_mode = "read-only"` and #1152 gives
+// Cursor's own `readonly` field. It wins outright over any portable
+// `tools` list rather than narrowing it: Factory's category never
+// grants more than read-only, so replacing the list is the direction
+// that can never grant more than the author asked for, and
+// readonlyOverrodeTools reports the case so the caller can fold every
+// such agent into one coverage note naming the escape hatch.
 // hasDroppedTools reports whether any declared name had no Factory ID,
 // so the caller can fold every such agent into one note per sync.
-func droidMarkdown(e spec.Entry) (body string, hasDroppedTools bool) {
+func droidMarkdown(e spec.Entry) (body string, hasDroppedTools, readonlyOverrodeTools bool) {
 	resolved := emit.ResolveMeta(e.Meta, target)
 	desc, _ := resolved["description"].(string)
 	if desc == "" {
@@ -312,7 +343,12 @@ func droidMarkdown(e spec.Entry) (body string, hasDroppedTools bool) {
 		keys = append(keys, "model")
 	}
 	if !xFactorySetsTools(e.Meta) {
-		if raw := emit.StringSlice(e.Meta["tools"]); len(raw) > 0 {
+		raw := emit.StringSlice(e.Meta["tools"])
+		if resolved["readonly"] == true {
+			meta["tools"] = "read-only"
+			keys = append(keys, "tools")
+			readonlyOverrodeTools = len(raw) > 0
+		} else if len(raw) > 0 {
 			mapped, dropped := translateTools(raw)
 			if len(mapped) > 0 {
 				meta["tools"] = mapped
@@ -336,5 +372,5 @@ func droidMarkdown(e spec.Entry) (body string, hasDroppedTools bool) {
 	}
 	emit.MergeCustomTargetMeta(meta, &keys, e.Meta, target, droidHandBuiltKeys...)
 	front := emit.FrontmatterOrdered(meta, keys)
-	return front + "\n" + strings.TrimSpace(e.Body) + "\n", hasDroppedTools
+	return front + "\n" + strings.TrimSpace(e.Body) + "\n", hasDroppedTools, readonlyOverrodeTools
 }
