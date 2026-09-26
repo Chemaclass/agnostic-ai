@@ -60,6 +60,10 @@ type syncStateFile struct {
 	SpecSums map[string]string `json:"spec_sums,omitempty"`
 }
 
+// showRepeatedDrops lets -v print capability warnings and coverage notes
+// that match the previous sync. Watch mode clears it after its first pass.
+var showRepeatedDrops = true
+
 // syncLedger is the output footprint one sync persists to the state file.
 type syncLedger struct {
 	outputs []string
@@ -482,14 +486,15 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 
 	digest := adapters.CapabilityWarningsDigest()
 	notesDigest := adapters.CoverageNotesDigest()
-	// -v re-shows what the previous sync already printed.
-	warningsUnchanged := !verbose && digest != "" && digest == prev.WarningsDigest
-	notesUnchanged := !verbose && notesDigest != "" && notesDigest == prev.NotesDigest
+	reshow := verbose && showRepeatedDrops
+	warningsUnchanged := !reshow && digest != "" && digest == prev.WarningsDigest
+	notesUnchanged := !reshow && notesDigest != "" && notesDigest == prev.NotesDigest
 	// Render the per-target summary only when at least one of the buffers
 	// actually changed, so it honors the same unchanged-since-last-sync
 	// suppression as the kind-grouped flushes below instead of re-printing
-	// every run. Must run before the flushes clear the buffers.
-	dropsChanged := !warningsUnchanged || !notesUnchanged
+	// every run. An empty buffer counts as unchanged when it was empty last
+	// time too. Must run before the flushes clear the buffers.
+	dropsChanged := reshow || digest != prev.WarningsDigest || notesDigest != prev.NotesDigest
 	if cfg.Sync.DroppedSummary && verbosity >= levelDefault && dropsChanged {
 		adapters.RenderDroppedSummary(logOut)
 	}

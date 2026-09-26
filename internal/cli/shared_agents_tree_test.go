@@ -162,4 +162,14 @@ func TestRunSyncOnce_SharedAgentsTreeNoteSuppressedWhenUnchanged(t *testing.T) {
 	if !strings.Contains(notes.String(), "also read by Devin") {
 		t.Errorf("-v did not re-show the unchanged note:\n%s", notes.String())
 	}
+
+	notes.Reset()
+	log.Reset()
+	verbosity = levelDefault
+	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(notes.String(), "also read by Devin") || !strings.Contains(log.String(), "-v shows them") {
+		t.Errorf("a plain sync after -v should collapse the note again:\n%s%s", log.String(), notes.String())
+	}
 }
