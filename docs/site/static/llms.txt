@@ -45,6 +45,7 @@ stop duplicating prompt files per tool.
 - [CLI reference](https://agnostic-ai.org/docs/cli-reference/): every command and flag.
 - [CI](https://agnostic-ai.org/docs/ci/): the `sync --check` drift gate.
 - [Packs](https://agnostic-ai.org/docs/packs/): sharing and reusing spec bundles.
+- [Local overrides](https://agnostic-ai.org/docs/local-overrides/): personal specs and instructions kept out of Git, per project or per machine.
 - [Git hooks](https://agnostic-ai.org/docs/git-hooks/): keeping generated files in step with commits.
 - [Graph](https://agnostic-ai.org/docs/graph/): visualising what reaches which tool.
 - [Errors](https://agnostic-ai.org/docs/errors/): every diagnostic, and what fixes it.

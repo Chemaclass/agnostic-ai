@@ -171,6 +171,11 @@ func ProvenanceEnabled() bool { return emit.ProvenanceEnabled() }
 // callers in the cli package).
 const AgnosticEntryPointPath = emit.AgnosticEntryPointPath
 
+// ProjectLocalEntryPointPath is the ignored project-local instructions
+// file that extends AgnosticEntryPointPath in every entry point
+// (re-exported from the emit layer).
+const ProjectLocalEntryPointPath = emit.ProjectLocalEntryPointPath
+
 // EntryPointPath returns the project-relative entry-point file for
 // target, honoring outputs.<target>.file. Returns "" for targets
 // without an entry-point convention.
@@ -301,6 +306,32 @@ const (
 	AgentsStartMarker = emit.AgentsStartMarker
 	AgentsEndMarker   = emit.AgentsEndMarker
 )
+
+// LocalStartMarker and LocalEndMarker mirror the emit-layer sentinels
+// around the project-local instructions sync appends to an entry point.
+const (
+	LocalStartMarker = emit.LocalStartMarker
+	LocalEndMarker   = emit.LocalEndMarker
+)
+
+// ReadLocalInstructions returns the trimmed text of the project-local
+// `.agnostic-ai.local/AGNOSTIC_AI.md`, or "" when absent (re-exported
+// from the emit layer).
+func ReadLocalInstructions() (string, error) {
+	return emit.ReadLocalInstructions()
+}
+
+// AppendLocalInstructions appends the sentinel-marked local block to
+// body, replacing any earlier one (re-exported from the emit layer).
+func AppendLocalInstructions(body, local string) string {
+	return emit.AppendLocalInstructions(body, local)
+}
+
+// StripLocalInstructions removes the sentinel-marked local block from
+// body (re-exported from the emit layer).
+func StripLocalInstructions(body string) string {
+	return emit.StripLocalInstructions(body)
+}
 
 // InlinesRulesIntoEntryPoint reports whether target delivers rule bodies
 // by inlining them into its entry-point file (re-exported from the emit

@@ -12,6 +12,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -432,7 +433,7 @@ func planWatchResync(root string, cfg *config.Config, b spec.Bundle, changed, co
 	for _, raw := range changed {
 		cp := filepath.Clean(raw)
 		if isFullSyncPath(root, cp) {
-			return affectedResync{full: true, reason: "config or overlay change"}
+			return affectedResync{full: true, reason: "config, overlay, or local instructions change"}
 		}
 		kind, ok := watchKindForPath(root, cfg, cp)
 		if !ok {
@@ -460,14 +461,16 @@ func planWatchResync(root string, cfg *config.Config, b spec.Bundle, changed, co
 
 // isFullSyncPath reports whether cp is a project-wide input whose change
 // cannot be scoped to a single spec kind: the base or legacy config file,
-// the local override, or anything under the captured overlay tree. Such
-// edits re-key collisions, targets, or per-target overlays, so a full
-// re-sync is the only correct response.
+// the local override, the project-local instructions, or anything under
+// the captured overlay tree. Such edits re-key collisions, targets,
+// per-target overlays, or every entry point, so a full re-sync is the
+// only correct response.
 func isFullSyncPath(root, cp string) bool {
 	for _, name := range []string{
 		config.ConfigFileName,
 		config.LegacyConfigFileName,
 		config.LocalOverrideFileName,
+		adapters.ProjectLocalEntryPointPath,
 	} {
 		if cp == filepath.Clean(filepath.Join(root, name)) {
 			return true

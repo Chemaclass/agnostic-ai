@@ -586,3 +586,33 @@ func TestEmit_Agent_AcceptsValidVendorNames(t *testing.T) {
 		}
 	}
 }
+
+// The project-local AGNOSTIC_AI.md extends the shared one in every entry
+// point sync writes, and .junie/AGENTS.md is written here, not centrally.
+func TestEmit_EntryPointAppendsProjectLocalInstructions(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	for path, content := range map[string]string{
+		emit.AgnosticEntryPointPath:     "Shared line.\n",
+		emit.ProjectLocalEntryPointPath: "Local line.\n\n::target claude\nClaude-only line.\n::end\n",
+	} {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	entries := []spec.Entry{{Kind: spec.KindRule, Name: "r1", Body: "Rule line."}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, defaultEntryFile))
+	shared, rules, local := strings.Index(got, "Shared line."), strings.Index(got, emit.RulesEndMarker), strings.Index(got, "Local line.")
+	if shared < 0 || rules < 0 || local < rules {
+		t.Errorf("want shared text, rules, then local text:\n%s", got)
+	}
+	if strings.Contains(got, "Claude-only line.") {
+		t.Errorf("a claude-only fence leaked into junie:\n%s", got)
+	}
+}

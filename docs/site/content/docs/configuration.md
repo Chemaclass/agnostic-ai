@@ -36,13 +36,14 @@ For directory-specific instructions, add `scope` to a rule: `agnostic-ai new rul
 | Run project behavior checks after model or CLI changes | [Verify](#verify) |
 | Keep a hand-written file at a generated path | [`sync.unmanaged`](#syncunmanaged) |
 | Override settings on one machine | [Local overrides](#local-overrides) |
+| Keep personal specs and instructions out of Git | [Local spec layers](@/docs/local-overrides.md) |
 | Understand which value wins | [Precedence](#precedence) and [Layered specs](#layered-specs) |
 | Share personal instructions across projects | [Global configuration](#global-configuration) |
 | Inspect all fields | [Top-level fields](#top-level-fields) or [JSON Schema](https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/schemas/config.schema.json) |
 
 ## Local overrides
 
-`agnostic-ai.local.yaml` holds per-machine tweaks. It deep-merges over the base: scalars and lists replace, maps merge recursively. `agnostic-ai init` adds it to `.gitignore`.
+`agnostic-ai.local.yaml` holds per-machine tweaks. It deep-merges over the base: scalars and lists replace, maps merge recursively. `agnostic-ai init` adds it to `.gitignore`. Personal specs and instructions go in [`.agnostic-ai.local/`](@/docs/local-overrides.md).
 
 ```yaml
 # agnostic-ai.local.yaml (never committed)
@@ -289,7 +290,7 @@ The block sits between `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai 
 
 - Entries are root-anchored (`/AGENTS.md`, not `AGENTS.md`), so nested same-named files are not ignored.
 - Files collapse to their generated subdirectory (`/.claude/rules/`), never higher, so siblings such as `.claude/settings.json` or `.claude/hooks/` stay visible. The subdirectory is measured below the resolved output dir, so a nested `outputs.<target>.dir: vendor/.claude` collapses to `/vendor/.claude/rules/`. A nested per-kind dir such as `outputs.<target>.rules-dir` is generated end to end, so it collapses at the dir itself.
-- The block always holds `agnostic-ai.local.yaml`, `/.agnostic-ai/.sync-state`, and `/.agnostic-ai/packs/`, seeded by `init` even with `gitignore.enabled: false`. `init`, `sync`, or `packs add` moves old loose copies into the block.
+- The block always holds `agnostic-ai.local.yaml`, `/.agnostic-ai/.sync-state`, `/.agnostic-ai/packs/`, and `/.agnostic-ai.local/`, seeded by `init` even with `gitignore.enabled: false`. `init`, `sync`, or `packs add` moves old loose copies into the block.
 - A target can add entries of its own, such as [Claude Code](@/docs/targets/claude.md)'s local settings and agent memory.
 
 ## Watched inputs
@@ -303,7 +304,7 @@ The block sits between `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai 
 
 ## Entry-point files
 
-`sync` writes `.agnostic-ai/AGNOSTIC_AI.md` plus one root entry-point file per enabled target, all sharing the canonical pointer body. See the [per-target table](@/docs/target-behavior.md#entry-point-files).
+`sync` writes `.agnostic-ai/AGNOSTIC_AI.md` plus one root entry-point file per enabled target, all sharing the canonical pointer body. See the [per-target table](@/docs/target-behavior.md#entry-point-files). An ignored `.agnostic-ai.local/AGNOSTIC_AI.md` [extends that body](@/docs/local-overrides.md#extend-the-instructions) on one machine.
 
 Setting `outputs.<target>.rules-file: <path>` restores the legacy layout: the adapter writes one merged document at `<path>`. Two adapters writing different content to one path fail unless you set `sync.collision-policy: prefer-spec`.
 
@@ -350,7 +351,7 @@ Specs load from three layers, lowest first. Higher layers override by spec name 
 | `project` | `agnostic-ai.yaml` `sources` paths | always |
 | `project-user` | `<project>/.agnostic-ai.local` | directory exists |
 
-Only `project` honors custom `sources` paths; `project-user` uses fixed kind directories. Add `.agnostic-ai.local/` to `.gitignore`. `$AGNOSTIC_AI_HOME` is not a project layer.
+Only `project` honors custom `sources` paths. `.agnostic-ai.local/` stays out of Git by default and can extend `AGNOSTIC_AI.md`; see [local overrides](@/docs/local-overrides.md). `$AGNOSTIC_AI_HOME` is not a project layer.
 
 ## Global configuration
 
@@ -381,7 +382,7 @@ Before adding personal files, add this entry to the source root's `.gitignore`:
 /local/
 ```
 
-For example, `local/skills/reviewer/SKILL.md` replaces `skills/reviewer/SKILL.md`. Run `agnostic-ai list --global` to see the effective specs with their `global` or `global-local` layer. Global layers never merge with project specs.
+For example, `local/skills/reviewer/SKILL.md` replaces `skills/reviewer/SKILL.md`. Run `agnostic-ai list --global` to see the effective specs with their `global` or `global-local` layer. Global layers never merge with project specs. [Local overrides](@/docs/local-overrides.md) compares this layer with the project one.
 
 - It targets every supported tool by default. Which `sync` flags it accepts is in the [CLI reference](@/docs/cli-reference.md#sync).
 - Nested rules and rules with scope, path, glob, or target conditions are rejected. Commands, MCP servers, settings, inheritance, and merging with project specs are unsupported.

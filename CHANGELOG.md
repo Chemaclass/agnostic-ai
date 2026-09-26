@@ -10,6 +10,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - OpenHands: a shttp MCP server's `oauth` field (or an explicit `auth: oauth`) emits `auth = "oauth"` in `config.toml`, and import reads it back (#1157).
 - Agents map `readonly: true` to Factory's `tools: read-only` and no inherited MCP servers, overriding a portable tools list (#1162).
+- `.agnostic-ai.local/AGNOSTIC_AI.md` extends every entry-point file, and the managed `.gitignore` block now ignores `.agnostic-ai.local/` (#1172).
 
 ### Fixed
 
