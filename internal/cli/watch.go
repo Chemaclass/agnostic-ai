@@ -99,6 +99,7 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 			// inotify joins names onto the watch path unclean, so a watch on
 			// "." reports "./file" where kqueue reports "file".
 			ev.Name = filepath.Clean(ev.Name)
+			watchEventSeen(ev)
 			if ev.Op&(fsnotify.Rename|fsnotify.Remove) != 0 {
 				dropWatchesUnder(w, ev.Name)
 			}
@@ -289,6 +290,10 @@ func firstOf(paths []string) string {
 // armPause runs in armWatches between registering the inputs and their
 // anchors. Tests swap it to change the tree inside that window.
 var armPause = func() {}
+
+// watchEventSeen runs for every event the fsnotify loop receives. Tests
+// swap it to wait until the watch has seen a change.
+var watchEventSeen = func(fsnotify.Event) {}
 
 // watchAdd registers one path with the watcher. Tests swap it to force a
 // registration failure, such as an exhausted inotify limit.
