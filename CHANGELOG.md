@@ -6,12 +6,14 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+## v0.69.0 - 2026-09-26
+
 ### Added
 
-- OpenHands: a shttp MCP server's `oauth` field (or an explicit `auth: oauth`) emits `auth = "oauth"` in `config.toml`, and import reads it back (#1157).
-- Agents map `readonly: true` to Factory's `tools: read-only` and no inherited MCP servers, overriding a portable tools list (#1162).
 - Project specs in `.agnostic-ai/local/` override shared ones, its `AGNOSTIC_AI.md` extends every entry point, and it stays gitignored (#1172).
-- A local spec edits one field of a shared spec and keeps the rest; a `::parent` line in its body extends the shared body. (#1177)
+- A local spec edits one field of a shared spec and keeps the rest; a `::parent` line in its body extends the shared body (#1177).
+- Agents map `readonly: true` to Factory's `tools: read-only` and no inherited MCP servers, overriding a portable tools list (#1162).
+- OpenHands: a shttp MCP server's `oauth` field (or `auth: oauth`) emits `auth = "oauth"` in `config.toml`, and import reads it back (#1157).
 
 ### Changed
 
@@ -19,13 +21,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Fixed
 
+- `import` keeps `.agnostic-ai/local/` specs, hooks, and scripts out of the shared source, and leaves shared specs and settings untouched (#1174, #1185).
+- `sync --watch` sees config, overlays, `AGNOSTIC_AI.md`, and source dirs created or recreated mid-session, and polls when events drop (#1179, #1184, #1188).
+- `.junie/AGENTS.md` honors `sync.resolve-imports`, legacy `rules-file` entry points get local instructions, and `sync --watch` sees a new local layer (#1172).
 - Global sync writes the Codex skill policy file and warns when a manual-only skill stays model-invocable on a target (#1156).
-- `.junie/AGENTS.md` honors `sync.resolve-imports`; a legacy `rules-file` entry point gets local instructions; `sync --watch` sees a new local layer (#1172).
-- `import` keeps `.agnostic-ai/local/` specs, hooks, and scripts out of the shared source, and leaves shared specs and settings untouched (#1174).
-- `sync --watch` sees `agnostic-ai.local.yaml`, `.agnostic-ai/overlays/`, and source dirs created mid-session, and now watches commands (#1179).
-- `sync --watch` re-syncs when `.agnostic-ai/AGNOSTIC_AI.md` changes, and falls back to polling when the OS drops file events (#1184).
-- On macOS, `sync --watch` keeps watching a source tree that is moved away and recreated under the same name in one step (#1188).
-- `import codex` keeps a local hook out of the shared source when Codex reorders its matcher or joins it with another hook's that runs the same command (#1185).
 
 ## v0.68.1 - 2026-09-25
 
