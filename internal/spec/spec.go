@@ -513,6 +513,9 @@ type Layer struct {
 	Name    string
 	Root    string
 	Sources config.Sources
+	// Extends merges a spec into the same-name spec of a lower layer
+	// instead of replacing it: the personal `local` layers.
+	Extends bool
 }
 
 // LoadBundle walks the source directories under root and returns a
@@ -542,7 +545,7 @@ func LoadLayered(layers []Layer) (Bundle, error) {
 			{&b.Settings, lb.Settings}, {&b.Reviews, lb.Reviews},
 			{&b.Environments, lb.Environments}, {&b.Ignores, lb.Ignores},
 		} {
-			merged, shadowed := mergeEntries(*m.into, m.from)
+			merged, shadowed := mergeEntries(*m.into, m.from, layer.Extends)
 			*m.into = merged
 			b.Shadowed = append(b.Shadowed, shadowed...)
 		}
@@ -597,7 +600,10 @@ func loadLayer(layer Layer) (Bundle, error) {
 // spec, so those are not reported. Two files in one layer declaring the
 // same name is an authoring mistake instead: one silently wins and the
 // other's body never reaches any target (#582).
-func mergeEntries(base, src []Entry) ([]Entry, []Entry) {
+//
+// In an extending layer, an entry from a lower layer is merged into
+// instead (see extendEntry).
+func mergeEntries(base, src []Entry, extends bool) ([]Entry, []Entry) {
 	if len(src) == 0 {
 		return base, nil
 	}
@@ -608,11 +614,19 @@ func mergeEntries(base, src []Entry) ([]Entry, []Entry) {
 	}
 	for _, e := range src {
 		if i, ok := idx[e.Name]; ok {
-			if base[i].Layer == e.Layer {
+			switch {
+			case base[i].Layer == e.Layer:
 				shadowed = append(shadowed, base[i])
+				base[i] = e
+			case extends:
+				base[i] = extendEntry(base[i], e)
+			default:
+				base[i] = e
 			}
-			base[i] = e
 			continue
+		}
+		if extends {
+			e.Body = expandParent(e.Body, "")
 		}
 		idx[e.Name] = len(base)
 		base = append(base, e)
