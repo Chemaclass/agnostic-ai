@@ -85,7 +85,7 @@ function test_report_names_a_page_again_when_its_hash_moves_again() {
 }
 
 function test_report_skips_a_changed_page_whose_text_the_runner_fetched_before() {
-  printf 'aaa\nccc\n' >"$FIXTURES/known"
+  printf 'https://kiro.dev/docs/steering/\taaa\nhttps://cursor.com/docs/rules\tccc\n' >"$FIXTURES/known"
   local out
   out=$(vendor_watch_report "$(run_tsv)" /dev/null "$FIXTURES/known")
   assert_not_contains "https://kiro.dev/docs/steering/" "$out"
@@ -93,13 +93,20 @@ function test_report_skips_a_changed_page_whose_text_the_runner_fetched_before()
   assert_contains "- failed (HTTP 404): https://zed.dev/docs/ai/mcp" "$out"
 }
 
-function test_known_texts_lists_each_stored_snapshot_hash() {
+function test_report_names_a_page_that_now_serves_text_seen_only_on_another_url() {
+  printf 'https://other.example/page\taaa\n' >"$FIXTURES/known"
+  assert_contains "https://kiro.dev/docs/steering/" "$(vendor_watch_report "$(run_tsv)" /dev/null "$FIXTURES/known")"
+}
+
+function test_record_keeps_each_fetched_page_while_its_snapshot_lives() {
   mkdir -p "$FIXTURES/snapshots"
   : >"$FIXTURES/snapshots/aaa.txt"
   : >"$FIXTURES/snapshots/bbb.txt"
-  : >"$FIXTURES/snapshots/ccc.txt.tmp.123"
-  assert_equals "$(printf 'aaa\nbbb')" "$(vendor_watch_known_texts "$FIXTURES/snapshots")"
-  assert_empty "$(vendor_watch_known_texts "$FIXTURES/missing")"
+  printf 'https://gone.example/page\tzzz\n' >"$FIXTURES/snapshots/seen-pages.tsv"
+  vendor_watch_record "$(run_tsv)" "$FIXTURES/snapshots"
+  assert_equals "$(printf 'https://kiro.dev/docs/hooks/\tbbb\nhttps://kiro.dev/docs/steering/\taaa')" \
+    "$(vendor_watch_seen "$FIXTURES/snapshots")"
+  assert_empty "$(vendor_watch_seen "$FIXTURES/missing")"
 }
 
 function test_keys_pair_each_moved_url_with_its_hash() {
@@ -181,7 +188,7 @@ $(vendor_watch_marker "$(vendor_watch_keys "$tsv")")"
 
 function test_publish_stays_quiet_when_every_changed_text_was_fetched_before() {
   row kiro https://kiro.dev/docs/steering/ aaa changed >"$FIXTURES/flap.tsv"
-  printf 'aaa\n' >"$FIXTURES/known"
+  printf 'https://kiro.dev/docs/steering/\taaa\n' >"$FIXTURES/known"
   vendor_watch_publish "$FIXTURES/flap.tsv" "$FIXTURES/known" >/dev/null
   assert_not_contains "issue create" "$(cat "$GH_CALLS")"
 }

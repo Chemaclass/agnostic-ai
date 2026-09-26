@@ -13,13 +13,14 @@
 # the keys it has reported in a hidden marker, so a page that stays changed
 # is reported once, and again only when its text moves a second time.
 #
-# A changed page whose text this runner already fetched (a known-texts file,
-# the snapshot hashes present before the fetch) is not news: a stale CDN copy
-# or a proxy alternating between renders would otherwise report daily (#1167).
+# A changed page whose URL already served that exact text on an earlier run
+# is not news: a stale CDN copy or a proxy alternating between renders would
+# otherwise report daily (#1167). The runner keeps those URL and hash pairs
+# beside its snapshots, for as long as each snapshot lives.
 #
 # Usage:
-#   scripts/vendor-watch.sh report <docfetch.tsv> [seen-keys-file] [known-texts-file]
-#   scripts/vendor-watch.sh publish <docfetch.tsv> [known-texts-file]
+#   scripts/vendor-watch.sh report <docfetch.tsv> [seen-keys-file] [known-pages-file]
+#   scripts/vendor-watch.sh publish <docfetch.tsv> [known-pages-file]
 #
 # Portable: bash + awk + sort + the gh CLI. No GNU-only flags.
 
@@ -38,17 +39,37 @@ vendor_watch_keys() {
   ' "$1" | sort -u
 }
 
-# vendor_watch_known_texts <snapshot dir> prints the hash of every text the
-# runner has fetched and still holds, one per line.
-vendor_watch_known_texts() {
-  [ -d "$1" ] || return 0
-  find "$1" -maxdepth 1 -type f -name '*.txt' | sed -e 's|.*/||' -e 's|\.txt$||' | sort
+VENDOR_WATCH_SEEN_FILE="seen-pages.tsv"
+
+# vendor_watch_seen <snapshot dir> prints each "<url>\t<hash>" pair the runner
+# fetched on an earlier run and still holds the snapshot for.
+vendor_watch_seen() {
+  [ -r "$1/$VENDOR_WATCH_SEEN_FILE" ] || return 0
+  while IFS=$'\t' read -r url sha; do
+    [ -n "$sha" ] && [ -f "$1/$sha.txt" ] && printf '%s\t%s\n' "$url" "$sha"
+  done <"$1/$VENDOR_WATCH_SEEN_FILE" | sort -u
 }
 
-# vendor_watch_report <tsv> <seen-keys-file> [known-texts-file] prints the
+# vendor_watch_record <tsv> <snapshot dir> adds the run's fetched pages to the
+# seen pairs, dropping pairs whose snapshot was pruned.
+vendor_watch_record() {
+  local tmp
+  tmp=$(mktemp)
+  {
+    vendor_watch_seen "$2"
+    awk -F '\t' '$8 != "failed" && $6 != "" && $6 != "-" { print $3 "\t" $6 }' "$1" |
+      while IFS=$'\t' read -r url sha; do
+        [ -f "$2/$sha.txt" ] && printf '%s\t%s\n' "$url" "$sha"
+      done
+  } | sort -u >"$tmp"
+  mkdir -p "$2"
+  mv "$tmp" "$2/$VENDOR_WATCH_SEEN_FILE"
+}
+
+# vendor_watch_report <tsv> <seen-keys-file> [known-pages-file] prints the
 # Markdown report of moved rows whose key is not in the seen file and, for a
-# changed row, whose text is not a known one, grouped by target. It prints
-# nothing when every moved row was already reported.
+# changed row, whose URL and hash are not a known pair, grouped by target. It
+# prints nothing when every moved row was already reported.
 # When the run left a deltas.tsv beside it, each moved page also carries
 # its delta label (mentions:<paths>, prose, chrome-only, ...), so the reader
 # can tell a config change from page chrome before spending an audit.
@@ -69,7 +90,7 @@ vendor_watch_report() {
     {
       key = $3 "\t" ($8 == "failed" ? "failed-" $4 : $6)
       if (key in done) next
-      if ($8 == "changed" && ($6 in fetched)) next
+      if ($8 == "changed" && (($3 "\t" $6) in fetched)) next
       label = ($8 == "failed") ? "failed (HTTP " $4 ")" : $8
       if (!($1 in rows)) order[++n] = $1
       rows[$1] = rows[$1] "- " label ": " $3 (($3 in tag) ? " (`" tag[$3] "`)" : "") "\n"
@@ -144,8 +165,8 @@ vendor_watch_main() {
   case "$cmd" in
     report | publish) ;;
     *)
-      echo "Usage: scripts/vendor-watch.sh report <docfetch.tsv> [seen-keys-file] [known-texts-file]" >&2
-      echo "       scripts/vendor-watch.sh publish <docfetch.tsv> [known-texts-file]" >&2
+      echo "Usage: scripts/vendor-watch.sh report <docfetch.tsv> [seen-keys-file] [known-pages-file]" >&2
+      echo "       scripts/vendor-watch.sh publish <docfetch.tsv> [known-pages-file]" >&2
       return 1
       ;;
   esac
