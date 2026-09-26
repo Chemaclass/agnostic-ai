@@ -325,6 +325,22 @@ func joinMatcherSegments(segments []string) string {
 	return strings.Join(cp, "|")
 }
 
+// HookMatcherCovers reports whether every segment of spec is a segment
+// of native. buildHooksJSON joins the segments of every spec that runs
+// one command, and writes the group under the order it saw first.
+func (Adapter) HookMatcherCovers(native, spec string) bool {
+	segments := map[string]bool{}
+	for _, seg := range matcherSegments(native) {
+		segments[seg] = true
+	}
+	for _, seg := range matcherSegments(spec) {
+		if !segments[seg] {
+			return false
+		}
+	}
+	return true
+}
+
 // hookIntMeta reads an int-typed meta key, accepting int / int64 /
 // float64 (yaml.v3 decodes numerics as int). Returns 0 when missing or
 // the wrong type.

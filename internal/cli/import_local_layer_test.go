@@ -386,6 +386,53 @@ func TestImport_MatchesLocalHooksAsEachTargetRendersThem(t *testing.T) {
 	}
 }
 
+// Codex respells a matcher on emit and joins the matchers of every spec
+// that runs the same command, so a local hook must still match the
+// matcher the native file carries.
+func TestImport_MatchesLocalHooksUnderTheMatcherCodexWrites(t *testing.T) {
+	cases := []struct {
+		name, shared string
+		locals       map[string]string
+	}{
+		{"matcher order",
+			"name: edit\nevent: PreToolUse\nmatcher: Edit|Write\ncommand: echo shared-edit\n",
+			map[string]string{"zguard": "name: zguard\nevent: PreToolUse\nmatcher: Write|Edit\ncommand: echo local-guard\nstatusMessage: local-msg\n"}},
+		{"matcher spacing",
+			"name: edit\nevent: PreToolUse\nmatcher: Bash|Edit\ncommand: echo shared-edit\n",
+			map[string]string{"zguard": "name: zguard\nevent: PreToolUse\nmatcher: Bash | Edit\ncommand: echo local-guard\n"}},
+		{"two local hooks share a command",
+			"name: edit\nevent: PreToolUse\nmatcher: Edit\ncommand: echo shared-edit\n",
+			map[string]string{
+				"zguard":  "name: zguard\nevent: PreToolUse\nmatcher: Write\ncommand: echo local-guard\n",
+				"zguard2": "name: zguard2\nevent: PreToolUse\nmatcher: Edit\ncommand: echo local-guard\n",
+			}},
+		{"a local hook shares a command with a shared one",
+			"name: edit\nevent: PreToolUse\nmatcher: Edit\ncommand: echo shared-edit\n",
+			map[string]string{"zguard": "name: zguard\nevent: PreToolUse\nmatcher: mcp__local-tool\ncommand: echo shared-edit\n"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			testutil.TempCwd(t)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+			writeAgnosticFile(t, "# Shared\n")
+			writeFile(t, filepath.Join(".agnostic-ai", "hooks", "edit.yaml"), tc.shared)
+			for name, local := range tc.locals {
+				writeFile(t, filepath.Join(defaultProjectUser, "hooks", name+".yaml"), local)
+			}
+			if out, err := runCLI(t, "sync"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+
+			out := importCapturing(t, "codex")
+
+			assertNoLocalContentShared(t)
+			if !strings.Contains(out, "hook zguard") {
+				t.Errorf("want the note to name the local hook:\n%s", out)
+			}
+		})
+	}
+}
+
 // A hook script only local hooks run stays out of the scripts stash; a
 // script a shared hook runs is still captured.
 func TestImport_LeavesLocalHookScriptsOutOfTheSharedSource(t *testing.T) {

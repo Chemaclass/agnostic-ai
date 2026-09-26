@@ -24,6 +24,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `import` no longer copies specs from `.agnostic-ai/local/` into the shared source or overwrites a shared spec with its local version, hooks and their scripts included; shared settings, reviews, and environments stay as they were when the local layer feeds them (#1174).
 - `sync --watch` sees `agnostic-ai.local.yaml`, `.agnostic-ai/overlays/`, and source dirs created mid-session, and now watches commands (#1179).
 - `sync --watch` re-syncs when `.agnostic-ai/AGNOSTIC_AI.md` changes, and falls back to polling when the OS drops file events (#1184).
+- `import codex` keeps a local hook out of the shared source when Codex reorders its matcher or joins it with another hook's that runs the same command (#1185).
 
 ## v0.68.1 - 2026-09-25
 
