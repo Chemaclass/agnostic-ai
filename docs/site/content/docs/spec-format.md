@@ -77,7 +77,7 @@ Report concise findings with `file:line` references.
 | `model` | no | unset | Preferred model: a string for every target, or a map per target. See [per-target `model` and `effort`](#per-target-model-and-effort). |
 | `effort` | no | unset | Reasoning effort: a string or integer for every target, or a map per target. See [per-target `model` and `effort`](#per-target-model-and-effort). |
 | `color` | no | unset | Badge color. See [`color` support by target](#color-support-by-target). |
-| `readonly` | no | unset | `true` restricts Cursor agents, maps to Codex `sandbox_mode = "read-only"`, and maps to Factory `tools: read-only` (wins outright over a portable `tools` list). An explicit `x-codex.sandbox_mode` or `x-factory.tools` wins over the mapping. Other targets report a coverage note. `false` is a no-op. |
+| `readonly` | no | unset | `true` restricts Cursor agents, maps to Codex `sandbox_mode = "read-only"`, and maps to Factory `tools: read-only` with `mcpServers: []` unless servers are listed (wins outright over a portable `tools` list). An explicit `x-codex.sandbox_mode` or `x-factory.tools` wins over the mapping. Other targets report a coverage note. `false` is a no-op. |
 | `memory` | no | unset | Persistent memory scope for the agent: `user`, `project`, or `local`. |
 
 Any other frontmatter field passes through unchanged.

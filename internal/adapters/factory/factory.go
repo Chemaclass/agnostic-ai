@@ -298,7 +298,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", droppedTools,
 		"name(s) outside Factory's tool-ID table (Read, LS, Grep, Glob, Create, Edit, ApplyPatch, Execute, WebSearch, FetchUrl) fail Droid CLI's load-time validation and are dropped; set x-factory.tools for a category name or an MCP tool ID")
 	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", readonlyOverrodeTools,
-		"readonly: true replaces the portable tools list with the tools: read-only category so the droid never exceeds Read, LS, Grep, Glob; set x-factory.tools to keep a custom list instead")
+		"readonly: true replaces the portable tools list with the tools: read-only category; set x-factory.tools to keep a custom list instead")
 	return nil
 }
 
@@ -342,9 +342,18 @@ func droidMarkdown(e spec.Entry) (body string, hasDroppedTools, readonlyOverrode
 		meta["model"] = model
 		keys = append(keys, "model")
 	}
-	if !xFactorySetsTools(e.Meta) {
+	readonly := false
+	if x, _ := emit.CustomTargetMeta(e.Meta, target); xFactorySetsTools(e.Meta) {
+		// Written in the tools slot, so an imported droid keeps its
+		// key order on the next sync.
+		if tools := x["tools"]; tools != nil {
+			meta["tools"] = tools
+			keys = append(keys, "tools")
+		}
+	} else {
 		raw := emit.StringSlice(e.Meta["tools"])
-		if resolved["readonly"] == true {
+		readonly = resolved["readonly"] == true
+		if readonly {
 			meta["tools"] = "read-only"
 			keys = append(keys, "tools")
 			readonlyOverrodeTools = len(raw) > 0
@@ -362,15 +371,22 @@ func droidMarkdown(e spec.Entry) (body string, hasDroppedTools, readonlyOverrode
 	}
 	// An empty list is written too: Factory reads `mcpServers: []` as
 	// no servers at all, while an absent key inherits every server.
+	// A droid also gets every listed server's tools on top of `tools`,
+	// so a readonly droid with no list writes `mcpServers: []` rather
+	// than inheriting mutating servers. A listed set stays the author's
+	// choice.
 	if _, set := resolved["mcpServers"].([]any); set {
 		meta["mcpServers"] = append([]string{}, emit.StringSlice(resolved["mcpServers"])...)
+		keys = append(keys, "mcpServers")
+	} else if readonly {
+		meta["mcpServers"] = []string{}
 		keys = append(keys, "mcpServers")
 	}
 	if effort, ok := droidReasoningEffort(resolved); ok {
 		meta["reasoningEffort"] = effort
 		keys = append(keys, "reasoningEffort")
 	}
-	emit.MergeCustomTargetMeta(meta, &keys, e.Meta, target, droidHandBuiltKeys...)
+	emit.MergeCustomTargetMeta(meta, &keys, e.Meta, target, append(droidHandBuiltKeys, "tools")...)
 	front := emit.FrontmatterOrdered(meta, keys)
 	return front + "\n" + strings.TrimSpace(e.Body) + "\n", hasDroppedTools, readonlyOverrodeTools
 }

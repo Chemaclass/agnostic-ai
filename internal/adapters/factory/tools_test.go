@@ -297,6 +297,34 @@ func TestEmit_Agent_ReadonlyEmitsToolsReadOnlyCategory(t *testing.T) {
 	}
 }
 
+// A droid gets MCP tools on top of `tools`, and an absent `mcpServers`
+// inherits every server, so `tools: read-only` alone is no read-only
+// boundary. readonly writes `mcpServers: []` unless the author listed
+// servers, which stays their explicit choice.
+func TestEmit_Agent_ReadonlyExcludesInheritedMCPServers(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		meta map[string]any
+		want string
+	}{
+		{"omitted", map[string]any{"readonly": true}, "mcpServers: []"},
+		{"listed", map[string]any{"readonly": true, "mcpServers": []any{"docs"}}, "- docs"},
+		{"x-factory listed", map[string]any{"readonly": true, "x-factory": map[string]any{"mcpServers": []any{"docs"}}}, "- docs"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			entries := []spec.Entry{{Kind: spec.KindAgent, Name: "scout", Meta: tc.meta, Body: "body"}}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			got := readFile(t, filepath.Join(dir, ".factory/droids/scout.md"))
+			if !strings.Contains(got, tc.want) {
+				t.Errorf("want %q in:\n%s", tc.want, got)
+			}
+		})
+	}
+}
+
 // `readonly: false` is the no-op direction: nothing about `tools` changes.
 func TestEmit_Agent_ReadonlyFalseEmitsNoTools(t *testing.T) {
 	dir := testutil.TempCwd(t)
