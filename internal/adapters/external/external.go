@@ -78,10 +78,14 @@ type SpecEntry struct {
 	Meta     map[string]any `json:"meta,omitempty"`
 	MetaKeys []string       `json:"meta_keys,omitempty"`
 	Body     string         `json:"body,omitempty"`
-	// AssetDir is the folder whose sibling files ship with a skill. It
-	// differs from path's folder when a local skill inherits the shared
-	// skill's assets. Additive: older adapters ignore it.
+	// AssetDir is the folder whose sibling files ship with a skill,
+	// always path's folder for a folder skill.
 	AssetDir string `json:"asset_dir,omitempty"`
+	// SourcePath is the file the author edits, set only when it is not
+	// path: a local skill that edits fields of a shared one keeps the
+	// shared SKILL.md as path, so an adapter reading assets from path's
+	// folder still ships them.
+	SourcePath string `json:"source_path,omitempty"`
 }
 
 // Output is the JSON document the adapter writes to its stdout.
@@ -151,9 +155,6 @@ func (a *Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dr
 	for _, w := range out.Warnings {
 		_, _ = fmt.Fprintf(emit.Warner, "! %s: %s\n", a.name, w)
 	}
-	if n := inheritedAssetSkills(b.Skills); n > 0 {
-		_, _ = fmt.Fprintf(emit.Warner, "! %s: %d skill(s) inherit assets from a shared folder; the adapter ships them only if it reads asset_dir, not path\n", a.name, n)
-	}
 	if len(out.Errors) > 0 {
 		return fmt.Errorf("%s: %s", a.name, strings.Join(out.Errors, "; "))
 	}
@@ -199,13 +200,16 @@ func entriesToWire(entries []spec.Entry) []SpecEntry {
 		out[i] = SpecEntry{
 			Kind:     string(e.Kind),
 			Name:     e.Name,
-			Path:     e.Path,
+			Path:     wirePath(e),
 			Scope:    e.Scope,
 			Layer:    e.Layer,
 			Meta:     e.Meta,
 			MetaKeys: e.MetaKeys,
 			Body:     e.Body,
 			AssetDir: e.SkillAssetDir(),
+		}
+		if out[i].Path != e.Path {
+			out[i].SourcePath = e.Path
 		}
 	}
 	return out
@@ -277,14 +281,11 @@ func validateName(name string) error {
 	return nil
 }
 
-// inheritedAssetSkills counts skills whose assets live outside path's
-// folder: a local skill that only edits fields of a shared one.
-func inheritedAssetSkills(skills []spec.Entry) int {
-	n := 0
-	for _, sk := range skills {
-		if dir := sk.SkillAssetDir(); dir != "" && dir != filepath.Dir(sk.Path) {
-			n++
-		}
+// wirePath keeps protocol v1's meaning of path, the folder a skill's
+// assets come from, for a local skill that inherits a shared folder.
+func wirePath(e spec.Entry) string {
+	if dir := e.SkillAssetDir(); dir != "" && dir != filepath.Dir(e.Path) {
+		return filepath.Join(dir, "SKILL.md")
 	}
-	return n
+	return e.Path
 }
