@@ -792,6 +792,14 @@ function test_delta_label_reads_an_added_passage_holding_a_brace() {
   assert_equals "mentions:mcpServers" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
 }
 
+function test_delta_label_skips_a_literal_opener_in_context() {
+  : >"$FIXTURES/vocab"
+  printf 'Use array[-1] {+important+} value\n' >"$FIXTURES/d"
+  assert_equals "prose" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
+  printf 'Type {+ to add [-old text-] here\n' >"$FIXTURES/d"
+  assert_equals "prose" "$(delta_label "$FIXTURES/d" "$FIXTURES/vocab")"
+}
+
 function test_delta_label_calls_an_empty_delta_whitespace_only() {
   : >"$FIXTURES/vocab"
   : >"$FIXTURES/d"

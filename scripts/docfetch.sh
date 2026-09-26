@@ -523,7 +523,8 @@ delta_label() {
         if (a > 0 && (b == 0 || a < b)) { start = a; end_mark = "-]" } else { start = b; end_mark = "+}" }
         tail = substr(rest, start + 2)
         e = index(tail, end_mark)
-        if (e == 0) break
+        # An opener with no closer is literal context, like array[-1].
+        if (e == 0) { rest = tail; continue }
         seg = substr(tail, 1, e - 1)
         rest = substr(tail, e + 2)
         moved = moved " " seg
