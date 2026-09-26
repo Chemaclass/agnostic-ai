@@ -22,9 +22,9 @@ import (
 
 // syncStateVersion identifies the on-disk schema of `.agnostic-ai/.sync-state`.
 // Bumped to 2 when the per-sync output ledger (Outputs) was added, and to 3
-// when OutputSums and Orphans were added. Readers tolerate older versions
-// by treating missing fields as zero values.
-const syncStateVersion = 3
+// when OutputSums and Orphans were added, and to 4 when SpecSums was added.
+// Readers tolerate older versions by treating missing fields as zero values.
+const syncStateVersion = 4
 
 type syncStateFile struct {
 	Version        int       `json:"version,omitempty"`
@@ -55,6 +55,9 @@ type syncStateFile struct {
 	// Outputs so the next sync retries them, and `sync --check` and
 	// `doctor` report them as drift while they remain on disk.
 	Orphans []string `json:"orphans,omitempty"`
+	// SpecSums fingerprints each source spec and the merged config, so
+	// the next sync can name which sources changed since this one.
+	SpecSums map[string]string `json:"spec_sums,omitempty"`
 }
 
 // syncLedger is the output footprint one sync persists to the state file.
@@ -62,6 +65,9 @@ type syncLedger struct {
 	outputs []string
 	sums    map[string]string
 	orphans []string
+	// specSums is not part of the output footprint, but it is written
+	// beside it so the next sync can diff sources against this one.
+	specSums map[string]string
 }
 
 func stateFilePath(projectRoot string) string {
@@ -97,6 +103,7 @@ func writeStateFile(projectRoot string, filesChanged int, warningsDigest, notesD
 		Outputs:        ledger.outputs,
 		OutputSums:     ledger.sums,
 		Orphans:        ledger.orphans,
+		SpecSums:       ledger.specSums,
 	})
 	if err != nil {
 		return err
@@ -401,7 +408,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	normalizeSharedWriteAttribution(emits)
 
 	verbose := verbosity >= levelVerbose
-	filesChanged := 0
+	var report syncReport
 	var ledgerSession []string
 	ledgerWritten := map[string]string{}
 	var gitignoreEntries []string
@@ -415,9 +422,9 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 			continue
 		}
 		recordLedgerWrites(e.writes, &ledgerSession, ledgerWritten)
-		created, updated, skipped := classifyDetailedWrites(e.writes)
-		filesChanged += created + updated
+		report.addWrites(e.target, e.writes)
 		if verbose {
+			created, updated, skipped := classifyDetailedWrites(e.writes)
 			verbosef("→ %s: %d created, %d updated, %d unchanged in %dms\n", e.target, created, updated, skipped, e.dur.Milliseconds())
 		}
 	}
@@ -442,8 +449,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	}
 	if !dryRun {
 		recordLedgerWrites(entryWrites, &ledgerSession, ledgerWritten)
-		created, updated, _ := classifyDetailedWrites(entryWrites)
-		filesChanged += created + updated
+		report.addWrites("", entryWrites)
 		// resolveAgnosticBody reads AGNOSTIC_AI.md from disk on
 		// subsequent syncs and skips the re-write, so detailed
 		// recording never captures the path. Add it explicitly so
@@ -503,13 +509,8 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	if sweepErr != nil {
 		fmt.Fprintf(os.Stderr, "! orphan sweep: %v\n", sweepErr)
 	}
-	if len(removed) > 0 {
-		summaryf("  removed %d orphan file%s from prior sync\n", len(removed), plural(len(removed)))
-		if verbose {
-			for _, p := range removed {
-				verbosef("  - %s\n", p)
-			}
-		}
+	for _, p := range removed {
+		report.removed = append(report.removed, filepath.ToSlash(p))
 	}
 	for _, p := range kept {
 		summaryf("  ~ kept orphan %s (edited since sync; delete it or list it under sync.unmanaged)\n", p)
@@ -518,12 +519,19 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	for _, p := range unmanagedSkips(sessions) {
 		summaryf("  ~ skip (unmanaged) %s\n", p)
 	}
-	if !dryRun {
-		if err := writeStateFile(root, filesChanged, digest, notesDigest, ledger); err != nil {
-			fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
-		}
+	if dryRun {
+		summaryf("%s would sync %d target%s · %s\n", tick(), len(effectiveTargets), plural(len(effectiveTargets)), shortDuration(time.Since(start)))
+		return nil
 	}
-	printSyncSummary(len(effectiveTargets), filesChanged, time.Since(start), dryRun)
+	ledger.specSums = specSums(cfg, b)
+	report.specs = diffSpecSums(prev.SpecSums, ledger.specSums)
+	report.pending = gitPending(root, report.changedPaths())
+	if err := writeStateFile(root, report.filesChanged(), digest, notesDigest, ledger); err != nil {
+		fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
+	}
+	if verbosity >= levelDefault {
+		report.render(logOut, len(effectiveTargets), time.Since(start), verbose)
+	}
 	return nil
 }
 
@@ -556,15 +564,6 @@ func classifyDetailedWrites(files []adapters.WrittenFile) (created, updated, ski
 		}
 	}
 	return
-}
-
-func printSyncSummary(targets, files int, elapsed time.Duration, dryRun bool) {
-	verb := "synced"
-	if dryRun {
-		verb = "would sync"
-	}
-	summaryf("%s %s %d target%s · %d file%s · %s\n",
-		tick(), verb, targets, plural(targets), files, plural(files), shortDuration(elapsed))
 }
 
 func plural(n int) string {
@@ -708,6 +707,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 		// JSON path does not print warnings or notes, so preserve the
 		// previous digests so the next non-JSON run can still
 		// sticky-suppress.
+		ledger.specSums = specSums(cfg, b)
 		if err := writeStateFile(root, len(out.Writes), prev.WarningsDigest, prev.NotesDigest, ledger); err != nil {
 			fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 		}

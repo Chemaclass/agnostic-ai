@@ -292,6 +292,24 @@ Emit per-target configs, for example `agnostic-ai sync --only claude,cursor`.
 
 Paths listed under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) are skipped and reported as `~ skip (unmanaged) <path>`.
 
+**Summary.** `sync` ends with what it changed. A run with nothing to do prints one line:
+
+```
+✓ 25 targets up to date · 49ms
+```
+
+After an edit, it names the specs that changed since the last sync, then the files it created (`+`), updated (`~`), and removed (`-`):
+
+```
+  ~ rule testing → 9 files in 9 targets
+  + .cursor/rules/testing.mdc  .kiro/steering/testing.md  (+1 more)
+  ~ AGENTS.md  CLAUDE.md  GEMINI.md  (+2 more)
+  ! 1 file to commit: .openhands/setup.sh
+✓ synced 25 targets · 3 created · 6 updated · 49ms
+```
+
+Each list shows three paths; `-v` lists them all. `config` in the spec line means `agnostic-ai.yaml` changed. The `!` line lists changed files that git tracks or does not ignore, so you know what to commit; it is absent outside a git repository.
+
 **Orphan sweep.** `sync` records every file it writes in `.agnostic-ai/.sync-state`. A full run deletes files it no longer emits (a removed skill's folder with its `references/`) and prunes empty directories. It deletes only what it can prove it wrote: by provenance header, or by recorded content hash for verbatim copies (skill assets, targets with `provenance_header: false`). A file edited since the last sync is kept as `~ kept orphan <path>`. It counts as drift in `sync --check` and `doctor` until you delete it or list it under `sync.unmanaged`.
 
 ### First-sync target picker
