@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -150,6 +151,9 @@ func (a *Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dr
 	for _, w := range out.Warnings {
 		_, _ = fmt.Fprintf(emit.Warner, "! %s: %s\n", a.name, w)
 	}
+	if n := inheritedAssetSkills(b.Skills); n > 0 {
+		_, _ = fmt.Fprintf(emit.Warner, "! %s: %d skill(s) inherit assets from a shared folder; the adapter ships them only if it reads asset_dir, not path\n", a.name, n)
+	}
 	if len(out.Errors) > 0 {
 		return fmt.Errorf("%s: %s", a.name, strings.Join(out.Errors, "; "))
 	}
@@ -271,4 +275,16 @@ func validateName(name string) error {
 		return fmt.Errorf("external adapter: name %q must not start with '-'", name)
 	}
 	return nil
+}
+
+// inheritedAssetSkills counts skills whose assets live outside path's
+// folder: a local skill that only edits fields of a shared one.
+func inheritedAssetSkills(skills []spec.Entry) int {
+	n := 0
+	for _, sk := range skills {
+		if dir := sk.SkillAssetDir(); dir != "" && dir != filepath.Dir(sk.Path) {
+			n++
+		}
+	}
+	return n
 }

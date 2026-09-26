@@ -186,3 +186,20 @@ func TestLoadLayered_LocalDuplicateStillExtendsTheSharedSpec(t *testing.T) {
 		t.Errorf("shadowed = %+v, want a.md", b.Shadowed)
 	}
 }
+
+// Where the local file sits decides its scope, root included, so a local
+// override can move a scoped rule to the whole project and back.
+func TestLoadLayered_LocalFileLocationDecidesTheScope(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct{ shared, local, want string }{
+		{"rules/backend/style.md", "rules/style.md", ""},
+		{"rules/style.md", "rules/backend/style.md", "backend"},
+	} {
+		base, local := t.TempDir(), t.TempDir()
+		mustWrite(t, filepath.Join(base, tc.shared), "---\nname: style\n---\nShared.\n")
+		mustWrite(t, filepath.Join(local, tc.local), "---\nname: style\n---\n")
+		if got := loadExtending(t, base, local).Rules[0].Scope; got != tc.want {
+			t.Errorf("shared %s, local %s: scope = %q, want %q", tc.shared, tc.local, got, tc.want)
+		}
+	}
+}

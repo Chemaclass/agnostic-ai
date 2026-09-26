@@ -17,8 +17,8 @@ const parentMarker = "::parent"
 // merges key by key: maps merge recursively, scalars and lists replace,
 // and null deletes. An empty body keeps base's; a body with a
 // `::parent` line puts base's body there; any other body replaces it.
-// A skill keeps base's assets unless over ships assets of its own; Path
-// stays over's, since it names the file the author edits.
+// A skill keeps base's assets unless over ships assets of its own. Path
+// and Scope stay over's: they come from the file the author edits.
 func extendEntry(base, over Entry) Entry {
 	out := over
 	out.Meta = mergeMeta(base.Meta, over.Meta)
@@ -29,9 +29,6 @@ func extendEntry(base, over Entry) Entry {
 		out.Body = base.Body
 	default:
 		out.Body = expandParent(over.Body, base.Body)
-	}
-	if over.Scope == "" {
-		out.Scope = base.Scope
 	}
 	if over.Kind == KindSkill && !skillShipsAssets(over.Path) {
 		out.AssetDir = base.SkillAssetDir()

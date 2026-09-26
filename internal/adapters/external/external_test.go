@@ -232,3 +232,27 @@ func TestEntriesToWire_CarriesTheInheritedAssetDir(t *testing.T) {
 		t.Errorf("flat entry asset dir = %q, want empty", wire[2].AssetDir)
 	}
 }
+
+// An adapter written before asset_dir copies assets from path's folder,
+// which misses a local skill's inherited assets. The host says so.
+func TestAdapter_Emit_WarnsWhenASkillInheritsAssets(t *testing.T) {
+	var buf bytes.Buffer
+	old := emit.Warner
+	emit.Warner = &buf
+	t.Cleanup(func() { emit.Warner = old })
+
+	b := spec.Bundle{Skills: []spec.Entry{
+		{Kind: spec.KindSkill, Name: "lint", Path: filepath.Join("local", "skills", "lint", "SKILL.md"), AssetDir: filepath.Join("shared", "skills", "lint")},
+		{Kind: spec.KindSkill, Name: "own", Path: filepath.Join("shared", "skills", "own", "SKILL.md")},
+	}}
+	sess := emit.NewSession()
+	sess.StartCapture()
+	if err := NewWithCommand("fake", helperCommand("warn")).Emit(sess, b, &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	_ = sess.StopCapture()
+
+	if got := buf.String(); !strings.Contains(got, "1 skill") || !strings.Contains(got, "asset_dir") {
+		t.Errorf("warner=%q, want a note naming asset_dir", got)
+	}
+}

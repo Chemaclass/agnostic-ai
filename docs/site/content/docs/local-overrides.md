@@ -108,6 +108,8 @@ The frontmatter merges key by key, the same way `agnostic-ai.local.yaml` merges 
 
 So `tools: [Read]` replaces the whole shared list, and `tools: null` drops it. `x-claude:` merges with the shared `x-claude:` like any other map.
 
+Where the local file sits decides its scope. `local/rules/style.md` applies to the whole project even when the shared `rules/backend/style.md` applies to `backend/` only.
+
 The same rules apply to YAML specs: hooks, MCP servers, settings, and environments. A local `mcps/docs.yaml` can change `env.PORT` and keep the shared command and args.
 
 ## Turn a shared spec off
