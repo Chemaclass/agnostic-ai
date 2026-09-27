@@ -10,10 +10,11 @@ group = "Reference"
 # Error codes
 
 
-Every user-facing error has a stable code of the form `AAI-NNN`, prefixed in square brackets:
+Every user-facing error has a stable code of the form `AAI-NNN`, prefixed in square brackets, with its fix on the next line:
 
 ```
 [AAI-003] read config: no agnostic-ai.yaml or agnostic.config.yaml in /path/to/project
+  fix: Run `agnostic-ai init` to scaffold a config, or `cd` into the directory that already contains one. Run `agnostic-ai doctor` for a full diagnosis.
 ```
 
 Look up a code from the terminal:

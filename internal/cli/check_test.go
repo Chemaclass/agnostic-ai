@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -295,5 +296,39 @@ func TestSync_MistypedTargetFlagFailsBeforeWriting(t *testing.T) {
 		if _, statErr := os.Stat(filepath.Join(dir, ".agnostic-ai", ".sync-state")); statErr == nil {
 			t.Errorf("%v: sync wrote state despite the typo", args)
 		}
+	}
+}
+
+func TestDoctor_SaysInSyncWhenNothingDrifted(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	if err := runSync(t, "-t", "claude"); err != nil {
+		t.Fatal(err)
+	}
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"doctor", "-t", "claude"})
+	out := &bytes.Buffer{}
+	root.SetOut(out)
+	_ = root.Execute()
+
+	if !strings.Contains(out.String(), "Sync drift:\n  ✓ every target in sync\n") {
+		t.Errorf("the drift section should say it is clean:\n%s", out.String())
+	}
+}
+
+func TestLoadProject_ParseErrorNamesThePathOnce(t *testing.T) {
+	dir := setupFixture(t)
+	bad := filepath.Join(dir, ".agnostic-ai", "rules", "bad.md")
+	mustWriteFile(t, bad, "---\ndescription: [oops\n---\nbody\n")
+
+	_, _, err := loadProject(dir)
+
+	if err == nil {
+		t.Fatal("expected a parse error")
+	}
+	if n := strings.Count(err.Error(), "bad.md"); n != 1 || !strings.HasPrefix(err.Error(), "[AAI-001] ") {
+		t.Errorf("want one path after the code, got %q", err.Error())
 	}
 }

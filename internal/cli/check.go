@@ -336,6 +336,9 @@ func newDoctorCmd() *cobra.Command {
 				return err
 			}
 			hasDrift := printDrift(reports)
+			if !hasDrift {
+				cmd.Printf("  %s every target in sync\n", tick())
+			}
 
 			// 4b. Optional: globs that match nothing in the working tree.
 			unloadableRules := 0

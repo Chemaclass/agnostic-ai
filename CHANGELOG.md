@@ -9,6 +9,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### Added
 
 - `lint` and `sync` warn on a mistyped frontmatter key, such as `glob:` for `globs:`, which parsed and left a rule applying to every file (LINT007).
+- Every coded error prints its fix on the next line, so `sync` in a folder without a config says to run `agnostic-ai init`.
+- `init`, `status`, and `doctor` point a project with no specs at `agnostic-ai new rule <name>`, and `doctor` says when every target is in sync.
 
 ### Changed
 
@@ -17,6 +19,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Fixed
 
+- A spec with broken YAML names its path once, as `path:line:col`, instead of twice behind a `load rule [project]:` prefix.
 - `sync -t <name>` with a mistyped target failed only with a warning and reported the run up to date, also under `--check`. It now exits non-zero, and target errors suggest the closest name: `unknown target: claud (did you mean claude? no agnostic-ai-adapter-claud on PATH)`.
 - With `sync.shared-skills: true`, a skill with bundled files (such as `references/`) lost its `SKILL.md` in every target folder except the canonical one, and each sync recreated it. So did a skill folder holding a hand-authored file. Such folders now become links, or stay whole real copies. Turning the option on after a plain sync also deleted the canonical `SKILL.md` through the new link; it no longer does.
 
