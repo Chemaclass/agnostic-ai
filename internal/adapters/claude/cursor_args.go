@@ -7,11 +7,12 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// NoteCursorDropsArgs warns once per run that Cursor, which loads
-// .claude/settings.json hooks by default, reads only their `command`:
-// an exec-form hook runs there as a bare interpreter, which reads the
-// hook's JSON payload as its program. Call it when cursor is a target.
-func NoteCursorDropsArgs(hooks []spec.Entry) {
+// NoteCursorDropsArgs warns once per run that Cursor, which loads the
+// Claude settings file at path by default, documents no `args` for those
+// hooks: an exec-form hook may run there as a bare interpreter, which
+// reads the hook's JSON payload as its program. Call it when cursor is a
+// configured target.
+func NoteCursorDropsArgs(hooks []spec.Entry, path string) {
 	count := 0
 	for _, h := range hooks {
 		kind, _ := h.Meta["type"].(string)
@@ -26,5 +27,5 @@ func NoteCursorDropsArgs(hooks []spec.Entry) {
 	if count == 1 {
 		noun = "hook"
 	}
-	emit.NoteProject(fmt.Sprintf("Cursor runs .claude/settings.json hooks without args, so %d claude %s with args run the bare command there; use a shell-form command, or turn off Cursor's third-party hooks", count, noun))
+	emit.NoteProject(fmt.Sprintf("Cursor's third-party hooks docs do not list args, so %d claude %s with args may run as a bare interpreter when Cursor loads %s; use a shell-form command, or turn off Cursor's third-party hooks", count, noun, path))
 }

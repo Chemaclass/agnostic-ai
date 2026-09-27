@@ -51,18 +51,29 @@ func TestSyncGlobal_GeminiAndCursorFoldExecFormArgs(t *testing.T) {
 	}
 }
 
-// Cursor also runs ~/.claude/settings.json hooks, and reads only `command`.
-func TestSyncGlobal_NotesCursorRunsClaudeExecFormHooksWithoutArgs(t *testing.T) {
-	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ncommand: node\nargs: [guard.js]\ntarget: claude\n")
-	_, warnings, err := runGlobalAgentTest("--only", "claude,cursor")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Count(warnings, "Cursor runs .claude/settings.json hooks without args") != 1 {
-		t.Errorf("warnings:\n%s", warnings)
-	}
-	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil || strings.Contains(warnings, "without args") {
-		t.Errorf("claude alone: err %v, warnings %q", err, warnings)
+// Cursor also loads ~/.claude/settings.json hooks. The note follows the
+// home config's targets, as project sync follows agnostic-ai.yaml, so
+// --only does not hide it.
+func TestSyncGlobal_NotesCursorMayRunClaudeExecFormHooksWithoutArgs(t *testing.T) {
+	for _, tc := range []struct {
+		config string
+		only   string
+		want   bool
+	}{
+		{"targets: [claude, cursor]\n", "claude,cursor", true},
+		{"targets: [claude, cursor]\n", "claude", true},
+		{"targets: [claude]\n", "claude", false},
+	} {
+		_, source := globalAgentTestHome(t)
+		mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), tc.config)
+		mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ncommand: node\nargs: [guard.js]\ntarget: claude\n")
+		_, warnings, err := runGlobalAgentTest("--only", tc.only)
+		if err != nil {
+			t.Fatal(err)
+		}
+		note := "Cursor's third-party hooks docs do not list args, so 1 claude hook with args may run as a bare interpreter when Cursor loads ~/.claude/settings.json"
+		if got := strings.Count(warnings, note); got != map[bool]int{true: 1, false: 0}[tc.want] {
+			t.Errorf("config %q, --only %s: warnings:\n%s", tc.config, tc.only, warnings)
+		}
 	}
 }

@@ -36,10 +36,11 @@ func TestEmit_NotesCursorRunsExecFormHooksWithoutArgs(t *testing.T) {
 			t.Fatal(err)
 		}
 		got := warnings.String()
-		if has := strings.Contains(got, "Cursor runs .claude/settings.json hooks without args"); has != tc.want {
+		note := "Cursor's third-party hooks docs do not list args, so 2 claude hooks with args may run as a bare interpreter when Cursor loads .claude/settings.json"
+		if has := strings.Contains(got, note); has != tc.want {
 			t.Errorf("targets %v: note present = %v, want %v:\n%s", tc.targets, has, tc.want, got)
 		}
-		if tc.want && strings.Count(got, "without args") != 1 {
+		if tc.want && strings.Count(got, "do not list args") != 1 {
 			t.Errorf("want one note per run, got:\n%s", got)
 		}
 	}

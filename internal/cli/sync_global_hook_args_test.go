@@ -85,6 +85,7 @@ func TestSyncGlobal_CodexExecFormHookKeepsItsCommandWindows(t *testing.T) {
 func TestSyncGlobal_ArgsAddedByHandToAManagedHookAreAccepted(t *testing.T) {
 	for _, target := range []string{"claude", "qoder"} {
 		home, source := globalAgentTestHome(t)
+		mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: ["+target+"]\n")
 		mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), strings.Replace(globalExecHook, "[claude, codex, qoder]", "["+target+"]", 1))
 		if _, _, err := runGlobalAgentTest("--only", target); err != nil {
 			t.Fatal(err)

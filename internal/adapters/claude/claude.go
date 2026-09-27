@@ -167,7 +167,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 
 	hooks := b.HooksFor(target)
 	if slices.Contains(cfg.Targets, "cursor") {
-		NoteCursorDropsArgs(hooks)
+		NoteCursorDropsArgs(hooks, ".claude/settings.json")
 	}
 	if err := writeSettings(sess, hooks, b.Settings, b.MCPs, dir, cfg, dryRun); err != nil {
 		return err

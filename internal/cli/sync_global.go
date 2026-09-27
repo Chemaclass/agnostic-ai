@@ -125,6 +125,9 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if len(targets) == 0 {
 		targets = globalTargetNames()
 	}
+	// The home config's targets, before --only and --except, as project
+	// sync reads agnostic-ai.yaml.
+	configured := slices.Clone(targets)
 	targets, err = filterTargets(targets, o.only, o.except)
 	if err != nil {
 		return err
@@ -193,6 +196,9 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	adapters.SetWarner(warn)
 	defer adapters.SetWarner(os.Stderr)
 	defer adapters.ResetCoverageNotes()
+	if slices.Contains(targets, "claude") && slices.Contains(configured, "cursor") {
+		claude.NoteCursorDropsArgs(bundle.HooksFor("claude"), "~/.claude/settings.json")
+	}
 	writes, next, err := buildGlobalWrites(home, source, targets, instructions, bundle, old, agentFailure(explicit, warn), warn)
 	if err != nil {
 		return err
@@ -597,10 +603,6 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		}
 		if g.hooks == "" {
 			continue
-		}
-		// Cursor also runs ~/.claude/settings.json hooks.
-		if target == "claude" && slices.Contains(targets, "cursor") {
-			claude.NoteCursorDropsArgs(b.HooksFor(target))
 		}
 		next.Hooks[target] = map[string][]any{}
 		path := g.path(home, g.hooks)

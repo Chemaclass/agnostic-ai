@@ -18,3 +18,13 @@ func TestEmit_ExecFormHookFoldsQuotedArgs(t *testing.T) {
 		t.Errorf("settings.json:\n%s", got)
 	}
 }
+
+// Only the command is a hook path to rewrite, as on codex and cursor.
+// An arg keeps the path the spec names.
+func TestEmit_ExecFormArgsKeepTheirPaths(t *testing.T) {
+	emitTargetHooks(t, &config.Config{}, spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"event": "BeforeTool", "command": ".claude/hooks/run.sh", "args": []any{".claude/hooks/guard.js"}}})
+	got := readTargetFile(t, ".gemini/settings.json")
+	if !strings.Contains(got, `"command": ".gemini/hooks/run.sh '.claude/hooks/guard.js'"`) {
+		t.Errorf("settings.json:\n%s", got)
+	}
+}
