@@ -19,6 +19,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cursor"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -124,6 +125,9 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if len(targets) == 0 {
 		targets = globalTargetNames()
 	}
+	// The home config's targets, before --only and --except, as project
+	// sync reads agnostic-ai.yaml.
+	configured := slices.Clone(targets)
 	targets, err = filterTargets(targets, o.only, o.except)
 	if err != nil {
 		return err
@@ -192,6 +196,9 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	adapters.SetWarner(warn)
 	defer adapters.SetWarner(os.Stderr)
 	defer adapters.ResetCoverageNotes()
+	if slices.Contains(targets, "claude") && slices.Contains(configured, "cursor") {
+		claude.NoteCursorDropsArgs(bundle.HooksFor("claude"), "~/.claude/settings.json")
+	}
 	writes, next, err := buildGlobalWrites(home, source, targets, instructions, bundle, old, agentFailure(explicit, warn), warn)
 	if err != nil {
 		return err
@@ -905,6 +912,9 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 				target.tell(commandHook, entry.Meta)
 				item = map[string]any{"matcher": matcher, "hooks": []any{commandHook}}
 			} else {
+				if args := stringSliceFromAny(entry.Meta["args"]); target.foldArgs {
+					command = adapters.ExecFormCommand(command, args)
+				}
 				cursorHook := map[string]any{"command": command}
 				for _, key := range []string{"matcher", "timeout", "loop_limit", "failClosed"} {
 					if value, ok := entry.Meta[key]; ok {

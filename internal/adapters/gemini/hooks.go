@@ -17,8 +17,6 @@ func buildHooks(hooks []spec.Entry) map[string]any {
 			continue
 		}
 		for _, handler := range handlers {
-			command, _ := handler["command"].(string)
-			handler["command"] = emit.RewriteHookPath(command, target)
 			// The hook runner spreads a handler's env over the process
 			// env, under bash and PowerShell alike (hookRunner.ts).
 			env, _ := handler["env"].(map[string]any)
@@ -46,9 +44,12 @@ func hookHandlers(h spec.Entry) []map[string]any {
 		return nativeHookHandlers(raw)
 	}
 	meta := emit.ResolveMeta(h.Meta, target)
+	args := emit.StringSlice(meta["args"])
 	var handlers []map[string]any
 	for _, command := range emit.HookCommands(meta["command"]) {
-		handler := map[string]any{"type": "command", "command": command}
+		// No args field: the args fold into the command, quoted for bash,
+		// which PowerShell on Windows also reads for args without `'`.
+		handler := map[string]any{"type": "command", "command": emit.ExecFormCommand(emit.RewriteHookPath(command, target), args)}
 		if description, _ := meta["description"].(string); description != "" {
 			handler["description"] = description
 		}
@@ -79,7 +80,7 @@ func nativeHookHandlers(raw any) []map[string]any {
 		if command == "" {
 			continue
 		}
-		handler := map[string]any{"type": "command", "command": command}
+		handler := map[string]any{"type": "command", "command": emit.RewriteHookPath(command, target)}
 		for _, key := range []string{"name", "description", "timeout", "env"} {
 			if value, exists := meta[key]; exists {
 				handler[key] = value
