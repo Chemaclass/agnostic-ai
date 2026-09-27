@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -75,4 +76,67 @@ func TestSyncGlobal_GeminiTimeoutRecordedInSecondsIsReplaced(t *testing.T) {
 			t.Errorf("fixed by hand %v: want one entry, got %v", fixedByHand, groups)
 		}
 	}
+}
+
+// v0.69.0 wrote no handler env and a timeout in seconds. A user who fixed
+// the timeout by hand is accepted, and the entry gains the target env.
+func TestSyncGlobal_UnsignalledGeminiHookFixedByHandIsAccepted(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), globalGeminiHook)
+	if _, _, err := runGlobalAgentTest("--only", "gemini"); err != nil {
+		t.Fatal(err)
+	}
+	settings := filepath.Join(home, ".gemini", "settings.json")
+	state := filepath.Join(source, "state", "global.json")
+	for _, path := range []string{settings, state} {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		old := stripGeminiTargetEnv(t, string(data))
+		if path == state {
+			old = strings.ReplaceAll(old, "30000", "30")
+		}
+		if err := os.WriteFile(path, []byte(old), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, warnings, err := runGlobalAgentTest("--only", "gemini"); err != nil || warnings != "" {
+		t.Fatalf("err %v, warnings %q", err, warnings)
+	}
+	handler := firstGlobalHandler(t, readGlobalJSON(t, settings), "BeforeTool")
+	if env, _ := handler["env"].(map[string]any); handler["timeout"] != float64(30000) || env["AGNOSTIC_AI_TARGET"] != "gemini" {
+		t.Errorf("handler = %v", handler)
+	}
+}
+
+// Dropping the target env from a managed hook that carried it is an
+// edit, not an older version's output.
+func TestSyncGlobal_RemovingTheTargetEnvFromAManagedHookStops(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), globalGeminiHook)
+	if _, _, err := runGlobalAgentTest("--only", "gemini"); err != nil {
+		t.Fatal(err)
+	}
+	settings := filepath.Join(home, ".gemini", "settings.json")
+	data, err := os.ReadFile(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(settings, []byte(stripGeminiTargetEnv(t, string(data))), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "gemini"); err == nil || !strings.Contains(err.Error(), "was edited") {
+		t.Fatalf("want the edited-hook error, got %v", err)
+	}
+}
+
+// stripGeminiTargetEnv removes the handler env sync writes, in any indent.
+func stripGeminiTargetEnv(t *testing.T, data string) string {
+	t.Helper()
+	re := regexp.MustCompile(`"env":\s*\{\s*"AGNOSTIC_AI_TARGET":\s*"gemini"\s*\},?\s*`)
+	if !re.MatchString(data) {
+		t.Fatalf("no target env in:\n%s", data)
+	}
+	return re.ReplaceAllString(data, "")
 }

@@ -908,9 +908,17 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 			planned = append(planned, plannedHook{event: event, item: item, plain: plain, spec: i < target.specHooks})
 		}
 	}
-	writesNow := func(event string, existing any) bool {
+	// writesNow reports that an edited copy of a recorded entry is what
+	// sync writes now. The form without the target signal counts only
+	// for a record that lacked it too, as versions before it wrote:
+	// removing the signal from a record that had it is an edit.
+	writesNow := func(event string, existing, recorded any) bool {
 		return slices.ContainsFunc(planned, func(p plannedHook) bool {
-			return p.event == event && (reflect.DeepEqual(existing, jsonRoundTrip(p.item)) || reflect.DeepEqual(existing, jsonRoundTrip(p.plain)))
+			if p.event != event {
+				return false
+			}
+			return reflect.DeepEqual(existing, jsonRoundTrip(p.item)) ||
+				(!carriesHookTarget(recorded) && reflect.DeepEqual(existing, jsonRoundTrip(p.plain)))
 		})
 	}
 	for _, event := range slices.Sorted(maps.Keys(previous)) {
@@ -931,7 +939,7 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 			switch {
 			case edited < 0:
 				stillLost = append(stillLost, oldEntry)
-			case writesNow(event, current[edited]):
+			case writesNow(event, current[edited], oldEntry):
 				current = slices.Delete(current, edited, edited+1)
 			default:
 				return nil, fmt.Errorf("%s: managed %s hook was edited; restore it or remove it, then sync", path, event)
@@ -1226,6 +1234,29 @@ func (t globalHookTarget) setSettingsEnv(doc map[string]any, want bool) {
 		return
 	}
 	doc["env"] = next
+}
+
+// carriesHookTarget reports whether a native hook entry holds the target
+// signal a handler carries itself: an `env` naming the target, or the
+// export prefix.
+func carriesHookTarget(entry any) bool {
+	item, _ := entry.(map[string]any)
+	handlers := []any{item}
+	if group, ok := item["hooks"].([]any); ok {
+		handlers = group
+	}
+	for _, raw := range handlers {
+		handler, _ := raw.(map[string]any)
+		if env, ok := handler["env"].(map[string]any); ok {
+			if _, ok := env[adapters.HookTargetEnv]; ok {
+				return true
+			}
+		}
+		if command, _ := handler["command"].(string); strings.HasPrefix(command, "export "+adapters.HookTargetEnv+"=") {
+			return true
+		}
+	}
+	return false
 }
 
 // sameGlobalHook reports whether item runs the recorded entry's command
