@@ -171,6 +171,9 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if err != nil {
 		return err
 	}
+	if foreign := foreignGlobalPath(old, home); foreign != "" {
+		return fmt.Errorf("%s: recorded under another home, since %s is outside %s; sync under the HOME that recorded it, or remove the state file and the files it lists", statePath, foreign, home)
+	}
 	adapters.ResetCoverageNotes()
 	adapters.SetWarner(warn)
 	defer adapters.SetWarner(os.Stderr)
@@ -385,6 +388,25 @@ func loadGlobalState(path string) (globalState, error) {
 	state.ClaudeHooks, state.CursorHooks = nil, nil
 	state.Version = globalStateVersion
 	return state, nil
+}
+
+// foreignGlobalPath returns a recorded path outside every root this run
+// resolves, which means the state belongs to another HOME. Ownership is
+// by absolute path, so syncing on would sweep that home's files.
+func foreignGlobalPath(old globalState, home string) string {
+	roots := globalRoots(home)
+	paths := slices.Clone(old.Files)
+	for _, owned := range []map[string][]string{old.Agents, old.Skills} {
+		for _, target := range slices.Sorted(maps.Keys(owned)) {
+			paths = append(paths, owned[target]...)
+		}
+	}
+	for _, path := range paths {
+		if !slices.ContainsFunc(roots, func(root string) bool { return path == root || inManagedTree(path, []string{root}) }) {
+			return path
+		}
+	}
+	return ""
 }
 
 func buildGlobalWrites(home, source string, targets []string, intro []byte, b spec.Bundle, old globalState, agentErr func(string, error) error, warn io.Writer) ([]globalWrite, globalState, error) {
@@ -781,7 +803,9 @@ var errGlobalFileUnchanged = errors.New("global file unchanged")
 // replaced, nil when the file should not exist, or errGlobalFileUnchanged
 // when its parsed content would not change. A rewrite keeps the file's
 // key order and indent. A recorded entry the file no longer holds counts
-// as removed, with a warning, so a reset settings file is rebuilt.
+// as removed, with a warning, so a reset settings file is rebuilt. One
+// still there with the same matcher and command but other fields was
+// edited by hand, and stops the run: replacing it would run it twice.
 func mergeGlobalHooks(path, format string, entries []spec.Entry, previous map[string][]any, next map[string][]any, warn io.Writer) ([]byte, error) {
 	doc := map[string]any{}
 	before := map[string]any{}
@@ -812,14 +836,20 @@ func mergeGlobalHooks(path, format string, entries []spec.Entry, previous map[st
 	}
 	for _, event := range slices.Sorted(maps.Keys(previous)) {
 		current, _ := hooks[event].([]any)
-		missing := false
+		var lost []any
 		for _, oldEntry := range previous[event] {
 			var found bool
-			current, found = removeEqual(current, oldEntry)
-			missing = missing || !found
+			if current, found = removeEqual(current, oldEntry); !found {
+				lost = append(lost, oldEntry)
+			}
 		}
-		if missing {
-			if _, err := fmt.Fprintf(warn, "warning: %s: managed %s hook is missing; treating it as removed\n", path, event); err != nil {
+		for _, oldEntry := range lost {
+			if slices.ContainsFunc(current, func(item any) bool { return sameGlobalHook(item, oldEntry) }) {
+				return nil, fmt.Errorf("%s: managed %s hook was edited; restore it or remove it, then sync", path, event)
+			}
+		}
+		if len(lost) > 0 {
+			if _, err := fmt.Fprintf(warn, "warning: %s: managed %s hook is missing, so it counts as removed\n", path, event); err != nil {
 				return nil, fmt.Errorf("write global hook warning: %w", err)
 			}
 		}
@@ -1030,6 +1060,32 @@ func removeEqual(items []any, want any) ([]any, bool) {
 		}
 	}
 	return items, false
+}
+
+// sameGlobalHook reports whether item runs the recorded entry's command
+// under its matcher, whatever its other fields say.
+func sameGlobalHook(item, recorded any) bool {
+	want := globalHookKeys(recorded)
+	return slices.ContainsFunc(globalHookKeys(item), func(key [2]string) bool { return slices.Contains(want, key) })
+}
+
+// globalHookKeys lists the matcher and command pairs a native hook entry
+// runs: a Claude-style group holds several commands, a Cursor entry one.
+func globalHookKeys(item any) [][2]string {
+	entry, _ := item.(map[string]any)
+	matcher, _ := entry["matcher"].(string)
+	commands := []any{entry}
+	if group, ok := entry["hooks"].([]any); ok {
+		commands = group
+	}
+	var out [][2]string
+	for _, raw := range commands {
+		hook, _ := raw.(map[string]any)
+		if command, ok := hook["command"].(string); ok {
+			out = append(out, [2]string{matcher, command})
+		}
+	}
+	return out
 }
 
 func globalHookCommands(raw any) []string {
