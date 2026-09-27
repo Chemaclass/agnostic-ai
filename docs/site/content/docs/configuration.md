@@ -407,7 +407,7 @@ For example, `local/skills/reviewer/SKILL.md` replaces `skills/reviewer/SKILL.md
 - Empty surfaces create nothing: no instructions file (a recorded one is removed) and no hooks file.
 - Native tool precedence applies when global and project configuration both exist. Shared agent files remain until every owning target removes them. To update a file shared by Goose and OpenHands, sync both targets together.
 
-Ordinary `agnostic-ai sync` does not load `~/.agnostic-ai/`. Move project-only defaults into a project's `.agnostic-ai/` or a pack, along with any agents, MCP servers, commands, settings, reviews, environments, or ignore specs. A repository's `.agnostic-ai/` stays project-specific despite the shared basename.
+Ordinary `agnostic-ai sync` does not load `~/.agnostic-ai/`. Run inside the global source root itself, it stops before any write and points at `sync --global`, since the home config would otherwise read as a project config. That covers `--check`, `--dry-run`, `--plan`, `--json`, and `--watch` too. A symlink to the source root counts as the root. Move project-only defaults into a project's `.agnostic-ai/` or a pack, along with any agents, MCP servers, commands, settings, reviews, environments, or ignore specs. A repository's `.agnostic-ai/` stays project-specific despite the shared basename.
 
 For a personal agent shared by Claude Code and Codex, create `~/.agnostic-ai/agents/reviewer.md`:
 

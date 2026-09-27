@@ -67,6 +67,28 @@ func loadGlobalTargets(source string, warn io.Writer) ([]string, error) {
 	return targets, nil
 }
 
+// refuseGlobalHome stops a project sync in the global source root, whose
+// agnostic-ai.yaml is the home config: read as a project, it would write
+// native files into the home. os.SameFile sees through symlinks and case.
+func refuseGlobalHome(dir string) error {
+	source, err := globalSourceRoot()
+	if err != nil {
+		return nil
+	}
+	here, err := os.Stat(dir)
+	if err != nil {
+		return nil
+	}
+	root, err := os.Stat(source)
+	if err != nil || !os.SameFile(here, root) {
+		return nil
+	}
+	if os.Getenv(envUserGlobalRoot) != "" {
+		return fmt.Errorf("%s is the global home (%s); run `agnostic-ai sync --global`, or unset %s if this is a project", source, envUserGlobalRoot, envUserGlobalRoot)
+	}
+	return fmt.Errorf("%s is the global home (default %s); run `agnostic-ai sync --global`, or set %s to another root if this is a project", source, envUserGlobalRoot, envUserGlobalRoot)
+}
+
 // unsupportedGlobalTarget rejects a target sync --global cannot write,
 // suggesting the closest supported name. where leads the message.
 func unsupportedGlobalTarget(where, target string) error {

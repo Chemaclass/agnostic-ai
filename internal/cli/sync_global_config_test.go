@@ -1,11 +1,14 @@
 package cli
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func globalConfigTestHome(t *testing.T) (string, string) {
@@ -163,5 +166,59 @@ func TestValidateGlobal_ChecksHookEventsAgainstConfiguredTargets(t *testing.T) {
 	}
 	if !strings.Contains(out, hook) || !strings.Contains(out, "for enabled targets claude, cursor") {
 		t.Errorf("expected the event checked against claude and cursor on %s, got:\n%s", hook, out)
+	}
+}
+
+func runProjectSync(args ...string) error {
+	var out bytes.Buffer
+	cmd := NewRootCmd("test")
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetArgs(append([]string{"sync"}, args...))
+	return cmd.Execute()
+}
+
+func TestSync_RefusesToRunInTheGlobalHome(t *testing.T) {
+	home, source := globalConfigTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\n")
+	link := filepath.Join(home, "home-link")
+	if err := os.Symlink(source, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	for _, dir := range []string{source, link} {
+		testutil.Chdir(t, dir)
+		for _, args := range [][]string{{}, {"--check"}, {"--dry-run"}, {"--json"}, {"--plan"}, {"--watch"}} {
+			err := runProjectSync(args...)
+			if err == nil || !strings.Contains(err.Error(), source+" is the global home") || !strings.Contains(err.Error(), "agnostic-ai sync --global") {
+				t.Errorf("sync %v in %s: want the global home refusal, got %v", args, dir, err)
+			}
+		}
+	}
+	for _, rel := range []string{"CLAUDE.md", ".claude", ".agnostic-ai"} {
+		if _, err := os.Stat(filepath.Join(source, rel)); !os.IsNotExist(err) {
+			t.Errorf("project sync wrote %s into the global home: %v", rel, err)
+		}
+	}
+}
+
+func TestSync_GlobalHomeGuardFollowsTheResolvedSourceRoot(t *testing.T) {
+	home, source := globalConfigTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\n")
+	unused := filepath.Join(home, ".agnostic-ai")
+	mustWriteGlobalTest(t, filepath.Join(unused, "agnostic-ai.yaml"), "targets: [claude]\n")
+
+	testutil.Chdir(t, unused)
+	if err := runProjectSync(); err != nil {
+		t.Errorf("~/.agnostic-ai is a plain project while AGNOSTIC_AI_HOME points elsewhere: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(unused, "CLAUDE.md")); err != nil {
+		t.Errorf("expected the project sync to write CLAUDE.md: %v", err)
+	}
+
+	t.Setenv("AGNOSTIC_AI_HOME", "")
+	err := runProjectSync("--check")
+	if err == nil || !strings.Contains(err.Error(), unused+" is the global home") || !strings.Contains(err.Error(), "set AGNOSTIC_AI_HOME to another root") {
+		t.Errorf("~/.agnostic-ai is the global home once AGNOSTIC_AI_HOME is unset, got %v", err)
 	}
 }
