@@ -382,7 +382,7 @@ Before adding personal files, add this entry to the source root's `.gitignore`:
 /local/
 ```
 
-For example, `local/skills/reviewer/SKILL.md` replaces `skills/reviewer/SKILL.md`. Run `agnostic-ai list --global` to see the effective specs with their `global` or `global-local` layer. Global layers never merge with project specs. [Local overrides](@/docs/local-overrides.md) compares this layer with the project one.
+For example, `local/skills/reviewer/SKILL.md` replaces `skills/reviewer/SKILL.md`. Run `agnostic-ai list --global` to see the effective specs with their `global` or `global-local` layer. Run `agnostic-ai validate --global` and `agnostic-ai lint --global` to check both layers before a sync writes them. Global layers never merge with project specs. [Local overrides](@/docs/local-overrides.md) compares this layer with the project one.
 
 - It targets every supported tool by default. Which `sync` flags it accepts is in the [CLI reference](@/docs/cli-reference.md#sync).
 - Nested rules and rules with scope, path, glob, or target conditions are rejected. Commands, MCP servers, settings, inheritance, and merging with project specs are unsupported.

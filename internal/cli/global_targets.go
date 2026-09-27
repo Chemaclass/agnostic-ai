@@ -230,6 +230,18 @@ func globalTargetNames() []string {
 	return out
 }
 
+// globalHookTargetNames returns the targets sync --global writes hooks
+// for, sorted.
+func globalHookTargetNames() []string {
+	var out []string
+	for _, name := range globalTargetNames() {
+		if globalTargets[name].hooks != "" {
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
 // globalPath resolves one table path against the user home.
 func globalPath(home, p string) string {
 	if rest, ok := strings.CutPrefix(p, globalPathXDG); ok {

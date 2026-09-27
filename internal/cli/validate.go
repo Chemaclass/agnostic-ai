@@ -14,7 +14,7 @@ import (
 )
 
 func newValidateCmd() *cobra.Command {
-	var fix bool
+	var fix, global bool
 	cmd := &cobra.Command{
 		Use:   "validate",
 		Short: "Validate agnostic specs.",
@@ -24,28 +24,37 @@ func newValidateCmd() *cobra.Command {
   agnostic-ai validate
 
   # Reconcile autofixable issues in source spec files
-  agnostic-ai validate --fix`,
+  agnostic-ai validate --fix
+
+  # Validate the global specs before sync --global writes them
+  agnostic-ai validate --global`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, b, err := loadProject(".")
+			scope, err := loadCheckScope(global)
 			if err != nil {
 				return err
 			}
+			b := scope.bundle
 			entries := b.All()
 			cmd.Printf("loaded %d entries.\n", len(entries))
-			// Declared-but-missing source dirs are reported even when no
-			// specs loaded: an all-missing-sources config is exactly the
-			// case where the warning matters most (#444).
-			sourceIssues := lintMissingSources(".")
-			sourceIssues = append(sourceIssues, lintEntryPointFences(".", cfg)...)
+			var scopeIssues []validationIssue
+			if global {
+				scopeIssues = lintGlobalRules(b.Rules)
+			} else {
+				// Declared-but-missing source dirs are reported even when no
+				// specs loaded: an all-missing-sources config is exactly the
+				// case where the warning matters most (#444).
+				scopeIssues = lintMissingSources(".")
+				scopeIssues = append(scopeIssues, lintEntryPointFences(".", scope.cfg)...)
+			}
 			if len(entries) == 0 {
-				reportIssues(cmd, sourceIssues)
-				cmd.PrintErrln(emptySpecsHint)
-				return issuesError(sourceIssues)
+				reportIssues(cmd, scopeIssues)
+				cmd.PrintErrln(scope.emptyHint())
+				return issuesError(scopeIssues)
 			}
 			issues := lintEntries(entries)
-			issues = append(issues, lintHookEvents(entries, cfg.Targets)...)
-			issues = append(issues, lintOrphanKinds(b, cfg.Targets)...)
-			issues = append(issues, sourceIssues...)
+			issues = append(issues, lintHookEvents(entries, scope.hookTargets)...)
+			issues = append(issues, lintOrphanKinds(b, scope.targets)...)
+			issues = append(issues, scopeIssues...)
 			if !fix {
 				reportIssues(cmd, issues)
 				return issuesError(issues)
@@ -65,6 +74,7 @@ func newValidateCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&fix, "fix", false, "Apply autofixable issues by rewriting source spec files")
+	cmd.Flags().BoolVar(&global, "global", false, "Validate the global specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, against every target sync --global supports")
 	return cmd
 }
 
