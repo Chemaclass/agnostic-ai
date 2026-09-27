@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cursor"
@@ -109,5 +110,24 @@ func TestSyncGlobal_HooksCarryTheTarget(t *testing.T) {
 		if data, err := os.ReadFile(path); err == nil {
 			t.Errorf("%s left behind: %s", path, data)
 		}
+	}
+}
+
+func TestSyncGlobal_ClaudeTargetEnvKeepsTheUsersKeyOrder(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	settings := filepath.Join(home, ".claude", "settings.json")
+	mustWriteGlobalTest(t, settings, `{"env": {"ZED": "1", "ALPHA": "2"}}`+"\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "stop.yaml"), "name: stop\nevent: Stop\ncommand: done.sh\ntarget: claude\n")
+	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(data)
+	zed, alpha, target := strings.Index(got, `"ZED"`), strings.Index(got, `"ALPHA"`), strings.Index(got, `"AGNOSTIC_AI_TARGET"`)
+	if zed < 0 || zed > alpha || alpha > target {
+		t.Errorf("env keys reordered:\n%s", got)
 	}
 }

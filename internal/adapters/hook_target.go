@@ -26,3 +26,9 @@ func WithHookTarget[V any](env map[string]V, target V) map[string]V {
 func WithoutHookTarget[V any](env map[string]V, target V) map[string]V {
 	return emit.WithoutHookTarget(env, target)
 }
+
+// SetHookTargetEnv adds the target to doc's `env`, or with want false
+// drops the value sync added, keeping the other keys in order.
+func SetHookTargetEnv(doc *OrderedJSON, target string, want bool) error {
+	return emit.SetHookTargetEnv(doc, target, want)
+}

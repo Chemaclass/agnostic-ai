@@ -58,3 +58,19 @@ func TestImportClaudeSettingsOverlay_DropsTheTargetEnv(t *testing.T) {
 		t.Errorf("overlay:\n%s", data)
 	}
 }
+
+func TestImportClaudeSettingsOverlay_KeepsTheUsersEnvOrder(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, claudeDir, "settings.json"), `{"env": {"ZED": "1", "AGNOSTIC_AI_TARGET": "claude", "ALPHA": "2"}}`)
+	if _, _, err := importClaudeSettingsOverlay(dir, filepath.Join(dir, "settings")); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(claudeOverlayPath(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(data)
+	if strings.Contains(got, "AGNOSTIC_AI_TARGET") || strings.Index(got, `"ZED"`) > strings.Index(got, `"ALPHA"`) {
+		t.Errorf("overlay:\n%s", got)
+	}
+}

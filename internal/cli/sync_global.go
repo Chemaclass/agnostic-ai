@@ -897,24 +897,27 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 	}
 	// place adds one managed item unless an unrecorded entry already
 	// matches it, or matches plain, the item without the target signal:
-	// a hook the user wrote stays exactly as written.
-	place := func(event string, item, plain any) (bool, error) {
+	// a hook the user wrote stays exactly as written. Either way the
+	// source hook is in the file.
+	place := func(event string, item, plain any) error {
 		for _, want := range []any{item, plain} {
 			var satisfied bool
 			if unrecorded[event], satisfied = removeEqual(unrecorded[event], jsonRoundTrip(want)); satisfied {
-				return false, nil
+				return nil
 			}
 		}
 		if slices.ContainsFunc(unrecorded[event], func(existing any) bool { return sameGlobalHook(existing, item) || sameGlobalHook(existing, plain) }) {
-			return false, fmt.Errorf("%s: a %s hook not recorded as managed runs a source hook's matcher and command with other settings; remove that entry, or give the command its own entry that matches the source, then sync", path, event)
+			return fmt.Errorf("%s: a %s hook not recorded as managed runs a source hook's matcher and command with other settings; remove that entry, or give the command its own entry that matches the source, then sync", path, event)
 		}
 		current, _ := hooks[event].([]any)
 		hooks[event] = append(current, item)
 		next[event] = append(next[event], item)
-		return true, nil
+		return nil
 	}
-	// told reports that sync wrote a spec hook itself, so the target
-	// signal outside the entries (settings env, session hook) is due.
+	// told reports that a spec hook is in the file, written by sync or
+	// by the user, so the target signal outside the entries (settings
+	// env, session hook) is due. An adopted entry keeps its own form,
+	// so a codex, gemini, or qoder hook the user wrote gets no signal.
 	told := false
 	for i, entry := range entries {
 		event, _ := entry.Meta["event"].(string)
@@ -943,16 +946,15 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 				}
 				item, plain = cursorHook, cursorHook
 			}
-			placed, err := place(event, item, plain)
-			if err != nil {
+			if err := place(event, item, plain); err != nil {
 				return nil, err
 			}
-			told = told || (placed && i < target.specHooks)
+			told = told || i < target.specHooks
 		}
 	}
 	if target.mode == hookTargetSessionEnv && told {
 		item := map[string]any{"command": cursor.HookTargetCommand}
-		if _, err := place(cursor.HookTargetEvent, item, item); err != nil {
+		if err := place(cursor.HookTargetEvent, item, item); err != nil {
 			return nil, err
 		}
 	}
@@ -993,11 +995,7 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 			return nil, errGlobalFileUnchanged
 		}
 	}
-	keys := []string{"version", "hooks"}
-	if target.mode == hookTargetSettingsEnv {
-		keys = append(keys, "env")
-	}
-	for _, key := range keys {
+	for _, key := range []string{"version", "hooks"} {
 		value, ok := doc[key]
 		if !ok {
 			ordered.Delete(key)
@@ -1005,6 +1003,11 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 		}
 		if err := ordered.Set(key, value); err != nil {
 			return nil, fmt.Errorf("marshal %s: %w", path, err)
+		}
+	}
+	if target.mode == hookTargetSettingsEnv {
+		if err := adapters.SetHookTargetEnv(ordered, target.name, told); err != nil {
+			return nil, fmt.Errorf("%s: %w", path, err)
 		}
 	}
 	out, err := adapters.MarshalJSONIndentWith(ordered, adapters.DetectJSONIndent(data))

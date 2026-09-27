@@ -1,10 +1,14 @@
 package cli
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters/cursor"
 )
 
 type globalAdoptCase struct {
@@ -132,12 +136,24 @@ func TestSyncGlobal_LostStateStillStopsOnADifferentFile(t *testing.T) {
 	}
 }
 
+// The user's hook satisfies the spec as written, and the target signal
+// that sits outside it (Claude's settings env, Cursor's sessionStart
+// hook) is still added, then removed with the source.
 func TestSyncGlobal_UserHookMatchingASpecStaysTheUsers(t *testing.T) {
 	for _, tc := range []struct {
 		target, file, content string
+		signal                func(doc map[string]any) bool
 	}{
-		{"claude", ".claude/settings.json", `{"model":"sonnet","hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"guard-command"}]}]}}`},
-		{"cursor", ".cursor/hooks.json", `{"version":1,"hooks":{"PreToolUse":[{"command":"guard-command","matcher":"Bash"}]}}`},
+		{"claude", ".claude/settings.json", `{"model":"sonnet","hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"guard-command"}]}]}}`,
+			func(doc map[string]any) bool {
+				env, _ := doc["env"].(map[string]any)
+				return env["AGNOSTIC_AI_TARGET"] == "claude"
+			}},
+		{"cursor", ".cursor/hooks.json", `{"version":1,"hooks":{"PreToolUse":[{"command":"guard-command","matcher":"Bash"}]}}`,
+			func(doc map[string]any) bool {
+				starts, _ := doc["hooks"].(map[string]any)["sessionStart"].([]any)
+				return len(starts) == 1 && starts[0].(map[string]any)["command"] == cursor.HookTargetCommand
+			}},
 	} {
 		t.Run(tc.target, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
@@ -145,23 +161,27 @@ func TestSyncGlobal_UserHookMatchingASpecStaysTheUsers(t *testing.T) {
 			mustWriteGlobalTest(t, hooksFile, tc.content)
 			sourceHook := filepath.Join(source, "hooks", "guard.yaml")
 			mustWriteGlobalTest(t, sourceHook, "targets: ["+tc.target+"]\nevent: PreToolUse\nmatcher: Bash\ncommand: guard-command\n")
+			var want map[string]any
+			if err := json.Unmarshal([]byte(tc.content), &want); err != nil {
+				t.Fatal(err)
+			}
 
 			if _, _, err := runGlobalAgentTest("--only", tc.target); err != nil {
 				t.Fatal(err)
 			}
-			data, err := os.ReadFile(hooksFile)
-			if err != nil {
-				t.Fatal(err)
+			got := readGlobalJSON(t, hooksFile)
+			if !tc.signal(got) {
+				t.Errorf("an adopted hook must still get the target signal:\n%v", got)
 			}
-			if string(data) != tc.content {
-				t.Errorf("a user hook identical to the source must satisfy it as it is:\n%s", data)
+			if !reflect.DeepEqual(got["hooks"].(map[string]any)["PreToolUse"], want["hooks"].(map[string]any)["PreToolUse"]) {
+				t.Errorf("a user hook identical to the source must satisfy it as it is:\n%v", got)
 			}
 			state, err := os.ReadFile(filepath.Join(source, "state", "global.json"))
 			if err != nil {
 				t.Fatal(err)
 			}
-			if strings.Contains(string(state), "guard-command") || strings.Contains(string(state), hooksFile) {
-				t.Errorf("the user's hook and its file must not be recorded as managed:\n%s", state)
+			if strings.Contains(string(state), "guard-command") {
+				t.Errorf("the user's hook must not be recorded as managed:\n%s", state)
 			}
 
 			if err := os.Remove(sourceHook); err != nil {
@@ -170,12 +190,8 @@ func TestSyncGlobal_UserHookMatchingASpecStaysTheUsers(t *testing.T) {
 			if _, _, err := runGlobalAgentTest("--only", tc.target); err != nil {
 				t.Fatal(err)
 			}
-			data, err = os.ReadFile(hooksFile)
-			if err != nil {
-				t.Fatalf("the user's hooks file must survive the source going: %v", err)
-			}
-			if string(data) != tc.content {
-				t.Errorf("the user's hook must survive the source going:\n%s", data)
+			if got := readGlobalJSON(t, hooksFile); !reflect.DeepEqual(got, want) {
+				t.Errorf("the user's hook must survive the source going, and the signal must go:\n%v", got)
 			}
 		})
 	}

@@ -172,24 +172,8 @@ func excludeGeneratedClaudeRejections(root string, doc *adapters.OrderedJSON) (b
 // `env` while command hooks exist. Captured into the overlay, it would
 // outlive the last hook.
 func excludeClaudeHookTargetEnv(doc *adapters.OrderedJSON) error {
-	raw, ok := doc.Get("env")
-	if !ok {
-		return nil
-	}
-	var env map[string]any
-	if err := json.Unmarshal(raw, &env); err != nil {
-		return fmt.Errorf("parse Claude settings env: %w", err)
-	}
-	next := adapters.WithoutHookTarget(env, any("claude"))
-	switch {
-	case len(next) == len(env):
-		return nil
-	case next == nil:
-		doc.Delete("env")
-		return nil
-	}
-	if err := doc.Set("env", next); err != nil {
-		return fmt.Errorf("marshal Claude settings env: %w", err)
+	if err := adapters.SetHookTargetEnv(doc, "claude", false); err != nil {
+		return fmt.Errorf("claude settings: %w", err)
 	}
 	return nil
 }

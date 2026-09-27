@@ -325,6 +325,9 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 	if err := policy.removeOwned(doc); err != nil {
 		return err
 	}
+	if err := dropStaleHookTargetEnv(doc, hooks); err != nil {
+		return err
+	}
 	// `permissions` is a nested object whose allow/deny/ask lists are
 	// additive security rules. A wholesale key replace would drop rules a
 	// lower layer authored (e.g. config setting only `deny` would erase a
@@ -354,7 +357,7 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 	} else {
 		doc.Delete("hooks")
 	}
-	if err := setHookTargetEnv(doc, hasCommandHook(hooks)); err != nil {
+	if err := addHookTargetEnv(doc, hooks); err != nil {
 		return err
 	}
 	for _, k := range orderedConfigKeys(custom) {

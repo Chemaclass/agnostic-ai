@@ -3,6 +3,7 @@ package claude
 import (
 	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -80,5 +81,38 @@ func TestEmit_DropsTheTargetVariableWithTheLastCommandHook(t *testing.T) {
 	}
 	if env := readClaudeTargetDoc(t).Env; env != nil {
 		t.Errorf("env = %v, want it gone with no command hook left", env)
+	}
+}
+
+func TestEmit_ConfigPinnedTargetSurvivesWithoutCommandHooks(t *testing.T) {
+	testutil.TempCwd(t)
+	cfg := &config.Config{Outputs: map[string]config.Output{"claude": {Settings: &config.ClaudeSettings{Env: map[string]string{emit.HookTargetEnv: "claude", "OTHER": "1"}}}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	if env := readClaudeTargetDoc(t).Env; env[emit.HookTargetEnv] != "claude" || env["OTHER"] != "1" {
+		t.Errorf("env = %v, want the pinned value kept", env)
+	}
+}
+
+func TestEmit_TargetEnvKeepsTheUsersKeyOrder(t *testing.T) {
+	testutil.TempCwd(t)
+	if err := os.MkdirAll(".claude", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(".claude/settings.json", []byte(`{"env": {"ZED": "1", "ALPHA": "2"}}`+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	entries := []spec.Entry{{Kind: spec.KindHook, Name: "stop", Meta: map[string]any{"event": "Stop", "command": "done.sh"}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(".claude/settings.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	zed, alpha, target := strings.Index(string(data), `"ZED"`), strings.Index(string(data), `"ALPHA"`), strings.Index(string(data), `"AGNOSTIC_AI_TARGET"`)
+	if zed < 0 || zed > alpha || alpha > target {
+		t.Errorf("env keys reordered:\n%s", data)
 	}
 }
