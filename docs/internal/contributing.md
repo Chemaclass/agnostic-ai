@@ -35,7 +35,7 @@ Use a temporary project when experimenting with imported or generated files. Ada
 
 `make lint` names the problem when `golangci-lint` is missing or not the pinned version; rerun `make tools` after a pin bump. A linter older than your Go toolchain reports that as a typecheck failure in files you never touched.
 
-A pull request runs the Go tests on Linux only. Windows and macOS run on every push to `main`, once a night, and on demand with `gh workflow run ci.yml --ref main`. Editor jobs on pull requests run when their source or dependencies change. Confirm a full three-OS run before cutting a release.
+Pull requests and pushes to `main` run the Go tests on Linux only. Windows and macOS run once a night and on demand with `gh workflow run ci.yml --ref <branch>`; dispatch that on a branch that touches paths, file watching, or renames. Editor jobs on pull requests run when their source or dependencies change. Confirm a full three-OS run before cutting a release.
 
 ## Docs site
 
