@@ -41,7 +41,6 @@ typography:
 rounded:
   focus: "3px"
   code: "4px"
-  mark: "8px"
   callout: "14px"
   pill: "999px"
 spacing:
@@ -142,7 +141,7 @@ The system has no shadows. Depth comes from tonal surfaces, whitespace, and one-
 
 ## Shapes
 
-Most containers remain square and merge into the page grid. Pills are reserved for compact target and status labels. The brand mark uses an 8px radius, inline code uses 4px, and evidence callouts use 14px as the only soft container shape.
+Most containers remain square and merge into the page grid. Pills are reserved for compact target and status labels. Inline code uses 4px, and evidence callouts use 14px as the only soft container shape. The brand mark is a hub logo with no plate.
 
 ## Components
 
