@@ -241,27 +241,31 @@ func editJSONRoot(path string, data []byte, order []string, set map[string]strin
 	if text == "" {
 		text, trailing = "{}", "\n"
 	}
-	edit := func(apply func(members []jsonMember, closing int) string) error {
-		members, closing, err := scanJSONRoot(text)
+	edit := func(apply func(members []jsonMember, open, closing int) string) error {
+		members, open, closing, err := scanJSONRoot(text)
 		if err != nil {
 			return fmt.Errorf("parse %s: %w", path, err)
 		}
-		text = apply(members, closing)
+		text = apply(members, open, closing)
 		return nil
 	}
 	for _, key := range remove {
-		err := edit(func(members []jsonMember, closing int) string {
-			i := slices.IndexFunc(members, func(m jsonMember) bool { return m.key == key })
+		err := edit(func(members []jsonMember, open, closing int) string {
+			i := lastJSONMember(members, key)
 			switch {
 			case i < 0:
 				return text
 			case i > 0:
-				return text[:members[i-1].end] + text[members[i].end:]
+				m := members[i]
+				return text[:m.comma] + text[m.comma+1:keptBefore(text, m.comma+1, m.start)] + text[m.end:]
 			case len(members) > 1:
 				return text[:members[0].start] + text[members[1].start:]
 			default:
-				open := strings.LastIndex(text[:members[0].start], "{")
-				return text[:open+1] + text[closing:]
+				m := members[0]
+				if strings.TrimSpace(text[open+1:m.start]) == "" {
+					return text[:open+1] + text[closing:]
+				}
+				return text[:keptBefore(text, open+1, m.start)] + text[m.end:]
 			}
 		})
 		if err != nil {
@@ -270,13 +274,13 @@ func editJSONRoot(path string, data []byte, order []string, set map[string]strin
 	}
 	for _, key := range order {
 		value := jsonString(set[key])
-		err := edit(func(members []jsonMember, closing int) string {
-			if i := slices.IndexFunc(members, func(m jsonMember) bool { return m.key == key }); i >= 0 {
+		err := edit(func(members []jsonMember, open, closing int) string {
+			// JSON decoding keeps the last of duplicate keys, so edit that one.
+			if i := lastJSONMember(members, key); i >= 0 {
 				return text[:members[i].valueStart] + value + text[members[i].end:]
 			}
 			member := jsonString(key) + ": " + value
 			if len(members) == 0 {
-				open := strings.LastIndex(text[:closing], "{")
 				return text[:open+1] + "\n" + adapters.DetectJSONIndent(data) + member + "\n" + text[closing:]
 			}
 			first := members[0].start
@@ -295,20 +299,47 @@ func editJSONRoot(path string, data []byte, order []string, set map[string]strin
 	return []byte(text + trailing), nil
 }
 
-// jsonMember is one top-level member of a JSON object: where its key
-// starts, where its value starts, and where the value ends.
+// keptBefore returns where the cut for a removed member starts: at the
+// member itself when only whitespace precedes it from from, which
+// undoes an insert exactly, else after the last line break before it,
+// so a comment there stays on its own line.
+func keptBefore(text string, from, start int) int {
+	between := text[from:start]
+	if strings.TrimSpace(between) == "" {
+		return from
+	}
+	if nl := strings.LastIndex(between, "\n"); nl >= 0 {
+		return from + nl + 1
+	}
+	return start
+}
+
+// jsonMember is one top-level member of a JSON object: the comma
+// before it (-1 for the first), where its key starts, where its value
+// starts, and where the value ends.
 type jsonMember struct {
-	key                    string
-	start, valueStart, end int
+	key                           string
+	comma, start, valueStart, end int
+}
+
+func lastJSONMember(members []jsonMember, key string) int {
+	for i := len(members) - 1; i >= 0; i-- {
+		if members[i].key == key {
+			return i
+		}
+	}
+	return -1
 }
 
 // scanJSONRoot lists the members of the top-level object in text and
-// the offset of its closing brace. It skips strings and JSONC comments.
-func scanJSONRoot(text string) ([]jsonMember, int, error) {
+// the offsets of its opening and closing braces. It skips strings and
+// JSONC comments.
+func scanJSONRoot(text string) ([]jsonMember, int, int, error) {
 	var members []jsonMember
 	depth := 0
 	var current *jsonMember
 	expectKey := false
+	open, comma := -1, -1
 	for i := 0; i < len(text); i++ {
 		c := text[i]
 		switch {
@@ -321,7 +352,7 @@ func scanJSONRoot(text string) ([]jsonMember, int, error) {
 		case strings.HasPrefix(text[i:], "/*"):
 			end := strings.Index(text[i+2:], "*/")
 			if end < 0 {
-				return nil, 0, fmt.Errorf("unterminated comment")
+				return nil, 0, 0, fmt.Errorf("unterminated comment")
 			}
 			i += end + 3
 		case c == '"':
@@ -332,14 +363,14 @@ func scanJSONRoot(text string) ([]jsonMember, int, error) {
 				}
 			}
 			if j >= len(text) {
-				return nil, 0, fmt.Errorf("unterminated string")
+				return nil, 0, 0, fmt.Errorf("unterminated string")
 			}
 			if depth == 1 && expectKey {
 				var key string
 				if err := json.Unmarshal([]byte(text[i:j+1]), &key); err != nil {
-					return nil, 0, err
+					return nil, 0, 0, err
 				}
-				members = append(members, jsonMember{key: key, start: i})
+				members = append(members, jsonMember{key: key, comma: comma, start: i})
 				current = &members[len(members)-1]
 				expectKey = false
 			} else if depth == 1 && current != nil {
@@ -356,6 +387,7 @@ func scanJSONRoot(text string) ([]jsonMember, int, error) {
 			depth++
 			if depth == 1 {
 				expectKey = c == '{'
+				open = i
 			}
 		case c == '}' || c == ']':
 			depth--
@@ -363,16 +395,17 @@ func scanJSONRoot(text string) ([]jsonMember, int, error) {
 				current.end = i + 1
 			}
 			if depth == 0 {
-				return members, i, nil
+				return members, open, i, nil
 			}
 		case c == ',' && depth == 1:
 			expectKey = true
 			current = nil
+			comma = i
 		case depth == 1 && current != nil && current.valueStart != 0 && !strings.ContainsRune(" \t\r\n", rune(c)):
 			current.end = i + 1
 		}
 	}
-	return nil, 0, fmt.Errorf("expected a JSON object")
+	return nil, 0, 0, fmt.Errorf("expected a JSON object")
 }
 
 // tomlRootKey is where one root-table key sits: its first and last line,
@@ -388,11 +421,12 @@ type tomlRootKey struct {
 // after the last root key, or at the top when there is none, which is
 // always before the first table header.
 func editTOMLRoot(path string, data []byte, order []string, set map[string]string, remove []string) ([]byte, error) {
-	eol := "\n"
-	text := string(data)
-	if strings.Contains(text, "\r\n") {
-		eol = "\r\n"
-		text = strings.ReplaceAll(text, "\r\n", "\n")
+	// Each line keeps its own "\r", so mixed line endings survive; new
+	// lines follow the first line's ending. A BOM stays in front.
+	text, bom := strings.CutPrefix(string(data), "\ufeff")
+	cr := ""
+	if first, _, _ := strings.Cut(text, "\n"); strings.HasSuffix(first, "\r") {
+		cr = "\r"
 	}
 	trailing := strings.HasSuffix(text, "\n")
 	text = strings.TrimSuffix(text, "\n")
@@ -405,7 +439,7 @@ func editTOMLRoot(path string, data []byte, order []string, set map[string]strin
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	line := func(key, value string) string {
-		return key + ` = "` + adapters.EscapeTOMLBasic(value) + `"`
+		return key + ` = "` + adapters.EscapeTOMLBasic(value) + `"` + cr
 	}
 	replaced := map[int][]string{}
 	dropped := map[int]bool{}
@@ -418,9 +452,12 @@ func editTOMLRoot(path string, data []byte, order []string, set map[string]strin
 		}
 		start := lines[loc.start]
 		indent := start[:len(start)-len(strings.TrimLeft(start, " \t"))]
-		next := indent + line(key, set[key])
+		next := indent + key + ` = "` + adapters.EscapeTOMLBasic(set[key]) + `"`
 		if loc.comment != "" {
 			next += " " + loc.comment
+		}
+		if strings.HasSuffix(start, "\r") {
+			next += "\r"
 		}
 		replaced[loc.start] = []string{next}
 		for i := loc.start + 1; i <= loc.end; i++ {
@@ -428,7 +465,10 @@ func editTOMLRoot(path string, data []byte, order []string, set map[string]strin
 		}
 	}
 	for _, key := range remove {
-		loc := keys[key]
+		loc, ok := keys[key]
+		if !ok {
+			continue
+		}
 		for i := loc.start; i <= loc.end; i++ {
 			dropped[i] = true
 		}
@@ -437,7 +477,7 @@ func editTOMLRoot(path string, data []byte, order []string, set map[string]strin
 	if lastKey >= 0 {
 		insertAt = lastKey + 1
 	} else if len(added) > 0 && len(lines) > 0 && strings.TrimSpace(lines[0]) != "" {
-		added = append(added, "")
+		added = append(added, cr)
 	}
 	var out []string
 	for i := 0; i <= len(lines); i++ {
@@ -459,7 +499,10 @@ func editTOMLRoot(path string, data []byte, order []string, set map[string]strin
 	if trailing || len(lines) == 0 {
 		result += "\n"
 	}
-	return []byte(strings.ReplaceAll(result, "\n", eol)), nil
+	if bom {
+		result = "\ufeff" + result
+	}
+	return []byte(result), nil
 }
 
 // scanTOMLRoot finds the keys of the root table, the lines before the

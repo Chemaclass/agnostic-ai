@@ -233,7 +233,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	}
 	if o.dryRun {
 		for _, w := range writes {
-			if len(w.changes) == 0 && len(w.adopted) > 0 {
+			if data, err := os.ReadFile(w.path); err == nil && bytes.Equal(data, w.data) {
 				continue
 			}
 			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "dry-run: write %s\n", w.path); err != nil {
@@ -533,6 +533,9 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	}
 	var writes []globalWrite
 	seen := map[string]int{}
+	// emptied holds hooks files the hooks merge left with nothing in
+	// them, which a settings edit must start from instead of the disk.
+	emptied := map[string]bool{}
 	place := func(path string, data []byte, mode fs.FileMode) (bool, error) {
 		if i, ok := seen[path]; ok {
 			if !bytes.Equal(writes[i].data, data) {
@@ -676,6 +679,9 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		if err != nil {
 			return nil, next, err
 		}
+		if doc == nil {
+			emptied[path] = true
+		}
 		if doc != nil {
 			// Ownership of a hooks file is per entry, so it carries no sum.
 			placed, err := place(path, doc, 0o644)
@@ -698,8 +704,11 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		path := g.path(home, g.settings.path)
 		var base []byte
 		i, planned := seen[path]
-		if planned {
+		switch {
+		case planned:
 			base = writes[i].data
+		case emptied[path]:
+			base = []byte("{}\n")
 		}
 		m, err := mergeGlobalSettings(path, g.settings.format, base, want, old.Settings[target])
 		if err != nil {

@@ -116,3 +116,64 @@ func TestExplainGlobal_NamesFileAndKeyPerTarget(t *testing.T) {
 		t.Errorf("the local layer's codex model wins, so defaults.yaml must not claim it:\n%s", got)
 	}
 }
+
+func TestEditJSONRoot_ReviewEdgeCases(t *testing.T) {
+	cases := []struct {
+		name, in, want string
+		set            map[string]string
+		remove         []string
+	}{
+		{
+			name:   "brace in a comment before the only member",
+			in:     "{\n  // see {docs}\n  \"model\": \"x\"\n}\n",
+			remove: []string{"model"},
+			want:   "{\n  // see {docs}\n\n}\n",
+		},
+		{
+			name:   "comment after the previous value stays",
+			in:     "{\"a\": 1, // c\n \"model\": \"x\"}",
+			remove: []string{"model"},
+			want:   "{\"a\": 1 // c\n}",
+		},
+		{
+			name: "duplicate key edits the copy JSON reads",
+			in:   `{"model":"a","x":1,"model":"b"}`,
+			set:  map[string]string{"model": "c"},
+			want: `{"model":"a","x":1,"model":"c"}`,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var order []string
+			for key := range tc.set {
+				order = append(order, key)
+			}
+			got, err := editJSONRoot("s.json", []byte(tc.in), order, tc.set, tc.remove)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(got) != tc.want {
+				t.Errorf("got %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestEditTOMLRoot_KeepsBOMAndMixedLineEndings(t *testing.T) {
+	in := "\xef\xbb\xbfmodel = \"a\"\r\nb = 2\n[t]\r\nx = 1\r\n"
+	got, err := editTOMLRoot("config.toml", []byte(in), []string{"model"}, map[string]string{"model": "b"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "\xef\xbb\xbfmodel = \"b\"\r\nb = 2\n[t]\r\nx = 1\r\n"
+	if string(got) != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+	got, err = editTOMLRoot("config.toml", []byte("a = 1\r\n"), []string{"model"}, map[string]string{"model": "m"}, []string{"missing"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "a = 1\r\nmodel = \"m\"\r\n"; string(got) != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}

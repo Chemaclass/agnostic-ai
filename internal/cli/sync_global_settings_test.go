@@ -252,3 +252,42 @@ x-claude:
 		t.Errorf("settings.json = %v", doc)
 	}
 }
+
+func TestSyncGlobal_SettingsReplaceLastClaudeHook(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	hook := filepath.Join(source, "hooks", "start.yaml")
+	mustWriteGlobalTest(t, hook, "event: SessionStart\ncommand: echo hi\n")
+	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	if err := os.Remove(hook); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "d.yaml"), "model: opus\n")
+	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatalf("second sync: %v\n%s", err, warnings)
+	}
+	got := readGlobalTest(t, filepath.Join(home, ".claude", "settings.json"))
+	if strings.Contains(got, "hooks") || strings.Contains(got, "AGNOSTIC_AI_TARGET") || !strings.Contains(got, `"model": "opus"`) {
+		t.Errorf("the removed hook must go and the model stay:\n%s", got)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "claude", "--check"); err != nil {
+		t.Fatalf("check after sync: %v", err)
+	}
+}
+
+func TestSyncGlobal_DryRunNamesHookWriteBesideAdoptedSetting(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "d.yaml"), "model:\n  claude: opus\n")
+	settings := filepath.Join(home, ".claude", "settings.json")
+	mustWriteGlobalTest(t, settings, "{\n  \"model\": \"opus\"\n}\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "start.yaml"), "event: SessionStart\ncommand: echo hi\n")
+
+	out, _, err := runGlobalAgentTest("--only", "claude", "--dry-run")
+	if err != nil {
+		t.Fatalf("dry-run: %v", err)
+	}
+	if !strings.Contains(out, "dry-run: write "+settings) {
+		t.Errorf("dry-run must name the hooks write:\n%s", out)
+	}
+}
