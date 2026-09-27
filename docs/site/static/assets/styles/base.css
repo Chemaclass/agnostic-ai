@@ -482,7 +482,8 @@ html.search-open {
   color: var(--accent);
 }
 
-.theme-toggle {
+.theme-toggle,
+.header-icon-link {
   width: 2.25rem;
   height: 2.25rem;
   display: grid;
@@ -494,9 +495,15 @@ html.search-open {
   cursor: pointer;
 }
 
-.theme-toggle:hover {
+.theme-toggle:hover,
+.header-icon-link:hover {
   border-color: var(--accent);
   color: var(--ink);
+}
+
+.header-icon-link svg {
+  width: 1rem;
+  height: 1rem;
 }
 
 .theme-icon {

@@ -39,6 +39,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Site
 
+- The header has a GitHub button next to the theme toggle, on every page and the playground.
 - The `why` command guide moves to `/docs/trace/` (the old URL redirects), and the footer "Why agnostic-ai" link now opens the case for the tool.
 
 ## v0.69.0 - 2026-09-26
