@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -95,4 +96,43 @@ func keys(m map[string]string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// A brace set holds commas that do not separate patterns, in the string
+// form and in a list item alike.
+func TestGlobs_BraceSetStaysOnePattern(t *testing.T) {
+	for name, globs := range map[string]any{
+		"string": "src/**/*.{ts,tsx},lib/*.js",
+		"list":   []any{"src/**/*.{ts,tsx}", "lib/*.js"},
+	} {
+		got := captureRule(t, "cline", globRule(globs, nil))[".clinerules/go.md"]
+		if !strings.Contains(got, "  - src/**/*.{ts,tsx}\n") || !strings.Contains(got, "  - lib/*.js\n") || strings.Contains(got, "{ts\n") {
+			t.Errorf("%s: cline paths must keep the brace set whole:\n%s", name, got)
+		}
+		got = captureRule(t, "openhands", globRule(globs, nil))[".agents/skills/go/SKILL.md"]
+		if !strings.Contains(got, "src/**/*.{ts,tsx}") || strings.Contains(got, "  - tsx}") {
+			t.Errorf("%s: openhands triggers must keep the brace set whole:\n%s", name, got)
+		}
+	}
+	got := captureRule(t, "cline", globRule("src/**/*.{ts,tsx}", nil))[".clinerules/go.md"]
+	if !strings.Contains(got, "paths:\n  - src/**/*.{ts,tsx}\n---") {
+		t.Errorf("a lone brace-set string must stay one cline path:\n%s", got)
+	}
+}
+
+// Kiro takes several patterns as a YAML array; one pattern stays a string.
+func TestGlobs_KiroWritesSeveralPatternsAsAList(t *testing.T) {
+	for name, globs := range map[string]any{
+		"string": "*.go,*.mod",
+		"list":   []any{"*.go", "*.mod"},
+	} {
+		got := captureRule(t, "kiro", globRule(globs, nil))[".kiro/steering/go.md"]
+		if !strings.Contains(got, "fileMatchPattern:\n  - \"*.go\"\n  - \"*.mod\"\n") && !strings.Contains(got, "fileMatchPattern:\n    - '*.go'\n    - '*.mod'\n") {
+			t.Errorf("%s: kiro fileMatchPattern must list both patterns:\n%s", name, got)
+		}
+	}
+	got := captureRule(t, "kiro", globRule([]any{"*.go"}, nil))[".kiro/steering/go.md"]
+	if !strings.Contains(got, "fileMatchPattern: ") {
+		t.Errorf("one pattern must stay a string:\n%s", got)
+	}
 }

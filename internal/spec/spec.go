@@ -386,6 +386,58 @@ func JoinGlobs(v any) string {
 	return ""
 }
 
+// GlobList returns the patterns a `globs` value names: each list item
+// as written, or the string split on the commas outside `{...}` brace
+// sets, so "src/**/*.{ts,tsx},lib/*.js" names two patterns. Surrounding
+// whitespace is trimmed and empty patterns dropped. A malformed value
+// (see ValidGlobs) names none.
+func GlobList(v any) []string {
+	var raw []string
+	switch g := v.(type) {
+	case string:
+		raw = splitOutsideBraces(g)
+	case []string:
+		raw = g
+	case []any:
+		if !ValidGlobs(g) {
+			return nil
+		}
+		for _, item := range g {
+			raw = append(raw, item.(string))
+		}
+	}
+	var out []string
+	for _, p := range raw {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// splitOutsideBraces splits s on each comma that is not inside a brace
+// set.
+func splitOutsideBraces(s string) []string {
+	var parts []string
+	depth, start := 0, 0
+	for i, c := range s {
+		switch c {
+		case '{':
+			depth++
+		case '}':
+			if depth > 0 {
+				depth--
+			}
+		case ',':
+			if depth == 0 {
+				parts = append(parts, s[start:i])
+				start = i + 1
+			}
+		}
+	}
+	return append(parts, s[start:])
+}
+
 // ValidGlobs reports whether v is one of the two forms `globs` accepts:
 // a string or a list of strings.
 func ValidGlobs(v any) bool {

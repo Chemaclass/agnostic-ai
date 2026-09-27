@@ -228,9 +228,7 @@ func scopePatterns(r spec.Entry, scope string) ([]string, error) {
 		var patterns []string
 		switch v := raw.(type) {
 		case string:
-			if v != "" {
-				patterns = strings.Split(v, ",")
-			}
+			patterns = spec.GlobList(v)
 		case []string:
 			patterns = v
 		case []any:

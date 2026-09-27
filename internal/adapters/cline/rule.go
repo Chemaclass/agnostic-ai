@@ -75,26 +75,13 @@ func rulePaths(e spec.Entry) []string {
 	if always, ok := m["alwaysApply"].(bool); !ok || always {
 		return nil
 	}
-	if globs := spec.JoinGlobs(m["globs"]); globs != "" {
-		return splitGlobs(globs)
+	if globs := spec.GlobList(m["globs"]); len(globs) > 0 {
+		return globs
 	}
 	if s := e.EffectiveScope(); s != "" {
 		return []string{s + "/**"}
 	}
 	return nil
-}
-
-// splitGlobs turns a comma-separated globs value into the array Cline's
-// `paths` key expects. A single pattern stays a one-element array,
-// which is the shape the vendor's own examples use.
-func splitGlobs(globs string) []string {
-	var out []string
-	for _, g := range strings.Split(globs, ",") {
-		if g = strings.TrimSpace(g); g != "" {
-			out = append(out, g)
-		}
-	}
-	return out
 }
 
 // unscopableRules counts rules that asked not to be always-on but gave

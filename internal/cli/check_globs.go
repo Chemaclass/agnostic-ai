@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // reportUnmatchedGlobs walks loaded rules and reports any whose `globs:`
@@ -61,19 +63,11 @@ type ruleGlob struct {
 	globs string
 }
 
-// splitGlobPatterns splits a `globs:` value on commas (the convention
-// adopted by Cursor / Cline / Windsurf when listing multiple patterns
-// inline). Whitespace around each pattern is trimmed.
+// splitGlobPatterns splits a `globs:` value on the commas outside brace
+// sets (the convention adopted by Cursor / Cline / Windsurf when listing
+// multiple patterns inline). Whitespace around each pattern is trimmed.
 func splitGlobPatterns(raw string) []string {
-	parts := strings.Split(raw, ",")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			out = append(out, p)
-		}
-	}
-	return out
+	return spec.GlobList(raw)
 }
 
 // anyGlobMatches returns true when at least one pattern matches at
@@ -124,12 +118,14 @@ func anyGlobMatches(root string, patterns []string) (bool, error) {
 }
 
 // compileGlob translates a glob pattern with `**` (any number of path
-// segments) and `*` (anything except `/`) into a regex anchored to the
-// full path. Reserved regex metacharacters are escaped.
+// segments), `*` (anything except `/`), and `{a,b}` brace sets into a
+// regex anchored to the full path. Reserved regex metacharacters are
+// escaped, and so are the braces of a pattern whose braces do not pair.
 func compileGlob(pattern string) (*regexp.Regexp, error) {
 	var sb strings.Builder
 	sb.WriteString("^")
-	i := 0
+	i, braces := 0, 0
+	balanced := strings.Count(pattern, "{") == strings.Count(pattern, "}")
 	for i < len(pattern) {
 		switch {
 		case strings.HasPrefix(pattern[i:], "/**/"):
@@ -152,6 +148,17 @@ func compileGlob(pattern string) (*regexp.Regexp, error) {
 			i++
 		case pattern[i] == '.':
 			sb.WriteString("\\.")
+			i++
+		case pattern[i] == '{' && balanced:
+			sb.WriteString("(?:")
+			braces++
+			i++
+		case pattern[i] == '}' && braces > 0:
+			sb.WriteString(")")
+			braces--
+			i++
+		case pattern[i] == ',' && braces > 0:
+			sb.WriteString("|")
 			i++
 		case pattern[i] == '+' || pattern[i] == '(' || pattern[i] == ')' ||
 			pattern[i] == '|' || pattern[i] == '^' || pattern[i] == '$' ||

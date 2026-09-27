@@ -373,6 +373,17 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	for _, f := range lintNearMissKeys(own, cfg.Targets) {
 		summaryf("%s %s: %s\n", bang(), filepath.ToSlash(f.Path), f.Message)
 	}
+	// Targets read a malformed globs as none, so the rule loads in every
+	// session. A scoped rule already fails its scope check instead.
+	var unscoped []spec.Entry
+	for _, e := range own {
+		if e.Kind == spec.KindRule && e.EffectiveScope() == "" {
+			unscoped = append(unscoped, e)
+		}
+	}
+	for _, f := range lintMalformedGlobs(unscoped) {
+		summaryf("%s %s: %s (%s); the rule loads in every session\n", bang(), filepath.ToSlash(f.Path), f.Message, f.Code)
+	}
 	shared, err := planSharedSkills(cfg, b, effectiveTargets)
 	if err != nil {
 		return err

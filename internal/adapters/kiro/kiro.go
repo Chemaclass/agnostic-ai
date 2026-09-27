@@ -319,14 +319,15 @@ func renderRule(e spec.Entry) string {
 // AlwaysOnRule reports whether Kiro includes r in every interaction: the
 // rule renders `inclusion: always`.
 func (Adapter) AlwaysOnRule(r spec.Entry) bool {
-	return fileMatchPatternFor(r) == ""
+	_, ok := fileMatchPatternFor(r)
+	return !ok
 }
 
 // ruleFrontmatter picks `inclusion: fileMatch` (with `fileMatchPattern`)
 // for a rule that targets a glob or a source-layout scope, otherwise
 // `inclusion: always`.
 func ruleFrontmatter(e spec.Entry) (map[string]any, []string) {
-	if pattern := fileMatchPatternFor(e); pattern != "" {
+	if pattern, ok := fileMatchPatternFor(e); ok {
 		return map[string]any{
 			"inclusion":        "fileMatch",
 			"fileMatchPattern": pattern,
@@ -335,20 +336,25 @@ func ruleFrontmatter(e spec.Entry) (map[string]any, []string) {
 	return map[string]any{"inclusion": "always"}, []string{"inclusion"}
 }
 
-// fileMatchPatternFor returns the fileMatchPattern glob for a rule.
-// Explicit `globs` (resolved for target-specific overrides) wins;
-// otherwise the source-layout scope (e.g. `rules/backend/auth.md` ->
-// "backend/**"); otherwise "" (the rule has nothing to scope to and
-// loads always).
-func fileMatchPatternFor(e spec.Entry) string {
+// fileMatchPatternFor returns the fileMatchPattern for a rule. Explicit
+// `globs` (resolved for target-specific overrides) wins, as one string
+// for one pattern or a list for several ("You can also specify multiple
+// patterns using an array", kiro.dev/docs/steering); otherwise the
+// source-layout scope (e.g. `rules/backend/auth.md` -> "backend/**").
+// ok is false when the rule has nothing to scope to and loads always.
+func fileMatchPatternFor(e spec.Entry) (pattern any, ok bool) {
 	m := emit.ResolveMeta(e.Meta, target)
-	if g := spec.JoinGlobs(m["globs"]); g != "" {
-		return g
+	switch globs := spec.GlobList(m["globs"]); len(globs) {
+	case 0:
+	case 1:
+		return globs[0], true
+	default:
+		return globs, true
 	}
 	if s := e.EffectiveScope(); s != "" {
-		return s + "/**"
+		return s + "/**", true
 	}
-	return ""
+	return nil, false
 }
 
 // kiroToolCategory maps agnostic-ai's Claude-style tool identifiers onto
