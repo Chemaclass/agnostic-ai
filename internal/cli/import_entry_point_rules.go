@@ -15,6 +15,11 @@ import (
 // shared entry point in place of its own rule files (#1224): each rule
 // in that file's rules block that has no spec yet. Rules the source's
 // own files carried, with their activation, were imported first and win.
+//
+// The block records no `targets`, so a rule with no spec left cannot be
+// told apart from one scoped to another reader of the file. It imports
+// untargeted: a rule reaching more targets than before beats a rule
+// dropped from every target by the next sync.
 func importInlinedEntryPointRules(root, source string, cfg *config.Config) error {
 	if adapters.EntryPointRuleInliner(cfg, source) == "" {
 		return nil
@@ -30,6 +35,12 @@ func importInlinedEntryPointRules(root, source string, cfg *config.Config) error
 	if !strings.Contains(string(data), adapters.RulesStartMarker) {
 		return nil
 	}
+	specs := map[string]bool{}
+	if _, b, err := loadProject(root); err == nil {
+		for _, r := range b.Rules {
+			specs[r.Name] = true
+		}
+	}
 	_, sections := splitH2Sections(reduceToGeneratedRules(string(data)))
 	dstDir := filepath.Join(root, cfg.Sources.Rules)
 	count := 0
@@ -40,7 +51,7 @@ func importInlinedEntryPointRules(root, source string, cfg *config.Config) error
 		children, _ := unwrapMergedH3Children(s.body, map[string]int{})
 		for _, c := range children {
 			path := filepath.Join(dstDir, c.slug+".md")
-			if fileExists(path) {
+			if specs[c.slug] || fileExists(path) {
 				continue
 			}
 			if err := writeRule(path, c.slug, c.body); err != nil {

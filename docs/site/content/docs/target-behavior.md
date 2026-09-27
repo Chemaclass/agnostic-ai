@@ -43,9 +43,9 @@ A target that reads an `AGENTS.md` carrying the `## Rules` block loads every uns
 
 Two targets keep every rule file. Trae reads `AGENTS.md` only after you turn on **Include AGENTS.md in the context** under Settings > Rules. Windsurf (Devin) limits a workspace rule file to 12,000 characters and runs `AGENTS.md` through the same rules engine, so one file holding every rule could be cut short. Kiro keeps its steering files when any agent spec sets `x-kiro.resources`, since a Kiro custom agent loads only the files it lists.
 
-A target also keeps its rule files when `AGENTS.md` is listed in `sync.unmanaged`, or when `outputs.<target>.file` moves its entry point off the root `AGENTS.md` its tool reads. If you turn `AGENTS.md` off in the tool itself (Cline's Rules panel, or a Qoder CLI `context.fileName` without it), list `AGENTS.md` under `sync.unmanaged` so every rule keeps its file.
+A target also keeps its rule files when `outputs.<target>.file` moves its entry point off the root `AGENTS.md` its tool reads. If you turn `AGENTS.md` off in the tool itself (Cline's Rules panel, or a Qoder CLI `context.fileName` without it), turn it back on: the rules that skipped their file reach that tool only through `AGENTS.md`. Listing `AGENTS.md` under `sync.unmanaged` makes every rule keep its file too, but sync then stops writing `AGENTS.md` at all, so codex and every other reader stop getting rule changes there.
 
-The next full sync removes a rule file it no longer writes while the file still carries the agnostic-ai header, edited or not. Until then `sync --check`, `doctor`, and `status` report it as drift, since the tool still loads it.
+The next full sync removes a rule file it no longer writes while the file still carries the agnostic-ai header, edited or not. Until then `sync --check`, `doctor`, and `status` report it as drift under `ledger`, since the tool still loads it, and `doctor --fix` removes it.
 
 A partial sync (`--only`, `--except`, or `--target`) renders a shared entry point for every configured target that reads it, so the file matches a full sync.
 

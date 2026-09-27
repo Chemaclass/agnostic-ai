@@ -309,3 +309,56 @@ func TestSync_WindsurfKeepsAlwaysOnRulesBesideAGENTSMd(t *testing.T) {
 		t.Error(".devin/rules/always.md must stay")
 	}
 }
+
+// upgradedProject leaves a .clinerules copy the next full sync removes,
+// as an upgrade to a version that skips it does.
+func upgradedProject(t *testing.T) string {
+	t.Helper()
+	dir := ruleFilesProject(t, "targets: [cline]\n")
+	mustSync(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, cline]\n")
+	mustSync(t, "--only", "codex")
+	return dir
+}
+
+func TestDoctorFix_RemovesLeftovers(t *testing.T) {
+	dir := upgradedProject(t)
+
+	if out, err := runCLI(t, "doctor", "--fix"); err != nil {
+		t.Fatalf("doctor --fix must settle a leftover: %v\n%s", err, out)
+	}
+	if exists(filepath.Join(dir, ".clinerules", "always.md")) {
+		t.Error("doctor --fix left .clinerules/always.md in place")
+	}
+	if out, err := runCLI(t, "doctor"); err != nil {
+		t.Errorf("doctor after --fix: %v\n%s", err, out)
+	}
+}
+
+// The ledger does not record which target wrote a file, so leftovers
+// get a report of their own instead of the entry-point one.
+func TestSyncCheck_ReportsLeftoversUnderTheLedger(t *testing.T) {
+	upgradedProject(t)
+
+	out, _ := runCLI(t, "sync", "--check", "--json")
+
+	if !strings.Contains(out, `"target": "ledger"`) {
+		t.Errorf("leftover should report under target ledger:\n%s", out)
+	}
+}
+
+// A rule that already has a spec is never imported again from the
+// block, even when its file name differs from the rule name.
+func TestImport_ClineSkipsBlockRulesThatAlreadyHaveASpec(t *testing.T) {
+	dir := budgetProject(t, "targets: [codex, cline]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "always-rule.md"), alwaysRuleSpec)
+	mustSync(t)
+
+	if out, err := runCLI(t, "import", "cline"); err != nil {
+		t.Fatalf("import cline: %v\n%s", err, out)
+	}
+
+	if exists(filepath.Join(dir, ".agnostic-ai", "rules", "always.md")) {
+		t.Error("import cline duplicated the always rule, which already has a spec")
+	}
+}

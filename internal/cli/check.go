@@ -49,15 +49,6 @@ func orphanedCount(reports []driftReport) int {
 	return n
 }
 
-// leftoverCount totals the leftover files across reports.
-func leftoverCount(reports []driftReport) int {
-	n := 0
-	for _, r := range reports {
-		n += len(r.Leftover)
-	}
-	return n
-}
-
 // collectDrift runs each target adapter in capture mode and compares each
 // would-be file against disk. Also checks entry-point files (CLAUDE.md,
 // AGENTS.md, AGNOSTIC_AI.md). No files are written.
@@ -137,14 +128,22 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 	if err != nil {
 		return nil, err
 	}
+	reports = append(reports, epRep)
 	// Another target's files are not in emitted, so only a check that
 	// covers every configured target can tell what sync stopped writing.
+	// The ledger does not record which target wrote a file, so leftovers
+	// get a report of their own.
 	if resolvedAll {
-		epRep.Leftover = leftoverOutputs(cfg, emitted)
+		if leftover := leftoverOutputs(cfg, emitted); len(leftover) > 0 {
+			reports = append(reports, driftReport{Target: ledgerReport, Leftover: leftover})
+		}
 	}
-	reports = append(reports, epRep)
 	return reports, nil
 }
+
+// ledgerReport names the drift report for files the last sync wrote and
+// no longer emits.
+const ledgerReport = "ledger"
 
 // leftoverOutputs returns the files the last sync wrote, that are not in
 // emitted or an entry point, and that the next full sync's orphan sweep
@@ -476,9 +475,6 @@ func newDoctorCmd() *cobra.Command {
 				if n := orphanedCount(reports); n > 0 {
 					return fmt.Errorf("%d orphaned file(s) need manual removal", n)
 				}
-				if n := leftoverCount(reports); n > 0 {
-					return fmt.Errorf("%d file(s) no longer generated; run `agnostic-ai sync` to remove them", n)
-				}
 			}
 			return nil
 		},
@@ -550,9 +546,9 @@ func driftRecords(reports []driftReport) []fileRecord {
 }
 
 // fixDrift writes the captured content for every missing or stale file in
-// reports, after the removals that stand in their way. Files in sync are
-// left untouched. Returns the number of files
-// written.
+// reports, after the removals that stand in their way, and removes the
+// leftovers the next sync would sweep. Files in sync are left untouched.
+// Returns the number of files written or removed.
 func fixDrift(reports []driftReport, backup bool) (int, error) {
 	sess := adapters.NewSession()
 	if backup {
@@ -574,6 +570,22 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 				return written, err
 			}
 			written++
+		}
+		if len(r.Leftover) == 0 {
+			continue
+		}
+		// The same ownership guard as the orphan sweep in sync.
+		sums := readStateFile(".").OutputSums
+		pruned := map[string]bool{}
+		for _, p := range r.Leftover {
+			removed, err := sess.RemoveOwned(p, sums[p], false)
+			if err != nil {
+				return written, err
+			}
+			if removed {
+				pruneAncestorDirs(p, pruned)
+				written++
+			}
 		}
 	}
 	return written, nil
