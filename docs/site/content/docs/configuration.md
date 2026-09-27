@@ -470,14 +470,17 @@ effort:
 |---|---|---|
 | codex | `~/.codex/config.toml` | `model`, `model_reasoning_effort` |
 | claude | `~/.claude/settings.json` | `model`, `effortLevel` |
+| copilot | `~/.copilot/settings.json` | `model`, `effortLevel` |
+| qoder | `~/.qoder/settings.json` | `model.name`, `model.reasoningEffort` |
+| gemini | `~/.gemini/settings.json` | `model.name` |
 
-Other targets raise a coverage note, and so does `permissions` in a global settings spec. Claude's `effortLevel` takes `low`, `medium`, `high`, or `xhigh`; Codex takes any string. `lint --global` (LINT014) and `validate --global` flag a value a target cannot take.
+Other targets raise a coverage note, and so does `permissions` in a global settings spec. Gemini sets thinking per model, with no default effort key, so `effort` raises a note there. Claude's and Copilot's `effortLevel` take `low`, `medium`, `high`, or `xhigh`; Qoder takes `disabled`, `off`, `none`, `low`, `medium`, `high`, `xhigh`, or `max`; Codex takes any string. A dotted key is a nested JSON object: sync sets `name` inside `model` and leaves the object's other keys alone. `lint --global` (LINT014) and `validate --global` flag a value a target cannot take.
 
 Each layer overrides the one before it:
 
 1. `settings/*.yaml` in the home.
 2. `local/settings/*.yaml`. A file with the same name merges into the shared one field by field. A new file comes after the shared ones, so its `model` and `effort` win.
-3. The project tier. A project's `.codex/config.toml` or `.claude/settings.json` wins through the tool's own precedence.
+3. The project tier. A project's settings file, such as `.codex/config.toml` or `.claude/settings.json`, wins through the tool's own precedence.
 4. An agent's own `model` and `effort`, for that agent.
 5. The tool's flag for one run, such as `codex -m` or `claude --model`.
 

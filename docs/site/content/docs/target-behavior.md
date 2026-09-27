@@ -135,7 +135,7 @@ See [adding adapters](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/i
 | **trae** | - | - | - | `~/.trae/skills/<name>/` | `~/.trae-cn/agents/<name>.md` |
 | **augment** | - | `~/.augment/rules/<name>.md` | - | `~/.augment/skills/<name>/` | `~/.augment/agents/<name>.md` |
 
-Settings specs reach two targets: Claude Code writes `model` and `effortLevel` in `~/.claude/settings.json`, and Codex writes `model` and `model_reasoning_effort` in `~/.codex/config.toml`. Every other target raises a coverage note. See [default model and effort](@/docs/configuration.md#global-default-model-and-effort).
+Settings specs reach five targets' user settings files: Claude Code, Codex, Copilot, Qoder, and Gemini (model only). Every other target raises a coverage note. See [default model and effort](@/docs/configuration.md#global-default-model-and-effort).
 
 Global agents use the same native formats as project agents. Amp, Zed, Warp, and Crush have no supported global agent-file output. See [global configuration](@/docs/configuration.md#global-configuration) for setup and migration.
 

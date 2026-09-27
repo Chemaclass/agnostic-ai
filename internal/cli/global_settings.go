@@ -38,11 +38,17 @@ func (f globalSettingsFile) accepts(value any) bool {
 	if !ok || level == "" || f.effort == "" {
 		return false
 	}
+	if f.effortLevel == nil {
+		return true
+	}
 	levels := f.effortLevel()
 	return levels == nil || slices.Contains(levels, level)
 }
 
 func (f globalSettingsFile) levelsText() string {
+	if f.effortLevel == nil {
+		return "a string"
+	}
 	if levels := f.effortLevel(); levels != nil {
 		return strings.Join(levels, ", ")
 	}
@@ -337,7 +343,7 @@ func lintGlobalSettings(settings []spec.Entry, targets []string) []validationIss
 	for _, entry := range settings {
 		for _, target := range slices.Sorted(slices.Values(targets)) {
 			f := globalTargets[target].settings
-			if f.path == "" {
+			if f.path == "" || f.effort == "" {
 				continue
 			}
 			effort := adapters.SettingsEffort([]spec.Entry{entry}, target)

@@ -397,3 +397,49 @@ x-codex:
 		t.Errorf("removal must restore config.toml:\n%s", got)
 	}
 }
+
+func TestSyncGlobal_SettingsReachGeminiQoderCopilot(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "d.yaml"), `model:
+  gemini: gemini-3-pro
+  qoder: qoder-max
+  copilot: gpt-6-luna
+effort:
+  qoder: max
+  copilot: xhigh
+  gemini: high
+`)
+	geminiPath := filepath.Join(home, ".gemini", "settings.json")
+	mustWriteGlobalTest(t, geminiPath, "{\n  \"model\": {\n    \"maxSessionTurns\": 20\n  }\n}\n")
+
+	_, warnings, err := runGlobalAgentTest("--only", "gemini,qoder,copilot")
+	if err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	read := func(path string) map[string]any {
+		t.Helper()
+		var doc map[string]any
+		if err := json.Unmarshal([]byte(readGlobalTest(t, path)), &doc); err != nil {
+			t.Fatal(err)
+		}
+		return doc
+	}
+	gemini := read(geminiPath)["model"].(map[string]any)
+	if gemini["name"] != "gemini-3-pro" || gemini["maxSessionTurns"] != float64(20) {
+		t.Errorf("gemini model = %v", gemini)
+	}
+	qoder := read(filepath.Join(home, ".qoder", "settings.json"))["model"].(map[string]any)
+	if qoder["name"] != "qoder-max" || qoder["reasoningEffort"] != "max" {
+		t.Errorf("qoder model = %v", qoder)
+	}
+	copilot := read(filepath.Join(home, ".copilot", "settings.json"))
+	if copilot["model"] != "gpt-6-luna" || copilot["effortLevel"] != "xhigh" {
+		t.Errorf("copilot settings = %v", copilot)
+	}
+	if !strings.Contains(warnings, "gemini") || !strings.Contains(warnings, "effort") {
+		t.Errorf("gemini effort must raise a note:\n%s", warnings)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "gemini,qoder,copilot", "--check"); err != nil {
+		t.Fatalf("check after sync: %v", err)
+	}
+}

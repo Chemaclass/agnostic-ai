@@ -11,6 +11,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/copilot"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -166,6 +167,13 @@ var globalTargets = map[string]globalTarget{
 		hookTarget:   hookTargetHandlerEnv,
 		hookFoldArgs: true,
 		hookTimeout:  gemini.HookTimeout,
+		settings: globalSettingsFile{
+			path: globalPathHome + ".gemini/settings.json", format: "json",
+			// Gemini sets thinking per model under modelConfigs, with no
+			// default effort key, so a portable effort raises a note.
+			model:    "model.name",
+			reserved: map[string]string{"hooks": "sync --global writes hooks from hook specs"},
+		},
 	},
 	"qoder": {
 		rootEnv:      "QODER_CONFIG_DIR",
@@ -177,6 +185,14 @@ var globalTargets = map[string]globalTarget{
 		hooksFormat:  "claude",
 		hookTarget:   hookTargetHandlerEnv,
 		hookArgs:     true,
+		settings: globalSettingsFile{
+			path: globalPathHome + ".qoder/settings.json", format: "json",
+			model: "model.name", effort: "model.reasoningEffort", effortLevel: qoderUserEffortLevels,
+			reserved: map[string]string{
+				"hooks":       "sync --global writes hooks from hook specs",
+				"permissions": "sync --global does not write user-level permissions",
+			},
+		},
 	},
 	"copilot": {
 		rootEnv:      "COPILOT_HOME",
@@ -185,6 +201,11 @@ var globalTargets = map[string]globalTarget{
 		agentEfforts: globalPathHome + ".copilot/settings.json",
 		instructions: globalPathHome + ".copilot/copilot-instructions.md",
 		skills:       globalPathHome + ".copilot/skills",
+		settings: globalSettingsFile{
+			path: globalPathHome + ".copilot/settings.json", format: "json",
+			model: "model", effort: "effortLevel", effortLevel: copilot.Adapter{}.SettingsEffortLevels,
+			reserved: map[string]string{"subagents": "sync --global writes per-agent effort from agent specs"},
+		},
 	},
 	"cline": {
 		rootEnv:      "CLINE_DIR",
@@ -275,6 +296,12 @@ var globalTargets = map[string]globalTarget{
 		rules:  globalPathHome + ".augment/rules",
 		skills: globalPathHome + ".augment/skills",
 	},
+}
+
+// qoderUserEffortLevels are the model.reasoningEffort values Qoder CLI
+// documents for its user settings (docs.qoder.com/cli/settings-reference).
+func qoderUserEffortLevels() []string {
+	return []string{"disabled", "off", "none", "low", "medium", "high", "xhigh", "max"}
 }
 
 // globalTargetNames returns every target sync --global supports, sorted.
