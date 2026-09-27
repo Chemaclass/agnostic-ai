@@ -361,6 +361,11 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	if err := detectCollisions(cfg, b, effectiveTargets); err != nil {
 		return err
 	}
+	// A mistyped key parses and emits, so without this line nothing in a
+	// sync says the rule or agent lost its setting.
+	for _, f := range lintNearMissKeys(b.All()) {
+		summaryf("%s %s: %s\n", bang(), filepath.ToSlash(f.Path), f.Message)
+	}
 	shared, err := planSharedSkills(cfg, b, effectiveTargets)
 	if err != nil {
 		return err

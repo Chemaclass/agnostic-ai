@@ -2,11 +2,13 @@ package cli
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -387,6 +389,22 @@ var nearMissKeys = map[string]nearMiss{
 	"disallowed_tools": {Use: "x-junie.disallowedTools"},
 }
 
+// keyTypo reports a key one edit from a documented spec field (two for
+// longer names) as a near miss of that field: `glob:` parses, emits, and
+// leaves a rule meant for Go files applying everywhere. Keys any kind
+// documents are never typos, and environments and settings are skipped:
+// they pass their keys through to native files the tool owns.
+func keyTypo(kind spec.Kind, key string) (nearMiss, bool) {
+	if kind == spec.KindEnvironment || kind == spec.KindSettings ||
+		strings.HasPrefix(key, "x-") || slices.Contains(specKeys, key) {
+		return nearMiss{}, false
+	}
+	if s := adapters.SuggestName(key, specKeys); s != "" {
+		return nearMiss{Use: s, Owned: true}, true
+	}
+	return nearMiss{}, false
+}
+
 // lintNearMissKeys flags those keys at the top level of a spec's
 // frontmatter (LINT007, warn). Warn rather than error because a
 // target-native spelling can be legitimate: Junie really does document
@@ -402,6 +420,9 @@ func lintNearMissKeys(entries []spec.Entry) []lintFinding {
 		sort.Strings(keys)
 		for _, k := range keys {
 			miss, ok := nearMissKeys[k]
+			if !ok {
+				miss, ok = keyTypo(e.Kind, k)
+			}
 			if !ok {
 				continue
 			}

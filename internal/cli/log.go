@@ -38,3 +38,4 @@ func verbosef(format string, a ...any) {
 // Status symbols for the active log sink.
 func tick() string  { return term.Tick(logOut) }
 func cross() string { return term.Cross(logOut) }
+func bang() string  { return term.Bang(logOut) }

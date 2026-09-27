@@ -1,10 +1,15 @@
 package cli
 
 import (
+	"os"
+	"path/filepath"
+	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 // A near-miss of a key the tool owns is not an extension, it is a typo
@@ -95,5 +100,79 @@ func TestCollectLintFindings_IncludesNearMissKeys(t *testing.T) {
 	}
 	if !found {
 		t.Error("lint must report the near-miss key; a rule nobody calls fixes nothing")
+	}
+}
+
+// A key one edit from a documented key is a typo, not an extension:
+// `glob:` leaves a rule meant for Go files applying everywhere.
+func TestLintNearMissKeys_FlagsTyposOfDocumentedKeys(t *testing.T) {
+	cases := map[string]string{"glob": "globs", "descriptin": "description", "alwaysapply": "alwaysApply", "matchr": "matcher"}
+	for key, want := range cases {
+		entries := []spec.Entry{{
+			Kind: spec.KindRule, Name: "r", Path: "rules/r.md",
+			Meta: map[string]any{key: "x"}, Body: "b",
+		}}
+
+		got := lintNearMissKeys(entries)
+
+		if len(got) != 1 || !strings.Contains(got[0].Message, "`"+want+":`") {
+			t.Errorf("%s: want a finding naming %s, got %v", key, want, got)
+		}
+	}
+}
+
+// Environments and settings pass their keys through to native files, so a
+// key close to a spec field there is the tool's own, not a typo.
+func TestLintNearMissKeys_SkipsPassthroughKinds(t *testing.T) {
+	for _, kind := range []spec.Kind{spec.KindEnvironment, spec.KindSettings} {
+		entries := []spec.Entry{{
+			Kind: kind, Name: "e", Path: "e.yaml",
+			Meta: map[string]any{"ports": "x", "globs": "x", "glob": "x"},
+		}}
+		if got := lintNearMissKeys(entries); len(got) != 0 {
+			t.Errorf("%s keys pass through, got %v", kind, got)
+		}
+	}
+}
+
+// Every field the spec-format page documents must count as known, or a
+// correct spec would be flagged as a typo of its neighbor.
+func TestSpecKeys_CoverEveryDocumentedField(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "docs", "site", "content", "docs", "spec-format.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	field := regexp.MustCompile("`([A-Za-z][A-Za-z0-9_-]*)`")
+	skip := map[string]bool{"## Settings": true, "## Target-specific extensions: `x-<target>` namespace": true}
+	section := ""
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(line, "## ") {
+			section = line
+		}
+		if skip[section] || !strings.HasPrefix(line, "| `") {
+			continue
+		}
+		first := strings.Split(line, "|")[1]
+		for _, m := range field.FindAllStringSubmatch(first, -1) {
+			if !slices.Contains(specKeys, m[1]) {
+				t.Errorf("%s documents `%s`, missing from specKeys", section, m[1])
+			}
+		}
+	}
+}
+
+func TestRunSyncOnce_WarnsAboutAMistypedKey(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go.md"), "---\nglob: \"*.go\"\n---\n\nUse gofmt.\n")
+	silence(t)
+	buf := captureLog(t)
+
+	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(buf.String(), "! .agnostic-ai/rules/go.md: `glob:` is not a key agnostic-ai reads") {
+		t.Errorf("sync should name the mistyped key:\n%s", buf.String())
 	}
 }
