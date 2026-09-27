@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -55,8 +56,9 @@ type checkScope struct {
 
 // loadCheckScope loads the project in the working directory, or the
 // global and global-local layers sync --global reads. The global scope
-// checks against every target a default sync --global writes, and hook
-// events only against the targets it writes hooks for.
+// checks against the targets a default sync --global writes, from the
+// home config or else every supported one, and hook events only against
+// those it writes hooks for.
 func loadCheckScope(global bool) (checkScope, error) {
 	if !global {
 		cfg, b, err := loadProject(".")
@@ -69,11 +71,18 @@ func loadCheckScope(global bool) (checkScope, error) {
 	if err != nil {
 		return checkScope{}, err
 	}
+	targets, err := loadGlobalTargets(source, io.Discard)
+	if err != nil {
+		return checkScope{}, err
+	}
+	if targets == nil {
+		targets = globalTargetNames()
+	}
 	b, err := spec.LoadLayered(globalLayers(source))
 	if err != nil {
 		return checkScope{}, err
 	}
-	return checkScope{global: true, source: source, targets: globalTargetNames(), hookTargets: globalHookTargetNames(), bundle: b}, nil
+	return checkScope{global: true, source: source, targets: targets, hookTargets: globalHookTargets(targets), bundle: b}, nil
 }
 
 func (s checkScope) emptyHint() string {

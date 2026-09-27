@@ -89,36 +89,41 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if o.format != checkFormatHuman && !o.check {
 		return errs.Coded(errs.CodeFlagConflict, "--format requires --check with --global")
 	}
+	home, err := globalUserHome()
+	if err != nil {
+		return err
+	}
+	source := globalSourceHome(home)
+	warn := cmd.ErrOrStderr()
+	if verbosity < levelDefault || o.check {
+		warn = io.Discard
+	}
+	configured, err := loadGlobalTargets(source, warn)
+	if err != nil {
+		return err
+	}
 	targets := o.targets
 	// A default run spans every supported target, so one target's
 	// problem (a relative root variable, a name its native format
 	// rejects) warns and skips that target instead of failing the rest.
-	explicit := len(o.targets) > 0 || len(o.only) > 0
+	// A home config names its targets, as --only does.
+	explicit := len(o.targets) > 0 || len(o.only) > 0 || configured != nil
+	if len(targets) == 0 {
+		targets = configured
+	}
 	if len(targets) == 0 {
 		targets = globalTargetNames()
 	}
-	var err error
 	targets, err = filterTargets(targets, o.only, o.except)
 	if err != nil {
 		return err
 	}
 	for _, target := range targets {
-		if _, ok := globalTargets[target]; !ok {
-			if s := adapters.SuggestName(target, globalTargetNames()); s != "" {
-				return fmt.Errorf("--global: unsupported target %q (did you mean %s?)", target, s)
-			}
-			return fmt.Errorf("--global: unsupported target %q (supported: %s)", target, strings.Join(globalTargetNames(), ", "))
+		if err := unsupportedGlobalTarget("--global", target); err != nil {
+			return err
 		}
 	}
 
-	home, err := globalUserHome()
-	if err != nil {
-		return err
-	}
-	warn := cmd.ErrOrStderr()
-	if verbosity < levelDefault || o.check {
-		warn = io.Discard
-	}
 	var usable []string
 	for _, target := range targets {
 		err := globalTargets[target].rootError(target)
@@ -134,7 +139,6 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		}
 	}
 	targets = usable
-	source := globalSourceHome(home)
 	bundle, err := spec.LoadLayered(globalLayers(source))
 	if err != nil {
 		return err

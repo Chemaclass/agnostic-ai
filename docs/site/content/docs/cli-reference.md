@@ -123,7 +123,7 @@ Load all specs, report parse errors, and print `loaded 12 entries. ok.` on succe
 | Flag | Description |
 |------|-------------|
 | `--fix` | Rewrite source spec files to repair autofixable issues. |
-| `--global` | Validate the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides, the layers `sync --global` loads. Hook events are checked against the targets `sync --global` writes hooks for (Claude, Codex, Cursor, Gemini, Qoder), and orphaned kinds against every target it supports. Works outside a project. |
+| `--global` | Validate the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides, the layers `sync --global` loads. Hook events are checked against the targets `sync --global` writes hooks for (Claude, Codex, Cursor, Gemini, Qoder), and orphaned kinds against every target it supports. A home config `targets` list narrows both. Works outside a project. |
 
 Hook events accepted per target:
 
@@ -141,7 +141,7 @@ Semantic checks beyond the schema. Exits 1 on error findings. `agnostic-ai lint 
 | Flag | Description |
 |------|-------------|
 | `--strict` | Exit 1 on warnings too. |
-| `--global` | Lint the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides, the layers `sync --global` loads. Dead specs and target-only keys are checked against every target `sync --global` supports. Also reports LINT010. Works outside a project. |
+| `--global` | Lint the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides, the layers `sync --global` loads. Dead specs and target-only keys are checked against every target `sync --global` supports, or the home config `targets` list. Also reports LINT010. Works outside a project. |
 
 It flags empty specs, dead specs (kinds no enabled target supports), and hooks that set a matcher on an event that ignores it. Four codes catch specs that never reach a target:
 
@@ -302,7 +302,7 @@ Emit per-target configs, for example `agnostic-ai sync --only claude,cursor`.
 | `--watch-poll` | With `--watch`, force the 200 ms polling backend, for network mounts or container volumes where fsnotify misses events. |
 | `--jobs <n>` | Targets emitted in parallel. `0` (default) is one worker per CPU; `1` is serial. See [parallel emission](#parallel-emission). |
 | `--json` | Output as JSON. See [JSON output](#json-output). |
-| `--global` | Install user-level instructions, unconditional rules, hooks, and skills from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai/`) into 22 tools' user config, plus native agents for 18 targets. Loads whole-spec overrides from the source root's `local/` directory. Works outside a project; never loads project config or packs. See [global output](@/docs/target-behavior.md#global-output). Accepts `--target`, `--only`, `--except` (unsupported targets fail with the supported list), `--dry-run`, `--check`, `--check --diff` (managed block only for instructions files; both `--check` and `--dry-run` also name every file a sync would remove), `--backup`; rejects `--watch`, `--plan`, `--json`, `--gitignore`, `--jobs` before any write. |
+| `--global` | Install user-level instructions, unconditional rules, hooks, and skills from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai/`) into 22 tools' user config, plus native agents for 18 targets. Loads whole-spec overrides from the source root's `local/` directory. Reads `targets` from an optional `agnostic-ai.yaml` in the source root, which `local/agnostic-ai.yaml` replaces and flags override; see [global configuration](@/docs/configuration.md#global-configuration). Works outside a project; never loads project config or packs. See [global output](@/docs/target-behavior.md#global-output). Accepts `--target`, `--only`, `--except` (unsupported targets fail with the supported list), `--dry-run`, `--check`, `--check --diff` (managed block only for instructions files; both `--check` and `--dry-run` also name every file a sync would remove), `--backup`; rejects `--watch`, `--plan`, `--json`, `--gitignore`, `--jobs` before any write. |
 
 Paths listed under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) are skipped and reported as `~ skip (unmanaged) <path>`.
 

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -230,11 +231,11 @@ func globalTargetNames() []string {
 	return out
 }
 
-// globalHookTargetNames returns the targets sync --global writes hooks
-// for, sorted.
-func globalHookTargetNames() []string {
+// globalHookTargets keeps the targets sync --global writes hooks for,
+// sorted.
+func globalHookTargets(targets []string) []string {
 	var out []string
-	for _, name := range globalTargetNames() {
+	for _, name := range slices.Sorted(slices.Values(targets)) {
 		if globalTargets[name].hooks != "" {
 			out = append(out, name)
 		}

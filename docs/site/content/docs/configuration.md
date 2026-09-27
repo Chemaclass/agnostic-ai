@@ -355,18 +355,20 @@ Only `project` honors custom `sources` paths. `.agnostic-ai/local/` stays out of
 
 ## Global configuration
 
-`agnostic-ai sync --global` installs user-level instructions, rules, hooks, and skills for 22 of the 25 targets ([global output](@/docs/target-behavior.md#global-output) lists paths). It works from any directory and loads no `agnostic-ai.yaml`, packs, or project specs. Personal overrides live in the source root's `local/` directory.
+`agnostic-ai sync --global` installs user-level instructions, rules, hooks, and skills for 22 of the 25 targets ([global output](@/docs/target-behavior.md#global-output) lists paths). It works from any directory and loads no packs or project specs. Personal overrides live in the source root's `local/` directory.
 
 Source root: `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when `AGNOSTIC_AI_HOME` is unset.
 
 ```text
 ~/.agnostic-ai/
+├── agnostic-ai.yaml        # optional, targets only
 ├── AGNOSTIC_AI.md
 ├── agents/*.md
 ├── rules/*.md
 ├── hooks/*.yaml
 ├── skills/<name>/SKILL.md
 └── local/                  # optional personal layer
+    ├── agnostic-ai.yaml
     ├── AGNOSTIC_AI.md
     ├── agents/*.md
     ├── rules/*.md
@@ -382,9 +384,17 @@ Before adding personal files, add this entry to the source root's `.gitignore`:
 /local/
 ```
 
+To sync a fixed set of tools without `--only` on every run, list them in the source root's `agnostic-ai.yaml`:
+
+```yaml
+targets: [claude, codex, cursor]
+```
+
+`sync --global` and `sync --global --check` then touch those targets only, and `lint --global` and `validate --global` check against them. A `targets` list in `local/agnostic-ai.yaml` replaces the shared one. `--target`, `--only`, and `--except` still win for one run; `--only` and `--except` must name configured targets. An unknown name stops the run with the closest supported one. Global mode reads no other key: `version` passes, and any other key prints a warning and is ignored. A target dropped from the list keeps its synced files and ownership records, as a run with `--only` does, until you remove them by hand.
+
 For example, `local/skills/reviewer/SKILL.md` replaces `skills/reviewer/SKILL.md`. Run `agnostic-ai list --global` to see the effective specs with their `global` or `global-local` layer. Run `agnostic-ai validate --global` and `agnostic-ai lint --global` to check both layers before a sync writes them. Global layers never merge with project specs. [Local overrides](@/docs/local-overrides.md) compares this layer with the project one.
 
-- It targets every supported tool by default. Which `sync` flags it accepts is in the [CLI reference](@/docs/cli-reference.md#sync).
+- It targets every supported tool by default, or the home config's `targets`. Which `sync` flags it accepts is in the [CLI reference](@/docs/cli-reference.md#sync).
 - Nested rules and rules with scope, path, glob, or target conditions are rejected. Commands, MCP servers, settings, inheritance, and merging with project specs are unsupported.
 - Global skills render native frontmatter and copy bundled assets verbatim. Claude resolves skill `model` and `effort`, including per-target maps and `x-claude` overrides. Shared directories such as `~/.agents/skills/` keep neutral frontmatter, even when syncing one target: target overrides are omitted.
 - Global Codex skills also get `agents/openai.yaml`, so `disable-model-invocation: true` keeps a skill manual-only there too. A skill marked `disable-model-invocation: true` prints a coverage note for each target whose global copy stays model-invocable. Syncing one target keeps the files another target placed in a shared skills directory, so `--only amp` leaves Codex's policy in place.
@@ -393,7 +403,7 @@ For example, `local/skills/reviewer/SKILL.md` replaces `skills/reviewer/SKILL.md
 - Output is real files, never symlinks. Ownership is recorded per target in `$AGNOSTIC_AI_HOME/state/global.json`. Sync keeps unrelated text, JSON keys, hooks, skills, and agents, and removes only recorded artifacts for the targets in the run, so `--only` never sweeps another target. A hooks file whose managed entries did not change is left byte for byte; a rewrite keeps its key order and indent. A managed hook gone from its file, or a hooks file gone altogether, counts as removed: sync warns and writes it again from the source. A managed hook with the same matcher and command but other edits stops the run; restore or remove it, then sync.
 - An unmanaged agent, skill, or rule collision, damaged marker, invalid native JSON, or corrupt state stops the run before writes. So does state recorded under another `HOME`: sync under that home, or remove the state file and the files it lists.
 - A hand edit to a file sync owns, or to the managed block of an instructions file, also stops the run before writes and names the file. Move the edit into the source, or rerun with `--backup` to overwrite it and keep `<path>.bak`. Text outside the managed block is yours and never counts. State written before this check has nothing to compare, so the first sync after upgrading proceeds as before.
-- A run without `--only` or explicit targets skips a target whose configuration root variable is relative, or whose native format rejects an agent name, and warns. Naming the target turns either into an error.
+- A run without `--only`, explicit targets, or a home config `targets` list skips a target whose configuration root variable is relative, or whose native format rejects an agent name, and warns. Naming the target, on the command line or in the home config, turns either into an error.
 - Empty surfaces create nothing: no instructions file (a recorded one is removed) and no hooks file.
 - Native tool precedence applies when global and project configuration both exist. Shared agent files remain until every owning target removes them. To update a file shared by Goose and OpenHands, sync both targets together.
 

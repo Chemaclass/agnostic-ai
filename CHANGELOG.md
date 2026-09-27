@@ -15,6 +15,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `lint --global` and `validate --global` check `~/.agnostic-ai/` and its `local/` layer before `sync --global` writes them, from any directory. They exit 1 on errors, and both report a scoped or conditional rule that `sync --global` would reject (LINT010).
 - `readonly: true` on an agent now restricts Claude Code too: the agent file gets `disallowedTools: Write, Edit, NotebookEdit`, and `sync` no longer says the field has no effect on claude. Bash stays allowed. The `readonly` key stays for Cursor and `import claude`. An explicit `x-claude.disallowedTools` wins.
 - A skill marked `disable-model-invocation: true` stays manual-only on Codex. Sync writes `allow_implicit_invocation: false` to its `agents/openai.yaml`, in project and global sync, so the spec no longer needs an `x-codex.policy` block. An explicit value in `x-codex` or in a bundled `agents/openai.yaml` still wins.
+- `sync --global` reads `targets` from an optional `agnostic-ai.yaml` in `~/.agnostic-ai/`, so a home that syncs three tools no longer needs `--only` on every run. A `targets` list in `local/agnostic-ai.yaml` replaces it, and `--only`, `--except`, and `-t` still win for one run. `sync --global --check`, `lint --global`, and `validate --global` follow the same list. Other keys warn and are ignored.
 
 ### Changed
 
