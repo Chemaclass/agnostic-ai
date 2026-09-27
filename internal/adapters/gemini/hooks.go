@@ -59,11 +59,7 @@ func hookHandlers(h spec.Entry) []map[string]any {
 		if env, ok := native["env"].(map[string]any); ok {
 			handler["env"] = env
 		}
-		if timeout, ok := emit.IntField(h.Meta, "timeout"); ok {
-			handler["timeout"] = timeout * 1000
-		}
-		// Namespaced fields use native units, including subsecond imports.
-		if timeout, exists := native["timeout"]; exists {
+		if timeout, ok := HookTimeout(h.Meta); ok {
 			handler["timeout"] = timeout
 		}
 		handlers = append(handlers, handler)
@@ -92,4 +88,18 @@ func nativeHookHandlers(raw any) []map[string]any {
 		handlers = append(handlers, handler)
 	}
 	return handlers
+}
+
+// HookTimeout returns a hook's timeout in Gemini's milliseconds: the
+// spec's seconds times 1000, or `x-gemini.timeout` as written, since
+// namespaced fields use native units, including subsecond imports.
+func HookTimeout(meta map[string]any) (any, bool) {
+	native, _ := meta["x-gemini"].(map[string]any)
+	if timeout, exists := native["timeout"]; exists {
+		return timeout, true
+	}
+	if timeout, ok := emit.IntField(meta, "timeout"); ok {
+		return timeout * 1000, true
+	}
+	return nil, false
 }
