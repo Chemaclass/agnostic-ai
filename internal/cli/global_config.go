@@ -125,6 +125,11 @@ func refuseGlobalHome(dir, remedy string) error {
 		inside = append([]string{filepath.Base(current)}, inside...)
 		current = parent
 	}
+	// A home kept in HOME itself would otherwise refuse every project
+	// under HOME, so there only the root is guarded.
+	if len(inside) > 0 && isUserHome(root) {
+		return nil
+	}
 	where := source + " is the global home"
 	if len(inside) > 0 {
 		where = filepath.Join(append([]string{source}, inside...)...) + " is inside the global home " + source
@@ -133,6 +138,15 @@ func refuseGlobalHome(dir, remedy string) error {
 		return fmt.Errorf("%s (%s); %s, or unset %s if this is a project", where, envUserGlobalRoot, remedy, envUserGlobalRoot)
 	}
 	return fmt.Errorf("%s (%s is unset); %s, or set %s to another root if this is a project", where, envUserGlobalRoot, remedy, envUserGlobalRoot)
+}
+
+func isUserHome(dir os.FileInfo) bool {
+	home, err := globalUserHome()
+	if err != nil {
+		return false
+	}
+	info, err := os.Stat(home)
+	return err == nil && os.SameFile(info, dir)
 }
 
 // unsupportedGlobalTarget rejects a target sync --global cannot write,

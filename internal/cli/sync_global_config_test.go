@@ -343,3 +343,23 @@ func TestLintGlobal_ChecksKindsAgainstGlobalSurfaces(t *testing.T) {
 		t.Errorf("windsurf writes global agents, so the agent is not dead:\n%s", out)
 	}
 }
+
+func TestSync_GlobalHomeAtUserHomeGuardsOnlyTheRoot(t *testing.T) {
+	home, _ := globalConfigTestHome(t)
+	t.Setenv("AGNOSTIC_AI_HOME", home)
+	mustWriteGlobalTest(t, filepath.Join(home, "agnostic-ai.yaml"), "targets: [claude]\n")
+	project := filepath.Join(home, "proj")
+	mustWriteGlobalTest(t, filepath.Join(project, "agnostic-ai.yaml"), "targets: [claude]\n")
+
+	testutil.Chdir(t, home)
+	if err := runProjectSync("--check"); err == nil || !strings.Contains(err.Error(), home+" is the global home") {
+		t.Errorf("sync in HOME as the global home: want the refusal, got %v", err)
+	}
+	testutil.Chdir(t, project)
+	if err := runProjectSync(); err != nil {
+		t.Errorf("a project under HOME must sync when the global home is HOME itself: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(project, "CLAUDE.md")); err != nil {
+		t.Errorf("expected the project sync to write CLAUDE.md: %v", err)
+	}
+}
