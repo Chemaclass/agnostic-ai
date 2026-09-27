@@ -813,8 +813,13 @@ type codexHookSlot struct {
 // uses (event, matcher, command) so the standalone hooks.json layer can
 // overwrite TOML-defined entries that carry less information.
 func readCodexConfigTOML(root string) (map[codexHookKey]*codexHookSlot, map[string]codexMCPEntry, error) {
+	return readCodexConfigTOMLFile(filepath.Join(root, codexConfigTOML))
+}
+
+// readCodexConfigTOMLFile is readCodexConfigTOML for a config.toml at
+// any path, such as the user one under CODEX_HOME.
+func readCodexConfigTOMLFile(path string) (map[codexHookKey]*codexHookSlot, map[string]codexMCPEntry, error) {
 	hooks := map[codexHookKey]*codexHookSlot{}
-	path := filepath.Join(root, codexConfigTOML)
 	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return hooks, nil, nil

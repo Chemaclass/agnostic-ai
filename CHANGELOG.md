@@ -8,11 +8,11 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Added
 
+- `import --global` turns the model, effort, and MCP servers your tools hold into home specs that the next `sync --global` adopts unchanged (#1243).
 - `sync --global` installs MCP servers from `mcps/` in the user MCP files of Codex, Cursor, Copilot, Gemini, and Qoder (#1242).
-- `sync --global` sets the default `model` and `effort` from `settings/` for Claude, Codex, Copilot, Qoder, and Gemini, editing only those keys (#1240, #1242).
+- `sync --global` sets the default `model` and `effort` for five tools from `settings/`; `lint --global` flags a rejected effort (LINT014) (#1240, #1242).
 - An `x-<target>` block in a global settings spec sets that tool's own user keys, such as `x-codex.model_reasoning_summary` (#1242).
 - `explain --global` shows where any global spec lands, down to the settings key or MCP server (#1240, #1242).
-- `lint --global` and `validate --global` flag a settings `effort` a target cannot take (LINT014) (#1240).
 
 ### Changed
 
