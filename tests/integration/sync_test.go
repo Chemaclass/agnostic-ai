@@ -30,6 +30,7 @@ func TestSync_EmitsAllTargets(t *testing.T) {
 		"CONVENTIONS.md",
 		".github/copilot-instructions.md",
 		".cursor/rules/sample-rule.mdc",
+		".devin/rules/sample-rule.md",
 		".continue/rules/sample-rule.md",
 		".junie/AGENTS.md",
 		".junie/agents/sample-agent.md",
@@ -47,7 +48,6 @@ func TestSync_EmitsAllTargets(t *testing.T) {
 	// inline for codex, so a rule file would load it twice (#1224).
 	for _, f := range []string{
 		".clinerules/sample-rule.md",
-		".devin/rules/sample-rule.md",
 		".kiro/steering/sample-rule.md",
 		".qoder/rules/sample-rule.md",
 		".kilo/rules/sample-rule.md",

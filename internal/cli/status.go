@@ -98,13 +98,25 @@ func gatherStatus(projectRoot string) (*statusResult, error) {
 }
 
 // captureAllAndDiff runs every target adapter in capture mode, counts files
-// whose on-disk content differs from what would be emitted, and returns all
-// would-be emitted paths (for mtime fallback).
+// whose on-disk content differs from what would be emitted, plus the
+// files the next sync removes, and returns all would-be emitted paths
+// (for mtime fallback).
 func captureAllAndDiff(targets []string, cfg *config.Config, b spec.Bundle) (driftFiles int, allPaths []string, err error) {
 	sess := adapters.NewSession()
+	resolvedAll := true
+	defer func() {
+		if err == nil && resolvedAll {
+			emitted := make(map[string]bool, len(allPaths))
+			for _, p := range allPaths {
+				emitted[p] = true
+			}
+			driftFiles += len(leftoverOutputs(cfg, emitted))
+		}
+	}()
 	for _, t := range targets {
 		adapter, err := adapters.Resolve(t)
 		if err != nil {
+			resolvedAll = false
 			continue
 		}
 		sess.StartCapture()

@@ -179,7 +179,9 @@ func TestEntryPointRuleInliner(t *testing.T) {
 		{"unmanaged AGENTS.md", config.Config{Targets: []string{"codex", "cline"}, Sync: config.SyncConfig{Unmanaged: []string{"AGENTS.md"}}}, "cline", ""},
 		{"cline on its own file", config.Config{Targets: []string{"codex", "cline"}, Outputs: map[string]config.Output{"cline": {File: "CLINE.md"}}}, "cline", ""},
 		{"codex owns AGENTS.md", config.Config{Targets: []string{"codex", "cline"}, Outputs: map[string]config.Output{"codex": {RulesFile: "AGENTS.md"}}}, "cline", ""},
-		{"target outside the config", config.Config{Targets: []string{"codex"}}, "windsurf", "codex"},
+		{"target outside the config", config.Config{Targets: []string{"codex"}}, "kiro", "codex"},
+		{"windsurf may cut a long AGENTS.md", config.Config{Targets: []string{"codex", "windsurf"}}, "windsurf", ""},
+		{"kilo on a moved entry point", config.Config{Targets: []string{"kilo"}, Outputs: map[string]config.Output{"kilo": {File: "docs/KILO.md"}}}, "kilo", ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -197,7 +199,7 @@ func TestEntryPointInlinedRules_ListsTheInlinersUnscopedRules(t *testing.T) {
 		{Kind: spec.KindRule, Name: "cline-only", Meta: map[string]any{"targets": []any{"cline"}}, Body: "c"},
 	})
 	got := EntryPointInlinedRules(&config.Config{Targets: []string{"codex", "cline"}}, b, "cline")
-	if !got["always"] || got["pkg"] || got["cline-only"] || len(got) != 1 {
+	if _, ok := got["always"]; !ok || len(got) != 1 {
 		t.Errorf("want only the rule codex inlines, got %v", got)
 	}
 }

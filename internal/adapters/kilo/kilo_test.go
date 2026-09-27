@@ -141,25 +141,28 @@ func TestEmit_KiloJSONC_NoInstructionsKeyWhenNoRules(t *testing.T) {
 }
 
 // Sync drops a rule file when the shared AGENTS.md already carries the
-// rule (#1224). The entries it listed for those files must go too, or
-// Kilo Code reads instructions that point at deleted files.
-func TestEmit_KiloJSONC_DropsStaleRuleEntriesWhenNoRulesRemain(t *testing.T) {
+// rule (#1224). The entry listed for that file must go too, or Kilo
+// Code reads an instruction that points at a deleted file. Every other
+// entry, the user's own under .kilo/rules/ included, stays.
+func TestEmit_KiloJSONC_DropsOnlyTheEntriesOfInlinedRules(t *testing.T) {
 	dir := testutil.TempCwd(t)
-	existing := `{"instructions": [".kilo/rules/r1.md", "docs/team.md"], "model": "m"}`
+	existing := `{"instructions": [".kilo/rules/r1.md", ".kilo/rules/mine.md", "docs/team.md"], "model": "m"}`
 	if err := os.WriteFile(filepath.Join(dir, "kilo.jsonc"), []byte(existing), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	sess := emit.NewSession()
+	sess.SetInlinedRules([]spec.Entry{{Kind: spec.KindRule, Name: "r1"}})
 
-	if err := New().Emit(emit.NewSession(), spec.Bundle{}, &config.Config{}, false); err != nil {
+	if err := New().Emit(sess, spec.Bundle{}, &config.Config{}, false); err != nil {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, "kilo.jsonc"))
 	if strings.Contains(got, ".kilo/rules/r1.md") {
-		t.Errorf("stale rule entry survived:\n%s", got)
+		t.Errorf("the entry of the inlined rule survived:\n%s", got)
 	}
-	for _, want := range []string{`"docs/team.md"`, `"model": "m"`} {
+	for _, want := range []string{`".kilo/rules/mine.md"`, `"docs/team.md"`, `"model": "m"`} {
 		if !strings.Contains(got, want) {
-			t.Errorf("missing %s, the user's own entry:\n%s", want, got)
+			t.Errorf("missing %s:\n%s", want, got)
 		}
 	}
 }

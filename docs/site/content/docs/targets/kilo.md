@@ -14,7 +14,7 @@ target_id = "kilo"
 
 ```
 AGENTS.md                          # entry-point pointer body + inlined rules (shared path)
-.kilo/rules/<name>.md              # one per rule, only when AGENTS.md is in sync.unmanaged
+.kilo/rules/<name>.md              # one per rule the root AGENTS.md does not carry
 .kilo/agents/<name>.md             # one per agent
 .agents/skills/<name>/SKILL.md     # one folder per skill, plus bundled assets (shared cross-tool tree)
 .kilo/commands/<name>.md           # one per command
@@ -36,9 +36,9 @@ Kilo [Code](https://kilo.ai/docs) reads the root `AGENTS.md` and loads agents fr
 
 **Skills** emit into the shared `.agents/skills/<name>/SKILL.md` tree, which Kilo loads by default alongside its own `.kilo/skills/`. The render matches codex, amp, zed, crush, openhands, windsurf, and augment, so the tree dedupes. Kilo also scans `.claude/skills/` (the VS Code extension only with Claude Code Compatibility enabled). Point `outputs.kilo.skills-dir` anywhere else and the directory is added to `kilo.jsonc`'s `skills.paths` ([skills](https://github.com/Kilo-Org/kilocode/blob/main/packages/kilo-docs/pages/customize/skills.md)). Paths you added to `skills.paths` are kept, and `skills.urls` is left alone.
 
-**Rules**: unscoped rules inline into the root `AGENTS.md`, which Kilo [always loads](https://kilo.ai/docs/customize/agents-md) ("cannot be individually disabled"). A `.kilo/rules/` copy would load each rule twice, so those rules get no file there and no `instructions` entry. Scoped rules use nested `AGENTS.md`. See [target behavior](@/docs/target-behavior.md#entry-point-files).
+**Rules**: unscoped rules inline into the root `AGENTS.md`, which Kilo [always loads](https://kilo.ai/docs/customize/agents-md) ("cannot be individually disabled"). A `.kilo/rules/` copy would load each rule twice, so a rule whose text matches that block gets no file there and no `instructions` entry. A rule whose text differs for Kilo, such as one with a path variable (the block keeps variables as written), keeps its file. Scoped rules use nested `AGENTS.md`. See [target behavior](@/docs/target-behavior.md#entry-point-files).
 
-When `AGENTS.md` is listed in `sync.unmanaged`, sync writes no rules block there, so unscoped rules emit one file per rule under `.kilo/rules/`, each listed by explicit path (not a glob) in `kilo.jsonc`'s [`instructions`](https://kilo.ai/docs/customize/custom-rules) array. When no rule file is left, sync removes the entries under the rules directory from `instructions` and keeps the rest.
+When `AGENTS.md` is listed in `sync.unmanaged`, or a `file` output override moves the entry point off the root `AGENTS.md`, sync writes no rules block Kilo reads, so unscoped rules emit one file per rule under `.kilo/rules/`, each listed by explicit path (not a glob) in `kilo.jsonc`'s [`instructions`](https://kilo.ai/docs/customize/custom-rules) array. When no rule file is left, sync removes from `instructions` only the entries for rules `AGENTS.md` now carries; your own entries stay.
 
 Kilo's [precedence](https://kilo.ai/docs/customize/agents-md) is agent prompt > project `instructions` > `AGENTS.md` > global. The legacy `.kilocode/rules/` tree is still auto-included by Kilo, but this adapter never writes it.
 

@@ -141,15 +141,13 @@ func InlinesRulesIntoEntryPoint(target string) bool {
 }
 
 // entryPointFirstTargets write rule files of their own and also load
-// their entry point in every session by default. When that file carries
-// the inlined rules block, an always-on rule file would load the same
-// rule twice, so they leave it to the entry point (#1224):
+// their root entry point in every session by default. When that file
+// carries the inlined rules block, an always-on rule file holding the
+// same text would load it twice, so they leave it to the entry point
+// (#1224):
 //
 //   - cline: AGENTS.md is a detected rule source whose toggle starts on,
 //     like a .clinerules/ file's (Cline's rule-helpers.ts).
-//   - windsurf: "Devin CLI reads this file automatically", and Desktop
-//     feeds a root AGENTS.md into "the same Rules engine that powers
-//     .devin/rules/" as an always-on rule.
 //   - kiro: AGENTS.md files "do not support inclusion modes and are
 //     always included".
 //   - qoder: the IDE reads AGENTS.md with "No additional configuration";
@@ -159,28 +157,31 @@ func InlinesRulesIntoEntryPoint(target string) bool {
 //     ranks it above `.augment/rules/`.
 //
 // trae is absent: it reads AGENTS.md only after "Include AGENTS.md in
-// the context" is switched on under Settings > Rules.
+// the context" is switched on under Settings > Rules. windsurf is
+// absent: Devin caps a workspace rule at 12,000 characters and runs a
+// root AGENTS.md through the same rules engine, and its docs do not
+// exempt AGENTS.md, so one file with every rule could be cut short.
 var entryPointFirstTargets = map[string]bool{
-	"cline":    true,
-	"windsurf": true,
-	"kiro":     true,
-	"qoder":    true,
-	"kilo":     true,
-	"augment":  true,
+	"cline":   true,
+	"kiro":    true,
+	"qoder":   true,
+	"kilo":    true,
+	"augment": true,
 }
 
 // EntryPointRuleInliner returns the target whose rules block sync
-// inlines into the entry point target reads, when target loads that
+// inlines into the entry point target reads, when target may load that
 // block in place of its own always-on rule files: target itself or a
 // configured reader of the same file. Returns "" when target keeps its
-// rule files, including when sync does not write that entry point.
-// Mirrors the reader grouping in internal/cli/entrypoint.go.
+// rule files: it is not in entryPointFirstTargets, its entry point is
+// not the conventional root file its tool reads, or sync does not write
+// that file. Mirrors the reader grouping in internal/cli/entrypoint.go.
 func EntryPointRuleInliner(cfg *config.Config, target string) string {
 	if cfg == nil || !entryPointFirstTargets[target] || HasLegacyRulesFile(cfg, target) {
 		return ""
 	}
 	path := EntryPointPath(cfg, target)
-	if path == "" || path == AgnosticEntryPointPath || cfg.IsUnmanaged(path) {
+	if path != entryPointPaths[target] || cfg.IsUnmanaged(path) {
 		return ""
 	}
 	for _, t := range append([]string{target}, cfg.Targets...) {
@@ -191,18 +192,31 @@ func EntryPointRuleInliner(cfg *config.Config, target string) string {
 	return ""
 }
 
-// EntryPointInlinedRules returns the names of the rules in the block
-// EntryPointRuleInliner names for target, or nil when there is none.
-func EntryPointInlinedRules(cfg *config.Config, b spec.Bundle, target string) map[string]bool {
+// EntryPointInlinedRules returns, by name, the rules in the block
+// EntryPointRuleInliner names for target, as that block holds them:
+// fences resolved for the inliner and variables left as written. It is
+// nil when there is no such block, or when a Kiro agent lists its own
+// `resources`, since a Kiro custom agent loads only the steering files
+// it lists.
+func EntryPointInlinedRules(cfg *config.Config, b spec.Bundle, target string) map[string]spec.Entry {
 	inliner := EntryPointRuleInliner(cfg, target)
-	if inliner == "" {
+	if inliner == "" || target == "kiro" && kiroAgentListsResources(b) {
 		return nil
 	}
-	names := map[string]bool{}
+	rules := map[string]spec.Entry{}
 	for _, r := range EntryPointRules(b, inliner).Rules {
-		names[r.Name] = true
+		rules[r.Name] = r
 	}
-	return names
+	return rules
+}
+
+func kiroAgentListsResources(b spec.Bundle) bool {
+	for _, a := range b.For("kiro").Agents {
+		if _, ok := ResolveMeta(a.Meta, "kiro")["resources"]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 // importRulesDir maps each target whose CLI auto-loads its entry-point

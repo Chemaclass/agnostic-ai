@@ -762,6 +762,9 @@ func printSyncPlan(cmd *cobra.Command, reports []driftReport) {
 		if len(r.Orphaned) > 0 {
 			_, _ = fmt.Fprintf(w, "\torphaned: %d", len(r.Orphaned))
 		}
+		if len(r.Leftover) > 0 {
+			_, _ = fmt.Fprintf(w, "\tremoved: %d", len(r.Leftover))
+		}
 		_, _ = fmt.Fprintln(w)
 	}
 	_ = w.Flush()
@@ -851,6 +854,11 @@ func printDriftGitHub(cmd *cobra.Command, reports []driftReport) bool {
 		for _, p := range r.Orphaned {
 			drift = true
 			_, _ = fmt.Fprintf(out, "::error file=%s::%s is no longer generated but was edited since sync; delete it or list it under sync.unmanaged\n",
+				githubProp(p), githubData(filepath.ToSlash(p)))
+		}
+		for _, p := range r.Leftover {
+			drift = true
+			_, _ = fmt.Fprintf(out, "::error file=%s::%s is no longer generated but still loaded; run agnostic-ai sync to remove it\n",
 				githubProp(p), githubData(filepath.ToSlash(p)))
 		}
 	}

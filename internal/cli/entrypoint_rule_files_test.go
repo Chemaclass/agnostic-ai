@@ -171,3 +171,141 @@ func TestExplain_CreditsAGENTSMdToClineForAnInlinedRule(t *testing.T) {
 		t.Errorf("explain lists a .clinerules file sync no longer writes:\n%s", out)
 	}
 }
+
+// AGENTS.md holds codex's view of a rule: fences resolved for codex and
+// variables left as written. A reader whose own copy differs keeps it,
+// or it would lose the text that is only in that copy.
+func TestSync_ClineKeepsARuleWhoseBodyDiffersFromTheInlinedOne(t *testing.T) {
+	dir := budgetProject(t, "targets: [codex, cline]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "fenced.md"),
+		"---\nname: fenced\n---\nShared line.\n\n::target cline\nCLINE ONLY LINE.\n::end\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "vars.md"),
+		"---\nname: vars\n---\nSkills live in {{$SKILLS_DIR}}.\n")
+
+	mustSync(t)
+
+	if !strings.Contains(readFile(t, filepath.Join(dir, ".clinerules", "fenced.md")), "CLINE ONLY LINE.") {
+		t.Error("the cline-only fence reaches Cline only through .clinerules/fenced.md")
+	}
+	if !strings.Contains(readFile(t, filepath.Join(dir, ".clinerules", "vars.md")), "Skills live in .cline/skills.") {
+		t.Error("the expanded variable reaches Cline only through .clinerules/vars.md")
+	}
+}
+
+// Kilo and Augment read only the root AGENTS.md, so a moved entry point
+// carries rules neither loads.
+func TestSync_KiloAndAugmentKeepRuleFilesWithAMovedEntryPoint(t *testing.T) {
+	dir := ruleFilesProject(t, "targets: [kilo, augment]\noutputs:\n  kilo:\n    file: docs/KILO.md\n  augment:\n    file: docs/AUG.md\n")
+
+	mustSync(t)
+
+	for _, f := range []string{".kilo/rules/always.md", ".augment/rules/always.md"} {
+		if !exists(filepath.Join(dir, f)) {
+			t.Errorf("%s must stay: the rule reaches no root AGENTS.md", f)
+		}
+	}
+	if !strings.Contains(readFile(t, filepath.Join(dir, "kilo.jsonc")), ".kilo/rules/always.md") {
+		t.Error("kilo.jsonc must list the rule file")
+	}
+}
+
+func TestSync_ClineKeepsRuleFilesWhenItSharesAMovedEntryPointWithCodex(t *testing.T) {
+	dir := ruleFilesProject(t, "targets: [codex, cline]\noutputs:\n  codex:\n    file: docs/AGENTS.md\n  cline:\n    file: docs/AGENTS.md\n")
+
+	mustSync(t)
+
+	if !exists(filepath.Join(dir, ".clinerules", "always.md")) {
+		t.Error(".clinerules/always.md must stay: Cline reads the root AGENTS.md, not docs/AGENTS.md")
+	}
+}
+
+// Kilo loads .kilo/rules only through `instructions`, so an entry the
+// user wrote there must survive; only the entries for rules AGENTS.md
+// now carries go.
+func TestSync_KiloDropsOnlyTheInstructionsEntriesOfInlinedRules(t *testing.T) {
+	dir := ruleFilesProject(t, "targets: [kilo]\n")
+	mustWriteFile(t, filepath.Join(dir, ".kilo", "rules", "mine.md"), "My own rule.\n")
+	mustWriteFile(t, filepath.Join(dir, "kilo.jsonc"),
+		`{"instructions": [".kilo/rules/always.md", ".kilo/rules/go.md", ".kilo/rules/mine.md", "docs/x.md"]}`+"\n")
+
+	mustSync(t)
+
+	got := readFile(t, filepath.Join(dir, "kilo.jsonc"))
+	for _, gone := range []string{".kilo/rules/always.md", ".kilo/rules/go.md"} {
+		if strings.Contains(got, gone) {
+			t.Errorf("%s points at a rule AGENTS.md carries now:\n%s", gone, got)
+		}
+	}
+	for _, kept := range []string{".kilo/rules/mine.md", "docs/x.md"} {
+		if !strings.Contains(got, kept) {
+			t.Errorf("the user's own entry %s was dropped:\n%s", kept, got)
+		}
+	}
+}
+
+// A copy a previous sync wrote and this one no longer writes still loads
+// until a full sync removes it, so check must not pass while it is there.
+func TestSyncCheck_ReportsARuleFileTheNextSyncRemoves(t *testing.T) {
+	dir := ruleFilesProject(t, "targets: [cline]\n")
+	mustSync(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, cline]\n")
+	mustSync(t, "--only", "codex")
+
+	out, err := runCLI(t, "sync", "--check", "--json")
+	if err == nil || !strings.Contains(out, ".clinerules/always.md") || !strings.Contains(out, `"leftover"`) {
+		t.Errorf("sync --check must name the copy a full sync removes, got %v:\n%s", err, out)
+	}
+	if out, _ := runCLI(t, "status"); strings.Contains(out, "in sync") {
+		t.Errorf("status must not say in sync while the copy remains:\n%s", out)
+	}
+
+	mustSync(t)
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check after a full sync: %v\n%s", err, out)
+	}
+}
+
+func TestImport_ClineReadsTheRulesBlockItsCopiesWereSkippedFor(t *testing.T) {
+	dir := ruleFilesProject(t, "targets: [codex, cline]\n")
+	mustSync(t)
+	if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai", "rules")); err != nil {
+		t.Fatal(err)
+	}
+
+	if out, err := runCLI(t, "import", "cline"); err != nil {
+		t.Fatalf("import cline: %v\n%s", err, out)
+	}
+
+	if !strings.Contains(readFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "always.md")), "Always body.") {
+		t.Error("import cline must recover the rule Cline reads from AGENTS.md")
+	}
+	if !strings.Contains(readFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go.md")), "**/*.go") {
+		t.Error("import cline must keep the scoped rule from .clinerules/go.md")
+	}
+}
+
+// A Kiro custom agent loads only the steering files its `resources`
+// list, so the always-on steering files stay.
+func TestSync_KiroKeepsSteeringFilesWhenAnAgentSetsResources(t *testing.T) {
+	dir := ruleFilesProject(t, "targets: [codex, kiro]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "helper.md"),
+		"---\nname: helper\ndescription: Helps.\nx-kiro:\n  resources: [\"file://.kiro/steering/**\"]\n---\nHelp.\n")
+
+	mustSync(t)
+
+	if !exists(filepath.Join(dir, ".kiro", "steering", "always.md")) {
+		t.Error(".kiro/steering/always.md must stay: the custom agent reads steering, not AGENTS.md")
+	}
+}
+
+// Devin caps a workspace rule at 12,000 characters and runs AGENTS.md
+// through the same rules engine, so Windsurf keeps its own files.
+func TestSync_WindsurfKeepsAlwaysOnRulesBesideAGENTSMd(t *testing.T) {
+	dir := ruleFilesProject(t, "targets: [codex, windsurf]\n")
+
+	mustSync(t)
+
+	if !exists(filepath.Join(dir, ".devin", "rules", "always.md")) {
+		t.Error(".devin/rules/always.md must stay")
+	}
+}
