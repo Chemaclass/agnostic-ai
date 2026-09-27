@@ -12,6 +12,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `lint` and `sync` warn on a mistyped frontmatter key, such as `glob:` for `globs:`, which parsed and left a rule applying to every file (LINT007).
 - Every coded error prints its fix on the next line, so `sync` in a folder without a config says to run `agnostic-ai init`.
 - `init` and `status` point a project with no specs at `agnostic-ai new rule <name>`, and `doctor` says when the generated files are in sync.
+- `lint --global` and `validate --global` check `~/.agnostic-ai/` and its `local/` layer before `sync --global` writes them, from any directory. They exit 1 on errors, and `validate --global` also reports a scoped or conditional rule that `sync --global` would reject.
 
 ### Changed
 

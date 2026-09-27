@@ -40,7 +40,7 @@ func (f lintFinding) String() string {
 }
 
 func newLintCmd() *cobra.Command {
-	var strict bool
+	var strict, global bool
 	cmd := &cobra.Command{
 		Use:   "lint",
 		Short: "Run semantic lint checks on source specs beyond schema validation.",
@@ -55,19 +55,22 @@ func newLintCmd() *cobra.Command {
   agnostic-ai lint
 
   # Treat warnings as errors (useful in CI)
-  agnostic-ai lint --strict`,
+  agnostic-ai lint --strict
+
+  # Lint the global specs before sync --global writes them
+  agnostic-ai lint --global`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, b, err := loadProject(".")
+			_, targets, b, err := loadCheckScope(global)
 			if err != nil {
 				return err
 			}
 			entries := b.All()
 			if len(entries) == 0 {
-				cmd.PrintErrln(emptySpecsHint)
+				cmd.PrintErrln(emptyHint(global))
 				return nil
 			}
 
-			findings := collectLintFindings(cfg.Targets, b)
+			findings := collectLintFindings(targets, b)
 
 			if len(findings) == 0 {
 				cmd.Printf("ok — %d spec(s) clean\n", len(entries))
@@ -95,6 +98,7 @@ func newLintCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&strict, "strict", false, "Treat warnings as errors.")
+	cmd.Flags().BoolVar(&global, "global", false, "Lint the global specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, against every target sync --global supports.")
 	return cmd
 }
 

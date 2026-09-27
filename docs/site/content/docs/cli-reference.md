@@ -118,6 +118,12 @@ Load all specs, report parse errors, and print `loaded 12 entries. ok.` on succe
 | Orphaned kinds | Hook or MCP specs no enabled target consumes, one line per kind naming targets that would. |
 | Declared sources | An explicit `sources.<kind>` path in `agnostic-ai.yaml` with no directory. Warning only. |
 | Entry-point fences | A `::target` / `::targets` name in `.agnostic-ai/AGNOSTIC_AI.md` that is not a built-in target or listed in `targets` (external adapter), or that reads no entry-point file (`cursor`, or any target with `outputs.<target>.rules-file`). |
+| Global rules | With `--global`, a rule with scope, path, glob, or target conditions, which `sync --global` rejects. |
+
+| Flag | Description |
+|------|-------------|
+| `--fix` | Rewrite source spec files to repair autofixable issues. |
+| `--global` | Validate the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides, the layers `sync --global` loads. Hook events and orphaned kinds are checked against every target `sync --global` supports. Works outside a project. |
 
 Hook events accepted per target:
 
@@ -131,6 +137,11 @@ Hook events accepted per target:
 ## lint
 
 Semantic checks beyond the schema. Exits 1 on error findings. `agnostic-ai lint --strict` treats warnings as errors too, for CI.
+
+| Flag | Description |
+|------|-------------|
+| `--strict` | Exit 1 on warnings too. |
+| `--global` | Lint the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides, the layers `sync --global` loads. Dead specs and target-only keys are checked against every target `sync --global` supports. Works outside a project. |
 
 It flags empty specs, dead specs (kinds no enabled target supports), and hooks that set a matcher on an event that ignores it. Three codes catch specs that never reach a target:
 
@@ -561,7 +572,7 @@ Start the Language Server on stdin/stdout. Point your editor at `agnostic-ai lsp
 
 | Var | Default | Description |
 |-----|---------|-------------|
-| `AGNOSTIC_AI_HOME` | `~/.agnostic-ai` | Source root for `sync --global` and `list --global`, including their `local/` override layer. Project sync does not load it. See [global configuration](@/docs/configuration.md#global-configuration). |
+| `AGNOSTIC_AI_HOME` | `~/.agnostic-ai` | Source root for `sync --global`, `list --global`, `lint --global`, and `validate --global`, including their `local/` override layer. Project sync does not load it. See [global configuration](@/docs/configuration.md#global-configuration). |
 
 ## Config precedence
 

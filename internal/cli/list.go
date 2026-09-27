@@ -20,11 +20,7 @@ func newListCmd() *cobra.Command {
 			var b spec.Bundle
 			var err error
 			if global {
-				var home string
-				home, err = globalUserHome()
-				if err == nil {
-					b, err = spec.LoadLayered(globalLayers(globalSourceHome(home)))
-				}
+				b, err = loadGlobalBundle()
 			} else {
 				_, b, err = loadProject(".")
 			}
@@ -33,11 +29,7 @@ func newListCmd() *cobra.Command {
 			}
 			entries := b.All()
 			if len(entries) == 0 {
-				if global {
-					cmd.PrintErrln("no global specs found. add files under $AGNOSTIC_AI_HOME/{agents,skills,rules,hooks}/ or its local/ layer (default home: ~/.agnostic-ai).")
-				} else {
-					cmd.PrintErrln(emptySpecsHint)
-				}
+				cmd.PrintErrln(emptyHint(global))
 				return nil
 			}
 			for _, e := range entries {
