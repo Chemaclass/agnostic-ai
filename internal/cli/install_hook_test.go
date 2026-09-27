@@ -240,8 +240,10 @@ func TestInstallHook_Shared_WarnsAboutHooksThatStopRunning(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := warn.String()
-	if !strings.Contains(got, "git no longer runs these hooks") || !strings.Contains(got, commitMsg) {
-		t.Errorf("want a warning naming %s, got %q", commitMsg, got)
+	// Git reports the long path where t.TempDir may hold an 8.3 short name (Windows).
+	named := filepath.Join(filepath.Base(dir), ".git", "hooks", "commit-msg")
+	if !strings.Contains(got, "git no longer runs these hooks") || !strings.Contains(got, named) {
+		t.Errorf("want a warning naming %s, got %q", named, got)
 	}
 	if strings.Contains(got, ".sample") {
 		t.Errorf("warning lists sample hooks: %q", got)

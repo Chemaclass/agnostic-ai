@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -156,8 +157,18 @@ func gitHooksPathSetting(dir string) (string, string) {
 	if err != nil {
 		return "", ""
 	}
-	origin, value, _ := strings.Cut(strings.TrimSpace(string(out)), "\t")
-	return value, strings.TrimPrefix(origin, "file:")
+	return parseConfigOrigin(string(out))
+}
+
+// parseConfigOrigin splits a `git config --show-origin` line. Git
+// C-quotes an origin path that holds backslashes, so every Windows path.
+func parseConfigOrigin(line string) (string, string) {
+	origin, value, _ := strings.Cut(strings.TrimSpace(line), "\t")
+	origin = strings.TrimPrefix(origin, "file:")
+	if unquoted, err := strconv.Unquote(origin); err == nil {
+		origin = unquoted
+	}
+	return value, origin
 }
 
 // hasProjectCheck reports a project sync --check line, which has no

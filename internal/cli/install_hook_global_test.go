@@ -264,3 +264,19 @@ func TestInstallHookGlobal_CommitsRunTheChecks(t *testing.T) {
 		})
 	}
 }
+
+func TestParseConfigOrigin_UnquotesWindowsPaths(t *testing.T) {
+	value, origin := parseConfigOrigin("file:\"C:\\\\Users\\\\me\\\\.gitconfig\"\tC:\\hooks\n")
+
+	if value != `C:\hooks` || origin != `C:\Users\me\.gitconfig` {
+		t.Errorf("got value %q origin %q", value, origin)
+	}
+}
+
+func TestParseConfigOrigin_KeepsPlainPaths(t *testing.T) {
+	value, origin := parseConfigOrigin("file:.git/config\t.husky\n")
+
+	if value != ".husky" || origin != ".git/config" {
+		t.Errorf("got value %q origin %q", value, origin)
+	}
+}
