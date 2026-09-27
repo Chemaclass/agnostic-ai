@@ -15,34 +15,50 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 )
 
-// loadGlobalTargets reads the targets a home config selects: the source
-// root's agnostic-ai.yaml, then local/agnostic-ai.yaml, whose list
-// replaces the shared one. It returns nil when neither file sets
-// targets. Global mode reads no other key, so each one it ignores warns.
+// globalConfigPaths lists the home configs in load order: the source
+// root's agnostic-ai.yaml, then local/agnostic-ai.yaml, whose keys
+// replace the shared ones.
+func globalConfigPaths(source string) []string {
+	return []string{filepath.Join(source, config.ConfigFileName), filepath.Join(source, "local", config.ConfigFileName)}
+}
+
+// readGlobalConfig parses one home config by top-level key. A missing
+// file reads as empty.
+func readGlobalConfig(path string) (map[string]yaml.Node, error) {
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	var doc map[string]yaml.Node
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		return nil, errs.Coded(errs.CodeConfigDecode, "parse %s: %w", path, err)
+	}
+	return doc, nil
+}
+
+// loadGlobalTargets reads the targets the home configs select. It
+// returns nil when neither file sets targets. Global mode reads only
+// targets and requires, so each other key warns.
 func loadGlobalTargets(source string, warn io.Writer) ([]string, error) {
 	var targets []string
-	for _, path := range []string{filepath.Join(source, config.ConfigFileName), filepath.Join(source, "local", config.ConfigFileName)} {
-		data, err := os.ReadFile(path)
-		if os.IsNotExist(err) {
-			continue
-		}
+	for _, path := range globalConfigPaths(source) {
+		doc, err := readGlobalConfig(path)
 		if err != nil {
-			return nil, fmt.Errorf("read %s: %w", path, err)
-		}
-		var doc map[string]yaml.Node
-		if err := yaml.Unmarshal(data, &doc); err != nil {
-			return nil, errs.Coded(errs.CodeConfigDecode, "parse %s: %w", path, err)
+			return nil, err
 		}
 		var ignored []string
 		for key := range doc {
 			// Every agnostic-ai.yaml carries version, so it is not a surprise.
-			if key != "targets" && key != "version" {
+			if key != "targets" && key != "requires" && key != "version" {
 				ignored = append(ignored, key)
 			}
 		}
 		if len(ignored) > 0 {
 			slices.Sort(ignored)
-			if _, err := fmt.Fprintf(warn, "warning: %s: global mode reads only targets; ignoring %s\n", path, strings.Join(ignored, ", ")); err != nil {
+			if _, err := fmt.Fprintf(warn, "warning: %s: global mode reads only targets and requires; ignoring %s\n", path, strings.Join(ignored, ", ")); err != nil {
 				return nil, fmt.Errorf("write global config warning: %w", err)
 			}
 		}

@@ -63,7 +63,7 @@ type checkScope struct {
 // home config or else every supported one, and against what each writes
 // at user level.
 func loadCheckScope(global bool) (checkScope, error) {
-	scope, err := loadSpecScope(global)
+	scope, err := loadSpecScope(global, nil)
 	if err != nil || !global {
 		return scope, err
 	}
@@ -79,8 +79,9 @@ func loadCheckScope(global bool) (checkScope, error) {
 }
 
 // loadSpecScope is loadCheckScope without the global targets, for list,
-// which reads no home config.
-func loadSpecScope(global bool) (checkScope, error) {
+// which reads only requires from the home config. With skipBroken set, a
+// home config that does not parse warns there instead of stopping.
+func loadSpecScope(global bool, skipBroken io.Writer) (checkScope, error) {
 	if !global {
 		cfg, b, err := loadProject(".")
 		if err != nil {
@@ -90,6 +91,9 @@ func loadSpecScope(global bool) (checkScope, error) {
 	}
 	source, err := globalSourceRoot()
 	if err != nil {
+		return checkScope{}, err
+	}
+	if err := requireGlobalVersion(source, skipBroken); err != nil {
 		return checkScope{}, err
 	}
 	b, err := spec.LoadLayered(globalLayers(source))

@@ -36,6 +36,7 @@ const (
 	CodeUnsupportedKind Code = "AAI-002"
 	CodeConfigMissing   Code = "AAI-003"
 	CodeConfigDecode    Code = "AAI-004"
+	CodeRequiresUnmet   Code = "AAI-005"
 
 	// Emit.
 	CodeOutputCollision Code = "AAI-102"

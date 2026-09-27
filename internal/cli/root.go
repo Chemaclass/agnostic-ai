@@ -64,6 +64,7 @@ func NewRootCmd(version string) *cobra.Command {
 		if quiet && v > 0 {
 			return fmt.Errorf("--quiet and --verbose are mutually exclusive")
 		}
+		requiresWarnOut, requiresWarned = cmd.ErrOrStderr(), map[string]bool{}
 		switch {
 		case quiet:
 			verbosity = levelQuiet
@@ -112,9 +113,15 @@ func NewRootCmd(version string) *cobra.Command {
 // loadProject loads config and project-scoped specs. Packs have lower
 // precedence than project specs, while .agnostic-ai/local has higher
 // precedence. User-level specs are installed only by sync --global.
+// It stops when the running binary misses the config's requires, before
+// specs load, so a spec only a newer release reads cannot fail ahead of
+// the upgrade hint.
 func loadProject(root string) (*config.Config, spec.Bundle, error) {
 	cfg, sources, err := config.LoadWithSources(root)
 	if err != nil {
+		return nil, spec.Bundle{}, err
+	}
+	if err := requireVersion(strings.Join(sources, " + "), cfg.Requires); err != nil {
 		return nil, spec.Bundle{}, err
 	}
 	if len(sources) > 1 {

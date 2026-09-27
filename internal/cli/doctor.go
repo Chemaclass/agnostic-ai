@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -8,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/errs"
 )
 
 // knownCLIBinaries maps target name to the binary expected on PATH.
@@ -58,13 +60,23 @@ func reportUnsupportedKinds(cmd *cobra.Command, cfg *config.Config) {
 	}
 }
 
+var errDoctorNoConfig = errors.New("no config found")
+
 // doctorNextStep prints a prioritized "what to do next" hint based on
-// whether drift was found and whether the config loaded successfully.
-func doctorNextStep(cmd *cobra.Command, drift bool, configOK bool) {
+// whether drift was found and why the config failed to load, if it did.
+func doctorNextStep(cmd *cobra.Command, drift bool, configErr error) {
 	cmd.Println()
 	cmd.Println("Next step:")
-	if !configOK {
+	if errors.Is(configErr, errDoctorNoConfig) {
 		cmd.Println("  No agnostic-ai.yaml found. Run: agnostic-ai init")
+		return
+	}
+	if configErr != nil {
+		if entry, ok := errs.Lookup(errs.CodeOf(configErr)); ok && entry.Fix != "" {
+			cmd.Println("  " + entry.Fix)
+			return
+		}
+		cmd.Println("  Fix the config error above, then run: agnostic-ai doctor")
 		return
 	}
 	if drift {

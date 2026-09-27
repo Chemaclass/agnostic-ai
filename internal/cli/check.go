@@ -323,13 +323,13 @@ func newDoctorCmd() *cobra.Command {
 			cmd.Println("Config:")
 			if !configOK {
 				cmd.Println("  ✗ agnostic-ai.yaml not found. Run: agnostic-ai init")
-				doctorNextStep(cmd, false, false)
-				return fmt.Errorf("no config found")
+				doctorNextStep(cmd, false, errDoctorNoConfig)
+				return errDoctorNoConfig
 			}
 			cfg, _, err := loadProject(".")
 			if err != nil {
 				cmd.Printf("  ✗ %v\n", err)
-				doctorNextStep(cmd, false, false)
+				doctorNextStep(cmd, false, err)
 				return err
 			}
 			cmd.Printf("  ✓ agnostic-ai.yaml valid (version %d, %d target(s))\n", cfg.Version, len(cfg.Targets))
@@ -390,7 +390,7 @@ func newDoctorCmd() *cobra.Command {
 			hasDrift = hasDrift || scriptDrift
 
 			// 6. Next step
-			doctorNextStep(cmd, hasDrift, true)
+			doctorNextStep(cmd, hasDrift, nil)
 
 			// A rule whose globs match nothing never loads, so it
 			// silently does not exist. Reported before, but exit 0 meant

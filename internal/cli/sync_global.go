@@ -98,6 +98,15 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if verbosity < levelDefault || o.check {
 		warn = io.Discard
 	}
+	// -t bypasses the home config, so one that does not parse only
+	// warns, but a requires it sets still holds for the specs.
+	var skipBroken io.Writer
+	if len(o.targets) > 0 {
+		skipBroken = warn
+	}
+	if err := requireGlobalVersion(source, skipBroken); err != nil {
+		return err
+	}
 	targets := o.targets
 	// A default run spans every supported target, so one target's
 	// problem (a relative root variable, a name its native format
