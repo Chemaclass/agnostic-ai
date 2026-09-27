@@ -291,3 +291,48 @@ func TestSyncGlobal_DryRunNamesHookWriteBesideAdoptedSetting(t *testing.T) {
 		t.Errorf("dry-run must name the hooks write:\n%s", out)
 	}
 }
+
+func TestSyncGlobal_WritesThroughSymlinkedUserFile(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be brief.\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "d.yaml"), "model: opus\n")
+	dotfiles := filepath.Join(home, "dotfiles")
+	realClaude := filepath.Join(dotfiles, "CLAUDE.md")
+	realSettings := filepath.Join(dotfiles, "settings.json")
+	mustWriteGlobalTest(t, realClaude, "Mine.\n")
+	mustWriteGlobalTest(t, realSettings, "{\n  \"theme\": \"dark\"\n}\n")
+	link := filepath.Join(home, ".claude", "CLAUDE.md")
+	settingsLink := filepath.Join(home, ".claude", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(realClaude, link); err != nil {
+		t.Skipf("symlinks unsupported: %v", err)
+	}
+	if err := os.Symlink(realSettings, settingsLink); err != nil {
+		t.Fatal(err)
+	}
+
+	_, warnings, err := runGlobalAgentTest("--only", "claude")
+	if err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	for _, path := range []string{link, settingsLink} {
+		info, err := os.Lstat(path)
+		if err != nil || info.Mode()&os.ModeSymlink == 0 {
+			t.Errorf("%s must stay a symlink: %v", path, err)
+		}
+	}
+	if got := readGlobalTest(t, realClaude); !strings.Contains(got, "Mine.") || !strings.Contains(got, "Be brief.") {
+		t.Errorf("the link target must get the managed block:\n%s", got)
+	}
+	if got := readGlobalTest(t, realSettings); !strings.Contains(got, `"model": "opus"`) || !strings.Contains(got, `"theme": "dark"`) {
+		t.Errorf("the link target must get the model:\n%s", got)
+	}
+	if !strings.Contains(warnings, "wrote through symlink "+link) {
+		t.Errorf("the write through a link must be named:\n%s", warnings)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "claude", "--check"); err != nil {
+		t.Fatalf("check after sync: %v", err)
+	}
+}

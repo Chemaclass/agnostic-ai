@@ -289,8 +289,14 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 			return fmt.Errorf("rewriting %s would drop its comments; rerun with --backup to rewrite and keep a .bak copy", strings.Join(commented, ", "))
 		}
 	}
-	if err := applyGlobalChanges(writes, removals, o.backup); err != nil {
+	linked, err := applyGlobalChanges(writes, removals, o.backup)
+	if err != nil {
 		return err
+	}
+	for _, link := range linked {
+		if _, err := fmt.Fprintf(warn, "wrote through symlink %s\n", link); err != nil {
+			return fmt.Errorf("write symlink note: %w", err)
+		}
 	}
 	pruneEmptyGlobalDirs(removals, trees)
 	for _, path := range adopted {
@@ -1521,12 +1527,19 @@ func preflightGlobalWrites(writes []globalWrite, trees []string, old globalState
 				}
 			}
 		}
+		// A single user file, such as CLAUDE.md or settings.json kept in
+		// a dotfiles repo, is written through its link. A link inside a
+		// tree sync owns file by file is refused.
 		if info, err := os.Lstat(w.path); err == nil && info.Mode()&os.ModeSymlink != 0 {
-			// A settings key adopted as it is leaves the file untouched.
 			if data, err := os.ReadFile(w.path); err == nil && bytes.Equal(data, w.data) {
 				continue
 			}
-			return nil, fmt.Errorf("%s: refusing to replace symlink", w.path)
+			if inManagedTree(w.path, trees) {
+				return nil, fmt.Errorf("%s: refusing to replace symlink", w.path)
+			}
+			if _, err := filepath.EvalSymlinks(w.path); err != nil {
+				return nil, fmt.Errorf("%s: broken symlink: %w", w.path, err)
+			}
 		}
 	}
 	return adopted, nil
@@ -1618,7 +1631,9 @@ func removedGlobalFiles(old, next []string) []string {
 	return out
 }
 
-func applyGlobalChanges(writes []globalWrite, removals []string, backup bool) error {
+// applyGlobalChanges writes and removes files, rolling everything back
+// on the first failure. It returns each symlink it wrote through.
+func applyGlobalChanges(writes []globalWrite, removals []string, backup bool) (linked []string, err error) {
 	type prior struct {
 		path   string
 		data   []byte
@@ -1641,7 +1656,7 @@ func applyGlobalChanges(writes []globalWrite, removals []string, backup bool) er
 		absent := os.IsNotExist(err)
 		if err != nil && !absent {
 			rollback()
-			return fmt.Errorf("read %s: %w", w.path, err)
+			return nil, fmt.Errorf("read %s: %w", w.path, err)
 		}
 		if !absent && reflect.DeepEqual(old, w.data) {
 			continue
@@ -1650,21 +1665,30 @@ func applyGlobalChanges(writes []globalWrite, removals []string, backup bool) er
 		if info, statErr := os.Stat(w.path); statErr == nil {
 			mode = info.Mode()
 		}
-		done = append(done, prior{w.path, old, mode, absent})
-		if err := os.MkdirAll(filepath.Dir(w.path), 0o755); err != nil {
+		// Replace the file a symlink points at, so the link stays.
+		target := w.path
+		if info, err := os.Lstat(w.path); err == nil && info.Mode()&os.ModeSymlink != 0 {
+			if target, err = filepath.EvalSymlinks(w.path); err != nil {
+				rollback()
+				return nil, fmt.Errorf("%s: broken symlink: %w", w.path, err)
+			}
+			linked = append(linked, w.path+" -> "+target)
+		}
+		done = append(done, prior{target, old, mode, absent})
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			rollback()
-			return fmt.Errorf("create directory for %s: %w", w.path, err)
+			return nil, fmt.Errorf("create directory for %s: %w", w.path, err)
 		}
 		if backup && !absent {
 			if err := os.WriteFile(w.path+".bak", old, mode); err != nil {
 				rollback()
-				return fmt.Errorf("backup %s: %w", w.path, err)
+				return nil, fmt.Errorf("backup %s: %w", w.path, err)
 			}
 		}
-		tmp, err := os.CreateTemp(filepath.Dir(w.path), ".agnostic-ai-global-*")
+		tmp, err := os.CreateTemp(filepath.Dir(target), ".agnostic-ai-global-*")
 		if err != nil {
 			rollback()
-			return fmt.Errorf("create temporary file for %s: %w", w.path, err)
+			return nil, fmt.Errorf("create temporary file for %s: %w", w.path, err)
 		}
 		tmpName := tmp.Name()
 		writeErr := func() error {
@@ -1678,12 +1702,12 @@ func applyGlobalChanges(writes []globalWrite, removals []string, backup bool) er
 			if err := tmp.Close(); err != nil {
 				return err
 			}
-			return os.Rename(tmpName, w.path)
+			return os.Rename(tmpName, target)
 		}()
 		if writeErr != nil {
 			_ = tmp.Close()
 			rollback()
-			return fmt.Errorf("write %s: %w", w.path, writeErr)
+			return nil, fmt.Errorf("write %s: %w", w.path, writeErr)
 		}
 	}
 	for _, path := range removals {
@@ -1693,18 +1717,18 @@ func applyGlobalChanges(writes []globalWrite, removals []string, backup bool) er
 		}
 		if err != nil {
 			rollback()
-			return fmt.Errorf("read managed %s: %w", path, err)
+			return nil, fmt.Errorf("read managed %s: %w", path, err)
 		}
 		info, err := os.Stat(path)
 		if err != nil {
 			rollback()
-			return fmt.Errorf("stat managed %s: %w", path, err)
+			return nil, fmt.Errorf("stat managed %s: %w", path, err)
 		}
 		done = append(done, prior{path: path, data: data, mode: info.Mode()})
 		if err := os.Remove(path); err != nil {
 			rollback()
-			return fmt.Errorf("remove managed %s: %w", path, err)
+			return nil, fmt.Errorf("remove managed %s: %w", path, err)
 		}
 	}
-	return nil
+	return linked, nil
 }
