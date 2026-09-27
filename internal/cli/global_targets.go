@@ -121,6 +121,10 @@ var globalTargets = map[string]globalTarget{
 		settings: globalSettingsFile{
 			path: globalPathHome + ".claude/settings.json", format: "json",
 			model: "model", effort: "effortLevel", effortLevel: claude.Adapter{}.SettingsEffortLevels,
+			reserved: map[string]string{
+				"hooks":       "sync --global writes hooks from hook specs",
+				"permissions": "sync --global does not write user-level permissions",
+			},
 		},
 	},
 	"cursor": {

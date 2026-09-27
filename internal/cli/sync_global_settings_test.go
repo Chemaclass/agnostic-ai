@@ -234,12 +234,14 @@ permissions:
   allow: [Read]
 x-claude:
   theme: dark
+  hooks:
+    Stop: []
 `)
 	_, warnings, err := runGlobalAgentTest("--only", "claude,gemini")
 	if err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
-	for _, want := range []string{"permissions", "x-claude", "max", "gemini"} {
+	for _, want := range []string{"permissions", "x-claude.hooks", "max", "gemini"} {
 		if !strings.Contains(warnings, want) {
 			t.Errorf("warnings lack %q:\n%s", want, warnings)
 		}
@@ -248,7 +250,7 @@ x-claude:
 	if err := json.Unmarshal([]byte(readGlobalTest(t, filepath.Join(home, ".claude", "settings.json"))), &doc); err != nil {
 		t.Fatal(err)
 	}
-	if doc["model"] != "opus" || doc["effortLevel"] != nil || doc["permissions"] != nil || doc["theme"] != nil {
+	if doc["model"] != "opus" || doc["effortLevel"] != nil || doc["permissions"] != nil || doc["hooks"] != nil || doc["theme"] != "dark" {
 		t.Errorf("settings.json = %v", doc)
 	}
 }
@@ -334,5 +336,64 @@ func TestSyncGlobal_WritesThroughSymlinkedUserFile(t *testing.T) {
 	}
 	if _, _, err := runGlobalAgentTest("--only", "claude", "--check"); err != nil {
 		t.Fatalf("check after sync: %v", err)
+	}
+}
+
+func TestSyncGlobal_SettingsPassThroughTargetKeys(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	spec := filepath.Join(source, "settings", "d.yaml")
+	mustWriteGlobalTest(t, spec, `model: opus
+x-claude:
+  model: sonnet
+  alwaysThinkingEnabled: true
+  statusLine:
+    type: command
+    command: ~/bin/status
+x-codex:
+  model_reasoning_summary: concise
+  notify: [notify-send, done]
+  profiles:
+    fast:
+      model: mini
+`)
+	claudePath := filepath.Join(home, ".claude", "settings.json")
+	mustWriteGlobalTest(t, claudePath, "{\n  \"statusLine\": {\n    \"padding\": 1\n  }\n}\n")
+	codexPath := filepath.Join(home, ".codex", "config.toml")
+	mustWriteGlobalTest(t, codexPath, "[tui]\ntheme = \"dark\"\n")
+
+	_, warnings, err := runGlobalAgentTest("--only", "claude,codex")
+	if err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal([]byte(readGlobalTest(t, claudePath)), &doc); err != nil {
+		t.Fatal(err)
+	}
+	status, _ := doc["statusLine"].(map[string]any)
+	if doc["model"] != "sonnet" || doc["alwaysThinkingEnabled"] != true || status["command"] != "~/bin/status" || status["padding"] != float64(1) {
+		t.Errorf("settings.json = %v", doc)
+	}
+	wantCodex := "model = \"opus\"\nmodel_reasoning_summary = \"concise\"\nnotify = [\"notify-send\", \"done\"]\n\n[tui]\ntheme = \"dark\"\n"
+	if got := readGlobalTest(t, codexPath); got != wantCodex {
+		t.Errorf("config.toml = %q, want %q", got, wantCodex)
+	}
+	if !strings.Contains(warnings, "x-codex.profiles") {
+		t.Errorf("a table must raise a note:\n%s", warnings)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "claude,codex", "--check"); err != nil {
+		t.Fatalf("check after sync: %v", err)
+	}
+
+	if err := os.Remove(spec); err != nil {
+		t.Fatal(err)
+	}
+	if _, warnings, err := runGlobalAgentTest("--only", "claude,codex"); err != nil {
+		t.Fatalf("sync after removal: %v\n%s", err, warnings)
+	}
+	if got := readGlobalTest(t, claudePath); got != "{\n  \"statusLine\": {\n    \"padding\": 1\n  }\n}\n" {
+		t.Errorf("removal must restore settings.json:\n%s", got)
+	}
+	if got := readGlobalTest(t, codexPath); got != "[tui]\ntheme = \"dark\"\n" {
+		t.Errorf("removal must restore config.toml:\n%s", got)
 	}
 }

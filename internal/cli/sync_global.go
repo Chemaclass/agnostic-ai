@@ -58,7 +58,7 @@ type globalState struct {
 	// Settings records the value written per target and native key of
 	// its user settings file, so a later sync changes or removes only
 	// keys it placed.
-	Settings map[string]map[string]string `json:"settings,omitempty"`
+	Settings map[string]map[string]any `json:"settings,omitempty"`
 	// Hooks records the managed hook entries per target, keyed by
 	// target name then event, so a later sync can remove exactly what
 	// it added and leave user-authored entries alone.
@@ -494,7 +494,7 @@ func foreignGlobalPath(old globalState, home string) string {
 }
 
 func buildGlobalWrites(home, source string, targets []string, intro []byte, b spec.Bundle, old globalState, agentErr func(string, error) error, warn io.Writer) ([]globalWrite, globalState, error) {
-	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]string{}}
+	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}}
 	for target, paths := range old.Agents {
 		if !slices.Contains(targets, target) {
 			next.Agents[target] = append([]string(nil), paths...)

@@ -436,7 +436,7 @@ targets: [claude, codex, cursor]
 For example, `local/skills/reviewer/SKILL.md` replaces `skills/reviewer/SKILL.md`. Run `agnostic-ai list --global` to see the effective specs with their `global` or `global-local` layer. Run `agnostic-ai validate --global` and `agnostic-ai lint --global` to check both layers before a sync writes them. Global layers never merge with project specs. [Local overrides](@/docs/local-overrides.md) compares this layer with the project one.
 
 - It targets every supported tool by default, or the home config's `targets`. Which `sync` flags it accepts is in the [CLI reference](@/docs/cli-reference.md#sync).
-- Nested rules and rules with scope, path, glob, or target conditions are rejected. Commands, MCP servers, settings `permissions` and `x-<target>` blocks, inheritance, and merging with project specs are unsupported.
+- Nested rules and rules with scope, path, glob, or target conditions are rejected. Commands, MCP servers, settings `permissions`, inheritance, and merging with project specs are unsupported.
 - Global skills render native frontmatter and copy bundled assets verbatim. Claude resolves skill `model` and `effort`, including per-target maps and `x-claude` overrides. Shared directories such as `~/.agents/skills/` keep neutral frontmatter, even when syncing one target: target overrides are omitted.
 - Global Codex skills also get `agents/openai.yaml`, so `disable-model-invocation: true` keeps a skill manual-only there too. A skill marked `disable-model-invocation: true` prints a coverage note for each target whose global copy stays model-invocable. Syncing one target keeps the files another target placed in a shared skills directory, so `--only amp` leaves Codex's policy in place.
 - Hooks and skills honor `target`, `targets`, and `targets-exclude`. Set hook events for each target explicitly; sync does not translate event names.
@@ -471,7 +471,7 @@ effort:
 | codex | `~/.codex/config.toml` | `model`, `model_reasoning_effort` |
 | claude | `~/.claude/settings.json` | `model`, `effortLevel` |
 
-Other targets raise a coverage note, and so do `permissions` and `x-<target>` blocks in a global settings spec. Claude's `effortLevel` takes `low`, `medium`, `high`, or `xhigh`; Codex takes any string. `lint --global` (LINT014) and `validate --global` flag a value a target cannot take.
+Other targets raise a coverage note, and so does `permissions` in a global settings spec. Claude's `effortLevel` takes `low`, `medium`, `high`, or `xhigh`; Codex takes any string. `lint --global` (LINT014) and `validate --global` flag a value a target cannot take.
 
 Each layer overrides the one before it:
 
@@ -486,6 +486,7 @@ Sync edits only the keys it writes and records them in `state/global.json`. Ever
 - A key that already holds the value sync would write is adopted, and sync names it. Moving a setting you set by hand into the home produces no diff.
 - A key with another value stops the run before writes and names the file, the key, and both values. Codex's `/model` picker saves its choice to `config.toml`, so this is normal use: the message prints the target line to put in the spec to keep the new value. `--backup` overwrites the key instead and keeps `<path>.bak`.
 - `--dry-run` lists each key a write sets or removes, and `--check` fails on a changed key.
+- An `x-<target>` block sets that target's own keys in the same file, with the same per-key ownership. A nested object merges leaf by leaf, so `x-claude.statusLine.command` leaves a `statusLine.padding` you set by hand alone, and an `x-claude` key wins over the portable field it shares a key with. Codex takes top-level scalars and arrays, such as `x-codex.model_reasoning_summary` or `x-codex.notify`; a table such as `profiles` raises a coverage note. `x-claude.hooks` and `x-claude.permissions` raise one too: hook specs own the first, and the second needs its own design. A later spec wins key by key, and `null` drops a key an earlier spec set.
 - `agnostic-ai explain --global settings/defaults.yaml` names the file and key each target gets from that spec. A key a later spec overrides is not listed. `explain --global` takes any global spec, so `explain --global agents/reviewer.md` lists each user-level agent file.
 
 For a personal agent shared by Claude Code and Codex, create `~/.agnostic-ai/agents/reviewer.md`:

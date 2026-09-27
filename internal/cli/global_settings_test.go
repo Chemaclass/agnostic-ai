@@ -9,7 +9,7 @@ import (
 
 func TestEditTOMLRoot_SkipsBracketsInsideValues(t *testing.T) {
 	in := "notify = [\n  \"say\",\n  \"[done]\",\n]\nbanner = '''\n[not a table]\n'''\n\n[tui]\nmodel = \"keep\"\n"
-	got, err := editTOMLRoot("config.toml", []byte(in), []string{"model"}, map[string]string{"model": "gpt-6-luna"}, nil)
+	got, err := editTOMLRoot("config.toml", []byte(in), []string{"model"}, map[string]any{"model": "gpt-6-luna"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -21,7 +21,7 @@ func TestEditTOMLRoot_SkipsBracketsInsideValues(t *testing.T) {
 
 func TestEditTOMLRoot_TopWhenNoRootKeys(t *testing.T) {
 	in := "# header\n[projects.x]\ntrust_level = \"trusted\"\n"
-	got, err := editTOMLRoot("config.toml", []byte(in), []string{"model"}, map[string]string{"model": "m"}, nil)
+	got, err := editTOMLRoot("config.toml", []byte(in), []string{"model"}, map[string]any{"model": "m"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +37,7 @@ func TestEditJSONRoot_RoundTripsByteForByte(t *testing.T) {
 		"{\"theme\": \"dark\"}",
 		"{}\n",
 	} {
-		set, err := editJSONRoot("s.json", []byte(in), []string{"model"}, map[string]string{"model": "opus"}, nil)
+		set, err := editJSONRoot("s.json", []byte(in), []string{"model"}, map[string]any{"model": "opus"}, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -57,7 +57,7 @@ func TestEditJSONRoot_RoundTripsByteForByte(t *testing.T) {
 
 func TestEditJSONRoot_ReplacesValueInPlace(t *testing.T) {
 	in := "{\n  \"model\": \"sonnet\", // pinned\n  \"x\": 1\n}\n"
-	got, err := editJSONRoot("s.json", []byte(in), []string{"model"}, map[string]string{"model": "opus"}, nil)
+	got, err := editJSONRoot("s.json", []byte(in), []string{"model"}, map[string]any{"model": "opus"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestExplainGlobal_NamesFileAndKeyPerTarget(t *testing.T) {
 func TestEditJSONRoot_ReviewEdgeCases(t *testing.T) {
 	cases := []struct {
 		name, in, want string
-		set            map[string]string
+		set            map[string]any
 		remove         []string
 	}{
 		{
@@ -138,7 +138,7 @@ func TestEditJSONRoot_ReviewEdgeCases(t *testing.T) {
 		{
 			name: "duplicate key edits the copy JSON reads",
 			in:   `{"model":"a","x":1,"model":"b"}`,
-			set:  map[string]string{"model": "c"},
+			set:  map[string]any{"model": "c"},
 			want: `{"model":"a","x":1,"model":"c"}`,
 		},
 	}
@@ -161,7 +161,7 @@ func TestEditJSONRoot_ReviewEdgeCases(t *testing.T) {
 
 func TestEditTOMLRoot_KeepsBOMAndMixedLineEndings(t *testing.T) {
 	in := "\xef\xbb\xbfmodel = \"a\"\r\nb = 2\n[t]\r\nx = 1\r\n"
-	got, err := editTOMLRoot("config.toml", []byte(in), []string{"model"}, map[string]string{"model": "b"}, nil)
+	got, err := editTOMLRoot("config.toml", []byte(in), []string{"model"}, map[string]any{"model": "b"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +169,7 @@ func TestEditTOMLRoot_KeepsBOMAndMixedLineEndings(t *testing.T) {
 	if string(got) != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
-	got, err = editTOMLRoot("config.toml", []byte("a = 1\r\n"), []string{"model"}, map[string]string{"model": "m"}, []string{"missing"})
+	got, err = editTOMLRoot("config.toml", []byte("a = 1\r\n"), []string{"model"}, map[string]any{"model": "m"}, []string{"missing"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,5 +217,32 @@ func TestExplainGlobal_NamesEveryKindsUserPath(t *testing.T) {
 	}
 	if got := explain("agents/reviewer.md"); strings.Contains(got, "[codex]") {
 		t.Errorf("a claude-only agent must not list codex:\n%s", got)
+	}
+}
+
+func TestEditJSONRoot_NestedPathRoundTrips(t *testing.T) {
+	for _, in := range []string{
+		"{\n  \"theme\": \"dark\"\n}\n",
+		"{\n  \"model\": {\n    \"maxSessionTurns\": 5\n  }\n}\n",
+		"{}\n",
+	} {
+		set, err := editJSONRoot("s.json", []byte(in), []string{"model.name"}, map[string]any{"model.name": "gemini-3-pro"}, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		values, err := settingsValues("s.json", "json", set)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got, _ := settingsLookup(values, "model.name", "json"); got != "gemini-3-pro" {
+			t.Fatalf("set %q -> %q", in, set)
+		}
+		back, err := editJSONRoot("s.json", set, nil, nil, []string{"model.name"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(back) != in {
+			t.Errorf("round trip of %q gave %q via %q", in, back, set)
+		}
 	}
 }
