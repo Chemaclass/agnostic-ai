@@ -2,39 +2,50 @@ package cli
 
 import (
 	"fmt"
+	"io"
+	"os"
+	"runtime/debug"
 	"strings"
-
-	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
-	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// loadRequiredProject is loadProject for the commands that honor
-// `requires`. The check runs before specs load, so a spec only a newer
-// release reads cannot fail ahead of the upgrade hint.
-func loadRequiredProject(cmd *cobra.Command, root string) (*config.Config, spec.Bundle, error) {
-	cfg, sources, err := config.LoadWithSources(root)
-	if err != nil {
-		return nil, spec.Bundle{}, err
+// runningVersion is what the requires check compares. main.version
+// cannot serve: a source build reports the last release. Go stamps a
+// clean tagged checkout as vX.Y.Z, and anything else as a pseudo-version
+// or (devel), which the check does not place.
+var runningVersion = buildVersion(debug.ReadBuildInfo())
+
+// requiresWarnOut and requiresWarned keep the warning for a build the
+// check cannot place to once per config per run; the root command
+// resets them.
+var (
+	requiresWarnOut io.Writer = os.Stderr
+	requiresWarned            = map[string]bool{}
+)
+
+func buildVersion(info *debug.BuildInfo, ok bool) string {
+	if !ok {
+		return ""
 	}
-	if err := requireVersion(cmd, strings.Join(sources, " + "), cfg.Requires); err != nil {
-		return nil, spec.Bundle{}, err
-	}
-	b, err := loadProjectSpecs(root, cfg, sources)
-	if err != nil {
-		return nil, spec.Bundle{}, err
-	}
-	return cfg, b, nil
+	return info.Main.Version
 }
 
-// requireGlobalVersion is requireVersion for the home config, where a
-// requires in local/agnostic-ai.yaml replaces the shared one.
-func requireGlobalVersion(cmd *cobra.Command, source string) error {
+// requireGlobalVersion is requireVersion for the home configs, where a
+// requires in local/agnostic-ai.yaml replaces the shared one and a null
+// clears it. With skipBroken set, a config that does not parse warns
+// there and is skipped instead of stopping the run.
+func requireGlobalVersion(source string, skipBroken io.Writer) error {
 	var requires, path string
 	for _, p := range globalConfigPaths(source) {
 		doc, err := readGlobalConfig(p)
+		if err != nil && skipBroken != nil {
+			if _, werr := fmt.Fprintf(skipBroken, "warning: %v; --target skips it\n", err); werr != nil {
+				return fmt.Errorf("write global config warning: %w", werr)
+			}
+			continue
+		}
 		if err != nil {
 			return err
 		}
@@ -42,19 +53,22 @@ func requireGlobalVersion(cmd *cobra.Command, source string) error {
 		if !ok {
 			continue
 		}
+		requires, path = "", p
+		if node.Tag == "!!null" {
+			continue
+		}
 		if err := node.Decode(&requires); err != nil {
 			return errs.Coded(errs.CodeConfigDecode, "%s: requires: %w", p, err)
 		}
-		path = p
 	}
-	return requireVersion(cmd, path, requires)
+	return requireVersion(path, requires)
 }
 
 // requireVersion stops the command when the running binary is older
 // than requires, which source sets. A build that is not a release has
-// no place in the order, so it warns and runs: contributors and CI
-// build from source.
-func requireVersion(cmd *cobra.Command, source, requires string) error {
+// no place in the order, so it warns and runs: contributors build from
+// source.
+func requireVersion(source, requires string) error {
 	if requires == "" {
 		return nil
 	}
@@ -62,13 +76,18 @@ func requireVersion(cmd *cobra.Command, source, requires string) error {
 	if err != nil {
 		return errs.Coded(errs.CodeConfigDecode, "%s: requires: %w", source, err)
 	}
-	running := cmd.Root().Version
-	allowed, release := req.Allows(running)
+	allowed, release := req.Allows(runningVersion)
+	running := strings.TrimPrefix(runningVersion, "v")
 	if !release {
-		if verbosity < levelDefault {
+		key := source + "\x00" + requires
+		if verbosity < levelDefault || requiresWarned[key] {
 			return nil
 		}
-		if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s: requires %s, but %s is not a release build; not checked\n", source, req, running); err != nil {
+		requiresWarned[key] = true
+		if running == "" {
+			running = "(unknown)"
+		}
+		if _, err := fmt.Fprintf(requiresWarnOut, "warning: %s: requires %s, but %s is not a release build; not checked\n", source, req, running); err != nil {
 			return fmt.Errorf("write requires warning: %w", err)
 		}
 		return nil

@@ -61,7 +61,7 @@ func newLintCmd() *cobra.Command {
   # Lint the global specs before sync --global writes them
   agnostic-ai lint --global`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			scope, err := loadCheckScope(cmd, global)
+			scope, err := loadCheckScope(global)
 			if err != nil {
 				return err
 			}

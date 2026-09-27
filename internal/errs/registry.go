@@ -40,7 +40,7 @@ var registry = map[Code]Entry{
 	CodeRequiresUnmet: {
 		Code:  CodeRequiresUnmet,
 		Title: "Installed version older than requires",
-		Cause: "The config's `requires` key names the oldest agnostic-ai release its specs work with, and the installed binary is older. `sync`, `sync --check`, `lint`, and `validate` stop before they read specs or write files.",
+		Cause: "The config's `requires` key names the oldest agnostic-ai release its specs work with, and the installed binary is older. Every command that reads the specs, such as `sync`, `lint`, `validate`, `doctor`, `revert`, and `cleanup`, stops before it reads specs or writes files.",
 		Fix:   "Run `agnostic-ai upgrade`. If the version stays the same, `agnostic-ai upgrade --check` shows which binary runs and any older copy that shadows it on PATH.",
 	},
 	CodeOutputCollision: {

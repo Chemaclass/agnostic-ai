@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/spf13/cobra"
-
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -63,26 +61,11 @@ type checkScope struct {
 // global and global-local layers sync --global reads. The global scope
 // checks against the targets a default sync --global writes, from the
 // home config or else every supported one, and against what each writes
-// at user level. Either scope stops first when the running binary misses
-// its config's requires.
-func loadCheckScope(cmd *cobra.Command, global bool) (checkScope, error) {
-	if !global {
-		cfg, b, err := loadRequiredProject(cmd, ".")
-		if err != nil {
-			return checkScope{}, err
-		}
-		return projectScope(cfg, b), nil
-	}
-	source, err := globalSourceRoot()
-	if err != nil {
-		return checkScope{}, err
-	}
-	if err := requireGlobalVersion(cmd, source); err != nil {
-		return checkScope{}, err
-	}
-	scope, err := loadSpecScope(true)
-	if err != nil {
-		return checkScope{}, err
+// at user level.
+func loadCheckScope(global bool) (checkScope, error) {
+	scope, err := loadSpecScope(global)
+	if err != nil || !global {
+		return scope, err
 	}
 	targets, err := loadGlobalTargets(scope.source, io.Discard)
 	if err != nil {
@@ -103,10 +86,13 @@ func loadSpecScope(global bool) (checkScope, error) {
 		if err != nil {
 			return checkScope{}, err
 		}
-		return projectScope(cfg, b), nil
+		return checkScope{cfg: cfg, targets: cfg.Targets, hookTargets: cfg.Targets, support: targetsSupportingKind, bundle: b}, nil
 	}
 	source, err := globalSourceRoot()
 	if err != nil {
+		return checkScope{}, err
+	}
+	if err := requireGlobalVersion(source, nil); err != nil {
 		return checkScope{}, err
 	}
 	b, err := spec.LoadLayered(globalLayers(source))
@@ -114,10 +100,6 @@ func loadSpecScope(global bool) (checkScope, error) {
 		return checkScope{}, err
 	}
 	return checkScope{global: true, source: source, support: globalKindSupport(), bundle: b}, nil
-}
-
-func projectScope(cfg *config.Config, b spec.Bundle) checkScope {
-	return checkScope{cfg: cfg, targets: cfg.Targets, hookTargets: cfg.Targets, support: targetsSupportingKind, bundle: b}
 }
 
 func (s checkScope) emptyHint() string {

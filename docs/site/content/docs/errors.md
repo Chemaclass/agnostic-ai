@@ -71,10 +71,10 @@ The config file was found but could not be parsed as YAML, or its keys do not ma
 
 ### AAI-005: Installed version older than requires
 
-The config's `requires` key names the oldest agnostic-ai release its specs work with, and the installed binary is older. `sync`, `sync --check`, `lint`, and `validate` stop before they read specs or write files. The message names the file, the required version, and the installed one:
+The config's `requires` key names the oldest agnostic-ai release its specs work with, and the installed binary is older. Every command that reads the specs, such as `sync`, `lint`, `validate`, `doctor`, `revert`, and `cleanup`, stops before it reads specs or writes files. The message names the file, the required version, and the installed one:
 
 ```
-[AAI-005] agnostic-ai.yaml requires agnostic-ai >=0.70.0, but 0.69.0 is installed; run `agnostic-ai upgrade`
+[AAI-005] agnostic-ai.yaml requires agnostic-ai >=0.71.0, but 0.70.0 is installed; run `agnostic-ai upgrade`
 ```
 
 **Fix:** run `agnostic-ai upgrade`. If the version stays the same, `agnostic-ai upgrade --check` shows which binary runs and any older copy that shadows it on PATH.

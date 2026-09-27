@@ -64,6 +64,7 @@ func NewRootCmd(version string) *cobra.Command {
 		if quiet && v > 0 {
 			return fmt.Errorf("--quiet and --verbose are mutually exclusive")
 		}
+		requiresWarnOut, requiresWarned = cmd.ErrOrStderr(), map[string]bool{}
 		switch {
 		case quiet:
 			verbosity = levelQuiet
@@ -112,26 +113,26 @@ func NewRootCmd(version string) *cobra.Command {
 // loadProject loads config and project-scoped specs. Packs have lower
 // precedence than project specs, while .agnostic-ai/local has higher
 // precedence. User-level specs are installed only by sync --global.
+// It stops when the running binary misses the config's requires, before
+// specs load, so a spec only a newer release reads cannot fail ahead of
+// the upgrade hint.
 func loadProject(root string) (*config.Config, spec.Bundle, error) {
 	cfg, sources, err := config.LoadWithSources(root)
 	if err != nil {
 		return nil, spec.Bundle{}, err
 	}
-	b, err := loadProjectSpecs(root, cfg, sources)
-	if err != nil {
+	if err := requireVersion(strings.Join(sources, " + "), cfg.Requires); err != nil {
 		return nil, spec.Bundle{}, err
 	}
-	return cfg, b, nil
-}
-
-// loadProjectSpecs loads the specs cfg points at. sources are the config
-// files cfg came from.
-func loadProjectSpecs(root string, cfg *config.Config, sources []string) (spec.Bundle, error) {
 	if len(sources) > 1 {
 		verbosef("→ merged %d config layers: %s\n",
 			len(sources), strings.Join(sources, ", "))
 	}
-	return spec.LoadLayered(resolveLayers(root, cfg))
+	b, err := spec.LoadLayered(resolveLayers(root, cfg))
+	if err != nil {
+		return nil, spec.Bundle{}, err
+	}
+	return cfg, b, nil
 }
 
 // startCPUProfile begins a runtime/pprof CPU profile for the current run. The

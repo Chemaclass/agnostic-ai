@@ -82,10 +82,12 @@ outputs:
 Set it when your specs rely on behavior from a specific release:
 
 ```yaml
-requires: ">=0.70.0"
+requires: ">=0.71.0"
 ```
 
-`sync`, `sync --check`, `lint`, and `validate` then stop on an older binary before they read specs or write files, with error [AAI-005](@/docs/errors.md#aai-005-installed-version-older-than-requires) and the command to upgrade. The only form is `>=X.Y.Z`; anything else fails as AAI-004 naming the file. A build that is not an `X.Y.Z` release, such as `dev` or a release candidate, warns and runs. `agnostic-ai.local.yaml` can replace the value. The [global home config](#global-configuration) accepts the key too.
+Every command that reads your specs, such as `sync`, `sync --check`, `lint`, `validate`, `doctor --fix`, `revert`, and `cleanup`, then stops on an older binary before it reads specs or writes files. The error is [AAI-005](@/docs/errors.md#aai-005-installed-version-older-than-requires) and names the command to upgrade. A running `sync --watch` stops syncing when a pulled config raises `requires` above it. The check applies from agnostic-ai 0.70.0; older releases ignore the key.
+
+The only form is `>=X.Y.Z`; anything else fails as AAI-004 naming the file. A build from source, such as `go run` or a commit after a tag, is not a release and warns once instead. `agnostic-ai.local.yaml` can replace the value, and `requires:` with no value there turns the check off. The [global home config](#global-configuration) accepts the key too.
 
 ## `sources`
 
@@ -402,7 +404,7 @@ To sync a fixed set of tools without `--only` on every run, list them in the sou
 targets: [claude, codex, cursor]
 ```
 
-`sync --global` and `sync --global --check` then touch those targets only, and `lint --global` and `validate --global` check against them. A `targets` list in `local/agnostic-ai.yaml` replaces the shared one. `--only` and `--except` narrow the list for one run and must name configured targets. `--target` replaces it and skips the home config's `targets`, so a broken list never blocks it. A repeated name counts once. A target with no user-level surface, such as `aider` or `continue`, is skipped with one warning, so a project-shaped `agnostic-ai.yaml` keeps working. A name that is no target at all stops the run with the closest supported one. A [`requires`](#requires) key stops `sync --global`, `lint --global`, and `validate --global` on an older binary, even with `--target`, and one in `local/agnostic-ai.yaml` replaces the shared one. Global mode reads no other key: `version` passes, and any other key prints a warning and is ignored. A target dropped from the list keeps its synced files and ownership records, as a run with `--only` does, until you remove them by hand.
+`sync --global` and `sync --global --check` then touch those targets only, and `lint --global` and `validate --global` check against them. A `targets` list in `local/agnostic-ai.yaml` replaces the shared one. `--only` and `--except` narrow the list for one run and must name configured targets. `--target` replaces it and skips the home config's `targets`, so a broken list never blocks it. A repeated name counts once. A target with no user-level surface, such as `aider` or `continue`, is skipped with one warning, so a project-shaped `agnostic-ai.yaml` keeps working. A name that is no target at all stops the run with the closest supported one. A [`requires`](#requires) key stops `sync --global`, `list --global`, `lint --global`, and `validate --global` on an older binary, and one in `local/agnostic-ai.yaml` replaces the shared one. With `--target`, a home config that does not parse only warns, but a `requires` that parsed still holds. Global mode reads no other key: `version` passes, and any other key prints a warning and is ignored. A target dropped from the list keeps its synced files and ownership records, as a run with `--only` does, until you remove them by hand.
 
 For example, `local/skills/reviewer/SKILL.md` replaces `skills/reviewer/SKILL.md`. Run `agnostic-ai list --global` to see the effective specs with their `global` or `global-local` layer. Run `agnostic-ai validate --global` and `agnostic-ai lint --global` to check both layers before a sync writes them. Global layers never merge with project specs. [Local overrides](@/docs/local-overrides.md) compares this layer with the project one.
 
