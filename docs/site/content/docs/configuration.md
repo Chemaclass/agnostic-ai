@@ -486,7 +486,7 @@ Sync edits only the keys it writes and records them in `state/global.json`. Ever
 - A key that already holds the value sync would write is adopted, and sync names it. Moving a setting you set by hand into the home produces no diff.
 - A key with another value stops the run before writes and names the file, the key, and both values. Codex's `/model` picker saves its choice to `config.toml`, so this is normal use: the message prints the target line to put in the spec to keep the new value. `--backup` overwrites the key instead and keeps `<path>.bak`.
 - `--dry-run` lists each key a write sets or removes, and `--check` fails on a changed key.
-- `agnostic-ai explain --global settings/defaults.yaml` names the file and key each target gets from that spec. A key a later spec overrides is not listed.
+- `agnostic-ai explain --global settings/defaults.yaml` names the file and key each target gets from that spec. A key a later spec overrides is not listed. `explain --global` takes any global spec, so `explain --global agents/reviewer.md` lists each user-level agent file.
 
 For a personal agent shared by Claude Code and Codex, create `~/.agnostic-ai/agents/reviewer.md`:
 

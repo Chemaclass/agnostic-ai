@@ -177,3 +177,45 @@ func TestEditTOMLRoot_KeepsBOMAndMixedLineEndings(t *testing.T) {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
+
+func TestExplainGlobal_NamesEveryKindsUserPath(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, codex, augment]\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review\ntargets: [claude]\n---\nReview.\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "skills", "tidy", "SKILL.md"), "---\nname: tidy\ndescription: Tidy\n---\nTidy.\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "fmt.yaml"), "event: PostToolUse\ncommand: gofmt -l .\n")
+
+	explain := func(arg string) string {
+		t.Helper()
+		var out bytes.Buffer
+		cmd := NewRootCmd("test")
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{"explain", "--global", arg})
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("explain %s: %v\n%s", arg, err, out.String())
+		}
+		return out.String()
+	}
+	p := func(parts ...string) string {
+		return filepath.ToSlash(filepath.Join(append([]string{home}, parts...)...))
+	}
+	checks := map[string][]string{
+		"agents/reviewer.md":   {"[claude] " + p(".claude", "agents", "reviewer.md") + " (full file)"},
+		"skills/tidy/SKILL.md": {"[claude] " + p(".claude", "skills", "tidy", "SKILL.md"), "[codex] " + p(".agents", "skills", "tidy", "SKILL.md")},
+		"rules/safe.md":        {"[claude] " + p(".claude", "CLAUDE.md") + ` (section "safe")`, "[augment] " + p(".augment", "rules", "safe.md") + " (full file)"},
+		"hooks/fmt.yaml":       {"[claude] " + p(".claude", "settings.json") + ` (section "PostToolUse")`, "[codex] " + p(".codex", "hooks.json")},
+	}
+	for arg, wants := range checks {
+		got := explain(arg)
+		for _, want := range wants {
+			if !strings.Contains(got, want) {
+				t.Errorf("explain %s lacks %q:\n%s", arg, want, got)
+			}
+		}
+	}
+	if got := explain("agents/reviewer.md"); strings.Contains(got, "[codex]") {
+		t.Errorf("a claude-only agent must not list codex:\n%s", got)
+	}
+}

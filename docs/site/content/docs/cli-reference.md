@@ -204,9 +204,9 @@ agnostic-ai explain rules/conventional-commits.md --json
 | Flag | Description |
 |------|-------------|
 | `--json` | Stable schema for editor extensions and scripts. |
-| `--global` | Explain a settings spec in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) or its `local/` layer. A relative path resolves against that root. Other kinds stop with a pointer to `list --global`. |
+| `--global` | Explain a spec in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) or its `local/` layer: the user-level file each target `sync --global` writes gets from it. A relative path resolves against that root. |
 
-Contributions are grouped by configured target, plus a "would emit if enabled" list for inactive adapters. Entries are tagged `(full file)` or `(section "<name>")`. With `--global`, each entry names a user settings file and the key the spec sets there, tagged `(key "<key>")` and `"mode": "key"` in JSON.
+Contributions are grouped by configured target, plus a "would emit if enabled" list for inactive adapters. Entries are tagged `(full file)` or `(section "<name>")`. With `--global`, an agent or skill is a whole file, a rule is a section of the instructions file, a hook is its event in the hooks file, and a settings spec names each key it sets, tagged `(key "<key>")` and `"mode": "key"` in JSON.
 
 ```json
 {"version": "1", "command": "explain", "spec": {"kind": "rule", "name": "...", "path": "..."},

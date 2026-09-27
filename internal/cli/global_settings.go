@@ -3,15 +3,12 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"maps"
 	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -616,70 +613,4 @@ func lintGlobalSettingsFindings(settings []spec.Entry, targets []string) []lintF
 		out = append(out, lintFinding{Code: "LINT014", Severity: lintError, Path: issue.Path, Message: issue.Message})
 	}
 	return out
-}
-
-// runExplainGlobal names the user settings file and key each target
-// gets from one global settings spec. A key a later spec overrides is
-// not this spec's to claim.
-func runExplainGlobal(cmd *cobra.Command, input string, jsonOut bool) error {
-	scope, err := loadCheckScope(true)
-	if err != nil {
-		return err
-	}
-	if !filepath.IsAbs(input) {
-		if _, statErr := os.Stat(input); statErr != nil {
-			input = filepath.Join(scope.source, input)
-		}
-	}
-	entry, err := findSpecEntry(input, scope.bundle)
-	if err != nil {
-		return err
-	}
-	if entry.Kind != spec.KindSettings {
-		return fmt.Errorf("explain --global covers settings specs; %s is a %s spec, so run list --global for its layer", entry.Path, entry.Kind)
-	}
-	home, err := globalUserHome()
-	if err != nil {
-		return err
-	}
-	settings := scope.bundle.Settings
-	contributions := []contribution{}
-	for _, target := range slices.Sorted(slices.Values(scope.targets)) {
-		g := globalTargets[target]
-		if g.settings.path == "" {
-			continue
-		}
-		adapters.SetWarner(io.Discard)
-		want := globalSettingsFor(target, g, settings)
-		adapters.ResetCoverageNotes()
-		adapters.SetWarner(os.Stderr)
-		for _, s := range want {
-			if s.source == entry.Path {
-				contributions = append(contributions, contribution{Target: target, Path: g.path(home, g.settings.path), Section: s.key, Mode: "key"})
-			}
-		}
-	}
-	if jsonOut {
-		return emitExplainJSON(cmd, explainOutput{
-			Version:            "1",
-			Command:            "explain",
-			Spec:               explainSpecRef{Kind: string(entry.Kind), Name: entry.Name, Path: filepath.ToSlash(entry.Path)},
-			Contributions:      contributions,
-			WouldEmitIfEnabled: []contribution{},
-		})
-	}
-	out := cmd.OutOrStdout()
-	if _, err := fmt.Fprintf(out, "%s →\n", filepath.ToSlash(entry.Path)); err != nil {
-		return fmt.Errorf("write explain output: %w", err)
-	}
-	if len(contributions) == 0 {
-		_, err := fmt.Fprintln(out, "  (no target sync --global writes takes a key from this spec)")
-		return err
-	}
-	for _, c := range contributions {
-		if _, err := fmt.Fprintf(out, "  %s\n", formatContribution(c)); err != nil {
-			return fmt.Errorf("write explain output: %w", err)
-		}
-	}
-	return nil
 }
