@@ -11,7 +11,7 @@ var specKeys = []string{
 	// Agents and skills.
 	"tools", "model", "effort", "color", "readonly", "memory", "mcpServers", "permissionMode",
 	"hooks", "disable-model-invocation", "argument-hint", "reasoningEffort", "temperature",
-	"nickname_candidates",
+	"nickname_candidates", "permission", "agent", "subtask",
 	// Rules.
 	"globs", "paths", "alwaysApply",
 	// Hooks.
@@ -26,5 +26,14 @@ var specKeys = []string{
 	"oauth_client_id", "oauth_client_secret", "oauth_resource", "oauthClientId",
 	"oauthClientSecret", "oauthResource", "requestOptions", "required", "sandboxEnabled",
 	"scopes", "sessionless", "startup_timeout_ms", "startup_timeout_sec", "tool_timeout_sec",
-	"experimental_environment",
+	"experimental_environment", "autoApprove", "disabledTools", "oauthScopes", "connectTimeout",
+	"headersHelper", "envFile", "dev",
+}
+
+// targetKeys are top-level keys only some targets read. On a project that
+// configures none of them they do nothing, so one that is a near miss of
+// a portable key still gets flagged there: `glob:` meant as `globs:`.
+var targetKeys = map[string][]string{
+	"glob": {"qoder"},
+	"mode": {"kilo", "opencode"},
 }

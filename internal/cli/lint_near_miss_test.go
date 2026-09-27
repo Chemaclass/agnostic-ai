@@ -22,7 +22,7 @@ func TestLintNearMissKeys_FlagsAllowedTools(t *testing.T) {
 		Meta: map[string]any{"allowed_tools": []any{"Read"}}, Body: "b",
 	}}
 
-	findings := lintNearMissKeys(entries)
+	findings := lintNearMissKeys(entries, nil)
 
 	if len(findings) != 1 {
 		t.Fatalf("expected 1 finding, got %d: %v", len(findings), findings)
@@ -41,7 +41,7 @@ func TestLintNearMissKeys_FlagsEveryDocumentedNearMiss(t *testing.T) {
 			Kind: spec.KindAgent, Name: "a", Path: "agents/a.md",
 			Meta: map[string]any{key: "x"}, Body: "b",
 		}}
-		if got := lintNearMissKeys(entries); len(got) != 1 {
+		if got := lintNearMissKeys(entries, nil); len(got) != 1 {
 			t.Errorf("%s: expected a finding, got %v", key, got)
 		}
 	}
@@ -54,7 +54,7 @@ func TestLintNearMissKeys_IgnoresCorrectKeys(t *testing.T) {
 		Meta: map[string]any{"tools": []any{"Read"}, "model": "opus", "description": "d"}, Body: "b",
 	}}
 
-	if got := lintNearMissKeys(entries); len(got) != 0 {
+	if got := lintNearMissKeys(entries, nil); len(got) != 0 {
 		t.Errorf("correct keys must not be flagged, got %v", got)
 	}
 }
@@ -68,7 +68,7 @@ func TestLintNearMissKeys_IgnoresTargetNamespacedKeys(t *testing.T) {
 		Meta: map[string]any{"x-junie": map[string]any{"disallowedTools": []any{"Bash"}}}, Body: "b",
 	}}
 
-	if got := lintNearMissKeys(entries); len(got) != 0 {
+	if got := lintNearMissKeys(entries, nil); len(got) != 0 {
 		t.Errorf("x-<target> keys are deliberate, got %v", got)
 	}
 }
@@ -80,7 +80,7 @@ func TestLintNearMissKeys_IgnoresUnrelatedKeys(t *testing.T) {
 		Meta: map[string]any{"owner": "platform-team"}, Body: "b",
 	}}
 
-	if got := lintNearMissKeys(entries); len(got) != 0 {
+	if got := lintNearMissKeys(entries, nil); len(got) != 0 {
 		t.Errorf("unknown keys pass through by design, got %v", got)
 	}
 }
@@ -106,14 +106,14 @@ func TestCollectLintFindings_IncludesNearMissKeys(t *testing.T) {
 // A key one edit from a documented key is a typo, not an extension:
 // `glob:` leaves a rule meant for Go files applying everywhere.
 func TestLintNearMissKeys_FlagsTyposOfDocumentedKeys(t *testing.T) {
-	cases := map[string]string{"glob": "globs", "descriptin": "description", "alwaysapply": "alwaysApply", "matchr": "matcher"}
+	cases := map[string]string{"glob": "globs", "descriptin": "description", "alwaysapply": "alwaysApply", "matchr": "matcher", "mode": "model"}
 	for key, want := range cases {
 		entries := []spec.Entry{{
 			Kind: spec.KindRule, Name: "r", Path: "rules/r.md",
 			Meta: map[string]any{key: "x"}, Body: "b",
 		}}
 
-		got := lintNearMissKeys(entries)
+		got := lintNearMissKeys(entries, nil)
 
 		if len(got) != 1 || !strings.Contains(got[0].Message, "`"+want+":`") {
 			t.Errorf("%s: want a finding naming %s, got %v", key, want, got)
@@ -129,7 +129,7 @@ func TestLintNearMissKeys_SkipsPassthroughKinds(t *testing.T) {
 			Kind: kind, Name: "e", Path: "e.yaml",
 			Meta: map[string]any{"ports": "x", "globs": "x", "glob": "x"},
 		}}
-		if got := lintNearMissKeys(entries); len(got) != 0 {
+		if got := lintNearMissKeys(entries, nil); len(got) != 0 {
 			t.Errorf("%s keys pass through, got %v", kind, got)
 		}
 	}
@@ -144,17 +144,34 @@ func TestSpecKeys_CoverEveryDocumentedField(t *testing.T) {
 	}
 	field := regexp.MustCompile("`([A-Za-z][A-Za-z0-9_-]*)`")
 	skip := map[string]bool{"## Settings": true, "## Target-specific extensions: `x-<target>` namespace": true}
-	section := ""
+	section, header := "", ""
 	for _, line := range strings.Split(string(data), "\n") {
 		if strings.HasPrefix(line, "## ") {
 			section = line
 		}
-		if skip[section] || !strings.HasPrefix(line, "| `") {
+		if !strings.HasPrefix(line, "|") {
+			header = ""
 			continue
 		}
-		first := strings.Split(line, "|")[1]
-		for _, m := range field.FindAllStringSubmatch(first, -1) {
-			if !slices.Contains(specKeys, m[1]) {
+		if header == "" {
+			header = line
+		}
+		if skip[section] {
+			continue
+		}
+		cols := strings.Split(line, "|")
+		// A field row names keys in its first column; an "Extra fields"
+		// row ("| [Kiro](...) | `autoApprove`, ... |") in its second.
+		keys := cols[1]
+		switch {
+		case strings.HasPrefix(line, "| `"):
+		case strings.HasPrefix(line, "| [") && len(cols) > 2 && strings.Contains(header, "Extra fields"):
+			keys = cols[2]
+		default:
+			continue
+		}
+		for _, m := range field.FindAllStringSubmatch(keys, -1) {
+			if _, targetOnly := targetKeys[m[1]]; !targetOnly && !slices.Contains(specKeys, m[1]) {
 				t.Errorf("%s documents `%s`, missing from specKeys", section, m[1])
 			}
 		}
@@ -172,7 +189,47 @@ func TestRunSyncOnce_WarnsAboutAMistypedKey(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !strings.Contains(buf.String(), "! .agnostic-ai/rules/go.md: `glob:` is not a key agnostic-ai reads") {
+	if !strings.Contains(buf.String(), "! .agnostic-ai/rules/go.md: `glob:` is read only by qoder, not a target here") {
 		t.Errorf("sync should name the mistyped key:\n%s", buf.String())
+	}
+}
+
+// Some top-level keys belong to one target: Qoder reads `glob:`, OpenCode
+// and Kilo read `mode:`. A project that targets one of them means it.
+func TestLintNearMissKeys_TargetKeyIsFineWhenItsTargetIsConfigured(t *testing.T) {
+	for key, target := range map[string]string{"glob": "qoder", "mode": "opencode"} {
+		entries := []spec.Entry{{
+			Kind: spec.KindRule, Name: "r", Path: "rules/r.md",
+			Meta: map[string]any{key: "x"}, Body: "b",
+		}}
+		if got := lintNearMissKeys(entries, []string{"claude", target}); len(got) != 0 {
+			t.Errorf("%s with %s configured: got %v", key, target, got)
+		}
+	}
+}
+
+func TestLintNearMissKeys_TargetKeyNamesItsReaders(t *testing.T) {
+	entries := []spec.Entry{{
+		Kind: spec.KindRule, Name: "r", Path: "rules/r.md",
+		Meta: map[string]any{"glob": "*.go"}, Body: "b",
+	}}
+
+	got := lintNearMissKeys(entries, []string{"claude", "cursor"})
+
+	if len(got) != 1 || !strings.Contains(got[0].Message, "`glob:` is read only by qoder, not a target here") ||
+		!strings.Contains(got[0].Message, "Did you mean `globs:`?") {
+		t.Errorf("got %v", got)
+	}
+}
+
+// Keys only some targets read, documented in the MCP extra-fields table.
+func TestLintNearMissKeys_IgnoresTargetMCPFields(t *testing.T) {
+	entries := []spec.Entry{{
+		Kind: spec.KindMCP, Name: "m", Path: "mcps/m.yaml",
+		Meta: map[string]any{"disabledTools": []any{"x"}, "autoApprove": []any{"y"}, "envFile": ".env"},
+	}}
+
+	if got := lintNearMissKeys(entries, nil); len(got) != 0 {
+		t.Errorf("documented MCP fields must pass, got %v", got)
 	}
 }

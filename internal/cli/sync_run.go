@@ -362,8 +362,15 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 		return err
 	}
 	// A mistyped key parses and emits, so without this line nothing in a
-	// sync says the rule or agent lost its setting.
-	for _, f := range lintNearMissKeys(b.All()) {
+	// sync says the rule or agent lost its setting. Pack specs are not the
+	// user's to edit; lint still reports them.
+	var own []spec.Entry
+	for _, e := range b.All() {
+		if !strings.HasPrefix(e.Layer, "pack:") {
+			own = append(own, e)
+		}
+	}
+	for _, f := range lintNearMissKeys(own, cfg.Targets) {
 		summaryf("%s %s: %s\n", bang(), filepath.ToSlash(f.Path), f.Message)
 	}
 	shared, err := planSharedSkills(cfg, b, effectiveTargets)
