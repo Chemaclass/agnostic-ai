@@ -33,6 +33,7 @@ func defaultSource(kind string) string {
 
 type Config struct {
 	Version       int               `yaml:"version"                  json:"version"`
+	Requires      string            `yaml:"requires,omitempty"       json:"requires,omitempty"`
 	Sources       Sources           `yaml:"sources,omitempty"        json:"sources,omitempty"`
 	Targets       []string          `yaml:"targets,omitempty"        json:"targets,omitempty"`
 	Outputs       map[string]Output `yaml:"outputs,omitempty"        json:"outputs,omitempty"`
@@ -379,6 +380,9 @@ func LoadWithSources(root string) (*Config, []string, error) {
 		sources = append(sources, localPath)
 	}
 	if err := validateUnmanaged(cfg.Sync.Unmanaged, strings.Join(sources, " + ")); err != nil {
+		return nil, nil, err
+	}
+	if err := validateRequires(cfg.Requires, strings.Join(sources, " + ")); err != nil {
 		return nil, nil, err
 	}
 	return cfg, sources, nil

@@ -29,7 +29,7 @@ func newValidateCmd() *cobra.Command {
   # Validate the global specs before sync --global writes them
   agnostic-ai validate --global`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			scope, err := loadCheckScope(global)
+			scope, err := loadCheckScope(cmd, global)
 			if err != nil {
 				return err
 			}

@@ -72,7 +72,7 @@ func newSyncCmd() *cobra.Command {
 				return err
 			}
 
-			cfg, _, err := loadProject(".")
+			cfg, _, err := loadRequiredProject(cmd, ".")
 			if err != nil {
 				return err
 			}

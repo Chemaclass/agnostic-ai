@@ -37,6 +37,12 @@ var registry = map[Code]Entry{
 		Cause: "The config file was found but could not be parsed as YAML, or its keys do not match the expected schema.",
 		Fix:   "Validate against `docs/schemas/config.schema.json`. Check indentation and that list keys (e.g. `targets:`) hold a YAML sequence. Run `agnostic-ai doctor` for a full diagnosis.",
 	},
+	CodeRequiresUnmet: {
+		Code:  CodeRequiresUnmet,
+		Title: "Installed version older than requires",
+		Cause: "The config's `requires` key names the oldest agnostic-ai release its specs work with, and the installed binary is older. `sync`, `sync --check`, `lint`, and `validate` stop before they read specs or write files.",
+		Fix:   "Run `agnostic-ai upgrade`. If the version stays the same, `agnostic-ai upgrade --check` shows which binary runs and any older copy that shadows it on PATH.",
+	},
 	CodeOutputCollision: {
 		Code:  CodeOutputCollision,
 		Title: "Targets emit to the same output path",

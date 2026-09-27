@@ -231,6 +231,9 @@
         "version": {
           "type": "integer"
         },
+        "requires": {
+          "type": "string"
+        },
         "sources": {
           "$ref": "#/$defs/Sources"
         },

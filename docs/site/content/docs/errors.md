@@ -69,6 +69,16 @@ The config file was found but could not be parsed as YAML, or its keys do not ma
 
 **Fix:** validate against `docs/schemas/config.schema.json`. Check indentation and that list keys (e.g. `targets:`) hold a YAML sequence. Run `agnostic-ai doctor` for a full diagnosis.
 
+### AAI-005: Installed version older than requires
+
+The config's `requires` key names the oldest agnostic-ai release its specs work with, and the installed binary is older. `sync`, `sync --check`, `lint`, and `validate` stop before they read specs or write files. The message names the file, the required version, and the installed one:
+
+```
+[AAI-005] agnostic-ai.yaml requires agnostic-ai >=0.70.0, but 0.69.0 is installed; run `agnostic-ai upgrade`
+```
+
+**Fix:** run `agnostic-ai upgrade`. If the version stays the same, `agnostic-ai upgrade --check` shows which binary runs and any older copy that shadows it on PATH.
+
 ### AAI-102: Targets emit to the same output path
 
 Two or more enabled targets would write to the same path (commonly the root `AGENTS.md`, shared by codex, amp, warp, cline, windsurf, junie, kiro, crush, trae, jules, goose, augment, qoder, openhands, factory and kilo). Last-writer-wins would mask drift.

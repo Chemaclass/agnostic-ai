@@ -117,15 +117,21 @@ func loadProject(root string) (*config.Config, spec.Bundle, error) {
 	if err != nil {
 		return nil, spec.Bundle{}, err
 	}
-	if len(sources) > 1 {
-		verbosef("→ merged %d config layers: %s\n",
-			len(sources), strings.Join(sources, ", "))
-	}
-	b, err := spec.LoadLayered(resolveLayers(root, cfg))
+	b, err := loadProjectSpecs(root, cfg, sources)
 	if err != nil {
 		return nil, spec.Bundle{}, err
 	}
 	return cfg, b, nil
+}
+
+// loadProjectSpecs loads the specs cfg points at. sources are the config
+// files cfg came from.
+func loadProjectSpecs(root string, cfg *config.Config, sources []string) (spec.Bundle, error) {
+	if len(sources) > 1 {
+		verbosef("→ merged %d config layers: %s\n",
+			len(sources), strings.Join(sources, ", "))
+	}
+	return spec.LoadLayered(resolveLayers(root, cfg))
 }
 
 // startCPUProfile begins a runtime/pprof CPU profile for the current run. The

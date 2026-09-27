@@ -94,6 +94,10 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		return err
 	}
 	source := globalSourceHome(home)
+	// -t skips the home targets, not the version the specs need.
+	if err := requireGlobalVersion(cmd, source); err != nil {
+		return err
+	}
 	warn := cmd.ErrOrStderr()
 	if verbosity < levelDefault || o.check {
 		warn = io.Discard
