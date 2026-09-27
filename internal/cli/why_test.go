@@ -406,3 +406,63 @@ func TestWhy_LabelsUnconfiguredTarget(t *testing.T) {
 		t.Errorf("missing not-configured label: %s", out.String())
 	}
 }
+
+// CLAUDE.md is the file users open first. Claude reads rules from its own
+// directory, so nothing is inlined, but the file still comes from the
+// shared instructions.
+func TestWhy_EntryPointFileCreditsTheSharedInstructions(t *testing.T) {
+	dir := setupWhyFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	got := runWhyJSON(t, "CLAUDE.md")
+
+	if got.Target != "claude" {
+		t.Errorf("expected claude as the entry-point consumer, got %q", got.Target)
+	}
+	if len(got.Sources) != 1 || got.Sources[0].Path != ".agnostic-ai/AGNOSTIC_AI.md" || got.Sources[0].Mode != "full" {
+		t.Errorf("want AGNOSTIC_AI.md as the one full source, got %v", got.Sources)
+	}
+}
+
+func TestWhy_EntryPointWithInlinedRulesListsInstructionsFirst(t *testing.T) {
+	dir := setupWhyFixture(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\nsources:\n  rules: rules\ntargets:\n  - codex\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	got := runWhyJSON(t, "AGENTS.md")
+
+	if len(got.Sources) == 0 || got.Sources[0].Path != ".agnostic-ai/AGNOSTIC_AI.md" {
+		t.Errorf("want AGNOSTIC_AI.md first, got %v", got.Sources)
+	}
+}
+
+// A source spec is not an output; say which command answers the question.
+func TestWhy_SourceFilePointsAtExplain(t *testing.T) {
+	dir := setupWhyFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"why", "rules/no-console-log.md"})
+	err := root.Execute()
+
+	if err == nil || !strings.Contains(err.Error(), "agnostic-ai explain rules/no-console-log.md") {
+		t.Errorf("got %v", err)
+	}
+}
+
+func TestWhy_SharedInstructionsSayWhereTheyGo(t *testing.T) {
+	dir := setupWhyFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"why", ".agnostic-ai/AGNOSTIC_AI.md"})
+	err := root.Execute()
+
+	if err == nil || !strings.Contains(err.Error(), "shared instructions body") {
+		t.Errorf("got %v", err)
+	}
+}

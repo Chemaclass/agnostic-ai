@@ -87,6 +87,12 @@ func traceFile(input string, cfg *config.Config, b spec.Bundle, projectRoot stri
 	if err != nil {
 		return whyOutput{}, err
 	}
+	if filepath.ToSlash(rel) == filepath.ToSlash(adapters.AgnosticEntryPointPath) {
+		return whyOutput{}, fmt.Errorf("%s is the shared instructions body, not a generated file. sync copies it into every target's entry point (CLAUDE.md, AGENTS.md, GEMINI.md, ...)", input)
+	}
+	if isSourceFile(rel, b) {
+		return whyOutput{}, fmt.Errorf("%s is a source spec, not a generated file. Run `agnostic-ai explain %s` to see the files it writes", input, filepath.ToSlash(rel))
+	}
 
 	// Silence per-adapter capability warnings during the multi-adapter
 	// capture sweep below.
@@ -141,40 +147,52 @@ func traceFile(input string, cfg *config.Config, b spec.Bundle, projectRoot stri
 	return out, nil
 }
 
-// traceEntryPointFile reports the rule specs inlined into an entry-point
-// file. Returns false when rel is not an entry-point that inlines rules.
-// A shared path (AGENTS.md) is attributed to its first consuming target
-// in registry order, listing every inlined rule as a section source.
+// traceEntryPointFile reports where an entry-point file (CLAUDE.md,
+// AGENTS.md, GEMINI.md, ...) comes from: the shared AGNOSTIC_AI.md body,
+// the ignored local extension when present, and the rule specs inlined
+// for targets without a rules directory. Returns false when rel is no
+// configured target's entry point. A shared path (AGENTS.md) is
+// attributed to its first consuming target in name order.
 func traceEntryPointFile(rel string, cfg *config.Config, b spec.Bundle, projectRoot string) (whyOutput, bool) {
-	if len(b.Rules) == 0 {
-		return whyOutput{}, false
-	}
 	relSlash := filepath.ToSlash(rel)
-	byPath := inlinedRuleEntryPoints(cfg, cfg.Targets)
-	tgts, ok := byPath[rel]
-	if !ok {
-		// Fall back to a slash-normalized scan so Windows separators match.
-		for p, ts := range byPath {
-			if filepath.ToSlash(p) == relSlash {
-				tgts, ok = ts, true
-				break
-			}
+	var tgts []string
+	for _, t := range cfg.Targets {
+		p := adapters.EntryPointPath(cfg, t)
+		if p == "" || p == adapters.AgnosticEntryPointPath || adapters.LegacyRulesFileOwnsEntryPoint(cfg, t) {
+			continue
+		}
+		if filepath.ToSlash(p) == relSlash {
+			tgts = append(tgts, t)
 		}
 	}
-	if !ok || len(tgts) == 0 {
+	if len(tgts) == 0 {
 		return whyOutput{}, false
 	}
 	sort.Strings(tgts)
-	sources := make([]whySource, 0, len(b.Rules))
-	for _, r := range adapters.EntryPointRules(b, tgts[0]).Rules {
-		sources = append(sources, whySource{
+	var inlined []spec.Entry
+	if byPath := inlinedRuleEntryPoints(cfg, tgts); len(byPath) > 0 {
+		inlined = adapters.EntryPointRules(b, tgts[0]).Rules
+	}
+	mode := "full"
+	if len(inlined) > 0 {
+		mode = "section"
+	}
+	sources := []whySource{{Kind: "instructions", Name: "AGNOSTIC_AI.md", Path: filepath.ToSlash(adapters.AgnosticEntryPointPath), Mode: mode}}
+	if _, err := os.Stat(filepath.Join(projectRoot, adapters.ProjectLocalEntryPointPath)); err == nil {
+		sources[0].Mode = "section"
+		sources = append(sources, whySource{Kind: "instructions", Name: "AGNOSTIC_AI.md (local)", Path: filepath.ToSlash(adapters.ProjectLocalEntryPointPath), Mode: "section"})
+	}
+	var rules []whySource
+	for _, r := range inlined {
+		rules = append(rules, whySource{
 			Kind: string(r.Kind),
 			Name: r.Name,
 			Path: filepath.ToSlash(r.Path),
 			Mode: "section",
 		})
 	}
-	sort.SliceStable(sources, func(i, j int) bool { return sources[i].Name < sources[j].Name })
+	sort.SliceStable(rules, func(i, j int) bool { return rules[i].Name < rules[j].Name })
+	sources = append(sources, rules...)
 	return whyOutput{
 		Version:    "1",
 		Command:    "why",
@@ -185,6 +203,18 @@ func traceEntryPointFile(rel string, cfg *config.Config, b spec.Bundle, projectR
 		Sources:    sources,
 		LastSync:   lastSyncTimestamp(projectRoot),
 	}, true
+}
+
+// isSourceFile reports whether rel is a spec file, which sync reads
+// rather than writes.
+func isSourceFile(rel string, b spec.Bundle) bool {
+	relSlash := filepath.ToSlash(rel)
+	for _, e := range b.All() {
+		if filepath.ToSlash(e.Path) == relSlash {
+			return true
+		}
+	}
+	return false
 }
 
 // normalizeInputPath returns the absolute path and the project-relative

@@ -168,3 +168,16 @@ targets: [claude]
 		t.Errorf("expected file under custom sources: %v", err)
 	}
 }
+
+func TestNew_MistypedKindSuggestsTheClosest(t *testing.T) {
+	testutil.Chdir(t, setupEmptyProject(t))
+	silence(t)
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"new", "skil", "deploy"})
+
+	err := root.Execute()
+
+	if err == nil || !strings.Contains(err.Error(), "did you mean skill?") {
+		t.Errorf("got %v", err)
+	}
+}
