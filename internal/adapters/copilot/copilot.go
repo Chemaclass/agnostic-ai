@@ -372,6 +372,12 @@ func emitLegacyRulesFile(sess *emit.Session, b spec.Bundle, cfg *config.Config, 
 	return sess.WriteFile(rulesFile, content, dryRun)
 }
 
+// AlwaysOnRule reports whether Copilot reads r on every request, in
+// both the per-rule and the legacy rules-file layout.
+func (Adapter) AlwaysOnRule(r spec.Entry) bool {
+	return isAlwaysOn(r)
+}
+
 func alwaysOnRules(rules []spec.Entry) []spec.Entry {
 	out := make([]spec.Entry, 0, len(rules))
 	for _, r := range rules {

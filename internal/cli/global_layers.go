@@ -139,7 +139,29 @@ func lintGlobalRuleFindings(rules []spec.Entry) []lintFinding {
 }
 
 func globalInstructions(source string, rules []spec.Entry) ([]byte, error) {
-	var parts []string
+	layers, err := globalInstructionLayers(source, rules)
+	if err != nil {
+		return nil, err
+	}
+	parts := make([]string, 0, len(layers))
+	for _, l := range layers {
+		parts = append(parts, l.Text)
+	}
+	return []byte(strings.Join(parts, "\n\n")), nil
+}
+
+// instructionLayer is the text one source adds to always-loaded
+// instructions, named as lint reports it.
+type instructionLayer struct {
+	Name string
+	Text string
+}
+
+// globalInstructionLayers returns the non-empty parts of the managed
+// instructions block in order: AGNOSTIC_AI.md, the rules, then
+// local/AGNOSTIC_AI.md.
+func globalInstructionLayers(source string, rules []spec.Entry) ([]instructionLayer, error) {
+	var layers []instructionLayer
 	for i, root := range []string{source, filepath.Join(source, "local")} {
 		path := filepath.Join(root, "AGNOSTIC_AI.md")
 		data, err := os.ReadFile(path)
@@ -147,13 +169,19 @@ func globalInstructions(source string, rules []spec.Entry) ([]byte, error) {
 			return nil, fmt.Errorf("read %s: %w", path, err)
 		}
 		if body := strings.TrimSpace(string(data)); body != "" {
-			parts = append(parts, body)
-		}
-		if i == 0 {
-			for _, rule := range rules {
-				parts = append(parts, "## "+rule.Name+"\n\n"+strings.TrimSpace(rule.Body))
+			name := "AGNOSTIC_AI.md"
+			if i == 1 {
+				name = "local/AGNOSTIC_AI.md"
 			}
+			layers = append(layers, instructionLayer{Name: name, Text: body})
+		}
+		if i == 0 && len(rules) > 0 {
+			sections := make([]string, 0, len(rules))
+			for _, rule := range rules {
+				sections = append(sections, "## "+rule.Name+"\n\n"+strings.TrimSpace(rule.Body))
+			}
+			layers = append(layers, instructionLayer{Name: "rules", Text: strings.Join(sections, "\n\n")})
 		}
 	}
-	return []byte(strings.Join(parts, "\n\n")), nil
+	return layers, nil
 }

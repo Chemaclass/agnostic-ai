@@ -449,6 +449,12 @@ func skillsPaths(sess *emit.Session, skills []spec.Entry, skillsDir, path string
 	return append(paths, dir)
 }
 
+// AlwaysOnRule reports whether Kilo Code loads r in every session:
+// ruleInstructions lists every named rule in `instructions`.
+func (Adapter) AlwaysOnRule(r spec.Entry) bool {
+	return r.Name != ""
+}
+
 // ruleInstructions returns one `instructions` entry per rule spec: the
 // project-relative path RulesDirectory writes it to, scope subdirectory
 // included (see the package doc for why this lists explicit paths

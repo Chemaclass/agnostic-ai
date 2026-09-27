@@ -296,6 +296,20 @@ func commandFile(e spec.Entry) string {
 	return sb.String()
 }
 
+// AlwaysOnRule reports whether Trae applies r to every chat: the
+// `alwaysApply` value activationFrontmatter writes.
+func (Adapter) AlwaysOnRule(r spec.Entry) bool {
+	return alwaysApplies(emit.ResolveMeta(r.Meta, target))
+}
+
+// alwaysApplies reads `alwaysApply`, true when the spec leaves it unset.
+func alwaysApplies(m map[string]any) bool {
+	if v, ok := m["alwaysApply"].(bool); ok {
+		return v
+	}
+	return true
+}
+
 // ruleForm renders one rule as a `.md` file: the
 // description/globs/alwaysApply activation frontmatter (see the
 // package doc), then a `# <name>` heading and the body.
@@ -329,10 +343,7 @@ func activationFrontmatter(e spec.Entry) string {
 	m := emit.ResolveMeta(e.Meta, target)
 	desc, _ := m["description"].(string)
 	globs, _ := m["globs"].(string)
-	always := true
-	if v, ok := m["alwaysApply"].(bool); ok {
-		always = v
-	}
+	always := alwaysApplies(m)
 	if globs == "" && !always {
 		globs = strings.Join(pathsToGlobs(m["paths"]), ",")
 	}

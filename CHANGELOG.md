@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Added
 
+- `lint` and `lint --global` warn when a target loads more than 2000 words at the start of every session, counting its entry-point file, always-on rule files, and skill and agent descriptions (LINT011). The line shows each part. Each adapter decides which of its rule files count as always on. Past the Codex 32 KiB or Antigravity 24,000-byte cap, the line names the cap, whatever the word budget. A skill or agent description over 1024 characters warns too, and a skill description past the Agent Skills 1024 limit warns under any budget (LINT012). Set `lint.instructions-words` and `lint.description-chars` in `agnostic-ai.yaml` or the global home config to change the budgets.
 - `why CLAUDE.md` (and every other entry point) names `.agnostic-ai/AGNOSTIC_AI.md` as its source instead of saying the file is not tracked. `why` on a spec points at `explain`, and `new skil` suggests `skill`.
 - `lint` and `sync` warn on a mistyped frontmatter key, such as `glob:` for `globs:`, which parsed and left a rule applying to every file (LINT007).
 - Every coded error prints its fix on the next line, so `sync` in a folder without a config says to run `agnostic-ai init`.

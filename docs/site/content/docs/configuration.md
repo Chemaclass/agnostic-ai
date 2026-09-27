@@ -36,6 +36,7 @@ For directory-specific instructions, add `scope` to a rule: `agnostic-ai new rul
 | Run project behavior checks after model or CLI changes | [Verify](#verify) |
 | Keep a hand-written file at a generated path | [`sync.unmanaged`](#syncunmanaged) |
 | Stop an older agnostic-ai from syncing your specs | [`requires`](#requires) |
+| Change when `lint` warns about instruction size | [`lint`](#lint) |
 | Override settings on one machine | [Local overrides](#local-overrides) |
 | Keep personal specs and instructions out of Git | [Local spec layers](@/docs/local-overrides.md) |
 | Understand which value wins | [Precedence](#precedence) and [Layered specs](#layered-specs) |
@@ -76,6 +77,7 @@ outputs:
 | [`sync`](#sync) | map | see section | Sync behavior. |
 | [`verify`](#verify) | map | disabled | External behavior gate. |
 | [`import`](#import) | map | per source | Import behavior. |
+| [`lint`](#lint) | map | see section | Budgets for always-loaded text. |
 
 ## `requires`
 
@@ -258,6 +260,29 @@ import:
     shred: false
 ```
 
+## `lint`
+
+Budgets `agnostic-ai lint` checks the text each target loads in every session against. Past a budget, lint warns, and `lint --strict` exits 1.
+
+| Key | Default | Effect |
+|-----|---------|--------|
+| `instructions-words` | `2000` | Words one target loads every session: its entry-point file, always-on rule files, and skill and agent descriptions (LINT011). |
+| `description-chars` | `1024` | Characters in one skill or agent description (LINT012). A skill description past 1024 still warns under a higher value. |
+
+```yaml
+lint:
+  instructions-words: 3000
+  description-chars: 500
+```
+
+Where the defaults come from:
+
+- Claude Code asks for a `CLAUDE.md` [under 200 lines](https://code.claude.com/docs/en/memory): "Longer files consume more context and reduce adherence." That is about 2000 words of prose.
+- Codex stops reading `AGENTS.md` once the files reach `project_doc_max_bytes`, [32 KiB by default](https://developers.openai.com/codex/guides/agents-md), and Antigravity truncates a rule file [past 24,000 bytes](https://antigravity.google/docs/rules). 2000 words sits well under both. Lint also warns past either cap, whatever the word budget.
+- The [Agent Skills specification](https://agentskills.io/specification) caps a skill description at 1024 characters.
+
+A missing key or `0` keeps the default; a negative value fails as AAI-004. [`lint` in the CLI reference](@/docs/cli-reference.md#lint) shows the finding. The [global home config](#global-configuration) accepts the key too.
+
 ## `on-unsupported`
 
 Applies when an adapter receives a spec kind it does not support (e.g. `hooks` for Cursor or `mcps` for Cline).
@@ -375,7 +400,7 @@ Source root: `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when `AGNOSTIC_AI_HOME` i
 
 ```text
 ~/.agnostic-ai/
-├── agnostic-ai.yaml        # optional, targets only
+├── agnostic-ai.yaml        # optional: targets, requires, lint
 ├── AGNOSTIC_AI.md
 ├── agents/*.md
 ├── rules/*.md
@@ -404,7 +429,7 @@ To sync a fixed set of tools without `--only` on every run, list them in the sou
 targets: [claude, codex, cursor]
 ```
 
-`sync --global` and `sync --global --check` then touch those targets only, and `lint --global` and `validate --global` check against them. A `targets` list in `local/agnostic-ai.yaml` replaces the shared one. `--only` and `--except` narrow the list for one run and must name configured targets. `--target` replaces it and skips the home config's `targets`, so a broken list never blocks it. A repeated name counts once. A target with no user-level surface, such as `aider` or `continue`, is skipped with one warning, so a project-shaped `agnostic-ai.yaml` keeps working. A name that is no target at all stops the run with the closest supported one. A [`requires`](#requires) key stops `sync --global`, `list --global`, `lint --global`, and `validate --global` on an older binary, and one in `local/agnostic-ai.yaml` replaces the shared one. With `--target`, and for `list --global`, a home config that does not parse only warns, but a `requires` that parsed still holds. Global mode reads no other key: `version` passes, and any other key prints a warning and is ignored. A target dropped from the list keeps its synced files and ownership records, as a run with `--only` does, until you remove them by hand.
+`sync --global` and `sync --global --check` then touch those targets only, and `lint --global` and `validate --global` check against them. A `targets` list in `local/agnostic-ai.yaml` replaces the shared one. `--only` and `--except` narrow the list for one run and must name configured targets. `--target` replaces it and skips the home config's `targets`, so a broken list never blocks it. A repeated name counts once. A target with no user-level surface, such as `aider` or `continue`, is skipped with one warning, so a project-shaped `agnostic-ai.yaml` keeps working. A name that is no target at all stops the run with the closest supported one. A [`requires`](#requires) key stops `sync --global`, `list --global`, `lint --global`, and `validate --global` on an older binary, and one in `local/agnostic-ai.yaml` replaces the shared one. With `--target`, and for `list --global`, a home config that does not parse only warns, but a `requires` that parsed still holds. A `lint` key sets the budgets `lint --global` uses; each key in `local/agnostic-ai.yaml` replaces the shared one. Global mode reads no other key: `version` passes, and any other key prints a warning and is ignored. A target dropped from the list keeps its synced files and ownership records, as a run with `--only` does, until you remove them by hand.
 
 For example, `local/skills/reviewer/SKILL.md` replaces `skills/reviewer/SKILL.md`. Run `agnostic-ai list --global` to see the effective specs with their `global` or `global-local` layer. Run `agnostic-ai validate --global` and `agnostic-ai lint --global` to check both layers before a sync writes them. Global layers never merge with project specs. [Local overrides](@/docs/local-overrides.md) compares this layer with the project one.
 

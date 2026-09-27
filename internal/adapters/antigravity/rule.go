@@ -100,6 +100,13 @@ func noteInvalidTriggerOverrides(rules []spec.Entry) {
 	emit.NoteFieldNoOp(target, spec.KindRule, "trigger", invalid, invalidTriggerOverrideReason)
 }
 
+// AlwaysOnRule reports whether Antigravity injects r on every turn: the
+// rule's trigger is always_on.
+func (Adapter) AlwaysOnRule(r spec.Entry) bool {
+	trigger, _, _, _ := ruleTrigger(emit.ResolveMeta(r.Meta, target))
+	return trigger == triggerAlwaysOn
+}
+
 // ruleTrigger resolves one rule's frontmatter trigger.
 //
 // An `x-antigravity.trigger` override wins outright when present:

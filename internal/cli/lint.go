@@ -48,7 +48,10 @@ func newLintCmd() *cobra.Command {
 			"supported by any enabled target), hooks whose event ignores their " +
 			"matcher, unterminated frontmatter, and frontmatter keys that near-miss " +
 			"a key agnostic-ai owns (allowed_tools vs tools), and allowed Bash rules " +
-			"with a wildcard before the end of the command. With --global, it " +
+			"with a wildcard before the end of the command, and warns when a " +
+			"target's always-loaded instructions pass the lint.instructions-words " +
+			"budget or a skill or agent description passes lint.description-chars. " +
+			"With --global, it " +
 			"also flags rules sync --global rejects. Exit code 1 on " +
 			"error-severity findings, or on warn-severity findings when --strict " +
 			"is set.",
@@ -65,8 +68,14 @@ func newLintCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// The budget runs first: a home or project with only
+			// AGNOSTIC_AI.md still loads it every session.
+			budget, err := lintBudgetFindings(scope)
+			if err != nil {
+				return err
+			}
 			entries := scope.bundle.All()
-			if len(entries) == 0 {
+			if len(entries) == 0 && len(budget) == 0 {
 				cmd.PrintErrln(scope.emptyHint())
 				return nil
 			}
@@ -75,6 +84,7 @@ func newLintCmd() *cobra.Command {
 			if scope.global {
 				findings = append(findings, lintGlobalRuleFindings(scope.bundle.Rules)...)
 			}
+			findings = append(findings, budget...)
 
 			if len(findings) == 0 {
 				cmd.Printf("ok — %d spec(s) clean\n", len(entries))

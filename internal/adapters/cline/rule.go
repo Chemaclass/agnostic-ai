@@ -24,6 +24,12 @@ func rule(e spec.Entry) string {
 	return emit.WithHeader(fm+"# "+e.Name+"\n\n"+e.Body, emit.FormatMarkdown)
 }
 
+// AlwaysOnRule reports whether Cline loads r on every request: its file
+// carries no `paths` conditional.
+func (Adapter) AlwaysOnRule(r spec.Entry) bool {
+	return pathsFrontmatter(r) == ""
+}
+
 // pathsFrontmatter renders Cline's one conditional, `paths`, and
 // returns "" for a rule that has nothing to scope to.
 //

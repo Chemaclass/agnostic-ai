@@ -117,7 +117,7 @@ func TestSyncGlobal_HomeConfigWarnsOnKeysItIgnores(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sync --global: %v", err)
 	}
-	want := fmt.Sprintf("warning: %s: global mode reads only targets and requires; ignoring on-unsupported, sources", config)
+	want := fmt.Sprintf("warning: %s: global mode reads only targets, requires, and lint; ignoring on-unsupported, sources", config)
 	if !strings.Contains(errOut, want) {
 		t.Errorf("expected %q, got:\n%s", want, errOut)
 	}

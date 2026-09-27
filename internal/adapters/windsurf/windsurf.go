@@ -370,6 +370,12 @@ func rule(e spec.Entry) string {
 	return emit.WithHeader(fm+"# "+e.Name+"\n\n"+e.Body, emit.FormatMarkdown)
 }
 
+// AlwaysOnRule reports whether Devin loads r on every message: its file
+// carries no activation frontmatter.
+func (Adapter) AlwaysOnRule(r spec.Entry) bool {
+	return activationFrontmatter(r) == ""
+}
+
 // activationFrontmatter maps a rule's generic activation fields onto
 // Devin's `trigger`, and returns "" for an always-on rule so the file
 // stays bare. The mapping mirrors the one cursor's `.mdc` renderer

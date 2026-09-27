@@ -275,6 +275,23 @@ func NativeArtifactsFor(name string, cfg *config.Config) []NativeArtifact {
 	return o.NativeArtifacts(cfg)
 }
 
+// alwaysOnRuler is the optional interface an adapter implements when it
+// writes rules to files its tool loads by itself. AlwaysOnRule reports
+// whether the tool loads rule r in every session, before any file
+// matches, and comes from the code that renders the rule's activation.
+type alwaysOnRuler interface {
+	AlwaysOnRule(r spec.Entry) bool
+}
+
+// AlwaysOnRule reports whether the named target loads rule r from its
+// own rule files in every session. It is false for a target that
+// writes no rule files of its own, such as one that only inlines rules
+// into its entry point. Lookup is in-tree only.
+func AlwaysOnRule(name string, r spec.Entry) bool {
+	a, ok := registry[name].(alwaysOnRuler)
+	return ok && a.AlwaysOnRule(r)
+}
+
 // gitignoreHinter is the optional interface an adapter implements to
 // declare local artifacts the tool creates but agnostic-ai never emits
 // (e.g. a memory store, a per-user local settings file). The sync layer

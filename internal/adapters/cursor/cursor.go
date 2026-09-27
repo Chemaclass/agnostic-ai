@@ -468,16 +468,27 @@ func emitEnvironment(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryR
 	return sess.WriteFile(path, string(raw)+"\n", dryRun)
 }
 
+// AlwaysOnRule reports whether Cursor applies r to every chat: the
+// `alwaysApply` value mdc writes.
+func (Adapter) AlwaysOnRule(r spec.Entry) bool {
+	return alwaysApplies(emit.ResolveMeta(r.Meta, target))
+}
+
+// alwaysApplies reads `alwaysApply`, true when the spec leaves it unset.
+func alwaysApplies(m map[string]any) bool {
+	if v, ok := m["alwaysApply"].(bool); ok {
+		return v
+	}
+	return true
+}
+
 // mdc renders one rule as a `.mdc` file. Rules default to
 // `alwaysApply: true`; the spec frontmatter overrides.
 func mdc(e spec.Entry) string {
 	m := emit.ResolveMeta(e.Meta, target)
 	desc, _ := m["description"].(string)
 	globs, _ := m["globs"].(string)
-	always := true
-	if v, ok := m["alwaysApply"].(bool); ok {
-		always = v
-	}
+	always := alwaysApplies(m)
 	// An alwaysApply:true rule ignores globs entirely, so synthesizing
 	// one there is pure round-trip noise against a hand-authored source;
 	// omit it (#443). An alwaysApply:false rule without globs falls back
