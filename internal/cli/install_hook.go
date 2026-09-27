@@ -6,54 +6,270 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
 )
 
-const preCommitScript = "#!/bin/sh\nagnostic-ai sync --check\n"
+// hookBlock is the part of a pre-commit hook install-hook owns. Its
+// sentinel comment line marks a hook as installed.
+type hookBlock struct {
+	sentinel string
+	// legacy is the line older versions wrote without a sentinel.
+	legacy string
+	checks string
+}
+
+func (b hookBlock) text() string {
+	return b.sentinel + "\n" + b.checks + "\n"
+}
+
+func (b hookBlock) installedIn(content string) bool {
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimSpace(line)
+		if line == b.sentinel || (b.legacy != "" && line == b.legacy) {
+			return true
+		}
+	}
+	return false
+}
+
+var projectHook = hookBlock{
+	sentinel: "# agnostic-ai install-hook",
+	legacy:   "agnostic-ai sync --check",
+	checks:   "agnostic-ai sync --check || exit 1",
+}
+
+// globalHook runs from the home's repository root, so the checks read
+// the home being committed even when AGNOSTIC_AI_HOME names another.
+var globalHook = hookBlock{
+	sentinel: "# agnostic-ai install-hook --global",
+	checks: `AGNOSTIC_AI_HOME="$(git rev-parse --show-toplevel)" || exit 1
+export AGNOSTIC_AI_HOME
+agnostic-ai lint --global --strict || exit 1
+agnostic-ai validate --global || exit 1
+# A linked worktree holds a branch, not the specs sync --global deployed,
+# so only the main checkout compares them with the live files.
+git_dir="$(cd "$(git rev-parse --git-dir)" && pwd -P)" || exit 1
+common_dir="$(cd "$(git rev-parse --git-common-dir)" && pwd -P)" || exit 1
+if [ "$git_dir" = "$common_dir" ]; then
+	agnostic-ai sync --global --check || exit 1
+fi`,
+}
 
 func newInstallHookCmd() *cobra.Command {
-	var shared bool
-	return &cobra.Command{
+	var shared, global bool
+	cmd := &cobra.Command{
 		Use:   "install-hook",
 		Short: "Install a pre-commit hook that runs sync --check.",
 		Long: "Writes .git/hooks/pre-commit (or appends to an existing file). " +
 			"With --shared, writes to .githooks/pre-commit and sets core.hooksPath so " +
-			"the hook is committed alongside the project.",
+			"the hook is committed alongside the project. With --global, run in the " +
+			"global home kept in git, writes a hook that runs lint --global --strict, " +
+			"validate --global, and sync --global --check.",
 		Example: `  # Install into .git/hooks/pre-commit (local only)
   agnostic-ai install-hook
 
   # Install into .githooks/ and set core.hooksPath (shared with team)
-  agnostic-ai install-hook --shared`,
+  agnostic-ai install-hook --shared
+
+  # Gate commits to the global home, run inside ~/.agnostic-ai
+  agnostic-ai install-hook --global`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
+			if global {
+				return installGlobalPreCommitHook(".", cmd.OutOrStdout())
+			}
+			if err := refuseGlobalHome(".", globalHomeHookRemedy); err != nil {
 				return err
 			}
-			return installPreCommitHook(".", shared, cmd.OutOrStdout())
+			return installPreCommitHook(".", shared, cmd.OutOrStdout(), cmd.ErrOrStderr())
 		},
 	}
+	cmd.Flags().BoolVar(&shared, "shared", false, "Write .githooks/pre-commit and set core.hooksPath so the hook is shared with the team.")
+	cmd.Flags().BoolVar(&global, "global", false, "Write the pre-commit hook of the global home in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai), which must be the root of a git repository.")
+	cmd.MarkFlagsMutuallyExclusive("shared", "global")
+	return cmd
 }
 
-func installPreCommitHook(root string, shared bool, out io.Writer) error {
+// installGlobalPreCommitHook writes the global home's pre-commit hook.
+// dir must be the home itself, at the root of its git repository, so
+// the hook's checks read the same home the commit is for.
+func installGlobalPreCommitHook(dir string, out io.Writer) error {
+	source, err := globalSourceRoot()
+	if err != nil {
+		return err
+	}
+	home, err := os.Stat(source)
+	if err != nil {
+		return fmt.Errorf("global home %s: %w", source, err)
+	}
+	if here, err := os.Stat(dir); err != nil || !os.SameFile(here, home) {
+		return fmt.Errorf("install-hook --global runs in the global home %s; cd there first, or set %s to this directory", source, envUserGlobalRoot)
+	}
+	top, err := gitRevParse(source, "--show-toplevel")
+	if err != nil {
+		return fmt.Errorf("%s is not the root of a git repository; run `git init` there first", source)
+	}
+	if info, err := os.Stat(top); err != nil || !os.SameFile(info, home) {
+		return fmt.Errorf("%s is not the root of a git repository (it sits inside %s); keep the global home in its own repository", source, top)
+	}
+	hooksDir, err := gitHooksDir(source)
+	if err != nil {
+		return err
+	}
+	hookPath := filepath.Join(hooksDir, "pre-commit")
+	if existing, err := os.ReadFile(hookPath); err == nil && hasProjectCheck(string(existing)) {
+		return fmt.Errorf("%s runs `agnostic-ai sync --check`, which fails in the global home without blocking the commit; remove that line and run install-hook --global again", hookPath)
+	}
+	written, err := writeHookAt(hooksDir, globalHook)
+	if err != nil {
+		return err
+	}
+	reportHook(out, hookPath, written, "")
+	return nil
+}
+
+// gitHooksDir returns the hooks directory of the repository at dir, and
+// refuses when core.hooksPath sends git elsewhere: a hook written there
+// would never run, and a user-level hooksPath would run it in every repo.
+func gitHooksDir(dir string) (string, error) {
+	commonDir, err := gitRevParse(dir, "--git-common-dir")
+	if err != nil {
+		return "", err
+	}
+	hooksDir := absFrom(dir, filepath.Join(commonDir, "hooks"))
+	gitPath, err := gitRevParse(dir, "--git-path", "hooks")
+	if err != nil {
+		return "", err
+	}
+	if active := absFrom(dir, gitPath); !sameHooksDir(active, hooksDir) {
+		value, origin := gitHooksPathSetting(dir)
+		return "", fmt.Errorf("core.hooksPath is %s (set in %s), so git runs hooks from %s, not %s; unset it, or add these lines to the pre-commit hook there by hand:\n\n%s", value, origin, active, hooksDir, globalHook.text())
+	}
+	return hooksDir, nil
+}
+
+// gitHooksPathSetting returns core.hooksPath and the config file that
+// sets it, or empty strings when it is unset.
+func gitHooksPathSetting(dir string) (string, string) {
+	out, err := exec.Command("git", "-C", dir, "config", "--show-origin", "core.hooksPath").Output()
+	if err != nil {
+		return "", ""
+	}
+	return parseConfigOrigin(string(out))
+}
+
+// parseConfigOrigin splits a `git config --show-origin` line. Git
+// C-quotes an origin path that holds backslashes, so every Windows path.
+func parseConfigOrigin(line string) (string, string) {
+	origin, value, _ := strings.Cut(strings.TrimSpace(line), "\t")
+	origin = strings.TrimPrefix(origin, "file:")
+	if unquoted, err := strconv.Unquote(origin); err == nil {
+		origin = unquoted
+	}
+	return value, origin
+}
+
+// hasProjectCheck reports a project sync --check line, which has no
+// place in the global home's hook.
+func hasProjectCheck(content string) bool {
+	for _, line := range strings.Split(content, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), projectHook.legacy) {
+			return true
+		}
+	}
+	return false
+}
+
+func gitRevParse(dir string, args ...string) (string, error) {
+	out, err := exec.Command("git", append([]string{"-C", dir, "rev-parse"}, args...)...).Output()
+	if err != nil {
+		return "", fmt.Errorf("git rev-parse %s in %s: %w", strings.Join(args, " "), dir, err)
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+func absFrom(dir, path string) string {
+	if filepath.IsAbs(path) {
+		return filepath.Clean(path)
+	}
+	return filepath.Join(dir, path)
+}
+
+// sameHooksDir compares two paths through symlinks when both exist.
+func sameHooksDir(a, b string) bool {
+	ai, aerr := os.Stat(a)
+	bi, berr := os.Stat(b)
+	if aerr == nil && berr == nil {
+		return os.SameFile(ai, bi)
+	}
+	return sameDir(a, b)
+}
+
+func installPreCommitHook(root string, shared bool, out, warn io.Writer) error {
 	if shared {
-		return installSharedHook(root, out)
+		return installSharedHook(root, out, warn)
 	}
 	return installLocalHook(root, out)
 }
 
-// installSharedHook writes .githooks/pre-commit and sets core.hooksPath so the
-// hook lives in the repo and runs for every collaborator.
-func installSharedHook(root string, out io.Writer) error {
-	hookPath, err := writeHookAt(filepath.Join(root, ".githooks"))
+const sharedHooksPath = ".githooks"
+
+// installSharedHook writes .githooks/pre-commit at the worktree root and
+// sets core.hooksPath so the hook lives in the repo and runs for every
+// collaborator.
+func installSharedHook(dir string, out, warn io.Writer) error {
+	top, err := gitRevParse(dir, "--show-toplevel")
+	if err != nil {
+		return fmt.Errorf("%s is not inside a git work tree; run `git init` first", dir)
+	}
+	value, origin := gitHooksPathSetting(top)
+	if value != "" && value != sharedHooksPath {
+		return fmt.Errorf("core.hooksPath is already %s (set in %s), and --shared would replace it; add these lines to the pre-commit hook there by hand, or unset core.hooksPath:\n\n%s", value, origin, projectHook.text())
+	}
+	var stopped []string
+	if value == "" {
+		if stopped, err = activeHooks(top); err != nil {
+			return err
+		}
+	}
+	written, err := writeHookAt(filepath.Join(top, sharedHooksPath), projectHook)
 	if err != nil {
 		return err
 	}
-	if err := exec.Command("git", "-C", root, "config", "core.hooksPath", ".githooks").Run(); err != nil {
+	if err := exec.Command("git", "-C", top, "config", "core.hooksPath", sharedHooksPath).Run(); err != nil {
 		return fmt.Errorf("git config core.hooksPath: %w", err)
 	}
-	_, _ = fmt.Fprintf(out, "✓ installed %s (core.hooksPath → .githooks)\n", hookPath)
+	reportHook(out, filepath.Join(top, sharedHooksPath, "pre-commit"), written, " (core.hooksPath → "+sharedHooksPath+")")
+	if len(stopped) > 0 {
+		_, _ = fmt.Fprintf(warn, "warning: git no longer runs these hooks, since core.hooksPath is now %s: %s\n", sharedHooksPath, strings.Join(stopped, ", "))
+	}
 	return nil
+}
+
+// activeHooks lists the hooks in the repository's hooks directory that
+// git runs today, skipping the .sample files git init writes.
+func activeHooks(top string) ([]string, error) {
+	commonDir, err := gitRevParse(top, "--git-common-dir")
+	if err != nil {
+		return nil, err
+	}
+	hooksDir := absFrom(top, filepath.Join(commonDir, "hooks"))
+	entries, err := os.ReadDir(hooksDir)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", hooksDir, err)
+	}
+	var names []string
+	for _, entry := range entries {
+		if !entry.IsDir() && !strings.HasSuffix(entry.Name(), ".sample") {
+			names = append(names, filepath.Join(hooksDir, entry.Name()))
+		}
+	}
+	return names, nil
 }
 
 // installLocalHook writes .git/hooks/pre-commit, scoped to the local clone.
@@ -62,45 +278,116 @@ func installLocalHook(root string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	hookPath, err := writeHookAt(filepath.Join(gitDir, "hooks"))
+	hooksDir := filepath.Join(gitDir, "hooks")
+	written, err := writeHookAt(hooksDir, projectHook)
 	if err != nil {
 		return err
 	}
-	_, _ = fmt.Fprintf(out, "✓ installed %s\n", hookPath)
+	reportHook(out, filepath.Join(hooksDir, "pre-commit"), written, "")
 	return nil
 }
 
-// writeHookAt ensures dir exists and writes the pre-commit hook into it,
-// returning the hook's full path.
-func writeHookAt(dir string) (string, error) {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", fmt.Errorf("mkdir %s: %w", dir, err)
+type hookWrite int
+
+const (
+	hookCreated hookWrite = iota
+	hookAppended
+	hookUnchanged
+)
+
+func reportHook(out io.Writer, path string, written hookWrite, suffix string) {
+	switch written {
+	case hookAppended:
+		_, _ = fmt.Fprintf(out, "✓ appended the checks to %s, after its existing content%s\n", path, suffix)
+	case hookUnchanged:
+		_, _ = fmt.Fprintf(out, "✓ %s already runs the checks%s\n", path, suffix)
+	default:
+		_, _ = fmt.Fprintf(out, "✓ installed %s%s\n", path, suffix)
 	}
-	hookPath := filepath.Join(dir, "pre-commit")
-	if err := writeOrAppendHook(hookPath); err != nil {
-		return "", err
-	}
-	return hookPath, nil
 }
 
-// writeOrAppendHook writes the agnostic-ai sync --check line to path.
-// If the file exists and already contains the line, it is a no-op.
-// If it exists without the line, the line is appended.
-// If it does not exist, the full shebang script is written.
-func writeOrAppendHook(path string) error {
-	const marker = "agnostic-ai sync --check"
+// writeHookAt ensures dir exists and writes block into its pre-commit
+// hook: a new sh script when there is none, nothing when the hook
+// already holds block, and otherwise block appended to the hook.
+func writeHookAt(dir string, block hookBlock) (hookWrite, error) {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return 0, fmt.Errorf("mkdir %s: %w", dir, err)
+	}
+	path := filepath.Join(dir, "pre-commit")
 	existing, err := os.ReadFile(path)
-	if err == nil {
-		if strings.Contains(string(existing), marker) {
-			return nil
+	if err != nil && !os.IsNotExist(err) {
+		return 0, fmt.Errorf("read %s: %w", path, err)
+	}
+	if strings.TrimSpace(string(existing)) == "" {
+		return hookCreated, os.WriteFile(path, []byte("#!/bin/sh\n"+block.text()), 0o755)
+	}
+	if block.installedIn(string(existing)) {
+		return hookUnchanged, nil
+	}
+	if reason := appendBlocker(string(existing)); reason != "" {
+		return 0, fmt.Errorf("%s %s, so checks appended to it would never run; add these lines by hand where they run:\n\n%s", path, reason, block.text())
+	}
+	content := strings.TrimRight(string(existing), "\n") + "\n\n" + block.text()
+	return hookAppended, os.WriteFile(path, []byte(content), 0o755)
+}
+
+// appendBlocker says why lines appended to an existing hook would never
+// run, or returns "" when they would. Only sh and bash hooks reach
+// their end; an exec that replaces the shell or an unindented exit ends
+// them first. An indented exit usually sits in a failure branch.
+func appendBlocker(content string) string {
+	lines := strings.Split(content, "\n")
+	if !strings.HasPrefix(lines[0], "#!") {
+		return "has no #!/bin/sh line"
+	}
+	if shell := shebangCommand(lines[0]); shell != "sh" && shell != "bash" {
+		return fmt.Sprintf("runs %s, not sh or bash", shell)
+	}
+	for _, line := range lines[1:] {
+		trimmed := strings.TrimSpace(line)
+		fields := strings.Fields(trimmed)
+		if len(fields) == 0 {
+			continue
 		}
-		content := strings.TrimRight(string(existing), "\n") + "\n\n" + marker + "\n"
-		return os.WriteFile(path, []byte(content), 0o755)
+		command := strings.TrimSuffix(fields[0], ";")
+		if command == "exec" && !onlyRedirects(fields[1:]) {
+			return fmt.Sprintf("ends in its %q line", trimmed)
+		}
+		if command == "exit" && line == trimmed {
+			return fmt.Sprintf("ends at its %q line", trimmed)
+		}
 	}
-	if !os.IsNotExist(err) {
-		return fmt.Errorf("read %s: %w", path, err)
+	return ""
+}
+
+// shebangCommand names the interpreter a #! line runs, looking through
+// /usr/bin/env.
+func shebangCommand(line string) string {
+	fields := strings.Fields(strings.TrimPrefix(line, "#!"))
+	if len(fields) == 0 {
+		return ""
 	}
-	return os.WriteFile(path, []byte(preCommitScript), 0o755)
+	command := filepath.Base(fields[0])
+	if command != "env" {
+		return command
+	}
+	for _, field := range fields[1:] {
+		if !strings.HasPrefix(field, "-") {
+			return filepath.Base(field)
+		}
+	}
+	return command
+}
+
+// onlyRedirects reports an exec that only redirects, such as exec 1>&2,
+// which keeps the shell running.
+func onlyRedirects(args []string) bool {
+	for _, arg := range args {
+		if rest := strings.TrimLeft(arg, "0123456789"); !strings.HasPrefix(rest, ">") && !strings.HasPrefix(rest, "<") {
+			return false
+		}
+	}
+	return true
 }
 
 func findGitDir(root string) (string, error) {

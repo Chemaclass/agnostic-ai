@@ -518,7 +518,14 @@ Install a pre-commit hook that runs `sync --check`. See [git hooks](@/docs/git-h
 ```bash
 agnostic-ai install-hook            # writes .git/hooks/pre-commit (local)
 agnostic-ai install-hook --shared   # writes .githooks/ and sets core.hooksPath
+agnostic-ai install-hook --global   # gates commits to a global home kept in git
 ```
+
+An existing `pre-commit` hook keeps its content, and the checks go at its end. A hook that would stop before reaching them is left alone, and the command prints the lines to add by hand: one without a `sh` or `bash` shebang, one that runs `exec`, or one with an unindented `exit`. A hook that already holds the checks stays as it is.
+
+`--shared` writes `.githooks/pre-commit` at the root of the work tree, from any folder inside it. It stops when `core.hooksPath` already points somewhere else, and names the hooks in `.git/hooks` that stop running once it points at `.githooks`.
+
+Plain `install-hook` stops inside the global home. There, run `install-hook --global` instead. It writes `.git/hooks/pre-commit` for the home, which must be the root of its own git repository. The hook runs `lint --global --strict`, `validate --global`, and `sync --global --check` against the repository being committed, and the commit fails when any of them fails. In a linked worktree of the home, the hook skips `sync --global --check`, since a branch there need not match what sync deployed. `--global` stops with a message when run anywhere else, when `core.hooksPath` sends git to another hooks folder, or when the hook still runs the project `agnostic-ai sync --check`. It does not take `--shared`.
 
 ## completion
 
