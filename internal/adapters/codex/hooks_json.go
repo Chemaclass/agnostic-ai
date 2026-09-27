@@ -149,11 +149,13 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 		commandWindows         string
 		additionalContextLimit *int
 		async                  bool
+		execForm               bool
 		server, tool           string
 		input                  map[string]any
 	}
 	byKey := map[key]*accum{}
 	keyOrder := []key{}
+	execForm := 0
 
 	for _, h := range hooks {
 		event, _ := h.Meta["event"].(string)
@@ -204,6 +206,10 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 		commandWindows, _ := h.Meta["commandWindows"].(string)
 		additionalContextLimit := hookIntMetaPtr(h.Meta, "additionalContextLimit")
 		async := hookBoolMeta(h.Meta, "async")
+		hasArgs := len(emit.StringSlice(h.Meta["args"])) > 0
+		if hasArgs {
+			execForm++
+		}
 		for _, raw := range hookCommands(h.Meta["command"]) {
 			cmd := emit.RewriteHookPath(raw, target)
 			k := key{event: event, kind: "command", identity: cmd}
@@ -234,9 +240,14 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 			if async {
 				a.async = true
 			}
+			if hasArgs {
+				a.execForm = true
+			}
 		}
 	}
 
+	emit.NoteFieldNoOp(target, spec.KindHook, "args", execForm,
+		"Codex hooks have no exec form, so the hook runs command without its args")
 	if len(byKey) == 0 {
 		return nil
 	}
@@ -271,14 +282,18 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 		}
 		// Codex picks commandWindows on Windows, where the shell is
 		// PowerShell or cmd and has no `export`, so it keeps the command
-		// as declared and the variable stays unset there.
-		commandWindows := a.commandWindows
-		if commandWindows == "" {
-			commandWindows = k.identity
+		// as declared and the variable stays unset there. An exec-form
+		// spec meant no shell at all, so it gets neither.
+		command, commandWindows := k.identity, a.commandWindows
+		if !a.execForm {
+			command = emit.ExportHookTarget(k.identity, target)
+			if commandWindows == "" {
+				commandWindows = k.identity
+			}
 		}
 		g.Hooks = append(g.Hooks, hookCommandEntry{
 			Type:                   "command",
-			Command:                emit.ExportHookTarget(k.identity, target),
+			Command:                command,
 			hookBase:               hookBase{Timeout: a.timeout, StatusMessage: a.statusMessage},
 			CommandWindows:         commandWindows,
 			AdditionalContextLimit: a.additionalContextLimit,

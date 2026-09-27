@@ -72,6 +72,10 @@ type globalTarget struct {
 	// hookTimeout converts a spec's timeout in seconds to the unit the
 	// target reads, for a target that reads another one. Nil keeps it.
 	hookTimeout func(meta map[string]any) (any, bool)
+	// hookArgs marks a Claude-shaped hooks file whose command handler
+	// takes `args`, the exec form (claude, qoder). Other targets have no
+	// such field.
+	hookArgs bool
 	// bridge marks a target that does not auto-load its user-level
 	// instructions file, so the body is injected through a managed
 	// session-start hook instead.
@@ -103,6 +107,7 @@ var globalTargets = map[string]globalTarget{
 		hooks:        globalPathHome + ".claude/settings.json",
 		hooksFormat:  "claude",
 		hookTarget:   hookTargetSettingsEnv,
+		hookArgs:     true,
 	},
 	"cursor": {
 		agents:       globalPathHome + ".cursor/agents",
@@ -146,6 +151,7 @@ var globalTargets = map[string]globalTarget{
 		hooks:        globalPathHome + ".qoder/settings.json",
 		hooksFormat:  "claude",
 		hookTarget:   hookTargetHandlerEnv,
+		hookArgs:     true,
 	},
 	"copilot": {
 		rootEnv:      "COPILOT_HOME",

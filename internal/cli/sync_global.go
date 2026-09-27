@@ -600,7 +600,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		next.Hooks[target] = map[string][]any{}
 		path := g.path(home, g.hooks)
 		hooks := b.HooksFor(target)
-		hookTarget := globalHookTarget{name: target, mode: g.hookTarget, timeout: g.hookTimeout, specHooks: len(hooks)}
+		hookTarget := globalHookTarget{name: target, mode: g.hookTarget, args: g.hookArgs, timeout: g.hookTimeout, specHooks: len(hooks)}
 		if g.bridge && body != "" {
 			bridge, command, script, mode := globalContextBridge(filepath.Dir(path), body, g.bridgeKey)
 			if err := add(bridge, []byte(script), mode); err != nil {
@@ -885,6 +885,9 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 					if value, ok := entry.Meta[key]; ok {
 						commandHook[key] = value
 					}
+				}
+				if args := stringSliceFromAny(entry.Meta["args"]); target.args && len(args) > 0 {
+					commandHook["args"] = args
 				}
 				if target.timeout != nil {
 					delete(commandHook, "timeout")
@@ -1200,6 +1203,8 @@ type globalHookTarget struct {
 	// timeout converts the spec's timeout, when the target reads
 	// another unit than seconds.
 	timeout func(meta map[string]any) (any, bool)
+	// args says the handler takes exec-form `args`.
+	args bool
 	// specHooks counts the leading entries that come from hook specs;
 	// the rest, such as Cursor's context bridge, are sync's own.
 	specHooks int
@@ -1209,6 +1214,10 @@ type globalHookTarget struct {
 func (t globalHookTarget) tell(handler, meta map[string]any) {
 	switch t.mode {
 	case hookTargetExport:
+		// An exec-form spec meant no shell, so it gets no prefix.
+		if len(stringSliceFromAny(meta["args"])) > 0 {
+			return
+		}
 		command, _ := handler["command"].(string)
 		windows, _ := meta["commandWindows"].(string)
 		if windows == "" {
