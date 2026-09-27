@@ -600,7 +600,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		next.Hooks[target] = map[string][]any{}
 		path := g.path(home, g.hooks)
 		hooks := b.HooksFor(target)
-		hookTarget := globalHookTarget{name: target, mode: g.hookTarget, specHooks: len(hooks)}
+		hookTarget := globalHookTarget{name: target, mode: g.hookTarget, timeout: g.hookTimeout, specHooks: len(hooks)}
 		if g.bridge && body != "" {
 			bridge, command, script, mode := globalContextBridge(filepath.Dir(path), body, g.bridgeKey)
 			if err := add(bridge, []byte(script), mode); err != nil {
@@ -865,6 +865,62 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 	if hooks == nil {
 		hooks = map[string]any{}
 	}
+	// planned holds each entry as sync writes it now, one per command.
+	type plannedHook struct {
+		event       string
+		item, plain any
+		spec        bool
+	}
+	var planned []plannedHook
+	for i, entry := range entries {
+		event, _ := entry.Meta["event"].(string)
+		if event == "" {
+			continue
+		}
+		for _, command := range globalHookCommands(entry.Meta["command"]) {
+			var item, plain any
+			if format == "claude" {
+				commandHook := map[string]any{"type": "command", "command": command}
+				for _, key := range []string{"timeout", "statusMessage", "async", "asyncRewake", "shell", "if", "once"} {
+					if value, ok := entry.Meta[key]; ok {
+						commandHook[key] = value
+					}
+				}
+				if target.timeout != nil {
+					delete(commandHook, "timeout")
+					if timeout, ok := target.timeout(entry.Meta); ok {
+						commandHook["timeout"] = timeout
+					}
+				}
+				matcher, _ := entry.Meta["matcher"].(string)
+				plain = map[string]any{"matcher": matcher, "hooks": []any{maps.Clone(commandHook)}}
+				target.tell(commandHook, entry.Meta)
+				item = map[string]any{"matcher": matcher, "hooks": []any{commandHook}}
+			} else {
+				cursorHook := map[string]any{"command": command}
+				for _, key := range []string{"matcher", "timeout", "loop_limit", "failClosed"} {
+					if value, ok := entry.Meta[key]; ok {
+						cursorHook[key] = value
+					}
+				}
+				item, plain = cursorHook, cursorHook
+			}
+			planned = append(planned, plannedHook{event: event, item: item, plain: plain, spec: i < target.specHooks})
+		}
+	}
+	// writesNow reports that an edited copy of a recorded entry is what
+	// sync writes now. The form without the target signal counts only
+	// for a record that lacked it too, as versions before it wrote:
+	// removing the signal from a record that had it is an edit.
+	writesNow := func(event string, existing, recorded any) bool {
+		return slices.ContainsFunc(planned, func(p plannedHook) bool {
+			if p.event != event {
+				return false
+			}
+			return reflect.DeepEqual(existing, jsonRoundTrip(p.item)) ||
+				(!carriesHookTarget(recorded) && reflect.DeepEqual(existing, jsonRoundTrip(p.plain)))
+		})
+	}
 	for _, event := range slices.Sorted(maps.Keys(previous)) {
 		current, _ := hooks[event].([]any)
 		var lost []any
@@ -874,11 +930,22 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 				lost = append(lost, oldEntry)
 			}
 		}
+		// An edit that matches what sync writes now, such as a timeout
+		// an older version wrote in the wrong unit and the user fixed,
+		// is not a conflict: it goes, and the planned entry replaces it.
+		stillLost := lost[:0]
 		for _, oldEntry := range lost {
-			if slices.ContainsFunc(current, func(item any) bool { return sameGlobalHook(item, oldEntry) }) {
+			edited := slices.IndexFunc(current, func(item any) bool { return sameGlobalHook(item, oldEntry) })
+			switch {
+			case edited < 0:
+				stillLost = append(stillLost, oldEntry)
+			case writesNow(event, current[edited], oldEntry):
+				current = slices.Delete(current, edited, edited+1)
+			default:
 				return nil, fmt.Errorf("%s: managed %s hook was edited; restore it or remove it, then sync", path, event)
 			}
 		}
+		lost = stillLost
 		if len(lost) > 0 {
 			if _, err := fmt.Fprintf(warn, "warning: %s: managed %s hook is missing, so it counts as removed\n", path, event); err != nil {
 				return nil, fmt.Errorf("write global hook warning: %w", err)
@@ -919,38 +986,11 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 	// env, session hook) is due. An adopted entry keeps its own form,
 	// so a codex, gemini, or qoder hook the user wrote gets no signal.
 	told := false
-	for i, entry := range entries {
-		event, _ := entry.Meta["event"].(string)
-		if event == "" {
-			continue
+	for _, p := range planned {
+		if err := place(p.event, p.item, p.plain); err != nil {
+			return nil, err
 		}
-		for _, command := range globalHookCommands(entry.Meta["command"]) {
-			var item, plain any
-			if format == "claude" {
-				commandHook := map[string]any{"type": "command", "command": command}
-				for _, key := range []string{"timeout", "statusMessage", "async", "asyncRewake", "shell", "if", "once"} {
-					if value, ok := entry.Meta[key]; ok {
-						commandHook[key] = value
-					}
-				}
-				matcher, _ := entry.Meta["matcher"].(string)
-				plain = map[string]any{"matcher": matcher, "hooks": []any{maps.Clone(commandHook)}}
-				target.tell(commandHook, entry.Meta)
-				item = map[string]any{"matcher": matcher, "hooks": []any{commandHook}}
-			} else {
-				cursorHook := map[string]any{"command": command}
-				for _, key := range []string{"matcher", "timeout", "loop_limit", "failClosed"} {
-					if value, ok := entry.Meta[key]; ok {
-						cursorHook[key] = value
-					}
-				}
-				item, plain = cursorHook, cursorHook
-			}
-			if err := place(event, item, plain); err != nil {
-				return nil, err
-			}
-			told = told || i < target.specHooks
-		}
+		told = told || p.spec
 	}
 	if target.mode == hookTargetSessionEnv && told {
 		item := map[string]any{"command": cursor.HookTargetCommand}
@@ -1157,6 +1197,9 @@ func removeEqual(items []any, want any) ([]any, bool) {
 // target's globalTarget.hookTarget says.
 type globalHookTarget struct {
 	name, mode string
+	// timeout converts the spec's timeout, when the target reads
+	// another unit than seconds.
+	timeout func(meta map[string]any) (any, bool)
 	// specHooks counts the leading entries that come from hook specs;
 	// the rest, such as Cursor's context bridge, are sync's own.
 	specHooks int
@@ -1191,6 +1234,29 @@ func (t globalHookTarget) setSettingsEnv(doc map[string]any, want bool) {
 		return
 	}
 	doc["env"] = next
+}
+
+// carriesHookTarget reports whether a native hook entry holds the target
+// signal a handler carries itself: an `env` naming the target, or the
+// export prefix.
+func carriesHookTarget(entry any) bool {
+	item, _ := entry.(map[string]any)
+	handlers := []any{item}
+	if group, ok := item["hooks"].([]any); ok {
+		handlers = group
+	}
+	for _, raw := range handlers {
+		handler, _ := raw.(map[string]any)
+		if env, ok := handler["env"].(map[string]any); ok {
+			if _, ok := env[adapters.HookTargetEnv]; ok {
+				return true
+			}
+		}
+		if command, _ := handler["command"].(string); strings.HasPrefix(command, "export "+adapters.HookTargetEnv+"=") {
+			return true
+		}
+	}
+	return false
 }
 
 // sameGlobalHook reports whether item runs the recorded entry's command

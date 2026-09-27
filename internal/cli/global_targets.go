@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -68,6 +69,9 @@ type globalTarget struct {
 	// (codex), each handler's `env` (gemini, qoder), or a sessionStart
 	// hook's `env` output (cursor). See the hookTarget* constants.
 	hookTarget string
+	// hookTimeout converts a spec's timeout in seconds to the unit the
+	// target reads, for a target that reads another one. Nil keeps it.
+	hookTimeout func(meta map[string]any) (any, bool)
 	// bridge marks a target that does not auto-load its user-level
 	// instructions file, so the body is injected through a managed
 	// session-start hook instead.
@@ -131,6 +135,7 @@ var globalTargets = map[string]globalTarget{
 		hooks:        globalPathHome + ".gemini/settings.json",
 		hooksFormat:  "claude",
 		hookTarget:   hookTargetHandlerEnv,
+		hookTimeout:  gemini.HookTimeout,
 	},
 	"qoder": {
 		rootEnv:      "QODER_CONFIG_DIR",
