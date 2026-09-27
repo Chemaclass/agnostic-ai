@@ -113,6 +113,7 @@ func importZedTasks(root, dstDir string) (int, error) {
 		if desc != "" {
 			doc["description"] = desc
 		}
+		dropHookTargetEnv(t, "zed")
 		xzed := map[string]any{}
 		for k, v := range t {
 			if zedTaskTopLevel[k] {

@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo edited"
+            "command": "export AGNOSTIC_AI_TARGET=goose; echo edited"
           }
         ]
       }

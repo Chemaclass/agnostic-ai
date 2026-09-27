@@ -6,7 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo edited"
+            "command": "export AGNOSTIC_AI_TARGET=codex; echo edited",
+            "commandWindows": "echo edited"
           }
         ]
       }

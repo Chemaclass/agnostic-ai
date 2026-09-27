@@ -13,6 +13,7 @@ import (
 	"github.com/BurntSushi/toml"
 	"gopkg.in/yaml.v3"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claudehooks"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -911,6 +912,12 @@ func mergeCodexHooksJSON(root string, hooks map[codexHookKey]*codexHookSlot) err
 				}
 				if h.Command == "" {
 					continue
+				}
+				// Sync prefixes the target export and copies the declared
+				// command into commandWindows; neither belongs in the spec.
+				h.Command = adapters.StripHookTargetExport(h.Command, "codex")
+				if h.CommandWindows == h.Command {
+					h.CommandWindows = ""
 				}
 				k := codexHookKey{event: event, matcher: g.Matcher, command: h.Command}
 				entry := codexHookEntry{

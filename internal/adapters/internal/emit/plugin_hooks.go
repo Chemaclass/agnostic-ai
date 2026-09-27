@@ -277,7 +277,7 @@ func pluginModule(host PluginHookHost, name, hookKey, event, matcher string, com
 		sb.WriteString("export ")
 	}
 	sb.WriteString("const " + ident + ": Plugin = async ({ $ }) => {\n")
-	sb.WriteString(runHelper(name))
+	sb.WriteString(runHelper(name, host.Target))
 	sb.WriteString("  return {\n")
 	if isToolHook {
 		params := ""
@@ -321,11 +321,16 @@ func pluginModule(host PluginHookHost, name, hookKey, event, matcher string, com
 // logged and `run` returns, so a failing command never aborts the tool
 // call or skips the next command; only exit 2 on tool.execute.before
 // blocks.
-func runHelper(name string) string {
+//
+// `.env()` on the one command, never on `$`, which is Bun's global and
+// shared with every other plugin. It replaces the environment rather
+// than merging, hence the process.env spread.
+func runHelper(name, target string) string {
 	label := jsString("agnostic-ai hook " + name + ":")
+	env := "{ ...process.env, " + HookTargetEnv + ": " + jsString(target) + " }"
 	return "  const run = async (cmd: string) => {\n" +
 		"    try {\n" +
-		"      const r = await $`${{ raw: cmd }}`.nothrow()\n" +
+		"      const r = await $`${{ raw: cmd }}`.env(" + env + ").nothrow()\n" +
 		"      if (r.exitCode !== 0) console.error(" + label + ", cmd, \"exited\", r.exitCode)\n" +
 		"      return r\n" +
 		"    } catch (err) {\n" +

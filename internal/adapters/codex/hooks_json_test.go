@@ -93,7 +93,7 @@ func TestEmit_HooksJSON_DropsIdenticalDuplicates(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw, _ := os.ReadFile(filepath.Join(dir, ".codex/hooks.json"))
-	if strings.Count(string(raw), `"command": "echo dup"`) != 1 {
+	if strings.Count(string(raw), `"command": "export AGNOSTIC_AI_TARGET=codex; echo dup"`) != 1 {
 		t.Errorf("expected single command entry after dedupe, got:\n%s", raw)
 	}
 }
@@ -388,7 +388,7 @@ func TestEmit_HooksJSON_MCPToolAndCommandHooksCoexist(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{`"command": "gofmt -w"`, `"type": "mcp_tool"`, `"server": "scanner"`} {
+	for _, want := range []string{`"command": "export AGNOSTIC_AI_TARGET=codex; gofmt -w"`, `"type": "mcp_tool"`, `"server": "scanner"`} {
 		if !strings.Contains(string(raw), want) {
 			t.Errorf("missing %q in:\n%s", want, raw)
 		}

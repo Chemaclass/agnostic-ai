@@ -6,6 +6,9 @@
           {
             "command": "echo edited",
             "description": "A sample hook for golden snapshot tests.",
+            "env": {
+              "AGNOSTIC_AI_TARGET": "gemini"
+            },
             "type": "command"
           }
         ],

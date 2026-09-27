@@ -269,11 +269,18 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 			})
 			continue
 		}
+		// Codex picks commandWindows on Windows, where the shell is
+		// PowerShell or cmd and has no `export`, so it keeps the command
+		// as declared and the variable stays unset there.
+		commandWindows := a.commandWindows
+		if commandWindows == "" {
+			commandWindows = k.identity
+		}
 		g.Hooks = append(g.Hooks, hookCommandEntry{
 			Type:                   "command",
-			Command:                k.identity,
+			Command:                emit.ExportHookTarget(k.identity, target),
 			hookBase:               hookBase{Timeout: a.timeout, StatusMessage: a.statusMessage},
-			CommandWindows:         a.commandWindows,
+			CommandWindows:         commandWindows,
 			AdditionalContextLimit: a.additionalContextLimit,
 			Async:                  a.async,
 		})

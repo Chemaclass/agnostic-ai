@@ -143,9 +143,13 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 // non-empty stdout as control JSON, preferring the last
 // `HOOK_CONTROL\t<json>` line when one is present. A hook that wants to
 // print anything else should write to stderr.
+//
+// The script owns the process every command runs in, so one export
+// line hands the target to all of them and to any script they call.
 func hookScript(commands []string) string {
 	var b strings.Builder
 	b.WriteString("set -e\n")
+	b.WriteString("export " + emit.HookTargetEnv + "=" + target + "\n")
 	for _, cmd := range commands {
 		b.WriteString("\n")
 		b.WriteString(cmd)

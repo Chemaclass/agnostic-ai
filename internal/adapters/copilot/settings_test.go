@@ -223,9 +223,9 @@ func TestEmit_HookCwdAndEnvFromXCopilot(t *testing.T) {
 	}
 }
 
-// A hook that sets neither stays byte-identical to before: both keys
-// are omitempty, so no existing emitted file gains a key.
-func TestEmit_HookWithoutCwdOrEnvWritesNeitherKey(t *testing.T) {
+// A hook that sets neither gains no `cwd` key, and its `env` holds only
+// the target variable every command hook carries.
+func TestEmit_HookWithoutCwdOrEnvWritesOnlyTheTargetEnv(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	entries := []spec.Entry{
 		{Kind: spec.KindHook, Name: "fmt", Meta: map[string]any{
@@ -236,7 +236,7 @@ func TestEmit_HookWithoutCwdOrEnvWritesNeitherKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".github/hooks/agnostic-ai.json"))
-	if strings.Contains(got, `"cwd"`) || strings.Contains(got, `"env"`) {
+	if strings.Contains(got, `"cwd"`) || strings.Count(got, `": "`) != 3 || !strings.Contains(got, `"AGNOSTIC_AI_TARGET": "copilot"`) {
 		t.Errorf("unset fields must stay out of the file:\n%s", got)
 	}
 }

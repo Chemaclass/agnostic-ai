@@ -1,0 +1,67 @@
+package emit
+
+import (
+	"os/exec"
+	"testing"
+)
+
+func TestExportHookTarget_ReachesEveryCommandInAList(t *testing.T) {
+	t.Parallel()
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("no POSIX shell")
+	}
+	command := ExportHookTarget(`printf '%s ' "$AGNOSTIC_AI_TARGET" && printf '%s' "$AGNOSTIC_AI_TARGET"`, "codex")
+	out, err := exec.Command("sh", "-c", command).Output()
+	if err != nil {
+		t.Fatalf("sh -c %q: %v", command, err)
+	}
+	if got := string(out); got != "codex codex" {
+		t.Errorf("output = %q, want %q", got, "codex codex")
+	}
+}
+
+func TestStripHookTargetExport_RestoresTheDeclaredCommand(t *testing.T) {
+	t.Parallel()
+	command := "git status --short"
+	if got := StripHookTargetExport(ExportHookTarget(command, "goose"), "goose"); got != command {
+		t.Errorf("round trip = %q, want %q", got, command)
+	}
+	other := ExportHookTarget(command, "crush")
+	if got := StripHookTargetExport(other, "goose"); got != other {
+		t.Errorf("another target's prefix was stripped: %q", got)
+	}
+}
+
+func TestWithHookTarget_AddsTheTargetUnlessTheSpecSetsIt(t *testing.T) {
+	t.Parallel()
+	env := map[string]string{"FOO": "bar"}
+	got := WithHookTarget(env, "qoder")
+	if got[HookTargetEnv] != "qoder" || got["FOO"] != "bar" {
+		t.Errorf("WithHookTarget = %v", got)
+	}
+	if _, ok := env[HookTargetEnv]; ok {
+		t.Error("WithHookTarget changed its input")
+	}
+	pinned := WithHookTarget(map[string]string{HookTargetEnv: "mine"}, "qoder")
+	if pinned[HookTargetEnv] != "mine" {
+		t.Errorf("spec value lost: %v", pinned)
+	}
+	if got := WithHookTarget[any](nil, "gemini"); got[HookTargetEnv] != "gemini" {
+		t.Errorf("WithHookTarget(nil) = %v", got)
+	}
+}
+
+func TestWithoutHookTarget_DropsOnlyTheValueSyncAdded(t *testing.T) {
+	t.Parallel()
+	if got := WithoutHookTarget(map[string]string{HookTargetEnv: "qoder"}, "qoder"); got != nil {
+		t.Errorf("only the target left = %v, want nil", got)
+	}
+	got := WithoutHookTarget(map[string]any{HookTargetEnv: "gemini", "FOO": "bar"}, any("gemini"))
+	if _, ok := got[HookTargetEnv]; ok || got["FOO"] != "bar" {
+		t.Errorf("WithoutHookTarget = %v", got)
+	}
+	pinned := map[string]string{HookTargetEnv: "mine"}
+	if got := WithoutHookTarget(pinned, "qoder"); got[HookTargetEnv] != "mine" {
+		t.Errorf("a pinned value was dropped: %v", got)
+	}
+}

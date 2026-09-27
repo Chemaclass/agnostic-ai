@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "gofmt -w",
+            "command": "export AGNOSTIC_AI_TARGET=goose; gofmt -w",
             "timeout": 10
           }
         ]

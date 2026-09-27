@@ -289,7 +289,7 @@ event: SessionStart
 command: "git status --short"
 ```
 
-Command hooks receive event JSON on stdin. When a command needs the edited path or shell command, read it from the target's documented `tool_input` fields instead of assuming an environment variable exists.
+Command hooks receive event JSON on stdin. When a command needs the edited path or shell command, read it from the target's documented `tool_input` fields instead of assuming an environment variable exists. `AGNOSTIC_AI_TARGET` names the target that ran the hook; see [which target ran a hook](#hook-target).
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
@@ -325,6 +325,36 @@ Handler-specific and tool-specific fields emit only where the target's schema de
 ### Events
 
 agnostic-ai writes `event` verbatim and never translates event names between tools. Claude Code and Codex share `PreToolUse`, `PostToolUse`, and `UserPromptSubmit`, so one spec feeds both. Other tools need their own names, such as Cursor's `beforeShellExecution` or Gemini's `BeforeTool`. `agnostic-ai validate` flags an event a target does not recognize. Each target page lists its events, file, and wrapper shape. Targets without hook support log a warning and skip.
+
+### Which target ran a hook {#hook-target}
+
+Each target has its own reply protocol. Claude Code and Codex read exit code 2 and stderr; Cursor reads a JSON reply. A script shared across targets reads `AGNOSTIC_AI_TARGET` to pick one, instead of guessing from the payload.
+
+```sh
+case "$AGNOSTIC_AI_TARGET" in
+  cursor) echo '{"permission":"deny","agent_message":"Blocked."}' ;;
+  *) echo "Blocked." >&2; exit 2 ;;
+esac
+```
+
+Sync sets the variable the way each tool's hook runner can take it. Your commands stay as written, apart from the `export` prefix where the table says so. A spec that sets `AGNOSTIC_AI_TARGET` in its own `env` keeps that value. Where sync cannot set it, the variable keeps whatever the parent process set, which can be `claude` for a tool started from Claude Code.
+
+| Targets | How sync sets it | Limit |
+|---------|------------------|-------|
+| [Claude Code](@/docs/targets/claude.md) | `env` in `.claude/settings.json`, and `~/.claude/settings.json` for `sync --global`, while a command hook exists | Set for the whole session, so the Bash tool sees it too |
+| [Cursor](@/docs/targets/cursor.md) | A `sessionStart` hook that returns `{"env": {"AGNOSTIC_AI_TARGET": "cursor"}}` | `sessionStart` hooks, and hooks that fire before it returns, do not see it |
+| [Codex](@/docs/targets/codex.md) | `export AGNOSTIC_AI_TARGET=codex; ` before `command` | Not set by sync on Windows, which runs `commandWindows`. The prefix needs a POSIX session shell: a login shell of `pwsh` or `nu` on macOS or Linux breaks it |
+| [Gemini](@/docs/targets/gemini.md), [Qoder](@/docs/targets/qoder.md), [Copilot](@/docs/targets/copilot.md) | `env` on each command handler | None |
+| [Goose](@/docs/targets/goose.md), [Crush](@/docs/targets/crush.md) | `export` prefix, since both run hooks in a POSIX shell on every platform | None |
+| [Cline](@/docs/targets/cline.md) | An `export` line in each generated `.cline/hooks/<Event>.sh` | None |
+| [OpenCode](@/docs/targets/opencode.md), [Kilo](@/docs/targets/kilo.md) | `.env()` on each command the plugin runs | None |
+| [Zed](@/docs/targets/zed.md) | `env` on each task | None |
+
+Trae, Factory, OpenHands, Antigravity, Kiro, Windsurf, and Augment do not get the variable from sync. None has a per-hook `env`, and each runs hooks through PowerShell or cmd on Windows, without a shell, or through a shell its docs do not name. A prefix would break hooks that work today. A script can tell them apart by the variables they set, such as `TRAE_PROJECT_DIR`, `FACTORY_PROJECT_DIR`, `OPENHANDS_PROJECT_DIR`, `DEVIN_PROJECT_DIR`, or `AUGMENT_PROJECT_DIR`. Do not use `CLAUDE_PROJECT_DIR` for this: Cursor, Gemini, Qoder, Factory, and Trae set it too.
+
+`sync --global` leaves a hook you wrote by hand as it is when it matches a spec. Claude Code's settings `env` and Cursor's `sessionStart` hook still cover it, but an adopted Codex, Gemini, or Qoder entry does not get the variable.
+
+Cursor and Copilot also run the hooks in `.claude/settings.json`. Neither reads its `env`, so in Cursor those hooks get `cursor` from the `sessionStart` hook, and in Copilot sync does not set it.
 
 ### Per-target body fences
 

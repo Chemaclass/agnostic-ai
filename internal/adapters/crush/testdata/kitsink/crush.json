@@ -2,13 +2,13 @@
   "hooks": {
     "PreToolUse": [
       {
-        "command": "./hooks/no-rm-rf.sh",
+        "command": "export AGNOSTIC_AI_TARGET=crush; ./hooks/no-rm-rf.sh",
         "matcher": "^bash$",
         "name": "no-rm-rf",
         "timeout": 10
       },
       {
-        "command": "./hooks/audit-edit.sh",
+        "command": "export AGNOSTIC_AI_TARGET=crush; ./hooks/audit-edit.sh",
         "matcher": "^edit$",
         "name": "audit-edit"
       }

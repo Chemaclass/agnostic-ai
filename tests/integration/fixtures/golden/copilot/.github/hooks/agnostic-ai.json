@@ -5,7 +5,10 @@
       {
         "type": "command",
         "matcher": "Edit",
-        "command": "echo edited"
+        "command": "echo edited",
+        "env": {
+          "AGNOSTIC_AI_TARGET": "copilot"
+        }
       }
     ]
   }

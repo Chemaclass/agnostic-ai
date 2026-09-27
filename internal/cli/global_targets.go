@@ -21,6 +21,13 @@ const (
 	globalPathXDG  = "xdg:"
 )
 
+const (
+	hookTargetSettingsEnv = "settings-env"
+	hookTargetExport      = "export"
+	hookTargetHandlerEnv  = "handler-env"
+	hookTargetSessionEnv  = "session-env"
+)
+
 // globalTarget declares one tool's user-level paths and discovery settings.
 // Default paths use globalPathHome or globalPathXDG.
 //
@@ -55,6 +62,12 @@ type globalTarget struct {
 	hooks string
 	// hooksFormat selects the native hooks schema: "claude" or "cursor".
 	hooksFormat string
+	// hookTarget is how a hook learns which target ran it, the same way
+	// the project adapter tells it: the settings `env` (claude), an
+	// `export` prefix with the declared command kept for Windows
+	// (codex), each handler's `env` (gemini, qoder), or a sessionStart
+	// hook's `env` output (cursor). See the hookTarget* constants.
+	hookTarget string
 	// bridge marks a target that does not auto-load its user-level
 	// instructions file, so the body is injected through a managed
 	// session-start hook instead.
@@ -85,6 +98,7 @@ var globalTargets = map[string]globalTarget{
 		skills:       globalPathHome + ".claude/skills",
 		hooks:        globalPathHome + ".claude/settings.json",
 		hooksFormat:  "claude",
+		hookTarget:   hookTargetSettingsEnv,
 	},
 	"cursor": {
 		agents:       globalPathHome + ".cursor/agents",
@@ -92,6 +106,7 @@ var globalTargets = map[string]globalTarget{
 		skills:       globalPathHome + ".cursor/skills",
 		hooks:        globalPathHome + ".cursor/hooks.json",
 		hooksFormat:  "cursor",
+		hookTarget:   hookTargetSessionEnv,
 		bridge:       true,
 		bridgeEvent:  "sessionStart",
 		bridgeKey:    "additional_context",
@@ -104,6 +119,7 @@ var globalTargets = map[string]globalTarget{
 		skills:       globalPathHome + ".agents/skills",
 		hooks:        globalPathHome + ".codex/hooks.json",
 		hooksFormat:  "claude",
+		hookTarget:   hookTargetExport,
 	},
 	"gemini": {
 		rootEnv:      "GEMINI_CLI_HOME",
@@ -114,6 +130,7 @@ var globalTargets = map[string]globalTarget{
 		skills:       globalPathHome + ".gemini/skills",
 		hooks:        globalPathHome + ".gemini/settings.json",
 		hooksFormat:  "claude",
+		hookTarget:   hookTargetHandlerEnv,
 	},
 	"qoder": {
 		rootEnv:      "QODER_CONFIG_DIR",
@@ -123,6 +140,7 @@ var globalTargets = map[string]globalTarget{
 		skills:       globalPathHome + ".qoder/skills",
 		hooks:        globalPathHome + ".qoder/settings.json",
 		hooksFormat:  "claude",
+		hookTarget:   hookTargetHandlerEnv,
 	},
 	"copilot": {
 		rootEnv:      "COPILOT_HOME",

@@ -28,5 +28,8 @@
         ]
       }
     ]
+  },
+  "env": {
+    "AGNOSTIC_AI_TARGET": "claude"
   }
 }

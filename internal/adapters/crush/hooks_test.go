@@ -46,7 +46,7 @@ func TestEmit_Hook_PreToolUseWritesCrushJSON(t *testing.T) {
 		`"hooks"`, `"PreToolUse"`,
 		`"name": "no-rm-rf"`,
 		`"matcher": "^bash$"`,
-		`"command": "./hooks/no-rm-rf.sh"`,
+		`"command": "export AGNOSTIC_AI_TARGET=crush; ./hooks/no-rm-rf.sh"`,
 		`"timeout": 10`,
 	} {
 		if !strings.Contains(got, want) {
@@ -94,7 +94,7 @@ func TestEmit_Hook_CommandListFansOutToMultipleEntries(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, "crush.json"))
-	for _, want := range []string{`"echo one"`, `"echo two"`} {
+	for _, want := range []string{`"export AGNOSTIC_AI_TARGET=crush; echo one"`, `"export AGNOSTIC_AI_TARGET=crush; echo two"`} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in %s", want, got)
 		}
@@ -193,7 +193,7 @@ func TestEmit_Hook_AcceptsEveryDocumentedEventSpelling(t *testing.T) {
 				t.Fatal(err)
 			}
 			got := readFile(t, filepath.Join(dir, "crush.json"))
-			for _, want := range []string{`"PreToolUse"`, `"./hooks/no-rm-rf.sh"`} {
+			for _, want := range []string{`"PreToolUse"`, `"export AGNOSTIC_AI_TARGET=crush; ./hooks/no-rm-rf.sh"`} {
 				if !strings.Contains(got, want) {
 					t.Errorf("missing %q in %s", want, got)
 				}

@@ -6,7 +6,10 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo edited"
+            "command": "echo edited",
+            "env": {
+              "AGNOSTIC_AI_TARGET": "qoder"
+            }
           }
         ]
       }

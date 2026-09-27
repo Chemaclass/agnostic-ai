@@ -5,6 +5,9 @@
         "hooks": [
           {
             "command": "gofmt -w",
+            "env": {
+              "AGNOSTIC_AI_TARGET": "gemini"
+            },
             "type": "command"
           }
         ],
@@ -16,6 +19,9 @@
         "hooks": [
           {
             "command": "echo pre",
+            "env": {
+              "AGNOSTIC_AI_TARGET": "gemini"
+            },
             "type": "command"
           }
         ],
@@ -27,6 +33,9 @@
         "hooks": [
           {
             "command": "echo session",
+            "env": {
+              "AGNOSTIC_AI_TARGET": "gemini"
+            },
             "type": "command"
           }
         ]

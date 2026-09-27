@@ -19,6 +19,10 @@ func buildHooks(hooks []spec.Entry) map[string]any {
 		for _, handler := range handlers {
 			command, _ := handler["command"].(string)
 			handler["command"] = emit.RewriteHookPath(command, target)
+			// The hook runner spreads a handler's env over the process
+			// env, under bash and PowerShell alike (hookRunner.ts).
+			env, _ := handler["env"].(map[string]any)
+			handler["env"] = emit.WithHookTarget(env, any(target))
 		}
 		definition := map[string]any{"hooks": handlers}
 		if matcher, _ := meta["matcher"].(string); matcher != "" {

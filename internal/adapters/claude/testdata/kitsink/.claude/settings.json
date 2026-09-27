@@ -43,6 +43,9 @@
       }
     ]
   },
+  "env": {
+    "AGNOSTIC_AI_TARGET": "claude"
+  },
   "disabledMcpjsonServers": [
     "disabled-server"
   ]
