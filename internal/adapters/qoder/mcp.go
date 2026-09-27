@@ -192,3 +192,9 @@ func buildMCPServer(e spec.Entry) map[string]any {
 
 	return out
 }
+
+// UserMCPServers renders mcps as the `mcpServers` map of the user
+// settings file, with the builder the project file uses.
+func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
+	return buildMCPMap(emit.DropMCPWebSocket(target, mcps, mcpWebSocketGapReason))
+}

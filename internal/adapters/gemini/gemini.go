@@ -387,3 +387,9 @@ func commandTOML(e spec.Entry) string {
 	emit.WriteTOMLMultiline(&sb, "prompt", body)
 	return sb.String()
 }
+
+// UserMCPServers renders mcps as the `mcpServers` map of the user
+// settings file, with the builder the project file uses.
+func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
+	return buildMCPServers(mcps)
+}

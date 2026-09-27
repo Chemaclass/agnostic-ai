@@ -69,7 +69,7 @@ func newExplainCmd() *cobra.Command {
   # Machine-readable, for editor extensions or scripts
   agnostic-ai explain rules/conventional-commits.md --json
 
-  # Which user settings file and key a global settings spec writes
+  # Where sync --global places a global spec, per target
   agnostic-ai explain --global settings/defaults.yaml
 
   # Look up an error code
@@ -144,7 +144,7 @@ func newExplainCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for editor extensions and scripts.")
-	cmd.Flags().BoolVar(&global, "global", false, "Explain a settings spec in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) or its local/ layer: the user settings file and key sync --global writes for each target.")
+	cmd.Flags().BoolVar(&global, "global", false, "Explain a spec in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) or its local/ layer: the user-level file, section, or settings key sync --global writes for each target.")
 	cmd.Flags().StringVar(&file, "file", "", "Project file to inspect instead of a spec. Requires --target.")
 	cmd.Flags().StringVar(&target, "target", "", "Target whose configured instructions --file reports. Supported: cursor.")
 	return cmd

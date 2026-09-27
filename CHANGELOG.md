@@ -8,11 +8,20 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Added
 
-- `sync --global` writes `model` and `effort` from `settings/*.yaml` into `~/.codex/config.toml` and `~/.claude/settings.json`, editing only those keys, and `explain --global` names the file and key a settings spec sets (#1240).
+- `sync --global` installs MCP servers from `mcps/` in the user MCP files of Codex, Cursor, Copilot, Gemini, and Qoder (#1242).
+- `sync --global` sets the default `model` and `effort` from `settings/` for Claude, Codex, Copilot, Qoder, and Gemini, editing only those keys (#1240, #1242).
+- An `x-<target>` block in a global settings spec sets that tool's own user keys, such as `x-codex.model_reasoning_summary` (#1242).
+- `explain --global` shows where any global spec lands, down to the settings key or MCP server (#1240, #1242).
+- `lint --global` and `validate --global` flag a settings `effort` a target cannot take (LINT014) (#1240).
 
 ### Changed
 
-- Settings `model` takes a per-target map with an optional `default`, like agent `model`, so one setup can give Codex and Claude different models (#1240).
+- Settings `model` takes a per-target map with an optional `default`, like agent `model`, so Codex and Claude can get different models (#1240).
+- `sync --global` writes through a symlinked user file such as a `CLAUDE.md` kept in dotfiles, and keeps the link (#1242).
+
+### Fixed
+
+- `lint` no longer warns that every settings spec is empty (LINT001) (#1240).
 
 ## v0.70.0 - 2026-09-27
 

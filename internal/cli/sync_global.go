@@ -58,7 +58,10 @@ type globalState struct {
 	// Settings records the value written per target and native key of
 	// its user settings file, so a later sync changes or removes only
 	// keys it placed.
-	Settings map[string]map[string]string `json:"settings,omitempty"`
+	Settings map[string]map[string]any `json:"settings,omitempty"`
+	// MCP records each MCP server written per target, by its key in the
+	// target's user MCP file, so a later sync removes only its own.
+	MCP map[string]map[string]any `json:"mcp,omitempty"`
 	// Hooks records the managed hook entries per target, keyed by
 	// target name then event, so a later sync can remove exactly what
 	// it added and leave user-authored entries alone.
@@ -181,6 +184,9 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 			return fmt.Errorf("write global agent warning: %w", err)
 		}
 	}
+	if err := warnUnsupportedGlobalMCP(warn, targets, bundle.MCPs); err != nil {
+		return err
+	}
 	for _, rule := range bundle.Rules {
 		if rule.Scope != "" || hasGlobalRuleCondition(rule.Meta) {
 			return fmt.Errorf("global rule %q is scoped or conditional; global rules must apply unconditionally", rule.Name)
@@ -289,8 +295,14 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 			return fmt.Errorf("rewriting %s would drop its comments; rerun with --backup to rewrite and keep a .bak copy", strings.Join(commented, ", "))
 		}
 	}
-	if err := applyGlobalChanges(writes, removals, o.backup); err != nil {
+	linked, err := applyGlobalChanges(writes, removals, o.backup)
+	if err != nil {
 		return err
+	}
+	for _, link := range linked {
+		if _, err := fmt.Fprintln(warn, link); err != nil {
+			return fmt.Errorf("write symlink note: %w", err)
+		}
 	}
 	pruneEmptyGlobalDirs(removals, trees)
 	for _, path := range adopted {
@@ -488,7 +500,7 @@ func foreignGlobalPath(old globalState, home string) string {
 }
 
 func buildGlobalWrites(home, source string, targets []string, intro []byte, b spec.Bundle, old globalState, agentErr func(string, error) error, warn io.Writer) ([]globalWrite, globalState, error) {
-	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]string{}}
+	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}, MCP: map[string]map[string]any{}}
 	for target, paths := range old.Agents {
 		if !slices.Contains(targets, target) {
 			next.Agents[target] = append([]string(nil), paths...)
@@ -507,6 +519,11 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	for target, settings := range old.Settings {
 		if !slices.Contains(targets, target) {
 			next.Settings[target] = settings
+		}
+	}
+	for target, servers := range old.MCP {
+		if !slices.Contains(targets, target) {
+			next.MCP[target] = servers
 		}
 	}
 	for target, hooks := range old.Hooks {
@@ -693,41 +710,23 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			}
 		}
 	}
-	// Settings merge last: a file may also hold hooks this run changed,
-	// so the edit starts from that planned content.
-	for _, target := range targets {
-		g := globalTargets[target]
-		want := globalSettingsFor(target, g, b.Settings)
-		if g.settings.path == "" {
-			continue
-		}
-		path := g.path(home, g.settings.path)
-		var base []byte
-		i, planned := seen[path]
-		switch {
-		case planned:
-			base = writes[i].data
-		case emptied[path]:
-			base = []byte("{}\n")
-		}
-		m, err := mergeGlobalSettings(path, g.settings.format, base, want, old.Settings[target])
-		if err != nil {
-			return nil, next, err
-		}
-		if len(m.owned) > 0 {
-			next.Settings[target] = m.owned
-		}
+	// User settings and MCP servers merge last: a file may also hold
+	// hooks or agent efforts this run changed, so each edit starts from
+	// that planned content.
+	placeEdit := func(path string, m globalSettingsMerge) error {
 		if m.data == nil && len(m.adopted) == 0 {
-			continue
+			return nil
 		}
+		i, planned := seen[path]
 		if !planned {
-			seen[path] = len(writes)
 			data := m.data
 			if data == nil {
+				var err error
 				if data, err = os.ReadFile(path); err != nil {
-					return nil, next, fmt.Errorf("read %s: %w", path, err)
+					return fmt.Errorf("read %s: %w", path, err)
 				}
 			}
+			seen[path] = len(writes)
 			writes = append(writes, globalWrite{path: path, data: data, mode: 0o644})
 			i = len(writes) - 1
 		} else if m.data != nil {
@@ -738,9 +737,49 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		w.adopted = append(w.adopted, m.adopted...)
 		w.conflicts = append(w.conflicts, m.conflicts...)
 		// A file a removal would sweep, such as a hooks file with no
-		// hooks left, stays while it holds managed settings.
+		// hooks left, stays while it holds managed keys.
 		if slices.Contains(old.Files, path) {
 			next.Files = append(next.Files, path)
+		}
+		return nil
+	}
+	baseFor := func(path string) []byte {
+		if i, planned := seen[path]; planned {
+			return writes[i].data
+		}
+		if emptied[path] {
+			return []byte("{}\n")
+		}
+		return nil
+	}
+	for _, target := range targets {
+		g := globalTargets[target]
+		want := globalSettingsFor(target, g, b.Settings)
+		if g.settings.path != "" {
+			path := g.path(home, g.settings.path)
+			m, err := mergeGlobalSettings(path, g.settings.format, baseFor(path), want, old.Settings[target])
+			if err != nil {
+				return nil, next, err
+			}
+			if len(m.owned) > 0 {
+				next.Settings[target] = m.owned
+			}
+			if err := placeEdit(path, m); err != nil {
+				return nil, next, err
+			}
+		}
+		if g.mcp.path != "" {
+			path := g.path(home, g.mcp.path)
+			m, err := mergeGlobalMCP(path, g.mcp, baseFor(path), target, b.MCPs, old.MCP[target])
+			if err != nil {
+				return nil, next, err
+			}
+			if len(m.owned) > 0 {
+				next.MCP[target] = m.owned
+			}
+			if err := placeEdit(path, m); err != nil {
+				return nil, next, err
+			}
 		}
 	}
 	for _, paths := range next.Agents {
@@ -1521,12 +1560,19 @@ func preflightGlobalWrites(writes []globalWrite, trees []string, old globalState
 				}
 			}
 		}
+		// A single user file, such as CLAUDE.md or settings.json kept in
+		// a dotfiles repo, is written through its link. A link inside a
+		// tree sync owns file by file is refused.
 		if info, err := os.Lstat(w.path); err == nil && info.Mode()&os.ModeSymlink != 0 {
-			// A settings key adopted as it is leaves the file untouched.
 			if data, err := os.ReadFile(w.path); err == nil && bytes.Equal(data, w.data) {
 				continue
 			}
-			return nil, fmt.Errorf("%s: refusing to replace symlink", w.path)
+			if inManagedTree(w.path, trees) {
+				return nil, fmt.Errorf("%s: refusing to replace symlink", w.path)
+			}
+			if _, err := filepath.EvalSymlinks(w.path); err != nil {
+				return nil, fmt.Errorf("%s: broken symlink: %w", w.path, err)
+			}
 		}
 	}
 	return adopted, nil
@@ -1618,17 +1664,26 @@ func removedGlobalFiles(old, next []string) []string {
 	return out
 }
 
-func applyGlobalChanges(writes []globalWrite, removals []string, backup bool) error {
+// applyGlobalChanges writes and removes files, rolling everything back
+// on the first failure. It returns a note for each symlink it wrote
+// through or removed.
+func applyGlobalChanges(writes []globalWrite, removals []string, backup bool) (linked []string, err error) {
 	type prior struct {
 		path   string
 		data   []byte
 		mode   fs.FileMode
 		absent bool
+		// link is the text of a symlink removed at path.
+		link string
 	}
 	var done []prior
 	rollback := func() {
 		for i := len(done) - 1; i >= 0; i-- {
 			p := done[i]
+			if p.link != "" {
+				_ = os.Symlink(p.link, p.path)
+				continue
+			}
 			if p.absent {
 				_ = os.Remove(p.path)
 			} else {
@@ -1641,7 +1696,7 @@ func applyGlobalChanges(writes []globalWrite, removals []string, backup bool) er
 		absent := os.IsNotExist(err)
 		if err != nil && !absent {
 			rollback()
-			return fmt.Errorf("read %s: %w", w.path, err)
+			return nil, fmt.Errorf("read %s: %w", w.path, err)
 		}
 		if !absent && reflect.DeepEqual(old, w.data) {
 			continue
@@ -1650,61 +1705,106 @@ func applyGlobalChanges(writes []globalWrite, removals []string, backup bool) er
 		if info, statErr := os.Stat(w.path); statErr == nil {
 			mode = info.Mode()
 		}
-		done = append(done, prior{w.path, old, mode, absent})
-		if err := os.MkdirAll(filepath.Dir(w.path), 0o755); err != nil {
+		// Replace the file a symlink points at, so the link stays.
+		target := w.path
+		if info, err := os.Lstat(w.path); err == nil && info.Mode()&os.ModeSymlink != 0 {
+			if target, err = filepath.EvalSymlinks(w.path); err != nil {
+				rollback()
+				return nil, fmt.Errorf("%s: broken symlink: %w", w.path, err)
+			}
+			linked = append(linked, "wrote through symlink "+w.path+" -> "+target)
+		}
+		done = append(done, prior{path: target, data: old, mode: mode, absent: absent})
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			rollback()
-			return fmt.Errorf("create directory for %s: %w", w.path, err)
+			return nil, fmt.Errorf("create directory for %s: %w", w.path, err)
 		}
 		if backup && !absent {
 			if err := os.WriteFile(w.path+".bak", old, mode); err != nil {
 				rollback()
-				return fmt.Errorf("backup %s: %w", w.path, err)
+				return nil, fmt.Errorf("backup %s: %w", w.path, err)
 			}
 		}
-		tmp, err := os.CreateTemp(filepath.Dir(w.path), ".agnostic-ai-global-*")
+		tmp, err := os.CreateTemp(filepath.Dir(target), ".agnostic-ai-global-*")
 		if err != nil {
 			rollback()
-			return fmt.Errorf("create temporary file for %s: %w", w.path, err)
+			return nil, fmt.Errorf("create temporary file for %s: %w", w.path, err)
 		}
 		tmpName := tmp.Name()
+		// A user's own file, such as an MCP config holding API keys at
+		// 0600, keeps its permission bits.
+		perm := w.mode
+		if !w.owned && !absent {
+			perm = mode.Perm()
+		}
 		writeErr := func() error {
 			defer func() { _ = os.Remove(tmpName) }()
 			if _, err := tmp.Write(w.data); err != nil {
 				return err
 			}
-			if err := tmp.Chmod(w.mode); err != nil {
+			if err := tmp.Chmod(perm); err != nil {
 				return err
 			}
 			if err := tmp.Close(); err != nil {
 				return err
 			}
-			return os.Rename(tmpName, w.path)
+			return os.Rename(tmpName, target)
 		}()
 		if writeErr != nil {
 			_ = tmp.Close()
 			rollback()
-			return fmt.Errorf("write %s: %w", w.path, writeErr)
+			return nil, fmt.Errorf("write %s: %w", w.path, writeErr)
 		}
 	}
 	for _, path := range removals {
+		// Removing a file reached through a symlink removes the file the
+		// link points at, then the link, so no stale copy stays behind
+		// in a dotfiles repository.
+		if info, err := os.Lstat(path); err == nil && info.Mode()&os.ModeSymlink != 0 {
+			text, err := os.Readlink(path)
+			if err != nil {
+				rollback()
+				return nil, fmt.Errorf("read symlink %s: %w", path, err)
+			}
+			if target, err := filepath.EvalSymlinks(path); err == nil {
+				data, readErr := os.ReadFile(target)
+				targetInfo, statErr := os.Stat(target)
+				if readErr != nil || statErr != nil {
+					rollback()
+					return nil, fmt.Errorf("read managed %s: %w", target, errors.Join(readErr, statErr))
+				}
+				done = append(done, prior{path: target, data: data, mode: targetInfo.Mode()})
+				if err := os.Remove(target); err != nil {
+					rollback()
+					return nil, fmt.Errorf("remove managed %s: %w", target, err)
+				}
+				linked = append(linked, "removed "+target+" and its symlink "+path)
+			}
+			done = append(done, prior{path: path, link: text})
+			if err := os.Remove(path); err != nil {
+				rollback()
+				return nil, fmt.Errorf("remove managed %s: %w", path, err)
+			}
+			continue
+		}
 		data, err := os.ReadFile(path)
 		if os.IsNotExist(err) {
 			continue
 		}
 		if err != nil {
 			rollback()
-			return fmt.Errorf("read managed %s: %w", path, err)
+			return nil, fmt.Errorf("read managed %s: %w", path, err)
 		}
 		info, err := os.Stat(path)
 		if err != nil {
 			rollback()
-			return fmt.Errorf("stat managed %s: %w", path, err)
+			return nil, fmt.Errorf("stat managed %s: %w", path, err)
 		}
 		done = append(done, prior{path: path, data: data, mode: info.Mode()})
 		if err := os.Remove(path); err != nil {
 			rollback()
-			return fmt.Errorf("remove managed %s: %w", path, err)
+			return nil, fmt.Errorf("remove managed %s: %w", path, err)
 		}
 	}
-	return nil
+	return linked, nil
 }

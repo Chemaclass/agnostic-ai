@@ -560,3 +560,10 @@ func pathsToGlobs(paths any) []string {
 		return nil
 	}
 }
+
+// UserMCPServers renders mcps as the `mcpServers` map of ~/.cursor/mcp.json,
+// with the builder the project file uses.
+func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
+	mcps = emit.StripMCPDisabled(target, mcps, mcpDisabledNoOpReason)
+	return emit.BuildMCPServersMap(mcps, emit.MCPSchemaServersMap, emit.WithCursorMCPExtras())
+}

@@ -234,12 +234,14 @@ permissions:
   allow: [Read]
 x-claude:
   theme: dark
+  hooks:
+    Stop: []
 `)
 	_, warnings, err := runGlobalAgentTest("--only", "claude,gemini")
 	if err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
-	for _, want := range []string{"permissions", "x-claude", "max", "gemini"} {
+	for _, want := range []string{"permissions", "x-claude.hooks", "max", "gemini"} {
 		if !strings.Contains(warnings, want) {
 			t.Errorf("warnings lack %q:\n%s", want, warnings)
 		}
@@ -248,7 +250,7 @@ x-claude:
 	if err := json.Unmarshal([]byte(readGlobalTest(t, filepath.Join(home, ".claude", "settings.json"))), &doc); err != nil {
 		t.Fatal(err)
 	}
-	if doc["model"] != "opus" || doc["effortLevel"] != nil || doc["permissions"] != nil || doc["theme"] != nil {
+	if doc["model"] != "opus" || doc["effortLevel"] != nil || doc["permissions"] != nil || doc["hooks"] != nil || doc["theme"] != "dark" {
 		t.Errorf("settings.json = %v", doc)
 	}
 }
@@ -289,5 +291,155 @@ func TestSyncGlobal_DryRunNamesHookWriteBesideAdoptedSetting(t *testing.T) {
 	}
 	if !strings.Contains(out, "dry-run: write "+settings) {
 		t.Errorf("dry-run must name the hooks write:\n%s", out)
+	}
+}
+
+func TestSyncGlobal_WritesThroughSymlinkedUserFile(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be brief.\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "d.yaml"), "model: opus\n")
+	dotfiles := filepath.Join(home, "dotfiles")
+	realClaude := filepath.Join(dotfiles, "CLAUDE.md")
+	realSettings := filepath.Join(dotfiles, "settings.json")
+	mustWriteGlobalTest(t, realClaude, "Mine.\n")
+	mustWriteGlobalTest(t, realSettings, "{\n  \"theme\": \"dark\"\n}\n")
+	link := filepath.Join(home, ".claude", "CLAUDE.md")
+	settingsLink := filepath.Join(home, ".claude", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(realClaude, link); err != nil {
+		t.Skipf("symlinks unsupported: %v", err)
+	}
+	if err := os.Symlink(realSettings, settingsLink); err != nil {
+		t.Fatal(err)
+	}
+
+	_, warnings, err := runGlobalAgentTest("--only", "claude")
+	if err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	for _, path := range []string{link, settingsLink} {
+		info, err := os.Lstat(path)
+		if err != nil || info.Mode()&os.ModeSymlink == 0 {
+			t.Errorf("%s must stay a symlink: %v", path, err)
+		}
+	}
+	if got := readGlobalTest(t, realClaude); !strings.Contains(got, "Mine.") || !strings.Contains(got, "Be brief.") {
+		t.Errorf("the link target must get the managed block:\n%s", got)
+	}
+	if got := readGlobalTest(t, realSettings); !strings.Contains(got, `"model": "opus"`) || !strings.Contains(got, `"theme": "dark"`) {
+		t.Errorf("the link target must get the model:\n%s", got)
+	}
+	if !strings.Contains(warnings, "wrote through symlink "+link) {
+		t.Errorf("the write through a link must be named:\n%s", warnings)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "claude", "--check"); err != nil {
+		t.Fatalf("check after sync: %v", err)
+	}
+}
+
+func TestSyncGlobal_SettingsPassThroughTargetKeys(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	spec := filepath.Join(source, "settings", "d.yaml")
+	mustWriteGlobalTest(t, spec, `model: opus
+x-claude:
+  model: sonnet
+  alwaysThinkingEnabled: true
+  statusLine:
+    type: command
+    command: ~/bin/status
+x-codex:
+  model_reasoning_summary: concise
+  notify: [notify-send, done]
+  profiles:
+    fast:
+      model: mini
+`)
+	claudePath := filepath.Join(home, ".claude", "settings.json")
+	mustWriteGlobalTest(t, claudePath, "{\n  \"statusLine\": {\n    \"padding\": 1\n  }\n}\n")
+	codexPath := filepath.Join(home, ".codex", "config.toml")
+	mustWriteGlobalTest(t, codexPath, "[tui]\ntheme = \"dark\"\n")
+
+	_, warnings, err := runGlobalAgentTest("--only", "claude,codex")
+	if err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal([]byte(readGlobalTest(t, claudePath)), &doc); err != nil {
+		t.Fatal(err)
+	}
+	status, _ := doc["statusLine"].(map[string]any)
+	if doc["model"] != "sonnet" || doc["alwaysThinkingEnabled"] != true || status["command"] != "~/bin/status" || status["padding"] != float64(1) {
+		t.Errorf("settings.json = %v", doc)
+	}
+	wantCodex := "model = \"opus\"\nmodel_reasoning_summary = \"concise\"\nnotify = [\"notify-send\", \"done\"]\n\n[tui]\ntheme = \"dark\"\n"
+	if got := readGlobalTest(t, codexPath); got != wantCodex {
+		t.Errorf("config.toml = %q, want %q", got, wantCodex)
+	}
+	if !strings.Contains(warnings, "x-codex.profiles") {
+		t.Errorf("a table must raise a note:\n%s", warnings)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "claude,codex", "--check"); err != nil {
+		t.Fatalf("check after sync: %v", err)
+	}
+
+	if err := os.Remove(spec); err != nil {
+		t.Fatal(err)
+	}
+	if _, warnings, err := runGlobalAgentTest("--only", "claude,codex"); err != nil {
+		t.Fatalf("sync after removal: %v\n%s", err, warnings)
+	}
+	if got := readGlobalTest(t, claudePath); got != "{\n  \"statusLine\": {\n    \"padding\": 1\n  }\n}\n" {
+		t.Errorf("removal must restore settings.json:\n%s", got)
+	}
+	if got := readGlobalTest(t, codexPath); got != "[tui]\ntheme = \"dark\"\n" {
+		t.Errorf("removal must restore config.toml:\n%s", got)
+	}
+}
+
+func TestSyncGlobal_SettingsReachGeminiQoderCopilot(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "d.yaml"), `model:
+  gemini: gemini-3-pro
+  qoder: qoder-max
+  copilot: gpt-6-luna
+effort:
+  qoder: max
+  copilot: xhigh
+  gemini: high
+`)
+	geminiPath := filepath.Join(home, ".gemini", "settings.json")
+	mustWriteGlobalTest(t, geminiPath, "{\n  \"model\": {\n    \"maxSessionTurns\": 20\n  }\n}\n")
+
+	_, warnings, err := runGlobalAgentTest("--only", "gemini,qoder,copilot")
+	if err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	read := func(path string) map[string]any {
+		t.Helper()
+		var doc map[string]any
+		if err := json.Unmarshal([]byte(readGlobalTest(t, path)), &doc); err != nil {
+			t.Fatal(err)
+		}
+		return doc
+	}
+	gemini := read(geminiPath)["model"].(map[string]any)
+	if gemini["name"] != "gemini-3-pro" || gemini["maxSessionTurns"] != float64(20) {
+		t.Errorf("gemini model = %v", gemini)
+	}
+	qoder := read(filepath.Join(home, ".qoder", "settings.json"))["model"].(map[string]any)
+	if qoder["name"] != "qoder-max" || qoder["reasoningEffort"] != "max" {
+		t.Errorf("qoder model = %v", qoder)
+	}
+	copilot := read(filepath.Join(home, ".copilot", "settings.json"))
+	if copilot["model"] != "gpt-6-luna" || copilot["effortLevel"] != "xhigh" {
+		t.Errorf("copilot settings = %v", copilot)
+	}
+	if !strings.Contains(warnings, "gemini") || !strings.Contains(warnings, "effort") {
+		t.Errorf("gemini effort must raise a note:\n%s", warnings)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "gemini,qoder,copilot", "--check"); err != nil {
+		t.Fatalf("check after sync: %v", err)
 	}
 }

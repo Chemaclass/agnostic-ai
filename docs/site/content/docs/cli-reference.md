@@ -151,7 +151,7 @@ It flags empty specs, dead specs (kinds no enabled target supports), and hooks t
 | LINT003 | Two specs of one kind share a `name`; the loader keeps one body. Hooks sharing an event and matcher are fine: all run (`gofmt` and `vet` on one save). |
 | LINT006 | Error. Frontmatter opens `---` and never closes, so the raw YAML is emitted as body. `validate` and `sync` both pass. |
 | LINT010 | Error, `--global` only. A rule with scope, path, glob, or target conditions, which `sync --global` rejects. |
-| LINT014 | Error, `--global` only. A settings `effort` that Claude's `effortLevel` or Codex's `model_reasoning_effort` cannot take, which `sync --global` drops with a note. |
+| LINT014 | Error, `--global` only. A settings `effort` a target's user effort key cannot take, such as `max` for Claude or Copilot, which `sync --global` drops with a note. |
 | LINT013 | Error. A rule's `globs` or `x-<target>.globs` is neither a string nor a list of strings. Targets read it as no globs, so the rule loads in every session. `validate` reports it too. |
 | LINT008 | Error. A stdio MCP server lacks `command:`, or an `http`/`sse`/`ws` one lacks `url:`. Trae, Antigravity, and Windsurf drop it; Claude Code, Codex, Cursor, Gemini, Copilot, and the rest write an invalid server object. `x-<target>` cannot set either reserved field. |
 
@@ -204,9 +204,9 @@ agnostic-ai explain rules/conventional-commits.md --json
 | Flag | Description |
 |------|-------------|
 | `--json` | Stable schema for editor extensions and scripts. |
-| `--global` | Explain a settings spec in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) or its `local/` layer. A relative path resolves against that root. Other kinds stop with a pointer to `list --global`. |
+| `--global` | Explain a spec in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) or its `local/` layer: the user-level file each target `sync --global` writes gets from it. A relative path resolves against that root. |
 
-Contributions are grouped by configured target, plus a "would emit if enabled" list for inactive adapters. Entries are tagged `(full file)` or `(section "<name>")`. With `--global`, each entry names a user settings file and the key the spec sets there, tagged `(key "<key>")` and `"mode": "key"` in JSON.
+Contributions are grouped by configured target, plus a "would emit if enabled" list for inactive adapters. Entries are tagged `(full file)` or `(section "<name>")`. With `--global`, an agent or skill is a whole file, a rule is a section of the instructions file, a hook is its event in the hooks file, an MCP server is its key in the user MCP file, and a settings spec names each key it sets, tagged `(key "<key>")` and `"mode": "key"` in JSON.
 
 ```json
 {"version": "1", "command": "explain", "spec": {"kind": "rule", "name": "...", "path": "..."},
@@ -316,7 +316,7 @@ Emit per-target configs, for example `agnostic-ai sync --only claude,cursor`.
 | `--watch-poll` | With `--watch`, force the 200 ms polling backend, for network mounts or container volumes where fsnotify misses events. |
 | `--jobs <n>` | Targets emitted in parallel. `0` (default) is one worker per CPU; `1` is serial. See [parallel emission](#parallel-emission). |
 | `--json` | Output as JSON. See [JSON output](#json-output). |
-| `--global` | Install user-level instructions, unconditional rules, hooks, and skills from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai/`) into 22 tools' user config, plus native agents for 18 targets. Loads whole-spec overrides from the source root's `local/` directory. Reads `targets` from an optional `agnostic-ai.yaml` in the source root, which `local/agnostic-ai.yaml` replaces, `--only` and `--except` narrow, and `--target` skips; see [global configuration](@/docs/configuration.md#global-configuration). Works outside a project; never loads project config or packs. See [global output](@/docs/target-behavior.md#global-output). Accepts `--target`, `--only`, `--except` (unsupported targets fail with the supported list), `--dry-run`, `--check`, `--check --diff` (managed block only for instructions files; both `--check` and `--dry-run` also name every file a sync would remove), `--backup`. Settings specs set `model` and `effort` in Claude's and Codex's user settings files, key by key; see [default model and effort](@/docs/configuration.md#global-default-model-and-effort). Rejects `--watch`, `--plan`, `--json`, `--gitignore`, `--jobs` before any write. |
+| `--global` | Install user-level instructions, unconditional rules, hooks, and skills from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai/`) into 22 tools' user config, plus native agents for 18 targets. Loads whole-spec overrides from the source root's `local/` directory. Reads `targets` from an optional `agnostic-ai.yaml` in the source root, which `local/agnostic-ai.yaml` replaces, `--only` and `--except` narrow, and `--target` skips; see [global configuration](@/docs/configuration.md#global-configuration). Works outside a project; never loads project config or packs. See [global output](@/docs/target-behavior.md#global-output). Accepts `--target`, `--only`, `--except` (unsupported targets fail with the supported list), `--dry-run`, `--check`, `--check --diff` (managed block only for instructions files; both `--check` and `--dry-run` also name every file a sync would remove), `--backup`. MCP specs install servers in the user MCP files of Codex, Cursor, Copilot, Gemini, and Qoder. Settings specs set `model` and `effort` in the user settings files of Claude, Codex, Copilot, Qoder, and Gemini, key by key; see [default model and effort](@/docs/configuration.md#global-default-model-and-effort). Rejects `--watch`, `--plan`, `--json`, `--gitignore`, `--jobs` before any write. |
 
 Paths listed under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) are skipped and reported as `~ skip (unmanaged) <path>`.
 

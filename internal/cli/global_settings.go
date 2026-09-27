@@ -3,44 +3,52 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"maps"
 	"os"
-	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // globalSettingsFile maps the portable settings fields onto the native
-// keys of one target's user settings file.
+// keys of one target's user settings file. A JSON key is a dotted path
+// into nested objects.
 type globalSettingsFile struct {
 	// path is the user settings file, in the globalTargets path form.
 	path string
 	// format is "json" or "toml".
-	format      string
-	model       string
-	effort      string
-	effortLevel func() []string
+	format string
+	// model and effort are the native keys; an empty one has no mapping.
+	model, effort string
+	effortLevel   func() []string
+	// reserved are keys an x-<target> block may not set: surfaces sync
+	// owns another way, or ones that need their own design.
+	reserved map[string]string
 }
 
 // accepts reports whether the effort key takes value. A nil level list
 // accepts any string.
 func (f globalSettingsFile) accepts(value any) bool {
 	level, ok := value.(string)
-	if !ok || level == "" {
+	if !ok || level == "" || f.effort == "" {
 		return false
+	}
+	if f.effortLevel == nil {
+		return true
 	}
 	levels := f.effortLevel()
 	return levels == nil || slices.Contains(levels, level)
 }
 
 func (f globalSettingsFile) levelsText() string {
+	if f.effortLevel == nil {
+		return "a string"
+	}
 	if levels := f.effortLevel(); levels != nil {
 		return strings.Join(levels, ", ")
 	}
@@ -50,13 +58,16 @@ func (f globalSettingsFile) levelsText() string {
 // globalSetting is one native key sync writes, with the spec field and
 // file it comes from, for messages.
 type globalSetting struct {
-	target, key, value, field, source string
+	target, key, field, source string
+	value                      any
 }
 
 // globalSettingsFor resolves the settings specs for target into the
-// native keys its user settings file takes, in a fixed order. A field
-// the target cannot take, or has no mapping for, raises a coverage note.
+// native keys its user settings file takes: model and effort, then each
+// x-<target> key. A field the target cannot take, or has no mapping for,
+// raises a coverage note.
 func globalSettingsFor(target string, g globalTarget, settings []spec.Entry) []globalSetting {
+	f := g.settings
 	models, efforts, permissions, custom := 0, 0, 0, 0
 	for _, entry := range settings {
 		one := []spec.Entry{entry}
@@ -74,25 +85,108 @@ func globalSettingsFor(target string, g globalTarget, settings []spec.Entry) []g
 		}
 	}
 	adapters.NoteSettingsFieldNoOp(target, "permissions", permissions, "sync --global does not write user-level permissions")
-	adapters.NoteSettingsFieldNoOp(target, "x-"+target, custom, "sync --global does not write target-specific settings")
-	f := g.settings
 	if f.path == "" {
-		adapters.NoteSettingsFieldNoOp(target, "model", models, "sync --global does not write this target's user settings yet")
-		adapters.NoteSettingsFieldNoOp(target, "effort", efforts, "sync --global does not write this target's user settings yet")
+		const reason = "sync --global does not write this target's user settings yet"
+		adapters.NoteSettingsFieldNoOp(target, "model", models, reason)
+		adapters.NoteSettingsFieldNoOp(target, "effort", efforts, reason)
+		adapters.NoteSettingsFieldNoOp(target, "x-"+target, custom, reason)
 		return nil
 	}
 	var out []globalSetting
 	if model := adapters.SettingsModel(settings, target); model != "" {
-		out = append(out, globalSetting{target: target, key: f.model, value: model, field: "model", source: lastSettingsSource(settings, "model", target)})
+		if f.model == "" {
+			adapters.NoteSettingsFieldNoOp(target, "model", models, "its user settings file has no default model key")
+		} else {
+			out = append(out, globalSetting{target: target, key: f.model, value: model, field: "model", source: lastSettingsSource(settings, "model", target)})
+		}
 	}
 	if effort := adapters.SettingsEffort(settings, target); effort != nil {
-		if f.accepts(effort) {
-			out = append(out, globalSetting{target: target, key: f.effort, value: effort.(string), field: "effort", source: lastSettingsSource(settings, "effort", target)})
-		} else {
+		switch {
+		case f.effort == "":
+			adapters.NoteSettingsFieldNoOp(target, "effort", efforts, "its user settings file has no default effort key")
+		case f.accepts(effort):
+			out = append(out, globalSetting{target: target, key: f.effort, value: effort, field: "effort", source: lastSettingsSource(settings, "effort", target)})
+		default:
 			adapters.NoteSettingsFieldNoOp(target, "effort", 1, fmt.Sprintf("%s does not accept %v; it takes %s", f.effort, effort, f.levelsText()))
 		}
 	}
+	passthrough := customGlobalSettings(target, f, settings)
+	// An x-<target> key wins over the portable field it shares a key with.
+	out = slices.DeleteFunc(out, func(s globalSetting) bool {
+		return slices.ContainsFunc(passthrough, func(c globalSetting) bool { return c.key == s.key })
+	})
+	return append(out, passthrough...)
+}
+
+// customGlobalSettings flattens each spec's x-<target> block into native
+// keys, later specs winning key by key and a null removing a key an
+// earlier spec set. A JSON object merges field by field, as project
+// sync merges x-<target> blocks; TOML takes scalars and arrays only.
+func customGlobalSettings(target string, f globalSettingsFile, settings []spec.Entry) []globalSetting {
+	byKey := map[string]globalSetting{}
+	for _, entry := range settings {
+		block, _ := entry.Meta["x-"+target].(map[string]any)
+		flat, dotted := flattenSettings(block, f.format)
+		for _, key := range dotted {
+			adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+key, 1, "a key with a dot in its name cannot be told from a nested key here")
+		}
+		for _, key := range slices.Sorted(maps.Keys(flat)) {
+			value := flat[key]
+			if reason, ok := f.reserved[strings.SplitN(key, ".", 2)[0]]; ok {
+				adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+key, 1, reason)
+				continue
+			}
+			// A later key replaces what an earlier one set at, under, or
+			// above it, so a null or a new shape wins whole.
+			for other := range byKey {
+				if other == key || strings.HasPrefix(other, key+".") || strings.HasPrefix(key, other+".") {
+					delete(byKey, other)
+				}
+			}
+			if value == nil {
+				continue
+			}
+			if f.format == "toml" {
+				if _, err := tomlValueText(value); err != nil {
+					adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+key, 1, "sync --global writes top-level scalars and arrays of config.toml, not tables")
+					continue
+				}
+			}
+			byKey[key] = globalSetting{target: target, key: key, value: value, field: "x-" + target + "." + key, source: entry.Path}
+		}
+	}
+	out := make([]globalSetting, 0, len(byKey))
+	for _, key := range slices.Sorted(maps.Keys(byKey)) {
+		out = append(out, byKey[key])
+	}
 	return out
+}
+
+// flattenSettings turns nested JSON objects into dotted keys, so each
+// leaf is owned on its own and the user's sibling keys stay. TOML keys
+// stay whole. A key with a dot in its own name is returned apart, since
+// a dotted path could not tell it from a nested one.
+func flattenSettings(block map[string]any, format string) (map[string]any, []string) {
+	out := map[string]any{}
+	var dotted []string
+	var walk func(prefix string, m map[string]any)
+	walk = func(prefix string, m map[string]any) {
+		for key, value := range m {
+			path := prefix + key
+			if strings.Contains(key, ".") {
+				dotted = append(dotted, path)
+				continue
+			}
+			if nested, ok := value.(map[string]any); ok && format == "json" && len(nested) > 0 {
+				walk(path+".", nested)
+				continue
+			}
+			out[path] = value
+		}
+	}
+	walk("", block)
+	slices.Sort(dotted)
+	return out, dotted
 }
 
 // lastSettingsSource names the spec file the winning value of field
@@ -121,14 +215,14 @@ type globalSettingsMerge struct {
 	// data overwrites them, which only --backup allows.
 	conflicts []string
 	// owned is the value per key sync owns after the write.
-	owned map[string]string
+	owned map[string]any
 }
 
 // mergeGlobalSettings sets the managed keys in a user settings file and
 // removes the ones an earlier sync wrote that the specs no longer set,
 // leaving every other key and line as it is. base is the content to
 // start from; nil reads path.
-func mergeGlobalSettings(path, format string, base []byte, want []globalSetting, previous map[string]string) (globalSettingsMerge, error) {
+func mergeGlobalSettings(path, format string, base []byte, want []globalSetting, previous map[string]any) (globalSettingsMerge, error) {
 	data := base
 	absent := false
 	if data == nil {
@@ -148,28 +242,29 @@ func mergeGlobalSettings(path, format string, base []byte, want []globalSetting,
 	if err != nil {
 		return globalSettingsMerge{}, err
 	}
-	m := globalSettingsMerge{owned: map[string]string{}}
-	set := map[string]string{}
+	m := globalSettingsMerge{owned: map[string]any{}}
+	set := map[string]any{}
 	var remove []string
 	wanted := map[string]bool{}
 	for _, s := range want {
 		wanted[s.key] = true
-		have, present := current[s.key]
+		have, present := settingsLookup(current, s.key, format)
+		recorded, owned := previous[s.key]
 		switch {
 		case !present:
-			m.changes = append(m.changes, fmt.Sprintf("set %s = %q", s.key, s.value))
+			m.changes = append(m.changes, fmt.Sprintf("set %s = %s", s.key, settingsValueText(s.value)))
 			set[s.key] = s.value
-		case have == s.value:
-			if previous[s.key] != s.value {
+		case sameSetting(have, s.value):
+			if !owned || !sameSetting(recorded, s.value) {
 				m.adopted = append(m.adopted, s.key)
 			}
-		case previous[s.key] != "" && have == previous[s.key]:
-			m.changes = append(m.changes, fmt.Sprintf("set %s = %q", s.key, s.value))
+		case owned && sameSetting(have, recorded):
+			m.changes = append(m.changes, fmt.Sprintf("set %s = %s", s.key, settingsValueText(s.value)))
 			set[s.key] = s.value
 		default:
-			m.changes = append(m.changes, fmt.Sprintf("overwrite %s = %s with %q", s.key, settingsValueText(have), s.value))
-			m.conflicts = append(m.conflicts, fmt.Sprintf("%s is %s, set outside agnostic-ai, and sync writes %q; to keep it, put %s under %s in %s",
-				s.key, settingsValueText(have), s.value, settingsSpecLine(s, have), s.field, s.source))
+			m.changes = append(m.changes, fmt.Sprintf("overwrite %s = %s with %s", s.key, settingsValueText(have), settingsValueText(s.value)))
+			m.conflicts = append(m.conflicts, fmt.Sprintf("%s is %s, set outside agnostic-ai, and sync writes %s; to keep it, %s in %s",
+				s.key, settingsValueText(have), settingsValueText(s.value), settingsKeepHint(s, have), s.source))
 			set[s.key] = s.value
 		}
 		m.owned[s.key] = s.value
@@ -179,7 +274,7 @@ func mergeGlobalSettings(path, format string, base []byte, want []globalSetting,
 			continue
 		}
 		// A value changed since sync wrote it is the user's now.
-		if have, ok := current[key]; ok && have == previous[key] {
+		if have, ok := settingsLookup(current, key, format); ok && sameSetting(have, previous[key]) {
 			m.changes = append(m.changes, "remove "+key)
 			remove = append(remove, key)
 		}
@@ -194,23 +289,56 @@ func mergeGlobalSettings(path, format string, base []byte, want []globalSetting,
 		}
 	}
 	if format == "toml" {
-		m.data, err = editTOMLRoot(path, data, order, set, remove)
-		return m, err
+		if m.data, err = editTOMLRoot(path, data, order, set, remove); err != nil {
+			return m, err
+		}
+		// A root key that is also a table name, such as features against
+		// [features], would define the key twice and break the file.
+		if _, err := toml.Decode(string(m.data), new(map[string]any)); err != nil {
+			return m, fmt.Errorf("%s: writing %s would make it invalid TOML; drop the key from the spec or the table from the file: %w", path, strings.Join(order, ", "), err)
+		}
+		return m, nil
 	}
 	m.data, err = editJSONRoot(path, data, order, set, remove)
 	return m, err
 }
 
-// settingsSpecLine is the target entry that keeps have as the value.
-func settingsSpecLine(s globalSetting, have any) string {
-	return fmt.Sprintf("%s: %q", s.target, fmt.Sprint(have))
+// settingsLookup reads key from decoded settings: a dotted path into
+// nested objects for JSON, the key itself for TOML.
+func settingsLookup(values map[string]any, key, format string) (any, bool) {
+	if format == "toml" {
+		v, ok := values[key]
+		return v, ok
+	}
+	var current any = values
+	for _, part := range strings.Split(key, ".") {
+		object, ok := current.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		if current, ok = object[part]; !ok {
+			return nil, false
+		}
+	}
+	return current, true
+}
+
+// sameSetting compares two values as JSON sees them, so a TOML int64,
+// a YAML int, and a recorded float64 of one number are equal.
+func sameSetting(a, b any) bool {
+	return reflect.DeepEqual(jsonRoundTrip(a), jsonRoundTrip(b))
+}
+
+// settingsKeepHint is the spec edit that keeps have as the value.
+func settingsKeepHint(s globalSetting, have any) string {
+	if strings.HasPrefix(s.field, "x-") {
+		return fmt.Sprintf("set %s to %s", s.field, settingsValueText(have))
+	}
+	return fmt.Sprintf("put %s: %s under %s", s.target, settingsValueText(have), s.field)
 }
 
 func settingsValueText(v any) string {
-	if s, ok := v.(string); ok {
-		return fmt.Sprintf("%q", s)
-	}
-	return fmt.Sprint(v)
+	return jsonValueText(v, "", "")
 }
 
 // settingsValues decodes the top-level keys of a user settings file.
@@ -232,357 +360,6 @@ func settingsValues(path, format string, data []byte) (map[string]any, error) {
 	return out, nil
 }
 
-// editJSONRoot sets and removes top-level keys in the text itself, so
-// formatting, comments, and every other key stay byte for byte. A new
-// key goes after the last member; removing it undoes that exactly.
-func editJSONRoot(path string, data []byte, order []string, set map[string]string, remove []string) ([]byte, error) {
-	text := strings.TrimRight(string(data), " \t\r\n")
-	trailing := string(data)[len(text):]
-	if text == "" {
-		text, trailing = "{}", "\n"
-	}
-	edit := func(apply func(members []jsonMember, open, closing int) string) error {
-		members, open, closing, err := scanJSONRoot(text)
-		if err != nil {
-			return fmt.Errorf("parse %s: %w", path, err)
-		}
-		text = apply(members, open, closing)
-		return nil
-	}
-	for _, key := range remove {
-		err := edit(func(members []jsonMember, open, closing int) string {
-			i := lastJSONMember(members, key)
-			switch {
-			case i < 0:
-				return text
-			case i > 0:
-				m := members[i]
-				return text[:m.comma] + text[m.comma+1:keptBefore(text, m.comma+1, m.start)] + text[m.end:]
-			case len(members) > 1:
-				return text[:members[0].start] + text[members[1].start:]
-			default:
-				m := members[0]
-				if strings.TrimSpace(text[open+1:m.start]) == "" {
-					return text[:open+1] + text[closing:]
-				}
-				return text[:keptBefore(text, open+1, m.start)] + text[m.end:]
-			}
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
-	for _, key := range order {
-		value := jsonString(set[key])
-		err := edit(func(members []jsonMember, open, closing int) string {
-			// JSON decoding keeps the last of duplicate keys, so edit that one.
-			if i := lastJSONMember(members, key); i >= 0 {
-				return text[:members[i].valueStart] + value + text[members[i].end:]
-			}
-			member := jsonString(key) + ": " + value
-			if len(members) == 0 {
-				return text[:open+1] + "\n" + adapters.DetectJSONIndent(data) + member + "\n" + text[closing:]
-			}
-			first := members[0].start
-			indent := text[strings.LastIndex(text[:first], "\n")+1 : first]
-			if strings.TrimSpace(indent) != "" {
-				indent = " "
-				return text[:members[len(members)-1].end] + "," + indent + member + text[members[len(members)-1].end:]
-			}
-			last := members[len(members)-1].end
-			return text[:last] + ",\n" + indent + member + text[last:]
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
-	return []byte(text + trailing), nil
-}
-
-// keptBefore returns where the cut for a removed member starts: at the
-// member itself when only whitespace precedes it from from, which
-// undoes an insert exactly, else after the last line break before it,
-// so a comment there stays on its own line.
-func keptBefore(text string, from, start int) int {
-	between := text[from:start]
-	if strings.TrimSpace(between) == "" {
-		return from
-	}
-	if nl := strings.LastIndex(between, "\n"); nl >= 0 {
-		return from + nl + 1
-	}
-	return start
-}
-
-// jsonMember is one top-level member of a JSON object: the comma
-// before it (-1 for the first), where its key starts, where its value
-// starts, and where the value ends.
-type jsonMember struct {
-	key                           string
-	comma, start, valueStart, end int
-}
-
-func lastJSONMember(members []jsonMember, key string) int {
-	for i := len(members) - 1; i >= 0; i-- {
-		if members[i].key == key {
-			return i
-		}
-	}
-	return -1
-}
-
-// scanJSONRoot lists the members of the top-level object in text and
-// the offsets of its opening and closing braces. It skips strings and
-// JSONC comments.
-func scanJSONRoot(text string) ([]jsonMember, int, int, error) {
-	var members []jsonMember
-	depth := 0
-	var current *jsonMember
-	expectKey := false
-	open, comma := -1, -1
-	for i := 0; i < len(text); i++ {
-		c := text[i]
-		switch {
-		case strings.HasPrefix(text[i:], "//"):
-			if nl := strings.IndexByte(text[i:], '\n'); nl >= 0 {
-				i += nl
-			} else {
-				i = len(text)
-			}
-		case strings.HasPrefix(text[i:], "/*"):
-			end := strings.Index(text[i+2:], "*/")
-			if end < 0 {
-				return nil, 0, 0, fmt.Errorf("unterminated comment")
-			}
-			i += end + 3
-		case c == '"':
-			j := i + 1
-			for ; j < len(text) && text[j] != '"'; j++ {
-				if text[j] == '\\' {
-					j++
-				}
-			}
-			if j >= len(text) {
-				return nil, 0, 0, fmt.Errorf("unterminated string")
-			}
-			if depth == 1 && expectKey {
-				var key string
-				if err := json.Unmarshal([]byte(text[i:j+1]), &key); err != nil {
-					return nil, 0, 0, err
-				}
-				members = append(members, jsonMember{key: key, comma: comma, start: i})
-				current = &members[len(members)-1]
-				expectKey = false
-			} else if depth == 1 && current != nil {
-				current.end = j + 1
-			}
-			i = j
-		case c == ':' && depth == 1 && current != nil && current.valueStart == 0:
-			j := i + 1
-			for j < len(text) && strings.ContainsRune(" \t\r\n", rune(text[j])) {
-				j++
-			}
-			current.valueStart = j
-		case c == '{' || c == '[':
-			depth++
-			if depth == 1 {
-				expectKey = c == '{'
-				open = i
-			}
-		case c == '}' || c == ']':
-			depth--
-			if depth == 1 && current != nil {
-				current.end = i + 1
-			}
-			if depth == 0 {
-				return members, open, i, nil
-			}
-		case c == ',' && depth == 1:
-			expectKey = true
-			current = nil
-			comma = i
-		case depth == 1 && current != nil && current.valueStart != 0 && !strings.ContainsRune(" \t\r\n", rune(c)):
-			current.end = i + 1
-		}
-	}
-	return nil, 0, 0, fmt.Errorf("expected a JSON object")
-}
-
-// tomlRootKey is where one root-table key sits: its first and last line,
-// and a trailing comment on a one-line value.
-type tomlRootKey struct {
-	start, end int
-	comment    string
-}
-
-// editTOMLRoot sets and removes keys of the root table line by line, so
-// comments, tables, and formatting elsewhere stay byte for byte. A set
-// key replaces its line, keeping a trailing comment; a new key goes
-// after the last root key, or at the top when there is none, which is
-// always before the first table header.
-func editTOMLRoot(path string, data []byte, order []string, set map[string]string, remove []string) ([]byte, error) {
-	// Each line keeps its own "\r", so mixed line endings survive; new
-	// lines follow the first line's ending. A BOM stays in front.
-	text, bom := strings.CutPrefix(string(data), "\ufeff")
-	cr := ""
-	if first, _, _ := strings.Cut(text, "\n"); strings.HasSuffix(first, "\r") {
-		cr = "\r"
-	}
-	trailing := strings.HasSuffix(text, "\n")
-	text = strings.TrimSuffix(text, "\n")
-	var lines []string
-	if text != "" {
-		lines = strings.Split(text, "\n")
-	}
-	keys, lastKey, err := scanTOMLRoot(lines)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
-	}
-	line := func(key, value string) string {
-		return key + ` = "` + adapters.EscapeTOMLBasic(value) + `"` + cr
-	}
-	replaced := map[int][]string{}
-	dropped := map[int]bool{}
-	var added []string
-	for _, key := range order {
-		loc, ok := keys[key]
-		if !ok {
-			added = append(added, line(key, set[key]))
-			continue
-		}
-		start := lines[loc.start]
-		indent := start[:len(start)-len(strings.TrimLeft(start, " \t"))]
-		next := indent + key + ` = "` + adapters.EscapeTOMLBasic(set[key]) + `"`
-		if loc.comment != "" {
-			next += " " + loc.comment
-		}
-		if strings.HasSuffix(start, "\r") {
-			next += "\r"
-		}
-		replaced[loc.start] = []string{next}
-		for i := loc.start + 1; i <= loc.end; i++ {
-			dropped[i] = true
-		}
-	}
-	for _, key := range remove {
-		loc, ok := keys[key]
-		if !ok {
-			continue
-		}
-		for i := loc.start; i <= loc.end; i++ {
-			dropped[i] = true
-		}
-	}
-	insertAt := 0
-	if lastKey >= 0 {
-		insertAt = lastKey + 1
-	} else if len(added) > 0 && len(lines) > 0 && strings.TrimSpace(lines[0]) != "" {
-		added = append(added, cr)
-	}
-	var out []string
-	for i := 0; i <= len(lines); i++ {
-		if i == insertAt {
-			out = append(out, added...)
-		}
-		if i == len(lines) {
-			break
-		}
-		if next, ok := replaced[i]; ok {
-			out = append(out, next...)
-			continue
-		}
-		if !dropped[i] {
-			out = append(out, lines[i])
-		}
-	}
-	result := strings.Join(out, "\n")
-	if trailing || len(lines) == 0 {
-		result += "\n"
-	}
-	if bom {
-		result = "\ufeff" + result
-	}
-	return []byte(result), nil
-}
-
-// scanTOMLRoot finds the keys of the root table, the lines before the
-// first table header, and the last line of the last root key (-1 when
-// there is none). It tracks strings, comments, and nested arrays and
-// inline tables, so a bracket inside a value is not read as a header.
-func scanTOMLRoot(lines []string) (map[string]tomlRootKey, int, error) {
-	keys := map[string]tomlRootKey{}
-	lastKey := -1
-	var multi string // the open multi-line string delimiter, if any
-	depth := 0
-	current := ""
-	for i, raw := range lines {
-		rest := raw
-		if multi == "" && depth == 0 {
-			trimmed := strings.TrimSpace(raw)
-			if trimmed == "" || strings.HasPrefix(trimmed, "#") {
-				continue
-			}
-			if strings.HasPrefix(trimmed, "[") {
-				return keys, lastKey, nil
-			}
-			eq := strings.Index(raw, "=")
-			if eq < 0 {
-				return nil, -1, fmt.Errorf("line %d: expected a key and value", i+1)
-			}
-			current = strings.Trim(strings.TrimSpace(raw[:eq]), `"'`)
-			keys[current] = tomlRootKey{start: i, end: i}
-			rest = raw[eq+1:]
-		}
-		comment := ""
-		for j := 0; j < len(rest); j++ {
-			c := rest[j]
-			if multi != "" {
-				if strings.HasPrefix(rest[j:], multi) {
-					j += len(multi) - 1
-					multi = ""
-				} else if c == '\\' && multi == `"""` {
-					j++
-				}
-				continue
-			}
-			switch {
-			case strings.HasPrefix(rest[j:], `"""`), strings.HasPrefix(rest[j:], `'''`):
-				multi = rest[j : j+3]
-				j += 2
-			case c == '"':
-				for j++; j < len(rest) && rest[j] != '"'; j++ {
-					if rest[j] == '\\' {
-						j++
-					}
-				}
-			case c == '\'':
-				for j++; j < len(rest) && rest[j] != '\''; j++ {
-				}
-			case c == '[', c == '{':
-				depth++
-			case c == ']', c == '}':
-				depth--
-			case c == '#':
-				comment = strings.TrimSpace(rest[j:])
-				j = len(rest)
-			}
-		}
-		loc := keys[current]
-		loc.end = i
-		if loc.start == i && multi == "" && depth == 0 {
-			loc.comment = comment
-		}
-		keys[current] = loc
-		if multi == "" && depth == 0 {
-			lastKey = i
-		}
-	}
-	if multi != "" || depth != 0 {
-		return nil, -1, fmt.Errorf("unterminated value in the root table")
-	}
-	return keys, lastKey, nil
-}
-
 // lintGlobalSettings reports each settings effort a target that sync
 // --global writes settings for cannot take, so lint and validate catch
 // what a sync would drop with a note.
@@ -591,7 +368,7 @@ func lintGlobalSettings(settings []spec.Entry, targets []string) []validationIss
 	for _, entry := range settings {
 		for _, target := range slices.Sorted(slices.Values(targets)) {
 			f := globalTargets[target].settings
-			if f.path == "" {
+			if f.path == "" || f.effort == "" {
 				continue
 			}
 			effort := adapters.SettingsEffort([]spec.Entry{entry}, target)
@@ -616,70 +393,4 @@ func lintGlobalSettingsFindings(settings []spec.Entry, targets []string) []lintF
 		out = append(out, lintFinding{Code: "LINT014", Severity: lintError, Path: issue.Path, Message: issue.Message})
 	}
 	return out
-}
-
-// runExplainGlobal names the user settings file and key each target
-// gets from one global settings spec. A key a later spec overrides is
-// not this spec's to claim.
-func runExplainGlobal(cmd *cobra.Command, input string, jsonOut bool) error {
-	scope, err := loadCheckScope(true)
-	if err != nil {
-		return err
-	}
-	if !filepath.IsAbs(input) {
-		if _, statErr := os.Stat(input); statErr != nil {
-			input = filepath.Join(scope.source, input)
-		}
-	}
-	entry, err := findSpecEntry(input, scope.bundle)
-	if err != nil {
-		return err
-	}
-	if entry.Kind != spec.KindSettings {
-		return fmt.Errorf("explain --global covers settings specs; %s is a %s spec, so run list --global for its layer", entry.Path, entry.Kind)
-	}
-	home, err := globalUserHome()
-	if err != nil {
-		return err
-	}
-	settings := scope.bundle.Settings
-	contributions := []contribution{}
-	for _, target := range slices.Sorted(slices.Values(scope.targets)) {
-		g := globalTargets[target]
-		if g.settings.path == "" {
-			continue
-		}
-		adapters.SetWarner(io.Discard)
-		want := globalSettingsFor(target, g, settings)
-		adapters.ResetCoverageNotes()
-		adapters.SetWarner(os.Stderr)
-		for _, s := range want {
-			if s.source == entry.Path {
-				contributions = append(contributions, contribution{Target: target, Path: g.path(home, g.settings.path), Section: s.key, Mode: "key"})
-			}
-		}
-	}
-	if jsonOut {
-		return emitExplainJSON(cmd, explainOutput{
-			Version:            "1",
-			Command:            "explain",
-			Spec:               explainSpecRef{Kind: string(entry.Kind), Name: entry.Name, Path: filepath.ToSlash(entry.Path)},
-			Contributions:      contributions,
-			WouldEmitIfEnabled: []contribution{},
-		})
-	}
-	out := cmd.OutOrStdout()
-	if _, err := fmt.Fprintf(out, "%s →\n", filepath.ToSlash(entry.Path)); err != nil {
-		return fmt.Errorf("write explain output: %w", err)
-	}
-	if len(contributions) == 0 {
-		_, err := fmt.Fprintln(out, "  (no target sync --global writes takes a key from this spec)")
-		return err
-	}
-	for _, c := range contributions {
-		if _, err := fmt.Fprintf(out, "  %s\n", formatContribution(c)); err != nil {
-			return fmt.Errorf("write explain output: %w", err)
-		}
-	}
-	return nil
 }
