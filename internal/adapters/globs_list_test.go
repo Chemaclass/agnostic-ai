@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -105,16 +106,16 @@ func TestGlobs_BraceSetStaysOnePattern(t *testing.T) {
 		"string": "src/**/*.{ts,tsx},lib/*.js",
 		"list":   []any{"src/**/*.{ts,tsx}", "lib/*.js"},
 	} {
-		got := captureRule(t, "cline", globRule(globs, nil))[".clinerules/go.md"]
+		got := captureRule(t, "cline", globRule(globs, nil))[filepath.FromSlash(".clinerules/go.md")]
 		if !strings.Contains(got, "  - src/**/*.{ts,tsx}\n") || !strings.Contains(got, "  - lib/*.js\n") || strings.Contains(got, "{ts\n") {
 			t.Errorf("%s: cline paths must keep the brace set whole:\n%s", name, got)
 		}
-		got = captureRule(t, "openhands", globRule(globs, nil))[".agents/skills/go/SKILL.md"]
+		got = captureRule(t, "openhands", globRule(globs, nil))[filepath.FromSlash(".agents/skills/go/SKILL.md")]
 		if !strings.Contains(got, "src/**/*.{ts,tsx}") || strings.Contains(got, "  - tsx}") {
 			t.Errorf("%s: openhands triggers must keep the brace set whole:\n%s", name, got)
 		}
 	}
-	got := captureRule(t, "cline", globRule("src/**/*.{ts,tsx}", nil))[".clinerules/go.md"]
+	got := captureRule(t, "cline", globRule("src/**/*.{ts,tsx}", nil))[filepath.FromSlash(".clinerules/go.md")]
 	if !strings.Contains(got, "paths:\n  - src/**/*.{ts,tsx}\n---") {
 		t.Errorf("a lone brace-set string must stay one cline path:\n%s", got)
 	}
@@ -126,12 +127,12 @@ func TestGlobs_KiroWritesSeveralPatternsAsAList(t *testing.T) {
 		"string": "*.go,*.mod",
 		"list":   []any{"*.go", "*.mod"},
 	} {
-		got := captureRule(t, "kiro", globRule(globs, nil))[".kiro/steering/go.md"]
+		got := captureRule(t, "kiro", globRule(globs, nil))[filepath.FromSlash(".kiro/steering/go.md")]
 		if !strings.Contains(got, "fileMatchPattern:\n  - \"*.go\"\n  - \"*.mod\"\n") && !strings.Contains(got, "fileMatchPattern:\n    - '*.go'\n    - '*.mod'\n") {
 			t.Errorf("%s: kiro fileMatchPattern must list both patterns:\n%s", name, got)
 		}
 	}
-	got := captureRule(t, "kiro", globRule([]any{"*.go"}, nil))[".kiro/steering/go.md"]
+	got := captureRule(t, "kiro", globRule([]any{"*.go"}, nil))[filepath.FromSlash(".kiro/steering/go.md")]
 	if !strings.Contains(got, "fileMatchPattern: ") {
 		t.Errorf("one pattern must stay a string:\n%s", got)
 	}
