@@ -273,7 +273,7 @@ Use `feat:`, `fix:`, `docs:`, etc. Subject under 72 chars.
 | `name` | no | filename | Rule identifier. |
 | `description` | no | empty | Short summary. |
 | `scope` | no | project-wide | Project-relative directory and its descendants. Source-layout scope takes precedence. See [scoped context](@/docs/scoped-context.md). |
-| `globs` | no | target-dependent; `new rule` seeds `**/*` | Project-relative file patterns. With `scope`, the selector must stay inside the directory. `new rule --scope` omits it. |
+| `globs` | no | target-dependent; `new rule` seeds `**/*` | Project-relative file patterns, as a comma-separated string (`"*.go,*.mod"`) or a list of strings (`["*.go", "*.mod"]`); both mean the same. With `scope`, the selector must stay inside the directory. `new rule --scope` omits it. |
 | `paths` | no | unset | File patterns, as a string or list. Scoped rules accept it with or instead of `globs`; see [selector limits](@/docs/scoped-context.md#narrow-a-rule-to-certain-files). |
 | `alwaysApply` | no | target-dependent; `new rule` seeds `true` | Requests unconditional activation. With `scope`, only inside the directory. `new rule --scope` omits it. |
 

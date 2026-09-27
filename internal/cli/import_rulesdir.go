@@ -12,6 +12,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 type rulesDirCounts struct {
@@ -206,7 +207,7 @@ func rulesDirFileContent(name string, meta map[string]any, body string, opts rul
 	if desc, ok := meta["description"].(string); ok && desc != "" {
 		sb.WriteString(yamlFrontmatterLine("description", desc))
 	}
-	if globs, ok := meta["globs"].(string); ok && !isCatchAllGlobs(globs) {
+	if globs := spec.JoinGlobs(meta["globs"]); !isCatchAllGlobs(globs) {
 		sb.WriteString(yamlFrontmatterLine("globs", globs))
 	}
 	if always, ok := meta["alwaysApply"].(bool); ok {

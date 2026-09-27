@@ -342,7 +342,7 @@ func ruleFrontmatter(e spec.Entry) (map[string]any, []string) {
 // loads always).
 func fileMatchPatternFor(e spec.Entry) string {
 	m := emit.ResolveMeta(e.Meta, target)
-	if g, _ := m["globs"].(string); g != "" {
+	if g := spec.JoinGlobs(m["globs"]); g != "" {
 		return g
 	}
 	if s := e.EffectiveScope(); s != "" {

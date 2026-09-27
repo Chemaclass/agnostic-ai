@@ -75,7 +75,7 @@ func rulePaths(e spec.Entry) []string {
 	if always, ok := m["alwaysApply"].(bool); !ok || always {
 		return nil
 	}
-	if globs, _ := m["globs"].(string); globs != "" {
+	if globs := spec.JoinGlobs(m["globs"]); globs != "" {
 		return splitGlobs(globs)
 	}
 	if s := e.EffectiveScope(); s != "" {

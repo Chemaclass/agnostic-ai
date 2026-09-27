@@ -395,7 +395,7 @@ func activationFrontmatter(e spec.Entry) string {
 		return ""
 	}
 	desc, _ := m["description"].(string)
-	globs, _ := m["globs"].(string)
+	globs := spec.JoinGlobs(m["globs"])
 	trigger := triggerManual
 	switch {
 	case globs != "":

@@ -138,6 +138,7 @@ func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) [
 	findings = append(findings, lintNearMissKeys(entries, targets)...)
 	findings = append(findings, lintMCPMissingRequiredField(b.MCPs)...)
 	findings = append(findings, lintMidWildcardAllow(b.Settings)...)
+	findings = append(findings, lintMalformedGlobs(b.Rules)...)
 	return findings
 }
 

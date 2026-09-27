@@ -84,6 +84,14 @@ func newValidateCmd() *cobra.Command {
 // and the loader derives a stable name from the file path.
 func lintEntries(entries []spec.Entry) []validationIssue {
 	var out []validationIssue
+	for _, e := range entries {
+		if e.Kind != spec.KindRule {
+			continue
+		}
+		for _, key := range malformedGlobs(e) {
+			out = append(out, validationIssue{Path: e.Path, Field: key, Message: malformedGlobsMessage(key), entry: e})
+		}
+	}
 	return out
 }
 

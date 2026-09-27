@@ -150,6 +150,7 @@ It flags empty specs, dead specs (kinds no enabled target supports), and hooks t
 | LINT003 | Two specs of one kind share a `name`; the loader keeps one body. Hooks sharing an event and matcher are fine: all run (`gofmt` and `vet` on one save). |
 | LINT006 | Error. Frontmatter opens `---` and never closes, so the raw YAML is emitted as body. `validate` and `sync` both pass. |
 | LINT010 | Error, `--global` only. A rule with scope, path, glob, or target conditions, which `sync --global` rejects. |
+| LINT013 | Error. A rule's `globs` or `x-<target>.globs` is neither a string nor a list of strings. Targets read it as no globs, so the rule loads in every session. `validate` reports it too. |
 | LINT008 | Error. A stdio MCP server lacks `command:`, or an `http`/`sse`/`ws` one lacks `url:`. Trae, Antigravity, and Windsurf drop it; Claude Code, Codex, Cursor, Gemini, Copilot, and the rest write an invalid server object. `x-<target>` cannot set either reserved field. |
 
 LINT007 warns on a frontmatter key agnostic-ai does not read that is one edit from one it does (two for longer names): `glob:` for `globs:`, `descriptin:` for `description:`. The key parses and emits, so the setting is lost with no other signal; `sync` prints the same warning. A target-native key belongs under `x-<target>:`. A key only some targets read at the top level, such as Qoder's `glob:` or OpenCode's and Kilo's `mode:`, is flagged only when none of them is in `targets`. Settings and environment specs pass their keys through and are not checked, and `sync` skips pack specs.

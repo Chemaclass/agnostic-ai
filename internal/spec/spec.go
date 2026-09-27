@@ -356,11 +356,51 @@ func anyInAllowList(names, readers []string) bool {
 	return false
 }
 
-// Globs returns the entry's globs frontmatter as a string, or "" if
-// missing or not a string.
+// Globs returns the entry's globs frontmatter as one comma-separated
+// string (see JoinGlobs), or "" if missing or malformed.
 func (e Entry) Globs() string {
-	g, _ := e.Meta["globs"].(string)
-	return g
+	return JoinGlobs(e.Meta["globs"])
+}
+
+// JoinGlobs returns a `globs` value as the comma-separated string the
+// adapters read: a string as written, a YAML list of strings joined with
+// ",", so `["*.go", "*.mod"]` reads as `"*.go,*.mod"`. Any other value,
+// including a list holding a non-string, is "" (see ValidGlobs).
+func JoinGlobs(v any) string {
+	switch g := v.(type) {
+	case string:
+		return g
+	case []string:
+		return strings.Join(g, ",")
+	case []any:
+		parts := make([]string, 0, len(g))
+		for _, item := range g {
+			s, ok := item.(string)
+			if !ok {
+				return ""
+			}
+			parts = append(parts, s)
+		}
+		return strings.Join(parts, ",")
+	}
+	return ""
+}
+
+// ValidGlobs reports whether v is one of the two forms `globs` accepts:
+// a string or a list of strings.
+func ValidGlobs(v any) bool {
+	switch g := v.(type) {
+	case string, []string:
+		return true
+	case []any:
+		for _, item := range g {
+			if _, ok := item.(string); !ok {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
 
 // EffectiveScope returns the routing prefix for the entry. A non-empty

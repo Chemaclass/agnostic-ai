@@ -496,7 +496,7 @@ func alwaysApplies(m map[string]any) bool {
 func mdc(e spec.Entry) string {
 	m := emit.ResolveMeta(e.Meta, target)
 	desc, _ := m["description"].(string)
-	globs, _ := m["globs"].(string)
+	globs := spec.JoinGlobs(m["globs"])
 	always := alwaysApplies(m)
 	// An alwaysApply:true rule ignores globs entirely, so synthesizing
 	// one there is pure round-trip noise against a hand-authored source;

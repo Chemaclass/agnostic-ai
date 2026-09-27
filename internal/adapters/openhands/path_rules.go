@@ -64,7 +64,7 @@ func pathTriggerGlobs(e spec.Entry) []string {
 	if paths := globList(m["paths"]); len(paths) > 0 && !hasCatchAllGlob(paths) {
 		return paths
 	}
-	if g, _ := m["globs"].(string); g != "" {
+	if g := spec.JoinGlobs(m["globs"]); g != "" {
 		if globs := splitGlobs(g); len(globs) > 0 && !hasCatchAllGlob(globs) {
 			return globs
 		}
