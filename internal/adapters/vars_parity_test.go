@@ -22,6 +22,9 @@ func TestTargetVarPaths_MatchRealEmission(t *testing.T) {
 		emit.VarMCPFile:     {Kind: spec.KindMCP, Name: "probe", Meta: map[string]any{"command": "x"}},
 	}
 
+	// A rule the root AGENTS.md carries inline gets no rule file of its
+	// own (#1224). Owning that file keeps the probe rule in RULES_DIR.
+	cfg := &config.Config{Sync: config.SyncConfig{Unmanaged: []string{"AGENTS.md"}}}
 	for target, declared := range targetVarPaths {
 		adapter, err := Resolve(target)
 		if err != nil {
@@ -32,7 +35,7 @@ func TestTargetVarPaths_MatchRealEmission(t *testing.T) {
 			sess := NewSession()
 			sess.StartCapture()
 			bundle := spec.NewBundle([]spec.Entry{probes[name]})
-			if err := EmitWithProvenance(sess, adapter, bundle, &config.Config{}, true); err != nil {
+			if err := EmitWithProvenance(sess, adapter, bundle, cfg, true); err != nil {
 				sess.StopCapture()
 				t.Errorf("%s/%s: emit failed: %v", target, name, err)
 				continue
@@ -175,7 +178,11 @@ func TestTargetVarPaths_FollowPerKindDirOverride(t *testing.T) {
 			moved := "custom/" + strings.TrimSuffix(strings.ToLower(name), "_dir")
 			out := config.Output{}
 			set(&out, moved)
-			cfg := &config.Config{Outputs: map[string]config.Output{target: out}}
+			// See TestTargetVarPaths_MatchRealEmission for the unmanaged AGENTS.md.
+			cfg := &config.Config{
+				Outputs: map[string]config.Output{target: out},
+				Sync:    config.SyncConfig{Unmanaged: []string{"AGENTS.md"}},
+			}
 
 			if got := varsFor(cfg, target)[name]; got != moved {
 				t.Errorf("%s: %s resolves to %q under its per-kind override, want %q", target, name, got, moved)

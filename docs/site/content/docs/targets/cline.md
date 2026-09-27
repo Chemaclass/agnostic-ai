@@ -13,15 +13,15 @@ target_id = "cline"
 ## Output
 
 ```
-AGENTS.md                            # pointer body (shared across AGENTS.md consumers)
-.clinerules/<name>.md
+AGENTS.md                            # pointer body, plus the rules block when an inlining target shares it
+.clinerules/<name>.md                # one per rule AGENTS.md does not carry, or that needs `paths`
 .cline/agents/<name>.yml             # frontmatter over a Markdown system prompt
 .cline/hooks/<Event>.sh              # one executable script per hook event
 .cline/skills/<name>/SKILL.md        # one folder per skill (Cline's recommended skills path)
 .clinerules/workflows/<name>.md      # one per agent, only when workflows-dir is set
 ```
 
-Cline reads the root `AGENTS.md`, so `sync` writes the shared pointer body there (deduplicated with other AGENTS.md consumers). Rules emit one file each into `.clinerules/`.
+Cline reads the root `AGENTS.md`, so `sync` writes the shared pointer body there (deduplicated with other AGENTS.md consumers). Rules emit one file each into `.clinerules/`. When codex or another inlining target also writes `AGENTS.md`, that file carries every unscoped rule in its `## Rules` block, and Cline loads it by default, so an always-on rule gets no `.clinerules/` file and loads once. Rules with `paths` keep their file. See [target behavior](@/docs/target-behavior.md#entry-point-files).
 
 Cline reads two project rules layouts, `.clinerules/` and `.cline/rules/`, and [searches both](https://docs.cline.bot/customization/cline-rules) in VS Code, Desktop, and the CLI. `.clinerules/` is the default because the VS Code Rules panel creates rules there. Set `outputs.cline.rules-dir: .cline/rules` for the other layout. Only one layout is written at a time: sync sweeps a stale managed tree at the other one, so rules never load twice. Neither layout is [deprecated](https://docs.cline.bot/resources/deprecations).
 

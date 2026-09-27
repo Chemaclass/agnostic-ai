@@ -85,6 +85,12 @@ func runGolden(t *testing.T, target string) {
 	}
 
 	dir := setupGoldenFixture(t)
+	// Each snapshot is the target on its own. With every target
+	// configured, a shared AGENTS.md would carry codex's rules block and
+	// the rule files that block replaces would drop out (#1224).
+	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte("version: 1\ntargets: ["+target+"]\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
 	before := snapFiles(t, dir)
 	testutil.Chdir(t, dir)
 

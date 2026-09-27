@@ -216,13 +216,14 @@ var legacyRulesFileScoped = map[string]bool{"copilot": true}
 // alwaysOnRuleWords counts the rules a target loads from its own rule
 // files in every session. A legacy concatenated rules file and rule
 // files `@`-imported into the entry point load whole; otherwise the
-// adapter that renders each rule's activation decides.
+// adapter that renders each rule's activation decides. A rule the
+// entry point already carries has no rule file.
 func alwaysOnRuleWords(cfg *config.Config, b spec.Bundle, target string) int {
 	legacyWhole := adapters.HasLegacyRulesFile(cfg, target) && !legacyRulesFileScoped[target]
 	whole := legacyWhole || adapters.ImportsRulesIntoEntryPoint(cfg, target)
 	n := 0
 	for _, r := range adapters.EntryPointRules(b, target).Rules {
-		if whole || adapters.AlwaysOnRule(target, r) {
+		if whole || adapters.AlwaysOnRule(target, r) && !adapters.RuleInEntryPoint(cfg, b, target, r) {
 			n += wordsIn(r.Body)
 		}
 	}

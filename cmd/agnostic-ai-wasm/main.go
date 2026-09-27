@@ -120,10 +120,15 @@ func render(_ js.Value, args []js.Value) any {
 			content := adapters.RenderEntryPoint(cfg)
 			// Targets with no native rules directory (codex, amp, warp,
 			// gemini, aider, opencode) inline the rule bodies into their
-			// entry-point file. Mirror that here so the playground shows
-			// the rule reaching the tool.
-			if adapters.InlinesRulesIntoEntryPoint(t) {
-				content = adapters.AppendRulesAppendix(content, adapters.RenderRulesAppendix(adapters.EntryPointRules(bundle, t)))
+			// entry-point file, and a target reading another's inlined
+			// block there skips its own rule file. Mirror that here so
+			// the playground shows the rule reaching the tool.
+			inliner := t
+			if !adapters.InlinesRulesIntoEntryPoint(t) {
+				inliner = adapters.EntryPointRuleInliner(cfg, t)
+			}
+			if inliner != "" {
+				content = adapters.AppendRulesAppendix(content, adapters.RenderRulesAppendix(adapters.EntryPointRules(bundle, inliner)))
 			}
 			files = append(files, map[string]any{
 				"target":  t,

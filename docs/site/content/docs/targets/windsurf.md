@@ -13,8 +13,8 @@ target_id = "windsurf"
 ## Output
 
 ```
-AGENTS.md                            # shared pointer body
-.devin/rules/<name>.md
+AGENTS.md                            # shared pointer body, plus the rules block when an inlining target shares it
+.devin/rules/<name>.md               # one per rule AGENTS.md does not carry, or that is not always-on
 <scope>/.devin/rules/<name>.md       # one per scoped rule
 .devin/agents/<name>.md              # one per agent (custom subagent profile)
 .agents/skills/<name>/SKILL.md       # one folder per skill (shared tree)
@@ -27,7 +27,7 @@ AGENTS.md                            # shared pointer body
 
 Windsurf became Devin Desktop (2026-06). Devin prefers `.devin/rules/*.md` and still reads `.windsurf/rules/` as a fallback (`.windsurfrules` is legacy), so rules emit at the preferred path. The target keeps its `windsurf` name, so existing `outputs.windsurf.*` keys and `x-windsurf` meta still work.
 
-Set `outputs.windsurf.rules-dir: .windsurf/rules` to keep the old layout. Otherwise sync sweeps managed leftovers at the old path; hand-authored files survive. Devin also reads the root `AGENTS.md`, so `sync` writes the shared pointer body there.
+Set `outputs.windsurf.rules-dir: .windsurf/rules` to keep the old layout. Otherwise sync sweeps managed leftovers at the old path; hand-authored files survive. Devin also reads the root `AGENTS.md`, so `sync` writes the shared pointer body there. Devin loads a root `AGENTS.md` as an always-on rule, so when codex or another inlining target puts the `## Rules` block there, an always-on rule gets no `.devin/rules/` file and loads once. See [target behavior](@/docs/target-behavior.md#entry-point-files).
 
 - **Agents**: one custom subagent profile per agent at `.devin/agents/<name>.md` ([subagents docs](https://docs.devin.ai/cli/subagents)). Frontmatter carries `name`, `description`, `model`, `allowed-tools`, and `max-nesting`; the body is the system prompt.
   - A managed copy at the old `.devin/rules/agent-<name>.md` path is swept for every current agent. A scoped agent lands flat, since Devin discovers sub-directories for rules only.

@@ -46,6 +46,24 @@ func (s *Session) MergeJSONFileNested(path string, keys map[string]any, nestedKe
 	return s.mergeJSONFile(path, keys, nested, dryRun)
 }
 
+// ExistingStrings returns the top-level string list at key in the JSON
+// or JSONC document at path. A missing file or key yields nil.
+func (s *Session) ExistingStrings(path, key string, dryRun bool) []string {
+	doc, err := s.readExistingJSON(path, dryRun)
+	if err != nil {
+		return nil
+	}
+	raw, found := doc.Get(key)
+	if !found {
+		return nil
+	}
+	var list []any
+	if err := json.Unmarshal(raw, &list); err != nil {
+		return nil
+	}
+	return StringSlice(list)
+}
+
 // ExistingNestedStrings returns the string list at <key>.<child> in the
 // JSON or JSONC document at path. A missing file, key, or child yields
 // nil. Adapters use it to carry a user's own list entries into a key

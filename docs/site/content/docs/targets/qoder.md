@@ -13,15 +13,15 @@ target_id = "qoder"
 ## Output
 
 ```
-AGENTS.md                        # entry-point pointer body (shared path)
-.qoder/rules/<name>.md           # one per rule
+AGENTS.md                        # entry-point pointer body, plus the rules block when an inlining target shares it
+.qoder/rules/<name>.md           # one per rule AGENTS.md does not carry, or that is not always-on
 .qoder/agents/<name>.md          # one per agent
 .qoder/skills/<name>/SKILL.md    # one folder per skill, plus bundled assets
 .qoder/commands/<name>.md        # one per command
 .qoder/settings.json             # MCP, hooks, and settings (merged; unrelated keys preserved)
 ```
 
-Alibaba [Qoder](https://docs.qoder.com/user-guide/rules) reads one Markdown file per rule from `.qoder/rules/` and also reads the root `AGENTS.md`. Per-rule files take precedence, so rules emit there instead of inlining into the pointer.
+Alibaba [Qoder](https://docs.qoder.com/user-guide/rules) reads one Markdown file per rule from `.qoder/rules/` and also reads the root `AGENTS.md`. Per-rule files win a conflict with `AGENTS.md`, so rules emit there instead of inlining into the pointer. When codex or another inlining target adds the `## Rules` block to `AGENTS.md`, an always-on rule gets no `.qoder/rules/` file and loads once; the one copy left cannot conflict with itself. See [target behavior](@/docs/target-behavior.md#entry-point-files).
 
 Skills use Qoder's own tree at `.qoder/skills/<name>/SKILL.md` ([Qoder Skills](https://docs.qoder.com/extensions/skills)). Qoder does not list `.agents/skills/` as a compatible path, so this tree does not dedupe with the shared one. The user-level `~/.qoder/skills/` tier is out of reach.
 

@@ -191,11 +191,18 @@ func TestOutputKeys_DocumentedKeysMoveTheirOutput(t *testing.T) {
 				continue
 			}
 			entry := outputKeyProbeEntry(probeKind(target, key, probe.kind))
-			before := emittedPaths(t, target, &config.Config{}, entry)
+			// A rule the root AGENTS.md carries inline gets no rule file
+			// of its own (#1224). Owning that file keeps the probe rule
+			// in the rules directory.
+			var owned config.SyncConfig
+			if entry.Kind == spec.KindRule {
+				owned.Unmanaged = []string{"AGENTS.md"}
+			}
+			before := emittedPaths(t, target, &config.Config{Sync: owned}, entry)
 
 			out := config.Output{}
 			probe.set(&out, overrideValue(target, key))
-			after := emittedPaths(t, target, &config.Config{Outputs: map[string]config.Output{target: out}}, entry)
+			after := emittedPaths(t, target, &config.Config{Outputs: map[string]config.Output{target: out}, Sync: owned}, entry)
 
 			moved := strings.Join(before, ",") != strings.Join(after, ",")
 			reason, documentedNoOp := documentedNoOpKeys[target+"."+key]

@@ -216,6 +216,15 @@ func computeContributions(e spec.Entry, b spec.Bundle, cfg *config.Config) ([]co
 				})
 			}
 		}
+		// A target reading that block writes no rule file of its own
+		// for e, so the entry point is where e reaches it.
+		for _, name := range adapters.Names() {
+			if !adapters.InlinesRulesIntoEntryPoint(name) && adapters.RuleInEntryPoint(cfg, b, name, e) {
+				addContribution(&configured, &extra, configuredSet, contribution{
+					Target: name, Path: adapters.EntryPointPath(cfg, name), Section: e.Name, Mode: "section",
+				})
+			}
+		}
 	}
 
 	sortContribs(configured)

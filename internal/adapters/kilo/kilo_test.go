@@ -140,6 +140,30 @@ func TestEmit_KiloJSONC_NoInstructionsKeyWhenNoRules(t *testing.T) {
 	}
 }
 
+// Sync drops a rule file when the shared AGENTS.md already carries the
+// rule (#1224). The entries it listed for those files must go too, or
+// Kilo Code reads instructions that point at deleted files.
+func TestEmit_KiloJSONC_DropsStaleRuleEntriesWhenNoRulesRemain(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	existing := `{"instructions": [".kilo/rules/r1.md", "docs/team.md"], "model": "m"}`
+	if err := os.WriteFile(filepath.Join(dir, "kilo.jsonc"), []byte(existing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := New().Emit(emit.NewSession(), spec.Bundle{}, &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "kilo.jsonc"))
+	if strings.Contains(got, ".kilo/rules/r1.md") {
+		t.Errorf("stale rule entry survived:\n%s", got)
+	}
+	for _, want := range []string{`"docs/team.md"`, `"model": "m"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %s, the user's own entry:\n%s", want, got)
+		}
+	}
+}
+
 // name and tools are confirmed no-ops on real Kilo Code (target-audit
 // 2026-08-01, B2): the agent name comes from the filename, and the
 // full agent option table has no tools key at all. A spec's tools

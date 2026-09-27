@@ -30,12 +30,9 @@ func TestSync_EmitsAllTargets(t *testing.T) {
 		"CONVENTIONS.md",
 		".github/copilot-instructions.md",
 		".cursor/rules/sample-rule.mdc",
-		".clinerules/sample-rule.md",
-		".devin/rules/sample-rule.md",
 		".continue/rules/sample-rule.md",
 		".junie/AGENTS.md",
 		".junie/agents/sample-agent.md",
-		".kiro/steering/sample-rule.md",
 		".trae/rules/sample-rule.md",
 		".claude/agents/sample-agent.md",
 		".claude/settings.json",
@@ -44,6 +41,20 @@ func TestSync_EmitsAllTargets(t *testing.T) {
 		path := filepath.Join(dir, f)
 		if _, err := os.Stat(path); err != nil {
 			t.Errorf("missing expected output %s: %v", f, err)
+		}
+	}
+	// These targets read the shared AGENTS.md, which carries the rule
+	// inline for codex, so a rule file would load it twice (#1224).
+	for _, f := range []string{
+		".clinerules/sample-rule.md",
+		".devin/rules/sample-rule.md",
+		".kiro/steering/sample-rule.md",
+		".qoder/rules/sample-rule.md",
+		".kilo/rules/sample-rule.md",
+		".augment/rules/sample-rule.md",
+	} {
+		if _, err := os.Stat(filepath.Join(dir, f)); err == nil {
+			t.Errorf("%s loads the rule a second time next to AGENTS.md", f)
 		}
 	}
 	// Every per-target entry-point shares the canonical pointer body.

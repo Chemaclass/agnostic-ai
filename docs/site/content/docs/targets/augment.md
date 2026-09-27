@@ -15,7 +15,7 @@ target_id = "augment"
 ```
 AGENTS.md                     # entry-point pointer body + inlined rules (written by sync, shared path)
 .augment/
-├── rules/<name>.md           # one per rule
+├── rules/<name>.md           # one per agent_requested rule; every rule when AGENTS.md is in sync.unmanaged
 ├── agents/<name>.md          # one per agent
 ├── commands/<name>.md        # one per command; nested source scope becomes a namespace
 └── settings.json             # mcpServers + hooks + toolPermissions, merged; only with MCP, hook, or settings specs
@@ -24,7 +24,7 @@ AGENTS.md                     # entry-point pointer body + inlined rules (writte
 .augment-guidelines           # opt-in legacy concatenated rules, only when rules-file is set
 ```
 
-- **Rules**: [Augment Code](https://docs.augmentcode.com/setup-augment/guidelines) reads the root `AGENTS.md`, with rule bodies inlined into the shared `## Rules` block, and also loads `.augment/rules/`. A spec with `alwaysApply: false` gets `type: agent_requested` and a `description` (falling back to the rule name). The default `always_apply` stays implicit. Rules have no `name` key.
+- **Rules**: [Augment Code](https://docs.augmentcode.com/setup-augment/guidelines) reads the root `AGENTS.md`, with rule bodies inlined into the shared `## Rules` block, and also loads `.augment/rules/`. An always-applied rule gets no `.augment/rules/` file, since `AGENTS.md` already carries it; see [target behavior](@/docs/target-behavior.md#entry-point-files). A spec with `alwaysApply: false` gets a file with `type: agent_requested` and a `description` (falling back to the rule name). When `AGENTS.md` is in `sync.unmanaged`, every rule gets a file, and the default `always_apply` stays implicit. Rules have no `name` key.
 - **Legacy guidelines**: set `outputs.augment.rules-file: .augment-guidelines` to also write the concatenated document. It stays opt-in because Augment truncates it first under budget pressure.
 - **Agents**: one `.augment/agents/<name>.md` per agent, with `name` (required), `description` (falls back to the spec name), `color`, and `model` when set. `color` is written verbatim; Augment expects an ANSI color name ([subagents docs](https://docs.augmentcode.com/cli/subagents)).
   - Augment's `tools` and `disabled_tools` use its own tool names (`view`, `codebase-retrieval`, `str-replace-editor`, ...). The generic `tools` field never reaches them and raises a coverage note.
@@ -86,7 +86,7 @@ Set `x-augment.toolPermissions` to write Augment's own rule objects. They pass t
 ## Verify
 
 1. Install the Augment Code extension ([guidelines docs](https://docs.augmentcode.com/setup-augment/guidelines)).
-2. Check the tree: `ls AGENTS.md .augment/rules/ .augment/agents/ .agents/skills/`, plus `.augment-guidelines` when `outputs.augment.rules-file` is set and `.augment/settings.json` when MCP, hook, or settings specs exist.
+2. Check the tree: `ls AGENTS.md .augment/agents/ .agents/skills/`, plus `.augment/rules/` when a rule sets `alwaysApply: false`, plus `.augment-guidelines` when `outputs.augment.rules-file` is set and `.augment/settings.json` when MCP, hook, or settings specs exist.
 3. Open the project. Augment reads `AGENTS.md`, `.augment/rules/`, `.augment/agents/`, `.agents/skills/`, `.augment-guidelines` when present, and (through Auggie CLI) `.augment/settings.json`.
 4. With hook specs, `auggie` prints no "invalid hook" warning at startup, and a `PreToolUse` hook pointing at a `.sh`/`.ps1`/`.cmd`/`.bat` script runs on the matching tool call.
 5. With settings specs, `auggie` prints no dropped-rule warning at startup, a tool covered by `deny` is blocked, and one covered by `allow` runs without approval.
