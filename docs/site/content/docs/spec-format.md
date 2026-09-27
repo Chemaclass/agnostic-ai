@@ -343,7 +343,7 @@ Sync sets the variable the way each tool's hook runner can take it. Your command
 |---------|------------------|-------|
 | [Claude Code](@/docs/targets/claude.md) | `env` in `.claude/settings.json`, and `~/.claude/settings.json` for `sync --global`, while a command hook exists | Set for the whole session, so the Bash tool sees it too |
 | [Cursor](@/docs/targets/cursor.md) | A `sessionStart` hook that returns `{"env": {"AGNOSTIC_AI_TARGET": "cursor"}}` | `sessionStart` hooks, and hooks that fire before it returns, do not see it |
-| [Codex](@/docs/targets/codex.md) | `export AGNOSTIC_AI_TARGET=codex; ` before `command` | Not set by sync on Windows, which runs `commandWindows`. The prefix needs a POSIX session shell: a login shell of `pwsh` or `nu` on macOS or Linux breaks it |
+| [Codex](@/docs/targets/codex.md) | `export AGNOSTIC_AI_TARGET=codex; ` before `command`, with any `args` folded in and quoted | Not set by sync on Windows, which runs `commandWindows`. The prefix needs a POSIX session shell: a login shell of `pwsh` or `nu` on macOS or Linux breaks it |
 | [Gemini](@/docs/targets/gemini.md), [Qoder](@/docs/targets/qoder.md), [Copilot](@/docs/targets/copilot.md) | `env` on each command handler | None |
 | [Goose](@/docs/targets/goose.md), [Crush](@/docs/targets/crush.md) | `export` prefix, since both run hooks in a POSIX shell on every platform | None |
 | [Cline](@/docs/targets/cline.md) | An `export` line in each generated `.cline/hooks/<Event>.sh` | None |

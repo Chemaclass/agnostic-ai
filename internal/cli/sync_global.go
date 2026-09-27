@@ -600,7 +600,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		next.Hooks[target] = map[string][]any{}
 		path := g.path(home, g.hooks)
 		hooks := b.HooksFor(target)
-		hookTarget := globalHookTarget{name: target, mode: g.hookTarget, timeout: g.hookTimeout, specHooks: len(hooks)}
+		hookTarget := globalHookTarget{name: target, mode: g.hookTarget, args: g.hookArgs, foldArgs: g.hookFoldArgs, timeout: g.hookTimeout, specHooks: len(hooks)}
 		if g.bridge && body != "" {
 			bridge, command, script, mode := globalContextBridge(filepath.Dir(path), body, g.bridgeKey)
 			if err := add(bridge, []byte(script), mode); err != nil {
@@ -886,6 +886,14 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 						commandHook[key] = value
 					}
 				}
+				if args := stringSliceFromAny(entry.Meta["args"]); len(args) > 0 {
+					switch {
+					case target.args:
+						commandHook["args"] = args
+					case target.foldArgs:
+						commandHook["command"] = adapters.ExecFormCommand(command, args)
+					}
+				}
 				if target.timeout != nil {
 					delete(commandHook, "timeout")
 					if timeout, ok := target.timeout(entry.Meta); ok {
@@ -935,7 +943,9 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 		// is not a conflict: it goes, and the planned entry replaces it.
 		stillLost := lost[:0]
 		for _, oldEntry := range lost {
-			edited := slices.IndexFunc(current, func(item any) bool { return sameGlobalHook(item, oldEntry) })
+			edited := slices.IndexFunc(current, func(item any) bool {
+				return sameGlobalHook(item, oldEntry) || extendsGlobalHook(item, oldEntry)
+			})
 			switch {
 			case edited < 0:
 				stillLost = append(stillLost, oldEntry)
@@ -1200,6 +1210,9 @@ type globalHookTarget struct {
 	// timeout converts the spec's timeout, when the target reads
 	// another unit than seconds.
 	timeout func(meta map[string]any) (any, bool)
+	// args says the handler takes exec-form `args`; foldArgs, that it
+	// has no such field and the args fold into the command.
+	args, foldArgs bool
 	// specHooks counts the leading entries that come from hook specs;
 	// the rest, such as Cursor's context bridge, are sync's own.
 	specHooks int
@@ -1266,6 +1279,19 @@ func sameGlobalHook(item, recorded any) bool {
 	return slices.ContainsFunc(globalHookKeys(item), func(key [2]string) bool { return slices.Contains(want, key) })
 }
 
+// extendsGlobalHook reports whether item runs the recorded entry's
+// command with more words after it, under the same matcher: a bare
+// interpreter an older version wrote for an exec-form spec, with its
+// args added back by hand.
+func extendsGlobalHook(item, recorded any) bool {
+	want := globalHookKeys(recorded)
+	return slices.ContainsFunc(globalHookKeys(item), func(key [2]string) bool {
+		return slices.ContainsFunc(want, func(w [2]string) bool {
+			return key[0] == w[0] && strings.HasPrefix(key[1], w[1]+" ")
+		})
+	})
+}
+
 // globalHookKeys lists the matcher and command pairs a native hook entry
 // runs: a Claude-style group holds several commands, a Cursor entry one.
 func globalHookKeys(item any) [][2]string {
@@ -1305,7 +1331,6 @@ func globalHookCommands(raw any) []string {
 	return nil
 }
 func jsonString(s string) string { raw, _ := json.Marshal(s); return string(raw) }
-func shellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'" }
 
 func globalUserHome() (string, error) {
 	if home := os.Getenv("HOME"); home != "" {
@@ -1335,7 +1360,7 @@ func globalContextBridge(base, body, key string) (path, command, script string, 
 		script = "$payload = '" + strings.ReplaceAll(payload, "'", "''") + "'\r\n[Console]::Out.WriteLine($payload)\r\n"
 		return path, command, script, 0o644
 	}
-	return path, path, "#!/bin/sh\nprintf '%s\\n' " + shellQuote(payload) + "\n", 0o755
+	return path, path, "#!/bin/sh\nprintf '%s\\n' " + adapters.ShellQuote(payload) + "\n", 0o755
 }
 
 // preflightGlobalWrites stops on an unrecorded file in a managed tree

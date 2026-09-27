@@ -204,8 +204,9 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 		commandWindows, _ := h.Meta["commandWindows"].(string)
 		additionalContextLimit := hookIntMetaPtr(h.Meta, "additionalContextLimit")
 		async := hookBoolMeta(h.Meta, "async")
+		args := emit.StringSlice(h.Meta["args"])
 		for _, raw := range hookCommands(h.Meta["command"]) {
-			cmd := emit.RewriteHookPath(raw, target)
+			cmd := emit.ExecFormCommand(emit.RewriteHookPath(raw, target), args)
 			k := key{event: event, kind: "command", identity: cmd}
 			a, ok := byKey[k]
 			if !ok {
