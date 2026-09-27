@@ -540,14 +540,16 @@ effort:
 | `permissions.allow` | no | empty | Rules approved without prompting. |
 | `permissions.deny` | no | empty | Rules always blocked. |
 | `permissions.ask` | no | empty | Rules that prompt before running. |
-| `model` | no | empty | Default model. |
+| `model` | no | empty | Default model: a string for every target, or a map per target with an optional `default`, the same shape as [agent `model`](#per-target-model-and-effort). A target the map does not name and no `default` covers gets no model. |
 | `effort` | no | empty | Repository default reasoning effort: a scalar for every target, or a map per target with an optional `default`, the same shape as [agent `effort`](#per-target-model-and-effort). |
 
 A rule is either a bare tool name, which covers the whole tool, or `Scope(argument)`, where the scope ends at the first `(` and the argument runs to the closing `)`. An MCP tool is `mcp__<server>__<tool>`; only the first separator after the prefix divides server from tool. `Scope()` with an empty argument is not a rule and is dropped rather than read as the bare tool, which would widen it.
 
 Keep a `Bash` wildcard at the end of an `allow` rule. `Bash(git * main)` also approves any options inserted at the `*`, and `agnostic-ai lint` reports it as LINT009.
 
-Multiple files merge: permission lists concatenate, de-duplicated in source order, and the last non-empty `model` and `effort` win.
+Multiple files merge: permission lists concatenate, de-duplicated in source order, and the last non-empty `model` and `effort` win. Each target resolves its own entry of a map first, so `model: {codex: gpt-6-luna}` in a later file changes the Codex model only.
+
+`sync --global` reads settings specs from the home too, for `model` and `effort` only; see [default model and effort](@/docs/configuration.md#global-default-model-and-effort).
 
 `effort` reaches four targets, each under its own key and value set. A value the target does not accept is not written and raises a coverage note; the other targets still emit. `x-<target>` still wins, so `x-claude.effortLevel` overrides the portable value. Every other settings target reports a coverage note. Keep this separate from an agent's own `effort`, which applies to that agent alone.
 

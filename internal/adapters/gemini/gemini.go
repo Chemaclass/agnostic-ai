@@ -211,7 +211,7 @@ func emitSettings(sess *emit.Session, b spec.Bundle, path string, dryRun bool) e
 	if hooks := buildHooks(b.HooksFor(target)); len(hooks) > 0 {
 		keys["hooks"] = hooks
 	}
-	if model := emit.LastSettingsModel(b.Settings); model != "" {
+	if model := emit.SettingsModel(b.Settings, target); model != "" {
 		keys["model"] = map[string]any{"name": model}
 	}
 	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions", emit.SpecsWithPermissions(b.Settings),

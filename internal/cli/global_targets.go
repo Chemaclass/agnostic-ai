@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -91,6 +93,9 @@ type globalTarget struct {
 	// bridgeKey is the JSON field the target reads injected context
 	// from in that hook's stdout.
 	bridgeKey string
+	// settings is the user settings file the portable settings fields
+	// write to, keyed per native key. Its zero value means none.
+	settings globalSettingsFile
 }
 
 // globalTargets maps target name to its user-level surfaces, as
@@ -113,6 +118,10 @@ var globalTargets = map[string]globalTarget{
 		hooksFormat:  "claude",
 		hookTarget:   hookTargetSettingsEnv,
 		hookArgs:     true,
+		settings: globalSettingsFile{
+			path: globalPathHome + ".claude/settings.json", format: "json",
+			model: "model", effort: "effortLevel", effortLevel: claude.Adapter{}.SettingsEffortLevels,
+		},
 	},
 	"cursor": {
 		agents:       globalPathHome + ".cursor/agents",
@@ -136,6 +145,10 @@ var globalTargets = map[string]globalTarget{
 		hooksFormat:  "claude",
 		hookTarget:   hookTargetExport,
 		hookFoldArgs: true,
+		settings: globalSettingsFile{
+			path: globalPathHome + ".codex/config.toml", format: "toml",
+			model: "model", effort: "model_reasoning_effort", effortLevel: codex.Adapter{}.SettingsEffortLevels,
+		},
 	},
 	"gemini": {
 		rootEnv:      "GEMINI_CLI_HOME",
@@ -273,13 +286,14 @@ func globalTargetNames() []string {
 // globalKindSupport maps each kind the global layers load to the targets
 // with a user-level surface for it.
 func globalKindSupport() kindSupport {
-	support := kindSupport{spec.KindAgent: {}, spec.KindSkill: {}, spec.KindRule: {}, spec.KindHook: {}}
+	support := kindSupport{spec.KindAgent: {}, spec.KindSkill: {}, spec.KindRule: {}, spec.KindHook: {}, spec.KindSettings: {}}
 	for name, g := range globalTargets {
 		for kind, surface := range map[spec.Kind]bool{
-			spec.KindAgent: g.agents != "",
-			spec.KindSkill: g.skills != "",
-			spec.KindRule:  g.instructions != "" || g.rules != "",
-			spec.KindHook:  g.hooks != "",
+			spec.KindAgent:    g.agents != "",
+			spec.KindSkill:    g.skills != "",
+			spec.KindRule:     g.instructions != "" || g.rules != "",
+			spec.KindHook:     g.hooks != "",
+			spec.KindSettings: g.settings.path != "",
 		} {
 			if surface {
 				support[kind][name] = struct{}{}

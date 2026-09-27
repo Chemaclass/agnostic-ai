@@ -59,7 +59,7 @@ func emitSettings(sess *emit.Session, mcps, hooks, settings []spec.Entry, path s
 	if block := buildHooksBlock(hooks); block != nil {
 		keys[qoderHooksKey] = block
 	}
-	if model := emit.LastSettingsModel(settings); model != "" {
+	if model := emit.SettingsModel(settings, target); model != "" {
 		keys["model"] = map[string]any{"name": model}
 	}
 	if permissions := emit.SettingsPermissions(settings); permissions != nil {

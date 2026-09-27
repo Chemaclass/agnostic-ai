@@ -391,7 +391,7 @@ func emitCommands(sess *emit.Session, commands []spec.Entry, dir string, dryRun 
 // No file is written when neither source contributes.
 func emitProjectConfig(sess *emit.Session, settings []spec.Entry, dryRun bool) error {
 	keys := map[string]any{}
-	if model := emit.LastSettingsModel(settings); model != "" {
+	if model := emit.SettingsModel(settings, target); model != "" {
 		keys["model"] = model
 	}
 	emit.MergeSettingsCustomKeys(keys, settings, target)

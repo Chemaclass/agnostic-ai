@@ -60,7 +60,7 @@ func emitConfig(sess *emit.Session, settings []spec.Entry, path string, dryRun b
 func specsWithModel(settings []spec.Entry) int {
 	n := 0
 	for _, entry := range settings {
-		if model, _ := entry.Meta["model"].(string); model != "" {
+		if emit.SettingsModel([]spec.Entry{entry}, target) != "" {
 			n++
 		}
 	}

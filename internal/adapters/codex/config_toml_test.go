@@ -1232,3 +1232,15 @@ func TestEmit_CodexConfigEffortWinsOverSettings(t *testing.T) {
 		t.Errorf("outputs.codex.config.model-reasoning-effort should win:\n%s", got)
 	}
 }
+
+func TestEmit_SettingsModelMapPicksCodexEntry(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindSettings, Name: "defaults", Meta: map[string]any{"model": map[string]any{"codex": "gpt-6-luna", "claude": "opus"}}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+	if !strings.Contains(got, `model = "gpt-6-luna"`) || strings.Contains(got, "opus") {
+		t.Errorf("config.toml must carry only the codex model:\n%s", got)
+	}
+}

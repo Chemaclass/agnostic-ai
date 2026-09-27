@@ -39,6 +39,7 @@ func newValidateCmd() *cobra.Command {
 			var scopeIssues []validationIssue
 			if global {
 				scopeIssues = lintGlobalRules(b.Rules)
+				scopeIssues = append(scopeIssues, lintGlobalSettings(b.Settings, scope.targets)...)
 			} else {
 				// Declared-but-missing source dirs are reported even when no
 				// specs loaded: an all-missing-sources config is exactly the

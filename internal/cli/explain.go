@@ -22,7 +22,7 @@ type contribution struct {
 	Target  string `json:"target"`
 	Path    string `json:"path"`
 	Section string `json:"section,omitempty"`
-	Mode    string `json:"mode"` // "full" or "section"
+	Mode    string `json:"mode"` // "full", "section", or "key"
 }
 
 // explainOutput is the JSON envelope for `explain --json`.
@@ -46,6 +46,7 @@ type explainSpecRef struct {
 func newExplainCmd() *cobra.Command {
 	var (
 		jsonOut bool
+		global  bool
 		file    string
 		target  string
 	)
@@ -68,6 +69,9 @@ func newExplainCmd() *cobra.Command {
   # Machine-readable, for editor extensions or scripts
   agnostic-ai explain rules/conventional-commits.md --json
 
+  # Which user settings file and key a global settings spec writes
+  agnostic-ai explain --global settings/defaults.yaml
+
   # Look up an error code
   agnostic-ai explain AAI-001
 
@@ -78,11 +82,17 @@ func newExplainCmd() *cobra.Command {
 			if err := validateExplainInput(args, file, target); err != nil {
 				return err
 			}
+			if global && file != "" {
+				return fmt.Errorf("--global cannot be combined with --file")
+			}
 			if file != "" {
 				return runExplainForFile(cmd, file, target, jsonOut)
 			}
 			if errs.IsCode(args[0]) {
 				return runExplainCode(cmd, errs.Code(args[0]), jsonOut)
+			}
+			if global {
+				return runExplainGlobal(cmd, args[0], jsonOut)
 			}
 			cfg, bundle, err := loadProject(".")
 			if err != nil {
@@ -134,6 +144,7 @@ func newExplainCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for editor extensions and scripts.")
+	cmd.Flags().BoolVar(&global, "global", false, "Explain a settings spec in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) or its local/ layer: the user settings file and key sync --global writes for each target.")
 	cmd.Flags().StringVar(&file, "file", "", "Project file to inspect instead of a spec. Requires --target.")
 	cmd.Flags().StringVar(&target, "target", "", "Target whose configured instructions --file reports. Supported: cursor.")
 	return cmd
@@ -143,6 +154,9 @@ func formatContribution(c contribution) string {
 	path := filepath.ToSlash(c.Path)
 	if c.Mode == "full" {
 		return fmt.Sprintf("[%s] %s (full file)", c.Target, path)
+	}
+	if c.Mode == "key" {
+		return fmt.Sprintf("[%s] %s (key %q)", c.Target, path, c.Section)
 	}
 	if c.Section != "" {
 		return fmt.Sprintf("[%s] %s (section %q)", c.Target, path, c.Section)

@@ -8,16 +8,12 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// LastSettingsModel returns the last non-empty portable model setting.
-// Settings specs layer in source order, matching Claude's established
-// behavior for the same shared field.
-func LastSettingsModel(entries []spec.Entry) string {
-	var model string
-	for _, entry := range entries {
-		if value, _ := entry.Meta["model"].(string); value != "" {
-			model = value
-		}
-	}
+// SettingsModel returns the model for target from the last settings spec
+// that resolves one: a string, else the per-target map's target entry,
+// else its default. Settings specs layer in source order, matching
+// Claude's established behavior for the same shared field.
+func SettingsModel(entries []spec.Entry, target string) string {
+	model, _ := lastSettingsValue(entries, "model", target).(string)
 	return model
 }
 
@@ -52,25 +48,31 @@ func SettingsPermissions(entries []spec.Entry) map[string]any {
 // settings spec that resolves one: a scalar, else the per-target map's
 // target entry, else its default. Nil when none does.
 func SettingsEffort(entries []spec.Entry, target string) any {
-	var effort any
+	return lastSettingsValue(entries, "effort", target)
+}
+
+// lastSettingsValue resolves key for target in each settings spec and
+// keeps the last non-empty scalar. Nil when none resolves one.
+func lastSettingsValue(entries []spec.Entry, key, target string) any {
+	var value any
 	for _, entry := range entries {
-		raw, ok := entry.Meta["effort"]
+		raw, ok := entry.Meta[key]
 		if !ok {
 			continue
 		}
-		resolved := map[string]any{"effort": raw}
-		keys := []string{"effort"}
-		collapseTargetMap(resolved, &keys, "effort", target)
-		switch v := resolved["effort"].(type) {
+		resolved := map[string]any{key: raw}
+		keys := []string{key}
+		collapseTargetMap(resolved, &keys, key, target)
+		switch v := resolved[key].(type) {
 		case string:
 			if v != "" {
-				effort = v
+				value = v
 			}
 		case int, int64, float64:
-			effort = v
+			value = v
 		}
 	}
-	return effort
+	return value
 }
 
 // SettingsEffortLevel returns the repository effort for target when

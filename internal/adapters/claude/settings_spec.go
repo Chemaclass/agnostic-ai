@@ -24,12 +24,12 @@ func buildSpecSettings(entries []spec.Entry) map[string]any {
 	out := map[string]any{}
 	var permLayers []map[string]any
 	for _, e := range entries {
-		if m, ok := e.Meta["model"].(string); ok && m != "" {
-			out["model"] = m
-		}
 		if p, ok := e.Meta["permissions"].(map[string]any); ok {
 			permLayers = append(permLayers, p)
 		}
+	}
+	if model := emit.SettingsModel(entries, target); model != "" {
+		out["model"] = model
 	}
 	if perms := mergePermissions(permLayers...); perms != nil {
 		out["permissions"] = perms

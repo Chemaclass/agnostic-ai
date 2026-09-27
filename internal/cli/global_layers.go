@@ -19,7 +19,7 @@ func globalSourceHome(home string) string {
 }
 
 func globalLayers(source string) []spec.Layer {
-	sources := config.Sources{Agents: "agents", Skills: "skills", Rules: "rules", Hooks: "hooks"}
+	sources := config.Sources{Agents: "agents", Skills: "skills", Rules: "rules", Hooks: "hooks", Settings: "settings"}
 	return []spec.Layer{
 		{Name: "global", Root: source, Sources: sources},
 		{Name: "global-local", Root: filepath.Join(source, "local"), Sources: sources, Extends: true},
@@ -108,7 +108,7 @@ func (s checkScope) emptyHint() string {
 		return emptySpecsHint
 	}
 	return fmt.Sprintf("no global specs found in %s. add files under its "+
-		"{agents,skills,rules,hooks}/ or local/ directories, or set "+
+		"{agents,skills,rules,hooks,settings}/ or local/ directories, or set "+
 		"AGNOSTIC_AI_HOME to another root.", s.source)
 }
 

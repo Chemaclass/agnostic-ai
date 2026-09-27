@@ -163,7 +163,7 @@ func mcpToolName(rule string) (string, bool) {
 func noteSettingsGaps(settings []spec.Entry, droppedRules int) {
 	model, ask := 0, 0
 	for _, entry := range settings {
-		if value, _ := entry.Meta["model"].(string); value != "" {
+		if emit.SettingsModel([]spec.Entry{entry}, target) != "" {
 			model++
 		}
 		permissions, _ := entry.Meta["permissions"].(map[string]any)
