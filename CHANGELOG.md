@@ -6,6 +6,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+## v0.70.0 - 2026-09-27
+
 ### Added
 
 - Hooks see `AGNOSTIC_AI_TARGET`, so one shared script knows which tool ran it (#1226).
