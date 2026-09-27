@@ -267,7 +267,7 @@ Budgets `agnostic-ai lint` checks the text each target loads in every session ag
 | Key | Default | Effect |
 |-----|---------|--------|
 | `instructions-words` | `2000` | Words one target loads every session: its entry-point file, always-on rule files, and skill and agent descriptions (LINT011). |
-| `description-chars` | `1024` | Characters in one skill or agent description (LINT012). |
+| `description-chars` | `1024` | Characters in one skill or agent description (LINT012). A skill description past 1024 still warns under a higher value. |
 
 ```yaml
 lint:

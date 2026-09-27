@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -32,7 +34,7 @@ func findingLines(out, code string) []string {
 }
 
 func TestLintBudget_WarnsWhenEntryPointExceedsWordBudget(t *testing.T) {
-	dir := budgetProject(t, "targets: [codex]\nlint:\n  instructions-words: 100\n")
+	dir := budgetProject(t, "targets: [codex, amp, warp]\nlint:\n  instructions-words: 100\n")
 	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), words(60)+"\n")
 	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "local", "AGNOSTIC_AI.md"), words(20)+"\n")
 	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\n"+words(40)+"\n")
@@ -45,10 +47,13 @@ func TestLintBudget_WarnsWhenEntryPointExceedsWordBudget(t *testing.T) {
 	if len(lines) != 1 {
 		t.Fatalf("expected one LINT011 line, got:\n%s", out)
 	}
-	for _, want := range []string{"[warn] AGENTS.md:", "codex", "AGNOSTIC_AI.md 60", "local/AGNOSTIC_AI.md 20", "rules 54", "budget 100 (lint.instructions-words)", "project_doc_max_bytes"} {
+	for _, want := range []string{"[warn] AGENTS.md: codex, amp, warp load", "AGNOSTIC_AI.md 60", "local/AGNOSTIC_AI.md 20", "rules 54", "budget 100 (lint.instructions-words)"} {
 		if !strings.Contains(lines[0], want) {
 			t.Errorf("LINT011 line lacks %q:\n%s", want, lines[0])
 		}
+	}
+	if strings.Contains(lines[0], "project_doc_max_bytes") {
+		t.Errorf("the Codex cap belongs on the line only past the cap:\n%s", lines[0])
 	}
 
 	if out, err := runCLI(t, "lint", "--strict"); err == nil {
@@ -116,6 +121,18 @@ func TestLintBudget_NamesAntigravityByteCapUnderTheWordBudget(t *testing.T) {
 	}
 }
 
+func TestLintBudget_NamesCodexCapOnlyPastIt(t *testing.T) {
+	dir := budgetProject(t, "targets: [codex, amp]\n")
+	long := strings.Repeat("x", 99) + " "
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), strings.Repeat(long, 340)+"\n")
+
+	out, _ := runCLI(t, "lint")
+	lines := findingLines(out, "LINT011")
+	if len(lines) != 1 || !strings.Contains(lines[0], "codex loads") || !strings.Contains(lines[0], "project_doc_max_bytes") {
+		t.Errorf("expected one LINT011 for codex alone, past its 32 KiB cap, got:\n%s", out)
+	}
+}
+
 func TestLintBudget_WarnsOnLongDescription(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude]\n")
 	skill := filepath.Join(".agnostic-ai", "skills", "review", "SKILL.md")
@@ -142,11 +159,121 @@ func TestLintBudget_WarnsOnLongDescription(t *testing.T) {
 
 func TestLintBudget_ConfigRaisesDescriptionBudget(t *testing.T) {
 	dir := budgetProject(t, "targets: [claude]\nlint:\n  description-chars: 2000\n")
-	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "review", "SKILL.md"), "---\nname: review\ndescription: "+strings.Repeat("a", 1100)+"\n---\nReview it.\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "helper.md"), "---\nname: helper\ndescription: "+strings.Repeat("a", 1100)+"\n---\nHelp.\n")
 
 	out, err := runCLI(t, "lint", "--strict")
 	if err != nil || strings.Contains(out, "LINT012") {
-		t.Errorf("a 1100-character description sits under a 2000 budget: %v\n%s", err, out)
+		t.Errorf("a 1100-character agent description sits under a 2000 budget: %v\n%s", err, out)
+	}
+}
+
+func TestLintBudget_SkillDescriptionPastSpecLimitWarnsUnderRaisedBudget(t *testing.T) {
+	dir := budgetProject(t, "targets: [claude]\nlint:\n  description-chars: 2000\n")
+	skill := filepath.Join(".agnostic-ai", "skills", "review", "SKILL.md")
+	mustWriteFile(t, filepath.Join(dir, skill), "---\nname: review\ndescription: "+strings.Repeat("a", 1100)+"\n---\nReview it.\n")
+
+	out, _ := runCLI(t, "lint")
+	lines := findingLines(out, "LINT012")
+	if len(lines) != 1 || !strings.Contains(lines[0], skill) || !strings.Contains(lines[0], "Agent Skills spec allows at most 1024") {
+		t.Errorf("the Agent Skills limit must warn whatever the budget, got:\n%s", out)
+	}
+	if len(lines) == 1 && strings.Contains(lines[0], "budget 2000") {
+		t.Errorf("the line must not claim the raised budget was passed:\n%s", lines[0])
+	}
+}
+
+func TestLintBudget_ReadsTargetDescriptionOverride(t *testing.T) {
+	dir := budgetProject(t, "targets: [claude]\nlint:\n  instructions-words: 10\n")
+	skill := filepath.Join(".agnostic-ai", "skills", "review", "SKILL.md")
+	mustWriteFile(t, filepath.Join(dir, skill), "---\nname: review\ndescription: Review code\nx-claude:\n  description: "+words(1100)+"\n---\nReview it.\n")
+
+	out, _ := runCLI(t, "lint")
+	budget := findingLines(out, "LINT011")
+	if len(budget) != 1 || !strings.Contains(budget[0], "skill descriptions 1100") {
+		t.Errorf("claude lists the x-claude description, so it counts, got:\n%s", out)
+	}
+	desc := findingLines(out, "LINT012")
+	if len(desc) != 1 || !strings.Contains(desc[0], "x-claude.description") {
+		t.Errorf("expected LINT012 naming x-claude.description, got:\n%s", out)
+	}
+}
+
+func TestLintBudget_RenderErrorWarnsAndKeepsOtherFindings(t *testing.T) {
+	dir := budgetProject(t, "targets: [codex]\nsync:\n  resolve-imports: inline\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "@docs/missing.md\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "empty.md"), "")
+
+	out, err := runCLI(t, "lint")
+	if err != nil {
+		t.Fatalf("a budget pass that cannot render must not fail lint: %v\n%s", err, out)
+	}
+	if len(findingLines(out, "LINT001")) != 1 {
+		t.Errorf("the other findings must survive a render error, got:\n%s", out)
+	}
+	lines := findingLines(out, "LINT011")
+	if len(lines) != 1 || !strings.Contains(lines[0], "[warn]") || !strings.Contains(lines[0], "docs/missing.md") {
+		t.Errorf("expected one LINT011 warning naming the render error, got:\n%s", out)
+	}
+}
+
+func TestLintBudget_MeasuresProjectWithNoSpecs(t *testing.T) {
+	dir := budgetProject(t, "targets: [claude]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), words(3000)+"\n")
+
+	out, err := runCLI(t, "lint", "--strict")
+	if err == nil || len(findingLines(out, "LINT011")) != 1 {
+		t.Errorf("a 3000-word AGNOSTIC_AI.md with no specs must still fail --strict, got %v:\n%s", err, out)
+	}
+}
+
+func TestLintBudget_CountsEachTargetsAlwaysOnRuleFiles(t *testing.T) {
+	b := spec.Bundle{Rules: []spec.Entry{
+		{Kind: spec.KindRule, Name: "go", Meta: map[string]any{"globs": "**/*.go"}, Body: words(300)},
+		{Kind: spec.KindRule, Name: "req", Meta: map[string]any{"alwaysApply": false, "description": "Use for requests"}, Body: words(100)},
+	}}
+	cfg := &config.Config{}
+	// go: globs, alwaysApply unset. req: alwaysApply false plus a description.
+	cases := map[string]int{
+		"claude":      100, // globs become paths; alwaysApply has no Claude meaning
+		"cursor":      300, // alwaysApply defaults to true; false is agent requested
+		"trae":        300,
+		"antigravity": 300, // req is model_decision
+		"augment":     300, // req is agent_requested
+		"cline":       400, // no description mode, so req stays always active
+		"windsurf":    300, // req is model_decision
+		"kiro":        100, // globs become fileMatch
+		"copilot":     100, // globs become applyTo
+		"qoder":       300, // globs is not Qoder's key; alwaysApply false is manual
+		"continue":    0,   // globs match on demand; alwaysApply false is not always
+		"kilo":        400, // every rule is listed in kilo.jsonc instructions
+		"codex":       0,   // no rule files; rules inline into AGENTS.md
+	}
+	for target, want := range cases {
+		if got := alwaysOnRuleWords(cfg, b, target); got != want {
+			t.Errorf("%s: always-on rule words = %d, want %d", target, got, want)
+		}
+	}
+}
+
+func TestLintGlobal_MeasuresHomeWithNoSpecs(t *testing.T) {
+	_, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), words(3000)+"\n")
+
+	out, _, err := runGlobalCheck("lint", "--strict")
+	if err == nil || len(findingLines(out, "LINT011")) != 1 {
+		t.Errorf("a 3000-word home AGNOSTIC_AI.md with no specs must still fail --strict, got %v:\n%s", err, out)
+	}
+}
+
+func TestLintGlobal_ValidatesBudgetAfterLocalOverride(t *testing.T) {
+	_, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\nlint:\n  instructions-words: -1\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "lint:\n  instructions-words: 100\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
+
+	if out, _, err := runGlobalCheck("lint", "--strict"); err != nil {
+		t.Errorf("local/agnostic-ai.yaml replaces the negative value, so lint must pass: %v\n%s", err, out)
 	}
 }
 
@@ -173,21 +300,15 @@ func TestLintGlobal_WarnsWhenInstructionsExceedBudget(t *testing.T) {
 	if strings.Contains(errOut, "ignoring") {
 		t.Errorf("the home config's lint key must be read, not ignored:\n%s", errOut)
 	}
-	// Codex names its byte cap, so it cannot share claude's line.
 	lines := findingLines(out, "LINT011")
-	if len(lines) != 2 {
-		t.Fatalf("expected one LINT011 line each for claude and codex, got:\n%s", out)
+	if len(lines) != 1 {
+		t.Fatalf("expected claude and codex on one LINT011 line, got:\n%s", out)
 	}
 	instructions := filepath.Join(source, "AGNOSTIC_AI.md")
-	for i, target := range []string{"claude", "codex"} {
-		for _, want := range []string{instructions + ": " + target + " loads 107 words", "(AGNOSTIC_AI.md 80, rules 12, local/AGNOSTIC_AI.md 15)", "budget 100"} {
-			if !strings.Contains(lines[i], want) {
-				t.Errorf("LINT011 line lacks %q:\n%s", want, lines[i])
-			}
+	for _, want := range []string{instructions + ": claude, codex load 107 words", "(AGNOSTIC_AI.md 80, rules 12, local/AGNOSTIC_AI.md 15)", "budget 100"} {
+		if !strings.Contains(lines[0], want) {
+			t.Errorf("LINT011 line lacks %q:\n%s", want, lines[0])
 		}
-	}
-	if !strings.Contains(lines[1], "project_doc_max_bytes") {
-		t.Errorf("the codex line must name its byte cap:\n%s", lines[1])
 	}
 	if _, _, err := runGlobalCheck("lint", "--strict"); err == nil {
 		t.Error("lint --global --strict must fail on a budget warning")

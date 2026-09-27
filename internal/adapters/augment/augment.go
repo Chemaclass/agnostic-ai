@@ -349,6 +349,25 @@ const mcpDisabledNoOpReason = "no confirmed per-server disable key in .augment/s
 // (target-audit 2026-09-18, #855).
 const mcpWebSocketGapReason = "WebSocket transport is not supported; Augment documents only stdio, sse, and http"
 
+// AlwaysOnRule reports whether Augment applies r to every prompt: the
+// rule's `type` is the vendor default, always_apply.
+func (Adapter) AlwaysOnRule(r spec.Entry) bool {
+	if custom, _ := emit.CustomTargetMeta(r.Meta, target); custom != nil {
+		if t, ok := custom["type"].(string); ok {
+			return t == "always_apply"
+		}
+	}
+	return alwaysApplies(emit.ResolveMeta(r.Meta, target))
+}
+
+// alwaysApplies reads `alwaysApply`, true when the spec leaves it unset.
+func alwaysApplies(m map[string]any) bool {
+	if v, ok := m["alwaysApply"].(bool); ok {
+		return v
+	}
+	return true
+}
+
 // ruleMarkdown renders one `.augment/rules/<name>.md` file. `type`
 // stays absent for the vendor default (`always_apply`); setting the
 // spec's generic `alwaysApply: false` (the same field Cursor rules
@@ -363,10 +382,7 @@ const mcpWebSocketGapReason = "WebSocket transport is not supported; Augment doc
 // so neither is copied through.
 func ruleMarkdown(e spec.Entry) string {
 	resolved := emit.ResolveMeta(e.Meta, target)
-	always := true
-	if v, ok := resolved["alwaysApply"].(bool); ok {
-		always = v
-	}
+	always := alwaysApplies(resolved)
 	meta := map[string]any{}
 	var keys []string
 	if !always {

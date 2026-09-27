@@ -541,6 +541,14 @@ func writeRules(sess *emit.Session, rules []spec.Entry, cfg *config.Config, dryR
 	return nil
 }
 
+// AlwaysOnRule reports whether Claude Code loads r at launch: its rule
+// file carries no `paths`.
+func (Adapter) AlwaysOnRule(r spec.Entry) bool {
+	meta, _ := ruleMetaWithPaths(r.Meta, nil)
+	_, paths := emit.ResolveMeta(meta, target)["paths"]
+	return !paths
+}
+
 // ruleMetaWithPaths maps the cross-tool `globs` scoping field (the
 // Cursor spelling, a string or list) onto Claude Code's `paths:` list so
 // one spec scopes the rule on every tool. A spec that already declares

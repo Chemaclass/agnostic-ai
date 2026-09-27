@@ -39,6 +39,31 @@ func rule(e spec.Entry) string {
 // rules toolbar a display name; on its own it would churn every
 // existing file for no activation change, so a bare rule stays bare.
 func ruleFrontmatter(e spec.Entry) string {
+	meta, keys := ruleActivation(e)
+	if len(keys) == 0 {
+		return ""
+	}
+	meta["name"] = e.Name
+	keys = append(keys, "name")
+	return emit.FrontmatterOrdered(meta, orderedRuleKeys(keys)) + "\n"
+}
+
+// AlwaysOnRule reports whether Continue includes r in every request:
+// `alwaysApply: true`, or no `alwaysApply`, `globs`, or `regex` at all
+// ("Included if no globs exist OR globs exist and match").
+func (Adapter) AlwaysOnRule(r spec.Entry) bool {
+	meta, _ := ruleActivation(r)
+	if always, ok := meta["alwaysApply"].(bool); ok {
+		return always
+	}
+	_, globs := meta["globs"]
+	_, regex := meta["regex"]
+	return !globs && !regex
+}
+
+// ruleActivation returns the activation keys ruleFrontmatter writes,
+// without `name`.
+func ruleActivation(e spec.Entry) (map[string]any, []string) {
 	m := emit.ResolveMeta(e.Meta, target)
 	meta := map[string]any{}
 	var keys []string
@@ -60,12 +85,7 @@ func ruleFrontmatter(e spec.Entry) string {
 		keys = append(keys, "description")
 	}
 	emit.MergeCustomTargetMeta(meta, &keys, e.Meta, target, append(keys, "name")...)
-	if len(keys) == 0 {
-		return ""
-	}
-	meta["name"] = e.Name
-	keys = append(keys, "name")
-	return emit.FrontmatterOrdered(meta, orderedRuleKeys(keys)) + "\n"
+	return meta, keys
 }
 
 // orderedRuleKeys puts the documented keys in the vendor's own order

@@ -313,10 +313,12 @@
     "LintConfig": {
       "properties": {
         "instructions-words": {
-          "type": "integer"
+          "type": "integer",
+          "minimum": 0
         },
         "description-chars": {
-          "type": "integer"
+          "type": "integer",
+          "minimum": 0
         }
       },
       "additionalProperties": false,

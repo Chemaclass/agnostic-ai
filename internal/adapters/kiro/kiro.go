@@ -316,6 +316,12 @@ func renderRule(e spec.Entry) string {
 	return withFrontmatter(front, keys, e.Body)
 }
 
+// AlwaysOnRule reports whether Kiro includes r in every interaction: the
+// rule renders `inclusion: always`.
+func (Adapter) AlwaysOnRule(r spec.Entry) bool {
+	return fileMatchPatternFor(r) == ""
+}
+
 // ruleFrontmatter picks `inclusion: fileMatch` (with `fileMatchPattern`)
 // for a rule that targets a glob or a source-layout scope, otherwise
 // `inclusion: always`.

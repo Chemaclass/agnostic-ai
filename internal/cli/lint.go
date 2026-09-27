@@ -68,8 +68,14 @@ func newLintCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// The budget runs first: a home or project with only
+			// AGNOSTIC_AI.md still loads it every session.
+			budget, err := lintBudgetFindings(scope)
+			if err != nil {
+				return err
+			}
 			entries := scope.bundle.All()
-			if len(entries) == 0 {
+			if len(entries) == 0 && len(budget) == 0 {
 				cmd.PrintErrln(scope.emptyHint())
 				return nil
 			}
@@ -77,10 +83,6 @@ func newLintCmd() *cobra.Command {
 			findings := collectLintFindings(scope.targets, scope.support, scope.bundle)
 			if scope.global {
 				findings = append(findings, lintGlobalRuleFindings(scope.bundle.Rules)...)
-			}
-			budget, err := lintBudgetFindings(scope)
-			if err != nil {
-				return err
 			}
 			findings = append(findings, budget...)
 

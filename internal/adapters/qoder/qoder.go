@@ -287,8 +287,33 @@ func qoderToolsString(v any) string {
 	return strings.Join(emit.StringSlice(v), ", ")
 }
 
+// AlwaysOnRule reports whether Qoder loads r always, per the activation
+// table on its target page: `trigger` wins, then `alwaysApply`, then
+// `paths` makes it file matching, and no activation field loads always.
+func (Adapter) AlwaysOnRule(r spec.Entry) bool {
+	meta := ruleActivation(r)
+	if trigger, ok := meta["trigger"].(string); ok {
+		return trigger == "always_on"
+	}
+	if always, ok := meta["alwaysApply"].(bool); ok {
+		return always
+	}
+	_, paths := meta["paths"]
+	return !paths
+}
+
 // ruleMarkdown preserves native activation without changing its field shapes.
 func ruleMarkdown(e spec.Entry) string {
+	meta := ruleActivation(e)
+	body := "# " + e.Name + "\n\n" + e.Body
+	if len(meta) > 0 {
+		body = emit.Frontmatter(meta) + "\n" + body
+	}
+	return emit.WithHeader(body, emit.FormatMarkdown)
+}
+
+// ruleActivation returns the frontmatter ruleMarkdown writes for e.
+func ruleActivation(e spec.Entry) map[string]any {
 	resolved := emit.ResolveMeta(e.Meta, target)
 	meta := map[string]any{}
 	for _, key := range []string{"description", "alwaysApply", "trigger", "glob", "paths"} {
@@ -304,9 +329,5 @@ func ruleMarkdown(e spec.Entry) string {
 		delete(meta, "glob")
 		meta["paths"] = e.Meta["paths"]
 	}
-	body := "# " + e.Name + "\n\n" + e.Body
-	if len(meta) > 0 {
-		body = emit.Frontmatter(meta) + "\n" + body
-	}
-	return emit.WithHeader(body, emit.FormatMarkdown)
+	return meta
 }

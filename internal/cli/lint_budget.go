@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -91,19 +92,29 @@ func lintBudgetFindings(scope checkScope) ([]lintFinding, error) {
 		loads   []sessionLoad
 		err     error
 	)
+	source := adapters.AgnosticEntryPointPath
 	if scope.global {
 		if budgets, err = loadGlobalLint(scope.source); err != nil {
 			return nil, err
 		}
+		source = filepath.Join(scope.source, "AGNOSTIC_AI.md")
 		loads, err = globalSessionLoads(scope.source, scope.targets, scope.bundle)
 	} else {
 		budgets = scope.cfg.Lint
 		loads, err = projectSessionLoads(scope.cfg, scope.support, scope.bundle)
 	}
+	var findings []lintFinding
 	if err != nil {
-		return nil, err
+		// sync reports the same error; lint keeps its other findings.
+		findings = append(findings, lintFinding{
+			Code:     "LINT011",
+			Severity: lintWarn,
+			Path:     source,
+			Message:  fmt.Sprintf("cannot measure the always-loaded instructions: %v", err),
+		})
+	} else {
+		findings = lintInstructionBudget(loads, budgets.InstructionsWordBudget())
 	}
-	findings := lintInstructionBudget(loads, budgets.InstructionsWordBudget())
 	return append(findings, lintDescriptionBudget(scope.bundle, budgets.DescriptionCharBudget())...), nil
 }
 
@@ -138,10 +149,7 @@ func projectSessionLoads(cfg *config.Config, support kindSupport, b spec.Bundle)
 			load.path = f.Path
 			load.setFile(f.Path, f.Content, f.Layers)
 		}
-		inlined := adapters.InlinesRulesIntoEntryPoint(t) && !adapters.HasLegacyRulesFile(cfg, t)
-		if _, ok := support[spec.KindRule][t]; ok && !inlined {
-			load.add("always-on rule files", alwaysOnRuleWords(adapters.EntryPointRules(b, t).Rules, t))
-		}
+		load.add("always-on rule files", alwaysOnRuleWords(cfg, b, t))
 		addDescriptions(&load, support, b.For(t))
 		loads = append(loads, load)
 	}
@@ -185,37 +193,33 @@ func globalSessionLoads(source string, targets []string, b spec.Bundle) ([]sessi
 // lists in every session so the model can pick one.
 func addDescriptions(load *sessionLoad, support kindSupport, b spec.Bundle) {
 	if _, ok := support[spec.KindSkill][load.target]; ok {
-		load.add("skill descriptions", descriptionWords(b.Skills))
+		load.add("skill descriptions", descriptionWords(b.Skills, load.target))
 	}
 	if _, ok := support[spec.KindAgent][load.target]; ok {
-		load.add("agent descriptions", descriptionWords(b.Agents))
+		load.add("agent descriptions", descriptionWords(b.Agents, load.target))
 	}
 }
 
-func descriptionWords(entries []spec.Entry) int {
+func descriptionWords(entries []spec.Entry, target string) int {
 	n := 0
 	for _, e := range entries {
-		desc, _ := e.Meta["description"].(string)
+		desc, _ := adapters.ResolveMeta(e.Meta, target)["description"].(string)
 		n += wordsIn(desc)
 	}
 	return n
 }
 
-// alwaysOnRuleWords counts the rules a target loads with no file
-// match: `alwaysApply: true`, or no `globs` or `paths` to wait for.
-func alwaysOnRuleWords(rules []spec.Entry, target string) int {
+// alwaysOnRuleWords counts the rules a target loads from its own rule
+// files in every session. A legacy concatenated rules file and rule
+// files `@`-imported into the entry point load whole; otherwise the
+// adapter that renders each rule's activation decides.
+func alwaysOnRuleWords(cfg *config.Config, b spec.Bundle, target string) int {
+	whole := adapters.HasLegacyRulesFile(cfg, target) || adapters.ImportsRulesIntoEntryPoint(cfg, target)
 	n := 0
-	for _, r := range rules {
-		meta := adapters.ResolveMeta(r.Meta, target)
-		if on, _ := meta["alwaysApply"].(bool); !on {
-			if _, ok := meta["globs"]; ok {
-				continue
-			}
-			if _, ok := meta["paths"]; ok {
-				continue
-			}
+	for _, r := range adapters.EntryPointRules(b, target).Rules {
+		if whole || adapters.AlwaysOnRule(target, r) {
+			n += wordsIn(r.Body)
 		}
-		n += wordsIn(r.Body)
 	}
 	return n
 }
@@ -239,7 +243,7 @@ func lintInstructionBudget(loads []sessionLoad, budget int) []lintFinding {
 			continue
 		}
 		detail := describeLoad(l, budget)
-		if capped && l.file != "" {
+		if overCap {
 			detail += " " + fmt.Sprintf(limit.format, limit.bytes, l.fileBytes)
 		}
 		key := l.path + "\x00" + detail
@@ -289,24 +293,66 @@ func describeLoad(l sessionLoad, budget int) string {
 }
 
 // lintDescriptionBudget flags a skill or agent description longer than
-// the budget (LINT012, warn). Targets list every description in every
-// session, so a long one costs context even when it never runs.
+// the budget, and a skill description past the Agent Skills limit
+// whatever the budget (LINT012, warn). Targets list every description
+// in every session, so a long one costs context even when it never
+// runs. Each `x-<target>.description` is checked too, since that is the
+// text its target lists.
 func lintDescriptionBudget(b spec.Bundle, budget int) []lintFinding {
 	entries := make([]spec.Entry, 0, len(b.Skills)+len(b.Agents))
 	entries = append(entries, b.Skills...)
 	entries = append(entries, b.Agents...)
 	var out []lintFinding
 	for _, e := range entries {
-		desc, _ := e.Meta["description"].(string)
-		n := utf8.RuneCountInString(strings.TrimSpace(desc))
-		if n <= budget {
-			continue
+		for _, key := range descriptionKeys(e.Meta) {
+			desc := descriptionAt(e.Meta, key)
+			n := utf8.RuneCountInString(strings.TrimSpace(desc))
+			overBudget := n > budget
+			overSpec := e.Kind == spec.KindSkill && n > agentSkillsDescriptionLimit
+			if !overBudget && !overSpec {
+				continue
+			}
+			message := fmt.Sprintf("%s %s is %d characters", e.Kind, key, n)
+			switch {
+			case overBudget && overSpec:
+				message += fmt.Sprintf("; budget %d (lint.description-chars). The Agent Skills spec allows at most %d.", budget, agentSkillsDescriptionLimit)
+			case overBudget:
+				message += fmt.Sprintf("; budget %d (lint.description-chars).", budget)
+			default:
+				message += fmt.Sprintf("; the Agent Skills spec allows at most %d.", agentSkillsDescriptionLimit)
+			}
+			out = append(out, lintFinding{Code: "LINT012", Severity: lintWarn, Path: e.Path, Message: message})
 		}
-		message := fmt.Sprintf("%s description is %d characters; budget %d (lint.description-chars).", e.Kind, n, budget)
-		if e.Kind == spec.KindSkill && n > agentSkillsDescriptionLimit {
-			message += fmt.Sprintf(" The Agent Skills spec allows at most %d.", agentSkillsDescriptionLimit)
-		}
-		out = append(out, lintFinding{Code: "LINT012", Severity: lintWarn, Path: e.Path, Message: message})
 	}
 	return out
+}
+
+// descriptionKeys names every description a spec carries, sorted:
+// `description`, then `x-<target>.description` for each override.
+func descriptionKeys(meta map[string]any) []string {
+	var keys []string
+	if _, ok := meta["description"].(string); ok {
+		keys = append(keys, "description")
+	}
+	var overrides []string
+	for k, v := range meta {
+		if x, ok := v.(map[string]any); ok && strings.HasPrefix(k, "x-") {
+			if _, ok := x["description"].(string); ok {
+				overrides = append(overrides, k+".description")
+			}
+		}
+	}
+	slices.Sort(overrides)
+	return append(keys, overrides...)
+}
+
+// descriptionAt reads the description descriptionKeys named key.
+func descriptionAt(meta map[string]any, key string) string {
+	if xKey, ok := strings.CutSuffix(key, ".description"); ok {
+		x, _ := meta[xKey].(map[string]any)
+		desc, _ := x["description"].(string)
+		return desc
+	}
+	desc, _ := meta[key].(string)
+	return desc
 }

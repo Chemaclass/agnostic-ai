@@ -17,10 +17,10 @@ type LintConfig struct {
 	// InstructionsWords caps the words one target loads every session:
 	// its entry-point file, always-on rule files, and skill and agent
 	// descriptions. Default 2000.
-	InstructionsWords int `yaml:"instructions-words,omitempty" json:"instructions-words,omitempty"`
+	InstructionsWords int `yaml:"instructions-words,omitempty" json:"instructions-words,omitempty" jsonschema:"minimum=0"`
 	// DescriptionChars caps the characters of one skill or agent
 	// description. Default 1024.
-	DescriptionChars int `yaml:"description-chars,omitempty" json:"description-chars,omitempty"`
+	DescriptionChars int `yaml:"description-chars,omitempty" json:"description-chars,omitempty" jsonschema:"minimum=0"`
 }
 
 // InstructionsWordBudget returns the effective word budget.

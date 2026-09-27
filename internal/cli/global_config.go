@@ -106,6 +106,7 @@ func loadGlobalTargets(source string, warn io.Writer) ([]string, error) {
 // the project's agnostic-ai.local.yaml does.
 func loadGlobalLint(source string) (config.LintConfig, error) {
 	var lint config.LintConfig
+	var sources []string
 	for _, path := range globalConfigPaths(source) {
 		doc, err := readGlobalConfig(path)
 		if err != nil {
@@ -118,9 +119,10 @@ func loadGlobalLint(source string) (config.LintConfig, error) {
 		if err := node.Decode(&lint); err != nil {
 			return config.LintConfig{}, errs.Coded(errs.CodeConfigDecode, "parse %s: lint: %w", path, err)
 		}
-		if err := lint.Validate(path); err != nil {
-			return config.LintConfig{}, err
-		}
+		sources = append(sources, path)
+	}
+	if err := lint.Validate(strings.Join(sources, " + ")); err != nil {
+		return config.LintConfig{}, err
 	}
 	return lint, nil
 }
