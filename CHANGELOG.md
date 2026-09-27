@@ -20,6 +20,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Fixed
 
+- Deleting `~/.claude/settings.json`, or a managed hook entry in it, no longer blocks every later `sync --global` with `managed hook ownership is corrupt`. Sync warns that the hook is missing and writes it again. The same applies to syncing one `$AGNOSTIC_AI_HOME` under two home directories.
 - A spec with broken YAML names its path once, as `path:line:col`, instead of twice behind a `load rule [project]:` prefix.
 - `sync -t <name>` with a mistyped target failed only with a warning and reported the run up to date, also under `--check`. It now exits non-zero, and target errors suggest the closest name: `unknown target: claud (did you mean claude? no agnostic-ai-adapter-claud on PATH)`.
 - With `sync.shared-skills: true`, a skill with bundled files (such as `references/`) lost its `SKILL.md` in every target folder except the canonical one, and each sync recreated it. So did a skill folder holding a hand-authored file. Such folders now become links, or stay whole real copies. Turning the option on after a plain sync also deleted the canonical `SKILL.md` through the new link; it no longer does.
