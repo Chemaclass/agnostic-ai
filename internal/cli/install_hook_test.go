@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func setupGitRepo(t *testing.T) string {
@@ -93,5 +95,17 @@ func TestInstallHook_Shared_CreatesGithooksDir(t *testing.T) {
 	}
 	if !strings.Contains(string(data), "agnostic-ai sync --check") {
 		t.Errorf("hook missing sync --check, got:\n%s", data)
+	}
+}
+
+func TestInstallHook_SharedFlag(t *testing.T) {
+	dir := setupGitRepo(t)
+	testutil.Chdir(t, dir)
+
+	if _, err := runInstallHook("--shared"); err != nil {
+		t.Fatalf("install-hook --shared: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".githooks", "pre-commit")); err != nil {
+		t.Errorf(".githooks/pre-commit not created: %v", err)
 	}
 }

@@ -518,7 +518,10 @@ Install a pre-commit hook that runs `sync --check`. See [git hooks](@/docs/git-h
 ```bash
 agnostic-ai install-hook            # writes .git/hooks/pre-commit (local)
 agnostic-ai install-hook --shared   # writes .githooks/ and sets core.hooksPath
+agnostic-ai install-hook --global   # gates commits to a global home kept in git
 ```
+
+Plain `install-hook` stops inside the global home. There, run `install-hook --global` instead. It writes `.git/hooks/pre-commit` for the home, which must be the root of its own git repository. The hook runs `lint --global --strict`, `validate --global`, and `sync --global --check` against the repository being committed, and the commit fails when any of them fails. Run anywhere else, `--global` stops with a message. It does not take `--shared`.
 
 ## completion
 

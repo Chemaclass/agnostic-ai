@@ -17,6 +17,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - A skill marked `disable-model-invocation: true` stays manual-only on Codex. Sync writes `allow_implicit_invocation: false` to its `agents/openai.yaml`, in project and global sync, so the spec no longer needs an `x-codex.policy` block. An explicit value in `x-codex` or in a bundled `agents/openai.yaml` still wins.
 - `sync --global` reads `targets` from an optional `agnostic-ai.yaml` in `~/.agnostic-ai/`, so a home that syncs three tools no longer needs `--only` on every run. A `targets` list in `local/agnostic-ai.yaml` replaces it, and `--only`, `--except`, and `-t` still win for one run. `sync --global --check`, `lint --global`, and `validate --global` follow the same list. Targets with no user-level surface, such as `aider`, are skipped with one warning, and other keys warn and are ignored. Plain `sync`, `init`, `import`, `new`, `packs`, `cleanup`, `revert`, and `install-hook` run inside the global home or any folder under it (only the home itself when `AGNOSTIC_AI_HOME` is `$HOME`) now stop before any write and point at `sync --global`.
 
+- `install-hook --global`, run inside a global home kept in git, writes a pre-commit hook that runs `lint --global --strict`, `validate --global`, and `sync --global --check` on the home being committed, and fails the commit when any of them fails. Plain `install-hook` inside the home now points at it.
 - A `requires` key in `agnostic-ai.yaml`, such as `requires: ">=0.71.0"`, stops `sync`, `lint`, `validate`, `doctor --fix`, `revert`, `cleanup`, and a running `sync --watch` on an older binary before any write. The error names both versions and `agnostic-ai upgrade` (AAI-005). The global home config accepts it too. A build from source warns and runs.
 
 ### Changed
@@ -28,6 +29,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Fixed
 
+- `install-hook --shared` failed with `unknown flag: --shared`, since the flag was never registered. It now writes `.githooks/pre-commit` and sets `core.hooksPath` as documented.
 - Deleting `~/.claude/settings.json`, or a managed hook entry in it, no longer blocks every later `sync --global` with `managed hook ownership is corrupt`. Sync warns that the hook is missing and writes it again. A managed hook edited by hand still stops the run, now with a message naming it.
 - After `$AGNOSTIC_AI_HOME/state/global.json` is lost or deleted, `sync --global` no longer stops with `unmanaged global spec collision` on its own earlier output. A file or skill folder that holds exactly what sync would write is adopted, recorded again, and named in the output. Anything that differs still stops the run before any write.
 - `sync --global` no longer adds a second copy of a hook that is already in the hooks file exactly as the source defines it. The existing entry stays yours: sync does not record it, and deleting the source hook leaves it in place.

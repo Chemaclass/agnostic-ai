@@ -105,6 +105,7 @@ func loadGlobalTargets(source string, warn io.Writer) ([]string, error) {
 const (
 	globalHomeSyncRemedy  = "run `agnostic-ai sync --global`"
 	globalHomeSpecsRemedy = "edit its specs by hand and run `agnostic-ai sync --global`"
+	globalHomeHookRemedy  = "run `agnostic-ai install-hook --global`"
 )
 
 // refuseGlobalHome stops a project command in the global source root or
