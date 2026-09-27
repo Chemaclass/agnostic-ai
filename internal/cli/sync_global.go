@@ -62,6 +62,10 @@ type globalState struct {
 	// MCP records each MCP server written per target, by its key in the
 	// target's user MCP file, so a later sync removes only its own.
 	MCP map[string]map[string]any `json:"mcp,omitempty"`
+	// SettingsPaths and MCPPaths record the file each target's owned keys
+	// live in, so a moved configuration root sweeps the old file.
+	SettingsPaths map[string]string `json:"settingsPaths,omitempty"`
+	MCPPaths      map[string]string `json:"mcpPaths,omitempty"`
 	// Hooks records the managed hook entries per target, keyed by
 	// target name then event, so a later sync can remove exactly what
 	// it added and leave user-authored entries alone.
@@ -85,6 +89,27 @@ type globalWrite struct {
 	changes, adopted, conflicts []string
 	// targets names the targets whose surfaces this write carries.
 	targets []string
+	// planned is the file as a key-level edit read it, for a file
+	// another program also writes, such as ~/.claude.json. The write
+	// stops if the file changed since.
+	planned *diskSnapshot
+}
+
+// diskSnapshot is a file's content, or its absence, at one moment.
+type diskSnapshot struct {
+	data   []byte
+	absent bool
+}
+
+func snapshotFile(path string) (*diskSnapshot, error) {
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return &diskSnapshot{absent: true}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	return &diskSnapshot{data: data}, nil
 }
 
 // addTarget records that target writes w.
@@ -640,7 +665,7 @@ func foreignGlobalPath(old globalState, home string) string {
 }
 
 func buildGlobalWrites(home, source string, targets []string, intro []byte, b spec.Bundle, old globalState, agentErr func(string, error) error, warn io.Writer) ([]globalWrite, globalState, error) {
-	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}, MCP: map[string]map[string]any{}}
+	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}, MCP: map[string]map[string]any{}, SettingsPaths: map[string]string{}, MCPPaths: map[string]string{}}
 	for target, paths := range old.Agents {
 		if !slices.Contains(targets, target) {
 			next.Agents[target] = append([]string(nil), paths...)
@@ -664,6 +689,13 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	for target, servers := range old.MCP {
 		if !slices.Contains(targets, target) {
 			next.MCP[target] = servers
+		}
+	}
+	for _, kept := range []struct{ from, into map[string]string }{{old.SettingsPaths, next.SettingsPaths}, {old.MCPPaths, next.MCPPaths}} {
+		for target, path := range kept.from {
+			if !slices.Contains(targets, target) {
+				kept.into[target] = path
+			}
 		}
 	}
 	for target, hooks := range old.Hooks {
@@ -857,7 +889,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	// User settings and MCP servers merge last: a file may also hold
 	// hooks or agent efforts this run changed, so each edit starts from
 	// that planned content.
-	placeEdit := func(path string, m globalSettingsMerge) error {
+	placeEdit := func(path string, m globalSettingsMerge, mode fs.FileMode) error {
 		if m.data == nil && len(m.adopted) == 0 {
 			return nil
 		}
@@ -871,12 +903,19 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 				}
 			}
 			seen[path] = len(writes)
-			writes = append(writes, globalWrite{path: path, data: data, mode: 0o644})
+			writes = append(writes, globalWrite{path: path, data: data, mode: mode})
 			i = len(writes) - 1
 		} else if m.data != nil {
 			writes[i].data = m.data
 		}
 		w := &writes[i]
+		if w.planned == nil {
+			snapshot, err := snapshotFile(path)
+			if err != nil {
+				return err
+			}
+			w.planned = snapshot
+		}
 		w.addTarget(current)
 		w.changes = append(w.changes, m.changes...)
 		w.adopted = append(w.adopted, m.adopted...)
@@ -903,27 +942,53 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		want := globalSettingsFor(target, g, b.Settings)
 		if g.settings.path != "" {
 			path := g.path(home, g.settings.path)
-			m, err := mergeGlobalSettings(path, g.settings.format, baseFor(path), want, old.Settings[target])
+			previous := old.Settings[target]
+			// Keys recorded in a file the root no longer resolves to go
+			// from that file, and the new one starts unowned.
+			if moved := old.SettingsPaths[target]; moved != "" && moved != path {
+				m, err := mergeGlobalSettings(moved, g.settings.format, baseFor(moved), nil, previous)
+				if err != nil {
+					return nil, next, err
+				}
+				if err := placeEdit(moved, m, 0o644); err != nil {
+					return nil, next, err
+				}
+				previous = nil
+			}
+			m, err := mergeGlobalSettings(path, g.settings.format, baseFor(path), want, previous)
 			if err != nil {
 				return nil, next, err
 			}
 			if len(m.owned) > 0 {
 				next.Settings[target] = m.owned
+				next.SettingsPaths[target] = path
 			}
-			if err := placeEdit(path, m); err != nil {
+			if err := placeEdit(path, m, 0o644); err != nil {
 				return nil, next, err
 			}
 		}
 		if g.mcp.path != "" {
 			path := g.mcpPath(home)
-			m, err := mergeGlobalMCP(path, g.mcp, baseFor(path), target, b.MCPs, old.MCP[target])
+			previous := old.MCP[target]
+			if moved := old.MCPPaths[target]; moved != "" && moved != path {
+				m, err := mergeGlobalMCP(moved, g.mcp, baseFor(moved), target, nil, previous)
+				if err != nil {
+					return nil, next, err
+				}
+				if err := placeEdit(moved, m, g.mcp.fileMode()); err != nil {
+					return nil, next, err
+				}
+				previous = nil
+			}
+			m, err := mergeGlobalMCP(path, g.mcp, baseFor(path), target, b.MCPs, previous)
 			if err != nil {
 				return nil, next, err
 			}
 			if len(m.owned) > 0 {
 				next.MCP[target] = m.owned
+				next.MCPPaths[target] = path
 			}
-			if err := placeEdit(path, m); err != nil {
+			if err := placeEdit(path, m, g.mcp.fileMode()); err != nil {
 				return nil, next, err
 			}
 		}
@@ -1847,6 +1912,10 @@ func applyGlobalChanges(writes []globalWrite, removals []string, backup bool) (l
 		if !absent && reflect.DeepEqual(old, w.data) {
 			continue
 		}
+		if w.planned != nil && (w.planned.absent != absent || !bytes.Equal(w.planned.data, old)) {
+			rollback()
+			return nil, fmt.Errorf("%s changed while sync ran, likely written by the tool itself; nothing was written, so rerun the sync", w.path)
+		}
 		mode := fs.FileMode(0o644)
 		if info, statErr := os.Stat(w.path); statErr == nil {
 			mode = info.Mode()
@@ -1867,6 +1936,12 @@ func applyGlobalChanges(writes []globalWrite, removals []string, backup bool) (l
 		}
 		if backup && !absent {
 			if err := os.WriteFile(w.path+".bak", old, mode); err != nil {
+				rollback()
+				return nil, fmt.Errorf("backup %s: %w", w.path, err)
+			}
+			// An existing .bak keeps its own mode on write; the copy of a
+			// private file must be private too.
+			if err := os.Chmod(w.path+".bak", mode.Perm()); err != nil {
 				rollback()
 				return nil, fmt.Errorf("backup %s: %w", w.path, err)
 			}

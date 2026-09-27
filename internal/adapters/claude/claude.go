@@ -847,10 +847,10 @@ func hookCommands(raw any) []string {
 // UserMCPServers renders mcps as the top-level `mcpServers` map of
 // ~/.claude.json, with the builder the project .mcp.json uses.
 func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
-	mcps = emit.StripMCPDisabled(target, mcps, userMCPDisabledReason)
+	mcps = emit.DropMCPDisabled(target, mcps, userMCPDisabledReason)
 	return emit.BuildMCPServersMap(mcps, emit.MCPSchemaServersMap, emit.WithClaudeMCPExtras())
 }
 
 // userMCPDisabledReason explains a dropped `disabled: true` under sync
 // --global: user-scope servers have no per-server disable key.
-const userMCPDisabledReason = "~/.claude.json has no per-server disable key for user servers; leave the spec out of the home or remove it"
+const userMCPDisabledReason = "a disabled server is left out of ~/.claude.json, where a user server is live in every project"

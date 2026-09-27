@@ -443,7 +443,7 @@ func renderInstruction(e spec.Entry, applyTo string) string {
 // ~/.copilot/mcp-config.json, the shape the CLI's project file takes,
 // `tools` allowlist included.
 func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
-	mcps = emit.StripMCPDisabled(target, mcps, userMCPDisabledReason)
+	mcps = emit.DropMCPDisabled(target, mcps, userMCPDisabledReason)
 	servers := emit.BuildMCPServersMap(mcps, emit.MCPSchemaServersMap, emit.WithCopilotCLIMCPExtras())
 	// The CLI reference marks `tools` required on every server, and "*"
 	// is its documented default for all tools.
@@ -457,4 +457,4 @@ func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
 
 // userMCPDisabledReason explains a dropped `disabled: true` under sync
 // --global: the user MCP file has no per-server disable key.
-const userMCPDisabledReason = "~/.copilot/mcp-config.json has no per-server disable key; leave the spec out of the home or remove it"
+const userMCPDisabledReason = "a disabled server is left out of the user MCP file, which has no per-server disable key"

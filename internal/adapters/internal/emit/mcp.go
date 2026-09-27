@@ -749,3 +749,18 @@ func mapField(m map[string]any, key string) map[string]string {
 	}
 	return out
 }
+
+// DropMCPDisabled leaves out every entry marked `disabled: true`, for a
+// file where a listed server is live everywhere, such as a user MCP
+// file with no per-server disable key. It notes how many it dropped.
+func DropMCPDisabled(target string, mcps []spec.Entry, reason string) []spec.Entry {
+	out := make([]spec.Entry, 0, len(mcps))
+	for _, e := range mcps {
+		if disabled, _ := e.Meta["disabled"].(bool); disabled {
+			continue
+		}
+		out = append(out, e)
+	}
+	NoteFieldNoOp(target, spec.KindMCP, "disabled", len(mcps)-len(out), reason)
+	return out
+}

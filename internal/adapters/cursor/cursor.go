@@ -564,6 +564,11 @@ func pathsToGlobs(paths any) []string {
 // UserMCPServers renders mcps as the `mcpServers` map of ~/.cursor/mcp.json,
 // with the builder the project file uses.
 func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
-	mcps = emit.StripMCPDisabled(target, mcps, mcpDisabledNoOpReason)
+	mcps = emit.DropMCPDisabled(target, mcps, userMCPDisabledReason)
 	return emit.BuildMCPServersMap(mcps, emit.MCPSchemaServersMap, emit.WithCursorMCPExtras())
 }
+
+// userMCPDisabledReason explains a server left out under sync --global:
+// ~/.cursor/mcp.json has no per-server disable key, and a listed server
+// is live in every project.
+const userMCPDisabledReason = "a disabled server is left out of ~/.cursor/mcp.json, which has no per-server disable key"

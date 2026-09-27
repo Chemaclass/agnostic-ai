@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -28,6 +29,17 @@ type globalMCPFile struct {
 	// default root rather than in it: Claude keeps ~/.claude.json, and
 	// $CLAUDE_CONFIG_DIR/.claude.json when the variable is set.
 	rootFile string
+	// private marks a file created at 0600, such as ~/.claude.json,
+	// which holds account state the tool itself keeps private.
+	private bool
+}
+
+// fileMode is the mode a sync gives the file when it creates it.
+func (f globalMCPFile) fileMode() fs.FileMode {
+	if f.private {
+		return 0o600
+	}
+	return 0o644
 }
 
 // mcpPath resolves the target's user MCP file.
