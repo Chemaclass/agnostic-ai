@@ -87,3 +87,40 @@ func TestSyncGlobal_PlanRejectsCheck(t *testing.T) {
 		t.Error("--plan with --check must fail")
 	}
 }
+
+func TestSyncGlobal_JSONRunPrunesEmptySkillFolder(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	skill := filepath.Join(source, "skills", "foo", "SKILL.md")
+	mustWriteGlobalTest(t, skill, "---\nname: foo\ndescription: Foo\n---\nFoo.\n")
+	if _, w, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, w)
+	}
+	if err := os.RemoveAll(filepath.Dir(skill)); err != nil {
+		t.Fatal(err)
+	}
+	if _, w, err := runGlobalAgentTest("--only", "claude", "--json"); err != nil {
+		t.Fatalf("sync --json: %v\n%s", err, w)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".claude", "skills", "foo")); !os.IsNotExist(err) {
+		t.Errorf("the emptied skill folder must go: %v", err)
+	}
+}
+
+func TestSyncGlobal_PlanMarksHandEdit(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be brief.\n")
+	if _, w, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, w)
+	}
+	claudeMD := filepath.Join(home, ".claude", "CLAUDE.md")
+	data := readGlobalTest(t, claudeMD)
+	mustWriteGlobalTest(t, claudeMD, strings.Replace(data, "Be brief.", "Be terse.", 1))
+	mustWriteGlobalTest(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be short.\n")
+	out, _, err := runGlobalAgentTest("--only", "claude", "--plan")
+	if err != nil {
+		t.Fatalf("plan: %v", err)
+	}
+	if !strings.Contains(out, "conflict: edited since the last global sync") {
+		t.Errorf("plan must mark the hand edit:\n%s", out)
+	}
+}

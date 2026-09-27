@@ -122,7 +122,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	}
 	source := globalSourceHome(home)
 	warn := cmd.ErrOrStderr()
-	if verbosity < levelDefault || o.check || o.jsonOut {
+	if verbosity < levelDefault || o.check {
 		warn = io.Discard
 	}
 	// -t bypasses the home config, so one that does not parse only
@@ -264,6 +264,20 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	}
 	if o.plan || (o.dryRun && o.jsonOut) {
 		records := globalFileRecords(writes, existingPaths(removals), statePath, next, false)
+		// Mark what would stop the real run, as a key conflict is.
+		edited, err := handEditedGlobalFiles(writes, removals, old)
+		if err != nil {
+			return err
+		}
+		for i := range records {
+			path := filepath.FromSlash(records[i].Path)
+			if slices.Contains(edited, path) {
+				records[i].Keys = append(records[i].Keys, "conflict: edited since the last global sync; move the edit into the source or use --backup")
+			}
+			if j := slices.IndexFunc(writes, func(w globalWrite) bool { return w.path == path }); j >= 0 && writes[j].dropsComments {
+				records[i].Keys = append(records[i].Keys, "conflict: the rewrite drops the file's comments; use --backup")
+			}
+		}
 		if o.jsonOut {
 			command := "sync --global --plan"
 			if o.dryRun {
@@ -339,6 +353,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if err != nil {
 		return err
 	}
+	pruneEmptyGlobalDirs(removals, trees)
 	if o.jsonOut {
 		return emitGlobalJSON(cmd, "sync --global", applied)
 	}
@@ -347,7 +362,6 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 			return fmt.Errorf("write symlink note: %w", err)
 		}
 	}
-	pruneEmptyGlobalDirs(removals, trees)
 	for _, path := range adopted {
 		if _, err := fmt.Fprintf(warn, "adopted %s: matches what sync writes\n", path); err != nil {
 			return fmt.Errorf("write adoption note: %w", err)
@@ -398,21 +412,17 @@ func globalFileRecords(writes []globalWrite, removals []string, statePath string
 	out := []globalFileRecord{}
 	for _, w := range writes {
 		action := update
-		if w.path == statePath {
-			if globalStateCurrent(statePath, next) {
-				continue
-			}
-			if _, err := os.Stat(statePath); err != nil {
-				action = create
-			}
-		} else {
-			data, err := os.ReadFile(w.path)
-			if err == nil && bytes.Equal(data, w.data) {
-				continue
-			}
-			if err != nil {
-				action = create
-			}
+		// Check counts the state file as drift only when its ownership
+		// differs; a plan reports the bytes a sync writes.
+		if check && w.path == statePath && globalStateCurrent(statePath, next) {
+			continue
+		}
+		data, err := os.ReadFile(w.path)
+		if err == nil && bytes.Equal(data, w.data) {
+			continue
+		}
+		if err != nil {
+			action = create
 		}
 		keys := slices.Clone(w.changes)
 		for _, c := range w.conflicts {
