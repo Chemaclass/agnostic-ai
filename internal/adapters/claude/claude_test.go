@@ -1881,19 +1881,20 @@ func TestEmit_PerKindDirWinsOverDirOverride(t *testing.T) {
 }
 
 func TestEmit_AgentReadonlyMapsToDisallowedTools(t *testing.T) {
-	const denied = "disallowedTools:\n  - Write\n  - Edit\n  - NotebookEdit\n"
+	const denied = "readonly: true\ndisallowedTools: Write, Edit, NotebookEdit\n"
 	for _, tc := range []struct {
-		name string
-		meta map[string]any
-		want string
+		name     string
+		meta     map[string]any
+		want     string
+		readonly bool
 	}{
-		{"readonly", map[string]any{"readonly": true}, denied},
-		{"override", map[string]any{"readonly": true, "x-claude": map[string]any{"disallowedTools": []any{"Bash"}}}, "disallowedTools:\n  - Bash\n"},
-		{"portable list", map[string]any{"readonly": true, "disallowedTools": []any{"Bash"}}, "disallowedTools:\n  - Bash\n"},
-		{"target readonly", map[string]any{"x-claude": map[string]any{"readonly": true}}, denied},
-		{"target opt-out", map[string]any{"readonly": true, "x-claude": map[string]any{"readonly": false}}, ""},
-		{"false", map[string]any{"readonly": false}, ""},
-		{"null override", map[string]any{"readonly": true, "x-claude": map[string]any{"disallowedTools": nil}}, ""},
+		{"readonly", map[string]any{"readonly": true}, denied, true},
+		{"override", map[string]any{"readonly": true, "x-claude": map[string]any{"disallowedTools": []any{"Bash"}}}, "disallowedTools:\n  - Bash\n", true},
+		{"portable list", map[string]any{"readonly": true, "disallowedTools": "Bash"}, "disallowedTools: Bash\n", true},
+		{"target readonly", map[string]any{"x-claude": map[string]any{"readonly": true}}, denied, true},
+		{"target opt-out", map[string]any{"readonly": true, "x-claude": map[string]any{"readonly": false}}, "", false},
+		{"false", map[string]any{"readonly": false}, "", false},
+		{"null override", map[string]any{"readonly": true, "x-claude": map[string]any{"disallowedTools": nil}}, "", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := testutil.TempCwd(t)
@@ -1906,8 +1907,8 @@ func TestEmit_AgentReadonlyMapsToDisallowedTools(t *testing.T) {
 				t.Fatal(err)
 			}
 			got := readFileT(t, filepath.Join(dir, ".claude", "agents", "reviewer.md"))
-			if strings.Contains(got, "readonly") {
-				t.Errorf("readonly copied into the Claude agent: %s", got)
+			if strings.Contains(got, "readonly: true") != tc.readonly || strings.Contains(got, "readonly: false") {
+				t.Errorf("readonly: true kept = %v, want %v: %s", !tc.readonly, tc.readonly, got)
 			}
 			if tc.want == "" {
 				if strings.Contains(got, "disallowedTools") {
@@ -1931,7 +1932,7 @@ func TestEmit_AgentReadonlyKeepsKeyPosition(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := readFileT(t, filepath.Join(dir, ".claude", "agents", "reviewer.md"))
-	want := "---\nname: reviewer\ndisallowedTools:\n  - Write\n  - Edit\n  - NotebookEdit\ndescription: Reviews code.\n---\n"
+	want := "---\nname: reviewer\nreadonly: true\ndisallowedTools: Write, Edit, NotebookEdit\ndescription: Reviews code.\n---\n"
 	if !strings.HasPrefix(got, want) {
 		t.Errorf("want prefix %q, got:\n%s", want, got)
 	}

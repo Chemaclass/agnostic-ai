@@ -964,3 +964,34 @@ func writeMinimalConfig(t *testing.T, dir, base string) {
 	}
 	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), cfg)
 }
+
+func TestImportFromClaude_ReadonlyAgentRoundTripKeepsOtherTargetsReadOnly(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, cursor, codex]\n")
+	agents := filepath.Join(dir, ".agnostic-ai", "agents")
+	writeFile(t, filepath.Join(agents, "reviewer.md"), "---\nname: reviewer\ndescription: Reviews code.\nreadonly: true\n---\nReview code.\n")
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := importClaudeAgents(dir, agents, defaultClaudeLayout()); err != nil {
+		t.Fatal(err)
+	}
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	for path, want := range map[string]string{
+		filepath.Join(agents, "reviewer.md"):                    "disallowedTools: Write, Edit, NotebookEdit",
+		filepath.Join(dir, ".cursor", "agents", "reviewer.md"):  "readonly: true",
+		filepath.Join(dir, ".codex", "agents", "reviewer.toml"): `sandbox_mode = "read-only"`,
+	} {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(data), want) {
+			t.Errorf("%s lost %q after sync, import, sync:\n%s", path, want, data)
+		}
+	}
+}
