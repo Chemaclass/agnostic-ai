@@ -154,14 +154,34 @@ func TestSyncGlobal_ReportsManualOnlySkillsThatStayModelInvocable(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(warnings, "`disable-model-invocation` on 1 skill has no effect on codex") {
-		t.Errorf("missing codex coverage: %s", warnings)
-	}
 	if !strings.Contains(warnings, "`disable-model-invocation` on 2 skills has no effect on amp") {
 		t.Errorf("missing amp coverage: %s", warnings)
 	}
-	if strings.Contains(warnings, "has no effect on claude") {
-		t.Errorf("claude keeps the marker: %s", warnings)
+	for _, target := range []string{"claude", "codex"} {
+		if strings.Contains(warnings, "has no effect on "+target) {
+			t.Errorf("%s stays manual-only, yet noted: %s", target, warnings)
+		}
+	}
+}
+
+func TestSyncGlobal_ManualOnlySkillWritesCodexPolicyWithoutXCodex(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "skills", "deploy", "SKILL.md"), "---\nname: deploy\ndescription: Deploy.\ndisable-model-invocation: true\n---\nDeploy.\n")
+	sidecar := filepath.Join(home, ".agents", "skills", "deploy", "agents", "openai.yaml")
+	for _, only := range []string{"codex,amp", "amp"} {
+		if _, _, err := runGlobalAgentTest("--only", only); err != nil {
+			t.Fatal(err)
+		}
+		data, err := os.ReadFile(sidecar)
+		if err != nil {
+			t.Fatalf("--only %s: %v", only, err)
+		}
+		if !strings.Contains(string(data), "allow_implicit_invocation: false") {
+			t.Errorf("--only %s: codex policy sidecar: %s", only, data)
+		}
+	}
+	if _, _, err := runGlobalAgentTest("--only", "codex,amp", "--check"); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -210,5 +230,78 @@ func TestSyncGlobal_ExplicitCodexInvocationPolicySilencesManualOnlyNote(t *testi
 	}
 	if strings.Contains(warnings, "disable-model-invocation") {
 		t.Errorf("explicit codex policy still noted: %s", warnings)
+	}
+}
+
+func TestSyncGlobal_ManualOnlySkillMergesPolicyIntoBundledOpenAIYAML(t *testing.T) {
+	cases := []struct {
+		name    string
+		bundled string
+		want    []string
+	}{
+		{"bundled interface keeps its fields", "interface:\n  display_name: Deploy UI\n", []string{"display_name: Deploy UI", "allow_implicit_invocation: false"}},
+		{"bundled explicit policy wins", "policy:\n  allow_implicit_invocation: true\n", []string{"allow_implicit_invocation: true"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			home, source := globalAgentTestHome(t)
+			folder := filepath.Join(source, "skills", "deploy")
+			mustWriteGlobalTest(t, filepath.Join(folder, "SKILL.md"), "---\nname: deploy\ndescription: Deploy.\ndisable-model-invocation: true\n---\nDeploy.\n")
+			mustWriteGlobalTest(t, filepath.Join(folder, "agents", "openai.yaml"), tc.bundled)
+			if _, _, err := runGlobalAgentTest("--only", "codex,amp"); err != nil {
+				t.Fatal(err)
+			}
+			data, err := os.ReadFile(filepath.Join(home, ".agents", "skills", "deploy", "agents", "openai.yaml"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, want := range tc.want {
+				if !strings.Contains(string(data), want) {
+					t.Errorf("openai.yaml missing %q:\n%s", want, data)
+				}
+			}
+			if _, _, err := runGlobalAgentTest("--only", "codex,amp", "--check"); err != nil {
+				t.Errorf("sync --check after sync: %v", err)
+			}
+		})
+	}
+}
+
+func TestSyncGlobal_AmpAloneWritesMergedBundledOpenAIYAML(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	folder := filepath.Join(source, "skills", "deploy")
+	mustWriteGlobalTest(t, filepath.Join(folder, "SKILL.md"), "---\nname: deploy\ndescription: Deploy.\ndisable-model-invocation: true\n---\nDeploy.\n")
+	mustWriteGlobalTest(t, filepath.Join(folder, "agents", "openai.yaml"), "interface:\n  display_name: Deploy UI\n")
+	if _, _, err := runGlobalAgentTest("--only", "amp"); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(home, ".agents", "skills", "deploy", "agents", "openai.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"display_name: Deploy UI", "allow_implicit_invocation: false"} {
+		if !strings.Contains(string(data), want) {
+			t.Errorf("openai.yaml missing %q:\n%s", want, data)
+		}
+	}
+	if _, _, err := runGlobalAgentTest("--only", "amp", "--check"); err != nil {
+		t.Errorf("sync --check after sync: %v", err)
+	}
+}
+
+func TestSyncGlobal_CodexCopiesAnUnparsableBundledOpenAIYAML(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	folder := filepath.Join(source, "skills", "deploy")
+	mustWriteGlobalTest(t, filepath.Join(folder, "SKILL.md"), "---\nname: deploy\ndescription: Deploy.\n---\nDeploy.\n")
+	mustWriteGlobalTest(t, filepath.Join(folder, "agents", "openai.yaml"), "- a\n")
+	if _, _, err := runGlobalAgentTest("--only", "codex"); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(home, ".agents", "skills", "deploy", "agents", "openai.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "- a\n" {
+		t.Errorf("openai.yaml not verbatim: %q", data)
 	}
 }

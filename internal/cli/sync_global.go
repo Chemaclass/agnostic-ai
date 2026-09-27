@@ -692,12 +692,13 @@ func sharedGlobalSkillsDir(home, dir string) bool {
 	return false
 }
 
-// globalSkillOverlays lists the relative paths any target reading dir
-// renders beside SKILL.md for skill. A bundled asset at one of those
-// paths never ships there, so every co-writer of a shared tree agrees
-// and the spec-rendered file wins, as in project sync.
-func globalSkillOverlays(home, dir string, skill spec.Entry) (map[string]bool, error) {
-	overlays := map[string]bool{}
+// globalSkillOverlays maps the relative paths any target reading dir
+// renders beside SKILL.md for skill to their rendered content. Every
+// co-writer of a shared tree ships that content in place of a bundled
+// asset at the same path, so they agree and the spec-rendered file
+// wins, as in project sync.
+func globalSkillOverlays(home, dir string, skill spec.Entry) (map[string]string, error) {
+	overlays := map[string]string{}
 	for _, name := range slices.Sorted(maps.Keys(globalTargets)) {
 		g := globalTargets[name]
 		if g.skills == "" || g.path(home, g.skills) != dir || !skill.EmitsTo(name) {
@@ -707,14 +708,12 @@ func globalSkillOverlays(home, dir string, skill spec.Entry) (map[string]bool, e
 		if err != nil {
 			return nil, err
 		}
-		for rel := range sidecars {
-			overlays[rel] = true
-		}
+		maps.Copy(overlays, sidecars)
 	}
 	return overlays, nil
 }
 
-func addGlobalSkill(dst string, skill spec.Entry, target string, shared bool, overlays map[string]bool, add func(string, []byte, fs.FileMode) error) error {
+func addGlobalSkill(dst string, skill spec.Entry, target string, shared bool, overlays map[string]string, add func(string, []byte, fs.FileMode) error) error {
 	rendered, err := adapters.RenderSkillMarkdown(target, skill, shared)
 	if err != nil {
 		return err
@@ -751,8 +750,11 @@ func addGlobalSkill(dst string, skill spec.Entry, target string, shared bool, ov
 		if rel == "SKILL.md" {
 			return nil
 		}
-		if overlays[rel] {
-			return nil
+		if overlay, ok := overlays[rel]; ok {
+			if _, own := sidecars[rel]; own {
+				return nil
+			}
+			return add(filepath.Join(dst, rel), []byte(overlay), 0o644)
 		}
 		data, err := os.ReadFile(path)
 		if err != nil {

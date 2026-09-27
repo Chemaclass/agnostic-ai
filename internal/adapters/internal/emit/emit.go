@@ -102,6 +102,9 @@ type Session struct {
 	unmanaged atomic.Pointer[[]string]
 	skipped   []string // user-owned paths refused; may repeat a path
 	userTier  bool
+	// codexSkillsDir is a skills dir Codex was configured to emit into,
+	// atomic for the same reason as unmanaged.
+	codexSkillsDir atomic.Pointer[string]
 }
 
 // SetUserTier marks a session that writes a tool's user-level
@@ -127,6 +130,16 @@ func (s *Session) SetUnmanaged(patterns []string) {
 		return
 	}
 	s.unmanaged.Store(&patterns)
+}
+
+// SetCodexSkillsDir records the skills dir the codex target writes, so
+// another target sharing it writes the same merged agents/openai.yaml.
+func (s *Session) SetCodexSkillsDir(dir string) {
+	if dir == "" {
+		s.codexSkillsDir.Store(nil)
+		return
+	}
+	s.codexSkillsDir.Store(&dir)
 }
 
 // UnmanagedSkips returns every user-owned path this session refused to

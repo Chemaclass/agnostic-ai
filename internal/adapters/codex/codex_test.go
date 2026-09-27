@@ -441,6 +441,72 @@ func TestEmit_SkillFolder_NoOpenAIYAMLWithoutExtras(t *testing.T) {
 	}
 }
 
+func TestEmit_SkillFolder_ManualOnlySkillWritesInvocationPolicy(t *testing.T) {
+	cases := []struct {
+		name    string
+		meta    map[string]any
+		want    []string
+		without []string
+	}{
+		{
+			name: "portable key alone",
+			meta: map[string]any{"disable-model-invocation": true},
+			want: []string{"allow_implicit_invocation: false"},
+		},
+		{
+			name: "merges into other x-codex fields",
+			meta: map[string]any{
+				"disable-model-invocation": true,
+				"x-codex": map[string]any{
+					"interface": map[string]any{"display_name": "Deploy"},
+				},
+			},
+			want: []string{"display_name: Deploy", "allow_implicit_invocation: false"},
+		},
+		{
+			name: "explicit x-codex value wins",
+			meta: map[string]any{
+				"disable-model-invocation": true,
+				"x-codex": map[string]any{
+					"policy": map[string]any{"allow_implicit_invocation": true},
+				},
+			},
+			want:    []string{"allow_implicit_invocation: true"},
+			without: []string{"allow_implicit_invocation: false"},
+		},
+		{
+			name: "x-codex override turns the portable key off",
+			meta: map[string]any{
+				"disable-model-invocation": true,
+				"x-codex":                  map[string]any{"disable-model-invocation": false},
+			},
+			without: []string{"allow_implicit_invocation"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			tc.meta["description"] = "Deploy."
+			entries := []spec.Entry{{Kind: spec.KindSkill, Name: "deploy", Body: "Deploy.", Meta: tc.meta}}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			data, _ := os.ReadFile(filepath.Join(dir, ".agents/skills/deploy/agents/openai.yaml"))
+			got := string(data)
+			for _, want := range tc.want {
+				if !strings.Contains(got, want) {
+					t.Errorf("openai.yaml missing %q in:\n%s", want, got)
+				}
+			}
+			for _, unwanted := range tc.without {
+				if strings.Contains(got, unwanted) {
+					t.Errorf("openai.yaml carries %q in:\n%s", unwanted, got)
+				}
+			}
+		})
+	}
+}
+
 func TestEmit_SkillFolder_PropagatesAssets(t *testing.T) {
 	dir := testutil.TempCwd(t)
 

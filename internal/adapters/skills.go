@@ -14,17 +14,15 @@ type SkillRenderer interface {
 // SkillSidecarRenderer is implemented by adapters that write files
 // beside SKILL.md, such as Codex's agents/openai.yaml.
 type SkillSidecarRenderer interface {
-	SkillSidecars(skill spec.Entry) map[string]string
+	SkillSidecars(skill spec.Entry) (map[string]string, error)
 }
 
 // ManualOnlySkillReader is implemented by adapters whose manual-only
-// marker lives outside SKILL.md frontmatter. An explicit value of that
-// marker, either way, is the author's choice and silences the note, as
-// an explicit x-<target> field does on crush and factory.
-// SkillManualOnlyField names the marker for the coverage note.
+// marker lives outside SKILL.md frontmatter. A set marker, either way,
+// silences the note, as an explicit x-<target> field does on crush and
+// factory.
 type ManualOnlySkillReader interface {
 	SkillInvocationPolicySet(skill spec.Entry) bool
-	SkillManualOnlyField() string
 }
 
 // RenderSkillMarkdown keeps shared user directories free of target-specific metadata.
@@ -59,7 +57,7 @@ func RenderSkillSidecars(target string, skill spec.Entry) (map[string]string, er
 		return nil, err
 	}
 	if renderer, ok := adapter.(SkillSidecarRenderer); ok {
-		return renderer.SkillSidecars(skill), nil
+		return renderer.SkillSidecars(skill)
 	}
 	return nil, nil
 }
@@ -90,11 +88,7 @@ func NoteManualOnlySkillDrops(target string, skills []spec.Entry, shared bool) e
 			dropped++
 		}
 	}
-	reason := "its global copy stays model-invocable"
-	if hasReader {
-		reason = "set " + reader.SkillManualOnlyField() + " instead"
-	}
-	emit.NoteFieldNoOp(target, spec.KindSkill, "disable-model-invocation", dropped, reason)
+	emit.NoteFieldNoOp(target, spec.KindSkill, "disable-model-invocation", dropped, "its global copy stays model-invocable")
 	return nil
 }
 

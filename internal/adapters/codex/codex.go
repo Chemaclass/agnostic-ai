@@ -94,7 +94,7 @@ import (
 const (
 	target            = "codex"
 	defaultAgentsDir  = ".codex/agents"
-	defaultSkillsDir  = ".agents/skills"
+	defaultSkillsDir  = emit.CodexSkillsRoot
 	defaultConfigFile = ".codex/config.toml"
 	// legacyAgentsDir is the pre-v0.26 agents default under `.agents/`.
 	// legacySkillsDir is the v0.26..v0.42 skills default: Codex CLI
