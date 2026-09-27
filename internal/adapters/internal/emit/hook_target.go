@@ -104,12 +104,24 @@ func ShellQuote(s string) string {
 
 // ExecFormCommand folds an exec-form hook's args into a shell-form
 // command for a target with no `args` field. Each argument is quoted so
-// a POSIX shell passes it verbatim. Left bare, an interpreter such as
-// `node` or `bash` would read the hook's JSON payload on stdin as its
-// program.
+// a POSIX shell passes it verbatim, and so is the command when it holds
+// anything but plain word characters, such as a path with a space.
+// Left bare, an interpreter such as `node` or `bash` would read the
+// hook's JSON payload on stdin as its program. With no args the command
+// is shell form and stays as written.
 func ExecFormCommand(command string, args []string) string {
+	if len(args) == 0 {
+		return command
+	}
+	if strings.IndexFunc(command, func(r rune) bool { return !isShellWordRune(r) }) >= 0 {
+		command = ShellQuote(command)
+	}
 	for _, arg := range args {
 		command += " " + ShellQuote(arg)
 	}
 	return command
+}
+
+func isShellWordRune(r rune) bool {
+	return r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("_./:@%+=,-", r)
 }

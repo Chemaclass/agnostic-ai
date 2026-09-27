@@ -65,3 +65,16 @@ func TestWithoutHookTarget_DropsOnlyTheValueSyncAdded(t *testing.T) {
 		t.Errorf("a pinned value was dropped: %v", got)
 	}
 }
+
+func TestExecFormCommand_QuotesACommandOnlyWhenItNeedsIt(t *testing.T) {
+	t.Parallel()
+	if got := ExecFormCommand("node", []string{"guard.js"}); got != "node 'guard.js'" {
+		t.Errorf("plain command = %q", got)
+	}
+	if got := ExecFormCommand("/opt/My Tools/guard", []string{"x"}); got != "'/opt/My Tools/guard' 'x'" {
+		t.Errorf("command with a space = %q", got)
+	}
+	if got := ExecFormCommand("echo hi", nil); got != "echo hi" {
+		t.Errorf("shell form = %q", got)
+	}
+}

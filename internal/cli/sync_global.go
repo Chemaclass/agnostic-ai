@@ -943,7 +943,9 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 		// is not a conflict: it goes, and the planned entry replaces it.
 		stillLost := lost[:0]
 		for _, oldEntry := range lost {
-			edited := slices.IndexFunc(current, func(item any) bool { return sameGlobalHook(item, oldEntry) })
+			edited := slices.IndexFunc(current, func(item any) bool {
+				return sameGlobalHook(item, oldEntry) || extendsGlobalHook(item, oldEntry)
+			})
 			switch {
 			case edited < 0:
 				stillLost = append(stillLost, oldEntry)
@@ -1275,6 +1277,19 @@ func carriesHookTarget(entry any) bool {
 func sameGlobalHook(item, recorded any) bool {
 	want := globalHookKeys(recorded)
 	return slices.ContainsFunc(globalHookKeys(item), func(key [2]string) bool { return slices.Contains(want, key) })
+}
+
+// extendsGlobalHook reports whether item runs the recorded entry's
+// command with more words after it, under the same matcher: a bare
+// interpreter an older version wrote for an exec-form spec, with its
+// args added back by hand.
+func extendsGlobalHook(item, recorded any) bool {
+	want := globalHookKeys(recorded)
+	return slices.ContainsFunc(globalHookKeys(item), func(key [2]string) bool {
+		return slices.ContainsFunc(want, func(w [2]string) bool {
+			return key[0] == w[0] && strings.HasPrefix(key[1], w[1]+" ")
+		})
+	})
 }
 
 // globalHookKeys lists the matcher and command pairs a native hook entry

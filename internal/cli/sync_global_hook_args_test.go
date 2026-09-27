@@ -111,4 +111,74 @@ func TestSyncGlobal_ArgsAddedByHandToAManagedHookAreAccepted(t *testing.T) {
 			t.Errorf("%s handler = %v", target, handler)
 		}
 	}
+
+	// Codex recorded a bare `node`; a user who fixed it by hand to what
+	// sync writes now keeps one entry, managed again.
+	home, source := globalAgentTestHome(t)
+	spec := filepath.Join(source, "hooks", "guard.yaml")
+	mustWriteGlobalTest(t, spec, codexExecHook)
+	if _, _, err := runGlobalAgentTest("--only", "codex"); err != nil {
+		t.Fatal(err)
+	}
+	recordBareCodexCommand(t, source)
+	if _, warnings, err := runGlobalAgentTest("--only", "codex"); err != nil || warnings != "" {
+		t.Fatalf("codex: err %v, warnings %q", err, warnings)
+	}
+	hooksFile := filepath.Join(home, ".codex", "hooks.json")
+	if groups := readGlobalJSON(t, hooksFile)["hooks"].(map[string]any)["PreToolUse"].([]any); len(groups) != 1 {
+		t.Errorf("codex: want one entry, got %v", groups)
+	}
+	if err := os.Remove(spec); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "codex"); err != nil {
+		t.Fatal(err)
+	}
+	if data, err := os.ReadFile(hooksFile); err == nil {
+		t.Errorf("codex: the hook is still managed, so it goes with its source: %s", data)
+	}
+}
+
+const codexExecHook = "name: guard\nevent: PreToolUse\nmatcher: Bash\ncommand: node\nargs: [guard.js]\ntarget: codex\n"
+
+// recordBareCodexCommand rewrites the state as a version before the fold
+// recorded it: `node` with no args.
+func recordBareCodexCommand(t *testing.T, source string) {
+	t.Helper()
+	state := filepath.Join(source, "state", "global.json")
+	data, err := os.ReadFile(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "node 'guard.js'") {
+		t.Fatalf("no folded command recorded:\n%s", data)
+	}
+	if err := os.WriteFile(state, []byte(strings.ReplaceAll(string(data), "node 'guard.js'", "node")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A hand fix that differs from what sync writes now is an edit: the run
+// stops rather than adding a second copy of the guard.
+func TestSyncGlobal_CodexBareCommandFixedByHandOtherwiseStops(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), codexExecHook)
+	if _, _, err := runGlobalAgentTest("--only", "codex"); err != nil {
+		t.Fatal(err)
+	}
+	recordBareCodexCommand(t, source)
+	hooksFile := filepath.Join(home, ".codex", "hooks.json")
+	data, err := os.ReadFile(hooksFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(hooksFile, []byte(strings.ReplaceAll(string(data), "node 'guard.js'", "node guard.js")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "codex"); err == nil || !strings.Contains(err.Error(), "was edited") {
+		t.Fatalf("want the edited-hook error, got %v", err)
+	}
+	if groups := readGlobalJSON(t, hooksFile)["hooks"].(map[string]any)["PreToolUse"].([]any); len(groups) != 1 {
+		t.Errorf("want one entry, got %v", groups)
+	}
 }
