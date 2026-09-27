@@ -2,8 +2,6 @@ package cli
 
 import (
 	"github.com/spf13/cobra"
-
-	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 func newListCmd() *cobra.Command {
@@ -17,19 +15,13 @@ func newListCmd() *cobra.Command {
   # Print effective global specs and their layers
   agnostic-ai list --global`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var b spec.Bundle
-			var err error
-			if global {
-				b, err = loadGlobalBundle()
-			} else {
-				_, b, err = loadProject(".")
-			}
+			scope, err := loadCheckScope(global)
 			if err != nil {
 				return err
 			}
-			entries := b.All()
+			entries := scope.bundle.All()
 			if len(entries) == 0 {
-				cmd.PrintErrln(emptyHint(global))
+				cmd.PrintErrln(scope.emptyHint())
 				return nil
 			}
 			for _, e := range entries {

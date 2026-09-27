@@ -25,46 +25,68 @@ func globalLayers(source string) []spec.Layer {
 	}
 }
 
-// loadGlobalBundle loads the layers sync --global reads, with no project
-// config, so it works from any directory.
-func loadGlobalBundle() (spec.Bundle, error) {
+// globalSourceRoot resolves the source root as sync --global does,
+// reading HOME only when AGNOSTIC_AI_HOME is unset.
+func globalSourceRoot() (string, error) {
+	if source := os.Getenv(envUserGlobalRoot); source != "" {
+		return source, nil
+	}
 	home, err := globalUserHome()
 	if err != nil {
-		return spec.Bundle{}, err
+		return "", err
 	}
-	return spec.LoadLayered(globalLayers(globalSourceHome(home)))
+	return globalSourceHome(home), nil
 }
 
-// loadCheckScope loads the specs lint and validate check, with the
-// targets to check them against. The global scope has no config, so it
-// checks against every target a default sync --global writes; cfg is
-// nil there.
-func loadCheckScope(global bool) (*config.Config, []string, spec.Bundle, error) {
-	if global {
-		b, err := loadGlobalBundle()
-		return nil, globalTargetNames(), b, err
+// checkScope is the set of specs list, lint, and validate read, with the
+// targets to check them against.
+type checkScope struct {
+	global bool
+	// source is the global source root; empty for a project.
+	source string
+	// cfg is nil for the global scope, which has no config.
+	cfg     *config.Config
+	targets []string
+	// hookTargets narrows targets to those that write hooks, which for
+	// a project is every enabled target.
+	hookTargets []string
+	bundle      spec.Bundle
+}
+
+// loadCheckScope loads the project in the working directory, or the
+// global and global-local layers sync --global reads. The global scope
+// checks against every target a default sync --global writes, and hook
+// events only against the targets it writes hooks for.
+func loadCheckScope(global bool) (checkScope, error) {
+	if !global {
+		cfg, b, err := loadProject(".")
+		if err != nil {
+			return checkScope{}, err
+		}
+		return checkScope{cfg: cfg, targets: cfg.Targets, hookTargets: cfg.Targets, bundle: b}, nil
 	}
-	cfg, b, err := loadProject(".")
+	source, err := globalSourceRoot()
 	if err != nil {
-		return nil, nil, spec.Bundle{}, err
+		return checkScope{}, err
 	}
-	return cfg, cfg.Targets, b, nil
+	b, err := spec.LoadLayered(globalLayers(source))
+	if err != nil {
+		return checkScope{}, err
+	}
+	return checkScope{global: true, source: source, targets: globalTargetNames(), hookTargets: globalHookTargetNames(), bundle: b}, nil
 }
 
-func emptyHint(global bool) string {
-	if global {
-		return emptyGlobalSpecsHint
+func (s checkScope) emptyHint() string {
+	if !s.global {
+		return emptySpecsHint
 	}
-	return emptySpecsHint
+	return fmt.Sprintf("no global specs found in %s. add files under its "+
+		"{agents,skills,rules,hooks}/ or local/ directories, or set "+
+		"AGNOSTIC_AI_HOME to another root.", s.source)
 }
-
-// emptyGlobalSpecsHint is the global counterpart of emptySpecsHint.
-const emptyGlobalSpecsHint = "no global specs found. add files under " +
-	"$AGNOSTIC_AI_HOME/{agents,skills,rules,hooks}/ or its local/ layer " +
-	"(default home: ~/.agnostic-ai)."
 
 // lintGlobalRules reports each rule sync --global would refuse, so
-// validate --global catches it before a sync does.
+// lint and validate catch it before a sync does.
 func lintGlobalRules(rules []spec.Entry) []validationIssue {
 	var out []validationIssue
 	for _, rule := range rules {
@@ -75,6 +97,16 @@ func lintGlobalRules(rules []spec.Entry) []validationIssue {
 			Path:    rule.Path,
 			Message: fmt.Sprintf("global rule %q is scoped or conditional; global rules must apply unconditionally", rule.Name),
 		})
+	}
+	return out
+}
+
+// lintGlobalRuleFindings reports the same rules as lint findings
+// (LINT010, error).
+func lintGlobalRuleFindings(rules []spec.Entry) []lintFinding {
+	var out []lintFinding
+	for _, issue := range lintGlobalRules(rules) {
+		out = append(out, lintFinding{Code: "LINT010", Severity: lintError, Path: issue.Path, Message: issue.Message})
 	}
 	return out
 }

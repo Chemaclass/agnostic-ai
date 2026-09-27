@@ -95,3 +95,45 @@ func TestValidateGlobal_ReportsUnknownHookEventAndScopedLocalRule(t *testing.T) 
 		t.Errorf("expected the scoped local rule %s reported, got:\n%s", rule, out)
 	}
 }
+
+func TestValidateGlobal_ReportsEventOnlyANonHookTargetKnows(t *testing.T) {
+	_, source := globalAgentTestHome(t)
+	hook := filepath.Join(source, "hooks", "save.yaml")
+	mustWriteGlobalTest(t, hook, "name: save\nevent: PostFileSave\ncommand: echo saved\n")
+
+	out, _, err := runGlobalCheck("validate")
+	if err == nil {
+		t.Fatalf("validate --global must reject an event no hook-writing global target fires:\n%s", out)
+	}
+	if !strings.Contains(out, hook) || !strings.Contains(out, `unknown hook event "PostFileSave"`) {
+		t.Errorf("expected the kiro-only event reported on %s, got:\n%s", hook, out)
+	}
+}
+
+func TestLintGlobal_ScopedRuleExitsOne(t *testing.T) {
+	_, source := globalAgentTestHome(t)
+	rule := filepath.Join(source, "rules", "backend", "x.md")
+	mustWriteGlobalTest(t, rule, "---\nname: x\nglobs: \"**/*.go\"\n---\nGo rule.\n")
+
+	out, _, err := runGlobalCheck("lint")
+	if err == nil {
+		t.Fatalf("lint --global must exit non-zero on a rule sync --global rejects:\n%s", out)
+	}
+	if !strings.Contains(out, "LINT010") || !strings.Contains(out, rule) {
+		t.Errorf("expected LINT010 on %s, got:\n%s", rule, out)
+	}
+}
+
+func TestLintGlobal_EmptyHintNamesResolvedSourceRoot(t *testing.T) {
+	home, _ := globalAgentTestHome(t)
+	missing := filepath.Join(home, "agnostic-typo")
+	t.Setenv("AGNOSTIC_AI_HOME", missing)
+
+	_, errOut, err := runGlobalCheck("lint")
+	if err != nil {
+		t.Fatalf("an empty global home must exit 0 like sync --global: %v", err)
+	}
+	if !strings.Contains(errOut, missing) || strings.Contains(errOut, "$AGNOSTIC_AI_HOME") {
+		t.Errorf("expected the hint to name %s, got:\n%s", missing, errOut)
+	}
+}

@@ -48,7 +48,8 @@ func newLintCmd() *cobra.Command {
 			"supported by any enabled target), hooks whose event ignores their " +
 			"matcher, unterminated frontmatter, and frontmatter keys that near-miss " +
 			"a key agnostic-ai owns (allowed_tools vs tools), and allowed Bash rules " +
-			"with a wildcard before the end of the command. Exit code 1 on " +
+			"with a wildcard before the end of the command. With --global, it " +
+			"also flags rules sync --global rejects. Exit code 1 on " +
 			"error-severity findings, or on warn-severity findings when --strict " +
 			"is set.",
 		Example: `  # Lint all specs
@@ -60,17 +61,20 @@ func newLintCmd() *cobra.Command {
   # Lint the global specs before sync --global writes them
   agnostic-ai lint --global`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, targets, b, err := loadCheckScope(global)
+			scope, err := loadCheckScope(global)
 			if err != nil {
 				return err
 			}
-			entries := b.All()
+			entries := scope.bundle.All()
 			if len(entries) == 0 {
-				cmd.PrintErrln(emptyHint(global))
+				cmd.PrintErrln(scope.emptyHint())
 				return nil
 			}
 
-			findings := collectLintFindings(targets, b)
+			findings := collectLintFindings(scope.targets, scope.bundle)
+			if scope.global {
+				findings = append(findings, lintGlobalRuleFindings(scope.bundle.Rules)...)
+			}
 
 			if len(findings) == 0 {
 				cmd.Printf("ok — %d spec(s) clean\n", len(entries))

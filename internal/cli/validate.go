@@ -29,10 +29,11 @@ func newValidateCmd() *cobra.Command {
   # Validate the global specs before sync --global writes them
   agnostic-ai validate --global`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, targets, b, err := loadCheckScope(global)
+			scope, err := loadCheckScope(global)
 			if err != nil {
 				return err
 			}
+			b := scope.bundle
 			entries := b.All()
 			cmd.Printf("loaded %d entries.\n", len(entries))
 			var scopeIssues []validationIssue
@@ -43,16 +44,16 @@ func newValidateCmd() *cobra.Command {
 				// specs loaded: an all-missing-sources config is exactly the
 				// case where the warning matters most (#444).
 				scopeIssues = lintMissingSources(".")
-				scopeIssues = append(scopeIssues, lintEntryPointFences(".", cfg)...)
+				scopeIssues = append(scopeIssues, lintEntryPointFences(".", scope.cfg)...)
 			}
 			if len(entries) == 0 {
 				reportIssues(cmd, scopeIssues)
-				cmd.PrintErrln(emptyHint(global))
+				cmd.PrintErrln(scope.emptyHint())
 				return issuesError(scopeIssues)
 			}
 			issues := lintEntries(entries)
-			issues = append(issues, lintHookEvents(entries, targets)...)
-			issues = append(issues, lintOrphanKinds(b, targets)...)
+			issues = append(issues, lintHookEvents(entries, scope.hookTargets)...)
+			issues = append(issues, lintOrphanKinds(b, scope.targets)...)
 			issues = append(issues, scopeIssues...)
 			if !fix {
 				reportIssues(cmd, issues)
