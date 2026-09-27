@@ -542,3 +542,19 @@ func hookCommands(raw any) []string {
 	}
 	return nil
 }
+
+// UserMCPServerTables renders each MCP server as its `[mcp_servers.<name>]`
+// table text, subtables included, keyed by server name, the same text the
+// project config.toml carries.
+func (Adapter) UserMCPServerTables(mcps []spec.Entry) map[string]string {
+	out := map[string]string{}
+	for _, m := range mcps {
+		if m.Name == "" {
+			continue
+		}
+		var sb strings.Builder
+		writeMCPServerTable(&sb, m)
+		out[m.Name] = sb.String()
+	}
+	return out
+}

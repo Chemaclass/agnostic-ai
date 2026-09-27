@@ -105,6 +105,11 @@ func globalContributions(home, target string, entry spec.Entry, b spec.Bundle) (
 		if g.hooks != "" && entry.EmitsTo(target) && event != "" {
 			out = append(out, contribution{Target: target, Path: g.path(home, g.hooks), Section: event, Mode: "section"})
 		}
+	case spec.KindMCP:
+		if g.mcp.path == "" || !entry.EmitsTo(target) {
+			return nil, nil
+		}
+		out = append(out, contribution{Target: target, Path: g.path(home, g.mcp.path), Section: g.mcp.key + "." + entry.Name, Mode: "key"})
 	case spec.KindSettings:
 		if g.settings.path == "" {
 			return nil, nil

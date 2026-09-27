@@ -59,6 +59,9 @@ type globalState struct {
 	// its user settings file, so a later sync changes or removes only
 	// keys it placed.
 	Settings map[string]map[string]any `json:"settings,omitempty"`
+	// MCP records each MCP server written per target, by its key in the
+	// target's user MCP file, so a later sync removes only its own.
+	MCP map[string]map[string]any `json:"mcp,omitempty"`
 	// Hooks records the managed hook entries per target, keyed by
 	// target name then event, so a later sync can remove exactly what
 	// it added and leave user-authored entries alone.
@@ -180,6 +183,9 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		if _, err := fmt.Fprintf(warn, "warning: %s: global agents are unsupported; skipping %s\n", target, strings.Join(skipped, ", ")); err != nil {
 			return fmt.Errorf("write global agent warning: %w", err)
 		}
+	}
+	if err := warnUnsupportedGlobalMCP(warn, targets, bundle.MCPs); err != nil {
+		return err
 	}
 	for _, rule := range bundle.Rules {
 		if rule.Scope != "" || hasGlobalRuleCondition(rule.Meta) {
@@ -494,7 +500,7 @@ func foreignGlobalPath(old globalState, home string) string {
 }
 
 func buildGlobalWrites(home, source string, targets []string, intro []byte, b spec.Bundle, old globalState, agentErr func(string, error) error, warn io.Writer) ([]globalWrite, globalState, error) {
-	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}}
+	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}, MCP: map[string]map[string]any{}}
 	for target, paths := range old.Agents {
 		if !slices.Contains(targets, target) {
 			next.Agents[target] = append([]string(nil), paths...)
@@ -513,6 +519,11 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	for target, settings := range old.Settings {
 		if !slices.Contains(targets, target) {
 			next.Settings[target] = settings
+		}
+	}
+	for target, servers := range old.MCP {
+		if !slices.Contains(targets, target) {
+			next.MCP[target] = servers
 		}
 	}
 	for target, hooks := range old.Hooks {
@@ -699,41 +710,23 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			}
 		}
 	}
-	// Settings merge last: a file may also hold hooks this run changed,
-	// so the edit starts from that planned content.
-	for _, target := range targets {
-		g := globalTargets[target]
-		want := globalSettingsFor(target, g, b.Settings)
-		if g.settings.path == "" {
-			continue
-		}
-		path := g.path(home, g.settings.path)
-		var base []byte
-		i, planned := seen[path]
-		switch {
-		case planned:
-			base = writes[i].data
-		case emptied[path]:
-			base = []byte("{}\n")
-		}
-		m, err := mergeGlobalSettings(path, g.settings.format, base, want, old.Settings[target])
-		if err != nil {
-			return nil, next, err
-		}
-		if len(m.owned) > 0 {
-			next.Settings[target] = m.owned
-		}
+	// User settings and MCP servers merge last: a file may also hold
+	// hooks or agent efforts this run changed, so each edit starts from
+	// that planned content.
+	placeEdit := func(path string, m globalSettingsMerge) error {
 		if m.data == nil && len(m.adopted) == 0 {
-			continue
+			return nil
 		}
+		i, planned := seen[path]
 		if !planned {
-			seen[path] = len(writes)
 			data := m.data
 			if data == nil {
+				var err error
 				if data, err = os.ReadFile(path); err != nil {
-					return nil, next, fmt.Errorf("read %s: %w", path, err)
+					return fmt.Errorf("read %s: %w", path, err)
 				}
 			}
+			seen[path] = len(writes)
 			writes = append(writes, globalWrite{path: path, data: data, mode: 0o644})
 			i = len(writes) - 1
 		} else if m.data != nil {
@@ -744,9 +737,49 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		w.adopted = append(w.adopted, m.adopted...)
 		w.conflicts = append(w.conflicts, m.conflicts...)
 		// A file a removal would sweep, such as a hooks file with no
-		// hooks left, stays while it holds managed settings.
+		// hooks left, stays while it holds managed keys.
 		if slices.Contains(old.Files, path) {
 			next.Files = append(next.Files, path)
+		}
+		return nil
+	}
+	baseFor := func(path string) []byte {
+		if i, planned := seen[path]; planned {
+			return writes[i].data
+		}
+		if emptied[path] {
+			return []byte("{}\n")
+		}
+		return nil
+	}
+	for _, target := range targets {
+		g := globalTargets[target]
+		want := globalSettingsFor(target, g, b.Settings)
+		if g.settings.path != "" {
+			path := g.path(home, g.settings.path)
+			m, err := mergeGlobalSettings(path, g.settings.format, baseFor(path), want, old.Settings[target])
+			if err != nil {
+				return nil, next, err
+			}
+			if len(m.owned) > 0 {
+				next.Settings[target] = m.owned
+			}
+			if err := placeEdit(path, m); err != nil {
+				return nil, next, err
+			}
+		}
+		if g.mcp.path != "" {
+			path := g.path(home, g.mcp.path)
+			m, err := mergeGlobalMCP(path, g.mcp, baseFor(path), target, b.MCPs, old.MCP[target])
+			if err != nil {
+				return nil, next, err
+			}
+			if len(m.owned) > 0 {
+				next.MCP[target] = m.owned
+			}
+			if err := placeEdit(path, m); err != nil {
+				return nil, next, err
+			}
 		}
 	}
 	for _, paths := range next.Agents {
