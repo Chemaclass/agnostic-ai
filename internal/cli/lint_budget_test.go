@@ -253,6 +253,17 @@ func TestLintBudget_CountsEachTargetsAlwaysOnRuleFiles(t *testing.T) {
 			t.Errorf("%s: always-on rule words = %d, want %d", target, got, want)
 		}
 	}
+
+	legacy := &config.Config{Outputs: map[string]config.Output{
+		"claude":  {RulesFile: ".claude/RULES.md"},
+		"copilot": {RulesFile: ".github/copilot-instructions.md"},
+	}}
+	// Claude's legacy file holds every rule; Copilot's keeps only always-on rules.
+	for target, want := range map[string]int{"claude": 400, "copilot": 100} {
+		if got := alwaysOnRuleWords(legacy, b, target); got != want {
+			t.Errorf("%s legacy rules-file: always-on rule words = %d, want %d", target, got, want)
+		}
+	}
 }
 
 func TestLintGlobal_MeasuresHomeWithNoSpecs(t *testing.T) {
