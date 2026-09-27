@@ -405,6 +405,7 @@ Source root: `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when `AGNOSTIC_AI_HOME` i
 ├── agents/*.md
 ├── rules/*.md
 ├── hooks/*.yaml
+├── settings/*.yaml         # default model and effort
 ├── skills/<name>/SKILL.md
 └── local/                  # optional personal layer
     ├── agnostic-ai.yaml
@@ -412,6 +413,7 @@ Source root: `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when `AGNOSTIC_AI_HOME` i
     ├── agents/*.md
     ├── rules/*.md
     ├── hooks/*.yaml
+    ├── settings/*.yaml
     └── skills/<name>/SKILL.md
 ```
 
@@ -434,7 +436,7 @@ targets: [claude, codex, cursor]
 For example, `local/skills/reviewer/SKILL.md` replaces `skills/reviewer/SKILL.md`. Run `agnostic-ai list --global` to see the effective specs with their `global` or `global-local` layer. Run `agnostic-ai validate --global` and `agnostic-ai lint --global` to check both layers before a sync writes them. Global layers never merge with project specs. [Local overrides](@/docs/local-overrides.md) compares this layer with the project one.
 
 - It targets every supported tool by default, or the home config's `targets`. Which `sync` flags it accepts is in the [CLI reference](@/docs/cli-reference.md#sync).
-- Nested rules and rules with scope, path, glob, or target conditions are rejected. Commands, MCP servers, settings, inheritance, and merging with project specs are unsupported.
+- Nested rules and rules with scope, path, glob, or target conditions are rejected. Commands, MCP servers, settings `permissions` and `x-<target>` blocks, inheritance, and merging with project specs are unsupported.
 - Global skills render native frontmatter and copy bundled assets verbatim. Claude resolves skill `model` and `effort`, including per-target maps and `x-claude` overrides. Shared directories such as `~/.agents/skills/` keep neutral frontmatter, even when syncing one target: target overrides are omitted.
 - Global Codex skills also get `agents/openai.yaml`, so `disable-model-invocation: true` keeps a skill manual-only there too. A skill marked `disable-model-invocation: true` prints a coverage note for each target whose global copy stays model-invocable. Syncing one target keeps the files another target placed in a shared skills directory, so `--only amp` leaves Codex's policy in place.
 - Hooks and skills honor `target`, `targets`, and `targets-exclude`. Set hook events for each target explicitly; sync does not translate event names.
@@ -448,7 +450,43 @@ For example, `local/skills/reviewer/SKILL.md` replaces `skills/reviewer/SKILL.md
 - Empty surfaces create nothing: no instructions file (a recorded one is removed) and no hooks file.
 - Native tool precedence applies when global and project configuration both exist. Shared agent files remain until every owning target removes them. To update a file shared by Goose and OpenHands, sync both targets together.
 
-Ordinary `agnostic-ai sync` does not load `~/.agnostic-ai/`. Run inside the global source root, or any directory under it such as `local/`, it stops before any write and points at `sync --global`, since the home config would otherwise read as a project config. That covers `--check`, `--dry-run`, `--plan`, `--json`, and `--watch` too. `init`, `import`, `new`, `packs add`, `packs remove`, `packs update`, `cleanup`, `revert`, and `install-hook` stop the same way. For a home kept in git, `install-hook --global` writes a pre-commit hook that runs `lint --global --strict`, `validate --global`, and `sync --global --check`. A path through a symlink counts. When `AGNOSTIC_AI_HOME` is your home directory itself, only that directory is guarded, so projects under it still work. Read-only commands such as `lint`, `validate`, and `doctor` still run there. Move project-only defaults into a project's `.agnostic-ai/` or a pack, along with any agents, MCP servers, commands, settings, reviews, environments, or ignore specs. A repository's `.agnostic-ai/` stays project-specific despite the shared basename.
+Ordinary `agnostic-ai sync` does not load `~/.agnostic-ai/`. Run inside the global source root, or any directory under it such as `local/`, it stops before any write and points at `sync --global`, since the home config would otherwise read as a project config. That covers `--check`, `--dry-run`, `--plan`, `--json`, and `--watch` too. `init`, `import`, `new`, `packs add`, `packs remove`, `packs update`, `cleanup`, `revert`, and `install-hook` stop the same way. For a home kept in git, `install-hook --global` writes a pre-commit hook that runs `lint --global --strict`, `validate --global`, and `sync --global --check`. A path through a symlink counts. When `AGNOSTIC_AI_HOME` is your home directory itself, only that directory is guarded, so projects under it still work. Read-only commands such as `lint`, `validate`, and `doctor` still run there. Move project-only defaults into a project's `.agnostic-ai/` or a pack, along with any agents, MCP servers, commands, settings permissions, reviews, environments, or ignore specs. A repository's `.agnostic-ai/` stays project-specific despite the shared basename.
+
+### Default model and effort {#global-default-model-and-effort}
+
+Settings specs in the home set each tool's default model and effort in its user settings file. `model` and `effort` each take a string for every target, or a map per target with an optional `default`:
+
+```yaml
+# ~/.agnostic-ai/settings/defaults.yaml
+model:
+  claude: opus
+  codex: gpt-6-luna
+effort:
+  claude: high
+  codex: high
+```
+
+| Target | File | Keys |
+|---|---|---|
+| codex | `~/.codex/config.toml` | `model`, `model_reasoning_effort` |
+| claude | `~/.claude/settings.json` | `model`, `effortLevel` |
+
+Other targets raise a coverage note, and so do `permissions` and `x-<target>` blocks in a global settings spec. Claude's `effortLevel` takes `low`, `medium`, `high`, or `xhigh`; Codex takes any string. `lint --global` (LINT014) and `validate --global` flag a value a target cannot take.
+
+Each layer overrides the one before it:
+
+1. `settings/*.yaml` in the home.
+2. `local/settings/*.yaml`. A file with the same name merges into the shared one field by field. A new file comes after the shared ones, so its `model` and `effort` win.
+3. The project tier. A project's `.codex/config.toml` or `.claude/settings.json` wins through the tool's own precedence.
+4. An agent's own `model` and `effort`, for that agent.
+5. The tool's flag for one run, such as `codex -m` or `claude --model`.
+
+Sync edits only the keys it writes and records them in `state/global.json`. Every other line stays byte for byte, comments and tables included. A new Codex key goes after the last top-level key, before the first table. A missing file is created with only these keys. Removing the spec and syncing again removes only those keys.
+
+- A key that already holds the value sync would write is adopted, and sync names it. Moving a setting you set by hand into the home produces no diff.
+- A key with another value stops the run before writes and names the file, the key, and both values. Codex's `/model` picker saves its choice to `config.toml`, so this is normal use: the message prints the target line to put in the spec to keep the new value. `--backup` overwrites the key instead and keeps `<path>.bak`.
+- `--dry-run` lists each key a write sets or removes, and `--check` fails on a changed key.
+- `agnostic-ai explain --global settings/defaults.yaml` names the file and key each target gets from that spec. A key a later spec overrides is not listed.
 
 For a personal agent shared by Claude Code and Codex, create `~/.agnostic-ai/agents/reviewer.md`:
 

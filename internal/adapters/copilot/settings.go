@@ -64,7 +64,7 @@ func emitSettings(sess *emit.Session, settings, mcps []spec.Entry, dryRun bool) 
 	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions",
 		emit.SpecsWithPermissions(settings), permissionsMDMOnlyReason)
 	keys := map[string]any{}
-	if model := emit.LastSettingsModel(settings); model != "" {
+	if model := emit.SettingsModel(settings, target); model != "" {
 		keys["model"] = model
 	}
 	if level := emit.SettingsEffortLevel(settings, target, effortLevels); level != "" {

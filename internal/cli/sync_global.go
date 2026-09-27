@@ -55,6 +55,10 @@ type globalState struct {
 	// AgentEfforts records the effortLevel written per target and agent
 	// name, so a later sync removes only values it placed.
 	AgentEfforts map[string]map[string]string `json:"agentEfforts,omitempty"`
+	// Settings records the value written per target and native key of
+	// its user settings file, so a later sync changes or removes only
+	// keys it placed.
+	Settings map[string]map[string]string `json:"settings,omitempty"`
 	// Hooks records the managed hook entries per target, keyed by
 	// target name then event, so a later sync can remove exactly what
 	// it added and leave user-authored entries alone.
@@ -73,6 +77,9 @@ type globalWrite struct {
 	owned bool
 	// dropsComments marks a JSONC rewrite that loses the file's comments.
 	dropsComments bool
+	// changes, adopted, and conflicts describe a key-level edit of a
+	// user settings file; conflicts need --backup.
+	changes, adopted, conflicts []string
 }
 
 func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
@@ -226,8 +233,16 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	}
 	if o.dryRun {
 		for _, w := range writes {
+			if data, err := os.ReadFile(w.path); err == nil && bytes.Equal(data, w.data) {
+				continue
+			}
 			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "dry-run: write %s\n", w.path); err != nil {
 				return fmt.Errorf("write dry-run output: %w", err)
+			}
+			for _, change := range w.changes {
+				if _, err := fmt.Fprintf(cmd.OutOrStdout(), "dry-run:   %s\n", change); err != nil {
+					return fmt.Errorf("write dry-run output: %w", err)
+				}
 			}
 		}
 		for _, path := range existingPaths(removals) {
@@ -240,9 +255,23 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 				return fmt.Errorf("write dry-run output: %w", err)
 			}
 		}
+		for _, line := range settingsAdoptions(writes) {
+			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "dry-run: adopt %s\n", line); err != nil {
+				return fmt.Errorf("write dry-run output: %w", err)
+			}
+		}
 		return nil
 	}
 	if !o.backup {
+		var conflicts []string
+		for _, w := range writes {
+			for _, c := range w.conflicts {
+				conflicts = append(conflicts, w.path+": "+c)
+			}
+		}
+		if len(conflicts) > 0 {
+			return fmt.Errorf("%s; or rerun with --backup to overwrite and keep a .bak copy", strings.Join(conflicts, "; "))
+		}
 		edited, err := handEditedGlobalFiles(writes, removals, old)
 		if err != nil {
 			return err
@@ -269,10 +298,27 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 			return fmt.Errorf("write adoption note: %w", err)
 		}
 	}
+	for _, line := range settingsAdoptions(writes) {
+		if _, err := fmt.Fprintf(warn, "adopted %s: matches what sync writes\n", line); err != nil {
+			return fmt.Errorf("write adoption note: %w", err)
+		}
+	}
 	if _, err = fmt.Fprintf(cmd.OutOrStdout(), "Synced global configuration to %d target(s).\n", len(targets)); err != nil {
 		return fmt.Errorf("write sync summary: %w", err)
 	}
 	return nil
+}
+
+// settingsAdoptions names each user settings key that already held the
+// value sync writes, as "<path> <key>".
+func settingsAdoptions(writes []globalWrite) []string {
+	var out []string
+	for _, w := range writes {
+		for _, key := range w.adopted {
+			out = append(out, w.path+" "+key)
+		}
+	}
+	return out
 }
 
 // checkGlobalWrites reports every planned write that differs from disk
@@ -442,7 +488,7 @@ func foreignGlobalPath(old globalState, home string) string {
 }
 
 func buildGlobalWrites(home, source string, targets []string, intro []byte, b spec.Bundle, old globalState, agentErr func(string, error) error, warn io.Writer) ([]globalWrite, globalState, error) {
-	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, AgentEfforts: map[string]map[string]string{}}
+	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]string{}}
 	for target, paths := range old.Agents {
 		if !slices.Contains(targets, target) {
 			next.Agents[target] = append([]string(nil), paths...)
@@ -456,6 +502,11 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	for target, efforts := range old.AgentEfforts {
 		if !slices.Contains(targets, target) {
 			next.AgentEfforts[target] = efforts
+		}
+	}
+	for target, settings := range old.Settings {
+		if !slices.Contains(targets, target) {
+			next.Settings[target] = settings
 		}
 	}
 	for target, hooks := range old.Hooks {
@@ -482,6 +533,9 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	}
 	var writes []globalWrite
 	seen := map[string]int{}
+	// emptied holds hooks files the hooks merge left with nothing in
+	// them, which a settings edit must start from instead of the disk.
+	emptied := map[string]bool{}
 	place := func(path string, data []byte, mode fs.FileMode) (bool, error) {
 		if i, ok := seen[path]; ok {
 			if !bytes.Equal(writes[i].data, data) {
@@ -625,6 +679,9 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		if err != nil {
 			return nil, next, err
 		}
+		if doc == nil {
+			emptied[path] = true
+		}
 		if doc != nil {
 			// Ownership of a hooks file is per entry, so it carries no sum.
 			placed, err := place(path, doc, 0o644)
@@ -634,6 +691,56 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			if placed {
 				next.Files = append(next.Files, path)
 			}
+		}
+	}
+	// Settings merge last: a file may also hold hooks this run changed,
+	// so the edit starts from that planned content.
+	for _, target := range targets {
+		g := globalTargets[target]
+		want := globalSettingsFor(target, g, b.Settings)
+		if g.settings.path == "" {
+			continue
+		}
+		path := g.path(home, g.settings.path)
+		var base []byte
+		i, planned := seen[path]
+		switch {
+		case planned:
+			base = writes[i].data
+		case emptied[path]:
+			base = []byte("{}\n")
+		}
+		m, err := mergeGlobalSettings(path, g.settings.format, base, want, old.Settings[target])
+		if err != nil {
+			return nil, next, err
+		}
+		if len(m.owned) > 0 {
+			next.Settings[target] = m.owned
+		}
+		if m.data == nil && len(m.adopted) == 0 {
+			continue
+		}
+		if !planned {
+			seen[path] = len(writes)
+			data := m.data
+			if data == nil {
+				if data, err = os.ReadFile(path); err != nil {
+					return nil, next, fmt.Errorf("read %s: %w", path, err)
+				}
+			}
+			writes = append(writes, globalWrite{path: path, data: data, mode: 0o644})
+			i = len(writes) - 1
+		} else if m.data != nil {
+			writes[i].data = m.data
+		}
+		w := &writes[i]
+		w.changes = append(w.changes, m.changes...)
+		w.adopted = append(w.adopted, m.adopted...)
+		w.conflicts = append(w.conflicts, m.conflicts...)
+		// A file a removal would sweep, such as a hooks file with no
+		// hooks left, stays while it holds managed settings.
+		if slices.Contains(old.Files, path) {
+			next.Files = append(next.Files, path)
 		}
 	}
 	for _, paths := range next.Agents {
@@ -1415,6 +1522,10 @@ func preflightGlobalWrites(writes []globalWrite, trees []string, old globalState
 			}
 		}
 		if info, err := os.Lstat(w.path); err == nil && info.Mode()&os.ModeSymlink != 0 {
+			// A settings key adopted as it is leaves the file untouched.
+			if data, err := os.ReadFile(w.path); err == nil && bytes.Equal(data, w.data) {
+				continue
+			}
 			return nil, fmt.Errorf("%s: refusing to replace symlink", w.path)
 		}
 	}

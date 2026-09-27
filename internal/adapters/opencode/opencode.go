@@ -179,14 +179,14 @@ func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, path str
 	// The block is read twice, once to decide whether the file is
 	// written at all and once to merge it in.
 	custom := emit.SettingsCustomKeys(settings, target, permissionKey)
-	if len(mcps) == 0 && len(permissions) == 0 && len(custom) == 0 && emit.LastSettingsModel(settings) == "" {
+	if len(mcps) == 0 && len(permissions) == 0 && len(custom) == 0 && emit.SettingsModel(settings, target) == "" {
 		return nil
 	}
 	keys := map[string]any{"$schema": opencodeSchemaURL}
 	if len(mcps) > 0 {
 		keys["mcp"] = buildMCPMap(mcps)
 	}
-	if model := emit.LastSettingsModel(settings); model != "" {
+	if model := emit.SettingsModel(settings, target); model != "" {
 		keys["model"] = model
 	}
 	if len(permissions) > 0 {

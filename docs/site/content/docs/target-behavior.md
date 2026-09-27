@@ -135,6 +135,8 @@ See [adding adapters](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/i
 | **trae** | - | - | - | `~/.trae/skills/<name>/` | `~/.trae-cn/agents/<name>.md` |
 | **augment** | - | `~/.augment/rules/<name>.md` | - | `~/.augment/skills/<name>/` | `~/.augment/agents/<name>.md` |
 
+Settings specs reach two targets: Claude Code writes `model` and `effortLevel` in `~/.claude/settings.json`, and Codex writes `model` and `model_reasoning_effort` in `~/.codex/config.toml`. Every other target raises a coverage note. See [default model and effort](@/docs/configuration.md#global-default-model-and-effort).
+
 Global agents use the same native formats as project agents. Amp, Zed, Warp, and Crush have no supported global agent-file output. See [global configuration](@/docs/configuration.md#global-configuration) for setup and migration.
 
 - **Discovery**: Copilot's path is for its CLI. OpenHands discovery applies to local conversations. Devin custom profiles are experimental. Trae requires **Settings > Beta > Subagents > Enable Subagents Directory**; its English docs specify `~/.trae-cn/agents/`, with no verified international alternative.

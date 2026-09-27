@@ -6,6 +6,14 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### Added
+
+- `sync --global` writes `model` and `effort` from `settings/*.yaml` into `~/.codex/config.toml` and `~/.claude/settings.json`, editing only those keys, and `explain --global` names the file and key a settings spec sets (#1240).
+
+### Changed
+
+- Settings `model` takes a per-target map with an optional `default`, like agent `model`, so one setup can give Codex and Claude different models (#1240).
+
 ## v0.70.0 - 2026-09-27
 
 ### Added

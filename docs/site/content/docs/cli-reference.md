@@ -119,6 +119,7 @@ Load all specs, report parse errors, and print `loaded 12 entries. ok.` on succe
 | Declared sources | An explicit `sources.<kind>` path in `agnostic-ai.yaml` with no directory. Warning only. |
 | Entry-point fences | A `::target` / `::targets` name in `.agnostic-ai/AGNOSTIC_AI.md` that is not a built-in target or listed in `targets` (external adapter), or that reads no entry-point file (`cursor`, or any target with `outputs.<target>.rules-file`). |
 | Global rules | With `--global`, a rule with scope, path, glob, or target conditions, which `sync --global` rejects. |
+| Global settings | With `--global`, a settings `effort` a target that `sync --global` writes settings for cannot take, such as `max` for Claude. |
 
 | Flag | Description |
 |------|-------------|
@@ -141,7 +142,7 @@ Semantic checks beyond the schema. Exits 1 on error findings. `agnostic-ai lint 
 | Flag | Description |
 |------|-------------|
 | `--strict` | Exit 1 on warnings too. |
-| `--global` | Lint the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides, the layers `sync --global` loads. Dead specs and target-only keys are checked against what each target `sync --global` writes at user level, for every supported target or the home config `targets` list. Also reports LINT010. Budgets come from the home config's `lint` key. Works outside a project. |
+| `--global` | Lint the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides, the layers `sync --global` loads. Dead specs and target-only keys are checked against what each target `sync --global` writes at user level, for every supported target or the home config `targets` list. Also reports LINT010 and LINT014. Budgets come from the home config's `lint` key. Works outside a project. |
 
 It flags empty specs, dead specs (kinds no enabled target supports), and hooks that set a matcher on an event that ignores it. Four codes catch specs that never reach a target:
 
@@ -150,6 +151,7 @@ It flags empty specs, dead specs (kinds no enabled target supports), and hooks t
 | LINT003 | Two specs of one kind share a `name`; the loader keeps one body. Hooks sharing an event and matcher are fine: all run (`gofmt` and `vet` on one save). |
 | LINT006 | Error. Frontmatter opens `---` and never closes, so the raw YAML is emitted as body. `validate` and `sync` both pass. |
 | LINT010 | Error, `--global` only. A rule with scope, path, glob, or target conditions, which `sync --global` rejects. |
+| LINT014 | Error, `--global` only. A settings `effort` that Claude's `effortLevel` or Codex's `model_reasoning_effort` cannot take, which `sync --global` drops with a note. |
 | LINT013 | Error. A rule's `globs` or `x-<target>.globs` is neither a string nor a list of strings. Targets read it as no globs, so the rule loads in every session. `validate` reports it too. |
 | LINT008 | Error. A stdio MCP server lacks `command:`, or an `http`/`sse`/`ws` one lacks `url:`. Trae, Antigravity, and Windsurf drop it; Claude Code, Codex, Cursor, Gemini, Copilot, and the rest write an invalid server object. `x-<target>` cannot set either reserved field. |
 
@@ -202,12 +204,13 @@ agnostic-ai explain rules/conventional-commits.md --json
 | Flag | Description |
 |------|-------------|
 | `--json` | Stable schema for editor extensions and scripts. |
+| `--global` | Explain a settings spec in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) or its `local/` layer. A relative path resolves against that root. Other kinds stop with a pointer to `list --global`. |
 
-Contributions are grouped by configured target, plus a "would emit if enabled" list for inactive adapters. Entries are tagged `(full file)` or `(section "<name>")`.
+Contributions are grouped by configured target, plus a "would emit if enabled" list for inactive adapters. Entries are tagged `(full file)` or `(section "<name>")`. With `--global`, each entry names a user settings file and the key the spec sets there, tagged `(key "<key>")` and `"mode": "key"` in JSON.
 
 ```json
 {"version": "1", "command": "explain", "spec": {"kind": "rule", "name": "...", "path": "..."},
- "contributions": [{"target": "...", "path": "...", "section": "...", "mode": "full|section"}],
+ "contributions": [{"target": "...", "path": "...", "section": "...", "mode": "full|section|key"}],
  "would_emit_if_enabled": []}
 ```
 
@@ -313,7 +316,7 @@ Emit per-target configs, for example `agnostic-ai sync --only claude,cursor`.
 | `--watch-poll` | With `--watch`, force the 200 ms polling backend, for network mounts or container volumes where fsnotify misses events. |
 | `--jobs <n>` | Targets emitted in parallel. `0` (default) is one worker per CPU; `1` is serial. See [parallel emission](#parallel-emission). |
 | `--json` | Output as JSON. See [JSON output](#json-output). |
-| `--global` | Install user-level instructions, unconditional rules, hooks, and skills from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai/`) into 22 tools' user config, plus native agents for 18 targets. Loads whole-spec overrides from the source root's `local/` directory. Reads `targets` from an optional `agnostic-ai.yaml` in the source root, which `local/agnostic-ai.yaml` replaces, `--only` and `--except` narrow, and `--target` skips; see [global configuration](@/docs/configuration.md#global-configuration). Works outside a project; never loads project config or packs. See [global output](@/docs/target-behavior.md#global-output). Accepts `--target`, `--only`, `--except` (unsupported targets fail with the supported list), `--dry-run`, `--check`, `--check --diff` (managed block only for instructions files; both `--check` and `--dry-run` also name every file a sync would remove), `--backup`; rejects `--watch`, `--plan`, `--json`, `--gitignore`, `--jobs` before any write. |
+| `--global` | Install user-level instructions, unconditional rules, hooks, and skills from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai/`) into 22 tools' user config, plus native agents for 18 targets. Loads whole-spec overrides from the source root's `local/` directory. Reads `targets` from an optional `agnostic-ai.yaml` in the source root, which `local/agnostic-ai.yaml` replaces, `--only` and `--except` narrow, and `--target` skips; see [global configuration](@/docs/configuration.md#global-configuration). Works outside a project; never loads project config or packs. See [global output](@/docs/target-behavior.md#global-output). Accepts `--target`, `--only`, `--except` (unsupported targets fail with the supported list), `--dry-run`, `--check`, `--check --diff` (managed block only for instructions files; both `--check` and `--dry-run` also name every file a sync would remove), `--backup`. Settings specs set `model` and `effort` in Claude's and Codex's user settings files, key by key; see [default model and effort](@/docs/configuration.md#global-default-model-and-effort). Rejects `--watch`, `--plan`, `--json`, `--gitignore`, `--jobs` before any write. |
 
 Paths listed under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) are skipped and reported as `~ skip (unmanaged) <path>`.
 

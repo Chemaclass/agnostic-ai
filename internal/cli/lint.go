@@ -52,7 +52,7 @@ func newLintCmd() *cobra.Command {
 			"target's always-loaded instructions pass the lint.instructions-words " +
 			"budget or a skill or agent description passes lint.description-chars. " +
 			"With --global, it " +
-			"also flags rules sync --global rejects. Exit code 1 on " +
+			"also flags rules sync --global rejects and settings values a target cannot take. Exit code 1 on " +
 			"error-severity findings, or on warn-severity findings when --strict " +
 			"is set.",
 		Example: `  # Lint all specs
@@ -83,6 +83,7 @@ func newLintCmd() *cobra.Command {
 			findings := collectLintFindings(scope.targets, scope.support, scope.bundle)
 			if scope.global {
 				findings = append(findings, lintGlobalRuleFindings(scope.bundle.Rules)...)
+				findings = append(findings, lintGlobalSettingsFindings(scope.bundle.Settings, scope.targets)...)
 			}
 			findings = append(findings, budget...)
 
@@ -142,10 +143,14 @@ func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) [
 	return findings
 }
 
-// lintEmptySpecs flags specs with no body and no description (LINT001, warn).
+// lintEmptySpecs flags specs with no body and no description (LINT001,
+// warn). A settings spec is fields alone, so it never has either.
 func lintEmptySpecs(entries []spec.Entry) []lintFinding {
 	var out []lintFinding
 	for _, e := range entries {
+		if e.Kind == spec.KindSettings {
+			continue
+		}
 		body := strings.TrimSpace(e.Body)
 		desc, _ := e.Meta["description"].(string)
 		if body == "" && strings.TrimSpace(desc) == "" {

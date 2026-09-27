@@ -290,3 +290,18 @@ func TestBuildSpecSettings_MapsEffortToEffortLevel(t *testing.T) {
 		t.Errorf("max is not a project effortLevel, got %v", got["effortLevel"])
 	}
 }
+
+func TestBuildSpecSettings_ModelMapForOtherTargetOnly(t *testing.T) {
+	got := buildSpecSettings([]spec.Entry{settingsEntry(map[string]any{
+		"model": map[string]any{"codex": "gpt-6-luna"},
+	})})
+	if _, ok := got["model"]; ok {
+		t.Errorf("a codex-only model must not reach Claude: %v", got)
+	}
+	got = buildSpecSettings([]spec.Entry{settingsEntry(map[string]any{
+		"model": map[string]any{"codex": "gpt-6-luna", "default": "opus"},
+	})})
+	if got["model"] != "opus" {
+		t.Errorf("model = %v, want the default opus", got["model"])
+	}
+}

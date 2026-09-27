@@ -403,7 +403,7 @@ func emitKiloJSONC(sess *emit.Session, b spec.Bundle, rulesDir, skillsDir, path 
 	if paths := skillsPaths(sess, b.Skills, skillsDir, path, dryRun); len(paths) > 0 {
 		keys["skills"] = map[string]any{"paths": paths}
 	}
-	if model := emit.LastSettingsModel(b.Settings); model != "" {
+	if model := emit.SettingsModel(b.Settings, target); model != "" {
 		keys["model"] = model
 	}
 	permission, dropped := settingsPermission(b.Settings)

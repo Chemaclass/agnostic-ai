@@ -85,7 +85,7 @@ func emitSettingsFile(sess *emit.Session, mcps, settings []spec.Entry, path stri
 func noteSettingsGaps(settings []spec.Entry) {
 	allow, deny, ask, model := 0, 0, 0, 0
 	for _, entry := range settings {
-		if value, _ := entry.Meta["model"].(string); value != "" {
+		if emit.SettingsModel([]spec.Entry{entry}, target) != "" {
 			model++
 		}
 		permissions, _ := entry.Meta["permissions"].(map[string]any)

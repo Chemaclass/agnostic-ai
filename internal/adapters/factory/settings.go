@@ -98,7 +98,7 @@ func (Adapter) SettingsEffortLevels() []string { return reasoningEffortLevels }
 
 func emitSettings(sess *emit.Session, settings []spec.Entry, path string, dryRun bool) error {
 	keys := map[string]any{}
-	if model := emit.LastSettingsModel(settings); model != "" {
+	if model := emit.SettingsModel(settings, target); model != "" {
 		keys["model"] = model
 	}
 	if level := emit.SettingsEffortLevel(settings, target, reasoningEffortLevels); level != "" {
