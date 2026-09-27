@@ -43,7 +43,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 ## codex
 
 - docs: https://learn.chatgpt.com/docs/build-skills.md · /docs/agent-configuration/subagents.md · /docs/custom-prompts.md · /docs/hooks.md · /docs/config-file/config-reference.md · /docs/agent-configuration/rules.md (exec-policy precedence, not AGENTS.md discovery) · /docs/agent-configuration/agents-md.md (AGENTS.md discovery) · /docs/permissions.md (beta Permission Profiles, filesystem and network only)
-- changelog: https://learn.chatgpt.com/docs/changelog
+- changelog: https://learn.chatgpt.com/docs/changelog (on 2026-09-27 it dropped the Codex CLI 0.157.x entries; list stable releases with `gh api repos/openai/codex/releases` and skip `prerelease` alphas)
 - watch: the skills dir, which moved `.codex/skills` to `.agents/skills`; prompts, deprecated in favour of skills; hooks JSON event names.
 - trap: package-style MCP names (`/`, `@`, `:`) round-trip; do not re-file. `checkSpecName` no longer exists, and its only grep hits are stale `.claude/worktrees/` copies. The live check is `spec.ValidateName`, and `writeCodexMCPs` uses `spec.MCPFileName`. Non-bare TOML headers quote via `tomlKeySegment` (#706).
 - trap: three permission surfaces, do not conflate them (#923). `approval_policy` is one global mode. Permission Profiles cover filesystem and network, with no ask verb. Exec-policy `prefix_rule` matches the portable lists, and we already write it through `outputs.codex.exec-policies`.

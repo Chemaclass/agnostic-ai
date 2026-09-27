@@ -13,6 +13,7 @@ cap-agent-shared-board	2026-09-15	2026-09-21
 cap-agent-skill-scoping	2026-09-18	2026-09-18			
 cap-agent-tool-permission-policy	2026-09-15	2026-09-26	adapter-gap	1162	Factory documents a tools: read-only category (docs.factory.ai/harness/subagents); portable readonly now maps to it with mcpServers: [] unless servers are listed (#1164).
 cap-claude-attribution-boolean-shorthand	2026-09-25	2026-09-25	target-extension		Claude Code v2.1.281+ accepts attribution: false; older versions skip the whole settings file. Reachable via x-claude today; no first-class field while npm stable < 2.1.281.
+cap-codex-auto-review-policy	2026-09-27	2026-09-27	watch		codex config-reference: auto_review.extra_policy is "Additional local Markdown policy for automatic review"; approvals_reviewer auto_review "uses the reviewer subagent". One table row, no docs page; an approval gate, not the review kind. Overlay already round-trips it.
 cap-cosmos-daemon-pool-config	2026-09-25	2026-09-25	watch		augment Auggie CLI 0.35.0 (2026-08-13): "declarative configuration for daemon pools"; Cosmos daemons page lists a project-scope daemon-config.json with no stated path or availability tier.
 cap-cross-tool-config-import-toggle	2026-09-18	2026-09-18			
 cap-directory-scoped-skills	2026-09-15	2026-09-21			published
