@@ -242,6 +242,25 @@ func globalPath(home, p string) string {
 	return filepath.Join(home, filepath.FromSlash(strings.TrimPrefix(p, globalPathHome)))
 }
 
+// globalRoots returns every directory a global path can resolve under:
+// the home, and each configuration root variable that is set.
+func globalRoots(home string) []string {
+	roots := []string{filepath.Clean(home)}
+	for _, env := range []string{"XDG_CONFIG_HOME", "APPDATA"} {
+		if root := os.Getenv(env); root != "" {
+			roots = append(roots, filepath.Clean(root))
+		}
+	}
+	for _, name := range globalTargetNames() {
+		if env := globalTargets[name].rootEnv; env != "" {
+			if root := os.Getenv(env); root != "" {
+				roots = append(roots, filepath.Clean(root))
+			}
+		}
+	}
+	return roots
+}
+
 // trees returns the target's managed directory surfaces, resolved.
 // Recorded files under these trees are swept when their source goes away.
 func (g globalTarget) trees(home string) []string {
