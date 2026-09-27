@@ -50,3 +50,19 @@ func TestSyncGlobal_GeminiAndCursorFoldExecFormArgs(t *testing.T) {
 		t.Errorf("cursor after upgrade = %v", cursorEntries)
 	}
 }
+
+// Cursor also runs ~/.claude/settings.json hooks, and reads only `command`.
+func TestSyncGlobal_NotesCursorRunsClaudeExecFormHooksWithoutArgs(t *testing.T) {
+	_, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ncommand: node\nargs: [guard.js]\ntarget: claude\n")
+	_, warnings, err := runGlobalAgentTest("--only", "claude,cursor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(warnings, "Cursor runs .claude/settings.json hooks without args") != 1 {
+		t.Errorf("warnings:\n%s", warnings)
+	}
+	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil || strings.Contains(warnings, "without args") {
+		t.Errorf("claude alone: err %v, warnings %q", err, warnings)
+	}
+}

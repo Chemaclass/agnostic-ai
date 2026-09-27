@@ -19,6 +19,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cursor"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -596,6 +597,10 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		}
 		if g.hooks == "" {
 			continue
+		}
+		// Cursor also runs ~/.claude/settings.json hooks.
+		if target == "claude" && slices.Contains(targets, "cursor") {
+			claude.NoteCursorDropsArgs(b.HooksFor(target))
 		}
 		next.Hooks[target] = map[string][]any{}
 		path := g.path(home, g.hooks)
