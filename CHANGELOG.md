@@ -21,6 +21,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Fixed
 
+- `sync --global --check` no longer fails right after a sync that removed a target's last file (#1248).
 - `lint` no longer warns that every settings spec is empty (LINT001) (#1240).
 
 ## v0.70.0 - 2026-09-27
