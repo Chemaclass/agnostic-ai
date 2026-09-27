@@ -2,11 +2,13 @@ package cli
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -115,7 +117,7 @@ func collectLintFindings(targets []string, b spec.Bundle) []lintFinding {
 	findings = append(findings, lintDeadSpecs(entries, targets)...)
 	findings = append(findings, lintHookMatcherMisuse(b.Hooks)...)
 	findings = append(findings, lintUnterminatedFrontmatter(entries)...)
-	findings = append(findings, lintNearMissKeys(entries)...)
+	findings = append(findings, lintNearMissKeys(entries, targets)...)
 	findings = append(findings, lintMCPMissingRequiredField(b.MCPs)...)
 	findings = append(findings, lintMidWildcardAllow(b.Settings)...)
 	return findings
@@ -366,6 +368,9 @@ func countSeverity(findings []lintFinding, s lintSeverity) int {
 type nearMiss struct {
 	Use   string
 	Owned bool
+	// ReadBy names the only targets that read the key, none of them
+	// configured here.
+	ReadBy []string
 }
 
 // nearMissKeys is the near-miss set. Passthrough is the right default
@@ -387,12 +392,37 @@ var nearMissKeys = map[string]nearMiss{
 	"disallowed_tools": {Use: "x-junie.disallowedTools"},
 }
 
+// keyTypo reports a key one edit from a documented spec field (two for
+// longer names) as a near miss of that field: `glob:` parses, emits, and
+// leaves a rule meant for Go files applying everywhere. Keys any kind
+// documents are never typos, and environments and settings are skipped:
+// they pass their keys through to native files the tool owns.
+func keyTypo(kind spec.Kind, key string, targets []string) (nearMiss, bool) {
+	if kind == spec.KindEnvironment || kind == spec.KindSettings ||
+		strings.HasPrefix(key, "x-") || slices.Contains(specKeys, key) {
+		return nearMiss{}, false
+	}
+	readers, targetOnly := targetKeys[key]
+	if targetOnly && slices.ContainsFunc(readers, func(t string) bool { return slices.Contains(targets, t) }) {
+		return nearMiss{}, false
+	}
+	s := adapters.SuggestName(key, specKeys)
+	switch {
+	case s == "":
+		return nearMiss{}, false
+	case targetOnly:
+		return nearMiss{Use: s, ReadBy: readers}, true
+	default:
+		return nearMiss{Use: s, Owned: true}, true
+	}
+}
+
 // lintNearMissKeys flags those keys at the top level of a spec's
 // frontmatter (LINT007, warn). Warn rather than error because a
 // target-native spelling can be legitimate: Junie really does document
 // disallowedTools, just not at the top level. Keys already namespaced
 // under x-<target> are deliberate and never flagged.
-func lintNearMissKeys(entries []spec.Entry) []lintFinding {
+func lintNearMissKeys(entries []spec.Entry, targets []string) []lintFinding {
 	var out []lintFinding
 	for _, e := range entries {
 		keys := make([]string, 0, len(e.Meta))
@@ -403,10 +433,19 @@ func lintNearMissKeys(entries []spec.Entry) []lintFinding {
 		for _, k := range keys {
 			miss, ok := nearMissKeys[k]
 			if !ok {
+				miss, ok = keyTypo(e.Kind, k, targets)
+			}
+			if !ok {
 				continue
 			}
+			message := fmt.Sprintf("`%s:` is not a key agnostic-ai reads, so it has no effect.", k)
 			advice := fmt.Sprintf("Use `%s:` instead.", miss.Use)
-			if miss.Owned {
+			switch {
+			case len(miss.ReadBy) > 0:
+				message = fmt.Sprintf("`%s:` is read only by %s, not a target here, so it has no effect.",
+					k, strings.Join(miss.ReadBy, " and "))
+				advice = fmt.Sprintf("Did you mean `%s:`?", miss.Use)
+			case miss.Owned:
 				advice = fmt.Sprintf("Did you mean `%s:`? If it is a target-native key, "+
 					"move it under `x-<target>:` to keep it.", miss.Use)
 			}
@@ -414,7 +453,7 @@ func lintNearMissKeys(entries []spec.Entry) []lintFinding {
 				Code:     "LINT007",
 				Severity: lintWarn,
 				Path:     e.Path,
-				Message:  fmt.Sprintf("`%s:` is not a key agnostic-ai reads, so it has no effect. %s", k, advice),
+				Message:  message + " " + advice,
 			})
 		}
 	}

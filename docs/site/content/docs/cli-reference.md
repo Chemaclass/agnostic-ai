@@ -140,6 +140,8 @@ It flags empty specs, dead specs (kinds no enabled target supports), and hooks t
 | LINT006 | Error. Frontmatter opens `---` and never closes, so the raw YAML is emitted as body. `validate` and `sync` both pass. |
 | LINT008 | Error. A stdio MCP server lacks `command:`, or an `http`/`sse`/`ws` one lacks `url:`. Trae, Antigravity, and Windsurf drop it; Claude Code, Codex, Cursor, Gemini, Copilot, and the rest write an invalid server object. `x-<target>` cannot set either reserved field. |
 
+LINT007 warns on a frontmatter key agnostic-ai does not read that is one edit from one it does (two for longer names): `glob:` for `globs:`, `descriptin:` for `description:`. The key parses and emits, so the setting is lost with no other signal; `sync` prints the same warning. A target-native key belongs under `x-<target>:`. A key only some targets read at the top level, such as Qoder's `glob:` or OpenCode's and Kilo's `mode:`, is flagged only when none of them is in `targets`. Settings and environment specs pass their keys through and are not checked, and `sync` skips pack specs.
+
 LINT009 warns on a permission that approves more than it says. An `allow` rule such as `Bash(git * main)` puts `*` before the end of the command, so it also matches `git push --force main`. Claude Code warns about the same rule at startup; the targets that translate it widen it without a word. Write the exact value, or keep `*` at the end (`Bash(go test:*)`, `Bash(npm run *)`). `deny` and `ask` rules are skipped, since widening them only blocks or prompts more.
 
 ## list
