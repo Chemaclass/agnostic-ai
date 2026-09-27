@@ -1120,9 +1120,9 @@ func TestSiteDocs_TocEscapesHeadingTitles(t *testing.T) {
 }
 
 // TestSiteDocs_HeaderKeepsOnlySiteNavigation pins the header to the pages
-// of this site plus search and the theme toggle, in one order across the
-// Zola shell and the hand-written playground page. The release version and
-// the GitHub link live in the footer; repeating them up top was noise.
+// of this site plus search, the GitHub link, and the theme toggle, in one
+// order across the Zola shell and the hand-written playground page. The
+// release version lives in the footer; repeating it up top was noise.
 func TestSiteDocs_HeaderKeepsOnlySiteNavigation(t *testing.T) {
 	t.Parallel()
 
@@ -1140,11 +1140,13 @@ func TestSiteDocs_HeaderKeepsOnlySiteNavigation(t *testing.T) {
 		if got, want := strings.Join(order, ","), "Home,Docs,Updates,Playground"; got != want {
 			t.Errorf("%s: nav order = %s, want %s", path, got, want)
 		}
-		search, theme := strings.Index(block, "data-search-open"), strings.Index(block, `class="theme-toggle"`)
-		if search < 0 || theme < 0 || search > theme {
-			t.Errorf("%s: header must end with search, then the theme toggle", path)
+		search := strings.Index(block, "data-search-open")
+		github := strings.Index(block, `class="header-icon-link"`)
+		theme := strings.Index(block, `class="theme-toggle"`)
+		if search < 0 || github < 0 || theme < 0 || search > github || github > theme {
+			t.Errorf("%s: header must end with search, the GitHub link, then the theme toggle", path)
 		}
-		for _, noise := range []string{"brand-version", "config.extra.version", "github.com", "repository_url"} {
+		for _, noise := range []string{"brand-version", "config.extra.version"} {
 			if strings.Contains(block, noise) {
 				t.Errorf("%s: header still carries %q; the footer already shows it", path, noise)
 			}
