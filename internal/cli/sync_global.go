@@ -83,11 +83,26 @@ type globalWrite struct {
 	// changes, adopted, and conflicts describe a key-level edit of a
 	// user settings file; conflicts need --backup.
 	changes, adopted, conflicts []string
+	// targets names the targets whose surfaces this write carries.
+	targets []string
+}
+
+// addTarget records that target writes w.
+func (w *globalWrite) addTarget(target string) {
+	if target != "" && !slices.Contains(w.targets, target) {
+		w.targets = append(w.targets, target)
+	}
 }
 
 func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
-	if o.watch || o.watchPoll || o.plan || o.jsonOut || o.allTargets || o.gitignore != "" || o.jobs != 0 {
-		return errs.Coded(errs.CodeFlagConflict, "--global does not support --watch, --watch-poll, --plan, --json, --all, --gitignore, or --jobs")
+	if o.watch || o.watchPoll || o.allTargets || o.gitignore != "" || o.jobs != 0 {
+		return errs.Coded(errs.CodeFlagConflict, "--global does not support --watch, --watch-poll, --all, --gitignore, or --jobs")
+	}
+	if o.plan && (o.check || o.dryRun) {
+		return errs.Coded(errs.CodeFlagConflict, "--plan cannot be combined with --check or --dry-run")
+	}
+	if o.jsonOut && o.diff {
+		return errs.Coded(errs.CodeFlagConflict, "--json cannot be combined with --diff")
 	}
 	if o.diff && !o.check {
 		return errs.Coded(errs.CodeFlagConflict, "--diff requires --check with --global")
@@ -107,7 +122,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	}
 	source := globalSourceHome(home)
 	warn := cmd.ErrOrStderr()
-	if verbosity < levelDefault || o.check {
+	if verbosity < levelDefault || o.check || o.jsonOut {
 		warn = io.Discard
 	}
 	// -t bypasses the home config, so one that does not parse only
@@ -234,8 +249,29 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		return err
 	}
 	removals := removedGlobalFiles(old.Files, next.Files)
+	if o.check && o.jsonOut {
+		records := globalFileRecords(writes, existingPaths(removals), statePath, next, true)
+		if err := emitGlobalJSON(cmd, "sync --global --check", records); err != nil {
+			return err
+		}
+		if len(records) > 0 {
+			return errDriftDetected()
+		}
+		return nil
+	}
 	if o.check {
 		return checkGlobalWrites(cmd, writes, existingPaths(removals), statePath, next, o.diff)
+	}
+	if o.plan || (o.dryRun && o.jsonOut) {
+		records := globalFileRecords(writes, existingPaths(removals), statePath, next, false)
+		if o.jsonOut {
+			command := "sync --global --plan"
+			if o.dryRun {
+				command = "sync --global --dry-run"
+			}
+			return emitGlobalJSON(cmd, command, records)
+		}
+		return printGlobalPlan(cmd, records)
 	}
 	if o.dryRun {
 		for _, w := range writes {
@@ -295,9 +331,16 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 			return fmt.Errorf("rewriting %s would drop its comments; rerun with --backup to rewrite and keep a .bak copy", strings.Join(commented, ", "))
 		}
 	}
+	var applied []globalFileRecord
+	if o.jsonOut {
+		applied = globalFileRecords(writes, existingPaths(removals), statePath, next, false)
+	}
 	linked, err := applyGlobalChanges(writes, removals, o.backup)
 	if err != nil {
 		return err
+	}
+	if o.jsonOut {
+		return emitGlobalJSON(cmd, "sync --global", applied)
 	}
 	for _, link := range linked {
 		if _, err := fmt.Fprintln(warn, link); err != nil {
@@ -317,6 +360,93 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	}
 	if _, err = fmt.Fprintf(cmd.OutOrStdout(), "Synced global configuration to %d target(s).\n", len(targets)); err != nil {
 		return fmt.Errorf("write sync summary: %w", err)
+	}
+	return nil
+}
+
+// globalFileRecord is a fileRecord with the key-level edits a user
+// settings or MCP file carries.
+type globalFileRecord struct {
+	fileRecord
+	Keys []string `json:"keys,omitempty"`
+}
+
+// emitGlobalJSON prints records in the jsonOutput layout: version,
+// command, writes, skipped, and errors.
+func emitGlobalJSON(cmd *cobra.Command, command string, records []globalFileRecord) error {
+	if records == nil {
+		records = []globalFileRecord{}
+	}
+	return writeIndentedJSON(cmd, struct {
+		Version string             `json:"version"`
+		Command string             `json:"command"`
+		Writes  []globalFileRecord `json:"writes"`
+		Skipped []fileRecord       `json:"skipped"`
+		Errors  []errorRecord      `json:"errors"`
+	}{"1", command, records, []fileRecord{}, []errorRecord{}})
+}
+
+// globalFileRecords describes each file a run would change, in the
+// project sync schema: create, update, or delete, or with check the
+// drift words missing, stale, and leftover. A user settings or MCP file
+// lists its key-level edits, and a conflict is marked in them.
+func globalFileRecords(writes []globalWrite, removals []string, statePath string, next globalState, check bool) []globalFileRecord {
+	create, update, remove := "create", "update", "delete"
+	if check {
+		create, update, remove = "missing", "stale", "leftover"
+	}
+	out := []globalFileRecord{}
+	for _, w := range writes {
+		action := update
+		if w.path == statePath {
+			if globalStateCurrent(statePath, next) {
+				continue
+			}
+			if _, err := os.Stat(statePath); err != nil {
+				action = create
+			}
+		} else {
+			data, err := os.ReadFile(w.path)
+			if err == nil && bytes.Equal(data, w.data) {
+				continue
+			}
+			if err != nil {
+				action = create
+			}
+		}
+		keys := slices.Clone(w.changes)
+		for _, c := range w.conflicts {
+			keys = append(keys, "conflict: "+c)
+		}
+		out = append(out, globalFileRecord{fileRecord: fileRecord{Target: strings.Join(w.targets, ","), Path: filepath.ToSlash(w.path), Action: action, Bytes: len(w.data)}, Keys: keys})
+	}
+	for _, path := range removals {
+		out = append(out, globalFileRecord{fileRecord: fileRecord{Path: filepath.ToSlash(path), Action: remove}})
+	}
+	return out
+}
+
+// printGlobalPlan prints one line per file a sync would change, with its
+// key-level edits under it, and writes nothing.
+func printGlobalPlan(cmd *cobra.Command, records []globalFileRecord) error {
+	out := cmd.OutOrStdout()
+	if len(records) == 0 {
+		_, err := fmt.Fprintln(out, "No changes.")
+		return err
+	}
+	for _, r := range records {
+		target := ""
+		if r.Target != "" {
+			target = " [" + r.Target + "]"
+		}
+		if _, err := fmt.Fprintf(out, "%s %s%s\n", r.Action, r.Path, target); err != nil {
+			return fmt.Errorf("write plan: %w", err)
+		}
+		for _, key := range r.Keys {
+			if _, err := fmt.Fprintf(out, "  %s\n", key); err != nil {
+				return fmt.Errorf("write plan: %w", err)
+			}
+		}
 	}
 	return nil
 }
@@ -553,15 +683,18 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	// emptied holds hooks files the hooks merge left with nothing in
 	// them, which a settings edit must start from instead of the disk.
 	emptied := map[string]bool{}
+	// current is the target whose surfaces the loops below are placing.
+	var current string
 	place := func(path string, data []byte, mode fs.FileMode) (bool, error) {
 		if i, ok := seen[path]; ok {
 			if !bytes.Equal(writes[i].data, data) {
 				return false, fmt.Errorf("%s: two global targets emit different content to one path", path)
 			}
+			writes[i].addTarget(current)
 			return false, nil
 		}
 		seen[path] = len(writes)
-		writes = append(writes, globalWrite{path: path, data: data, mode: mode})
+		writes = append(writes, globalWrite{path: path, data: data, mode: mode, targets: []string{current}})
 		return true, nil
 	}
 	add := func(path string, data []byte, mode fs.FileMode) error {
@@ -575,6 +708,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	body := strings.TrimSpace(string(intro))
 	managed := globalStart + "\n" + body + "\n" + globalEnd
 	for _, target := range targets {
+		current = target
 		g := globalTargets[target]
 		if g.agents != "" {
 			dir := g.agentsPath(home)
@@ -733,6 +867,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			writes[i].data = m.data
 		}
 		w := &writes[i]
+		w.addTarget(current)
 		w.changes = append(w.changes, m.changes...)
 		w.adopted = append(w.adopted, m.adopted...)
 		w.conflicts = append(w.conflicts, m.conflicts...)
@@ -753,6 +888,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		return nil
 	}
 	for _, target := range targets {
+		current = target
 		g := globalTargets[target]
 		want := globalSettingsFor(target, g, b.Settings)
 		if g.settings.path != "" {
