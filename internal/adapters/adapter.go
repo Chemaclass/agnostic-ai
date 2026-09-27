@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"os/exec"
+	"slices"
 	"sort"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/aider"
@@ -466,6 +467,11 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 	defer emit.ProvenanceFor(cfg, a.Name())()
 	if cfg != nil {
 		sess.SetUnmanaged(cfg.Sync.Unmanaged)
+		codexSkills := ""
+		if slices.Contains(cfg.Targets, "codex") {
+			codexSkills = emit.OutputSkillsDir(cfg, "codex", emit.CodexSkillsRoot)
+		}
+		sess.SetCodexSkillsDir(codexSkills)
 	}
 	prepared, files, err := emit.PrepareScopedRules(expandBundleVars(b.For(a.Name()), cfg, a.Name()), cfg, a.Name())
 	if err != nil {

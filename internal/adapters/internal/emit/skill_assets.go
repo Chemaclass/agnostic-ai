@@ -33,7 +33,7 @@ func (s *Session) PropagateSkillAssets(sk spec.Entry, dstDir string, skip func(r
 	if !FolderBasedSkill(sk) {
 		return nil
 	}
-	if (skip != nil && skip(OpenAIYAMLRel)) || !codexScansSkillFolder(dstDir) || !bundlesOpenAIYAML(sk) {
+	if (skip != nil && skip(OpenAIYAMLRel)) || !s.codexScansSkillFolder(dstDir) || !bundlesOpenAIYAML(sk) {
 		return s.CopyTree(sk.SkillAssetDir(), dstDir, skip, dryRun)
 	}
 	merged, err := OpenAIYAML(sk)

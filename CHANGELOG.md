@@ -18,6 +18,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Changed
 
+- A skill that is manual-only, or sets `x-codex.interface`, `policy`, or `dependencies`, and bundles an `agents/openai.yaml` that is not a YAML mapping now fails `sync` when it lands in the Codex skills tree (`.agents/skills/` or `outputs.codex.skills-dir`), including for amp alone and `sync --global`. The error names the file. Sync merges the Codex policy into that file, so it can no longer copy it as is.
 - `sync` ends with what it changed: the specs edited since the last sync, the files created, updated, and removed, and the changed files git still has to commit. A run with nothing to do says `up to date`.
 - Warnings and notes repeated from the previous sync collapse into one line, and `sync -v` shows them again. The old hint said to delete `.agnostic-ai/.sync-state`, which also dropped the record the orphan sweep relies on.
 

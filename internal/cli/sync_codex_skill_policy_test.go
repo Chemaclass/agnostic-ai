@@ -122,3 +122,26 @@ func TestSync_ManualOnlySkillNamesAnUnparsableBundledOpenAIYAML(t *testing.T) {
 		t.Fatalf("want an error naming the bundled file, got %v", err)
 	}
 }
+
+func TestSync_TargetSharingCodexSkillsDirWritesMergedOpenAIYAML(t *testing.T) {
+	dir := setupBundledOpenAIYAMLProject(t, "codex, kiro", "disable-model-invocation: true\n", "interface:\n  display_name: Deploy UI\n")
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, kiro]\noutputs:\n  codex:\n    skills-dir: shared/skills\n  kiro:\n    skills-dir: shared/skills\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "shared", "skills", "deploy", "agents", "openai.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"display_name: Deploy UI", "allow_implicit_invocation: false"} {
+		if !strings.Contains(string(data), want) {
+			t.Errorf("openai.yaml missing %q:\n%s", want, data)
+		}
+	}
+	if err := runSync(t, "--check"); err != nil {
+		t.Errorf("sync --check after sync: %v", err)
+	}
+}

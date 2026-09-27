@@ -122,13 +122,24 @@ func manualOnlyForCodex(s spec.Entry) bool {
 }
 
 // codexScansSkillFolder reports whether folder sits in `.agents/skills/`,
-// the tree Codex scans, which several other targets also write.
-func codexScansSkillFolder(folder string) bool {
+// the tree Codex scans, or in the codex skills dir the project sets,
+// either at the root or under a scope. Other targets may write there too.
+func (s *Session) codexScansSkillFolder(folder string) bool {
 	parent := filepath.ToSlash(filepath.Dir(folder))
-	return parent == codexSkillsRoot || strings.HasSuffix(parent, "/"+codexSkillsRoot)
+	roots := []string{CodexSkillsRoot}
+	if dir := s.codexSkillsDir.Load(); dir != nil {
+		roots = append(roots, filepath.ToSlash(filepath.Clean(*dir)))
+	}
+	for _, root := range roots {
+		if parent == root || strings.HasSuffix(parent, "/"+root) {
+			return true
+		}
+	}
+	return false
 }
 
-const codexSkillsRoot = ".agents/skills"
+// CodexSkillsRoot is the project skills tree Codex scans.
+const CodexSkillsRoot = ".agents/skills"
 
 func bundlesOpenAIYAML(s spec.Entry) bool {
 	if !FolderBasedSkill(s) {
