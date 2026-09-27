@@ -13,6 +13,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - Every coded error prints its fix on the next line, so `sync` in a folder without a config says to run `agnostic-ai init`.
 - `init` and `status` point a project with no specs at `agnostic-ai new rule <name>`, and `doctor` says when the generated files are in sync.
 - `lint --global` and `validate --global` check `~/.agnostic-ai/` and its `local/` layer before `sync --global` writes them, from any directory. They exit 1 on errors, and both report a scoped or conditional rule that `sync --global` would reject (LINT010).
+- `readonly: true` on an agent now restricts Claude Code too: the agent file gets `disallowedTools: [Write, Edit, NotebookEdit]` instead of a `readonly` key Claude ignores, and `sync` no longer says the field has no effect on claude. Bash stays allowed. An explicit `x-claude.disallowedTools` wins.
 
 ### Changed
 
