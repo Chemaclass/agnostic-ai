@@ -575,11 +575,11 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		t.Errorf("the home page shows %d of %d generated files at rest, want exactly 1", panelCount-hiddenPanels, panelCount)
 	}
 
-	// The hero plays the 30-second video through the same click-to-load
+	// The hero plays the explainer video through the same click-to-load
 	// poster as the docs demo, so nothing loads from YouTube before a click.
 	for _, required := range []string{
-		`data-video-id="jj1jYd5uRos"`,
-		`href="https://www.youtube.com/watch?v=jj1jYd5uRos"`,
+		`data-video-id="oHeKVk6bidA"`,
+		`href="https://www.youtube.com/watch?v=oHeKVk6bidA"`,
 		"assets/images/hero-video-poster.webp",
 		"assets/scripts/video.js",
 		`"@type": "VideoObject"`,

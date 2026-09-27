@@ -32,7 +32,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Site
 
-- The landing page plays the 30-second intro video on click, and the header has the new hub logo and a GitHub button (#1221, #1233, #1237).
+- The landing page plays the one-minute explainer video on click, and the header has the new hub logo and a GitHub button (#1221, #1233, #1237).
 - The `why` guide moved to `/docs/trace/`; the old URL redirects (#1191).
 
 ## v0.69.0 - 2026-09-26

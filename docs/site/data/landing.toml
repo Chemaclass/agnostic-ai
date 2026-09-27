@@ -9,12 +9,12 @@ install_label = "Recommended installer"
 install_link_label = "All install options"
 
 [hero.video]
-video_id = "jj1jYd5uRos"
-video_title = "Every AI tool wants its own file. agnostic-ai fixes that."
-play_label = "Play the video: Every AI tool wants its own file, 30 seconds"
-body = "Thirty seconds from one source to native files for every AI coding tool."
+video_id = "oHeKVk6bidA"
+video_title = "One setup for every AI coding tool: Claude Code, Codex, Cursor and more"
+play_label = "Play the video: one setup for every AI coding tool, 1 minute"
+body = "One minute on why every AI coding tool wants its own setup, and how agnostic-ai writes them all from one source."
 upload_date = "2026-09-27"
-duration = "PT30S"
+duration = "PT1M"
 
 [hero.diagram]
 source_name = ".agnostic-ai/agents/reviewer.md"
