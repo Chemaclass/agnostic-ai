@@ -12,6 +12,10 @@ import (
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // globalImportSettingsSpec is where import --global puts the default
@@ -33,17 +37,29 @@ func runImportGlobal(cmd *cobra.Command, args []string, dryRun bool) error {
 	if err != nil {
 		return err
 	}
+	for _, target := range targets {
+		if err := globalTargets[target].rootError(target); err != nil {
+			return err
+		}
+	}
 	stage, err := os.MkdirTemp("", "agnostic-ai-import-global-*")
 	if err != nil {
 		return fmt.Errorf("create staging directory: %w", err)
 	}
 	defer func() { _ = os.RemoveAll(stage) }()
 
-	warn := cmd.ErrOrStderr()
-	if err := stageGlobalSettings(home, stage, targets); err != nil {
+	// Anything a home spec already provides, shared or local, is left
+	// out: importing it again would copy a local secret into the
+	// shared home, or add a second spec for one key.
+	bundle, err := spec.LoadLayered(globalLayers(source))
+	if err != nil {
 		return err
 	}
-	if err := stageGlobalMCP(home, stage, targets, warn); err != nil {
+	warn := cmd.ErrOrStderr()
+	if err := stageGlobalSettings(home, stage, targets, bundle.Settings); err != nil {
+		return err
+	}
+	if err := stageGlobalMCP(home, stage, targets, bundle.MCPs, warn); err != nil {
 		return err
 	}
 
@@ -139,7 +155,7 @@ func globalImportTargets(args []string) ([]string, error) {
 // stageGlobalSettings writes one settings spec with each target's
 // default model and effort as a per-target map, so sync writes each
 // value back to the key it came from.
-func stageGlobalSettings(home, stage string, targets []string) error {
+func stageGlobalSettings(home, stage string, targets []string, have []spec.Entry) error {
 	model, effort := map[string]any{}, map[string]any{}
 	for _, target := range targets {
 		g := globalTargets[target]
@@ -159,14 +175,14 @@ func stageGlobalSettings(home, stage string, targets []string) error {
 		if err != nil {
 			return err
 		}
-		if f.model != "" {
+		if f.model != "" && adapters.SettingsModel(have, target) == "" {
 			if v, ok := settingsLookup(values, f.model, f.format); ok {
 				if s, _ := v.(string); s != "" {
 					model[target] = s
 				}
 			}
 		}
-		if f.effort != "" {
+		if f.effort != "" && adapters.SettingsEffort(have, target) == nil {
 			if v, ok := settingsLookup(values, f.effort, f.format); ok && f.accepts(v) {
 				effort[target] = v
 			}
@@ -194,11 +210,29 @@ func stageGlobalSettings(home, stage string, targets []string) error {
 }
 
 // stageGlobalMCP writes one MCP spec per user server, with each
-// target's own importer. A name two targets define differently keeps
-// the first target's server and warns, since one spec reaches both.
-func stageGlobalMCP(home, stage string, targets []string, warn io.Writer) error {
+// target's own importer. A server a home spec already names is left
+// out, and so is one whose spec would not render back to the same
+// entry, since sync would then report it as a conflict. A name two
+// targets define differently keeps the first target's server and
+// warns, since one spec reaches both.
+func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, warn io.Writer) error {
 	dst := filepath.Join(stage, "mcps")
-	from := map[string]string{}
+	// first holds, per lowercased server name, the target that supplied
+	// it and its entry; names differing only in case share one file on
+	// a case-insensitive disk.
+	type supplied struct {
+		target, name string
+		server       any
+	}
+	first := map[string]supplied{}
+	covered := map[string]bool{}
+	for _, m := range have {
+		covered[m.Name] = true
+	}
+	skip := func(target, name, reason string) error {
+		_, err := fmt.Fprintf(warn, "warning: %s: skipped MCP server %s: %s\n", target, name, reason)
+		return err
+	}
 	for _, target := range targets {
 		g := globalTargets[target]
 		if g.mcp.path == "" {
@@ -209,12 +243,25 @@ func stageGlobalMCP(home, stage string, targets []string, warn io.Writer) error 
 		if err != nil {
 			return fmt.Errorf("create staging directory: %w", err)
 		}
+		var native map[string]any
 		if g.mcp.format == "toml" {
 			_, servers, err := readCodexConfigTOMLFile(path)
 			if err != nil {
 				return err
 			}
+			for name := range servers {
+				if covered[name] {
+					delete(servers, name)
+				}
+			}
 			if _, err := writeCodexMCPs(servers, dir); err != nil {
+				return err
+			}
+			data, err := os.ReadFile(path)
+			if err != nil && !os.IsNotExist(err) {
+				return fmt.Errorf("read %s: %w", path, err)
+			}
+			if native, err = tomlTableValues(path, g.mcp.key, data); err != nil {
 				return err
 			}
 		} else {
@@ -222,32 +269,69 @@ func stageGlobalMCP(home, stage string, targets []string, warn io.Writer) error 
 			if err != nil {
 				return err
 			}
-			if target == "gemini" {
-				normalizeGeminiMCPTransport(servers)
+			native = map[string]any{}
+			for name, server := range servers {
+				if covered[name] {
+					delete(servers, name)
+					continue
+				}
+				native[name] = jsonRoundTrip(server)
 			}
+			normalizeImportedMCP(target, servers)
 			if _, err := writeMCPYAMLs(servers, dir); err != nil {
 				return err
 			}
 		}
-		entries, err := os.ReadDir(dir)
+		staged, err := spec.LoadLayered([]spec.Layer{{Name: "import", Root: dir, Sources: config.Sources{MCPs: "."}}})
 		if err != nil {
-			return fmt.Errorf("read %s: %w", dir, err)
+			return err
 		}
-		for _, entry := range entries {
-			data, err := os.ReadFile(filepath.Join(dir, entry.Name()))
-			if err != nil {
-				return fmt.Errorf("read %s: %w", entry.Name(), err)
+		rendered := map[string]any{}
+		if g.mcp.format == "toml" {
+			tables, _ := adapters.UserMCPServerTables(target, staged.MCPs)
+			for name, table := range tables {
+				values, err := tomlTableValues(path, g.mcp.key, []byte(table))
+				if err != nil {
+					return err
+				}
+				rendered[name] = values[name]
 			}
-			out := filepath.Join(dst, entry.Name())
-			if first, ok := from[entry.Name()]; ok {
-				if existing, err := os.ReadFile(out); err == nil && !bytes.Equal(existing, data) {
-					if _, err := fmt.Fprintf(warn, "warning: %s: %s defines %s differently from %s; kept %s's\n", target, path, strings.TrimSuffix(entry.Name(), ".yaml"), first, first); err != nil {
+		} else {
+			rendered, _ = adapters.UserMCPServers(target, staged.MCPs)
+		}
+		var kept []spec.Entry
+		for _, m := range staged.MCPs {
+			same := sameSetting(rendered[m.Name], native[m.Name])
+			if g.mcp.format == "json" {
+				same = sameMCPServer(target, rendered[m.Name], native[m.Name])
+			}
+			if same {
+				kept = append(kept, m)
+				continue
+			}
+			if err := os.Remove(m.Path); err != nil {
+				return fmt.Errorf("remove %s: %w", m.Path, err)
+			}
+			if err := skip(target, m.Name, "its spec would not write back the same server; add it to the home by hand"); err != nil {
+				return fmt.Errorf("write import warning: %w", err)
+			}
+		}
+		for _, m := range kept {
+			key := strings.ToLower(m.Name)
+			if prior, ok := first[key]; ok {
+				if prior.name != m.Name || !sameSetting(canonicalMCPServer(prior.target, prior.server), canonicalMCPServer(target, native[m.Name])) {
+					if _, err := fmt.Fprintf(warn, "warning: %s: %s defines %s differently from %s's %s; kept %s's\n", target, path, m.Name, prior.target, prior.name, prior.target); err != nil {
 						return fmt.Errorf("write import warning: %w", err)
 					}
 				}
 				continue
 			}
-			from[entry.Name()] = target
+			first[key] = supplied{target: target, name: m.Name, server: native[m.Name]}
+			data, err := os.ReadFile(m.Path)
+			if err != nil {
+				return fmt.Errorf("read %s: %w", m.Path, err)
+			}
+			out := filepath.Join(dst, filepath.Base(m.Path))
 			if err := importMkdirAll(dst, 0o755); err != nil {
 				return fmt.Errorf("create directory for %s: %w", out, err)
 			}
@@ -262,13 +346,27 @@ func stageGlobalMCP(home, stage string, targets []string, warn io.Writer) error 
 	return nil
 }
 
-// normalizeGeminiMCPTransport spells Gemini's transport the portable
-// way: `httpUrl` is streamable HTTP and a bare `url` is SSE, so the
-// spec renders back to the same key.
-func normalizeGeminiMCPTransport(servers map[string]any) {
+// normalizeImportedMCP spells each server's transport the portable
+// way, so the spec renders back to the same entry: Gemini's `httpUrl`
+// is streamable HTTP and a bare `url` is SSE, and Copilot's `local` is
+// the stdio default.
+func normalizeImportedMCP(target string, servers map[string]any) {
 	for _, raw := range servers {
 		server, ok := raw.(map[string]any)
 		if !ok {
+			continue
+		}
+		if target == "copilot" {
+			if server["type"] == "local" || server["type"] == "stdio" {
+				delete(server, "type")
+			}
+			// "*" is the default Copilot gets back when a spec sets none.
+			if tools, ok := server["tools"].([]any); ok && len(tools) == 1 && tools[0] == "*" {
+				delete(server, "tools")
+			}
+			continue
+		}
+		if target != "gemini" {
 			continue
 		}
 		if url, ok := server["httpUrl"]; ok {

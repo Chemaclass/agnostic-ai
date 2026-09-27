@@ -66,13 +66,32 @@ func mergeGlobalMCP(path string, f globalMCPFile, base []byte, target string, mc
 		return mergeGlobalMCPTables(path, f.key, base, tables, sources, previous)
 	}
 	servers, _ := adapters.UserMCPServers(target, mcps)
+	current := map[string]any{}
+	if data := base; data != nil || fileExists(path) {
+		if data == nil {
+			var err error
+			if data, err = os.ReadFile(path); err != nil {
+				return globalSettingsMerge{}, fmt.Errorf("read %s: %w", path, err)
+			}
+		}
+		values, err := settingsValues(path, "json", data)
+		if err != nil {
+			return globalSettingsMerge{}, err
+		}
+		current, _ = values[f.key].(map[string]any)
+	}
 	var want []globalSetting
 	for _, name := range slices.Sorted(maps.Keys(servers)) {
 		if strings.Contains(name, ".") {
 			adapters.NoteSettingsFieldNoOp(target, "mcp "+name, 1, "a server name with a dot cannot be a key of the user MCP map here; rename the spec")
 			continue
 		}
-		want = append(want, globalSetting{target: target, key: f.key + "." + name, value: servers[name], field: "mcp", source: sources[name]})
+		value := servers[name]
+		// A hand-written server that means the same is kept as written.
+		if have, ok := current[name]; ok && sameMCPServer(target, have, value) {
+			value = have
+		}
+		want = append(want, globalSetting{target: target, key: f.key + "." + name, value: value, field: "mcp", source: sources[name]})
 	}
 	return mergeGlobalSettings(path, "json", base, want, previous)
 }
@@ -164,4 +183,55 @@ func tomlTableValues(path, parent string, data []byte) (map[string]any, error) {
 		out[name] = jsonRoundTrip(value)
 	}
 	return out, nil
+}
+
+// sameMCPServer reports whether two user MCP entries of target mean the
+// same server: equal once each is spelled the canonical way, so a
+// hand-written entry that leaves out an implied `type`, or Copilot's
+// default `tools: ["*"]`, counts as what sync would write.
+func sameMCPServer(target string, a, b any) bool {
+	return sameSetting(canonicalMCPServer(target, a), canonicalMCPServer(target, b))
+}
+
+func canonicalMCPServer(target string, v any) any {
+	server, ok := jsonRoundTrip(v).(map[string]any)
+	if !ok {
+		return v
+	}
+	out := maps.Clone(server)
+	// An empty list or map, such as args: [], says nothing.
+	for key, value := range out {
+		switch v := value.(type) {
+		case []any:
+			if len(v) == 0 {
+				delete(out, key)
+			}
+		case map[string]any:
+			if len(v) == 0 {
+				delete(out, key)
+			}
+		}
+	}
+	_, hasCommand := out["command"]
+	_, hasURL := out["url"]
+	switch kind, _ := out["type"].(string); {
+	case target == "gemini":
+		// httpUrl is streamable HTTP; url is SSE unless type says http.
+		if url, ok := out["httpUrl"]; ok {
+			delete(out, "httpUrl")
+			out["url"], out["type"] = url, "http"
+		} else if hasURL && kind == "" {
+			out["type"] = "sse"
+		}
+	case hasCommand && (kind == "stdio" || kind == "local"):
+		delete(out, "type")
+	case hasURL && kind == "http":
+		delete(out, "type")
+	}
+	if target == "copilot" {
+		if tools, ok := out["tools"].([]any); ok && len(tools) == 1 && tools[0] == "*" {
+			delete(out, "tools")
+		}
+	}
+	return out
 }
