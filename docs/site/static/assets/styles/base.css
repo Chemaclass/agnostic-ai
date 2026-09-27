@@ -272,16 +272,28 @@ code {
 .brand-mark {
   width: 1.75rem;
   height: 1.75rem;
-  display: grid;
-  place-items: center;
+  display: block;
   flex: none;
-  border-radius: 8px;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-size: 0.9rem;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: -0.08em;
+}
+
+.brand-spokes {
+  fill: none;
+  stroke: var(--accent);
+  stroke-opacity: 0.7;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+}
+
+.brand-core {
+  fill: var(--accent);
+}
+
+.brand-sat-good {
+  fill: var(--good);
+}
+
+.brand-sat-ink {
+  fill: var(--ink);
 }
 
 .site-nav {

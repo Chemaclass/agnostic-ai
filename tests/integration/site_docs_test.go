@@ -35,11 +35,11 @@ func TestSiteDocs_AllPageShellsLoadCronitorRUM(t *testing.T) {
 		if !strings.Contains(page, cronitorRUMClientKey) {
 			t.Errorf("%s does not configure the Cronitor RUM client key", path)
 		}
-		if !strings.Contains(page, `class="brand-mark" aria-hidden="true">aⁱ</span>`) {
-			t.Errorf("%s does not use the aⁱ brand mark", path)
+		if !strings.Contains(page, `<svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><path class="brand-spokes"`) {
+			t.Errorf("%s does not use the hub brand mark", path)
 		}
-		if !strings.Contains(page, `a%E2%81%B1%3C/text%3E`) {
-			t.Errorf("%s favicon does not use the aⁱ brand mark", path)
+		if !strings.Contains(page, `%3Ccircle cx='32' cy='32' r='8' fill='%23f0a35e'/%3E`) {
+			t.Errorf("%s favicon does not use the hub brand mark", path)
 		}
 	}
 }
