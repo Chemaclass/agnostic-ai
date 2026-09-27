@@ -617,6 +617,7 @@ func TestScaffold_PrintsNextStepsGuidance(t *testing.T) {
 	for _, want := range []string{
 		"✓ initialized agnostic-ai project at .agnostic-ai/",
 		"next steps:",
+		"agnostic-ai new rule <name>",
 		"agnostic-ai import <target>",
 		"agnostic-ai sync",
 	} {

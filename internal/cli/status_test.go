@@ -177,3 +177,9 @@ func TestStatus_NoStateFile_NoFiles_ShowsUnknown(t *testing.T) {
 		t.Errorf("expected 'unknown' when no state and no files, got:\n%s", got)
 	}
 }
+
+func TestFormatSpecCounts_EmptyPointsAtTheFirstSpec(t *testing.T) {
+	if got := formatSpecCounts(specCounts{}); !strings.Contains(got, "agnostic-ai new rule <name>") {
+		t.Errorf("got %q", got)
+	}
+}

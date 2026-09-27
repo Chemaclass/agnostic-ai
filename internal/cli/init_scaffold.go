@@ -227,7 +227,8 @@ func printNextSteps(root, base string, targets []string, seeded bool) {
 		summaryf("  agnostic-ai sync --check      # preview what will be written\n")
 		summaryf("  agnostic-ai sync              # emit to your configured targets\n")
 	} else {
-		summaryf("  agnostic-ai import <target>   # mirror an existing CLI's config into specs\n")
+		summaryf("  agnostic-ai new rule <name>   # write your first spec\n")
+		summaryf("  agnostic-ai import <target>   # or mirror an existing CLI's config into specs\n")
 		summaryf("  agnostic-ai sync              # emit to your configured targets\n")
 	}
 	if detected, _ := detectImportSources(root); len(detected) > 0 {

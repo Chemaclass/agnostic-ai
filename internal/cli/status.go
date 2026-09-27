@@ -312,7 +312,7 @@ func formatSpecCounts(s specCounts) string {
 		parts = append(parts, fmt.Sprintf("%d ignores", s.Ignores))
 	}
 	if len(parts) == 0 {
-		return "none"
+		return "none (add one with `agnostic-ai new rule <name>`)"
 	}
 	return strings.Join(parts, ", ")
 }

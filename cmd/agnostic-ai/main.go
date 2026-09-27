@@ -12,7 +12,7 @@ var version = "0.69.0"
 
 func main() {
 	if err := cli.NewRootCmd(version).Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintln(os.Stderr, cli.ErrorText(err))
 		var exitErr interface{ ExitCode() int }
 		if errors.As(err, &exitErr) {
 			os.Exit(exitErr.ExitCode())

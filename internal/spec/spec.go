@@ -18,6 +18,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/errs"
 )
 
 // Kind names a spec category.
@@ -596,6 +597,9 @@ func loadLayer(layer Layer) (Bundle, error) {
 		dir := filepath.Join(layer.Root, l.src)
 		entries, err := walkDir(dir, l.ext, l.kind, l.parse)
 		if err != nil {
+			if errs.CodeOf(err) == errs.CodeSpecParse {
+				return Bundle{}, err // the path already says which spec
+			}
 			return Bundle{}, fmt.Errorf("load %s [%s]: %w", l.kind, layer.Name, err)
 		}
 		assignScopes(entries, dir, l.kind)
@@ -773,6 +777,9 @@ func walkDir(dir, ext string, kind Kind, parse func(string) (Entry, error)) ([]E
 		}
 		entry, err := parse(path)
 		if err != nil {
+			if errs.CodeOf(err) == errs.CodeSpecParse {
+				return err // already names path:line:col
+			}
 			return fmt.Errorf("%s: %w", path, err)
 		}
 		entry.Kind = kind

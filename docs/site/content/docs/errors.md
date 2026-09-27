@@ -10,10 +10,11 @@ group = "Reference"
 # Error codes
 
 
-Every user-facing error has a stable code of the form `AAI-NNN`, prefixed in square brackets:
+Every user-facing error has a stable code of the form `AAI-NNN`, prefixed in square brackets, with its fix on the next line:
 
 ```
 [AAI-003] read config: no agnostic-ai.yaml or agnostic.config.yaml in /path/to/project
+  fix: Run `agnostic-ai init` to scaffold a config, or `cd` into the directory that already contains one. Run `agnostic-ai doctor` for a full diagnosis.
 ```
 
 Look up a code from the terminal:
@@ -92,10 +93,12 @@ A target requested via `--target`, `--only`, or the config is not a built-in ada
 
 A name passed with `--target` fails the run. A config target that does not resolve only warns, so a teammate without an external adapter can still sync. When the name is one edit from a built-in (two for longer names), the message suggests it: `unknown target: claud (did you mean claude? no agnostic-ai-adapter-claud on PATH)`.
 
-**Fix:** check the spelling. Built-ins: `claude`, `codex`, `gemini`, `cursor`, `copilot`, `aider`, `cline`, `windsurf`, `continue`, `amp`, `zed`, `warp`, `opencode`, `antigravity`, `junie`, `kiro`, `crush`, `trae`, `qoder`, `openhands`, `factory`, `kilo`, `jules`, `goose`, `augment`. External adapters live on PATH as `agnostic-ai-adapter-<name>`.
+A known target outside this run (`sync --only codex` with `targets: [claude]`) reports `codex is not in this run's targets (claude)`.
+
+**Fix:** check the spelling. Add a target that exists but is not in this run to `targets`, or pass it with `-t`. Built-ins: `claude`, `codex`, `gemini`, `cursor`, `copilot`, `aider`, `cline`, `windsurf`, `continue`, `amp`, `zed`, `warp`, `opencode`, `antigravity`, `junie`, `kiro`, `crush`, `trae`, `qoder`, `openhands`, `factory`, `kilo`, `jules`, `goose`, `augment`. External adapters live on PATH as `agnostic-ai-adapter-<name>`.
 
 ### AAI-302: Mutually exclusive flags
 
-Two conflicting flags were passed together (e.g. `--only` with `--except`, or `--watch` with `--check`).
+Two conflicting flags were passed together (e.g. `--only` with `--except`, or `--watch` with `--check`), or a flag was passed without the one it needs (`--diff` without `--dry-run`).
 
-**Fix:** pick one. The error message names both flags.
+**Fix:** the message names both flags. Drop one when they conflict; add the missing one when a flag needs another.
