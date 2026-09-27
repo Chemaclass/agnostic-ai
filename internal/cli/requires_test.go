@@ -69,7 +69,7 @@ func assertAbsent(t *testing.T, paths ...string) {
 	}
 }
 
-func TestBuildVersion_OnlyATaggedCleanBuildIsARelease(t *testing.T) {
+func TestBuildVersion_OnlyATaggedBuildIsARelease(t *testing.T) {
 	t.Parallel()
 	req, err := config.ParseRequirement(">=0.69.0")
 	if err != nil {
@@ -84,12 +84,17 @@ func TestBuildVersion_OnlyATaggedCleanBuildIsARelease(t *testing.T) {
 		{"no build info", nil, false, false},
 		{"go run", &debug.BuildInfo{Main: debug.Module{Version: "(devel)"}}, true, false},
 		{"tagged release", &debug.BuildInfo{Main: debug.Module{Version: "v0.69.0"}}, true, true},
+		{"tagged release the tidy hook dirtied", &debug.BuildInfo{Main: debug.Module{Version: "v0.69.0+dirty"}}, true, true},
 		{"commit after a tag", &debug.BuildInfo{Main: debug.Module{Version: "v0.69.1-0.20260927082917-5d5f7ecd4f49"}}, true, false},
 		{"dirty checkout", &debug.BuildInfo{Main: debug.Module{Version: "v0.69.1-0.20260927082917-5d5f7ecd4f49+dirty"}}, true, false},
 	}
 	for _, c := range cases {
-		if _, release := req.Allows(buildVersion(c.info, c.ok)); release != c.release {
-			t.Errorf("%s: release = %v, want %v", c.name, release, c.release)
+		version := buildVersion(c.info, c.ok)
+		if _, release := req.Allows(version); release != c.release {
+			t.Errorf("%s: %q release = %v, want %v", c.name, version, release, c.release)
+		}
+		if c.release && version != "v0.69.0" {
+			t.Errorf("%s: version = %q, want v0.69.0", c.name, version)
 		}
 	}
 }
@@ -230,7 +235,7 @@ func TestGlobalSync_TargetFlagWarnsOnUnparsableHomeConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("-t must not be blocked by a home config it bypasses: %v", err)
 	}
-	if !strings.Contains(errOut, "warning: [AAI-004] parse "+config) || !strings.Contains(errOut, "--target skips it") {
+	if !strings.Contains(errOut, "warning: [AAI-004] parse "+config) || !strings.Contains(errOut, "; skipping it") {
 		t.Errorf("expected a warning naming %s, got:\n%s", config, errOut)
 	}
 	assertGlobalInstructions(t, home, map[string]bool{".claude/CLAUDE.md": true})
@@ -249,5 +254,42 @@ func TestGlobalSync_InvalidRequiresNamesFileAndKey(t *testing.T) {
 	_, _, err := runAsVersion(t, "v0.69.0", "sync", "--global")
 	if errs.CodeOf(err) != errs.CodeConfigDecode || !strings.Contains(err.Error(), config+": requires:") {
 		t.Errorf("want AAI-004 naming %s and requires, got %v", config, err)
+	}
+}
+
+func TestDoctor_NextStepGivesTheConfigErrorFix(t *testing.T) {
+	requiresProject(t, ">=0.70.0")
+
+	out, _, err := runAsVersion(t, "v0.69.0", "doctor")
+	if errs.CodeOf(err) != errs.CodeRequiresUnmet {
+		t.Fatalf("want %s, got %v", errs.CodeRequiresUnmet, err)
+	}
+	entry, _ := errs.Lookup(errs.CodeRequiresUnmet)
+	if !strings.Contains(out, "Next step:\n  "+entry.Fix+"\n") || strings.Contains(out, "agnostic-ai init") {
+		t.Errorf("want the AAI-005 fix as the next step, got:\n%s", out)
+	}
+
+	testutil.TempCwd(t)
+	out, _, _ = runAsVersion(t, "v0.69.0", "doctor")
+	if !strings.Contains(out, "Next step:\n  No agnostic-ai.yaml found. Run: agnostic-ai init\n") {
+		t.Errorf("a missing config must still point at init, got:\n%s", out)
+	}
+}
+
+func TestListGlobal_WarnsOnUnparsableHomeConfig(t *testing.T) {
+	_, source := globalConfigTestHome(t)
+	config := filepath.Join(source, "agnostic-ai.yaml")
+	mustWriteGlobalTest(t, config, "targets: [claude\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
+
+	out, errOut, err := runAsVersion(t, "v0.69.0", "list", "--global")
+	if err != nil {
+		t.Fatalf("list --global reads no targets, so a broken home config must not stop it: %v", err)
+	}
+	if !strings.Contains(errOut, "warning: [AAI-004] parse "+config) {
+		t.Errorf("expected a warning naming %s, got:\n%s", config, errOut)
+	}
+	if !strings.Contains(out, "rule\tsafe\tglobal") {
+		t.Errorf("expected the global rule listed, got:\n%s", out)
 	}
 }

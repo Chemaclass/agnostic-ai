@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"runtime/debug"
 	"strings"
 
@@ -13,9 +14,15 @@ import (
 
 // runningVersion is what the requires check compares. main.version
 // cannot serve: a source build reports the last release. Go stamps a
-// clean tagged checkout as vX.Y.Z, and anything else as a pseudo-version
-// or (devel), which the check does not place.
+// tagged checkout as vX.Y.Z, and a commit past a tag as a pseudo-version
+// or go run as (devel), which the check does not place.
 var runningVersion = buildVersion(debug.ReadBuildInfo())
+
+// taggedBuildRE matches a tag with build metadata and no pre-release
+// part. The release hook's go mod tidy can leave the tagged tree dirty,
+// which stamps vX.Y.Z+dirty; that binary is still release X.Y.Z. A
+// pseudo-version carries a pre-release part, so it does not match.
+var taggedBuildRE = regexp.MustCompile(`^(v\d+\.\d+\.\d+)\+[0-9A-Za-z.-]+$`)
 
 // requiresWarnOut and requiresWarned keep the warning for a build the
 // check cannot place to once per config per run; the root command
@@ -29,6 +36,9 @@ func buildVersion(info *debug.BuildInfo, ok bool) string {
 	if !ok {
 		return ""
 	}
+	if m := taggedBuildRE.FindStringSubmatch(info.Main.Version); m != nil {
+		return m[1]
+	}
 	return info.Main.Version
 }
 
@@ -41,7 +51,7 @@ func requireGlobalVersion(source string, skipBroken io.Writer) error {
 	for _, p := range globalConfigPaths(source) {
 		doc, err := readGlobalConfig(p)
 		if err != nil && skipBroken != nil {
-			if _, werr := fmt.Fprintf(skipBroken, "warning: %v; --target skips it\n", err); werr != nil {
+			if _, werr := fmt.Fprintf(skipBroken, "warning: %v; skipping it\n", err); werr != nil {
 				return fmt.Errorf("write global config warning: %w", werr)
 			}
 			continue

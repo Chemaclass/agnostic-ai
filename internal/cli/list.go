@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"io"
+
 	"github.com/spf13/cobra"
 )
 
@@ -15,7 +17,13 @@ func newListCmd() *cobra.Command {
   # Print effective global specs and their layers
   agnostic-ai list --global`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			scope, err := loadSpecScope(global)
+			// list reads no home targets, so a home config that does not
+			// parse only warns.
+			warn := cmd.ErrOrStderr()
+			if verbosity < levelDefault {
+				warn = io.Discard
+			}
+			scope, err := loadSpecScope(global, warn)
 			if err != nil {
 				return err
 			}
