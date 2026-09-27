@@ -454,6 +454,8 @@ For example, `local/skills/reviewer/SKILL.md` replaces `skills/reviewer/SKILL.md
 
 Ordinary `agnostic-ai sync` does not load `~/.agnostic-ai/`. Run inside the global source root, or any directory under it such as `local/`, it stops before any write and points at `sync --global`, since the home config would otherwise read as a project config. That covers `--check`, `--dry-run`, `--plan`, `--json`, and `--watch` too. `init`, `import`, `new`, `packs add`, `packs remove`, `packs update`, `cleanup`, `revert`, and `install-hook` stop the same way. For a home kept in git, `install-hook --global` writes a pre-commit hook that runs `lint --global --strict`, `validate --global`, and `sync --global --check`. A path through a symlink counts. When `AGNOSTIC_AI_HOME` is your home directory itself, only that directory is guarded, so projects under it still work. Read-only commands such as `lint`, `validate`, and `doctor` still run there. Move project-only defaults into a project's `.agnostic-ai/` or a pack, along with any agents, commands, settings permissions, reviews, environments, or ignore specs. A repository's `.agnostic-ai/` stays project-specific despite the shared basename.
 
+To start a home from what your tools already hold, run `agnostic-ai import --global`; see [import](@/docs/cli-reference.md#import).
+
 ### Default model and effort {#global-default-model-and-effort}
 
 Settings specs in the home set each tool's default model and effort in its user settings file. `model` and `effort` each take a string for every target, or a map per target with an optional `default`:

@@ -46,7 +46,7 @@ func importSources() string {
 }
 
 func newImportCmd() *cobra.Command {
-	var dryRun, diff bool
+	var dryRun, diff, global bool
 	cmd := &cobra.Command{
 		Use:   "import <source>...",
 		Short: "Import existing config from one or more AI CLIs into this project's source directories.",
@@ -75,8 +75,19 @@ func newImportCmd() *cobra.Command {
 
   # Review the proposed content and sources that compete for one file
   agnostic-ai import claude codex --dry-run --diff`,
-		Args: cobra.MinimumNArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if global {
+				return nil
+			}
+			return cobra.MinimumNArgs(1)(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if global {
+				if diff {
+					return errs.Coded(errs.CodeFlagConflict, "--global does not support --diff")
+				}
+				return runImportGlobal(cmd, args, dryRun)
+			}
 			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
 				return err
 			}
@@ -93,6 +104,7 @@ func newImportCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Report which spec files would be written without touching disk.")
+	cmd.Flags().BoolVar(&global, "global", false, "Read the user settings and MCP files sync --global writes into specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai). Takes target names, or none for every supported one. Never replaces an existing spec.")
 	cmd.Flags().BoolVar(&diff, "diff", false, "With --dry-run, show created, changed, and unchanged destinations, a unified diff per change, and sources that propose different content for one destination.")
 	return cmd
 }
