@@ -98,18 +98,18 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if verbosity < levelDefault || o.check {
 		warn = io.Discard
 	}
-	configured, err := loadGlobalTargets(source, warn)
-	if err != nil {
-		return err
-	}
 	targets := o.targets
 	// A default run spans every supported target, so one target's
 	// problem (a relative root variable, a name its native format
 	// rejects) warns and skips that target instead of failing the rest.
 	// A home config names its targets, as --only does.
-	explicit := len(o.targets) > 0 || len(o.only) > 0 || configured != nil
+	explicit := len(o.targets) > 0 || len(o.only) > 0
 	if len(targets) == 0 {
-		targets = configured
+		// -t replaces the home config, so a broken one does not block it.
+		if targets, err = loadGlobalTargets(source, warn); err != nil {
+			return err
+		}
+		explicit = explicit || targets != nil
 	}
 	if len(targets) == 0 {
 		targets = globalTargetNames()

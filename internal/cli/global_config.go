@@ -57,36 +57,82 @@ func loadGlobalTargets(source string, warn io.Writer) ([]string, error) {
 		if len(list) == 0 {
 			return nil, fmt.Errorf("%s: targets is empty; name at least one target or remove the key", path)
 		}
+		// A project-shaped config lists targets with no user-level
+		// surface, such as aider; skipping them keeps it usable here.
+		var kept, skipped []string
 		for _, target := range list {
-			if err := unsupportedGlobalTarget(path, target); err != nil {
-				return nil, err
+			switch {
+			case slices.Contains(kept, target) || slices.Contains(skipped, target):
+				// A repeated name counts once.
+			case slices.Contains(globalTargetNames(), target):
+				kept = append(kept, target)
+			case slices.Contains(adapters.Names(), target):
+				skipped = append(skipped, target)
+			default:
+				return nil, unsupportedGlobalTarget(path, target)
 			}
 		}
-		targets = list
+		if len(skipped) > 0 {
+			if _, err := fmt.Fprintf(warn, "warning: %s: sync --global cannot write %s; skipping them\n", path, strings.Join(skipped, ", ")); err != nil {
+				return nil, fmt.Errorf("write global config warning: %w", err)
+			}
+		}
+		if len(kept) == 0 {
+			return nil, fmt.Errorf("%s: no listed target has a user-level surface; supported: %s", path, strings.Join(globalTargetNames(), ", "))
+		}
+		targets = kept
 	}
 	return targets, nil
 }
 
-// refuseGlobalHome stops a project sync in the global source root, whose
-// agnostic-ai.yaml is the home config: read as a project, it would write
-// native files into the home. os.SameFile sees through symlinks and case.
-func refuseGlobalHome(dir string) error {
+// Remedies refuseGlobalHome offers besides pointing AGNOSTIC_AI_HOME away.
+const (
+	globalHomeSyncRemedy  = "run `agnostic-ai sync --global`"
+	globalHomeSpecsRemedy = "edit its specs by hand and run `agnostic-ai sync --global`"
+)
+
+// refuseGlobalHome stops a project command in the global source root or
+// any directory inside it. Read as a project, the home config would send
+// native files and project scaffolding into the home or its local/ layer.
+// Walking the resolved path and comparing with os.SameFile sees through
+// symlinks and path case.
+func refuseGlobalHome(dir, remedy string) error {
 	source, err := globalSourceRoot()
 	if err != nil {
 		return nil
 	}
-	here, err := os.Stat(dir)
+	root, err := os.Stat(source)
 	if err != nil {
 		return nil
 	}
-	root, err := os.Stat(source)
-	if err != nil || !os.SameFile(here, root) {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
 		return nil
 	}
-	if os.Getenv(envUserGlobalRoot) != "" {
-		return fmt.Errorf("%s is the global home (%s); run `agnostic-ai sync --global`, or unset %s if this is a project", source, envUserGlobalRoot, envUserGlobalRoot)
+	current, err := filepath.EvalSymlinks(abs)
+	if err != nil {
+		return nil
 	}
-	return fmt.Errorf("%s is the global home (default %s); run `agnostic-ai sync --global`, or set %s to another root if this is a project", source, envUserGlobalRoot, envUserGlobalRoot)
+	var inside []string
+	for {
+		if info, err := os.Stat(current); err == nil && os.SameFile(info, root) {
+			break
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return nil
+		}
+		inside = append([]string{filepath.Base(current)}, inside...)
+		current = parent
+	}
+	where := source + " is the global home"
+	if len(inside) > 0 {
+		where = filepath.Join(append([]string{source}, inside...)...) + " is inside the global home " + source
+	}
+	if os.Getenv(envUserGlobalRoot) != "" {
+		return fmt.Errorf("%s (%s); %s, or unset %s if this is a project", where, envUserGlobalRoot, remedy, envUserGlobalRoot)
+	}
+	return fmt.Errorf("%s (%s is unset); %s, or set %s to another root if this is a project", where, envUserGlobalRoot, remedy, envUserGlobalRoot)
 }
 
 // unsupportedGlobalTarget rejects a target sync --global cannot write,

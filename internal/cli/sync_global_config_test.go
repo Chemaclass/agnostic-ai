@@ -181,23 +181,62 @@ func runProjectSync(args ...string) error {
 func TestSync_RefusesToRunInTheGlobalHome(t *testing.T) {
 	home, source := globalConfigTestHome(t)
 	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "local", "rules", "mine.md"), "---\nname: mine\n---\nMine.\n")
 	link := filepath.Join(home, "home-link")
 	if err := os.Symlink(source, link); err != nil {
 		t.Skipf("symlinks unavailable: %v", err)
 	}
+	remedy := "run `agnostic-ai sync --global`, or unset AGNOSTIC_AI_HOME if this is a project"
+	local := filepath.Join(source, "local")
 
-	for _, dir := range []string{source, link} {
+	for dir, want := range map[string]string{
+		source:                                source + " is the global home (AGNOSTIC_AI_HOME); " + remedy,
+		link:                                  source + " is the global home (AGNOSTIC_AI_HOME); " + remedy,
+		local:                                 local + " is inside the global home " + source + " (AGNOSTIC_AI_HOME); " + remedy,
+		filepath.Join(link, "local", "rules"): filepath.Join(local, "rules") + " is inside the global home " + source + " (AGNOSTIC_AI_HOME); " + remedy,
+	} {
 		testutil.Chdir(t, dir)
 		for _, args := range [][]string{{}, {"--check"}, {"--dry-run"}, {"--json"}, {"--plan"}, {"--watch"}} {
-			err := runProjectSync(args...)
-			if err == nil || !strings.Contains(err.Error(), source+" is the global home") || !strings.Contains(err.Error(), "agnostic-ai sync --global") {
-				t.Errorf("sync %v in %s: want the global home refusal, got %v", args, dir, err)
+			if err := runProjectSync(args...); err == nil || err.Error() != want {
+				t.Errorf("sync %v in %s:\nwant %s\ngot  %v", args, dir, want, err)
 			}
 		}
 	}
-	for _, rel := range []string{"CLAUDE.md", ".claude", ".agnostic-ai"} {
+	for _, rel := range []string{"CLAUDE.md", ".claude", ".agnostic-ai", "local/CLAUDE.md", "local/.agnostic-ai"} {
 		if _, err := os.Stat(filepath.Join(source, rel)); !os.IsNotExist(err) {
 			t.Errorf("project sync wrote %s into the global home: %v", rel, err)
+		}
+	}
+}
+
+func TestProjectWriters_RefuseToRunInTheGlobalHome(t *testing.T) {
+	_, source := globalConfigTestHome(t)
+	testutil.Chdir(t, source)
+	for _, args := range [][]string{
+		{"init", "--all"},
+		{"import", "claude"},
+		{"new", "rule", "x"},
+		{"packs", "add", "./pack"},
+		{"packs", "remove", "pack"},
+		{"packs", "update"},
+		{"cleanup"},
+		{"revert"},
+		{"install-hook"},
+	} {
+		var out bytes.Buffer
+		cmd := NewRootCmd("test")
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetIn(strings.NewReader(""))
+		cmd.SetArgs(args)
+		err := cmd.Execute()
+		if err == nil || !strings.Contains(err.Error(), source+" is the global home (AGNOSTIC_AI_HOME)") {
+			t.Errorf("%v in the global home: want the refusal, got %v", args, err)
+		}
+	}
+	for _, rel := range []string{"agnostic-ai.yaml", ".agnostic-ai", ".gitignore"} {
+		if _, err := os.Stat(filepath.Join(source, rel)); !os.IsNotExist(err) {
+			t.Errorf("a project command wrote %s into the global home: %v", rel, err)
 		}
 	}
 }
@@ -217,8 +256,90 @@ func TestSync_GlobalHomeGuardFollowsTheResolvedSourceRoot(t *testing.T) {
 	}
 
 	t.Setenv("AGNOSTIC_AI_HOME", "")
-	err := runProjectSync("--check")
-	if err == nil || !strings.Contains(err.Error(), unused+" is the global home") || !strings.Contains(err.Error(), "set AGNOSTIC_AI_HOME to another root") {
-		t.Errorf("~/.agnostic-ai is the global home once AGNOSTIC_AI_HOME is unset, got %v", err)
+	want := unused + " is the global home (AGNOSTIC_AI_HOME is unset); run `agnostic-ai sync --global`, or set AGNOSTIC_AI_HOME to another root if this is a project"
+	if err := runProjectSync("--check"); err == nil || err.Error() != want {
+		t.Errorf("~/.agnostic-ai is the global home once AGNOSTIC_AI_HOME is unset:\nwant %s\ngot  %v", want, err)
+	}
+}
+
+func TestSyncGlobal_HomeConfigSkipsTargetsWithoutAGlobalSurface(t *testing.T) {
+	home, source := globalConfigTestHome(t)
+	config := filepath.Join(source, "agnostic-ai.yaml")
+	mustWriteGlobalTest(t, config, "version: 1\ntargets: [claude, aider, continue]\n")
+
+	out, errOut, err := runGlobalCheck("sync")
+	if err != nil {
+		t.Fatalf("a project-shaped home config must keep sync --global working: %v", err)
+	}
+	if !strings.Contains(out, "Synced global configuration to 1 target(s).") {
+		t.Errorf("expected only claude synced, got:\n%s", out)
+	}
+	want := "warning: " + config + ": sync --global cannot write aider, continue; skipping them"
+	if strings.Count(errOut, "cannot write") != 1 || !strings.Contains(errOut, want) {
+		t.Errorf("expected one warning %q, got:\n%s", want, errOut)
+	}
+	assertGlobalInstructions(t, home, map[string]bool{".claude/CLAUDE.md": true})
+	for _, command := range []string{"lint", "validate", "list"} {
+		if out, _, err := runGlobalCheck(command); err != nil {
+			t.Errorf("%s --global with a project-shaped home config: %v\n%s", command, err, out)
+		}
+	}
+}
+
+func TestSyncGlobal_DuplicateHomeConfigTargetSyncsOnce(t *testing.T) {
+	_, source := globalConfigTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, codex, claude]\n")
+
+	out, _, err := runGlobalCheck("sync")
+	if err != nil {
+		t.Fatalf("sync --global: %v", err)
+	}
+	if !strings.Contains(out, "Synced global configuration to 2 target(s).") {
+		t.Errorf("expected the duplicate dropped, got:\n%s", out)
+	}
+}
+
+func TestSyncGlobal_TargetFlagBypassesHomeConfig(t *testing.T) {
+	home, source := globalConfigTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [curser]\n")
+
+	if _, _, err := runGlobalCheck("sync", "-t", "claude"); err != nil {
+		t.Fatalf("-t must not read the home config: %v", err)
+	}
+	assertGlobalInstructions(t, home, map[string]bool{".claude/CLAUDE.md": true})
+	if out, _, err := runGlobalCheck("list"); err != nil {
+		t.Errorf("list --global needs no targets: %v\n%s", err, out)
+	}
+	if _, _, err := runGlobalCheck("sync"); err == nil {
+		t.Error("sync --global without -t must still reject the broken home config")
+	}
+}
+
+func TestLintGlobal_ChecksKindsAgainstGlobalSurfaces(t *testing.T) {
+	_, source := globalAgentTestHome(t)
+	hook := filepath.Join(source, "hooks", "start.yaml")
+	mustWriteGlobalTest(t, hook, "name: start\nevent: SessionStart\ncommand: echo hi\n")
+	agent := filepath.Join(source, "agents", "reviewer.md")
+	mustWriteGlobalTest(t, agent, "---\nname: reviewer\ndescription: Review code\n---\nReview it.\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [windsurf, zed]\n")
+
+	out, _, err := runGlobalCheck("validate")
+	if err == nil {
+		t.Fatalf("validate --global must reject hooks no configured target writes:\n%s", out)
+	}
+	if !strings.Contains(out, hook) || !strings.Contains(out, "no enabled target supports hooks. Enable one of: claude, codex, cursor, gemini, qoder") {
+		t.Errorf("expected the hook orphan with the global hook targets, got:\n%s", out)
+	}
+
+	out, _, _ = runGlobalCheck("lint")
+	for _, want := range []string{
+		hook + ": hook spec not consumed by any enabled target; targets that support hooks: claude, codex, cursor, gemini, qoder",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("expected %q, got:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, agent) {
+		t.Errorf("windsurf writes global agents, so the agent is not dead:\n%s", out)
 	}
 }

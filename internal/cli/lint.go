@@ -71,7 +71,7 @@ func newLintCmd() *cobra.Command {
 				return nil
 			}
 
-			findings := collectLintFindings(scope.targets, scope.bundle)
+			findings := collectLintFindings(scope.targets, scope.support, scope.bundle)
 			if scope.global {
 				findings = append(findings, lintGlobalRuleFindings(scope.bundle.Rules)...)
 			}
@@ -102,14 +102,14 @@ func newLintCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&strict, "strict", false, "Treat warnings as errors.")
-	cmd.Flags().BoolVar(&global, "global", false, "Lint the global specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, against every target sync --global supports.")
+	cmd.Flags().BoolVar(&global, "global", false, "Lint the global specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, against the targets sync --global writes.")
 	return cmd
 }
 
 // collectLintFindings runs every rule against a loaded bundle. Both `lint`
 // and the LSP call it so the two cannot report different sets: before this
 // existed the LSP silently lacked the newest rule.
-func collectLintFindings(targets []string, b spec.Bundle) []lintFinding {
+func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) []lintFinding {
 	entries := b.All()
 
 	// Shadowed entries lost a same-layer name clash and reach no target.
@@ -122,7 +122,7 @@ func collectLintFindings(targets []string, b spec.Bundle) []lintFinding {
 	var findings []lintFinding
 	findings = append(findings, lintEmptySpecs(entries)...)
 	findings = append(findings, lintDuplicateNames(withShadowed)...)
-	findings = append(findings, lintDeadSpecs(entries, targets)...)
+	findings = append(findings, lintDeadSpecs(entries, targets, support)...)
 	findings = append(findings, lintHookMatcherMisuse(b.Hooks)...)
 	findings = append(findings, lintUnterminatedFrontmatter(entries)...)
 	findings = append(findings, lintNearMissKeys(entries, targets)...)
@@ -185,14 +185,14 @@ func lintDuplicateNames(entries []spec.Entry) []lintFinding {
 // enabled target (LINT004, warn). Unlike lintOrphanKinds in validate (which
 // reports once per kind), this reports per-spec so the user can act on each
 // file directly.
-func lintDeadSpecs(entries []spec.Entry, targets []string) []lintFinding {
+func lintDeadSpecs(entries []spec.Entry, targets []string, support kindSupport) []lintFinding {
 	enabled := setOf(targets...)
 	var out []lintFinding
 	for _, e := range entries {
-		if anyTargetSupports(e.Kind, enabled) {
+		if anyTargetSupports(e.Kind, enabled, support) {
 			continue
 		}
-		supporters := sortedKeys(targetsSupportingKind[e.Kind])
+		supporters := sortedKeys(support[e.Kind])
 		msg := fmt.Sprintf(
 			"%s spec not consumed by any enabled target; targets that support %ss: %s",
 			e.Kind, e.Kind, commaList(supporters),

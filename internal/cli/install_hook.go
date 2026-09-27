@@ -27,6 +27,9 @@ func newInstallHookCmd() *cobra.Command {
   # Install into .githooks/ and set core.hooksPath (shared with team)
   agnostic-ai install-hook --shared`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
+				return err
+			}
 			return installPreCommitHook(".", shared, cmd.OutOrStdout())
 		},
 	}

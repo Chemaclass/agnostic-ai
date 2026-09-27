@@ -8,6 +8,8 @@ import (
 	"slices"
 	"sort"
 	"strings"
+
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // Path prefixes used in the globalTargets table. A path carries its own
@@ -229,6 +231,25 @@ func globalTargetNames() []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// globalKindSupport maps each kind the global layers load to the targets
+// with a user-level surface for it.
+func globalKindSupport() kindSupport {
+	support := kindSupport{spec.KindAgent: {}, spec.KindSkill: {}, spec.KindRule: {}, spec.KindHook: {}}
+	for name, g := range globalTargets {
+		for kind, surface := range map[spec.Kind]bool{
+			spec.KindAgent: g.agents != "",
+			spec.KindSkill: g.skills != "",
+			spec.KindRule:  g.instructions != "" || g.rules != "",
+			spec.KindHook:  g.hooks != "",
+		} {
+			if surface {
+				support[kind][name] = struct{}{}
+			}
+		}
+	}
+	return support
 }
 
 // globalHookTargets keeps the targets sync --global writes hooks for,

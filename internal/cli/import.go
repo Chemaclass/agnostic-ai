@@ -77,6 +77,9 @@ func newImportCmd() *cobra.Command {
   agnostic-ai import claude codex --dry-run --diff`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
+				return err
+			}
 			if diff && !dryRun {
 				return errs.Coded(errs.CodeFlagConflict, "--diff requires --dry-run")
 			}

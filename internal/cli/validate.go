@@ -53,7 +53,7 @@ func newValidateCmd() *cobra.Command {
 			}
 			issues := lintEntries(entries)
 			issues = append(issues, lintHookEvents(entries, scope.hookTargets)...)
-			issues = append(issues, lintOrphanKinds(b, scope.targets)...)
+			issues = append(issues, lintOrphanKinds(b, scope.targets, scope.support)...)
 			issues = append(issues, scopeIssues...)
 			if !fix {
 				reportIssues(cmd, issues)
@@ -74,7 +74,7 @@ func newValidateCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&fix, "fix", false, "Apply autofixable issues by rewriting source spec files")
-	cmd.Flags().BoolVar(&global, "global", false, "Validate the global specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, against every target sync --global supports")
+	cmd.Flags().BoolVar(&global, "global", false, "Validate the global specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, against the targets sync --global writes")
 	return cmd
 }
 
@@ -178,7 +178,7 @@ func lintHookEvents(entries []spec.Entry, targets []string) []validationIssue {
 // lintOrphanKinds reports each spec kind whose specs no enabled
 // target consumes. Validation surfaces this once per kind, not per
 // spec, so the message stays scannable.
-func lintOrphanKinds(b spec.Bundle, targets []string) []validationIssue {
+func lintOrphanKinds(b spec.Bundle, targets []string, support kindSupport) []validationIssue {
 	type kindCount struct {
 		kind  spec.Kind
 		count int
@@ -199,10 +199,10 @@ func lintOrphanKinds(b spec.Bundle, targets []string) []validationIssue {
 		if kc.count == 0 {
 			continue
 		}
-		if anyTargetSupports(kc.kind, enabled) {
+		if anyTargetSupports(kc.kind, enabled, support) {
 			continue
 		}
-		supporters := sortedKeys(targetsSupportingKind[kc.kind])
+		supporters := sortedKeys(support[kc.kind])
 		out = append(out, validationIssue{
 			Path:    kc.path,
 			Field:   string(kc.kind),
@@ -222,8 +222,8 @@ func unionEvents(targets []string) map[string]struct{} {
 	return out
 }
 
-func anyTargetSupports(k spec.Kind, enabled map[string]struct{}) bool {
-	for t := range targetsSupportingKind[k] {
+func anyTargetSupports(k spec.Kind, enabled map[string]struct{}, support kindSupport) bool {
+	for t := range support[k] {
 		if _, ok := enabled[t]; ok {
 			return true
 		}

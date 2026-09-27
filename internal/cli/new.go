@@ -55,6 +55,9 @@ func newNewCmd() *cobra.Command {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
+				return err
+			}
 			kind, name := strings.ToLower(args[0]), args[1]
 			if cmd.Flags().Changed("scope") {
 				if kind != "rule" {

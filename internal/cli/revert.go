@@ -48,6 +48,9 @@ func newRevertCmd() *cobra.Command {
 			if len(only) > 0 && len(except) > 0 {
 				return fmt.Errorf("--only and --except are mutually exclusive")
 			}
+			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
+				return err
+			}
 			cfg, b, err := loadProject(".")
 			if err != nil {
 				return err

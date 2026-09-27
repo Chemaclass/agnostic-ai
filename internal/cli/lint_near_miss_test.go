@@ -93,7 +93,7 @@ func TestCollectLintFindings_IncludesNearMissKeys(t *testing.T) {
 	}})
 
 	var found bool
-	for _, f := range collectLintFindings([]string{"claude"}, b) {
+	for _, f := range collectLintFindings([]string{"claude"}, targetsSupportingKind, b) {
 		if strings.Contains(f.Message, "allowed_tools") {
 			found = true
 		}

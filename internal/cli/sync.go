@@ -68,7 +68,7 @@ func newSyncCmd() *cobra.Command {
 			if watch && check {
 				return errs.Coded(errs.CodeFlagConflict, "--watch and --check are incompatible")
 			}
-			if err := refuseGlobalHome("."); err != nil {
+			if err := refuseGlobalHome(".", globalHomeSyncRemedy); err != nil {
 				return err
 			}
 
