@@ -593,6 +593,13 @@ func globalStateCurrent(path string, next globalState) bool {
 		return false
 	}
 	recorded.Sums, next.Sums = nil, nil
+	// An empty list and a missing one record the same ownership.
+	if len(recorded.Files) == 0 {
+		recorded.Files = []string{}
+	}
+	if len(next.Files) == 0 {
+		next.Files = []string{}
+	}
 	a, errA := json.Marshal(recorded)
 	b, errB := json.Marshal(next)
 	return errA == nil && errB == nil && bytes.Equal(a, b)
@@ -1001,6 +1008,10 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	}
 	sort.Strings(next.Files)
 	next.Files = slices.Compact(next.Files)
+	// Always a list, so the state file keeps one spelling for no files.
+	if next.Files == nil {
+		next.Files = []string{}
+	}
 	next.Sums = map[string]string{}
 	for _, path := range next.Files {
 		if sum, ok := old.Sums[path]; ok {
