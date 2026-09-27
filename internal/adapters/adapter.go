@@ -181,6 +181,16 @@ func ProvenanceEnabled() bool { return emit.ProvenanceEnabled() }
 // callers in the cli package).
 const AgnosticEntryPointPath = emit.AgnosticEntryPointPath
 
+// SharedInstructionsMirror returns the file an adapter writes from the
+// AGNOSTIC_AI.md body itself, outside sync's central entry points, or ""
+// when target writes none. Junie's .junie/AGENTS.md is the only one.
+func SharedInstructionsMirror(target string) string {
+	if target == "junie" {
+		return junie.EntryFile
+	}
+	return ""
+}
+
 // ProjectLocalEntryPointPath is the ignored project-local instructions
 // file that extends AgnosticEntryPointPath in every entry point
 // (re-exported from the emit layer).

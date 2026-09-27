@@ -90,9 +90,6 @@ func traceFile(input string, cfg *config.Config, b spec.Bundle, projectRoot stri
 	if filepath.ToSlash(rel) == filepath.ToSlash(adapters.AgnosticEntryPointPath) {
 		return whyOutput{}, fmt.Errorf("%s is the shared instructions body, not a generated file. sync copies it into every target's entry point (CLAUDE.md, AGENTS.md, GEMINI.md, ...)", input)
 	}
-	if isSourceFile(rel, b) {
-		return whyOutput{}, fmt.Errorf("%s is a source spec, not a generated file. Run `agnostic-ai explain %s` to see the files it writes", input, filepath.ToSlash(rel))
-	}
 
 	// Silence per-adapter capability warnings during the multi-adapter
 	// capture sweep below.
@@ -120,6 +117,11 @@ func traceFile(input string, cfg *config.Config, b spec.Bundle, projectRoot stri
 		if report, ok := traceEntryPointFile(rel, cfg, b, projectRoot); ok {
 			return report, nil
 		}
+		// Checked after the adapter lookup: a source directory can also
+		// be an output directory (sources.rules: .claude/rules).
+		if isSourceFile(rel, b) {
+			return whyOutput{}, fmt.Errorf("%s is a source spec, not a generated file. Run `agnostic-ai explain %s` to see the files it writes", input, filepath.ToSlash(rel))
+		}
 		if target == "" {
 			return whyOutput{}, whyNotTrackedError(input, projectRoot)
 		}
@@ -132,6 +134,9 @@ func traceFile(input string, cfg *config.Config, b spec.Bundle, projectRoot stri
 	sources, err := tracedSources(adapter, hit, b, cfg)
 	if err != nil {
 		return whyOutput{}, err
+	}
+	if mirror := adapters.SharedInstructionsMirror(target); mirror != "" && samePath(mirror, rel) {
+		sources = append([]whySource{instructionsSource(len(sources) > 0)}, sources...)
 	}
 
 	out := whyOutput{
@@ -148,61 +153,81 @@ func traceFile(input string, cfg *config.Config, b spec.Bundle, projectRoot stri
 }
 
 // traceEntryPointFile reports where an entry-point file (CLAUDE.md,
-// AGENTS.md, GEMINI.md, ...) comes from: the shared AGNOSTIC_AI.md body,
-// the ignored local extension when present, and the rule specs inlined
-// for targets without a rules directory. Returns false when rel is no
-// configured target's entry point. A shared path (AGENTS.md) is
-// attributed to its first consuming target in name order.
+// AGENTS.md, GEMINI.md, ...) comes from, following the blocks
+// renderEntryPointFiles appends: the shared AGNOSTIC_AI.md body, then the
+// rules inlined or imported for its readers, then the local extension.
+// Returns false when rel is no configured target's managed entry point.
+// The file is credited to the target whose rules it carries, or else to
+// its first reader in `targets` order.
 func traceEntryPointFile(rel string, cfg *config.Config, b spec.Bundle, projectRoot string) (whyOutput, bool) {
-	relSlash := filepath.ToSlash(rel)
-	var tgts []string
+	var consumers []string
 	for _, t := range cfg.Targets {
 		p := adapters.EntryPointPath(cfg, t)
-		if p == "" || p == adapters.AgnosticEntryPointPath || adapters.LegacyRulesFileOwnsEntryPoint(cfg, t) {
+		if p == "" || p == adapters.AgnosticEntryPointPath || cfg.IsUnmanaged(p) ||
+			adapters.LegacyRulesFileOwnsEntryPoint(cfg, t) || !samePath(p, rel) {
 			continue
 		}
-		if filepath.ToSlash(p) == relSlash {
-			tgts = append(tgts, t)
-		}
+		consumers = append(consumers, t)
 	}
-	if len(tgts) == 0 {
+	if len(consumers) == 0 {
 		return whyOutput{}, false
 	}
-	sort.Strings(tgts)
-	var inlined []spec.Entry
-	if byPath := inlinedRuleEntryPoints(cfg, tgts); len(byPath) > 0 {
-		inlined = adapters.EntryPointRules(b, tgts[0]).Rules
+	target := consumers[0]
+	var rules []spec.Entry
+	if inliners := pathRuleInliners(cfg, consumers); len(inliners) > 0 {
+		target = inliners[0]
+		rules = adapters.EntryPointRules(b, target).Rules
+	} else if importer := pathRulesImporter(cfg, consumers); importer != "" {
+		target = importer
+		rules = adapters.EntryPointRules(b, importer).Rules
+	} else if importer := pathLegacyRulesFileImporter(cfg, consumers); importer != "" {
+		target = importer
+		rules = adapters.EntryPointRules(b, importer).Rules
 	}
-	mode := "full"
-	if len(inlined) > 0 {
-		mode = "section"
-	}
-	sources := []whySource{{Kind: "instructions", Name: "AGNOSTIC_AI.md", Path: filepath.ToSlash(adapters.AgnosticEntryPointPath), Mode: mode}}
-	if _, err := os.Stat(filepath.Join(projectRoot, adapters.ProjectLocalEntryPointPath)); err == nil {
-		sources[0].Mode = "section"
-		sources = append(sources, whySource{Kind: "instructions", Name: "AGNOSTIC_AI.md (local)", Path: filepath.ToSlash(adapters.ProjectLocalEntryPointPath), Mode: "section"})
-	}
-	var rules []whySource
-	for _, r := range inlined {
-		rules = append(rules, whySource{
+	local, _ := adapters.ReadLocalInstructions()
+	appended := len(rules) > 0 || local != "" || cfg.Sync.TargetOverview
+
+	sources := []whySource{instructionsSource(appended)}
+	var ruleSources []whySource
+	for _, r := range rules {
+		ruleSources = append(ruleSources, whySource{
 			Kind: string(r.Kind),
 			Name: r.Name,
 			Path: filepath.ToSlash(r.Path),
 			Mode: "section",
 		})
 	}
-	sort.SliceStable(rules, func(i, j int) bool { return rules[i].Name < rules[j].Name })
-	sources = append(sources, rules...)
+	sort.SliceStable(ruleSources, func(i, j int) bool { return ruleSources[i].Name < ruleSources[j].Name })
+	sources = append(sources, ruleSources...)
+	if local != "" {
+		sources = append(sources, whySource{Kind: "instructions", Name: "AGNOSTIC_AI.md (local)", Path: filepath.ToSlash(adapters.ProjectLocalEntryPointPath), Mode: "section"})
+	}
 	return whyOutput{
 		Version:    "1",
 		Command:    "why",
-		File:       relSlash,
-		Target:     tgts[0],
+		File:       filepath.ToSlash(rel),
+		Target:     target,
 		Configured: true,
 		OutputKeys: nil,
 		Sources:    sources,
 		LastSync:   lastSyncTimestamp(projectRoot),
 	}, true
+}
+
+// instructionsSource credits the shared AGNOSTIC_AI.md body: the whole
+// file, or one section of it when something else lands there too.
+func instructionsSource(shared bool) whySource {
+	mode := "full"
+	if shared {
+		mode = "section"
+	}
+	return whySource{Kind: "instructions", Name: "AGNOSTIC_AI.md", Path: filepath.ToSlash(adapters.AgnosticEntryPointPath), Mode: mode}
+}
+
+// samePath compares two project-relative paths after cleaning, so an
+// `outputs.<target>.file: ./docs/GEMINI.md` matches `docs/GEMINI.md`.
+func samePath(a, b string) bool {
+	return filepath.Clean(filepath.FromSlash(a)) == filepath.Clean(filepath.FromSlash(b))
 }
 
 // isSourceFile reports whether rel is a spec file, which sync reads

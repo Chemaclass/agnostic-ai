@@ -171,6 +171,10 @@ const (
 	defaultEntryFile = ".junie/AGENTS.md"
 )
 
+// EntryFile is the path where the adapter writes its copy of the shared
+// AGNOSTIC_AI.md body, so `why` can trace it like a central entry point.
+const EntryFile = defaultEntryFile
+
 var caps = emit.Capabilities{
 	Target:      target,
 	Supports:    []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand, spec.KindIgnore, spec.KindSettings},

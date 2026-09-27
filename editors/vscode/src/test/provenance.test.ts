@@ -44,7 +44,7 @@ describe("parseWhyOutput", () => {
 
   it("accepts a merged entry-point report", () => {
     const report = parseWhyOutput(fixture("agents-merged.json"));
-    assert.equal(report.sources.length, 2);
+    assert.equal(report.sources.length, 3);
   });
 
   it("rejects output that is not JSON", () => {
@@ -107,6 +107,11 @@ describe("planNavigation", () => {
       plan.items.map((i) => [i.label, i.description, i.path]),
       [
         [
+          "AGNOSTIC_AI.md",
+          "instructions · .agnostic-ai/AGNOSTIC_AI.md",
+          path.join(root, ".agnostic-ai", "AGNOSTIC_AI.md"),
+        ],
+        [
           "no-console-log",
           "rule · ai specs/rules/no-console-log.md",
           path.join(root, "ai specs", "rules", "no-console-log.md"),
@@ -132,7 +137,7 @@ describe("planNavigation", () => {
     if (plan.kind !== "pick") return;
     assert.deepEqual(
       plan.items.map((i) => i.label),
-      ["no-console-log", "tabs"],
+      ["AGNOSTIC_AI.md", "no-console-log", "tabs"],
     );
   });
 
@@ -162,12 +167,12 @@ describe("planNavigation", () => {
     const plan = planNavigation(
       report,
       root,
-      (p) => !p.endsWith("tabs.md"),
+      (p) => !p.endsWith("tabs.md") && !p.endsWith("AGNOSTIC_AI.md"),
     );
     assert.deepEqual(plan, {
       kind: "open",
       path: path.join(root, "ai specs", "rules", "no-console-log.md"),
-      missing: ["ai specs/rules/tabs.md"],
+      missing: [".agnostic-ai/AGNOSTIC_AI.md", "ai specs/rules/tabs.md"],
     });
   });
 
