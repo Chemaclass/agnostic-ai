@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -102,5 +103,58 @@ func TestEditTOMLTables_ReplacesSubtablesInPlace(t *testing.T) {
 	want := "[mcp_servers.docs]\ncommand = \"new\"\n\n[tui]\ntheme = \"dark\"\n"
 	if string(got) != want {
 		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestSyncGlobal_MCPKeepsPrivateFileMode(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml"), globalDocsMCP)
+	path := filepath.Join(home, ".cursor", "mcp.json")
+	mustWriteGlobalTest(t, path, "{}\n")
+	if err := os.Chmod(path, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, warnings, err := runGlobalAgentTest("--only", "cursor"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
+		t.Errorf("mode = %v, want 0600", info.Mode().Perm())
+	}
+}
+
+func TestSyncGlobal_RemovingSymlinkedFileRemovesItsTarget(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	instructions := filepath.Join(source, "AGNOSTIC_AI.md")
+	mustWriteGlobalTest(t, instructions, "Be brief.\n")
+	real := filepath.Join(home, "dotfiles", "CLAUDE.md")
+	mustWriteGlobalTest(t, real, "")
+	link := filepath.Join(home, ".claude", "CLAUDE.md")
+	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(real, link); err != nil {
+		t.Skipf("symlinks unsupported: %v", err)
+	}
+	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	if err := os.Remove(instructions); err != nil {
+		t.Fatal(err)
+	}
+	_, warnings, err := runGlobalAgentTest("--only", "claude")
+	if err != nil {
+		t.Fatalf("sync after removal: %v\n%s", err, warnings)
+	}
+	for _, path := range []string{real, link} {
+		if _, err := os.Lstat(path); !os.IsNotExist(err) {
+			t.Errorf("%s must be gone: %v", path, err)
+		}
+	}
+	if !strings.Contains(warnings, "removed ") || !strings.Contains(warnings, filepath.Join("dotfiles", "CLAUDE.md")+" and its symlink "+link) {
+		t.Errorf("the removal must be named:\n%s", warnings)
 	}
 }

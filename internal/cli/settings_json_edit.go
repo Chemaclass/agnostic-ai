@@ -143,7 +143,13 @@ func removeJSONMember(text string, open, closing int, members []jsonMember, i in
 	case i > 0:
 		return text[:m.comma] + text[m.comma+1:keptBefore(text, m.comma+1, m.start)] + text[m.end:]
 	case len(members) > 1:
-		return text[:m.start] + text[members[1].start:]
+		// Drop the comma and the whitespace after it, keeping a comment
+		// that sits above the next member.
+		j := members[1].comma + 1
+		for j < members[1].start && strings.ContainsRune(" \t\r\n", rune(text[j])) {
+			j++
+		}
+		return text[:m.start] + text[j:]
 	case strings.TrimSpace(text[open+1:m.start]) == "":
 		return text[:open+1] + text[closing:]
 	default:

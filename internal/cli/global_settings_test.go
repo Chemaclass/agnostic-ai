@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 func TestEditTOMLRoot_SkipsBracketsInsideValues(t *testing.T) {
@@ -244,5 +246,70 @@ func TestEditJSONRoot_NestedPathRoundTrips(t *testing.T) {
 		if string(back) != in {
 			t.Errorf("round trip of %q gave %q via %q", in, back, set)
 		}
+	}
+}
+
+func TestEditTOMLRoot_DottedRootKeyIsNotAPlainKey(t *testing.T) {
+	in := "sandbox_workspace_write.network_access = false\n"
+	got, err := editTOMLRoot("c.toml", []byte(in), []string{"sandbox_workspace_write"}, map[string]any{"sandbox_workspace_write": "x"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(string(got), in) {
+		t.Errorf("the dotted line must stay: %q", got)
+	}
+}
+
+func TestCustomGlobalSettings_LaterSpecWinsWhole(t *testing.T) {
+	f := globalTargets["claude"].settings
+	entries := []spec.Entry{
+		{Path: "a.yaml", Meta: map[string]any{"x-claude": map[string]any{"env": map[string]any{"FOO": "1"}, "sandbox": false}}},
+		{Path: "b.yaml", Meta: map[string]any{"x-claude": map[string]any{"env": nil, "sandbox": map[string]any{"enabled": true}}}},
+	}
+	got := customGlobalSettings("claude", f, entries)
+	if len(got) != 1 || got[0].key != "sandbox.enabled" {
+		t.Errorf("got %+v, want only sandbox.enabled", got)
+	}
+}
+
+func TestCustomGlobalSettings_SkipsKeysWithDots(t *testing.T) {
+	f := globalTargets["gemini"].settings
+	entries := []spec.Entry{{Path: "a.yaml", Meta: map[string]any{"x-gemini": map[string]any{
+		"modelConfigs": map[string]any{"customAliases": map[string]any{"gemini-2.5-pro": map[string]any{"x": 1}}},
+		"ui":           map[string]any{"theme": "dark"},
+	}}}}
+	got := customGlobalSettings("gemini", f, entries)
+	if len(got) != 1 || got[0].key != "ui.theme" {
+		t.Errorf("got %+v, want only ui.theme", got)
+	}
+}
+
+func TestMergeGlobalSettings_RefusesInvalidTOML(t *testing.T) {
+	_, err := mergeGlobalSettings("c.toml", "toml", []byte("[features]\na = true\n"),
+		[]globalSetting{{target: "codex", key: "features", value: true, field: "x-codex.features", source: "s.yaml"}}, nil)
+	if err == nil || !strings.Contains(err.Error(), "invalid TOML") {
+		t.Errorf("err = %v", err)
+	}
+}
+
+func TestEditTOMLTables_KeepsCommentsAndNewlineAroundOthers(t *testing.T) {
+	in := "[mcp_servers.ours]\ncommand = \"x\"\n\n# notes on theirs\n[mcp_servers.theirs]\ncommand = \"y\""
+	got, err := editTOMLTables("c.toml", []byte(in), "mcp_servers", nil, nil, []string{"ours"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "# notes on theirs\n[mcp_servers.theirs]\ncommand = \"y\""; string(got) != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestEditJSONRoot_RemovingFirstMemberKeepsCommentAboveNext(t *testing.T) {
+	in := "{\n  \"ours\": 1,\n  // my notes on mine\n  \"mine\": 2\n}\n"
+	got, err := editJSONRoot("s.json", []byte(in), nil, nil, []string{"ours"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "{\n  // my notes on mine\n  \"mine\": 2\n}\n"; string(got) != want {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }

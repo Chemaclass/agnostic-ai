@@ -126,13 +126,24 @@ func customGlobalSettings(target string, f globalSettingsFile, settings []spec.E
 	byKey := map[string]globalSetting{}
 	for _, entry := range settings {
 		block, _ := entry.Meta["x-"+target].(map[string]any)
-		for key, value := range flattenSettings(block, f.format) {
+		flat, dotted := flattenSettings(block, f.format)
+		for _, key := range dotted {
+			adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+key, 1, "a key with a dot in its name cannot be told from a nested key here")
+		}
+		for _, key := range slices.Sorted(maps.Keys(flat)) {
+			value := flat[key]
 			if reason, ok := f.reserved[strings.SplitN(key, ".", 2)[0]]; ok {
 				adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+key, 1, reason)
 				continue
 			}
+			// A later key replaces what an earlier one set at, under, or
+			// above it, so a null or a new shape wins whole.
+			for other := range byKey {
+				if other == key || strings.HasPrefix(other, key+".") || strings.HasPrefix(key, other+".") {
+					delete(byKey, other)
+				}
+			}
 			if value == nil {
-				delete(byKey, key)
 				continue
 			}
 			if f.format == "toml" {
@@ -153,13 +164,19 @@ func customGlobalSettings(target string, f globalSettingsFile, settings []spec.E
 
 // flattenSettings turns nested JSON objects into dotted keys, so each
 // leaf is owned on its own and the user's sibling keys stay. TOML keys
-// stay whole.
-func flattenSettings(block map[string]any, format string) map[string]any {
+// stay whole. A key with a dot in its own name is returned apart, since
+// a dotted path could not tell it from a nested one.
+func flattenSettings(block map[string]any, format string) (map[string]any, []string) {
 	out := map[string]any{}
+	var dotted []string
 	var walk func(prefix string, m map[string]any)
 	walk = func(prefix string, m map[string]any) {
 		for key, value := range m {
 			path := prefix + key
+			if strings.Contains(key, ".") {
+				dotted = append(dotted, path)
+				continue
+			}
 			if nested, ok := value.(map[string]any); ok && format == "json" && len(nested) > 0 {
 				walk(path+".", nested)
 				continue
@@ -168,7 +185,8 @@ func flattenSettings(block map[string]any, format string) map[string]any {
 		}
 	}
 	walk("", block)
-	return out
+	slices.Sort(dotted)
+	return out, dotted
 }
 
 // lastSettingsSource names the spec file the winning value of field
@@ -271,8 +289,15 @@ func mergeGlobalSettings(path, format string, base []byte, want []globalSetting,
 		}
 	}
 	if format == "toml" {
-		m.data, err = editTOMLRoot(path, data, order, set, remove)
-		return m, err
+		if m.data, err = editTOMLRoot(path, data, order, set, remove); err != nil {
+			return m, err
+		}
+		// A root key that is also a table name, such as features against
+		// [features], would define the key twice and break the file.
+		if _, err := toml.Decode(string(m.data), new(map[string]any)); err != nil {
+			return m, fmt.Errorf("%s: writing %s would make it invalid TOML; drop the key from the spec or the table from the file: %w", path, strings.Join(order, ", "), err)
+		}
+		return m, nil
 	}
 	m.data, err = editJSONRoot(path, data, order, set, remove)
 	return m, err

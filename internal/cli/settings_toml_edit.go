@@ -149,7 +149,7 @@ func scanTOMLRoot(lines []string) (map[string]tomlRootKey, int, error) {
 			if eq < 0 {
 				return nil, -1, fmt.Errorf("line %d: expected a key and value", i+1)
 			}
-			current = strings.Trim(strings.TrimSpace(raw[:eq]), `"'`)
+			current = tomlRootKeyName(raw[:eq])
 			keys[current] = tomlRootKey{start: i, end: i}
 			rest = raw[eq+1:]
 		}
@@ -307,6 +307,7 @@ func editTOMLTables(path string, data []byte, parent string, order []string, set
 	if first, _, _ := strings.Cut(text, "\n"); strings.HasSuffix(first, "\r") {
 		cr = "\r"
 	}
+	trailing := text == "" || strings.HasSuffix(text, "\n")
 	text = strings.TrimSuffix(text, "\n")
 	var lines []string
 	if text != "" {
@@ -317,18 +318,25 @@ func editTOMLTables(path string, data []byte, parent string, order []string, set
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	// blocks maps a name to the lines of its tables: each header through
-	// its last non-blank line before the next header.
+	// its last line of content before the next header.
 	blocks := map[string][]int{}
 	for h, header := range headers {
 		if len(header.key) < 2 || header.key[0] != parent {
 			continue
 		}
-		end := len(lines)
+		next := len(lines)
 		if h+1 < len(headers) {
-			end = headers[h+1].line
+			next = headers[h+1].line
 		}
-		for end > header.line+1 && strings.TrimSpace(lines[end-1]) == "" {
+		// Of the blank and comment lines before the next header, a
+		// comment right under this table's last line is its own; one
+		// after a blank line introduces the next table.
+		end := next
+		for end > header.line+1 && (strings.TrimSpace(lines[end-1]) == "" || strings.HasPrefix(strings.TrimSpace(lines[end-1]), "#")) {
 			end--
+		}
+		for end < next && strings.HasPrefix(strings.TrimSpace(lines[end]), "#") {
+			end++
 		}
 		for i := header.line; i < end; i++ {
 			blocks[header.key[1]] = append(blocks[header.key[1]], i)
@@ -358,8 +366,13 @@ func editTOMLTables(path string, data []byte, parent string, order []string, set
 		for _, i := range at {
 			dropped[i] = true
 		}
-		if len(at) > 0 && at[0] > 0 && strings.TrimSpace(lines[at[0]-1]) == "" {
+		switch {
+		case len(at) == 0:
+		case at[0] > 0 && strings.TrimSpace(lines[at[0]-1]) == "":
 			dropped[at[0]-1] = true
+		case at[len(at)-1]+1 < len(lines) && strings.TrimSpace(lines[at[len(at)-1]+1]) == "":
+			// First in the file: the blank line after it separated it.
+			dropped[at[len(at)-1]+1] = true
 		}
 	}
 	for _, name := range order {
@@ -388,9 +401,32 @@ func editTOMLTables(path string, data []byte, parent string, order []string, set
 	if len(out) == 0 {
 		return nil, nil
 	}
-	result := strings.Join(out, "\n") + "\n"
+	result := strings.Join(out, "\n")
+	if trailing || len(appended) > 0 {
+		result += "\n"
+	}
 	if bom {
 		result = "\xef\xbb\xbf" + result
 	}
 	return []byte(result), nil
+}
+
+// tomlRootKeyName is the key a root line sets, as TOML reads it. A
+// dotted key such as a.b sets a nested table, so it comes back with its
+// dots in a form no plain key name matches.
+func tomlRootKeyName(raw string) string {
+	var probe map[string]any
+	md, err := toml.Decode(strings.TrimSpace(raw)+" = 0\n", &probe)
+	if err != nil {
+		return strings.Trim(strings.TrimSpace(raw), `"'`)
+	}
+	keys := md.Keys()
+	if len(keys) == 0 {
+		return ""
+	}
+	path := keys[len(keys)-1]
+	if len(path) > 1 {
+		return "\x00" + strings.Join(path, ".")
+	}
+	return path[0]
 }
