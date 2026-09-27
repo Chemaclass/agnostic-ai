@@ -90,3 +90,18 @@ func TestImportFromCodex_FoldedArgsStayOneCommand(t *testing.T) {
 		t.Errorf("imported spec:\n%s", got)
 	}
 }
+
+// Folded args come back from Gemini as one shell-form command.
+func TestImportFromGemini_FoldedArgsStayOneCommand(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, geminiSettings), `{"hooks": {"BeforeTool": [{"hooks": [
+  {"type": "command", "command": "node 'guard.js'", "env": {"AGNOSTIC_AI_TARGET": "gemini"}}
+]}]}}`)
+	if err := importFromGemini(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got := readHookSpec(t, dir, "beforetool")
+	if !strings.Contains(got, "node 'guard.js'") || strings.Contains(got, "args") {
+		t.Errorf("imported spec:\n%s", got)
+	}
+}

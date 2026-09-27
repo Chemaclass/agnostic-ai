@@ -268,8 +268,12 @@ func buildHooks(hooks []spec.Entry) map[string]any {
 			continue
 		}
 		commands += len(cmds)
+		// No args field: the args fold into the command, quoted for a
+		// POSIX `$SHELL`, which PowerShell on Windows also reads for
+		// args without `'`.
+		args := emit.StringSlice(h.Meta["args"])
 		for _, cmd := range cmds {
-			entry := map[string]any{"command": emit.RewriteHookPath(cmd, target)}
+			entry := map[string]any{"command": emit.ExecFormCommand(emit.RewriteHookPath(cmd, target), args)}
 			if matcher != "" {
 				entry["matcher"] = matcher
 			}

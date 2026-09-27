@@ -38,6 +38,8 @@ GEMINI.md                              # entry-point pointer body (written by sy
   Every server also accepts `timeout` (milliseconds), `trust` (skip tool-call confirmations), `description`, `includeTools`, and `excludeTools`, all passed through verbatim ([configuration reference](https://geminicli.com/docs/reference/configuration.md)).
 
   Hooks route by `event`. Gemini CLI documents 11 events: `BeforeTool`, `AfterTool`, `BeforeAgent`, `AfterAgent`, `Notification`, `SessionStart`, `SessionEnd`, `PreCompress`, `BeforeModel`, `AfterModel`, `BeforeToolSelection`. Each definition has a `matcher` and a nested `hooks` array of `{type: "command", command}` handlers ([hook reference](https://geminicli.com/docs/hooks/reference/)).
+
+  A handler has no `args` field, and Gemini runs `command` through `bash -c`, or PowerShell on Windows. So a spec with `args` gets them folded into `command`, each in single quotes (`node 'guard.js'`), in project and global sync. PowerShell reads that the same way for args without an apostrophe. A command path with a space is quoted too, which bash runs and PowerShell does not. For those, write a shell-form `command` instead. `import gemini` reads a folded command back as one shell-form `command`.
   - Timeouts convert from seconds to milliseconds (vendor default 60000 ms).
   - A `command` list becomes separate handlers in one definition. `x-gemini.sequential: true` runs them in order.
   - `description` reaches each handler, `x-gemini.name` sets its display name, and `x-gemini.env` sets per-handler environment variables.

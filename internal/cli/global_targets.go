@@ -76,9 +76,10 @@ type globalTarget struct {
 	// takes `args`, the exec form (claude, qoder). Other targets have no
 	// such field.
 	hookArgs bool
-	// hookFoldArgs marks a target with no `args` field (codex): the args
-	// fold into the command, each quoted for a POSIX shell, since a bare
-	// interpreter would read the hook's JSON payload as its program.
+	// hookFoldArgs marks a target with no `args` field (codex, cursor,
+	// gemini): the args fold into the command, each quoted for a POSIX
+	// shell, since a bare interpreter would read the hook's JSON payload
+	// as its program.
 	hookFoldArgs bool
 	// bridge marks a target that does not auto-load its user-level
 	// instructions file, so the body is injected through a managed
@@ -120,6 +121,7 @@ var globalTargets = map[string]globalTarget{
 		hooks:        globalPathHome + ".cursor/hooks.json",
 		hooksFormat:  "cursor",
 		hookTarget:   hookTargetSessionEnv,
+		hookFoldArgs: true,
 		bridge:       true,
 		bridgeEvent:  "sessionStart",
 		bridgeKey:    "additional_context",
@@ -145,6 +147,7 @@ var globalTargets = map[string]globalTarget{
 		hooks:        globalPathHome + ".gemini/settings.json",
 		hooksFormat:  "claude",
 		hookTarget:   hookTargetHandlerEnv,
+		hookFoldArgs: true,
 		hookTimeout:  gemini.HookTimeout,
 	},
 	"qoder": {

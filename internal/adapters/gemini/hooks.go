@@ -46,9 +46,12 @@ func hookHandlers(h spec.Entry) []map[string]any {
 		return nativeHookHandlers(raw)
 	}
 	meta := emit.ResolveMeta(h.Meta, target)
+	args := emit.StringSlice(meta["args"])
 	var handlers []map[string]any
 	for _, command := range emit.HookCommands(meta["command"]) {
-		handler := map[string]any{"type": "command", "command": command}
+		// No args field: the args fold into the command, quoted for bash,
+		// which PowerShell on Windows also reads for args without `'`.
+		handler := map[string]any{"type": "command", "command": emit.ExecFormCommand(command, args)}
 		if description, _ := meta["description"].(string); description != "" {
 			handler["description"] = description
 		}

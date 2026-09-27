@@ -905,6 +905,9 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 				target.tell(commandHook, entry.Meta)
 				item = map[string]any{"matcher": matcher, "hooks": []any{commandHook}}
 			} else {
+				if args := stringSliceFromAny(entry.Meta["args"]); target.foldArgs {
+					command = adapters.ExecFormCommand(command, args)
+				}
 				cursorHook := map[string]any{"command": command}
 				for _, key := range []string{"matcher", "timeout", "loop_limit", "failClosed"} {
 					if value, ok := entry.Meta[key]; ok {
