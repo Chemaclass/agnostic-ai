@@ -117,3 +117,50 @@ func TestKiro_ListFileMatchPatternRoundTrips(t *testing.T) {
 		t.Errorf("round trip changed the steering file:\n--- first ---\n%s\n--- second ---\n%s", first, got)
 	}
 }
+
+// A brace set is an alternation only when it holds a comma at its own
+// depth, as in picomatch and minimatch; other braces match themselves.
+func TestCompileGlob_BracesWithoutACommaStayLiteral(t *testing.T) {
+	cases := []struct {
+		pattern, path string
+		want          bool
+	}{
+		{"{{cookiecutter.slug}}/*.py", "{{cookiecutter.slug}}/app.py", true},
+		{"lit{}.txt", "lit{}.txt", true},
+		{"src/*.{ts}", "src/a.ts", false},
+		{"src/*.{ts}", "src/a.{ts}", true},
+		{"x}y{z.txt", "x}y{z.txt", true},
+		{"a/{b,{c,d}}/x", "a/d/x", true},
+		{"a/{b,{c}}/x", "a/{c}/x", true},
+	}
+	for _, c := range cases {
+		re, err := compileGlob(c.pattern)
+		if err != nil {
+			t.Errorf("compileGlob(%q): %v", c.pattern, err)
+			continue
+		}
+		if got := re.MatchString(c.path); got != c.want {
+			t.Errorf("%s on %s = %v, want %v (%s)", c.pattern, c.path, got, c.want, re)
+		}
+	}
+}
+
+// A pattern that cannot compile names its rule; the other rules are
+// still checked.
+func TestDoctorCheckGlobs_GoesOnPastABadPattern(t *testing.T) {
+	dir := budgetProject(t, "targets: [cursor]\n")
+	mustWriteFile(t, filepath.Join(dir, "src", "app.go"), "x\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "bad.md"), "---\nname: bad\nalwaysApply: false\nglobs: \"x}y{z.txt,a[.go\"\n---\nBody.\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "none.md"), "---\nname: none\nalwaysApply: false\nglobs: \"docs/**\"\n---\nBody.\n")
+	var out strings.Builder
+	cmd := NewRootCmd("test")
+	cmd.SetOut(&out)
+
+	n, err := reportUnmatchedGlobs(cmd, dir)
+	if err != nil {
+		t.Fatalf("a bad pattern must not abort the check: %v", err)
+	}
+	if n != 2 || !strings.Contains(out.String(), "bad") || !strings.Contains(out.String(), "none") {
+		t.Errorf("want both rules reported, got %d:\n%s", n, out.String())
+	}
+}

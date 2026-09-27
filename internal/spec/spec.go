@@ -416,7 +416,7 @@ func GlobList(v any) []string {
 }
 
 // splitOutsideBraces splits s on each comma that is not inside a brace
-// set.
+// set. A `{` left unclosed opens no set, so s splits on every comma.
 func splitOutsideBraces(s string) []string {
 	var parts []string
 	depth, start := 0, 0
@@ -434,6 +434,9 @@ func splitOutsideBraces(s string) []string {
 				start = i + 1
 			}
 		}
+	}
+	if depth != 0 {
+		return strings.Split(s, ",")
 	}
 	return append(parts, s[start:])
 }

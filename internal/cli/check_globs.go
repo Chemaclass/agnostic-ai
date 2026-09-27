@@ -37,6 +37,11 @@ func reportUnmatchedGlobs(cmd *cobra.Command, root string) (int, error) {
 		if len(patterns) == 0 {
 			continue
 		}
+		// A pattern that cannot compile names its rule; the rest still run.
+		if bad := invalidGlob(patterns); bad != "" {
+			unmatched = append(unmatched, ruleGlob{name: r.Name, globs: raw, invalid: bad})
+			continue
+		}
 		matched, err := anyGlobMatches(root, patterns)
 		if err != nil {
 			return 0, err
@@ -52,6 +57,10 @@ func reportUnmatchedGlobs(cmd *cobra.Command, root string) (int, error) {
 	sort.Slice(unmatched, func(i, j int) bool { return unmatched[i].name < unmatched[j].name })
 	cmd.Printf("  ! %d rule(s) with no matching files in repo (rule will never load):\n", len(unmatched))
 	for _, u := range unmatched {
+		if u.invalid != "" {
+			cmd.Printf("      %s (globs: %s; %s is not a pattern this check can read)\n", u.name, u.globs, u.invalid)
+			continue
+		}
 		cmd.Printf("      %s (globs: %s)\n", u.name, u.globs)
 	}
 	cmd.Println("    fix: update the rule's `globs:` or remove the rule")
@@ -59,8 +68,19 @@ func reportUnmatchedGlobs(cmd *cobra.Command, root string) (int, error) {
 }
 
 type ruleGlob struct {
-	name  string
-	globs string
+	name    string
+	globs   string
+	invalid string
+}
+
+// invalidGlob returns the first pattern compileGlob cannot compile, or "".
+func invalidGlob(patterns []string) string {
+	for _, p := range patterns {
+		if _, err := compileGlob(p); err != nil {
+			return p
+		}
+	}
+	return ""
 }
 
 // splitGlobPatterns splits a `globs:` value on the commas outside brace
@@ -119,13 +139,15 @@ func anyGlobMatches(root string, patterns []string) (bool, error) {
 
 // compileGlob translates a glob pattern with `**` (any number of path
 // segments), `*` (anything except `/`), and `{a,b}` brace sets into a
-// regex anchored to the full path. Reserved regex metacharacters are
-// escaped, and so are the braces of a pattern whose braces do not pair.
+// regex anchored to the full path. As in picomatch and minimatch, a
+// brace pair is a set only when it holds a comma at its own depth, so
+// `{x}`, `{}`, `{{name}}`, and an unpaired brace match themselves.
+// Reserved regex metacharacters are escaped.
 func compileGlob(pattern string) (*regexp.Regexp, error) {
+	sets, alternates := braceSets(pattern)
 	var sb strings.Builder
 	sb.WriteString("^")
-	i, braces := 0, 0
-	balanced := strings.Count(pattern, "{") == strings.Count(pattern, "}")
+	i := 0
 	for i < len(pattern) {
 		switch {
 		case strings.HasPrefix(pattern[i:], "/**/"):
@@ -149,15 +171,13 @@ func compileGlob(pattern string) (*regexp.Regexp, error) {
 		case pattern[i] == '.':
 			sb.WriteString("\\.")
 			i++
-		case pattern[i] == '{' && balanced:
+		case pattern[i] == '{' && sets[i]:
 			sb.WriteString("(?:")
-			braces++
 			i++
-		case pattern[i] == '}' && braces > 0:
+		case pattern[i] == '}' && sets[i]:
 			sb.WriteString(")")
-			braces--
 			i++
-		case pattern[i] == ',' && braces > 0:
+		case pattern[i] == ',' && alternates[i]:
 			sb.WriteString("|")
 			i++
 		case pattern[i] == '+' || pattern[i] == '(' || pattern[i] == ')' ||
@@ -173,4 +193,44 @@ func compileGlob(pattern string) (*regexp.Regexp, error) {
 	}
 	sb.WriteString("$")
 	return regexp.Compile(sb.String())
+}
+
+// braceSets marks, by byte index, the braces of each pair in pattern
+// that holds a comma at its own depth, and those commas. Pairs match
+// left to right; a brace with no partner is in no pair.
+func braceSets(pattern string) (sets, alternates map[int]bool) {
+	closeOf := map[int]int{}
+	var open []int
+	for i := 0; i < len(pattern); i++ {
+		switch pattern[i] {
+		case '{':
+			open = append(open, i)
+		case '}':
+			if len(open) > 0 {
+				closeOf[open[len(open)-1]] = i
+				open = open[:len(open)-1]
+			}
+		}
+	}
+	sets, alternates = map[int]bool{}, map[int]bool{}
+	var pairs []int
+	for i := 0; i < len(pattern); i++ {
+		switch pattern[i] {
+		case '{':
+			if _, ok := closeOf[i]; ok {
+				pairs = append(pairs, i)
+			}
+		case '}':
+			if len(pairs) > 0 && closeOf[pairs[len(pairs)-1]] == i {
+				pairs = pairs[:len(pairs)-1]
+			}
+		case ',':
+			if len(pairs) > 0 {
+				o := pairs[len(pairs)-1]
+				alternates[i] = true
+				sets[o], sets[closeOf[o]] = true, true
+			}
+		}
+	}
+	return sets, alternates
 }

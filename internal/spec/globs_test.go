@@ -16,6 +16,7 @@ func TestGlobList(t *testing.T) {
 		{"brace set string", "src/**/*.{ts,tsx}", []string{"src/**/*.{ts,tsx}"}},
 		{"brace set and another", "src/**/*.{ts,tsx},lib/*.js", []string{"src/**/*.{ts,tsx}", "lib/*.js"}},
 		{"nested braces", "a/{b,{c,d}}/*.go,e", []string{"a/{b,{c,d}}/*.go", "e"}},
+		{"unmatched open brace", "src/a{.ts,lib/*.js", []string{"src/a{.ts", "lib/*.js"}},
 		{"list", []any{"src/**/*.{ts,tsx}", "lib/*.js"}, []string{"src/**/*.{ts,tsx}", "lib/*.js"}},
 		{"string list", []string{"*.go"}, []string{"*.go"}},
 		{"empty", "", nil},
