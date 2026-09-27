@@ -13,7 +13,7 @@ target_id = "trae"
 ## Output
 
 ```
-AGENTS.md                     # pointer body (shared path)
+AGENTS.md                     # pointer body, plus the rules block when an inlining target shares it
 .trae/rules/<name>.md         # one per rule
 .trae/agents/<name>.md        # one per agent (project subagent)
 .trae/skills/<name>/SKILL.md  # one folder per skill
@@ -23,7 +23,7 @@ AGENTS.md                     # pointer body (shared path)
 .trae/mcp.json                # MCP server registry
 ```
 
-ByteDance [Trae](https://docs.trae.ai/ide/rules) reads rules from `.trae/rules/`, the root `AGENTS.md`, and project subagents from `.trae/agents/`.
+ByteDance [Trae](https://docs.trae.ai/ide/rules) reads rules from `.trae/rules/`, the root `AGENTS.md`, and project subagents from `.trae/agents/`. It reads `AGENTS.md` only after you turn on **Include AGENTS.md in the context** under Settings > Rules, so every rule keeps its `.trae/rules/` file. With that switch on and codex or another inlining target enabled, the always-on rules load twice. See [target behavior](@/docs/target-behavior.md#entry-point-files).
 
 - **Rules**: every `.trae/rules/*.md` file carries `description`, `globs`, and `alwaysApply` frontmatter, the same activation fields as Cursor's `.mdc` rules.
   - `alwaysApply` defaults to `true`, and a `true` rule omits `globs`. `alwaysApply: false` with no `globs` falls back to the Claude `paths` list, comma-joined.

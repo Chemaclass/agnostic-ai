@@ -94,16 +94,9 @@ func StripGeneratedAppendices(body string) string {
 //
 // augment and kilo are two deliberate exceptions: both gained a
 // native per-rule directory (`.augment/rules/`, `.kilo/rules/`) but
-// stay on this list anyway, for two different reasons. Augment's
-// vendor docs do not cleanly establish precedence between the native
-// directory and AGENTS.md, so this adapter does not assume the native
-// copy makes the inline one redundant. Kilo Code's precedence order is
-// explicit (agent prompt > `instructions` > AGENTS.md > global) and
-// its `.kilo/rules/` paths already reach the higher-ranked
-// `instructions` array (see internal/adapters/kilo); AGENTS.md still
-// stays loaded whenever present regardless of that ranking, so the
-// inline copy there is a documented fallback layer, not a hole to
-// close.
+// stay on this list, since each vendor loads a root AGENTS.md in every
+// session. Their always-on rules inline here and skip the native
+// directory, so each rule loads once (entryPointFirstTargets, #1224).
 //
 // This map and entryPointPaths are independent, so a target absent
 // here still writes an entry-point file, holding the pointer body
@@ -145,6 +138,85 @@ var inlineRulesTargets = map[string]bool{
 // adapter owns that write and the central inline is skipped.
 func InlinesRulesIntoEntryPoint(target string) bool {
 	return inlineRulesTargets[target]
+}
+
+// entryPointFirstTargets write rule files of their own and also load
+// their root entry point in every session by default. When that file
+// carries the inlined rules block, an always-on rule file holding the
+// same text would load it twice, so they leave it to the entry point
+// (#1224):
+//
+//   - cline: AGENTS.md is a detected rule source whose toggle starts on,
+//     like a .clinerules/ file's (Cline's rule-helpers.ts).
+//   - kiro: AGENTS.md files "do not support inclusion modes and are
+//     always included".
+//   - qoder: the IDE reads AGENTS.md with "No additional configuration";
+//     rules win only a conflict, and a skipped copy cannot conflict.
+//   - kilo: AGENTS.md "cannot be individually disabled".
+//   - augment: the IDE always includes a root AGENTS.md, and Auggie
+//     ranks it above `.augment/rules/`.
+//
+// trae is absent: it reads AGENTS.md only after "Include AGENTS.md in
+// the context" is switched on under Settings > Rules. windsurf is
+// absent: Devin caps a workspace rule at 12,000 characters and runs a
+// root AGENTS.md through the same rules engine, and its docs do not
+// exempt AGENTS.md, so one file with every rule could be cut short.
+var entryPointFirstTargets = map[string]bool{
+	"cline":   true,
+	"kiro":    true,
+	"qoder":   true,
+	"kilo":    true,
+	"augment": true,
+}
+
+// EntryPointRuleInliner returns the target whose rules block sync
+// inlines into the entry point target reads, when target may load that
+// block in place of its own always-on rule files: target itself or a
+// configured reader of the same file. Returns "" when target keeps its
+// rule files: it is not in entryPointFirstTargets, its entry point is
+// not the conventional root file its tool reads, or sync does not write
+// that file. Mirrors the reader grouping in internal/cli/entrypoint.go.
+func EntryPointRuleInliner(cfg *config.Config, target string) string {
+	if cfg == nil || !entryPointFirstTargets[target] || HasLegacyRulesFile(cfg, target) {
+		return ""
+	}
+	path := EntryPointPath(cfg, target)
+	if path != entryPointPaths[target] || cfg.IsUnmanaged(path) {
+		return ""
+	}
+	for _, t := range append([]string{target}, cfg.Targets...) {
+		if InlinesRulesIntoEntryPoint(t) && !HasLegacyRulesFile(cfg, t) && EntryPointPath(cfg, t) == path {
+			return t
+		}
+	}
+	return ""
+}
+
+// EntryPointInlinedRules returns, by name, the rules in the block
+// EntryPointRuleInliner names for target, as that block holds them:
+// fences resolved for the inliner and variables left as written. It is
+// nil when there is no such block, or when a Kiro agent lists its own
+// `resources`, since a Kiro custom agent loads only the steering files
+// it lists.
+func EntryPointInlinedRules(cfg *config.Config, b spec.Bundle, target string) map[string]spec.Entry {
+	inliner := EntryPointRuleInliner(cfg, target)
+	if inliner == "" || target == "kiro" && kiroAgentListsResources(b) {
+		return nil
+	}
+	rules := map[string]spec.Entry{}
+	for _, r := range EntryPointRules(b, inliner).Rules {
+		rules[r.Name] = r
+	}
+	return rules
+}
+
+func kiroAgentListsResources(b spec.Bundle) bool {
+	for _, a := range b.For("kiro").Agents {
+		if _, ok := ResolveMeta(a.Meta, "kiro")["resources"]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 // importRulesDir maps each target whose CLI auto-loads its entry-point

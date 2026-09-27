@@ -164,3 +164,42 @@ func TestInlinesRulesIntoEntryPoint(t *testing.T) {
 		}
 	}
 }
+
+func TestEntryPointRuleInliner(t *testing.T) {
+	cases := []struct {
+		name   string
+		cfg    config.Config
+		target string
+		want   string
+	}{
+		{"cline reads codex's AGENTS.md", config.Config{Targets: []string{"codex", "cline"}}, "cline", "codex"},
+		{"cline alone", config.Config{Targets: []string{"cline"}}, "cline", ""},
+		{"trae may not read AGENTS.md", config.Config{Targets: []string{"codex", "trae"}}, "trae", ""},
+		{"kilo inlines for itself", config.Config{Targets: []string{"kilo"}}, "kilo", "kilo"},
+		{"unmanaged AGENTS.md", config.Config{Targets: []string{"codex", "cline"}, Sync: config.SyncConfig{Unmanaged: []string{"AGENTS.md"}}}, "cline", ""},
+		{"cline on its own file", config.Config{Targets: []string{"codex", "cline"}, Outputs: map[string]config.Output{"cline": {File: "CLINE.md"}}}, "cline", ""},
+		{"codex owns AGENTS.md", config.Config{Targets: []string{"codex", "cline"}, Outputs: map[string]config.Output{"codex": {RulesFile: "AGENTS.md"}}}, "cline", ""},
+		{"target outside the config", config.Config{Targets: []string{"codex"}}, "kiro", "codex"},
+		{"windsurf may cut a long AGENTS.md", config.Config{Targets: []string{"codex", "windsurf"}}, "windsurf", ""},
+		{"kilo on a moved entry point", config.Config{Targets: []string{"kilo"}, Outputs: map[string]config.Output{"kilo": {File: "docs/KILO.md"}}}, "kilo", ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := EntryPointRuleInliner(&c.cfg, c.target); got != c.want {
+				t.Errorf("EntryPointRuleInliner(%s) = %q, want %q", c.target, got, c.want)
+			}
+		})
+	}
+}
+
+func TestEntryPointInlinedRules_ListsTheInlinersUnscopedRules(t *testing.T) {
+	b := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindRule, Name: "always", Body: "a"},
+		{Kind: spec.KindRule, Name: "pkg", Scope: "pkg", Body: "p"},
+		{Kind: spec.KindRule, Name: "cline-only", Meta: map[string]any{"targets": []any{"cline"}}, Body: "c"},
+	})
+	got := EntryPointInlinedRules(&config.Config{Targets: []string{"codex", "cline"}}, b, "cline")
+	if _, ok := got["always"]; !ok || len(got) != 1 {
+		t.Errorf("want only the rule codex inlines, got %v", got)
+	}
+}

@@ -37,11 +37,17 @@ Details that apply to one target live on its page: [Warp](@/docs/targets/warp.md
 
 Targets with no native rules directory (codex, amp, warp, zed, gemini, aider, opencode, crush, jules, goose, openhands, factory, junie) inline unscoped rule bodies into their entry-point file under a sentinel-marked `## Rules` block, after the pointer body. That file is the only always-on context surface these tools read, so the rule reaches them by default. The block is identical across targets that share a path, so the dedup still holds, and `import` strips it, keeping the AGNOSTIC_AI.md round-trip lossless. Junie and Zed are the exceptions: their entry-point files (`.junie/AGENTS.md` and `.rules`) are not the shared path.
 
-Three targets have a native rules directory and still inline into AGENTS.md as well:
+Two targets have a native rules directory and still inline into AGENTS.md: Augment (`.augment/rules/`) and Kilo Code (`.kilo/rules/`). OpenHands inlines always-on rules too; only a rule carrying `globs`/`paths` or a source-layout/frontmatter scope emits to `.agents/skills/<name>/SKILL.md` as a native path-triggered rule.
 
-- **Augment** (`.augment/rules/<name>.md`): the vendor does not cleanly establish the two surfaces' relative precedence, so this adapter does not assume the native directory makes the inline copy redundant.
-- **Kilo Code** (`.kilo/rules/<name>.md`, referenced from `kilo.jsonc`'s `instructions` array): that array outranks AGENTS.md in Kilo Code's documented precedence order (agent prompt > project `instructions` > AGENTS.md > global), but AGENTS.md is always loaded when present regardless, so the inline copy is a fallback layer rather than dead weight.
-- **OpenHands** (`.agents/skills/<name>/SKILL.md`): only a rule carrying `globs`/`paths` or a source-layout/frontmatter scope emits there, as a native path-triggered rule. An always-on rule still inlines into AGENTS.md only, since path-triggering needs the glob to scope it.
+A target that reads an `AGENTS.md` carrying the `## Rules` block loads every unscoped rule from it. A rule file of its own that also loads in every session would load the same rule twice, so `sync` skips that file when its text (body and description) matches the block. It keeps the rule files that load only on a path match, and any rule whose text differs for that target, such as one with a `::target` fence or a path variable, which the block keeps as written. This applies to Cline, Kiro, Qoder, Kilo Code, and Augment whenever the root `AGENTS.md` carries the block: when codex or another inlining target is enabled, and always for Kilo Code and Augment, which inline for themselves.
+
+Two targets keep every rule file. Trae reads `AGENTS.md` only after you turn on **Include AGENTS.md in the context** under Settings > Rules. Windsurf (Devin) limits a workspace rule file to 12,000 characters and runs `AGENTS.md` through the same rules engine, so one file holding every rule could be cut short. Kiro keeps its steering files when any agent spec sets `x-kiro.resources`, since a Kiro custom agent loads only the files it lists.
+
+A target also keeps its rule files when `outputs.<target>.file` moves its entry point off the root `AGENTS.md` its tool reads. If you turn `AGENTS.md` off in the tool itself (Cline's Rules panel, or a Qoder CLI `context.fileName` without it), turn it back on: the rules that skipped their file reach that tool only through `AGENTS.md`. Listing `AGENTS.md` under `sync.unmanaged` makes every rule keep its file too, but sync then stops writing `AGENTS.md` at all, so codex and every other reader stop getting rule changes there.
+
+The next full sync removes a rule file it no longer writes while the file still carries the agnostic-ai header, edited or not. Until then `sync --check`, `doctor`, and `status` report it as drift under `ledger`, since the tool still loads it, and `doctor --fix` removes it.
+
+A partial sync (`--only`, `--except`, or `--target`) renders a shared entry point for every configured target that reads it, so the file matches a full sync.
 
 Set `outputs.<target>.rules-file: <path>` to use the legacy concatenated rules layout instead. The adapter writes a single merged document at `<path>` and `sync` skips the pointer-body write for that target so they do not collide.
 

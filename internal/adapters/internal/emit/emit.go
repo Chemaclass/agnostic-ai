@@ -24,6 +24,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // File permissions for emitted artifacts.
@@ -105,6 +106,9 @@ type Session struct {
 	// codexSkillsDir is a skills dir Codex was configured to emit into,
 	// atomic for the same reason as unmanaged.
 	codexSkillsDir atomic.Pointer[string]
+	// inlinedRules are the rules EmitWithProvenance left out of this
+	// emit because the entry point carries them.
+	inlinedRules []spec.Entry
 }
 
 // SetUserTier marks a session that writes a tool's user-level
@@ -140,6 +144,21 @@ func (s *Session) SetCodexSkillsDir(dir string) {
 		return
 	}
 	s.codexSkillsDir.Store(&dir)
+}
+
+// SetInlinedRules records the rules the current emit leaves to the
+// entry point, so an adapter can drop what it listed for them before.
+func (s *Session) SetInlinedRules(rules []spec.Entry) {
+	s.mu.Lock()
+	s.inlinedRules = rules
+	s.mu.Unlock()
+}
+
+// InlinedRules returns the rules SetInlinedRules recorded.
+func (s *Session) InlinedRules() []spec.Entry {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.inlinedRules
 }
 
 // UnmanagedSkips returns every user-owned path this session refused to

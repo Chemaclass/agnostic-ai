@@ -112,8 +112,17 @@ func runImportArgs(args []string) error {
 	})
 }
 
-// runImport dispatches to the per-source importer.
+// runImport imports source, then the rules source reads from a shared
+// entry point instead of its own rule files.
 func runImport(root, source string, cfg *config.Config) error {
+	if err := runImportSource(root, source, cfg); err != nil {
+		return err
+	}
+	return importInlinedEntryPointRules(root, source, cfg)
+}
+
+// runImportSource dispatches to the per-source importer.
+func runImportSource(root, source string, cfg *config.Config) error {
 	if importRecording != nil && source != "all" {
 		importRecording.beginSource(source)
 	}

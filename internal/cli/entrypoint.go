@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
@@ -95,19 +96,35 @@ type entryPointFile struct {
 func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, body string) ([]entryPointFile, error) {
 	body = adapters.StripGeneratedAppendices(body)
 
+	entryPoint := func(t string) string {
+		if adapters.LegacyRulesFileOwnsEntryPoint(cfg, t) {
+			return ""
+		}
+		if path := adapters.EntryPointPath(cfg, t); path != adapters.AgnosticEntryPointPath {
+			return path
+		}
+		return ""
+	}
 	var order []string
 	consumers := map[string][]string{}
 	for _, t := range targets {
-		if adapters.LegacyRulesFileOwnsEntryPoint(cfg, t) {
+		if path := entryPoint(t); path != "" {
+			if _, ok := consumers[path]; !ok {
+				order = append(order, path)
+				consumers[path] = nil
+			}
+		}
+	}
+	// A partial run writes the same file a full one does: every
+	// configured reader counts, so the rules block its own rule files
+	// leave to that file stays in it.
+	seen := map[string]bool{}
+	for _, t := range append(slices.Clone(cfg.Targets), targets...) {
+		path := entryPoint(t)
+		if _, ok := consumers[path]; !ok || seen[t] {
 			continue
 		}
-		path := adapters.EntryPointPath(cfg, t)
-		if path == "" || path == adapters.AgnosticEntryPointPath {
-			continue
-		}
-		if _, ok := consumers[path]; !ok {
-			order = append(order, path)
-		}
+		seen[t] = true
 		consumers[path] = append(consumers[path], t)
 	}
 

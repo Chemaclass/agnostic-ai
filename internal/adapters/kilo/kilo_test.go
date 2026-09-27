@@ -140,6 +140,33 @@ func TestEmit_KiloJSONC_NoInstructionsKeyWhenNoRules(t *testing.T) {
 	}
 }
 
+// Sync drops a rule file when the shared AGENTS.md already carries the
+// rule (#1224). The entry listed for that file must go too, or Kilo
+// Code reads an instruction that points at a deleted file. Every other
+// entry, the user's own under .kilo/rules/ included, stays.
+func TestEmit_KiloJSONC_DropsOnlyTheEntriesOfInlinedRules(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	existing := `{"instructions": [".kilo/rules/r1.md", ".kilo/rules/mine.md", "docs/team.md"], "model": "m"}`
+	if err := os.WriteFile(filepath.Join(dir, "kilo.jsonc"), []byte(existing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sess := emit.NewSession()
+	sess.SetInlinedRules([]spec.Entry{{Kind: spec.KindRule, Name: "r1"}})
+
+	if err := New().Emit(sess, spec.Bundle{}, &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, "kilo.jsonc"))
+	if strings.Contains(got, ".kilo/rules/r1.md") {
+		t.Errorf("the entry of the inlined rule survived:\n%s", got)
+	}
+	for _, want := range []string{`".kilo/rules/mine.md"`, `"docs/team.md"`, `"model": "m"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %s:\n%s", want, got)
+		}
+	}
+}
+
 // name and tools are confirmed no-ops on real Kilo Code (target-audit
 // 2026-08-01, B2): the agent name comes from the filename, and the
 // full agent option table has no tools key at all. A spec's tools

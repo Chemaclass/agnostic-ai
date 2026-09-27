@@ -377,7 +377,7 @@ Output never depends on the value: files, summary counts, JSON, the `.gitignore`
 |-------|-------------|
 | `version` | Schema version, currently `"1"`. Breaking changes bump it. |
 | `command` | `"sync"` or `"sync --check"`. |
-| `writes` | Files written (`"create"`, `"update"`), orphans removed (`"delete"`), or, for `--check`, files needing attention (`"missing"`, `"stale"`, `"orphan"`). |
+| `writes` | Files written (`"create"`, `"update"`), orphans removed (`"delete"`), or, for `--check`, files needing attention (`"missing"`, `"stale"`, `"orphan"`, `"leftover"`). A `"leftover"` is a file the last sync wrote and no longer generates, which the next full sync removes; it reports under target `ledger`, since the ledger does not record which target wrote it. |
 | `skipped` | Files already matching (`"skip"`), user-owned (`"unmanaged"`), or edited orphans kept (`"orphan"`). Empty for `--check`. |
 | `errors` | Per-target errors with `target` and `message`. |
 

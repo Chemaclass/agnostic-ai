@@ -1,7 +1,4 @@
 {
-  "instructions": [
-    ".kilo/rules/sample-rule.md"
-  ],
   "model": "example-model",
   "permission": {
     "bash": {

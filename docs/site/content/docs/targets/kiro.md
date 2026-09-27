@@ -13,7 +13,7 @@ target_id = "kiro"
 ## Output
 
 ```
-AGENTS.md                          # entry-point pointer body (shared path)
+AGENTS.md                          # entry-point pointer body, plus the rules block when an inlining target shares it
 .kiro/steering/<name>.md           # one per rule (inclusion: always, or fileMatch + fileMatchPattern from globs)
 .kiro/skills/<name>/SKILL.md       # one per skill (+ bundled scripts/, references/, assets/)
 .kiro/agents/<name>.md             # one per agent
@@ -22,7 +22,7 @@ AGENTS.md                          # entry-point pointer body (shared path)
 .kiroignore                        # when ignore entries exist
 ```
 
-AWS Kiro loads [steering files](https://kiro.dev/docs/steering/) whose YAML frontmatter must come first in the file. Unscoped rules use `inclusion: always`; globbed rules use `fileMatch` with `fileMatchPattern`. Kiro's `auto` and `manual` modes are not used. Kiro also always includes the root `AGENTS.md`, which carries the shared pointer body.
+AWS Kiro loads [steering files](https://kiro.dev/docs/steering/) whose YAML frontmatter must come first in the file. Unscoped rules use `inclusion: always`; globbed rules use `fileMatch` with `fileMatchPattern`. Kiro's `auto` and `manual` modes are not used. Kiro also always includes the root `AGENTS.md`, which carries the shared pointer body. When codex or another inlining target adds the `## Rules` block to it, an `inclusion: always` rule whose text matches that block gets no steering file and loads once; `fileMatch` rules keep theirs. A Kiro custom agent loads only the steering files its `resources` list, so when any agent spec sets `x-kiro.resources`, every rule keeps its steering file. Listing `AGENTS.md` under `sync.unmanaged` also keeps them all, but sync then stops writing `AGENTS.md` at all, so codex and every other reader stop getting rule changes there. See [target behavior](@/docs/target-behavior.md#entry-point-files).
 
 Skills are [native](https://kiro.dev/docs/skills/): one folder per skill at `.kiro/skills/<name>/SKILL.md`, the tree Kiro's skill picker reads. The render (`name` and `description` frontmatter) is byte-identical with the shared `.agents/skills/` render. Bundled `scripts/`, `references/`, and `assets/` copy alongside.
 

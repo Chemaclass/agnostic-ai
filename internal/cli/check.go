@@ -24,17 +24,20 @@ import (
 // write fixes them, so `--fix` leaves them to the user. Blocking lists
 // the removals sync makes before writing a missing file, for a file that
 // stands where the file's parent directory belongs (Cline's single-file
-// `.clinerules`, #1064); `--fix` replays them first.
+// `.clinerules`, #1064); `--fix` replays them first. Leftover lists
+// files a prior sync wrote and no longer emits that the next full sync
+// removes; until then the tool still loads them.
 type driftReport struct {
 	Target   string
 	Missing  []adapters.CapturedFile
 	Stale    []adapters.CapturedFile
 	Orphaned []string
+	Leftover []string
 	Blocking []adapters.CapturedRemoval
 }
 
 func (r driftReport) hasDrift() bool {
-	return len(r.Missing) > 0 || len(r.Stale) > 0 || len(r.Orphaned) > 0
+	return len(r.Missing) > 0 || len(r.Stale) > 0 || len(r.Orphaned) > 0 || len(r.Leftover) > 0
 }
 
 // orphanedCount totals the orphaned files across reports.
@@ -87,15 +90,21 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 		return nil, err
 	}
 	sess := adapters.NewSession()
+	emitted := map[string]bool{}
+	resolvedAll := coversAllConfiguredTargets(targets, cfg.Targets)
 	for _, t := range targets {
 		adapter, err := adapters.Resolve(t)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "! %v\n", err)
+			resolvedAll = false
 			continue
 		}
 		files, err := captureAdapterFiles(sess, adapter, b, cfg)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", t, err)
+		}
+		for _, f := range files {
+			emitted[f.Path] = true
 		}
 
 		rep := driftReport{Target: t}
@@ -120,7 +129,54 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 		return nil, err
 	}
 	reports = append(reports, epRep)
+	// Another target's files are not in emitted, so only a check that
+	// covers every configured target can tell what sync stopped writing.
+	// The ledger does not record which target wrote a file, so leftovers
+	// get a report of their own.
+	if resolvedAll {
+		if leftover := leftoverOutputs(cfg, emitted); len(leftover) > 0 {
+			reports = append(reports, driftReport{Target: ledgerReport, Leftover: leftover})
+		}
+	}
 	return reports, nil
+}
+
+// ledgerReport names the drift report for files the last sync wrote and
+// no longer emits.
+const ledgerReport = "ledger"
+
+// leftoverOutputs returns the files the last sync wrote, that are not in
+// emitted or an entry point, and that the next full sync's orphan sweep
+// removes: still on disk, not user-owned, and still carrying the
+// provenance header or the bytes sync recorded. Kept orphans are
+// reported apart (recordedOrphans), and links and directories never are.
+func leftoverOutputs(cfg *config.Config, emitted map[string]bool) []string {
+	state := readStateFile(".")
+	skip := map[string]bool{}
+	for _, p := range entryPointPaths(cfg, cfg.Targets) {
+		skip[p] = true
+	}
+	for _, p := range state.Orphans {
+		skip[p] = true
+	}
+	var out []string
+	for _, p := range state.Outputs {
+		if emitted[p] || skip[p] || cfg.IsUnmanaged(p) || underSymlinkedDir(p) {
+			continue
+		}
+		if fi, err := os.Lstat(p); err != nil || !fi.Mode().IsRegular() {
+			continue
+		}
+		data, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		sum := state.OutputSums[p]
+		if header.Has(string(data)) || sum != "" && adapters.ContentSum(string(data)) == sum {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // notOnDisk reports whether a read failed because no file sits at the
@@ -257,6 +313,12 @@ func printDrift(reports []driftReport) bool {
 		if len(r.Orphaned) > 0 {
 			summaryf("    %d orphaned file(s) no longer generated but edited since sync (delete them, or list them under sync.unmanaged):\n", len(r.Orphaned))
 			for _, p := range r.Orphaned {
+				summaryf("      - %s\n", p)
+			}
+		}
+		if len(r.Leftover) > 0 {
+			summaryf("    %d file(s) no longer generated and still loaded (run `agnostic-ai sync` to remove):\n", len(r.Leftover))
+			for _, p := range r.Leftover {
 				summaryf("      - %s\n", p)
 			}
 		}
@@ -476,14 +538,17 @@ func driftRecords(reports []driftReport) []fileRecord {
 		for _, p := range r.Orphaned {
 			records = append(records, fileRecord{Target: r.Target, Path: p, Action: "orphan"})
 		}
+		for _, p := range r.Leftover {
+			records = append(records, fileRecord{Target: r.Target, Path: p, Action: "leftover"})
+		}
 	}
 	return records
 }
 
 // fixDrift writes the captured content for every missing or stale file in
-// reports, after the removals that stand in their way. Files in sync are
-// left untouched. Returns the number of files
-// written.
+// reports, after the removals that stand in their way, and removes the
+// leftovers the next sync would sweep. Files in sync are left untouched.
+// Returns the number of files written or removed.
 func fixDrift(reports []driftReport, backup bool) (int, error) {
 	sess := adapters.NewSession()
 	if backup {
@@ -505,6 +570,22 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 				return written, err
 			}
 			written++
+		}
+		if len(r.Leftover) == 0 {
+			continue
+		}
+		// The same ownership guard as the orphan sweep in sync.
+		sums := readStateFile(".").OutputSums
+		pruned := map[string]bool{}
+		for _, p := range r.Leftover {
+			removed, err := sess.RemoveOwned(p, sums[p], false)
+			if err != nil {
+				return written, err
+			}
+			if removed {
+				pruneAncestorDirs(p, pruned)
+				written++
+			}
 		}
 	}
 	return written, nil

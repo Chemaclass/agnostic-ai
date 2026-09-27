@@ -167,7 +167,11 @@ verify:
 	withEntryPoints := func(targets []string) []adapters.CapturedFile {
 		files := append([]adapters.CapturedFile(nil), nativeFiles...)
 		files = append(files, adapters.CapturedFile{Path: adapters.AgnosticEntryPointPath, Content: string(agnosticBody)})
-		entryPoints, renderErr := renderEntryPointFiles(cfg, bundle, targets, header.Strip(string(agnosticBody)))
+		// Configured readers always join a rendered entry point, so the
+		// codex-only bytes need a config with codex alone.
+		readers := *cfg
+		readers.Targets = targets
+		entryPoints, renderErr := renderEntryPointFiles(&readers, bundle, targets, header.Strip(string(agnosticBody)))
 		if renderErr != nil {
 			t.Fatal(renderErr)
 		}

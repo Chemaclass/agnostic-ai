@@ -10,15 +10,12 @@
 // vendor doc's own glob example is a single, non-recursive `*.md`, so
 // a lone glob entry would silently miss anything scoped. Kilo Code's
 // own precedence order is agent prompt > project `instructions` >
-// AGENTS.md > global (agents-md.md), so `instructions` outranks the
-// project-root AGENTS.md that `sync` writes centrally as a slim
-// pointer to the source specs (one body shared with every other
-// target's entry-point file). AGENTS.md "cannot be individually
-// disabled: it is always loaded if present" (agents-md.md), so this
-// adapter keeps inlining full rule bodies there too (see
-// inlineRulesTargets in internal/adapters/internal/emit/
-// rules_appendix.go): `instructions` is how a rule wins a conflict
-// with a user's own entry, not a reason to drop the AGENTS.md fallback.
+// AGENTS.md > global (agents-md.md). AGENTS.md "cannot be individually
+// disabled: it is always loaded if present" (agents-md.md), and `sync`
+// inlines every unscoped rule body there (see inlineRulesTargets in
+// internal/adapters/internal/emit/rules_appendix.go). A rule file for
+// the same rule would load it twice, so sync gives a rule whose text
+// matches that block no file here and no `instructions` entry (#1224).
 // `.kilocode/rules/` (the pre-rename Kilo Code branding) is a separate,
 // genuinely legacy tree Kilo Code still reads automatically for
 // backward compatibility; this adapter intentionally never emits it,
@@ -397,6 +394,8 @@ func emitKiloJSONC(sess *emit.Session, b spec.Bundle, rulesDir, skillsDir, path 
 	keys := map[string]any{}
 	if instructions := ruleInstructions(b.Rules, rulesDir); len(instructions) > 0 {
 		keys["instructions"] = instructions
+	} else if kept, stale := withoutInlinedRules(sess.ExistingStrings(path, "instructions", dryRun), sess.InlinedRules(), rulesDir); stale {
+		keys["instructions"] = kept
 	}
 	if servers := buildMCPMap(b.MCPs); len(servers) > 0 {
 		keys["mcp"] = servers
@@ -453,6 +452,24 @@ func skillsPaths(sess *emit.Session, skills []spec.Entry, skillsDir, path string
 // ruleInstructions lists every named rule in `instructions`.
 func (Adapter) AlwaysOnRule(r spec.Entry) bool {
 	return r.Name != ""
+}
+
+// withoutInlinedRules drops from an existing `instructions` list the
+// entries an earlier sync wrote for rules the shared AGENTS.md now
+// carries, and reports whether it dropped any. Other entries, the
+// user's own included, stay.
+func withoutInlinedRules(existing []string, inlined []spec.Entry, rulesDir string) ([]string, bool) {
+	stale := map[string]bool{}
+	for _, entry := range ruleInstructions(inlined, rulesDir) {
+		stale[filepath.ToSlash(filepath.Clean(entry))] = true
+	}
+	kept := []string{}
+	for _, entry := range existing {
+		if !stale[filepath.ToSlash(filepath.Clean(entry))] {
+			kept = append(kept, entry)
+		}
+	}
+	return kept, len(kept) < len(existing)
 }
 
 // ruleInstructions returns one `instructions` entry per rule spec: the

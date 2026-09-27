@@ -126,10 +126,11 @@ func findSpecEntry(input string, b spec.Bundle) (spec.Entry, error) {
 
 // entryPointRuleFile returns the entry-point contribution a rule spec
 // makes for a target that inlines rules into its entry-point file
-// (codex, amp, warp, gemini, aider, opencode). The adapter's Emit does
-// not produce this output: rule inlining happens in the central sync
-// layer, so render and graph reconstruct it here to mirror what `sync`
-// actually writes. Returns ok=false for non-rule specs, non-inlining
+// (codex, amp, warp, gemini, aider, opencode), or that reads another
+// target's inlined rules there in place of its own rule files. The
+// adapter's Emit does not produce this output: rule inlining happens in
+// the central sync layer, so render and graph reconstruct it here to
+// mirror what `sync` actually writes. Returns ok=false for non-rule specs, non-inlining
 // targets, and targets on the legacy concatenated rules-file layout
 // (where the adapter owns the entry-point write instead).
 func entryPointRuleFile(cfg *config.Config, target string, entry spec.Entry, single spec.Bundle) (adapters.CapturedFile, bool) {
@@ -141,9 +142,12 @@ func entryPointRuleFile(cfg *config.Config, target string, entry spec.Entry, sin
 		return adapters.CapturedFile{}, false
 	}
 	var appendix string
+	inliner := adapters.EntryPointRuleInliner(cfg, target)
 	switch {
 	case adapters.InlinesRulesIntoEntryPoint(target) && !adapters.HasLegacyRulesFile(cfg, target):
 		appendix = adapters.RenderRulesAppendix(adapters.EntryPointRules(single, target))
+	case inliner != "":
+		appendix = adapters.RenderRulesAppendix(adapters.EntryPointRules(single, inliner))
 	case adapters.ImportsRulesIntoEntryPoint(cfg, target):
 		appendix = adapters.RenderRulesImportAppendix(cfg, target, adapters.EntryPointRules(single, target))
 	}

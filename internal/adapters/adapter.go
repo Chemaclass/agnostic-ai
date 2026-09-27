@@ -378,6 +378,71 @@ func InlinesRulesIntoEntryPoint(target string) bool {
 	return emit.InlinesRulesIntoEntryPoint(target)
 }
 
+// EntryPointRuleInliner returns the target whose inlined rules block
+// the entry point target reads carries in place of target's own
+// always-on rule files, or "" (re-exported from the emit layer).
+func EntryPointRuleInliner(cfg *config.Config, target string) string {
+	return emit.EntryPointRuleInliner(cfg, target)
+}
+
+// RuleInEntryPoint reports whether target skips its own file for rule r
+// because the entry point it reads already carries r, with the same
+// text, and that file would load r in every session too.
+func RuleInEntryPoint(cfg *config.Config, b spec.Bundle, target string, r spec.Entry) bool {
+	own := slices.Clone(b.For(target).Rules)
+	vals := varsFor(cfg, target)
+	for i := range own {
+		own[i].Body, _ = emit.ExpandVars(own[i].Body, vals)
+	}
+	for _, skipped := range entryPointRules(cfg, b, target, own) {
+		if skipped.Name == r.Name {
+			return true
+		}
+	}
+	return false
+}
+
+// entryPointRules returns the rules in own, target's rules as its files
+// hold them, that the entry point target reads carries with the same
+// body and description and that target would load in every session.
+// A rule whose text differs, from a `::target` fence or an expanded
+// variable, keeps its file: dropping it would lose that text.
+func entryPointRules(cfg *config.Config, b spec.Bundle, target string, own []spec.Entry) []spec.Entry {
+	inlined := emit.EntryPointInlinedRules(cfg, b, target)
+	if len(inlined) == 0 {
+		return nil
+	}
+	var out []spec.Entry
+	for _, r := range own {
+		i, ok := inlined[r.Name]
+		if ok && i.Body == r.Body && i.Description() == r.Description() && AlwaysOnRule(target, r) {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// withoutEntryPointRules drops the rules entryPointRules reports, so
+// target loads each of them once, and records them on sess.
+func withoutEntryPointRules(sess *Session, cfg *config.Config, b spec.Bundle, target string, own []spec.Entry) []spec.Entry {
+	inlined := entryPointRules(cfg, b, target, own)
+	sess.SetInlinedRules(inlined)
+	if len(inlined) == 0 {
+		return own
+	}
+	skip := make(map[string]bool, len(inlined))
+	for _, r := range inlined {
+		skip[r.Name] = true
+	}
+	out := make([]spec.Entry, 0, len(own))
+	for _, r := range own {
+		if !skip[r.Name] {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
 // RenderRulesAppendix renders the sentinel-marked rules block for an
 // entry-point file (re-exported from the emit layer).
 func RenderRulesAppendix(b spec.Bundle) string {
@@ -490,7 +555,9 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 		}
 		sess.SetCodexSkillsDir(codexSkills)
 	}
-	prepared, files, err := emit.PrepareScopedRules(expandBundleVars(b.For(a.Name()), cfg, a.Name()), cfg, a.Name())
+	own := expandBundleVars(b.For(a.Name()), cfg, a.Name())
+	own.Rules = withoutEntryPointRules(sess, cfg, b, a.Name(), own.Rules)
+	prepared, files, err := emit.PrepareScopedRules(own, cfg, a.Name())
 	if err != nil {
 		return err
 	}

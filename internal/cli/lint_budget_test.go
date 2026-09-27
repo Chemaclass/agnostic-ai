@@ -238,14 +238,14 @@ func TestLintBudget_CountsEachTargetsAlwaysOnRuleFiles(t *testing.T) {
 		"cursor":      300, // alwaysApply defaults to true; false is agent requested
 		"trae":        300,
 		"antigravity": 300, // req is model_decision
-		"augment":     300, // req is agent_requested
+		"augment":     0,   // both inline into AGENTS.md, which Augment always reads
 		"cline":       400, // no description mode, so req stays always active
 		"windsurf":    300, // req is model_decision
 		"kiro":        100, // globs become fileMatch
 		"copilot":     100, // globs become applyTo
 		"qoder":       300, // globs is not Qoder's key; alwaysApply false is manual
 		"continue":    0,   // globs match on demand; alwaysApply false is not always
-		"kilo":        400, // every rule is listed in kilo.jsonc instructions
+		"kilo":        0,   // both inline into AGENTS.md, which Kilo always reads
 		"codex":       0,   // no rule files; rules inline into AGENTS.md
 	}
 	for target, want := range cases {
