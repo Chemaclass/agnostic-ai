@@ -50,9 +50,21 @@ $ agnostic-ai why .cursor/rules/no-console-log.mdc
 
 ## Entry-point files
 
-Targets with no native rules directory (codex, gemini, aider, amp, warp, zed, opencode, crush, jules, goose, openhands, factory, kilo) inline rule bodies into their entry-point file (`AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, ...) under a sentinel `## Rules` block. Augment has a native `.augment/rules/` directory but inlines into `AGENTS.md` too. Sync's entry-point distribution writes that file, not an adapter, so `why` traces it specially: it lists every inlined rule spec as a `section` source and credits the file to the first consuming target.
+Every target's entry-point file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, ...) is a copy of `.agnostic-ai/AGNOSTIC_AI.md`, so `why` lists that file first, as an `instructions` source. It is `full` when nothing else lands in the file.
+
+```sh
+$ agnostic-ai why CLAUDE.md
+CLAUDE.md
+  adapter: claude
+  ...
+  sources:
+    [instructions] AGNOSTIC_AI.md (.agnostic-ai/AGNOSTIC_AI.md): full
+```
+
+The ignored `.agnostic-ai/local/AGNOSTIC_AI.md` follows when present. Targets with no native rules directory (codex, gemini, aider, amp, warp, zed, opencode, crush, jules, goose, openhands, factory, kilo) also inline rule bodies under a sentinel `## Rules` block; Augment inlines into `AGENTS.md` too. Each inlined rule is a `section` source. The file is credited to its first consuming target by name.
 
 ## Errors
 
 - **No sync state**: `.agnostic-ai/.sync-state` is absent. `why` tells you to run `agnostic-ai sync` first.
+- **Source file**: a spec (`.agnostic-ai/rules/x.md`) is an input, so `why` points at `agnostic-ai explain <spec>` for the files it writes. `.agnostic-ai/AGNOSTIC_AI.md` gets the same note, naming the entry points it feeds.
 - **Untracked file**: the path matches no adapter emission. `why` reports "not synced or not tracked" and tells you to re-run `sync` or check the path.

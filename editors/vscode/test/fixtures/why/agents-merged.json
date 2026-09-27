@@ -3,8 +3,15 @@
   "command": "why",
   "file": "AGENTS.md",
   "target": "codex",
+  "configured": true,
   "output_keys": [],
   "sources": [
+    {
+      "kind": "instructions",
+      "name": "AGNOSTIC_AI.md",
+      "path": ".agnostic-ai/AGNOSTIC_AI.md",
+      "mode": "section"
+    },
     {
       "kind": "rule",
       "name": "no-console-log",

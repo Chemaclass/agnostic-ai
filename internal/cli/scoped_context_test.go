@@ -171,7 +171,9 @@ func TestScopedContext_InspectionMatchesSync(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(root.Sources) != 0 {
-		t.Fatalf("scoped source leaked into root trace: %+v", root)
+	for _, src := range root.Sources {
+		if src.Name == "payments" {
+			t.Fatalf("scoped source leaked into root trace: %+v", root)
+		}
 	}
 }

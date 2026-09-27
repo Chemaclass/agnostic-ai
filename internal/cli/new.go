@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -69,6 +70,9 @@ func newNewCmd() *cobra.Command {
 				}
 			}
 			if !validKind(kind) {
+				if s := adapters.SuggestName(kind, newSpecKinds); s != "" {
+					return fmt.Errorf("unknown kind %q (did you mean %s?); expected one of: %s", kind, s, strings.Join(newSpecKinds, ", "))
+				}
 				return fmt.Errorf("unknown kind %q; expected one of: %s", kind, strings.Join(newSpecKinds, ", "))
 			}
 			if !slugRe.MatchString(name) {

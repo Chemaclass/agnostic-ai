@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -404,5 +405,165 @@ func TestWhy_LabelsUnconfiguredTarget(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "adapter: windsurf (not configured)") {
 		t.Errorf("missing not-configured label: %s", out.String())
+	}
+}
+
+// CLAUDE.md is the file users open first. Claude reads rules from its own
+// directory, so nothing is inlined, but the file still comes from the
+// shared instructions.
+func TestWhy_EntryPointFileCreditsTheSharedInstructions(t *testing.T) {
+	dir := setupWhyFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	got := runWhyJSON(t, "CLAUDE.md")
+
+	if got.Target != "claude" {
+		t.Errorf("expected claude as the entry-point consumer, got %q", got.Target)
+	}
+	if len(got.Sources) != 1 || got.Sources[0].Path != ".agnostic-ai/AGNOSTIC_AI.md" || got.Sources[0].Mode != "full" {
+		t.Errorf("want AGNOSTIC_AI.md as the one full source, got %v", got.Sources)
+	}
+}
+
+func TestWhy_EntryPointWithInlinedRulesListsInstructionsFirst(t *testing.T) {
+	dir := setupWhyFixture(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\nsources:\n  rules: rules\ntargets:\n  - codex\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	got := runWhyJSON(t, "AGENTS.md")
+
+	if len(got.Sources) == 0 || got.Sources[0].Path != ".agnostic-ai/AGNOSTIC_AI.md" {
+		t.Errorf("want AGNOSTIC_AI.md first, got %v", got.Sources)
+	}
+}
+
+// A source spec is not an output; say which command answers the question.
+func TestWhy_SourceFilePointsAtExplain(t *testing.T) {
+	dir := setupWhyFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"why", "rules/no-console-log.md"})
+	err := root.Execute()
+
+	if err == nil || !strings.Contains(err.Error(), "agnostic-ai explain rules/no-console-log.md") {
+		t.Errorf("got %v", err)
+	}
+}
+
+func TestWhy_SharedInstructionsSayWhereTheyGo(t *testing.T) {
+	dir := setupWhyFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"why", ".agnostic-ai/AGNOSTIC_AI.md"})
+	err := root.Execute()
+
+	if err == nil || !strings.Contains(err.Error(), "shared instructions body") {
+		t.Errorf("got %v", err)
+	}
+}
+
+func whyProject(t *testing.T, cfg string, files map[string]string) {
+	t.Helper()
+	dir := testutil.TempCwd(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), cfg)
+	for p, body := range files {
+		mustWriteFile(t, filepath.Join(dir, p), body)
+	}
+	silence(t)
+}
+
+func sourceNames(w whyOutput) []string {
+	var out []string
+	for _, s := range w.Sources {
+		out = append(out, s.Name)
+	}
+	return out
+}
+
+// A shared AGENTS.md carries the rules of the reader that inlines them,
+// not of the first reader by name.
+func TestWhy_SharedEntryPointCreditsTheInliningReader(t *testing.T) {
+	whyProject(t, "version: 1\ntargets: [codex, cline]\n", map[string]string{
+		".agnostic-ai/rules/codex-only.md": "---\ntargets: [codex]\n---\nCodex only rule.\n",
+		".agnostic-ai/rules/cline-only.md": "---\ntargets: [cline]\n---\nCline only rule.\n",
+	})
+
+	got := runWhyJSON(t, "AGENTS.md")
+
+	if got.Target != "codex" || !slices.Contains(sourceNames(got), "codex-only") || slices.Contains(sourceNames(got), "cline-only") {
+		t.Errorf("got target %q, sources %v", got.Target, sourceNames(got))
+	}
+}
+
+// rules-mode: import appends @-lines for each rule to CLAUDE.md.
+func TestWhy_ImportedRulesAreSectionsOfTheEntryPoint(t *testing.T) {
+	whyProject(t, "version: 1\ntargets: [claude]\noutputs:\n  claude:\n    rules-mode: import\n", map[string]string{
+		".agnostic-ai/rules/always.md": "---\nalwaysApply: true\n---\nAlways.\n",
+	})
+
+	got := runWhyJSON(t, "CLAUDE.md")
+
+	if got.Sources[0].Mode != "section" || !slices.Contains(sourceNames(got), "always") {
+		t.Errorf("got %v", got.Sources)
+	}
+}
+
+func TestWhy_UnmanagedEntryPointIsNotCredited(t *testing.T) {
+	whyProject(t, "version: 1\ntargets: [claude]\nsync:\n  unmanaged: [CLAUDE.md]\n", map[string]string{"CLAUDE.md": "hand written\n"})
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"why", "CLAUDE.md", "--format", "json"})
+	var out bytes.Buffer
+	root.SetOut(&out)
+	_ = root.Execute()
+
+	if strings.Contains(out.String(), "AGNOSTIC_AI.md") {
+		t.Errorf("a user-owned CLAUDE.md must not trace to AGNOSTIC_AI.md:\n%s", out.String())
+	}
+}
+
+func TestWhy_JunieMirrorTracesToTheSharedInstructions(t *testing.T) {
+	whyProject(t, "version: 1\ntargets: [junie]\n", nil)
+
+	got := runWhyJSON(t, ".junie/AGENTS.md")
+
+	if len(got.Sources) == 0 || got.Sources[0].Path != ".agnostic-ai/AGNOSTIC_AI.md" {
+		t.Errorf("got %v", got.Sources)
+	}
+}
+
+func TestWhy_BlankLocalExtensionIsNotASource(t *testing.T) {
+	whyProject(t, "version: 1\ntargets: [gemini]\n", map[string]string{".agnostic-ai/local/AGNOSTIC_AI.md": "   \n"})
+
+	got := runWhyJSON(t, "GEMINI.md")
+
+	if len(got.Sources) != 1 || got.Sources[0].Mode != "full" {
+		t.Errorf("got %v", got.Sources)
+	}
+}
+
+func TestWhy_OutputThatIsAlsoASourceStillTraces(t *testing.T) {
+	whyProject(t, "version: 1\nsources:\n  rules: .claude/rules\ntargets: [claude]\n", map[string]string{".claude/rules/r.md": "---\ndescription: R.\n---\nBody.\n"})
+
+	got := runWhyJSON(t, ".claude/rules/r.md")
+
+	if got.Target != "claude" {
+		t.Errorf("got %+v", got)
+	}
+}
+
+func TestWhy_DotSlashEntryPointOverrideMatches(t *testing.T) {
+	whyProject(t, "version: 1\ntargets: [gemini]\noutputs:\n  gemini:\n    file: ./docs/GEMINI.md\n", nil)
+
+	got := runWhyJSON(t, "docs/GEMINI.md")
+
+	if got.Target != "gemini" {
+		t.Errorf("got %+v", got)
 	}
 }

@@ -87,6 +87,9 @@ func traceFile(input string, cfg *config.Config, b spec.Bundle, projectRoot stri
 	if err != nil {
 		return whyOutput{}, err
 	}
+	if filepath.ToSlash(rel) == filepath.ToSlash(adapters.AgnosticEntryPointPath) {
+		return whyOutput{}, fmt.Errorf("%s is the shared instructions body, not a generated file. sync copies it into every target's entry point (CLAUDE.md, AGENTS.md, GEMINI.md, ...)", input)
+	}
 
 	// Silence per-adapter capability warnings during the multi-adapter
 	// capture sweep below.
@@ -114,6 +117,11 @@ func traceFile(input string, cfg *config.Config, b spec.Bundle, projectRoot stri
 		if report, ok := traceEntryPointFile(rel, cfg, b, projectRoot); ok {
 			return report, nil
 		}
+		// Checked after the adapter lookup: a source directory can also
+		// be an output directory (sources.rules: .claude/rules).
+		if isSourceFile(rel, b) {
+			return whyOutput{}, fmt.Errorf("%s is a source spec, not a generated file. Run `agnostic-ai explain %s` to see the files it writes", input, filepath.ToSlash(rel))
+		}
 		if target == "" {
 			return whyOutput{}, whyNotTrackedError(input, projectRoot)
 		}
@@ -126,6 +134,9 @@ func traceFile(input string, cfg *config.Config, b spec.Bundle, projectRoot stri
 	sources, err := tracedSources(adapter, hit, b, cfg)
 	if err != nil {
 		return whyOutput{}, err
+	}
+	if mirror := adapters.SharedInstructionsMirror(target); mirror != "" && samePath(mirror, rel) {
+		sources = append([]whySource{instructionsSource(len(sources) > 0)}, sources...)
 	}
 
 	out := whyOutput{
@@ -141,50 +152,94 @@ func traceFile(input string, cfg *config.Config, b spec.Bundle, projectRoot stri
 	return out, nil
 }
 
-// traceEntryPointFile reports the rule specs inlined into an entry-point
-// file. Returns false when rel is not an entry-point that inlines rules.
-// A shared path (AGENTS.md) is attributed to its first consuming target
-// in registry order, listing every inlined rule as a section source.
+// traceEntryPointFile reports where an entry-point file (CLAUDE.md,
+// AGENTS.md, GEMINI.md, ...) comes from, following the blocks
+// renderEntryPointFiles appends: the shared AGNOSTIC_AI.md body, then the
+// rules inlined or imported for its readers, then the local extension.
+// Returns false when rel is no configured target's managed entry point.
+// The file is credited to the target whose rules it carries, or else to
+// its first reader in `targets` order.
 func traceEntryPointFile(rel string, cfg *config.Config, b spec.Bundle, projectRoot string) (whyOutput, bool) {
-	if len(b.Rules) == 0 {
-		return whyOutput{}, false
-	}
-	relSlash := filepath.ToSlash(rel)
-	byPath := inlinedRuleEntryPoints(cfg, cfg.Targets)
-	tgts, ok := byPath[rel]
-	if !ok {
-		// Fall back to a slash-normalized scan so Windows separators match.
-		for p, ts := range byPath {
-			if filepath.ToSlash(p) == relSlash {
-				tgts, ok = ts, true
-				break
-			}
+	var consumers []string
+	for _, t := range cfg.Targets {
+		p := adapters.EntryPointPath(cfg, t)
+		if p == "" || p == adapters.AgnosticEntryPointPath || cfg.IsUnmanaged(p) ||
+			adapters.LegacyRulesFileOwnsEntryPoint(cfg, t) || !samePath(p, rel) {
+			continue
 		}
+		consumers = append(consumers, t)
 	}
-	if !ok || len(tgts) == 0 {
+	if len(consumers) == 0 {
 		return whyOutput{}, false
 	}
-	sort.Strings(tgts)
-	sources := make([]whySource, 0, len(b.Rules))
-	for _, r := range adapters.EntryPointRules(b, tgts[0]).Rules {
-		sources = append(sources, whySource{
+	target := consumers[0]
+	var rules []spec.Entry
+	if inliners := pathRuleInliners(cfg, consumers); len(inliners) > 0 {
+		target = inliners[0]
+		rules = adapters.EntryPointRules(b, target).Rules
+	} else if importer := pathRulesImporter(cfg, consumers); importer != "" {
+		target = importer
+		rules = adapters.EntryPointRules(b, importer).Rules
+	} else if importer := pathLegacyRulesFileImporter(cfg, consumers); importer != "" {
+		target = importer
+		rules = adapters.EntryPointRules(b, importer).Rules
+	}
+	local, _ := adapters.ReadLocalInstructions()
+	appended := len(rules) > 0 || local != "" || cfg.Sync.TargetOverview
+
+	sources := []whySource{instructionsSource(appended)}
+	var ruleSources []whySource
+	for _, r := range rules {
+		ruleSources = append(ruleSources, whySource{
 			Kind: string(r.Kind),
 			Name: r.Name,
 			Path: filepath.ToSlash(r.Path),
 			Mode: "section",
 		})
 	}
-	sort.SliceStable(sources, func(i, j int) bool { return sources[i].Name < sources[j].Name })
+	sort.SliceStable(ruleSources, func(i, j int) bool { return ruleSources[i].Name < ruleSources[j].Name })
+	sources = append(sources, ruleSources...)
+	if local != "" {
+		sources = append(sources, whySource{Kind: "instructions", Name: "AGNOSTIC_AI.md (local)", Path: filepath.ToSlash(adapters.ProjectLocalEntryPointPath), Mode: "section"})
+	}
 	return whyOutput{
 		Version:    "1",
 		Command:    "why",
-		File:       relSlash,
-		Target:     tgts[0],
+		File:       filepath.ToSlash(rel),
+		Target:     target,
 		Configured: true,
 		OutputKeys: nil,
 		Sources:    sources,
 		LastSync:   lastSyncTimestamp(projectRoot),
 	}, true
+}
+
+// instructionsSource credits the shared AGNOSTIC_AI.md body: the whole
+// file, or one section of it when something else lands there too.
+func instructionsSource(shared bool) whySource {
+	mode := "full"
+	if shared {
+		mode = "section"
+	}
+	return whySource{Kind: "instructions", Name: "AGNOSTIC_AI.md", Path: filepath.ToSlash(adapters.AgnosticEntryPointPath), Mode: mode}
+}
+
+// samePath compares two project-relative paths after cleaning, so an
+// `outputs.<target>.file: ./docs/GEMINI.md` matches `docs/GEMINI.md`.
+func samePath(a, b string) bool {
+	return filepath.Clean(filepath.FromSlash(a)) == filepath.Clean(filepath.FromSlash(b))
+}
+
+// isSourceFile reports whether rel is a spec file, which sync reads
+// rather than writes.
+func isSourceFile(rel string, b spec.Bundle) bool {
+	relSlash := filepath.ToSlash(rel)
+	for _, e := range b.All() {
+		if filepath.ToSlash(e.Path) == relSlash {
+			return true
+		}
+	}
+	return false
 }
 
 // normalizeInputPath returns the absolute path and the project-relative

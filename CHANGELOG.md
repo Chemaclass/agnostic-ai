@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Added
 
+- `why CLAUDE.md` (and every other entry point) names `.agnostic-ai/AGNOSTIC_AI.md` as its source instead of saying the file is not tracked. `why` on a spec points at `explain`, and `new skil` suggests `skill`.
 - `lint` and `sync` warn on a mistyped frontmatter key, such as `glob:` for `globs:`, which parsed and left a rule applying to every file (LINT007).
 - Every coded error prints its fix on the next line, so `sync` in a folder without a config says to run `agnostic-ai init`.
 - `init` and `status` point a project with no specs at `agnostic-ai new rule <name>`, and `doctor` says when the generated files are in sync.
