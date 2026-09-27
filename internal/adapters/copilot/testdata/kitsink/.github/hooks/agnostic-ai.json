@@ -6,6 +6,9 @@
         "type": "command",
         "matcher": "Bash",
         "command": "hooks/guard.sh",
+        "env": {
+          "AGNOSTIC_AI_TARGET": "copilot"
+        },
         "timeoutSec": 10
       }
     ],
@@ -16,7 +19,10 @@
         "exec": "hooks/format.sh",
         "args": [
           "--fix"
-        ]
+        ],
+        "env": {
+          "AGNOSTIC_AI_TARGET": "copilot"
+        }
       }
     ]
   }

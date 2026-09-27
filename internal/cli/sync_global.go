@@ -19,6 +19,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/cursor"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -599,6 +600,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		next.Hooks[target] = map[string][]any{}
 		path := g.path(home, g.hooks)
 		hooks := b.HooksFor(target)
+		hookTarget := globalHookTarget{name: target, mode: g.hookTarget, specHooks: len(hooks)}
 		if g.bridge && body != "" {
 			bridge, command, script, mode := globalContextBridge(filepath.Dir(path), body, g.bridgeKey)
 			if err := add(bridge, []byte(script), mode); err != nil {
@@ -606,7 +608,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			}
 			hooks = append(append([]spec.Entry{}, hooks...), spec.Entry{Meta: map[string]any{"event": g.bridgeEvent, "command": command}})
 		}
-		doc, err := mergeGlobalHooks(path, g.hooksFormat, hooks, old.Hooks[target], next.Hooks[target], warn)
+		doc, err := mergeGlobalHooks(path, g.hooksFormat, hookTarget, hooks, old.Hooks[target], next.Hooks[target], warn)
 		if errors.Is(err, errGlobalFileUnchanged) {
 			if slices.Contains(old.Files, path) {
 				next.Files = append(next.Files, path)
@@ -835,7 +837,7 @@ var errGlobalFileUnchanged = errors.New("global file unchanged")
 // An unrecorded entry exactly as sync would write it satisfies the
 // source and stays the user's, since nothing in it shows sync wrote it.
 // One with the same matcher and command but other fields stops the run.
-func mergeGlobalHooks(path, format string, entries []spec.Entry, previous map[string][]any, next map[string][]any, warn io.Writer) ([]byte, error) {
+func mergeGlobalHooks(path, format string, target globalHookTarget, entries []spec.Entry, previous map[string][]any, next map[string][]any, warn io.Writer) ([]byte, error) {
 	doc := map[string]any{}
 	before := map[string]any{}
 	ordered := adapters.NewOrderedJSON()
@@ -893,13 +895,34 @@ func mergeGlobalHooks(path, format string, entries []spec.Entry, previous map[st
 		current, _ := items.([]any)
 		unrecorded[event] = slices.Clone(current)
 	}
-	for _, entry := range entries {
+	// place adds one managed item unless an unrecorded entry already
+	// matches it, or matches plain, the item without the target signal:
+	// a hook the user wrote stays exactly as written.
+	place := func(event string, item, plain any) (bool, error) {
+		for _, want := range []any{item, plain} {
+			var satisfied bool
+			if unrecorded[event], satisfied = removeEqual(unrecorded[event], jsonRoundTrip(want)); satisfied {
+				return false, nil
+			}
+		}
+		if slices.ContainsFunc(unrecorded[event], func(existing any) bool { return sameGlobalHook(existing, item) || sameGlobalHook(existing, plain) }) {
+			return false, fmt.Errorf("%s: a %s hook not recorded as managed runs a source hook's matcher and command with other settings; remove that entry, or give the command its own entry that matches the source, then sync", path, event)
+		}
+		current, _ := hooks[event].([]any)
+		hooks[event] = append(current, item)
+		next[event] = append(next[event], item)
+		return true, nil
+	}
+	// told reports that sync wrote a spec hook itself, so the target
+	// signal outside the entries (settings env, session hook) is due.
+	told := false
+	for i, entry := range entries {
 		event, _ := entry.Meta["event"].(string)
 		if event == "" {
 			continue
 		}
 		for _, command := range globalHookCommands(entry.Meta["command"]) {
-			var item any
+			var item, plain any
 			if format == "claude" {
 				commandHook := map[string]any{"type": "command", "command": command}
 				for _, key := range []string{"timeout", "statusMessage", "async", "asyncRewake", "shell", "if", "once"} {
@@ -908,6 +931,8 @@ func mergeGlobalHooks(path, format string, entries []spec.Entry, previous map[st
 					}
 				}
 				matcher, _ := entry.Meta["matcher"].(string)
+				plain = map[string]any{"matcher": matcher, "hooks": []any{maps.Clone(commandHook)}}
+				target.tell(commandHook, entry.Meta)
 				item = map[string]any{"matcher": matcher, "hooks": []any{commandHook}}
 			} else {
 				cursorHook := map[string]any{"command": command}
@@ -916,24 +941,28 @@ func mergeGlobalHooks(path, format string, entries []spec.Entry, previous map[st
 						cursorHook[key] = value
 					}
 				}
-				item = cursorHook
+				item, plain = cursorHook, cursorHook
 			}
-			var satisfied bool
-			if unrecorded[event], satisfied = removeEqual(unrecorded[event], jsonRoundTrip(item)); satisfied {
-				continue
+			placed, err := place(event, item, plain)
+			if err != nil {
+				return nil, err
 			}
-			if slices.ContainsFunc(unrecorded[event], func(existing any) bool { return sameGlobalHook(existing, item) }) {
-				return nil, fmt.Errorf("%s: a %s hook not recorded as managed runs a source hook's matcher and command with other settings; remove that entry, or give the command its own entry that matches the source, then sync", path, event)
-			}
-			current, _ := hooks[event].([]any)
-			hooks[event] = append(current, item)
-			next[event] = append(next[event], item)
+			told = told || (placed && i < target.specHooks)
+		}
+	}
+	if target.mode == hookTargetSessionEnv && told {
+		item := map[string]any{"command": cursor.HookTargetCommand}
+		if _, err := place(cursor.HookTargetEvent, item, item); err != nil {
+			return nil, err
 		}
 	}
 	if len(hooks) > 0 {
 		doc["hooks"] = hooks
 	} else {
 		delete(doc, "hooks")
+	}
+	if target.mode == hookTargetSettingsEnv {
+		target.setSettingsEnv(doc, told)
 	}
 	// Nothing of ours left and nothing of the user's either: drop the
 	// file rather than leave a shell behind. Cursor's schema version is
@@ -964,7 +993,11 @@ func mergeGlobalHooks(path, format string, entries []spec.Entry, previous map[st
 			return nil, errGlobalFileUnchanged
 		}
 	}
-	for _, key := range []string{"version", "hooks"} {
+	keys := []string{"version", "hooks"}
+	if target.mode == hookTargetSettingsEnv {
+		keys = append(keys, "env")
+	}
+	for _, key := range keys {
 		value, ok := doc[key]
 		if !ok {
 			ordered.Delete(key)
@@ -1115,6 +1148,46 @@ func removeEqual(items []any, want any) ([]any, bool) {
 		}
 	}
 	return items, false
+}
+
+// globalHookTarget tells a global hook which target ran it, the way the
+// target's globalTarget.hookTarget says.
+type globalHookTarget struct {
+	name, mode string
+	// specHooks counts the leading entries that come from hook specs;
+	// the rest, such as Cursor's context bridge, are sync's own.
+	specHooks int
+}
+
+// tell adds the target to one Claude-shaped command handler.
+func (t globalHookTarget) tell(handler, meta map[string]any) {
+	switch t.mode {
+	case hookTargetExport:
+		command, _ := handler["command"].(string)
+		windows, _ := meta["commandWindows"].(string)
+		if windows == "" {
+			windows = command
+		}
+		handler["command"] = adapters.ExportHookTarget(command, t.name)
+		handler["commandWindows"] = windows
+	case hookTargetHandlerEnv:
+		handler["env"] = map[string]any{adapters.HookTargetEnv: t.name}
+	}
+}
+
+// setSettingsEnv keeps the target in the settings `env` while managed
+// hooks exist, and drops the value sync wrote once none are left.
+func (t globalHookTarget) setSettingsEnv(doc map[string]any, want bool) {
+	env, _ := doc["env"].(map[string]any)
+	next := adapters.WithoutHookTarget(env, any(t.name))
+	if want {
+		next = adapters.WithHookTarget(env, any(t.name))
+	}
+	if len(next) == 0 {
+		delete(doc, "env")
+		return
+	}
+	doc["env"] = next
 }
 
 // sameGlobalHook reports whether item runs the recorded entry's command

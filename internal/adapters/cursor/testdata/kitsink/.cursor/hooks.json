@@ -11,6 +11,11 @@
         "command": "echo audit",
         "matcher": "rm|dd"
       }
+    ],
+    "sessionStart": [
+      {
+        "command": "echo '{\"env\":{\"AGNOSTIC_AI_TARGET\":\"cursor\"}}'"
+      }
     ]
   }
 }

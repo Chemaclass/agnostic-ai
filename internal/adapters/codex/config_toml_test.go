@@ -525,9 +525,9 @@ func TestEmit_Hook_GroupsByEvent(t *testing.T) {
 	for _, want := range []string{
 		`"PreToolUse"`,
 		`"matcher": "Bash"`,
-		`"command": "echo pre-tool"`,
+		`"command": "export AGNOSTIC_AI_TARGET=codex; echo pre-tool"`,
 		`"SessionStart"`,
-		`"command": "echo started"`,
+		`"command": "export AGNOSTIC_AI_TARGET=codex; echo started"`,
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in %s", want, got)
@@ -560,7 +560,7 @@ func TestEmit_Hook_TargetScopingFiltersOtherTargets(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".codex/hooks.json"))
-	if !strings.Contains(got, `"command": "echo codex"`) {
+	if !strings.Contains(got, `"command": "export AGNOSTIC_AI_TARGET=codex; echo codex"`) {
 		t.Errorf("codex-scoped hook missing in codex hooks.json:\n%s", got)
 	}
 	if strings.Contains(got, `"command": "echo claude"`) {
@@ -589,8 +589,8 @@ func TestEmit_Hook_CommandArrayExpandsToMultipleBlocks(t *testing.T) {
 	}
 	got := readFile(t, filepath.Join(dir, ".codex/hooks.json"))
 	for _, want := range []string{
-		`"command": ".codex/hooks/format-php.sh"`,
-		`"command": ".codex/hooks/format-phel.sh"`,
+		`"command": "export AGNOSTIC_AI_TARGET=codex; .codex/hooks/format-php.sh"`,
+		`"command": "export AGNOSTIC_AI_TARGET=codex; .codex/hooks/format-phel.sh"`,
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in %s", want, got)
@@ -623,7 +623,7 @@ func TestEmit_Hook_RewritesSiblingHookPathToCodex(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, ".codex/hooks.json"))
-	if !strings.Contains(got, `"command": ".codex/hooks/protect-files.sh"`) {
+	if !strings.Contains(got, `"command": "export AGNOSTIC_AI_TARGET=codex; .codex/hooks/protect-files.sh"`) {
 		t.Errorf("expected sibling claude path rewritten to .codex/hooks/, got:\n%s", got)
 	}
 	if strings.Contains(got, ".claude/hooks/") {

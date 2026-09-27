@@ -219,7 +219,9 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 			// that field table and on no other.
 			resolved := emit.ResolveMeta(h.Meta, target)
 			cwd, _ := resolved["cwd"].(string)
-			env := emit.StringMap(resolved["env"])
+			// The target rides in `env`, which Copilot sets for the
+			// `bash` and `powershell` forms and for exec alike.
+			env := emit.WithHookTarget(emit.StringMap(resolved["env"]), target)
 			for _, command := range commands {
 				entry := hookEntry{Type: kind, Matcher: matcher, TimeoutSec: timeout, Cwd: cwd, Env: env}
 				if len(args) > 0 {

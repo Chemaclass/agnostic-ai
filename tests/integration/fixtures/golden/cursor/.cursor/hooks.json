@@ -6,6 +6,11 @@
         "command": "echo edited",
         "matcher": "Edit"
       }
+    ],
+    "sessionStart": [
+      {
+        "command": "echo '{\"env\":{\"AGNOSTIC_AI_TARGET\":\"cursor\"}}'"
+      }
     ]
   }
 }

@@ -7,7 +7,10 @@
           {
             "type": "command",
             "command": "hooks/guard.sh",
-            "timeout": 10
+            "timeout": 10,
+            "env": {
+              "AGNOSTIC_AI_TARGET": "qoder"
+            }
           }
         ]
       }
@@ -22,7 +25,10 @@
             "args": [
               "scripts/check.py",
               "--strict"
-            ]
+            ],
+            "env": {
+              "AGNOSTIC_AI_TARGET": "qoder"
+            }
           }
         ]
       }
@@ -33,7 +39,10 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo custom"
+            "command": "echo custom",
+            "env": {
+              "AGNOSTIC_AI_TARGET": "qoder"
+            }
           }
         ]
       }

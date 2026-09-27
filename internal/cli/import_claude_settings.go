@@ -83,6 +83,9 @@ func importClaudeSettingsOverlay(root, settingsDir string) (seeded, moved bool, 
 	if moved, err = moveClaudeEffortLevel(doc, settingsDir); err != nil {
 		return false, false, err
 	}
+	if err := excludeClaudeHookTargetEnv(doc); err != nil {
+		return false, moved, err
+	}
 	hadHooks := false
 	if rawHooks, ok := doc.Get("hooks"); ok {
 		hadHooks = true
@@ -163,6 +166,32 @@ func excludeGeneratedClaudeRejections(root string, doc *adapters.OrderedJSON) (b
 		return false, fmt.Errorf("marshal Claude settings %s: %w", key, err)
 	}
 	return len(names) != before, nil
+}
+
+// excludeClaudeHookTargetEnv drops the target variable sync writes into
+// `env` while command hooks exist. Captured into the overlay, it would
+// outlive the last hook.
+func excludeClaudeHookTargetEnv(doc *adapters.OrderedJSON) error {
+	raw, ok := doc.Get("env")
+	if !ok {
+		return nil
+	}
+	var env map[string]any
+	if err := json.Unmarshal(raw, &env); err != nil {
+		return fmt.Errorf("parse Claude settings env: %w", err)
+	}
+	next := adapters.WithoutHookTarget(env, any("claude"))
+	switch {
+	case len(next) == len(env):
+		return nil
+	case next == nil:
+		doc.Delete("env")
+		return nil
+	}
+	if err := doc.Set("env", next); err != nil {
+		return fmt.Errorf("marshal Claude settings env: %w", err)
+	}
+	return nil
 }
 
 // claudeOverlayRelPath returns the overlay path relative to the project

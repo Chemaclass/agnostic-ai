@@ -4,7 +4,7 @@ import type { Plugin } from "@opencode-ai/plugin"
 export const NotifyIdlePlugin: Plugin = async ({ $ }) => {
   const run = async (cmd: string) => {
     try {
-      const r = await $`${{ raw: cmd }}`.nothrow()
+      const r = await $`${{ raw: cmd }}`.env({ ...process.env, AGNOSTIC_AI_TARGET: "opencode" }).nothrow()
       if (r.exitCode !== 0) console.error("agnostic-ai hook notify-idle:", cmd, "exited", r.exitCode)
       return r
     } catch (err) {

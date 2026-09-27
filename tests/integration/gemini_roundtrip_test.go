@@ -193,8 +193,18 @@ func TestGeminiImport_PreservesNativeHookGroups(t *testing.T) {
 	runCmd(t, "sync", "-t", "gemini")
 	actual, err := os.ReadFile(settingsPath)
 	must(t, err)
-	if !reflect.DeepEqual(geminiHookDefinitions(t, []byte(native)), geminiHookDefinitions(t, actual)) {
-		t.Errorf("native hooks changed through import and sync:\nwant %s\ngot %s", native, actual)
+	// Sync adds the target to each handler's env.
+	want := `{"hooks":{"BeforeTool":[
+		{"matcher":"write_file","sequential":true,"hooks":[
+			{"type":"command","command":"echo first","name":"First check","timeout":1250,"description":"Validate","env":{"CHECK_MODE":"first","AGNOSTIC_AI_TARGET":"gemini"}},
+			{"type":"command","command":"echo second","timeout":5000,"env":{"AGNOSTIC_AI_TARGET":"gemini"}}
+		]},
+		{"matcher":"read_file","hooks":[{"type":"command","command":"echo read","timeout":5000,"env":{"CHECK_MODE":"read","AGNOSTIC_AI_TARGET":"gemini"}}]},
+		{"matcher":"replace","hooks":[{"type":"command","command":"echo replace","timeout":1250,"name":"Replace check","env":{"AGNOSTIC_AI_TARGET":"gemini"}}]},
+		{"matcher":"read_file","sequential":false,"hooks":[{"type":"command","command":"echo read","name":"Second reader","timeout":2500,"env":{"AGNOSTIC_AI_TARGET":"gemini"}}]}
+	]}}`
+	if !reflect.DeepEqual(geminiHookDefinitions(t, []byte(want)), geminiHookDefinitions(t, actual)) {
+		t.Errorf("native hooks changed through import and sync:\nwant %s\ngot %s", want, actual)
 	}
 }
 

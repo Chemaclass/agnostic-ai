@@ -117,7 +117,7 @@ func TestHasClaudeToolName_CatchesAlternations(t *testing.T) {
 func TestPluginModule_RunHelperCatchesAndLogs(t *testing.T) {
 	got := pluginModule(testPluginHost, "fmt", "tool.execute.after", "PostToolUse", "", []string{"x"})
 	for _, want := range []string{
-		"const r = await $`${{ raw: cmd }}`.nothrow()",
+		"const r = await $`${{ raw: cmd }}`.env({ ...process.env, AGNOSTIC_AI_TARGET: \"opencode\" }).nothrow()",
 		`if (r.exitCode !== 0) console.error("agnostic-ai hook fmt:", cmd, "exited", r.exitCode)`,
 		"} catch (err) {",
 	} {

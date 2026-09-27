@@ -161,8 +161,10 @@ func emitTasks(sess *emit.Session, hooks []spec.Entry, path string, dryRun bool)
 		if len(hooks) > 0 {
 			task["hooks"] = hooks
 		}
+		env, _ := native["env"].(map[string]any)
+		task["env"] = emit.WithHookTarget(env, any(target))
 		var keys []string
-		emit.MergeCustomTargetMeta(task, &keys, h.Meta, target, "label", "command", "args", "hooks")
+		emit.MergeCustomTargetMeta(task, &keys, h.Meta, target, "label", "command", "args", "hooks", "env")
 		tasks = append(tasks, task)
 	}
 	if len(tasks) == 0 {

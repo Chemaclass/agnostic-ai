@@ -6,6 +6,9 @@
     ],
     "command": "sh",
     "cwd": "$ZED_WORKTREE_ROOT",
+    "env": {
+      "AGNOSTIC_AI_TARGET": "zed"
+    },
     "label": "fmt-go",
     "shell": "bash"
   },
@@ -15,6 +18,9 @@
       "echo pre"
     ],
     "command": "sh",
+    "env": {
+      "AGNOSTIC_AI_TARGET": "zed"
+    },
     "label": "lint-pre"
   },
   {
@@ -23,6 +29,9 @@
       "echo session"
     ],
     "command": "sh",
+    "env": {
+      "AGNOSTIC_AI_TARGET": "zed"
+    },
     "label": "session-start"
   }
 ]

@@ -155,6 +155,7 @@ func importCopilotHooks(root, dstDir string) (int, error) {
 }
 
 func normalizeCopilotHook(event string, native map[string]any) map[string]any {
+	dropHookTargetEnv(native, "copilot")
 	kind, _ := native["type"].(string)
 	if kind == "" {
 		kind = "command"

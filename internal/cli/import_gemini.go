@@ -345,6 +345,7 @@ func geminiHookSpec(event string, definition map[string]any) map[string]any {
 			}
 			command, _ := handler["command"].(string)
 			if command != "" {
+				dropHookTargetEnv(handler, "gemini")
 				handlers = append(handlers, handler)
 				commands = append(commands, command)
 			}

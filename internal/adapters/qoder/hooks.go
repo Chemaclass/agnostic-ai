@@ -10,9 +10,13 @@ import (
 
 // An empty whitelist forbids all header environment interpolation; omission
 // allows every variable. A pointer preserves that distinction in JSON.
+// Env sits here, not on the shared claudehooks.CommandEntry, because
+// Claude Code's command-hook schema has no env field. Qoder merges it
+// into the hook's environment in shell form and exec form alike.
 type hookEntry struct {
 	claudehooks.CommandEntry
-	AllowedEnvVars *[]string `json:"allowedEnvVars,omitempty"`
+	AllowedEnvVars *[]string         `json:"allowedEnvVars,omitempty"`
+	Env            map[string]string `json:"env,omitempty"`
 }
 
 type hookGroup struct {
@@ -162,7 +166,7 @@ func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 				Shell:         shell,
 				If:            ifRule,
 				Once:          once,
-			}})
+			}, Env: map[string]string{emit.HookTargetEnv: target}})
 		}
 	}
 	emit.NoteFieldNoOp(target, spec.KindHook, "shell", execFormShell,

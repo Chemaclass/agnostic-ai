@@ -5,7 +5,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo session"
+            "command": "export AGNOSTIC_AI_TARGET=codex; echo session",
+            "commandWindows": "echo session"
           }
         ]
       }
@@ -16,7 +17,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo pre",
+            "command": "export AGNOSTIC_AI_TARGET=codex; echo pre",
+            "commandWindows": "echo pre",
             "async": true
           }
         ]
@@ -28,7 +30,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "gofmt -w",
+            "command": "export AGNOSTIC_AI_TARGET=codex; gofmt -w",
+            "commandWindows": "gofmt -w",
             "additionalContextLimit": 2000
           }
         ]

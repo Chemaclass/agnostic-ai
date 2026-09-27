@@ -11,6 +11,8 @@ import (
 	"sort"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 )
 
 // groupedHookEntry is the inner hook object every claude-style grouped
@@ -62,6 +64,7 @@ func writeGroupedHookSpec(dstDir, target, event, matcher string, entries []group
 		if h.Type != "" && h.Type != "command" {
 			continue
 		}
+		h.Command = adapters.StripHookTargetExport(h.Command, target)
 		if h.Command == "" || importLocal.dropsHookCommand(target, event, matcher, h.Command) {
 			continue
 		}
@@ -138,4 +141,19 @@ func readEventKeyedHooks[T any](path string) (map[string][]T, error) {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
 	return byEvent, nil
+}
+
+// dropHookTargetEnv removes the target variable sync adds to a native
+// hook's `env` map, and the map itself when nothing else is left, so an
+// import does not copy it into the spec.
+func dropHookTargetEnv(native map[string]any, target string) {
+	env, ok := native["env"].(map[string]any)
+	if !ok {
+		return
+	}
+	if env = adapters.WithoutHookTarget(env, any(target)); env == nil {
+		delete(native, "env")
+		return
+	}
+	native["env"] = env
 }

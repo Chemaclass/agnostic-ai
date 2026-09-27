@@ -85,7 +85,8 @@ func buildHooksBlock(hooks []spec.Entry) map[string]any {
 		timeout := emit.HookIntMeta(h.Meta, "timeout")
 
 		for _, command := range commands {
-			entry := map[string]any{"command": emit.RewriteHookPath(command, target)}
+			// Crush's embedded POSIX shell runs hooks on every platform.
+			entry := map[string]any{"command": emit.ExportHookTarget(emit.RewriteHookPath(command, target), target)}
 			if h.Name != "" {
 				entry["name"] = h.Name
 			}

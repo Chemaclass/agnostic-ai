@@ -354,6 +354,9 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 	} else {
 		doc.Delete("hooks")
 	}
+	if err := setHookTargetEnv(doc, hasCommandHook(hooks)); err != nil {
+		return err
+	}
 	for _, k := range orderedConfigKeys(custom) {
 		if err := doc.Set(k, mergeCustomKey(doc, k, custom[k])); err != nil {
 			return fmt.Errorf("claude settings: marshal %s: %w", k, err)

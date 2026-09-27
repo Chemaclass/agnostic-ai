@@ -242,6 +242,7 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 // `failClosed` pass through from the same-named spec Meta keys.
 func buildHooks(hooks []spec.Entry) map[string]any {
 	byEvent := map[string][]map[string]any{}
+	commands := 0
 	for _, h := range hooks {
 		event, _ := h.Meta["event"].(string)
 		if event == "" {
@@ -266,6 +267,7 @@ func buildHooks(hooks []spec.Entry) map[string]any {
 		if len(cmds) == 0 {
 			continue
 		}
+		commands += len(cmds)
 		for _, cmd := range cmds {
 			entry := map[string]any{"command": emit.RewriteHookPath(cmd, target)}
 			if matcher != "" {
@@ -278,6 +280,9 @@ func buildHooks(hooks []spec.Entry) map[string]any {
 			}
 			byEvent[event] = append(byEvent[event], entry)
 		}
+	}
+	if commands > 0 {
+		byEvent[HookTargetEvent] = append([]map[string]any{{"command": HookTargetCommand}}, byEvent[HookTargetEvent]...)
 	}
 	out := map[string]any{}
 	for k, v := range byEvent {

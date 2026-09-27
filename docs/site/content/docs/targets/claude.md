@@ -44,6 +44,8 @@ Hooks support `command`, `http`, `mcp_tool`, and `prompt` handlers:
 - Prompt: `prompt`, optional `model`, and `continueOnBlock`. With `continueOnBlock: true`, a blocking result returns its reason to Claude and the turn continues.
 - All stable handlers keep `timeout`, `statusMessage`, `if`, and `once`. `args`, `async`, `asyncRewake`, and `shell` apply to command handlers only. A `command` list becomes one handler per entry; setting `args` switches to exec form, with the executable in `command`.
 
+While a command hook exists, sync adds `AGNOSTIC_AI_TARGET: claude` to the settings `env`, since a Claude Code hook has no `env` of its own. It reaches shell form, exec form, and PowerShell hooks, and every other process of the session. A value in `outputs.claude.settings.env` or `x-claude.env` wins. See [which target ran a hook](@/docs/spec-format.md#hook-target).
+
 `import claude` preserves all of these handlers. Experimental agent handlers are not emitted. `once` is written but has no effect, because [Claude Code hooks](https://code.claude.com/docs/en/hooks) honor it only in skill frontmatter and every portable hook lands in `.claude/settings.json`; `sync` prints a note. See [hook fields](@/docs/spec-format.md#hooks).
 
 `event` passes through verbatim. Common events:

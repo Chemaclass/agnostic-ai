@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -59,6 +60,7 @@ func importCrushHooks(root, dstDir string) (int, error) {
 
 	count := 0
 	for _, h := range doc.Hooks[crushPreToolUseEvent] {
+		h.Command = adapters.StripHookTargetExport(h.Command, "crush")
 		if h.Command == "" {
 			continue
 		}
