@@ -7,6 +7,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -40,8 +41,12 @@ func OpenAIYAML(s spec.Entry) (string, error) {
 }
 
 // OpenAIYAMLFields returns the merged openai.yaml document OpenAIYAML
-// renders, or nil when there is nothing to render.
+// renders, or nil when there is nothing to render. A bundled file is
+// parsed only when the spec has something to merge into it.
 func OpenAIYAMLFields(s spec.Entry) (map[string]any, error) {
+	if !specSetsOpenAIYAML(s) {
+		return nil, nil
+	}
 	bundled, err := bundledOpenAIYAML(s)
 	if err != nil {
 		return nil, err
@@ -67,7 +72,7 @@ func OpenAIYAMLFields(s spec.Entry) (map[string]any, error) {
 		out[k] = v
 		changed = true
 	}
-	if manual, _ := ResolveMeta(s.Meta, "codex")["disable-model-invocation"].(bool); manual {
+	if manualOnlyForCodex(s) {
 		policy, isMap := out["policy"].(map[string]any)
 		_, set := policy["allow_implicit_invocation"].(bool)
 		if (isMap || out["policy"] == nil) && !set {
@@ -101,6 +106,30 @@ func SkillOpenAIYAMLPolicySet(s spec.Entry) bool {
 	return ok
 }
 
+func specSetsOpenAIYAML(s spec.Entry) bool {
+	x, _ := s.Meta["x-codex"].(map[string]any)
+	for _, k := range OpenAIYAMLKeys {
+		if _, ok := x[k]; ok {
+			return true
+		}
+	}
+	return manualOnlyForCodex(s)
+}
+
+func manualOnlyForCodex(s spec.Entry) bool {
+	manual, _ := ResolveMeta(s.Meta, "codex")["disable-model-invocation"].(bool)
+	return manual
+}
+
+// codexScansSkillFolder reports whether folder sits in `.agents/skills/`,
+// the tree Codex scans, which several other targets also write.
+func codexScansSkillFolder(folder string) bool {
+	parent := filepath.ToSlash(filepath.Dir(folder))
+	return parent == codexSkillsRoot || strings.HasSuffix(parent, "/"+codexSkillsRoot)
+}
+
+const codexSkillsRoot = ".agents/skills"
+
 func bundlesOpenAIYAML(s spec.Entry) bool {
 	if !FolderBasedSkill(s) {
 		return false
@@ -123,7 +152,7 @@ func bundledOpenAIYAML(s spec.Entry) (map[string]any, error) {
 	}
 	var doc map[string]any
 	if err := yaml.Unmarshal(data, &doc); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
+		return nil, fmt.Errorf("%s: cannot merge x-codex or disable-model-invocation into it, it must be a YAML mapping: %w", path, err)
 	}
 	return doc, nil
 }

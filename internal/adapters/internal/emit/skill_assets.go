@@ -25,18 +25,22 @@ import (
 // No-op when the source path is unknown (empty Path, e.g. in-memory specs
 // from the WASM playground) so adapters stay safe for non-disk callers.
 //
-// A bundled agents/openai.yaml that Codex needs merged (see OpenAIYAML)
-// is written merged instead of verbatim, so every target sharing the
-// skill folder writes the same bytes as the codex adapter.
+// In the tree Codex scans, a bundled agents/openai.yaml that Codex needs
+// merged (see OpenAIYAML) is written merged instead of verbatim, so
+// every target sharing that folder writes the same bytes as the codex
+// adapter. Every other tree gets the verbatim copy.
 func (s *Session) PropagateSkillAssets(sk spec.Entry, dstDir string, skip func(rel string) bool, dryRun bool) error {
 	if !FolderBasedSkill(sk) {
 		return nil
+	}
+	if (skip != nil && skip(OpenAIYAMLRel)) || !codexScansSkillFolder(dstDir) || !bundlesOpenAIYAML(sk) {
+		return s.CopyTree(sk.SkillAssetDir(), dstDir, skip, dryRun)
 	}
 	merged, err := OpenAIYAML(sk)
 	if err != nil {
 		return err
 	}
-	if merged == "" || !bundlesOpenAIYAML(sk) || (skip != nil && skip(OpenAIYAMLRel)) {
+	if merged == "" {
 		return s.CopyTree(sk.SkillAssetDir(), dstDir, skip, dryRun)
 	}
 	skipBundled := func(rel string) bool { return rel == OpenAIYAMLRel || (skip != nil && skip(rel)) }
