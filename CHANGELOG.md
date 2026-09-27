@@ -26,6 +26,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### Fixed
 
 - Deleting `~/.claude/settings.json`, or a managed hook entry in it, no longer blocks every later `sync --global` with `managed hook ownership is corrupt`. Sync warns that the hook is missing and writes it again. A managed hook edited by hand still stops the run, now with a message naming it.
+- After `$AGNOSTIC_AI_HOME/state/global.json` is lost or deleted, `sync --global` no longer stops with `unmanaged global spec collision` on its own earlier output. A file, skill folder, or hook entry that holds exactly what sync would write is adopted and recorded again. Anything that differs still stops the run before any write.
 - `sync --global` under a different `HOME` than the one that recorded `$AGNOSTIC_AI_HOME/state/global.json` stops before any write, instead of deleting the other home's agents and skills.
 - A skill that bundles its own `agents/openai.yaml` and also sets `x-codex.interface`, `policy`, or `dependencies` failed `sync` with an output collision. Sync now merges the two files, with `x-codex` keys on top, and writes the result for every target that shares the folder.
 - A spec with broken YAML names its path once, as `path:line:col`, instead of twice behind a `load rule [project]:` prefix.
