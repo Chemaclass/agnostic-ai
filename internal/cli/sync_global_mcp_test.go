@@ -53,8 +53,8 @@ func TestSyncGlobal_MCPServersReachUserFiles(t *testing.T) {
 	if tools := server(filepath.Join(home, ".copilot", "mcp-config.json"))["tools"]; tools == nil {
 		t.Errorf("Copilot requires a tools list on every server")
 	}
-	if !strings.Contains(warnings, "claude mcp add-json --scope user") {
-		t.Errorf("claude must point at its own command:\n%s", warnings)
+	if got := server(filepath.Join(home, ".claude.json")); got["command"] != "docs-mcp" {
+		t.Errorf("claude docs server = %v", got)
 	}
 	if _, _, err := runGlobalAgentTest("--only", "codex,cursor,gemini,qoder,copilot", "--check"); err != nil {
 		t.Fatalf("check after sync: %v", err)
@@ -156,5 +156,52 @@ func TestSyncGlobal_RemovingSymlinkedFileRemovesItsTarget(t *testing.T) {
 	}
 	if !strings.Contains(warnings, "removed ") || !strings.Contains(warnings, filepath.Join("dotfiles", "CLAUDE.md")+" and its symlink "+link) {
 		t.Errorf("the removal must be named:\n%s", warnings)
+	}
+}
+
+func TestSyncGlobal_ClaudeMCPKeepsAppState(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	spec := filepath.Join(source, "mcps", "docs.yaml")
+	mustWriteGlobalTest(t, spec, globalDocsMCP)
+	path := filepath.Join(home, ".claude.json")
+	before := "{\n  \"userID\": \"abc\",\n  \"projects\": {\n    \"/src\": {\"hasTrustDialogAccepted\": true}\n  },\n  \"mcpServers\": {\n    \"mine\": {\"type\": \"stdio\", \"command\": \"mine\"}\n  }\n}\n"
+	mustWriteGlobalTest(t, path, before)
+	if err := os.Chmod(path, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, w, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, w)
+	}
+	got := readGlobalTest(t, path)
+	if !strings.HasPrefix(got, "{\n  \"userID\": \"abc\",\n  \"projects\": {\n    \"/src\": {\"hasTrustDialogAccepted\": true}\n  },") || !strings.Contains(got, `"docs": {`) {
+		t.Errorf(".claude.json:\n%s", got)
+	}
+	if info, err := os.Stat(path); err == nil && runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
+		t.Errorf("mode = %v, want 0600", info.Mode().Perm())
+	}
+	if err := os.Remove(spec); err != nil {
+		t.Fatal(err)
+	}
+	if _, w, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatalf("sync after removal: %v\n%s", err, w)
+	}
+	if got := readGlobalTest(t, path); got != before {
+		t.Errorf("removal must restore .claude.json:\n%s", got)
+	}
+}
+
+func TestSyncGlobal_ClaudeMCPFollowsConfigDir(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml"), globalDocsMCP)
+	dir := filepath.Join(home, "claude-config")
+	t.Setenv("CLAUDE_CONFIG_DIR", dir)
+	if _, w, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, w)
+	}
+	if got := readGlobalTest(t, filepath.Join(dir, ".claude.json")); !strings.Contains(got, "docs-mcp") {
+		t.Errorf("config dir .claude.json:\n%s", got)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".claude.json")); !os.IsNotExist(err) {
+		t.Errorf("~/.claude.json must not be written: %v", err)
 	}
 }

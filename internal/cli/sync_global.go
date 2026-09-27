@@ -915,7 +915,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			}
 		}
 		if g.mcp.path != "" {
-			path := g.path(home, g.mcp.path)
+			path := g.mcpPath(home)
 			m, err := mergeGlobalMCP(path, g.mcp, baseFor(path), target, b.MCPs, old.MCP[target])
 			if err != nil {
 				return nil, next, err

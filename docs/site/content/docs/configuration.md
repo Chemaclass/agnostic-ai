@@ -502,13 +502,14 @@ MCP specs in the home's `mcps/` install each server in the user MCP file of ever
 
 | Target | File | Where |
 |---|---|---|
+| claude | `~/.claude.json` (`$CLAUDE_CONFIG_DIR/.claude.json` when set) | top-level `mcpServers.<name>` |
 | codex | `~/.codex/config.toml` | `[mcp_servers.<name>]` table |
 | cursor | `~/.cursor/mcp.json` | `mcpServers.<name>` |
 | copilot | `~/.copilot/mcp-config.json` | `mcpServers.<name>`, with `tools: ["*"]` when the spec sets none |
 | gemini | `~/.gemini/settings.json` | `mcpServers.<name>` |
 | qoder | `~/.qoder/settings.json` | `mcpServers.<name>` |
 
-Each server is one record with the per-key rules above: a hand-written server that means the same as the spec is adopted as written, even when it leaves out an implied `type` or Copilot's default `tools`, a different one with the same name stops the run (`--backup` overwrites it), and a server sync wrote goes when its spec goes. Servers you add by hand under other names stay. A Codex table sync replaces takes its subtables, such as `[mcp_servers.<name>.env]`, with it. Claude Code keeps user MCP servers in `~/.claude.json`, a file it rewrites itself, so sync skips Claude and prints the `claude mcp add-json --scope user` command to use instead.
+Each server is one record with the per-key rules above: a hand-written server that means the same as the spec is adopted as written, even when it leaves out an implied `type` or Copilot's default `tools`, a different one with the same name stops the run (`--backup` overwrites it), and a server sync wrote goes when its spec goes. Servers you add by hand under other names stay. A Codex table sync replaces takes its subtables, such as `[mcp_servers.<name>.env]`, with it. Claude Code rewrites `~/.claude.json` itself, with sign-in and trust state, so sync edits only its own `mcpServers` entries in place and keeps every other key and the file's permissions. Claude's own writer keeps those entries. If a running session writes the file back without them, the next sync adds them again.
 
 For a personal agent shared by Claude Code and Codex, create `~/.agnostic-ai/agents/reviewer.md`:
 

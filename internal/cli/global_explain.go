@@ -109,7 +109,7 @@ func globalContributions(home, target string, entry spec.Entry, b spec.Bundle) (
 		if g.mcp.path == "" || !entry.EmitsTo(target) {
 			return nil, nil
 		}
-		out = append(out, contribution{Target: target, Path: g.path(home, g.mcp.path), Section: g.mcp.key + "." + entry.Name, Mode: "key"})
+		out = append(out, contribution{Target: target, Path: g.mcpPath(home), Section: g.mcp.key + "." + entry.Name, Mode: "key"})
 	case spec.KindSettings:
 		if g.settings.path == "" {
 			return nil, nil

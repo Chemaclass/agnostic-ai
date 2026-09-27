@@ -71,7 +71,7 @@ effort:
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
 	snapshot := map[string]string{}
-	for _, rel := range []string{".claude/settings.json", ".codex/config.toml", ".copilot/settings.json", ".copilot/mcp-config.json", ".cursor/mcp.json", ".gemini/settings.json", ".qoder/settings.json"} {
+	for _, rel := range []string{".claude.json", ".claude/settings.json", ".codex/config.toml", ".copilot/settings.json", ".copilot/mcp-config.json", ".cursor/mcp.json", ".gemini/settings.json", ".qoder/settings.json"} {
 		snapshot[rel] = readGlobalTest(t, filepath.Join(home, filepath.FromSlash(rel)))
 	}
 	for _, path := range []string{settings, mcpDir, filepath.Join(source, "state")} {
