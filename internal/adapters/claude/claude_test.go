@@ -1879,3 +1879,61 @@ func TestEmit_PerKindDirWinsOverDirOverride(t *testing.T) {
 		t.Errorf("rules-dir override ignored: %v", err)
 	}
 }
+
+func TestEmit_AgentReadonlyMapsToDisallowedTools(t *testing.T) {
+	const denied = "readonly: true\ndisallowedTools: Write, Edit, NotebookEdit\n"
+	for _, tc := range []struct {
+		name     string
+		meta     map[string]any
+		want     string
+		readonly bool
+	}{
+		{"readonly", map[string]any{"readonly": true}, denied, true},
+		{"override", map[string]any{"readonly": true, "x-claude": map[string]any{"disallowedTools": []any{"Bash"}}}, "disallowedTools:\n  - Bash\n", true},
+		{"portable list", map[string]any{"readonly": true, "disallowedTools": "Bash"}, "disallowedTools: Bash\n", true},
+		{"target readonly", map[string]any{"x-claude": map[string]any{"readonly": true}}, denied, true},
+		{"target opt-out", map[string]any{"readonly": true, "x-claude": map[string]any{"readonly": false}}, "", false},
+		{"false", map[string]any{"readonly": false}, "", false},
+		{"null override", map[string]any{"readonly": true, "x-claude": map[string]any{"disallowedTools": nil}}, "", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			meta := map[string]any{"name": "reviewer", "description": "Reviews code."}
+			for k, v := range tc.meta {
+				meta[k] = v
+			}
+			entry := spec.Entry{Kind: spec.KindAgent, Name: "reviewer", Body: "Review code.\n", Meta: meta}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{entry}), &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			got := readFileT(t, filepath.Join(dir, ".claude", "agents", "reviewer.md"))
+			if strings.Contains(got, "readonly: true") != tc.readonly || strings.Contains(got, "readonly: false") {
+				t.Errorf("readonly: true kept = %v, want %v: %s", !tc.readonly, tc.readonly, got)
+			}
+			if tc.want == "" {
+				if strings.Contains(got, "disallowedTools") {
+					t.Errorf("unexpected disallowedTools: %s", got)
+				}
+			} else if !strings.Contains(got, tc.want) || strings.Count(got, "disallowedTools") != 1 {
+				t.Errorf("want %q once: %s", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestEmit_AgentReadonlyKeepsKeyPosition(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entry := spec.Entry{
+		Kind: spec.KindAgent, Name: "reviewer", Body: "Review code.\n",
+		Meta:     map[string]any{"name": "reviewer", "readonly": true, "description": "Reviews code."},
+		MetaKeys: []string{"name", "readonly", "description"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{entry}), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFileT(t, filepath.Join(dir, ".claude", "agents", "reviewer.md"))
+	want := "---\nname: reviewer\nreadonly: true\ndisallowedTools: Write, Edit, NotebookEdit\ndescription: Reviews code.\n---\n"
+	if !strings.HasPrefix(got, want) {
+		t.Errorf("want prefix %q, got:\n%s", want, got)
+	}
+}

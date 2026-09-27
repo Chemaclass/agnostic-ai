@@ -299,7 +299,7 @@ func TestSyncGlobal_AgentsPreserveExistingStateAndNativeSettings(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_AgentReadonlyMapsAndReportsLoss(t *testing.T) {
+func TestSyncGlobal_AgentReadonlyMaps(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	mustWriteGlobalTest(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\nreadonly: true\n---\nReview code.\n")
 	_, warnings, err := runGlobalAgentTest("--only", "codex,cursor,claude")
@@ -313,10 +313,14 @@ func TestSyncGlobal_AgentReadonlyMapsAndReportsLoss(t *testing.T) {
 	if !strings.Contains(string(data), `sandbox_mode = "read-only"`) {
 		t.Errorf("readonly missing from Codex agent: %s", data)
 	}
-	if !strings.Contains(warnings, "`readonly` on 1 agent has no effect on claude") {
-		t.Errorf("missing global readonly note: %s", warnings)
+	claude, err := os.ReadFile(filepath.Join(home, ".claude", "agents", "reviewer.md"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	if strings.Contains(warnings, "has no effect on codex") || strings.Contains(warnings, "has no effect on cursor") {
+	if !strings.Contains(string(claude), "readonly: true\ndisallowedTools: Write, Edit, NotebookEdit\n") {
+		t.Errorf("readonly not mapped on the Claude agent: %s", claude)
+	}
+	if strings.Contains(warnings, "`readonly`") {
 		t.Errorf("supported readonly got note: %s", warnings)
 	}
 	if _, _, err := runGlobalAgentTest("--only", "codex,cursor,claude", "--check"); err != nil {

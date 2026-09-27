@@ -236,7 +236,7 @@ func TestReportUnsupported_NotesDroppedReadonly(t *testing.T) {
 				spec.Entry{Name: "reviewer", Meta: map[string]any{"readonly": true}},
 				spec.Entry{Name: "writer", Meta: map[string]any{"readonly": false}},
 				spec.Entry{Name: "default"})
-			if target == "codex" || target == "cursor" || target == "factory" {
+			if target == "claude" || target == "codex" || target == "cursor" || target == "factory" {
 				if got != "" {
 					t.Errorf("supported readonly got note: %s", got)
 				}
