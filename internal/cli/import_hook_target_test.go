@@ -74,3 +74,19 @@ func TestImportClaudeSettingsOverlay_KeepsTheUsersEnvOrder(t *testing.T) {
 		t.Errorf("overlay:\n%s", got)
 	}
 }
+
+// Folded args come back as one shell-form command, which syncs to the
+// same hooks.json.
+func TestImportFromCodex_FoldedArgsStayOneCommand(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".codex", "hooks.json"), `{"hooks": {"Stop": [{"matcher": "", "hooks": [
+  {"type": "command", "command": "export AGNOSTIC_AI_TARGET=codex; bash 'guard.sh'", "commandWindows": "bash 'guard.sh'"}
+]}]}}`)
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got := readHookSpec(t, dir, "stop")
+	if !strings.Contains(got, "bash 'guard.sh'") || strings.Contains(got, "args") || strings.Contains(got, "commandWindows") {
+		t.Errorf("imported spec:\n%s", got)
+	}
+}

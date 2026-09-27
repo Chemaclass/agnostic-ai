@@ -600,7 +600,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		next.Hooks[target] = map[string][]any{}
 		path := g.path(home, g.hooks)
 		hooks := b.HooksFor(target)
-		hookTarget := globalHookTarget{name: target, mode: g.hookTarget, args: g.hookArgs, timeout: g.hookTimeout, specHooks: len(hooks)}
+		hookTarget := globalHookTarget{name: target, mode: g.hookTarget, args: g.hookArgs, foldArgs: g.hookFoldArgs, timeout: g.hookTimeout, specHooks: len(hooks)}
 		if g.bridge && body != "" {
 			bridge, command, script, mode := globalContextBridge(filepath.Dir(path), body, g.bridgeKey)
 			if err := add(bridge, []byte(script), mode); err != nil {
@@ -886,8 +886,13 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 						commandHook[key] = value
 					}
 				}
-				if args := stringSliceFromAny(entry.Meta["args"]); target.args && len(args) > 0 {
-					commandHook["args"] = args
+				if args := stringSliceFromAny(entry.Meta["args"]); len(args) > 0 {
+					switch {
+					case target.args:
+						commandHook["args"] = args
+					case target.foldArgs:
+						commandHook["command"] = adapters.ExecFormCommand(command, args)
+					}
 				}
 				if target.timeout != nil {
 					delete(commandHook, "timeout")
@@ -1203,8 +1208,9 @@ type globalHookTarget struct {
 	// timeout converts the spec's timeout, when the target reads
 	// another unit than seconds.
 	timeout func(meta map[string]any) (any, bool)
-	// args says the handler takes exec-form `args`.
-	args bool
+	// args says the handler takes exec-form `args`; foldArgs, that it
+	// has no such field and the args fold into the command.
+	args, foldArgs bool
 	// specHooks counts the leading entries that come from hook specs;
 	// the rest, such as Cursor's context bridge, are sync's own.
 	specHooks int
@@ -1214,10 +1220,6 @@ type globalHookTarget struct {
 func (t globalHookTarget) tell(handler, meta map[string]any) {
 	switch t.mode {
 	case hookTargetExport:
-		// An exec-form spec meant no shell, so it gets no prefix.
-		if len(stringSliceFromAny(meta["args"])) > 0 {
-			return
-		}
 		command, _ := handler["command"].(string)
 		windows, _ := meta["commandWindows"].(string)
 		if windows == "" {
@@ -1314,7 +1316,6 @@ func globalHookCommands(raw any) []string {
 	return nil
 }
 func jsonString(s string) string { raw, _ := json.Marshal(s); return string(raw) }
-func shellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'" }
 
 func globalUserHome() (string, error) {
 	if home := os.Getenv("HOME"); home != "" {
@@ -1344,7 +1345,7 @@ func globalContextBridge(base, body, key string) (path, command, script string, 
 		script = "$payload = '" + strings.ReplaceAll(payload, "'", "''") + "'\r\n[Console]::Out.WriteLine($payload)\r\n"
 		return path, command, script, 0o644
 	}
-	return path, path, "#!/bin/sh\nprintf '%s\\n' " + shellQuote(payload) + "\n", 0o755
+	return path, path, "#!/bin/sh\nprintf '%s\\n' " + adapters.ShellQuote(payload) + "\n", 0o755
 }
 
 // preflightGlobalWrites stops on an unrecorded file in a managed tree

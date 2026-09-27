@@ -32,3 +32,12 @@ func WithoutHookTarget[V any](env map[string]V, target V) map[string]V {
 func SetHookTargetEnv(doc *OrderedJSON, target string, want bool) error {
 	return emit.SetHookTargetEnv(doc, target, want)
 }
+
+// ExecFormCommand folds an exec-form hook's args into a quoted
+// shell-form command.
+func ExecFormCommand(command string, args []string) string {
+	return emit.ExecFormCommand(command, args)
+}
+
+// ShellQuote quotes s as one POSIX shell word.
+func ShellQuote(s string) string { return emit.ShellQuote(s) }

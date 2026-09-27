@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -24,10 +25,9 @@ func TestSyncGlobal_ExecFormHooksKeepArgs(t *testing.T) {
 			t.Errorf("%s handler = %v", target, handler)
 		}
 	}
-	// Codex has no exec form: no args field, and no shell prefix on a
-	// command the spec meant to run without a shell.
+	// Codex has no exec form, so the args fold into the command, quoted.
 	codex := firstGlobalHandler(t, readGlobalJSON(t, filepath.Join(home, ".codex", "hooks.json")), "SessionStart")
-	if codex["command"] != "node" || codex["args"] != nil || codex["commandWindows"] != nil {
+	if codex["command"] != "export AGNOSTIC_AI_TARGET=codex; node 'guard.js' '--strict'" || codex["commandWindows"] != "node 'guard.js' '--strict'" || codex["args"] != nil {
 		t.Errorf("codex handler = %v", codex)
 	}
 
@@ -65,5 +65,50 @@ func TestSyncGlobal_HandWrittenExecFormHookIsAdopted(t *testing.T) {
 	}
 	if strings.Contains(string(state), "guard.js") {
 		t.Errorf("the user's hook must not be recorded as managed:\n%s", state)
+	}
+}
+
+func TestSyncGlobal_CodexExecFormHookKeepsItsCommandWindows(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: SessionStart\ncommand: node\nargs: [guard.js]\ncommandWindows: node.exe guard.js\ntarget: codex\n")
+	if _, _, err := runGlobalAgentTest("--only", "codex"); err != nil {
+		t.Fatal(err)
+	}
+	codex := firstGlobalHandler(t, readGlobalJSON(t, filepath.Join(home, ".codex", "hooks.json")), "SessionStart")
+	if codex["command"] != "export AGNOSTIC_AI_TARGET=codex; node 'guard.js'" || codex["commandWindows"] != "node.exe guard.js" {
+		t.Errorf("codex handler = %v", codex)
+	}
+}
+
+// An older version dropped args, and a user may have added them back to
+// the managed entry by hand. That edit is what sync writes now.
+func TestSyncGlobal_ArgsAddedByHandToAManagedHookAreAccepted(t *testing.T) {
+	for _, target := range []string{"claude", "qoder"} {
+		home, source := globalAgentTestHome(t)
+		mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), strings.Replace(globalExecHook, "[claude, codex, qoder]", "["+target+"]", 1))
+		if _, _, err := runGlobalAgentTest("--only", target); err != nil {
+			t.Fatal(err)
+		}
+		// Rewrite file and state as the old version left them: no args.
+		settings := filepath.Join(home, "."+target, "settings.json")
+		state := filepath.Join(source, "state", "global.json")
+		argsJSON := regexp.MustCompile(`"args":\s*\[[^\]]*\],?\s*`)
+		data, err := os.ReadFile(state)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !argsJSON.Match(data) {
+			t.Fatalf("%s: no args recorded:\n%s", target, data)
+		}
+		if err := os.WriteFile(state, argsJSON.ReplaceAll(data, nil), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, warnings, err := runGlobalAgentTest("--only", target); err != nil || warnings != "" {
+			t.Fatalf("%s: err %v, warnings %q", target, err, warnings)
+		}
+		handler := firstGlobalHandler(t, readGlobalJSON(t, settings), "SessionStart")
+		if !reflect.DeepEqual(handler["args"], []any{"guard.js", "--strict"}) {
+			t.Errorf("%s handler = %v", target, handler)
+		}
 	}
 }

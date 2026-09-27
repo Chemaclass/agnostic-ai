@@ -96,3 +96,20 @@ func SetHookTargetEnv(doc *OrderedJSON, target string, want bool) error {
 	}
 	return nil
 }
+
+// ShellQuote quotes s as one POSIX shell word.
+func ShellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// ExecFormCommand folds an exec-form hook's args into a shell-form
+// command for a target with no `args` field. Each argument is quoted so
+// a POSIX shell passes it verbatim. Left bare, an interpreter such as
+// `node` or `bash` would read the hook's JSON payload on stdin as its
+// program.
+func ExecFormCommand(command string, args []string) string {
+	for _, arg := range args {
+		command += " " + ShellQuote(arg)
+	}
+	return command
+}
