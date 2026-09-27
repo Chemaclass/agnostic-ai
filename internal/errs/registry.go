@@ -59,13 +59,13 @@ var registry = map[Code]Entry{
 		Code:  CodeSyncTargetUnknown,
 		Title: "Unknown sync target",
 		Cause: "A target requested via `--target`, `--only`, or the config is not a built-in adapter and no `agnostic-ai-adapter-<name>` binary is on PATH.",
-		Fix:   "Use the name the error suggests, or pick one from https://agnostic-ai.org/docs/targets/. External adapters live on PATH as `agnostic-ai-adapter-<name>`.",
+		Fix:   "Check the spelling, or use the name the error suggests. A target that exists but is not in this run needs adding to `targets` in agnostic-ai.yaml, or to `-t`. Built-ins: https://agnostic-ai.org/docs/targets/. External adapters live on PATH as `agnostic-ai-adapter-<name>`.",
 	},
 	CodeFlagConflict: {
 		Code:  CodeFlagConflict,
 		Title: "Mutually exclusive flags",
-		Cause: "Two flags whose effects conflict were passed together (e.g. `--only` with `--except`, or `--watch` with `--check`).",
-		Fix:   "Pick one. The error message names both flags so you can drop the wrong one.",
+		Cause: "Two flags whose effects conflict were passed together (e.g. `--only` with `--except`), or a flag was passed without the one it needs (e.g. `--diff` without `--dry-run`).",
+		Fix:   "The message names both flags. Drop one when they conflict; add the missing one when a flag needs another.",
 	},
 }
 

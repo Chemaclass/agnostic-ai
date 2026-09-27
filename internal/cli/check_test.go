@@ -313,7 +313,7 @@ func TestDoctor_SaysInSyncWhenNothingDrifted(t *testing.T) {
 	root.SetOut(out)
 	_ = root.Execute()
 
-	if !strings.Contains(out.String(), "Sync drift:\n  ✓ every target in sync\n") {
+	if !strings.Contains(out.String(), "Sync drift:\n  ✓ generated files in sync\n") {
 		t.Errorf("the drift section should say it is clean:\n%s", out.String())
 	}
 }
@@ -330,5 +330,22 @@ func TestLoadProject_ParseErrorNamesThePathOnce(t *testing.T) {
 	}
 	if n := strings.Count(err.Error(), "bad.md"); n != 1 || !strings.HasPrefix(err.Error(), "[AAI-001] ") {
 		t.Errorf("want one path after the code, got %q", err.Error())
+	}
+}
+
+func TestDoctor_DoesNotClaimSyncForATargetItCouldNotCheck(t *testing.T) {
+	dir := setupFixture(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claud]\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"doctor"})
+	out := &bytes.Buffer{}
+	root.SetOut(out)
+	_ = root.Execute()
+
+	if strings.Contains(out.String(), "in sync") {
+		t.Errorf("doctor checked no target, yet said in sync:\n%s", out.String())
 	}
 }

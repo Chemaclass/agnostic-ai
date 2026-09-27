@@ -49,6 +49,20 @@ func orphanedCount(reports []driftReport) int {
 // collectDrift runs each target adapter in capture mode and compares each
 // would-be file against disk. Also checks entry-point files (CLAUDE.md,
 // AGENTS.md, AGNOSTIC_AI.md). No files are written.
+// allTargetsResolve reports whether every requested target, or every
+// configured one when none was requested, resolves to an adapter.
+func allTargetsResolve(requested, configured []string) bool {
+	if len(requested) == 0 {
+		requested = configured
+	}
+	for _, t := range requested {
+		if _, err := adapters.Resolve(t); err != nil {
+			return false
+		}
+	}
+	return true
+}
+
 func collectDrift(targets []string) ([]driftReport, error) {
 	return collectDriftWithEntryPointTargets(targets, nil)
 }
@@ -336,8 +350,10 @@ func newDoctorCmd() *cobra.Command {
 				return err
 			}
 			hasDrift := printDrift(reports)
-			if !hasDrift {
-				cmd.Printf("  %s every target in sync\n", tick())
+			// A target that did not resolve was warned about and skipped,
+			// so its files were never compared.
+			if !hasDrift && allTargetsResolve(targets, cfg.Targets) {
+				cmd.Println("  ✓ generated files in sync")
 			}
 
 			// 4b. Optional: globs that match nothing in the working tree.
