@@ -219,7 +219,7 @@ Only the targets listed were checked. Setting it keeps a skill out of automatic 
 |--------|----------|
 | [Claude Code](@/docs/targets/claude.md) | Written to `SKILL.md` |
 | [Cursor](@/docs/targets/cursor.md) | Written to `SKILL.md` |
-| [Codex](@/docs/targets/codex.md) | Written as `allow_implicit_invocation: false` to `agents/openai.yaml`. An explicit `x-codex.policy.allow_implicit_invocation` wins |
+| [Codex](@/docs/targets/codex.md) | Written as `allow_implicit_invocation: false` to `agents/openai.yaml`. An explicit `allow_implicit_invocation` in `x-codex.policy` or in a bundled `agents/openai.yaml` wins |
 | [Crush](@/docs/targets/crush.md) | Dropped with a note. Set `x-crush.disable-model-invocation` |
 | [Factory](@/docs/targets/factory.md) | Dropped with a note. Set `x-factory.disable-model-invocation` |
 

@@ -5,17 +5,9 @@ import (
 	"path/filepath"
 	"slices"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
-
-// openaiYAMLKeys are the top-level fields the Codex CLI reads from
-// `<skill>/agents/openai.yaml`. Only these pass through; anything else
-// under `x-codex` is ignored to keep the emitted file faithful to the
-// documented schema.
-var openaiYAMLKeys = []string{"interface", "policy", "dependencies"}
 
 // emitSkill writes the per-skill folder layout for the Codex CLI:
 //
@@ -31,9 +23,8 @@ var openaiYAMLKeys = []string{"interface", "policy", "dependencies"}
 // Any other files or subdirectories that live next to the source
 // SKILL.md (helper scripts, fixtures, additional docs) are propagated
 // byte-for-byte into the emitted skill folder. The optional Codex
-// `agents/openai.yaml` overlay derived from `x-codex` is written last
-// so a spec-authored value wins over any verbatim copy of the same
-// path from the source tree.
+// `agents/openai.yaml` is rendered instead of copied when it merges a
+// bundled copy with x-codex or the manual-only policy.
 func emitSkill(sess *emit.Session, s spec.Entry, skillsDir string, dryRun bool) error {
 	folder := filepath.Join(skillsDir, s.Name)
 
@@ -41,11 +32,18 @@ func emitSkill(sess *emit.Session, s spec.Entry, skillsDir string, dryRun bool) 
 		return err
 	}
 
-	if err := sess.PropagateSkillAssets(s, folder, emit.SkipSKILLMd, dryRun); err != nil {
+	sidecars, err := skillSidecars(s)
+	if err != nil {
+		return err
+	}
+	skip := func(rel string) bool {
+		_, rendered := sidecars[filepath.FromSlash(rel)]
+		return emit.SkipSKILLMd(rel) || rendered
+	}
+	if err := sess.PropagateSkillAssets(s, folder, skip, dryRun); err != nil {
 		return err
 	}
 
-	sidecars := skillSidecars(s)
 	for _, rel := range slices.Sorted(maps.Keys(sidecars)) {
 		if err := sess.WriteFile(filepath.Join(folder, rel), sidecars[rel], dryRun); err != nil {
 			return err
@@ -57,78 +55,30 @@ func emitSkill(sess *emit.Session, s spec.Entry, skillsDir string, dryRun bool) 
 // skillSidecars returns the files Codex reads beside SKILL.md, keyed by
 // path relative to the skill folder. Project and global sync both write
 // them, so a policy set once reaches Codex from either scope.
-func skillSidecars(s spec.Entry) map[string]string {
-	yamlBody := openaiYAML(s)
-	if yamlBody == "" {
-		return nil
+func skillSidecars(s spec.Entry) (map[string]string, error) {
+	yamlBody, err := emit.OpenAIYAML(s)
+	if err != nil || yamlBody == "" {
+		return nil, err
 	}
-	return map[string]string{filepath.Join("agents", "openai.yaml"): emit.WithHeader(yamlBody, emit.FormatYAML)}
+	return map[string]string{filepath.FromSlash(emit.OpenAIYAMLRel): emit.WithHeader(yamlBody, emit.FormatYAML)}, nil
 }
 
 // skillMarkdown renders SKILL.md through the shared renderer, excluding
 // the keys routed to agents/openai.yaml so nothing is emitted twice.
 func skillMarkdown(s spec.Entry) string {
-	return emit.SkillMarkdown(s, target, openaiYAMLKeys...)
-}
-
-// openaiYAML returns the YAML body for the optional agents/openai.yaml
-// file, or "" when the skill carries no Codex UI, policy, or dependency
-// fields. The provenance header is applied by the caller via
-// emit.WithHeader so the marker lives in one place.
-func openaiYAML(s spec.Entry) string {
-	out := openaiYAMLFields(s)
-	if len(out) == 0 {
-		return ""
-	}
-	data, err := yaml.Marshal(out)
-	if err != nil {
-		return ""
-	}
-	return string(data)
-}
-
-// openaiYAMLFields picks the documented openai.yaml keys from x-codex.
-// Codex reads no disable-model-invocation key, so a manual-only skill
-// gets allow_implicit_invocation: false unless x-codex sets it.
-func openaiYAMLFields(s spec.Entry) map[string]any {
-	x, _ := s.Meta["x-codex"].(map[string]any)
-	out := map[string]any{}
-	for _, k := range openaiYAMLKeys {
-		if v, ok := x[k]; ok {
-			out[k] = v
-		}
-	}
-	if manual, _ := emit.ResolveMeta(s.Meta, target)["disable-model-invocation"].(bool); !manual {
-		return out
-	}
-	policy, isMap := out["policy"].(map[string]any)
-	if out["policy"] != nil && !isMap {
-		return out
-	}
-	if _, set := policy["allow_implicit_invocation"].(bool); set {
-		return out
-	}
-	policy = maps.Clone(policy)
-	if policy == nil {
-		policy = map[string]any{}
-	}
-	policy["allow_implicit_invocation"] = false
-	out["policy"] = policy
-	return out
+	return emit.SkillMarkdown(s, target, emit.OpenAIYAMLKeys...)
 }
 
 func (Adapter) SkillMarkdown(skill spec.Entry) string {
 	return skillMarkdown(skill)
 }
 
-func (Adapter) SkillSidecars(skill spec.Entry) map[string]string {
+func (Adapter) SkillSidecars(skill spec.Entry) (map[string]string, error) {
 	return skillSidecars(skill)
 }
 
 // SkillInvocationPolicySet reports whether the skill's openai.yaml
 // sets allow_implicit_invocation, the only invocation marker Codex reads.
 func (Adapter) SkillInvocationPolicySet(skill spec.Entry) bool {
-	policy, _ := openaiYAMLFields(skill)["policy"].(map[string]any)
-	_, ok := policy["allow_implicit_invocation"].(bool)
-	return ok
+	return emit.SkillOpenAIYAMLPolicySet(skill)
 }

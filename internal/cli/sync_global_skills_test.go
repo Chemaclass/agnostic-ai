@@ -232,3 +232,37 @@ func TestSyncGlobal_ExplicitCodexInvocationPolicySilencesManualOnlyNote(t *testi
 		t.Errorf("explicit codex policy still noted: %s", warnings)
 	}
 }
+
+func TestSyncGlobal_ManualOnlySkillMergesPolicyIntoBundledOpenAIYAML(t *testing.T) {
+	cases := []struct {
+		name    string
+		bundled string
+		want    []string
+	}{
+		{"bundled interface keeps its fields", "interface:\n  display_name: Deploy UI\n", []string{"display_name: Deploy UI", "allow_implicit_invocation: false"}},
+		{"bundled explicit policy wins", "policy:\n  allow_implicit_invocation: true\n", []string{"allow_implicit_invocation: true"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			home, source := globalAgentTestHome(t)
+			folder := filepath.Join(source, "skills", "deploy")
+			mustWriteGlobalTest(t, filepath.Join(folder, "SKILL.md"), "---\nname: deploy\ndescription: Deploy.\ndisable-model-invocation: true\n---\nDeploy.\n")
+			mustWriteGlobalTest(t, filepath.Join(folder, "agents", "openai.yaml"), tc.bundled)
+			if _, _, err := runGlobalAgentTest("--only", "codex,amp"); err != nil {
+				t.Fatal(err)
+			}
+			data, err := os.ReadFile(filepath.Join(home, ".agents", "skills", "deploy", "agents", "openai.yaml"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, want := range tc.want {
+				if !strings.Contains(string(data), want) {
+					t.Errorf("openai.yaml missing %q:\n%s", want, data)
+				}
+			}
+			if _, _, err := runGlobalAgentTest("--only", "codex,amp", "--check"); err != nil {
+				t.Errorf("sync --check after sync: %v", err)
+			}
+		})
+	}
+}

@@ -14,7 +14,7 @@ type SkillRenderer interface {
 // SkillSidecarRenderer is implemented by adapters that write files
 // beside SKILL.md, such as Codex's agents/openai.yaml.
 type SkillSidecarRenderer interface {
-	SkillSidecars(skill spec.Entry) map[string]string
+	SkillSidecars(skill spec.Entry) (map[string]string, error)
 }
 
 // ManualOnlySkillReader is implemented by adapters whose manual-only
@@ -57,7 +57,7 @@ func RenderSkillSidecars(target string, skill spec.Entry) (map[string]string, er
 		return nil, err
 	}
 	if renderer, ok := adapter.(SkillSidecarRenderer); ok {
-		return renderer.SkillSidecars(skill), nil
+		return renderer.SkillSidecars(skill)
 	}
 	return nil, nil
 }

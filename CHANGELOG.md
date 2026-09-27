@@ -14,7 +14,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `init` and `status` point a project with no specs at `agnostic-ai new rule <name>`, and `doctor` says when the generated files are in sync.
 - `lint --global` and `validate --global` check `~/.agnostic-ai/` and its `local/` layer before `sync --global` writes them, from any directory. They exit 1 on errors, and both report a scoped or conditional rule that `sync --global` would reject (LINT010).
 - `readonly: true` on an agent now restricts Claude Code too: the agent file gets `disallowedTools: Write, Edit, NotebookEdit`, and `sync` no longer says the field has no effect on claude. Bash stays allowed. The `readonly` key stays for Cursor and `import claude`. An explicit `x-claude.disallowedTools` wins.
-- A skill marked `disable-model-invocation: true` stays manual-only on Codex. Sync writes `allow_implicit_invocation: false` to its `agents/openai.yaml`, in project and global sync, so the spec no longer needs an `x-codex.policy` block. An explicit `x-codex` value still wins.
+- A skill marked `disable-model-invocation: true` stays manual-only on Codex. Sync writes `allow_implicit_invocation: false` to its `agents/openai.yaml`, in project and global sync, so the spec no longer needs an `x-codex.policy` block. An explicit value in `x-codex` or in a bundled `agents/openai.yaml` still wins.
 
 ### Changed
 
@@ -25,6 +25,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - Deleting `~/.claude/settings.json`, or a managed hook entry in it, no longer blocks every later `sync --global` with `managed hook ownership is corrupt`. Sync warns that the hook is missing and writes it again. A managed hook edited by hand still stops the run, now with a message naming it.
 - `sync --global` under a different `HOME` than the one that recorded `$AGNOSTIC_AI_HOME/state/global.json` stops before any write, instead of deleting the other home's agents and skills.
+- A skill that bundles its own `agents/openai.yaml` and also sets `x-codex.interface`, `policy`, or `dependencies` failed `sync` with an output collision. Sync now merges the two files, with `x-codex` keys on top, and writes the result for every target that shares the folder.
 - A spec with broken YAML names its path once, as `path:line:col`, instead of twice behind a `load rule [project]:` prefix.
 - `sync -t <name>` with a mistyped target failed only with a warning and reported the run up to date, also under `--check`. It now exits non-zero, and target errors suggest the closest name: `unknown target: claud (did you mean claude? no agnostic-ai-adapter-claud on PATH)`.
 - With `sync.shared-skills: true`, a skill with bundled files (such as `references/`) lost its `SKILL.md` in every target folder except the canonical one, and each sync recreated it. So did a skill folder holding a hand-authored file. Such folders now become links, or stay whole real copies. Turning the option on after a plain sync also deleted the canonical `SKILL.md` through the new link; it no longer does.

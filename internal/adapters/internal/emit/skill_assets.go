@@ -24,11 +24,26 @@ import (
 //
 // No-op when the source path is unknown (empty Path, e.g. in-memory specs
 // from the WASM playground) so adapters stay safe for non-disk callers.
+//
+// A bundled agents/openai.yaml that Codex needs merged (see OpenAIYAML)
+// is written merged instead of verbatim, so every target sharing the
+// skill folder writes the same bytes as the codex adapter.
 func (s *Session) PropagateSkillAssets(sk spec.Entry, dstDir string, skip func(rel string) bool, dryRun bool) error {
 	if !FolderBasedSkill(sk) {
 		return nil
 	}
-	return s.CopyTree(sk.SkillAssetDir(), dstDir, skip, dryRun)
+	merged, err := OpenAIYAML(sk)
+	if err != nil {
+		return err
+	}
+	if merged == "" || !bundlesOpenAIYAML(sk) || (skip != nil && skip(OpenAIYAMLRel)) {
+		return s.CopyTree(sk.SkillAssetDir(), dstDir, skip, dryRun)
+	}
+	skipBundled := func(rel string) bool { return rel == OpenAIYAMLRel || (skip != nil && skip(rel)) }
+	if err := s.CopyTree(sk.SkillAssetDir(), dstDir, skipBundled, dryRun); err != nil {
+		return err
+	}
+	return s.WriteFile(filepath.Join(dstDir, filepath.FromSlash(OpenAIYAMLRel)), WithHeader(merged, FormatYAML), dryRun)
 }
 
 // SkipSKILLMd is the common sibling-asset skip predicate: it excludes the
