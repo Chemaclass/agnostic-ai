@@ -53,8 +53,8 @@ func TestSyncGlobal_MCPServersReachUserFiles(t *testing.T) {
 	if tools := server(filepath.Join(home, ".copilot", "mcp-config.json"))["tools"]; tools == nil {
 		t.Errorf("Copilot requires a tools list on every server")
 	}
-	if !strings.Contains(warnings, "claude mcp add-json --scope user") {
-		t.Errorf("claude must point at its own command:\n%s", warnings)
+	if got := server(filepath.Join(home, ".claude.json")); got["command"] != "docs-mcp" {
+		t.Errorf("claude docs server = %v", got)
 	}
 	if _, _, err := runGlobalAgentTest("--only", "codex,cursor,gemini,qoder,copilot", "--check"); err != nil {
 		t.Fatalf("check after sync: %v", err)
@@ -156,5 +156,139 @@ func TestSyncGlobal_RemovingSymlinkedFileRemovesItsTarget(t *testing.T) {
 	}
 	if !strings.Contains(warnings, "removed ") || !strings.Contains(warnings, filepath.Join("dotfiles", "CLAUDE.md")+" and its symlink "+link) {
 		t.Errorf("the removal must be named:\n%s", warnings)
+	}
+}
+
+func TestSyncGlobal_ClaudeMCPKeepsAppState(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	spec := filepath.Join(source, "mcps", "docs.yaml")
+	mustWriteGlobalTest(t, spec, globalDocsMCP)
+	path := filepath.Join(home, ".claude.json")
+	before := "{\n  \"userID\": \"abc\",\n  \"projects\": {\n    \"/src\": {\"hasTrustDialogAccepted\": true}\n  },\n  \"mcpServers\": {\n    \"mine\": {\"type\": \"stdio\", \"command\": \"mine\"}\n  }\n}\n"
+	mustWriteGlobalTest(t, path, before)
+	if err := os.Chmod(path, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, w, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, w)
+	}
+	got := readGlobalTest(t, path)
+	if !strings.HasPrefix(got, "{\n  \"userID\": \"abc\",\n  \"projects\": {\n    \"/src\": {\"hasTrustDialogAccepted\": true}\n  },") || !strings.Contains(got, `"docs": {`) {
+		t.Errorf(".claude.json:\n%s", got)
+	}
+	if info, err := os.Stat(path); err == nil && runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
+		t.Errorf("mode = %v, want 0600", info.Mode().Perm())
+	}
+	if err := os.Remove(spec); err != nil {
+		t.Fatal(err)
+	}
+	if _, w, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatalf("sync after removal: %v\n%s", err, w)
+	}
+	if got := readGlobalTest(t, path); got != before {
+		t.Errorf("removal must restore .claude.json:\n%s", got)
+	}
+}
+
+func TestSyncGlobal_ClaudeMCPFollowsConfigDir(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml"), globalDocsMCP)
+	dir := filepath.Join(home, "claude-config")
+	t.Setenv("CLAUDE_CONFIG_DIR", dir)
+	if _, w, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, w)
+	}
+	if got := readGlobalTest(t, filepath.Join(dir, ".claude.json")); !strings.Contains(got, "docs-mcp") {
+		t.Errorf("config dir .claude.json:\n%s", got)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".claude.json")); !os.IsNotExist(err) {
+		t.Errorf("~/.claude.json must not be written: %v", err)
+	}
+}
+
+func TestSyncGlobal_ClaudeMCPCreatesPrivateFile(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml"), globalDocsMCP)
+	if _, w, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, w)
+	}
+	info, err := os.Stat(filepath.Join(home, ".claude.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
+		t.Errorf("mode = %v, want 0600", info.Mode().Perm())
+	}
+}
+
+func TestSyncGlobal_DisabledMCPStaysOutOfUserFiles(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml"), globalDocsMCP+"disabled: true\n")
+	_, warnings, err := runGlobalAgentTest("--only", "claude,cursor,copilot")
+	if err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	for _, rel := range []string{".claude.json", ".cursor/mcp.json", ".copilot/mcp-config.json"} {
+		if data, err := os.ReadFile(filepath.Join(home, filepath.FromSlash(rel))); err == nil && strings.Contains(string(data), "docs") {
+			t.Errorf("%s holds a disabled server:\n%s", rel, data)
+		}
+	}
+	if !strings.Contains(warnings, "disabled") {
+		t.Errorf("the dropped server must be noted:\n%s", warnings)
+	}
+}
+
+func TestSyncGlobal_MCPMovesWithConfigRoot(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml"), globalDocsMCP)
+	oldPath := filepath.Join(home, ".claude.json")
+	mustWriteGlobalTest(t, oldPath, "{\n  \"userID\": \"abc\"\n}\n")
+	if _, w, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, w)
+	}
+	dir := filepath.Join(home, "claude-config")
+	t.Setenv("CLAUDE_CONFIG_DIR", dir)
+	if _, w, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatalf("sync after move: %v\n%s", err, w)
+	}
+	if got := readGlobalTest(t, oldPath); got != "{\n  \"userID\": \"abc\"\n}\n" {
+		t.Errorf("the old file must lose the server:\n%s", got)
+	}
+	if got := readGlobalTest(t, filepath.Join(dir, ".claude.json")); !strings.Contains(got, "docs-mcp") {
+		t.Errorf("the new file must get it:\n%s", got)
+	}
+}
+
+func TestApplyGlobalChanges_StopsWhenFileChangedSincePlan(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".claude.json")
+	mustWriteGlobalTest(t, path, "{\"a\": 2}\n")
+	w := globalWrite{path: path, data: []byte("{\"a\": 1, \"b\": 1}\n"), mode: 0o600, planned: &diskSnapshot{data: []byte("{\"a\": 1}\n")}}
+	if _, err := applyGlobalChanges([]globalWrite{w}, nil, false); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
+		t.Fatalf("err = %v", err)
+	}
+	if got := readGlobalTest(t, path); got != "{\"a\": 2}\n" {
+		t.Errorf("the tool's write must survive: %q", got)
+	}
+}
+
+func TestApplyGlobalChanges_BackupKeepsSourceMode(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".claude.json")
+	mustWriteGlobalTest(t, path, "{}\n")
+	mustWriteGlobalTest(t, path+".bak", "old\n")
+	if err := os.Chmod(path, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	w := globalWrite{path: path, data: []byte("{\"a\": 1}\n"), mode: 0o600}
+	if _, err := applyGlobalChanges([]globalWrite{w}, nil, true); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path + ".bak")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
+		t.Errorf(".bak mode = %v, want 0600", info.Mode().Perm())
 	}
 }

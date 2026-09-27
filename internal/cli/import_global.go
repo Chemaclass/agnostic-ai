@@ -238,7 +238,7 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, war
 		if g.mcp.path == "" {
 			continue
 		}
-		path := g.path(home, g.mcp.path)
+		path := g.mcpPath(home)
 		dir, err := os.MkdirTemp(stage, ".mcp-"+target+"-")
 		if err != nil {
 			return fmt.Errorf("create staging directory: %w", err)

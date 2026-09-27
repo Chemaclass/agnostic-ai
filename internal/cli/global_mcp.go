@@ -3,8 +3,10 @@ package cli
 import (
 	"fmt"
 	"io"
+	"io/fs"
 	"maps"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -22,11 +24,36 @@ type globalMCPFile struct {
 	// key is the JSON map (mcpServers) or TOML parent table
 	// (mcp_servers) holding one entry per server name.
 	key string
+	// rootFile names the file inside the target's rootEnv directory
+	// when that variable is set, for a file that sits beside the
+	// default root rather than in it: Claude keeps ~/.claude.json, and
+	// $CLAUDE_CONFIG_DIR/.claude.json when the variable is set.
+	rootFile string
+	// private marks a file created at 0600, such as ~/.claude.json,
+	// which holds account state the tool itself keeps private.
+	private bool
+}
+
+// fileMode is the mode a sync gives the file when it creates it.
+func (f globalMCPFile) fileMode() fs.FileMode {
+	if f.private {
+		return 0o600
+	}
+	return 0o644
+}
+
+// mcpPath resolves the target's user MCP file.
+func (g globalTarget) mcpPath(home string) string {
+	if g.mcp.rootFile != "" && g.rootEnv != "" {
+		if root := os.Getenv(g.rootEnv); root != "" {
+			return filepath.Join(root, g.mcp.rootFile)
+		}
+	}
+	return g.path(home, g.mcp.path)
 }
 
 // warnUnsupportedGlobalMCP names the MCP specs a target in the run
-// cannot take at user level. Claude keeps them in ~/.claude.json, a file
-// it rewrites itself, so it gets the command that adds them instead.
+// cannot take at user level.
 func warnUnsupportedGlobalMCP(warn io.Writer, targets []string, mcps []spec.Entry) error {
 	for _, target := range targets {
 		if globalTargets[target].mcp.path != "" {
@@ -42,9 +69,6 @@ func warnUnsupportedGlobalMCP(warn io.Writer, targets []string, mcps []spec.Entr
 			continue
 		}
 		msg := fmt.Sprintf("warning: %s: global MCP servers are unsupported; skipping %s\n", target, strings.Join(names, ", "))
-		if target == "claude" {
-			msg = fmt.Sprintf("warning: claude: user MCP servers live in ~/.claude.json, which Claude Code rewrites itself; add them with `claude mcp add-json --scope user <name> '<json>'`; skipping %s\n", strings.Join(names, ", "))
-		}
 		if _, err := fmt.Fprint(warn, msg); err != nil {
 			return fmt.Errorf("write global MCP warning: %w", err)
 		}

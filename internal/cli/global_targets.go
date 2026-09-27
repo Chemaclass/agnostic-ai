@@ -122,6 +122,9 @@ var globalTargets = map[string]globalTarget{
 		hooksFormat:  "claude",
 		hookTarget:   hookTargetSettingsEnv,
 		hookArgs:     true,
+		// Claude Code rewrites ~/.claude.json itself, so sync edits only
+		// its own mcpServers entries, as text, and leaves every other key.
+		mcp: globalMCPFile{path: globalPathHome + ".claude.json", format: "json", key: "mcpServers", rootFile: ".claude.json", private: true},
 		settings: globalSettingsFile{
 			path: globalPathHome + ".claude/settings.json", format: "json",
 			model: "model", effort: "effortLevel", effortLevel: claude.Adapter{}.SettingsEffortLevels,
