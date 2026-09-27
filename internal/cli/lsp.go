@@ -52,7 +52,7 @@ func lspLinter(root string) map[string][]lsp.Diagnostic {
 	if err != nil {
 		return nil
 	}
-	findings := collectLintFindings(cfg.Targets, b)
+	findings := collectLintFindings(cfg.Targets, targetsSupportingKind, b)
 
 	out := map[string][]lsp.Diagnostic{}
 	for _, f := range findings {

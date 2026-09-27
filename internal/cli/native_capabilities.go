@@ -274,7 +274,7 @@ var matcherAcceptingEvents = setOf(
 // emits non-empty output for the given kind. Used by the orphan-kind
 // validator: if a project has hook specs but no enabled target maps
 // to a hook surface, the specs are dead weight.
-var targetsSupportingKind = map[spec.Kind]map[string]struct{}{
+var targetsSupportingKind = kindSupport{
 	spec.KindAgent:       setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "trae", "augment", "factory", "kilo", "qoder", "goose", "openhands"),
 	spec.KindSkill:       setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "trae", "augment", "openhands", "kilo", "qoder", "factory", "goose"),
 	spec.KindRule:        setOf("claude", "codex", "gemini", "cursor", "copilot", "aider", "cline", "windsurf", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "trae", "jules", "goose", "augment", "qoder", "openhands", "factory", "kilo"),
@@ -286,6 +286,9 @@ var targetsSupportingKind = map[spec.Kind]map[string]struct{}{
 	spec.KindEnvironment: setOf("cursor", "openhands", "amp"),
 	spec.KindIgnore:      setOf("cursor", "gemini", "aider", "windsurf", "kiro", "trae", "junie", "crush", "kilo", "augment"),
 }
+
+// kindSupport maps each spec kind to the targets that write it.
+type kindSupport map[spec.Kind]map[string]struct{}
 
 func setOf(items ...string) map[string]struct{} {
 	out := make(map[string]struct{}, len(items))

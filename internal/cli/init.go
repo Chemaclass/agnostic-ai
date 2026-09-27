@@ -76,6 +76,9 @@ func newInitCmd() *cobra.Command {
   agnostic-ai init config/ai`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
+				return err
+			}
 			base := defaultBaseDir
 			if len(args) == 1 {
 				base = args[0]

@@ -47,7 +47,7 @@ func reportUnsupportedKinds(cmd *cobra.Command, cfg *config.Config) {
 	if err != nil {
 		return
 	}
-	issues := lintOrphanKinds(b, cfg.Targets)
+	issues := lintOrphanKinds(b, cfg.Targets, targetsSupportingKind)
 	if len(issues) == 0 {
 		return
 	}

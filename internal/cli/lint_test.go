@@ -87,7 +87,7 @@ func TestLintDeadSpecs_FlagsKindUnsupportedByAllTargets(t *testing.T) {
 	// aider does not support hooks (copilot gained native hooks
 	// support in #629, so it can no longer stand in for a hook-less
 	// target here)
-	findings := lintDeadSpecs(entries, []string{"aider"})
+	findings := lintDeadSpecs(entries, []string{"aider"}, targetsSupportingKind)
 	if len(findings) != 1 {
 		t.Fatalf("expected 1 dead-spec finding, got %d", len(findings))
 	}
@@ -105,7 +105,7 @@ func TestLintDeadSpecs_NoFindingWhenTargetSupports(t *testing.T) {
 		{Kind: spec.KindHook, Name: "h", Path: "hooks/h.yaml"},
 	}
 	// claude supports hooks
-	if got := lintDeadSpecs(entries, []string{"claude"}); len(got) != 0 {
+	if got := lintDeadSpecs(entries, []string{"claude"}, targetsSupportingKind); len(got) != 0 {
 		t.Errorf("expected 0 findings when target supports kind, got %d", len(got))
 	}
 }
@@ -250,7 +250,7 @@ func TestCollectLintFindings_IncludesMCPMissingRequiredField(t *testing.T) {
 			Meta: map[string]any{"type": "stdio", "description": "no command"}},
 	})
 	var found bool
-	for _, f := range collectLintFindings([]string{"claude"}, b) {
+	for _, f := range collectLintFindings([]string{"claude"}, targetsSupportingKind, b) {
 		if f.Code == "LINT008" {
 			found = true
 		}
@@ -296,7 +296,7 @@ func TestCollectLintFindings_ReportsMidWildcardAllow(t *testing.T) {
 	b := spec.Bundle{Settings: []spec.Entry{{Kind: spec.KindSettings, Name: "perms", Path: "settings/perms.yaml",
 		Meta: map[string]any{"permissions": map[string]any{"allow": []any{"Bash(git * main)"}}}}}}
 	var found bool
-	for _, f := range collectLintFindings([]string{"claude"}, b) {
+	for _, f := range collectLintFindings([]string{"claude"}, targetsSupportingKind, b) {
 		if f.Code == "LINT009" {
 			found = true
 		}

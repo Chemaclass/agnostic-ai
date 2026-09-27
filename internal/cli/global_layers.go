@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,20 +51,42 @@ type checkScope struct {
 	// hookTargets narrows targets to those that write hooks, which for
 	// a project is every enabled target.
 	hookTargets []string
-	bundle      spec.Bundle
+	// support maps each kind to the targets that write it: adapter
+	// output for a project, user-level surfaces for the global scope.
+	support kindSupport
+	bundle  spec.Bundle
 }
 
 // loadCheckScope loads the project in the working directory, or the
 // global and global-local layers sync --global reads. The global scope
-// checks against every target a default sync --global writes, and hook
-// events only against the targets it writes hooks for.
+// checks against the targets a default sync --global writes, from the
+// home config or else every supported one, and against what each writes
+// at user level.
 func loadCheckScope(global bool) (checkScope, error) {
+	scope, err := loadSpecScope(global)
+	if err != nil || !global {
+		return scope, err
+	}
+	targets, err := loadGlobalTargets(scope.source, io.Discard)
+	if err != nil {
+		return checkScope{}, err
+	}
+	if targets == nil {
+		targets = globalTargetNames()
+	}
+	scope.targets, scope.hookTargets = targets, globalHookTargets(targets)
+	return scope, nil
+}
+
+// loadSpecScope is loadCheckScope without the global targets, for list,
+// which reads no home config.
+func loadSpecScope(global bool) (checkScope, error) {
 	if !global {
 		cfg, b, err := loadProject(".")
 		if err != nil {
 			return checkScope{}, err
 		}
-		return checkScope{cfg: cfg, targets: cfg.Targets, hookTargets: cfg.Targets, bundle: b}, nil
+		return checkScope{cfg: cfg, targets: cfg.Targets, hookTargets: cfg.Targets, support: targetsSupportingKind, bundle: b}, nil
 	}
 	source, err := globalSourceRoot()
 	if err != nil {
@@ -73,7 +96,7 @@ func loadCheckScope(global bool) (checkScope, error) {
 	if err != nil {
 		return checkScope{}, err
 	}
-	return checkScope{global: true, source: source, targets: globalTargetNames(), hookTargets: globalHookTargetNames(), bundle: b}, nil
+	return checkScope{global: true, source: source, support: globalKindSupport(), bundle: b}, nil
 }
 
 func (s checkScope) emptyHint() string {
