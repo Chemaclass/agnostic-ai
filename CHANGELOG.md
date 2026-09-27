@@ -19,6 +19,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Changed
 
+- `sync --global` stops when a hook entry it did not write runs a source hook's matcher and command with other settings, including inside a group with other commands. It used to add a second copy, so the command ran twice. Remove that entry, or give the command its own entry that matches the source.
 - A skill that is manual-only, or sets `x-codex.interface`, `policy`, or `dependencies`, and bundles an `agents/openai.yaml` that is not a YAML mapping now fails `sync` when it lands in the Codex skills tree (`.agents/skills/` or `outputs.codex.skills-dir`), including for amp alone and `sync --global`. The error names the file. Sync merges the Codex policy into that file, so it can no longer copy it as is.
 - `sync` ends with what it changed: the specs edited since the last sync, the files created, updated, and removed, and the changed files git still has to commit. A run with nothing to do says `up to date`.
 - Warnings and notes repeated from the previous sync collapse into one line, and `sync -v` shows them again. The old hint said to delete `.agnostic-ai/.sync-state`, which also dropped the record the orphan sweep relies on.
@@ -26,7 +27,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### Fixed
 
 - Deleting `~/.claude/settings.json`, or a managed hook entry in it, no longer blocks every later `sync --global` with `managed hook ownership is corrupt`. Sync warns that the hook is missing and writes it again. A managed hook edited by hand still stops the run, now with a message naming it.
-- After `$AGNOSTIC_AI_HOME/state/global.json` is lost or deleted, `sync --global` no longer stops with `unmanaged global spec collision` on its own earlier output. A file, skill folder, or hook entry that holds exactly what sync would write is adopted and recorded again. Anything that differs still stops the run before any write.
+- After `$AGNOSTIC_AI_HOME/state/global.json` is lost or deleted, `sync --global` no longer stops with `unmanaged global spec collision` on its own earlier output. A file or skill folder that holds exactly what sync would write is adopted, recorded again, and named in the output. Anything that differs still stops the run before any write.
+- `sync --global` no longer adds a second copy of a hook that is already in the hooks file exactly as the source defines it. The existing entry stays yours: sync does not record it, and deleting the source hook leaves it in place.
 - `sync --global` under a different `HOME` than the one that recorded `$AGNOSTIC_AI_HOME/state/global.json` stops before any write, instead of deleting the other home's agents and skills.
 - A skill that bundles its own `agents/openai.yaml` and also sets `x-codex.interface`, `policy`, or `dependencies` failed `sync` with an output collision. Sync now merges the two files, with `x-codex` keys on top, and writes the result for every target that shares the folder.
 - A spec with broken YAML names its path once, as `path:line:col`, instead of twice behind a `load rule [project]:` prefix.

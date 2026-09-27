@@ -199,7 +199,8 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	for _, target := range targets {
 		trees = append(trees, globalTargets[target].trees(home)...)
 	}
-	if err := preflightGlobalWrites(writes, trees, old); err != nil {
+	adopted, err := preflightGlobalWrites(writes, trees, old)
+	if err != nil {
 		return err
 	}
 	removals := removedGlobalFiles(old.Files, next.Files)
@@ -214,6 +215,11 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		}
 		for _, path := range existingPaths(removals) {
 			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "dry-run: remove %s\n", path); err != nil {
+				return fmt.Errorf("write dry-run output: %w", err)
+			}
+		}
+		for _, path := range adopted {
+			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "dry-run: adopt %s\n", path); err != nil {
 				return fmt.Errorf("write dry-run output: %w", err)
 			}
 		}
@@ -241,6 +247,11 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		return err
 	}
 	pruneEmptyGlobalDirs(removals, trees)
+	for _, path := range adopted {
+		if _, err := fmt.Fprintf(warn, "adopted %s: matches what sync writes\n", path); err != nil {
+			return fmt.Errorf("write adoption note: %w", err)
+		}
+	}
 	if _, err = fmt.Fprintf(cmd.OutOrStdout(), "Synced global configuration to %d target(s).\n", len(targets)); err != nil {
 		return fmt.Errorf("write sync summary: %w", err)
 	}
@@ -588,7 +599,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		}
 		doc, err := mergeGlobalHooks(path, g.hooksFormat, hooks, old.Hooks[target], next.Hooks[target], warn)
 		if errors.Is(err, errGlobalFileUnchanged) {
-			if slices.Contains(old.Files, path) || len(next.Hooks[target]) > 0 {
+			if slices.Contains(old.Files, path) {
 				next.Files = append(next.Files, path)
 			}
 			continue
@@ -812,8 +823,9 @@ var errGlobalFileUnchanged = errors.New("global file unchanged")
 // as removed, with a warning, so a reset settings file is rebuilt. One
 // still there with the same matcher and command but other fields was
 // edited by hand, and stops the run: replacing it would run it twice.
-// With no entries recorded, as after a lost state, an entry already in
-// the file exactly as sync would write it is adopted instead of added.
+// An unrecorded entry exactly as sync would write it satisfies the
+// source and stays the user's, since nothing in it shows sync wrote it.
+// One with the same matcher and command but other fields stops the run.
 func mergeGlobalHooks(path, format string, entries []spec.Entry, previous map[string][]any, next map[string][]any, warn io.Writer) ([]byte, error) {
 	doc := map[string]any{}
 	before := map[string]any{}
@@ -867,12 +879,10 @@ func mergeGlobalHooks(path, format string, entries []spec.Entry, previous map[st
 			hooks[event] = current
 		}
 	}
-	adoptable := map[string][]any{}
-	if len(previous) == 0 {
-		for event, items := range hooks {
-			current, _ := items.([]any)
-			adoptable[event] = slices.Clone(current)
-		}
+	unrecorded := map[string][]any{}
+	for event, items := range hooks {
+		current, _ := items.([]any)
+		unrecorded[event] = slices.Clone(current)
 	}
 	for _, entry := range entries {
 		event, _ := entry.Meta["event"].(string)
@@ -899,13 +909,12 @@ func mergeGlobalHooks(path, format string, entries []spec.Entry, previous map[st
 				}
 				item = cursorHook
 			}
-			var adopted bool
-			if adoptable[event], adopted = removeEqual(adoptable[event], jsonRoundTrip(item)); adopted {
-				next[event] = append(next[event], item)
+			var satisfied bool
+			if unrecorded[event], satisfied = removeEqual(unrecorded[event], jsonRoundTrip(item)); satisfied {
 				continue
 			}
-			if slices.ContainsFunc(adoptable[event], func(existing any) bool { return sameGlobalHook(existing, item) }) {
-				return nil, fmt.Errorf("%s: a %s hook with the same matcher and command is not recorded as managed; make it match the source or remove it, then sync", path, event)
+			if slices.ContainsFunc(unrecorded[event], func(existing any) bool { return sameGlobalHook(existing, item) }) {
+				return nil, fmt.Errorf("%s: a %s hook not recorded as managed runs a source hook's matcher and command with other settings; remove that entry, or give the command its own entry that matches the source, then sync", path, event)
 			}
 			current, _ := hooks[event].([]any)
 			hooks[event] = append(current, item)
@@ -1181,8 +1190,8 @@ func globalContextBridge(base, body, key string) (path, command, script string, 
 // preflightGlobalWrites stops on an unrecorded file in a managed tree
 // before anything is written. A file, or a whole skill folder, holding
 // exactly what this run writes there is adopted instead, so a lost state
-// does not strand earlier output.
-func preflightGlobalWrites(writes []globalWrite, trees []string, old globalState) error {
+// does not strand earlier output. It returns the adopted paths.
+func preflightGlobalWrites(writes []globalWrite, trees []string, old globalState) ([]string, error) {
 	owned := map[string]bool{}
 	for _, p := range old.Files {
 		owned[p] = true
@@ -1191,6 +1200,7 @@ func preflightGlobalWrites(writes []globalWrite, trees []string, old globalState
 	for _, w := range writes {
 		planned[w.path] = w.data
 	}
+	var adopted, folders []string
 	for _, w := range writes {
 		if inManagedTree(w.path, trees) && !owned[w.path] {
 			if filepath.Base(w.path) == "SKILL.md" {
@@ -1198,24 +1208,31 @@ func preflightGlobalWrites(writes []globalWrite, trees []string, old globalState
 				if _, err := os.Stat(dir); err == nil {
 					same, err := globalFolderMatches(dir, planned)
 					if err != nil {
-						return err
+						return nil, err
 					}
 					if !same {
-						return fmt.Errorf("%s: unmanaged global skill collision", dir)
+						return nil, fmt.Errorf("%s: unmanaged global skill collision", dir)
+					}
+					if _, err := os.Stat(w.path); err == nil {
+						adopted = append(adopted, dir)
+						folders = append(folders, dir)
 					}
 				}
 			}
 			if _, err := os.Stat(w.path); err == nil {
 				if data, err := os.ReadFile(w.path); err != nil || !bytes.Equal(data, w.data) {
-					return fmt.Errorf("%s: unmanaged global spec collision", w.path)
+					return nil, fmt.Errorf("%s: unmanaged global spec collision", w.path)
+				}
+				if !inManagedTree(w.path, folders) {
+					adopted = append(adopted, w.path)
 				}
 			}
 		}
 		if info, err := os.Lstat(w.path); err == nil && info.Mode()&os.ModeSymlink != 0 {
-			return fmt.Errorf("%s: refusing to replace symlink", w.path)
+			return nil, fmt.Errorf("%s: refusing to replace symlink", w.path)
 		}
 	}
-	return nil
+	return adopted, nil
 }
 
 // globalFolderMatches reports whether every file in dir is one this run
