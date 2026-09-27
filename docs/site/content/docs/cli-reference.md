@@ -141,7 +141,7 @@ Semantic checks beyond the schema. Exits 1 on error findings. `agnostic-ai lint 
 | Flag | Description |
 |------|-------------|
 | `--strict` | Exit 1 on warnings too. |
-| `--global` | Lint the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides, the layers `sync --global` loads. Dead specs and target-only keys are checked against what each target `sync --global` writes at user level, for every supported target or the home config `targets` list. Also reports LINT010. Works outside a project. |
+| `--global` | Lint the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides, the layers `sync --global` loads. Dead specs and target-only keys are checked against what each target `sync --global` writes at user level, for every supported target or the home config `targets` list. Also reports LINT010. Budgets come from the home config's `lint` key. Works outside a project. |
 
 It flags empty specs, dead specs (kinds no enabled target supports), and hooks that set a matcher on an event that ignores it. Four codes catch specs that never reach a target:
 
@@ -155,6 +155,16 @@ It flags empty specs, dead specs (kinds no enabled target supports), and hooks t
 LINT007 warns on a frontmatter key agnostic-ai does not read that is one edit from one it does (two for longer names): `glob:` for `globs:`, `descriptin:` for `description:`. The key parses and emits, so the setting is lost with no other signal; `sync` prints the same warning. A target-native key belongs under `x-<target>:`. A key only some targets read at the top level, such as Qoder's `glob:` or OpenCode's and Kilo's `mode:`, is flagged only when none of them is in `targets`. Settings and environment specs pass their keys through and are not checked, and `sync` skips pack specs.
 
 LINT009 warns on a permission that approves more than it says. An `allow` rule such as `Bash(git * main)` puts `*` before the end of the command, so it also matches `git push --force main`. Claude Code warns about the same rule at startup; the targets that translate it widen it without a word. Write the exact value, or keep `*` at the end (`Bash(go test:*)`, `Bash(npm run *)`). `deny` and `ask` rules are skipped, since widening them only blocks or prompts more.
+
+LINT011 warns when a target loads more words at the start of every session than [`lint.instructions-words`](@/docs/configuration.md#lint) allows (default 2000). The count covers the target's entry-point file as `sync` writes it, with the `AGNOSTIC_AI.md`, inlined rules, and `local/AGNOSTIC_AI.md` parts shown, plus always-on rule files in the target's own rules folder and every skill and agent description it lists. A rule is always on with `alwaysApply: true`, or with no `globs` or `paths`. `@path` imports are not followed. Targets that read the same file with the same numbers share one line:
+
+```
+LINT011 [warn] AGENTS.md: cline, kiro load 2396 words every session: AGENTS.md 1187 (AGNOSTIC_AI.md 136, rules 1032), always-on rule files 908, skill descriptions 195, agent descriptions 106; budget 2000 (lint.instructions-words).
+```
+
+A target with a published byte cap on that file also warns past the cap, and its line names it: Codex stops reading `AGENTS.md` at 32 KiB (`project_doc_max_bytes`), and Antigravity truncates a rule file, `AGENTS.md` included, past 24,000 bytes. With `--global`, the file is the managed instructions block and the line points at the home's `AGNOSTIC_AI.md`.
+
+LINT012 warns on a skill or agent description longer than [`lint.description-chars`](@/docs/configuration.md#lint) (default 1024 characters). Targets list every description in every session, so a long one costs context even when the skill never runs.
 
 ## list
 

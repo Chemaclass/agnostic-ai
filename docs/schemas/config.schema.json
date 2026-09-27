@@ -263,6 +263,9 @@
         },
         "verify": {
           "$ref": "#/$defs/VerifyConfig"
+        },
+        "lint": {
+          "$ref": "#/$defs/LintConfig"
         }
       },
       "additionalProperties": false,
@@ -302,6 +305,18 @@
       "properties": {
         "codex": {
           "$ref": "#/$defs/ImportCodex"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "LintConfig": {
+      "properties": {
+        "instructions-words": {
+          "type": "integer"
+        },
+        "description-chars": {
+          "type": "integer"
         }
       },
       "additionalProperties": false,

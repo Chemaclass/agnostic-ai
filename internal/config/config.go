@@ -42,6 +42,7 @@ type Config struct {
 	Sync          SyncConfig        `yaml:"sync,omitempty"           json:"sync,omitempty"`
 	Import        ImportConfig      `yaml:"import,omitempty"         json:"import,omitempty"`
 	Verify        VerifyConfig      `yaml:"verify,omitempty"         json:"verify,omitempty"`
+	Lint          LintConfig        `yaml:"lint,omitempty"           json:"lint,omitempty"`
 }
 
 // VerifyConfig defines the external command that re-clears generated AI
@@ -383,6 +384,9 @@ func LoadWithSources(root string) (*Config, []string, error) {
 		return nil, nil, err
 	}
 	if err := validateRequires(cfg.Requires, strings.Join(sources, " + ")); err != nil {
+		return nil, nil, err
+	}
+	if err := cfg.Lint.Validate(strings.Join(sources, " + ")); err != nil {
 		return nil, nil, err
 	}
 	return cfg, sources, nil

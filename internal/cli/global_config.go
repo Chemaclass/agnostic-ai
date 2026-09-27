@@ -41,7 +41,7 @@ func readGlobalConfig(path string) (map[string]yaml.Node, error) {
 
 // loadGlobalTargets reads the targets the home configs select. It
 // returns nil when neither file sets targets. Global mode reads only
-// targets and requires, so each other key warns.
+// targets, requires, and lint, so each other key warns.
 func loadGlobalTargets(source string, warn io.Writer) ([]string, error) {
 	var targets []string
 	for _, path := range globalConfigPaths(source) {
@@ -52,13 +52,13 @@ func loadGlobalTargets(source string, warn io.Writer) ([]string, error) {
 		var ignored []string
 		for key := range doc {
 			// Every agnostic-ai.yaml carries version, so it is not a surprise.
-			if key != "targets" && key != "requires" && key != "version" {
+			if key != "targets" && key != "requires" && key != "lint" && key != "version" {
 				ignored = append(ignored, key)
 			}
 		}
 		if len(ignored) > 0 {
 			slices.Sort(ignored)
-			if _, err := fmt.Fprintf(warn, "warning: %s: global mode reads only targets and requires; ignoring %s\n", path, strings.Join(ignored, ", ")); err != nil {
+			if _, err := fmt.Fprintf(warn, "warning: %s: global mode reads only targets, requires, and lint; ignoring %s\n", path, strings.Join(ignored, ", ")); err != nil {
 				return nil, fmt.Errorf("write global config warning: %w", err)
 			}
 		}
@@ -99,6 +99,30 @@ func loadGlobalTargets(source string, warn io.Writer) ([]string, error) {
 		targets = kept
 	}
 	return targets, nil
+}
+
+// loadGlobalLint reads the lint budgets the home configs set. A key in
+// local/agnostic-ai.yaml replaces the same key in the shared file, as
+// the project's agnostic-ai.local.yaml does.
+func loadGlobalLint(source string) (config.LintConfig, error) {
+	var lint config.LintConfig
+	for _, path := range globalConfigPaths(source) {
+		doc, err := readGlobalConfig(path)
+		if err != nil {
+			return config.LintConfig{}, err
+		}
+		node, ok := doc["lint"]
+		if !ok {
+			continue
+		}
+		if err := node.Decode(&lint); err != nil {
+			return config.LintConfig{}, errs.Coded(errs.CodeConfigDecode, "parse %s: lint: %w", path, err)
+		}
+		if err := lint.Validate(path); err != nil {
+			return config.LintConfig{}, err
+		}
+	}
+	return lint, nil
 }
 
 // Remedies refuseGlobalHome offers besides pointing AGNOSTIC_AI_HOME away.

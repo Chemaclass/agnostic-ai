@@ -59,6 +59,11 @@ func writeAgnosticEntryPoints(sess *adapters.Session, cfg *config.Config, b spec
 type entryPointFile struct {
 	Path    string
 	Content string
+	// Readers are the targets that load Path.
+	Readers []string
+	// Layers is the text each source adds to Content, for lint's
+	// instructions budget.
+	Layers []instructionLayer
 }
 
 // renderEntryPointFiles returns every target entry-point file sync
@@ -117,6 +122,7 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 		if err != nil {
 			return nil, err
 		}
+		layers := []instructionLayer{{Name: "AGNOSTIC_AI.md", Text: content}}
 		if inliners := pathRuleInliners(cfg, consumers[path]); len(inliners) > 0 {
 			var rulesAppendix string
 			for i, target := range inliners {
@@ -127,6 +133,7 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 				rulesAppendix = next
 			}
 			content = adapters.AppendRulesAppendix(content, rulesAppendix)
+			layers = append(layers, instructionLayer{Name: "rules", Text: rulesAppendix})
 		} else if importer := pathRulesImporter(cfg, consumers[path]); importer != "" {
 			content = adapters.AppendRulesAppendix(content, adapters.RenderRulesImportAppendix(cfg, importer, adapters.EntryPointRules(b, importer)))
 		} else if importer := pathLegacyRulesFileImporter(cfg, consumers[path]); importer != "" {
@@ -138,6 +145,7 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 				return nil, err
 			}
 			content = adapters.AppendLocalInstructions(content, localView)
+			layers = append(layers, instructionLayer{Name: "local/AGNOSTIC_AI.md", Text: localView})
 		}
 		if cfg.Sync.TargetOverview {
 			var sections []adapters.TargetArtifacts
@@ -159,6 +167,8 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 		files = append(files, entryPointFile{
 			Path:    path,
 			Content: rendered,
+			Readers: consumers[path],
+			Layers:  layers,
 		})
 	}
 	return files, nil
