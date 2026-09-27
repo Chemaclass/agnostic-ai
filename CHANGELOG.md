@@ -8,53 +8,32 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Added
 
-- `lint` and `lint --global` warn when a target loads more than 2000 words at the start of every session, counting its entry-point file, always-on rule files, and skill and agent descriptions (LINT011). The line shows each part. Each adapter decides which of its rule files count as always on. Past the Codex 32 KiB or Antigravity 24,000-byte cap, the line names the cap, whatever the word budget. A skill or agent description over 1024 characters warns too, and a skill description past the Agent Skills 1024 limit warns under any budget (LINT012). Set `lint.instructions-words` and `lint.description-chars` in `agnostic-ai.yaml` or the global home config to change the budgets.
-- `why CLAUDE.md` (and every other entry point) names `.agnostic-ai/AGNOSTIC_AI.md` as its source instead of saying the file is not tracked. `why` on a spec points at `explain`, and `new skil` suggests `skill`.
-- Synced hooks see `AGNOSTIC_AI_TARGET` set to the target that ran them, so one shared script can pick Claude Code's exit code 2 or Cursor's JSON reply without guessing from the payload. Claude Code gets it through the settings `env`, Cursor through a `sessionStart` hook, and Codex through an `export` prefix that Windows skips. Most other hook targets get it too, in project and global sync. Trae, Factory, OpenHands, Antigravity, Kiro, Windsurf, and Augment do not: they have no per-hook `env`, and a prefix would break hooks on Windows or in a shell their docs do not name. The spec format page lists each target's mechanism.
-- `lint` and `sync` warn on a mistyped frontmatter key, such as `glob:` for `globs:`, which parsed and left a rule applying to every file (LINT007).
-- Every coded error prints its fix on the next line, so `sync` in a folder without a config says to run `agnostic-ai init`.
-- `init` and `status` point a project with no specs at `agnostic-ai new rule <name>`, and `doctor` says when the generated files are in sync.
-- `lint --global` and `validate --global` check `~/.agnostic-ai/` and its `local/` layer before `sync --global` writes them, from any directory. They exit 1 on errors, and both report a scoped or conditional rule that `sync --global` would reject (LINT010).
-- `readonly: true` on an agent now restricts Claude Code too: the agent file gets `disallowedTools: Write, Edit, NotebookEdit`, and `sync` no longer says the field has no effect on claude. Bash stays allowed. The `readonly` key stays for Cursor and `import claude`. An explicit `x-claude.disallowedTools` wins.
-- A skill marked `disable-model-invocation: true` stays manual-only on Codex. Sync writes `allow_implicit_invocation: false` to its `agents/openai.yaml`, in project and global sync, so the spec no longer needs an `x-codex.policy` block. An explicit value in `x-codex` or in a bundled `agents/openai.yaml` still wins.
-- `sync --global` reads `targets` from an optional `agnostic-ai.yaml` in `~/.agnostic-ai/`, so a home that syncs three tools no longer needs `--only` on every run. A `targets` list in `local/agnostic-ai.yaml` replaces it, and `--only`, `--except`, and `-t` still win for one run. `sync --global --check`, `lint --global`, and `validate --global` follow the same list. Targets with no user-level surface, such as `aider`, are skipped with one warning, and other keys warn and are ignored. Plain `sync`, `init`, `import`, `new`, `packs`, `cleanup`, `revert`, and `install-hook` run inside the global home or any folder under it (only the home itself when `AGNOSTIC_AI_HOME` is `$HOME`) now stop before any write and point at `sync --global`.
-
-- `install-hook --global`, run inside a global home kept in git, writes a pre-commit hook that runs `lint --global --strict`, `validate --global`, and `sync --global --check` on the home being committed, and fails the commit when any of them fails. A linked worktree of the home skips the `sync --global --check` step. It stops when `core.hooksPath` sends git elsewhere. Plain `install-hook` inside the home now points at it.
-- A `requires` key in `agnostic-ai.yaml`, such as `requires: ">=0.71.0"`, stops `sync`, `lint`, `validate`, `doctor --fix`, `revert`, `cleanup`, and a running `sync --watch` on an older binary before any write. The error names both versions and `agnostic-ai upgrade` (AAI-005). The global home config accepts it too. A build from source warns and runs.
+- Hooks see `AGNOSTIC_AI_TARGET`, so one shared script knows which tool ran it (#1226).
+- `requires: ">=0.70.0"` in `agnostic-ai.yaml` stops an older binary before it writes anything (AAI-005) (#1214).
+- The global home reads `targets` from its own `agnostic-ai.yaml`, and `install-hook --global` gates its commits (#1210, #1213, #1223).
+- `lint` warns when a target loads too many words per session or a description runs long (LINT011, LINT012), and on typos like `glob:` (LINT007) (#1205, #1225).
+- `readonly: true` restricts Claude Code agents, and `disable-model-invocation` keeps a Codex skill manual-only (#1211, #1212).
 
 ### Changed
 
-- `sync --global` stops when a hook entry it did not write runs a source hook's matcher and command with other settings, including inside a group with other commands. It used to add a second copy, so the command ran twice. Remove that entry, or give the command its own entry that matches the source.
-- A skill that is manual-only, or sets `x-codex.interface`, `policy`, or `dependencies`, and bundles an `agents/openai.yaml` that is not a YAML mapping now fails `sync` when it lands in the Codex skills tree (`.agents/skills/` or `outputs.codex.skills-dir`), including for amp alone and `sync --global`. The error names the file. Sync merges the Codex policy into that file, so it can no longer copy it as is.
-- `sync` ends with what it changed: the specs edited since the last sync, the files created, updated, and removed, and the changed files git still has to commit. A run with nothing to do says `up to date`.
-- Warnings and notes repeated from the previous sync collapse into one line, and `sync -v` shows them again. The old hint said to delete `.agnostic-ai/.sync-state`, which also dropped the record the orphan sweep relies on.
+- Cline, Kiro, Qoder, Kilo Code and Augment no longer load always-on rules twice via `AGENTS.md`. Run `agnostic-ai sync` to drop old copies (#1235).
+- `sync` ends with what it changed, and warnings repeated from the last run collapse into one line; `-v` shows them (#1194, #1196).
+- Errors print their fix, and `why` traces every entry point to `.agnostic-ai/AGNOSTIC_AI.md` (#1206, #1207).
+- `sync --global` stops on a hand-written hook with a source hook's matcher and command but other settings. Remove it or match the source (#1215).
+- A Codex skill whose bundled `agents/openai.yaml` is not a YAML mapping fails `sync`. Fix that file (#1212).
 
 ### Fixed
 
-- Gemini and Cursor fold a hook spec's `args` into `command`, each in single quotes (`node 'guard.js'`), in project and global sync. They used to drop the args and write a bare `node`, which read the hook's JSON payload as its program, so a guard hook stopped guarding. Neither tool has an `args` field. On Windows both run hooks through PowerShell, which reads the folded command the same way for args without an apostrophe.
-- `sync` notes, once per run, when `claude` runs, `cursor` is a configured target, and a claude hook spec has `args`. Cursor also loads `.claude/settings.json` hooks, and its third-party hooks docs do not list `args`, so there the hook may run a bare interpreter. Use a shell-form `command`, or turn off Cursor's third-party hooks.
-- A comma inside a `globs` brace set, as in `src/**/*.{ts,tsx}`, no longer splits the pattern on Cline, OpenHands, Kiro, or in `doctor --check-globs`.
-- A rule whose `globs` is a YAML list loaded in every session on Cline, Copilot, Cursor, Trae, Kiro, Windsurf, and OpenHands. It now matches like a string.
-- `sync --global` writes a Gemini hook timeout in milliseconds, as project sync does. A spec's `timeout: 30` used to land as `30`, which Gemini reads as 30 ms. An entry an older version wrote in seconds is replaced, and one already corrected by hand to `30000` is accepted instead of stopping the run as edited.
-- `sync --global` keeps `args` on an exec-form hook for Claude Code and Qoder, as project sync does. It used to drop them, so Claude ran a bare `node` instead of `node guard.js`. Codex has no exec form, so project and global sync fold the `args` into the command, each quoted for the shell: `node 'guard.js'`. Codex used to get a bare `node`, which read the hook's JSON payload as its program.
-- Cline, Kiro, Qoder, Kilo Code, and Augment loaded each always-on rule twice when the root `AGENTS.md` carried the rules block, once from there and once from their own rules folder. That happened with codex or another inlining target enabled, and always for Kilo Code and Augment. Sync now skips the rules-folder copy of a rule whose text matches the block, and keeps rules that load only on a path match or whose text differs for that target. Kilo Code drops the `instructions` entries of the skipped files and keeps your own. `sync --check`, `doctor`, and `status` report a copy the next full sync removes, `doctor --fix` removes it, and `import cline` (and the other readers) recovers the rules from the block. Trae and Windsurf keep every copy: Trae reads `AGENTS.md` only after a setting is turned on, and Devin may cut a rule file past 12,000 characters. A partial sync, such as `sync --only cline`, no longer drops codex's rules from the shared `AGENTS.md`.
-- `install-hook --shared` failed with `unknown flag: --shared`, since the flag was never registered. It now writes `.githooks/pre-commit` at the work tree root and sets `core.hooksPath` as documented. It stops when `core.hooksPath` already points elsewhere, and names the `.git/hooks` hooks that stop running.
-- `install-hook` no longer reports success when it appends to a hook that never reaches the new lines, such as one ending in `exit 0`, one that runs `exec`, or a Python hook. It prints the lines to add by hand. A comment that mentions `sync --check` no longer counts as an installed hook.
-- Deleting `~/.claude/settings.json`, or a managed hook entry in it, no longer blocks every later `sync --global` with `managed hook ownership is corrupt`. Sync warns that the hook is missing and writes it again. A managed hook edited by hand still stops the run, now with a message naming it.
-- After `$AGNOSTIC_AI_HOME/state/global.json` is lost or deleted, `sync --global` no longer stops with `unmanaged global spec collision` on its own earlier output. A file or skill folder that holds exactly what sync would write is adopted, recorded again, and named in the output. Anything that differs still stops the run before any write.
-- `sync --global` no longer adds a second copy of a hook that is already in the hooks file exactly as the source defines it. The existing entry stays yours: sync does not record it, and deleting the source hook leaves it in place.
-- `sync --global` under a different `HOME` than the one that recorded `$AGNOSTIC_AI_HOME/state/global.json` stops before any write, instead of deleting the other home's agents and skills.
-- A skill that bundles its own `agents/openai.yaml` and also sets `x-codex.interface`, `policy`, or `dependencies` failed `sync` with an output collision. Sync now merges the two files, with `x-codex` keys on top, and writes the result for every target that shares the folder.
-- A spec with broken YAML names its path once, as `path:line:col`, instead of twice behind a `load rule [project]:` prefix.
-- `sync -t <name>` with a mistyped target failed only with a warning and reported the run up to date, also under `--check`. It now exits non-zero, and target errors suggest the closest name: `unknown target: claud (did you mean claude? no agnostic-ai-adapter-claud on PATH)`.
-- With `sync.shared-skills: true`, a skill with bundled files (such as `references/`) lost its `SKILL.md` in every target folder except the canonical one, and each sync recreated it. So did a skill folder holding a hand-authored file. Such folders now become links, or stay whole real copies. Turning the option on after a plain sync also deleted the canonical `SKILL.md` through the new link; it no longer does.
+- Exec-form hooks on Codex, Gemini, and Cursor ran a bare interpreter that read the event JSON as code. `args` now go into the command, quoted (#1229, #1230).
+- A `globs` list now scopes a rule on every target, and a brace set like `*.{ts,tsx}` stays one pattern (#1238).
+- `sync --global` keeps hook `args` for Claude Code and Qoder, and writes Gemini hook timeouts in milliseconds (#1229, #1231).
+- `sync --global` recovers from a lost state file or a deleted hooks file, and refuses state recorded under another `HOME` (#1208, #1215).
+- `install-hook --shared`, a mistyped `sync -t`, and shared skill folders with bundled files work as documented (#1195, #1197, #1223).
 
 ### Site
 
-- The landing hero plays the 30-second video on click, and the targets fan moves down to the targets section.
-- The brand mark is a hub logo: an orange core with eight spokes to eight dots, for the one source and the targets it syncs to. It replaces `aⁱ` in the header, the footer, the playground, and the favicon.
-- The header has a GitHub button next to the theme toggle, on every page and the playground.
-- The `why` command guide moves to `/docs/trace/` (the old URL redirects), and the footer "Why agnostic-ai" link now opens the case for the tool.
+- The landing page plays the 30-second intro video on click, and the header has the new hub logo and a GitHub button (#1221, #1233, #1237).
+- The `why` guide moved to `/docs/trace/`; the old URL redirects (#1191).
 
 ## v0.69.0 - 2026-09-26
 
