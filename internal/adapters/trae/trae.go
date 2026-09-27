@@ -342,7 +342,7 @@ func ruleForm(e spec.Entry) string {
 func activationFrontmatter(e spec.Entry) string {
 	m := emit.ResolveMeta(e.Meta, target)
 	desc, _ := m["description"].(string)
-	globs, _ := m["globs"].(string)
+	globs := spec.JoinGlobs(m["globs"])
 	always := alwaysApplies(m)
 	if globs == "" && !always {
 		globs = strings.Join(pathsToGlobs(m["paths"]), ",")
@@ -366,9 +366,11 @@ func activationFrontmatter(e spec.Entry) string {
 // writeCustomTraeLines appends every `x-trae` custom key as an
 // additional frontmatter line, sorted for deterministic output. String
 // values write as a plain (minimally-quoted) scalar; any other value
-// type falls back to yaml.Marshal so the block always parses.
+// type falls back to yaml.Marshal so the block always parses. The three
+// activation keys activationFrontmatter already wrote from the resolved
+// meta are skipped, so an `x-trae.globs` never writes a second `globs`.
 func writeCustomTraeLines(b *strings.Builder, meta map[string]any) {
-	custom, keys := emit.CustomTargetMeta(meta, target)
+	custom, keys := emit.CustomTargetMeta(meta, target, "description", "globs", "alwaysApply")
 	for _, k := range keys {
 		if s, ok := custom[k].(string); ok {
 			b.WriteString(k + ": " + yamlScalar(s) + "\n")

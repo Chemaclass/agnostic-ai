@@ -397,7 +397,7 @@ func isAlwaysOn(r spec.Entry) bool {
 	if v, ok := m["alwaysApply"].(bool); ok && v {
 		return true
 	}
-	if g, _ := m["globs"].(string); g != "" {
+	if g := spec.JoinGlobs(m["globs"]); g != "" {
 		return false
 	}
 	return r.EffectiveScope() == ""
@@ -408,7 +408,7 @@ func isAlwaysOn(r spec.Entry) bool {
 // `rules/backend/auth.md` -> "backend/**"); otherwise the catch-all.
 func applyToFor(e spec.Entry) string {
 	m := emit.ResolveMeta(e.Meta, target)
-	if g, _ := m["globs"].(string); g != "" {
+	if g := spec.JoinGlobs(m["globs"]); g != "" {
 		return g
 	}
 	if s := e.EffectiveScope(); s != "" {
@@ -427,7 +427,8 @@ func renderInstruction(e spec.Entry, applyTo string) string {
 	// plain scalar cannot). Forcing the source style keeps existing files
 	// byte-identical while custom x-copilot keys append below it. See #367.
 	styles := map[string]yaml.Style{"applyTo": yaml.DoubleQuotedStyle}
-	emit.MergeCustomTargetMeta(front, &keys, e.Meta, target, "applyTo")
+	// An `x-copilot.globs` already became applyTo; Copilot reads no `globs`.
+	emit.MergeCustomTargetMeta(front, &keys, e.Meta, target, "applyTo", "globs")
 	var b strings.Builder
 	b.WriteString(emit.FrontmatterStyled(front, keys, styles))
 	b.WriteString("\n")

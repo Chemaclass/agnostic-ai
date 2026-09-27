@@ -12,6 +12,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 const (
@@ -225,7 +226,8 @@ func importKiroSteeringFile(root, path, filename string, src config.Sources, c *
 		c.skills++
 	default:
 		out := filepath.Join(root, src.Rules, name+".md")
-		globs, _ := meta["fileMatchPattern"].(string)
+		// A list fileMatchPattern reads back as the comma form sync splits.
+		globs := spec.JoinGlobs(meta["fileMatchPattern"])
 		if err := writeRuleWithGlobs(out, name, globs, body); err != nil {
 			return err
 		}

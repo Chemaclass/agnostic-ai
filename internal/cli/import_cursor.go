@@ -13,6 +13,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // cursorSkillsDirs lists every project skill path cursor.com/docs/skills'
@@ -192,7 +193,7 @@ func translateCursorRule(name string, data []byte) ([]byte, error) {
 // carrying either back makes import->sync non-idempotent on the source.
 // Nil-valued keys are dropped too.
 func normalizeCursorRuleMeta(meta map[string]any) {
-	if g, ok := meta["globs"].(string); ok && isCatchAllGlobs(g) {
+	if g, ok := meta["globs"]; ok && isCatchAllGlobs(spec.JoinGlobs(g)) && spec.ValidGlobs(g) {
 		delete(meta, "globs")
 	}
 	for k, v := range meta {

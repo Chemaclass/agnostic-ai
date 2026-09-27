@@ -38,8 +38,12 @@
       "examples": ["high", 8000, { "claude": "xhigh", "qoder": 8000, "default": "high" }]
     },
     "globs": {
-      "type": "string",
-      "description": "File patterns where this rule applies. Used by Cursor."
+      "description": "File patterns where this rule applies: a comma-separated string or a list of strings. Commas inside a `{...}` brace set do not separate patterns.",
+      "oneOf": [
+        { "type": "string" },
+        { "type": "array", "items": { "type": "string" } }
+      ],
+      "examples": ["*.go,*.mod", ["src/**/*.{ts,tsx}", "lib/*.js"]]
     },
     "alwaysApply": {
       "type": "boolean",

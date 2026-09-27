@@ -64,10 +64,8 @@ func pathTriggerGlobs(e spec.Entry) []string {
 	if paths := globList(m["paths"]); len(paths) > 0 && !hasCatchAllGlob(paths) {
 		return paths
 	}
-	if g, _ := m["globs"].(string); g != "" {
-		if globs := splitGlobs(g); len(globs) > 0 && !hasCatchAllGlob(globs) {
-			return globs
-		}
+	if globs := spec.GlobList(m["globs"]); len(globs) > 0 && !hasCatchAllGlob(globs) {
+		return globs
 	}
 	if s := e.EffectiveScope(); s != "" {
 		return []string{s + "/**"}
@@ -115,20 +113,6 @@ func globList(v any) []string {
 	default:
 		return nil
 	}
-}
-
-// splitGlobs splits a comma-separated `globs` string into individual
-// patterns, trimming surrounding whitespace and dropping empty
-// entries.
-func splitGlobs(g string) []string {
-	parts := strings.Split(g, ",")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		if p = strings.TrimSpace(p); p != "" {
-			out = append(out, p)
-		}
-	}
-	return out
 }
 
 // pathRuleMarkdown renders one path-triggered rule as a SKILL.md body:
