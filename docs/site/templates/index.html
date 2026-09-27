@@ -8,6 +8,8 @@
 {% block twitter_description %}{{ section.description }}{% endblock twitter_description %}
 {% block styles %}<link rel="stylesheet" href="{{ get_url(path='assets/styles/landing.css', trailing_slash=false) }}">{% endblock styles %}
 {% block structured_data %}
+{% set landing = load_data(path="data/landing.toml") %}
+{% set video = landing.hero.video %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -43,6 +45,17 @@
         "Round-trip safe import then sync",
         "sync --check CI drift detection"
       ]
+    },
+    {
+      "@type": "VideoObject",
+      "@id": "{{ config.base_url }}/#video",
+      "name": {{ video.video_title | json_encode | safe }},
+      "description": {{ video.body | json_encode | safe }},
+      "thumbnailUrl": "{{ get_url(path='assets/images/hero-video-poster.webp', trailing_slash=false) }}",
+      "uploadDate": "{{ video.upload_date }}",
+      "duration": "{{ video.duration }}",
+      "contentUrl": "https://www.youtube.com/watch?v={{ video.video_id }}",
+      "embedUrl": "https://www.youtube-nocookie.com/embed/{{ video.video_id }}"
     }
   ]
 }
@@ -66,9 +79,13 @@
           <a class="button button-primary" href="#quickstart">{{ landing.hero.primary_label }}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
           <a class="button button-secondary" href="{{ get_url(path='playground/', trailing_slash=true) }}">{{ landing.hero.secondary_label }}</a>
         </div>
+        {% set video = landing.hero.video %}
+        <div class="hero-video">
+          {{ <video.poster video_id={video.video_id} video_title={video.video_title} play_label={video.play_label} poster={get_url(path='assets/images/hero-video-poster.webp', trailing_slash=false)} loading="eager" /> }}
+        </div>
         <div class="hero-install" data-hero-installer>
           <p><span data-hero-installer-label>{{ landing.hero.install_label }}</span><a href="{{ get_url(path='@/docs/installation.md') }}">{{ landing.hero.install_link_label }}</a></p>
-          <div class="command"><span aria-hidden="true">{{ default_installer.prompt }}</span><code>{{ default_installer.command }}</code><button type="button" data-copy aria-label="Copy {{ default_installer.label }} install command">Copy</button><div class="rails" aria-hidden="true">{% set_global rail_count = 0 %}{% for output in landing.hero.diagram.outputs %}{% if output.rail | default(value=true) %}{% set_global rail_count = rail_count + 1 %}<i><em><b>{{ output.id }}</b>{{ output.path | split(pat="/") | first }}/</em></i>{% endif %}{% endfor %}<i><em>+{{ capabilities.targets | length - rail_count }} more</em></i></div></div>
+          <div class="command"><span aria-hidden="true">{{ default_installer.prompt }}</span><code>{{ default_installer.command }}</code><button type="button" data-copy aria-label="Copy {{ default_installer.label }} install command">Copy</button></div>
           {% for installer in landing.workflow.installers %}{% if installer.recommend_for %}<span hidden data-installer-os="{{ installer.recommend_for }}" data-installer-label="{{ installer.recommend_label }}" data-installer-name="{{ installer.label }}" data-installer-prompt="{{ installer.prompt }}" data-installer-command="{{ installer.command }}"></span>{% endif %}{% endfor %}
         </div>
         <p class="hero-facts">{{ landing.hero.facts }}</p>
@@ -157,6 +174,9 @@
     <div class="wrap">
       <h2 class="section-title">{{ landing.targets.title }} <span>{{ landing.targets.muted_title }}</span></h2>
       <div class="section-lead">{{ landing.targets.body | markdown | safe }}<p class="capability-legend">{{ landing.targets.legend | markdown(inline=true) | safe }}</p></div>
+      <div class="target-fan reveal-group" aria-hidden="true">
+        <div class="target-fan-source">{{ landing.targets.fan_source }}<div class="rails">{% set_global rail_count = 0 %}{% for output in landing.hero.diagram.outputs %}{% if output.rail | default(value=true) %}{% set_global rail_count = rail_count + 1 %}<i><em><b>{{ output.id }}</b>{{ output.path | split(pat="/") | first }}/</em></i>{% endif %}{% endfor %}<i><em>+{{ capabilities.targets | length - rail_count }} more</em></i></div></div>
+      </div>
       <div class="capability-table-wrap reveal-group" role="region" aria-label="Top target capability comparison" tabindex="0">
         <table class="capability-table">
           <thead>
@@ -219,4 +239,5 @@
 </main>
 {% endblock content %}
 
-{% block scripts %}<script src="{{ get_url(path='assets/scripts/landing.js', trailing_slash=false) }}" defer></script>{% endblock scripts %}
+{% block scripts %}<script src="{{ get_url(path='assets/scripts/landing.js', trailing_slash=false) }}" defer></script>
+<script src="{{ get_url(path='assets/scripts/video.js', trailing_slash=false) }}" defer></script>{% endblock scripts %}

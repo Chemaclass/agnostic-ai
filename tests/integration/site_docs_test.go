@@ -575,20 +575,42 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		t.Errorf("the home page shows %d of %d generated files at rest, want exactly 1", panelCount-hiddenPanels, panelCount)
 	}
 
-	// The talk demo lives at the foot of the documentation index now.
-	for _, moved := range []string{`id="demo"`, "demo-poster.webp", "youtube.com", "VideoObject"} {
+	// The hero plays the 30-second video through the same click-to-load
+	// poster as the docs demo, so nothing loads from YouTube before a click.
+	for _, required := range []string{
+		`data-video-id="jj1jYd5uRos"`,
+		`href="https://www.youtube.com/watch?v=jj1jYd5uRos"`,
+		"assets/images/hero-video-poster.webp",
+		"assets/scripts/video.js",
+		`"@type": "VideoObject"`,
+	} {
+		if !strings.Contains(normalizedHome, required) {
+			t.Errorf("home page is missing the hero video %q", required)
+		}
+	}
+	if strings.Contains(home, "<iframe") {
+		t.Error("home page loads the video player before the visitor asks for it")
+	}
+	// The talk demo lives at the foot of the documentation index.
+	for _, moved := range []string{`id="demo"`, "demo-poster.webp"} {
 		if strings.Contains(normalizedHome, moved) {
 			t.Errorf("home page still carries the demo %q", moved)
 		}
 	}
-	if _, err := os.Stat(filepath.Join(outputDir, "assets", "images", "demo-poster.webp")); err != nil {
-		t.Errorf("demo poster is not published: %v", err)
+	for _, poster := range []string{"demo-poster.webp", "hero-video-poster.webp"} {
+		if _, err := os.Stat(filepath.Join(outputDir, "assets", "images", poster)); err != nil {
+			t.Errorf("video poster is not published: %v", err)
+		}
 	}
 	quickstartIndex := strings.Index(home, `id="quickstart"`)
 	targetsIndex := strings.Index(home, `id="targets"`)
 	updatesIndex := strings.Index(home, `id="updates"`)
 	if quickstartIndex < 0 || targetsIndex < 0 || updatesIndex < 0 || quickstartIndex >= targetsIndex || targetsIndex >= updatesIndex {
 		t.Errorf("home sections are not ordered quickstart, targets, updates: %d, %d, %d", quickstartIndex, targetsIndex, updatesIndex)
+	}
+	// The targets fan left the hero install box for the targets section.
+	if fanIndex := strings.Index(home, `class="rails"`); fanIndex < targetsIndex || fanIndex > updatesIndex || strings.Count(home, `class="rails"`) != 1 {
+		t.Errorf("the targets fan is not in the targets section: %d, want between %d and %d", fanIndex, targetsIndex, updatesIndex)
 	}
 	for _, assetURL := range []string{
 		"https://agnostic-ai.org/assets/styles/base.css",

@@ -8,6 +8,14 @@ facts = "25 targets. 10 portable spec kinds. Byte-stable output."
 install_label = "Recommended installer"
 install_link_label = "All install options"
 
+[hero.video]
+video_id = "jj1jYd5uRos"
+video_title = "Every AI tool wants its own file. agnostic-ai fixes that."
+play_label = "Play the video: Every AI tool wants its own file, 30 seconds"
+body = "Thirty seconds from one source to native files for every AI coding tool."
+upload_date = "2026-09-27"
+duration = "PT30S"
+
 [hero.diagram]
 source_name = ".agnostic-ai/agents/reviewer.md"
 caption_source = "one spec"
@@ -110,8 +118,8 @@ Cite every finding with a `file:line` reference.
 id = "junie"
 label = "Junie"
 path = ".junie/agents/reviewer.md"
-# Kept as a tab, dropped from the hero fan: its rail is the lowest of the
-# five and crosses into the section under the hero.
+# Kept as a tab, left out of the targets fan, which names four targets and
+# counts the rest.
 rail = false
 note = "The tools pass through untranslated, and `effort` keeps its name. No model line here either, for the same reason as Gemini."
 body = '''
@@ -167,6 +175,7 @@ legend = "**Native** uses the target's dedicated format automatically. **Opt-in*
 features = ["agent", "skill", "rule", "hook", "mcp", "command"]
 ids = ["claude", "codex", "cursor", "gemini", "copilot"]
 link_label = "See paths and all 25 targets"
+fan_source = ".agnostic-ai/"
 
 [workflow]
 title = "Three commands."

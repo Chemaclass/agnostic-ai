@@ -563,6 +563,65 @@ html.search-open {
   to { transform: translateX(calc(100vw + 12rem)); }
 }
 
+/* The click-to-load video poster that video.js swaps for the player. The docs
+   index and the landing hero share it; each page sets the frame's own width. */
+.demo-frame {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-quiet);
+}
+
+.demo-poster {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-decoration: none;
+}
+
+.demo-poster img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.demo-play {
+  position: relative;
+  width: 4.5rem;
+  height: 4.5rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  transition: transform 160ms ease-out;
+}
+
+.demo-play svg {
+  width: 1.7rem;
+  height: 1.7rem;
+  margin-left: 0.2rem;
+}
+
+.demo-poster:hover .demo-play,
+.demo-poster:focus-visible .demo-play {
+  transform: scale(1.06);
+}
+
+.demo-frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
 .site-footer {
   margin-top: 4rem;
   padding-block: 3rem 1.5rem;
@@ -797,6 +856,10 @@ html.search-open {
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+
+  .demo-play {
+    transition: none;
   }
 
   .signal-rule::after {

@@ -92,12 +92,7 @@
         <h2 id="docs-demo-title">{{ demo.title }} <span>{{ demo.muted_title }}</span></h2>
         <p>{{ demo.body }}</p>
       </div>
-      <div class="demo-frame" data-video-facade data-video-id="{{ demo.video_id }}" data-video-title="{{ demo.video_title }}">
-        <a class="demo-poster" href="https://www.youtube.com/watch?v={{ demo.video_id }}" data-video-play aria-label="{{ demo.play_label }}">
-          <img src="{{ get_url(path='assets/images/demo-poster.webp', trailing_slash=false) }}" width="1280" height="720" alt="" loading="lazy" decoding="async">
-          <span class="demo-play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></span>
-        </a>
-      </div>
+      {{ <video.poster video_id={demo.video_id} video_title={demo.video_title} play_label={demo.play_label} poster={get_url(path='assets/images/demo-poster.webp', trailing_slash=false)} loading="lazy" /> }}
     </div>
   </section>
 </main>
