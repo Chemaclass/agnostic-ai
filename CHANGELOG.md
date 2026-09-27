@@ -14,6 +14,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `init` and `status` point a project with no specs at `agnostic-ai new rule <name>`, and `doctor` says when the generated files are in sync.
 - `lint --global` and `validate --global` check `~/.agnostic-ai/` and its `local/` layer before `sync --global` writes them, from any directory. They exit 1 on errors, and both report a scoped or conditional rule that `sync --global` would reject (LINT010).
 - `readonly: true` on an agent now restricts Claude Code too: the agent file gets `disallowedTools: Write, Edit, NotebookEdit`, and `sync` no longer says the field has no effect on claude. Bash stays allowed. The `readonly` key stays for Cursor and `import claude`. An explicit `x-claude.disallowedTools` wins.
+- A skill marked `disable-model-invocation: true` stays manual-only on Codex. Sync writes `allow_implicit_invocation: false` to its `agents/openai.yaml`, in project and global sync, so the spec no longer needs an `x-codex.policy` block. An explicit `x-codex` value still wins.
 
 ### Changed
 

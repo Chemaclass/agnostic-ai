@@ -21,7 +21,7 @@ var openaiYAMLKeys = []string{"interface", "policy", "dependencies"}
 //
 //	<skillsDir>/<name>/
 //	  SKILL.md           (required, frontmatter + body)
-//	  agents/openai.yaml (optional, when x-codex provides UI/policy/deps)
+//	  agents/openai.yaml (optional, from x-codex UI/policy/deps or a manual-only skill)
 //	  <attached files>   (any sibling files / subdirs in the source skill)
 //
 // The SKILL.md frontmatter is reduced to the two fields Codex requires
@@ -72,20 +72,11 @@ func skillMarkdown(s spec.Entry) string {
 }
 
 // openaiYAML returns the YAML body for the optional agents/openai.yaml
-// file, or "" when the spec carries no Codex-specific UI, policy, or
-// dependency overrides. The provenance header is applied by the caller
-// via emit.WithHeader so the marker lives in one place.
+// file, or "" when the skill carries no Codex UI, policy, or dependency
+// fields. The provenance header is applied by the caller via
+// emit.WithHeader so the marker lives in one place.
 func openaiYAML(s spec.Entry) string {
-	x, ok := s.Meta["x-codex"].(map[string]any)
-	if !ok || len(x) == 0 {
-		return ""
-	}
-	out := map[string]any{}
-	for _, k := range openaiYAMLKeys {
-		if v, ok := x[k]; ok {
-			out[k] = v
-		}
-	}
+	out := openaiYAMLFields(s)
 	if len(out) == 0 {
 		return ""
 	}
@@ -96,6 +87,36 @@ func openaiYAML(s spec.Entry) string {
 	return string(data)
 }
 
+// openaiYAMLFields picks the documented openai.yaml keys from x-codex.
+// Codex reads no disable-model-invocation key, so a manual-only skill
+// gets allow_implicit_invocation: false unless x-codex sets it.
+func openaiYAMLFields(s spec.Entry) map[string]any {
+	x, _ := s.Meta["x-codex"].(map[string]any)
+	out := map[string]any{}
+	for _, k := range openaiYAMLKeys {
+		if v, ok := x[k]; ok {
+			out[k] = v
+		}
+	}
+	if manual, _ := emit.ResolveMeta(s.Meta, target)["disable-model-invocation"].(bool); !manual {
+		return out
+	}
+	policy, isMap := out["policy"].(map[string]any)
+	if out["policy"] != nil && !isMap {
+		return out
+	}
+	if _, set := policy["allow_implicit_invocation"].(bool); set {
+		return out
+	}
+	policy = maps.Clone(policy)
+	if policy == nil {
+		policy = map[string]any{}
+	}
+	policy["allow_implicit_invocation"] = false
+	out["policy"] = policy
+	return out
+}
+
 func (Adapter) SkillMarkdown(skill spec.Entry) string {
 	return skillMarkdown(skill)
 }
@@ -104,17 +125,10 @@ func (Adapter) SkillSidecars(skill spec.Entry) map[string]string {
 	return skillSidecars(skill)
 }
 
-// SkillInvocationPolicySet reports whether the spec sets Codex's own
-// invocation policy. Codex reads no disable-model-invocation key, so
-// that openai.yaml policy is its only marker; either value is the
-// author's explicit choice.
+// SkillInvocationPolicySet reports whether the skill's openai.yaml
+// sets allow_implicit_invocation, the only invocation marker Codex reads.
 func (Adapter) SkillInvocationPolicySet(skill spec.Entry) bool {
-	x, _ := skill.Meta["x-codex"].(map[string]any)
-	policy, _ := x["policy"].(map[string]any)
+	policy, _ := openaiYAMLFields(skill)["policy"].(map[string]any)
 	_, ok := policy["allow_implicit_invocation"].(bool)
 	return ok
-}
-
-func (Adapter) SkillManualOnlyField() string {
-	return "x-codex.policy.allow_implicit_invocation: false"
 }

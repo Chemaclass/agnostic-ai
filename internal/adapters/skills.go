@@ -18,13 +18,11 @@ type SkillSidecarRenderer interface {
 }
 
 // ManualOnlySkillReader is implemented by adapters whose manual-only
-// marker lives outside SKILL.md frontmatter. An explicit value of that
-// marker, either way, is the author's choice and silences the note, as
-// an explicit x-<target> field does on crush and factory.
-// SkillManualOnlyField names the marker for the coverage note.
+// marker lives outside SKILL.md frontmatter. A set marker, either way,
+// silences the note, as an explicit x-<target> field does on crush and
+// factory.
 type ManualOnlySkillReader interface {
 	SkillInvocationPolicySet(skill spec.Entry) bool
-	SkillManualOnlyField() string
 }
 
 // RenderSkillMarkdown keeps shared user directories free of target-specific metadata.
@@ -90,11 +88,7 @@ func NoteManualOnlySkillDrops(target string, skills []spec.Entry, shared bool) e
 			dropped++
 		}
 	}
-	reason := "its global copy stays model-invocable"
-	if hasReader {
-		reason = "set " + reader.SkillManualOnlyField() + " instead"
-	}
-	emit.NoteFieldNoOp(target, spec.KindSkill, "disable-model-invocation", dropped, reason)
+	emit.NoteFieldNoOp(target, spec.KindSkill, "disable-model-invocation", dropped, "its global copy stays model-invocable")
 	return nil
 }
 

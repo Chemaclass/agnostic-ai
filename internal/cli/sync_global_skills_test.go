@@ -154,14 +154,34 @@ func TestSyncGlobal_ReportsManualOnlySkillsThatStayModelInvocable(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(warnings, "`disable-model-invocation` on 1 skill has no effect on codex") {
-		t.Errorf("missing codex coverage: %s", warnings)
-	}
 	if !strings.Contains(warnings, "`disable-model-invocation` on 2 skills has no effect on amp") {
 		t.Errorf("missing amp coverage: %s", warnings)
 	}
-	if strings.Contains(warnings, "has no effect on claude") {
-		t.Errorf("claude keeps the marker: %s", warnings)
+	for _, target := range []string{"claude", "codex"} {
+		if strings.Contains(warnings, "has no effect on "+target) {
+			t.Errorf("%s stays manual-only, yet noted: %s", target, warnings)
+		}
+	}
+}
+
+func TestSyncGlobal_ManualOnlySkillWritesCodexPolicyWithoutXCodex(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "skills", "deploy", "SKILL.md"), "---\nname: deploy\ndescription: Deploy.\ndisable-model-invocation: true\n---\nDeploy.\n")
+	sidecar := filepath.Join(home, ".agents", "skills", "deploy", "agents", "openai.yaml")
+	for _, only := range []string{"codex,amp", "amp"} {
+		if _, _, err := runGlobalAgentTest("--only", only); err != nil {
+			t.Fatal(err)
+		}
+		data, err := os.ReadFile(sidecar)
+		if err != nil {
+			t.Fatalf("--only %s: %v", only, err)
+		}
+		if !strings.Contains(string(data), "allow_implicit_invocation: false") {
+			t.Errorf("--only %s: codex policy sidecar: %s", only, data)
+		}
+	}
+	if _, _, err := runGlobalAgentTest("--only", "codex,amp", "--check"); err != nil {
+		t.Fatal(err)
 	}
 }
 
