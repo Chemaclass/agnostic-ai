@@ -175,6 +175,14 @@ const ledgerReport = "ledger"
 // removes: still on disk, not user-owned, and still carrying the
 // provenance header or the bytes sync recorded. Kept orphans are
 // reported apart (recordedOrphans), and links and directories never are.
+//
+// With no ledger (a deleted `.sync-state`, or a fresh checkout of a repo
+// that commits its generated files), state.Outputs is empty and there is
+// no recorded output list to check first. The scan falls back to every
+// git-tracked file, trusting the provenance header alone since there is
+// no recorded sum either (#1334). Outside a git work tree, or when git is
+// missing or slow, trackedFiles reports not ok and the scan finds nothing,
+// the same way it already behaves with a ledger and nothing left to sweep.
 func leftoverOutputs(cfg *config.Config, emitted map[string]bool) []string {
 	state := readStateFile(".")
 	skip := map[string]bool{}
@@ -184,8 +192,16 @@ func leftoverOutputs(cfg *config.Config, emitted map[string]bool) []string {
 	for _, p := range state.Orphans {
 		skip[p] = true
 	}
+	candidates := state.Outputs
+	if len(candidates) == 0 {
+		tracked, ok := trackedFiles(".")
+		if !ok {
+			return nil
+		}
+		candidates = tracked
+	}
 	var out []string
-	for _, p := range state.Outputs {
+	for _, p := range candidates {
 		if emitted[p] || skip[p] || cfg.IsUnmanaged(p) || underSymlinkedDir(p) {
 			continue
 		}

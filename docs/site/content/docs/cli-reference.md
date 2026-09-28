@@ -350,6 +350,8 @@ Each list shows three paths; `-v` lists them all. `config` in the spec line mean
 
 **Orphan sweep.** `sync` records every file it writes in `.agnostic-ai/.sync-state`. A full run deletes files it no longer emits (a removed skill's folder with its `references/`) and prunes empty directories. It deletes only what it can prove it wrote: by provenance header, or by recorded content hash for verbatim copies (skill assets, targets with `provenance_header: false`). A file edited since the last sync is kept as `~ kept orphan <path>`. It counts as drift in `sync --check` and `doctor` until you delete it or list it under `sync.unmanaged`.
 
+Without `.agnostic-ai/.sync-state` (deleted, or a fresh checkout of a repo that commits its generated files), `sync --check` and `doctor` fall back to scanning every git-tracked file for the provenance header, so a leftover from a deleted spec still fails the check even with no ledger to name it. A plain `sync` still only removes what its own ledger already knows about.
+
 ### First-sync target picker
 
 On the first `sync` (no `.agnostic-ai/.sync-state` yet), if the config still lists every supported target, `sync` asks which to keep. The choice is saved to `agnostic-ai.yaml`.

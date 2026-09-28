@@ -9,6 +9,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### Fixed
 
 - A root skill that links to a package's nested skill folder imports once, at the root path, with a note naming the skipped path (#1338).
+- `sync --check` and `doctor` catch a leftover output with no `.sync-state`, scanning tracked files for the provenance header (#1334).
 
 ### Changed
 
