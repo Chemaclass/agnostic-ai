@@ -714,7 +714,7 @@ func appendFileRecords(out *jsonOutput, target string, writes []adapters.Written
 
 // runSyncJSON runs a real sync pass and emits a JSON result describing each
 // file written, updated, or skipped per target.
-func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, backup, keepEdits bool, gitignoreFlag string, jobs int) error {
+func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keepEdits bool, gitignoreFlag string, jobs int) error {
 	adapters.ResetCapabilityWarnings()
 	adapters.ResetCoverageNotes()
 	defer adapters.ResetCapabilityWarnings()
@@ -748,8 +748,8 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 	if keep != nil {
 		mainSess.KeepEditsSince(keep)
 	}
-	gitignoreOn := !dryRun && resolveGitignore(cfg, gitignoreFlag)
-	if err := shared.reconcile(prev.Outputs, dryRun); err != nil {
+	gitignoreOn := resolveGitignore(cfg, gitignoreFlag)
+	if err := shared.reconcile(prev.Outputs, false); err != nil {
 		return err
 	}
 
@@ -760,7 +760,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 
 	// Emit every target concurrently; failFast is off so all per-target
 	// errors ride along in the results and are reported in target order.
-	emits, sessions, _ := emitTargetsConcurrent(effectiveTargets, b, cfg, dryRun, backup, gitignoreOn, false, jobs, keep)
+	emits, sessions, _ := emitTargetsConcurrent(effectiveTargets, b, cfg, false, backup, gitignoreOn, false, jobs, keep)
 	sessions = append(sessions, mainSess)
 	normalizeSharedWriteAttribution(emits)
 	for _, e := range emits {
@@ -777,7 +777,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 		mainSess.StartRecording()
 	}
 	mainSess.StartDetailedRecording()
-	if err := writeAgnosticEntryPoints(mainSess, cfg, b, effectiveTargets, dryRun); err != nil {
+	if err := writeAgnosticEntryPoints(mainSess, cfg, b, effectiveTargets, false); err != nil {
 		mainSess.StopDetailedRecording()
 		out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: err.Error()})
 	} else {
@@ -795,7 +795,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 		gitignoreEntries = append(gitignoreEntries, mainSess.StopRecording()...)
 	}
 
-	applied := shared.apply(dryRun)
+	applied := shared.apply(false)
 	ledgerSession = adjustLedgerForLinks(ledgerSession, applied)
 	for _, l := range applied {
 		out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: l.path, Action: "link"})
@@ -810,7 +810,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 			return fmt.Errorf("gitignore: %w", err)
 		}
 	}
-	ledger, kept, removed, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, effectiveTargets, cfg.Targets, dryRun)
+	ledger, kept, removed, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, effectiveTargets, cfg.Targets, false)
 	if sweepErr != nil {
 		out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: sweepErr.Error()})
 	}
@@ -823,17 +823,15 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 	for _, p := range unmanagedSkips(sessions) {
 		out.Skipped = append(out.Skipped, fileRecord{Target: "agnostic-ai", Path: p, Action: "unmanaged"})
 	}
-	if !dryRun {
-		// JSON path does not print warnings or notes, so preserve the
-		// previous digests so the next non-JSON run can still
-		// sticky-suppress.
-		ledger.specSums = prev.SpecSums
-		if len(out.Errors) == 0 && coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
-			ledger.specSums = specSums(cfg, b)
-		}
-		if err := writeStateFile(root, len(out.Writes), prev.WarningsDigest, prev.NotesDigest, ledger); err != nil {
-			fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
-		}
+	// JSON path does not print warnings or notes, so preserve the
+	// previous digests so the next non-JSON run can still
+	// sticky-suppress.
+	ledger.specSums = prev.SpecSums
+	if len(out.Errors) == 0 && coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
+		ledger.specSums = specSums(cfg, b)
+	}
+	if err := writeStateFile(root, len(out.Writes), prev.WarningsDigest, prev.NotesDigest, ledger); err != nil {
+		fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 	}
 	return emitJSON(cmd, out)
 }
@@ -857,6 +855,34 @@ func printSyncPlan(cmd *cobra.Command, reports []driftReport) {
 		_, _ = fmt.Fprintln(w)
 	}
 	_ = w.Flush()
+}
+
+// printSyncPlanJSON emits what a sync would do in the `sync --json`
+// schema, with the create, update, and delete actions a real run reports
+// and kept orphans in skipped. A dry run also lists each unchanged file
+// as a skip, so every planned output appears once.
+func printSyncPlanJSON(cmd *cobra.Command, command string, reports []driftReport, withCurrent bool) error {
+	out := jsonOutput{Version: "1", Command: command}
+	for _, r := range reports {
+		for _, f := range r.Missing {
+			out.Writes = append(out.Writes, fileRecord{Target: r.Target, Path: filepath.ToSlash(f.Path), Action: "create", Bytes: len(f.Content)})
+		}
+		for _, f := range r.changed() {
+			out.Writes = append(out.Writes, fileRecord{Target: r.Target, Path: filepath.ToSlash(f.Path), Action: "update", Bytes: len(f.Content)})
+		}
+		for _, p := range r.Leftover {
+			out.Writes = append(out.Writes, fileRecord{Target: r.Target, Path: filepath.ToSlash(p), Action: "delete"})
+		}
+		for _, p := range r.Orphaned {
+			out.Skipped = append(out.Skipped, fileRecord{Target: r.Target, Path: filepath.ToSlash(p), Action: "orphan"})
+		}
+		if withCurrent {
+			for _, f := range r.Current {
+				out.Skipped = append(out.Skipped, fileRecord{Target: r.Target, Path: filepath.ToSlash(f.Path), Action: "skip", Bytes: len(f.Content)})
+			}
+		}
+	}
+	return emitJSON(cmd, out)
 }
 
 // printSyncCheckJSON emits a JSON result for `sync --check`. Every drifted

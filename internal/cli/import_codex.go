@@ -203,6 +203,13 @@ func importCodexRules(root, dstDir string, src config.Sources, opts importCodexO
 			count++
 			continue
 		}
+		if preamble := sectionsPreamble(string(data)); preamble != "" {
+			name := dedupSlug(used, wholeFileNames[f.globs])
+			if err := writeCodexRule(dstDir, name, "", f.globs, preamble); err != nil {
+				return count, err
+			}
+			count++
+		}
 		for _, s := range sections {
 			name := dedupSlug(used, s.slug)
 			if err := writeCodexRule(dstDir, name, s.description, f.globs, s.body); err != nil {

@@ -156,6 +156,9 @@ No init() functions in business code.
 	if _, err := os.Stat(filepath.Join(dir, "rules", "agents-md.md")); err == nil {
 		t.Error("did not expect a rule from the # AGENTS.md header")
 	}
+	if _, err := os.Stat(filepath.Join(dir, "rules", "src.md")); err == nil {
+		t.Error("did not expect a rule from the generated intro line")
+	}
 }
 
 func TestImportFromCodex_AggressiveItalicExtraction(t *testing.T) {
@@ -1674,4 +1677,26 @@ func mustReadDir(t *testing.T, dir string) []os.DirEntry {
 		t.Fatal(err)
 	}
 	return entries
+}
+
+// Text above the first ## of a nested AGENTS.md is an instruction for
+// that scope too: it becomes a rule named after the scope, beside one
+// rule per section. A lone title above the sections adds no rule.
+func TestImportFromCodex_KeepsTheTextAboveTheFirstSection(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "services/api/AGENTS.md"), "# API\n\nIntro line.\n\n## Money\n\nUse integer minor units.\n\n## Testing\n\nRun make test.\n")
+	writeFile(t, filepath.Join(dir, "services/web/AGENTS.md"), "# Web\n\n## Tokens\n\nUse semantic tokens.\n")
+
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got := names(mustReadDir(t, filepath.Join(dir, "rules")))
+	want := []string{"api.md", "money.md", "testing.md", "tokens.md"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("rules = %v, want %v", got, want)
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, "rules", "api.md"))
+	if !strings.Contains(string(data), "Intro line.") || !strings.Contains(string(data), "scope: services/api") || strings.Contains(string(data), "integer minor units") {
+		t.Errorf("api.md should hold the scoped intro alone:\n%s", data)
+	}
 }
