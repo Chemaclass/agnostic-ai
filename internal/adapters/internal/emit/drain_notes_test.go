@@ -42,6 +42,27 @@ func TestDrainNotes_ReturnsEveryBufferedShapeAndClears(t *testing.T) {
 	}
 }
 
+func TestSetAsideNotes_DropsCaptureNotesAndRestoresTheRest(t *testing.T) {
+	buf := swapWarnerForNotes(t)
+	ResetCapabilityWarnings()
+	t.Cleanup(ResetCapabilityWarnings)
+	NoteCoverageGap("aider", spec.KindAgent, 1, "outputs.aider.rules-file")
+
+	restore := SetAsideNotes()
+	NoteCoverageGap("aider", spec.KindAgent, 1, "outputs.aider.rules-file")
+	NoteProject("capture text")
+	_, _ = Warner.Write([]byte("direct warning\n"))
+	restore()
+
+	want := []Note{{Shape: NoteGap, Target: "aider", Kind: spec.KindAgent, Reason: "outputs.aider.rules-file"}}
+	if got := DrainNotes(); !reflect.DeepEqual(got, want) {
+		t.Errorf("DrainNotes() =\n%#v\nwant\n%#v", got, want)
+	}
+	if buf.Len() != 0 {
+		t.Errorf("a set-aside capture must not print: %q", buf)
+	}
+}
+
 func TestDrainNotes_EmptyBuffersReturnNil(t *testing.T) {
 	swapWarnerForNotes(t)
 	ResetCapabilityWarnings()

@@ -9,10 +9,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### General
 
 - With no `.sync-state`, `sync`, `sync --check`, and `doctor` name each leftover output and how to remove it (#1334, #1354, #1362).
+- `gitignore.commit: [instructions, hooks]` keeps those kinds in Git for every target, and the block marks `allow` lines committed (#1332, #1335).
 - `sync --untrack` untracks ignored outputs, `install-hook --post-checkout` syncs after checkout, and `sync --keep-edits -q` reports kept files (#1330, #1333).
-- `init` pins its schema URL per release, skips default `sources:`, and creates only seeded folders; `.gitignore` marks `allow` lines committed (#1331, #1335).
-- Imports point at `.agnostic-ai/` sources, read a linked skill once, and add no rules when rerun after `sync` (#1326, #1338, #1349).
-- `doctor --check-references` resolves repo-root links and groups findings; `lint` no longer calls environment specs empty (#1339, #1342).
+- `init` pins its schema URL per release, skips default `sources:`, and creates only seeded folders; `lint` accepts bodyless environments (#1331, #1339).
+- Imports point at `.agnostic-ai/` sources and add no rules on rerun; `doctor --check-references` resolves repo-root links (#1326, #1338, #1342, #1349).
 
 ### By tool
 

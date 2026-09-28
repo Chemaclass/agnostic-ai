@@ -339,9 +339,20 @@ Setting the named key clears the note. Warnings and notes that match the previou
 |-------|---------|-------------|
 | `enabled` | `false` when absent; `agnostic-ai init` writes `true` | Every `sync` rewrites a managed `.gitignore` block listing every path the configured adapters emit. |
 | `path` | `.gitignore` | Another file, for monorepos or local-only ignore files. |
-| `allow` | empty | Gitignore globs written verbatim as `!` lines at the end of the block, so a tracked file (e.g. a `testdata/AGENTS.md` fixture) is not ignored. |
+| `commit` | empty | Kinds of generated output to keep in Git. The block leaves out their paths for every configured target. |
+| `allow` | empty | Gitignore globs written verbatim as `!` lines at the end of the block, so a hand-written file at a generated path (e.g. a `testdata/AGENTS.md` fixture) is not ignored. |
 
 `sync --gitignore` and `init --gitignore` override it per run; see the [CLI reference](@/docs/cli-reference.md#init).
+
+`commit` accepts `instructions`, `agents`, `skills`, `commands`, `hooks`, `mcps`, `settings`, `reviews`, `environments`, and `ignores`. `instructions` covers entry-point files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) and rule outputs, root and scoped. Every other kind is named after its spec source. Keep the files review bots and a fresh worktree read before any sync runs:
+
+```yaml
+gitignore:
+  enabled: true
+  commit: [instructions, hooks]
+```
+
+Adding a target needs no other change: its entry point and rule files stay visible too. Sync runs each target's adapter once per listed kind, with only that kind's specs, and once with no specs. A path belongs to the kind when the kind's run writes it and the run with no specs does not, or writes different content. A file only the config or an [overlay](#watched-inputs) produces belongs to no kind and stays ignored. A file several kinds write, such as `.claude/settings.json` (hooks, settings, and MCP policy), is committed when any of them is listed. An unknown kind fails config loading.
 
 The block sits between `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai (managed) <<<`. Lines outside it are kept, and an unchanged sync keeps the file mtime. Its header says to edit specs, and that a fresh clone or `git worktree` lacks these paths until `sync` runs (see [post-checkout hook](@/docs/git-hooks.md#regenerate-on-checkout)).
 

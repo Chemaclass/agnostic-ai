@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -131,6 +132,10 @@ type outputDirs struct {
 	roots  []string
 	leaves []string
 	scopes []string
+	// committed are the root-anchored outputs of a gitignore.commit kind.
+	// A directory holding one never collapses, or its rule would hide the
+	// committed file.
+	committed map[string]struct{}
 }
 
 // configuredOutputDirs resolves the output dirs across every configured
@@ -219,8 +224,8 @@ func collapseManagedEntries(entries []string, dirs outputDirs, protectedTopDirs,
 			add(e) // directly under a tool dir, in a scope, or outside: keep precise
 			continue
 		}
-		if config.MatchUnmanagedDir(unmanaged, dir) {
-			add(e) // may hold a user-owned file: keep the precise file
+		if config.MatchUnmanagedDir(unmanaged, dir) || holdsCommitted(dirs.committed, "/"+dir) {
+			add(e) // may hold a user-owned or committed file: keep the precise file
 			continue
 		}
 		add("/" + dir + "/")
@@ -312,17 +317,141 @@ func gitignoreTopSegment(p string) string {
 	return p
 }
 
+// holdsCommitted reports whether the root-anchored entry is a committed
+// output or a directory above one.
+func holdsCommitted(committed map[string]struct{}, entry string) bool {
+	if _, ok := committed[entry]; ok {
+		return true
+	}
+	prefix := strings.TrimSuffix(entry, "/") + "/"
+	for c := range committed {
+		if strings.HasPrefix(c, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// syncManagedBlock builds the managed block for a sync over targets from
+// the paths it recorded: each target's ignore-only hints join the
+// entries, spec scopes stay visible, and every output of a
+// gitignore.commit kind is left out.
+func syncManagedBlock(cfg *config.Config, b spec.Bundle, targets, recorded []string) ([]string, error) {
+	committed, err := committedOutputs(cfg, b, targets)
+	if err != nil {
+		return nil, fmt.Errorf("gitignore.commit: %w", err)
+	}
+	entries := append(slices.Clone(recorded), gitignoreHintsForTargets(cfg, targets)...)
+	return buildManagedBlockCommitting(cfg, entries, specScopes(b, targets), committed), nil
+}
+
 // buildManagedBlock assembles the managed-block lines: collapsed,
 // root-anchored ignores first, then the configured re-allow exceptions as
 // `!`-prefixed lines. Allows are emitted last so they override any broader
 // ignore above them, letting a project keep a tracked fixture (e.g.
 // `internal/adapters/**/testdata/**`) without hand-editing the block (#388).
 func buildManagedBlock(cfg *config.Config, entries, scopes []string) []string {
-	entries = append(fixedManagedEntries(), dropSourceEntryPoint(entries)...)
+	return buildManagedBlockCommitting(cfg, entries, scopes, nil)
+}
+
+// buildManagedBlockCommitting is buildManagedBlock that leaves out every
+// entry in committed, and every directory entry above one.
+func buildManagedBlockCommitting(cfg *config.Config, entries, scopes []string, committed map[string]struct{}) []string {
+	var ignored []string
+	for _, e := range normalizeAndSort(append(fixedManagedEntries(), dropSourceEntryPoint(entries)...)) {
+		if !holdsCommitted(committed, e) {
+			ignored = append(ignored, e)
+		}
+	}
 	dirs := configuredOutputDirs(cfg)
 	dirs.scopes = appendGitignoreDir(nil, scopes...)
-	block := collapseManagedEntries(normalizeAndSort(entries), dirs, protectedSourceTopDirs(cfg), cfg.Sync.Unmanaged)
+	dirs.committed = committed
+	block := collapseManagedEntries(ignored, dirs, protectedSourceTopDirs(cfg), cfg.Sync.Unmanaged)
 	return append(block, normalizeAllowEntries(cfg.Gitignore.Allow)...)
+}
+
+// committedOutputs returns the root-anchored paths the gitignore.commit
+// kinds write across targets, nil when none is listed. Each kind's paths
+// come from running every target's adapter in capture mode on a bundle
+// holding only that kind's specs, so the classification follows each
+// adapter's real layout, overrides included. A capture with no specs is
+// the baseline: a kind claims a path only when its capture writes it and
+// the baseline does not, or writes other bytes there. Output the config
+// or an overlay drives alone belongs to no kind and stays ignored. A file
+// several kinds change, such as a settings file that registers hooks and
+// MCP servers, is committed when any of them is listed. Instructions also
+// claim every target's entry-point file and shared-instructions mirror,
+// which render the instructions body rather than a spec.
+func committedOutputs(cfg *config.Config, b spec.Bundle, targets []string) (map[string]struct{}, error) {
+	if len(cfg.Gitignore.Commit) == 0 {
+		return nil, nil
+	}
+	defer adapters.SetAsideNotes()()
+	committed := map[string]struct{}{}
+	add := func(p string) {
+		if n := normalizeGitignorePath(p); n != "" && !filepath.IsAbs(p) {
+			committed[n] = struct{}{}
+		}
+	}
+	sess := adapters.NewSession()
+	for _, t := range targets {
+		adapter, err := adapters.Resolve(t)
+		if err != nil {
+			continue // sync already reported the unknown target
+		}
+		baseline, err := captureAdapterFiles(sess, adapter, spec.Bundle{}, cfg)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", t, err)
+		}
+		unchanged := make(map[string]string, len(baseline))
+		for _, f := range baseline {
+			unchanged[f.Path] = f.Content
+		}
+		for _, kind := range cfg.Gitignore.Commit {
+			if kind == config.GitignoreInstructions {
+				add(adapters.EntryPointPath(cfg, t))
+				add(adapters.SharedInstructionsMirror(t))
+			}
+			files, err := captureAdapterFiles(sess, adapter, bundleOfKind(b, kind), cfg)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %s: %w", kind, t, err)
+			}
+			for _, f := range files {
+				if content, ok := unchanged[f.Path]; !ok || content != f.Content {
+					add(f.Path)
+				}
+			}
+		}
+	}
+	return committed, nil
+}
+
+// bundleOfKind returns b with only the specs of one gitignore.commit kind.
+func bundleOfKind(b spec.Bundle, kind string) spec.Bundle {
+	var only spec.Bundle
+	switch kind {
+	case config.GitignoreInstructions:
+		only.Rules = b.Rules
+	case "agents":
+		only.Agents = b.Agents
+	case "skills":
+		only.Skills = b.Skills
+	case "commands":
+		only.Commands = b.Commands
+	case "hooks":
+		only.Hooks = b.Hooks
+	case "mcps":
+		only.MCPs = b.MCPs
+	case "settings":
+		only.Settings = b.Settings
+	case "reviews":
+		only.Reviews = b.Reviews
+	case "environments":
+		only.Environments = b.Environments
+	case "ignores":
+		only.Ignores = b.Ignores
+	}
+	return only
 }
 
 // specScopes returns every directory a spec routes output into, as each

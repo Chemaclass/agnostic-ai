@@ -208,8 +208,7 @@ Then keep `.claude/settings.json` committed, so a new worktree has it before any
 ```yaml
 gitignore:
   enabled: true
-  allow:
-    - /.claude/settings.json
+  commit: [hooks]
 ```
 
 Commit the file after `sync` writes it. A fresh install writes the same bytes, so `git status` stays clean.
