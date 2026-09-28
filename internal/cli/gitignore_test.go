@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -111,7 +112,7 @@ func TestUpdateGitignore_CreatesFileWhenMissing(t *testing.T) {
 }
 
 func TestBuildManagedBlock_IncludesFixedEntries(t *testing.T) {
-	block := buildManagedBlock(&config.Config{}, nil)
+	block := buildManagedBlock(&config.Config{}, nil, nil)
 	for _, want := range []string{
 		"/agnostic-ai.local.yaml",
 		"/.agnostic-ai/.sync-state",
@@ -135,7 +136,7 @@ func TestBuildManagedBlock_NeverIgnoresTheAgnosticEntryPoint(t *testing.T) {
 	// it as an emitted path; later syncs read it from disk and skip the
 	// write. Left alone that makes the first .gitignore differ from every
 	// later one, and worse, ignores a source file (#580).
-	block := buildManagedBlock(&config.Config{}, []string{adapters.AgnosticEntryPointPath})
+	block := buildManagedBlock(&config.Config{}, []string{adapters.AgnosticEntryPointPath}, nil)
 	for _, e := range block {
 		if strings.Contains(e, "AGNOSTIC_AI.md") {
 			t.Errorf("managed block ignores the source entry point %q, got %v", e, block)
@@ -158,7 +159,7 @@ func TestUpdateGitignore_StripsLooseFixedDuplicatesAndConsolidates(t *testing.T)
 	}
 
 	cfg := &config.Config{Gitignore: config.Gitignore{Enabled: true}}
-	block := buildManagedBlock(cfg, []string{".claude/settings.json", "CLAUDE.md"})
+	block := buildManagedBlock(cfg, []string{".claude/settings.json", "CLAUDE.md"}, nil)
 	if err := updateGitignore(dir, cfg, block); err != nil {
 		t.Fatal(err)
 	}
@@ -418,7 +419,7 @@ func TestNormalizeAllowEntries_PrefixesDedupesSorts(t *testing.T) {
 func TestBuildManagedBlock_AppendsAllowExceptionsLast(t *testing.T) {
 	cfg := &config.Config{}
 	cfg.Gitignore.Allow = []string{"internal/adapters/**/testdata/**"}
-	got := buildManagedBlock(cfg, []string{".claude/CLAUDE.md", "AGENTS.md"})
+	got := buildManagedBlock(cfg, []string{".claude/CLAUDE.md", "AGENTS.md"}, nil)
 	if len(got) == 0 || got[len(got)-1] != "!internal/adapters/**/testdata/**" {
 		t.Fatalf("re-allow line not appended last: %v", got)
 	}
@@ -448,7 +449,7 @@ func TestProtectedSourceTopDirs_IncludesLayerAndSources(t *testing.T) {
 func TestGitignoreHintsForTargets_ClaudeContributesLocalArtifacts(t *testing.T) {
 	cfg := &config.Config{}
 	hints := gitignoreHintsForTargets(cfg, []string{"claude"})
-	block := buildManagedBlock(cfg, hints)
+	block := buildManagedBlock(cfg, hints, nil)
 	for _, want := range []string{"/.claude/agent-memory-local/", "/.claude/settings.local.json"} {
 		found := false
 		for _, e := range block {
@@ -495,7 +496,7 @@ func TestBuildManagedBlock_KeepsPreciseEntriesAroundUnmanagedFile(t *testing.T) 
 	cfg := &config.Config{}
 	cfg.Sync.Unmanaged = []string{".claude/agents/hand-*.md"}
 
-	block := buildManagedBlock(cfg, entries)
+	block := buildManagedBlock(cfg, entries, nil)
 
 	has := map[string]bool{}
 	for _, e := range block {
@@ -537,7 +538,7 @@ func TestBuildManagedBlock_NestedOutputDirCollapsesBelowIt(t *testing.T) {
 		"vendor/.claude/skills/demo/SKILL.md",
 	}
 
-	block := buildManagedBlock(cfg, entries)
+	block := buildManagedBlock(cfg, entries, nil)
 
 	has := map[string]bool{}
 	for _, e := range block {
@@ -568,7 +569,7 @@ func TestBuildManagedBlock_DefaultOutputDirCollapseUnchanged(t *testing.T) {
 		".claude/skills/demo/SKILL.md",
 	}
 
-	block := buildManagedBlock(&config.Config{}, entries)
+	block := buildManagedBlock(&config.Config{}, entries, nil)
 
 	has := map[string]bool{}
 	for _, e := range block {
@@ -589,7 +590,7 @@ func TestBuildManagedBlock_DefaultOutputDirCollapseUnchanged(t *testing.T) {
 func TestBuildManagedBlock_NestedKindDirCollapsesAtTheDir(t *testing.T) {
 	cfg := &config.Config{Outputs: map[string]config.Output{"cursor": {RulesDir: "config/editor/.cursor/rules"}}}
 
-	block := buildManagedBlock(cfg, []string{"config/editor/.cursor/rules/style.mdc"})
+	block := buildManagedBlock(cfg, []string{"config/editor/.cursor/rules/style.mdc"}, nil)
 
 	has := map[string]bool{}
 	for _, e := range block {
@@ -615,7 +616,7 @@ func TestBuildManagedBlock_NestedOutputDirRespectsUnmanaged(t *testing.T) {
 	}
 	entries := func(cfg *config.Config) map[string]bool {
 		has := map[string]bool{}
-		for _, e := range buildManagedBlock(cfg, []string{"vendor/.claude/agents/scout.md"}) {
+		for _, e := range buildManagedBlock(cfg, []string{"vendor/.claude/agents/scout.md"}, nil) {
 			has[e] = true
 		}
 		return has
@@ -659,7 +660,7 @@ func TestBuildManagedBlock_ScopedOutputsStayPrecise(t *testing.T) {
 		"services/api/GEMINI.md",
 	}
 
-	block := buildManagedBlock(&config.Config{}, entries)
+	block := buildManagedBlock(&config.Config{}, entries, []string{"services/api"})
 
 	has := map[string]bool{}
 	for _, e := range block {
@@ -683,13 +684,101 @@ func TestBuildManagedBlock_ScopedOutputsStayPrecise(t *testing.T) {
 	}
 }
 
+// Regression for #1304: `.github` is Copilot's tool dir, so guessing the
+// tool dir from the first segment collapsed a scope inside it into
+// `/.github/workflows/` and git ignored every new workflow file.
+func TestBuildManagedBlock_ScopeInsideDotFolderStaysPrecise(t *testing.T) {
+	entries := []string{
+		".github/instructions/wf.instructions.md",
+		".github/workflows/.agents/REVIEW.md",
+		".github/workflows/.cursor/BUGBOT.md",
+		".github/workflows/AGENTS.md",
+	}
+
+	block := buildManagedBlock(&config.Config{}, entries, []string{".github/workflows"})
+
+	has := map[string]bool{}
+	for _, e := range block {
+		has[e] = true
+	}
+	for _, want := range []string{
+		"/.github/instructions/",
+		"/.github/workflows/.agents/REVIEW.md",
+		"/.github/workflows/.cursor/BUGBOT.md",
+		"/.github/workflows/AGENTS.md",
+	} {
+		if !has[want] {
+			t.Errorf("block missing %q: %v", want, block)
+		}
+	}
+	for _, unwanted := range []string{"/.github/", "/.github/workflows/", "/.github/workflows/.agents/", "/.github/workflows/.cursor/"} {
+		if has[unwanted] {
+			t.Errorf("scope directory %q ignored: %v", unwanted, block)
+		}
+	}
+}
+
+// A generated dir configured below a scope still collapses: the scope only
+// keeps its own project files visible.
+func TestBuildManagedBlock_OutputDirBelowScopeStillCollapses(t *testing.T) {
+	cfg := &config.Config{Outputs: map[string]config.Output{"claude": {Dir: "vendor/.claude"}}}
+
+	block := buildManagedBlock(cfg, []string{"vendor/.claude/rules/vendor/x.md", "vendor/AGENTS.md"}, []string{"vendor"})
+
+	has := map[string]bool{}
+	for _, e := range block {
+		has[e] = true
+	}
+	for _, want := range []string{"/vendor/.claude/rules/", "/vendor/AGENTS.md"} {
+		if !has[want] {
+			t.Errorf("block missing %q: %v", want, block)
+		}
+	}
+}
+
+func TestSync_GitignoreKeepsScopeInsideDotFolderVisible(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	mustWrite := func(rel, content string) {
+		t.Helper()
+		path := filepath.Join(dir, rel)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mustWrite("agnostic-ai.yaml", "version: 1\ntargets: [codex, copilot]\ngitignore:\n  enabled: true\n")
+	mustWrite(".agnostic-ai/rules/wf.md", "---\nname: wf\ndescription: Workflows.\nscope: .github/workflows\n---\nPin actions.\n")
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "--all"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(string(data), "\n")
+	if !slices.Contains(lines, "/.github/workflows/AGENTS.md") {
+		t.Errorf(".gitignore does not list the scoped file:\n%s", data)
+	}
+	if slices.Contains(lines, "/.github/workflows/") {
+		t.Errorf(".gitignore ignores the whole scope directory:\n%s", data)
+	}
+}
+
 // A per-kind dir that is a single segment doubles as the tool dir the user
 // drops hand-written files into, so it stays expanded. `.clinerules` is the
 // override the cline adapter documents for the pre-migration rule path.
 func TestBuildManagedBlock_SingleSegmentPerKindDirStaysExpanded(t *testing.T) {
 	cfg := &config.Config{Outputs: map[string]config.Output{"cline": {RulesDir: ".clinerules"}}}
 
-	block := buildManagedBlock(cfg, []string{".clinerules/x.md"})
+	block := buildManagedBlock(cfg, []string{".clinerules/x.md"}, nil)
 
 	has := map[string]bool{}
 	for _, e := range block {

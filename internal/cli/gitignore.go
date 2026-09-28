@@ -11,6 +11,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 const (
@@ -118,10 +119,13 @@ func normalizeGitignorePath(p string) string {
 // outputDirs are the generated directories a config pins explicitly. The
 // two shapes collapse differently: a tool root also holds hand-authored
 // files, so collapsing stops one level below it, while a nested per-kind
-// dir is generated end to end and collapses at the dir itself.
+// dir is generated end to end and collapses at the dir itself. Scopes are
+// the project directories specs route output into, which hold the user's
+// own files and never collapse.
 type outputDirs struct {
 	roots  []string
 	leaves []string
+	scopes []string
 }
 
 // configuredOutputDirs resolves the output dirs across every configured
@@ -163,8 +167,10 @@ func appendGitignoreDir(dst []string, dirs ...string) []string {
 // kept verbatim so collapsing never ignores a committed file:
 //   - root-level files (no directory segment, e.g. `/AGENTS.md`);
 //   - files sitting directly under a tool dir (e.g. `/.claude/CLAUDE.md`);
-//   - files outside any tool dir, such as scoped output in a project
-//     directory (e.g. `/services/api/AGENTS.md`);
+//   - files under a spec's scope directory, a project directory that holds
+//     the user's own files (e.g. `/services/api/AGENTS.md`,
+//     `/.github/workflows/AGENTS.md`);
+//   - files outside any tool dir;
 //   - entries under a protected source directory, where tracked specs live
 //     alongside generated state (e.g. `/.agnostic-ai/.sync-state`);
 //   - entries under a collapse directory that holds, or could hold, a path
@@ -205,7 +211,7 @@ func collapseManagedEntries(entries []string, dirs outputDirs, protectedTopDirs,
 		}
 		dir := collapseDirFor(rel, dirs)
 		if dir == "" {
-			add(e) // directly under a tool dir, or outside one: keep precise
+			add(e) // directly under a tool dir, in a scope, or outside: keep precise
 			continue
 		}
 		if config.MatchUnmanagedDir(unmanaged, dir) {
@@ -219,20 +225,27 @@ func collapseManagedEntries(entries []string, dirs outputDirs, protectedTopDirs,
 }
 
 // collapseDirFor returns the directory rel collapses into, or "" when rel
-// must stay listed precisely because it sits directly under its tool dir
-// or outside every tool dir.
+// must stay listed precisely because it sits directly under its tool dir,
+// under a scope directory, or outside every tool dir.
 func collapseDirFor(rel string, dirs outputDirs) string {
+	// A scope is a project directory, even one inside a tool dir such as
+	// `.github/workflows`, so ignoring it hides the user's new files from
+	// git (#1264, #1304). Only a generated dir configured inside the scope
+	// still collapses.
+	scope := deepestDirPrefix(dirs.scopes, rel)
 	// A one-segment per-kind dir (`rules-dir: .clinerules`) is also the tool
 	// dir a user drops hand-written files into, so only a nested one is
 	// generated end to end and safe to collapse at.
-	if leaf := deepestDirPrefix(dirs.leaves, rel); leaf != "" && strings.Contains(leaf, "/") {
+	if leaf := deepestDirPrefix(dirs.leaves, rel); leaf != "" && strings.Contains(leaf, "/") && len(leaf) > len(scope) {
 		return leaf
 	}
 	root := deepestDirPrefix(dirs.roots, rel)
+	if scope != "" && len(scope) >= len(root) {
+		return ""
+	}
 	if root == "" {
-		// Every default tool dir is a dot-dir. Any other first segment is a
-		// project directory holding scoped output (`services/api/AGENTS.md`),
-		// and ignoring it would hide the user's new files from git (#1264).
+		// Every default tool dir is a dot-dir, so any other first segment
+		// is a project directory.
 		root, _, _ = strings.Cut(rel, "/")
 		if !strings.HasPrefix(root, ".") {
 			return ""
@@ -299,10 +312,29 @@ func gitignoreTopSegment(p string) string {
 // `!`-prefixed lines. Allows are emitted last so they override any broader
 // ignore above them, letting a project keep a tracked fixture (e.g.
 // `internal/adapters/**/testdata/**`) without hand-editing the block (#388).
-func buildManagedBlock(cfg *config.Config, entries []string) []string {
+func buildManagedBlock(cfg *config.Config, entries, scopes []string) []string {
 	entries = append(fixedManagedEntries(), dropSourceEntryPoint(entries)...)
-	block := collapseManagedEntries(normalizeAndSort(entries), configuredOutputDirs(cfg), protectedSourceTopDirs(cfg), cfg.Sync.Unmanaged)
+	dirs := configuredOutputDirs(cfg)
+	dirs.scopes = appendGitignoreDir(nil, scopes...)
+	block := collapseManagedEntries(normalizeAndSort(entries), dirs, protectedSourceTopDirs(cfg), cfg.Sync.Unmanaged)
 	return append(block, normalizeAllowEntries(cfg.Gitignore.Allow)...)
+}
+
+// specScopes returns every directory a spec routes output into, as each
+// target resolves its frontmatter, so the managed block keeps those
+// project directories visible.
+func specScopes(b spec.Bundle, targets []string) []string {
+	seen := map[string]struct{}{}
+	for _, e := range b.All() {
+		for _, t := range targets {
+			resolved := e
+			resolved.Meta = adapters.ResolveMeta(e.Meta, t)
+			if scope, err := spec.RuleScope(resolved); err == nil && scope != "" {
+				seen[scope] = struct{}{}
+			}
+		}
+	}
+	return sortedKeys(seen)
 }
 
 // dropSourceEntryPoint removes AGNOSTIC_AI.md from the recorded emissions.
@@ -364,7 +396,7 @@ func ensureManagedGitignore(root string) error {
 		return nil
 	}
 	cfg := &config.Config{}
-	return updateGitignore(root, cfg, buildManagedBlock(cfg, nil))
+	return updateGitignore(root, cfg, buildManagedBlock(cfg, nil, nil))
 }
 
 // updateGitignore rewrites the managed block in `<root>/.gitignore` (or
