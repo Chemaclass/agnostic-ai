@@ -162,7 +162,7 @@ func importOpenhandsSkillDir(dir, root string, src config.Sources, seen map[stri
 		}
 		seen[name] = true
 	}
-	n, err := importSkillFoldersWith(dir, filepath.Join(root, src.Skills), skillFolderImportOpts{SkipNames: seen})
+	n, err := importSkillFoldersWith(root, dir, filepath.Join(root, src.Skills), skillFolderImportOpts{SkipNames: seen})
 	return rules, skills + n, err
 }
 

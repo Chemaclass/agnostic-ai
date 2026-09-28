@@ -86,7 +86,7 @@ func importFromGoose(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	skills, err := importSkillFolders(filepath.Join(root, gooseSkillsDir), filepath.Join(root, src.Skills))
+	skills, err := importSkillFolders(root, filepath.Join(root, gooseSkillsDir), filepath.Join(root, src.Skills))
 	if err != nil {
 		return err
 	}
@@ -151,7 +151,7 @@ func importGoosePlugins(root string, src config.Sources) (skills, hooks int, err
 			continue
 		}
 		plugin := filepath.Join(dir, e.Name())
-		n, err := importSkillFolders(filepath.Join(plugin, "skills"), filepath.Join(root, src.Skills))
+		n, err := importSkillFolders(root, filepath.Join(plugin, "skills"), filepath.Join(root, src.Skills))
 		if err != nil {
 			return skills, hooks, err
 		}

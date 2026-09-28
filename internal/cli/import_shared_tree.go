@@ -85,6 +85,7 @@ func importScopedSkillFoldersWith(root string, nativeDirs []string, dstDir strin
 				seen[dir.scope] = map[string]bool{}
 			}
 			imported, err := importSkillFoldersWith(
+				root,
 				dir.path,
 				filepath.Join(dstDir, filepath.FromSlash(dir.scope)),
 				skillFolderImportOpts{SkipNames: seen[dir.scope], Fields: fields},
@@ -105,8 +106,8 @@ func importScopedSkillFoldersWith(root string, nativeDirs []string, dstDir strin
 // Folders without a SKILL.md are skipped; a missing srcDir imports
 // nothing. Shared by every importer whose tool uses the Agent Skills
 // folder layout (cursor, gemini, opencode, copilot).
-func importSkillFolders(srcDir, dstDir string) (int, error) {
-	return importSkillFoldersWith(srcDir, dstDir, skillFolderImportOpts{})
+func importSkillFolders(root, srcDir, dstDir string) (int, error) {
+	return importSkillFoldersWith(root, srcDir, dstDir, skillFolderImportOpts{})
 }
 
 type skillFolderImportOpts struct {
@@ -121,7 +122,7 @@ type skillFolderImportOpts struct {
 // collision handling and SKILL.md normalization. Candidate lists share a
 // SkipNames map so the documented path order becomes explicit precedence
 // without treating a pre-existing destination spec as a native collision.
-func importSkillFoldersWith(srcDir, dstDir string, opts skillFolderImportOpts) (int, error) {
+func importSkillFoldersWith(root, srcDir, dstDir string, opts skillFolderImportOpts) (int, error) {
 	entries, err := os.ReadDir(srcDir)
 	if errors.Is(err, fs.ErrNotExist) {
 		return 0, nil
@@ -131,18 +132,18 @@ func importSkillFoldersWith(srcDir, dstDir string, opts skillFolderImportOpts) (
 	}
 	count := 0
 	for _, e := range entries {
-		if !e.IsDir() {
+		if opts.SkipNames[e.Name()] {
 			continue
 		}
-		skillSrc := filepath.Join(srcDir, e.Name())
+		skillSrc, ok := skillFolderSource(root, srcDir, dstDir, e)
+		if !ok {
+			continue
+		}
 		skillDst := filepath.Join(dstDir, e.Name())
 		if _, err := os.Stat(filepath.Join(skillSrc, "SKILL.md")); errors.Is(err, fs.ErrNotExist) {
 			continue
 		} else if err != nil {
 			return count, fmt.Errorf("stat skill %s: %w", e.Name(), err)
-		}
-		if opts.SkipNames[e.Name()] {
-			continue
 		}
 		if err := copyDirTreeWith(skillSrc, skillDst, opts.TransformSkill, skillFields(opts.Fields)); err != nil {
 			return count, fmt.Errorf("copy skill %s: %w", e.Name(), err)
@@ -153,6 +154,90 @@ func importSkillFoldersWith(srcDir, dstDir string, opts skillFolderImportOpts) (
 		count++
 	}
 	return count, nil
+}
+
+// skillFolderSource returns the folder to import for the entry e of the
+// native skills directory dir. A symlink to a directory inside root
+// imports like a real folder, so a package can keep its own skills and
+// the tool folder link to them. A skill linked from outside root is
+// skipped with a note naming the link, as is a folder an import preview
+// copied from such a link. A link into the skill sources, or to a folder
+// holding them, imports nothing: the skill is already a spec, and
+// copying a folder into itself never ends.
+func skillFolderSource(root, dir, dstDir string, e fs.DirEntry) (string, bool) {
+	link := filepath.Join(dir, e.Name())
+	abs, err := filepath.Abs(link)
+	if err != nil {
+		return "", false
+	}
+	if e.Type()&fs.ModeSymlink == 0 {
+		if !e.IsDir() {
+			return "", false
+		}
+		if copiedFromOutside(root, abs) {
+			noteOutsideSkill(link, abs)
+			return "", false
+		}
+		return link, true
+	}
+	resolved, err := filepath.EvalSymlinks(abs)
+	if err != nil {
+		return "", false
+	}
+	if info, err := os.Stat(resolved); err != nil || !info.IsDir() {
+		return "", false
+	}
+	if _, inside := resolvedInside(root, resolved); !inside {
+		noteOutsideSkill(link, resolved)
+		return "", false
+	}
+	if dst, err := filepath.Abs(dstDir); err == nil {
+		dst = resolveExisting(dst)
+		if _, overlaps := resolvedInside(resolved, dst); overlaps {
+			return "", false
+		}
+		if _, overlaps := resolvedInside(dst, resolved); overlaps {
+			return "", false
+		}
+	}
+	return resolved, true
+}
+
+// resolveExisting resolves the symlinks of abs, an absolute path whose
+// last parts may not exist yet, through its nearest existing parent.
+func resolveExisting(abs string) string {
+	rest := ""
+	for p := abs; ; p = filepath.Dir(p) {
+		if real, err := filepath.EvalSymlinks(p); err == nil {
+			return filepath.Join(real, rest)
+		}
+		if filepath.Dir(p) == p {
+			return abs
+		}
+		rest = filepath.Join(filepath.Base(p), rest)
+	}
+}
+
+// copiedFromOutside reports whether an import preview copied the
+// directory abs from a link that leaves the project.
+func copiedFromOutside(root, abs string) bool {
+	if importSandboxOutsideFiles == nil {
+		return false
+	}
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(absRoot, abs)
+	return err == nil && importSandboxOutsideFiles[rel]
+}
+
+// noteOutsideSkill names a skill folder link the import skips because it
+// leaves the project. A linked folder without a SKILL.md is no skill.
+func noteOutsideSkill(link, target string) {
+	if fileExists(filepath.Join(target, "SKILL.md")) {
+		summaryf("  ! skipped %s: the skill folder links outside the project\n", link)
+	}
 }
 
 // copyDirTree walks srcDir recursively and writes every regular file

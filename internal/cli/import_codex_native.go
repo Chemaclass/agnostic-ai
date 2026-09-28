@@ -444,14 +444,14 @@ func importCodexSkills(root, dstDir string) (int, error) {
 			return count, fmt.Errorf("read %s: %w", srcDir, err)
 		}
 		for _, e := range entries {
-			if !e.IsDir() {
-				continue
-			}
 			identity := filepath.ToSlash(filepath.Join(location.scope, e.Name()))
 			if seen[identity] {
 				continue
 			}
-			skillSrc := filepath.Join(srcDir, e.Name())
+			skillSrc, ok := skillFolderSource(root, srcDir, dstDir, e)
+			if !ok {
+				continue
+			}
 			if _, err := os.Stat(filepath.Join(skillSrc, "SKILL.md")); errors.Is(err, fs.ErrNotExist) {
 				continue
 			} else if err != nil {
