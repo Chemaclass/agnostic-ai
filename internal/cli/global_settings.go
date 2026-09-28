@@ -23,9 +23,10 @@ type globalSettingsFile struct {
 	path string
 	// format is "json" or "toml".
 	format string
-	// model and effort are the native keys; an empty one has no mapping.
-	model, effort string
-	effortLevel   func() []string
+	// Empty native keys have no mapping.
+	model, effort  string
+	permissionMode string
+	effortLevel    func() []string
 	// reserved are keys an x-<target> block may not set: surfaces sync
 	// owns another way, or ones that need their own design.
 	reserved map[string]string
@@ -63,12 +64,10 @@ type globalSetting struct {
 }
 
 // globalSettingsFor resolves the settings specs for target into the
-// native keys its user settings file takes: model and effort, then each
-// x-<target> key. A field the target cannot take, or has no mapping for,
-// raises a coverage note.
+// native keys its user settings file takes. Unsupported fields raise a coverage note.
 func globalSettingsFor(target string, g globalTarget, settings []spec.Entry) []globalSetting {
 	f := g.settings
-	models, efforts, permissions, custom := 0, 0, 0, 0
+	models, efforts, custom := 0, 0, 0
 	for _, entry := range settings {
 		one := []spec.Entry{entry}
 		if adapters.SettingsModel(one, target) != "" {
@@ -77,14 +76,11 @@ func globalSettingsFor(target string, g globalTarget, settings []spec.Entry) []g
 		if adapters.SettingsEffort(one, target) != nil {
 			efforts++
 		}
-		if _, ok := entry.Meta["permissions"]; ok {
-			permissions++
-		}
 		if _, ok := entry.Meta["x-"+target]; ok {
 			custom++
 		}
 	}
-	adapters.NoteSettingsFieldNoOp(target, "permissions", permissions, "sync --global does not write user-level permissions")
+	permissions := globalPermissionSettings(target, f, settings)
 	if f.path == "" {
 		const reason = "sync --global does not write this target's user settings yet"
 		adapters.NoteSettingsFieldNoOp(target, "model", models, reason)
@@ -92,7 +88,7 @@ func globalSettingsFor(target string, g globalTarget, settings []spec.Entry) []g
 		adapters.NoteSettingsFieldNoOp(target, "x-"+target, custom, reason)
 		return nil
 	}
-	var out []globalSetting
+	out := permissions
 	if model := adapters.SettingsModel(settings, target); model != "" {
 		if f.model == "" {
 			adapters.NoteSettingsFieldNoOp(target, "model", models, "its user settings file has no default model key")
@@ -116,6 +112,44 @@ func globalSettingsFor(target string, g globalTarget, settings []spec.Entry) []g
 		return slices.ContainsFunc(passthrough, func(c globalSetting) bool { return c.key == s.key })
 	})
 	return append(out, passthrough...)
+}
+
+var globalPermissionModes = []string{"default", "manual", "acceptEdits", "plan", "auto", "dontAsk", "bypassPermissions"}
+
+func acceptsGlobalPermissionMode(value any) bool {
+	mode, ok := value.(string)
+	return ok && slices.Contains(globalPermissionModes, mode)
+}
+
+func globalPermissionSettings(target string, f globalSettingsFile, settings []spec.Entry) []globalSetting {
+	var mode globalSetting
+	present := false
+	for _, entry := range settings {
+		permissions, ok := entry.Meta["permissions"].(map[string]any)
+		if !ok {
+			if _, exists := entry.Meta["permissions"]; exists {
+				adapters.NoteSettingsFieldNoOp(target, "permissions", 1, "sync --global takes a permissions mapping")
+			}
+			continue
+		}
+		for _, key := range slices.Sorted(maps.Keys(permissions)) {
+			field := "permissions." + key
+			if key != "default-mode" || f.permissionMode == "" {
+				adapters.NoteSettingsFieldNoOp(target, field, 1, "sync --global has no user-level mapping for this permission field")
+				continue
+			}
+			present = true
+			mode = globalSetting{target: target, key: f.permissionMode, field: field, source: entry.Path, value: permissions[key]}
+		}
+	}
+	if !present {
+		return nil
+	}
+	if !acceptsGlobalPermissionMode(mode.value) {
+		adapters.NoteSettingsFieldNoOp(target, mode.field, 1, fmt.Sprintf("%s does not accept %v; it takes %s", mode.key, mode.value, strings.Join(globalPermissionModes, ", ")))
+		return nil
+	}
+	return []globalSetting{mode}
 }
 
 // customGlobalSettings flattens each spec's x-<target> block into native
@@ -331,7 +365,7 @@ func sameSetting(a, b any) bool {
 
 // settingsKeepHint is the spec edit that keeps have as the value.
 func settingsKeepHint(s globalSetting, have any) string {
-	if strings.HasPrefix(s.field, "x-") {
+	if strings.HasPrefix(s.field, "x-") || s.field == "permissions.default-mode" {
 		return fmt.Sprintf("set %s to %s", s.field, settingsValueText(have))
 	}
 	return fmt.Sprintf("put %s: %s under %s", s.target, settingsValueText(have), s.field)
@@ -360,14 +394,16 @@ func settingsValues(path, format string, data []byte) (map[string]any, error) {
 	return out, nil
 }
 
-// lintGlobalSettings reports each settings effort a target that sync
-// --global writes settings for cannot take, so lint and validate catch
-// what a sync would drop with a note.
+// lintGlobalSettings reports invalid values that global sync would drop with a note.
 func lintGlobalSettings(settings []spec.Entry, targets []string) []validationIssue {
 	var out []validationIssue
 	for _, entry := range settings {
 		for _, target := range slices.Sorted(slices.Values(targets)) {
 			f := globalTargets[target].settings
+			permissions, _ := entry.Meta["permissions"].(map[string]any)
+			if mode, present := permissions["default-mode"]; present && f.permissionMode != "" && !acceptsGlobalPermissionMode(mode) {
+				out = append(out, validationIssue{Path: entry.Path, Field: "permissions.default-mode", Message: fmt.Sprintf("%s: %s does not accept permissions.default-mode %v; it takes %s", target, f.permissionMode, mode, strings.Join(globalPermissionModes, ", "))})
+			}
 			if f.path == "" || f.effort == "" {
 				continue
 			}
