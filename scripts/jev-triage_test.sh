@@ -61,7 +61,7 @@ if [ "${code#2}" = "$code" ]; then
   exit 0
 fi
 cp "$data" "$FAKE_CURL_LOG.request.$(wc -l <"$FAKE_CURL_LOG.calls" | tr -d ' ')"
-jq '. as $r | {model: "jev-stub", answers: (.questions | with_entries(.key as $k | .value |= (
+jq '. as $r | {model: "jev-stub", usage: {input_tokens: 100, output_tokens: 10}, answers: (.questions | with_entries(.key as $k | .value |= (
   if .type == "noul" then {type: "noul", noul: 0.85}
   else
     (($r.state.claims[$k] | ascii_downcase) as $c
@@ -172,7 +172,7 @@ function test_overloaded_api_retries_then_falls_back_to_lexical_leads() {
   out=$(FAKE_CURL_CODE=529 JEV_JOBS=1 triage "$RUN")
   code=$?
   assert_equals 0 "$code"
-  assert_contains "0 of 3 Jev requests answered (HTTP 529 after 3 tries)" "$out"
+  assert_contains "0 of 3 Jev requests answered, 0 input tokens (HTTP 529 after 3 tries)" "$out"
   assert_equals 3 "$(wc -l <"$FAKE_CURL_LOG.calls" | tr -d ' ')"
   assert_equals "lexical" "$(cut -f8 "$RUN/triage.tsv" | sort -u)"
   assert_file_not_exists "$RUN/triage.tsv.tmp"
@@ -199,7 +199,7 @@ function test_unreachable_host_falls_back_with_the_real_curl() {
 function test_a_rejected_request_leaves_the_other_pages_judged() {
   local out
   out=$(FAKE_CURL_FAIL_CALL=1 FAKE_CURL_FAIL_CODE=422 JEV_JOBS=1 triage "$RUN")
-  assert_contains "2 of 3 Jev requests answered (HTTP 422)" "$out"
+  assert_contains "2 of 3 Jev requests answered, 200 input tokens (HTTP 422)" "$out"
   assert_equals 3 "$(wc -l <"$FAKE_CURL_LOG.calls" | tr -d ' ')"
   assert_equals "lexical" "$(grep https://example.test/mcp "$RUN/triage.tsv" | cut -f8 | sort -u)"
   assert_equals "jev" "$(grep https://example.test/changelog "$RUN/triage.tsv" | cut -f8 | sort -u)"
@@ -212,7 +212,7 @@ function test_writes_rows_with_strong_contradicts_first() {
   local first
   first=$(head -n 1 "$RUN/triage.tsv")
   assert_contains $'\tcontradicts\t0.9\t0.9\tjev' "$first"
-  assert_equals "contradicts noul supports" "$(cut -f5 "$RUN/triage.tsv" | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/ $//')"
+  assert_equals "contradicts noul" "$(cut -f5 "$RUN/triage.tsv" | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/ $//')"
   assert_empty "$(awk -F '\t' 'NF != 8' "$RUN/triage.tsv")"
 }
 
@@ -242,12 +242,17 @@ function test_claims_are_asked_in_chunks() {
   assert_equals 3 "$(jq '.questions | length' "$FAKE_CURL_LOG.request.1")"
 }
 
-function test_weak_says_nothing_answers_are_dropped_and_p_contradicts_is_kept() {
+function test_answers_below_the_lead_threshold_are_dropped() {
   triage "$RUN" >/dev/null
   assert_not_contains "says_nothing" "$(cut -f5 "$RUN/triage.tsv")"
-  assert_contains $'\tsupports\t0.9\t0.05\tjev' "$(cat "$RUN/triage.tsv")"
+  assert_not_contains "supports" "$(cut -f5 "$RUN/triage.tsv")"
   JEV_KEEP_CONTRADICTS=0 triage "$RUN" >/dev/null
   assert_contains "says_nothing" "$(cut -f5 "$RUN/triage.tsv")"
+  assert_contains $'\tsupports\t0.9\t0.05\tjev' "$(cat "$RUN/triage.tsv")"
+}
+
+function test_the_summary_counts_input_tokens() {
+  assert_contains "3 of 3 Jev requests answered, 300 input tokens" "$(triage "$RUN")"
 }
 
 function test_a_changelog_page_carries_one_noul_row() {
@@ -302,7 +307,8 @@ function test_replay_prints_recall_false_positives_and_lexical_pairing() {
   assert_contains "false positives on says_nothing: 0/1 (0.00)" "$out"
   assert_contains "exact verdicts: 3/4" "$out"
   assert_contains "lexical pairing on contradicts: 1/2 (0.50)" "$out"
-  assert_matches "missed +contradicts +says_nothing +0.9 +no +MISS 4" "$out"
+  assert_matches "missed +contradicts +says_nothing +0.05 +no +MISS +- +4" "$out"
+  assert_contains "leads (contradicts or p_contradicts >= 0.4): 1/2 drifts, 0/2 other cases" "$out"
 }
 
 function test_replay_asks_each_case_beside_the_target_claims() {
