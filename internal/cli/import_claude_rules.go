@@ -17,6 +17,11 @@ func importClaudeRules(root, dstDir string, layout claudeLayout) (int, error) {
 	if dirExists(rulesDir) {
 		return copyMarkdownTree(rulesDir, dstDir)
 	}
+	// A CLAUDE.md that imports AGENTS.md feeds AGNOSTIC_AI.md instead: its
+	// own text is for Claude only, so it must not become a rule for all.
+	if _, companion, err := claudeCompanionBody(root); err != nil || companion {
+		return 0, err
+	}
 	return sliceMainFileByH2(root, claudeMainFile, dstDir)
 }
 

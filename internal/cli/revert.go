@@ -129,6 +129,15 @@ func newRevertCmd() *cobra.Command {
 			if preserved > 0 {
 				summaryf("    %d file(s) preserved (no .bak; pass --force to delete)\n", preserved)
 			}
+			companions, err := adapters.AgentsCompanionPaths(cfg, b, effective)
+			if err != nil {
+				return err
+			}
+			for _, p := range companions {
+				if _, err := revertOne(p, dryRun, false); err != nil {
+					return fmt.Errorf("claude: %w", err)
+				}
+			}
 			return nil
 		},
 	}
@@ -249,6 +258,20 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force bool) err
 			out.Skipped = append(out.Skipped, rec)
 		} else {
 			out.Writes = append(out.Writes, rec)
+		}
+	}
+	companions, err := adapters.AgentsCompanionPaths(cfg, b, targets)
+	if err != nil {
+		out.Errors = append(out.Errors, errorRecord{Target: "claude", Message: err.Error()})
+	}
+	for _, p := range companions {
+		action, err := revertOne(p, dryRun, false)
+		if err != nil {
+			out.Errors = append(out.Errors, errorRecord{Target: "claude", Message: err.Error()})
+			continue
+		}
+		if action == "restore" {
+			out.Writes = append(out.Writes, fileRecord{Target: "claude", Path: p, Action: action})
 		}
 	}
 	return emitJSON(cmd, out)
