@@ -28,7 +28,6 @@ var unmanagedConfigGlobs = []struct{ glob, target string }{
 	{"AGENTS.md", "codex"},
 	{"GEMINI.md", "gemini"},
 	{"CONVENTIONS.md", "aider"},
-	{".cursor/BUGBOT.md", "cursor"},
 	{".cursor/rules/*.mdc", "cursor"},
 	{".cursor/agents/*.md", "cursor"},
 	{".cursor/skills/*/SKILL.md", "cursor"},
@@ -52,6 +51,14 @@ var unmanagedConfigGlobs = []struct{ glob, target string }{
 	{".agents/commands/*.md", "amp"},
 }
 
+// unmanagedScopedFiles lists config files a tool reads from its
+// directory at the root and below any project subdirectory, which a
+// static glob cannot reach at every depth. `import cursor` reads each
+// BUGBOT.md scope (#1276).
+var unmanagedScopedFiles = []struct{ nativeDir, file, target string }{
+	{".cursor", cursorReviewFile, "cursor"},
+}
+
 // unmanagedFinding is one config file present on disk but not generated
 // from `.agnostic-ai/`.
 type unmanagedFinding struct {
@@ -62,9 +69,20 @@ type unmanagedFinding struct {
 // findUnmanagedConfig scans root for known agentic config files that
 // exist but carry no agnostic-ai provenance marker. Returns findings
 // sorted by path. Read errors on individual files are skipped: doctor is
-// advisory and a single unreadable file should not abort the scan.
+// advisory and a single unreadable file should not abort the scan. A
+// failed walk drops only the scoped files it would have found.
 func findUnmanagedConfig(root string, cfg *config.Config) ([]unmanagedFinding, error) {
 	var out []unmanagedFinding
+	add := func(path, target string) {
+		if !isUnmarkedFile(path) {
+			return
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			rel = path
+		}
+		out = append(out, unmanagedFinding{Path: filepath.ToSlash(rel), Target: target})
+	}
 	for _, c := range claudeGlobsFor(cfg, unmanagedConfigGlobs) {
 		matches, err := filepath.Glob(filepath.Join(root, filepath.FromSlash(c.glob)))
 		if err != nil {
@@ -72,26 +90,31 @@ func findUnmanagedConfig(root string, cfg *config.Config) ([]unmanagedFinding, e
 			return nil, err
 		}
 		for _, m := range matches {
-			info, err := os.Stat(m)
-			if err != nil || info.IsDir() {
-				continue
-			}
-			data, err := os.ReadFile(m)
-			if err != nil {
-				continue
-			}
-			if header.Has(string(data)) {
-				continue
-			}
-			rel, err := filepath.Rel(root, m)
-			if err != nil {
-				rel = m
-			}
-			out = append(out, unmanagedFinding{Path: filepath.ToSlash(rel), Target: c.target})
+			add(m, c.target)
+		}
+	}
+	for _, f := range unmanagedScopedFiles {
+		dirs, err := findScopedSkillDirs(root, f.nativeDir)
+		if err != nil {
+			continue
+		}
+		for _, dir := range dirs {
+			add(filepath.Join(dir.path, f.file), f.target)
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
 	return out, nil
+}
+
+// isUnmarkedFile reports whether path is a readable regular file without
+// the provenance marker.
+func isUnmarkedFile(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil || info.IsDir() {
+		return false
+	}
+	data, err := os.ReadFile(path)
+	return err == nil && !header.Has(string(data))
 }
 
 // reportUnmanagedConfig prints the doctor section listing agentic config
