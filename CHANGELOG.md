@@ -6,6 +6,11 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### Added
+
+- `sync --untrack` runs `git rm --cached` on a generated path git also ignores; `sync` and `doctor` name the command either way (#1330).
+- `install-hook --post-checkout` writes a hook that runs `sync -q` after a branch or worktree checkout (#1330).
+
 ### Fixed
 
 - `import claude` writes permission lists to a settings spec, so `lint` flags a mid-command `*` in allow and deny rules, and Codex gets its coverage note (#1329).

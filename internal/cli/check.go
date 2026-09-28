@@ -311,6 +311,46 @@ func recordedOrphans(cfg *config.Config) []string {
 	return out
 }
 
+// driftGeneratedPaths returns every path the current specs produce
+// across every report: what a sync would write, changed or not. Missing,
+// Stale, Edited, and Current all count; Leftover and Orphaned do not,
+// since those are no longer produced.
+func driftGeneratedPaths(reports []driftReport) []string {
+	var out []string
+	for _, r := range reports {
+		for _, f := range r.Current {
+			out = append(out, f.Path)
+		}
+		for _, f := range r.Missing {
+			out = append(out, f.Path)
+		}
+		for _, f := range r.Stale {
+			out = append(out, f.Path)
+		}
+		for _, f := range r.Edited {
+			out = append(out, f.Path)
+		}
+	}
+	return out
+}
+
+// reportTrackedIgnored lists generated paths git both tracks and
+// ignores: a file the repo committed before it moved into the managed
+// .gitignore block, so the ignore has no effect (#1330). Informational
+// like the "files to commit" hint in `sync`'s summary: it never fails
+// doctor. `sync --untrack` removes the paths from the index.
+func reportTrackedIgnored(cmd *cobra.Command, reports []driftReport) {
+	paths := gitTrackedAndIgnored(".", driftGeneratedPaths(reports))
+	if len(paths) == 0 {
+		return
+	}
+	cmd.Println()
+	cmd.Println("Tracked despite ignored:")
+	cmd.Printf("  ! %d file(s) committed before they moved into the managed .gitignore block:\n", len(paths))
+	cmd.Printf("      git rm --cached %s\n", strings.Join(paths, " "))
+	cmd.Println("    Or run: agnostic-ai sync --untrack")
+}
+
 // printDrift prints a per-target summary, one bucket per kind of drift:
 //
 //   - missing: generated file does not exist yet (next sync creates it)
@@ -373,7 +413,8 @@ func newDoctorCmd() *cobra.Command {
 			"  2. Validate agnostic-ai.yaml config.\n" +
 			"  3. Report unsupported spec kinds per target.\n" +
 			"  4. Report agentic config on disk not single-sourced from .agnostic-ai/.\n" +
-			"  5. Compare what sync would emit against files on disk (drift).\n" +
+			"  5. Compare what sync would emit against files on disk (drift), and flag\n" +
+			"     a generated file still tracked despite being ignored.\n" +
 			"     --check-globs and --check-references add opt-in checks here.\n" +
 			"  6. Check MCP server command binaries.\n" +
 			"  7. Suggest a concrete next step.\n\n" +
@@ -476,6 +517,9 @@ func newDoctorCmd() *cobra.Command {
 				}
 				brokenRefs = n
 			}
+
+			// 4d. Generated files git tracks despite ignoring.
+			reportTrackedIgnored(cmd, reports)
 
 			// 5. MCP resolution
 			reportMCPCommandResolution(cmd)
