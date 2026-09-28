@@ -40,7 +40,8 @@ var fallbackIgnoreFiles = map[string][]string{
 }
 
 // importIgnoreFile reads the target's hand-authored ignore file and
-// writes its patterns into `<src.Ignore>/<target>.md`, so a project
+// writes its patterns into a fenced block in `<src.Ignore>/<target>.md`,
+// where Markdown formatters leave them alone (#1275), so a project
 // that kept credentials out of agent context by hand keeps doing so
 // once agnostic-ai owns the file. Without this there was no read-back
 // path at all and the emit side had nothing to point users at (#754).
@@ -89,9 +90,23 @@ func importIgnoreFile(root, target string, src config.Sources) (int, error) {
 		return 0, fmt.Errorf("mkdir %s: %w", src.Ignore, err)
 	}
 	out := filepath.Join(root, src.Ignore, target+".md")
-	specFile := fmt.Sprintf("---\nname: %s\ndescription: Imported from %s.\n---\n\n%s\n", target, name, body)
+	fence := ignoreSpecFence(body)
+	specFile := fmt.Sprintf("---\nname: %s\ndescription: Imported from %s.\n---\n\n%sgitignore\n%s\n%s\n", target, name, fence, body, fence)
 	if err := importWriteFile(out, []byte(specFile), 0o644); err != nil {
 		return 0, fmt.Errorf("write %s: %w", out, err)
 	}
 	return 1, nil
+}
+
+// ignoreSpecFence returns a backtick fence longer than any backtick run
+// that starts a pattern line, so no pattern can close the block early.
+func ignoreSpecFence(patterns string) string {
+	longest := 2
+	for _, line := range strings.Split(patterns, "\n") {
+		trimmed := strings.TrimLeft(line, " ")
+		if n := len(trimmed) - len(strings.TrimLeft(trimmed, "`")); n > longest {
+			longest = n
+		}
+	}
+	return strings.Repeat("`", longest+1)
 }
