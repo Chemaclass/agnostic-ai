@@ -22,6 +22,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - A Codex overlay that ends in a table, such as `[profiles.review]`, no longer captures the `model` and `model_reasoning_effort` sync writes into `.codex/config.toml`.
 - `sync --check` lists drifted files with forward slashes on Windows too, like the rest of the sync output.
 - A scoped rule no longer makes the managed `.gitignore` block ignore its whole directory; the block lists the scoped files instead (#1264).
+- A rule or review scoped inside a dot-folder, such as `.github/workflows`, no longer makes the managed `.gitignore` block ignore that folder (#1304).
 - `import` skips gitignored directories and nested repositories such as agent worktrees, and `--dry-run` no longer copies them or `node_modules` (#1265, #1273).
 - `import gemini` keeps the text above the first `##` of a nested `GEMINI.md` as a rule named after its scope, instead of dropping it (#1314).
 - `import codex` keeps the text above the first `##` of a nested `AGENTS.md` as a rule named after its scope, instead of dropping it (#1292).
