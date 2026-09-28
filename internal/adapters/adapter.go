@@ -557,7 +557,7 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 	}
 	own := expandBundleVars(b.For(a.Name()), cfg, a.Name())
 	own.Rules = withoutEntryPointRules(sess, cfg, b, a.Name(), own.Rules)
-	prepared, files, err := emit.PrepareScopedRules(own, cfg, a.Name())
+	prepared, files, err := emit.PrepareScopedDocuments(own, cfg, a.Name(), ReviewSections(b, cfg, a.Name()))
 	if err != nil {
 		return err
 	}

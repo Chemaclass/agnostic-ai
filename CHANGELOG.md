@@ -6,6 +6,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### Added
+
+- Codex gets review specs as a `## Code Review Rules` section in the root and scoped `AGENTS.md`, and `import codex` reads it back (#1341).
+
 ### Fixed
 
 - `import claude` writes permission lists to a settings spec, so `lint` flags a mid-command `*` in allow and deny rules, and Codex gets its coverage note (#1329).

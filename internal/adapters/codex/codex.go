@@ -127,7 +127,9 @@ var caps = emit.Capabilities{
 	// outputs.codex.commands-dir: Codex loads custom prompts from
 	// ~/.codex/prompts only and deprecates them in favor of skills, so
 	// a project-level prompts tree would never be read.
-	Supports: []spec.Kind{spec.KindAgent, spec.KindRule, spec.KindSkill, spec.KindHook, spec.KindMCP, spec.KindCommand, spec.KindSettings},
+	// Reviews land as a `## Code Review Rules` section in the root and
+	// scoped AGENTS.md, which sync writes for every reader of that file.
+	Supports: []spec.Kind{spec.KindAgent, spec.KindRule, spec.KindSkill, spec.KindHook, spec.KindMCP, spec.KindCommand, spec.KindSettings, spec.KindReview},
 	// effort: effort.go notes the integer budgets it cannot write.
 	AgentFields:    []string{"effort"},
 	SettingsFields: []string{"effort"},
@@ -193,6 +195,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 			"Codex loads custom prompts from ~/.codex/prompts only and deprecates them for skills")
 	}
 
+	if emit.HasLegacyRulesFile(cfg, target) {
+		emit.NoteCoverageGap(target, spec.KindReview, unscopedReviews(b.Reviews),
+			"the root AGENTS.md, which sync does not write while outputs.codex.rules-file is set")
+	}
 	if err := sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "AGENTS.md"}, dryRun); err != nil {
 		return err
 	}
@@ -342,4 +348,14 @@ func loadConfigOverlay(dryRun bool) (string, map[string]bool, error) {
 		keys[k] = true
 	}
 	return string(data), keys, nil
+}
+
+func unscopedReviews(reviews []spec.Entry) int {
+	n := 0
+	for _, r := range reviews {
+		if r.EffectiveScope() == "" {
+			n++
+		}
+	}
+	return n
 }

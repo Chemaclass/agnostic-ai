@@ -73,6 +73,10 @@ func importFromCodexWithOpts(root string, src config.Sources, opts importCodexOp
 		return err
 	}
 	rules += rulesFileRules
+	reviews, err := importCodexReviews(root, src)
+	if err != nil {
+		return err
+	}
 	agents, err := importCodexAgents(root, filepath.Join(root, src.Agents))
 	if err != nil {
 		return err
@@ -107,8 +111,8 @@ func importFromCodexWithOpts(root string, src config.Sources, opts importCodexOp
 	if _, err := mirrorMainFile(root, "AGENTS.md"); err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d commands\n",
-		rules, agents, skills, hooks, mcps, commands)
+	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d commands, %d reviews\n",
+		rules, agents, skills, hooks, mcps, commands, reviews)
 	if overlaySeeded {
 		summaryf("  → %s seeded from %s (carries model/sandbox/profiles/etc. across re-syncs)\n",
 			codexOverlayRelPath(), codexConfigTOML)
@@ -176,6 +180,10 @@ func importCodexRules(root, dstDir string, src config.Sources, opts importCodexO
 		text, ok := hierarchicalRulesText(f, string(raw))
 		if !ok {
 			continue
+		}
+		if src.Reviews != "" {
+			// importCodexReviews reads these into review specs.
+			text, _ = splitCodexReviewSections(text)
 		}
 		data := []byte(text)
 		if !opts.shredEnabled() {

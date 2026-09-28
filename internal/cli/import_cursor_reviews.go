@@ -56,19 +56,8 @@ func importCursorReviews(root string, src config.Sources) (int, error) {
 		if strings.TrimSpace(body) == "" {
 			continue
 		}
-		name := cursorReviewSpecName(used, dir.scope)
-		var spec strings.Builder
-		spec.WriteString("---\nname: " + name + "\n")
-		if dir.scope != "" {
-			spec.WriteString(yamlFrontmatterLine("scope", dir.scope))
-		}
-		spec.WriteString("---\n\n" + body + "\n")
-		if err := importMkdirAll(dstDir, 0o755); err != nil {
-			return count, fmt.Errorf("mkdir %s: %w", dstDir, err)
-		}
-		out := filepath.Join(dstDir, name+".md")
-		if err := importWriteFile(out, []byte(spec.String()), 0o644); err != nil {
-			return count, fmt.Errorf("write %s: %w", out, err)
+		if err := writeReviewSpec(dstDir, cursorReviewSpecName(used, dir.scope), dir.scope, body); err != nil {
+			return count, err
 		}
 		count++
 	}

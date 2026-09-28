@@ -36,6 +36,13 @@ func hasScopeFilters(target string) bool {
 // The input has already been filtered and expanded for this target. It never
 // mutates source metadata, so concurrent target emissions remain independent.
 func PrepareScopedRules(b spec.Bundle, cfg *config.Config, target string) (spec.Bundle, []CapturedFile, error) {
+	return PrepareScopedDocuments(b, cfg, target, nil)
+}
+
+// PrepareScopedDocuments is PrepareScopedRules that also writes each
+// scope's review section, from ReviewSections, into that scope's
+// AGENTS.md, creating the file when no rule lands there.
+func PrepareScopedDocuments(b spec.Bundle, cfg *config.Config, target string, reviews map[string]string) (spec.Bundle, []CapturedFile, error) {
 	out := b
 	out.Rules = nil
 	grouped := map[string][]spec.Entry{}
@@ -163,18 +170,52 @@ func PrepareScopedRules(b spec.Bundle, cfg *config.Config, target string) (spec.
 		}
 		out.Rules = append(out.Rules, r)
 	}
-	paths := make([]string, 0, len(grouped))
+	sections, err := scopedReviewSections(cfg, target, reviews, grouped)
+	if err != nil {
+		return out, nil, err
+	}
+	paths := make([]string, 0, len(grouped)+len(sections))
 	for p := range grouped {
 		paths = append(paths, p)
+	}
+	for p := range sections {
+		if _, ok := grouped[p]; !ok {
+			paths = append(paths, p)
+		}
 	}
 	sort.Strings(paths)
 	files := make([]CapturedFile, 0, len(paths))
 	for _, p := range paths {
-		rules := grouped[p]
-		sort.SliceStable(rules, func(i, j int) bool { return rules[i].Name < rules[j].Name })
-		files = append(files, CapturedFile{Path: p, Content: scopedDocumentBody(rules)})
+		files = append(files, CapturedFile{Path: p, Content: scopedDocument(grouped[p], sections[p])})
 	}
 	return out, files, nil
+}
+
+// scopedReviewSections keys the scoped review sections by the AGENTS.md
+// path target writes them to. A target writes a review-only AGENTS.md
+// when that file is its own scope document; a target that writes a
+// shared AGENTS.md only for its rules, such as cursor, adds the section
+// to those files alone.
+func scopedReviewSections(cfg *config.Config, target string, reviews map[string]string, grouped map[string][]spec.Entry) (map[string]string, error) {
+	owns := scopeDocument(target) == "AGENTS.md" && OutputRulesFile(cfg, target, "") == ""
+	out := map[string]string{}
+	for scope, section := range reviews {
+		if scope == "" {
+			continue
+		}
+		path := filepath.Join(scope, "AGENTS.md")
+		if _, ok := grouped[path]; !ok && !owns {
+			continue
+		}
+		if o := cfg.Outputs[target]; o.ProvenanceHeader != nil && !*o.ProvenanceHeader {
+			return nil, fmt.Errorf("%s: %s: scoped review sections require provenance-header for safe ownership", path, target)
+		}
+		if err := CheckScopePath(scope); err != nil {
+			return nil, fmt.Errorf("%s: %w", path, err)
+		}
+		out[path] = section
+	}
+	return out, nil
 }
 
 func emptySelectorList(value any) bool {
@@ -282,13 +323,25 @@ func scopePatterns(r spec.Entry, scope string) ([]string, error) {
 	return result, nil
 }
 
-func scopedDocumentBody(rules []spec.Entry) string {
+// scopedDocument renders one scoped AGENTS.md: the rules block, then the
+// review section. Either may be empty.
+func scopedDocument(rules []spec.Entry, reviewSection string) string {
 	sort.SliceStable(rules, func(i, j int) bool { return rules[i].Name < rules[j].Name })
-	var body strings.Builder
-	for _, r := range rules {
-		WriteSection(&body, r.Name, r)
+	content := ""
+	if len(rules) > 0 {
+		var body strings.Builder
+		for _, r := range rules {
+			WriteSection(&body, r.Name, r)
+		}
+		content = wrapRulesBlock(body.String())
 	}
-	return WithHeader(wrapRulesBlock(body.String()), FormatMarkdown)
+	if reviewSection != "" {
+		if content != "" {
+			content += "\n"
+		}
+		content += reviewSection
+	}
+	return WithHeader(content, FormatMarkdown)
 }
 
 // EntryPointRules uses the same scope and target resolution as native emission.
@@ -309,7 +362,8 @@ func EntryPointRules(b spec.Bundle, target string) spec.Bundle {
 
 // CheckScopeReaders validates known cross-tool instruction discovery collisions.
 // It considers configured readers even during a partial sync.
-func CheckScopeReaders(bundles map[string]spec.Bundle, files map[string]CapturedFile, targets []string) error {
+// reviews are the ReviewSections every AGENTS.md reader writes.
+func CheckScopeReaders(bundles map[string]spec.Bundle, files map[string]CapturedFile, targets []string, reviews map[string]string) error {
 	paths := make([]string, 0, len(files))
 	for path := range files {
 		paths = append(paths, path)
@@ -345,7 +399,8 @@ func CheckScopeReaders(bundles map[string]spec.Bundle, files map[string]Captured
 					}
 					expected = append(expected, r)
 				}
-				if len(expected) == 0 || scopedDocumentBody(expected) != file.Content {
+				section := reviews[scope]
+				if len(expected) == 0 && section == "" || scopedDocument(expected, section) != file.Content {
 					return fmt.Errorf("%s: shared instructions differ for %s; use the same target conditions and bodies or separate worktrees", path, target)
 				}
 			}

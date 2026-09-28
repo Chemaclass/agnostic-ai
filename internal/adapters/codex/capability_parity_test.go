@@ -54,6 +54,12 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 	}
 
 	for _, k := range caps.Supports {
+		// Reviews land in the root and scoped AGENTS.md, which sync
+		// writes for every reader; internal/cli's
+		// TestSync_CodexReviewsLandInAgentsMD covers them.
+		if k == spec.KindReview {
+			continue
+		}
 		found := false
 		for _, c := range cases {
 			if c.kind != k {
