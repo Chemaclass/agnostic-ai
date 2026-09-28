@@ -16,6 +16,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Fixed
 
+- A Codex overlay that ends in a table, such as `[profiles.review]`, no longer captures the `model` and `model_reasoning_effort` sync writes into `.codex/config.toml`.
 - `sync --check` lists drifted files with forward slashes on Windows too, like the rest of the sync output.
 - A scoped rule no longer makes the managed `.gitignore` block ignore its whole directory; the block lists the scoped files instead (#1264).
 - `import` skips gitignored directories and nested repositories such as agent worktrees, and `--dry-run` no longer copies them or `node_modules` (#1265, #1273).

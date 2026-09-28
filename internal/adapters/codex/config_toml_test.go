@@ -1244,3 +1244,53 @@ func TestEmit_SettingsModelMapPicksCodexEntry(t *testing.T) {
 		t.Errorf("config.toml must carry only the codex model:\n%s", got)
 	}
 }
+
+// An overlay that ends inside a table must not swallow the portable
+// top-level keys written after it: TOML assigns every key after a table
+// header to that table.
+func TestEmit_CodexConfig_OverlayTableKeepsPortableKeysTopLevel(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	if err := os.MkdirAll(filepath.Join(dir, ".agnostic-ai/overlays"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	overlay := "[profiles.review]\nmodel_reasoning_effort = \"xhigh\"\n"
+	if err := os.WriteFile(filepath.Join(dir, ".agnostic-ai/overlays/codex.config.toml"), []byte(overlay), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"codex": {Config: &config.CodexConfig{HistoryPersistence: "none"}},
+		},
+	}
+	entries := []spec.Entry{{Kind: spec.KindSettings, Name: "model", Meta: map[string]any{
+		"model":  map[string]any{"codex": "gpt-6-sol"},
+		"effort": map[string]any{"codex": "high"},
+	}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
+
+	var doc struct {
+		Model                string `toml:"model"`
+		ModelReasoningEffort string `toml:"model_reasoning_effort"`
+		History              struct {
+			Persistence string `toml:"persistence"`
+		} `toml:"history"`
+		Profiles map[string]map[string]any `toml:"profiles"`
+	}
+	if _, err := toml.Decode(got, &doc); err != nil {
+		t.Fatalf("emitted config.toml does not parse: %v\n%s", err, got)
+	}
+	if doc.Model != "gpt-6-sol" || doc.ModelReasoningEffort != "high" {
+		t.Errorf("top-level model = %q, effort = %q, want gpt-6-sol and high:\n%s", doc.Model, doc.ModelReasoningEffort, got)
+	}
+	review := doc.Profiles["review"]
+	if _, leaked := review["model"]; leaked || review["model_reasoning_effort"] != "xhigh" {
+		t.Errorf("profiles.review = %v, want only the overlay's model_reasoning_effort:\n%s", review, got)
+	}
+	if doc.History.Persistence != "none" {
+		t.Errorf("history.persistence = %q, want none:\n%s", doc.History.Persistence, got)
+	}
+}
