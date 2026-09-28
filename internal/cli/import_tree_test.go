@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -137,7 +138,7 @@ func TestImport_DryRunListsNothingFromGitignoredDirectoriesOrNestedRepositories(
 		}
 	}
 	assertNoForeignImport(t, paths, nil)
-	if !strings.Contains(stdout, ".agnostic-ai/skills/real/SKILL.md") {
+	if !slices.Contains(paths, ".agnostic-ai/skills/real/SKILL.md") {
 		t.Errorf("dry-run lost the project's own skill:\n%s", stdout)
 	}
 }
