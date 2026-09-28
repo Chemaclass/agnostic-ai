@@ -301,6 +301,9 @@ var globalTargets = map[string]globalTarget{
 	"openhands": {
 		agents: globalPathHome + ".agents/agents",
 		skills: globalPathHome + ".agents/skills",
+		// The file `openhands mcp add` writes; current releases no longer
+		// read a project config.toml [mcp] section (#1252).
+		mcp: globalMCPFile{path: globalPathHome + ".openhands/mcp.json", format: "json", key: "mcpServers"},
 	},
 	"trae": {
 		agents: globalPathHome + ".trae-cn/agents",

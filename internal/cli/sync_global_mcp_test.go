@@ -292,3 +292,41 @@ func TestApplyGlobalChanges_BackupKeepsSourceMode(t *testing.T) {
 		t.Errorf(".bak mode = %v, want 0600", info.Mode().Perm())
 	}
 }
+
+func TestSyncGlobal_OpenHandsMCPReachesUserFile(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mcps := filepath.Join(source, "mcps")
+	mustWriteGlobalTest(t, filepath.Join(mcps, "docs.yaml"), globalDocsMCP+"env:\n  DEBUG: \"true\"\n")
+	mustWriteGlobalTest(t, filepath.Join(mcps, "notion.yaml"), "name: notion\ntype: http\nurl: https://mcp.notion.com/mcp\nauth: oauth\n")
+	if _, w, err := runGlobalAgentTest("--only", "openhands"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, w)
+	}
+	path := filepath.Join(home, ".openhands", "mcp.json")
+	var doc map[string]map[string]map[string]any
+	if err := json.Unmarshal([]byte(readGlobalTest(t, path)), &doc); err != nil {
+		t.Fatal(err)
+	}
+	docs, notion := doc["mcpServers"]["docs"], doc["mcpServers"]["notion"]
+	if docs["command"] != "docs-mcp" || docs["env"] == nil || docs["type"] != nil {
+		t.Errorf("docs = %v", docs)
+	}
+	if notion["url"] != "https://mcp.notion.com/mcp" || notion["transport"] != "http" || notion["auth"] != "oauth" {
+		t.Errorf("notion = %v", notion)
+	}
+	before := readGlobalTest(t, path)
+	if err := os.RemoveAll(mcps); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(filepath.Join(source, "state")); err != nil {
+		t.Fatal(err)
+	}
+	if _, w, err := runImportGlobalTest("openhands"); err != nil {
+		t.Fatalf("import: %v\n%s", err, w)
+	}
+	if _, w, err := runGlobalAgentTest("--only", "openhands"); err != nil {
+		t.Fatalf("sync after import: %v\n%s", err, w)
+	}
+	if got := readGlobalTest(t, path); got != before {
+		t.Errorf("mcp.json changed after import:\n%s\nwant:\n%s", got, before)
+	}
+}
