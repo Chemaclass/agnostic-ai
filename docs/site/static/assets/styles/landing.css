@@ -434,13 +434,28 @@ main > section[id] {
 @media (min-width: 1100px) {
   .explorer-flow {
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-    align-items: start;
-    gap: 0.75rem;
+    align-items: stretch;
+    gap: 0.6rem;
+  }
+
+  /* Both cards take the taller one's height, so a short source never leaves
+     a hole under it beside a long output. */
+  .explorer-flow .spec-card,
+  .explorer-flow .explorer-outputs {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .explorer-flow .spec-card pre,
+  .explorer-flow .explorer-output-panels {
+    flex: 1;
   }
 
   .explorer-flow .explorer-arrow {
     flex-direction: column;
-    margin: 2.5rem 0 0;
+    align-self: center;
+    gap: 0.2rem;
+    margin: 0;
   }
 
   .explorer-flow .explorer-arrow svg {

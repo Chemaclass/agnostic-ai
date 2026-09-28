@@ -14,10 +14,6 @@
   body = "---\nname: test-writer\ndescription: Writes a failing test for a bug.\ntools: [Read, Grep, Edit]\nmodel:\n  claude: claude-sonnet-5\n  codex: gpt-6-sol\neffort: medium\n---\n\nReproduce the bug in a failing test. Do not touch production code.\n"
 
 [[files]]
-  path = ".agnostic-ai/commands/deploy.md"
-  body = "---\nname: deploy\ndescription: Deploy to an environment.\nargument-hint: <env>\n---\n\nRun `pnpm test`, then `fly deploy --config fly.{{env}}.toml`.\n"
-
-[[files]]
   path = ".agnostic-ai/hooks/format.yaml"
   body = "name: format\ntargets: [claude, codex]\nevent: PostToolUse\nmatcher: Edit|Write\ncommand: .claude/hooks/format.sh\n"
 
@@ -31,7 +27,7 @@
 
 [[files]]
   path = ".agnostic-ai/overlays/claude.settings.json"
-  body = "{\n  \"statusLine\": { \"type\": \"command\", \"command\": \"~/.claude/statusline.sh\" }\n}\n"
+  body = "{\n  \"statusLine\": {\n    \"type\": \"command\",\n    \"command\": \"~/.claude/statusline.sh\"\n  }\n}\n"
 
 [[files]]
   path = ".agnostic-ai/rules/testing.md"
@@ -52,10 +48,6 @@
 [[files]]
   path = ".claude/agents/test-writer.md"
   body = "---\nname: test-writer\ndescription: Writes a failing test for a bug.\ntools:\n  - Read\n  - Grep\n  - Edit\nmodel: claude-sonnet-5\neffort: medium\n---\n\nReproduce the bug in a failing test. Do not touch production code.\n"
-
-[[files]]
-  path = ".claude/commands/deploy.md"
-  body = "---\nname: deploy\ndescription: Deploy to an environment.\nargument-hint: <env>\n---\n\nRun `pnpm test`, then `fly deploy --config fly.{{env}}.toml`.\n"
 
 [[files]]
   path = ".claude/hooks/format.sh"
@@ -96,10 +88,6 @@
 [[files]]
   path = ".gemini/agents/test-writer.md"
   body = "---\nname: test-writer\ndescription: Writes a failing test for a bug.\ntools:\n  - read_file\n  - grep_search\n  - replace\n---\n\nReproduce the bug in a failing test. Do not touch production code.\n"
-
-[[files]]
-  path = ".gemini/commands/deploy.toml"
-  body = "description = \"Deploy to an environment.\"\nprompt = \"\"\"\nRun `pnpm test`, then `fly deploy --config fly.{{env}}.toml`.\n\"\"\"\n"
 
 [[files]]
   path = ".gemini/settings.json"

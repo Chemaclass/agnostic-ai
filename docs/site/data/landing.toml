@@ -100,8 +100,8 @@ muted_title = "Every tool reads it natively."
 body = "Everything lives in `.agnostic-ai/`, next to `agnostic-ai.yaml`, which picks your targets. Pick an entry to see a source file and the native files `sync` writes from it, each in its own tool's format."
 tree_label = "Entries in .agnostic-ai"
 root = ".agnostic-ai/"
-outputs_label = "sync writes"
-more = "Also `reviews/`, `environments/`, and `ignore/`, for review guidance, dev environment setup, and agent ignore patterns."
+outputs_label = "sync"
+more = "Also `commands/`, `reviews/`, `environments/`, and `ignore/`, for slash commands, review guidance, dev environment setup, and agent ignore patterns."
 
 [[explorer.entries]]
 id = "instructions"
@@ -133,21 +133,6 @@ outputs = [
 href = "@/docs/spec-format.md"
 anchor = "agents"
 docs_label = "Agents"
-
-[[explorer.entries]]
-id = "commands"
-name = "commands/"
-hint = "slash commands"
-file = "commands/deploy.md"
-summary = "Slash commands with arguments, one file each."
-outputs = [
-  { tool = "Claude Code", path = ".claude/commands/deploy.md" },
-  { tool = "Gemini CLI", path = ".gemini/commands/deploy.toml", note = "TOML, with the body as `prompt`." },
-]
-reach = "Codex loads custom prompts only from `~/.codex/prompts`, so sync prints a note instead of a project file."
-href = "@/docs/spec-format.md"
-anchor = "commands"
-docs_label = "Commands"
 
 [[explorer.entries]]
 id = "hooks"
@@ -200,7 +185,7 @@ hint = "native keys"
 file = "overlays/claude.settings.json"
 summary = "Native keys no spec covers, such as the Claude Code status line. Sync merges them into that tool's own file."
 outputs = [
-  { tool = "Claude Code", path = ".claude/settings.json" },
+  { tool = "Claude Code", path = ".claude/settings.json", note = "The overlay keys sit beside what the other specs write into the same file, such as permissions and hooks." },
 ]
 reach = "One overlay per tool: `codex.config.toml` merges into `.codex/config.toml` the same way."
 href = "@/docs/targets/claude.md"
