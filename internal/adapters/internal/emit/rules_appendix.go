@@ -77,7 +77,7 @@ func StripRulesAppendix(body string) string {
 // agents_appendix.go) is junie-only today, but stripping it
 // unconditionally costs nothing on bodies that never had one.
 func StripGeneratedAppendices(body string) string {
-	return restoreImportInlines(StripAgentsAppendix(StripRulesAppendix(StripLocalInstructions(StripTargetOverview(body)))))
+	return restoreImportInlines(StripAgentsAppendix(StripRulesAppendix(StripReviewSection(StripLocalInstructions(StripTargetOverview(body))))))
 }
 
 // inlineRulesTargets are the entry-point targets whose underlying CLI has

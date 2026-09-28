@@ -28,6 +28,11 @@ func ScopedDocuments(cfg *config.Config, target string) []string {
 // Unlike byte collision policy, semantic scope conflicts cannot use last-wins.
 func ValidateScopedRules(cfg *config.Config, b spec.Bundle, requested []string) error {
 	hasScope := false
+	for _, r := range b.Reviews {
+		if r.EffectiveScope() != "" {
+			hasScope = true
+		}
+	}
 	for _, r := range b.Rules {
 		if _, exists := r.Meta["scope"]; r.Scope != "" || exists {
 			hasScope = true
@@ -54,13 +59,14 @@ func ValidateScopedRules(cfg *config.Config, b spec.Bundle, requested []string) 
 		targets = append(targets, t)
 	}
 	sort.Strings(targets)
+	reviews := ReviewSections(b, cfg, requested...)
 	shared := map[string]emit.CapturedFile{}
 	resolved := make(map[string]spec.Bundle, len(targets))
 	prepared := make(map[string]spec.Bundle, len(targets))
 	planned := make(map[string][]emit.CapturedFile, len(targets))
 	for _, target := range targets {
 		resolved[target] = expandBundleVars(b.For(target), cfg, target)
-		p, files, err := emit.PrepareScopedRules(resolved[target], cfg, target)
+		p, files, err := emit.PrepareScopedDocuments(resolved[target], cfg, target, reviews)
 		if err != nil {
 			return err
 		}
@@ -126,7 +132,40 @@ func ValidateScopedRules(cfg *config.Config, b spec.Bundle, requested []string) 
 			}
 		}
 	}
-	return emit.CheckScopeReaders(resolved, shared, targets)
+	return emit.CheckScopeReaders(resolved, shared, targets, reviews)
+}
+
+// ReviewSections returns the Codex code review section per review scope
+// ("" for the root), with variables expanded for codex so the text
+// matches what cursor writes to BUGBOT.md. Nil unless the project, or
+// this run, syncs codex.
+func ReviewSections(b spec.Bundle, cfg *config.Config, requested ...string) map[string]string {
+	return emit.ReviewSections(expandBundleVars(b.For("codex"), cfg, "codex"), cfg, requested...)
+}
+
+// AppendReviewSection returns body with the review section appended.
+func AppendReviewSection(body, section string) string { return emit.AppendReviewSection(body, section) }
+
+// StripReviewSection removes the marked review section from body.
+func StripReviewSection(body string) string { return emit.StripReviewSection(body) }
+
+// ReviewsStartMarker and ReviewsEndMarker mirror the emit-layer sentinels
+// so import can find the review section.
+const (
+	ReviewsStartMarker = emit.ReviewsStartMarker
+	ReviewsEndMarker   = emit.ReviewsEndMarker
+)
+
+// RootReviewSection returns the review section sync appends to target's
+// root entry point, or "" when that file is not the one codex reads.
+// render and the playground use it to mirror sync.
+func RootReviewSection(cfg *config.Config, b spec.Bundle, target string) string {
+	path := EntryPointPath(cfg, target)
+	if path == "" || path != EntryPointPath(cfg, "codex") ||
+		LegacyRulesFileOwnsEntryPoint(cfg, "codex") || LegacyRulesFileOwnsEntryPoint(cfg, target) {
+		return ""
+	}
+	return ReviewSections(b, cfg, target)[""]
 }
 
 // AgentsCompanionPaths returns the nested CLAUDE.md companions sync

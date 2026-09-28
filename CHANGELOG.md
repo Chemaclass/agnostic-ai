@@ -6,6 +6,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### Added
+
+- Codex gets review specs as a `## Code Review Rules` section in the root and scoped `AGENTS.md`, and `import codex` reads it back (#1341).
+
 ### Fixed
 
 - A second `import all` after `sync` no longer turns the generated `CLAUDE.md` or a scoped `.claude/rules/` file into new rules (#1349).
