@@ -21,7 +21,26 @@ var importAllSkippedEntryFiles map[string]bool
 // dropped here, before any importer mirrors or slices the file, so the
 // git-ignored `.agnostic-ai/local/AGNOSTIC_AI.md` text never lands in
 // the committed sources.
+//
+// An entry point sync wrote from the current unfenced AGNOSTIC_AI.md
+// alone reads as fs.ErrNotExist too: it holds nothing the sources lack.
+// For a fenced source, mirrorMainFile keeps it and reports it unchanged.
 func readEntryFile(root, path string) ([]byte, error) {
+	data, err := readProjectEntryFile(root, path)
+	if err != nil {
+		return nil, err
+	}
+	if synced, fenced := syncedSharedBody(root, path, string(data)); synced && !fenced {
+		return nil, fs.ErrNotExist
+	}
+	return data, nil
+}
+
+// readProjectEntryFile is readEntryFile without the synced-body check.
+// It serves a reader of a generated block the shared body leaves out,
+// such as the code review section, whose source may be gone even when
+// the body is not.
+func readProjectEntryFile(root, path string) ([]byte, error) {
 	if importAllSkippedEntryFiles == nil || regularFileInside(root, path) {
 		data, err := os.ReadFile(path)
 		if err != nil {

@@ -371,6 +371,19 @@ func StripLocalInstructions(body string) string {
 	return emit.StripLocalInstructions(body)
 }
 
+// SplitAgentsCompanion reports whether a CLAUDE.md imports the AGENTS.md
+// beside it and returns the rest of its text (re-exported from the emit
+// layer).
+func SplitAgentsCompanion(text string) (string, bool) {
+	return emit.SplitAgentsCompanion(text)
+}
+
+// IsAgentsCompanion reports whether a CLAUDE.md holds only an import of
+// the AGENTS.md beside it (re-exported from the emit layer).
+func IsAgentsCompanion(text string) bool {
+	return emit.IsAgentsCompanion(text)
+}
+
 // InlinesRulesIntoEntryPoint reports whether target delivers rule bodies
 // by inlining them into its entry-point file (re-exported from the emit
 // layer).
@@ -557,7 +570,7 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 	}
 	own := expandBundleVars(b.For(a.Name()), cfg, a.Name())
 	own.Rules = withoutEntryPointRules(sess, cfg, b, a.Name(), own.Rules)
-	prepared, files, err := emit.PrepareScopedRules(own, cfg, a.Name())
+	prepared, files, err := emit.PrepareScopedDocuments(own, cfg, a.Name(), ReviewSections(b, cfg, a.Name()))
 	if err != nil {
 		return err
 	}

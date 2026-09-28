@@ -546,7 +546,7 @@ effort:
 
 A rule is either a bare tool name, which covers the whole tool, or `Scope(argument)`, where the scope ends at the first `(` and the argument runs to the closing `)`. An MCP tool is `mcp__<server>__<tool>`; only the first separator after the prefix divides server from tool. `Scope()` with an empty argument is not a rule and is dropped rather than read as the bare tool, which would widen it.
 
-Keep a `Bash` wildcard at the end of an `allow` rule. `Bash(git * main)` also approves any options inserted at the `*`, and `agnostic-ai lint` reports it as LINT009.
+Keep a `Bash` wildcard at the end of an `allow` or `deny` rule. `Bash(git * main)` also approves any options inserted at the `*`, and Claude Code matches a mid-command `*` in a `deny` rule literally, so it blocks nothing. `agnostic-ai lint` reports both as LINT009.
 
 Multiple files merge: permission lists concatenate, de-duplicated in source order, and the last non-empty `model` and `effort` win. Each target resolves its own entry of a map first, so `model: {codex: gpt-6-luna}` in a later file changes the Codex model only.
 
@@ -597,7 +597,7 @@ scope: backend
 Flag any handler that talks to the database directly instead of going through a repository.
 ```
 
-Reviews honor `scope` and the source layout like rules do. Specs with the same scope concatenate into that scope's one review file, written as a plain body without frontmatter. [Cursor](@/docs/targets/cursor.md) (Bugbot) and [Goose](@/docs/targets/goose.md) support reviews; other targets report them as unsupported.
+Reviews honor `scope` and the source layout like rules do. Specs with the same scope concatenate into that scope's one review file, written as a plain body without frontmatter. [Cursor](@/docs/targets/cursor.md) (Bugbot), [Codex](@/docs/targets/codex.md) (code review), and [Goose](@/docs/targets/goose.md) support reviews; other targets report them as unsupported. For Codex the text lands in a `## Code Review Rules` section of the root or scoped `AGENTS.md`, a file every `AGENTS.md` reader loads; a `targets:` filter that leaves out `codex` keeps a spec out of it.
 
 ## Environments
 

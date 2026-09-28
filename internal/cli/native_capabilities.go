@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/kilo"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/opencode"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -29,15 +30,7 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"Notification",
 		"PreModelSwitch", "PostModelSwitch",
 	),
-	"codex": setOf(
-		"PreToolUse", "PostToolUse",
-		"PermissionRequest",
-		"UserPromptSubmit",
-		"SessionStart", "SessionEnd", "Stop",
-		"SubagentStart", "SubagentStop",
-		"PreCompact", "PostCompact",
-		"Interrupt",
-	),
+	"codex": setOf(codex.HookEvents()...),
 	"gemini": setOf(
 		"BeforeTool", "AfterTool",
 		"BeforeAgent", "AfterAgent",
@@ -282,7 +275,7 @@ var targetsSupportingKind = kindSupport{
 	spec.KindMCP:         setOf("claude", "codex", "gemini", "cursor", "copilot", "continue", "amp", "zed", "warp", "opencode", "antigravity", "junie", "kiro", "crush", "kilo", "factory", "qoder", "openhands", "trae", "windsurf", "augment"),
 	spec.KindCommand:     setOf("claude", "codex", "gemini", "opencode", "cursor", "trae", "junie", "kilo", "qoder", "augment", "factory"),
 	spec.KindSettings:    setOf("claude", "codex", "gemini", "copilot", "opencode", "junie", "qoder", "kilo", "windsurf", "augment", "factory", "amp"),
-	spec.KindReview:      setOf("cursor", "goose"),
+	spec.KindReview:      setOf("cursor", "goose", "codex"),
 	spec.KindEnvironment: setOf("cursor", "openhands", "amp"),
 	spec.KindIgnore:      setOf("cursor", "gemini", "aider", "windsurf", "kiro", "trae", "junie", "crush", "kilo", "augment"),
 }

@@ -56,8 +56,9 @@ func CheckScopePath(path string) error {
 // that the same host would load instead of (or alongside) the generated file.
 // content is what sync writes at path. A hand-authored file there passes
 // when every line of its text is in content, as after `import` captured
-// it (#1269).
-func CheckScopedDestination(path, content string) error {
+// it (#1269). replaced holds the CLAUDE.md companions the Claude adapter
+// removes (see AgentsCompanionDirs), keyed by slash path.
+func CheckScopedDestination(path, content string, replaced map[string]bool) error {
 	if runtime.GOOS == "js" {
 		return nil
 	}
@@ -80,6 +81,11 @@ func CheckScopedDestination(path, content string) error {
 			return fmt.Errorf("%s: %w", p, err)
 		}
 		if p != path {
+			// The Claude adapter removes a companion that only imports
+			// this AGENTS.md, since its scoped rules load the same text.
+			if replaced[filepath.ToSlash(p)] && IsAgentsCompanion(string(data)) {
+				continue
+			}
 			return fmt.Errorf("%s: alternate instructions conflict with scoped %s; import or move the alternate file before syncing", p, filepath.Base(path))
 		}
 		if header.Has(string(data)) {

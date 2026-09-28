@@ -90,3 +90,19 @@ func TestImportClaude_AfterSyncKeepsFencedSourceAndReportsUnchanged(t *testing.T
 		t.Errorf("import should report the source unchanged:\n%s", log.String())
 	}
 }
+
+// The CLAUDE.md sync wrote from a fenced source is the shared body, so
+// importing it again slices no rules out of it (#1349).
+func TestImportClaude_AfterSyncSlicesNoRulesFromTheFencedView(t *testing.T) {
+	source := "# Shared\n\n## Workflow\n\nRun the tests.\n\n::target claude\n## Claude\n\nClaude-only line.\n::end\n"
+	syncFencedProject(t, "version: 1\ntargets: [claude, codex]\n", source)
+
+	if out, err := runCLI(t, "import", "claude"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+
+	if entries, _ := os.ReadDir(".agnostic-ai/rules"); len(entries) != 0 {
+		t.Errorf("import sliced the synced shared body into %d rule(s)", len(entries))
+	}
+	assertSourceKept(t, source)
+}

@@ -10,6 +10,7 @@
 package header
 
 import (
+	"path/filepath"
 	"strings"
 )
 
@@ -123,6 +124,52 @@ func findFrontmatterEnd(content string) int {
 // was agnostic-ai-generated.
 func Has(content string) bool {
 	return strings.Contains(content, Marker)
+}
+
+// Leads reports whether content opens with the provenance header in the
+// comment syntax path's extension takes, where the emitters write it: on
+// the first line, below a `#!` line, or below a Markdown file's YAML
+// frontmatter. Unlike Has, a mention of Marker anywhere else, as in this
+// package's own source or a docs page quoting the header, does not count.
+func Leads(path, content string) bool {
+	s := strings.ReplaceAll(content, "\r\n", "\n")
+	format := formatForPath(path)
+	switch {
+	case format == FormatMarkdown && strings.HasPrefix(s, "---\n"):
+		end := findFrontmatterEnd(s)
+		if end < 0 {
+			return false
+		}
+		s = strings.TrimLeft(s[end:], "\n")
+	case format != FormatMarkdown && strings.HasPrefix(s, "#!"):
+		_, s, _ = strings.Cut(s, "\n")
+	}
+	first, _, _ := strings.Cut(s, "\n")
+	line := Line(format)
+	prefix, _, ok := strings.Cut(line, Marker)
+	if !ok || !strings.HasPrefix(first, prefix+Marker) {
+		return false
+	}
+	return format != FormatMarkdown || strings.HasSuffix(first, "-->")
+}
+
+// formatForPath returns the Format an emitter uses for a file at path.
+// Files with no known extension, such as ignore files, take `#` comments.
+func formatForPath(path string) Format {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".md", ".mdc":
+		return FormatMarkdown
+	case ".toml":
+		return FormatTOML
+	case ".yaml", ".yml":
+		return FormatYAML
+	case ".js", ".mjs", ".cjs", ".ts":
+		return FormatJavaScript
+	case ".json", ".jsonc":
+		return FormatJSON
+	default:
+		return FormatShell
+	}
 }
 
 // Strip removes a leading agnostic-ai header line from content so

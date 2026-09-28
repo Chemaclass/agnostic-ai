@@ -130,6 +130,7 @@ func render(_ js.Value, args []js.Value) any {
 			if inliner != "" {
 				content = adapters.AppendRulesAppendix(content, adapters.RenderRulesAppendix(adapters.EntryPointRules(bundle, inliner)))
 			}
+			content = adapters.AppendReviewSection(content, adapters.RootReviewSection(cfg, bundle, t))
 			files = append(files, map[string]any{
 				"target":  t,
 				"path":    path,

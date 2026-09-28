@@ -134,6 +134,10 @@ func sliceMainFileByH2(root, srcName, dstDir string) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("read %s: %w", src, err)
 	}
+	// The shared body sync wrote is AGNOSTIC_AI.md's, not rules.
+	if synced, _ := syncedSharedBody(root, src, string(data)); synced {
+		return 0, nil
+	}
 
 	// When sync inlined the rules into a sentinel block, reconstruct the
 	// specs from that block alone and ignore the regenerable pointer

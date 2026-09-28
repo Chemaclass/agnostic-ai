@@ -27,7 +27,7 @@ echo "claude,cursor" | agnostic-ai init
 agnostic-ai new rule conventional-commits
 ```
 
-`init` creates `agnostic-ai.yaml` and source folders under `.agnostic-ai/`. `new` writes `.agnostic-ai/rules/conventional-commits.md`.
+`init` creates `agnostic-ai.yaml`. `new` writes `.agnostic-ai/rules/conventional-commits.md`, creating the folder it needs.
 
 For an interactive target picker, run `agnostic-ai init` without the pipe and pick only the tools you use. `init --demo` adds sample specs; `init --preset go`, `ts-react`, or `python` adds stack-specific starters. See [init options](@/docs/cli-reference.md#init).
 

@@ -156,6 +156,12 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 		} else if importer := pathLegacyRulesFileImporter(cfg, consumers[path]); importer != "" {
 			content = adapters.AppendRulesAppendix(content, adapters.RenderLegacyRulesFileImportAppendix(cfg, importer))
 		}
+		if slices.Contains(consumers[path], "codex") {
+			if section := adapters.ReviewSections(b, cfg, targets...)[""]; section != "" {
+				content = adapters.AppendReviewSection(content, section)
+				layers = append(layers, instructionLayer{Name: "reviews", Text: section})
+			}
+		}
 		if local != "" {
 			localView, err := entryPointView(cfg, path, consumers[path], local)
 			if err != nil {

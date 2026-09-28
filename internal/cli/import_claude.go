@@ -43,6 +43,8 @@ func importFromClaude(root string, src config.Sources, layout claudeLayout) erro
 		return err
 	}
 
+	stopTracking := trackImportWrites()
+	defer stopTracking()
 	c := importCounts{}
 	var err error
 	if c.rules, err = importClaudeRules(root, filepath.Join(root, src.Rules), layout); err != nil {
@@ -81,7 +83,7 @@ func importFromClaude(root string, src config.Sources, layout claudeLayout) erro
 	if c.commands, err = importClaudeCommands(root, filepath.Join(root, src.Commands), layout); err != nil {
 		return err
 	}
-	overlaySeeded, effortMoved, err := importClaudeSettingsOverlay(root, filepath.Join(root, src.Settings))
+	settingsImport, err := importClaudeSettingsOverlay(root, filepath.Join(root, src.Settings))
 	if err != nil {
 		return err
 	}
@@ -94,17 +96,24 @@ func importFromClaude(root string, src config.Sources, layout claudeLayout) erro
 	case mirrorUnchanged:
 		summaryf("  → %s unchanged (%s matches its fenced view)\n", agnosticMainFile, mainSrc)
 	}
-	if overlaySeeded {
+	if settingsImport.seeded {
 		summaryf("  → %s seeded from %s/settings.json (carries non-hook settings across re-syncs)\n",
 			claudeOverlayRelPath(), claudeDir)
 	}
-	if effortMoved {
+	if settingsImport.effortMoved {
 		summaryf("  → %s seeded with effortLevel from %s/settings.json\n",
 			filepath.Join(src.Settings, claudeSettingsSpec), claudeDir)
+	}
+	if settingsImport.permissionsMoved {
+		summaryf("  → %s seeded with permissions from %s/settings.json\n",
+			filepath.Join(src.Settings, claudePermissionsSpec+".yaml"), claudeDir)
 	}
 	for _, h := range helpers {
 		summaryf("  → %s seeded from %s/%s\n",
 			filepath.Join(agnosticOverlayDir, "claude", h), claudeDir, h)
+	}
+	if err := resolveClaudeNativeRefs(root, src, layout, stopTracking()); err != nil {
+		return err
 	}
 	printImportNextSteps(root, "claude")
 	return nil
@@ -184,6 +193,13 @@ var agentsMainFileImporters = map[string]bool{
 // unchanged, signaling the caller to skip capturing it as a
 // claude-private helper overlay.
 func mirrorClaudeMainFile(root string) (result mirrorResult, srcName string, promotedNested bool, err error) {
+	if body, ok, err := claudeCompanionBody(root); err != nil || ok {
+		if err != nil {
+			return mirrorAbsent, claudeMainFile, false, err
+		}
+		result, err := mirrorBody(root, claudeMainFile, body, claudeAgentsMainFile)
+		return result, claudeAgentsMainFile + " and " + claudeMainFile, false, err
+	}
 	claimed := rootAgentsMainFileClaimedByPeer()
 	for _, rung := range claudeMainFileChain {
 		if rung.sharedEntryPoint && claimed {
@@ -243,7 +259,6 @@ const (
 // and break import->sync byte-stability (#429).
 func mirrorMainFile(root, srcName string) (mirrorResult, error) {
 	src := filepath.Join(root, srcName)
-	dst := filepath.Join(root, agnosticMainFile)
 	data, err := readEntryFile(root, src)
 	if errors.Is(err, fs.ErrNotExist) {
 		return mirrorAbsent, nil
@@ -251,13 +266,51 @@ func mirrorMainFile(root, srcName string) (mirrorResult, error) {
 	if err != nil {
 		return mirrorAbsent, fmt.Errorf("mirror %s: %w", srcName, err)
 	}
-	body := header.Strip(adapters.StripGeneratedAppendices(string(data)))
+	return mirrorBody(root, srcName, header.Strip(adapters.StripGeneratedAppendices(string(data))))
+}
+
+// claudeCompanionBody returns the shared body for a root CLAUDE.md that
+// imports the AGENTS.md beside it: the AGENTS.md text, then what only
+// CLAUDE.md says in a `::target claude` fence. ok is false when CLAUDE.md
+// does not import AGENTS.md or either file is absent.
+func claudeCompanionBody(root string) (body string, ok bool, err error) {
+	claude, err := readEntryFile(root, filepath.Join(root, claudeMainFile))
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("mirror %s: %w", claudeMainFile, err)
+	}
+	rest, ok := adapters.SplitAgentsCompanion(header.Strip(adapters.StripGeneratedAppendices(string(claude))))
+	if !ok {
+		return "", false, nil
+	}
+	agents, err := readEntryFile(root, filepath.Join(root, claudeAgentsMainFile))
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("mirror %s: %w", claudeAgentsMainFile, err)
+	}
+	body = strings.TrimRight(header.Strip(adapters.StripGeneratedAppendices(string(agents))), "\n") + "\n"
+	if rest != "" {
+		body += "\n::target claude\n" + rest + "\n::end\n"
+	}
+	return body, true, nil
+}
+
+// mirrorBody writes body, captured from srcName, to AGNOSTIC_AI.md.
+// alsoCaptured names other entry points whose text body holds, so the
+// uncaptured-content warning skips them.
+func mirrorBody(root, srcName, body string, alsoCaptured ...string) (mirrorResult, error) {
+	dst := filepath.Join(root, agnosticMainFile)
 
 	// A fenced source renders a per-file view; when the imported entry point
 	// is exactly that view there is nothing new to capture and overwriting
 	// would erase every other target's ::target block.
 	if existing, readErr := os.ReadFile(dst); readErr == nil && strings.Contains(string(existing), "::target") {
-		if matchesRenderedView(root, srcName, header.Strip(string(existing)), body) {
+		source := header.Strip(string(existing))
+		if strings.TrimSpace(source) == strings.TrimSpace(body) || matchesRenderedView(root, srcName, source, body) {
 			return mirrorUnchanged, nil
 		}
 		summaryf("  ! %s replaced a fenced %s; ::target blocks for other tools are gone. Restore them from git if needed.\n", srcName, agnosticMainFile)
@@ -269,7 +322,7 @@ func mirrorMainFile(root, srcName string) (mirrorResult, error) {
 	if err := importWriteFile(dst, []byte(body), 0o644); err != nil {
 		return mirrorAbsent, fmt.Errorf("write %s: %w", dst, err)
 	}
-	warnUncapturedEntryPoints(root, srcName, body)
+	warnUncapturedEntryPoints(root, body, append([]string{srcName}, alsoCaptured...)...)
 	return mirrorWritten, nil
 }
 
@@ -341,6 +394,9 @@ func copyMarkdownTree(srcDir, dstDir string) (int, error) {
 		rel, err := filepath.Rel(srcDir, path)
 		if err != nil {
 			return fmt.Errorf("%s: %w", path, err)
+		}
+		if syncedRuleHasSource(path, rel, dstDir) {
+			return nil
 		}
 		if err := copyMarkdownFile(path, filepath.Join(dstDir, rel)); err != nil {
 			return err

@@ -34,6 +34,11 @@ type referenceFinding struct {
 // skills, so the check follows the adapters' real output layout and never
 // scans unrelated repository files. Read-only: adapters run in capture
 // mode and only emitted documents already on disk are read.
+//
+// A link is valid when it resolves next to the emitted document or from
+// the project root (a skill commonly links a project file by its
+// repo-relative path), or when doctor.check-references.ignore names its
+// destination (#1342).
 func collectReferenceFindings(targets []string) (findings []referenceFinding, docs int, err error) {
 	cfg, b, err := loadProject(".")
 	if err != nil {
@@ -66,6 +71,19 @@ func collectReferenceFindings(targets []string) (findings []referenceFinding, do
 			for _, l := range mdlink.Local(string(data)) {
 				dest := filepath.Join(filepath.Dir(p), filepath.FromSlash(l.Dest))
 				if _, err := os.Stat(dest); err == nil {
+					continue
+				}
+				// A skill commonly links a project file from the repo
+				// root (e.g. `apps/engine/src/lib.ts`); the emitted copy
+				// sits somewhere else, so try the root before flagging it.
+				// IsLocal keeps a `../` link from matching a file beside
+				// the checkout.
+				if rootPath := filepath.FromSlash(l.Dest); filepath.IsLocal(rootPath) {
+					if _, err := os.Stat(rootPath); err == nil {
+						continue
+					}
+				}
+				if cfg.IgnoresReference(l.Raw) || cfg.IgnoresReference(l.Dest) {
 					continue
 				}
 				if !attributed {
@@ -184,12 +202,54 @@ func reportBrokenReferences(cmd *cobra.Command, targets []string) (int, error) {
 		cmd.Printf("  ✓ every local link in %d emitted skill document(s) resolves\n", docs)
 		return 0, nil
 	}
-	for _, f := range findings {
-		cmd.Printf("  ✗ %s: %s:%d links to missing %s\n", f.Target, f.Path, f.Line, f.Destination)
-		if f.Source != "" {
-			cmd.Printf("      source: %s\n", f.Source)
-		}
+	for _, g := range groupReferenceFindings(findings) {
+		cmd.Printf("  ✗ %s:%d links to missing %s\n", g.Label, g.Line, g.Destination)
+		cmd.Printf("      targets: %s\n", strings.Join(g.Targets, ", "))
 	}
 	cmd.Println("    fix: add the file to the skill folder under .agnostic-ai/ and run `agnostic-ai sync`, or correct the link in the source")
 	return len(findings), nil
+}
+
+// referenceGroup collapses the findings that share one source spec (or
+// emitted path, when the source could not be attributed), one line, and
+// one destination: every target that copies the same skill document
+// repeats the same broken link, so only which targets carry it differs.
+type referenceGroup struct {
+	Label       string
+	Line        int
+	Destination string
+	Targets     []string
+}
+
+// groupReferenceFindings groups findings so #1342's noise (one line per
+// target per link) becomes one line per broken link, with every affected
+// target listed together. Order follows first appearance in findings.
+func groupReferenceFindings(findings []referenceFinding) []referenceGroup {
+	type key struct {
+		label, dest string
+		line        int
+	}
+	index := map[key]int{}
+	var groups []referenceGroup
+	for _, f := range findings {
+		label := f.Source
+		if label == "" {
+			label = f.Path
+		}
+		k := key{label: label, dest: f.Destination, line: f.Line}
+		if i, ok := index[k]; ok {
+			if !slices.Contains(groups[i].Targets, f.Target) {
+				groups[i].Targets = append(groups[i].Targets, f.Target)
+			}
+			continue
+		}
+		index[k] = len(groups)
+		groups = append(groups, referenceGroup{
+			Label:       label,
+			Line:        f.Line,
+			Destination: f.Destination,
+			Targets:     []string{f.Target},
+		})
+	}
+	return groups
 }
