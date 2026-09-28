@@ -16,6 +16,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Fixed
 
+- `doctor` lists every hand-written `BUGBOT.md` under Unmanaged config, nested ones such as `api/.cursor/BUGBOT.md` too, not only the root file (#1305).
 - A Codex overlay that ends in a table, such as `[profiles.review]`, no longer captures the `model` and `model_reasoning_effort` sync writes into `.codex/config.toml`.
 - `sync --check` lists drifted files with forward slashes on Windows too, like the rest of the sync output.
 - A scoped rule no longer makes the managed `.gitignore` block ignore its whole directory; the block lists the scoped files instead (#1264).
