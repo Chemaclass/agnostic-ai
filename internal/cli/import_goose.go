@@ -40,10 +40,11 @@ const (
 	// `.agents/checks/*.md` and scoped review instructions from
 	// `.agents/REVIEW.md`" (documentation/docs/guides/goose-cli-commands.md).
 	gooseReviewFile = ".agents/REVIEW.md"
-	// gooseReviewSpecName is the filename the root review file imports
-	// to. The spec itself is target-neutral, so it is not named after
-	// goose: every review-capable target emits it on the next sync.
-	gooseReviewSpecName = "review"
+	// rootReviewSpecName is the filename a root review file imports to,
+	// from goose or cursor. The spec itself is target-neutral, so it is
+	// not named after a tool: every review-capable target emits it on
+	// the next sync.
+	rootReviewSpecName = "review"
 )
 
 // importFromGoose reads an existing Block Goose project and writes specs
@@ -244,8 +245,8 @@ func importGooseReview(root, dstDir string) (int, error) {
 	if body == "" {
 		return 0, nil
 	}
-	out := filepath.Join(dstDir, gooseReviewSpecName+".md")
-	if err := writeRule(out, gooseReviewSpecName, body); err != nil {
+	out := filepath.Join(dstDir, rootReviewSpecName+".md")
+	if err := writeRule(out, rootReviewSpecName, body); err != nil {
 		return 0, err
 	}
 	return 1, nil

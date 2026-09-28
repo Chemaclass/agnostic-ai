@@ -82,10 +82,14 @@ The MCP file is managed as a whole document. Each sync replaces `.cursor/mcp.jso
 | `.cursor/agents/<name>.md` | `<agents>/<name>.md`, provenance header stripped and the spec's own frontmatter keys kept |
 | `.cursor/skills/<name>/` and `.agents/skills/<name>/` | `<skills>/<name>/`, full folder tree: bundled assets byte-for-byte, SKILL.md merged onto the existing spec |
 | `.cursor/commands/<name>.md` | `<commands>/<name>.md`, provenance header stripped and the spec's own frontmatter keys kept |
+| `.cursor/BUGBOT.md` | `<reviews>/review.md` |
+| `<scope>/.cursor/BUGBOT.md` | `<reviews>/<scope-slug>.md` with `scope: <scope>`, for example `services-api.md` for `services/api` |
+
+A `BUGBOT.md` that sync wrote is skipped: same-scope review specs concatenate into it, so reading it back would emit them twice.
 
 Both skill directories are read because [Skills](https://cursor.com/docs/skills.md) marks both as project-level, at the repository root and in nested subdirectories (the nesting becomes the spec scope). `.cursor/skills` wins a same-name clash at the same scope.
 
-Import round-trips cleanly: a later `sync` regenerates equivalent rules, skill folders, and command files. Cursor writes no `argument-hint` or `allowed-tools` on a skill, so import leaves both on the spec. Keys Cursor does write, such as a skill's `icon` or an agent's `model`, follow the native file, so deleting one there deletes it from the spec. A rule's frontmatter comes from the `.mdc` alone, so widening `globs` to `**/*` unscopes the spec.
+Import round-trips cleanly: a later `sync` regenerates equivalent rules, skill folders, command files, and `BUGBOT.md` files. Cursor writes no `argument-hint` or `allowed-tools` on a skill, so import leaves both on the spec. Keys Cursor does write, such as a skill's `icon` or an agent's `model`, follow the native file, so deleting one there deletes it from the spec. A rule's frontmatter comes from the `.mdc` alone, so widening `globs` to `**/*` unscopes the spec.
 
 ## Verify
 
