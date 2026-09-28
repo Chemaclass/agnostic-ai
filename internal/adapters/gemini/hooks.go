@@ -68,19 +68,39 @@ func hookHandlers(h spec.Entry) []map[string]any {
 	return handlers
 }
 
-func nativeHookHandlers(raw any) []map[string]any {
+// hookSourceCommands returns each handler's command before the path
+// rewrite, so the script lookup still sees the tool that owns the stash.
+func hookSourceCommands(h spec.Entry) []string {
+	native, _ := h.Meta["x-gemini"].(map[string]any)
+	if raw, exists := native["hooks"]; exists {
+		var commands []string
+		for _, meta := range nativeCommandEntries(raw) {
+			commands = append(commands, meta["command"].(string))
+		}
+		return commands
+	}
+	return emit.HookCommands(emit.ResolveMeta(h.Meta, target)["command"])
+}
+
+func nativeCommandEntries(raw any) []map[string]any {
 	entries, _ := raw.([]any)
-	var handlers []map[string]any
+	var matched []map[string]any
 	for _, entry := range entries {
 		meta, ok := entry.(map[string]any)
 		if !ok || meta["type"] != "command" {
 			continue
 		}
-		command, _ := meta["command"].(string)
-		if command == "" {
-			continue
+		if command, _ := meta["command"].(string); command != "" {
+			matched = append(matched, meta)
 		}
-		handler := map[string]any{"type": "command", "command": emit.RewriteHookPath(command, target)}
+	}
+	return matched
+}
+
+func nativeHookHandlers(raw any) []map[string]any {
+	var handlers []map[string]any
+	for _, meta := range nativeCommandEntries(raw) {
+		handler := map[string]any{"type": "command", "command": emit.RewriteHookPath(meta["command"].(string), target)}
 		for _, key := range []string{"name", "description", "timeout", "env"} {
 			if value, exists := meta[key]; exists {
 				handler[key] = value
