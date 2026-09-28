@@ -78,6 +78,7 @@ outputs:
 | [`verify`](#verify) | map | disabled | External behavior gate. |
 | [`import`](#import) | map | per source | Import behavior. |
 | [`lint`](#lint) | map | see section | Budgets for always-loaded text. |
+| [`doctor`](#doctor) | map | see section | Opt-in diagnostic checks. |
 
 ## `requires`
 
@@ -282,6 +283,23 @@ Where the defaults come from:
 - The [Agent Skills specification](https://agentskills.io/specification) caps a skill description at 1024 characters.
 
 A missing key or `0` keeps the default; a negative value fails as AAI-004. [`lint` in the CLI reference](@/docs/cli-reference.md#lint) shows the finding. The [global home config](#global-configuration) accepts the key too.
+
+## `doctor`
+
+### `doctor.check-references.ignore` {#doctorcheck-referencesignore}
+
+Link destinations [`doctor --check-references`](@/docs/cli-reference.md#doctor) never reports as broken, no matter what is on disk.
+
+```yaml
+doctor:
+  check-references:
+    ignore:
+      - url                # exact destination, as written in the source Markdown
+      - gcp-url
+      - "*-placeholder"     # glob; `*` stays inside one path segment
+```
+
+An entry is the destination text exactly as written, such as `url` for a placeholder link (`[Logs](url)`) in an example template, or a `path.Match` glob. Matching rules are the same as [`sync.unmanaged`](#syncunmanaged).
 
 ## `on-unsupported`
 
