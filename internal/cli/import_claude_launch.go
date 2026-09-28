@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -47,32 +48,46 @@ func importClaudeLaunch(root string, src config.Sources, layout claudeLayout) (i
 		return 0, fmt.Errorf("read %s: %w", path, err)
 	}
 	stripped, _ := adapters.StripJSONC(data)
-	var doc struct {
-		AutoVerify     *bool            `json:"autoVerify"`
-		Configurations []map[string]any `json:"configurations"`
-	}
-	if err := json.Unmarshal(stripped, &doc); err != nil {
+	var raw map[string]any
+	if err := json.Unmarshal(stripped, &raw); err != nil {
 		return 0, fmt.Errorf("parse %s: %w", path, err)
 	}
 
-	// Sync rebuilds launch.json from the spec alone, so a configuration
-	// the spec cannot express would be dropped. Import all or nothing.
+	// Sync rebuilds launch.json from the spec alone, so anything the spec
+	// cannot express would be dropped. Import all or nothing.
+	leave := func(reason string) (int, error) {
+		summaryf("  ! left %s as written: %s, which a dev-commands spec cannot hold, so sync would drop it\n",
+			filepath.ToSlash(claudeLaunchFile), reason)
+		return 0, nil
+	}
+	for _, k := range slices.Sorted(maps.Keys(raw)) {
+		switch v := raw[k]; k {
+		case "version":
+			if v != launchFileVersion {
+				return leave(fmt.Sprintf("its version is %v, not %s", v, launchFileVersion))
+			}
+		case "autoVerify":
+			if _, ok := v.(bool); !ok {
+				return leave("its autoVerify is not true or false")
+			}
+		case "configurations":
+		default:
+			return leave(fmt.Sprintf("it sets %q", k))
+		}
+	}
+	configurations, ok := raw["configurations"].([]any)
+	if !ok {
+		return leave("its configurations are not a list")
+	}
+
 	var commands []any
-	for _, c := range doc.Configurations {
+	for _, item := range configurations {
+		c, _ := item.(map[string]any)
 		name, _ := c["name"].(string)
-		argv, whole := launchArgv(c)
-		reason := ""
-		switch {
-		case !whole:
-			reason = "an argument is not a string"
-		case name == "" || len(argv) == 0:
-			reason = "it has no command to start"
+		if problem := launchConfigurationProblem(c); problem != "" {
+			return leave(fmt.Sprintf("configuration %q %s", name, problem))
 		}
-		if reason != "" {
-			summaryf("  ! left %s as written: configuration %q cannot be a dev command (%s), and sync would drop it\n",
-				filepath.ToSlash(claudeLaunchFile), name, reason)
-			return 0, nil
-		}
+		argv, _ := launchArgv(c)
 		cmd := yaml.Node{Kind: yaml.MappingNode}
 		addYAMLField(&cmd, "name", name)
 		addYAMLField(&cmd, "command", devCommandValue(argv))
@@ -107,20 +122,71 @@ func importClaudeLaunch(root string, src config.Sources, layout claudeLayout) (i
 	spec := yaml.Node{Kind: yaml.MappingNode}
 	addYAMLField(&spec, "name", claudeLaunchSpecName)
 	addYAMLField(&spec, "dev-commands", commands)
-	if doc.AutoVerify != nil {
-		addYAMLField(&spec, "x-claude", map[string]any{"autoVerify": *doc.AutoVerify})
+	if autoVerify, ok := raw["autoVerify"].(bool); ok {
+		addYAMLField(&spec, "x-claude", map[string]any{"autoVerify": autoVerify})
 	}
-	raw, err := yaml.Marshal(&spec)
+	body, err := yaml.Marshal(&spec)
 	if err != nil {
 		return 0, fmt.Errorf("marshal %s: %w", out, err)
 	}
 	if err := importMkdirAll(dstDir, 0o755); err != nil {
 		return 0, fmt.Errorf("mkdir %s: %w", dstDir, err)
 	}
-	if err := importWriteFile(out, raw, 0o644); err != nil {
+	if err := importWriteFile(out, body, 0o644); err != nil {
 		return 0, fmt.Errorf("write %s: %w", out, err)
 	}
 	return 1, nil
+}
+
+// launchFileVersion is the only launch.json version sync writes.
+const launchFileVersion = "0.0.1"
+
+// launchConfigurationProblem says why a launch.json configuration cannot
+// become a dev command exactly, or returns "" when it can.
+func launchConfigurationProblem(c map[string]any) string {
+	if c == nil {
+		return "is not an object"
+	}
+	for _, k := range slices.Sorted(maps.Keys(c)) {
+		ok := true
+		switch v := c[k]; k {
+		case "name", "runtimeExecutable", "program", "cwd", "url":
+			_, ok = v.(string)
+		case "runtimeArgs", "args":
+			_, ok = jsonStrings(v)
+			ok = ok && v != nil
+		case "port":
+			n, isNum := v.(float64)
+			ok = isNum && n == float64(int(n))
+		case "autoPort":
+			_, ok = v.(bool)
+		case "env":
+			env, isMap := v.(map[string]any)
+			ok = isMap
+			for _, val := range env {
+				switch val.(type) {
+				case string, float64, bool:
+				default:
+					ok = false
+				}
+			}
+		default:
+			return fmt.Sprintf("sets %q", k)
+		}
+		if !ok {
+			return fmt.Sprintf("has a %q value of the wrong type", k)
+		}
+	}
+	if _, hasArgs := c["args"]; hasArgs && c["program"] == nil {
+		return `sets "args" without "program"`
+	}
+	if name, _ := c["name"].(string); name == "" {
+		return "has no name"
+	}
+	if argv, _ := launchArgv(c); len(argv) == 0 {
+		return "has no command to start"
+	}
+	return ""
 }
 
 // launchArgv reads the command a launch.json configuration starts:

@@ -76,6 +76,11 @@ func TestImportFromClaude_LeavesAPartlyImportableLaunchJSON(t *testing.T) {
 	for name, config := range map[string]string{
 		"url only":       `{"name": "Remote", "url": "https://example.test"}`,
 		"non-string arg": `{"name": "Bad", "runtimeExecutable": "npm", "runtimeArgs": ["run", 3]}`,
+		"nested env":     `{"name": "Env", "runtimeExecutable": "npm", "env": {"A": ["x"]}}`,
+		"null env":       `{"name": "Env", "runtimeExecutable": "npm", "env": {"A": null}}`,
+		"unknown key":    `{"name": "Pre", "runtimeExecutable": "npm", "preLaunchTask": "build"}`,
+		"string port":    `{"name": "Port", "runtimeExecutable": "npm", "port": "3000"}`,
+		"args alone":     `{"name": "Args", "runtimeExecutable": "npm", "args": ["x"]}`,
 	} {
 		dir := t.TempDir()
 		writeFile(t, filepath.Join(dir, ".claude", "launch.json"),
@@ -89,6 +94,25 @@ func TestImportFromClaude_LeavesAPartlyImportableLaunchJSON(t *testing.T) {
 		}
 		if !strings.Contains(log.String(), "left .claude/launch.json as written") {
 			t.Errorf("%s: summary does not say launch.json was left:\n%s", name, log.String())
+		}
+	}
+}
+
+// A top-level key sync would not write back keeps the file whole too.
+func TestImportFromClaude_LeavesALaunchJSONWithOtherTopLevelKeys(t *testing.T) {
+	for name, extra := range map[string]string{
+		"unknown key":   `"inputs": []`,
+		"other version": `"version": "0.1.0"`,
+		"bad verify":    `"autoVerify": "no"`,
+	} {
+		dir := t.TempDir()
+		writeFile(t, filepath.Join(dir, ".claude", "launch.json"),
+			`{`+extra+`, "configurations": [{"name": "Web", "runtimeExecutable": "npm", "runtimeArgs": ["start"]}]}`)
+		if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(filepath.Join(dir, "environments", "dev.yaml")); !os.IsNotExist(err) {
+			t.Errorf("%s: environments/dev.yaml written", name)
 		}
 	}
 }
