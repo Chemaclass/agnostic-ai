@@ -9,10 +9,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### General
 
 - With no `.sync-state`, `sync`, `sync --check`, and `doctor` name each leftover output and how to remove it (#1334, #1354, #1362).
-- `sync --untrack` untracks ignored outputs, `install-hook --post-checkout` syncs after checkout, and `.gitignore` marks `allow` lines committed (#1330, #1335).
-- `init` pins the schema URL to its release, omits default `sources:`, notes `on-unsupported: error`, and creates only seeded folders (#1331).
+- `sync --untrack` untracks ignored outputs, `install-hook --post-checkout` syncs after checkout, and `sync --keep-edits -q` reports kept files (#1330, #1333).
+- `init` pins its schema URL per release, skips default `sources:`, and creates only seeded folders; `.gitignore` marks `allow` lines committed (#1331, #1335).
 - Imports point at `.agnostic-ai/` sources, read a linked skill once, and add no rules when rerun after `sync` (#1326, #1338, #1349).
-- `doctor --check-references` resolves repo-root links and groups findings by source; `sync --keep-edits --quiet` reports kept files on stderr (#1333, #1342).
+- `doctor --check-references` resolves repo-root links and groups findings; `lint` no longer calls environment specs empty (#1339, #1342).
 
 ### By tool
 
@@ -27,7 +27,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Cursor
 
-- Environment `setup` writes `.cursor/worktrees.json`, `import cursor` reads it back, and `lint` stops calling environment specs empty (#1339).
+- Environment specs take `setup` and `setup-windows` for new worktrees, written to `.cursor/worktrees.json`; `import cursor` reads it back (#1339).
 
 #### Gemini CLI
 

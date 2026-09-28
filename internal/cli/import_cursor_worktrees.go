@@ -65,18 +65,20 @@ func importCursorWorktrees(root string, src config.Sources) (int, error) {
 			}
 		}
 	}
-	unix, windows := commands["setup-worktree-unix"], commands["setup-worktree-windows"]
-	_, unixSet := native["setup-worktree-unix"]
-	_, windowsSet := native["setup-worktree-windows"]
-	if all, ok := commands["setup-worktree"]; ok {
-		if unix == nil && !unixSet {
-			unix = all
-		}
-		if windows == nil && !windowsSet {
-			windows = all
+	setup, setupWindows := commands["setup-worktree"], commands["setup-worktree-windows"]
+	// A unix list is the portable `setup` only when Windows has its own
+	// setup and no all-OS key is set; otherwise `setup` would start
+	// running it on Windows too.
+	if unix := commands["setup-worktree-unix"]; unix != nil {
+		_, allNative := native["setup-worktree"]
+		_, windowsNative := native["setup-worktree-windows"]
+		if setup == nil && !allNative && (setupWindows != nil || windowsNative) {
+			setup = unix
+		} else {
+			native["setup-worktree-unix"] = unix
 		}
 	}
-	if unix == nil && windows == nil && len(native) == 0 {
+	if setup == nil && setupWindows == nil && len(native) == 0 {
 		return 0, nil
 	}
 
@@ -94,11 +96,11 @@ func importCursorWorktrees(root string, src config.Sources) (int, error) {
 		spec.Content = append(spec.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: key}, &v)
 	}
 	add("name", cursorWorktreeSpecName)
-	if unix != nil {
-		add("setup", specCommands(unix))
+	if setup != nil {
+		add("setup", specCommands(setup))
 	}
-	if windows != nil {
-		add("setup-windows", specCommands(windows))
+	if setupWindows != nil {
+		add("setup-windows", specCommands(setupWindows))
 	}
 	if len(native) > 0 {
 		add("x-cursor", native)

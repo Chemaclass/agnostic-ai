@@ -44,8 +44,8 @@ func TestEmit_EnvironmentSetupWritesWorktreesJSON(t *testing.T) {
 	}
 
 	worktrees := readJSONDoc(t, filepath.Join(cwd, ".cursor", "worktrees.json"))
-	if got, _ := json.Marshal(worktrees["setup-worktree-unix"]); string(got) != `["bash scripts/setup-worktree.bash"]` {
-		t.Errorf("setup-worktree-unix = %s", got)
+	if got, _ := json.Marshal(worktrees["setup-worktree"]); string(got) != `["bash scripts/setup-worktree.bash"]` {
+		t.Errorf("setup-worktree = %s", got)
 	}
 	if got, _ := json.Marshal(worktrees["setup-worktree-windows"]); string(got) != `["npm ci","copy .env.example .env"]` {
 		t.Errorf("setup-worktree-windows = %s", got)
@@ -107,5 +107,27 @@ func TestEmit_EnvironmentKeepsWorktreeScriptPath(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(cwd, ".cursor", "environment.json")); !os.IsNotExist(err) {
 		t.Errorf("environment.json written for setup keys only: %v", err)
+	}
+}
+
+// A later spec that sets `setup` empty clears it: the last spec wins.
+func TestEmit_EnvironmentLaterEmptySetupClears(t *testing.T) {
+	cwd := t.TempDir()
+	testutil.Chdir(t, cwd)
+	b := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindEnvironment, Name: "a", Path: "environments/a.yaml",
+			Meta: map[string]any{"setup": "make setup", "setup-windows": "npm ci"}},
+		{Kind: spec.KindEnvironment, Name: "b", Path: "environments/b.yaml",
+			Meta: map[string]any{"setup": []any{}}},
+	})
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	doc := readJSONDoc(t, filepath.Join(cwd, ".cursor", "worktrees.json"))
+	if _, ok := doc["setup-worktree"]; ok {
+		t.Errorf("setup-worktree kept after a later empty setup: %v", doc)
+	}
+	if doc["setup-worktree-windows"] == nil {
+		t.Errorf("setup-worktree-windows lost: %v", doc)
 	}
 }

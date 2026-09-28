@@ -156,8 +156,6 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
-	emit.NoteFieldNoOp(target, spec.KindEnvironment, "setup", emit.EnvironmentsWithSetup(b.Environments),
-		"Codex does not document a file for local environment setup yet")
 
 	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)

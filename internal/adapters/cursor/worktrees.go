@@ -13,12 +13,12 @@ import (
 const defaultWorktreesFile = ".cursor/worktrees.json"
 
 // worktreeSetupKeys maps an environment spec's setup fields to the
-// worktrees.json keys Cursor documents: `setup-worktree-unix` for macOS
-// and Linux, `setup-worktree-windows` for Windows. Each takes a list of
-// commands. The keys stay out of environment.json, which is the cloud
-// agent's file.
+// worktrees.json keys Cursor documents: `setup-worktree` for every OS and
+// `setup-worktree-windows`, which Cursor runs instead on Windows. Each
+// takes a list of commands. The keys stay out of environment.json, which
+// is the cloud agent's file.
 var worktreeSetupKeys = []struct{ field, key string }{
-	{"setup", "setup-worktree-unix"},
+	{"setup", "setup-worktree"},
 	{"setup-windows", "setup-worktree-windows"},
 }
 
@@ -35,13 +35,13 @@ func emitWorktrees(sess *emit.Session, envs []spec.Entry, dryRun bool) error {
 	for _, e := range envs {
 		m := emit.ResolveMeta(e.Meta, target)
 		for _, k := range worktreeSetupKeys {
-			if cmds := setupCommands(m[k.field]); len(cmds) > 0 {
-				doc[k.key] = cmds
+			if v, ok := m[k.field]; ok {
+				setWorktreeKey(doc, k.key, setupCommands(v))
 			}
 		}
 		for _, k := range worktreeNativeKeys {
-			if v, ok := m[k]; ok && v != nil {
-				doc[k] = v
+			if v, ok := m[k]; ok {
+				setWorktreeKey(doc, k, v)
 			}
 		}
 	}
@@ -53,6 +53,29 @@ func emitWorktrees(sess *emit.Session, envs []spec.Entry, dryRun bool) error {
 		return fmt.Errorf("cursor worktrees: %w", err)
 	}
 	return sess.WriteFile(defaultWorktreesFile, string(raw)+"\n", dryRun)
+}
+
+// setWorktreeKey sets key to v, or clears it when a later spec sets the
+// field empty, so the last spec wins as in environment.json.
+func setWorktreeKey(doc map[string]any, key string, v any) {
+	switch t := v.(type) {
+	case nil:
+		delete(doc, key)
+	case string:
+		if t == "" {
+			delete(doc, key)
+			return
+		}
+		doc[key] = t
+	case []string:
+		if len(t) == 0 {
+			delete(doc, key)
+			return
+		}
+		doc[key] = t
+	default:
+		doc[key] = v
+	}
 }
 
 // setupCommands reads a setup field written as one command or a list.

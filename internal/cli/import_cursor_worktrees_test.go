@@ -83,3 +83,18 @@ func TestImportFromCursor_SkipsSyncedWorktreesAndExistingSpec(t *testing.T) {
 		t.Errorf("a synced worktrees.json was imported: %v", err)
 	}
 }
+
+// A unix-only list stays a Cursor key: as `setup` it would also start
+// running on Windows.
+func TestImportFromCursor_KeepsAUnixOnlyListForCursor(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".cursor", "worktrees.json"), `{"setup-worktree-unix": ["make setup"]}`)
+	if err := importFromCursor(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got := readFileString(t, filepath.Join(dir, "environments", "worktree.yaml"))
+	want := "name: worktree\nx-cursor:\n    setup-worktree-unix:\n        - make setup\n"
+	if got != want {
+		t.Errorf("environments/worktree.yaml:\n%s\nwant:\n%s", got, want)
+	}
+}
