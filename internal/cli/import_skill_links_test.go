@@ -178,3 +178,36 @@ func nativeSkillsDirFor(source string) string {
 		"codex":  filepath.Join(".agents", "skills"),
 	}[source]
 }
+
+// A root skill that links to a package's nested skill folder is one
+// skill: import keeps the root path, skips the nested one, and says so.
+func TestImport_ImportsARootLinkToANestedSkillFolderOnce(t *testing.T) {
+	for source, native := range map[string]string{"cursor": ".cursor/skills", "codex": ".agents/skills"} {
+		t.Run(source, func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.Chdir(t, dir)
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+source+"]\n")
+			writeFile(t, filepath.Join(dir, "packages/ops", native, "ops/SKILL.md"), "---\nname: ops\ndescription: Ops.\n---\n\nBody.\n")
+			if err := os.MkdirAll(filepath.Join(dir, native), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(filepath.Join("..", "..", "packages", "ops", filepath.FromSlash(native), "ops"), filepath.Join(dir, native, "ops")); err != nil {
+				t.Skipf("symlinks unsupported: %v", err)
+			}
+			out := captureSummary(t)
+			if _, err := runCLI(t, "import", source); err != nil {
+				t.Fatalf("import %s: %v", source, err)
+			}
+			if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai/skills/ops/SKILL.md")); err != nil {
+				t.Errorf("the root skill was not imported: %v", err)
+			}
+			if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai/skills/packages")); !os.IsNotExist(err) {
+				t.Errorf("the nested copy of the linked skill was imported too: %v", err)
+			}
+			nested := "packages/ops/" + native + "/ops"
+			if !strings.Contains(out.String(), "skipped "+nested) || !strings.Contains(out.String(), "kept "+native+"/ops") {
+				t.Errorf("no note names the skipped and kept paths:\n%s", out.String())
+			}
+		})
+	}
+}

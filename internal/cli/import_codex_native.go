@@ -434,6 +434,8 @@ func importCodexSkills(root, dstDir string) (int, error) {
 		return 0, err
 	}
 	locations = append(locations, scopedSkillDir{path: filepath.Join(root, codexSkillsDirs[1])})
+	rootScopeFirst(locations)
+	folders := skillFolderClaims{}
 	for _, location := range locations {
 		srcDir := location.path
 		entries, err := os.ReadDir(srcDir)
@@ -456,6 +458,9 @@ func importCodexSkills(root, dstDir string) (int, error) {
 				continue
 			} else if err != nil {
 				return count, fmt.Errorf("stat skill %s: %w", e.Name(), err)
+			}
+			if !folders.claim(root, filepath.Join(srcDir, e.Name()), skillSrc) {
+				continue
 			}
 			seen[identity] = true
 			skillDst := filepath.Join(dstDir, filepath.FromSlash(location.scope), e.Name())

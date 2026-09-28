@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
@@ -73,30 +74,75 @@ func importScopedSkillFoldersFrom(root string, nativeDirs []string, dstDir strin
 // importScopedSkillFoldersWith is importScopedSkillFoldersFrom with the
 // target's own SKILL.md field set.
 func importScopedSkillFoldersWith(root string, nativeDirs []string, dstDir string, fields *specFields) (int, error) {
+	var dirs []scopedSkillDir
+	for _, nativeDir := range nativeDirs {
+		found, err := findScopedSkillDirs(root, nativeDir)
+		if err != nil {
+			return 0, err
+		}
+		dirs = append(dirs, found...)
+	}
+	rootScopeFirst(dirs)
 	count := 0
 	seen := map[string]map[string]bool{}
-	for _, nativeDir := range nativeDirs {
-		dirs, err := findScopedSkillDirs(root, nativeDir)
+	folders := skillFolderClaims{}
+	for _, dir := range dirs {
+		if seen[dir.scope] == nil {
+			seen[dir.scope] = map[string]bool{}
+		}
+		imported, err := importSkillFoldersWith(
+			root,
+			dir.path,
+			filepath.Join(dstDir, filepath.FromSlash(dir.scope)),
+			skillFolderImportOpts{SkipNames: seen[dir.scope], Fields: fields, Folders: folders},
+		)
 		if err != nil {
 			return count, err
 		}
-		for _, dir := range dirs {
-			if seen[dir.scope] == nil {
-				seen[dir.scope] = map[string]bool{}
-			}
-			imported, err := importSkillFoldersWith(
-				root,
-				dir.path,
-				filepath.Join(dstDir, filepath.FromSlash(dir.scope)),
-				skillFolderImportOpts{SkipNames: seen[dir.scope], Fields: fields},
-			)
-			if err != nil {
-				return count, err
-			}
-			count += imported
-		}
+		count += imported
 	}
 	return count, nil
+}
+
+// rootScopeFirst moves the root-scope skill directories ahead of the
+// scoped ones, keeping their order otherwise, so a root link to a
+// package's skill folder claims that folder before the package does.
+func rootScopeFirst(dirs []scopedSkillDir) {
+	sort.SliceStable(dirs, func(i, j int) bool {
+		return dirs[i].scope == "" && dirs[j].scope != ""
+	})
+}
+
+// skillFolderClaims maps the resolved path of each imported skill folder
+// to the native path it was imported from, so a folder reached through a
+// link and through its own location becomes one spec.
+type skillFolderClaims map[string]string
+
+// claim reports whether the skill folder at src, found at entry, is new
+// to this import. A folder already imported through another path is
+// skipped with a note naming the path that was kept.
+func (c skillFolderClaims) claim(root, entry, src string) bool {
+	if c == nil {
+		return true
+	}
+	abs, err := filepath.Abs(src)
+	if err != nil {
+		return true
+	}
+	real, err := filepath.EvalSymlinks(abs)
+	if err != nil {
+		return true
+	}
+	at := entry
+	if rel, err := filepath.Rel(root, entry); err == nil {
+		at = filepath.ToSlash(rel)
+	}
+	if kept, ok := c[real]; ok {
+		summaryf("  ! skipped %s: kept %s, which is the same skill folder\n", at, kept)
+		return false
+	}
+	c[real] = at
+	return true
 }
 
 // importSkillFolders copies each `<srcDir>/<name>/` directory tree that
@@ -116,6 +162,8 @@ type skillFolderImportOpts struct {
 	// Fields overrides what the target's SKILL.md can hold. Nil means
 	// the Agent Skills baseline every target but Claude and Cursor writes.
 	Fields *specFields
+	// Folders dedupes skill folders across directories by resolved path.
+	Folders skillFolderClaims
 }
 
 // importSkillFoldersWith imports a native skill tree with optional
@@ -144,6 +192,9 @@ func importSkillFoldersWith(root, srcDir, dstDir string, opts skillFolderImportO
 			continue
 		} else if err != nil {
 			return count, fmt.Errorf("stat skill %s: %w", e.Name(), err)
+		}
+		if !opts.Folders.claim(root, filepath.Join(srcDir, e.Name()), skillSrc) {
+			continue
 		}
 		if err := copyDirTreeWith(skillSrc, skillDst, opts.TransformSkill, skillFields(opts.Fields)); err != nil {
 			return count, fmt.Errorf("copy skill %s: %w", e.Name(), err)
