@@ -1,0 +1,4 @@
+notify = ["terminal-notifier", "-title", "Codex"]
+
+[profiles.review]
+model_reasoning_effort = "xhigh"

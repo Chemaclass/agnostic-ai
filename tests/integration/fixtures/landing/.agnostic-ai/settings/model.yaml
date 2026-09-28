@@ -1,0 +1,6 @@
+model:
+  claude: claude-opus-5-5
+  codex: gpt-6-sol
+effort:
+  claude: xhigh
+  codex: high

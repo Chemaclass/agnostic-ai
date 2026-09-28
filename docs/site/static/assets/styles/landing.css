@@ -170,31 +170,16 @@ main > section[id] {
   font-size: 0.72rem;
 }
 
+.spec-card pre + .file-name {
+  border-top: 1px solid var(--slab-line);
+}
+
 .file-dot {
   width: 0.5rem;
   height: 0.5rem;
   flex: none;
   border-radius: 50%;
   background: var(--accent);
-}
-
-/* The note says what this target could not keep, so it sits above the file it
-   describes, on paper rather than on the slab, where it reads as commentary. */
-.output-note {
-  margin: 0;
-  padding: 0.6rem 0.9rem;
-  border-bottom: 1px solid var(--slab-line);
-  background: var(--accent-soft);
-  color: var(--ink-soft);
-  font-size: 0.78rem;
-  line-height: 1.55;
-}
-
-.output-note code {
-  padding: 0;
-  background: none;
-  color: var(--accent);
-  font-size: 0.95em;
 }
 
 .section-title {
