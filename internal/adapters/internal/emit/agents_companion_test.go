@@ -126,7 +126,7 @@ func TestRemoveAgentsCompanion(t *testing.T) {
 			before: func(s *Session) { s.StartCapture() },
 			after: func(t *testing.T, s *Session) {
 				s.StopCapture()
-				if got := s.CapturedRemovals(); len(got) != 1 || got[0].Path != "services/api/CLAUDE.md" {
+				if got := s.CapturedRemovals(); len(got) != 1 || got[0].Path != filepath.FromSlash("services/api/CLAUDE.md") {
 					t.Errorf("CapturedRemovals() = %v, want the companion", got)
 				}
 			},
