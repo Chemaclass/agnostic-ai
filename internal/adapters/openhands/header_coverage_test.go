@@ -67,8 +67,8 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 // paths, and bodies
 // matching crush's and codex's kit-sink fixtures so their SKILL.md
 // renders stay byte-identical (see skill_render_parity_test.go), three
-// MCP specimens covering all three OpenHands [mcp] arrays (stdio, sse,
-// and http/shttp), and one environment spec covering `.openhands/setup.sh`.
+// MCP specimens (stdio, sse, and http) that write no project file, and
+// one environment spec covering `.openhands/setup.sh`.
 // Rules cover both paths KindRule can take: r1-r3 are always-on and
 // reach OpenHands only through the shared AGENTS.md entry-point this
 // adapter never writes itself (see openhands.go); r4 carries a `globs`

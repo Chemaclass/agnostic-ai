@@ -6,6 +6,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### Removed
+
+- Project sync stops writing OpenHands `config.toml` `[mcp]`, which current releases ignore, and removes the old file. Use `sync --global` (#1259).
+
 ### Site
 
 - The landing's targets section names all 25 targets as links in place of the animated fan.

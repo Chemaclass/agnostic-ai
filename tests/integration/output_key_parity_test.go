@@ -63,6 +63,7 @@ var valueOutputKeys = map[string]bool{
 var documentedNoOpKeys = map[string]string{
 	"amp.commands-dir":       "Amp removed its file-based command surface, so nothing is emitted to point at",
 	"junie.rules-dir":        "rules inline into .junie/AGENTS.md; the key only redirects the legacy-tree sweep",
+	"openhands.mcp-file":     "OpenHands reads MCP servers from ~/.openhands/mcp.json only, so project sync writes no MCP file",
 	"windsurf.workflows-dir": "Devin Desktop removed Cascade, the only agent that read a Workflow file",
 }
 

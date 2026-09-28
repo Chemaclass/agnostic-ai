@@ -16,7 +16,6 @@ target_id = "openhands"
 AGENTS.md                          # pointer body + inlined always-on rules (shared path)
 .agents/agents/<name>.md           # one project agent (shared with Goose)
 .agents/skills/<name>/SKILL.md     # one folder per skill or path-triggered rule (shared with codex/amp/zed/crush)
-config.toml                        # when MCP entries exist
 .openhands/hooks.json              # when hook entries exist
 .openhands/setup.sh                # when an environment spec sets `install`
 ```
@@ -34,13 +33,10 @@ An always-on rule (no `globs`/`paths` and no source-layout or frontmatter scope)
   - Six events: `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Stop`, `SessionStart`, `SessionEnd`. OpenHands' native form uses snake_case keys with no wrapper, but it also accepts the Claude form (PascalCase keys inside a `{"hooks": {...}}` wrapper). This adapter emits the Claude form, so one renderer serves both targets.
   - Per entry: `command`, `type` (always `command`), optional `timeout` (seconds, vendor default 60) and `async`. A `matcher` applies only to the two ToolUse events.
   - OpenHands uses its own tool names (`terminal`, not `Bash`), so a matcher from a Claude spec matches nothing. That case gets a coverage note instead of a guessed rename, because only `terminal` (plus `*` and regex) is documented.
-- **MCP**: current OpenHands releases no longer read a `config.toml` `[mcp]` section; the vendor calls it legacy V0 and reads MCP servers from Agent Canvas, `~/.openhands/mcp.json`, or the SDK instead. Run `agnostic-ai sync --global` to install your home's MCP specs in `~/.openhands/mcp.json` (see [global MCP servers](@/docs/configuration.md#global-mcp-servers)). Project sync still writes the legacy file for V0 and prints a coverage note saying current releases ignore it. This output is deprecated: the release after v0.71.0 stops writing it (#1259). It merges into `./config.toml` under a `[mcp]` table with three arrays instead of a `type` field: `stdio_servers` (`[[mcp.stdio_servers]]` tables with `name`/`command`/`args`/`env`), `sse_servers`, and `shttp_servers` (streamable HTTP, the spec's `type: http`).
-  - Each remote element is a bare URL string, or a `{ url, api_key, timeout, auth }` object when the entry sets `api_key`, `oauth`/`auth`, and/or (shttp only) `timeout`. Both forms can mix in one array.
-  - `timeout` (int, 1-3600 seconds, default 60) is documented for shttp only. An sse entry that sets it gets a coverage note.
-  - A truthy `oauth`, or an explicit `auth: oauth` extra field, turns a shttp entry into `{ url, auth: "oauth" }`, the [OAuth authentication flag](https://docs.openhands.dev/openhands/usage/settings/mcp-settings) OpenHands documents for servers like Notion MCP. OpenHands stores no client id or secret in `config.toml`; FastMCP runs the browser authorization flow out of band, so presence is all agnostic-ai reads. `oauth` is shttp-only too; an sse entry that sets it gets a coverage note.
-  - Generic `headers` have no equivalent (OpenHands documents only `api_key`) and get a coverage note.
-  - A transport with no documented array (e.g. `type: ws`) is not written and gets a coverage note.
-  - The project `config.toml` is managed: its `[mcp]` table is overwritten on each sync. Keep unmanaged OpenHands config elsewhere.
+- **MCP**: project sync writes no MCP file. Current OpenHands releases read MCP servers from Agent Canvas, `~/.openhands/mcp.json`, or the SDK. They ignore a project `config.toml` `[mcp]` section, which the vendor calls legacy V0.
+  - Put MCP specs in `~/.agnostic-ai/mcps/` and run `agnostic-ai sync --global` to install them in `~/.openhands/mcp.json`. See [global MCP servers](@/docs/configuration.md#global-mcp-servers).
+  - A project MCP spec gets one coverage note that points at `sync --global`.
+  - The next sync removes a `config.toml` that an earlier release wrote. `import openhands` still reads a legacy `config.toml` `[mcp]` table into specs.
 - **Environments**: an environment spec's `install` writes `.openhands/setup.sh`, the [repository setup script](https://docs.openhands.dev/openhands/usage/customization/repository) OpenHands runs each time it starts working with the repo.
   - The script has a `#!/bin/bash` shebang, the provenance header, then `install` verbatim. OpenHands runs `chmod +x` itself, so no executable bit is set on write.
   - `terminals` (Cursor's long-running dev processes) has no equivalent, since the script runs once at repo start. It gets a coverage note.
@@ -59,7 +55,7 @@ An always-on rule (no `globs`/`paths` and no source-layout or frontmatter scope)
 | flat `<name>.md` in any of those three directories | a rule, or a skill when it carries `triggers` (kept under `x-openhands`) |
 | `.agents/agents/<name>.md` | `<agents>/<name>.md` |
 | `.openhands/hooks.json` | one hook spec per matcher group |
-| `config.toml` `[mcp]` table | `<mcps>/<name>.yaml` per server |
+| `config.toml` `[mcp]` table (legacy V0) | `<mcps>/<name>.yaml` per server |
 | `.openhands/setup.sh` | `<environments>/openhands-setup.yaml` with the script as `install` |
 | `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
 
@@ -67,7 +63,7 @@ An always-on rule (no `globs`/`paths` and no source-layout or frontmatter scope)
 
 Lossy fields (none change what OpenHands loads):
 
-- `sse_servers` and `shttp_servers` entries have no name, so the MCP spec is named after the URL host (`docs-example-test`). The next sync may reorder a bucket's servers.
+- `sse_servers` and `shttp_servers` entries have no name, so the MCP spec is named after the URL host (`docs-example-test`).
 - A rule's source-layout scope comes back as the `paths` glob it widened to.
 - An environment spec's name and `terminals` are lost; the setup script holds only `install`.
 
@@ -77,22 +73,22 @@ Lossy fields (none change what OpenHands loads):
 | --- | --- |
 | `outputs.openhands.agents-dir` | `.agents/agents` |
 | `outputs.openhands.skills-dir` | `.agents/skills` |
-| `outputs.openhands.mcp-file` | `config.toml` |
 | `outputs.openhands.hooks-file` | `.openhands/hooks.json` |
 | `outputs.openhands.setup-file` | `.openhands/setup.sh` |
+
+`outputs.openhands.mcp-file` no longer affects OpenHands: project sync writes no MCP file.
 
 ## Verify
 
 1. Install OpenHands ([docs](https://docs.openhands.dev/overview/skills)).
 2. Check the tree:
-   - `ls AGENTS.md .agents/agents/ .agents/skills/ config.toml .openhands/setup.sh`
+   - `ls AGENTS.md .agents/agents/ .agents/skills/ .openhands/setup.sh`
    - `test -f .agents/agents/*.md`
    - `test -f .agents/skills/*/SKILL.md`
-   - `head -1 config.toml` shows the provenance comment.
 3. Launch OpenHands:
    - The context loads `AGENTS.md`.
    - Each `.agents/skills/<name>/` appears as a skill.
    - A path-triggered rule injects only when a file matching its `paths:` globs is touched.
-   - Each `[mcp]` server in `config.toml` connects.
+   - After `agnostic-ai sync --global`, each server in `~/.openhands/mcp.json` connects.
    - `.openhands/setup.sh` runs at session start.
    - Each `.openhands/hooks.json` entry fires on its event (`OPENHANDS_EVENT_TYPE` in the hook's environment shows which).

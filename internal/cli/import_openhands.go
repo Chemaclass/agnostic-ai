@@ -56,7 +56,8 @@ var openhandsLegacyKeys = map[string]bool{"name": true, "type": true, "version":
 //   - `.agents/agents/*.md` becomes agents, the tree Goose shares.
 //   - `.openhands/hooks.json` becomes hook specs, in either the native
 //     snake_case layout or the Claude-compatible one sync writes.
-//   - `config.toml` `[mcp]` becomes MCP specs.
+//   - `config.toml` `[mcp]` becomes MCP specs. Sync no longer writes
+//     that file, which only legacy OpenHands (V0) reads.
 //   - `.openhands/setup.sh` becomes one environment spec.
 //
 // Lossy fields: an `[mcp]` sse or shttp entry has no name, so import

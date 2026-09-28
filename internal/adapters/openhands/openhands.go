@@ -47,28 +47,12 @@
 // key. See path_rules.go for the glob-resolution and rendering.
 //
 
-// MCP servers merge into `./config.toml` (override via
-// outputs.openhands.mcp-file), a format current OpenHands releases no
-// longer read (legacy V0, #1252): each sync notes it, and sync --global
-// writes ~/.openhands/mcp.json through UserMCPServers instead. The file
-// holds a `[mcp]` table with three arrays:
-// `stdio_servers` (`[[mcp.stdio_servers]]` tables carrying `name`,
-// `command`, `args`, `env`), and `sse_servers` / `shttp_servers`
-// (`shttp_servers` is OpenHands' streamable-HTTP transport, the
-// cross-tool spec's `type: http`). Each sse/shttp element is a bare URL
-// string, or the vendor's documented `{ url, api_key, timeout, auth }`
-// object once the entry sets a top-level `api_key` and/or (shttp only)
-// a `timeout` or `auth`/`oauth` meta field; OpenHands has no header-map
-// field for these, so a spec's `headers` value never reaches it and
-// surfaces a coverage note instead of vanishing silently, and
-// `timeout` and `oauth` on an sse entry get the same treatment since
-// the vendor documents both for shttp only (#588, #1157). Read
-// config_toml.go's serverValue for the exact mapping this defends.
-// OpenHands has no `type` field of its own; transport is implied by
-// which array a server lands in. The TOML rendering reuses the same
-// field writers Codex's `[mcp_servers.<name>]` tables use (see
-// internal/adapters/internal/emit/toml.go) rather than a second
-// hand-rolled copy.
+// MCP servers have no project output. Current OpenHands releases read
+// them from ~/.openhands/mcp.json and never from a project config.toml
+// `[mcp]` section, which the vendor calls legacy V0 (#1252). Project sync
+// prints one coverage note, and sync --global writes the user file
+// through UserMCPServers (#1259). `import openhands` still reads a legacy
+// config.toml, so a team can move its servers into specs.
 //
 // An environment spec's `install` field writes `.openhands/setup.sh`
 // (override via outputs.openhands.setup-file), the vendor's documented
@@ -105,7 +89,6 @@ const (
 	target           = "openhands"
 	defaultAgentsDir = ".agents/agents"
 	defaultSkillsDir = ".agents/skills"
-	defaultMCPFile   = "config.toml"
 	defaultSetupFile = ".openhands/setup.sh"
 )
 
@@ -114,7 +97,8 @@ var caps = emit.Capabilities{
 	// KindRule covers two paths: an always-on rule reaches OpenHands
 	// only through the shared AGENTS.md entry-point sync writes
 	// centrally, while a path-triggered rule (paths/globs/scope) writes
-	// its own skill folder directly (see path_rules.go).
+	// its own skill folder directly (see path_rules.go). KindMCP reaches
+	// OpenHands only through sync --global.
 	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindEnvironment},
 	AgentFieldReasons: map[string]string{
 		"mcpServers": "OpenHands takes inline server definitions only; set x-openhands.mcp_servers",
@@ -134,10 +118,9 @@ func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
 // Emit writes one native skill folder per skill under .agents/skills/,
 // one path-triggered-rule skill folder per scoped rule under the same
-// directory, plus a merged `./config.toml` for MCP servers and
-// `.openhands/setup.sh` for environment specs. The project-root
-// AGENTS.md (with always-on rule bodies inlined) is written by `sync`,
-// not here.
+// directory, plus `.openhands/setup.sh` for environment specs. The
+// project-root AGENTS.md (with always-on rule bodies inlined) is written
+// by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
@@ -159,7 +142,8 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitHooks(sess, b.Hooks, cfg, dryRun); err != nil {
 		return err
 	}
-	return emitMCPConfig(sess, b.MCPs, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	noteMCPGlobalOnly(b.MCPs)
+	return nil
 }
 
 // EmitAgents writes native agent profiles without other project outputs.
@@ -201,33 +185,13 @@ func noteDroppedAgentColor(agents []spec.Entry) {
 		"`.agents/agents/<name>.md` is shared byte-for-byte with Goose, whose frontmatter has no color key; set x-openhands.color to emit it for openhands only")
 }
 
-// emitMCPConfig sorts mcps into OpenHands' three [mcp] arrays, surfaces
-// a coverage note for any transport that maps to none of them (rather
-// than guessing a bucket), for any remote entry whose `headers` cannot
-// reach OpenHands' single-`api_key` credential field, for any sse entry
-// whose `timeout` has no effect there (shttp-only), and for any sse
-// entry whose `oauth` has no effect there either (shttp-only, #1157),
-// and writes the merged TOML when at least one server rendered.
-func emitMCPConfig(sess *emit.Session, mcps []spec.Entry, path string, dryRun bool) error {
-	stdio, sse, shttp, unmapped, headersNoOp, timeoutNoOp, oauthNoOp := mcpTransportBuckets(mcps)
-	emit.NoteCoverageGap(target, spec.KindMCP, unmapped,
-		"no OpenHands [mcp] array for this transport")
-	emit.NoteFieldNoOp(target, spec.KindMCP, "headers", headersNoOp,
-		"OpenHands sse/shttp servers take a single api_key string, not a headers map; set meta.api_key directly")
-	emit.NoteFieldNoOp(target, spec.KindMCP, "timeout", timeoutNoOp,
-		"OpenHands documents timeout for shttp_servers only, not sse_servers")
-	emit.NoteFieldNoOp(target, spec.KindMCP, "oauth", oauthNoOp,
-		"OpenHands documents auth = \"oauth\" for shttp_servers only, not sse_servers")
-	doc := renderConfigTOML(stdio, sse, shttp)
-	if doc == "" {
-		return nil
-	}
-	// docs.openhands.dev/openhands/usage/settings/mcp-settings: "Current
-	// OpenHands releases don't read MCP servers from a config.toml [mcp]
-	// section ... That format belongs to legacy OpenHands (V0)" (#1252).
-	emit.NoteSurfaceGap(target, spec.KindMCP, len(stdio)+len(sse)+len(shttp), "config.toml [mcp]",
-		"current OpenHands releases ignore it and read it only on legacy V0, and the next release stops writing it; run `agnostic-ai sync --global` to install the servers in ~/.openhands/mcp.json")
-	return sess.WriteFile(path, doc, dryRun)
+// noteMCPGlobalOnly points MCP specs at sync --global.
+// docs.openhands.dev/openhands/usage/settings/mcp-settings: "Current
+// OpenHands releases don't read MCP servers from a config.toml [mcp]
+// section ... That format belongs to legacy OpenHands (V0)".
+func noteMCPGlobalOnly(mcps []spec.Entry) {
+	emit.NoteCoverageGap(target, spec.KindMCP, len(mcps),
+		"current OpenHands releases read MCP servers from ~/.openhands/mcp.json; copy the specs to ~/.agnostic-ai/mcps/ and run `agnostic-ai sync --global`")
 }
 
 // UserMCPServers renders mcps as the `mcpServers` map of
