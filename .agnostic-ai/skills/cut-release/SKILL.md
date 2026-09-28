@@ -17,7 +17,7 @@ The user asks to release, tag, ship, or cut a new version.
 ## Steps
 
 1. Confirm working tree clean and on `main`. `git pull --ff-only`.
-2. `make ci-local`. Not `make preflight`. Refuse to proceed on any failure.
+2. `make ci-local`. Not `make preflight`. Check its own exit code, never through a pipe, and refuse to proceed on any failure.
 
    `preflight` covers formatting, lint (including govet), and Go tests. A
    release also needs race tests, the WASM build, schema drift, spec lint, shell
