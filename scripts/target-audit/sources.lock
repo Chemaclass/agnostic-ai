@@ -64,7 +64,7 @@ copilot	changelog	https://github.blog/changelog/label/copilot/	200	html	c880d90b
 copilot	docs	https://code.visualstudio.com/docs/agent-customization/mcp-servers	200	html	d5032c4d286199151d7c22070254a54a4fb6389593da644732910cdb2933fe42	2026-09-26
 copilot	docs	https://code.visualstudio.com/docs/agents/reference/mcp-configuration	200	html	be8eef64d97af91ae35048160ab265074c818803380caac2f70a587c1f85144e	2026-09-26
 copilot	docs	https://docs.github.com/en/copilot/concepts/agents/hooks.md	200	markdown-mirror	bfd40aa93ad62133efc17a50f189034f01594dc89a5d31a13a0c541d691acede	2026-09-25
-copilot	docs	https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers.md	200	markdown-mirror	020389019c5c2d3ad26381a37b0e5a7a856662f4b888e9707a364a854a96f417	2026-09-25
+copilot	docs	https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers.md	200	markdown-mirror	63f85150af691e1563c57ad2e02a1a03491a20527b7a9357080bbf90da559000	2026-09-28
 copilot	docs	https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills.md	200	markdown-mirror	2aa46e4615fc9cdaaae6a70061fd0056719886c4d2a3ead98b5daf5e45e90c91	2026-09-25
 copilot	docs	https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/use-hooks.md	200	markdown-mirror	df8a7c3635741a19e2cab4f20ba54dd3f852077ecc81022f9f65d921a5c0fbf5	2026-09-25
 copilot	docs	https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference.md	200	markdown-mirror	0b5ef315f09fe0fda2e1435204b55e06452062c76cb28b29854f09e1b51a42cd	2026-09-25
