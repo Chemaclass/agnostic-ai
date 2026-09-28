@@ -18,6 +18,17 @@ var claudeOnlySkillKeys = []string{"allowed-tools"}
 
 var xClaudeBlockRE = regexp.MustCompile(`^x-claude:[ \t]*(#.*)?$`)
 
+// isTopLevelKeyLine reports whether line opens the top-level key, plain
+// or quoted, as YAML allows.
+func isTopLevelKeyLine(line, key string) bool {
+	for _, spelled := range []string{key, "'" + key + "'", `"` + key + `"`} {
+		if rest, ok := strings.CutPrefix(line, spelled); ok && strings.HasPrefix(strings.TrimLeft(rest, " \t"), ":") {
+			return true
+		}
+	}
+	return false
+}
+
 // moveClaudeOnlyKeysInFile applies moveClaudeOnlyKeys to the file at path.
 func moveClaudeOnlyKeysInFile(path string) error {
 	data, err := os.ReadFile(path)
@@ -92,7 +103,7 @@ func moveClaudeOnlyKeys(doc string) string {
 			continue
 		}
 		for i, line := range lines {
-			if !strings.HasPrefix(line, key+":") {
+			if !isTopLevelKeyLine(line, key) {
 				continue
 			}
 			stop := frontmatterBlockEnd(lines, i)

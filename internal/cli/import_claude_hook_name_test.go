@@ -75,3 +75,34 @@ func TestImportClaudeHooks_RerunUpdatesItsReadableSpec(t *testing.T) {
 		t.Errorf("specs after rerun = %v, want %v", names, want)
 	}
 }
+
+// Identical hook groups keep one spec each, on the first import and on
+// every rerun.
+func TestImportClaudeHooks_IdenticalGroupsStayApartOnRerun(t *testing.T) {
+	for _, hook := range []string{
+		`{"type":"command","command":"notify.sh"}`,
+		`{"type":"prompt","prompt":"Check the result."}`,
+	} {
+		root := t.TempDir()
+		group := `{"hooks":[` + hook + `]}`
+		writeFile(t, filepath.Join(root, ".claude", "settings.json"),
+			`{"hooks":{"Stop":[`+group+`,`+group+`,`+group+`]}}`)
+		dst := filepath.Join(root, "hooks")
+		if err := os.MkdirAll(dst, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		for run := 1; run <= 2; run++ {
+			n, err := importClaudeHooks(root, dst)
+			if err != nil {
+				t.Fatalf("import run %d: %v", run, err)
+			}
+			entries, err := os.ReadDir(dst)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if n != 3 || len(entries) != 3 {
+				t.Errorf("%s run %d: imported %d hooks into %d specs, want 3 and 3", hook, run, n, len(entries))
+			}
+		}
+	}
+}

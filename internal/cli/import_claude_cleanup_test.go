@@ -245,3 +245,13 @@ func TestImportFromClaude_DoesNotListSyncedOutput(t *testing.T) {
 		t.Errorf("the file must stay in place: %v", err)
 	}
 }
+
+func TestMoveClaudeOnlyKeys_MovesAQuotedKey(t *testing.T) {
+	for _, key := range []string{`'allowed-tools'`, `"allowed-tools"`, `allowed-tools `} {
+		in := "---\nname: a\n" + key + ": Read\n---\n\nBody.\n"
+		want := "---\nname: a\nx-claude:\n  " + key + ": Read\n---\n\nBody.\n"
+		if got := moveClaudeOnlyKeys(in); got != want {
+			t.Errorf("key %s:\ngot:\n%s\nwant:\n%s", key, got, want)
+		}
+	}
+}

@@ -18,8 +18,9 @@ const hookDescriptionCommandMax = 60
 // claudeHookNamer names the hook specs one `import claude` run writes:
 // `<event>[-<matcher>]-<what it runs>`, so the file says what it does.
 // Two hooks that share that name keep it apart with hookSpecName's hash,
-// in import order. A spec an older release wrote under the hash name
-// keeps it, so a re-import updates that file instead of adding a copy.
+// in import order, and identical hooks add a number. A spec an older
+// release wrote under the hash name keeps it, so a re-import updates that
+// file instead of adding a copy.
 // A spec already at the readable name for another hook, such as one a
 // person wrote, keeps its file and the hook takes the hash name.
 type claudeHookNamer struct {
@@ -37,7 +38,7 @@ func newClaudeHookNamer(dstDir string) *claudeHookNamer {
 // matched against a spec already at the readable name.
 func (n *claudeHookNamer) name(event, matcher, label string, seed []string, fields map[string]any) string {
 	hashed := hookSpecName(event, matcher, seed)
-	if fileExists(filepath.Join(n.dstDir, hashed+".yaml")) {
+	if !n.used[hashed] && fileExists(filepath.Join(n.dstDir, hashed+".yaml")) {
 		n.used[hashed] = true
 		return hashed
 	}
@@ -48,14 +49,17 @@ func (n *claudeHookNamer) name(event, matcher, label string, seed []string, fiel
 	if slug := hookMatcherSlug(matcher); slug != "" {
 		parts = append(parts, slug)
 	}
-	label = hookMatcherSlug(label)
-	if label == "" {
-		n.used[hashed] = true
-		return hashed
+	name := hashed
+	if label = hookMatcherSlug(label); label != "" {
+		name = strings.Join(append(parts, label), "-")
+		if n.used[name] || n.heldByOtherHook(name, event, matcher, fields) {
+			name += "-" + hookContentHash(event, matcher, seed)
+		}
 	}
-	name := strings.Join(append(parts, label), "-")
-	if n.used[name] || n.heldByOtherHook(name, event, matcher, fields) {
-		name += "-" + hookContentHash(event, matcher, seed)
+	// Identical hook groups share every name above; import order numbers
+	// the repeats so each keeps its own spec.
+	for i, base := 2, name; n.used[name]; i++ {
+		name = fmt.Sprintf("%s-%d", base, i)
 	}
 	n.used[name] = true
 	return name
