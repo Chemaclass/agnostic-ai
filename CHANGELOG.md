@@ -9,6 +9,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### Fixed
 
 - A root skill that links to a package's nested skill folder imports once, at the root path, with a note naming the skipped path (#1338).
+- `doctor --check-references` resolves repo-root links, skips ignored placeholders, and groups findings by source (#1342).
 
 ### Changed
 

@@ -3,6 +3,18 @@
   "$id": "https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/schemas/config.schema.json",
   "$ref": "#/$defs/Config",
   "$defs": {
+    "CheckReferencesConfig": {
+      "properties": {
+        "ignore": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "ClaudeAttribution": {
       "properties": {
         "commit": {
@@ -266,6 +278,9 @@
         },
         "lint": {
           "$ref": "#/$defs/LintConfig"
+        },
+        "doctor": {
+          "$ref": "#/$defs/DoctorConfig"
         }
       },
       "additionalProperties": false,
@@ -273,6 +288,15 @@
       "required": [
         "version"
       ]
+    },
+    "DoctorConfig": {
+      "properties": {
+        "check-references": {
+          "$ref": "#/$defs/CheckReferencesConfig"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "Gitignore": {
       "properties": {

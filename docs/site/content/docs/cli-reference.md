@@ -428,15 +428,15 @@ Report missing (never synced), stale (out of date with the specs), edited (chang
 | `--check-references` | Flag relative Markdown links in generated skills whose file is missing on disk. Off by default. |
 | `--json` | Drift report as JSON, same schema as `sync --check --json`. With `--check-references`, adds a `references` list. |
 
-`--check-references` reads each Markdown document a selected target writes for its skills, including a skill a target flattens to one file. It resolves every inline link, image, and reference definition from the document's own directory and checks the file exists, gitignored outputs included. Code spans, code blocks, URLs, absolute paths, and `#fragment`-only links are skipped. A fragment on a file link is dropped: only the file is checked, not the heading. A document missing on disk is left to the drift report. The check writes nothing and exits non-zero on any broken link:
+`--check-references` reads each Markdown document a selected target writes for its skills, including a skill a target flattens to one file. A link is valid when it resolves from the document's own directory or from the project root, gitignored outputs included. Code spans, code blocks, URLs, absolute paths, and `#fragment`-only links are skipped. A fragment on a file link is dropped: only the file is checked, not the heading. A document missing on disk is left to the drift report. [`doctor.check-references.ignore`](@/docs/configuration.md#doctorcheck-referencesignore) exempts destinations that can never resolve, such as a placeholder link in an example template. The check writes nothing and exits non-zero on any broken link. Findings group by source spec and link, so every target copying the same broken link prints once:
 
 ```
 Skill references:
-  ✗ claude: .claude/skills/deploy/SKILL.md:8 links to missing references/setup.md
-      source: .agnostic-ai/skills/deploy/SKILL.md
+  ✗ .agnostic-ai/skills/deploy/SKILL.md:8 links to missing references/setup.md
+      targets: claude, codex
 ```
 
-Each `references` entry in the JSON has `target`, `source` (the canonical spec file, omitted when unknown), `path`, `line`, and `destination`. The key is absent without the flag.
+Each `references` entry in the JSON has `target`, `source` (the canonical spec file, omitted when unknown), `path`, `line`, and `destination`, one per target. The key is absent without the flag.
 
 Then doctor prints:
 

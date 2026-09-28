@@ -55,14 +55,15 @@ Use [why](@/docs/trace.md) to trace a generated file to its source, or [graph](@
 
 ## Broken skill references
 
-A skill can sync cleanly while a relative link in it points at nothing. `agnostic-ai doctor --check-references` lists each broken link with the target, the generated document and line, the missing destination, and the source spec.
+A skill can sync cleanly while a relative link in it points at nothing. `agnostic-ai doctor --check-references` lists each broken link grouped by source spec and destination, with every affected target on one line. A link that resolves from the project root, such as `apps/engine/src/lib.ts`, counts as valid even when the skill folder itself does not carry that file.
 
 | Cause | Fix |
 |---|---|
-| The linked file is missing from the skill folder under `.agnostic-ai/skills/<name>/` | Add it, then run `agnostic-ai sync` |
-| The link leaves the skill folder, such as `../shared/setup.md` | Move the file into the skill folder and update the link. Sync copies only the skill's own folder |
+| The linked file is missing from the skill folder under `.agnostic-ai/skills/<name>/`, and does not exist at that path from the project root either | Add it, then run `agnostic-ai sync` |
+| The link leaves the skill folder, such as `../shared/setup.md`, and no file sits at that path from the project root | Move the file into the skill folder and update the link. Sync copies only the skill's own folder |
 | The target flattens skills to one file and drops bundled files | Link to a URL, inline the content, or accept the gap for that target |
 | A generated reference was deleted by hand | Run `agnostic-ai sync` to restore it |
+| A placeholder link in an example template, such as `[Logs](url)`, can never resolve to a real file | List its destination under [`doctor.check-references.ignore`](@/docs/configuration.md#doctorcheck-referencesignore) |
 
 ## Report a problem
 
