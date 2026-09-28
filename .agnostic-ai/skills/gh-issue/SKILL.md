@@ -84,7 +84,7 @@ Read both the issue body **and every comment** as requirements input. Maintainer
 
 ### Phase 4: Ship
 
-9. **Update CHANGELOG.md for user-visible changes**: add one bullet under `## [Unreleased]`, grouped as `Added`, `Changed`, `Fixed`, or `Removed` per `.agnostic-ai/rules/docs-sync.md`. Follow the entry rules in `.agnostic-ai/agents/changelog-curator.md`: one sentence, at most 160 characters, the effect a user sees, then `(#N)`. Detail goes on the docs page, not in the bullet.
+9. **Update CHANGELOG.md for user-visible changes**: add one bullet under `## [Unreleased]`, under `### General` or under its tool in `### By tool`, per `.agnostic-ai/rules/docs-sync.md`. Follow the entry rules in `.agnostic-ai/agents/changelog-curator.md`: one sentence, at most 160 characters, the effect a user sees, then `(#N)`. Detail goes on the docs page, not in the bullet.
 
 10. **Update user docs when behavior is visible**:
     - New or changed flag, target, or output field → `docs/site/content/docs/targets/<target>.md` (and `target-behavior.md` for cross-target notes) and `docs/site/content/docs/configuration.md`.
