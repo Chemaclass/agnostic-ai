@@ -19,20 +19,11 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Fixed
 
-- Scoped rules and reviews no longer make `.gitignore` hide their whole directory, including dot-folders (#1264, #1304).
-- `import` and its dry run skip gitignored directories and nested repositories; dry runs also skip `node_modules` (#1265, #1273).
-- Codex and Gemini imports preserve scoped instruction preambles and name rules after their scope (#1267, #1292, #1302, #1314).
-- Codex and Gemini imports exclude root instruction files from rules, preventing duplicate output (#1268, #1302).
-- `sync` adopts imported nested `AGENTS.md` files and identifies any later edits missing from specs (#1269).
-- `import` reads skill symlinks within the project and reports links outside it (#1266).
-- `import cursor` reads root and nested `BUGBOT.md` as scoped reviews; `doctor` lists all unmanaged copies (#1276, #1305).
-- `init --from <cli> --dry-run` lists files the import would write (#1272).
-- `sync --check` distinguishes spec drift from local edits and uses forward slashes on Windows (#1270).
-- `sync --plan` and `--dry-run` honor `--json`; `--watch` and `--diff` reject it (#1280).
-- Codex overlays ending in a table no longer capture top-level `model` and `model_reasoning_effort` settings.
-- Gemini copies hook scripts from other tools' source folders into `.gemini/hooks/`, matching Codex and Cursor (#1303).
-- Ignore patterns survive Prettier: `import` writes fenced blocks and `sync` reads them (#1275).
-- Validation rejects specs scoped inside `node_modules`, which import skips (#1321).
+- Scoped imports keep Codex and Gemini text without duplicates, and sync adopts nested instructions (#1267, #1268, #1269, #1292, #1302, #1314).
+- Import skips excluded dirs and reads in-project skill links; validation rejects `node_modules` scopes (#1265, #1266, #1273, #1321).
+- Scoped output keeps its parent directories visible in Git, and ignore patterns survive Prettier (#1264, #1275, #1304).
+- Previews list files, sync honors JSON, drift reports separate edits, and Cursor reviews import and appear in doctor (#1270, #1272, #1276, #1280, #1305).
+- Codex settings stay outside overlay tables, and Gemini copies hook scripts stored under other tools (#1303).
 
 ### Removed
 
@@ -40,11 +31,9 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Site
 
-- The landing page explorer pairs source specs with native Claude Code, Codex, and Gemini files.
-- Installation docs offer an OS-specific installer, copy button, and steps to verify, upgrade, and pin the CLI.
-- The git hooks guide covers pinned CLI installs, sync on install and checkout, and worktree setup for Node monorepos.
+- The landing explorer pairs source specs with native Claude Code, Codex, and Gemini files; shared links show a new preview image.
+- Guides cover OS-specific installation, upgrades, version pinning, and git hooks for Node monorepos and worktrees.
 - Docs code blocks use the full content width and larger text.
-- Shared links show a new preview with the hub logo, hero line, and site address.
 
 ## v0.71.0 - 2026-09-28
 
