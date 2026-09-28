@@ -8,29 +8,22 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Added
 
-- `sync --untrack` runs `git rm --cached` on a generated path git also ignores; `sync` and `doctor` name the command either way (#1330).
-- `install-hook --post-checkout` writes a hook that runs `sync -q` after a branch or worktree checkout (#1330).
+- `sync --untrack` untracks generated files git also ignores, and `install-hook --post-checkout` runs `sync -q` after each checkout (#1330).
 - Codex gets review specs as a `## Code Review Rules` section in the root and scoped `AGENTS.md`, and `import codex` reads it back (#1341).
-- Target audits can rank changed vendor text against agnostic-ai's claims with TypeSafe's Jev, so auditors read likely drift first (#1364).
-
-### Fixed
-
-- `import claude` points imported paths such as `.claude/skills/<name>/` at their sources and drops `@` lines for imported rules; `lint` warns on the rest (#1326).
-- A second `import all` after `sync` no longer turns the generated `CLAUDE.md` or a scoped `.claude/rules/` file into new rules (#1349).
-- `import claude` keeps a `CLAUDE.md` that imports `@AGENTS.md` for Claude only, and sync replaces nested companions instead of failing (#1336).
-- `import claude` leaves a hook unpinned when Codex runs it as written, and `sync` notes a Codex edit hook reading `tool_input.file_path` (#1328).
-- `import claude` writes permission lists to a settings spec, so `lint` flags a mid-command `*` in allow and deny rules, and Codex gets its coverage note (#1329).
-- A root skill that links to a package's nested skill folder imports once, at the root path, with a note naming the skipped path (#1338).
-- `sync --check` and `doctor` catch a leftover output with no `.sync-state`: a tracked file where a configured target writes that opens with the provenance header. `doctor --fix` removes it, except a scope document such as `services/api/AGENTS.md`, which the check lists for you to delete by hand (#1334).
-- `sync` with no `.sync-state` names each leftover output it keeps and how to remove it, and records it so later checks still report it, also after a `--only` run. The `sync --check` footer names the manual step a scope document needs. An older release drops the record on its next sync (#1354, #1362).
-- `doctor --check-references` resolves repo-root links, skips ignored placeholders, and groups findings by source (#1342).
-- The managed `.gitignore` block marks `gitignore.allow` exceptions as committed instead of calling every generated path not committed (#1335).
-- `sync --keep-edits --quiet` still reports each kept file, on stderr, instead of printing nothing (#1333).
+- Target audits rank changed vendor text against agnostic-ai's claims with TypeSafe's Jev, so auditors read likely drift first (#1364).
 
 ### Changed
 
 - `init` pins the schema URL to its release, omits default `sources:`, notes `on-unsupported: error`, and creates only seeded folders (#1331).
-- `import codex` and `import gemini` name section rules from a nested file after their scope, such as `api-tests.md`, instead of `tests-2.md` (#1337).
+- `import codex` and `import gemini` name nested section rules after their scope, such as `api-tests.md`, not `tests-2.md` (#1337).
+
+### Fixed
+
+- With no `.sync-state`, `sync`, `sync --check`, and `doctor` name each leftover output and how to remove it (#1334, #1354, #1362).
+- A fresh `import claude` syncs cleanly: permissions reach lint, Codex-ready hooks stay unpinned, `@AGENTS.md` companions work (#1328, #1329, #1336).
+- Imports point at `.agnostic-ai/` sources, read a linked skill once, and add no rules when rerun after `sync` (#1326, #1338, #1349).
+- `sync --keep-edits --quiet` reports kept files on stderr, and the `.gitignore` block marks `gitignore.allow` lines as committed (#1333, #1335).
+- `doctor --check-references` resolves repo-root links, skips ignored placeholders, and groups findings by source (#1342).
 
 ### Site
 
