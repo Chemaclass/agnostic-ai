@@ -104,7 +104,7 @@ func newInitCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := scaffold(scaffoldOptions{
+			opts := scaffoldOptions{
 				Root:             ".",
 				Base:             base,
 				Targets:          targets,
@@ -112,11 +112,23 @@ func newInitCmd() *cobra.Command {
 				Demo:             demo,
 				DryRun:           dryRun,
 				GitignoreEnabled: gitignoreEnabled,
-			}); err != nil {
+			}
+			// The import preview needs the scaffold a real run would write,
+			// and a real run stops on an existing project.
+			if dryRun && fromCLI != "" {
+				if err := ensureNoExistingConfig(".", config.ConfigFileName); err != nil {
+					return err
+				}
+			}
+			if err := scaffold(opts); err != nil {
 				return err
 			}
-			if fromCLI == "" || dryRun {
+			if fromCLI == "" {
 				return nil
+			}
+			if dryRun {
+				opts.DryRun = false
+				return dryRunImport([]string{fromCLI}, func() error { return scaffoldSilently(opts) })
 			}
 			cfg, err := config.Load(".")
 			if err != nil {
