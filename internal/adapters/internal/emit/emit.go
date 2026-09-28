@@ -847,11 +847,19 @@ func (s *Session) RemoveOwned(path, sum string, dryRun bool) (removed bool, err 
 	if !owned || s.skipUnmanaged(path) {
 		return false, nil
 	}
+	return s.remove(path, sum, existing, false, dryRun)
+}
 
+// remove deletes path, whose bytes are existing, once the caller has
+// decided sync may. It honors capture, dry-run, transaction, and
+// detailed recording modes. handWritten marks a file sync did not write,
+// which backup mode keeps as `<path>.bak` so revert can restore it.
+func (s *Session) remove(path, sum string, existing []byte, handWritten, dryRun bool) (removed bool, err error) {
 	s.mu.Lock()
 	capturing := s.capturing
 	detailing := s.detailing
 	transacting := s.transacting
+	backup := s.backup && handWritten
 	s.mu.Unlock()
 
 	if capturing {
@@ -875,6 +883,11 @@ func (s *Session) RemoveOwned(path, sum string, dryRun bool) (removed bool, err 
 		s.mu.Unlock()
 	}
 
+	if backup {
+		if err := os.WriteFile(path+".bak", existing, filePerm); err != nil {
+			return false, fmt.Errorf("backup %s: %w", path, err)
+		}
+	}
 	if err := os.Remove(path); err != nil && !IsAbsent(err) {
 		return false, fmt.Errorf("remove %s: %w", path, err)
 	}

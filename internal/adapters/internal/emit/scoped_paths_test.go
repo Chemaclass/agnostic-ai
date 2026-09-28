@@ -28,7 +28,7 @@ func TestCheckScopedDestination_AdoptsFileWhoseTextSyncWrites(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	writeScoped(t, "services/api/AGENTS.md", "# API\r\n\r\n## Money\r\n\r\n*Money rules.*\r\n\r\nUse integer minor units.  \r\n")
 
-	if err := CheckScopedDestination("services/api/AGENTS.md", scopedRender); err != nil {
+	if err := CheckScopedDestination("services/api/AGENTS.md", scopedRender, nil); err != nil {
 		t.Fatalf("CheckScopedDestination() = %v, want the imported file adopted", err)
 	}
 }
@@ -37,7 +37,7 @@ func TestCheckScopedDestination_NamesTextNoSpecHolds(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	writeScoped(t, "services/api/AGENTS.md", "Use integer minor units.\n\n#123 tracks this.\n")
 
-	err := CheckScopedDestination("services/api/AGENTS.md", scopedRender)
+	err := CheckScopedDestination("services/api/AGENTS.md", scopedRender, nil)
 	if err == nil {
 		t.Fatal("CheckScopedDestination() = nil, want an error for text no spec holds")
 	}
@@ -54,7 +54,7 @@ func TestCheckScopedDestination_RejectsAlternateFileEvenWhenCaptured(t *testing.
 	testutil.Chdir(t, t.TempDir())
 	writeScoped(t, "services/api/AGENTS.override.md", "Use integer minor units.\n")
 
-	if err := CheckScopedDestination("services/api/AGENTS.md", scopedRender); err == nil {
+	if err := CheckScopedDestination("services/api/AGENTS.md", scopedRender, nil); err == nil {
 		t.Fatal("CheckScopedDestination() = nil, want the alternate file rejected")
 	}
 }
