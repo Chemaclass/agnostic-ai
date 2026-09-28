@@ -22,6 +22,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Site
 
+- The git hooks page has a Node monorepo recipe: pin the CLI, sync on install and checkout, and bootstrap new worktrees.
 - The landing's targets section names all 25 targets as links in place of the animated fan.
 - The landing shows the `.agnostic-ai/` folder: pick an entry to see a source file and the native files sync writes from it.
 - The installation page opens the installer for your OS with an always-visible copy button, then verify, upgrade, and pinning.

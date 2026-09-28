@@ -35,6 +35,8 @@ agnostic-ai sync
 
 Add `agnostic-ai lint` for source quality. A `sync --check` afterwards confirms the generated output is consistent, but proves nothing about committed files.
 
+In a Node workspace that pins the CLI and syncs on `postinstall`, `pnpm install --frozen-lockfile` already runs `sync`. See [Node monorepos](@/docs/git-hooks.md#node-monorepos).
+
 This repository ignores generated tool files and runs spec lint in CI. See [contributor checks](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/contributing.md#choose-checks-for-your-change).
 
 ## GitHub Action
