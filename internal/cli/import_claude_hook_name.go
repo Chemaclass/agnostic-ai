@@ -3,9 +3,12 @@ package cli
 import (
 	"fmt"
 	"net/url"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 // hookDescriptionCommandMax caps how much of a command a hook
@@ -17,6 +20,8 @@ const hookDescriptionCommandMax = 60
 // Two hooks that share that name keep it apart with hookSpecName's hash,
 // in import order. A spec an older release wrote under the hash name
 // keeps it, so a re-import updates that file instead of adding a copy.
+// A spec already at the readable name for another hook, such as one a
+// person wrote, keeps its file and the hook takes the hash name.
 type claudeHookNamer struct {
 	dstDir string
 	used   map[string]bool
@@ -28,8 +33,9 @@ func newClaudeHookNamer(dstDir string) *claudeHookNamer {
 
 // name returns the spec name for a hook. label says what the hook runs,
 // as hookRunLabel or a handler's own label reads it; seed is what
-// hookSpecName hashes.
-func (n *claudeHookNamer) name(event, matcher, label string, seed []string) string {
+// hookSpecName hashes. fields are the spec keys that identify the hook,
+// matched against a spec already at the readable name.
+func (n *claudeHookNamer) name(event, matcher, label string, seed []string, fields map[string]any) string {
 	hashed := hookSpecName(event, matcher, seed)
 	if fileExists(filepath.Join(n.dstDir, hashed+".yaml")) {
 		n.used[hashed] = true
@@ -48,11 +54,55 @@ func (n *claudeHookNamer) name(event, matcher, label string, seed []string) stri
 		return hashed
 	}
 	name := strings.Join(append(parts, label), "-")
-	if n.used[name] {
+	if n.used[name] || n.heldByOtherHook(name, event, matcher, fields) {
 		name += "-" + hookContentHash(event, matcher, seed)
 	}
 	n.used[name] = true
 	return name
+}
+
+func (n *claudeHookNamer) heldByOtherHook(name, event, matcher string, fields map[string]any) bool {
+	raw, err := os.ReadFile(filepath.Join(n.dstDir, name+".yaml"))
+	if err != nil {
+		return false
+	}
+	var doc map[string]any
+	if yaml.Unmarshal(raw, &doc) != nil {
+		return true
+	}
+	want := map[string]any{"event": event, "matcher": matcher}
+	for k, v := range fields {
+		want[k] = v
+	}
+	for k, v := range want {
+		if fmt.Sprint(hookFieldValue(doc[k])) != fmt.Sprint(hookFieldValue(v)) {
+			return true
+		}
+	}
+	return false
+}
+
+// hookFieldValue reads a one-item command list and its string as the
+// same value, since a spec stores a single command as a string.
+func hookFieldValue(v any) any {
+	switch list := v.(type) {
+	case nil:
+		return ""
+	case []string:
+		if len(list) == 1 {
+			return list[0]
+		}
+		out := make([]any, len(list))
+		for i, s := range list {
+			out[i] = s
+		}
+		return out
+	case []any:
+		if len(list) == 1 {
+			return list[0]
+		}
+	}
+	return v
 }
 
 // hookRunLabel picks the words that say what a shell command runs: the

@@ -89,7 +89,7 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 			if len(cmds) == 0 {
 				continue
 			}
-			name := namer.name(event, g.Matcher, hookRunLabel(cmds[0]), cmds)
+			name := namer.name(event, g.Matcher, hookRunLabel(cmds[0]), cmds, map[string]any{"command": cmds})
 			doc := map[string]any{
 				"name":        name,
 				"description": hookDescription(event, g.Matcher, cmds),
@@ -170,7 +170,8 @@ func importClaudeNonCommandHook(root, dstDir, event, matcher string, h claudehoo
 	if err := json.Unmarshal(payload, &doc); err != nil {
 		return 0, fmt.Errorf("parse %s hook: %w", event, err)
 	}
-	name := namer.name(event, matcher, hookHandlerLabel(h.Type, target), []string{string(payload)})
+	name := namer.name(event, matcher, hookHandlerLabel(h.Type, target), []string{string(payload)},
+		map[string]any{"type": h.Type, "url": h.URL, "server": h.Server, "tool": h.Tool, "prompt": h.Prompt})
 	doc["name"], doc["event"], doc["matcher"] = name, event, matcher
 	doc["description"] = hookHandlerDescription(h.Type, target, event, matcher)
 	path := filepath.Join(dstDir, name+".yaml")
