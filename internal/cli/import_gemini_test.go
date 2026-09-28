@@ -361,6 +361,24 @@ func TestImportFromGemini_RootRulesBlockBecomesRules(t *testing.T) {
 	}
 }
 
+// Nested GEMINI.md files that share a section heading name each section
+// rule after its scope, as `import codex` does.
+func TestImportFromGemini_NamesScopedSectionsAfterTheirScope(t *testing.T) {
+	dir := t.TempDir()
+	for _, d := range []string{"services/api", "services/web"} {
+		writeFile(t, filepath.Join(dir, d, geminiMainFile), "# "+d+"\n\n## Tests\n\nRun the tests for "+d+".\n")
+	}
+
+	if err := importFromGemini(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got := names(mustReadDir(t, filepath.Join(dir, "rules")))
+	want := []string{"api-tests.md", "web-tests.md"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("rules = %v, want %v", got, want)
+	}
+}
+
 // Text above the first ## of a nested GEMINI.md becomes a rule named
 // after the scope, beside one rule per section, as `import codex` does.
 // A lone title above the sections adds no rule.
@@ -373,7 +391,7 @@ func TestImportFromGemini_KeepsTheTextAboveTheFirstSection(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := names(mustReadDir(t, filepath.Join(dir, "rules")))
-	want := []string{"api.md", "money.md", "tokens.md"}
+	want := []string{"api-money.md", "api.md", "web-tokens.md"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("rules = %v, want %v", got, want)
 	}

@@ -85,7 +85,7 @@ Conventional Commits, subject < 72 chars.
 	if err := importFromCodex(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"go-style", "commits"} {
+	for _, name := range []string{"src-go-style", "src-commits"} {
 		path := filepath.Join(dir, "rules", name+".md")
 		data, err := os.ReadFile(path)
 		if err != nil {
@@ -136,13 +136,13 @@ No init() functions in business code.
 		t.Fatal(err)
 	}
 
-	got, err := os.ReadFile(filepath.Join(dir, "rules", "conventional-commits.md"))
+	got, err := os.ReadFile(filepath.Join(dir, "rules", "src-conventional-commits.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	out := string(got)
 	for _, want := range []string{
-		"name: conventional-commits",
+		"name: src-conventional-commits",
 		"description: Always use Conventional Commits.",
 		"Use feat:, fix:, etc.",
 	} {
@@ -184,7 +184,7 @@ Plain body, no italic.
 		t.Fatal(err)
 	}
 
-	a, _ := os.ReadFile(filepath.Join(dir, "rules", "rule-a.md"))
+	a, _ := os.ReadFile(filepath.Join(dir, "rules", "src-rule-a.md"))
 	if !strings.Contains(string(a), "description: Short desc.") {
 		t.Errorf("rule-a missing description, got:\n%s", a)
 	}
@@ -192,12 +192,12 @@ Plain body, no italic.
 		t.Errorf("rule-a italic leaked into body:\n%s", a)
 	}
 
-	b, _ := os.ReadFile(filepath.Join(dir, "rules", "rule-b.md"))
+	b, _ := os.ReadFile(filepath.Join(dir, "rules", "src-rule-b.md"))
 	if strings.Contains(string(b), "description:") {
 		t.Errorf("rule-b should have no description (multi-line italic), got:\n%s", b)
 	}
 
-	c, _ := os.ReadFile(filepath.Join(dir, "rules", "rule-c.md"))
+	c, _ := os.ReadFile(filepath.Join(dir, "rules", "src-rule-c.md"))
 	if strings.Contains(string(c), "description:") {
 		t.Errorf("rule-c should have no description, got:\n%s", c)
 	}
@@ -228,21 +228,6 @@ func TestImportFromCodex_NestedAgentsMdInfersGlobs(t *testing.T) {
 	}
 }
 
-func TestImportFromCodex_SlugCollisionAcrossFiles(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "lib", "AGENTS.md"), "## style\n\nlib style.\n")
-	writeFile(t, filepath.Join(dir, "src", "AGENTS.md"), "## style\n\nsrc style.\n")
-
-	if err := importFromCodex(dir, rootSources()); err != nil {
-		t.Fatal(err)
-	}
-	for _, want := range []string{"style.md", "style-2.md"} {
-		if _, err := os.Stat(filepath.Join(dir, "rules", want)); err != nil {
-			t.Errorf("expected %s after collision, got: %v", want, err)
-		}
-	}
-}
-
 func TestImportFromCodex_SkipsConventionsWrapper(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "src", "AGENTS.md"), `# AGENTS.md
@@ -259,8 +244,8 @@ body
 	if _, err := os.Stat(filepath.Join(dir, "rules", "conventions.md")); err == nil {
 		t.Error("did not expect a 'conventions' rule from the wrapper section")
 	}
-	if _, err := os.Stat(filepath.Join(dir, "rules", "real-rule.md")); err != nil {
-		t.Errorf("expected real-rule.md, got: %v", err)
+	if _, err := os.Stat(filepath.Join(dir, "rules", "src-real-rule.md")); err != nil {
+		t.Errorf("expected src-real-rule.md, got: %v", err)
 	}
 }
 
@@ -1448,8 +1433,8 @@ func TestImportCmd_CodexRoutes(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "rules", "routed.md")); err != nil {
-		t.Error("expected .agnostic-ai/rules/routed.md after import codex")
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "rules", "src-routed.md")); err != nil {
+		t.Error("expected .agnostic-ai/rules/src-routed.md after import codex")
 	}
 }
 
@@ -1588,7 +1573,7 @@ func TestImportFromCodex_ShredDefaultStillShards(t *testing.T) {
 	if err := importFromCodexWithOpts(dir, rootSources(), importCodexOpts{}); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"one.md", "two.md"} {
+	for _, want := range []string{"src-one.md", "src-two.md"} {
 		if _, err := os.Stat(filepath.Join(dir, "rules", want)); err != nil {
 			t.Errorf("expected shard %s under default behavior: %v", want, err)
 		}
@@ -1670,6 +1655,28 @@ func TestImport_CodexRootAgentsMdFeedsOnlyTheSharedInstructions(t *testing.T) {
 	}
 }
 
+// Nested AGENTS.md files that share a section heading name each section
+// rule after its scope, so neither scope gets a numeric suffix.
+func TestImportFromCodex_NamesScopedSectionsAfterTheirScope(t *testing.T) {
+	dir := t.TempDir()
+	for _, d := range []string{"services/api", "services/web"} {
+		writeFile(t, filepath.Join(dir, d, "AGENTS.md"), "# "+d+"\n\n## Tests\n\nRun the tests for "+d+".\n")
+	}
+
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got := names(mustReadDir(t, filepath.Join(dir, "rules")))
+	want := []string{"api-tests.md", "web-tests.md"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("rules = %v, want %v", got, want)
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, "rules", "web-tests.md"))
+	if !strings.Contains(string(data), "scope: services/web") || !strings.Contains(string(data), "tests for services/web") {
+		t.Errorf("web-tests.md:\n%s", data)
+	}
+}
+
 func mustReadDir(t *testing.T, dir string) []os.DirEntry {
 	t.Helper()
 	entries, err := os.ReadDir(dir)
@@ -1691,7 +1698,7 @@ func TestImportFromCodex_KeepsTheTextAboveTheFirstSection(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := names(mustReadDir(t, filepath.Join(dir, "rules")))
-	want := []string{"api.md", "money.md", "testing.md", "tokens.md"}
+	want := []string{"api-money.md", "api-testing.md", "api.md", "web-tokens.md"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("rules = %v, want %v", got, want)
 	}

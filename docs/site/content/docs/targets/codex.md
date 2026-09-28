@@ -153,7 +153,7 @@ For many policies, use a separate file: `exec-policies-file: ./.agnostic-ai/code
 | Source | Becomes |
 |--------|---------|
 | `AGENTS.md` at the root | `.agnostic-ai/AGNOSTIC_AI.md`; only the rules block `sync` appends becomes rules |
-| `<dir>/AGENTS.md` (nested, split on `## headings`) | `<rules>/<slug>.md` per section, with inferred `globs: <dir>/**`; text above the first `##`, past the title, becomes one more rule named after the scope |
+| `<dir>/AGENTS.md` (nested, split on `## headings`) | `<rules>/<scope>-<slug>.md` per section (`api-tests.md` for `## Tests` in `services/api/`), with inferred `globs: <dir>/**`; text above the first `##`, past the title, becomes one more rule named after the scope |
 | `<dir>/AGENTS.md` (nested, no headings, or `shred: false`) | one rule named after the scope: `api.md` for `services/api/`, or `services-api.md` when another scope also ends in `api` |
 | `## Conventions` / `## Agents` / `## Skills` wrapper sections | unwrapped: their `### children` become the rules |
 | Single-line italic (`_text_`) immediately under a rule heading | extracted into the rule's `description` (and removed from the body) |
@@ -164,7 +164,7 @@ For many policies, use a separate file: `exec-policies-file: ./.agnostic-ai/code
 | `.codex/config.toml` remaining keys (model, sandbox, approval_policy, notify, `[history]`, `[profiles.*]`, `[model_providers.*]`, …) | `.agnostic-ai/overlays/codex.config.toml` (`hooks` + `mcp_servers` stripped) |
 | `.codex/prompts/*.md` | `<commands>/<name>.md` (byte-identical copy, so user-authored prompts round-trip) |
 
-Slug collisions are deduplicated (`style.md`, `style-2.md`). The walk skips hidden directories, the configured source directories, `node_modules/`, `vendor/`, directories git ignores, and directories with their own `.git` (a clone, submodule, or worktree).
+Two sections with the same heading in one file are deduplicated (`style.md`, `style-2.md`). The walk skips hidden directories, the configured source directories, `node_modules/`, `vendor/`, directories git ignores, and directories with their own `.git` (a clone, submodule, or worktree).
 
 `sync -t codex` writes the overlay back, so every captured key survives a `.codex/` wipe. See [Codex config](#codex-config) for conflicts when both sides set a key. The [exec-policies overlay](#codex-exec-policies) works the same way.
 

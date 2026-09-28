@@ -124,7 +124,7 @@ func importGeminiRules(root, dstDir string, src config.Sources) (int, error) {
 			count++
 		}
 		for _, s := range sections {
-			name := dedupSlug(used, s.slug)
+			name := dedupSlug(used, sectionRuleName(wholeFileNames, f.globs, s.slug))
 			if err := writeScopedRule(dstDir, name, f.globs, s.body); err != nil {
 				return count, err
 			}

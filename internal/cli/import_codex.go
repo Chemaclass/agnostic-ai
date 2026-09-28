@@ -150,7 +150,7 @@ var codexSkipHeadings = map[string]bool{
 
 // importCodexRules walks the project tree for AGENTS.md files and writes
 // one rule per ## section found into dstDir. Rules from <dir>/AGENTS.md
-// inherit "globs: <dir>/**". Slug collisions across files are deduplicated.
+// inherit "globs: <dir>/**" and a name prefixed with the scope.
 // When opts.Shred is false, each AGENTS.md becomes a single rule whose body
 // is the file verbatim, skipping the H2 split.
 func importCodexRules(root, dstDir string, src config.Sources, opts importCodexOpts) (int, error) {
@@ -211,7 +211,7 @@ func importCodexRules(root, dstDir string, src config.Sources, opts importCodexO
 			count++
 		}
 		for _, s := range sections {
-			name := dedupSlug(used, s.slug)
+			name := dedupSlug(used, sectionRuleName(wholeFileNames, f.globs, s.slug))
 			if err := writeCodexRule(dstDir, name, s.description, f.globs, s.body); err != nil {
 				return count, err
 			}
