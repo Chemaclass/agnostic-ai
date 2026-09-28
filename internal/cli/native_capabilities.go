@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/kilo"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/opencode"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -29,15 +30,7 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"Notification",
 		"PreModelSwitch", "PostModelSwitch",
 	),
-	"codex": setOf(
-		"PreToolUse", "PostToolUse",
-		"PermissionRequest",
-		"UserPromptSubmit",
-		"SessionStart", "SessionEnd", "Stop",
-		"SubagentStart", "SubagentStop",
-		"PreCompact", "PostCompact",
-		"Interrupt",
-	),
+	"codex": setOf(codex.HookEvents()...),
 	"gemini": setOf(
 		"BeforeTool", "AfterTool",
 		"BeforeAgent", "AfterAgent",

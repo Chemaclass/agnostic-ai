@@ -1,0 +1,135 @@
+package codex
+
+import (
+	"fmt"
+	"regexp"
+	"slices"
+	"strings"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
+)
+
+// hookEvents are the events learn.chatgpt.com/docs/hooks lists.
+var hookEvents = []string{
+	"PreToolUse", "PostToolUse",
+	"PermissionRequest",
+	"UserPromptSubmit",
+	"SessionStart", "SessionEnd", "Stop",
+	"SubagentStart", "SubagentStop",
+	"PreCompact", "PostCompact",
+	"Interrupt",
+}
+
+// HookEvents lists every event a hook spec may name for this target, so
+// `validate` reads the same vocabulary the emitter maps.
+func HookEvents() []string { return slices.Clone(hookEvents) }
+
+// toolEvents match on tool_name. Codex runs Bash and apply_patch, takes
+// Edit and Write as aliases for apply_patch, and names MCP tools
+// mcp__<server>__<tool>.
+var toolEvents = []string{"PreToolUse", "PostToolUse", "PermissionRequest"}
+
+var toolMatchers = []string{"Bash", "apply_patch", "Edit", "Write"}
+
+// sourceMatchers are the values Codex documents per non-tool event. An
+// event absent here and from matcherFreeEvents takes no matcher on
+// Codex, so a hook naming one does not run as written.
+var sourceMatchers = map[string][]string{
+	"SessionStart": {"startup", "resume", "clear", "compact"},
+	"PreCompact":   {"manual", "auto"},
+	"PostCompact":  {"manual", "auto"},
+}
+
+// matcherFreeEvents ignore the matcher or take any value: Codex matches
+// SubagentStart and SubagentStop on agent_type, which names a project
+// agent.
+var matcherFreeEvents = []string{"UserPromptSubmit", "Stop", "Interrupt", "SubagentStart", "SubagentStop"}
+
+// hookFieldsCodexDrops are Claude hook fields the Codex emitter has no
+// key for. A hook carrying one would run wider or differently there.
+var hookFieldsCodexDrops = []string{"if", "shell", "once", "asyncRewake"}
+
+// AcceptsHook returns why Codex would not run the hook as written, or
+// "" when it would: the event exists, every matcher segment names a
+// tool or source Codex reports, and no field is dropped on the way.
+func (Adapter) AcceptsHook(meta map[string]any) string {
+	event, _ := meta["event"].(string)
+	if !slices.Contains(hookEvents, event) {
+		return fmt.Sprintf("Codex has no %s event", event)
+	}
+	if kind, _ := meta["type"].(string); kind != "" && kind != "command" && kind != "mcp_tool" {
+		return fmt.Sprintf("Codex hooks have no %s handler", kind)
+	}
+	for _, field := range hookFieldsCodexDrops {
+		if _, set := meta[field]; set {
+			return fmt.Sprintf("Codex hooks have no %s field", field)
+		}
+	}
+	matcher, _ := meta["matcher"].(string)
+	for _, seg := range matcherSegments(matcher) {
+		if !codexMatcherSegment(event, seg) {
+			return fmt.Sprintf("Codex %s does not match %q", event, seg)
+		}
+	}
+	return ""
+}
+
+func codexMatcherSegment(event, seg string) bool {
+	if seg == "*" || slices.Contains(matcherFreeEvents, event) {
+		return true
+	}
+	if slices.Contains(toolEvents, event) {
+		return slices.Contains(toolMatchers, seg) || strings.HasPrefix(seg, spec.MCPToolPrefix)
+	}
+	return slices.Contains(sourceMatchers[event], seg)
+}
+
+// editPayloadReason is the coverage note for an edit hook that reads the
+// Claude payload. Codex reports an edit as tool_name apply_patch with
+// the patch in tool_input.command (learn.chatgpt.com/docs/hooks).
+const editPayloadReason = "Codex reports an edit as apply_patch with the patch in tool_input.command, so a command reading tool_input.file_path gets an empty value"
+
+// readsFilePath matches the field access in jq (.tool_input.file_path)
+// and in a script's subscript (["tool_input"]["file_path"]).
+var readsFilePath = regexp.MustCompile(`tool_input\W{1,4}file_path`)
+
+// editMatchers are the matcher segments that fire on a Codex edit.
+var editMatchers = []string{"apply_patch", "Edit", "Write", "*"}
+
+// noteEditHookPayload reports each edit hook whose command reads
+// tool_input.file_path, which Codex never sends. mode is the project's
+// on-unsupported policy.
+func noteEditHookPayload(hooks []spec.Entry, mode string) error {
+	var paths []string
+	for _, h := range hooks {
+		if !firesOnEdit(h.Meta) || !slices.ContainsFunc(hookCommands(h.Meta["command"]), readsFilePath.MatchString) {
+			continue
+		}
+		paths = append(paths, h.Path)
+	}
+	if len(paths) == 0 {
+		return nil
+	}
+	switch mode {
+	case emit.OnUnsupportedError:
+		return fmt.Errorf("%s: %s", strings.Join(paths, ", "), editPayloadReason)
+	case emit.OnUnsupportedSilent:
+		return nil
+	}
+	emit.NoteFieldNoOp(target, spec.KindHook, "tool_input.file_path", len(paths), editPayloadReason)
+	return nil
+}
+
+func firesOnEdit(meta map[string]any) bool {
+	event, _ := meta["event"].(string)
+	if !slices.Contains(toolEvents, event) {
+		return false
+	}
+	matcher, _ := meta["matcher"].(string)
+	segments := matcherSegments(matcher)
+	if len(segments) == 0 {
+		return true
+	}
+	return slices.ContainsFunc(segments, func(seg string) bool { return slices.Contains(editMatchers, seg) })
+}
