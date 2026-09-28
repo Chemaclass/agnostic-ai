@@ -170,7 +170,44 @@
     </div>
   </section>
 
-  <section class="section-head-split" id="targets">
+  <section class="section-head-split" id="layout">
+    <div class="wrap">
+      <h2 class="section-title">{{ landing.layout.title }} <span>{{ landing.layout.muted_title }}</span></h2>
+      <div class="section-lead">{{ landing.layout.body | markdown | safe }}</div>
+      {# Same resting state as the output switch above: the first entry's pane
+         is server rendered and the list ships inert, so without landing.js it
+         reads as a listing of the folder, not as buttons that do nothing. #}
+      <div class="source-tree reveal-group" data-source-tree>
+        <div class="source-tree-nav">
+          <p class="source-tree-root"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.2l2 2h8.8A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>{{ landing.layout.root }}</p>
+          <div class="source-tree-list" role="tablist" aria-orientation="vertical" aria-label="{{ landing.layout.tree_label }}" data-source-tablist inert>
+            {% for entry in landing.layout.entries %}
+            <button type="button" class="source-tree-entry" role="tab" id="source-tab-{{ entry.id }}" aria-controls="source-panel-{{ entry.id }}" aria-selected="{% if loop.first %}true{% else %}false{% endif %}" tabindex="{% if loop.first %}0{% else %}-1{% endif %}" data-source-tab><span class="source-tree-name">{{ entry.name }}</span><span class="source-tree-hint">{{ entry.hint }}</span></button>
+            {% endfor %}
+          </div>
+          <p class="source-tree-more">{{ landing.layout.more | markdown(inline=true) | safe }}</p>
+        </div>
+        <div class="source-tree-panels">
+          {% for entry in landing.layout.entries %}
+          <div class="source-tree-panel" role="tabpanel" id="source-panel-{{ entry.id }}" aria-labelledby="source-tab-{{ entry.id }}" tabindex="0" data-source-panel{% if not loop.first %} hidden{% endif %}>
+            <p class="source-tree-summary">{{ entry.summary | markdown(inline=true) | safe }}</p>
+            <div class="spec-card">
+              <div class="file-name"><span class="file-dot" aria-hidden="true"></span>{{ landing.layout.root }}{{ entry.file }}</div>
+              <pre><code>{{ entry.body | trim }}</code></pre>
+            </div>
+            <p class="source-tree-label">{{ landing.layout.outputs_label }}</p>
+            <ul class="source-tree-outputs">
+              {% for output in entry.outputs %}<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><code>{{ output }}</code></li>{% endfor %}
+            </ul>
+            <a class="source-tree-docs" href="{{ get_url(path=entry.href) }}{% if entry.anchor %}#{{ entry.anchor }}{% endif %}">Docs: {{ entry.docs_label }}</a>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section-band section-head-split" id="targets">
     <div class="wrap">
       <h2 class="section-title">{{ landing.targets.title }} <span>{{ landing.targets.muted_title }}</span></h2>
       <div class="section-lead">{{ landing.targets.body | markdown | safe }}<p class="capability-legend">{{ landing.targets.legend | markdown(inline=true) | safe }}</p></div>
@@ -200,7 +237,7 @@
   </section>
 
   {% if latest_update %}
-  <section class="section-band update-brief" id="updates">
+  <section class="update-brief" id="updates">
     <div class="wrap">
       <div class="update-brief-grid reveal-group">
         <div>

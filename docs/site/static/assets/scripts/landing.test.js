@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { detectOS, init, initInstallPicker, initOutputSwitch, initReveal, nextTabIndex } = require("./landing.js");
+const { detectOS, init, initInstallPicker, initOutputSwitch, initReveal, initSourceTree, nextTabIndex } = require("./landing.js");
 
 test("detects supported desktop operating systems", function () {
   assert.equal(detectOS("macOS", "", 0), "macos");
@@ -171,6 +171,35 @@ test("one feature throwing during init does not leave the tabs dead", function (
   assert.equal(fixture.list.hasAttribute("inert"), false);
   fixture.tabs[3].dispatch("click");
   assert.equal(fixture.tabs[3].getAttribute("aria-selected"), "true");
+});
+
+test("the source tree drops inert and switches entries on click and arrow keys", function () {
+  const list = makeElement({ "data-source-tablist": "", inert: "" });
+  const tabs = [];
+  const panels = [];
+  for (let index = 0; index < 3; index += 1) {
+    tabs.push(makeElement({ "data-source-tab": "", "aria-selected": index === 0 ? "true" : "false" }));
+    const panel = makeElement({ "data-source-panel": "" });
+    panel.hidden = index !== 0;
+    panels.push(panel);
+  }
+  const root = makeElement({ "data-source-tree": "" });
+  Object.assign(root, scope([list].concat(tabs, panels)));
+
+  assert.equal(initSourceTree(scope([root])), true);
+  assert.equal(list.hasAttribute("inert"), false);
+
+  tabs[1].dispatch("click");
+  assert.equal(panels[1].hidden, false);
+  assert.equal(panels[0].hidden, true);
+
+  tabs[1].dispatch("keydown", { key: "ArrowDown" });
+  assert.equal(tabs[2].getAttribute("aria-selected"), "true");
+  assert.equal(tabs[2].focusCount, 1);
+});
+
+test("a page without the source tree is not an error", function () {
+  assert.equal(initSourceTree(scope([])), false);
 });
 
 // The installer picker as the template renders it: the tab strip hidden, the

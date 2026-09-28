@@ -138,18 +138,18 @@
     });
   }
 
-  // The output list is a vertical tablist over the generated files. Selection
+  // A tablist that ships inert beside server-rendered panes. Selection
   // follows click and arrow keys, never hover, and the panes stay grid-stacked
   // so the card keeps one height.
-  function initOutputSwitch(document) {
-    var root = document.querySelector("[data-output-switch]");
+  function initInertTabs(document, names) {
+    var root = document.querySelector("[" + names.root + "]");
     if (!root) {
       return false;
     }
 
-    var list = root.querySelector("[data-output-tablist]");
-    var tabs = Array.prototype.slice.call(root.querySelectorAll("[data-output-tab]"));
-    var panels = Array.prototype.slice.call(root.querySelectorAll("[data-output-panel]"));
+    var list = root.querySelector("[" + names.list + "]");
+    var tabs = Array.prototype.slice.call(root.querySelectorAll("[" + names.tab + "]"));
+    var panels = Array.prototype.slice.call(root.querySelectorAll("[" + names.panel + "]"));
     if (!list || tabs.length < 2 || tabs.length !== panels.length) {
       return false;
     }
@@ -157,11 +157,31 @@
     wireTabs(tabs, panels);
 
     // The template ships the list inert so a reader without this script is
-    // never offered four buttons that cannot be pressed. Every tab is wired by
-    // the time we get here, so the offer is now real. Nothing above this line
-    // may fail without leaving the list inert.
+    // never offered buttons that cannot be pressed. Every tab is wired by the
+    // time we get here, so the offer is now real. Nothing above this line may
+    // fail without leaving the list inert.
     list.removeAttribute("inert");
     return true;
+  }
+
+  // The hero diagram's generated files.
+  function initOutputSwitch(document) {
+    return initInertTabs(document, {
+      root: "data-output-switch",
+      list: "data-output-tablist",
+      tab: "data-output-tab",
+      panel: "data-output-panel"
+    });
+  }
+
+  // The landing's `.agnostic-ai/` listing.
+  function initSourceTree(document) {
+    return initInertTabs(document, {
+      root: "data-source-tree",
+      list: "data-source-tablist",
+      tab: "data-source-tab",
+      panel: "data-source-panel"
+    });
   }
 
   // The installation page's installer tabs. The template ships the tab strip
@@ -218,6 +238,9 @@
       return initOutputSwitch(document);
     });
     guard(browser, function () {
+      return initSourceTree(document);
+    });
+    guard(browser, function () {
       return initInstallPicker(document, browser);
     });
     guard(browser, function () {
@@ -232,6 +255,7 @@
     initInstallPicker: initInstallPicker,
     initOutputSwitch: initOutputSwitch,
     initReveal: initReveal,
+    initSourceTree: initSourceTree,
     nextTabIndex: nextTabIndex
   };
 });

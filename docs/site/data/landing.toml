@@ -232,6 +232,215 @@ prompt = "$"
 command = "npm install -g agnostic-ai"
 note = "Node 18 or newer, on any OS. To try it without installing, run `npx agnostic-ai sync`."
 
+[layout]
+title = "One folder."
+muted_title = "Every spec kind has a home."
+body = "`init` creates `.agnostic-ai/` next to `agnostic-ai.yaml`, which picks your targets. Commit both. Pick an entry to see a source file and what `sync` writes from it."
+tree_label = "Entries in .agnostic-ai"
+root = ".agnostic-ai/"
+outputs_label = "Sync writes"
+more = "Also `reviews/`, `environments/`, and `ignore/`, for review guidance, dev environment setup, and agent ignore patterns."
+
+[[layout.entries]]
+id = "instructions"
+name = "AGNOSTIC_AI.md"
+hint = "instructions"
+file = "AGNOSTIC_AI.md"
+summary = "Project instructions. Each tool gets the same body in its own entry file."
+body = """
+# Project conventions
+
+Run `make test` before every commit.
+Keep each change small and reviewed.
+"""
+outputs = ["CLAUDE.md", "AGENTS.md", "GEMINI.md"]
+href = "@/docs/configuration.md"
+anchor = "entry-point-files"
+docs_label = "Entry-point files"
+
+[[layout.entries]]
+id = "agents"
+name = "agents/"
+hint = "subagents"
+file = "agents/reviewer.md"
+summary = "Subagents with a role, their tools, and an optional model per tool."
+body = """
+---
+name: reviewer
+description: Reviews a diff for bugs and missing tests.
+tools: [Read, Grep, Glob]
+---
+
+Read the diff. Report bugs and missing tests.
+"""
+outputs = [".claude/agents/reviewer.md", ".codex/agents/reviewer.toml", ".cursor/agents/reviewer.md", ".gemini/agents/reviewer.md"]
+href = "@/docs/spec-format.md"
+anchor = "agents"
+docs_label = "Agents"
+
+[[layout.entries]]
+id = "commands"
+name = "commands/"
+hint = "slash commands"
+file = "commands/deploy.md"
+summary = "Slash commands, one file each."
+body = """
+---
+name: deploy
+description: Deploy the app to staging.
+---
+
+Run the tests, build, and deploy to staging.
+"""
+outputs = [".claude/commands/deploy.md", ".cursor/commands/deploy.md", ".gemini/commands/deploy.toml"]
+href = "@/docs/spec-format.md"
+anchor = "commands"
+docs_label = "Commands"
+
+[[layout.entries]]
+id = "hooks"
+name = "hooks/"
+hint = "tool events"
+file = "hooks/format.yaml"
+summary = "Commands that run on tool events, such as after every edit."
+body = """
+name: format
+event: PostToolUse
+matcher: Edit|Write
+command: .claude/hooks/format.sh
+"""
+outputs = [".claude/settings.json", ".codex/hooks.json", ".cursor/hooks.json"]
+href = "@/docs/spec-format.md"
+anchor = "hooks"
+docs_label = "Hooks"
+
+[[layout.entries]]
+id = "local"
+name = "local/"
+hint = "personal, ignored"
+file = "local/rules/my-style.md"
+summary = "Your own specs on this machine, ignored by Git. Sync layers them over the shared specs."
+body = """
+---
+name: my-style
+description: Personal preferences.
+alwaysApply: true
+---
+
+Answer in short sentences.
+"""
+outputs = [".claude/rules/my-style.md", ".cursor/rules/my-style.mdc"]
+href = "@/docs/local-overrides.md"
+docs_label = "Local overrides"
+
+[[layout.entries]]
+id = "mcps"
+name = "mcps/"
+hint = "MCP servers"
+file = "mcps/github.yaml"
+summary = "MCP server connections, one YAML file per server."
+body = """
+name: github
+type: http
+url: https://api.githubcopilot.com/mcp/
+"""
+outputs = [".mcp.json", ".codex/config.toml", ".cursor/mcp.json", ".gemini/settings.json"]
+href = "@/docs/spec-format.md"
+anchor = "mcp-servers"
+docs_label = "MCP servers"
+
+[[layout.entries]]
+id = "overlays"
+name = "overlays/"
+hint = "native keys"
+file = "overlays/claude.settings.json"
+summary = "Native keys no spec covers, such as the Claude Code status line. Sync merges them into the tool's own file."
+body = """
+{
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/statusline.sh"
+  }
+}
+"""
+outputs = [".claude/settings.json"]
+href = "@/docs/targets/claude.md"
+anchor = "claude-settings"
+docs_label = "Claude settings"
+
+[[layout.entries]]
+id = "rules"
+name = "rules/"
+hint = "conventions"
+file = "rules/commits.md"
+summary = "Conventions, always on or scoped to paths."
+body = """
+---
+name: commits
+description: Use Conventional Commits.
+alwaysApply: true
+---
+
+Use feat:, fix:, docs:, or chore: prefixes.
+"""
+outputs = [".claude/rules/commits.md", ".cursor/rules/commits.mdc", "AGENTS.md", "GEMINI.md"]
+href = "@/docs/spec-format.md"
+anchor = "rules"
+docs_label = "Rules"
+
+[[layout.entries]]
+id = "scripts"
+name = "scripts/"
+hint = "hook scripts"
+file = "scripts/claude/format.sh"
+summary = "Hook script bodies. Sync copies each one into every tool's hooks folder, so the hook command resolves."
+body = """
+#!/bin/sh
+npx prettier --write .
+"""
+outputs = [".claude/hooks/format.sh", ".codex/hooks/format.sh", ".cursor/hooks/format.sh"]
+href = "@/docs/spec-format.md"
+anchor = "hooks"
+docs_label = "Hooks"
+
+[[layout.entries]]
+id = "settings"
+name = "settings/"
+hint = "permissions"
+file = "settings/permissions.yaml"
+summary = "Permissions and the default model, for tools that support them."
+body = """
+permissions:
+  allow:
+    - Bash(go test:*)
+  deny:
+    - Bash(rm:*)
+"""
+outputs = [".claude/settings.json"]
+href = "@/docs/spec-format.md"
+anchor = "settings"
+docs_label = "Settings"
+
+[[layout.entries]]
+id = "skills"
+name = "skills/"
+hint = "workflows"
+file = "skills/release/SKILL.md"
+summary = "Reusable workflows, with any scripts or templates they bundle."
+body = """
+---
+name: release
+description: Cut a release and verify the published artifact.
+---
+
+1. Run the release script.
+2. Check the published artifact.
+"""
+outputs = [".claude/skills/release/SKILL.md", ".agents/skills/release/SKILL.md", ".cursor/skills/release/SKILL.md", ".gemini/skills/release/SKILL.md"]
+href = "@/docs/spec-format.md"
+anchor = "skills"
+docs_label = "Skills"
+
 [updates]
 title = "Keep the setup current."
 muted_title = "Know what changed."

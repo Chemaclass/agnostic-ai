@@ -904,6 +904,252 @@ main > section[id] {
   border-bottom: 0;
 }
 
+/* The source tree: the folder as a listing on the left, and the selected
+   entry's source file and native outputs on the right. Every pane shares one
+   grid cell, as in the output switch, so the section keeps the height of the
+   tallest entry whichever one is open. */
+.source-tree {
+  display: grid;
+  grid-template-columns: minmax(15rem, 20rem) minmax(0, 1fr);
+  align-items: start;
+  gap: 1.5rem 2.5rem;
+  margin-top: 2.25rem;
+}
+
+.source-tree-nav {
+  min-width: 0;
+}
+
+.source-tree-root {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.4rem;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.source-tree-root svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex: none;
+  color: var(--accent);
+}
+
+.source-tree-list {
+  display: grid;
+  margin-left: 0.5rem;
+  border-left: 1px solid var(--line);
+}
+
+.source-tree-entry {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 2.4rem;
+  padding: 0.5rem 0.7rem 0.5rem 1.35rem;
+  border: 0;
+  border-radius: 0 8px 8px 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  text-align: left;
+  appearance: none;
+  cursor: pointer;
+}
+
+/* The branch from the trunk to the entry. */
+.source-tree-entry::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 0.9rem;
+  border-top: 1px solid var(--line);
+}
+
+.source-tree-hint {
+  color: var(--muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.source-tree-entry:hover {
+  background: var(--surface-quiet);
+  color: var(--ink);
+}
+
+/* Selection follows click and arrow keys only, as in the output switch. */
+.source-tree-entry[aria-selected="true"] {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+.source-tree-entry[aria-selected="true"]::before {
+  border-top-color: var(--accent);
+}
+
+.source-tree-entry[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  top: 0.3rem;
+  bottom: 0.3rem;
+  left: -1px;
+  border-left: 2px solid var(--accent);
+}
+
+.source-tree-entry[aria-selected="true"] .source-tree-name {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.source-tree-list[inert] .source-tree-entry {
+  cursor: default;
+}
+
+.source-tree-list[inert] .source-tree-entry:not([aria-selected="true"]):hover {
+  background: transparent;
+  color: var(--ink-soft);
+}
+
+.source-tree-more {
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.source-tree-panels {
+  display: grid;
+  min-width: 0;
+}
+
+.source-tree-panel {
+  grid-area: 1 / 1;
+  display: grid;
+  align-content: start;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.source-tree-panel[hidden] {
+  display: grid;
+  visibility: hidden;
+}
+
+.source-tree-summary {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.02rem;
+  line-height: 1.55;
+}
+
+/* Wrap rather than scroll, for the same reason as the transform card. */
+.source-tree pre {
+  margin: 0;
+  padding: 0.8rem 0.9rem;
+  color: var(--slab-ink);
+  font-size: 0.76rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.source-tree pre code {
+  padding: 0;
+  background: none;
+  color: inherit;
+  font-size: inherit;
+}
+
+.source-tree-label {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.69rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.source-tree-outputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.source-tree-outputs li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.34rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-quiet);
+}
+
+.source-tree-outputs svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  flex: none;
+  color: var(--good);
+}
+
+.source-tree-outputs code {
+  padding: 0;
+  background: none;
+  color: var(--ink-soft);
+  font-size: 0.74rem;
+  overflow-wrap: anywhere;
+}
+
+.source-tree-docs {
+  justify-self: start;
+  color: var(--accent);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+/* One column under the split, so a tap on an entry must land on a pane close
+   below it: two entries per row halve the list, and the tree lines go since
+   they no longer read as a tree. */
+@media (max-width: 899px) {
+  .source-tree {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .source-tree-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.25rem;
+    margin-left: 0;
+    border-left: 0;
+  }
+
+  .source-tree-entry {
+    padding-left: 0.8rem;
+    border-radius: 8px;
+  }
+
+  .source-tree-entry::before {
+    display: none;
+  }
+}
+
+@media (max-width: 559px) {
+  .source-tree-hint {
+    display: none;
+  }
+}
+
 .target-reference {
   margin: 1rem 0 0;
   font-size: 0.86rem;

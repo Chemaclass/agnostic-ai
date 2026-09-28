@@ -8,6 +8,9 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Site
 
+- The landing shows the `.agnostic-ai/` folder: pick an entry to see a source file and the native files sync writes from it.
+- The installation page opens the installer for your OS with an always-visible copy button, then verify, upgrade, and pinning.
+- Docs code blocks use the full content width and a readable text size.
 - Shared links to agnostic-ai.org show a new preview image with the hub logo, the current hero line, and the agnostic-ai.org address.
 
 ## v0.71.0 - 2026-09-28
