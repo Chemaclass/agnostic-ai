@@ -19,6 +19,8 @@ var ampServiceName = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,31}$`)
 // written: it runs after activation and every wake with thread credentials, so
 // neither a one-time install nor a supervised service has equivalent semantics.
 func emitEnvironment(sess *emit.Session, envs []spec.Entry, cfg *config.Config, dryRun bool) error {
+	emit.NoteFieldNoOp(target, spec.KindEnvironment, "setup", emit.EnvironmentsWithSetup(target, envs),
+		"Amp has no worktree setup step; put commands every orb needs in install")
 	install, terminals, err := resolveEnvironment(envs)
 	if err != nil {
 		return err

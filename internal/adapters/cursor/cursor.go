@@ -179,6 +179,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitEnvironment(sess, b, cfg, dryRun); err != nil {
 		return err
 	}
+	if err := emitWorktrees(sess, b.Environments, dryRun); err != nil {
+		return err
+	}
 	if err := sess.WriteIgnoreFile(b.Ignores, target, emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile), dryRun); err != nil {
 		return err
 	}
@@ -460,7 +463,7 @@ func emitEnvironment(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryR
 		// every other adapter. Then strip the spec identity fields Cursor
 		// has no schema for.
 		for k, v := range emit.ResolveMeta(e.Meta, target) {
-			if _, skip := environRoutingKeys[k]; skip {
+			if _, skip := environRoutingKeys[k]; skip || isWorktreeSetupField(k) {
 				continue
 			}
 			merged[k] = v

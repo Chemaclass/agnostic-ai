@@ -146,11 +146,12 @@ func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) [
 }
 
 // lintEmptySpecs flags specs with no body and no description (LINT001,
-// warn). A settings spec is fields alone, so it never has either.
+// warn). Settings and environment specs are fields alone, so they never
+// have either.
 func lintEmptySpecs(entries []spec.Entry) []lintFinding {
 	var out []lintFinding
 	for _, e := range entries {
-		if e.Kind == spec.KindSettings {
+		if e.Kind == spec.KindSettings || e.Kind == spec.KindEnvironment {
 			continue
 		}
 		body := strings.TrimSpace(e.Body)

@@ -30,13 +30,14 @@ func writeFile(t *testing.T, path, content string) {
 // matching the importer test fixtures.
 func rootSources() config.Sources {
 	return config.Sources{
-		Agents:   "agents",
-		Skills:   "skills",
-		Rules:    "rules",
-		Hooks:    "hooks",
-		MCPs:     "mcps",
-		Commands: "commands",
-		Settings: "settings",
+		Agents:       "agents",
+		Skills:       "skills",
+		Rules:        "rules",
+		Hooks:        "hooks",
+		MCPs:         "mcps",
+		Commands:     "commands",
+		Settings:     "settings",
+		Environments: "environments",
 	}
 }
 
