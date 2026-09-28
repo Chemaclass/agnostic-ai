@@ -28,6 +28,9 @@ func TestCommandArgv(t *testing.T) {
 		{"! false", []string{"sh", "-c", "! false"}},
 		{"npm run build\r\nnpm start", []string{"sh", "-c", "npm run build\r\nnpm start"}},
 		{[]any{"pnpm", "dev"}, []string{"pnpm", "dev"}},
+		{[]any{"npm", 7, "run", true}, []string{"npm", "7", "run", "true"}},
+		{[]any{"npm", []any{"x"}}, nil},
+		{[]any{"npm", nil}, nil},
 		{"", nil},
 		{[]any{}, nil},
 	}

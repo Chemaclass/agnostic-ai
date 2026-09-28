@@ -617,7 +617,7 @@ name: worktree
 setup: bash scripts/setup-worktree.bash
 ```
 
-`dev-commands` lists the dev servers a tool can start and preview. Each entry needs a unique `name` and a `command`, as one string or a list of words; `cwd` (relative to the project root), `port`, `auto-port`, `env`, and `url` are optional. A string command with shell syntax, such as a pipe, several lines, `VAR=value`, or a builtin like `cd`, runs through `sh -c`; write a list to pass arguments exactly. `env` values are strings; a number or boolean is written as text.
+`dev-commands` lists the dev servers a tool can start and preview. Each entry needs a unique `name` and a `command`, as one string or a list of words; `cwd` (relative to the project root), `port`, `auto-port`, `env`, and `url` are optional. A string command with shell syntax, such as a pipe, several lines, `VAR=value`, or a builtin like `cd`, runs through `sh -c`, which on Windows needs a POSIX shell such as Git Bash on the `PATH`; write a list to pass arguments exactly, with no shell. `env` values are strings; a number or boolean is written as text.
 
 ```yaml
 name: dev

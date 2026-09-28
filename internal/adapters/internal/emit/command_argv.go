@@ -1,6 +1,9 @@
 package emit
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // shellSyntax holds the characters that make a command need a shell:
 // pipes, lists, redirects, subshells, expansion, globs, and comments.
@@ -14,7 +17,8 @@ var shellBuiltins = map[string]bool{
 }
 
 // CommandArgv reads a command written as one string or as a list into
-// the argv a tool starts it with. A list is taken as written. A string of
+// the argv a tool starts it with. A list is taken as written, a number or
+// bool in it as its text. A string of
 // plain words splits on whitespace, honoring single quotes, double quotes,
 // and backslash escapes; a string that needs a shell, such as a pipeline,
 // several lines, a leading `VAR=value`, or a builtin such as `cd`, runs
@@ -23,10 +27,30 @@ func CommandArgv(v any) []string {
 	if s, ok := v.(string); ok {
 		return stringArgv(strings.TrimSpace(s))
 	}
-	if argv := StringSlice(v); len(argv) > 0 {
-		return argv
+	return listArgv(v)
+}
+
+// listArgv reads a command list word by word. YAML reads `7` or `true`
+// as a number or bool, so a scalar is kept as its text; a list holding a
+// nested list, a mapping, or null is not a command.
+func listArgv(v any) []string {
+	list, ok := v.([]any)
+	if !ok {
+		return StringSlice(v)
 	}
-	return nil
+	argv := make([]string, 0, len(list))
+	for _, item := range list {
+		switch item.(type) {
+		case string, int, int64, float64, bool:
+			argv = append(argv, fmt.Sprint(item))
+		default:
+			return nil
+		}
+	}
+	if len(argv) == 0 {
+		return nil
+	}
+	return argv
 }
 
 func stringArgv(command string) []string {
