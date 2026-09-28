@@ -323,31 +323,31 @@ func printDrift(reports []driftReport) bool {
 		if len(r.Missing) > 0 {
 			summaryf("    %d file(s) missing (run `agnostic-ai sync` to create):\n", len(r.Missing))
 			for _, f := range r.Missing {
-				summaryf("      - %s\n", f.Path)
+				summaryf("      - %s\n", filepath.ToSlash(f.Path))
 			}
 		}
 		if len(r.Stale) > 0 {
 			summaryf("    %d file(s) out of date (run `agnostic-ai sync` to update):\n", len(r.Stale))
 			for _, f := range r.Stale {
-				summaryf("      - %s\n", f.Path)
+				summaryf("      - %s\n", filepath.ToSlash(f.Path))
 			}
 		}
 		if len(r.Edited) > 0 {
 			summaryf("    %d file(s) edited locally since last sync (sync will overwrite them; move the edits into .agnostic-ai/ first):\n", len(r.Edited))
 			for _, f := range r.Edited {
-				summaryf("      - %s\n", f.Path)
+				summaryf("      - %s\n", filepath.ToSlash(f.Path))
 			}
 		}
 		if len(r.Orphaned) > 0 {
 			summaryf("    %d orphaned file(s) no longer generated but edited since sync (delete them, or list them under sync.unmanaged):\n", len(r.Orphaned))
 			for _, p := range r.Orphaned {
-				summaryf("      - %s\n", p)
+				summaryf("      - %s\n", filepath.ToSlash(p))
 			}
 		}
 		if len(r.Leftover) > 0 {
 			summaryf("    %d file(s) no longer generated and still loaded (run `agnostic-ai sync` to remove):\n", len(r.Leftover))
 			for _, p := range r.Leftover {
-				summaryf("      - %s\n", p)
+				summaryf("      - %s\n", filepath.ToSlash(p))
 			}
 		}
 	}
