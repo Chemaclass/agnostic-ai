@@ -6,6 +6,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### Changed
+
+- `import codex` and `import gemini` name section rules from a nested file after their scope, such as `api-tests.md`, instead of `tests-2.md` (#1337).
+
 ## v0.72.0 - 2026-09-28
 
 ### Added

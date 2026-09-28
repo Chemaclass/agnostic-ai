@@ -124,6 +124,17 @@ func wholeFileRuleNames(root string, files []hierarchicalFile) map[string]string
 	return names
 }
 
+// sectionRuleName prefixes a section rule from a scoped file with the
+// scope's whole-file rule name, so the same heading in two scopes does not
+// fall back to a walk-order numeric suffix.
+func sectionRuleName(wholeFileNames map[string]string, globs, section string) string {
+	scope := wholeFileNames[globs]
+	if globs == "" || section == scope || strings.HasPrefix(section, scope+"-") {
+		return section
+	}
+	return scope + "-" + section
+}
+
 // writeScopedRule writes a rule spec with optional `globs:` frontmatter
 // into dstDir/name.md. Used by importers that infer scope from a
 // hierarchical source layout.
