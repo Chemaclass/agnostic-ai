@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -73,6 +75,10 @@ func importFromCodexWithOpts(root string, src config.Sources, opts importCodexOp
 		return err
 	}
 	rules += rulesFileRules
+	reviews, err := importCodexReviews(root, src)
+	if err != nil {
+		return err
+	}
 	agents, err := importCodexAgents(root, filepath.Join(root, src.Agents))
 	if err != nil {
 		return err
@@ -107,8 +113,8 @@ func importFromCodexWithOpts(root string, src config.Sources, opts importCodexOp
 	if _, err := mirrorMainFile(root, "AGENTS.md"); err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d commands\n",
-		rules, agents, skills, hooks, mcps, commands)
+	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d commands, %d reviews\n",
+		rules, agents, skills, hooks, mcps, commands, reviews)
 	if overlaySeeded {
 		summaryf("  → %s seeded from %s (carries model/sandbox/profiles/etc. across re-syncs)\n",
 			codexOverlayRelPath(), codexConfigTOML)
@@ -173,9 +179,18 @@ func importCodexRules(root, dstDir string, src config.Sources, opts importCodexO
 		if err != nil {
 			return count, fmt.Errorf("read %s: %w", f.path, err)
 		}
-		text, ok := hierarchicalRulesText(f, string(raw))
+		source := adapters.StripReviewSection(string(raw))
+		if header.Has(source) && strings.TrimSpace(header.Strip(source)) == "" {
+			// A generated AGENTS.md holding only a review section.
+			continue
+		}
+		text, ok := hierarchicalRulesText(f, source)
 		if !ok {
 			continue
+		}
+		if src.Reviews != "" && rulesTextIsWholeFile(f, source) {
+			// importCodexReviews reads these into review specs.
+			text, _ = splitCodexReviewSections(text)
 		}
 		data := []byte(text)
 		if !opts.shredEnabled() {

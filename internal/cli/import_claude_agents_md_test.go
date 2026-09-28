@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 // Claude Code reads "every AGENTS.md and .claude/AGENTS.md in your
@@ -103,5 +105,48 @@ func TestImportFromClaude_SkipsRootAgentsMDWhenAPeerOwnsIt(t *testing.T) {
 
 	if _, err := os.Stat(filepath.Join(dir, agnosticMainFile)); err == nil {
 		t.Error("claude must leave the root AGENTS.md to codex when both run")
+	}
+}
+
+// A CLAUDE.md that imports AGENTS.md is how Claude Code reads that file.
+// Its own text belongs to Claude alone, so it lands in a claude fence
+// instead of becoming rules every target loads (#1336).
+func TestImportFromClaude_CompanionOfAgentsMDFencesClaudeText(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	buf := captureSummary(t)
+	mustWrite(t, filepath.Join(dir, "AGENTS.md"), "# Project\n\nRoot guidance.\n")
+	mustWrite(t, filepath.Join(dir, "CLAUDE.md"), "# CLAUDE.md\n\n@AGENTS.md\n\n## Claude Code specifics\n\n- Use the Dashboard launch config.\n")
+
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+
+	want := "# Project\n\nRoot guidance.\n\n::target claude\n## Claude Code specifics\n\n- Use the Dashboard launch config.\n::end\n"
+	if got := mustRead(t, filepath.Join(dir, agnosticMainFile)); got != want {
+		t.Errorf("AGNOSTIC_AI.md = %q, want %q", got, want)
+	}
+	if entries, _ := os.ReadDir(filepath.Join(dir, rootSources().Rules)); len(entries) != 0 {
+		t.Errorf("no rule should come from the companion, got %d files", len(entries))
+	}
+	if strings.Contains(buf.String(), "unique content") {
+		t.Errorf("AGENTS.md is captured, got a warning:\n%s", buf.String())
+	}
+}
+
+// Importing AGENTS.md alone captures everything a companion CLAUDE.md
+// says, so there is nothing to warn about.
+func TestImportFromCodex_NoWarnForClaudeCompanion(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	buf := captureSummary(t)
+	mustWrite(t, filepath.Join(dir, "AGENTS.md"), "# Project\n\nRoot guidance.\n")
+	mustWrite(t, filepath.Join(dir, "CLAUDE.md"), "@AGENTS.md\n")
+
+	if _, err := mirrorMainFile(dir, "AGENTS.md"); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(buf.String(), "unique content") {
+		t.Errorf("CLAUDE.md only imports AGENTS.md, got a warning:\n%s", buf.String())
 	}
 }

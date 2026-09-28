@@ -409,6 +409,7 @@
 .docs-content > .code-block,
 .docs-content > .install-picker,
 .docs-content > .capability-browser,
+.docs-content > .compare-browser,
 .docs-content > .agent-prompt-guide,
 .docs-content > .docs-index-list {
   max-width: none;
@@ -753,7 +754,8 @@
   display: none;
 }
 
-.capability-target-picker summary::after {
+.capability-target-picker summary::after,
+.compare-picker::after {
   content: "";
   position: absolute;
   right: 0.8rem;
@@ -1111,6 +1113,455 @@
   color: var(--ink-soft);
 }
 
+/* One column geometry for the table and the summary under it, so each target's
+   digest sits below its own column. */
+.compare-browser {
+  --compare-kind-col: 10.5rem;
+  --compare-cell-pad: 0.85rem;
+  margin-block: 1.5rem 2.5rem;
+}
+
+.compare-browser [hidden] {
+  display: none;
+}
+
+.compare-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.8rem;
+  align-items: end;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.compare-picker {
+  position: relative;
+  display: grid;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.74rem;
+}
+
+.compare-picker select {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.6rem 2.25rem 0.6rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.82rem;
+  appearance: none;
+  cursor: pointer;
+}
+
+.compare-picker select:hover {
+  border-color: var(--muted);
+}
+
+/* The chevron sits on the label because a select cannot hold pseudo-elements.
+   Its centre is half the control's min-height up from the bottom edge. */
+.compare-picker::after {
+  right: 0.75rem;
+  bottom: 1.375rem;
+  pointer-events: none;
+  transform: translateY(0.1rem) rotate(45deg);
+}
+
+.compare-actions {
+  display: flex;
+  align-items: center;
+}
+
+.compare-diff-toggle {
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.compare-diff-toggle input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.docs-content .compare-result {
+  max-width: none;
+  margin: 1.25rem 0 0;
+  color: var(--ink);
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.docs-content .compare-notice,
+.docs-content .compare-fallback,
+.docs-content .compare-empty {
+  max-width: none;
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+}
+
+.docs-content .compare-notice {
+  color: var(--danger);
+}
+
+.compare-legend {
+  margin: 0.75rem 0 1.25rem;
+}
+
+.compare-region {
+  border-block: 1px solid var(--line);
+}
+
+/* Fixed columns keep three targets inside the reading column, so the page, not
+   an inner scroller, scrolls and the header row can stick under the site bar. */
+.docs-content .compare-table {
+  width: 100%;
+  display: table;
+  margin: 0;
+  overflow: visible;
+  background: none;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  font-size: 0.78rem;
+}
+
+.docs-content .compare-table caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.docs-content .compare-table th,
+.docs-content .compare-table td {
+  min-width: 0;
+  padding: 0.8rem var(--compare-cell-pad);
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: top;
+}
+
+.docs-content .compare-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.docs-content .compare-table thead th {
+  position: sticky;
+  z-index: 2;
+  top: calc(4rem + 1px);
+  padding-block: 0.7rem;
+  background: var(--surface);
+  /* The second shadow covers the subpixel seam between sticky cells. */
+  box-shadow: 0 1px 0 var(--line), 1px 0 0 var(--surface);
+  font-family: var(--sans);
+  vertical-align: bottom;
+}
+
+.docs-content .compare-table th:first-child {
+  width: var(--compare-kind-col);
+}
+
+.docs-content .compare-table thead th:first-child {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.69rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.compare-table thead th a {
+  display: grid;
+  gap: 0.15rem;
+  color: var(--ink);
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.25;
+  text-decoration: none;
+}
+
+.docs-content .compare-table thead th code {
+  justify-self: start;
+  padding: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 400;
+}
+
+.compare-table tbody th a {
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.compare-table th a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.compare-kind-note {
+  display: block;
+  margin-top: 0.3rem;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-weight: 400;
+}
+
+.compare-differs {
+  width: fit-content;
+  min-height: 1.35rem;
+  display: flex;
+  align-items: center;
+  margin-top: 0.4rem;
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* A format difference is secondary to a support difference: an outline, not the rust fill. */
+.compare-format-differs {
+  width: fit-content;
+  min-height: 1.35rem;
+  display: flex;
+  align-items: center;
+  margin-top: 0.4rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  line-height: 1;
+}
+
+.compare-cell-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.compare-format {
+  min-height: 1.35rem;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.4rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.compare-row-format-differs .compare-format {
+  border-color: var(--muted);
+  color: var(--ink);
+}
+
+/* Rows that differ lift onto the surface tone; rows that agree recede into the paper. */
+.compare-row-differs > * {
+  background: var(--surface);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .compare-table tbody tr:hover > * {
+    background: var(--surface-quiet);
+  }
+}
+
+.docs-content .compare-paths {
+  max-width: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.docs-content .compare-paths li + li {
+  margin-top: 0.25rem;
+}
+
+.docs-content .compare-paths code {
+  font-size: 0.74rem;
+  overflow-wrap: anywhere;
+}
+
+.compare-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  margin-top: 3rem;
+  border-top: 1px solid var(--line);
+}
+
+.compare-summary-head {
+  padding-block: 1.1rem 0.25rem;
+}
+
+.docs-content .compare-summary h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.25rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.docs-content .compare-summary-key,
+.docs-content .compare-summary-none {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.docs-content .compare-summary-none:empty {
+  display: none;
+}
+
+.compare-summary-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.compare-summary-target {
+  padding-block: 1.1rem 1.25rem;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.docs-content .compare-summary-target h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.docs-content .compare-summary-target p {
+  margin: 0.6rem 0 0;
+  font-size: 0.84rem;
+}
+
+.docs-content .compare-summary-target .compare-summary-label {
+  margin: 1rem 0 0.4rem;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.69rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.docs-content .compare-summary-target ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.docs-content .compare-summary-target li {
+  position: relative;
+  padding-left: 1rem;
+}
+
+.docs-content .compare-summary-target li + li {
+  margin-top: 0.45rem;
+}
+
+.compare-summary-target li::before {
+  position: absolute;
+  left: 0;
+  font-family: var(--mono);
+  font-weight: 700;
+}
+
+.compare-summary-ahead li::before {
+  content: "+";
+  content: "+" / "";
+  color: var(--accent);
+}
+
+.compare-summary-behind li::before {
+  content: "\2212";
+  content: "\2212" / "";
+  color: var(--muted);
+}
+
+.compare-summary-target li > a:first-child {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.docs-content .compare-summary-target .compare-summary-more {
+  margin-top: 1.1rem;
+  font-size: 0.8rem;
+}
+
+@media (min-width: 701px) {
+  .compare-controls {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+    gap: 1rem;
+  }
+
+  .compare-actions {
+    padding-left: 0.25rem;
+  }
+
+  .compare-summary {
+    grid-template-columns: var(--compare-kind-col) minmax(0, 1fr);
+  }
+
+  .compare-summary-head {
+    padding: 1.1rem var(--compare-cell-pad) 0 0;
+  }
+
+  .compare-summary-grid {
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+  }
+
+  .compare-summary-target {
+    padding: 1.1rem var(--compare-cell-pad) 0;
+    border-bottom: 0;
+  }
+}
+
+@media (forced-colors: active) {
+  .compare-picker select {
+    padding-right: 0.75rem;
+    appearance: auto;
+  }
+
+  .compare-picker::after {
+    display: none;
+  }
+}
+
 .docs-content blockquote {
   margin: 1.5rem 0;
   padding: 1rem 1.15rem;
@@ -1319,6 +1770,88 @@
     font-family: var(--mono);
     font-size: 0.72rem;
     font-weight: 700;
+  }
+
+  .docs-content .compare-table,
+  .docs-content .compare-table tbody,
+  .docs-content .compare-table tr,
+  .docs-content .compare-table th,
+  .docs-content .compare-table td {
+    width: 100%;
+    min-width: 0;
+    display: block;
+  }
+
+  .docs-content .compare-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .docs-content .compare-table tr {
+    padding-block: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .docs-content .compare-table tr[hidden] {
+    display: none;
+  }
+
+  .docs-content .compare-table tr:last-child {
+    border-bottom: 0;
+  }
+
+  .compare-row-differs {
+    background: var(--surface);
+  }
+
+  .docs-content .compare-table th:first-child {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.6rem;
+    padding: 0.5rem 0.75rem 0.4rem;
+    border: 0;
+  }
+
+  .compare-kind-note,
+  .compare-format-differs,
+  .compare-differs {
+    margin-top: 0;
+  }
+
+  .docs-content .compare-table td {
+    display: grid;
+    grid-template-columns: 6.5rem minmax(0, 1fr);
+    align-items: start;
+    gap: 0.3rem 0.75rem;
+    padding: 0.35rem 0.75rem;
+    border: 0;
+  }
+
+  .docs-content .compare-table td > * {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .docs-content .compare-table td .compare-paths {
+    margin-top: 0;
+  }
+
+  .docs-content .compare-table td::before {
+    content: attr(data-label);
+    grid-row: 1 / span 2;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1.6rem;
   }
 }
 

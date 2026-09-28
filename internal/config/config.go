@@ -43,6 +43,7 @@ type Config struct {
 	Import        ImportConfig      `yaml:"import,omitempty"         json:"import,omitempty"`
 	Verify        VerifyConfig      `yaml:"verify,omitempty"         json:"verify,omitempty"`
 	Lint          LintConfig        `yaml:"lint,omitempty"           json:"lint,omitempty"`
+	Doctor        DoctorConfig      `yaml:"doctor,omitempty"         json:"doctor,omitempty"`
 }
 
 // VerifyConfig defines the external command that re-clears generated AI

@@ -19,16 +19,7 @@ func setupReferencesProject(t *testing.T, targets string) string {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	silence(t)
-	write := func(p, body string) {
-		t.Helper()
-		full := filepath.Join(dir, filepath.FromSlash(p))
-		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(full, []byte(body), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
+	write := func(p, body string) { writeReferenceProjectFile(t, dir, p, body) }
 	write("agnostic-ai.yaml", "version: 1\ntargets: ["+targets+"]\n")
 	write(".agnostic-ai/skills/deploy/SKILL.md", "---\nname: deploy\ndescription: deploy\n---\n"+
 		"Follow [setup](references/setup.md#install) and [the guide](<docs/nested guide.md>).\n"+
@@ -37,6 +28,18 @@ func setupReferencesProject(t *testing.T, targets string) string {
 	write(".agnostic-ai/skills/deploy/references/setup.md", "setup\n")
 	write(".agnostic-ai/skills/deploy/docs/nested guide.md", "Back to [setup][s].\n\n[s]: ../references/setup.md\n")
 	return dir
+}
+
+// writeReferenceProjectFile writes a file under dir, creating parents.
+func writeReferenceProjectFile(t *testing.T, dir, p, body string) {
+	t.Helper()
+	full := filepath.Join(dir, filepath.FromSlash(p))
+	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(full, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func runDoctor(t *testing.T, args ...string) (string, error) {
@@ -89,10 +92,9 @@ func TestDoctorCheckReferences_ReportsBrokenEmittedReferenceUntilRestored(t *tes
 		t.Fatalf("doctor should fail on a broken reference:\n%s", out)
 	}
 	for _, want := range []string{
-		"claude: .claude/skills/deploy/SKILL.md:8 links to missing references/setup.md",
-		"source: .agnostic-ai/skills/deploy/SKILL.md",
-		"claude: .claude/skills/deploy/docs/nested guide.md:3 links to missing ../references/setup.md",
-		"source: .agnostic-ai/skills/deploy/docs/nested guide.md",
+		".agnostic-ai/skills/deploy/SKILL.md:8 links to missing references/setup.md",
+		".agnostic-ai/skills/deploy/docs/nested guide.md:3 links to missing ../references/setup.md",
+		"targets: claude",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output missing %q:\n%s", want, out)
@@ -141,8 +143,34 @@ func TestDoctorCheckReferences_HonorsSelectedTargets(t *testing.T) {
 		t.Errorf("claude run must not report codex findings:\n%s", claudeOut)
 	}
 	codexOut, err := runDoctor(t, "-t", "codex", "--check-references")
-	if err == nil || !strings.Contains(codexOut, "codex: .agents/skills/deploy/SKILL.md:8 links to missing references/setup.md") {
+	if err == nil || !strings.Contains(codexOut, ".agnostic-ai/skills/deploy/SKILL.md:8 links to missing references/setup.md") ||
+		!strings.Contains(codexOut, "targets: codex") {
 		t.Errorf("codex run must report the broken reference (err=%v):\n%s", err, codexOut)
+	}
+}
+
+// A broken link copied to several targets prints once, with every
+// affected target listed on one line, instead of repeating per target
+// (#1342).
+func TestDoctorCheckReferences_GroupsFindingsBySourceAndListsTargets(t *testing.T) {
+	dir := setupReferencesProject(t, "claude, codex")
+	syncProject(t)
+	if err := os.Remove(filepath.Join(dir, ".claude/skills/deploy/references/setup.md")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(dir, ".agents/skills/deploy/references/setup.md")); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := runDoctor(t, "--check-references")
+	if err == nil {
+		t.Fatalf("doctor should fail on a broken reference:\n%s", out)
+	}
+	if n := strings.Count(out, "links to missing references/setup.md"); n != 1 {
+		t.Errorf("want one grouped line for the shared broken link, got %d:\n%s", n, out)
+	}
+	if !strings.Contains(out, "targets: claude, codex") {
+		t.Errorf("want both targets listed on one line:\n%s", out)
 	}
 }
 
@@ -265,4 +293,146 @@ func TestDoctorJSON_OmitsReferencesWithoutFlag(t *testing.T) {
 	if !strings.Contains(out, `"references": []`) {
 		t.Errorf("clean run must emit an empty references list:\n%s", out)
 	}
+}
+
+// A skill commonly links a project file by its repo-relative path, such
+// as `apps/engine/src/lib.ts`; the emitted copy sits next to the skill
+// document instead, so the link never resolves there. Resolving from the
+// project root as a fallback is the smaller change: it needs no new
+// config key, and every project already has exactly one root (#1342).
+func TestDoctorCheckReferences_ResolvesLinkFromProjectRoot(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeReferenceProjectFile(t, dir, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeReferenceProjectFile(t, dir, "src/lib.ts", "export {}\n")
+	writeReferenceProjectFile(t, dir, ".agnostic-ai/skills/demo/SKILL.md",
+		"---\nname: demo\ndescription: demo\n---\nSee [lib](src/lib.ts).\n")
+	syncProject(t)
+
+	out, err := runDoctor(t, "--check-references")
+	if err != nil {
+		t.Fatalf("a link resolving from the project root must pass: %v\n%s", err, out)
+	}
+}
+
+// A link that resolves from neither the emitted document nor the project
+// root still fails, even though it would match a same-named file at the
+// root under a different subpath: only the exact repo-relative path
+// counts.
+func TestDoctorCheckReferences_ProjectRootFallbackStillFlagsUnresolvedLinks(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeReferenceProjectFile(t, dir, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeReferenceProjectFile(t, dir, ".agnostic-ai/skills/demo/SKILL.md",
+		"---\nname: demo\ndescription: demo\n---\nSee [lib](src/lib.ts).\n")
+	syncProject(t)
+
+	out, err := runDoctor(t, "--check-references")
+	if err == nil || !strings.Contains(out, "links to missing src/lib.ts") {
+		t.Fatalf("a link missing everywhere must still be flagged (err=%v):\n%s", err, out)
+	}
+}
+
+// The project-root fallback never looks outside the project: a `../`
+// link stays broken even when a file of that name sits beside the
+// checkout.
+func TestDoctorCheckReferences_ProjectRootFallbackStaysInsideTheProject(t *testing.T) {
+	parent := t.TempDir()
+	dir := filepath.Join(parent, "repo")
+	writeReferenceProjectFile(t, parent, "shared/notes.md", "outside\n")
+	testutil.Chdir(t, mkdirAll(t, dir))
+	silence(t)
+	writeReferenceProjectFile(t, dir, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeReferenceProjectFile(t, dir, ".agnostic-ai/skills/demo/SKILL.md",
+		"---\nname: demo\ndescription: demo\n---\nSee [notes](../shared/notes.md).\n")
+	syncProject(t)
+
+	out, err := runDoctor(t, "--check-references")
+	if err == nil || !strings.Contains(out, "links to missing ../shared/notes.md") {
+		t.Fatalf("a link leaving the project must stay flagged (err=%v):\n%s", err, out)
+	}
+}
+
+// An ignore entry matches the destination as written, so a
+// percent-encoded link is exempted by the text copied from the source.
+func TestDoctorCheckReferences_IgnoreMatchesTheDestinationAsWritten(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeReferenceProjectFile(t, dir, "agnostic-ai.yaml",
+		"version: 1\ntargets: [claude]\ndoctor:\n  check-references:\n    ignore: [\"gcp%2Durl\"]\n")
+	writeReferenceProjectFile(t, dir, ".agnostic-ai/skills/demo/SKILL.md",
+		"---\nname: demo\ndescription: demo\n---\nSee [GCP](gcp%2Durl).\n")
+	syncProject(t)
+
+	out, err := runDoctor(t, "--check-references")
+	if err != nil {
+		t.Fatalf("an ignore entry copied from the source must match: %v\n%s", err, out)
+	}
+}
+
+// doctor.check-references.ignore exempts placeholder links, such as
+// `url` in an example template, that can never resolve to a real file
+// (#1342).
+func TestDoctorCheckReferences_IgnoreListExemptsPlaceholderLinks(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeReferenceProjectFile(t, dir, "agnostic-ai.yaml",
+		"version: 1\ntargets: [claude]\ndoctor:\n  check-references:\n    ignore: [\"url\"]\n")
+	writeReferenceProjectFile(t, dir, ".agnostic-ai/skills/demo/SKILL.md",
+		"---\nname: demo\ndescription: demo\n---\nSee [Logs](url).\n")
+	syncProject(t)
+
+	out, err := runDoctor(t, "--check-references")
+	if err != nil {
+		t.Fatalf("an ignored destination must not fail the check: %v\n%s", err, out)
+	}
+}
+
+// Without the ignore entry, the same placeholder link fails, proving the
+// previous test's pass comes from the config key and not from the link
+// happening to resolve.
+func TestDoctorCheckReferences_PlaceholderLinkFlaggedWithoutIgnoreList(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeReferenceProjectFile(t, dir, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeReferenceProjectFile(t, dir, ".agnostic-ai/skills/demo/SKILL.md",
+		"---\nname: demo\ndescription: demo\n---\nSee [Logs](url).\n")
+	syncProject(t)
+
+	out, err := runDoctor(t, "--check-references")
+	if err == nil || !strings.Contains(out, "links to missing url") {
+		t.Fatalf("without the ignore entry the placeholder must still fail (err=%v):\n%s", err, out)
+	}
+}
+
+// The exact reproduction from #1342: a repo-root link and an ignored
+// placeholder link together must reach exit 0.
+func TestDoctorCheckReferences_IssueRepro(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeReferenceProjectFile(t, dir, "agnostic-ai.yaml",
+		"version: 1\ntargets: [claude]\ndoctor:\n  check-references:\n    ignore: [\"url\"]\n")
+	writeReferenceProjectFile(t, dir, "src/lib.ts", "export {}\n")
+	writeReferenceProjectFile(t, dir, ".agnostic-ai/skills/demo/SKILL.md",
+		"---\nname: demo\ndescription: Demo.\n---\n\nSee [lib](src/lib.ts) and [Logs](url).\n")
+	syncProject(t)
+
+	out, err := runDoctor(t, "--check-references")
+	if err != nil {
+		t.Fatalf("doctor --check-references: %v\n%s", err, out)
+	}
+}
+
+func mkdirAll(t *testing.T, dir string) string {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return dir
 }

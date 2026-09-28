@@ -63,6 +63,9 @@ func newRenderCmd() *cobra.Command {
 				if extra, ok := entryPointRuleFile(cfg, t, entry, single); ok {
 					captured = append(captured, extra)
 				}
+				if section := adapters.RootReviewSection(cfg, single, t); section != "" {
+					captured = append(captured, adapters.CapturedFile{Path: adapters.EntryPointPath(cfg, t), Content: section})
+				}
 				if len(captured) == 0 {
 					_, _ = fmt.Fprintf(out, "# target: %s — (no output for kind %s)\n", t, entry.Kind)
 					continue

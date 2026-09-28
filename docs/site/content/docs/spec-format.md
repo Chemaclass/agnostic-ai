@@ -597,7 +597,7 @@ scope: backend
 Flag any handler that talks to the database directly instead of going through a repository.
 ```
 
-Reviews honor `scope` and the source layout like rules do. Specs with the same scope concatenate into that scope's one review file, written as a plain body without frontmatter. [Cursor](@/docs/targets/cursor.md) (Bugbot) and [Goose](@/docs/targets/goose.md) support reviews; other targets report them as unsupported.
+Reviews honor `scope` and the source layout like rules do. Specs with the same scope concatenate into that scope's one review file, written as a plain body without frontmatter. [Cursor](@/docs/targets/cursor.md) (Bugbot), [Codex](@/docs/targets/codex.md) (code review), and [Goose](@/docs/targets/goose.md) support reviews; other targets report them as unsupported. For Codex the text lands in a `## Code Review Rules` section of the root or scoped `AGENTS.md`, a file every `AGENTS.md` reader loads; a `targets:` filter that leaves out `codex` keeps a spec out of it.
 
 ## Environments
 

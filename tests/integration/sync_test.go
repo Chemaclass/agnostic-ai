@@ -271,14 +271,18 @@ func TestInit_ScaffoldsLayout(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Git drops empty folders, so init creates none (#1331).
 	for _, d := range []string{"agents", "skills", "rules", "hooks", "mcps"} {
-		if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", d)); err != nil {
-			t.Errorf("expected dir .agnostic-ai/%s to exist", d)
+		if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", d)); !os.IsNotExist(err) {
+			t.Errorf(".agnostic-ai/%s should not exist before a spec needs it, stat err = %v", d, err)
 		}
 	}
 	if _, err := os.Stat(filepath.Join(dir, "agnostic-ai.yaml")); err != nil {
 		t.Error("expected agnostic-ai.yaml")
 	}
+	runCmd(t, "validate")
+	runCmd(t, "sync")
+	runCmd(t, "sync", "--check")
 }
 
 // setupFixture creates a fresh project tree with one of each spec kind.

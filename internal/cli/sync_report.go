@@ -371,6 +371,26 @@ func rmCached(root string, paths []string) error {
 	return nil
 }
 
+// trackedFiles lists every git-tracked file under root, relative to it:
+// `git ls-files` defaults to the working directory's own subtree, so no
+// prefix-stripping is needed the way gitPending needs it for `status`.
+// Used as the leftover-output scan's candidate set when no ledger names
+// one (#1334). Outside a git work tree, or when git is missing or slow,
+// it reports not ok, the same convenience contract as gitPending.
+func trackedFiles(root string) ([]string, bool) {
+	out, ok := runGit(root, "ls-files", "-z")
+	if !ok {
+		return nil, false
+	}
+	var files []string
+	for _, p := range strings.Split(out, "\x00") {
+		if p != "" {
+			files = append(files, filepath.FromSlash(p))
+		}
+	}
+	return files, true
+}
+
 func gitStatusPaths(root string, paths []string) ([]string, bool) {
 	out, ok := runGit(root, append([]string{"status", "--porcelain=v1", "-z", "--untracked-files=all", "--"}, paths...)...)
 	if !ok {
