@@ -21,6 +21,12 @@ func TestLintDevCommands(t *testing.T) {
 			},
 		}},
 		{Kind: spec.KindEnvironment, Path: "environments/scalar.yaml", Meta: map[string]any{"dev-commands": "npm run dev"}},
+		{Kind: spec.KindEnvironment, Path: "environments/fields.yaml", Meta: map[string]any{
+			"x-claude": map[string]any{"dev-commands": []any{
+				map[string]any{"name": "Blank", "command": "   "},
+				map[string]any{"name": "Web", "command": "npm start", "port": "web", "env": map[string]any{"PORT": 3000, "LIST": []any{"a"}}},
+			}},
+		}},
 	}
 	var got []string
 	for _, f := range lintDevCommands(envs) {
@@ -35,6 +41,9 @@ func TestLintDevCommands(t *testing.T) {
 		"environments/bad.yaml: dev command 3 has no `command:`",
 		"environments/bad.yaml: dev command 4 is not a mapping with `name:` and `command:`",
 		"environments/scalar.yaml: `dev-commands` must be a list of commands",
+		"environments/fields.yaml: dev command 1 has no `command:`",
+		"environments/fields.yaml: dev command 2 sets `port: web`; use a number",
+		"environments/fields.yaml: dev command 2 sets `env.LIST` to a list or mapping; use a string",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("findings:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))

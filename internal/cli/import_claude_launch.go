@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -55,7 +56,11 @@ func importClaudeLaunch(root string, src config.Sources) (int, error) {
 	var commands []any
 	for _, c := range doc.Configurations {
 		name, _ := c["name"].(string)
-		argv := launchArgv(c)
+		argv, whole := launchArgv(c)
+		if !whole {
+			summaryf("  ! skipped %s configuration %q: an argument is not a string\n", filepath.ToSlash(claudeLaunchFile), name)
+			continue
+		}
 		if name == "" || len(argv) == 0 {
 			summaryf("  ! skipped %s configuration %q: it has no command to start\n", filepath.ToSlash(claudeLaunchFile), name)
 			continue
@@ -111,41 +116,66 @@ func importClaudeLaunch(root string, src config.Sources) (int, error) {
 }
 
 // launchArgv reads the command a launch.json configuration starts:
-// runtimeExecutable and runtimeArgs, or `node` with program and args.
-func launchArgv(c map[string]any) []string {
-	if exe, _ := c["runtimeExecutable"].(string); exe != "" {
-		return append([]string{exe}, jsonStrings(c["runtimeArgs"])...)
+// runtimeExecutable (`node` when only program is set), its runtimeArgs,
+// then program and its args. It reports false when an argument is not a
+// string, since the command could not be kept whole.
+func launchArgv(c map[string]any) ([]string, bool) {
+	exe, _ := c["runtimeExecutable"].(string)
+	program, _ := c["program"].(string)
+	if exe == "" && program != "" {
+		exe = "node"
 	}
-	if program, _ := c["program"].(string); program != "" {
-		return append([]string{"node", program}, jsonStrings(c["args"])...)
+	if exe == "" {
+		return nil, true
 	}
-	return nil
+	argv := []string{exe}
+	runtimeArgs, ok := jsonStrings(c["runtimeArgs"])
+	if !ok {
+		return nil, false
+	}
+	argv = append(argv, runtimeArgs...)
+	if program != "" {
+		args, ok := jsonStrings(c["args"])
+		if !ok {
+			return nil, false
+		}
+		argv = append(append(argv, program), args...)
+	}
+	return argv, true
 }
 
-// devCommandValue writes argv as the spec's command: `sh -c <command>`
-// as that command, plain words as one string, and anything a string
-// would split differently as a list.
+// devCommandValue writes argv as the spec's command in the shortest form
+// that starts the same argv: the command of `sh -c <command>`, or the
+// words joined by spaces, when the spec reads either back unchanged;
+// otherwise the list itself.
 func devCommandValue(argv []string) any {
-	if len(argv) == 3 && argv[0] == "sh" && argv[1] == "-c" {
+	if len(argv) == 3 && argv[0] == "sh" && argv[1] == "-c" &&
+		slices.Equal(adapters.CommandArgv(argv[2]), argv) {
 		return argv[2]
 	}
-	for _, a := range argv {
-		if a == "" || strings.ContainsAny(a, " \t\n'\"\\=") || strings.ContainsAny(a, "|&;<>()$`*?[]{}~#") {
-			return argv
-		}
+	if joined := strings.Join(argv, " "); slices.Equal(adapters.CommandArgv(joined), argv) {
+		return joined
 	}
-	return strings.Join(argv, " ")
+	return argv
 }
 
-func jsonStrings(v any) []string {
-	list, _ := v.([]any)
-	var out []string
-	for _, item := range list {
-		if s, ok := item.(string); ok {
-			out = append(out, s)
-		}
+func jsonStrings(v any) ([]string, bool) {
+	if v == nil {
+		return nil, true
 	}
-	return out
+	list, ok := v.([]any)
+	if !ok {
+		return nil, false
+	}
+	out := make([]string, 0, len(list))
+	for _, item := range list {
+		s, ok := item.(string)
+		if !ok {
+			return nil, false
+		}
+		out = append(out, s)
+	}
+	return out, true
 }
 
 func addYAMLField(n *yaml.Node, key string, value any) {

@@ -617,7 +617,7 @@ name: worktree
 setup: bash scripts/setup-worktree.bash
 ```
 
-`dev-commands` lists the dev servers a tool can start and preview. Each entry needs a unique `name` and a `command`, as one string or a list of words; `cwd` (relative to the project root), `port`, `auto-port`, `env`, and `url` are optional. A string command with shell syntax, such as a pipe or `VAR=value`, runs through `sh -c`.
+`dev-commands` lists the dev servers a tool can start and preview. Each entry needs a unique `name` and a `command`, as one string or a list of words; `cwd` (relative to the project root), `port`, `auto-port`, `env`, and `url` are optional. A string command with shell syntax, such as a pipe, several lines, `VAR=value`, or a builtin like `cd`, runs through `sh -c`; write a list to pass arguments exactly. `env` values are strings; a number or boolean is written as text.
 
 ```yaml
 name: dev
@@ -632,7 +632,7 @@ dev-commands:
     port: 3000
 ```
 
-Specs merge by top-level key, and the last value wins. [Cursor](@/docs/targets/cursor.md) writes `setup` and `setup-windows` to `.cursor/worktrees.json`, and writes the rest of the spec as its `environment.json`, passing every key through except the routing fields (`name`, `scope`, `target(s)`, `target(s)-exclude`, `description`) and `dev-commands`. [Claude Code](@/docs/targets/claude.md) writes `dev-commands` to `.claude/launch.json` and notes the other fields; run worktree setup there from a `WorktreeCreate` or `SessionStart` [hook](#hooks) instead. [OpenHands](@/docs/targets/openhands.md) and [Amp](@/docs/targets/amp.md) turn `install` into a setup script, Amp turns `terminals` into services, and both note `setup` and `dev-commands` as having no effect. Other targets, such as devcontainers or Codex setup scripts, report the spec as unsupported. `lint` reports a dev command with no `name` or `command`, or a repeated name (LINT016).
+Specs merge by top-level key, and the last value wins. [Cursor](@/docs/targets/cursor.md) writes `setup` and `setup-windows` to `.cursor/worktrees.json`, and writes the rest of the spec as its `environment.json`, passing every key through except the routing fields (`name`, `scope`, `target(s)`, `target(s)-exclude`, `description`) and `dev-commands`. [Claude Code](@/docs/targets/claude.md) writes `dev-commands` to `.claude/launch.json` and notes every other field as having no effect; run worktree setup there from a `WorktreeCreate` or `SessionStart` [hook](#hooks) instead. [OpenHands](@/docs/targets/openhands.md) and [Amp](@/docs/targets/amp.md) turn `install` into a setup script, Amp turns `terminals` into services, and both note `setup` and `dev-commands` as having no effect. Other targets, such as devcontainers or Codex setup scripts, report the spec as unsupported. `lint` reports a dev command with no `name` or `command`, or a repeated name (LINT016).
 
 ## Ignore
 

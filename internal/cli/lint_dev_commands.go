@@ -2,21 +2,29 @@ package cli
 
 import (
 	"fmt"
+	"maps"
+	"slices"
+	"strconv"
+	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// lintDevCommands flags an environment spec's dev command that no target
-// can start (LINT016, error): an entry that is not a mapping, has no
-// `name` or `command`, or repeats another entry's name. Claude Code drops
-// such an entry from launch.json, and `sync` passes, so nothing else says
-// the preview server is gone.
+// lintDevCommands flags an environment spec's dev command Claude Code
+// cannot start as written (LINT016, error): an entry that is not a
+// mapping, has no `name` or `command`, repeats another entry's name, or
+// sets a `port` that is not a number or an `env` value that is not a
+// scalar. Claude Code drops or rewrites such an entry in launch.json, and
+// `sync` passes, so nothing else says the preview server changed. The
+// list is read as Claude Code resolves it, `x-claude` included.
 func lintDevCommands(envs []spec.Entry) []lintFinding {
 	var out []lintFinding
 	for _, e := range envs {
-		list, ok := e.Meta["dev-commands"].([]any)
+		meta := adapters.ResolveMeta(e.Meta, "claude")
+		list, ok := meta["dev-commands"].([]any)
 		if !ok {
-			if e.Meta["dev-commands"] != nil {
+			if meta["dev-commands"] != nil {
 				out = append(out, devCommandFinding(e, "`dev-commands` must be a list of commands"))
 			}
 			continue
@@ -36,20 +44,36 @@ func lintDevCommands(envs []spec.Entry) []lintFinding {
 				out = append(out, devCommandFinding(e, fmt.Sprintf("dev command %q appears twice; names must be unique", name)))
 			}
 			seen[name] = true
-			if !hasDevCommand(m["command"]) {
+			if len(adapters.CommandArgv(m["command"])) == 0 {
 				out = append(out, devCommandFinding(e, fmt.Sprintf("dev command %d has no `command:`", i+1)))
+			}
+			if port, ok := m["port"]; ok && !isPortValue(port) {
+				out = append(out, devCommandFinding(e, fmt.Sprintf("dev command %d sets `port: %v`; use a number", i+1, port)))
+			}
+			env, _ := m["env"].(map[string]any)
+			for _, k := range slices.Sorted(maps.Keys(env)) {
+				switch env[k].(type) {
+				case string, int, int64, float64, bool:
+				default:
+					out = append(out, devCommandFinding(e, fmt.Sprintf("dev command %d sets `env.%s` to a list or mapping; use a string", i+1, k)))
+				}
 			}
 		}
 	}
 	return out
 }
 
-func hasDevCommand(v any) bool {
+// isPortValue reports whether v is a port number, written as a number or
+// a numeric string.
+func isPortValue(v any) bool {
 	switch t := v.(type) {
+	case int, int64:
+		return true
+	case float64:
+		return t == float64(int(t))
 	case string:
-		return t != ""
-	case []any:
-		return len(t) > 0
+		_, err := strconv.Atoi(strings.TrimSpace(t))
+		return err == nil
 	}
 	return false
 }

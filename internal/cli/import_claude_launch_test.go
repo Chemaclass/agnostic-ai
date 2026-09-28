@@ -19,6 +19,10 @@ func TestImportFromClaude_ReadsLaunchJSON(t *testing.T) {
     {"name": "Server", "program": "server.js", "args": ["--inspect"]},
     {"name": "Spaced", "runtimeExecutable": "node", "runtimeArgs": ["my server.js"]},
     {"name": "Piped", "runtimeExecutable": "sh", "runtimeArgs": ["-c", "pnpm build | tee log"]},
+    {"name": "Cd", "runtimeExecutable": "sh", "runtimeArgs": ["-c", "cd x"]},
+    {"name": "Lines", "runtimeExecutable": "sh", "runtimeArgs": ["-c", "a\nb"]},
+    {"name": "Tsx", "runtimeExecutable": "tsx", "program": "server.ts", "args": ["--x"]},
+    {"name": "Bad", "runtimeExecutable": "npm", "runtimeArgs": ["run", 3]},
     {"name": "Remote", "url": "https://example.test"}
   ]
 }`)
@@ -46,6 +50,14 @@ dev-commands:
         - my server.js
     - name: Piped
       command: pnpm build | tee log
+    - name: Cd
+      command: cd x
+    - name: Lines
+      command: |-
+        a
+        b
+    - name: Tsx
+      command: tsx server.ts --x
 x-claude:
     autoVerify: false
 `

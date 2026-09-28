@@ -90,3 +90,19 @@ func TestEmit_NoDevCommandsNoLaunchJSON(t *testing.T) {
 		t.Errorf("launch.json written: %v", err)
 	}
 }
+
+// Scalar env values and a numeric port string reach launch.json, since
+// YAML reads `PORT: 3000` as a number.
+func TestEmit_DevCommandScalarEnvAndPortString(t *testing.T) {
+	got := launchConfiguration(map[string]any{
+		"name": "web", "command": "npm start", "port": "4000",
+		"env": map[string]any{"PORT": 3000, "DEBUG": true, "NAME": "x"},
+	})
+	env, _ := got["env"].(map[string]string)
+	if env["PORT"] != "3000" || env["DEBUG"] != "true" || env["NAME"] != "x" {
+		t.Errorf("env = %v", got["env"])
+	}
+	if got["port"] != 4000 {
+		t.Errorf("port = %v", got["port"])
+	}
+}

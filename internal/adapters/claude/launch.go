@@ -2,6 +2,10 @@ package claude
 
 import (
 	"fmt"
+	"maps"
+	"slices"
+	"strconv"
+	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -33,6 +37,7 @@ func emitLaunch(sess *emit.Session, envs []spec.Entry, dryRun bool) error {
 		}
 		emit.NoteFieldNoOp(target, spec.KindEnvironment, f.field, count, f.reason)
 	}
+	noteOtherEnvironmentKeys(envs)
 	var commands []any
 	var autoVerify any
 	for _, e := range envs {
@@ -51,6 +56,10 @@ func emitLaunch(sess *emit.Session, envs []spec.Entry, dryRun bool) error {
 		}
 	}
 	if len(configurations) == 0 {
+		if autoVerify != nil {
+			emit.NoteFieldNoOp(target, spec.KindEnvironment, "autoVerify", 1,
+				"launch.json is written only for dev-commands")
+		}
 		return nil
 	}
 	doc := map[string]any{"version": launchFileVersion, "configurations": configurations}
@@ -79,13 +88,13 @@ func launchConfiguration(v any) map[string]any {
 	if len(argv) > 1 {
 		out["runtimeArgs"] = argv[1:]
 	}
-	if port, ok := emit.IntField(m, "port"); ok {
+	if port, ok := launchPort(m["port"]); ok {
 		out["port"] = port
 	}
 	if cwd, _ := m["cwd"].(string); cwd != "" {
 		out["cwd"] = cwd
 	}
-	if env := emit.StringMap(m["env"]); len(env) > 0 {
+	if env := launchEnv(m["env"]); len(env) > 0 {
 		out["env"] = env
 	}
 	if auto, ok := m["auto-port"].(bool); ok {
@@ -95,4 +104,51 @@ func launchConfiguration(v any) map[string]any {
 		out["url"] = url
 	}
 	return out
+}
+
+// launchPort reads a port written as a number or a numeric string.
+func launchPort(v any) (int, bool) {
+	if s, ok := v.(string); ok {
+		n, err := strconv.Atoi(strings.TrimSpace(s))
+		return n, err == nil
+	}
+	return emit.IntField(map[string]any{"port": v}, "port")
+}
+
+// launchEnv reads env values as strings. YAML reads `PORT: 3000` as a
+// number and `DEBUG: true` as a bool; both are still environment values.
+func launchEnv(v any) map[string]string {
+	m, _ := v.(map[string]any)
+	out := map[string]string{}
+	for k, val := range m {
+		switch val.(type) {
+		case string, int, int64, float64, bool:
+			out[k] = fmt.Sprint(val)
+		}
+	}
+	return out
+}
+
+// launchSpecKeys are the environment spec keys the Claude emit reads or
+// notes itself, plus the spec's identity fields.
+var launchSpecKeys = map[string]bool{
+	"name": true, "description": true, "scope": true, "dev-commands": true, "autoVerify": true,
+	"install": true, "setup": true, "setup-windows": true, "terminals": true,
+}
+
+// noteOtherEnvironmentKeys notes each other environment key, such as a
+// Cursor environment.json key passed through at the top level: Claude
+// Code has no file for it.
+func noteOtherEnvironmentKeys(envs []spec.Entry) {
+	counts := map[string]int{}
+	for _, e := range envs {
+		for k := range emit.ResolveMeta(e.Meta, target) {
+			if !launchSpecKeys[k] {
+				counts[k]++
+			}
+		}
+	}
+	for _, k := range slices.Sorted(maps.Keys(counts)) {
+		emit.NoteFieldNoOp(target, spec.KindEnvironment, k, counts[k], "Claude Code has no file for it")
+	}
 }

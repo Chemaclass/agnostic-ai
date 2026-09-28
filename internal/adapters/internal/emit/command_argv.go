@@ -4,13 +4,21 @@ import "strings"
 
 // shellSyntax holds the characters that make a command need a shell:
 // pipes, lists, redirects, subshells, expansion, globs, and comments.
-const shellSyntax = "|&;<>()$`*?[]{}~#"
+const shellSyntax = "|&;<>()$`*?[]{}~#!"
+
+// shellBuiltins are the first words only a shell can run: builtins that
+// change the shell itself, and keywords. As an executable they fail.
+var shellBuiltins = map[string]bool{
+	"cd": true, "exec": true, "export": true, "source": true, ".": true, "set": true,
+	"unset": true, "eval": true, "if": true, "for": true, "while": true, "until": true, "case": true,
+}
 
 // CommandArgv reads a command written as one string or as a list into
 // the argv a tool starts it with. A list is taken as written. A string of
 // plain words splits on whitespace, honoring single quotes, double quotes,
-// and backslash escapes; a string that needs a shell, such as a pipeline
-// or a leading `VAR=value`, runs as `sh -c <command>`.
+// and backslash escapes; a string that needs a shell, such as a pipeline,
+// several lines, a leading `VAR=value`, or a builtin such as `cd`, runs
+// as `sh -c <command>`.
 func CommandArgv(v any) []string {
 	if s, ok := v.(string); ok {
 		return stringArgv(strings.TrimSpace(s))
@@ -30,10 +38,13 @@ func stringArgv(command string) []string {
 	var word strings.Builder
 	inWord := false
 	var quote rune
-	escaped := false
+	escaped, pendingBackslash := false, false
 	for _, r := range command {
 		switch {
 		case escaped:
+			if r == '\n' {
+				return shell // a line continuation
+			}
 			word.WriteRune(r)
 			escaped = false
 		case quote == '\'':
@@ -42,14 +53,22 @@ func stringArgv(command string) []string {
 			} else {
 				word.WriteRune(r)
 			}
+		case quote == '"' && pendingBackslash:
+			// Inside double quotes a backslash escapes only `"` and `\`
+			// here; `$`, a backtick, and a newline already need a shell.
+			if r != '"' && r != '\\' {
+				word.WriteRune('\\')
+			}
+			word.WriteRune(r)
+			pendingBackslash = false
 		case quote == '"':
 			switch r {
 			case '"':
 				quote = 0
-			case '$', '`':
+			case '$', '`', '\n':
 				return shell
 			case '\\':
-				escaped = true
+				pendingBackslash = true
 			default:
 				word.WriteRune(r)
 			}
@@ -57,7 +76,9 @@ func stringArgv(command string) []string {
 			escaped, inWord = true, true
 		case r == '\'' || r == '"':
 			quote, inWord = r, true
-		case r == ' ' || r == '\t' || r == '\n':
+		case r == '\n' || r == '\r':
+			return shell // a newline separates commands
+		case r == ' ' || r == '\t':
 			if inWord {
 				words = append(words, word.String())
 				word.Reset()
@@ -77,6 +98,9 @@ func stringArgv(command string) []string {
 	}
 	if inWord {
 		words = append(words, word.String())
+	}
+	if len(words) == 0 || shellBuiltins[words[0]] {
+		return shell
 	}
 	return words
 }
