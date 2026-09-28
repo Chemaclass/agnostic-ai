@@ -26,16 +26,27 @@ var importAllSkippedEntryFiles map[string]bool
 // alone reads as fs.ErrNotExist too: it holds nothing the sources lack.
 // For a fenced source, mirrorMainFile keeps it and reports it unchanged.
 func readEntryFile(root, path string) ([]byte, error) {
+	data, err := readProjectEntryFile(root, path)
+	if err != nil {
+		return nil, err
+	}
+	if synced, fenced := syncedSharedBody(root, path, string(data)); synced && !fenced {
+		return nil, fs.ErrNotExist
+	}
+	return data, nil
+}
+
+// readProjectEntryFile is readEntryFile without the synced-body check.
+// It serves a reader of a generated block the shared body leaves out,
+// such as the code review section, whose source may be gone even when
+// the body is not.
+func readProjectEntryFile(root, path string) ([]byte, error) {
 	if importAllSkippedEntryFiles == nil || regularFileInside(root, path) {
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return nil, err
 		}
-		text := adapters.StripLocalInstructions(string(data))
-		if synced, fenced := syncedSharedBody(root, path, text); synced && !fenced {
-			return nil, fs.ErrNotExist
-		}
-		return []byte(text), nil
+		return []byte(adapters.StripLocalInstructions(string(data))), nil
 	}
 	if _, err := os.Lstat(path); err == nil && !importAllSkippedEntryFiles[path] {
 		importAllSkippedEntryFiles[path] = true

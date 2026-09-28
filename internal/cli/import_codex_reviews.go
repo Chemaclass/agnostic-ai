@@ -39,7 +39,11 @@ func importCodexReviews(root string, src config.Sources) (int, error) {
 	used := map[string]int{}
 	count := 0
 	for _, f := range files {
-		raw, err := readEntryFile(root, f.path)
+		// A root AGENTS.md sync wrote from the current AGNOSTIC_AI.md reads
+		// as absent to readEntryFile, but its review section can still be
+		// the only copy of a review spec. writeReviewSpec skips a section
+		// whose spec exists, so a round trip stays stable.
+		raw, err := readProjectEntryFile(root, f.path)
 		if errors.Is(err, fs.ErrNotExist) {
 			continue
 		}
