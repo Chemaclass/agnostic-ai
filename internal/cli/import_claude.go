@@ -395,6 +395,9 @@ func copyMarkdownTree(srcDir, dstDir string) (int, error) {
 		if err != nil {
 			return fmt.Errorf("%s: %w", path, err)
 		}
+		if syncedRuleHasSource(path, rel, dstDir) {
+			return nil
+		}
 		if err := copyMarkdownFile(path, filepath.Join(dstDir, rel)); err != nil {
 			return err
 		}

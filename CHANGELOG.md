@@ -9,10 +9,12 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### Fixed
 
 - `import claude` points imported paths such as `.claude/skills/<name>/` at their sources and drops `@` lines for imported rules; `lint` warns on the rest (#1326).
+- A second `import all` after `sync` no longer turns the generated `CLAUDE.md` or a scoped `.claude/rules/` file into new rules (#1349).
 - `import claude` keeps a `CLAUDE.md` that imports `@AGENTS.md` for Claude only, and sync replaces nested companions instead of failing (#1336).
 - `import claude` leaves a hook unpinned when Codex runs it as written, and `sync` notes a Codex edit hook reading `tool_input.file_path` (#1328).
 - `import claude` writes permission lists to a settings spec, so `lint` flags a mid-command `*` in allow and deny rules, and Codex gets its coverage note (#1329).
 - A root skill that links to a package's nested skill folder imports once, at the root path, with a note naming the skipped path (#1338).
+- `sync --check` and `doctor` catch a leftover output with no `.sync-state`: a tracked file where a configured target writes that opens with the provenance header. `doctor --fix` removes it, except a scope document such as `services/api/AGENTS.md`, which the check lists for you to delete by hand (#1334).
 - `doctor --check-references` resolves repo-root links, skips ignored placeholders, and groups findings by source (#1342).
 - The managed `.gitignore` block marks `gitignore.allow` exceptions as committed instead of calling every generated path not committed (#1335).
 - `sync --keep-edits --quiet` still reports each kept file, on stderr, instead of printing nothing (#1333).

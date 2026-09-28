@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -93,7 +94,9 @@ func TestImport_KeepsSharedSpecsTheLocalLayerExtends(t *testing.T) {
 
 			assertFileEquals(t, filepath.Join(".agnostic-ai", "rules", "over.md"), sharedOverRule)
 			assertFileEquals(t, filepath.Join(".agnostic-ai", "agents", "rev.md"), sharedRevAgent)
-			if !strings.Contains(out, "rule over") {
+			// claude leaves the .claude/rules/over.md sync wrote alone
+			// (#1349); codex reads the inlined rules block and notes it.
+			if slices.Contains(sources, "codex") && !strings.Contains(out, "rule over") {
 				t.Errorf("want the note to name the extended rule:\n%s", out)
 			}
 			if strings.Contains(out, "merge by hand") {
