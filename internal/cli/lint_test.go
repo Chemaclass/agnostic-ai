@@ -12,6 +12,7 @@ func TestLintEmptySpecs_FlagsEmptyBodyAndNoDescription(t *testing.T) {
 		{Kind: spec.KindRule, Name: "empty", Path: "rules/empty.md", Body: "", Meta: map[string]any{}},
 		{Kind: spec.KindAgent, Name: "ok", Path: "agents/ok.md", Body: "Do something.", Meta: map[string]any{}},
 		{Kind: spec.KindRule, Name: "desc-only", Path: "rules/desc.md", Body: "", Meta: map[string]any{"description": "has a description"}},
+		{Kind: spec.KindEnvironment, Name: "worktree", Path: "environments/worktree.yaml", Meta: map[string]any{"setup": "make setup"}},
 	}
 	findings := lintEmptySpecs(entries)
 	if len(findings) != 1 {

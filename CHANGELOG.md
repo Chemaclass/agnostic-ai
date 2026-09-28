@@ -9,11 +9,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### General
 
 - With no `.sync-state`, `sync`, `sync --check`, and `doctor` name each leftover output and how to remove it (#1334, #1354, #1362).
-- `sync --untrack` untracks ignored outputs, `install-hook --post-checkout` syncs after checkout, and `.gitignore` marks `allow` lines committed (#1330, #1335).
-- `gitignore.commit: [instructions, hooks]` keeps those kinds' outputs in Git for every target, with no per-path `allow` lines (#1332).
-- `init` pins the schema URL to its release, omits default `sources:`, notes `on-unsupported: error`, and creates only seeded folders (#1331).
-- Imports point at `.agnostic-ai/` sources, read a linked skill once, and add no rules when rerun after `sync` (#1326, #1338, #1349).
-- `doctor --check-references` resolves repo-root links and groups findings by source; `sync --keep-edits --quiet` reports kept files on stderr (#1333, #1342).
+- `gitignore.commit: [instructions, hooks]` keeps those kinds in Git for every target, and the block marks `allow` lines committed (#1332, #1335).
+- `sync --untrack` untracks ignored outputs, `install-hook --post-checkout` syncs after checkout, and `sync --keep-edits -q` reports kept files (#1330, #1333).
+- `init` pins its schema URL per release, skips default `sources:`, and creates only seeded folders; `lint` accepts bodyless environments (#1331, #1339).
+- Imports point at `.agnostic-ai/` sources and add no rules on rerun; `doctor --check-references` resolves repo-root links (#1326, #1338, #1342, #1349).
 
 ### By tool
 
@@ -25,6 +24,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 #### Claude Code
 
 - A fresh `import claude` syncs and lints cleanly, keeps Codex-ready hooks unpinned, and names `.claude/` files to delete (#1327, #1328, #1329, #1336).
+
+#### Cursor
+
+- Environment specs take `setup` and `setup-windows` for new worktrees, written to `.cursor/worktrees.json`; `import cursor` reads it back (#1339).
 
 #### Gemini CLI
 
