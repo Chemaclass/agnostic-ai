@@ -2,6 +2,7 @@ package cli
 
 import (
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
@@ -37,6 +38,29 @@ func TestFindUnmanagedConfig_FlagsOnlyUnmarkedFiles(t *testing.T) {
 	}
 	if _, flagged := byPath["GEMINI.md"]; flagged {
 		t.Errorf("generated GEMINI.md should not be flagged: %+v", got)
+	}
+}
+
+// import cursor reads BUGBOT.md at every scope (#1276), so doctor lists
+// the nested files too, and skips a generated one.
+func TestFindUnmanagedConfig_FlagsNestedBugbotFiles(t *testing.T) {
+	dir := t.TempDir()
+	mustWriteFile(t, filepath.Join(dir, ".cursor", "BUGBOT.md"), "root review\n")
+	mustWriteFile(t, filepath.Join(dir, "api", ".cursor", "BUGBOT.md"), "api review\n")
+	mustWriteFile(t, filepath.Join(dir, "web", "ui", ".cursor", "BUGBOT.md"), "ui review\n")
+	mustWriteFile(t, filepath.Join(dir, "docs", ".cursor", "BUGBOT.md"), "<!-- "+header.Marker+" -->\ngenerated\n")
+
+	got, err := findUnmanagedConfig(dir, &config.Config{})
+	if err != nil {
+		t.Fatalf("findUnmanagedConfig: %v", err)
+	}
+	want := []unmanagedFinding{
+		{Path: ".cursor/BUGBOT.md", Target: "cursor"},
+		{Path: "api/.cursor/BUGBOT.md", Target: "cursor"},
+		{Path: "web/ui/.cursor/BUGBOT.md", Target: "cursor"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("findings = %+v, want %+v", got, want)
 	}
 }
 

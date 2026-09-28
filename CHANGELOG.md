@@ -16,6 +16,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Fixed
 
+- `doctor` lists every hand-written `BUGBOT.md` under Unmanaged config, nested ones such as `api/.cursor/BUGBOT.md` too, not only the root file (#1305).
 - `sync --plan --json` and `sync --dry-run --json` print JSON, and `--json` with `--watch` or `--diff` fails instead of being ignored (#1280).
 - Gemini copies a hook script stashed under another tool, such as `.agnostic-ai/scripts/claude/fmt.sh`, into `.gemini/hooks/` as Codex and Cursor do (#1303).
 - A Codex overlay that ends in a table, such as `[profiles.review]`, no longer captures the `model` and `model_reasoning_effort` sync writes into `.codex/config.toml`.
