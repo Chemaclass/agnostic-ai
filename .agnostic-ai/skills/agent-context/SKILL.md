@@ -1,6 +1,6 @@
 ---
 name: agent-context
-description: Set up or review project agent instructions using a concise, evidence-based context inventory.
+description: Set up or review project agent instructions from an evidence-based context inventory. Use when adding or trimming files under .agnostic-ai/.
 ---
 
 # Agent Context

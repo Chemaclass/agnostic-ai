@@ -1,6 +1,6 @@
 ---
 name: gh-issues
-description: Walk over all open GitHub issues that are unassigned or assigned to the current user, and process each one via the gh-issue skill, sequentially.
+description: Work the open issues that are unassigned or assigned to you, one at a time through gh-issue. Use when asked to work the backlog.
 argument-hint: "[--limit N] [--label foo] [--dry-run]"
 disable-model-invocation: false
 x-claude:

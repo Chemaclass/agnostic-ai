@@ -1,6 +1,6 @@
 ---
 name: adapter-builder
-description: Adds a new AI CLI adapter to agnostic-ai end to end.
+description: Add a new AI CLI adapter to agnostic-ai end to end. Use when a new target tool is added.
 tools: [Read, Write, Edit, Bash, Grep]
 model:
   claude: sonnet

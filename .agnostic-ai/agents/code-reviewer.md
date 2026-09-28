@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: Reviews Go diffs in agnostic-ai for bugs, style, and cross-adapter issues.
+description: Review a Go diff in agnostic-ai for bugs, style, and cross-adapter issues. Use before merging a PR.
 tools: [Read, Grep, Bash]
 model:
   claude: opus
