@@ -351,7 +351,7 @@ func TestRunImportInCopy_CopiesOnlyWhatAnImportCanRead(t *testing.T) {
 	}
 
 	var missing, copied []string
-	_, err := runImportInCopy([]string{"claude"}, func(_, shadow string, _ *importRecorder) error {
+	_, err := runImportInCopy([]string{"claude"}, nil, func(_, shadow string, _ *importRecorder) error {
 		for _, p := range kept {
 			if _, err := os.Stat(filepath.Join(shadow, p)); err != nil {
 				missing = append(missing, p)
