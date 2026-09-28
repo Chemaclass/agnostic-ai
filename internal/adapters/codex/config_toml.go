@@ -13,9 +13,11 @@ import (
 // renderConfigTOML builds the `.codex/config.toml` body from the captured
 // overlay, portable settings, the bundle's MCP entries, and any first-class
 // config fields.
-// The overlay (carrying user-authored keys outside hooks/mcp_servers) is
-// written first; then first-class scalars from `outputs.codex.config`
-// (skipping any key the overlay already defines); then MCP server tables.
+// First-class top-level scalars from settings and `outputs.codex.config`
+// come first (skipping any key the overlay already defines), then the
+// overlay (user-authored keys outside hooks/mcp_servers), then the
+// first-class tables, then MCP server tables. The scalars cannot follow the
+// overlay: an overlay that ends inside a table would own them.
 // Returns "" when there is no valid output to write.
 //
 // Hooks no longer render here. They land in `.codex/hooks.json` (see
@@ -42,6 +44,9 @@ func renderConfigTOML(settings, mcps []spec.Entry, cfg *config.CodexConfig, over
 	var sb strings.Builder
 	sb.WriteString(emit.HeaderBlock(emit.FormatTOML))
 
+	if writeCodexConfigScalars(&sb, effectiveCfg, overlayKeys) {
+		sb.WriteString("\n")
+	}
 	if overlayBody != "" {
 		sb.WriteString(overlayBody)
 		if !strings.HasSuffix(overlayBody, "\n") {
@@ -49,8 +54,9 @@ func renderConfigTOML(settings, mcps []spec.Entry, cfg *config.CodexConfig, over
 		}
 		sb.WriteString("\n")
 	}
-
-	writeCodexConfigFields(&sb, effectiveCfg, overlayKeys)
+	if writeCodexConfigTables(&sb, effectiveCfg, overlayKeys) {
+		sb.WriteString("\n")
+	}
 	writeMCPServers(&sb, mcps)
 	return sb.String()
 }
@@ -69,60 +75,57 @@ func hasCodexConfig(cfg *config.CodexConfig) bool {
 		len(cfg.Profiles) > 0 || len(cfg.ModelProviders) > 0
 }
 
-// writeCodexConfigFields emits the first-class `.codex/config.toml` scalars
-// when set in `outputs.codex.config`. Keys present in overlayKeys are
+// writeCodexConfigScalars emits the first-class top-level keys from
+// settings and `outputs.codex.config`. Keys present in overlayKeys are
 // skipped so the overlay's value wins on a conflict; this matches the
 // claude adapter's overlay-first layering and keeps TOML duplicate-key
-// errors from appearing in the emitted file.
-func writeCodexConfigFields(sb *strings.Builder, cfg *config.CodexConfig, overlayKeys map[string]bool) {
+// errors from appearing in the emitted file. Reports whether it wrote any.
+func writeCodexConfigScalars(sb *strings.Builder, cfg *config.CodexConfig, overlayKeys map[string]bool) bool {
 	if cfg == nil {
-		return
+		return false
 	}
 	wrote := false
-	if cfg.Model != "" && !overlayKeys["model"] {
-		emit.WriteTOMLString(sb, "model", cfg.Model)
-		wrote = true
-	}
-	if cfg.Sandbox != "" && !overlayKeys["sandbox"] {
-		emit.WriteTOMLString(sb, "sandbox", cfg.Sandbox)
-		wrote = true
-	}
-	if cfg.ApprovalPolicy != "" && !overlayKeys["approval_policy"] {
-		emit.WriteTOMLString(sb, "approval_policy", cfg.ApprovalPolicy)
-		wrote = true
-	}
-	if cfg.ModelReasoningEffort != "" && !overlayKeys["model_reasoning_effort"] {
-		emit.WriteTOMLString(sb, "model_reasoning_effort", cfg.ModelReasoningEffort)
-		wrote = true
-	}
-	if cfg.ModelReasoningSummary != "" && !overlayKeys["model_reasoning_summary"] {
-		emit.WriteTOMLString(sb, "model_reasoning_summary", cfg.ModelReasoningSummary)
-		wrote = true
+	for _, field := range []struct{ key, value string }{
+		{"model", cfg.Model},
+		{"sandbox", cfg.Sandbox},
+		{"approval_policy", cfg.ApprovalPolicy},
+		{"model_reasoning_effort", cfg.ModelReasoningEffort},
+		{"model_reasoning_summary", cfg.ModelReasoningSummary},
+	} {
+		if field.value != "" && !overlayKeys[field.key] {
+			emit.WriteTOMLString(sb, field.key, field.value)
+			wrote = true
+		}
 	}
 	if len(cfg.Notify) > 0 && !overlayKeys["notify"] {
 		emit.WriteTOMLStringArray(sb, "notify", cfg.Notify)
 		wrote = true
 	}
+	return wrote
+}
+
+// writeCodexConfigTables emits the first-class tables from
+// `outputs.codex.config`, skipping any table the overlay already defines.
+// Reports whether it wrote any.
+func writeCodexConfigTables(sb *strings.Builder, cfg *config.CodexConfig, overlayKeys map[string]bool) bool {
+	if cfg == nil {
+		return false
+	}
+	wrote := false
 	if cfg.HistoryPersistence != "" && !overlayKeys["history"] {
 		sb.WriteString("\n[history]\n")
 		emit.WriteTOMLString(sb, "persistence", cfg.HistoryPersistence)
 		wrote = true
 	}
-	if !overlayKeys["model_providers"] {
+	if !overlayKeys["model_providers"] && len(cfg.ModelProviders) > 0 {
 		writeCodexModelProviders(sb, cfg.ModelProviders)
-		if len(cfg.ModelProviders) > 0 {
-			wrote = true
-		}
+		wrote = true
 	}
-	if !overlayKeys["profiles"] {
+	if !overlayKeys["profiles"] && len(cfg.Profiles) > 0 {
 		writeCodexProfiles(sb, cfg.Profiles)
-		if len(cfg.Profiles) > 0 {
-			wrote = true
-		}
+		wrote = true
 	}
-	if wrote {
-		sb.WriteString("\n")
-	}
+	return wrote
 }
 
 // writeCodexModelProviders emits each `[model_providers.<id>]` table sorted
