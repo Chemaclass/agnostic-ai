@@ -329,6 +329,7 @@ The block sits between `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai 
 
 - Entries are root-anchored (`/AGENTS.md`, not `AGENTS.md`), so nested same-named files are not ignored.
 - Files collapse to their generated subdirectory (`/.claude/rules/`), never higher, so siblings such as `.claude/settings.json` or `.claude/hooks/` stay visible. The subdirectory is measured below the resolved output dir, so a nested `outputs.<target>.dir: vendor/.claude` collapses to `/vendor/.claude/rules/`. A nested per-kind dir such as `outputs.<target>.rules-dir` is generated end to end, so it collapses at the dir itself.
+- Scoped output in a project directory stays one line per file (`/services/api/AGENTS.md`), so new files in that directory are not ignored.
 - The block always holds `agnostic-ai.local.yaml`, `/.agnostic-ai/.sync-state`, `/.agnostic-ai/packs/`, and `/.agnostic-ai/local/`, seeded by `init` even with `gitignore.enabled: false`. `init`, `sync`, or `packs add` moves old loose copies into the block.
 - A target can add entries of its own, such as [Claude Code](@/docs/targets/claude.md)'s local settings and agent memory.
 

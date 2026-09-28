@@ -646,6 +646,43 @@ func TestBuildManagedBlock_NestedOutputDirRespectsUnmanaged(t *testing.T) {
 	}
 }
 
+// Regression for #1264: a scoped rule writes into a project directory, not
+// a tool dir. Collapsing `services/api/AGENTS.md` into `/services/api/`
+// hid every new source file there from git, and `gitignore.allow` could
+// not re-include them.
+func TestBuildManagedBlock_ScopedOutputsStayPrecise(t *testing.T) {
+	entries := []string{
+		".claude/rules/services/api/api.md",
+		"services/api/.cursor/BUGBOT.md",
+		"services/api/.trae/rules/api.md",
+		"services/api/AGENTS.md",
+		"services/api/GEMINI.md",
+	}
+
+	block := buildManagedBlock(&config.Config{}, entries)
+
+	has := map[string]bool{}
+	for _, e := range block {
+		has[e] = true
+	}
+	for _, want := range []string{
+		"/.claude/rules/",
+		"/services/api/.cursor/BUGBOT.md",
+		"/services/api/.trae/rules/api.md",
+		"/services/api/AGENTS.md",
+		"/services/api/GEMINI.md",
+	} {
+		if !has[want] {
+			t.Errorf("block missing %q: %v", want, block)
+		}
+	}
+	for _, unwanted := range []string{"/services/", "/services/api/"} {
+		if has[unwanted] {
+			t.Errorf("project directory %q ignored: %v", unwanted, block)
+		}
+	}
+}
+
 // A per-kind dir that is a single segment doubles as the tool dir the user
 // drops hand-written files into, so it stays expanded. `.clinerules` is the
 // override the cline adapter documents for the pre-migration rule path.
