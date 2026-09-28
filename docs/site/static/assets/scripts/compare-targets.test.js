@@ -46,6 +46,7 @@ test("a missing or unknown target falls back to the default pair and is reported
   assert.deepEqual(parseSelection("https://example.com/docs/compare/", known), { ids: ["claude", "codex"], unknown: [] });
   assert.deepEqual(parseSelection("https://example.com/docs/compare/?a=nope&b=cursor", known), { ids: ["claude", "cursor"], unknown: ["nope"] });
   assert.deepEqual(parseSelection("https://example.com/docs/compare/?a=codex", known), { ids: ["codex", "claude"], unknown: [] });
+  assert.deepEqual(parseSelection("https://example.com/docs/compare/?a=Nope&b=nope", known), { ids: ["claude", "codex"], unknown: ["Nope"] });
 });
 
 test("a repeated target never fills two columns", function () {

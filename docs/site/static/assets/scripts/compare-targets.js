@@ -64,11 +64,13 @@
   function parseSelection(value, known) {
     const url = value instanceof URL ? value : new URL(value, "https://example.invalid/");
     const unknown = [];
+    const unknownIds = [];
     const ids = [];
     SLOTS.forEach(function (slot) {
       const raw = url.searchParams.get(slot);
       const id = normalizeId(raw);
-      if (id && !known.includes(id)) {
+      if (id && !known.includes(id) && !unknownIds.includes(id)) {
+        unknownIds.push(id);
         unknown.push(raw.trim());
       }
       if (slot === "c") {
