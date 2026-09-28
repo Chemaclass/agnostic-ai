@@ -159,10 +159,12 @@ func appendGitignoreDir(dst []string, dirs ...string) []string {
 // `/.claude/rules/` instead of one line per emitted file. Collapsing stops at
 // the generated subdirectory rather than the tool's output dir, so a
 // hand-authored sibling (e.g. `.claude/settings.json`, `.claude/hooks/`) is
-// never swallowed by a `/.claude/` ignore (#414). Four kinds of entry are
+// never swallowed by a `/.claude/` ignore (#414). Five kinds of entry are
 // kept verbatim so collapsing never ignores a committed file:
 //   - root-level files (no directory segment, e.g. `/AGENTS.md`);
 //   - files sitting directly under a tool dir (e.g. `/.claude/CLAUDE.md`);
+//   - files outside any tool dir, such as scoped output in a project
+//     directory (e.g. `/services/api/AGENTS.md`);
 //   - entries under a protected source directory, where tracked specs live
 //     alongside generated state (e.g. `/.agnostic-ai/.sync-state`);
 //   - entries under a collapse directory that holds, or could hold, a path
@@ -203,7 +205,7 @@ func collapseManagedEntries(entries []string, dirs outputDirs, protectedTopDirs,
 		}
 		dir := collapseDirFor(rel, dirs)
 		if dir == "" {
-			add(e) // file directly under a tool dir: keep precise
+			add(e) // directly under a tool dir, or outside one: keep precise
 			continue
 		}
 		if config.MatchUnmanagedDir(unmanaged, dir) {
@@ -217,7 +219,8 @@ func collapseManagedEntries(entries []string, dirs outputDirs, protectedTopDirs,
 }
 
 // collapseDirFor returns the directory rel collapses into, or "" when rel
-// must stay listed precisely because it sits directly under its tool dir.
+// must stay listed precisely because it sits directly under its tool dir
+// or outside every tool dir.
 func collapseDirFor(rel string, dirs outputDirs) string {
 	// A one-segment per-kind dir (`rules-dir: .clinerules`) is also the tool
 	// dir a user drops hand-written files into, so only a nested one is
@@ -227,7 +230,13 @@ func collapseDirFor(rel string, dirs outputDirs) string {
 	}
 	root := deepestDirPrefix(dirs.roots, rel)
 	if root == "" {
+		// Every default tool dir is a dot-dir. Any other first segment is a
+		// project directory holding scoped output (`services/api/AGENTS.md`),
+		// and ignoring it would hide the user's new files from git (#1264).
 		root, _, _ = strings.Cut(rel, "/")
+		if !strings.HasPrefix(root, ".") {
+			return ""
+		}
 	}
 	sub, _, nested := strings.Cut(strings.TrimPrefix(rel, root+"/"), "/")
 	if !nested || sub == "" {
