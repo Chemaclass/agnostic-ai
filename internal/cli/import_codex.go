@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -162,6 +163,13 @@ func importCodexRules(root, dstDir string, src config.Sources, opts importCodexO
 		return 0, nil
 	}
 
+	scopeNames := scopedRuleNames(files)
+	wholeFileName := func(globs string) string {
+		if globs == "" {
+			return projectSlug(root)
+		}
+		return scopeNames[globs]
+	}
 	used := map[string]int{}
 	count := 0
 	for _, f := range files {
@@ -181,7 +189,7 @@ func importCodexRules(root, dstDir string, src config.Sources, opts importCodexO
 			if body == "" {
 				continue
 			}
-			name := dedupSlug(used, projectSlug(root))
+			name := dedupSlug(used, wholeFileName(f.globs))
 			if err := writeCodexRule(dstDir, name, "", f.globs, body); err != nil {
 				return count, err
 			}
@@ -194,7 +202,7 @@ func importCodexRules(root, dstDir string, src config.Sources, opts importCodexO
 			if body == "" {
 				continue
 			}
-			name := dedupSlug(used, projectSlug(root))
+			name := dedupSlug(used, wholeFileName(f.globs))
 			if err := writeCodexRule(dstDir, name, "", f.globs, body); err != nil {
 				return count, err
 			}
@@ -210,6 +218,34 @@ func importCodexRules(root, dstDir string, src config.Sources, opts importCodexO
 		}
 	}
 	return count, nil
+}
+
+// scopedRuleNames names the rule a whole nested file becomes, keyed by
+// its globs: the scope's last directory when no other scope ends the
+// same way, the whole scope path otherwise (`api`, `services-api`).
+func scopedRuleNames(files []hierarchicalFile) map[string]string {
+	last := map[string]int{}
+	for _, f := range files {
+		if f.globs != "" {
+			last[slugify(path.Base(strings.TrimSuffix(f.globs, "/**")))]++
+		}
+	}
+	names := map[string]string{}
+	for _, f := range files {
+		if f.globs == "" {
+			continue
+		}
+		scope := strings.TrimSuffix(f.globs, "/**")
+		name := slugify(path.Base(scope))
+		if last[name] > 1 || name == "" {
+			name = slugify(scope)
+		}
+		if name == "" {
+			name = "scoped"
+		}
+		names[f.globs] = name
+	}
+	return names
 }
 
 // firstSegment returns the first path segment of p (e.g. ".agnostic-ai"
