@@ -90,7 +90,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:         target,
-	Supports:       []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindCommand, spec.KindSettings},
+	Supports:       []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindCommand, spec.KindSettings, spec.KindEnvironment},
 	AgentFields:    []string{"effort", "mcpServers"},
 	SettingsFields: []string{"effort"},
 }
@@ -170,6 +170,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		NoteCursorDropsArgs(hooks, ".claude/settings.json")
 	}
 	if err := writeSettings(sess, hooks, b.Settings, b.MCPs, dir, cfg, dryRun); err != nil {
+		return err
+	}
+	if err := emitLaunch(sess, b.Environments, dir, dryRun); err != nil {
 		return err
 	}
 

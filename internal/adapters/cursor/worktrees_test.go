@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -129,5 +130,33 @@ func TestEmit_EnvironmentLaterEmptySetupClears(t *testing.T) {
 	}
 	if doc["setup-worktree-windows"] == nil {
 		t.Errorf("setup-worktree-windows lost: %v", doc)
+	}
+}
+
+// dev-commands stay out of environment.json and get a note, so a project
+// that also targets Claude Code knows Cursor does not run them.
+func TestEmit_EnvironmentNotesDevCommands(t *testing.T) {
+	cwd := t.TempDir()
+	testutil.Chdir(t, cwd)
+	buf := &strings.Builder{}
+	prev := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = prev })
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	b := spec.NewBundle([]spec.Entry{{
+		Kind: spec.KindEnvironment, Name: "dev", Path: "environments/dev.yaml",
+		Meta: map[string]any{"install": "npm ci", "dev-commands": []any{map[string]any{"name": "web", "command": "npm start"}}},
+	}})
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	emit.FlushCoverageNotes()
+	if !strings.Contains(buf.String(), "`dev-commands` on 1 environment has no effect on cursor") {
+		t.Errorf("no dev-commands note:\n%s", buf.String())
+	}
+	env := readJSONDoc(t, filepath.Join(cwd, ".cursor", "environment.json"))
+	if _, ok := env["dev-commands"]; ok {
+		t.Errorf("environment.json carries dev-commands")
 	}
 }

@@ -23,6 +23,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Claude Code
 
+- Environment `dev-commands` write `.claude/launch.json` preview servers, and `import claude` reads them back; `lint` checks each entry (#1340).
 - A fresh `import claude` syncs and lints cleanly, keeps Codex-ready hooks unpinned, and names `.claude/` files to delete (#1327, #1328, #1329, #1336).
 
 #### Cursor

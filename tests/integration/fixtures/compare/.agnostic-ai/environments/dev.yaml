@@ -4,3 +4,7 @@ install: make setup
 terminals:
   - name: dev
     command: make run
+dev-commands:
+  - name: web
+    command: make run
+    port: 3000

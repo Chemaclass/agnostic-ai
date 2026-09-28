@@ -117,6 +117,12 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindHook, Name: "session-start",
 			Meta: map[string]any{"event": "SessionStart", "command": "echo session"},
 		},
+		{
+			Kind: spec.KindEnvironment, Name: "dev", Path: "environments/dev.yaml",
+			Meta: map[string]any{"dev-commands": []any{
+				map[string]any{"name": "web", "command": "npm run dev", "port": 3000},
+			}},
+		},
 		{Kind: spec.KindCommand, Name: "cmd-one", Path: "commands/cmd-one.md", Body: "cmd one body"},
 		{Kind: spec.KindCommand, Name: "cmd-two", Path: "commands/cmd-two.md", Body: "cmd two body"},
 		{Kind: spec.KindCommand, Name: "cmd-three", Path: "commands/cmd-three.md", Body: "cmd three body"},
