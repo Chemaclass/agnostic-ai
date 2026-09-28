@@ -62,10 +62,11 @@ if [ "${code#2}" = "$code" ]; then
 fi
 cp "$data" "$FAKE_CURL_LOG.request.$(wc -l <"$FAKE_CURL_LOG.calls" | tr -d ' ')"
 jq '. as $r | {model: "jev-stub", usage: {input_tokens: 100, output_tokens: 10}, answers: (.questions | with_entries(.key as $k | .value |= (
-  if .type == "noul" then {type: "noul", noul: 0.85}
+  if .type == "noul" then {type: "noul", noul: ($ENV.FAKE_NOUL // "0.85" | tonumber)}
   else
     (($r.state.claims[$k] | ascii_downcase) as $c
-      | (if ($c | contains("mcp.json")) then "contradicts"
+      | (if ($ENV.FAKE_NOTHING // "") != "" then "says_nothing"
+         elif ($c | contains("mcp.json")) then "contradicts"
          elif ($c | contains("hooks")) then "supports"
          else "says_nothing" end)) as $pick
     | {type: "choice", choice: $pick,
@@ -221,7 +222,8 @@ function test_every_changed_page_is_asked_about_every_claim() {
   assert_equals 3 "$(wc -l <"$FAKE_CURL_LOG.calls" | tr -d ' ')"
   local req="$FAKE_CURL_LOG.request.1"
   assert_equals 7 "$(jq '.state.claims | length' "$req")"
-  assert_equals 7 "$(jq '.questions | length' "$req")"
+  assert_equals 8 "$(jq '.questions | length' "$req")"
+  assert_equals "noul" "$(jq -r '.questions.surface.type' "$req")"
   assert_contains "https://example.test/cli" "$(cat "$RUN/triage.tsv")"
   assert_not_contains "https://example.test/new" "$(cat "$RUN/triage.tsv")"
 }
@@ -239,7 +241,8 @@ function test_a_request_holds_each_claim_once_and_names_it_by_path() {
 function test_claims_are_asked_in_chunks() {
   JEV_CLAIMS_PER_REQUEST=3 JEV_JOBS=1 triage "$RUN" >/dev/null
   assert_equals 9 "$(wc -l <"$FAKE_CURL_LOG.calls" | tr -d ' ')"
-  assert_equals 3 "$(jq '.questions | length' "$FAKE_CURL_LOG.request.1")"
+  assert_equals 4 "$(jq '.questions | length' "$FAKE_CURL_LOG.request.1")"
+  assert_equals 3 "$(jq '.questions | length' "$FAKE_CURL_LOG.request.2")"
 }
 
 function test_answers_below_the_lead_threshold_are_dropped() {
@@ -255,13 +258,19 @@ function test_the_summary_counts_input_tokens() {
   assert_contains "3 of 3 Jev requests answered, 300 input tokens" "$(triage "$RUN")"
 }
 
-function test_a_changelog_page_carries_one_noul_row() {
+function test_every_page_carries_one_surface_row() {
   triage "$RUN" >/dev/null
   local noul
   noul=$(awk -F '\t' '$5 == "noul"' "$RUN/triage.tsv")
-  assert_equals 1 "$(printf '%s\n' "$noul" | grep -c .)"
+  assert_equals 3 "$(printf '%s\n' "$noul" | grep -c .)"
   assert_contains $'https://example.test/changelog\t' "$noul"
+  assert_contains $'https://example.test/cli\t' "$noul"
   assert_contains $'\tnoul\t0.85\t\tjev' "$noul"
+}
+
+function test_a_weak_surface_answer_is_dropped() {
+  FAKE_NOUL=0.2 triage "$RUN" >/dev/null
+  assert_not_contains "noul" "$(cut -f5 "$RUN/triage.tsv")"
 }
 
 function test_the_target_filter_skips_other_targets() {
@@ -285,6 +294,57 @@ function test_the_key_never_reaches_argv_or_output() {
   assert_not_contains "$SECRET" "$(cat "$RUN/triage.tsv")"
   assert_not_contains "$SECRET" "$(cat "$FAKE_CURL_LOG.args")"
   assert_contains "header = \"Authorization: Bearer $SECRET\"" "$(cat "$FAKE_CURL_LOG.stdin")"
+}
+
+# ---- page status -------------------------------------------------------------
+
+function page_status() {
+  awk -F '\t' -v url="$1" '$2 == url { print $5 }' "$RUN/triage-pages.tsv"
+}
+
+function test_a_page_with_no_jev_lead_is_clear_but_a_mentions_page_is_only_judged() {
+  FAKE_NOTHING=1 FAKE_NOUL=0.05 triage "$RUN" >/dev/null
+  assert_equals "clear" "$(page_status https://example.test/cli)"
+  assert_equals "clear" "$(page_status https://example.test/changelog)"
+  assert_equals "judged" "$(page_status https://example.test/mcp)"
+  assert_empty "$(page_status https://example.test/new)"
+  assert_contains "2 pages clear" "$(FAKE_NOTHING=1 FAKE_NOUL=0.05 triage "$RUN")"
+}
+
+function test_a_page_with_an_uncertain_surface_is_only_judged() {
+  FAKE_NOTHING=1 FAKE_NOUL=0.3 triage "$RUN" >/dev/null
+  assert_equals "judged" "$(page_status https://example.test/cli)"
+  assert_not_contains "noul" "$(cut -f5 "$RUN/triage.tsv")"
+}
+
+function test_a_page_with_a_lead_or_a_surface_is_not_clear() {
+  triage "$RUN" >/dev/null
+  assert_equals "lead" "$(page_status https://example.test/cli)"
+  FAKE_NOTHING=1 triage "$RUN" >/dev/null
+  assert_equals "lead" "$(page_status https://example.test/changelog)"
+}
+
+function test_a_failed_or_capped_page_is_unjudged() {
+  FAKE_NOTHING=1 FAKE_NOUL=0.05 FAKE_CURL_FAIL_CALL=1 FAKE_CURL_FAIL_CODE=422 JEV_JOBS=1 triage "$RUN" >/dev/null
+  assert_equals "unjudged" "$(page_status https://example.test/mcp)"
+  assert_equals "clear" "$(page_status https://example.test/changelog)"
+  FAKE_NOTHING=1 FAKE_NOUL=0.05 JEV_MAX_REQUESTS=1 triage "$RUN" >/dev/null
+  assert_equals "unjudged" "$(page_status https://example.test/cli)"
+}
+
+function test_without_jev_every_page_is_lexical() {
+  KEY='' triage "$RUN" >/dev/null
+  assert_equals "lexical" "$(cut -f5 "$RUN/triage-pages.tsv" | sort -u)"
+  assert_equals 3 "$(grep -c . "$RUN/triage-pages.tsv")"
+  FAKE_CURL_CODE=401 triage "$RUN" >/dev/null
+  assert_equals "unjudged" "$(cut -f5 "$RUN/triage-pages.tsv" | sort -u)"
+}
+
+function test_a_missing_deltas_file_removes_a_stale_page_status() {
+  echo stale >"$RUN/triage-pages.tsv"
+  rm "$RUN/deltas.tsv"
+  triage "$RUN" >/dev/null
+  assert_file_not_exists "$RUN/triage-pages.tsv"
 }
 
 # ---- replay ------------------------------------------------------------------
@@ -336,5 +396,42 @@ function test_the_committed_cases_file_is_well_formed() {
   assert_file_exists "$cases"
   assert_empty "$(awk -F '\t' '!/^#/ && NF != 6 { print NR ": " NF " columns" }' "$cases")"
   assert_empty "$(awk -F '\t' '!/^#/ && $5 !~ /^(supports|contradicts|says_nothing)$/ { print NR ": " $5 }' "$cases")"
+  assert_empty "$(awk -F '\t' '!/^#/ && seen[$1]++ { print "duplicate " $1 }' "$cases")"
+}
+
+# ---- surface replay ----------------------------------------------------------
+
+function write_surface_cases() {
+  {
+    printf '# case\ttarget\texcerpt\texpected\tsource\n'
+    printf 'new-dir\tcopilot\tHooks now also load from .github/hooks/*.json.\tyes\t1\n'
+    printf 'new-model\tcopilot\tA faster default model is available.\tno\t2\n'
+  } >"$FIXTURES/surface.tsv"
+}
+
+function test_surface_replay_prints_recall_and_false_positives() {
+  write_surface_cases
+  local out
+  out=$(JEV_JOBS=1 triage --replay-surface "$FIXTURES/surface.tsv")
+  assert_contains "surface recall at noul >= 0.5: 1/1 (1.00)" "$out"
+  assert_contains "surface false positives: 1/1 (1.00)" "$out"
+  assert_matches "new-model +no +0.85 +MISS 2" "$out"
+  assert_equals "noul" "$(jq -r '.questions.surface.type' "$FAKE_CURL_LOG.request.1")"
+}
+
+function test_surface_replay_without_a_key_skips_and_exits_0() {
+  write_surface_cases
+  local out code
+  out=$(KEY='' triage --replay-surface "$FIXTURES/surface.tsv")
+  code=$?
+  assert_equals 0 "$code"
+  assert_equals "jev-triage: skipped (no TYPESAFE_API_KEY)" "$out"
+}
+
+function test_the_committed_surface_cases_file_is_well_formed() {
+  local cases="$SCRIPT_DIR/target-audit/surface-cases.tsv"
+  assert_file_exists "$cases"
+  assert_empty "$(awk -F '\t' '!/^#/ && NF != 5 { print NR ": " NF " columns" }' "$cases")"
+  assert_empty "$(awk -F '\t' '!/^#/ && $4 !~ /^(yes|no)$/ { print NR ": " $4 }' "$cases")"
   assert_empty "$(awk -F '\t' '!/^#/ && seen[$1]++ { print "duplicate " $1 }' "$cases")"
 }

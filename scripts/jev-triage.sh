@@ -12,8 +12,8 @@
 # With TYPESAFE_API_KEY set, each page is asked about every claim of its
 # target through TypeSafe's Jev: one Choice per claim (supports,
 # contradicts, says_nothing), in chunks of JEV_CLAIMS_PER_REQUEST, plus one
-# Noul for a changelog page: does it change a project-scoped configuration
-# surface? Without a key, with --lexical, or once the API fails, the script
+# Noul per page: does it change a project-scoped configuration surface? The
+# Noul catches a new native surface, which no existing claim can contradict. Without a key, with --lexical, or once the API fails, the script
 # still writes the pages' lexical leads: claims that share a path, key, or
 # term with the page's moved words.
 #
@@ -31,6 +31,7 @@
 # Usage:
 #   scripts/jev-triage.sh [--lexical] <run dir> [target...]
 #   scripts/jev-triage.sh [--lexical] --replay <cases.tsv>
+#   scripts/jev-triage.sh --replay-surface <surface-cases.tsv>
 #
 # Environment:
 #   TYPESAFE_API_KEY        enables Jev; sent through a curl config on stdin
@@ -43,6 +44,8 @@
 #   JEV_PAGE_CHARS          delta characters per request, default 8000
 #   JEV_LEXICAL_LEADS       lexical leads kept per page, default 4
 #   JEV_KEEP_CONTRADICTS    lowest p_contradicts kept as a lead, default 0.4
+#   JEV_SURFACE_MIN         lowest Noul that promotes a surface row, default 0.5
+#   JEV_CLEAR_SURFACE       Noul a page must stay under to be clear, default 0.1
 #   JEV_TRIES               attempts per request on 429, 5xx, or no answer, default 3
 #   JEV_BACKOFF             seconds times attempt between retries, default 2
 #   JEV_TARGET_FACTS        claim source, default scripts/target-facts.sh
@@ -62,6 +65,8 @@ JEV_CLAIMS_PER_REQUEST="${JEV_CLAIMS_PER_REQUEST:-40}"
 JEV_PAGE_CHARS="${JEV_PAGE_CHARS:-8000}"
 JEV_LEXICAL_LEADS="${JEV_LEXICAL_LEADS:-4}"
 JEV_KEEP_CONTRADICTS="${JEV_KEEP_CONTRADICTS:-0.4}"
+JEV_SURFACE_MIN="${JEV_SURFACE_MIN:-0.5}"
+JEV_CLEAR_SURFACE="${JEV_CLEAR_SURFACE:-0.1}"
 JEV_TRIES="${JEV_TRIES:-3}"
 JEV_BACKOFF="${JEV_BACKOFF:-2}"
 JEV_LEXICAL=0
@@ -72,6 +77,7 @@ jev_usage() {
   cat <<'EOF'
 Usage: scripts/jev-triage.sh [--lexical] <run dir> [<target>...]
        scripts/jev-triage.sh [--lexical] --replay <cases.tsv>
+       scripts/jev-triage.sh --replay-surface <surface-cases.tsv>
 
   <run dir>      a scripts/docfetch.sh run directory holding deltas.tsv;
                  writes <run dir>/triage.tsv
@@ -80,6 +86,9 @@ Usage: scripts/jev-triage.sh [--lexical] <run dir> [<target>...]
   --replay       run labeled cases and print recall on contradicts cases,
                  the false-positive rate on says_nothing cases, and how
                  many contradicts cases the lexical pairing alone finds
+  --replay-surface
+                 run labeled surface cases and print recall on yes cases
+                 and the false-positive rate on no cases for the Noul
 EOF
 }
 
@@ -281,10 +290,10 @@ jev_request() {
         + (if $noul then {
           surface: {
             type: "noul",
-            instructions: "`vendor_change` is a region of the changelog of the tool named in `target` that changed since the last audit, written in the markup `notation` describes. Does the change add, remove, rename, or alter a project-scoped configuration surface of that tool: a file path the tool reads inside a repository, a frontmatter field, an MCP configuration key, a hook event, or a directory the tool loads skills, rules, agents, or commands from?",
+            instructions: "`vendor_change` is a region of the documentation or changelog of the tool named in `target` (`source`) that changed since the last audit, written in the markup `notation` describes. Does the added or changed text document a project-scoped configuration surface of that tool: something a team commits to its repository to configure the tool, such as a file or directory the tool reads, a frontmatter or settings field, an MCP configuration key, a hook event, or a directory the tool loads skills, rules, agents, or commands from?",
             criteria: {
-              "true": "It names a project-scoped configuration surface and says it was added, removed, renamed, or changed",
-              "false": "It changes only UI, models, pricing, performance, user-level settings, or fixes that leave project configuration as it was"
+              "true": "The changed text describes a repository file, directory, frontmatter field, settings key, MCP key, or hook event that configures the tool for a project, including a new field or value of an existing file",
+              "false": "The changed text is about UI, CLI commands, models, pricing, packaging, performance, analytics, settings that live only in the user home directory, or fixes that leave project configuration as it was"
             }
           }
         } else {} end)
@@ -363,7 +372,7 @@ jev_run() {
 
 # jev_units <run dir> <work dir> [target...] cuts each changed page's delta
 # into texts of at most JEV_PAGE_CHARS at line boundaries and prints
-# "prio\tunit\ttarget\tkind\turl\tdelta\tfile", mentions first, then
+# "prio\tunit\ttarget\tkind\turl\tdelta\tfile\tlabel", mentions first, then
 # changelog, prose, whitespace, chrome.
 jev_units() {
   local dir="$1" work="$2" target kind url label delta prio page=0 part
@@ -395,7 +404,7 @@ jev_units() {
     ' "$delta"
     for part in "$work/units/$page".*.txt; do
       [ -e "$part" ] || continue
-      printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$prio" "$(basename "$part" .txt)" "$target" "$kind" "$url" "$delta" "$part"
+      printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$prio" "$(basename "$part" .txt)" "$target" "$kind" "$url" "$delta" "$part" "$label"
     done
   done <"$dir/deltas.tsv" | sort -t "$TAB" -k1,1n -k2,2n
 }
@@ -422,14 +431,16 @@ jev_answers() {
 }
 
 # jev_finish <rows> <out> keeps Choice answers that are contradicts or reach
-# JEV_KEEP_CONTRADICTS, keeps the strongest row per page and claim, and
-# orders Jev leads by p_contradicts, then strong noul, then lexical leads.
+# JEV_KEEP_CONTRADICTS and Noul answers that reach JEV_SURFACE_MIN, keeps the
+# strongest row per page and claim, and orders Jev leads by p_contradicts,
+# then surface rows, then lexical leads.
 jev_finish() {
-  awk -F '\t' -v keep="$JEV_KEEP_CONTRADICTS" '
+  awk -F '\t' -v keep="$JEV_KEEP_CONTRADICTS" -v surface="$JEV_SURFACE_MIN" '
     ($5 == "supports" || $5 == "says_nothing") && $7 + 0 < keep + 0 { next }
+    $5 == "noul" && $6 + 0 < surface + 0 { next }
     {
       r = 1
-      if ($5 == "noul") r = ($6 + 0 >= 0.5) ? 2 : 4
+      if ($5 == "noul") r = 2
       else if ($5 == "paired") r = 3
       k = $3 "\t" $4
       w = ($5 == "noul") ? $6 : $7
@@ -441,32 +452,78 @@ jev_finish() {
   mv "$2.tmp" "$2"
 }
 
+# jev_pages <work dir> <triage.tsv> <jev ran> prints one row per changed
+# page: target, url, delta path, label, status. clear means Jev answered
+# every question for the page, kept no row for it, its Noul stayed under
+# JEV_CLEAR_SURFACE, and no path we write moved on it (label mentions:).
+# lead means Jev kept a row, judged means no lead but not clear, unjudged
+# means a request for the page was capped or failed, and lexical means Jev
+# did not run. On the surface replay cases every real surface scored a Noul
+# of 0.16 or more, so the clearing cut sits well under the 0.5 lead cut.
+jev_pages() {
+  local work="$1" out="$2" ran="$3" unit
+  : >"$work/unjudged.list"
+  for unit in "$work"/unjudged.*; do
+    [ -e "$unit" ] || continue
+    case "$unit" in *.list) continue ;; esac
+    printf '%s\n' "${unit##*/unjudged.}" >>"$work/unjudged.list"
+  done
+  [ -s "$work/units.tsv" ] || return 0
+  { cat "$work"/answered.* 2>/dev/null || true; } | awk -F '\t' '$6 == "noul" { print $4 "\t" $7 }' >"$work/nouls"
+  awk -F '\t' -v ran="$ran" -v leads="$out" -v unj="$work/unjudged.list" -v nouls="$work/nouls" -v clearcut="$JEV_CLEAR_SURFACE" '
+    BEGIN {
+      while ((getline line < leads) > 0) { split(line, f, "\t"); if (f[8] == "jev") lead[f[3]] = 1 }
+      while ((getline line < unj) > 0) bad[line] = 1
+      while ((getline line < nouls) > 0) { split(line, f, "\t"); if (f[2] + 0 >= clearcut + 0) surface[f[1]] = 1 }
+    }
+    {
+      unit = $1; target = $2; url = $3; delta = $4; label = $5
+      if (!(delta in seen)) { seen[delta] = 1; order[++n] = delta; info[delta] = target "\t" url "\t" delta "\t" label }
+      if (unit in bad) unjudged[delta] = 1
+      if (label ~ /^mentions:/) mentions[delta] = 1
+    }
+    END {
+      for (i = 1; i <= n; i++) {
+        d = order[i]
+        if (ran != 1) st = "lexical"
+        else if (d in unjudged) st = "unjudged"
+        else if (d in lead) st = "lead"
+        else if (d in mentions || d in surface) st = "judged"
+        else st = "clear"
+        print info[d] "\t" st
+      }
+    }
+  ' "$work/units.tsv"
+}
+
 jev_triage() {
   local dir="$1" reason="" work out prio unit target kind url delta file
-  local sel noul n=0 pages=0 capped=0 total i chunk lines
+  local sel noul n=0 pages=0 capped=0 total i chunk lines label pages_out jev_ran=0
   shift
   out="$dir/triage.tsv"
-  rm -f "$out" "$out.tmp"
+  pages_out="$dir/triage-pages.tsv"
+  rm -f "$out" "$out.tmp" "$pages_out"
   if [ ! -r "$dir/deltas.tsv" ]; then
     jev_note "skipped (no deltas.tsv in $dir)"
     return 0
   fi
   reason=$(jev_ready) || true
+  [ -n "$reason" ] || jev_ran=1
   work=$(mktemp -d)
   # shellcheck disable=SC2064 # expand now: $work is local
   trap "rm -rf '$work'" EXIT
   mkdir -p "$work/claims" "$work/lex" "$work/req" "$work/meta" "$work/sel"
   : >"$work/rows"
 
-  while IFS="$TAB" read -r prio unit target kind url delta file; do
+  while IFS="$TAB" read -r prio unit target kind url delta file label; do
     pages=$((pages + 1))
+    printf '%s\t%s\t%s\t%s\t%s\n' "$unit" "$target" "$url" "$delta" "$label" >>"$work/units.tsv"
     [ -f "$work/claims/$target" ] || jev_claims "$target" >"$work/claims/$target"
     jev_pair "$work/claims/$target" "$file" "$target" >"$work/lex/$unit"
     printf '%s\t%s\t%s\n' "$target" "$url" "$delta" >"$work/lex/$unit.meta"
     [ -z "$reason" ] || continue
 
-    noul=false
-    [ "$kind" = changelog ] && noul=true
+    noul=true
     total=$(grep -c . "$work/claims/$target" || true)
     lines=$(awk -F '\t' -v total="$total" '
       { print $1; seen[$1] = 1 }
@@ -483,6 +540,7 @@ jev_triage() {
       [ -s "$sel" ] || [ "$noul" = true ] || break
       if [ "$n" -ge "$JEV_MAX_REQUESTS" ]; then
         capped=$((capped + 1))
+        : >"$work/unjudged.$unit"
       else
         n=$((n + 1))
         jev_request "$file" "$sel" "$target" "$kind page $url" "$noul" >"$work/req/$(printf '%05d' "$n").json"
@@ -496,6 +554,7 @@ jev_triage() {
 
   if [ "$pages" -eq 0 ]; then
     : >"$out"
+    : >"$pages_out"
     jev_note "no changed page with a delta in $dir, wrote an empty $out"
     return 0
   fi
@@ -512,6 +571,8 @@ jev_triage() {
         jev_answers "$r" "$m" | tee -a "$work/answered.$unit" | cut -f2- >>"$work/rows"
       else
         failed=$((failed + 1))
+        IFS="$TAB" read -r _ _ _ _ unit <"$m"
+        : >"$work/unjudged.$unit"
       fi
     done
     if [ -e "$work/fatal" ]; then
@@ -536,17 +597,20 @@ jev_triage() {
   done
 
   jev_finish "$work/rows" "$out"
+  jev_pages "$work" "$out" "$jev_ran" >"$pages_out"
   local tokens=0
   if [ "$answered" -gt 0 ]; then
     tokens=$(cat "$work"/resp/*.json | jq -s 'map(.usage.input_tokens // 0) | add // 0' 2>/dev/null || echo 0)
   fi
-  awk -F '\t' -v n="$n" -v ok="$answered" -v pages="$pages" -v capped="$capped" -v out="$out" -v why="$reason" -v tokens="$tokens" '
-    { rows++; if ($5 == "contradicts") c++; if ($5 == "noul" && $6 >= 0.5) s++; if ($8 == "lexical") l++ }
+  local clear
+  clear=$(awk -F '\t' '$5 == "clear"' "$pages_out" | grep -c . || true)
+  awk -F '\t' -v n="$n" -v ok="$answered" -v pages="$pages" -v capped="$capped" -v out="$out" -v why="$reason" -v tokens="$tokens" -v clear="$clear" '
+    { rows++; if ($5 == "contradicts") c++; if ($5 == "noul") s++; if ($8 == "lexical") l++ }
     END {
       if (n == 0) head = "lexical leads only (" (why != "" ? why : "no claims to ask about") ")"
       else head = sprintf("%d of %d Jev requests answered, %d input tokens", ok, n, tokens) (why != "" ? " (" why ")" : "")
-      printf "jev-triage: %s over %d page parts%s, %d rows (%d contradicts, %d surface, %d lexical) in %s\n",
-        head, pages, (capped ? ", " capped " requests over the cap" : ""), rows, c, s, l, out
+      printf "jev-triage: %s over %d page parts%s, %d rows (%d contradicts, %d surface, %d lexical) in %s, %d pages clear\n",
+        head, pages, (capped ? ", " capped " requests over the cap" : ""), rows, c, s, l, out, clear
     }
   ' "$out" >&2
 }
@@ -632,6 +696,70 @@ jev_replay() {
   '
 }
 
+# jev_replay_surface <cases.tsv> asks the Noul of each labeled case, with
+# the excerpt framed as added text and the target's claims asked beside it
+# as a real run does, and prints recall on yes cases and false positives on
+# no cases at a Noul of JEV_SURFACE_MIN.
+jev_replay_surface() {
+  local cases="$1" reason work id target excerpt expected source seq=0 i r
+  if [ ! -r "$cases" ]; then
+    echo "cannot read $cases" >&2
+    return 1
+  fi
+  if ! reason=$(jev_ready); then
+    jev_note "skipped ($reason)"
+    return 0
+  fi
+  work=$(mktemp -d)
+  # shellcheck disable=SC2064 # expand now: $work is local
+  trap "rm -rf '$work'" EXIT
+  mkdir -p "$work/req" "$work/cases" "$work/claims"
+  while IFS="$TAB" read -r id target excerpt expected source; do
+    case "$id" in '' | '#'*) continue ;; esac
+    seq=$((seq + 1))
+    printf '{+%s+}' "$excerpt" >"$work/cases/$seq.region"
+    [ -f "$work/claims/$target" ] || jev_claims "$target" >"$work/claims/$target"
+    awk -v k="$JEV_CLAIMS_PER_REQUEST" 'NR <= k { print NR "\t" $0 }' "$work/claims/$target" >"$work/cases/$seq.sel"
+    printf '%s\t%s\t%s\n' "$id" "$expected" "$source" >"$work/cases/$seq.meta"
+    jev_request "$work/cases/$seq.region" "$work/cases/$seq.sel" "$target" "docs page" true >"$work/req/$(printf '%05d' "$seq").json"
+  done <"$cases"
+
+  jev_run "$work"
+  if [ -e "$work/fatal" ]; then
+    jev_note "skipped ($(cat "$work/fatal"))"
+    return 0
+  fi
+
+  for i in $(seq 1 "$seq"); do
+    IFS="$TAB" read -r id expected source <"$work/cases/$i.meta"
+    r="$work/resp/$(printf '%05d' "$i").json"
+    if [ -s "$r" ]; then
+      jq -r --arg id "$id" --arg expected "$expected" --arg source "$source" '
+        [$id, $expected, (.answers.surface.noul * 100 | round / 100 | tostring), $source] | @tsv' "$r"
+    else
+      printf '%s\t%s\t-\t%s\n' "$id" "$expected" "$source"
+    fi
+  done | awk -F '\t' -v min="$JEV_SURFACE_MIN" '
+    BEGIN { printf "%-40s %-8s %5s  %-4s %s\n", "case", "expected", "noul", "", "source" }
+    {
+      got = ($3 != "-" && $3 + 0 >= min + 0) ? "yes" : "no"
+      mark = ($3 == "-") ? "-" : (got == $2 ? "ok" : "MISS")
+      printf "%-40s %-8s %5s  %-4s %s\n", $1, $2, $3, mark, $4
+      if ($2 == "yes") { pos++; if (mark == "ok") hit++ }
+      if ($2 == "no") { neg++; if (mark == "MISS") fp++ }
+      if ($3 != "-") { if (min_yes == "" && $2 == "yes") min_yes = $3; if ($2 == "yes" && $3 + 0 < min_yes + 0) min_yes = $3
+                       if ($2 == "no" && $3 + 0 > max_no + 0) max_no = $3 }
+    }
+    END {
+      printf "surface recall at noul >= %s: %d/%d", min, hit, pos
+      if (pos) printf " (%.2f)", hit / pos
+      printf "\nsurface false positives: %d/%d", fp, neg
+      if (neg) printf " (%.2f)", fp / neg
+      printf "\nlowest noul on yes %s, highest on no %s\n", (min_yes == "" ? "-" : min_yes), (max_no == "" ? "0" : max_no)
+    }
+  '
+}
+
 jev_main() {
   if [ "${1:-}" = --lexical ]; then
     JEV_LEXICAL=1
@@ -648,6 +776,14 @@ jev_main() {
         return 2
       fi
       jev_replay "$2"
+      return
+      ;;
+    --replay-surface)
+      if [ -z "${2:-}" ]; then
+        echo "--replay-surface needs a cases.tsv path" >&2
+        return 2
+      fi
+      jev_replay_surface "$2"
       return
       ;;
     '')
