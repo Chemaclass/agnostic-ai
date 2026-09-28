@@ -6,6 +6,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+## v0.72.0 - 2026-09-28
+
 ### Added
 
 - Global settings `permissions.default-mode` sets Claude Code's user permission mode for matching spec targets (#1245).
