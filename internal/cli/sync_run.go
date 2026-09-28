@@ -943,7 +943,13 @@ func reportCheckDrift(cmd *cobra.Command, reports []driftReport, format string, 
 	if !drift {
 		return nil
 	}
-	_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "to reconcile, run: agnostic-ai sync")
+	fix := "sync"
+	for _, r := range reports {
+		if r.Unledgered && r.hasDrift() {
+			fix = r.leftoverFix()
+		}
+	}
+	_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "to reconcile, run: agnostic-ai "+fix)
 	return errDriftDetected()
 }
 
@@ -970,15 +976,18 @@ func printDriftGitHub(cmd *cobra.Command, reports []driftReport) bool {
 			_, _ = fmt.Fprintf(out, "::error file=%s,line=%d::%s was edited since the last sync; move the edit into .agnostic-ai/, then run agnostic-ai sync\n",
 				githubProp(f.Path), firstChangedLine(f.Path, f.Content), githubData(filepath.ToSlash(f.Path)))
 		}
+		orphanHint := "is no longer generated but was edited since sync; delete it or list it under sync.unmanaged"
+		if r.Unledgered {
+			orphanHint = "looks generated, with no ledger to prove sync wrote it; delete it by hand if stale, or list it under sync.unmanaged"
+		}
 		for _, p := range r.Orphaned {
 			drift = true
-			_, _ = fmt.Fprintf(out, "::error file=%s::%s is no longer generated but was edited since sync; delete it or list it under sync.unmanaged\n",
-				githubProp(p), githubData(filepath.ToSlash(p)))
+			_, _ = fmt.Fprintf(out, "::error file=%s::%s %s\n", githubProp(p), githubData(filepath.ToSlash(p)), orphanHint)
 		}
 		for _, p := range r.Leftover {
 			drift = true
-			_, _ = fmt.Fprintf(out, "::error file=%s::%s is no longer generated but still loaded; run agnostic-ai sync to remove it\n",
-				githubProp(p), githubData(filepath.ToSlash(p)))
+			_, _ = fmt.Fprintf(out, "::error file=%s::%s is no longer generated but still loaded; run agnostic-ai %s to remove it\n",
+				githubProp(p), githubData(filepath.ToSlash(p)), r.leftoverFix())
 		}
 	}
 	return drift
