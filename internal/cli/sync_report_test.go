@@ -188,29 +188,29 @@ func TestGitPending_OutsideGitRepoReturnsNothing(t *testing.T) {
 }
 
 // Without --literal-pathspecs, a path holding a glob character is read
-// as a pattern: "a*b.txt" would also match and remove "aXb.txt" (#1330
+// as a pattern: "a[X]b.txt" would also match and remove "aXb.txt" (#1330
 // review).
 func TestGitRmCached_TreatsGlobCharactersLiterally(t *testing.T) {
 	dir, gitc := gitRepo(t)
-	mustWriteFile(t, filepath.Join(dir, "a*b.txt"), "v1")
+	mustWriteFile(t, filepath.Join(dir, "a[X]b.txt"), "v1")
 	mustWriteFile(t, filepath.Join(dir, "aXb.txt"), "v2")
 	gitc("add", "-A")
 	gitc("commit", "-q", "-m", "base")
 
-	removed, err := gitRmCached(dir, []string{"a*b.txt"})
+	removed, err := gitRmCached(dir, []string{"a[X]b.txt"})
 
 	if err != nil {
 		t.Fatalf("gitRmCached: %v", err)
 	}
-	if want := []string{"a*b.txt"}; !slices.Equal(removed, want) {
+	if want := []string{"a[X]b.txt"}; !slices.Equal(removed, want) {
 		t.Errorf("removed = %v, want %v", removed, want)
 	}
 	tracked := git(t, dir, "ls-files")
 	if !strings.Contains(tracked, "aXb.txt") {
 		t.Errorf("aXb.txt must stay tracked, got:\n%s", tracked)
 	}
-	if strings.Contains(tracked, "a*b.txt") {
-		t.Errorf("a*b.txt should have been untracked, got:\n%s", tracked)
+	if strings.Contains(tracked, "a[X]b.txt") {
+		t.Errorf("a[X]b.txt should have been untracked, got:\n%s", tracked)
 	}
 }
 
