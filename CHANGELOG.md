@@ -6,6 +6,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### Fixed
+
+- A scoped rule no longer makes the managed `.gitignore` block ignore its whole directory; the block lists the scoped files instead (#1264).
+
 ### Removed
 
 - Project sync stops writing OpenHands `config.toml` `[mcp]`, which current releases ignore, and removes the old file. Use `sync --global` (#1259).
