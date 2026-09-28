@@ -8,7 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Added
 
-- Global settings `permissions.default-mode` sets Claude Code's user default permission mode (#1245).
+- Global settings `permissions.default-mode` sets Claude Code's user permission mode for matching spec targets (#1245).
 - `sync --keep-edits` preserves and reports outputs edited since the last sync, including when run from a git hook (#1271).
 
 ### Changed

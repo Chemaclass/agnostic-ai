@@ -364,3 +364,29 @@ func TestExplainGlobal_PermissionModeNamesWinningSource(t *testing.T) {
 		}
 	}
 }
+
+func TestGlobalSettings_PermissionModeRespectsTargetRouting(t *testing.T) {
+	for _, tc := range []struct {
+		name, field string
+		targets     []any
+		want        bool
+	}{
+		{"included", "targets", []any{"claude"}, true},
+		{"other target", "targets", []any{"codex"}, false},
+		{"excluded", "targets-exclude", []any{"claude"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			permissions := map[string]any{"default-mode": "bypassPermissions"}
+			entries := []spec.Entry{{Path: "settings/mode.yaml", Meta: map[string]any{tc.field: tc.targets, "permissions": permissions}}}
+			got := globalSettingsFor("claude", globalTargets["claude"], entries)
+			if (len(got) == 1) != tc.want {
+				t.Errorf("routed settings = %v, want mapped %v", got, tc.want)
+			}
+			permissions["default-mode"] = "invalid"
+			issues := lintGlobalSettings(entries, []string{"claude"})
+			if (len(issues) == 1) != tc.want {
+				t.Errorf("routed lint = %v, want issue %v", issues, tc.want)
+			}
+		})
+	}
+}
