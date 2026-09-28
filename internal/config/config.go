@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 
@@ -160,6 +161,31 @@ type Gitignore struct {
 	// `testdata/AGENTS.md` fixtures) that a broader ignore would otherwise
 	// catch. Patterns are gitignore globs, emitted verbatim.
 	Allow []string `yaml:"allow,omitempty"   json:"allow,omitempty"`
+	// Commit names kinds of generated output to keep in version control.
+	// The managed block leaves out every path a listed kind writes, for
+	// every configured target, so adding a target needs no new pattern.
+	Commit []string `yaml:"commit,omitempty" json:"commit,omitempty" jsonschema:"enum=instructions,enum=agents,enum=skills,enum=commands,enum=hooks,enum=mcps,enum=settings,enum=reviews,enum=environments,enum=ignores"`
+}
+
+// GitignoreInstructions is the gitignore.commit kind for entry-point files
+// and rule outputs; every other kind is named after its spec source.
+const GitignoreInstructions = "instructions"
+
+// GitignoreCommitKinds returns the kind names gitignore.commit accepts.
+func GitignoreCommitKinds() []string {
+	return []string{GitignoreInstructions, "agents", "skills", "commands", "hooks", "mcps", "settings", "reviews", "environments", "ignores"}
+}
+
+// Validate rejects a gitignore.commit kind no output belongs to, naming
+// source.
+func (g Gitignore) Validate(source string) error {
+	kinds := GitignoreCommitKinds()
+	for _, k := range g.Commit {
+		if !slices.Contains(kinds, k) {
+			return errs.Coded(errs.CodeConfigDecode, "%s: gitignore.commit: unknown kind %q (want one of %s)", source, k, strings.Join(kinds, ", "))
+		}
+	}
+	return nil
 }
 
 type Sources struct {
@@ -388,6 +414,9 @@ func LoadWithSources(root string) (*Config, []string, error) {
 		return nil, nil, err
 	}
 	if err := cfg.Lint.Validate(strings.Join(sources, " + ")); err != nil {
+		return nil, nil, err
+	}
+	if err := cfg.Gitignore.Validate(strings.Join(sources, " + ")); err != nil {
 		return nil, nil, err
 	}
 	return cfg, sources, nil

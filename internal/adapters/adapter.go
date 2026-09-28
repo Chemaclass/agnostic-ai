@@ -141,6 +141,10 @@ const (
 	NoteSurface         = emit.NoteSurface
 )
 
+// SetAsideNotes silences capability warnings and stashes the buffered
+// ones until the returned func runs (re-exported from the emit layer).
+func SetAsideNotes() (restore func()) { return emit.SetAsideNotes() }
+
 // DrainNotes returns and clears every buffered capability warning and
 // coverage note, for callers that attribute them to one spec.
 func DrainNotes() []Note { return emit.DrainNotes() }

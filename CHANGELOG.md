@@ -10,6 +10,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - With no `.sync-state`, `sync`, `sync --check`, and `doctor` name each leftover output and how to remove it (#1334, #1354, #1362).
 - `sync --untrack` untracks ignored outputs, `install-hook --post-checkout` syncs after checkout, and `.gitignore` marks `allow` lines committed (#1330, #1335).
+- `gitignore.commit: [instructions, hooks]` keeps those kinds' outputs in Git for every target, with no per-path `allow` lines (#1332).
 - `init` pins the schema URL to its release, omits default `sources:`, notes `on-unsupported: error`, and creates only seeded folders (#1331).
 - Imports point at `.agnostic-ai/` sources, read a linked skill once, and add no rules when rerun after `sync` (#1326, #1338, #1349).
 - `doctor --check-references` resolves repo-root links and groups findings by source; `sync --keep-edits --quiet` reports kept files on stderr (#1333, #1342).

@@ -1,6 +1,10 @@
 package emit
 
-import "github.com/chemaclass/agnostic-ai/internal/spec"
+import (
+	"io"
+
+	"github.com/chemaclass/agnostic-ai/internal/spec"
+)
 
 // NoteShape names which buffered report a Note came from.
 type NoteShape string
@@ -60,4 +64,46 @@ func DrainNotes() []Note {
 	coverageNoteState.pendingSurface = nil
 	coverageNoteState.pendingText = nil
 	return out
+}
+
+// SetAsideNotes silences Warner and stashes every buffered capability
+// warning and coverage note, for a capture that re-runs adapters after
+// the real emission. The returned func drops whatever the capture
+// buffered and restores the stash and Warner, so the sync summary reports
+// the real emission once. Not safe to call while adapters emit
+// concurrently.
+func SetAsideNotes() (restore func()) {
+	warner := Warner
+	Warner = io.Discard
+
+	capabilityWarnState.mu.Lock()
+	warns := capabilityWarnState.pending
+	capabilityWarnState.pending = nil
+	capabilityWarnState.mu.Unlock()
+
+	coverageNoteState.mu.Lock()
+	gaps := coverageNoteState.pending
+	fields := coverageNoteState.pendingField
+	surfaces := coverageNoteState.pendingSurface
+	texts := coverageNoteState.pendingText
+	coverageNoteState.pending = nil
+	coverageNoteState.pendingField = nil
+	coverageNoteState.pendingSurface = nil
+	coverageNoteState.pendingText = nil
+	coverageNoteState.mu.Unlock()
+
+	return func() {
+		capabilityWarnState.mu.Lock()
+		capabilityWarnState.pending = warns
+		capabilityWarnState.mu.Unlock()
+
+		coverageNoteState.mu.Lock()
+		coverageNoteState.pending = gaps
+		coverageNoteState.pendingField = fields
+		coverageNoteState.pendingSurface = surfaces
+		coverageNoteState.pendingText = texts
+		coverageNoteState.mu.Unlock()
+
+		Warner = warner
+	}
 }

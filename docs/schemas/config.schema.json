@@ -311,6 +311,24 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "commit": {
+          "items": {
+            "type": "string",
+            "enum": [
+              "instructions",
+              "agents",
+              "skills",
+              "commands",
+              "hooks",
+              "mcps",
+              "settings",
+              "reviews",
+              "environments",
+              "ignores"
+            ]
+          },
+          "type": "array"
         }
       },
       "additionalProperties": false,
