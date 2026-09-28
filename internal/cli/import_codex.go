@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -155,7 +154,7 @@ var codexSkipHeadings = map[string]bool{
 // When opts.Shred is false, each AGENTS.md becomes a single rule whose body
 // is the file verbatim, skipping the H2 split.
 func importCodexRules(root, dstDir string, src config.Sources, opts importCodexOpts) (int, error) {
-	files, err := findCodexFiles(root, src)
+	files, err := findHierarchicalMainFiles(root, "AGENTS.md", src)
 	if err != nil {
 		return 0, err
 	}
@@ -211,57 +210,6 @@ func importCodexRules(root, dstDir string, src config.Sources, opts importCodexO
 		}
 	}
 	return count, nil
-}
-
-type codexFile struct {
-	path  string
-	globs string // "" for root, "src/**" for src/AGENTS.md, etc.
-}
-
-// findCodexFiles walks root for AGENTS.md files. Hidden directories and
-// the agnostic source dirs are skipped to avoid picking up unrelated
-// AGENTS.md files (e.g. from vendored projects or our own scaffold).
-func findCodexFiles(root string, src config.Sources) ([]codexFile, error) {
-	var out []codexFile
-	skipDirs := map[string]bool{
-		"node_modules": true, "vendor": true,
-	}
-	for _, p := range []string{src.Agents, src.Skills, src.Rules, src.Hooks, src.MCPs} {
-		if p != "" {
-			skipDirs[firstSegment(p)] = true
-		}
-	}
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if d.IsDir() {
-			name := d.Name()
-			if path != root && (strings.HasPrefix(name, ".") || skipDirs[name]) {
-				return fs.SkipDir
-			}
-			return nil
-		}
-		if d.Name() != "AGENTS.md" {
-			return nil
-		}
-		rel, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
-		dir := filepath.ToSlash(filepath.Dir(rel))
-		var globs string
-		if dir != "." {
-			globs = dir + "/**"
-		}
-		out = append(out, codexFile{path: path, globs: globs})
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].path < out[j].path })
-	return out, nil
 }
 
 // firstSegment returns the first path segment of p (e.g. ".agnostic-ai"

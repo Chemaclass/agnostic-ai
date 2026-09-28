@@ -284,7 +284,12 @@ func gitStatusPaths(root string, paths []string) ([]string, bool) {
 // status from rewriting the index, so a sync (or --watch loop) never makes
 // a concurrent git add or commit fail on index.lock.
 func runGit(root string, args ...string) (string, bool) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	return runGitWithin(root, 2*time.Second, args...)
+}
+
+// runGitWithin is runGit with its own time limit.
+func runGitWithin(root string, timeout time.Duration, args ...string) (string, bool) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "git", append([]string{"--no-optional-locks", "--literal-pathspecs"}, args...)...)
 	cmd.Dir = root

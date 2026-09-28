@@ -21,6 +21,7 @@ type scopedSkillDir struct {
 
 func findScopedSkillDirs(root, nativeDir string) ([]scopedSkillDir, error) {
 	nativeDir = filepath.ToSlash(filepath.Clean(nativeDir))
+	tree := importTreeFor(root)
 	var found []scopedSkillDir
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -37,6 +38,9 @@ func findScopedSkillDirs(root, nativeDir string) ([]scopedSkillDir, error) {
 			return err
 		}
 		rel = filepath.ToSlash(rel)
+		if !onNativePath(rel, nativeDir) && tree.skipsDir(rel) {
+			return filepath.SkipDir
+		}
 		if rel != nativeDir && !strings.HasSuffix(rel, "/"+nativeDir) {
 			return nil
 		}
