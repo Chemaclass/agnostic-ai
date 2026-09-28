@@ -87,8 +87,12 @@ func importFromClaude(root string, src config.Sources, layout claudeLayout) erro
 	if err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d commands\n",
-		c.rules, c.agents, c.skills, c.hooks, c.mcps, c.commands)
+	environments, err := importClaudeLaunch(root, src)
+	if err != nil {
+		return err
+	}
+	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d commands, %d environments\n",
+		c.rules, c.agents, c.skills, c.hooks, c.mcps, c.commands, environments)
 	switch mainResult {
 	case mirrorWritten:
 		summaryf("  → %s seeded from %s (commit this file — sync distributes it to all targets)\n",

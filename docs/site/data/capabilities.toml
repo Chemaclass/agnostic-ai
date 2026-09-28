@@ -80,7 +80,7 @@ id = "claude"
 name = "Claude Code"
 short_name = "Claude"
 href = "@/docs/targets/claude.md"
-statuses = ["native", "native", "native", "native", "native", "native", "native", "no", "no", "no"]
+statuses = ["native", "native", "native", "native", "native", "native", "native", "no", "native", "no"]
 
 [[targets]]
 id = "codex"

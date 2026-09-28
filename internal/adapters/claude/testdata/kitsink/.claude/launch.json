@@ -1,0 +1,14 @@
+{
+  "configurations": [
+    {
+      "name": "web",
+      "port": 3000,
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "runtimeExecutable": "npm"
+    }
+  ],
+  "version": "0.0.1"
+}

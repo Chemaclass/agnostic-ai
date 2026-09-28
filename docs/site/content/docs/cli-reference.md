@@ -156,7 +156,7 @@ Semantic checks beyond the schema. Exits 1 on error findings. `agnostic-ai lint 
 | `--strict` | Exit 1 on warnings too. |
 | `--global` | Lint the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides, the layers `sync --global` loads. Dead specs and target-only keys are checked against what each target `sync --global` writes at user level, for every supported target or the home config `targets` list. Also reports LINT010 and LINT014. Budgets come from the home config's `lint` key. Works outside a project. |
 
-It flags empty specs, dead specs (kinds no enabled target supports), and hooks that set a matcher on an event that ignores it. Four codes catch specs that never reach a target:
+It flags empty specs, dead specs (kinds no enabled target supports), and hooks that set a matcher on an event that ignores it. These codes catch specs that never reach a target:
 
 | Code | Finding |
 |------|---------|
@@ -165,6 +165,7 @@ It flags empty specs, dead specs (kinds no enabled target supports), and hooks t
 | LINT010 | Error, `--global` only. A rule with scope, path, glob, or target conditions, which `sync --global` rejects. |
 | LINT014 | Error, `--global` only. A settings `effort` a target's user effort key cannot take, such as `max` for Claude or Copilot, which `sync --global` drops with a note. |
 | LINT013 | Error. A rule's `globs` or `x-<target>.globs` is neither a string nor a list of strings. Targets read it as no globs, so the rule loads in every session. `validate` reports it too. |
+| LINT016 | Error. An environment spec's `dev-commands` entry has no `name:` or `command:`, repeats a name, or is not a mapping. Claude Code drops it from `launch.json`. |
 | LINT008 | Error. A stdio MCP server lacks `command:`, or an `http`/`sse`/`ws` one lacks `url:`. Trae, Antigravity, and Windsurf drop it; Claude Code, Codex, Cursor, Gemini, Copilot, and the rest write an invalid server object. `x-<target>` cannot set either reserved field. |
 
 LINT007 warns on a frontmatter key agnostic-ai does not read that is one edit from one it does (two for longer names): `glob:` for `globs:`, `descriptin:` for `description:`. The key parses and emits, so the setting is lost with no other signal; `sync` prints the same warning. A target-native key belongs under `x-<target>:`. A key only some targets read at the top level, such as Qoder's `glob:` or OpenCode's and Kilo's `mode:`, is flagged only when none of them is in `targets`. Settings and environment specs pass their keys through and are not checked, and `sync` skips pack specs.

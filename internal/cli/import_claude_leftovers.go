@@ -114,7 +114,7 @@ func (c claudeImportedPaths) skill(rel string) bool {
 // inClaude relative to .claude/.
 func (c claudeImportedPaths) file(rel, inClaude string) bool {
 	switch inClaude {
-	case "settings.json", "settings.local.json", claudeMainFile:
+	case "settings.json", "settings.local.json", "launch.json", claudeMainFile:
 		return true
 	case claudeAgentsMainFile:
 		return c.mainSrc == filepath.ToSlash(nestedClaudeAgentsMainFile)

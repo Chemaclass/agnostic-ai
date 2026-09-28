@@ -463,7 +463,7 @@ func emitEnvironment(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryR
 		// every other adapter. Then strip the spec identity fields Cursor
 		// has no schema for.
 		for k, v := range emit.ResolveMeta(e.Meta, target) {
-			if _, skip := environRoutingKeys[k]; skip || isWorktreeSetupField(k) {
+			if _, skip := environRoutingKeys[k]; skip || isWorktreeSetupField(k) || k == "dev-commands" {
 				continue
 			}
 			merged[k] = v
