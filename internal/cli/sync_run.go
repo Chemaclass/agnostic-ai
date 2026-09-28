@@ -389,12 +389,14 @@ func normalizeSharedWriteAttribution(emits []targetEmit) {
 }
 
 func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFlag string, jobs int) error {
-	return runSyncPass(root, targets, dryRun, backup, false, gitignoreFlag, jobs)
+	return runSyncPass(root, targets, dryRun, backup, false, false, gitignoreFlag, jobs)
 }
 
 // runSyncPass is one sync pass. With keepEdits, an output edited since the
-// last sync is left in place and named, and the rest is written.
-func runSyncPass(root string, targets []string, dryRun, backup, keepEdits bool, gitignoreFlag string, jobs int) (retErr error) {
+// last sync is left in place and named, and the rest is written. With
+// untrack, a generated path git both tracks and ignores is removed from
+// the index (not the working tree) after the sweep.
+func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untrack bool, gitignoreFlag string, jobs int) (retErr error) {
 	start := time.Now()
 	adapters.ResetCapabilityWarnings()
 	adapters.ResetCoverageNotes()
@@ -452,10 +454,14 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits bool, 
 		mainSess.KeepEditsSince(keep)
 	}
 	var sessions []*adapters.Session
+	// writesCompleted marks the point past which a returned error (the
+	// --untrack index cleanup, below) is a real, already-written sync
+	// reported as failed, never grounds to undo the writes themselves.
+	var writesCompleted bool
 	if !dryRun {
 		mainSess.StartTransaction()
 		defer func() {
-			if retErr != nil {
+			if retErr != nil && !writesCompleted {
 				fmt.Fprintf(os.Stderr, "! sync failed; rolling back partial writes\n")
 				if rbErr := rollbackSessions(sessions); rbErr != nil {
 					fmt.Fprintf(os.Stderr, "! rollback: %v\n", rbErr)
@@ -623,6 +629,10 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits bool, 
 		summaryf("%s would sync %d target%s · %s\n", tick(), len(effectiveTargets), plural(len(effectiveTargets)), shortDuration(time.Since(start)))
 		return nil
 	}
+	// Every write this sync makes is done; an --untrack failure below
+	// reports as a failed run but never undoes them (see writesCompleted
+	// above).
+	writesCompleted = true
 	sums := specSums(cfg, b)
 	report.specs = diffSpecSums(prev.SpecSums, sums)
 	// A partial run leaves other targets on older specs; keep the old
@@ -631,8 +641,19 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits bool, 
 	if coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
 		ledger.specSums = sums
 	}
+	trackedIgnored := gitTrackedAndIgnored(root, ledger.outputs)
+	var untrackErr error
+	if untrack && len(trackedIgnored) > 0 {
+		removed, err := gitRmCached(root, trackedIgnored)
+		report.untracked = removed
+		trackedIgnored = removeMatching(trackedIgnored, removed)
+		if err != nil {
+			untrackErr = fmt.Errorf("untrack: %w", err)
+		}
+	}
+	report.trackedIgnored = trackedIgnored
 	if verbosity >= levelDefault {
-		report.pending = gitPending(root, report.changedPaths())
+		report.pending = removeMatching(gitPending(root, report.changedPaths()), report.trackedIgnored)
 	}
 	if err := writeStateFile(root, report.filesChanged(), digest, notesDigest, ledger); err != nil {
 		fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
@@ -640,7 +661,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits bool, 
 	if verbosity >= levelDefault {
 		report.render(logOut, len(effectiveTargets), time.Since(start), verbose)
 	}
-	return nil
+	return untrackErr
 }
 
 // unmanagedSkips merges the user-owned paths every session refused to
@@ -734,7 +755,7 @@ func appendFileRecords(out *jsonOutput, target string, writes []adapters.Written
 
 // runSyncJSON runs a real sync pass and emits a JSON result describing each
 // file written, updated, or skipped per target.
-func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keepEdits bool, gitignoreFlag string, jobs int) error {
+func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keepEdits, untrack bool, gitignoreFlag string, jobs int) error {
 	adapters.ResetCapabilityWarnings()
 	adapters.ResetCoverageNotes()
 	defer adapters.ResetCapabilityWarnings()
@@ -849,6 +870,20 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	}
 	for _, p := range unmanagedSkips(sessions) {
 		out.Skipped = append(out.Skipped, fileRecord{Target: "agnostic-ai", Path: p, Action: "unmanaged"})
+	}
+	trackedIgnored := gitTrackedAndIgnored(root, ledger.outputs)
+	if untrack && len(trackedIgnored) > 0 {
+		removedFromIndex, err := gitRmCached(root, trackedIgnored)
+		for _, p := range removedFromIndex {
+			out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: p, Action: "untracked"})
+		}
+		trackedIgnored = removeMatching(trackedIgnored, removedFromIndex)
+		if err != nil {
+			out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: fmt.Sprintf("untrack: %v", err)})
+		}
+	}
+	for _, p := range trackedIgnored {
+		out.Skipped = append(out.Skipped, fileRecord{Target: "agnostic-ai", Path: p, Action: "tracked"})
 	}
 	// JSON path does not print warnings or notes, so preserve the
 	// previous digests so the next non-JSON run can still

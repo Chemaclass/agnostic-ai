@@ -12,9 +12,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// hookBlock is the part of a pre-commit hook install-hook owns. Its
-// sentinel comment line marks a hook as installed.
+// hookBlock is the part of a git hook install-hook owns. Its sentinel
+// comment line marks a hook as installed.
 type hookBlock struct {
+	// file is the hook's filename under a hooks directory, e.g.
+	// "pre-commit" or "post-checkout".
+	file     string
 	sentinel string
 	// legacy is the line older versions wrote without a sentinel.
 	legacy string
@@ -36,6 +39,7 @@ func (b hookBlock) installedIn(content string) bool {
 }
 
 var projectHook = hookBlock{
+	file:     "pre-commit",
 	sentinel: "# agnostic-ai install-hook",
 	legacy:   "agnostic-ai sync --check",
 	checks:   "agnostic-ai sync --check || exit 1",
@@ -44,6 +48,7 @@ var projectHook = hookBlock{
 // globalHook runs from the home's repository root, so the checks read
 // the home being committed even when AGNOSTIC_AI_HOME names another.
 var globalHook = hookBlock{
+	file:     "pre-commit",
 	sentinel: "# agnostic-ai install-hook --global",
 	checks: `AGNOSTIC_AI_HOME="$(git rev-parse --show-toplevel)" || exit 1
 export AGNOSTIC_AI_HOME
@@ -58,16 +63,36 @@ if [ "$git_dir" = "$common_dir" ]; then
 fi`,
 }
 
+// postCheckoutHook regenerates a worktree's tool files after a branch
+// checkout: a plain `git checkout`, `git clone` (which runs it once
+// against HEAD), or `git worktree add`. Guards on the branch-checkout
+// flag ($3) so a single-file checkout (`git checkout -- <path>`) never
+// triggers a sync, and exits 0 whenever the binary or the project
+// config is missing, so a worktree that has not installed dependencies
+// yet never fails a checkout (#1330).
+var postCheckoutHook = hookBlock{
+	file:     "post-checkout",
+	sentinel: "# agnostic-ai install-hook --post-checkout",
+	checks: `[ "$3" = "1" ] || exit 0
+root="$(git rev-parse --show-toplevel)" || exit 0
+command -v agnostic-ai >/dev/null 2>&1 || exit 0
+[ -f "$root/agnostic-ai.yaml" ] || exit 0
+cd "$root" && agnostic-ai sync -q`,
+}
+
 func newInstallHookCmd() *cobra.Command {
-	var shared, global bool
+	var shared, global, postCheckout bool
 	cmd := &cobra.Command{
 		Use:   "install-hook",
-		Short: "Install a pre-commit hook that runs sync --check.",
+		Short: "Install a pre-commit hook that runs sync --check, or a post-checkout hook that runs sync.",
 		Long: "Writes .git/hooks/pre-commit (or appends to an existing file). " +
 			"With --shared, writes to .githooks/pre-commit and sets core.hooksPath so " +
 			"the hook is committed alongside the project. With --global, run in the " +
 			"global home kept in git, writes a hook that runs lint --global --strict, " +
-			"validate --global, and sync --global --check.",
+			"validate --global, and sync --global --check. With --post-checkout, writes " +
+			".git/hooks/post-checkout (or .githooks/post-checkout with --shared) instead: " +
+			"it runs `agnostic-ai sync -q` from the worktree root after a branch or " +
+			"worktree checkout, so a fresh clone or `git worktree add` gets its tool files.",
 		Example: `  # Install into .git/hooks/pre-commit (local only)
   agnostic-ai install-hook
 
@@ -75,7 +100,13 @@ func newInstallHookCmd() *cobra.Command {
   agnostic-ai install-hook --shared
 
   # Gate commits to the global home, run inside ~/.agnostic-ai
-  agnostic-ai install-hook --global`,
+  agnostic-ai install-hook --global
+
+  # Regenerate tool files after a branch or worktree checkout
+  agnostic-ai install-hook --post-checkout
+
+  # Same, committed alongside the project
+  agnostic-ai install-hook --post-checkout --shared`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if global {
 				return installGlobalPreCommitHook(".", cmd.OutOrStdout())
@@ -83,12 +114,17 @@ func newInstallHookCmd() *cobra.Command {
 			if err := refuseGlobalHome(".", globalHomeHookRemedy); err != nil {
 				return err
 			}
+			if postCheckout {
+				return installHook(".", postCheckoutHook, shared, cmd.OutOrStdout(), cmd.ErrOrStderr())
+			}
 			return installPreCommitHook(".", shared, cmd.OutOrStdout(), cmd.ErrOrStderr())
 		},
 	}
-	cmd.Flags().BoolVar(&shared, "shared", false, "Write .githooks/pre-commit and set core.hooksPath so the hook is shared with the team.")
+	cmd.Flags().BoolVar(&shared, "shared", false, "Write .githooks/<hook> and set core.hooksPath so the hook is shared with the team.")
 	cmd.Flags().BoolVar(&global, "global", false, "Write the pre-commit hook of the global home in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai), which must be the root of a git repository.")
+	cmd.Flags().BoolVar(&postCheckout, "post-checkout", false, "Write a post-checkout hook that runs `agnostic-ai sync -q` after a branch or worktree checkout, when the binary and agnostic-ai.yaml exist.")
 	cmd.MarkFlagsMutuallyExclusive("shared", "global")
+	cmd.MarkFlagsMutuallyExclusive("global", "post-checkout")
 	return cmd
 }
 
@@ -114,7 +150,7 @@ func installGlobalPreCommitHook(dir string, out io.Writer) error {
 	if info, err := os.Stat(top); err != nil || !os.SameFile(info, home) {
 		return fmt.Errorf("%s is not the root of a git repository (it sits inside %s); keep the global home in its own repository", source, top)
 	}
-	hooksDir, err := gitHooksDir(source)
+	hooksDir, err := gitHooksDir(source, globalHook)
 	if err != nil {
 		return err
 	}
@@ -132,11 +168,16 @@ func installGlobalPreCommitHook(dir string, out io.Writer) error {
 
 // gitHooksDir returns the hooks directory of the repository at dir, and
 // refuses when core.hooksPath sends git elsewhere: a hook written there
-// would never run, and a user-level hooksPath would run it in every repo.
-func gitHooksDir(dir string) (string, error) {
+// would never run, and a user-level hooksPath would run it in every
+// repo. Resolved through git rev-parse rather than a filesystem walk
+// for a `.git` directory, so it works from a linked worktree too, where
+// `.git` is a file naming the common dir, not a directory (#1330
+// review): hooks always run from the common dir, shared by every
+// worktree, regardless of which one dir is.
+func gitHooksDir(dir string, block hookBlock) (string, error) {
 	commonDir, err := gitRevParse(dir, "--git-common-dir")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("%s is not inside a git work tree; run `git init` first", dir)
 	}
 	hooksDir := absFrom(dir, filepath.Join(commonDir, "hooks"))
 	gitPath, err := gitRevParse(dir, "--git-path", "hooks")
@@ -145,7 +186,7 @@ func gitHooksDir(dir string) (string, error) {
 	}
 	if active := absFrom(dir, gitPath); !sameHooksDir(active, hooksDir) {
 		value, origin := gitHooksPathSetting(dir)
-		return "", fmt.Errorf("core.hooksPath is %s (set in %s), so git runs hooks from %s, not %s; unset it, or add these lines to the pre-commit hook there by hand:\n\n%s", value, origin, active, hooksDir, globalHook.text())
+		return "", fmt.Errorf("core.hooksPath is %s (set in %s), so git runs hooks from %s, not %s; unset it, or add these lines to the %s hook there by hand:\n\n%s", value, origin, active, hooksDir, block.file, block.text())
 	}
 	return hooksDir, nil
 }
@@ -207,26 +248,50 @@ func sameHooksDir(a, b string) bool {
 	return sameDir(a, b)
 }
 
-func installPreCommitHook(root string, shared bool, out, warn io.Writer) error {
+// installHook writes block's hook file, locally or, with shared, into
+// the repo's shared hooks directory. Shared by the pre-commit and
+// post-checkout hooks: each names its own file via block.file.
+func installHook(root string, block hookBlock, shared bool, out, warn io.Writer) error {
 	if shared {
-		return installSharedHook(root, out, warn)
+		return installSharedHook(root, block, out, warn)
 	}
-	return installLocalHook(root, out)
+	return installLocalHook(root, block, out)
+}
+
+// installPreCommitHook is installHook pinned to projectHook.
+func installPreCommitHook(root string, shared bool, out, warn io.Writer) error {
+	return installHook(root, projectHook, shared, out, warn)
 }
 
 const sharedHooksPath = ".githooks"
 
-// installSharedHook writes .githooks/pre-commit at the worktree root and
-// sets core.hooksPath so the hook lives in the repo and runs for every
-// collaborator.
-func installSharedHook(dir string, out, warn io.Writer) error {
-	top, err := gitRevParse(dir, "--show-toplevel")
+// mainWorktreeToplevel returns the root of the repository's main
+// working tree, from dir, whether dir sits in the main worktree or a
+// linked one. The common dir (`--git-common-dir`) is always the main
+// worktree's own `.git`, in both cases, so its parent is the answer.
+func mainWorktreeToplevel(dir string) (string, error) {
+	commonDir, err := gitRevParse(dir, "--path-format=absolute", "--git-common-dir")
 	if err != nil {
-		return fmt.Errorf("%s is not inside a git work tree; run `git init` first", dir)
+		return "", fmt.Errorf("%s is not inside a git work tree; run `git init` first", dir)
+	}
+	return filepath.Dir(commonDir), nil
+}
+
+// installSharedHook writes .githooks/<block.file> at the main worktree's
+// root and sets core.hooksPath so the hook lives in the repo and runs
+// for every collaborator. Always the main worktree's root, never the
+// invoking one's: core.hooksPath is one repository-level setting every
+// worktree resolves against its own directory, so a copy written under
+// a linked worktree would leave every other worktree, main included,
+// pointed at a hooks directory with nothing in it (#1330 review).
+func installSharedHook(dir string, block hookBlock, out, warn io.Writer) error {
+	top, err := mainWorktreeToplevel(dir)
+	if err != nil {
+		return err
 	}
 	value, origin := gitHooksPathSetting(top)
 	if value != "" && value != sharedHooksPath {
-		return fmt.Errorf("core.hooksPath is already %s (set in %s), and --shared would replace it; add these lines to the pre-commit hook there by hand, or unset core.hooksPath:\n\n%s", value, origin, projectHook.text())
+		return fmt.Errorf("core.hooksPath is already %s (set in %s), and --shared would replace it; add these lines to the %s hook there by hand, or unset core.hooksPath:\n\n%s", value, origin, block.file, block.text())
 	}
 	var stopped []string
 	if value == "" {
@@ -234,14 +299,14 @@ func installSharedHook(dir string, out, warn io.Writer) error {
 			return err
 		}
 	}
-	written, err := writeHookAt(filepath.Join(top, sharedHooksPath), projectHook)
+	written, err := writeHookAt(filepath.Join(top, sharedHooksPath), block)
 	if err != nil {
 		return err
 	}
 	if err := exec.Command("git", "-C", top, "config", "core.hooksPath", sharedHooksPath).Run(); err != nil {
 		return fmt.Errorf("git config core.hooksPath: %w", err)
 	}
-	reportHook(out, filepath.Join(top, sharedHooksPath, "pre-commit"), written, " (core.hooksPath → "+sharedHooksPath+")")
+	reportHook(out, filepath.Join(top, sharedHooksPath, block.file), written, " (core.hooksPath → "+sharedHooksPath+")")
 	if len(stopped) > 0 {
 		_, _ = fmt.Fprintf(warn, "warning: git no longer runs these hooks, since core.hooksPath is now %s: %s\n", sharedHooksPath, strings.Join(stopped, ", "))
 	}
@@ -272,18 +337,18 @@ func activeHooks(top string) ([]string, error) {
 	return names, nil
 }
 
-// installLocalHook writes .git/hooks/pre-commit, scoped to the local clone.
-func installLocalHook(root string, out io.Writer) error {
-	gitDir, err := findGitDir(root)
+// installLocalHook writes to the repository's hooks directory: the
+// common dir's, shared by every worktree, not root's own (#1330 review).
+func installLocalHook(root string, block hookBlock, out io.Writer) error {
+	hooksDir, err := gitHooksDir(root, block)
 	if err != nil {
 		return err
 	}
-	hooksDir := filepath.Join(gitDir, "hooks")
-	written, err := writeHookAt(hooksDir, projectHook)
+	written, err := writeHookAt(hooksDir, block)
 	if err != nil {
 		return err
 	}
-	reportHook(out, filepath.Join(hooksDir, "pre-commit"), written, "")
+	reportHook(out, filepath.Join(hooksDir, block.file), written, "")
 	return nil
 }
 
@@ -306,14 +371,14 @@ func reportHook(out io.Writer, path string, written hookWrite, suffix string) {
 	}
 }
 
-// writeHookAt ensures dir exists and writes block into its pre-commit
-// hook: a new sh script when there is none, nothing when the hook
-// already holds block, and otherwise block appended to the hook.
+// writeHookAt ensures dir exists and writes block into its hook file
+// (block.file): a new sh script when there is none, nothing when the
+// hook already holds block, and otherwise block appended to the hook.
 func writeHookAt(dir string, block hookBlock) (hookWrite, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return 0, fmt.Errorf("mkdir %s: %w", dir, err)
 	}
-	path := filepath.Join(dir, "pre-commit")
+	path := filepath.Join(dir, block.file)
 	existing, err := os.ReadFile(path)
 	if err != nil && !os.IsNotExist(err) {
 		return 0, fmt.Errorf("read %s: %w", path, err)
@@ -388,23 +453,4 @@ func onlyRedirects(args []string) bool {
 		}
 	}
 	return true
-}
-
-func findGitDir(root string) (string, error) {
-	// Walk up from root looking for .git.
-	abs, err := filepath.Abs(root)
-	if err != nil {
-		return "", err
-	}
-	for dir := abs; ; dir = filepath.Dir(dir) {
-		candidate := filepath.Join(dir, ".git")
-		if fi, err := os.Stat(candidate); err == nil && fi.IsDir() {
-			return candidate, nil
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-	}
-	return "", fmt.Errorf("not a git repository (no .git directory found)")
 }

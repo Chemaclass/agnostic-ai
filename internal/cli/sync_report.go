@@ -38,6 +38,15 @@ type syncReport struct {
 	// pending lists changed paths git still has to record: tracked files
 	// sync modified or deleted, and new files no .gitignore rule covers.
 	pending []string
+	// trackedIgnored lists generated paths git both tracks and ignores: a
+	// file the repo committed before it moved into the managed .gitignore
+	// block. Never in pending, since re-adding it is the opposite of what
+	// is needed (#1330). Untouched unless --untrack ran.
+	trackedIgnored []string
+	// untracked lists the paths --untrack removed from git's index this
+	// run. Mutually exclusive with trackedIgnored: a path moves from one
+	// to the other once removed.
+	untracked []string
 }
 
 // specChange is one source spec that differs from the previous sync.
@@ -92,6 +101,12 @@ func (r *syncReport) render(w io.Writer, targets int, elapsed time.Duration, ver
 	r.renderPaths(w, term.Colorize(w, "-", term.Red), r.removed, verbose)
 	if n := len(r.pending); n > 0 {
 		_, _ = fmt.Fprintf(w, "  %s %d file%s to commit: %s\n", term.Bang(w), n, plural(n), capPaths(r.pending, verbose))
+	}
+	if n := len(r.untracked); n > 0 {
+		_, _ = fmt.Fprintf(w, "  %s untracked %d file%s no longer covered by git: %s\n", term.Bang(w), n, plural(n), strings.Join(r.untracked, " "))
+	}
+	if n := len(r.trackedIgnored); n > 0 {
+		_, _ = fmt.Fprintf(w, "  %s %d file%s tracked despite being ignored: git rm --cached %s\n", term.Bang(w), n, plural(n), strings.Join(r.trackedIgnored, " "))
 	}
 
 	if r.filesChanged() == 0 {
@@ -256,8 +271,105 @@ func gitPending(root string, changed []string) []string {
 	return pending
 }
 
+// removeMatching returns paths without any entry also in exclude. Used to
+// keep a tracked-and-ignored file out of the "files to commit" hint:
+// re-adding it is the opposite of what sync --untrack is for (#1330).
+func removeMatching(paths, exclude []string) []string {
+	if len(exclude) == 0 {
+		return paths
+	}
+	skip := make(map[string]struct{}, len(exclude))
+	for _, p := range exclude {
+		skip[p] = struct{}{}
+	}
+	out := make([]string, 0, len(paths))
+	for _, p := range paths {
+		if _, ok := skip[p]; !ok {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
 // gitPathsPerCall keeps each git invocation under the OS argument limit.
 const gitPathsPerCall = 500
+
+// gitTrackedAndIgnored returns the paths among candidates that git both
+// tracks and ignores: a file the repo committed before it moved into a
+// gitignore rule, typically the managed block, so the ignore has no
+// effect until the index entry is removed (#1330). Pathspecs given to
+// `ls-files` resolve relative to root, so no prefix-stripping is needed
+// the way gitPending needs it for `status`. Outside a git work tree, or
+// when git is missing or slow, it returns nothing, the same convenience
+// contract as gitPending.
+func gitTrackedAndIgnored(root string, candidates []string) []string {
+	if len(candidates) == 0 {
+		return nil
+	}
+	var out []string
+	for start := 0; start < len(candidates); start += gitPathsPerCall {
+		end := min(start+gitPathsPerCall, len(candidates))
+		got, ok := runGit(root, append([]string{"ls-files", "-ci", "--exclude-standard", "-z", "--"}, candidates[start:end]...)...)
+		if !ok {
+			return nil
+		}
+		for _, p := range strings.Split(strings.TrimRight(got, "\x00"), "\x00") {
+			if p != "" {
+				out = append(out, p)
+			}
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// gitRmCached removes paths from git's index without touching the
+// working tree, batched under the OS argument limit, and returns the
+// paths actually removed. `sync --untrack` uses it to stop tracking a
+// file its gitignore rule already covers.
+//
+// `git rm --cached` validates every pathspec in one invocation before
+// touching the index: a single path it cannot remove (already
+// untracked, a race, a permission error) fails the whole batch with
+// nothing removed. A failed batch is retried one path at a time so a
+// real partial failure still removes what it can; the returned error
+// names exactly the paths that could not be removed, and every path
+// not in that error is in removed.
+func gitRmCached(root string, paths []string) (removed []string, err error) {
+	var failed []string
+	for start := 0; start < len(paths); start += gitPathsPerCall {
+		end := min(start+gitPathsPerCall, len(paths))
+		batch := paths[start:end]
+		if rmCached(root, batch) == nil {
+			removed = append(removed, batch...)
+			continue
+		}
+		for _, p := range batch {
+			if rmCached(root, []string{p}) == nil {
+				removed = append(removed, p)
+			} else {
+				failed = append(failed, p)
+			}
+		}
+	}
+	if len(failed) > 0 {
+		return removed, fmt.Errorf("git rm --cached in %s: %d of %d path(s) could not be untracked: %s", root, len(failed), len(paths), strings.Join(failed, " "))
+	}
+	return removed, nil
+}
+
+// rmCached runs one `git rm --cached` invocation over paths.
+// --literal-pathspecs keeps a path holding `*`, `?`, `[`, or a leading
+// `:` from being read as a glob or a magic pathspec.
+func rmCached(root string, paths []string) error {
+	args := append([]string{"--no-optional-locks", "--literal-pathspecs", "rm", "--cached", "--quiet", "--"}, paths...)
+	cmd := exec.Command("git", args...)
+	cmd.Dir = root
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
 
 // trackedFiles lists every git-tracked file under root, relative to it:
 // `git ls-files` defaults to the working directory's own subtree, so no
