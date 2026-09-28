@@ -92,10 +92,10 @@ func windsurfImportDir(root string, cfg *config.Config) string {
 // "`.devin/rules` or `.windsurf/rules` in any sub-directory of your
 // workspace" (docs.devin.ai/desktop/cascade/memories), which is where
 // sync writes a scoped rule, so import has to look there too.
-// `CheckScopePath` rejects nothing about a name like `.github`,
-// `vendor`, or `node_modules`, so emission accepts a scope there and
-// import must be able to round-trip it: pruning every hidden directory
-// and a hardcoded `node_modules`/`vendor` list, the way an earlier
+// `CheckScopePath` rejects nothing about a name like `.github` or
+// `vendor`, so emission accepts a scope there and import must be able
+// to round-trip it: pruning every hidden directory and a hardcoded
+// `vendor` list, the way an earlier
 // draft of this function did, silently orphaned
 // `.github/.devin/rules/release.md` on the next full sync (#1123,
 // mirroring antigravityScopedRulesDirs's own earlier draft, #1114).
@@ -105,7 +105,8 @@ func windsurfImportDir(root string, cfg *config.Config) string {
 // config/rules` pruned `packages/api/config` too, and a legitimate
 // `packages/api/config/.devin/rules/auth.md` scope never imported
 // (#1123). Only `.git`, agnostic-ai's own configured source
-// directories, and windsurfOwnOutputSubtrees are pruned now; see
+// directories, windsurfOwnOutputSubtrees, and what importTree leaves
+// out (every `node_modules` among it) are pruned now; see
 // scopedRulesDirs, the walker this and antigravityScopedRulesDirs
 // share.
 func windsurfScopedRulesDirs(root, rulesDir string, src config.Sources) ([]string, error) {

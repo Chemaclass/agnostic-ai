@@ -27,7 +27,7 @@ type hierarchicalFile struct {
 // Callers read each match through readEntryFile.
 func findHierarchicalMainFiles(root, filename string, src config.Sources) ([]hierarchicalFile, error) {
 	var out []hierarchicalFile
-	skipDirs := map[string]bool{"node_modules": true, "vendor": true}
+	skipDirs := map[string]bool{"vendor": true}
 	for _, p := range []string{src.Agents, src.Skills, src.Rules, src.Hooks, src.MCPs} {
 		if p != "" {
 			skipDirs[firstSegment(p)] = true

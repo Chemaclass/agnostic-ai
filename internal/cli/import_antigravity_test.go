@@ -108,9 +108,10 @@ func TestImportFromAntigravity_ReadsScopedRulesDirs(t *testing.T) {
 
 // TestImportFromAntigravity_ReadsHiddenAndVendorScopedRulesDirs pins
 // #1114's import-side fix: `CheckScopePath` accepts a scope like
-// `.github`, `vendor`, or `node_modules`, so emission can write a
-// scoped rule under any of them, and import must round-trip it instead
-// of pruning the directory before ever looking inside it.
+// `.github` or `vendor`, so emission can write a scoped rule under
+// either, and import must round-trip it instead of pruning the
+// directory before ever looking inside it. A `node_modules` holds other
+// projects' packages, so it stays out (#1307).
 func TestImportFromAntigravity_ReadsHiddenAndVendorScopedRulesDirs(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".github", ".agents", "rules", "release.md"), "# release\n\nrelease body\n")
@@ -124,11 +125,13 @@ func TestImportFromAntigravity_ReadsHiddenAndVendorScopedRulesDirs(t *testing.T)
 	for _, p := range []string{
 		filepath.Join("rules", ".github", "release.md"),
 		filepath.Join("rules", "vendor", "pkg.md"),
-		filepath.Join("rules", "node_modules", "pkg2.md"),
 	} {
 		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
 			t.Errorf("missing imported spec %s: %v", p, err)
 		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, "rules", "node_modules")); !os.IsNotExist(err) {
+		t.Errorf("imported a rule from node_modules: %v", err)
 	}
 }
 
@@ -139,7 +142,7 @@ func TestImportFromAntigravity_ReadsHiddenAndVendorScopedRulesDirs(t *testing.T)
 // scopedRulesDirs no longer prunes by bare directory name, must not
 // abort the whole scoped scan and leave the root rules already
 // imported with everything else missing. See the same regression on
-// the windsurf side, TestImportFromWindsurf_SurvivesUnreadableDirUnderNodeModules.
+// the windsurf side, TestImportFromWindsurf_SurvivesUnreadableDirUnderVendor.
 func TestImportFromAntigravity_SurvivesUnreadableDirUnderVendor(t *testing.T) {
 	skipUnlessCanDenyDirReads(t)
 	dir := t.TempDir()

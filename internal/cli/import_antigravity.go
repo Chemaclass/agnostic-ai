@@ -134,15 +134,16 @@ var antigravityOwnOutputSubtrees = map[string]bool{
 // reads "a `.agents/rules/` directory ... in any subdirectory of your
 // project" (antigravity.google/docs/rules), which is where sync writes
 // a scoped rule, so import has to look there too. `CheckScopePath`
-// rejects nothing about a name like `.github`, `vendor`, or
-// `node_modules`, so emission accepts a scope there and import must be
-// able to round-trip it: pruning by a hidden-dir prefix or a
+// rejects nothing about a name like `.github` or `vendor`, so emission
+// accepts a scope there and import must be able to round-trip it:
+// pruning by a hidden-dir prefix or a
 // hardcoded name list, the way an earlier draft of this function (and
 // of windsurfScopedRulesDirs, fixed the same way in #1123) did, silently
 // orphaned `.github/.agents/rules/release.md` on the next full sync
 // (#1114). Only `.git` (never a legitimate scope, and large enough that
 // walking it is wasted work), agnostic-ai's own configured source
-// directories, and antigravityOwnOutputSubtrees are pruned; see
+// directories, antigravityOwnOutputSubtrees, and what importTree leaves
+// out (every `node_modules` among it) are pruned; see
 // scopedRulesDirs, the walker this and windsurfScopedRulesDirs share.
 //
 // Pruning matches the exact root-relative path, never a bare directory
