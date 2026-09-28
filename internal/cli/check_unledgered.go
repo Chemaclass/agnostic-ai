@@ -26,26 +26,62 @@ func ledgerMissing(root string) bool {
 	return errors.Is(err, fs.ErrNotExist)
 }
 
-// unledgeredCandidates lists the git-tracked files that sit where a
-// configured target writes, for the leftover scan when no ledger names
-// them: removable ones in a tool directory or a root dotfile, and scoped
-// ones, a scope document that a copied or vendored file could also be.
-// ok is false when git cannot list the tree.
-func unledgeredCandidates(cfg *config.Config, emitted map[string]bool) (removable, scoped []string, ok bool) {
-	tracked, ok := trackedFiles(".")
-	if !ok {
-		return nil, nil, false
+// unledgeredReport lists the leftovers no ledger proves sync wrote. With
+// no `.sync-state` (deleted, or a fresh checkout of a repo that commits
+// its generated files), the candidates are the git-tracked files (#1334);
+// otherwise, the ones a sync run without a ledger recorded (#1354). A
+// candidate counts while it is stranded, sits where a configured target
+// writes, and opens with the provenance header. One in a tool directory
+// or a root dotfile goes to Leftover, which `doctor --fix` removes. A
+// scope document such as a nested AGENTS.md may be a copy or a vendored
+// file, so it goes to Orphaned for the user to delete. Sync removes
+// neither. Outside a git work tree the scan finds nothing.
+func unledgeredReport(cfg *config.Config, emitted map[string]bool, state syncStateFile, stranded func(string) bool) driftReport {
+	rep := driftReport{Target: ledgerReport}
+	missing := ledgerMissing(".")
+	candidates := state.Unledgered
+	if missing {
+		tracked, ok := trackedFiles(".")
+		if !ok {
+			rep.Unledgered = true
+			return rep
+		}
+		candidates = tracked
 	}
 	loc := newOutputLocations(cfg, emitted)
-	for _, p := range tracked {
-		switch loc.holds(filepath.ToSlash(p)) {
-		case toolLocation:
-			removable = append(removable, p)
-		case scopeLocation:
-			scoped = append(scoped, p)
+	for _, p := range candidates {
+		where := loc.holds(filepath.ToSlash(p))
+		if where == noLocation || !stranded(p) || !ownedWithoutLedger(p) {
+			continue
+		}
+		if where == toolLocation {
+			rep.Leftover = append(rep.Leftover, p)
+		} else {
+			rep.Orphaned = append(rep.Orphaned, p)
 		}
 	}
-	return removable, scoped, true
+	rep.Unledgered = missing || rep.hasDrift()
+	return rep
+}
+
+// strandedOutput reports whether a path is a regular file that sync no
+// longer emits and no other rule claims: not an entry point, not a kept
+// orphan, not user-owned, and not under a linked folder.
+func strandedOutput(cfg *config.Config, emitted map[string]bool, state syncStateFile) func(string) bool {
+	skip := map[string]bool{}
+	for _, p := range entryPointPaths(cfg, cfg.Targets) {
+		skip[p] = true
+	}
+	for _, p := range state.Orphans {
+		skip[p] = true
+	}
+	return func(p string) bool {
+		if emitted[p] || skip[p] || cfg.IsUnmanaged(p) || underSymlinkedDir(p) {
+			return false
+		}
+		fi, err := os.Lstat(p)
+		return err == nil && fi.Mode().IsRegular()
+	}
 }
 
 // outputLocation is where a configured target could have written a file.

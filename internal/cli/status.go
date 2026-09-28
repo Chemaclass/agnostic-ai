@@ -110,8 +110,9 @@ func captureAllAndDiff(targets []string, cfg *config.Config, b spec.Bundle) (dri
 			for _, p := range allPaths {
 				emitted[p] = true
 			}
-			rep := leftoverReport(cfg, emitted)
-			driftFiles += len(rep.Leftover) + len(rep.Orphaned)
+			for _, rep := range leftoverReports(cfg, emitted) {
+				driftFiles += len(rep.Leftover) + len(rep.Orphaned)
+			}
 		}
 	}()
 	for _, t := range targets {

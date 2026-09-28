@@ -23,9 +23,10 @@ import (
 
 // syncStateVersion identifies the on-disk schema of `.agnostic-ai/.sync-state`.
 // Bumped to 2 when the per-sync output ledger (Outputs) was added, and to 3
-// when OutputSums and Orphans were added, and to 4 when SpecSums was added.
+// when OutputSums and Orphans were added, to 4 when SpecSums was added,
+// and to 5 when Unledgered was added.
 // Readers tolerate older versions by treating missing fields as zero values.
-const syncStateVersion = 4
+const syncStateVersion = 5
 
 type syncStateFile struct {
 	Version        int       `json:"version,omitempty"`
@@ -58,6 +59,11 @@ type syncStateFile struct {
 	// Outputs so the next sync retries them, and `sync --check` and
 	// `doctor` report them as drift while they remain on disk.
 	Orphans []string `json:"orphans,omitempty"`
+	// Unledgered lists leftovers a sync run without a prior ledger found
+	// (unledgeredReport). No record proves sync wrote them, so they stay
+	// out of Outputs and no sync removes them; `sync --check` and
+	// `doctor` report them while they remain (#1354).
+	Unledgered []string `json:"unledgered,omitempty"`
 	// SpecSums fingerprints each source spec and the merged config, so
 	// the next sync can name which sources changed since this one.
 	SpecSums map[string]string `json:"spec_sums,omitempty"`
@@ -72,6 +78,8 @@ type syncLedger struct {
 	outputs []string
 	sums    map[string]string
 	orphans []string
+	// unledgered lists the leftovers no ledger proves sync wrote.
+	unledgered []string
 	// specSums is not part of the output footprint, but it is written
 	// beside it so the next sync can diff sources against this one.
 	specSums map[string]string
@@ -110,6 +118,7 @@ func writeStateFile(projectRoot string, filesChanged int, warningsDigest, notesD
 		Outputs:        ledger.outputs,
 		OutputSums:     ledger.sums,
 		Orphans:        ledger.orphans,
+		Unledgered:     ledger.unledgered,
 		SpecSums:       ledger.specSums,
 	})
 	if err != nil {
@@ -482,9 +491,11 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits bool, 
 	var ledgerSession []string
 	ledgerWritten := map[string]string{}
 	var gitignoreEntries []string
+	complete := true
 	for _, e := range emits {
 		if e.err != nil && !e.resolved {
 			fmt.Fprintf(os.Stderr, "! %v\n", e.err)
+			complete = false
 			continue
 		}
 		gitignoreEntries = append(gitignoreEntries, e.recorded...)
@@ -591,6 +602,15 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits bool, 
 	}
 	for _, p := range kept {
 		keptf("  ~ kept orphan %s (edited since sync; delete it or list it under sync.unmanaged)\n", p)
+	}
+	if !dryRun {
+		unledgered := keepUnledgered(cfg, prev, &ledger, ledgerWritten, complete && coversAllConfiguredTargets(effectiveTargets, cfg.Targets))
+		for _, p := range unledgered.Leftover {
+			keptf("  ~ kept leftover %s (no ledger proves sync wrote it; run `agnostic-ai doctor --fix` to remove it)\n", filepath.ToSlash(p))
+		}
+		for _, p := range unledgered.Orphaned {
+			keptf("  ~ kept leftover %s (looks generated, with no ledger to prove sync wrote it; delete it by hand if stale, or list it under sync.unmanaged)\n", filepath.ToSlash(p))
+		}
 	}
 	for _, p := range keptEdits(sessions) {
 		keptf("  ~ kept %s (edited since the last sync; move the edit into .agnostic-ai/, then run `agnostic-ai sync`)\n", p)
@@ -820,6 +840,13 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	for _, p := range kept {
 		out.Skipped = append(out.Skipped, fileRecord{Target: "agnostic-ai", Path: p, Action: "orphan"})
 	}
+	unledgered := keepUnledgered(cfg, prev, &ledger, ledgerWritten, len(out.Errors) == 0 && coversAllConfiguredTargets(effectiveTargets, cfg.Targets))
+	for _, p := range unledgered.Leftover {
+		out.Skipped = append(out.Skipped, fileRecord{Target: "agnostic-ai", Path: filepath.ToSlash(p), Action: "leftover"})
+	}
+	for _, p := range unledgered.Orphaned {
+		out.Skipped = append(out.Skipped, fileRecord{Target: "agnostic-ai", Path: filepath.ToSlash(p), Action: "orphan"})
+	}
 	for _, p := range unmanagedSkips(sessions) {
 		out.Skipped = append(out.Skipped, fileRecord{Target: "agnostic-ai", Path: p, Action: "unmanaged"})
 	}
@@ -849,7 +876,10 @@ func printSyncPlan(cmd *cobra.Command, reports []driftReport) {
 		if len(r.Orphaned) > 0 {
 			_, _ = fmt.Fprintf(w, "\torphaned: %d", len(r.Orphaned))
 		}
-		if len(r.Leftover) > 0 {
+		switch {
+		case len(r.Leftover) > 0 && r.Unledgered:
+			_, _ = fmt.Fprintf(w, "\tleftover: %d", len(r.Leftover))
+		case len(r.Leftover) > 0:
 			_, _ = fmt.Fprintf(w, "\tremoved: %d", len(r.Leftover))
 		}
 		_, _ = fmt.Fprintln(w)
@@ -858,9 +888,9 @@ func printSyncPlan(cmd *cobra.Command, reports []driftReport) {
 }
 
 // printSyncPlanJSON emits what a sync would do in the `sync --json`
-// schema, with the create, update, and delete actions a real run reports
-// and kept orphans in skipped. A dry run also lists each unchanged file
-// as a skip, so every planned output appears once.
+// schema, with the create, update, and delete actions a real run reports,
+// and kept orphans and leftovers in skipped. A dry run also lists each
+// unchanged file as a skip, so every planned output appears once.
 func printSyncPlanJSON(cmd *cobra.Command, command string, reports []driftReport, withCurrent bool) error {
 	out := jsonOutput{Version: "1", Command: command}
 	for _, r := range reports {
@@ -871,6 +901,10 @@ func printSyncPlanJSON(cmd *cobra.Command, command string, reports []driftReport
 			out.Writes = append(out.Writes, fileRecord{Target: r.Target, Path: filepath.ToSlash(f.Path), Action: "update", Bytes: len(f.Content)})
 		}
 		for _, p := range r.Leftover {
+			if r.Unledgered {
+				out.Skipped = append(out.Skipped, fileRecord{Target: r.Target, Path: filepath.ToSlash(p), Action: "leftover"})
+				continue
+			}
 			out.Writes = append(out.Writes, fileRecord{Target: r.Target, Path: filepath.ToSlash(p), Action: "delete"})
 		}
 		for _, p := range r.Orphaned {
