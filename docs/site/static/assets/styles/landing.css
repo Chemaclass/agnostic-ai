@@ -265,9 +265,9 @@ main > section[id] {
    tallest entry whichever one is open. */
 .source-tree {
   display: grid;
-  grid-template-columns: minmax(15rem, 20rem) minmax(0, 1fr);
+  grid-template-columns: minmax(14rem, 16.5rem) minmax(0, 1fr);
   align-items: start;
-  gap: 1.5rem 2.5rem;
+  gap: 1.5rem 2rem;
   margin-top: 2.25rem;
 }
 
@@ -424,7 +424,46 @@ main > section[id] {
   font-size: inherit;
 }
 
-/* The arrow says the files under it come from the source above it. */
+/* Source, arrow, and generated files. Stacked by default; side by side on a
+   wide screen, so an entry is about as tall as the tree beside it. */
+.explorer-flow {
+  display: grid;
+  gap: 0.85rem;
+}
+
+@media (min-width: 1100px) {
+  .explorer-flow {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: stretch;
+    gap: 0.6rem;
+  }
+
+  /* Both cards take the taller one's height, so a short source never leaves
+     a hole under it beside a long output. */
+  .explorer-flow .spec-card,
+  .explorer-flow .explorer-outputs {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .explorer-flow .spec-card pre,
+  .explorer-flow .explorer-output-panels {
+    flex: 1;
+  }
+
+  .explorer-flow .explorer-arrow {
+    flex-direction: column;
+    align-self: center;
+    gap: 0.2rem;
+    margin: 0;
+  }
+
+  .explorer-flow .explorer-arrow svg {
+    transform: rotate(-90deg);
+  }
+}
+
+/* The arrow says the files after it come from the source before it. */
 .explorer-arrow {
   display: flex;
   align-items: center;
@@ -461,29 +500,16 @@ main > section[id] {
 }
 
 .explorer-output-tab {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.1rem;
-  min-width: 0;
-  padding: 0.35rem 0.65rem;
+  min-height: 2rem;
+  padding: 0.3rem 0.7rem;
   border: 1px solid var(--slab-line);
   border-radius: 8px;
   background: transparent;
   color: var(--slab-dim);
   font-family: var(--mono);
-  font-size: 0.66rem;
-  text-align: left;
+  font-size: 0.72rem;
   appearance: none;
   cursor: pointer;
-}
-
-.explorer-output-tab code {
-  padding: 0;
-  background: none;
-  color: var(--slab-ink);
-  font-size: 0.72rem;
-  overflow-wrap: anywhere;
 }
 
 .explorer-output-tab:hover {
@@ -513,10 +539,10 @@ main > section[id] {
   visibility: hidden;
 }
 
-/* An entry file with every rule in it runs past forty lines; it scrolls
-   inside the slab instead of stretching the section. */
+/* An entry file with every rule in it runs long; it scrolls inside the slab
+   instead of stretching the section past the tree beside it. */
 .explorer-output-panel pre {
-  max-height: 22rem;
+  max-height: 13rem;
   overflow: auto;
 }
 

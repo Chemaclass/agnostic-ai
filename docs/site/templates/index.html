@@ -129,6 +129,7 @@
           {% for entry in landing.explorer.entries %}{% set source_path = landing.explorer.root ~ entry.file %}
           <div class="source-tree-panel" role="tabpanel" id="source-panel-{{ entry.id }}" aria-labelledby="source-tab-{{ entry.id }}" tabindex="0" data-source-panel{% if loop.index0 != explorer_selected %} hidden{% endif %}>
             <p class="source-tree-summary">{{ entry.summary | markdown(inline=true) | safe }}</p>
+            <div class="explorer-flow">
             <div class="spec-card">
               <div class="file-name"><span class="file-dot" aria-hidden="true"></span>{{ source_path }}</div>
               <pre><code>{% for file in explorer_files.files %}{% if file.path == source_path %}{{ file.body | trim }}{% endif %}{% endfor %}</code></pre>
@@ -137,16 +138,18 @@
             {% set_global output_selected = 0 %}{% for output in entry.outputs %}{% if output.selected %}{% set_global output_selected = loop.index0 %}{% endif %}{% endfor %}
             <div class="explorer-outputs" data-output-switch>
               <div class="explorer-output-tabs" role="tablist" aria-label="Files sync writes from {{ entry.file }}" data-output-tablist inert>
-                {% for output in entry.outputs %}<button type="button" class="explorer-output-tab" role="tab" id="output-tab-{{ entry.id }}-{{ loop.index }}" aria-controls="output-panel-{{ entry.id }}-{{ loop.index }}" aria-selected="{% if loop.index0 == output_selected %}true{% else %}false{% endif %}" tabindex="{% if loop.index0 == output_selected %}0{% else %}-1{% endif %}" data-output-tab><span>{{ output.tool }}</span><code>{{ output.path }}</code></button>{% endfor %}
+                {% for output in entry.outputs %}<button type="button" class="explorer-output-tab" role="tab" id="output-tab-{{ entry.id }}-{{ loop.index }}" aria-controls="output-panel-{{ entry.id }}-{{ loop.index }}" aria-selected="{% if loop.index0 == output_selected %}true{% else %}false{% endif %}" tabindex="{% if loop.index0 == output_selected %}0{% else %}-1{% endif %}" data-output-tab>{{ output.tool }}</button>{% endfor %}
               </div>
               <div class="explorer-output-panels">
                 {% for output in entry.outputs %}
                 <div class="explorer-output-panel" role="tabpanel" id="output-panel-{{ entry.id }}-{{ loop.index }}" aria-labelledby="output-tab-{{ entry.id }}-{{ loop.index }}" tabindex="0" data-output-panel{% if loop.index0 != output_selected %} hidden{% endif %}>
+                  <div class="file-name"><span class="file-dot" aria-hidden="true"></span>{{ output.path }}</div>
                   {% if output.note %}<p class="output-note">{{ output.note | markdown(inline=true) | safe }}</p>{% endif %}
                   <pre><code>{% for file in explorer_files.files %}{% if file.path == output.path %}{{ file.body | trim }}{% endif %}{% endfor %}</code></pre>
                 </div>
                 {% endfor %}
               </div>
+            </div>
             </div>
             {% if entry.reach %}<p class="explorer-reach">{{ entry.reach | markdown(inline=true) | safe }}</p>{% endif %}
             <a class="source-tree-docs" href="{{ get_url(path=entry.href) }}{% if entry.anchor %}#{{ entry.anchor }}{% endif %}">Docs: {{ entry.docs_label }}</a>

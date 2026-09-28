@@ -1,9 +1,4 @@
 permissions:
-  allow:
-    - Bash(pnpm test:*)
-    - Bash(pnpm lint:*)
-  ask:
-    - Bash(git push:*)
-  deny:
-    - Bash(rm -rf:*)
-    - Read(.env)
+  allow: [Bash(pnpm test:*)]
+  ask: [Bash(git push:*)]
+  deny: [Read(.env)]
