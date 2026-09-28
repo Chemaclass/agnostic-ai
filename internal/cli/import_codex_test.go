@@ -1601,3 +1601,43 @@ func names(entries []os.DirEntry) []string {
 	}
 	return out
 }
+
+// A nested AGENTS.md without ## sections becomes one rule named after its
+// scope: the last directory when no other scope ends the same way, the
+// whole scope path otherwise. The checkout's folder name plays no part.
+func TestImportFromCodex_NamesAScopedRuleAfterItsScope(t *testing.T) {
+	for _, shred := range []bool{true, false} {
+		dir := filepath.Join(t.TempDir(), "clean")
+		writeFile(t, filepath.Join(dir, "services/api/AGENTS.md"), "# API\n\nUse integer minor units.\n")
+		writeFile(t, filepath.Join(dir, "services/web/AGENTS.md"), "# Web\n\nUse semantic tokens.\n")
+		writeFile(t, filepath.Join(dir, "packages/ui/web/AGENTS.md"), "# UI web\n\nShare the tokens.\n")
+
+		if err := importFromCodexWithOpts(dir, rootSources(), importCodexOpts{Shred: &shred}); err != nil {
+			t.Fatal(err)
+		}
+		want := map[string]string{
+			"api.md":             "scope: services/api",
+			"services-web.md":    "scope: services/web",
+			"packages-ui-web.md": "scope: packages/ui/web",
+		}
+		got := names(mustReadDir(t, filepath.Join(dir, "rules")))
+		if len(got) != len(want) {
+			t.Errorf("shred=%v: rules = %v, want %d named after their scope", shred, got, len(want))
+		}
+		for name, scope := range want {
+			data, err := os.ReadFile(filepath.Join(dir, "rules", name))
+			if err != nil || !strings.Contains(string(data), scope) || !strings.Contains(string(data), "name: "+strings.TrimSuffix(name, ".md")) {
+				t.Errorf("shred=%v: %s (%v):\n%s", shred, name, err, data)
+			}
+		}
+	}
+}
+
+func mustReadDir(t *testing.T, dir string) []os.DirEntry {
+	t.Helper()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return entries
+}
