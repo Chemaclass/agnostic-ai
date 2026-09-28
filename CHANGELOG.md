@@ -6,6 +6,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+## v0.73.0 - 2026-09-28
+
 ### General
 
 - With no `.sync-state`, `sync`, `sync --check`, and `doctor` name each leftover output and how to remove it (#1334, #1354, #1362).
@@ -16,15 +18,15 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### By tool
 
-#### Codex
-
-- Review specs reach the root and scoped `AGENTS.md` as a `## Code Review Rules` section, and `import codex` reads it back (#1341).
-- `import codex` names nested section rules after their scope, such as `api-tests.md`, not `tests-2.md` (#1337).
-
 #### Claude Code
 
 - Environment `dev-commands` write `.claude/launch.json` preview servers, and `import claude` reads them back; `lint` checks each entry (#1340).
 - A fresh `import claude` syncs and lints cleanly, keeps Codex-ready hooks unpinned, and names `.claude/` files to delete (#1327, #1328, #1329, #1336).
+
+#### Codex
+
+- Review specs reach the root and scoped `AGENTS.md` as a `## Code Review Rules` section, and `import codex` reads it back (#1341).
+- `import codex` names nested section rules after their scope, such as `api-tests.md`, not `tests-2.md` (#1337).
 
 #### Copilot
 
@@ -34,10 +36,6 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - Environment specs take `setup` and `setup-windows` for new worktrees, written to `.cursor/worktrees.json`; `import cursor` reads it back (#1339).
 
-#### Factory
-
-- The Factory page notes that the three command lists are deprecated in favor of `permissionRules`, and that `x-factory.permissionRules` reaches it (#1376).
-
 #### Gemini CLI
 
 - `import gemini` names nested section rules after their scope, such as `api-tests.md`, not `tests-2.md` (#1337).
@@ -45,6 +43,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### Site
 
 - A compare page shows two or three targets side by side: each spec kind's state, file format, and the paths a real sync writes, in a shareable URL (#1355).
+- The Factory page notes that its three command lists are deprecated in favor of `permissionRules`, which `x-factory.permissionRules` reaches (#1376).
 
 ## v0.72.0 - 2026-09-28
 
