@@ -44,6 +44,7 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 	}
 	sort.Strings(events)
 
+	pin := newClaudeHookPin(root)
 	count := 0
 	for _, event := range events {
 		for _, g := range s.Hooks[event] {
@@ -54,7 +55,7 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 			var args []string
 			for _, h := range g.Hooks {
 				if h.Type != "" && h.Type != "command" {
-					n, err := importClaudeNonCommandHook(dstDir, event, g.Matcher, h)
+					n, err := importClaudeNonCommandHook(root, dstDir, event, g.Matcher, h, pin)
 					if err != nil {
 						return count, err
 					}
@@ -92,7 +93,6 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 				"name":    name,
 				"event":   event,
 				"matcher": g.Matcher,
-				"target":  "claude",
 			}
 			if len(cmds) == 1 {
 				doc["command"] = cmds[0]
@@ -123,11 +123,12 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 			if ifRule != "" {
 				doc["if"] = ifRule
 			}
+			path := filepath.Join(dstDir, name+".yaml")
+			pin.apply(doc, root, path)
 			raw, err := yaml.Marshal(doc)
 			if err != nil {
 				return count, fmt.Errorf("marshal hook %s: %w", name, err)
 			}
-			path := filepath.Join(dstDir, name+".yaml")
 			if err := importWriteFile(path, raw, 0o644); err != nil {
 				return count, fmt.Errorf("write %s: %w", path, err)
 			}
@@ -139,7 +140,7 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 
 // Non-command handlers need separate specs because each has a distinct
 // payload. Command groups retain their existing command-list format.
-func importClaudeNonCommandHook(dstDir, event, matcher string, h claudehooks.CommandEntry) (int, error) {
+func importClaudeNonCommandHook(root, dstDir, event, matcher string, h claudehooks.CommandEntry, pin claudeHookPin) (int, error) {
 	switch h.Type {
 	case "http":
 		if h.URL == "" {
@@ -165,12 +166,13 @@ func importClaudeNonCommandHook(dstDir, event, matcher string, h claudehooks.Com
 		return 0, fmt.Errorf("parse %s hook: %w", event, err)
 	}
 	name := hookSpecName(event, matcher, []string{string(payload)})
-	doc["name"], doc["event"], doc["matcher"], doc["target"] = name, event, matcher, "claude"
+	doc["name"], doc["event"], doc["matcher"] = name, event, matcher
+	path := filepath.Join(dstDir, name+".yaml")
+	pin.apply(doc, root, path)
 	raw, err := yaml.Marshal(doc)
 	if err != nil {
 		return 0, fmt.Errorf("marshal hook %s: %w", name, err)
 	}
-	path := filepath.Join(dstDir, name+".yaml")
 	if err := importWriteFile(path, raw, 0o644); err != nil {
 		return 0, fmt.Errorf("write %s: %w", path, err)
 	}

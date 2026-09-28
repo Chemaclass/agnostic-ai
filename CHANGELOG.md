@@ -8,11 +8,15 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Fixed
 
+- `import claude` leaves a hook unpinned when Codex runs it as written, and `sync` notes a Codex edit hook reading `tool_input.file_path` (#1328).
+- `import claude` writes permission lists to a settings spec, so `lint` flags a mid-command `*` in allow and deny rules, and Codex gets its coverage note (#1329).
 - A root skill that links to a package's nested skill folder imports once, at the root path, with a note naming the skipped path (#1338).
 - The managed `.gitignore` block marks `gitignore.allow` exceptions as committed instead of calling every generated path not committed (#1335).
+- `sync --keep-edits --quiet` still reports each kept file, on stderr, instead of printing nothing (#1333).
 
 ### Changed
 
+- `init` pins the schema URL to its release, omits default `sources:`, notes `on-unsupported: error`, and creates only seeded folders (#1331).
 - `import codex` and `import gemini` name section rules from a nested file after their scope, such as `api-tests.md`, instead of `tests-2.md` (#1337).
 
 ## v0.72.0 - 2026-09-28

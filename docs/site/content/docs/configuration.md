@@ -57,10 +57,10 @@ outputs:
 
 ## Editor validation
 
-`init` adds this comment so YAML Language Server editors validate against `docs/schemas/config.schema.json`:
+`init` adds this comment so YAML Language Server editors validate against `docs/schemas/config.schema.json` of the release that wrote the file. A development build points at `main`.
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/schemas/config.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Chemaclass/agnostic-ai/v0.72.0/docs/schemas/config.schema.json
 ```
 
 ## Top-level fields
