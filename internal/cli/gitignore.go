@@ -19,6 +19,11 @@ const (
 	gitignoreBlockEnd   = "# <<< agnostic-ai (managed) <<<"
 	gitignoreBlockNote  = "# Generated paths. Edit specs, not this block. Run `agnostic-ai sync` to refresh."
 	gitignoreBlockHint  = "# Not committed: a fresh clone or `git worktree` lacks these until `agnostic-ai sync` runs (e.g. a post-checkout hook)."
+	// gitignoreBlockAllowNote introduces the re-allow (`!`) lines gitignore.allow
+	// adds at the end of the block. Those paths are generated but committed, so
+	// gitignoreBlockHint's "Not committed" note is wrong for them; this comment
+	// scopes that note to the ignored paths listed above it (#1335).
+	gitignoreBlockAllowNote = "# Committed although generated (gitignore.allow):"
 )
 
 // fixedManagedEntries are the always-ignored agnostic-ai paths that are
@@ -493,7 +498,16 @@ func renderBlock(entries []string) string {
 	sb.WriteString("\n")
 	sb.WriteString(gitignoreBlockHint)
 	sb.WriteString("\n")
+	notedAllow := false
 	for _, e := range entries {
+		// Entries are ignores first, then `!`-prefixed re-allow lines
+		// (buildManagedBlock appends them last), so the first `!` line
+		// marks where the committed exceptions start.
+		if !notedAllow && strings.HasPrefix(e, "!") {
+			sb.WriteString(gitignoreBlockAllowNote)
+			sb.WriteString("\n")
+			notedAllow = true
+		}
 		sb.WriteString(e)
 		sb.WriteString("\n")
 	}

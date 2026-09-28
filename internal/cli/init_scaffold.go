@@ -10,39 +10,56 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
-// renderConfig builds agnostic-ai.yaml with source paths nested under
-// base and the given targets list. base="." writes paths at the
-// project root. Targets are emitted in the order provided.
-// gitignoreEnabled adds `gitignore: { enabled: true }` so `sync` writes
-// the managed block listing every adapter-emitted path.
-func renderConfig(base string, targets []string, gitignoreEnabled bool) string {
-	prefix := ""
-	if base != "" && base != "." {
-		prefix = filepath.ToSlash(base) + "/"
-	}
+// renderConfig builds agnostic-ai.yaml for the given targets list, in
+// the order provided. A base other than the default writes `sources:`
+// with paths nested under it; base="." writes paths at the project
+// root. gitignoreEnabled adds `gitignore: { enabled: true }` so `sync`
+// writes the managed block listing every adapter-emitted path. version
+// pins the schema comment to that release.
+func renderConfig(base string, targets []string, gitignoreEnabled bool, version string) string {
 	var sb strings.Builder
-	sb.WriteString("# yaml-language-server: $schema=https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/schemas/config.schema.json\n")
-	sb.WriteString("version: 1\n\n")
-	sb.WriteString("sources:\n")
-	fmt.Fprintf(&sb, "  agents: %sagents\n", prefix)
-	fmt.Fprintf(&sb, "  skills: %sskills\n", prefix)
-	fmt.Fprintf(&sb, "  rules: %srules\n", prefix)
-	fmt.Fprintf(&sb, "  hooks: %shooks\n", prefix)
-	fmt.Fprintf(&sb, "  mcps: %smcps\n", prefix)
-	fmt.Fprintf(&sb, "  commands: %scommands\n", prefix)
-	fmt.Fprintf(&sb, "  settings: %ssettings\n", prefix)
-	fmt.Fprintf(&sb, "  reviews: %sreviews\n", prefix)
-	fmt.Fprintf(&sb, "  environments: %senvironments\n", prefix)
-	fmt.Fprintf(&sb, "  ignore: %signore\n", prefix)
+	sb.WriteString("# yaml-language-server: $schema=" + schemaURL(version) + "\n")
+	sb.WriteString("version: 1\n")
+	if !isDefaultBase(base) {
+		prefix := ""
+		if base != "." {
+			prefix = filepath.ToSlash(base) + "/"
+		}
+		sb.WriteString("\nsources:\n")
+		for _, k := range scaffoldKinds {
+			fmt.Fprintf(&sb, "  %s: %s%s\n", k, prefix, k)
+		}
+	}
 	sb.WriteString("\ntargets:\n")
 	for _, t := range targets {
 		fmt.Fprintf(&sb, "  - %s\n", t)
 	}
-	sb.WriteString("\non-unsupported: warn\n")
+	sb.WriteString("\n" + onUnsupportedScaffold)
 	if gitignoreEnabled {
 		sb.WriteString("\ngitignore:\n  enabled: true\n")
 	}
 	return sb.String()
+}
+
+// schemaURL is the config schema of the release named by version, or
+// the one on main for a build that is not a release.
+func schemaURL(version string) string {
+	ref := "main"
+	if release, err := normalizeReleaseVersion(version); err == nil {
+		ref = "v" + release
+	}
+	return "https://raw.githubusercontent.com/Chemaclass/agnostic-ai/" + ref + "/docs/schemas/config.schema.json"
+}
+
+// onUnsupportedScaffold keeps warn, since most targets lack some kind
+// and error would fail the first sync of `init --all --demo`, and names
+// error so a new project learns the stricter setting.
+const onUnsupportedScaffold = "# Set to error to fail sync when a target cannot represent a spec.\non-unsupported: warn\n"
+
+// isDefaultBase reports whether base is the source directory config
+// assumes when agnostic-ai.yaml has no `sources:`.
+func isDefaultBase(base string) bool {
+	return base == "" || filepath.ToSlash(filepath.Clean(base)) == config.SourceBaseDir
 }
 
 // scaffoldOptions groups the knobs scaffold uses to materialize a fresh
@@ -73,10 +90,14 @@ type scaffoldOptions struct {
 	// rendered config so subsequent `sync` runs maintain the managed
 	// .gitignore block.
 	GitignoreEnabled bool
+	// Version is the running build's version, which pins the schema URL.
+	Version string
 }
 
-// scaffoldKinds is the source-folder set every scaffold creates. Order
-// does not matter on disk but is preserved for stable dry-run output.
+// scaffoldKinds is the source-folder set a scaffold with a custom base
+// declares and creates, in `sources:` order. The default base creates
+// only the folders demo or preset specs seed; `new` and `import` create
+// the rest on first use.
 var scaffoldKinds = []string{"agents", "skills", "rules", "hooks", "mcps", "commands", "settings", "reviews", "environments", "ignore"}
 
 // scaffold creates agnostic-ai.yaml at Root and the source-folder tree
@@ -114,7 +135,7 @@ func ensureNoExistingConfig(root, cfgPath string) error {
 // without touching disk.
 func scaffoldDryRun(opts scaffoldOptions, cfgPath string) error {
 	fmt.Printf("create: %s\n", cfgPath)
-	for _, k := range scaffoldKinds {
+	for _, k := range declaredSourceDirs(opts.Base) {
 		fmt.Printf("mkdir:  %s\n", filepath.Join(opts.Root, opts.Base, k))
 	}
 	baseDir := filepath.Join(opts.Root, opts.Base)
@@ -147,6 +168,17 @@ func scaffoldWrite(opts scaffoldOptions, cfgPath string) error {
 	return nil
 }
 
+// declaredSourceDirs names the source folders the scaffold creates up
+// front: the ones a custom base writes into `sources:`, since validate
+// warns about a declared folder that is missing. The default base
+// declares none.
+func declaredSourceDirs(base string) []string {
+	if isDefaultBase(base) {
+		return nil
+	}
+	return scaffoldKinds
+}
+
 // scaffoldSilently writes the scaffold without the guidance, for the
 // project copy `init --from --dry-run` imports into.
 func scaffoldSilently(opts scaffoldOptions) error {
@@ -160,12 +192,12 @@ func scaffoldSilently(opts scaffoldOptions) error {
 // .gitignore block, and any demo or preset specs.
 func writeScaffold(opts scaffoldOptions, cfgPath string) error {
 	baseDir := filepath.Join(opts.Root, opts.Base)
-	for _, k := range scaffoldKinds {
+	for _, k := range declaredSourceDirs(opts.Base) {
 		if err := os.MkdirAll(filepath.Join(baseDir, k), 0o755); err != nil {
 			return err
 		}
 	}
-	cfgBody := renderConfig(opts.Base, opts.Targets, opts.GitignoreEnabled)
+	cfgBody := renderConfig(opts.Base, opts.Targets, opts.GitignoreEnabled, opts.Version)
 	if err := os.WriteFile(cfgPath, []byte(cfgBody), 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", cfgPath, err)
 	}

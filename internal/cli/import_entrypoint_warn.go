@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
@@ -23,10 +24,10 @@ import (
 //
 // Generated siblings (carrying the agnostic-ai header) are skipped: sync
 // rewrites them with the same body, so nothing is lost.
-func warnUncapturedEntryPoints(root, mirroredSrc, capturedBody string) {
+func warnUncapturedEntryPoints(root, capturedBody string, mirroredSrcs ...string) {
 	want := strings.TrimSpace(capturedBody)
 	for _, rel := range adapters.ConventionalEntryPointPaths() {
-		if rel == mirroredSrc {
+		if slices.Contains(mirroredSrcs, rel) {
 			continue
 		}
 		data, err := os.ReadFile(filepath.Join(root, rel))
@@ -37,7 +38,10 @@ func warnUncapturedEntryPoints(root, mirroredSrc, capturedBody string) {
 			continue
 		}
 		body := strings.TrimSpace(adapters.StripGeneratedAppendices(string(data)))
-		if body == "" || body == want {
+		if body == "" || body == want || rel == claudeMainFile && adapters.IsAgentsCompanion(body) {
+			continue
+		}
+		if strings.Contains(want, "::target") && matchesRenderedView(root, rel, capturedBody, body) {
 			continue
 		}
 		summaryf("  ! %s has unique content not captured by this import — sync will overwrite it with the shared body. Merge it into %s first to keep it.\n",

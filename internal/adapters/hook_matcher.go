@@ -18,3 +18,26 @@ func HookMatcherCovers(target, native, spec string) bool {
 	}
 	return native == spec
 }
+
+// HookAccepter is implemented by a target that can tell whether it runs
+// a hook spec as written.
+type HookAccepter interface {
+	// AcceptsHook returns why the target would not run the hook whose
+	// spec fields are meta as written, or "" when it would.
+	AcceptsHook(meta map[string]any) string
+}
+
+// AcceptsHook returns why target would not run the hook as written, or
+// "" when it would. A target that cannot tell never vouches for one.
+func AcceptsHook(target string, meta map[string]any) string {
+	if accepter, ok := registry[target].(HookAccepter); ok {
+		return accepter.AcceptsHook(meta)
+	}
+	return "agnostic-ai cannot tell whether " + target + " runs it"
+}
+
+// JudgesHooks reports whether target can tell whether it runs a hook.
+func JudgesHooks(target string) bool {
+	_, ok := registry[target].(HookAccepter)
+	return ok
+}

@@ -40,6 +40,24 @@ func TestReplaceManagedBlock_HeaderCarriesRegenHint(t *testing.T) {
 	}
 }
 
+// A re-allow (`!`) line commits a generated file, so the block's blanket
+// "Not committed" note is wrong for it. A comment ahead of the `!` lines
+// scopes that note to the ignores above it (#1335).
+func TestReplaceManagedBlock_NotesAllowLinesAsCommitted(t *testing.T) {
+	got := replaceManagedBlock("", []string{"CLAUDE.md", "!fixtures/CLAUDE.md"})
+	want := "CLAUDE.md\n" + gitignoreBlockAllowNote + "\n!fixtures/CLAUDE.md\n"
+	if !strings.Contains(got, want) {
+		t.Errorf("allow note not placed right before the first `!` line:\n%s", got)
+	}
+}
+
+func TestReplaceManagedBlock_OmitsAllowNoteWithoutAllowLines(t *testing.T) {
+	got := replaceManagedBlock("", []string{"CLAUDE.md", "AGENTS.md"})
+	if strings.Contains(got, gitignoreBlockAllowNote) {
+		t.Errorf("allow note must not appear without any `!` line:\n%s", got)
+	}
+}
+
 func TestReplaceManagedBlock_ReplacesExistingBlock(t *testing.T) {
 	first := replaceManagedBlock("", []string{"CLAUDE.md"})
 	second := replaceManagedBlock(first, []string{"AGENTS.md", "GEMINI.md"})
