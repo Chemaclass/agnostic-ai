@@ -1,0 +1,9 @@
+permissions:
+  allow:
+    - Bash(pnpm test:*)
+    - Bash(pnpm lint:*)
+  ask:
+    - Bash(git push:*)
+  deny:
+    - Bash(rm -rf:*)
+    - Read(.env)
