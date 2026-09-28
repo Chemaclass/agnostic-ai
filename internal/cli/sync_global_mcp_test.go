@@ -264,7 +264,7 @@ func TestApplyGlobalChanges_StopsWhenFileChangedSincePlan(t *testing.T) {
 	path := filepath.Join(dir, ".claude.json")
 	mustWriteGlobalTest(t, path, "{\"a\": 2}\n")
 	w := globalWrite{path: path, data: []byte("{\"a\": 1, \"b\": 1}\n"), mode: 0o600, planned: &diskSnapshot{data: []byte("{\"a\": 1}\n")}}
-	if _, err := applyGlobalChanges([]globalWrite{w}, nil, false); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
+	if _, err := applyGlobalChanges([]globalWrite{w}, nil, false, nil); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
 		t.Fatalf("err = %v", err)
 	}
 	if got := readGlobalTest(t, path); got != "{\"a\": 2}\n" {
@@ -281,7 +281,7 @@ func TestApplyGlobalChanges_BackupKeepsSourceMode(t *testing.T) {
 		t.Fatal(err)
 	}
 	w := globalWrite{path: path, data: []byte("{\"a\": 1}\n"), mode: 0o600}
-	if _, err := applyGlobalChanges([]globalWrite{w}, nil, true); err != nil {
+	if _, err := applyGlobalChanges([]globalWrite{w}, nil, true, nil); err != nil {
 		t.Fatal(err)
 	}
 	info, err := os.Stat(path + ".bak")
