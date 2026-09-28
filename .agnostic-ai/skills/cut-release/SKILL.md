@@ -31,7 +31,9 @@ The user asks to release, tag, ship, or cut a new version.
    release commit across all three OSes. The plugin version-bump job is
    PR-only; if the plugin changed since the last release, confirm that its
    PR check passed.
-3. Decide next version per semver:
+3. Decide next version per semver, reading the commit types since the last
+   tag (`git log --oneline <last-tag>..HEAD`), since the changelog groups by
+   scope rather than by kind:
    - patch: bug fixes only
    - minor: additive features
    - major: breaking changes

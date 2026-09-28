@@ -14,7 +14,7 @@ When invoked:
 2. Run `git log --oneline <last-tag>..HEAD` to list commits since the last release.
 3. For every user-visible commit (`feat:`, `fix:`, `docs:` that change behavior), add a single-line bullet under the correct section of `## [Unreleased]`, in this order:
    - `### General` for shared CLI behavior, configuration, and capabilities that work the same across tools: new commands and flags, `sync`, `lint`, `doctor`, `init`, and `import` behavior that is not specific to one tool.
-   - `### By tool` for changes that affect one or two tools, under a `#### <Tool>` heading per tool (`#### Claude Code`, `#### Codex`, `#### Cursor`). Order the tools by how much changed for them. A new adapter goes here under its own name.
+   - `### By tool` for changes that affect one or two tools, under a `#### <Tool>` heading per tool (`#### Claude Code`, `#### Codex`, `#### Cursor`). Order the tools by line count, most first; break a tie by blast radius. A new adapter goes here under its own name.
    - `### Site` for anything whose only effect is on agnostic-ai.org or the documentation.
 
    Put each change in one section by its user-facing scope. A change that behaves the same for three or more tools is general. A change for two tools gets one line under each tool's heading, with the same `(#N)`.

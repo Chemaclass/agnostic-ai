@@ -16,14 +16,14 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### By tool
 
-#### Claude Code
-
-- A fresh `import claude` syncs cleanly: permissions reach lint, Codex-ready hooks stay unpinned, `@AGENTS.md` companions work (#1328, #1329, #1336).
-
 #### Codex
 
 - Review specs reach the root and scoped `AGENTS.md` as a `## Code Review Rules` section, and `import codex` reads it back (#1341).
 - `import codex` names nested section rules after their scope, such as `api-tests.md`, not `tests-2.md` (#1337).
+
+#### Claude Code
+
+- A fresh `import claude` syncs cleanly: permissions reach lint, Codex-ready hooks stay unpinned, `@AGENTS.md` companions work (#1328, #1329, #1336).
 
 #### Gemini CLI
 

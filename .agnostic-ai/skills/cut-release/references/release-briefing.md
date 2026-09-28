@@ -17,11 +17,12 @@ so the words after the colon have to work harder.
   abstractions joined by "and".
 - Keep the website out of the title. The site section states that it changes
   nothing in the tool, so a headline spent on it is a headline wasted.
-- Name only a substantial, user-visible improvement from `### General`. When a
-  release mixes both, the general improvement leads the title and tool fixes
-  stay in the body.
-- When `### General` holds nothing substantial and the release is tool
-  compatibility work, title it `agnostic-ai vX.Y.Z: Agent compatibility fixes`.
+- Name only a substantial, user-visible improvement: a general one, a new
+  adapter, or a major feature for one tool. Compatibility fixes never make the
+  title. When a release has both a general improvement and tool fixes, the
+  general improvement leads the title and the fixes stay in the body.
+- When nothing substantial shipped and the release is tool compatibility
+  work, title it `agnostic-ai vX.Y.Z: Agent compatibility fixes`.
   The dek names the tools, most affected first.
 - When the release is other maintenance, title it as maintenance and lead with
   the change that will surprise someone. A four-fix release titled as four fixes
