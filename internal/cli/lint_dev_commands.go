@@ -44,6 +44,16 @@ func lintDevCommands(envs []spec.Entry) []lintFinding {
 				out = append(out, devCommandFinding(e, fmt.Sprintf("dev command %q appears twice; names must be unique", name)))
 			}
 			seen[name] = true
+			for _, k := range slices.Sorted(maps.Keys(m)) {
+				want, known := devCommandFieldTypes[k]
+				if !known {
+					out = append(out, devCommandFinding(e, fmt.Sprintf("dev command %d sets `%s`, which no target reads", i+1, k)))
+					continue
+				}
+				if !want(m[k]) {
+					out = append(out, devCommandFinding(e, fmt.Sprintf("dev command %d sets `%s` to a value of the wrong type", i+1, k)))
+				}
+			}
 			if len(adapters.CommandArgv(m["command"])) == 0 {
 				out = append(out, devCommandFinding(e, fmt.Sprintf("dev command %d has no `command:`", i+1)))
 			}
@@ -83,4 +93,16 @@ func isPortValue(v any) bool {
 
 func devCommandFinding(e spec.Entry, msg string) lintFinding {
 	return lintFinding{Code: "LINT016", Severity: lintError, Path: e.Path, Message: msg}
+}
+
+// devCommandFieldTypes checks the value of each dev-command key. command,
+// port, and env have their own findings, so any value passes here.
+var devCommandFieldTypes = map[string]func(any) bool{
+	"name":      func(v any) bool { _, ok := v.(string); return ok },
+	"cwd":       func(v any) bool { _, ok := v.(string); return ok },
+	"url":       func(v any) bool { _, ok := v.(string); return ok },
+	"auto-port": func(v any) bool { _, ok := v.(bool); return ok },
+	"command":   func(any) bool { return true },
+	"port":      func(any) bool { return true },
+	"env":       func(any) bool { return true },
 }

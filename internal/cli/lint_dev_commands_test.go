@@ -27,6 +27,7 @@ func TestLintDevCommands(t *testing.T) {
 				map[string]any{"name": "Web", "command": "npm start", "port": "web", "env": map[string]any{"PORT": 3000, "LIST": []any{"a"}}},
 				map[string]any{"name": "Flat", "command": "npm start", "env": "NODE_ENV=dev"},
 				map[string]any{"name": "Nested", "command": []any{"npm", []any{"run"}}},
+				map[string]any{"name": "Typos", "command": "npm start", "cwd": []any{"a"}, "autoport": true, "auto-port": "yes"},
 			}},
 		}},
 	}
@@ -48,6 +49,9 @@ func TestLintDevCommands(t *testing.T) {
 		"environments/fields.yaml: dev command 2 sets `env.LIST` to a list or mapping; use a string",
 		"environments/fields.yaml: dev command 3 sets `env` to something other than a mapping of names to values",
 		"environments/fields.yaml: dev command 4 has no `command:`",
+		"environments/fields.yaml: dev command 5 sets `auto-port` to a value of the wrong type",
+		"environments/fields.yaml: dev command 5 sets `autoport`, which no target reads",
+		"environments/fields.yaml: dev command 5 sets `cwd` to a value of the wrong type",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("findings:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
