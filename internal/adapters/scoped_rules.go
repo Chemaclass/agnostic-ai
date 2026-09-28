@@ -2,7 +2,9 @@ package adapters
 
 import (
 	"fmt"
+	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -14,6 +16,12 @@ import (
 // EntryPointRules is the root-context projection of the shared scope contract.
 func EntryPointRules(b spec.Bundle, target string) spec.Bundle {
 	return emit.EntryPointRules(b, target)
+}
+
+// ScopedDocuments lists the files target writes inside a scope directory,
+// relative to it.
+func ScopedDocuments(cfg *config.Config, target string) []string {
+	return emit.ScopedDocuments(cfg, target)
 }
 
 // ValidateScopedRules preflights scope output against all configured readers.
@@ -54,13 +62,24 @@ func ValidateScopedRules(cfg *config.Config, b spec.Bundle, requested []string) 
 	reviews := ReviewSections(b, cfg, requested...)
 	shared := map[string]emit.CapturedFile{}
 	resolved := make(map[string]spec.Bundle, len(targets))
+	prepared := make(map[string]spec.Bundle, len(targets))
+	planned := make(map[string][]emit.CapturedFile, len(targets))
 	for _, target := range targets {
 		resolved[target] = expandBundleVars(b.For(target), cfg, target)
-		prepared, files, err := emit.PrepareScopedDocuments(resolved[target], cfg, target, reviews)
+		p, files, err := emit.PrepareScopedDocuments(resolved[target], cfg, target, reviews)
 		if err != nil {
 			return err
 		}
-		for _, f := range files {
+		prepared[target], planned[target] = p, files
+	}
+	replaced := map[string]bool{}
+	if set["claude"] {
+		for _, p := range companionPaths(cfg, prepared["claude"].Rules) {
+			replaced[p] = true
+		}
+	}
+	for _, target := range targets {
+		for _, f := range planned[target] {
 			// sync never writes a user-owned path, so neither content
 			// conflicts nor the reader checks on shared files apply to it.
 			if cfg.IsUnmanaged(f.Path) {
@@ -70,12 +89,12 @@ func ValidateScopedRules(cfg *config.Config, b spec.Bundle, requested []string) 
 				return fmt.Errorf("%s: incompatible target-specific scoped instructions; use identical content or separate worktrees", f.Path)
 			}
 			shared[f.Path] = f
-			if err := emit.CheckScopedDestination(f.Path, f.Content); err != nil {
+			if err := emit.CheckScopedDestination(f.Path, f.Content, replaced); err != nil {
 				return err
 			}
 		}
 		var scoped []spec.Entry
-		for _, r := range prepared.Rules {
+		for _, r := range prepared[target].Rules {
 			if r.EffectiveScope() != "" {
 				scoped = append(scoped, r)
 			}
@@ -107,7 +126,7 @@ func ValidateScopedRules(cfg *config.Config, b spec.Bundle, requested []string) 
 			}
 			ext := filepath.Ext(f.Path)
 			if ext == ".md" || ext == ".mdc" {
-				if err := emit.CheckScopedDestination(f.Path, f.Content); err != nil {
+				if err := emit.CheckScopedDestination(f.Path, f.Content, replaced); err != nil {
 					return err
 				}
 			}
@@ -147,4 +166,26 @@ func RootReviewSection(cfg *config.Config, b spec.Bundle, target string) string 
 		return ""
 	}
 	return ReviewSections(b, cfg, target)[""]
+}
+
+// AgentsCompanionPaths returns the nested CLAUDE.md companions sync
+// removes when targets includes claude (see emit.AgentsCompanionDirs).
+func AgentsCompanionPaths(cfg *config.Config, b spec.Bundle, targets []string) ([]string, error) {
+	if !slices.Contains(targets, "claude") {
+		return nil, nil
+	}
+	prepared, _, err := emit.PrepareScopedRules(expandBundleVars(b.For("claude"), cfg, "claude"), cfg, "claude")
+	if err != nil {
+		return nil, err
+	}
+	return companionPaths(cfg, prepared.Rules), nil
+}
+
+func companionPaths(cfg *config.Config, rules []spec.Entry) []string {
+	dirs := emit.AgentsCompanionDirs(cfg, rules)
+	paths := make([]string, 0, len(dirs))
+	for _, dir := range dirs {
+		paths = append(paths, path.Join(dir, emit.AgentsCompanionFile))
+	}
+	return paths
 }

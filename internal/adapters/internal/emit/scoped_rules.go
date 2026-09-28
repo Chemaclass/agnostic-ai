@@ -23,6 +23,23 @@ func scopeDocument(target string) string {
 	}
 }
 
+// ScopedDocuments lists the files target writes inside a scope directory,
+// relative to it: a directory-context instruction file, and for Cursor the
+// Bugbot review file. Every other scoped output lives in a tool directory.
+func ScopedDocuments(cfg *config.Config, target string) []string {
+	var docs []string
+	if doc := scopeDocument(target); doc != "" {
+		docs = append(docs, doc)
+	}
+	if target == "goose" && filepath.Base(OutputRulesFile(cfg, target, "")) == ".goosehints" {
+		docs = append(docs, ".goosehints")
+	}
+	if target == "cursor" {
+		docs = append(docs, ".cursor/"+OutputReviewFile(cfg, target, "BUGBOT.md"))
+	}
+	return docs
+}
+
 func hasScopeFilters(target string) bool {
 	switch target {
 	case "claude", "cursor", "copilot", "cline", "windsurf", "continue", "kiro", "trae", "qoder", "openhands", "antigravity":

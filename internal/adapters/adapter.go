@@ -371,6 +371,19 @@ func StripLocalInstructions(body string) string {
 	return emit.StripLocalInstructions(body)
 }
 
+// SplitAgentsCompanion reports whether a CLAUDE.md imports the AGENTS.md
+// beside it and returns the rest of its text (re-exported from the emit
+// layer).
+func SplitAgentsCompanion(text string) (string, bool) {
+	return emit.SplitAgentsCompanion(text)
+}
+
+// IsAgentsCompanion reports whether a CLAUDE.md holds only an import of
+// the AGENTS.md beside it (re-exported from the emit layer).
+func IsAgentsCompanion(text string) bool {
+	return emit.IsAgentsCompanion(text)
+}
+
 // InlinesRulesIntoEntryPoint reports whether target delivers rule bodies
 // by inlining them into its entry-point file (re-exported from the emit
 // layer).
