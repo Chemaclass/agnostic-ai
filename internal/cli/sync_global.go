@@ -67,6 +67,14 @@ type globalState struct {
 	// live in, so a moved configuration root sweeps the old file.
 	SettingsPaths map[string]string `json:"settingsPaths,omitempty"`
 	MCPPaths      map[string]string `json:"mcpPaths,omitempty"`
+	// Created lists the user files sync created, which it removes once
+	// nothing is left in them. They also sit in Files, but a moved
+	// configuration root is expected for them, so they are not proof of
+	// another HOME.
+	Created []string `json:"created,omitempty"`
+	// removalGuards is each created file this run removes, as the plan
+	// read it, so a write another program made since stops the removal.
+	removalGuards map[string]*diskSnapshot
 	// Hooks records the managed hook entries per target, keyed by
 	// target name then event, so a later sync can remove exactly what
 	// it added and leave user-authored entries alone.
@@ -375,7 +383,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if o.jsonOut {
 		applied = globalFileRecords(writes, existingPaths(removals), statePath, next, false)
 	}
-	linked, err := applyGlobalChanges(writes, removals, o.backup)
+	linked, err := applyGlobalChanges(writes, removals, o.backup, next.removalGuards)
 	if err != nil {
 		return err
 	}
@@ -658,7 +666,7 @@ func loadGlobalState(path string) (globalState, error) {
 // by absolute path, so syncing on would sweep that home's files.
 func foreignGlobalPath(old globalState, home string) string {
 	roots := globalRoots(home)
-	paths := slices.Clone(old.Files)
+	paths := slices.DeleteFunc(slices.Clone(old.Files), func(p string) bool { return slices.Contains(old.Created, p) })
 	for _, owned := range []map[string][]string{old.Agents, old.Skills} {
 		for _, target := range slices.Sorted(maps.Keys(owned)) {
 			paths = append(paths, owned[target]...)
@@ -673,7 +681,7 @@ func foreignGlobalPath(old globalState, home string) string {
 }
 
 func buildGlobalWrites(home, source string, targets []string, intro []byte, b spec.Bundle, old globalState, agentErr func(string, error) error, warn io.Writer) ([]globalWrite, globalState, error) {
-	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}, MCP: map[string]map[string]any{}, SettingsPaths: map[string]string{}, MCPPaths: map[string]string{}}
+	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}, MCP: map[string]map[string]any{}, SettingsPaths: map[string]string{}, MCPPaths: map[string]string{}, Created: slices.Clone(old.Created)}
 	for target, paths := range old.Agents {
 		if !slices.Contains(targets, target) {
 			next.Agents[target] = append([]string(nil), paths...)
@@ -927,6 +935,16 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			}
 			w.planned = snapshot
 		}
+		// A user file this run creates is recorded, so a later run can
+		// remove it once nothing is left in it.
+		if w.planned.absent {
+			if !slices.Contains(next.Files, path) {
+				next.Files = append(next.Files, path)
+			}
+			if !slices.Contains(next.Created, path) {
+				next.Created = append(next.Created, path)
+			}
+		}
 		w.addTarget(current)
 		w.changes = append(w.changes, m.changes...)
 		w.adopted = append(w.adopted, m.adopted...)
@@ -1004,6 +1022,24 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			}
 		}
 	}
+	// A user file sync created goes once nothing is left in it, rather
+	// than staying behind as an empty document.
+	for i := 0; i < len(writes); i++ {
+		w := writes[i]
+		if w.owned || !emptyUserDocument(w.data) || !slices.Contains(next.Created, w.path) {
+			continue
+		}
+		writes = slices.Delete(writes, i, i+1)
+		i--
+		next.Files = removePaths(next.Files, []string{w.path})
+		next.Created = removePaths(next.Created, []string{w.path})
+		if w.planned != nil && !w.planned.absent {
+			if next.removalGuards == nil {
+				next.removalGuards = map[string]*diskSnapshot{}
+			}
+			next.removalGuards[w.path] = w.planned
+		}
+	}
 	for _, paths := range next.Agents {
 		next.Files = append(next.Files, paths...)
 	}
@@ -1015,6 +1051,12 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 	// Always a list, so the state file keeps one spelling for no files.
 	if next.Files == nil {
 		next.Files = []string{}
+	}
+	next.Created = slices.DeleteFunc(next.Created, func(p string) bool { return !slices.Contains(next.Files, p) })
+	sort.Strings(next.Created)
+	next.Created = slices.Compact(next.Created)
+	if len(next.Created) == 0 {
+		next.Created = nil
 	}
 	next.Sums = map[string]string{}
 	for _, path := range next.Files {
@@ -1029,6 +1071,13 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		}
 	}
 	return writes, next, nil
+}
+
+// emptyUserDocument reports whether a user settings or MCP file holds
+// nothing: no text, or a JSON object with no members.
+func emptyUserDocument(data []byte) bool {
+	text := strings.Join(strings.Fields(string(data)), "")
+	return text == "" || text == "{}"
 }
 
 // globalSum fingerprints what sync owns in a file: the managed block
@@ -1911,7 +1960,7 @@ func removedGlobalFiles(old, next []string) []string {
 // applyGlobalChanges writes and removes files, rolling everything back
 // on the first failure. It returns a note for each symlink it wrote
 // through or removed.
-func applyGlobalChanges(writes []globalWrite, removals []string, backup bool) (linked []string, err error) {
+func applyGlobalChanges(writes []globalWrite, removals []string, backup bool, guards map[string]*diskSnapshot) (linked []string, err error) {
 	type prior struct {
 		path   string
 		data   []byte
@@ -2048,6 +2097,10 @@ func applyGlobalChanges(writes []globalWrite, removals []string, backup bool) (l
 		if err != nil {
 			rollback()
 			return nil, fmt.Errorf("read managed %s: %w", path, err)
+		}
+		if guard, ok := guards[path]; ok && !bytes.Equal(guard.data, data) {
+			rollback()
+			return nil, fmt.Errorf("%s changed while sync ran, likely written by the tool itself; nothing was written, so rerun the sync", path)
 		}
 		info, err := os.Stat(path)
 		if err != nil {
