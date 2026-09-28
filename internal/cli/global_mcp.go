@@ -236,6 +236,9 @@ func canonicalMCPServer(target string, v any) any {
 			}
 		}
 	}
+	if target == "openhands" {
+		return canonicalOpenHandsServer(out)
+	}
 	_, hasCommand := out["command"]
 	_, hasURL := out["url"]
 	switch kind, _ := out["type"].(string); {
@@ -258,4 +261,40 @@ func canonicalMCPServer(target string, v any) any {
 		}
 	}
 	return out
+}
+
+// canonicalOpenHandsServer spells an ~/.openhands/mcp.json entry the way
+// fastmcp reads it. OpenHands saves the whole file with every model field,
+// nulls included, plus `enabled`, whenever `openhands mcp add` or its
+// siblings run, so those defaults must not count as a different server.
+func canonicalOpenHandsServer(server map[string]any) map[string]any {
+	for key, value := range server {
+		if value == nil {
+			delete(server, key)
+		}
+	}
+	if server["enabled"] == true {
+		delete(server, "enabled")
+	}
+	transport, _ := server["transport"].(string)
+	url, hasURL := server["url"].(string)
+	switch {
+	case !hasURL && transport == "stdio":
+		delete(server, "transport")
+	case hasURL && transport == "streamable-http":
+		server["transport"] = "http"
+	case hasURL && transport == "":
+		server["transport"] = openHandsURLTransport(url)
+	}
+	return server
+}
+
+// openHandsURLTransport is the transport fastmcp infers for a remote
+// server that names none: SSE for a path ending in /sse, else HTTP.
+func openHandsURLTransport(url string) string {
+	path, _, _ := strings.Cut(url, "?")
+	if strings.HasSuffix(strings.TrimRight(path, "/"), "/sse") {
+		return "sse"
+	}
+	return "http"
 }

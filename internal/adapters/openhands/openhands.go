@@ -48,7 +48,10 @@
 //
 
 // MCP servers merge into `./config.toml` (override via
-// outputs.openhands.mcp-file) under a `[mcp]` table with three arrays:
+// outputs.openhands.mcp-file), a format current OpenHands releases no
+// longer read (legacy V0, #1252): each sync notes it, and sync --global
+// writes ~/.openhands/mcp.json through UserMCPServers instead. The file
+// holds a `[mcp]` table with three arrays:
 // `stdio_servers` (`[[mcp.stdio_servers]]` tables carrying `name`,
 // `command`, `args`, `env`), and `sse_servers` / `shttp_servers`
 // (`shttp_servers` is OpenHands' streamable-HTTP transport, the
@@ -219,5 +222,59 @@ func emitMCPConfig(sess *emit.Session, mcps []spec.Entry, path string, dryRun bo
 	if doc == "" {
 		return nil
 	}
+	// docs.openhands.dev/openhands/usage/settings/mcp-settings: "Current
+	// OpenHands releases don't read MCP servers from a config.toml [mcp]
+	// section ... That format belongs to legacy OpenHands (V0)" (#1252).
+	emit.NoteSurfaceGap(target, spec.KindMCP, len(stdio)+len(sse)+len(shttp), "config.toml [mcp]",
+		"current OpenHands releases ignore it and read it only on legacy V0; run `agnostic-ai sync --global` to install the servers in ~/.openhands/mcp.json")
 	return sess.WriteFile(path, doc, dryRun)
+}
+
+// UserMCPServers renders mcps as the `mcpServers` map of
+// ~/.openhands/mcp.json, the file `openhands mcp add` writes
+// (docs.openhands.dev/openhands/usage/cli/mcp-servers): a stdio server
+// is {command, args, env}, a remote one {url, transport, headers,
+// auth}, in the fastmcp configuration format the page names. The page
+// shows no disabled key, so a disabled server is left out.
+func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
+	mcps = emit.DropMCPDisabled(target, mcps, "a disabled server is left out of ~/.openhands/mcp.json, whose disabled key is undocumented")
+	out := map[string]any{}
+	for _, e := range mcps {
+		if e.Name == "" {
+			continue
+		}
+		transport, _ := e.Meta["type"].(string)
+		server := map[string]any{}
+		switch transport {
+		case "", "stdio":
+			command, _ := e.Meta["command"].(string)
+			if command == "" {
+				continue
+			}
+			server["command"] = command
+			if args := emit.StringSlice(e.Meta["args"]); len(args) > 0 {
+				server["args"] = args
+			}
+			// fastmcp's remote server has no env field.
+			if env := emit.StringMap(e.Meta["env"]); len(env) > 0 {
+				server["env"] = env
+			}
+		case "http", "sse":
+			url, _ := e.Meta["url"].(string)
+			if url == "" {
+				continue
+			}
+			server["url"], server["transport"] = url, transport
+			if auth, _ := e.Meta["auth"].(string); auth == "oauth" || (e.Meta["oauth"] != nil && e.Meta["oauth"] != false) {
+				server["auth"] = "oauth"
+			}
+			if headers := emit.StringMap(e.Meta["headers"]); len(headers) > 0 {
+				server["headers"] = headers
+			}
+		default:
+			continue
+		}
+		out[e.Name] = server
+	}
+	return out
 }

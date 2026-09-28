@@ -9,7 +9,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### Added
 
 - `import --global` turns the model, effort, and MCP servers your tools hold into home specs that the next `sync --global` adopts unchanged (#1243).
-- `sync --global` installs MCP servers from `mcps/` for Claude Code, Codex, Cursor, Copilot, Gemini, and Qoder (#1242, #1246).
+- `sync --global` installs MCP servers from `mcps/` for Claude Code, Codex, Cursor, Copilot, Gemini, OpenHands, and Qoder (#1242, #1246, #1252).
 - `sync --global` sets the default `model` and `effort` for five tools from `settings/`; `lint --global` flags a rejected effort (LINT014) (#1240, #1242).
 - An `x-<target>` block in a global settings spec sets that tool's own user keys, such as `x-codex.model_reasoning_summary` (#1242).
 - `sync --global` takes `--plan` and `--json`, and `explain --global` shows where any global spec lands, down to the key (#1240, #1242, #1244).
@@ -21,6 +21,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Fixed
 
+- OpenHands MCP output warns that current releases ignore `config.toml` `[mcp]`. Run `sync --global` to install servers in `~/.openhands/mcp.json` (#1252).
 - `sync --global --check` no longer fails right after a sync that removed a target's last file (#1248).
 - `lint` no longer warns that every settings spec is empty (LINT001) (#1240).
 

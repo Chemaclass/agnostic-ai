@@ -292,3 +292,113 @@ func TestApplyGlobalChanges_BackupKeepsSourceMode(t *testing.T) {
 		t.Errorf(".bak mode = %v, want 0600", info.Mode().Perm())
 	}
 }
+
+func TestSyncGlobal_OpenHandsMCPReachesUserFile(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mcps := filepath.Join(source, "mcps")
+	mustWriteGlobalTest(t, filepath.Join(mcps, "docs.yaml"), globalDocsMCP+"env:\n  DEBUG: \"true\"\n")
+	mustWriteGlobalTest(t, filepath.Join(mcps, "notion.yaml"), "name: notion\ntype: http\nurl: https://mcp.notion.com/mcp\nauth: oauth\n")
+	if _, w, err := runGlobalAgentTest("--only", "openhands"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, w)
+	}
+	path := filepath.Join(home, ".openhands", "mcp.json")
+	var doc map[string]map[string]map[string]any
+	if err := json.Unmarshal([]byte(readGlobalTest(t, path)), &doc); err != nil {
+		t.Fatal(err)
+	}
+	docs, notion := doc["mcpServers"]["docs"], doc["mcpServers"]["notion"]
+	if docs["command"] != "docs-mcp" || docs["env"] == nil || docs["type"] != nil {
+		t.Errorf("docs = %v", docs)
+	}
+	if notion["url"] != "https://mcp.notion.com/mcp" || notion["transport"] != "http" || notion["auth"] != "oauth" {
+		t.Errorf("notion = %v", notion)
+	}
+	before := readGlobalTest(t, path)
+	if err := os.RemoveAll(mcps); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(filepath.Join(source, "state")); err != nil {
+		t.Fatal(err)
+	}
+	if _, w, err := runImportGlobalTest("openhands"); err != nil {
+		t.Fatalf("import: %v\n%s", err, w)
+	}
+	if _, w, err := runGlobalAgentTest("--only", "openhands"); err != nil {
+		t.Fatalf("sync after import: %v\n%s", err, w)
+	}
+	if got := readGlobalTest(t, path); got != before {
+		t.Errorf("mcp.json changed after import:\n%s\nwant:\n%s", got, before)
+	}
+}
+
+// `openhands mcp add` rewrites the whole file with every fastmcp field,
+// nulls and `enabled` included; that must not read as a hand edit.
+func TestSyncGlobal_OpenHandsAdoptsItsOwnRewrite(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	spec := filepath.Join(source, "mcps", "docs.yaml")
+	mustWriteGlobalTest(t, spec, globalDocsMCP)
+	if _, w, err := runGlobalAgentTest("--only", "openhands"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, w)
+	}
+	path := filepath.Join(home, ".openhands", "mcp.json")
+	rewritten := `{
+  "mcpServers": {
+    "docs": {"args": ["--stdio"], "authentication": null, "command": "docs-mcp", "cwd": null, "description": null, "enabled": true, "env": {}, "icon": null, "keep_alive": null, "timeout": null, "transport": "stdio", "type": null},
+    "web": {"url": "https://x.test/sse", "enabled": true, "headers": {}}
+  }
+}
+`
+	mustWriteGlobalTest(t, path, rewritten)
+	if _, w, err := runGlobalAgentTest("--only", "openhands"); err != nil {
+		t.Fatalf("sync after the CLI rewrite: %v\n%s", err, w)
+	}
+	if err := os.Remove(spec); err != nil {
+		t.Fatal(err)
+	}
+	if _, w, err := runGlobalAgentTest("--only", "openhands"); err != nil {
+		t.Fatalf("sync after removal: %v\n%s", err, w)
+	}
+	if got := readGlobalTest(t, path); strings.Contains(got, "docs-mcp") || !strings.Contains(got, "x.test") {
+		t.Errorf("removal must take only the synced server:\n%s", got)
+	}
+}
+
+func TestSyncGlobal_OpenHandsRemoteKeepsHeadersAndFollowsPersistenceDir(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "api.yaml"), "name: api\ntype: http\nurl: https://api.test/mcp\nheaders:\n  Authorization: Bearer t\nenv:\n  K: v\n")
+	dir := filepath.Join(home, "oh")
+	t.Setenv("OPENHANDS_PERSISTENCE_DIR", dir)
+	if _, w, err := runGlobalAgentTest("--only", "openhands"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, w)
+	}
+	var doc map[string]map[string]map[string]any
+	if err := json.Unmarshal([]byte(readGlobalTest(t, filepath.Join(dir, "mcp.json"))), &doc); err != nil {
+		t.Fatal(err)
+	}
+	api := doc["mcpServers"]["api"]
+	if headers, _ := api["headers"].(map[string]any); headers["Authorization"] != "Bearer t" || api["env"] != nil {
+		t.Errorf("api = %v", api)
+	}
+}
+
+func TestImportGlobal_OpenHandsCLIShapesRoundTrip(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	path := filepath.Join(home, ".openhands", "mcp.json")
+	body := `{"mcpServers": {"s": {"url": "https://x.test/sse", "transport": "sse"}, "p": {"command": "py", "args": ["-m", "t"], "transport": "stdio"}, "u": {"url": "https://x.test/mcp"}, "h": {"url": "https://x.test/mcp", "transport": "http", "headers": {"A": "b"}}}}` + "\n"
+	mustWriteGlobalTest(t, path, body)
+	_, warnings, err := runImportGlobalTest("openhands")
+	if err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	for _, name := range []string{"s", "p", "u", "h"} {
+		if _, err := os.Stat(filepath.Join(source, "mcps", name+".yaml")); err != nil {
+			t.Errorf("%s not imported: %v\n%s", name, err, warnings)
+		}
+	}
+	if _, w, err := runGlobalAgentTest("--only", "openhands"); err != nil {
+		t.Fatalf("sync after import: %v\n%s", err, w)
+	}
+	if got := readGlobalTest(t, path); got != body {
+		t.Errorf("mcp.json changed after import:\n%s", got)
+	}
+}
