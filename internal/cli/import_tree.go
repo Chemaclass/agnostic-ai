@@ -9,9 +9,10 @@ import (
 )
 
 // importTree names the directories below a project root that import
-// walks leave out: the ones git ignores, and the ones holding their own
-// `.git` entry (a nested clone, submodule, or worktree). Neither holds
-// the project's own configuration, and a walk into an agent worktree
+// walks leave out: the ones git ignores, the ones holding their own
+// `.git` entry (a nested clone, submodule, or worktree), and every
+// `node_modules`, whose packages are other projects. None holds the
+// project's own configuration, and a walk into an agent worktree
 // imports every spec a second time. The root itself is never left out.
 type importTree struct {
 	root    string          // absolute
@@ -82,7 +83,13 @@ func (t importTree) skipsDir(rel string) bool {
 	if rel == "." || rel == "" {
 		return false
 	}
-	return t.ignores(rel) || t.isRepo(rel)
+	return isPackagesDir(path.Base(rel)) || t.ignores(rel) || t.isRepo(rel)
+}
+
+// isPackagesDir reports whether a directory named name holds installed
+// packages, which are other projects like nested repositories.
+func isPackagesDir(name string) bool {
+	return name == "node_modules"
 }
 
 // ignores reports whether git ignores rel or a directory above it. Git

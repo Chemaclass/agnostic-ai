@@ -15,8 +15,8 @@ const importTreeTestConfig = "version: 1\nsources:\n  rules: .agnostic-ai/rules\
 
 // importTreeProject builds a git repository holding the project's own
 // config plus copies that are not the project's: a gitignored clone, a
-// gitignored agent worktree without its .git, and a nested repository
-// that is not ignored.
+// gitignored agent worktree without its .git, a nested repository that
+// is not ignored, and packages in a node_modules git does not ignore.
 func importTreeProject(t *testing.T) string {
 	t.Helper()
 	dir, _ := gitRepo(t)
@@ -42,6 +42,13 @@ func importTreeProject(t *testing.T) string {
 	writeFile(t, filepath.Join(dir, "clone/GEMINI.md"), "# Clone\n\nNested repository.\n")
 	writeFile(t, filepath.Join(dir, "other-repo/GEMINI.md"), "# Other\n\nIgnored.\n")
 	writeFile(t, filepath.Join(dir, "other-repo/.devin/rules/other.md"), "Ignored rule.\n")
+
+	for _, pkg := range []string{"node_modules/pkg", "services/web/node_modules/@scope/pkg"} {
+		skill(pkg + "/.cursor/skills/packaged")
+		writeFile(t, filepath.Join(dir, pkg, "AGENTS.md"), "# Package\n\nPackage rules.\n")
+		writeFile(t, filepath.Join(dir, pkg, "GEMINI.md"), "# Package\n\nPackage rules.\n")
+		writeFile(t, filepath.Join(dir, pkg, ".devin/rules/packaged.md"), "Package rules.\n")
+	}
 	return dir
 }
 
@@ -67,14 +74,14 @@ func specFilesUnder(t *testing.T, dir string) []string {
 func assertNoForeignImport(t *testing.T, paths []string, contents map[string]string) {
 	t.Helper()
 	for _, p := range paths {
-		for _, leak := range []string{"leaked", "cloned", ".claude/worktrees", "other"} {
+		for _, leak := range []string{"leaked", "cloned", ".claude/worktrees", "other", "packaged", "node_modules"} {
 			if strings.Contains(p, leak) {
 				t.Errorf("imported %s from a directory that is not the project's", p)
 			}
 		}
 	}
 	for p, body := range contents {
-		for _, leak := range []string{"other-repo", "Rules for another repository", "Nested repository", "Leaked copy", "Ignored"} {
+		for _, leak := range []string{"other-repo", "Rules for another repository", "Nested repository", "Leaked copy", "Ignored", "Package rules"} {
 			if strings.Contains(body, leak) {
 				t.Errorf("%s holds %q from a directory that is not the project's", p, leak)
 			}

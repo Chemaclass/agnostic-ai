@@ -82,7 +82,7 @@ Set `outputs.windsurf.rules-dir: .windsurf/rules` to keep the old layout. Otherw
 
 ## Import
 
-`agnostic-ai import windsurf` reads rules from `outputs.windsurf.rules-dir` when set; otherwise from `.devin/rules/`, then legacy `.windsurf/rules/`. Each file is reclassified by [filename prefix](@/docs/cli-reference.md#filename-prefix-reclassification). It also scans the project for scoped copies (`<scope>/<rules-dir>/*.md`) to rebuild scoped rules, including scopes like `.github`, `vendor`, or `node_modules`.
+`agnostic-ai import windsurf` reads rules from `outputs.windsurf.rules-dir` when set; otherwise from `.devin/rules/`, then legacy `.windsurf/rules/`. Each file is reclassified by [filename prefix](@/docs/cli-reference.md#filename-prefix-reclassification). It also scans the project for scoped copies (`<scope>/<rules-dir>/*.md`) to rebuild scoped rules, including scopes like `.github` or `vendor`. It skips every `node_modules/`.
 
 `permissions` import from `.devin/config.json`. Devin's `Exec` has no exact-command form, so it imports as the prefix rule `Bash(<cmd>:*)`, not `Bash(<cmd>)`.
 

@@ -377,12 +377,11 @@ func TestImportWindsurf_KnownSourceWiredIn(t *testing.T) {
 }
 
 // TestImportFromWindsurf_ReadsHiddenAndVendorScopedRulesDirs pins #1123:
-// `CheckScopePath` accepts a scope like `.github`, `vendor`, or
-// `node_modules`, so emission can write a scoped rule under any of
-// them, and import must round-trip it instead of pruning the directory
-// by a hidden-dir prefix or a hardcoded name list before ever looking
-// inside it, the way an earlier draft of windsurfScopedRulesDirs did
-// (matching antigravityScopedRulesDirs's own earlier draft, #1114).
+// `CheckScopePath` accepts a scope like `.github` or `vendor`, so
+// emission can write a scoped rule under either, and import must
+// round-trip it instead of pruning the directory by a hidden-dir prefix
+// or a hardcoded name list before ever looking inside it. A
+// `node_modules` holds other projects' packages, so it stays out (#1307).
 func TestImportFromWindsurf_ReadsHiddenAndVendorScopedRulesDirs(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".github", ".devin", "rules", "release.md"), "# release\n\nrelease body\n")
@@ -396,11 +395,13 @@ func TestImportFromWindsurf_ReadsHiddenAndVendorScopedRulesDirs(t *testing.T) {
 	for _, p := range []string{
 		filepath.Join("rules", ".github", "release.md"),
 		filepath.Join("rules", "vendor", "pkg.md"),
-		filepath.Join("rules", "node_modules", "pkg2.md"),
 	} {
 		if _, err := os.Stat(filepath.Join(dir, p)); err != nil {
 			t.Errorf("missing imported spec %s: %v", p, err)
 		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, "rules", "node_modules")); !os.IsNotExist(err) {
+		t.Errorf("imported a rule from node_modules: %v", err)
 	}
 }
 
@@ -464,22 +465,20 @@ func skipUnlessCanDenyDirReads(t *testing.T) {
 	}
 }
 
-// TestImportFromWindsurf_SurvivesUnreadableDirUnderNodeModules pins the
-// #1124 review regression: windsurfScopedRulesDirs used to prune
-// node_modules outright, so it never read into it. #1123 stopped
-// pruning by name (CheckScopePath accepts node_modules as a scope
-// name too), so the shared scopedRulesDirs walker now descends into
-// it, and an unrelated unreadable directory inside it (permission
+// TestImportFromWindsurf_SurvivesUnreadableDirUnderVendor pins the
+// #1124 review regression: the shared scopedRulesDirs walker descends
+// into directories like `vendor` that CheckScopePath accepts as a scope
+// name, and an unrelated unreadable directory inside one (permission
 // bits, a broken cache directory, ...) used to abort the whole scoped
 // scan with the root rules already imported, leaving agents, skills,
 // and every scoped rule unimported. The walk must warn and skip past
 // it instead.
-func TestImportFromWindsurf_SurvivesUnreadableDirUnderNodeModules(t *testing.T) {
+func TestImportFromWindsurf_SurvivesUnreadableDirUnderVendor(t *testing.T) {
 	skipUnlessCanDenyDirReads(t)
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".devin", "rules", "root.md"), "# root\n\nroot body\n")
 	writeFile(t, filepath.Join(dir, "backend", ".devin", "rules", "auth.md"), "# auth\n\nauth body\n")
-	unreadable := filepath.Join(dir, "node_modules", "cache")
+	unreadable := filepath.Join(dir, "vendor", "cache")
 	if err := os.MkdirAll(unreadable, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -496,7 +495,7 @@ func TestImportFromWindsurf_SurvivesUnreadableDirUnderNodeModules(t *testing.T) 
 	if err := importFromWindsurf(dir, rootSources(), nil); err != nil {
 		t.Fatalf("import must survive an unreadable directory, got: %v", err)
 	}
-	if !strings.Contains(buf.String(), "node_modules") {
+	if !strings.Contains(buf.String(), "vendor") {
 		t.Errorf("expected a warning naming the unreadable path, got: %s", buf.String())
 	}
 	for _, p := range []string{

@@ -56,8 +56,8 @@ func scopedRulesDirs(root, rulesDir string, ownOutputSubtrees map[string]bool, s
 				return walkErr
 			}
 			// This walker now descends into directories an earlier
-			// draft pruned outright (node_modules, vendor, every
-			// hidden directory), since CheckScopePath accepts any of
+			// draft pruned outright (vendor, every hidden
+			// directory), since CheckScopePath accepts any of
 			// them as a scope name (#1123). That means a directory
 			// this scan has no reason to care about, and no
 			// permission over, can still turn up mid-walk: a

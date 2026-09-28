@@ -395,7 +395,7 @@ func (c previewCopier) copyDir(from, to string) error {
 			if rel == "." {
 				return nil
 			}
-			if (c.detached && d.Name() == "node_modules") || (!c.detached && c.leavesOut(filepath.ToSlash(rel))) {
+			if (c.detached && isPackagesDir(d.Name())) || (!c.detached && c.leavesOut(filepath.ToSlash(rel))) {
 				return filepath.SkipDir
 			}
 			return os.Mkdir(target, info.Mode().Perm()|0o700)
@@ -410,15 +410,14 @@ func (c previewCopier) copyDir(from, to string) error {
 }
 
 // leavesOut reports whether the copy skips the project directory rel:
-// what the import walks skip (see importTree), and node_modules, which
-// is large and holds packages, not the project's config. A kept path,
-// the directories on the way to it, and a tool folder at any depth stay
+// what the import walks skip (see importTree). A kept path, the
+// directories on the way to it, and a tool folder at any depth stay
 // even when git ignores them; inside one, only node_modules and nested
 // repositories are left out.
 func (c previewCopier) leavesOut(rel string) bool {
 	segs := strings.Split(rel, "/")
 	name := segs[len(segs)-1]
-	if name == "node_modules" {
+	if isPackagesDir(name) {
 		return true
 	}
 	if c.keep.toolDirs[name] {
