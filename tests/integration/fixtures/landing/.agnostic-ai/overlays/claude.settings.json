@@ -1,7 +1,3 @@
 {
-  "statusLine": {
-    "type": "command",
-    "command": "~/.claude/statusline.sh"
-  },
-  "cleanupPeriodDays": 30
+  "statusLine": { "type": "command", "command": "~/.claude/statusline.sh" }
 }

@@ -1,13 +1,4 @@
 # Billing API
 
-TypeScript service on Node 22. Postgres through Prisma.
-
-## Commands
-
-- `pnpm test` runs the unit tests.
-- `pnpm lint --fix` before every commit.
-
-## Boundaries
-
+- Run `pnpm test` before every commit.
 - Never edit `prisma/migrations/` by hand.
-- Ask before adding a dependency.
