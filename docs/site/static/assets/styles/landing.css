@@ -265,9 +265,9 @@ main > section[id] {
    tallest entry whichever one is open. */
 .source-tree {
   display: grid;
-  grid-template-columns: minmax(15rem, 20rem) minmax(0, 1fr);
+  grid-template-columns: minmax(14rem, 16.5rem) minmax(0, 1fr);
   align-items: start;
-  gap: 1.5rem 2.5rem;
+  gap: 1.5rem 2rem;
   margin-top: 2.25rem;
 }
 

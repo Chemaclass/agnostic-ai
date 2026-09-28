@@ -152,7 +152,7 @@ docs_label = "Hooks"
 [[explorer.entries]]
 id = "local"
 name = "local/"
-hint = "personal, ignored"
+hint = "personal"
 file = "local/rules/my-style.md"
 summary = "Your own specs on this machine, ignored by Git. Sync layers them over the shared specs."
 outputs = [
