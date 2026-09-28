@@ -158,6 +158,15 @@ function test_missing_deltas_skips_and_removes_a_stale_triage() {
   assert_file_not_exists "$RUN/triage.tsv"
 }
 
+function test_rows_with_no_delta_leave_an_empty_triage() {
+  echo stale >"$RUN/triage.tsv"
+  printf 'copilot\tdocs\thttps://example.test/new\tno-snapshot\t\n' >"$RUN/deltas.tsv"
+  assert_contains "no changed page with a delta" "$(triage "$RUN")"
+  assert_file_exists "$RUN/triage.tsv"
+  assert_empty "$(cat "$RUN/triage.tsv")"
+  assert_file_not_exists "$FAKE_CURL_LOG.calls"
+}
+
 function test_overloaded_api_retries_then_falls_back_to_lexical_leads() {
   local out code
   out=$(FAKE_CURL_CODE=529 JEV_JOBS=1 triage "$RUN")

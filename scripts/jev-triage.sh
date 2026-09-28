@@ -495,7 +495,8 @@ jev_triage() {
   done < <(jev_units "$dir" "$work" "$@")
 
   if [ "$pages" -eq 0 ]; then
-    jev_note "no changed page with a delta in $dir"
+    : >"$out"
+    jev_note "no changed page with a delta in $dir, wrote an empty $out"
     return 0
   fi
 
