@@ -1,4 +1,4 @@
-.PHONY: build test test-race ci-local test-shell bench coverage coverage-html cover lint fmt fmt-check vet preflight tools hooks install clean release site-check site-build site-test site-serve site-clean playground-build playground-serve playground-clean
+.PHONY: build test test-race ci-local test-shell bench coverage coverage-html cover lint fmt fmt-check vet preflight tools hooks install clean release site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
 
 BIN := agnostic-ai
 PKG := ./cmd/agnostic-ai
@@ -180,6 +180,9 @@ site-serve:
 
 site-clean:
 	rm -rf _site
+
+site-og:
+	./scripts/render-og-image.sh
 
 # WASM playground (docs/playground/). Bundles the WebAssembly entry
 # point plus the Go-toolchain wasm_exec.js shim into the static page so

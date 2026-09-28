@@ -49,6 +49,8 @@ PATH="$PWD:$PATH" make site-serve   # http://127.0.0.1:1111
 
 **A mismatched Zola does not fail `go test ./...`; it skips the three site build tests.** Run `make site-test` with the pinned binary before trusting a change under `docs/site/`.
 
+The social preview image is rendered from `docs/site/og/card.html`. After editing the card, run `make site-og` (it needs Chrome or Chromium; set `CHROME` if it is not found). Platforms cache the image by URL, so a redesign ships under a new file name: pass the new path to `scripts/render-og-image.sh` and update `image_url` in `docs/site/config.toml` and the image tags in `docs/playground/index.html`.
+
 Never edit `docs/site/templates/` just to satisfy a newer Zola. Moving versions is its own change: bump `ZOLA_VERSION` in the Makefile and `.github/workflows/playground.yml` with the template edits, and diff `_site/` built on both versions.
 
 ## Conventions

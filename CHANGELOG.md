@@ -6,6 +6,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### Site
+
+- Shared links to agnostic-ai.org show a new preview image with the hub logo, the current hero line, and the agnostic-ai.org address.
+
 ## v0.71.0 - 2026-09-28
 
 ### Added
