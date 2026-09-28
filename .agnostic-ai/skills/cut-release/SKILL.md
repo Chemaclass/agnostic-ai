@@ -23,9 +23,10 @@ The user asks to release, tag, ship, or cut a new version.
    release also needs race tests, the WASM build, schema drift, spec lint, shell
    tests, and both editor extensions. `ci-local` runs those checks.
 
-   `SKIP_JETBRAINS=1` exists for machines without Java or access to the Gradle
-   distribution. If you use it, say so in the release report: that job was
-   not gated locally.
+   The JetBrains plugin runs only when `editors/jetbrains/` changed since
+   `origin/main`; `FORCE_JETBRAINS=1` runs it anyway. `SKIP_JETBRAINS=1`
+   exists for machines without Java or access to the Gradle distribution. If
+   you use it, say so in the release report: that job was not gated locally.
 
    `ci-local` tests on this machine's OS alone. Step 8 checks the exact
    release commit across all three OSes. The plugin version-bump job is
