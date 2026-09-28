@@ -125,6 +125,9 @@ func globalPermissionSettings(target string, f globalSettingsFile, settings []sp
 	var mode globalSetting
 	present := false
 	for _, entry := range settings {
+		if !entry.EmitsTo(target) {
+			continue
+		}
 		permissions, ok := entry.Meta["permissions"].(map[string]any)
 		if !ok {
 			if _, exists := entry.Meta["permissions"]; exists {
@@ -401,7 +404,7 @@ func lintGlobalSettings(settings []spec.Entry, targets []string) []validationIss
 		for _, target := range slices.Sorted(slices.Values(targets)) {
 			f := globalTargets[target].settings
 			permissions, _ := entry.Meta["permissions"].(map[string]any)
-			if mode, present := permissions["default-mode"]; present && f.permissionMode != "" && !acceptsGlobalPermissionMode(mode) {
+			if mode, present := permissions["default-mode"]; present && entry.EmitsTo(target) && f.permissionMode != "" && !acceptsGlobalPermissionMode(mode) {
 				out = append(out, validationIssue{Path: entry.Path, Field: "permissions.default-mode", Message: fmt.Sprintf("%s: %s does not accept permissions.default-mode %v; it takes %s", target, f.permissionMode, mode, strings.Join(globalPermissionModes, ", "))})
 			}
 			if f.path == "" || f.effort == "" {

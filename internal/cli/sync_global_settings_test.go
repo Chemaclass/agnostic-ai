@@ -526,3 +526,25 @@ x-claude:
 		t.Errorf("unsupported permissions written: %s", got)
 	}
 }
+
+func TestSyncGlobal_SettingsPermissionModeExclusionRemovesOwnedValue(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	path := filepath.Join(home, ".claude", "settings.json")
+	settingsSpec := filepath.Join(source, "settings", "mode.yaml")
+	original := `{"permissions":{"allow":["Read"]}}`
+	mustWriteGlobalTest(t, path, original)
+	mustWriteGlobalTest(t, settingsSpec, "permissions:\n  default-mode: plan\n")
+	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatal(err)
+	}
+	if got := readGlobalTest(t, path); !strings.Contains(got, `"defaultMode"`) {
+		t.Fatalf("mode was not written: %s", got)
+	}
+	mustWriteGlobalTest(t, settingsSpec, "targets-exclude: [claude]\npermissions:\n  default-mode: bypassPermissions\n")
+	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+		t.Fatal(err)
+	}
+	if got := readGlobalTest(t, path); got != original {
+		t.Errorf("exclusion left owned mode or changed handwritten permissions: %s", got)
+	}
+}
