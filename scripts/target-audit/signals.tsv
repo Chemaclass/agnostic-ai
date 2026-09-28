@@ -39,3 +39,6 @@ cap-rule-activation-policy	2026-09-22	2026-09-24	adapter-gap	1029,1113	Both legs
 cap-scheduled-project-agents	2026-09-15	2026-09-15			
 cap-session-start-prompt-injection	2026-09-15	2026-09-15			
 cap-subagent-project-context-exclusion	2026-09-15	2026-09-15			
+cap-factory-permission-rules	2026-09-28	2026-09-28	target-extension	1376	Factory permissionRules (ID-resolved, test-verified command rules) replaces the deprecated command lists; x-factory.permissionRules reaches it today.
+cap-cursor-security-review	2026-09-28	2026-09-28	watch		Cursor Security Review is enabled per repository from the dashboard; no repo file documented for its team rules.
+cap-codex-mcp-oauth-client-secret	2026-09-28	2026-09-28	watch		Codex CLI 0.158.0 connects to MCP servers with pre-registered OAuth client secrets via codex mcp add --oauth-client-secret.
