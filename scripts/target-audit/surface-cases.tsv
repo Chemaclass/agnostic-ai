@@ -1,0 +1,19 @@
+# Labeled cases for scripts/jev-triage.sh --replay-surface, built from capability signals, audit issues, and saved vendor pages.
+# yes: the excerpt adds, removes, renames, or alters a project-scoped config surface. no: UI, CLI UX, models, packaging, or user-level changes.
+# case	target	excerpt	expected	source
+copilot-default-model-pin	copilot	Pin the default model for this repo.	yes	signal:cap-project-default-model-settings
+windsurf-skill-manual-trigger	windsurf	Set triggers: [user] to prevent the agent from invoking a skill on its own.	yes	823
+qoder-subagent-permission-mode	qoder	permissionMode controls approval behavior for Subagent tool calls.	yes	826
+openhands-agent-lifecycle-hooks	openhands	File-based agents can define lifecycle hooks that run at specific points during execution.	yes	825
+amp-orb-setup-script	amp	Add an executable .agents/setup shell script at the repository root.	yes	637
+antigravity-agent-hooks-frontmatter	antigravity	A Markdown agent can list hook files in its front matter with a hooks: entry.	yes	signal:cap-agent-scoped-lifecycle-hooks
+factory-mcp-empty-list	factory	Setting mcpServers: [] excludes every MCP server, even globally configured ones.	yes	signal:cap-agent-mcp-scoping
+gemini-geminiignore-path	gemini	Create a file named .geminiignore in the root of your project directory.	yes	local/target-audit/2026-08-19.md
+claude-attribution-boolean	claude	Added "attribution": false in settings.json to hide all commit and PR attribution; older CLI versions skip a settings file that holds it, so keep the object form in files shared across versions	yes	local/target-audit/2026-09-25-run/pages/claude/changelog-8-github.com-anthropics-claude-code-blob-main-CHANGELOG.md.body
+crush-mcp-channel-key	crush	channel_enabled: "Enable this MCP server as a channel (equivalent to --channels)"	yes	local/target-audit/2026-09-25-run/pages/crush/docs-2-raw.githubusercontent.com-charmbracelet-crush-main-schema.json.delta
+copilot-mcp-disable-ux	copilot	A disabled server remains configured but is not used by Copilot. This setting persists across sessions.	no	local/target-audit/2026-09-22-run-continuation/pages/copilot/docs-4-docs.github.com-en-copilot-how-tos-copilot-cli-customize-copilot-add-mcp-servers.body
+amp-npm-package-rename	amp	The Amp CLI is now @ampcode/cli (was @sourcegraph/amp).	no	local/target-audit/2026-09-16.md
+antigravity-theme-toggle-ui	antigravity	A new "Toggle Between Light/Dark Themes" command flips the theme without a trip to Settings.	no	local/target-audit/snapshots/a35c8c6841d45bb18f889c67bffc7e167ddfad718c4f90e7dafb5b4e55f9d1dd.txt
+cline-model-catalog-refresh	cline	Refreshed the model catalog: still 209 providers, 6,188 to 6,237 models. The Cline Pass tier gains cline-pass/mimo-v2.6-flash and cline-pass/mimo-v2.6-pro.	no	local/target-audit/2026-09-22-run-continuation/pages/cline/changelog-4-github.com-cline-cline-releases.visible
+warp-skill-source-analytics	warp	The Conversation API returns skill loads as read_skill actions.	no	local/target-audit/2026-09-25-run/pages/warp/docs-2-docs.warp.dev-agents-capabilities-skills.body
+kiro-gpt-context-window	kiro	GPT-5.6 Sol, Terra, and Luna now support a 1M token context window, up from 272K, in the Kiro IDE, CLI, and Web.	no	local/target-audit/2026-09-25-run2/pages/kiro/changelog-15-kiro.dev-changelog.txt
