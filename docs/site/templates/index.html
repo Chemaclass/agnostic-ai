@@ -65,7 +65,6 @@
 {% block content %}
 {% set landing = load_data(path="data/landing.toml") %}
 {% set agent_setup = get_page(path="docs/agent-setup.md") %}
-{% set capabilities = load_data(path="data/capabilities.toml") %}
 {% set_global default_installer = false %}{% for installer in landing.workflow.installers %}{% if default_installer is bool and installer.id == "script" %}{% set_global default_installer = installer %}{% endif %}{% endfor %}
 {% set updates_section = get_section(path="updates/_index.md") %}
 {% set latest_update = updates_section.pages | first %}
@@ -207,40 +206,8 @@
     </div>
   </section>
 
-  <section class="section-band section-head-split" id="targets">
-    <div class="wrap">
-      <h2 class="section-title">{{ landing.targets.title }} <span>{{ landing.targets.muted_title }}</span></h2>
-      <div class="section-lead">{{ landing.targets.body | markdown | safe }}<p class="capability-legend">{{ landing.targets.legend | markdown(inline=true) | safe }}</p></div>
-      <div class="target-strip reveal-group">
-        <p class="target-strip-source">{{ landing.targets.source_label }}<svg viewBox="0 0 48 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 10h42M37 3l7 7-7 7"/></svg></p>
-        <ul class="target-strip-list" aria-label="All {{ capabilities.targets | length }} targets">
-          {% for target in capabilities.targets %}<li><a href="{{ get_url(path=target.href) }}">{{ target.name }}</a></li>{% endfor %}
-        </ul>
-      </div>
-      <div class="capability-table-wrap reveal-group" role="region" aria-label="Top target capability comparison" tabindex="0">
-        <table class="capability-table">
-          <thead>
-            <tr>
-              <th scope="col">Target</th>
-              {% for feature in capabilities.features %}{% if feature.id in landing.targets.features %}<th scope="col">{{ feature.label }}</th>{% endif %}{% endfor %}
-            </tr>
-          </thead>
-          <tbody>
-            {% for id in landing.targets.ids %}{% for target in capabilities.targets %}{% if target.id == id %}
-            <tr>
-              <th scope="row"><a href="{{ get_url(path=target.href) }}">{{ target.short_name | default(value=target.name) }}</a></th>
-              {% for feature in capabilities.features %}{% if feature.id in landing.targets.features %}{% set status = target.statuses[loop.index0] %}<td><span class="capability-mobile-label">{{ feature.label }}</span>{% for state in capabilities.states %}{% if state.id == status %}{% if status == "opt-in" %}<a class="capability-state capability-state-{{ status }} capability-state-link" href="{{ get_url(path=target.href) }}#config-keys" aria-label="{{ feature.label }} for {{ target.name }}: {{ state.label }}. View the required config key.">{{ state.label }}</a>{% else %}<span class="capability-state capability-state-{{ status }}">{{ state.label }}</span>{% endif %}{% endif %}{% endfor %}</td>{% endif %}{% endfor %}
-            </tr>
-            {% endif %}{% endfor %}{% endfor %}
-          </tbody>
-        </table>
-      </div>
-      <p class="target-reference"><a href="{{ get_url(path='@/docs/targets/_index.md') }}#capability-matrix">{{ landing.targets.link_label }}</a></p>
-    </div>
-  </section>
-
   {% if latest_update %}
-  <section class="update-brief" id="updates">
+  <section class="section-band update-brief" id="updates">
     <div class="wrap">
       <div class="update-brief-grid reveal-group">
         <div>

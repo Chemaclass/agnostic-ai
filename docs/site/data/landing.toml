@@ -162,18 +162,6 @@ question = "Why not just symlink one file?"
 answer = "Each tool reads a different format at a different path. A symlink shares bytes. It cannot translate them."
 link_label = "See how the formats diverge"
 
-[targets]
-title = "One source of truth,"
-muted_title = "every tool native."
-body = "The five most complete integrations, across six of the ten spec kinds. The other four: [settings](@/docs/spec-format.md#settings), [review](@/docs/spec-format.md#reviews), [environment](@/docs/spec-format.md#environments), [ignore](@/docs/spec-format.md#ignore)."
-# The legend only means something next to the matrix, which a phone does not
-# render, so it sits in its own element the phone rules hide.
-legend = "**Native** uses the target's dedicated format automatically. **Opt-in** links to the setting you need."
-features = ["agent", "skill", "rule", "hook", "mcp", "command"]
-ids = ["claude", "codex", "cursor", "gemini", "copilot"]
-link_label = "See paths and all 25 targets"
-source_label = ".agnostic-ai/"
-
 [workflow]
 title = "Three commands."
 muted_title = "Import, preview, sync."
@@ -244,12 +232,21 @@ name = "AGNOSTIC_AI.md"
 hint = "instructions"
 file = "AGNOSTIC_AI.md"
 summary = "Project instructions. Each tool gets the same body in its own entry file."
-body = """
-# Project conventions
+body = '''
+# Billing API
 
-Run `make test` before every commit.
-Keep each change small and reviewed.
-"""
+TypeScript service on Node 22. Postgres through Prisma.
+
+## Commands
+
+- `pnpm test` runs the unit tests.
+- `pnpm lint --fix` before every commit.
+
+## Boundaries
+
+- Never edit `prisma/migrations/` by hand.
+- Ask before adding a dependency.
+'''
 outputs = ["CLAUDE.md", "AGENTS.md", "GEMINI.md"]
 href = "@/docs/configuration.md"
 anchor = "entry-point-files"
@@ -259,18 +256,24 @@ docs_label = "Entry-point files"
 id = "agents"
 name = "agents/"
 hint = "subagents"
-file = "agents/reviewer.md"
-summary = "Subagents with a role, their tools, and an optional model per tool."
-body = """
+file = "agents/test-writer.md"
+summary = "Subagents with a role, their tools, and a model per tool. Each tool gets its own format, such as TOML for Codex."
+body = '''
 ---
-name: reviewer
-description: Reviews a diff for bugs and missing tests.
-tools: [Read, Grep, Glob]
+name: test-writer
+description: Writes failing tests for a bug before anyone fixes it.
+tools: [Read, Grep, Glob, Edit]
+model:
+  claude: claude-sonnet-5
+  codex: gpt-6-sol
+effort: medium
 ---
 
-Read the diff. Report bugs and missing tests.
-"""
-outputs = [".claude/agents/reviewer.md", ".codex/agents/reviewer.toml", ".cursor/agents/reviewer.md", ".gemini/agents/reviewer.md"]
+Reproduce the bug in a test that fails for the right reason.
+Name the test after the behavior, not the function.
+Do not change production code.
+'''
+outputs = [".claude/agents/test-writer.md", ".codex/agents/test-writer.toml", ".cursor/agents/test-writer.md", ".gemini/agents/test-writer.md"]
 href = "@/docs/spec-format.md"
 anchor = "agents"
 docs_label = "Agents"
@@ -280,15 +283,21 @@ id = "commands"
 name = "commands/"
 hint = "slash commands"
 file = "commands/deploy.md"
-summary = "Slash commands, one file each."
-body = """
+summary = "Slash commands with arguments, one file each."
+body = '''
 ---
 name: deploy
-description: Deploy the app to staging.
+description: Deploy the current branch to an environment.
+argument-hint: <env>
 ---
 
-Run the tests, build, and deploy to staging.
-"""
+Deploy the current branch to {{env}}.
+
+1. Run `pnpm test` and stop on any failure.
+2. Build with `pnpm build`.
+3. Run `fly deploy --config fly.{{env}}.toml`.
+4. Reply with the release URL.
+'''
 outputs = [".claude/commands/deploy.md", ".cursor/commands/deploy.md", ".gemini/commands/deploy.toml"]
 href = "@/docs/spec-format.md"
 anchor = "commands"
@@ -300,12 +309,14 @@ name = "hooks/"
 hint = "tool events"
 file = "hooks/format.yaml"
 summary = "Commands that run on tool events, such as after every edit."
-body = """
+body = '''
 name: format
+description: Format each file right after the agent edits it.
 event: PostToolUse
 matcher: Edit|Write
 command: .claude/hooks/format.sh
-"""
+timeout: 30
+'''
 outputs = [".claude/settings.json", ".codex/hooks.json", ".cursor/hooks.json"]
 href = "@/docs/spec-format.md"
 anchor = "hooks"
@@ -317,15 +328,16 @@ name = "local/"
 hint = "personal, ignored"
 file = "local/rules/my-style.md"
 summary = "Your own specs on this machine, ignored by Git. Sync layers them over the shared specs."
-body = """
+body = '''
 ---
 name: my-style
-description: Personal preferences.
+description: Personal preferences on this machine.
 alwaysApply: true
 ---
 
-Answer in short sentences.
-"""
+- Answer in short sentences.
+- Show the diff before running a command that writes.
+'''
 outputs = [".claude/rules/my-style.md", ".cursor/rules/my-style.mdc"]
 href = "@/docs/local-overrides.md"
 docs_label = "Local overrides"
@@ -335,12 +347,15 @@ id = "mcps"
 name = "mcps/"
 hint = "MCP servers"
 file = "mcps/github.yaml"
-summary = "MCP server connections, one YAML file per server."
-body = """
+summary = "MCP server connections, one YAML file per server. Secrets stay in environment variables."
+body = '''
 name: github
+description: Issues, pull requests, and code search.
 type: http
 url: https://api.githubcopilot.com/mcp/
-"""
+headers:
+  Authorization: Bearer ${GITHUB_TOKEN}
+'''
 outputs = [".mcp.json", ".codex/config.toml", ".cursor/mcp.json", ".gemini/settings.json"]
 href = "@/docs/spec-format.md"
 anchor = "mcp-servers"
@@ -352,14 +367,15 @@ name = "overlays/"
 hint = "native keys"
 file = "overlays/claude.settings.json"
 summary = "Native keys no spec covers, such as the Claude Code status line. Sync merges them into the tool's own file."
-body = """
+body = '''
 {
   "statusLine": {
     "type": "command",
     "command": "~/.claude/statusline.sh"
-  }
+  },
+  "cleanupPeriodDays": 30
 }
-"""
+'''
 outputs = [".claude/settings.json"]
 href = "@/docs/targets/claude.md"
 anchor = "claude-settings"
@@ -369,18 +385,20 @@ docs_label = "Claude settings"
 id = "rules"
 name = "rules/"
 hint = "conventions"
-file = "rules/commits.md"
-summary = "Conventions, always on or scoped to paths."
-body = """
+file = "rules/testing.md"
+summary = "Conventions, always on or tied to file patterns and folders."
+body = '''
 ---
-name: commits
-description: Use Conventional Commits.
-alwaysApply: true
+name: testing
+description: How tests are written in this repo.
+globs: ["**/*.test.ts"]
 ---
 
-Use feat:, fix:, docs:, or chore: prefixes.
-"""
-outputs = [".claude/rules/commits.md", ".cursor/rules/commits.mdc", "AGENTS.md", "GEMINI.md"]
+- One behavior per test, named after that behavior.
+- Use the factories in `test/factories/`, never raw fixtures.
+- No network: mock HTTP with `msw`.
+'''
+outputs = [".claude/rules/testing.md", ".cursor/rules/testing.mdc", "AGENTS.md", "GEMINI.md"]
 href = "@/docs/spec-format.md"
 anchor = "rules"
 docs_label = "Rules"
@@ -391,10 +409,13 @@ name = "scripts/"
 hint = "hook scripts"
 file = "scripts/claude/format.sh"
 summary = "Hook script bodies. Sync copies each one into every tool's hooks folder, so the hook command resolves."
-body = """
+body = '''
 #!/bin/sh
-npx prettier --write .
-"""
+# The hook event arrives as JSON on stdin.
+file=$(jq -r '.tool_input.file_path // empty')
+[ -n "$file" ] || exit 0
+npx prettier --write "$file"
+'''
 outputs = [".claude/hooks/format.sh", ".codex/hooks/format.sh", ".cursor/hooks/format.sh"]
 href = "@/docs/spec-format.md"
 anchor = "hooks"
@@ -406,13 +427,17 @@ name = "settings/"
 hint = "permissions"
 file = "settings/permissions.yaml"
 summary = "Permissions and the default model, for tools that support them."
-body = """
+body = '''
 permissions:
   allow:
-    - Bash(go test:*)
+    - Bash(pnpm test:*)
+    - Bash(pnpm lint:*)
+  ask:
+    - Bash(git push:*)
   deny:
-    - Bash(rm:*)
-"""
+    - Bash(rm -rf:*)
+    - Read(.env)
+'''
 outputs = [".claude/settings.json"]
 href = "@/docs/spec-format.md"
 anchor = "settings"
@@ -423,17 +448,19 @@ id = "skills"
 name = "skills/"
 hint = "workflows"
 file = "skills/release/SKILL.md"
-summary = "Reusable workflows, with any scripts or templates they bundle."
-body = """
+summary = "Reusable workflows. Files beside `SKILL.md`, such as `check.sh`, copy with it."
+body = '''
 ---
 name: release
-description: Cut a release and verify the published artifact.
+description: Cut a release and verify the published package.
 ---
 
-1. Run the release script.
-2. Check the published artifact.
-"""
-outputs = [".claude/skills/release/SKILL.md", ".agents/skills/release/SKILL.md", ".cursor/skills/release/SKILL.md", ".gemini/skills/release/SKILL.md"]
+1. Run `./check.sh` from this skill folder. Stop if it fails.
+2. Bump the version with `pnpm version <patch|minor|major>`.
+3. Push the tag and wait for the release workflow.
+4. Install the new version in a scratch folder and run `--version`.
+'''
+outputs = [".claude/skills/release/", ".agents/skills/release/", ".cursor/skills/release/", ".gemini/skills/release/"]
 href = "@/docs/spec-format.md"
 anchor = "skills"
 docs_label = "Skills"

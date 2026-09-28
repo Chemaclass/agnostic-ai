@@ -44,62 +44,6 @@ func TestSiteDocs_AllPageShellsLoadCronitorRUM(t *testing.T) {
 	}
 }
 
-func TestSiteDocs_LandingCapabilityMatrixSelectsKnownTargets(t *testing.T) {
-	var landing struct {
-		Targets struct {
-			Features []string `toml:"features"`
-			IDs      []string `toml:"ids"`
-		} `toml:"targets"`
-	}
-	if _, err := toml.DecodeFile("../../docs/site/data/landing.toml", &landing); err != nil {
-		t.Fatalf("decode landing data: %v", err)
-	}
-	var reference struct {
-		Features []struct {
-			ID string `toml:"id"`
-		} `toml:"features"`
-		Targets []struct {
-			ID string `toml:"id"`
-		} `toml:"targets"`
-	}
-	if _, err := toml.DecodeFile("../../docs/site/data/capabilities.toml", &reference); err != nil {
-		t.Fatalf("decode target capability data: %v", err)
-	}
-
-	knownFeatures := make(map[string]bool, len(reference.Features))
-	for _, feature := range reference.Features {
-		knownFeatures[feature.ID] = true
-	}
-	knownTargets := make(map[string]bool, len(reference.Targets))
-	for _, target := range reference.Targets {
-		knownTargets[target.ID] = true
-	}
-
-	wantFeatures := []string{"agent", "skill", "rule", "hook", "mcp", "command"}
-	if strings.Join(landing.Targets.Features, ",") != strings.Join(wantFeatures, ",") {
-		t.Fatalf("landing capability features = %v, want %v", landing.Targets.Features, wantFeatures)
-	}
-	for _, feature := range landing.Targets.Features {
-		if !knownFeatures[feature] {
-			t.Errorf("landing capability feature %q is not in the target reference", feature)
-		}
-	}
-
-	if len(landing.Targets.IDs) != 5 {
-		t.Fatalf("landing capability matrix has %d targets, want 5", len(landing.Targets.IDs))
-	}
-	selected := make(map[string]bool, len(landing.Targets.IDs))
-	for _, id := range landing.Targets.IDs {
-		if selected[id] {
-			t.Errorf("landing capability matrix repeats %s", id)
-		}
-		selected[id] = true
-		if !knownTargets[id] {
-			t.Errorf("landing capability matrix contains unknown target %s", id)
-		}
-	}
-}
-
 func TestSiteDocs_TargetCapabilityMatrixMatchesAdapters(t *testing.T) {
 	var matrix struct {
 		Features []struct {
@@ -488,7 +432,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	for _, required := range []string{
 		`data-capability-browser`,
 		`data-capability-target="claude"`,
-		`href="https://agnostic-ai.org/docs/targets/codex/"`,
+		`href="https://agnostic-ai.org/docs/targets/"`,
 		`href="https://agnostic-ai.org/docs/targets/codex/#config-keys"`,
 		`How to read it`,
 		`Dedicated target format.`,
@@ -548,7 +492,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		"agnostic-ai sync --dry-run",
 		"Keep the setup current.",
 		"Read the latest briefing",
-		`href="https://agnostic-ai.org/docs/targets/codex/"`,
+		`href="https://agnostic-ai.org/docs/targets/"`,
 		`"installUrl": "https://agnostic-ai.org/#quickstart"`,
 		"/docs/agent-setup/",
 		"agnostic-ai agent setup",
@@ -603,14 +547,10 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		}
 	}
 	quickstartIndex := strings.Index(home, `id="quickstart"`)
-	targetsIndex := strings.Index(home, `id="targets"`)
+	layoutIndex := strings.Index(home, `id="layout"`)
 	updatesIndex := strings.Index(home, `id="updates"`)
-	if quickstartIndex < 0 || targetsIndex < 0 || updatesIndex < 0 || quickstartIndex >= targetsIndex || targetsIndex >= updatesIndex {
-		t.Errorf("home sections are not ordered quickstart, targets, updates: %d, %d, %d", quickstartIndex, targetsIndex, updatesIndex)
-	}
-	// The target strip names every target in the targets section.
-	if stripIndex := strings.Index(home, `class="target-strip-list"`); stripIndex < targetsIndex || stripIndex > updatesIndex || strings.Count(home, `class="target-strip-list"`) != 1 {
-		t.Errorf("the target strip is not in the targets section: %d, want between %d and %d", stripIndex, targetsIndex, updatesIndex)
+	if quickstartIndex < 0 || layoutIndex < 0 || updatesIndex < 0 || quickstartIndex >= layoutIndex || layoutIndex >= updatesIndex {
+		t.Errorf("home sections are not ordered quickstart, layout, updates: %d, %d, %d", quickstartIndex, layoutIndex, updatesIndex)
 	}
 	for _, assetURL := range []string{
 		"https://agnostic-ai.org/assets/styles/base.css",
