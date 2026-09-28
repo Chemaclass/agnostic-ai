@@ -29,9 +29,11 @@ import (
 // stands where the file's parent directory belongs (Cline's single-file
 // `.clinerules`, #1064); `--fix` replays them first. Leftover lists
 // files a prior sync wrote and no longer emits that the next full sync
-// removes; until then the tool still loads them.
+// removes; until then the tool still loads them. Current lists the
+// files already matching what sync writes, which only a dry run reports.
 type driftReport struct {
 	Target   string
+	Current  []adapters.CapturedFile
 	Missing  []adapters.CapturedFile
 	Stale    []adapters.CapturedFile
 	Edited   []adapters.CapturedFile
@@ -140,7 +142,9 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 			}
 			if string(disk) != f.Content {
 				rep.addChanged(f, disk, sums)
+				continue
 			}
+			rep.Current = append(rep.Current, f)
 		}
 		rep.Blocking = blockingRemovals(sess.CapturedRemovals(), rep.Missing)
 		reports = append(reports, rep)
@@ -250,6 +254,7 @@ func collectEntryPointDrift(cfg *config.Config, b spec.Bundle, targets []string)
 	var body string
 	if err == nil {
 		body = header.Strip(string(data))
+		rep.Current = append(rep.Current, adapters.CapturedFile{Path: adapters.AgnosticEntryPointPath, Content: string(data)})
 	} else if errors.Is(err, fs.ErrNotExist) {
 		body = adapters.EntryPointBody(cfg)
 		rendered := header.With(body, header.FormatMarkdown)
@@ -277,9 +282,12 @@ func collectEntryPointDrift(cfg *config.Config, b spec.Bundle, targets []string)
 			}
 			return rep, fmt.Errorf("read %s: %w", f.Path, err)
 		}
+		file := adapters.CapturedFile{Path: f.Path, Content: f.Content}
 		if string(disk) != f.Content {
-			rep.addChanged(adapters.CapturedFile{Path: f.Path, Content: f.Content}, disk, sums)
+			rep.addChanged(file, disk, sums)
+			continue
 		}
+		rep.Current = append(rep.Current, file)
 	}
 	rep.Orphaned = recordedOrphans(cfg)
 	return rep, nil
