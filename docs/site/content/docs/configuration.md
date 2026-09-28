@@ -478,7 +478,7 @@ effort:
 | qoder | `~/.qoder/settings.json` | `model.name`, `model.reasoningEffort` |
 | gemini | `~/.gemini/settings.json` | `model.name` |
 
-Other targets raise a coverage note, and so does `permissions` in a global settings spec. Gemini sets thinking per model, with no default effort key, so `effort` raises a note there. Claude's and Copilot's `effortLevel` take `low`, `medium`, `high`, or `xhigh`; Qoder takes `disabled`, `off`, `none`, `low`, `medium`, `high`, `xhigh`, or `max`; Codex takes any string. A dotted key is a nested JSON object: sync sets `name` inside `model` and leaves the object's other keys alone. `lint --global` (LINT014) and `validate --global` flag a value a target cannot take.
+Other targets raise a coverage note, and so does `permissions` in a global settings spec. Augment's `~/.augment/settings.json` has no default model or effort key but takes `x-augment` keys, such as `shell`. Gemini sets thinking per model, with no default effort key, so `effort` raises a note there. Claude's and Copilot's `effortLevel` take `low`, `medium`, `high`, or `xhigh`; Qoder takes `disabled`, `off`, `none`, `low`, `medium`, `high`, `xhigh`, or `max`; Codex takes any string. A dotted key is a nested JSON object: sync sets `name` inside `model` and leaves the object's other keys alone. `lint --global` (LINT014) and `validate --global` flag a value a target cannot take.
 
 Each layer overrides the one before it:
 
@@ -508,6 +508,7 @@ MCP specs in the home's `mcps/` install each server in the user MCP file of ever
 | copilot | `~/.copilot/mcp-config.json` | `mcpServers.<name>`, with `tools: ["*"]` when the spec sets none |
 | gemini | `~/.gemini/settings.json` | `mcpServers.<name>` |
 | qoder | `~/.qoder/settings.json` | `mcpServers.<name>` |
+| augment | `~/.augment/settings.json` | `mcpServers.<name>` |
 | openhands | `~/.openhands/mcp.json` (`$OPENHANDS_PERSISTENCE_DIR/mcp.json` when set) | `mcpServers.<name>`: `{command, args, env}` or `{url, transport, headers, auth}`; the fields OpenHands adds when it saves the file count as the same server |
 
 Each server is one record with the per-key rules above: a hand-written server that means the same as the spec is adopted as written, even when it leaves out an implied `type` or Copilot's default `tools`, a different one with the same name stops the run (`--backup` overwrites it), and a server sync wrote goes when its spec goes. Servers you add by hand under other names stay. A Codex table sync replaces takes its subtables, such as `[mcp_servers.<name>.env]`, with it. Claude Code rewrites `~/.claude.json` itself, with sign-in and trust state, so sync edits only its own `mcpServers` entries in place and keeps every other key and the file's permissions, creating a missing file at `0600`. A sync stops without writing if the file changed after sync read it; rerun it. A spec with `disabled: true` stays out of the Claude, Cursor, and Copilot user files, where a listed server is live in every project. When `CLAUDE_CONFIG_DIR` or another root variable moves a file, the next sync takes its servers and keys out of the old one. Claude's own writer keeps those entries. If a running session writes the file back without them, the next sync adds them again.

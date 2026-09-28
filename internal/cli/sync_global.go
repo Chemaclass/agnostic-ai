@@ -19,6 +19,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/augment"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cursor"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
@@ -861,6 +862,9 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		next.Hooks[target] = map[string][]any{}
 		path := g.path(home, g.hooks)
 		hooks := b.HooksFor(target)
+		if g.hooksFormat == "augment" {
+			augment.NoteUserHookGaps(hooks)
+		}
 		hookTarget := globalHookTarget{name: target, mode: g.hookTarget, args: g.hookArgs, foldArgs: g.hookFoldArgs, timeout: g.hookTimeout, specHooks: len(hooks)}
 		if g.bridge && body != "" {
 			bridge, command, script, mode := globalContextBridge(filepath.Dir(path), body, g.bridgeKey)
@@ -1254,7 +1258,20 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 		}
 		for _, command := range globalHookCommands(entry.Meta["command"]) {
 			var item, plain any
-			if format == "claude" {
+			switch format {
+			case "augment":
+				// Augment documents type, command, and timeout (ms) on a
+				// hook, and a matcher only on tool events.
+				commandHook := map[string]any{"type": "command", "command": command}
+				if timeout, ok := augment.HookTimeout(entry.Meta); ok {
+					commandHook["timeout"] = timeout
+				}
+				group := map[string]any{"hooks": []any{commandHook}}
+				if matcher, _ := entry.Meta["matcher"].(string); matcher != "" && !augment.SessionOnlyEvent(event) {
+					group["matcher"] = matcher
+				}
+				item, plain = group, group
+			case "claude":
 				commandHook := map[string]any{"type": "command", "command": command}
 				for _, key := range []string{"timeout", "statusMessage", "async", "asyncRewake", "shell", "if", "once"} {
 					if value, ok := entry.Meta[key]; ok {
@@ -1279,7 +1296,7 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 				plain = map[string]any{"matcher": matcher, "hooks": []any{maps.Clone(commandHook)}}
 				target.tell(commandHook, entry.Meta)
 				item = map[string]any{"matcher": matcher, "hooks": []any{commandHook}}
-			} else {
+			default:
 				if args := stringSliceFromAny(entry.Meta["args"]); target.foldArgs {
 					command = adapters.ExecFormCommand(command, args)
 				}
