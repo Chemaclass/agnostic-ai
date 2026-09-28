@@ -297,3 +297,52 @@ func TestDoctorFix_WithoutLedgerLeavesScopedDocumentForManualRemoval(t *testing.
 		t.Error("doctor --fix passed while a file still needs manual removal")
 	}
 }
+
+// The check footer names what settles the unledgered drift found:
+// doctor --fix for a removable leftover, and a manual step for a scope
+// document, which doctor --fix leaves in place (#1362).
+func TestReportCheckDrift_FooterMatchesUnledgeredFindings(t *testing.T) {
+	removable := filepath.Join(".codex", "agents", "old.toml")
+	scoped := filepath.Join("services", "api", "AGENTS.md")
+	const manual = "delete the scope documents listed above by hand if stale, or list them under sync.unmanaged"
+	for _, tc := range []struct {
+		name     string
+		report   driftReport
+		want     string
+		notWants []string
+	}{
+		{"only scope documents", driftReport{Orphaned: []string{scoped}},
+			"to reconcile, " + manual + "\n", []string{"doctor --fix", "run: agnostic-ai"}},
+		{"mixed", driftReport{Leftover: []string{removable}, Orphaned: []string{scoped}},
+			"to reconcile, run: agnostic-ai doctor --fix, then " + manual + "\n", nil},
+		{"only removable", driftReport{Leftover: []string{removable}},
+			"to reconcile, run: agnostic-ai doctor --fix\n", []string{"by hand"}},
+	} {
+		for _, format := range []string{checkFormatHuman, checkFormatGitHub} {
+			t.Run(tc.name+"/"+format, func(t *testing.T) {
+				rep := tc.report
+				rep.Target, rep.Unledgered = unledgeredReportTarget, true
+				var stdout, stderr bytes.Buffer
+				cmd := &cobra.Command{}
+				cmd.SetOut(&stdout)
+				cmd.SetErr(&stderr)
+				prev := logOut
+				logOut = &stdout
+				defer func() { logOut = prev }()
+
+				if err := reportCheckDrift(cmd, []driftReport{rep}, format, false); err == nil {
+					t.Error("unledgered drift must fail the check")
+				}
+
+				if !strings.Contains(stderr.String(), tc.want) {
+					t.Errorf("footer lacks %q:\n%s", tc.want, stderr.String())
+				}
+				for _, n := range tc.notWants {
+					if strings.Contains(stderr.String(), n) {
+						t.Errorf("footer has %q:\n%s", n, stderr.String())
+					}
+				}
+			})
+		}
+	}
+}

@@ -37,7 +37,7 @@ func ledgerMissing(root string) bool {
 // file, so it goes to Orphaned for the user to delete. Sync removes
 // neither. Outside a git work tree the scan finds nothing.
 func unledgeredReport(cfg *config.Config, emitted map[string]bool, state syncStateFile, stranded func(string) bool) driftReport {
-	rep := driftReport{Target: ledgerReport}
+	rep := driftReport{Target: unledgeredReportTarget}
 	missing := ledgerMissing(".")
 	candidates := state.Unledgered
 	if missing {
