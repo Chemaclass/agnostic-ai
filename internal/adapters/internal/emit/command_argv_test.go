@@ -32,6 +32,10 @@ func TestCommandArgv(t *testing.T) {
 		{[]any{"npm", []any{"x"}}, nil},
 		{[]any{"npm", nil}, nil},
 		{"", nil},
+		{"''", nil},
+		{`"" run`, nil},
+		{[]any{""}, nil},
+		{[]any{" ", "x"}, nil},
 		{[]any{}, nil},
 	}
 	for _, c := range cases {

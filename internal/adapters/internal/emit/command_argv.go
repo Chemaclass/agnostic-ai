@@ -24,10 +24,16 @@ var shellBuiltins = map[string]bool{
 // several lines, a leading `VAR=value`, or a builtin such as `cd`, runs
 // as `sh -c <command>`.
 func CommandArgv(v any) []string {
+	var argv []string
 	if s, ok := v.(string); ok {
-		return stringArgv(strings.TrimSpace(s))
+		argv = stringArgv(strings.TrimSpace(s))
+	} else {
+		argv = listArgv(v)
 	}
-	return listArgv(v)
+	if len(argv) == 0 || strings.TrimSpace(argv[0]) == "" {
+		return nil // no executable to start
+	}
+	return argv
 }
 
 // listArgv reads a command list word by word. YAML reads `7` or `true`
