@@ -188,8 +188,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 // settings.json has the actual script alongside the path it references.
 func materializeHookScripts(sess *emit.Session, hooks []spec.Entry, dryRun bool) error {
 	for _, h := range hooks {
-		for _, handler := range hookHandlers(h) {
-			raw, _ := handler["command"].(string)
+		for _, raw := range hookSourceCommands(h) {
 			sourceTool, _ := emit.SourceToolFromHookCommand(raw)
 			rewritten := emit.RewriteHookPath(raw, target)
 			if err := sess.MaterializeHookScript(rewritten, target, sourceTool, dryRun); err != nil {

@@ -17,10 +17,12 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### Fixed
 
 - `doctor` lists every hand-written `BUGBOT.md` under Unmanaged config, nested ones such as `api/.cursor/BUGBOT.md` too, not only the root file (#1305).
+- Gemini copies a hook script stashed under another tool, such as `.agnostic-ai/scripts/claude/fmt.sh`, into `.gemini/hooks/` as Codex and Cursor do (#1303).
 - A Codex overlay that ends in a table, such as `[profiles.review]`, no longer captures the `model` and `model_reasoning_effort` sync writes into `.codex/config.toml`.
 - `sync --check` lists drifted files with forward slashes on Windows too, like the rest of the sync output.
 - A scoped rule no longer makes the managed `.gitignore` block ignore its whole directory; the block lists the scoped files instead (#1264).
 - `import` skips gitignored directories and nested repositories such as agent worktrees, and `--dry-run` no longer copies them or `node_modules` (#1265, #1273).
+- `import gemini` keeps the root `GEMINI.md` out of the rules and names a scoped rule after its scope, such as `api.md`, as `import codex` does (#1302).
 - `import codex` keeps the root `AGENTS.md` out of the rules, so `sync` no longer writes its text twice (#1268).
 - `import codex` names a scoped rule after its scope, such as `api.md` for `services/api/AGENTS.md`, not after the checkout's folder (#1267).
 - `import` reads a symlinked skill folder that resolves inside the project, and names one that links outside instead of dropping it silently (#1266).

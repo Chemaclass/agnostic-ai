@@ -3,10 +3,12 @@ package cli
 import (
 	"fmt"
 	"io/fs"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -67,6 +69,47 @@ func findHierarchicalMainFiles(root, filename string, src config.Sources) ([]hie
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].path < out[j].path })
 	return out, nil
+}
+
+// hierarchicalRulesText returns the part of main file f that holds
+// rules: the rules block sync appended, or the whole file when it has
+// none. ok is false for a root file without that block: it is the
+// shared instructions mirrorMainFile copies into AGNOSTIC_AI.md, and
+// importing it as rules too would make sync write its text twice.
+func hierarchicalRulesText(f hierarchicalFile, raw string) (text string, ok bool) {
+	if f.globs == "" && !strings.Contains(raw, adapters.RulesStartMarker) {
+		return "", false
+	}
+	return reduceToGeneratedRules(raw), true
+}
+
+// wholeFileRuleNames names the rule a whole main file becomes, keyed by
+// its globs. A nested file takes its scope's last directory when no
+// other scope ends the same way, the whole scope path otherwise (`api`,
+// `services-api`); the root file takes the project's name.
+func wholeFileRuleNames(root string, files []hierarchicalFile) map[string]string {
+	last := map[string]int{}
+	for _, f := range files {
+		if f.globs != "" {
+			last[slugify(path.Base(strings.TrimSuffix(f.globs, "/**")))]++
+		}
+	}
+	names := map[string]string{"": projectSlug(root)}
+	for _, f := range files {
+		if f.globs == "" {
+			continue
+		}
+		scope := strings.TrimSuffix(f.globs, "/**")
+		name := slugify(path.Base(scope))
+		if last[name] > 1 || name == "" {
+			name = slugify(scope)
+		}
+		if name == "" {
+			name = "scoped"
+		}
+		names[f.globs] = name
+	}
+	return names
 }
 
 // writeScopedRule writes a rule spec with optional `globs:` frontmatter
