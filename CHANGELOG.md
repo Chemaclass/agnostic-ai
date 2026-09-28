@@ -22,6 +22,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Fixed
 
+- `sync --global` keeps the key order of hooks you wrote when it rewrites a hooks file such as `~/.claude/settings.json` (#1260).
 - `sync --global --check` no longer fails right after a sync that removed a target's last file, and a user file sync created goes once empty (#1248, #1256).
 - `lint` no longer warns that every settings spec is empty (LINT001) (#1240).
 
