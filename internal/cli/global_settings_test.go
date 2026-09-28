@@ -313,3 +313,54 @@ func TestEditJSONRoot_RemovingFirstMemberKeepsCommentAboveNext(t *testing.T) {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
+
+func TestGlobalSettings_PermissionModeValidation(t *testing.T) {
+	for _, value := range []any{"default", "manual", "acceptEdits", "plan", "auto", "dontAsk", "bypassPermissions", "invalid", "", 42, map[string]any{"claude": "plan"}} {
+		entry := spec.Entry{Path: "settings/mode.yaml", Meta: map[string]any{"permissions": map[string]any{"default-mode": value}}}
+		entries := []spec.Entry{entry}
+		got := globalSettingsFor("claude", globalTargets["claude"], entries)
+		issues := lintGlobalSettings(entries, []string{"claude", "codex"})
+		valid := false
+		if mode, ok := value.(string); ok {
+			valid = mode != "invalid" && mode != ""
+		}
+		if valid {
+			if len(got) != 1 || got[0].key != "permissions.defaultMode" || got[0].value != value || got[0].source != entry.Path {
+				t.Errorf("%v mapping: %v", value, got)
+			}
+			if len(issues) != 0 {
+				t.Errorf("%v lint: %v", value, issues)
+			}
+		} else {
+			if len(got) != 0 {
+				t.Errorf("invalid %v mapped: %v", value, got)
+			}
+			if len(issues) != 1 || issues[0].Field != "permissions.default-mode" {
+				t.Errorf("%v lint: %v", value, issues)
+			}
+		}
+		if got := globalSettingsFor("codex", globalTargets["codex"], entries); len(got) != 0 {
+			t.Errorf("codex mapped %v: %v", value, got)
+		}
+	}
+}
+
+func TestExplainGlobal_PermissionModeNamesWinningSource(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "defaults.yaml"), "permissions:\n  default-mode: default\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "local", "settings", "machine.yaml"), "permissions:\n  default-mode: plan\n")
+	for _, file := range []string{"settings/defaults.yaml", "local/settings/machine.yaml"} {
+		var out bytes.Buffer
+		cmd := NewRootCmd("test")
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		cmd.SetArgs([]string{"explain", "--global", file})
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("explain: %v\n%s", err, out.String())
+		}
+		want := filepath.ToSlash(filepath.Join(home, ".claude", "settings.json")) + ` (key "permissions.defaultMode")`
+		if strings.Contains(out.String(), want) != strings.HasPrefix(file, "local/") {
+			t.Errorf("%s provenance:\n%s", file, out.String())
+		}
+	}
+}

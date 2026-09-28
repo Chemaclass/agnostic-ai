@@ -8,49 +8,43 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Added
 
-- `sync --keep-edits` leaves each output edited since the last sync in place and names it, so a git hook never overwrites a hand edit (#1271).
+- Global settings `permissions.default-mode` sets Claude Code's user default permission mode (#1245).
+- `sync --keep-edits` preserves and reports outputs edited since the last sync, including when run from a git hook (#1271).
 
 ### Changed
 
-- `import` skips every `node_modules`, so a package's rules and skills no longer import as a scope, for Windsurf, Antigravity, and scoped skills too (#1307).
-- OpenHands `sync --global` writes a remote server's `api_key` as a Bearer header in `mcp.json` and notes a `timeout` it cannot carry (#1306).
-- An ignore spec `import` writes targets the tool it came from, so a multi-target sync no longer reports it as unsupported by the others (#1274).
+- `import` skips all `node_modules` directories, including scoped rules and skills for Windsurf and Antigravity (#1307).
+- OpenHands `sync --global` carries remote MCP `api_key` as a Bearer header and reports unsupported `timeout` (#1306).
+- Imported ignore specs target their source tool, avoiding unsupported warnings from other targets (#1274).
 
 ### Fixed
 
-- A spec scoped inside `node_modules` now fails validation, since import no longer reads that folder back (#1321).
-- `doctor` lists every hand-written `BUGBOT.md` under Unmanaged config, nested ones such as `api/.cursor/BUGBOT.md` too, not only the root file (#1305).
-- `sync --plan --json` and `sync --dry-run --json` print JSON, and `--json` with `--watch` or `--diff` fails instead of being ignored (#1280).
-- Gemini copies a hook script stashed under another tool, such as `.agnostic-ai/scripts/claude/fmt.sh`, into `.gemini/hooks/` as Codex and Cursor do (#1303).
-- A Codex overlay that ends in a table, such as `[profiles.review]`, no longer captures the `model` and `model_reasoning_effort` sync writes into `.codex/config.toml`.
-- `sync --check` lists drifted files with forward slashes on Windows too, like the rest of the sync output.
-- A scoped rule no longer makes the managed `.gitignore` block ignore its whole directory; the block lists the scoped files instead (#1264).
-- A rule or review scoped inside a dot-folder, such as `.github/workflows`, no longer makes the managed `.gitignore` block ignore that folder (#1304).
-- `import` skips gitignored directories and nested repositories such as agent worktrees, and `--dry-run` no longer copies them or `node_modules` (#1265, #1273).
-- `import gemini` keeps the text above the first `##` of a nested `GEMINI.md` as a rule named after its scope, instead of dropping it (#1314).
-- `import codex` keeps the text above the first `##` of a nested `AGENTS.md` as a rule named after its scope, instead of dropping it (#1292).
-- `import gemini` keeps the root `GEMINI.md` out of the rules and names a scoped rule after its scope, such as `api.md`, as `import codex` does (#1302).
-- `import codex` keeps the root `AGENTS.md` out of the rules, so `sync` no longer writes its text twice (#1268).
-- `import codex` names a scoped rule after its scope, such as `api.md` for `services/api/AGENTS.md`, not after the checkout's folder (#1267).
-- `import` reads a symlinked skill folder that resolves inside the project, and names one that links outside instead of dropping it silently (#1266).
-- `sync --check` lists a spec change as out of date and keeps "edited locally" (JSON `edited`) for a file changed since the last sync (#1270).
-- Ignore specs survive Prettier: sync reads patterns from fenced code blocks, and `import` writes the patterns in one (#1275).
-- `import cursor` reads root and nested `.cursor/BUGBOT.md` files into review specs with their scope, so doctor's advice to run it works (#1276).
-- The first `sync` after `import` replaces the nested `AGENTS.md` files import captured; one edited since quotes the line no spec holds (#1269).
-- `init --from <cli> --dry-run` also lists the files the import would write, as `import --dry-run` does (#1272).
+- Scoped rules and reviews no longer make `.gitignore` hide their whole directory, including dot-folders (#1264, #1304).
+- `import` and its dry run skip gitignored directories and nested repositories; dry runs also skip `node_modules` (#1265, #1273).
+- Codex and Gemini imports preserve scoped instruction preambles and name rules after their scope (#1267, #1292, #1302, #1314).
+- Codex and Gemini imports exclude root instruction files from rules, preventing duplicate output (#1268, #1302).
+- `sync` adopts imported nested `AGENTS.md` files and identifies any later edits missing from specs (#1269).
+- `import` reads skill symlinks within the project and reports links outside it (#1266).
+- `import cursor` reads root and nested `BUGBOT.md` as scoped reviews; `doctor` lists all unmanaged copies (#1276, #1305).
+- `init --from <cli> --dry-run` lists files the import would write (#1272).
+- `sync --check` distinguishes spec drift from local edits and uses forward slashes on Windows (#1270).
+- `sync --plan` and `--dry-run` honor `--json`; `--watch` and `--diff` reject it (#1280).
+- Codex overlays ending in a table no longer capture top-level `model` and `model_reasoning_effort` settings.
+- Gemini copies hook scripts from other tools' source folders into `.gemini/hooks/`, matching Codex and Cursor (#1303).
+- Ignore patterns survive Prettier: `import` writes fenced blocks and `sync` reads them (#1275).
+- Validation rejects specs scoped inside `node_modules`, which import skips (#1321).
 
 ### Removed
 
-- Project sync stops writing OpenHands `config.toml` `[mcp]`, which current releases ignore, and removes the old file. Use `sync --global` (#1259).
+- Project sync removes legacy OpenHands `config.toml` MCP output, which current releases ignore. Use `sync --global` (#1259).
 
 ### Site
 
-- The git hooks page has a Node monorepo recipe: pin the CLI, sync on install and checkout, and bootstrap new worktrees.
-- The landing's explorer shows each `.agnostic-ai/` entry beside the real files sync writes for Claude Code, Codex, and Gemini CLI.
-- The landing shows the `.agnostic-ai/` folder: pick an entry to see a source file and the native files sync writes from it.
-- The installation page opens the installer for your OS with an always-visible copy button, then verify, upgrade, and pinning.
-- Docs code blocks use the full content width and a readable text size.
-- Shared links to agnostic-ai.org show a new preview image with the hub logo, the current hero line, and the agnostic-ai.org address.
+- The landing page explorer pairs source specs with native Claude Code, Codex, and Gemini files.
+- Installation docs offer an OS-specific installer, copy button, and steps to verify, upgrade, and pin the CLI.
+- The git hooks guide covers pinned CLI installs, sync on install and checkout, and worktree setup for Node monorepos.
+- Docs code blocks use the full content width and larger text.
+- Shared links show a new preview with the hub logo, hero line, and site address.
 
 ## v0.71.0 - 2026-09-28
 

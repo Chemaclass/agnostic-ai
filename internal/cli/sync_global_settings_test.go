@@ -443,3 +443,86 @@ effort:
 		t.Fatalf("check after sync: %v", err)
 	}
 }
+
+func TestSyncGlobal_SettingsPermissionModeLifecycle(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	path := filepath.Join(home, ".claude", "settings.json")
+	settingsSpec := filepath.Join(source, "settings", "defaults.yaml")
+	original := `{ "permissions": {"allow": ["Read"], "deny": ["Bash(rm:*)"], "ask": ["Write"]}, "hooks": {"Stop": []} }
+`
+	mustWriteGlobalTest(t, path, original)
+	for _, mode := range []string{"plan", "acceptEdits"} {
+		mustWriteGlobalTest(t, settingsSpec, "permissions:\n  default-mode: "+mode+"\n")
+		if _, warnings, err := runGlobalAgentTest("--only", "claude,codex"); err != nil {
+			t.Fatalf("sync: %v\n%s", err, warnings)
+		}
+		got := readGlobalTest(t, path)
+		var doc map[string]any
+		if err := json.Unmarshal([]byte(got), &doc); err != nil {
+			t.Fatal(err)
+		}
+		permissions := doc["permissions"].(map[string]any)
+		if permissions["defaultMode"] != mode || len(permissions) != 4 || doc["hooks"] == nil {
+			t.Errorf("settings: %s", got)
+		}
+		if _, _, err := runGlobalAgentTest("--only", "claude,codex", "--check"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Remove(settingsSpec); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "claude,codex"); err != nil {
+		t.Fatal(err)
+	}
+	if got := readGlobalTest(t, path); got != original {
+		t.Errorf("removal changed handwritten settings: %s", got)
+	}
+}
+
+func TestSyncGlobal_SettingsPermissionModeConflictHint(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "d.yaml"), "permissions:\n  default-mode: plan\n")
+	path := filepath.Join(home, ".claude", "settings.json")
+	original := `{"permissions":{"defaultMode":"default","allow":["Read"]}}`
+	mustWriteGlobalTest(t, path, original)
+	_, _, err := runGlobalAgentTest("--only", "claude")
+	if err == nil || !strings.Contains(err.Error(), `set permissions.default-mode to "default"`) {
+		t.Fatalf("conflict hint: %v", err)
+	}
+	if got := readGlobalTest(t, path); got != original {
+		t.Errorf("conflict changed settings: %s", got)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "claude", "--backup"); err != nil {
+		t.Fatal(err)
+	}
+	if got := readGlobalTest(t, path+".bak"); got != original {
+		t.Errorf("backup changed settings: %s", got)
+	}
+}
+
+func TestSyncGlobal_SettingsPermissionModeNotesUnsupportedFields(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "d.yaml"), `model: opus
+permissions:
+  default-mode: invalid
+  allow: [Read]
+  deny: [Write]
+  ask: [Bash]
+x-claude:
+  permissions:
+    defaultMode: plan
+`)
+	_, warnings, err := runGlobalAgentTest("--only", "claude,codex")
+	if err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	for _, want := range []string{"permissions.default-mode", "permissions.allow", "permissions.deny", "permissions.ask", "x-claude.permissions.defaultMode", "invalid", "use permissions.default-mode", "codex"} {
+		if !strings.Contains(warnings, want) {
+			t.Errorf("missing %q: %s", want, warnings)
+		}
+	}
+	if got := readGlobalTest(t, filepath.Join(home, ".claude", "settings.json")); strings.Contains(got, "permissions") {
+		t.Errorf("unsupported permissions written: %s", got)
+	}
+}

@@ -474,12 +474,24 @@ effort:
 | Target | File | Keys |
 |---|---|---|
 | codex | `~/.codex/config.toml` | `model`, `model_reasoning_effort` |
-| claude | `~/.claude/settings.json` | `model`, `effortLevel` |
+| claude | `~/.claude/settings.json` | `model`, `effortLevel`, `permissions.defaultMode` |
 | copilot | `~/.copilot/settings.json` | `model`, `effortLevel` |
 | qoder | `~/.qoder/settings.json` | `model.name`, `model.reasoningEffort` |
 | gemini | `~/.gemini/settings.json` | `model.name` |
 
-Other targets raise a coverage note, and so does `permissions` in a global settings spec. Augment's `~/.augment/settings.json` has no default model or effort key but takes `x-augment` keys, such as `shell`. Gemini sets thinking per model, with no default effort key, so `effort` raises a note there. Claude's and Copilot's `effortLevel` take `low`, `medium`, `high`, or `xhigh`; Qoder takes `disabled`, `off`, `none`, `low`, `medium`, `high`, `xhigh`, or `max`; Codex takes any string. A dotted key is a nested JSON object: sync sets `name` inside `model` and leaves the object's other keys alone. `lint --global` (LINT014) and `validate --global` flag a value a target cannot take.
+Other targets raise a coverage note. Global permission lists also raise a note. Augment's `~/.augment/settings.json` has no default model or effort key but takes `x-augment` keys, such as `shell`. Gemini sets thinking per model, with no default effort key, so `effort` raises a note there. Claude's and Copilot's `effortLevel` take `low`, `medium`, `high`, or `xhigh`; Qoder takes `disabled`, `off`, `none`, `low`, `medium`, `high`, `xhigh`, or `max`; Codex takes any string. A dotted key is a nested JSON object: sync sets `name` inside `model` and leaves the object's other keys alone. `lint --global` (LINT014) and `validate --global` flag a value a target cannot take.
+
+Set Claude Code's starting permission mode in a home settings spec:
+
+```yaml
+# ~/.agnostic-ai/settings/defaults.yaml
+permissions:
+  default-mode: acceptEdits
+```
+
+`sync --global --only claude` writes `permissions.defaultMode` in `~/.claude/settings.json` (or under `CLAUDE_CONFIG_DIR`). It accepts `default`, `manual`, `acceptEdits`, `plan`, `auto`, `dontAsk`, and `bypassPermissions`. A later settings spec wins. Sync owns only this key, so hand-written `allow`, `deny`, and `ask` rules stay. Removing the field removes the managed mode unless you changed it by hand.
+
+Other targets report a coverage note for this field. Codex's approval and sandbox choices remain separate: set `x-codex.approval_policy` and `x-codex.sandbox_mode`. Permission lists are not synced globally. Claude's `auto` and `bypassPermissions` modes require user, managed, or explicit session settings; project settings cannot enable them. See [Claude's mode reference](https://code.claude.com/docs/en/settings-reference#permissions-defaultmode).
 
 Each layer overrides the one before it:
 
@@ -494,7 +506,7 @@ Sync edits only the keys it writes and records them in `state/global.json`. Ever
 - A key that already holds the value sync would write is adopted, and sync names it. Moving a setting you set by hand into the home produces no diff.
 - A key with another value stops the run before writes and names the file, the key, and both values. Codex's `/model` picker saves its choice to `config.toml`, so this is normal use: the message prints the target line to put in the spec to keep the new value. `--backup` overwrites the key instead and keeps `<path>.bak`.
 - `--dry-run` lists each key a write sets or removes, and `--check` fails on a changed key.
-- An `x-<target>` block sets that target's own keys in the same file, with the same per-key ownership. A nested object merges leaf by leaf, so `x-claude.statusLine.command` leaves a `statusLine.padding` you set by hand alone, and an `x-claude` key wins over the portable field it shares a key with. Codex takes top-level scalars and arrays, such as `x-codex.model_reasoning_summary` or `x-codex.notify`; a table such as `profiles` raises a coverage note. `x-claude.hooks` and `x-claude.permissions` raise one too: hook specs own the first, and the second needs its own design. A later spec wins key by key, and `null` drops a key an earlier spec set.
+- An `x-<target>` block sets that target's own keys in the same file, with the same per-key ownership. A nested object merges leaf by leaf, so `x-claude.statusLine.command` leaves a `statusLine.padding` you set by hand alone, and an `x-claude` key wins over the portable field it shares a key with. Codex takes top-level scalars and arrays, such as `x-codex.model_reasoning_summary` or `x-codex.notify`; a table such as `profiles` raises a coverage note. `x-claude.hooks` and `x-claude.permissions` raise one too: hook specs own the first, and the second uses the portable `permissions.default-mode` field for its default mode; rule lists remain unsupported. A later spec wins key by key, and `null` drops a key an earlier spec set.
 - `agnostic-ai explain --global settings/defaults.yaml` names the file and key each target gets from that spec. A key a later spec overrides is not listed. `explain --global` takes any global spec, so `explain --global agents/reviewer.md` lists each user-level agent file.
 
 ### MCP servers {#global-mcp-servers}

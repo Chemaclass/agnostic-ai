@@ -111,6 +111,8 @@ Disabled MCP servers are tracked in `.claude/.agnostic-ai-mcp-disabled.json`, wh
 
 ## Claude settings
 
+For user settings, `sync --global --only claude` maps `permissions.default-mode` from a home settings spec to `permissions.defaultMode` in `~/.claude/settings.json`. It preserves hand-written permission rules. See [global settings](@/docs/configuration.md#global-default-model-and-effort) for modes, ownership, and conflict handling.
+
 The `outputs.claude.settings` block declares first-class `.claude/settings.json` keys. Layers, from lowest to highest precedence:
 
 1. Captured overlay (from `import claude`).
