@@ -10,11 +10,16 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - `sync --keep-edits` leaves each output edited since the last sync in place and names it, so a git hook never overwrites a hand edit (#1271).
 
+### Changed
+
+- An ignore spec `import` writes targets the tool it came from, so a multi-target sync no longer reports it as unsupported by the others (#1274).
+
 ### Fixed
 
 - A scoped rule no longer makes the managed `.gitignore` block ignore its whole directory; the block lists the scoped files instead (#1264).
 - `sync --check` lists a spec change as out of date and keeps "edited locally" (JSON `edited`) for a file changed since the last sync (#1270).
 - Ignore specs survive Prettier: sync reads patterns from fenced code blocks, and `import` writes the patterns in one (#1275).
+- `import cursor` reads root and nested `.cursor/BUGBOT.md` files into review specs with their scope, so doctor's advice to run it works (#1276).
 
 ### Removed
 
@@ -22,6 +27,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Site
 
+- The git hooks page has a Node monorepo recipe: pin the CLI, sync on install and checkout, and bootstrap new worktrees.
 - The landing's targets section names all 25 targets as links in place of the animated fan.
 - The landing shows the `.agnostic-ai/` folder: pick an entry to see a source file and the native files sync writes from it.
 - The installation page opens the installer for your OS with an always-visible copy button, then verify, upgrade, and pinning.

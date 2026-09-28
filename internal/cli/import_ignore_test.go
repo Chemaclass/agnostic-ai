@@ -27,7 +27,7 @@ func TestImportIgnore_PreservesHandAuthoredPatternsOnEveryTarget(t *testing.T) {
 			execCLI(t, "import", target)
 
 			spec := readFile(t, filepath.Join(dir, ".agnostic-ai", "ignore", target+".md"))
-			for _, want := range []string{"name: " + target, file, "my-secrets/", "*.key"} {
+			for _, want := range []string{"name: " + target, "target: " + target, file, "my-secrets/", "*.key"} {
 				if !strings.Contains(spec, want) {
 					t.Errorf("imported ignore spec missing %q:\n%s", want, spec)
 				}
@@ -41,6 +41,35 @@ func TestImportIgnore_PreservesHandAuthoredPatternsOnEveryTarget(t *testing.T) {
 				t.Errorf("sync changed imported patterns: %q", got)
 			}
 		})
+	}
+}
+
+// An ignore file describes one tool's indexing, so the imported spec
+// targets that tool. Unscoped, it reached every target and a
+// multi-target sync reported it as unsupported by the rest (#1274).
+func TestImportIgnore_TargetsTheToolItCameFrom(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	warnings := captureNotes(t)
+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, cursor]\n")
+	const handAuthored = "/res/*\n"
+	path := filepath.Join(dir, ".cursorignore")
+	writeFile(t, path, handAuthored)
+
+	execCLI(t, "import", "cursor")
+	spec := readFile(t, filepath.Join(dir, ".agnostic-ai", "ignore", "cursor.md"))
+	if !strings.Contains(spec, "\ntarget: cursor\n") {
+		t.Errorf("imported ignore spec does not target cursor:\n%s", spec)
+	}
+
+	execCLI(t, "sync")
+	if strings.Contains(warnings.String(), "unsupported") {
+		t.Errorf("sync reported the imported ignore spec as unsupported: %q", warnings.String())
+	}
+	if got := readFile(t, path); !strings.HasSuffix(got, "\n"+handAuthored) {
+		t.Errorf("sync changed imported patterns: %q", got)
 	}
 }
 
