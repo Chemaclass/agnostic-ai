@@ -19,9 +19,11 @@
 #
 # Output: <run dir>/triage.tsv, one row per lead, likeliest drift first:
 #   target, url, delta path, claim, verdict, probability, p_contradicts, via
-# verdict is contradicts, supports, noul, or paired (a lexical lead with no
-# judgment); via is jev or lexical. A says_nothing answer is kept only when
-# its p_contradicts reaches JEV_KEEP_CONTRADICTS.
+# verdict is contradicts, supports, says_nothing, noul, or paired (a lexical
+# lead with no judgment); via is jev or lexical. A Choice answer is kept only
+# when it is contradicts or its p_contradicts reaches JEV_KEEP_CONTRADICTS.
+# On the replay cases, with every claim of a target in one request, real
+# drift scored p_contradicts 0.63 or more and everything else 0.16 or less.
 #
 # The triage only orders reading. It never clears a row, and it always
 # exits 0, so an audit with no key or no network runs as it would without it.
@@ -37,10 +39,10 @@
 #   JEV_TIMEOUT             seconds per request, default 60
 #   JEV_JOBS                concurrent requests, default 4
 #   JEV_MAX_REQUESTS        request cap per run, default 40
-#   JEV_CLAIMS_PER_REQUEST  Choice questions per request, default 12
+#   JEV_CLAIMS_PER_REQUEST  Choice questions per request, default 40
 #   JEV_PAGE_CHARS          delta characters per request, default 8000
 #   JEV_LEXICAL_LEADS       lexical leads kept per page, default 4
-#   JEV_KEEP_CONTRADICTS    lowest p_contradicts kept on says_nothing, default 0.2
+#   JEV_KEEP_CONTRADICTS    lowest p_contradicts kept as a lead, default 0.4
 #   JEV_TRIES               attempts per request on 429, 5xx, or no answer, default 3
 #   JEV_BACKOFF             seconds times attempt between retries, default 2
 #   JEV_TARGET_FACTS        claim source, default scripts/target-facts.sh
@@ -56,10 +58,10 @@ JEV_MODEL="${JEV_MODEL:-jev-latest}"
 JEV_TIMEOUT="${JEV_TIMEOUT:-60}"
 JEV_JOBS="${JEV_JOBS:-4}"
 JEV_MAX_REQUESTS="${JEV_MAX_REQUESTS:-40}"
-JEV_CLAIMS_PER_REQUEST="${JEV_CLAIMS_PER_REQUEST:-12}"
+JEV_CLAIMS_PER_REQUEST="${JEV_CLAIMS_PER_REQUEST:-40}"
 JEV_PAGE_CHARS="${JEV_PAGE_CHARS:-8000}"
 JEV_LEXICAL_LEADS="${JEV_LEXICAL_LEADS:-4}"
-JEV_KEEP_CONTRADICTS="${JEV_KEEP_CONTRADICTS:-0.2}"
+JEV_KEEP_CONTRADICTS="${JEV_KEEP_CONTRADICTS:-0.4}"
 JEV_TRIES="${JEV_TRIES:-3}"
 JEV_BACKOFF="${JEV_BACKOFF:-2}"
 JEV_LEXICAL=0
@@ -419,18 +421,16 @@ jev_answers() {
     | @tsv' "$1"
 }
 
-# jev_finish <rows> <out> drops weak says_nothing answers, keeps the
-# strongest row per page and claim, and orders contradicts, strong noul,
-# lexical leads, supports, the rest, each by p_contradicts.
+# jev_finish <rows> <out> keeps Choice answers that are contradicts or reach
+# JEV_KEEP_CONTRADICTS, keeps the strongest row per page and claim, and
+# orders Jev leads by p_contradicts, then strong noul, then lexical leads.
 jev_finish() {
   awk -F '\t' -v keep="$JEV_KEEP_CONTRADICTS" '
-    $5 == "says_nothing" && $7 + 0 < keep + 0 { next }
+    ($5 == "supports" || $5 == "says_nothing") && $7 + 0 < keep + 0 { next }
     {
-      r = 5
-      if ($5 == "contradicts") r = 1
-      else if ($5 == "noul") r = ($6 + 0 >= 0.5) ? 2 : 6
+      r = 1
+      if ($5 == "noul") r = ($6 + 0 >= 0.5) ? 2 : 4
       else if ($5 == "paired") r = 3
-      else if ($5 == "supports") r = 4
       k = $3 "\t" $4
       w = ($5 == "noul") ? $6 : $7
       if (k in rank && (rank[k] < r || (rank[k] == r && weight[k] + 0 >= w + 0))) next
@@ -536,11 +536,15 @@ jev_triage() {
   done
 
   jev_finish "$work/rows" "$out"
-  awk -F '\t' -v n="$n" -v ok="$answered" -v pages="$pages" -v capped="$capped" -v out="$out" -v why="$reason" '
+  local tokens=0
+  if [ "$answered" -gt 0 ]; then
+    tokens=$(cat "$work"/resp/*.json | jq -s 'map(.usage.input_tokens // 0) | add // 0' 2>/dev/null || echo 0)
+  fi
+  awk -F '\t' -v n="$n" -v ok="$answered" -v pages="$pages" -v capped="$capped" -v out="$out" -v why="$reason" -v tokens="$tokens" '
     { rows++; if ($5 == "contradicts") c++; if ($5 == "noul" && $6 >= 0.5) s++; if ($8 == "lexical") l++ }
     END {
       if (n == 0) head = "lexical leads only (" (why != "" ? why : "no claims to ask about") ")"
-      else head = sprintf("%d of %d Jev requests answered", ok, n) (why != "" ? " (" why ")" : "")
+      else head = sprintf("%d of %d Jev requests answered, %d input tokens", ok, n, tokens) (why != "" ? " (" why ")" : "")
       printf "jev-triage: %s over %d page parts%s, %d rows (%d contradicts, %d surface, %d lexical) in %s\n",
         head, pages, (capped ? ", " capped " requests over the cap" : ""), rows, c, s, l, out
     }
@@ -592,19 +596,23 @@ jev_replay() {
     IFS="$TAB" read -r id expected source paired <"$work/cases/$i.meta"
     r="$work/resp/$(printf '%05d' "$i").json"
     if [ -s "$r" ]; then
-      jq -r --arg id "$id" --arg expected "$expected" --arg source "$source" --arg paired "$paired" '
+      jq -r --arg id "$id" --arg expected "$expected" --arg source "$source" --arg paired "$paired" \
+        --arg keep "$JEV_KEEP_CONTRADICTS" '
         .answers.c0 as $a
-        | [$id, $expected, $a.choice, ($a.probabilities[$a.choice] * 100 | round / 100 | tostring),
-           $paired, (if $a.choice == $expected then "ok" else "MISS" end), $source]
+        | ($a.probabilities.contradicts // 0) as $pc
+        | [$id, $expected, $a.choice, ($pc * 100 | round / 100 | tostring),
+           $paired, (if $a.choice == $expected then "ok" else "MISS" end), $source,
+           (if $a.choice == "contradicts" or $pc >= ($keep | tonumber) then "lead" else "-" end)]
         | @tsv' "$r"
     else
-      printf '%s\t%s\t-\t-\t%s\t-\t%s\n' "$id" "$expected" "$paired" "$source"
+      printf '%s\t%s\t-\t-\t%s\t-\t%s\t-\n' "$id" "$expected" "$paired" "$source"
     fi
-  done | awk -F '\t' '
-    BEGIN { printf "%-34s %-13s %-13s %5s  %-6s %-4s %s\n", "case", "expected", "got", "p", "paired", "", "source" }
+  done | awk -F '\t' -v keep="$JEV_KEEP_CONTRADICTS" '
+    BEGIN { printf "%-34s %-13s %-13s %5s  %-6s %-4s %-4s %s\n", "case", "expected", "got", "p_c", "paired", "", "lead", "source" }
     {
-      printf "%-34s %-13s %-13s %5s  %-6s %-4s %s\n", $1, $2, $3, $4, $5, $6, $7
-      if ($2 == "contradicts") { pos++; if ($5 == "yes") lex++; if ($3 == "contradicts") hit++ }
+      printf "%-34s %-13s %-13s %5s  %-6s %-4s %-4s %s\n", $1, $2, $3, $4, $5, $6, $8, $7
+      if ($2 == "contradicts") { pos++; if ($5 == "yes") lex++; if ($3 == "contradicts") hit++; if ($8 == "lead") led++ }
+      else if ($8 == "lead") { stray++ }
       if ($2 == "says_nothing") { neg++; if ($3 == "contradicts") fp++ }
       if ($3 != "-") { judged++; if ($6 == "ok") ok++ }
     }
@@ -615,6 +623,7 @@ jev_replay() {
         printf "\nfalse positives on says_nothing: %d/%d", fp, neg
         if (neg) printf " (%.2f)", fp / neg
         printf "\nexact verdicts: %d/%d\n", ok, judged
+        printf "leads (contradicts or p_contradicts >= %s): %d/%d drifts, %d/%d other cases\n", keep, led, pos, stray, judged - pos
       }
       printf "lexical pairing on contradicts: %d/%d", lex, pos
       if (pos) printf " (%.2f)", lex / pos
