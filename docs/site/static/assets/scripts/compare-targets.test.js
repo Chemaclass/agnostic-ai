@@ -3,7 +3,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
-  addTarget,
   chooseTarget,
   compareRows,
   parseSelection,
@@ -65,9 +64,11 @@ test("choosing a target shown in another column swaps the two", function () {
   assert.deepEqual(chooseTarget(["claude", "codex"], 1, "aider"), ["claude", "aider"]);
 });
 
-test("adding a third target picks the first unused one and stops at three", function () {
-  assert.deepEqual(addTarget(["claude", "codex"], known), ["claude", "codex", "cursor"]);
-  assert.deepEqual(addTarget(["claude", "codex", "aider"], known), ["claude", "codex", "aider"]);
+test("the third column is optional and never repeats another column", function () {
+  assert.deepEqual(chooseTarget(["claude", "codex"], 2, "cursor"), ["claude", "codex", "cursor"]);
+  assert.deepEqual(chooseTarget(["claude", "codex", "cursor"], 2, ""), ["claude", "codex"]);
+  assert.deepEqual(chooseTarget(["claude", "codex"], 2, "claude"), ["claude", "codex"]);
+  assert.deepEqual(chooseTarget(["claude", "codex"], 0, ""), ["claude", "codex"]);
 });
 
 test("a row differs when any state differs, not when only paths differ", function () {

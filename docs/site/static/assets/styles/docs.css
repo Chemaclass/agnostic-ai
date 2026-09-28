@@ -1157,23 +1157,6 @@
   gap: 0.6rem 1.25rem;
 }
 
-.compare-button {
-  min-height: 2.75rem;
-  padding-inline: 0.85rem;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--ink-soft);
-  font-family: var(--mono);
-  font-size: 0.74rem;
-  cursor: pointer;
-}
-
-.compare-button:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
 .compare-diff-toggle {
   min-height: 2.75rem;
   display: inline-flex;

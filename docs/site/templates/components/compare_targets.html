@@ -7,9 +7,12 @@
   <script type="application/json" data-compare-data>{"states":[{% for state in matrix.states %}{% if not loop.first %},{% endif %}{"id":{{ state.id | json_encode | safe }},"label":{{ state.label | json_encode | safe }}}{% endfor %}],"features":[{% for feature in matrix.features %}{% if not loop.first %},{% endif %}{"id":{{ feature.id | json_encode | safe }},"label":{{ feature.label | json_encode | safe }},"href":{{ get_url(path=feature.href) | json_encode | safe }},"toolSpecific":{% if feature.tool_specific %}true{% else %}false{% endif %}}{% endfor %}],"targets":[{% for target in matrix.targets %}{% for candidate in compare.targets %}{% if candidate.id == target.id %}{% set_global outputs = candidate %}{% endif %}{% endfor %}{% if not loop.first %},{% endif %}{"id":{{ target.id | json_encode | safe }},"name":{{ target.name | json_encode | safe }},"href":{{ get_url(path=target.href) | json_encode | safe }},"statuses":{{ target.statuses | json_encode | safe }},"paths":[{% for kind in outputs.kinds %}{% if not loop.first %},{% endif %}{{ kind.paths | json_encode | safe }}{% endfor %}]}{% endfor %}]}</script>
   <form class="compare-controls" data-compare-form hidden>
     {%- for slot in ["a", "b", "c"] %}{% if slot == "a" %}{% set chosen = "claude" %}{% elif slot == "b" %}{% set chosen = "codex" %}{% else %}{% set chosen = "" %}{% endif %}
-    <label class="compare-picker" data-compare-slot="{{ slot }}"{% if slot == "c" %} hidden{% endif %}>
-      <span>Target {{ slot | upper }}</span>
+    <label class="compare-picker" data-compare-slot="{{ slot }}">
+      <span>Target {{ slot | upper }}{% if slot == "c" %} (optional){% endif %}</span>
       <select name="{{ slot }}">
+        {%- if slot == "c" %}
+        <option value="" selected>None</option>
+        {%- endif %}
         {%- for target in matrix.targets %}
         <option value="{{ target.id }}"{% if target.id == chosen %} selected{% endif %}>{{ target.name }}</option>
         {%- endfor %}
@@ -17,8 +20,6 @@
     </label>
     {%- endfor %}
     <div class="compare-actions">
-      <button class="compare-button" type="button" data-compare-add>Add a third target</button>
-      <button class="compare-button" type="button" data-compare-remove hidden>Remove target C</button>
       <label class="compare-diff-toggle"><input type="checkbox" name="diff" data-compare-diff-only> Show only differences</label>
     </div>
   </form>

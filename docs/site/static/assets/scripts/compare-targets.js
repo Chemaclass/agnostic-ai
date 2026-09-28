@@ -77,24 +77,24 @@
   }
 
   // Puts id in the slot. When another slot already shows id, that slot takes
-  // the slot's previous target, so the columns stay distinct.
+  // the slot's previous target, so the columns stay distinct. An empty id
+  // clears the optional third slot. An empty third slot has no target to
+  // hand over, so choosing a target another column shows leaves it empty.
   function chooseTarget(ids, slot, id) {
     const next = ids.slice();
+    if (!id) {
+      return slot === SLOTS.length - 1 ? next.slice(0, slot) : next;
+    }
     const previous = next[slot];
     const clash = next.indexOf(id);
+    if (clash !== -1 && clash !== slot && !previous) {
+      return next;
+    }
     next[slot] = id;
     if (clash !== -1 && clash !== slot) {
       next[clash] = previous;
     }
     return next;
-  }
-
-  function addTarget(ids, known) {
-    if (ids.length >= SLOTS.length) {
-      return ids.slice();
-    }
-    const id = firstUnused(known, ids, []);
-    return id ? ids.concat([id]) : ids.slice();
   }
 
   function selectedTargets(data, ids) {
@@ -183,10 +183,8 @@
     const notice = browserRoot.querySelector("[data-compare-notice]");
     const empty = browserRoot.querySelector("[data-compare-empty]");
     const fallback = browserRoot.querySelector("[data-compare-fallback]");
-    const addButton = browserRoot.querySelector("[data-compare-add]");
-    const removeButton = browserRoot.querySelector("[data-compare-remove]");
     const diffOnly = browserRoot.querySelector("[data-compare-diff-only]");
-    if (!payload || !form || !head || !body || !summary || !noneLine || !result || !notice || !empty || !addButton || !removeButton || !diffOnly) {
+    if (!payload || !form || !head || !body || !summary || !noneLine || !result || !notice || !empty || !diffOnly) {
       return false;
     }
 
@@ -199,7 +197,6 @@
     const known = data.targets.map(function (target) { return target.id; });
     const labels = new Map(data.states.map(function (state) { return [state.id, state.label]; }));
     const selects = SLOTS.map(function (slot) { return form.elements[slot]; });
-    const slotLabels = SLOTS.map(function (slot) { return form.querySelector('[data-compare-slot="' + slot + '"]'); });
     let ids = [];
 
     function element(tag, className, text) {
@@ -338,13 +335,8 @@
 
     function renderControls() {
       selects.forEach(function (select, index) {
-        if (ids[index]) {
-          select.value = ids[index];
-        }
+        select.value = ids[index] || "";
       });
-      slotLabels[2].hidden = ids.length < 3;
-      addButton.hidden = ids.length >= 3;
-      removeButton.hidden = ids.length < 3;
     }
 
     function applyDiffFilter(rows) {
@@ -379,16 +371,6 @@
       });
     });
 
-    addButton.addEventListener("click", function () {
-      update(addTarget(ids, known));
-      selects[2].focus();
-    });
-
-    removeButton.addEventListener("click", function () {
-      update(ids.slice(0, 2));
-      addButton.focus();
-    });
-
     diffOnly.addEventListener("change", function () {
       applyDiffFilter(compareRows(data, ids));
     });
@@ -414,7 +396,6 @@
   }
 
   return {
-    addTarget: addTarget,
     chooseTarget: chooseTarget,
     compareRows: compareRows,
     init: init,

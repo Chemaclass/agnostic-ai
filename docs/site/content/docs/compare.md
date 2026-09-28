@@ -12,7 +12,7 @@ scripts = ["assets/scripts/compare-targets.js"]
 # Compare targets
 
 
-Pick two tools to see what `agnostic-ai sync` writes for each spec kind, and where. Add a third target when you need one. The page URL keeps the choice, so you can share a comparison.
+Pick two tools to see what `agnostic-ai sync` writes for each spec kind, and where. Target C is optional: pick one to compare three. The page URL keeps the choice, so you can share a comparison.
 
 {{ <compare_targets /> }}
 
