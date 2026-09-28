@@ -41,7 +41,7 @@ func importFromCrush(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	skills, err := importSkillFolders(filepath.Join(root, crushSkillsDir), filepath.Join(root, src.Skills))
+	skills, err := importSkillFolders(root, filepath.Join(root, crushSkillsDir), filepath.Join(root, src.Skills))
 	if err != nil {
 		return err
 	}

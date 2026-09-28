@@ -66,7 +66,7 @@ func importFromTrae(root string, src config.Sources) error {
 		return err
 	}
 	c.agents += nativeAgents
-	folderSkills, err := importSkillFolders(filepath.Join(root, traeSkillsDir), filepath.Join(root, src.Skills))
+	folderSkills, err := importSkillFolders(root, filepath.Join(root, traeSkillsDir), filepath.Join(root, src.Skills))
 	if err != nil {
 		return err
 	}

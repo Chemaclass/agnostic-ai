@@ -105,7 +105,7 @@ func importFromCline(root string, src config.Sources) error {
 		if !dirExists(filepath.Join(root, filepath.Dir(skillsDir))) {
 			continue
 		}
-		folderSkills, err := importSkillFoldersWith(filepath.Join(root, skillsDir), filepath.Join(root, src.Skills), skillFolderImportOpts{SkipNames: seenSkills})
+		folderSkills, err := importSkillFoldersWith(root, filepath.Join(root, skillsDir), filepath.Join(root, src.Skills), skillFolderImportOpts{SkipNames: seenSkills})
 		if err != nil {
 			return err
 		}

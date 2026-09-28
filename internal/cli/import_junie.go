@@ -80,7 +80,7 @@ func importFromJunie(root string, src config.Sources) error {
 	}
 	seenSkills := map[string]bool{}
 	for _, skillsDir := range []string{junieSkillsDir, ".agents/skills"} {
-		folderSkills, err := importSkillFoldersWith(filepath.Join(root, skillsDir), filepath.Join(root, src.Skills), skillFolderImportOpts{SkipNames: seenSkills})
+		folderSkills, err := importSkillFoldersWith(root, filepath.Join(root, skillsDir), filepath.Join(root, src.Skills), skillFolderImportOpts{SkipNames: seenSkills})
 		if err != nil {
 			return err
 		}

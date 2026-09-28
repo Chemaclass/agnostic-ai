@@ -298,7 +298,7 @@ func importFromAntigravity(root string, src config.Sources, cfg *config.Config) 
 	if !dirExists(skillsDir) {
 		skillsDir = filepath.Join(root, ".agent", "skills")
 	}
-	nativeSkills, err := importSkillFolders(skillsDir, filepath.Join(root, src.Skills))
+	nativeSkills, err := importSkillFolders(root, skillsDir, filepath.Join(root, src.Skills))
 	if err != nil {
 		return err
 	}

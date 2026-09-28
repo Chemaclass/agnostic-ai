@@ -253,7 +253,7 @@ func importFromWindsurf(root string, src config.Sources, cfg *config.Config) err
 	c.agents += nativeAgents
 	seenSkills := map[string]bool{}
 	for _, skillsDir := range windsurfSkillsDirs {
-		folderSkills, err := importSkillFoldersWith(filepath.Join(root, skillsDir), filepath.Join(root, src.Skills), skillFolderImportOpts{
+		folderSkills, err := importSkillFoldersWith(root, filepath.Join(root, skillsDir), filepath.Join(root, src.Skills), skillFolderImportOpts{
 			SkipNames:      seenSkills,
 			TransformSkill: normalizeWindsurfSkill,
 		})

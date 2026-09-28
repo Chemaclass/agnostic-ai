@@ -275,15 +275,24 @@ func regularFileInside(root, path string) bool {
 	if err != nil || !info.Mode().IsRegular() {
 		return false
 	}
+	rel, inside := resolvedInside(root, resolved)
+	return inside && !importSandboxOutsideFiles[rel]
+}
+
+// resolvedInside reports whether resolved, a path with its symlinks
+// already resolved, sits inside root, and returns it relative to root.
+func resolvedInside(root, resolved string) (string, bool) {
 	absRoot, err := filepath.Abs(root)
 	if err != nil {
-		return false
+		return "", false
 	}
 	base, err := filepath.EvalSymlinks(absRoot)
 	if err != nil {
-		return false
+		return "", false
 	}
 	rel, err := filepath.Rel(base, resolved)
-	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) &&
-		!importSandboxOutsideFiles[rel]
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	return rel, true
 }

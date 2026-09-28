@@ -14,9 +14,10 @@ import (
 // Sequential test use only.
 var importSandbox string
 
-// importSandboxOutsideFiles holds the files of importSandbox, relative to
-// it, that the copy took from links leaving the project. They still count
-// as outside, so a preview skips what the real import skips.
+// importSandboxOutsideFiles holds the files and directories of
+// importSandbox, relative to it, that the copy took from links leaving the
+// project. They still count as outside, so a preview skips what the real
+// import skips.
 var importSandboxOutsideFiles map[string]bool
 
 // importRunSources names every source of a multi-source `import` run

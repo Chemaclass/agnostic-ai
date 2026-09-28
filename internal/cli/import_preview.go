@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"maps"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -264,8 +265,8 @@ func isBinary(data []byte) bool {
 
 // previewCopy is what copyImportPreviewTree reports about a copy.
 type previewCopy struct {
-	// outsideFiles holds the copied files that came from outside the
-	// project, relative to the copy.
+	// outsideFiles holds the copied files and directories that came from
+	// outside the project, relative to the copy.
 	outsideFiles map[string]bool
 	// nested holds the directories, slash-form and relative to the copy,
 	// whose own .git entry the copy dropped.
@@ -347,14 +348,20 @@ func importPreviewKeeps(project string) previewKeep {
 }
 
 // previewCopier holds the state of one copyImportPreviewTree call.
-// visited guards against a cycle of symlinks to directories outside the
-// project. outside is set while copying a directory linked from outside.
+// visited holds the directories one project link copies by content: the
+// link's target, and each directory a link inside that copy reaches,
+// followed once so a cycle stops and a web of package links stays small.
+// Every project link starts a fresh set.
+// detached is set while copying a linked directory by content, whose
+// paths are not the project's; outside, while that directory lies
+// outside the project.
 type previewCopier struct {
 	root         string
 	dstRoot      string
 	tree         importTree
 	keep         previewKeep
 	visited      map[string]bool
+	detached     bool
 	outside      bool
 	outsideFiles map[string]bool
 	nested       map[string]bool
@@ -388,13 +395,13 @@ func (c previewCopier) copyDir(from, to string) error {
 			if rel == "." {
 				return nil
 			}
-			if !c.outside && c.leavesOut(filepath.ToSlash(rel)) {
+			if (c.detached && d.Name() == "node_modules") || (!c.detached && c.leavesOut(filepath.ToSlash(rel))) {
 				return filepath.SkipDir
 			}
 			return os.Mkdir(target, info.Mode().Perm()|0o700)
 		case d.Type().IsRegular():
 			if c.outside {
-				c.noteOutsideFile(target)
+				c.noteOutside(target)
 			}
 			return copyPreviewFile(path, target, info.Mode().Perm())
 		}
@@ -434,7 +441,7 @@ func (c previewCopier) leavesOut(rel string) bool {
 }
 
 func (c previewCopier) noteNested(dir string) {
-	if c.outside {
+	if c.detached {
 		return
 	}
 	if rel, err := filepath.Rel(c.dstRoot, dir); err == nil && rel != "." {
@@ -442,42 +449,75 @@ func (c previewCopier) noteNested(dir string) {
 	}
 }
 
-func (c previewCopier) noteOutsideFile(target string) {
+func (c previewCopier) noteOutside(target string) {
 	if rel, err := filepath.Rel(c.dstRoot, target); err == nil {
 		c.outsideFiles[rel] = true
 	}
 }
 
+// copySymlink recreates a link inside the project as a relative link, so
+// the copy keeps the same shape. A link that leaves the project, or whose
+// target the copy leaves out, is copied by content instead, so an import
+// reading through it finds the same files.
 func (c previewCopier) copySymlink(link, target string) error {
 	resolved, err := filepath.EvalSymlinks(link)
 	if err != nil {
 		return nil // dangling: an import reading it finds nothing either
 	}
-	if inside, err := filepath.Rel(c.root, resolved); err == nil && inside != ".." &&
-		!strings.HasPrefix(inside, ".."+string(filepath.Separator)) {
+	info, err := os.Stat(resolved)
+	if err != nil {
+		return fmt.Errorf("%s: %w", link, err)
+	}
+	inside, err := filepath.Rel(c.root, resolved)
+	outside := err != nil || inside == ".." || strings.HasPrefix(inside, ".."+string(filepath.Separator))
+	if !outside && !c.targetLeftOut(filepath.ToSlash(inside), info.IsDir()) {
 		rel, err := filepath.Rel(filepath.Dir(target), filepath.Join(c.dstRoot, inside))
 		if err != nil {
 			return fmt.Errorf("%s: %w", link, err)
 		}
 		return os.Symlink(rel, target)
 	}
-	info, err := os.Stat(resolved)
-	if err != nil {
-		return fmt.Errorf("%s: %w", link, err)
-	}
 	if !info.IsDir() {
-		c.noteOutsideFile(target)
+		if outside {
+			c.noteOutside(target)
+		}
 		return copyPreviewFile(resolved, target, info.Mode().Perm())
 	}
-	if c.visited[resolved] {
-		return nil
+	if c.detached {
+		if c.visited[resolved] {
+			return nil
+		}
+		c.visited[resolved] = true
+	} else {
+		c.visited = map[string]bool{resolved: true}
 	}
-	c.visited[resolved] = true
 	if err := os.Mkdir(target, info.Mode().Perm()|0o700); err != nil {
 		return fmt.Errorf("%s: %w", target, err)
 	}
-	c.outside = true
+	if outside {
+		c.noteOutside(target)
+	}
+	c.detached, c.outside = true, c.outside || outside
 	return c.copyDir(resolved, target)
+}
+
+// targetLeftOut reports whether the copy leaves out the project path rel
+// a link points at, or a directory above it.
+func (c previewCopier) targetLeftOut(rel string, isDir bool) bool {
+	dir := rel
+	if !isDir {
+		dir = path.Dir(rel)
+	}
+	if dir == "." {
+		return false
+	}
+	segs := strings.Split(dir, "/")
+	for i := range segs {
+		if c.leavesOut(strings.Join(segs[:i+1], "/")) {
+			return true
+		}
+	}
+	return false
 }
 
 func copyPreviewFile(from, to string, perm fs.FileMode) error {

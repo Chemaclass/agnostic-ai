@@ -74,10 +74,10 @@ func importClaudeSkills(root, dstDir string, layout claudeLayout) (int, error) {
 	codexPresent := codexTreeExists(root)
 	count := 0
 	for _, e := range entries {
-		if !e.IsDir() {
+		skillSrc, ok := skillFolderSource(root, src, dstDir, e)
+		if !ok {
 			continue
 		}
-		skillSrc := filepath.Join(src, e.Name())
 		if _, err := os.Stat(filepath.Join(skillSrc, "SKILL.md")); errors.Is(err, fs.ErrNotExist) {
 			continue
 		} else if err != nil {
