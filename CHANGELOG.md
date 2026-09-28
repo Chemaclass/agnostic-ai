@@ -6,6 +6,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### Fixed
+
+- A root skill that links to a package's nested skill folder imports once, at the root path, with a note naming the skipped path (#1338).
+
 ### Changed
 
 - `import codex` and `import gemini` name section rules from a nested file after their scope, such as `api-tests.md`, instead of `tests-2.md` (#1337).
