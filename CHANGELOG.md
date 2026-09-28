@@ -10,7 +10,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - `import claude` points imported paths such as `.claude/skills/<name>/` at their sources and drops `@` lines for imported rules; `lint` warns on the rest (#1326).
 - `import claude` keeps a `CLAUDE.md` that imports `@AGENTS.md` for Claude only, and sync replaces nested companions instead of failing (#1336).
+- `import claude` leaves a hook unpinned when Codex runs it as written, and `sync` notes a Codex edit hook reading `tool_input.file_path` (#1328).
+- `import claude` writes permission lists to a settings spec, so `lint` flags a mid-command `*` in allow and deny rules, and Codex gets its coverage note (#1329).
 - A root skill that links to a package's nested skill folder imports once, at the root path, with a note naming the skipped path (#1338).
+- `sync --keep-edits --quiet` still reports each kept file, on stderr, instead of printing nothing (#1333).
 
 ### Changed
 

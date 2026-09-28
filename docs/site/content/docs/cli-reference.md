@@ -33,7 +33,7 @@ Walkthroughs: [Getting started](@/docs/getting-started.md), [Migration](@/docs/m
 |------|-------------|
 | `-h, --help` | Help for any command, same as `agnostic-ai help <command>`. |
 | `--version` | Print version and exit |
-| `-q, --quiet` | Errors only |
+| `-q, --quiet` | Errors only, plus the `~ kept` lines of `sync --keep-edits`, on stderr |
 | `-v, --verbose` | Increase output verbosity (repeatable). Mutually exclusive with `--quiet`. |
 | `--profile <file>` | Write a `runtime/pprof` CPU profile to `<file>` (or set `AGNOSTIC_AI_PROFILE`). Off by default. Read it with `go tool pprof <file>`. |
 
@@ -167,7 +167,7 @@ LINT007 warns on a frontmatter key agnostic-ai does not read that is one edit fr
 
 LINT015 warns when a spec body names another spec by a target-native path, such as `.claude/skills/style/SKILL.md` or `.agents/skills/style/SKILL.md`. Only one target writes the spec there, so the finding names the `.agnostic-ai/` source path to use instead.
 
-LINT009 warns on a permission that approves more than it says. An `allow` rule such as `Bash(git * main)` puts `*` before the end of the command, so it also matches `git push --force main`. Claude Code warns about the same rule at startup; the targets that translate it widen it without a word. Write the exact value, or keep `*` at the end (`Bash(go test:*)`, `Bash(npm run *)`). `deny` and `ask` rules are skipped, since widening them only blocks or prompts more.
+LINT009 warns on a permission that approves more than it says. An `allow` rule such as `Bash(git * main)` puts `*` before the end of the command, so it also matches `git push --force main`. Claude Code warns about the same rule at startup; the targets that translate it widen it without a word. Write the exact value, or keep `*` at the end (`Bash(go test:*)`, `Bash(npm run *)`). A `deny` rule with the same shape is flagged too: Claude Code matches that `*` literally, so the rule blocks nothing. `ask` rules are skipped, since widening them only prompts more.
 
 LINT011 warns when a target loads more words at the start of every session than [`lint.instructions-words`](@/docs/configuration.md#lint) allows (default 2000). The count covers the target's entry-point file as `sync` writes it, with the `AGNOSTIC_AI.md`, inlined rules, and `local/AGNOSTIC_AI.md` parts shown, plus always-on rule files in the target's own rules folder and every skill and agent description it lists, `x-<target>.description` included. Whether a rule file is always on comes from the adapter that writes it, so one rule can count on Cursor, where `alwaysApply` defaults to true, and not on Kiro, where `globs` becomes `inclusion: fileMatch`. Kilo lists every rule file in `kilo.jsonc` `instructions`, so all of them count. A legacy `rules-file` and rule files `@`-imported into `CLAUDE.md` count whole, except Copilot's legacy file, which keeps only always-on rules. Other `@path` imports are not followed. When the entry point cannot render, such as an `@path` that `sync.resolve-imports: inline` cannot read, LINT011 reports that error as a warning and the other findings still print. Targets that read the same file with the same numbers share one line:
 
@@ -322,7 +322,7 @@ Emit per-target configs, for example `agnostic-ai sync --only claude,cursor`.
 | `--diff` | With `--check`, print a unified diff per drifted file (on-disk vs what sync would write). |
 | `--format <human\|github>` | With `--check`: `human` (default) table or `github` Actions annotations. `--json` wins. |
 | `--backup` | Copy each existing target file to `<path>.bak` before overwriting. Pair with `revert`. |
-| `--keep-edits` | Leave each output edited since the last sync in place, write the rest, and name each kept file as `~ kept <path>`. An edited file the specs no longer produce stays too. Exits 0. For [git hooks](@/docs/git-hooks.md#regenerate-on-checkout). Not with `--check`, `--plan`, `--watch`, or `--global`. |
+| `--keep-edits` | Leave each output edited since the last sync in place, write the rest, and name each kept file as `~ kept <path>`. An edited file the specs no longer produce stays too. `--quiet` still prints these lines, on stderr. Exits 0. For [git hooks](@/docs/git-hooks.md#regenerate-on-checkout). Not with `--check`, `--plan`, `--watch`, or `--global`. |
 | `--gitignore <on\|off>` | Override `gitignore.enabled` for this run. |
 | `--watch` | Stay running and re-emit on changes. Incompatible with `--check`. See [watch mode](#watch-mode). |
 | `--watch-poll` | With `--watch`, force the 200 ms polling backend, for network mounts or container volumes where fsnotify misses events. |
