@@ -259,7 +259,7 @@ func TestCopyImportPreviewTree_KeepsInProjectSymlinksAndSkipsGit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := copyImportPreviewTree(src, dst); err != nil {
+	if _, err := copyImportPreviewTree(src, dst, loadImportTree(src), previewKeep{}); err != nil {
 		t.Fatalf("copy: %v", err)
 	}
 
@@ -307,5 +307,70 @@ func TestRemoveImportPreviewDir_RefusesPathsOutsideTempDir(t *testing.T) {
 
 	if _, err := os.Stat(filepath.Join(victim, "keep.md")); err != nil {
 		t.Errorf("a path outside the temp dir root was deleted: %v", err)
+	}
+}
+
+// The preview copies what an import can read and leaves out the rest:
+// installed packages, what git ignores outside the tool folders, and
+// nested repositories. A tool folder or a configured native path stays
+// whole even when git ignores it.
+func TestRunImportInCopy_CopiesOnlyWhatAnImportCanRead(t *testing.T) {
+	dir, _ := gitRepo(t)
+	testutil.Chdir(t, dir)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+		"version: 1\ntargets: [claude, cursor]\noutputs:\n  claude:\n    dir: vendor/.claude\n")
+	writeFile(t, filepath.Join(dir, ".gitignore"),
+		"/dist/\n/vendor/\n/.venv/\n/.cursor/\n/.claude/worktrees/\n/services/web/.cursor/skills/scoped/\n/services/web/.devin/rules/\n")
+	skill := "---\nname: s\ndescription: Test.\n---\n\nBody.\n"
+	for _, p := range []string{
+		"node_modules/pkg/index.js",
+		"services/web/node_modules/pkg/index.js",
+		".opencode/node_modules/pkg/index.js",
+		"dist/app.js",
+		".venv/lib/site.py",
+		"clone/.git",
+		"clone/AGENTS.md",
+		"vendor/composer/autoload.php",
+		".claude/worktrees/wt/.git",
+		".claude/worktrees/wt/AGENTS.md",
+	} {
+		writeFile(t, filepath.Join(dir, p), "x\n")
+	}
+	kept := []string{
+		"AGENTS.md",
+		"services/web/main.go",
+		".cursor/skills/real/SKILL.md",
+		"vendor/.claude/skills/moved/SKILL.md",
+		".claude/skills/local/SKILL.md",
+		".claude/worktrees/fake/AGENTS.md",
+		"services/web/.cursor/skills/scoped/SKILL.md",
+		"services/web/.devin/rules/money.md",
+	}
+	for _, p := range kept {
+		writeFile(t, filepath.Join(dir, p), skill)
+	}
+
+	var missing, copied []string
+	_, err := runImportInCopy([]string{"claude"}, func(_, shadow string, _ *importRecorder) error {
+		for _, p := range kept {
+			if _, err := os.Stat(filepath.Join(shadow, p)); err != nil {
+				missing = append(missing, p)
+			}
+		}
+		for _, p := range []string{"node_modules", "services/web/node_modules", ".opencode/node_modules", "dist", ".venv", "clone", "vendor/composer", ".claude/worktrees/wt"} {
+			if _, err := os.Lstat(filepath.Join(shadow, p)); err == nil {
+				copied = append(copied, p)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("preview: %v", err)
+	}
+	if len(missing) > 0 {
+		t.Errorf("preview copy lost paths an import reads: %v", missing)
+	}
+	if len(copied) > 0 {
+		t.Errorf("preview copy holds paths no import reads: %v", copied)
 	}
 }
