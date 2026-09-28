@@ -78,8 +78,10 @@ preflight: fmt-check lint test
 #
 # The two editor steps need network on a cold machine: npm has to resolve the
 # lockfile and the gradle wrapper has to fetch its distribution. Both cache
-# after the first run. A release gate should build these artifacts, so they
-# stay required rather than being made optional.
+# after the first run. The JetBrains step also needs Java, so it runs only
+# when editors/jetbrains/ differs from its merge base with origin/main, or
+# with FORCE_JETBRAINS=1. CI still runs that job when the CLI surfaces the
+# plugin calls change.
 #
 # Each line is the local equivalent of one job, in the workflow's own order.
 ci-local: fmt-check test-race build lint
@@ -93,11 +95,16 @@ ci-local: fmt-check test-race build lint
 ifeq ($(SKIP_JETBRAINS),1)
 	@echo "ci-local: SKIPPED the JetBrains plugin. This run did NOT gate it."
 else
-	@cd editors/jetbrains && ./gradlew --no-daemon --version >/dev/null || { \
+	@base=$$(git merge-base HEAD origin/main 2>/dev/null || true); \
+	if [ "$(FORCE_JETBRAINS)" != 1 ] && [ -n "$$base" ] && git diff --quiet "$$base" -- editors/jetbrains/ && \
+		[ -z "$$(git ls-files --others --exclude-standard -- editors/jetbrains/)" ]; then \
+		echo "ci-local: editors/jetbrains/ unchanged since $$(git rev-parse --short "$$base"), JetBrains plugin not run. FORCE_JETBRAINS=1 runs it."; \
+		exit 0; \
+	fi; \
+	cd editors/jetbrains && { ./gradlew --no-daemon --version >/dev/null || { \
 		echo "ci-local: JetBrains Gradle could not start. Check Java and Gradle download access."; \
 		echo "  Use SKIP_JETBRAINS=1 only when the JetBrains CI job is covered remotely."; \
-		exit 1; }
-	cd editors/jetbrains && ./gradlew --no-daemon test
+		exit 1; }; } && ./gradlew --no-daemon test
 endif
 	@echo "ci-local: ok"
 
