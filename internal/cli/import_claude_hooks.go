@@ -15,7 +15,7 @@ import (
 )
 
 // importClaudeHooks reads .claude/settings.json and writes one yaml per
-// matcher group into dstDir. Filenames come from hookSpecName so the
+// matcher group into dstDir. Filenames come from claudeHookNamer so the
 // same hook always lands at the same path across re-imports.
 //
 // A matcher block with multiple inner commands renders as a single yaml
@@ -45,6 +45,7 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 	sort.Strings(events)
 
 	pin := newClaudeHookPin(root)
+	namer := newClaudeHookNamer(dstDir)
 	count := 0
 	for _, event := range events {
 		for _, g := range s.Hooks[event] {
@@ -55,7 +56,7 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 			var args []string
 			for _, h := range g.Hooks {
 				if h.Type != "" && h.Type != "command" {
-					n, err := importClaudeNonCommandHook(root, dstDir, event, g.Matcher, h, pin)
+					n, err := importClaudeNonCommandHook(root, dstDir, event, g.Matcher, h, pin, namer)
 					if err != nil {
 						return count, err
 					}
@@ -88,11 +89,12 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 			if len(cmds) == 0 {
 				continue
 			}
-			name := hookSpecName(event, g.Matcher, cmds)
+			name := namer.name(event, g.Matcher, hookRunLabel(cmds[0]), cmds)
 			doc := map[string]any{
-				"name":    name,
-				"event":   event,
-				"matcher": g.Matcher,
+				"name":        name,
+				"description": hookDescription(event, g.Matcher, cmds),
+				"event":       event,
+				"matcher":     g.Matcher,
 			}
 			if len(cmds) == 1 {
 				doc["command"] = cmds[0]
@@ -140,16 +142,19 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 
 // Non-command handlers need separate specs because each has a distinct
 // payload. Command groups retain their existing command-list format.
-func importClaudeNonCommandHook(root, dstDir, event, matcher string, h claudehooks.CommandEntry, pin claudeHookPin) (int, error) {
+func importClaudeNonCommandHook(root, dstDir, event, matcher string, h claudehooks.CommandEntry, pin claudeHookPin, namer *claudeHookNamer) (int, error) {
+	var target string
 	switch h.Type {
 	case "http":
 		if h.URL == "" {
 			return 0, nil
 		}
+		target = h.URL
 	case "mcp_tool":
 		if h.Server == "" || h.Tool == "" {
 			return 0, nil
 		}
+		target = h.Server + "/" + h.Tool
 	case "prompt":
 		if h.Prompt == "" {
 			return 0, nil
@@ -165,8 +170,9 @@ func importClaudeNonCommandHook(root, dstDir, event, matcher string, h claudehoo
 	if err := json.Unmarshal(payload, &doc); err != nil {
 		return 0, fmt.Errorf("parse %s hook: %w", event, err)
 	}
-	name := hookSpecName(event, matcher, []string{string(payload)})
+	name := namer.name(event, matcher, hookHandlerLabel(h.Type, target), []string{string(payload)})
 	doc["name"], doc["event"], doc["matcher"] = name, event, matcher
+	doc["description"] = hookHandlerDescription(h.Type, target, event, matcher)
 	path := filepath.Join(dstDir, name+".yaml")
 	pin.apply(doc, root, path)
 	raw, err := yaml.Marshal(doc)

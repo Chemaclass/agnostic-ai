@@ -12,6 +12,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Fixed
 
+- A fresh `import claude` leaves `lint` quiet: `allowed-tools` moves under `x-claude:`, and hooks get names and descriptions from their command. The summary lists `.claude/` files it left in place and says to delete a `.claude/CLAUDE.md` that sync now writes to `CLAUDE.md` (#1327).
 - `import claude` points imported paths such as `.claude/skills/<name>/` at their sources and drops `@` lines for imported rules; `lint` warns on the rest (#1326).
 - A second `import all` after `sync` no longer turns the generated `CLAUDE.md` or a scoped `.claude/rules/` file into new rules (#1349).
 - `import claude` keeps a `CLAUDE.md` that imports `@AGENTS.md` for Claude only, and sync replaces nested companions instead of failing (#1336).

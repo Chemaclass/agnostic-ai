@@ -187,9 +187,9 @@ Any other setting round-trips through the overlay captured by `agnostic-ai impor
 | `AGENTS.md` or `.claude/AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` (only when no `CLAUDE.md` exists) |
 | `CLAUDE.md` that imports `@AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md`: the `AGENTS.md` text, then the rest of `CLAUDE.md` in a `::target claude` fence (no rules) |
 | `.claude/agents/*.md` | `<agents>/<name>.md` (byte-identical copy) |
-| `.claude/skills/<name>/SKILL.md` | `<skills>/<name>/SKILL.md` |
-| `.claude/commands/*.md` | `<commands>/<name>.md` (byte-identical copy) |
-| `.claude/settings.json` hooks | `<hooks>/<event>[-<matcher-slug>]-<hash8>.yaml` (command hooks keep their grouping; HTTP, MCP-tool, and prompt handlers keep their native fields in separate specs; `target: claude` unless the hook can be shared, see below) |
+| `.claude/skills/<name>/SKILL.md` | `<skills>/<name>/SKILL.md` (`allowed-tools` moves under `x-claude:`) |
+| `.claude/commands/*.md` | `<commands>/<name>.md` (`allowed-tools` moves under `x-claude:`) |
+| `.claude/settings.json` hooks | `<hooks>/<event>[-<matcher>]-<command>.yaml`, such as `pretooluse-bash-exit-0.yaml`, with a `description` that says what runs and when (command hooks keep their grouping; HTTP, MCP-tool, and prompt handlers keep their native fields in separate specs; `target: claude` unless the hook can be shared, see below) |
 | `.claude/settings.json` `permissions.allow`, `ask`, `deny` | `<settings>/permissions-claude.yaml` (a portable settings spec) |
 | `.claude/settings.json` other non-hook keys | `.agnostic-ai/overlays/claude.settings.json` |
 | `.mcp.json` (`mcpServers.<name>`) | `<mcps>/<name>.yaml` (one spec per server) |
@@ -197,6 +197,12 @@ Any other setting round-trips through the overlay captured by `agnostic-ai impor
 When `.claude/rules/` exists (even if empty), `CLAUDE.md` is not sliced, so the on-disk rules are the single source for rule files. `.agnostic-ai/AGNOSTIC_AI.md` is still written from `CLAUDE.md`.
 
 The instructions file is looked up in Claude Code's own order: `CLAUDE.md`, `.claude/CLAUDE.md`, `AGENTS.md`, `.claude/AGENTS.md`. Since v2.1.277, a session with no `CLAUDE.md` at or above the working directory loads `AGENTS.md`, so repos set up for other agents get their real instructions captured. The root `AGENTS.md` step is skipped when `codex`, `amp`, `warp`, `crush`, `kiro`, or `opencode` imports in the same run, since only one importer may slice that file.
+
+When the text comes from `.claude/CLAUDE.md`, sync writes it to the root `CLAUDE.md` and Claude Code loads both files. Import says so: delete `.claude/CLAUDE.md` after the next sync.
+
+`allowed-tools` is a key only Claude Code reads, so import writes it under `x-claude:`, where `lint` accepts it and sync writes it back to the Claude file. A hook name comes from the script or first words of its command; two hooks that share a name keep them apart with a hash. A hook spec an earlier release named `<event>-<matcher>-<hash8>` keeps that name.
+
+The import summary lists each file under `.claude/` it did not read, such as `.claude/templates/post.md`. Sync neither copies nor removes these files, so a skill that reads one still finds it in place, but other tools do not get a copy. Files sync wrote, hidden files, `settings.local.json`, and Claude Code's `worktrees/` and `agent-memory/` folders are not listed.
 
 A `CLAUDE.md` whose instruction is `@AGENTS.md` is a companion that lets Claude Code read `AGENTS.md`. Its import line never reaches other tools. `sync` deletes a nested companion that only imports its `AGENTS.md` (a `# CLAUDE.md` title aside) once `.claude/rules/` holds that directory's scoped rules, so Claude Code does not load them twice. Any other line, headings included, keeps the file, and so does listing it in `sync.unmanaged`; sync then reports it as a conflict with the scoped `AGENTS.md`. `sync --backup` keeps the deleted companion as `CLAUDE.md.bak`, and `revert` restores it.
 
