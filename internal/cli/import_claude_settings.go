@@ -183,7 +183,7 @@ func moveClaudePermissions(root string, doc *adapters.OrderedJSON, settingsDir s
 
 // claudeOwnedPermissionRules returns, per list, the rules sync already
 // writes into settings.json from somewhere other than the spec this
-// import owns: other settings specs, portable or under x-claude, and
+// import owns: other settings specs that reach Claude, portable or under x-claude, and
 // outputs.claude.settings.permissions.
 func claudeOwnedPermissionRules(root, settingsDir string) (map[string]map[string]bool, error) {
 	owned := map[string]map[string]bool{}
@@ -200,6 +200,9 @@ func claudeOwnedPermissionRules(root, settingsDir string) (map[string]map[string
 		return nil, err
 	}
 	for _, entry := range others {
+		if !entry.EmitsTo("claude") {
+			continue
+		}
 		layers := []any{entry.Meta["permissions"]}
 		if hatch, ok := entry.Meta["x-claude"].(map[string]any); ok {
 			layers = append(layers, hatch["permissions"])

@@ -106,3 +106,22 @@ func TestImportClaudeSettingsOverlay_SkipsRulesAnotherSpecOwns(t *testing.T) {
 		t.Errorf("spec lost the Claude-only rule:\n%s", spec)
 	}
 }
+
+// A spec that does not reach Claude writes nothing into settings.json, so
+// the same rule there is Claude's own and moves into the portable spec.
+func TestImportClaudeSettingsOverlay_KeepsRulesASpecForAnotherTargetAlsoLists(t *testing.T) {
+	root := t.TempDir()
+	settingsDir := filepath.Join(root, "settings")
+	writeFile(t, filepath.Join(settingsDir, "codex-only.yaml"), "target: codex\npermissions:\n  deny: [\"Bash(rm:*)\"]\n")
+	writeFile(t, filepath.Join(settingsDir, "not-claude.yaml"), "targets-exclude: [claude]\npermissions:\n  ask: [\"WebFetch\"]\n")
+	writeFile(t, filepath.Join(root, ".claude", "settings.json"),
+		`{"permissions":{"deny":["Bash(rm:*)"],"ask":["WebFetch"]}}`)
+
+	if _, err := importClaudeSettingsOverlay(root, settingsDir); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	spec := readFileString(t, filepath.Join(settingsDir, claudePermissionsSpec+".yaml"))
+	if !strings.Contains(spec, "Bash(rm:*)") || !strings.Contains(spec, "WebFetch") {
+		t.Errorf("spec dropped a rule only a spec for another target lists:\n%s", spec)
+	}
+}
