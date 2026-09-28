@@ -44,6 +44,11 @@ Read-only means no repository or GitHub changes. Temporary reproduction projects
    header, since indentation in a YAML or shell example changes meaning;
    `whitespace-only:truncated` means the line diff was capped, so read the
    full page.
+
+   When the prompt carries `triage.tsv` leads, read their deltas first.
+   Each lead is Jev's verdict on one of our claims against one changed
+   region: a question to settle from the page (step 8), never a finding
+   by itself. A row with no lead still gets read.
 3. Read the saved changelog delta, or the body when there is no delta,
    newest entry first. It names what moved since the last audit faster
    than the docs do.

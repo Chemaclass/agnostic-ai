@@ -45,10 +45,13 @@ Dedupe rules:
 
 Run `scripts/target-facts.sh --changed local/target-audit/<date>-run/docfetch.tsv`. Numbered lines are deep batches of targets whose pages or changelog moved, at most five and sized to available worker slots. The `sweep` line lists targets whose rows are all unchanged; record them as fast path without an agent, since nothing they serve moved since an auditor last read it. For fewer than six deep targets, audit them inline using `.agnostic-ai/agents/target-auditor.md`. Queue batches when needed; every requested target must be assigned exactly once.
 
+Then run `scripts/jev-triage.sh local/target-audit/<date>-run`. It is optional: with no `TYPESAFE_API_KEY`, or on any API error, it prints `jev-triage: skipped (<reason>)`, writes no `triage.tsv`, and the audit proceeds exactly as without it. When `triage.tsv` exists, each row pairs a changed delta region with one of our claims and Jev's verdict with its probability, `contradicts` first; `noul` rows rate whether a changelog region changes a project-scoped config surface. Move targets with a `contradicts` of 0.8 or more, or a `noul` of 0.5 or more, into the earliest batches, and pass each batch its targets' `contradicts` and `noul` rows as leads. A lead is a question, never a fact. Jev never clears a row: every `new` or `changed` row is still read. `scripts/jev-triage.sh --replay scripts/target-audit/triage-cases.tsv` measures its recall on past confirmed drift.
+
 Use `target-auditor` agents named Frodo, Sam, Gandalf, Aragorn, Legolas in batch order. Use returned agent IDs for all messages. Prefer minimal-context spawns when supported. Pass:
 
 - target list, audited commit, date window, repository path;
 - the run directory and the target's own `docfetch.tsv` rows;
+- the target's `triage.tsv` leads, when the file exists;
 - shared issue-index path and relevant published signals;
 - read-only scope and validation budget.
 
