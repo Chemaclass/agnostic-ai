@@ -96,6 +96,72 @@ func TestSyncKeepEdits_KeepsEditedOrphan(t *testing.T) {
 	}
 }
 
+// --quiet suppresses routine output, but a kept edit still needs to reach
+// whoever runs sync from a hook, so it prints on stderr instead.
+func TestSyncKeepEdits_QuietStillPrintsKeptEditOnStderr(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	captureLogOut(t)
+	syncClaudeThenEditSpec(t, dir)
+	entry := filepath.Join(dir, "CLAUDE.md")
+	if err := os.WriteFile(entry, []byte("hand edit\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout string
+	stderr := captureStderr(t, func() {
+		stdout = captureStdout(t, func() {
+			if err := runSyncArgs(t, "--keep-edits", "--quiet"); err != nil {
+				t.Fatalf("sync --keep-edits --quiet: %v", err)
+			}
+		})
+	})
+	if !strings.Contains(stderr, "kept CLAUDE.md") {
+		t.Errorf("--quiet should still report the kept file on stderr, got:\n%s", stderr)
+	}
+	if strings.Contains(stdout, "kept") {
+		t.Errorf("--quiet should not duplicate the kept line on stdout, got:\n%s", stdout)
+	}
+}
+
+// Same as above for an edited orphan: --quiet must still name it on stderr.
+func TestSyncKeepEdits_QuietStillPrintsKeptOrphanOnStderr(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	captureLogOut(t)
+	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [claude]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	spec := filepath.Join(dir, ".agnostic-ai/rules/r2.md")
+	if err := os.WriteFile(spec, []byte("---\nname: r2\n---\nsecond rule"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := runSyncArgs(t); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(dir, ".claude/rules/r2.md")
+	edited := readFile(t, out) + "\nhand edit\n"
+	if err := os.WriteFile(out, []byte(edited), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(spec); err != nil {
+		t.Fatal(err)
+	}
+
+	stderr := captureStderr(t, func() {
+		_ = captureStdout(t, func() {
+			if err := runSyncArgs(t, "--keep-edits", "--quiet"); err != nil {
+				t.Fatalf("sync --keep-edits --quiet: %v", err)
+			}
+		})
+	})
+	if !strings.Contains(stderr, "kept orphan") {
+		t.Errorf("--quiet should still report the kept orphan on stderr, got:\n%s", stderr)
+	}
+}
+
 func TestSyncKeepEditsJSON_ListsKeptFileAsSkippedEdited(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)

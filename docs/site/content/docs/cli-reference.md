@@ -33,7 +33,7 @@ Walkthroughs: [Getting started](@/docs/getting-started.md), [Migration](@/docs/m
 |------|-------------|
 | `-h, --help` | Help for any command, same as `agnostic-ai help <command>`. |
 | `--version` | Print version and exit |
-| `-q, --quiet` | Errors only |
+| `-q, --quiet` | Errors only, plus the `~ kept` lines of `sync --keep-edits`, on stderr |
 | `-v, --verbose` | Increase output verbosity (repeatable). Mutually exclusive with `--quiet`. |
 | `--profile <file>` | Write a `runtime/pprof` CPU profile to `<file>` (or set `AGNOSTIC_AI_PROFILE`). Off by default. Read it with `go tool pprof <file>`. |
 
@@ -320,7 +320,7 @@ Emit per-target configs, for example `agnostic-ai sync --only claude,cursor`.
 | `--diff` | With `--check`, print a unified diff per drifted file (on-disk vs what sync would write). |
 | `--format <human\|github>` | With `--check`: `human` (default) table or `github` Actions annotations. `--json` wins. |
 | `--backup` | Copy each existing target file to `<path>.bak` before overwriting. Pair with `revert`. |
-| `--keep-edits` | Leave each output edited since the last sync in place, write the rest, and name each kept file as `~ kept <path>`. An edited file the specs no longer produce stays too. Exits 0. For [git hooks](@/docs/git-hooks.md#regenerate-on-checkout). Not with `--check`, `--plan`, `--watch`, or `--global`. |
+| `--keep-edits` | Leave each output edited since the last sync in place, write the rest, and name each kept file as `~ kept <path>`. An edited file the specs no longer produce stays too. `--quiet` still prints these lines, on stderr. Exits 0. For [git hooks](@/docs/git-hooks.md#regenerate-on-checkout). Not with `--check`, `--plan`, `--watch`, or `--global`. |
 | `--gitignore <on\|off>` | Override `gitignore.enabled` for this run. |
 | `--watch` | Stay running and re-emit on changes. Incompatible with `--check`. See [watch mode](#watch-mode). |
 | `--watch-poll` | With `--watch`, force the 200 ms polling backend, for network mounts or container volumes where fsnotify misses events. |

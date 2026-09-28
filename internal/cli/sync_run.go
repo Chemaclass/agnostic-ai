@@ -590,10 +590,10 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits bool, 
 		report.removed = append(report.removed, filepath.ToSlash(p))
 	}
 	for _, p := range kept {
-		summaryf("  ~ kept orphan %s (edited since sync; delete it or list it under sync.unmanaged)\n", p)
+		keptf("  ~ kept orphan %s (edited since sync; delete it or list it under sync.unmanaged)\n", p)
 	}
 	for _, p := range keptEdits(sessions) {
-		summaryf("  ~ kept %s (edited since the last sync; move the edit into .agnostic-ai/, then run `agnostic-ai sync`)\n", p)
+		keptf("  ~ kept %s (edited since the last sync; move the edit into .agnostic-ai/, then run `agnostic-ai sync`)\n", p)
 	}
 	// After the sweep, so refused orphan removals are reported too.
 	for _, p := range unmanagedSkips(sessions) {
