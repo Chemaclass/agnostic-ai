@@ -9,6 +9,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### Added
 
 - Codex gets review specs as a `## Code Review Rules` section in the root and scoped `AGENTS.md`, and `import codex` reads it back (#1341).
+- Target audits can rank changed vendor text against agnostic-ai's claims with TypeSafe's Jev, so auditors read likely drift first (#1364).
 
 ### Fixed
 
