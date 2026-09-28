@@ -59,7 +59,9 @@ type txEntry struct {
 
 // WrittenFile is one write event recorded during detailed recording mode.
 // Action is "create" (new file), "update" (existing file with changed
-// content), or "skip" (existing file with identical content, not rewritten).
+// content), "skip" (existing file with identical content, not rewritten),
+// or "edited" (a hand edit KeepEditsSince left in place; Sum is the sum
+// the last sync recorded, so the edit stays visible to the next check).
 //
 // Sum is the ContentSum of the bytes. The sync ledger stores it so a
 // later orphan sweep can prove a header-less file is still the one
@@ -109,6 +111,11 @@ type Session struct {
 	// inlinedRules are the rules EmitWithProvenance left out of this
 	// emit because the entry point carries them.
 	inlinedRules []spec.Entry
+	// keepSums, when non-nil, are the output sums of the last sync: a
+	// write over a file whose bytes no longer match its sum is skipped
+	// and recorded in kept (see KeepEditsSince).
+	keepSums map[string]string
+	kept     []string
 }
 
 // SetUserTier marks a session that writes a tool's user-level
@@ -169,6 +176,50 @@ func (s *Session) UnmanagedSkips() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return append([]string(nil), s.skipped...)
+}
+
+// KeepEditsSince makes this session keep hand edits: a write over a
+// file whose bytes differ both from the new content and from sums[path],
+// the sum the last sync recorded, is skipped. A path with no recorded
+// sum has no proof of an edit and is written. Set before any write.
+func (s *Session) KeepEditsSince(sums map[string]string) {
+	if sums == nil {
+		sums = map[string]string{}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.keepSums = sums
+}
+
+// KeepsEdits reports whether KeepEditsSince was called.
+func (s *Session) KeepsEdits() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.keepSums != nil
+}
+
+// KeptEdits returns the paths this session left alone because they were
+// edited since the last sync, in write order.
+func (s *Session) KeptEdits() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.kept...)
+}
+
+// keepsEdit reports whether a write of content to path must leave a hand
+// edit in place, and returns the sum the last sync recorded for it.
+func (s *Session) keepsEdit(path, content string) (string, bool) {
+	s.mu.Lock()
+	sum := s.keepSums[path]
+	s.mu.Unlock()
+	if sum == "" {
+		return "", false
+	}
+	existing, err := os.ReadFile(path)
+	if err != nil || string(existing) == content || ContentSum(string(existing)) == sum {
+		return "", false
+	}
+	return sum, true
 }
 
 // IsUnmanaged reports whether path matches sync.unmanaged, without
@@ -552,6 +603,17 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	s.mu.Unlock()
 
 	if capturing {
+		return nil
+	}
+	// No lock needed: targets sharing a path write identical bytes, so
+	// once one rewrites an unedited file the others see it current.
+	if sum, keep := s.keepsEdit(path, content); keep {
+		s.mu.Lock()
+		s.kept = append(s.kept, path)
+		if detailing {
+			s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: "edited", Sum: sum})
+		}
+		s.mu.Unlock()
 		return nil
 	}
 	if dryRun {

@@ -243,8 +243,8 @@ func provenanceBatches(cfg *config.Config, targets []string) []provenanceBatch {
 // (unknown target) stay non-fatal and ride along in the result. Without
 // it, every target runs to completion and all errors ride along in the
 // results — the JSON path, which reports per-target errors rather than
-// aborting the whole sync.
-func emitTargetsConcurrent(targets []string, b spec.Bundle, cfg *config.Config, dryRun, backup, gitignoreOn, failFast bool, jobs int) ([]targetEmit, []*adapters.Session, error) {
+// aborting the whole sync. A non-nil keep turns on KeepEditsSince.
+func emitTargetsConcurrent(targets []string, b spec.Bundle, cfg *config.Config, dryRun, backup, gitignoreOn, failFast bool, jobs int, keep map[string]string) ([]targetEmit, []*adapters.Session, error) {
 	results := make([]targetEmit, len(targets))
 	sessions := make([]*adapters.Session, len(targets))
 	for i, t := range targets {
@@ -272,6 +272,9 @@ func emitTargetsConcurrent(targets []string, b spec.Bundle, cfg *config.Config, 
 				sessions[idx] = sess
 				if backup {
 					sess.SetBackup(true)
+				}
+				if keep != nil {
+					sess.KeepEditsSince(keep)
 				}
 				if !dryRun {
 					sess.StartTransaction()
@@ -376,7 +379,13 @@ func normalizeSharedWriteAttribution(emits []targetEmit) {
 	}
 }
 
-func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFlag string, jobs int) (retErr error) {
+func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFlag string, jobs int) error {
+	return runSyncPass(root, targets, dryRun, backup, false, gitignoreFlag, jobs)
+}
+
+// runSyncPass is one sync pass. With keepEdits, an output edited since the
+// last sync is left in place and named, and the rest is written.
+func runSyncPass(root string, targets []string, dryRun, backup, keepEdits bool, gitignoreFlag string, jobs int) (retErr error) {
 	start := time.Now()
 	adapters.ResetCapabilityWarnings()
 	adapters.ResetCoverageNotes()
@@ -419,6 +428,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 		return err
 	}
 	prev := readStateFile(root)
+	keep := keepSums(keepEdits, prev)
 
 	// mainSess drives the serial post-emission writes (entry points,
 	// shared-skill links, orphan sweep). Each concurrent target owns its
@@ -428,6 +438,9 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	mainSess.SetUnmanaged(cfg.Sync.Unmanaged)
 	if backup {
 		mainSess.SetBackup(true)
+	}
+	if keep != nil {
+		mainSess.KeepEditsSince(keep)
 	}
 	var sessions []*adapters.Session
 	if !dryRun {
@@ -452,7 +465,7 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	// Emit every target concurrently (bounded by jobs) on its own session,
 	// collecting per-target results in stable order. The first emit error
 	// cancels the group and trips the rollback above.
-	emits, targetSessions, emitErr := emitTargetsConcurrent(effectiveTargets, b, cfg, dryRun, backup, gitignoreOn, true, jobs)
+	emits, targetSessions, emitErr := emitTargetsConcurrent(effectiveTargets, b, cfg, dryRun, backup, gitignoreOn, true, jobs, keep)
 	for _, s := range targetSessions {
 		if s != nil {
 			sessions = append(sessions, s)
@@ -579,6 +592,9 @@ func runSyncOnce(root string, targets []string, dryRun, backup bool, gitignoreFl
 	for _, p := range kept {
 		summaryf("  ~ kept orphan %s (edited since sync; delete it or list it under sync.unmanaged)\n", p)
 	}
+	for _, p := range keptEdits(sessions) {
+		summaryf("  ~ kept %s (edited since the last sync; move the edit into .agnostic-ai/, then run `agnostic-ai sync`)\n", p)
+	}
 	// After the sweep, so refused orphan removals are reported too.
 	for _, p := range unmanagedSkips(sessions) {
 		summaryf("  ~ skip (unmanaged) %s\n", p)
@@ -624,6 +640,34 @@ func unmanagedSkips(sessions []*adapters.Session) []string {
 	return sortedKeys(seen)
 }
 
+// keptEdits returns every path a session left alone under --keep-edits,
+// deduplicated and sorted, since targets sharing a path each keep it.
+func keptEdits(sessions []*adapters.Session) []string {
+	seen := map[string]struct{}{}
+	for _, s := range sessions {
+		if s == nil {
+			continue
+		}
+		for _, p := range s.KeptEdits() {
+			seen[filepath.ToSlash(p)] = struct{}{}
+		}
+	}
+	return sortedKeys(seen)
+}
+
+// keepSums returns the output sums --keep-edits compares against, or nil
+// when the flag is off. With no ledger yet the map is empty, so nothing
+// is kept.
+func keepSums(keepEdits bool, prev syncStateFile) map[string]string {
+	if !keepEdits {
+		return nil
+	}
+	if prev.OutputSums == nil {
+		return map[string]string{}
+	}
+	return prev.OutputSums
+}
+
 func classifyDetailedWrites(files []adapters.WrittenFile) (created, updated, skipped int) {
 	for _, f := range files {
 		switch f.Action {
@@ -660,7 +704,7 @@ func shortDuration(d time.Duration) string {
 func appendFileRecords(out *jsonOutput, target string, writes []adapters.WrittenFile) {
 	for _, f := range writes {
 		rec := fileRecord{Target: target, Path: f.Path, Action: f.Action, Bytes: f.Bytes}
-		if f.Action == "skip" {
+		if f.Action == "skip" || f.Action == "edited" {
 			out.Skipped = append(out.Skipped, rec)
 		} else {
 			out.Writes = append(out.Writes, rec)
@@ -670,7 +714,7 @@ func appendFileRecords(out *jsonOutput, target string, writes []adapters.Written
 
 // runSyncJSON runs a real sync pass and emits a JSON result describing each
 // file written, updated, or skipped per target.
-func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, backup bool, gitignoreFlag string, jobs int) error {
+func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, backup, keepEdits bool, gitignoreFlag string, jobs int) error {
 	adapters.ResetCapabilityWarnings()
 	adapters.ResetCoverageNotes()
 	defer adapters.ResetCapabilityWarnings()
@@ -691,6 +735,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 		return err
 	}
 	prev := readStateFile(root)
+	keep := keepSums(keepEdits, prev)
 
 	// mainSess handles the serial entry-point and shared-link writes; each
 	// target emits on its own session. The JSON path is not transactional:
@@ -699,6 +744,9 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 	mainSess.SetUnmanaged(cfg.Sync.Unmanaged)
 	if backup {
 		mainSess.SetBackup(true)
+	}
+	if keep != nil {
+		mainSess.KeepEditsSince(keep)
 	}
 	gitignoreOn := !dryRun && resolveGitignore(cfg, gitignoreFlag)
 	if err := shared.reconcile(prev.Outputs, dryRun); err != nil {
@@ -712,7 +760,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, dryRun, back
 
 	// Emit every target concurrently; failFast is off so all per-target
 	// errors ride along in the results and are reported in target order.
-	emits, sessions, _ := emitTargetsConcurrent(effectiveTargets, b, cfg, dryRun, backup, gitignoreOn, false, jobs)
+	emits, sessions, _ := emitTargetsConcurrent(effectiveTargets, b, cfg, dryRun, backup, gitignoreOn, false, jobs, keep)
 	sessions = append(sessions, mainSess)
 	normalizeSharedWriteAttribution(emits)
 	for _, e := range emits {

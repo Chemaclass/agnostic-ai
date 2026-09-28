@@ -6,6 +6,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### Added
+
+- `sync --keep-edits` leaves each output edited since the last sync in place and names it, so a git hook never overwrites a hand edit (#1271).
+
 ### Changed
 
 - An ignore spec `import` writes targets the tool it came from, so a multi-target sync no longer reports it as unsupported by the others (#1274).
