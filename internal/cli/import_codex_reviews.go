@@ -4,11 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // codexReviewHeadings are the H2 slugs Codex code review reads guidance
@@ -46,17 +48,20 @@ func importCodexReviews(root string, src config.Sources) (int, error) {
 		}
 		text := strings.ReplaceAll(string(raw), "\r\n", "\n")
 		body := codexGeneratedReview(text)
-		if body == "" && f.globs != "" {
+		if body == "" && handWrittenNested(f, text) {
 			_, body = splitCodexReviewSections(text)
 		}
 		if body == "" {
 			continue
 		}
 		scope := strings.TrimSuffix(f.globs, "/**")
-		if err := writeReviewSpec(dstDir, cursorReviewSpecName(used, scope), scope, body); err != nil {
+		wrote, err := writeReviewSpec(dstDir, cursorReviewSpecName(used, scope), scope, body)
+		if err != nil {
 			return count, err
 		}
-		count++
+		if wrote {
+			count++
+		}
 	}
 	return count, nil
 }
@@ -105,8 +110,14 @@ func splitCodexReviewSections(text string) (rest, review string) {
 }
 
 // writeReviewSpec writes one review spec, with scope in the frontmatter
-// when it is not the root.
-func writeReviewSpec(dstDir, name, scope, body string) error {
+// when it is not the root. It writes nothing when a spec under dstDir
+// already carries the same scope and body: sync wrote the native file
+// from that spec, and a second copy would render the text twice.
+func writeReviewSpec(dstDir, name, scope, body string) (bool, error) {
+	exists, err := reviewSpecExists(dstDir, scope, body)
+	if err != nil || exists {
+		return false, err
+	}
 	var doc strings.Builder
 	doc.WriteString("---\nname: " + name + "\n")
 	if scope != "" {
@@ -114,11 +125,55 @@ func writeReviewSpec(dstDir, name, scope, body string) error {
 	}
 	doc.WriteString("---\n\n" + strings.Trim(body, "\n") + "\n")
 	if err := importMkdirAll(dstDir, 0o755); err != nil {
-		return fmt.Errorf("mkdir %s: %w", dstDir, err)
+		return false, fmt.Errorf("mkdir %s: %w", dstDir, err)
 	}
 	out := filepath.Join(dstDir, name+".md")
 	if err := importWriteFile(out, []byte(doc.String()), 0o644); err != nil {
-		return fmt.Errorf("write %s: %w", out, err)
+		return false, fmt.Errorf("write %s: %w", out, err)
 	}
-	return nil
+	return true, nil
+}
+
+// reviewSpecExists reports whether a review spec under dir has scope and
+// body. A spec's scope is its folder under dir, or else its frontmatter
+// `scope`, the order the loader uses.
+func reviewSpecExists(dir, scope, body string) (bool, error) {
+	want := strings.TrimSpace(body)
+	found := false
+	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			if errors.Is(walkErr, fs.ErrNotExist) {
+				return filepath.SkipAll
+			}
+			return walkErr
+		}
+		if d.IsDir() || filepath.Ext(p) != ".md" {
+			return nil
+		}
+		data, err := os.ReadFile(p)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", p, err)
+		}
+		entry, err := spec.ParseMarkdownBytes(spec.KindReview, data)
+		if err != nil {
+			return nil
+		}
+		if rel, err := filepath.Rel(dir, filepath.Dir(p)); err == nil && rel != "." {
+			entry.Scope = filepath.ToSlash(rel)
+		}
+		got, err := spec.NormalizeScope(entry.EffectiveScope())
+		if err == nil && got == scope && strings.TrimSpace(entry.Body) == want {
+			found = true
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	return found, err
+}
+
+// handWrittenNested reports whether f is a nested AGENTS.md with no
+// generated rules block. Only there does a code review heading start a
+// review section: in the rules block it belongs to a rule's body.
+func handWrittenNested(f hierarchicalFile, text string) bool {
+	return f.globs != "" && !strings.Contains(text, adapters.RulesStartMarker)
 }

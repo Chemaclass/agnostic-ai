@@ -56,10 +56,13 @@ func importCursorReviews(root string, src config.Sources) (int, error) {
 		if strings.TrimSpace(body) == "" {
 			continue
 		}
-		if err := writeReviewSpec(dstDir, cursorReviewSpecName(used, dir.scope), dir.scope, body); err != nil {
+		wrote, err := writeReviewSpec(dstDir, cursorReviewSpecName(used, dir.scope), dir.scope, body)
+		if err != nil {
 			return count, err
 		}
-		count++
+		if wrote {
+			count++
+		}
 	}
 	return count, nil
 }

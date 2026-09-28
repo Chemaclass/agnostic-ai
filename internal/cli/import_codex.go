@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -177,11 +179,16 @@ func importCodexRules(root, dstDir string, src config.Sources, opts importCodexO
 		if err != nil {
 			return count, fmt.Errorf("read %s: %w", f.path, err)
 		}
-		text, ok := hierarchicalRulesText(f, string(raw))
+		source := adapters.StripReviewSection(string(raw))
+		if header.Has(source) && strings.TrimSpace(header.Strip(source)) == "" {
+			// A generated AGENTS.md holding only a review section.
+			continue
+		}
+		text, ok := hierarchicalRulesText(f, source)
 		if !ok {
 			continue
 		}
-		if src.Reviews != "" {
+		if src.Reviews != "" && handWrittenNested(f, source) {
 			// importCodexReviews reads these into review specs.
 			text, _ = splitCodexReviewSections(text)
 		}

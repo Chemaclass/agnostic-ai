@@ -195,9 +195,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 			"Codex loads custom prompts from ~/.codex/prompts only and deprecates them for skills")
 	}
 
-	if emit.HasLegacyRulesFile(cfg, target) {
+	if emit.LegacyRulesFileOwnsEntryPoint(cfg, target) {
 		emit.NoteCoverageGap(target, spec.KindReview, unscopedReviews(b.Reviews),
-			"the root AGENTS.md, which sync does not write while outputs.codex.rules-file is set")
+			"the root AGENTS.md, which sync does not write while outputs.codex.rules-file names it")
 	}
 	if err := sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "AGENTS.md"}, dryRun); err != nil {
 		return err

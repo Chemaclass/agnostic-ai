@@ -1,6 +1,7 @@
 package emit
 
 import (
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -62,6 +63,12 @@ func ReviewSections(b spec.Bundle, cfg *config.Config, requested ...string) map[
 	byScope := map[string][]spec.Entry{}
 	for _, r := range b.For(reviewSectionTarget).Reviews {
 		scope := filepath.ToSlash(r.EffectiveScope())
+		if scope != "" {
+			// Keyed like a rule scope, so `./svc` and `svc` meet in one file.
+			if scope = path.Clean(scope); scope == "." {
+				scope = ""
+			}
+		}
 		if ScopeEscapesRoot(scope) {
 			continue
 		}

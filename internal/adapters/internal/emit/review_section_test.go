@@ -94,3 +94,13 @@ func TestCheckScopeReaders_AcceptsReviewOnlyFile(t *testing.T) {
 		t.Errorf("review-only AGENTS.md rejected: %v", err)
 	}
 }
+
+// A `./svc` scope keys the same section a `svc` rule scope does, so the
+// reader check finds it (#1341 review).
+func TestReviewSections_NormalizesScope(t *testing.T) {
+	b := spec.NewBundle([]spec.Entry{{Kind: spec.KindReview, Name: "svc", Body: "Check it.", Meta: map[string]any{"scope": "./svc/"}}})
+	got := ReviewSections(b, &config.Config{Targets: []string{"codex"}})
+	if _, ok := got["svc"]; !ok || len(got) != 1 {
+		t.Errorf("sections keyed %v, want svc", got)
+	}
+}

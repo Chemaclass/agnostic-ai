@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -101,5 +102,119 @@ func TestImportCodex_ReadsReviewSectionsBack(t *testing.T) {
 		if strings.Contains(body, "Flag inline colors.") || strings.Contains(body, codexReviewBody) {
 			t.Errorf("review text imported as rule %s:\n%s", e.Name(), body)
 		}
+	}
+}
+
+func codexTestSources() config.Sources {
+	return config.Sources{Rules: ".agnostic-ai/rules", Reviews: ".agnostic-ai/reviews", Agents: ".agnostic-ai/agents", Skills: ".agnostic-ai/skills", Hooks: ".agnostic-ai/hooks", MCPs: ".agnostic-ai/mcps", Commands: ".agnostic-ai/commands", Settings: ".agnostic-ai/settings"}
+}
+
+// specTree reads every file under .agnostic-ai/rules and reviews.
+func specTree(t *testing.T, dir string) map[string]string {
+	t.Helper()
+	out := map[string]string{}
+	for _, sub := range []string{"rules", "reviews"} {
+		base := filepath.Join(dir, ".agnostic-ai", sub)
+		entries, err := os.ReadDir(base)
+		if err != nil && !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+		for _, e := range entries {
+			out[sub+"/"+e.Name()] = readFileString(t, filepath.Join(base, e.Name()))
+		}
+	}
+	return out
+}
+
+// A scope with a review and no rule gets an AGENTS.md without a rules
+// block. Import must not turn its header and markers into a rule, nor
+// copy a review spec that already says the same thing, so repeated round
+// trips leave the specs unchanged.
+func TestImportCodex_ReviewOnlyScopeRoundTripIsStable(t *testing.T) {
+	dir := setupCodexReviewProject(t, "codex")
+	testutil.Chdir(t, dir)
+	silence(t)
+	before := specTree(t, dir)
+
+	for i := 0; i < 2; i++ {
+		if err := runSync(t); err != nil {
+			t.Fatal(err)
+		}
+		if err := importFromCodex(dir, codexTestSources()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	after := specTree(t, dir)
+	for name, body := range after {
+		if strings.HasPrefix(name, "rules/") {
+			t.Errorf("import wrote rule %s:\n%s", name, body)
+		}
+	}
+	for name, body := range before {
+		if after[name] != body {
+			t.Errorf("%s changed:\n%s", name, after[name])
+		}
+	}
+	if len(after) != len(before) {
+		t.Errorf("spec files: before %v, after %v", keysOf(before), keysOf(after))
+	}
+}
+
+func keysOf(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	return out
+}
+
+// A root rule whose body has a `## Review guidelines` subsection keeps
+// that text on import: the heading sits inside the generated rules
+// block, not in a code review section.
+func TestImportCodex_RootRuleKeepsReviewHeadingText(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Project instructions.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "pr.md"), "Open small PRs.\n\n## Review guidelines\n\nAsk for one reviewer.\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai", "rules")); err != nil {
+		t.Fatal(err)
+	}
+	if err := importFromCodex(dir, codexTestSources()); err != nil {
+		t.Fatal(err)
+	}
+	var rules strings.Builder
+	for name, body := range specTree(t, dir) {
+		if strings.HasPrefix(name, "reviews/") {
+			t.Errorf("rule text imported as review %s:\n%s", name, body)
+		}
+		rules.WriteString(body)
+	}
+	if !strings.Contains(rules.String(), "Ask for one reviewer.") {
+		t.Errorf("rule lost its review subsection:\n%s", rules.String())
+	}
+}
+
+// render shows the root AGENTS.md section sync writes for an unscoped
+// review.
+func TestRender_CodexReviewShowsRootSection(t *testing.T) {
+	dir := setupCodexReviewProject(t, "codex")
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	var out bytes.Buffer
+	root := NewRootCmd("test")
+	root.SetOut(&out)
+	root.SetArgs([]string{"render", ".agnostic-ai/reviews/review.md", "--target", "codex"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	if !strings.Contains(got, "# target: codex — AGENTS.md") || !strings.Contains(got, "## Code Review Rules\n\nCheck that errors carry the path.") {
+		t.Errorf("render output:\n%s", got)
 	}
 }

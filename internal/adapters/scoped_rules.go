@@ -136,3 +136,15 @@ const (
 	ReviewsStartMarker = emit.ReviewsStartMarker
 	ReviewsEndMarker   = emit.ReviewsEndMarker
 )
+
+// RootReviewSection returns the review section sync appends to target's
+// root entry point, or "" when that file is not the one codex reads.
+// render and the playground use it to mirror sync.
+func RootReviewSection(cfg *config.Config, b spec.Bundle, target string) string {
+	path := EntryPointPath(cfg, target)
+	if path == "" || path != EntryPointPath(cfg, "codex") ||
+		LegacyRulesFileOwnsEntryPoint(cfg, "codex") || LegacyRulesFileOwnsEntryPoint(cfg, target) {
+		return ""
+	}
+	return ReviewSections(b, cfg, target)[""]
+}
