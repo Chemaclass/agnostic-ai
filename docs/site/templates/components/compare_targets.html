@@ -2,7 +2,7 @@
    blank or whitespace-only line: markdown would close the HTML block there.
    The server renders the default pair; compare-targets.js re-renders every
    other pair from the JSON payload with the same markup. #}
-{% component compare_targets() %}{% set matrix = load_data(path="data/capabilities.toml") %}{% set compare = load_data(path="data/compare.toml") %}{% for target in matrix.targets %}{% if target.id == "claude" %}{% set_global ta = target %}{% elif target.id == "codex" %}{% set_global tb = target %}{% endif %}{% endfor %}{% for target in compare.targets %}{% if target.id == "claude" %}{% set_global pa = target %}{% elif target.id == "codex" %}{% set_global pb = target %}{% endif %}{% endfor %}
+{% component compare_targets() %}{% set matrix = load_data(path="data/capabilities.toml") %}{% set compare = load_data(path="data/compare.toml") %}{% for target in matrix.targets %}{% if target.id == "claude" %}{% set_global ta = target %}{% elif target.id == "codex" %}{% set_global tb = target %}{% endif %}{% endfor %}{% for target in compare.targets %}{% if target.id == "claude" %}{% set_global pa = target %}{% elif target.id == "codex" %}{% set_global pb = target %}{% endif %}{% endfor %}{% set n = matrix.features | length %}{% set_global sigs = "" %}{% set_global tags = "" %}{% for outputs in [pa, pb] %}{% for kind in outputs.kinds %}{% set_global fmts = "" %}{% for path in kind.paths %}{% set parts = path | split(pat="/") | last | split(pat=".") %}{% set ext = parts | last | lower %}{% if ext != "" and (parts | length > 2 or (parts | length == 2 and parts | first != "")) %}{% if ext == "md" or ext == "mdc" %}{% set fmt = "Markdown" %}{% elif ext == "toml" %}{% set fmt = "TOML" %}{% elif ext == "json" %}{% set fmt = "JSON" %}{% elif ext == "yaml" or ext == "yml" %}{% set fmt = "YAML" %}{% else %}{% set fmt = ext %}{% endif %}{% if not "+" ~ fmt ~ "+" in "+" ~ fmts ~ "+" %}{% if fmts == "" %}{% set_global fmts = fmt %}{% else %}{% set_global fmts = fmts ~ "+" ~ fmt %}{% endif %}{% endif %}{% endif %}{% endfor %}{% set key = fmts | split(pat="+") | sort | join(sep="+") %}{% set_global sigs = sigs ~ key ~ "|" %}{% set_global tags = tags ~ fmts ~ "|" %}{% endfor %}{% endfor %}{% set_global sigs = sigs | split(pat="|") %}{% set_global tags = tags | split(pat="|") %}{% set_global formatDiffering = 0 %}{% for status in ta.statuses %}{% set i = loop.index0 %}{% set j = i + n %}{% if status == tb.statuses[i] and sigs[i] != "" and sigs[j] != "" and sigs[i] != sigs[j] %}{% set_global formatDiffering = formatDiffering + 1 %}{% endif %}{% endfor %}
 <section class="compare-browser" data-compare-browser>
   <script type="application/json" data-compare-data>{"states":[{% for state in matrix.states %}{% if not loop.first %},{% endif %}{"id":{{ state.id | json_encode | safe }},"label":{{ state.label | json_encode | safe }}}{% endfor %}],"features":[{% for feature in matrix.features %}{% if not loop.first %},{% endif %}{"id":{{ feature.id | json_encode | safe }},"label":{{ feature.label | json_encode | safe }},"href":{{ get_url(path=feature.href) | json_encode | safe }},"toolSpecific":{% if feature.tool_specific %}true{% else %}false{% endif %}}{% endfor %}],"targets":[{% for target in matrix.targets %}{% for candidate in compare.targets %}{% if candidate.id == target.id %}{% set_global outputs = candidate %}{% endif %}{% endfor %}{% if not loop.first %},{% endif %}{"id":{{ target.id | json_encode | safe }},"name":{{ target.name | json_encode | safe }},"href":{{ get_url(path=target.href) | json_encode | safe }},"statuses":{{ target.statuses | json_encode | safe }},"paths":[{% for kind in outputs.kinds %}{% if not loop.first %},{% endif %}{{ kind.paths | json_encode | safe }}{% endfor %}]}{% endfor %}]}</script>
   <form class="compare-controls" data-compare-form hidden>
@@ -23,7 +23,7 @@
       <label class="compare-diff-toggle"><input type="checkbox" name="diff" data-compare-diff-only> Show only differences</label>
     </div>
   </form>
-  <p class="compare-result" data-compare-result aria-live="polite">{{ ta.name }} and {{ tb.name }}: {% set_global differing = 0 %}{% for status in ta.statuses %}{% if status != tb.statuses[loop.index0] %}{% set_global differing = differing + 1 %}{% endif %}{% endfor %}{{ differing }} of {{ matrix.features | length }} spec kinds differ.</p>
+  <p class="compare-result" data-compare-result aria-live="polite">{{ ta.name }} and {{ tb.name }}: {% set_global differing = 0 %}{% for status in ta.statuses %}{% if status != tb.statuses[loop.index0] %}{% set_global differing = differing + 1 %}{% endif %}{% endfor %}{{ differing }} of {{ matrix.features | length }} spec kinds differ in support, {{ formatDiffering }} in file format.</p>
   <p class="compare-notice" data-compare-notice hidden></p>
   <p class="compare-fallback" data-compare-fallback>This is the default comparison. Turn on JavaScript to pick other targets, or read the <a href="{{ get_url(path='@/docs/targets/_index.md') }}#capability-matrix">capability matrix</a>.</p>
   <dl class="capability-legend compare-legend">
@@ -31,9 +31,9 @@
     <div><dt><span class="capability-state capability-state-{{ state.id }}">{{ state.label }}</span></dt><dd>{{ state.description }}</dd></div>
     {%- endfor %}
   </dl>
-  <div class="compare-region" role="region" aria-label="Side-by-side target comparison" tabindex="0">
+  <div class="compare-region" role="region" aria-label="Side-by-side target comparison">
     <table class="compare-table" data-compare-table>
-      <caption>Support state and native paths per spec kind. Rows marked Differs have a different state per target.</caption>
+      <caption>Support state, file format, and native paths per spec kind. Rows marked Differs have a different state per target. Rows marked Format differs share a state but write different file formats.</caption>
       <thead>
         <tr data-compare-head>
           <th scope="col">Spec kind</th>
@@ -43,22 +43,25 @@
         </tr>
       </thead>
       <tbody data-compare-body>
-        {%- for feature in matrix.features %}{% set i = loop.index0 %}{% set differs = ta.statuses[i] != tb.statuses[i] %}
-        <tr data-compare-kind="{{ feature.id }}"{% if differs %} class="compare-row-differs" data-differs{% endif %}>
-          <th scope="row"><a href="{{ get_url(path=feature.href) }}">{{ feature.label }}</a>{% if feature.tool_specific %}<span class="compare-kind-note">Tool-specific</span>{% endif %}{% if differs %}<span class="compare-differs">Differs</span>{% endif %}</th>
-          {%- for pair in [[ta, pa], [tb, pb]] %}{% set target = pair[0] %}{% set status = target.statuses[i] %}{% set paths = pair[1].kinds[i].paths %}
-          <td class="compare-cell" data-label="{{ target.name }}">{% for state in matrix.states %}{% if state.id == status %}{% if status == "opt-in" %}<a class="capability-state capability-state-{{ status }} capability-state-link" href="{{ get_url(path=target.href) }}#config-keys" aria-label="{{ state.label }} for {{ target.name }}. View the required config key.">{{ state.label }}</a>{% else %}<span class="capability-state capability-state-{{ status }}">{{ state.label }}</span>{% endif %}{% endif %}{% endfor %}{% if paths | length > 0 %}<ul class="compare-paths">{% for path in paths %}<li><code>{{ path | escape | replace(from="/", to="/<wbr>") | safe }}</code></li>{% endfor %}</ul>{% endif %}</td>
+        {%- for feature in matrix.features %}{% set i = loop.index0 %}{% set differs = ta.statuses[i] != tb.statuses[i] %}{% set j = i + n %}{% set formatDiffers = not differs and sigs[i] != "" and sigs[j] != "" and sigs[i] != sigs[j] %}
+        <tr data-compare-kind="{{ feature.id }}"{% if differs %} class="compare-row-differs" data-differs{% elif formatDiffers %} class="compare-row-format-differs" data-format-differs{% endif %}>
+          <th scope="row"><a href="{{ get_url(path=feature.href) }}">{{ feature.label }}</a>{% if feature.tool_specific %}<span class="compare-kind-note">Tool-specific</span>{% endif %}{% if differs %}<span class="compare-differs">Differs</span>{% elif formatDiffers %}<span class="compare-format-differs">Format differs</span>{% endif %}</th>
+          {%- for pair in [[ta, pa], [tb, pb]] %}{% set target = pair[0] %}{% set status = target.statuses[i] %}{% set paths = pair[1].kinds[i].paths %}{% set k = i + loop.index0 * n %}{% set cellTags = tags[k] %}
+          <td class="compare-cell" data-label="{{ target.name }}"><div class="compare-cell-state">{% for state in matrix.states %}{% if state.id == status %}{% if status == "opt-in" %}<a class="capability-state capability-state-{{ status }} capability-state-link" href="{{ get_url(path=target.href) }}#config-keys" aria-label="{{ state.label }} for {{ target.name }}. View the required config key.">{{ state.label }}</a>{% else %}<span class="capability-state capability-state-{{ status }}">{{ state.label }}</span>{% endif %}{% endif %}{% endfor %}{% if cellTags != "" %}{% for format in cellTags | split(pat="+") %}<span class="compare-format">{{ format }}</span>{% endfor %}{% endif %}</div>{% if paths | length > 0 %}<ul class="compare-paths">{% for path in paths %}<li><code>{{ path | escape | replace(from="/", to="/<wbr>") | safe }}</code></li>{% endfor %}</ul>{% endif %}</td>
           {%- endfor %}
         </tr>
         {%- endfor %}
       </tbody>
     </table>
   </div>
-  <p class="compare-empty" data-compare-empty hidden>These targets have the same state for every spec kind.</p>
+  <p class="compare-empty" data-compare-empty hidden>These targets have the same state and file format for every spec kind.</p>
   <section class="compare-summary" aria-labelledby="compare-summary-title" data-compare-summary-section hidden>
-    <h3 id="compare-summary-title">Where they differ</h3>
+    <div class="compare-summary-head">
+      <h2 id="compare-summary-title">Where they differ</h2>
+      <p class="compare-summary-key">Ahead means a target writes a spec kind by default where another column does not. Behind is the reverse.</p>
+      <p class="compare-summary-none" data-compare-none></p>
+    </div>
     <div class="compare-summary-grid" data-compare-summary></div>
-    <p class="compare-summary-none" data-compare-none></p>
   </section>
 </section>
 {% endcomponent compare_targets %}

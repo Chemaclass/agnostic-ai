@@ -7,6 +7,8 @@ const {
   takenElsewhere,
   compareRows,
   parseSelection,
+  pathFormat,
+  pathFormats,
   resultText,
   serializeSelection,
   summarize
@@ -82,8 +84,50 @@ test("a row differs when any state differs, not when only paths differ", functio
   const rows = compareRows(data, ["claude", "codex"]);
   assert.deepEqual(rows.map(function (row) { return row.differs; }), [false, true, false, false]);
   assert.deepEqual(rows[0].cells.map(function (cell) { return cell.paths; }), [[".claude/agents/a.md"], [".codex/agents/a.toml"]]);
-  assert.equal(resultText(rows), "Claude Code and Codex: 1 of 4 spec kinds differ.");
-  assert.equal(resultText(compareRows(data, ["claude", "codex", "aider"])), "Claude Code, Codex, and Aider: 3 of 4 spec kinds differ.");
+  assert.equal(resultText(rows), "Claude Code and Codex: 1 of 4 spec kinds differ in support, 1 in file format.");
+  assert.equal(resultText(compareRows(data, ["claude", "codex", "aider"])), "Claude Code, Codex, and Aider: 3 of 4 spec kinds differ in support, 0 in file format.");
+});
+
+test("a path's extension names its file format", function () {
+  assert.equal(pathFormat(".claude/agents/a.md"), "Markdown");
+  assert.equal(pathFormat(".cursor/rules/a.mdc"), "Markdown");
+  assert.equal(pathFormat(".codex/config.toml"), "TOML");
+  assert.equal(pathFormat(".mcp.json"), "JSON");
+  assert.equal(pathFormat("a/b.YAML"), "YAML");
+  assert.equal(pathFormat("a/b.yml"), "YAML");
+  assert.equal(pathFormat(".vscode/settings.jsonc"), "jsonc");
+  assert.equal(pathFormat(".aiignore"), "");
+  assert.equal(pathFormat("bin/setup"), "");
+});
+
+test("a cell lists each format once, in path order", function () {
+  assert.deepEqual(pathFormats([".junie/AGENTS.md", "AGENTS.md"]), ["Markdown"]);
+  assert.deepEqual(pathFormats(["a.toml", ".aiignore", "b.md", "c.toml"]), ["TOML", "Markdown"]);
+  assert.deepEqual(pathFormats([]), []);
+});
+
+test("a row differs in format only when the states agree and the formats do not", function () {
+  const formats = {
+    states: data.states,
+    features: [
+      { id: "agent", label: "Agents", href: "#" },
+      { id: "rule", label: "Rules", href: "#" },
+      { id: "command", label: "Commands", href: "#" },
+      { id: "ignore", label: "Ignored files", href: "#" }
+    ],
+    targets: [
+      { id: "one", name: "One", href: "#", statuses: ["native", "native", "native", "native"], paths: [["a.md"], ["x.md", "y.md"], ["c.md"], [".oneignore"]] },
+      { id: "two", name: "Two", href: "#", statuses: ["native", "native", "opt-in", "native"], paths: [["a.toml"], ["z.md"], [], [".twoignore"]] },
+      { id: "three", name: "Three", href: "#", statuses: ["native", "mapped", "native", "native"], paths: [["a.md"], ["z.json"], ["c.toml"], []] }
+    ]
+  };
+  const flags = function (ids) {
+    return compareRows(formats, ids).map(function (row) { return [row.differs, row.formatDiffers]; });
+  };
+  assert.deepEqual(flags(["one", "two"]), [[false, true], [false, false], [true, false], [false, false]]);
+  assert.deepEqual(flags(["one", "three"]), [[false, false], [true, false], [false, true], [false, false]]);
+  assert.deepEqual(flags(["one", "two", "three"]), [[false, true], [true, false], [true, false], [false, false]]);
+  assert.deepEqual(compareRows(formats, ["one", "two"])[1].cells[0].formats, ["Markdown"]);
 });
 
 test("the summary names who is ahead and who falls behind on each kind", function () {

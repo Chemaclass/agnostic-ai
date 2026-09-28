@@ -24,6 +24,31 @@
     return status === "no" || status === "source";
   }
 
+  const FORMAT_NAMES = { md: "Markdown", mdc: "Markdown", toml: "TOML", json: "JSON", yaml: "YAML", yml: "YAML" };
+
+  // The file format a path's extension names. A dotfile such as .aiignore has
+  // no extension, so it names no format.
+  function pathFormat(path) {
+    const base = String(path).split("/").pop();
+    const dot = base.lastIndexOf(".");
+    if (dot <= 0 || dot === base.length - 1) {
+      return "";
+    }
+    const extension = base.slice(dot + 1).toLowerCase();
+    return FORMAT_NAMES[extension] || extension;
+  }
+
+  // The distinct formats of a cell's paths, in path order.
+  function pathFormats(paths) {
+    return paths.map(pathFormat).filter(function (format, index, formats) {
+      return format && formats.indexOf(format) === index;
+    });
+  }
+
+  function formatKey(formats) {
+    return formats.slice().sort().join("+");
+  }
+
   function normalizeId(value) {
     return String(value || "").trim().toLowerCase();
   }
@@ -116,16 +141,24 @@
     const targets = selectedTargets(data, ids);
     return data.features.map(function (feature, index) {
       const cells = targets.map(function (target) {
+        const paths = (target.paths && target.paths[index]) || [];
         return {
           target: target,
           status: target.statuses[index],
-          paths: (target.paths && target.paths[index]) || []
+          paths: paths,
+          formats: pathFormats(paths)
         };
       });
       const differs = cells.some(function (cell) {
         return cell.status !== cells[0].status;
       });
-      return { feature: feature, cells: cells, differs: differs };
+      // A format difference is reported only where the states agree, so the
+      // two signals never overlap. Cells without a format do not take part.
+      const keys = cells.filter(function (cell) { return cell.formats.length > 0; }).map(function (cell) {
+        return formatKey(cell.formats);
+      });
+      const formatDiffers = !differs && keys.some(function (key) { return key !== keys[0]; });
+      return { feature: feature, cells: cells, differs: differs, formatDiffers: formatDiffers };
     });
   }
 
@@ -173,7 +206,8 @@
   function resultText(rows) {
     const names = rows.length > 0 ? rows[0].cells.map(function (cell) { return cell.target.name; }) : [];
     const differing = rows.filter(function (row) { return row.differs; }).length;
-    return listNames(names) + ": " + differing + " of " + rows.length + " spec kinds differ.";
+    const formats = rows.filter(function (row) { return row.formatDiffers; }).length;
+    return listNames(names) + ": " + differing + " of " + rows.length + " spec kinds differ in support, " + formats + " in file format.";
   }
 
   function init(document, browser) {
@@ -254,10 +288,13 @@
 
     function renderBody(rows) {
       body.replaceChildren.apply(body, rows.map(function (row) {
-        const tr = element("tr", row.differs ? "compare-row-differs" : "");
+        const tr = element("tr", row.differs ? "compare-row-differs" : row.formatDiffers ? "compare-row-format-differs" : "");
         tr.dataset.compareKind = row.feature.id;
         if (row.differs) {
           tr.dataset.differs = "";
+        }
+        if (row.formatDiffers) {
+          tr.dataset.formatDiffers = "";
         }
         const th = element("th");
         th.scope = "row";
@@ -268,11 +305,19 @@
         if (row.differs) {
           th.appendChild(element("span", "compare-differs", "Differs"));
         }
+        if (row.formatDiffers) {
+          th.appendChild(element("span", "compare-format-differs", "Format differs"));
+        }
         tr.appendChild(th);
         row.cells.forEach(function (cell) {
           const td = element("td", "compare-cell");
           td.dataset.label = cell.target.name;
-          td.appendChild(stateBadge(cell));
+          const state = element("div", "compare-cell-state");
+          state.appendChild(stateBadge(cell));
+          cell.formats.forEach(function (format) {
+            state.appendChild(element("span", "compare-format", format));
+          });
+          td.appendChild(state);
           if (cell.paths.length > 0) {
             const list = element("ul", "compare-paths");
             cell.paths.forEach(function (path) {
@@ -322,10 +367,14 @@
       return item;
     }
 
-    function summaryList(title, items) {
+    function kindCount(count) {
+      return count + (count === 1 ? " kind" : " kinds");
+    }
+
+    function summaryList(direction, title, items) {
       const fragment = document.createDocumentFragment();
-      fragment.appendChild(element("p", "compare-summary-label", title));
-      const list = element("ul");
+      fragment.appendChild(element("p", "compare-summary-label", title + " " + kindCount(items.length)));
+      const list = element("ul", "compare-summary-" + direction);
       items.forEach(function (item) { list.appendChild(item); });
       fragment.appendChild(list);
       return fragment;
@@ -335,16 +384,16 @@
       summary.replaceChildren.apply(summary, report.targets.map(function (entry) {
         const name = entry.target.name;
         const block = element("div", "compare-summary-target");
-        block.appendChild(element("h4", "", name));
+        block.appendChild(element("h3", "", name));
         if (entry.ahead.length > 0) {
-          block.appendChild(summaryList("Writes by default, unlike the others:", entry.ahead.map(function (gap) {
+          block.appendChild(summaryList("ahead", "Ahead on", entry.ahead.map(function (gap) {
             const item = kindItem(gap.feature);
             appendLacking(item, gap.others);
             return item;
           })));
         }
         if (entry.behind.length > 0) {
-          block.appendChild(summaryList("Falls behind on:", entry.behind.map(function (gap) {
+          block.appendChild(summaryList("behind", "Behind on", entry.behind.map(function (gap) {
             const item = kindItem(gap.feature);
             if (gap.status === "opt-in") {
               item.appendChild(document.createTextNode("needs a "));
@@ -360,7 +409,7 @@
         if (entry.ahead.length === 0 && entry.behind.length === 0) {
           block.appendChild(element("p", "", "Covers the same spec kinds by default as the other targets here."));
         }
-        const caveats = element("p");
+        const caveats = element("p", "compare-summary-more");
         caveats.appendChild(link(entry.target.href, name + " paths, config keys, and caveats"));
         block.appendChild(caveats);
         return block;
@@ -390,10 +439,11 @@
     }
 
     function applyDiffFilter(rows) {
+      const shown = function (row) { return row.differs || row.formatDiffers; };
       Array.from(body.rows).forEach(function (tr, index) {
-        tr.hidden = diffOnly.checked && !rows[index].differs;
+        tr.hidden = diffOnly.checked && !shown(rows[index]);
       });
-      empty.hidden = !(diffOnly.checked && rows.every(function (row) { return !row.differs; }));
+      empty.hidden = !(diffOnly.checked && !rows.some(shown));
     }
 
     function render(unknown) {
@@ -450,6 +500,8 @@
     compareRows: compareRows,
     init: init,
     parseSelection: parseSelection,
+    pathFormat: pathFormat,
+    pathFormats: pathFormats,
     resultText: resultText,
     serializeSelection: serializeSelection,
     summarize: summarize,

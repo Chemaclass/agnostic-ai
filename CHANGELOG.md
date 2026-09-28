@@ -16,7 +16,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Site
 
-- A compare page shows two or three targets side by side, with each spec kind's support state and the paths a real sync writes, in a URL you can share.
+- A compare page shows two or three targets side by side, with each spec kind's support state, file format, and the paths a real sync writes, in a URL you can share.
 
 ## v0.72.0 - 2026-09-28
 
