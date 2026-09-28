@@ -33,8 +33,9 @@ func TestSiteDocs_LandingExplorerMatchesSync(t *testing.T) {
 	var landing struct {
 		Explorer struct {
 			Entries []struct {
-				ID      string `toml:"id"`
-				File    string `toml:"file"`
+				ID      string   `toml:"id"`
+				File    string   `toml:"file"`
+				Files   []string `toml:"files"`
 				Outputs []struct {
 					Path string `toml:"path"`
 				} `toml:"outputs"`
@@ -72,7 +73,16 @@ func TestSiteDocs_LandingExplorerMatchesSync(t *testing.T) {
 		files[rel] = withoutProvenanceBanner(string(data))
 	}
 	for _, entry := range landing.Explorer.Entries {
-		read(entry.ID, ".agnostic-ai/"+entry.File)
+		sources := entry.Files
+		if entry.File != "" {
+			sources = append([]string{entry.File}, sources...)
+		}
+		if len(sources) == 0 {
+			t.Errorf("explorer entry %q names no source file", entry.ID)
+		}
+		for _, source := range sources {
+			read(entry.ID, ".agnostic-ai/"+source)
+		}
 		if len(entry.Outputs) == 0 {
 			t.Errorf("explorer entry %q lists no outputs", entry.ID)
 		}
