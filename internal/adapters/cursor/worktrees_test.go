@@ -80,3 +80,32 @@ func TestEmit_EnvironmentSetupOnlyWritesNoEnvironmentJSON(t *testing.T) {
 		t.Errorf("worktrees.json missing: %v", err)
 	}
 }
+
+// A script path set under x-cursor reaches worktrees.json as written, so
+// Cursor still resolves it from .cursor/.
+func TestEmit_EnvironmentKeepsWorktreeScriptPath(t *testing.T) {
+	cwd := t.TempDir()
+	testutil.Chdir(t, cwd)
+	b := spec.NewBundle([]spec.Entry{{
+		Kind: spec.KindEnvironment, Name: "worktree", Path: "environments/worktree.yaml",
+		Meta: map[string]any{
+			"name":          "worktree",
+			"setup-windows": "npm ci",
+			"x-cursor":      map[string]any{"setup-worktree-unix": "setup-worktree-unix.sh"},
+		},
+	}})
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	got, err := os.ReadFile(filepath.Join(cwd, ".cursor", "worktrees.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "{\n  \"setup-worktree-unix\": \"setup-worktree-unix.sh\",\n  \"setup-worktree-windows\": [\n    \"npm ci\"\n  ]\n}\n"
+	if string(got) != want {
+		t.Errorf("worktrees.json:\n%s\nwant:\n%s", got, want)
+	}
+	if _, err := os.Stat(filepath.Join(cwd, ".cursor", "environment.json")); !os.IsNotExist(err) {
+		t.Errorf("environment.json written for setup keys only: %v", err)
+	}
+}

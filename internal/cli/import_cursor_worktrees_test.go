@@ -24,16 +24,37 @@ func TestImportFromCursor_ReadsWorktreeSetup(t *testing.T) {
 	}
 }
 
-// Cursor's `setup-worktree` runs on every OS, so it fills whichever OS
-// key the file leaves unset.
+// Cursor's `setup-worktree` runs on every OS, so its command list fills
+// whichever OS key the file leaves unset.
 func TestImportFromCursor_WorktreeSetupForEveryOS(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, ".cursor", "worktrees.json"), `{"setup-worktree": "scripts/setup.sh"}`)
+	writeFile(t, filepath.Join(dir, ".cursor", "worktrees.json"), `{
+  "setup-worktree": ["npm ci"],
+  "setup-worktree-windows": ["npm ci --no-audit"]
+}`)
 	if err := importFromCursor(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
 	got := readFileString(t, filepath.Join(dir, "environments", "worktree.yaml"))
-	want := "name: worktree\nsetup: scripts/setup.sh\nsetup-windows: scripts/setup.sh\n"
+	want := "name: worktree\nsetup: npm ci\nsetup-windows: npm ci --no-audit\n"
+	if got != want {
+		t.Errorf("environments/worktree.yaml:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+// A string is a script path Cursor resolves from .cursor/, not a command,
+// so it stays a Cursor key under x-cursor.
+func TestImportFromCursor_KeepsWorktreeScriptPathsForCursor(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".cursor", "worktrees.json"), `{
+  "setup-worktree-unix": "setup-worktree-unix.sh",
+  "setup-worktree-windows": ["npm ci"]
+}`)
+	if err := importFromCursor(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got := readFileString(t, filepath.Join(dir, "environments", "worktree.yaml"))
+	want := "name: worktree\nsetup-windows: npm ci\nx-cursor:\n    setup-worktree-unix: setup-worktree-unix.sh\n"
 	if got != want {
 		t.Errorf("environments/worktree.yaml:\n%s\nwant:\n%s", got, want)
 	}

@@ -2,6 +2,7 @@ package cursor
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -21,6 +22,11 @@ var worktreeSetupKeys = []struct{ field, key string }{
 	{"setup-windows", "setup-worktree-windows"},
 }
 
+// worktreeNativeKeys are the worktrees.json keys an `x-cursor` block may
+// set as written. A string value there is a script path relative to
+// .cursor/worktrees.json, which a portable `setup` command cannot say.
+var worktreeNativeKeys = []string{"setup-worktree", "setup-worktree-unix", "setup-worktree-windows"}
+
 // emitWorktrees writes .cursor/worktrees.json from the environment specs'
 // setup fields. The last spec that sets a field wins, as in
 // environment.json.
@@ -31,6 +37,11 @@ func emitWorktrees(sess *emit.Session, envs []spec.Entry, dryRun bool) error {
 		for _, k := range worktreeSetupKeys {
 			if cmds := setupCommands(m[k.field]); len(cmds) > 0 {
 				doc[k.key] = cmds
+			}
+		}
+		for _, k := range worktreeNativeKeys {
+			if v, ok := m[k]; ok && v != nil {
+				doc[k] = v
 			}
 		}
 	}
@@ -61,5 +72,5 @@ func isWorktreeSetupField(k string) bool {
 			return true
 		}
 	}
-	return false
+	return slices.Contains(worktreeNativeKeys, k)
 }

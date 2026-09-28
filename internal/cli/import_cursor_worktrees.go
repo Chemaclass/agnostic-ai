@@ -47,16 +47,36 @@ func importCursorWorktrees(root string, src config.Sources) (int, error) {
 	if err := json.Unmarshal(data, &doc); err != nil {
 		return 0, fmt.Errorf("parse %s: %w", path, err)
 	}
-	all := worktreeCommands(doc["setup-worktree"])
-	unix := worktreeCommands(doc["setup-worktree-unix"])
-	windows := worktreeCommands(doc["setup-worktree-windows"])
-	if unix == nil {
-		unix = all
+	// A string is a script path relative to .cursor/worktrees.json. It
+	// stays a Cursor key under x-cursor; only command lists are portable.
+	native := map[string]any{}
+	commands := map[string][]string{}
+	for _, key := range []string{"setup-worktree", "setup-worktree-unix", "setup-worktree-windows"} {
+		switch v := doc[key].(type) {
+		case string:
+			if v != "" {
+				native[key] = v
+			}
+		case []any:
+			for _, c := range v {
+				if s, ok := c.(string); ok && s != "" {
+					commands[key] = append(commands[key], s)
+				}
+			}
+		}
 	}
-	if windows == nil {
-		windows = all
+	unix, windows := commands["setup-worktree-unix"], commands["setup-worktree-windows"]
+	_, unixSet := native["setup-worktree-unix"]
+	_, windowsSet := native["setup-worktree-windows"]
+	if all, ok := commands["setup-worktree"]; ok {
+		if unix == nil && !unixSet {
+			unix = all
+		}
+		if windows == nil && !windowsSet {
+			windows = all
+		}
 	}
-	if unix == nil && windows == nil {
+	if unix == nil && windows == nil && len(native) == 0 {
 		return 0, nil
 	}
 
@@ -75,10 +95,13 @@ func importCursorWorktrees(root string, src config.Sources) (int, error) {
 	}
 	add("name", cursorWorktreeSpecName)
 	if unix != nil {
-		add("setup", unix)
+		add("setup", specCommands(unix))
 	}
 	if windows != nil {
-		add("setup-windows", windows)
+		add("setup-windows", specCommands(windows))
+	}
+	if len(native) > 0 {
+		add("x-cursor", native)
 	}
 	raw, err := yaml.Marshal(&spec)
 	if err != nil {
@@ -93,27 +116,10 @@ func importCursorWorktrees(root string, src config.Sources) (int, error) {
 	return 1, nil
 }
 
-// worktreeCommands reads one worktrees.json value, a command list or a
-// script path, as a spec value: one command as a string, more as a list.
-func worktreeCommands(v any) any {
-	switch t := v.(type) {
-	case string:
-		if t != "" {
-			return t
-		}
-	case []any:
-		var cmds []string
-		for _, c := range t {
-			if s, ok := c.(string); ok && s != "" {
-				cmds = append(cmds, s)
-			}
-		}
-		if len(cmds) == 1 {
-			return cmds[0]
-		}
-		if len(cmds) > 1 {
-			return cmds
-		}
+// specCommands writes one command as a string and more as a list.
+func specCommands(cmds []string) any {
+	if len(cmds) == 1 {
+		return cmds[0]
 	}
-	return nil
+	return cmds
 }
