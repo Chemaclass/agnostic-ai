@@ -608,9 +608,9 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	if quickstartIndex < 0 || targetsIndex < 0 || updatesIndex < 0 || quickstartIndex >= targetsIndex || targetsIndex >= updatesIndex {
 		t.Errorf("home sections are not ordered quickstart, targets, updates: %d, %d, %d", quickstartIndex, targetsIndex, updatesIndex)
 	}
-	// The targets fan left the hero install box for the targets section.
-	if fanIndex := strings.Index(home, `class="rails"`); fanIndex < targetsIndex || fanIndex > updatesIndex || strings.Count(home, `class="rails"`) != 1 {
-		t.Errorf("the targets fan is not in the targets section: %d, want between %d and %d", fanIndex, targetsIndex, updatesIndex)
+	// The target strip names every target in the targets section.
+	if stripIndex := strings.Index(home, `class="target-strip-list"`); stripIndex < targetsIndex || stripIndex > updatesIndex || strings.Count(home, `class="target-strip-list"`) != 1 {
+		t.Errorf("the target strip is not in the targets section: %d, want between %d and %d", stripIndex, targetsIndex, updatesIndex)
 	}
 	for _, assetURL := range []string{
 		"https://agnostic-ai.org/assets/styles/base.css",
