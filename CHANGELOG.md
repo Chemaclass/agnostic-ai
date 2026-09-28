@@ -22,6 +22,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - Ignore specs survive Prettier: sync reads patterns from fenced code blocks, and `import` writes the patterns in one (#1275).
 - `import cursor` reads root and nested `.cursor/BUGBOT.md` files into review specs with their scope, so doctor's advice to run it works (#1276).
 - The first `sync` after `import` replaces the nested `AGENTS.md` files import captured; one edited since quotes the line no spec holds (#1269).
+- `init --from <cli> --dry-run` also lists the files the import would write, as `import --dry-run` does (#1272).
 
 ### Removed
 

@@ -48,9 +48,10 @@ func previewImport(args []string) error {
 // prints a planning summary instead of file contents: one line per path
 // the importer would write, sorted and listed once however many stages
 // write it, ending with a count. Equivalent in shape to `sync --plan`.
-// The summary prints even when an importer fails.
-func dryRunImport(args []string) error {
-	rec, err := runImportInCopy(args, nil)
+// The summary prints even when an importer fails. prepare, when set,
+// runs in the copy before the import.
+func dryRunImport(args []string, prepare func() error) error {
+	rec, err := runImportInCopy(args, prepare, nil)
 	paths := make([]string, 0, len(rec.writes))
 	for _, w := range rec.writes {
 		paths = append(paths, filepath.FromSlash(w.path))
@@ -68,7 +69,7 @@ func dryRunImport(args []string) error {
 // compares the result with the project.
 func planImportPreview(args []string) (importPreview, error) {
 	var preview importPreview
-	_, err := runImportInCopy(args, func(project, shadow string, rec *importRecorder) error {
+	_, err := runImportInCopy(args, nil, func(project, shadow string, rec *importRecorder) error {
 		var err error
 		preview, err = buildImportPreview(project, shadow, rec)
 		return err
@@ -82,8 +83,9 @@ func planImportPreview(args []string) (importPreview, error) {
 // ordinary import is what keeps a dry-run equal to a real one: a later
 // stage reads what an earlier one wrote, frontmatter merges and fences
 // included. The project itself is never written. An inspect error wins
-// over an importer error.
-func runImportInCopy(args []string, inspect func(project, shadow string, rec *importRecorder) error) (*importRecorder, error) {
+// over an importer error. prepare, when set, runs in the copy first,
+// such as the scaffold `init --from` writes before it imports.
+func runImportInCopy(args []string, prepare func() error, inspect func(project, shadow string, rec *importRecorder) error) (*importRecorder, error) {
 	rec := &importRecorder{}
 	project, err := os.Getwd()
 	if err != nil {
@@ -112,6 +114,11 @@ func runImportInCopy(args []string, inspect func(project, shadow string, rec *im
 		return rec, fmt.Errorf("%s: %w", shadow, err)
 	}
 	defer func() { _ = os.Chdir(project) }()
+	if prepare != nil {
+		if err := prepare(); err != nil {
+			return rec, err
+		}
+	}
 	// Read back through the working directory, as filepath.Abs does, so
 	// the sandbox check compares like with like.
 	sandbox, err := os.Getwd()
