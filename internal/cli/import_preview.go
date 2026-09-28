@@ -6,12 +6,16 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 // importPreviewDirPrefix names the temporary project copy an import
@@ -103,7 +107,7 @@ func runImportInCopy(args []string, prepare func() error, inspect func(project, 
 		return rec, fmt.Errorf("%s: %w", shadow, err)
 	}
 	tree := loadImportTree(project)
-	copied, err := copyImportPreviewTree(project, shadow)
+	copied, err := copyImportPreviewTree(project, shadow, tree, importPreviewKeeps(project))
 	if err != nil {
 		return rec, fmt.Errorf("copy project for preview: %w", err)
 	}
@@ -269,18 +273,77 @@ type previewCopy struct {
 }
 
 // copyImportPreviewTree copies the project at src into dst for a preview
-// run. It skips .git, which no importer reads. A symlink that resolves
-// inside the project is recreated as a relative link, so the copy keeps
-// the same shape; one that resolves outside is copied by content, so no
-// preview write can reach a file outside the copy. Dangling links, sockets,
-// and devices are skipped.
-func copyImportPreviewTree(src, dst string) (previewCopy, error) {
+// run. It skips .git and the directories leavesOut names, so a large
+// node_modules does not slow the preview down. A symlink that
+// resolves inside the project is recreated as a relative link, so the copy
+// keeps the same shape; one that resolves outside is copied by content, so
+// no preview write can reach a file outside the copy. Dangling links,
+// sockets, and devices are skipped.
+func copyImportPreviewTree(src, dst string, tree importTree, keep previewKeep) (previewCopy, error) {
 	root, err := filepath.EvalSymlinks(src)
 	if err != nil {
 		return previewCopy{}, fmt.Errorf("%s: %w", src, err)
 	}
-	c := previewCopier{root: root, dstRoot: dst, visited: map[string]bool{}, outsideFiles: map[string]bool{}, nested: map[string]bool{}}
+	c := previewCopier{
+		root: root, dstRoot: dst, tree: tree, keep: keep,
+		visited: map[string]bool{}, outsideFiles: map[string]bool{}, nested: map[string]bool{},
+	}
 	return previewCopy{outsideFiles: c.outsideFiles, nested: c.nested}, c.copyDir(root, dst)
+}
+
+// previewKeep names what the preview copy keeps whole even when git
+// ignores it, because an importer reads it by name.
+type previewKeep struct {
+	// paths are project-relative: the root tool folders, each target's
+	// native paths under the project config, and the source directories.
+	paths []string
+	// toolDirs are tool folder names such as `.cursor`, kept at any depth
+	// because sync writes scoped output into them.
+	toolDirs map[string]bool
+}
+
+// importPreviewKeeps builds the previewKeep of the project.
+func importPreviewKeeps(project string) previewKeep {
+	cfg, err := config.Load(project)
+	if err != nil {
+		cfg = &config.Config{}
+	}
+	paths := map[string]bool{}
+	keep := previewKeep{toolDirs: map[string]bool{}}
+	add := func(p string) {
+		if p == "" || filepath.IsAbs(p) {
+			return
+		}
+		p = strings.TrimSuffix(filepath.ToSlash(filepath.Clean(p)), "/")
+		if p == "." || p == ".." || strings.HasPrefix(p, "../") || strings.ContainsAny(p, "<>*?[{~$") {
+			return
+		}
+		paths[p] = true
+	}
+	tool := func(p string) {
+		if dir := firstSegment(p); strings.HasPrefix(dir, ".") {
+			keep.toolDirs[dir] = true
+			add(dir)
+		}
+	}
+	add(config.SourceBaseDir)
+	for _, markers := range targetMarkers {
+		for _, m := range markers {
+			tool(m)
+		}
+	}
+	s := cfg.Sources
+	for _, p := range []string{s.Agents, s.Skills, s.Rules, s.Hooks, s.MCPs, s.Commands, s.Settings, s.Reviews, s.Environments, s.Ignore} {
+		add(p)
+	}
+	for _, t := range allTargets {
+		for _, a := range adapters.NativeArtifactsFor(t.Name, cfg) {
+			tool(a.Location)
+			add(a.Location)
+		}
+	}
+	keep.paths = slices.Sorted(maps.Keys(paths))
+	return keep
 }
 
 // previewCopier holds the state of one copyImportPreviewTree call.
@@ -289,6 +352,8 @@ func copyImportPreviewTree(src, dst string) (previewCopy, error) {
 type previewCopier struct {
 	root         string
 	dstRoot      string
+	tree         importTree
+	keep         previewKeep
 	visited      map[string]bool
 	outside      bool
 	outsideFiles map[string]bool
@@ -323,6 +388,9 @@ func (c previewCopier) copyDir(from, to string) error {
 			if rel == "." {
 				return nil
 			}
+			if !c.outside && c.leavesOut(filepath.ToSlash(rel)) {
+				return filepath.SkipDir
+			}
 			return os.Mkdir(target, info.Mode().Perm()|0o700)
 		case d.Type().IsRegular():
 			if c.outside {
@@ -332,6 +400,37 @@ func (c previewCopier) copyDir(from, to string) error {
 		}
 		return nil
 	})
+}
+
+// leavesOut reports whether the copy skips the project directory rel:
+// what the import walks skip (see importTree), and node_modules, which
+// is large and holds packages, not the project's config. A kept path,
+// the directories on the way to it, and a tool folder at any depth stay
+// even when git ignores them; inside one, only node_modules and nested
+// repositories are left out.
+func (c previewCopier) leavesOut(rel string) bool {
+	segs := strings.Split(rel, "/")
+	name := segs[len(segs)-1]
+	if name == "node_modules" {
+		return true
+	}
+	if c.keep.toolDirs[name] {
+		return false
+	}
+	for _, k := range c.keep.paths {
+		if rel == k || strings.HasPrefix(k, rel+"/") {
+			return false
+		}
+	}
+	for _, k := range c.keep.paths {
+		if strings.HasPrefix(rel, k+"/") {
+			return c.tree.isRepo(rel)
+		}
+	}
+	if slices.ContainsFunc(segs[:len(segs)-1], func(s string) bool { return c.keep.toolDirs[s] }) {
+		return c.tree.isRepo(rel)
+	}
+	return c.tree.skipsDir(rel)
 }
 
 func (c previewCopier) noteNested(dir string) {

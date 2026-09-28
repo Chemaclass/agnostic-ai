@@ -2,6 +2,7 @@ package cli
 
 import (
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -81,7 +82,23 @@ func (t importTree) skipsDir(rel string) bool {
 	if rel == "." || rel == "" {
 		return false
 	}
-	if t.ignored[rel] || t.nested[rel] {
+	return t.ignores(rel) || t.isRepo(rel)
+}
+
+// ignores reports whether git ignores rel or a directory above it. Git
+// lists an ignored directory without its contents.
+func (t importTree) ignores(rel string) bool {
+	for p := rel; p != "." && p != "/" && p != ""; p = path.Dir(p) {
+		if t.ignored[p] {
+			return true
+		}
+	}
+	return false
+}
+
+// isRepo reports whether the directory rel holds its own `.git` entry.
+func (t importTree) isRepo(rel string) bool {
+	if t.nested[rel] {
 		return true
 	}
 	_, err := os.Lstat(filepath.Join(t.root, filepath.FromSlash(rel), ".git"))
