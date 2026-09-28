@@ -1,7 +1,7 @@
 ---
 name: capability-fixtures
 description: Move the capability matrix, parity list, and golden fixtures together when a target's supported kinds or outputs change.
-globs: "{internal/adapters/**/*.go,internal/cli/native_capabilities.go,docs/site/data/capabilities.toml}"
+globs: ["internal/adapters/**/*.go", "internal/cli/native_capabilities.go", "docs/site/data/capabilities.toml"]
 alwaysApply: false
 ---
 

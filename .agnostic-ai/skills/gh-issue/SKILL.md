@@ -71,7 +71,7 @@ Read both the issue body **and every comment** as requirements input. Maintainer
    - Wrap returned errors per `.agnostic-ai/rules/error-wrapping.md`.
    - Follow `.agnostic-ai/rules/test-conventions.md` (use `t.TempDir()`, `testutil.Chdir`, behavior-named tests).
 
-7. **Run the gate**: `make preflight`, checked by its own exit code (never through `| grep | head`). Fix every failure before continuing.
+7. **Run the gate**: the pre-push checks in `.agnostic-ai/skills/pr-sweep/SKILL.md` step 5 (`make ci-local` and the rest), each checked by its own exit code, never through `| grep | head`. Fix every failure before continuing.
 
 8. **Regenerate derived artifacts when touched**:
    - Edited `internal/config/config.go` struct tags → `go run ./cmd/schemagen` (see `.agnostic-ai/skills/regen-schema/SKILL.md`).
@@ -83,9 +83,9 @@ Read both the issue body **and every comment** as requirements input. Maintainer
 
 9. **Docs and changelog** for user-visible changes, per `.agnostic-ai/rules/docs-sync.md` and `.agnostic-ai/agents/changelog-curator.md`.
 
-10. **Commit** per `.agnostic-ai/rules/conventional-commits.md`, GPG-signed, with `Related to #<issue-number>` in the body.
+10. **Review the final diff** for duplication, dead code, debug output, and naming drift. **Commit** per `.agnostic-ai/rules/conventional-commits.md`, GPG-signed, with `Related to #<issue-number>` in the body.
 
-11. **Push and open the PR** with a body file: a short summary, decisions worth challenging, checks run, and `Closes #<issue-number>`.
+11. **Push and open the PR**. Write the body to a file (a short summary, decisions worth challenging, checks run, `Closes #<issue-number>`) and set `body_file` to its path.
     ```bash
     git push -u origin <branch-name>
     gh pr create --assignee Chemaclass --label "<bug|enhancement|documentation>" \
@@ -94,4 +94,4 @@ Read both the issue body **and every comment** as requirements input. Maintainer
 
 ### Phase 5: Review and merge
 
-12. **Review, gate, and merge** the PR with `.agnostic-ai/skills/pr-sweep/SKILL.md` steps 2 to 6: the code-reviewer agent and the Codex adversarial review until it approves, the full OS matrix when paths, permissions, or import change, then squash-merge on green and fast-forward local `main`. If `--admin` is rejected, fall back to `--auto --squash --delete-branch` and report that the PR awaits approval.
+12. **Review, gate, and merge** the PR with `.agnostic-ai/skills/pr-sweep/SKILL.md` steps 2 to 6.

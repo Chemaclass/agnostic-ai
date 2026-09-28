@@ -1,6 +1,6 @@
 ---
 name: pr-sweep
-description: Review every open PR with the code-reviewer agent and a Codex adversarial review, apply the findings, and merge each one once CI is green. Use when asked to ship, sweep, or merge open PRs.
+description: Review every open PR with the code-reviewer agent and an adversarial review, apply the findings, and merge each one once CI is green. Use when asked to ship, sweep, or merge open PRs.
 argument-hint: "[PR-number ...] [--no-merge]"
 disable-model-invocation: false
 ---
@@ -22,9 +22,9 @@ Skip PRs by other authors and drafts; report them. Empty list: stop.
 Run two reviews on the PR branch, in parallel:
 
 - The `code-reviewer` agent for Go diffs (other diffs against the project rules). Keep its Opus model; never pass a cheaper override.
-- `/codex:adversarial-review --base origin/main`, which challenges the design, not only the lines.
+- An adversarial review that challenges the design, not only the lines: `/codex:adversarial-review --base origin/main` where the Codex plugin is installed (Claude Code). Without it, run a second reviewer pass told to question the approach, its assumptions, and how it fails in real use.
 
-Read every result before editing. After each round of fixes, run the Codex review again until it approves or every remaining finding is rejected in step 4.
+Read every result before editing. After each round of fixes, run the adversarial review again until it approves or every remaining finding is rejected in step 4.
 
 ## 3. Verify each finding
 
@@ -65,7 +65,7 @@ For each PR, oldest first, or the one that moves shared files (`sources.lock`, `
 
 1. Wait for checks on the current head SHA: `gh pr checks <N>`. Missing or pending checks are not green.
 2. If `mergeStateStatus` is not `CLEAN`, merge `origin/main` into the branch (never rewrite pushed history), keep both sides of shared docs, rerun the gate, push, and wait again.
-3. `gh pr merge <N> --squash --admin --delete-branch`.
+3. `gh pr merge <N> --squash --admin --delete-branch`. If `--admin` is rejected, use `--auto --squash --delete-branch` and report that the PR awaits approval.
 4. Fast-forward local `main` from `origin/main` and delete the local branch. Stop if `main` has unpublished commits; never reset them away.
 
 PR Go tests run on Linux only. After the last merge, wait for the `CI` workflow on the new `main` head and confirm every job passed, Windows included. A red main is the first thing to fix.
@@ -76,4 +76,4 @@ One table: PR, merge commit, findings applied, findings moved to issues, finding
 
 ## Stop
 
-Stop and report when a finding cannot be verified either way, CI stays red after one fix, or a merge is blocked beyond `--admin`.
+Stop and report when a finding cannot be verified either way, CI stays red after one fix, or a merge is blocked even for `--auto`.
