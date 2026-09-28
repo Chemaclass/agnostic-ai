@@ -1,7 +1,8 @@
 package emit
 
 import (
-	"os" "path/filepath"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
