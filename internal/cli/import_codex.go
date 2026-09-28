@@ -5,12 +5,10 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
 
-	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -164,13 +162,7 @@ func importCodexRules(root, dstDir string, src config.Sources, opts importCodexO
 		return 0, nil
 	}
 
-	scopeNames := scopedRuleNames(files)
-	wholeFileName := func(globs string) string {
-		if globs == "" {
-			return projectSlug(root)
-		}
-		return scopeNames[globs]
-	}
+	wholeFileNames := wholeFileRuleNames(root, files)
 	used := map[string]int{}
 	count := 0
 	for _, f := range files {
@@ -181,22 +173,17 @@ func importCodexRules(root, dstDir string, src config.Sources, opts importCodexO
 		if err != nil {
 			return count, fmt.Errorf("read %s: %w", f.path, err)
 		}
-		// When sync inlined the rules into a sentinel block, rebuild the
-		// specs from that block alone and ignore the regenerable pointer
-		// body. A no-op on hand-authored AGENTS.md files.
-		// The root file is the shared instructions mirrorMainFile copies
-		// into AGNOSTIC_AI.md; only a rules block sync appended holds
-		// rules there, or sync would write the text twice.
-		if f.globs == "" && !strings.Contains(string(raw), adapters.RulesStartMarker) {
+		text, ok := hierarchicalRulesText(f, string(raw))
+		if !ok {
 			continue
 		}
-		data := []byte(reduceToGeneratedRules(string(raw)))
+		data := []byte(text)
 		if !opts.shredEnabled() {
 			body := strings.TrimSpace(string(data))
 			if body == "" {
 				continue
 			}
-			name := dedupSlug(used, wholeFileName(f.globs))
+			name := dedupSlug(used, wholeFileNames[f.globs])
 			if err := writeCodexRule(dstDir, name, "", f.globs, body); err != nil {
 				return count, err
 			}
@@ -209,7 +196,7 @@ func importCodexRules(root, dstDir string, src config.Sources, opts importCodexO
 			if body == "" {
 				continue
 			}
-			name := dedupSlug(used, wholeFileName(f.globs))
+			name := dedupSlug(used, wholeFileNames[f.globs])
 			if err := writeCodexRule(dstDir, name, "", f.globs, body); err != nil {
 				return count, err
 			}
@@ -225,34 +212,6 @@ func importCodexRules(root, dstDir string, src config.Sources, opts importCodexO
 		}
 	}
 	return count, nil
-}
-
-// scopedRuleNames names the rule a whole nested file becomes, keyed by
-// its globs: the scope's last directory when no other scope ends the
-// same way, the whole scope path otherwise (`api`, `services-api`).
-func scopedRuleNames(files []hierarchicalFile) map[string]string {
-	last := map[string]int{}
-	for _, f := range files {
-		if f.globs != "" {
-			last[slugify(path.Base(strings.TrimSuffix(f.globs, "/**")))]++
-		}
-	}
-	names := map[string]string{}
-	for _, f := range files {
-		if f.globs == "" {
-			continue
-		}
-		scope := strings.TrimSuffix(f.globs, "/**")
-		name := slugify(path.Base(scope))
-		if last[name] > 1 || name == "" {
-			name = slugify(scope)
-		}
-		if name == "" {
-			name = "scoped"
-		}
-		names[f.globs] = name
-	}
-	return names
 }
 
 // firstSegment returns the first path segment of p (e.g. ".agnostic-ai"

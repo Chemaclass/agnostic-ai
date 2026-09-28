@@ -22,6 +22,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - A scoped rule no longer makes the managed `.gitignore` block ignore its whole directory; the block lists the scoped files instead (#1264).
 - A rule or review scoped inside a dot-folder, such as `.github/workflows`, no longer makes the managed `.gitignore` block ignore that folder (#1304).
 - `import` skips gitignored directories and nested repositories such as agent worktrees, and `--dry-run` no longer copies them or `node_modules` (#1265, #1273).
+- `import gemini` keeps the root `GEMINI.md` out of the rules and names a scoped rule after its scope, such as `api.md`, as `import codex` does (#1302).
 - `import codex` keeps the root `AGENTS.md` out of the rules, so `sync` no longer writes its text twice (#1268).
 - `import codex` names a scoped rule after its scope, such as `api.md` for `services/api/AGENTS.md`, not after the checkout's folder (#1267).
 - `import` reads a symlinked skill folder that resolves inside the project, and names one that links outside instead of dropping it silently (#1266).

@@ -67,8 +67,8 @@ func TestImportGeminiRules_ImportAllSkipsLinksOutsideTheProject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n != 2 {
-		t.Errorf("imported %d rules, want 2 (root and the in-project link)", n)
+	if n != 1 {
+		t.Errorf("imported %d rules, want 1 (the in-project link; the root feeds AGNOSTIC_AI.md)", n)
 	}
 	if rulesHolding(t, dst, "token=abc") {
 		t.Error("the outside link must be skipped under import all")
