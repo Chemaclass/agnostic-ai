@@ -155,6 +155,7 @@ For many policies, use a separate file: `exec-policies-file: ./.agnostic-ai/code
 | `AGENTS.md` (split on `## headings`) | `<rules>/<slug>.md` per section |
 | `AGENTS.md` (no headings) | single `<rules>/<projectname>.md` |
 | `<dir>/AGENTS.md` (nested) | `<rules>/<slug>.md` with inferred `globs: <dir>/**` |
+| `<dir>/AGENTS.md` (nested, no headings, or `shred: false`) | one rule named after the scope: `api.md` for `services/api/`, or `services-api.md` when another scope also ends in `api` |
 | `## Conventions` / `## Agents` / `## Skills` wrapper sections | unwrapped: their `### children` become the rules |
 | Single-line italic (`_text_`) immediately under a rule heading | extracted into the rule's `description` (and removed from the body) |
 | `.codex/agents/*.toml` and `.agents/agents/*.toml` | `<agents>/<name>.md` |

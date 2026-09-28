@@ -18,6 +18,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - A scoped rule no longer makes the managed `.gitignore` block ignore its whole directory; the block lists the scoped files instead (#1264).
 - `import` skips gitignored directories and nested repositories such as agent worktrees, and `--dry-run` no longer copies them or `node_modules` (#1265, #1273).
+- `import codex` names a scoped rule after its scope, such as `api.md` for `services/api/AGENTS.md`, not after the checkout's folder (#1267).
 - `import` reads a symlinked skill folder that resolves inside the project, and names one that links outside instead of dropping it silently (#1266).
 - `sync --check` lists a spec change as out of date and keeps "edited locally" (JSON `edited`) for a file changed since the last sync (#1270).
 - Ignore specs survive Prettier: sync reads patterns from fenced code blocks, and `import` writes the patterns in one (#1275).
