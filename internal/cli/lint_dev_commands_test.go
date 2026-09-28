@@ -20,6 +20,8 @@ func TestLintDevCommands(t *testing.T) {
 				"npm start",
 			},
 		}},
+		{Kind: spec.KindEnvironment, Path: "environments/null.yaml", Meta: map[string]any{"dev-commands": nil}},
+		{Kind: spec.KindEnvironment, Path: "environments/clear.yaml", Meta: map[string]any{"dev-commands": []any{}}},
 		{Kind: spec.KindEnvironment, Path: "environments/scalar.yaml", Meta: map[string]any{"dev-commands": "npm run dev"}},
 		{Kind: spec.KindEnvironment, Path: "environments/fields.yaml", Meta: map[string]any{
 			"x-claude": map[string]any{"dev-commands": []any{
@@ -43,6 +45,7 @@ func TestLintDevCommands(t *testing.T) {
 		`environments/bad.yaml: dev command "Api" appears twice; names must be unique`,
 		"environments/bad.yaml: dev command 3 has no `command:`",
 		"environments/bad.yaml: dev command 4 is not a mapping with `name:` and `command:`",
+		"environments/null.yaml: `dev-commands` is empty; write `dev-commands: []` to clear an earlier spec's list",
 		"environments/scalar.yaml: `dev-commands` must be a list of commands",
 		"environments/fields.yaml: dev command 1 has no `command:`",
 		"environments/fields.yaml: dev command 2 sets `port: web`; use a number",

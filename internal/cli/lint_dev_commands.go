@@ -22,9 +22,13 @@ func lintDevCommands(envs []spec.Entry) []lintFinding {
 	var out []lintFinding
 	for _, e := range envs {
 		meta := adapters.ResolveMeta(e.Meta, "claude")
-		list, ok := meta["dev-commands"].([]any)
+		value, present := meta["dev-commands"]
+		list, ok := value.([]any)
 		if !ok {
-			if meta["dev-commands"] != nil {
+			switch {
+			case present && value == nil:
+				out = append(out, devCommandFinding(e, "`dev-commands` is empty; write `dev-commands: []` to clear an earlier spec's list"))
+			case present:
 				out = append(out, devCommandFinding(e, "`dev-commands` must be a list of commands"))
 			}
 			continue
