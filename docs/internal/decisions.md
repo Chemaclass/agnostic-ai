@@ -43,3 +43,13 @@ Non-obvious architectural choices. Append-only.
 **Decision:** adapters share only via `internal/adapters/internal/emit`. No cross-adapter imports.
 
 **Why:** target quirks must not leak across adapters. Adding an adapter must not require touching existing ones. Premature abstraction across adapters has burned similar projects (compile-target frameworks, transpiler ecosystems).
+
+## 005: Jev triage for target audits, optional and measured
+
+**Date:** 2026-09-28
+
+**Context:** a daily `/target-audit` sends Sonnet auditors to read every changed vendor page. Most changes are harmless, and reading them all spends the maintainer's Claude or Codex usage window. TypeSafe's Jev returns typed judgments (Choice, Noul) for a fraction of a cent. It needs an API key that not every machine or contributor has.
+
+**Decision:** `scripts/jev-triage.sh` asks Jev whether each changed page contradicts any claim we make about its target, and whether it changes a project config surface. Jev leads order the reading. A target whose changed pages Jev fully answers with no lead, a surface score under 0.1, and no `mentions:` label skips the auditor, and one such target per run is audited anyway. With no key, or on any API failure, the script writes lexical leads, and every changed page is read as before.
+
+**Why:** measured, not assumed. On 33 labeled past findings Jev flagged every confirmed drift in every run, where lexical matching alone flagged 12 of 18. A full audit of 25 targets with 19 changed pages cost 13 requests, 136,688 input tokens, and $0.0057, checked against the TypeSafe dashboard. Keeping the script optional preserves the audit for anyone without a key. Tradeoff: a wrong `clear` skips a read, so the clearing cut is far stricter than the lead cut, and the random spot check keeps testing it. Details and numbers: [Jev triage](jev-triage.md).
