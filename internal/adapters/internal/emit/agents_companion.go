@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
+	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // AgentsCompanionFile is the file a project adds next to an AGENTS.md so
@@ -18,22 +20,22 @@ var agentsImportLines = map[string]bool{"@AGENTS.md": true, "@./AGENTS.md": true
 
 // SplitAgentsCompanion reports whether text, a CLAUDE.md, imports the
 // AGENTS.md beside it, and returns what is left without the import line
-// and the leading title. Lines inside code fences never count.
+// and a leading `# CLAUDE.md` title. Lines inside code fences never count.
 func SplitAgentsCompanion(text string) (rest string, ok bool) {
 	if header.Has(text) {
 		return "", false
 	}
 	lines := strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n")
 	kept := make([]string, 0, len(lines))
-	inFence, titled := false, false
+	inFence, started := false, false
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~") {
 			inFence = !inFence
 		}
-		if !titled && trimmed != "" {
-			titled = true
-			if !inFence && strings.HasPrefix(trimmed, "# ") {
+		if !started && trimmed != "" {
+			started = true
+			if !inFence && strings.EqualFold(trimmed, "# "+AgentsCompanionFile) {
 				continue
 			}
 		}
@@ -50,24 +52,40 @@ func SplitAgentsCompanion(text string) (rest string, ok bool) {
 }
 
 // IsAgentsCompanion reports whether text, a CLAUDE.md, holds nothing but
-// an import of the AGENTS.md beside it, headings aside.
+// an import of the AGENTS.md beside it and a `# CLAUDE.md` title.
 func IsAgentsCompanion(text string) bool {
 	rest, ok := SplitAgentsCompanion(text)
-	if !ok {
-		return false
+	return ok && rest == ""
+}
+
+// AgentsCompanionDirs returns the scopes whose CLAUDE.md companion the
+// Claude adapter replaces: it writes their rules to its rules directory
+// and sync owns the companion path. rules are Claude's prepared rules.
+// Sync may only allow and remove a companion in these directories.
+func AgentsCompanionDirs(cfg *config.Config, rules []spec.Entry) []string {
+	if OutputRulesFile(cfg, "claude", "") != "" {
+		return nil
 	}
-	for _, l := range strings.Split(rest, "\n") {
-		if c := strings.TrimSpace(l); c != "" && !isHeading(c) {
-			return false
+	seen := map[string]bool{}
+	var dirs []string
+	for _, r := range rules {
+		dir := r.EffectiveScope()
+		if dir == "" || seen[dir] {
+			continue
+		}
+		seen[dir] = true
+		if !cfg.IsUnmanaged(filepath.Join(dir, AgentsCompanionFile)) {
+			dirs = append(dirs, dir)
 		}
 	}
-	return true
+	return dirs
 }
 
 // RemoveAgentsCompanion deletes the CLAUDE.md in dir when it only imports
 // the AGENTS.md beside it and covered, the rules Claude Code now loads
 // for dir, holds that file's text. Left in place, the companion would
-// load the same instructions a second time.
+// load the same instructions a second time. Under backup mode the file
+// is kept as `<path>.bak` so revert can restore it.
 func (s *Session) RemoveAgentsCompanion(dir, covered string, dryRun bool) error {
 	path := filepath.Join(dir, AgentsCompanionFile)
 	data, err := os.ReadFile(path)
@@ -96,6 +114,6 @@ func (s *Session) RemoveAgentsCompanion(dir, covered string, dryRun bool) error 
 	if s.skipUnmanaged(path) {
 		return nil
 	}
-	_, err = s.remove(path, "", data, dryRun)
+	_, err = s.remove(path, "", data, true, dryRun)
 	return err
 }

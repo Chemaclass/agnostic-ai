@@ -197,7 +197,7 @@ When `.claude/rules/` exists (even if empty), `CLAUDE.md` is not sliced, so the 
 
 The instructions file is looked up in Claude Code's own order: `CLAUDE.md`, `.claude/CLAUDE.md`, `AGENTS.md`, `.claude/AGENTS.md`. Since v2.1.277, a session with no `CLAUDE.md` at or above the working directory loads `AGENTS.md`, so repos set up for other agents get their real instructions captured. The root `AGENTS.md` step is skipped when `codex`, `amp`, `warp`, `crush`, `kiro`, or `opencode` imports in the same run, since only one importer may slice that file.
 
-A `CLAUDE.md` whose instruction is `@AGENTS.md` is a companion that lets Claude Code read `AGENTS.md`. Its import line never reaches other tools. `sync` deletes a nested companion that only imports its `AGENTS.md` once `.claude/rules/` holds that directory's scoped rules, so Claude Code does not load them twice.
+A `CLAUDE.md` whose instruction is `@AGENTS.md` is a companion that lets Claude Code read `AGENTS.md`. Its import line never reaches other tools. `sync` deletes a nested companion that only imports its `AGENTS.md` (a `# CLAUDE.md` title aside) once `.claude/rules/` holds that directory's scoped rules, so Claude Code does not load them twice. Any other line, headings included, keeps the file, and so does listing it in `sync.unmanaged`; sync then reports it as a conflict with the scoped `AGENTS.md`. `sync --backup` keeps the deleted companion as `CLAUDE.md.bak`, and `revert` restores it.
 
 The settings overlay captures every non-`hooks` key of `.claude/settings.json`. `sync -t claude` layers the spec-derived `hooks` on top, reproducing the full file after `.claude/` is wiped. Re-run `import claude` after editing settings.json by hand. For precedence, see [Claude settings](#claude-settings).
 

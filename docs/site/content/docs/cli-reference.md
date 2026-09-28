@@ -478,7 +478,7 @@ Drift:   in sync
 
 ## revert
 
-Undo a `sync --backup`. For every emitted file and entry-point file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.agnostic-ai/AGNOSTIC_AI.md`), `revert` restores `<path>.bak` and removes the .bak. Files without a `.bak` stay unless you pass `--force`, so user files sharing a path with adapter output (helper scripts next to `SKILL.md`) survive.
+Undo a `sync --backup`. For every emitted file and entry-point file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.agnostic-ai/AGNOSTIC_AI.md`), `revert` restores `<path>.bak` and removes the .bak. It also restores a nested `CLAUDE.md` companion that sync deleted for Claude's scoped rules. Files without a `.bak` stay unless you pass `--force`, so user files sharing a path with adapter output (helper scripts next to `SKILL.md`) survive.
 
 | Flag | Description |
 |------|-------------|

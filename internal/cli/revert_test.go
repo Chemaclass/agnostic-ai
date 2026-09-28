@@ -306,3 +306,47 @@ func TestRevertCmd_DryRunNoSideEffects(t *testing.T) {
 		t.Errorf("dry-run revert removed the file: %v", err)
 	}
 }
+
+// sync removes a nested CLAUDE.md that only imports its AGENTS.md; with
+// --backup, revert must bring it back like any file sync replaced.
+func TestRevertCmd_RestoresRemovedAgentsCompanion(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	files := map[string]string{
+		"agnostic-ai.yaml":          "version: 1\ntargets: [claude, codex]\n",
+		".agnostic-ai/rules/api.md": "---\nname: api\nscope: services/api\n---\nUse integer minor units.\n",
+		"services/api/AGENTS.md":    "Use integer minor units.\n",
+		"services/api/CLAUDE.md":    "@AGENTS.md\n",
+	}
+	for name, body := range files {
+		if err := os.MkdirAll(filepath.Dir(name), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(name, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "-t", "claude,codex", "--backup"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat("services/api/CLAUDE.md"); !os.IsNotExist(err) {
+		t.Fatalf("sync should remove the companion, stat err = %v", err)
+	}
+
+	root = NewRootCmd("test")
+	root.SetArgs([]string{"revert", "-t", "claude,codex"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	if got, err := os.ReadFile("services/api/CLAUDE.md"); err != nil || string(got) != "@AGENTS.md\n" {
+		t.Errorf("companion not restored: %q, %v", got, err)
+	}
+	if _, err := os.Stat("services/api/CLAUDE.md.bak"); !os.IsNotExist(err) {
+		t.Errorf("expected CLAUDE.md.bak removed after restore, stat err = %v", err)
+	}
+}
