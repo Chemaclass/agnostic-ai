@@ -1,0 +1,4 @@
+name: docs
+description: Search the product docs.
+type: http
+url: https://docs.example.com/mcp

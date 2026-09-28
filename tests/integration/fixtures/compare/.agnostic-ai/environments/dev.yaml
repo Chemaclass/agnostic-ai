@@ -1,0 +1,6 @@
+name: dev
+description: Boot the dev environment.
+install: make setup
+terminals:
+  - name: dev
+    command: make run
