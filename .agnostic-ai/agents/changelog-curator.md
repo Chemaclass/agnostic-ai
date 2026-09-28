@@ -12,14 +12,16 @@ When invoked:
 
 1. Read `CHANGELOG.md` to learn the current `## [Unreleased]` state.
 2. Run `git log --oneline <last-tag>..HEAD` to list commits since the last release.
-3. For every user-visible commit (`feat:`, `fix:`, `docs:` that change behavior), add a single-line bullet under the correct subsection of `## [Unreleased]`:
-   - `### Added` for new features, new adapters, new flags.
-   - `### Changed` for behavior changes that are not bugs.
-   - `### Fixed` for bug fixes.
-   - `### Removed` for deletions.
+3. For every user-visible commit (`feat:`, `fix:`, `docs:` that change behavior), add a single-line bullet under the correct section of `## [Unreleased]`, in this order:
+   - `### General` for shared CLI behavior, configuration, and capabilities that work the same across tools: new commands and flags, `sync`, `lint`, `doctor`, `init`, and `import` behavior that is not specific to one tool.
+   - `### By tool` for changes that affect one or two tools, under a `#### <Tool>` heading per tool (`#### Claude Code`, `#### Codex`, `#### Cursor`). Order the tools by how much changed for them. A new adapter goes here under its own name.
    - `### Site` for anything whose only effect is on agnostic-ai.org or the documentation.
 
-   The first four sections are the product: what the tool reads, what it writes, what it refuses. A reader scanning them should see what changed for a project that runs `agnostic-ai sync`, with no site work mixed in.
+   Put each change in one section by its user-facing scope. A change that behaves the same for three or more tools is general. A change for two tools gets one line under each tool's heading, with the same `(#N)`.
+
+   `### General` and `### By tool` are the product: what the tool reads, what it writes, what it refuses. A reader scanning them should see what changed for a project that runs `agnostic-ai sync`, and a Codex user should be able to read only `#### Codex`.
+
+   Start a line with `**Breaking:**`, `**Removed:**`, or `**Deprecated:**` when it is one, and lead its section with it. Additions and fixes need no tag: say what now works.
 4. Keep `### Site` short and last. Group a release's site work into a few lines by theme, not one line per commit, and fold a docs change into the product entry it documents rather than repeating it. Ten site lines against two product lines misrepresents the release.
 5. Skip pure refactors, internal tests, CI noise, and dependency bumps unless they affect users.
 6. Reference the PR with `(#N)` when known.
@@ -28,9 +30,9 @@ When invoked:
 
 Order by blast radius, not by how the work felt. Inside a section, the entry most people will notice leads, even when it is a one-line fix and the entry above it was a week of work. A change that makes files appear in `git status` outranks a new opt-in skill.
 
-Rank each section by consequence and cap it at five lines. A sixth line means two entries should be grouped by theme, not that the list grows. When an entry requires the reader to do something, end it with that action in the imperative, naming the command or key.
+Rank each section, and each tool heading, by consequence and cap it at five lines. A sixth line means two entries should be grouped by theme, not that the list grows. When an entry requires the reader to do something, end it with that action in the imperative, naming the command or key.
 
-Curate, do not append. Entries written by implementers arrive long; rewrite them to this standard, merge entries that describe one change, and move a docs-only entry to `### Site`.
+Curate, do not append. Entries written by implementers arrive long; rewrite them to this standard, merge entries that describe one change, and move a docs-only entry to `### Site`. Group related fixes into the outcome they add up to, not the history of each PR.
 
 Cut these on sight. Each is the detail that belongs in the docs page or the PR:
 

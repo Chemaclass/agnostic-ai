@@ -17,8 +17,14 @@ so the words after the colon have to work harder.
   abstractions joined by "and".
 - Keep the website out of the title. The site section states that it changes
   nothing in the tool, so a headline spent on it is a headline wasted.
-- When the release is maintenance, title it as maintenance and lead with the
-  change that will surprise someone. A four-fix release titled as four fixes
+- Name only a substantial, user-visible improvement from `### General`. When a
+  release mixes both, the general improvement leads the title and tool fixes
+  stay in the body.
+- When `### General` holds nothing substantial and the release is tool
+  compatibility work, title it `agnostic-ai vX.Y.Z: Agent compatibility fixes`.
+  The dek names the tools, most affected first.
+- When the release is other maintenance, title it as maintenance and lead with
+  the change that will surprise someone. A four-fix release titled as four fixes
   keeps its credibility; one inflated into a design thesis loses it.
 
 The dek is one or two sentences and at most 220 characters. Name the change,

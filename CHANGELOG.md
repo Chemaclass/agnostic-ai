@@ -1,29 +1,33 @@
 # Changelog
 
-Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+Each release lists general changes first, then changes by tool, then site work. Releases up to v0.72.0 group entries as Added, Changed, Fixed, and Removed. Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Entry style, section order, and what belongs here instead of the issue or the docs: `.agnostic-ai/agents/changelog-curator.md`.
 
 ## [Unreleased]
 
-### Added
-
-- `sync --untrack` untracks generated files git also ignores, and `install-hook --post-checkout` runs `sync -q` after each checkout (#1330).
-- Codex gets review specs as a `## Code Review Rules` section in the root and scoped `AGENTS.md`, and `import codex` reads it back (#1341).
-- Target audits rank changed vendor text against agnostic-ai's claims with TypeSafe's Jev, so auditors read likely drift first (#1364).
-
-### Changed
-
-- `init` pins the schema URL to its release, omits default `sources:`, notes `on-unsupported: error`, and creates only seeded folders (#1331).
-- `import codex` and `import gemini` name nested section rules after their scope, such as `api-tests.md`, not `tests-2.md` (#1337).
-
-### Fixed
+### General
 
 - With no `.sync-state`, `sync`, `sync --check`, and `doctor` name each leftover output and how to remove it (#1334, #1354, #1362).
-- A fresh `import claude` syncs cleanly: permissions reach lint, Codex-ready hooks stay unpinned, `@AGENTS.md` companions work (#1328, #1329, #1336).
+- `sync --untrack` untracks ignored outputs, `install-hook --post-checkout` syncs after checkout, and `.gitignore` marks `allow` lines committed (#1330, #1335).
+- `init` pins the schema URL to its release, omits default `sources:`, notes `on-unsupported: error`, and creates only seeded folders (#1331).
 - Imports point at `.agnostic-ai/` sources, read a linked skill once, and add no rules when rerun after `sync` (#1326, #1338, #1349).
-- `sync --keep-edits --quiet` reports kept files on stderr, and the `.gitignore` block marks `gitignore.allow` lines as committed (#1333, #1335).
-- `doctor --check-references` resolves repo-root links, skips ignored placeholders, and groups findings by source (#1342).
+- `doctor --check-references` resolves repo-root links and groups findings by source; `sync --keep-edits --quiet` reports kept files on stderr (#1333, #1342).
+
+### By tool
+
+#### Claude Code
+
+- A fresh `import claude` syncs cleanly: permissions reach lint, Codex-ready hooks stay unpinned, `@AGENTS.md` companions work (#1328, #1329, #1336).
+
+#### Codex
+
+- Review specs reach the root and scoped `AGENTS.md` as a `## Code Review Rules` section, and `import codex` reads it back (#1341).
+- `import codex` names nested section rules after their scope, such as `api-tests.md`, not `tests-2.md` (#1337).
+
+#### Gemini CLI
+
+- `import gemini` names nested section rules after their scope, such as `api-tests.md`, not `tests-2.md` (#1337).
 
 ### Site
 
