@@ -41,27 +41,36 @@ func importInlinedEntryPointRules(root, source string, cfg *config.Config) error
 			specs[r.Name] = true
 		}
 	}
-	_, sections := splitH2Sections(reduceToGeneratedRules(string(data)))
 	dstDir := filepath.Join(root, cfg.Sources.Rules)
 	count := 0
-	for _, s := range sections {
-		if !mergedDocWrapperHeadings[s.slug] {
+	for _, c := range generatedBlockRules(reduceToGeneratedRules(string(data))) {
+		path := filepath.Join(dstDir, c.slug+".md")
+		if specs[c.slug] || fileExists(path) {
 			continue
 		}
-		children, _ := unwrapMergedH3Children(s.body, map[string]int{})
-		for _, c := range children {
-			path := filepath.Join(dstDir, c.slug+".md")
-			if specs[c.slug] || fileExists(path) {
-				continue
-			}
-			if err := writeRule(path, c.slug, c.body); err != nil {
-				return err
-			}
-			count++
+		if err := writeRule(path, c.slug, c.body); err != nil {
+			return err
 		}
+		count++
 	}
 	if count > 0 {
 		summaryf("imported %d rules from %s, where %s reads them\n", count, name, source)
 	}
 	return nil
+}
+
+// generatedBlockRules returns one rule per `###` child of the wrapper
+// headings in block, the inner text of the rules block sync appends to
+// an entry point.
+func generatedBlockRules(block string) []mergedH3Child {
+	_, sections := splitH2Sections(block)
+	var out []mergedH3Child
+	for _, s := range sections {
+		if !mergedDocWrapperHeadings[s.slug] {
+			continue
+		}
+		children, _ := unwrapMergedH3Children(s.body, map[string]int{})
+		out = append(out, children...)
+	}
+	return out
 }
