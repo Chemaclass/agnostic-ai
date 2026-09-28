@@ -402,3 +402,72 @@ func TestImportGlobal_OpenHandsCLIShapesRoundTrip(t *testing.T) {
 		t.Errorf("mcp.json changed after import:\n%s", got)
 	}
 }
+
+func TestSyncGlobal_AugmentUserSettingsGetHooksMCPAndKeys(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "mcps", "docs.yaml"), globalDocsMCP)
+	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "start.yaml"), "event: SessionStart\nmatcher: ignored\ncommand: ~/bin/start.sh\ntimeout: 5\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "edit.yaml"), "event: PostToolUse\nmatcher: str-replace-editor\ncommand: ~/bin/fmt.sh\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "settings", "d.yaml"), "x-augment:\n  shell: zsh\n")
+	path := filepath.Join(home, ".augment", "settings.json")
+	mustWriteGlobalTest(t, path, "{\n  \"indexing\": true\n}\n")
+
+	_, warnings, err := runGlobalAgentTest("--only", "augment")
+	if err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal([]byte(readGlobalTest(t, path)), &doc); err != nil {
+		t.Fatal(err)
+	}
+	hooks, _ := doc["hooks"].(map[string]any)
+	start, _ := hooks["SessionStart"].([]any)
+	edit, _ := hooks["PostToolUse"].([]any)
+	if len(start) != 1 || len(edit) != 1 {
+		t.Fatalf("hooks = %v", hooks)
+	}
+	startGroup := start[0].(map[string]any)
+	if _, has := startGroup["matcher"]; has {
+		t.Errorf("a session event takes no matcher: %v", startGroup)
+	}
+	handler := startGroup["hooks"].([]any)[0].(map[string]any)
+	if handler["timeout"] != float64(5000) || handler["command"] != "~/bin/start.sh" {
+		t.Errorf("handler = %v", handler)
+	}
+	if edit[0].(map[string]any)["matcher"] != "str-replace-editor" {
+		t.Errorf("tool hook = %v", edit[0])
+	}
+	servers, _ := doc["mcpServers"].(map[string]any)
+	if servers["docs"] == nil || doc["shell"] != "zsh" || doc["indexing"] != true {
+		t.Errorf("settings.json = %v", doc)
+	}
+	if _, _, err := runGlobalAgentTest("--only", "augment", "--check"); err != nil {
+		t.Fatalf("check: %v", err)
+	}
+
+	for _, dir := range []string{"mcps", "hooks", "settings"} {
+		if err := os.RemoveAll(filepath.Join(source, dir)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, w, err := runGlobalAgentTest("--only", "augment"); err != nil {
+		t.Fatalf("sync after removal: %v\n%s", err, w)
+	}
+	if got := readGlobalTest(t, path); got != "{\n  \"indexing\": true\n}\n" {
+		t.Errorf("removal must restore settings.json:\n%s", got)
+	}
+}
+
+func TestSyncGlobal_AugmentAdoptsEmptyMatcherSessionHook(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "start.yaml"), "event: SessionStart\ncommand: ~/s.sh\n")
+	path := filepath.Join(home, ".augment", "settings.json")
+	existing := `{"hooks":{"SessionStart":[{"matcher":"","hooks":[{"type":"command","command":"~/s.sh"}]}]}}` + "\n"
+	mustWriteGlobalTest(t, path, existing)
+	if _, w, err := runGlobalAgentTest("--only", "augment"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, w)
+	}
+	if got := readGlobalTest(t, path); got != existing {
+		t.Errorf("the hand-written hook must stay as written:\n%s", got)
+	}
+}

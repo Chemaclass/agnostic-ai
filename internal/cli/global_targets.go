@@ -64,7 +64,8 @@ type globalTarget struct {
 	agentsWindows string
 	// hooks is the hooks file.
 	hooks string
-	// hooksFormat selects the native hooks schema: "claude" or "cursor".
+	// hooksFormat selects the native hooks schema: "claude", "cursor",
+	// or "augment", Claude's grouping with Augment's narrower fields.
 	hooksFormat string
 	// hookTarget is how a hook learns which target ran it, the same way
 	// the project adapter tells it: the settings `env` (claude), an
@@ -317,6 +318,20 @@ var globalTargets = map[string]globalTarget{
 		agents: globalPathHome + ".augment/agents",
 		rules:  globalPathHome + ".augment/rules",
 		skills: globalPathHome + ".augment/skills",
+		// ~/.augment/settings.json is the user tier of the same file,
+		// read by the CLI, VS Code, and IntelliJ (docs.augmentcode.com/
+		// cli/hooks, #1253).
+		hooks:       globalPathHome + ".augment/settings.json",
+		hooksFormat: "augment",
+		mcp:         globalMCPFile{path: globalPathHome + ".augment/settings.json", format: "json", key: "mcpServers"},
+		settings: globalSettingsFile{
+			path: globalPathHome + ".augment/settings.json", format: "json",
+			reserved: map[string]string{
+				"hooks":           "sync --global writes hooks from hook specs",
+				"mcpServers":      "sync --global writes MCP servers from MCP specs",
+				"toolPermissions": "sync --global does not write user-level permissions",
+			},
+		},
 	},
 }
 

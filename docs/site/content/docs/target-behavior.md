@@ -133,9 +133,9 @@ See [adding adapters](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/i
 | **goose** | `~/.config/goose/.goosehints` | inlined | - | `~/.agents/skills/<name>/` | `~/.agents/agents/<name>.md` |
 | **openhands** | - | - | - | `~/.agents/skills/<name>/` | `~/.agents/agents/<name>.md` |
 | **trae** | - | - | - | `~/.trae/skills/<name>/` | `~/.trae-cn/agents/<name>.md` |
-| **augment** | - | `~/.augment/rules/<name>.md` | - | `~/.augment/skills/<name>/` | `~/.augment/agents/<name>.md` |
+| **augment** | - | `~/.augment/rules/<name>.md` | `~/.augment/settings.json` | `~/.augment/skills/<name>/` | `~/.augment/agents/<name>.md` |
 
-MCP specs reach the user MCP files of Claude Code, Codex, Cursor, Copilot, Gemini, OpenHands, and Qoder; see [MCP servers](@/docs/configuration.md#global-mcp-servers). Settings specs reach five targets' user settings files: Claude Code, Codex, Copilot, Qoder, and Gemini (model only). Every other target raises a coverage note. See [default model and effort](@/docs/configuration.md#global-default-model-and-effort).
+MCP specs reach the user MCP files of Augment, Claude Code, Codex, Cursor, Copilot, Gemini, OpenHands, and Qoder; see [MCP servers](@/docs/configuration.md#global-mcp-servers). Settings specs reach six targets' user settings files: Claude Code, Codex, Copilot, Qoder, Gemini (model only), and Augment (`x-augment` keys only). Every other target raises a coverage note. See [default model and effort](@/docs/configuration.md#global-default-model-and-effort).
 
 Global agents use the same native formats as project agents. Amp, Zed, Warp, and Crush have no supported global agent-file output. See [global configuration](@/docs/configuration.md#global-configuration) for setup and migration.
 

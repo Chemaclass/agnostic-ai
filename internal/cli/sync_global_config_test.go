@@ -327,13 +327,13 @@ func TestLintGlobal_ChecksKindsAgainstGlobalSurfaces(t *testing.T) {
 	if err == nil {
 		t.Fatalf("validate --global must reject hooks no configured target writes:\n%s", out)
 	}
-	if !strings.Contains(out, hook) || !strings.Contains(out, "no enabled target supports hooks. Enable one of: claude, codex, cursor, gemini, qoder") {
+	if !strings.Contains(out, hook) || !strings.Contains(out, "no enabled target supports hooks. Enable one of: augment, claude, codex, cursor, gemini, qoder") {
 		t.Errorf("expected the hook orphan with the global hook targets, got:\n%s", out)
 	}
 
 	out, _, _ = runGlobalCheck("lint")
 	for _, want := range []string{
-		hook + ": hook spec not consumed by any enabled target; targets that support hooks: claude, codex, cursor, gemini, qoder",
+		hook + ": hook spec not consumed by any enabled target; targets that support hooks: augment, claude, codex, cursor, gemini, qoder",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("expected %q, got:\n%s", want, out)

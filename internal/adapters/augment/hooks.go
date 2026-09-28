@@ -193,3 +193,29 @@ func hasScriptExtension(command string) bool {
 	}
 	return false
 }
+
+// SessionOnlyEvent reports whether event takes no matcher, so a user
+// hooks entry for it leaves the key out, as the vendor examples do.
+func SessionOnlyEvent(event string) bool { return sessionOnlyEvents[event] }
+
+// NoteUserHookGaps raises the coverage notes the project hooks block
+// raises (a command that is not a script path, a Claude-style matcher)
+// for hooks sync --global writes to ~/.augment/settings.json.
+func NoteUserHookGaps(hooks []spec.Entry) { buildHooksBlock(hooks) }
+
+// HookTimeout converts a spec's timeout in seconds to the milliseconds
+// Augment reads.
+func HookTimeout(meta map[string]any) (any, bool) {
+	if timeout := emit.HookIntMeta(meta, "timeout"); timeout > 0 {
+		return timeout * 1000, true
+	}
+	return nil, false
+}
+
+// UserMCPServers renders mcps as the `mcpServers` map of
+// ~/.augment/settings.json, the same builder the project file uses.
+func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
+	mcps = emit.DropMCPDisabled(target, mcps, "a disabled server is left out of ~/.augment/settings.json, which has no per-server disable key")
+	mcps = emit.DropMCPWebSocket(target, mcps, mcpWebSocketGapReason)
+	return emit.BuildMCPServersMap(mcps, emit.MCPSchemaServersMap)
+}
