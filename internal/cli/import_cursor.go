@@ -29,8 +29,9 @@ var cursorSkillsDirs = []string{
 
 // importFromCursor reads existing Cursor config (.cursor/rules/*.mdc,
 // .cursor/agents/*.md, .cursor/skills/<name>/ and .agents/skills/<name>/
-// folders, .cursor/commands/*.md, a hand-authored .cursorignore) under
-// root and writes specs into the configured source directories.
+// folders, .cursor/commands/*.md, root and nested .cursor/BUGBOT.md, a
+// hand-authored .cursorignore) under root and writes specs into the
+// configured source directories.
 func importFromCursor(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands); err != nil {
 		return err
@@ -51,11 +52,15 @@ func importFromCursor(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
+	reviews, err := importCursorReviews(root, src)
+	if err != nil {
+		return err
+	}
 	ignores, err := importIgnoreFile(root, "cursor", src)
 	if err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d ignores\n", rules, agents, skills, commands, ignores)
+	summaryf("imported %d rules, %d agents, %d skills, %d commands, %d reviews, %d ignores\n", rules, agents, skills, commands, reviews, ignores)
 	printImportNextSteps(root, "cursor")
 	return nil
 }
