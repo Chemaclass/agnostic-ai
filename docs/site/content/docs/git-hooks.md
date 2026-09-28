@@ -184,6 +184,8 @@ post-rewrite:
 
 `post-merge` runs after `git pull`, and `post-rewrite` after a rebase or `git commit --amend`. Git hooks do not put `node_modules/.bin` on `PATH`, so the command names the binary by path. The guard skips a checkout that has not installed dependencies yet.
 
+`--quiet` hides the routine summary, but a `~ kept <path>` line still prints, on stderr, so a hook running these recipes still reports a file it left alone.
+
 ### New worktrees
 
 A new linked worktree has no `node_modules`. A hook runner installed from npm, such as lefthook, may not start there, and the pinned binary is missing either way. The worktree gets its tool files once something runs `pnpm install` in it.

@@ -8,8 +8,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Fixed
 
+- `import claude` writes permission lists to a settings spec, so `lint` flags a mid-command `*` in allow and deny rules, and Codex gets its coverage note (#1329).
 - A root skill that links to a package's nested skill folder imports once, at the root path, with a note naming the skipped path (#1338).
 - `doctor --check-references` resolves repo-root links, skips ignored placeholders, and groups findings by source (#1342).
+- `sync --keep-edits --quiet` still reports each kept file, on stderr, instead of printing nothing (#1333).
 
 ### Changed
 
