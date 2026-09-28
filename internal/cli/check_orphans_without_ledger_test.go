@@ -1,10 +1,14 @@
 package cli
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -12,11 +16,12 @@ import (
 )
 
 // Without a ledger (deleted, or a fresh checkout of a repo that commits
-// its generated files), leftoverOutputs cannot read a prior output list,
+// its generated files), leftoverReport cannot read a prior output list,
 // so it falls back to scanning git-tracked files for the provenance
 // header. A hand-authored file, header-less, is never flagged even
-// though it is tracked too.
-func TestLeftoverOutputs_FallsBackToTrackedFilesWithoutLedger(t *testing.T) {
+// though it is tracked too. A scope's AGENTS.md is reported for manual
+// removal, since nothing proves sync wrote it there.
+func TestLeftoverReport_FallsBackToTrackedFilesWithoutLedger(t *testing.T) {
 	dir, git := gitRepo(t)
 	testutil.Chdir(t, dir)
 	cfg := &config.Config{Targets: []string{"codex"}}
@@ -29,15 +34,15 @@ func TestLeftoverOutputs_FallsBackToTrackedFilesWithoutLedger(t *testing.T) {
 	git("commit", "-q", "-m", "base")
 	// No .sync-state at all: readStateFile(".") returns the zero value.
 
-	got := leftoverOutputs(cfg, map[string]bool{})
+	got := leftoverReport(cfg, map[string]bool{})
 
-	if len(got) != 1 || got[0] != filepath.ToSlash(generated) {
-		t.Errorf("got %v, want [%s]", got, filepath.ToSlash(generated))
+	if !got.Unledgered || len(got.Leftover) != 0 || len(got.Orphaned) != 1 || got.Orphaned[0] != generated {
+		t.Errorf("got %+v, want only %s, for manual removal", got, generated)
 	}
 }
 
 // A file the current sync still emits is never reported, ledger or not.
-func TestLeftoverOutputs_WithoutLedgerSkipsEmittedFiles(t *testing.T) {
+func TestLeftoverReport_WithoutLedgerSkipsEmittedFiles(t *testing.T) {
 	dir, git := gitRepo(t)
 	testutil.Chdir(t, dir)
 	cfg := &config.Config{Targets: []string{"codex"}}
@@ -47,15 +52,15 @@ func TestLeftoverOutputs_WithoutLedgerSkipsEmittedFiles(t *testing.T) {
 	git("add", "-A")
 	git("commit", "-q", "-m", "base")
 
-	got := leftoverOutputs(cfg, map[string]bool{filepath.ToSlash(generated): true})
+	got := leftoverReport(cfg, map[string]bool{generated: true})
 
-	if len(got) != 0 {
+	if got.hasDrift() {
 		t.Errorf("emitted file reported as leftover: %v", got)
 	}
 }
 
 // A user-owned path never counts as a leftover, ledger or not.
-func TestLeftoverOutputs_WithoutLedgerSkipsUnmanagedFiles(t *testing.T) {
+func TestLeftoverReport_WithoutLedgerSkipsUnmanagedFiles(t *testing.T) {
 	dir, git := gitRepo(t)
 	testutil.Chdir(t, dir)
 	generated := filepath.Join("services", "api", "AGENTS.md")
@@ -64,9 +69,9 @@ func TestLeftoverOutputs_WithoutLedgerSkipsUnmanagedFiles(t *testing.T) {
 	git("commit", "-q", "-m", "base")
 	cfg := &config.Config{Targets: []string{"codex"}, Sync: config.SyncConfig{Unmanaged: []string{filepath.ToSlash(generated)}}}
 
-	got := leftoverOutputs(cfg, map[string]bool{})
+	got := leftoverReport(cfg, map[string]bool{})
 
-	if len(got) != 0 {
+	if got.hasDrift() {
 		t.Errorf("unmanaged file reported as leftover: %v", got)
 	}
 }
@@ -98,15 +103,14 @@ func TestCollectDrift_ReportsLeftoverWithoutLedger(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var leftover []string
+	var stranded []string
 	for _, r := range reports {
-		leftover = append(leftover, r.Leftover...)
+		stranded = append(stranded, r.Leftover...)
+		stranded = append(stranded, r.Orphaned...)
 	}
-	if len(leftover) == 0 {
-		t.Fatalf("expected the orphaned scoped rule file reported as leftover, got reports: %+v", reports)
-	}
-	if !strings.Contains(strings.Join(leftover, " "), "services/api") {
-		t.Errorf("leftover does not name the scoped rule output: %v", leftover)
+	want := filepath.Join("services", "api", "AGENTS.md")
+	if !slices.Contains(stranded, want) {
+		t.Errorf("drift does not name the scoped rule output %s: %+v", want, reports)
 	}
 }
 
@@ -115,7 +119,7 @@ func TestCollectDrift_ReportsLeftoverWithoutLedger(t *testing.T) {
 // are fixture copies of real outputs: a Go testdata tree or a nested
 // project's own tree. Without a ledger none of them may be reported, and
 // doctor --fix must not delete them.
-func TestLeftoverOutputs_WithoutLedgerTrustsOnlyRealOutputHeaders(t *testing.T) {
+func TestLeftoverReport_WithoutLedgerTrustsOnlyRealOutputHeaders(t *testing.T) {
 	dir, git := gitRepo(t)
 	testutil.Chdir(t, dir)
 	silence(t)
@@ -136,7 +140,7 @@ func TestLeftoverOutputs_WithoutLedgerTrustsOnlyRealOutputHeaders(t *testing.T) 
 	git("add", "-A")
 	git("commit", "-q", "-m", "base")
 
-	if got := leftoverOutputs(&config.Config{Targets: []string{"codex"}}, map[string]bool{}); len(got) != 0 {
+	if got := leftoverReport(&config.Config{Targets: []string{"codex"}}, map[string]bool{}); got.hasDrift() {
 		t.Errorf("files that are not outputs reported as leftover: %v", got)
 	}
 
@@ -150,7 +154,7 @@ func TestLeftoverOutputs_WithoutLedgerTrustsOnlyRealOutputHeaders(t *testing.T) 
 
 // A ledger that records no outputs is a real record, not a missing one:
 // the scan does not fall back to tracked files.
-func TestLeftoverOutputs_EmptyLedgerDoesNotFallBack(t *testing.T) {
+func TestLeftoverReport_EmptyLedgerDoesNotFallBack(t *testing.T) {
 	dir, git := gitRepo(t)
 	testutil.Chdir(t, dir)
 	cfg := &config.Config{Targets: []string{"codex"}}
@@ -160,7 +164,7 @@ func TestLeftoverOutputs_EmptyLedgerDoesNotFallBack(t *testing.T) {
 	git("add", "-A")
 	git("commit", "-q", "-m", "base")
 
-	if got := leftoverOutputs(cfg, map[string]bool{}); len(got) != 0 {
+	if got := leftoverReport(cfg, map[string]bool{}); got.hasDrift() || got.Unledgered {
 		t.Errorf("empty ledger fell back to tracked files: %v", got)
 	}
 }
@@ -173,8 +177,8 @@ func TestFixDrift_WithoutLedgerKeepsFileWithoutLeadingHeader(t *testing.T) {
 	silence(t)
 	mention := filepath.Join("internal", "adapters", "header", "header.go")
 	mustWriteFile(t, mention, "// Package header\npackage header\n\nconst Marker = \""+header.Marker+"\"\n")
-	generated := filepath.Join("services", "api", "AGENTS.md")
-	mustWriteFile(t, generated, header.With("api rule body\n", header.FormatMarkdown))
+	generated := filepath.Join(".codex", "agents", "old.toml")
+	mustWriteFile(t, generated, header.With("name = \"old\"\n", header.FormatTOML))
 
 	if _, err := fixDrift([]driftReport{{Target: ledgerReport, Leftover: []string{mention, generated}}}, false); err != nil {
 		t.Fatal(err)
@@ -190,7 +194,7 @@ func TestFixDrift_WithoutLedgerKeepsFileWithoutLeadingHeader(t *testing.T) {
 
 // A leftover in a tool directory counts too, even when the current sync
 // writes nothing else there: the target's native locations name it.
-func TestLeftoverOutputs_WithoutLedgerReportsToolDirLeftover(t *testing.T) {
+func TestLeftoverReport_WithoutLedgerReportsToolDirLeftover(t *testing.T) {
 	dir, git := gitRepo(t)
 	testutil.Chdir(t, dir)
 	cfg := &config.Config{Targets: []string{"codex"}}
@@ -199,9 +203,86 @@ func TestLeftoverOutputs_WithoutLedgerReportsToolDirLeftover(t *testing.T) {
 	git("add", "-A")
 	git("commit", "-q", "-m", "base")
 
-	got := leftoverOutputs(cfg, map[string]bool{})
+	got := leftoverReport(cfg, map[string]bool{})
 
-	if len(got) != 1 || got[0] != generated {
-		t.Errorf("got %v, want [%s]", got, generated)
+	if !got.Unledgered || len(got.Orphaned) != 0 || len(got.Leftover) != 1 || got.Leftover[0] != generated {
+		t.Errorf("got %+v, want Leftover [%s]", got, generated)
+	}
+}
+
+// Without a ledger, plain sync removes nothing: it writes a fresh ledger
+// without the file and the next check passes. The hint names the command
+// that removes the leftover. With a ledger, sync's sweep removes it.
+func TestReportCheckDrift_NamesDoctorFixForLeftoverWithoutLedger(t *testing.T) {
+	leftover := filepath.Join(".codex", "agents", "old.toml")
+	for _, tc := range []struct {
+		name       string
+		unledgered bool
+		want, not  []string
+	}{
+		{"no ledger", true, []string{"run `agnostic-ai doctor --fix` to remove", "run agnostic-ai doctor --fix to remove it", "to reconcile, run: agnostic-ai doctor --fix"}, []string{"run `agnostic-ai sync` to remove", "run agnostic-ai sync to remove it"}},
+		{"ledger", false, []string{"run `agnostic-ai sync` to remove", "run agnostic-ai sync to remove it", "to reconcile, run: agnostic-ai sync\n"}, []string{"doctor --fix"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			reports := []driftReport{{Target: ledgerReport, Leftover: []string{leftover}, Unledgered: tc.unledgered}}
+			var out bytes.Buffer
+			for _, format := range []string{checkFormatHuman, checkFormatGitHub} {
+				cmd := &cobra.Command{}
+				cmd.SetOut(&out)
+				cmd.SetErr(&out)
+				prev := logOut
+				logOut = &out
+				err := reportCheckDrift(cmd, reports, format, false)
+				logOut = prev
+				if err == nil {
+					t.Errorf("%s: leftover drift must fail the check", format)
+				}
+			}
+			for _, w := range tc.want {
+				if !strings.Contains(out.String(), w) {
+					t.Errorf("output lacks %q:\n%s", w, out.String())
+				}
+			}
+			for _, n := range tc.not {
+				if strings.Contains(out.String(), n) {
+					t.Errorf("output has %q:\n%s", n, out.String())
+				}
+			}
+		})
+	}
+}
+
+// A scope's AGENTS.md found only through tracked files may be a copy, such
+// as docs/guide/AGENTS.md pasted from a generated one, or a vendored file.
+// It is reported with a hint to delete it by hand, and doctor --fix leaves
+// it on disk.
+func TestDoctorFix_WithoutLedgerLeavesScopedDocumentForManualRemoval(t *testing.T) {
+	dir, git := gitRepo(t)
+	testutil.Chdir(t, dir)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	copied := filepath.Join("docs", "guide", "AGENTS.md")
+	mustWriteFile(t, copied, header.With("copied from a generated file\n", header.FormatMarkdown))
+	git("add", "-A")
+	git("commit", "-q", "-m", "base")
+	var out bytes.Buffer
+	prev := logOut
+	logOut = &out
+	defer func() { logOut = prev }()
+
+	checkOut, checkErr := runCLI(t, "sync", "--check")
+	_, fixErr := runCLI(t, "doctor", "--fix")
+
+	all := out.String() + checkOut
+	if checkErr == nil {
+		t.Error("sync --check passed with a stranded scoped document")
+	}
+	if !strings.Contains(all, filepath.ToSlash(copied)) || !strings.Contains(all, "delete them by hand if stale") {
+		t.Errorf("output does not name %s with the manual hint:\n%s", copied, all)
+	}
+	if !fileExists(copied) {
+		t.Errorf("doctor --fix deleted %s", copied)
+	}
+	if fixErr == nil {
+		t.Error("doctor --fix passed while a file still needs manual removal")
 	}
 }

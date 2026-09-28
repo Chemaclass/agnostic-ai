@@ -31,15 +31,28 @@ import (
 // files a prior sync wrote and no longer emits that the next full sync
 // removes; until then the tool still loads them. Current lists the
 // files already matching what sync writes, which only a dry run reports.
+// Unledgered marks the ledger report built with no `.sync-state`: sync
+// then removes nothing, only `--fix` removes Leftover, and Orphaned holds
+// the scope documents no record proves sync wrote.
 type driftReport struct {
-	Target   string
-	Current  []adapters.CapturedFile
-	Missing  []adapters.CapturedFile
-	Stale    []adapters.CapturedFile
-	Edited   []adapters.CapturedFile
-	Orphaned []string
-	Leftover []string
-	Blocking []adapters.CapturedRemoval
+	Target     string
+	Current    []adapters.CapturedFile
+	Missing    []adapters.CapturedFile
+	Stale      []adapters.CapturedFile
+	Edited     []adapters.CapturedFile
+	Orphaned   []string
+	Leftover   []string
+	Blocking   []adapters.CapturedRemoval
+	Unledgered bool
+}
+
+// leftoverFix names the command that removes the report's Leftover. With
+// no ledger, sync writes a fresh one without them and removes nothing.
+func (r driftReport) leftoverFix() string {
+	if r.Unledgered {
+		return "doctor --fix"
+	}
+	return "sync"
 }
 
 func (r driftReport) hasDrift() bool {
@@ -159,8 +172,8 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 	// The ledger does not record which target wrote a file, so leftovers
 	// get a report of their own.
 	if resolvedAll {
-		if leftover := leftoverOutputs(cfg, emitted); len(leftover) > 0 {
-			reports = append(reports, driftReport{Target: ledgerReport, Leftover: leftover})
+		if rep := leftoverReport(cfg, emitted); rep.hasDrift() {
+			reports = append(reports, rep)
 		}
 	}
 	return reports, nil
@@ -170,18 +183,20 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 // no longer emits.
 const ledgerReport = "ledger"
 
-// leftoverOutputs returns the files the last sync wrote, that are not in
-// emitted or an entry point, and that the next full sync's orphan sweep
-// removes: still on disk, not user-owned, and still carrying the
+// leftoverReport lists as Leftover the files the last sync wrote, that are
+// not in emitted or an entry point, and that the next full sync's orphan
+// sweep removes: still on disk, not user-owned, and still carrying the
 // provenance header or the bytes sync recorded. Kept orphans are
 // reported apart (recordedOrphans), and links and directories never are.
 //
 // With no `.sync-state` at all (deleted, or a fresh checkout of a repo that
 // commits its generated files), the candidates are the git-tracked files
 // where a configured target writes, and only one that opens with the
-// provenance header counts (#1334). Outside a git work tree the scan finds
-// nothing.
-func leftoverOutputs(cfg *config.Config, emitted map[string]bool) []string {
+// provenance header counts (#1334). A scope document such as a nested
+// AGENTS.md may be a copy or a vendored file, so it goes to Orphaned for
+// the user to delete. Outside a git work tree the scan finds nothing.
+func leftoverReport(cfg *config.Config, emitted map[string]bool) driftReport {
+	rep := driftReport{Target: ledgerReport, Unledgered: ledgerMissing(".")}
 	state := readStateFile(".")
 	skip := map[string]bool{}
 	for _, p := range entryPointPaths(cfg, cfg.Targets) {
@@ -190,26 +205,32 @@ func leftoverOutputs(cfg *config.Config, emitted map[string]bool) []string {
 	for _, p := range state.Orphans {
 		skip[p] = true
 	}
-	candidates := state.Outputs
-	unledgered := ledgerMissing(".")
-	if unledgered {
-		var ok bool
-		if candidates, ok = unledgeredCandidates(cfg, emitted); !ok {
-			return nil
-		}
-	}
-	var out []string
-	for _, p := range candidates {
+	stranded := func(p string) bool {
 		if emitted[p] || skip[p] || cfg.IsUnmanaged(p) || underSymlinkedDir(p) {
-			continue
+			return false
 		}
-		if fi, err := os.Lstat(p); err != nil || !fi.Mode().IsRegular() {
-			continue
+		fi, err := os.Lstat(p)
+		return err == nil && fi.Mode().IsRegular()
+	}
+	if rep.Unledgered {
+		removable, scoped, ok := unledgeredCandidates(cfg, emitted)
+		if !ok {
+			return rep
 		}
-		if unledgered {
-			if ownedWithoutLedger(p) {
-				out = append(out, p)
+		for _, p := range removable {
+			if stranded(p) && ownedWithoutLedger(p) {
+				rep.Leftover = append(rep.Leftover, p)
 			}
+		}
+		for _, p := range scoped {
+			if stranded(p) && ownedWithoutLedger(p) {
+				rep.Orphaned = append(rep.Orphaned, p)
+			}
+		}
+		return rep
+	}
+	for _, p := range state.Outputs {
+		if !stranded(p) {
 			continue
 		}
 		data, err := os.ReadFile(p)
@@ -218,10 +239,10 @@ func leftoverOutputs(cfg *config.Config, emitted map[string]bool) []string {
 		}
 		sum := state.OutputSums[p]
 		if header.Has(string(data)) || sum != "" && adapters.ContentSum(string(data)) == sum {
-			out = append(out, p)
+			rep.Leftover = append(rep.Leftover, p)
 		}
 	}
-	return out
+	return rep
 }
 
 // notOnDisk reports whether a read failed because no file sits at the
@@ -366,14 +387,19 @@ func printDrift(reports []driftReport) bool {
 				summaryf("      - %s\n", filepath.ToSlash(f.Path))
 			}
 		}
-		if len(r.Orphaned) > 0 {
+		if len(r.Orphaned) > 0 && r.Unledgered {
+			summaryf("    %d file(s) that look generated, with no ledger to prove sync wrote them (delete them by hand if stale, or list them under sync.unmanaged):\n", len(r.Orphaned))
+			for _, p := range r.Orphaned {
+				summaryf("      - %s\n", filepath.ToSlash(p))
+			}
+		} else if len(r.Orphaned) > 0 {
 			summaryf("    %d orphaned file(s) no longer generated but edited since sync (delete them, or list them under sync.unmanaged):\n", len(r.Orphaned))
 			for _, p := range r.Orphaned {
 				summaryf("      - %s\n", filepath.ToSlash(p))
 			}
 		}
 		if len(r.Leftover) > 0 {
-			summaryf("    %d file(s) no longer generated and still loaded (run `agnostic-ai sync` to remove):\n", len(r.Leftover))
+			summaryf("    %d file(s) no longer generated and still loaded (run `agnostic-ai %s` to remove):\n", len(r.Leftover), r.leftoverFix())
 			for _, p := range r.Leftover {
 				summaryf("      - %s\n", filepath.ToSlash(p))
 			}

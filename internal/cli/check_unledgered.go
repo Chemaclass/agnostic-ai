@@ -28,20 +28,34 @@ func ledgerMissing(root string) bool {
 
 // unledgeredCandidates lists the git-tracked files that sit where a
 // configured target writes, for the leftover scan when no ledger names
-// them. ok is false when git cannot list the tree.
-func unledgeredCandidates(cfg *config.Config, emitted map[string]bool) (candidates []string, ok bool) {
+// them: removable ones in a tool directory or a root dotfile, and scoped
+// ones, a scope document that a copied or vendored file could also be.
+// ok is false when git cannot list the tree.
+func unledgeredCandidates(cfg *config.Config, emitted map[string]bool) (removable, scoped []string, ok bool) {
 	tracked, ok := trackedFiles(".")
 	if !ok {
-		return nil, false
+		return nil, nil, false
 	}
 	loc := newOutputLocations(cfg, emitted)
 	for _, p := range tracked {
-		if loc.holds(filepath.ToSlash(p)) {
-			candidates = append(candidates, p)
+		switch loc.holds(filepath.ToSlash(p)) {
+		case toolLocation:
+			removable = append(removable, p)
+		case scopeLocation:
+			scoped = append(scoped, p)
 		}
 	}
-	return candidates, true
+	return removable, scoped, true
 }
+
+// outputLocation is where a configured target could have written a file.
+type outputLocation int
+
+const (
+	noLocation outputLocation = iota
+	toolLocation
+	scopeLocation
+)
 
 // ownedWithoutLedger reports whether path opens with the provenance header
 // where the emitters write it. With no ledger there is no recorded sum, so
@@ -109,36 +123,36 @@ func (l *outputLocations) addDir(dir string) {
 	l.dirs = append(l.dirs, dir)
 }
 
-// holds reports whether a configured target could have written p, a
+// holds reports where a configured target could have written p, a
 // slash-separated path from the project root. Sources and fixture trees
 // are never outputs: a Go `testdata` tree or a nested project's own tree
 // copies real outputs byte for byte, so their paths are left out.
-func (l *outputLocations) holds(p string) bool {
+func (l *outputLocations) holds(p string) outputLocation {
 	if strings.HasPrefix(p, defaultBaseDir+"/") || p == config.ConfigFileName || p == config.LegacyConfigFileName {
-		return false
+		return noLocation
 	}
 	for _, seg := range strings.Split(path.Dir(p), "/") {
 		if seg == "testdata" {
-			return false
+			return noLocation
 		}
 	}
 	if l.inNestedProject(p) {
-		return false
+		return noLocation
 	}
 	if !strings.Contains(p, "/") && strings.HasPrefix(p, ".") || l.files[p] {
-		return true
+		return toolLocation
 	}
 	for _, d := range l.dirs {
 		if strings.HasPrefix(p, d+"/") {
-			return true
+			return toolLocation
 		}
 	}
 	for _, doc := range l.scoped {
 		if p == doc || strings.HasSuffix(p, "/"+doc) {
-			return true
+			return scopeLocation
 		}
 	}
-	return false
+	return noLocation
 }
 
 // inNestedProject reports whether a directory between the project root
