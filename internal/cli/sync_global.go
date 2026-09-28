@@ -927,6 +927,11 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			}
 			w.planned = snapshot
 		}
+		// A user file this run creates is recorded, so a later run can
+		// remove it once nothing is left in it.
+		if w.planned.absent && !slices.Contains(next.Files, path) {
+			next.Files = append(next.Files, path)
+		}
 		w.addTarget(current)
 		w.changes = append(w.changes, m.changes...)
 		w.adopted = append(w.adopted, m.adopted...)
@@ -1004,6 +1009,17 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			}
 		}
 	}
+	// A user file sync created goes once nothing is left in it, rather
+	// than staying behind as an empty document.
+	for i := 0; i < len(writes); i++ {
+		w := writes[i]
+		if w.owned || !emptyUserDocument(w.data) || !slices.Contains(next.Files, w.path) {
+			continue
+		}
+		writes = slices.Delete(writes, i, i+1)
+		i--
+		next.Files = removePaths(next.Files, []string{w.path})
+	}
 	for _, paths := range next.Agents {
 		next.Files = append(next.Files, paths...)
 	}
@@ -1029,6 +1045,13 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		}
 	}
 	return writes, next, nil
+}
+
+// emptyUserDocument reports whether a user settings or MCP file holds
+// nothing: no text, or a JSON object with no members.
+func emptyUserDocument(data []byte) bool {
+	text := strings.Join(strings.Fields(string(data)), "")
+	return text == "" || text == "{}"
 }
 
 // globalSum fingerprints what sync owns in a file: the managed block

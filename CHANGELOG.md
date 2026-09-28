@@ -22,7 +22,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### Fixed
 
 - OpenHands MCP output warns that current releases ignore `config.toml` `[mcp]`. Run `sync --global` to install servers in `~/.openhands/mcp.json` (#1252).
-- `sync --global --check` no longer fails right after a sync that removed a target's last file (#1248).
+- `sync --global --check` no longer fails right after a sync that removed a target's last file, and a user file sync created goes once empty (#1248, #1256).
 - `lint` no longer warns that every settings spec is empty (LINT001) (#1240).
 
 ## v0.70.0 - 2026-09-27

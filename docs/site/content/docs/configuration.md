@@ -488,7 +488,7 @@ Each layer overrides the one before it:
 4. An agent's own `model` and `effort`, for that agent.
 5. The tool's flag for one run, such as `codex -m` or `claude --model`.
 
-Sync edits only the keys it writes and records them in `state/global.json`. Every other line stays byte for byte, comments and tables included. A new Codex key goes after the last top-level key, before the first table. A missing file is created with only these keys. Removing the spec and syncing again removes only those keys.
+Sync edits only the keys it writes and records them in `state/global.json`. Every other line stays byte for byte, comments and tables included. A new Codex key goes after the last top-level key, before the first table. A missing file is created with only these keys. Removing the spec and syncing again removes only those keys, and a file sync created goes entirely once nothing is left in it.
 
 - A key that already holds the value sync would write is adopted, and sync names it. Moving a setting you set by hand into the home produces no diff.
 - A key with another value stops the run before writes and names the file, the key, and both values. Codex's `/model` picker saves its choice to `config.toml`, so this is normal use: the message prints the target line to put in the spec to keep the new value. `--backup` overwrites the key instead and keeps `<path>.bak`.
