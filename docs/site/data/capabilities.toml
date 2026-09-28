@@ -196,7 +196,7 @@ statuses = ["native", "native", "native", "native", "native", "native", "native"
 id = "openhands"
 name = "OpenHands"
 href = "@/docs/targets/openhands.md"
-statuses = ["native", "native", "native", "native", "native", "no", "no", "no", "native", "no"]
+statuses = ["native", "native", "native", "native", "source", "no", "no", "no", "native", "no"]
 
 [[targets]]
 id = "factory"

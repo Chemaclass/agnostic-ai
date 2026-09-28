@@ -6,9 +6,20 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### Changed
+
+- An ignore spec `import` writes targets the tool it came from, so a multi-target sync no longer reports it as unsupported by the others (#1274).
+
 ### Fixed
 
+- A scoped rule no longer makes the managed `.gitignore` block ignore its whole directory; the block lists the scoped files instead (#1264).
 - `import` no longer reads config from gitignored directories or nested repositories, such as a cloned repo or an agent worktree (#1265).
+- `sync --check` lists a spec change as out of date and keeps "edited locally" (JSON `edited`) for a file changed since the last sync (#1270).
+- Ignore specs survive Prettier: sync reads patterns from fenced code blocks, and `import` writes the patterns in one (#1275).
+
+### Removed
+
+- Project sync stops writing OpenHands `config.toml` `[mcp]`, which current releases ignore, and removes the old file. Use `sync --global` (#1259).
 
 ### Site
 

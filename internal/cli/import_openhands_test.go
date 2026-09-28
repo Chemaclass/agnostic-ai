@@ -11,8 +11,8 @@ import (
 
 // seedOpenhandsBundle writes one spec per kind the openhands adapter
 // emits: an always-on rule, a path-triggered rule, an agent, a skill, a
-// multi-command hook group, one MCP server per `[mcp]` array, and an
-// environment whose `install` becomes `.openhands/setup.sh`.
+// multi-command hook group, and an environment whose `install` becomes
+// `.openhands/setup.sh`.
 func seedOpenhandsBundle(t *testing.T, dir string) {
 	t.Helper()
 	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [openhands]\n")
@@ -28,14 +28,6 @@ func seedOpenhandsBundle(t *testing.T, dir string) {
 		"name: gate\nevent: Stop\nmatcher: \"*\"\ncommand:\n  - make lint\n  - make test\ntimeout: 120\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"),
 		"name: guard\nevent: PreToolUse\nmatcher: terminal\ncommand: .openhands/hooks/guard.sh\nasync: true\n")
-	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "fs.yaml"),
-		"name: fs\ncommand: npx\nargs:\n  - -y\n  - \"@modelcontextprotocol/server-filesystem\"\nenv:\n  ROOT: /tmp\n")
-	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "docs.yaml"),
-		"name: docs\ntype: sse\nurl: https://docs.example.test/sse\n")
-	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "search.yaml"),
-		"name: search\ntype: http\nurl: https://search.example.test/mcp\napi_key: secret\ntimeout: 1800\n")
-	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "notion.yaml"),
-		"name: notion\ntype: http\nurl: https://mcp.notion.com/mcp\noauth: true\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "environments", "dev.yaml"),
 		"name: dev\ninstall: |\n  go mod download\n  make tools\n")
 }
@@ -53,14 +45,11 @@ func TestImportOpenhands_RoundTripFixedPoint(t *testing.T) {
 	first := snapshotEmitted(t, dir)
 	for _, want := range []string{
 		".agents/skills/api/SKILL.md", ".agents/skills/release/SKILL.md",
-		".agents/agents/reviewer.md", ".openhands/hooks.json", ".openhands/setup.sh", "config.toml",
+		".agents/agents/reviewer.md", ".openhands/hooks.json", ".openhands/setup.sh",
 	} {
 		if _, ok := first[want]; !ok {
 			t.Fatalf("first sync wrote no %s: %v", want, keys(first))
 		}
-	}
-	if !strings.Contains(first["config.toml"], `{ url = "https://mcp.notion.com/mcp", auth = "oauth" }`) {
-		t.Fatalf("first sync did not emit the oauth shttp entry:\n%s", first["config.toml"])
 	}
 
 	if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai")); err != nil {
@@ -79,16 +68,50 @@ func TestImportOpenhands_RoundTripFixedPoint(t *testing.T) {
 	if !strings.Contains(env, "go mod download") || strings.Contains(env, "#!/bin/bash") {
 		t.Errorf("setup script not reconstructed as an install body:\n%s", env)
 	}
-	notion := readFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "mcp-notion-com.yaml"))
-	if !strings.Contains(notion, "auth: oauth") {
-		t.Errorf("oauth shttp entry not reconstructed with auth: oauth:\n%s", notion)
-	}
-
 	execCLI(t, "sync", "-t", "openhands")
 	second := snapshotEmitted(t, dir)
 	assertEmittedEqual(t, first, second)
 	if len(second) != len(first) {
 		t.Errorf("re-emit wrote %d files, first emit wrote %d: %v", len(second), len(first), keys(second))
+	}
+}
+
+// Sync no longer writes config.toml, but a team on legacy OpenHands (V0)
+// still has one, so import keeps reading its `[mcp]` table into specs
+// (#1259). A remote element has no name and takes its URL host.
+func TestImportOpenhands_ReadsLegacyConfigTOMLMCP(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [openhands]\n")
+	writeFile(t, filepath.Join(dir, "config.toml"), `[core]
+workspace_base = "./workspace"
+
+[mcp]
+sse_servers = ["https://docs.example.test/sse"]
+shttp_servers = [{ url = "https://search.example.test/mcp", api_key = "secret", timeout = 1800 }, { url = "https://mcp.notion.com/mcp", auth = "oauth" }]
+
+[[mcp.stdio_servers]]
+name = "fs"
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-filesystem"]
+env = { ROOT = "/tmp" }
+`)
+
+	execCLI(t, "import", "openhands")
+
+	mcps := filepath.Join(dir, ".agnostic-ai", "mcps")
+	for file, wants := range map[string][]string{
+		"fs.yaml":                  {"command: npx", "@modelcontextprotocol/server-filesystem", "ROOT: /tmp"},
+		"docs-example-test.yaml":   {"type: sse", "url: https://docs.example.test/sse"},
+		"search-example-test.yaml": {"type: http", "api_key: secret", "timeout: 1800"},
+		"mcp-notion-com.yaml":      {"type: http", "auth: oauth"},
+	} {
+		got := readFile(t, filepath.Join(mcps, file))
+		for _, want := range wants {
+			if !strings.Contains(got, want) {
+				t.Errorf("%s lacks %q:\n%s", file, want, got)
+			}
+		}
 	}
 }
 

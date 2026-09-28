@@ -27,12 +27,12 @@ func TestImportIgnore_PreservesHandAuthoredPatternsOnEveryTarget(t *testing.T) {
 			execCLI(t, "import", target)
 
 			spec := readFile(t, filepath.Join(dir, ".agnostic-ai", "ignore", target+".md"))
-			for _, want := range []string{"name: " + target, file, "my-secrets/", "*.key"} {
+			for _, want := range []string{"name: " + target, "target: " + target, file, "my-secrets/", "*.key"} {
 				if !strings.Contains(spec, want) {
 					t.Errorf("imported ignore spec missing %q:\n%s", want, spec)
 				}
 			}
-			if !strings.Contains(spec, "\n\n"+handAuthored) {
+			if !strings.Contains(spec, "\n\n```gitignore\n"+handAuthored+"```\n") {
 				t.Errorf("import changed pattern order or whitespace: %q", spec)
 			}
 
@@ -41,6 +41,83 @@ func TestImportIgnore_PreservesHandAuthoredPatternsOnEveryTarget(t *testing.T) {
 				t.Errorf("sync changed imported patterns: %q", got)
 			}
 		})
+	}
+}
+
+// An ignore file describes one tool's indexing, so the imported spec
+// targets that tool. Unscoped, it reached every target and a
+// multi-target sync reported it as unsupported by the rest (#1274).
+func TestImportIgnore_TargetsTheToolItCameFrom(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	warnings := captureNotes(t)
+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, cursor]\n")
+	const handAuthored = "/res/*\n"
+	path := filepath.Join(dir, ".cursorignore")
+	writeFile(t, path, handAuthored)
+
+	execCLI(t, "import", "cursor")
+	spec := readFile(t, filepath.Join(dir, ".agnostic-ai", "ignore", "cursor.md"))
+	if !strings.Contains(spec, "\ntarget: cursor\n") {
+		t.Errorf("imported ignore spec does not target cursor:\n%s", spec)
+	}
+
+	execCLI(t, "sync")
+	if strings.Contains(warnings.String(), "unsupported") {
+		t.Errorf("sync reported the imported ignore spec as unsupported: %q", warnings.String())
+	}
+	if got := readFile(t, path); !strings.HasSuffix(got, "\n"+handAuthored) {
+		t.Errorf("sync changed imported patterns: %q", got)
+	}
+}
+
+// Markdown formatters rewrite `*` and `_` in plain text, so an imported
+// spec keeps its patterns in a fenced block they leave alone (#1275).
+func TestImportIgnore_WritesPatternsInAFencedBlock(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cursor]\n")
+	const handAuthored = "/res/*\n!/res/keep/**\n"
+	path := filepath.Join(dir, ".cursorignore")
+	writeFile(t, path, handAuthored)
+
+	execCLI(t, "import", "cursor")
+
+	spec := readFile(t, filepath.Join(dir, ".agnostic-ai", "ignore", "cursor.md"))
+	if !strings.HasSuffix(spec, "\n\n```gitignore\n"+handAuthored+"```\n") {
+		t.Errorf("imported patterns not in a fenced block:\n%s", spec)
+	}
+
+	execCLI(t, "sync", "-t", "cursor")
+	if got := readFile(t, path); !strings.HasSuffix(got, "\n"+handAuthored) || strings.Contains(got, "```") {
+		t.Errorf("sync changed imported patterns: %q", got)
+	}
+}
+
+// A pattern line that starts with backticks must not close the fence.
+func TestImportIgnore_FenceOutrunsBacktickPatterns(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cursor]\n")
+	const handAuthored = "```\n*.key\n"
+	path := filepath.Join(dir, ".cursorignore")
+	writeFile(t, path, handAuthored)
+
+	execCLI(t, "import", "cursor")
+	spec := readFile(t, filepath.Join(dir, ".agnostic-ai", "ignore", "cursor.md"))
+	if !strings.Contains(spec, "````gitignore\n"+handAuthored+"````\n") {
+		t.Errorf("fence does not outrun the backtick pattern:\n%s", spec)
+	}
+
+	execCLI(t, "sync", "-t", "cursor")
+	if got := readFile(t, path); !strings.HasSuffix(got, "\n"+handAuthored) {
+		t.Errorf("sync changed imported patterns: %q", got)
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -44,11 +45,13 @@ type syncStateFile struct {
 	// sync after upgrade) disables the sweep so projects without a
 	// recorded baseline never lose files.
 	Outputs []string `json:"outputs,omitempty"`
-	// OutputSums maps each ledgered path that carries no provenance
-	// header (verbatim skill assets, provenance_header: false targets)
-	// to the sha256 of the bytes sync wrote. The sweep removes such a
-	// file only while its bytes still match, so a hand-edited leftover
-	// survives (#785).
+	// OutputSums maps each ledgered path to the sha256 of the bytes sync
+	// wrote. The sweep removes a file without the provenance header only
+	// while its bytes still match, so a hand-edited leftover survives
+	// (#785), and `sync --check` reports a file whose bytes no longer
+	// match as edited rather than out of date (#1270). Older state may
+	// lack the sum of a file with the header; check reads such a file
+	// as out of date.
 	OutputSums map[string]string `json:"output_sums,omitempty"`
 	// Orphans lists ledgered paths the last sync no longer emits but
 	// could not remove (edited since, or no recorded sum). They stay in
@@ -110,6 +113,33 @@ func writeStateFile(projectRoot string, filesChanged int, warningsDigest, notesD
 		SpecSums:       ledger.specSums,
 	})
 	if err != nil {
+		return err
+	}
+	return os.WriteFile(p, data, 0o644)
+}
+
+// recordOutputSums merges sums of files written outside a sync, such as
+// by `doctor --fix`, into the state file, so the next check does not
+// read them as hand edits. With no readable state file there is no
+// ledger to update; the next sync writes one.
+func recordOutputSums(projectRoot string, sums map[string]string) error {
+	if len(sums) == 0 {
+		return nil
+	}
+	p := stateFilePath(projectRoot)
+	data, err := os.ReadFile(p)
+	if err != nil {
+		return nil
+	}
+	var s syncStateFile
+	if json.Unmarshal(data, &s) != nil {
+		return nil
+	}
+	if s.OutputSums == nil {
+		s.OutputSums = map[string]string{}
+	}
+	maps.Copy(s.OutputSums, sums)
+	if data, err = json.Marshal(s); err != nil {
 		return err
 	}
 	return os.WriteFile(p, data, 0o644)
@@ -769,7 +799,7 @@ func printSyncPlan(cmd *cobra.Command, reports []driftReport) {
 			_, _ = fmt.Fprintf(w, "[%s]\tno changes\n", r.Target)
 			continue
 		}
-		_, _ = fmt.Fprintf(w, "[%s]\tadded: %d\tchanged: %d", r.Target, len(r.Missing), len(r.Stale))
+		_, _ = fmt.Fprintf(w, "[%s]\tadded: %d\tchanged: %d", r.Target, len(r.Missing), len(r.changed()))
 		if len(r.Orphaned) > 0 {
 			_, _ = fmt.Fprintf(w, "\torphaned: %d", len(r.Orphaned))
 		}
@@ -781,9 +811,8 @@ func printSyncPlan(cmd *cobra.Command, reports []driftReport) {
 	_ = w.Flush()
 }
 
-// printSyncCheckJSON emits a JSON result for `sync --check`. Files that need
-// to be written appear in writes (action: "missing" or "stale"); files that
-// are already in sync appear in skipped (action: "ok").
+// printSyncCheckJSON emits a JSON result for `sync --check`. Every drifted
+// file appears in writes, with the actions driftRecords assigns.
 func printSyncCheckJSON(cmd *cobra.Command, reports []driftReport) error {
 	out := jsonOutput{Version: "1", Command: "sync --check", Writes: driftRecords(reports)}
 	hasDrift := len(out.Writes) > 0
@@ -846,7 +875,7 @@ func reportCheckDrift(cmd *cobra.Command, reports []driftReport, format string, 
 
 // printDriftGitHub emits one GitHub Actions error annotation per drifted file
 // so drift surfaces inline on the pull request. Missing files carry no line;
-// stale files point at the first changed line. Returns true if any target
+// stale and edited files point at the first changed line. Returns true if any target
 // drifted, so an in-sync run emits nothing and stays silent.
 func printDriftGitHub(cmd *cobra.Command, reports []driftReport) bool {
 	out := cmd.OutOrStdout()
@@ -860,6 +889,11 @@ func printDriftGitHub(cmd *cobra.Command, reports []driftReport) bool {
 		for _, f := range r.Stale {
 			drift = true
 			_, _ = fmt.Fprintf(out, "::error file=%s,line=%d::%s drifted from specs; run agnostic-ai sync to reconcile\n",
+				githubProp(f.Path), firstChangedLine(f.Path, f.Content), githubData(filepath.ToSlash(f.Path)))
+		}
+		for _, f := range r.Edited {
+			drift = true
+			_, _ = fmt.Fprintf(out, "::error file=%s,line=%d::%s was edited since the last sync; move the edit into .agnostic-ai/, then run agnostic-ai sync\n",
 				githubProp(f.Path), firstChangedLine(f.Path, f.Content), githubData(filepath.ToSlash(f.Path)))
 		}
 		for _, p := range r.Orphaned {
@@ -890,7 +924,7 @@ func printDriftDiffs(cmd *cobra.Command, reports []driftReport) {
 		for _, f := range r.Missing {
 			_, _ = fmt.Fprintf(out, "would create %s (%d bytes)\n", filepath.ToSlash(f.Path), len(f.Content))
 		}
-		for _, f := range r.Stale {
+		for _, f := range r.changed() {
 			disk, err := os.ReadFile(f.Path)
 			if err != nil {
 				_, _ = fmt.Fprintf(out, "%s: %v\n", f.Path, err)

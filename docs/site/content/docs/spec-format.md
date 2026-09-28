@@ -455,7 +455,7 @@ A server cannot work without `command` (stdio) or `url` (remote). `agnostic-ai l
 | `url` | http/sse/ws only | none | Endpoint URL. |
 | `headers` | no | empty | HTTP headers for `http`/`sse`. |
 | `cwd` | no | empty | Working directory for a stdio server, where the target supports it. |
-| `timeout` | no | empty | Units vary: milliseconds on most targets, seconds on OpenHands `http` servers. |
+| `timeout` | no | empty | Units vary by target: milliseconds on most. |
 | `oauth` | no | empty | OAuth settings. The shape is target-specific; see the target page. |
 | `disabled` | no | `false` | See [`disabled` support by target](#disabled-support-by-target). |
 | `roots` | no | empty | List of `{uri, name}` objects, for targets that support MCP roots. |
@@ -474,7 +474,7 @@ Some fields apply only to certain targets and are ignored elsewhere.
 | [Cursor](@/docs/targets/cursor.md) | `envFile`, `auth` |
 | [Copilot / VS Code](@/docs/targets/copilot.md) | `envFile`, `dev`, `sandboxEnabled` (VS Code file only), `tools` (Copilot CLI files only) |
 | [Continue](@/docs/targets/continue.md) | `connectionTimeout`, `requestOptions` |
-| [OpenHands](@/docs/targets/openhands.md) | `api_key`, which turns the entry into `{ url, api_key }`; `auth` (`oauth`, OpenHands' only documented value), or a truthy `oauth`, which turns a shttp entry into `{ url, auth: "oauth" }` |
+| [OpenHands](@/docs/targets/openhands.md) | `auth: oauth`, or a truthy `oauth`, which sets `auth: "oauth"` on a remote server in `~/.openhands/mcp.json` |
 
 On Amp, set `x-amp.includeTools`. Use `x-factory`, `x-kilo`, or `x-continue` to override the matching top-level options for that target.
 
@@ -615,12 +615,17 @@ Specs merge by top-level key, and the last value wins. [Cursor](@/docs/targets/c
 
 Markdown with optional YAML frontmatter, one file per group. The body holds gitignore-syntax patterns for what an agent must not read or index.
 
-```markdown
-# Secrets and build artifacts the agent should never read
+````markdown
+Secrets and build artifacts the agent should never read.
+
+```gitignore
 *.env
 secrets/
 dist/
 ```
+````
+
+When the body has fenced code blocks, only the lines inside them are patterns, and the text around them is prose. Markdown formatters such as Prettier rewrite `*` and `_` in plain text but leave code blocks alone. A body without a fence is read whole, so an unformatted spec of bare patterns keeps working. Prettier still strips trailing spaces inside a block: write a name that ends in a space as `name[ ]`, not `name\ `.
 
 Specs concatenate into each target's native ignore file under a `#` provenance header, separated by a blank line. Pattern order and whitespace are kept; outer line breaks are trimmed and CRLF becomes LF. Override the path with `outputs.<target>.ignore-file`. Targets without an ignore file report the spec as unsupported.
 
@@ -635,7 +640,7 @@ patterns are missing or reordered: "my-secrets/", "*.key". Run
 their order and review any added negations before syncing again.
 ```
 
-`agnostic-ai import <target>` reads the file into `ignore/<target>.md` with comments, order, and whitespace intact. It drops a leading UTF-8 byte-order mark so the header does not turn it into a pattern character. Unchanged imported patterns sync with no cleanup. If other specs add negations or reorder the imported patterns, review the combined order first. Generated files still regenerate from their specs, including intentional removals.
+`agnostic-ai import <target>` reads the file into a fenced block in `ignore/<target>.md` with comments, order, and whitespace intact. The spec sets `target: <target>`, so only that tool receives the patterns; remove the line to share them with every ignore-capable target. It drops a leading UTF-8 byte-order mark so the header does not turn it into a pattern character. Unchanged imported patterns sync with no cleanup. If other specs add negations or reorder the imported patterns, review the combined order first. Generated files still regenerate from their specs, including intentional removals.
 
 Comment and blank lines exclude nothing, so a file with only those never blocks a sync. `#` starts a comment only at the start of a line; leading spaces and tabs can belong to a pattern. `outputs.<target>.provenance-header: false` removes the marker and disables this check. Dry-run skips the check because it writes nothing; `sync --check` still reports unsafe overwrites.
 

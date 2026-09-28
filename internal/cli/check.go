@@ -18,8 +18,11 @@ import (
 )
 
 // driftReport summarizes per-target drift between source specs and on-disk
-// emitted artifacts. Missing and Stale carry the full captured content so
-// `--fix` can reconcile without a second adapter pass. Orphaned lists
+// emitted artifacts. Missing, Stale, and Edited carry the full captured
+// content so `--fix` can reconcile without a second adapter pass. Stale
+// lists files that still hold what the last sync wrote, so only the
+// specs changed; Edited lists files whose bytes differ from that record,
+// a hand edit the next sync overwrites. Orphaned lists
 // files a prior sync wrote, no longer emits, and could not remove; no
 // write fixes them, so `--fix` leaves them to the user. Blocking lists
 // the removals sync makes before writing a missing file, for a file that
@@ -31,13 +34,30 @@ type driftReport struct {
 	Target   string
 	Missing  []adapters.CapturedFile
 	Stale    []adapters.CapturedFile
+	Edited   []adapters.CapturedFile
 	Orphaned []string
 	Leftover []string
 	Blocking []adapters.CapturedRemoval
 }
 
 func (r driftReport) hasDrift() bool {
-	return len(r.Missing) > 0 || len(r.Stale) > 0 || len(r.Orphaned) > 0 || len(r.Leftover) > 0
+	return len(r.Missing) > 0 || len(r.Stale) > 0 || len(r.Edited) > 0 || len(r.Orphaned) > 0 || len(r.Leftover) > 0
+}
+
+// addChanged files f, whose bytes on disk differ from what sync would
+// write, as edited when they also differ from the sum the last sync
+// recorded, and as stale otherwise. No recorded sum proves no edit.
+func (r *driftReport) addChanged(f adapters.CapturedFile, disk []byte, sums map[string]string) {
+	if sum := sums[f.Path]; sum != "" && adapters.ContentSum(string(disk)) != sum {
+		r.Edited = append(r.Edited, f)
+		return
+	}
+	r.Stale = append(r.Stale, f)
+}
+
+// changed returns the files the next sync rewrites: stale, then edited.
+func (r driftReport) changed() []adapters.CapturedFile {
+	return append(append([]adapters.CapturedFile{}, r.Stale...), r.Edited...)
 }
 
 // orphanedCount totals the orphaned files across reports.
@@ -90,6 +110,7 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 		return nil, err
 	}
 	sess := adapters.NewSession()
+	sums := readStateFile(".").OutputSums
 	emitted := map[string]bool{}
 	resolvedAll := coversAllConfiguredTargets(targets, cfg.Targets)
 	for _, t := range targets {
@@ -118,7 +139,7 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 				return nil, fmt.Errorf("read %s: %w", f.Path, err)
 			}
 			if string(disk) != f.Content {
-				rep.Stale = append(rep.Stale, f)
+				rep.addChanged(f, disk, sums)
 			}
 		}
 		rep.Blocking = blockingRemovals(sess.CapturedRemovals(), rep.Missing)
@@ -223,6 +244,7 @@ func captureAdapterFiles(sess *adapters.Session, adapter adapters.Adapter, b spe
 // otherwise the template body is used.
 func collectEntryPointDrift(cfg *config.Config, b spec.Bundle, targets []string) (driftReport, error) {
 	rep := driftReport{Target: "agnostic-ai"}
+	sums := readStateFile(".").OutputSums
 
 	data, err := os.ReadFile(adapters.AgnosticEntryPointPath)
 	var body string
@@ -256,7 +278,7 @@ func collectEntryPointDrift(cfg *config.Config, b spec.Bundle, targets []string)
 			return rep, fmt.Errorf("read %s: %w", f.Path, err)
 		}
 		if string(disk) != f.Content {
-			rep.Stale = append(rep.Stale, adapters.CapturedFile{Path: f.Path, Content: f.Content})
+			rep.addChanged(adapters.CapturedFile{Path: f.Path, Content: f.Content}, disk, sums)
 		}
 	}
 	rep.Orphaned = recordedOrphans(cfg)
@@ -281,12 +303,12 @@ func recordedOrphans(cfg *config.Config) []string {
 	return out
 }
 
-// printDrift prints a per-target summary. Splits drift into two named
-// buckets so users can tell apart:
+// printDrift prints a per-target summary, one bucket per kind of drift:
 //
 //   - missing: generated file does not exist yet (next sync creates it)
-//   - stale:   generated file on disk differs from what sync would emit
-//     (almost always a local hand-edit; next sync clobbers it)
+//   - stale:   the specs changed since the last sync (next sync updates it)
+//   - edited:  the file changed since the last sync wrote it (next sync
+//     overwrites the hand edit)
 //
 // Returns true if any drift exists.
 func printDrift(reports []driftReport) bool {
@@ -305,8 +327,14 @@ func printDrift(reports []driftReport) bool {
 			}
 		}
 		if len(r.Stale) > 0 {
-			summaryf("    %d file(s) edited locally since last sync (sync will overwrite — move edits into .agnostic-ai/ first):\n", len(r.Stale))
+			summaryf("    %d file(s) out of date (run `agnostic-ai sync` to update):\n", len(r.Stale))
 			for _, f := range r.Stale {
+				summaryf("      - %s\n", f.Path)
+			}
+		}
+		if len(r.Edited) > 0 {
+			summaryf("    %d file(s) edited locally since last sync (sync will overwrite them; move the edits into .agnostic-ai/ first):\n", len(r.Edited))
+			for _, f := range r.Edited {
 				summaryf("      - %s\n", f.Path)
 			}
 		}
@@ -524,8 +552,8 @@ func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []reference
 }
 
 // driftRecords flattens reports into the JSON write records shared by
-// `sync --check --json` and `doctor --json`: one per missing, stale, or
-// orphaned file.
+// `sync --check --json` and `doctor --json`: one per missing, stale,
+// edited, orphaned, or leftover file.
 func driftRecords(reports []driftReport) []fileRecord {
 	var records []fileRecord
 	for _, r := range reports {
@@ -534,6 +562,9 @@ func driftRecords(reports []driftReport) []fileRecord {
 		}
 		for _, f := range r.Stale {
 			records = append(records, fileRecord{Target: r.Target, Path: f.Path, Action: "stale", Bytes: len(f.Content)})
+		}
+		for _, f := range r.Edited {
+			records = append(records, fileRecord{Target: r.Target, Path: f.Path, Action: "edited", Bytes: len(f.Content)})
 		}
 		for _, p := range r.Orphaned {
 			records = append(records, fileRecord{Target: r.Target, Path: p, Action: "orphan"})
@@ -545,16 +576,23 @@ func driftRecords(reports []driftReport) []fileRecord {
 	return records
 }
 
-// fixDrift writes the captured content for every missing or stale file in
-// reports, after the removals that stand in their way, and removes the
-// leftovers the next sync would sweep. Files in sync are left untouched.
-// Returns the number of files written or removed.
+// fixDrift writes the captured content for every missing, stale, or
+// edited file in reports, after the removals that stand in their way, and
+// removes the leftovers the next sync would sweep. Files in sync are left
+// untouched. The sums of the files it writes go into the ledger, as a
+// sync records them. Returns the number of files written or removed.
 func fixDrift(reports []driftReport, backup bool) (int, error) {
 	sess := adapters.NewSession()
 	if backup {
 		sess.SetBackup(true)
 		defer sess.SetBackup(false)
 	}
+	fixed := map[string]string{}
+	defer func() {
+		if err := recordOutputSums(".", fixed); err != nil {
+			fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
+		}
+	}()
 	written := 0
 	for _, r := range reports {
 		if !r.hasDrift() {
@@ -565,10 +603,11 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 				return written, err
 			}
 		}
-		for _, f := range append(append([]adapters.CapturedFile{}, r.Missing...), r.Stale...) {
+		for _, f := range append(append([]adapters.CapturedFile{}, r.Missing...), r.changed()...) {
 			if err := sess.WriteFile(f.Path, f.Content, false); err != nil {
 				return written, err
 			}
+			fixed[f.Path] = adapters.ContentSum(f.Content)
 			written++
 		}
 		if len(r.Leftover) == 0 {

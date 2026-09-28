@@ -360,7 +360,7 @@ On the first `sync` (no `.agnostic-ai/.sync-state` yet), if the config still lis
 
 ### Reading a failing `--check` {#reading-a-failing---check}
 
-A drifting `--check` exits non-zero in every format. Stderr names the fix, `agnostic-ai sync`, and points at `agnostic-ai doctor` for a full diagnosis. To read the failure without a local re-run, add `--diff` or `--format=github`. `--diff` prints changed lines; a missing file gets a one-line create summary, and a large diff truncates with a count. `--format=github` emits `::error file=...,line=...::` annotations on the pull request. Neither has a config-file key.
+A drifting `--check` exits non-zero in every format. The report lists a file that still holds what the last sync wrote as out of date, since only the specs changed, and a file whose bytes changed since that sync as edited locally, since the next sync overwrites the edit. Without a record of the last sync, as in a fresh CI checkout, a changed file reads as out of date. Stderr names the fix, `agnostic-ai sync`, and points at `agnostic-ai doctor` for a full diagnosis. To read the failure without a local re-run, add `--diff` or `--format=github`. `--diff` prints changed lines; a missing file gets a one-line create summary, and a large diff truncates with a count. `--format=github` emits `::error file=...,line=...::` annotations on the pull request. Neither has a config-file key.
 
 ### Watch mode
 
@@ -386,7 +386,7 @@ Output never depends on the value: files, summary counts, JSON, the `.gitignore`
 |-------|-------------|
 | `version` | Schema version, currently `"1"`. Breaking changes bump it. |
 | `command` | `"sync"` or `"sync --check"`. |
-| `writes` | Files written (`"create"`, `"update"`), orphans removed (`"delete"`), or, for `--check`, files needing attention (`"missing"`, `"stale"`, `"orphan"`, `"leftover"`). A `"leftover"` is a file the last sync wrote and no longer generates, which the next full sync removes; it reports under target `ledger`, since the ledger does not record which target wrote it. |
+| `writes` | Files written (`"create"`, `"update"`), orphans removed (`"delete"`), or, for `--check`, files needing attention (`"missing"`, `"stale"`, `"edited"`, `"orphan"`, `"leftover"`). A `"stale"` file still holds what the last sync wrote and the specs changed; an `"edited"` file changed since the last sync wrote it. A `"leftover"` is a file the last sync wrote and no longer generates, which the next full sync removes; it reports under target `ledger`, since the ledger does not record which target wrote it. |
 | `skipped` | Files already matching (`"skip"`), user-owned (`"unmanaged"`), or edited orphans kept (`"orphan"`). Empty for `--check`. |
 | `errors` | Per-target errors with `target` and `message`. |
 
@@ -410,12 +410,12 @@ The verifier owns datasets, judging model output, results, and baselines. agnost
 
 ## doctor
 
-Report missing (never synced), stale (hand-edited or out of date), and orphaned (no longer generated, kept because edited) files. Read-only unless `--fix`. Exits non-zero on any drift.
+Report missing (never synced), stale (out of date with the specs), edited (changed since the last sync), and orphaned (no longer generated, kept because edited) files. Read-only unless `--fix`. Exits non-zero on any drift.
 
 | Flag | Description |
 |------|-------------|
 | `-t, --target <list>` | Comma-separated targets (default: all in config) |
-| `--fix` | Write missing and stale files. Orphans stay for you to delete, so the exit stays non-zero while any remain. |
+| `--fix` | Write missing, stale, and edited files. Orphans stay for you to delete, so the exit stays non-zero while any remain. |
 | `--backup` | With `--fix`, copy each existing file to `<path>.bak` before overwriting. |
 | `--check-globs` | Flag rules whose `globs:` match no files. Off by default, since monorepos may ship globs for future paths. |
 | `--check-references` | Flag relative Markdown links in generated skills whose file is missing on disk. Off by default. |
