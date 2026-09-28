@@ -43,6 +43,8 @@ func importFromClaude(root string, src config.Sources, layout claudeLayout) erro
 		return err
 	}
 
+	stopTracking := trackImportWrites()
+	defer stopTracking()
 	c := importCounts{}
 	var err error
 	if c.rules, err = importClaudeRules(root, filepath.Join(root, src.Rules), layout); err != nil {
@@ -109,6 +111,9 @@ func importFromClaude(root string, src config.Sources, layout claudeLayout) erro
 	for _, h := range helpers {
 		summaryf("  → %s seeded from %s/%s\n",
 			filepath.Join(agnosticOverlayDir, "claude", h), claudeDir, h)
+	}
+	if err := resolveClaudeNativeRefs(root, src, layout, stopTracking()); err != nil {
+		return err
 	}
 	printImportNextSteps(root, "claude")
 	return nil

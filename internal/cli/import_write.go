@@ -84,6 +84,9 @@ func importWriteFile(path string, data []byte, mode fs.FileMode) error {
 	if importRecording != nil {
 		importRecording.record(path, data)
 	}
+	if importWritten != nil {
+		importWritten[filepath.Clean(path)] = true
+	}
 	if !inImportSandbox(path) {
 		return nil
 	}

@@ -48,7 +48,8 @@ func newLintCmd() *cobra.Command {
 			"supported by any enabled target), hooks whose event ignores their " +
 			"matcher, unterminated frontmatter, and frontmatter keys that near-miss " +
 			"a key agnostic-ai owns (allowed_tools vs tools), and allowed Bash rules " +
-			"with a wildcard before the end of the command, and warns when a " +
+			"with a wildcard before the end of the command, spec bodies that name " +
+			"another spec by one target's native path, and warns when a " +
 			"target's always-loaded instructions pass the lint.instructions-words " +
 			"budget or a skill or agent description passes lint.description-chars. " +
 			"With --global, it " +
@@ -140,6 +141,7 @@ func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) [
 	findings = append(findings, lintMCPMissingRequiredField(b.MCPs)...)
 	findings = append(findings, lintMidWildcard(b.Settings)...)
 	findings = append(findings, lintMalformedGlobs(b.Rules)...)
+	findings = append(findings, lintNativeSpecPaths(b)...)
 	return findings
 }
 
