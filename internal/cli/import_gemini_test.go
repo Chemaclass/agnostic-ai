@@ -5,6 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestImportFromGemini_NoSources(t *testing.T) {
@@ -44,9 +47,8 @@ func TestImportFromGemini_NestedInfersGlobs(t *testing.T) {
 	if !strings.Contains(string(src), "globs: src/**") || !strings.Contains(string(src), "scope: src") {
 		t.Errorf("src rule missing globs: src/**, got:\n%s", src)
 	}
-	root, _ := os.ReadFile(filepath.Join(dir, "rules", "root-rule.md"))
-	if strings.Contains(string(root), "globs:") {
-		t.Errorf("root rule should not have globs, got:\n%s", root)
+	if _, err := os.Stat(filepath.Join(dir, "rules", "root-rule.md")); err == nil {
+		t.Error("the root GEMINI.md feeds AGNOSTIC_AI.md, not a rule")
 	}
 }
 
@@ -275,5 +277,86 @@ func TestImportFromGemini_LegacyAgentTOMLImportsAsCommand(t *testing.T) {
 	}
 	if !strings.Contains(string(data), "do the thing") {
 		t.Errorf("expected the legacy prompt body, got:\n%s", data)
+	}
+}
+
+// A nested GEMINI.md without ## sections becomes one rule named after its
+// scope, the same way `import codex` names one. The checkout's folder
+// name plays no part.
+func TestImportFromGemini_NamesAScopedRuleAfterItsScope(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "clean")
+	writeFile(t, filepath.Join(dir, "services/api", geminiMainFile), "# API\n\nUse integer minor units.\n")
+	writeFile(t, filepath.Join(dir, "services/web", geminiMainFile), "# Web\n\nUse semantic tokens.\n")
+	writeFile(t, filepath.Join(dir, "packages/ui/web", geminiMainFile), "# UI web\n\nShare the tokens.\n")
+
+	if err := importFromGemini(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"api.md":             "scope: services/api",
+		"services-web.md":    "scope: services/web",
+		"packages-ui-web.md": "scope: packages/ui/web",
+	}
+	got := names(mustReadDir(t, filepath.Join(dir, "rules")))
+	if len(got) != len(want) {
+		t.Errorf("rules = %v, want %d named after their scope", got, len(want))
+	}
+	for name, scope := range want {
+		data, err := os.ReadFile(filepath.Join(dir, "rules", name))
+		if err != nil || !strings.Contains(string(data), scope) || !strings.Contains(string(data), "name: "+strings.TrimSuffix(name, ".md")) {
+			t.Errorf("%s (%v):\n%s", name, err, data)
+		}
+	}
+}
+
+// The root GEMINI.md is the shared instructions: it lands in
+// AGNOSTIC_AI.md only, so sync writes each of its lines once.
+func TestImport_GeminiRootGeminiMdFeedsOnlyTheSharedInstructions(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [gemini]\n")
+	writeFile(t, filepath.Join(dir, geminiMainFile), "# Project\n\n## Style\n\nNo semicolons.\n\n## Tests\n\nRun vitest.\n")
+	writeFile(t, filepath.Join(dir, "services/api", geminiMainFile), "# API\n\nUse integer minor units.\n")
+
+	if _, err := runCLI(t, "import", "gemini"); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	rules := names(mustReadDir(t, filepath.Join(dir, ".agnostic-ai/rules")))
+	if len(rules) != 1 || rules[0] != "api.md" {
+		t.Errorf("rules = %v, want only the nested file's api.md", rules)
+	}
+	if err := os.Remove(filepath.Join(dir, geminiMainFile)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, geminiMainFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Count(string(data), "No semicolons."); got != 1 {
+		t.Errorf("synced GEMINI.md holds the root text %d times, want once:\n%s", got, data)
+	}
+}
+
+// A synced root GEMINI.md carries the rules block sync appends; each rule
+// in it comes back as its own spec, and the block's wrapper does not.
+func TestImportFromGemini_RootRulesBlockBecomesRules(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, geminiMainFile), "# Project\n\nShared text.\n\n"+
+		adapters.RulesStartMarker+"\n\n## Rules\n\n### style\n\n<!-- source: .agnostic-ai/rules/style.md -->\nNo semicolons.\n\n"+
+		adapters.RulesEndMarker+"\n")
+
+	if err := importFromGemini(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got := names(mustReadDir(t, filepath.Join(dir, "rules")))
+	if len(got) != 1 || got[0] != "style.md" {
+		t.Fatalf("rules = %v, want the block's style.md alone", got)
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, "rules", "style.md"))
+	if !strings.Contains(string(data), "No semicolons.") || strings.Contains(string(data), "source:") || strings.Contains(string(data), "Shared text.") {
+		t.Errorf("style.md:\n%s", data)
 	}
 }
