@@ -39,7 +39,7 @@ Walkthroughs: [Getting started](@/docs/getting-started.md), [Migration](@/docs/m
 
 ## init
 
-Scaffold a project: `agnostic-ai.yaml` plus empty `agents/`, `skills/`, `rules/`, `hooks/`, `mcps/` under `.agnostic-ai/` by default. Errors if `agnostic-ai.yaml` exists.
+Scaffold a project: `agnostic-ai.yaml` and the managed `.gitignore` block. Errors if `agnostic-ai.yaml` exists. `init` creates only the source folders `--demo` or `--preset` seeds under `.agnostic-ai/`; `new` and `import` create the rest on first use. The schema comment names the release that ran `init`, or `main` for a development build. `on-unsupported: warn` comes with a comment naming `error`, the stricter setting.
 
 ```bash
 agnostic-ai init specs --demo     # base dir specs/, example specs to start from
@@ -48,7 +48,7 @@ echo "claude,codex" | agnostic-ai init
 
 | Flag | Description |
 |------|-------------|
-| `[dir]` | Base directory for the source folders (`.` for the legacy root layout). `agnostic-ai.yaml` gets matching `sources:` paths. |
+| `[dir]` | Base directory for the source folders (`.` for the legacy root layout). `agnostic-ai.yaml` gets matching `sources:` paths, and `init` creates those folders. The default `.agnostic-ai/` writes no `sources:`. |
 | `--demo` | Seed example specs, one per source folder plus the `memory-curator` skill, so the first `sync` produces output. Never overwrites files. |
 | `--preset <name>` | Seed starter specs for a stack: `go`, `ts-react`, `python`. Combines with `--demo` and `--all`. Never overwrites files. |
 | `-a, --all` | Skip the target picker and enable every supported target. |
@@ -430,15 +430,15 @@ Report missing (never synced), stale (out of date with the specs), edited (chang
 | `--check-references` | Flag relative Markdown links in generated skills whose file is missing on disk. Off by default. |
 | `--json` | Drift report as JSON, same schema as `sync --check --json`. With `--check-references`, adds a `references` list. |
 
-`--check-references` reads each Markdown document a selected target writes for its skills, including a skill a target flattens to one file. It resolves every inline link, image, and reference definition from the document's own directory and checks the file exists, gitignored outputs included. Code spans, code blocks, URLs, absolute paths, and `#fragment`-only links are skipped. A fragment on a file link is dropped: only the file is checked, not the heading. A document missing on disk is left to the drift report. The check writes nothing and exits non-zero on any broken link:
+`--check-references` reads each Markdown document a selected target writes for its skills, including a skill a target flattens to one file. A link is valid when it resolves from the document's own directory or, when it stays inside the project, from the project root, gitignored outputs included. A root match proves the file exists in the repository; an agent reading the emitted copy still resolves the link from that copy's folder. Code spans, code blocks, URLs, absolute paths, and `#fragment`-only links are skipped. A fragment on a file link is dropped: only the file is checked, not the heading. A document missing on disk is left to the drift report. [`doctor.check-references.ignore`](@/docs/configuration.md#doctorcheck-referencesignore) exempts destinations that can never resolve, such as a placeholder link in an example template. The check writes nothing and exits non-zero on any broken link. Findings group by source spec and link, so every target copying the same broken link prints once:
 
 ```
 Skill references:
-  ✗ claude: .claude/skills/deploy/SKILL.md:8 links to missing references/setup.md
-      source: .agnostic-ai/skills/deploy/SKILL.md
+  ✗ .agnostic-ai/skills/deploy/SKILL.md:8 links to missing references/setup.md
+      targets: claude, codex
 ```
 
-Each `references` entry in the JSON has `target`, `source` (the canonical spec file, omitted when unknown), `path`, `line`, and `destination`. The key is absent without the flag.
+Each `references` entry in the JSON has `target`, `source` (the canonical spec file, omitted when unknown), `path`, `line`, and `destination`, one per target. The key is absent without the flag.
 
 Then doctor prints:
 
