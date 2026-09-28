@@ -455,7 +455,7 @@ A server cannot work without `command` (stdio) or `url` (remote). `agnostic-ai l
 | `url` | http/sse/ws only | none | Endpoint URL. |
 | `headers` | no | empty | HTTP headers for `http`/`sse`. |
 | `cwd` | no | empty | Working directory for a stdio server, where the target supports it. |
-| `timeout` | no | empty | Units vary: milliseconds on most targets, seconds on OpenHands `http` servers. |
+| `timeout` | no | empty | Units vary by target: milliseconds on most. |
 | `oauth` | no | empty | OAuth settings. The shape is target-specific; see the target page. |
 | `disabled` | no | `false` | See [`disabled` support by target](#disabled-support-by-target). |
 | `roots` | no | empty | List of `{uri, name}` objects, for targets that support MCP roots. |
@@ -474,7 +474,7 @@ Some fields apply only to certain targets and are ignored elsewhere.
 | [Cursor](@/docs/targets/cursor.md) | `envFile`, `auth` |
 | [Copilot / VS Code](@/docs/targets/copilot.md) | `envFile`, `dev`, `sandboxEnabled` (VS Code file only), `tools` (Copilot CLI files only) |
 | [Continue](@/docs/targets/continue.md) | `connectionTimeout`, `requestOptions` |
-| [OpenHands](@/docs/targets/openhands.md) | `api_key`, which turns the entry into `{ url, api_key }`; `auth` (`oauth`, OpenHands' only documented value), or a truthy `oauth`, which turns a shttp entry into `{ url, auth: "oauth" }` |
+| [OpenHands](@/docs/targets/openhands.md) | `auth: oauth`, or a truthy `oauth`, which sets `auth: "oauth"` on a remote server in `~/.openhands/mcp.json` |
 
 On Amp, set `x-amp.includeTools`. Use `x-factory`, `x-kilo`, or `x-continue` to override the matching top-level options for that target.
 

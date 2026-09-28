@@ -11,6 +11,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - A scoped rule no longer makes the managed `.gitignore` block ignore its whole directory; the block lists the scoped files instead (#1264).
 - Ignore specs survive Prettier: sync reads patterns from fenced code blocks, and `import` writes the patterns in one (#1275).
 
+### Removed
+
+- Project sync stops writing OpenHands `config.toml` `[mcp]`, which current releases ignore, and removes the old file. Use `sync --global` (#1259).
+
 ### Site
 
 - The landing's targets section names all 25 targets as links in place of the animated fan.
