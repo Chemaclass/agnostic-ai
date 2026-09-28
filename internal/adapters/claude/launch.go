@@ -3,6 +3,7 @@ package claude
 import (
 	"fmt"
 	"maps"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -11,9 +12,10 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// defaultLaunchFile is where Claude Code Desktop reads its preview servers
+// launchFileName is the file under the Claude directory where Claude Code
+// Desktop reads its preview servers
 // (code.claude.com/docs/en/desktop#configure-preview-servers).
-const defaultLaunchFile = ".claude/launch.json"
+const launchFileName = "launch.json"
 
 // launchFileVersion is the `version` Claude Code writes in launch.json.
 const launchFileVersion = "0.0.1"
@@ -29,7 +31,7 @@ var environmentFieldsWithoutEffect = []struct{ field, reason string }{
 // emitLaunch writes the environment specs' dev-commands to
 // .claude/launch.json as preview server configurations. As with every
 // environment field, the last spec that sets dev-commands wins.
-func emitLaunch(sess *emit.Session, envs []spec.Entry, dryRun bool) error {
+func emitLaunch(sess *emit.Session, envs []spec.Entry, dir string, dryRun bool) error {
 	for _, f := range environmentFieldsWithoutEffect {
 		count := emit.EnvironmentsWithField(target, envs, f.field)
 		if f.field == "setup" {
@@ -72,7 +74,7 @@ func emitLaunch(sess *emit.Session, envs []spec.Entry, dryRun bool) error {
 	if err != nil {
 		return fmt.Errorf("claude launch: %w", err)
 	}
-	return sess.WriteFile(defaultLaunchFile, string(raw)+"\n", dryRun)
+	return sess.WriteFile(filepath.Join(dir, launchFileName), string(raw)+"\n", dryRun)
 }
 
 // launchConfiguration renders one dev command as a launch.json

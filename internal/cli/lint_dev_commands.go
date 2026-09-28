@@ -50,7 +50,10 @@ func lintDevCommands(envs []spec.Entry) []lintFinding {
 			if port, ok := m["port"]; ok && !isPortValue(port) {
 				out = append(out, devCommandFinding(e, fmt.Sprintf("dev command %d sets `port: %v`; use a number", i+1, port)))
 			}
-			env, _ := m["env"].(map[string]any)
+			env, isMap := m["env"].(map[string]any)
+			if m["env"] != nil && !isMap {
+				out = append(out, devCommandFinding(e, fmt.Sprintf("dev command %d sets `env` to something other than a mapping of names to values", i+1)))
+			}
 			for _, k := range slices.Sorted(maps.Keys(env)) {
 				switch env[k].(type) {
 				case string, int, int64, float64, bool:

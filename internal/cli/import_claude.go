@@ -87,7 +87,7 @@ func importFromClaude(root string, src config.Sources, layout claudeLayout) erro
 	if err != nil {
 		return err
 	}
-	environments, err := importClaudeLaunch(root, src)
+	environments, err := importClaudeLaunch(root, src, layout)
 	if err != nil {
 		return err
 	}

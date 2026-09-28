@@ -106,3 +106,23 @@ func TestEmit_DevCommandScalarEnvAndPortString(t *testing.T) {
 		t.Errorf("port = %v", got["port"])
 	}
 }
+
+// launch.json follows outputs.claude.dir, like settings.json.
+func TestEmit_LaunchJSONFollowsClaudeDir(t *testing.T) {
+	cwd := t.TempDir()
+	testutil.Chdir(t, cwd)
+	b := spec.NewBundle([]spec.Entry{{
+		Kind: spec.KindEnvironment, Name: "dev", Path: "environments/dev.yaml",
+		Meta: map[string]any{"dev-commands": []any{map[string]any{"name": "web", "command": "npm start"}}},
+	}})
+	cfg := &config.Config{Outputs: map[string]config.Output{"claude": {Dir: "vendor/.claude"}}}
+	if err := New().Emit(emit.NewSession(), b, cfg, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(cwd, "vendor", ".claude", "launch.json")); err != nil {
+		t.Errorf("launch.json not under outputs.claude.dir: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(cwd, ".claude", "launch.json")); !os.IsNotExist(err) {
+		t.Errorf("launch.json also written to .claude/: %v", err)
+	}
+}

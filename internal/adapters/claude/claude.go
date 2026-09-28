@@ -172,7 +172,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := writeSettings(sess, hooks, b.Settings, b.MCPs, dir, cfg, dryRun); err != nil {
 		return err
 	}
-	if err := emitLaunch(sess, b.Environments, dryRun); err != nil {
+	if err := emitLaunch(sess, b.Environments, dir, dryRun); err != nil {
 		return err
 	}
 

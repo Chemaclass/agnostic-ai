@@ -16,8 +16,9 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
-// claudeLaunchFile is where Claude Code Desktop reads its preview servers.
-var claudeLaunchFile = filepath.Join(".claude", "launch.json")
+// claudeLaunchFileName is the file under the Claude directory where
+// Claude Code Desktop reads its preview servers.
+const claudeLaunchFileName = "launch.json"
 
 // claudeLaunchSpecName names the environment spec launch.json imports into.
 const claudeLaunchSpecName = "dev"
@@ -27,10 +28,11 @@ const claudeLaunchSpecName = "dev"
 // (#1340). A configuration with no command to start, such as one that
 // only opens a `url`, stays behind with a note. A file sync wrote, or a
 // spec already at the destination, is left alone.
-func importClaudeLaunch(root string, src config.Sources) (int, error) {
+func importClaudeLaunch(root string, src config.Sources, layout claudeLayout) (int, error) {
 	if src.Environments == "" {
 		return 0, nil
 	}
+	claudeLaunchFile := filepath.Join(layout.dir, claudeLaunchFileName)
 	for _, p := range readStateFile(root).Outputs {
 		if filepath.Clean(filepath.FromSlash(p)) == claudeLaunchFile {
 			return 0, nil
