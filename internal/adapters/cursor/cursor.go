@@ -456,6 +456,8 @@ func emitEnvironment(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryR
 	if len(b.Environments) == 0 {
 		return nil
 	}
+	emit.NoteFieldNoOp(target, spec.KindEnvironment, "dev-commands", emit.EnvironmentsWithField(target, b.Environments, "dev-commands"),
+		"Cursor has no preview server list; list long-running processes in terminals")
 	merged := map[string]any{}
 	for _, e := range b.Environments {
 		// Resolve the x-<target> namespace first so a cursor-specific
