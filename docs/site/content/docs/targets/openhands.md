@@ -35,6 +35,7 @@ An always-on rule (no `globs`/`paths` and no source-layout or frontmatter scope)
   - OpenHands uses its own tool names (`terminal`, not `Bash`), so a matcher from a Claude spec matches nothing. That case gets a coverage note instead of a guessed rename, because only `terminal` (plus `*` and regex) is documented.
 - **MCP**: project sync writes no MCP file. Current OpenHands releases read MCP servers from Agent Canvas, `~/.openhands/mcp.json`, or the SDK. They ignore a project `config.toml` `[mcp]` section, which the vendor calls legacy V0.
   - Put MCP specs in `~/.agnostic-ai/mcps/` and run `agnostic-ai sync --global` to install them in `~/.openhands/mcp.json`. See [global MCP servers](@/docs/configuration.md#global-mcp-servers).
+  - A remote server's `api_key` becomes an `Authorization: Bearer <key>` header, which is what [OpenHands sends](https://docs.openhands.dev/openhands/usage/settings/mcp-settings) for an API key. An `Authorization` entry in `headers` wins. `mcp.json` documents no per-server timeout, so a `timeout` gets a coverage note.
   - A project MCP spec gets one coverage note that points at `sync --global`.
   - The next sync removes a `config.toml` that an earlier release wrote. `import openhands` still reads a legacy `config.toml` `[mcp]` table into specs.
 - **Environments**: an environment spec's `install` writes `.openhands/setup.sh`, the [repository setup script](https://docs.openhands.dev/openhands/usage/customization/repository) OpenHands runs each time it starts working with the repo.

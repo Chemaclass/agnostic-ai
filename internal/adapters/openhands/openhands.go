@@ -80,6 +80,8 @@
 package openhands
 
 import (
+	"strings"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -200,8 +202,15 @@ func noteMCPGlobalOnly(mcps []spec.Entry) {
 // is {command, args, env}, a remote one {url, transport, headers,
 // auth}, in the fastmcp configuration format the page names. The page
 // shows no disabled key, so a disabled server is left out.
+//
+// A remote `api_key` becomes an `Authorization: Bearer` header, which is
+// what OpenHands sends for one (docs.openhands.dev/openhands/usage/settings/mcp-settings,
+// "Bearer token: Enter the token in API Key. OpenHands sends
+// Authorization: Bearer <token>"). Neither page documents a per-server
+// timeout for mcp.json, so a `timeout` is named as lost (#1306).
 func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
 	mcps = emit.DropMCPDisabled(target, mcps, "a disabled server is left out of ~/.openhands/mcp.json, whose disabled key is undocumented")
+	timeouts, shadowedKeys := 0, 0
 	out := map[string]any{}
 	for _, e := range mcps {
 		if e.Name == "" {
@@ -232,13 +241,38 @@ func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
 			if auth, _ := e.Meta["auth"].(string); auth == "oauth" || (e.Meta["oauth"] != nil && e.Meta["oauth"] != false) {
 				server["auth"] = "oauth"
 			}
-			if headers := emit.StringMap(e.Meta["headers"]); len(headers) > 0 {
+			headers := emit.StringMap(e.Meta["headers"])
+			if apiKey, _ := e.Meta["api_key"].(string); apiKey != "" {
+				if hasHeader(headers, "Authorization") {
+					shadowedKeys++
+				} else {
+					if headers == nil {
+						headers = map[string]string{}
+					}
+					headers["Authorization"] = "Bearer " + apiKey
+				}
+			}
+			if len(headers) > 0 {
 				server["headers"] = headers
 			}
 		default:
 			continue
 		}
+		if e.Meta["timeout"] != nil {
+			timeouts++
+		}
 		out[e.Name] = server
 	}
+	emit.NoteFieldNoOp(target, spec.KindMCP, "timeout", timeouts, "~/.openhands/mcp.json documents no per-server timeout")
+	emit.NoteFieldNoOp(target, spec.KindMCP, "api_key", shadowedKeys, "the server's own Authorization header wins")
 	return out
+}
+
+func hasHeader(headers map[string]string, name string) bool {
+	for key := range headers {
+		if strings.EqualFold(key, name) {
+			return true
+		}
+	}
+	return false
 }
