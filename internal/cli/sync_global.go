@@ -1500,6 +1500,15 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 			ordered.Delete(key)
 			continue
 		}
+		if key == "hooks" {
+			original, _ := ordered.Get("hooks")
+			raw, err := orderedHooksRaw(original, hooks)
+			if err != nil {
+				return nil, fmt.Errorf("marshal %s: %w", path, err)
+			}
+			ordered.SetRaw("hooks", raw)
+			continue
+		}
 		if err := ordered.Set(key, value); err != nil {
 			return nil, fmt.Errorf("marshal %s: %w", path, err)
 		}
@@ -1627,6 +1636,84 @@ func orderedValue(o *adapters.OrderedJSON, key string) (any, bool) {
 		return nil, false
 	}
 	return value, true
+}
+
+// orderedHooksRaw renders the hooks object keeping the file's event
+// order and each unchanged entry's own bytes, so a rewrite does not
+// reorder keys inside hooks the user wrote. New events and entries,
+// sync's own, are encoded fresh.
+func orderedHooksRaw(original json.RawMessage, hooks map[string]any) (json.RawMessage, error) {
+	orig := adapters.NewOrderedJSON()
+	if len(original) > 0 && json.Unmarshal(original, orig) != nil {
+		orig = adapters.NewOrderedJSON()
+	}
+	var events []string
+	for _, event := range orig.Keys() {
+		if _, ok := hooks[event]; ok {
+			events = append(events, event)
+		}
+	}
+	for _, event := range slices.Sorted(maps.Keys(hooks)) {
+		if !slices.Contains(events, event) {
+			events = append(events, event)
+		}
+	}
+	encode := func(v any) (string, error) {
+		var buf bytes.Buffer
+		enc := json.NewEncoder(&buf)
+		enc.SetEscapeHTML(false)
+		if err := enc.Encode(v); err != nil {
+			return "", err
+		}
+		return strings.TrimSuffix(buf.String(), "\n"), nil
+	}
+	out := adapters.NewOrderedJSON()
+	for _, event := range events {
+		items, isList := hooks[event].([]any)
+		if !isList {
+			if raw, ok := orig.Get(event); ok {
+				var have any
+				if json.Unmarshal(raw, &have) == nil && reflect.DeepEqual(have, jsonRoundTrip(hooks[event])) {
+					out.SetRaw(event, raw)
+					continue
+				}
+			}
+			if err := out.Set(event, hooks[event]); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		var existing []json.RawMessage
+		if raw, ok := orig.Get(event); ok {
+			_ = json.Unmarshal(raw, &existing)
+		}
+		used := make([]bool, len(existing))
+		parts := make([]string, 0, len(items))
+		for _, item := range items {
+			want := jsonRoundTrip(item)
+			kept := false
+			for i, raw := range existing {
+				var have any
+				if used[i] || json.Unmarshal(raw, &have) != nil || !reflect.DeepEqual(have, want) {
+					continue
+				}
+				used[i], kept = true, true
+				parts = append(parts, string(raw))
+				break
+			}
+			if kept {
+				continue
+			}
+			text, err := encode(item)
+			if err != nil {
+				return nil, err
+			}
+			parts = append(parts, text)
+		}
+		out.SetRaw(event, json.RawMessage("["+strings.Join(parts, ",")+"]"))
+	}
+	text, err := encode(out)
+	return json.RawMessage(text), err
 }
 
 // jsonRoundTrip returns v as JSON decodes it, so a spec integer compares

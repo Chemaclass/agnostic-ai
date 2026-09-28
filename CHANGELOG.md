@@ -16,12 +16,13 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Changed
 
+- OpenHands `config.toml` `[mcp]` output is deprecated: current releases ignore it and the next release drops it. Use `sync --global` (#1252, #1259).
 - Settings `model` takes a per-target map with an optional `default`, like agent `model`, so Codex and Claude can get different models (#1240).
 - `sync --global` writes through a symlinked user file such as a `CLAUDE.md` kept in dotfiles, and keeps the link (#1242).
 
 ### Fixed
 
-- OpenHands MCP output warns that current releases ignore `config.toml` `[mcp]`. Run `sync --global` to install servers in `~/.openhands/mcp.json` (#1252).
+- `sync --global` keeps the key order of hooks you wrote when it rewrites a hooks file such as `~/.claude/settings.json` (#1260).
 - `sync --global --check` no longer fails right after a sync that removed a target's last file, and a user file sync created goes once empty (#1248, #1256).
 - `lint` no longer warns that every settings spec is empty (LINT001) (#1240).
 

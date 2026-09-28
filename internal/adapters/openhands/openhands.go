@@ -226,7 +226,7 @@ func emitMCPConfig(sess *emit.Session, mcps []spec.Entry, path string, dryRun bo
 	// OpenHands releases don't read MCP servers from a config.toml [mcp]
 	// section ... That format belongs to legacy OpenHands (V0)" (#1252).
 	emit.NoteSurfaceGap(target, spec.KindMCP, len(stdio)+len(sse)+len(shttp), "config.toml [mcp]",
-		"current OpenHands releases ignore it and read it only on legacy V0; run `agnostic-ai sync --global` to install the servers in ~/.openhands/mcp.json")
+		"current OpenHands releases ignore it and read it only on legacy V0, and the next release stops writing it; run `agnostic-ai sync --global` to install the servers in ~/.openhands/mcp.json")
 	return sess.WriteFile(path, doc, dryRun)
 }
 
