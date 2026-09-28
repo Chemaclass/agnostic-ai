@@ -23,6 +23,6 @@ Steps:
 8. Update `agnostic-ai.yaml` example with the new target name and a comment.
 9. Add a unit test in `internal/adapters/<name>/<name>_test.go`.
 10. Run `make build && make test`.
-11. Add a `[Unreleased]` entry to `CHANGELOG.md`.
+11. Add a `[Unreleased]` entry to `CHANGELOG.md`, per `.agnostic-ai/agents/changelog-curator.md`.
 
 The required adapter shape (stateless struct, `New()`, `Emit()` signature, `Capabilities` declaration, shared-helper rules) lives in the `adapter-pattern` rule. Read it before step 2.
