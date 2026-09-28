@@ -10,19 +10,84 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// IgnoreBody concatenates the bodies of ignore specs into one
+// IgnoreBody concatenates the patterns of ignore specs into one
 // gitignore-syntax block in spec order, separated by blank lines.
 // Only outer line breaks are trimmed: spaces and tabs can be patterns.
 // Returns "" when no spec contributes content.
 func IgnoreBody(ignores []spec.Entry) string {
 	parts := make([]string, 0, len(ignores))
 	for _, e := range ignores {
-		body := strings.Trim(strings.ReplaceAll(e.Body, "\r\n", "\n"), "\n")
-		if strings.Trim(body, " \n") != "" {
-			parts = append(parts, body)
+		for _, block := range ignoreSpecPatterns(strings.ReplaceAll(e.Body, "\r\n", "\n")) {
+			block = strings.Trim(block, "\n")
+			if strings.Trim(block, " \n") != "" {
+				parts = append(parts, block)
+			}
 		}
 	}
 	return strings.Join(parts, "\n\n")
+}
+
+// ignoreSpecPatterns returns the pattern blocks of one spec body. When the
+// body has fenced code blocks, they hold the patterns and the text around
+// them is prose: Markdown formatters such as Prettier rewrite `*` and `_`
+// in plain text but leave code alone (#1275). A body without a fence is
+// one block, read whole.
+func ignoreSpecPatterns(body string) []string {
+	var blocks []string
+	lines := strings.Split(body, "\n")
+	for i := 0; i < len(lines); i++ {
+		indent, fence := openingCodeFence(lines[i])
+		if fence == "" {
+			continue
+		}
+		var content []string
+		for i++; i < len(lines) && !closesCodeFence(lines[i], fence); i++ {
+			content = append(content, trimFenceIndent(lines[i], indent))
+		}
+		blocks = append(blocks, strings.Join(content, "\n"))
+	}
+	if blocks == nil {
+		return []string{body}
+	}
+	return blocks
+}
+
+// openingCodeFence reports the indent and marker of a CommonMark fence
+// opener: up to three spaces, then three or more backticks or tildes. A
+// backtick info string cannot hold a backtick, or the line is inline code.
+func openingCodeFence(line string) (int, string) {
+	rest := strings.TrimLeft(line, " ")
+	indent := len(line) - len(rest)
+	if indent > 3 || rest == "" || (rest[0] != '`' && rest[0] != '~') {
+		return 0, ""
+	}
+	info := strings.TrimLeft(rest, rest[:1])
+	fence := rest[:len(rest)-len(info)]
+	if len(fence) < 3 || (fence[0] == '`' && strings.Contains(info, "`")) {
+		return 0, ""
+	}
+	return indent, fence
+}
+
+// closesCodeFence reports whether line closes a block opened by fence: up
+// to three spaces, a run of the same character at least as long, and
+// nothing after it but spaces or tabs.
+func closesCodeFence(line, fence string) bool {
+	rest := strings.TrimLeft(line, " ")
+	if len(line)-len(rest) > 3 {
+		return false
+	}
+	after := strings.TrimLeft(rest, fence[:1])
+	return len(rest)-len(after) >= len(fence) && strings.Trim(after, " \t") == ""
+}
+
+// trimFenceIndent drops up to indent leading spaces, as CommonMark does
+// for the content of an indented fence.
+func trimFenceIndent(line string, indent int) string {
+	for i := 0; i < indent && strings.HasPrefix(line, " "); i++ {
+		line = line[1:]
+	}
+	return line
 }
 
 // WriteIgnoreFile writes the combined ignore patterns to path with a

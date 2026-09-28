@@ -37,6 +37,63 @@ func TestIgnoreBody_PreservesPatternWhitespace(t *testing.T) {
 	}
 }
 
+// Markdown formatters such as Prettier rewrite `*` and `_` in plain text
+// but leave code blocks alone, so a fenced block keeps patterns intact
+// (#1275). Text outside the fences is prose and emits nothing.
+func TestIgnoreBody_ReadsPatternsFromFencedBlocks(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name, body, want string
+	}{
+		{
+			name: "prose around a gitignore block",
+			body: "Keep these out of agent context.\n\n```gitignore\n/res/*\n!/res/keep/**\n*.log\n__pycache__/\n\\#*\\#\n```\n\nMore prose.\n",
+			want: "/res/*\n!/res/keep/**\n*.log\n__pycache__/\n\\#*\\#",
+		},
+		{
+			name: "pattern whitespace inside the block",
+			body: "```\n leading.key\ntrailing.key\\ \n```",
+			want: " leading.key\ntrailing.key\\ ",
+		},
+		{
+			name: "several blocks in order",
+			body: "```gitignore\n*.env\n```\n\nBuild output:\n\n~~~\ndist/\n~~~\n",
+			want: "*.env\n\ndist/",
+		},
+		{
+			name: "a longer fence holds a backtick line",
+			body: "````gitignore\n```\n*.key\n````\n",
+			want: "```\n*.key",
+		},
+		{
+			name: "an indented fence drops its indent",
+			body: "  ```\n  *.env\n    nested/\n  ```\n",
+			want: "*.env\n  nested/",
+		},
+		{
+			name: "an unclosed fence runs to the end",
+			body: "```\n*.env\nsecrets/\n",
+			want: "*.env\nsecrets/",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := IgnoreBody([]spec.Entry{{Body: tc.body}}); got != tc.want {
+				t.Errorf("IgnoreBody = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestIgnoreBody_BodyWithoutFenceStaysVerbatim(t *testing.T) {
+	t.Parallel()
+	const body = "# Build output\n/res/*\n``not a fence\n*.log"
+	if got := IgnoreBody([]spec.Entry{{Body: body}}); got != body {
+		t.Errorf("IgnoreBody = %q, want %q", got, body)
+	}
+}
+
 func TestWriteIgnoreFile_WritesHeaderAndPatterns(t *testing.T) {
 	t.Parallel()
 	sess := NewSession()
