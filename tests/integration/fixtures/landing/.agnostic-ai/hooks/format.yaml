@@ -1,0 +1,7 @@
+name: format
+description: Format each file right after the agent edits it.
+targets: [claude, codex]
+event: PostToolUse
+matcher: Edit|Write
+command: .claude/hooks/format.sh
+timeout: 30

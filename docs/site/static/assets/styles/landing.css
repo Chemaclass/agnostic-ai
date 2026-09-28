@@ -151,85 +151,7 @@ main > section[id] {
   font-weight: 700;
 }
 
-/* Source, arrow, and the five files it produced run down the left column; the
-   selected file fills the right one beside all three. Stacking the source
-   across the top instead left the whole right half of its row empty and
-   pushed the generated file a screen further down.
-
-   34rem is the measure the source YAML needs: its longest line is the 70
-   character description, and a narrower column breaks it one word from the
-   end. The switch element is display: contents so its tab list and its panes
-   become direct cells of this grid. */
-.transform {
-  --transform-cols: minmax(0, 34rem) minmax(0, 1fr);
-  display: grid;
-  grid-template-columns: var(--transform-cols);
-  grid-template-rows: auto auto auto auto;
-  align-items: start;
-  column-gap: 1.5rem;
-  row-gap: 0.75rem;
-  margin-top: 1.75rem;
-}
-
-.output-switch {
-  display: contents;
-}
-
-.spec-card,
-.transform-arrow,
-.output-files {
-  grid-column: 1;
-}
-
-/* Spans from the source down to the last tab, so the pane is as tall as the
-   column beside it rather than starting below it. The slab stretches to that
-   full height, because a file that ends short of the tab list leaves a hole
-   in the middle of the section rather than a margin at its edge. */
-.output-panels {
-  grid-column: 2;
-  grid-row: 2 / -1;
-  align-self: stretch;
-}
-
-/* Carries the grid's own columns so each label starts over the column it
-   names, rather than being pushed to the far right edge of the section. */
-.transform-caption {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: var(--transform-cols);
-  column-gap: 1.5rem;
-  margin-bottom: 0;
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 0.69rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-/* One column below the split: the panes fall under the tab list, which is the
-   reading order the markup already has. */
-@media (max-width: 899px) {
-  .transform {
-    --transform-cols: minmax(0, 1fr);
-    grid-template-rows: none;
-  }
-
-  .output-panels {
-    grid-column: 1;
-    grid-row: auto;
-  }
-
-  /* One column under the split, so the two labels go back to the outer edges
-     of the same row instead of sitting on top of each other. */
-  .transform-caption {
-    grid-template-columns: 1fr auto;
-  }
-
-  .transform-caption span:last-child {
-    text-align: right;
-  }
-}
-
+/* The file card: a slab with the file's path above its contents. */
 .spec-card {
   overflow: hidden;
   border: 1px solid var(--line);
@@ -256,170 +178,6 @@ main > section[id] {
   background: var(--accent);
 }
 
-/* Wrap rather than scroll. A hidden horizontal scrollbar inside the card means
-   the reader never sees the line that carries the point. */
-.transform pre {
-  margin: 0;
-  padding: 0.7rem 0.75rem;
-  color: var(--slab-ink);
-  font-size: 0.73rem;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.transform pre code {
-  padding: 0;
-  background: none;
-  color: inherit;
-  font-size: inherit;
-}
-
-.transform-arrow {
-  width: 2.25rem;
-  display: block;
-  margin: 0.15rem 0;
-  color: var(--accent);
-  transform: rotate(90deg);
-}
-
-/* Two across beside the source, so the five files cost three rows instead of
-   five and the column ends level with the pane next to it. The widest path
-   renders at 225px, inside the 269px this leaves per cell. */
-.output-files {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.35rem;
-}
-
-/* Under the split the list has the full width and no pane to end level with,
-   and two of these paths side by side are narrow enough to be truncated. This
-   has to sit after the rule above, not with the rest of the narrow layout:
-   the two carry the same specificity. */
-@media (max-width: 899px) {
-  .output-files {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-/* The hero diagram plays once on load: the arrow draws, then each native file lands, in the order sync writes them. */
-@keyframes sync-arrow {
-  from {
-    stroke-dashoffset: 52;
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes sync-file {
-  from {
-    opacity: 0;
-    transform: translateY(-0.35rem);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-.transform-arrow path {
-  stroke-dasharray: 52;
-  animation: sync-arrow 520ms ease-out both;
-}
-
-.output-file {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  width: 100%;
-  min-width: 0;
-  padding: 0.42rem 0.65rem;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--surface-quiet);
-  color: var(--ink-soft);
-  font-family: var(--mono);
-  font-size: 0.72rem;
-  text-align: left;
-  appearance: none;
-  cursor: pointer;
-  animation: sync-file 360ms ease-out both;
-}
-
-.output-file:nth-child(1) {
-  animation-delay: 420ms;
-}
-
-.output-file:nth-child(2) {
-  animation-delay: 530ms;
-}
-
-.output-file:nth-child(3) {
-  animation-delay: 640ms;
-}
-
-.output-file:nth-child(4) {
-  animation-delay: 750ms;
-}
-
-.output-file:nth-child(5) {
-  animation-delay: 860ms;
-}
-
-/* Inert until landing.js wires the tabs up. The list still reads as the set of
-   files a sync writes, but nothing invites a click that cannot land. */
-.output-files[inert] .output-file {
-  cursor: default;
-}
-
-.output-file svg {
-  width: 0.95rem;
-  height: 0.95rem;
-  flex: none;
-  color: var(--good);
-}
-
-.output-file span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Selection follows click and arrow keys only. Hover must not switch the pane,
-   or dragging the pointer across the list flickers through five files. */
-.output-file[aria-selected="true"] {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--ink);
-}
-
-.output-file[aria-selected="true"] svg {
-  color: var(--accent);
-}
-
-/* Every pane shares one grid cell, so the card keeps the height of the tallest
-   file no matter which target is selected. A hidden pane stays laid out and is
-   only made invisible, which also keeps it out of the accessibility tree. */
-.output-panels {
-  display: grid;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--slab);
-}
-
-.output-panel {
-  grid-area: 1 / 1;
-  min-width: 0;
-  padding: 0;
-}
-
-.output-panel[hidden] {
-  display: block;
-  visibility: hidden;
-}
-
 /* The note says what this target could not keep, so it sits above the file it
    describes, on paper rather than on the slab, where it reads as commentary. */
 .output-note {
@@ -437,13 +195,6 @@ main > section[id] {
   background: none;
   color: var(--accent);
   font-size: 0.95em;
-}
-
-.output-panel pre {
-  padding: 0.8rem 0.9rem;
-  color: var(--slab-ink);
-  font-size: 0.7rem;
-  line-height: 1.55;
 }
 
 .section-title {
@@ -654,7 +405,8 @@ main > section[id] {
   line-height: 1.55;
 }
 
-/* Wrap rather than scroll, for the same reason as the transform card. */
+/* Wrap rather than scroll sideways: a hidden horizontal scrollbar means the
+   reader never sees the line that carries the point. */
 .source-tree pre {
   margin: 0;
   padding: 0.8rem 0.9rem;
@@ -672,48 +424,107 @@ main > section[id] {
   font-size: inherit;
 }
 
-.source-tree-label {
-  margin: 0.3rem 0 0;
-  color: var(--muted);
+/* The arrow says the files under it come from the source above it. */
+.explorer-arrow {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: -0.35rem 0 -0.35rem 1rem;
+  color: var(--accent);
   font-family: var(--mono);
-  font-size: 0.69rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 0.72rem;
+  font-weight: 700;
 }
 
-.source-tree-outputs {
+.explorer-arrow svg {
+  width: 0.75rem;
+  height: 2rem;
+  flex: none;
+}
+
+/* One slab per entry: a tab for each generated file, then that file. The panes
+   share one grid cell, so switching tools never moves the page. */
+.explorer-outputs {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--slab);
+}
+
+.explorer-output-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  gap: 0.35rem;
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--slab-line);
+  background: var(--slab-raised);
 }
 
-.source-tree-outputs li {
+.explorer-output-tab {
   display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
   min-width: 0;
-  padding: 0.34rem 0.6rem;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--surface-quiet);
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--slab-line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--slab-dim);
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  text-align: left;
+  appearance: none;
+  cursor: pointer;
 }
 
-.source-tree-outputs svg {
-  width: 0.85rem;
-  height: 0.85rem;
-  flex: none;
-  color: var(--good);
-}
-
-.source-tree-outputs code {
+.explorer-output-tab code {
   padding: 0;
   background: none;
-  color: var(--ink-soft);
-  font-size: 0.74rem;
+  color: var(--slab-ink);
+  font-size: 0.72rem;
   overflow-wrap: anywhere;
+}
+
+.explorer-output-tab:hover {
+  border-color: var(--slab-dim);
+}
+
+.explorer-output-tab[aria-selected="true"] {
+  border-color: var(--slab-accent);
+  color: var(--slab-accent);
+}
+
+.explorer-output-tabs[inert] .explorer-output-tab {
+  cursor: default;
+}
+
+.explorer-output-panels {
+  display: grid;
+}
+
+.explorer-output-panel {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+
+.explorer-output-panel[hidden] {
+  display: block;
+  visibility: hidden;
+}
+
+/* An entry file with every rule in it runs past forty lines; it scrolls
+   inside the slab instead of stretching the section. */
+.explorer-output-panel pre {
+  max-height: 22rem;
+  overflow: auto;
+}
+
+.explorer-reach {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.55;
 }
 
 .source-tree-docs {
@@ -1095,11 +906,6 @@ main > section[id] {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .transform-arrow path,
-  .output-file {
-    animation: none;
-  }
-
   .button svg,
   .is-reveal-pending,
   .is-revealed {
