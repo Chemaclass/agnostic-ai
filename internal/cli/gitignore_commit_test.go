@@ -131,6 +131,78 @@ func TestSync_GitignoreCommitKindsKeepsInstructionsAndHooksVisible(t *testing.T)
 	}
 }
 
+// syncCommitProject syncs a project whose specs and overlays are given as
+// project-relative path to content, under the given gitignore.commit list.
+func syncCommitProject(t *testing.T, targets, commit string, files map[string]string) string {
+	t.Helper()
+	dir, _ := gitRepo(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	captureLogOut(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+targets+"]\ngitignore:\n  enabled: true\n  commit: ["+commit+"]\n")
+	for rel, content := range files {
+		mustWriteFile(t, filepath.Join(dir, filepath.FromSlash(rel)), content)
+	}
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "--all"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
+const claudeSettingsOverlay = `{"statusLine": {"type": "command", "command": "echo hi"}}`
+
+// A file the config alone writes belongs to no kind: listing instructions
+// must not commit the settings file an overlay produces.
+func TestSync_GitignoreCommitIgnoresConfigOnlyOutputs(t *testing.T) {
+	dir := syncCommitProject(t, "claude", "instructions", map[string]string{
+		".agnostic-ai/overlays/claude.settings.json": claudeSettingsOverlay,
+		".agnostic-ai/rules/style.md":                "---\nname: style\ndescription: Style.\n---\nKeep it short.\n",
+	})
+
+	if !slices.Contains(generatedFiles(t, dir), ".claude/settings.json") {
+		t.Fatal("fixture did not generate .claude/settings.json")
+	}
+	if !gitIgnored(t, dir, ".claude/settings.json") {
+		t.Error(".claude/settings.json is visible; instructions did not write it")
+	}
+	if gitIgnored(t, dir, "CLAUDE.md") || gitIgnored(t, dir, ".claude/rules/style.md") {
+		t.Error("instructions outputs are ignored")
+	}
+}
+
+// A kind that changes a config-driven file's content contributed to it.
+func TestSync_GitignoreCommitKeepsAFileAListedKindChanges(t *testing.T) {
+	dir := syncCommitProject(t, "claude", "hooks", map[string]string{
+		".agnostic-ai/overlays/claude.settings.json": claudeSettingsOverlay,
+		".agnostic-ai/hooks/fmt.yaml":                "name: fmt\nevent: PostToolUse\nmatcher: Edit\ncommand: echo hi\n",
+	})
+
+	if gitIgnored(t, dir, ".claude/settings.json") {
+		t.Error(".claude/settings.json is ignored; its hook registrations are committed")
+	}
+}
+
+// Junie writes .junie/AGENTS.md from the shared instructions with no spec,
+// so only instructions decides it.
+func TestSync_GitignoreCommitDecidesJunieMirrorByInstructions(t *testing.T) {
+	skills := map[string]string{".agnostic-ai/skills/review/SKILL.md": "---\nname: review\ndescription: Review a diff.\n---\nReview it.\n"}
+
+	dir := syncCommitProject(t, "junie", "skills", skills)
+	if !slices.Contains(generatedFiles(t, dir), ".junie/AGENTS.md") {
+		t.Fatal("fixture did not generate .junie/AGENTS.md")
+	}
+	if !gitIgnored(t, dir, ".junie/AGENTS.md") {
+		t.Error(".junie/AGENTS.md is visible under commit: [skills]")
+	}
+
+	dir = syncCommitProject(t, "junie", "instructions", skills)
+	if gitIgnored(t, dir, ".junie/AGENTS.md") {
+		t.Error(".junie/AGENTS.md is ignored under commit: [instructions]")
+	}
+}
+
 // A committed file next to an ignored one keeps their directory expanded:
 // a `/dir/` rule would hide the committed file, and no `!` line can
 // re-include a file under an excluded directory.

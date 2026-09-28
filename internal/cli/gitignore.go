@@ -374,10 +374,14 @@ func buildManagedBlockCommitting(cfg *config.Config, entries, scopes []string, c
 // kinds write across targets, nil when none is listed. Each kind's paths
 // come from running every target's adapter in capture mode on a bundle
 // holding only that kind's specs, so the classification follows each
-// adapter's real layout, overrides included. A file several kinds write,
-// such as a settings file that registers hooks and MCP servers, is
-// committed when any of them is listed. Instructions also claim every
-// target's entry-point file, which sync writes outside the adapters.
+// adapter's real layout, overrides included. A capture with no specs is
+// the baseline: a kind claims a path only when its capture writes it and
+// the baseline does not, or writes other bytes there. Output the config
+// or an overlay drives alone belongs to no kind and stays ignored. A file
+// several kinds change, such as a settings file that registers hooks and
+// MCP servers, is committed when any of them is listed. Instructions also
+// claim every target's entry-point file and shared-instructions mirror,
+// which render the instructions body rather than a spec.
 func committedOutputs(cfg *config.Config, b spec.Bundle, targets []string) (map[string]struct{}, error) {
 	if len(cfg.Gitignore.Commit) == 0 {
 		return nil, nil
@@ -390,22 +394,32 @@ func committedOutputs(cfg *config.Config, b spec.Bundle, targets []string) (map[
 		}
 	}
 	sess := adapters.NewSession()
-	for _, kind := range cfg.Gitignore.Commit {
-		only := bundleOfKind(b, kind)
-		for _, t := range targets {
-			adapter, err := adapters.Resolve(t)
-			if err != nil {
-				continue // sync already reported the unknown target
-			}
+	for _, t := range targets {
+		adapter, err := adapters.Resolve(t)
+		if err != nil {
+			continue // sync already reported the unknown target
+		}
+		baseline, err := captureAdapterFiles(sess, adapter, spec.Bundle{}, cfg)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", t, err)
+		}
+		unchanged := make(map[string]string, len(baseline))
+		for _, f := range baseline {
+			unchanged[f.Path] = f.Content
+		}
+		for _, kind := range cfg.Gitignore.Commit {
 			if kind == config.GitignoreInstructions {
 				add(adapters.EntryPointPath(cfg, t))
+				add(adapters.SharedInstructionsMirror(t))
 			}
-			files, err := captureAdapterFiles(sess, adapter, only, cfg)
+			files, err := captureAdapterFiles(sess, adapter, bundleOfKind(b, kind), cfg)
 			if err != nil {
 				return nil, fmt.Errorf("%s: %s: %w", kind, t, err)
 			}
 			for _, f := range files {
-				add(f.Path)
+				if content, ok := unchanged[f.Path]; !ok || content != f.Content {
+					add(f.Path)
+				}
 			}
 		}
 	}

@@ -352,7 +352,7 @@ gitignore:
   commit: [instructions, hooks]
 ```
 
-Adding a target needs no other change: its entry point and rule files stay visible too. Sync runs each target's adapter once per listed kind, with only that kind's specs, and a path it writes belongs to the kind. A file several kinds write, such as `.claude/settings.json` (hooks, settings, and MCP policy), is committed when any of them is listed. An unknown kind fails config loading.
+Adding a target needs no other change: its entry point and rule files stay visible too. Sync runs each target's adapter once per listed kind, with only that kind's specs, and once with no specs. A path belongs to the kind when the kind's run writes it and the run with no specs does not, or writes different content. A file only the config or an [overlay](#watched-inputs) produces belongs to no kind and stays ignored. A file several kinds write, such as `.claude/settings.json` (hooks, settings, and MCP policy), is committed when any of them is listed. An unknown kind fails config loading.
 
 The block sits between `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai (managed) <<<`. Lines outside it are kept, and an unchanged sync keeps the file mtime. Its header says to edit specs, and that a fresh clone or `git worktree` lacks these paths until `sync` runs (see [post-checkout hook](@/docs/git-hooks.md#regenerate-on-checkout)).
 
