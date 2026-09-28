@@ -32,7 +32,7 @@ func TestImportIgnore_PreservesHandAuthoredPatternsOnEveryTarget(t *testing.T) {
 					t.Errorf("imported ignore spec missing %q:\n%s", want, spec)
 				}
 			}
-			if !strings.Contains(spec, "\n\n"+handAuthored) {
+			if !strings.Contains(spec, "\n\n```gitignore\n"+handAuthored+"```\n") {
 				t.Errorf("import changed pattern order or whitespace: %q", spec)
 			}
 
@@ -41,6 +41,54 @@ func TestImportIgnore_PreservesHandAuthoredPatternsOnEveryTarget(t *testing.T) {
 				t.Errorf("sync changed imported patterns: %q", got)
 			}
 		})
+	}
+}
+
+// Markdown formatters rewrite `*` and `_` in plain text, so an imported
+// spec keeps its patterns in a fenced block they leave alone (#1275).
+func TestImportIgnore_WritesPatternsInAFencedBlock(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cursor]\n")
+	const handAuthored = "/res/*\n!/res/keep/**\n"
+	path := filepath.Join(dir, ".cursorignore")
+	writeFile(t, path, handAuthored)
+
+	execCLI(t, "import", "cursor")
+
+	spec := readFile(t, filepath.Join(dir, ".agnostic-ai", "ignore", "cursor.md"))
+	if !strings.HasSuffix(spec, "\n\n```gitignore\n"+handAuthored+"```\n") {
+		t.Errorf("imported patterns not in a fenced block:\n%s", spec)
+	}
+
+	execCLI(t, "sync", "-t", "cursor")
+	if got := readFile(t, path); !strings.HasSuffix(got, "\n"+handAuthored) || strings.Contains(got, "```") {
+		t.Errorf("sync changed imported patterns: %q", got)
+	}
+}
+
+// A pattern line that starts with backticks must not close the fence.
+func TestImportIgnore_FenceOutrunsBacktickPatterns(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cursor]\n")
+	const handAuthored = "```\n*.key\n"
+	path := filepath.Join(dir, ".cursorignore")
+	writeFile(t, path, handAuthored)
+
+	execCLI(t, "import", "cursor")
+	spec := readFile(t, filepath.Join(dir, ".agnostic-ai", "ignore", "cursor.md"))
+	if !strings.Contains(spec, "````gitignore\n"+handAuthored+"````\n") {
+		t.Errorf("fence does not outrun the backtick pattern:\n%s", spec)
+	}
+
+	execCLI(t, "sync", "-t", "cursor")
+	if got := readFile(t, path); !strings.HasSuffix(got, "\n"+handAuthored) {
+		t.Errorf("sync changed imported patterns: %q", got)
 	}
 }
 
