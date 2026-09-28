@@ -148,7 +148,7 @@ func launchConfigurationProblem(c map[string]any) string {
 		return "is not an object"
 	}
 	for _, k := range slices.Sorted(maps.Keys(c)) {
-		ok := true
+		var ok bool
 		switch v := c[k]; k {
 		case "name", "runtimeExecutable", "program", "cwd", "url":
 			_, ok = v.(string)
