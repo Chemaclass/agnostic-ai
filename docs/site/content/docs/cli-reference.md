@@ -325,6 +325,7 @@ Emit per-target configs, for example `agnostic-ai sync --only claude,cursor`.
 | `--format <human\|github>` | With `--check`: `human` (default) table or `github` Actions annotations. `--json` wins. |
 | `--backup` | Copy each existing target file to `<path>.bak` before overwriting. Pair with `revert`. |
 | `--keep-edits` | Leave each output edited since the last sync in place, write the rest, and name each kept file as `~ kept <path>`. An edited file the specs no longer produce stays too. `--quiet` still prints these lines, on stderr. Exits 0. For [git hooks](@/docs/git-hooks.md#regenerate-on-checkout). Not with `--check`, `--plan`, `--watch`, or `--global`. |
+| `--untrack` | Remove a generated path from git's index when it is also gitignored (`git rm --cached`; the working tree copy stays). `sync` and `doctor` already name these paths and the exact command, whether or not `--untrack` runs it. Not with `--check`, `--plan`, `--dry-run`, `--watch`, or `--global`. |
 | `--gitignore <on\|off>` | Override `gitignore.enabled` for this run. |
 | `--watch` | Stay running and re-emit on changes. Incompatible with `--check`. See [watch mode](#watch-mode). |
 | `--watch-poll` | With `--watch`, force the 200 ms polling backend, for network mounts or container volumes where fsnotify misses events. |
@@ -351,6 +352,14 @@ After an edit, it names the specs that changed since the last sync, then the fil
 ```
 
 Each list shows three paths; `-v` lists them all. `config` in the spec line means `agnostic-ai.yaml` changed. The `!` line lists changed files that git tracks or does not ignore, so you know what to commit; it is absent outside a git repository.
+
+**Tracked despite ignored.** A generated path git already tracks (typically committed before it moved into the managed `.gitignore` block) never appears in the "files to commit" line: re-adding it is the opposite of what is needed. Instead it prints its own line with the exact command:
+
+```
+  ! 1 file tracked despite being ignored: git rm --cached .claude/rules/tone.md
+```
+
+`sync --untrack` runs that command for every such path (working tree untouched) and reports it as `~ untracked <path>` instead. `doctor` prints the same finding under "Tracked despite ignored:"; it never fails the check on its own.
 
 **Orphan sweep.** `sync` records every file it writes in `.agnostic-ai/.sync-state`. A full run deletes files it no longer emits (a removed skill's folder with its `references/`) and prunes empty directories. It deletes only what it can prove it wrote: by provenance header, or by recorded content hash for verbatim copies (skill assets, targets with `provenance_header: false`). A file edited since the last sync is kept as `~ kept orphan <path>`. It counts as drift in `sync --check` and `doctor` until you delete it or list it under `sync.unmanaged`.
 
@@ -397,8 +406,8 @@ Output never depends on the value: files, summary counts, JSON, the `.gitignore`
 |-------|-------------|
 | `version` | Schema version, currently `"1"`. Breaking changes bump it. |
 | `command` | `"sync"`, `"sync --plan"`, `"sync --dry-run"`, or `"sync --check"`. |
-| `writes` | Files written (`"create"`, `"update"`), orphans removed (`"delete"`), or, for `--check`, files needing attention (`"missing"`, `"stale"`, `"edited"`, `"orphan"`, `"leftover"`). A `"stale"` file still holds what the last sync wrote and the specs changed; an `"edited"` file changed since the last sync wrote it. A `"leftover"` is a file the last sync wrote and no longer generates, which the next full sync removes; it reports under target `ledger`, since the ledger does not record which target wrote it. A leftover no ledger proves sync wrote reports under target `unledgered`. |
-| `skipped` | Files already matching (`"skip"`), user-owned (`"unmanaged"`), edited orphans kept (`"orphan"`), leftovers kept with no ledger to prove sync wrote them, under target `unledgered` (`"leftover"` for `doctor --fix` to remove, `"orphan"` for a scope document), or, with `--keep-edits`, hand edits left in place (`"edited"`). Empty for `--check`. |
+| `writes` | Files written (`"create"`, `"update"`), orphans removed (`"delete"`), or, for `--check`, files needing attention (`"missing"`, `"stale"`, `"edited"`, `"orphan"`, `"leftover"`). A `"stale"` file still holds what the last sync wrote and the specs changed; an `"edited"` file changed since the last sync wrote it. A `"leftover"` is a file the last sync wrote and no longer generates, which the next full sync removes; it reports under target `ledger`, since the ledger does not record which target wrote it. A leftover no ledger proves sync wrote reports under target `unledgered`. With `--untrack`, a path `git rm --cached` removed from the index is `"untracked"`, target `agnostic-ai`. |
+| `skipped` | Files already matching (`"skip"`), user-owned (`"unmanaged"`), edited orphans kept (`"orphan"`), leftovers kept with no ledger to prove sync wrote them, under target `unledgered` (`"leftover"` for `doctor --fix` to remove, `"orphan"` for a scope document), or, with `--keep-edits`, hand edits left in place (`"edited"`). A path git both tracks and ignores, without `--untrack`, is `"tracked"`, target `agnostic-ai`. Empty for `--check`. |
 | `errors` | Per-target errors with `target` and `message`. |
 
 `writes` and `skipped` entries have `target`, `path`, `action` (strings), and `bytes` (number), as in `{"target": "claude", "path": "CLAUDE.md", "action": "create", "bytes": 1284}`.
@@ -448,6 +457,7 @@ Then doctor prints:
 
 | Block | What it shows | Counts as drift |
 |-------|---------------|-----------|
+| **Tracked despite ignored** | A generated path git tracks and ignores, with the exact `git rm --cached` command. `sync --untrack` runs it. | No |
 | **MCP** | Whether each stdio `command:` resolves on PATH, with install hints for `npx`, `uvx`, `python`, `docker`. `url:`-only servers are skipped. | No |
 | **Script divergence** | Basenames under `.agnostic-ai/scripts/<tool>/` whose bodies differ by SHA-256 across tools, with sizes, short hashes, and the suggested path `.agnostic-ai/scripts/<basename>`. | Yes, not auto-fixable |
 | **Unmanaged config** | Config files without a provenance marker (a pre-agnostic-ai `CLAUDE.md`, hand-written `.cursor/rules/*.mdc`), grouped by the `import` source that adopts each. Only markdown and TOML are scanned. | No |
@@ -545,19 +555,24 @@ agnostic-ai packs remove go-rules
 
 ## install-hook
 
-Install a pre-commit hook that runs `sync --check`. See [git hooks](@/docs/git-hooks.md).
+Install a pre-commit hook that runs `sync --check`, or, with `--post-checkout`, a hook that regenerates tool files after a checkout. See [git hooks](@/docs/git-hooks.md).
 
 ```bash
 agnostic-ai install-hook            # writes .git/hooks/pre-commit (local)
 agnostic-ai install-hook --shared   # writes .githooks/ and sets core.hooksPath
 agnostic-ai install-hook --global   # gates commits to a global home kept in git
+
+agnostic-ai install-hook --post-checkout            # writes .git/hooks/post-checkout (local)
+agnostic-ai install-hook --post-checkout --shared   # writes .githooks/post-checkout
 ```
 
-An existing `pre-commit` hook keeps its content, and the checks go at its end. A hook that would stop before reaching them is left alone, and the command prints the lines to add by hand: one without a `sh` or `bash` shebang, one that runs `exec`, or one with an unindented `exit`. A hook that already holds the checks stays as it is.
+An existing `pre-commit` or `post-checkout` hook keeps its content, and the checks go at its end. A hook that would stop before reaching them is left alone, and the command prints the lines to add by hand: one without a `sh` or `bash` shebang, one that runs `exec`, or one with an unindented `exit`. A hook that already holds the checks stays as it is.
 
-`--shared` writes `.githooks/pre-commit` at the root of the work tree, from any folder inside it. It stops when `core.hooksPath` already points somewhere else, and names the hooks in `.git/hooks` that stop running once it points at `.githooks`.
+`--shared` writes `.githooks/<hook>` at the root of the main working tree, from any folder inside it or any of its linked worktrees: `core.hooksPath` is one setting every worktree reads against its own root, so the file always lands in the one place all of them resolve. It stops when `core.hooksPath` already points somewhere else, and names the hooks in `.git/hooks` that stop running once it points at `.githooks`.
 
-Plain `install-hook` stops inside the global home. There, run `install-hook --global` instead. It writes `.git/hooks/pre-commit` for the home, which must be the root of its own git repository. The hook runs `lint --global --strict`, `validate --global`, and `sync --global --check` against the repository being committed, and the commit fails when any of them fails. In a linked worktree of the home, the hook skips `sync --global --check`, since a branch there need not match what sync deployed. `--global` stops with a message when run anywhere else, when `core.hooksPath` sends git to another hooks folder, or when the hook still runs the project `agnostic-ai sync --check`. It does not take `--shared`.
+Plain `install-hook` stops inside the global home. There, run `install-hook --global` instead. It writes `.git/hooks/pre-commit` for the home, which must be the root of its own git repository. The hook runs `lint --global --strict`, `validate --global`, and `sync --global --check` against the repository being committed, and the commit fails when any of them fails. In a linked worktree of the home, the hook skips `sync --global --check`, since a branch there need not match what sync deployed. `--global` stops with a message when run anywhere else, when `core.hooksPath` sends git to another hooks folder, or when the hook still runs the project `agnostic-ai sync --check`. It does not take `--shared` or `--post-checkout`.
+
+`--post-checkout` writes a hook that runs `agnostic-ai sync -q` from the worktree root: on a branch or worktree checkout (guarded on git's own `$3` flag, so a single-file checkout never triggers it), when both the `agnostic-ai` binary and `agnostic-ai.yaml` are found; otherwise it exits 0 without touching the checkout. The hooks directory is shared across every linked worktree of a repository, so installing it once, in any worktree, covers `git worktree add` everywhere: the new worktree gets its tool files and `git status` starts clean.
 
 ## completion
 

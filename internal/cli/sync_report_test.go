@@ -187,6 +187,60 @@ func TestGitPending_OutsideGitRepoReturnsNothing(t *testing.T) {
 	}
 }
 
+// Without --literal-pathspecs, a path holding a glob character is read
+// as a pattern: "a[X]b.txt" would also match and remove "aXb.txt" (#1330
+// review).
+func TestGitRmCached_TreatsGlobCharactersLiterally(t *testing.T) {
+	dir, gitc := gitRepo(t)
+	mustWriteFile(t, filepath.Join(dir, "a[X]b.txt"), "v1")
+	mustWriteFile(t, filepath.Join(dir, "aXb.txt"), "v2")
+	gitc("add", "-A")
+	gitc("commit", "-q", "-m", "base")
+
+	removed, err := gitRmCached(dir, []string{"a[X]b.txt"})
+
+	if err != nil {
+		t.Fatalf("gitRmCached: %v", err)
+	}
+	if want := []string{"a[X]b.txt"}; !slices.Equal(removed, want) {
+		t.Errorf("removed = %v, want %v", removed, want)
+	}
+	tracked := git(t, dir, "ls-files")
+	if !strings.Contains(tracked, "aXb.txt") {
+		t.Errorf("aXb.txt must stay tracked, got:\n%s", tracked)
+	}
+	if strings.Contains(tracked, "a[X]b.txt") {
+		t.Errorf("a[X]b.txt should have been untracked, got:\n%s", tracked)
+	}
+}
+
+// git rm --cached validates every pathspec in one invocation before
+// touching the index: with a mix of a removable and a nonexistent
+// path, a naive single call removes nothing. gitRmCached must still
+// remove what it can and name only the path that failed (#1330 review).
+func TestGitRmCached_PartialFailureRemovesWhatItCanAndNamesTheRest(t *testing.T) {
+	dir, gitc := gitRepo(t)
+	mustWriteFile(t, filepath.Join(dir, "good.txt"), "v1")
+	gitc("add", "-A")
+	gitc("commit", "-q", "-m", "base")
+
+	removed, err := gitRmCached(dir, []string{"good.txt", "missing.txt"})
+
+	if err == nil || !strings.Contains(err.Error(), "missing.txt") {
+		t.Errorf("err = %v, want it to name missing.txt", err)
+	}
+	if strings.Contains(err.Error(), "good.txt") {
+		t.Errorf("err = %v, must not blame good.txt too", err)
+	}
+	if want := []string{"good.txt"}; !slices.Equal(removed, want) {
+		t.Errorf("removed = %v, want %v", removed, want)
+	}
+	tracked := git(t, dir, "ls-files")
+	if strings.Contains(tracked, "good.txt") {
+		t.Errorf("good.txt should have been untracked despite the other path failing, got:\n%s", tracked)
+	}
+}
+
 func TestRunSyncOnce_ReportNamesTheEditedSpec(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, cursor]\n")
