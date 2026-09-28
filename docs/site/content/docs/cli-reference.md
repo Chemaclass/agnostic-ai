@@ -33,7 +33,7 @@ Walkthroughs: [Getting started](@/docs/getting-started.md), [Migration](@/docs/m
 |------|-------------|
 | `-h, --help` | Help for any command, same as `agnostic-ai help <command>`. |
 | `--version` | Print version and exit |
-| `-q, --quiet` | Errors only |
+| `-q, --quiet` | Errors only, plus the `~ kept` lines of `sync --keep-edits`, on stderr |
 | `-v, --verbose` | Increase output verbosity (repeatable). Mutually exclusive with `--quiet`. |
 | `--profile <file>` | Write a `runtime/pprof` CPU profile to `<file>` (or set `AGNOSTIC_AI_PROFILE`). Off by default. Read it with `go tool pprof <file>`. |
 
