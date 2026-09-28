@@ -457,3 +457,17 @@ func TestSyncGlobal_AugmentUserSettingsGetHooksMCPAndKeys(t *testing.T) {
 		t.Errorf("removal must restore settings.json:\n%s", got)
 	}
 }
+
+func TestSyncGlobal_AugmentAdoptsEmptyMatcherSessionHook(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "start.yaml"), "event: SessionStart\ncommand: ~/s.sh\n")
+	path := filepath.Join(home, ".augment", "settings.json")
+	existing := `{"hooks":{"SessionStart":[{"matcher":"","hooks":[{"type":"command","command":"~/s.sh"}]}]}}` + "\n"
+	mustWriteGlobalTest(t, path, existing)
+	if _, w, err := runGlobalAgentTest("--only", "augment"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, w)
+	}
+	if got := readGlobalTest(t, path); got != existing {
+		t.Errorf("the hand-written hook must stay as written:\n%s", got)
+	}
+}

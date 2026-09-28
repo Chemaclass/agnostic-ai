@@ -1271,6 +1271,11 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 					group["matcher"] = matcher
 				}
 				item, plain = group, group
+				// An empty matcher means the same as none, so a hand-written
+				// `"matcher": ""` entry satisfies the spec.
+				if _, has := group["matcher"]; !has {
+					plain = map[string]any{"matcher": "", "hooks": []any{maps.Clone(commandHook)}}
+				}
 			case "claude":
 				commandHook := map[string]any{"type": "command", "command": command}
 				for _, key := range []string{"timeout", "statusMessage", "async", "asyncRewake", "shell", "if", "once"} {

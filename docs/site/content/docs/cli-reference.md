@@ -69,7 +69,7 @@ agnostic-ai import claude codex --dry-run --diff   # review content and conflict
 
 `import all` imports every tool detected from its marker, so a repo with only a `CLAUDE.md` imports it as a rule. A detected tool with no importer is skipped with a `skipping <tool>` line and does not fail the run.
 
-`import --global` reads your user config instead: the default model and effort and the MCP servers in the files `sync --global` writes, for Claude, Codex, Copilot, Cursor, Gemini, OpenHands, and Qoder. It writes `settings/imported.yaml` and one `mcps/<name>.yaml` per server into `$AGNOSTIC_AI_HOME`, so the next `sync --global` adopts every value and changes nothing. Name targets to narrow it (`import --global codex`). A server or setting a home spec already provides, `local/` included, is left out, so a local secret never lands in the shared home. A server whose spec would not write back the same entry is skipped with a warning. An existing spec file is never replaced. Two tools defining one server name differently keep the first tool's server, with a warning. `--dry-run` lists the files it would write.
+`import --global` reads your user config instead: the default model and effort and the MCP servers in the files `sync --global` writes, for Augment, Claude, Codex, Copilot, Cursor, Gemini, OpenHands, and Qoder. It writes `settings/imported.yaml` and one `mcps/<name>.yaml` per server into `$AGNOSTIC_AI_HOME`, so the next `sync --global` adopts every value and changes nothing. Name targets to narrow it (`import --global codex`). A server or setting a home spec already provides, `local/` included, is left out, so a local secret never lands in the shared home. A server whose spec would not write back the same entry is skipped with a warning. An existing spec file is never replaced. Two tools defining one server name differently keep the first tool's server, with a warning. `--dry-run` lists the files it would write.
 
 `import all` reads an entry file such as `CLAUDE.md` or `GEMINI.md` only when it is a file inside the project. One that links outside is skipped with a `skipped <file>` note, since detection alone started that import. Naming the tool (`import claude`) follows the link.
 
@@ -136,6 +136,8 @@ Hook events accepted per target:
 | Codex | `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `SessionStart`, `SessionEnd`, `Stop`, `PreCompact`, `PostCompact` |
 | Gemini | `BeforeTool`, `AfterTool`, `BeforeAgent`, `AfterAgent`, `Notification`, `SessionStart`, `SessionEnd`, `PreCompress`, `BeforeModel`, `AfterModel`, `BeforeToolSelection` |
 | Cursor | `beforeShellExecution`, `afterShellExecution`, `beforeMCPExecution`, `afterMCPExecution`, `beforeReadFile`, `afterFileEdit`, `beforeSubmitPrompt`, `preToolUse`, `postToolUse`, `postToolUseFailure`, `sessionStart`, `sessionEnd`, `subagentStart`, `subagentStop`, `preCompact`, `stop`, `afterAgentResponse`, `afterAgentThought`, `beforeTabFileRead`, `afterTabFileEdit`, `workspaceOpen` |
+| Augment | `PreToolUse`, `PostToolUse`, `Stop`, `SessionStart`, `SessionEnd` |
+| Qoder | `SessionStart`, `SessionEnd`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, `PermissionDenied`, `Stop`, `StopFailure`, `SubagentStart`, `SubagentStop`, `PreCompact`, `PostCompact`, `Notification`, `InstructionsLoaded`, `ConfigChange`, `CwdChanged`, `FileChanged`, `WorktreeCreate`, `WorktreeRemove`, `Elicitation`, `ElicitationResult`, `TaskCreated`, `TaskCompleted`, `TeammateIdle`, `Setup` |
 
 ## lint
 
