@@ -233,13 +233,12 @@ func emitMCPConfig(sess *emit.Session, mcps []spec.Entry, path string, dryRun bo
 // UserMCPServers renders mcps as the `mcpServers` map of
 // ~/.openhands/mcp.json, the file `openhands mcp add` writes
 // (docs.openhands.dev/openhands/usage/cli/mcp-servers): a stdio server
-// is {command, args, env}, a remote one {url, transport, auth}. The
-// page shows no JSON key for headers or a disabled server, so both
-// raise a coverage note rather than a guessed key.
+// is {command, args, env}, a remote one {url, transport, headers,
+// auth}, in the fastmcp configuration format the page names. The page
+// shows no disabled key, so a disabled server is left out.
 func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
 	mcps = emit.DropMCPDisabled(target, mcps, "a disabled server is left out of ~/.openhands/mcp.json, whose disabled key is undocumented")
 	out := map[string]any{}
-	headers := 0
 	for _, e := range mcps {
 		if e.Name == "" {
 			continue
@@ -256,6 +255,10 @@ func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
 			if args := emit.StringSlice(e.Meta["args"]); len(args) > 0 {
 				server["args"] = args
 			}
+			// fastmcp's remote server has no env field.
+			if env := emit.StringMap(e.Meta["env"]); len(env) > 0 {
+				server["env"] = env
+			}
 		case "http", "sse":
 			url, _ := e.Meta["url"].(string)
 			if url == "" {
@@ -265,17 +268,13 @@ func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
 			if auth, _ := e.Meta["auth"].(string); auth == "oauth" || (e.Meta["oauth"] != nil && e.Meta["oauth"] != false) {
 				server["auth"] = "oauth"
 			}
-			if len(emit.StringMap(e.Meta["headers"])) > 0 {
-				headers++
+			if headers := emit.StringMap(e.Meta["headers"]); len(headers) > 0 {
+				server["headers"] = headers
 			}
 		default:
 			continue
 		}
-		if env := emit.StringMap(e.Meta["env"]); len(env) > 0 {
-			server["env"] = env
-		}
 		out[e.Name] = server
 	}
-	emit.NoteFieldNoOp(target, spec.KindMCP, "headers", headers, "~/.openhands/mcp.json shows no JSON key for headers; add them with `openhands mcp add --header`")
 	return out
 }

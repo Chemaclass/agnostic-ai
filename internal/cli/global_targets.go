@@ -299,8 +299,12 @@ var globalTargets = map[string]globalTarget{
 		skills:       globalPathHome + ".agents/skills",
 	},
 	"openhands": {
-		agents: globalPathHome + ".agents/agents",
-		skills: globalPathHome + ".agents/skills",
+		// OpenHands-CLI locations.py reads OPENHANDS_PERSISTENCE_DIR, else
+		// ~/.openhands, for mcp.json; the .agents trees do not move.
+		rootEnv: "OPENHANDS_PERSISTENCE_DIR",
+		root:    globalPathHome + ".openhands",
+		agents:  globalPathHome + ".agents/agents",
+		skills:  globalPathHome + ".agents/skills",
 		// The file `openhands mcp add` writes; current releases no longer
 		// read a project config.toml [mcp] section (#1252).
 		mcp: globalMCPFile{path: globalPathHome + ".openhands/mcp.json", format: "json", key: "mcpServers"},

@@ -348,8 +348,9 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, war
 
 // normalizeImportedMCP spells each server's transport the portable
 // way, so the spec renders back to the same entry: Gemini's `httpUrl`
-// is streamable HTTP and a bare `url` is SSE, and Copilot's `local` is
-// the stdio default.
+// is streamable HTTP and a bare `url` is SSE, Copilot's `local` is the
+// stdio default, and OpenHands' `transport` becomes `type` once its
+// saved defaults are dropped.
 func normalizeImportedMCP(target string, servers map[string]any) {
 	for _, raw := range servers {
 		server, ok := raw.(map[string]any)
@@ -364,6 +365,14 @@ func normalizeImportedMCP(target string, servers map[string]any) {
 			if tools, ok := server["tools"].([]any); ok && len(tools) == 1 && tools[0] == "*" {
 				delete(server, "tools")
 			}
+			continue
+		}
+		if target == "openhands" {
+			canonicalOpenHandsServer(server)
+			if transport, _ := server["transport"].(string); transport != "" {
+				server["type"] = transport
+			}
+			delete(server, "transport")
 			continue
 		}
 		if target != "gemini" {
