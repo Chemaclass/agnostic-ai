@@ -260,7 +260,7 @@ func TestCollectLintFindings_IncludesMCPMissingRequiredField(t *testing.T) {
 	}
 }
 
-func TestLintMidWildcardAllow_FlagsWildcardBeforeEnd(t *testing.T) {
+func TestLintMidWildcard_FlagsWildcardBeforeEnd(t *testing.T) {
 	settings := []spec.Entry{{Kind: spec.KindSettings, Name: "perms", Path: "settings/perms.yaml",
 		Meta: map[string]any{"permissions": map[string]any{
 			"allow": []any{
@@ -273,15 +273,15 @@ func TestLintMidWildcardAllow_FlagsWildcardBeforeEnd(t *testing.T) {
 				"Read(src/**)",
 				"WebFetch",
 			},
-			"deny": []any{"Bash(rm * -rf)"},
+			"deny": []any{"Bash(rm * -rf)", "Bash(rm:*)"},
 			"ask":  []any{"Bash(git * --force)"},
 		}},
 	}}
-	findings := lintMidWildcardAllow(settings)
-	if len(findings) != 2 {
-		t.Fatalf("expected 2 findings, got %d: %+v", len(findings), findings)
+	findings := lintMidWildcard(settings)
+	if len(findings) != 3 {
+		t.Fatalf("expected 3 findings, got %d: %+v", len(findings), findings)
 	}
-	for i, want := range []string{"sync-ats.log", "git * main"} {
+	for i, want := range []string{"sync-ats.log", "git * main", "matches literally"} {
 		f := findings[i]
 		if f.Code != "LINT009" || f.Severity != lintWarn || f.Path != "settings/perms.yaml" {
 			t.Errorf("unexpected finding %+v", f)

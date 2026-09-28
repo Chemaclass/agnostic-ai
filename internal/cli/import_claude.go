@@ -81,7 +81,7 @@ func importFromClaude(root string, src config.Sources, layout claudeLayout) erro
 	if c.commands, err = importClaudeCommands(root, filepath.Join(root, src.Commands), layout); err != nil {
 		return err
 	}
-	overlaySeeded, effortMoved, err := importClaudeSettingsOverlay(root, filepath.Join(root, src.Settings))
+	settingsImport, err := importClaudeSettingsOverlay(root, filepath.Join(root, src.Settings))
 	if err != nil {
 		return err
 	}
@@ -94,13 +94,17 @@ func importFromClaude(root string, src config.Sources, layout claudeLayout) erro
 	case mirrorUnchanged:
 		summaryf("  → %s unchanged (%s matches its fenced view)\n", agnosticMainFile, mainSrc)
 	}
-	if overlaySeeded {
+	if settingsImport.seeded {
 		summaryf("  → %s seeded from %s/settings.json (carries non-hook settings across re-syncs)\n",
 			claudeOverlayRelPath(), claudeDir)
 	}
-	if effortMoved {
+	if settingsImport.effortMoved {
 		summaryf("  → %s seeded with effortLevel from %s/settings.json\n",
 			filepath.Join(src.Settings, claudeSettingsSpec), claudeDir)
+	}
+	if settingsImport.permissionsMoved {
+		summaryf("  → %s seeded with permissions from %s/settings.json\n",
+			filepath.Join(src.Settings, claudePermissionsSpec+".yaml"), claudeDir)
 	}
 	for _, h := range helpers {
 		summaryf("  → %s seeded from %s/%s\n",

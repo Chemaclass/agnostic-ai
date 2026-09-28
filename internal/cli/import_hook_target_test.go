@@ -47,7 +47,7 @@ func TestImportFromGemini_DropsOnlyTheTargetEnv(t *testing.T) {
 func TestImportClaudeSettingsOverlay_DropsTheTargetEnv(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, claudeDir, "settings.json"), `{"model": "opus", "env": {"AGNOSTIC_AI_TARGET": "claude"}, "hooks": {}}`)
-	if _, _, err := importClaudeSettingsOverlay(dir, filepath.Join(dir, "settings")); err != nil {
+	if _, err := importClaudeSettingsOverlay(dir, filepath.Join(dir, "settings")); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(claudeOverlayPath(dir))
@@ -62,7 +62,7 @@ func TestImportClaudeSettingsOverlay_DropsTheTargetEnv(t *testing.T) {
 func TestImportClaudeSettingsOverlay_KeepsTheUsersEnvOrder(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, claudeDir, "settings.json"), `{"env": {"ZED": "1", "AGNOSTIC_AI_TARGET": "claude", "ALPHA": "2"}}`)
-	if _, _, err := importClaudeSettingsOverlay(dir, filepath.Join(dir, "settings")); err != nil {
+	if _, err := importClaudeSettingsOverlay(dir, filepath.Join(dir, "settings")); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(claudeOverlayPath(dir))

@@ -189,8 +189,9 @@ Any other setting round-trips through the overlay captured by `agnostic-ai impor
 | `.claude/agents/*.md` | `<agents>/<name>.md` (byte-identical copy) |
 | `.claude/skills/<name>/SKILL.md` | `<skills>/<name>/SKILL.md` |
 | `.claude/commands/*.md` | `<commands>/<name>.md` (byte-identical copy) |
-| `.claude/settings.json` hooks | `<hooks>/<event>[-<matcher-slug>]-<hash8>.yaml` (command hooks keep their grouping; HTTP, MCP-tool, and prompt handlers keep their native fields in separate specs) |
-| `.claude/settings.json` non-hook keys | `.agnostic-ai/overlays/claude.settings.json` |
+| `.claude/settings.json` hooks | `<hooks>/<event>[-<matcher-slug>]-<hash8>.yaml` (command hooks keep their grouping; HTTP, MCP-tool, and prompt handlers keep their native fields in separate specs; `target: claude` unless the hook can be shared, see below) |
+| `.claude/settings.json` `permissions.allow`, `ask`, `deny` | `<settings>/permissions-claude.yaml` (a portable settings spec) |
+| `.claude/settings.json` other non-hook keys | `.agnostic-ai/overlays/claude.settings.json` |
 | `.mcp.json` (`mcpServers.<name>`) | `<mcps>/<name>.yaml` (one spec per server) |
 
 When `.claude/rules/` exists (even if empty), `CLAUDE.md` is not sliced, so the on-disk rules are the single source for rule files. `.agnostic-ai/AGNOSTIC_AI.md` is still written from `CLAUDE.md`.
@@ -199,7 +200,9 @@ The instructions file is looked up in Claude Code's own order: `CLAUDE.md`, `.cl
 
 A `CLAUDE.md` whose instruction is `@AGENTS.md` is a companion that lets Claude Code read `AGENTS.md`. Its import line never reaches other tools. `sync` deletes a nested companion that only imports its `AGENTS.md` (a `# CLAUDE.md` title aside) once `.claude/rules/` holds that directory's scoped rules, so Claude Code does not load them twice. Any other line, headings included, keeps the file, and so does listing it in `sync.unmanaged`; sync then reports it as a conflict with the scoped `AGENTS.md`. `sync --backup` keeps the deleted companion as `CLAUDE.md.bak`, and `revert` restores it.
 
-The settings overlay captures every non-`hooks` key of `.claude/settings.json`. `sync -t claude` layers the spec-derived `hooks` on top, reproducing the full file after `.claude/` is wiped. Re-run `import claude` after editing settings.json by hand. For precedence, see [Claude settings](#claude-settings).
+An imported hook gets `target: claude`, except when every other configured target can check the hook and runs it as written. Only Codex can check today: the event must exist on Codex, each matcher segment must be a tool or source Codex reports (`Bash`, `apply_patch`, `Edit`, `Write`, `mcp__*`, or a `SessionStart` or compact source), the handler must be a command or `mcp_tool`, and the hook must not set `if`, `shell`, `once`, or `asyncRewake`. So in a `claude,codex` project a `PreToolUse` hook on `Bash` stays portable, and the import summary names the reason for each hook that keeps the pin. A project with a target that cannot check, such as `cursor`, keeps every pin.
+
+The permission lists land in a portable settings spec, so `lint` checks them and every target in the project gets them, with a coverage note where a target has no equivalent. A rule another settings spec or `outputs.claude.settings.permissions` already declares is skipped, since sync wrote it into settings.json. Add `target: claude` to the spec to keep the rules on Claude Code only. The settings overlay captures every other non-`hooks` key of `.claude/settings.json`, including `permissions.defaultMode`. `sync -t claude` layers the spec-derived `hooks` on top, reproducing the full file after `.claude/` is wiped. Re-run `import claude` after editing settings.json by hand. For precedence, see [Claude settings](#claude-settings).
 
 `effortLevel` is the one key import moves out of the overlay. A valid value becomes `effort` in `<settings>/claude.yaml`, so every target syncs it, unless another settings spec already sets a different effort; then it goes under `x-claude.effortLevel` in that file. An invalid value stays in the overlay.
 
