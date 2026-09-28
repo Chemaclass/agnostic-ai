@@ -2,6 +2,7 @@ package gemini
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -45,5 +46,25 @@ func TestEmit_HooksReachNativeLoader(t *testing.T) {
 		if hook.Type != "command" || hook.Command != command || hook.Timeout != 5000 || hook.Description != "Check changes" {
 			t.Errorf("handler %d lost native fields: %+v", i, hook)
 		}
+	}
+}
+
+func TestEmit_HookCopiesScriptStashedUnderSourceTool(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	stash := filepath.Join(dir, ".agnostic-ai", "scripts", "claude")
+	if err := os.MkdirAll(stash, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(stash, "fmt.sh"), []byte("#!/bin/sh\necho hi\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	bundle := spec.NewBundle([]spec.Entry{{Kind: spec.KindHook, Name: "fmt", Meta: map[string]any{
+		"event": "AfterTool", "matcher": "write_file", "command": ".claude/hooks/fmt.sh", "args": []any{"--check"},
+	}}})
+	if err := New().Emit(emit.NewSession(), bundle, &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if got := readFile(t, filepath.Join(dir, ".gemini", "hooks", "fmt.sh")); got != "#!/bin/sh\necho hi\n" {
+		t.Errorf("script body = %q", got)
 	}
 }
