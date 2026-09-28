@@ -52,8 +52,9 @@ var fallbackIgnoreFiles = map[string][]string{
 // A missing or empty file imports nothing either. A target emitting a
 // second file from the same spec falls back to it, first match wins.
 //
-// The imported spec is unscoped, so all ignore-capable targets receive
-// it. The overwrite guard still checks each target's existing patterns.
+// The imported spec targets the tool it came from: an ignore file
+// describes that tool's indexing, and an unscoped spec made every sync
+// report it as unsupported by the other configured targets (#1274).
 func importIgnoreFile(root, target string, src config.Sources) (int, error) {
 	name, ok := ignoreFileByTarget[target]
 	if !ok || src.Ignore == "" {
@@ -91,7 +92,7 @@ func importIgnoreFile(root, target string, src config.Sources) (int, error) {
 	}
 	out := filepath.Join(root, src.Ignore, target+".md")
 	fence := ignoreSpecFence(body)
-	specFile := fmt.Sprintf("---\nname: %s\ndescription: Imported from %s.\n---\n\n%sgitignore\n%s\n%s\n", target, name, fence, body, fence)
+	specFile := fmt.Sprintf("---\nname: %s\ndescription: Imported from %s.\ntarget: %s\n---\n\n%sgitignore\n%s\n%s\n", target, name, target, fence, body, fence)
 	if err := importWriteFile(out, []byte(specFile), 0o644); err != nil {
 		return 0, fmt.Errorf("write %s: %w", out, err)
 	}

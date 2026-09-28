@@ -640,7 +640,7 @@ patterns are missing or reordered: "my-secrets/", "*.key". Run
 their order and review any added negations before syncing again.
 ```
 
-`agnostic-ai import <target>` reads the file into a fenced block in `ignore/<target>.md` with comments, order, and whitespace intact. It drops a leading UTF-8 byte-order mark so the header does not turn it into a pattern character. Unchanged imported patterns sync with no cleanup. If other specs add negations or reorder the imported patterns, review the combined order first. Generated files still regenerate from their specs, including intentional removals.
+`agnostic-ai import <target>` reads the file into a fenced block in `ignore/<target>.md` with comments, order, and whitespace intact. The spec sets `target: <target>`, so only that tool receives the patterns; remove the line to share them with every ignore-capable target. It drops a leading UTF-8 byte-order mark so the header does not turn it into a pattern character. Unchanged imported patterns sync with no cleanup. If other specs add negations or reorder the imported patterns, review the combined order first. Generated files still regenerate from their specs, including intentional removals.
 
 Comment and blank lines exclude nothing, so a file with only those never blocks a sync. `#` starts a comment only at the start of a line; leading spaces and tabs can belong to a pattern. `outputs.<target>.provenance-header: false` removes the marker and disables this check. Dry-run skips the check because it writes nothing; `sync --check` still reports unsafe overwrites.
 

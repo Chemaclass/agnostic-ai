@@ -6,6 +6,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### Changed
+
+- An ignore spec `import` writes targets the tool it came from, so a multi-target sync no longer reports it as unsupported by the others (#1274).
+
 ### Fixed
 
 - A scoped rule no longer makes the managed `.gitignore` block ignore its whole directory; the block lists the scoped files instead (#1264).
