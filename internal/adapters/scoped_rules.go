@@ -64,7 +64,7 @@ func ValidateScopedRules(cfg *config.Config, b spec.Bundle, requested []string) 
 				return fmt.Errorf("%s: incompatible target-specific scoped instructions; use identical content or separate worktrees", f.Path)
 			}
 			shared[f.Path] = f
-			if err := emit.CheckScopedDestination(f.Path); err != nil {
+			if err := emit.CheckScopedDestination(f.Path, f.Content); err != nil {
 				return err
 			}
 		}
@@ -101,7 +101,7 @@ func ValidateScopedRules(cfg *config.Config, b spec.Bundle, requested []string) 
 			}
 			ext := filepath.Ext(f.Path)
 			if ext == ".md" || ext == ".mdc" {
-				if err := emit.CheckScopedDestination(f.Path); err != nil {
+				if err := emit.CheckScopedDestination(f.Path, f.Content); err != nil {
 					return err
 				}
 			}

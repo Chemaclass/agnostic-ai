@@ -21,6 +21,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `sync --check` lists a spec change as out of date and keeps "edited locally" (JSON `edited`) for a file changed since the last sync (#1270).
 - Ignore specs survive Prettier: sync reads patterns from fenced code blocks, and `import` writes the patterns in one (#1275).
 - `import cursor` reads root and nested `.cursor/BUGBOT.md` files into review specs with their scope, so doctor's advice to run it works (#1276).
+- The first `sync` after `import` replaces the nested `AGENTS.md` files import captured; one edited since quotes the line no spec holds (#1269).
 
 ### Removed
 

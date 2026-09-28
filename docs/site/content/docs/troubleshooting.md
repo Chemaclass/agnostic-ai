@@ -47,7 +47,8 @@ Use [why](@/docs/trace.md) to trace a generated file to its source, or [graph](@
 | `unknown flag: --scope` | Install a build that has the feature; see [setup](@/docs/scoped-context.md#start-with-one-directory). |
 | A rule is skipped or a filter cannot be preserved | Check [target support](@/docs/scoped-context.md#native-support) and [selector limits](@/docs/scoped-context.md#narrow-a-rule-to-certain-files). |
 | Shared readers conflict or instructions differ | Use compatible targets with identical shared content, or separate worktrees. `--only` and `prefer-spec` do not bypass [scope conflicts](@/docs/scoped-context.md#shared-files-and-safe-updates). |
-| Hand-authored or alternate instructions conflict | Import and preserve the original, then move its native filename. Follow [migration](@/docs/migration.md#keep-directory-specific-instructions). |
+| A hand-authored file has a line no spec holds | Move the quoted line into its spec, or set the file aside and sync. Follow [migration](@/docs/migration.md#keep-directory-specific-instructions). |
+| Alternate instructions conflict | Import and preserve the alternate file, then move it off its native filename. Follow [migration](@/docs/migration.md#keep-directory-specific-instructions). |
 | An output override is rejected | Remove the named override and keep provenance headers enabled. |
 | Cursor has no scoped `.mdc` file | It can share a nested `AGENTS.md` with Codex. Run `agnostic-ai graph --spec <name>`. |
 | An old scope file remains | Run a full sync, then `sync --check`. Hand-authored files stay. |
