@@ -6,6 +6,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+## v0.71.0 - 2026-09-28
+
 ### Added
 
 - `import --global` turns the model, effort, and MCP servers your tools hold into home specs that the next `sync --global` adopts unchanged (#1243).
