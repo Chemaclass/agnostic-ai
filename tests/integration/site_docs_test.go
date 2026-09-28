@@ -637,7 +637,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	for _, metadata := range []string{
 		`property="og:site_name" content="agnostic-ai.org"`,
 		`property="og:url" content="https://agnostic-ai.org/"`,
-		`property="og:image:secure_url" content="https://agnostic-ai.org/og.png"`,
+		`property="og:image:secure_url" content="https://agnostic-ai.org/og-v2.png"`,
 		`name="twitter:domain" content="agnostic-ai.org"`,
 		`name="twitter:url" content="https://agnostic-ai.org/"`,
 	} {

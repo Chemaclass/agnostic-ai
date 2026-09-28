@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>agnostic-ai social card</title>
+  <style>
+    /* Dark theme tokens from docs/site/static/assets/styles/base.css. */
+    :root {
+      --paper: #14120f;
+      --ink: #f2ede5;
+      --ink-soft: #cec6ba;
+      --muted: #a3988b;
+      --line-soft: #2b2621;
+      --accent: #f0a35e;
+      --good: #afd282;
+      --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --mono: ui-monospace, "JetBrains Mono", "SFMono-Regular", "SF Mono", Menlo, Consolas, monospace;
+    }
+
+    html,
+    body {
+      width: 1200px;
+      height: 630px;
+      margin: 0;
+      overflow: hidden;
+      background: var(--paper);
+    }
+
+    .card {
+      position: relative;
+      width: 1200px;
+      height: 630px;
+      color: var(--ink);
+      font-family: var(--sans);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    .bar {
+      position: absolute;
+      top: 0;
+      left: 80px;
+      right: 80px;
+      height: 112px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      font-family: var(--mono);
+      font-size: 38px;
+      font-weight: 750;
+      letter-spacing: -0.01em;
+    }
+
+    .brand-mark {
+      width: 64px;
+      height: 64px;
+    }
+
+    .brand-spokes {
+      fill: none;
+      stroke: var(--accent);
+      stroke-opacity: 0.7;
+      stroke-width: 3.5;
+      stroke-linecap: round;
+    }
+
+    .brand-core {
+      fill: var(--accent);
+    }
+
+    .brand-sat-good {
+      fill: var(--good);
+    }
+
+    .brand-sat-ink {
+      fill: var(--ink);
+    }
+
+    .domain {
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 28px;
+    }
+
+    .signal-rule {
+      position: absolute;
+      top: 112px;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: var(--line-soft);
+    }
+
+    .signal-rule::after {
+      content: "";
+      position: absolute;
+      inset-block: 0;
+      left: 0;
+      width: 280px;
+      background: var(--accent);
+    }
+
+    h1 {
+      position: absolute;
+      top: 204px;
+      left: 80px;
+      margin: 0;
+      font-family: var(--mono);
+      font-size: 100px;
+      font-weight: 760;
+      line-height: 1.04;
+      letter-spacing: -0.035em;
+    }
+
+    h1 span {
+      display: block;
+      color: var(--accent);
+    }
+
+    .lead {
+      position: absolute;
+      top: 440px;
+      left: 80px;
+      width: 640px;
+      margin: 0;
+      color: var(--ink-soft);
+      font-size: 32px;
+      line-height: 1.4;
+    }
+
+    .lead strong {
+      color: var(--ink);
+    }
+
+    .fan {
+      position: absolute;
+      inset: 0;
+    }
+
+    .rail {
+      fill: none;
+      stroke: var(--accent);
+      stroke-opacity: 0.62;
+      stroke-width: 3.5;
+      stroke-linecap: round;
+    }
+
+    .fan text {
+      fill: var(--ink-soft);
+      font-family: var(--mono);
+      font-size: 28px;
+      font-weight: 600;
+      dominant-baseline: central;
+    }
+
+    .fan .more {
+      fill: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="bar">
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"><path class="brand-spokes" d="M43 32H50.5M39.78 39.78L45.08 45.08M32 43V50.5M24.22 39.78L18.92 45.08M21 32H13.5M24.22 24.22L18.92 18.92M32 21V13.5M39.78 24.22L45.08 18.92"/><circle class="brand-core" cx="32" cy="32" r="8"/><g class="brand-sat-good"><circle cx="55" cy="32" r="4.5"/><circle cx="32" cy="55" r="4.5"/><circle cx="9" cy="32" r="4.5"/><circle cx="32" cy="9" r="4.5"/></g><g class="brand-sat-ink"><circle cx="48.26" cy="48.26" r="4.5"/><circle cx="15.74" cy="48.26" r="4.5"/><circle cx="15.74" cy="15.74" r="4.5"/><circle cx="48.26" cy="15.74" r="4.5"/></g></svg>
+        <span>agnostic-ai</span>
+      </div>
+      <div class="domain">agnostic-ai.org</div>
+    </div>
+    <div class="signal-rule"></div>
+
+    <h1>One setup<span>Every AI CLI</span></h1>
+    <p class="lead">Keep agents, skills, rules, hooks, and MCP servers in <strong>one portable source</strong>.</p>
+
+    <svg class="fan" viewBox="0 0 1200 630" aria-hidden="true">
+      <path class="rail" d="M812 366C860 366 860 221 908 221M812 366C860 366 860 279 908 279M812 366C860 366 860 337 908 337M812 366C860 366 860 395 908 395M812 366C860 366 860 453 908 453M812 366C860 366 860 511 908 511"/>
+      <circle class="brand-core" cx="812" cy="366" r="13"/>
+      <g class="brand-sat-good">
+        <circle cx="908" cy="221" r="7"/>
+        <circle cx="908" cy="279" r="7"/>
+        <circle cx="908" cy="337" r="7"/>
+        <circle cx="908" cy="395" r="7"/>
+        <circle cx="908" cy="453" r="7"/>
+      </g>
+      <circle class="brand-sat-ink" cx="908" cy="511" r="7"/>
+      <text x="930" y="221" data-target>Claude Code</text>
+      <text x="930" y="279" data-target>Codex</text>
+      <text x="930" y="337" data-target>Cursor</text>
+      <text x="930" y="395" data-target>Gemini CLI</text>
+      <text x="930" y="453" data-target>Copilot</text>
+      <text class="more" x="930" y="511" data-more>+20 more</text>
+    </svg>
+  </div>
+  <script>
+    // scripts/render-og-image.sh passes ?targets=N from docs/site/data/capabilities.toml.
+    const total = Number(new URLSearchParams(location.search).get("targets"));
+    if (Number.isInteger(total) && total > 0) {
+      const named = document.querySelectorAll("[data-target]").length;
+      document.querySelector("[data-more]").textContent = `+${total - named} more`;
+    }
+  </script>
+</body>
+</html>
