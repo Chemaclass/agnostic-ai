@@ -11,6 +11,6 @@ When a change is visible to the user, update the matching artifacts in the same 
 - New or changed spec field: update `docs/site/content/docs/spec-format.md`.
 - Any change to `internal/config/config.go` struct tags: run `go run ./cmd/schemagen` to regenerate `docs/schemas/config.schema.json`. CI fails if the schema is stale.
 - New command or visible behavior: update `README.md` capability or quickstart section.
-- Any user-visible change: add an entry under `## [Unreleased]` in `CHANGELOG.md`. Group as `Added`, `Changed`, `Fixed`, or `Removed`.
+- Any user-visible change: add an entry under `## [Unreleased]` in `CHANGELOG.md`. Put it under `### General` or under its tool in `### By tool`, as `.agnostic-ai/agents/changelog-curator.md` describes.
 
 A pure refactor or test-only change skips all of the above.
