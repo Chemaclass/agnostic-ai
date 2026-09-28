@@ -140,31 +140,32 @@
 
   // A tablist that ships inert beside server-rendered panes. Selection
   // follows click and arrow keys, never hover, and the panes stay grid-stacked
-  // so the card keeps one height.
+  // so the card keeps one height. Returns true when at least one root on the
+  // page was wired.
   function initInertTabs(document, names) {
-    var root = document.querySelector("[" + names.root + "]");
-    if (!root) {
-      return false;
-    }
+    var roots = Array.prototype.slice.call(document.querySelectorAll("[" + names.root + "]"));
+    var wired = false;
+    roots.forEach(function (root) {
+      var list = root.querySelector("[" + names.list + "]");
+      var tabs = Array.prototype.slice.call(root.querySelectorAll("[" + names.tab + "]"));
+      var panels = Array.prototype.slice.call(root.querySelectorAll("[" + names.panel + "]"));
+      if (!list || tabs.length < 2 || tabs.length !== panels.length) {
+        return;
+      }
 
-    var list = root.querySelector("[" + names.list + "]");
-    var tabs = Array.prototype.slice.call(root.querySelectorAll("[" + names.tab + "]"));
-    var panels = Array.prototype.slice.call(root.querySelectorAll("[" + names.panel + "]"));
-    if (!list || tabs.length < 2 || tabs.length !== panels.length) {
-      return false;
-    }
+      wireTabs(tabs, panels);
 
-    wireTabs(tabs, panels);
-
-    // The template ships the list inert so a reader without this script is
-    // never offered buttons that cannot be pressed. Every tab is wired by the
-    // time we get here, so the offer is now real. Nothing above this line may
-    // fail without leaving the list inert.
-    list.removeAttribute("inert");
-    return true;
+      // The template ships the list inert so a reader without this script is
+      // never offered buttons that cannot be pressed. Every tab is wired by
+      // the time we get here, so the offer is now real. Nothing above this
+      // line may fail without leaving the list inert.
+      list.removeAttribute("inert");
+      wired = true;
+    });
+    return wired;
   }
 
-  // The hero diagram's generated files.
+  // The generated files under each explorer entry.
   function initOutputSwitch(document) {
     return initInertTabs(document, {
       root: "data-output-switch",
@@ -174,7 +175,7 @@
     });
   }
 
-  // The landing's `.agnostic-ai/` listing.
+  // The explorer's `.agnostic-ai/` listing.
   function initSourceTree(document) {
     return initInertTabs(document, {
       root: "data-source-tree",

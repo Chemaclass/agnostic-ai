@@ -21,6 +21,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `sync --check` lists a spec change as out of date and keeps "edited locally" (JSON `edited`) for a file changed since the last sync (#1270).
 - Ignore specs survive Prettier: sync reads patterns from fenced code blocks, and `import` writes the patterns in one (#1275).
 - `import cursor` reads root and nested `.cursor/BUGBOT.md` files into review specs with their scope, so doctor's advice to run it works (#1276).
+- The first `sync` after `import` replaces the nested `AGENTS.md` files import captured; one edited since quotes the line no spec holds (#1269).
+- `init --from <cli> --dry-run` also lists the files the import would write, as `import --dry-run` does (#1272).
 
 ### Removed
 
@@ -29,7 +31,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### Site
 
 - The git hooks page has a Node monorepo recipe: pin the CLI, sync on install and checkout, and bootstrap new worktrees.
-- The landing drops the targets section; the `.agnostic-ai/` folder section now shows fuller sample specs, and the Targets page keeps the full matrix.
+- The landing's explorer shows each `.agnostic-ai/` entry beside the real files sync writes for Claude Code, Codex, Cursor, and Gemini CLI.
 - The landing shows the `.agnostic-ai/` folder: pick an entry to see a source file and the native files sync writes from it.
 - The installation page opens the installer for your OS with an always-visible copy button, then verify, upgrade, and pinning.
 - Docs code blocks use the full content width and a readable text size.

@@ -150,7 +150,20 @@ test("an output tablist the script cannot wire keeps its inert resting state", f
   assert.equal(fixture.tabs[0].dispatch("click"), 0);
 });
 
-test("a page without the hero diagram is not an error", function () {
+test("every output switch on the page is wired, not only the first", function () {
+  const first = makeOutputSwitch(3);
+  const second = makeOutputSwitch(4);
+
+  assert.equal(initOutputSwitch(scope([first.root, second.root])), true);
+
+  assert.equal(first.list.hasAttribute("inert"), false);
+  assert.equal(second.list.hasAttribute("inert"), false);
+  second.tabs[3].dispatch("click");
+  assert.equal(second.panels[3].hidden, false);
+  assert.equal(first.panels[0].hidden, false);
+});
+
+test("a page without output switches is not an error", function () {
   assert.equal(initOutputSwitch(scope([])), false);
 });
 

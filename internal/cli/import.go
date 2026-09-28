@@ -98,7 +98,7 @@ func newImportCmd() *cobra.Command {
 				return previewImport(args)
 			}
 			if dryRun {
-				return dryRunImport(args)
+				return dryRunImport(args, nil)
 			}
 			return runImportArgs(args)
 		},

@@ -1,0 +1,6 @@
+name: github
+description: Issues, pull requests, and code search.
+type: http
+url: https://api.githubcopilot.com/mcp/
+headers:
+  Authorization: Bearer ${GITHUB_TOKEN}

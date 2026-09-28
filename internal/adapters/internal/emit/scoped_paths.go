@@ -54,7 +54,10 @@ func CheckScopePath(path string) error {
 
 // CheckScopedDestination protects newly introduced instruction files and aliases
 // that the same host would load instead of (or alongside) the generated file.
-func CheckScopedDestination(path string) error {
+// content is what sync writes at path. A hand-authored file there passes
+// when every line of its text is in content, as after `import` captured
+// it (#1269).
+func CheckScopedDestination(path, content string) error {
 	if runtime.GOOS == "js" {
 		return nil
 	}
@@ -79,9 +82,51 @@ func CheckScopedDestination(path string) error {
 		if p != path {
 			return fmt.Errorf("%s: alternate instructions conflict with scoped %s; import or move the alternate file before syncing", p, filepath.Base(path))
 		}
-		if !header.Has(string(data)) {
-			return fmt.Errorf("%s: hand-authored instructions conflict with scoped output; import or move their content before syncing", p)
+		if header.Has(string(data)) {
+			continue
+		}
+		if line, missing := lineMissingFrom(string(data), content); missing {
+			return fmt.Errorf("%s: %q is in no spec, so sync would drop it; the file changed after import or was never imported: move the text into .agnostic-ai/, or set the file aside with `mv %s %s.before-agnostic` and run `agnostic-ai sync`", p, line, filepath.ToSlash(p), filepath.ToSlash(p))
 		}
 	}
 	return nil
+}
+
+// lineMissingFrom returns the first line of text in have that want lacks.
+// Blank lines and headings are skipped: import turns headings into rule
+// names. Lines compare without surrounding space or emphasis markers, so
+// a `*description*` import rendered as `_description_` still matches.
+func lineMissingFrom(have, want string) (string, bool) {
+	lines := map[string]bool{}
+	for _, l := range strings.Split(want, "\n") {
+		lines[comparableLine(l)] = true
+	}
+	for _, l := range strings.Split(have, "\n") {
+		c := comparableLine(l)
+		if c == "" || isHeading(c) {
+			continue
+		}
+		if !lines[c] {
+			return shortLine(strings.TrimSpace(l)), true
+		}
+	}
+	return "", false
+}
+
+func comparableLine(l string) string {
+	return strings.Trim(strings.TrimSpace(l), "*_")
+}
+
+func isHeading(l string) bool {
+	n := len(l) - len(strings.TrimLeft(l, "#"))
+	return n >= 1 && n <= 6 && (n == len(l) || l[n] == ' ' || l[n] == '\t')
+}
+
+// shortLine keeps an error message readable when the line is long.
+func shortLine(l string) string {
+	const limit = 80
+	if r := []rune(l); len(r) > limit {
+		return string(r[:limit-3]) + "..."
+	}
+	return l
 }

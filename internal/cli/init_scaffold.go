@@ -134,6 +134,31 @@ func scaffoldDryRun(opts scaffoldOptions, cfgPath string) error {
 // scaffoldWrite materializes the scaffold on disk and prints the
 // post-scaffold guidance.
 func scaffoldWrite(opts scaffoldOptions, cfgPath string) error {
+	if err := writeScaffold(opts, cfgPath); err != nil {
+		return err
+	}
+	if opts.Demo {
+		summaryf("seeded example specs, one per source folder plus the memory-curator skill. delete or edit to taste.\n")
+	}
+	if opts.Preset != "" {
+		summaryf("seeded preset %q. review and tune the rules to match your house style.\n", opts.Preset)
+	}
+	printNextSteps(opts.Root, opts.Base, opts.Targets, opts.Demo || opts.Preset != "")
+	return nil
+}
+
+// scaffoldSilently writes the scaffold without the guidance, for the
+// project copy `init --from --dry-run` imports into.
+func scaffoldSilently(opts scaffoldOptions) error {
+	if opts.Base == "" {
+		opts.Base = defaultBaseDir
+	}
+	return writeScaffold(opts, filepath.Join(opts.Root, config.ConfigFileName))
+}
+
+// writeScaffold writes the config, the source folders, the managed
+// .gitignore block, and any demo or preset specs.
+func writeScaffold(opts scaffoldOptions, cfgPath string) error {
 	baseDir := filepath.Join(opts.Root, opts.Base)
 	for _, k := range scaffoldKinds {
 		if err := os.MkdirAll(filepath.Join(baseDir, k), 0o755); err != nil {
@@ -163,13 +188,6 @@ func scaffoldWrite(opts scaffoldOptions, cfgPath string) error {
 			return err
 		}
 	}
-	if opts.Demo {
-		summaryf("seeded example specs, one per source folder plus the memory-curator skill. delete or edit to taste.\n")
-	}
-	if opts.Preset != "" {
-		summaryf("seeded preset %q. review and tune the rules to match your house style.\n", opts.Preset)
-	}
-	printNextSteps(opts.Root, opts.Base, opts.Targets, opts.Demo || opts.Preset != "")
 	return nil
 }
 
