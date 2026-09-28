@@ -39,7 +39,7 @@ Walkthroughs: [Getting started](@/docs/getting-started.md), [Migration](@/docs/m
 
 ## init
 
-Scaffold a project: `agnostic-ai.yaml` plus empty `agents/`, `skills/`, `rules/`, `hooks/`, `mcps/` under `.agnostic-ai/` by default. Errors if `agnostic-ai.yaml` exists.
+Scaffold a project: `agnostic-ai.yaml` and the managed `.gitignore` block. Errors if `agnostic-ai.yaml` exists. `init` creates only the source folders `--demo` or `--preset` seeds under `.agnostic-ai/`; `new` and `import` create the rest on first use. The schema comment names the release that ran `init`, or `main` for a development build. `on-unsupported: warn` comes with a comment naming `error`, the stricter setting.
 
 ```bash
 agnostic-ai init specs --demo     # base dir specs/, example specs to start from
@@ -48,7 +48,7 @@ echo "claude,codex" | agnostic-ai init
 
 | Flag | Description |
 |------|-------------|
-| `[dir]` | Base directory for the source folders (`.` for the legacy root layout). `agnostic-ai.yaml` gets matching `sources:` paths. |
+| `[dir]` | Base directory for the source folders (`.` for the legacy root layout). `agnostic-ai.yaml` gets matching `sources:` paths, and `init` creates those folders. The default `.agnostic-ai/` writes no `sources:`. |
 | `--demo` | Seed example specs, one per source folder plus the `memory-curator` skill, so the first `sync` produces output. Never overwrites files. |
 | `--preset <name>` | Seed starter specs for a stack: `go`, `ts-react`, `python`. Combines with `--demo` and `--all`. Never overwrites files. |
 | `-a, --all` | Skip the target picker and enable every supported target. |

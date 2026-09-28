@@ -112,6 +112,7 @@ func newInitCmd() *cobra.Command {
 				Demo:             demo,
 				DryRun:           dryRun,
 				GitignoreEnabled: gitignoreEnabled,
+				Version:          cmd.Root().Version,
 			}
 			// The import preview needs the scaffold a real run would write,
 			// and a real run stops on an existing project.
