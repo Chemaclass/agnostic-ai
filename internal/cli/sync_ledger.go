@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 // recordLedgerWrites appends every create/update/skip path from writes
@@ -141,6 +142,30 @@ func sweepAndFinalizeLedger(sess *adapters.Session, prev syncStateFile, session 
 		sums:    ledgerSums(outputs, written, prev.OutputSums),
 		orphans: ledgerOrphans(kept, prev.Orphans, written, coversAll),
 	}, kept, removed, err
+}
+
+// keepUnledgered records in ledger the leftovers no ledger proves sync
+// wrote (unledgeredReport) and returns them for the caller to report.
+// Without the record, the ledger this sync writes would hide them from
+// every later check (#1354). A run that did not emit every configured
+// target cannot tell another target's file from a leftover, so it
+// carries the prior list forward, minus what it wrote.
+func keepUnledgered(cfg *config.Config, prev syncStateFile, ledger *syncLedger, written map[string]string, complete bool) driftReport {
+	if !complete {
+		for _, p := range prev.Unledgered {
+			if _, ok := written[p]; !ok {
+				ledger.unledgered = append(ledger.unledgered, p)
+			}
+		}
+		return driftReport{}
+	}
+	emitted := make(map[string]bool, len(ledger.outputs))
+	for _, p := range ledger.outputs {
+		emitted[p] = true
+	}
+	rep := unledgeredReport(cfg, emitted, prev, strandedOutput(cfg, emitted, prev))
+	ledger.unledgered = finalizeLedger(append(append([]string{}, rep.Leftover...), rep.Orphaned...))
+	return rep
 }
 
 // sweepLedgerOrphans removes every path the previous sync wrote but

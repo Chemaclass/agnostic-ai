@@ -31,9 +31,9 @@ import (
 // files a prior sync wrote and no longer emits that the next full sync
 // removes; until then the tool still loads them. Current lists the
 // files already matching what sync writes, which only a dry run reports.
-// Unledgered marks the ledger report built with no `.sync-state`: sync
-// then removes nothing, only `--fix` removes Leftover, and Orphaned holds
-// the scope documents no record proves sync wrote.
+// Unledgered marks the report of leftovers no ledger proves sync wrote
+// (unledgeredReport): sync keeps them, only `--fix` removes Leftover, and
+// Orphaned holds the scope documents left to the user.
 type driftReport struct {
 	Target     string
 	Current    []adapters.CapturedFile
@@ -46,8 +46,8 @@ type driftReport struct {
 	Unledgered bool
 }
 
-// leftoverFix names the command that removes the report's Leftover. With
-// no ledger, sync writes a fresh one without them and removes nothing.
+// leftoverFix names the command that removes the report's Leftover. Sync
+// keeps a leftover no ledger proves it wrote.
 func (r driftReport) leftoverFix() string {
 	if r.Unledgered {
 		return "doctor --fix"
@@ -172,8 +172,10 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 	// The ledger does not record which target wrote a file, so leftovers
 	// get a report of their own.
 	if resolvedAll {
-		if rep := leftoverReport(cfg, emitted); rep.hasDrift() {
-			reports = append(reports, rep)
+		for _, rep := range leftoverReports(cfg, emitted) {
+			if rep.hasDrift() {
+				reports = append(reports, rep)
+			}
 		}
 	}
 	return reports, nil
@@ -183,52 +185,22 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 // no longer emits.
 const ledgerReport = "ledger"
 
-// leftoverReport lists as Leftover the files the last sync wrote, that are
-// not in emitted or an entry point, and that the next full sync's orphan
-// sweep removes: still on disk, not user-owned, and still carrying the
-// provenance header or the bytes sync recorded. Kept orphans are
-// reported apart (recordedOrphans), and links and directories never are.
-//
-// With no `.sync-state` at all (deleted, or a fresh checkout of a repo that
-// commits its generated files), the candidates are the git-tracked files
-// where a configured target writes, and only one that opens with the
-// provenance header counts (#1334). A scope document such as a nested
-// AGENTS.md may be a copy or a vendored file, so it goes to Orphaned for
-// the user to delete. Outside a git work tree the scan finds nothing.
-func leftoverReport(cfg *config.Config, emitted map[string]bool) driftReport {
-	rep := driftReport{Target: ledgerReport, Unledgered: ledgerMissing(".")}
+// leftoverReports lists the files sync no longer emits that are still
+// on disk. The ledger report holds the files the last sync wrote that
+// the next full sync's orphan sweep removes: not user-owned, and still
+// carrying the provenance header or the bytes sync recorded. The
+// unledgered report holds the ones no ledger proves sync wrote, which
+// sync keeps (unledgeredReport). With no `.sync-state` only the second
+// applies. Kept orphans are reported apart (recordedOrphans), and links
+// and directories never are.
+func leftoverReports(cfg *config.Config, emitted map[string]bool) []driftReport {
 	state := readStateFile(".")
-	skip := map[string]bool{}
-	for _, p := range entryPointPaths(cfg, cfg.Targets) {
-		skip[p] = true
+	stranded := strandedOutput(cfg, emitted, state)
+	unledgered := unledgeredReport(cfg, emitted, state, stranded)
+	if ledgerMissing(".") {
+		return []driftReport{unledgered}
 	}
-	for _, p := range state.Orphans {
-		skip[p] = true
-	}
-	stranded := func(p string) bool {
-		if emitted[p] || skip[p] || cfg.IsUnmanaged(p) || underSymlinkedDir(p) {
-			return false
-		}
-		fi, err := os.Lstat(p)
-		return err == nil && fi.Mode().IsRegular()
-	}
-	if rep.Unledgered {
-		removable, scoped, ok := unledgeredCandidates(cfg, emitted)
-		if !ok {
-			return rep
-		}
-		for _, p := range removable {
-			if stranded(p) && ownedWithoutLedger(p) {
-				rep.Leftover = append(rep.Leftover, p)
-			}
-		}
-		for _, p := range scoped {
-			if stranded(p) && ownedWithoutLedger(p) {
-				rep.Orphaned = append(rep.Orphaned, p)
-			}
-		}
-		return rep
-	}
+	rep := driftReport{Target: ledgerReport}
 	for _, p := range state.Outputs {
 		if !stranded(p) {
 			continue
@@ -242,7 +214,7 @@ func leftoverReport(cfg *config.Config, emitted map[string]bool) driftReport {
 			rep.Leftover = append(rep.Leftover, p)
 		}
 	}
-	return rep
+	return []driftReport{rep, unledgered}
 }
 
 // notOnDisk reports whether a read failed because no file sits at the
@@ -671,7 +643,7 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 		// ledger, a mention of the marker is no proof: RemoveOwned would
 		// take one, so the header must still open the file.
 		sums := readStateFile(".").OutputSums
-		unledgered := ledgerMissing(".")
+		unledgered := r.Unledgered || ledgerMissing(".")
 		pruned := map[string]bool{}
 		for _, p := range r.Leftover {
 			if unledgered && !ownedWithoutLedger(p) {

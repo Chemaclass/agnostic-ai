@@ -15,6 +15,18 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
+// mergedLeftovers folds the leftover reports into one, for tests that
+// only ask what is reported.
+func mergedLeftovers(cfg *config.Config, emitted map[string]bool) driftReport {
+	merged := driftReport{Target: ledgerReport}
+	for _, r := range leftoverReports(cfg, emitted) {
+		merged.Leftover = append(merged.Leftover, r.Leftover...)
+		merged.Orphaned = append(merged.Orphaned, r.Orphaned...)
+		merged.Unledgered = merged.Unledgered || r.Unledgered
+	}
+	return merged
+}
+
 // Without a ledger (deleted, or a fresh checkout of a repo that commits
 // its generated files), leftoverReport cannot read a prior output list,
 // so it falls back to scanning git-tracked files for the provenance
@@ -34,7 +46,7 @@ func TestLeftoverReport_FallsBackToTrackedFilesWithoutLedger(t *testing.T) {
 	git("commit", "-q", "-m", "base")
 	// No .sync-state at all: readStateFile(".") returns the zero value.
 
-	got := leftoverReport(cfg, map[string]bool{})
+	got := mergedLeftovers(cfg, map[string]bool{})
 
 	if !got.Unledgered || len(got.Leftover) != 0 || len(got.Orphaned) != 1 || got.Orphaned[0] != generated {
 		t.Errorf("got %+v, want only %s, for manual removal", got, generated)
@@ -52,7 +64,7 @@ func TestLeftoverReport_WithoutLedgerSkipsEmittedFiles(t *testing.T) {
 	git("add", "-A")
 	git("commit", "-q", "-m", "base")
 
-	got := leftoverReport(cfg, map[string]bool{generated: true})
+	got := mergedLeftovers(cfg, map[string]bool{generated: true})
 
 	if got.hasDrift() {
 		t.Errorf("emitted file reported as leftover: %v", got)
@@ -69,7 +81,7 @@ func TestLeftoverReport_WithoutLedgerSkipsUnmanagedFiles(t *testing.T) {
 	git("commit", "-q", "-m", "base")
 	cfg := &config.Config{Targets: []string{"codex"}, Sync: config.SyncConfig{Unmanaged: []string{filepath.ToSlash(generated)}}}
 
-	got := leftoverReport(cfg, map[string]bool{})
+	got := mergedLeftovers(cfg, map[string]bool{})
 
 	if got.hasDrift() {
 		t.Errorf("unmanaged file reported as leftover: %v", got)
@@ -140,7 +152,7 @@ func TestLeftoverReport_WithoutLedgerTrustsOnlyRealOutputHeaders(t *testing.T) {
 	git("add", "-A")
 	git("commit", "-q", "-m", "base")
 
-	if got := leftoverReport(&config.Config{Targets: []string{"codex"}}, map[string]bool{}); got.hasDrift() {
+	if got := mergedLeftovers(&config.Config{Targets: []string{"codex"}}, map[string]bool{}); got.hasDrift() {
 		t.Errorf("files that are not outputs reported as leftover: %v", got)
 	}
 
@@ -164,7 +176,7 @@ func TestLeftoverReport_EmptyLedgerDoesNotFallBack(t *testing.T) {
 	git("add", "-A")
 	git("commit", "-q", "-m", "base")
 
-	if got := leftoverReport(cfg, map[string]bool{}); got.hasDrift() || got.Unledgered {
+	if got := mergedLeftovers(cfg, map[string]bool{}); got.hasDrift() || got.Unledgered {
 		t.Errorf("empty ledger fell back to tracked files: %v", got)
 	}
 }
@@ -203,16 +215,15 @@ func TestLeftoverReport_WithoutLedgerReportsToolDirLeftover(t *testing.T) {
 	git("add", "-A")
 	git("commit", "-q", "-m", "base")
 
-	got := leftoverReport(cfg, map[string]bool{})
+	got := mergedLeftovers(cfg, map[string]bool{})
 
 	if !got.Unledgered || len(got.Orphaned) != 0 || len(got.Leftover) != 1 || got.Leftover[0] != generated {
 		t.Errorf("got %+v, want Leftover [%s]", got, generated)
 	}
 }
 
-// Without a ledger, plain sync removes nothing: it writes a fresh ledger
-// without the file and the next check passes. The hint names the command
-// that removes the leftover. With a ledger, sync's sweep removes it.
+// Sync keeps a leftover no ledger proves it wrote, so the hint names the
+// command that removes it. With a ledger, sync's sweep removes it.
 func TestReportCheckDrift_NamesDoctorFixForLeftoverWithoutLedger(t *testing.T) {
 	leftover := filepath.Join(".codex", "agents", "old.toml")
 	for _, tc := range []struct {
