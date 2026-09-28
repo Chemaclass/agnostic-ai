@@ -218,3 +218,37 @@ func TestRender_CodexReviewShowsRootSection(t *testing.T) {
 		t.Errorf("render output:\n%s", got)
 	}
 }
+
+// A nested AGENTS.md with a generated rules block and a hand-typed code
+// review section after it imports the section as a review, not a rule.
+func TestImportCodex_HandWrittenReviewAfterRulesBlock(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "Project instructions.\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "api.md"), "---\nscope: services/api\n---\n\nKeep handlers thin.\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	agents := filepath.Join(dir, "services", "api", "AGENTS.md")
+	writeFile(t, agents, readFileString(t, agents)+"\n## Code Review Rules\n\nFlag raw SQL.\n")
+	if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai", "rules")); err != nil {
+		t.Fatal(err)
+	}
+	if err := importFromCodex(dir, codexTestSources()); err != nil {
+		t.Fatal(err)
+	}
+	var review string
+	for name, body := range specTree(t, dir) {
+		if strings.HasPrefix(name, "rules/") && strings.Contains(body, "Flag raw SQL.") {
+			t.Errorf("review text imported as rule %s:\n%s", name, body)
+		}
+		if strings.HasPrefix(name, "reviews/") && strings.Contains(body, "Flag raw SQL.") {
+			review = body
+		}
+	}
+	if !strings.Contains(review, "scope: services/api") {
+		t.Errorf("want a services/api review spec, got:\n%s", review)
+	}
+}

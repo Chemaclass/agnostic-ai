@@ -48,8 +48,8 @@ func importCodexReviews(root string, src config.Sources) (int, error) {
 		}
 		text := strings.ReplaceAll(string(raw), "\r\n", "\n")
 		body := codexGeneratedReview(text)
-		if body == "" && handWrittenNested(f, text) {
-			_, body = splitCodexReviewSections(text)
+		if body == "" {
+			body = handWrittenReview(f, text)
 		}
 		if body == "" {
 			continue
@@ -171,9 +171,20 @@ func reviewSpecExists(dir, scope, body string) (bool, error) {
 	return found, err
 }
 
-// handWrittenNested reports whether f is a nested AGENTS.md with no
-// generated rules block. Only there does a code review heading start a
-// review section: in the rules block it belongs to a rule's body.
-func handWrittenNested(f hierarchicalFile, text string) bool {
+// handWrittenReview returns the code review sections a nested AGENTS.md
+// carries outside its generated blocks. A heading inside the rules block
+// belongs to a rule's body, so it does not count.
+func handWrittenReview(f hierarchicalFile, text string) string {
+	if f.globs == "" {
+		return ""
+	}
+	_, review := splitCodexReviewSections(adapters.StripGeneratedAppendices(text))
+	return review
+}
+
+// rulesTextIsWholeFile reports whether the rules import reads f whole: a
+// nested AGENTS.md with no generated rules block. Otherwise it reads the
+// block alone, and a review heading there is part of a rule.
+func rulesTextIsWholeFile(f hierarchicalFile, text string) bool {
 	return f.globs != "" && !strings.Contains(text, adapters.RulesStartMarker)
 }

@@ -188,7 +188,7 @@ func importCodexRules(root, dstDir string, src config.Sources, opts importCodexO
 		if !ok {
 			continue
 		}
-		if src.Reviews != "" && handWrittenNested(f, source) {
+		if src.Reviews != "" && rulesTextIsWholeFile(f, source) {
 			// importCodexReviews reads these into review specs.
 			text, _ = splitCodexReviewSections(text)
 		}
