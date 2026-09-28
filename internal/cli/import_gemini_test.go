@@ -360,3 +360,25 @@ func TestImportFromGemini_RootRulesBlockBecomesRules(t *testing.T) {
 		t.Errorf("style.md:\n%s", data)
 	}
 }
+
+// Text above the first ## of a nested GEMINI.md becomes a rule named
+// after the scope, beside one rule per section, as `import codex` does.
+// A lone title above the sections adds no rule.
+func TestImportFromGemini_KeepsTheTextAboveTheFirstSection(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "services/api", geminiMainFile), "# API\n\nIntro line.\n\n## Money\n\nUse integer minor units.\n")
+	writeFile(t, filepath.Join(dir, "services/web", geminiMainFile), "# Web\n\n## Tokens\n\nUse semantic tokens.\n")
+
+	if err := importFromGemini(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got := names(mustReadDir(t, filepath.Join(dir, "rules")))
+	want := []string{"api.md", "money.md", "tokens.md"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("rules = %v, want %v", got, want)
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, "rules", "api.md"))
+	if !strings.Contains(string(data), "Intro line.") || !strings.Contains(string(data), "scope: services/api") || strings.Contains(string(data), "integer minor units") {
+		t.Errorf("api.md should hold the scoped intro alone:\n%s", data)
+	}
+}
