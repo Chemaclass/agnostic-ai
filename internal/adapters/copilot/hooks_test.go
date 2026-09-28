@@ -1,6 +1,7 @@
 package copilot
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -325,5 +326,89 @@ func TestEmit_NoHooksFileWhenNoHookEntries(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".github/hooks/agnostic-ai.json")); !os.IsNotExist(err) {
 		t.Errorf("expected no .github/hooks/agnostic-ai.json when no hook entries, err=%v", err)
+	}
+}
+
+// hookNotes emits one hook spec per event/matcher pair and returns the
+// flushed coverage notes.
+func hookNotes(t *testing.T, pairs ...[2]string) string {
+	t.Helper()
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	buf := swapNoteWarner(t)
+	var entries []spec.Entry
+	for i, p := range pairs {
+		entries = append(entries, spec.Entry{Kind: spec.KindHook, Name: fmt.Sprintf("h%d", i), Meta: map[string]any{
+			"event": p[0], "matcher": p[1], "command": "echo hi",
+		}})
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+	return buf.String()
+}
+
+// Copilot's "Matcher filtering" table tests a subagentStart matcher
+// against agentName, a notification matcher against notification_type,
+// and a preCompact matcher against trigger, so the tool-name note would
+// send the author to the wrong field (#1377).
+func TestEmit_Hook_NonToolEventMatcherNotesWhatCopilotTests(t *testing.T) {
+	for _, event := range []string{"subagentStart", "notification", "preCompact"} {
+		t.Run(event, func(t *testing.T) {
+			got := hookNotes(t, [2]string{event, "Bash"})
+			if strings.Contains(got, "lowercase tool names") {
+				t.Errorf("tool-name note fired for %s: %s", event, got)
+			}
+			if !strings.Contains(got, "subagentStart matcher against the subagent's name") {
+				t.Errorf("expected the non-tool matcher note for %s, got: %s", event, got)
+			}
+		})
+	}
+}
+
+func TestEmit_Hook_ToolNameNoteStaysOnToolEvents(t *testing.T) {
+	for _, event := range []string{"preToolUse", "postToolUse", "permissionRequest"} {
+		if got := hookNotes(t, [2]string{event, "Bash"}); !strings.Contains(got, "lowercase tool names") {
+			t.Errorf("expected the tool-name note for %s, got: %s", event, got)
+		}
+	}
+}
+
+func TestEmit_Hook_MatcherOnAnEventWithoutOneNotes(t *testing.T) {
+	got := hookNotes(t, [2]string{"sessionStart", "startup"})
+	if !strings.Contains(got, "Copilot documents a matcher only on") {
+		t.Errorf("expected a note for a matcher on sessionStart, got: %s", got)
+	}
+}
+
+// The vendor documents the invalid-regex skip only for the events in
+// its matcher table, so an event outside it gets one note, not two.
+func TestEmit_Hook_InvalidMatcherOnAnEventWithoutOneNotesOnce(t *testing.T) {
+	got := hookNotes(t, [2]string{"sessionStart", "["})
+	if !strings.Contains(got, "Copilot documents a matcher only on") {
+		t.Errorf("expected the unsupported-matcher note, got: %s", got)
+	}
+	if strings.Contains(got, "valid regular expression") {
+		t.Errorf("unexpected invalid-regex note on sessionStart: %s", got)
+	}
+}
+
+// Copilot skips a hook whose matcher is not a valid regex, for every
+// agent or tool, with no diagnostic (#1377).
+func TestEmit_Hook_InvalidMatcherRegexNotes(t *testing.T) {
+	got := hookNotes(t, [2]string{"subagentStart", "reviewer("})
+	if !strings.Contains(got, "skips a hook whose matcher is not a valid regular expression") {
+		t.Errorf("expected an invalid-regex note, got: %s", got)
+	}
+}
+
+// Lookahead and backreferences are valid in Copilot's JavaScript regex
+// engine but not in Go's RE2, so they must not raise the note.
+func TestEmit_Hook_JavaScriptOnlyRegexDoesNotNote(t *testing.T) {
+	for _, matcher := range []string{"(?!docs).*", "(?<=login-)agent", "(?<!docs-)agent", `(a)\1`, "(?<role>review)er", "reviewer|planner"} {
+		if got := hookNotes(t, [2]string{"subagentStart", matcher}); strings.Contains(got, "valid regular expression") {
+			t.Errorf("unexpected invalid-regex note for %q: %s", matcher, got)
+		}
 	}
 }

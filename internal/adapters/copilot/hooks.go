@@ -2,6 +2,8 @@ package copilot
 
 import (
 	"encoding/json"
+	"errors"
+	"regexp/syntax"
 	"sort"
 	"strings"
 
@@ -29,12 +31,45 @@ const defaultHooksFile = ".github/hooks/agnostic-ai.json"
 // event form (`preToolUse`) does a Claude-style matcher stop working:
 // it is then tested as a plain, case-sensitive regex against
 // Copilot's lowercase runtime tool names (`bash`, `edit`, `view`,
-// ...) and matches nothing. See buildHooks and the package doc
-// comment for the vendor quotes.
+// ...), or, on subagentStart, notification, and preCompact, against
+// something that is not a tool name at all (camelMatcherSubject), and
+// matches nothing. See buildHooks and the package doc comment for the
+// vendor quotes.
 var claudeToolNames = map[string]bool{
 	"Bash": true, "Read": true, "Write": true, "Edit": true,
 	"Glob": true, "Grep": true, "WebFetch": true, "WebSearch": true,
 	"Task": true, "AskUserQuestion": true, "TodoWrite": true,
+}
+
+// camelMatcherSubject is what Copilot tests a camelCase event's
+// `matcher` against, from the "Matcher filtering" table on
+// docs.github.com/en/copilot/reference/hooks-reference: "It is compiled
+// as `^(?:PATTERN)$` and must match the full value. Invalid regexes
+// cause the hook entry to be skipped." An event missing here documents
+// no matcher.
+var camelMatcherSubject = map[string]string{
+	"notification":      "notification_type",
+	"permissionRequest": "toolName",
+	"postToolUse":       "toolName",
+	"preCompact":        "trigger",
+	"preToolUse":        "toolName",
+	"subagentStart":     "agentName",
+}
+
+// invalidMatcherRegex reports a matcher Copilot would reject. Copilot
+// runs JavaScript regexes, so lookahead, lookbehind, and backreferences,
+// which RE2 rejects and JavaScript accepts, never count as invalid.
+func invalidMatcherRegex(matcher string) bool {
+	_, err := syntax.Parse(matcher, syntax.Perl)
+	var serr *syntax.Error
+	if err == nil || !errors.As(err, &serr) {
+		return false
+	}
+	switch serr.Code {
+	case syntax.ErrInvalidPerlOp, syntax.ErrInvalidNamedCapture, syntax.ErrInvalidEscape:
+		return false
+	}
+	return true
 }
 
 // hookLifecycle orders PascalCase events from session start to session
@@ -185,11 +220,12 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 // (Claude Code, Codex, OpenHands, Windsurf, Qoder) lands on Copilot's
 // "VS Code compatible" payload format and inherits Claude's matcher
 // semantics for free; one authored in Copilot's own camelCase form
-// answers to Copilot's own lowercase tool-name matchers instead.
+// answers to the native regex rule on whatever camelMatcherSubject
+// names for its event.
 func buildHooks(hooks []spec.Entry) *hooksDoc {
 	byEvent := map[string][]hookEntry{}
 	var eventOrder []string
-	var camelMatcherTraps, execForm, promptWrongEvent int
+	var camelMatcherTraps, nonToolMatchers, unsupportedMatchers, invalidMatchers, execForm, promptWrongEvent int
 
 	for _, h := range hooks {
 		event, _ := h.Meta["event"].(string)
@@ -201,8 +237,17 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 			kind = "command"
 		}
 		matcher, _ := h.Meta["matcher"].(string)
-		if isCamelCaseEvent(event) && claudeToolNames[matcher] {
-			camelMatcherTraps++
+		if matcher != "" && isCamelCaseEvent(event) {
+			switch subject, ok := camelMatcherSubject[event]; {
+			case !ok:
+				unsupportedMatchers++
+			case invalidMatcherRegex(matcher):
+				invalidMatchers++
+			case subject == "toolName" && claudeToolNames[matcher]:
+				camelMatcherTraps++
+			case subject != "toolName" && claudeToolNames[matcher]:
+				nonToolMatchers++
+			}
 		}
 		timeout := emit.HookIntMeta(h.Meta, "timeout")
 		before := len(byEvent[event])
@@ -257,7 +302,13 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 		}
 	}
 	emit.NoteFieldNoOp(target, spec.KindHook, "matcher", camelMatcherTraps,
-		"a PascalCase event (e.g. PreToolUse) applies Claude's own matcher semantics and tool names, but Copilot's native camelCase form (preToolUse) tests the matcher as a plain, case-sensitive regex against Copilot's own lowercase tool names, so a Claude-style matcher parses and then matches nothing there; use Copilot's own tool name, switch the event to its PascalCase form, or use a regex")
+		"a PascalCase event (e.g. PreToolUse) applies Claude's own matcher semantics and tool names, but Copilot's native camelCase preToolUse, postToolUse, and permissionRequest test the matcher as a plain, case-sensitive regex against Copilot's own lowercase tool names, so a Claude-style matcher parses and then matches nothing there; use Copilot's own tool name, switch the event to its PascalCase form, or use a regex")
+	emit.NoteFieldNoOp(target, spec.KindHook, "matcher", nonToolMatchers,
+		"Copilot tests a subagentStart matcher against the subagent's name, a notification matcher against notification_type, and a preCompact matcher against trigger (manual or auto), so a tool name there matches nothing")
+	emit.NoteFieldNoOp(target, spec.KindHook, "matcher", unsupportedMatchers,
+		"Copilot documents a matcher only on notification, permissionRequest, postToolUse, preCompact, preToolUse, and subagentStart")
+	emit.NoteFieldNoOp(target, spec.KindHook, "matcher", invalidMatchers,
+		"Copilot skips a hook whose matcher is not a valid regular expression, so the hook never fires")
 	emit.NoteSurfaceGap(target, spec.KindHook, execForm, "Copilot cloud agent",
 		"`args` writes the exec form, which runs the executable directly with no shell and is Copilot CLI only; a cloud agent job reads the same .github/hooks file and honors `bash` or `command` entries only, so unset `args` for a hook that must run there")
 	emit.NoteFieldNoOp(target, spec.KindHook, "prompt", promptWrongEvent,
