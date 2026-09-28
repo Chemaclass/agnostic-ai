@@ -247,7 +247,7 @@ Per-source options for the `import` command. Empty blocks use per-source default
 
 ### `import.codex.shred`
 
-Controls how `agnostic-ai import codex` treats `AGENTS.md`.
+Controls how `agnostic-ai import codex` treats a nested `AGENTS.md`. The root file always lands in `.agnostic-ai/AGNOSTIC_AI.md`.
 
 | Value | Behavior |
 |-------|----------|
