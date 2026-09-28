@@ -179,3 +179,38 @@ func TestImport_ReadsGitignoredToolFoldersAtTheRootAndInScopes(t *testing.T) {
 		t.Error("gitignored services/api/AGENTS.md not imported")
 	}
 }
+
+// Sync ignores its scoped output through the managed .gitignore block;
+// importing it back must still find every scoped spec.
+func TestImport_ReadsScopedOutputTheManagedGitignoreBlockIgnores(t *testing.T) {
+	dir, _ := gitRepo(t)
+	testutil.Chdir(t, dir)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"),
+		"version: 1\nsources:\n  rules: .agnostic-ai/rules\n  agents: .agnostic-ai/agents\n  skills: .agnostic-ai/skills\n  hooks: .agnostic-ai/hooks\n  mcps: .agnostic-ai/mcps\n  commands: .agnostic-ai/commands\ntargets: [cursor]\ngitignore:\n  enabled: true\n")
+	writeFile(t, filepath.Join(dir, "services/api/main.go"), "package main\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai/skills/services/api/review/SKILL.md"),
+		"---\nname: review\ndescription: Review API changes.\n---\n\nCheck the money math.\n")
+
+	run := func(args ...string) {
+		t.Helper()
+		root := NewRootCmd("test")
+		root.SetArgs(args)
+		_ = captureStdout(t, func() {
+			if err := root.Execute(); err != nil {
+				t.Fatalf("%v: %v", args, err)
+			}
+		})
+	}
+	run("sync")
+	ignore, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	if err != nil || !strings.Contains(string(ignore), "services/api/.cursor") {
+		t.Fatalf("sync did not ignore the scoped output (%v):\n%s", err, ignore)
+	}
+	if err := os.RemoveAll(filepath.Join(dir, ".agnostic-ai/skills")); err != nil {
+		t.Fatal(err)
+	}
+	run("import", "cursor")
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai/skills/services/api/review/SKILL.md")); err != nil {
+		t.Errorf("scoped skill the managed block ignores was not imported back: %v", err)
+	}
+}
