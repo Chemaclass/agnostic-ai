@@ -9,6 +9,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### Fixed
 
 - A scoped rule no longer makes the managed `.gitignore` block ignore its whole directory; the block lists the scoped files instead (#1264).
+- `sync --check` lists a spec change as out of date and keeps "edited locally" (JSON `edited`) for a file changed since the last sync (#1270).
 - Ignore specs survive Prettier: sync reads patterns from fenced code blocks, and `import` writes the patterns in one (#1275).
 
 ### Removed

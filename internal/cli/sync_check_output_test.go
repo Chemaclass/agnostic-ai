@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -179,5 +180,150 @@ func TestSyncCheck_InvalidFormat_Errors(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "--format") {
 		t.Errorf("error should name the --format flag, got: %v", err)
+	}
+}
+
+// syncClaudeThenEditSpec syncs claude, then changes the r1 rule spec so
+// the next --check sees its output out of date with no hand edit.
+func syncClaudeThenEditSpec(t *testing.T, dir string) {
+	t.Helper()
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "-t", "claude"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	editRuleSpec(t, dir, "rule body\n\nAlso check rounding.\n")
+}
+
+func editRuleSpec(t *testing.T, dir, body string) {
+	t.Helper()
+	spec := filepath.Join(dir, ".agnostic-ai/rules/r1.md")
+	if err := os.WriteFile(spec, []byte("---\nname: r1\n---\n"+body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// checkJSONActions runs `sync --check --json` for claude and maps each
+// reported path to its action.
+func checkJSONActions(t *testing.T) map[string]string {
+	t.Helper()
+	var out bytes.Buffer
+	root := NewRootCmd("test")
+	root.SetOut(&out)
+	root.SetArgs([]string{"sync", "-t", "claude", "--check", "--json"})
+	_ = root.Execute()
+	var result struct {
+		Writes []fileRecord `json:"writes"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out.String())
+	}
+	actions := map[string]string{}
+	for _, w := range result.Writes {
+		actions[filepath.ToSlash(w.Path)] = w.Action
+	}
+	return actions
+}
+
+func TestSyncCheck_SpecChangeReportsOutputOutOfDate(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	logBuf := captureLogOut(t)
+	syncClaudeThenEditSpec(t, dir)
+	logBuf.Reset()
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "-t", "claude", "--check"})
+	if err := root.Execute(); err == nil {
+		t.Fatal("expected drift error after a spec change")
+	}
+
+	got := logBuf.String()
+	if !strings.Contains(got, "out of date") || !strings.Contains(got, ".claude/rules/r1.md") {
+		t.Errorf("a spec change should list the output as out of date, got:\n%s", got)
+	}
+	if strings.Contains(got, "edited locally") {
+		t.Errorf("a spec change is not a local edit, got:\n%s", got)
+	}
+}
+
+func TestSyncCheck_HandEditReportsEditedLocally(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	logBuf := captureLogOut(t)
+	syncThenEditRule(t, dir)
+	logBuf.Reset()
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "-t", "claude", "--check"})
+	if err := root.Execute(); err == nil {
+		t.Fatal("expected drift error after a hand edit")
+	}
+
+	got := logBuf.String()
+	if !strings.Contains(got, "edited locally") || !strings.Contains(got, ".claude/rules/r1.md") {
+		t.Errorf("a hand edit should be listed as edited locally, got:\n%s", got)
+	}
+	if strings.Contains(got, "out of date") {
+		t.Errorf("a hand edit should not read as out of date, got:\n%s", got)
+	}
+}
+
+func TestSyncCheckJSON_SeparatesHandEditsFromSpecChanges(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	captureLogOut(t)
+	syncClaudeThenEditSpec(t, dir)
+	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte("hand-edited\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	actions := checkJSONActions(t)
+	if actions[".claude/rules/r1.md"] != "stale" {
+		t.Errorf("spec change action = %q, want stale; all: %v", actions[".claude/rules/r1.md"], actions)
+	}
+	if actions["CLAUDE.md"] != "edited" {
+		t.Errorf("hand edit action = %q, want edited; all: %v", actions["CLAUDE.md"], actions)
+	}
+}
+
+// Without a record of what the last sync wrote there is no proof of a
+// hand edit, as after a lost state file or in a fresh CI checkout.
+func TestSyncCheckJSON_NoLedgerReportsStale(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	captureLogOut(t)
+	syncThenEditRule(t, dir)
+	if err := os.Remove(stateFilePath(dir)); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := checkJSONActions(t)[".claude/rules/r1.md"]; got != "stale" {
+		t.Errorf("action without a ledger = %q, want stale", got)
+	}
+}
+
+// `doctor --fix` writes outputs as sync does, so a later spec change must
+// not read the fixed file as a hand edit.
+func TestDoctorFix_RecordsWhatItWrote(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	captureLogOut(t)
+	syncClaudeThenEditSpec(t, dir)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"doctor", "-t", "claude", "--fix"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("doctor --fix: %v", err)
+	}
+	editRuleSpec(t, dir, "rule body\n\nRound half to even.\n")
+
+	if got := checkJSONActions(t)[".claude/rules/r1.md"]; got != "stale" {
+		t.Errorf("action after doctor --fix and a spec change = %q, want stale", got)
 	}
 }

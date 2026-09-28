@@ -61,10 +61,10 @@ type txEntry struct {
 // Action is "create" (new file), "update" (existing file with changed
 // content), or "skip" (existing file with identical content, not rewritten).
 //
-// Sum is the ContentSum of the bytes when they carry no provenance header
-// (verbatim skill assets, targets with provenance_header: false) and empty
-// otherwise. The sync ledger stores it so a later orphan sweep can prove a
-// header-less file is still the one agnostic-ai wrote (#785).
+// Sum is the ContentSum of the bytes. The sync ledger stores it so a
+// later orphan sweep can prove a header-less file is still the one
+// agnostic-ai wrote (#785), and so `sync --check` can tell a hand edit
+// from a spec change (#1270).
 type WrittenFile struct {
 	Path   string
 	Bytes  int
@@ -583,7 +583,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 		case err == nil && string(existing) == content && (!enforceMode || statErr == nil && info.Mode().Perm() == mode.Perm()):
 			// File is already up to date; skip the write.
 			s.mu.Lock()
-			s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: "skip", Sum: headerlessSum(content)})
+			s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: "skip", Sum: ContentSum(content)})
 			s.mu.Unlock()
 			return nil
 		default:
@@ -612,7 +612,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 			return fmt.Errorf("write %s: %w", path, err)
 		}
 		s.mu.Lock()
-		s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: action, Sum: headerlessSum(content)})
+		s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: action, Sum: ContentSum(content)})
 		s.mu.Unlock()
 		return nil
 	}
@@ -826,19 +826,10 @@ func (s *Session) RemoveOwned(path, sum string, dryRun bool) (removed bool, err 
 }
 
 // ContentSum returns the hex sha256 of content, the fingerprint the sync
-// ledger records for header-less outputs.
+// ledger records for every output.
 func ContentSum(content string) string {
 	h := sha256.Sum256([]byte(content))
 	return hex.EncodeToString(h[:])
-}
-
-// headerlessSum is ContentSum for content without the provenance header,
-// and empty for generated content the header already identifies.
-func headerlessSum(content string) string {
-	if header.Has(content) {
-		return ""
-	}
-	return ContentSum(content)
 }
 
 // RemoveGeneratedTree walks dir and removes every file that carries

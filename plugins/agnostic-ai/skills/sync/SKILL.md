@@ -24,9 +24,9 @@ Emits one set of specs to every configured target in its native format.
 
 When `--check` fails, decide by what changed:
 
-- A spec was edited and the generated file lags: run `agnostic-ai sync` and commit both.
+- A spec was edited and the generated file lags (listed as out of date): run `agnostic-ai sync` and commit both.
 - The CLI was upgraded and output shifted: run `sync`, review the diff, and commit it as a regeneration with no semantic change.
-- Someone hand-edited a generated file: their edit is about to be lost. Move the change into the matching spec under `.agnostic-ai/`, then `sync`.
+- Someone hand-edited a generated file (listed as edited locally): their edit is about to be lost. Move the change into the matching spec under `.agnostic-ai/`, then `sync`.
 
 ## Notes
 

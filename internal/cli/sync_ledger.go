@@ -28,9 +28,9 @@ func recordLedgerWrites(writes []adapters.WrittenFile, session *[]string, writte
 }
 
 // ledgerSums returns the content sums to store for ledger. A path written
-// this run takes its fresh sum, even when empty (a header file needs
-// none). A path not written this run (another target's on a partial sync,
-// or a kept orphan) carries its prior sum so ownership proof is not lost.
+// this run takes its fresh sum. A path not written this run (another
+// target's on a partial sync, or a kept orphan) carries its prior sum so
+// ownership proof is not lost.
 func ledgerSums(ledger []string, written, prior map[string]string) map[string]string {
 	out := map[string]string{}
 	for _, p := range ledger {
