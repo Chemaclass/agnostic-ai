@@ -1,0 +1,1077 @@
+# Generated from tests/integration/fixtures/compare by a real sync. Do not edit.
+# Regenerate with: UPDATE_GOLDEN=1 go test ./tests/integration/ -run TestSiteDocs_Compare
+
+[[targets]]
+  id = "claude"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".claude/agents/test-writer.md"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".claude/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = [".claude/rules/testing.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = [".claude/settings.json"]
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = [".mcp.json"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = [".claude/commands/deploy.md"]
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = [".claude/settings.json"]
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = []
+
+[[targets]]
+  id = "codex"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".codex/agents/test-writer.toml"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".agents/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = ["AGENTS.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = [".codex/hooks.json"]
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = [".codex/config.toml"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = []
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = [".codex/config.toml"]
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = []
+
+[[targets]]
+  id = "gemini"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".gemini/agents/test-writer.md"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".gemini/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = ["GEMINI.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = [".gemini/settings.json"]
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = [".gemini/settings.json"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = [".gemini/commands/deploy.toml"]
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = [".gemini/settings.json"]
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = [".geminiignore"]
+
+[[targets]]
+  id = "cursor"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".cursor/agents/test-writer.md"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".cursor/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = [".cursor/rules/testing.mdc"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = [".cursor/hooks.json"]
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = [".cursor/mcp.json"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = [".cursor/commands/deploy.md"]
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = []
+
+  [[targets.kinds]]
+    id = "review"
+    paths = [".cursor/BUGBOT.md"]
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = [".cursor/environment.json"]
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = [".cursorignore"]
+
+[[targets]]
+  id = "copilot"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".github/agents/test-writer.agent.md"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".github/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = [".github/instructions/testing.instructions.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = [".github/hooks/agnostic-ai.json"]
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = [".github/mcp.json", ".vscode/mcp.json"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = []
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = [".github/copilot/settings.json"]
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = []
+
+[[targets]]
+  id = "aider"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = []
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = []
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = ["CONVENTIONS.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = []
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = []
+
+  [[targets.kinds]]
+    id = "command"
+    paths = []
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = []
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = [".aiderignore"]
+
+[[targets]]
+  id = "cline"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".cline/agents/test-writer.yml"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".cline/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = [".clinerules/testing.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = [".cline/hooks/PreToolUse.sh"]
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = []
+
+  [[targets.kinds]]
+    id = "command"
+    paths = []
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = []
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = []
+
+[[targets]]
+  id = "windsurf"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".devin/agents/test-writer.md"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".agents/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = [".devin/rules/testing.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = [".devin/hooks.v1.json"]
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = [".devin/mcp_config.json"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = []
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = [".devin/config.json"]
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = [".devinignore", ".windsurfignore"]
+
+[[targets]]
+  id = "continue"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".continue/rules/agent-test-writer.md"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".continue/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = [".continue/rules/testing.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = []
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = [".continue/mcpServers/docs.yaml"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = []
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = []
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = []
+
+[[targets]]
+  id = "amp"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = []
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".agents/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = ["AGENTS.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = []
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = [".amp/settings.json"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = []
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = []
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = [".agents/setup", ".amp/services.yaml"]
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = []
+
+[[targets]]
+  id = "zed"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = []
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".agents/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = [".rules"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = []
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = [".zed/settings.json"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = []
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = []
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = []
+
+[[targets]]
+  id = "warp"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = []
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".agents/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = ["AGENTS.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = []
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = [".warp/.mcp.json"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = []
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = []
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = []
+
+[[targets]]
+  id = "opencode"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".opencode/agents/test-writer.md"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".opencode/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = ["AGENTS.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = [".opencode/plugins/guard.ts"]
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = ["opencode.json"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = [".opencode/commands/deploy.md"]
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = ["opencode.json"]
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = []
+
+[[targets]]
+  id = "antigravity"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".agents/agents/test-writer/agent.md"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".agents/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = [".agents/rules/testing.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = [".agents/hooks.json"]
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = [".agents/mcp_config.json"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = []
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = []
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = []
+
+[[targets]]
+  id = "junie"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".junie/agents/test-writer.md"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".junie/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = [".junie/AGENTS.md", "AGENTS.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = []
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = [".junie/mcp/mcp.json"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = [".junie/commands/deploy.md"]
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = [".junie/config.json"]
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = [".aiignore"]
+
+[[targets]]
+  id = "kiro"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".kiro/agents/test-writer.md"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".kiro/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = [".kiro/steering/testing.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = [".kiro/hooks/guard.json"]
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = [".kiro/settings/mcp.json"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = []
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = []
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = [".kiroignore"]
+
+[[targets]]
+  id = "crush"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = []
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".agents/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = ["AGENTS.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = ["crush.json"]
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = ["crush.json"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = []
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = []
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = [".crushignore"]
+
+[[targets]]
+  id = "trae"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".trae/agents/test-writer.md"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".trae/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = [".trae/rules/testing.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = [".trae/hooks.json"]
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = [".trae/mcp.json"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = [".trae/commands/deploy.md"]
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = []
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = [".trae/.ignore"]
+
+[[targets]]
+  id = "qoder"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".qoder/agents/test-writer.md"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".qoder/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = [".qoder/rules/testing.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = [".qoder/settings.json"]
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = [".qoder/settings.json"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = [".qoder/commands/deploy.md"]
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = [".qoder/settings.json"]
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = []
+
+[[targets]]
+  id = "openhands"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".agents/agents/test-writer.md"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".agents/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = [".agents/skills/testing/SKILL.md", "AGENTS.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = [".openhands/hooks.json"]
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = []
+
+  [[targets.kinds]]
+    id = "command"
+    paths = []
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = []
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = [".openhands/setup.sh"]
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = []
+
+[[targets]]
+  id = "factory"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".factory/droids/test-writer.md"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".agents/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = ["AGENTS.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = [".factory/hooks.json"]
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = [".factory/mcp.json"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = [".factory/commands/deploy.md"]
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = [".factory/settings.json"]
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = []
+
+[[targets]]
+  id = "kilo"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".kilo/agents/test-writer.md"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".agents/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = ["AGENTS.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = [".kilo/plugin/guard.ts"]
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = ["kilo.jsonc"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = [".kilo/commands/deploy.md"]
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = ["kilo.jsonc"]
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = [".kilocodeignore"]
+
+[[targets]]
+  id = "jules"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = []
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = []
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = ["AGENTS.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = []
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = []
+
+  [[targets.kinds]]
+    id = "command"
+    paths = []
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = []
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = []
+
+[[targets]]
+  id = "goose"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".agents/agents/test-writer.md"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".agents/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = ["AGENTS.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = [".agents/plugins/agnostic-ai/hooks/hooks.json", ".agents/plugins/agnostic-ai/plugin.json"]
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = []
+
+  [[targets.kinds]]
+    id = "command"
+    paths = []
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = []
+
+  [[targets.kinds]]
+    id = "review"
+    paths = [".agents/REVIEW.md"]
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = []
+
+[[targets]]
+  id = "augment"
+
+  [[targets.kinds]]
+    id = "agent"
+    paths = [".augment/agents/test-writer.md"]
+
+  [[targets.kinds]]
+    id = "skill"
+    paths = [".agents/skills/release/SKILL.md"]
+
+  [[targets.kinds]]
+    id = "rule"
+    paths = ["AGENTS.md"]
+
+  [[targets.kinds]]
+    id = "hook"
+    paths = [".augment/settings.json"]
+
+  [[targets.kinds]]
+    id = "mcp"
+    paths = [".augment/settings.json"]
+
+  [[targets.kinds]]
+    id = "command"
+    paths = [".augment/commands/deploy.md"]
+
+  [[targets.kinds]]
+    id = "settings"
+    paths = [".augment/settings.json"]
+
+  [[targets.kinds]]
+    id = "review"
+    paths = []
+
+  [[targets.kinds]]
+    id = "environment"
+    paths = []
+
+  [[targets.kinds]]
+    id = "ignore"
+    paths = [".augmentignore"]

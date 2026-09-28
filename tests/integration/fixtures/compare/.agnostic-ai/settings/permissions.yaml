@@ -1,0 +1,4 @@
+permissions:
+  allow: [Bash(make test:*)]
+  deny: [Read(.env)]
+model: example-model

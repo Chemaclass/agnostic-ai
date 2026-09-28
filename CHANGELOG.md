@@ -14,6 +14,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - `import codex` and `import gemini` name section rules from a nested file after their scope, such as `api-tests.md`, instead of `tests-2.md` (#1337).
 
+### Site
+
+- A compare page shows two or three targets side by side, with each spec kind's support state and the paths a real sync writes, in a URL you can share.
+
 ## v0.72.0 - 2026-09-28
 
 ### Added

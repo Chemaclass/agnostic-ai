@@ -1,0 +1,77 @@
+{# Rendered straight into markdown content, so the output must never contain a
+   blank or whitespace-only line: markdown would close the HTML block there.
+   The server renders the default pair; compare-targets.js re-renders every
+   other pair from the JSON payload with the same markup. #}
+{% component compare_targets() %}{% set matrix = load_data(path="data/capabilities.toml") %}{% set compare = load_data(path="data/compare.toml") %}{% for target in matrix.targets %}{% if target.id == "claude" %}{% set_global ta = target %}{% elif target.id == "codex" %}{% set_global tb = target %}{% endif %}{% endfor %}{% for target in compare.targets %}{% if target.id == "claude" %}{% set_global pa = target %}{% elif target.id == "codex" %}{% set_global pb = target %}{% endif %}{% endfor %}
+<section class="compare-browser" data-compare-browser>
+  <script type="application/json" data-compare-data>{"states":[{% for state in matrix.states %}{% if not loop.first %},{% endif %}{"id":{{ state.id | json_encode | safe }},"label":{{ state.label | json_encode | safe }}}{% endfor %}],"features":[{% for feature in matrix.features %}{% if not loop.first %},{% endif %}{"id":{{ feature.id | json_encode | safe }},"label":{{ feature.label | json_encode | safe }},"href":{{ get_url(path=feature.href) | json_encode | safe }},"toolSpecific":{% if feature.tool_specific %}true{% else %}false{% endif %}}{% endfor %}],"targets":[{% for target in matrix.targets %}{% for candidate in compare.targets %}{% if candidate.id == target.id %}{% set_global outputs = candidate %}{% endif %}{% endfor %}{% if not loop.first %},{% endif %}{"id":{{ target.id | json_encode | safe }},"name":{{ target.name | json_encode | safe }},"href":{{ get_url(path=target.href) | json_encode | safe }},"statuses":{{ target.statuses | json_encode | safe }},"paths":[{% for kind in outputs.kinds %}{% if not loop.first %},{% endif %}{{ kind.paths | json_encode | safe }}{% endfor %}]}{% endfor %}]}</script>
+  <form class="compare-controls" data-compare-form hidden>
+    {%- for slot in ["a", "b", "c"] %}{% if slot == "a" %}{% set chosen = "claude" %}{% elif slot == "b" %}{% set chosen = "codex" %}{% else %}{% set chosen = "" %}{% endif %}
+    <label class="compare-picker" data-compare-slot="{{ slot }}"{% if slot == "c" %} hidden{% endif %}>
+      <span>Target {{ slot | upper }}</span>
+      <select name="{{ slot }}">
+        {%- for target in matrix.targets %}
+        <option value="{{ target.id }}"{% if target.id == chosen %} selected{% endif %}>{{ target.name }}</option>
+        {%- endfor %}
+      </select>
+    </label>
+    {%- endfor %}
+    <div class="compare-actions">
+      <button class="compare-button" type="button" data-compare-add>Add a third target</button>
+      <button class="compare-button" type="button" data-compare-remove hidden>Remove target C</button>
+      <label class="compare-diff-toggle"><input type="checkbox" name="diff" data-compare-diff-only> Show only differences</label>
+    </div>
+  </form>
+  <p class="compare-result" data-compare-result aria-live="polite">{{ ta.name }} and {{ tb.name }}: {% set_global differing = 0 %}{% for status in ta.statuses %}{% if status != tb.statuses[loop.index0] %}{% set_global differing = differing + 1 %}{% endif %}{% endfor %}{{ differing }} of {{ matrix.features | length }} spec kinds differ.</p>
+  <p class="compare-notice" data-compare-notice hidden></p>
+  <p class="compare-fallback" data-compare-fallback>This is the default comparison. Turn on JavaScript to pick other targets, or read the <a href="{{ get_url(path='@/docs/targets/_index.md') }}#capability-matrix">capability matrix</a>.</p>
+  <dl class="capability-legend compare-legend">
+    {%- for state in matrix.states %}
+    <div><dt><span class="capability-state capability-state-{{ state.id }}">{{ state.label }}</span></dt><dd>{{ state.description }}</dd></div>
+    {%- endfor %}
+  </dl>
+  <div class="compare-region" role="region" aria-label="Side-by-side target comparison" tabindex="0">
+    <table class="compare-table" data-compare-table>
+      <caption>Support state and native paths per spec kind. Rows marked Differs have a different state per target.</caption>
+      <thead>
+        <tr data-compare-head>
+          <th scope="col">Spec kind</th>
+          {%- for target in [ta, tb] %}
+          <th scope="col"><a href="{{ get_url(path=target.href) }}"><span>{{ target.name }}</span><code>{{ target.id }}</code></a></th>
+          {%- endfor %}
+        </tr>
+      </thead>
+      <tbody data-compare-body>
+        {%- for feature in matrix.features %}{% set i = loop.index0 %}{% set differs = ta.statuses[i] != tb.statuses[i] %}
+        <tr data-compare-kind="{{ feature.id }}"{% if differs %} class="compare-row-differs" data-differs{% endif %}>
+          <th scope="row"><a href="{{ get_url(path=feature.href) }}">{{ feature.label }}</a>{% if feature.tool_specific %}<span class="compare-kind-note">Tool-specific</span>{% endif %}{% if differs %}<span class="compare-differs">Differs</span>{% endif %}</th>
+          {%- for pair in [[ta, pa], [tb, pb]] %}{% set target = pair[0] %}{% set status = target.statuses[i] %}{% set paths = pair[1].kinds[i].paths %}
+          <td class="compare-cell" data-label="{{ target.name }}">{% for state in matrix.states %}{% if state.id == status %}{% if status == "opt-in" %}<a class="capability-state capability-state-{{ status }} capability-state-link" href="{{ get_url(path=target.href) }}#config-keys" aria-label="{{ state.label }} for {{ target.name }}. View the required config key.">{{ state.label }}</a>{% else %}<span class="capability-state capability-state-{{ status }}">{{ state.label }}</span>{% endif %}{% endif %}{% endfor %}{% if paths | length > 0 %}<ul class="compare-paths">{% for path in paths %}<li><code>{{ path | escape | replace(from="/", to="/<wbr>") | safe }}</code></li>{% endfor %}</ul>{% endif %}</td>
+          {%- endfor %}
+        </tr>
+        {%- endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="compare-empty" data-compare-empty hidden>These targets have the same state for every spec kind.</p>
+  <section class="compare-summary" aria-labelledby="compare-summary-title">
+    <h3 id="compare-summary-title">What each target gets</h3>
+    <div class="compare-summary-grid" data-compare-summary>
+      {%- for pair in [[ta, tb], [tb, ta]] %}{% set target = pair[0] %}{% set other = pair[1] %}
+      <div class="compare-summary-target">
+        <h4>{{ target.name }}</h4>
+        <ul>
+          <li>Only {{ target.name }} writes by default: {% set_global n = 0 %}{% for feature in matrix.features %}{% set mine = target.statuses[loop.index0] %}{% set theirs = other.statuses[loop.index0] %}{% if (mine == "native" or mine == "mapped") and theirs != "native" and theirs != "mapped" %}{% if n > 0 %}, {% endif %}{% set_global n = n + 1 %}<a href="{{ get_url(path=feature.href) }}">{{ feature.label }}</a>{% endif %}{% endfor %}{% if n == 0 %}nothing{% endif %}.</li>
+          {%- set_global n = 0 %}{% for status in target.statuses %}{% if status == "opt-in" %}{% set_global n = n + 1 %}{% endif %}{% endfor %}{% if n > 0 %}
+          <li>{{ target.name }} needs a <a href="{{ get_url(path=target.href) }}#config-keys">config key</a> for: {% set_global n = 0 %}{% for feature in matrix.features %}{% if target.statuses[loop.index0] == "opt-in" %}{% if n > 0 %}, {% endif %}{% set_global n = n + 1 %}<a href="{{ get_url(path=feature.href) }}">{{ feature.label }}</a>{% endif %}{% endfor %}.</li>
+          {%- endif %}
+          <li>{{ target.name }} gets no output for: {% set_global n = 0 %}{% for feature in matrix.features %}{% set mine = target.statuses[loop.index0] %}{% set theirs = other.statuses[loop.index0] %}{% if (mine == "no" or mine == "source") and theirs != "no" and theirs != "source" %}{% if n > 0 %}, {% endif %}{% set_global n = n + 1 %}<a href="{{ get_url(path=feature.href) }}">{{ feature.label }}</a>{% endif %}{% endfor %}{% if n == 0 %}nothing another target gets{% endif %}.</li>
+        </ul>
+        <p><a href="{{ get_url(path=target.href) }}">{{ target.name }} paths, config keys, and caveats</a></p>
+      </div>
+      {%- endfor %}
+    </div>
+    <p class="compare-summary-none" data-compare-none>{% set_global n = 0 %}{% for feature in matrix.features %}{% set sa = ta.statuses[loop.index0] %}{% set sb = tb.statuses[loop.index0] %}{% if (sa == "no" or sa == "source") and (sb == "no" or sb == "source") %}{% if n == 0 %}No compared target gets: {% else %}, {% endif %}{% set_global n = n + 1 %}<a href="{{ get_url(path=feature.href) }}">{{ feature.label }}</a>{% endif %}{% endfor %}{% if n > 0 %}.{% endif %}</p>
+  </section>
+</section>
+{% endcomponent compare_targets %}
