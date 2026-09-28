@@ -13,6 +13,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `import claude` leaves a hook unpinned when Codex runs it as written, and `sync` notes a Codex edit hook reading `tool_input.file_path` (#1328).
 - `import claude` writes permission lists to a settings spec, so `lint` flags a mid-command `*` in allow and deny rules, and Codex gets its coverage note (#1329).
 - A root skill that links to a package's nested skill folder imports once, at the root path, with a note naming the skipped path (#1338).
+- `sync --check` and `doctor` catch a leftover output with no `.sync-state`: a tracked file where a configured target writes that opens with the provenance header. `doctor --fix` removes it, except a scope document such as `services/api/AGENTS.md`, which the check lists for you to delete by hand (#1334).
 - `doctor --check-references` resolves repo-root links, skips ignored placeholders, and groups findings by source (#1342).
 - The managed `.gitignore` block marks `gitignore.allow` exceptions as committed instead of calling every generated path not committed (#1335).
 - `sync --keep-edits --quiet` still reports each kept file, on stderr, instead of printing nothing (#1333).
