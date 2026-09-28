@@ -42,7 +42,7 @@ func noteNestedClaudeEntryFile(root string) {
 // claude` did not read, as slash paths relative to root: the files a
 // skill or script may still use but no other tool receives. Files sync
 // wrote, hidden files, and Claude Code's runtime state are left out.
-func claudeFilesNotImported(root string, layout claudeLayout, mainSrc string) ([]string, error) {
+func claudeFilesNotImported(root string, layout claudeLayout, mainSrc string, launchImported bool) ([]string, error) {
 	base := filepath.Join(root, claudeDir)
 	if !dirExists(base) {
 		return nil, nil
@@ -51,7 +51,7 @@ func claudeFilesNotImported(root string, layout claudeLayout, mainSrc string) ([
 	for _, p := range readStateFile(root).Outputs {
 		synced[filepath.ToSlash(p)] = true
 	}
-	imported := claudeImportedPaths{root: root, layout: layout, mainSrc: filepath.ToSlash(mainSrc)}
+	imported := claudeImportedPaths{root: root, layout: layout, mainSrc: filepath.ToSlash(mainSrc), launch: launchImported}
 	var out []string
 	err := filepath.WalkDir(base, func(p string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -97,6 +97,8 @@ type claudeImportedPaths struct {
 	root    string
 	layout  claudeLayout
 	mainSrc string
+	// launch reports whether this run imported launch.json.
+	launch bool
 }
 
 // skill reports whether rel is a skill folder the import copied, or a
@@ -114,8 +116,10 @@ func (c claudeImportedPaths) skill(rel string) bool {
 // inClaude relative to .claude/.
 func (c claudeImportedPaths) file(rel, inClaude string) bool {
 	switch inClaude {
-	case "settings.json", "settings.local.json", "launch.json", claudeMainFile:
+	case "settings.json", "settings.local.json", claudeMainFile:
 		return true
+	case claudeLaunchFileName:
+		return c.launch
 	case claudeAgentsMainFile:
 		return c.mainSrc == filepath.ToSlash(nestedClaudeAgentsMainFile)
 	}

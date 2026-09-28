@@ -25,9 +25,9 @@ const claudeLaunchSpecName = "dev"
 
 // importClaudeLaunch reads a hand-written .claude/launch.json into an
 // environment spec's dev-commands, the reverse of the claude emit
-// (#1340). A configuration with no command to start, such as one that
-// only opens a `url`, stays behind with a note. A file sync wrote, or a
-// spec already at the destination, is left alone.
+// (#1340). A file with a configuration that has no command to start,
+// such as one that only opens a `url`, is left whole with a note. So is a
+// file sync wrote, or one whose destination spec already exists.
 func importClaudeLaunch(root string, src config.Sources, layout claudeLayout) (int, error) {
 	if src.Environments == "" {
 		return 0, nil
@@ -55,17 +55,23 @@ func importClaudeLaunch(root string, src config.Sources, layout claudeLayout) (i
 		return 0, fmt.Errorf("parse %s: %w", path, err)
 	}
 
+	// Sync rebuilds launch.json from the spec alone, so a configuration
+	// the spec cannot express would be dropped. Import all or nothing.
 	var commands []any
 	for _, c := range doc.Configurations {
 		name, _ := c["name"].(string)
 		argv, whole := launchArgv(c)
-		if !whole {
-			summaryf("  ! skipped %s configuration %q: an argument is not a string\n", filepath.ToSlash(claudeLaunchFile), name)
-			continue
+		reason := ""
+		switch {
+		case !whole:
+			reason = "an argument is not a string"
+		case name == "" || len(argv) == 0:
+			reason = "it has no command to start"
 		}
-		if name == "" || len(argv) == 0 {
-			summaryf("  ! skipped %s configuration %q: it has no command to start\n", filepath.ToSlash(claudeLaunchFile), name)
-			continue
+		if reason != "" {
+			summaryf("  ! left %s as written: configuration %q cannot be a dev command (%s), and sync would drop it\n",
+				filepath.ToSlash(claudeLaunchFile), name, reason)
+			return 0, nil
 		}
 		cmd := yaml.Node{Kind: yaml.MappingNode}
 		addYAMLField(&cmd, "name", name)

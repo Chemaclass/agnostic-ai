@@ -119,7 +119,7 @@ func importFromClaude(root string, src config.Sources, layout claudeLayout) erro
 		summaryf("  → %s seeded from %s/%s\n",
 			filepath.Join(agnosticOverlayDir, "claude", h), claudeDir, h)
 	}
-	leftovers, err := claudeFilesNotImported(root, layout, mainSrc)
+	leftovers, err := claudeFilesNotImported(root, layout, mainSrc, environments > 0)
 	if err != nil {
 		return err
 	}

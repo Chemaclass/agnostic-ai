@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -22,8 +24,7 @@ func TestImportFromClaude_ReadsLaunchJSON(t *testing.T) {
     {"name": "Cd", "runtimeExecutable": "sh", "runtimeArgs": ["-c", "cd x"]},
     {"name": "Lines", "runtimeExecutable": "sh", "runtimeArgs": ["-c", "a\nb"]},
     {"name": "Tsx", "runtimeExecutable": "tsx", "program": "server.ts", "args": ["--x"]},
-    {"name": "Bad", "runtimeExecutable": "npm", "runtimeArgs": ["run", 3]},
-    {"name": "Remote", "url": "https://example.test"}
+    {"name": "Tail", "runtimeExecutable": "npm", "runtimeArgs": ["start"]}
   ]
 }`)
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
@@ -58,10 +59,36 @@ dev-commands:
         b
     - name: Tsx
       command: tsx server.ts --x
+    - name: Tail
+      command: npm start
 x-claude:
     autoVerify: false
 `
 	if got != want {
 		t.Errorf("environments/dev.yaml:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+// A configuration import cannot express keeps the whole file as written:
+// sync rebuilds launch.json from the spec, so a partial import would
+// drop that configuration.
+func TestImportFromClaude_LeavesAPartlyImportableLaunchJSON(t *testing.T) {
+	for name, config := range map[string]string{
+		"url only":       `{"name": "Remote", "url": "https://example.test"}`,
+		"non-string arg": `{"name": "Bad", "runtimeExecutable": "npm", "runtimeArgs": ["run", 3]}`,
+	} {
+		dir := t.TempDir()
+		writeFile(t, filepath.Join(dir, ".claude", "launch.json"),
+			`{"configurations": [{"name": "Web", "runtimeExecutable": "npm", "runtimeArgs": ["start"]}, `+config+`]}`)
+		log := captureLog(t)
+		if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(filepath.Join(dir, "environments", "dev.yaml")); !os.IsNotExist(err) {
+			t.Errorf("%s: environments/dev.yaml written for a partly importable launch.json", name)
+		}
+		if !strings.Contains(log.String(), "left .claude/launch.json as written") {
+			t.Errorf("%s: summary does not say launch.json was left:\n%s", name, log.String())
+		}
 	}
 }
