@@ -11,6 +11,13 @@ import (
 // Each is a `string[]` of "Shell command patterns ... (accumulated
 // across levels)"
 // (docs.factory.ai/enterprise/hierarchical-settings-and-org-control).
+// Factory now marks all three deprecated in favor of `permissionRules`:
+// "deprecated, not removed. Existing lists remain respected for
+// backward compatibility. Use permission rules for new policy."
+// (docs.factory.ai/enterprise/llm-safety-and-agent-controls). A rule
+// there needs an `id`, prefix tokens, and `tests` examples the portable
+// string lists do not carry, so the lists stay the emitted form and
+// `x-factory.permissionRules` passes through for the new schema (#1376).
 const (
 	allowlistKey = "commandAllowlist"
 	denylistKey  = "commandDenylist"
