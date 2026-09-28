@@ -120,7 +120,7 @@ Keep it running while you edit specs. Run `agnostic-ai status` for a summary of 
 
 ## More workflows
 
-- [Shell completion](@/docs/installation.md#shell-completion)
+- [Shell completion](@/docs/cli-reference.md#completion)
 - [Add a single spec](@/docs/cli-reference.md#new)
 - [Import an existing AI CLI config](@/docs/migration.md)
 - [Check project status](@/docs/cli-reference.md#status)

@@ -406,6 +406,8 @@
 
 .docs-content > table,
 .docs-content > pre,
+.docs-content > .code-block,
+.docs-content > .install-picker,
 .docs-content > .capability-browser,
 .docs-content > .agent-prompt-guide,
 .docs-content > .docs-index-list {
@@ -543,6 +545,7 @@
   padding: 0;
   background: transparent;
   color: inherit;
+  font-size: inherit;
 }
 
 .docs-content .agent-prompt-guide {
@@ -595,6 +598,83 @@
 /* Inline code scales with its cell, which drops it below a legible size in dense tables. */
 .docs-content table code {
   font-size: 0.78rem;
+}
+
+.install-picker {
+  margin-block: 1.5rem 2.5rem;
+}
+
+.install-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--line);
+}
+
+.install-tabs[hidden] {
+  display: none;
+}
+
+.install-tabs button {
+  min-height: 2.75rem;
+  margin-bottom: -1px;
+  padding: 0.5rem 1rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.install-tabs button:hover {
+  color: var(--ink);
+}
+
+.install-tabs button[aria-selected="true"] {
+  border-bottom-color: var(--accent);
+  color: var(--accent);
+}
+
+.install-tabs button:focus-visible {
+  outline-offset: -2px;
+}
+
+.install-panel + .install-panel {
+  margin-top: 1.75rem;
+}
+
+.install-picker.is-tabbed .install-panel {
+  margin-top: 1.25rem;
+}
+
+.install-panel-title {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.install-picker.is-tabbed .install-panel-title {
+  display: none;
+}
+
+.docs-content .install-command {
+  margin-block: 0.6rem;
+}
+
+/* Copying the command is the whole job here, so the control never waits for a hover. */
+.install-command .code-copy {
+  opacity: 1;
+}
+
+.docs-content .install-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
 }
 
 .capability-browser {
@@ -1287,5 +1367,15 @@
 
   .capability-matrix tr[hidden] {
     display: table-row !important;
+  }
+
+  .install-tabs,
+  .code-copy {
+    display: none !important;
+  }
+
+  .install-panel[hidden],
+  .install-picker.is-tabbed .install-panel-title {
+    display: block !important;
   }
 }

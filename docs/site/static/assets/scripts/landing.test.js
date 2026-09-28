@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { detectOS, init, initOutputSwitch, initReveal, nextTabIndex } = require("./landing.js");
+const { detectOS, init, initInstallPicker, initOutputSwitch, initReveal, nextTabIndex } = require("./landing.js");
 
 test("detects supported desktop operating systems", function () {
   assert.equal(detectOS("macOS", "", 0), "macos");
@@ -171,6 +171,78 @@ test("one feature throwing during init does not leave the tabs dead", function (
   assert.equal(fixture.list.hasAttribute("inert"), false);
   fixture.tabs[3].dispatch("click");
   assert.equal(fixture.tabs[3].getAttribute("aria-selected"), "true");
+});
+
+// The installer picker as the template renders it: the tab strip hidden, the
+// first tab selected, and every panel visible so a reader without the script
+// sees each command.
+function makeInstallPicker(oses) {
+  const list = makeElement({ "data-install-tablist": "" });
+  list.hidden = true;
+  const tabs = [];
+  const panels = [];
+  oses.forEach(function (os, index) {
+    const attributes = { "data-install-tab": "", "aria-selected": index === 0 ? "true" : "false" };
+    if (os) {
+      attributes["data-installer-os"] = os;
+    }
+    const tab = makeElement(attributes);
+    tab.tabIndex = index === 0 ? 0 : -1;
+    tabs.push(tab);
+    panels.push(makeElement({ "data-install-panel": "" }));
+  });
+  const root = makeElement({ "data-install-picker": "" });
+  Object.assign(root, scope([list].concat(tabs, panels)));
+  return { list: list, root: root, tabs: tabs, panels: panels };
+}
+
+function browserOn(platform) {
+  return { navigator: { platform: platform, userAgent: "", maxTouchPoints: 0 } };
+}
+
+test("the installer picker opens the tab for the reader's OS", function () {
+  const fixture = makeInstallPicker(["macos", "linux", "windows", ""]);
+
+  assert.equal(initInstallPicker(scope([fixture.root]), browserOn("Win32")), true);
+
+  assert.equal(fixture.list.hidden, false);
+  assert.equal(fixture.root.classList.contains("is-tabbed"), true);
+  assert.equal(fixture.tabs[2].getAttribute("aria-selected"), "true");
+  assert.equal(fixture.tabs[0].getAttribute("aria-selected"), "false");
+  assert.deepEqual(fixture.panels.map(function (panel) { return panel.hidden; }), [true, true, false, true]);
+});
+
+test("the installer picker keeps the first tab for an OS with no tab of its own", function () {
+  const fixture = makeInstallPicker(["macos", "linux", "windows", ""]);
+
+  initInstallPicker(scope([fixture.root]), browserOn("FreeBSD amd64"));
+
+  assert.equal(fixture.tabs[0].getAttribute("aria-selected"), "true");
+  assert.equal(fixture.panels[0].hidden, false);
+  assert.equal(fixture.panels[3].hidden, true);
+});
+
+test("the installer picker switches panels on click and arrow keys", function () {
+  const fixture = makeInstallPicker(["macos", "linux", "windows", ""]);
+  initInstallPicker(scope([fixture.root]), browserOn("macOS"));
+
+  fixture.tabs[3].dispatch("click");
+  assert.equal(fixture.panels[3].hidden, false);
+  assert.equal(fixture.panels[0].hidden, true);
+
+  fixture.tabs[3].dispatch("keydown", { key: "ArrowRight" });
+  assert.equal(fixture.tabs[0].getAttribute("aria-selected"), "true");
+  assert.equal(fixture.tabs[0].focusCount, 1);
+});
+
+test("an installer picker the script cannot wire keeps every panel visible", function () {
+  const fixture = makeInstallPicker(["macos"]);
+
+  assert.equal(initInstallPicker(scope([fixture.root]), browserOn("macOS")), false);
+
+  assert.equal(fixture.list.hidden, true);
+  assert.equal(fixture.panels[0].hidden, false);
+  assert.equal(initInstallPicker(scope([]), browserOn("macOS")), false);
 });
 
 function makeRevealHarness(reduceMotion) {

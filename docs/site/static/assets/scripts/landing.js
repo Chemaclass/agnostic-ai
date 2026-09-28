@@ -30,15 +30,19 @@
     return "other";
   }
 
+  function browserOS(browser) {
+    var navigator = browser.navigator || {};
+    var userAgentData = navigator.userAgentData || {};
+    return detectOS(userAgentData.platform || navigator.platform, navigator.userAgent, navigator.maxTouchPoints);
+  }
+
   function initHeroInstaller(document, browser) {
     var root = document.querySelector("[data-hero-installer]");
     if (!root) {
       return false;
     }
 
-    var navigator = browser.navigator || {};
-    var userAgentData = navigator.userAgentData || {};
-    var os = detectOS(userAgentData.platform || navigator.platform, navigator.userAgent, navigator.maxTouchPoints);
+    var os = browserOS(browser);
     var option = root.querySelector('[data-installer-os="' + os + '"]');
     if (!option) {
       root.dataset.detectedOs = "other";
@@ -106,6 +110,34 @@
     return -1;
   }
 
+  function selectTab(tabs, panels, index, moveFocus) {
+    tabs.forEach(function (tab, position) {
+      var active = position === index;
+      tab.setAttribute("aria-selected", active ? "true" : "false");
+      tab.tabIndex = active ? 0 : -1;
+      panels[position].hidden = !active;
+    });
+    if (moveFocus) {
+      tabs[index].focus();
+    }
+  }
+
+  function wireTabs(tabs, panels) {
+    tabs.forEach(function (tab, index) {
+      tab.addEventListener("click", function () {
+        selectTab(tabs, panels, index, false);
+      });
+      tab.addEventListener("keydown", function (event) {
+        var target = nextTabIndex(event.key, index, tabs.length);
+        if (target < 0) {
+          return;
+        }
+        event.preventDefault();
+        selectTab(tabs, panels, target, true);
+      });
+    });
+  }
+
   // The output list is a vertical tablist over the generated files. Selection
   // follows click and arrow keys, never hover, and the panes stay grid-stacked
   // so the card keeps one height.
@@ -122,31 +154,7 @@
       return false;
     }
 
-    function select(index, moveFocus) {
-      tabs.forEach(function (tab, position) {
-        var active = position === index;
-        tab.setAttribute("aria-selected", active ? "true" : "false");
-        tab.tabIndex = active ? 0 : -1;
-        panels[position].hidden = !active;
-      });
-      if (moveFocus) {
-        tabs[index].focus();
-      }
-    }
-
-    tabs.forEach(function (tab, index) {
-      tab.addEventListener("click", function () {
-        select(index, false);
-      });
-      tab.addEventListener("keydown", function (event) {
-        var target = nextTabIndex(event.key, index, tabs.length);
-        if (target < 0) {
-          return;
-        }
-        event.preventDefault();
-        select(target, true);
-      });
-    });
+    wireTabs(tabs, panels);
 
     // The template ships the list inert so a reader without this script is
     // never offered four buttons that cannot be pressed. Every tab is wired by
@@ -156,7 +164,39 @@
     return true;
   }
 
-  // One broken feature must not take the other two with it. A throw here is a
+  // The installation page's installer tabs. The template ships the tab strip
+  // hidden and every panel visible, so a reader without this script still
+  // sees each command under its own title. The tab for the reader's OS opens
+  // first; an OS with no tab keeps the template's first one.
+  function initInstallPicker(document, browser) {
+    var root = document.querySelector("[data-install-picker]");
+    if (!root) {
+      return false;
+    }
+
+    var list = root.querySelector("[data-install-tablist]");
+    var tabs = Array.prototype.slice.call(root.querySelectorAll("[data-install-tab]"));
+    var panels = Array.prototype.slice.call(root.querySelectorAll("[data-install-panel]"));
+    if (!list || tabs.length < 2 || tabs.length !== panels.length) {
+      return false;
+    }
+
+    var os = browserOS(browser);
+    var detected = 0;
+    tabs.forEach(function (tab, index) {
+      if (tab.getAttribute("data-installer-os") === os) {
+        detected = index;
+      }
+    });
+
+    wireTabs(tabs, panels);
+    selectTab(tabs, panels, detected, false);
+    list.hidden = false;
+    root.classList.add("is-tabbed");
+    return true;
+  }
+
+  // One broken feature must not take the others with it. A throw here is a
   // bug worth seeing in the console, not a reason to leave the rest of the
   // page dead.
   function guard(browser, step) {
@@ -178,6 +218,9 @@
       return initOutputSwitch(document);
     });
     guard(browser, function () {
+      return initInstallPicker(document, browser);
+    });
+    guard(browser, function () {
       return initReveal(document, browser);
     });
   }
@@ -186,6 +229,7 @@
     detectOS: detectOS,
     init: init,
     initHeroInstaller: initHeroInstaller,
+    initInstallPicker: initInstallPicker,
     initOutputSwitch: initOutputSwitch,
     initReveal: initReveal,
     nextTabIndex: nextTabIndex
