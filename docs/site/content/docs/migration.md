@@ -46,7 +46,7 @@ For a separate migration checkpoint, commit the reviewed source specs, `agnostic
 
 `import codex` and `import gemini` retain discovered nested instruction directories as `scope`. `import claude` preserves subdirectories within `.claude/rules/`, but does not import every nested `CLAUDE.md`. For other layouts, create a rule with `new rule <name> --scope <directory>` and copy the instructions into it.
 
-Review and commit the imported source. Then move conflicting hand-authored originals out of their native filenames before syncing:
+Review and commit the imported source, then run `sync`. It replaces a hand-authored original whose text the imported specs hold. A file with a line no spec holds, such as an edit made after the import, stops the run, and the error quotes that line. Move the line into its spec, or set the original aside before syncing:
 
 ```bash
 mv services/payments/AGENTS.md services/payments/AGENTS.md.before-agnostic
