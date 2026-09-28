@@ -16,6 +16,12 @@ func EntryPointRules(b spec.Bundle, target string) spec.Bundle {
 	return emit.EntryPointRules(b, target)
 }
 
+// ScopedDocuments lists the files target writes inside a scope directory,
+// relative to it.
+func ScopedDocuments(cfg *config.Config, target string) []string {
+	return emit.ScopedDocuments(cfg, target)
+}
+
 // ValidateScopedRules preflights scope output against all configured readers.
 // Unlike byte collision policy, semantic scope conflicts cannot use last-wins.
 func ValidateScopedRules(cfg *config.Config, b spec.Bundle, requested []string) error {

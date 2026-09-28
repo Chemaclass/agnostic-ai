@@ -176,13 +176,11 @@ const ledgerReport = "ledger"
 // provenance header or the bytes sync recorded. Kept orphans are
 // reported apart (recordedOrphans), and links and directories never are.
 //
-// With no ledger (a deleted `.sync-state`, or a fresh checkout of a repo
-// that commits its generated files), state.Outputs is empty and there is
-// no recorded output list to check first. The scan falls back to every
-// git-tracked file, trusting the provenance header alone since there is
-// no recorded sum either (#1334). Outside a git work tree, or when git is
-// missing or slow, trackedFiles reports not ok and the scan finds nothing,
-// the same way it already behaves with a ledger and nothing left to sweep.
+// With no `.sync-state` at all (deleted, or a fresh checkout of a repo that
+// commits its generated files), the candidates are the git-tracked files
+// where a configured target writes, and only one that opens with the
+// provenance header counts (#1334). Outside a git work tree the scan finds
+// nothing.
 func leftoverOutputs(cfg *config.Config, emitted map[string]bool) []string {
 	state := readStateFile(".")
 	skip := map[string]bool{}
@@ -193,12 +191,12 @@ func leftoverOutputs(cfg *config.Config, emitted map[string]bool) []string {
 		skip[p] = true
 	}
 	candidates := state.Outputs
-	if len(candidates) == 0 {
-		tracked, ok := trackedFiles(".")
-		if !ok {
+	unledgered := ledgerMissing(".")
+	if unledgered {
+		var ok bool
+		if candidates, ok = unledgeredCandidates(cfg, emitted); !ok {
 			return nil
 		}
-		candidates = tracked
 	}
 	var out []string
 	for _, p := range candidates {
@@ -206,6 +204,12 @@ func leftoverOutputs(cfg *config.Config, emitted map[string]bool) []string {
 			continue
 		}
 		if fi, err := os.Lstat(p); err != nil || !fi.Mode().IsRegular() {
+			continue
+		}
+		if unledgered {
+			if ownedWithoutLedger(p) {
+				out = append(out, p)
+			}
 			continue
 		}
 		data, err := os.ReadFile(p)
@@ -637,10 +641,16 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 		if len(r.Leftover) == 0 {
 			continue
 		}
-		// The same ownership guard as the orphan sweep in sync.
+		// The same ownership guard as the orphan sweep in sync. With no
+		// ledger, a mention of the marker is no proof: RemoveOwned would
+		// take one, so the header must still open the file.
 		sums := readStateFile(".").OutputSums
+		unledgered := ledgerMissing(".")
 		pruned := map[string]bool{}
 		for _, p := range r.Leftover {
+			if unledgered && !ownedWithoutLedger(p) {
+				continue
+			}
 			removed, err := sess.RemoveOwned(p, sums[p], false)
 			if err != nil {
 				return written, err
