@@ -445,10 +445,14 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		mainSess.KeepEditsSince(keep)
 	}
 	var sessions []*adapters.Session
+	// writesCompleted marks the point past which a returned error (the
+	// --untrack index cleanup, below) is a real, already-written sync
+	// reported as failed, never grounds to undo the writes themselves.
+	var writesCompleted bool
 	if !dryRun {
 		mainSess.StartTransaction()
 		defer func() {
-			if retErr != nil {
+			if retErr != nil && !writesCompleted {
 				fmt.Fprintf(os.Stderr, "! sync failed; rolling back partial writes\n")
 				if rbErr := rollbackSessions(sessions); rbErr != nil {
 					fmt.Fprintf(os.Stderr, "! rollback: %v\n", rbErr)
@@ -605,6 +609,10 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		summaryf("%s would sync %d target%s · %s\n", tick(), len(effectiveTargets), plural(len(effectiveTargets)), shortDuration(time.Since(start)))
 		return nil
 	}
+	// Every write this sync makes is done; an --untrack failure below
+	// reports as a failed run but never undoes them (see writesCompleted
+	// above).
+	writesCompleted = true
 	sums := specSums(cfg, b)
 	report.specs = diffSpecSums(prev.SpecSums, sums)
 	// A partial run leaves other targets on older specs; keep the old
@@ -614,12 +622,13 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		ledger.specSums = sums
 	}
 	trackedIgnored := gitTrackedAndIgnored(root, ledger.outputs)
+	var untrackErr error
 	if untrack && len(trackedIgnored) > 0 {
-		if err := gitRmCached(root, trackedIgnored); err != nil {
-			fmt.Fprintf(os.Stderr, "! untrack: %v\n", err)
-		} else {
-			report.untracked = trackedIgnored
-			trackedIgnored = nil
+		removed, err := gitRmCached(root, trackedIgnored)
+		report.untracked = removed
+		trackedIgnored = removeMatching(trackedIgnored, removed)
+		if err != nil {
+			untrackErr = fmt.Errorf("untrack: %w", err)
 		}
 	}
 	report.trackedIgnored = trackedIgnored
@@ -632,7 +641,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if verbosity >= levelDefault {
 		report.render(logOut, len(effectiveTargets), time.Since(start), verbose)
 	}
-	return nil
+	return untrackErr
 }
 
 // unmanagedSkips merges the user-owned paths every session refused to
@@ -837,13 +846,13 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	}
 	trackedIgnored := gitTrackedAndIgnored(root, ledger.outputs)
 	if untrack && len(trackedIgnored) > 0 {
-		if err := gitRmCached(root, trackedIgnored); err != nil {
+		removedFromIndex, err := gitRmCached(root, trackedIgnored)
+		for _, p := range removedFromIndex {
+			out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: p, Action: "untracked"})
+		}
+		trackedIgnored = removeMatching(trackedIgnored, removedFromIndex)
+		if err != nil {
 			out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: fmt.Sprintf("untrack: %v", err)})
-		} else {
-			for _, p := range trackedIgnored {
-				out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: p, Action: "untracked"})
-			}
-			trackedIgnored = nil
 		}
 	}
 	for _, p := range trackedIgnored {

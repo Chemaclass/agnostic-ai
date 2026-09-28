@@ -150,7 +150,7 @@ func installGlobalPreCommitHook(dir string, out io.Writer) error {
 	if info, err := os.Stat(top); err != nil || !os.SameFile(info, home) {
 		return fmt.Errorf("%s is not the root of a git repository (it sits inside %s); keep the global home in its own repository", source, top)
 	}
-	hooksDir, err := gitHooksDir(source)
+	hooksDir, err := gitHooksDir(source, globalHook)
 	if err != nil {
 		return err
 	}
@@ -168,11 +168,16 @@ func installGlobalPreCommitHook(dir string, out io.Writer) error {
 
 // gitHooksDir returns the hooks directory of the repository at dir, and
 // refuses when core.hooksPath sends git elsewhere: a hook written there
-// would never run, and a user-level hooksPath would run it in every repo.
-func gitHooksDir(dir string) (string, error) {
+// would never run, and a user-level hooksPath would run it in every
+// repo. Resolved through git rev-parse rather than a filesystem walk
+// for a `.git` directory, so it works from a linked worktree too, where
+// `.git` is a file naming the common dir, not a directory (#1330
+// review): hooks always run from the common dir, shared by every
+// worktree, regardless of which one dir is.
+func gitHooksDir(dir string, block hookBlock) (string, error) {
 	commonDir, err := gitRevParse(dir, "--git-common-dir")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("%s is not inside a git work tree; run `git init` first", dir)
 	}
 	hooksDir := absFrom(dir, filepath.Join(commonDir, "hooks"))
 	gitPath, err := gitRevParse(dir, "--git-path", "hooks")
@@ -181,7 +186,7 @@ func gitHooksDir(dir string) (string, error) {
 	}
 	if active := absFrom(dir, gitPath); !sameHooksDir(active, hooksDir) {
 		value, origin := gitHooksPathSetting(dir)
-		return "", fmt.Errorf("core.hooksPath is %s (set in %s), so git runs hooks from %s, not %s; unset it, or add these lines to the pre-commit hook there by hand:\n\n%s", value, origin, active, hooksDir, globalHook.text())
+		return "", fmt.Errorf("core.hooksPath is %s (set in %s), so git runs hooks from %s, not %s; unset it, or add these lines to the %s hook there by hand:\n\n%s", value, origin, active, hooksDir, block.file, block.text())
 	}
 	return hooksDir, nil
 }
@@ -260,13 +265,29 @@ func installPreCommitHook(root string, shared bool, out, warn io.Writer) error {
 
 const sharedHooksPath = ".githooks"
 
-// installSharedHook writes .githooks/<block.file> at the worktree root
-// and sets core.hooksPath so the hook lives in the repo and runs for
-// every collaborator.
-func installSharedHook(dir string, block hookBlock, out, warn io.Writer) error {
-	top, err := gitRevParse(dir, "--show-toplevel")
+// mainWorktreeToplevel returns the root of the repository's main
+// working tree, from dir, whether dir sits in the main worktree or a
+// linked one. The common dir (`--git-common-dir`) is always the main
+// worktree's own `.git`, in both cases, so its parent is the answer.
+func mainWorktreeToplevel(dir string) (string, error) {
+	commonDir, err := gitRevParse(dir, "--path-format=absolute", "--git-common-dir")
 	if err != nil {
-		return fmt.Errorf("%s is not inside a git work tree; run `git init` first", dir)
+		return "", fmt.Errorf("%s is not inside a git work tree; run `git init` first", dir)
+	}
+	return filepath.Dir(commonDir), nil
+}
+
+// installSharedHook writes .githooks/<block.file> at the main worktree's
+// root and sets core.hooksPath so the hook lives in the repo and runs
+// for every collaborator. Always the main worktree's root, never the
+// invoking one's: core.hooksPath is one repository-level setting every
+// worktree resolves against its own directory, so a copy written under
+// a linked worktree would leave every other worktree, main included,
+// pointed at a hooks directory with nothing in it (#1330 review).
+func installSharedHook(dir string, block hookBlock, out, warn io.Writer) error {
+	top, err := mainWorktreeToplevel(dir)
+	if err != nil {
+		return err
 	}
 	value, origin := gitHooksPathSetting(top)
 	if value != "" && value != sharedHooksPath {
@@ -316,13 +337,13 @@ func activeHooks(top string) ([]string, error) {
 	return names, nil
 }
 
-// installLocalHook writes .git/hooks/<block.file>, scoped to the local clone.
+// installLocalHook writes to the repository's hooks directory: the
+// common dir's, shared by every worktree, not root's own (#1330 review).
 func installLocalHook(root string, block hookBlock, out io.Writer) error {
-	gitDir, err := findGitDir(root)
+	hooksDir, err := gitHooksDir(root, block)
 	if err != nil {
 		return err
 	}
-	hooksDir := filepath.Join(gitDir, "hooks")
 	written, err := writeHookAt(hooksDir, block)
 	if err != nil {
 		return err
@@ -432,23 +453,4 @@ func onlyRedirects(args []string) bool {
 		}
 	}
 	return true
-}
-
-func findGitDir(root string) (string, error) {
-	// Walk up from root looking for .git.
-	abs, err := filepath.Abs(root)
-	if err != nil {
-		return "", err
-	}
-	for dir := abs; ; dir = filepath.Dir(dir) {
-		candidate := filepath.Join(dir, ".git")
-		if fi, err := os.Stat(candidate); err == nil && fi.IsDir() {
-			return candidate, nil
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-	}
-	return "", fmt.Errorf("not a git repository (no .git directory found)")
 }

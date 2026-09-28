@@ -324,17 +324,49 @@ func gitTrackedAndIgnored(root string, candidates []string) []string {
 }
 
 // gitRmCached removes paths from git's index without touching the
-// working tree, batched under the OS argument limit. `sync --untrack`
-// uses it to stop tracking a file its gitignore rule already covers.
-func gitRmCached(root string, paths []string) error {
+// working tree, batched under the OS argument limit, and returns the
+// paths actually removed. `sync --untrack` uses it to stop tracking a
+// file its gitignore rule already covers.
+//
+// `git rm --cached` validates every pathspec in one invocation before
+// touching the index: a single path it cannot remove (already
+// untracked, a race, a permission error) fails the whole batch with
+// nothing removed. A failed batch is retried one path at a time so a
+// real partial failure still removes what it can; the returned error
+// names exactly the paths that could not be removed, and every path
+// not in that error is in removed.
+func gitRmCached(root string, paths []string) (removed []string, err error) {
+	var failed []string
 	for start := 0; start < len(paths); start += gitPathsPerCall {
 		end := min(start+gitPathsPerCall, len(paths))
-		args := append([]string{"--no-optional-locks", "rm", "--cached", "--quiet", "--"}, paths[start:end]...)
-		cmd := exec.Command("git", args...)
-		cmd.Dir = root
-		if out, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("git rm --cached in %s: %w: %s", root, err, strings.TrimSpace(string(out)))
+		batch := paths[start:end]
+		if rmCached(root, batch) == nil {
+			removed = append(removed, batch...)
+			continue
 		}
+		for _, p := range batch {
+			if rmCached(root, []string{p}) == nil {
+				removed = append(removed, p)
+			} else {
+				failed = append(failed, p)
+			}
+		}
+	}
+	if len(failed) > 0 {
+		return removed, fmt.Errorf("git rm --cached in %s: %d of %d path(s) could not be untracked: %s", root, len(failed), len(paths), strings.Join(failed, " "))
+	}
+	return removed, nil
+}
+
+// rmCached runs one `git rm --cached` invocation over paths.
+// --literal-pathspecs keeps a path holding `*`, `?`, `[`, or a leading
+// `:` from being read as a glob or a magic pathspec.
+func rmCached(root string, paths []string) error {
+	args := append([]string{"--no-optional-locks", "--literal-pathspecs", "rm", "--cached", "--quiet", "--"}, paths...)
+	cmd := exec.Command("git", args...)
+	cmd.Dir = root
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
 	}
 	return nil
 }

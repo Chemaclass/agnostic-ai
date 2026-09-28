@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -141,6 +143,66 @@ func TestSyncUntrack_RejectsModesThatDoNotWrite(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), "--untrack") {
 			t.Errorf("--untrack %s: err = %v, want a flag conflict naming --untrack", flag, err)
 		}
+	}
+}
+
+// fakeGitFailingRmCached writes a `git` shim on a fresh PATH entry that
+// refuses any `rm --cached` invocation and forwards everything else to
+// the real git, so a sync's other git calls (ls-files, status) keep
+// working normally.
+func fakeGitFailingRmCached(t *testing.T) string {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("the fake git is a sh script")
+	}
+	realGit, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bin := t.TempDir()
+	fake := "#!/bin/sh\n" +
+		"for a in \"$@\"; do\n" +
+		"  if [ \"$a\" = \"--cached\" ]; then echo fake-git: rm --cached refused >&2; exit 1; fi\n" +
+		"done\n" +
+		"exec \"" + realGit + "\" \"$@\"\n"
+	if err := os.WriteFile(filepath.Join(bin, "git"), []byte(fake), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return bin
+}
+
+// When git rm --cached fails, sync --untrack must exit non-zero,
+// report the file as still tracked (never falsely as untracked), and
+// leave the rest of the sync's writes in place rather than rolling
+// them back (#1330 review).
+func TestSyncUntrack_FailureReturnsErrorKeepsAccurateReportAndDoesNotRollBack(t *testing.T) {
+	dir, _ := untrackFixture(t)
+	logBuf := captureLogOut(t)
+	entry := filepath.Join(dir, "CLAUDE.md")
+	rule := filepath.Join(dir, ".claude", "rules", "r1.md")
+	entryBefore := readFile(t, entry)
+	ruleBefore := readFile(t, rule)
+
+	bin := fakeGitFailingRmCached(t)
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	err := runSyncArgs(t, "--untrack")
+
+	if err == nil {
+		t.Fatal("sync --untrack must exit non-zero when git rm --cached fails")
+	}
+	out := logBuf.String()
+	if !strings.Contains(out, "tracked despite being ignored") {
+		t.Errorf("the file should still be reported as tracked, got:\n%s", out)
+	}
+	if strings.Contains(out, "untracked") {
+		t.Errorf("nothing should be reported as untracked when the removal failed, got:\n%s", out)
+	}
+	if got := readFile(t, entry); got != entryBefore {
+		t.Errorf("CLAUDE.md must not be rolled back: got %q, want %q", got, entryBefore)
+	}
+	if got := readFile(t, rule); got != ruleBefore {
+		t.Errorf(".claude/rules/r1.md must not be rolled back: got %q, want %q", got, ruleBefore)
 	}
 }
 
