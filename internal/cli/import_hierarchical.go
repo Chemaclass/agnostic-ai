@@ -83,6 +83,18 @@ func hierarchicalRulesText(f hierarchicalFile, raw string) (text string, ok bool
 	return reduceToGeneratedRules(raw), true
 }
 
+// sectionsPreamble returns the text above the first ## of a main file,
+// or "" when that is only a title and the intro line older syncs wrote.
+// It becomes a rule of its own so a section split does not drop it.
+func sectionsPreamble(text string) string {
+	preamble, _ := splitH2Sections(text)
+	rest := mergedDocTitleRE.ReplaceAllString(preamble, "")
+	if strings.TrimSpace(mergedDocPreambleRE.ReplaceAllString(rest, "")) == "" {
+		return ""
+	}
+	return preamble
+}
+
 // wholeFileRuleNames names the rule a whole main file becomes, keyed by
 // its globs. A nested file takes its scope's last directory when no
 // other scope ends the same way, the whole scope path otherwise (`api`,
