@@ -4,6 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
   chooseTarget,
+  takenElsewhere,
   compareRows,
   parseSelection,
   resultText,
@@ -62,6 +63,12 @@ test("choosing a target shown in another column swaps the two", function () {
   assert.deepEqual(chooseTarget(["claude", "codex"], 0, "codex"), ["codex", "claude"]);
   assert.deepEqual(chooseTarget(["claude", "codex", "cursor"], 2, "claude"), ["cursor", "codex", "claude"]);
   assert.deepEqual(chooseTarget(["claude", "codex"], 1, "aider"), ["claude", "aider"]);
+});
+
+test("a column cannot pick a target another column shows", function () {
+  assert.deepEqual(takenElsewhere(["claude", "codex"], 0), ["codex"]);
+  assert.deepEqual(takenElsewhere(["claude", "codex"], 2), ["claude", "codex"]);
+  assert.deepEqual(takenElsewhere(["claude", "codex", "cursor"], 1), ["claude", "cursor"]);
 });
 
 test("the third column is optional and never repeats another column", function () {

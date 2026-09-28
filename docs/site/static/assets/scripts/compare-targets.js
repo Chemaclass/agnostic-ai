@@ -97,6 +97,13 @@
     return next;
   }
 
+  // The targets another column already shows, which this slot must not pick.
+  function takenElsewhere(ids, slot) {
+    return ids.filter(function (id, index) {
+      return id && index !== slot;
+    });
+  }
+
   function selectedTargets(data, ids) {
     return ids.map(function (id) {
       return data.targets.find(function (target) {
@@ -335,6 +342,10 @@
 
     function renderControls() {
       selects.forEach(function (select, index) {
+        const taken = takenElsewhere(ids, index);
+        Array.from(select.options).forEach(function (option) {
+          option.disabled = option.value !== "" && taken.includes(option.value);
+        });
         select.value = ids[index] || "";
       });
     }
@@ -402,6 +413,7 @@
     parseSelection: parseSelection,
     resultText: resultText,
     serializeSelection: serializeSelection,
-    summarize: summarize
+    summarize: summarize,
+    takenElsewhere: takenElsewhere
   };
 });
