@@ -1,0 +1,18 @@
+{# Rendered straight into markdown content, so the output must never contain a
+   blank or whitespace-only line: markdown would close the HTML block there. #}
+{% component install_picker() %}{% set landing = load_data(path="data/landing.toml") %}
+<section class="install-picker" data-install-picker aria-label="Install agnostic-ai">
+  <div class="install-tabs" role="tablist" aria-label="Installer" data-install-tablist hidden>
+    {%- for installer in landing.workflow.installers %}
+    <button type="button" role="tab" id="install-tab-{{ installer.id }}" aria-controls="install-panel-{{ installer.id }}" aria-selected="{% if loop.first %}true{% else %}false{% endif %}" tabindex="{% if loop.first %}0{% else %}-1{% endif %}" data-install-tab{% if installer.recommend_for %} data-installer-os="{{ installer.recommend_for }}"{% endif %}>{{ installer.tab }}</button>
+    {%- endfor %}
+  </div>
+  {%- for installer in landing.workflow.installers %}
+  <div class="install-panel" role="tabpanel" id="install-panel-{{ installer.id }}" aria-labelledby="install-tab-{{ installer.id }}" data-install-panel>
+    <p class="install-panel-title">{{ installer.tab }}</p>
+    <div class="code-block install-command" data-copy-container><pre><code>{{ installer.command }}</code></pre><button type="button" class="code-copy" data-copy aria-label="Copy {{ installer.label }} install command">Copy</button></div>
+    <p class="install-note">{{ installer.note | markdown(inline=true) | safe }}</p>
+  </div>
+  {%- endfor %}
+</section>
+{% endcomponent install_picker %}

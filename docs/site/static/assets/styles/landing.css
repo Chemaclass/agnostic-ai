@@ -508,281 +508,59 @@ main > section[id] {
   color: var(--accent);
 }
 
-/* The targets fan: one source, and a rail out to the directory each tool
-   reads. It says what the table under it says, so it is aria-hidden.
-
-   The fan is sized from its own box, not the viewport: .target-fan is the
-   container, and --len is the longest rail that leaves room for the source
-   and the widest endpoint label. That label renders at 112px, and the arm
-   sits 3px out with an 8px gap before the text. The source margins give the
-   fan its height and centre the whole group across the row. */
-.target-fan {
-  --source: 9rem;
-  --label: 112px;
-  --len: min(24rem, calc(100cqw - var(--source) - var(--label) - 11px));
-
-  container-type: inline-size;
-  margin-top: 1rem;
-}
-
-.target-fan-source {
-  position: relative;
-  width: var(--source);
-  margin-block: calc(var(--len) * 0.4);
-  margin-left: max(0px, calc((100cqw - var(--source) - var(--len) - var(--label) - 11px) / 2));
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--paper);
-  color: var(--accent);
-  font-family: var(--mono);
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-align: center;
-}
-
-/* Rail opacity is the one token base.css does not expose. It lives here rather
-   than in base.css because nothing outside the fan reads it, and it mirrors
-   the three theme selectors base.css already uses.
-
-   It dims the rails and the endpoint dots only, through the colours they are
-   painted with. It is never applied to the group, because the label text is
-   the payload of this animation and has to read as text. */
-:root {
-  --rail-op: 0.72;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --rail-op: 0.62;
-  }
-}
-
-:root[data-theme="dark"] {
-  --rail-op: 0.62;
-}
-
-:root[data-theme="light"] {
-  --rail-op: 0.72;
-}
-
-/* The fan is a child of the source, so its origin IS the source's right edge,
-   in both axes, at every width. */
-.rails {
-  position: absolute;
-  left: 100%;
-  top: 50%;
-  width: 0;
-  height: 0;
-  overflow: visible;
-  pointer-events: none;
-}
-
-/* The rest state is the finished fan: lit rails, dots, and labels. That is
-   what shows without the script and under reduced motion. Once the fan
-   scrolls into view, landing.js marks it revealed and it draws in from there.
-
-   Two layers here. The comet head sweeps the route once and its tail parks
-   as the lit rail. Under it, a faint full-length line ties the rail back to
-   the source, since the comet image only covers the far 62% of the rail. The
-   repeating pulse sits on `::before`, over the top.
-
-   --d is the rail's place in the stagger. The dot, the label and the pulse all
-   read it, so one number per rail keeps the four in step. */
-.rails i {
-  position: absolute;
-  left: 3px;
-  top: 0;
-  display: block;
-  width: var(--len);
-  height: 1px;
-  transform-origin: 0 50%;
-  transform: rotate(var(--a));
-  background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--accent) calc(var(--rail-op) * 20%), transparent) 28%, color-mix(in srgb, var(--accent) calc(var(--rail-op) * 100%), transparent) 88%, transparent 100%) 120% 0 / 62% 100% no-repeat,
-    linear-gradient(color-mix(in srgb, var(--accent) calc(var(--rail-op) * 30%), transparent), color-mix(in srgb, var(--accent) calc(var(--rail-op) * 30%), transparent));
-}
-
-/* `both` holds each keyframe's first state through the stagger delay, so a
-   rail waiting its turn is unlit rather than showing its rest state early. */
-.is-revealed .rails i {
-  animation: travel 1.28s cubic-bezier(0.33, 0.03, 0.18, 1) var(--d, 0s) both;
-}
-
-/* The life the fan keeps after it is drawn: a bright band running the route,
-   origin to endpoint, on its own loop. It carries no text and no dot, so the
-   names never ride on it.
-
-   It starts once the slowest rail has landed (0.56s of stagger plus a 1.28s
-   draw), then keeps the rail's own place in the stagger. */
-.rails i::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--accent) 80%, transparent) 50%, transparent 100%) -45% 0 / 30% 100% no-repeat;
-}
-
-.is-revealed .rails i::before {
-  animation: pulse 2.6s ease-in-out calc(1.9s + var(--d, 0s)) infinite;
-}
-
-/* The endpoint names the directory that tool's config lands in. Directories,
-   not single files: a full sync writes CLAUDE.md and .claude/agents,
-   .claude/rules, .claude/skills, while Cursor gets no root file at all. One
-   root filename per target would have been picking one of four. */
-.rails i em {
-  position: absolute;
-  left: 100%;
-  top: 50%;
+/* Every target by name, one link each, between the lead and the table that
+   compares the top five. Pills are the site's target label, so the list reads
+   as tags rather than as a second navigation. */
+.target-strip {
   display: flex;
-  gap: 7px;
+  flex-wrap: wrap;
   align-items: center;
-
-  /* Translate first, then rotate about the left edge. Counter-rotating about
-     the default centre swings the label away from the dot on a steep rail;
-     pivoting at 0 50% keeps its left edge pinned 8px past the endpoint, on
-     the rail's own axis, whatever the angle. */
-  transform-origin: 0 50%;
-  translate: 8px -50%;
-  rotate: calc(-1 * var(--a));
-  color: var(--ink);
-  font-family: var(--mono);
-  font-size: 12px;
-  font-weight: 500;
-  font-style: normal;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
+  gap: 0.75rem 1rem;
+  margin-top: 2rem;
 }
 
-.is-revealed .rails i em {
-  animation: tag 1.28s cubic-bezier(0.33, 0.03, 0.18, 1) var(--d, 0s) both;
-}
-
-.rails i em b {
+.target-strip-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
   color: var(--accent);
-  font-weight: 400;
+  font-family: var(--mono);
+  font-size: 0.86rem;
+  font-weight: 700;
 }
 
-/* The destination dot. It pops once and then holds, because held means
-   synced. It sits out the pulse for the same reason the label does. */
-.rails i::after {
-  content: "";
-  position: absolute;
-  right: 0;
-  top: 50%;
-  width: 7px;
-  height: 7px;
-  margin: -3.5px -3.5px 0 0;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--accent) calc(var(--rail-op) * 100%), transparent);
-  opacity: 0.9;
+.target-strip-source svg {
+  width: 1.5rem;
+  flex: none;
 }
 
-.is-revealed .rails i::after {
-  animation: land 1.28s cubic-bezier(0.33, 0.03, 0.18, 1) var(--d, 0s) both;
+.target-strip-list {
+  display: flex;
+  flex: 1 1 32rem;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-/* Four rails name a target and a fifth counts the rest. Which targets get a
-   rail comes from the data: an output sets `rail = false` to keep its tab and
-   stay out of the fan. The spread is even about the source so the fan reads
-   as one row of targets, and the delays fire from the middle outward. */
-.rails i:nth-of-type(1) {
-  --a: -22deg;
-  --d: 0.42s;
+.target-strip-list a {
+  min-height: 1.75rem;
+  display: inline-flex;
+  align-items: center;
+  padding-inline: 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  text-decoration: none;
 }
 
-.rails i:nth-of-type(2) {
-  --a: -11deg;
-  --d: 0.14s;
-}
-
-.rails i:nth-of-type(3) {
-  --a: 0deg;
-  --d: 0s;
-}
-
-.rails i:nth-of-type(4) {
-  --a: 11deg;
-  --d: 0.28s;
-}
-
-.rails i:nth-of-type(5) {
-  --a: 22deg;
-  --d: 0.56s;
-}
-
-/* Percent background-position is relative to (rail minus image), not the rail,
-   so with a 62% image the usable range is 38%. -144% puts the bright head on
-   the origin and 120% puts it on the endpoint, where the tail parks as the lit
-   route. Rewriting these as 0% to 100% parks the head mid-rail. The faint
-   line under it fills the rail, so no position moves it.
-
-   The three draw-in keyframes share one 1.28s clock so their percentages read
-   against each other: rail at 0.90s, dot at 0.96s, label at 1.15s. Every one
-   of them ends on the rest state above. */
-@keyframes travel {
-  0% {
-    background-position: -144% 0;
-  }
-
-  70%,
-  100% {
-    background-position: 120% 0;
-  }
-}
-
-@keyframes land {
-  0%,
-  60% {
-    opacity: 0;
-    transform: scale(0.55);
-  }
-
-  75% {
-    opacity: 1;
-    transform: scale(1.45);
-  }
-
-  95%,
-  100% {
-    opacity: 0.9;
-    transform: scale(1);
-  }
-}
-
-@keyframes tag {
-  0%,
-  65% {
-    opacity: 0;
-  }
-
-  90%,
-  100% {
-    opacity: 1;
-  }
-}
-
-/* The pulse runs on a 30% image, so the usable position range is 70%: -45%
-   holds it clear of the origin and 145% clear of the endpoint. It crosses in
-   the first 1.6s and waits out the remaining 1s parked off the far end, which
-   is why it needs no opacity of its own. Changing the loop length means
-   recomputing this percentage, or the crossing changes speed with it. */
-@keyframes pulse {
-  0% {
-    background-position: -45% 0;
-  }
-
-  61.5%,
-  100% {
-    background-position: 145% 0;
-  }
-}
-
-/* Under 480px the rails would be shorter than the labels they carry. A
-   squeezed fan is worse than none, and the table under it names the targets. */
-@media (max-width: 479px) {
-  .target-fan {
-    display: none;
-  }
+.target-strip-list a:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .capability-table-wrap {
@@ -902,6 +680,252 @@ main > section[id] {
 .capability-table tbody tr:last-child th,
 .capability-table tbody tr:last-child td {
   border-bottom: 0;
+}
+
+/* The source tree: the folder as a listing on the left, and the selected
+   entry's source file and native outputs on the right. Every pane shares one
+   grid cell, as in the output switch, so the section keeps the height of the
+   tallest entry whichever one is open. */
+.source-tree {
+  display: grid;
+  grid-template-columns: minmax(15rem, 20rem) minmax(0, 1fr);
+  align-items: start;
+  gap: 1.5rem 2.5rem;
+  margin-top: 2.25rem;
+}
+
+.source-tree-nav {
+  min-width: 0;
+}
+
+.source-tree-root {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.4rem;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.source-tree-root svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex: none;
+  color: var(--accent);
+}
+
+.source-tree-list {
+  display: grid;
+  margin-left: 0.5rem;
+  border-left: 1px solid var(--line);
+}
+
+.source-tree-entry {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 2.4rem;
+  padding: 0.5rem 0.7rem 0.5rem 1.35rem;
+  border: 0;
+  border-radius: 0 8px 8px 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  text-align: left;
+  appearance: none;
+  cursor: pointer;
+}
+
+/* The branch from the trunk to the entry. */
+.source-tree-entry::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 0.9rem;
+  border-top: 1px solid var(--line);
+}
+
+.source-tree-hint {
+  color: var(--muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.source-tree-entry:hover {
+  background: var(--surface-quiet);
+  color: var(--ink);
+}
+
+/* Selection follows click and arrow keys only, as in the output switch. */
+.source-tree-entry[aria-selected="true"] {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+.source-tree-entry[aria-selected="true"]::before {
+  border-top-color: var(--accent);
+}
+
+.source-tree-entry[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  top: 0.3rem;
+  bottom: 0.3rem;
+  left: -1px;
+  border-left: 2px solid var(--accent);
+}
+
+.source-tree-entry[aria-selected="true"] .source-tree-name {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.source-tree-list[inert] .source-tree-entry {
+  cursor: default;
+}
+
+.source-tree-list[inert] .source-tree-entry:not([aria-selected="true"]):hover {
+  background: transparent;
+  color: var(--ink-soft);
+}
+
+.source-tree-more {
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.source-tree-panels {
+  display: grid;
+  min-width: 0;
+}
+
+.source-tree-panel {
+  grid-area: 1 / 1;
+  display: grid;
+  align-content: start;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.source-tree-panel[hidden] {
+  display: grid;
+  visibility: hidden;
+}
+
+.source-tree-summary {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.02rem;
+  line-height: 1.55;
+}
+
+/* Wrap rather than scroll, for the same reason as the transform card. */
+.source-tree pre {
+  margin: 0;
+  padding: 0.8rem 0.9rem;
+  color: var(--slab-ink);
+  font-size: 0.76rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.source-tree pre code {
+  padding: 0;
+  background: none;
+  color: inherit;
+  font-size: inherit;
+}
+
+.source-tree-label {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.69rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.source-tree-outputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.source-tree-outputs li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.34rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-quiet);
+}
+
+.source-tree-outputs svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  flex: none;
+  color: var(--good);
+}
+
+.source-tree-outputs code {
+  padding: 0;
+  background: none;
+  color: var(--ink-soft);
+  font-size: 0.74rem;
+  overflow-wrap: anywhere;
+}
+
+.source-tree-docs {
+  justify-self: start;
+  color: var(--accent);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+/* One column under the split, so a tap on an entry must land on a pane close
+   below it: two entries per row halve the list, and the tree lines go since
+   they no longer read as a tree. */
+@media (max-width: 899px) {
+  .source-tree {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .source-tree-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.25rem;
+    margin-left: 0;
+    border-left: 0;
+  }
+
+  .source-tree-entry {
+    padding-left: 0.8rem;
+    border-radius: 8px;
+  }
+
+  .source-tree-entry::before {
+    display: none;
+  }
+}
+
+@media (max-width: 559px) {
+  .source-tree-hint {
+    display: none;
+  }
 }
 
 .target-reference {
@@ -1323,15 +1347,6 @@ main > section[id] {
 @media (prefers-reduced-motion: reduce) {
   .transform-arrow path,
   .output-file {
-    animation: none;
-  }
-
-  /* The finished fan with no pulse: the rest state the draw-in would have
-     reached, reached without any of it. */
-  .is-revealed .rails i,
-  .is-revealed .rails i::before,
-  .is-revealed .rails i::after,
-  .is-revealed .rails i em {
     animation: none;
   }
 

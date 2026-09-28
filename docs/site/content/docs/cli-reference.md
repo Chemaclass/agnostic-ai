@@ -576,7 +576,7 @@ Upgrade the running binary to the latest release with the method it was installe
 | `*\Microsoft\WinGet\*` | `winget upgrade Chemaclass.agnostic-ai` |
 | `*/node_modules/*` | `npm install -g agnostic-ai@latest` |
 | Standalone binary on macOS or Linux | Download the release archive, verify checksum and version, replace the binary atomically. |
-| Standalone binary on Windows | Use the [PowerShell install script](@/docs/installation.md#windows); Windows cannot replace a running executable. |
+| Standalone binary on Windows | Use the [PowerShell install script](@/docs/installation.md); Windows cannot replace a running executable. |
 
 Scoop, WinGet, and `node_modules` markers match case-insensitively.
 

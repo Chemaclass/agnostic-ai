@@ -608,9 +608,9 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	if quickstartIndex < 0 || targetsIndex < 0 || updatesIndex < 0 || quickstartIndex >= targetsIndex || targetsIndex >= updatesIndex {
 		t.Errorf("home sections are not ordered quickstart, targets, updates: %d, %d, %d", quickstartIndex, targetsIndex, updatesIndex)
 	}
-	// The targets fan left the hero install box for the targets section.
-	if fanIndex := strings.Index(home, `class="rails"`); fanIndex < targetsIndex || fanIndex > updatesIndex || strings.Count(home, `class="rails"`) != 1 {
-		t.Errorf("the targets fan is not in the targets section: %d, want between %d and %d", fanIndex, targetsIndex, updatesIndex)
+	// The target strip names every target in the targets section.
+	if stripIndex := strings.Index(home, `class="target-strip-list"`); stripIndex < targetsIndex || stripIndex > updatesIndex || strings.Count(home, `class="target-strip-list"`) != 1 {
+		t.Errorf("the target strip is not in the targets section: %d, want between %d and %d", stripIndex, targetsIndex, updatesIndex)
 	}
 	for _, assetURL := range []string{
 		"https://agnostic-ai.org/assets/styles/base.css",
@@ -1054,21 +1054,21 @@ func TestSiteDocs_FooterPublishesTheReleasedVersion(t *testing.T) {
 }
 
 // TestSiteDocs_EveryLandingInstallerReachesThePage keeps `workflow.installers`
-// from collecting routes the landing never renders.
+// from collecting routes no page renders.
 //
-// The installer tab strip was removed, and `index.html` now reads that list
-// twice: once to pin the hero command to the entry whose id is `script`, and
-// once to emit a hidden span for each entry carrying `recommend_for`. An entry
-// that is neither is unreachable, and it does not look unreachable: #941 spent
-// its whole life waiting on a release-quality gate so npm could be added to
-// this list, and when the entry was finally added the built site came out
-// byte-identical (#991).
+// The installation page's picker renders every entry as a tab, and the
+// landing hero pins its command to the entry whose id is `script`. An entry
+// once sat in this list while the built site came out byte-identical (#991),
+// so the test checks the picker is still on the page and every entry carries
+// what the picker shows.
 func TestSiteDocs_EveryLandingInstallerReachesThePage(t *testing.T) {
 	var landing struct {
 		Workflow struct {
 			Installers []struct {
-				ID           string `toml:"id"`
-				RecommendFor string `toml:"recommend_for"`
+				ID      string `toml:"id"`
+				Tab     string `toml:"tab"`
+				Label   string `toml:"label"`
+				Command string `toml:"command"`
 			} `toml:"installers"`
 		} `toml:"workflow"`
 	}
@@ -1077,6 +1077,15 @@ func TestSiteDocs_EveryLandingInstallerReachesThePage(t *testing.T) {
 	}
 	if len(landing.Workflow.Installers) == 0 {
 		t.Fatal("no installers in the landing data")
+	}
+
+	installation := readRepoFile(t, "docs/site/content/docs/installation.md")
+	if !strings.Contains(installation, "{{ <install_picker /> }}") {
+		t.Fatal("the installation page no longer renders the installer picker, so installers without recommend_for reach no page")
+	}
+	picker := readRepoFile(t, "docs/site/templates/components/install_picker.html")
+	if !strings.Contains(picker, "for installer in landing.workflow.installers") {
+		t.Fatal("the installer picker no longer iterates workflow.installers; update this test to match")
 	}
 
 	// Read the hero's default out of the template rather than repeating it,
@@ -1091,11 +1100,9 @@ func TestSiteDocs_EveryLandingInstallerReachesThePage(t *testing.T) {
 	for _, installer := range landing.Workflow.Installers {
 		if installer.ID == defaultID[1] {
 			seenDefault = true
-			continue
 		}
-		if installer.RecommendFor == "" {
-			t.Errorf("installer %q is neither the hero default (%q) nor recommended for an OS, so nothing renders it; give it a recommend_for or delete it",
-				installer.ID, defaultID[1])
+		if installer.Tab == "" || installer.Label == "" || installer.Command == "" {
+			t.Errorf("installer %q needs a tab, label, and command for the installation page picker", installer.ID)
 		}
 	}
 	if !seenDefault {
