@@ -332,6 +332,7 @@ The block sits between `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai 
 - Output under a rule or review `scope` stays one line per file (`/services/api/AGENTS.md`, `/.github/workflows/AGENTS.md`), so new files in that directory are not ignored, even inside a tool folder such as `.github`.
 - The block always holds `agnostic-ai.local.yaml`, `/.agnostic-ai/.sync-state`, `/.agnostic-ai/packs/`, and `/.agnostic-ai/local/`, seeded by `init` even with `gitignore.enabled: false`. `init`, `sync`, or `packs add` moves old loose copies into the block.
 - A target can add entries of its own, such as [Claude Code](@/docs/targets/claude.md)'s local settings and agent memory.
+- With `allow` entries, a `# Committed although generated (gitignore.allow):` comment sits right before the `!` lines, so the block's "Not committed" note reads as scoped to the ignores above it.
 
 ## Watched inputs
 
