@@ -55,7 +55,7 @@ Use [why](@/docs/trace.md) to trace a generated file to its source, or [graph](@
 
 ## Broken skill references
 
-A skill can sync cleanly while a relative link in it points at nothing. `agnostic-ai doctor --check-references` lists each broken link grouped by source spec and destination, with every affected target on one line. A link that resolves from the project root, such as `apps/engine/src/lib.ts`, counts as valid even when the skill folder itself does not carry that file.
+A skill can sync cleanly while a relative link in it points at nothing. `agnostic-ai doctor --check-references` lists each broken link grouped by source spec and destination, with every affected target on one line. A link that resolves from the project root, such as `apps/engine/src/lib.ts`, counts as valid even when the skill folder itself does not carry that file. That proves the file exists, not that every tool resolves the link from the project root, so prefer a path the agent can open from where it runs. A link that leaves the project, such as `../shared/setup.md`, never counts.
 
 | Cause | Fix |
 |---|---|

@@ -335,6 +335,44 @@ func TestDoctorCheckReferences_ProjectRootFallbackStillFlagsUnresolvedLinks(t *t
 	}
 }
 
+// The project-root fallback never looks outside the project: a `../`
+// link stays broken even when a file of that name sits beside the
+// checkout.
+func TestDoctorCheckReferences_ProjectRootFallbackStaysInsideTheProject(t *testing.T) {
+	parent := t.TempDir()
+	dir := filepath.Join(parent, "repo")
+	writeReferenceProjectFile(t, parent, "shared/notes.md", "outside\n")
+	testutil.Chdir(t, mkdirAll(t, dir))
+	silence(t)
+	writeReferenceProjectFile(t, dir, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeReferenceProjectFile(t, dir, ".agnostic-ai/skills/demo/SKILL.md",
+		"---\nname: demo\ndescription: demo\n---\nSee [notes](../shared/notes.md).\n")
+	syncProject(t)
+
+	out, err := runDoctor(t, "--check-references")
+	if err == nil || !strings.Contains(out, "links to missing ../shared/notes.md") {
+		t.Fatalf("a link leaving the project must stay flagged (err=%v):\n%s", err, out)
+	}
+}
+
+// An ignore entry matches the destination as written, so a
+// percent-encoded link is exempted by the text copied from the source.
+func TestDoctorCheckReferences_IgnoreMatchesTheDestinationAsWritten(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeReferenceProjectFile(t, dir, "agnostic-ai.yaml",
+		"version: 1\ntargets: [claude]\ndoctor:\n  check-references:\n    ignore: [\"gcp%2Durl\"]\n")
+	writeReferenceProjectFile(t, dir, ".agnostic-ai/skills/demo/SKILL.md",
+		"---\nname: demo\ndescription: demo\n---\nSee [GCP](gcp%2Durl).\n")
+	syncProject(t)
+
+	out, err := runDoctor(t, "--check-references")
+	if err != nil {
+		t.Fatalf("an ignore entry copied from the source must match: %v\n%s", err, out)
+	}
+}
+
 // doctor.check-references.ignore exempts placeholder links, such as
 // `url` in an example template, that can never resolve to a real file
 // (#1342).
@@ -389,4 +427,12 @@ func TestDoctorCheckReferences_IssueRepro(t *testing.T) {
 	if err != nil {
 		t.Fatalf("doctor --check-references: %v\n%s", err, out)
 	}
+}
+
+func mkdirAll(t *testing.T, dir string) string {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return dir
 }

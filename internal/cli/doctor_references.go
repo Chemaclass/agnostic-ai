@@ -76,10 +76,14 @@ func collectReferenceFindings(targets []string) (findings []referenceFinding, do
 				// A skill commonly links a project file from the repo
 				// root (e.g. `apps/engine/src/lib.ts`); the emitted copy
 				// sits somewhere else, so try the root before flagging it.
-				if _, err := os.Stat(filepath.FromSlash(l.Dest)); err == nil {
-					continue
+				// IsLocal keeps a `../` link from matching a file beside
+				// the checkout.
+				if rootPath := filepath.FromSlash(l.Dest); filepath.IsLocal(rootPath) {
+					if _, err := os.Stat(rootPath); err == nil {
+						continue
+					}
 				}
-				if cfg.IgnoresReference(l.Dest) {
+				if cfg.IgnoresReference(l.Raw) || cfg.IgnoresReference(l.Dest) {
 					continue
 				}
 				if !attributed {
