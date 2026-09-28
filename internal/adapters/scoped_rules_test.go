@@ -162,3 +162,54 @@ func TestScopedRules_ProtectOwnedPaths(t *testing.T) {
 		})
 	}
 }
+
+// The companion exemption holds only while the Claude adapter replaces
+// the companion; one it keeps would load the scoped text a second time.
+func TestValidateScopedRules_CompanionOnlyWhenClaudeReplacesIt(t *testing.T) {
+	const conflict = "alternate instructions conflict"
+	cases := []struct {
+		name    string
+		targets []string
+		meta    map[string]any
+		cfg     func(*config.Config)
+		wantErr string
+	}{
+		{name: "claude writes the scope", targets: []string{"claude", "codex"}},
+		{name: "claude not a target", targets: []string{"codex"}, wantErr: conflict},
+		{name: "no claude rule in the scope", targets: []string{"claude", "codex"}, meta: map[string]any{"target": "codex"}, wantErr: conflict},
+		{name: "rules file layout", targets: []string{"claude", "codex"}, wantErr: "rules-file", cfg: func(c *config.Config) {
+			c.Outputs = map[string]config.Output{"claude": {RulesFile: "CLAUDE.md"}}
+		}},
+		{name: "unmanaged companion", targets: []string{"claude", "codex"}, wantErr: conflict, cfg: func(c *config.Config) {
+			c.Sync.Unmanaged = []string{"services/api/CLAUDE.md"}
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			if err := os.MkdirAll("services/api", 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile("services/api/CLAUDE.md", []byte("@AGENTS.md\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			meta := map[string]any{"scope": "services/api"}
+			for k, v := range tc.meta {
+				meta[k] = v
+			}
+			b := spec.NewBundle([]spec.Entry{{Kind: spec.KindRule, Name: "api", Body: "Use integer minor units.", Meta: meta}})
+			cfg := &config.Config{Targets: tc.targets}
+			if tc.cfg != nil {
+				tc.cfg(cfg)
+			}
+
+			err := ValidateScopedRules(cfg, b, cfg.Targets)
+			if tc.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tc.wantErr)) {
+				t.Errorf("ValidateScopedRules() = %v, want an error containing %q", err, tc.wantErr)
+			}
+			if tc.wantErr == "" && err != nil {
+				t.Errorf("ValidateScopedRules() = %v, want the companion allowed", err)
+			}
+		})
+	}
+}
