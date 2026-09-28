@@ -23,7 +23,7 @@ test-race:
 test-shell: build
 	bashunit scripts/release-notes_test.sh scripts/target-facts_test.sh scripts/docfetch_test.sh \
 		scripts/install_test.sh scripts/npm-binaries_test.sh scripts/npm-publish_test.sh \
-		scripts/e2e_test.sh scripts/vendor-watch_test.sh
+		scripts/e2e_test.sh scripts/vendor-watch_test.sh scripts/jev-triage_test.sh
 
 # bench runs the permanent sync-hot-path benchmark suite. It is not part
 # of preflight or CI: benchmarks are for local comparison, not pass/fail.
@@ -166,7 +166,7 @@ site-build:
 	./scripts/build-llm-docs.sh $(SITE_OUTPUT_DIR)
 
 site-test:
-	node --test $(SITE_DIR)/static/assets/scripts/updates.test.js $(SITE_DIR)/static/assets/scripts/capability-matrix.test.js $(SITE_DIR)/static/assets/scripts/landing.test.js $(SITE_DIR)/static/assets/scripts/search.test.js $(SITE_DIR)/static/assets/scripts/video.test.js
+	node --test $(SITE_DIR)/static/assets/scripts/updates.test.js $(SITE_DIR)/static/assets/scripts/capability-matrix.test.js $(SITE_DIR)/static/assets/scripts/compare-targets.test.js $(SITE_DIR)/static/assets/scripts/landing.test.js $(SITE_DIR)/static/assets/scripts/search.test.js $(SITE_DIR)/static/assets/scripts/video.test.js
 	go test -count=1 ./tests/integration -run '^(TestTargetUpdates_|TestSiteDocs_|TestZolaPin_)'
 
 site-serve:
