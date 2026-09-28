@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -183,6 +184,12 @@ func importCodexRules(root, dstDir string, src config.Sources, opts importCodexO
 		// When sync inlined the rules into a sentinel block, rebuild the
 		// specs from that block alone and ignore the regenerable pointer
 		// body. A no-op on hand-authored AGENTS.md files.
+		// The root file is the shared instructions mirrorMainFile copies
+		// into AGNOSTIC_AI.md; only a rules block sync appended holds
+		// rules there, or sync would write the text twice.
+		if f.globs == "" && !strings.Contains(string(raw), adapters.RulesStartMarker) {
+			continue
+		}
 		data := []byte(reduceToGeneratedRules(string(raw)))
 		if !opts.shredEnabled() {
 			body := strings.TrimSpace(string(data))
