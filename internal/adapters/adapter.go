@@ -85,7 +85,7 @@ type Session = emit.Session
 func NewSession() *Session { return emit.NewSession() }
 
 // ContentSum mirrors emit.ContentSum: the fingerprint the sync ledger
-// records for outputs that carry no provenance header.
+// records for every output.
 func ContentSum(content string) string { return emit.ContentSum(content) }
 
 // SetWarner redirects capability warnings emitted by adapters. The CLI uses

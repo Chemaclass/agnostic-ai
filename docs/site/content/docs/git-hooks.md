@@ -105,20 +105,22 @@ Commit hooks do not help when generated outputs are gitignored (`gitignore.enabl
 
 A `post-checkout` hook closes the gap. `git checkout`, `git clone`, and `git worktree add` all fire it, so outputs regenerate themselves.
 
+The recipes use `sync --keep-edits`. Git carries an uncommitted edit across a checkout, and a plain `sync` would overwrite a hand edit to a generated file such as `AGENTS.md`. With `--keep-edits`, sync writes every other output, leaves each file edited since the last sync in place, and names it as `~ kept <path>`. Move the edit into `.agnostic-ai/`, then run `agnostic-ai sync`.
+
 lefthook (`lefthook.yml`):
 
 ```yaml
 post-checkout:
   commands:
     sync:
-      run: agnostic-ai sync
+      run: agnostic-ai sync --keep-edits
 ```
 
 Plain git (`.git/hooks/post-checkout`, `chmod +x`):
 
 ```sh
 #!/bin/sh
-agnostic-ai sync
+agnostic-ai sync --keep-edits
 ```
 
 `post-checkout` receives three arguments, and a file checkout passes `0` as the third. Guard on it to limit the hook to branch and worktree switches:
@@ -126,8 +128,10 @@ agnostic-ai sync
 ```sh
 #!/bin/sh
 [ "$3" = "1" ] || exit 0   # 1 = branch checkout, 0 = file checkout
-agnostic-ai sync
+agnostic-ai sync --keep-edits
 ```
+
+The same command works in `post-merge` and in a `postinstall` script.
 
 This needs `agnostic-ai` on `PATH` in every environment that checks out the repo. If some contributors lack the CLI, commit the generated outputs instead of gitignoring them.
 

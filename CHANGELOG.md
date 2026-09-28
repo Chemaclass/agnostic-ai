@@ -6,6 +6,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### Added
+
+- `sync --keep-edits` leaves each output edited since the last sync in place and names it, so a git hook never overwrites a hand edit (#1271).
+
 ### Fixed
 
 - A scoped rule no longer makes the managed `.gitignore` block ignore its whole directory; the block lists the scoped files instead (#1264).

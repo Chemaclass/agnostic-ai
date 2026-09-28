@@ -13,14 +13,16 @@ import (
 // recordLedgerWrites appends every create/update/skip path from writes
 // into session in the order they were emitted, and records each path's
 // content sum in written (an empty sum still marks the path as written
-// this run). Delete actions are skipped because the file no longer belongs to
-// this sync's output set. Callers feed session and written to
+// this run). A hand edit --keep-edits left in place stays with the sum
+// the last sync recorded, so it still reads as edited. Delete actions
+// are skipped because the file no longer belongs to this sync's output
+// set. Callers feed session and written to
 // writeStateFile at end-of-sync so the next run knows the full prior
 // output footprint and can prove ownership of header-less files.
 func recordLedgerWrites(writes []adapters.WrittenFile, session *[]string, written map[string]string) {
 	for _, w := range writes {
 		switch w.Action {
-		case "create", "update", "skip":
+		case "create", "update", "skip", "edited":
 			*session = append(*session, w.Path)
 			written[w.Path] = w.Sum
 		}
@@ -190,6 +192,10 @@ func sweepLedgerOrphans(sess *adapters.Session, prior []string, priorSums map[st
 		if underSymlinkedDir(p) {
 			continue
 		}
+		if sess.KeepsEdits() && editedSince(p, priorSums[p]) && !sess.IsUnmanaged(p) {
+			kept = append(kept, p)
+			continue
+		}
 		ok, err := sess.RemoveOwned(p, priorSums[p], false)
 		if err != nil {
 			return removed, kept, err
@@ -203,6 +209,16 @@ func sweepLedgerOrphans(sess *adapters.Session, prior []string, priorSums map[st
 		}
 	}
 	return removed, kept, nil
+}
+
+// editedSince reports whether the file at path no longer holds the bytes
+// whose sum the last sync recorded. No recorded sum proves no edit.
+func editedSince(path, sum string) bool {
+	if sum == "" {
+		return false
+	}
+	data, err := os.ReadFile(path)
+	return err == nil && adapters.ContentSum(string(data)) != sum
 }
 
 // underSymlinkedDir reports whether any directory between path and the

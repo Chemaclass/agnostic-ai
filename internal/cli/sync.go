@@ -16,7 +16,7 @@ import (
 
 func newSyncCmd() *cobra.Command {
 	var targets, only, except []string
-	var dryRun, check, plan, backup, watch, watchPoll, jsonOut, allTargets, diff, global bool
+	var dryRun, check, plan, backup, keepEdits, watch, watchPoll, jsonOut, allTargets, diff, global bool
 	var gitignoreFlag, format string
 	var jobs int
 
@@ -47,12 +47,18 @@ func newSyncCmd() *cobra.Command {
   # Back up each existing file to <path>.bak before overwriting
   agnostic-ai sync --backup
 
+  # From a post-checkout hook: leave hand-edited outputs in place and name them
+  agnostic-ai sync --keep-edits
+
   # Structured per-target diff (added/changed counts) without writing
   agnostic-ai sync --plan
 
   # Machine-readable output for CI dashboards and editor extensions
   agnostic-ai sync --json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if keepEdits && (check || plan || watch || global) {
+				return errs.Coded(errs.CodeFlagConflict, "--keep-edits cannot be combined with --check, --plan, --watch, or --global")
+			}
 			if global {
 				return runGlobalSync(cmd, globalSyncOptions{targets: targets, only: only, except: except, dryRun: dryRun, check: check, backup: backup, plan: plan, watch: watch, watchPoll: watchPoll, jsonOut: jsonOut, allTargets: allTargets, diff: diff, format: format, gitignore: gitignoreFlag, jobs: jobs})
 			}
@@ -132,9 +138,9 @@ func newSyncCmd() *cobra.Command {
 				return watchSync(ctx, 200*time.Millisecond, ".", effective, dryRun, backup, gitignoreFlag, watchPoll, jobs)
 			}
 			if jsonOut {
-				return runSyncJSON(cmd, ".", effective, dryRun, backup, gitignoreFlag, jobs)
+				return runSyncJSON(cmd, ".", effective, dryRun, backup, keepEdits, gitignoreFlag, jobs)
 			}
-			return runSyncOnce(".", effective, dryRun, backup, gitignoreFlag, jobs)
+			return runSyncPass(".", effective, dryRun, backup, keepEdits, gitignoreFlag, jobs)
 		},
 	}
 	cmd.Flags().StringSliceVarP(&targets, "target", "t", nil, "Targets to emit (default: all in config)")
@@ -146,6 +152,7 @@ func newSyncCmd() *cobra.Command {
 	cmd.Flags().StringVar(&format, "format", checkFormatHuman, "With --check, drift report format: 'human' or 'github' (GitHub Actions ::error annotations)")
 	cmd.Flags().BoolVar(&plan, "plan", false, "Show per-target added/changed counts without writing")
 	cmd.Flags().BoolVar(&backup, "backup", false, "Copy each existing target file to <path>.bak before overwriting (consumed by `agnostic-ai revert`; clear leftover .bak with `agnostic-ai cleanup --backups`)")
+	cmd.Flags().BoolVar(&keepEdits, "keep-edits", false, "Leave each output edited since the last sync in place and list it, writing the rest (for post-checkout and post-merge hooks)")
 	cmd.Flags().StringVar(&gitignoreFlag, "gitignore", "", "Override config: 'on' or 'off' to manage the .gitignore block this run.")
 	cmd.Flags().BoolVar(&watch, "watch", false, "Re-emit on spec changes (Ctrl+C to exit)")
 	cmd.Flags().BoolVar(&watchPoll, "watch-poll", false, "Force polling instead of fsnotify (use on filesystems where fsnotify is unreliable, e.g. some network mounts)")

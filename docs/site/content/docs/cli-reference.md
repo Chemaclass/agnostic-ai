@@ -315,6 +315,7 @@ Emit per-target configs, for example `agnostic-ai sync --only claude,cursor`.
 | `--diff` | With `--check`, print a unified diff per drifted file (on-disk vs what sync would write). |
 | `--format <human\|github>` | With `--check`: `human` (default) table or `github` Actions annotations. `--json` wins. |
 | `--backup` | Copy each existing target file to `<path>.bak` before overwriting. Pair with `revert`. |
+| `--keep-edits` | Leave each output edited since the last sync in place, write the rest, and name each kept file as `~ kept <path>`. An edited file the specs no longer produce stays too. Exits 0. For [git hooks](@/docs/git-hooks.md#regenerate-on-checkout). Not with `--check`, `--plan`, `--watch`, or `--global`. |
 | `--gitignore <on\|off>` | Override `gitignore.enabled` for this run. |
 | `--watch` | Stay running and re-emit on changes. Incompatible with `--check`. See [watch mode](#watch-mode). |
 | `--watch-poll` | With `--watch`, force the 200 ms polling backend, for network mounts or container volumes where fsnotify misses events. |
@@ -386,7 +387,7 @@ Output never depends on the value: files, summary counts, JSON, the `.gitignore`
 | `version` | Schema version, currently `"1"`. Breaking changes bump it. |
 | `command` | `"sync"` or `"sync --check"`. |
 | `writes` | Files written (`"create"`, `"update"`), orphans removed (`"delete"`), or, for `--check`, files needing attention (`"missing"`, `"stale"`, `"edited"`, `"orphan"`, `"leftover"`). A `"stale"` file still holds what the last sync wrote and the specs changed; an `"edited"` file changed since the last sync wrote it. A `"leftover"` is a file the last sync wrote and no longer generates, which the next full sync removes; it reports under target `ledger`, since the ledger does not record which target wrote it. |
-| `skipped` | Files already matching (`"skip"`), user-owned (`"unmanaged"`), or edited orphans kept (`"orphan"`). Empty for `--check`. |
+| `skipped` | Files already matching (`"skip"`), user-owned (`"unmanaged"`), edited orphans kept (`"orphan"`), or, with `--keep-edits`, hand edits left in place (`"edited"`). Empty for `--check`. |
 | `errors` | Per-target errors with `target` and `message`. |
 
 `writes` and `skipped` entries have `target`, `path`, `action` (strings), and `bytes` (number), as in `{"target": "claude", "path": "CLAUDE.md", "action": "create", "bytes": 1284}`.
