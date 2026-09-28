@@ -185,6 +185,10 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 // no longer emits.
 const ledgerReport = "ledger"
 
+// unledgeredReportTarget names the drift report for leftovers no ledger
+// proves sync wrote, which sync keeps (unledgeredReport).
+const unledgeredReportTarget = "unledgered"
+
 // leftoverReports lists the files sync no longer emits that are still
 // on disk. The ledger report holds the files the last sync wrote that
 // the next full sync's orphan sweep removes: not user-owned, and still
