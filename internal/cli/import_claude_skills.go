@@ -87,6 +87,9 @@ func importClaudeSkills(root, dstDir string, layout claudeLayout) (int, error) {
 		if err := copyDirTree(skillSrc, skillDst); err != nil {
 			return count, fmt.Errorf("copy skill %s: %w", e.Name(), err)
 		}
+		if err := moveClaudeOnlyKeysInFile(filepath.Join(skillDst, "SKILL.md")); err != nil {
+			return count, err
+		}
 		if codexPresent && !codexHasSkill(root, e.Name()) {
 			if err := injectTargetInSkillMD(filepath.Join(skillDst, "SKILL.md"), "claude"); err != nil {
 				return count, fmt.Errorf("scope skill %s: %w", e.Name(), err)

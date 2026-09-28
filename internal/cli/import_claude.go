@@ -96,6 +96,9 @@ func importFromClaude(root string, src config.Sources, layout claudeLayout) erro
 	case mirrorUnchanged:
 		summaryf("  → %s unchanged (%s matches its fenced view)\n", agnosticMainFile, mainSrc)
 	}
+	if promotedNested {
+		noteNestedClaudeEntryFile(root)
+	}
 	if settingsImport.seeded {
 		summaryf("  → %s seeded from %s/settings.json (carries non-hook settings across re-syncs)\n",
 			claudeOverlayRelPath(), claudeDir)
@@ -112,6 +115,11 @@ func importFromClaude(root string, src config.Sources, layout claudeLayout) erro
 		summaryf("  → %s seeded from %s/%s\n",
 			filepath.Join(agnosticOverlayDir, "claude", h), claudeDir, h)
 	}
+	leftovers, err := claudeFilesNotImported(root, layout, mainSrc)
+	if err != nil {
+		return err
+	}
+	reportClaudeFilesNotImported(leftovers)
 	if err := resolveClaudeNativeRefs(root, src, layout, stopTracking()); err != nil {
 		return err
 	}

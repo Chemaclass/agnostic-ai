@@ -23,7 +23,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Claude Code
 
-- A fresh `import claude` syncs cleanly: permissions reach lint, Codex-ready hooks stay unpinned, `@AGENTS.md` companions work (#1328, #1329, #1336).
+- A fresh `import claude` syncs and lints cleanly, keeps Codex-ready hooks unpinned, and names `.claude/` files to delete (#1327, #1328, #1329, #1336).
 
 #### Gemini CLI
 
