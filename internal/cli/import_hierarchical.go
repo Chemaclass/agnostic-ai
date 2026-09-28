@@ -18,11 +18,11 @@ type hierarchicalFile struct {
 }
 
 // findHierarchicalMainFiles walks root for every file named filename.
-// Hidden directories, common vendor trees, and the project's own
-// agnostic source dirs are skipped so unrelated copies (vendored
-// projects, scaffolds) do not slip in. Used by codex / gemini and
-// any other importer with subtree-scoped main files. Callers read each
-// match through readEntryFile.
+// Hidden directories, common vendor trees, the project's own agnostic
+// source dirs, and what importTree leaves out are skipped so unrelated
+// copies (vendored projects, clones, worktrees) do not slip in. Used by
+// codex / gemini and any other importer with subtree-scoped main files.
+// Callers read each match through readEntryFile.
 func findHierarchicalMainFiles(root, filename string, src config.Sources) ([]hierarchicalFile, error) {
 	var out []hierarchicalFile
 	skipDirs := map[string]bool{"node_modules": true, "vendor": true}
@@ -31,23 +31,28 @@ func findHierarchicalMainFiles(root, filename string, src config.Sources) ([]hie
 			skipDirs[firstSegment(p)] = true
 		}
 	}
+	tree := importTreeFor(root)
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
+		if path == root {
+			return nil
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		rel = filepath.ToSlash(rel)
 		if d.IsDir() {
 			name := d.Name()
-			if path != root && (strings.HasPrefix(name, ".") || skipDirs[name]) {
+			if strings.HasPrefix(name, ".") || skipDirs[name] || tree.skipsDir(rel) {
 				return fs.SkipDir
 			}
 			return nil
 		}
 		if d.Name() != filename {
 			return nil
-		}
-		rel, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
 		}
 		dir := filepath.ToSlash(filepath.Dir(rel))
 		var globs string

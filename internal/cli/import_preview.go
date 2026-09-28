@@ -100,7 +100,8 @@ func runImportInCopy(args []string, inspect func(project, shadow string, rec *im
 	if err := os.Mkdir(shadow, 0o700); err != nil {
 		return rec, fmt.Errorf("%s: %w", shadow, err)
 	}
-	outsideFiles, err := copyImportPreviewTree(project, shadow)
+	tree := loadImportTree(project)
+	copied, err := copyImportPreviewTree(project, shadow)
 	if err != nil {
 		return rec, fmt.Errorf("copy project for preview: %w", err)
 	}
@@ -117,8 +118,13 @@ func runImportInCopy(args []string, inspect func(project, shadow string, rec *im
 	if err != nil {
 		return rec, fmt.Errorf("getwd: %w", err)
 	}
-	importRecording, importSandbox, importSandboxOutsideFiles = rec, sandbox, outsideFiles
-	defer func() { importRecording, importSandbox, importSandboxOutsideFiles = nil, "", nil }()
+	// The copy has no .git to ask, so the walks there leave out what
+	// they would leave out in the project.
+	tree.root, tree.nested = sandbox, copied.nested
+	importRecording, importSandbox, importSandboxOutsideFiles, importRunTree = rec, sandbox, copied.outsideFiles, &tree
+	defer func() {
+		importRecording, importSandbox, importSandboxOutsideFiles, importRunTree = nil, "", nil, nil
+	}()
 
 	runErr := runImportArgs(args)
 	if inspect != nil {
@@ -245,20 +251,29 @@ func isBinary(data []byte) bool {
 	return bytes.IndexByte(data, 0) >= 0 || !utf8.Valid(data)
 }
 
+// previewCopy is what copyImportPreviewTree reports about a copy.
+type previewCopy struct {
+	// outsideFiles holds the copied files that came from outside the
+	// project, relative to the copy.
+	outsideFiles map[string]bool
+	// nested holds the directories, slash-form and relative to the copy,
+	// whose own .git entry the copy dropped.
+	nested map[string]bool
+}
+
 // copyImportPreviewTree copies the project at src into dst for a preview
 // run. It skips .git, which no importer reads. A symlink that resolves
 // inside the project is recreated as a relative link, so the copy keeps
 // the same shape; one that resolves outside is copied by content, so no
 // preview write can reach a file outside the copy. Dangling links, sockets,
-// and devices are skipped. It returns the copied files that came from
-// outside the project, relative to dst.
-func copyImportPreviewTree(src, dst string) (map[string]bool, error) {
+// and devices are skipped.
+func copyImportPreviewTree(src, dst string) (previewCopy, error) {
 	root, err := filepath.EvalSymlinks(src)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", src, err)
+		return previewCopy{}, fmt.Errorf("%s: %w", src, err)
 	}
-	c := previewCopier{root: root, dstRoot: dst, visited: map[string]bool{}, outsideFiles: map[string]bool{}}
-	return c.outsideFiles, c.copyDir(root, dst)
+	c := previewCopier{root: root, dstRoot: dst, visited: map[string]bool{}, outsideFiles: map[string]bool{}, nested: map[string]bool{}}
+	return previewCopy{outsideFiles: c.outsideFiles, nested: c.nested}, c.copyDir(root, dst)
 }
 
 // previewCopier holds the state of one copyImportPreviewTree call.
@@ -270,6 +285,7 @@ type previewCopier struct {
 	visited      map[string]bool
 	outside      bool
 	outsideFiles map[string]bool
+	nested       map[string]bool
 }
 
 func (c previewCopier) copyDir(from, to string) error {
@@ -277,17 +293,18 @@ func (c previewCopier) copyDir(from, to string) error {
 		if err != nil {
 			return err
 		}
-		if d.Name() == ".git" && path != from {
-			if d.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
 		rel, err := filepath.Rel(from, path)
 		if err != nil {
 			return err
 		}
 		target := filepath.Join(to, rel)
+		if d.Name() == ".git" && path != from {
+			c.noteNested(filepath.Dir(target))
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
 		info, err := d.Info()
 		if err != nil {
 			return fmt.Errorf("%s: %w", path, err)
@@ -308,6 +325,15 @@ func (c previewCopier) copyDir(from, to string) error {
 		}
 		return nil
 	})
+}
+
+func (c previewCopier) noteNested(dir string) {
+	if c.outside {
+		return
+	}
+	if rel, err := filepath.Rel(c.dstRoot, dir); err == nil && rel != "." {
+		c.nested[filepath.ToSlash(rel)] = true
+	}
 }
 
 func (c previewCopier) noteOutsideFile(target string) {

@@ -164,7 +164,7 @@ For many policies, use a separate file: `exec-policies-file: ./.agnostic-ai/code
 | `.codex/config.toml` remaining keys (model, sandbox, approval_policy, notify, `[history]`, `[profiles.*]`, `[model_providers.*]`, …) | `.agnostic-ai/overlays/codex.config.toml` (`hooks` + `mcp_servers` stripped) |
 | `.codex/prompts/*.md` | `<commands>/<name>.md` (byte-identical copy, so user-authored prompts round-trip) |
 
-Slug collisions are deduplicated (`style.md`, `style-2.md`). The walk skips hidden directories, the configured source directories, `node_modules/`, and `vendor/`.
+Slug collisions are deduplicated (`style.md`, `style-2.md`). The walk skips hidden directories, the configured source directories, `node_modules/`, `vendor/`, directories git ignores, and directories with their own `.git` (a clone, submodule, or worktree).
 
 `sync -t codex` writes the overlay back, so every captured key survives a `.codex/` wipe. See [Codex config](#codex-config) for conflicts when both sides set a key. The [exec-policies overlay](#codex-exec-policies) works the same way.
 

@@ -6,6 +6,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### Fixed
+
+- `import` no longer reads config from gitignored directories or nested repositories, such as a cloned repo or an agent worktree (#1265).
+
 ### Site
 
 - The landing's targets section names all 25 targets as links in place of the animated fan.

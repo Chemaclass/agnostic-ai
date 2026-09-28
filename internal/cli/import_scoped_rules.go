@@ -21,14 +21,14 @@ import (
 //
 // Only `.git` (never a legitimate scope, and large enough that walking
 // it is wasted work), the target's own always-unscoped output subtrees
-// (ownOutputSubtrees), and agnostic-ai's own configured source
-// directories are pruned. Pruning matches the exact root-relative path,
-// never a bare directory name at any depth: an earlier draft of both
-// callers skipped every directory named after a source root's first
-// segment (or, for windsurf, a hardcoded `node_modules`/`vendor` list
-// plus any hidden directory), so a legitimate scope that happened to
-// share one of those names, or that sat inside one, never imported
-// back (#1114, #1123).
+// (ownOutputSubtrees), agnostic-ai's own configured source directories,
+// and what importTree leaves out are pruned. Pruning matches the exact
+// root-relative path, never a bare directory name at any depth: an
+// earlier draft of both callers skipped every directory named after a
+// source root's first segment (or, for windsurf, a hardcoded
+// `node_modules`/`vendor` list plus any hidden directory), so a
+// legitimate scope that happened to share one of those names, or that
+// sat inside one, never imported back (#1114, #1123).
 func scopedRulesDirs(root, rulesDir string, ownOutputSubtrees map[string]bool, src config.Sources) ([]string, error) {
 	skipDirs := map[string]bool{".git": true}
 	for k := range ownOutputSubtrees {
@@ -39,6 +39,7 @@ func scopedRulesDirs(root, rulesDir string, ownOutputSubtrees map[string]bool, s
 			skipDirs[filepath.ToSlash(filepath.Clean(p))] = true
 		}
 	}
+	tree := importTreeFor(root)
 	var scopes []string
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -84,7 +85,7 @@ func scopedRulesDirs(root, rulesDir string, ownOutputSubtrees map[string]bool, s
 			return err
 		}
 		rel = filepath.ToSlash(rel)
-		if skipDirs[rel] {
+		if skipDirs[rel] || tree.skipsDir(rel) {
 			return fs.SkipDir
 		}
 		if !dirExists(filepath.Join(path, rulesDir)) {
