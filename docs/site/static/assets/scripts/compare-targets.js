@@ -129,35 +129,36 @@
     });
   }
 
+  // For each compared target, the kinds it covers by default that another
+  // column lacks (ahead), and the kinds another column covers by default
+  // that it lacks (behind), each naming the other columns involved.
   function summarize(data, ids) {
     const targets = selectedTargets(data, ids);
-    const statusesOf = function (index) {
-      return targets.map(function (target) {
-        return target.statuses[index];
-      });
-    };
     const perTarget = targets.map(function (target, position) {
-      const entry = { target: target, only: [], optIn: [], missing: [] };
+      const entry = { target: target, ahead: [], behind: [] };
       data.features.forEach(function (feature, index) {
-        const statuses = statusesOf(index);
-        const mine = statuses[position];
-        const others = statuses.filter(function (_, other) {
+        const mine = target.statuses[index];
+        const others = targets.filter(function (_, other) {
           return other !== position;
+        }).map(function (other) {
+          return { target: other, status: other.statuses[index] };
         });
-        if (writesByDefault(mine) && !others.some(writesByDefault)) {
-          entry.only.push(feature);
+        if (writesByDefault(mine)) {
+          const lacking = others.filter(function (other) { return !writesByDefault(other.status); });
+          if (lacking.length > 0) {
+            entry.ahead.push({ feature: feature, others: lacking });
+          }
+          return;
         }
-        if (mine === "opt-in") {
-          entry.optIn.push(feature);
-        }
-        if (writesNothing(mine) && others.some(function (status) { return !writesNothing(status); })) {
-          entry.missing.push(feature);
+        const leaders = others.filter(function (other) { return writesByDefault(other.status); });
+        if (leaders.length > 0) {
+          entry.behind.push({ feature: feature, status: mine, others: leaders });
         }
       });
       return entry;
     });
     const none = data.features.filter(function (_, index) {
-      return statusesOf(index).every(writesNothing);
+      return targets.every(function (target) { return writesNothing(target.statuses[index]); });
     });
     return { targets: perTarget, none: none };
   }
@@ -185,13 +186,14 @@
     const head = browserRoot.querySelector("[data-compare-head]");
     const body = browserRoot.querySelector("[data-compare-body]");
     const summary = browserRoot.querySelector("[data-compare-summary]");
+    const summarySection = browserRoot.querySelector("[data-compare-summary-section]");
     const noneLine = browserRoot.querySelector("[data-compare-none]");
     const result = browserRoot.querySelector("[data-compare-result]");
     const notice = browserRoot.querySelector("[data-compare-notice]");
     const empty = browserRoot.querySelector("[data-compare-empty]");
     const fallback = browserRoot.querySelector("[data-compare-fallback]");
     const diffOnly = browserRoot.querySelector("[data-compare-diff-only]");
-    if (!payload || !form || !head || !body || !summary || !noneLine || !result || !notice || !empty || !diffOnly) {
+    if (!payload || !form || !head || !body || !summary || !summarySection || !noneLine || !result || !notice || !empty || !diffOnly) {
       return false;
     }
 
@@ -294,18 +296,39 @@
       }));
     }
 
-    function appendLinks(parent, features, fallbackText) {
-      if (features.length === 0) {
-        parent.appendChild(document.createTextNode(fallbackText + "."));
-        return;
-      }
-      features.forEach(function (feature, index) {
-        if (index > 0) {
-          parent.appendChild(document.createTextNode(", "));
-        }
-        parent.appendChild(link(feature.href, feature.label));
+    function names(others) {
+      return listNames(others.map(function (other) { return other.target.name; }));
+    }
+
+    // "Codex needs a config key; Junie gets no output."
+    function appendLacking(parent, lacking) {
+      const optIn = lacking.filter(function (other) { return other.status === "opt-in"; });
+      const nothing = lacking.filter(function (other) { return other.status !== "opt-in"; });
+      optIn.forEach(function (other, index) {
+        parent.appendChild(document.createTextNode((index > 0 ? "; " : "") + other.target.name + " needs a "));
+        parent.appendChild(link(other.target.href + "#config-keys", "config key"));
       });
+      if (nothing.length > 0) {
+        const verb = nothing.length > 1 ? " get no output" : " gets no output";
+        parent.appendChild(document.createTextNode((optIn.length > 0 ? "; " : "") + names(nothing) + verb));
+      }
       parent.appendChild(document.createTextNode("."));
+    }
+
+    function kindItem(feature) {
+      const item = element("li");
+      item.appendChild(link(feature.href, feature.label));
+      item.appendChild(document.createTextNode(": "));
+      return item;
+    }
+
+    function summaryList(title, items) {
+      const fragment = document.createDocumentFragment();
+      fragment.appendChild(element("p", "compare-summary-label", title));
+      const list = element("ul");
+      items.forEach(function (item) { list.appendChild(item); });
+      fragment.appendChild(list);
+      return fragment;
     }
 
     function renderSummary(report) {
@@ -313,21 +336,30 @@
         const name = entry.target.name;
         const block = element("div", "compare-summary-target");
         block.appendChild(element("h4", "", name));
-        const list = element("ul");
-        const only = element("li", "", "Only " + name + " writes by default: ");
-        appendLinks(only, entry.only, "nothing");
-        list.appendChild(only);
-        if (entry.optIn.length > 0) {
-          const optIn = element("li", "", name + " needs a ");
-          optIn.appendChild(link(entry.target.href + "#config-keys", "config key"));
-          optIn.appendChild(document.createTextNode(" for: "));
-          appendLinks(optIn, entry.optIn, "nothing");
-          list.appendChild(optIn);
+        if (entry.ahead.length > 0) {
+          block.appendChild(summaryList("Writes by default, unlike the others:", entry.ahead.map(function (gap) {
+            const item = kindItem(gap.feature);
+            appendLacking(item, gap.others);
+            return item;
+          })));
         }
-        const missing = element("li", "", name + " gets no output for: ");
-        appendLinks(missing, entry.missing, "nothing another target gets");
-        list.appendChild(missing);
-        block.appendChild(list);
+        if (entry.behind.length > 0) {
+          block.appendChild(summaryList("Falls behind on:", entry.behind.map(function (gap) {
+            const item = kindItem(gap.feature);
+            if (gap.status === "opt-in") {
+              item.appendChild(document.createTextNode("needs a "));
+              item.appendChild(link(entry.target.href + "#config-keys", "config key"));
+            } else {
+              item.appendChild(document.createTextNode("no output"));
+            }
+            const verb = gap.others.length > 1 ? " write it by default." : " writes it by default.";
+            item.appendChild(document.createTextNode("; " + names(gap.others) + verb));
+            return item;
+          })));
+        }
+        if (entry.ahead.length === 0 && entry.behind.length === 0) {
+          block.appendChild(element("p", "", "Covers the same spec kinds by default as the other targets here."));
+        }
         const caveats = element("p");
         caveats.appendChild(link(entry.target.href, name + " paths, config keys, and caveats"));
         block.appendChild(caveats);
@@ -336,8 +368,15 @@
       noneLine.replaceChildren();
       if (report.none.length > 0) {
         noneLine.appendChild(document.createTextNode("No compared target gets: "));
-        appendLinks(noneLine, report.none, "");
+        report.none.forEach(function (feature, index) {
+          if (index > 0) {
+            noneLine.appendChild(document.createTextNode(", "));
+          }
+          noneLine.appendChild(link(feature.href, feature.label));
+        });
+        noneLine.appendChild(document.createTextNode("."));
       }
+      summarySection.hidden = false;
     }
 
     function renderControls() {

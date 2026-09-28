@@ -55,24 +55,10 @@
     </table>
   </div>
   <p class="compare-empty" data-compare-empty hidden>These targets have the same state for every spec kind.</p>
-  <section class="compare-summary" aria-labelledby="compare-summary-title">
-    <h3 id="compare-summary-title">What each target gets</h3>
-    <div class="compare-summary-grid" data-compare-summary>
-      {%- for pair in [[ta, tb], [tb, ta]] %}{% set target = pair[0] %}{% set other = pair[1] %}
-      <div class="compare-summary-target">
-        <h4>{{ target.name }}</h4>
-        <ul>
-          <li>Only {{ target.name }} writes by default: {% set_global n = 0 %}{% for feature in matrix.features %}{% set mine = target.statuses[loop.index0] %}{% set theirs = other.statuses[loop.index0] %}{% if (mine == "native" or mine == "mapped") and theirs != "native" and theirs != "mapped" %}{% if n > 0 %}, {% endif %}{% set_global n = n + 1 %}<a href="{{ get_url(path=feature.href) }}">{{ feature.label }}</a>{% endif %}{% endfor %}{% if n == 0 %}nothing{% endif %}.</li>
-          {%- set_global n = 0 %}{% for status in target.statuses %}{% if status == "opt-in" %}{% set_global n = n + 1 %}{% endif %}{% endfor %}{% if n > 0 %}
-          <li>{{ target.name }} needs a <a href="{{ get_url(path=target.href) }}#config-keys">config key</a> for: {% set_global n = 0 %}{% for feature in matrix.features %}{% if target.statuses[loop.index0] == "opt-in" %}{% if n > 0 %}, {% endif %}{% set_global n = n + 1 %}<a href="{{ get_url(path=feature.href) }}">{{ feature.label }}</a>{% endif %}{% endfor %}.</li>
-          {%- endif %}
-          <li>{{ target.name }} gets no output for: {% set_global n = 0 %}{% for feature in matrix.features %}{% set mine = target.statuses[loop.index0] %}{% set theirs = other.statuses[loop.index0] %}{% if (mine == "no" or mine == "source") and theirs != "no" and theirs != "source" %}{% if n > 0 %}, {% endif %}{% set_global n = n + 1 %}<a href="{{ get_url(path=feature.href) }}">{{ feature.label }}</a>{% endif %}{% endfor %}{% if n == 0 %}nothing another target gets{% endif %}.</li>
-        </ul>
-        <p><a href="{{ get_url(path=target.href) }}">{{ target.name }} paths, config keys, and caveats</a></p>
-      </div>
-      {%- endfor %}
-    </div>
-    <p class="compare-summary-none" data-compare-none>{% set_global n = 0 %}{% for feature in matrix.features %}{% set sa = ta.statuses[loop.index0] %}{% set sb = tb.statuses[loop.index0] %}{% if (sa == "no" or sa == "source") and (sb == "no" or sb == "source") %}{% if n == 0 %}No compared target gets: {% else %}, {% endif %}{% set_global n = n + 1 %}<a href="{{ get_url(path=feature.href) }}">{{ feature.label }}</a>{% endif %}{% endfor %}{% if n > 0 %}.{% endif %}</p>
+  <section class="compare-summary" aria-labelledby="compare-summary-title" data-compare-summary-section hidden>
+    <h3 id="compare-summary-title">Where they differ</h3>
+    <div class="compare-summary-grid" data-compare-summary></div>
+    <p class="compare-summary-none" data-compare-none></p>
   </section>
 </section>
 {% endcomponent compare_targets %}

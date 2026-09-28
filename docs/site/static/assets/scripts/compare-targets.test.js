@@ -86,22 +86,33 @@ test("a row differs when any state differs, not when only paths differ", functio
   assert.equal(resultText(compareRows(data, ["claude", "codex", "aider"])), "Claude Code, Codex, and Aider: 3 of 4 spec kinds differ.");
 });
 
-test("the summary separates default output, opt-in, and gaps", function () {
+test("the summary names who is ahead and who falls behind on each kind", function () {
   const report = summarize(data, ["claude", "codex"]);
-  const ids = function (features) { return features.map(function (feature) { return feature.id; }); };
-  assert.deepEqual(ids(report.targets[0].only), ["command"]);
-  assert.deepEqual(ids(report.targets[1].only), []);
-  assert.deepEqual(ids(report.targets[1].optIn), ["command"]);
-  assert.deepEqual(ids(report.targets[1].missing), []);
-  assert.deepEqual(ids(report.none), ["review", "ignore"]);
+  const kinds = function (gaps) { return gaps.map(function (gap) { return gap.feature.id; }); };
+  const whom = function (gap) { return gap.others.map(function (other) { return other.target.id + ":" + other.status; }); };
+  assert.deepEqual(kinds(report.targets[0].ahead), ["command"]);
+  assert.deepEqual(whom(report.targets[0].ahead[0]), ["codex:opt-in"]);
+  assert.deepEqual(kinds(report.targets[0].behind), []);
+  assert.deepEqual(kinds(report.targets[1].ahead), []);
+  assert.deepEqual(kinds(report.targets[1].behind), ["command"]);
+  assert.equal(report.targets[1].behind[0].status, "opt-in");
+  assert.deepEqual(whom(report.targets[1].behind[0]), ["claude:native"]);
+  assert.deepEqual(report.none.map(function (feature) { return feature.id; }), ["review", "ignore"]);
 });
 
-test("with three targets, only means no other column writes it by default", function () {
+test("with three targets, a kind counts when any other column differs", function () {
   const report = summarize(data, ["claude", "cursor", "aider"]);
-  const ids = function (features) { return features.map(function (feature) { return feature.id; }); };
-  assert.deepEqual(ids(report.targets[0].only), []);
-  assert.deepEqual(ids(report.targets[1].only), ["review"]);
-  assert.deepEqual(ids(report.targets[2].missing), ["agent", "command", "review"]);
-  assert.deepEqual(ids(report.targets[0].missing), ["review", "ignore"]);
-  assert.deepEqual(ids(report.none), []);
+  const view = function (gaps) {
+    return gaps.map(function (gap) {
+      return gap.feature.id + "<" + gap.others.map(function (other) { return other.target.id; }).join(",");
+    });
+  };
+  assert.deepEqual(view(report.targets[0].ahead), ["agent<aider", "command<aider"]);
+  assert.deepEqual(view(report.targets[0].behind), ["review<cursor", "ignore<cursor,aider"]);
+  assert.deepEqual(view(report.targets[1].ahead), ["agent<aider", "command<aider", "review<claude,aider", "ignore<claude"]);
+  assert.deepEqual(view(report.targets[1].behind), []);
+  assert.deepEqual(view(report.targets[2].ahead), ["ignore<claude"]);
+  assert.deepEqual(view(report.targets[2].behind), ["agent<claude,cursor", "command<claude,cursor", "review<cursor"]);
+  assert.deepEqual(report.none, []);
 });
+

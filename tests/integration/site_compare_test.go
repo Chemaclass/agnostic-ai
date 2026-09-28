@@ -205,10 +205,15 @@ func TestSiteDocs_ComparePageRendersDefaultPair(t *testing.T) {
 			t.Errorf("compare page has no row for %s", feature.ID)
 		}
 	}
-	for _, required := range []string{".claude/agents/test-writer.md", ".codex/agents/test-writer.toml", "compare-targets.js", "Only Claude Code writes by default"} {
+	for _, required := range []string{".claude/agents/test-writer.md", ".codex/agents/test-writer.toml", "compare-targets.js"} {
 		if !strings.Contains(page, required) {
 			t.Errorf("compare page is missing %q", required)
 		}
+	}
+	// The per-target summary is built by the script, so a page without
+	// JavaScript keeps it hidden and shows the table alone.
+	if !regexp.MustCompile(`<section[^>]*data-compare-summary-section[^>]*hidden`).MatchString(page) {
+		t.Error("compare page must ship the summary section hidden until the script fills it")
 	}
 
 	match := regexp.MustCompile(`(?s)data-compare-data[^>]*>(.*?)</script>`).FindStringSubmatch(page)

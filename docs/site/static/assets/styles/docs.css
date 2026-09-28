@@ -1340,6 +1340,12 @@
   font-size: 0.82rem;
 }
 
+.docs-content .compare-summary-target .compare-summary-label {
+  margin: 0.75rem 0 0.25rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
 .docs-content .compare-summary-none {
   max-width: none;
   margin: 1rem 0 0;
