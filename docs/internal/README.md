@@ -17,3 +17,4 @@ Build and run the CLI first using the contributor setup guide. Then choose the a
 | Ship a version | [Release process](release-process.md) |
 | Understand past choices or planned work | [Decisions](decisions.md) and [Roadmap](roadmap.md) |
 | Check adapters against vendor documentation | [Target audit](../../.agnostic-ai/skills/target-audit/SKILL.md) |
+| Speed up target audits with Jev, or measure it | [Jev triage](jev-triage.md) |
