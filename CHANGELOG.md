@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Fixed
 
+- `import claude` keeps a `CLAUDE.md` that imports `@AGENTS.md` for Claude only, and sync replaces nested companions instead of failing (#1336).
 - A root skill that links to a package's nested skill folder imports once, at the root path, with a note naming the skipped path (#1338).
 
 ### Changed

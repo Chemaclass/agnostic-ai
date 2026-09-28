@@ -847,7 +847,13 @@ func (s *Session) RemoveOwned(path, sum string, dryRun bool) (removed bool, err 
 	if !owned || s.skipUnmanaged(path) {
 		return false, nil
 	}
+	return s.remove(path, sum, existing, dryRun)
+}
 
+// remove deletes path, whose bytes are existing, once the caller has
+// decided sync may. It honors capture, dry-run, transaction, and
+// detailed recording modes.
+func (s *Session) remove(path, sum string, existing []byte, dryRun bool) (removed bool, err error) {
 	s.mu.Lock()
 	capturing := s.capturing
 	detailing := s.detailing

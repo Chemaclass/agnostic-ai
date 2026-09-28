@@ -540,11 +540,25 @@ func writeRules(sess *emit.Session, rules []spec.Entry, cfg *config.Config, dryR
 		return sess.WriteFile(rulesFile, content, dryRun)
 	}
 	rulesDir := emit.OutputRulesDir(cfg, target, emit.OutputSubDir(cfg, target, "rules", defaultRulesDir))
+	scoped := map[string]*strings.Builder{}
+	var scopes []string
 	for _, r := range rules {
 		path := filepath.Join(rulesDir, r.EffectiveScope(), r.Name+".md")
 		meta, keys := ruleMetaWithPaths(r.Meta, r.MetaKeys)
 		body := emit.WithHeader(emit.DocumentStyled(meta, keys, r.MetaStyles, r.Body, target), emit.FormatMarkdown)
 		if err := sess.WriteFile(path, body, dryRun); err != nil {
+			return err
+		}
+		if scope := r.EffectiveScope(); scope != "" {
+			if scoped[scope] == nil {
+				scoped[scope] = &strings.Builder{}
+				scopes = append(scopes, scope)
+			}
+			scoped[scope].WriteString(body + "\n")
+		}
+	}
+	for _, scope := range scopes {
+		if err := sess.RemoveAgentsCompanion(scope, scoped[scope].String(), dryRun); err != nil {
 			return err
 		}
 	}

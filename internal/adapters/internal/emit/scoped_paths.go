@@ -80,6 +80,11 @@ func CheckScopedDestination(path, content string) error {
 			return fmt.Errorf("%s: %w", p, err)
 		}
 		if p != path {
+			// The Claude adapter removes a companion that only imports
+			// this AGENTS.md, since its scoped rules load the same text.
+			if filepath.Base(p) == AgentsCompanionFile && IsAgentsCompanion(string(data)) {
+				continue
+			}
 			return fmt.Errorf("%s: alternate instructions conflict with scoped %s; import or move the alternate file before syncing", p, filepath.Base(path))
 		}
 		if header.Has(string(data)) {

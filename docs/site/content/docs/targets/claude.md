@@ -185,6 +185,7 @@ Any other setting round-trips through the overlay captured by `agnostic-ai impor
 | `CLAUDE.md` (no headings) | single `<rules>/<projectname>.md` (only when `.claude/rules/` is absent) |
 | `CLAUDE.md` (any form) | `.agnostic-ai/AGNOSTIC_AI.md` (byte-identical copy) |
 | `AGENTS.md` or `.claude/AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` (only when no `CLAUDE.md` exists) |
+| `CLAUDE.md` that imports `@AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md`: the `AGENTS.md` text, then the rest of `CLAUDE.md` in a `::target claude` fence (no rules) |
 | `.claude/agents/*.md` | `<agents>/<name>.md` (byte-identical copy) |
 | `.claude/skills/<name>/SKILL.md` | `<skills>/<name>/SKILL.md` |
 | `.claude/commands/*.md` | `<commands>/<name>.md` (byte-identical copy) |
@@ -195,6 +196,8 @@ Any other setting round-trips through the overlay captured by `agnostic-ai impor
 When `.claude/rules/` exists (even if empty), `CLAUDE.md` is not sliced, so the on-disk rules are the single source for rule files. `.agnostic-ai/AGNOSTIC_AI.md` is still written from `CLAUDE.md`.
 
 The instructions file is looked up in Claude Code's own order: `CLAUDE.md`, `.claude/CLAUDE.md`, `AGENTS.md`, `.claude/AGENTS.md`. Since v2.1.277, a session with no `CLAUDE.md` at or above the working directory loads `AGENTS.md`, so repos set up for other agents get their real instructions captured. The root `AGENTS.md` step is skipped when `codex`, `amp`, `warp`, `crush`, `kiro`, or `opencode` imports in the same run, since only one importer may slice that file.
+
+A `CLAUDE.md` whose instruction is `@AGENTS.md` is a companion that lets Claude Code read `AGENTS.md`. Its import line never reaches other tools. `sync` deletes a nested companion that only imports its `AGENTS.md` once `.claude/rules/` holds that directory's scoped rules, so Claude Code does not load them twice.
 
 The settings overlay captures every non-`hooks` key of `.claude/settings.json`. `sync -t claude` layers the spec-derived `hooks` on top, reproducing the full file after `.claude/` is wiped. Re-run `import claude` after editing settings.json by hand. For precedence, see [Claude settings](#claude-settings).
 
