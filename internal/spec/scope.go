@@ -19,6 +19,11 @@ func NormalizeScope(scope string) (string, error) {
 		if part == ".." {
 			return "", fmt.Errorf("invalid scope %q: parent traversal is not allowed", scope)
 		}
+		// Import never walks into node_modules, so output there would not
+		// round-trip.
+		if part == "node_modules" {
+			return "", fmt.Errorf("invalid scope %q: node_modules holds installed packages, not project files", scope)
+		}
 	}
 	scope = path.Clean(scope)
 	if scope == "." {
