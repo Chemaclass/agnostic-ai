@@ -17,7 +17,7 @@ The user asks to release, tag, ship, or cut a new version.
 ## Steps
 
 1. Confirm working tree clean and on `main`. `git pull --ff-only`.
-2. `make ci-local`. Not `make preflight`. Refuse to proceed on any failure.
+2. `make ci-local`. Not `make preflight`. Check its own exit code, never through a pipe, and refuse to proceed on any failure.
 
    `preflight` covers formatting, lint (including govet), and Go tests. A
    release also needs race tests, the WASM build, schema drift, spec lint, shell
@@ -40,11 +40,7 @@ The user asks to release, tag, ship, or cut a new version.
    - major: breaking changes
 4. Update `CHANGELOG.md`: drop empty `### ` and `#### ` headings from `## [Unreleased]`, then move the remaining lines into a new dated `## vX.Y.Z - YYYY-MM-DD` section (no brackets). The released section must never carry a heading with no entries. Reset `## [Unreleased]` to empty.
 
-   Curate the section before moving it. `### General` comes first, then
-   `### By tool` with one `#### <Tool>` heading per affected tool; both carry
-   only changes to the tool. `### Site` comes last, holds everything whose only
-   effect is on agnostic-ai.org or the docs, and is grouped into a few lines by
-   theme. Apply the entry rules and the length check in
+   Curate the section first with the layout, entry rules, and length check in
    `.agnostic-ai/agents/changelog-curator.md`. Condensing keeps every `#NNN`.
    A path, flag, or case it drops must already be on the docs page or in the
    PR; if it is not, add it to the docs, not back to the bullet.

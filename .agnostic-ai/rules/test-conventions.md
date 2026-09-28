@@ -2,7 +2,7 @@
 name: test-conventions
 description: Go test conventions for agnostic-ai.
 globs: "**/*_test.go"
-alwaysApply: true
+alwaysApply: false
 ---
 
 - Tests that write files use `t.TempDir()` and `testutil.Chdir(t, dir)` so they leave no traces and parallel runs do not collide.

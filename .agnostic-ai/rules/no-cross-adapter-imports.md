@@ -2,7 +2,7 @@
 name: no-cross-adapter-imports
 description: Adapter packages must not import each other.
 globs: "internal/adapters/**/*.go"
-alwaysApply: true
+alwaysApply: false
 ---
 
 Adapter packages live under `internal/adapters/<target>/` and must stay independent.

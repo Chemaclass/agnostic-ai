@@ -68,6 +68,7 @@ Add to default targets in `internal/config/config.go` (`DefaultTargets()`) and t
 - Update `README.md` supported-target summary and `docs/site/content/docs/configuration.md`.
 - Add an `[Unreleased]` entry in `CHANGELOG.md`.
 - If config struct fields or tags change, run `go run ./cmd/schemagen`.
+- Regenerate the goldens and parity lists listed in `.agnostic-ai/rules/capability-fixtures.md`.
 
 ## 4. Wire config
 

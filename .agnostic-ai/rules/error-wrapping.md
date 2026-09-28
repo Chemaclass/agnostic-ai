@@ -2,7 +2,7 @@
 name: error-wrapping
 description: Wrap errors with enough context to find the failing file or operation.
 globs: "**/*.go"
-alwaysApply: true
+alwaysApply: false
 ---
 
 Every returned error must carry enough context for the user to act without reading a stack trace.

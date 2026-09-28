@@ -1,6 +1,6 @@
 ---
 name: changelog-curator
-description: Keep CHANGELOG.md in sync with merged work.
+description: Curate CHANGELOG.md Unreleased notes to the layout and entry rules. Use after merges and before a release.
 tools: [Read, Edit, Bash, Grep]
 model:
   claude: sonnet
