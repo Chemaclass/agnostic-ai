@@ -64,6 +64,7 @@ Factory [Droid](https://docs.factory.ai/harness/subagents) reads the root `AGENT
   - Precedence matches agnostic-ai's: denylist wins over allowlist, and blocklist wins over both.
   - Rules scoping a path, a URL, or an MCP tool (such as `Read(src/**)`) have no shell-pattern form and raise a coverage note.
   - A list is written only when at least one rule translates into it, so a hand-maintained list survives a sync with nothing for it. A sync that has rules replaces that key.
+  - Factory now marks the three command lists deprecated in favor of `permissionRules`, and still reads them ([LLM safety and agent controls](https://docs.factory.ai/enterprise/llm-safety-and-agent-controls)). A permission rule needs a stable `id`, a `match.prefix` token list, and `tests.match` and `tests.noMatch` examples, which the portable string lists do not carry. Write rules under `x-factory.permissionRules`; the object reaches `.factory/settings.json` unchanged, next to any translated list.
 
 Scoped skills emit at `<scope>/.factory/skills/<name>/SKILL.md` with bundled assets; unscoped skills keep `.agents/skills/`. `outputs.factory.skills-dir` replaces the directory at the root and in each scope. Unmanaged files keep their contents.
 

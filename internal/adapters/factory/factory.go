@@ -135,7 +135,10 @@
 // and can be approved, so portable `ask` lands there and portable
 // `deny` lands in `commandBlocklist`, the key with no approval path.
 // Rules outside `Bash` have no spelling among the three and raise a
-// coverage note (target-audit 2026-09-20, #948). See settings.go.
+// coverage note (target-audit 2026-09-20, #948). Factory now marks the
+// three lists deprecated in favor of `permissionRules` and still reads
+// them; `x-factory.permissionRules` reaches the new schema (#1376). See
+// settings.go.
 package factory
 
 import (

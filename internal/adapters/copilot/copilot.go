@@ -96,10 +96,13 @@
 // this same file, selecting between "VS Code compatible" and
 // "camelCase" hook payload formats respectively. The PascalCase form
 // also carries Claude's own matcher semantics and tool names, so a
-// spec written for Claude Code reaches Copilot unchanged; the
-// camelCase form answers only to Copilot's own lowercase tool names,
-// and a Claude-style matcher there earns a coverage note (see
-// hooks.go). The vendor's own table lists 14 events today, one more
+// spec written for Claude Code reaches Copilot unchanged. The
+// camelCase form tests the matcher as a full-match regex: on
+// preToolUse, postToolUse, and permissionRequest against Copilot's own
+// lowercase tool names, on subagentStart against the agent name, on
+// notification against notification_type, and on preCompact against
+// the trigger. A Claude tool name there, a matcher on any other event,
+// and an invalid regex each earn a coverage note (see hooks.go). The vendor's own table lists 14 events today, one more
 // than the 13 #629 recorded, so both counts are named here rather than
 // only the newer one.
 //

@@ -26,9 +26,17 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - Environment `dev-commands` write `.claude/launch.json` preview servers, and `import claude` reads them back; `lint` checks each entry (#1340).
 - A fresh `import claude` syncs and lints cleanly, keeps Codex-ready hooks unpinned, and names `.claude/` files to delete (#1327, #1328, #1329, #1336).
 
+#### Copilot
+
+- Hook notes say what each camelCase event's `matcher` tests, such as the agent name on `subagentStart`, and flag an invalid regex (#1377).
+
 #### Cursor
 
 - Environment specs take `setup` and `setup-windows` for new worktrees, written to `.cursor/worktrees.json`; `import cursor` reads it back (#1339).
+
+#### Factory
+
+- The Factory page notes that the three command lists are deprecated in favor of `permissionRules`, and that `x-factory.permissionRules` reaches it (#1376).
 
 #### Gemini CLI
 
