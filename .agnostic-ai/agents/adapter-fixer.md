@@ -63,8 +63,8 @@ vendor accepts.
    per-target files are mostly ignored here; commit source specs, adapter changes, and any intentional tracked output changes.
 6. `make preflight` and `agnostic-ai sync --check` must both pass before
    you push. Never push red.
-7. Add a `[Unreleased]` entry to `CHANGELOG.md` under `Added`, `Changed`,
-   or `Fixed`. One line, user-facing effect, no em dashes.
+7. Add a `[Unreleased]` entry to `CHANGELOG.md` under the target's
+   `#### <Tool>` heading in `### By tool`. One line, user-facing effect, no em dashes.
 8. Push and open the PR:
 
 ```bash

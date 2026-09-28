@@ -31,14 +31,17 @@ The user asks to release, tag, ship, or cut a new version.
    release commit across all three OSes. The plugin version-bump job is
    PR-only; if the plugin changed since the last release, confirm that its
    PR check passed.
-3. Decide next version per semver:
+3. Decide next version per semver, reading the commit types since the last
+   tag (`git log --oneline <last-tag>..HEAD`), since the changelog groups by
+   scope rather than by kind:
    - patch: bug fixes only
    - minor: additive features
    - major: breaking changes
-4. Update `CHANGELOG.md`: drop empty `### ` subsections from `## [Unreleased]`, then move the remaining lines into a new dated `## vX.Y.Z - YYYY-MM-DD` section (no brackets). The released section must never carry a `### ` heading with no entries. Reset `## [Unreleased]` to empty.
+4. Update `CHANGELOG.md`: drop empty `### ` and `#### ` headings from `## [Unreleased]`, then move the remaining lines into a new dated `## vX.Y.Z - YYYY-MM-DD` section (no brackets). The released section must never carry a heading with no entries. Reset `## [Unreleased]` to empty.
 
-   Curate the section before moving it. Product sections come first and carry
-   only changes to the tool; `### Site` comes last, holds everything whose only
+   Curate the section before moving it. `### General` comes first, then
+   `### By tool` with one `#### <Tool>` heading per affected tool; both carry
+   only changes to the tool. `### Site` comes last, holds everything whose only
    effect is on agnostic-ai.org or the docs, and is grouped into a few lines by
    theme. Apply the entry rules and the length check in
    `.agnostic-ai/agents/changelog-curator.md`. Condensing keeps every `#NNN`.
