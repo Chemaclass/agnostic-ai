@@ -315,6 +315,7 @@ Emit per-target configs, for example `agnostic-ai sync --only claude,cursor`.
 | `--except <list>` | Emit all configured targets except these. Errors on unknown names. `--only` and `--except` are mutually exclusive. |
 | `--all` | Emit every configured target without the [first-sync picker](#first-sync-target-picker). |
 | `--dry-run` | Print to stdout instead of writing files. Does not preview the orphan sweep. |
+| `--plan` | Print per-target added and changed counts without writing. Exits 0. |
 | `--check` | Exit non-zero if disk differs from emitted output. Writes nothing. |
 | `--diff` | With `--check`, print a unified diff per drifted file (on-disk vs what sync would write). |
 | `--format <human\|github>` | With `--check`: `human` (default) table or `github` Actions annotations. `--json` wins. |
@@ -324,7 +325,7 @@ Emit per-target configs, for example `agnostic-ai sync --only claude,cursor`.
 | `--watch` | Stay running and re-emit on changes. Incompatible with `--check`. See [watch mode](#watch-mode). |
 | `--watch-poll` | With `--watch`, force the 200 ms polling backend, for network mounts or container volumes where fsnotify misses events. |
 | `--jobs <n>` | Targets emitted in parallel. `0` (default) is one worker per CPU; `1` is serial. See [parallel emission](#parallel-emission). |
-| `--json` | Output as JSON. See [JSON output](#json-output). |
+| `--json` | Output as JSON, also with `--plan` or `--dry-run`. Not with `--watch` or `--diff`. See [JSON output](#json-output). |
 | `--global` | Install user-level instructions, unconditional rules, hooks, and skills from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai/`) into 22 tools' user config, plus native agents for 18 targets. Loads whole-spec overrides from the source root's `local/` directory. Reads `targets` from an optional `agnostic-ai.yaml` in the source root, which `local/agnostic-ai.yaml` replaces, `--only` and `--except` narrow, and `--target` skips; see [global configuration](@/docs/configuration.md#global-configuration). Works outside a project; never loads project config or packs. See [global output](@/docs/target-behavior.md#global-output). Accepts `--target`, `--only`, `--except` (unsupported targets fail with the supported list), `--dry-run`, `--check`, `--check --diff` (managed block only for instructions files; both `--check` and `--dry-run` also name every file a sync would remove), `--backup`, `--plan` (each file a sync would create, update, or delete, with its key-level settings and MCP edits and any conflict; writes nothing and exits 0), and `--json` with `--plan`, `--dry-run`, `--check`, or a real sync, in the `sync --json` schema plus a `keys` list per user settings or MCP file. MCP specs install servers in the user MCP files of Augment, Claude, Codex, Cursor, Copilot, Gemini, OpenHands, and Qoder. Settings specs set `model` and `effort` in the user settings files of Claude, Codex, Copilot, Qoder, and Gemini, key by key; see [default model and effort](@/docs/configuration.md#global-default-model-and-effort). Rejects `--watch`, `--gitignore`, `--jobs`, and `--plan` with `--check` or `--dry-run`, before any write. |
 
 Paths listed under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) are skipped and reported as `~ skip (unmanaged) <path>`.
@@ -384,17 +385,19 @@ Output never depends on the value: files, summary counts, JSON, the `.gitignore`
 
 ### JSON output
 
-`sync --json` and `sync --check --json` share one schema:
+`sync --json`, `sync --plan --json`, `sync --dry-run --json`, and `sync --check --json` share one schema:
 
 | Field | Description |
 |-------|-------------|
 | `version` | Schema version, currently `"1"`. Breaking changes bump it. |
-| `command` | `"sync"` or `"sync --check"`. |
+| `command` | `"sync"`, `"sync --plan"`, `"sync --dry-run"`, or `"sync --check"`. |
 | `writes` | Files written (`"create"`, `"update"`), orphans removed (`"delete"`), or, for `--check`, files needing attention (`"missing"`, `"stale"`, `"edited"`, `"orphan"`, `"leftover"`). A `"stale"` file still holds what the last sync wrote and the specs changed; an `"edited"` file changed since the last sync wrote it. A `"leftover"` is a file the last sync wrote and no longer generates, which the next full sync removes; it reports under target `ledger`, since the ledger does not record which target wrote it. |
 | `skipped` | Files already matching (`"skip"`), user-owned (`"unmanaged"`), edited orphans kept (`"orphan"`), or, with `--keep-edits`, hand edits left in place (`"edited"`). Empty for `--check`. |
 | `errors` | Per-target errors with `target` and `message`. |
 
 `writes` and `skipped` entries have `target`, `path`, `action` (strings), and `bytes` (number), as in `{"target": "claude", "path": "CLAUDE.md", "action": "create", "bytes": 1284}`.
+
+`--plan --json` and `--dry-run --json` write nothing and exit 0. They list each file a sync would create or update, each leftover it would remove as `"delete"`, and each kept orphan as `"orphan"` in `skipped`. `--dry-run --json` also lists every unchanged output as `"skip"`, so each planned output appears once, without its content. Count `writes` by `target` for the per-target numbers `--plan` prints.
 
 ## verify
 

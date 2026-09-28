@@ -153,7 +153,7 @@ For many policies, use a separate file: `exec-policies-file: ./.agnostic-ai/code
 | Source | Becomes |
 |--------|---------|
 | `AGENTS.md` at the root | `.agnostic-ai/AGNOSTIC_AI.md`; only the rules block `sync` appends becomes rules |
-| `<dir>/AGENTS.md` (nested, split on `## headings`) | `<rules>/<slug>.md` per section, with inferred `globs: <dir>/**` |
+| `<dir>/AGENTS.md` (nested, split on `## headings`) | `<rules>/<slug>.md` per section, with inferred `globs: <dir>/**`; text above the first `##`, past the title, becomes one more rule named after the scope |
 | `<dir>/AGENTS.md` (nested, no headings, or `shred: false`) | one rule named after the scope: `api.md` for `services/api/`, or `services-api.md` when another scope also ends in `api` |
 | `## Conventions` / `## Agents` / `## Skills` wrapper sections | unwrapped: their `### children` become the rules |
 | Single-line italic (`_text_`) immediately under a rule heading | extracted into the rule's `description` (and removed from the body) |

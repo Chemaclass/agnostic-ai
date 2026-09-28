@@ -74,6 +74,9 @@ func newSyncCmd() *cobra.Command {
 			if watch && check {
 				return errs.Coded(errs.CodeFlagConflict, "--watch and --check are incompatible")
 			}
+			if jsonOut && (watch || diff) {
+				return errs.Coded(errs.CodeFlagConflict, "--json cannot be combined with --watch or --diff")
+			}
 			if err := refuseGlobalHome(".", globalHomeSyncRemedy); err != nil {
 				return err
 			}
@@ -116,6 +119,9 @@ func newSyncCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
+				if jsonOut {
+					return printSyncPlanJSON(cmd, "sync --plan", reports, false)
+				}
 				printSyncPlan(cmd, reports)
 				return nil
 			}
@@ -137,8 +143,15 @@ func newSyncCmd() *cobra.Command {
 				defer stop()
 				return watchSync(ctx, 200*time.Millisecond, ".", effective, dryRun, backup, gitignoreFlag, watchPoll, jobs)
 			}
+			if jsonOut && dryRun {
+				reports, err := collectDrift(effective)
+				if err != nil {
+					return err
+				}
+				return printSyncPlanJSON(cmd, "sync --dry-run", reports, true)
+			}
 			if jsonOut {
-				return runSyncJSON(cmd, ".", effective, dryRun, backup, keepEdits, gitignoreFlag, jobs)
+				return runSyncJSON(cmd, ".", effective, backup, keepEdits, gitignoreFlag, jobs)
 			}
 			return runSyncPass(".", effective, dryRun, backup, keepEdits, gitignoreFlag, jobs)
 		},
