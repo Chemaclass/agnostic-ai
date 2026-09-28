@@ -29,6 +29,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `init` pins the schema URL to its release, omits default `sources:`, notes `on-unsupported: error`, and creates only seeded folders (#1331).
 - `import codex` and `import gemini` name section rules from a nested file after their scope, such as `api-tests.md`, instead of `tests-2.md` (#1337).
 
+### Site
+
+- A compare page shows two or three targets side by side: each spec kind's state, file format, and the paths a real sync writes, in a shareable URL (#1355).
+
 ## v0.72.0 - 2026-09-28
 
 ### Added

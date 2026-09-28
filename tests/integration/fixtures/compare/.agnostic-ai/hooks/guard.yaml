@@ -1,0 +1,5 @@
+name: guard
+description: Check a shell command before it runs.
+event: PreToolUse
+matcher: Bash
+command: ./scripts/guard.sh

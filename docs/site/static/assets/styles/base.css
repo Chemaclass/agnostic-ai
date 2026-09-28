@@ -52,6 +52,7 @@
 }
 
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --paper: #14120f;
   --surface: #1c1917;
   --surface-quiet: #241f1b;
@@ -75,6 +76,7 @@
 }
 
 :root[data-theme="light"] {
+  color-scheme: light;
   --paper: #f7f7f6;
   --surface: #ffffff;
   --surface-quiet: #eeeeeb;

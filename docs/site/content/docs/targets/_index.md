@@ -18,12 +18,15 @@ scripts = ["assets/scripts/capability-matrix.js"]
 
 See what `agnostic-ai sync` writes for each supported tool. Filter the matrix, then open a target name for exact paths and configuration.
 
+To weigh two or three tools against each other, open [Compare targets](@/docs/compare.md). It puts them side by side with the paths each one gets.
+
 ## Capability matrix
 
 {{ <capability_matrix /> }}
 
 ## Related reference
 
+- [Compare two or three targets](@/docs/compare.md)
 - [Select project targets](@/docs/configuration.md#targets)
 - [Understand cross-target behavior](@/docs/target-behavior.md)
 - [Use directory-specific instructions](@/docs/scoped-context.md)
