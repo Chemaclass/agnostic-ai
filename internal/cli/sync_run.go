@@ -842,10 +842,10 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	}
 	unledgered := keepUnledgered(cfg, prev, &ledger, ledgerWritten, len(out.Errors) == 0 && coversAllConfiguredTargets(effectiveTargets, cfg.Targets))
 	for _, p := range unledgered.Leftover {
-		out.Skipped = append(out.Skipped, fileRecord{Target: "agnostic-ai", Path: filepath.ToSlash(p), Action: "leftover"})
+		out.Skipped = append(out.Skipped, fileRecord{Target: unledgered.Target, Path: filepath.ToSlash(p), Action: "leftover"})
 	}
 	for _, p := range unledgered.Orphaned {
-		out.Skipped = append(out.Skipped, fileRecord{Target: "agnostic-ai", Path: filepath.ToSlash(p), Action: "orphan"})
+		out.Skipped = append(out.Skipped, fileRecord{Target: unledgered.Target, Path: filepath.ToSlash(p), Action: "orphan"})
 	}
 	for _, p := range unmanagedSkips(sessions) {
 		out.Skipped = append(out.Skipped, fileRecord{Target: "agnostic-ai", Path: p, Action: "unmanaged"})
@@ -977,14 +977,42 @@ func reportCheckDrift(cmd *cobra.Command, reports []driftReport, format string, 
 	if !drift {
 		return nil
 	}
-	fix := "sync"
+	_, _ = fmt.Fprintln(cmd.ErrOrStderr(), reconcileHint(reports))
+	return errDriftDetected()
+}
+
+// reconcileHint names what settles the drift in reports. doctor --fix
+// removes an unledgered leftover and writes the rest; a scope document
+// no ledger proves sync wrote is left to the user, so it gets a manual
+// step instead of a command that would leave it in place.
+func reconcileHint(reports []driftReport) string {
+	var syncDrift, removable, scoped bool
 	for _, r := range reports {
-		if r.Unledgered && r.hasDrift() {
-			fix = r.leftoverFix()
+		switch {
+		case !r.hasDrift():
+		case r.Unledgered:
+			removable = removable || len(r.Leftover) > 0
+			scoped = scoped || len(r.Orphaned) > 0
+		default:
+			syncDrift = true
 		}
 	}
-	_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "to reconcile, run: agnostic-ai "+fix)
-	return errDriftDetected()
+	const manual = "delete the scope documents listed above by hand if stale, or list them under sync.unmanaged"
+	fix := ""
+	switch {
+	case removable:
+		fix = "doctor --fix"
+	case syncDrift:
+		fix = "sync"
+	}
+	switch {
+	case fix == "":
+		return "to reconcile, " + manual
+	case scoped:
+		return "to reconcile, run: agnostic-ai " + fix + ", then " + manual
+	default:
+		return "to reconcile, run: agnostic-ai " + fix
+	}
 }
 
 // printDriftGitHub emits one GitHub Actions error annotation per drifted file

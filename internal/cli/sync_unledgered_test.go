@@ -26,10 +26,17 @@ var (
 // loses .sync-state after a scoped rule was deleted (#1354).
 func lostLedgerProject(t *testing.T) {
 	t.Helper()
+	lostLedgerProjectFor(t, "codex")
+}
+
+// lostLedgerProjectFor is lostLedgerProject with a comma-separated
+// target list, which must include codex.
+func lostLedgerProjectFor(t *testing.T, targets string) {
+	t.Helper()
 	dir, git := gitRepo(t)
 	testutil.Chdir(t, dir)
 	silence(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+targets+"]\n")
 	rule := filepath.Join(".agnostic-ai", "rules", "api.md")
 	mustWriteFile(t, rule, "---\nname: api\nscope: services/api\n---\napi body\n")
 	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
@@ -156,13 +163,13 @@ func TestDoctorFix_AfterSyncWithoutLedgerKeepsRecordedFileWithoutHeader(t *testi
 	}
 }
 
-type pathAction struct{ path, action string }
+type pathAction struct{ target, path, action string }
 
 func pathActions(records []fileRecord, actions ...string) []pathAction {
 	var out []pathAction
 	for _, r := range records {
 		if slices.Contains(actions, r.Action) {
-			out = append(out, pathAction{filepath.ToSlash(r.Path), r.Action})
+			out = append(out, pathAction{r.Target, filepath.ToSlash(r.Path), r.Action})
 		}
 	}
 	slices.SortFunc(out, func(a, b pathAction) int { return strings.Compare(a.path, b.path) })
@@ -174,8 +181,8 @@ func pathActions(records []fileRecord, actions ...string) []pathAction {
 func TestSyncPreviews_WithoutLedgerAgreeWithSync(t *testing.T) {
 	lostLedgerProject(t)
 	want := []pathAction{
-		{filepath.ToSlash(unledgeredToolFile), "leftover"},
-		{filepath.ToSlash(unledgeredScopedDoc), "orphan"},
+		{unledgeredReportTarget, filepath.ToSlash(unledgeredToolFile), "leftover"},
+		{unledgeredReportTarget, filepath.ToSlash(unledgeredScopedDoc), "orphan"},
 	}
 
 	for _, args := range [][]string{{"--plan", "--json"}, {"--dry-run", "--json"}, {"--json"}, {"--plan", "--json"}} {
@@ -196,10 +203,77 @@ func TestSyncPreviews_WithoutLedgerAgreeWithSync(t *testing.T) {
 	}
 }
 
+// A run that skips a configured target, with no ledger to carry forward,
+// still records every leftover candidate, so a later check and full sync
+// report them. A text and a JSON sync both do.
+func TestSync_PartialRunWithoutLedgerRecordsLeftovers(t *testing.T) {
+	for name, partialSync := range map[string]func(t *testing.T){
+		"text": func(t *testing.T) {
+			if err := runSyncOnce(".", []string{"codex"}, false, false, "off", 1); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"json": func(t *testing.T) { runSyncJSONArgs(t, "--json", "--only", "codex") },
+	} {
+		t.Run(name, func(t *testing.T) {
+			lostLedgerProjectFor(t, "codex, claude")
+
+			partialSync(t)
+
+			recorded := readStateFile(".").Unledgered
+			for _, p := range []string{unledgeredToolFile, unledgeredScopedDoc} {
+				if !slices.Contains(recorded, p) {
+					t.Errorf("partial sync did not record %s: %v", p, recorded)
+				}
+			}
+			reports, err := collectDrift(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			merged := map[string]bool{}
+			for _, r := range reports {
+				for _, p := range append(append([]string{}, r.Leftover...), r.Orphaned...) {
+					merged[p] = true
+				}
+			}
+			if !merged[unledgeredToolFile] || !merged[unledgeredScopedDoc] {
+				t.Errorf("check after a partial sync lost the leftovers: %+v", reports)
+			}
+			if merged["CLAUDE.md"] || merged[headerlessToolFile] || merged[mentionScopedDoc] {
+				t.Errorf("check reports a file that is not a leftover: %+v", reports)
+			}
+			out := captureLog(t)
+			if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
+				t.Fatal(err)
+			}
+			assertNamesLeftovers(t, out.String())
+			assertOnDisk(t, unledgeredToolFile, unledgeredScopedDoc, headerlessToolFile, mentionScopedDoc)
+		})
+	}
+}
+
+// The ledger report holds what the sweep removes and the unledgered one
+// what sync keeps, so each prints and serializes under its own target.
+func TestCollectDrift_UnledgeredReportHasItsOwnTarget(t *testing.T) {
+	lostLedgerProject(t)
+
+	reports, err := collectDrift(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, r := range reports {
+		if r.Unledgered && r.Target != unledgeredReportTarget || r.Target == ledgerReport && r.Unledgered {
+			t.Errorf("unledgered drift under target %q: %+v", r.Target, r)
+		}
+	}
+}
+
 // A run that skips a configured target cannot rescan, so it keeps the
 // recorded leftovers it did not write again.
 func TestKeepUnledgered_PartialRunCarriesRecordForward(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, stateFilePath("."), "{\"version\":5}\n")
 	prev := syncStateFile{Unledgered: []string{unledgeredToolFile, unledgeredScopedDoc}}
 	var ledger syncLedger
 
