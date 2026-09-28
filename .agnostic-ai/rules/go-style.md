@@ -2,7 +2,7 @@
 name: go-style
 description: Baseline Go conventions for agnostic-ai.
 globs: "**/*.go"
-alwaysApply: true
+alwaysApply: false
 ---
 
 - `gofmt` clean. Use `goimports` for import grouping.
