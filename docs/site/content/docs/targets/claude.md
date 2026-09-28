@@ -199,6 +199,8 @@ The instructions file is looked up in Claude Code's own order: `CLAUDE.md`, `.cl
 
 A `CLAUDE.md` whose instruction is `@AGENTS.md` is a companion that lets Claude Code read `AGENTS.md`. Its import line never reaches other tools. `sync` deletes a nested companion that only imports its `AGENTS.md` once `.claude/rules/` holds that directory's scoped rules, so Claude Code does not load them twice.
 
+Imported text that names a Claude path of a spec the import wrote, such as `.claude/skills/style/SKILL.md`, now names its source, `.agnostic-ai/skills/style/SKILL.md`, since other targets write that spec elsewhere. An `@.claude/rules/<name>.md` line for an imported rule is dropped, because every target already receives the rule. Import reports each Claude path it leaves alone.
+
 The settings overlay captures every non-`hooks` key of `.claude/settings.json`. `sync -t claude` layers the spec-derived `hooks` on top, reproducing the full file after `.claude/` is wiped. Re-run `import claude` after editing settings.json by hand. For precedence, see [Claude settings](#claude-settings).
 
 `effortLevel` is the one key import moves out of the overlay. A valid value becomes `effort` in `<settings>/claude.yaml`, so every target syncs it, unless another settings spec already sets a different effort; then it goes under `x-claude.effortLevel` in that file. An invalid value stays in the overlay.
