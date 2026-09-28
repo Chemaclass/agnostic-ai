@@ -1,6 +1,6 @@
 +++
 title = "Why not symlinks or manual copies?"
-description = "Where native formats diverge, and when a symlink or a copy is still enough."
+description = "A symlink gives every tool the same file, but each AI tool needs a different one. What agnostic-ai does instead, and when a symlink is enough."
 weight = 170
 
 [extra]
@@ -9,50 +9,69 @@ group = "Reference"
 
 # Why agnostic-ai instead of symlinks
 
-You write `CLAUDE.md`. Then `.cursor/rules`. Then `GEMINI.md`. Then `AGENTS.md`. Same content, four formats. The instinct is to symlink one file into each path, or copy it on every change.
+A symlink gives every tool the same file. But each AI coding tool expects a different file: its own path, its own format, its own keys.
 
-Each tool reads a different format at a different path, so one spec has to become different bytes per tool. A symlink shares bytes, a copy duplicates them; neither translates. agnostic-ai keeps one source in Markdown and YAML, aligned with the [`AGENTS.md`](https://agents.md/) open standard, and writes each tool's native files from it.
+agnostic-ai keeps one source and writes each tool's native files from it. The source is plain Markdown and YAML, aligned with the [`AGENTS.md`](https://agents.md/) open standard.
 
-## One spec, different bytes
+## One source, one file per tool
 
-The same MCP server spec, as four tools need it:
+Write an MCP server once, in `.agnostic-ai/mcps/github.yaml`:
 
-| Tool | File | Shape |
-|---|---|---|
-| Claude Code | `.mcp.json` | JSON `mcpServers` map, remote entries carry `type` and `url` |
-| Codex | `.codex/config.toml` | TOML `[mcp_servers.<name>]`, remote entries use `url` and `bearer_token_env_var` |
-| Gemini CLI | `.gemini/settings.json` | JSON `mcpServers`, streamable HTTP uses `httpUrl` instead of `url` |
-| Zed | `.zed/settings.json` | JSON `context_servers`, not `mcpServers` |
+```yaml
+name: github
+type: http
+url: https://api.githubcopilot.com/mcp/
+```
 
-Everything else diverges the same way. Claude Code keeps full skill frontmatter while Codex reduces it to `name` and `description`. Hook events are `PreToolUse` on Claude Code and Codex, `BeforeTool` on Gemini, and `beforeShellExecution` on Cursor. Entry points live at `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, or `.rules`. Each [target page](@/docs/targets/_index.md) shows its exact output.
+`agnostic-ai sync` writes it for Claude Code in `.mcp.json`:
 
-## Comparison
+```json
+{
+  "mcpServers": {
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/"
+    }
+  }
+}
+```
 
-| Need | Symlink | Manual copy | Shared file + `@`-includes | agnostic-ai |
-|---|---|---|---|---|
-| Same prose, same format and path | Yes | Yes | Yes | Yes |
-| Different format per tool (Markdown, TOML, YAML) | No | No | No | Yes |
-| Different path per tool (`CLAUDE.md`, `AGENTS.md`, `.cursor/rules/`) | No | No | Partial | Yes |
-| Different frontmatter and MCP schema per tool | No | No | No | Yes |
-| Works on Windows and with `git core.symlinks=false` | No | Yes | Yes | Yes |
-| No manual step on every change | Yes | No | Yes | Yes |
-| Import an existing tool config | No | No | No | Yes |
-| Fail CI when generated files drift | No | No | No | Yes |
-| Merge into hand-written config keys, back up and revert | No | No | No | Yes |
+And for Codex in `.codex/config.toml`:
 
-Symlinks need admin rights or developer mode on Windows, and with `git core.symlinks=false`, the Git for Windows default, they check out as plain text files. `@`-includes only help where every tool resolves them: Claude Code does, most other tools do not.
+```toml
+[mcp_servers.github]
+url = "https://api.githubcopilot.com/mcp/"
+```
 
-## Where symlinks do work
+Gemini CLI wants `httpUrl` instead of `url` in `.gemini/settings.json`. Zed wants `context_servers` instead of `mcpServers` in `.zed/settings.json`. No single file can serve all four.
 
-`sync.shared-skills: true` keeps one copy of a byte-identical skill folder plus relative symlinks, unlinks a folder the moment one tool's output differs, and falls back to real copies where symlinks are unsupported. See [`sync.shared-skills`](@/docs/configuration.md#syncshared-skills).
+Rules, skills, agents, and hooks differ the same way. The hook that runs before a tool call is `PreToolUse` in Claude Code and `BeforeTool` in Gemini CLI. Each [target page](@/docs/targets/_index.md) shows its exact output.
 
-## When you do not need agnostic-ai
+## What you get over a symlink or copy
 
-- **One tool only.** Claude Code alone needs nothing more than its own files.
-- **Two tools reading the same Markdown at the same path.** A symlink or copy is enough until the format or path differs.
-- **Claude Code `@`-imports.** `@/RULES_SHARED.md` in `.claude/rules/base.md` pulls a shared body in natively.
+| | Symlink | Copy | agnostic-ai |
+|---|---|---|---|
+| Two tools read the same file | Yes | Yes | Yes |
+| Each tool gets its own format, path, and keys | No | No | Yes |
+| Stays current without a manual step | Yes | No | Yes, with `sync --watch` |
+| Works on Windows out of the box | No | Yes | Yes |
+| [Fails CI](@/docs/ci.md) when a generated file drifts | No | No | Yes |
+| [Imports](@/docs/migration.md) your existing tool config | No | No | Yes |
+| Keeps your hand-written keys in shared files, with backup and [revert](@/docs/cli-reference.md#revert) | No | No | Yes |
 
-Add a second tool with a different format, such as Codex TOML agents or Cursor `.mdc` rules, and each of these breaks.
+On Windows, creating a symlink needs admin rights or Developer Mode. Git for Windows defaults to `core.symlinks=false`, which checks symlinks out as plain text files.
+
+## When a symlink is enough
+
+You do not need agnostic-ai for:
+
+- **One tool.** Use its own files.
+- **Two tools that read the same Markdown at the same path.** A symlink or copy works.
+- **Shared text in Claude Code.** `@/RULES_SHARED.md` in `.claude/rules/base.md` pulls a shared file in. Most other tools do not resolve `@` imports.
+
+These stop working once a tool wants a different format, such as Codex TOML agents or Cursor `.mdc` rules.
+
+agnostic-ai still uses symlinks where they are safe. With [`sync.shared-skills: true`](@/docs/configuration.md#syncshared-skills), byte-identical skill folders share one copy through relative symlinks. A folder that differs for one tool gets a real copy, and so does a system without symlink support.
 
 ## Next steps
 
