@@ -23,22 +23,34 @@ func captureSummary(t *testing.T) *bytes.Buffer {
 	return buf
 }
 
+// Git drops empty folders, and default source paths are noise, so the
+// default scaffold writes neither (#1331).
 func TestScaffold_DefaultBaseDir(t *testing.T) {
 	dir := t.TempDir()
 	if err := scaffold(scaffoldOptions{Root: dir, Base: "", Targets: allTargetNames()}); err != nil {
 		t.Fatal(err)
 	}
-	for _, d := range []string{"agents", "skills", "rules", "hooks", "mcps", "commands"} {
-		if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", d)); err != nil {
-			t.Errorf("missing .agnostic-ai/%s", d)
+	for _, d := range scaffoldKinds {
+		if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", d)); !os.IsNotExist(err) {
+			t.Errorf(".agnostic-ai/%s should not exist before a spec needs it, stat err = %v", d, err)
 		}
 	}
 	cfg, err := os.ReadFile(filepath.Join(dir, "agnostic-ai.yaml"))
 	if err != nil {
 		t.Fatalf("read config: %v", err)
 	}
-	if !strings.Contains(string(cfg), "agents: .agnostic-ai/agents") {
-		t.Errorf("config missing nested agents path:\n%s", cfg)
+	if strings.Contains(string(cfg), "sources:") {
+		t.Errorf("config should leave default sources out:\n%s", cfg)
+	}
+	if !strings.Contains(string(cfg), "\n# Set to error to fail sync when a target cannot represent a spec.\non-unsupported: warn\n") {
+		t.Errorf("config should scaffold on-unsupported: warn with a comment naming error:\n%s", cfg)
+	}
+	loaded, err := config.Load(dir)
+	if err != nil {
+		t.Fatalf("load scaffolded config: %v", err)
+	}
+	if loaded.Sources.Agents != ".agnostic-ai/agents" {
+		t.Errorf("sources.agents = %q, want the default", loaded.Sources.Agents)
 	}
 }
 
@@ -122,8 +134,35 @@ func TestInitCmd_DefaultsToAgnosticAi(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "agents")); err != nil {
-		t.Errorf("expected default .agnostic-ai/agents/, got %v", err)
+	if _, err := os.Stat(filepath.Join(dir, "agnostic-ai.yaml")); err != nil {
+		t.Errorf("expected agnostic-ai.yaml, got %v", err)
+	}
+	root = NewRootCmd("test")
+	root.SetArgs([]string{"new", "rule", "tone"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "rules", "tone.md")); err != nil {
+		t.Errorf("new should create .agnostic-ai/rules/ on first use, got %v", err)
+	}
+}
+
+func TestInitCmd_PinsSchemaToTheRunningRelease(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("0.71.0")
+	root.SetArgs([]string{"init", "--all"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := os.ReadFile(filepath.Join(dir, "agnostic-ai.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(cfg), "/agnostic-ai/v0.71.0/docs/schemas/config.schema.json") {
+		t.Errorf("schema URL should name v0.71.0:\n%s", cfg)
 	}
 }
 
@@ -223,18 +262,14 @@ func TestScaffold_Demo_DoesNotOverwriteExistingFiles(t *testing.T) {
 	}
 }
 
-func TestScaffold_NoDemo_LeavesFoldersEmpty(t *testing.T) {
+func TestScaffold_Demo_CreatesOnlySeededFolders(t *testing.T) {
 	dir := t.TempDir()
-	if err := scaffold(scaffoldOptions{Root: dir, Base: "", Targets: allTargetNames()}); err != nil {
+	if err := scaffold(scaffoldOptions{Root: dir, Base: "", Demo: true, Targets: allTargetNames()}); err != nil {
 		t.Fatal(err)
 	}
-	for _, kind := range []string{"agents", "skills", "rules", "hooks", "mcps", "commands"} {
-		entries, err := os.ReadDir(filepath.Join(dir, ".agnostic-ai", kind))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(entries) != 0 {
-			t.Errorf("expected empty %s/, got %d entries", kind, len(entries))
+	for _, kind := range []string{"commands", "settings", "reviews", "environments", "ignore"} {
+		if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", kind)); !os.IsNotExist(err) {
+			t.Errorf(".agnostic-ai/%s holds no demo spec and should not exist, stat err = %v", kind, err)
 		}
 	}
 }
@@ -266,7 +301,7 @@ func TestScaffold_RefusesIfConfigExists(t *testing.T) {
 }
 
 func TestRenderConfig_DefaultTargetsListAllThirteen(t *testing.T) {
-	got := renderConfig("", allTargetNames(), false)
+	got := renderConfig("", allTargetNames(), false, "test")
 	for _, name := range []string{
 		"claude", "codex", "gemini", "cursor", "copilot",
 		"aider", "cline", "windsurf", "continue", "amp",
@@ -282,7 +317,7 @@ func TestRenderConfig_DefaultTargetsListAllThirteen(t *testing.T) {
 }
 
 func TestRenderConfig_TrimmedTargetsList(t *testing.T) {
-	got := renderConfig("", []string{"claude", "codex"}, false)
+	got := renderConfig("", []string{"claude", "codex"}, false, "test")
 	if !strings.Contains(got, "  - claude\n") || !strings.Contains(got, "  - codex\n") {
 		t.Errorf("missing chosen targets:\n%s", got)
 	}
@@ -291,23 +326,28 @@ func TestRenderConfig_TrimmedTargetsList(t *testing.T) {
 	}
 }
 
-func TestRenderConfig_ContainsSchemaComment(t *testing.T) {
-	got := renderConfig("", []string{"claude"}, false)
-	want := "# yaml-language-server: $schema=https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/schemas/config.schema.json"
-	if !strings.HasPrefix(got, want) {
-		t.Errorf("renderConfig output should start with schema comment, got:\n%s", got)
+// The schema a config validates against is the one of the release that
+// wrote it; a dev build has no tag, so it follows main.
+func TestRenderConfig_PinsSchemaToTheRelease(t *testing.T) {
+	cases := map[string]string{"0.71.0": "v0.71.0", "v0.71.0": "v0.71.0", "test": "main", "0.72.0-SNAPSHOT-abc123": "main", "": "main"}
+	for version, ref := range cases {
+		got := renderConfig("", []string{"claude"}, false, version)
+		want := "# yaml-language-server: $schema=https://raw.githubusercontent.com/Chemaclass/agnostic-ai/" + ref + "/docs/schemas/config.schema.json\n"
+		if !strings.HasPrefix(got, want) {
+			t.Errorf("version %q: renderConfig should start with %q, got:\n%s", version, want, got)
+		}
 	}
 }
 
 func TestRenderConfig_GitignoreDisabledOmitsBlock(t *testing.T) {
-	got := renderConfig("", []string{"claude"}, false)
+	got := renderConfig("", []string{"claude"}, false, "test")
 	if strings.Contains(got, "gitignore:") {
 		t.Errorf("expected no gitignore block when disabled, got:\n%s", got)
 	}
 }
 
 func TestRenderConfig_GitignoreEnabledWritesBlock(t *testing.T) {
-	got := renderConfig("", []string{"claude"}, true)
+	got := renderConfig("", []string{"claude"}, true, "test")
 	if !strings.Contains(got, "gitignore:\n  enabled: true\n") {
 		t.Errorf("expected gitignore block, got:\n%s", got)
 	}
