@@ -610,7 +610,14 @@ terminals:
     command: go run ./cmd/agnostic-ai
 ```
 
-Specs merge by top-level key, and the last value wins. [Cursor](@/docs/targets/cursor.md) writes the spec as its `environment.json`, passing every key through except the routing fields (`name`, `scope`, `target(s)`, `target(s)-exclude`, `description`). [OpenHands](@/docs/targets/openhands.md) and [Amp](@/docs/targets/amp.md) turn `install` into a setup script, and Amp turns `terminals` into services. Other targets, such as devcontainers or Codex setup scripts, report the spec as unsupported.
+`setup` holds the commands a tool runs in a new worktree, as one command or a list. `setup-windows` replaces it on Windows.
+
+```yaml
+name: worktree
+setup: bash scripts/setup-worktree.bash
+```
+
+Specs merge by top-level key, and the last value wins. [Cursor](@/docs/targets/cursor.md) writes `setup` and `setup-windows` to `.cursor/worktrees.json`, and writes the rest of the spec as its `environment.json`, passing every key through except the routing fields (`name`, `scope`, `target(s)`, `target(s)-exclude`, `description`). Claude Code runs worktree setup from a `WorktreeCreate` or `SessionStart` [hook](#hooks), so it notes `setup` and points there. Codex notes `setup` until it documents a local environment file. [OpenHands](@/docs/targets/openhands.md) and [Amp](@/docs/targets/amp.md) turn `install` into a setup script, and Amp turns `terminals` into services. Other targets, such as devcontainers or Codex setup scripts, report the spec as unsupported.
 
 ## Ignore
 

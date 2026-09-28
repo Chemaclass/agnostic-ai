@@ -25,6 +25,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - A fresh `import claude` syncs and lints cleanly, keeps Codex-ready hooks unpinned, and names `.claude/` files to delete (#1327, #1328, #1329, #1336).
 
+#### Cursor
+
+- Environment `setup` writes `.cursor/worktrees.json`, `import cursor` reads it back, and `lint` stops calling environment specs empty (#1339).
+
 #### Gemini CLI
 
 - `import gemini` names nested section rules after their scope, such as `api-tests.md`, not `tests-2.md` (#1337).

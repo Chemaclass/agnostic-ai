@@ -131,6 +131,8 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
+	emit.NoteFieldNoOp(target, spec.KindEnvironment, "setup", emit.EnvironmentsWithSetup(b.Environments),
+		"Claude Code runs worktree setup from a WorktreeCreate or SessionStart hook; write a hook spec for it")
 
 	dir := emit.OutputDir(cfg, target, defaultDir)
 
