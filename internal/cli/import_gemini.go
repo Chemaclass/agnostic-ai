@@ -12,6 +12,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -87,6 +88,7 @@ func importGeminiRules(root, dstDir string, src config.Sources) (int, error) {
 	if len(files) == 0 {
 		return 0, nil
 	}
+	wholeFileNames := wholeFileRuleNames(root, files)
 	used := map[string]int{}
 	count := 0
 	for _, f := range files {
@@ -97,13 +99,17 @@ func importGeminiRules(root, dstDir string, src config.Sources) (int, error) {
 		if err != nil {
 			return count, fmt.Errorf("read %s: %w", f.path, err)
 		}
-		_, sections := splitH2Sections(string(data))
+		text, ok := hierarchicalRulesText(f, string(data))
+		if !ok {
+			continue
+		}
+		sections := geminiRuleSections(string(data), text)
 		if len(sections) == 0 {
-			body := strings.TrimSpace(string(data))
+			body := strings.TrimSpace(text)
 			if body == "" {
 				continue
 			}
-			name := dedupSlug(used, projectSlug(root))
+			name := dedupSlug(used, wholeFileNames[f.globs])
 			if err := writeScopedRule(dstDir, name, f.globs, body); err != nil {
 				return count, err
 			}
@@ -119,6 +125,21 @@ func importGeminiRules(root, dstDir string, src config.Sources) (int, error) {
 		}
 	}
 	return count, nil
+}
+
+// geminiRuleSections splits text, the rule-bearing part of raw, into one
+// section per rule: each rule of the block sync appended, or each ##
+// section of a hand-written file.
+func geminiRuleSections(raw, text string) []h2Section {
+	if !strings.Contains(raw, adapters.RulesStartMarker) {
+		_, sections := splitH2Sections(text)
+		return sections
+	}
+	var sections []h2Section
+	for _, c := range generatedBlockRules(text) {
+		sections = append(sections, h2Section(c))
+	}
+	return sections
 }
 
 // importGeminiAgents reads Gemini's native subagent directory,
