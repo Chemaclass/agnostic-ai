@@ -24,14 +24,14 @@ const entries = [
     body: "Every spec kind lives under .agnostic-ai/ and syncs to each target."
   },
   {
-    url: "https://agnostic-ai.org/docs/spec-format/#hooks",
+    url: "https://agnostic-ai.org/docs/spec-format/hooks/#hooks",
     title: "Spec format",
     heading: "Hooks",
     group: "Docs",
     body: "Pure YAML. A hook runs a command on a lifecycle event."
   },
   {
-    url: "https://agnostic-ai.org/docs/spec-format/#skills",
+    url: "https://agnostic-ai.org/docs/spec-format/skills-rules-commands/#skills",
     title: "Spec format",
     heading: "Skills",
     group: "Docs",
@@ -71,12 +71,12 @@ test("every query term must match", function () {
 
 test("a heading match outranks a body match", function () {
   const found = urls(search(prepared, "hooks"));
-  assert.equal(found[0], "https://agnostic-ai.org/docs/spec-format/#hooks");
-  assert.ok(found.includes("https://agnostic-ai.org/docs/spec-format/#skills"));
+  assert.equal(found[0], "https://agnostic-ai.org/docs/spec-format/hooks/#hooks");
+  assert.ok(found.includes("https://agnostic-ai.org/docs/spec-format/skills-rules-commands/#skills"));
 });
 
 test("terms match word prefixes and unknown words match nothing", function () {
-  assert.equal(urls(search(prepared, "hook"))[0], "https://agnostic-ai.org/docs/spec-format/#hooks");
+  assert.equal(urls(search(prepared, "hook"))[0], "https://agnostic-ai.org/docs/spec-format/hooks/#hooks");
   assert.deepEqual(search(prepared, "xyzzy"), []);
   assert.equal(scoreEntry(prepared[3], tokenize("xyzzy")), 0);
 });
@@ -88,7 +88,7 @@ test("a page entry beats its own sections on an exact title match", function () 
 test("normalizing decodes entities and keeps CLI flags and paths", function () {
   assert.equal(decodeEntities("&lt;a&gt; &amp; &quot;b&quot; &#39;c&#39;"), "<a> & \"b\" 'c'");
   assert.equal(normalize("Run `sync --check`, then .agnostic-ai/ and pre_commit"), "run sync --check then .agnostic-ai/ and pre_commit");
-  assert.equal(urls(search(prepared, "--check"))[0], "https://agnostic-ai.org/docs/spec-format/#skills");
+  assert.equal(urls(search(prepared, "--check"))[0], "https://agnostic-ai.org/docs/spec-format/skills-rules-commands/#skills");
 });
 
 test("short queries return nothing and the limit is honoured", function () {
@@ -136,35 +136,35 @@ const corpus = [
     body: "Every spec kind lives under .agnostic-ai/. Rules, hooks, and skills all sync."
   },
   {
-    url: "https://agnostic-ai.org/docs/spec-format/#hooks",
+    url: "https://agnostic-ai.org/docs/spec-format/hooks/#hooks",
     title: "Spec format",
     heading: "Hooks",
     group: "Docs",
     body: "A hook runs a command on a lifecycle event."
   },
   {
-    url: "https://agnostic-ai.org/docs/spec-format/#rules",
+    url: "https://agnostic-ai.org/docs/spec-format/skills-rules-commands/#rules",
     title: "Spec format",
     heading: "Rules",
     group: "Docs",
     body: "A rule is a markdown file with frontmatter."
   },
   {
-    url: "https://agnostic-ai.org/docs/spec-format/#commands",
+    url: "https://agnostic-ai.org/docs/spec-format/skills-rules-commands/#commands",
     title: "Spec format",
     heading: "Commands",
     group: "Docs",
     body: "One markdown file per command."
   },
   {
-    url: "https://agnostic-ai.org/docs/spec-format/#settings",
+    url: "https://agnostic-ai.org/docs/spec-format/settings/#settings",
     title: "Spec format",
     heading: "Settings",
     group: "Docs",
     body: "Settings carry permissions and a model."
   },
   {
-    url: "https://agnostic-ai.org/docs/spec-format/#agent-policy-support-by-target",
+    url: "https://agnostic-ai.org/docs/spec-format/agents/#agent-policy-support-by-target",
     title: "Spec format",
     heading: "permissionMode and agent hooks support by target",
     group: "Docs",
@@ -257,8 +257,8 @@ function rankOf(query, url) {
 
 test("a heading the query covers outranks a longer one with more body hits", function () {
   const found = urls(search(ranked, "hooks"));
-  assert.equal(found[0], "https://agnostic-ai.org/docs/spec-format/#hooks");
-  const table = found.indexOf("https://agnostic-ai.org/docs/spec-format/#agent-policy-support-by-target");
+  assert.equal(found[0], "https://agnostic-ai.org/docs/spec-format/hooks/#hooks");
+  const table = found.indexOf("https://agnostic-ai.org/docs/spec-format/agents/#agent-policy-support-by-target");
   assert.ok(table > 0, "the six-word heading still matches");
   assert.ok(found.indexOf("https://agnostic-ai.org/docs/git-hooks/") < table);
 });
@@ -291,10 +291,10 @@ test("a snippet highlights a result that matched on the stem", function () {
 
 test("a section inherits only a little of its page title", function () {
   const found = urls(search(ranked, "rules"));
-  assert.equal(found[0], "https://agnostic-ai.org/docs/spec-format/#rules");
+  assert.equal(found[0], "https://agnostic-ai.org/docs/spec-format/skills-rules-commands/#rules");
   const briefing = found.indexOf("https://agnostic-ai.org/updates/2026-09-18-v0.61.0/");
   assert.ok(briefing > 0, "the briefing whose title says rules still matches");
-  assert.ok(found.indexOf("https://agnostic-ai.org/docs/spec-format/#rules") < briefing);
+  assert.ok(found.indexOf("https://agnostic-ai.org/docs/spec-format/skills-rules-commands/#rules") < briefing);
 });
 
 test("Updates rank below Docs and Targets on equal evidence", function () {
@@ -370,7 +370,7 @@ test("typing a prefix keeps the same top result", function () {
 
 test("scoreEntry stems the terms it is handed", function () {
   const hooks = ranked.find(function (item) {
-    return item.entry.url === "https://agnostic-ai.org/docs/spec-format/#hooks";
+    return item.entry.url === "https://agnostic-ai.org/docs/spec-format/hooks/#hooks";
   });
   assert.equal(scoreEntry(hooks, tokenize("hooks")), scoreEntry(hooks, tokenize("hook")));
   assert.equal(scoreEntry(hooks, tokenize("xyzzy")), 0);
@@ -502,7 +502,7 @@ test("a query term counts once however often it is typed", function () {
   assert.deepEqual(tokenize("hooks hooks"), ["hooks"]);
   assert.deepEqual(tokenize("a hooks"), ["hooks"]);
   const entry = ranked.find(function (item) {
-    return item.entry.url === "https://agnostic-ai.org/docs/spec-format/#hooks";
+    return item.entry.url === "https://agnostic-ai.org/docs/spec-format/hooks/#hooks";
   });
   assert.equal(scoreEntry(entry, tokenize("hooks hooks")), scoreEntry(entry, tokenize("hooks")));
 });

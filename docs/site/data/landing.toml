@@ -101,7 +101,7 @@ body = "Everything lives in `.agnostic-ai/`, next to `agnostic-ai.yaml`, which p
 tree_label = "Entries in .agnostic-ai"
 root = ".agnostic-ai/"
 outputs_label = "sync"
-more = "Also `commands/`, `reviews/`, `environments/`, and `ignore/`. See [every spec kind](@/docs/spec-format.md)."
+more = "Also `commands/`, `reviews/`, `environments/`, and `ignore/`. See [every spec kind](@/docs/spec-format/_index.md)."
 
 [[explorer.entries]]
 id = "instructions"
@@ -130,7 +130,7 @@ outputs = [
   { tool = "Codex", path = ".codex/agents/test-writer.toml", selected = true },
   { tool = "Gemini CLI", path = ".gemini/agents/test-writer.md" },
 ]
-href = "@/docs/spec-format.md"
+href = "@/docs/spec-format/_index.md"
 anchor = "agents"
 docs_label = "Agents"
 
@@ -145,7 +145,7 @@ outputs = [
   { tool = "Codex", path = ".codex/hooks.json" },
 ]
 reach = "Events are written as is. Claude Code and Codex share `PostToolUse`; Gemini CLI names its events its own way, such as `AfterTool`, so it takes a hook spec of its own."
-href = "@/docs/spec-format.md"
+href = "@/docs/spec-format/_index.md"
 anchor = "hooks"
 docs_label = "Hooks"
 
@@ -174,7 +174,7 @@ outputs = [
   { tool = "Codex", path = ".codex/config.toml" },
   { tool = "Gemini CLI", path = ".gemini/settings.json" },
 ]
-href = "@/docs/spec-format.md"
+href = "@/docs/spec-format/_index.md"
 anchor = "mcp-servers"
 docs_label = "MCP servers"
 
@@ -203,7 +203,7 @@ outputs = [
   { tool = "Codex", path = "AGENTS.md" },
   { tool = "Gemini CLI", path = "GEMINI.md" },
 ]
-href = "@/docs/spec-format.md"
+href = "@/docs/spec-format/_index.md"
 anchor = "rules"
 docs_label = "Rules"
 
@@ -217,7 +217,7 @@ outputs = [
   { tool = "Claude Code", path = ".claude/hooks/format.sh" },
   { tool = "Codex", path = ".codex/hooks/format.sh" },
 ]
-href = "@/docs/spec-format.md"
+href = "@/docs/spec-format/_index.md"
 anchor = "hooks"
 docs_label = "Hooks"
 
@@ -232,7 +232,7 @@ outputs = [
   { tool = "Codex", path = ".codex/config.toml" },
 ]
 reach = "Codex and Gemini CLI have no portable permission list, and the model map names no Gemini model, so sync prints a note for each instead of guessing."
-href = "@/docs/spec-format.md"
+href = "@/docs/spec-format/_index.md"
 anchor = "settings"
 docs_label = "Settings"
 
@@ -247,7 +247,7 @@ outputs = [
   { tool = "Codex", path = ".agents/skills/release/SKILL.md" },
   { tool = "Gemini CLI", path = ".gemini/skills/release/SKILL.md" },
 ]
-href = "@/docs/spec-format.md"
+href = "@/docs/spec-format/_index.md"
 anchor = "skills"
 docs_label = "Skills"
 

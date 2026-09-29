@@ -104,5 +104,5 @@ agnostic-ai graph --format dot | dot -Tsvg > graph.svg
 
 ## See also
 
-- [`render`](@/docs/cli-reference.md#render) prints the file content for one spec, per target.
-- [`explain`](@/docs/cli-reference.md#explain) lists every output file and section one spec contributes to.
+- [`render`](@/docs/cli-reference/inspect.md#render) prints the file content for one spec, per target.
+- [`explain`](@/docs/cli-reference/inspect.md#explain) lists every output file and section one spec contributes to.

@@ -131,6 +131,16 @@ const KINDS = {
 };
 
 const SPEC_FORMAT_URL = "../docs/spec-format/";
+// The spec format page is split by topic; the hub redirects old anchors, but a direct link skips the hop.
+const SPEC_FORMAT_PAGES = {
+  agents: "agents/",
+  skills: "skills-rules-commands/",
+  rules: "skills-rules-commands/",
+  commands: "skills-rules-commands/",
+  hooks: "hooks/",
+  "mcp-servers": "mcp-servers/",
+  settings: "settings/",
+};
 
 // A demo renders a few well-known targets; the rest link to the full target list.
 const DEMO_TARGETS = ["claude", "codex", "copilot", "gemini", "cursor"];
@@ -196,7 +206,7 @@ function updateKindHint() {
   const info = KINDS[kind];
   if (!info) return;
   els.kindSummary.textContent = info.summary;
-  els.kindDoc.href = `${SPEC_FORMAT_URL}#${info.anchor}`;
+  els.kindDoc.href = `${SPEC_FORMAT_URL}${SPEC_FORMAT_PAGES[info.anchor] || ""}#${info.anchor}`;
   els.kindDoc.textContent = info.docLabel;
 }
 

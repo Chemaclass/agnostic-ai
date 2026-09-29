@@ -51,7 +51,7 @@ Slash commands emit to `.junie/commands/<name>.md`, the [project commands folder
 
 Skills emit to `.junie/skills/<name>/SKILL.md`. Junie CLI also loads `.agents/skills/` in a trusted project ([agent-skills](https://junie.jetbrains.com/docs/agent-skills.html)), so enabling junie with a target that writes `.agents/skills/` gives Junie two copies of each skill. Nothing is lost. A flat file never loads as a skill, and bundled assets copy byte-for-byte.
 
-MCP servers use the standard `mcpServers` schema at `.junie/mcp/mcp.json` (`command`/`args`/`env` local, `url`/`headers` remote). Those are the only [documented keys](https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html), so `disabled` and `description` are stripped with a coverage note. Junie enables imported servers by default, so a `disabled` server would arrive enabled. Disable a server with `/mcp` then **→ Disable**. See [`disabled` support by target](@/docs/spec-format.md#disabled-support-by-target).
+MCP servers use the standard `mcpServers` schema at `.junie/mcp/mcp.json` (`command`/`args`/`env` local, `url`/`headers` remote). Those are the only [documented keys](https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html), so `disabled` and `description` are stripped with a coverage note. Junie enables imported servers by default, so a `disabled` server would arrive enabled. Disable a server with `/mcp` then **→ Disable**. See [`disabled` support by target](@/docs/spec-format/mcp-servers.md#disabled-support-by-target).
 
 A settings spec's default `model` merges into `.junie/config.json`, keeping unrelated native keys. An `x-junie` block on that spec merges into the same file, for project-config keys this tool does not model.
 
@@ -83,7 +83,7 @@ Ignore specs emit as `.aiignore` in the project root, which uses `.gitignore` sy
 Older layouts still import:
 
 - With no native agent files, import falls back to the older sentinel-marked Agents block in `.junie/AGENTS.md`.
-- Content flattened under `.junie/rules/` by older versions takes precedence over `.junie/AGENTS.md` when that directory exists. Each file is reclassified by [filename prefix](@/docs/cli-reference.md#filename-prefix-reclassification).
+- Content flattened under `.junie/rules/` by older versions takes precedence over `.junie/AGENTS.md` when that directory exists. Each file is reclassified by [filename prefix](@/docs/cli-reference/start.md#filename-prefix-reclassification).
 - A legacy flat `.junie/rules/skill-<name>.md` imports as a skill.
 
 ## Verify

@@ -57,21 +57,21 @@ Set `sync.target-overview: true` to append a section to each entry-point file li
 
 ## Spec kind behavior
 
-The [spec format guide](@/docs/spec-format.md) defines every portable kind. The [target matrix](@/docs/targets/_index.md#capability-matrix) shows where each is native, mapped, opt-in, source-only, or has no safe output. For an opt-in or source-only spec, `sync` prints a `note:` with the next step; see [coverage notes](@/docs/configuration.md#coverage-notes).
+The [spec format guide](@/docs/spec-format/_index.md) defines every portable kind. The [target matrix](@/docs/targets/_index.md#capability-matrix) shows where each is native, mapped, opt-in, source-only, or has no safe output. For an opt-in or source-only spec, `sync` prints a `note:` with the next step; see [coverage notes](@/docs/configuration.md#coverage-notes).
 
 - **Skills** emit as native skill folders (`SKILL.md` plus assets). Most targets read `.agents/skills/`; the rest read their own tree. [`sync.shared-skills`](@/docs/configuration.md#syncshared-skills) collapses byte-identical folders into one copy plus symlinks. Aider flattens skills to rule-form files.
 - **Agents** emit as native subagent profiles. Goose and OpenHands write flat files to `.agents/agents/`, Antigravity writes nested files there, and Devin reads the shared tree on top of `.devin/agents/`.
 
   **Syncing `windsurf` with `antigravity`, `goose`, or `openhands` gives Devin two profiles with one name.** Only the `.devin/agents/<name>.md` copy carries translated `allowed-tools`; Devin gives the shared copy every tool. Give the agent spec one `target:`. `sync` names every conflicting file (#863).
-- **Hooks** differ per target in event names, paths, wrappers, and timeout units. Matchers can parse but match nothing when vocabularies differ. Read the target page before sharing a hook. A shared script reads `AGNOSTIC_AI_TARGET` to learn which target ran it; see [which target ran a hook](@/docs/spec-format.md#hook-target).
+- **Hooks** differ per target in event names, paths, wrappers, and timeout units. Matchers can parse but match nothing when vocabularies differ. Read the target page before sharing a hook. A shared script reads `AGNOSTIC_AI_TARGET` to learn which target ran it; see [which target ran a hook](@/docs/spec-format/hooks.md#hook-target).
 
   **Syncing `claude` with another target can run a hook twice.** Copilot, Cursor, and Trae can read `.claude/settings.json` beside their own hook files. Copilot loads it by default, Cursor's third-party switch is on by default, Trae requires opting in. See the [Cursor](@/docs/targets/cursor.md) and [Trae](@/docs/targets/trae.md) pages.
 
   **Cursor may drop a Claude hook's `args`.** Its third-party hooks docs do not list `args`, so an exec-form hook (`command: node`, `args: [guard.js]`) may run as a bare `node`. `sync` notes this when `claude` runs and `cursor` is configured. Copilot's docs do not cover Claude's `args` either. Write a shell-form `command`, or turn off Cursor's third-party hooks.
-- **MCP servers** reach every target with a project-scoped MCP file. OpenHands reads them only from `~/.openhands/mcp.json`, which `sync --global` writes. Aider, Cline, Jules, and Goose have no MCP surface. See [`disabled` support by target](@/docs/spec-format.md#disabled-support-by-target).
+- **MCP servers** reach every target with a project-scoped MCP file. OpenHands reads them only from `~/.openhands/mcp.json`, which `sync --global` writes. Aider, Cline, Jules, and Goose have no MCP surface. See [`disabled` support by target](@/docs/spec-format/mcp-servers.md#disabled-support-by-target).
 - **Settings** map portable fields into the target's native settings. Gemini maps the default model to `model.name`, keeps sibling options, and accepts `x-gemini` keys.
 - **Commands** emit as native slash-prompt files where supported. Codex project prompts need the legacy opt-in `outputs.codex.commands-dir`. Amp registers commands through TypeScript plugins, so it has no file output.
-- **Ignore** specs concatenate into each supported target's exclusion file. Before replacing a hand-written file, `sync` checks that every existing pattern survives in order; if it cannot prove that, `AAI-103` leaves the file untouched. Import existing patterns first. See [overwrite behavior](@/docs/spec-format.md#overwrite-behaviour).
+- **Ignore** specs concatenate into each supported target's exclusion file. Before replacing a hand-written file, `sync` checks that every existing pattern survives in order; if it cannot prove that, `AAI-103` leaves the file untouched. Import existing patterns first. See [overwrite behavior](@/docs/spec-format/settings.md#overwrite-behaviour).
 
 ## Memory and local state
 
@@ -79,7 +79,7 @@ The [spec format guide](@/docs/spec-format.md) defines every portable kind. The 
 
 agnostic-ai does not sync them. Claude Code can move its store (`autoMemoryDirectory`, `CLAUDE_CONFIG_DIR`, `CLAUDE_CODE_PROJECT_DIR_NAME`) and Qoder has no such setting, so a derived path would often be wrong. The contents are also one person's corrections and session context, not a project convention.
 
-Put durable team knowledge in a spec: a [rule](@/docs/spec-format.md#rules) for a convention needed every session, a [skill](@/docs/spec-format.md#skills) for a procedure loaded on demand, or an agent's [`memory: project`](@/docs/targets/claude.md#agent-memory) for knowledge one subagent accumulates in a directory git carries.
+Put durable team knowledge in a spec: a [rule](@/docs/spec-format/skills-rules-commands.md#rules) for a convention needed every session, a [skill](@/docs/spec-format/skills-rules-commands.md#skills) for a procedure loaded on demand, or an agent's [`memory: project`](@/docs/targets/claude.md#agent-memory) for knowledge one subagent accumulates in a directory git carries.
 
 The `memory-curator` skill curates a store in place. It edits only that tool's own memory, during that tool's own session, and applies nothing until you confirm. `agnostic-ai init --demo` seeds it into `.agnostic-ai/skills/`, and the next `sync` writes it to Claude Code and Qoder. Where `agnostic-ai.yaml` already exists, `init` refuses to run: run `agnostic-ai new skill memory-curator` and replace the whole scaffolded file, frontmatter included, with [the repository copy](https://github.com/Chemaclass/agnostic-ai/blob/main/.agnostic-ai/skills/memory-curator/SKILL.md). Keep its `targets: [claude, qoder]` line, or the skill reaches every target.
 
@@ -100,7 +100,7 @@ Per run:
 agnostic-ai sync -t claude,cursor,copilot
 ```
 
-The flag overrides config. Unknown targets log a warning and are skipped. Five targets are opt-in (`-t amp,warp,jules,goose,augment` enables them for one run); the [default set](@/docs/configuration.md#targets) lists them, and [`init`](@/docs/cli-reference.md#init) pre-ticks the tools it detects.
+The flag overrides config. Unknown targets log a warning and are skipped. Five targets are opt-in (`-t amp,warp,jules,goose,augment` enables them for one run); the [default set](@/docs/configuration.md#targets) lists them, and [`init`](@/docs/cli-reference/start.md#init) pre-ticks the tools it detects.
 
 ## New targets
 

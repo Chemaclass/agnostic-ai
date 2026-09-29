@@ -65,7 +65,7 @@ Agent names must start with an ASCII letter, end with a letter or digit, contain
 
 | Source | Becomes |
 |--------|---------|
-| `.trae/rules/*.md` | rules, agents, and skills by [filename prefix](@/docs/cli-reference.md#filename-prefix-reclassification) |
+| `.trae/rules/*.md` | rules, agents, and skills by [filename prefix](@/docs/cli-reference/start.md#filename-prefix-reclassification) |
 | `.trae/agents/<name>.md` | `<agents>/<name>.md`, byte-for-byte minus the provenance header |
 | `.trae/skills/<name>/SKILL.md` (+ bundled assets) | `<skills>/<name>/SKILL.md` (folder copied byte-for-byte) |
 | `.trae/commands/<name>.md` | `<commands>/<name>.md` |

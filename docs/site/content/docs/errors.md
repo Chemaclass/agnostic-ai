@@ -89,7 +89,7 @@ Two or more enabled targets would write to the same path (commonly the root `AGE
 
 A target's ignore file (`.cursorignore`, `.geminiignore`, `.aiderignore`, `.devinignore`, `.windsurfignore`, `.kiroignore`, `.trae/.ignore`, `.aiignore`) carries no agnostic-ai header, so `sync` cannot prove its exclusions survive and leaves the file untouched. Missing or reordered patterns, new negations, and changed whitespace all trigger this check.
 
-**Fix:** run `agnostic-ai import <target>` to copy the file's patterns into an ignore spec. Keep their order and whitespace, and review any negations contributed by other specs before syncing again. Extra exclusion patterns are allowed. See [ignore overwrite behavior](@/docs/spec-format.md#overwrite-behaviour).
+**Fix:** run `agnostic-ai import <target>` to copy the file's patterns into an ignore spec. Keep their order and whitespace, and review any negations contributed by other specs before syncing again. Extra exclusion patterns are allowed. See [ignore overwrite behavior](@/docs/spec-format/settings.md#overwrite-behaviour).
 
 ### AAI-202: Import source name unknown
 

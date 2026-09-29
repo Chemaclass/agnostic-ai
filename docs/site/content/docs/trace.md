@@ -13,7 +13,7 @@ group = "Workflows"
 
 Trace an emitted file back to its source: the adapter that wrote it, the source spec(s), the `outputs.<target>.*` keys used for the path, and the last sync time.
 
-[`agnostic-ai explain <spec>`](@/docs/cli-reference.md#explain) does the inverse, spec to outputs.
+[`agnostic-ai explain <spec>`](@/docs/cli-reference/inspect.md#explain) does the inverse, spec to outputs.
 
 ## Usage
 

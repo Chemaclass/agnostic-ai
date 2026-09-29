@@ -14,7 +14,8 @@ minify_html = false
 # Zola 0.23 templates every content file, so pages that document literal
 # `{{ ... }}` placeholders have to opt out or Tera reads them as expressions.
 skip_content_templating = [
-  "docs/spec-format.md",
+  "docs/spec-format/_index.md",
+  "docs/spec-format/skills-rules-commands.md",
   "docs/targets/claude.md",
   "docs/targets/kiro.md",
   "docs/targets/warp.md",

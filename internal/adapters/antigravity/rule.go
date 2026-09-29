@@ -143,7 +143,7 @@ func (Adapter) AlwaysOnRule(r spec.Entry) bool {
 // rule ignores `globs` entirely, the same choice cursor's `mdc()` makes
 // ("An alwaysApply:true rule ignores globs entirely ... omit it", #443),
 // so a rule seeded by `new rule` (`globs: "**/*"` and `alwaysApply: true`
-// together, docs/site/content/docs/spec-format.md#rules) stays
+// together, docs/site/content/docs/spec-format/skills-rules-commands.md#rules) stays
 // `always_on`: turning it into `trigger: glob` would only activate the
 // rule when the agent touches a matching file, not on every turn.
 // `alwaysApply` unset behaves the same as `true`: windsurf's own

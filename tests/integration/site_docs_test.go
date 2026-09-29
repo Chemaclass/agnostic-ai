@@ -245,7 +245,7 @@ func TestSiteDocs_PlaygroundSurfacesAdapterCapabilities(t *testing.T) {
 func TestSiteDocs_PlaygroundKindPickerExplainsEveryKind(t *testing.T) {
 	page := readBuiltFile(t, "../../docs/playground/index.html")
 	script := readBuiltFile(t, "../../docs/playground/playground.js")
-	specFormat := readBuiltFile(t, filepath.Join(siteDocsContentDir, "spec-format.md"))
+	specFormat := readSpecFormat(t)
 
 	for _, required := range []string{
 		`id="kind-summary"`,
@@ -280,7 +280,7 @@ func TestSiteDocs_PlaygroundKindPickerExplainsEveryKind(t *testing.T) {
 			continue
 		}
 		if !headings[anchor[1]] {
-			t.Errorf("playground kind %s links to #%s, which is not a heading in spec-format.md", kind, anchor[1])
+			t.Errorf("playground kind %s links to #%s, which is not a heading under spec-format/", kind, anchor[1])
 		}
 		if !regexp.MustCompile(`summary: "[^"]{20,}"`).MatchString(body) {
 			t.Errorf("playground kind %s has no usable one-line description", kind)
@@ -440,7 +440,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		`Each column is a portable spec kind.`,
 		`Why these columns?`,
 		`Tool-specific kinds:`,
-		`href="https://agnostic-ai.org/docs/spec-format/#reviews"`,
+		`href="https://agnostic-ai.org/docs/spec-format/settings/#reviews"`,
 		`Compare targets`,
 		`Clear filters`,
 		`Related reference`,
@@ -639,7 +639,7 @@ func TestSiteDocs_BuildsSiteSearchIndex(t *testing.T) {
 		"https://agnostic-ai.org/docs/",
 		"https://agnostic-ai.org/docs/targets/",
 		"https://agnostic-ai.org/docs/targets/claude/",
-		"https://agnostic-ai.org/docs/spec-format/#hooks",
+		"https://agnostic-ai.org/docs/spec-format/hooks/#hooks",
 		"https://agnostic-ai.org/docs/configuration/#verify",
 		"https://agnostic-ai.org/updates/",
 		"https://agnostic-ai.org/updates/2026-09-16-v0.59.0/",
@@ -1081,4 +1081,19 @@ func TestSiteDocs_HeaderKeepsOnlySiteNavigation(t *testing.T) {
 			}
 		}
 	}
+}
+
+// readSpecFormat joins the spec format hub and its topic pages.
+func readSpecFormat(t *testing.T) string {
+	t.Helper()
+	files, err := filepath.Glob(filepath.Join(siteDocsContentDir, "spec-format", "*.md"))
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no spec-format pages under %s: %v", siteDocsContentDir, err)
+	}
+	var all strings.Builder
+	for _, file := range files {
+		all.WriteString(readBuiltFile(t, file))
+		all.WriteString("\n")
+	}
+	return all.String()
 }

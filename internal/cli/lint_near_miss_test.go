@@ -138,9 +138,18 @@ func TestLintNearMissKeys_SkipsPassthroughKinds(t *testing.T) {
 // Every field the spec-format page documents must count as known, or a
 // correct spec would be flagged as a typo of its neighbor.
 func TestSpecKeys_CoverEveryDocumentedField(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "..", "docs", "site", "content", "docs", "spec-format.md"))
-	if err != nil {
-		t.Fatal(err)
+	files, err := filepath.Glob(filepath.Join("..", "..", "docs", "site", "content", "docs", "spec-format", "*.md"))
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no spec-format pages: %v", err)
+	}
+	var data []byte
+	for _, file := range files {
+		page, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		data = append(data, page...)
+		data = append(data, '\n')
 	}
 	field := regexp.MustCompile("`([A-Za-z][A-Za-z0-9_-]*)`")
 	skip := map[string]bool{"## Settings": true, "## Target-specific extensions: `x-<target>` namespace": true}

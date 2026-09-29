@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}{{ section.title }} | agnostic-ai docs{% endblock title %}
+{% block description %}{{ section.description }}{% endblock description %}
+{% block og_type %}article{% endblock og_type %}
+{% block og_title %}{{ section.title }} | agnostic-ai docs{% endblock og_title %}
+{% block og_description %}{{ section.description }}{% endblock og_description %}
+{% block twitter_title %}{{ section.title }} | agnostic-ai docs{% endblock twitter_title %}
+{% block twitter_description %}{{ section.description }}{% endblock twitter_description %}
+{% block styles %}<link rel="stylesheet" href="{{ get_url(path='assets/styles/docs.css', trailing_slash=false) }}">{% endblock styles %}
+{% block skip_target %}#doc-body{% endblock skip_target %}
+{% block skip_label %}Skip to guide{% endblock skip_label %}
+
+{% block content %}
+{% set docs_section = get_section(path="docs/_index.md") %}
+<main id="content">
+  <div class="docs-mobile-nav">
+    <details>
+      <summary>Browse documentation</summary>
+      {{ <docs.navigation section={docs_section} current_path={current_path} /> }}
+    </details>
+  </div>
+  <div class="docs-page-layout">
+    <aside class="docs-sidebar">
+      {{ <docs.navigation section={docs_section} current_path={current_path} /> }}
+    </aside>
+
+    <article class="docs-content" id="doc-body">
+      <div class="docs-breadcrumb"><a href="{{ docs_section.permalink }}">Docs</a><span aria-hidden="true">/</span><span>{{ section.extra.group }}</span></div>
+      {{ section.content | safe }}
+      <footer class="docs-source-link"><a href="{{ config.extra.repository_url }}/blob/main/docs/site/content/{{ section.relative_path | safe }}">Edit this page on GitHub</a></footer>
+    </article>
+
+    {% if section.toc | length > 0 %}
+    <aside class="docs-toc">
+      <p>On this page</p>
+      {{ <docs.toc headings={section.toc} /> }}
+    </aside>
+    {% endif %}
+  </div>
+</main>
+{% endblock content %}
+
+{% block scripts %}
+<script>
+  // Old anchors on the combined page now live on topic pages.
+  (function () {
+    var hash = decodeURIComponent(window.location.hash.slice(1));
+    if (!hash || document.getElementById(hash)) return;
+    var moved = {
+{%- for page in section.pages %}{% for h1 in page.toc %}{% for h2 in h1.children %}
+      "{{ h2.id }}": "{{ page.permalink | safe }}",{% for h3 in h2.children %}
+      "{{ h3.id }}": "{{ page.permalink | safe }}",{% for h4 in h3.children %}
+      "{{ h4.id }}": "{{ page.permalink | safe }}",{% endfor %}{% endfor %}{% endfor %}{% endfor %}{% endfor %}
+      "": ""
+    };
+    if (moved[hash]) window.location.replace(moved[hash] + "#" + hash);
+  })();
+</script>
+{% endblock scripts %}

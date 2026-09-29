@@ -61,7 +61,7 @@ MCP servers write to `.kiro/settings/mcp.json` under `mcpServers`, Kiro's [works
 
 A remote server can add an `oauth` object, `{clientId, clientSecret, redirectUri, clientMetadataUrl, oauthScopes}`, and a top-level `oauthScopes` fallback. `oauth.oauthScopes` wins when both are set. An empty `oauthScopes: []` emits as written, since Kiro documents it as the fix for scope errors.
 
-Kiro's `oauth` differs from Claude Code's, so each target maps only the sub-keys its vendor documents. See [`disabled` support by target](@/docs/spec-format.md#disabled-support-by-target).
+Kiro's `oauth` differs from Claude Code's, so each target maps only the sub-keys its vendor documents. See [`disabled` support by target](@/docs/spec-format/mcp-servers.md#disabled-support-by-target).
 
 Ignore specs emit as `.kiroignore` in the project root, in gitignore syntax ([Kiro ignore](https://kiro.dev/docs/kiroignore/)). Multiple specs concatenate. Override via `outputs.kiro.ignore-file`.
 
@@ -99,7 +99,7 @@ A name present in both a native tree and legacy steering keeps the native copy.
 Hook import reads every vendor field, not only the ones `sync` writes:
 
 - `trigger` becomes `event`; `matcher`, `description`, and `timeout` (including `timeout: 0`) map straight across; `enabled: false` becomes `disabled: true`.
-- An `action.type: "agent"` action lands under `x-kiro.action`, not the portable prompt handler, which [spec-format.md](@/docs/spec-format.md#hooks) scopes to Claude Code, Cursor, and Copilot.
+- An `action.type: "agent"` action lands under `x-kiro.action`, not the portable prompt handler, which [spec-format.md](@/docs/spec-format/hooks.md#hooks) scopes to Claude Code, Cursor, and Copilot.
 - `confirm` and any other unknown key land under `x-kiro`, so future fields are kept.
 - A file with several `trigger` values splits into one spec per trigger.
 - Entries that differ only in `action.command` recombine into one spec with a `command:` list, dropping the `-2`/`-3` suffixes.

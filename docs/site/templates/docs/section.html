@@ -78,6 +78,14 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
             </a>
             {% endif %}
+          {% for path in section.subsections %}{% set hub = get_section(path=path) %}
+            {% if hub.extra.group == group and hub.extra.hub %}
+            <a class="docs-index-row" href="{{ hub.permalink | safe }}">
+              <span><strong>{{ hub.title }}</strong><span>{{ hub.description }}</span></span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </a>
+            {% endif %}
+          {% endfor %}
           {% endfor %}
         </div>
       </div>

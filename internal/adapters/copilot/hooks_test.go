@@ -110,7 +110,7 @@ func TestEmit_Hook_VersionIsIntegerOne(t *testing.T) {
 
 // TestEmit_Hook_EventPassesThroughVerbatim confirms `event:` is used
 // as the literal JSON key with no case translation, matching
-// docs/site/content/docs/spec-format.md's stated policy and every other hook
+// docs/site/content/docs/spec-format/_index.md's stated policy and every other hook
 // emitter in this repo. Both a PascalCase event (this repo's dominant
 // vocabulary) and Copilot's own camelCase form are independently
 // valid per the vendor's "Hook event input payloads" section, so both
@@ -196,7 +196,7 @@ func TestEmit_Hook_CamelCaseClaudeMatcherNotesNoOp(t *testing.T) {
 
 // A `command` list produces one hook entry per command, same
 // documented behavior as Claude Code, Codex, and Qoder for the same
-// field (docs/site/content/docs/spec-format.md, "When command is a list...").
+// field (docs/site/content/docs/spec-format/_index.md, "When command is a list...").
 func TestEmit_Hook_CommandListProducesMultipleEntries(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)

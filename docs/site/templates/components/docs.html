@@ -5,14 +5,16 @@
   {% for group in groups %}
   <div class="docs-nav-group">
     <p>{{ group }}</p>
+    {% for slot in ["nav_first", "nav_second"] %}
+      {% for path in section.subsections %}{% set hub = get_section(path=path) %}
+        {% if hub.extra[slot] == group %}{{ <docs.subnav node={hub} current_path={current_path} /> }}{% endif %}
+      {% endfor %}
+    {% endfor %}
     {% for doc in section.pages %}
       {% if doc.extra.group == group %}
         <a{% if doc.path == current_path %} class="is-current" aria-current="page"{% endif %} href="{{ doc.permalink | safe }}">{{ doc.title }}</a>
         {% for path in section.subsections %}{% set sub = get_section(path=path) %}
-          {% if sub.extra.nav_after == doc.slug %}<a{% if current_path == sub.path %} class="is-current" aria-current="page"{% endif %} href="{{ sub.permalink | safe }}">{{ sub.title }}</a>
-            {# Expanded only inside the section, so other pages keep a short sidebar. #}
-            {% if current_path is starting_with(pat=sub.path) %}<div class="docs-nav-sub">{% for item in sub.pages %}<a{% if item.path == current_path %} class="is-current" aria-current="page"{% endif %} href="{{ item.permalink | safe }}">{{ item.title }}</a>{% endfor %}</div>{% endif %}
-          {% endif %}
+          {% if sub.extra.nav_after == doc.slug %}{{ <docs.subnav node={sub} current_path={current_path} /> }}{% endif %}
         {% endfor %}
       {% endif %}
     {% endfor %}
@@ -20,6 +22,12 @@
   {% endfor %}
 </nav>
 {% endcomponent docs.navigation %}
+
+{% component docs.subnav(node, current_path) %}
+<a{% if current_path == node.path %} class="is-current" aria-current="page"{% endif %} href="{{ node.permalink | safe }}">{{ node.title }}</a>
+{# Expanded only inside the section, so other pages keep a short sidebar. #}
+{% if current_path is starting_with(pat=node.path) %}<div class="docs-nav-sub">{% for item in node.pages %}<a{% if item.path == current_path %} class="is-current" aria-current="page"{% endif %} href="{{ item.permalink | safe }}">{{ item.title }}</a>{% endfor %}</div>{% endif %}
+{% endcomponent docs.subnav %}
 
 {% component docs.toc(headings) %}
 <nav class="docs-toc-links" aria-label="On this page">
