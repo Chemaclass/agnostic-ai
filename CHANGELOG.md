@@ -12,9 +12,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `sync --check --against index` or `--against HEAD` compares the staged specs or the last commit with the outputs Git tracks, for pre-commit hooks and CI (#1398).
 - `sync --keep-edits` keeps an uncommitted edit to a tracked output when there is no `.sync-state`, such as in a new linked worktree (#1397).
 - A review spec line holding only `@path` inlines that file, so a folder's `README.md` can be its review without a symlinked `BUGBOT.md` (#1395).
-- `sync --check --against` also fails on a tracked file with the generated header that no spec produces anymore, so one CI command catches a leftover that only `doctor` found before.
+- `sync --check --against` also fails on a tracked output no spec produces anymore: a file with the generated header, or any file the previous state rendered, such as a deleted environment spec's `.claude/launch.json`. One CI command now catches what only `doctor` found before, and only for files with a header.
 - An environment spec shared by several tools prints a no-effect note only for a field no enabled tool reads, instead of one per tool on every sync.
 - AAI-005 names the package manager's command, such as `pnpm install`, when the binary sits in the project's `node_modules`. A release candidate built with `-X github.com/chemaclass/agnostic-ai/internal/cli.candidateVersion=X.Y.Z` is checked as that release.
+- `explain --inputs` lists every file whose change can change an output, including the files reviews inline with `@path`, for a git hook's trigger glob; `--json` gives the same list.
 - `doctor` names an unledgered leftover it cannot remove and says to delete it by hand or list it under `sync.unmanaged`, instead of advising `sync` or `doctor --fix` (#1392).
 
 ### By tool

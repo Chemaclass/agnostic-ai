@@ -26,7 +26,7 @@ agnostic-ai sync --only claude,cursor
 | `--dry-run` | Print to stdout instead of writing files. Does not preview the orphan sweep. |
 | `--plan` | Print per-target added and changed counts without writing. Exits 0. |
 | `--check` | Exit non-zero if disk differs from emitted output. Writes nothing. |
-| `--against <index\|HEAD>` | With `--check`, compare what Git holds instead of the working tree: `index` renders the staged specs and compares them with the staged outputs, `HEAD` does the same for the last commit. Only outputs Git tracks are compared; ignored outputs are skipped. A tracked file with the generated header that no spec produces fails as a leftover to delete. See [git hooks](@/docs/git-hooks.md#check-staged-files). Not with `--plan`, `--watch`, or `--global`. |
+| `--against <index\|HEAD>` | With `--check`, compare what Git holds instead of the working tree: `index` renders the staged specs and compares them with the staged outputs, `HEAD` does the same for the last commit. Only outputs Git tracks are compared; ignored outputs are skipped. A tracked output that no spec produces fails as a leftover to delete: a file with the generated header, or any file the previous state rendered (`HEAD` for `index`, the first parent for `HEAD`). See [git hooks](@/docs/git-hooks.md#check-staged-files). Not with `--plan`, `--watch`, or `--global`. |
 | `--diff` | With `--check`, print a unified diff per drifted file (on-disk vs what sync would write). |
 | `--format <human\|github>` | With `--check`: `human` (default) table or `github` Actions annotations. `--json` wins. |
 | `--backup` | Copy each existing target file to `<path>.bak` before overwriting. Pair with `revert`. |

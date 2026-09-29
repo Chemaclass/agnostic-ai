@@ -30,7 +30,7 @@ When an earlier step already rewrote the files, as a `postinstall` sync does, co
 agnostic-ai sync --check --against HEAD
 ```
 
-It renders the specs as committed and compares them with the committed outputs. Outputs that `gitignore` leaves out are skipped. A committed file with the generated header where a target writes, but that no spec produces anymore, fails too, so one command catches a leftover without `doctor`.
+It renders the specs as committed and compares them with the committed outputs. Outputs that `gitignore` leaves out are skipped. A committed output that no spec produces anymore fails too, so one command catches a leftover without `doctor`: a file with the generated header where a target writes, and any file the parent commit's specs rendered, such as a JSON file with no header. In a pull request's merge commit the parent is the base branch. `actions/checkout` fetches one commit by default, so set `fetch-depth: 2` to give the check that parent; without it a note says the comparison was skipped.
 
 ## Ignored outputs
 

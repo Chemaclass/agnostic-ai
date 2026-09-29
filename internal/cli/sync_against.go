@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 )
 
@@ -96,7 +98,10 @@ func enterAgainstTree(ref string) (_ *againstTree, err error) {
 	if err := os.Chdir(project); err != nil {
 		return nil, fmt.Errorf("--against %s: %w", ref, err)
 	}
-	return &againstTree{origin: origin, scratch: scratch, root: root, gitEnv: isolateGitEnv()}, nil
+	return &againstTree{
+		origin: origin, scratch: scratch, root: root, project: project,
+		toplevel: toplevel, prefix: strings.TrimSpace(prefix), ref: ref, gitEnv: isolateGitEnv(),
+	}, nil
 }
 
 // isolateGitEnv unsets the variables that point git at another
@@ -117,8 +122,123 @@ func isolateGitEnv() map[string]string {
 
 // againstTree is the export enterAgainstTree made.
 type againstTree struct {
-	origin, scratch, root string
-	gitEnv                map[string]string
+	origin, scratch, root, project string
+	toplevel, prefix, ref          string
+	gitEnv                         map[string]string
+}
+
+// previousRef is the state before the one the check reads: the last
+// commit for the index, and the first parent for HEAD, which in a pull
+// request's merge commit is the base branch.
+func (t *againstTree) previousRef() string {
+	if t.ref == againstIndex {
+		return "HEAD"
+	}
+	return "HEAD^1"
+}
+
+// droppedOutputs lists the files the previous state's specs render that
+// the checked state's specs no longer do, while Git still tracks them in
+// the checked state: the outputs of a deleted or retargeted spec, with a
+// provenance header or without one, such as a JSON file. reports are the
+// checked state's drift reports before trackedDrift narrows them. With no
+// previous state, such as a first commit or a shallow clone, the note
+// says what the check could not compare.
+func (t *againstTree) droppedOutputs(targets []string, reports []driftReport) ([]string, string, error) {
+	prev := t.previousRef()
+	if _, err := gitOutput(t.toplevel, nil, "rev-parse", "--verify", "--quiet", prev+"^{tree}"); err != nil {
+		if t.ref == againstHEAD {
+			return nil, "the parent commit is not available (a shallow clone needs fetch-depth: 2), so outputs of a deleted spec were not checked", nil
+		}
+		return nil, "", nil
+	}
+	dir := filepath.Join(t.scratch, "previous")
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		return nil, "", err
+	}
+	env := append(os.Environ(), "GIT_INDEX_FILE="+filepath.Join(t.scratch, "previous-index"))
+	if _, err := gitOutput(t.toplevel, env, "read-tree", prev); err != nil {
+		return nil, "", err
+	}
+	if _, err := gitOutput(t.toplevel, env, "checkout-index", "--all", "--force", "--prefix="+dir+string(filepath.Separator)); err != nil {
+		return nil, "", err
+	}
+	if err := os.Chdir(filepath.Join(dir, filepath.FromSlash(t.prefix))); err != nil {
+		// The project directory did not exist in the previous state.
+		return nil, "", nil
+	}
+	before, err := plannedOutputs(targets)
+	if cerr := os.Chdir(t.project); cerr != nil && err == nil {
+		err = cerr
+	}
+	if err != nil {
+		// Specs the previous state cannot render say nothing about this one.
+		return nil, "", nil
+	}
+	now := map[string]bool{}
+	for _, r := range reports {
+		for _, list := range [][]adapters.CapturedFile{r.Current, r.Missing, r.Stale, r.Edited} {
+			for _, f := range list {
+				now[filepath.ToSlash(f.Path)] = true
+			}
+		}
+	}
+	tracked, ok := trackedFiles(".")
+	if !ok {
+		return nil, "", nil
+	}
+	cfg, _, err := loadProject(".")
+	if err != nil {
+		return nil, "", err
+	}
+	var dropped []string
+	for _, p := range tracked {
+		slash := filepath.ToSlash(p)
+		if before[slash] && !now[slash] && !cfg.IsUnmanaged(p) {
+			dropped = append(dropped, p)
+		}
+	}
+	return dropped, "", nil
+}
+
+// plannedOutputs renders the specs in the working directory for targets
+// and returns every path sync would write, warnings discarded.
+func plannedOutputs(targets []string) (map[string]bool, error) {
+	adapters.SetWarner(io.Discard)
+	defer adapters.SetWarner(os.Stderr)
+	defer adapters.ResetCoverageNotes()
+	cfg, b, err := loadProject(".")
+	if err != nil {
+		return nil, err
+	}
+	if len(targets) == 0 {
+		targets = cfg.Targets
+	}
+	sess := adapters.NewSession()
+	out := map[string]bool{}
+	for _, t := range targets {
+		adapter, err := adapters.Resolve(t)
+		if err != nil {
+			continue
+		}
+		files, err := captureAdapterFiles(sess, adapter, b, cfg)
+		if err != nil {
+			return nil, err
+		}
+		for _, f := range files {
+			out[filepath.ToSlash(f.Path)] = true
+		}
+	}
+	ep, err := collectEntryPointDrift(cfg, b, targets)
+	if err != nil {
+		return nil, err
+	}
+	for _, list := range [][]adapters.CapturedFile{ep.Current, ep.Missing, ep.Stale, ep.Edited} {
+		for _, f := range list {
+			out[filepath.ToSlash(f.Path)] = true
+		}
+	}
+	return out, nil
 }
 
 // leave restores the working directory and git environment, and removes
@@ -167,10 +287,11 @@ func (t *againstTree) ignored(paths []string) (map[string]bool, error) {
 // that state gets wrong about the outputs Git tracks there: an output
 // that differs from what the specs render, or one the state lacks that
 // its .gitignore does not ignore, and a tracked file that carries the
-// provenance header where a target writes but that no spec produces. The
-// ledger is never committed, so ledger findings say nothing about the
-// state, and a tracked leftover is one to delete by hand.
-func (t *againstTree) trackedDrift(reports []driftReport) ([]driftReport, error) {
+// provenance header where a target writes but that no spec produces, and
+// each dropped output droppedOutputs found. The ledger is never committed,
+// so ledger findings say nothing about the state, and a tracked leftover
+// is one to delete by hand.
+func (t *againstTree) trackedDrift(reports []driftReport, dropped []string) ([]driftReport, error) {
 	var missing []string
 	for _, r := range reports {
 		for _, f := range r.Missing {
@@ -186,7 +307,8 @@ func (t *againstTree) trackedDrift(reports []driftReport) ([]driftReport, error)
 		kept := driftReport{Target: r.Target, Stale: r.Stale, Edited: r.Edited}
 		if r.Target == unledgeredReportTarget {
 			kept.Unledgered = true
-			kept.Orphaned = append(append([]string{}, r.Orphaned...), r.Leftover...)
+			kept.Orphaned = mergePaths(r.Orphaned, r.Leftover, dropped)
+			dropped = nil
 		}
 		for _, f := range r.Missing {
 			if !ignored[filepath.ToSlash(f.Path)] {
@@ -195,7 +317,25 @@ func (t *againstTree) trackedDrift(reports []driftReport) ([]driftReport, error)
 		}
 		out = append(out, kept)
 	}
+	if len(dropped) > 0 {
+		out = append(out, driftReport{Target: unledgeredReportTarget, Unledgered: true, Orphaned: mergePaths(dropped)})
+	}
 	return out, nil
+}
+
+// mergePaths joins path lists, keeping each path once in first-seen order.
+func mergePaths(lists ...[]string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, l := range lists {
+		for _, p := range l {
+			if k := filepath.ToSlash(p); !seen[k] {
+				seen[k] = true
+				out = append(out, p)
+			}
+		}
+	}
+	return out
 }
 
 // againstHint says which step settles drift found against ref.

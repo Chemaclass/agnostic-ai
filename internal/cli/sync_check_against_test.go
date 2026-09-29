@@ -240,3 +240,46 @@ func TestSyncCheckAgainstIndex_PassesWithNoIndexFile(t *testing.T) {
 		t.Errorf("a missing index file should read as an empty index, got %v", err)
 	}
 }
+
+// A deleted spec's output without a provenance header, such as Claude
+// Code's launch.json, fails once the deletion is staged and once it is
+// committed, since the previous state rendered it.
+func TestSyncCheckAgainst_ReportsHeaderlessOutputOfADeletedSpec(t *testing.T) {
+	dir := setupFixture(t)
+	isolateGit(t)
+	git(t, dir, "init", "-q")
+	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "environments", "dev.yaml"), "name: dev\ndev-commands:\n  - name: Docs\n    command: npm run docs\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+	if err := runSyncArgs(t); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".claude", "launch.json")); err != nil {
+		t.Fatalf("sync wrote no launch.json: %v", err)
+	}
+	git(t, dir, "add", "-A")
+	git(t, dir, "commit", "-q", "-m", "base")
+	if _, _, err := checkAgainst(t, "HEAD"); err != nil {
+		t.Fatalf("a synced commit should pass: %v", err)
+	}
+
+	git(t, dir, "rm", "-q", ".agnostic-ai/environments/dev.yaml")
+	stdout, _, err := checkAgainst(t, "index")
+	if err == nil || !strings.Contains(stdout, ".claude/launch.json") {
+		t.Errorf("--against index: a staged spec deletion should fail on its launch.json, got err=%v\n%s", err, stdout)
+	}
+	git(t, dir, "commit", "-q", "-m", "drop the environment spec")
+	stdout, _, err = checkAgainst(t, "HEAD")
+	if err == nil || !strings.Contains(stdout, ".claude/launch.json") {
+		t.Errorf("--against HEAD: a committed spec deletion should fail on its launch.json, got err=%v\n%s", err, stdout)
+	}
+
+	git(t, dir, "rm", "-q", ".claude/launch.json")
+	git(t, dir, "commit", "-q", "-m", "drop launch.json")
+	if stdout, _, err := checkAgainst(t, "HEAD"); err != nil {
+		t.Errorf("with the output removed, the check should pass: %v\n%s", err, stdout)
+	}
+}

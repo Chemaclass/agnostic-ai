@@ -49,6 +49,7 @@ func newExplainCmd() *cobra.Command {
 		global  bool
 		file    string
 		target  string
+		inputs  bool
 	)
 	cmd := &cobra.Command{
 		Use:   "explain <spec | AAI-NNN> | --file <path> --target cursor",
@@ -76,9 +77,18 @@ func newExplainCmd() *cobra.Command {
   agnostic-ai explain AAI-001
 
   # Which Cursor instructions are configured for a source file
-  agnostic-ai explain --file services/payments/handler.go --target cursor`,
+  agnostic-ai explain --file services/payments/handler.go --target cursor
+
+  # Every file whose change can change an output, for a hook's trigger list
+  agnostic-ai explain --inputs`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if inputs {
+				if len(args) > 0 || file != "" || global {
+					return errs.Coded(errs.CodeFlagConflict, "--inputs takes no spec and cannot be combined with --file or --global")
+				}
+				return runExplainInputs(cmd, jsonOut)
+			}
 			if err := validateExplainInput(args, file, target); err != nil {
 				return err
 			}
@@ -147,6 +157,7 @@ func newExplainCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&global, "global", false, "Explain a spec in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) or its local/ layer: the user-level file, section, or settings key sync --global writes for each target.")
 	cmd.Flags().StringVar(&file, "file", "", "Project file to inspect instead of a spec. Requires --target.")
 	cmd.Flags().StringVar(&target, "target", "", "Target whose configured instructions --file reports. Supported: cursor.")
+	cmd.Flags().BoolVar(&inputs, "inputs", false, "List every file and directory whose change can change a generated output, one per line, for a git hook's trigger list.")
 	return cmd
 }
 

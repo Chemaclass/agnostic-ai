@@ -107,7 +107,20 @@ A plain `sync --check` reads the working tree. When `sync` already rewrote `AGEN
 agnostic-ai sync --check --against index
 ```
 
-A staged spec change without its regenerated output fails and names the file. `--against HEAD` does the same for the last commit, for a CI job that runs after `postinstall` has rewritten the working tree. Only outputs Git tracks are compared, so an output that `gitignore` leaves out never fails. A tracked output whose spec is gone fails until you delete it. Specs come from the same state, so an untracked `agnostic-ai.local.yaml` or `.agnostic-ai/local/` is not read.
+A staged spec change without its regenerated output fails and names the file. `--against HEAD` does the same for the last commit, for a CI job that runs after `postinstall` has rewritten the working tree. Only outputs Git tracks are compared, so an output that `gitignore` leaves out never fails. A tracked output whose spec is gone fails until you delete it, since the check also renders the last commit's specs. Specs come from the same state, so an untracked `agnostic-ai.local.yaml` or `.agnostic-ai/local/` is not read.
+
+A hook manager that runs a command only when matching files are staged needs every input in its glob, including a README a review inlines with `@path`. `agnostic-ai explain --inputs` prints them, one per line:
+
+```bash
+agnostic-ai explain --inputs
+# .agnostic-ai/**
+# .gitignore
+# agnostic-ai.local.yaml
+# agnostic-ai.yaml
+# apps/web/README.md
+```
+
+Paste the list into the glob, or leave the glob out and run the check on every commit. Rerun it after adding an `@path` line.
 
 ## Regenerate on checkout
 

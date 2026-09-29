@@ -22,6 +22,41 @@ var includeLineRe = regexp.MustCompile(`^[ \t]*@(\S+)[ \t]*$`)
 // shipping as text.
 func resolveIncludes(body, root string) (string, error) {
 	lines := strings.Split(body, "\n")
+	for _, inc := range includeLines(lines) {
+		ref := inc.ref
+		if !filepath.IsLocal(filepath.FromSlash(ref)) {
+			return "", errs.Coded(errs.CodeSpecParse, "include @%s: the path must stay inside the project root", ref)
+		}
+		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(ref)))
+		if err != nil {
+			return "", errs.Coded(errs.CodeSpecParse, "include @%s: %w", ref, err)
+		}
+		lines[inc.line] = strings.TrimRight(string(normalizeLineEndings(data)), "\n")
+	}
+	return strings.Join(lines, "\n"), nil
+}
+
+// IncludeRefs returns the project-relative paths that body's `@path`
+// lines inline, skipping any that leave the project root.
+func IncludeRefs(body string) []string {
+	var out []string
+	for _, inc := range includeLines(strings.Split(body, "\n")) {
+		if filepath.IsLocal(filepath.FromSlash(inc.ref)) {
+			out = append(out, inc.ref)
+		}
+	}
+	return out
+}
+
+type includeLine struct {
+	line int
+	ref  string
+}
+
+// includeLines finds the lines holding only `@path`, outside fenced code
+// blocks.
+func includeLines(lines []string) []includeLine {
+	var out []includeLine
 	fence := ""
 	for i, line := range lines {
 		if marker := fenceMarker(line); marker != "" {
@@ -33,21 +68,11 @@ func resolveIncludes(body, root string) (string, error) {
 			}
 			continue
 		}
-		m := includeLineRe.FindStringSubmatch(line)
-		if fence != "" || m == nil {
-			continue
+		if m := includeLineRe.FindStringSubmatch(line); fence == "" && m != nil {
+			out = append(out, includeLine{i, m[1]})
 		}
-		ref := m[1]
-		if !filepath.IsLocal(filepath.FromSlash(ref)) {
-			return "", errs.Coded(errs.CodeSpecParse, "include @%s: the path must stay inside the project root", ref)
-		}
-		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(ref)))
-		if err != nil {
-			return "", errs.Coded(errs.CodeSpecParse, "include @%s: %w", ref, err)
-		}
-		lines[i] = strings.TrimRight(string(normalizeLineEndings(data)), "\n")
 	}
-	return strings.Join(lines, "\n"), nil
+	return out
 }
 
 // fenceMarker returns the run of three or more backticks or tildes that
