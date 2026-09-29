@@ -21,6 +21,9 @@ var routingKeys = map[string]bool{
 	"targets":         true,
 	"target-exclude":  true,
 	"targets-exclude": true,
+	// A skill's extra workspaces decide where Cursor writes copies, not
+	// what any SKILL.md says.
+	"workspaces": true,
 }
 
 // collapsedKeys are the frontmatter keys that accept a per-target map

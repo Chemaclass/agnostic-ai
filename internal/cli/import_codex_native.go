@@ -459,11 +459,11 @@ func importCodexSkills(root, dstDir string) (int, error) {
 			} else if err != nil {
 				return count, fmt.Errorf("stat skill %s: %w", e.Name(), err)
 			}
-			if !folders.claim(root, filepath.Join(srcDir, e.Name()), skillSrc) {
+			skillDst := filepath.Join(dstDir, filepath.FromSlash(location.scope), e.Name())
+			if !folders.claim(root, filepath.Join(srcDir, e.Name()), skillSrc, skillDst, location.scope) {
 				continue
 			}
 			seen[identity] = true
-			skillDst := filepath.Join(dstDir, filepath.FromSlash(location.scope), e.Name())
 			merged := dirExists(skillDst)
 			if merged {
 				if err := mergeCodexSkillIntoExisting(skillSrc, skillDst); err != nil {
@@ -493,7 +493,7 @@ func importCodexSkills(root, dstDir string) (int, error) {
 			count++
 		}
 	}
-	return count, nil
+	return count, folders.recordWorkspaces()
 }
 
 // mergeCodexSkillIntoExisting layers a codex skill folder on top of an

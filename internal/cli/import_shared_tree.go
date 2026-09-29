@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -94,14 +95,14 @@ func importScopedSkillFoldersWith(root string, nativeDirs []string, dstDir strin
 			root,
 			dir.path,
 			filepath.Join(dstDir, filepath.FromSlash(dir.scope)),
-			skillFolderImportOpts{SkipNames: seen[dir.scope], Fields: fields, Folders: folders},
+			skillFolderImportOpts{SkipNames: seen[dir.scope], Fields: fields, Folders: folders, Scope: dir.scope},
 		)
 		if err != nil {
 			return count, err
 		}
 		count += imported
 	}
-	return count, nil
+	return count, folders.recordWorkspaces()
 }
 
 // rootScopeFirst moves the root-scope skill directories ahead of the
@@ -114,14 +115,25 @@ func rootScopeFirst(dirs []scopedSkillDir) {
 }
 
 // skillFolderClaims maps the resolved path of each imported skill folder
-// to the native path it was imported from, so a folder reached through a
+// to where it was imported from and to, so a folder reached through a
 // link and through its own location becomes one spec.
-type skillFolderClaims map[string]string
+type skillFolderClaims map[string]*skillFolderClaim
 
-// claim reports whether the skill folder at src, found at entry, is new
-// to this import. A folder already imported through another path is
-// skipped with a note naming the path that was kept.
-func (c skillFolderClaims) claim(root, entry, src string) bool {
+// skillFolderClaim is one imported skill folder: the native path kept,
+// its scope, the spec folder it became, and the scopes of the other
+// native paths that reach the same folder.
+type skillFolderClaim struct {
+	at, scope, dst string
+	workspaces     []string
+}
+
+// claim reports whether the skill folder at src, found at entry in scope,
+// is new to this import. A folder already imported through another path
+// is skipped with a note naming the path that was kept. When a root link
+// is kept and the real folder sits in a scope, as when a project links
+// `.cursor/skills/<name>` to `<dir>/.cursor/skills/<name>`, the scope is
+// recorded so the spec keeps the skill in that workspace too.
+func (c skillFolderClaims) claim(root, entry, src, dst, scope string) bool {
 	if c == nil {
 		return true
 	}
@@ -138,11 +150,40 @@ func (c skillFolderClaims) claim(root, entry, src string) bool {
 		at = filepath.ToSlash(rel)
 	}
 	if kept, ok := c[real]; ok {
-		summaryf("  ! skipped %s: kept %s, which is the same skill folder\n", at, kept)
+		summaryf("  ! skipped %s: kept %s, which is the same skill folder\n", at, kept.at)
+		if kept.scope == "" && scope != "" && !slices.Contains(kept.workspaces, scope) {
+			kept.workspaces = append(kept.workspaces, scope)
+		}
 		return false
 	}
-	c[real] = at
+	c[real] = &skillFolderClaim{at: at, scope: scope, dst: dst}
 	return true
+}
+
+// recordWorkspaces adds `workspaces:` to each imported root skill spec
+// that a scoped native folder also held, so Cursor, which loads skills
+// only from the workspace it opens, still finds it there.
+func (c skillFolderClaims) recordWorkspaces() error {
+	for _, k := range c {
+		if len(k.workspaces) == 0 {
+			continue
+		}
+		path := filepath.Join(k.dst, "SKILL.md")
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		text := string(data)
+		end := strings.Index(text, "\n---")
+		if !strings.HasPrefix(text, "---\n") || end < 0 {
+			continue
+		}
+		line := "\nworkspaces: [" + strings.Join(k.workspaces, ", ") + "]"
+		if err := importWriteFile(path, []byte(text[:end]+line+text[end:]), 0o644); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // importSkillFolders copies each `<srcDir>/<name>/` directory tree that
@@ -164,6 +205,8 @@ type skillFolderImportOpts struct {
 	Fields *specFields
 	// Folders dedupes skill folders across directories by resolved path.
 	Folders skillFolderClaims
+	// Scope is the project directory srcDir's native tree sits in.
+	Scope string
 }
 
 // importSkillFoldersWith imports a native skill tree with optional
@@ -193,7 +236,7 @@ func importSkillFoldersWith(root, srcDir, dstDir string, opts skillFolderImportO
 		} else if err != nil {
 			return count, fmt.Errorf("stat skill %s: %w", e.Name(), err)
 		}
-		if !opts.Folders.claim(root, filepath.Join(srcDir, e.Name()), skillSrc) {
+		if !opts.Folders.claim(root, filepath.Join(srcDir, e.Name()), skillSrc, skillDst, opts.Scope) {
 			continue
 		}
 		if err := copyDirTreeWith(skillSrc, skillDst, opts.TransformSkill, skillFields(opts.Fields)); err != nil {
