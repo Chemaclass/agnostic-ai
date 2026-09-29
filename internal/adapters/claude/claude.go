@@ -308,11 +308,12 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 	}
 	specSettings := buildSpecSettings(settings)
 	configSettings := buildConfigSettings(cfg)
+	retired := retiredConfigKeys(cfg)
 	custom := emit.SettingsCustomKeys(settings, target)
 	hasSpec := len(specSettings) > 0
 	hasConfig := len(configSettings) > 0
 	hasHooks := len(hooks) > 0
-	if !overlayOK && !hasHooks && !hasConfig && !hasSpec && len(custom) == 0 && !policy.active {
+	if !overlayOK && !hasHooks && !hasConfig && !hasSpec && len(custom) == 0 && !policy.active && len(retired) == 0 {
 		return nil
 	}
 	doc := overlay
@@ -331,6 +332,9 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 	}
 	if err := policy.removeOwned(doc); err != nil {
 		return err
+	}
+	for _, k := range retired {
+		doc.Delete(k)
 	}
 	if err := dropStaleHookTargetEnv(doc, hooks); err != nil {
 		return err
@@ -474,7 +478,7 @@ func loadSettingsFromDisk(path string, dryRun bool) (*emit.OrderedJSON, error) {
 // emit order. agnostic-ai-managed keys land in a canonical sequence so
 // the diff stays predictable when none of them exist in the overlay yet.
 func orderedConfigKeys(m map[string]any) []string {
-	const canonical = "statusLine,permissions,enabledPlugins,env,model,outputStyle,apiKeyHelper,cleanupPeriodDays,attribution,includeCoAuthoredBy,bashOutputMaxChars,taskOutputMaxChars"
+	const canonical = "statusLine,permissions,enabledPlugins,env,model,outputStyle,apiKeyHelper,cleanupPeriodDays,attribution,includeCoAuthoredBy,bashOutputMaxChars"
 	out := make([]string, 0, len(m))
 	seen := make(map[string]bool, len(m))
 	for _, k := range strings.Split(canonical, ",") {

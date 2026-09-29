@@ -78,8 +78,9 @@ func TestEmit_FirstClassSettings_AllFields(t *testing.T) {
 	if got := parsed["bashOutputMaxChars"]; got != float64(64000) {
 		t.Errorf("bashOutputMaxChars: got %v", got)
 	}
-	if got := parsed["taskOutputMaxChars"]; got != float64(128000) {
-		t.Errorf("taskOutputMaxChars: got %v", got)
+	// Removed in Claude Code v2.1.277, which npm stable reached (#1381).
+	if got, ok := parsed["taskOutputMaxChars"]; ok {
+		t.Errorf("taskOutputMaxChars written: %v", got)
 	}
 	if got := parsed["cleanupPeriodDays"]; got != float64(30) {
 		t.Errorf("cleanupPeriodDays: got %v", got)

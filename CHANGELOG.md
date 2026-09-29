@@ -6,6 +6,12 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### By tool
+
+#### Claude Code
+
+- `outputs.claude.settings.taskOutputMaxChars` is no longer written, since every release channel dropped it; sync removes it and says so (#1381).
+
 ## v0.73.0 - 2026-09-28
 
 ### General
