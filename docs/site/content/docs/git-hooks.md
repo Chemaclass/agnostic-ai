@@ -211,6 +211,22 @@ post-rewrite:
 
 `--quiet` hides the routine summary, but a `~ kept <path>` line still prints, on stderr, so a hook running these recipes still reports a file it left alone.
 
+### First pull
+
+A developer on a commit from before agnostic-ai has no checkout hooks yet. The pull that adds it removes the outputs that commit tracked, and no hook regenerates them. Lefthook reads `lefthook.yml` from the working tree, so a pre-commit step in the new config runs on that developer's next commit. It installs when the CLI in `node_modules` is not the pinned one, and the install runs the `postinstall` sync and adds the checkout hooks:
+
+```yaml
+pre-commit:
+  commands:
+    agnostic-ai-install:
+      run: |
+        want=$(node -p "require('./package.json').devDependencies['agnostic-ai']")
+        have=$(node_modules/.bin/agnostic-ai --version 2>/dev/null | awk '{print $3}')
+        [ "$have" = "$want" ] || pnpm install --frozen-lockfile --prefer-offline
+```
+
+When the pin is installed, the step costs one `--version` call.
+
 ### New worktrees
 
 A new linked worktree has no `node_modules`. A hook runner installed from npm, such as lefthook, may not start there, and the pinned binary is missing either way. The worktree gets its tool files once something runs `pnpm install` in it.
@@ -226,7 +242,7 @@ matcher: startup
 command: 'cd "$CLAUDE_PROJECT_DIR" && { test -d node_modules || pnpm install --frozen-lockfile; }'
 ```
 
-Then keep `.claude/settings.json` committed, so a new worktree has it before any sync runs. In `agnostic-ai.yaml`:
+Claude Code copies the gitignored files `.worktreeinclude` lists into each new worktree, and sync keeps its managed block there when `claude` is a target (see [gitignore](@/docs/configuration.md#gitignore)). The ignored `.claude/settings.json` then reaches the worktree with the hook. Without that, keep `.claude/settings.json` committed, so a new worktree has it before any sync runs. In `agnostic-ai.yaml`:
 
 ```yaml
 gitignore:

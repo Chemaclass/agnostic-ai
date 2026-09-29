@@ -517,6 +517,18 @@ func (t *againstTree) trackedUnmanaged(cfg *config.Config) ([]unmanagedFinding, 
 	return out, nil
 }
 
+// regeneratedDrift reports whether any drift is settled by staging or
+// committing what sync writes. A leftover or a hand-written file has its
+// own fix, which the reconcile hint names.
+func regeneratedDrift(reports []driftReport) bool {
+	for _, r := range reports {
+		if len(r.Missing)+len(r.Stale)+len(r.Edited) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // againstHint says which step settles drift found against ref.
 func againstHint(ref string) string {
 	if ref == againstHEAD {
