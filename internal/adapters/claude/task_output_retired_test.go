@@ -76,3 +76,23 @@ func TestEmit_RetiredKeyAloneWritesNoSettingsFile(t *testing.T) {
 		t.Errorf("settings.json written for a retired key alone: %v", err)
 	}
 }
+
+// A settings.json that cannot be parsed fails the sync instead of skipping
+// the retired-key cleanup unseen.
+func TestEmit_RetiredKeyWithUnparsableSettingsFails(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	if err := os.MkdirAll(".claude", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(".claude", "settings.json"), []byte(`{"taskOutputMaxChars": `), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	n := 128000
+	cfg := &config.Config{Outputs: map[string]config.Output{
+		"claude": {Settings: &config.ClaudeSettings{TaskOutputMaxChars: &n}},
+	}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err == nil {
+		t.Error("emit succeeded over an unparsable settings.json")
+	}
+}
