@@ -45,6 +45,8 @@ func emitSetupScript(sess *emit.Session, envs []spec.Entry, cfg *config.Config, 
 		"OpenHands' setup.sh runs once, synchronously, at repo start; there is no long-running terminal/process surface to route it to")
 	emit.NoteFieldNoOp(target, spec.KindEnvironment, "setup", emit.EnvironmentsWithSetup(target, envs),
 		"OpenHands has no worktree setup step; put commands every session needs in install")
+	emit.NoteFieldNoOp(target, spec.KindEnvironment, "cleanup", emit.EnvironmentsWithField(target, envs, "cleanup"),
+		"OpenHands has no worktree cleanup step")
 	emit.NoteFieldNoOp(target, spec.KindEnvironment, "dev-commands", emit.EnvironmentsWithField(target, envs, "dev-commands"),
 		"OpenHands has no preview server list")
 	if install == "" {

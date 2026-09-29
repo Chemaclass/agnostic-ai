@@ -129,7 +129,8 @@ var caps = emit.Capabilities{
 	// a project-level prompts tree would never be read.
 	// Reviews land as a `## Code Review Rules` section in the root and
 	// scoped AGENTS.md, which sync writes for every reader of that file.
-	Supports: []spec.Kind{spec.KindAgent, spec.KindRule, spec.KindSkill, spec.KindHook, spec.KindMCP, spec.KindCommand, spec.KindSettings, spec.KindReview},
+	// Environments land in .codex/environments/environment.toml.
+	Supports: []spec.Kind{spec.KindAgent, spec.KindRule, spec.KindSkill, spec.KindHook, spec.KindMCP, spec.KindCommand, spec.KindSettings, spec.KindReview, spec.KindEnvironment},
 	// effort: effort.go notes the integer budgets it cannot write.
 	AgentFields:    []string{"effort"},
 	SettingsFields: []string{"effort"},
@@ -204,6 +205,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 
 	if err := emitConfigTOML(sess, b, cfg, dryRun); err != nil {
+		return err
+	}
+	if err := emitEnvironment(sess, b.Environments, cfg, dryRun); err != nil {
 		return err
 	}
 	if err := sweepLegacyTrees(sess, agentsDir, skillsDir, commandsDir, dryRun); err != nil {

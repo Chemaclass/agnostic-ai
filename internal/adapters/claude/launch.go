@@ -25,6 +25,7 @@ const launchFileVersion = "0.0.1"
 var environmentFieldsWithoutEffect = []struct{ field, reason string }{
 	{"install", "Claude Code has no install step; run it from a SessionStart hook spec"},
 	{"setup", "Claude Code runs worktree setup from a WorktreeCreate or SessionStart hook spec"},
+	{"cleanup", "Claude Code runs worktree cleanup from a WorktreeRemove hook spec"},
 	{"terminals", "Claude Code has no terminal list; use dev-commands for preview servers"},
 }
 
@@ -135,7 +136,7 @@ func launchEnv(v any) map[string]string {
 // notes itself, plus the spec's identity fields.
 var launchSpecKeys = map[string]bool{
 	"name": true, "description": true, "scope": true, "dev-commands": true, "autoVerify": true,
-	"install": true, "setup": true, "setup-windows": true, "terminals": true,
+	"install": true, "setup": true, "setup-windows": true, "cleanup": true, "terminals": true,
 }
 
 // noteOtherEnvironmentKeys notes each other environment key, such as a

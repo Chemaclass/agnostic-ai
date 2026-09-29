@@ -21,6 +21,8 @@ var ampServiceName = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,31}$`)
 func emitEnvironment(sess *emit.Session, envs []spec.Entry, cfg *config.Config, dryRun bool) error {
 	emit.NoteFieldNoOp(target, spec.KindEnvironment, "setup", emit.EnvironmentsWithSetup(target, envs),
 		"Amp has no worktree setup step; put commands every orb needs in install")
+	emit.NoteFieldNoOp(target, spec.KindEnvironment, "cleanup", emit.EnvironmentsWithField(target, envs, "cleanup"),
+		"Amp has no worktree cleanup step")
 	emit.NoteFieldNoOp(target, spec.KindEnvironment, "dev-commands", emit.EnvironmentsWithField(target, envs, "dev-commands"),
 		"Amp runs long-lived processes from terminals, as services")
 	install, terminals, err := resolveEnvironment(envs)

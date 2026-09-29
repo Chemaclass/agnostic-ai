@@ -134,6 +134,13 @@ func kitSinkBundle() spec.Bundle {
 				"input": map[string]any{"patch": "${tool_input.command}"},
 			},
 		},
+		{
+			Kind: spec.KindEnvironment, Name: "dev", Path: "environments/dev.yaml",
+			Meta: map[string]any{
+				"name": "dev", "setup": "npm ci", "cleanup": "make stop",
+				"dev-commands": []any{map[string]any{"name": "Dashboard", "command": "npm run dev"}},
+			},
+		},
 		{Kind: spec.KindCommand, Name: "cmd-one", Path: "commands/cmd-one.md", Body: "cmd one body"},
 		{Kind: spec.KindCommand, Name: "cmd-two", Path: "commands/cmd-two.md", Body: "cmd two body"},
 		{Kind: spec.KindCommand, Name: "cmd-three", Path: "commands/cmd-three.md", Body: "cmd three body"},

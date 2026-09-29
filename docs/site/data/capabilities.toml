@@ -86,7 +86,7 @@ statuses = ["native", "native", "native", "native", "native", "native", "native"
 id = "codex"
 name = "Codex"
 href = "@/docs/targets/codex.md"
-statuses = ["native", "native", "native", "native", "native", "opt-in", "native", "native", "no", "no"]
+statuses = ["native", "native", "native", "native", "native", "opt-in", "native", "native", "native", "no"]
 
 [[targets]]
 id = "gemini"
