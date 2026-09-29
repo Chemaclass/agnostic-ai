@@ -155,7 +155,7 @@ func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) [
 func lintEmptySpecs(entries []spec.Entry) []lintFinding {
 	var out []lintFinding
 	for _, e := range entries {
-		if e.Kind == spec.KindSettings || e.Kind == spec.KindEnvironment {
+		if e.Kind == spec.KindSettings || e.Kind == spec.KindEnvironment || hasHandler(e) {
 			continue
 		}
 		body := strings.TrimSpace(e.Body)
@@ -170,6 +170,21 @@ func lintEmptySpecs(entries []spec.Entry) []lintFinding {
 		}
 	}
 	return out
+}
+
+// hasHandler reports whether a hook or MCP spec names what it runs or
+// connects to. Its YAML fields are its content, so no body or
+// description makes it empty.
+func hasHandler(e spec.Entry) bool {
+	if e.Kind != spec.KindHook && e.Kind != spec.KindMCP {
+		return false
+	}
+	for _, k := range []string{"command", "prompt", "server", "tool", "url", "agent"} {
+		if v, ok := e.Meta[k]; ok && v != nil && v != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // lintDuplicateNames flags two or more specs of the same kind sharing the

@@ -6,6 +6,12 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### General
+
+- AAI-005 says to update `requires` when `package.json` already pins the running release, as right after `pnpm add agnostic-ai@X.Y.Z`, instead of suggesting a downgrade.
+- `sync --check --against` checks a bump commit's deleted-spec outputs too: the parent commit renders without its `requires`.
+- LINT001 no longer calls a hook or MCP spec empty when it names a command, prompt, server, or URL.
+
 ## v0.75.0 - 2026-09-29
 
 ### General

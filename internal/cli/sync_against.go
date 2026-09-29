@@ -324,9 +324,9 @@ func renderedAtHEAD(sources []string) map[string]string {
 func plannedOutputs() (map[string]string, error) {
 	adapters.SetWarner(io.Discard)
 	defer adapters.SetWarner(os.Stderr)
-	prevVerbosity, prevWarn := verbosity, requiresWarnOut
-	verbosity, requiresWarnOut = levelQuiet, io.Discard
-	defer func() { verbosity, requiresWarnOut = prevVerbosity, prevWarn }()
+	prevVerbosity, prevWarn, prevSkipped := verbosity, requiresWarnOut, requiresSkipped
+	verbosity, requiresWarnOut, requiresSkipped = levelQuiet, io.Discard, true
+	defer func() { verbosity, requiresWarnOut, requiresSkipped = prevVerbosity, prevWarn, prevSkipped }()
 	cfg, b, err := loadProject(".")
 	if err != nil {
 		return nil, err
