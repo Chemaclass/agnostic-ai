@@ -1722,3 +1722,41 @@ func TestImportFromCodex_KeepsTheTextAboveTheFirstSection(t *testing.T) {
 		t.Errorf("api.md should hold the scoped intro alone:\n%s", data)
 	}
 }
+
+// A hand-written Skills or Agents section is guidance, not the emitter's
+// listing, so it imports as a rule.
+func TestImportFromCodex_KeepsHandWrittenSkillsAndAgentsSections(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "svc", "AGENTS.md"), "# Svc\n\nIntro.\n\n## Layout\n\n- a/\n\n## Skills\n\nUse the svc-* skills. Entry points:\n\n- svc-start\n\n## Agents\n\n### planner\n\nPlan before editing.\n")
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range map[string]string{
+		"svc-skills.md": "Use the svc-* skills.",
+		"svc-agents.md": "Plan before editing.",
+	} {
+		got, err := os.ReadFile(filepath.Join(dir, "rules", name))
+		if err != nil {
+			t.Fatalf("a hand-written section must import as rules/%s: %v", name, err)
+		}
+		if !strings.Contains(string(got), want) {
+			t.Errorf("rules/%s lost %q:\n%s", name, want, got)
+		}
+	}
+}
+
+// A Skills section with an intro before its Source entries is hand-written.
+func TestImportFromCodex_KeepsSkillsSectionWithIntro(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "svc", "AGENTS.md"), "# Svc\n\n## Skills\n\nStart with the planner.\n\n### planner\n\nSource: `.agents/skills/planner/SKILL.md`\n")
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "rules", "svc-skills.md"))
+	if err != nil {
+		t.Fatalf("a Skills section with an intro must import as a rule: %v", err)
+	}
+	if !strings.Contains(string(got), "Start with the planner.") {
+		t.Errorf("intro lost:\n%s", got)
+	}
+}

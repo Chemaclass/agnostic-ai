@@ -12,6 +12,9 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `sync --check --against index` or `--against HEAD` compares the staged specs or the last commit with the outputs Git tracks, for pre-commit hooks and CI (#1398).
 - `sync --keep-edits` keeps an uncommitted edit to a tracked output when there is no `.sync-state`, such as in a new linked worktree (#1397).
 - A review spec line holding only `@path` inlines that file, so a folder's `README.md` can be its review without a symlinked `BUGBOT.md` (#1395).
+- `sync --check --against` also fails on a tracked file with the generated header that no spec produces anymore, so one CI command catches a leftover that only `doctor` found before.
+- An environment spec shared by several tools prints a no-effect note only for a field no enabled tool reads, instead of one per tool on every sync.
+- AAI-005 names the package manager's command, such as `pnpm install`, when the binary sits in the project's `node_modules`. A release candidate built with `-X github.com/chemaclass/agnostic-ai/internal/cli.candidateVersion=X.Y.Z` is checked as that release.
 - `doctor` names an unledgered leftover it cannot remove and says to delete it by hand or list it under `sync.unmanaged`, instead of advising `sync` or `doctor --fix` (#1392).
 
 ### By tool
@@ -24,8 +27,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 #### Codex
 
 - Environment specs write `.codex/environments/environment.toml`: `setup`, the new `cleanup`, and `setup-windows` become worktree scripts, and `dev-commands` become action buttons with an optional `icon`. `import codex` reads the file back (#1393).
+- A dev command's `cwd` becomes a `cd <cwd> &&` before the action's command, since Codex runs actions from the project root, and `import codex` reads it back as `cwd`.
 - `lint` warns when the `AGENTS.md` chain Codex reads in one scope passes 32 KiB; `lint.codex-chain-bytes` moves the limit (#1396).
 - `import codex` keeps a hand-written `## Conventions` or `## Rules` section with no `###` children as a rule instead of dropping it (#1391).
+- `import codex` keeps a hand-written `## Skills` or `## Agents` section as a rule, and skips only the listing sync writes.
 
 #### Cursor
 

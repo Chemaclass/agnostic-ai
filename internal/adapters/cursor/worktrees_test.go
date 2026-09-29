@@ -32,9 +32,9 @@ func TestEmit_EnvironmentSetupWritesWorktreesJSON(t *testing.T) {
 	cwd := t.TempDir()
 	testutil.Chdir(t, cwd)
 	b := spec.NewBundle([]spec.Entry{{
-		Kind: spec.KindEnvironment, Name: "kombo", Path: "environments/kombo.yaml",
+		Kind: spec.KindEnvironment, Name: "acme", Path: "environments/acme.yaml",
 		Meta: map[string]any{
-			"name":          "kombo",
+			"name":          "acme",
 			"install":       "pnpm install",
 			"setup":         "bash scripts/setup-worktree.bash",
 			"setup-windows": []any{"npm ci", "copy .env.example .env"},

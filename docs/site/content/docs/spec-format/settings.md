@@ -124,7 +124,7 @@ dev-commands:
     auto-port: true
 ```
 
-Specs merge by top-level key, and the last value wins.
+Specs merge by top-level key, and the last value wins. One spec can serve every tool: a field one tool ignores gets no no-effect note when another enabled tool reads it, and a field no enabled tool reads still gets one.
 
 - [Cursor](@/docs/targets/cursor.md): `setup` and `setup-windows` go to `.cursor/worktrees.json`. The rest goes to `environment.json`, except the routing fields (`name`, `scope`, `target(s)`, `target(s)-exclude`, `description`) `dev-commands`, and `cleanup`, which get a no-effect note. `import cursor` reads both files back.
 - [Codex](@/docs/targets/codex.md): `setup`, `setup-windows`, `cleanup`, and `dev-commands` go to `.codex/environments/environment.toml` as scripts and action buttons. Other fields get a no-effect note. `import codex` reads the file back.

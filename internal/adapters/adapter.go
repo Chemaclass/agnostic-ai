@@ -581,6 +581,9 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 	if err := a.Emit(sess, prepared, cfg, dryRun); err != nil {
 		return err
 	}
+	if slices.Contains(a.Capabilities(), spec.KindEnvironment) {
+		emit.RecordEnvironmentFields(a.Name(), prepared.Environments)
+	}
 	for _, f := range files {
 		if err := sess.WriteFile(f.Path, f.Content, dryRun); err != nil {
 			return err

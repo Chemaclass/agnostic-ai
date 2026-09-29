@@ -85,21 +85,49 @@ func enterAgainstTree(ref string) (_ *againstTree, err error) {
 	if _, err := gitOutput(root, isolatedGitEnv(), "init", "--quiet"); err != nil {
 		return nil, fmt.Errorf("--against %s: %w", ref, err)
 	}
+	entries, err := gitOutput(toplevel, env, "ls-files", "--stage", "-z")
+	if err != nil {
+		return nil, fmt.Errorf("--against %s: %w", ref, err)
+	}
+	if err := gitInput(root, isolatedGitEnv(), entries, "update-index", "-z", "--index-info"); err != nil {
+		return nil, fmt.Errorf("--against %s: index: %w", ref, err)
+	}
 	project := filepath.Join(root, filepath.FromSlash(strings.TrimSpace(prefix)))
 	if err := os.Chdir(project); err != nil {
 		return nil, fmt.Errorf("--against %s: %w", ref, err)
 	}
-	return &againstTree{origin: origin, scratch: scratch, root: root}, nil
+	return &againstTree{origin: origin, scratch: scratch, root: root, gitEnv: isolateGitEnv()}, nil
+}
+
+// isolateGitEnv unsets the variables that point git at another
+// repository, so every git call the check makes reads the export, and
+// returns them for leave to restore. A pre-commit hook sets GIT_DIR and
+// GIT_INDEX_FILE to the real repository.
+func isolateGitEnv() map[string]string {
+	saved := map[string]string{}
+	for _, kv := range os.Environ() {
+		k, v, _ := strings.Cut(kv, "=")
+		if strings.HasPrefix(k, "GIT_") && !strings.HasPrefix(k, "GIT_CONFIG") && !strings.HasPrefix(k, "GIT_TERMINAL") {
+			saved[k] = v
+			_ = os.Unsetenv(k)
+		}
+	}
+	return saved
 }
 
 // againstTree is the export enterAgainstTree made.
 type againstTree struct {
 	origin, scratch, root string
+	gitEnv                map[string]string
 }
 
-// leave restores the working directory and removes the export.
+// leave restores the working directory and git environment, and removes
+// the export.
 func (t *againstTree) leave() {
 	_ = os.Chdir(t.origin)
+	for k, v := range t.gitEnv {
+		_ = os.Setenv(k, v)
+	}
 	_ = os.RemoveAll(t.scratch)
 }
 
@@ -138,8 +166,10 @@ func (t *againstTree) ignored(paths []string) (map[string]bool, error) {
 // trackedDrift narrows reports from a check of an exported tree to what
 // that state gets wrong about the outputs Git tracks there: an output
 // that differs from what the specs render, or one the state lacks that
-// its .gitignore does not ignore. Leftovers, orphans, and the ledger say
-// nothing about the state, since the ledger is never committed.
+// its .gitignore does not ignore, and a tracked file that carries the
+// provenance header where a target writes but that no spec produces. The
+// ledger is never committed, so ledger findings say nothing about the
+// state, and a tracked leftover is one to delete by hand.
 func (t *againstTree) trackedDrift(reports []driftReport) ([]driftReport, error) {
 	var missing []string
 	for _, r := range reports {
@@ -154,6 +184,10 @@ func (t *againstTree) trackedDrift(reports []driftReport) ([]driftReport, error)
 	var out []driftReport
 	for _, r := range reports {
 		kept := driftReport{Target: r.Target, Stale: r.Stale, Edited: r.Edited}
+		if r.Target == unledgeredReportTarget {
+			kept.Unledgered = true
+			kept.Orphaned = append(append([]string{}, r.Orphaned...), r.Leftover...)
+		}
 		for _, f := range r.Missing {
 			if !ignored[filepath.ToSlash(f.Path)] {
 				kept.Missing = append(kept.Missing, f)
@@ -170,6 +204,22 @@ func againstHint(ref string) string {
 		return "the check compared the last commit; commit the regenerated files"
 	}
 	return "the check compared the Git index; stage the regenerated files with git add"
+}
+
+// gitInput runs git in dir with the environment env, feeding it stdin.
+func gitInput(dir string, env []string, stdin string, args ...string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), againstGitTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Dir = dir
+	cmd.Env = env
+	cmd.Stdin = strings.NewReader(stdin)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("git %s: %w: %s", args[0], err, strings.TrimSpace(stderr.String()))
+	}
+	return nil
 }
 
 // gitOutput runs git in dir with the environment env (the process

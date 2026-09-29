@@ -172,3 +172,71 @@ func runCheckPlain(t *testing.T) (string, string, error) {
 	err := root.Execute()
 	return stdout.String(), stderr.String(), err
 }
+
+// A generated output that stays tracked after its spec is gone is a
+// leftover in the state Git holds, whatever the local ledger says.
+func TestSyncCheckAgainst_ReportsTrackedOutputNoSpecProduces(t *testing.T) {
+	dir := committedProject(t, "instructions")
+	if err := os.WriteFile(filepath.Join(dir, ".agnostic-ai/rules/r2.md"), []byte("---\nname: r2\n---\nsecond rule"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := runSyncArgs(t); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	git(t, dir, "add", "-A")
+	git(t, dir, "commit", "-q", "-m", "add r2")
+	git(t, dir, "rm", "-q", ".agnostic-ai/rules/r2.md")
+
+	for _, ref := range []string{"index", "HEAD"} {
+		if ref == "HEAD" {
+			git(t, dir, "commit", "-q", "-m", "drop the r2 spec")
+		}
+		stdout, _, err := checkAgainst(t, ref)
+		if err == nil || !strings.Contains(stdout, ".claude/rules/r2.md") {
+			t.Errorf("--against %s: a tracked output no spec produces should fail and be named, got err=%v\n%s", ref, err, stdout)
+		}
+	}
+
+	git(t, dir, "rm", "-q", ".claude/rules/r2.md")
+	git(t, dir, "commit", "-q", "-m", "drop the r2 output")
+	if stdout, _, err := checkAgainst(t, "HEAD"); err != nil {
+		t.Errorf("with the leftover removed, the check should pass: %v\n%s", err, stdout)
+	}
+}
+
+// A pre-commit hook runs with GIT_DIR and GIT_INDEX_FILE pointing at the
+// real repository; the leftover scan must still read the exported state.
+func TestSyncCheckAgainst_ReportsLeftoverUnderHookEnvironment(t *testing.T) {
+	dir := committedProject(t, "instructions")
+	if err := os.WriteFile(filepath.Join(dir, ".agnostic-ai/rules/r2.md"), []byte("---\nname: r2\n---\nsecond rule"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := runSyncArgs(t); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	git(t, dir, "add", "-A")
+	git(t, dir, "commit", "-q", "-m", "add r2")
+	git(t, dir, "rm", "-q", ".agnostic-ai/rules/r2.md")
+	t.Setenv("GIT_DIR", filepath.Join(dir, ".git"))
+	t.Setenv("GIT_INDEX_FILE", ".git/index")
+
+	stdout, _, err := checkAgainst(t, "index")
+	if err == nil || !strings.Contains(stdout, ".claude/rules/r2.md") {
+		t.Errorf("under a hook environment, a staged spec deletion should fail on its tracked output, got err=%v\n%s", err, stdout)
+	}
+	if got := os.Getenv("GIT_INDEX_FILE"); got != ".git/index" {
+		t.Errorf("GIT_INDEX_FILE after the check = %q, want it restored", got)
+	}
+}
+
+// A repository with nothing staged yet has no index file.
+func TestSyncCheckAgainstIndex_PassesWithNoIndexFile(t *testing.T) {
+	dir := setupFixture(t)
+	isolateGit(t)
+	git(t, dir, "init", "-q")
+	testutil.Chdir(t, dir)
+	silence(t)
+	if _, _, err := checkAgainst(t, "index"); err != nil && strings.Contains(err.Error(), "index") {
+		t.Errorf("a missing index file should read as an empty index, got %v", err)
+	}
+}

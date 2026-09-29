@@ -30,7 +30,7 @@ When an earlier step already rewrote the files, as a `postinstall` sync does, co
 agnostic-ai sync --check --against HEAD
 ```
 
-It renders the specs as committed and compares them with the committed outputs. Outputs that `gitignore` leaves out are skipped.
+It renders the specs as committed and compares them with the committed outputs. Outputs that `gitignore` leaves out are skipped. A committed file with the generated header where a target writes, but that no spec produces anymore, fails too, so one command catches a leftover without `doctor`.
 
 ## Ignored outputs
 

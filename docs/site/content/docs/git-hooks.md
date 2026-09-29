@@ -107,7 +107,7 @@ A plain `sync --check` reads the working tree. When `sync` already rewrote `AGEN
 agnostic-ai sync --check --against index
 ```
 
-A staged spec change without its regenerated output fails and names the file. `--against HEAD` does the same for the last commit, for a CI job that runs after `postinstall` has rewritten the working tree. Only outputs Git tracks are compared, so an output that `gitignore` leaves out never fails. Specs come from the same state, so an untracked `agnostic-ai.local.yaml` or `.agnostic-ai/local/` is not read.
+A staged spec change without its regenerated output fails and names the file. `--against HEAD` does the same for the last commit, for a CI job that runs after `postinstall` has rewritten the working tree. Only outputs Git tracks are compared, so an output that `gitignore` leaves out never fails. A tracked output whose spec is gone fails until you delete it. Specs come from the same state, so an untracked `agnostic-ai.local.yaml` or `.agnostic-ai/local/` is not read.
 
 ## Regenerate on checkout
 

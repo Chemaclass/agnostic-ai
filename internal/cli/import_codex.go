@@ -149,10 +149,10 @@ var codexUnwrapHeadings = map[string]bool{
 	"rules": true,
 }
 
-// codexSkipHeadings are H2 sections produced by the codex emitter as
-// reference listings only; their real data lives in TOML files or
-// folders elsewhere and gets imported separately. The wrapper and every
-// `###` child under it are ignored when scanning AGENTS.md for rules.
+// codexSkipHeadings are H2 sections the emitter writes as listings of
+// agents and skills that are imported from their own files. In a file the
+// emitter wrote, or in the listing shape it writes, the wrapper and every
+// `###` child under it are skipped; otherwise the section is a rule.
 var codexSkipHeadings = map[string]bool{
 	"agents": true,
 	"skills": true,
@@ -256,16 +256,16 @@ type codexSection struct {
 }
 
 // codexSectionsFrom returns one section per real ## heading. Wrapper
-// headings (Conventions/Agents/Skills) are unwrapped — their ### children
-// become the actual sections. A wrapper heading with no ### children in a
-// file the emitter did not write is a hand-written section and stays one.
+// headings (Conventions/Rules) are unwrapped: their ### children become
+// the actual sections. A wrapper heading with no ### children in a file
+// the emitter did not write is a hand-written section and stays one.
 // Italic-only first paragraphs are extracted as descriptions and stripped
 // from the body.
 func codexSectionsFrom(s string, generated bool) []codexSection {
 	_, h2 := splitH2Sections(s)
 	var out []codexSection
 	for _, sec := range h2 {
-		if codexSkipHeadings[sec.slug] {
+		if codexSkipHeadings[sec.slug] && (generated || isCodexListing(sec.body)) {
 			continue
 		}
 		if codexUnwrapHeadings[sec.slug] {
@@ -279,6 +279,33 @@ func codexSectionsFrom(s string, generated bool) []codexSection {
 		out = append(out, codexSection{slug: sec.slug, description: desc, body: body})
 	}
 	return out
+}
+
+var (
+	codexListingSourceRE = regexp.MustCompile("^Source: `[^`]+`$")
+	htmlCommentRE        = regexp.MustCompile(`(?s)<!--.*?-->`)
+)
+
+// isCodexListing reports whether a section holds only `###` entries that
+// each point at a Source file, the listing WriteReference writes. Text
+// before the first entry or a code fence makes it hand-written.
+func isCodexListing(body string) bool {
+	if strings.Contains(body, "```") || strings.Contains(body, "~~~") {
+		return false
+	}
+	if first := h3HeadingRE.FindStringIndex(body); first == nil || strings.TrimSpace(htmlCommentRE.ReplaceAllString(body[:first[0]], "")) != "" {
+		return false
+	}
+	children := unwrapH3(body)
+	if len(children) == 0 {
+		return false
+	}
+	for _, c := range children {
+		if !codexListingSourceRE.MatchString(strings.TrimSpace(htmlCommentRE.ReplaceAllString(c.body, ""))) {
+			return false
+		}
+	}
+	return true
 }
 
 var h3HeadingRE = regexp.MustCompile(`(?m)^###[ \t]+(.+?)[ \t]*$`)

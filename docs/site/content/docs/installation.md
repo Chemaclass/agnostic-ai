@@ -52,6 +52,16 @@ On Windows, download [`install.ps1`](https://github.com/Chemaclass/agnostic-ai/b
 
 With npm, pin the package: `npm install -g agnostic-ai@X.Y.Z`.
 
+## Pin it per project
+
+A JavaScript project can install the CLI as a dev dependency, so every clone, worktree, and CI job runs the release the lockfile names:
+
+```bash
+pnpm add -D agnostic-ai@X.Y.Z    # or npm install -D, yarn add -D, bun add -D
+```
+
+Pair it with the same release in [`requires`](@/docs/configuration.md#requires), such as `requires: "X.Y.Z"`. After a pull that bumps both, run `pnpm install` (or your manager's install). Until then, commands stop with AAI-005 and name that install command.
+
 ## Optional extras
 
 Shell completion for Bash, Zsh, Fish, and PowerShell: see [completion](@/docs/cli-reference/maintain.md#completion).

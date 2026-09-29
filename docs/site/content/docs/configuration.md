@@ -87,9 +87,17 @@ requires: "0.73.0"      # exactly this release; "=0.73.0" means the same
 requires: ">=0.73.0 <0.74.0"   # a range
 ```
 
-Every command that reads your specs stops on a binary outside the value before it reads specs or writes files. The error is [AAI-005](@/docs/errors.md#aai-005-installed-version-older-than-requires) and names the command that installs a fitting release: `agnostic-ai upgrade` for a minimum, `agnostic-ai upgrade --version vX.Y.Z` when the value pins or bounds a release. `sync --watch` stops when a pulled config puts the binary outside `requires`. Releases before 0.70.0 ignore the key, and releases that predate exact and range values read only `>=X.Y.Z`.
+Every command that reads your specs stops on a binary outside the value before it reads specs or writes files. The error is [AAI-005](@/docs/errors.md#aai-005-installed-version-older-than-requires) and names the command that installs a fitting release: `agnostic-ai upgrade` for a minimum, `agnostic-ai upgrade --version vX.Y.Z` when the value pins or bounds a release. A binary installed into the project's `node_modules` gets its package manager's command instead, such as `pnpm install`, picked from the lockfile. `sync --watch` stops when a pulled config puts the binary outside `requires`. Releases before 0.70.0 ignore the key. Releases before 0.74.0 read only `>=X.Y.Z` and stop on an exact or range value with AAI-004, whose text suggests `>=X.Y.Z`. Install the release the value names instead of editing `requires`.
 
 A value is one or more terms separated by spaces, and every term must hold: `>=X.Y.Z`, `<X.Y.Z`, `<=X.Y.Z`, `=X.Y.Z`, or a bare `X.Y.Z`. Anything else fails as AAI-004 naming the file. A build from source (`go run`, or a commit after a tag) is not a release and warns once instead. `agnostic-ai.local.yaml` can replace the value, and an empty `requires:` there turns the check off. The [global home config](#global-configuration) accepts the key too.
+
+To test a release candidate against a project that pins it, build it with the release it stands for:
+
+```bash
+go build -ldflags "-X github.com/chemaclass/agnostic-ai/internal/cli.candidateVersion=X.Y.Z" -o agnostic-ai ./cmd/agnostic-ai
+```
+
+That build is checked as release X.Y.Z. Setting `main.version` changes only what `--version` prints.
 
 ## `sources`
 
