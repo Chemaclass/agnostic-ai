@@ -259,7 +259,7 @@ func gitPending(root string, changed []string) []string {
 	var pending []string
 	for start := 0; start < len(changed); start += gitPathsPerCall {
 		end := min(start+gitPathsPerCall, len(changed))
-		got, ok := gitStatusPaths(root, changed[start:end])
+		got, ok := gitStatusPaths(root, prefix, changed[start:end])
 		if !ok {
 			return nil
 		}
@@ -391,7 +391,7 @@ func trackedFiles(root string) ([]string, bool) {
 	return files, true
 }
 
-func gitStatusPaths(root string, paths []string) ([]string, bool) {
+func gitStatusPaths(root, prefix string, paths []string) ([]string, bool) {
 	out, ok := runGit(root, append([]string{"status", "--porcelain=v1", "-z", "--untracked-files=all", "--"}, paths...)...)
 	if !ok {
 		return nil, false
@@ -401,6 +401,12 @@ func gitStatusPaths(root string, paths []string) ([]string, bool) {
 	for i := 0; i < len(recs); i++ {
 		rec := recs[i]
 		if len(rec) <= 3 {
+			continue
+		}
+		// A staged deletion of a file still on disk is `git rm --cached`
+		// untracking an output the gitignore block now covers. Committing
+		// that deletion is the user's own step, not sync's output to add.
+		if rel, ok := strings.CutPrefix(rec[3:], prefix); ok && rec[0] == 'D' && rec[1] == ' ' && fileExists(filepath.Join(root, filepath.FromSlash(rel))) {
 			continue
 		}
 		pending = append(pending, rec[3:])
