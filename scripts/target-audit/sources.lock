@@ -112,7 +112,7 @@ goose	docs	https://github.com/aaif-goose/goose/blob/main/documentation/docs/guid
 goose	docs	https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/using-skills.md	200	raw-github	f521f1fedeb5720c3664b064620ea51faa8fa77407f430bef89050eb405b66c3	2026-09-22
 jules	changelog	https://jules.google/docs/changelog/	200	html	94ba5b0ded038d5f50a722c7aec178ca276a00e6e16e7bc6900aaed8028051dc	2026-09-22
 jules	docs	https://jules.google/docs	200	html	c648501d2a6994eb5a16b74df1505bfd205ede672fa19b94e922135cbc5c4a0e	2026-09-22
-junie	changelog	https://junie.jetbrains.com/blog/	200	html	894ac58b8b3f2a0dcf076b6a8a4155c871a8f0cdf1c9477c72c05eb9b853367a	2026-09-22
+junie	changelog	https://junie.jetbrains.com/blog/	200	html	297d3d2b4a53c811fa46555ea3d39f77de095f845aa3ddb4f56f14d735cf10e9	2026-09-29
 junie	changelog	https://plugins.jetbrains.com/api/plugins/26104/updates?size=20	200	json	31bebe7bf03f9a8f4bcf3763970dd0c0e93bb846b24d51b5105977222384bb7a	2026-09-29
 junie	docs	https://junie.jetbrains.com/docs/action-allowlist-junie-cli.html	200	html	217595614a236656e52be2593b867920f7ad575da71c618f0c8abc89a18af748	2026-09-23
 junie	docs	https://junie.jetbrains.com/docs/agent-skills.html	200	html	9b7af260ea22f9a37dd9a08248ad487ae50b239bc7701b9b06461665aa7131b2	2026-09-23
@@ -139,7 +139,7 @@ kilo	docs	https://kilo.ai/docs/customize/custom-rules	200	html	8a0b79959e9e92d10
 kilo	docs	https://kilo.ai/docs/customize/custom-subagents	200	html	26ae84fff5daad886b46d12e2b87047aac11f8c223b722f51d827e11a48d11a3	2026-09-22
 kilo	docs	https://kilo.ai/docs/customize/skills	200	html	cdc320d1955a1b11f32807b13ca70e39cfe68517d249147096bd6b7e095a5e47	2026-09-23
 kilo	docs	https://kilo.ai/docs/getting-started/settings/auto-approving-actions	200	html	3d660caed47c7252466c544bcec647c9e1b470d71a56bfea50f9bf9e11208568	2026-09-22
-kiro	changelog	https://kiro.dev/changelog/	200	reader-proxy	481ea553147317bd5248b654508be4865e1c09ee09242ff83654d8ac89ac0dc7	2026-09-29
+kiro	changelog	https://kiro.dev/changelog/	200	reader-proxy	784eac5de194bca5f1f763b71145fca7e4f5a814a8b1fdeb5d045ad9d2495cc3	2026-09-29
 kiro	docs	https://kiro.dev/docs/cli/v3/hooks-migration.md	200	markdown-mirror	47257b52caedeec916a92a82c7c3e20a22889b37c47c4688dfb989f70370f13f	2026-09-25
 kiro	docs	https://kiro.dev/docs/custom-agents.md	200	markdown-mirror	4901ef1d9bb61a831849697619ca484a4b0517ac23ea3afd94de5fd399799400	2026-09-25
 kiro	docs	https://kiro.dev/docs/custom-agents/configuration-reference.md	200	markdown-mirror	80484017b11180fe9e27f9ee5f71c0e8812afa53591793d162bfb7027b99a4c3	2026-09-25
