@@ -205,7 +205,7 @@ func importCodexRules(root, dstDir string, src config.Sources, opts importCodexO
 			count++
 			continue
 		}
-		sections := codexSectionsFrom(string(data))
+		sections := codexSectionsFrom(string(data), header.Has(source))
 		if len(sections) == 0 {
 			body := strings.TrimSpace(string(data))
 			if body == "" {
@@ -253,9 +253,11 @@ type codexSection struct {
 
 // codexSectionsFrom returns one section per real ## heading. Wrapper
 // headings (Conventions/Agents/Skills) are unwrapped — their ### children
-// become the actual sections. Italic-only first paragraphs are extracted
-// as descriptions and stripped from the body.
-func codexSectionsFrom(s string) []codexSection {
+// become the actual sections. A wrapper heading with no ### children in a
+// file the emitter did not write is a hand-written section and stays one.
+// Italic-only first paragraphs are extracted as descriptions and stripped
+// from the body.
+func codexSectionsFrom(s string, generated bool) []codexSection {
 	_, h2 := splitH2Sections(s)
 	var out []codexSection
 	for _, sec := range h2 {
@@ -263,8 +265,11 @@ func codexSectionsFrom(s string) []codexSection {
 			continue
 		}
 		if codexUnwrapHeadings[sec.slug] {
-			out = append(out, unwrapH3(sec.body)...)
-			continue
+			children := unwrapH3(sec.body)
+			if len(children) > 0 || generated {
+				out = append(out, children...)
+				continue
+			}
 		}
 		desc, body := extractItalicDescription(stripHeadingLine(sec.body))
 		out = append(out, codexSection{slug: sec.slug, description: desc, body: body})
