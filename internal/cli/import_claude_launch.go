@@ -91,7 +91,7 @@ func importClaudeLaunch(root string, src config.Sources, layout claudeLayout) (i
 		cmd := yaml.Node{Kind: yaml.MappingNode}
 		addYAMLField(&cmd, "name", name)
 		addYAMLField(&cmd, "command", devCommandValue(argv))
-		if cwd, _ := c["cwd"].(string); cwd != "" {
+		if cwd := portableLaunchCwd(c["cwd"]); cwd != "" {
 			addYAMLField(&cmd, "cwd", cwd)
 		}
 		if port, ok := c["port"].(float64); ok {
@@ -136,6 +136,28 @@ func importClaudeLaunch(root string, src config.Sources, layout claudeLayout) (i
 		return 0, fmt.Errorf("write %s: %w", out, err)
 	}
 	return 1, nil
+}
+
+// launchWorkspaceFolder is what Claude Code documents as the project root
+// in a launch.json `cwd`.
+const launchWorkspaceFolder = "${workspaceFolder}"
+
+// portableLaunchCwd reads a launch.json `cwd` as the spec's project-relative
+// form: a leading `${workspaceFolder}/` is dropped, and the project root
+// itself, which is the default, becomes no cwd.
+func portableLaunchCwd(v any) string {
+	cwd, _ := v.(string)
+	rest, ok := strings.CutPrefix(cwd, launchWorkspaceFolder)
+	if !ok {
+		return cwd
+	}
+	if rest == "" {
+		return ""
+	}
+	if rel, ok := strings.CutPrefix(rest, "/"); ok {
+		return rel
+	}
+	return cwd
 }
 
 // launchFileVersion is the only launch.json version sync writes.

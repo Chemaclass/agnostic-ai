@@ -17,6 +17,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 #### Claude Code
 
 - `outputs.claude.settings.taskOutputMaxChars` is no longer written, since every release channel dropped it; sync removes it and says so (#1381).
+- `import claude` turns a `launch.json` `cwd` of `${workspaceFolder}/apps/docs` into the portable `cwd: apps/docs`; a bare `${workspaceFolder}` drops the `cwd` (#1400).
 
 #### Codex
 
