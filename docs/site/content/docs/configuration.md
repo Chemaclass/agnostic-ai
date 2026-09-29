@@ -346,7 +346,7 @@ Setting the named key clears the note. Repeated warnings collapse into one count
 |-------|---------|-------------|
 | `enabled` | `false` when absent; `agnostic-ai init` writes `true` | Every `sync` rewrites a managed `.gitignore` block listing every path the configured adapters emit. |
 | `path` | `.gitignore` | Another file, for monorepos or local-only ignore files. |
-| `commit` | empty | Kinds of generated output to keep in Git. The block leaves out their paths for every configured target. |
+| `commit` | empty | Kinds of generated output to keep in Git, for every target or as `<target>:<kind>` for one. The block leaves out their paths. |
 | `allow` | empty | Gitignore globs written verbatim as `!` lines at the end of the block, so a hand-written file at a generated path (e.g. a `testdata/AGENTS.md` fixture) is not ignored. |
 
 `sync --gitignore` and `init --gitignore` override it per run; see the [CLI reference](@/docs/cli-reference/start.md#init).
@@ -360,6 +360,16 @@ gitignore:
 ```
 
 A file written by several kinds, such as `.claude/settings.json`, is committed when any of them is listed. A file only the config or an [overlay](#watched-inputs) produces belongs to no kind and stays ignored.
+
+Prefix a kind with a target to commit it for that target only. A cloud agent or review bot reads its files from Git, while local tools regenerate theirs:
+
+```yaml
+gitignore:
+  enabled: true
+  commit: [cursor:reviews, cursor:environments]
+```
+
+This keeps `.cursor/environment.json`, `.cursor/worktrees.json`, and every `BUGBOT.md` in Git and ignores `.claude/launch.json` and `.codex/environments/environment.toml`. `lint` warns (LINT017) when the target is not in `targets`.
 
 The block sits between `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai (managed) <<<`. Lines outside it are kept. A fresh clone or `git worktree` lacks these paths until `sync` runs (see [post-checkout hook](@/docs/git-hooks.md#regenerate-on-checkout)).
 

@@ -407,7 +407,7 @@ func committedOutputs(cfg *config.Config, b spec.Bundle, targets []string) (map[
 		for _, f := range baseline {
 			unchanged[f.Path] = f.Content
 		}
-		for _, kind := range cfg.Gitignore.Commit {
+		for _, kind := range cfg.Gitignore.CommitKinds(t) {
 			if kind == config.GitignoreInstructions {
 				add(adapters.EntryPointPath(cfg, t))
 				add(adapters.SharedInstructionsMirror(t))

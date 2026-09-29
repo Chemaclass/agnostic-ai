@@ -8,6 +8,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- `gitignore.commit` takes `<target>:<kind>`, such as `cursor:environments`, to commit a kind for one target only; `lint` warns when that target is not configured (LINT017).
+- The "files to commit" hint no longer lists an output you are untracking with `git rm --cached`.
 - Release binaries build with Go 1.26.8 instead of 1.26.0. `govulncheck` found 18 Go standard-library vulnerabilities reachable in 0.74.0 and earlier builds, mostly in `crypto/x509`, which `agnostic-ai upgrade` uses over HTTPS. CI now fails on any reachable vulnerability.
 - Releases carry a signed build provenance attestation and an SPDX SBOM for every archive; `gh attestation verify <archive> --repo Chemaclass/agnostic-ai` checks one, and `agnostic-ai.intoto.jsonl` on the release page holds the same attestation. `install.sh` and `install.ps1` stop instead of installing when `checksums.txt` or a SHA-256 tool is missing, and verify provenance too with `AGNOSTIC_AI_VERIFY_ATTESTATION=1` or `-VerifyAttestation`.
 

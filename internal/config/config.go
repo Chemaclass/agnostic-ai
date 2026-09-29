@@ -169,7 +169,9 @@ type Gitignore struct {
 	// Commit names kinds of generated output to keep in version control.
 	// The managed block leaves out every path a listed kind writes, for
 	// every configured target, so adding a target needs no new pattern.
-	Commit []string `yaml:"commit,omitempty" json:"commit,omitempty" jsonschema:"enum=instructions,enum=agents,enum=skills,enum=commands,enum=hooks,enum=mcps,enum=settings,enum=reviews,enum=environments,enum=ignores"`
+	// `<target>:<kind>` limits a kind to one target, such as
+	// `cursor:environments` for the files a cloud agent reads from Git.
+	Commit []string `yaml:"commit,omitempty" json:"commit,omitempty" jsonschema:"pattern=^([a-z0-9-]+:)?(instructions|agents|skills|commands|hooks|mcps|settings|reviews|environments|ignores)$"`
 }
 
 // GitignoreInstructions is the gitignore.commit kind for entry-point files
@@ -181,16 +183,39 @@ func GitignoreCommitKinds() []string {
 	return []string{GitignoreInstructions, "agents", "skills", "commands", "hooks", "mcps", "settings", "reviews", "environments", "ignores"}
 }
 
-// Validate rejects a gitignore.commit kind no output belongs to, naming
-// source.
+// Validate rejects a gitignore.commit entry whose kind no output belongs
+// to, or whose target part is empty, naming source.
 func (g Gitignore) Validate(source string) error {
 	kinds := GitignoreCommitKinds()
-	for _, k := range g.Commit {
-		if !slices.Contains(kinds, k) {
-			return errs.Coded(errs.CodeConfigDecode, "%s: gitignore.commit: unknown kind %q (want one of %s)", source, k, strings.Join(kinds, ", "))
+	for _, entry := range g.Commit {
+		target, kind, scoped := strings.Cut(entry, ":")
+		if !scoped {
+			kind = entry
+		}
+		if scoped && target == "" {
+			return errs.Coded(errs.CodeConfigDecode, "%s: gitignore.commit: %q names no target before the colon", source, entry)
+		}
+		if !slices.Contains(kinds, kind) {
+			return errs.Coded(errs.CodeConfigDecode, "%s: gitignore.commit: unknown kind %q (want one of %s, optionally as <target>:<kind>)", source, kind, strings.Join(kinds, ", "))
 		}
 	}
 	return nil
+}
+
+// CommitKinds returns the gitignore.commit kinds that apply to target:
+// every plain kind, and each `<target>:<kind>` naming it.
+func (g Gitignore) CommitKinds(target string) []string {
+	var out []string
+	for _, entry := range g.Commit {
+		t, kind, scoped := strings.Cut(entry, ":")
+		if !scoped {
+			kind = entry
+		}
+		if (!scoped || t == target) && !slices.Contains(out, kind) {
+			out = append(out, kind)
+		}
+	}
+	return out
 }
 
 type Sources struct {
