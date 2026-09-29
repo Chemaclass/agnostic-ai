@@ -156,6 +156,29 @@ func TestGitPending_ReportsTrackedAndUntrackedButNotIgnored(t *testing.T) {
 	}
 }
 
+// `git rm --cached` on an output the gitignore block now covers stages
+// its deletion while sync rewrites the file. That deletion is the user's
+// own step, so the hint does not list the file as one to commit; a staged
+// deletion of a file that is gone stays listed.
+func TestGitPending_SkipsAnOutputBeingUntracked(t *testing.T) {
+	dir, git := gitRepo(t)
+	sub := filepath.Join(dir, "sub")
+	mustWriteFile(t, filepath.Join(sub, "settings.json"), "v1")
+	mustWriteFile(t, filepath.Join(sub, "gone.md"), "v1")
+	git("add", ".")
+	git("commit", "-q", "-m", "init")
+	git("rm", "-q", "--cached", "sub/settings.json")
+	git("rm", "-q", "sub/gone.md")
+	mustWriteFile(t, filepath.Join(sub, ".gitignore"), "settings.json\n")
+	mustWriteFile(t, filepath.Join(sub, "settings.json"), "v2")
+
+	got := gitPending(sub, []string{"settings.json", "gone.md"})
+
+	if want := []string{"gone.md"}; !slices.Equal(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
 func TestGitPending_PathsAreRelativeToAProjectInASubdirectory(t *testing.T) {
 	dir, _ := gitRepo(t)
 	sub := filepath.Join(dir, "sub")

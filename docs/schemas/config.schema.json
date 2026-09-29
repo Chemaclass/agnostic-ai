@@ -315,20 +315,12 @@
         "commit": {
           "items": {
             "type": "string",
-            "enum": [
-              "instructions",
-              "agents",
-              "skills",
-              "commands",
-              "hooks",
-              "mcps",
-              "settings",
-              "reviews",
-              "environments",
-              "ignores"
-            ]
+            "pattern": "^([a-z0-9-]+:)?(instructions|agents|skills|commands|hooks|mcps|settings|reviews|environments|ignores)$"
           },
           "type": "array"
+        },
+        "worktree-include": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,

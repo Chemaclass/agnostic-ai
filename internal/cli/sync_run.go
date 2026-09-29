@@ -568,6 +568,11 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		if changed {
 			report.updated = append(report.updated, filepath.ToSlash(rel))
 		}
+		if changed, err := writeWorktreeInclude(root, cfg, block); err != nil {
+			return fmt.Errorf("worktreeinclude: %w", err)
+		} else if changed {
+			report.updated = append(report.updated, worktreeIncludeFile)
+		}
 	}
 
 	// Concurrent emission appends capability warnings / coverage notes in
@@ -885,6 +890,9 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 		}
 		if err := updateGitignore(root, cfg, block); err != nil {
 			return fmt.Errorf("gitignore: %w", err)
+		}
+		if _, err := writeWorktreeInclude(root, cfg, block); err != nil {
+			return fmt.Errorf("worktreeinclude: %w", err)
 		}
 	}
 	ledger, kept, removed, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, effectiveTargets, cfg.Targets, false)

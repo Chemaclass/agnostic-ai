@@ -233,3 +233,36 @@ func TestSync_GitignoreCommitKindsFollowsANewTarget(t *testing.T) {
 		t.Error("GEMINI.md is ignored; a new target's instructions must stay committed with no other config change")
 	}
 }
+
+// `<target>:<kind>` commits a kind for one target only: the Cursor
+// environment files a cloud agent reads from Git stay visible, while the
+// Claude Code and Codex files the same spec writes stay ignored.
+func TestSync_GitignoreCommitScopesAKindToOneTarget(t *testing.T) {
+	dir := syncCommitProject(t, "claude, codex, cursor", "cursor:environments", map[string]string{
+		".agnostic-ai/environments/dev.yaml": "name: dev\nsetup: npm ci\ninstall: npm ci\ndev-commands:\n  - name: Docs\n    command: npm run docs\n",
+	})
+
+	for _, p := range []string{".cursor/environment.json", ".cursor/worktrees.json", ".claude/launch.json", ".codex/environments/environment.toml"} {
+		if !slices.Contains(generatedFiles(t, dir), p) {
+			t.Fatalf("fixture did not generate %s", p)
+		}
+	}
+	for _, p := range []string{".cursor/environment.json", ".cursor/worktrees.json"} {
+		if gitIgnored(t, dir, p) {
+			t.Errorf("%s is ignored under commit: [cursor:environments]", p)
+		}
+	}
+	for _, p := range []string{".claude/launch.json", ".codex/environments/environment.toml"} {
+		if !gitIgnored(t, dir, p) {
+			t.Errorf("%s is visible; only cursor's environments are committed", p)
+		}
+	}
+}
+
+func TestLint_WarnsOnGitignoreCommitForAnUnconfiguredTarget(t *testing.T) {
+	cfg := &config.Config{Targets: []string{"claude", "cursor"}, Gitignore: config.Gitignore{Commit: []string{"cursor:reviews", "cursr:environments", "hooks"}}}
+	got := lintGitignoreCommitTargets(cfg)
+	if len(got) != 1 || got[0].Code != "LINT017" || !strings.Contains(got[0].Message, "cursr") {
+		t.Errorf("findings = %v, want one LINT017 for cursr", got)
+	}
+}

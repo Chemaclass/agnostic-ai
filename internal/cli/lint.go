@@ -88,6 +88,7 @@ func newLintCmd() *cobra.Command {
 				findings = append(findings, lintGlobalSettingsFindings(scope.bundle.Settings, scope.targets)...)
 			}
 			findings = append(findings, budget...)
+			findings = append(findings, lintGitignoreCommitTargets(scope.cfg)...)
 
 			if len(findings) == 0 {
 				cmd.Printf("ok — %d spec(s) clean\n", len(entries))
