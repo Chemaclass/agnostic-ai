@@ -8,24 +8,24 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
-- `requires` accepts an exact release (`"0.73.0"`) or a range (`">=0.73.0 <0.74.0"`), and a newer binary stops with AAI-005 before it rewrites committed outputs (#1399).
-- A review spec takes a line holding only `@path` and inlines that file, so a folder's `README.md` can be its review without a symlinked `BUGBOT.md` (#1395).
+- `requires` takes an exact release (`"0.73.0"`) or a range (`">=0.73.0 <0.74.0"`), so a newer binary stops with AAI-005 before it rewrites committed outputs (#1399).
+- `sync --check --against index` or `--against HEAD` compares the staged specs or the last commit with the outputs Git tracks, for pre-commit hooks and CI (#1398).
+- `sync --keep-edits` keeps an uncommitted edit to a tracked output when there is no `.sync-state`, such as in a new linked worktree (#1397).
+- A review spec line holding only `@path` inlines that file, so a folder's `README.md` can be its review without a symlinked `BUGBOT.md` (#1395).
 - `doctor` names an unledgered leftover it cannot remove and says to delete it by hand or list it under `sync.unmanaged`, instead of advising `sync` or `doctor --fix` (#1392).
-- `sync --keep-edits` keeps an uncommitted edit to a Git-tracked output when there is no `.sync-state`, such as in a new linked worktree (#1397).
-- `sync --check --against index` and `--against HEAD` compare the staged specs or the last commit with the outputs Git tracks, for pre-commit hooks and CI (#1398).
 
 ### By tool
 
 #### Claude Code
 
+- `import claude` turns a `launch.json` `cwd` of `${workspaceFolder}/apps/docs` into the portable `cwd: apps/docs`, and drops a bare `${workspaceFolder}` (#1400).
 - `outputs.claude.settings.taskOutputMaxChars` is no longer written, since every release channel dropped it; sync removes it and says so (#1381).
-- `import claude` turns a `launch.json` `cwd` of `${workspaceFolder}/apps/docs` into the portable `cwd: apps/docs`; a bare `${workspaceFolder}` drops the `cwd` (#1400).
 
 #### Codex
 
-- `lint` warns when the `AGENTS.md` chain Codex reads in a scope passes 32 KiB, and `lint.codex-chain-bytes` moves the limit (#1396).
-- `import codex` keeps a hand-written `## Conventions` or `## Rules` section that has no `###` children as a rule, instead of dropping it (#1391).
-- Environment specs write `.codex/environments/environment.toml`: `setup`, the new `cleanup`, and `setup-windows` become the worktree scripts, and `dev-commands` become action buttons with an optional `icon`. `import codex` reads the file back (#1393).
+- Environment specs write `.codex/environments/environment.toml`: `setup`, the new `cleanup`, and `setup-windows` become worktree scripts, and `dev-commands` become action buttons with an optional `icon`. `import codex` reads the file back (#1393).
+- `lint` warns when the `AGENTS.md` chain Codex reads in one scope passes 32 KiB; `lint.codex-chain-bytes` moves the limit (#1396).
+- `import codex` keeps a hand-written `## Conventions` or `## Rules` section with no `###` children as a rule instead of dropping it (#1391).
 
 #### Cursor
 
@@ -33,7 +33,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Site
 
-- The Claude page notes that Bedrock and telemetry-disabled sessions need v2.1.281 for the `AGENTS.md` fallback (#1382).
+- The Claude Code page notes that Bedrock and telemetry-disabled sessions need v2.1.281 for the `AGENTS.md` fallback (#1382).
 
 ## v0.73.0 - 2026-09-28
 
