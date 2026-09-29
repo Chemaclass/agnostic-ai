@@ -139,7 +139,7 @@ kilo	docs	https://kilo.ai/docs/customize/custom-rules	200	html	8a0b79959e9e92d10
 kilo	docs	https://kilo.ai/docs/customize/custom-subagents	200	html	26ae84fff5daad886b46d12e2b87047aac11f8c223b722f51d827e11a48d11a3	2026-09-22
 kilo	docs	https://kilo.ai/docs/customize/skills	200	html	cdc320d1955a1b11f32807b13ca70e39cfe68517d249147096bd6b7e095a5e47	2026-09-23
 kilo	docs	https://kilo.ai/docs/getting-started/settings/auto-approving-actions	200	html	3d660caed47c7252466c544bcec647c9e1b470d71a56bfea50f9bf9e11208568	2026-09-22
-kiro	changelog	https://kiro.dev/changelog/	200	reader-proxy	da70741ba925e4e9d16c3ef4b5153804262b650fbf4b5671d2e130af308abade	2026-09-29
+kiro	changelog	https://kiro.dev/changelog/	200	reader-proxy	784eac5de194bca5f1f763b71145fca7e4f5a814a8b1fdeb5d045ad9d2495cc3	2026-09-29
 kiro	docs	https://kiro.dev/docs/cli/v3/hooks-migration.md	200	markdown-mirror	47257b52caedeec916a92a82c7c3e20a22889b37c47c4688dfb989f70370f13f	2026-09-25
 kiro	docs	https://kiro.dev/docs/custom-agents.md	200	markdown-mirror	4901ef1d9bb61a831849697619ca484a4b0517ac23ea3afd94de5fd399799400	2026-09-25
 kiro	docs	https://kiro.dev/docs/custom-agents/configuration-reference.md	200	markdown-mirror	80484017b11180fe9e27f9ee5f71c0e8812afa53591793d162bfb7027b99a4c3	2026-09-25
@@ -206,7 +206,7 @@ warp	docs	https://docs.warp.dev/agents/capabilities/mcp.md	200	markdown-mirror	d
 warp	docs	https://docs.warp.dev/agents/capabilities/skills.md	200	markdown-mirror	cf1a50cba91ee20bef9825fdfb926e19753dfe5ee5df2f6d790075f529c0cc3f	2026-09-25
 warp	docs	https://docs.warp.dev/terminal/entry/yaml-workflows.md	200	markdown-mirror	19768eb07a5068de0beda3bedb8e9f1afe7697ad78c0267e6f059dc9a36b368c	2026-09-25
 windsurf	changelog	https://docs.devin.ai/cli/changelog/stable.md	200	markdown-mirror	f80d720b5da26b729d0e3207812f6748a7f59ea7cf081e3cd30ddc30cabc1f18	2026-09-24
-windsurf	changelog	https://docs.devin.ai/desktop/changelog.md	200	markdown-mirror	20a8b46f6a880fae4e8f3512a36f679e28f712878a8a668d103cf1d91ae47cd6	2026-09-24
+windsurf	changelog	https://docs.devin.ai/desktop/changelog.md	200	markdown-mirror	2ecf2c19c8994ba29ad79b9a6dc9d58ef143ff14e2caab27d15ebb11b9bbb191	2026-09-29
 windsurf	docs	https://docs.devin.ai/cli/extensibility/hooks/overview.md	200	markdown-mirror	443a3a07c20bc8405c22adeed5185a2b6816eeab6f6b042fe59e044e42958c96	2026-09-29
 windsurf	docs	https://docs.devin.ai/cli/extensibility/mcp/configuration.md	200	markdown-mirror	da574ae5658d6080823049fac090e6212542d1a89d46bb95b4a641443c4c27d4	2026-09-29
 windsurf	docs	https://docs.devin.ai/cli/extensibility/rules.md	200	markdown-mirror	aef56431bc7bf76fad7eb86d0dd849c79f0da9b7eaab036b2c45a5ace3a9fdb1	2026-09-29
