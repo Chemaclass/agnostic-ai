@@ -6,6 +6,14 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### General
+
+- Releases carry a signed build provenance attestation and an SPDX SBOM for every archive; `gh attestation verify <archive> --repo Chemaclass/agnostic-ai` checks one. `install.sh` and `install.ps1` stop instead of installing when `checksums.txt` or a SHA-256 tool is missing, and verify provenance too with `AGNOSTIC_AI_VERIFY_ATTESTATION=1` or `-VerifyAttestation`.
+
+### Site
+
+- A [Verify a release](https://agnostic-ai.org/docs/verify-a-release/) page shows how to check checksums, provenance, SBOMs, npm provenance, and signed tags.
+
 ## v0.74.0 - 2026-09-29
 
 ### General

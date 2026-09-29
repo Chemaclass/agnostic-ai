@@ -123,6 +123,49 @@ function test_verify_checksum_accepts_a_matching_digest() {
   rm -rf "$tmp"
 }
 
+function test_verify_checksum_fails_when_checksums_cannot_be_fetched() {
+  local tmp asset
+  tmp="$(mktemp -d)"
+  asset="agnostic-ai_linux_amd64.tar.gz"
+  printf 'payload\n' > "$tmp/$asset"
+
+  function curl() { return 22; }
+  local out
+  out="$(verify_checksum "$tmp/$asset" "$asset" v0.45.0 2>&1)" && fail "an unverifiable archive installed"
+  assert_contains "cannot be verified" "$out"
+  unset -f curl
+
+  rm -rf "$tmp"
+}
+
+# ---- verify_attestation ------------------------------------------------------
+
+function test_verify_attestation_is_off_by_default() {
+  local out
+  out="$(AGNOSTIC_AI_VERIFY_ATTESTATION='' verify_attestation /tmp/archive 2>&1)" || fail "skipped check failed"
+  assert_empty "$out"
+}
+
+function test_verify_attestation_fails_without_gh() {
+  local out
+  out="$(PATH=/nonexistent AGNOSTIC_AI_VERIFY_ATTESTATION=1 verify_attestation /tmp/archive 2>&1)" && fail "passed without gh"
+  assert_contains "needs the GitHub CLI" "$out"
+}
+
+function test_verify_attestation_fails_when_gh_rejects_it() {
+  local out
+  function gh() { return 1; }
+  out="$(AGNOSTIC_AI_VERIFY_ATTESTATION=1 verify_attestation /tmp/archive 2>&1)" && fail "passed a rejected attestation"
+  assert_contains "did not verify" "$out"
+  unset -f gh
+}
+
+function test_verify_attestation_accepts_a_verified_archive() {
+  function gh() { [[ "$1 $2 $4 $5" == "attestation verify --repo Chemaclass/agnostic-ai" ]]; }
+  assert_contains "build provenance verified" "$(AGNOSTIC_AI_VERIFY_ATTESTATION=1 verify_attestation /tmp/archive 2>&1)"
+  unset -f gh
+}
+
 # ---- latest_version ----------------------------------------------------------
 #
 # latest_version reads the tag out of a 302 Location, so every stub below

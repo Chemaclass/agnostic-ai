@@ -37,6 +37,11 @@ archives:
 checksum:
   name_template: checksums.txt
 
+# One SPDX SBOM per archive, `<archive>.sbom.json`, listed in checksums.txt
+# and so covered by the release's build provenance.
+sboms:
+  - artifacts: archive
+
 changelog:
   use: git
   groups:

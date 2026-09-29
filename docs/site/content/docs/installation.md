@@ -23,6 +23,8 @@ agnostic-ai --version
 
 Command not found? Open a new terminal, or add the install directory to `PATH`.
 
+To check that the binary is the one this repository built, see [Verify a release](@/docs/verify-a-release.md).
+
 Next, follow [Getting started](@/docs/getting-started.md). If you already have `CLAUDE.md`, `AGENTS.md`, or other tool configuration, follow [Migration](@/docs/migration.md) instead.
 
 ## Upgrade

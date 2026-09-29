@@ -12,6 +12,12 @@ jobs:
   goreleaser:
     name: GoReleaser
     runs-on: ubuntu-latest
+    # id-token and attestations let the job sign build provenance for each
+    # release file through Sigstore, with no key of ours to leak or rotate.
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     # The `secrets` context is not available in a step `if:`, so record the
     # App's presence here, where it is. The mint step below calls
     # `core.setFailed` when its identifier or its key is empty, which would
@@ -58,6 +64,9 @@ jobs:
           repositories: homebrew-tap
           permission-contents: write
 
+      - name: Install Syft for the SBOMs
+        uses: anchore/sbom-action/download-syft@v0.24.2
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v7
         with:
@@ -75,6 +84,14 @@ jobs:
           # the push when its secret is absent, so the release still succeeds.
           SCOOP_BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
           WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+
+      - name: Attest build provenance
+        # Also after a failed package-manager push: the archives are already
+        # uploaded by then, and each one needs its provenance.
+        if: ${{ !cancelled() && hashFiles('dist/checksums.txt') != '' }}
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-checksums: dist/checksums.txt
 
   npm:
     name: npm

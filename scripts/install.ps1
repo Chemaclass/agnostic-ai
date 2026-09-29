@@ -13,11 +13,16 @@
 
 .EXAMPLE
   .\install.ps1 -Version v0.45.0 -InstallDir C:\tools\agnostic-ai
+
+.EXAMPLE
+  .\install.ps1 -VerifyAttestation
+  Also checks the zip's build provenance with the GitHub CLI (gh).
 #>
 [CmdletBinding()]
 param(
     [string]$Version = 'latest',
-    [string]$InstallDir = "$env:LOCALAPPDATA\Programs\agnostic-ai"
+    [string]$InstallDir = "$env:LOCALAPPDATA\Programs\agnostic-ai",
+    [switch]$VerifyAttestation = ($env:AGNOSTIC_AI_VERIFY_ATTESTATION -eq '1')
 )
 
 $ErrorActionPreference = 'Stop'
@@ -103,8 +108,7 @@ function Test-Checksum($archive, $asset, $tag, $workDir) {
     try {
         Invoke-WebRequest -Uri (Get-DownloadUrl $tag 'checksums.txt') -OutFile $sums -UseBasicParsing
     } catch {
-        Write-Step "checksums.txt unavailable for $tag, skipping verification"
-        return
+        throw "checksums.txt unavailable for $tag, so $asset cannot be verified"
     }
 
     $line = Select-String -Path $sums -Pattern ([regex]::Escape($asset)) | Select-Object -First 1
@@ -114,6 +118,19 @@ function Test-Checksum($archive, $asset, $tag, $workDir) {
     $actual = (Get-FileHash -Path $archive -Algorithm SHA256).Hash
     if ($actual -ne $expected.ToUpper()) { throw "checksum mismatch for $asset" }
     Write-Step 'checksum verified'
+}
+
+# Test-Attestation checks the zip's build provenance with the GitHub CLI:
+# proof that this repository's release workflow built it from the tagged
+# commit, which a matching checksum from the same release page cannot give.
+function Test-Attestation($archive) {
+    if (-not $VerifyAttestation) { return }
+    if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
+        throw '-VerifyAttestation needs the GitHub CLI (gh)'
+    }
+    & gh attestation verify $archive --repo $repo | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "build provenance did not verify for $(Split-Path $archive -Leaf)" }
+    Write-Step 'build provenance verified'
 }
 
 function Add-ToUserPath($directory) {
@@ -144,6 +161,7 @@ try {
     $archive = Join-Path $workDir $asset
     Invoke-WebRequest -Uri (Get-DownloadUrl $tag $asset) -OutFile $archive -UseBasicParsing
     Test-Checksum $archive $asset $tag $workDir
+    Test-Attestation $archive
 
     Expand-Archive -Path $archive -DestinationPath $workDir -Force
     New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null

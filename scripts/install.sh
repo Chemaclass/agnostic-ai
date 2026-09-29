@@ -116,7 +116,7 @@ verify_checksum() {
   sums="$(dirname "$archive")/checksums.txt"
 
   curl -fsSL -o "$sums" "$(download_url "$version" checksums.txt)" \
-    || { note "checksums.txt unavailable for $version, skipping verification"; return 0; }
+    || { die "checksums.txt unavailable for $version, so $asset cannot be verified"; return 1; }
 
   expected="$(grep " $asset\$" "$sums" | awk '{print $1}')"
   [[ -n "$expected" ]] || die "$asset missing from checksums.txt"
@@ -126,12 +126,26 @@ verify_checksum() {
   elif command -v shasum >/dev/null 2>&1; then
     actual="$(shasum -a 256 "$archive" | awk '{print $1}')"
   else
-    note "no sha256 tool found, skipping verification"
-    return 0
+    die "no sha256 tool found (sha256sum or shasum), so $asset cannot be verified"
+    return 1
   fi
 
   [[ "$actual" == "$expected" ]] || die "checksum mismatch for $asset"
   note "checksum verified"
+}
+
+# verify_attestation checks the archive's build provenance with the GitHub
+# CLI when AGNOSTIC_AI_VERIFY_ATTESTATION=1: proof that this repository's
+# release workflow built it from the tagged commit, which a matching
+# checksum from the same release page cannot give.
+verify_attestation() {
+  local archive="$1"
+  [[ "${AGNOSTIC_AI_VERIFY_ATTESTATION:-}" == "1" ]] || return 0
+  command -v gh >/dev/null 2>&1 \
+    || { die "AGNOSTIC_AI_VERIFY_ATTESTATION=1 needs the GitHub CLI (gh)"; return 1; }
+  gh attestation verify "$archive" --repo "$REPO" >/dev/null \
+    || { die "build provenance did not verify for $(basename "$archive")"; return 1; }
+  note "build provenance verified"
 }
 
 main() {
@@ -157,6 +171,7 @@ main() {
   curl -fsSL -o "$tmp/$asset" "$(download_url "$version" "$asset")" \
     || die "download failed: $(download_url "$version" "$asset")"
   verify_checksum "$tmp/$asset" "$asset" "$version"
+  verify_attestation "$tmp/$asset"
   tar -xzf "$tmp/$asset" -C "$tmp" "$BINARY"
 
   mkdir -p "$dir"
