@@ -121,6 +121,9 @@ func importClaudeLaunch(root string, src config.Sources, layout claudeLayout) (i
 	}
 	spec := yaml.Node{Kind: yaml.MappingNode}
 	addYAMLField(&spec, "name", claudeLaunchSpecName)
+	if scopeImportedEnvironment(root, "claude") {
+		addYAMLField(&spec, "targets", importedTargetsNode("claude"))
+	}
 	addYAMLField(&spec, "dev-commands", commands)
 	if autoVerify, ok := raw["autoVerify"].(bool); ok {
 		addYAMLField(&spec, "x-claude", map[string]any{"autoVerify": autoVerify})
@@ -272,6 +275,42 @@ func jsonStrings(v any) ([]string, bool) {
 		out = append(out, s)
 	}
 	return out, true
+}
+
+// importedTargetsNode is the `targets: [<tool>]` an imported environment
+// spec carries when another tool's environment file is imported too.
+// Environment specs merge by top-level key across targets, so without it
+// one tool's dev commands or setup would reach the others and the sync
+// after the import would not reproduce the files it read. Remove the line
+// to share the spec.
+func importedTargetsNode(tool string) *yaml.Node {
+	return &yaml.Node{Kind: yaml.SequenceNode, Style: yaml.FlowStyle, Content: []*yaml.Node{{Kind: yaml.ScalarNode, Value: tool}}}
+}
+
+// environmentSourceFiles are the hand-written environment files each tool
+// keeps, which import reads into environment specs.
+var environmentSourceFiles = []struct{ tool, path string }{
+	{"claude", filepath.Join(".claude", claudeLaunchFileName)},
+	{"codex", filepath.Join(".codex", "environments", "environment.toml")},
+	{"cursor", filepath.Join(".cursor", "environment.json")},
+	{"cursor", filepath.Join(".cursor", "worktrees.json")},
+}
+
+// scopeImportedEnvironment reports whether a spec imported from tool's
+// environment file must carry `targets: [<tool>]`: another tool keeps a
+// hand-written environment file, not one sync wrote, whose spec would
+// otherwise merge with this one.
+func scopeImportedEnvironment(root, tool string) bool {
+	written := map[string]bool{}
+	for _, p := range readStateFile(root).Outputs {
+		written[filepath.Clean(filepath.FromSlash(p))] = true
+	}
+	for _, f := range environmentSourceFiles {
+		if f.tool != tool && !written[f.path] && fileExists(filepath.Join(root, f.path)) {
+			return true
+		}
+	}
+	return false
 }
 
 func addYAMLField(n *yaml.Node, key string, value any) {

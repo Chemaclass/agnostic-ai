@@ -8,6 +8,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- `import` scopes each environment spec to its tool with `targets: [<tool>]` when several tools keep their own environment file, so the sync after an import reproduces each file instead of merging one tool's dev commands or setup into the others.
+- Skills keep their Agent Skills `license` on every target that writes the standard `SKILL.md`, not only on Claude Code.
 - `gitignore.commit` takes `<target>:<kind>`, such as `cursor:environments`, to commit a kind for one target only; `lint` warns when that target is not configured (LINT017).
 - With `claude` in `targets` and `gitignore.enabled`, sync keeps the managed block in `.worktreeinclude` too, so a Claude Code worktree starts with the generated files and the local layer; `gitignore.worktree-include: false` opts out.
 - The "files to commit" hint no longer lists an output you are untracking with `git rm --cached`.

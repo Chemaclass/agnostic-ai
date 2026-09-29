@@ -69,6 +69,9 @@ func importCodexEnvironment(root string, src config.Sources) (int, error) {
 		name = codexEnvironmentSpecName
 	}
 	addYAMLField(&spec, "name", name)
+	if scopeImportedEnvironment(root, "codex") {
+		addYAMLField(&spec, "targets", importedTargetsNode("codex"))
+	}
 	setup, _ := doc["setup"].(map[string]any)
 	cleanup, _ := doc["cleanup"].(map[string]any)
 	if s := scriptOf(setup); s != "" {

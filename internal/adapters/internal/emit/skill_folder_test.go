@@ -123,3 +123,17 @@ func TestWriteSkillFolder_WritesSKILLMdAndAssets(t *testing.T) {
 		t.Errorf("asset should propagate: %v", err)
 	}
 }
+
+// `license` is an Agent Skills field every folder-layout reader shares,
+// so it reaches SKILL.md right after the description.
+func TestSkillMarkdown_KeepsTheLicense(t *testing.T) {
+	s := spec.Entry{Kind: spec.KindSkill, Name: "ponytail", Body: "Do it.",
+		Meta: map[string]any{"name": "ponytail", "description": "Tie it.", "license": "MIT", "argument-hint": "[file]"}}
+	got := SkillMarkdown(s, "codex")
+	if !strings.Contains(got, "description: Tie it.\nlicense: MIT\n") {
+		t.Errorf("license missing or out of place:\n%s", got)
+	}
+	if strings.Contains(got, "argument-hint") {
+		t.Errorf("a Claude Code-only key reached the shared SKILL.md:\n%s", got)
+	}
+}

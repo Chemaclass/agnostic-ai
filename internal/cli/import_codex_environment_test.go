@@ -209,3 +209,38 @@ dev-commands:
 		t.Errorf("environments/codex.yaml:\n%s\nwant:\n%s", got, want)
 	}
 }
+
+// When several tools keep their own environment file, each imported spec
+// is scoped to its tool, so sync reproduces every file as it was: Codex
+// keeps one action while Claude Code keeps two, and Cursor's unix-only
+// worktree setup does not pick up Codex's all-OS setup.
+func TestImportAll_KeepsEachToolsEnvironmentFileAsItWas(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	captureLogOut(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex, cursor]\n")
+	writeFile(t, filepath.Join(".codex", "environments", "environment.toml"), "version = 1\nname = \"app\"\n\n[setup]\nscript = \"bash scripts/setup.bash\"\n\n[[actions]]\nname = \"Dashboard\"\nicon = \"run\"\ncommand = \"bash scripts/run.bash\"\n")
+	writeFile(t, filepath.Join(".claude", "launch.json"), `{"version": "0.0.1", "configurations": [{"name": "Dashboard", "runtimeExecutable": "bash", "runtimeArgs": ["scripts/run.bash"]}, {"name": "Docs", "runtimeExecutable": "pnpm", "runtimeArgs": ["dev:mintlify"], "cwd": "apps/docs"}]}`)
+	worktrees := "{\n  \"setup-worktree-unix\": [\n    \"bash scripts/setup.bash\"\n  ]\n}\n"
+	writeFile(t, filepath.Join(".cursor", "worktrees.json"), worktrees)
+
+	for _, args := range [][]string{{"import", "all"}, {"sync"}} {
+		root := NewRootCmd("test")
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+	}
+	codex := readFile(t, filepath.Join(".codex", "environments", "environment.toml"))
+	if !strings.Contains(codex, `name = "Dashboard"`) || strings.Contains(codex, `name = "Docs"`) {
+		t.Errorf("Codex should keep only its own action:\n%s", codex)
+	}
+	launch := readFile(t, filepath.Join(".claude", "launch.json"))
+	if !strings.Contains(launch, `"Dashboard"`) || !strings.Contains(launch, `"Docs"`) {
+		t.Errorf("launch.json should keep both dev commands:\n%s", launch)
+	}
+	if got := readFile(t, filepath.Join(".cursor", "worktrees.json")); got != worktrees {
+		t.Errorf("worktrees.json changed:\n%s\nwant:\n%s", got, worktrees)
+	}
+}
