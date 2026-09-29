@@ -37,17 +37,12 @@ A spec in a subdirectory of its source dir gets an implicit **scope** equal to t
 ```
 rules/
 ├── conventional-commits.md      # scope: ""    (root)
-├── backend/
-│   └── auth.md                  # scope: "backend"
-└── backend/api/
-    └── limits.md                # scope: "backend/api"
+└── backend/
+    ├── auth.md                  # scope: "backend"
+    └── api/limits.md            # scope: "backend/api"
 ```
 
-For rules, scope controls native activation or directory discovery, not only file organization. A flat rule may set `scope: services/payments`; source-layout scope takes precedence.
-
-```bash
-agnostic-ai new rule payments-context --scope services/payments
-```
+For rules, scope controls native activation or directory discovery. A flat rule may set `scope: services/payments`; source-layout scope wins. `agnostic-ai new rule payments-context --scope services/payments` creates one.
 
 Scoped bodies stay out of root instruction appendices. Supported targets get native path conditions or a nested instruction file. Unsupported targets skip the rule with a warning, or fail under `on-unsupported: error`. See [directory-specific instructions](@/docs/scoped-context.md) for the target matrix and selector limits.
 
@@ -61,12 +56,7 @@ tools: [Read, Grep, Bash]
 model: sonnet
 ---
 
-You are a code reviewer. Examine the diff for:
-- Logic bugs and edge cases
-- Style consistency
-- Security issues
-
-Report concise findings with `file:line` references.
+You are a code reviewer. Report concise findings with `file:line` references.
 ```
 
 | Field | Required | Default | Description |
@@ -74,19 +64,19 @@ Report concise findings with `file:line` references.
 | `name` | no | filename without `.md` | Agent identifier and output filename. |
 | `description` | no | empty | One-liner shown in tool listings. |
 | `tools` | no | unset | Tools the agent may invoke. See [`tools` support by target](#tools-support-by-target). |
-| `model` | no | unset | Preferred model: a string for every target, or a map per target. See [per-target `model` and `effort`](#per-target-model-and-effort). |
-| `effort` | no | unset | Reasoning effort: a string or integer for every target, or a map per target. See [per-target `model` and `effort`](#per-target-model-and-effort). |
+| `model` | no | unset | A string for every target, or a map per target. See [per-target `model` and `effort`](#per-target-model-and-effort). |
+| `effort` | no | unset | A string or integer for every target, or a map per target. See [per-target `model` and `effort`](#per-target-model-and-effort). |
 | `color` | no | unset | Badge color. See [`color` support by target](#color-support-by-target). |
-| `readonly` | no | unset | `true` restricts Cursor agents, adds Claude `disallowedTools: Write, Edit, NotebookEdit` (Bash stays allowed), maps to Codex `sandbox_mode = "read-only"`, and maps to Factory `tools: read-only` with `mcpServers: []` unless servers are listed (wins outright over a portable `tools` list). An explicit `x-claude.disallowedTools`, `x-codex.sandbox_mode`, or `x-factory.tools` wins over the mapping. Other targets report a coverage note. `false` is a no-op. |
-| `memory` | no | unset | Persistent memory scope for the agent: `user`, `project`, or `local`. |
+| `readonly` | no | unset | `true` restricts the agent to reading. Cursor: restricted. Claude: `disallowedTools: Write, Edit, NotebookEdit` (Bash stays allowed). Codex: `sandbox_mode = "read-only"`. Factory: `tools: read-only` with `mcpServers: []` unless servers are listed (wins over a portable `tools` list). An explicit `x-claude.disallowedTools`, `x-codex.sandbox_mode`, or `x-factory.tools` wins. Other targets report a coverage note. `false` is a no-op. |
+| `memory` | no | unset | Persistent memory scope: `user`, `project`, or `local`. |
 
 Any other frontmatter field passes through unchanged.
 
-`memory` gives the agent a directory that survives across sessions. [Claude Code](@/docs/targets/claude.md#agent-memory) is the one target confirmed to act on it, where `project` is the scope git carries. [Qoder](@/docs/targets/qoder.md#subagent-memory) documents the same three scopes on its project subagent file, so the key is written there too, but no run has confirmed the CLI acts on it. Junie passes the key through; every other adapter drops it.
+`memory` gives the agent a directory that survives across sessions. Only [Claude Code](@/docs/targets/claude.md#agent-memory) is confirmed to act on it; [Qoder](@/docs/targets/qoder.md#subagent-memory) gets the key unconfirmed, Junie passes it through, and every other adapter drops it.
 
 ### Per-target `model` and `effort` {#per-target-model-and-effort}
 
-`model:` and `effort:` each take a plain scalar or a map keyed by target name, with an optional `default`. Precedence runs `x-<target>.<key>`, then `<key>.<target>`, then `<key>.default`, then the key is not written at all and the tool uses its own default. `x-<target>.<key>: null` deletes it. A value under a target key that is not a scalar (a nested map, a list, a null) falls through to `default` the same way an absent key does.
+`model:` and `effort:` each take a scalar or a map keyed by target name, with an optional `default`. Precedence: `x-<target>.<key>`, then `<key>.<target>`, then `<key>.default`, then the key is not written and the tool uses its own default. `x-<target>.<key>: null` deletes it. A non-scalar value under a target key falls through to `default`.
 
 | Want | Write |
 |------|-------|
@@ -94,8 +84,6 @@ Any other frontmatter field passes through unchanged.
 | Per target, with a fallback | `model: {claude: sonnet, default: gpt-4o}` |
 | Per target, tool default elsewhere | `model: {claude: sonnet}` |
 | Different effort per target | `effort: {claude: xhigh, default: high}` |
-
-Both keys in one agent, and what each target writes:
 
 ```yaml
 ---
@@ -115,36 +103,26 @@ x-codex:
 ---
 ```
 
-| Target | Emits |
-|--------|-------|
-| [Claude Code](@/docs/targets/claude.md) | `model: opus`, `effort: xhigh` |
-| [Qoder](@/docs/targets/qoder.md) | `model: gpt-5.5`, `effort: 8000` |
-| [Factory](@/docs/targets/factory.md) | `model: gpt-5.5`, no `reasoningEffort`, and one coverage note: `max` is outside Factory's enum |
-| [Junie](@/docs/targets/junie.md) | `model: gpt-5.5`, `effort: high` |
-| [Cursor](@/docs/targets/cursor.md) | `model: claude-opus-5[effort=high]`. The resolved `high` is discarded |
-| [Codex](@/docs/targets/codex.md) | `model = "gpt-5.5"` and `model_reasoning_effort = "xhigh"` from `x-codex`, overriding the mapped `high` |
-| [Trae](@/docs/targets/trae.md) | `model` and `effort` dropped, each with a coverage note |
+Result: Claude gets `opus` and `xhigh`; Qoder `gpt-5.5` and `8000`; Junie `gpt-5.5` and `high`; Cursor `claude-opus-5[effort=high]` (resolved effort discarded); Codex `gpt-5.5` with `x-codex` overriding effort to `xhigh`; Factory `gpt-5.5` with no `reasoningEffort` (`max` is outside its enum, coverage note); Trae drops both with notes.
 
-**`effort` values by target.** Only the targets listed were checked. A top-level `effort` asks for deeper reasoning on that agent alone, leaving routine delegated work cheaper. Omitting it inherits the session's level everywhere.
+**`effort` values by target.** Only the targets listed were checked. Omitting `effort` inherits the session's level.
 
-| Target | `effort` values | How it lands |
-|--------|-----------------|--------------|
-| [Claude Code](@/docs/targets/claude.md) | `low`, `medium`, `high`, `xhigh`, `max`, model dependent | Written verbatim as `effort`. Not validated |
-| [Qoder](@/docs/targets/qoder.md) | The same five names, or a positive integer budget | Written verbatim as `effort` |
-| [Junie](@/docs/targets/junie.md) | The vendor documents `effort` as an alias of `reasoningLevel` | Written verbatim as `effort` |
-| [Factory](@/docs/targets/factory.md) | `low`, `medium`, `high` only | Written as `reasoningEffort`. `xhigh`, `max`, and integer budgets are not written and raise a coverage note |
-| [Codex](@/docs/targets/codex.md) | Any string. `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`, `ultra`, and `persistent` are named; any other string still lands as a custom effort label | Written as `model_reasoning_effort`. An integer budget has no string form and raises a coverage note instead. `x-codex.model_reasoning_effort` wins over the mapped value |
-| [Cursor](@/docs/targets/cursor.md) | none | Not written, and raises a coverage note. Write it into the model id: `model: {cursor: "claude-opus-5[effort=high]"}` |
-| [Copilot](@/docs/targets/copilot.md) | none in agent profiles. Per-agent `effortLevel` exists only in the user-tier `subagents.agents` setting | Not written, and raises a coverage note. `x-copilot.effort` still passes through |
-| [Trae](@/docs/targets/trae.md), [Kilo Code](@/docs/targets/kilo.md), every other target | none | Not written, and raises a coverage note |
+| Target | Values | How it lands |
+|--------|--------|--------------|
+| [Claude Code](@/docs/targets/claude.md) | `low`, `medium`, `high`, `xhigh`, `max`, model dependent | Verbatim `effort`, not validated |
+| [Qoder](@/docs/targets/qoder.md) | Same five names, or a positive integer | Verbatim `effort` |
+| [Junie](@/docs/targets/junie.md) | Alias of `reasoningLevel` | Verbatim `effort` |
+| [Factory](@/docs/targets/factory.md) | `low`, `medium`, `high` | `reasoningEffort`. Other values and integers raise a coverage note |
+| [Codex](@/docs/targets/codex.md) | Any string | `model_reasoning_effort`; `x-codex.model_reasoning_effort` wins. An integer raises a note |
+| [Cursor](@/docs/targets/cursor.md) | none | Coverage note. Put it in the model id: `model: {cursor: "claude-opus-5[effort=high]"}` |
+| [Copilot](@/docs/targets/copilot.md) | none | Coverage note. `x-copilot.effort` still passes through |
+| Every other target | none | Coverage note |
 
-The "How it lands" column is the point: on Claude Code, Qoder, Junie, and Codex agnostic-ai writes the string value and validates nothing beyond its shape. Every other target drops it with a coverage note.
-
-Two targets couple the two keys, in opposite directions. Cursor encodes per-model options inside the model string rather than as a field, so its effort rides on the `model` map and never on the `effort` map. Factory goes the other way: it ignores `reasoningEffort` when `model` resolves to `inherit`, so both keys are written and the vendor drops one.
+Cursor encodes effort in the `model` string, so it rides on the `model` map. Factory ignores `reasoningEffort` when `model` resolves to `inherit`.
 
 ### `tools` support by target
 
-Only the targets listed were checked. `tools: [Read, Bash]` does not restrict every target. A target that cannot honor the field prints a coverage note at sync time, so `tools: [Read]` never silently becomes an unrestricted agent.
+Only the targets listed were checked. A target that cannot honor `tools` prints a coverage note at sync time, so `tools: [Read]` never silently becomes an unrestricted agent.
 
 | Target | Behavior |
 |--------|----------|
@@ -157,41 +135,35 @@ Translation can widen access: on Kiro, `Edit` alone also permits `delete_file`. 
 
 ### `mcpServers` support by target {#mcpservers-support-by-target}
 
-Only the targets listed were checked. A top-level `mcpServers` list narrows which MCP servers one agent may reach. Omitting it inherits the session's full set on every target below.
+Only the targets listed were checked. A top-level `mcpServers` list narrows which MCP servers one agent may reach. Omitting it inherits the session's full set.
 
 | Target | Behavior |
 |--------|----------|
-| [Claude Code](@/docs/targets/claude.md) | Server names, written to the agent file |
-| [Junie](@/docs/targets/junie.md) | Server names, written to the agent file |
+| [Claude Code](@/docs/targets/claude.md), [Junie](@/docs/targets/junie.md), [Factory](@/docs/targets/factory.md) | Server names, written to the agent file |
 | [Qoder](@/docs/targets/qoder.md) | Server names or inline objects, written to the agent file |
-| [Factory](@/docs/targets/factory.md) | Server names, written to the droid file |
-| [OpenHands](@/docs/targets/openhands.md) | Inline server definitions only. Set `x-openhands.mcp_servers` |
-| [Antigravity](@/docs/targets/antigravity.md) | Inline server objects only. Set `x-antigravity.mcpServers` |
-| [Kiro](@/docs/targets/kiro.md) | Inline server definitions only. Set `x-kiro.mcpServers` |
+| [OpenHands](@/docs/targets/openhands.md) | Inline definitions only. Set `x-openhands.mcp_servers` |
+| [Antigravity](@/docs/targets/antigravity.md) | Inline objects only. Set `x-antigravity.mcpServers` |
+| [Kiro](@/docs/targets/kiro.md) | Inline definitions only. Set `x-kiro.mcpServers` |
 
-Every target not listed drops the list with a coverage note, and so do the three inline targets, whose note names the `x-<target>` key to set instead.
+Every other target drops the list with a coverage note; the three inline targets' notes name the `x-<target>` key to set.
 
-Two shapes, not one. Claude, Junie, Qoder, and Factory reference servers already configured elsewhere by name, and each writes its own agent file; OpenHands, Antigravity, and Kiro embed the server definition inline. A name list cannot be rewritten into an inline definition without inventing the server's transport, so the two groups stay apart.
-
-**An empty list is not portable.** Junie documents `mcpServers: []` as keeping every configured server available, and Factory documents it as excluding every server, "even globally configured ones". The same two characters mean opposite things, so write the servers you want rather than an empty list.
+**An empty list is not portable.** Junie treats `mcpServers: []` as keeping every configured server. Factory treats it as excluding every server. List the servers you want instead.
 
 ### `permissionMode` and agent `hooks` support by target {#agent-policy-support-by-target}
 
-Only the targets listed were checked. Both fields narrow one delegated agent: `permissionMode` sets its approval boundary, `hooks` scopes lifecycle hooks to it. Omitting either inherits the parent session.
+Only the targets listed were checked. `permissionMode` sets one delegated agent's approval boundary; `hooks` scopes lifecycle hooks to it. Omitting either inherits the parent session.
 
 | Target | `permissionMode` | Agent `hooks` |
 |--------|------------------|---------------|
 | [Claude Code](@/docs/targets/claude.md) | Seven values, `manual` aliases `default` | Written to the agent file |
 | [Qoder](@/docs/targets/qoder.md) | Six values, another one is reported | Seven events, a wider one is reported |
-| [OpenHands](@/docs/targets/openhands.md) | Different names entirely. Set `x-openhands` | Six snake_case events, command handlers only. Set `x-openhands` |
+| [OpenHands](@/docs/targets/openhands.md) | Different names (`always_confirm`, `never_confirm`, `confirm_risky`). Set `x-openhands` | Six snake_case events, command handlers only. Set `x-openhands` |
 
-OpenHands names the same intent `always_confirm`, `never_confirm`, and `confirm_risky`, so there is no shared value space to translate into, and its agent file is the shared `.agents/agents/` tree besides. Its route stays `x-openhands`.
-
-Two Qoder behaviors worth knowing before relying on either field. `bypassPermissions` is not always what runs: "Skip permission prompts. If security policy disables it, it is demoted to `acceptEdits`." And a subagent runs a narrower event set than the project hook file's 27, so an event valid at project scope can be inert at agent scope.
+On Qoder, `bypassPermissions` is demoted to `acceptEdits` when security policy disables it, and agent scope runs fewer hook events than project scope.
 
 ### `color` support by target
 
-Only the targets listed were checked. agnostic-ai writes `color` verbatim and does not validate it. A value the target does not recognize is cosmetic: the agent still runs.
+Only the targets listed were checked. `color` is written verbatim and not validated. An unrecognized value is cosmetic: the agent still runs.
 
 | Target | Values |
 |--------|--------|
@@ -200,9 +172,7 @@ Only the targets listed were checked. agnostic-ai writes `color` verbatim and do
 | [Qoder](@/docs/targets/qoder.md) | One of eight names |
 | [OpenHands](@/docs/targets/openhands.md) | Dropped with a note. Set `x-openhands.color` to a [Rich color name](https://rich.readthedocs.io/en/stable/appendix/colors.html) |
 
-`color: blue` is valid on Augment and Qoder but is neither hex nor a Kilo Code theme token.
-
-OpenHands documents `color` on a project agent, but its agent files live in `.agents/agents/`, a tree it shares byte-for-byte with [Goose](@/docs/targets/goose.md), whose frontmatter has no such key. A portable `color` prints a coverage note there instead of reaching the file.
+`color: blue` is valid on Augment and Qoder but is neither hex nor a Kilo Code theme token. OpenHands shares its `.agents/agents/` tree with [Goose](@/docs/targets/goose.md), whose frontmatter has no `color`, so a portable `color` prints a coverage note there.
 
 ## Skills
 
@@ -210,24 +180,6 @@ Two layouts:
 
 - **Flat:** `skills/yaml-validator.md`
 - **Nested**, for skills with attached resources: `skills/yaml-validator/SKILL.md` next to `skills/yaml-validator/schema.yaml`
-
-### `disable-model-invocation` support by target {#disable-model-invocation-support-by-target}
-
-Only the targets listed were checked. Setting it keeps a skill out of automatic model invocation; the user can still invoke it. Omitting it leaves each target's own default, which is model-invocable everywhere below.
-
-| Target | Behavior |
-|--------|----------|
-| [Claude Code](@/docs/targets/claude.md) | Written to `SKILL.md` |
-| [Cursor](@/docs/targets/cursor.md) | Written to `SKILL.md` |
-| [Codex](@/docs/targets/codex.md) | Written as `allow_implicit_invocation: false` to `agents/openai.yaml`. An explicit `allow_implicit_invocation` in `x-codex.policy` or in a bundled `agents/openai.yaml` wins |
-| [Crush](@/docs/targets/crush.md) | Dropped with a note. Set `x-crush.disable-model-invocation` |
-| [Factory](@/docs/targets/factory.md) | Dropped with a note. Set `x-factory.disable-model-invocation` |
-
-Crush and Factory document the field, but their skills land in the shared `.agents/skills/` tree, written byte-for-byte across every co-writer. Emitting the key for them would also hand it to the targets sharing that path whose frontmatter has no such field, so the drop is reported instead of hidden. A skill marked manual-only becoming model-invocable is a safety boundary, not a cosmetic loss.
-
-Do not confuse this with OpenHands' `triggers`, which is a keyword list that injects a skill when a phrase appears in a user message, not a restriction on who may invoke it. Devin spells the same restriction `triggers: [user]`, so the word means opposite things on the two targets.
-
-Only `SKILL.md` and flat `skills/*.md` parse as skills. Every other file in a nested skill directory is a bundled asset: scripts, templates, fixtures, subdirectories, and extra `*.md` such as `examples.md`. Assets copy verbatim to the same relative path under each target's skills dir. Ship a `check.mjs`, `templates/*.tpl`, or `fixtures/*.json` that the body references. Import and sync preserve executable bits.
 
 ```markdown
 ---
@@ -237,23 +189,38 @@ description: Validate YAML against a schema.
 
 # YAML Validator
 
-## Steps
 1. Read target file
-2. Parse YAML
-3. Compare against `schema.yaml`
-4. Report violations as `path: message`
+2. Parse YAML and compare against `schema.yaml`
+3. Report violations as `path: message`
 ```
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `name` | no | dir or filename | Skill identifier and output directory. Some targets restrict the format. |
 | `description` | no | empty | One-liner the model uses to decide whether to invoke the skill. |
-| `model` | no | unset | Claude Code model for the rest of the turn. Accepts a scalar or per-target map; `x-claude.model` wins. |
-| `effort` | no | unset | Claude Code effort for the rest of the turn. Accepts a scalar or per-target map; `x-claude.effort` wins. |
+| `model` | no | unset | Claude Code model for the rest of the turn. Scalar or per-target map; `x-claude.model` wins. |
+| `effort` | no | unset | Claude Code effort for the rest of the turn. Scalar or per-target map; `x-claude.effort` wins. |
 
-Codex, Cursor, and other targets omit skill `model` and `effort` and report a coverage note when a value resolves for them. Use `{claude: opus}` to choose a model only for Claude. Global sync uses the same skill renderers; shared global directories omit target overrides to keep their frontmatter neutral.
+Other targets omit skill `model` and `effort` and report a coverage note when a value resolves for them. Use `{claude: opus}` to choose a model only for Claude. Global sync uses the same renderers; shared global directories omit target overrides.
 
-Most targets write one native folder per skill at `<dir>/<name>/SKILL.md`, with bundled assets. Several share `.agents/skills/`, so identical bytes write once. Targets with no skill surface flatten it to a `skill-<name>.md` rule file and raise a coverage note, since assets cannot follow. Set `outputs.<target>.emit-skills-as-commands: true` to also emit a slash command. The [target matrix](@/docs/targets/_index.md#capability-matrix) and each target page give the exact directory.
+Only `SKILL.md` and flat `skills/*.md` parse as skills. Every other file in a nested skill directory is a bundled asset (scripts, templates, fixtures, extra `*.md`). Assets copy verbatim to the same relative path under each target's skills dir. Import and sync preserve executable bits.
+
+Most targets write `<dir>/<name>/SKILL.md` with assets. Several share `.agents/skills/`, so identical bytes write once. Targets with no skill surface flatten it to a `skill-<name>.md` rule and raise a coverage note, since assets cannot follow. Set `outputs.<target>.emit-skills-as-commands: true` to also emit a slash command. Each target page gives the exact directory.
+
+### `disable-model-invocation` support by target {#disable-model-invocation-support-by-target}
+
+Only the targets listed were checked. Setting it keeps a skill out of automatic model invocation; the user can still invoke it. Omitting it leaves each target's default, which is model-invocable everywhere below.
+
+| Target | Behavior |
+|--------|----------|
+| [Claude Code](@/docs/targets/claude.md), [Cursor](@/docs/targets/cursor.md) | Written to `SKILL.md` |
+| [Codex](@/docs/targets/codex.md) | Written as `allow_implicit_invocation: false` to `agents/openai.yaml`. An explicit value in `x-codex.policy` or a bundled `agents/openai.yaml` wins |
+| [Crush](@/docs/targets/crush.md) | Dropped with a note. Set `x-crush.disable-model-invocation` |
+| [Factory](@/docs/targets/factory.md) | Dropped with a note. Set `x-factory.disable-model-invocation` |
+
+Crush and Factory skills land in the shared `.agents/skills/` tree, so emitting the key would hand it to targets with no such field. Use the `x-` key: a manual-only skill turning model-invocable is a safety boundary.
+
+OpenHands' `triggers` is unrelated: it injects a skill on a keyword. Devin spells this restriction `triggers: [user]`.
 
 ## Rules
 
@@ -272,8 +239,8 @@ Use `feat:`, `fix:`, `docs:`, etc. Subject under 72 chars.
 |-------|----------|---------|-------------|
 | `name` | no | filename | Rule identifier. |
 | `description` | no | empty | Short summary. |
-| `scope` | no | project-wide | Project-relative directory and its descendants. Source-layout scope takes precedence. A scope inside `node_modules` is refused, since import never reads it back. See [scoped context](@/docs/scoped-context.md). |
-| `globs` | no | target-dependent; `new rule` seeds `**/*` | Project-relative file patterns, as a comma-separated string (`"*.go,*.mod"`) or a list of strings (`["*.go", "*.mod"]`); both mean the same. A comma inside a brace set does not separate patterns, so `"src/**/*.{ts,tsx}"` is one pattern in either form. With `scope`, the selector must stay inside the directory. `new rule --scope` omits it. |
+| `scope` | no | project-wide | Project-relative directory and its descendants. Source-layout scope wins. A scope inside `node_modules` is refused. See [scoped context](@/docs/scoped-context.md). |
+| `globs` | no | target-dependent; `new rule` seeds `**/*` | Project-relative patterns, as a comma-separated string (`"*.go,*.mod"`) or a list. A comma inside a brace set does not separate patterns, so `"src/**/*.{ts,tsx}"` is one pattern. With `scope`, the selector must stay inside the directory. `new rule --scope` omits it. |
 | `paths` | no | unset | File patterns, as a string or list. Scoped rules accept it with or instead of `globs`; see [selector limits](@/docs/scoped-context.md#narrow-a-rule-to-certain-files). |
 | `alwaysApply` | no | target-dependent; `new rule` seeds `true` | Requests unconditional activation. With `scope`, only inside the directory. `new rule --scope` omits it. |
 
@@ -289,7 +256,7 @@ event: SessionStart
 command: "git status --short"
 ```
 
-Command hooks receive event JSON on stdin. When a command needs the edited path or shell command, read it from the target's documented `tool_input` fields instead of assuming an environment variable exists. `AGNOSTIC_AI_TARGET` names the target that ran the hook; see [which target ran a hook](#hook-target).
+Command hooks receive event JSON on stdin; read the edited path or shell command from the target's `tool_input` fields. `AGNOSTIC_AI_TARGET` names the target that ran the hook; see [which target ran a hook](#hook-target).
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
@@ -298,37 +265,30 @@ Command hooks receive event JSON on stdin. When a command needs the edited path 
 | `event` | yes | none | Hook event, written verbatim. See [events](#events). |
 | `matcher` | no | empty | Regex on the tool name, or another event-specific selector. |
 | `command` | command handlers only | none | Shell command, or a list where each entry becomes its own handler. |
-| `args` | no | empty | Argument list. Switches to **exec form**: `command` runs as an executable with `args` as its argument vector and no shell, so spaces, apostrophes, `$`, and backticks pass through verbatim. Leave it unset when the command needs a pipe or `&&`. Targets with no exec form (Codex, Gemini, Cursor) get the args folded into `command`, each quoted for a POSIX shell. |
-| `type` | no | `command` | Handler type: `command`, `http`, `mcp_tool`, or `prompt`, where the target supports it. |
+| `args` | no | empty | Switches to **exec form**: `command` runs as an executable with `args` as its argument vector and no shell, so spaces, `$`, and backticks pass verbatim. Leave unset when the command needs a pipe or `&&`. Targets with no exec form (Codex, Gemini, Cursor) get the args folded into `command`, each quoted for a POSIX shell. |
+| `type` | no | `command` | `command`, `http`, `mcp_tool`, or `prompt`, where the target supports it. |
 | `timeout` | no | none | Seconds before the tool cancels the hook. Some targets convert to milliseconds or apply their own default. |
 | `disabled` | no | `false` | Keep the hook defined but stop it running. Antigravity and Kiro write `enabled: false`; OpenCode and Kilo write no plugin module; other targets emit the hook unchanged. |
 
-Handler-specific and tool-specific fields emit only where the target's schema defines them, and other targets ignore them.
+Handler-specific fields emit only where the target's schema defines them:
 
-| Fields | Targets |
-|--------|---------|
-| `server`, `tool`, `input` (for `type: mcp_tool`) | [Claude Code](@/docs/targets/claude.md), [Codex](@/docs/targets/codex.md) |
-| `url`, `headers`, `allowedEnvVars` (HTTP handler) | [Claude Code](@/docs/targets/claude.md), [Qoder](@/docs/targets/qoder.md), [Copilot](@/docs/targets/copilot.md) |
-| `prompt`, `model` (prompt handler) | [Claude Code](@/docs/targets/claude.md), [Qoder](@/docs/targets/qoder.md), [Cursor](@/docs/targets/cursor.md), [Copilot](@/docs/targets/copilot.md) (`sessionStart` only) |
-| `continueOnBlock` | [Claude Code](@/docs/targets/claude.md) |
-| `statusMessage`, `async` | [Claude Code](@/docs/targets/claude.md), [Codex](@/docs/targets/codex.md), [Qoder](@/docs/targets/qoder.md) |
-| `asyncRewake`, `shell`, `if` | [Claude Code](@/docs/targets/claude.md), [Qoder](@/docs/targets/qoder.md) |
-| `commandWindows`, `additionalContextLimit` | [Codex](@/docs/targets/codex.md) |
-| `failClosed` | [Cursor](@/docs/targets/cursor.md) |
-| `loop_limit` | [Cursor](@/docs/targets/cursor.md), [Trae](@/docs/targets/trae.md) |
-| `x-goose.on_failure` | [Goose](@/docs/targets/goose.md) |
-| `x-kiro.action` | [Kiro](@/docs/targets/kiro.md) |
-| `x-gemini.hooks`, `x-gemini.sequential`, `x-gemini.name`, `x-gemini.env` | [Gemini](@/docs/targets/gemini.md) |
+- `server`, `tool`, `input` (`type: mcp_tool`): Claude Code, Codex.
+- `url`, `headers`, `allowedEnvVars` (HTTP handler): Claude Code, Qoder, Copilot.
+- `prompt`, `model` (prompt handler): Claude Code, Qoder, Cursor, Copilot (`sessionStart` only).
+- `statusMessage`, `async`: Claude Code, Codex, Qoder.
+- `asyncRewake`, `shell`, `if`: Claude Code, Qoder.
+- `continueOnBlock`: Claude Code. `commandWindows`, `additionalContextLimit`: Codex. `failClosed`: Cursor. `loop_limit`: Cursor, Trae.
+- `x-goose.on_failure` (Goose), `x-kiro.action` (Kiro), `x-gemini.hooks`, `x-gemini.sequential`, `x-gemini.name`, `x-gemini.env` (Gemini).
 
 `command` is not needed for a non-command handler, a valid `x-kiro.action`, or a hook that sets `x-gemini.hooks`. Scope a non-command hook to the targets that support it with `target` or `targets`.
 
 ### Events
 
-agnostic-ai writes `event` verbatim and never translates event names between tools. Claude Code and Codex share `PreToolUse`, `PostToolUse`, and `UserPromptSubmit`, so one spec feeds both. Other tools need their own names, such as Cursor's `beforeShellExecution` or Gemini's `BeforeTool`. `agnostic-ai validate` flags an event a target does not recognize. Each target page lists its events, file, and wrapper shape. Targets without hook support log a warning and skip.
+`event` is written verbatim; names are never translated between tools. Claude Code and Codex share `PreToolUse`, `PostToolUse`, and `UserPromptSubmit`, so one spec feeds both. Other tools need their own names, such as Cursor's `beforeShellExecution` or Gemini's `BeforeTool`. `agnostic-ai validate` flags an event a target does not recognize. Targets without hook support log a warning and skip.
 
 ### Which target ran a hook {#hook-target}
 
-Each target has its own reply protocol. Claude Code and Codex read exit code 2 and stderr; Cursor reads a JSON reply. A script shared across targets reads `AGNOSTIC_AI_TARGET` to pick one, instead of guessing from the payload.
+A shared script reads `AGNOSTIC_AI_TARGET` to pick the reply protocol (Claude Code and Codex read exit code 2 and stderr; Cursor reads JSON).
 
 ```sh
 case "$AGNOSTIC_AI_TARGET" in
@@ -337,55 +297,33 @@ case "$AGNOSTIC_AI_TARGET" in
 esac
 ```
 
-Sync sets the variable the way each tool's hook runner can take it. Your commands stay as written, apart from the `export` prefix where the table says so. A spec that sets `AGNOSTIC_AI_TARGET` in its own `env` keeps that value. Where sync cannot set it, the variable keeps whatever the parent process set, which can be `claude` for a tool started from Claude Code.
+A spec that sets `AGNOSTIC_AI_TARGET` in its own `env` keeps that value. Where sync cannot set it, the parent process's value stays, which can be `claude` for a tool started from Claude Code. Sync sets it per target:
 
-| Targets | How sync sets it | Limit |
-|---------|------------------|-------|
-| [Claude Code](@/docs/targets/claude.md) | `env` in `.claude/settings.json`, and `~/.claude/settings.json` for `sync --global`, while a command hook exists | Set for the whole session, so the Bash tool sees it too |
-| [Cursor](@/docs/targets/cursor.md) | A `sessionStart` hook that returns `{"env": {"AGNOSTIC_AI_TARGET": "cursor"}}` | `sessionStart` hooks, and hooks that fire before it returns, do not see it |
-| [Codex](@/docs/targets/codex.md) | `export AGNOSTIC_AI_TARGET=codex; ` before `command`, with any `args` folded in and quoted | Not set by sync on Windows, which runs `commandWindows`. The prefix needs a POSIX session shell: a login shell of `pwsh` or `nu` on macOS or Linux breaks it |
-| [Gemini](@/docs/targets/gemini.md), [Qoder](@/docs/targets/qoder.md), [Copilot](@/docs/targets/copilot.md) | `env` on each command handler | None |
-| [Goose](@/docs/targets/goose.md), [Crush](@/docs/targets/crush.md) | `export` prefix, since both run hooks in a POSIX shell on every platform | None |
-| [Cline](@/docs/targets/cline.md) | An `export` line in each generated `.cline/hooks/<Event>.sh` | None |
-| [OpenCode](@/docs/targets/opencode.md), [Kilo](@/docs/targets/kilo.md) | `.env()` on each command the plugin runs | None |
-| [Zed](@/docs/targets/zed.md) | `env` on each task | None |
+- [Claude Code](@/docs/targets/claude.md): `env` in `.claude/settings.json` (`~/.claude/settings.json` for `sync --global`). Set for the whole session, so the Bash tool sees it too.
+- [Cursor](@/docs/targets/cursor.md): a `sessionStart` hook returns the variable. `sessionStart` hooks and hooks that fire before it returns do not see it.
+- [Codex](@/docs/targets/codex.md): `export AGNOSTIC_AI_TARGET=codex; ` before `command`. Not set on Windows (`commandWindows`), and needs a POSIX session shell (a `pwsh` or `nu` login shell breaks it).
+- [Gemini](@/docs/targets/gemini.md), [Qoder](@/docs/targets/qoder.md), [Copilot](@/docs/targets/copilot.md): `env` on each command handler.
+- [Goose](@/docs/targets/goose.md), [Crush](@/docs/targets/crush.md), [Cline](@/docs/targets/cline.md): `export` prefix or line.
+- [OpenCode](@/docs/targets/opencode.md), [Kilo](@/docs/targets/kilo.md): `.env()` on each plugin command. [Zed](@/docs/targets/zed.md): `env` on each task.
 
-Trae, Factory, OpenHands, Antigravity, Kiro, Windsurf, and Augment do not get the variable from sync. None has a per-hook `env`, and each runs hooks through PowerShell or cmd on Windows, without a shell, or through a shell its docs do not name. A prefix would break hooks that work today. A script can tell them apart by the variables they set, such as `TRAE_PROJECT_DIR`, `FACTORY_PROJECT_DIR`, `OPENHANDS_PROJECT_DIR`, `DEVIN_PROJECT_DIR`, or `AUGMENT_PROJECT_DIR`. Do not use `CLAUDE_PROJECT_DIR` for this: Cursor, Gemini, Qoder, Factory, and Trae set it too.
+Trae, Factory, OpenHands, Antigravity, Kiro, Windsurf, and Augment do not get the variable: none has a per-hook `env`, and a prefix would break hooks that work today. Tell them apart by their own variables, such as `TRAE_PROJECT_DIR`, `FACTORY_PROJECT_DIR`, `OPENHANDS_PROJECT_DIR`, `DEVIN_PROJECT_DIR`, or `AUGMENT_PROJECT_DIR`. Do not use `CLAUDE_PROJECT_DIR`: Cursor, Gemini, Qoder, Factory, and Trae set it too.
 
-`sync --global` leaves a hook you wrote by hand as it is when it matches a spec. Claude Code's settings `env` and Cursor's `sessionStart` hook still cover it, but an adopted Codex, Gemini, or Qoder entry does not get the variable.
-
-Cursor and Copilot also run the hooks in `.claude/settings.json`. Neither reads its `env`, so in Cursor those hooks get `cursor` from the `sessionStart` hook, and in Copilot sync does not set it.
+`sync --global` leaves a matching hand-written hook alone, so an adopted Codex, Gemini, or Qoder entry does not get the variable. Cursor and Copilot also run `.claude/settings.json` hooks but read no `env` from it: Cursor still gets `cursor` from `sessionStart`, Copilot gets nothing.
 
 ### Per-target body fences
 
-When one spec needs different prose per target, wrap the divergent part in `::target` fences. Content outside a fence emits everywhere; content inside emits only to the listed targets. Marker lines never reach the output.
+To vary prose per target, wrap the divergent part in `::target` fences. Content outside a fence emits everywhere; content inside emits only to the listed targets. Marker lines never reach the output.
 
 ```md
----
-name: test
-description: Run the test suite
----
-
-# Test
-
 Shared intro paragraph.
 
 ::target claude
-## Scope mapping (Claude)
-
-| Changed | Command |
-|---------|---------|
-| ... | ... |
+Claude-only section.
 ::end
 
-::target codex
-## Workflow (Codex)
-
-1. Choose scope
-2. Run `composer test`
+::targets codex gemini
+Codex and Gemini section.
 ::end
-
-Shared outro.
 ```
 
 | Syntax | Meaning |
@@ -394,13 +332,12 @@ Shared outro.
 | `::targets <a> <b>` | Opens a fence for several targets. |
 | `::end` | Closes the most recent fence. A missing `::end` runs to the end of the body. |
 
-- The source view used by `import` round-trips keeps fences intact, so a re-emit stays byte-stable.
-- `import codex` builds fences when Claude and Codex ship the same agent or skill with different bodies: the common prefix and suffix stay unfenced, and each tool's middle gets its own block.
-- Fences also work in `.agnostic-ai/AGNOSTIC_AI.md`. A block reaches an entry-point file when any target that reads the file is listed. `AGENTS.md` is shared by the whole AGENTS.md family, so `::target codex` content reaches every reader of that file. A shared file is never split. See [Entry-point files](@/docs/configuration.md#entry-point-files).
+- `import` round-trips keep fences intact. `import codex` builds them when Claude and Codex ship the same agent or skill with different bodies.
+- Fences also work in `.agnostic-ai/AGNOSTIC_AI.md`. A block reaches an entry-point file when any target that reads the file is listed. `AGENTS.md` is shared by the whole family, so `::target codex` content reaches every reader; a shared file is never split. See [Entry-point files](@/docs/configuration.md#entry-point-files).
 
 ## Target scoping
 
-Four fields limit where a spec emits, for every kind: agents, skills, rules, commands, hooks, and MCP servers.
+Four fields limit where any spec kind emits.
 
 | Field | Effect |
 |-------|--------|
@@ -409,18 +346,11 @@ Four fields limit where a spec emits, for every kind: agents, skills, rules, com
 | `target-exclude` | Emit everywhere except this target. |
 | `targets-exclude` | Emit everywhere except these targets. |
 
-With none set, the spec emits to every target that supports its kind. `target` beats `targets` when both appear. Exclusion wins over inclusion. A `target: codex` agent emits only into `.codex/agents/`, and a `targets-exclude: [gemini]` skill emits everywhere but Gemini.
+With none set, the spec emits to every target that supports its kind. `target` beats `targets`. Exclusion wins over inclusion.
 
 ### Import auto-scoping
 
-A hook imported from a tool sets `target` to that tool: `target: codex`, `target: claude`, or `target: gemini`. Delete the field to let the hook reach every target.
-
-```yaml
-event: PostToolUse
-matcher: apply_patch|Edit|Write
-command: "$(git rev-parse --show-toplevel)/.codex/hooks/format-php.sh"
-target: codex   # shell-expanded codex path; do not leak to other tools
-```
+A hook imported from a tool gets `target: <tool>` (`codex`, `claude`, or `gemini`). Delete the field to let it reach every target.
 
 `import claude` and `import codex` do the same for agents and skills. When both `.claude/` and `.codex/` exist but only one has a spec, it gets `target: <tool>`. A spec in both stays unscoped, and so does every spec in a single-tool project, so round-trips stay byte-identical.
 
@@ -440,27 +370,27 @@ env:
   ROOT: /tmp
 ```
 
-`name` is the server identifier, not the filename. It may contain package-style slashes, such as `npm:@modelcontextprotocol/server-sequential.thinking`. agnostic-ai percent-encodes such names in YAML filenames, and every generated config keeps the original. Other spec kinds need one safe path segment, because their names become output paths.
+`name` is the server identifier, not the filename. It may contain package-style slashes, such as `npm:@modelcontextprotocol/server-sequential.thinking`. Such names are percent-encoded in YAML filenames and kept as-is in every generated config. Other spec kinds need one safe path segment, because their names become output paths.
 
-A server cannot work without `command` (stdio) or `url` (remote). `agnostic-ai lint` reports a missing one as LINT008. `validate` and `sync` do not: some targets drop the entry, others write a server that cannot start. See [lint](@/docs/cli-reference.md#lint).
+A server needs `command` (stdio) or `url` (remote). `agnostic-ai lint` reports a missing one as LINT008; `validate` and `sync` do not, and some targets write a server that cannot start. See [lint](@/docs/cli-reference.md#lint).
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `name` | yes | none | Server identifier and key in the generated config. |
-| `description` | no | empty | Free-form documentation. Dropped on a target whose MCP schema has no such key (Junie, Warp). |
-| `type` | no | `stdio` | Transport: `stdio`, `http`, `sse`, or `ws`. Remote transports write an explicit `type`; `stdio` stays implicit. A `ws` entry emits no server on Augment, Factory, and Qoder, whose vendors document no WebSocket transport carrying a `url`. |
+| `description` | no | empty | Free-form documentation. Dropped where the target's MCP schema has no such key (Junie, Warp). |
+| `type` | no | `stdio` | `stdio`, `http`, `sse`, or `ws`. Remote transports write an explicit `type`; `stdio` stays implicit. A `ws` entry emits no server on Augment, Factory, and Qoder. |
 | `command` | stdio only | none | Executable to launch. |
 | `args` | no | empty | Argument list for the command. |
 | `env` | no | empty | Environment variables for the server. |
 | `url` | http/sse/ws only | none | Endpoint URL. |
 | `headers` | no | empty | HTTP headers for `http`/`sse`. |
-| `cwd` | no | empty | Working directory for a stdio server, where the target supports it. |
+| `cwd` | no | empty | Working directory for a stdio server, where supported. |
 | `timeout` | no | empty | Units vary by target: milliseconds on most. |
 | `oauth` | no | empty | OAuth settings. The shape is target-specific; see the target page. |
 | `disabled` | no | `false` | See [`disabled` support by target](#disabled-support-by-target). |
 | `roots` | no | empty | List of `{uri, name}` objects, for targets that support MCP roots. |
 
-Some fields apply only to certain targets and are ignored elsewhere.
+These fields apply only to the listed targets and are ignored elsewhere.
 
 | Target | Extra fields |
 |--------|--------------|
@@ -480,16 +410,16 @@ On Amp, set `x-amp.includeTools`. Use `x-factory`, `x-kilo`, or `x-continue` to 
 
 ### `disabled` support by target
 
-Only the targets listed were checked. Native booleans default to `false`.
+Only the targets listed were checked.
 
 | Target | Behavior |
 |--------|----------|
 | [Antigravity](@/docs/targets/antigravity.md), [Crush](@/docs/targets/crush.md), [Factory](@/docs/targets/factory.md), [Kiro](@/docs/targets/kiro.md), [Qoder](@/docs/targets/qoder.md), [Windsurf](@/docs/targets/windsurf.md) | Native `disabled` |
 | [Codex](@/docs/targets/codex.md) | Mapped to `enabled = false` |
 | [Kilo Code](@/docs/targets/kilo.md), [OpenCode](@/docs/targets/opencode.md), [Zed](@/docs/targets/zed.md) | Mapped to `"enabled": false` |
-| [Copilot](@/docs/targets/copilot.md) | Written as a `disabledMcpServers` entry in `.github/copilot/settings.json` for Copilot CLI. Stripped from both MCP files with a note, since neither reader has a per-server key; disable the server in VS Code for that half. |
-| [Claude Code](@/docs/targets/claude.md) | Mapped to project `disabledMcpjsonServers` in `.claude/settings.json` for servers emitted to `.mcp.json`. Import restores this state. |
-| [Cursor](@/docs/targets/cursor.md), [Augment](@/docs/targets/augment.md), [Junie](@/docs/targets/junie.md), [Trae](@/docs/targets/trae.md), [Warp](@/docs/targets/warp.md) | Stripped with a note. Disable the server in the tool itself. |
+| [Copilot](@/docs/targets/copilot.md) | A `disabledMcpServers` entry in `.github/copilot/settings.json` for Copilot CLI. Stripped from both MCP files with a note; disable the server in VS Code for that half |
+| [Claude Code](@/docs/targets/claude.md) | Mapped to project `disabledMcpjsonServers` in `.claude/settings.json` for servers emitted to `.mcp.json`. Import restores it |
+| [Cursor](@/docs/targets/cursor.md), [Augment](@/docs/targets/augment.md), [Junie](@/docs/targets/junie.md), [Trae](@/docs/targets/trae.md), [Warp](@/docs/targets/warp.md) | Stripped with a note. Disable the server in the tool itself |
 
 ## Commands
 
@@ -503,10 +433,6 @@ argument-hint: <env>
 ---
 
 Deploy the app to {{env}}.
-
-1. Run tests.
-2. Build artifacts.
-3. Push to the {{env}} environment.
 ```
 
 | Field | Required | Default | Description |
@@ -541,20 +467,20 @@ effort:
 | `permissions.deny` | no | empty | Rules always blocked. |
 | `permissions.ask` | no | empty | Rules that prompt before running. |
 | `permissions.default-mode` | no | unset | Claude Code starting mode for `sync --global`: `default`, `manual`, `acceptEdits`, `plan`, `auto`, `dontAsk`, or `bypassPermissions`. Other targets raise a coverage note. |
-| `model` | no | empty | Default model: a string for every target, or a map per target with an optional `default`, the same shape as [agent `model`](#per-target-model-and-effort). A target the map does not name and no `default` covers gets no model. |
-| `effort` | no | empty | Repository default reasoning effort: a scalar for every target, or a map per target with an optional `default`, the same shape as [agent `effort`](#per-target-model-and-effort). |
+| `model` | no | empty | Default model: a string, or a map per target with an optional `default`, like [agent `model`](#per-target-model-and-effort). A target with no entry and no `default` gets no model. |
+| `effort` | no | empty | Default reasoning effort: a scalar, or a map per target with an optional `default`, like [agent `effort`](#per-target-model-and-effort). Separate from an agent's own `effort`. |
 
-A rule is either a bare tool name, which covers the whole tool, or `Scope(argument)`, where the scope ends at the first `(` and the argument runs to the closing `)`. An MCP tool is `mcp__<server>__<tool>`; only the first separator after the prefix divides server from tool. `Scope()` with an empty argument is not a rule and is dropped rather than read as the bare tool, which would widen it.
+A rule is a bare tool name (whole tool) or `Scope(argument)`. An MCP tool is `mcp__<server>__<tool>`. `Scope()` with an empty argument is dropped, not read as the bare tool, which would widen it.
 
-Keep a `Bash` wildcard at the end of an `allow` or `deny` rule. `Bash(git * main)` also approves any options inserted at the `*`, and Claude Code matches a mid-command `*` in a `deny` rule literally, so it blocks nothing. `agnostic-ai lint` reports both as LINT009.
+Keep a `Bash` wildcard at the end of an `allow` or `deny` rule. `Bash(git * main)` also approves options inserted at the `*`, and Claude Code matches a mid-command `*` in a `deny` rule literally, so it blocks nothing. `agnostic-ai lint` reports both as LINT009.
 
-Multiple files merge: permission lists concatenate, de-duplicated in source order, and the last non-empty `model` and `effort` win. Each target resolves its own entry of a map first, so `model: {codex: gpt-6-luna}` in a later file changes the Codex model only.
+Multiple files merge: permission lists concatenate, de-duplicated in source order, and the last non-empty `model` and `effort` win. Each target resolves its own map entry first, so `model: {codex: gpt-6-luna}` in a later file changes only Codex.
 
-`sync --global` reads settings specs from the home too, for `model`, `effort`, target-specific keys, and Claude's `permissions.default-mode`; see [default model and effort](@/docs/configuration.md#global-default-model-and-effort).
+`sync --global` also reads settings specs from the home, for `model`, `effort`, target-specific keys, and `permissions.default-mode`; see [default model and effort](@/docs/configuration.md#global-default-model-and-effort).
 
-`effort` reaches four targets, each under its own key and value set. A value the target does not accept is not written and raises a coverage note; the other targets still emit. `x-<target>` still wins, so `x-claude.effortLevel` overrides the portable value. Every other settings target reports a coverage note. Keep this separate from an agent's own `effort`, which applies to that agent alone.
+`effort` reaches four targets, each under its own key. A value the target does not accept is not written and raises a coverage note; the other targets still emit. `x-<target>` wins, so `x-claude.effortLevel` overrides the portable value. Every other target reports a coverage note.
 
-`import` fills `effort` from these same four keys when the value is one the target accepts and no other settings spec sets `effort`. If another spec already sets a different effort, the imported value lands under `x-<target>` instead, so `import all` never replaces one tool's effort with another's.
+`import` fills `effort` from these keys when the target accepts the value and no other settings spec sets it; otherwise the value lands under `x-<target>`.
 
 | Target | Native key | Accepted values |
 |---|---|---|
@@ -571,19 +497,13 @@ Multiple files merge: permission lists concatenate, de-duplicated in source orde
 | Augment | `allow` and `deny` only | no |
 | Codex, Copilot, Junie, Gemini | no | yes |
 
-Every other target takes neither. A field a target cannot represent produces a coverage note while the others still emit, so Augment reports what its `ask` list and `model` reached, and Windsurf reports its `model`. Copilot, Junie, and Codex report the whole policy, since none has a project-tier key for it, and Codex's note points at `outputs.codex.exec-policies`, the one Codex rule surface this tool writes. Each vendor's own vocabulary decides how far a rule translates: Augment gates `read`, `edit` and `write` as whole tools with no path matcher, so a path-scoped rule there raises a note instead of widening onto every file. Factory's three command lists take shell-command patterns, so a `Bash` rule translates and a `Read(src/**)` raises a note. Model identifiers differ between vendors, so review an imported `model` before enabling more targets.
+Every other target takes neither. A field a target cannot represent produces a coverage note while the others still emit. Copilot, Junie, and Codex report the whole policy (Codex's note points at `outputs.codex.exec-policies`). Rules translate only as far as the vendor allows: Augment gates `read`, `edit`, and `write` as whole tools, and Factory's command lists take shell patterns, so a path-scoped rule raises a note instead of widening. Factory's `commandDenylist` prompts, so portable `ask` goes there and `deny` goes to `commandBlocklist`. Review an imported `model` before enabling more targets, since identifiers differ between vendors.
 
-A list does not always land in the key its name matches. Factory's `commandDenylist` prompts and can still be approved, so portable `ask` goes there and portable `deny` goes to `commandBlocklist`, the key with no approval path. Read the target page before assuming a name match.
+Target-specific keys go under `x-<target>` and merge into that target's settings file (`x-factory.sandbox` reaches `.factory/settings.json`). Codex is the exception: its `.codex/config.toml` comes from the captured overlay plus `outputs.codex.config`, so an `x-codex` block raises a coverage note naming both routes.
 
-Target-specific settings keys go under `x-<target>`, the same escape hatch agents and commands have. The block merges into that target's own settings file, so `x-factory.sandbox` reaches `.factory/settings.json` and `x-kilo.sandbox` reaches `kilo.jsonc`. Use it for surfaces no portable field models. Codex is the exception: `.codex/config.toml` is TOML rendered from the captured overlay plus `outputs.codex.config`, so an `x-codex` block on a settings spec raises a coverage note naming both routes instead of emitting.
+On a key this tool also writes, lists union (translated entries first), objects merge recursively, and a scalar such as `model` is replaced. A list against a string cannot merge: the `x-<target>` value wins with a coverage note. Maps of whole records (`x-qoder.mcpServers`, `x-augment.mcpServers`) merge by name, and a server both sides name comes from the `x-<target>` block entire (#974). Fixed-order blocks (`x-qoder.hooks`, `x-augment.hooks`) keep their order, with your own events appended (#976).
 
-On a key this tool also writes, the two values merge rather than one replacing the other. Two lists union, translated entries first; two objects merge key by key and recurse; a scalar such as `model` is replaced, since it has no parts to keep. So `x-factory.commandBlocklist: ["author-only"]` beside a portable `deny: ["Bash(rm:*)"]` writes both patterns, and a translated deny rule never leaves the file because an author added one of their own. Two shapes that cannot merge, a list against a string, keep the `x-<target>` value and print a coverage note naming the key.
-
-One exception: a map of whole records merges by name, not by field. `x-qoder.mcpServers` and `x-augment.mcpServers` union with the servers the MCP specs contributed, and a server both sides name is taken from the `x-<target>` block entire. A server definition is one record whose transport fields have to agree with each other, so merging inside one would put your `command` beside the spec's `args`, or a `url` beside a `command` (#974).
-
-Key order is part of the merge. A block this tool writes in a fixed order, `x-qoder.hooks` and `x-augment.hooks` against a generated hook block, keeps that order: the translated events stay where the vendor's lifecycle puts them, an event you also name merges under it, and an event only you name is appended (#976).
-
-The four keys with their own handling take one shape each, and a value of another shape cannot be read at all. `x-augment.toolPermissions` takes a list; `x-windsurf.permissions`, `x-kilo.permission`, and `x-opencode.permission` take an object. Write one of those under the wrong shape and the hatch is skipped, the translated rules ship in its place, and a coverage note names the key and both shapes. Before #976 that skip was silent, which is the worst version of the failure this tool exists to prevent: a permission policy that does nothing and says nothing.
+Four keys take one shape each: `x-augment.toolPermissions` a list; `x-windsurf.permissions`, `x-kilo.permission`, `x-opencode.permission` an object. Another shape is skipped, the translated rules ship, and a coverage note names the key (#976).
 
 ## Reviews
 
@@ -597,7 +517,7 @@ scope: backend
 Flag any handler that talks to the database directly instead of going through a repository.
 ```
 
-Reviews honor `scope` and the source layout like rules do. Specs with the same scope concatenate into that scope's one review file, written as a plain body without frontmatter. [Cursor](@/docs/targets/cursor.md) (Bugbot), [Codex](@/docs/targets/codex.md) (code review), and [Goose](@/docs/targets/goose.md) support reviews; other targets report them as unsupported. For Codex the text lands in a `## Code Review Rules` section of the root or scoped `AGENTS.md`, a file every `AGENTS.md` reader loads; a `targets:` filter that leaves out `codex` keeps a spec out of it.
+Reviews honor `scope` and the source layout like rules do. Specs with the same scope concatenate into one review file, written as a plain body without frontmatter. [Cursor](@/docs/targets/cursor.md) (Bugbot), [Codex](@/docs/targets/codex.md) (code review), and [Goose](@/docs/targets/goose.md) support reviews; other targets report them as unsupported. For Codex the text lands in a `## Code Review Rules` section of the root or scoped `AGENTS.md`, which every `AGENTS.md` reader loads; a `targets:` filter that omits `codex` keeps a spec out of it.
 
 ## Environments
 
@@ -610,29 +530,29 @@ terminals:
     command: go run ./cmd/agnostic-ai
 ```
 
-`setup` holds the commands a tool runs in a new worktree, as one command or a list. `setup-windows` replaces it on Windows.
+`setup` holds the commands a tool runs in a new worktree (one command or a list); `setup-windows` replaces it on Windows.
 
-```yaml
-name: worktree
-setup: bash scripts/setup-worktree.bash
-```
-
-`dev-commands` lists the dev servers a tool can start and preview. Each entry needs a unique `name` and a `command`, as one string or a list of words; `cwd` (relative to the project root), `port`, `auto-port`, `env`, and `url` are optional. A string command with shell syntax, such as a pipe, several lines, `VAR=value`, or a builtin like `cd`, runs through `sh -c`, which on Windows needs a POSIX shell such as Git Bash on the `PATH`; write a list to pass arguments exactly, with no shell. `env` values are strings; a number or boolean is written as text.
+`dev-commands` lists dev servers a tool can start and preview. Each entry needs a unique `name` and a `command` (a string or a list of words); `cwd` (relative to the project root), `port`, `auto-port`, `env`, and `url` are optional. A string command with shell syntax (pipe, several lines, `VAR=value`, a builtin like `cd`) runs through `sh -c`, which on Windows needs a POSIX shell such as Git Bash on the `PATH`. A list runs with no shell. `env` values are written as text.
 
 ```yaml
 name: dev
+setup: bash scripts/setup-worktree.bash
 dev-commands:
-  - name: Dashboard
-    command: bash scripts/run-preview.bash
-    port: 5555
-    auto-port: true
   - name: Docs
     command: [pnpm, dev:mintlify]
     cwd: apps/docs
     port: 3000
+    auto-port: true
 ```
 
-Specs merge by top-level key, and the last value wins. [Cursor](@/docs/targets/cursor.md) writes `setup` and `setup-windows` to `.cursor/worktrees.json`, and writes the rest of the spec as its `environment.json`, passing every key through except the routing fields (`name`, `scope`, `target(s)`, `target(s)-exclude`, `description`) and `dev-commands`, which it notes as having no effect. [Claude Code](@/docs/targets/claude.md) writes `dev-commands` to `.claude/launch.json` and notes every other field as having no effect; run worktree setup there from a `WorktreeCreate` or `SessionStart` [hook](#hooks) instead. [OpenHands](@/docs/targets/openhands.md) and [Amp](@/docs/targets/amp.md) turn `install` into a setup script, Amp turns `terminals` into services, and both note `setup` and `dev-commands` as having no effect. Other targets, such as devcontainers or Codex setup scripts, report the spec as unsupported. `lint` reports a dev command with no `name` or `command`, a repeated name, an unknown key, or a value of the wrong type (LINT016).
+Specs merge by top-level key, and the last value wins.
+
+- [Cursor](@/docs/targets/cursor.md): `setup` and `setup-windows` go to `.cursor/worktrees.json`. The rest goes to `environment.json`, except the routing fields (`name`, `scope`, `target(s)`, `target(s)-exclude`, `description`) and `dev-commands`, which get a no-effect note.
+- [Claude Code](@/docs/targets/claude.md): `dev-commands` goes to `.claude/launch.json`; every other field gets a no-effect note. Run worktree setup from a `WorktreeCreate` or `SessionStart` [hook](#hooks) instead.
+- [OpenHands](@/docs/targets/openhands.md) and [Amp](@/docs/targets/amp.md): `install` becomes a setup script. Amp also turns `terminals` into services. Both note `setup` and `dev-commands` as having no effect.
+- Other targets report the spec as unsupported.
+
+`lint` reports a dev command with no `name` or `command`, a repeated name, an unknown key, or a wrong-typed value (LINT016).
 
 ## Ignore
 
@@ -648,24 +568,17 @@ dist/
 ```
 ````
 
-When the body has fenced code blocks, only the lines inside them are patterns, and the text around them is prose. Markdown formatters such as Prettier rewrite `*` and `_` in plain text but leave code blocks alone. A body without a fence is read whole, so an unformatted spec of bare patterns keeps working. Prettier still strips trailing spaces inside a block: write a name that ends in a space as `name[ ]`, not `name\ `.
+With fenced code blocks, only the lines inside them are patterns and the surrounding text is prose, which formatters like Prettier can rewrite safely. A body without a fence is read whole. Prettier strips trailing spaces inside a block: write a name ending in a space as `name[ ]`.
 
-Specs concatenate into each target's native ignore file under a `#` provenance header, separated by a blank line. Pattern order and whitespace are kept; outer line breaks are trimmed and CRLF becomes LF. Override the path with `outputs.<target>.ignore-file`. Targets without an ignore file report the spec as unsupported.
+Specs concatenate into each target's native ignore file under a `#` provenance header, with a blank line between them. Order and whitespace are kept; CRLF becomes LF. Override the path with `outputs.<target>.ignore-file`. Targets without an ignore file report the spec as unsupported.
 
 ### Overwrite behaviour
 
-Sync replaces an ignore file without an agnostic-ai provenance header only when every existing exclusion survives. Each pattern must stay unchanged and in order. Extra patterns are allowed. Missing or reordered patterns, added negations (`!pattern`), and changed whitespace fail with `AAI-103` and leave the file untouched. The check is conservative, so an equivalent rewrite can still fail.
+Sync replaces an ignore file with no agnostic-ai provenance header only when every existing exclusion survives, unchanged and in order. Extra patterns are allowed. Missing or reordered patterns, added negations (`!pattern`), and changed whitespace fail with `AAI-103` and leave the file untouched. The check is conservative, so an equivalent rewrite can still fail.
 
-```
-.kiroignore: hand-authored ignore file cannot be safely overwritten: existing
-patterns are missing or reordered: "my-secrets/", "*.key". Run
-`agnostic-ai import kiro` to copy its patterns into an ignore spec, then keep
-their order and review any added negations before syncing again.
-```
+Run `agnostic-ai import <target>` to copy the patterns into `ignore/<target>.md` as a fenced block, with comments, order, and whitespace intact and a leading UTF-8 byte-order mark dropped. The spec sets `target: <target>`; remove the line to share the patterns with every ignore-capable target. Review the combined order if other specs add negations or reorder patterns.
 
-`agnostic-ai import <target>` reads the file into a fenced block in `ignore/<target>.md` with comments, order, and whitespace intact. The spec sets `target: <target>`, so only that tool receives the patterns; remove the line to share them with every ignore-capable target. It drops a leading UTF-8 byte-order mark so the header does not turn it into a pattern character. Unchanged imported patterns sync with no cleanup. If other specs add negations or reorder the imported patterns, review the combined order first. Generated files still regenerate from their specs, including intentional removals.
-
-Comment and blank lines exclude nothing, so a file with only those never blocks a sync. `#` starts a comment only at the start of a line; leading spaces and tabs can belong to a pattern. `outputs.<target>.provenance-header: false` removes the marker and disables this check. Dry-run skips the check because it writes nothing; `sync --check` still reports unsafe overwrites.
+Comment and blank lines exclude nothing. `#` starts a comment only at the start of a line. `outputs.<target>.provenance-header: false` removes the marker and disables this check. Dry-run skips the check; `sync --check` still reports unsafe overwrites.
 
 ## Frontmatter rules
 
@@ -679,10 +592,6 @@ Comment and blank lines exclude nothing, so a file with only those never blocks 
 
 A spec body can name a directory without hardcoding one target's layout. `{{$SKILLS_DIR}}` expands to `.claude/skills` for claude, `.agents/skills` for codex, and `.github/skills` for copilot.
 
-```markdown
-Put new skills in {{$SKILLS_DIR}} and agent profiles in {{$AGENTS_DIR}}.
-```
-
 | Variable | Resolves to |
 |---|---|
 | `{{$SKILLS_DIR}}` | the target's skills directory |
@@ -691,11 +600,11 @@ Put new skills in {{$SKILLS_DIR}} and agent profiles in {{$AGENTS_DIR}}.
 | `{{$RULES_DIR}}` | the target's rules directory |
 | `{{$MCP_FILE}}` | the target's MCP config file |
 
-- **Bodies only.** Every spec body expands; frontmatter values do not.
+- **Bodies only.** Frontmatter values do not expand.
 - **An `outputs.<target>.<field>` override wins.** With `outputs.claude.skills-dir: custom/skills`, `{{$SKILLS_DIR}}` follows it.
-- **A variable with no target surface stays verbatim** and raises a coverage note, so "see {{$COMMANDS_DIR}}" never becomes "see ". aider and jules resolve no variables.
-- **A variable exists only where the target has a dedicated surface.** Targets that flatten agents into rules (continue, trae, windsurf) or commands (gemini) declare no `{{$AGENTS_DIR}}`. Antigravity, Goose, and OpenHands resolve it to `.agents/agents`.
-- **The `$` sigil is required.** Plain `{{placeholder}}` stays untouched, so Warp workflow arguments and quoted Handlebars or Jinja survive. Lowercase names such as `{{$skills_dir}}` do not resolve.
+- **A variable with no target surface stays verbatim** and raises a coverage note. aider and jules resolve no variables.
+- **Only where the target has a dedicated surface.** Targets that flatten agents into rules (continue, trae, windsurf) or commands (gemini) declare no `{{$AGENTS_DIR}}`. Antigravity, Goose, and OpenHands resolve it to `.agents/agents`.
+- **The `$` sigil is required.** Plain `{{placeholder}}` stays untouched, so Warp workflow arguments and Handlebars or Jinja survive. Lowercase names such as `{{$skills_dir}}` do not resolve.
 
 ## Target-specific extensions: `x-<target>` namespace
 
@@ -724,8 +633,6 @@ For each target, all `x-*` keys are dropped, then the matching `x-<target>` bloc
 
 ### Arbitrary custom keys
 
-Any other key under `x-<target>` emits verbatim into that target's output. That block is the opt-in: shared top-level keys stay stripped, so plain specs keep producing valid files. Keys emit in sorted order and never leak across targets. Validate them against the target's schema yourself.
+Any other key under `x-<target>` emits verbatim into that target's output, in sorted order, and never leaks across targets. Validate them against the target's schema yourself. Each target page lists the keys its adapter manages. A target with no surface for a spec kind drops custom keys for that kind. Gemini TOML accepts only a string, bool, number, or string array, and skips nested tables.
 
-Each adapter manages some keys itself, and the target page lists them. A target with no surface for a spec kind drops custom keys for that kind. Gemini TOML accepts only a string, bool, number, or string array, and skips nested tables.
-
-On a settings spec the block merges into the target's own settings file, key by key, with the keys this tool manages there: lists union, objects recurse, and only a scalar is replaced outright. A map of whole records, `mcpServers` on qoder and augment, unions by name and replaces a colliding entry whole. See [Settings](@/docs/spec-format.md#settings) for the full rule. Four targets keep their own handling for one key each, where the author's rules merge with the translated ones on that target's own terms: `x-augment.toolPermissions` (a list), `x-windsurf.permissions`, `x-kilo.permission`, and `x-opencode.permission` (objects). Each reads only its own shape, and another shape is skipped under a coverage note. Codex takes no settings block at all and says so in a coverage note.
+On a settings spec the block merges into the target's settings file by the rules in [Settings](@/docs/spec-format.md#settings). Codex takes no settings block and says so in a coverage note.

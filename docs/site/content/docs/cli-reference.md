@@ -35,11 +35,11 @@ Walkthroughs: [Getting started](@/docs/getting-started.md), [Migration](@/docs/m
 | `--version` | Print version and exit |
 | `-q, --quiet` | Errors only, plus the `~ kept` lines of `sync --keep-edits`, on stderr |
 | `-v, --verbose` | Increase output verbosity (repeatable). Mutually exclusive with `--quiet`. |
-| `--profile <file>` | Write a `runtime/pprof` CPU profile to `<file>` (or set `AGNOSTIC_AI_PROFILE`). Off by default. Read it with `go tool pprof <file>`. |
+| `--profile <file>` | Write a `runtime/pprof` CPU profile to `<file>` (or set `AGNOSTIC_AI_PROFILE`). Read it with `go tool pprof <file>`. |
 
 ## init
 
-Scaffold a project: `agnostic-ai.yaml` and the managed `.gitignore` block. Errors if `agnostic-ai.yaml` exists. `init` creates only the source folders `--demo` or `--preset` seeds under `.agnostic-ai/`; `new` and `import` create the rest on first use. The schema comment names the release that ran `init`, or `main` for a development build. `on-unsupported: warn` comes with a comment naming `error`, the stricter setting.
+Scaffold a project: `agnostic-ai.yaml` and the managed `.gitignore` block. Errors if `agnostic-ai.yaml` exists. It creates only the source folders that `--demo` or `--preset` seed; `new` and `import` create the rest on first use.
 
 ```bash
 agnostic-ai init specs --demo     # base dir specs/, example specs to start from
@@ -48,15 +48,17 @@ echo "claude,codex" | agnostic-ai init
 
 | Flag | Description |
 |------|-------------|
-| `[dir]` | Base directory for the source folders (`.` for the legacy root layout). `agnostic-ai.yaml` gets matching `sources:` paths, and `init` creates those folders. The default `.agnostic-ai/` writes no `sources:`. |
+| `[dir]` | Base directory for the source folders (`.` for the legacy root layout). Writes matching `sources:` paths; the default `.agnostic-ai/` writes none. |
 | `--demo` | Seed example specs, one per source folder plus the `memory-curator` skill, so the first `sync` produces output. Never overwrites files. |
 | `--preset <name>` | Seed starter specs for a stack: `go`, `ts-react`, `python`. Combines with `--demo` and `--all`. Never overwrites files. |
 | `-a, --all` | Skip the target picker and enable every supported target. |
-| `--gitignore` | On by default: generated outputs go into a managed `.gitignore` block, without a prompt when non-interactive. `--gitignore=false` commits them instead. |
+| `--gitignore` | On by default: generated outputs go into a managed `.gitignore` block. `--gitignore=false` commits them instead. |
 | `--from <cli>` | After scaffolding, import existing config from this CLI (`claude`, `cursor`, `all`, and the other [import](#import) sources). |
-| `--dry-run` | List what the scaffold would create without writing. With `--from`, also list every file the import would write, as `import --dry-run` does, and stop when `agnostic-ai.yaml` exists, as a real run does. |
+| `--dry-run` | List what the scaffold would create without writing. With `--from`, also list every file the import would write. |
 
-Without `--all`, `init` takes targets from a TTY prompt (↑/↓ to move, space to toggle, enter to confirm) or a comma-separated list on piped stdin. With no terminal and nothing piped (CI, `< /dev/null`), it enables the tools it detects, else the [default set](@/docs/configuration.md#targets), and prints one line naming them. `targets:` records them in canonical order; unknown names error and write nothing. The prompt and the [first-sync picker](#first-sync-target-picker) pre-tick every tool detected from a marker such as `.claude/`, a root `CLAUDE.md`, `.codex/`, `.gemini/`, a root `GEMINI.md`, `.cursor/`, or `.github/copilot-instructions.md`. A root `AGENTS.md` is not a marker: most tools read it.
+Without `--all`, `init` takes targets from a TTY prompt or a comma-separated list on piped stdin. With no terminal and nothing piped (CI), it enables the tools it detects, else the [default set](@/docs/configuration.md#targets), and prints one line naming them. Unknown names error and write nothing.
+
+The prompt and the [first-sync picker](#first-sync-target-picker) pre-tick tools detected from a marker such as `.claude/`, a root `CLAUDE.md`, `.codex/`, `.gemini/`, `.cursor/`, or `.github/copilot-instructions.md`. A root `AGENTS.md` is not a marker: most tools read it.
 
 ## import
 
@@ -69,33 +71,25 @@ agnostic-ai import all
 agnostic-ai import claude codex --dry-run --diff   # review content and conflicts
 ```
 
-`import all` imports every tool detected from its marker, so a repo with only a `CLAUDE.md` imports it as a rule. A detected tool with no importer is skipped with a `skipping <tool>` line and does not fail the run.
+`import all` imports every tool detected from its marker. A detected tool with no importer is skipped with a `skipping <tool>` line. An entry file that links outside the project is skipped with a `skipped <file>` note; naming the tool (`import claude`) follows the link. Output that sync wrote and nobody edited is skipped, so `import all` right after `sync` changes nothing. See [Claude import](@/docs/targets/claude.md#import) for what `import claude` leaves in place.
 
-`import claude` ends its summary with the files under `.claude/` it left in place, such as templates a skill reads, and what to do with a `.claude/CLAUDE.md` whose text it moved. See [Claude import](@/docs/targets/claude.md#import).
-
-Import skips output that sync wrote and nobody edited since: an entry point that holds only the rendered `AGNOSTIC_AI.md`, and a `.claude/rules/` file whose source rule exists. Running `import all` again right after `sync` leaves the sources unchanged.
-
-`import --global` reads your user config instead: the default model and effort and the MCP servers in the files `sync --global` writes, for Augment, Claude, Codex, Copilot, Cursor, Gemini, OpenHands, and Qoder. It writes `settings/imported.yaml` and one `mcps/<name>.yaml` per server into `$AGNOSTIC_AI_HOME`, so the next `sync --global` adopts every value and changes nothing. Name targets to narrow it (`import --global codex`). A server or setting a home spec already provides, `local/` included, is left out, so a local secret never lands in the shared home. A server whose spec would not write back the same entry is skipped with a warning. An existing spec file is never replaced. Two tools defining one server name differently keep the first tool's server, with a warning. `--dry-run` lists the files it would write.
-
-`import all` reads an entry file such as `CLAUDE.md` or `GEMINI.md` only when it is a file inside the project. One that links outside is skipped with a `skipped <file>` note, since detection alone started that import. Naming the tool (`import claude`) follows the link.
+`import --global` reads your user config (default model and effort, MCP servers) from the tools `sync --global` writes. It writes `settings/imported.yaml` and one `mcps/<name>.yaml` per server into `$AGNOSTIC_AI_HOME`. Name targets to narrow it. Anything a home spec already provides, `local/` included, is left out, and an existing spec file is never replaced. Two tools defining one server differently keep the first tool's server, with a warning. Servers that do not round-trip are skipped with a warning.
 
 | Flag | Effect |
 |---|---|
-| `--dry-run` | List every file the import would write, once each, without file bodies. Runs the import in a temporary copy of the project, so the list matches a real import. The copy leaves out the directories import skips (see below). Writes nothing to the project. |
-| `--diff` | With `--dry-run`, show each destination as `create`, `change`, or `unchanged`, the sources that wrote it, and a unified diff per created or changed file. Lists every destination two sources propose different content for, and the source a real import keeps (the last). Requires `--dry-run`. |
+| `--dry-run` | List every file the import would write, once each, without file bodies. Runs in a temporary copy of the project and writes nothing to it. |
+| `--diff` | With `--dry-run`, show each destination as `create`, `change`, or `unchanged`, the sources that wrote it, and a unified diff. Lists every destination two sources propose different content for, and the source a real import keeps (the last). A conflict is reported, not resolved: exit status stays 0. Requires `--dry-run`. |
 
-`--diff` runs the real importers in a temporary copy of the project, so each later source reads what the earlier ones wrote and the preview shows the exact bytes a real import leaves. The project, its native files, config, ignore files, and sync state stay untouched. A symlink that points outside the project is copied by content, so the preview cannot write through it. A conflict is reported, not resolved: the exit status stays 0.
+- Writes only spec files under `sources:`. Run it after `init`; re-running overwrites by filename.
+- Nested config search skips git-ignored directories, directories with their own `.git`, and `node_modules/`.
+- A symlinked skill folder that links outside the project is skipped with a `skipped <path>` note.
+- An existing skill or agent spec keeps frontmatter keys the source tool has nowhere to put (such as Cursor's `argument-hint`). Deleting a key the tool does write is read as deliberate and reaches the spec (removing `model` from a Qoder agent removes it from the spec). Rules are rebuilt from the native file.
+- Each source mirrors its top-level instructions file to `.agnostic-ai/AGNOSTIC_AI.md`, so the last argument wins. A fenced `AGNOSTIC_AI.md` stays untouched when the entry point matches its rendered view; otherwise import overwrites it and warns.
+- If another entry point holds different hand-written content (a distinct `AGENTS.md` next to `CLAUDE.md`), import warns that `sync` would overwrite it. Merge it into `.agnostic-ai/AGNOSTIC_AI.md` first.
+- `all` cannot combine with other sources.
+- Valid sources: `claude`, `codex`, `cursor`, `aider`, `amp`, `warp`, `gemini`, `copilot`, `opencode`, `zed`, `antigravity`, `continue`, `cline`, `windsurf`, `junie`, `trae`, `kiro`, `crush`, `qoder`, `kilo`, `goose`, plus `all`. `factory`, `openhands`, `jules`, and `augment` are emit-only.
 
-- Writes only spec files under `sources:`, never `targets:` or other config. Run it after `init`; re-running overwrites by filename.
-- The search for nested config, such as `<dir>/AGENTS.md` or `<dir>/.cursor/skills/`, skips directories git ignores, directories with their own `.git`, such as a cloned repo or an agent worktree, and every `node_modules/`, whose packages are other projects. Generated output that git ignores, such as `.cursor/` or a scoped `AGENTS.md`, still imports.
-- A skill folder that is a symlink, such as `.cursor/skills/<name>` linking to a package's own skills, imports like a real folder when it resolves inside the project. One that links outside the project is skipped with a `skipped <path>` note. When the link points at a package's nested skill folder, import writes one spec at the root path and skips the nested one with a `skipped <path>: kept <path>` note.
-- A skill or agent spec already on disk keeps the frontmatter keys the source tool has nowhere to put. Cursor writes no `argument-hint` on a skill, so importing a synced `.cursor/skills/<name>/SKILL.md` updates the body and the keys cursor does write, and leaves `argument-hint` alone. Deleting a key the tool does write is read as deliberate and reaches the spec, so removing `model` from a Qoder agent removes it from the spec. Rules are exempt entirely: their frontmatter is rebuilt from the native file, so a scope dropped there drops from the spec.
-- Each source mirrors its top-level instructions file to `.agnostic-ai/AGNOSTIC_AI.md`, so the last argument wins. A fenced `AGNOSTIC_AI.md` stays untouched when the imported entry point matches its rendered view; otherwise import overwrites it and warns that the fences were replaced.
-- When another entry point holds different hand-written content (a distinct `AGENTS.md` alongside `CLAUDE.md`), import warns that `sync` would overwrite it. Merge it into `.agnostic-ai/AGNOSTIC_AI.md` first.
-- `all` auto-detects every CLI present in the project and cannot combine with other sources.
-- Valid sources: `claude`, `codex`, `cursor`, `aider`, `amp`, `warp`, `gemini`, `copilot`, `opencode`, `zed`, `antigravity`, `continue`, `cline`, `windsurf`, `junie`, `trae`, `kiro`, `crush`, `qoder`, `kilo`, `goose`, plus `all`. The targets `factory`, `openhands`, `jules`, and `augment` are emit-only.
-
-Each target page lists what `import <target>` reads: [Claude](@/docs/targets/claude.md#import), [Codex](@/docs/targets/codex.md#import), [Cursor](@/docs/targets/cursor.md#import), [Cline](@/docs/targets/cline.md#import), [Windsurf](@/docs/targets/windsurf.md#import), [Continue](@/docs/targets/continue.md#import), [Junie](@/docs/targets/junie.md#import), [Kiro](@/docs/targets/kiro.md#import), [Crush](@/docs/targets/crush.md#import), [Amp](@/docs/targets/amp.md#import), [Zed](@/docs/targets/zed.md#import), [Warp](@/docs/targets/warp.md#import), [Antigravity](@/docs/targets/antigravity.md#import), [Copilot](@/docs/targets/copilot.md#import), [Trae](@/docs/targets/trae.md#import), [Goose](@/docs/targets/goose.md#import), [OpenHands](@/docs/targets/openhands.md#import), [Factory](@/docs/targets/factory.md#import), and [Kilo](@/docs/targets/kilo.md).
+Each [target page](@/docs/targets/_index.md) lists what `import <target>` reads under its Import section.
 
 ### Filename prefix reclassification {#filename-prefix-reclassification}
 
@@ -120,7 +114,7 @@ Import strips the leading `# <heading>` block the adapter adds on emit and injec
 
 ## validate
 
-Load all specs, report parse errors, and print `loaded 12 entries. ok.` on success. Writes nothing. With no specs, stdout still says `loaded 0 entries. ok.` and stderr suggests `init` or `import`.
+Load all specs, report parse errors, and print `loaded 12 entries. ok.` on success. With no specs, stdout still says `loaded 0 entries. ok.` and stderr suggests `init` or `import`.
 
 | Check | Reports |
 |-------|------------|
@@ -129,12 +123,12 @@ Load all specs, report parse errors, and print `loaded 12 entries. ok.` on succe
 | Declared sources | An explicit `sources.<kind>` path in `agnostic-ai.yaml` with no directory. Warning only. |
 | Entry-point fences | A `::target` / `::targets` name in `.agnostic-ai/AGNOSTIC_AI.md` that is not a built-in target or listed in `targets` (external adapter), or that reads no entry-point file (`cursor`, or any target with `outputs.<target>.rules-file`). |
 | Global rules | With `--global`, a rule with scope, path, glob, or target conditions, which `sync --global` rejects. |
-| Global settings | With `--global`, a settings `effort` a target that `sync --global` writes settings for cannot take, such as `max` for Claude. |
+| Global settings | With `--global`, a settings `effort` a target cannot take, such as `max` for Claude. |
 
 | Flag | Description |
 |------|-------------|
 | `--fix` | Rewrite source spec files to repair autofixable issues. |
-| `--global` | Validate the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides, the layers `sync --global` loads. Hook events are checked against the targets `sync --global` writes hooks for (Augment, Claude, Codex, Cursor, Gemini, Qoder), and orphaned kinds against what each target writes at user level. A home config `targets` list narrows both. Works outside a project. |
+| `--global` | Validate the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides. Hook events are checked against the targets `sync --global` writes hooks for. A home config `targets` list narrows the checks. Works outside a project. |
 
 Hook events accepted per target:
 
@@ -149,40 +143,42 @@ Hook events accepted per target:
 
 ## lint
 
-Semantic checks beyond the schema. Exits 1 on error findings. `agnostic-ai lint --strict` treats warnings as errors too, for CI.
+Semantic checks beyond the schema. Exits 1 on error findings. It flags empty specs, dead specs (kinds no enabled target supports), and hooks that set a matcher on an event that ignores it.
+
+```bash
+agnostic-ai lint --strict
+```
 
 | Flag | Description |
 |------|-------------|
-| `--strict` | Exit 1 on warnings too. |
-| `--global` | Lint the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides, the layers `sync --global` loads. Dead specs and target-only keys are checked against what each target `sync --global` writes at user level, for every supported target or the home config `targets` list. Also reports LINT010 and LINT014. Budgets come from the home config's `lint` key. Works outside a project. |
-
-It flags empty specs, dead specs (kinds no enabled target supports), and hooks that set a matcher on an event that ignores it. These codes catch specs that never reach a target:
+| `--strict` | Exit 1 on warnings too, for CI. |
+| `--global` | Lint the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides. Also reports LINT010 and LINT014. Budgets come from the home config's `lint` key. Works outside a project. |
 
 | Code | Finding |
 |------|---------|
-| LINT003 | Two specs of one kind share a `name`; the loader keeps one body. Hooks sharing an event and matcher are fine: all run (`gofmt` and `vet` on one save). |
-| LINT006 | Error. Frontmatter opens `---` and never closes, so the raw YAML is emitted as body. `validate` and `sync` both pass. |
+| LINT003 | Two specs of one kind share a `name`; the loader keeps one body. Hooks sharing an event and matcher are fine. |
+| LINT006 | Error. Frontmatter opens `---` and never closes, so the raw YAML is emitted as body. |
 | LINT010 | Error, `--global` only. A rule with scope, path, glob, or target conditions, which `sync --global` rejects. |
 | LINT014 | Error, `--global` only. A settings `effort` a target's user effort key cannot take, such as `max` for Claude or Copilot, which `sync --global` drops with a note. |
-| LINT013 | Error. A rule's `globs` or `x-<target>.globs` is neither a string nor a list of strings. Targets read it as no globs, so the rule loads in every session. `validate` reports it too. |
-| LINT016 | Error. An environment spec's `dev-commands` entry has no `name:` or `command:`, repeats a name, is not a mapping, sets a key no target reads (such as `autoport`), gives `cwd`, `url`, or `auto-port` the wrong type, or sets a `port` that is not a number or an `env` value that is a list or mapping. Claude Code drops or rewrites it in `launch.json`, whose names must be unique. `x-claude` overrides are checked too. |
-| LINT008 | Error. A stdio MCP server lacks `command:`, or an `http`/`sse`/`ws` one lacks `url:`. Trae, Antigravity, and Windsurf drop it; Claude Code, Codex, Cursor, Gemini, Copilot, and the rest write an invalid server object. `x-<target>` cannot set either reserved field. |
+| LINT013 | Error. A rule's `globs` or `x-<target>.globs` is neither a string nor a list of strings. The rule loads in every session. `validate` reports it too. |
+| LINT016 | Error. An environment spec's `dev-commands` entry has no `name:` or `command:`, repeats a name, is not a mapping, sets a key no target reads, or gives `cwd`, `url`, `auto-port`, `port`, or `env` the wrong type. `x-claude` overrides are checked too. |
+| LINT008 | Error. A stdio MCP server lacks `command:`, or an `http`/`sse`/`ws` one lacks `url:`. `x-<target>` cannot set either reserved field. |
 
-LINT007 warns on a frontmatter key agnostic-ai does not read that is one edit from one it does (two for longer names): `glob:` for `globs:`, `descriptin:` for `description:`. The key parses and emits, so the setting is lost with no other signal; `sync` prints the same warning. A target-native key belongs under `x-<target>:`. A key only some targets read at the top level, such as Qoder's `glob:` or OpenCode's and Kilo's `mode:`, is flagged only when none of them is in `targets`. Settings and environment specs pass their keys through and are not checked, and `sync` skips pack specs.
+LINT007 warns on a frontmatter key one edit away from a key agnostic-ai reads (`glob:` for `globs:`), since the setting is lost. `sync` prints the same warning. Put target-native keys under `x-<target>:`. A key some targets read at the top level (Qoder's `glob:`, OpenCode's and Kilo's `mode:`) is flagged only when none of those targets is in `targets`. Settings and environment specs are not checked.
 
-LINT015 warns when a spec body names another spec by a target-native path, such as `.claude/skills/style/SKILL.md` or `.agents/skills/style/SKILL.md`. Only one target writes the spec there, so the finding names the `.agnostic-ai/` source path to use instead.
+LINT015 warns when a spec body names another spec by a target-native path such as `.claude/skills/style/SKILL.md`. The finding names the `.agnostic-ai/` source path to use.
 
-LINT009 warns on a permission that approves more than it says. An `allow` rule such as `Bash(git * main)` puts `*` before the end of the command, so it also matches `git push --force main`. Claude Code warns about the same rule at startup; the targets that translate it widen it without a word. Write the exact value, or keep `*` at the end (`Bash(go test:*)`, `Bash(npm run *)`). A `deny` rule with the same shape is flagged too: Claude Code matches that `*` literally, so the rule blocks nothing. `ask` rules are skipped, since widening them only prompts more.
+LINT009 warns on a permission that approves more than it says. An `allow` rule such as `Bash(git * main)` also matches a force push to main. Write the exact value, or keep `*` at the end (`Bash(go test:*)`). A `deny` rule with the same shape blocks nothing in Claude Code, so it is flagged too. `ask` rules are skipped.
 
-LINT011 warns when a target loads more words at the start of every session than [`lint.instructions-words`](@/docs/configuration.md#lint) allows (default 2000). The count covers the target's entry-point file as `sync` writes it, with the `AGNOSTIC_AI.md`, inlined rules, and `local/AGNOSTIC_AI.md` parts shown, plus always-on rule files in the target's own rules folder and every skill and agent description it lists, `x-<target>.description` included. Whether a rule file is always on comes from the adapter that writes it, so one rule can count on Cursor, where `alwaysApply` defaults to true, and not on Kiro, where `globs` becomes `inclusion: fileMatch`. Kilo lists every rule file in `kilo.jsonc` `instructions`, so all of them count. A legacy `rules-file` and rule files `@`-imported into `CLAUDE.md` count whole, except Copilot's legacy file, which keeps only always-on rules. Other `@path` imports are not followed. When the entry point cannot render, such as an `@path` that `sync.resolve-imports: inline` cannot read, LINT011 reports that error as a warning and the other findings still print. Targets that read the same file with the same numbers share one line:
+LINT011 warns when a target loads more words at session start than [`lint.instructions-words`](@/docs/configuration.md#lint) allows (default 2000). The count covers the entry-point file as `sync` writes it, always-on rule files, every skill and agent description, and `@`-imported rule files. The adapter decides what is always on. Targets with the same numbers share one line:
 
 ```
 LINT011 [warn] AGENTS.md: cline, windsurf, trae load 2396 words every session: AGENTS.md 1187 (AGNOSTIC_AI.md 136, rules 1032), always-on rule files 908, skill descriptions 195, agent descriptions 106; budget 2000 (lint.instructions-words).
 ```
 
-A target with a published byte cap on that file also warns past the cap, and its line names it: Codex stops reading `AGENTS.md` at 32 KiB (`project_doc_max_bytes`), and Antigravity truncates a rule file, `AGENTS.md` included, past 24,000 bytes. With `--global`, the file is the managed instructions block and the line points at the home's `AGNOSTIC_AI.md`. A project or home with no specs is still measured, since its `AGNOSTIC_AI.md` loads every session.
+A target with a published byte cap also warns past it: Codex stops reading `AGENTS.md` at 32 KiB (`project_doc_max_bytes`), Antigravity truncates rule files past 24,000 bytes.
 
-LINT012 warns on a skill or agent description, or an `x-<target>.description`, longer than [`lint.description-chars`](@/docs/configuration.md#lint) (default 1024 characters). A skill description past 1024 characters, the Agent Skills limit, warns even under a raised budget. Targets list every description in every session, so a long one costs context even when the skill never runs.
+LINT012 warns on a skill or agent description (or `x-<target>.description`) longer than [`lint.description-chars`](@/docs/configuration.md#lint) (default 1024). A skill description past 1024, the Agent Skills limit, warns even under a raised budget.
 
 ## list
 
@@ -204,13 +200,13 @@ agnostic-ai new rule payments-context --scope services/payments
 
 | Flag | Description |
 |------|-------------|
-| `--scope <dir>` | `new rule` only. Create a flat rule for a project-relative directory, without global catch-all selectors. See [scoped context](@/docs/scoped-context.md). |
+| `--scope <dir>` | `new rule` only. Create a flat rule for a project-relative directory. See [scoped context](@/docs/scoped-context.md). |
 
-Errors if the destination exists. Names must be lowercase slugs (`[a-z0-9][a-z0-9-]*`), the form Cursor and Cline expect.
+Errors if the destination exists. Names must be lowercase slugs (`[a-z0-9][a-z0-9-]*`).
 
 ## explain
 
-List every output file and section one spec contributes to, the reverse of the `<!-- source: ... -->` markers in merged documents. With `--file`, list the instructions configured for one source file instead. Writes nothing.
+List every output file and section one spec contributes to, the reverse of the `<!-- source: ... -->` markers in merged documents. With `--file`, list the instructions configured for one source file instead.
 
 ```bash
 agnostic-ai explain rules/conventional-commits.md --json
@@ -219,9 +215,9 @@ agnostic-ai explain rules/conventional-commits.md --json
 | Flag | Description |
 |------|-------------|
 | `--json` | Stable schema for editor extensions and scripts. |
-| `--global` | Explain a spec in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) or its `local/` layer: the user-level file each target `sync --global` writes gets from it. A relative path resolves against that root. |
+| `--global` | Explain a spec in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) or its `local/` layer. A relative path resolves against that root. |
 
-Contributions are grouped by configured target, plus a "would emit if enabled" list for inactive adapters. Entries are tagged `(full file)` or `(section "<name>")`. With `--global`, an agent or skill is a whole file, a rule is a section of the instructions file, a hook is its event in the hooks file, an MCP server is its key in the user MCP file, and a settings spec names each key it sets, tagged `(key "<key>")` and `"mode": "key"` in JSON.
+Contributions are grouped by configured target, plus a "would emit if enabled" list for inactive adapters, tagged `(full file)` or `(section "<name>")`. With `--global`, an agent or skill is a whole file, a rule is a section of the instructions file, a hook is its event in the hooks file, an MCP server is its key in the user MCP file, and a settings spec lists each key it sets, tagged `(key "<key>")`.
 
 ```json
 {"version": "1", "command": "explain", "spec": {"kind": "rule", "name": "...", "path": "..."},
@@ -231,7 +227,7 @@ Contributions are grouped by configured target, plus a "would emit if enabled" l
 
 ### Explain a source file
 
-Start from a project file instead of a spec. The report lists every instruction the target would read from the planned sync output, with its canonical source, output path, selector, and reason. Cursor is the only supported target.
+Start from a project file instead of a spec. The report lists every instruction the target would read from the planned sync output, with its source, output path, selector, and reason. Cursor is the only supported target.
 
 ```bash
 agnostic-ai explain --file services/payments/handler.go --target cursor
@@ -242,20 +238,18 @@ agnostic-ai explain --file services/payments/handler.go --target cursor
 | `--file <path>` | Project file to inspect. The file does not have to exist. Cannot be combined with a spec or error code argument. |
 | `--target <name>` | Required with `--file`. Must be a configured target. Other targets fail with an unsupported-target error. |
 
-Each instruction gets one status:
-
 | Status | Meaning |
 |--------|---------|
-| `always` | Loads with no file condition: `alwaysApply: true`, or the project-root `AGENTS.md`. |
+| `always` | No file condition: `alwaysApply: true`, or the root `AGENTS.md`. |
 | `match` | A `globs` pattern or a nested `AGENTS.md` directory covers the file. |
 | `no-match` | A selector exists and misses the file. |
 | `model-selected` | `alwaysApply: false` with a description and no globs. Cursor's agent decides. |
 | `manual` | `alwaysApply: false` with neither. Loads only when `@`-mentioned. |
-| `unknown` | Glob syntax Cursor does not document (braces, classes, negation), or unreadable frontmatter. |
+| `unknown` | Undocumented glob syntax (braces, classes, negation), or unreadable frontmatter. |
 | `excluded` | Target selection (`target`, `targets`, `target-exclude`) leaves the target out. |
-| `not-emitted` | The rule targets Cursor but sync writes nothing for it, such as an unsupported scoped selector. |
+| `not-emitted` | The rule targets Cursor but sync writes nothing for it. |
 
-A root `AGENTS.md` written for a peer target such as Codex reaches Cursor too, so a rule excluded from Cursor can still show up there. The report is configured applicability, not a record of the model's active context. Opening a file does not guarantee Cursor loads a matching instruction.
+A root `AGENTS.md` written for a peer target such as Codex reaches Cursor too. The report shows configured applicability, not the model's active context.
 
 ```json
 {"version": "1", "command": "explain", "file": "...", "target": "cursor", "note": "...",
@@ -264,7 +258,7 @@ A root `AGENTS.md` written for a peer target such as Codex reaches Cursor too, s
 
 ## compare
 
-Compare how two built-in targets represent the project's agents and rule activation, before you switch or add a tool. Writes nothing.
+Compare how two built-in targets represent the project's agents and rule activation, before you switch or add a tool.
 
 ```bash
 agnostic-ai compare claude cursor
@@ -274,19 +268,17 @@ agnostic-ai compare claude cursor
 |------|-------------|
 | `--json` | Stable schema for scripts. |
 
-Coverage is agent fields plus rule `scope`, `paths`, `globs`, and `alwaysApply`. The report says so on its first lines. Rules without those fields are left out, and other spec kinds are not compared.
-
-Each spec emits in memory to both targets with the project's output options and `x-<target>` overrides, once as written and once per field with that field removed. The difference, plus the coverage notes the adapter raises, gives each field one result per target:
+Coverage is agent fields plus rule `scope`, `paths`, `globs`, and `alwaysApply`. Other rules and spec kinds are left out. Each field gets one result per target:
 
 | Result | Meaning |
 |---|---|
 | `preserved` | Written under the same key with the same values. |
 | `translated` | Written under another key or file, with rewritten values, or only in part. |
 | `unsupported` | The target has no home for the field or the kind. |
-| `excluded` | The spec never reaches the target: a target filter, an opt-in output, or a scope the target cannot express. |
+| `excluded` | The spec never reaches the target: a target filter, an opt-in output, or an inexpressible scope. |
 | `unknown` | The emission gives no evidence either way. |
 
-`preserved` describes the written file, not the tool's runtime behavior. A field marked `(differs)` has a different result on each target. Each result names the output paths or the reason, plus a `next:` step when one is known.
+`preserved` describes the written file, not runtime behavior. `(differs)` marks a field with a different result per target. Each result names the output paths or reason, plus a `next:` step when known. Unknown targets, the same target twice, invalid specs or config, and external adapters fail the command.
 
 ```json
 {"version": "1", "command": "compare", "targets": ["claude", "cursor"], "coverage": "...", "caveat": "...",
@@ -294,8 +286,6 @@ Each spec emits in memory to both targets with the project's output options and 
    "results": [{"target": "cursor", "status": "unsupported", "reason": "...", "next": "..."}]}]}],
  "fields": 6, "differences": 3}
 ```
-
-Unknown targets, the same target twice, and invalid specs or config fail the command. External adapters are not accepted.
 
 ## render
 
@@ -313,13 +303,17 @@ Each file prints as `# target: <name>: <output path>` and its body. Targets that
 
 ## sync
 
-Emit per-target configs, for example `agnostic-ai sync --only claude,cursor`.
+Emit per-target configs.
+
+```bash
+agnostic-ai sync --only claude,cursor
+```
 
 | Flag | Description |
 |------|-------------|
 | `-t, --target <list>` | Comma-separated targets (default: all in config) |
 | `--only <list>` | Emit only these targets. Errors on unknown names. |
-| `--except <list>` | Emit all configured targets except these. Errors on unknown names. `--only` and `--except` are mutually exclusive. |
+| `--except <list>` | Emit all configured targets except these. Errors on unknown names. Mutually exclusive with `--only`. |
 | `--all` | Emit every configured target without the [first-sync picker](#first-sync-target-picker). |
 | `--dry-run` | Print to stdout instead of writing files. Does not preview the orphan sweep. |
 | `--plan` | Print per-target added and changed counts without writing. Exits 0. |
@@ -327,24 +321,26 @@ Emit per-target configs, for example `agnostic-ai sync --only claude,cursor`.
 | `--diff` | With `--check`, print a unified diff per drifted file (on-disk vs what sync would write). |
 | `--format <human\|github>` | With `--check`: `human` (default) table or `github` Actions annotations. `--json` wins. |
 | `--backup` | Copy each existing target file to `<path>.bak` before overwriting. Pair with `revert`. |
-| `--keep-edits` | Leave each output edited since the last sync in place, write the rest, and name each kept file as `~ kept <path>`. An edited file the specs no longer produce stays too. `--quiet` still prints these lines, on stderr. Exits 0. For [git hooks](@/docs/git-hooks.md#regenerate-on-checkout). Not with `--check`, `--plan`, `--watch`, or `--global`. |
-| `--untrack` | Remove a generated path from git's index when it is also gitignored (`git rm --cached`; the working tree copy stays). `sync` and `doctor` already name these paths and the exact command, whether or not `--untrack` runs it. Not with `--check`, `--plan`, `--dry-run`, `--watch`, or `--global`. |
+| `--keep-edits` | Keep each output edited since the last sync, write the rest, and name each kept file as `~ kept <path>` (on stderr under `--quiet`). Exits 0. For [git hooks](@/docs/git-hooks.md#regenerate-on-checkout). Not with `--check`, `--plan`, `--watch`, or `--global`. |
+| `--untrack` | Run `git rm --cached` on generated paths that git tracks and ignores. The working copy stays. Not with `--check`, `--plan`, `--dry-run`, `--watch`, or `--global`. |
 | `--gitignore <on\|off>` | Override `gitignore.enabled` for this run. |
 | `--watch` | Stay running and re-emit on changes. Incompatible with `--check`. See [watch mode](#watch-mode). |
-| `--watch-poll` | With `--watch`, force the 200 ms polling backend, for network mounts or container volumes where fsnotify misses events. |
+| `--watch-poll` | With `--watch`, force 200 ms polling, for network mounts or container volumes. |
 | `--jobs <n>` | Targets emitted in parallel. `0` (default) is one worker per CPU; `1` is serial. See [parallel emission](#parallel-emission). |
 | `--json` | Output as JSON, also with `--plan` or `--dry-run`. Not with `--watch` or `--diff`. See [JSON output](#json-output). |
-| `--global` | Install user-level instructions, unconditional rules, hooks, and skills from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai/`) into 22 tools' user config, plus native agents for 18 targets. Loads whole-spec overrides from the source root's `local/` directory. Reads `targets` from an optional `agnostic-ai.yaml` in the source root, which `local/agnostic-ai.yaml` replaces, `--only` and `--except` narrow, and `--target` skips; see [global configuration](@/docs/configuration.md#global-configuration). Works outside a project; never loads project config or packs. See [global output](@/docs/target-behavior.md#global-output). Accepts `--target`, `--only`, `--except` (unsupported targets fail with the supported list), `--dry-run`, `--check`, `--check --diff` (managed block only for instructions files; both `--check` and `--dry-run` also name every file a sync would remove), `--backup`, `--plan` (each file a sync would create, update, or delete, with its key-level settings and MCP edits and any conflict; writes nothing and exits 0), and `--json` with `--plan`, `--dry-run`, `--check`, or a real sync, in the `sync --json` schema plus a `keys` list per user settings or MCP file. MCP specs install servers in the user MCP files of Augment, Claude, Codex, Cursor, Copilot, Gemini, OpenHands, and Qoder. Settings specs set `model` and `effort` in the user settings files of Claude, Codex, Copilot, Qoder, and Gemini, key by key; see [default model and effort](@/docs/configuration.md#global-default-model-and-effort). Rejects `--watch`, `--gitignore`, `--jobs`, and `--plan` with `--check` or `--dry-run`, before any write. |
+| `--global` | Install user-level instructions, unconditional rules, hooks, and skills from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai/`) into 22 tools' user config, plus native agents for 18 targets. |
+
+`sync --global` details:
+
+- Loads overrides from `local/` in the source root. Reads `targets` from an optional `agnostic-ai.yaml` there. See [global configuration](@/docs/configuration.md#global-configuration) and [global output](@/docs/target-behavior.md#global-output).
+- Works outside a project; never loads project config or packs.
+- Accepts `--target`, `--only`, `--except`, `--dry-run`, `--check`, `--check --diff`, `--backup`, `--plan`, and `--json`. `--plan` lists each file a sync would create, update, or delete, with key-level settings and MCP edits. `--json` adds a `keys` list per settings or MCP file.
+- MCP specs install servers in the user MCP files of Augment, Claude, Codex, Cursor, Copilot, Gemini, OpenHands, and Qoder. Settings specs set `model` and `effort` for Claude, Codex, Copilot, Qoder, and Gemini. See [default model and effort](@/docs/configuration.md#global-default-model-and-effort).
+- Rejects `--watch`, `--gitignore`, `--jobs`, and `--plan` with `--check` or `--dry-run`.
 
 Paths listed under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) are skipped and reported as `~ skip (unmanaged) <path>`.
 
-**Summary.** `sync` ends with what it changed. A run with nothing to do prints one line:
-
-```
-✓ 25 targets up to date · 49ms
-```
-
-After an edit, it names the specs that changed since the last sync, then the files it created (`+`), updated (`~`), and removed (`-`):
+**Summary.** `sync` ends with what it changed. With nothing to do it prints `✓ 25 targets up to date · 49ms`. After an edit it names the changed specs, then the files created (`+`), updated (`~`), and removed (`-`):
 
 ```
   ~ rule testing → 9 files in 9 targets
@@ -354,19 +350,13 @@ After an edit, it names the specs that changed since the last sync, then the fil
 ✓ synced 25 targets · 3 created · 6 updated · 49ms
 ```
 
-Each list shows three paths; `-v` lists them all. `config` in the spec line means `agnostic-ai.yaml` changed. The `!` line lists changed files that git tracks or does not ignore, so you know what to commit; it is absent outside a git repository.
+Each list shows three paths; `-v` lists all. `config` in the spec line means `agnostic-ai.yaml` changed. The `!` line lists changed files git tracks or does not ignore, and is absent outside a git repository.
 
-**Tracked despite ignored.** A generated path git already tracks (typically committed before it moved into the managed `.gitignore` block) never appears in the "files to commit" line: re-adding it is the opposite of what is needed. Instead it prints its own line with the exact command:
+**Tracked despite ignored.** A generated path git already tracks, typically committed before it moved into the managed `.gitignore` block, prints `! 1 file tracked despite being ignored: git rm --cached .claude/rules/tone.md`. `sync --untrack` runs that command for every such path and reports `~ untracked <path>`. `doctor` shows the same finding and never fails on it alone.
 
-```
-  ! 1 file tracked despite being ignored: git rm --cached .claude/rules/tone.md
-```
+**Orphan sweep.** `sync` records every file it writes in `.agnostic-ai/.sync-state`. A full run deletes files it no longer emits and prunes empty directories, but only what it can prove it wrote (provenance header or recorded hash). A file edited since is kept as `~ kept orphan <path>` and counts as drift until you delete it or list it under `sync.unmanaged`.
 
-`sync --untrack` runs that command for every such path (working tree untouched) and reports it as `~ untracked <path>` instead. `doctor` prints the same finding under "Tracked despite ignored:"; it never fails the check on its own.
-
-**Orphan sweep.** `sync` records every file it writes in `.agnostic-ai/.sync-state`. A full run deletes files it no longer emits (a removed skill's folder with its `references/`) and prunes empty directories. It deletes only what it can prove it wrote: by provenance header, or by recorded content hash for verbatim copies (skill assets, targets with `provenance_header: false`). A file edited since the last sync is kept as `~ kept orphan <path>`. It counts as drift in `sync --check` and `doctor` until you delete it or list it under `sync.unmanaged`.
-
-Without `.agnostic-ai/.sync-state` (deleted, or a fresh checkout of a repo that commits its generated files), `sync --check` and `doctor` scan git-tracked files instead, so a leftover from a deleted spec still fails the check with no ledger to name it. A tracked file counts only when both hold: it sits where a configured target writes (a tool directory such as `.codex/`, a root dotfile, or a scope's `AGENTS.md`, `GEMINI.md`, or `.cursor/BUGBOT.md`), and its first line carries the provenance header in the file's comment syntax (below a `#!` line or YAML frontmatter where the format puts it there). A file that only mentions the header text, and files under a `testdata/` directory or inside a nested project with its own `agnostic-ai.yaml`, never count. A plain `sync` removes none of these files. It records them in the fresh ledger, so later checks keep reporting them under target `unledgered` until they are gone. A full run also lists each one as `~ kept leftover <path>` with how to remove it; a run with `--only` or `--except` records them without naming them, since it cannot tell them from another target's files. A release older than state version 5 reads this ledger but drops the record, so a sync it runs hides these files again. Run `agnostic-ai doctor --fix` to remove a leftover in a tool directory or a root dotfile. A scope document in a project directory, such as `services/api/AGENTS.md`, could be a copy or a vendored file, so `doctor --fix` never deletes it: the check lists it so you can delete it by hand if stale, or add it to `sync.unmanaged`. An empty `.sync-state` is still a ledger and turns the scan off.
+Without `.sync-state` (a fresh checkout of a repo that commits generated files), `sync --check` and `doctor` scan git-tracked files instead. A tracked file is a leftover when it sits where a configured target writes and its first line carries the provenance header. A plain full `sync` removes none of them; it records them under target `unledgered` and lists each as `~ kept leftover <path>`. `--only` and `--except` record them without naming them. An empty `.sync-state` still counts as a ledger and turns this scan off. `doctor --fix` removes a leftover in a tool directory or root dotfile. Delete a scope document such as `services/api/AGENTS.md` by hand or add it to `sync.unmanaged`.
 
 ### First-sync target picker
 
@@ -383,19 +373,20 @@ On the first `sync` (no `.agnostic-ai/.sync-state` yet), if the config still lis
 
 ### Reading a failing `--check` {#reading-a-failing---check}
 
-A drifting `--check` exits non-zero in every format. The report lists a file that still holds what the last sync wrote as out of date, since only the specs changed, and a file whose bytes changed since that sync as edited locally, since the next sync overwrites the edit. Without a record of the last sync, as in a fresh CI checkout, a changed file reads as out of date. Stderr names the fix, `agnostic-ai sync`, and points at `agnostic-ai doctor` for a full diagnosis. To read the failure without a local re-run, add `--diff` or `--format=github`. `--diff` prints changed lines; a missing file gets a one-line create summary, and a large diff truncates with a count. `--format=github` emits `::error file=...,line=...::` annotations on the pull request. Neither has a config-file key.
+A drifting `--check` exits non-zero in every format. A file still holding what the last sync wrote is reported as out of date (the specs changed). A file whose bytes changed since is reported as edited locally (the next sync overwrites it). Without a record of the last sync, as in a fresh CI checkout, a changed file reads as out of date. Stderr names the fix, `agnostic-ai sync`, and points at `agnostic-ai doctor`.
+
+- `--diff` prints changed lines. A missing file gets a one-line create summary; a large diff truncates with a count.
+- `--format=github` emits `::error file=...,line=...::` annotations on the pull request.
+
+Neither has a config-file key.
 
 ### Watch mode
 
-`sync --watch` watches `agnostic-ai.yaml`, `agnostic-ai.local.yaml`, `.agnostic-ai/AGNOSTIC_AI.md`, every `sources.*` directory, `.agnostic-ai/local/`, and `.agnostic-ai/overlays/` (including `claude.settings.json` / `codex.config.toml`), also when one appears after the watch starts. It uses fsnotify with a 50 ms debounce, polls every 200 ms where fsnotify fails, and exits on Ctrl+C.
-
-A spec change re-syncs only targets that emit that kind (a `claude`-scoped agent hits only claude), and the summary names them. Config and overlay edits, deletes, and renames re-sync everything.
+`sync --watch` watches `agnostic-ai.yaml`, `agnostic-ai.local.yaml`, `.agnostic-ai/AGNOSTIC_AI.md`, every `sources.*` directory, `.agnostic-ai/local/`, and `.agnostic-ai/overlays/`, including ones that appear later. It uses fsnotify with a 50 ms debounce, polls every 200 ms where fsnotify fails, and exits on Ctrl+C. A spec change re-syncs only targets that emit that kind. Config and overlay edits, deletes, and renames re-sync everything.
 
 ### Parallel emission {#parallel-emission}
 
-`sync` emits each target on its own worker; `--jobs <n>` bounds how many run at once, capped at the number of targets. There is no config-file key.
-
-Output never depends on the value: files, summary counts, JSON, the `.gitignore` block, and capability warnings are byte-identical. For a shared path (the `AGENTS.md` pointer family) one target creates the file and the rest skip it, as in serial emission. Use `--jobs 1` only to debug or pin ordering.
+`sync` emits each target on its own worker; `--jobs <n>` bounds how many run at once. There is no config-file key. Output never depends on the value. Use `--jobs 1` only to debug or pin ordering.
 
 ### Profiling a slow sync
 
@@ -409,17 +400,21 @@ Output never depends on the value: files, summary counts, JSON, the `.gitignore`
 |-------|-------------|
 | `version` | Schema version, currently `"1"`. Breaking changes bump it. |
 | `command` | `"sync"`, `"sync --plan"`, `"sync --dry-run"`, or `"sync --check"`. |
-| `writes` | Files written (`"create"`, `"update"`), orphans removed (`"delete"`), or, for `--check`, files needing attention (`"missing"`, `"stale"`, `"edited"`, `"orphan"`, `"leftover"`). A `"stale"` file still holds what the last sync wrote and the specs changed; an `"edited"` file changed since the last sync wrote it. A `"leftover"` is a file the last sync wrote and no longer generates, which the next full sync removes; it reports under target `ledger`, since the ledger does not record which target wrote it. A leftover no ledger proves sync wrote reports under target `unledgered`. With `--untrack`, a path `git rm --cached` removed from the index is `"untracked"`, target `agnostic-ai`. |
-| `skipped` | Files already matching (`"skip"`), user-owned (`"unmanaged"`), edited orphans kept (`"orphan"`), leftovers kept with no ledger to prove sync wrote them, under target `unledgered` (`"leftover"` for `doctor --fix` to remove, `"orphan"` for a scope document), or, with `--keep-edits`, hand edits left in place (`"edited"`). A path git both tracks and ignores, without `--untrack`, is `"tracked"`, target `agnostic-ai`. Empty for `--check`. |
+| `writes` | Files written (`"create"`, `"update"`), orphans removed (`"delete"`), or, for `--check`, files needing attention (`"missing"`, `"stale"`, `"edited"`, `"orphan"`, `"leftover"`). `"stale"`: the specs changed. `"edited"`: the file changed since the last sync. `"leftover"`: no longer generated, removed by the next full sync (target `ledger`, or `unledgered` when no ledger proves sync wrote it). With `--untrack`, a path removed from the index is `"untracked"`, target `agnostic-ai`. |
+| `skipped` | Files already matching (`"skip"`), user-owned (`"unmanaged"`), edited orphans kept (`"orphan"`), unledgered leftovers kept (`"leftover"` for `doctor --fix` to remove, `"orphan"` for a scope document), or, with `--keep-edits`, hand edits left in place (`"edited"`). A path git tracks and ignores, without `--untrack`, is `"tracked"`, target `agnostic-ai`. Empty for `--check`. |
 | `errors` | Per-target errors with `target` and `message`. |
 
-`writes` and `skipped` entries have `target`, `path`, `action` (strings), and `bytes` (number), as in `{"target": "claude", "path": "CLAUDE.md", "action": "create", "bytes": 1284}`.
+`writes` and `skipped` entries have `target`, `path`, `action` (strings), and `bytes` (number), for example `{"target": "claude", "path": "CLAUDE.md", "action": "create", "bytes": 1284}`.
 
-`--plan --json` and `--dry-run --json` write nothing and exit 0. They list each file a sync would create or update, each leftover it would remove as `"delete"`, and each file it would keep as `"orphan"` or `"leftover"` in `skipped`, as a real `sync --json` reports them. `--dry-run --json` also lists every unchanged output as `"skip"`, so each planned output appears once, without its content. Count `writes` by `target` for the per-target numbers `--plan` prints.
+`--plan --json` and `--dry-run --json` write nothing and exit 0. Each leftover they would remove is `"delete"` in `writes`; kept files are `"orphan"` or `"leftover"` in `skipped`. `--dry-run --json` also lists every unchanged output as `"skip"`. Count `writes` by `target` for the per-target numbers `--plan` prints.
 
 ## verify
 
-Run a project-owned behavior check against each selected AI harness, for example `agnostic-ai verify --target codex` (omit `--target` for all configured targets). It first runs the target-scoped `sync --check`; a missing or stale generated file stops verification.
+Run a project-owned behavior check against each selected AI harness (omit `--target` for all configured targets). It first runs the target-scoped `sync --check`; a missing or stale generated file stops verification.
+
+```bash
+agnostic-ai verify --target codex
+```
 
 The command in [`verify.command`](@/docs/configuration.md#verify) runs once per target, without a shell, and receives this JSON document on stdin. Stdout and stderr pass through. A non-zero verifier exit stops the run and becomes the `agnostic-ai` exit code.
 
@@ -427,11 +422,11 @@ The command in [`verify.command`](@/docs/configuration.md#verify) runs once per 
 |------|---------|
 | `version` | Contract version, currently `1`. |
 | `target` | Target being verified, such as `"codex"`. |
-| `configured_model` | Optional. Model from the rendered native config (portable Settings, target config, or imported overlay, by overlay precedence), not the model used at runtime. |
-| `cli` | Optional. Detected CLI command, resolved path, and `--version` output. Omitted when the binary is missing or unproven; `version` is omitted when the command reports none. |
-| `harness_fingerprint` | Stable SHA-256 digest of target-relevant canonical specs and rendered files. It identifies the harness; it is not an approval record, result cache, or score. |
+| `configured_model` | Optional. Model from the rendered native config, not the model used at runtime. |
+| `cli` | Optional. Detected CLI command, resolved path, and `--version` output. Omitted when the binary is missing. |
+| `harness_fingerprint` | Stable SHA-256 digest of target-relevant specs and rendered files. It identifies the harness; it is not a score. |
 
-The verifier owns datasets, judging model output, results, and baselines. agnostic-ai owns none of them.
+The verifier owns datasets, judging, results, and baselines.
 
 ## doctor
 
@@ -442,11 +437,11 @@ Report missing (never synced), stale (out of date with the specs), edited (chang
 | `-t, --target <list>` | Comma-separated targets (default: all in config) |
 | `--fix` | Write missing, stale, and edited files. Orphans stay for you to delete, so the exit stays non-zero while any remain. |
 | `--backup` | With `--fix`, copy each existing file to `<path>.bak` before overwriting. |
-| `--check-globs` | Flag rules whose `globs:` match no files. Off by default, since monorepos may ship globs for future paths. |
+| `--check-globs` | Flag rules whose `globs:` match no files. Off by default. |
 | `--check-references` | Flag relative Markdown links in generated skills whose file is missing on disk. Off by default. |
 | `--json` | Drift report as JSON, same schema as `sync --check --json`. With `--check-references`, adds a `references` list. |
 
-`--check-references` reads each Markdown document a selected target writes for its skills, including a skill a target flattens to one file. A link is valid when it resolves from the document's own directory or, when it stays inside the project, from the project root, gitignored outputs included. A root match proves the file exists in the repository; an agent reading the emitted copy still resolves the link from that copy's folder. Code spans, code blocks, URLs, absolute paths, and `#fragment`-only links are skipped. A fragment on a file link is dropped: only the file is checked, not the heading. A document missing on disk is left to the drift report. [`doctor.check-references.ignore`](@/docs/configuration.md#doctorcheck-referencesignore) exempts destinations that can never resolve, such as a placeholder link in an example template. The check writes nothing and exits non-zero on any broken link. Findings group by source spec and link, so every target copying the same broken link prints once:
+`--check-references` reads each Markdown document a selected target writes for its skills. A link is valid when it resolves from the document's own directory or, inside the project, from the project root. Code spans, code blocks, URLs, absolute paths, and `#fragment`-only links are skipped; only the file of a `file#fragment` link is checked. [`doctor.check-references.ignore`](@/docs/configuration.md#doctorcheck-referencesignore) exempts destinations that can never resolve. It exits non-zero on any broken link. Findings group by source spec and link:
 
 ```
 Skill references:
@@ -454,16 +449,16 @@ Skill references:
       targets: claude, codex
 ```
 
-Each `references` entry in the JSON has `target`, `source` (the canonical spec file, omitted when unknown), `path`, `line`, and `destination`, one per target. The key is absent without the flag.
+Each `references` entry in the JSON has `target`, `source` (omitted when unknown), `path`, `line`, and `destination`.
 
 Then doctor prints:
 
 | Block | What it shows | Counts as drift |
 |-------|---------------|-----------|
-| **Tracked despite ignored** | A generated path git tracks and ignores, with the exact `git rm --cached` command. `sync --untrack` runs it. | No |
-| **MCP** | Whether each stdio `command:` resolves on PATH, with install hints for `npx`, `uvx`, `python`, `docker`. `url:`-only servers are skipped. | No |
-| **Script divergence** | Basenames under `.agnostic-ai/scripts/<tool>/` whose bodies differ by SHA-256 across tools, with sizes, short hashes, and the suggested path `.agnostic-ai/scripts/<basename>`. | Yes, not auto-fixable |
-| **Unmanaged config** | Config files without a provenance marker (a pre-agnostic-ai `CLAUDE.md`, hand-written `.cursor/rules/*.mdc`), grouped by the `import` source that adopts each. Only markdown and TOML are scanned. | No |
+| **Tracked despite ignored** | A generated path git tracks and ignores, with the `git rm --cached` command. | No |
+| **MCP** | Whether each stdio `command:` resolves on PATH, with install hints. `url:`-only servers are skipped. | No |
+| **Script divergence** | Basenames under `.agnostic-ai/scripts/<tool>/` whose bodies differ across tools, with the suggested path `.agnostic-ai/scripts/<basename>`. | Yes, not auto-fixable |
+| **Unmanaged config** | Markdown and TOML config files without a provenance marker, grouped by the `import` source that adopts each. | No |
 | **User-owned** | [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) entries, left out of Unmanaged config. | Never |
 
 Subcommands run one check: `doctor config` (validate `agnostic-ai.yaml`), `doctor install` (which AI CLIs are on PATH), `doctor mcp` (resolve each MCP server's command binary).
@@ -497,7 +492,7 @@ Drift:   in sync
 
 ## revert
 
-Undo a `sync --backup`. For every emitted file and entry-point file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.agnostic-ai/AGNOSTIC_AI.md`), `revert` restores `<path>.bak` and removes the .bak. It also restores a nested `CLAUDE.md` companion that sync deleted for Claude's scoped rules. Files without a `.bak` stay unless you pass `--force`, so user files sharing a path with adapter output (helper scripts next to `SKILL.md`) survive.
+Undo a `sync --backup`. For every emitted file and entry-point file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.agnostic-ai/AGNOSTIC_AI.md`), `revert` restores `<path>.bak` and removes the .bak. It also restores a nested `CLAUDE.md` that sync deleted for Claude's scoped rules. Files without a `.bak` stay unless you pass `--force`.
 
 | Flag | Description |
 |------|-------------|
@@ -569,13 +564,11 @@ agnostic-ai install-hook --post-checkout            # writes .git/hooks/post-che
 agnostic-ai install-hook --post-checkout --shared   # writes .githooks/post-checkout
 ```
 
-An existing `pre-commit` or `post-checkout` hook keeps its content, and the checks go at its end. A hook that would stop before reaching them is left alone, and the command prints the lines to add by hand: one without a `sh` or `bash` shebang, one that runs `exec`, or one with an unindented `exit`. A hook that already holds the checks stays as it is.
+An existing hook keeps its content and the checks go at its end. A hook that already holds them stays as it is. A hook that would stop before reaching them (no `sh` or `bash` shebang, an `exec`, or an unindented `exit`) is left alone, and the command prints the lines to add by hand.
 
-`--shared` writes `.githooks/<hook>` at the root of the main working tree, from any folder inside it or any of its linked worktrees: `core.hooksPath` is one setting every worktree reads against its own root, so the file always lands in the one place all of them resolve. It stops when `core.hooksPath` already points somewhere else, and names the hooks in `.git/hooks` that stop running once it points at `.githooks`.
-
-Plain `install-hook` stops inside the global home. There, run `install-hook --global` instead. It writes `.git/hooks/pre-commit` for the home, which must be the root of its own git repository. The hook runs `lint --global --strict`, `validate --global`, and `sync --global --check` against the repository being committed, and the commit fails when any of them fails. In a linked worktree of the home, the hook skips `sync --global --check`, since a branch there need not match what sync deployed. `--global` stops with a message when run anywhere else, when `core.hooksPath` sends git to another hooks folder, or when the hook still runs the project `agnostic-ai sync --check`. It does not take `--shared` or `--post-checkout`.
-
-`--post-checkout` writes a hook that runs `agnostic-ai sync -q` from the worktree root: on a branch or worktree checkout (guarded on git's own `$3` flag, so a single-file checkout never triggers it), when both the `agnostic-ai` binary and `agnostic-ai.yaml` are found; otherwise it exits 0 without touching the checkout. The hooks directory is shared across every linked worktree of a repository, so installing it once, in any worktree, covers `git worktree add` everywhere: the new worktree gets its tool files and `git status` starts clean.
+- `--shared` writes `.githooks/<hook>` at the root of the main working tree, from any linked worktree. It stops when `core.hooksPath` already points elsewhere.
+- `--global` is for the global home, which must be the root of its own git repository. The hook runs `lint --global --strict`, `validate --global`, and `sync --global --check`; the commit fails when any fails. In a linked worktree it skips `sync --global --check`. It stops when run anywhere else, when `core.hooksPath` points elsewhere, or when the hook still runs the project `sync --check`. Not with `--shared` or `--post-checkout`.
+- `--post-checkout` runs `agnostic-ai sync -q` from the worktree root on a branch or worktree checkout (never a single-file checkout), when the binary and `agnostic-ai.yaml` are found. The hooks directory is shared across linked worktrees, so one install covers `git worktree add` everywhere.
 
 ## completion
 
@@ -592,12 +585,16 @@ Restart your shell or `source` the file. Completing `--target` reads `agnostic-a
 
 ## upgrade
 
-Upgrade the running binary to the latest release with the method it was installed with, for example `agnostic-ai upgrade --version v0.56.1`. `update` is an alias.
+Upgrade the running binary to the latest release with the method it was installed with. `update` is an alias.
+
+```bash
+agnostic-ai upgrade --version v0.56.1
+```
 
 | Flag | Description |
 |------|-------------|
 | `--check` | Print install details and exit without changing anything. With `--version`, adds a `Requested:` line and downloads nothing. |
-| `--version <tag>` | Install one release, downgrades included. The leading `v` is optional; non-release values are refused. Standalone binaries only; package-manager installs are told to pin through their manager. |
+| `--version <tag>` | Install one release, downgrades included. The leading `v` is optional. Standalone binaries only; package-manager installs are told to pin through their manager. |
 | `--run` | Accepted for compatibility; upgrading is the default. |
 
 | Binary location | Upgrade |
@@ -607,12 +604,10 @@ Upgrade the running binary to the latest release with the method it was installe
 | `*\scoop\apps\*`, `*\scoop\shims\*` | `scoop update agnostic-ai` |
 | `*\Microsoft\WinGet\*` | `winget upgrade Chemaclass.agnostic-ai` |
 | `*/node_modules/*` | `npm install -g agnostic-ai@latest` |
-| Standalone binary on macOS or Linux | Download the release archive, verify checksum and version, replace the binary atomically. |
+| Standalone binary on macOS or Linux | Download the release, verify checksum and version, replace the binary atomically. |
 | Standalone binary on Windows | Use the [PowerShell install script](@/docs/installation.md); Windows cannot replace a running executable. |
 
-Scoop, WinGet, and `node_modules` markers match case-insensitively.
-
-`upgrade` lists any other `agnostic-ai` on `PATH` that shadows the resolved executable, such as an old `~/go/bin/agnostic-ai` or `/usr/local/bin/agnostic-ai` ahead of Homebrew.
+Scoop, WinGet, and `node_modules` markers match case-insensitively. `upgrade` also lists any other `agnostic-ai` on `PATH` that shadows the resolved executable.
 
 ## lsp
 
