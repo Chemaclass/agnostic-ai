@@ -380,3 +380,29 @@ func TestReportCheckDrift_FooterMatchesUnledgeredFindings(t *testing.T) {
 		}
 	}
 }
+
+// With no ledger, a headerless output that still holds what the last
+// commit's specs rendered is proven generated, so doctor names it once
+// its spec is deleted, before that deletion is committed.
+func TestDoctor_NamesHeaderlessOutputTheLastCommitRendered(t *testing.T) {
+	dir, git := gitRepo(t)
+	testutil.Chdir(t, dir)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\n")
+	mustWriteFile(t, filepath.Join(".agnostic-ai", "environments", "dev.yaml"), "name: dev\ndev-commands:\n  - name: Docs\n    command: npm run docs\n")
+	syncProject(t)
+	git("add", "-A")
+	git("commit", "-q", "-m", "base")
+	if err := os.Remove(filepath.Join(".agnostic-ai", ".sync-state")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(".agnostic-ai", "environments", "dev.yaml")); err != nil {
+		t.Fatal(err)
+	}
+	log := captureLogOut(t)
+
+	out, err := runCLI(t, "doctor")
+
+	if err == nil || !strings.Contains(log.String()+out, ".claude/launch.json") {
+		t.Errorf("doctor should name the headerless leftover, got err=%v\n%s%s", err, log, out)
+	}
+}

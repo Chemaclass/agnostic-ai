@@ -31,7 +31,9 @@ func ledgerMissing(root string) bool {
 // its generated files), the candidates are the git-tracked files (#1334);
 // otherwise, the ones a sync run without a ledger recorded (#1354). A
 // candidate counts while it is stranded, sits where a configured target
-// writes, and opens with the provenance header. One in a tool directory
+// writes, and opens with the provenance header or, with no ledger, still
+// holds what the last commit's specs rendered, which covers a headerless
+// JSON output whose spec was deleted but not yet committed. One in a tool directory
 // or a root dotfile goes to Leftover, which `doctor --fix` removes. A
 // scope document such as a nested AGENTS.md may be a copy or a vendored
 // file, so it goes to Orphaned for the user to delete. Sync removes
@@ -49,9 +51,26 @@ func unledgeredReport(cfg *config.Config, emitted map[string]bool, state syncSta
 		candidates = tracked
 	}
 	loc := newOutputLocations(cfg, emitted)
+	var head map[string]string
+	headRendered := func(p string) bool {
+		if !missing {
+			return false
+		}
+		if head == nil {
+			if head = renderedAtHEAD(configuredSources(cfg)); head == nil {
+				head = map[string]string{}
+			}
+		}
+		content, ok := head[filepath.ToSlash(p)]
+		if !ok {
+			return false
+		}
+		data, err := os.ReadFile(p)
+		return err == nil && string(data) == content
+	}
 	for _, p := range candidates {
 		where := loc.holds(filepath.ToSlash(p))
-		if where == noLocation || !stranded(p) || !ownedWithoutLedger(p) {
+		if where == noLocation || !stranded(p) || !ownedWithoutLedger(p) && !headRendered(p) {
 			continue
 		}
 		if where == toolLocation {

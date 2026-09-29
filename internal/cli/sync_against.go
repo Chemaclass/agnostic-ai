@@ -7,11 +7,13 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 )
 
@@ -163,25 +165,11 @@ func (t *againstTree) droppedOutputs(filtered bool, reports []driftReport) ([]st
 	skipped := func(err error) ([]string, string, error) {
 		return nil, fmt.Sprintf("the %s state could not be rendered (%v), so outputs of a deleted spec were not checked", prev, err), nil
 	}
-	dir := filepath.Join(t.scratch, "previous")
-	if err := os.Mkdir(dir, 0o755); err != nil {
+	cfg, _, err := loadProject(".")
+	if err != nil {
 		return nil, "", err
 	}
-	env := append(os.Environ(), "GIT_INDEX_FILE="+filepath.Join(t.scratch, "previous-index"))
-	if _, err := gitOutput(t.toplevel, env, "read-tree", prev); err != nil {
-		return skipped(err)
-	}
-	if _, err := gitOutput(t.toplevel, env, "checkout-index", "--all", "--force", "--prefix="+dir+string(filepath.Separator)); err != nil {
-		return skipped(err)
-	}
-	if err := os.Chdir(filepath.Join(dir, filepath.FromSlash(t.prefix))); err != nil {
-		// The project directory did not exist in the previous state.
-		return nil, "", nil
-	}
-	before, err := plannedOutputs()
-	if cerr := os.Chdir(t.project); cerr != nil {
-		return nil, "", cerr
-	}
+	before, err := renderRef(t.toplevel, t.prefix, prev, filepath.Join(t.scratch, "previous"), configuredSources(cfg))
 	if err != nil {
 		return skipped(err)
 	}
@@ -197,10 +185,6 @@ func (t *againstTree) droppedOutputs(filtered bool, reports []driftReport) ([]st
 	if !ok {
 		return nil, "", nil
 	}
-	cfg, _, err := loadProject(".")
-	if err != nil {
-		return nil, "", err
-	}
 	var dropped []string
 	for _, p := range tracked {
 		slash := filepath.ToSlash(p)
@@ -213,6 +197,124 @@ func (t *againstTree) droppedOutputs(filtered bool, reports []driftReport) ([]st
 		}
 	}
 	return dropped, "", nil
+}
+
+// renderRef exports the spec inputs of ref into dir, renders the project
+// at prefix there, and returns each path sync would write with its
+// content. Only the config, `.agnostic-ai/`, the configured source
+// directories, and the files reviews inline with `@path` are exported;
+// every other tracked directory is created empty, since scoped outputs
+// depend on which directories exist. A file sync merges into, such as a
+// settings file, is not exported, so its render can differ from the
+// committed bytes and never counts as proof. The working directory is
+// restored. A project directory ref does not hold renders nothing.
+func renderRef(toplevel, prefix, ref, dir string, sources []string) (map[string]string, error) {
+	origin, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = os.Chdir(origin) }()
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		return nil, err
+	}
+	env := append(os.Environ(), "GIT_INDEX_FILE="+dir+".index")
+	if _, err := gitOutput(toplevel, env, "read-tree", ref); err != nil {
+		return nil, err
+	}
+	listed, err := gitOutput(toplevel, env, "ls-files", "-z")
+	if err != nil {
+		return nil, err
+	}
+	roots := []string{config.SourceBaseDir + "/", config.ConfigFileName, config.LegacyConfigFileName}
+	for _, s := range sources {
+		if s != "" {
+			roots = append(roots, strings.TrimSuffix(filepath.ToSlash(filepath.Clean(s)), "/")+"/")
+		}
+	}
+	var specs []string
+	dirs := map[string]bool{}
+	for _, f := range strings.Split(listed, "\x00") {
+		rel, ok := strings.CutPrefix(f, prefix)
+		if f == "" || !ok {
+			continue
+		}
+		dirs[path.Dir(f)] = true
+		for _, r := range roots {
+			if rel == r || strings.HasSuffix(r, "/") && strings.HasPrefix(rel, r) {
+				specs = append(specs, f)
+				break
+			}
+		}
+	}
+	for d := range dirs {
+		if err := os.MkdirAll(filepath.Join(dir, filepath.FromSlash(d)), 0o755); err != nil {
+			return nil, err
+		}
+	}
+	if err := checkoutPaths(toplevel, env, dir, specs); err != nil {
+		return nil, err
+	}
+	project := filepath.Join(dir, filepath.FromSlash(prefix))
+	if err := os.Chdir(project); err != nil {
+		return map[string]string{}, nil
+	}
+	var includes []string
+	for _, r := range roots {
+		if strings.HasSuffix(r, "/") {
+			refs, err := reviewIncludes(filepath.FromSlash(strings.TrimSuffix(r, "/")))
+			if err != nil {
+				return nil, err
+			}
+			for _, inc := range refs {
+				includes = append(includes, prefix+inc)
+			}
+		}
+	}
+	if err := checkoutPaths(toplevel, env, dir, includes); err != nil {
+		return nil, err
+	}
+	return plannedOutputs()
+}
+
+// checkoutPaths writes the listed index entries under dir.
+func checkoutPaths(toplevel string, env []string, dir string, paths []string) error {
+	if len(paths) == 0 {
+		return nil
+	}
+	return gitInput(toplevel, env, strings.Join(paths, "\x00")+"\x00", "checkout-index", "--force", "-z", "--stdin", "--prefix="+dir+string(filepath.Separator))
+}
+
+// renderedAtHEAD renders the last commit's specs for the project in the
+// working directory, or returns nil outside a repository with a commit.
+// A tracked file still holding what HEAD rendered is one sync wrote,
+// with or without a provenance header.
+func renderedAtHEAD(sources []string) map[string]string {
+	origin, err := os.Getwd()
+	if err != nil {
+		return nil
+	}
+	toplevel, err := gitOutput(origin, nil, "rev-parse", "--show-toplevel")
+	if err != nil {
+		return nil
+	}
+	prefix, err := gitOutput(origin, nil, "rev-parse", "--show-prefix")
+	if err != nil {
+		return nil
+	}
+	toplevel = strings.TrimSpace(toplevel)
+	if _, err := gitOutput(toplevel, nil, "rev-parse", "--verify", "--quiet", "HEAD^{tree}"); err != nil {
+		return nil
+	}
+	scratch, err := os.MkdirTemp("", "agnostic-ai-head-")
+	if err != nil {
+		return nil
+	}
+	defer func() { _ = os.RemoveAll(scratch) }()
+	out, err := renderRef(toplevel, strings.TrimSpace(prefix), "HEAD", filepath.Join(scratch, "tree"), sources)
+	if err != nil {
+		return nil
+	}
+	return out
 }
 
 // plannedOutputs renders the specs in the working directory for every
@@ -408,4 +510,12 @@ func isolatedGitEnv() []string {
 		}
 	}
 	return env
+}
+
+// configuredSources lists cfg's spec source directories.
+func configuredSources(cfg *config.Config) []string {
+	return []string{
+		cfg.Sources.Agents, cfg.Sources.Skills, cfg.Sources.Rules, cfg.Sources.Hooks, cfg.Sources.MCPs,
+		cfg.Sources.Commands, cfg.Sources.Settings, cfg.Sources.Reviews, cfg.Sources.Environments, cfg.Sources.Ignore,
+	}
 }
