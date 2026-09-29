@@ -39,7 +39,11 @@ Releases after 0.74.0 carry a signed [build provenance attestation](https://docs
 gh attestation verify agnostic-ai_linux_amd64.tar.gz --repo Chemaclass/agnostic-ai
 ```
 
-A pass means the file was built by a workflow run in `Chemaclass/agnostic-ai` from a tagged commit. To have the installers run that check, set `AGNOSTIC_AI_VERIFY_ATTESTATION=1` for `install.sh`, or pass `-VerifyAttestation` to `install.ps1`. Both then stop when `gh` is missing or the attestation does not verify.
+A pass means the file was built by a workflow run in `Chemaclass/agnostic-ai` from a tagged commit. The release also attaches the attestation as `agnostic-ai.intoto.jsonl`, so you can check a download against the file from the release page instead of GitHub's attestation API:
+
+```bash
+gh attestation verify agnostic-ai_linux_amd64.tar.gz --repo Chemaclass/agnostic-ai --bundle agnostic-ai.intoto.jsonl
+``` To have the installers run that check, set `AGNOSTIC_AI_VERIFY_ATTESTATION=1` for `install.sh`, or pass `-VerifyAttestation` to `install.ps1`. Both then stop when `gh` is missing or the attestation does not verify.
 
 ## SBOM
 
