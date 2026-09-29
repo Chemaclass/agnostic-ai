@@ -71,3 +71,15 @@ func TestLint_WarnsOnScopeInSkillFrontmatter(t *testing.T) {
 		t.Errorf("findings = %v", got)
 	}
 }
+
+// A hook spec's fields are its content, so one with a command and no
+// description is not empty.
+func TestLint_HookWithACommandIsNotEmpty(t *testing.T) {
+	got := lintEmptySpecs([]spec.Entry{
+		{Kind: spec.KindHook, Path: "hooks/fmt.yaml", Meta: map[string]any{"event": "PostToolUse", "command": "pnpm fmt"}},
+		{Kind: spec.KindRule, Path: "rules/empty.md", Meta: map[string]any{}},
+	})
+	if len(got) != 1 || got[0].Path != "rules/empty.md" {
+		t.Errorf("findings = %v", got)
+	}
+}

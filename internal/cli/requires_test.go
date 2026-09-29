@@ -438,3 +438,38 @@ func TestRequiresFix_FindsTheWorkspaceLockfile(t *testing.T) {
 		t.Errorf("workspace root:\n got %s\nwant %s", got, want)
 	}
 }
+
+// Right after `pnpm add agnostic-ai@0.75.0` the postinstall sync still
+// reads the old requires. package.json already pins the running release,
+// so the fix is to update requires, not to downgrade.
+func TestRequiresFix_NamesRequiresWhenPackageJSONPinsTheRunningRelease(t *testing.T) {
+	req, err := config.ParseRequirement("0.74.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	project := t.TempDir()
+	writeFile(t, filepath.Join(project, "package.json"), `{"devDependencies": {"agnostic-ai": "0.75.0"}}`)
+	writeFile(t, filepath.Join(project, "pnpm-lock.yaml"), "")
+	setRunningExecutable(t, filepath.Join(project, "node_modules", "agnostic-ai", "bin", "agnostic-ai"))
+	setRunningVersion(t, "v0.75.0")
+
+	got := requiresFix(req, filepath.Join(project, "agnostic-ai.yaml"))
+	if !strings.Contains(got, "update `requires`") || !strings.Contains(got, `"0.75.0"`) || strings.Contains(got, "0.74.0") {
+		t.Errorf("fix = %q", got)
+	}
+}
+
+// A past commit's specs render only to list their outputs, so that
+// commit's requires does not stop the render.
+func TestPlannedOutputs_IgnoresRequires(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	setRunningVersion(t, "v0.75.0")
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nrequires: \"0.74.0\"\n")
+	if _, err := plannedOutputs(); err != nil {
+		t.Errorf("plannedOutputs stopped on requires: %v", err)
+	}
+	if requiresSkipped {
+		t.Error("requiresSkipped left on")
+	}
+}

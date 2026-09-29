@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -31,6 +32,11 @@ func candidateOr(candidate, build string) string {
 	}
 	return build
 }
+
+// requiresSkipped turns the check off while a past commit's specs are
+// rendered only to list their outputs: that commit's requires names the
+// release it was written for, which may not be the running one.
+var requiresSkipped bool
 
 // runningExecutable locates the binary, so an unmet requires can name
 // the install command of the package manager that put it there.
@@ -104,6 +110,9 @@ func requireVersion(source, requires string) error {
 	if err != nil {
 		return errs.Coded(errs.CodeConfigDecode, "%s: requires: %w", source, err)
 	}
+	if requiresSkipped {
+		return nil
+	}
 	allowed, release := req.Allows(runningVersion)
 	running := strings.TrimPrefix(runningVersion, "v")
 	if !release {
@@ -133,7 +142,12 @@ func requireVersion(source, requires string) error {
 // that manager's command, since upgrade cannot replace it.
 func requiresFix(req config.Requirement, source string) string {
 	version, latest := req.InstallTarget()
-	if pm, ok := projectPackageManager(source); ok {
+	if pm, project, ok := projectPackageManager(source); ok {
+		// package.json already pins the running release, as right after
+		// `pnpm add agnostic-ai@X`: requires is what lags, not the install.
+		if running := strings.TrimPrefix(runningVersion, "v"); running != "" && packageJSONPin(project) == running {
+			return "update `requires` in " + strings.Split(source, " + ")[0] + " to \"" + running + "\", the release package.json pins"
+		}
 		switch {
 		case latest:
 			return "run `" + pm.add + " " + binaryName + "@latest`"
@@ -174,10 +188,10 @@ var projectLockfiles = []struct {
 // config files source names (joined with " + " when layered). A global
 // install sits in a node_modules outside that project, so it gets the
 // upgrade advice.
-func projectPackageManager(source string) (packageManager, bool) {
+func projectPackageManager(source string) (packageManager, string, bool) {
 	exe, err := runningExecutable()
 	if err != nil || source == "" {
-		return packageManager{}, false
+		return packageManager{}, "", false
 	}
 	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
 		exe = resolved
@@ -185,15 +199,39 @@ func projectPackageManager(source string) (packageManager, bool) {
 	sep := string(filepath.Separator)
 	i := strings.Index(exe, sep+"node_modules"+sep)
 	if i < 0 {
-		return packageManager{}, false
+		return packageManager{}, "", false
 	}
 	project := exe[:i]
 	for _, s := range strings.Split(source, " + ") {
 		if within(project, s) {
-			return lockfileManager(project), true
+			return lockfileManager(project), project, true
 		}
 	}
-	return packageManager{}, false
+	return packageManager{}, "", false
+}
+
+// packageJSONPin returns the exact agnostic-ai version project's
+// package.json pins as a dependency, or "" for a range or no entry.
+func packageJSONPin(project string) string {
+	data, err := os.ReadFile(filepath.Join(project, "package.json"))
+	if err != nil {
+		return ""
+	}
+	var pkg struct {
+		Dependencies    map[string]string `json:"dependencies"`
+		DevDependencies map[string]string `json:"devDependencies"`
+	}
+	if json.Unmarshal(data, &pkg) != nil {
+		return ""
+	}
+	pin := pkg.DevDependencies[binaryName]
+	if pin == "" {
+		pin = pkg.Dependencies[binaryName]
+	}
+	if !regexp.MustCompile(`^\d+\.\d+\.\d+$`).MatchString(pin) {
+		return ""
+	}
+	return pin
 }
 
 // within reports whether the config file path sits in dir or below it,
