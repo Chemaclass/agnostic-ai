@@ -457,6 +457,66 @@ func mergePaths(lists ...[]string) []string {
 	return out
 }
 
+// trackedUnmanaged returns the hand-written config Git tracks in the
+// exported state inside a folder its managed block ignores: a skill or
+// agent a branch added in a tool's generated folder before the project
+// moved its specs to `.agnostic-ai/`. Only the tool that reads that folder
+// sees it, and git add refuses a new one there, so it is always a file
+// left over from before the move. Paths in sync.unmanaged are left alone.
+func (t *againstTree) trackedUnmanaged(cfg *config.Config) ([]unmanagedFinding, error) {
+	found, err := findUnmanagedConfig(".", cfg)
+	if err != nil || len(found) == 0 {
+		return nil, err
+	}
+	tracked, ok := trackedFiles(".")
+	if !ok {
+		return nil, nil
+	}
+	isTracked := map[string]bool{}
+	for _, p := range tracked {
+		isTracked[filepath.ToSlash(p)] = true
+	}
+	var candidates []unmanagedFinding
+	var paths []string
+	for _, f := range found {
+		if isTracked[f.Path] && !cfg.IsUnmanaged(f.Path) {
+			candidates = append(candidates, f)
+			paths = append(paths, f.Path)
+		}
+	}
+	if len(paths) == 0 {
+		return nil, nil
+	}
+	// --no-index: every candidate is tracked, which check-ignore skips.
+	var stdin bytes.Buffer
+	for _, p := range paths {
+		stdin.WriteString(p)
+		stdin.WriteByte(0)
+	}
+	cmd := exec.Command("git", "check-ignore", "--no-index", "-z", "--stdin")
+	cmd.Env = isolatedGitEnv()
+	cmd.Stdin = &stdin
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		if exit, ok := err.(*exec.ExitError); !ok || exit.ExitCode() != 1 {
+			return nil, fmt.Errorf("git check-ignore: %w: %s", err, strings.TrimSpace(stderr.String()))
+		}
+	}
+	ignored := map[string]bool{}
+	for _, p := range strings.Split(stdout.String(), "\x00") {
+		ignored[p] = true
+	}
+	var out []unmanagedFinding
+	for _, f := range candidates {
+		if ignored[f.Path] {
+			out = append(out, f)
+		}
+	}
+	return out, nil
+}
+
 // againstHint says which step settles drift found against ref.
 func againstHint(ref string) string {
 	if ref == againstHEAD {

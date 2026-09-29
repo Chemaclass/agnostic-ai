@@ -160,6 +160,13 @@ func newSyncCmd() *cobra.Command {
 					if reports, err = tree.trackedDrift(reports, dropped); err != nil {
 						return err
 					}
+					unmanaged, err := tree.trackedUnmanaged(cfg)
+					if err != nil {
+						return err
+					}
+					if len(unmanaged) > 0 {
+						reports = append(reports, driftReport{Target: "unmanaged", Unmanaged: unmanaged})
+					}
 				}
 				if jsonOut {
 					return printSyncCheckJSON(cmd, reports)

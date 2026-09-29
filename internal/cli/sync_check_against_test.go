@@ -330,3 +330,58 @@ func TestSyncCheckAgainst_ReportsOutputOfADroppedTargetUnlessEdited(t *testing.T
 		t.Errorf("a dropped output edited since sync should be left alone: %v\n%s", err, stdout)
 	}
 }
+
+// A branch from before a project moved its specs to .agnostic-ai/ can add
+// a skill in a tool's generated folder. Git keeps tracking it inside the
+// ignored folder, and only that tool reads it, so the check fails, names
+// the file, and names the import that adopts it.
+func TestSyncCheckAgainst_FailsOnHandWrittenConfigInAnIgnoredFolder(t *testing.T) {
+	dir := setupFixture(t)
+	isolateGit(t)
+	git(t, dir, "init", "-q")
+	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [claude, cursor]\ngitignore:\n  enabled: true\n  commit: [cursor:reviews]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Review a diff.\n---\nReview it.\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+	sync := NewRootCmd("test")
+	sync.SetArgs([]string{"sync"})
+	if err := sync.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	git(t, dir, "add", "-A")
+	git(t, dir, "commit", "-q", "-m", "base")
+	if _, _, err := checkAgainst(t, "HEAD"); err != nil {
+		t.Fatalf("a synced commit should pass: %v", err)
+	}
+
+	writeFile(t, filepath.Join(dir, ".cursor", "skills", "gh-stack", "SKILL.md"), "---\nname: gh-stack\ndescription: Stack PRs.\n---\nStack them.\n")
+	git(t, dir, "add", "-f", ".cursor/skills/gh-stack/SKILL.md")
+	git(t, dir, "commit", "-q", "-m", "a skill in the old place")
+
+	stdout, stderr, err := checkAgainst(t, "HEAD", "--format", "github")
+	if err == nil {
+		t.Fatal("a hand-written skill tracked in an ignored folder should fail the check")
+	}
+	for _, want := range []string{"::error file=.cursor/skills/gh-stack/SKILL.md::", "agnostic-ai import cursor"} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("annotation lacks %q:\n%s", want, stdout)
+		}
+	}
+	if !strings.Contains(stderr, "agnostic-ai import cursor") {
+		t.Errorf("hint lacks the import:\n%s", stderr)
+	}
+	if stdout, _, err := checkAgainst(t, "index"); err == nil {
+		t.Errorf("the staged state holds the same file, so --against index should fail too:\n%s", stdout)
+	}
+
+	// Listing it under sync.unmanaged keeps it on purpose.
+	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [claude, cursor]\ngitignore:\n  enabled: true\n  commit: [cursor:reviews]\nsync:\n  unmanaged: [.cursor/skills/gh-stack/]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	git(t, dir, "add", "agnostic-ai.yaml")
+	if stdout, _, err := checkAgainst(t, "index"); err != nil && strings.Contains(stdout, "gh-stack") {
+		t.Errorf("a path under sync.unmanaged was reported:\n%s", stdout)
+	}
+}

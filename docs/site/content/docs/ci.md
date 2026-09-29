@@ -32,6 +32,8 @@ agnostic-ai sync --check --against HEAD
 
 It renders the specs as committed and compares them with the committed outputs. Outputs that `gitignore` leaves out are skipped. A committed output that no spec produces anymore fails too, so one command catches a leftover without `doctor`: a file with the generated header where a target writes, and any file the parent commit's specs rendered, such as a JSON file with no header. In a pull request's merge commit the parent is the base branch. `actions/checkout` fetches one commit by default, so set `fetch-depth: 2` to give the check that parent; without it a note says the comparison was skipped.
 
+After a project moves its specs into `.agnostic-ai/`, a branch that predates the move can still add a skill in the old place, such as `.cursor/skills/<name>/SKILL.md`. Git keeps tracking it inside the ignored folder, and only Cursor reads it. The same check fails on it and names the fix: `agnostic-ai import cursor`, then `git rm --cached` the file.
+
 ## Ignored outputs
 
 A fresh checkout has no generated files. Validate the source and confirm that generation succeeds:

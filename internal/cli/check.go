@@ -44,6 +44,10 @@ type driftReport struct {
 	Leftover   []string
 	Blocking   []adapters.CapturedRemoval
 	Unledgered bool
+	// Unmanaged lists hand-written config that Git tracks inside a folder
+	// the managed block ignores, found by `--against`. Only the tool that
+	// reads that folder sees it, so it must move under `.agnostic-ai/`.
+	Unmanaged []unmanagedFinding
 	// proven holds the content sum of each headerless leftover the output
 	// manifest or the last commit's render proves sync wrote, the proof
 	// doctor --fix removes it with.
@@ -60,7 +64,7 @@ func (r driftReport) leftoverFix() string {
 }
 
 func (r driftReport) hasDrift() bool {
-	return len(r.Missing) > 0 || len(r.Stale) > 0 || len(r.Edited) > 0 || len(r.Orphaned) > 0 || len(r.Leftover) > 0
+	return len(r.Missing) > 0 || len(r.Stale) > 0 || len(r.Edited) > 0 || len(r.Orphaned) > 0 || len(r.Leftover) > 0 || len(r.Unmanaged) > 0
 }
 
 // addChanged files f, whose bytes on disk differ from what sync would
@@ -468,6 +472,12 @@ func printDrift(reports []driftReport) bool {
 				summaryf("      - %s\n", filepath.ToSlash(p))
 			}
 		}
+		if len(r.Unmanaged) > 0 {
+			summaryf("    %d hand-written file(s) tracked in a generated folder, read by one tool only (adopt into .agnostic-ai/, then untrack):\n", len(r.Unmanaged))
+			for _, f := range r.Unmanaged {
+				summaryf("      - %s  (agnostic-ai import %s)\n", f.Path, f.Target)
+			}
+		}
 	}
 	return any
 }
@@ -699,6 +709,9 @@ func driftRecords(reports []driftReport) []fileRecord {
 		}
 		for _, p := range r.Leftover {
 			records = append(records, fileRecord{Target: r.Target, Path: p, Action: "leftover"})
+		}
+		for _, f := range r.Unmanaged {
+			records = append(records, fileRecord{Target: f.Target, Path: f.Path, Action: "unmanaged"})
 		}
 	}
 	return records
