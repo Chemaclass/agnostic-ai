@@ -37,7 +37,11 @@ func TestImportAll_ClaudeCompanionOfAgentsMD(t *testing.T) {
 	runCmd(t, "sync")
 	runCmd(t, "sync", "--check")
 
-	assertContains(t, filepath.Join(dir, "CLAUDE.md"), "Root guidance.", "Use the Dashboard launch config.")
+	// With another tool writing AGENTS.md, CLAUDE.md imports it and adds
+	// only the Claude Code block, the form the project wrote by hand.
+	assertContains(t, filepath.Join(dir, "CLAUDE.md"), "@AGENTS.md", "Use the Dashboard launch config.")
+	assertContains(t, filepath.Join(dir, "AGENTS.md"), "Root guidance.")
+	assertNoFileContains(t, filepath.Join(dir, "CLAUDE.md"), "Root guidance.")
 	assertContains(t, filepath.Join(dir, ".claude", "rules", "services", "api", "api.md"), "Use integer minor units.")
 	if _, err := os.Stat(filepath.Join(dir, "services", "api", "CLAUDE.md")); !os.IsNotExist(err) {
 		t.Errorf("services/api/CLAUDE.md should be replaced by .claude/rules output, stat err = %v", err)

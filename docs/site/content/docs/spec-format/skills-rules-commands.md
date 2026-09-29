@@ -35,6 +35,10 @@ description: Validate YAML against a schema.
 | `description` | no | empty | One-liner the model uses to decide whether to invoke the skill. |
 | `model` | no | unset | Claude Code model for the rest of the turn. Scalar or per-target map; `x-claude.model` wins. |
 | `effort` | no | unset | Claude Code effort for the rest of the turn. Scalar or per-target map; `x-claude.effort` wins. |
+| `license` | no | unset | The Agent Skills license, kept in every target's `SKILL.md`. |
+| `workspaces` | no | empty | Project directories where Cursor also gets a copy, such as `[apps/platforma]`. Cursor loads skills only from the workspace it opens, so a session or SDK agent started in `apps/platforma` misses a root skill. The skill stays at the root for every tool. |
+
+A skill's scope comes from its folder: `skills/services/api/review/SKILL.md` moves the skill under `services/api/`, where only sessions in that directory load it. `scope:` in the frontmatter has no effect, and `lint` warns about it (LINT018). `import cursor` writes `workspaces` when a root `.cursor/skills/<name>` links to a skill folder under a project directory.
 
 Other targets omit skill `model` and `effort` and report a coverage note when a value resolves for them. Use `{claude: opus}` to choose a model only for Claude. Global sync uses the same renderers; shared global directories omit target overrides.
 

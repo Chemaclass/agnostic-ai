@@ -268,6 +268,42 @@ func FilterFences(body string, readers []string) string {
 }
 
 // leadingNewlines counts the '\n' bytes s starts with.
+// SplitReaderOnly splits body into the text every reader in others also
+// sees and the ::target fences only reader sees (fences that allow reader
+// and none of others), each rendered for reader. It lets a file that
+// imports the others' file add just what differs.
+func SplitReaderOnly(body, reader string, others []string) (rest, only string) {
+	if !strings.Contains(body, targetFenceOpen) {
+		return body, ""
+	}
+	var restB, onlyB strings.Builder
+	inOnly := false
+	for _, line := range strings.Split(body, "\n") {
+		marker, allow := parseFenceMarker(line)
+		switch marker {
+		case fenceTargetOpen:
+			inOnly = anyInAllowList(allow, []string{reader}) && !anyInAllowList(allow, others)
+		case fenceTargetClose:
+			if inOnly {
+				inOnly = false
+				onlyB.WriteString("\n")
+				continue
+			}
+		}
+		if inOnly {
+			if marker != fenceTargetOpen {
+				onlyB.WriteString(line)
+				onlyB.WriteByte('\n')
+			}
+			continue
+		}
+		restB.WriteString(line)
+		restB.WriteByte('\n')
+	}
+	rest = strings.TrimSuffix(restB.String(), "\n")
+	return rest, strings.TrimSpace(collapseBlankRuns(onlyB.String()))
+}
+
 func leadingNewlines(s string) int {
 	return len(s) - len(strings.TrimLeft(s, "\n"))
 }

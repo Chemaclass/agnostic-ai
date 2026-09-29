@@ -65,6 +65,9 @@ type entryPointFile struct {
 	// Layers is the text each source adds to Content, for lint's
 	// instructions budget.
 	Layers []instructionLayer
+	// plain is set when Content is the instructions body and the local
+	// layer alone, with no rules, review, or overview block.
+	plain bool
 }
 
 // renderEntryPointFiles returns every target entry-point file sync
@@ -140,6 +143,8 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 			return nil, err
 		}
 		layers := []instructionLayer{{Name: "AGNOSTIC_AI.md", Text: content}}
+		plain := !cfg.Sync.TargetOverview
+		unchanged := content
 		if inliners := pathRuleInliners(cfg, consumers[path]); len(inliners) > 0 {
 			var rulesAppendix string
 			for i, target := range inliners {
@@ -156,8 +161,10 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 		} else if importer := pathLegacyRulesFileImporter(cfg, consumers[path]); importer != "" {
 			content = adapters.AppendRulesAppendix(content, adapters.RenderLegacyRulesFileImportAppendix(cfg, importer))
 		}
+		plain = plain && content == unchanged
 		if slices.Contains(consumers[path], "codex") {
 			if section := adapters.ReviewSections(b, cfg, targets...)[""]; section != "" {
+				plain = false
 				content = adapters.AppendReviewSection(content, section)
 				layers = append(layers, instructionLayer{Name: "reviews", Text: section})
 			}
@@ -192,8 +199,57 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 			Content: rendered,
 			Readers: consumers[path],
 			Layers:  layers,
+			plain:   plain,
 		})
 	}
+	return importAgentsFromClaude(cfg, files, body, local)
+}
+
+// importAgentsFromClaude rewrites the root CLAUDE.md as `@AGENTS.md` plus
+// the text only Claude Code reads, when another target writes the root
+// AGENTS.md. Cursor loads both files, so two full copies cost every Cursor
+// session the instructions twice, and Claude Code expands the import to
+// the same text. It applies only when both files hold the instructions
+// alone and Claude Code would see exactly AGENTS.md's text around its own
+// `::target claude` blocks; otherwise both keep the full text.
+func importAgentsFromClaude(cfg *config.Config, files []entryPointFile, body, local string) ([]entryPointFile, error) {
+	claudeAt, agentsAt := -1, -1
+	for i, f := range files {
+		switch {
+		case f.Path == "CLAUDE.md" && slices.Equal(f.Readers, []string{"claude"}):
+			claudeAt = i
+		case f.Path == "AGENTS.md" && !slices.Contains(f.Readers, "claude"):
+			agentsAt = i
+		}
+	}
+	if claudeAt < 0 || agentsAt < 0 || !files[claudeAt].plain || !files[agentsAt].plain {
+		return files, nil
+	}
+	agents := files[agentsAt]
+	parts := []string{"@AGENTS.md"}
+	for _, text := range []string{body, local} {
+		if text == "" {
+			continue
+		}
+		rest, only := spec.SplitReaderOnly(text, "claude", agents.Readers)
+		claudeRest, err := entryPointView(cfg, files[claudeAt].Path, []string{"claude"}, rest)
+		if err != nil {
+			return nil, err
+		}
+		agentsView, err := entryPointView(cfg, agents.Path, agents.Readers, text)
+		if err != nil {
+			return nil, err
+		}
+		if strings.TrimSpace(claudeRest) != strings.TrimSpace(agentsView) {
+			return files, nil
+		}
+		if only != "" {
+			parts = append(parts, only)
+		}
+	}
+	companion := header.With(strings.Join(parts, "\n\n")+"\n", header.FormatMarkdown)
+	files[claudeAt].Content = strings.TrimRight(companion, "\n") + "\n"
+	files[claudeAt].Layers = []instructionLayer{{Name: "AGNOSTIC_AI.md (Claude Code only)", Text: strings.Join(parts[1:], "\n\n")}}
 	return files, nil
 }
 

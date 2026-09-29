@@ -65,7 +65,7 @@ func TestRenderEntryPointFiles_DroppedLeadingFenceMatchesUnfencedBody(t *testing
 	}
 
 	if len(fenced) != 1 || len(plain) != 1 || fenced[0].Content != plain[0].Content {
-		t.Errorf("fenced render differs from unfenced:\ngot:  %q\nwant: %q", fenced, plain)
+		t.Errorf("fenced render differs from unfenced:\ngot:  %+v\nwant: %+v", fenced, plain)
 	}
 }
 

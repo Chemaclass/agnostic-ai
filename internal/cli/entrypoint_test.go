@@ -127,14 +127,49 @@ func TestWriteAgnosticEntryPoints_DistributesBodyToTargets(t *testing.T) {
 	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, []string{"claude", "codex"}, false); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	for _, path := range []string{"CLAUDE.md", "AGENTS.md"} {
-		data, err := os.ReadFile(filepath.Join(dir, path))
-		if err != nil {
-			t.Fatalf("%s not written: %v", path, err)
-		}
-		if !strings.Contains(string(data), custom) {
-			t.Errorf("%s missing custom body; got:\n%s", path, data)
-		}
+	agents, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+	if err != nil || !strings.Contains(string(agents), custom) {
+		t.Errorf("AGENTS.md missing custom body (%v):\n%s", err, agents)
+	}
+	// Codex writes the body into AGENTS.md, so CLAUDE.md imports it rather
+	// than carrying a second copy Cursor would also load.
+	claude, err := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
+	if err != nil || !strings.Contains(string(claude), "\n@AGENTS.md\n") || strings.Contains(string(claude), "My instructions.") {
+		t.Errorf("CLAUDE.md should import AGENTS.md (%v):\n%s", err, claude)
+	}
+}
+
+// Claude Code-only text stays in CLAUDE.md after the import line, while
+// AGENTS.md keeps only what its readers share.
+func TestWriteAgnosticEntryPoints_ClaudeImportsAgentsAndKeepsItsOwnBlock(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeAgnosticFile(t, "# Project\n\nShared.\n\n::target claude\nClaude only.\n::end\n")
+	cfg := &config.Config{Targets: []string{"claude", "codex"}}
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+		t.Fatal(err)
+	}
+	claude, _ := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
+	if got := header.Strip(string(claude)); strings.TrimSpace(got) != "@AGENTS.md\n\nClaude only." {
+		t.Errorf("CLAUDE.md = %q", got)
+	}
+	agents, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+	if !strings.Contains(string(agents), "Shared.") || strings.Contains(string(agents), "Claude only.") {
+		t.Errorf("AGENTS.md = %q", agents)
+	}
+}
+
+// A body that shows another tool text Claude Code does not read cannot be
+// imported, so CLAUDE.md keeps its own full copy.
+func TestWriteAgnosticEntryPoints_KeepsAFullCopyWhenTheViewsDiffer(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	writeAgnosticFile(t, "Shared.\n\n::target codex\nCodex only.\n::end\n")
+	cfg := &config.Config{Targets: []string{"claude", "codex"}}
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+		t.Fatal(err)
+	}
+	claude, _ := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
+	if strings.Contains(string(claude), "@AGENTS.md") || !strings.Contains(string(claude), "Shared.") {
+		t.Errorf("CLAUDE.md = %q", claude)
 	}
 }
 

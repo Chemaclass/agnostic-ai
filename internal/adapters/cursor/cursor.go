@@ -172,6 +172,20 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		if err := emitSkill(sess, s, dir, dryRun); err != nil {
 			return err
 		}
+		// Cursor loads skills only from the workspace it opens, not its
+		// parents, so a root skill also goes into each listed workspace.
+		if s.Scope != "" {
+			continue
+		}
+		for _, ws := range emit.StringSlice(s.Meta["workspaces"]) {
+			dir, err := emit.ScopedSkillsDir(strings.Trim(filepath.ToSlash(ws), "/"), skillsDir)
+			if err != nil {
+				return err
+			}
+			if err := emitSkill(sess, s, dir, dryRun); err != nil {
+				return err
+			}
+		}
 	}
 	if err := emitReviews(sess, b, cfg, dryRun); err != nil {
 		return err

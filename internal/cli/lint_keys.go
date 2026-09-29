@@ -12,6 +12,7 @@ var specKeys = []string{
 	"tools", "model", "effort", "color", "readonly", "memory", "mcpServers", "permissionMode",
 	"hooks", "disable-model-invocation", "argument-hint", "reasoningEffort", "temperature",
 	"nickname_candidates", "permission", "agent", "subtask",
+	"license", "workspaces",
 	// Rules.
 	"globs", "paths", "alwaysApply",
 	// Hooks.

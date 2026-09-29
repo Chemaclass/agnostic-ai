@@ -103,15 +103,12 @@ func TestImportClaudeNestedThenSync_PropagatesToCodex(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, name := range []string{"CLAUDE.md", "AGENTS.md"} {
-		got, err := os.ReadFile(filepath.Join(dir, name))
-		if err != nil {
-			t.Errorf("%s entry-point missing: %v", name, err)
-			continue
-		}
-		if !strings.Contains(string(got), "Nested instructions body for every tool.") {
-			t.Errorf("%s missing shared body, got %q", name, got)
-		}
+	agents, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+	if err != nil || !strings.Contains(string(agents), "Nested instructions body for every tool.") {
+		t.Errorf("AGENTS.md missing shared body (%v): %q", err, agents)
+	}
+	if claude, err := os.ReadFile(filepath.Join(dir, "CLAUDE.md")); err != nil || !strings.Contains(string(claude), "@AGENTS.md") {
+		t.Errorf("CLAUDE.md should import AGENTS.md (%v): %q", err, claude)
 	}
 }
 
