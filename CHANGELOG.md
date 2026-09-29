@@ -6,6 +6,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+## v0.74.0 - 2026-09-29
+
 ### General
 
 - `requires` takes an exact release (`"0.73.0"`) or a range (`">=0.73.0 <0.74.0"`), so a newer binary stops with AAI-005 before it rewrites committed outputs. AAI-005 names the package manager's install, such as `pnpm install`, when the binary sits in the project's `node_modules`, and a candidate built with `-X github.com/chemaclass/agnostic-ai/internal/cli.candidateVersion=X.Y.Z` is checked as that release (#1399, #1411).
