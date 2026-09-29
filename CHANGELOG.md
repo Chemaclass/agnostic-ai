@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- `requires` accepts an exact release (`"0.73.0"`) or a range (`">=0.73.0 <0.74.0"`), and a newer binary stops with AAI-005 before it rewrites committed outputs (#1399).
 - A review spec takes a line holding only `@path` and inlines that file, so a folder's `README.md` can be its review without a symlinked `BUGBOT.md` (#1395).
 - `doctor` names an unledgered leftover it cannot remove and says to delete it by hand or list it under `sync.unmanaged`, instead of advising `sync` or `doctor --fix` (#1392).
 - `sync --keep-edits` keeps an uncommitted edit to a Git-tracked output when there is no `.sync-state`, such as in a new linked worktree (#1397).

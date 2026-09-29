@@ -79,15 +79,17 @@ outputs:
 
 ## `requires`
 
-Set it when your specs rely on behavior from a specific release:
+Set it when your specs rely on behavior from a specific release, or when the files you commit must come from one:
 
 ```yaml
-requires: ">=0.71.0"
+requires: ">=0.71.0"    # this release or newer
+requires: "0.73.0"      # exactly this release; "=0.73.0" means the same
+requires: ">=0.73.0 <0.74.0"   # a range
 ```
 
-Every command that reads your specs stops on an older binary before it reads specs or writes files. The error is [AAI-005](@/docs/errors.md#aai-005-installed-version-older-than-requires) and names the command to upgrade. `sync --watch` stops when a pulled config raises `requires` above the binary. Releases before 0.70.0 ignore the key.
+Every command that reads your specs stops on a binary outside the value before it reads specs or writes files. The error is [AAI-005](@/docs/errors.md#aai-005-installed-version-older-than-requires) and names the command that installs a fitting release: `agnostic-ai upgrade` for a minimum, `agnostic-ai upgrade --version vX.Y.Z` when the value pins or bounds a release. `sync --watch` stops when a pulled config puts the binary outside `requires`. Releases before 0.70.0 ignore the key, and releases that predate exact and range values read only `>=X.Y.Z`.
 
-The only form is `>=X.Y.Z`; anything else fails as AAI-004 naming the file. A build from source (`go run`, or a commit after a tag) is not a release and warns once instead. `agnostic-ai.local.yaml` can replace the value, and an empty `requires:` there turns the check off. The [global home config](#global-configuration) accepts the key too.
+A value is one or more terms separated by spaces, and every term must hold: `>=X.Y.Z`, `<X.Y.Z`, `<=X.Y.Z`, `=X.Y.Z`, or a bare `X.Y.Z`. Anything else fails as AAI-004 naming the file. A build from source (`go run`, or a commit after a tag) is not a release and warns once instead. `agnostic-ai.local.yaml` can replace the value, and an empty `requires:` there turns the check off. The [global home config](#global-configuration) accepts the key too.
 
 ## `sources`
 

@@ -74,8 +74,8 @@ func requireGlobalVersion(source string, skipBroken io.Writer) error {
 	return requireVersion(path, requires)
 }
 
-// requireVersion stops the command when the running binary is older
-// than requires, which source sets. A build that is not a release has
+// requireVersion stops the command when the running binary is outside
+// requires, which source sets. A build that is not a release has
 // no place in the order, so it warns and runs: contributors build from
 // source.
 func requireVersion(source, requires string) error {
@@ -103,7 +103,22 @@ func requireVersion(source, requires string) error {
 		return nil
 	}
 	if !allowed {
-		return errs.Coded(errs.CodeRequiresUnmet, "%s requires agnostic-ai %s, but %s is installed; run `agnostic-ai upgrade`", source, req, running)
+		return errs.Coded(errs.CodeRequiresUnmet, "%s requires agnostic-ai %s, but %s is installed; %s", source, req, running, requiresFix(req))
 	}
 	return nil
+}
+
+// requiresFix names the command that puts a binary outside req inside it.
+// A minimum alone is met by the latest release; anything else needs a
+// named one, since upgrade would jump past an upper bound.
+func requiresFix(req config.Requirement) string {
+	version, latest := req.InstallTarget()
+	switch {
+	case latest:
+		return "run `agnostic-ai upgrade`"
+	case version != "":
+		return "run `agnostic-ai upgrade --version v" + version + "`"
+	default:
+		return "run `agnostic-ai upgrade --version vX.Y.Z` with a release inside it"
+	}
 }
