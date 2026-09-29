@@ -17,7 +17,7 @@ import (
 func newSyncCmd() *cobra.Command {
 	var targets, only, except []string
 	var dryRun, check, plan, backup, keepEdits, untrack, watch, watchPoll, jsonOut, allTargets, diff, global bool
-	var gitignoreFlag, format string
+	var gitignoreFlag, format, against string
 	var jobs int
 
 	cmd := &cobra.Command{
@@ -62,6 +62,9 @@ func newSyncCmd() *cobra.Command {
 			if keepEdits && (check || plan || watch || global) {
 				return errs.Coded(errs.CodeFlagConflict, "--keep-edits cannot be combined with --check, --plan, --watch, or --global")
 			}
+			if err := validateAgainst(against, check, plan, watch, global); err != nil {
+				return err
+			}
 			if untrack && (check || plan || dryRun || watch || global) {
 				return errs.Coded(errs.CodeFlagConflict, "--untrack cannot be combined with --check, --plan, --dry-run, --watch, or --global")
 			}
@@ -87,6 +90,15 @@ func newSyncCmd() *cobra.Command {
 				return err
 			}
 
+			var tree *againstTree
+			if against != "" {
+				entered, err := enterAgainstTree(against)
+				if err != nil {
+					return err
+				}
+				tree = entered
+				defer tree.leave()
+			}
 			cfg, _, err := loadProject(".")
 			if err != nil {
 				return err
@@ -136,10 +148,19 @@ func newSyncCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
+				if tree != nil {
+					if reports, err = tree.trackedDrift(reports); err != nil {
+						return err
+					}
+				}
 				if jsonOut {
 					return printSyncCheckJSON(cmd, reports)
 				}
-				return reportCheckDrift(cmd, reports, format, diff)
+				err = reportCheckDrift(cmd, reports, format, diff)
+				if err != nil && tree != nil {
+					_, _ = fmt.Fprintln(cmd.ErrOrStderr(), againstHint(against))
+				}
+				return err
 			}
 			if watchPoll && !watch {
 				return fmt.Errorf("--watch-poll requires --watch")
@@ -169,6 +190,7 @@ func newSyncCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&check, "check", false, "Compare emitted output to disk; non-zero exit on drift")
 	cmd.Flags().BoolVar(&diff, "diff", false, "With --check, print a unified diff per drifted file (default: counts only, so CI logs stay lean)")
 	cmd.Flags().StringVar(&format, "format", checkFormatHuman, "With --check, drift report format: 'human' or 'github' (GitHub Actions ::error annotations)")
+	cmd.Flags().StringVar(&against, "against", "", "With --check, compare what Git holds instead of the working tree: 'index' (staged, for pre-commit hooks) or 'HEAD' (the last commit, for CI). Only outputs Git tracks are compared.")
 	cmd.Flags().BoolVar(&plan, "plan", false, "Show per-target added/changed counts without writing")
 	cmd.Flags().BoolVar(&backup, "backup", false, "Copy each existing target file to <path>.bak before overwriting (consumed by `agnostic-ai revert`; clear leftover .bak with `agnostic-ai cleanup --backups`)")
 	cmd.Flags().BoolVar(&keepEdits, "keep-edits", false, "Leave each output edited since the last sync in place and list it, writing the rest (for post-checkout and post-merge hooks)")

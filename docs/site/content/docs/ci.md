@@ -24,6 +24,14 @@ agnostic-ai sync --check
 
 Never run `sync` right before this check in CI. It erases the drift you are testing for.
 
+When an earlier step already rewrote the files, as a `postinstall` sync does, compare the commit instead:
+
+```bash
+agnostic-ai sync --check --against HEAD
+```
+
+It renders the specs as committed and compares them with the committed outputs. Outputs that `gitignore` leaves out are skipped.
+
 ## Ignored outputs
 
 A fresh checkout has no generated files. Validate the source and confirm that generation succeeds:
