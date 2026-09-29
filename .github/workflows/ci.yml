@@ -210,9 +210,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      # One pinned release file, checked against its published sha256
+      # before it runs, instead of piping an install script into bash.
       - name: Install bashunit
+        env:
+          BASHUNIT_VERSION: 0.51.0
+          BASHUNIT_SHA256: 307e3a84d5561d1a1d8b5d378184bb1dfda3e7a7856c4a9435d63a53853cf72c
         run: |
-          curl -sSL https://bashunit.typeddevs.com/install.sh | bash -s -- /usr/local/bin
+          curl -fsSL -o /usr/local/bin/bashunit "https://github.com/TypedDevs/bashunit/releases/download/${BASHUNIT_VERSION}/bashunit"
+          echo "${BASHUNIT_SHA256}  /usr/local/bin/bashunit" | sha256sum -c -
+          chmod +x /usr/local/bin/bashunit
 
       - name: Run shell tests
         run: make test-shell
@@ -282,7 +289,7 @@ jobs:
           cache-dependency-path: editors/vscode/package-lock.json
 
       - name: Install
-        run: npm ci || npm install --no-audit --no-fund
+        run: npm ci
 
       - name: Compile
         run: npm run compile
@@ -303,6 +310,11 @@ jobs:
         working-directory: editors/jetbrains
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # Fails if the committed gradle-wrapper.jar is not a published Gradle
+      # release, the jar the build would otherwise run unchecked.
+      - name: Validate the Gradle wrapper
+        uses: gradle/actions/wrapper-validation@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
         with:
