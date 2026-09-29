@@ -99,6 +99,16 @@ npm install
 
 The trailing `--` swallows the staged paths lint-staged appends, because `sync --check` reads the project root, not individual files.
 
+## Check the staged files {#check-staged-files}
+
+A plain `sync --check` reads the working tree. When `sync` already rewrote `AGENTS.md` but you did not stage it, the check passes and the commit goes out stale. Add `--against index` to render the staged specs and compare them with the staged outputs:
+
+```bash
+agnostic-ai sync --check --against index
+```
+
+A staged spec change without its regenerated output fails and names the file. `--against HEAD` does the same for the last commit, for a CI job that runs after `postinstall` has rewritten the working tree. Only outputs Git tracks are compared, so an output that `gitignore` leaves out never fails. Specs come from the same state, so an untracked `agnostic-ai.local.yaml` or `.agnostic-ai/local/` is not read.
+
 ## Regenerate on checkout
 
 Commit hooks do not help when generated outputs are gitignored (`gitignore.enabled: true`): a fresh clone or a new `git worktree` starts with no `CLAUDE.md`, rules, or hooks until someone runs `sync`. A contributor can run `sync` by hand, automated worktree creation cannot, so an AI session opened there finds no config.

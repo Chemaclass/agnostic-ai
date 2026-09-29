@@ -26,6 +26,7 @@ agnostic-ai sync --only claude,cursor
 | `--dry-run` | Print to stdout instead of writing files. Does not preview the orphan sweep. |
 | `--plan` | Print per-target added and changed counts without writing. Exits 0. |
 | `--check` | Exit non-zero if disk differs from emitted output. Writes nothing. |
+| `--against <index\|HEAD>` | With `--check`, compare what Git holds instead of the working tree: `index` renders the staged specs and compares them with the staged outputs, `HEAD` does the same for the last commit. Only outputs Git tracks are compared; ignored outputs are skipped. See [git hooks](@/docs/git-hooks.md#check-staged-files). Not with `--plan`, `--watch`, or `--global`. |
 | `--diff` | With `--check`, print a unified diff per drifted file (on-disk vs what sync would write). |
 | `--format <human\|github>` | With `--check`: `human` (default) table or `github` Actions annotations. `--json` wins. |
 | `--backup` | Copy each existing target file to `<path>.bak` before overwriting. Pair with `revert`. |

@@ -10,6 +10,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - `doctor` names an unledgered leftover it cannot remove and says to delete it by hand or list it under `sync.unmanaged`, instead of advising `sync` or `doctor --fix` (#1392).
 - `sync --keep-edits` keeps an uncommitted edit to a Git-tracked output when there is no `.sync-state`, such as in a new linked worktree (#1397).
+- `sync --check --against index` and `--against HEAD` compare the staged specs or the last commit with the outputs Git tracks, for pre-commit hooks and CI (#1398).
 
 ### By tool
 
