@@ -75,6 +75,12 @@ LINT011 [warn] AGENTS.md: cline, windsurf, trae load 2396 words every session: A
 
 A target with a published byte cap also warns past it: Codex stops reading `AGENTS.md` at 32 KiB (`project_doc_max_bytes`), Antigravity truncates rule files past 24,000 bytes.
 
+Codex also reads each scoped `AGENTS.md` between the root and the directory it works in, and stops at the same 32 KiB across the chain. LINT011 sums that chain per scope and warns past [`lint.codex-chain-bytes`](@/docs/configuration.md#lint) (default 32768). It names the scope, the total, and each file with its size and review section. A scope under one that already warns stays quiet. Setting a review spec to `target: cursor` takes its text out of Codex's `AGENTS.md`.
+
+```
+LINT011 [warn] apps/engine/src/integrations/AGENTS.md: Codex reads 47812 bytes in scope apps/engine/src/integrations, past 32768 (lint.codex-chain-bytes; Codex project_doc_max_bytes defaults to 32768): AGENTS.md 12907 (reviews 310), apps/engine/AGENTS.md 4531, apps/engine/src/integrations/AGENTS.md 18790 (reviews 18200). Codex drops what passes its limit.
+```
+
 LINT012 warns on a skill or agent description (or `x-<target>.description`) longer than [`lint.description-chars`](@/docs/configuration.md#lint) (default 1024). A skill description past 1024, the Agent Skills limit, warns even under a raised budget.
 
 ## verify

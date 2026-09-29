@@ -9,6 +9,8 @@ import "github.com/chemaclass/agnostic-ai/internal/errs"
 const (
 	DefaultInstructionsWords = 2000
 	DefaultDescriptionChars  = 1024
+	// DefaultCodexChainBytes is Codex's project_doc_max_bytes default.
+	DefaultCodexChainBytes = 32 * 1024
 )
 
 // LintConfig holds the budgets `lint` checks always-loaded text
@@ -21,6 +23,9 @@ type LintConfig struct {
 	// DescriptionChars caps the characters of one skill or agent
 	// description. Default 1024.
 	DescriptionChars int `yaml:"description-chars,omitempty" json:"description-chars,omitempty" jsonschema:"minimum=0"`
+	// CodexChainBytes caps the AGENTS.md bytes Codex reads for one
+	// directory, root down to that directory. Default 32768.
+	CodexChainBytes int `yaml:"codex-chain-bytes,omitempty" json:"codex-chain-bytes,omitempty" jsonschema:"minimum=0"`
 }
 
 // InstructionsWordBudget returns the effective word budget.
@@ -39,6 +44,14 @@ func (l LintConfig) DescriptionCharBudget() int {
 	return l.DescriptionChars
 }
 
+// CodexChainByteBudget returns the effective chain budget.
+func (l LintConfig) CodexChainByteBudget() int {
+	if l.CodexChainBytes == 0 {
+		return DefaultCodexChainBytes
+	}
+	return l.CodexChainBytes
+}
+
 // Validate rejects a negative budget, naming source.
 func (l LintConfig) Validate(source string) error {
 	if l.InstructionsWords < 0 {
@@ -46,6 +59,9 @@ func (l LintConfig) Validate(source string) error {
 	}
 	if l.DescriptionChars < 0 {
 		return errs.Coded(errs.CodeConfigDecode, "%s: lint.description-chars must be positive, got %d", source, l.DescriptionChars)
+	}
+	if l.CodexChainBytes < 0 {
+		return errs.Coded(errs.CodeConfigDecode, "%s: lint.codex-chain-bytes must be positive, got %d", source, l.CodexChainBytes)
 	}
 	return nil
 }

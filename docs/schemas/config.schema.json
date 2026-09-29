@@ -361,6 +361,10 @@
         "description-chars": {
           "type": "integer",
           "minimum": 0
+        },
+        "codex-chain-bytes": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "additionalProperties": false,

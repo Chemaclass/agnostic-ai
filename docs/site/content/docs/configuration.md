@@ -257,11 +257,13 @@ Budgets for the text each target loads in every session. Past a budget, `agnosti
 |-----|---------|--------|
 | `instructions-words` | `2000` | Words one target loads every session: entry-point file, always-on rule files, and skill and agent descriptions (LINT011). |
 | `description-chars` | `1024` | Characters in one skill or agent description (LINT012). A skill description past 1024 still warns under a higher value. |
+| `codex-chain-bytes` | `32768` | Bytes of `AGENTS.md` Codex reads for one directory: the root file plus each scoped file down to it, review sections included (LINT011). |
 
 ```yaml
 lint:
   instructions-words: 3000
   description-chars: 500
+  codex-chain-bytes: 24576
 ```
 
 The defaults follow vendor limits: Claude Code [200 lines](https://code.claude.com/docs/en/memory) for `CLAUDE.md`, the [Agent Skills specification](https://agentskills.io/specification) for descriptions. Lint also warns past Codex's [32 KiB](https://developers.openai.com/codex/guides/agents-md) `AGENTS.md` cap and Antigravity's [24,000-byte](https://antigravity.google/docs/rules) rule cap, whatever the word budget.
