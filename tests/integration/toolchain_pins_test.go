@@ -18,7 +18,7 @@ const (
 
 var (
 	makefilePinRE     = regexp.MustCompile(`(?m)^GOLANGCI_LINT_VERSION := (\S+)$`)
-	workflowPinRE     = regexp.MustCompile(`(?s)golangci-lint-action@v\d+.*?version:\s*(\S+)`)
+	workflowPinRE     = regexp.MustCompile(`(?s)golangci-lint-action@\S+.*?version:\s*(\S+)`)
 	zolaMakefilePinRE = regexp.MustCompile(`(?m)^ZOLA_VERSION := (\S+)$`)
 	zolaWorkflowPinRE = regexp.MustCompile(`(?m)^\s+ZOLA_VERSION:\s+(\S+)$`)
 )
@@ -104,6 +104,38 @@ func TestZolaVersionFromLine(t *testing.T) {
 	for _, tc := range tests {
 		if got := zolaVersionFromLine(tc.in); got != tc.want {
 			t.Errorf("zolaVersionFromLine(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+// usesLineRE matches a workflow step's action reference and the comment
+// after it.
+var usesLineRE = regexp.MustCompile(`(?m)^\s*(?:-\s+)?uses:\s+(\S+)(.*)$`)
+
+// TestWorkflows_PinActionsToCommitSHAs keeps every third-party action on
+// an immutable commit. A tag can be moved to other code after review, and
+// a release job runs with write access to the repository and the npm
+// token, so a moved tag would run unreviewed code with both. The trailing
+// `# vX` comment lets Renovate and a reader see which release it is.
+func TestWorkflows_PinActionsToCommitSHAs(t *testing.T) {
+	paths, err := filepath.Glob(filepath.FromSlash("../../.github/workflows/*.yml"))
+	if err != nil || len(paths) == 0 {
+		t.Fatalf("no workflows found: %v", err)
+	}
+	pinned := regexp.MustCompile(`^[^@\s]+@[0-9a-f]{40}$`)
+	for _, p := range paths {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, m := range usesLineRE.FindAllStringSubmatch(string(data), -1) {
+			ref, comment := m[1], strings.TrimSpace(m[2])
+			if strings.HasPrefix(ref, "./") {
+				continue
+			}
+			if !pinned.MatchString(ref) || !strings.HasPrefix(comment, "# v") {
+				t.Errorf("%s: %s is not pinned to a commit SHA with a `# vX` comment", filepath.Base(p), ref)
+			}
 		}
 	}
 }

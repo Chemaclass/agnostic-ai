@@ -27,12 +27,12 @@ jobs:
       HOMEBREW_TAP_APP_CONFIGURED: ${{ secrets.HOMEBREW_TAP_APP_ID != '' && secrets.HOMEBREW_TAP_APP_PRIVATE_KEY != '' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
           cache: true
@@ -50,7 +50,7 @@ jobs:
         # A skipped step leaves its outputs empty, which is what the
         # fallback below reads.
         if: env.HOMEBREW_TAP_APP_CONFIGURED == 'true'
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
           # v3 deprecated `app-id` in favor of `client-id`, but the action
           # sends whichever is set as the JWT issuer and GitHub accepts the
@@ -65,12 +65,12 @@ jobs:
           permission-contents: write
 
       - name: Install Syft for the SBOMs
-        uses: anchore/sbom-action/download-syft@v0.24.2
+        uses: anchore/sbom-action/download-syft@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v7
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
         with:
-          version: latest
+          version: v2.18.2
           args: release --clean --release-notes=NOTES.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -89,7 +89,7 @@ jobs:
         # Also after a failed package-manager push: the archives are already
         # uploaded by then, and each one needs its provenance.
         if: ${{ !cancelled() && hashFiles('dist/checksums.txt') != '' }}
-        uses: actions/attest-build-provenance@v4
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
         with:
           subject-checksums: dist/checksums.txt
 
@@ -121,10 +121,10 @@ jobs:
       NPM_CLI_VERSION: '11.5.1'
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
@@ -186,7 +186,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # Both checks below read a replica that can lag the write they verify.
       # A red check that is sometimes wrong trains you to dismiss it, so each
