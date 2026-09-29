@@ -12,6 +12,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - `outputs.claude.settings.taskOutputMaxChars` is no longer written, since every release channel dropped it; sync removes it and says so (#1381).
 
+### Site
+
+- The Claude page notes that Bedrock and telemetry-disabled sessions need v2.1.281 for the `AGENTS.md` fallback (#1382).
+
 ## v0.73.0 - 2026-09-28
 
 ### General

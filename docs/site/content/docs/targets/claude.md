@@ -196,7 +196,7 @@ Any other setting round-trips through the overlay captured by `agnostic-ai impor
 
 When `.claude/rules/` exists (even if empty), `CLAUDE.md` is not sliced, so the on-disk rules are the single source for rule files. `.agnostic-ai/AGNOSTIC_AI.md` is still written from `CLAUDE.md`.
 
-The instructions file is looked up in Claude Code's own order: `CLAUDE.md`, `.claude/CLAUDE.md`, `AGENTS.md`, `.claude/AGENTS.md`. Since v2.1.277, a session with no `CLAUDE.md` at or above the working directory loads `AGENTS.md`, so repos set up for other agents get their real instructions captured. The root `AGENTS.md` step is skipped when `codex`, `amp`, `warp`, `crush`, `kiro`, or `opencode` imports in the same run, since only one importer may slice that file.
+The instructions file is looked up in Claude Code's own order: `CLAUDE.md`, `.claude/CLAUDE.md`, `AGENTS.md`, `.claude/AGENTS.md`. Since v2.1.277 (v2.1.281 on Amazon Bedrock or with telemetry disabled), a session with no `CLAUDE.md` at or above the working directory loads `AGENTS.md`, so repos set up for other agents get their real instructions captured. The root `AGENTS.md` step is skipped when `codex`, `amp`, `warp`, `crush`, `kiro`, or `opencode` imports in the same run, since only one importer may slice that file.
 
 When the text comes from `.claude/CLAUDE.md`, sync writes it to the root `CLAUDE.md` and Claude Code loads both files. Import says so: delete `.claude/CLAUDE.md` after the next sync.
 
