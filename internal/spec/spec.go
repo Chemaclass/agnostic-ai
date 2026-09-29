@@ -628,6 +628,9 @@ type Layer struct {
 	// Extends merges a spec into the same-name spec of a lower layer
 	// instead of replacing it: the personal `local` layers.
 	Extends bool
+	// IncludeRoot is the project root that review `@path` lines resolve
+	// from. Empty leaves those lines as written.
+	IncludeRoot string
 }
 
 // LoadBundle walks the source directories under root and returns a
@@ -698,6 +701,11 @@ func loadLayer(layer Layer) (Bundle, error) {
 			return Bundle{}, fmt.Errorf("load %s [%s]: %w", l.kind, layer.Name, err)
 		}
 		assignScopes(entries, dir, l.kind)
+		if l.kind == KindReview && layer.IncludeRoot != "" {
+			if err := resolveEntryIncludes(entries, layer.IncludeRoot); err != nil {
+				return Bundle{}, err
+			}
+		}
 		for i := range entries {
 			entries[i].Layer = layer.Name
 		}

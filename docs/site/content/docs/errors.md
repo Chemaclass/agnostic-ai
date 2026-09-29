@@ -47,9 +47,9 @@ Codes are stable across releases. New codes append; existing codes are never ren
 
 ### AAI-001: Spec parse failed
 
-A spec file could not be parsed. Markdown specs use YAML frontmatter; hooks and MCPs are pure YAML. The error gives the path and, when available, the line:col of the offending byte.
+A spec file could not be parsed. Markdown specs use YAML frontmatter; hooks and MCPs are pure YAML. The error gives the path and, when available, the line:col of the offending byte. A review `@path` include that cannot be read reports here too.
 
-**Fix:** open the file at the reported position. Check that the frontmatter delimiters (`---`) wrap the metadata and that the YAML is valid: correct indentation, no tabs, quoted strings where needed.
+**Fix:** open the file at the reported position. Check that the frontmatter delimiters (`---`) wrap the metadata and that the YAML is valid: correct indentation, no tabs, quoted strings where needed. For an include, create the file or use a path inside the project.
 
 ### AAI-002: Spec kind not supported by target
 

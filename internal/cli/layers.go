@@ -55,9 +55,10 @@ func resolveLayers(projectRoot string, cfg *config.Config) []spec.Layer {
 // the configurable source paths from cfg.
 func resolveProjectLayer(projectRoot string, cfg *config.Config) spec.Layer {
 	return spec.Layer{
-		Name:    layerNameProject,
-		Root:    projectRoot,
-		Sources: cfg.Sources,
+		Name:        layerNameProject,
+		Root:        projectRoot,
+		Sources:     cfg.Sources,
+		IncludeRoot: projectRoot,
 	}
 }
 
@@ -69,10 +70,11 @@ func resolveProjectUserLayer(projectRoot string) (spec.Layer, bool) {
 		return spec.Layer{}, false
 	}
 	return spec.Layer{
-		Name:    layerNameProjectUser,
-		Root:    pu,
-		Sources: defaultLayerSources(),
-		Extends: true,
+		Name:        layerNameProjectUser,
+		Root:        pu,
+		Sources:     defaultLayerSources(),
+		Extends:     true,
+		IncludeRoot: projectRoot,
 	}, true
 }
 

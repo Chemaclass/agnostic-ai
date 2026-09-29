@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- A review spec takes a line holding only `@path` and inlines that file, so a folder's `README.md` can be its review without a symlinked `BUGBOT.md` (#1395).
 - `doctor` names an unledgered leftover it cannot remove and says to delete it by hand or list it under `sync.unmanaged`, instead of advising `sync` or `doctor --fix` (#1392).
 
 ### By tool

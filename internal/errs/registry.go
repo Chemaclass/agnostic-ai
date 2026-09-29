@@ -16,8 +16,8 @@ var registry = map[Code]Entry{
 	CodeSpecParse: {
 		Code:  CodeSpecParse,
 		Title: "Spec parse failed",
-		Cause: "A spec file could not be parsed. Markdown specs use YAML frontmatter; hooks and MCPs are pure YAML. The error includes the path and (when available) line:col of the offending byte.",
-		Fix:   "Open the file at the reported position. Confirm the frontmatter delimiters (`---`) wrap the metadata and that the YAML is well-formed (correct indentation, no tabs, quoted strings where needed).",
+		Cause: "A spec file could not be parsed. Markdown specs use YAML frontmatter; hooks and MCPs are pure YAML. The error includes the path and (when available) line:col of the offending byte. A review `@path` include that cannot be read reports here too.",
+		Fix:   "Open the file at the reported position. Confirm the frontmatter delimiters (`---`) wrap the metadata and that the YAML is well-formed (correct indentation, no tabs, quoted strings where needed). For an include, create the file or use a path inside the project.",
 	},
 	CodeUnsupportedKind: {
 		Code:  CodeUnsupportedKind,
