@@ -32,7 +32,6 @@ var environmentSpecKeys = map[string]bool{
 // actionFieldsWithoutEffect are the dev-command fields a Codex action has
 // no key for, with the reason each note gives.
 var actionFieldsWithoutEffect = []struct{ field, reason string }{
-	{"cwd", "a Codex action runs from the project root; start the command with `cd <dir> &&`"},
 	{"port", "a Codex action has no port field"},
 	{"auto-port", "a Codex action has no port field"},
 	{"env", "a Codex action has no env field; set variables in the command"},
@@ -72,6 +71,8 @@ func emitEnvironment(sess *emit.Session, envs []spec.Entry, cfg *config.Config, 
 		if name == "" || command == "" {
 			continue
 		}
+		cwd, _ := m["cwd"].(string)
+		command = commandInDir(cwd, command)
 		icon, _ := m["icon"].(string)
 		if icon == "" {
 			icon = defaultActionIcon
@@ -160,6 +161,23 @@ func actionCommand(v any) string {
 		}
 	}
 	return strings.Join(words, " ")
+}
+
+// commandInDir runs command from cwd, since a Codex action has no cwd
+// field and runs from the project root. A multi-line script stops when
+// the directory is missing rather than running from the root.
+func commandInDir(cwd, command string) string {
+	cwd = strings.TrimSpace(cwd)
+	if cwd == "" || cwd == "." {
+		return command
+	}
+	if !plainShellWord.MatchString(cwd) {
+		cwd = emit.ShellQuote(cwd)
+	}
+	if strings.Contains(command, "\n") {
+		return "cd " + cwd + " || exit 1\n" + command
+	}
+	return "cd " + cwd + " && " + command
 }
 
 // noteEnvironmentNoOps notes each environment field Codex has no place for.

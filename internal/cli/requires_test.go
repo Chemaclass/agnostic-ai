@@ -366,3 +366,75 @@ func TestListGlobal_WarnsOnUnparsableHomeConfig(t *testing.T) {
 		t.Errorf("expected the global rule listed, got:\n%s", out)
 	}
 }
+
+// setRunningExecutable stands in for where the binary is installed.
+func setRunningExecutable(t *testing.T, path string) {
+	t.Helper()
+	prev := runningExecutable
+	runningExecutable = func() (string, error) { return path, nil }
+	t.Cleanup(func() { runningExecutable = prev })
+}
+
+// A binary a package manager installed into the project's node_modules is
+// replaced by that manager, so the fix names its command, not upgrade.
+func TestRequiresFix_NamesTheProjectPackageManager(t *testing.T) {
+	req, err := config.ParseRequirement("0.74.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	project := t.TempDir()
+	source := filepath.Join(project, "apps", "web", "agnostic-ai.yaml")
+	exe := filepath.Join(project, "node_modules", ".pnpm", "pkg", "node_modules", "@agnostic-ai", "darwin-arm64", "bin", "agnostic-ai")
+	setRunningExecutable(t, exe)
+
+	if got, want := requiresFix(req, source), "run `npm install`, or `npm install -D agnostic-ai@0.74.0` if package.json pins another release"; got != want {
+		t.Errorf("no lockfile:\n got %s\nwant %s", got, want)
+	}
+	if err := os.WriteFile(filepath.Join(project, "pnpm-lock.yaml"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := requiresFix(req, source), "run `pnpm install`, or `pnpm add -D agnostic-ai@0.74.0` if package.json pins another release"; got != want {
+		t.Errorf("pnpm lockfile:\n got %s\nwant %s", got, want)
+	}
+
+	setRunningExecutable(t, filepath.Join(t.TempDir(), "lib", "node_modules", "agnostic-ai", "bin", "agnostic-ai"))
+	if got, want := requiresFix(req, source), "run `agnostic-ai upgrade --version v0.74.0`"; got != want {
+		t.Errorf("an install outside the project:\n got %s\nwant %s", got, want)
+	}
+}
+
+// A release candidate built with candidateVersion is checked as that
+// release, since its commit has no tag for Go to stamp.
+func TestCandidateVersion_StandsInForTheBuildVersion(t *testing.T) {
+	pseudo := "v0.73.1-0.20260929085715-193bf66537a5"
+	if got := candidateOr("", pseudo); got != pseudo {
+		t.Errorf("no candidate: got %q, want the build version", got)
+	}
+	for _, c := range []string{"0.74.0", "v0.74.0"} {
+		if got := candidateOr(c, pseudo); got != "v0.74.0" {
+			t.Errorf("candidate %q: got %q, want v0.74.0", c, got)
+		}
+	}
+}
+
+// A workspace package takes the manager of the lockfile at the workspace
+// root, and a pnpm workspace root adds with -w.
+func TestRequiresFix_FindsTheWorkspaceLockfile(t *testing.T) {
+	req, err := config.ParseRequirement("0.74.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	for _, f := range []string{".git/HEAD", "pnpm-lock.yaml", "pnpm-workspace.yaml"} {
+		writeFile(t, filepath.Join(root, f), "")
+	}
+	pkg := filepath.Join(root, "apps", "web")
+	setRunningExecutable(t, filepath.Join(pkg, "node_modules", "agnostic-ai", "bin", "agnostic-ai"))
+	if got, want := requiresFix(req, "../../agnostic-ai.base.yaml + "+filepath.Join(pkg, "agnostic-ai.yaml")), "run `pnpm install`, or `pnpm add -D agnostic-ai@0.74.0` if package.json pins another release"; got != want {
+		t.Errorf("workspace package:\n got %s\nwant %s", got, want)
+	}
+	setRunningExecutable(t, filepath.Join(root, "node_modules", "agnostic-ai", "bin", "agnostic-ai"))
+	if got, want := requiresFix(req, filepath.Join(root, "agnostic-ai.yaml")), "run `pnpm install`, or `pnpm add -D -w agnostic-ai@0.74.0` if package.json pins another release"; got != want {
+		t.Errorf("workspace root:\n got %s\nwant %s", got, want)
+	}
+}

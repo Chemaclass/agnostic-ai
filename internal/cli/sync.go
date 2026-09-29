@@ -149,7 +149,15 @@ func newSyncCmd() *cobra.Command {
 					return err
 				}
 				if tree != nil {
-					if reports, err = tree.trackedDrift(reports); err != nil {
+					filtered := len(targets) > 0 || len(only) > 0 || len(except) > 0
+					dropped, note, err := tree.droppedOutputs(filtered, reports)
+					if err != nil {
+						return err
+					}
+					if note != "" && verbosity >= levelDefault {
+						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "note: %s\n", note)
+					}
+					if reports, err = tree.trackedDrift(reports, dropped); err != nil {
 						return err
 					}
 				}

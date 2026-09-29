@@ -77,6 +77,80 @@ var coverageNoteState struct {
 	// one target's emission, e.g. two targets' outputs overlapping in a
 	// tree a third vendor reads. Already a full sentence; no grouping.
 	pendingText []string
+	// environmentFields holds, per target, the environment fields its
+	// specs set, so a field one target ignores and another reads is not
+	// reported as having no effect.
+	environmentFields map[string]map[string]bool
+}
+
+// RecordEnvironmentFields records the fields that target's environment
+// specs set: each top-level field with a value, and each dev-commands
+// entry field as `dev-commands.<field>`. A no-effect note on one target
+// is dropped when another target got the field and noted nothing about
+// it, since one shared spec feeds every tool its own part.
+func RecordEnvironmentFields(target string, envs []spec.Entry) {
+	if len(envs) == 0 {
+		return
+	}
+	fields := map[string]bool{}
+	for _, e := range envs {
+		for k, v := range ResolveMeta(e.Meta, target) {
+			if hasValue(v) {
+				fields[k] = true
+			}
+		}
+		cmds, _ := ResolveMeta(e.Meta, target)["dev-commands"].([]any)
+		for _, c := range cmds {
+			m, _ := c.(map[string]any)
+			for k, v := range m {
+				if hasValue(v) {
+					fields["dev-commands."+k] = true
+				}
+			}
+		}
+	}
+	coverageNoteState.mu.Lock()
+	if coverageNoteState.environmentFields == nil {
+		coverageNoteState.environmentFields = map[string]map[string]bool{}
+	}
+	coverageNoteState.environmentFields[target] = fields
+	coverageNoteState.mu.Unlock()
+}
+
+// pruneFieldNotesLocked drops each environment field note whose field
+// another target got and noted nothing about, so the digest, the count,
+// and the flush all see the notes that print. Caller holds
+// coverageNoteState.mu.
+func pruneFieldNotesLocked() {
+	if len(coverageNoteState.environmentFields) == 0 {
+		return
+	}
+	noted := map[string]bool{}
+	for _, p := range coverageNoteState.pendingField {
+		if p.kind == spec.KindEnvironment {
+			noted[p.target+"\x00"+p.field] = true
+		}
+	}
+	// A note on `dev-commands` as a whole covers each of its fields.
+	notedBy := func(t, field string) bool {
+		parent, _, _ := strings.Cut(field, ".")
+		return noted[t+"\x00"+field] || noted[t+"\x00"+parent]
+	}
+	readElsewhere := func(p pendingFieldNote) bool {
+		for t, fields := range coverageNoteState.environmentFields {
+			if t != p.target && fields[p.field] && !notedBy(t, p.field) {
+				return true
+			}
+		}
+		return false
+	}
+	kept := coverageNoteState.pendingField[:0]
+	for _, p := range coverageNoteState.pendingField {
+		if p.kind != spec.KindEnvironment || !readElsewhere(p) {
+			kept = append(kept, p)
+		}
+	}
+	coverageNoteState.pendingField = kept
 }
 
 // NoteCoverageGap records that count specs of kind reach target only via
@@ -224,7 +298,9 @@ func flushGapNotesLocked() {
 // "reaches target only ...", since the entry itself did reach the target.
 // Caller holds coverageNoteState.mu.
 func flushFieldNotesLocked() {
+	pruneFieldNotesLocked()
 	if len(coverageNoteState.pendingField) == 0 {
+		coverageNoteState.environmentFields = nil
 		return
 	}
 	type key struct {
@@ -254,6 +330,7 @@ func flushFieldNotesLocked() {
 			k.field, k.count, pluralizeKind(k.kind, k.count), strings.Join(targets, ", "), k.reason)
 	}
 	coverageNoteState.pendingField = nil
+	coverageNoteState.environmentFields = nil
 }
 
 // flushSurfaceNotesLocked prints one line per (kind, count, surface,
@@ -311,6 +388,7 @@ func ResetCoverageNotes() {
 	coverageNoteState.pendingField = nil
 	coverageNoteState.pendingSurface = nil
 	coverageNoteState.pendingText = nil
+	coverageNoteState.environmentFields = nil
 	coverageNoteState.mu.Unlock()
 }
 
@@ -321,6 +399,7 @@ func ResetCoverageNotes() {
 func CoverageNotesDigest() string {
 	coverageNoteState.mu.Lock()
 	defer coverageNoteState.mu.Unlock()
+	pruneFieldNotesLocked()
 	if len(coverageNoteState.pending) == 0 && len(coverageNoteState.pendingField) == 0 &&
 		len(coverageNoteState.pendingSurface) == 0 && len(coverageNoteState.pendingText) == 0 {
 		return ""
@@ -374,6 +453,7 @@ func CoverageNotesDigest() string {
 func PendingCoverageNotesCount() int {
 	coverageNoteState.mu.Lock()
 	defer coverageNoteState.mu.Unlock()
+	pruneFieldNotesLocked()
 	seen := map[string]bool{}
 	for _, p := range coverageNoteState.pending {
 		seen["gap\x00"+p.target+"\x00"+string(p.kind)+"\x00"+p.via] = true

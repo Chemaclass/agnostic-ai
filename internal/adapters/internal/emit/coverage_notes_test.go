@@ -335,3 +335,62 @@ func TestNoteProject_BuffersDedupesAndDigests(t *testing.T) {
 		t.Error("a changed project note must change the digest")
 	}
 }
+
+// One environment spec feeds each tool its own part, so a field one tool
+// ignores and another reads prints no note; a field no tool reads does.
+func TestFieldNoOp_EnvironmentFieldReadElsewhereIsDropped(t *testing.T) {
+	buf := swapWarnerForNotes(t)
+	env := []spec.Entry{{Kind: spec.KindEnvironment, Name: "dev", Meta: map[string]any{
+		"cleanup": "make stop", "terminals": []any{"x"}, "tasks": "x",
+		"dev-commands": []any{map[string]any{"name": "d", "command": "run", "port": 3000}},
+	}}}
+	RecordEnvironmentFields("codex", env)
+	RecordEnvironmentFields("claude", env)
+	RecordEnvironmentFields("cursor", env)
+	NoteFieldNoOp("cursor", spec.KindEnvironment, "cleanup", 1, "no cleanup step")
+	NoteFieldNoOp("codex", spec.KindEnvironment, "dev-commands.port", 1, "no port field")
+	NoteFieldNoOp("codex", spec.KindEnvironment, "terminals", 1, "no terminal list")
+	NoteFieldNoOp("claude", spec.KindEnvironment, "terminals", 1, "no terminal list")
+	for _, target := range []string{"codex", "claude", "cursor"} {
+		NoteFieldNoOp(target, spec.KindEnvironment, "tasks", 1, "no file for it")
+	}
+	NoteFieldNoOp("cursor", spec.KindAgent, "cleanup", 1, "other kind")
+
+	if got := PendingCoverageNotesCount(); got != 4 {
+		t.Errorf("pending notes = %d, want 4: tasks on each target, which none reads, and the agent note", got)
+	}
+	FlushCoverageNotes()
+	got := buf.String()
+	for _, gone := range []string{"`cleanup` on 1 environment", "dev-commands.port", "terminals"} {
+		if strings.Contains(got, gone) {
+			t.Errorf("a field another target reads was noted: %q in\n%s", gone, got)
+		}
+	}
+	if !strings.Contains(got, "`tasks` on 1 environment has no effect on codex, claude, cursor") {
+		t.Errorf("a field no target reads must stay noted:\n%s", got)
+	}
+	if !strings.Contains(got, "`cleanup` on 1 agent has no effect on cursor") {
+		t.Errorf("notes on other kinds must stay:\n%s", got)
+	}
+}
+
+// A target that notes dev-commands as a whole reads none of its fields,
+// and a false flag is not a set field.
+func TestFieldNoOp_ParentNoteAndFalseFlagDoNotHideANote(t *testing.T) {
+	buf := swapWarnerForNotes(t)
+	env := []spec.Entry{{Kind: spec.KindEnvironment, Name: "dev", Meta: map[string]any{
+		"dev-commands": []any{map[string]any{"name": "d", "command": "run", "port": 3000, "auto-port": false}},
+	}}}
+	RecordEnvironmentFields("codex", env)
+	RecordEnvironmentFields("amp", env)
+	NoteFieldNoOp("amp", spec.KindEnvironment, "dev-commands", 1, "no dev server list")
+	NoteFieldNoOp("codex", spec.KindEnvironment, "dev-commands.port", 1, "no port field")
+	FlushCoverageNotes()
+	if !strings.Contains(buf.String(), "dev-commands.port") {
+		t.Errorf("no target reads port, so its note must stay:\n%s", buf)
+	}
+	RecordEnvironmentFields("claude", env)
+	if coverageNoteState.environmentFields["claude"]["dev-commands.auto-port"] {
+		t.Error("auto-port: false recorded as a set field")
+	}
+}

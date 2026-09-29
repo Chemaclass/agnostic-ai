@@ -7,6 +7,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -84,7 +85,11 @@ func importCodexEnvironment(root string, src config.Sources) (int, error) {
 	for _, a := range actions {
 		cmd := yaml.Node{Kind: yaml.MappingNode}
 		addYAMLField(&cmd, "name", a["name"])
-		addYAMLField(&cmd, "command", strings.TrimRight(a["command"].(string), "\n"))
+		cwd, command := actionCwd(strings.TrimRight(a["command"].(string), "\n"))
+		addYAMLField(&cmd, "command", command)
+		if cwd != "" {
+			addYAMLField(&cmd, "cwd", cwd)
+		}
 		if icon, _ := a["icon"].(string); icon != "" && icon != "run" {
 			addYAMLField(&cmd, "icon", icon)
 		}
@@ -210,4 +215,23 @@ func codexActionProblem(a map[string]any) string {
 		return "has no name or command"
 	}
 	return ""
+}
+
+// actionCdRE matches the `cd <dir> && ` or `cd <dir> || exit 1` line that
+// sync writes for a dev command's cwd, with the directory bare or in
+// single quotes.
+var actionCdRE = regexp.MustCompile(`^cd (?:'([^']+)'|([A-Za-z0-9_@%+=:,./-]+))(?: && |[ \t]*\|\| exit 1\n)`)
+
+// actionCwd splits the directory an action changes into off its command,
+// the reverse of the cd that sync writes for a dev command's cwd.
+func actionCwd(command string) (string, string) {
+	m := actionCdRE.FindStringSubmatch(command)
+	if m == nil {
+		return "", command
+	}
+	rest := command[len(m[0]):]
+	if strings.TrimSpace(rest) == "" {
+		return "", command
+	}
+	return m[1] + m[2], rest
 }
