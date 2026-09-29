@@ -85,6 +85,19 @@ Flag any handler that talks to the database directly instead of going through a 
 
 Reviews honor `scope` and the source layout like rules do. Specs with the same scope concatenate into one review file, written as a plain body without frontmatter. [Cursor](@/docs/targets/cursor.md) (Bugbot), [Codex](@/docs/targets/codex.md) (code review), and [Goose](@/docs/targets/goose.md) support reviews; other targets report them as unsupported. For Codex the text lands in a `## Code Review Rules` section of the root or scoped `AGENTS.md`, which every `AGENTS.md` reader loads; a `targets:` filter that omits `codex` keeps a spec out of it.
 
+A line holding only `@path` includes that file, read from the project root, so a folder's `README.md` can serve as its review without a symlink or a copy:
+
+```markdown
+---
+scope: apps/engine/src/integrations/create-candidate
+target: cursor
+---
+
+@apps/engine/src/integrations/create-candidate/README.md
+```
+
+Sync writes the file's text where the line stood, so a change to the README shows up in `sync --check`. A missing file, an absolute path, or a path that leaves the project fails the load ([AAI-001](@/docs/errors.md#aai-001-spec-parse-failed)). A line inside a fenced code block stays as written, and an included file is not searched for further includes. Only reviews take `@path` lines; on `AGNOSTIC_AI.md` the [`resolve-imports`](@/docs/configuration.md#syncresolve-imports) setting governs them.
+
 ## Environments
 
 Pure YAML, one file per environment group. It describes how a coding agent boots the dev environment: install dependencies, start services, forward ports, open terminals.
