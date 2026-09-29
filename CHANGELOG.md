@@ -12,6 +12,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - `outputs.claude.settings.taskOutputMaxChars` is no longer written, since every release channel dropped it; sync removes it and says so (#1381).
 
+#### Codex
+
+- `import codex` keeps a hand-written `## Conventions` or `## Rules` section that has no `###` children as a rule, instead of dropping it (#1391).
+
 ### Site
 
 - The Claude page notes that Bedrock and telemetry-disabled sessions need v2.1.281 for the `AGENTS.md` fallback (#1382).

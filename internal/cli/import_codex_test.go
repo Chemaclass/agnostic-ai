@@ -249,6 +249,21 @@ body
 	}
 }
 
+func TestImportFromCodex_KeepsHandWrittenConventionsWithoutChildren(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "svc", "AGENTS.md"), "# Svc\n\nIntro.\n\n## Layout\n\n- a/\n\n## Conventions\n\n- Path alias maps to svc/src.\n\n## Tests\n\nRun tests.\n")
+	if err := importFromCodex(dir, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "rules", "svc-conventions.md"))
+	if err != nil {
+		t.Fatalf("a Conventions section without ### children must import as a rule: %v", err)
+	}
+	if !strings.Contains(string(got), "Path alias maps to svc/src.") {
+		t.Errorf("Conventions body lost:\n%s", got)
+	}
+}
+
 func TestImportFromCodex_AgentsFromTOML(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".codex/agents/reviewer.toml"), `name = "reviewer"
