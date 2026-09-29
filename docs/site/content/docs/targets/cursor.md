@@ -25,7 +25,7 @@ target_id = "cursor"
 - **Per-file check**: `agnostic-ai explain --file <path> --target cursor` classifies each planned `.mdc` rule and every `AGENTS.md` Cursor reads (root and nested) against one project file, using the `alwaysApply`/`description`/`globs` matrix from [Rules](https://cursor.com/docs/rules).
 - **Agents**: native [Cursor subagents](https://cursor.com/docs/subagents.md) at `.cursor/agents/<name>.md` (Cursor 2.4+). Frontmatter has `name` and `description`, plus `model`, `readonly`, and `is_background` when the spec declares them. The body is the system prompt.
   - Cursor subagents have no `tools` field, so a `tools` list is dropped with a coverage note. `readonly: true` is the coarse equivalent.
-  - They have no effort field, so a portable `effort` is not written and raises a coverage note. Put it in the model id instead: `model: {cursor: "claude-opus-5[effort=high]"}`. See [per-target `model` and `effort`](@/docs/spec-format/agent-specs.md#per-target-model-and-effort).
+  - They have no effort field, so a portable `effort` is not written and raises a coverage note. Put it in the model id instead: `model: {cursor: "claude-opus-5[effort=high]"}`. See [per-target `model` and `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort).
   - Older flattened `.mdc` and agent-as-command copies are swept by the ledger.
 - **Commands**: each command spec emits as a Markdown [Cursor command](https://cursor.com/help/customization/skills.md) under `.cursor/commands/`, with the body as the prompt. Cursor no longer has a page documenting `.cursor/commands` directly; that link (a "migrate commands to skills" FAQ) is the closest reference. Override the directory via `outputs.cursor.commands-dir`.
 - **Skills**: native folders under `.cursor/skills/<name>/SKILL.md` (the [Agent Skills](https://cursor.com/docs/skills.md) layout, Cursor 2.4+), with every bundled file copied byte-for-byte. A source-layout scope moves the tree under that directory and survives import. Cursor loads skills only from the workspace it opens, so a skill's `workspaces` list adds a copy under `<dir>/.cursor/skills/<name>/` for each directory while the root copy stays. Skill `model` and `effort` are omitted with a coverage note when a value resolves for Cursor, in project and global sync.
@@ -52,7 +52,7 @@ target_id = "cursor"
   - A remote (`url`) server accepts a static-OAuth `auth` object, `{CLIENT_ID, CLIENT_SECRET, scopes}` with `CLIENT_ID` required, for providers without OAuth Dynamic Client Registration.
   - A stdio server carries an explicit `"type": "stdio"`, which Cursor marks required. Claude Code [reads a type-less entry as stdio](https://code.claude.com/docs/en/mcp), so other targets sharing this builder keep type-less stdio entries.
   - A declared `roots` list still emits, but Cursor documents no per-server `roots` key (its "Roots: Supported" row is the protocol capability, and config interpolation covers only `command`, `args`, `env`, `url`, and `headers`). Treat it as passthrough.
-  - `disabled: true` has no effect here; see [`disabled` support by target](@/docs/spec-format/mcp-servers.md#disabled-support-by-target).
+  - `disabled: true` has no effect here; see [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
 
 The MCP file is managed as a whole document. Each sync replaces `.cursor/mcp.json` from MCP specs.
 

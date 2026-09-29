@@ -56,7 +56,7 @@ func TestEmit_Rule_Bare_TriggersAlwaysOn(t *testing.T) {
 // alongside `alwaysApply: true` still writes `trigger: always_on`, with
 // no `globs:` key at all. This is the exact shape `new rule` seeds
 // (`globs: "**/*"` and `alwaysApply: true` together,
-// docs/site/content/docs/spec-format/skills-rules-commands.md#rules); turning it into
+// docs/site/content/docs/spec-format/rules.md); turning it into
 // `trigger: glob` would activate the rule only when the agent touches a
 // matching file, not on every turn (#1113).
 func TestEmit_Rule_GlobsWithAlwaysApplyTrue_StaysAlwaysOn(t *testing.T) {

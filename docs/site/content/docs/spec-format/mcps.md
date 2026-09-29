@@ -1,17 +1,25 @@
 +++
-title = "MCP server specs"
-description = "Declare MCP servers once and see how each target writes them."
-weight = 40
+title = "MCP servers"
+description = "mcps/: MCP server connections, declared once and written into each tool's MCP config."
+weight = 60
+aliases = ["/docs/spec-format/mcp-servers/"]
 
 [extra]
 group = "Reference"
 +++
 
-# MCP server specs
+# MCP servers
 
-## MCP servers
+`mcps/` connects agents to outside tools and data through the Model Context Protocol: a browser, a database, GitHub, an issue tracker, internal APIs. Each tool keeps servers in its own file and shape, such as `.mcp.json`, `.cursor/mcp.json`, or `[mcp_servers.*]` in `.codex/config.toml`. One YAML file per server feeds all of them.
 
-Pure YAML, no markdown body, one file per server.
+- **Declared once.** Add or change a server in one file; every tool picks it up on the next sync.
+- **Local or remote.** A `stdio` server runs a command on the machine; `http`, `sse`, and `ws` servers connect to a URL.
+- **Tool options kept.** Timeouts, tool filters, OAuth, and approval settings that only some tools read ride along where they apply.
+- **Narrowed per agent.** An [agent's `mcpServers`](@/docs/spec-format/agents.md#mcpservers-support-by-target) limits which servers one subagent may reach.
+
+## Write one
+
+`agnostic-ai new mcp filesystem` creates `mcps/filesystem.yaml`. Pure YAML, no markdown body, one file per server.
 
 ```yaml
 name: filesystem
@@ -24,6 +32,19 @@ args:
 env:
   ROOT: /tmp
 ```
+
+A remote server, kept defined but switched off, only for two tools:
+
+```yaml
+name: docs-search
+description: Search the internal docs.
+type: http
+url: https://mcp.example.com/mcp
+disabled: true
+targets: [claude, codex]
+```
+
+## Fields
 
 `name` is the server identifier, not the filename. It may contain package-style slashes, such as `npm:@modelcontextprotocol/server-sequential.thinking`. Such names are percent-encoded in YAML filenames and kept as-is in every generated config. Other spec kinds need one safe path segment, because their names become output paths.
 
@@ -45,6 +66,8 @@ A server needs `command` (stdio) or `url` (remote). `agnostic-ai lint` reports a
 | `disabled` | no | `false` | See [`disabled` support by target](#disabled-support-by-target). |
 | `roots` | no | empty | List of `{uri, name}` objects, for targets that support MCP roots. |
 
+## Target-only fields
+
 These fields apply only to the listed targets and are ignored elsewhere.
 
 | Target | Extra fields |
@@ -63,7 +86,7 @@ These fields apply only to the listed targets and are ignored elsewhere.
 
 On Amp, set `x-amp.includeTools`. Use `x-factory`, `x-kilo`, or `x-continue` to override the matching top-level options for that target.
 
-### `disabled` support by target
+## `disabled` support by target
 
 Only the targets listed were checked.
 

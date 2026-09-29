@@ -144,6 +144,10 @@ func TestSpecKeys_CoverEveryDocumentedField(t *testing.T) {
 	}
 	var data []byte
 	for _, file := range files {
+		// Settings keys are nested policy fields, not frontmatter keys.
+		if filepath.Base(file) == "settings.md" {
+			continue
+		}
 		page, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatal(err)
@@ -152,7 +156,7 @@ func TestSpecKeys_CoverEveryDocumentedField(t *testing.T) {
 		data = append(data, '\n')
 	}
 	field := regexp.MustCompile("`([A-Za-z][A-Za-z0-9_-]*)`")
-	skip := map[string]bool{"## Settings": true, "## Target-specific extensions: `x-<target>` namespace": true}
+	skip := map[string]bool{"## Target-specific extensions: `x-<target>` namespace": true}
 	section, header := "", ""
 	for _, line := range strings.Split(string(data), "\n") {
 		if strings.HasPrefix(line, "## ") {

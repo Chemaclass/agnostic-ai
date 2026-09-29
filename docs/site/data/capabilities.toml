@@ -1,54 +1,54 @@
 [[features]]
 id = "agent"
 label = "Agents"
-href = "@/docs/spec-format/agent-specs.md#agents"
+href = "@/docs/spec-format/agents.md"
 
 [[features]]
 id = "skill"
 label = "Skills"
-href = "@/docs/spec-format/skills-rules-commands.md#skills"
+href = "@/docs/spec-format/skills.md"
 
 [[features]]
 id = "rule"
 label = "Rules"
-href = "@/docs/spec-format/skills-rules-commands.md#rules"
+href = "@/docs/spec-format/rules.md"
 
 [[features]]
 id = "hook"
 label = "Hooks"
-href = "@/docs/spec-format/hooks.md#hooks"
+href = "@/docs/spec-format/hooks.md"
 
 [[features]]
 id = "mcp"
 label = "MCP"
-href = "@/docs/spec-format/mcp-servers.md#mcp-servers"
+href = "@/docs/spec-format/mcps.md"
 
 [[features]]
 id = "command"
 label = "Commands"
-href = "@/docs/spec-format/skills-rules-commands.md#commands"
+href = "@/docs/spec-format/commands.md"
 
 [[features]]
 id = "settings"
 label = "Settings"
-href = "@/docs/spec-format/settings.md#settings"
+href = "@/docs/spec-format/settings.md"
 
 [[features]]
 id = "review"
 label = "Code review"
-href = "@/docs/spec-format/settings.md#reviews"
+href = "@/docs/spec-format/reviews.md"
 tool_specific = true
 
 [[features]]
 id = "environment"
 label = "Dev setup"
-href = "@/docs/spec-format/settings.md#environments"
+href = "@/docs/spec-format/environments.md"
 tool_specific = true
 
 [[features]]
 id = "ignore"
 label = "Ignored files"
-href = "@/docs/spec-format/settings.md#ignore"
+href = "@/docs/spec-format/ignore.md"
 
 [[states]]
 id = "native"

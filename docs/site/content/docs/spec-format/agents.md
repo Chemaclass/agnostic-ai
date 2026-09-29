@@ -1,20 +1,32 @@
 +++
-title = "Agent specs"
-description = "Agent frontmatter, and how model, effort, tools, and other fields map per target."
+title = "Agents"
+description = "agents/: subagents with their own prompt, tools, and model, written once for every tool."
 weight = 10
+aliases = ["/docs/spec-format/agent-specs/"]
 
 [extra]
 group = "Reference"
 +++
 
-# Agent specs
+# Agents
 
-## Agents
+`agents/` defines subagents: specialists the main agent hands a task to, each with its own instructions, tools, and model. A reviewer that only reads, an architect on the strongest model, a test writer on a cheaper one.
+
+Why a subagent instead of more instructions in the main session:
+
+- **Clean context.** A subagent works in its own context and hands back a result, so its exploration stays out of the main conversation.
+- **Least privilege.** `tools`, `readonly`, and `mcpServers` narrow what it may touch.
+- **The right model per role.** `model` and `effort` set cost and depth per agent, and per tool.
+- **One definition.** Every target with an agent surface gets its native file from the same spec; the rest get a coverage note.
+
+## Write one
+
+`agnostic-ai new agent code-reviewer` creates `agents/code-reviewer.md`. The frontmatter configures the agent. The body is its system prompt.
 
 ```markdown
 ---
 name: code-reviewer
-description: Reviews diffs for bugs, style, and architectural issues.
+description: Reviews diffs for bugs, style, and architectural issues. Use after a change set is complete.
 tools: [Read, Grep, Bash]
 model: sonnet
 ---
@@ -22,22 +34,43 @@ model: sonnet
 You are a code reviewer. Report concise findings with `file:line` references.
 ```
 
+Write `description` for the main agent: it reads it to decide when to delegate, so say what the agent does and when to use it.
+
+A read-only auditor on a stronger model for Claude Code, with a fallback everywhere else and one MCP server:
+
+```markdown
+---
+name: security-auditor
+description: Checks a diff for injection, leaked secrets, and unsafe input handling. Use before merging auth or payment changes.
+readonly: true
+model: {claude: opus, default: gpt-5.5}
+mcpServers: [github]
+---
+
+List each finding with its `file:line`, the attack it enables, and the smallest fix.
+```
+
+## Fields
+
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `name` | no | filename without `.md` | Agent identifier and output filename. |
-| `description` | no | empty | One-liner shown in tool listings. |
+| `description` | no | empty | When to delegate to the agent. Tools show it in listings and use it to pick an agent. |
 | `tools` | no | unset | Tools the agent may invoke. See [`tools` support by target](#tools-support-by-target). |
 | `model` | no | unset | A string for every target, or a map per target. See [per-target `model` and `effort`](#per-target-model-and-effort). |
 | `effort` | no | unset | A string or integer for every target, or a map per target. See [per-target `model` and `effort`](#per-target-model-and-effort). |
 | `color` | no | unset | Badge color. See [`color` support by target](#color-support-by-target). |
 | `readonly` | no | unset | `true` restricts the agent to reading. Cursor: restricted. Claude: `disallowedTools: Write, Edit, NotebookEdit` (Bash stays allowed). Codex: `sandbox_mode = "read-only"`. Factory: `tools: read-only` with `mcpServers: []` unless servers are listed (wins over a portable `tools` list). An explicit `x-claude.disallowedTools`, `x-codex.sandbox_mode`, or `x-factory.tools` wins. Other targets report a coverage note. `false` is a no-op. |
 | `memory` | no | unset | Persistent memory scope: `user`, `project`, or `local`. |
+| `mcpServers` | no | unset | MCP servers this agent may reach. See [`mcpServers` support by target](#mcpservers-support-by-target). |
+| `permissionMode` | no | unset | Approval boundary for this agent. See [`permissionMode` and agent `hooks`](#agent-policy-support-by-target). |
+| `hooks` | no | unset | Lifecycle hooks scoped to this agent. See [`permissionMode` and agent `hooks`](#agent-policy-support-by-target). |
 
 Any other frontmatter field passes through unchanged.
 
 `memory` gives the agent a directory that survives across sessions. Only [Claude Code](@/docs/targets/claude.md#agent-memory) is confirmed to act on it; [Qoder](@/docs/targets/qoder.md#subagent-memory) gets the key unconfirmed, Junie passes it through, and every other adapter drops it.
 
-### Per-target `model` and `effort` {#per-target-model-and-effort}
+## Per-target `model` and `effort` {#per-target-model-and-effort}
 
 `model:` and `effort:` each take a scalar or a map keyed by target name, with an optional `default`. Precedence: `x-<target>.<key>`, then `<key>.<target>`, then `<key>.default`, then the key is not written and the tool uses its own default. `x-<target>.<key>: null` deletes it. A non-scalar value under a target key falls through to `default`.
 
@@ -83,7 +116,7 @@ Result: Claude gets `opus` and `xhigh`; Qoder `gpt-5.5` and `8000`; Junie `gpt-5
 
 Cursor encodes effort in the `model` string, so it rides on the `model` map. Factory ignores `reasoningEffort` when `model` resolves to `inherit`.
 
-### `tools` support by target
+## `tools` support by target
 
 Only the targets listed were checked. A target that cannot honor `tools` prints a coverage note at sync time, so `tools: [Read]` never silently becomes an unrestricted agent.
 
@@ -96,7 +129,7 @@ Only the targets listed were checked. A target that cannot honor `tools` prints 
 
 Translation can widen access: on Kiro, `Edit` alone also permits `delete_file`. Most targets accept native names through `x-<target>.tools`, which bypasses translation.
 
-### `mcpServers` support by target {#mcpservers-support-by-target}
+## `mcpServers` support by target {#mcpservers-support-by-target}
 
 Only the targets listed were checked. A top-level `mcpServers` list narrows which MCP servers one agent may reach. Omitting it inherits the session's full set.
 
@@ -112,7 +145,7 @@ Every other target drops the list with a coverage note; the three inline targets
 
 **An empty list is not portable.** Junie treats `mcpServers: []` as keeping every configured server. Factory treats it as excluding every server. List the servers you want instead.
 
-### `permissionMode` and agent `hooks` support by target {#agent-policy-support-by-target}
+## `permissionMode` and agent `hooks` support by target {#agent-policy-support-by-target}
 
 Only the targets listed were checked. `permissionMode` sets one delegated agent's approval boundary; `hooks` scopes lifecycle hooks to it. Omitting either inherits the parent session.
 
@@ -124,7 +157,7 @@ Only the targets listed were checked. `permissionMode` sets one delegated agent'
 
 On Qoder, `bypassPermissions` is demoted to `acceptEdits` when security policy disables it, and agent scope runs fewer hook events than project scope.
 
-### `color` support by target
+## `color` support by target
 
 Only the targets listed were checked. `color` is written verbatim and not validated. An unrecognized value is cosmetic: the agent still runs.
 

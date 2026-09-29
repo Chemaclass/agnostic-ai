@@ -240,13 +240,11 @@ func TestSiteDocs_PlaygroundSurfacesAdapterCapabilities(t *testing.T) {
 
 // The kind picker is where most people meet the full list of spec kinds, so
 // every kind needs a one-line description and a link that lands on a real
-// heading in the spec format page. A renamed heading has to fail here rather
-// than ship a dropdown full of dead anchors (#980).
+// spec format page. A renamed page has to fail here rather than ship a
+// dropdown full of dead links (#980).
 func TestSiteDocs_PlaygroundKindPickerExplainsEveryKind(t *testing.T) {
 	page := readBuiltFile(t, "../../docs/playground/index.html")
 	script := readBuiltFile(t, "../../docs/playground/playground.js")
-	specFormat := readSpecFormat(t)
-
 	for _, required := range []string{
 		`id="kind-summary"`,
 		`id="kind-doc"`,
@@ -260,27 +258,18 @@ func TestSiteDocs_PlaygroundKindPickerExplainsEveryKind(t *testing.T) {
 		t.Error("playground never fills in the kind description")
 	}
 
-	headings := make(map[string]bool)
-	for _, line := range strings.Split(specFormat, "\n") {
-		title, ok := strings.CutPrefix(line, "## ")
-		if !ok {
-			continue
-		}
-		headings[strings.ToLower(strings.ReplaceAll(strings.TrimSpace(title), " ", "-"))] = true
-	}
-
 	entry := regexp.MustCompile(`(?s)\n  (\w+): \{(.*?)\n  \},`)
 	found := make(map[string]bool)
 	for _, match := range entry.FindAllStringSubmatch(script, -1) {
 		kind, body := match[1], match[2]
 		found[kind] = true
-		anchor := regexp.MustCompile(`anchor: "([^"]+)"`).FindStringSubmatch(body)
-		if anchor == nil {
-			t.Errorf("playground kind %s has no docs anchor", kind)
+		page := regexp.MustCompile(`page: "([^"]+)"`).FindStringSubmatch(body)
+		if page == nil {
+			t.Errorf("playground kind %s has no docs page", kind)
 			continue
 		}
-		if !headings[anchor[1]] {
-			t.Errorf("playground kind %s links to #%s, which is not a heading under spec-format/", kind, anchor[1])
+		if _, err := os.Stat(filepath.Join(siteDocsContentDir, "spec-format", page[1]+".md")); err != nil {
+			t.Errorf("playground kind %s links to %s/, which is not a page under spec-format/", kind, page[1])
 		}
 		if !regexp.MustCompile(`summary: "[^"]{20,}"`).MatchString(body) {
 			t.Errorf("playground kind %s has no usable one-line description", kind)
@@ -440,7 +429,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		`Each column is a portable spec kind.`,
 		`Why these columns?`,
 		`Tool-specific kinds:`,
-		`href="https://agnostic-ai.org/docs/spec-format/settings/#reviews"`,
+		`href="https://agnostic-ai.org/docs/spec-format/reviews/"`,
 		`Compare targets`,
 		`Clear filters`,
 		`Related reference`,
@@ -639,7 +628,7 @@ func TestSiteDocs_BuildsSiteSearchIndex(t *testing.T) {
 		"https://agnostic-ai.org/docs/",
 		"https://agnostic-ai.org/docs/targets/",
 		"https://agnostic-ai.org/docs/targets/claude/",
-		"https://agnostic-ai.org/docs/spec-format/hooks/#hooks",
+		"https://agnostic-ai.org/docs/spec-format/hooks/",
 		"https://agnostic-ai.org/docs/configuration/#verify",
 		"https://agnostic-ai.org/updates/",
 		"https://agnostic-ai.org/updates/2026-09-16-v0.59.0/",
@@ -1086,19 +1075,4 @@ func TestSiteDocs_HeaderKeepsOnlySiteNavigation(t *testing.T) {
 			}
 		}
 	}
-}
-
-// readSpecFormat joins the spec format hub and its topic pages.
-func readSpecFormat(t *testing.T) string {
-	t.Helper()
-	files, err := filepath.Glob(filepath.Join(siteDocsContentDir, "spec-format", "*.md"))
-	if err != nil || len(files) == 0 {
-		t.Fatalf("no spec-format pages under %s: %v", siteDocsContentDir, err)
-	}
-	var all strings.Builder
-	for _, file := range files {
-		all.WriteString(readBuiltFile(t, file))
-		all.WriteString("\n")
-	}
-	return all.String()
 }

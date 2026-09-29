@@ -270,7 +270,7 @@ minimumReleaseAgeExclude:
 
 ### Formatters
 
-Keep ignore patterns in a fenced code block. Prettier escapes `*` in plain Markdown text, so `/res/*` becomes `/res/\*`, but it leaves code blocks alone. See [ignore specs](@/docs/spec-format/settings.md#ignore).
+Keep ignore patterns in a fenced code block. Prettier escapes `*` in plain Markdown text, so `/res/*` becomes `/res/\*`, but it leaves code blocks alone. See [ignore specs](@/docs/spec-format/ignore.md).
 
 Keep formatters away from the generated files you commit, or each sync undoes their edits. Prettier already skips the files `.gitignore` lists. `.prettierignore`:
 

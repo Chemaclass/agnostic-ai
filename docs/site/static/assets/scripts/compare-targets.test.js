@@ -23,10 +23,10 @@ const data = {
     { id: "no", label: "No output" }
   ],
   features: [
-    { id: "agent", label: "Agents", href: "/docs/spec-format/agent-specs/#agents" },
-    { id: "command", label: "Commands", href: "/docs/spec-format/skills-rules-commands/#commands" },
-    { id: "review", label: "Code review", href: "/docs/spec-format/settings/#reviews" },
-    { id: "ignore", label: "Ignored files", href: "/docs/spec-format/settings/#ignore" }
+    { id: "agent", label: "Agents", href: "/docs/spec-format/agents/" },
+    { id: "command", label: "Commands", href: "/docs/spec-format/commands/" },
+    { id: "review", label: "Code review", href: "/docs/spec-format/reviews/" },
+    { id: "ignore", label: "Ignored files", href: "/docs/spec-format/ignore/" }
   ],
   targets: [
     { id: "claude", name: "Claude Code", href: "/docs/targets/claude/", statuses: ["native", "native", "no", "no"], paths: [[".claude/agents/a.md"], [".claude/commands/c.md"], [], []] },

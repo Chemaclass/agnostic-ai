@@ -42,6 +42,21 @@
 {% endblock content %}
 
 {% block scripts %}
+{% if page.extra.moved %}
+<script>
+  // Anchors that moved to another page when this one was split.
+  (function () {
+    var hash = decodeURIComponent(window.location.hash.slice(1));
+    if (!hash || document.getElementById(hash)) return;
+    var moved = {
+{%- for anchor, path in page.extra.moved %}
+      "{{ anchor }}": "{{ get_url(path=path) | safe }}",{% endfor %}
+      "": ""
+    };
+    if (moved[hash]) window.location.replace(moved[hash] + "#" + hash);
+  })();
+</script>
+{% endif %}
 {% if page.extra.scripts %}
   {% for script in page.extra.scripts %}<script src="{{ get_url(path=script, trailing_slash=false) }}" defer></script>{% endfor %}
 {% endif %}

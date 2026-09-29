@@ -48,10 +48,13 @@
     var hash = decodeURIComponent(window.location.hash.slice(1));
     if (!hash || document.getElementById(hash)) return;
     var moved = {
-{%- for page in section.pages %}{% for h1 in page.toc %}{% for h2 in h1.children %}
+{%- for page in section.pages %}
+      "{{ page.slug }}": "{{ page.permalink | safe }}",{% for h1 in page.toc %}{% for h2 in h1.children %}
       "{{ h2.id }}": "{{ page.permalink | safe }}",{% for h3 in h2.children %}
       "{{ h3.id }}": "{{ page.permalink | safe }}",{% for h4 in h3.children %}
       "{{ h4.id }}": "{{ page.permalink | safe }}",{% endfor %}{% endfor %}{% endfor %}{% endfor %}{% endfor %}
+{%- if section.extra.moved %}{% for anchor, path in section.extra.moved %}
+      "{{ anchor }}": "{{ get_url(path=path) | safe }}",{% endfor %}{% endif %}
       "": ""
     };
     if (moved[hash]) window.location.replace(moved[hash] + "#" + hash);

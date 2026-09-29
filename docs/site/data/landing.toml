@@ -174,7 +174,7 @@ outputs = [
   { tool = "Codex", path = ".codex/config.toml" },
   { tool = "Gemini CLI", path = ".gemini/settings.json" },
 ]
-href = "@/docs/spec-format/mcp-servers.md"
+href = "@/docs/spec-format/mcps.md"
 anchor = "mcp-servers"
 docs_label = "MCP servers"
 
@@ -203,7 +203,7 @@ outputs = [
   { tool = "Codex", path = "AGENTS.md" },
   { tool = "Gemini CLI", path = "GEMINI.md" },
 ]
-href = "@/docs/spec-format/skills-rules-commands.md"
+href = "@/docs/spec-format/skills.md"
 anchor = "rules"
 docs_label = "Rules"
 
@@ -247,7 +247,7 @@ outputs = [
   { tool = "Codex", path = ".agents/skills/release/SKILL.md" },
   { tool = "Gemini CLI", path = ".gemini/skills/release/SKILL.md" },
 ]
-href = "@/docs/spec-format/skills-rules-commands.md"
+href = "@/docs/spec-format/skills.md"
 anchor = "skills"
 docs_label = "Skills"
 

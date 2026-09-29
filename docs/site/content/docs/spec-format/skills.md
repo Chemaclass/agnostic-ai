@@ -1,25 +1,34 @@
 +++
-title = "Skills, rules, and commands"
-description = "Write skills, rules, and commands, and how each target reads them."
+title = "Skills"
+description = "skills/: procedures the agent loads when a task needs them, with their scripts and templates."
 weight = 20
 
 [extra]
 group = "Reference"
 +++
 
-# Skills, rules, and commands
+# Skills
 
-## Skills
+`skills/` holds procedures the agent loads only when a task calls for them: cut a release, write a migration, triage a bug report. The tool keeps each skill's `description` in view and reads the body, plus any bundled files, when the skill applies.
 
-Two layouts:
+- **Small standing context.** A long procedure costs nothing until it is used, unlike a rule, which loads every session.
+- **Files that travel with it.** Scripts, templates, and fixtures sit next to `SKILL.md` and land beside it in every tool.
+- **Invoked by the model or by name.** The model picks a skill from its description; a person can also call it directly.
+- **One format across tools.** Targets that read the `SKILL.md` layout get the skill as written; targets without a skill surface get a rule and a coverage note.
+
+Use a [rule](@/docs/spec-format/rules.md) for what applies to every task, and a skill for a procedure some tasks need.
+
+## Write one
+
+`agnostic-ai new skill release-notes` scaffolds one. Two layouts:
 
 - **Flat:** `skills/yaml-validator.md`
-- **Nested**, for skills with attached resources: `skills/yaml-validator/SKILL.md` next to `skills/yaml-validator/schema.yaml`
+- **Nested**, for skills with attached files: `skills/yaml-validator/SKILL.md` next to `skills/yaml-validator/schema.yaml`
 
 ```markdown
 ---
 name: yaml-validator
-description: Validate YAML against a schema.
+description: Validate YAML against a schema. Use when a YAML file changes or the user asks to check one.
 ---
 
 # YAML Validator
@@ -29,24 +38,54 @@ description: Validate YAML against a schema.
 3. Report violations as `path: message`
 ```
 
+Write `description` as the trigger: what the skill does and when to use it. The model decides from that line alone.
+
+A manual-only release skill that runs on a stronger model in Claude Code and ships its own script:
+
+```
+skills/cut-release/
+├── SKILL.md
+└── scripts/bump-version.sh
+```
+
+```markdown
+---
+name: cut-release
+description: Cut a release. Run only when the user asks to release or tag.
+disable-model-invocation: true
+model: {claude: opus}
+---
+
+1. Run `make ci-local` and stop on any failure.
+2. Run `scripts/bump-version.sh <version>` from this skill's folder.
+3. Commit `chore(release): v<version>` and tag it.
+```
+
+## Fields
+
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `name` | no | dir or filename | Skill identifier and output directory. Some targets restrict the format. |
 | `description` | no | empty | One-liner the model uses to decide whether to invoke the skill. |
+| `disable-model-invocation` | no | unset | `true` keeps the skill out of automatic invocation; a person can still call it. See [support by target](#disable-model-invocation-support-by-target). |
 | `model` | no | unset | Claude Code model for the rest of the turn. Scalar or per-target map; `x-claude.model` wins. |
 | `effort` | no | unset | Claude Code effort for the rest of the turn. Scalar or per-target map; `x-claude.effort` wins. |
 | `license` | no | unset | The Agent Skills license, kept in every target's `SKILL.md`. |
-| `workspaces` | no | empty | Project directories where Cursor also gets a copy, such as `[apps/platforma]`. Cursor loads skills only from the workspace it opens, so a session or SDK agent started in `apps/platforma` misses a root skill. The skill stays at the root for every tool. |
+| `workspaces` | no | empty | Project directories where Cursor also gets a copy, such as `[apps/web]`. Cursor loads skills only from the workspace it opens, so a session or SDK agent started in `apps/web` misses a root skill. The skill stays at the root for every tool. |
 
 A skill's scope comes from its folder: `skills/services/api/review/SKILL.md` moves the skill under `services/api/`, where only sessions in that directory load it. `scope:` in the frontmatter has no effect, and `lint` warns about it (LINT018). `import cursor` writes `workspaces` when a root `.cursor/skills/<name>` links to a skill folder under a project directory.
 
 Other targets omit skill `model` and `effort` and report a coverage note when a value resolves for them. Use `{claude: opus}` to choose a model only for Claude. Global sync uses the same renderers; shared global directories omit target overrides.
 
+## Bundled files and output
+
 Only `SKILL.md` and flat `skills/*.md` parse as skills. Every other file in a nested skill directory is a bundled asset (scripts, templates, fixtures, extra `*.md`). Assets copy verbatim to the same relative path under each target's skills dir. Import and sync preserve executable bits.
 
 Most targets write `<dir>/<name>/SKILL.md` with assets. Several share `.agents/skills/`, so identical bytes write once. Targets with no skill surface flatten it to a `skill-<name>.md` rule and raise a coverage note, since assets cannot follow. Set `outputs.<target>.emit-skills-as-commands: true` to also emit a slash command. Each target page gives the exact directory.
 
-### `disable-model-invocation` support by target {#disable-model-invocation-support-by-target}
+A body can point at another skill with [`{{$SKILLS_DIR}}`](@/docs/spec-format/_index.md#path-variables-name), which resolves to each target's own skills directory.
+
+## `disable-model-invocation` support by target {#disable-model-invocation-support-by-target}
 
 Only the targets listed were checked. Setting it keeps a skill out of automatic model invocation; the user can still invoke it. Omitting it leaves each target's default, which is model-invocable everywhere below.
 
@@ -60,48 +99,3 @@ Only the targets listed were checked. Setting it keeps a skill out of automatic 
 Crush and Factory skills land in the shared `.agents/skills/` tree, so emitting the key would hand it to targets with no such field. Use the `x-` key: a manual-only skill turning model-invocable is a safety boundary.
 
 OpenHands' `triggers` is unrelated: it injects a skill on a keyword. Devin spells this restriction `triggers: [user]`.
-
-## Rules
-
-```markdown
----
-name: conventional-commits
-description: Always use Conventional Commits format.
-globs: "**/*"
-alwaysApply: true
----
-
-Use `feat:`, `fix:`, `docs:`, etc. Subject under 72 chars.
-```
-
-| Field | Required | Default | Description |
-|-------|----------|---------|-------------|
-| `name` | no | filename | Rule identifier. |
-| `description` | no | empty | Short summary. |
-| `scope` | no | project-wide | Project-relative directory and its descendants. Source-layout scope wins. A scope inside `node_modules` is refused. See [scoped context](@/docs/scoped-context.md). |
-| `globs` | no | target-dependent; `new rule` seeds `**/*` | Project-relative patterns, as a comma-separated string (`"*.go,*.mod"`) or a list. A comma inside a brace set does not separate patterns, so `"src/**/*.{ts,tsx}"` is one pattern. With `scope`, the selector must stay inside the directory. `new rule --scope` omits it. |
-| `paths` | no | unset | File patterns, as a string or list. Scoped rules accept it with or instead of `globs`; see [selector limits](@/docs/scoped-context.md#narrow-a-rule-to-certain-files). |
-| `alwaysApply` | no | target-dependent; `new rule` seeds `true` | Requests unconditional activation. With `scope`, only inside the directory. `new rule --scope` omits it. |
-
-## Commands
-
-Markdown with optional YAML frontmatter. Each spec becomes one native slash command.
-
-```markdown
----
-name: deploy
-description: Deploy the app to staging.
-argument-hint: <env>
----
-
-Deploy the app to {{env}}.
-```
-
-| Field | Required | Default | Description |
-|-------|----------|---------|-------------|
-| `name` | no | filename | Command identifier and slash name, such as `/deploy`. |
-| `description` | no | empty | One-liner shown in slash-command pickers. |
-| `argument-hint` | no | empty | Hint shown after the command, on Claude Code, Augment, and Factory. |
-
-Any other frontmatter passes through. Put target-specific keys under `x-<target>`, for example `x-claude.allowed-tools`. Codex emits commands only when `outputs.codex.commands-dir` is set. Targets without a command surface log a warning and skip.
-

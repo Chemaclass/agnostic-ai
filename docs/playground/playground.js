@@ -89,58 +89,48 @@ effort:
 `,
 };
 
-/* One line per spec kind, plus the section of the spec-format page that
-   documents it. The dropdown is where most people meet the full list, so
-   every option says what it is and links to the reference. */
+/* One line per spec kind, plus the spec-format page that documents it.
+   The dropdown is where most people meet the full list, so every option
+   says what it is and links to the reference. */
 const KINDS = {
   agent: {
     summary: "A named subagent with its own instructions, tool list, and model.",
-    anchor: "agents",
+    page: "agents",
     docLabel: "Spec format: agents",
   },
   skill: {
     summary: "A procedure the agent loads on demand, with its reference files.",
-    anchor: "skills",
+    page: "skills",
     docLabel: "Spec format: skills",
   },
   rule: {
     summary: "Always-on project conventions, narrowed to paths with globs.",
-    anchor: "rules",
+    page: "rules",
     docLabel: "Spec format: rules",
   },
   hook: {
     summary: "A command the tool runs on a lifecycle event, such as before a commit.",
-    anchor: "hooks",
+    page: "hooks",
     docLabel: "Spec format: hooks",
   },
   mcp: {
     summary: "An MCP server: transport, command, arguments, environment.",
-    anchor: "mcp-servers",
+    page: "mcps",
     docLabel: "Spec format: MCP servers",
   },
   command: {
     summary: "A slash command the tool lists in its command picker.",
-    anchor: "commands",
+    page: "commands",
     docLabel: "Spec format: commands",
   },
   settings: {
     summary: "Portable permission rules and the default model.",
-    anchor: "settings",
+    page: "settings",
     docLabel: "Spec format: settings",
   },
 };
 
 const SPEC_FORMAT_URL = "../docs/spec-format/";
-// The spec format page is split by topic; the hub redirects old anchors, but a direct link skips the hop.
-const SPEC_FORMAT_PAGES = {
-  agents: "agent-specs/",
-  skills: "skills-rules-commands/",
-  rules: "skills-rules-commands/",
-  commands: "skills-rules-commands/",
-  hooks: "hooks/",
-  "mcp-servers": "mcp-servers/",
-  settings: "settings/",
-};
 
 // A demo renders a few well-known targets; the rest link to the full target list.
 const DEMO_TARGETS = ["claude", "codex", "copilot", "gemini", "cursor"];
@@ -206,7 +196,7 @@ function updateKindHint() {
   const info = KINDS[kind];
   if (!info) return;
   els.kindSummary.textContent = info.summary;
-  els.kindDoc.href = `${SPEC_FORMAT_URL}${SPEC_FORMAT_PAGES[info.anchor] || ""}#${info.anchor}`;
+  els.kindDoc.href = `${SPEC_FORMAT_URL}${info.page}/`;
   els.kindDoc.textContent = info.docLabel;
 }
 

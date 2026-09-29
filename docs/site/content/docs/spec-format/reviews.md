@@ -1,0 +1,53 @@
++++
+title = "Reviews"
+description = "reviews/: project guidance for code-review bots, for the whole repository or one directory."
+weight = 80
+
+[extra]
+group = "Reference"
++++
+
+# Reviews
+
+`reviews/` tells code-review bots what to check in this project: the layering rule, the error handling, the migrations that need a second look. Review bots read guidance from their own files; a review spec feeds each of them from one source.
+
+- **Project rules in every review.** The bot flags what your team cares about, not only generic issues.
+- **Scoped guidance.** A review under `reviews/services/api/` applies only to changes in that directory.
+- **No copies.** An `@path` line pulls a folder's `README.md` into its review, so the docs and the review stay one text.
+
+| Target | Reads |
+|--------|-------|
+| [Cursor](@/docs/targets/cursor.md) (Bugbot) | `.cursor/BUGBOT.md`, and `<scope>/.cursor/BUGBOT.md` for scoped specs |
+| [Codex](@/docs/targets/codex.md) (code review) | a `## Code Review Rules` section of the root or scoped `AGENTS.md` |
+| [Goose](@/docs/targets/goose.md) (`goose review`) | `.agents/REVIEW.md`, and `<scope>/.agents/REVIEW.md` for scoped specs |
+
+Other targets report review specs as unsupported.
+
+## Write one
+
+Markdown with optional YAML frontmatter, one file per group of code-review-bot guidance.
+
+```markdown
+---
+scope: backend
+---
+
+Flag any handler that talks to the database directly instead of going through a repository.
+```
+
+Reviews honor `scope` and the source layout like [rules](@/docs/spec-format/rules.md) do. Specs with the same scope concatenate into one review file, written as a plain body without frontmatter. For Codex the section sits in `AGENTS.md`, which every `AGENTS.md` reader loads; a `targets:` filter that omits `codex` keeps a spec out of it.
+
+## Include a file
+
+A line holding only `@path` includes that file, read from the project root, so a folder's `README.md` can serve as its review without a symlink or a copy:
+
+```markdown
+---
+scope: services/billing
+target: cursor
+---
+
+@services/billing/README.md
+```
+
+Sync writes the file's text where the line stood, so a change to the README shows up in `sync --check`. A missing file, an absolute path, or a path that leaves the project fails the load ([AAI-001](@/docs/errors.md#aai-001-spec-parse-failed)). A line inside a fenced code block stays as written, and an included file is not searched for further includes. Only reviews take `@path` lines; on `AGNOSTIC_AI.md` the [`resolve-imports`](@/docs/configuration.md#syncresolve-imports) setting governs them.

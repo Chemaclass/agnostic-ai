@@ -401,7 +401,7 @@ Sync skips the pointer body only when `<path>` is the target's own entry-point f
 
 ### Per-target paragraphs
 
-`.agnostic-ai/AGNOSTIC_AI.md` accepts the `::target` / `::targets` / `::end` fences from [spec bodies](@/docs/spec-format/hooks.md#per-target-body-fences).
+`.agnostic-ai/AGNOSTIC_AI.md` accepts the `::target` / `::targets` / `::end` fences from [spec bodies](@/docs/spec-format/_index.md#per-target-body-fences).
 
 ```md
 Shared conventions for every tool.
