@@ -313,7 +313,7 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 	hasSpec := len(specSettings) > 0
 	hasConfig := len(configSettings) > 0
 	hasHooks := len(hooks) > 0
-	if !overlayOK && !hasHooks && !hasConfig && !hasSpec && len(custom) == 0 && !policy.active && len(retired) == 0 {
+	if !overlayOK && !hasHooks && !hasConfig && !hasSpec && len(custom) == 0 && !policy.active && !settingsFileHasKey(path, retired) {
 		return nil
 	}
 	doc := overlay
@@ -472,6 +472,29 @@ func loadSettingsFromDisk(path string, dryRun bool) (*emit.OrderedJSON, error) {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
 	return doc, nil
+}
+
+// settingsFileHasKey reports whether the settings.json at path holds any of
+// keys. It reads the file even in a dry run, so `sync --check` removes a
+// retired key exactly when the real sync does.
+func settingsFileHasKey(path string, keys []string) bool {
+	if len(keys) == 0 {
+		return false
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	var doc map[string]json.RawMessage
+	if json.Unmarshal(data, &doc) != nil {
+		return false
+	}
+	for _, k := range keys {
+		if _, ok := doc[k]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 // orderedConfigKeys returns the keys of `configSettings` in a stable

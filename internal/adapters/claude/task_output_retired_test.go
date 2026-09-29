@@ -59,3 +59,20 @@ func TestEmit_DropsRetiredTaskOutputMaxChars(t *testing.T) {
 		t.Errorf("no note about taskOutputMaxChars:\n%s", buf.String())
 	}
 }
+
+// A fresh project whose config sets only the retired key gets the note and
+// no settings.json: there is nothing to remove and nothing else to write.
+func TestEmit_RetiredKeyAloneWritesNoSettingsFile(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	n := 128000
+	cfg := &config.Config{Outputs: map[string]config.Output{
+		"claude": {Settings: &config.ClaudeSettings{TaskOutputMaxChars: &n}},
+	}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(".claude", "settings.json")); !os.IsNotExist(err) {
+		t.Errorf("settings.json written for a retired key alone: %v", err)
+	}
+}
