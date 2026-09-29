@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- The root `CLAUDE.md` is `@AGENTS.md` plus only your `::target claude` blocks when another target writes the root `AGENTS.md`, so Cursor, which loads both files, reads the instructions once instead of twice.
 - `sync --check --against` fails on hand-written config Git tracks inside a folder the managed block ignores, such as a skill a pre-migration branch adds under `.cursor/skills/`, and names the `import` that adopts it, without the "commit the regenerated files" line when nothing needs regenerating.
 - `import` scopes each environment spec to its tool with `targets: [<tool>]` when several tools keep their own environment file, so the sync after an import reproduces each file instead of merging one tool's dev commands or setup into the others.
 - Skills keep their Agent Skills `license` on every target that writes the standard `SKILL.md`, not only on Claude Code.
