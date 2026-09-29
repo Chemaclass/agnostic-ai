@@ -51,7 +51,8 @@ func newLintCmd() *cobra.Command {
 			"with a wildcard before the end of the command, spec bodies that name " +
 			"another spec by one target's native path, and warns when a " +
 			"target's always-loaded instructions pass the lint.instructions-words " +
-			"budget or a skill or agent description passes lint.description-chars. " +
+			"budget, the AGENTS.md chain Codex reads in a scope passes lint.codex-chain-bytes, " +
+			"or a skill or agent description passes lint.description-chars. " +
 			"With --global, it " +
 			"also flags rules sync --global rejects and settings values a target cannot take. Exit code 1 on " +
 			"error-severity findings, or on warn-severity findings when --strict " +

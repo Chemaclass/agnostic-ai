@@ -114,6 +114,18 @@ func lintBudgetFindings(scope checkScope) ([]lintFinding, error) {
 		})
 	} else {
 		findings = lintInstructionBudget(loads, budgets.InstructionsWordBudget())
+		if !scope.global {
+			chain, chainErr := lintCodexChain(scope.cfg, scope.bundle, loads, budgets.CodexChainByteBudget())
+			if chainErr != nil {
+				chain = []lintFinding{{
+					Code:     "LINT011",
+					Severity: lintWarn,
+					Path:     source,
+					Message:  fmt.Sprintf("cannot measure the AGENTS.md chain Codex reads: %v", chainErr),
+				}}
+			}
+			findings = append(findings, chain...)
+		}
 	}
 	return append(findings, lintDescriptionBudget(scope.bundle, budgets.DescriptionCharBudget())...), nil
 }

@@ -14,6 +14,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Codex
 
+- `lint` warns when the `AGENTS.md` chain Codex reads in a scope passes 32 KiB, and `lint.codex-chain-bytes` moves the limit (#1396).
 - `import codex` keeps a hand-written `## Conventions` or `## Rules` section that has no `###` children as a rule, instead of dropping it (#1391).
 
 ### Site
