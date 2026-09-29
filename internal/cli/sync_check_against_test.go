@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -383,5 +384,16 @@ func TestSyncCheckAgainst_FailsOnHandWrittenConfigInAnIgnoredFolder(t *testing.T
 	git(t, dir, "add", "agnostic-ai.yaml")
 	if stdout, _, err := checkAgainst(t, "index"); err != nil && strings.Contains(stdout, "gh-stack") {
 		t.Errorf("a path under sync.unmanaged was reported:\n%s", stdout)
+	}
+}
+
+// A hand-written file's fix is import, not regeneration, so the check
+// does not tell the user to commit regenerated files.
+func TestRegeneratedDrift_OnlyForOutputsSyncWrites(t *testing.T) {
+	if regeneratedDrift([]driftReport{{Target: "unmanaged", Unmanaged: []unmanagedFinding{{Path: "a", Target: "cursor"}}}, {Target: unledgeredReportTarget, Orphaned: []string{"b"}}}) {
+		t.Error("hand-written and leftover files asked for regeneration")
+	}
+	if !regeneratedDrift([]driftReport{{Target: "claude", Stale: []adapters.CapturedFile{{Path: "CLAUDE.md"}}}}) {
+		t.Error("a stale output did not ask for regeneration")
 	}
 }

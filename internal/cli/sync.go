@@ -172,7 +172,7 @@ func newSyncCmd() *cobra.Command {
 					return printSyncCheckJSON(cmd, reports)
 				}
 				err = reportCheckDrift(cmd, reports, format, diff)
-				if err != nil && tree != nil {
+				if err != nil && tree != nil && regeneratedDrift(reports) {
 					_, _ = fmt.Fprintln(cmd.ErrOrStderr(), againstHint(against))
 				}
 				return err
