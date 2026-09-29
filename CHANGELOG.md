@@ -6,6 +6,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+## v0.75.0 - 2026-09-29
+
 ### General
 
 - Release binaries build with Go 1.26.8 instead of 1.26.0, which fixes 18 Go standard-library vulnerabilities `govulncheck` found reachable in 0.74.0 and earlier, mostly in `crypto/x509`, which `upgrade` uses over HTTPS. CI now fails on any reachable vulnerability (#1415).
