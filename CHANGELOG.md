@@ -8,17 +8,14 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
-- `requires` takes an exact release (`"0.73.0"`) or a range (`">=0.73.0 <0.74.0"`), so a newer binary stops with AAI-005 before it rewrites committed outputs (#1399).
-- `sync --check --against index` or `--against HEAD` compares the staged specs or the last commit with the outputs Git tracks, for pre-commit hooks and CI (#1398).
+- `requires` takes an exact release (`"0.73.0"`) or a range (`">=0.73.0 <0.74.0"`), so a newer binary stops with AAI-005 before it rewrites committed outputs. AAI-005 names the package manager's install, such as `pnpm install`, when the binary sits in the project's `node_modules`, and a candidate built with `-X github.com/chemaclass/agnostic-ai/internal/cli.candidateVersion=X.Y.Z` is checked as that release (#1399, #1411).
+- `sync --check --against index` or `--against HEAD` compares the staged specs or the last commit with the outputs Git tracks, for pre-commit hooks and CI. It also fails on a tracked output no spec produces anymore, header or not, such as a deleted environment spec's `.claude/launch.json`; in CI, check out with `fetch-depth: 2` (#1398, #1411).
+- `explain --inputs` lists every file whose change can change an output, including files a review inlines with `@path`, for a hook's trigger glob (#1411).
+- With no `.sync-state`, `doctor` and `sync --check` find a headerless leftover such as `.claude/launch.json` when it still holds what the last commit's specs rendered, or what the commit that last changed it rendered. `doctor` names a leftover it cannot remove and says to delete it by hand or list it under `sync.unmanaged` (#1392).
+- `sync.output-manifest: true` writes `.agnostic-ai/outputs.lock`, the committed list of generated paths and their sums. With no `.sync-state`, a tracked file it lists that no spec produces, unedited since, is a leftover `doctor --fix` removes.
 - `sync --keep-edits` keeps an uncommitted edit to a tracked output when there is no `.sync-state`, such as in a new linked worktree (#1397).
 - A review spec line holding only `@path` inlines that file, so a folder's `README.md` can be its review without a symlinked `BUGBOT.md` (#1395).
-- `sync --check --against` also fails on a tracked output no spec produces anymore: a file with the generated header, or any file the previous state rendered, such as a deleted environment spec's `.claude/launch.json`. One CI command now catches what only `doctor` found before, and only for files with a header.
-- An environment spec shared by several tools prints a no-effect note only for a field no enabled tool reads, instead of one per tool on every sync.
-- AAI-005 names the package manager's command, such as `pnpm install`, when the binary sits in the project's `node_modules`. A release candidate built with `-X github.com/chemaclass/agnostic-ai/internal/cli.candidateVersion=X.Y.Z` is checked as that release.
-- With no `.sync-state`, `doctor` and `sync --check` also count a tracked file as a leftover when it still holds what the last commit's specs rendered, so a headerless JSON output of a deleted spec, such as `.claude/launch.json`, is named. After the deletion is committed, such a file is checked against the commit that last changed it and listed for deletion by hand.
-- `sync.output-manifest: true` writes `.agnostic-ai/outputs.lock`, the committed list of generated paths with a content sum each. With no `.sync-state`, a tracked file it lists that no spec produces, and that still has its listed sum, is a leftover `doctor --fix` removes, header or not.
-- `explain --inputs` lists every file whose change can change an output, including the files reviews inline with `@path`, for a git hook's trigger glob; `--json` gives the same list.
-- `doctor` names an unledgered leftover it cannot remove and says to delete it by hand or list it under `sync.unmanaged`, instead of advising `sync` or `doctor --fix` (#1392).
+- One environment spec shared by several tools prints a no-effect note only for a field no enabled tool reads (#1411).
 
 ### By tool
 
@@ -29,11 +26,9 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Codex
 
-- Environment specs write `.codex/environments/environment.toml`: `setup`, the new `cleanup`, and `setup-windows` become worktree scripts, and `dev-commands` become action buttons with an optional `icon`. `import codex` reads the file back (#1393).
-- A dev command's `cwd` becomes a `cd <cwd> &&` before the action's command, since Codex runs actions from the project root, and `import codex` reads it back as `cwd`.
+- Environment specs write `.codex/environments/environment.toml`: `setup`, the new `cleanup`, and `setup-windows` become worktree scripts, and `dev-commands` become action buttons with an optional `icon`. A dev command's `cwd` becomes a `cd <cwd> &&` before its command, since Codex runs actions from the project root. `import codex` reads the file back (#1393, #1411).
 - `lint` warns when the `AGENTS.md` chain Codex reads in one scope passes 32 KiB; `lint.codex-chain-bytes` moves the limit (#1396).
-- `import codex` keeps a hand-written `## Conventions` or `## Rules` section with no `###` children as a rule instead of dropping it (#1391).
-- `import codex` keeps a hand-written `## Skills` or `## Agents` section as a rule, and skips only the listing sync writes.
+- `import codex` keeps a hand-written `## Conventions`, `## Rules`, `## Skills`, or `## Agents` section as a rule, and skips only the listings sync writes (#1391, #1411).
 
 #### Cursor
 
