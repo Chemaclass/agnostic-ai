@@ -26,14 +26,14 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 
 ## claude
 
-- docs: https://code.claude.com/docs/en/memory (rules) · /docs/en/hooks · /docs/en/sub-agents · /docs/en/skills (slash-commands merged in; `.claude/commands/` still works) · /docs/en/mcp · /docs/en/settings (prose on file precedence and reload) · /docs/en/settings-reference (the settings **key** table; that is the page an auditor needs, and it is a different page from /settings, both 200 as of 2026-09-11)
+- docs: https://code.claude.com/docs/en/memory (rules) · /docs/en/hooks · /docs/en/sub-agents · /docs/en/skills (slash-commands merged in; `.claude/commands/` still works) · /docs/en/mcp · /docs/en/settings (prose on file precedence and reload) · /docs/en/settings-reference (the settings **key** table; that is the page an auditor needs, and it is a different page from /settings, both 200 as of 2026-09-11) · /docs/en/desktop (preview servers in `.claude/launch.json`, which environment `dev-commands` write since #1372)
 - changelog: https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md
 - watch: `.claude/rules/` native loading, settings.json keys, plugin and marketplace keys. The `.mcp.json` per-server fields `headersHelper`, `timeout`, `alwaysLoad` and `oauth`, emitted behind `emit.WithClaudeMCPExtras()`. The AGENTS.md fallback default, its Bedrock/Vertex/Foundry carve-out, the toggle gaining project scope, and `.claude/AGENTS.md` leaving the read list. Stable hook handler common fields, apart from command-only options.
 - decision: `oauth.clientSecret` is not emitted. The secret "is stored securely in your system keychain ... not in your config".
 - decision: experimental agent hooks stay excluded. Command, HTTP, MCP-tool and prompt handlers emit and import.
 - quirk: when `/settings-reference` and the CHANGELOG disagree, prefer the CHANGELOG. The reference once documented `taskOutputMaxChars` without a marker after v2.1.277 made it a no-op; since 2026-09-25 it carries "Removed in v2.1.277". A missing deprecation marker there has meant stale before.
 - quirk: date a CHANGELOG entry by parsing the `## <version>` headings. Summarised fetches and flat dumps misdated it twice.
-- decision: we keep emitting `taskOutputMaxChars` while npm `stable` sits below 2.1.277.
+- decision: we kept emitting `taskOutputMaxChars` while npm `stable` sat below 2.1.277. `stable` reached 2.1.277 by 2026-09-29, so it goes (#1381).
 - trap: `.claude/settings.json` is not claude-only. Copilot CLI reads a five-key subset, `enabledPlugins` and `hooks` included (#956).
 - trap: Claude does not read `AGENTS.local.md`, `AGENTS.override.md` or anything under `.agents/`.
 - trap: Claude Code reads AGENTS.md when no CLAUDE.md exists (v2.1.277). So claude must always write CLAUDE.md, in every layout, or it inherits codex's AGENTS.md (#885). The user toggle cannot substitute: "Claude Code ignores it in project and local settings files."
@@ -60,7 +60,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 
 ## cursor
 
-- docs: https://cursor.com/docs/skills · /docs/subagents · /docs/rules · /docs/hooks · /docs/mcp · /docs/bugbot · /docs/reference/third-party-hooks.md (the Claude Code hook-compatibility page; uncited until target-audit 2026-09-12, #756) · https://cursor.com/help/customization/skills.md (the old `/docs/agent/chat/commands` 308s here, to a "migrate commands to skills" FAQ; no Cursor page documents `.cursor/commands` any more, target-audit 2026-08-27)
+- docs: https://cursor.com/docs/skills · /docs/subagents · /docs/rules · /docs/hooks · /docs/mcp · /docs/bugbot · /docs/reference/third-party-hooks.md (the Claude Code hook-compatibility page; uncited until target-audit 2026-09-12, #756) · https://cursor.com/help/customization/skills.md (the old `/docs/agent/chat/commands` 308s here, to a "migrate commands to skills" FAQ; no Cursor page documents `.cursor/commands` any more, target-audit 2026-08-27) · https://cursor.com/docs/configuration/worktrees (`.cursor/worktrees.json`, which environment `setup` writes since #1368)
 - changelog: https://cursor.com/changelog
 - fetch: reader-proxy (cursor.com answers 403 from some networks and HTML from others; one representation keeps the lock stable everywhere)
 - watch: `.mdc` frontmatter fields; camelCase hook events (`beforeShellExecution`); environment.json schema; the Third-Party Imports default flipping or being renamed; `.cursor/hooks.json` changing rank; a skill precedence rule or a new compatibility root.
