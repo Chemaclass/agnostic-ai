@@ -1,6 +1,11 @@
 package claude
 
-import "github.com/chemaclass/agnostic-ai/internal/config"
+import (
+	"slices"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
+	"github.com/chemaclass/agnostic-ai/internal/config"
+)
 
 // buildConfigSettings renders the first-class
 // `outputs.claude.settings.*` fields into the map shape that
@@ -37,9 +42,6 @@ func buildConfigSettings(cfg *config.Config) map[string]any {
 	}
 	if s.BashOutputMaxChars != nil {
 		out["bashOutputMaxChars"] = *s.BashOutputMaxChars
-	}
-	if s.TaskOutputMaxChars != nil {
-		out["taskOutputMaxChars"] = *s.TaskOutputMaxChars
 	}
 	if s.Attribution != nil {
 		if attribution := attributionMap(s.Attribution); len(attribution) > 0 {
@@ -130,4 +132,39 @@ func stringSliceToAny(in []string) []any {
 		out[i] = s
 	}
 	return out
+}
+
+// retiredConfigKeys lists the settings.json keys the config still sets but
+// Claude Code no longer reads. Sync stops writing each one, removes the copy
+// an earlier sync wrote, and says so.
+func retiredConfigKeys(cfg *config.Config) []string {
+	if cfg == nil {
+		return nil
+	}
+	s := cfg.Outputs[target].Settings
+	if s == nil || s.TaskOutputMaxChars == nil {
+		return nil
+	}
+	// Removed in Claude Code v2.1.277 with the TaskOutput tool; npm stable
+	// reached that release on 2026-09-29 (#1381).
+	emit.NoteProject("outputs.claude.settings.taskOutputMaxChars has no effect since Claude Code v2.1.277 and is no longer written; remove it from agnostic-ai.yaml")
+	return []string{"taskOutputMaxChars"}
+}
+
+// retiredSettingsKeys are settings.json keys Claude Code no longer reads.
+var retiredSettingsKeys = []string{"taskOutputMaxChars"}
+
+// noteRetiredOverlayKeys names a retired key the settings overlay still
+// carries. The overlay is the user's own copy of hand-written settings, so
+// sync keeps writing it; the note says where to delete it. A key the config
+// retires is already covered by that note.
+func noteRetiredOverlayKeys(overlay *emit.OrderedJSON, fromConfig []string) {
+	if overlay == nil {
+		return
+	}
+	for _, k := range retiredSettingsKeys {
+		if _, ok := overlay.Get(k); ok && !slices.Contains(fromConfig, k) {
+			emit.NoteProject(settingsOverlayPath + " sets " + k + ", which Claude Code ignores since v2.1.277; delete it there")
+		}
+	}
 }

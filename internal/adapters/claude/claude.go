@@ -308,11 +308,17 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 	}
 	specSettings := buildSpecSettings(settings)
 	configSettings := buildConfigSettings(cfg)
+	retired := retiredConfigKeys(cfg)
 	custom := emit.SettingsCustomKeys(settings, target)
 	hasSpec := len(specSettings) > 0
 	hasConfig := len(configSettings) > 0
 	hasHooks := len(hooks) > 0
-	if !overlayOK && !hasHooks && !hasConfig && !hasSpec && len(custom) == 0 && !policy.active {
+	noteRetiredOverlayKeys(overlay, retired)
+	retiredOnDisk, err := settingsFileHasKey(path, retired)
+	if err != nil {
+		return err
+	}
+	if !overlayOK && !hasHooks && !hasConfig && !hasSpec && len(custom) == 0 && !policy.active && !retiredOnDisk {
 		return nil
 	}
 	doc := overlay
@@ -331,6 +337,9 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 	}
 	if err := policy.removeOwned(doc); err != nil {
 		return err
+	}
+	for _, k := range retired {
+		doc.Delete(k)
 	}
 	if err := dropStaleHookTargetEnv(doc, hooks); err != nil {
 		return err
@@ -470,11 +479,38 @@ func loadSettingsFromDisk(path string, dryRun bool) (*emit.OrderedJSON, error) {
 	return doc, nil
 }
 
+// settingsFileHasKey reports whether the settings.json at path holds any of
+// keys. It reads the file even in a dry run, so `sync --check` removes a
+// retired key exactly when the real sync does. Only a missing file counts
+// as not holding them; any other read or parse failure is returned.
+func settingsFileHasKey(path string, keys []string) (bool, error) {
+	if len(keys) == 0 {
+		return false, nil
+	}
+	data, err := os.ReadFile(path)
+	if emit.IsAbsent(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("read %s: %w", path, err)
+	}
+	var doc map[string]json.RawMessage
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return false, fmt.Errorf("parse %s: %w", path, err)
+	}
+	for _, k := range keys {
+		if _, ok := doc[k]; ok {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // orderedConfigKeys returns the keys of `configSettings` in a stable
 // emit order. agnostic-ai-managed keys land in a canonical sequence so
 // the diff stays predictable when none of them exist in the overlay yet.
 func orderedConfigKeys(m map[string]any) []string {
-	const canonical = "statusLine,permissions,enabledPlugins,env,model,outputStyle,apiKeyHelper,cleanupPeriodDays,attribution,includeCoAuthoredBy,bashOutputMaxChars,taskOutputMaxChars"
+	const canonical = "statusLine,permissions,enabledPlugins,env,model,outputStyle,apiKeyHelper,cleanupPeriodDays,attribution,includeCoAuthoredBy,bashOutputMaxChars"
 	out := make([]string, 0, len(m))
 	seen := make(map[string]bool, len(m))
 	for _, k := range strings.Split(canonical, ",") {

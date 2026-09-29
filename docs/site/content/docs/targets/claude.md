@@ -36,7 +36,7 @@ CLAUDE.md                # canonical entry-point pointer body (written by sync)
   - A spec's `roots` list still emits, but Claude Code documents no per-server `roots` key, so treat it as passthrough. Claude Code derives roots from the launch directory plus directories added with `--add-dir`, `/add-dir`, or `additionalDirectories` ([Claude Code MCP docs](https://code.claude.com/docs/en/mcp)).
   - `disabled: true` adds the server to `disabledMcpjsonServers` in project settings. See [`disabled` support by target](@/docs/spec-format.md#disabled-support-by-target).
   - Each sync replaces `.mcp.json` as a whole from MCP specs. Import hand-authored servers first.
-- **First-class settings**: `outputs.claude.settings.*` declares model, outputStyle, statusLine, permissions, enabledPlugins, env, apiKeyHelper, cleanupPeriodDays, attribution, bashOutputMaxChars, and taskOutputMaxChars. The last two need Claude Code v2.1.261 or later, and taskOutputMaxChars is a no-op from v2.1.277. The deprecated includeCoAuthoredBy stays available for older versions. Copilot CLI also reads enabledPlugins, see [Copilot](@/docs/targets/copilot.md). See [Claude settings](#claude-settings) for precedence.
+- **First-class settings**: `outputs.claude.settings.*` declares model, outputStyle, statusLine, permissions, enabledPlugins, env, apiKeyHelper, cleanupPeriodDays, attribution, and bashOutputMaxChars, which needs Claude Code v2.1.261 or later. taskOutputMaxChars is still accepted but no longer written: Claude Code v2.1.277 removed it. The deprecated includeCoAuthoredBy stays available for older versions. Copilot CLI also reads enabledPlugins, see [Copilot](@/docs/targets/copilot.md). See [Claude settings](#claude-settings) for precedence.
 
 Hooks support `command`, `http`, `mcp_tool`, and `prompt` handlers:
 
@@ -133,7 +133,6 @@ outputs:
       apiKeyHelper: ./bin/keyhelper.sh
       cleanupPeriodDays: 30
       bashOutputMaxChars: 64000
-      taskOutputMaxChars: 128000
       attribution:
         commit: ""
         pr: ""
@@ -165,7 +164,7 @@ outputs:
 | `apiKeyHelper` | string | Path to a script that prints an API key on stdout. |
 | `cleanupPeriodDays` | integer | Days of conversation history to retain. |
 | `bashOutputMaxChars` | integer | Inline command output limit before it spills to a file, up to 128000. Needs Claude Code v2.1.261 or later. |
-| `taskOutputMaxChars` | integer | Deprecated. The same limit for background-task output, up to 128000. Needs v2.1.261 or later, and has no effect from v2.1.277 (which removed the TaskOutput tool and `TASK_MAX_OUTPUT_LENGTH`). Still emitted because it works on the older `stable` release. |
+| `taskOutputMaxChars` | integer | Retired. Claude Code v2.1.277 removed it with the TaskOutput tool, and every release channel now runs that version or later. Sync no longer writes it, removes the copy an earlier sync wrote, and prints a note; delete it from `agnostic-ai.yaml`. A copy in `.agnostic-ai/overlays/claude.settings.json` is your own content: sync keeps it and names it in a note. |
 | `attribution` | object | `commit` and `pr` set the attribution text for commits and pull requests; an empty string disables it. `sessionUrl` controls whether the session URL is included. |
 | `includeCoAuthoredBy` | boolean | Deprecated Claude Code setting. Use `attribution`; when both are present, `attribution` takes precedence. |
 | `enabledPlugins` | map of string to boolean | `plugin-id@marketplace-id` keys mapped to `true` to enable them, matching Claude Code's settings schema. |
