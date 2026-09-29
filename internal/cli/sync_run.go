@@ -537,6 +537,12 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if !dryRun {
 		recordLedgerWrites(entryWrites, &ledgerSession, ledgerWritten)
 		report.addWrites("", entryWrites)
+		manifestWrites, err := writeOutputManifest(mainSess, cfg, ledgerWritten, complete && coversAllConfiguredTargets(effectiveTargets, cfg.Targets), dryRun)
+		if err != nil {
+			return err
+		}
+		recordLedgerWrites(manifestWrites, &ledgerSession, ledgerWritten)
+		report.addWrites("", manifestWrites)
 		// resolveAgnosticBody reads AGNOSTIC_AI.md from disk on
 		// subsequent syncs and skips the re-write, so detailed
 		// recording never captures the path. Add it explicitly so
@@ -847,6 +853,12 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 		entryWrites := mainSess.StopDetailedRecording()
 		recordLedgerWrites(entryWrites, &ledgerSession, ledgerWritten)
 		appendFileRecords(&out, "agnostic-ai", entryWrites)
+		manifestWrites, err := writeOutputManifest(mainSess, cfg, ledgerWritten, len(out.Errors) == 0 && coversAllConfiguredTargets(effectiveTargets, cfg.Targets), false)
+		if err != nil {
+			out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: err.Error()})
+		}
+		recordLedgerWrites(manifestWrites, &ledgerSession, ledgerWritten)
+		appendFileRecords(&out, "agnostic-ai", manifestWrites)
 		// See runSyncOnce: AGNOSTIC_AI.md is read on subsequent
 		// syncs without going through emit, so register it for the
 		// ledger by hand.

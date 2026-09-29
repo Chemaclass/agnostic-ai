@@ -16,6 +16,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - An environment spec shared by several tools prints a no-effect note only for a field no enabled tool reads, instead of one per tool on every sync.
 - AAI-005 names the package manager's command, such as `pnpm install`, when the binary sits in the project's `node_modules`. A release candidate built with `-X github.com/chemaclass/agnostic-ai/internal/cli.candidateVersion=X.Y.Z` is checked as that release.
 - With no `.sync-state`, `doctor` and `sync --check` also count a tracked file as a leftover when it still holds what the last commit's specs rendered, so a headerless JSON output of a deleted spec, such as `.claude/launch.json`, is named. After the deletion is committed, such a file is checked against the commit that last changed it and listed for deletion by hand.
+- `sync.output-manifest: true` writes `.agnostic-ai/outputs.lock`, the committed list of generated paths with a content sum each. With no `.sync-state`, a tracked file it lists that no spec produces, and that still has its listed sum, is a leftover `doctor --fix` removes, header or not.
 - `explain --inputs` lists every file whose change can change an output, including the files reviews inline with `@path`, for a git hook's trigger glob; `--json` gives the same list.
 - `doctor` names an unledgered leftover it cannot remove and says to delete it by hand or list it under `sync.unmanaged`, instead of advising `sync` or `doctor --fix` (#1392).
 

@@ -141,6 +141,7 @@ Per-run flags such as `--diff`, `--format`, and `--jobs` have no config key; see
 | [`dropped-summary`](#syncdropped-summary) | `false` | Print a per-target summary of dropped and downgraded kinds. |
 | [`shared-skills`](#syncshared-skills) | `false` | Symlink byte-identical skill folders to one copy. |
 | [`unmanaged`](#syncunmanaged) | empty | Paths sync never touches. |
+| [`output-manifest`](#syncoutput-manifest) | `false` | Write `.agnostic-ai/outputs.lock`, the committed list of generated paths. |
 
 ### `sync.collision-policy` {#synccollision-policy}
 
@@ -226,6 +227,17 @@ sync:
 - `sync.shared-skills` never links such a skill folder.
 - The list is project-wide. `agnostic-ai.local.yaml` replaces it whole.
 - Hook script bodies copied from `.agnostic-ai/scripts/` are not covered.
+
+### `sync.output-manifest` {#syncoutput-manifest}
+
+For a repository that commits its generated files. A full `sync` writes `.agnostic-ai/outputs.lock`, one line per generated path with the content sum sync wrote, and `sync --check` fails when it is missing or out of date. Commit it with the outputs.
+
+```yaml
+sync:
+  output-manifest: true
+```
+
+`.sync-state` is never committed, so CI has no record of what sync wrote, and a JSON output carries no header to prove it. The manifest is that record. With no `.sync-state`, `doctor` and `sync --check` count a tracked file the manifest lists but no spec produces as a leftover, and `doctor --fix` removes it. A file edited since sync wrote it no longer matches its sum, so it is left for you. `sync --check --against` reads the manifest of the state it checks, so it catches a deleted spec's outputs even in a one-commit shallow clone, as long as the manifest was not regenerated in the same commit.
 
 ## `verify`
 

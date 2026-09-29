@@ -31,13 +31,15 @@ func ledgerMissing(root string) bool {
 // its generated files), the candidates are the git-tracked files (#1334);
 // otherwise, the ones a sync run without a ledger recorded (#1354). A
 // candidate counts while it is stranded, sits where a configured target
-// writes, and opens with the provenance header or, with no ledger, still
-// holds what the last commit's specs rendered, which covers a headerless
-// JSON output whose spec was deleted but not yet committed. One in a tool directory
-// or a root dotfile goes to Leftover, which `doctor --fix` removes. A
-// scope document such as a nested AGENTS.md may be a copy or a vendored
-// file, so it goes to Orphaned for the user to delete. Sync removes
-// neither. Outside a git work tree the scan finds nothing.
+// writes, and has proof sync wrote it: the provenance header, its sum in
+// the output manifest, or, with no ledger, the bytes the last commit's
+// specs render. One in a tool directory or a root dotfile goes to
+// Leftover, which `doctor --fix` removes; a headerless one carries its
+// sum in proven for that removal. A scope document such as a nested
+// AGENTS.md may be a copy or a vendored file, so it goes to Orphaned for
+// the user to delete, and so does a headerless JSON file only an older
+// commit's render proves. Sync removes neither. Outside a git work tree
+// the scan finds nothing.
 func unledgeredReport(cfg *config.Config, emitted map[string]bool, state syncStateFile, stranded func(string) bool) driftReport {
 	rep := driftReport{Target: unledgeredReportTarget}
 	missing := ledgerMissing(".")
@@ -52,6 +54,7 @@ func unledgeredReport(cfg *config.Config, emitted map[string]bool, state syncSta
 	}
 	loc := newOutputLocations(cfg, emitted)
 	history := &historyRenderer{sources: configuredSources(cfg)}
+	manifest := readOutputManifest()
 	var head map[string]string
 	headRendered := func(p string) bool {
 		if !missing {
@@ -74,11 +77,24 @@ func unledgeredReport(cfg *config.Config, emitted map[string]bool, state syncSta
 		if where == noLocation || !stranded(p) {
 			continue
 		}
-		if !ownedWithoutLedger(p) && !headRendered(p) {
-			if missing && history.proves(p) {
-				rep.Orphaned = append(rep.Orphaned, p)
+		if !ownedWithoutLedger(p) {
+			data, err := os.ReadFile(p)
+			if err != nil {
+				continue
 			}
-			continue
+			sum := adapters.ContentSum(string(data))
+			if listed := manifest[filepath.ToSlash(p)]; listed == "" || listed != sum {
+				if !headRendered(p) {
+					if missing && history.proves(p) {
+						rep.Orphaned = append(rep.Orphaned, p)
+					}
+					continue
+				}
+			}
+			if rep.proven == nil {
+				rep.proven = map[string]string{}
+			}
+			rep.proven[p] = sum
 		}
 		if where == toolLocation {
 			rep.Leftover = append(rep.Leftover, p)

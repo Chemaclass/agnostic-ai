@@ -117,6 +117,11 @@ type SyncConfig struct {
 	// with `/`. Project-wide rather than per target because one path
 	// (AGENTS.md) has many readers.
 	Unmanaged []string `yaml:"unmanaged,omitempty" json:"unmanaged,omitempty"`
+	// OutputManifest writes `.agnostic-ai/outputs.lock`, the committed list
+	// of every path a full sync generates. With no `.sync-state`, as in CI,
+	// a tracked file the manifest lists that no spec produces anymore is a
+	// leftover, with or without a provenance header.
+	OutputManifest bool `yaml:"output-manifest,omitempty" json:"output-manifest,omitempty"`
 }
 
 // ProvenanceHeaderEnabled returns whether the named target should write

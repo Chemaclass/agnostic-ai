@@ -44,6 +44,10 @@ type driftReport struct {
 	Leftover   []string
 	Blocking   []adapters.CapturedRemoval
 	Unledgered bool
+	// proven holds the content sum of each headerless leftover the output
+	// manifest or the last commit's render proves sync wrote, the proof
+	// doctor --fix removes it with.
+	proven map[string]string
 }
 
 // leftoverFix names the command that removes the report's Leftover. Sync
@@ -158,6 +162,7 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 	sess := adapters.NewSession()
 	sums := readStateFile(".").OutputSums
 	emitted := map[string]bool{}
+	outputSums := map[string]string{}
 	resolvedAll := coversAllConfiguredTargets(targets, cfg.Targets)
 	for _, t := range targets {
 		adapter, err := adapters.Resolve(t)
@@ -172,6 +177,7 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 		}
 		for _, f := range files {
 			emitted[f.Path] = true
+			outputSums[f.Path] = adapters.ContentSum(f.Content)
 		}
 
 		rep := driftReport{Target: t}
@@ -196,6 +202,17 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 	epRep, err := collectEntryPointDrift(cfg, b, entryPointTargets)
 	if err != nil {
 		return nil, err
+	}
+	if resolvedAll && cfg.Sync.OutputManifest {
+		for _, list := range [][]adapters.CapturedFile{epRep.Current, epRep.Missing, epRep.Stale, epRep.Edited} {
+			for _, f := range list {
+				outputSums[f.Path] = adapters.ContentSum(f.Content)
+			}
+		}
+		if err := checkOutputManifest(cfg, &epRep, outputSums); err != nil {
+			return nil, err
+		}
+		emitted[outputManifestPath] = true
 	}
 	reports = append(reports, epRep)
 	// Another target's files are not in emitted, so only a check that
@@ -731,10 +748,13 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 		unledgered := r.Unledgered || ledgerMissing(".")
 		pruned := map[string]bool{}
 		for _, p := range r.Leftover {
+			sum := sums[p]
 			if unledgered && !ownedWithoutLedger(p) {
-				continue
+				if sum = r.proven[p]; sum == "" {
+					continue
+				}
 			}
-			removed, err := sess.RemoveOwned(p, sums[p], false)
+			removed, err := sess.RemoveOwned(p, sum, false)
 			if err != nil {
 				return written, err
 			}

@@ -484,3 +484,65 @@ func TestDoctor_LeavesHandWrittenLaunchFileFromTheAdoptionCommitAlone(t *testing
 		t.Errorf("a hand-written launch.json from the adoption commit was reported:\n%s", got)
 	}
 }
+
+// With sync.output-manifest, the committed manifest proves sync wrote a
+// headerless output, so after its spec's deletion is committed doctor
+// names it as a leftover that doctor --fix removes.
+func TestDoctor_OutputManifestProvesHeaderlessLeftover(t *testing.T) {
+	dir, git := gitRepo(t)
+	testutil.Chdir(t, dir)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\nsync:\n  output-manifest: true\n")
+	mustWriteFile(t, filepath.Join(".agnostic-ai", "environments", "dev.yaml"), "name: dev\ndev-commands:\n  - name: Docs\n    command: npm run docs\n")
+	syncProject(t)
+	manifest, err := os.ReadFile(outputManifestPath)
+	if err != nil || !strings.Contains(string(manifest), "  .claude/launch.json\n") {
+		t.Fatalf("manifest does not list launch.json: %v\n%s", err, manifest)
+	}
+	if _, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Fatalf("a synced project with a manifest should pass the check: %v", err)
+	}
+	git("add", "-A")
+	git("commit", "-q", "-m", "base")
+	git("rm", "-q", ".agnostic-ai/environments/dev.yaml")
+	git("commit", "-q", "-m", "drop the environment spec without syncing")
+	if err := os.Remove(filepath.Join(".agnostic-ai", ".sync-state")); err != nil {
+		t.Fatal(err)
+	}
+	log := captureLogOut(t)
+
+	out, err := runCLI(t, "doctor")
+
+	if got := log.String() + out; err == nil || !strings.Contains(got, ".claude/launch.json") || !strings.Contains(got, "outputs.lock") {
+		t.Errorf("doctor should name the leftover and the stale manifest, got err=%v\n%s", err, got)
+	}
+	_, _ = runCLI(t, "doctor", "--fix")
+	if _, err := os.Stat(filepath.Join(".claude", "launch.json")); !os.IsNotExist(err) {
+		t.Errorf("doctor --fix should remove a leftover the manifest lists: %v", err)
+	}
+}
+
+// A file the manifest lists but that was edited since sync wrote it may
+// hold hand-written content, so the manifest does not prove it and
+// doctor --fix leaves it.
+func TestDoctor_OutputManifestLeavesEditedFileAlone(t *testing.T) {
+	dir, git := gitRepo(t)
+	testutil.Chdir(t, dir)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\nsync:\n  output-manifest: true\n")
+	mustWriteFile(t, filepath.Join(".agnostic-ai", "environments", "dev.yaml"), "name: dev\ndev-commands:\n  - name: Docs\n    command: npm run docs\n")
+	syncProject(t)
+	git("add", "-A")
+	git("commit", "-q", "-m", "base")
+	mustWriteFile(t, filepath.Join(".claude", "launch.json"), "{\"version\": \"0.0.1\", \"configurations\": [], \"note\": \"mine\"}\n")
+	git("rm", "-q", ".agnostic-ai/environments/dev.yaml")
+	git("add", "-A")
+	git("commit", "-q", "-m", "drop the spec, keep an edited launch.json")
+	if err := os.Remove(filepath.Join(".agnostic-ai", ".sync-state")); err != nil {
+		t.Fatal(err)
+	}
+
+	_, _ = runCLI(t, "doctor", "--fix")
+
+	if _, err := os.Stat(filepath.Join(".claude", "launch.json")); err != nil {
+		t.Errorf("doctor --fix removed a manifest-listed file edited since sync: %v", err)
+	}
+}
