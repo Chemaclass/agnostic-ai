@@ -30,12 +30,15 @@ func fieldsOf(keys ...string) specFields {
 // expresses reports whether the target's native file has a home for key.
 func (f specFields) expresses(key string) bool { return f.all || f.keys[key] }
 
-// Skills: every target writes the Agent Skills `name` and `description`
-// and nothing else, except Claude (the format the spec fields are named
-// after, so it round-trips) and Cursor (five documented optional keys).
+// Skills: every target writes the Agent Skills `name`, `description`,
+// and `license` and nothing else, except Claude (the format the spec
+// fields are named after, so it round-trips) and Cursor (five documented
+// optional keys). A skill flattened into an instructions file keeps only
+// its name and description.
 var (
-	defaultSkillFields = fieldsOf("name", "description")
-	cursorSkillFields  = fieldsOf("name", "description", "paths", "disable-model-invocation", "icon", "color", "metadata")
+	defaultSkillFields   = fieldsOf("name", "description", "license")
+	cursorSkillFields    = fieldsOf("name", "description", "license", "paths", "disable-model-invocation", "icon", "color", "metadata")
+	flattenedSkillFields = fieldsOf("name", "description")
 )
 
 // Agents: one list per target that imports an agent spec over an
@@ -75,7 +78,7 @@ func flattenedKindFields(kind string) specFields {
 	case "agents":
 		return slicedAgentFields
 	case "skills":
-		return defaultSkillFields
+		return flattenedSkillFields
 	default:
 		return allSpecFields
 	}

@@ -7,8 +7,11 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// SkillMarkdown renders the standard Agent Skills SKILL.md body: `name`
-// + `description` frontmatter (description resolved through the
+// skillLicenseField is the Agent Skills standard's license key.
+const skillLicenseField = "license"
+
+// SkillMarkdown renders the standard Agent Skills SKILL.md body: `name`,
+// `description`, and `license` frontmatter (description resolved through the
 // per-target meta, falling back to the skill name), arbitrary
 // `x-<target>` keys passed through, then the trimmed body. Extra
 // exclude keys suppress custom-meta passthrough for fields the adapter
@@ -31,7 +34,11 @@ func SkillMarkdown(s spec.Entry, target string, exclude ...string) string {
 		"description": desc,
 	}
 	keys := []string{"name", "description"}
-	MergeCustomTargetMeta(meta, &keys, s.Meta, target, append([]string{"name", "description"}, exclude...)...)
+	if v, ok := resolved[skillLicenseField]; ok {
+		meta[skillLicenseField] = v
+		keys = append(keys, skillLicenseField)
+	}
+	MergeCustomTargetMeta(meta, &keys, s.Meta, target, append(append([]string(nil), keys...), exclude...)...)
 	front := FrontmatterOrdered(meta, keys)
 	body := strings.TrimSpace(s.Body)
 	if body == "" {
