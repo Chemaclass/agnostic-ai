@@ -29,7 +29,7 @@ agnostic-ai new rule conventional-commits
 
 `init` creates `agnostic-ai.yaml`. `new` writes `.agnostic-ai/rules/conventional-commits.md`, creating the folder it needs.
 
-For an interactive target picker, run `agnostic-ai init` without the pipe and pick only the tools you use. `init --demo` adds sample specs; `init --preset go`, `ts-react`, or `python` adds stack-specific starters. See [init options](@/docs/cli-reference.md#init).
+For an interactive target picker, run `agnostic-ai init` without the pipe and pick only the tools you use. `init --demo` adds sample specs; `init --preset go`, `ts-react`, or `python` adds stack-specific starters. See [init options](@/docs/cli-reference/start.md#init).
 
 ## First rule
 
@@ -87,7 +87,7 @@ Keep it running while you edit specs. Run `agnostic-ai status` for a summary of 
 ## Next steps
 
 - [Directory-specific instructions](@/docs/scoped-context.md): keep service conventions inside their subtree.
-- [Spec format](@/docs/spec-format.md): add skills, agents, hooks, and MCP servers.
+- [Spec format](@/docs/spec-format/_index.md): add skills, agents, hooks, and MCP servers.
 - [Configuration](@/docs/configuration.md): select tools and change output paths.
 - [Git hooks](@/docs/git-hooks.md): generate output on a fresh checkout.
 - [Troubleshooting](@/docs/troubleshooting.md): fix missing files or failing syncs.
@@ -120,11 +120,11 @@ Keep it running while you edit specs. Run `agnostic-ai status` for a summary of 
 
 ## More workflows
 
-- [Shell completion](@/docs/cli-reference.md#completion)
-- [Add a single spec](@/docs/cli-reference.md#new)
+- [Shell completion](@/docs/cli-reference/maintain.md#completion)
+- [Add a single spec](@/docs/cli-reference/start.md#new)
 - [Import an existing AI CLI config](@/docs/migration.md)
-- [Check project status](@/docs/cli-reference.md#status)
+- [Check project status](@/docs/cli-reference/check.md#status)
 - [Roll back a sync](@/docs/migration.md#back-up-and-restore)
-- [Watch mode](@/docs/cli-reference.md#sync)
+- [Watch mode](@/docs/cli-reference/sync.md#sync)
 - [Auto-manage .gitignore](@/docs/configuration.md#gitignore)
 - [CI gate](@/docs/ci.md)

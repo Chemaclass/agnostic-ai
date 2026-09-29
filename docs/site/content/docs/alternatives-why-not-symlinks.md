@@ -57,7 +57,7 @@ Rules, skills, agents, and hooks differ the same way. The hook that runs before 
 | Works on Windows out of the box | No | Yes | Yes |
 | [Fails CI](@/docs/ci.md) when a generated file drifts | No | No | Yes |
 | [Imports](@/docs/migration.md) your existing tool config | No | No | Yes |
-| Keeps your hand-written keys in shared files, with backup and [revert](@/docs/cli-reference.md#revert) | No | No | Yes |
+| Keeps your hand-written keys in shared files, with backup and [revert](@/docs/cli-reference/maintain.md#revert) | No | No | Yes |
 
 On Windows, creating a symlink needs admin rights or Developer Mode. Git for Windows defaults to `core.symlinks=false`, which checks symlinks out as plain text files.
 

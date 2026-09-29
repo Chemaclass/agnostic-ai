@@ -54,7 +54,7 @@ Start from the file you are editing:
 agnostic-ai explain --file services/payments/handler.go --target cursor
 ```
 
-The report lists each Cursor instruction with its source spec, output path, selector, and status: `always`, `match`, `no-match`, `model-selected`, `manual`, `excluded`, `not-emitted`, or `unknown`. It reads the planned sync output, so a shared `services/payments/AGENTS.md` shows up in place of a `.mdc` rule when a peer target needs it. The report shows configured applicability. It does not record what the model loaded. Only Cursor is supported. See the [CLI reference](@/docs/cli-reference.md#explain-a-source-file).
+The report lists each Cursor instruction with its source spec, output path, selector, and status: `always`, `match`, `no-match`, `model-selected`, `manual`, `excluded`, `not-emitted`, or `unknown`. It reads the planned sync output, so a shared `services/payments/AGENTS.md` shows up in place of a `.mdc` rule when a peer target needs it. The report shows configured applicability. It does not record what the model loaded. Only Cursor is supported. See the [CLI reference](@/docs/cli-reference/inspect.md#explain-a-source-file).
 
 ## Scope contract
 

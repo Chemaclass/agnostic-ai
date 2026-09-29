@@ -51,6 +51,8 @@ PATH="$PWD:$PATH" make site-serve   # http://127.0.0.1:1111
 
 The social preview image is rendered from `docs/site/og/card.html`. After editing the card, run `make site-og` (it needs Chrome or Chromium; set `CHROME` if it is not found). Platforms cache the image by URL, so a redesign ships under a new file name: pass the new path to `scripts/render-og-image.sh` and update `image_url` in `docs/site/config.toml` and the image tags in `docs/playground/index.html`.
 
+A long reference page is a hub: a folder with an `_index.md` (`template = "docs/hub.html"`, `hub = true`) and one page per topic, such as `cli-reference/` and `spec-format/`. Link to a topic page as `@/docs/<hub>/<page>.md#anchor`. The hub redirects old `#anchor` links from before the split to the topic page that now holds them. Add new hubs to the sitemap and `llms-full.txt` lists in `scripts/`.
+
 Never edit `docs/site/templates/` just to satisfy a newer Zola. Moving versions is its own change: bump `ZOLA_VERSION` in the Makefile and `.github/workflows/playground.yml` with the template edits, and diff `_site/` built on both versions.
 
 ## Conventions
@@ -75,8 +77,8 @@ CI lints source specs. It does not run `sync --check` against a fresh checkout b
 
 ## Documentation checklist
 
-- New or changed flags, targets, or output fields: update the target's page under [targets](../site/content/docs/targets/_index.md) and [configuration](../site/content/docs/configuration.md), plus the [CLI reference](../site/content/docs/cli-reference.md) for command changes.
-- New or changed spec fields: update [spec format](../site/content/docs/spec-format.md).
+- New or changed flags, targets, or output fields: update the target's page under [targets](../site/content/docs/targets/_index.md) and [configuration](../site/content/docs/configuration.md), plus the [CLI reference](../site/content/docs/cli-reference/_index.md) for command changes.
+- New or changed spec fields: update the matching page under [spec format](../site/content/docs/spec-format/_index.md).
 - Config struct tag changes: regenerate [config.schema.json](../schemas/config.schema.json).
 - New commands or visible behavior: update the matching capability or quickstart explanation in [README](../../README.md).
 - User-visible changes: add an `[Unreleased]` entry in [CHANGELOG](../../CHANGELOG.md).

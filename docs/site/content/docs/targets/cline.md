@@ -71,7 +71,7 @@ Import reads both `.clinerules/` and `.cline/rules/`. Identical duplicate rules 
 
 A single-file `.clinerules` (still read by Cline) imports as one rule, `clinerules.md`, with its `paths` kept, and the `.clinerules/skills/` lookup is skipped. Sync and `doctor --fix` then replace the file with a `.clinerules/` directory, as Cline does, but only when its content matches a rule spec. Otherwise sync, `--check`, `--dry-run`, and `doctor --fix` fail and leave it alone: run `agnostic-ai import cline` first.
 
-Imported rules keep the [filename prefix](@/docs/cli-reference.md#filename-prefix-reclassification) classification used by older layouts.
+Imported rules keep the [filename prefix](@/docs/cli-reference/start.md#filename-prefix-reclassification) classification used by older layouts.
 
 Agents come from `.cline/agents/<name>.yml`. Each becomes a `<name>.md` spec, unchanged except for the removed provenance header. `.yaml` is read too, and `.md` last, so older syncs still round-trip; `.yml` wins a same-name clash. The `agent-<name>.md` prefix applies only to the old layout where rules and agents shared `.clinerules/`.
 

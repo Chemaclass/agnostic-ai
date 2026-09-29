@@ -50,7 +50,7 @@ Rules, skills, and MCP default to the plural `.agents/` form Antigravity prefers
 - **MCP**: servers land in `.agents/mcp_config.json` under one `mcpServers` object ([docs](https://antigravity.google/docs/mcp?tab=ide)).
   - Remote servers use `serverUrl`; the legacy `url` / `httpUrl` names are not supported. This is a dedicated schema, not the `url` shape claude and cursor share.
   - stdio servers carry `command`, `args`, `env`, and `cwd`; remote servers add `headers`.
-  - Both transports accept `disabled` by that name (see [`disabled` support by target](@/docs/spec-format.md#disabled-support-by-target)), unlike codex and kilo, which map it to `enabled: false`.
+  - Both transports accept `disabled` by that name (see [`disabled` support by target](@/docs/spec-format/mcp-servers.md#disabled-support-by-target)), unlike codex and kilo, which map it to `enabled: false`.
   - `authProviderType`, `oauth`, and `disabledTools` have no dedicated mapping. They, `description`, `roots`, and any future field go through `x-antigravity`, like Zed and Warp.
   - `import antigravity` renames `serverUrl` to `url` and keeps other fields under `x-antigravity`.
 - **Hooks**: merge into `.agents/hooks.json` (override via `outputs.antigravity.hooks-file`), the [documented location](https://antigravity.google/docs/hooks?tab=ide).

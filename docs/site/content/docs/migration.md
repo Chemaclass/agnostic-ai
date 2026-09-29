@@ -36,7 +36,7 @@ The preview lists each spec the import would create or change, with a diff, and 
 
 After importing, compare `.agnostic-ai/AGNOSTIC_AI.md` and the imported spec folders against the original configuration.
 
-When importing multiple tools, the last imported top-level instructions replace the shared instructions body. Merge any unique content from other tools into `.agnostic-ai/AGNOSTIC_AI.md` before syncing. See [import behavior by source](@/docs/cli-reference.md#import).
+When importing multiple tools, the last imported top-level instructions replace the shared instructions body. Merge any unique content from other tools into `.agnostic-ai/AGNOSTIC_AI.md` before syncing. See [import behavior by source](@/docs/cli-reference/start.md#import).
 
 Keep the helper scripts that hooks or settings reference in Git. Files inside a skill directory round-trip with the skill, including imports from Zed, Warp, and Antigravity. Continue imports YAML and JSONC MCP files and preserves their connection options; Claude imports command, HTTP, MCP-tool, and prompt hook handlers. Selected native helpers, including `.claude/statusline.sh`, are captured under `.agnostic-ai/overlays/`. Preserve scripts outside those locations yourself.
 
@@ -79,4 +79,4 @@ agnostic-ai revert
 
 Revert restores backups where they exist and leaves other files in place. `revert --force` also deletes unbacked generated files. It does not undo edits to source specs. Repeated backup syncs replace earlier backups, so use Git for lasting checkpoints.
 
-Once the migration looks right, `agnostic-ai cleanup` removes the backups sync created. See [revert](@/docs/cli-reference.md#revert) and [cleanup](@/docs/cli-reference.md#cleanup) for filters and previews.
+Once the migration looks right, `agnostic-ai cleanup` removes the backups sync created. See [revert](@/docs/cli-reference/maintain.md#revert) and [cleanup](@/docs/cli-reference/maintain.md#cleanup) for filters and previews.

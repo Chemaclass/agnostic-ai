@@ -117,11 +117,11 @@ outputs:
 
 Default: every adapter except `amp`, `warp`, `jules`, `goose`, and `augment` (20 in total). Enabling those alongside `codex` is safe; the shared `AGENTS.md` body is written once. Unknown targets log a warning and are skipped. `-t/--target` overrides the list for one run.
 
-`init` and the first `sync` can write this list through a [picker](@/docs/cli-reference.md#first-sync-target-picker).
+`init` and the first `sync` can write this list through a [picker](@/docs/cli-reference/sync.md#first-sync-target-picker).
 
 ## `sync`
 
-Per-run flags such as `--diff`, `--format`, and `--jobs` have no config key; see [`sync`](@/docs/cli-reference.md#sync) and [reading a failing `--check`](@/docs/cli-reference.md#reading-a-failing---check).
+Per-run flags such as `--diff`, `--format`, and `--jobs` have no config key; see [`sync`](@/docs/cli-reference/sync.md#sync) and [reading a failing `--check`](@/docs/cli-reference/sync.md#reading-a-failing---check).
 
 | Key | Default | Effect |
 |-----|---------|--------|
@@ -228,7 +228,7 @@ verify:
     - --strict
 ```
 
-See the [`verify` command](@/docs/cli-reference.md#verify) for the drift check, the JSON input, and exit codes.
+See the [`verify` command](@/docs/cli-reference/check.md#verify) for the drift check, the JSON input, and exit codes.
 
 ## `import`
 
@@ -266,13 +266,13 @@ lint:
 
 The defaults follow vendor limits: Claude Code [200 lines](https://code.claude.com/docs/en/memory) for `CLAUDE.md`, the [Agent Skills specification](https://agentskills.io/specification) for descriptions. Lint also warns past Codex's [32 KiB](https://developers.openai.com/codex/guides/agents-md) `AGENTS.md` cap and Antigravity's [24,000-byte](https://antigravity.google/docs/rules) rule cap, whatever the word budget.
 
-A missing key or `0` keeps the default; a negative value fails as AAI-004. [`lint` in the CLI reference](@/docs/cli-reference.md#lint) shows the finding. The [global home config](#global-configuration) accepts the key too.
+A missing key or `0` keeps the default; a negative value fails as AAI-004. [`lint` in the CLI reference](@/docs/cli-reference/check.md#lint) shows the finding. The [global home config](#global-configuration) accepts the key too.
 
 ## `doctor`
 
 ### `doctor.check-references.ignore` {#doctorcheck-referencesignore}
 
-Link destinations [`doctor --check-references`](@/docs/cli-reference.md#doctor) never reports as broken, whatever is on disk.
+Link destinations [`doctor --check-references`](@/docs/cli-reference/check.md#doctor) never reports as broken, whatever is on disk.
 
 ```yaml
 doctor:
@@ -325,7 +325,7 @@ Setting the named key clears the note. Repeated warnings collapse into one count
 | `commit` | empty | Kinds of generated output to keep in Git. The block leaves out their paths for every configured target. |
 | `allow` | empty | Gitignore globs written verbatim as `!` lines at the end of the block, so a hand-written file at a generated path (e.g. a `testdata/AGENTS.md` fixture) is not ignored. |
 
-`sync --gitignore` and `init --gitignore` override it per run; see the [CLI reference](@/docs/cli-reference.md#init).
+`sync --gitignore` and `init --gitignore` override it per run; see the [CLI reference](@/docs/cli-reference/start.md#init).
 
 `commit` accepts `instructions`, `agents`, `skills`, `commands`, `hooks`, `mcps`, `settings`, `reviews`, `environments`, and `ignores`. `instructions` covers entry-point files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) and rule outputs, root and scoped. Every other kind is named after its spec source. An unknown kind fails config loading. Use it to keep the files review bots and a fresh worktree read before any sync runs:
 
@@ -347,7 +347,7 @@ The block sits between `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai 
 
 ## Watched inputs
 
-`sync --watch` re-emits when the config files, any `sources` directory, `.agnostic-ai/local/`, or `.agnostic-ai/overlays/` change. Overlays hold keys the spec layer does not own, such as Claude `statusLine` or Codex `[profiles.*]`. See [`sync --watch`](@/docs/cli-reference.md#sync).
+`sync --watch` re-emits when the config files, any `sources` directory, `.agnostic-ai/local/`, or `.agnostic-ai/overlays/` change. Overlays hold keys the spec layer does not own, such as Claude `statusLine` or Codex `[profiles.*]`. See [`sync --watch`](@/docs/cli-reference/sync.md#sync).
 
 ## Path semantics
 
@@ -364,7 +364,7 @@ Sync skips the pointer body only when `<path>` is the target's own entry-point f
 
 ### Per-target paragraphs
 
-`.agnostic-ai/AGNOSTIC_AI.md` accepts the `::target` / `::targets` / `::end` fences from [spec bodies](@/docs/spec-format.md#per-target-body-fences).
+`.agnostic-ai/AGNOSTIC_AI.md` accepts the `::target` / `::targets` / `::end` fences from [spec bodies](@/docs/spec-format/hooks.md#per-target-body-fences).
 
 ```md
 Shared conventions for every tool.
@@ -441,7 +441,7 @@ targets: [claude, codex, cursor]
 
 Run `agnostic-ai list --global` to see effective specs with their `global` or `global-local` layer, and `validate --global` and `lint --global` to check before a sync writes. Global layers never merge with project specs. [Local overrides](@/docs/local-overrides.md) compares this layer with the project one.
 
-- Accepted `sync` flags are in the [CLI reference](@/docs/cli-reference.md#sync).
+- Accepted `sync` flags are in the [CLI reference](@/docs/cli-reference/sync.md#sync).
 - Nested rules, rules with scope, path, glob, or target conditions, commands, settings `permissions`, inheritance, and merging with project specs are unsupported.
 - Skills render native frontmatter and copy bundled assets verbatim. Claude resolves skill `model` and `effort`, including per-target maps and `x-claude` overrides. Shared directories such as `~/.agents/skills/` keep neutral frontmatter.
 - Codex skills also get `agents/openai.yaml`, so `disable-model-invocation: true` keeps a skill manual-only there. Targets whose copy stays model-invocable print a coverage note.
@@ -460,7 +460,7 @@ Run `agnostic-ai list --global` to see effective specs with their `global` or `g
 
 Ordinary `agnostic-ai sync` does not load `~/.agnostic-ai/`. Run inside the global source root (or under it), it stops before any write and points at `sync --global`. When `AGNOSTIC_AI_HOME` is your home directory itself, only that directory is guarded. A path through a symlink counts. `init`, `import`, `new`, `packs`, `cleanup`, `revert`, and `install-hook` stop the same way. Read-only commands such as `lint`, `validate`, and `doctor` still run there. Put project-only defaults in a project's `.agnostic-ai/` or a pack.
 
-For a home kept in git, `install-hook --global` writes a pre-commit hook that runs `lint --global --strict`, `validate --global`, and `sync --global --check`. To start a home from what your tools already hold, run `agnostic-ai import --global`; see [import](@/docs/cli-reference.md#import).
+For a home kept in git, `install-hook --global` writes a pre-commit hook that runs `lint --global --strict`, `validate --global`, and `sync --global --check`. To start a home from what your tools already hold, run `agnostic-ai import --global`; see [import](@/docs/cli-reference/start.md#import).
 
 ### Default model and effort {#global-default-model-and-effort}
 

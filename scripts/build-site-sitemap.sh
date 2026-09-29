@@ -71,6 +71,18 @@ write_url() {
     write_url "/docs/${guide_slug}/" monthly 0.8 "$guide"
   done
 
+  for hub in docs/site/content/docs/*/_index.md; do
+    hub_dir=${hub%/_index.md}
+    hub_slug=${hub_dir##*/}
+    [[ $hub_slug == targets ]] && continue
+    write_url "/docs/${hub_slug}/" monthly 0.8 "$hub" docs/site/templates/docs/hub.html
+    for page in "$hub_dir"/[!_]*.md; do
+      [[ -e "$page" ]] || continue
+      page_name=${page##*/}
+      write_url "/docs/${hub_slug}/${page_name%.md}/" monthly 0.7 "$page"
+    done
+  done
+
   write_url /docs/targets/ monthly 0.8 \
     docs/site/content/docs/targets/_index.md docs/site/data/capabilities.toml \
     docs/site/templates/docs/targets.html

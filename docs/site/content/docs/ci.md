@@ -53,7 +53,7 @@ For ignored outputs, use `command: sync` instead. Set the action's `version` inp
 
 ## Diagnose drift
 
-Run `agnostic-ai sync --check --diff` to see the changes. The [CLI reference](@/docs/cli-reference.md#reading-a-failing---check) explains the output formats and failure categories.
+Run `agnostic-ai sync --check --diff` to see the changes. The [CLI reference](@/docs/cli-reference/sync.md#reading-a-failing---check) explains the output formats and failure categories.
 
 ## Gate model and CLI changes
 
@@ -73,4 +73,4 @@ Add the gate after installing the AI CLI it needs:
   run: agnostic-ai verify --target codex
 ```
 
-agnostic-ai checks drift first, fingerprints the harness, detects the CLI identity when available, then sends versioned JSON to the script on stdin. The script owns execution and scoring. Its stdout, stderr, and non-zero exit code reach CI unchanged. See the [`verify` command](@/docs/cli-reference.md#verify) for the JSON contract.
+agnostic-ai checks drift first, fingerprints the harness, detects the CLI identity when available, then sends versioned JSON to the script on stdin. The script owns execution and scoring. Its stdout, stderr, and non-zero exit code reach CI unchanged. See the [`verify` command](@/docs/cli-reference/check.md#verify) for the JSON contract.

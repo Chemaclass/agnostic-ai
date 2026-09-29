@@ -8,7 +8,7 @@ page_template = "docs/page.html"
 
 [extra]
 group = "Reference"
-nav_after = "spec-format"
+nav_second = "Reference"
 scripts = ["assets/scripts/capability-matrix.js"]
 +++
 
@@ -30,5 +30,5 @@ To weigh two or three tools against each other, open [Compare targets](@/docs/co
 - [Select project targets](@/docs/configuration.md#targets)
 - [Understand cross-target behavior](@/docs/target-behavior.md)
 - [Use directory-specific instructions](@/docs/scoped-context.md)
-- [Define portable spec kinds](@/docs/spec-format.md)
+- [Define portable spec kinds](@/docs/spec-format/_index.md)
 - [Add a new adapter](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/adding-adapters.md)

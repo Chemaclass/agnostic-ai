@@ -228,4 +228,4 @@ rule    scratch-notes    project-user
 
 ## Watch
 
-`sync --watch` watches `.agnostic-ai/local/`. An edit to a local spec or to `.agnostic-ai/local/AGNOSTIC_AI.md` triggers a full re-sync. See [`sync --watch`](@/docs/cli-reference.md#sync).
+`sync --watch` watches `.agnostic-ai/local/`. An edit to a local spec or to `.agnostic-ai/local/AGNOSTIC_AI.md` triggers a full re-sync. See [`sync --watch`](@/docs/cli-reference/sync.md#sync).

@@ -28,7 +28,7 @@ Kilo [Code](https://kilo.ai/docs) reads the root `AGENTS.md` and loads agents fr
 **Agents**:
 
 - Kilo takes the agent name from the filename, so `name:` is never written. Frontmatter carries `description` (falls back to the spec name) plus `color`, `mode`, and `model` when set.
-- `color` passes through without validation. Kilo accepts hex (`#FF5733`) or a theme token such as `primary`, `accent`, or `error` ([custom subagents](https://github.com/Kilo-Org/kilocode/blob/main/packages/kilo-docs/pages/customize/custom-subagents.md)), so `color: blue` may not render as intended. See [`color` support by target](@/docs/spec-format.md#color-support-by-target).
+- `color` passes through without validation. Kilo accepts hex (`#FF5733`) or a theme token such as `primary`, `accent`, or `error` ([custom subagents](https://github.com/Kilo-Org/kilocode/blob/main/packages/kilo-docs/pages/customize/custom-subagents.md)), so `color: blue` may not render as intended. See [`color` support by target](@/docs/spec-format/agent-specs.md#color-support-by-target).
 - `mode` uses OpenCode's `primary`/`subagent`/`all` values.
 - `disable`, `hidden`, `steps`, `temperature`, and `top_p` ([agent options](https://kilo.ai/docs/customize/custom-subagents)) are reachable only through `x-kilo`, e.g. `x-kilo: {temperature: 0.1, steps: 15}`.
 - Kilo has no `tools:` key. A spec's `tools` list becomes Kilo's [`permission`](https://kilo.ai/docs/customize/agent-permissions) map instead: `tools: [Read, Grep]` emits `permission: {"*": deny, read: allow, grep: allow}`. The catch-all sorts first because the last matching rule wins.

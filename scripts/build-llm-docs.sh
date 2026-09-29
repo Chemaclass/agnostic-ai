@@ -23,10 +23,10 @@ render_doc() {
     -e 's|\]\(@/docs/([^)#]+)\.md(#[^)]+)?\)|](https://agnostic-ai.org/docs/\1/\2)|g'
 }
 
-# render_targets prints the targets index, then every target page in its weight order.
-render_targets() {
-  render_doc "$docs_dir/targets/_index.md"
-  for page in $(awk -F' = ' 'FNR == 1 { w = "" } /^weight = / && w == "" { w = $2; print w, FILENAME }' "$docs_dir"/targets/[!_]*.md | sort -n | cut -d' ' -f2); do
+# render_section prints a section index, then every page in it in weight order.
+render_section() {
+  render_doc "$docs_dir/$1/_index.md"
+  for page in $(awk -F' = ' 'FNR == 1 { w = "" } /^weight = / && w == "" { w = $2; print w, FILENAME }' "$docs_dir"/"$1"/[!_]*.md | sort -n | cut -d' ' -f2); do
     echo
     render_doc "$page"
   done
@@ -47,8 +47,8 @@ revision=${GITHUB_SHA:-$(git -C "$root" rev-parse --verify HEAD 2>/dev/null || p
     echo
     echo "---"
     echo
-    if [[ $doc == targets ]]; then
-      render_targets
+    if [[ $doc == targets || $doc == cli-reference || $doc == spec-format ]]; then
+      render_section "$doc"
     else
       render_doc "$docs_dir/${doc}.md"
     fi

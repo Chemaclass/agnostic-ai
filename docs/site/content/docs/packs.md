@@ -55,7 +55,7 @@ A pack mirrors the standard agnostic source layout at its root:
 └── mcps/
 ```
 
-Empty directories may be omitted. Frontmatter rules mirror the [spec format](@/docs/spec-format.md).
+Empty directories may be omitted. Frontmatter rules mirror the [spec format](@/docs/spec-format/_index.md).
 
 ## Lockfile
 

@@ -33,7 +33,7 @@ Next, follow [Getting started](@/docs/getting-started.md). If you already have `
 | `agnostic-ai upgrade --check` | Inspects the install and finds older binaries on `PATH`, without changing anything. |
 | `agnostic-ai upgrade --version vX.Y.Z` | Installs one release instead of the latest, including an older one a project pins. |
 
-Package-manager installs upgrade through their package manager. A standalone binary on macOS or Linux is downloaded, checked against the release checksum, and replaced in place. See the [upgrade reference](@/docs/cli-reference.md#upgrade).
+Package-manager installs upgrade through their package manager. A standalone binary on macOS or Linux is downloaded, checked against the release checksum, and replaced in place. See the [upgrade reference](@/docs/cli-reference/maintain.md#upgrade).
 
 ## Pin a version or directory
 
@@ -54,7 +54,7 @@ With npm, pin the package: `npm install -g agnostic-ai@X.Y.Z`.
 
 ## Optional extras
 
-Shell completion for Bash, Zsh, Fish, and PowerShell: see [completion](@/docs/cli-reference.md#completion).
+Shell completion for Bash, Zsh, Fish, and PowerShell: see [completion](@/docs/cli-reference/maintain.md#completion).
 
 The Claude Code [plugin](https://github.com/Chemaclass/agnostic-ai/tree/main/plugins/agnostic-ai) adds install, setup, import, and sync commands inside Claude Code:
 

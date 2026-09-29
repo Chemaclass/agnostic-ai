@@ -21,7 +21,7 @@
       ]
     },
     "model": {
-      "description": "Preferred model: a scalar for every target, or a map keyed by target name with an optional `default`. See https://agnostic-ai.org/docs/spec-format/#per-target-model-and-effort",
+      "description": "Preferred model: a scalar for every target, or a map keyed by target name with an optional `default`. See https://agnostic-ai.org/docs/spec-format/agent-specs/#per-target-model-and-effort",
       "oneOf": [
         { "type": "string" },
         { "type": "object", "additionalProperties": { "type": "string" } }
@@ -29,7 +29,7 @@
       "examples": ["sonnet", "opus", { "claude": "opus", "default": "gpt-4o" }]
     },
     "effort": {
-      "description": "Reasoning effort on an agent: a scalar for every target, or a map keyed by target name with an optional `default`. Value spaces differ per target. See https://agnostic-ai.org/docs/spec-format/#per-target-model-and-effort",
+      "description": "Reasoning effort on an agent: a scalar for every target, or a map keyed by target name with an optional `default`. Value spaces differ per target. See https://agnostic-ai.org/docs/spec-format/agent-specs/#per-target-model-and-effort",
       "oneOf": [
         { "type": "string" },
         { "type": "integer" },
