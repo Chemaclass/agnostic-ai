@@ -44,7 +44,7 @@ claude	docs	https://code.claude.com/docs/en/settings	200	html	0402d7542dad3f5b09
 claude	docs	https://code.claude.com/docs/en/settings-reference	200	html	5db6639fb2c7f18b0ff84403dc374adaf17d196654a09d9f3d79b1b6291b736d	2026-09-29
 claude	docs	https://code.claude.com/docs/en/skills	200	html	2c1587c2c35f70db3ea6cc934f5a1448bd7e007f5b8e0f3855497a4426e55748	2026-09-29
 claude	docs	https://code.claude.com/docs/en/sub-agents	200	html	481b416bd7fff7c448d5136d288ffd81748df2f4a3f326dc487dededab284f34	2026-09-26
-cline	changelog	https://github.com/cline/cline/releases	200	github-api	c8690d060e57023e5cd6665b23c73a697ad55eab0266db40fa601b5f4c8582ac	2026-09-26
+cline	changelog	https://github.com/cline/cline/releases	200	github-api	a486f911f73faa79e89902f7f54b07d7e0f28ef8b0edb4fd2a1684f3178077af	2026-09-29
 cline	docs	https://docs.cline.bot/customization/cline-rules.md	200	markdown-mirror	c210e26b1424aed6db8119ea9a6a0c54bbb3ba5daf2712e360586e64f9fc73b5	2026-09-29
 cline	docs	https://docs.cline.bot/customization/skills.md	200	markdown-mirror	3ee27dba2e3e81a0eb077c02d8cf3ad4b0d74c6c61d83e6f879ecaa31b3f85e1	2026-09-29
 cline	docs	https://docs.cline.bot/getting-started/config.md	200	markdown-mirror	13f098094c4ac523dbdeab60b258c3e5f90ad22d2c0d563446548eae44372d75	2026-09-29
@@ -139,7 +139,7 @@ kilo	docs	https://kilo.ai/docs/customize/custom-rules	200	html	8a0b79959e9e92d10
 kilo	docs	https://kilo.ai/docs/customize/custom-subagents	200	html	26ae84fff5daad886b46d12e2b87047aac11f8c223b722f51d827e11a48d11a3	2026-09-22
 kilo	docs	https://kilo.ai/docs/customize/skills	200	html	cdc320d1955a1b11f32807b13ca70e39cfe68517d249147096bd6b7e095a5e47	2026-09-23
 kilo	docs	https://kilo.ai/docs/getting-started/settings/auto-approving-actions	200	html	3d660caed47c7252466c544bcec647c9e1b470d71a56bfea50f9bf9e11208568	2026-09-22
-kiro	changelog	https://kiro.dev/changelog/	200	html	f4a6bf95b354b3614d2a4631b3d93a15ad84039f0acad5d83a4a07a9baaa152b	2026-09-29
+kiro	changelog	https://kiro.dev/changelog/	200	reader-proxy	fd51c0ee5aee6e613d074b3ad53b65361c84e64e0849b9d1f1b19ecaee3d263d	2026-09-29
 kiro	docs	https://kiro.dev/docs/cli/v3/hooks-migration.md	200	markdown-mirror	47257b52caedeec916a92a82c7c3e20a22889b37c47c4688dfb989f70370f13f	2026-09-25
 kiro	docs	https://kiro.dev/docs/custom-agents.md	200	markdown-mirror	4901ef1d9bb61a831849697619ca484a4b0517ac23ea3afd94de5fd399799400	2026-09-25
 kiro	docs	https://kiro.dev/docs/custom-agents/configuration-reference.md	200	markdown-mirror	80484017b11180fe9e27f9ee5f71c0e8812afa53591793d162bfb7027b99a4c3	2026-09-25
