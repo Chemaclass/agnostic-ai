@@ -53,7 +53,7 @@ func assertUnmetRequires(t *testing.T, err error, config, required, installed st
 	if errs.CodeOf(err) != errs.CodeRequiresUnmet {
 		t.Fatalf("want %s, got %v", errs.CodeRequiresUnmet, err)
 	}
-	for _, want := range []string{config + " requires agnostic-ai " + required, "but " + installed + " is installed", "`agnostic-ai upgrade`"} {
+	for _, want := range []string{config + " requires agnostic-ai " + required, "but " + installed + " is installed", "`agnostic-ai upgrade"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("message misses %q: %v", want, err)
 		}
@@ -107,6 +107,79 @@ func TestProjectCommands_StopWhenInstalledVersionIsBelowRequires(t *testing.T) {
 		assertUnmetRequires(t, err, "agnostic-ai.yaml", ">=0.70.0", "0.69.0")
 	}
 	assertAbsent(t, "CLAUDE.md", "AGENTS.md", ".claude", ".agnostic-ai/.sync-state")
+}
+
+func TestProjectCommands_ExactRequiresStopsOlderAndNewerBinaries(t *testing.T) {
+	for _, pin := range []string{"0.73.0", "=0.73.0"} {
+		requiresProject(t, pin)
+		silence(t)
+
+		for _, args := range [][]string{{"sync"}, {"sync", "--check"}, {"lint"}, {"validate"}, {"doctor", "--fix"}, {"cleanup"}} {
+			for _, installed := range []string{"v0.72.0", "v0.74.0"} {
+				_, _, err := runAsVersion(t, installed, args...)
+				assertUnmetRequires(t, err, "agnostic-ai.yaml", "0.73.0", strings.TrimPrefix(installed, "v"))
+				if !strings.Contains(err.Error(), "`agnostic-ai upgrade --version v0.73.0`") {
+					t.Errorf("%s on %s: the message must name the pinned release to install: %v", pin, installed, err)
+				}
+			}
+		}
+		assertAbsent(t, "CLAUDE.md", "AGENTS.md", ".claude", ".agnostic-ai/.sync-state")
+
+		if _, _, err := runAsVersion(t, "v0.73.0", "sync"); err != nil {
+			t.Fatalf("%s: sync on 0.73.0: %v", pin, err)
+		}
+		if _, _, err := runAsVersion(t, "v0.73.0", "sync", "--check"); err != nil {
+			t.Errorf("%s: sync --check on 0.73.0: %v", pin, err)
+		}
+	}
+}
+
+func TestProjectCommands_RangeRequiresStopsBinariesOutsideIt(t *testing.T) {
+	requiresProject(t, ">=0.73.0 <0.74.0")
+	silence(t)
+
+	for _, installed := range []string{"v0.72.9", "v0.74.0"} {
+		_, _, err := runAsVersion(t, installed, "sync")
+		assertUnmetRequires(t, err, "agnostic-ai.yaml", ">=0.73.0 <0.74.0", strings.TrimPrefix(installed, "v"))
+	}
+	for _, installed := range []string{"v0.73.0", "v0.73.4"} {
+		if _, _, err := runAsVersion(t, installed, "sync"); err != nil {
+			t.Errorf("sync on %s: %v", installed, err)
+		}
+	}
+}
+
+func TestProjectCommands_MinimumRequiresKeepsItsOldMessage(t *testing.T) {
+	requiresProject(t, ">=0.70.0")
+
+	_, _, err := runAsVersion(t, "v0.69.0", "sync")
+	want := "agnostic-ai.yaml requires agnostic-ai >=0.70.0, but 0.69.0 is installed; run `agnostic-ai upgrade`"
+	if err == nil || !strings.HasSuffix(err.Error(), want) {
+		t.Errorf("want the message to end %q, got %v", want, err)
+	}
+}
+
+func TestProjectCommands_UpperBoundOnlyRequiresAsksForARelease(t *testing.T) {
+	requiresProject(t, "<0.74.0")
+
+	_, _, err := runAsVersion(t, "v0.74.0", "sync")
+	assertUnmetRequires(t, err, "agnostic-ai.yaml", "<0.74.0", "0.74.0")
+	if !strings.Contains(err.Error(), "`agnostic-ai upgrade --version vX.Y.Z`") {
+		t.Errorf("the message must show how to install a release inside the range: %v", err)
+	}
+}
+
+func TestSync_ExactRequiresSkipsSourceBuilds(t *testing.T) {
+	requiresProject(t, "0.73.0")
+	silence(t)
+
+	_, errOut, err := runAsVersion(t, "v0.73.1-0.20260927082917-5d5f7ecd4f49", "sync")
+	if err != nil {
+		t.Fatalf("a source build must not be blocked: %v", err)
+	}
+	if !strings.Contains(errOut, "requires 0.73.0, but 0.73.1-0.20260927082917-5d5f7ecd4f49 is not a release build; not checked") {
+		t.Errorf("want the not-a-release warning, got:\n%s", errOut)
+	}
 }
 
 func TestRevert_StopsWhenInstalledVersionIsBelowRequires(t *testing.T) {

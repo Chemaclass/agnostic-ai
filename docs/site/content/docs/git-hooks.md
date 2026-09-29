@@ -149,7 +149,7 @@ Add the npm package to the workspace root as an exact dev dependency:
 pnpm add -D -E -w agnostic-ai
 ```
 
-Everyone then runs the same release. Generated files you commit can differ between releases, and `requires: ">=X.Y.Z"` in `agnostic-ai.yaml` only stops older binaries.
+Everyone then runs the same release. Generated files you commit can differ between releases, so also set `requires: "X.Y.Z"` in `agnostic-ai.yaml`. A newer global install or a stale `node_modules` then stops with [AAI-005](@/docs/errors.md#aai-005-installed-version-older-than-requires) before it rewrites those files. [`requires`](@/docs/configuration.md#requires) accepts ranges too.
 
 ### Sync on install
 

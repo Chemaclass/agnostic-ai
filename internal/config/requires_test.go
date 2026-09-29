@@ -9,11 +9,79 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 )
 
-func TestParseRequirement_RejectsAnythingButAMinimumRelease(t *testing.T) {
+func TestParseRequirement_RejectsWhatIsNotAVersionConstraint(t *testing.T) {
 	t.Parallel()
-	for _, in := range []string{"", "0.69.0", "0.69", ">=0.69", ">= 0.69.x", "<0.70.0", "=0.69.0", ">=0.69.0-rc.1", ">=0.69.0, <0.70.0", "latest"} {
+	for _, in := range []string{"", "  ", "0.69", ">=0.69", ">= 0.69.x", ">=0.69.0-rc.1", "0.69.0.1", ">=0.69.0, <0.70.0", ">=0.69.0<0.70.0", ">0.69.0", "~0.69.0", "latest", ">=", "0.69.0 latest"} {
 		if _, err := ParseRequirement(in); err == nil {
 			t.Errorf("ParseRequirement(%q) accepted a constraint it does not support", in)
+		}
+	}
+}
+
+func TestRequirement_ExactReleaseAllowsOnlyThatRelease(t *testing.T) {
+	t.Parallel()
+	for _, in := range []string{"0.73.0", "=0.73.0", " = v0.73.0 ", "v0.73.0"} {
+		req, err := ParseRequirement(in)
+		if err != nil {
+			t.Fatalf("ParseRequirement(%q): %v", in, err)
+		}
+		for version, want := range map[string]bool{"0.72.0": false, "0.72.9": false, "0.73.0": true, "v0.73.0": true, "0.73.1": false, "0.74.0": false, "1.0.0": false} {
+			if allowed, release := req.Allows(version); !release || allowed != want {
+				t.Errorf("%q Allows(%q) = %v, %v; want %v, true", in, version, allowed, release, want)
+			}
+		}
+		if got := req.String(); got != "0.73.0" {
+			t.Errorf("%q String() = %q, want 0.73.0", in, got)
+		}
+	}
+}
+
+func TestRequirement_RangeAllowsReleasesInsideIt(t *testing.T) {
+	t.Parallel()
+	req, err := ParseRequirement(">=0.73.0  <0.74.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for version, want := range map[string]bool{"0.72.9": false, "0.73.0": true, "0.73.9": true, "0.74.0": false, "1.0.0": false} {
+		if allowed, release := req.Allows(version); !release || allowed != want {
+			t.Errorf("Allows(%q) = %v, %v; want %v, true", version, allowed, release, want)
+		}
+	}
+	if got := req.String(); got != ">=0.73.0 <0.74.0" {
+		t.Errorf("String() = %q, want >=0.73.0 <0.74.0", got)
+	}
+
+	atMost, err := ParseRequirement("<=0.73.2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if allowed, _ := atMost.Allows("0.73.2"); !allowed {
+		t.Error("<=0.73.2 must allow 0.73.2")
+	}
+	if allowed, _ := atMost.Allows("0.73.3"); allowed {
+		t.Error("<=0.73.2 must refuse 0.73.3")
+	}
+}
+
+func TestRequirement_InstallTarget(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		in      string
+		version string
+		latest  bool
+	}{
+		{">=0.70.0", "", true},
+		{"0.73.0", "0.73.0", false},
+		{">=0.73.0 <0.74.0", "0.73.0", false},
+		{"<0.74.0", "", false},
+	}
+	for _, c := range cases {
+		req, err := ParseRequirement(c.in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if version, latest := req.InstallTarget(); version != c.version || latest != c.latest {
+			t.Errorf("%q InstallTarget() = %q, %v; want %q, %v", c.in, version, latest, c.version, c.latest)
 		}
 	}
 }
