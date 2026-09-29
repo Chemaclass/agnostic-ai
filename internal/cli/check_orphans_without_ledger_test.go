@@ -406,3 +406,81 @@ func TestDoctor_NamesHeaderlessOutputTheLastCommitRendered(t *testing.T) {
 		t.Errorf("doctor should name the headerless leftover, got err=%v\n%s%s", err, log, out)
 	}
 }
+
+// After the spec deletion is committed, neither a header nor HEAD's
+// render proves the headerless output, so doctor renders the commit that
+// last changed it. It lists the file for manual deletion, not for
+// doctor --fix.
+func TestDoctor_NamesCommittedHeaderlessLeftoverItsLastCommitRendered(t *testing.T) {
+	dir, git := gitRepo(t)
+	testutil.Chdir(t, dir)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\n")
+	mustWriteFile(t, filepath.Join(".agnostic-ai", "environments", "dev.yaml"), "name: dev\ndev-commands:\n  - name: Docs\n    command: npm run docs\n")
+	syncProject(t)
+	git("add", "-A")
+	git("commit", "-q", "-m", "base")
+	git("rm", "-q", ".agnostic-ai/environments/dev.yaml")
+	git("commit", "-q", "-m", "drop the environment spec")
+	if err := os.Remove(filepath.Join(".agnostic-ai", ".sync-state")); err != nil {
+		t.Fatal(err)
+	}
+	log := captureLogOut(t)
+
+	out, err := runCLI(t, "doctor")
+
+	got := log.String() + out
+	if err == nil || !strings.Contains(got, ".claude/launch.json") || !strings.Contains(got, "by hand") {
+		t.Errorf("doctor should list the committed headerless leftover for manual deletion, got err=%v\n%s", err, got)
+	}
+	_, _ = runCLI(t, "doctor", "--fix")
+	if _, err := os.Stat(filepath.Join(".claude", "launch.json")); err != nil {
+		t.Errorf("doctor --fix removed a file only its shape points at: %v", err)
+	}
+}
+
+// A hand-written launch.json is not a leftover, even in the layout sync
+// writes, since no commit's specs rendered it.
+func TestDoctor_LeavesHandWrittenLaunchFileAlone(t *testing.T) {
+	dir, git := gitRepo(t)
+	testutil.Chdir(t, dir)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\n")
+	syncProject(t)
+	git("add", "-A")
+	git("commit", "-q", "-m", "base")
+	mustWriteFile(t, filepath.Join(".claude", "launch.json"), "{\n  \"configurations\": [\n    {\n      \"name\": \"web\",\n      \"runtimeExecutable\": \"npm\"\n    }\n  ],\n  \"version\": \"0.0.1\"\n}\n")
+	git("add", ".claude/launch.json")
+	git("commit", "-q", "-m", "add a preview server")
+	if err := os.Remove(filepath.Join(".agnostic-ai", ".sync-state")); err != nil {
+		t.Fatal(err)
+	}
+	log := captureLogOut(t)
+
+	out, _ := runCLI(t, "doctor")
+
+	if got := log.String() + out; strings.Contains(got, "launch.json") {
+		t.Errorf("a hand-written launch.json was reported:\n%s", got)
+	}
+}
+
+// An adoption commit that adds the specs and a hand-written launch.json
+// together does not make the file generated: those specs render no
+// launch.json.
+func TestDoctor_LeavesHandWrittenLaunchFileFromTheAdoptionCommitAlone(t *testing.T) {
+	dir, git := gitRepo(t)
+	testutil.Chdir(t, dir)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\n")
+	syncProject(t)
+	mustWriteFile(t, filepath.Join(".claude", "launch.json"), "{\n  \"configurations\": [\n    {\n      \"name\": \"web\",\n      \"runtimeExecutable\": \"npm\"\n    }\n  ],\n  \"version\": \"0.0.1\"\n}\n")
+	git("add", "-A")
+	git("commit", "-q", "-m", "adopt agnostic-ai")
+	if err := os.Remove(filepath.Join(".agnostic-ai", ".sync-state")); err != nil {
+		t.Fatal(err)
+	}
+	log := captureLogOut(t)
+
+	out, _ := runCLI(t, "doctor")
+
+	if got := log.String() + out; strings.Contains(got, "launch.json") {
+		t.Errorf("a hand-written launch.json from the adoption commit was reported:\n%s", got)
+	}
+}

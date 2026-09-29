@@ -51,6 +51,7 @@ func unledgeredReport(cfg *config.Config, emitted map[string]bool, state syncSta
 		candidates = tracked
 	}
 	loc := newOutputLocations(cfg, emitted)
+	history := &historyRenderer{sources: configuredSources(cfg)}
 	var head map[string]string
 	headRendered := func(p string) bool {
 		if !missing {
@@ -70,7 +71,13 @@ func unledgeredReport(cfg *config.Config, emitted map[string]bool, state syncSta
 	}
 	for _, p := range candidates {
 		where := loc.holds(filepath.ToSlash(p))
-		if where == noLocation || !stranded(p) || !ownedWithoutLedger(p) && !headRendered(p) {
+		if where == noLocation || !stranded(p) {
+			continue
+		}
+		if !ownedWithoutLedger(p) && !headRendered(p) {
+			if missing && history.proves(p) {
+				rep.Orphaned = append(rep.Orphaned, p)
+			}
 			continue
 		}
 		if where == toolLocation {
@@ -226,4 +233,74 @@ func (l *outputLocations) inNestedProject(p string) bool {
 		}
 	}
 	return false
+}
+
+// maxHistoryRenders bounds how many past commits one ledger-free scan
+// renders to prove headerless JSON outputs.
+const maxHistoryRenders = 8
+
+// historyRenderer proves a headerless JSON file sync wrote by rendering
+// the specs at the last commit that changed it: a file that still holds
+// exactly what that commit rendered is generated, even after the spec
+// behind it was deleted in a later commit. Renders are cached per commit
+// and bounded by maxHistoryRenders.
+type historyRenderer struct {
+	sources  []string
+	toplevel string
+	prefix   string
+	ready    bool
+	renders  map[string]map[string]string
+}
+
+func (h *historyRenderer) proves(p string) bool {
+	if filepath.Ext(p) != ".json" {
+		return false
+	}
+	if !h.ready {
+		h.ready = true
+		h.renders = map[string]map[string]string{}
+		top, err := gitOutput(".", nil, "rev-parse", "--show-toplevel")
+		if err != nil {
+			return false
+		}
+		prefix, err := gitOutput(".", nil, "rev-parse", "--show-prefix")
+		if err != nil {
+			return false
+		}
+		h.toplevel, h.prefix = strings.TrimSpace(top), strings.TrimSpace(prefix)
+	}
+	if h.toplevel == "" {
+		return false
+	}
+	commit, ok := runGit(".", "log", "-1", "--format=%H", "--", p)
+	if commit = strings.TrimSpace(commit); !ok || commit == "" {
+		return false
+	}
+	rendered, seen := h.renders[commit]
+	if !seen {
+		if len(h.renders) >= maxHistoryRenders {
+			return false
+		}
+		rendered = h.render(commit)
+		h.renders[commit] = rendered
+	}
+	content, ok := rendered[filepath.ToSlash(p)]
+	if !ok {
+		return false
+	}
+	data, err := os.ReadFile(p)
+	return err == nil && string(data) == content
+}
+
+func (h *historyRenderer) render(commit string) map[string]string {
+	scratch, err := os.MkdirTemp("", "agnostic-ai-history-")
+	if err != nil {
+		return nil
+	}
+	defer func() { _ = os.RemoveAll(scratch) }()
+	out, err := renderRef(h.toplevel, h.prefix, commit, filepath.Join(scratch, "tree"), h.sources)
+	if err != nil {
+		return nil
+	}
+	return out
 }
