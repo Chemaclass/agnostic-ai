@@ -566,11 +566,67 @@ func writeGitignoreBlock(root string, cfg *config.Config, entries []string) (rel
 	return rel, true, nil
 }
 
+// worktreeIncludeFile is where Claude Code reads the gitignored files to
+// copy into a new worktree, in gitignore syntax, from the main checkout.
+const worktreeIncludeFile = ".worktreeinclude"
+
+const (
+	worktreeIncludeHint      = "# Copied into each Claude Code worktree: the gitignored paths sync writes, and the local layer it reads."
+	worktreeIncludeAllowNote = "# Committed, so not copied (gitignore.allow):"
+)
+
+// writeWorktreeInclude mirrors the managed gitignore block into
+// `.worktreeinclude` when claude is a target, so a CLI, subagent, or
+// Desktop worktree starts with the outputs and the local layer the main
+// checkout holds instead of a bare checkout. Claude Code copies only
+// files that are gitignored, so committed outputs are never duplicated.
+// Otherwise it removes a block an earlier sync wrote and never creates
+// the file.
+func writeWorktreeInclude(root string, cfg *config.Config, block []string) (changed bool, err error) {
+	path := filepath.Join(root, worktreeIncludeFile)
+	existing, err := os.ReadFile(path)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return false, fmt.Errorf("read %s: %w", path, err)
+	}
+	if !cfg.Gitignore.WorktreeIncludeEnabled() || !slices.Contains(cfg.Targets, "claude") {
+		if !strings.Contains(string(existing), gitignoreBlockStart) {
+			return false, nil
+		}
+		block = nil
+	}
+	var entries []string
+	for _, e := range block {
+		// A worktree's first sync rewrites stale copies without the main
+		// checkout's ledger, and a copied ledger would name files the
+		// worktree never got.
+		if e != "/.agnostic-ai/.sync-state" {
+			entries = append(entries, e)
+		}
+	}
+	updated := replaceRenderedBlock(string(existing), renderBlockWith(entries, worktreeIncludeHint, worktreeIncludeAllowNote))
+	if updated == string(existing) {
+		return false, nil
+	}
+	if strings.TrimSpace(updated) == "" {
+		return true, os.Remove(path)
+	}
+	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
+		return false, fmt.Errorf("write %s: %w", path, err)
+	}
+	return true, nil
+}
+
 // replaceManagedBlock returns content with the agnostic-ai managed block
 // rewritten to list entries. If entries is empty, the block is removed.
 // If no prior block exists, a new one is appended (with a leading blank
 // line when the file is non-empty).
 func replaceManagedBlock(content string, entries []string) string {
+	return replaceRenderedBlock(content, renderBlock(entries))
+}
+
+// replaceRenderedBlock is replaceManagedBlock for a block already
+// rendered, "" to remove it.
+func replaceRenderedBlock(content, newBlock string) string {
 	startIdx := strings.Index(content, gitignoreBlockStart)
 	if startIdx >= 0 {
 		endIdx := strings.Index(content[startIdx:], gitignoreBlockEnd)
@@ -583,7 +639,6 @@ func replaceManagedBlock(content string, entries []string) string {
 		}
 		before := content[:startIdx]
 		after := strings.TrimLeft(content[startIdx+endIdx:], "\n")
-		newBlock := renderBlock(entries)
 		if newBlock == "" {
 			before = strings.TrimRight(before, "\n")
 			if before != "" && after != "" {
@@ -606,7 +661,6 @@ func replaceManagedBlock(content string, entries []string) string {
 		return joined
 	}
 
-	newBlock := renderBlock(entries)
 	if newBlock == "" {
 		return content
 	}
@@ -617,6 +671,12 @@ func replaceManagedBlock(content string, entries []string) string {
 }
 
 func renderBlock(entries []string) string {
+	return renderBlockWith(entries, gitignoreBlockHint, gitignoreBlockAllowNote)
+}
+
+// renderBlockWith is renderBlock with the file's own hint line and note
+// above the `!` lines.
+func renderBlockWith(entries []string, hint, allowNote string) string {
 	if len(entries) == 0 {
 		return ""
 	}
@@ -625,7 +685,7 @@ func renderBlock(entries []string) string {
 	sb.WriteString("\n")
 	sb.WriteString(gitignoreBlockNote)
 	sb.WriteString("\n")
-	sb.WriteString(gitignoreBlockHint)
+	sb.WriteString(hint)
 	sb.WriteString("\n")
 	notedAllow := false
 	for _, e := range entries {
@@ -633,7 +693,7 @@ func renderBlock(entries []string) string {
 		// (buildManagedBlock appends them last), so the first `!` line
 		// marks where the committed exceptions start.
 		if !notedAllow && strings.HasPrefix(e, "!") {
-			sb.WriteString(gitignoreBlockAllowNote)
+			sb.WriteString(allowNote)
 			sb.WriteString("\n")
 			notedAllow = true
 		}

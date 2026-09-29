@@ -172,6 +172,15 @@ type Gitignore struct {
 	// `<target>:<kind>` limits a kind to one target, such as
 	// `cursor:environments` for the files a cloud agent reads from Git.
 	Commit []string `yaml:"commit,omitempty" json:"commit,omitempty" jsonschema:"pattern=^([a-z0-9-]+:)?(instructions|agents|skills|commands|hooks|mcps|settings|reviews|environments|ignores)$"`
+	// WorktreeInclude keeps the same managed block in `.worktreeinclude`
+	// when claude is a target, so Claude Code copies the ignored outputs
+	// and the local layer into every worktree it creates. Defaults to true.
+	WorktreeInclude *bool `yaml:"worktree-include,omitempty" json:"worktree-include,omitempty"`
+}
+
+// WorktreeIncludeEnabled reports whether sync manages `.worktreeinclude`.
+func (g Gitignore) WorktreeIncludeEnabled() bool {
+	return g.WorktreeInclude == nil || *g.WorktreeInclude
 }
 
 // GitignoreInstructions is the gitignore.commit kind for entry-point files
