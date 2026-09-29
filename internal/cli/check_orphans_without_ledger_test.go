@@ -338,7 +338,7 @@ func TestDoctor_UnledgeredScopeDocumentAdvisesManualRemoval(t *testing.T) {
 func TestReportCheckDrift_FooterMatchesUnledgeredFindings(t *testing.T) {
 	removable := filepath.Join(".codex", "agents", "old.toml")
 	scoped := filepath.Join("services", "api", "AGENTS.md")
-	const manual = "delete the scope documents listed above by hand if stale, or list them under sync.unmanaged"
+	const manual = "delete the files that look generated, listed above, by hand if stale, or list them under sync.unmanaged"
 	for _, tc := range []struct {
 		name     string
 		report   driftReport

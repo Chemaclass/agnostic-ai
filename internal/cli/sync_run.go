@@ -1056,7 +1056,7 @@ func reconcileHint(reports []driftReport) string {
 			syncDrift = true
 		}
 	}
-	const manual = "delete the scope documents listed above by hand if stale, or list them under sync.unmanaged"
+	const manual = "delete the files that look generated, listed above, by hand if stale, or list them under sync.unmanaged"
 	fix := ""
 	switch {
 	case removable:
