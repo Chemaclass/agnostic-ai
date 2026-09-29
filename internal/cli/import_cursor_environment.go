@@ -77,7 +77,11 @@ func importCursorEnvironment(root string, src config.Sources) (int, error) {
 		return 0, nil
 	}
 	name := yaml.Node{Kind: yaml.ScalarNode, Value: cursorEnvironmentSpecName}
-	doc.Content = append([]*yaml.Node{{Kind: yaml.ScalarNode, Value: "name"}, &name}, doc.Content...)
+	head := []*yaml.Node{{Kind: yaml.ScalarNode, Value: "name"}, &name}
+	if scopeImportedEnvironment(root, "cursor") {
+		head = append(head, &yaml.Node{Kind: yaml.ScalarNode, Value: "targets"}, importedTargetsNode("cursor"))
+	}
+	doc.Content = append(head, doc.Content...)
 	raw, err := yaml.Marshal(doc)
 	if err != nil {
 		return 0, fmt.Errorf("marshal %s: %w", out, err)

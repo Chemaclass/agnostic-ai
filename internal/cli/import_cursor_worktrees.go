@@ -96,6 +96,9 @@ func importCursorWorktrees(root string, src config.Sources) (int, error) {
 		spec.Content = append(spec.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: key}, &v)
 	}
 	add("name", cursorWorktreeSpecName)
+	if scopeImportedEnvironment(root, "cursor") {
+		spec.Content = append(spec.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: "targets"}, importedTargetsNode("cursor"))
+	}
 	if setup != nil {
 		add("setup", specCommands(setup))
 	}

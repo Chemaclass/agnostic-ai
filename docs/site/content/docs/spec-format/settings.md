@@ -132,6 +132,8 @@ Specs merge by top-level key, and the last value wins. One spec can serve every 
 - [OpenHands](@/docs/targets/openhands.md) and [Amp](@/docs/targets/amp.md): `install` becomes a setup script. Amp also turns `terminals` into services. Both note `setup`, `cleanup`, and `dev-commands` as having no effect.
 - Other targets report the spec as unsupported.
 
+When several tools keep their own environment file, `import` scopes each spec it writes to its tool with `targets: [<tool>]`, so the next sync reproduces every file as it was instead of merging one tool's dev commands or setup into the others. Remove the line to share a spec across tools. A project with one tool's environment file gets one shared spec.
+
 `lint` reports a dev command with no `name` or `command`, a repeated name, an unknown key, or a wrong-typed value (LINT016).
 
 ## Ignore
