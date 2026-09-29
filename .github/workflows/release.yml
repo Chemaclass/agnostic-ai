@@ -5,8 +5,9 @@ on:
     tags:
       - 'v*'
 
+# Read-only by default; each job that writes asks for it.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   goreleaser:
@@ -86,12 +87,26 @@ jobs:
           WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
 
       - name: Attest build provenance
+        id: attest
         # Also after a failed package-manager push: the archives are already
         # uploaded by then, and each one needs its provenance.
         if: ${{ !cancelled() && hashFiles('dist/checksums.txt') != '' }}
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
         with:
           subject-checksums: dist/checksums.txt
+
+      - name: Attach the provenance bundle to the release
+        # The attestation lives in GitHub's attestation store. A copy on the
+        # release page lets `gh attestation verify --bundle` work from the
+        # downloaded files alone, and lets OpenSSF Scorecard see a signed
+        # release.
+        if: ${{ steps.attest.outputs.bundle-path != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          cp "$BUNDLE" agnostic-ai.intoto.jsonl
+          gh release upload "$GITHUB_REF_NAME" agnostic-ai.intoto.jsonl --clobber
 
   npm:
     name: npm
