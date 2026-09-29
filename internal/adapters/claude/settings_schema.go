@@ -1,6 +1,8 @@
 package claude
 
 import (
+	"slices"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
@@ -147,4 +149,22 @@ func retiredConfigKeys(cfg *config.Config) []string {
 	// reached that release on 2026-09-29 (#1381).
 	emit.NoteProject("outputs.claude.settings.taskOutputMaxChars has no effect since Claude Code v2.1.277 and is no longer written; remove it from agnostic-ai.yaml")
 	return []string{"taskOutputMaxChars"}
+}
+
+// retiredSettingsKeys are settings.json keys Claude Code no longer reads.
+var retiredSettingsKeys = []string{"taskOutputMaxChars"}
+
+// noteRetiredOverlayKeys names a retired key the settings overlay still
+// carries. The overlay is the user's own copy of hand-written settings, so
+// sync keeps writing it; the note says where to delete it. A key the config
+// retires is already covered by that note.
+func noteRetiredOverlayKeys(overlay *emit.OrderedJSON, fromConfig []string) {
+	if overlay == nil {
+		return
+	}
+	for _, k := range retiredSettingsKeys {
+		if _, ok := overlay.Get(k); ok && !slices.Contains(fromConfig, k) {
+			emit.NoteProject(settingsOverlayPath + " sets " + k + ", which Claude Code ignores since v2.1.277; delete it there")
+		}
+	}
 }

@@ -164,7 +164,7 @@ outputs:
 | `apiKeyHelper` | string | Path to a script that prints an API key on stdout. |
 | `cleanupPeriodDays` | integer | Days of conversation history to retain. |
 | `bashOutputMaxChars` | integer | Inline command output limit before it spills to a file, up to 128000. Needs Claude Code v2.1.261 or later. |
-| `taskOutputMaxChars` | integer | Retired. Claude Code v2.1.277 removed it with the TaskOutput tool, and every release channel now runs that version or later. Sync no longer writes it, removes the copy an earlier sync wrote, and prints a note; delete it from `agnostic-ai.yaml`. |
+| `taskOutputMaxChars` | integer | Retired. Claude Code v2.1.277 removed it with the TaskOutput tool, and every release channel now runs that version or later. Sync no longer writes it, removes the copy an earlier sync wrote, and prints a note; delete it from `agnostic-ai.yaml`. A copy in `.agnostic-ai/overlays/claude.settings.json` is your own content: sync keeps it and names it in a note. |
 | `attribution` | object | `commit` and `pr` set the attribution text for commits and pull requests; an empty string disables it. `sessionUrl` controls whether the session URL is included. |
 | `includeCoAuthoredBy` | boolean | Deprecated Claude Code setting. Use `attribution`; when both are present, `attribution` takes precedence. |
 | `enabledPlugins` | map of string to boolean | `plugin-id@marketplace-id` keys mapped to `true` to enable them, matching Claude Code's settings schema. |

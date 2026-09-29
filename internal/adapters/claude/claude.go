@@ -313,6 +313,7 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 	hasSpec := len(specSettings) > 0
 	hasConfig := len(configSettings) > 0
 	hasHooks := len(hooks) > 0
+	noteRetiredOverlayKeys(overlay, retired)
 	retiredOnDisk, err := settingsFileHasKey(path, retired)
 	if err != nil {
 		return err

@@ -96,3 +96,30 @@ func TestEmit_RetiredKeyWithUnparsableSettingsFails(t *testing.T) {
 		t.Error("emit succeeded over an unparsable settings.json")
 	}
 }
+
+// A retired key in the settings overlay is the user's own content: sync
+// keeps writing it and names where to delete it.
+func TestEmit_NotesARetiredKeyInTheOverlay(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	if err := os.MkdirAll(filepath.Dir(settingsOverlayPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(settingsOverlayPath, []byte(`{"taskOutputMaxChars": 128000}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	buf := &strings.Builder{}
+	prev := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = prev })
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	emit.FlushCoverageNotes()
+	if !strings.Contains(buf.String(), settingsOverlayPath+" sets taskOutputMaxChars") {
+		t.Errorf("no overlay note:\n%s", buf.String())
+	}
+}
