@@ -283,3 +283,50 @@ func TestSyncCheckAgainst_ReportsHeaderlessOutputOfADeletedSpec(t *testing.T) {
 		t.Errorf("with the output removed, the check should pass: %v\n%s", err, stdout)
 	}
 }
+
+// Dropping a target from the config leaves its headerless output tracked,
+// which fails; a dropped output edited since the last sync is left alone,
+// since it may hold hand-written content.
+func TestSyncCheckAgainst_ReportsOutputOfADroppedTargetUnlessEdited(t *testing.T) {
+	dir := setupFixture(t)
+	isolateGit(t)
+	git(t, dir, "init", "-q")
+	cfg := func(targets string) {
+		if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte("version: 1\ntargets: ["+targets+"]\ngitignore:\n  enabled: false\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cfg("claude, cursor")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "environments", "dev.yaml"), "name: dev\ninstall: npm ci\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+	sync := NewRootCmd("test")
+	sync.SetArgs([]string{"sync"})
+	if err := sync.Execute(); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	envFile := filepath.Join(dir, ".cursor", "environment.json")
+	if _, err := os.Stat(envFile); err != nil {
+		t.Fatalf("sync wrote no .cursor/environment.json: %v", err)
+	}
+	git(t, dir, "add", "-A")
+	git(t, dir, "commit", "-q", "-m", "base")
+
+	cfg("claude")
+	git(t, dir, "add", "agnostic-ai.yaml")
+	stdout, _, err := checkAgainst(t, "index")
+	if err == nil || !strings.Contains(stdout, ".cursor/environment.json") {
+		t.Errorf("a dropped target's tracked output should fail, got err=%v\n%s", err, stdout)
+	}
+	if _, _, err := checkAgainst(t, "index", "--only", "claude"); err != nil && strings.Contains(err.Error(), "environment.json") {
+		t.Errorf("a run narrowed to some targets should not compare dropped outputs: %v", err)
+	}
+
+	if err := os.WriteFile(envFile, []byte(`{"install": "npm ci", "note": "kept by hand"}`+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	git(t, dir, "add", ".cursor/environment.json")
+	if stdout, _, err := checkAgainst(t, "index"); err != nil && strings.Contains(stdout, "environment.json") {
+		t.Errorf("a dropped output edited since sync should be left alone: %v\n%s", err, stdout)
+	}
+}

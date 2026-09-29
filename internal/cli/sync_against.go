@@ -139,18 +139,29 @@ func (t *againstTree) previousRef() string {
 
 // droppedOutputs lists the files the previous state's specs render that
 // the checked state's specs no longer do, while Git still tracks them in
-// the checked state: the outputs of a deleted or retargeted spec, with a
-// provenance header or without one, such as a JSON file. reports are the
-// checked state's drift reports before trackedDrift narrows them. With no
-// previous state, such as a first commit or a shallow clone, the note
-// says what the check could not compare.
-func (t *againstTree) droppedOutputs(targets []string, reports []driftReport) ([]string, string, error) {
+// the checked state with the bytes the previous state rendered: the
+// outputs of a deleted spec or a dropped target, with a provenance header
+// or without one, such as a JSON file. A file edited since, such as a
+// settings file that also holds hand-written keys, is left alone. reports
+// are the checked state's drift reports before trackedDrift narrows them.
+// A run narrowed to some targets skips the comparison, since the other
+// targets' outputs are not in reports. The note says what the check could
+// not compare, for the caller to print.
+func (t *againstTree) droppedOutputs(filtered bool, reports []driftReport) ([]string, string, error) {
+	if filtered {
+		return nil, "", nil
+	}
 	prev := t.previousRef()
 	if _, err := gitOutput(t.toplevel, nil, "rev-parse", "--verify", "--quiet", prev+"^{tree}"); err != nil {
 		if t.ref == againstHEAD {
-			return nil, "the parent commit is not available (a shallow clone needs fetch-depth: 2), so outputs of a deleted spec were not checked", nil
+			if shallow, _ := gitOutput(t.toplevel, nil, "rev-parse", "--is-shallow-repository"); strings.TrimSpace(shallow) == "true" {
+				return nil, "the parent commit is not in this shallow clone (set fetch-depth: 2), so outputs of a deleted spec were not checked", nil
+			}
 		}
 		return nil, "", nil
+	}
+	skipped := func(err error) ([]string, string, error) {
+		return nil, fmt.Sprintf("the %s state could not be rendered (%v), so outputs of a deleted spec were not checked", prev, err), nil
 	}
 	dir := filepath.Join(t.scratch, "previous")
 	if err := os.Mkdir(dir, 0o755); err != nil {
@@ -158,22 +169,21 @@ func (t *againstTree) droppedOutputs(targets []string, reports []driftReport) ([
 	}
 	env := append(os.Environ(), "GIT_INDEX_FILE="+filepath.Join(t.scratch, "previous-index"))
 	if _, err := gitOutput(t.toplevel, env, "read-tree", prev); err != nil {
-		return nil, "", err
+		return skipped(err)
 	}
 	if _, err := gitOutput(t.toplevel, env, "checkout-index", "--all", "--force", "--prefix="+dir+string(filepath.Separator)); err != nil {
-		return nil, "", err
+		return skipped(err)
 	}
 	if err := os.Chdir(filepath.Join(dir, filepath.FromSlash(t.prefix))); err != nil {
 		// The project directory did not exist in the previous state.
 		return nil, "", nil
 	}
-	before, err := plannedOutputs(targets)
-	if cerr := os.Chdir(t.project); cerr != nil && err == nil {
-		err = cerr
+	before, err := plannedOutputs()
+	if cerr := os.Chdir(t.project); cerr != nil {
+		return nil, "", cerr
 	}
 	if err != nil {
-		// Specs the previous state cannot render say nothing about this one.
-		return nil, "", nil
+		return skipped(err)
 	}
 	now := map[string]bool{}
 	for _, r := range reports {
@@ -194,29 +204,39 @@ func (t *againstTree) droppedOutputs(targets []string, reports []driftReport) ([
 	var dropped []string
 	for _, p := range tracked {
 		slash := filepath.ToSlash(p)
-		if before[slash] && !now[slash] && !cfg.IsUnmanaged(p) {
+		content, rendered := before[slash]
+		if !rendered || now[slash] || cfg.IsUnmanaged(p) {
+			continue
+		}
+		if data, err := os.ReadFile(p); err == nil && string(data) == content {
 			dropped = append(dropped, p)
 		}
 	}
 	return dropped, "", nil
 }
 
-// plannedOutputs renders the specs in the working directory for targets
-// and returns every path sync would write, warnings discarded.
-func plannedOutputs(targets []string) (map[string]bool, error) {
+// plannedOutputs renders the specs in the working directory for every
+// configured target and returns each path sync would write with its
+// content. Its warnings, notes, and verbose lines stay quiet: the checked
+// state's render already reported what applies.
+func plannedOutputs() (map[string]string, error) {
 	adapters.SetWarner(io.Discard)
 	defer adapters.SetWarner(os.Stderr)
-	defer adapters.ResetCoverageNotes()
+	prevVerbosity, prevWarn := verbosity, requiresWarnOut
+	verbosity, requiresWarnOut = levelQuiet, io.Discard
+	defer func() { verbosity, requiresWarnOut = prevVerbosity, prevWarn }()
 	cfg, b, err := loadProject(".")
 	if err != nil {
 		return nil, err
 	}
-	if len(targets) == 0 {
-		targets = cfg.Targets
-	}
 	sess := adapters.NewSession()
-	out := map[string]bool{}
-	for _, t := range targets {
+	out := map[string]string{}
+	add := func(files []adapters.CapturedFile) {
+		for _, f := range files {
+			out[filepath.ToSlash(f.Path)] = f.Content
+		}
+	}
+	for _, t := range cfg.Targets {
 		adapter, err := adapters.Resolve(t)
 		if err != nil {
 			continue
@@ -225,19 +245,16 @@ func plannedOutputs(targets []string) (map[string]bool, error) {
 		if err != nil {
 			return nil, err
 		}
-		for _, f := range files {
-			out[filepath.ToSlash(f.Path)] = true
-		}
+		add(files)
 	}
-	ep, err := collectEntryPointDrift(cfg, b, targets)
+	ep, err := collectEntryPointDrift(cfg, b, cfg.Targets)
 	if err != nil {
 		return nil, err
 	}
-	for _, list := range [][]adapters.CapturedFile{ep.Current, ep.Missing, ep.Stale, ep.Edited} {
-		for _, f := range list {
-			out[filepath.ToSlash(f.Path)] = true
-		}
-	}
+	add(ep.Current)
+	add(ep.Missing)
+	add(ep.Stale)
+	add(ep.Edited)
 	return out, nil
 }
 

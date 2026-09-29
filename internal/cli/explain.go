@@ -84,8 +84,8 @@ func newExplainCmd() *cobra.Command {
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if inputs {
-				if len(args) > 0 || file != "" || global {
-					return errs.Coded(errs.CodeFlagConflict, "--inputs takes no spec and cannot be combined with --file or --global")
+				if len(args) > 0 || file != "" || target != "" || global {
+					return errs.Coded(errs.CodeFlagConflict, "--inputs takes no spec and cannot be combined with --file, --target, or --global")
 				}
 				return runExplainInputs(cmd, jsonOut)
 			}

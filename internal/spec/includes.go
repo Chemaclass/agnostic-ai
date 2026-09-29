@@ -3,6 +3,7 @@ package spec
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -37,15 +38,29 @@ func resolveIncludes(body, root string) (string, error) {
 }
 
 // IncludeRefs returns the project-relative paths that body's `@path`
-// lines inline, skipping any that leave the project root.
+// lines inline, cleaned, skipping any that leave the project root.
 func IncludeRefs(body string) []string {
 	var out []string
 	for _, inc := range includeLines(strings.Split(body, "\n")) {
 		if filepath.IsLocal(filepath.FromSlash(inc.ref)) {
-			out = append(out, inc.ref)
+			out = append(out, path.Clean(inc.ref))
 		}
 	}
 	return out
+}
+
+// StripFrontmatter returns a spec file's body, without the YAML
+// frontmatter block when one opens the file.
+func StripFrontmatter(data string) string {
+	data = string(normalizeLineEndings([]byte(data)))
+	if !strings.HasPrefix(data, "---\n") {
+		return data
+	}
+	if end := strings.Index(data[4:], "\n---"); end >= 0 {
+		rest := data[4+end+4:]
+		return strings.TrimPrefix(rest, "\n")
+	}
+	return data
 }
 
 type includeLine struct {

@@ -42,7 +42,7 @@ agnostic-ai explain --file services/payments/handler.go --target cursor
 |------|-------------|
 | `--file <path>` | Project file to inspect. The file does not have to exist. Cannot be combined with a spec or error code argument. |
 | `--target <name>` | Required with `--file`. Must be a configured target. Other targets fail with an unsupported-target error. |
-| `--inputs` | List every file and directory whose change can change a generated output, one per line (`--json` for an array): the config files, `.agnostic-ai/**`, source directories outside it, files reviews inline with `@path`, and `.gitignore`. Takes no spec. See [git hooks](@/docs/git-hooks.md#check-staged-files). |
+| `--inputs` | List every file and directory whose change can change a generated output, one per line (`--json` for an array): the config files, `.agnostic-ai/**`, source directories outside it, files reviews inline with `@path` (and the entry point's, with `sync.resolve-imports: inline`), `agnostic.packs.lock`, and `.gitignore`. Paths are relative to the repository root, like a hook manager's glob. Takes no spec. See [git hooks](@/docs/git-hooks.md#check-staged-files). |
 
 | Status | Meaning |
 |--------|---------|
