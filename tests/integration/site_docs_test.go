@@ -1031,6 +1031,11 @@ func TestSiteDocs_TocEscapesHeadingTitles(t *testing.T) {
 	if err != nil || len(pages) == 0 {
 		t.Fatalf("no built docs pages under %s: %v", outputDir, err)
 	}
+	topicPages, err := filepath.Glob(filepath.Join(outputDir, "docs", "*", "*", "index.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	pages = append(pages, topicPages...)
 	for _, page := range pages {
 		toc := tocBlock.FindString(readBuiltFile(t, page))
 		if toc == "" {

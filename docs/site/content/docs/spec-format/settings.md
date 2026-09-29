@@ -33,8 +33,8 @@ effort:
 | `permissions.deny` | no | empty | Rules always blocked. |
 | `permissions.ask` | no | empty | Rules that prompt before running. |
 | `permissions.default-mode` | no | unset | Claude Code starting mode for `sync --global`: `default`, `manual`, `acceptEdits`, `plan`, `auto`, `dontAsk`, or `bypassPermissions`. Other targets raise a coverage note. |
-| `model` | no | empty | Default model: a string, or a map per target with an optional `default`, like [agent `model`](@/docs/spec-format/agents.md#per-target-model-and-effort). A target with no entry and no `default` gets no model. |
-| `effort` | no | empty | Default reasoning effort: a scalar, or a map per target with an optional `default`, like [agent `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort). Separate from an agent's own `effort`. |
+| `model` | no | empty | Default model: a string, or a map per target with an optional `default`, like [agent `model`](@/docs/spec-format/agent-specs.md#per-target-model-and-effort). A target with no entry and no `default` gets no model. |
+| `effort` | no | empty | Default reasoning effort: a scalar, or a map per target with an optional `default`, like [agent `effort`](@/docs/spec-format/agent-specs.md#per-target-model-and-effort). Separate from an agent's own `effort`. |
 
 A rule is a bare tool name (whole tool) or `Scope(argument)`. An MCP tool is `mcp__<server>__<tool>`. `Scope()` with an empty argument is dropped, not read as the bare tool, which would widen it.
 

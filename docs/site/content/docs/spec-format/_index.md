@@ -22,7 +22,7 @@ Start with a [rule](@/docs/spec-format/skills-rules-commands.md#rules) for conve
 
 | Kind    | Source                                    | Format                      |
 |---------|-------------------------------------------|-----------------------------|
-| [Agent](@/docs/spec-format/agents.md#agents) | `agents/*.md`                             | Markdown + YAML frontmatter |
+| [Agent](@/docs/spec-format/agent-specs.md#agents) | `agents/*.md`                             | Markdown + YAML frontmatter |
 | [Skill](@/docs/spec-format/skills-rules-commands.md#skills) | `skills/*.md` or `skills/<name>/SKILL.md` | Markdown + YAML frontmatter |
 | [Rule](@/docs/spec-format/skills-rules-commands.md#rules) | `rules/*.md`                              | Markdown + YAML frontmatter |
 | [Hook](@/docs/spec-format/hooks.md#hooks) | `hooks/*.yaml`                            | YAML                        |

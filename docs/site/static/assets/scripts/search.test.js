@@ -164,7 +164,7 @@ const corpus = [
     body: "Settings carry permissions and a model."
   },
   {
-    url: "https://agnostic-ai.org/docs/spec-format/agents/#agent-policy-support-by-target",
+    url: "https://agnostic-ai.org/docs/spec-format/agent-specs/#agent-policy-support-by-target",
     title: "Spec format",
     heading: "permissionMode and agent hooks support by target",
     group: "Docs",
@@ -258,7 +258,7 @@ function rankOf(query, url) {
 test("a heading the query covers outranks a longer one with more body hits", function () {
   const found = urls(search(ranked, "hooks"));
   assert.equal(found[0], "https://agnostic-ai.org/docs/spec-format/hooks/#hooks");
-  const table = found.indexOf("https://agnostic-ai.org/docs/spec-format/agents/#agent-policy-support-by-target");
+  const table = found.indexOf("https://agnostic-ai.org/docs/spec-format/agent-specs/#agent-policy-support-by-target");
   assert.ok(table > 0, "the six-word heading still matches");
   assert.ok(found.indexOf("https://agnostic-ai.org/docs/git-hooks/") < table);
 });

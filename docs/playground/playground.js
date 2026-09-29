@@ -133,7 +133,7 @@ const KINDS = {
 const SPEC_FORMAT_URL = "../docs/spec-format/";
 // The spec format page is split by topic; the hub redirects old anchors, but a direct link skips the hop.
 const SPEC_FORMAT_PAGES = {
-  agents: "agents/",
+  agents: "agent-specs/",
   skills: "skills-rules-commands/",
   rules: "skills-rules-commands/",
   commands: "skills-rules-commands/",

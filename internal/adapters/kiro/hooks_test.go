@@ -158,7 +158,7 @@ func TestEmit_HooksDirOverride(t *testing.T) {
 	}
 }
 
-// `description` is a generic spec field (docs/site/content/docs/spec-format/_index.md's
+// `description` is a generic spec field (docs/site/content/docs/spec-format/hooks.md's
 // Hooks table: "Free-form documentation"); Kiro documents the matching
 // `hooks[].description` as "Documentation only". It reaches the file
 // now that entries build as a map instead of a fixed struct (#642).

@@ -1,7 +1,7 @@
 [[features]]
 id = "agent"
 label = "Agents"
-href = "@/docs/spec-format/agents.md#agents"
+href = "@/docs/spec-format/agent-specs.md#agents"
 
 [[features]]
 id = "skill"

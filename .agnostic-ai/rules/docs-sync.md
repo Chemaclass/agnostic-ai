@@ -8,7 +8,7 @@ alwaysApply: true
 When a change is visible to the user, update the matching artifacts in the same PR so they never drift:
 
 - New or changed flag, target, or output field: update the target's page at `docs/site/content/docs/targets/<target>.md` (and `target-behavior.md` for cross-target notes) and `docs/site/content/docs/configuration.md`.
-- New or changed spec field: update `docs/site/content/docs/spec-format/_index.md`.
+- New or changed spec field: update the matching page under `docs/site/content/docs/spec-format/`.
 - Any change to `internal/config/config.go` struct tags: run `go run ./cmd/schemagen` to regenerate `docs/schemas/config.schema.json`. CI fails if the schema is stale.
 - New command or visible behavior: update `README.md` capability or quickstart section.
 - Any user-visible change: add an entry under `## [Unreleased]` in `CHANGELOG.md`. Put it under `### General` or under its tool in `### By tool`, as `.agnostic-ai/agents/changelog-curator.md` describes.

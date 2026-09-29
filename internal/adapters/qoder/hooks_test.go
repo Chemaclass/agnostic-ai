@@ -246,7 +246,7 @@ func TestEmit_Hook_OnceNotesFieldNoOp(t *testing.T) {
 
 // A `command` list produces one hook entry per command, matching
 // Claude Code's and Codex's documented behavior for the same field
-// (docs/site/content/docs/spec-format/_index.md, "When command is a list...").
+// (docs/site/content/docs/spec-format/hooks.md, "When command is a list...").
 func TestEmit_Hook_CommandListProducesMultipleEntries(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
