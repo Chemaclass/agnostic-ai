@@ -283,7 +283,7 @@ func emitTargetsConcurrent(targets []string, b spec.Bundle, cfg *config.Config, 
 					sess.SetBackup(true)
 				}
 				if keep != nil {
-					sess.KeepEditsSince(keep)
+					keepEditsIn(sess, keep)
 				}
 				if !dryRun {
 					sess.StartTransaction()
@@ -451,7 +451,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		mainSess.SetBackup(true)
 	}
 	if keep != nil {
-		mainSess.KeepEditsSince(keep)
+		keepEditsIn(mainSess, keep)
 	}
 	var sessions []*adapters.Session
 	// writesCompleted marks the point past which a returned error (the
@@ -698,9 +698,29 @@ func keptEdits(sessions []*adapters.Session) []string {
 	return sortedKeys(seen)
 }
 
+// keepEditsIn turns on --keep-edits for sess. A path the ledger has no sum
+// for is compared with the version Git committed (#1397).
+func keepEditsIn(sess *adapters.Session, keep map[string]string) {
+	sess.KeepEditsSince(keep)
+	sess.SetCommittedSum(committedSum)
+}
+
+// committedSum returns the content sum of the version of path at HEAD, or
+// "" when path is a link, untracked, or outside a git work tree.
+func committedSum(path string) string {
+	if fi, err := os.Lstat(path); err != nil || fi.Mode()&os.ModeSymlink != 0 {
+		return ""
+	}
+	blob, ok := runGitWithin(".", 10*time.Second, "show", "HEAD:./"+filepath.ToSlash(path))
+	if !ok {
+		return ""
+	}
+	return adapters.ContentSum(blob)
+}
+
 // keepSums returns the output sums --keep-edits compares against, or nil
-// when the flag is off. With no ledger yet the map is empty, so nothing
-// is kept.
+// when the flag is off. With no ledger yet the map is empty, so the ledger
+// keeps nothing and committedSum decides.
 func keepSums(keepEdits bool, prev syncStateFile) map[string]string {
 	if !keepEdits {
 		return nil
@@ -789,7 +809,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 		mainSess.SetBackup(true)
 	}
 	if keep != nil {
-		mainSess.KeepEditsSince(keep)
+		keepEditsIn(mainSess, keep)
 	}
 	gitignoreOn := resolveGitignore(cfg, gitignoreFlag)
 	if err := shared.reconcile(prev.Outputs, false); err != nil {

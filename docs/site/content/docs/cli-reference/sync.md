@@ -29,7 +29,7 @@ agnostic-ai sync --only claude,cursor
 | `--diff` | With `--check`, print a unified diff per drifted file (on-disk vs what sync would write). |
 | `--format <human\|github>` | With `--check`: `human` (default) table or `github` Actions annotations. `--json` wins. |
 | `--backup` | Copy each existing target file to `<path>.bak` before overwriting. Pair with `revert`. |
-| `--keep-edits` | Keep each output edited since the last sync, write the rest, and name each kept file as `~ kept <path>` (on stderr under `--quiet`). Exits 0. For [git hooks](@/docs/git-hooks.md#regenerate-on-checkout). Not with `--check`, `--plan`, `--watch`, or `--global`. |
+| `--keep-edits` | Keep each output edited since the last sync (with no ledger entry, each Git-tracked output that differs from `HEAD`), write the rest, and name each kept file as `~ kept <path>` (on stderr under `--quiet`). Exits 0. For [git hooks](@/docs/git-hooks.md#regenerate-on-checkout). Not with `--check`, `--plan`, `--watch`, or `--global`. |
 | `--untrack` | Run `git rm --cached` on generated paths that git tracks and ignores. The working copy stays. Not with `--check`, `--plan`, `--dry-run`, `--watch`, or `--global`. |
 | `--gitignore <on\|off>` | Override `gitignore.enabled` for this run. |
 | `--watch` | Stay running and re-emit on changes. Incompatible with `--check`. See [watch mode](#watch-mode). |
