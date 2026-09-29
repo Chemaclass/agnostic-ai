@@ -128,7 +128,7 @@ Specs merge by top-level key, and the last value wins.
 
 - [Cursor](@/docs/targets/cursor.md): `setup` and `setup-windows` go to `.cursor/worktrees.json`. The rest goes to `environment.json`, except the routing fields (`name`, `scope`, `target(s)`, `target(s)-exclude`, `description`) `dev-commands`, and `cleanup`, which get a no-effect note. `import cursor` reads both files back.
 - [Codex](@/docs/targets/codex.md): `setup`, `setup-windows`, `cleanup`, and `dev-commands` go to `.codex/environments/environment.toml` as scripts and action buttons. Other fields get a no-effect note. `import codex` reads the file back.
-- [Claude Code](@/docs/targets/claude.md): `dev-commands` goes to `.claude/launch.json`; every other field gets a no-effect note. Run worktree setup from a `WorktreeCreate` or `SessionStart` [hook](@/docs/spec-format/hooks.md#hooks) instead.
+- [Claude Code](@/docs/targets/claude.md): `dev-commands` goes to `.claude/launch.json`, where Claude Code reads a relative `cwd` from the project root, so the spec needs no `${workspaceFolder}`; every other field gets a no-effect note. Run worktree setup from a `WorktreeCreate` or `SessionStart` [hook](@/docs/spec-format/hooks.md#hooks) instead.
 - [OpenHands](@/docs/targets/openhands.md) and [Amp](@/docs/targets/amp.md): `install` becomes a setup script. Amp also turns `terminals` into services. Both note `setup`, `cleanup`, and `dev-commands` as having no effect.
 - Other targets report the spec as unsupported.
 
