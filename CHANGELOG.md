@@ -8,21 +8,29 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
-- A skill's `workspaces: [apps/platforma]` also writes it under `apps/platforma/.cursor/skills/`, since Cursor loads skills only from the workspace it opens; `import cursor` sets it when a root skill links into a project directory. `lint` warns on a `scope:` key in a skill, which has no effect (LINT018).
-- The root `CLAUDE.md` is `@AGENTS.md` plus only your `::target claude` blocks when another target writes the root `AGENTS.md`, so Cursor, which loads both files, reads the instructions once instead of twice.
-- `sync --check --against` fails on hand-written config Git tracks inside a folder the managed block ignores, such as a skill a pre-migration branch adds under `.cursor/skills/`, and names the `import` that adopts it, without the "commit the regenerated files" line when nothing needs regenerating.
-- `import` scopes each environment spec to its tool with `targets: [<tool>]` when several tools keep their own environment file, so the sync after an import reproduces each file instead of merging one tool's dev commands or setup into the others.
-- Skills keep their Agent Skills `license` on every target that writes the standard `SKILL.md`, not only on Claude Code.
-- `gitignore.commit` takes `<target>:<kind>`, such as `cursor:environments`, to commit a kind for one target only; `lint` warns when that target is not configured (LINT017).
-- With `claude` in `targets` and `gitignore.enabled`, sync keeps the managed block in `.worktreeinclude` too, so a Claude Code worktree starts with the generated files and the local layer; `gitignore.worktree-include: false` opts out.
-- The "files to commit" hint no longer lists an output you are untracking with `git rm --cached`.
-- Release binaries build with Go 1.26.8 instead of 1.26.0. `govulncheck` found 18 Go standard-library vulnerabilities reachable in 0.74.0 and earlier builds, mostly in `crypto/x509`, which `agnostic-ai upgrade` uses over HTTPS. CI now fails on any reachable vulnerability.
-- Releases carry a signed build provenance attestation and an SPDX SBOM for every archive; `gh attestation verify <archive> --repo Chemaclass/agnostic-ai` checks one, and `agnostic-ai.intoto.jsonl` on the release page holds the same attestation. `install.sh` and `install.ps1` stop instead of installing when `checksums.txt` or a SHA-256 tool is missing, and verify provenance too with `AGNOSTIC_AI_VERIFY_ATTESTATION=1` or `-VerifyAttestation`.
+- Release binaries build with Go 1.26.8 instead of 1.26.0, which fixes 18 Go standard-library vulnerabilities `govulncheck` found reachable in 0.74.0 and earlier, mostly in `crypto/x509`, which `upgrade` uses over HTTPS. CI now fails on any reachable vulnerability (#1415).
+- Releases carry a signed build provenance attestation and an SPDX SBOM for every archive: `gh attestation verify <archive> --repo Chemaclass/agnostic-ai` checks one, and `agnostic-ai.intoto.jsonl` on the release page holds the same attestation. `install.sh` and `install.ps1` stop instead of installing when they cannot verify the checksum, and check provenance too with `AGNOSTIC_AI_VERIFY_ATTESTATION=1` or `-VerifyAttestation` (#1414, #1417).
+- `gitignore.commit` takes `<target>:<kind>`, such as `cursor:environments`, to commit a kind for one target only; `lint` warns when that target is not configured (LINT017) (#1418).
+- `sync --check --against` fails on hand-written config Git tracks inside a folder the managed block ignores, such as a skill an old branch adds under `.cursor/skills/`, and names the `import` that adopts it (#1420, #1421).
+- `import` scopes each environment spec to its tool with `targets: [<tool>]` when several tools keep their own environment file, so the next sync reproduces each file instead of merging one tool's dev commands or setup into the others (#1419).
+- Skills keep their Agent Skills `license` on every target that writes the standard `SKILL.md` (#1419).
+- The "files to commit" hint no longer lists an output you are untracking with `git rm --cached` (#1418).
+
+### By tool
+
+#### Claude Code
+
+- The root `CLAUDE.md` is `@AGENTS.md` plus only your `::target claude` blocks when another target writes the root `AGENTS.md`, so Cursor, which loads both files, reads the instructions once (#1423).
+- With `gitignore.enabled`, sync keeps the managed block in `.worktreeinclude` too, so a CLI, subagent, or Desktop worktree starts with the generated files and the local layer; `gitignore.worktree-include: false` opts out (#1418).
+
+#### Cursor
+
+- A skill's `workspaces: [apps/platforma]` also writes it under `apps/platforma/.cursor/skills/`, since Cursor loads skills only from the workspace it opens; `import cursor` sets it when a root skill links into a project directory. `lint` warns on a `scope:` key in a skill, which has no effect (LINT018) (#1423).
 
 ### Site
 
-- The git hooks guide covers the first pull in a Node monorepo, which runs no checkout hook yet, and `.worktreeinclude` for Claude Code worktrees.
-- A [Verify a release](https://agnostic-ai.org/docs/verify-a-release/) page shows how to check checksums, provenance, SBOMs, npm provenance, and signed tags.
+- A [Verify a release](https://agnostic-ai.org/docs/verify-a-release/) page shows how to check checksums, provenance, SBOMs, npm provenance, and signed tags (#1414).
+- The git hooks guide covers the first pull in a Node monorepo, before any checkout hook is installed (#1421).
 
 ## v0.74.0 - 2026-09-29
 
