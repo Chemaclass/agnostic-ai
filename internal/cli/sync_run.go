@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -1066,9 +1067,16 @@ func reportCheckDrift(cmd *cobra.Command, reports []driftReport, format string, 
 // step instead of a command that would leave it in place.
 func reconcileHint(reports []driftReport) string {
 	var syncDrift, removable, scoped bool
+	var adopt []string
 	for _, r := range reports {
+		for _, f := range r.Unmanaged {
+			if !slices.Contains(adopt, f.Target) {
+				adopt = append(adopt, f.Target)
+			}
+		}
 		switch {
 		case !r.hasDrift():
+		case len(r.Unmanaged) > 0:
 		case r.Unledgered:
 			removable = removable || len(r.Leftover) > 0
 			scoped = scoped || len(r.Orphaned) > 0
@@ -1084,14 +1092,28 @@ func reconcileHint(reports []driftReport) string {
 	case syncDrift:
 		fix = "sync"
 	}
+	var hint string
 	switch {
+	case fix == "" && !scoped:
 	case fix == "":
-		return "to reconcile, " + manual
+		hint = "to reconcile, " + manual
 	case scoped:
-		return "to reconcile, run: agnostic-ai " + fix + ", then " + manual
+		hint = "to reconcile, run: agnostic-ai " + fix + ", then " + manual
 	default:
-		return "to reconcile, run: agnostic-ai " + fix
+		hint = "to reconcile, run: agnostic-ai " + fix
 	}
+	if len(adopt) == 0 {
+		return hint
+	}
+	imports := make([]string, len(adopt))
+	for i, t := range adopt {
+		imports[i] = "agnostic-ai import " + t
+	}
+	move := "to move the hand-written files into .agnostic-ai/, run: " + strings.Join(imports, ", ") + ", then git rm --cached them"
+	if hint == "" {
+		return move
+	}
+	return hint + "; " + move
 }
 
 // printDriftGitHub emits one GitHub Actions error annotation per drifted file
@@ -1129,6 +1151,11 @@ func printDriftGitHub(cmd *cobra.Command, reports []driftReport) bool {
 			drift = true
 			_, _ = fmt.Fprintf(out, "::error file=%s::%s is no longer generated but still loaded; run agnostic-ai %s to remove it\n",
 				githubProp(p), githubData(filepath.ToSlash(p)), r.leftoverFix())
+		}
+		for _, f := range r.Unmanaged {
+			drift = true
+			_, _ = fmt.Fprintf(out, "::error file=%s::%s is hand-written in a generated folder, so only %s reads it; adopt it with agnostic-ai import %s, then git rm --cached it\n",
+				githubProp(f.Path), githubData(f.Path), githubData(f.Target), githubData(f.Target))
 		}
 	}
 	return drift
