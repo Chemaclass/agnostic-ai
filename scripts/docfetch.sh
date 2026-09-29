@@ -917,7 +917,9 @@ compare_mirrors() {
 # one machine and a proxy copy to another, and the two never hash alike.
 fetch_target() {
   local target="$1" dir="$2" idx=0 kind url proxy="" force row
-  if source_sections "$target" | grep -q '^- fetch: reader-proxy'; then
+  # grep without -q reads the whole section: -q stops at the first match,
+  # and under pipefail the writer's SIGPIPE then fails the whole pipeline.
+  if source_sections "$target" | grep '^- fetch: reader-proxy' >/dev/null; then
     proxy=1
   fi
   mkdir -p "$dir/rows"

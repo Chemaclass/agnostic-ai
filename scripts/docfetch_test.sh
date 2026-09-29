@@ -368,6 +368,19 @@ function test_fetch_target_forces_the_proxy_for_a_target_marked_fetch_reader_pro
   assert_equals "markdown-mirror" "$(printf '%s\n' "$rows" | awk -F '\t' '$3 ~ /\.md$/ { print $5 }' | sort -u)"
 }
 
+# Cursor's source section is long enough that `grep -q` stops reading
+# before it ends; under pipefail the writer's SIGPIPE must not read as "no
+# fetch line", or every Cursor page is fetched as HTML and never hashes
+# like the locked proxy copy.
+function test_fetch_target_forces_the_proxy_for_a_long_source_section() {
+  set -o pipefail
+  stub_curl "https://r.jina.ai/*|200|$(printf 'Markdown Content:\nCursor reference %.0s' 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20)" \
+    "https://cursor.com/*|200|<html><body><p>direct copy served to some networks only</p></body></html>"
+  local rows
+  rows=$(fetch_target cursor "$FIXTURES/run")
+  assert_equals "reader-proxy" "$(printf '%s\n' "$rows" | awk -F '\t' '$3 !~ /\.md$/ { print $5 }' | sort -u)"
+}
+
 function test_fetch_one_follows_a_client_side_meta_refresh() {
   stub_curl \
     "https://kiro.dev/docs/config/|200|<html><meta http-equiv=\"refresh\" content=\"0; url=https://kiro.dev/docs/reference/configuration/\"></html>" \
