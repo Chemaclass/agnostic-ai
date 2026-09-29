@@ -6,6 +6,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### General
+
+- `doctor` names an unledgered leftover it cannot remove and says to delete it by hand or list it under `sync.unmanaged`, instead of advising `sync` or `doctor --fix` (#1392).
+
 ### By tool
 
 #### Claude Code
