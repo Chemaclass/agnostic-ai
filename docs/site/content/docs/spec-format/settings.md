@@ -109,9 +109,9 @@ terminals:
     command: go run ./cmd/agnostic-ai
 ```
 
-`setup` holds the commands a tool runs in a new worktree (one command or a list); `setup-windows` replaces it on Windows.
+`setup` holds the commands a tool runs in a new worktree (one command or a list); `setup-windows` replaces it on Windows. `cleanup` holds the commands a tool runs when it removes the worktree.
 
-`dev-commands` lists dev servers a tool can start and preview. Each entry needs a unique `name` and a `command` (a string or a list of words); `cwd` (relative to the project root), `port`, `auto-port`, `env`, and `url` are optional. A string command with shell syntax (pipe, several lines, `VAR=value`, a builtin like `cd`) runs through `sh -c`, which on Windows needs a POSIX shell such as Git Bash on the `PATH`. A list runs with no shell. `env` values are written as text.
+`dev-commands` lists dev servers a tool can start and preview. Each entry needs a unique `name` and a `command` (a string or a list of words); `cwd` (relative to the project root), `port`, `auto-port`, `env`, `url`, and `icon` (the Codex button icon, `run` by default) are optional. A string command with shell syntax (pipe, several lines, `VAR=value`, a builtin like `cd`) runs through `sh -c`, which on Windows needs a POSIX shell such as Git Bash on the `PATH`. A list runs with no shell. `env` values are written as text.
 
 ```yaml
 name: dev
@@ -126,9 +126,10 @@ dev-commands:
 
 Specs merge by top-level key, and the last value wins.
 
-- [Cursor](@/docs/targets/cursor.md): `setup` and `setup-windows` go to `.cursor/worktrees.json`. The rest goes to `environment.json`, except the routing fields (`name`, `scope`, `target(s)`, `target(s)-exclude`, `description`) and `dev-commands`, which get a no-effect note. `import cursor` reads both files back.
+- [Cursor](@/docs/targets/cursor.md): `setup` and `setup-windows` go to `.cursor/worktrees.json`. The rest goes to `environment.json`, except the routing fields (`name`, `scope`, `target(s)`, `target(s)-exclude`, `description`) `dev-commands`, and `cleanup`, which get a no-effect note. `import cursor` reads both files back.
+- [Codex](@/docs/targets/codex.md): `setup`, `setup-windows`, `cleanup`, and `dev-commands` go to `.codex/environments/environment.toml` as scripts and action buttons. Other fields get a no-effect note. `import codex` reads the file back.
 - [Claude Code](@/docs/targets/claude.md): `dev-commands` goes to `.claude/launch.json`; every other field gets a no-effect note. Run worktree setup from a `WorktreeCreate` or `SessionStart` [hook](@/docs/spec-format/hooks.md#hooks) instead.
-- [OpenHands](@/docs/targets/openhands.md) and [Amp](@/docs/targets/amp.md): `install` becomes a setup script. Amp also turns `terminals` into services. Both note `setup` and `dev-commands` as having no effect.
+- [OpenHands](@/docs/targets/openhands.md) and [Amp](@/docs/targets/amp.md): `install` becomes a setup script. Amp also turns `terminals` into services. Both note `setup`, `cleanup`, and `dev-commands` as having no effect.
 - Other targets report the spec as unsupported.
 
 `lint` reports a dev command with no `name` or `command`, a repeated name, an unknown key, or a wrong-typed value (LINT016).

@@ -51,6 +51,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindMCP, []string{".codex/config.toml"}},
 		{spec.KindCommand, []string{".codex/prompts/cmd-one.md", ".codex/prompts/cmd-two.md", ".codex/prompts/cmd-three.md"}},
 		{spec.KindSettings, []string{".codex/config.toml"}},
+		{spec.KindEnvironment, []string{".codex/environments/environment.toml"}},
 	}
 
 	for _, k := range caps.Supports {

@@ -106,6 +106,7 @@ var devCommandFieldTypes = map[string]func(any) bool{
 	"cwd":       func(v any) bool { _, ok := v.(string); return ok },
 	"url":       func(v any) bool { _, ok := v.(string); return ok },
 	"auto-port": func(v any) bool { _, ok := v.(bool); return ok },
+	"icon":      func(v any) bool { _, ok := v.(string); return ok },
 	"command":   func(any) bool { return true },
 	"port":      func(any) bool { return true },
 	"env":       func(any) bool { return true },

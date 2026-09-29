@@ -122,6 +122,7 @@ func outputKeyProbeEntry(kind string) spec.Entry {
 	case "environment":
 		return spec.Entry{Kind: spec.KindEnvironment, Name: "probe", Meta: map[string]any{
 			"install":   "echo hi",
+			"setup":     "echo hi",
 			"terminals": []any{map[string]any{"name": "probe", "command": "echo hi"}},
 		}}
 	}

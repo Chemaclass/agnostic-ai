@@ -27,7 +27,7 @@ const cursorEnvironmentSpecName = "cursor"
 // writes them to environment.json, so a file that sets one would lose it
 // on the next sync.
 var cursorEnvironmentReservedKeys = []string{
-	"name", "scope", "description", "setup", "setup-windows", "dev-commands",
+	"name", "scope", "description", "setup", "setup-windows", "cleanup", "dev-commands",
 	"setup-worktree", "setup-worktree-unix", "setup-worktree-windows",
 	"target", "targets", "target-exclude", "targets-exclude",
 }

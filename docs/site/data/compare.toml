@@ -81,7 +81,7 @@
 
   [[targets.kinds]]
     id = "environment"
-    paths = []
+    paths = [".codex/environments/environment.toml"]
 
   [[targets.kinds]]
     id = "ignore"

@@ -54,7 +54,7 @@ func codexRulesFileFromCfg(cfg *config.Config) string {
 // importFromCodex reads existing Codex config (AGENTS.md hierarchy,
 // `.codex/agents/*.toml` (or legacy `.agents/agents/*.toml`),
 // `.agents/skills/<name>/SKILL.md` (or legacy `.codex/skills/<name>/SKILL.md`), and
-// `.codex/config.toml`) under root and writes specs into the configured
+// `.codex/config.toml`, and `.codex/environments/environment.toml`) under root and writes specs into the configured
 // source directories.
 func importFromCodex(root string, src config.Sources) error {
 	return importFromCodexWithOpts(root, src, importCodexOpts{})
@@ -113,8 +113,12 @@ func importFromCodexWithOpts(root string, src config.Sources, opts importCodexOp
 	if _, err := mirrorMainFile(root, "AGENTS.md"); err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d commands, %d reviews\n",
-		rules, agents, skills, hooks, mcps, commands, reviews)
+	environments, err := importCodexEnvironment(root, src)
+	if err != nil {
+		return err
+	}
+	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d commands, %d reviews, %d environments\n",
+		rules, agents, skills, hooks, mcps, commands, reviews, environments)
 	if overlaySeeded {
 		summaryf("  → %s seeded from %s (carries model/sandbox/profiles/etc. across re-syncs)\n",
 			codexOverlayRelPath(), codexConfigTOML)

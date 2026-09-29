@@ -458,6 +458,8 @@ func emitEnvironment(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryR
 	}
 	emit.NoteFieldNoOp(target, spec.KindEnvironment, "dev-commands", emit.EnvironmentsWithField(target, b.Environments, "dev-commands"),
 		"Cursor has no preview server list; list long-running processes in terminals")
+	emit.NoteFieldNoOp(target, spec.KindEnvironment, "cleanup", emit.EnvironmentsWithField(target, b.Environments, "cleanup"),
+		"Cursor has no worktree cleanup step")
 	merged := map[string]any{}
 	for _, e := range b.Environments {
 		// Resolve the x-<target> namespace first so a cursor-specific
@@ -465,7 +467,7 @@ func emitEnvironment(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryR
 		// every other adapter. Then strip the spec identity fields Cursor
 		// has no schema for.
 		for k, v := range emit.ResolveMeta(e.Meta, target) {
-			if _, skip := environRoutingKeys[k]; skip || isWorktreeSetupField(k) || k == "dev-commands" {
+			if _, skip := environRoutingKeys[k]; skip || isWorktreeSetupField(k) || k == "dev-commands" || k == "cleanup" {
 				continue
 			}
 			merged[k] = v

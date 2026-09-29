@@ -19,6 +19,7 @@ AGENTS.md                                    # entry-point pointer body (written
 .agents/skills/<name>/agents/openai.yaml     # for x-codex UI/policy/deps or a manual-only skill
 .codex/config.toml                           # when settings or MCP entries exist
 .codex/hooks.json                            # when hook entries exist
+.codex/environments/environment.toml         # when an environment spec sets setup, cleanup, or dev-commands
 .codex/rules/default.rules                   # opt-in, from outputs.codex.exec-policies
 .codex/prompts/<name>.md                     # opt-in via outputs.codex.commands-dir (deprecated by Codex)
 ```
@@ -45,6 +46,7 @@ AGENTS.md                                    # entry-point pointer body (written
   Edit hooks get a different payload than on Claude Code. Codex accepts `Edit` and `Write` as matcher aliases for `apply_patch`, but reports `tool_name: "apply_patch"` and puts the patch in `tool_input.command`; there is no `tool_input.file_path` ([hooks docs](https://learn.chatgpt.com/docs/hooks)). A `PreToolUse`, `PostToolUse`, or `PermissionRequest` hook that fires on edits and whose `command` reads `tool_input.file_path` gets an empty value on Codex, so `sync` prints a note, and `on-unsupported: error` fails the sync. The check reads the `command` text only, not a script it calls. Parse the file paths out of the patch, or add `target: claude` to the hook.
 - **Reviews**: review specs land in a `## Code Review Rules` section, the one [Codex code review](https://learn.chatgpt.com/docs/third-party/github) reads from the root `AGENTS.md` and from the `AGENTS.md` nearest each changed file. An unscoped spec goes to the root `AGENTS.md`, a spec with `scope: services/api` to `services/api/AGENTS.md`, after that scope's rules, and specs sharing a scope concatenate in one section, the same text Cursor writes to `BUGBOT.md`. Other `AGENTS.md` readers load the section too; set `targets:` on a spec to keep it out. With `outputs.codex.rules-file` set, sync does not write the root `AGENTS.md`, so unscoped reviews get a coverage note.
 - **Exec policies**: opt-in. Set `outputs.codex.exec-policies` (inline list) or `outputs.codex.exec-policies-file` (external YAML) to write `.codex/rules/default.rules` as Starlark `prefix_rule(...)` calls. Portable `permissions` lists do not feed this, because `prefix_rule` matches token lists, not globs. They raise a coverage note pointing here.
+- **Environment**: environment specs write the [local environment](https://learn.chatgpt.com/docs/environments/local-environment) the Codex app reads. `setup` and `cleanup` become the `[setup]` and `[cleanup]` scripts (a list runs one command per line), and `setup-windows` becomes `[setup.win32]`. Each `dev-commands` entry becomes an `[[actions]]` button with its `name`, `command`, and an `icon` that defaults to `run`. A list command is joined into a shell line. Specs merge by top-level key, the last value wins, and `name` is the environment's name. Codex has no key for `cwd`, `port`, `auto-port`, `env`, `url`, `install`, or `terminals`, so each gets a no-effect note. The docs page does not show the file, so the layout follows what the app writes. Override the path with `outputs.codex.environment-file`.
 - **MCP**: lands in `.codex/config.toml` as `[mcp_servers.<name>]`. Stdio servers use `command`/`args`/`env`/`cwd` plus `env_vars`, whose entries are names or `{name, source}` objects with `source` set to `local` or `remote`. HTTP/SSE servers use `url`/`bearer_token_env_var`/`http_headers`/`env_http_headers`/`auth` (`oauth` or `chatgpt`)/`http_headers_helper` (a local command printing header JSON, documented for local HTTP servers only). `disabled: true` writes `enabled = false`.
 
   Server names that are not bare TOML keys are quoted, including package-style names with `:`, `@`, `/`, or `.` (accepted since Codex CLI 0.152.0), such as `npm:@modelcontextprotocol/server-sequential.thinking`. Import stores a slash-bearing name in a percent-encoded YAML filename and keeps the exact name in the spec, so import then sync is lossless.
@@ -75,6 +77,7 @@ AGENTS.md                                    # entry-point pointer body (written
 | `outputs.codex.commands-dir` | unset | set to e.g. `.codex/prompts` to emit the deprecated project prompts layout |
 | `outputs.codex.mcp-file` | `.codex/config.toml` | |
 | `outputs.codex.hooks-file` | `.codex/hooks.json` | |
+| `outputs.codex.environment-file` | `.codex/environments/environment.toml` | |
 | `outputs.codex.rules-file` | unset | writes legacy concatenated rules and skips the pointer-body write |
 | `outputs.codex.exec-policies` / `outputs.codex.exec-policies-file` | unset | write `.codex/rules/default.rules` |
 
@@ -167,6 +170,7 @@ For many policies, use a separate file: `exec-policies-file: ./.agnostic-ai/code
 | `.codex/config.toml` `[mcp_servers.<name>]` | `<mcps>/<name>.yaml` |
 | `.codex/config.toml` remaining keys (model, sandbox, approval_policy, notify, `[history]`, `[profiles.*]`, `[model_providers.*]`, …) | `.agnostic-ai/overlays/codex.config.toml` (`hooks` + `mcp_servers` stripped) |
 | `.codex/prompts/*.md` | `<commands>/<name>.md` (byte-identical copy, so user-authored prompts round-trip) |
+| `.codex/environments/environment.toml` | `<environments>/codex.yaml`: `[setup]`, `[setup.win32]`, `[cleanup]`, and `[[actions]]` become `setup`, `setup-windows`, `cleanup`, and `dev-commands`. A file with a `[setup.darwin]` script, an action `platform`, or another key stays as written with a note |
 
 Two sections with the same heading in one file are deduplicated (`style.md`, `style-2.md`). The walk skips hidden directories, the configured source directories, `node_modules/`, `vendor/`, directories git ignores, and directories with their own `.git` (a clone, submodule, or worktree).
 
