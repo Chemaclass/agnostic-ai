@@ -298,6 +298,40 @@ func TestDoctorFix_WithoutLedgerLeavesScopedDocumentForManualRemoval(t *testing.
 	}
 }
 
+// When the only drift is a scope document no ledger proves sync wrote,
+// neither sync nor doctor --fix can settle it, so doctor's closing advice
+// and its error name the file and the manual step instead (#1392).
+func TestDoctor_UnledgeredScopeDocumentAdvisesManualRemoval(t *testing.T) {
+	dir, git := gitRepo(t)
+	testutil.Chdir(t, dir)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	syncProject(t)
+	if err := os.Remove(filepath.Join(".agnostic-ai", ".sync-state")); err != nil {
+		t.Fatal(err)
+	}
+	copied := filepath.Join("docs", "guide", "AGENTS.md")
+	mustWriteFile(t, copied, header.With("copied from a generated file\n", header.FormatMarkdown))
+	git("add", "-A")
+	git("commit", "-q", "-m", "base")
+
+	out, err := runCLI(t, "doctor")
+
+	if err == nil || !strings.Contains(err.Error(), "by hand") || strings.Contains(err.Error(), "doctor --fix") {
+		t.Errorf("error = %v, want the manual step and no doctor --fix advice", err)
+	}
+	_, next, _ := strings.Cut(out, "Next step:")
+	for _, want := range []string{filepath.ToSlash(copied), "by hand if stale", "sync.unmanaged"} {
+		if !strings.Contains(next, want) {
+			t.Errorf("next step does not say %q:\n%s", want, next)
+		}
+	}
+	for _, unwanted := range []string{"agnostic-ai sync", "doctor --fix"} {
+		if strings.Contains(next, unwanted) {
+			t.Errorf("next step advises %q, which cannot remove the file:\n%s", unwanted, next)
+		}
+	}
+}
+
 // The check footer names what settles the unledgered drift found:
 // doctor --fix for a removable leftover, and a manual step for a scope
 // document, which doctor --fix leaves in place (#1362).

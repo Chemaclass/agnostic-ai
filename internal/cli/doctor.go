@@ -64,7 +64,9 @@ var errDoctorNoConfig = errors.New("no config found")
 
 // doctorNextStep prints a prioritized "what to do next" hint based on
 // whether drift was found and why the config failed to load, if it did.
-func doctorNextStep(cmd *cobra.Command, drift bool, configErr error) {
+// manualOnly means the drift is scope documents in manual, which neither
+// sync nor doctor --fix removes.
+func doctorNextStep(cmd *cobra.Command, drift, manualOnly bool, manual []string, configErr error) {
 	cmd.Println()
 	cmd.Println("Next step:")
 	if errors.Is(configErr, errDoctorNoConfig) {
@@ -77,6 +79,10 @@ func doctorNextStep(cmd *cobra.Command, drift bool, configErr error) {
 			return
 		}
 		cmd.Println("  Fix the config error above, then run: agnostic-ai doctor")
+		return
+	}
+	if drift && manualOnly {
+		cmd.Println("  Delete " + manualRemovalAdvice(manual) + ".")
 		return
 	}
 	if drift {
