@@ -107,7 +107,7 @@ A `post-checkout` hook closes the gap. `git checkout`, `git clone`, and `git wor
 
 `agnostic-ai install-hook --post-checkout` writes one for you: `agnostic-ai sync -q`, guarded on the branch-checkout flag below, exiting 0 when the binary or `agnostic-ai.yaml` is not found yet. It runs a plain `sync`, so a hand edit to a generated file is overwritten; use the recipes below instead if you need `--keep-edits` to protect one across a checkout.
 
-The recipes use `sync --keep-edits`. Git carries an uncommitted edit across a checkout, and a plain `sync` would overwrite a hand edit to a generated file such as `AGENTS.md`. With `--keep-edits`, sync writes every other output, leaves each file edited since the last sync in place, and names it as `~ kept <path>`. Move the edit into `.agnostic-ai/`, then run `agnostic-ai sync`.
+The recipes use `sync --keep-edits`. Git carries an uncommitted edit across a checkout, and a plain `sync` would overwrite a hand edit to a generated file such as `AGENTS.md`. With `--keep-edits`, sync writes every other output, leaves each file edited since the last sync in place, and names it as `~ kept <path>`. A file with no ledger entry, as in a new linked worktree, counts as edited when it differs from `HEAD`. Move the edit into `.agnostic-ai/`, then run `agnostic-ai sync`.
 
 lefthook (`lefthook.yml`):
 

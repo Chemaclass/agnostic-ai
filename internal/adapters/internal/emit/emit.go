@@ -116,6 +116,9 @@ type Session struct {
 	// and recorded in kept (see KeepEditsSince).
 	keepSums map[string]string
 	kept     []string
+	// committedSum, when set, gives a path with no recorded sum the sum of
+	// its committed version, "" when there is none (see SetCommittedSum).
+	committedSum func(path string) string
 }
 
 // SetUserTier marks a session that writes a tool's user-level
@@ -181,7 +184,8 @@ func (s *Session) UnmanagedSkips() []string {
 // KeepEditsSince makes this session keep hand edits: a write over a
 // file whose bytes differ both from the new content and from sums[path],
 // the sum the last sync recorded, is skipped. A path with no recorded
-// sum has no proof of an edit and is written. Set before any write.
+// sum falls back on SetCommittedSum; with neither it has no proof of an
+// edit and is written. Set before any write.
 func (s *Session) KeepEditsSince(sums map[string]string) {
 	if sums == nil {
 		sums = map[string]string{}
@@ -189,6 +193,15 @@ func (s *Session) KeepEditsSince(sums map[string]string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.keepSums = sums
+}
+
+// SetCommittedSum sets the lookup KeepEditsSince falls back on for a path
+// with no recorded sum: the ContentSum of the version Git committed, or ""
+// when the path has none. Set before any write.
+func (s *Session) SetCommittedSum(lookup func(path string) string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.committedSum = lookup
 }
 
 // KeepsEdits reports whether KeepEditsSince was called.
@@ -211,12 +224,20 @@ func (s *Session) KeptEdits() []string {
 func (s *Session) keepsEdit(path, content string) (string, bool) {
 	s.mu.Lock()
 	sum := s.keepSums[path]
+	keeping := s.keepSums != nil
+	committed := s.committedSum
 	s.mu.Unlock()
-	if sum == "" {
+	if !keeping {
 		return "", false
 	}
 	existing, err := os.ReadFile(path)
-	if err != nil || string(existing) == content || ContentSum(string(existing)) == sum {
+	if err != nil || string(existing) == content {
+		return "", false
+	}
+	if sum == "" && committed != nil {
+		sum = committed(path)
+	}
+	if sum == "" || ContentSum(string(existing)) == sum {
 		return "", false
 	}
 	return sum, true
