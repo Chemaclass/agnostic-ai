@@ -1673,6 +1673,12 @@
     overflow-y: auto;
     scrollbar-width: thin;
   }
+
+  /* Wide screens have room to keep a first-column name such as `environments/` on one line. */
+  .docs-content td:first-child code {
+    overflow-wrap: normal;
+    white-space: nowrap;
+  }
 }
 
 @media (min-width: 1280px) {
