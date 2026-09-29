@@ -27,13 +27,13 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # Fetched text keyed by its hash, carried between runs so the issue
       # can label each moved page against the text the lock names. Content-
       # addressed, so a stale cache is only a miss ("no-snapshot").
       - name: Restore page snapshots
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ runner.temp }}/snapshots
           key: docfetch-snapshots-${{ github.run_id }}
@@ -76,7 +76,7 @@ jobs:
 
       - name: Cache page snapshots
         if: always()
-        uses: actions/cache/save@v6
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ runner.temp }}/snapshots
           key: docfetch-snapshots-${{ github.run_id }}
@@ -97,7 +97,7 @@ jobs:
       # the issue its report, and a failed fetch still leaves pages to diff.
       - name: Keep the fetched pages
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: vendor-watch-pages
           path: |

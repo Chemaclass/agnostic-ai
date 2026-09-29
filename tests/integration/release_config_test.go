@@ -270,8 +270,8 @@ func TestReleaseWorkflow_DistributionChecksRetryAStaleReplica(t *testing.T) {
 // scripts/npm-publish.sh or reads npm/lib/platforms.js.
 func TestReleaseWorkflow_DistributionChecksOutRepository(t *testing.T) {
 	checkout, checkoutAt := workflowStepAt(t, releaseWorkflowPath, "distribution", "Checkout")
-	if checkout.Uses != "actions/checkout@v7" {
-		t.Errorf("the distribution checkout uses %q, want actions/checkout@v7", checkout.Uses)
+	if !regexp.MustCompile(`^actions/checkout@[0-9a-f]{40}$`).MatchString(checkout.Uses) {
+		t.Errorf("the distribution checkout uses %q, want actions/checkout pinned to a commit SHA", checkout.Uses)
 	}
 	for _, name := range []string{"Homebrew cask serves this tag", "npm serves this tag"} {
 		_, checkAt := workflowStepAt(t, releaseWorkflowPath, "distribution", name)
@@ -343,11 +343,11 @@ func TestReleaseWorkflow_FallsBackToTheStoredTapToken(t *testing.T) {
 // argument: a classic PAT with `repo` writes everywhere the owner can,
 // while this token reaches the tap and nothing else.
 //
-// The pin is a major tag to match every other action in this repo.
+// The pin is a commit SHA to match every other action in this repo.
 func TestReleaseWorkflow_ScopesTheTapTokenToTheTap(t *testing.T) {
 	mint, _ := workflowStepAt(t, releaseWorkflowPath, "goreleaser", tapMintStep)
-	if !regexp.MustCompile(`^actions/create-github-app-token@v\d+$`).MatchString(mint.Uses) {
-		t.Errorf("the mint step must use actions/create-github-app-token pinned to a major tag like the rest of this repo, got %q", mint.Uses)
+	if !regexp.MustCompile(`^actions/create-github-app-token@[0-9a-f]{40}$`).MatchString(mint.Uses) {
+		t.Errorf("the mint step must use actions/create-github-app-token pinned to a commit SHA like the rest of this repo, got %q", mint.Uses)
 	}
 	for key, want := range map[string]string{
 		"owner":               "Chemaclass",
