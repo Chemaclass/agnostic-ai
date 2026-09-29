@@ -73,7 +73,7 @@ agnostic-ai import claude codex --dry-run --diff   # review content and conflict
 
 `import all` imports every tool detected from its marker. A detected tool with no importer is skipped with a `skipping <tool>` line. An entry file that links outside the project is skipped with a `skipped <file>` note; naming the tool (`import claude`) follows the link. Output that sync wrote and nobody edited is skipped, so `import all` right after `sync` changes nothing. See [Claude import](@/docs/targets/claude.md#import) for what `import claude` leaves in place.
 
-`import --global` reads your user config (default model and effort, MCP servers) from the tools `sync --global` writes. It writes `settings/imported.yaml` and one `mcps/<name>.yaml` per server into `$AGNOSTIC_AI_HOME`. Name targets to narrow it. Anything a home spec already provides, `local/` included, is left out, and an existing spec file is never replaced. Conflicting or non-round-tripping servers are skipped with a warning.
+`import --global` reads your user config (default model and effort, MCP servers) from the tools `sync --global` writes. It writes `settings/imported.yaml` and one `mcps/<name>.yaml` per server into `$AGNOSTIC_AI_HOME`. Name targets to narrow it. Anything a home spec already provides, `local/` included, is left out, and an existing spec file is never replaced. Two tools defining one server differently keep the first tool's server, with a warning. Servers that do not round-trip are skipped with a warning.
 
 | Flag | Effect |
 |---|---|
@@ -83,7 +83,7 @@ agnostic-ai import claude codex --dry-run --diff   # review content and conflict
 - Writes only spec files under `sources:`. Run it after `init`; re-running overwrites by filename.
 - Nested config search skips git-ignored directories, directories with their own `.git`, and `node_modules/`.
 - A symlinked skill folder that links outside the project is skipped with a `skipped <path>` note.
-- An existing skill or agent spec keeps frontmatter keys the source tool has nowhere to put (such as Cursor's `argument-hint`). Rules are rebuilt from the native file.
+- An existing skill or agent spec keeps frontmatter keys the source tool has nowhere to put (such as Cursor's `argument-hint`). Deleting a key the tool does write is read as deliberate and reaches the spec (removing `model` from a Qoder agent removes it from the spec). Rules are rebuilt from the native file.
 - Each source mirrors its top-level instructions file to `.agnostic-ai/AGNOSTIC_AI.md`, so the last argument wins. A fenced `AGNOSTIC_AI.md` stays untouched when the entry point matches its rendered view; otherwise import overwrites it and warns.
 - If another entry point holds different hand-written content (a distinct `AGENTS.md` next to `CLAUDE.md`), import warns that `sync` would overwrite it. Merge it into `.agnostic-ai/AGNOSTIC_AI.md` first.
 - `all` cannot combine with other sources.
@@ -164,7 +164,7 @@ agnostic-ai lint --strict
 | LINT016 | Error. An environment spec's `dev-commands` entry has no `name:` or `command:`, repeats a name, is not a mapping, sets a key no target reads, or gives `cwd`, `url`, `auto-port`, `port`, or `env` the wrong type. `x-claude` overrides are checked too. |
 | LINT008 | Error. A stdio MCP server lacks `command:`, or an `http`/`sse`/`ws` one lacks `url:`. `x-<target>` cannot set either reserved field. |
 
-LINT007 warns on a frontmatter key one edit away from a key agnostic-ai reads (`glob:` for `globs:`), since the setting is lost. `sync` prints the same warning. Put target-native keys under `x-<target>:`. Settings and environment specs are not checked.
+LINT007 warns on a frontmatter key one edit away from a key agnostic-ai reads (`glob:` for `globs:`), since the setting is lost. `sync` prints the same warning. Put target-native keys under `x-<target>:`. A key some targets read at the top level (Qoder's `glob:`, OpenCode's and Kilo's `mode:`) is flagged only when none of those targets is in `targets`. Settings and environment specs are not checked.
 
 LINT015 warns when a spec body names another spec by a target-native path such as `.claude/skills/style/SKILL.md`. The finding names the `.agnostic-ai/` source path to use.
 
@@ -356,7 +356,7 @@ Each list shows three paths; `-v` lists all. `config` in the spec line means `ag
 
 **Orphan sweep.** `sync` records every file it writes in `.agnostic-ai/.sync-state`. A full run deletes files it no longer emits and prunes empty directories, but only what it can prove it wrote (provenance header or recorded hash). A file edited since is kept as `~ kept orphan <path>` and counts as drift until you delete it or list it under `sync.unmanaged`.
 
-Without `.sync-state` (a fresh checkout of a repo that commits generated files), `sync --check` and `doctor` scan git-tracked files instead. A tracked file is a leftover when it sits where a configured target writes and its first line carries the provenance header. A plain `sync` removes none of them; it records them under target `unledgered` and lists each as `~ kept leftover <path>`. `doctor --fix` removes a leftover in a tool directory or root dotfile. Delete a scope document such as `services/api/AGENTS.md` by hand or add it to `sync.unmanaged`.
+Without `.sync-state` (a fresh checkout of a repo that commits generated files), `sync --check` and `doctor` scan git-tracked files instead. A tracked file is a leftover when it sits where a configured target writes and its first line carries the provenance header. A plain full `sync` removes none of them; it records them under target `unledgered` and lists each as `~ kept leftover <path>`. `--only` and `--except` record them without naming them. An empty `.sync-state` still counts as a ledger and turns this scan off. `doctor --fix` removes a leftover in a tool directory or root dotfile. Delete a scope document such as `services/api/AGENTS.md` by hand or add it to `sync.unmanaged`.
 
 ### First-sync target picker
 
@@ -406,7 +406,7 @@ Neither has a config-file key.
 
 `writes` and `skipped` entries have `target`, `path`, `action` (strings), and `bytes` (number), for example `{"target": "claude", "path": "CLAUDE.md", "action": "create", "bytes": 1284}`.
 
-`--plan --json` and `--dry-run --json` write nothing and exit 0. `--dry-run --json` also lists every unchanged output as `"skip"`. Count `writes` by `target` for the per-target numbers `--plan` prints.
+`--plan --json` and `--dry-run --json` write nothing and exit 0. Each leftover they would remove is `"delete"` in `writes`; kept files are `"orphan"` or `"leftover"` in `skipped`. `--dry-run --json` also lists every unchanged output as `"skip"`. Count `writes` by `target` for the per-target numbers `--plan` prints.
 
 ## verify
 

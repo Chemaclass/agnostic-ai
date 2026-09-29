@@ -447,9 +447,10 @@ Run `agnostic-ai list --global` to see effective specs with their `global` or `g
 - Codex skills also get `agents/openai.yaml`, so `disable-model-invocation: true` keeps a skill manual-only there. Targets whose copy stays model-invocable print a coverage note.
 - Hooks and skills honor `target`, `targets`, and `targets-exclude`. Set hook events per target; sync does not translate event names.
 - Eighteen targets have global agent output; see [global output](@/docs/target-behavior.md#global-output). Others warn and skip agents. `readonly: true` maps to Codex's read-only sandbox and Claude's `disallowedTools`.
-- Output is real files, never symlinks. A user file that is itself a symlink (such as a dotfiles-managed `CLAUDE.md`) is written through. A symlink inside a skills, agents, or rules directory stops the run.
+- Output is real files, never symlinks. A user file that is itself a symlink (such as a dotfiles-managed `CLAUDE.md`) is written through. A symlink inside a skills, agents, or rules directory stops the run. Removing a spec behind a written-through symlink removes the link and the file it points at.
 - Ownership is recorded per target in `$AGNOSTIC_AI_HOME/state/global.json`. Sync keeps unrelated content and removes only recorded artifacts for the targets in the run, so `--only` never sweeps another target.
 - A managed hook or hooks file gone from disk is written again with a warning. A managed hook with the same matcher and command but other edits stops the run.
+- A hand-written hook that exactly matches a source hook satisfies it and is never copied, recorded, or removed. One with the same matcher and command but other settings stops the run, even inside a group.
 - An unrecorded file that holds exactly what sync would write is adopted. A file that differs by one byte stops the run.
 - These stop the run before writes: an unmanaged agent, skill, or rule collision, a damaged marker, invalid native JSON, corrupt state, or state recorded under another `HOME`.
 - A hand edit to a file sync owns, or to an instructions file's managed block, stops the run and names the file. Move the edit into the source, or rerun with `--backup` to overwrite it and keep `<path>.bak`. Text outside the managed block never counts.
@@ -457,7 +458,7 @@ Run `agnostic-ai list --global` to see effective specs with their `global` or `g
 - Empty surfaces create nothing: no instructions file (a recorded one is removed) and no hooks file.
 - Native tool precedence applies when global and project configuration both exist. Sync Goose and OpenHands together to update their shared agent file.
 
-Ordinary `agnostic-ai sync` does not load `~/.agnostic-ai/`. Run inside the global source root (or under it), it stops before any write and points at `sync --global`. `init`, `import`, `new`, `packs`, `cleanup`, `revert`, and `install-hook` stop the same way. Read-only commands such as `lint`, `validate`, and `doctor` still run there. Put project-only defaults in a project's `.agnostic-ai/` or a pack.
+Ordinary `agnostic-ai sync` does not load `~/.agnostic-ai/`. Run inside the global source root (or under it), it stops before any write and points at `sync --global`. When `AGNOSTIC_AI_HOME` is your home directory itself, only that directory is guarded. A path through a symlink counts. `init`, `import`, `new`, `packs`, `cleanup`, `revert`, and `install-hook` stop the same way. Read-only commands such as `lint`, `validate`, and `doctor` still run there. Put project-only defaults in a project's `.agnostic-ai/` or a pack.
 
 For a home kept in git, `install-hook --global` writes a pre-commit hook that runs `lint --global --strict`, `validate --global`, and `sync --global --check`. To start a home from what your tools already hold, run `agnostic-ai import --global`; see [import](@/docs/cli-reference.md#import).
 
