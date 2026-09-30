@@ -101,7 +101,7 @@ var errDoctorNoConfig = errors.New("no config found")
 // load, if it did. manualOnly means the drift is scope documents in
 // manual, which neither sync nor doctor --fix removes. fixOnly means the
 // drift is nested CLAUDE.md copies, which only doctor --fix removes.
-func doctorNextStep(cmd *cobra.Command, drift, manualOnly, fixOnly bool, manual []string, lintFindings int, configErr error) {
+func doctorNextStep(cmd *cobra.Command, drift, manualOnly, fixOnly bool, manual []string, lintFindings, hookFindings int, configErr error) {
 	cmd.Println()
 	cmd.Println("Next step:")
 	if errors.Is(configErr, errDoctorNoConfig) {
@@ -128,7 +128,10 @@ func doctorNextStep(cmd *cobra.Command, drift, manualOnly, fixOnly bool, manual 
 	if lintFindings > 0 {
 		cmd.Println("  Review spec findings: agnostic-ai lint")
 	}
-	if !drift && lintFindings == 0 {
+	if hookFindings > 0 {
+		cmd.Println("  Review Codex hook status: open /hooks in Codex")
+	}
+	if !drift && lintFindings == 0 && hookFindings == 0 {
 		cmd.Println("  All checks passed. Nothing to do.")
 	}
 }

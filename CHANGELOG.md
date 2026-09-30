@@ -39,7 +39,9 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Codex
 
-- Unscoped rules with exact whole-subtree `globs` or `paths` write nested `AGENTS.md` files instead of root context. Filename filters and root-file selectors stay inline with a named always-loaded note. `outputs.codex.nested-glob-rules: false` keeps root inlining (#1435).
+- Exact subtree selectors write nested `AGENTS.md`; filename filters stay inline with a coverage note. Disable with `nested-glob-rules: false` (#1435).
+
+- Sync names inactive hooks with `/hooks` as the next step; doctor reports missing or stale user trust and disabled handlers (#1456).
 
 - `.codex/environments/environment.toml` always carries `[setup]`, with an empty script when no spec sets one, as the file the Codex app generates does; a spec with only dev commands used to drop the table.
 - `sync` no longer notes that `permissions` have no effect on Codex once exec policies are set, whether inline, in `exec-policies-file`, or in the captured overlay; without one, the note stays (#1432).
