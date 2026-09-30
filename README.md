@@ -49,6 +49,8 @@ Use `agnostic-ai sync --global` for [user-level configuration](https://agnostic-
 
 Keep [personal overrides](https://agnostic-ai.org/docs/local-overrides/) in `.agnostic-ai/local/` for one project, ignored by default, or in `~/.agnostic-ai/local/` for every project. `agnostic-ai list` and `list --global` show which layer supplies each spec.
 
+Set `outputs.codex.exec-policies-from-permissions: true` to turn simple Bash permissions into Codex command prefixes. Prefixes also match extra arguments. Explicit Codex policies take precedence, and `lint` warns on missing or conflicting prefixes. See [Bash permission translation](https://agnostic-ai.org/docs/targets/codex/#translate-bash-permissions).
+
 ## Daily commands
 
 ```bash

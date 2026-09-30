@@ -80,6 +80,7 @@ AGENTS.md                                    # entry-point pointer body (written
 | `outputs.codex.environment-file` | `.codex/environments/environment.toml` | |
 | `outputs.codex.rules-file` | unset | writes legacy concatenated rules and skips the pointer-body write |
 | `outputs.codex.exec-policies` / `outputs.codex.exec-policies-file` | unset | write `.codex/rules/default.rules` |
+| `outputs.codex.exec-policies-from-permissions` | `false` | translate simple Bash permission rules when no native policy source is set |
 
 ## Codex config
 
@@ -145,12 +146,38 @@ outputs:
 |-------|----------|-------|
 | `pattern` | yes | Shell command prefix tokens (`["composer", "test"]`). Becomes the `prefix_rule(pattern = [...])` argument. |
 | `decision` | yes | One of `allow`, `forbidden`, `prompt`. |
-| `justification` | no | Free-form comment emitted above the rule as a `#` line. |
-| `match` | no | Example matches rendered as commented `# match: ...` lines below the rule. Documentation only; Codex CLI ignores them. |
+| `justification` | no | Human-readable reason passed to Codex as `justification`. |
+| `match` | no | Example command strings passed to Codex as `match`; Codex validates them when loading the policy. |
 
-For many policies, use a separate file: `exec-policies-file: ./.agnostic-ai/codex.exec-policies.yaml`. Inline entries render first, then file entries. Order matters: Codex evaluates rules top-down.
+For many policies, use a separate file: `exec-policies-file: ./.agnostic-ai/codex.exec-policies.yaml`. Inline entries render first, then file entries. [Codex applies the strictest matching decision](https://learn.chatgpt.com/docs/agent-configuration/rules): `forbidden`, then `prompt`, then `allow`. Order does not override a restriction.
 
 `import codex` captures every `prefix_rule(...)` in `.codex/rules/default.rules` into `.agnostic-ai/overlays/codex.exec-policies.yaml`. Sync loads that overlay when neither an inline list nor `exec-policies-file` is set, so the round-trip preserves content with no extra config.
+
+### Translate Bash permissions
+
+Set `outputs.codex.exec-policies-from-permissions: true` to generate command prefixes from portable Settings specs and `outputs.claude.settings.permissions`. The lists combine in source order, with duplicates removed per list, as Claude combines the declared lists. Only Settings specs that target Codex contribute. Sync does not read hand-written Claude settings or user policy files for this translation.
+
+```yaml
+targets: [claude, codex]
+outputs:
+  claude:
+    settings:
+      permissions:
+        allow:
+          - Bash(npm run check)
+          - Bash(npx vitest run:*)
+          - Bash(git diff:*)
+  codex:
+    exec-policies-from-permissions: true
+```
+
+This writes three `prefix_rule` entries to `.codex/rules/default.rules`. `Bash(a b c)` and `Bash(a b c:*)` both become `pattern = ["a", "b", "c"]`. `allow`, `deny`, and `ask` become `allow`, `forbidden`, and `prompt`.
+
+Translation is opt-in because a prefix matches extra arguments, even for a bare rule without `:*`. For example, `Bash(npm run check)` also allows `npm run check -- --fix` in Codex. This is a supported command-prefix subset, not exact Claude permission equivalence. Codex rules govern requests to run outside the sandbox; project rules load only when the project config layer is trusted.
+
+Only plain, unquoted words are supported. Quotes, escapes, globs inside tokens, shell operators, expansions, assignments, shell keywords, and non-Bash tool rules produce a coverage note naming the exact rule and source. `on-unsupported: error` fails; `silent` omits the note. Use explicit `exec-policies` for a command that cannot translate.
+
+Any inline policy list, `exec-policies-file` (including an empty file), or imported policy overlay is authoritative: sync uses that source and skips automatic translation. It never modifies the source policy file. `lint` warns with LINT021 when a supported Bash `allow` or `deny` rule lacks a covering native prefix with the same effective decision, including declared portable deny and ask exclusions. Broader native prefixes count; restrictive descendants also warn for an allowed prefix. This checks declared prefixes, not every shell invocation or other Codex config layer. `lint --strict` fails on the warning.
 
 ## Import
 
