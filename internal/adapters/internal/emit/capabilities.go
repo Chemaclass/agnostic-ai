@@ -25,6 +25,7 @@ type Capabilities struct {
 	// coverage note of its own. Every other tracked field an agent sets
 	// is reported by ReportUnsupported, so no target drops one silently.
 	AgentFields []string
+	SkillFields SkillFieldCoverage
 	// AgentFieldReasons replaces the default reason of a dropped
 	// tracked field when the target has a more specific one, such as
 	// a native key that takes a different shape.
@@ -93,11 +94,16 @@ func ReportUnsupported(c Capabilities, b spec.Bundle, mode string) error {
 			capabilityWarnState.mu.Unlock()
 		}
 	}
+	if c.supports(spec.KindHook) {
+		if err := ReportHookProjectRoot(c.Target, b.HooksFor(c.Target), mode, false); err != nil {
+			return err
+		}
+	}
 	if c.supports(spec.KindSettings) && !slices.Contains(c.SettingsFields, "effort") {
 		noteDroppedSettingsEffort(c.Target, b.Settings)
 	}
 	if c.supports(spec.KindSkill) {
-		NoteDroppedSkillFields(c.Target, b.Skills)
+		NoteDroppedSkillFields(c.Target, b.Skills, c.SkillFields)
 		if err := ReportClaudeBodySyntax(c.Target, spec.KindSkill, b.Skills, mode); err != nil {
 			return err
 		}

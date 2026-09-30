@@ -105,7 +105,21 @@ func ResolveMeta(meta map[string]any, target string) map[string]any {
 
 // RewriteHookPath re-exports emit.RewriteHookPath, which points a hook
 // command at target's own hooks directory.
-func RewriteHookPath(cmd, target string) string { return emit.RewriteHookPath(cmd, target) }
+func RewriteHookPath(cmd, target string, metadata ...map[string]any) string {
+	return emit.RewriteHookPath(cmd, target, metadata...)
+}
+
+func RewriteHookDirectories(command, target string) string {
+	return emit.RewriteHookDirectories(command, target)
+}
+
+func RewriteGlobalHookRoot(command, target string, metadata ...map[string]any) string {
+	return emit.RewriteGlobalHookRoot(command, target, metadata...)
+}
+
+func ReportHookProjectRoot(target string, hooks []spec.Entry, mode string, global bool) error {
+	return emit.ReportHookProjectRoot(target, hooks, mode, global)
+}
 
 // FlushCapabilityWarnings prints any buffered capability warnings,
 // grouped by kind, then clears the buffer. Call once at the end of a

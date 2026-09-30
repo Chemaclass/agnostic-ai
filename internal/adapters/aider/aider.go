@@ -37,8 +37,9 @@ const (
 )
 
 var caps = emit.Capabilities{
-	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindIgnore},
+	SkillFields: emit.SkillFieldCoverage{Markdown: func(spec.Entry) string { return "" }},
+	Target:      target,
+	Supports:    []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindIgnore},
 }
 
 // Adapter emits Aider configs.

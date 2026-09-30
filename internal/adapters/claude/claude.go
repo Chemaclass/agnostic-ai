@@ -89,6 +89,7 @@ const (
 )
 
 var caps = emit.Capabilities{
+	SkillFields:    emit.SkillFieldCoverage{Markdown: (Adapter{}).SkillMarkdown},
 	Target:         target,
 	Supports:       []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindCommand, spec.KindSettings, spec.KindEnvironment},
 	AgentFields:    []string{"effort", "mcpServers"},
@@ -193,7 +194,7 @@ func materializeHookScripts(sess *emit.Session, hooks []spec.Entry, dryRun bool)
 		cmds := hookCommands(h.Meta["command"])
 		for _, raw := range cmds {
 			sourceTool, _ := emit.SourceToolFromHookCommand(raw)
-			rewritten := emit.RewriteHookPath(raw, target)
+			rewritten := emit.RewriteHookPath(raw, target, h.Meta)
 			if err := sess.MaterializeHookScript(rewritten, target, sourceTool, dryRun); err != nil {
 				return err
 			}

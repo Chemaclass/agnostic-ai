@@ -110,7 +110,7 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 			order = append(order, canonical)
 		}
 		for _, cmd := range cmds {
-			commands[canonical] = append(commands[canonical], emit.RewriteHookPath(cmd, target))
+			commands[canonical] = append(commands[canonical], emit.RewriteHookPath(cmd, target, h.Meta))
 		}
 	}
 
@@ -172,7 +172,7 @@ func materializeHookScripts(sess *emit.Session, hooks []spec.Entry, dryRun bool)
 	for _, h := range hooks {
 		for _, raw := range emit.HookCommands(h.Meta["command"]) {
 			sourceTool, _ := emit.SourceToolFromHookCommand(raw)
-			rewritten := emit.RewriteHookPath(raw, target)
+			rewritten := emit.RewriteHookPath(raw, target, h.Meta)
 			if err := sess.MaterializeHookScript(rewritten, target, sourceTool, dryRun); err != nil {
 				return err
 			}

@@ -20,8 +20,8 @@ import (
 
 // compareCoverage states what `compare` inspects, so a clean report is
 // never read as "the whole project ports".
-const compareCoverage = "agent fields and rule scope/activation only; " +
-	"skills, hooks, MCP servers, commands, settings, reviews, environments, and ignore files are not compared"
+const compareCoverage = "agent and skill fields and rule scope/activation only; " +
+	"hooks, MCP servers, commands, settings, reviews, environments, and ignore files are not compared"
 
 // compareCaveat keeps "preserved" from reading as a behavior guarantee.
 const compareCaveat = "preserved means the field is written under the same key; it does not prove the tools behave the same"
@@ -48,9 +48,8 @@ var ruleActivationFields = map[string]bool{
 	"scope": true, "paths": true, "globs": true, "alwaysApply": true,
 }
 
-// compareSkippedAgentFields name the agent and route it; they are not
-// behavior a target can keep or lose.
-var compareSkippedAgentFields = map[string]bool{
+// compareSkippedFields identify specs and route them.
+var compareSkippedFields = map[string]bool{
 	"name": true, "target": true, "targets": true, "target-exclude": true, "targets-exclude": true,
 }
 
@@ -97,13 +96,13 @@ func newCompareCmd() *cobra.Command {
 	var jsonOut bool
 	cmd := &cobra.Command{
 		Use:   "compare <target> <target>",
-		Short: "Compare how two targets represent agent fields and rule activation.",
-		Long: "Emits every agent and every rule with scope or activation fields " +
+		Short: "Compare how two targets represent agent and skill fields and rule activation.",
+		Long: "Emits every agent, skill, and rule with scope or activation fields " +
 			"to both targets in memory, then reports per field whether each " +
 			"target preserves, translates, drops, or never receives it. " +
 			"Uses the project's specs, output options, and x-<target> " +
 			"overrides. Writes nothing.\n\n" +
-			"Coverage is limited to agent fields and rule scope/activation. " +
+			"Coverage is limited to agent and skill fields and rule scope/activation. " +
 			"A preserved field is written under the same key; that does not " +
 			"prove both tools behave the same.",
 		Example: `  # Before switching from Claude Code to Cursor
@@ -207,14 +206,15 @@ func compareTargets(cfg *config.Config, b spec.Bundle, targets []string) (compar
 	return out, nil
 }
 
-// compareEntries returns agents then rules, each sorted by source path.
+// compareEntries returns agents, skills, then rules sorted by source path.
 func compareEntries(b spec.Bundle) []spec.Entry {
 	byPath := func(es []spec.Entry) []spec.Entry {
 		out := append([]spec.Entry(nil), es...)
 		sort.SliceStable(out, func(i, j int) bool { return out[i].Path < out[j].Path })
 		return out
 	}
-	return append(byPath(b.Agents), byPath(b.Rules)...)
+	out := append(byPath(b.Agents), byPath(b.Skills)...)
+	return append(out, byPath(b.Rules)...)
 }
 
 // comparedFields lists the fields to report for e in source order. A
@@ -239,8 +239,8 @@ func comparedFields(e spec.Entry) []string {
 			continue
 		}
 		switch e.Kind {
-		case spec.KindAgent:
-			if !compareSkippedAgentFields[k] {
+		case spec.KindAgent, spec.KindSkill:
+			if !compareSkippedFields[k] {
 				out = append(out, k)
 			}
 		case spec.KindRule:
@@ -506,7 +506,7 @@ func writeCompareReport(w io.Writer, out compareOutput) {
 	_, _ = fmt.Fprintf(w, "coverage: %s\n", compareCoverage)
 	_, _ = fmt.Fprintf(w, "note: %s\n", compareCaveat)
 	if len(out.Specs) == 0 {
-		_, _ = fmt.Fprintln(w, "\nno agents or scoped rules to compare")
+		_, _ = fmt.Fprintln(w, "\nno agents, skills, or scoped rules to compare")
 		return
 	}
 	width := max(len(a), len(b))

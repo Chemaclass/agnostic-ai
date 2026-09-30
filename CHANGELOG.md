@@ -8,7 +8,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- `sync` reports omitted skill fields, including `argument-hint`. `compare` shows which skill fields each target keeps, translates, or drops (#1444).
+
 - Breaking: rule `scope`, `globs`, and `paths` form a union. Remove `scope` to keep only a file filter; see the migration guide (#1429).
+- Imported Claude hook roots resolve on other targets. Unsupported shell or root syntax names the hook and follows `on-unsupported` (#1449).
 - `sync --diff` without `--check` now fails and names `--check` instead of ignoring the flag and writing every output (#1439).
 - A Claude model name in a shared agent or settings `model` raises a coverage note on Codex, Gemini, OpenCode, Kilo Code, Cursor, Factory, and Kiro, naming `model: {claude: <name>}`. `on-unsupported: error` fails the sync (#1431).
 - AAI-005 says to update `requires` when `package.json` already pins the running release, as right after `pnpm add agnostic-ai@X.Y.Z`, instead of suggesting a downgrade.
@@ -30,8 +33,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Claude Code
 
-- Claude worktrees and task locks stay ignored and are excluded from `.worktreeinclude`, including with a moved output directory (#1438).
-
+- Claude runtime paths stay out of `.worktreeinclude`; `gitignore.ignore-worktree-include: true` also keeps that file out of Git (#1438, #1441).
 - `import claude` turns each nested `<dir>/CLAUDE.md` into one rule scoped to its directory, and a companion that imports `@AGENTS.md` reads as that file (#1427).
 - `doctor` lists a hand-written nested `CLAUDE.md` whose text a rule scoped to its directory already holds, and `doctor --fix` removes it, so Claude Code stops loading the text twice and a Claude plus Codex project syncs without deleting it by hand. The import warning points there (#1465).
 - `import claude` writes an agent `model` set to a Claude model name (`sonnet`, `opus`, `haiku`, `inherit`, or a `claude-*` id) as `model: {claude: <name>}`, so Codex and other targets use their own default model instead of one they cannot load (#1431).
@@ -40,7 +42,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 #### Codex
 
 - Exact subtree selectors write nested `AGENTS.md`; filename filters stay inline with a coverage note. Disable with `nested-glob-rules: false` (#1435).
-
+- `import codex` keeps an imported agent model in `model.codex` when merging it into a Claude spec, preserving each tool's model (#1461).
 - Sync names inactive hooks with `/hooks` as the next step; doctor reports missing or stale user trust and disabled handlers (#1456).
 
 - `.codex/environments/environment.toml` always carries `[setup]`, with an empty script when no spec sets one, as the file the Codex app generates does; a spec with only dev commands used to drop the table.
