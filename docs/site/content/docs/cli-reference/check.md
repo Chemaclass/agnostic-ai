@@ -61,6 +61,7 @@ agnostic-ai lint --strict
 | LINT016 | Error. An environment spec's `dev-commands` entry has no `name:` or `command:`, repeats a name, is not a mapping, sets a key no target reads, or gives `cwd`, `url`, `auto-port`, `port`, or `env` the wrong type. `x-claude` overrides are checked too. |
 | LINT017 | Warning. A `gitignore.commit` entry such as `cursor:environments` names a target that is not in `targets`, so it commits nothing. |
 | LINT018 | Warning. A skill's frontmatter sets `scope`, which has no effect: a skill's scope comes from its folder under `skills/`. Use `workspaces` for extra Cursor copies. |
+| LINT019 | Warning. A skill or command line uses Claude Code body syntax (`` !`command` ``, a ` ```! ` block, `$ARGUMENTS`, or `$0`, `$1`, ...) outside a `::target` fence, and an enabled target reads it as plain text. The finding names the line and the targets. See [Claude Code body syntax](@/docs/spec-format/skills.md#claude-code-body-syntax). |
 | LINT008 | Error. A stdio MCP server lacks `command:`, or an `http`/`sse`/`ws` one lacks `url:`. `x-<target>` cannot set either reserved field. |
 
 LINT007 warns on a frontmatter key one edit away from a key agnostic-ai reads (`glob:` for `globs:`), since the setting is lost. `sync` prints the same warning. Put target-native keys under `x-<target>:`. A key some targets read at the top level (Qoder's `glob:`, OpenCode's and Kilo's `mode:`) is flagged only when none of those targets is in `targets`. Settings and environment specs are not checked.

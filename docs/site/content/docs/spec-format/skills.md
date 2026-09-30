@@ -85,6 +85,33 @@ Most targets write `<dir>/<name>/SKILL.md` with assets. Several share `.agents/s
 
 A body can point at another skill with [`{{$SKILLS_DIR}}`](@/docs/spec-format/_index.md#path-variables-name), which resolves to each target's own skills directory.
 
+## Claude Code body syntax {#claude-code-body-syntax}
+
+Claude Code expands some syntax in a skill body before the model reads it ([skills docs](https://code.claude.com/docs/en/skills)):
+
+- `` !`command` `` lines and ` ```! ` blocks run the command and insert its output.
+- `$ARGUMENTS` becomes the text typed after the skill name.
+- `$0`, `$1`, ... and `$ARGUMENTS[N]` become one argument each.
+
+No other target documents this syntax for skills, so each one reads it as plain text. Sync copies the body as written and prints one note per target and shape, naming each line:
+
+```
+  note: `!`command`` on 1 skill has no effect on codex (the command does not run at .agnostic-ai/skills/pr/SKILL.md:8; put the line in a ::target claude fence)
+```
+
+`on-unsupported: error` fails the sync instead, and `silent` hides the note. `lint` reports each line as LINT019. Put the Claude line in a fence and give other targets their own text:
+
+```markdown
+::target claude
+!`git log main..HEAD --oneline`
+::end
+::target codex
+Run `git log main..HEAD --oneline` first. `$ARGUMENTS` below means the text passed after the skill name.
+::end
+```
+
+A `$1` or `` !`command` `` inside a fenced code block counts as an example and is not reported. `$ARGUMENTS` is reported there too. Escape a literal dollar as `\$1`, as Claude Code expects. `import claude` keeps the body as written, so Claude Code keeps its dynamic context. [Commands](@/docs/spec-format/commands.md#claude-code-body-syntax) use the same syntax, and a few targets expand part of it there.
+
 ## `disable-model-invocation` support by target {#disable-model-invocation-support-by-target}
 
 Only the targets listed were checked. Setting it keeps a skill out of automatic model invocation; the user can still invoke it. Omitting it leaves each target's default, which is model-invocable everywhere below.

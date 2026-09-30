@@ -55,3 +55,17 @@ Diff the branch against `main` and list bugs with `file:line`, most severe first
 ## Output
 
 Codex emits commands only when `outputs.codex.commands-dir` is set. Gemini writes each command as a `.toml` file named after `name`. Targets without a command surface log a warning and skip. Each target page gives the exact directory.
+
+## Claude Code body syntax {#claude-code-body-syntax}
+
+A Claude Code command body can use `` !`command` `` lines, ` ```! ` blocks, `$ARGUMENTS`, and `$1`, `$2`, ... ([skill syntax](@/docs/spec-format/skills.md#claude-code-body-syntax)). Sync copies the body as written. Each target below expands only what its docs show:
+
+| Target | `` !`command` `` | `$ARGUMENTS` | `$1`, `$2`, ... |
+|--------|------------------|--------------|-----------------|
+| [Claude Code](@/docs/targets/claude.md) | yes | yes | yes |
+| [OpenCode](@/docs/targets/opencode.md) | yes | yes | yes |
+| [Codex](@/docs/targets/codex.md) | no | yes | yes |
+| [Augment](@/docs/targets/augment.md), [Factory](@/docs/targets/factory.md) | no | yes | no |
+| Cursor, Gemini, Junie, Kilo, Qoder, Trae | no | no | no |
+
+A target that reads the syntax as plain text gets a note naming each line, `on-unsupported: error` fails the sync, and `lint` reports LINT019. Gemini has its own argument and shell placeholders ([custom commands](https://geminicli.com/docs/cli/custom-commands)); write them in a `::target gemini` fence.
