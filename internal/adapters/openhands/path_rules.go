@@ -43,9 +43,9 @@ func emitPathTriggeredRules(sess *emit.Session, rules []spec.Entry, skillsDir st
 // fallback order Copilot's applyToFor uses for its own path-scoped
 // instructions.
 //
-// A `paths`/`globs` value that resolves to nothing but catch-all
+// An unscoped `paths`/`globs` value that resolves to nothing but catch-all
 // patterns (`**`, `**/*`, `*`, or empty) also stays always-on: it
-// scopes to every file, so writing it as a path-triggered rule would
+// applies to every file, so writing it as a path-triggered rule would
 // only relocate an always-on rule out of AGENTS.md, not scope it.
 // agents_tree.go's RouteScope treats the same three patterns as "no
 // scope" for the same reason. This also absorbs a real round-trip: a
@@ -61,10 +61,11 @@ func pathTriggerGlobs(e spec.Entry) []string {
 	if always, ok := m["alwaysApply"].(bool); ok && always {
 		return nil
 	}
-	if paths := globList(m["paths"]); len(paths) > 0 && !hasCatchAllGlob(paths) {
+	scoped := e.EffectiveScope() != ""
+	if paths := globList(m["paths"]); len(paths) > 0 && (scoped || !hasCatchAllGlob(paths)) {
 		return paths
 	}
-	if globs := spec.GlobList(m["globs"]); len(globs) > 0 && !hasCatchAllGlob(globs) {
+	if globs := spec.GlobList(m["globs"]); len(globs) > 0 && (scoped || !hasCatchAllGlob(globs)) {
 		return globs
 	}
 	if s := e.EffectiveScope(); s != "" {

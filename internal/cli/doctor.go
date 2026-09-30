@@ -97,11 +97,11 @@ func lintErrorsErr(findings []lintFinding) error {
 var errDoctorNoConfig = errors.New("no config found")
 
 // doctorNextStep prints a prioritized "what to do next" hint based on
-// whether drift, lint, or packaging findings were found and why the config failed to
+// whether drift, lint, hook trust, or packaging findings were found and why the config failed to
 // load, if it did. manualOnly means the drift is scope documents in
 // manual, which neither sync nor doctor --fix removes. fixOnly means the
 // drift is nested CLAUDE.md copies, which only doctor --fix removes.
-func doctorNextStep(cmd *cobra.Command, drift, manualOnly, fixOnly bool, manual []string, lintFindings int, configErr error, packagingWarnings ...int) {
+func doctorNextStep(cmd *cobra.Command, drift, manualOnly, fixOnly bool, manual []string, lintFindings, hookFindings int, configErr error, packagingWarnings ...int) {
 	cmd.Println()
 	cmd.Println("Next step:")
 	if errors.Is(configErr, errDoctorNoConfig) {
@@ -128,6 +128,9 @@ func doctorNextStep(cmd *cobra.Command, drift, manualOnly, fixOnly bool, manual 
 	if lintFindings > 0 {
 		cmd.Println("  Review spec findings: agnostic-ai lint")
 	}
+	if hookFindings > 0 {
+		cmd.Println("  Review Codex hook status: open /hooks in Codex")
+	}
 	packaging := 0
 	if len(packagingWarnings) > 0 {
 		packaging = packagingWarnings[0]
@@ -135,7 +138,7 @@ func doctorNextStep(cmd *cobra.Command, drift, manualOnly, fixOnly bool, manual 
 	if packaging > 0 {
 		cmd.Println("  Review packaging ignore coverage before publishing.")
 	}
-	if !drift && lintFindings == 0 && packaging == 0 {
+	if !drift && lintFindings == 0 && hookFindings == 0 && packaging == 0 {
 		cmd.Println("  All checks passed. Nothing to do.")
 	}
 }

@@ -139,6 +139,7 @@ package qoder
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -321,7 +322,7 @@ func ruleActivation(e spec.Entry) map[string]any {
 			meta[key] = value
 		}
 	}
-	if e.EffectiveScope() != "" {
+	if e.EffectiveScope() != "" && !slices.Contains(e.NativeRuleTargets(), target) {
 		// Qoder treats alwaysApply:false as manual, so only the normalized
 		// paths may select a portable scoped rule.
 		delete(meta, "alwaysApply")
