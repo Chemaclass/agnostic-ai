@@ -20,6 +20,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `init --from all` and `import all` merge the sections of a hand-written root `AGENTS.md` that the imported body lacks into `AGNOSTIC_AI.md` and name them, instead of warning. `init` without a target list suggests enabling `codex` when a root `AGENTS.md` exists (#1434).
 - A skill or command line with Claude Code's `` !`command` ``, `$ARGUMENTS`, or `$1` gets a sync note naming the line for each target that reads it as plain text, such as Codex, and `lint` reports it as LINT019. `on-unsupported: error` fails the sync (#1436).
 - `import all` and `init --from all` seed `AGNOSTIC_AI.md` from a hand-written root `AGENTS.md` when no other tool config is found, instead of importing nothing (#1464).
+- A comma-separated `globs` string, such as `src/x/**,tests/x/**`, reaches Claude Code `paths` and Continue `globs` as one entry per pattern, so the rule loads on those files. Commas inside `{a,b}` stay in their pattern (#1428).
 
 ### By tool
 
