@@ -204,7 +204,7 @@ func EntryPointInlinedRules(cfg *config.Config, b spec.Bundle, target string) ma
 		return nil
 	}
 	rules := map[string]spec.Entry{}
-	for _, r := range EntryPointRules(b, inliner).Rules {
+	for _, r := range EntryPointRules(b, inliner, cfg).Rules {
 		rules[r.Name] = r
 	}
 	return rules
