@@ -61,6 +61,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 #### Gemini CLI
 
 - `import gemini` decodes command TOML strings, so an escaped `\\(` in a prompt no longer doubles; other keys import under `x-gemini`.
+- Agents with inline MCP servers load: sync writes `mcp_servers`, renames `x-gemini.mcpServers` with a note, and keeps the key through import (#1532).
 
 ### Site
 
