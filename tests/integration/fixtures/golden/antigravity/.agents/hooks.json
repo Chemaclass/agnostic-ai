@@ -1,4 +1,12 @@
 {
+  "neutral-antigravity-hook": {
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": ".agents/hooks/shared-guard.sh"
+      }
+    ]
+  },
   "sample-hook": {
     "PostToolUse": [
       {

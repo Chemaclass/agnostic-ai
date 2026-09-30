@@ -63,7 +63,7 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, dir string, dryRun bool) 
 			return err
 		}
 	}
-	return nil
+	return sess.MaterializeNeutralHookScripts(hooks, target, emit.HookScriptsDir(target), dryRun)
 }
 
 // buildHookEntries renders one hooks[] entry per action on h as a
@@ -157,6 +157,14 @@ func hookActions(h spec.Entry) ([]any, error) {
 			value, ok := action[field].(string)
 			if !ok || strings.TrimSpace(value) == "" {
 				return nil, fmt.Errorf("x-kiro.action.%s must be a non-empty string for type %q", field, actionType)
+			}
+			if actionType == "command" {
+				copy := make(map[string]any, len(action))
+				for key, value := range action {
+					copy[key] = value
+				}
+				copy["command"] = emit.RewriteNeutralHookPath(value, emit.HookScriptsDir(target))
+				return []any{copy}, nil
 			}
 			return []any{action}, nil
 		}

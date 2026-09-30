@@ -97,6 +97,9 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 		return err
 	}
 	path := emit.OutputHooksFile(cfg, target, defaultHooksFile)
+	if err := sess.MaterializeNeutralHookScripts(hooks, target, emit.HookScriptsDir(target), dryRun); err != nil {
+		return err
+	}
 	return sess.WriteFile(path, string(body)+"\n", dryRun)
 }
 

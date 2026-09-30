@@ -207,8 +207,12 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 // `.agnostic-ai/scripts/` into `.gemini/hooks/` so the emitted
 // settings.json has the actual script alongside the path it references.
 func materializeHookScripts(sess *emit.Session, hooks []spec.Entry, dryRun bool) error {
+	if err := sess.MaterializeNeutralHookScripts(hooks, target, emit.HookScriptsDir(target), dryRun); err != nil {
+		return err
+	}
 	for _, h := range hooks {
 		for _, raw := range hookSourceCommands(h) {
+			raw = emit.RewriteNeutralHookPath(raw, ".")
 			sourceTool, _ := emit.SourceToolFromHookCommand(raw)
 			rewritten := emit.RewriteHookPath(raw, target, h.Meta)
 			if err := sess.MaterializeHookScript(rewritten, target, sourceTool, dryRun); err != nil {

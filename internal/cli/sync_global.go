@@ -879,13 +879,44 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		next.Hooks[target] = map[string][]any{}
 		path := g.path(home, g.hooks)
 		hooks := b.HooksFor(target)
+		scriptsDir := filepath.Join(filepath.Dir(path), "hooks")
+		for _, hook := range hooks {
+			if event, _ := hook.Meta["event"].(string); event == "" {
+				continue
+			}
+			type sourceCommand struct {
+				value   string
+				literal bool
+			}
+			var commands []sourceCommand
+			literal := len(stringSliceFromAny(hook.Meta["args"])) > 0 || target == "augment"
+			for _, command := range globalHookCommands(hook.Meta["command"]) {
+				commands = append(commands, sourceCommand{command, literal})
+			}
+			if target == "codex" {
+				if windows, _ := hook.Meta["commandWindows"].(string); windows != "" {
+					commands = append(commands, sourceCommand{windows, false})
+				}
+			}
+			for _, command := range commands {
+				scripts, err := adapters.NeutralHookScripts(command.value, target, filepath.Join(source, "scripts"), scriptsDir, command.literal)
+				if err != nil {
+					return nil, next, err
+				}
+				for _, script := range scripts {
+					if err := add(script.Path, script.Body, script.Mode); err != nil {
+						return nil, next, err
+					}
+				}
+			}
+		}
 		if err := adapters.ReportHookProjectRoot(target, hooks, onUnsupported, true); err != nil {
 			return nil, next, err
 		}
 		if g.hooksFormat == "augment" {
 			augment.NoteUserHookGaps(hooks)
 		}
-		hookTarget := globalHookTarget{name: target, mode: g.hookTarget, args: g.hookArgs, foldArgs: g.hookFoldArgs, timeout: g.hookTimeout, specHooks: len(hooks)}
+		hookTarget := globalHookTarget{name: target, mode: g.hookTarget, args: g.hookArgs, foldArgs: g.hookFoldArgs, timeout: g.hookTimeout, specHooks: len(hooks), scriptsDir: scriptsDir}
 		if g.bridge && body != "" {
 			bridge, command, script, mode := globalContextBridge(filepath.Dir(path), body, g.bridgeKey)
 			if err := add(bridge, []byte(script), mode); err != nil {
@@ -1321,7 +1352,11 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 			continue
 		}
 		for _, command := range globalHookCommands(entry.Meta["command"]) {
-			command = adapters.RewriteGlobalHookRoot(command, target.name, entry.Meta)
+			if target.scriptsDir != "" {
+				command = adapters.RewriteGlobalHookPath(command, target.name, filepath.ToSlash(target.scriptsDir), entry.Meta)
+			} else {
+				command = adapters.RewriteGlobalHookRoot(command, target.name, entry.Meta)
+			}
 			var item, plain any
 			switch format {
 			case "augment":
@@ -1758,6 +1793,7 @@ func removeEqual(items []any, want any) ([]any, bool) {
 // globalHookTarget tells a global hook which target ran it, the way the
 // target's globalTarget.hookTarget says.
 type globalHookTarget struct {
+	scriptsDir string
 	name, mode string
 	// timeout converts the spec's timeout, when the target reads
 	// another unit than seconds.
@@ -1778,6 +1814,8 @@ func (t globalHookTarget) tell(handler, meta map[string]any) {
 		windows, _ := meta["commandWindows"].(string)
 		if windows == "" {
 			windows = command
+		} else if t.scriptsDir != "" {
+			windows = adapters.RewriteWindowsNeutralHookPath(windows, t.scriptsDir)
 		}
 		handler["command"] = adapters.ExportHookTarget(command, t.name)
 		handler["commandWindows"] = windows

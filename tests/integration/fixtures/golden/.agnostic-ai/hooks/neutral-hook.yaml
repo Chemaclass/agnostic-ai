@@ -1,0 +1,5 @@
+name: neutral-hook
+description: Run the shared hook script.
+targets: [claude, codex, qoder, factory, trae, openhands, windsurf, copilot, augment, crush, cline, kiro, opencode, kilo, goose, zed]
+event: PreToolUse
+command: .agnostic-ai/scripts/shared-guard.sh

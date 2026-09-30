@@ -58,3 +58,29 @@ func TestSync_HookScriptIsTrackedAndSweptWithItsHook(t *testing.T) {
 		t.Errorf("script of a deleted hook still on disk: %v", err)
 	}
 }
+
+func TestSync_NeutralHookScriptIsTrackedAndSweptWithItsHook(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	mustWrite(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	mustWrite(t, ".agnostic-ai/AGNOSTIC_AI.md", "# Project\n")
+	mustWrite(t, ".agnostic-ai/hooks/guard.yaml", "name: guard\nevent: PreToolUse\ncommand: .agnostic-ai/scripts/guard.sh\n")
+	mustWrite(t, ".agnostic-ai/scripts/guard.sh", "#!/bin/sh\necho shared\n")
+	must(t, os.Chmod(".agnostic-ai/scripts/guard.sh", 0o755))
+	runCmd(t, "sync")
+	for _, script := range []string{".claude/hooks/guard.sh", ".codex/hooks/guard.sh"} {
+		if got := readString(t, script); got != "#!/bin/sh\necho shared\n" {
+			t.Errorf("shared script changed: %q", got)
+		}
+	}
+	runCmd(t, "sync", "--check")
+	mustWrite(t, ".codex/hooks/guard.sh", "edited\n")
+	runCmdExpectErr(t, "sync", "--check")
+	runCmd(t, "sync")
+	must(t, os.Remove(".agnostic-ai/hooks/guard.yaml"))
+	runCmd(t, "sync")
+	for _, script := range []string{".claude/hooks/guard.sh", ".codex/hooks/guard.sh"} {
+		if _, err := os.Stat(script); !os.IsNotExist(err) {
+			t.Errorf("deleted hook left script %s: %v", script, err)
+		}
+	}
+}
