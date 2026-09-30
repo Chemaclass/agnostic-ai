@@ -3,6 +3,7 @@ package emit
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -22,6 +23,52 @@ func TestMergedDocument_SkipsWhenEmpty(t *testing.T) {
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Errorf("MergedDocument wrote %s with an empty bundle; want skip", path)
+	}
+}
+
+func TestWriteSection_RuleHeadingsNestUnderSection(t *testing.T) {
+	for _, tc := range []struct{ name, body, want string }{
+		{"subsections", "### Versioning\n#### Details\n", "#### Versioning\n##### Details\n"},
+		{"shallow headings", "# Title\n## Details\n###### Deep\n", "#### Title\n##### Details\n###### Deep\n"},
+		{"already nested", "#### Versioning\n##### Details\n", "#### Versioning\n##### Details\n"},
+		{"indented and escaped", "   ### Heading\n    # Code\n\\# Literal\n#hashtag\n", "   #### Heading\n    # Code\n\\# Literal\n#hashtag\n"},
+		{"setext", "Title\n=====\n\nDetails\n---\n", "#### Title\n\n##### Details\n"},
+		{"thematic break", "---\nTitle\n=====\n", "---\n#### Title\n"},
+		{"windows lines", "### Heading\r\nText.\r\n", "#### Heading\r\nText.\r\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var sb strings.Builder
+			e := spec.Entry{Kind: spec.KindRule, Name: "content", Body: tc.body}
+			WriteSection(&sb, e.Name, e)
+			if got := sb.String(); !strings.HasSuffix(got, tc.want+"\n\n") {
+				t.Errorf("headings do not nest:\n%s\nwant body:\n%s", got, tc.want)
+			}
+			if e.Body != tc.body {
+				t.Error("source body changed")
+			}
+			if got := nestSectionHeadings(tc.want); got != tc.want {
+				t.Errorf("already emitted headings deepen again: %q", got)
+			}
+		})
+	}
+}
+
+func TestWriteSection_KeepsAgentBodyHeadings(t *testing.T) {
+	var sb strings.Builder
+	WriteSection(&sb, "agent", spec.Entry{Kind: spec.KindAgent, Body: "# Agent instructions\n"})
+	if !strings.Contains(sb.String(), "\n# Agent instructions\n") {
+		t.Errorf("agent body changed: %s", sb.String())
+	}
+}
+
+func TestWriteSection_RuleHeadingsPreserveFencedCode(t *testing.T) {
+	body := "### Versioning\n\n````markdown\n# Literal\n```\n### Still fenced\n`````\n\n~~~markdown\n## Literal\n~~~~\n\n### Following\n"
+	var sb strings.Builder
+	WriteSection(&sb, "content", spec.Entry{Kind: spec.KindRule, Body: body})
+	want := strings.ReplaceAll(body, "### Versioning", "#### Versioning")
+	want = strings.ReplaceAll(want, "### Following", "#### Following")
+	if !strings.HasSuffix(sb.String(), want+"\n\n") {
+		t.Errorf("fenced code changed or headings escaped:\n%s", sb.String())
 	}
 }
 

@@ -57,6 +57,12 @@ Use integer minor units for monetary values.
 
 Claude Code gets a conditional rule. Codex and Cursor share `services/payments/AGENTS.md`. Gemini gets `services/payments/GEMINI.md`. See [directory-specific instructions](@/docs/scoped-context.md) for every target and the selector limits.
 
+## Headings in merged files
+
+When several rules share a document, such as Codex's `AGENTS.md` or Gemini's `GEMINI.md`, each rule gets a `### <name>` section. Sync shifts the rule body's heading levels together so its shallowest heading is at least `####`. A body with `### Doc versioning` and `#### Details` becomes `#### Doc versioning` and `##### Details`. Already nested headings keep their levels. Markdown has six heading levels, so deeper headings stop at `######`.
+
+Fenced code keeps its headings as written. Standalone rule files and a nested document containing one rule without a section wrapper also keep the source heading levels.
+
 ## Fields
 
 | Field | Required | Default | Description |

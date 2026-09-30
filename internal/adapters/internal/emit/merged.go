@@ -124,7 +124,11 @@ func WriteSection(sb *strings.Builder, heading string, e spec.Entry) {
 	if d := e.Description(); d != "" {
 		sb.WriteString("_" + d + "_\n\n")
 	}
-	sb.WriteString(e.Body + "\n\n")
+	body := e.Body
+	if e.Kind == spec.KindRule {
+		body = nestSectionHeadings(body)
+	}
+	sb.WriteString(body + "\n\n")
 }
 
 // WriteReference writes a "### <name>" reference block: provenance

@@ -43,7 +43,7 @@ agnostic-ai sync --check
 
 `init` selects your tools. `new` creates your first rule under `.agnostic-ai/`; replace its TODO text before syncing. Generated files such as `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules/` are outputs. Keep the specs as your source of truth.
 
-A rule with `scope: src/a` and `globs: tests/a/**` applies to both directories. Claude writes both path patterns; Codex writes a nested `AGENTS.md` in each directory. See [scoped context](https://agnostic-ai.org/docs/scoped-context/) for selector limits and migration from the earlier intersection behavior.
+A rule with `scope: src/a` and `globs: tests/a/**` applies to both directories. Claude writes both path patterns; Codex writes a nested `AGENTS.md` in each directory. See [scoped context](https://agnostic-ai.org/docs/scoped-context/) for selector limits and migration from the earlier intersection behavior. Rule body headings nest beneath each rule section in merged instruction files; fenced code stays as written.
 
 Codex hooks require a trust review with `/hooks` after sync. Sync names inactive hooks; `agnostic-ai doctor -t codex` checks their persisted trust.
 
