@@ -1,6 +1,6 @@
 +++
 title = "Git hooks"
-description = "Run sync checks around commits and checkouts with pre-commit, lefthook, or husky."
+description = "Run sync checks around commits, checkouts, and pulls with pre-commit, lefthook, or husky."
 weight = 60
 
 [extra]
@@ -122,13 +122,13 @@ agnostic-ai explain --inputs
 
 Paste the list into the glob, or leave the glob out and run the check on every commit. Rerun it after adding an `@path` line.
 
-## Regenerate on checkout
+## Regenerate on checkout and pull {#regenerate-on-checkout}
 
 Commit hooks do not help when generated outputs are gitignored (`gitignore.enabled: true`): a fresh clone or a new `git worktree` starts with no `CLAUDE.md`, rules, or hooks until someone runs `sync`. A contributor can run `sync` by hand, automated worktree creation cannot, so an AI session opened there finds no config.
 
-A `post-checkout` hook closes the gap. `git checkout`, `git clone`, and `git worktree add` all fire it, so outputs regenerate themselves.
+A `post-checkout` hook closes the gap. `git checkout`, `git clone`, and `git worktree add` all fire it, so outputs regenerate themselves. A pull that merges runs `post-merge` instead: it restores files Git removes when an incoming commit untracks generated outputs.
 
-`agnostic-ai install-hook --post-checkout` writes one for you: `agnostic-ai sync -q`, guarded on the branch-checkout flag below, exiting 0 when the binary or `agnostic-ai.yaml` is not found yet. It runs a plain `sync`, so a hand edit to a generated file is overwritten; use the recipes below instead if you need `--keep-edits` to protect one across a checkout.
+`agnostic-ai install-hook --post-checkout` writes both `post-checkout` and `post-merge`. Both run `agnostic-ai sync -q` from the worktree root and exit 0 when the binary or `agnostic-ai.yaml` is not found. Only `post-checkout` checks the branch-checkout flag below. Run the install command again in a clone that already has the older checkout-only hook to add pull coverage. The hooks run a plain `sync`, so a hand edit to a generated file is overwritten; use the recipes below if you need `--keep-edits`.
 
 The recipes use `sync --keep-edits`. Git carries an uncommitted edit across a checkout, and a plain `sync` would overwrite a hand edit to a generated file such as `AGENTS.md`. With `--keep-edits`, sync writes every other output, leaves each file edited since the last sync in place, and names it as `~ kept <path>`. A file with no ledger entry, as in a new linked worktree, counts as edited when it differs from `HEAD`. Move the edit into `.agnostic-ai/`, then run `agnostic-ai sync`.
 
@@ -156,7 +156,7 @@ agnostic-ai sync --keep-edits
 agnostic-ai sync --keep-edits
 ```
 
-The same command works in `post-merge` and in a `postinstall` script.
+The same sync command works in `post-merge` and in a `postinstall` script. Leave the `$3` checkout guard out of `post-merge`, which receives no checkout flag. A pull with rebase needs a `post-rewrite` hook instead; see [Node monorepos](#node-monorepos).
 
 This needs `agnostic-ai` on `PATH` in every environment that checks out the repo. If some contributors lack the CLI, commit the generated outputs instead of gitignoring them. A Node project can install the CLI with its dependencies instead: see [Node monorepos](#node-monorepos).
 

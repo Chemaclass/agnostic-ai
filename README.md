@@ -43,11 +43,15 @@ agnostic-ai sync --check
 
 `init` selects your tools. `new` creates your first rule under `.agnostic-ai/`; replace its TODO text before syncing. `AGNOSTIC_AI.md` is your editable project guidance; sync creates a short template and keeps an existing file. Generated files such as `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules/` are outputs. Keep the specs as your source of truth. Set `gitignore.ignore-worktree-include: true` to keep Claude's managed `.worktreeinclude` out of Git.
 
+Run `agnostic-ai install-hook --post-checkout` to regenerate ignored tool files after checkouts and pulls that merge. If `sync --untrack` removes committed outputs from Git, install these hooks in each clone before pulling, or run `agnostic-ai sync` after pulling. See [Git hooks](https://agnostic-ai.org/docs/git-hooks/#regenerate-on-checkout).
+
 A rule with `scope: src/a` and `globs: tests/a/**` applies to both directories. Claude writes both path patterns; Codex writes a nested `AGENTS.md` in each directory. See [scoped context](https://agnostic-ai.org/docs/scoped-context/) for selector limits and migration from the earlier intersection behavior. Rule body headings nest beneath each rule section in merged instruction files; fenced code stays as written.
 
 Codex places unscoped whole-subtree rules such as `globs: src/app/api/**` in nested `AGENTS.md` files. Filename filters and root-file selectors stay inline with an always-loaded note. Set `outputs.codex.nested-glob-rules: false` to keep root inlining. Start Codex in the subtree to load its instruction chain.
 
 Codex hooks require a trust review with `/hooks` after sync. Sync names inactive hooks; `agnostic-ai doctor -t codex` checks their persisted trust.
+
+`agnostic-ai doctor` warns when an existing `.npmignore`, `.vscodeignore`, or `.dockerignore` misses generated paths. Codex skills moved from `.codex/skills/` to `.agents/skills/` in 0.75; check packaging ignores after upgrading.
 
 Use `agnostic-ai sync --global` for [user-level configuration](https://agnostic-ai.org/docs/configuration/#global-configuration). Global hooks and skills honor each spec's target filters. Imported Claude shell hooks resolve simple project-root variables on other targets; [project-root paths](https://agnostic-ai.org/docs/spec-format/hooks/#imported-project-root-paths) explains the Git and shell requirements. Skill metadata renders per target, while shared directories stay neutral. MCP specs in the home install servers in each tool's user MCP file, and settings specs set the default model and effort in Claude's, Codex's, Copilot's, Qoder's, and Gemini's user settings, key by key. Global settings also set Claude's starting permission mode through `permissions.default-mode`, preserving hand-written permission rules. Agents with `readonly: true` use Cursor's read-only mode, Codex's read-only sandbox, Factory's read-only tools, or Claude's `disallowedTools` for file edits.
 
