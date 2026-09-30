@@ -535,12 +535,8 @@ func TestImportFromClaude_WritesSettingsOverlay(t *testing.T) {
 			t.Errorf("overlay missing %q: %s", want, raw)
 		}
 	}
-	// Hooks key is retained as a `null` sentinel so writeSettings can
-	// restore hooks to the author's original position (#227). The
-	// sentinel is overwritten with the spec-derived hook map on every
-	// sync.
-	if !strings.Contains(string(raw), `"hooks": null`) {
-		t.Errorf("overlay should carry hooks: null sentinel for position preservation: %s", raw)
+	if strings.Contains(string(raw), `"hooks"`) {
+		t.Errorf("hooks captured as specs must be absent from overlay: %s", raw)
 	}
 }
 
@@ -586,12 +582,7 @@ func TestImportFromClaude_OverlayPreservesKeyOrder(t *testing.T) {
 	}
 }
 
-// TestImportFromClaude_HooksFirstSurvivesRoundTrip regresses #227.
-// Source settings.json with hooks before statusLine/enabledPlugins
-// must round-trip with the same top-level key order. Before #227,
-// hooks was stripped from the overlay on import and always re-appended
-// last by writeSettings, so this order was destroyed.
-func TestImportFromClaude_HooksFirstSurvivesRoundTrip(t *testing.T) {
+func TestImportFromClaude_HooksReturnFromSpecsWithoutAnOverlaySentinel(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	settings := `{
@@ -625,8 +616,11 @@ func TestImportFromClaude_HooksFirstSurvivesRoundTrip(t *testing.T) {
 	idxHooks := strings.Index(s, `"hooks"`)
 	idxStatus := strings.Index(s, `"statusLine"`)
 	idxPlugins := strings.Index(s, `"enabledPlugins"`)
-	if idxHooks < 0 || idxStatus <= idxHooks || idxPlugins <= idxStatus {
-		t.Errorf("expected hooks < statusLine < enabledPlugins (author order), got:\n%s", s)
+	if idxStatus < 0 || idxPlugins <= idxStatus || idxHooks <= idxPlugins {
+		t.Errorf("expected non-hook author order followed by generated hooks, got:\n%s", s)
+	}
+	if !strings.Contains(s, `"command": "fmt"`) {
+		t.Errorf("hook spec was not restored: %s", s)
 	}
 }
 
