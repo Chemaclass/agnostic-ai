@@ -107,14 +107,14 @@ func matchCoverageAccept(cfg *config.Config, b spec.Bundle, targets []string) co
 }
 
 // lintCoverageAccept flags a coverage.accept entry that matches no note
-// (LINT022, warn), so an entry goes stale visibly once a target starts
+// (LINT024, warn), so an entry goes stale visibly once a target starts
 // supporting the field. A target that fails to emit gets a finding of
 // its own instead.
 func lintCoverageAccept(m coverageMatch) []lintFinding {
 	var findings []lintFinding
 	for _, a := range m.unmatched {
 		findings = append(findings, lintFinding{
-			Code:     "LINT022",
+			Code:     "LINT024",
 			Severity: lintWarn,
 			Path:     config.ConfigFileName,
 			Message:  fmt.Sprintf("coverage.accept entry %s matches no coverage note; remove it", a),
@@ -127,7 +127,7 @@ func lintCoverageAccept(m coverageMatch) []lintFinding {
 	slices.Sort(failed)
 	for _, t := range failed {
 		findings = append(findings, lintFinding{
-			Code:     "LINT022",
+			Code:     "LINT024",
 			Severity: lintWarn,
 			Path:     config.ConfigFileName,
 			Message:  fmt.Sprintf("coverage.accept entries for %s were not checked: %v", t, m.failed[t]),

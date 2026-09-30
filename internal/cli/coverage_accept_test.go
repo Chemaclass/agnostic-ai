@@ -206,7 +206,7 @@ func TestLint_WarnsOnAcceptEntryThatMatchesNoNote(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a stale accept entry is a warning, not an error: %v\n%s", err, out)
 	}
-	if !strings.Contains(out, "LINT022 [warn] agnostic-ai.yaml: coverage.accept entry codex agents `model` matches no coverage note") {
+	if !strings.Contains(out, "LINT024 [warn] agnostic-ai.yaml: coverage.accept entry codex agents `model` matches no coverage note") {
 		t.Errorf("lint should warn on the stale entry:\n%s", out)
 	}
 	if strings.Contains(out, "`tools` matches no") {
@@ -228,7 +228,7 @@ func TestLint_TargetThatFailsToEmitIsAFindingNotAFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an emit error must not abort lint: %v\n%s", err, out)
 	}
-	if !strings.Contains(out, "LINT022 [warn] agnostic-ai.yaml: coverage.accept entries for flaky were not checked") {
+	if !strings.Contains(out, "LINT024 [warn] agnostic-ai.yaml: coverage.accept entries for flaky were not checked") {
 		t.Errorf("lint should report the target it could not check:\n%s", out)
 	}
 	if strings.Contains(out, "matches no coverage note") {
@@ -244,8 +244,8 @@ func TestLint_AcceptEntryThatMatchesPassesClean(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a matching accept entry should lint clean: %v\n%s", err, out)
 	}
-	if strings.Contains(out, "LINT022") {
-		t.Errorf("unexpected LINT022:\n%s", out)
+	if strings.Contains(out, "LINT024") {
+		t.Errorf("unexpected LINT024:\n%s", out)
 	}
 }
 
