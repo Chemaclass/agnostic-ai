@@ -351,7 +351,7 @@ Setting the named key clears the note. Repeated warnings collapse into one count
 
 ## `coverage`
 
-`on-unsupported` does not cover coverage notes: `error` never fails on them. Two keys handle notes instead.
+`on-unsupported` does not cover coverage notes: `error` never fails on them. Two keys handle notes instead. Both are project-only: `sync --global` ignores a `coverage:` key in the home config and warns about it.
 
 ```yaml
 coverage:
@@ -369,7 +369,7 @@ coverage:
 
 ### `coverage.fail-on-notes` {#coveragefail-on-notes}
 
-Default `false`. When `true`, sync fails on each coverage note that names a target and is not accepted. It prints the notes and rolls back the writes. This applies to `sync`, `sync --dry-run`, `sync --watch`, `sync --json`, `sync --check`, `sync --check --json`, and `sync --plan`. `sync --global` does not read it.
+Default `false`. When `true`, sync fails on each coverage note that names a target and is not accepted. It prints the notes and rolls back the writes. This applies to `sync`, `sync --dry-run`, `sync --watch`, `sync --json`, `sync --check`, `sync --check --json`, and `sync --plan`. Under `-q` the failing notes still print on stderr.
 
 ### `coverage.accept` {#coverageaccept}
 

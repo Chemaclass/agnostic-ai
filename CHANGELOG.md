@@ -8,8 +8,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
-- `coverage.accept` lists known coverage notes with a reason, so sync stops printing them; `coverage.fail-on-notes` fails sync on the rest (#1496).
 - **Breaking:** rule `scope`, `globs`, and `paths` form a union; rule folders scope existing directories. Remove `scope` to keep only a filter (#1429, #1430).
+- `coverage.accept` lists known coverage notes with a reason, so sync stops printing them; `coverage.fail-on-notes` fails sync on the rest (#1514).
 - Hooks can use `.agnostic-ai/scripts/<name>` to copy and run one shared script in each target, including with `sync --global` (#1454).
 - `agnostic-ai hook paths` prints the files an edit touched, Codex patches included, so one edit hook runs on several tools (#1493).
 - Doctor warns when existing packaging ignore files miss generated paths; upgrade notes flag the Codex skills path move (#1447).

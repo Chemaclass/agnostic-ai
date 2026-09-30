@@ -42,6 +42,13 @@ func writeIndentedJSON(cmd *cobra.Command, v any) error {
 	return enc.Encode(v)
 }
 
+// addError records err as a run-level error. A nil err adds nothing.
+func (o *jsonOutput) addError(err error) {
+	if err != nil {
+		o.Errors = append(o.Errors, errorRecord{Target: "agnostic-ai", Message: err.Error()})
+	}
+}
+
 // withEmptyLists replaces nil lists with empty ones so consumers always
 // see `[]` rather than `null`.
 func (o jsonOutput) withEmptyLists() jsonOutput {

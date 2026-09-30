@@ -144,7 +144,7 @@ func newSyncCmd() *cobra.Command {
 				}
 				notesErr := checkCoverageNotes(cfg, effective)
 				if jsonOut {
-					return errors.Join(printSyncPlanJSON(cmd, "sync --plan", reports, false), notesErr)
+					return printSyncPlanJSON(cmd, "sync --plan", reports, false, notesErr)
 				}
 				printSyncPlan(cmd, reports)
 				return notesErr
@@ -177,7 +177,7 @@ func newSyncCmd() *cobra.Command {
 					}
 				}
 				if jsonOut {
-					return errors.Join(printSyncCheckJSON(cmd, reports), notesErr)
+					return printSyncCheckJSON(cmd, reports, notesErr)
 				}
 				err = reportCheckDrift(cmd, reports, format, diff)
 				if err != nil && tree != nil && regeneratedDrift(reports) {
@@ -199,7 +199,7 @@ func newSyncCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return errors.Join(printSyncPlanJSON(cmd, "sync --dry-run", reports, true), checkCoverageNotes(cfg, effective))
+				return printSyncPlanJSON(cmd, "sync --dry-run", reports, true, checkCoverageNotes(cfg, effective))
 			}
 			if jsonOut {
 				return runSyncJSON(cmd, ".", effective, backup, keepEdits, untrack, gitignoreFlag, jobs)

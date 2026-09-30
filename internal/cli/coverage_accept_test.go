@@ -171,10 +171,39 @@ func TestSyncCheck_FailOnNotesFailsOnUnacceptedNote(t *testing.T) {
 			t.Errorf("%v should print the failing note:\n%s", args, notes)
 		}
 	}
-	out, _ := runCLI(t, "sync", "--check", "--json")
-	var report map[string]any
-	if err := json.Unmarshal([]byte(out), &report); err != nil {
-		t.Errorf("sync --check --json should still print its report: %v\n%s", err, out)
+	for _, args := range [][]string{{"sync", "--check", "--json"}, {"sync", "--plan", "--json"}, {"sync", "--dry-run", "--json"}} {
+		out, _ := runCLI(t, args...)
+		var report struct {
+			Errors []errorRecord `json:"errors"`
+		}
+		if err := json.Unmarshal([]byte(out), &report); err != nil {
+			t.Errorf("%v should still print its report: %v\n%s", args, err, out)
+			continue
+		}
+		if len(report.Errors) != 1 || report.Errors[0].Target != "agnostic-ai" || !strings.Contains(report.Errors[0].Message, "coverage.fail-on-notes") {
+			t.Errorf("%v should report the failure in errors, got %+v", args, report.Errors)
+		}
+	}
+}
+
+func TestSync_QuietGateFailureStillNamesTheNotes(t *testing.T) {
+	setupCoverageAcceptProject(t, failOnNotes)
+	stderr, err := os.CreateTemp(t.TempDir(), "stderr")
+	if err != nil {
+		t.Fatal(err)
+	}
+	prev := os.Stderr
+	os.Stderr = stderr
+	t.Cleanup(func() { os.Stderr = prev })
+
+	_, runErr := runCLI(t, "-q", "sync")
+
+	if runErr == nil {
+		t.Fatal("an unaccepted note must fail coverage.fail-on-notes under -q")
+	}
+	got, _ := os.ReadFile(stderr.Name())
+	if !strings.Contains(string(got), codexToolsNote) {
+		t.Errorf("sync -q should still print the failing note on stderr:\n%s", got)
 	}
 }
 
@@ -233,6 +262,25 @@ func TestLint_TargetThatFailsToEmitIsAFindingNotAFailure(t *testing.T) {
 	}
 	if strings.Contains(out, "matches no coverage note") {
 		t.Errorf("an entry on a target that failed to emit is not stale:\n%s", out)
+	}
+}
+
+func TestLint_SkipsAcceptTargetsThatAreNotEnabled(t *testing.T) {
+	setupCoverageAcceptProject(t, `coverage:
+  accept:
+    - target: [codex, gemini, cursor]
+      kind: agents
+      field: tools
+      reason: Only some targets are enabled.
+`)
+
+	out, err := runCLI(t, "lint", "--strict")
+
+	if err != nil {
+		t.Fatalf("an entry for a target not in targets should not fail lint --strict: %v\n%s", err, out)
+	}
+	if strings.Contains(out, "LINT024") {
+		t.Errorf("unexpected LINT024 for targets that are not enabled:\n%s", out)
 	}
 }
 

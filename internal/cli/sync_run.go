@@ -510,7 +510,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	normalizeSharedWriteAttribution(emits)
 	accepted, notesErr := applyCoverageAccept(cfg, effectiveTargets)
 	if notesErr != nil {
-		adapters.FlushCoverageNotes()
+		flushFailedCoverageNotes()
 		return notesErr
 	}
 
@@ -885,11 +885,11 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	sessions = append(sessions, mainSess)
 	normalizeSharedWriteAttribution(emits)
 	if _, notesErr := applyCoverageAccept(cfg, effectiveTargets); notesErr != nil {
-		adapters.FlushCoverageNotes()
+		flushFailedCoverageNotes()
 		if rbErr := rollbackSessions(append([]*adapters.Session{reconciled}, sessions...)); rbErr != nil {
 			fmt.Fprintf(os.Stderr, "! rollback: %v\n", rbErr)
 		}
-		out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: notesErr.Error()})
+		out.addError(notesErr)
 		if err := emitJSON(cmd, out); err != nil {
 			return err
 		}
@@ -1044,8 +1044,9 @@ func printSyncPlan(cmd *cobra.Command, reports []driftReport) {
 // schema, with the create, update, and delete actions a real run reports,
 // and kept orphans and leftovers in skipped. A dry run also lists each
 // unchanged file as a skip, so every planned output appears once.
-func printSyncPlanJSON(cmd *cobra.Command, command string, reports []driftReport, withCurrent bool) error {
+func printSyncPlanJSON(cmd *cobra.Command, command string, reports []driftReport, withCurrent bool, notesErr error) error {
 	out := jsonOutput{Version: "1", Command: command}
+	out.addError(notesErr)
 	for _, r := range reports {
 		for _, f := range r.Missing {
 			out.Writes = append(out.Writes, fileRecord{Target: r.Target, Path: filepath.ToSlash(f.Path), Action: "create", Bytes: len(f.Content)})
@@ -1069,21 +1070,25 @@ func printSyncPlanJSON(cmd *cobra.Command, command string, reports []driftReport
 			}
 		}
 	}
-	return emitJSON(cmd, out)
+	if err := emitJSON(cmd, out); err != nil {
+		return err
+	}
+	return notesErr
 }
 
 // printSyncCheckJSON emits a JSON result for `sync --check`. Every drifted
 // file appears in writes, with the actions driftRecords assigns.
-func printSyncCheckJSON(cmd *cobra.Command, reports []driftReport) error {
+func printSyncCheckJSON(cmd *cobra.Command, reports []driftReport, notesErr error) error {
 	out := jsonOutput{Version: "1", Command: "sync --check", Writes: driftRecords(reports)}
+	out.addError(notesErr)
 	hasDrift := len(out.Writes) > 0
 	if err := emitJSON(cmd, out); err != nil {
 		return err
 	}
 	if hasDrift {
-		return errDriftDetected()
+		return errors.Join(errDriftDetected(), notesErr)
 	}
-	return nil
+	return notesErr
 }
 
 // checkFormatHuman is the default `--check` report: a per-target table.

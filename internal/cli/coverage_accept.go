@@ -2,6 +2,8 @@ package cli
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"slices"
 
 	"github.com/spf13/cobra"
@@ -27,13 +29,24 @@ func applyCoverageAccept(cfg *config.Config, targets []string) ([]adapters.Accep
 	return accepted, nil
 }
 
+// flushFailedCoverageNotes prints the notes that failed
+// coverage.fail-on-notes. Under -q they still go to stderr, so the
+// failure names them.
+func flushFailedCoverageNotes() {
+	if verbosity < levelDefault {
+		adapters.SetWarner(os.Stderr)
+		defer adapters.SetWarner(io.Discard)
+	}
+	adapters.FlushCoverageNotes()
+}
+
 // checkCoverageNotes applies coverage.fail-on-notes to the notes a
 // capture-only run (check, plan, dry-run JSON) buffered. On failure it
 // prints the notes, which those runs otherwise leave out.
 func checkCoverageNotes(cfg *config.Config, targets []string) error {
 	_, err := applyCoverageAccept(cfg, targets)
 	if err != nil {
-		adapters.FlushCoverageNotes()
+		flushFailedCoverageNotes()
 	}
 	adapters.ResetCoverageNotes()
 	return err
@@ -69,7 +82,8 @@ type coverageMatch struct {
 }
 
 // matchCoverageAccept emits every target in memory and matches the notes
-// they raise against coverage.accept. The policy is forced to warn so a
+// they raise against coverage.accept. An entry's targets outside targets
+// are not emitted, so they never count as unmatched. The policy is forced to warn so a
 // note that on-unsupported: error turns into a failure is still raised.
 // A target that fails to resolve or emit is recorded and skipped.
 func matchCoverageAccept(cfg *config.Config, b spec.Bundle, targets []string) coverageMatch {
@@ -98,7 +112,7 @@ func matchCoverageAccept(cfg *config.Config, b spec.Bundle, targets []string) co
 	accepted, unmatched := adapters.AcceptCoverageNotes(cfg.Coverage.Accept)
 	m.accepted = len(accepted)
 	for _, a := range unmatched {
-		a.Target = slices.DeleteFunc(a.Target, func(t string) bool { return m.failed[t] != nil })
+		a.Target = slices.DeleteFunc(a.Target, func(t string) bool { return m.failed[t] != nil || !slices.Contains(targets, t) })
 		if len(a.Target) > 0 {
 			m.unmatched = append(m.unmatched, a)
 		}
