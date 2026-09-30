@@ -134,8 +134,6 @@ func parsePackagingIgnore(format, text string) ([]packagingIgnoreRule, error) {
 		} else if format == ".npmignore" {
 			line = strings.TrimPrefix(line, "/")
 			line = strings.TrimSuffix(line, "/")
-		} else {
-			line = strings.TrimSuffix(line, "/")
 		}
 		if line == "" {
 			return nil, fmt.Errorf("line %d has an empty pattern", index+1)
@@ -202,10 +200,10 @@ func packagingIgnored(format string, rules []packagingIgnoreRule, file string) b
 			if strings.HasPrefix(rule.pattern, "/") {
 				continue
 			}
-			matched = packagingGlob(rule.pattern, file, false)
+			matched = packagingVSCEGlob(rule.pattern, file)
 			last := path.Base(rule.pattern)
-			if !matched && !strings.Contains(last, "*") {
-				matched = packagingGlob(strings.TrimSuffix(rule.pattern, "/")+"/**", file, false)
+			if !matched && (rule.directory || !strings.Contains(last, "*")) {
+				matched = packagingVSCEGlob(strings.TrimSuffix(rule.pattern, "/")+"/**", file)
 			}
 		}
 		if matched {
@@ -229,6 +227,14 @@ func packagingRuleMatches(rule packagingIgnoreRule, file string, directory bool)
 }
 
 func packagingGlob(pattern, file string, partial bool) bool {
+	return packagingGlobMatch(pattern, file, partial, false)
+}
+
+func packagingVSCEGlob(pattern, file string) bool {
+	return packagingGlobMatch(pattern, file, false, true)
+}
+
+func packagingGlobMatch(pattern, file string, partial, separatorRequired bool) bool {
 	patterns, names := strings.Split(pattern, "/"), strings.Split(file, "/")
 	memo := map[[2]int]bool{}
 	var match func(int, int) bool
@@ -242,6 +248,10 @@ func packagingGlob(pattern, file string, partial bool) bool {
 			if partial {
 				return true
 			}
+			// Minimatch requires a slash before a trailing globstar after a plain segment.
+			if separatorRequired && pi > 0 && pi < len(patterns) && patterns[pi-1] != "**" {
+				return false
+			}
 			for pi < len(patterns) && patterns[pi] == "**" {
 				pi++
 			}
@@ -251,6 +261,9 @@ func packagingGlob(pattern, file string, partial bool) bool {
 			return false
 		}
 		if patterns[pi] == "**" {
+			if separatorRequired && pi == len(patterns)-1 {
+				return true
+			}
 			return match(pi+1, ni) || match(pi, ni+1)
 		}
 		return config.MatchUnmanaged([]string{patterns[pi]}, names[ni]) && match(pi+1, ni+1)
