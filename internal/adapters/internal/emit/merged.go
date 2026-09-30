@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/markdown"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -126,7 +127,7 @@ func WriteSection(sb *strings.Builder, heading string, e spec.Entry) {
 	}
 	body := e.Body
 	if e.Kind == spec.KindRule {
-		body = nestSectionHeadings(body)
+		body, _ = markdown.NestHeadings(body, 3)
 	}
 	sb.WriteString(body + "\n\n")
 }

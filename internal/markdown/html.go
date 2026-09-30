@@ -7,12 +7,12 @@ import (
 
 var htmlTag = regexp.MustCompile(`(?i)^</?([a-z][a-z0-9-]*)(?:[ \t/>]|$)`)
 
-type HTMLBlock struct {
+type htmlBlock struct {
 	active bool
 	end    string
 }
 
-func (b *HTMLBlock) Consume(line string) bool {
+func (b *htmlBlock) consume(line string) bool {
 	if b.active {
 		if b.end == "" && strings.TrimSpace(line) == "" || b.end != "" && strings.Contains(strings.ToLower(line), b.end) {
 			b.active = false

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/markdown"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -58,7 +59,7 @@ func TestWriteSection_RuleHeadingsNestUnderSection(t *testing.T) {
 			if e.Body != tc.body {
 				t.Error("source body changed")
 			}
-			if got := nestSectionHeadings(tc.want); got != tc.want {
+			if got, _ := markdown.NestHeadings(tc.want, 3); got != tc.want {
 				t.Errorf("already emitted headings deepen again: %q", got)
 			}
 		})

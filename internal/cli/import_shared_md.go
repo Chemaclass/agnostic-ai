@@ -259,47 +259,34 @@ func unwrapMergedH3Children(body string, used map[string]int) ([]mergedH3Child, 
 }
 
 func unfencedH3HeadingIndexes(body string) [][]int {
+	lines := strings.Split(body, "\n")
+	offsets := make([]int, len(lines))
+	for i := 1; i < len(lines); i++ {
+		offsets[i] = offsets[i-1] + len(lines[i-1]) + 1
+	}
 	var indexes [][]int
-	var fence byte
-	var html markdown.HTMLBlock
-	fenceLength, offset := 0, 0
-	for _, raw := range strings.SplitAfter(body, "\n") {
-		line := strings.TrimSuffix(strings.TrimSuffix(raw, "\n"), "\r")
-		if fence == 0 && html.Consume(line) {
-			offset += len(raw)
-			continue
-		}
-		indent := len(line) - len(strings.TrimLeft(line, " "))
-		if indent <= 3 {
-			line = line[indent:]
-			if fence != 0 {
-				run := len(line) - len(strings.TrimLeft(line, string(fence)))
-				if run >= fenceLength && strings.TrimSpace(line[run:]) == "" {
-					fence = 0
-				}
-				offset += len(raw)
-				continue
+	for _, i := range markdownHeadingLines(lines, 3) {
+		if match := h3HeadingRE.FindStringSubmatchIndex(lines[i]); match != nil {
+			for j := range match {
+				match[j] += offsets[i]
 			}
-			if len(line) > 0 && (line[0] == '`' || line[0] == '~') {
-				run := len(line) - len(strings.TrimLeft(line, line[:1]))
-				if run >= 3 && (line[0] == '~' || !strings.Contains(line[run:], "`")) {
-					fence, fenceLength = line[0], run
-					offset += len(raw)
-					continue
-				}
-			}
+			indexes = append(indexes, match)
 		}
-		if fence == 0 {
-			if match := h3HeadingRE.FindStringSubmatchIndex(raw); match != nil {
-				for i := range match {
-					match[i] += offset
-				}
-				indexes = append(indexes, match)
-			}
-		}
-		offset += len(raw)
 	}
 	return indexes
+}
+
+// markdownHeadingLines returns the index of each line in lines that holds
+// an ATX heading at level, outside code and raw HTML.
+func markdownHeadingLines(lines []string, level int) []int {
+	var scan markdown.Scanner
+	var out []int
+	for i, line := range lines {
+		if heading, ok := scan.Scan(line); ok && heading.Level == level && heading.Start == i {
+			out = append(out, i)
+		}
+	}
+	return out
 }
 
 // writeAgentMD writes an agent spec to path with a name + optional
