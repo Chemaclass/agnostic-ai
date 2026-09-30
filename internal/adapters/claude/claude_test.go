@@ -1881,20 +1881,19 @@ func TestEmit_PerKindDirWinsOverDirOverride(t *testing.T) {
 }
 
 func TestEmit_AgentReadonlyMapsToDisallowedTools(t *testing.T) {
-	const denied = "readonly: true\ndisallowedTools: Write, Edit, NotebookEdit\n"
+	const denied = "disallowedTools: Write, Edit, NotebookEdit\n"
 	for _, tc := range []struct {
-		name     string
-		meta     map[string]any
-		want     string
-		readonly bool
+		name string
+		meta map[string]any
+		want string
 	}{
-		{"readonly", map[string]any{"readonly": true}, denied, true},
-		{"override", map[string]any{"readonly": true, "x-claude": map[string]any{"disallowedTools": []any{"Bash"}}}, "disallowedTools:\n  - Bash\n", true},
-		{"portable list", map[string]any{"readonly": true, "disallowedTools": "Bash"}, "disallowedTools: Bash\n", true},
-		{"target readonly", map[string]any{"x-claude": map[string]any{"readonly": true}}, denied, true},
-		{"target opt-out", map[string]any{"readonly": true, "x-claude": map[string]any{"readonly": false}}, "", false},
-		{"false", map[string]any{"readonly": false}, "", false},
-		{"null override", map[string]any{"readonly": true, "x-claude": map[string]any{"disallowedTools": nil}}, "", true},
+		{"readonly", map[string]any{"readonly": true}, denied},
+		{"override", map[string]any{"readonly": true, "x-claude": map[string]any{"disallowedTools": []any{"Bash"}}}, "disallowedTools:\n  - Bash\n"},
+		{"portable list", map[string]any{"readonly": true, "disallowedTools": "Bash"}, "disallowedTools: Bash\n"},
+		{"target readonly", map[string]any{"x-claude": map[string]any{"readonly": true}}, denied},
+		{"target opt-out", map[string]any{"readonly": true, "x-claude": map[string]any{"readonly": false}}, ""},
+		{"false", map[string]any{"readonly": false}, ""},
+		{"null override", map[string]any{"readonly": true, "x-claude": map[string]any{"disallowedTools": nil}}, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := testutil.TempCwd(t)
@@ -1907,8 +1906,8 @@ func TestEmit_AgentReadonlyMapsToDisallowedTools(t *testing.T) {
 				t.Fatal(err)
 			}
 			got := readFileT(t, filepath.Join(dir, ".claude", "agents", "reviewer.md"))
-			if strings.Contains(got, "readonly: true") != tc.readonly || strings.Contains(got, "readonly: false") {
-				t.Errorf("readonly: true kept = %v, want %v: %s", !tc.readonly, tc.readonly, got)
+			if strings.Contains(got, "readonly:") {
+				t.Errorf("portable readonly copied into native frontmatter: %s", got)
 			}
 			if tc.want == "" {
 				if strings.Contains(got, "disallowedTools") {
@@ -1932,8 +1931,41 @@ func TestEmit_AgentReadonlyKeepsKeyPosition(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := readFileT(t, filepath.Join(dir, ".claude", "agents", "reviewer.md"))
-	want := "---\nname: reviewer\nreadonly: true\ndisallowedTools: Write, Edit, NotebookEdit\ndescription: Reviews code.\n---\n"
+	parsed, err := spec.ParseMarkdownBytes(spec.KindAgent, []byte(got))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for key := range parsed.Meta {
+		if key != "name" && key != "description" && key != "disallowedTools" {
+			t.Errorf("undocumented agent key %s in: %s", key, got)
+		}
+	}
+	want := "---\nname: reviewer\ndisallowedTools: Write, Edit, NotebookEdit\ndescription: Reviews code.\n---\n"
 	if !strings.HasPrefix(got, want) {
 		t.Errorf("want prefix %q, got:\n%s", want, got)
+	}
+}
+
+func TestEmit_RuleScopeIsTranslatedWithoutPortableFrontmatter(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	rule := spec.Entry{Kind: spec.KindRule, Name: "security", Scope: "src/a", Body: "Check inputs.\n", Meta: map[string]any{"scope": "src/a", "globs": "src/a/**"}, MetaKeys: []string{"scope", "globs"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{rule}), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFileT(t, filepath.Join(dir, ".claude", "rules", "src", "a", "security.md"))
+	parsed, err := spec.ParseMarkdownBytes(spec.KindRule, []byte(got))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for key := range parsed.Meta {
+		if key != "paths" {
+			t.Errorf("undocumented rule key %s in: %s", key, got)
+		}
+	}
+	if strings.Contains(got, "scope:") || strings.Contains(got, "globs:") {
+		t.Errorf("portable fields copied into rule frontmatter: %s", got)
+	}
+	if !strings.Contains(got, "paths:") {
+		t.Errorf("native activation missing: %s", got)
 	}
 }
