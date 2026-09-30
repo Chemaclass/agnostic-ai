@@ -106,6 +106,34 @@ func TestOrderedJSON_SetExistingKeyKeepsPosition(t *testing.T) {
 	}
 }
 
+func TestOrderedJSON_SetAtPlacesOnlyANewKey(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		key  string
+		at   int
+		want []string
+	}{
+		{"x", 1, []string{"alpha", "x", "beta"}},
+		{"x", -1, []string{"x", "alpha", "beta"}},
+		{"x", 9, []string{"alpha", "beta", "x"}},
+		{"beta", 0, []string{"alpha", "beta"}},
+	} {
+		doc := NewOrderedJSON()
+		if err := json.Unmarshal([]byte(`{"alpha": 1, "beta": 2}`), doc); err != nil {
+			t.Fatal(err)
+		}
+		if err := doc.SetAt(tc.at, tc.key, "set"); err != nil {
+			t.Fatal(err)
+		}
+		if got := doc.Keys(); !equalSlice(got, tc.want) {
+			t.Errorf("SetAt(%d, %q): keys %v, want %v", tc.at, tc.key, got, tc.want)
+		}
+		if raw, _ := doc.Get(tc.key); string(raw) != `"set"` {
+			t.Errorf("SetAt(%d, %q): value %s", tc.at, tc.key, raw)
+		}
+	}
+}
+
 func TestOrderedJSON_EmptyMarshalsAsBrackets(t *testing.T) {
 	t.Parallel()
 	doc := NewOrderedJSON()

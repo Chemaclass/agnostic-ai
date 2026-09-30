@@ -11,6 +11,7 @@ import (
 	"slices"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/claudehooks"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -21,10 +22,10 @@ const (
 	// on top.
 	claudeOverlayFile = "claude.settings.json"
 
-	// claudeHookOrderFile is a sidecar capturing the order of hook
-	// event keys (`PreToolUse`, `PostToolUse`, ...) as they appeared in
-	// the source settings.json. The claude adapter reads it on emit so
-	// the user's authored event order survives a round-trip instead of
+	// claudeHookOrderFile is a sidecar capturing where `hooks` sat in
+	// the source settings.json and the order of its event keys
+	// (`PreToolUse`, `PostToolUse`, ...). The claude adapter reads it on
+	// emit so the user's authored order survives a round-trip instead of
 	// being normalized to the canonical lifecycle order.
 	claudeHookOrderFile = "claude.settings.hook-events.json"
 
@@ -53,28 +54,8 @@ func claudeOverlayPath(root string) string {
 	return filepath.Join(root, claudeOverlayDir, claudeOverlayFile)
 }
 
-// importClaudeSettingsOverlay reads `.claude/settings.json` under root
-// and writes it to `.agnostic-ai/overlays/claude.settings.json` with the
-// `hooks` value replaced by a null sentinel.
-//
-// The overlay file becomes the authoritative source of non-hook settings
-// (statusLine, enabledPlugins, model overrides, anything the user has
-// configured). On `sync -t claude` the adapter loads the overlay, merges
-// the hook output on top, and writes the result. Without the overlay,
-// wiping `.claude/` between import and sync would lose every non-hook
-// key.
-//
-// The hooks key is kept as a `null` sentinel rather than deleted so the
-// overlay preserves the author's original key position. `writeSettings`
-// overwrites the sentinel with the spec-derived hook map on every sync,
-// keeping hooks at the position the user authored (#227).
-//
-// An `effortLevel` a settings spec can carry, and the permission lists,
-// move to specs in settingsDir instead.
-//
-// The overlay is not written when settings.json is missing or contains
-// only `hooks`, so a fresh project does not get a surprise empty overlay
-// file.
+// importClaudeSettingsOverlay writes no overlay when settings.json is
+// missing or holds only hooks, so a fresh project gets no empty file.
 func importClaudeSettingsOverlay(root, settingsDir string) (claudeSettingsImport, error) {
 	var out claudeSettingsImport
 	src := filepath.Join(root, claudeDir, "settings.json")
@@ -102,15 +83,13 @@ func importClaudeSettingsOverlay(root, settingsDir string) (claudeSettingsImport
 	if err := excludeClaudeHookTargetEnv(doc); err != nil {
 		return out, err
 	}
-	hadHooks := false
 	if rawHooks, ok := doc.Get("hooks"); ok {
-		hadHooks = true
-		if err := captureClaudeHookEventOrder(root, rawHooks); err != nil {
+		if err := captureClaudeHookOrder(root, doc.Keys(), rawHooks); err != nil {
 			return out, err
 		}
-		doc.SetRaw("hooks", json.RawMessage(`null`))
+		doc.Delete("hooks")
 	}
-	if !removedPolicy && (doc.Len() == 0 || (hadHooks && doc.Len() == 1)) {
+	if !removedPolicy && doc.Len() == 0 {
 		return out, nil
 	}
 	indent := adapters.DetectJSONIndent(data)
@@ -296,13 +275,13 @@ func claudeOverlayRelPath() string {
 	return filepath.Join(claudeOverlayDir, claudeOverlayFile)
 }
 
-// captureClaudeHookEventOrder scans the raw `hooks` value from the
-// source settings.json and writes the event keys in source order to
+// captureClaudeHookOrder writes the key `hooks` sits next to among
+// keys and the event keys of rawHooks, in source order, to
 // `.agnostic-ai/overlays/claude.settings.hook-events.json`. The claude
-// adapter reads that file on emit and uses the captured order in
-// preference to the canonical lifecycle order, so a user authored as
-// `PostToolUse` first stays that way across a round-trip.
-func captureClaudeHookEventOrder(root string, rawHooks json.RawMessage) error {
+// adapter reads that file on emit, so `hooks` keeps its place and a
+// user authored as `PostToolUse` first stays that way across a
+// round-trip.
+func captureClaudeHookOrder(root string, keys []string, rawHooks json.RawMessage) error {
 	if len(rawHooks) == 0 {
 		return nil
 	}
@@ -338,7 +317,7 @@ func captureClaudeHookEventOrder(root string, rawHooks json.RawMessage) error {
 	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
 	}
-	body, err := json.MarshalIndent(events, "", "  ")
+	body, err := json.MarshalIndent(claudehooks.OrderOf(keys, events), "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal hook order: %w", err)
 	}
