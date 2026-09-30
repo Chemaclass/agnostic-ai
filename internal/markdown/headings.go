@@ -76,11 +76,15 @@ func (s *Scanner) Scan(line string) (Heading, bool) {
 		s.paragraph = false
 		return Heading{s.paragraphStart, i, level}, true
 	}
+	if thematicBreak(line) {
+		s.paragraph = false
+		return Heading{}, false
+	}
 	if listMarker.MatchString(line) || strings.HasPrefix(line, ">") {
 		s.paragraph, s.lazy = false, true
 		return Heading{}, false
 	}
-	if strings.TrimSpace(line) == "" || thematicBreak(line) {
+	if strings.TrimSpace(line) == "" {
 		s.paragraph = false
 	} else if !s.paragraph {
 		s.paragraph, s.paragraphStart = true, i

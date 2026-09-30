@@ -35,6 +35,7 @@ func TestWriteSection_RuleHeadingsNestUnderSection(t *testing.T) {
 		{"indented and escaped", "   ### Heading\n    # Code\n\\# Literal\n#hashtag\n", "   #### Heading\n    # Code\n\\# Literal\n#hashtag\n"},
 		{"setext", "Title\n=====\n\nDetails\n---\n", "#### Title\n\n##### Details\n"},
 		{"thematic break", "---\nTitle\n=====\n", "---\n#### Title\n"},
+		{"spaced thematic breaks", "* * *\nTitle\n=====\n- - -\nNext\n---\n", "* * *\n#### Title\n- - -\n##### Next\n"},
 		{"single-character setext", "Title\n-\n", "#### Title\n"},
 		{"ordered list and thematic break", "1. Run tests\n---\n\nTitle\n===\n", "1. Run tests\n---\n\n#### Title\n"},
 		{"ordered parenthesis list", "2) Run tests\n---\n", "2) Run tests\n---\n"},
