@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
@@ -136,11 +137,24 @@ func sweepAndFinalizeLedger(sess *adapters.Session, prev syncStateFile, session 
 	coversAll := coversAllConfiguredTargets(emitted, configured)
 	outputs := reconcilePartialLedger(finalizeLedger(session), prev.Outputs, coversAll)
 	removed, kept, err = sweepLedgerOrphans(sess, prev.Outputs, prev.OutputSums, outputs)
+	orphans := ledgerOrphans(kept, prev.Orphans, written, coversAll)
+	if err != nil {
+		for _, path := range prev.Outputs {
+			if !slices.Contains(removed, path) && !sess.IsUnmanaged(path) {
+				outputs = append(outputs, path)
+			}
+		}
+		for _, path := range ledgerOrphans(nil, prev.Orphans, written, false) {
+			if !slices.Contains(removed, path) && !sess.IsUnmanaged(path) {
+				orphans = append(orphans, path)
+			}
+		}
+	}
 	outputs = finalizeLedger(append(outputs, kept...))
 	return syncLedger{
 		outputs: outputs,
 		sums:    ledgerSums(outputs, written, prev.OutputSums),
-		orphans: ledgerOrphans(kept, prev.Orphans, written, coversAll),
+		orphans: finalizeLedger(orphans),
 	}, kept, removed, err
 }
 

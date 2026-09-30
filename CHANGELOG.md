@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- Kept orphans from older sync ledgers name the missing checksum and stay gitignored. `doctor --fix` offers removal in a terminal, defaulting to no (#1440).
 - `sync` reports omitted skill fields, including `argument-hint`. `compare` shows which skill fields each target keeps, translates, or drops (#1444).
 
 - Breaking: rule `scope`, `globs`, and `paths` form a union. Remove `scope` to keep only a file filter; see the migration guide (#1429).
@@ -44,6 +45,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - A Codex config or overlay model suppresses the Claude model note for overridden settings (#1462).
 
+- `import codex` strips generated skill headers before merging bodies, preserving canonical instructions and importing authored edits (#1476).
 - Exact subtree selectors write nested `AGENTS.md`; filename filters stay inline with a coverage note. Disable with `nested-glob-rules: false` (#1435).
 - `import codex` keeps an imported agent model in `model.codex` when merging it into a Claude spec, preserving each tool's model (#1461).
 - Sync names inactive hooks with `/hooks` as the next step; doctor reports missing or stale user trust and disabled handlers (#1456).
