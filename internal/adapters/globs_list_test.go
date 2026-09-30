@@ -43,8 +43,7 @@ func captureRule(t *testing.T, target string, r spec.Entry) map[string]string {
 }
 
 // A YAML-list `globs` names the same patterns as the comma-joined string
-// (#1234). It used to read as empty on these targets, so the rule loaded
-// in every session.
+// (#1234, #1428).
 func TestGlobsList_EmitsLikeTheCommaString(t *testing.T) {
 	list := []any{"*.go", "*.mod"}
 	for _, target := range []string{"cline", "copilot", "cursor", "trae", "kiro", "windsurf", "openhands"} {
@@ -73,9 +72,25 @@ func TestGlobsList_EmitsLikeTheCommaString(t *testing.T) {
 	}
 }
 
-// Claude and Continue write a list natively and Antigravity joins it, so
-// their bytes differ from the string form, but the rule must still load
-// only on a match.
+// Claude and Continue write a list natively, so a comma string must reach
+// them as separate patterns, the same bytes as the list form (#1428).
+func TestGlobsString_SplitsIntoTheNativeList(t *testing.T) {
+	for _, target := range []string{"claude", "continue"} {
+		fromList := captureRule(t, target, globRule([]any{"*.go", "*.mod"}, nil))
+		fromString := captureRule(t, target, globRule("*.go, *.mod", nil))
+		if len(fromString) == 0 {
+			t.Fatalf("%s: the string form wrote nothing", target)
+		}
+		for path, want := range fromList {
+			if got := fromString[path]; got != want {
+				t.Errorf("%s: %s differs\n--- string ---\n%s\n--- list ---\n%s", target, path, got, want)
+			}
+		}
+	}
+}
+
+// Antigravity joins a list with ", ", so its bytes differ from the string
+// form, but the rule must still load only on a match.
 func TestGlobsList_StaysScopedWhereWrittenNatively(t *testing.T) {
 	for _, target := range []string{"claude", "continue", "antigravity"} {
 		if AlwaysOnRule(target, globRule([]any{"*.go", "*.mod"}, nil)) {
@@ -115,7 +130,11 @@ func TestGlobs_BraceSetStaysOnePattern(t *testing.T) {
 			t.Errorf("%s: openhands triggers must keep the brace set whole:\n%s", name, got)
 		}
 	}
-	got := captureRule(t, "cline", globRule("src/**/*.{ts,tsx}", nil))[filepath.FromSlash(".clinerules/go.md")]
+	got := captureRule(t, "claude", globRule("src/**/*.{ts,tsx},lib/*.js", nil))[filepath.FromSlash(".claude/rules/go.md")]
+	if !strings.Contains(got, "paths:\n  - src/**/*.{ts,tsx}\n  - lib/*.js\n") {
+		t.Errorf("claude paths must split the string outside the brace set:\n%s", got)
+	}
+	got = captureRule(t, "cline", globRule("src/**/*.{ts,tsx}", nil))[filepath.FromSlash(".clinerules/go.md")]
 	if !strings.Contains(got, "paths:\n  - src/**/*.{ts,tsx}\n---") {
 		t.Errorf("a lone brace-set string must stay one cline path:\n%s", got)
 	}

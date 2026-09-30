@@ -99,7 +99,7 @@ No other target documents this syntax for skills, so each one reads it as plain 
   note: `!`command`` on 1 skill has no effect on codex (the command does not run at .agnostic-ai/skills/pr/SKILL.md:8; put the line in a ::target claude fence)
 ```
 
-`on-unsupported: error` fails the sync instead, and `silent` hides the note. `lint` reports each line as LINT019. Put the Claude line in a fence and give other targets their own text:
+`on-unsupported: error` fails the sync instead, and `silent` hides the note. `sync --global` raises the same notes for the skills it writes to user-level directories, with `on-unsupported` read from the source root's `agnostic-ai.yaml`. `lint` reports each line as LINT019. Put the Claude line in a fence and give other targets their own text:
 
 ```markdown
 ::target claude

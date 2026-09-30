@@ -261,7 +261,12 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if slices.Contains(targets, "claude") && slices.Contains(configured, "cursor") {
 		claude.NoteCursorDropsArgs(bundle.HooksFor("claude"), "~/.claude/settings.json")
 	}
-	writes, next, err := buildGlobalWrites(home, source, targets, instructions, bundle, old, agentFailure(explicit, warn), warn)
+	// requireGlobalVersion already warned about a broken config under -t.
+	onUnsupported, err := loadGlobalOnUnsupported(source)
+	if err != nil && skipBroken == nil {
+		return err
+	}
+	writes, next, err := buildGlobalWrites(home, source, targets, instructions, bundle, old, agentFailure(explicit, warn), warn, onUnsupported)
 	if err != nil {
 		return err
 	}
@@ -680,7 +685,7 @@ func foreignGlobalPath(old globalState, home string) string {
 	return ""
 }
 
-func buildGlobalWrites(home, source string, targets []string, intro []byte, b spec.Bundle, old globalState, agentErr func(string, error) error, warn io.Writer) ([]globalWrite, globalState, error) {
+func buildGlobalWrites(home, source string, targets []string, intro []byte, b spec.Bundle, old globalState, agentErr func(string, error) error, warn io.Writer, onUnsupported string) ([]globalWrite, globalState, error) {
 	next := globalState{Version: globalStateVersion, Files: append([]string(nil), old.Files...), Hooks: map[string]map[string][]any{}, Agents: map[string][]string{}, Skills: map[string][]string{}, AgentEfforts: map[string]map[string]string{}, Settings: map[string]map[string]any{}, MCP: map[string]map[string]any{}, SettingsPaths: map[string]string{}, MCPPaths: map[string]string{}, Created: slices.Clone(old.Created)}
 	for target, paths := range old.Agents {
 		if !slices.Contains(targets, target) {
@@ -842,6 +847,9 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			adapters.NoteDroppedSkillFields(target, b.Skills)
 			dir := g.path(home, g.skills)
 			if err := adapters.NoteManualOnlySkillDrops(target, b.Skills, sharedGlobalSkillsDir(home, dir)); err != nil {
+				return nil, next, err
+			}
+			if err := adapters.ReportClaudeSkillSyntax(target, b.Skills, onUnsupported); err != nil {
 				return nil, next, err
 			}
 			addSkill := func(path string, data []byte, mode fs.FileMode) error {

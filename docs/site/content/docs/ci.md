@@ -49,17 +49,70 @@ In a Node workspace that pins the CLI and syncs on `postinstall`, `pnpm install 
 
 This repository ignores generated tool files and runs spec lint in CI. See [contributor checks](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/contributing.md#choose-checks-for-your-change).
 
-## GitHub Action
+## Install the CLI in CI
 
-The [agnostic-ai action](https://github.com/chemaclass/agnostic-ai-action) installs the binary and runs a command. After your checkout step, use this for committed outputs:
+Install the CLI with the project's dependencies, or with the install script for other projects.
 
-```yaml
-- uses: chemaclass/agnostic-ai-action@v1
-  with:
-    command: check
+### Node projects
+
+Pin the npm package as a dev dependency and sync on install:
+
+```bash
+npm install -D -E agnostic-ai    # or pnpm add -D -E, yarn add -D -E, bun add -D -E
 ```
 
-For ignored outputs, use `command: sync` instead. Set the action's `version` input to a released CLI version so local and CI behavior match. The action's README lists its current inputs and install behavior.
+```json
+{
+  "scripts": {
+    "postinstall": "agnostic-ai sync -q"
+  }
+}
+```
+
+The lockfile carries the platform packages for every OS and CPU, so one pin works on macOS, Linux, and Windows runners. For workspaces and git hooks, see [Node monorepos](@/docs/git-hooks.md#node-monorepos).
+
+With ignored outputs, `npm ci` already runs `postinstall`. The job only checks the source:
+
+```yaml
+steps:
+  - uses: actions/checkout@v4
+  - uses: actions/setup-node@v4
+    with:
+      node-version: 22
+  - run: npm ci
+  - run: npx agnostic-ai lint --strict && npx agnostic-ai validate
+```
+
+With committed outputs, skip `postinstall` so it cannot rewrite the files before the check:
+
+```yaml
+steps:
+  - uses: actions/checkout@v4
+  - uses: actions/setup-node@v4
+    with:
+      node-version: 22
+  - run: npm ci --ignore-scripts
+  - run: npx agnostic-ai sync --check --diff
+```
+
+### Other projects
+
+`scripts/install.sh` installs the release binary on Linux and macOS. Pin the version so local and CI behavior match:
+
+```yaml
+steps:
+  - uses: actions/checkout@v4
+  - name: Install agnostic-ai
+    run: |
+      export AGNOSTIC_AI_INSTALL_DIR="$HOME/.local/bin"
+      curl -fsSL https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.sh | bash
+      echo "$AGNOSTIC_AI_INSTALL_DIR" >> "$GITHUB_PATH"
+    env:
+      AGNOSTIC_AI_VERSION: vX.Y.Z
+  - run: agnostic-ai sync --check --diff
+```
+
+`AGNOSTIC_AI_VERSION` takes a release tag. Without it the script installs the latest release. The script checks the archive against the release checksum. Set `AGNOSTIC_AI_VERIFY_ATTESTATION: 1` to also check the [build provenance](@/docs/verify-a-release.md#build-provenance); it needs the GitHub CLI, which GitHub-hosted runners include. On Windows runners, use `install.ps1`: see [Installation](@/docs/installation.md#pin-a-version-or-directory).
 
 ## Diagnose drift
 

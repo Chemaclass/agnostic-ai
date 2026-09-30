@@ -15,12 +15,13 @@ Emits one set of specs to every configured target in its native format.
 
 ## Checking instead of writing
 
-`agnostic-ai sync --check` compares planned output against what is on disk and writes nothing. Exit 0 means no drift; non-zero prints a diff per stale file. That is the CI gate:
+`agnostic-ai sync --check` compares planned output against what is on disk and writes nothing. Exit 0 means no drift; non-zero lists the stale files with counts. Add `--diff` to print the change per file. That is the CI gate:
 
 ```yaml
-- uses: chemaclass/agnostic-ai-action@v1
-  with: { command: check }
+- run: agnostic-ai sync --check --diff
 ```
+
+The CLI must be installed on the runner first. The CI page (https://agnostic-ai.org/docs/ci/) shows the npm dev dependency and the pinned `scripts/install.sh` setups.
 
 When `--check` fails, decide by what changed:
 
