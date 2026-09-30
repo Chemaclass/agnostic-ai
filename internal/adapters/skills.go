@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -45,8 +46,16 @@ func RenderSkillMarkdown(target string, skill spec.Entry, shared bool) (string, 
 	return strings.TrimRight(emit.WithHeader(content, emit.FormatMarkdown), "\n") + "\n", nil
 }
 
-func NoteDroppedSkillFields(target string, skills []spec.Entry) {
-	emit.NoteDroppedSkillFields(target, (spec.Bundle{Skills: skills}).For(target).Skills)
+func NoteDroppedSkillFields(target string, skills []spec.Entry, shared bool) {
+	coverage := emit.SkillFieldCoverage{Handled: []string{"disable-model-invocation"}}
+	if shared {
+		coverage.Markdown = func(skill spec.Entry) string { return emit.SkillMarkdown(skill, "") }
+	} else if adapter, ok := Get(target); ok {
+		if renderer, ok := adapter.(SkillRenderer); ok {
+			coverage.Markdown = renderer.SkillMarkdown
+		}
+	}
+	emit.NoteDroppedSkillFields(target, (spec.Bundle{Skills: skills}).For(target).Skills, coverage)
 }
 
 // ReportClaudeSkillSyntax raises the Claude Code body syntax notes for
@@ -68,19 +77,17 @@ func RenderSkillSidecars(target string, skill spec.Entry) (map[string]string, er
 	return nil, nil
 }
 
-// NoteManualOnlySkillDrops reports skills marked
-// `disable-model-invocation: true` whose global copy for target stays
-// model-invocable. A manual-only skill is a safety boundary, so losing
-// the marker must never be silent (#1156).
+// Losing a manual-only flag makes a global skill model-invocable.
 func NoteManualOnlySkillDrops(target string, skills []spec.Entry, shared bool) error {
 	adapter, err := Resolve(target)
 	if err != nil {
 		return err
 	}
 	reader, hasReader := adapter.(ManualOnlySkillReader)
-	dropped := 0
+	dropped, omitted := 0, 0
 	for _, skill := range (spec.Bundle{Skills: skills}).For(target).Skills {
-		if manual, _ := emit.ResolveMeta(skill.Meta, target)["disable-model-invocation"].(bool); !manual {
+		manual, set := emit.ResolveMeta(skill.Meta, target)["disable-model-invocation"].(bool)
+		if !set {
 			continue
 		}
 		if hasReader && reader.SkillInvocationPolicySet(skill) {
@@ -90,11 +97,22 @@ func NoteManualOnlySkillDrops(target string, skills []spec.Entry, shared bool) e
 		if err != nil {
 			return err
 		}
-		if !renderedManualOnly(rendered) {
-			dropped++
+		if manual {
+			if !renderedManualOnly(rendered) {
+				dropped++
+			}
+		} else {
+			entry, err := spec.ParseMarkdownBytes(spec.KindSkill, []byte(rendered))
+			if err != nil {
+				return fmt.Errorf("parse rendered skill %s: %w", skill.Path, err)
+			}
+			if _, kept := entry.Meta["disable-model-invocation"]; !kept {
+				omitted++
+			}
 		}
 	}
 	emit.NoteFieldNoOp(target, spec.KindSkill, "disable-model-invocation", dropped, "its global copy stays model-invocable")
+	emit.NoteFieldNoOp(target, spec.KindSkill, "disable-model-invocation", omitted, "the skill file has no disable-model-invocation field")
 	return nil
 }
 
