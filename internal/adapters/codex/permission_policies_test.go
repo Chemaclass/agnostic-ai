@@ -271,6 +271,28 @@ func TestEmit_PermissionPoliciesEmptyInlineListIsAuthoritativeAfterConfigLoad(t 
 	}
 }
 
+func TestEmit_PermissionPoliciesSkipExactAllowListedBeforeCoveringWildcard(t *testing.T) {
+	testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	var notes strings.Builder
+	previous := emit.Warner
+	emit.Warner = &notes
+	t.Cleanup(func() { emit.Warner = previous })
+	cfg := permissionPolicyConfig(t, "outputs:\n  codex:\n    exec-policies-from-permissions: true\n  claude:\n    settings:\n      permissions:\n        allow: [\"Bash(git status)\", \"Bash(git:*)\"]\n")
+	if err := New().Emit(emit.NewSession(), spec.Bundle{}, cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(defaultExecPoliciesFile)
+	if err != nil || !strings.Contains(string(data), `pattern = ["git", "status"]`) {
+		t.Errorf("exact rule not translated: %v\n%s", err, data)
+	}
+	emit.FlushCoverageNotes()
+	if strings.Contains(notes.String(), "Bash(git status)") {
+		t.Errorf("a later wildcard already allows extra arguments, but the exact rule was named:\n%s", notes.String())
+	}
+}
+
 func TestEmit_PermissionPoliciesNameExactAllowRulesCodexWidens(t *testing.T) {
 	for _, mode := range []string{"warn", "error", "silent"} {
 		t.Run(mode, func(t *testing.T) {

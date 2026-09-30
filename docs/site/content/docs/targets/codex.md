@@ -181,7 +181,7 @@ outputs:
 
 This writes three `prefix_rule` entries to `.codex/rules/default.rules`. `Bash(a b c)`, `Bash(a b c *)`, and `Bash(a b c:*)` all become `pattern = ["a", "b", "c"]`. `allow`, `deny`, and `ask` become `allow`, `forbidden`, and `prompt`.
 
-Translation is opt-in because a prefix matches extra arguments, even for a bare rule without `:*`. Codex has no exact-match rule. For example, Claude Code allows `Bash(git push)` only as a bare `git push`, but Codex also allows `git push --force origin main`. This is a supported command-prefix subset, not exact Claude permission equivalence. Codex rules govern requests to run outside the sandbox: an `allow` match runs the command without asking and outside the sandbox. Project rules load only when the project config layer is trusted.
+Translation is opt-in because a prefix matches extra arguments, even for a bare rule without `:*`. Codex has no exact-match rule. For example, Claude Code allows `Bash(git push)` only as a bare `git push`, but Codex also allows `git push --force origin main`. This is a supported command-prefix subset, not exact Claude permission equivalence. Codex rules govern requests to run outside the sandbox: an `allow` match runs the command without asking, and outside the sandbox when every segment of the command matches an `allow` rule. Project rules load only when the project config layer is trusted.
 
 Sync names each exact `allow` rule that Codex widens, with its source:
 
