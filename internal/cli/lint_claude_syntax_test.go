@@ -80,8 +80,8 @@ func TestImportClaude_ClaudeSyntaxKeepsTheBodyAndWarnsForCodex(t *testing.T) {
 	}
 	out := notes.String()
 	for _, want := range []string{
-		"`!`command`` on 1 skill has no effect on codex (the command does not run at .agnostic-ai/skills/pr/SKILL.md:8;",
-		"`$ARGUMENTS` on 1 skill has no effect on codex (stays literal text at .agnostic-ai/skills/pr/SKILL.md:10;",
+		"`!`command`` on 1 skill has no effect on codex (the command does not run at " + filepath.FromSlash(".agnostic-ai/skills/pr/SKILL.md") + ":8;",
+		"`$ARGUMENTS` on 1 skill has no effect on codex (stays literal text at " + filepath.FromSlash(".agnostic-ai/skills/pr/SKILL.md") + ":10;",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("sync output missing %q:\n%s", want, out)
@@ -96,7 +96,7 @@ func TestImportClaude_ClaudeSyntaxKeepsTheBodyAndWarnsForCodex(t *testing.T) {
 	}
 
 	out, _ = runCLI(t, "lint")
-	if !strings.Contains(out, "LINT019 [warn] .agnostic-ai/skills/pr/SKILL.md: line 8: codex reads !`command` as plain text") {
+	if !strings.Contains(out, "LINT019 [warn] "+filepath.FromSlash(".agnostic-ai/skills/pr/SKILL.md")+": line 8: codex reads !`command` as plain text") {
 		t.Errorf("lint output missing LINT019:\n%s", out)
 	}
 
