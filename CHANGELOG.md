@@ -19,6 +19,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `doctor` lists `lint` findings under Spec health and fails on a lint error. It says all checks passed only when lint is clean too, and `doctor --json` adds a `lint` list (#1433).
 - `init --from all` and `import all` merge the sections of a hand-written root `AGENTS.md` that the imported body lacks into `AGNOSTIC_AI.md` and name them, instead of warning. `init` without a target list suggests enabling `codex` when a root `AGENTS.md` exists (#1434).
 - A skill or command line with Claude Code's `` !`command` ``, `$ARGUMENTS`, or `$1` gets a sync note naming the line for each target that reads it as plain text, such as Codex, and `lint` reports it as LINT019. `on-unsupported: error` fails the sync (#1436).
+- `sync --global` raises the same note for a skill line Claude Code expands and a target reads as plain text, and `on-unsupported` in the source root's `agnostic-ai.yaml` (or `local/agnostic-ai.yaml`) sets the policy: `error` fails the sync, `silent` hides the note (#1463).
 
 ### By tool
 
