@@ -88,7 +88,7 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 // disabled-with-command.
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
-		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Body: "alpha body"},
+		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Body: "alpha body", Meta: map[string]any{"readonly": true}},
 		{Kind: spec.KindAgent, Name: "beta", Path: "agents/beta.md", Body: "beta body"},
 		{Kind: spec.KindAgent, Name: "gamma", Path: "agents/gamma.md", Body: "gamma body"},
 		// delta pins the per-target `effort` map in emitted bytes: this

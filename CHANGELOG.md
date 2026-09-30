@@ -34,6 +34,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Claude Code
 
+- Translated `readonly` and rule `scope` keys no longer appear in native frontmatter (#1458).
 - Claude runtime paths stay out of `.worktreeinclude`; `gitignore.ignore-worktree-include: true` also keeps that file out of Git (#1438, #1441).
 - `import claude` turns each nested `<dir>/CLAUDE.md` into one rule scoped to its directory, and a companion that imports `@AGENTS.md` reads as that file (#1427).
 - `doctor` lists a hand-written nested `CLAUDE.md` whose text a rule scoped to its directory already holds, and `doctor --fix` removes it, so Claude Code stops loading the text twice and a Claude plus Codex project syncs without deleting it by hand. The import warning points there (#1465).
