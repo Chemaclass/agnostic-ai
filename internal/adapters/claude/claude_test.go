@@ -1794,7 +1794,7 @@ func TestEmit_OutputOverride(t *testing.T) {
 
 func TestGitignoreHints_ReturnsLocalArtifacts(t *testing.T) {
 	got := New().GitignoreHints(&config.Config{})
-	want := []string{".claude/agent-memory-local/", ".claude/settings.local.json"}
+	want := []string{".claude/agent-memory-local/", ".claude/settings.local.json", ".claude/worktrees/", ".claude/scheduled_tasks.lock"}
 	if len(got) != len(want) {
 		t.Fatalf("GitignoreHints = %v, want %v", got, want)
 	}
@@ -1808,7 +1808,7 @@ func TestGitignoreHints_ReturnsLocalArtifacts(t *testing.T) {
 func TestGitignoreHints_HonorsDirOverride(t *testing.T) {
 	cfg := &config.Config{Outputs: map[string]config.Output{"claude": {Dir: "vendor/.claude"}}}
 	got := New().GitignoreHints(cfg)
-	want := []string{"vendor/.claude/agent-memory-local/", "vendor/.claude/settings.local.json"}
+	want := []string{"vendor/.claude/agent-memory-local/", "vendor/.claude/settings.local.json", "vendor/.claude/worktrees/", "vendor/.claude/scheduled_tasks.lock"}
 	for i := range want {
 		if got[i] != want[i] {
 			t.Errorf("GitignoreHints[%d] = %q, want %q", i, got[i], want[i])
