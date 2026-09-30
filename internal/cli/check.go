@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 
@@ -24,7 +25,7 @@ import (
 // specs changed; Edited lists files whose bytes differ from that record,
 // a hand edit the next sync overwrites. Orphaned lists
 // files a prior sync wrote, no longer emits, and could not remove; no
-// write fixes them, so `--fix` leaves them to the user. Blocking lists
+// write fixes them, so `doctor --fix` offers their removal. Blocking lists
 // the removals sync makes before writing a missing file, for a file that
 // stands where the file's parent directory belongs (Cline's single-file
 // `.clinerules`, #1064); `--fix` replays them first. Leftover lists
@@ -219,6 +220,12 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 		emitted[outputManifestPath] = true
 	}
 	reports = append(reports, epRep)
+	generated := driftGeneratedPaths(reports)
+	for i := range reports {
+		reports[i].Orphaned = slices.DeleteFunc(reports[i].Orphaned, func(path string) bool {
+			return slices.Contains(generated, path)
+		})
+	}
 	// Another target's files are not in emitted, so only a check that
 	// covers every configured target can tell what sync stopped writing.
 	// The ledger does not record which target wrote a file, so leftovers
@@ -358,7 +365,10 @@ func collectEntryPointDrift(cfg *config.Config, b spec.Bundle, targets []string)
 		}
 		rep.Current = append(rep.Current, file)
 	}
-	rep.Orphaned = recordedOrphans(cfg)
+	generated := driftGeneratedPaths([]driftReport{rep})
+	rep.Orphaned = slices.DeleteFunc(recordedOrphans(cfg), func(path string) bool {
+		return slices.Contains(generated, path)
+	})
 	return rep, nil
 }
 
@@ -461,7 +471,7 @@ func printDrift(reports []driftReport) bool {
 				summaryf("      - %s\n", filepath.ToSlash(p))
 			}
 		} else if len(r.Orphaned) > 0 {
-			summaryf("    %d orphaned file(s) no longer generated but edited since sync (delete them, or list them under sync.unmanaged):\n", len(r.Orphaned))
+			summaryf("    %d orphaned file(s) no longer generated whose ownership could not be proven (run `agnostic-ai doctor --fix` to choose removal, or list them under sync.unmanaged):\n", len(r.Orphaned))
 			for _, p := range r.Orphaned {
 				summaryf("      - %s\n", filepath.ToSlash(p))
 			}
@@ -671,7 +681,11 @@ func newDoctorCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				summaryf("→ reconciled %d file(s)\n", fixed+removedCopies)
+				removedOrphans, err := offerOrphanRemoval(cfg, reports, backup, orphanRemovalPrompt(cmd))
+				if err != nil {
+					return err
+				}
+				summaryf("→ reconciled %d file(s)\n", fixed+removedCopies+removedOrphans)
 				if n := orphanedCount(reports); n > 0 {
 					return fmt.Errorf("%d orphaned file(s) need manual removal", n)
 				}
@@ -680,8 +694,8 @@ func newDoctorCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringSliceVarP(&targets, "target", "t", nil, "Targets to check (default: all in config)")
-	cmd.Flags().BoolVar(&fix, "fix", false, "Reconcile drift by writing missing/stale files")
-	cmd.Flags().BoolVar(&backup, "backup", false, "With --fix, copy each existing file to <path>.bak before overwriting")
+	cmd.Flags().BoolVar(&fix, "fix", false, "Reconcile drift and offer removal of kept orphans in a terminal")
+	cmd.Flags().BoolVar(&backup, "backup", false, "With --fix, copy each existing file to <path>.bak before overwriting or confirmed orphan removal")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for machine consumption")
 	cmd.Flags().BoolVar(&checkGlobs, "check-globs", false, "Flag rules whose `globs:` pattern matches no files in the working tree")
 	cmd.Flags().BoolVar(&checkRefs, "check-references", false, "Flag relative Markdown links in emitted skills whose file is missing on disk")

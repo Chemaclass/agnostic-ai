@@ -554,9 +554,20 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	}
 	applied := shared.apply(dryRun)
 	ledgerSession = adjustLedgerForLinks(ledgerSession, applied)
+	ledger, kept, removed, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, effectiveTargets, cfg.Targets, dryRun)
 	if gitignoreOn {
 		for _, l := range applied {
 			gitignoreEntries = append(gitignoreEntries, l.path)
+		}
+
+		retained := ledger.orphans
+		if sweepErr != nil || !coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
+			retained = ledger.outputs
+		}
+		for _, path := range retained {
+			if !cfg.IsUnmanaged(path) {
+				gitignoreEntries = append(gitignoreEntries, path)
+			}
 		}
 		block, err := syncManagedBlock(cfg, b, effectiveTargets, gitignoreEntries)
 		if err != nil {
@@ -613,7 +624,6 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if len(hidden) > 0 {
 		summaryf("  (%s unchanged since last sync; -v shows them)\n", strings.Join(hidden, " and "))
 	}
-	ledger, kept, removed, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, effectiveTargets, cfg.Targets, dryRun)
 	if sweepErr != nil {
 		fmt.Fprintf(os.Stderr, "! orphan sweep: %v\n", sweepErr)
 	}
@@ -621,7 +631,11 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		report.removed = append(report.removed, filepath.ToSlash(p))
 	}
 	for _, p := range kept {
-		keptf("  ~ kept orphan %s (edited since sync; delete it or list it under sync.unmanaged)\n", p)
+		reason := "edited since sync"
+		if prev.OutputSums[p] == "" {
+			reason = "the sync that wrote it recorded no checksum"
+		}
+		keptf("  ~ kept orphan %s (%s; run `agnostic-ai doctor --fix` to choose removal, or list it under sync.unmanaged)\n", p, reason)
 	}
 	if !dryRun {
 		unledgered := keepUnledgered(cfg, prev, &ledger, ledgerWritten, complete && coversAllConfiguredTargets(effectiveTargets, cfg.Targets))
@@ -878,12 +892,23 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 
 	applied := shared.apply(false)
 	ledgerSession = adjustLedgerForLinks(ledgerSession, applied)
+	ledger, kept, removed, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, effectiveTargets, cfg.Targets, false)
 	for _, l := range applied {
 		out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: l.path, Action: "link"})
 	}
 	if gitignoreOn {
 		for _, l := range applied {
 			gitignoreEntries = append(gitignoreEntries, l.path)
+		}
+
+		retained := ledger.orphans
+		if sweepErr != nil || !coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
+			retained = ledger.outputs
+		}
+		for _, path := range retained {
+			if !cfg.IsUnmanaged(path) {
+				gitignoreEntries = append(gitignoreEntries, path)
+			}
 		}
 		block, err := syncManagedBlock(cfg, b, effectiveTargets, gitignoreEntries)
 		if err != nil {
@@ -896,7 +921,6 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 			return fmt.Errorf("worktreeinclude: %w", err)
 		}
 	}
-	ledger, kept, removed, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, effectiveTargets, cfg.Targets, false)
 	if sweepErr != nil {
 		out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: sweepErr.Error()})
 	}
@@ -1139,7 +1163,7 @@ func printDriftGitHub(cmd *cobra.Command, reports []driftReport) bool {
 			_, _ = fmt.Fprintf(out, "::error file=%s,line=%d::%s was edited since the last sync; move the edit into .agnostic-ai/, then run agnostic-ai sync\n",
 				githubProp(f.Path), firstChangedLine(f.Path, f.Content), githubData(filepath.ToSlash(f.Path)))
 		}
-		orphanHint := "is no longer generated but was edited since sync; delete it or list it under sync.unmanaged"
+		orphanHint := "is no longer generated and its ownership could not be proven; run agnostic-ai doctor --fix to choose removal, or list it under sync.unmanaged"
 		if r.Unledgered {
 			orphanHint = "looks generated, with no ledger to prove sync wrote it; delete it by hand if stale, or list it under sync.unmanaged"
 		}

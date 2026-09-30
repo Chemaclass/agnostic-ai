@@ -1,9 +1,13 @@
 package cli
 
 import (
+	"bufio"
 	"bytes"
+	"errors"
 	"os"
+	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -114,5 +118,292 @@ func TestPrintSyncCheckJSON_ListsOrphanAsWrite(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), `"action": "orphan"`) || !strings.Contains(out.String(), keptReference) {
 		t.Errorf("JSON does not list the orphan:\n%s", out.String())
+	}
+}
+
+func TestDoctorFix_OffersRecordedOrphanRemoval(t *testing.T) {
+	cfg := syncedWithKeptOrphan(t)
+	reports := []driftReport{{Target: "agnostic-ai", Orphaned: []string{keptReference}}}
+	calls := 0
+	removed, err := offerOrphanRemoval(cfg, reports, true, func(path string) (bool, error) {
+		calls++
+		if path != keptReference {
+			t.Errorf("offered %s", path)
+		}
+		return true, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 || removed != 1 || orphanedCount(reports) != 0 {
+		t.Errorf("calls=%d removed=%d remaining=%d", calls, removed, orphanedCount(reports))
+	}
+	if fileExists(keptReference) {
+		t.Error("confirmed orphan remains")
+	}
+	backup, err := os.ReadFile(keptReference + ".bak")
+	if err != nil || string(backup) != "edited\n" {
+		t.Errorf("backup=%q err=%v", backup, err)
+	}
+}
+
+func TestDoctorFix_DeclinedOrphanStays(t *testing.T) {
+	cfg := syncedWithKeptOrphan(t)
+	reports := []driftReport{{Target: "agnostic-ai", Orphaned: []string{keptReference}}}
+	removed, err := offerOrphanRemoval(cfg, reports, false, func(string) (bool, error) { return false, nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if removed != 0 || orphanedCount(reports) != 1 || !fileExists(keptReference) {
+		t.Errorf("removed=%d remaining=%d exists=%v", removed, orphanedCount(reports), fileExists(keptReference))
+	}
+}
+
+func TestDoctorFix_OffersOnlyRecordedManagedFiles(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		change func(*config.Config, []driftReport)
+	}{
+		{"unmanaged", func(cfg *config.Config, _ []driftReport) { cfg.Sync.Unmanaged = []string{keptReference} }},
+		{"unledgered", func(_ *config.Config, reports []driftReport) { reports[0].Unledgered = true }},
+		{"directory", func(_ *config.Config, _ []driftReport) {
+			if err := os.Remove(keptReference); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Mkdir(keptReference, 0o755); err != nil {
+				t.Fatal(err)
+			}
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := syncedWithKeptOrphan(t)
+			reports := []driftReport{{Target: "agnostic-ai", Orphaned: []string{keptReference}}}
+			tc.change(cfg, reports)
+			removed, err := offerOrphanRemoval(cfg, reports, false, func(string) (bool, error) { t.Error("unsafe removal offered"); return true, nil })
+			if err != nil {
+				t.Fatal(err)
+			}
+			if removed != 0 || !fileExists(keptReference) {
+				t.Errorf("removed=%d exists=%v", removed, fileExists(keptReference))
+			}
+		})
+	}
+}
+
+func TestDoctorFix_NoninteractiveKeepsRecordedOrphan(t *testing.T) {
+	syncedWithKeptOrphan(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	var out bytes.Buffer
+	root := NewRootCmd("test")
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetIn(strings.NewReader("yes\n"))
+	root.SetArgs([]string{"doctor", "--fix"})
+	err := root.Execute()
+	if err == nil {
+		t.Error("doctor passed while an orphan remains")
+	}
+	if !fileExists(keptReference) {
+		t.Error("noninteractive doctor deleted orphan")
+	}
+	if !strings.Contains(out.String(), "run `agnostic-ai doctor --fix` in a terminal") {
+		t.Errorf("missing actionable hint:\n%s", out.String())
+	}
+}
+
+func TestDoctorFix_ConfirmationDefaultsToKeepingOrphan(t *testing.T) {
+	for _, tc := range []struct {
+		input string
+		want  bool
+	}{
+		{"\n", false}, {"no\n", false}, {"yes\n", true}, {"Y\n", true}, {"", false},
+	} {
+		t.Run(tc.input, func(t *testing.T) {
+			var out bytes.Buffer
+			cmd := &cobra.Command{}
+			cmd.SetOut(&out)
+			got, err := confirmOrphanRemoval(cmd, bufio.NewReader(strings.NewReader(tc.input)), keptReference)
+			if err != nil || got != tc.want {
+				t.Errorf("confirm=%v err=%v want=%v", got, err, tc.want)
+			}
+			if !strings.Contains(out.String(), keptReference) || !strings.Contains(out.String(), "[y/N]") {
+				t.Errorf("missing path or safe default: %s", out.String())
+			}
+		})
+	}
+}
+
+func TestDoctorFix_EditDuringConfirmationStays(t *testing.T) {
+	cfg := syncedWithKeptOrphan(t)
+	reports := []driftReport{{Target: "agnostic-ai", Orphaned: []string{keptReference}}}
+	removed, err := offerOrphanRemoval(cfg, reports, false, func(string) (bool, error) {
+		mustWriteFile(t, keptReference, "new edit\n")
+		return true, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(keptReference)
+	if err != nil || string(data) != "new edit\n" || removed != 0 || orphanedCount(reports) != 1 {
+		t.Errorf("data=%q err=%v removed=%d remaining=%d", data, err, removed, orphanedCount(reports))
+	}
+}
+
+func TestDoctorFix_RechecksPathAfterConfirmation(t *testing.T) {
+	for _, replacement := range []string{"parent symlink", "file symlink", "directory"} {
+		t.Run(replacement, func(t *testing.T) {
+			cfg := syncedWithKeptOrphan(t)
+			outside := t.TempDir()
+			external := filepath.Join(outside, "a.md")
+			mustWriteFile(t, external, "edited\n")
+			probe := filepath.Join(outside, "probe")
+			if err := os.Symlink(external, probe); err != nil {
+				if errors.Is(err, os.ErrPermission) || errors.Is(err, syscall.ENOTSUP) || errors.Is(err, syscall.ENOSYS) {
+					t.Skipf("symlinks unavailable: %v", err)
+				}
+				t.Fatal(err)
+			}
+			if err := os.Remove(probe); err != nil {
+				t.Fatal(err)
+			}
+			reports := []driftReport{{Target: "agnostic-ai", Orphaned: []string{keptReference}}}
+			removed, err := offerOrphanRemoval(cfg, reports, true, func(string) (bool, error) {
+				replaced := keptReference
+				if replacement == "parent symlink" {
+					replaced = filepath.Dir(keptReference)
+				}
+				if err := os.Rename(replaced, replaced+".original"); err != nil {
+					t.Fatal(err)
+				}
+				switch replacement {
+				case "parent symlink":
+					if err := os.Symlink(outside, replaced); err != nil {
+						t.Fatal(err)
+					}
+				case "file symlink":
+					if err := os.Symlink(external, replaced); err != nil {
+						t.Fatal(err)
+					}
+				case "directory":
+					if err := os.Mkdir(replaced, 0o755); err != nil {
+						t.Fatal(err)
+					}
+				}
+				return true, nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if removed != 0 || orphanedCount(reports) != 1 {
+				t.Errorf("removed=%d remaining=%d", removed, orphanedCount(reports))
+			}
+			data, err := os.ReadFile(external)
+			if err != nil || string(data) != "edited\n" {
+				t.Errorf("external file=%q err=%v", data, err)
+			}
+			if _, err := os.Lstat(keptReference); err != nil {
+				t.Errorf("replacement was removed: %v", err)
+			}
+			if _, err := os.Lstat(external + ".bak"); !os.IsNotExist(err) {
+				t.Errorf("external backup written: %v", err)
+			}
+			if _, err := os.Lstat(keptReference + ".bak"); !os.IsNotExist(err) {
+				t.Errorf("replacement backup written: %v", err)
+			}
+		})
+	}
+}
+
+func TestDoctorFix_RefusesSymlinkBackupDestination(t *testing.T) {
+	cfg := syncedWithKeptOrphan(t)
+	external := filepath.Join(t.TempDir(), "backup.md")
+	mustWriteFile(t, external, "outside data\n")
+	if err := os.Symlink(external, keptReference+".bak"); err != nil {
+		if errors.Is(err, os.ErrPermission) || errors.Is(err, syscall.ENOTSUP) || errors.Is(err, syscall.ENOSYS) {
+			t.Skipf("symlinks unavailable: %v", err)
+		}
+		t.Fatal(err)
+	}
+	reports := []driftReport{{Target: "agnostic-ai", Orphaned: []string{keptReference}}}
+	removed, err := offerOrphanRemoval(cfg, reports, true, func(string) (bool, error) { return true, nil })
+	if err == nil || !strings.Contains(err.Error(), keptReference+".bak") {
+		t.Errorf("error=%v, want unsafe backup path", err)
+	}
+	if removed != 0 || !fileExists(keptReference) {
+		t.Errorf("removed=%d exists=%v", removed, fileExists(keptReference))
+	}
+	data, readErr := os.ReadFile(external)
+	if readErr != nil || string(data) != "outside data\n" {
+		t.Errorf("external backup=%q err=%v", data, readErr)
+	}
+}
+
+func TestDoctorFix_RestoredSpecIsNotOfferedAsOrphan(t *testing.T) {
+	for _, state := range []string{"current", "stale", "missing"} {
+		t.Run(state, func(t *testing.T) {
+			testutil.TempCwd(t)
+			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+			mustWriteFile(t, ".agnostic-ai/skills/gone/SKILL.md", "---\nname: gone\ndescription: Restored skill.\n---\nRead references/a.md.\n")
+			mustWriteFile(t, ".agnostic-ai/skills/gone/references/a.md", "restored\n")
+			silence(t)
+			syncProject(t)
+			const genuine = ".claude/skills/removed/reference.md"
+			mustWriteFile(t, genuine, "legacy\n")
+			prev := readStateFile(".")
+			if err := writeStateFile(".", 0, "", "", syncLedger{outputs: append(prev.Outputs, genuine), orphans: []string{keptReference, genuine}}); err != nil {
+				t.Fatal(err)
+			}
+			switch state {
+			case "stale":
+				mustWriteFile(t, keptReference, "old\n")
+			case "missing":
+				if err := os.Remove(keptReference); err != nil {
+					t.Fatal(err)
+				}
+			}
+			reports, err := collectDrift(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			foundGenuine := false
+			for _, rep := range reports {
+				for _, path := range rep.Orphaned {
+					if path == keptReference {
+						t.Errorf("restored output still classified as orphan: %s", path)
+					}
+					if path == genuine {
+						foundGenuine = true
+					}
+				}
+			}
+			if !foundGenuine {
+				t.Error("genuine orphan was dropped")
+			}
+			// Feed an outdated classification to the removal helper to verify its guard.
+			reports = append(reports, driftReport{Target: "agnostic-ai", Orphaned: []string{keptReference}})
+			if _, err := fixDrift(reports, false); err != nil {
+				t.Fatal(err)
+			}
+			cfg, _, err := loadProject(".")
+			if err != nil {
+				t.Fatal(err)
+			}
+			removed, err := offerOrphanRemoval(cfg, reports, false, func(path string) (bool, error) {
+				if path == keptReference {
+					t.Errorf("offered restored output for deletion: %s", path)
+				}
+				return true, nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			data, err := os.ReadFile(keptReference)
+			if err != nil || string(data) != "restored\n" {
+				t.Errorf("restored output=%q err=%v", data, err)
+			}
+			if removed != 1 || fileExists(genuine) {
+				t.Errorf("genuine orphan removal: count=%d exists=%v", removed, fileExists(genuine))
+			}
+		})
 	}
 }
