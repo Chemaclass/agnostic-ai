@@ -259,7 +259,8 @@ func detectImportSources(root string) (importable, unsupported []string) {
 	return importable, unsupported
 }
 
-// importAll detects every AI CLI present in root and imports from each.
+// importAll detects every AI CLI present in root and imports from each,
+// then folds a hand-written root AGENTS.md into AGNOSTIC_AI.md.
 func importAll(root string, cfg *config.Config) error {
 	detected, unsupported := detectImportSources(root)
 	for _, t := range unsupported {
@@ -280,6 +281,9 @@ func importAll(root string, cfg *config.Config) error {
 			_, _ = fmt.Fprintf(os.Stderr, "! %s: %v\n", t, err)
 			errs = append(errs, t)
 		}
+	}
+	if err := foldRootAgentsMainFile(root); err != nil {
+		return err
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("import failed for: %s", strings.Join(errs, ", "))

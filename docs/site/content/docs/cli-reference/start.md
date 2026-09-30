@@ -28,7 +28,7 @@ echo "claude,codex" | agnostic-ai init
 | `--from <cli>` | After scaffolding, import existing config from this CLI (`claude`, `cursor`, `all`, and the other [import](#import) sources). |
 | `--dry-run` | List what the scaffold would create without writing. With `--from`, also list every file the import would write. |
 
-Without `--all`, `init` takes targets from a TTY prompt or a comma-separated list on piped stdin. With no terminal and nothing piped (CI), it enables the tools it detects, else the [default set](@/docs/configuration.md#targets), and prints one line naming them. Unknown names error and write nothing.
+Without `--all`, `init` takes targets from a TTY prompt or a comma-separated list on piped stdin. With no terminal and nothing piped (CI), it enables the tools it detects, else the [default set](@/docs/configuration.md#targets), and prints one line naming them. When a root `AGENTS.md` exists and `codex` is not in that set, a second line suggests enabling it, since Codex owns that file. Unknown names error and write nothing.
 
 The prompt and the [first-sync picker](@/docs/cli-reference/sync.md#first-sync-target-picker) pre-tick tools detected from a marker such as `.claude/`, a root `CLAUDE.md`, `.codex/`, `.gemini/`, `.cursor/`, or `.github/copilot-instructions.md`. A root `AGENTS.md` is not a marker: most tools read it.
 
@@ -43,7 +43,7 @@ agnostic-ai import all
 agnostic-ai import claude codex --dry-run --diff   # review content and conflicts
 ```
 
-`import all` imports every tool detected from its marker. A detected tool with no importer is skipped with a `skipping <tool>` line. An entry file that links outside the project is skipped with a `skipped <file>` note; naming the tool (`import claude`) follows the link. Output that sync wrote and nobody edited is skipped, so `import all` right after `sync` changes nothing. See [Claude import](@/docs/targets/claude.md#import) for what `import claude` leaves in place.
+`import all` imports every tool detected from its marker. A detected tool with no importer is skipped with a `skipping <tool>` line. An entry file that links outside the project is skipped with a `skipped <file>` note; naming the tool (`import claude`) follows the link. Output that sync wrote and nobody edited is skipped, so `import all` right after `sync` changes nothing. A root `AGENTS.md` is not a marker, so `import all` (and `init --from all`) reads it last: each `##` section of a hand-written `AGENTS.md` that `.agnostic-ai/AGNOSTIC_AI.md` does not hold yet is appended below the imported body, and a `merged <n> sections from AGENTS.md` line names them. See [Claude import](@/docs/targets/claude.md#import) for what `import claude` leaves in place.
 
 `import --global` reads your user config (default model and effort, MCP servers) from the tools `sync --global` writes. It writes `settings/imported.yaml` and one `mcps/<name>.yaml` per server into `$AGNOSTIC_AI_HOME`. Name targets to narrow it. Anything a home spec already provides, `local/` included, is left out, and an existing spec file is never replaced. Two tools defining one server differently keep the first tool's server, with a warning. Servers that do not round-trip are skipped with a warning.
 
@@ -57,7 +57,7 @@ agnostic-ai import claude codex --dry-run --diff   # review content and conflict
 - A symlinked skill folder that links outside the project is skipped with a `skipped <path>` note.
 - An existing skill or agent spec keeps frontmatter keys the source tool has nowhere to put (such as Cursor's `argument-hint`). Deleting a key the tool does write is read as deliberate and reaches the spec (removing `model` from a Qoder agent removes it from the spec). Rules are rebuilt from the native file.
 - Each source mirrors its top-level instructions file to `.agnostic-ai/AGNOSTIC_AI.md`, so the last argument wins. A fenced `AGNOSTIC_AI.md` stays untouched when the entry point matches its rendered view; otherwise import overwrites it and warns.
-- If another entry point holds different hand-written content (a distinct `AGENTS.md` next to `CLAUDE.md`), import warns that `sync` would overwrite it. Merge it into `.agnostic-ai/AGNOSTIC_AI.md` first.
+- If another entry point holds different hand-written content (a distinct `AGENTS.md` next to `CLAUDE.md`), import warns that `sync` would overwrite it. Merge it into `.agnostic-ai/AGNOSTIC_AI.md` first. `import all` merges a root `AGENTS.md` itself instead of warning.
 - `all` cannot combine with other sources.
 - Valid sources: `claude`, `codex`, `cursor`, `aider`, `amp`, `warp`, `gemini`, `copilot`, `opencode`, `zed`, `antigravity`, `continue`, `cline`, `windsurf`, `junie`, `trae`, `kiro`, `crush`, `qoder`, `kilo`, `goose`, plus `all`. `factory`, `openhands`, `jules`, and `augment` are emit-only.
 
