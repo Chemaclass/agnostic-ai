@@ -241,6 +241,49 @@ function test_delta_text_is_empty_for_a_payload_without_ops() {
   assert_empty "$(delta_text "$FIXTURES/one.json")"
 }
 
+# ---- schema_keys ---------------------------------------------------------------
+
+SCHEMA_ONE='{"$defs":{"Hook":{"type":"object","required":["command"],"properties":{"command":{"type":"string","description":"Run this."}}}},"type":"object","properties":{"hooks":{"type":"object","additionalProperties":{"type":"array","items":{"$ref":"#/$defs/Hook"}}},"mode":{"enum":["a","b"],"description":"Pick one."}}}'
+
+function test_schema_keys_lists_paths_types_enums_and_refs() {
+  printf '%s' "$SCHEMA_ONE" >"$FIXTURES/s.json"
+  schema_keys "$FIXTURES/s.json" "$FIXTURES/s.txt"
+  local out
+  out=$(cat "$FIXTURES/s.txt")
+  assert_contains "hooks.* type=array" "$out"
+  assert_contains "hooks.*[] ref=#Hook" "$out"
+  assert_contains "#Hook required=command" "$out"
+  assert_contains "#Hook.command type=string" "$out"
+  assert_contains 'mode enum="b"' "$out"
+}
+
+function test_schema_keys_ignores_a_reworded_description() {
+  printf '%s' "$SCHEMA_ONE" >"$FIXTURES/one.json"
+  printf '%s' "${SCHEMA_ONE/Run this./Run this command.}" >"$FIXTURES/two.json"
+  schema_keys "$FIXTURES/one.json" "$FIXTURES/one.txt"
+  schema_keys "$FIXTURES/two.json" "$FIXTURES/two.txt"
+  assert_equals "$(cat "$FIXTURES/one.txt")" "$(cat "$FIXTURES/two.txt")"
+}
+
+function test_schema_keys_declines_a_body_that_is_not_json() {
+  printf '<html>moved</html>' >"$FIXTURES/s.json"
+  assert_general_error "$(schema_keys "$FIXTURES/s.json" "$FIXTURES/s.txt")"
+  assert_file_not_exists "$FIXTURES/s.txt"
+}
+
+function test_fetch_one_hashes_a_schema_row_by_its_keys() {
+  stub_curl "https://schemas.example/*|200|$SCHEMA_ONE"
+  local row
+  row=$(fetch_one claude schema https://schemas.example/settings.json "$FIXTURES/run" 1)
+  assert_equals "schema-keys" "$(printf '%s' "$row" | cut -f5)"
+  assert_equals "$(sha256_of "$FIXTURES/run/pages/claude/schema-1-schemas.example-settings.json.txt")" \
+    "$(printf '%s' "$row" | cut -f6)"
+}
+
+function test_resolve_urls_tags_a_schema_line() {
+  assert_contains "schema	https://www.schemastore.org/claude-code-settings.json" "$(resolve_urls claude)"
+}
+
 # ---- json_sum -----------------------------------------------------------------
 
 function test_json_sum_ignores_object_key_order() {
@@ -378,7 +421,9 @@ function test_fetch_target_forces_the_proxy_for_a_long_source_section() {
     "https://cursor.com/*|200|<html><body><p>direct copy served to some networks only</p></body></html>"
   local rows
   rows=$(fetch_target cursor "$FIXTURES/run")
-  assert_equals "reader-proxy" "$(printf '%s\n' "$rows" | awk -F '\t' '$3 !~ /\.md$/ { print $5 }' | sort -u)"
+  assert_equals "reader-proxy" "$(printf '%s\n' "$rows" | awk -F '\t' '$2 != "schema" && $3 !~ /\.md$/ { print $5 }' | sort -u)"
+  # A schema is JSON; the proxy would wrap it in a Markdown header.
+  assert_not_contains "r.jina.ai" "$(printf '%s\n' "$rows" | awk -F '\t' '$2 == "schema" { print $9 }')"
 }
 
 function test_fetch_one_follows_a_client_side_meta_refresh() {

@@ -14,6 +14,10 @@
 # <page>.delta, and a label in the run's deltas.tsv: mentions:<paths>,
 # prose, chrome-only, whitespace-only, or no-snapshot.
 #
+# A `schema:` line names a vendor JSON Schema. Its row hashes the schema's
+# key paths, types, enums, and required lists, one per line, so a new
+# setting reads as one added line and a reworded description is no change.
+#
 # Usage:
 #   scripts/docfetch.sh                      # every target, into today's run dir
 #   scripts/docfetch.sh claude zed           # only the named targets
@@ -40,7 +44,7 @@ Usage: scripts/docfetch.sh [--out DIR] [<target>...]
        scripts/docfetch.sh --update <docfetch.tsv> [<target>...]
        scripts/docfetch.sh --compare-mirrors <run dir a> <run dir b>
 
-  (no args)      fetch every registered target's docs and changelog URLs
+  (no args)      fetch every registered target's docs, changelog, and schema URLs
   <target>...    fetch only the named targets
   --out DIR      run directory (default local/target-audit/<utc date>-run)
   --urls         print "<target>\t<kind>\t<url>" without fetching
@@ -78,7 +82,8 @@ resolve_urls() {
     }
     /^- docs: / { kind = "docs"; line = substr($0, 9) }
     /^- changelog: / { kind = "changelog"; line = substr($0, 14) }
-    /^- (docs|changelog): / {
+    /^- schema: / { kind = "schema"; line = substr($0, 11) }
+    /^- (docs|changelog|schema): / {
       n = split(strip_parens(line), w, /[ \t]+/)
       for (i = 1; i <= n; i++) {
         t = w[i]
@@ -657,6 +662,48 @@ lock_prune() {
   rm -f "$current"
 }
 
+# SCHEMA_KEYS walks a JSON Schema into one line per key path and per type,
+# enum value, const, $ref, required key, and deprecation. Descriptions,
+# titles, examples, and defaults are left out: they are prose, and a vendor
+# rewording one is not a new setting. Each $defs or definitions entry is
+# walked once under "#<name>" and a $ref prints as "ref=#<name>", so a
+# recursive schema terminates and a shared type is listed once.
+SCHEMA_KEYS=$(cat <<'JQ'
+def refname: sub("^#/(\\$defs|definitions)/"; "#");
+def walk_schema($p):
+  if type != "object" then empty else
+    (if (.type | type) == "string" then "\($p) type=\(.type)"
+     elif (.type | type) == "array" then "\($p) type=\(.type | join("|"))" else empty end),
+    (if (.enum | type) == "array" then (.enum[] | "\($p) enum=\(tojson)") else empty end),
+    (if has("const") then "\($p) const=\(.const | tojson)" else empty end),
+    (if (."$ref" | type) == "string" then "\($p) ref=\(."$ref" | refname)" else empty end),
+    (if (.required | type) == "array" then (.required[] | "\($p) required=\(.)") else empty end),
+    (if .deprecated == true then "\($p) deprecated" else empty end),
+    (if (.properties | type) == "object" then
+       (.properties | to_entries[] | (if $p == "" then .key else "\($p).\(.key)" end) as $q | $q, (.value | walk_schema($q)))
+     else empty end),
+    (if (.patternProperties | type) == "object" then
+       (.patternProperties | to_entries[] | "\($p).<\(.key)>" as $q | $q, (.value | walk_schema($q)))
+     else empty end),
+    (if (.additionalProperties | type) == "object" then (.additionalProperties | walk_schema("\($p).*")) else empty end),
+    (if (.items | type) == "object" then (.items | walk_schema("\($p)[]"))
+     elif (.items | type) == "array" then (.items[] | walk_schema("\($p)[]")) else empty end),
+    ((.anyOf, .oneOf, .allOf) | select(type == "array") | .[] | walk_schema($p))
+  end;
+(walk_schema("")),
+(((."$defs" // {}) + (.definitions // {})) | to_entries[] | ("#" + .key) as $d | $d, (.value | walk_schema($d)))
+| select(. != "")
+JQ
+)
+
+# schema_keys <body> <out> writes the sorted key lines. No jq, not JSON, or
+# no key found: no file, and the row falls back to the json mode.
+schema_keys() {
+  command -v jq >/dev/null 2>&1 &&
+    jq -r "$SCHEMA_KEYS" "$1" 2>/dev/null | LC_ALL=C sort -u >"$2" &&
+    [ -s "$2" ] || { rm -f "$2"; return 1; }
+}
+
 # json_text <body> <out> writes a JSON body key-sorted and indented, one
 # value per line, so a snapshot and a delta see what json_sum hashed and a
 # minified document does not diff as one word. No jq, or not JSON: no file,
@@ -739,6 +786,9 @@ fetch_one() {
     return 0
   fi
 
+  # A schema is data, whatever host serves it: skip the page ladder.
+  [ "$kind" = schema ] && mode=schema-keys
+
   if [ -z "$mode" ]; then
     if head -c 4096 "$body" | grep -qi 'http-equiv="refresh"' && [ "$(wc -c <"$body")" -lt 4096 ]; then
       if refresh=$(meta_refresh_target "$body" "$final"); then
@@ -811,6 +861,15 @@ fetch_one() {
       # line filter keeps the whole payload and hashes its download counts.
       grep -oE '"(tag_name|published_at)":"[^"]*"' "$body" >"$stem.txt" || true
       result=$(sha256_of "$stem.txt")
+      ;;
+    schema-keys)
+      if schema_keys "$body" "$stem.txt"; then
+        result=$(sha256_of "$stem.txt")
+      else
+        mode=json
+        result=$(json_sum "$body")
+        json_text "$body" "$stem.txt"
+      fi
       ;;
     json)
       result=$(json_sum "$body")
@@ -912,7 +971,7 @@ compare_mirrors() {
 
 # fetch_target <target> <dir> fetches one target's URLs. A "- fetch:
 # reader-proxy" line in its source section sends every URL through the
-# proxy but a .md mirror, which serves plain text directly: a host that
+# proxy but a .md mirror or a schema, which serve plain data directly: a host that
 # blocks some networks (kiro.dev, cursor.com) otherwise serves HTML to
 # one machine and a proxy copy to another, and the two never hash alike.
 fetch_target() {
@@ -931,7 +990,7 @@ fetch_target() {
     [ -n "$url" ] || continue
     idx=$((idx + 1))
     force=$proxy
-    case "$url" in *.md) force="" ;; esac
+    case "$kind:$url" in *.md | schema:*) force="" ;; esac
     row=$(fetch_one "$target" "$kind" "$url" "$dir" "$idx" "$force")
     printf '%s\n' "$row"
     if [ -n "${DOCFETCH_MIRRORS:-}" ]; then

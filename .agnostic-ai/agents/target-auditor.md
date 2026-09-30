@@ -51,9 +51,12 @@ Read-only means no repository or GitHub changes. Temporary reproduction projects
    or term (verdict `paired`, via `lexical`): a question to settle from
    the page (step 8), never a finding by itself. A row with no lead still
    gets read.
-3. Read the saved changelog delta, or the body when there is no delta,
-   newest entry first. It names what moved since the last audit faster
-   than the docs do.
+3. Read a changed `schema` row's delta first: one line per key path,
+   type, enum value, or required key, so each `{+...+}` is a setting the
+   vendor added and each `[-...-]` one it dropped. A reworded description
+   never moves it. Then read the saved changelog delta, or the body when
+   there is no delta, newest entry first. It names what moved since the
+   last audit faster than the docs do.
 4. Read the delta of each changed page, then quote this run's `.txt` copy.
    Open the full page when the delta leaves scope or precedence unclear,
    or when the row is `no-snapshot`. The hash ignores navigation,

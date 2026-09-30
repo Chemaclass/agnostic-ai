@@ -4,15 +4,15 @@ Canonical vendor docs for every registered target. Auditors fetch from here inst
 
 One `## <target>` section is required per registered target, each with a `docs:` line and a `watch:` line. `tests/integration/target_audit_sources_test.go` enforces that, so a new adapter cannot merge without its vendor docs landing here too.
 
-Keep each section's prose, everything but the `docs:` and `changelog:` lines, at 350 words or fewer; the same test enforces it. A section holds the URL lines, `watch:`, and one-line `quirk:` (fetch routes), `trap:` (a claim that once caused a wrong finding) and `decision:` (a choice already made) bullets. State a temporary gap as an open issue link, never as a standing fact. Do not append dated "verified on" notes or release summaries that changed nothing we emit. Git history, `scripts/target-audit/signals.tsv`, and the closed `target-audit` issues keep that record.
+Keep each section's prose, everything but the `docs:`, `changelog:`, and `schema:` lines, at 350 words or fewer; the same test enforces it. A section holds the URL lines, `watch:`, and one-line `quirk:` (fetch routes), `trap:` (a claim that once caused a wrong finding) and `decision:` (a choice already made) bullets. State a temporary gap as an open issue link, never as a standing fact. Do not append dated "verified on" notes or release summaries that changed nothing we emit. Git history, `scripts/target-audit/signals.tsv`, and the closed `target-audit` issues keep that record.
 
 Where a host serves a `.md` copy that moves less often than the scraped page, list the `.md` URL: it carries no navigation, cookie banner, or build stamp, so a site rebuild does not mark it changed. Measure a host with `scripts/docfetch.sh --mirrors` and `--compare-mirrors` before switching it (#1127).
 
-`docs` = the pages describing the file formats agnostic-ai emits. `changelog` = where new features land first; read it before the docs when hunting for "what changed since last audit".
+`docs` = the pages describing the file formats agnostic-ai emits. `changelog` = where new features land first; read it before the docs when hunting for "what changed since last audit". `schema` = a JSON Schema the vendor publishes for a file we write. Its row hashes key paths, types, enums, and required lists only, so its delta names each added or removed setting and ignores reworded descriptions. It is the highest-signal row a target has: list one wherever the vendor or SchemaStore publishes it.
 
 ## URL line grammar
 
-`scripts/docfetch.sh` parses the `docs:` and `changelog:` lines, so they follow one grammar. Entries are separated by ` · `. A full URL sets the base for the entries after it on that line. `/path` resolves against that URL's origin, and `.../path` against its directory. Text in parentheses is commentary and is never fetched, and neither is anything inside backticks. Any other line in a section, including `watch:`, `quirk:`, and `trap:` notes, is prose for a human and is not fetched.
+`scripts/docfetch.sh` parses the `docs:`, `changelog:`, and `schema:` lines, so they follow one grammar. Entries are separated by ` · `. A full URL sets the base for the entries after it on that line. `/path` resolves against that URL's origin, and `.../path` against its directory. Text in parentheses is commentary and is never fetched, and neither is anything inside backticks. Any other line in a section, including `watch:`, `quirk:`, and `trap:` notes, is prose for a human and is not fetched.
 
 ## What a fetch proves
 
@@ -28,6 +28,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 
 - docs: https://code.claude.com/docs/en/memory (rules) · /docs/en/hooks · /docs/en/sub-agents · /docs/en/skills (slash-commands merged in; `.claude/commands/` still works) · /docs/en/mcp · /docs/en/settings (prose on file precedence and reload) · /docs/en/settings-reference (the settings **key** table; that is the page an auditor needs, and it is a different page from /settings, both 200 as of 2026-09-11) · /docs/en/desktop (preview servers in `.claude/launch.json`, which environment `dev-commands` write since #1372)
 - changelog: https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md
+- schema: https://www.schemastore.org/claude-code-settings.json · /claude-code-launch.json
 - watch: `.claude/rules/` native loading, settings.json keys, plugin and marketplace keys. The `.mcp.json` per-server fields `headersHelper`, `timeout`, `alwaysLoad` and `oauth`, emitted behind `emit.WithClaudeMCPExtras()`. The AGENTS.md fallback default, its Bedrock/Vertex/Foundry carve-out, the toggle gaining project scope, and `.claude/AGENTS.md` leaving the read list. Stable hook handler common fields, apart from command-only options.
 - decision: `oauth.clientSecret` is not emitted. The secret "is stored securely in your system keychain ... not in your config".
 - decision: experimental agent hooks stay excluded. Command, HTTP, MCP-tool and prompt handlers emit and import.
@@ -44,6 +45,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 
 - docs: https://learn.chatgpt.com/docs/build-skills.md · /docs/agent-configuration/subagents.md · /docs/custom-prompts.md · /docs/hooks.md · /docs/config-file/config-reference.md · /docs/agent-configuration/rules.md (exec-policy precedence, not AGENTS.md discovery) · /docs/agent-configuration/agents-md.md (AGENTS.md discovery) · /docs/permissions.md (beta Permission Profiles, filesystem and network only)
 - changelog: https://learn.chatgpt.com/docs/changelog (on 2026-09-27 it dropped and then restored the Codex CLI 0.157.x entries within hours; list stable releases with `gh api repos/openai/codex/releases` and skip `prerelease` alphas)
+- schema: https://developers.openai.com/codex/config-schema.json · https://www.schemastore.org/codex-hooks.json · /codex-skill-metadata.json
 - watch: the skills dir, which moved `.codex/skills` to `.agents/skills`; prompts, deprecated in favour of skills; hooks JSON event names; the local-environment page (https://learn.chatgpt.com/docs/environments/local-environment.md), which does not yet show the `.codex/environments/environment.toml` layout.
 - trap: the `environment.toml` layout (`[setup]`, `[setup.win32]`, `[cleanup]`, `[[actions]]` with `name`, `icon`, `command`, optional `platform`) comes from files the Codex app writes, not from docs (#1393). If the page starts documenting it, diff against `internal/adapters/codex/environment.go`.
 - trap: package-style MCP names (`/`, `@`, `:`) round-trip; do not re-file. `checkSpecName` no longer exists, and its only grep hits are stale `.claude/worktrees/` copies. The live check is `spec.ValidateName`, and `writeCodexMCPs` uses `spec.MCPFileName`. Non-bare TOML headers quote via `tomlKeySegment` (#706).
@@ -54,6 +56,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 
 - docs: https://geminicli.com/docs/hooks/reference/ · https://geminicli.com/docs/core/subagents.md · https://geminicli.com/docs/reference/tools.md · https://geminicli.com/docs/cli/skills/ · /docs/cli/custom-commands/ · /docs/reference/configuration · /docs/cli/gemini-ignore/ (the ignore file Gemini CLI actually reads is `.geminiignore`; `.aiexclude` belongs to Gemini Code Assist, a different product, target-audit 2026-08-27)
 - changelog: https://github.com/google-gemini/gemini-cli/releases
+- schema: https://github.com/google-gemini/gemini-cli/blob/main/schemas/settings.schema.json
 - watch: `.gemini/skills/` vs `.agents/skills` alias precedence, the `settings.json` hooks and mcpServers schema, the `/docs/core/subagents.md` frontmatter table for new fields, and whether `kind: remote` needs more than passthrough.
 - trap: hooks need a nested `hooks` array; the v0.59.0 loader drops flat entries (`packages/core/src/hooks/hookRegistry.ts`, #762). Handler timeouts are milliseconds; `sequential` belongs to the definition.
 - trap: subagent `tools` takes Gemini's snake_case names from `/docs/reference/tools.md` (`run_shell_command`, `replace`, `grep_search`), not Claude's. `geminiToolName` in `internal/adapters/gemini/agents.go` maps eight generic names and drops the rest with a coverage note. Re-check on tool renames (`grep_search` keeps `search_file_content` as legacy alias).
@@ -63,6 +66,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 
 - docs: https://cursor.com/docs/skills · /docs/subagents · /docs/rules · /docs/hooks · /docs/mcp · /docs/bugbot · /docs/reference/third-party-hooks.md (the Claude Code hook-compatibility page; uncited until target-audit 2026-09-12, #756) · https://cursor.com/help/customization/skills.md (the old `/docs/agent/chat/commands` 308s here, to a "migrate commands to skills" FAQ; no Cursor page documents `.cursor/commands` any more, target-audit 2026-08-27) · https://cursor.com/docs/configuration/worktrees (`.cursor/worktrees.json`, which environment `setup` writes since #1368)
 - changelog: https://cursor.com/changelog
+- schema: https://cursor.com/schemas/environment.schema.json
 - fetch: reader-proxy (cursor.com answers 403 from some networks and HTML from others; one representation keeps the lock stable everywhere)
 - watch: `.mdc` frontmatter fields; camelCase hook events (`beforeShellExecution`); environment.json schema; the Third-Party Imports default flipping or being renamed; `.cursor/hooks.json` changing rank; a skill precedence rule or a new compatibility root.
 - trap: Cursor loads Claude Code hooks. `/docs/reference/third-party-hooks.md` ranks `.cursor/hooks.json` 3rd and `.claude/settings.json` 6th, and "All matching hooks from every source run." Syncing claude and cursor runs every hook twice. Gated by "Include Third-Party Plugins, Skills, and Other Configs", on by default. Do not assert whether camelCase names inside `.claude/settings.json` fire; the mapping covers PascalCase only.
@@ -142,7 +146,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 
 - docs: https://ampcode.com/llms.txt (the index; it lists every docs page and each link serves raw markdown) · https://ampcode.com/docs/customize/agents-md · /docs/customize/skills · /docs/customize/global-plugins-and-skills · /docs/customize/mcp · /docs/customize/plugins · /docs/cli/settings · /docs/tools · /docs/the-dial · /docs/orbs/customizing · /docs/orbs/portals
 - changelog: https://ampcode.com/chronicle (`ampcode.com/news` 307s here; individual posts keep `/news/<slug>`)
-- quirk: `https://ampcode.com/cli-settings.schema.json` is the authoritative `.amp/settings.json` key list. Diff it instead of `/docs/cli/settings` prose, which lists a subset.
+- schema: https://ampcode.com/cli-settings.schema.json (the authoritative `.amp/settings.json` key list; `/docs/cli/settings` prose lists a subset)
 - trap: `ampcode.com/manual` returns 200 but serves an empty SvelteKit shell. Do not cite it.
 - blocker: `/docs/tools` lists no tool names; it defers to `amp tools list`. A tool table there would unblock mapping portable `deny` onto `amp.tools.disable` (written today via `x-amp`, #950). Portable `allow` and `ask` stay blocked: "By default, Amp does not ask for approval before running tools."
 - watch: `.agents/skills/` (shared with codex/zed/crush), `amp.mcpServers` and `amp.tools.disable` in `.amp/settings.json`, and the orb files `.agents/setup`, `.agents/resume`, `.amp/services.yaml`, plus the tools table above.
@@ -167,6 +171,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 
 - docs: https://docs.warp.dev/terminal/entry/yaml-workflows.md · https://docs.warp.dev/agents/capabilities/skills.md · https://docs.warp.dev/agents/capabilities/mcp.md
 - changelog: https://docs.warp.dev/changelog/2026.md (dated release entries; advance the year when a new annual page appears) · https://docs.warp.dev/changelog.md (year index, retained to detect new annual pages; the old getting-started path redirects here)
+- schema: https://www.schemastore.org/warp-workflows.json
 - watch: a native rules-dir surface (today: AGENTS.md, `.agents/skills/`, workflows, `.warp/.mcp.json`); another move of the MCP page (it 308s from `/knowledge-and-collaboration/mcp`); whether either MCP table gains `description`, `disabled` or `roots`.
 - fact: Warp indexes ten default skill directories, `.agents/skills/` recommended (#590). `.opencode/skills/` is one, so Warp reads OpenCode skills with no extra write. Native `.agents/skills/` folders with bundled assets import (#765).
 - fact: Warp also loads project MCP servers from Claude Code's `.mcp.json`, Codex's `.codex/config.toml` and `.agents/.mcp.json`, each needing explicit approval. No same-name dedupe is documented (#1158).
@@ -179,6 +184,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - docs: https://opencode.ai/docs/agents.md · /docs/skills.md · /docs/mcp-servers.md · /docs/commands.md · /docs/rules.md · /docs/policies.md (the experimental `experimental.policies` array in `opencode.json`, which gates which providers and resources OpenCode may use; separate from permissions, which gate what tools may do) · /docs/plugins.md (`.opencode/plugins/*.ts`, the hook surface) · /docs/permissions.md (the top-level `permission` key in `opencode.json`, the page that settles what the portable lists map onto)
 - trap: `/docs/permissions/` makes `webfetch`/`websearch` look pattern-capable, but the exclusion at `internal/adapters/opencode/permission.go:47` is right. `/docs/agents/`: "The remaining keys accept the shorthand action only." `$defs.PermissionConfig` agrees.
 - changelog: https://github.com/anomalyco/opencode/releases (the repo moved from `sst`; the redirect still works, and the default branch is `dev`)
+- schema: https://opencode.ai/config.json
 - watch: `agents/` (plural) dir; which foreign skill trees it scans; the `mcp` block shape; new entries in the `/docs/plugins/` "Events" section; `experimental.session.compacting` losing its prefix; a published full tool list.
 - trap: rules lookup is an upward walk for files named exactly `AGENTS.md` (`fs.up({ targets: ["AGENTS.md"] })` in `packages/core/src/instruction-context.ts`, branch `dev`). Nothing reads `.opencode/AGENTS.md`, so the entry point is root `AGENTS.md` (#623). Global `~/.config/opencode/AGENTS.md` is out of project scope.
 - decision: agent `tools` is vendor-deprecated for `permission`, which we already emit. Not a gap.
@@ -236,8 +242,9 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 
 ## crush
 
-- docs: https://github.com/charmbracelet/crush (README is the reference) · https://raw.githubusercontent.com/charmbracelet/crush/main/schema.json (the vendor's published JSON schema, and the only place the MCP property set appears closed) · https://github.com/charmbracelet/crush/blob/main/docs/hooks/README.md
+- docs: https://github.com/charmbracelet/crush (README is the reference) · https://github.com/charmbracelet/crush/blob/main/docs/hooks/README.md
 - changelog: https://github.com/charmbracelet/crush/releases (the feed carries a rolling `nightly` tag whose timestamp bumps daily while its body stays static artifact-verification boilerplate; it reads like a daily ship and is not one, so compare against the newest real version tag, target-audit 2026-09-07)
+- schema: https://raw.githubusercontent.com/charmbracelet/crush/main/schema.json (the only place the MCP property set appears closed; main moves ahead of the published charm.land copy)
 - watch: the `crush.json` `mcp` block; agents or commands surfaces; `crushrc` / `.crushrc`, the Bash config format now preferred over JSON (#674); a second hook event beyond `PreToolUse`; MCP channel fields (`channel_enabled`, `channel_reply`) after a stable release (in main's schema since 2026-09-25, absent in v0.96.1).
 - quirk: the rolling `nightly` release bumps daily with static boilerplate. Compare against the newest real version tag.
 - decision: map MCP fields explicitly. `schema.json` sets `"additionalProperties": false` on `MCPConfig`, so a passthrough typo breaks the config.
@@ -336,6 +343,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 
 - docs: https://kilo.ai/docs (client-rendered; use WebFetch) · /docs/customize/custom-rules · /docs/customize/agents-md · /docs/customize/agent-permissions (the `permission` map `x-kilo` reaches: actions, patterns and precedence, **no tool names**) · /docs/automate/tools (the closed tool vocabulary, mirrored at `packages/kilo-docs/pages/automate/tools/index.md`) · /docs/getting-started/settings/auto-approving-actions (the same names as `permission` keys in `kilo.jsonc`) · /docs/code-with-ai/agents/goals (the reserved `goal` agent name, #736) · /docs/customize/custom-subagents · /docs/customize/skills (the `skills.paths` / `skills.urls` config keys, the `/.github/skills` absolute-then-project-relative fallback, and the three default skill trees, target-audit 2026-09-18 #861, #865; mirrored at `Kilo-Org/kilocode`'s `packages/kilo-docs/pages/customize/skills.md`) (raw source also mirrored at `Kilo-Org/kilocode`'s `packages/kilo-docs/pages/customize/custom-subagents.md`, useful when the rendered site defeats fetching; appending `.md` to a kilo.ai docs path used to serve that raw source directly but now 404s there, confirmed 2026-08-09, #590, so use the GitHub mirror instead).
 - changelog: https://github.com/Kilo-Org/kilocode/releases (kilo.ai defeats fetching, so cite the GitHub mirror under `packages/kilo-docs/pages/`)
+- schema: https://app.kilo.ai/config.json
 - quirk: kilo.ai `.md` paths 404. Use the GitHub mirror and try `<page>/index.md` before calling a page gone.
 - trap: read shared-board releases in order. v7.7.0 and v7.7.1 still name `experimental.shared_agent_board`; v7.7.2, same day, moves it to top-level `shared_agent_board`.
 - trap: tool names are not on `customize/agent-permissions`. They are on `automate/tools/index.md` and `auto-approving-actions`.

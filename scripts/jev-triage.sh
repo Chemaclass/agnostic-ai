@@ -389,7 +389,7 @@ jev_units() {
       whitespace-only*) prio=4 ;;
       *) prio=5 ;;
     esac
-    [ "$kind" = changelog ] && [ "$prio" -gt 1 ] && prio=2
+    case "$kind" in changelog | schema) [ "$prio" -gt 1 ] && prio=2 ;; esac
     page=$((page + 1))
     awk -v max="$JEV_PAGE_CHARS" -v base="$work/units/$page" '
       function out() { return sprintf("%s.%03d.txt", base, k) }
