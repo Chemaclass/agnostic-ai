@@ -508,6 +508,11 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		return emitErr
 	}
 	normalizeSharedWriteAttribution(emits)
+	accepted, notesErr := applyCoverageAccept(cfg, effectiveTargets)
+	if notesErr != nil {
+		adapters.FlushCoverageNotes()
+		return notesErr
+	}
 
 	verbose := verbosity >= levelVerbose
 	var report syncReport
@@ -608,18 +613,12 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	// completion order; re-sort them to the target sequence so the flushed
 	// output below is byte-identical regardless of --jobs.
 	adapters.OrderBufferedDropsByTarget(effectiveTargets)
-	accepted, _ := adapters.AcceptCoverageNotes(cfg.Coverage.Accept)
-	unaccepted := 0
-	if cfg.OnUnsupported == "error" {
-		unaccepted = adapters.PendingTargetCoverageNotesCount()
-	}
 
 	digest := adapters.CapabilityWarningsDigest()
 	notesDigest := adapters.CoverageNotesDigest()
 	reshow := verbose && showRepeatedDrops
 	warningsUnchanged := !reshow && digest != "" && digest == prev.WarningsDigest
-	// A note that fails the sync always prints, so the error names it.
-	notesUnchanged := !reshow && unaccepted == 0 && notesDigest != "" && notesDigest == prev.NotesDigest
+	notesUnchanged := !reshow && notesDigest != "" && notesDigest == prev.NotesDigest
 	// Render the per-target summary only when at least one of the buffers
 	// actually changed, so it honors the same unchanged-since-last-sync
 	// suppression as the kind-grouped flushes below instead of re-printing
@@ -649,9 +648,6 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	}
 	if verbose {
 		adapters.PrintAcceptedNotes(accepted)
-	}
-	if unaccepted > 0 {
-		return fmt.Errorf("on-unsupported: error: %d coverage note%s not accepted; fix the spec, or list the note under coverage.accept in agnostic-ai.yaml with a reason", unaccepted, plural(unaccepted))
 	}
 	if sweepErr != nil {
 		fmt.Fprintf(os.Stderr, "! orphan sweep: %v\n", sweepErr)
@@ -873,7 +869,8 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 		keepEditsIn(mainSess, keep)
 	}
 	gitignoreOn := resolveGitignore(cfg, gitignoreFlag)
-	if _, err := shared.reconcile(prev.Outputs, false); err != nil {
+	reconciled, err := shared.reconcile(prev.Outputs, false)
+	if err != nil {
 		return err
 	}
 
@@ -887,6 +884,17 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	emits, sessions, _ := emitTargetsConcurrent(effectiveTargets, b, cfg, false, backup, gitignoreOn, false, jobs, keep)
 	sessions = append(sessions, mainSess)
 	normalizeSharedWriteAttribution(emits)
+	if _, notesErr := applyCoverageAccept(cfg, effectiveTargets); notesErr != nil {
+		adapters.FlushCoverageNotes()
+		if rbErr := rollbackSessions(append([]*adapters.Session{reconciled}, sessions...)); rbErr != nil {
+			fmt.Fprintf(os.Stderr, "! rollback: %v\n", rbErr)
+		}
+		out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: notesErr.Error()})
+		if err := emitJSON(cmd, out); err != nil {
+			return err
+		}
+		return notesErr
+	}
 	for _, e := range emits {
 		if e.err != nil {
 			out.Errors = append(out.Errors, errorRecord{Target: e.target, Message: e.err.Error()})

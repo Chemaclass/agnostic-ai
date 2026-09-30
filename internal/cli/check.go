@@ -604,11 +604,11 @@ func newDoctorCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				lint, err := lintScopeFindings(scope)
+				lint, accepted, err := lintScopeReport(scope)
 				if err != nil {
 					return err
 				}
-				return printDoctorJSON(cmd, reports, refs, checkRefs, lint, collectCodexHookTrust(scope.cfg, targets), collectPackagingIgnoreFindings(reports))
+				return printDoctorJSON(cmd, reports, refs, checkRefs, lint, accepted, collectCodexHookTrust(scope.cfg, targets), collectPackagingIgnoreFindings(reports))
 			}
 
 			configOK := doctorConfigOK()
@@ -637,9 +637,6 @@ func newDoctorCmd() *cobra.Command {
 			reportUnsupportedKinds(cmd, cfg)
 			lint, err := reportSpecHealth(cmd, scope)
 			if err != nil {
-				return err
-			}
-			if err := reportAcceptedCoverageNotes(cmd, scope); err != nil {
 				return err
 			}
 
@@ -786,17 +783,19 @@ type doctorJSONOutput struct {
 	References      *[]referenceFinding      `json:"references,omitempty"`
 	HookTrust       []codex.HookTrustFinding `json:"hook_trust"`
 	PackagingIgnore []packagingIgnoreFinding `json:"packaging_ignore"`
+	// CoverageAccepted counts the coverage notes coverage.accept matches.
+	CoverageAccepted int `json:"coverage_accepted"`
 }
 
 // printDoctorJSON emits a JSON drift report for `doctor`. Mirrors the schema
 // used by `sync --check --json`: missing, stale, and orphaned files appear
 // in writes. Lint, hook trust, and packaging findings have their own lists. With checkRefs, broken skill
 // references appear in references.
-func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []referenceFinding, checkRefs bool, lint []lintFinding, hookTrust []codex.HookTrustFinding, packaging []packagingIgnoreFinding) error {
+func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []referenceFinding, checkRefs bool, lint []lintFinding, coverageAccepted int, hookTrust []codex.HookTrustFinding, packaging []packagingIgnoreFinding) error {
 	if lint == nil {
 		lint = []lintFinding{}
 	}
-	out := doctorJSONOutput{jsonOutput: jsonOutput{Version: "1", Command: "doctor", Writes: driftRecords(reports)}.withEmptyLists(), Lint: lint, HookTrust: hookTrust, PackagingIgnore: packaging}
+	out := doctorJSONOutput{jsonOutput: jsonOutput{Version: "1", Command: "doctor", Writes: driftRecords(reports)}.withEmptyLists(), Lint: lint, HookTrust: hookTrust, PackagingIgnore: packaging, CoverageAccepted: coverageAccepted}
 	if out.HookTrust == nil {
 		out.HookTrust = []codex.HookTrustFinding{}
 	}

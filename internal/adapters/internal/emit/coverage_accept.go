@@ -2,6 +2,7 @@ package emit
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -10,8 +11,7 @@ import (
 // AcceptedNote is a buffered coverage note that a coverage.accept entry
 // took out of the sync output.
 type AcceptedNote struct {
-	// Text is the note sentence sync would have printed, without the
-	// target's own reason.
+	// Text is the note sentence sync would have printed.
 	Text string
 	// Reason is the accept entry's reason.
 	Reason string
@@ -19,11 +19,13 @@ type AcceptedNote struct {
 
 // AcceptCoverageNotes takes every buffered coverage note an entry of
 // accept matches out of the buffers, so it no longer prints, feeds the
-// digest, or fails on-unsupported: error. An entry with a field matches
-// the target's field no-op notes for that field; one without matches
-// the target's gap and surface notes for the kind. Project notes name no
-// target and stay. It returns one AcceptedNote per distinct note, and
-// the entries that matched none.
+// digest, or fails coverage.fail-on-notes. An entry matches a note on one
+// of its targets and its kind when its field equals the note's field (a
+// field no-op note, whatever its reason), its via equals the note's hint
+// (a gap note), or its surface equals the note's surface (a surface
+// note). Project notes carry no target and stay. It returns one
+// AcceptedNote per distinct note, and each entry that matched nothing on
+// some of its targets, narrowed to those targets.
 func AcceptCoverageNotes(accept []config.CoverageAccept) (accepted []AcceptedNote, unmatched []config.CoverageAccept) {
 	if len(accept) == 0 {
 		return nil, nil
@@ -35,11 +37,11 @@ func AcceptCoverageNotes(accept []config.CoverageAccept) (accepted []AcceptedNot
 	// read the target as having noted nothing, and drop another target's
 	// note on the same field.
 	coverageNoteState.environmentFields = nil
-	used := make([]bool, len(accept))
-	match := func(target string, kind spec.Kind, field string) (string, bool) {
+	used := map[string]bool{}
+	match := func(target string, kind spec.Kind, selects func(config.CoverageAccept) bool) (string, bool) {
 		for i, a := range accept {
-			if a.Target == target && spec.Kind(a.SpecKind()) == kind && a.Field == field {
-				used[i] = true
+			if spec.Kind(a.SpecKind()) == kind && slices.Contains(a.Target, target) && selects(a) {
+				used[fmt.Sprint(i, "\x00", target)] = true
 				return a.Reason, true
 			}
 		}
@@ -55,7 +57,7 @@ func AcceptCoverageNotes(accept []config.CoverageAccept) (accepted []AcceptedNot
 
 	gaps := coverageNoteState.pending[:0]
 	for _, p := range coverageNoteState.pending {
-		if reason, ok := match(p.target, p.kind, ""); ok {
+		if reason, ok := match(p.target, p.kind, func(a config.CoverageAccept) bool { return a.Via != "" && a.Via == p.via }); ok {
 			add(gapNoteText(p.kind, p.count, p.via, []string{p.target}), reason)
 			continue
 		}
@@ -65,8 +67,8 @@ func AcceptCoverageNotes(accept []config.CoverageAccept) (accepted []AcceptedNot
 
 	fields := coverageNoteState.pendingField[:0]
 	for _, p := range coverageNoteState.pendingField {
-		if reason, ok := match(p.target, p.kind, p.field); ok {
-			add(fieldNoteText(p.kind, p.field, p.count, []string{p.target}), reason)
+		if reason, ok := match(p.target, p.kind, func(a config.CoverageAccept) bool { return a.Field != "" && a.Field == p.field }); ok {
+			add(fieldNoteText(p.kind, p.field, p.count, []string{p.target})+" ("+p.reason+")", reason)
 			continue
 		}
 		fields = append(fields, p)
@@ -75,8 +77,8 @@ func AcceptCoverageNotes(accept []config.CoverageAccept) (accepted []AcceptedNot
 
 	surfaces := coverageNoteState.pendingSurface[:0]
 	for _, p := range coverageNoteState.pendingSurface {
-		if reason, ok := match(p.target, p.kind, ""); ok {
-			add(surfaceNoteText(p.kind, p.count, p.surface, []string{p.target}), reason)
+		if reason, ok := match(p.target, p.kind, func(a config.CoverageAccept) bool { return a.Surface != "" && a.Surface == p.surface }); ok {
+			add(surfaceNoteText(p.kind, p.count, p.surface, []string{p.target})+" ("+p.reason+")", reason)
 			continue
 		}
 		surfaces = append(surfaces, p)
@@ -84,7 +86,14 @@ func AcceptCoverageNotes(accept []config.CoverageAccept) (accepted []AcceptedNot
 	coverageNoteState.pendingSurface = surfaces
 
 	for i, a := range accept {
-		if !used[i] {
+		var stale config.CoverageTargets
+		for _, t := range a.Target {
+			if !used[fmt.Sprint(i, "\x00", t)] {
+				stale = append(stale, t)
+			}
+		}
+		if len(stale) > 0 {
+			a.Target = stale
 			unmatched = append(unmatched, a)
 		}
 	}
@@ -95,7 +104,7 @@ func AcceptCoverageNotes(accept []config.CoverageAccept) (accepted []AcceptedNot
 // the project gave for it.
 func PrintAcceptedNotes(accepted []AcceptedNote) {
 	for _, a := range accepted {
-		_, _ = fmt.Fprintf(Warner, "  accepted: %s (reason: %s)\n", a.Text, a.Reason)
+		_, _ = fmt.Fprintf(Warner, "  accepted: %s\n    reason: %s\n", a.Text, a.Reason)
 	}
 }
 

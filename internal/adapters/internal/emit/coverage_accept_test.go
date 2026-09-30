@@ -9,7 +9,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-func TestAcceptCoverageNotes_MatchesFieldGapAndSurfaceNotes(t *testing.T) {
+func TestAcceptCoverageNotes_MatchesFieldViaAndSurface(t *testing.T) {
 	buf := swapWarnerForNotes(t)
 	NoteFieldNoOp("codex", spec.KindAgent, "tools", 2, "Codex uses tools as a table")
 	NoteFieldNoOp("codex", spec.KindAgent, "effort", 1, "no effort key")
@@ -18,16 +18,16 @@ func TestAcceptCoverageNotes_MatchesFieldGapAndSurfaceNotes(t *testing.T) {
 	NoteProject("a project note")
 
 	accepted, unmatched := AcceptCoverageNotes([]config.CoverageAccept{
-		{Target: "codex", Kind: "agents", Field: "tools", Reason: "sandbox_mode limits Codex"},
-		{Target: "gemini", Kind: "skills", Reason: "skills stay commands-free"},
-		{Target: "copilot", Kind: "hooks", Reason: "local hooks only"},
-		{Target: "codex", Kind: "agents", Field: "mcpServers", Reason: "stale"},
+		{Target: config.CoverageTargets{"codex"}, Kind: "agents", Field: "tools", Reason: "sandbox_mode limits Codex"},
+		{Target: config.CoverageTargets{"gemini"}, Kind: "skills", Via: "outputs.gemini.emit-skills-as-commands", Reason: "skills stay commands-free"},
+		{Target: config.CoverageTargets{"copilot"}, Kind: "hooks", Surface: "Copilot cloud agent", Reason: "local hooks only"},
+		{Target: config.CoverageTargets{"codex"}, Kind: "agents", Field: "mcpServers", Reason: "stale"},
 	})
 
 	if len(accepted) != 3 {
 		t.Fatalf("want 3 accepted notes, got %+v", accepted)
 	}
-	want := AcceptedNote{Text: "`tools` on 2 agents has no effect on codex", Reason: "sandbox_mode limits Codex"}
+	want := AcceptedNote{Text: "`tools` on 2 agents has no effect on codex (Codex uses tools as a table)", Reason: "sandbox_mode limits Codex"}
 	if !slices.Contains(accepted, want) {
 		t.Errorf("want %+v among %+v", want, accepted)
 	}
@@ -47,23 +47,69 @@ func TestAcceptCoverageNotes_MatchesFieldGapAndSurfaceNotes(t *testing.T) {
 	}
 }
 
-func TestAcceptCoverageNotes_FieldEntryDoesNotMatchWholeKindNote(t *testing.T) {
+// An entry names one note, never every note of the kind: a second gap or
+// surface note on the same target and kind stays.
+func TestAcceptCoverageNotes_OtherGapAndSurfaceNotesOfTheKindStay(t *testing.T) {
 	swapWarnerForNotes(t)
-	NoteCoverageGap("gemini", spec.KindSkill, 1, "outputs.gemini.emit-skills-as-commands")
+	NoteCoverageGap("continue", spec.KindMCP, 1, "remote servers need a url")
+	NoteCoverageGap("continue", spec.KindMCP, 1, "incomplete server entries")
+	NoteSurfaceGap("cursor", spec.KindReview, 1, "Bugbot", "too long")
+	NoteSurfaceGap("cursor", spec.KindReview, 1, "Cursor review", "over budget")
 
-	accepted, unmatched := AcceptCoverageNotes([]config.CoverageAccept{
-		{Target: "gemini", Kind: "skills", Field: "name", Reason: "r"},
+	accepted, _ := AcceptCoverageNotes([]config.CoverageAccept{
+		{Target: config.CoverageTargets{"continue"}, Kind: "mcps", Via: "remote servers need a url", Reason: "r"},
+		{Target: config.CoverageTargets{"cursor"}, Kind: "reviews", Surface: "Bugbot", Reason: "r"},
 	})
 
-	if len(accepted) != 0 || len(unmatched) != 1 {
-		t.Errorf("a field entry must not accept a whole-kind note: accepted=%+v unmatched=%+v", accepted, unmatched)
+	if len(accepted) != 2 {
+		t.Errorf("want 2 accepted notes, got %+v", accepted)
+	}
+	if got := PendingTargetCoverageNotesCount(); got != 2 {
+		t.Errorf("the other gap and surface notes should stay pending, got %d", got)
+	}
+}
+
+// A field entry covers every reason that field has on the target.
+func TestAcceptCoverageNotes_FieldEntryCoversEveryReason(t *testing.T) {
+	swapWarnerForNotes(t)
+	NoteFieldNoOp("copilot", spec.KindHook, "matcher", 1, "camelCase trap")
+	NoteFieldNoOp("copilot", spec.KindHook, "matcher", 2, "not a tool event")
+
+	accepted, unmatched := AcceptCoverageNotes([]config.CoverageAccept{
+		{Target: config.CoverageTargets{"copilot"}, Kind: "hooks", Field: "matcher", Reason: "r"},
+	})
+
+	if len(accepted) != 2 || len(unmatched) != 0 {
+		t.Errorf("want both matcher notes accepted: accepted=%+v unmatched=%+v", accepted, unmatched)
+	}
+	if got := PendingTargetCoverageNotesCount(); got != 0 {
+		t.Errorf("no matcher note should stay pending, got %d", got)
+	}
+}
+
+// One entry covers a field note across several targets, and reports the
+// targets it matched nothing on.
+func TestAcceptCoverageNotes_TargetListMatchesEachTarget(t *testing.T) {
+	swapWarnerForNotes(t)
+	NoteFieldNoOp("codex", spec.KindSkill, "argument-hint", 1, "no hint key")
+	NoteFieldNoOp("gemini", spec.KindSkill, "argument-hint", 1, "no hint key")
+
+	accepted, unmatched := AcceptCoverageNotes([]config.CoverageAccept{
+		{Target: config.CoverageTargets{"codex", "gemini", "cursor"}, Kind: "skills", Field: "argument-hint", Reason: "r"},
+	})
+
+	if len(accepted) != 2 {
+		t.Errorf("want one accepted note per target, got %+v", accepted)
+	}
+	if len(unmatched) != 1 || !slices.Equal(unmatched[0].Target, config.CoverageTargets{"cursor"}) {
+		t.Errorf("want the entry unmatched on cursor only, got %+v", unmatched)
 	}
 }
 
 func TestPrintAcceptedNotes_NamesTheReason(t *testing.T) {
 	buf := swapWarnerForNotes(t)
-	PrintAcceptedNotes([]AcceptedNote{{Text: "`tools` on 1 agent has no effect on codex", Reason: "known"}})
-	if got, want := buf.String(), "  accepted: `tools` on 1 agent has no effect on codex (reason: known)\n"; got != want {
+	PrintAcceptedNotes([]AcceptedNote{{Text: "`tools` on 1 agent has no effect on codex (no allowlist)", Reason: "known"}})
+	if got, want := buf.String(), "  accepted: `tools` on 1 agent has no effect on codex (no allowlist)\n    reason: known\n"; got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
@@ -79,7 +125,7 @@ func TestAcceptCoverageNotes_KeepsOtherTargetsEnvironmentNote(t *testing.T) {
 	NoteFieldNoOp("cursor", spec.KindEnvironment, "tasks", 1, "no file for it")
 
 	AcceptCoverageNotes([]config.CoverageAccept{
-		{Target: "codex", Kind: "environments", Field: "tasks", Reason: "known"},
+		{Target: config.CoverageTargets{"codex"}, Kind: "environments", Field: "tasks", Reason: "known"},
 	})
 
 	if got := PendingTargetCoverageNotesCount(); got != 1 {

@@ -295,7 +295,17 @@
     "CoverageAccept": {
       "properties": {
         "target": {
-          "type": "string"
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ]
         },
         "kind": {
           "type": "string",
@@ -315,6 +325,12 @@
         "field": {
           "type": "string"
         },
+        "via": {
+          "type": "string"
+        },
+        "surface": {
+          "type": "string"
+        },
         "reason": {
           "type": "string"
         }
@@ -329,6 +345,9 @@
     },
     "CoverageConfig": {
       "properties": {
+        "fail-on-notes": {
+          "type": "boolean"
+        },
         "accept": {
           "items": {
             "$ref": "#/$defs/CoverageAccept"

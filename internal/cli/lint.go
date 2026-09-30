@@ -122,9 +122,16 @@ func newLintCmd() *cobra.Command {
 // lintScopeFindings is every finding `lint` reports for a scope. doctor
 // reads the same set, so it cannot pass while lint has findings.
 func lintScopeFindings(scope checkScope) ([]lintFinding, error) {
+	findings, _, err := lintScopeReport(scope)
+	return findings, err
+}
+
+// lintScopeReport is lintScopeFindings plus the number of coverage notes
+// coverage.accept matched, which doctor reports from the same emission.
+func lintScopeReport(scope checkScope) ([]lintFinding, int, error) {
 	budget, err := lintBudgetFindings(scope)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	findings := collectLintFindings(scope.targets, scope.support, scope.bundle)
 	if scope.global {
@@ -133,19 +140,18 @@ func lintScopeFindings(scope checkScope) ([]lintFinding, error) {
 	}
 	findings = append(findings, budget...)
 	findings = append(findings, lintGitignoreCommitTargets(scope.cfg)...)
+	accepted := 0
 	if !scope.global {
 		permissions, err := lintCodexPermissions(scope.targets, scope.cfg, scope.bundle)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		findings = append(findings, permissions...)
-		stale, err := lintCoverageAccept(scope.cfg, scope.bundle, scope.targets)
-		if err != nil {
-			return nil, err
-		}
-		findings = append(findings, stale...)
+		coverage := matchCoverageAccept(scope.cfg, scope.bundle, scope.targets)
+		findings = append(findings, lintCoverageAccept(coverage)...)
+		accepted = coverage.accepted
 	}
-	return findings, nil
+	return findings, accepted, nil
 }
 
 // collectLintFindings runs every rule against a loaded bundle. Both `lint`
