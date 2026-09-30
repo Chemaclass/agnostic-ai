@@ -16,6 +16,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claudehooks"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -948,6 +949,9 @@ func mergeCodexHooksJSON(root string, hooks map[codexHookKey]*codexHookSlot) err
 				// Sync prefixes the target export and copies the declared
 				// command into commandWindows; neither belongs in the spec.
 				h.Command = adapters.StripHookTargetExport(h.Command, "codex")
+				if codex.IsProtectHookCommand(h.Command) {
+					continue
+				}
 				if h.CommandWindows == h.Command {
 					h.CommandWindows = ""
 				}

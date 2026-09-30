@@ -99,6 +99,10 @@ The command lists read back as `Bash(...)` rules: `commandAllowlist` to `allow`,
 | `outputs.factory.mcp-file` | `.factory/mcp.json` |
 | `outputs.factory.conf-file` | `.factory/settings.json` |
 
+## Protected paths
+
+Advisory. This target has no native edit guard that sync writes, so sync prints a coverage note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+
 ## Verify
 
 1. Install the Factory CLI ([subagents docs](https://docs.factory.ai/harness/subagents)).

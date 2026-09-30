@@ -24,6 +24,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `doctor` fails on lint errors, `sync --diff` requires `--check`, and a `requires` bump no longer trips AAI-005 or `--check --against` (#1425, #1433, #1439).
 
 - `install-hook --post-checkout` adds `post-merge` to restore generated files after pulls; `sync --untrack` warns other clones to install it (#1478).
+- A settings `protected` block lists files agents must not edit without asking. Claude Code gets `Edit` rules, Codex a generated hook, and other targets a coverage note; `lint` flags generated paths (#1497).
 - `validate` notes a listed `sources` directory that does not exist instead of failing, so a fresh clone without empty source dirs passes (#1491).
 
 ### By tool

@@ -73,6 +73,10 @@ Ignore specs write project-root `.crushignore` in gitignore syntax, supported si
 
 Crush has no verified directory scope, so scoped source rules are skipped on sync, and import cannot recover scope from flattened instructions. See [scoped context](@/docs/scoped-context.md).
 
+## Protected paths
+
+Advisory. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+
 ## Verify
 
 1. Install: `brew install charmbracelet/tap/crush` (or see the [README](https://github.com/charmbracelet/crush)).

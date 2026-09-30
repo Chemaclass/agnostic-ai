@@ -77,6 +77,10 @@ See [scoped context](@/docs/scoped-context.md).
 | `outputs.goose.hooks-file` | `.agents/plugins/agnostic-ai/hooks/hooks.json` | overrides must keep the `<plugin>/hooks/hooks.json` suffix |
 | `outputs.goose.review-file` | `.agents/REVIEW.md` | relative to each scope |
 
+## Protected paths
+
+Advisory. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+
 ## Verify
 
 1. Install Goose ([docs](https://goose-docs.ai)).

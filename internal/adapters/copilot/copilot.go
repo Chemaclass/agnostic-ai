@@ -183,6 +183,12 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
+// ProtectedPaths explains why protected paths stay advisory: Copilot's
+// permission rules live only in device-level MDM settings.
+func (Adapter) ProtectedPaths() (enforcement, reason string) {
+	return "", "Copilot takes deny and ask rules only from device-level MDM settings, so protected paths are advisory; state them in a rule"
+}
+
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
 // Emit writes per-rule instructions, one native agent profile per

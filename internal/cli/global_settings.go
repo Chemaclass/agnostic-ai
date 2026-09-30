@@ -67,8 +67,11 @@ type globalSetting struct {
 // native keys its user settings file takes. Unsupported fields raise a coverage note.
 func globalSettingsFor(target string, g globalTarget, settings []spec.Entry) []globalSetting {
 	f := g.settings
-	models, efforts, custom := 0, 0, 0
+	models, efforts, custom, protected := 0, 0, 0, 0
 	for _, entry := range settings {
+		if _, ok := entry.Meta["protected"]; ok {
+			protected++
+		}
 		one := []spec.Entry{entry}
 		if adapters.SettingsModel(one, target) != "" {
 			models++
@@ -80,6 +83,7 @@ func globalSettingsFor(target string, g globalTarget, settings []spec.Entry) []g
 			custom++
 		}
 	}
+	adapters.NoteSettingsFieldNoOp(target, "protected", protected, "protected paths are relative to a project, so sync --global does not write them")
 	permissions := globalPermissionSettings(target, f, settings)
 	if f.path == "" {
 		const reason = "sync --global does not write this target's user settings yet"

@@ -67,6 +67,29 @@ func TestBuildSpecSettings_EmptyWhenNoFields(t *testing.T) {
 	}
 }
 
+func TestBuildSpecSettings_ProtectedPathsBecomeEditRules(t *testing.T) {
+	got := buildSpecSettings([]spec.Entry{
+		settingsEntry(map[string]any{"permissions": map[string]any{"ask": []any{"Bash(git push:*)"}}}),
+		settingsEntry(map[string]any{"protected": map[string]any{"paths": []any{".github/**", "composer.lock"}, "reason": "CI"}}),
+		settingsEntry(map[string]any{"protected": map[string]any{"paths": []any{"migrations/"}, "decision": "deny"}}),
+	})
+	perms := got["permissions"].(map[string]any)
+	if want := []any{"Bash(git push:*)", "Edit(/.github/**)", "Edit(/composer.lock)"}; !reflect.DeepEqual(perms["ask"], want) {
+		t.Errorf("ask = %v, want %v", perms["ask"], want)
+	}
+	if want := []any{"Edit(/migrations/**)"}; !reflect.DeepEqual(perms["deny"], want) {
+		t.Errorf("deny = %v, want %v", perms["deny"], want)
+	}
+}
+
+func TestEmit_RejectsAnInvalidProtectedBlock(t *testing.T) {
+	testutil.TempCwd(t)
+	b := spec.NewBundle([]spec.Entry{settingsEntry(map[string]any{"protected": map[string]any{"paths": []any{"../x"}}})})
+	if err := New().Emit(emit.NewSession(), b, &config.Config{}, false); err == nil {
+		t.Fatal("want an error for a path outside the project")
+	}
+}
+
 // A settings spec alone (no hooks, no config) still writes settings.json.
 func TestEmit_SettingsSpecWritesSettingsJSON(t *testing.T) {
 	dir := testutil.TempCwd(t)

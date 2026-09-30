@@ -1,0 +1,6 @@
+{
+  "ask": [
+    "Edit(/.github/**)",
+    "Edit(/composer.lock)"
+  ]
+}

@@ -91,6 +91,10 @@ Both skill directories are read because [Skills](https://cursor.com/docs/skills.
 
 Import round-trips cleanly: a later `sync` regenerates equivalent rules, skill folders, command files, and `BUGBOT.md` files. Cursor writes no `argument-hint` or `allowed-tools` on a skill, so import leaves both on the spec. Keys Cursor does write, such as a skill's `icon` or an agent's `model`, follow the native file, so deleting one there deletes it from the spec. A rule's frontmatter comes from the `.mdc` alone, so widening `globs` to `**/*` unscopes the spec.
 
+## Protected paths
+
+Advisory. Cursor takes no settings specs, so sync reports a spec with a `protected` block as unsupported. The Cursor CLI reads `Write(<glob>)` deny rules from `.cursor/cli.json` ([CLI permissions](https://cursor.com/docs/cli/reference/permissions)); sync does not write that file yet. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+
 ## Verify
 
 1. Install Cursor from [cursor.com](https://cursor.com).

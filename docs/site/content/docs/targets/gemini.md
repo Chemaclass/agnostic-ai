@@ -66,6 +66,10 @@ GEMINI.md                              # entry-point pointer body (written by sy
 | `outputs.gemini.rules-file` | unset | writes legacy concatenated rules and skips the pointer-body write |
 | `outputs.gemini.ignore-file` | `.geminiignore` | |
 
+## Protected paths
+
+Advisory. Gemini CLI's policy engine documents a deny rule for `write_file` and `replace`, but its workspace tier "is currently non-functional", so a project `.gemini/policies/*.toml` has no effect ([policy engine](https://geminicli.com/docs/reference/policy-engine/)). Sync prints a coverage note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+
 ## Verify
 
 1. Install: `npm install -g @google/gemini-cli` ([docs](https://geminicli.com/docs/)).

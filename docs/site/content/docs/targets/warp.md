@@ -47,6 +47,10 @@ AGENTS.md                              # canonical entry-point pointer body (wri
 
 Skills import from `<root>/skills/` for each root Warp scans: `.agents`, `.warp`, `.claude`, `.codex`, `.cursor`, `.gemini`, `.copilot`, `.factory`, `.github`, and `.opencode`. Each skill is copied with all bundled assets. Earlier roots win duplicate names within the same scope, and scoped paths stay together.
 
+## Protected paths
+
+Advisory. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+
 ## Verify
 
 1. Install Warp from [warp.dev](https://www.warp.dev).
