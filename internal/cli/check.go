@@ -498,7 +498,8 @@ func newDoctorCmd() *cobra.Command {
 			"     a generated file still tracked despite being ignored.\n" +
 			"     --check-globs and --check-references add opt-in checks here.\n" +
 			"  6. Check MCP server command binaries.\n" +
-			"  7. Suggest a concrete next step.\n\n" +
+			"  7. Check existing packaging ignore files against generated paths.\n" +
+			"  8. Suggest a concrete next step.\n\n" +
 			"Exits non-zero on any drift or lint error; lint warnings show without\n" +
 			"failing. Subcommands run individual checks.",
 		Example: `  # Full diagnostic (CI gate)
@@ -539,7 +540,7 @@ func newDoctorCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return printDoctorJSON(cmd, reports, refs, checkRefs, lint)
+				return printDoctorJSON(cmd, reports, refs, checkRefs, lint, collectPackagingIgnoreFindings(reports))
 			}
 
 			configOK := doctorConfigOK()
@@ -642,11 +643,14 @@ func newDoctorCmd() *cobra.Command {
 			copiesOnly = copiesOnly && !scriptDrift
 			hasDrift = hasDrift || scriptDrift || len(copies) > 0
 
+			packaging := collectPackagingIgnoreFindings(reports)
+			reportPackagingIgnoreFindings(cmd, packaging)
+
 			// 6. Next step
 			manualFiles, manualOnly := manualOnlyDrift(reports)
 			// Hook script divergence is drift a scope document does not explain.
 			manualOnly = manualOnly && !scriptDrift && len(copies) == 0
-			doctorNextStep(cmd, hasDrift, manualOnly, copiesOnly, manualFiles, len(lint), nil)
+			doctorNextStep(cmd, hasDrift, manualOnly, copiesOnly, manualFiles, len(lint), nil, len(packaging))
 
 			// A rule whose globs match nothing never loads, so it
 			// silently does not exist. Reported before, but exit 0 meant
@@ -692,24 +696,26 @@ func newDoctorCmd() *cobra.Command {
 	return cmd
 }
 
-// doctorJSONOutput extends the shared JSON schema with lint findings and
-// the opt-in reference findings. The references key is present only under
-// --check-references.
+// doctorJSONOutput adds lint, packaging warnings, and opt-in reference findings.
 type doctorJSONOutput struct {
 	jsonOutput
-	Lint       []lintFinding       `json:"lint"`
-	References *[]referenceFinding `json:"references,omitempty"`
+	Lint            []lintFinding            `json:"lint"`
+	References      *[]referenceFinding      `json:"references,omitempty"`
+	PackagingIgnore []packagingIgnoreFinding `json:"packaging_ignore"`
 }
 
 // printDoctorJSON emits a JSON drift report for `doctor`. Mirrors the schema
 // used by `sync --check --json`: missing, stale, and orphaned files appear
-// in writes. Lint findings appear in lint. With checkRefs, broken skill
+// in writes. Lint and packaging findings have their own lists. With checkRefs, broken skill
 // references appear in references.
-func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []referenceFinding, checkRefs bool, lint []lintFinding) error {
+func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []referenceFinding, checkRefs bool, lint []lintFinding, packaging []packagingIgnoreFinding) error {
 	if lint == nil {
 		lint = []lintFinding{}
 	}
-	out := doctorJSONOutput{jsonOutput: jsonOutput{Version: "1", Command: "doctor", Writes: driftRecords(reports)}.withEmptyLists(), Lint: lint}
+	out := doctorJSONOutput{jsonOutput: jsonOutput{Version: "1", Command: "doctor", Writes: driftRecords(reports)}.withEmptyLists(), Lint: lint, PackagingIgnore: packaging}
+	if out.PackagingIgnore == nil {
+		out.PackagingIgnore = []packagingIgnoreFinding{}
+	}
 	if checkRefs {
 		if refs == nil {
 			refs = []referenceFinding{}

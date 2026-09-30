@@ -118,7 +118,7 @@ Report missing (never synced), stale (out of date with the specs), edited (chang
 | `--backup` | With `--fix`, copy each existing file to `<path>.bak` before overwriting. |
 | `--check-globs` | Flag rules whose `globs:` match no files. Off by default. |
 | `--check-references` | Flag relative Markdown links in generated skills whose file is missing on disk. Off by default. |
-| `--json` | Drift report as JSON, same schema as `sync --check --json`, plus a `lint` list. With `--check-references`, adds a `references` list. |
+| `--json` | Drift report as JSON, same schema as `sync --check --json`, plus `lint` and `packaging_ignore` lists. With `--check-references`, adds a `references` list. |
 
 `--check-references` reads each Markdown document a selected target writes for its skills. A link is valid when it resolves from the document's own directory or, inside the project, from the project root. Code spans, code blocks, URLs, absolute paths, and `#fragment`-only links are skipped; only the file of a `file#fragment` link is checked. [`doctor.check-references.ignore`](@/docs/configuration.md#doctorcheck-referencesignore) exempts destinations that can never resolve. It exits non-zero on any broken link. Findings group by source spec and link:
 
@@ -135,12 +135,19 @@ Then doctor prints:
 | Block | What it shows | Counts as drift |
 |-------|---------------|-----------|
 | **Spec health** | The findings `agnostic-ai lint` reports. An error fails doctor; a warning shows without failing. With any finding, the next step points at `agnostic-ai lint`. | No |
+| **Packaging ignores** | Generated paths not covered by an existing root `.npmignore`, `.vscodeignore`, or `.dockerignore`. Names the ignore file and paths. Unsupported patterns or read errors are reported separately. | No, advisory only |
 | **Tracked despite ignored** | A generated path git tracks and ignores, with the `git rm --cached` command. | No |
 | **MCP** | Whether each stdio `command:` resolves on PATH, with install hints. `url:`-only servers are skipped. | No |
 | **Nested CLAUDE.md** | With `claude` enabled, a hand-written `<dir>/CLAUDE.md` whose trimmed text equals the body of a rule scoped to `<dir>`, as `import claude` leaves it. Claude Code loads it beside the synced rule. A file whose text differs from every such rule is never listed. | Yes, `--fix` removes it |
 | **Script divergence** | Basenames under `.agnostic-ai/scripts/<tool>/` whose bodies differ across tools, with the suggested path `.agnostic-ai/scripts/<basename>`. | Yes, not auto-fixable |
 | **Unmanaged config** | Markdown and TOML config files without a provenance marker, grouped by the `import` source that adopts each. | No |
 | **User-owned** | [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) entries, left out of Unmanaged config. | Never |
+
+Packaging coverage uses the actual outputs for the selected targets, including configured paths and skill assets. It checks missing outputs too, so the warning can appear before sync. Doctor never changes packaging ignore files.
+
+The check handles literal paths, `*`, `?`, character classes, and `**` path segments with each format's anchoring and negation rules. Braces, extended globs, escaped patterns, and unsupported classes produce a coverage-check warning instead of a claim that paths are uncovered. This checks the existing root ignore file only. It does not predict package contents, process `package.json` allowlists, built-in package exclusions, nested ignore files, or Dockerfile-specific ignore files. Verify the result with `npm pack --dry-run`, `vsce ls`, or your Docker build context.
+
+Each `packaging_ignore` JSON entry has `path` and either `uncovered` (generated paths) or `problem` (why coverage could not be checked). Packaging warnings do not change doctor's exit code.
 
 Subcommands run one check: `doctor config` (validate `agnostic-ai.yaml`), `doctor install` (which AI CLIs are on PATH), `doctor mcp` (resolve each MCP server's command binary).
 
