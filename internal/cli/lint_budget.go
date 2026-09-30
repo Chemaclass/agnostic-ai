@@ -234,7 +234,7 @@ func alwaysOnRuleWords(cfg *config.Config, b spec.Bundle, target string) int {
 	legacyWhole := adapters.HasLegacyRulesFile(cfg, target) && !legacyRulesFileScoped[target]
 	whole := legacyWhole || adapters.ImportsRulesIntoEntryPoint(cfg, target)
 	n := 0
-	for _, r := range adapters.EntryPointRules(b, target).Rules {
+	for _, r := range adapters.EntryPointRules(b, target, cfg).Rules {
 		if whole || adapters.AlwaysOnRule(target, r) && !adapters.RuleInEntryPoint(cfg, b, target, r) {
 			n += wordsIn(r.Body)
 		}

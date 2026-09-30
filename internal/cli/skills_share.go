@@ -82,6 +82,7 @@ func planSharedSkills(cfg *config.Config, b spec.Bundle, targets []string) (*sha
 // captureRenders emits every resolvable target in capture mode and
 // returns the per-target file sets. No files touch disk.
 func captureRenders(cfg *config.Config, b spec.Bundle, targets []string) ([]targetCapture, error) {
+	cfg = cfg.WithAdditionalTargets(targets...)
 	var out []targetCapture
 	sess := adapters.NewSession()
 	for _, t := range targets {
