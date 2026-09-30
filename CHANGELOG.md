@@ -28,6 +28,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Claude Code
 
+- `gitignore.ignore-worktree-include: true` keeps the managed `.worktreeinclude` out of Git and the files-to-commit hint (#1441).
 - `import claude` turns each nested `<dir>/CLAUDE.md` into one rule scoped to its directory, and a companion that imports `@AGENTS.md` reads as that file (#1427).
 - `doctor` lists a hand-written nested `CLAUDE.md` whose text a rule scoped to its directory already holds, and `doctor --fix` removes it, so Claude Code stops loading the text twice and a Claude plus Codex project syncs without deleting it by hand. The import warning points there (#1465).
 - `import claude` writes an agent `model` set to a Claude model name (`sonnet`, `opus`, `haiku`, `inherit`, or a `claude-*` id) as `model: {claude: <name>}`, so Codex and other targets use their own default model instead of one they cannot load (#1431).
