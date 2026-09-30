@@ -83,6 +83,17 @@ var caps = emit.Capabilities{
 	ForeignClaudeModels: emit.ClaudeModelNames,
 }
 
+func capabilities(cfg *config.Config) emit.Capabilities {
+	coverage := caps
+	if emit.EmitSkillsAsCommands(cfg, target) {
+		coverage.SkillFields.AdditionalFields = func(skill spec.Entry) map[string]any {
+			fields, _ := commandMeta(skill)
+			return fields
+		}
+	}
+	return coverage
+}
+
 // skillNameRule is the regex opencode.ai/docs/skills states for a skill
 // `name`, which must also match the folder holding SKILL.md. Byte-identical
 // to Zed's rule, hence the shared emit.ValidateNames (#857).
@@ -111,7 +122,7 @@ func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 // here; this Emit only sweeps the stale `.opencode/AGENTS.md` a
 // pre-#623 sync left behind.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
-	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
+	if err := emit.ReportUnsupported(capabilities(cfg), b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 	if err := emit.ValidateNames(b.Skills, target, "skill", skillNameRule); err != nil {
@@ -325,18 +336,16 @@ func emitSkillCommands(sess *emit.Session, skills []spec.Entry, dir, skillsDir s
 	return nil
 }
 
-// commandFile renders a single command markdown file: filtered
-// frontmatter (description + optional agent/model/subtask) followed
-// by the spec body.
-func commandFile(e spec.Entry) string {
+func commandMeta(e spec.Entry) (map[string]any, []string) {
 	meta := emit.ResolveMeta(e.Meta, target)
 	front := pickKeys(meta, commandFrontmatterKeys)
 	keys := append([]string{}, commandFrontmatterKeys...)
-	// Pass through arbitrary x-opencode keys beyond the documented set so
-	// an author can declare command metadata OpenCode adds later without
-	// waiting on the allowlist. Excludes the allowlisted keys (handled by
-	// pickKeys) so nothing is emitted twice. See #367.
 	emit.MergeCustomTargetMeta(front, &keys, e.Meta, target, commandFrontmatterKeys...)
+	return front, keys
+}
+
+func commandFile(e spec.Entry) string {
+	front, keys := commandMeta(e)
 	var sb strings.Builder
 	sb.WriteString(emit.FrontmatterOrdered(front, keys))
 	sb.WriteString("\n")

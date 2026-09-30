@@ -175,7 +175,8 @@ type Gitignore struct {
 	// WorktreeInclude keeps the same managed block in `.worktreeinclude`
 	// when claude is a target, so Claude Code copies the ignored outputs
 	// and the local layer into every worktree it creates. Defaults to true.
-	WorktreeInclude *bool `yaml:"worktree-include,omitempty" json:"worktree-include,omitempty"`
+	WorktreeInclude       *bool `yaml:"worktree-include,omitempty" json:"worktree-include,omitempty"`
+	IgnoreWorktreeInclude bool  `yaml:"ignore-worktree-include,omitempty" json:"ignore-worktree-include,omitempty"`
 }
 
 // WorktreeIncludeEnabled reports whether sync manages `.worktreeinclude`.
