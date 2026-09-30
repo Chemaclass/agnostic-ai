@@ -39,6 +39,32 @@ func bashPermissionPrefix(rule string) ([]string, bool) {
 	return words, true
 }
 
+func isBashRule(rule string) bool {
+	tool, _, _ := strings.Cut(rule, "(")
+	return tool == "Bash"
+}
+
+func specPermissions(entry spec.Entry, list string) []string {
+	perms, _ := entry.Meta["permissions"].(map[string]any)
+	if values, ok := perms[list].([]string); ok {
+		return values
+	}
+	return emit.StringSlice(perms[list])
+}
+
+func specsWithOtherToolPermissions(settings []spec.Entry) int {
+	otherTool := func(rule string) bool { return rule != "" && !isBashRule(rule) }
+	n := 0
+	for _, entry := range settings {
+		if slices.ContainsFunc(specPermissions(entry, "allow"), otherTool) ||
+			slices.ContainsFunc(specPermissions(entry, "deny"), otherTool) ||
+			slices.ContainsFunc(specPermissions(entry, "ask"), otherTool) {
+			n++
+		}
+	}
+	return n
+}
+
 func permissionRules(settings []spec.Entry, cfg *config.Config) []permissionRule {
 	var rules []permissionRule
 	for _, list := range []string{"allow", "deny", "ask"} {
@@ -53,16 +79,11 @@ func permissionRules(settings []spec.Entry, cfg *config.Config) []permissionRule
 			}
 		}
 		for _, entry := range settings {
-			perms, _ := entry.Meta["permissions"].(map[string]any)
-			values, ok := perms[list].([]string)
-			if !ok {
-				values = emit.StringSlice(perms[list])
-			}
 			path := entry.Path
 			if path == "" {
 				path = "settings " + entry.Name
 			}
-			add(path, values)
+			add(path, specPermissions(entry, list))
 		}
 		if settings := cfg.Outputs["claude"].Settings; settings != nil && settings.Permissions != nil {
 			permissions := settings.Permissions
@@ -108,15 +129,18 @@ func resolveExecPolicies(settings []spec.Entry, cfg *config.Config) ([]config.Co
 		return policies, false, nil
 	}
 	for _, rule := range permissionRules(settings, cfg) {
+		if !isBashRule(rule.rule) {
+			continue
+		}
 		pattern, ok := bashPermissionPrefix(rule.rule)
 		if !ok {
-			reason := fmt.Sprintf("%s: permissions.%s rule %s cannot translate to a Codex command prefix; use outputs.codex.exec-policies", rule.path, rule.list, rule.rule)
+			unsupported := fmt.Errorf("%s: permissions.%s rule %s cannot translate to a Codex command prefix; use outputs.codex.exec-policies", rule.path, rule.list, rule.rule)
 			switch cfg.OnUnsupported {
 			case emit.OnUnsupportedError:
-				return nil, true, fmt.Errorf("codex: %s", reason)
+				return nil, true, unsupported
 			case emit.OnUnsupportedSilent:
 			default:
-				emit.NoteFieldNoOp(target, spec.KindSettings, "permissions."+rule.list, 1, reason)
+				emit.NoteFieldNoOp(target, spec.KindSettings, "permissions."+rule.list, 1, unsupported.Error())
 			}
 			continue
 		}

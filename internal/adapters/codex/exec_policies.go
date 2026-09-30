@@ -15,6 +15,8 @@ import (
 
 const permissionsUseExecPoliciesReason = "Codex has no per-tool allow/deny/ask key; its rule surface is exec policies, whose prefix_rule patterns are token lists rather than globs, so set outputs.codex.exec-policies for shell rules"
 
+const otherToolPermissionsReason = "Codex has no per-tool allow/deny/ask key and its exec policies match shell commands, so only Bash rules translate"
+
 const (
 	defaultExecPoliciesFile = ".codex/rules/default.rules"
 

@@ -169,7 +169,11 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := (Adapter{}).EmitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
 		return err
 	}
-	if !translatingPermissions && len(policies) == 0 {
+	switch {
+	case translatingPermissions:
+		emit.NoteFieldNoOp(target, spec.KindSettings, "permissions",
+			specsWithOtherToolPermissions(b.Settings), otherToolPermissionsReason)
+	case len(policies) == 0:
 		emit.NoteFieldNoOp(target, spec.KindSettings, "permissions",
 			emit.SpecsWithPermissions(b.Settings), permissionsUseExecPoliciesReason)
 	}

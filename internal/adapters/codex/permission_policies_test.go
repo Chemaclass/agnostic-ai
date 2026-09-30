@@ -54,7 +54,7 @@ func TestEmit_PermissionPoliciesTranslateConfigAndPortableLists(t *testing.T) {
 }
 
 func TestEmit_PermissionPoliciesRejectUnsupportedRuleWithItsSource(t *testing.T) {
-	cases := []string{`Bash(echo "hello world")`, "Bash(git * status)", "Bash(git status && echo ok)", "Bash(git status\necho ok)", "Bash(FOO=bar git status)", "Bash(git\u00a0diff)", "Read(secrets/**)"}
+	cases := []string{`Bash(echo "hello world")`, "Bash(git * status)", "Bash(git status && echo ok)", "Bash(git status\necho ok)", "Bash(FOO=bar git status)", "Bash(git\u00a0diff)", "Bash"}
 	for _, rule := range cases {
 		t.Run(rule, func(t *testing.T) {
 			testutil.TempCwd(t)
@@ -63,10 +63,33 @@ func TestEmit_PermissionPoliciesRejectUnsupportedRuleWithItsSource(t *testing.T)
 			cfg := permissionPolicyConfig(t, "on-unsupported: error\noutputs:\n  codex:\n    exec-policies-from-permissions: true\n")
 			b := spec.NewBundle([]spec.Entry{{Kind: spec.KindSettings, Name: "portable", Path: "settings/security.yaml", Meta: map[string]any{"permissions": map[string]any{"allow": []any{rule}}}}})
 			err := New().Emit(emit.NewSession(), b, cfg, false)
-			if err == nil || !strings.Contains(err.Error(), rule) || !strings.Contains(err.Error(), "settings/security.yaml") {
-				t.Errorf("unsupported rule should name source and exact rule, got %v", err)
+			if err == nil || !strings.Contains(err.Error(), rule) || !strings.HasPrefix(err.Error(), "settings/security.yaml: ") {
+				t.Errorf("unsupported rule should lead with its source and name the exact rule, got %v", err)
 			}
 		})
+	}
+}
+
+func TestEmit_PermissionPoliciesNoteOtherToolRulesWithoutFailing(t *testing.T) {
+	testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	var notes strings.Builder
+	previous := emit.Warner
+	emit.Warner = &notes
+	t.Cleanup(func() { emit.Warner = previous })
+	cfg := permissionPolicyConfig(t, "on-unsupported: error\noutputs:\n  codex:\n    exec-policies-from-permissions: true\n  claude:\n    settings:\n      permissions:\n        allow: [\"Bash(git diff:*)\", \"WebFetch\"]\n")
+	b := spec.NewBundle([]spec.Entry{{Kind: spec.KindSettings, Name: "security", Path: "settings/security.yaml", Meta: map[string]any{"permissions": map[string]any{"deny": []any{"Read(.env)", "mcp__github__delete_repo"}}}}})
+	if err := New().Emit(emit.NewSession(), b, cfg, false); err != nil {
+		t.Fatalf("rules for other tools failed the sync: %v", err)
+	}
+	emit.FlushCoverageNotes()
+	if !strings.Contains(notes.String(), "`permissions` on 1 settings has no effect on codex") || strings.Contains(notes.String(), "Read(.env)") {
+		t.Errorf("rules for other tools should share one permissions note:\n%s", notes.String())
+	}
+	data, err := os.ReadFile(defaultExecPoliciesFile)
+	if err != nil || !strings.Contains(string(data), `pattern = ["git", "diff"]`) {
+		t.Errorf("Bash rule not translated: %v\n%s", err, data)
 	}
 }
 
