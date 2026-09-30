@@ -60,9 +60,10 @@ func TestImportAuditNestedActivationThroughSync(t *testing.T) {
 			native := filepath.Join(root, tc.dir, "backend/frontend.md")
 			writeFile(t, native, "---\n"+tc.fields+"\n---\nGuide.\n")
 			importFn := importFromContinue
-			if tc.target == "cline" {
+			switch tc.target {
+			case "cline":
 				importFn = importFromCline
-			} else if tc.target == "qoder" {
+			case "qoder":
 				importFn = importFromQoder
 			}
 			if err := importFn(root, rootSources()); err != nil {
