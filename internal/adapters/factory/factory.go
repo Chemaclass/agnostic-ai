@@ -174,7 +174,8 @@ const (
 var droidHandBuiltKeys = []string{"name", "description", "model", "mcpServers", "effort", "reasoningEffort"}
 
 var caps = emit.Capabilities{
-	Target: target,
+	SkillFields: emit.SkillFieldCoverage{Handled: []string{manualOnlyField}},
+	Target:      target,
 	// KindRule is declared even though this adapter never writes a
 	// rules file itself: Droid CLI reads project rules exclusively
 	// from the shared AGENTS.md entry-point sync writes centrally.

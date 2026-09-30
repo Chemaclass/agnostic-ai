@@ -57,7 +57,7 @@ Keep [personal overrides](https://agnostic-ai.org/docs/local-overrides/) in `.ag
 
 ```bash
 agnostic-ai import claude codex --dry-run --diff  # preview existing tool config
-agnostic-ai compare claude cursor                # see what each tool keeps or drops
+agnostic-ai compare claude cursor                # compare agent and skill fields and rule activation
 agnostic-ai why AGENTS.md                        # trace an output to its source
 agnostic-ai sync --check                         # find local drift
 ```
