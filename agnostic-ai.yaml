@@ -81,3 +81,4 @@ sync:
   unmanaged:
     - tests/integration/fixtures/scope-union/
     - tests/integration/fixtures/rule-heading-context/
+    - tests/integration/fixtures/codex-glob-context/
