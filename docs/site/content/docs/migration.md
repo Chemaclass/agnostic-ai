@@ -75,7 +75,7 @@ agnostic-ai sync --check
 
 Inspect the diff and the native files. The first sync can add headers, normalize formatting, and replace entry-point content with the shared instructions, so check the content and not only the formatting.
 
-Choose your [Git strategy](@/docs/getting-started.md#commit-or-ignore-generated-outputs). If you commit generated files, keep this initial regeneration in a separate commit from the import. Gitignore rules do not untrack files already in Git: `sync` and `doctor` name each generated path that is still tracked, with the exact `git rm --cached` command; `sync --untrack` runs it (the working tree copy stays).
+Choose your [Git strategy](@/docs/getting-started.md#commit-or-ignore-generated-outputs). If you commit generated files, keep this initial regeneration in a separate commit from the import. Gitignore rules do not untrack files already in Git: `sync` and `doctor` name each generated path that is still tracked, with the exact `git rm --cached` command; `sync --untrack` runs it (the working tree copy stays). After committing that deletion, other clones lose these files on their next pull. Run `agnostic-ai install-hook --post-checkout` in those clones before pulling to install the checkout and merge hooks, or run `agnostic-ai sync` after pulling. The command prints this reminder, including under `--quiet` and on stderr with `--json`.
 
 ## Back up and restore
 

@@ -63,36 +63,36 @@ if [ "$git_dir" = "$common_dir" ]; then
 fi`,
 }
 
-// postCheckoutHook regenerates a worktree's tool files after a branch
-// checkout: a plain `git checkout`, `git clone` (which runs it once
-// against HEAD), or `git worktree add`. Guards on the branch-checkout
-// flag ($3) so a single-file checkout (`git checkout -- <path>`) never
-// triggers a sync, and exits 0 whenever the binary or the project
-// config is missing, so a worktree that has not installed dependencies
-// yet never fails a checkout (#1330).
+const projectSyncHookChecks = `root="$(git rev-parse --show-toplevel)" || exit 0
+command -v agnostic-ai >/dev/null 2>&1 || exit 0
+[ -f "$root/agnostic-ai.yaml" ] || exit 0
+cd "$root" && agnostic-ai sync -q`
+
 var postCheckoutHook = hookBlock{
 	file:     "post-checkout",
 	sentinel: "# agnostic-ai install-hook --post-checkout",
-	checks: `[ "$3" = "1" ] || exit 0
-root="$(git rev-parse --show-toplevel)" || exit 0
-command -v agnostic-ai >/dev/null 2>&1 || exit 0
-[ -f "$root/agnostic-ai.yaml" ] || exit 0
-cd "$root" && agnostic-ai sync -q`,
+	checks:   `[ "$3" = "1" ] || exit 0` + "\n" + projectSyncHookChecks,
+}
+
+var postMergeHook = hookBlock{
+	file:     "post-merge",
+	sentinel: "# agnostic-ai install-hook --post-checkout (post-merge)",
+	checks:   projectSyncHookChecks,
 }
 
 func newInstallHookCmd() *cobra.Command {
 	var shared, global, postCheckout bool
 	cmd := &cobra.Command{
 		Use:   "install-hook",
-		Short: "Install a pre-commit hook that runs sync --check, or a post-checkout hook that runs sync.",
+		Short: "Install a pre-commit check or checkout and merge sync hooks.",
 		Long: "Writes .git/hooks/pre-commit (or appends to an existing file). " +
 			"With --shared, writes to .githooks/pre-commit and sets core.hooksPath so " +
 			"the hook is committed alongside the project. With --global, run in the " +
 			"global home kept in git, writes a hook that runs lint --global --strict, " +
 			"validate --global, and sync --global --check. With --post-checkout, writes " +
-			".git/hooks/post-checkout (or .githooks/post-checkout with --shared) instead: " +
-			"it runs `agnostic-ai sync -q` from the worktree root after a branch or " +
-			"worktree checkout, so a fresh clone or `git worktree add` gets its tool files.",
+			"post-checkout and post-merge in .git/hooks (or .githooks with --shared) instead: " +
+			"they run `agnostic-ai sync -q` from the worktree root after a branch or " +
+			"worktree checkout or a merge, including a pull, to restore the tool files.",
 		Example: `  # Install into .git/hooks/pre-commit (local only)
   agnostic-ai install-hook
 
@@ -102,7 +102,7 @@ func newInstallHookCmd() *cobra.Command {
   # Gate commits to the global home, run inside ~/.agnostic-ai
   agnostic-ai install-hook --global
 
-  # Regenerate tool files after a branch or worktree checkout
+  # Regenerate tool files after a checkout or pull
   agnostic-ai install-hook --post-checkout
 
   # Same, committed alongside the project
@@ -115,14 +115,19 @@ func newInstallHookCmd() *cobra.Command {
 				return err
 			}
 			if postCheckout {
-				return installHook(".", postCheckoutHook, shared, cmd.OutOrStdout(), cmd.ErrOrStderr())
+				for _, block := range []hookBlock{postCheckoutHook, postMergeHook} {
+					if err := installHook(".", block, shared, cmd.OutOrStdout(), cmd.ErrOrStderr()); err != nil {
+						return err
+					}
+				}
+				return nil
 			}
 			return installPreCommitHook(".", shared, cmd.OutOrStdout(), cmd.ErrOrStderr())
 		},
 	}
 	cmd.Flags().BoolVar(&shared, "shared", false, "Write .githooks/<hook> and set core.hooksPath so the hook is shared with the team.")
 	cmd.Flags().BoolVar(&global, "global", false, "Write the pre-commit hook of the global home in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai), which must be the root of a git repository.")
-	cmd.Flags().BoolVar(&postCheckout, "post-checkout", false, "Write a post-checkout hook that runs `agnostic-ai sync -q` after a branch or worktree checkout, when the binary and agnostic-ai.yaml exist.")
+	cmd.Flags().BoolVar(&postCheckout, "post-checkout", false, "Write post-checkout and post-merge hooks that run `agnostic-ai sync -q` after a checkout or pull, when the binary and agnostic-ai.yaml exist.")
 	cmd.MarkFlagsMutuallyExclusive("shared", "global")
 	cmd.MarkFlagsMutuallyExclusive("global", "post-checkout")
 	return cmd
@@ -250,7 +255,7 @@ func sameHooksDir(a, b string) bool {
 
 // installHook writes block's hook file, locally or, with shared, into
 // the repo's shared hooks directory. Shared by the pre-commit and
-// post-checkout hooks: each names its own file via block.file.
+// regeneration hooks: each names its own file via block.file.
 func installHook(root string, block hookBlock, shared bool, out, warn io.Writer) error {
 	if shared {
 		return installSharedHook(root, block, out, warn)
