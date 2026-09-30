@@ -651,7 +651,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		adapters.PrintAcceptedNotes(accepted)
 	}
 	if unaccepted > 0 {
-		return fmt.Errorf("on-unsupported: error: %d coverage note%s above; fix the spec, or list the note under coverage.accept in agnostic-ai.yaml with a reason", unaccepted, plural(unaccepted))
+		return fmt.Errorf("on-unsupported: error: %d coverage note%s not accepted; fix the spec, or list the note under coverage.accept in agnostic-ai.yaml with a reason", unaccepted, plural(unaccepted))
 	}
 	if sweepErr != nil {
 		fmt.Fprintf(os.Stderr, "! orphan sweep: %v\n", sweepErr)

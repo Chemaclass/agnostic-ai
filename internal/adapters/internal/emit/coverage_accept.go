@@ -31,6 +31,10 @@ func AcceptCoverageNotes(accept []config.CoverageAccept) (accepted []AcceptedNot
 	coverageNoteState.mu.Lock()
 	defer coverageNoteState.mu.Unlock()
 	pruneFieldNotesLocked()
+	// The prune is final here. Run again once a note is accepted, it would
+	// read the target as having noted nothing, and drop another target's
+	// note on the same field.
+	coverageNoteState.environmentFields = nil
 	used := make([]bool, len(accept))
 	match := func(target string, kind spec.Kind, field string) (string, bool) {
 		for i, a := range accept {

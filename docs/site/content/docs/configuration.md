@@ -369,7 +369,7 @@ coverage:
 | `field` | no | The field in a "`<field>` on N specs has no effect on `<target>`" note. Leave it out to match the target's notes about the whole kind. |
 | `reason` | yes | Why the note is expected. `sync -v` prints it. |
 
-An accepted note no longer prints on `sync`, and `on-unsupported: error` ignores it. `sync -v` lists it as `accepted:` with its reason. `doctor` shows how many notes are accepted. `lint` warns with LINT022 when an entry matches no note, so an entry goes stale visibly once the target supports the field. Project-wide notes that name no target cannot be accepted and never fail the sync. A failure that `on-unsupported: error` raises while emitting, such as a Claude model name on another target, is not a note and is not affected.
+An accepted note no longer prints on `sync`, and `on-unsupported: error` ignores it. `sync -v` lists it as `accepted:` with its reason. `doctor` shows how many notes are accepted. `lint` warns with LINT022 when an entry matches no note, so an entry goes stale visibly once the target supports the field. Project-wide notes that name no target cannot be accepted and never fail the sync. A failure that `on-unsupported: error` raises while emitting, such as a Claude model name on another target or a rule scope a target cannot keep, is not a note. An entry does not stop it, even when the same entry accepts the note that `warn` prints.
 
 ## `gitignore`
 

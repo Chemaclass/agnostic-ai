@@ -67,3 +67,26 @@ func TestPrintAcceptedNotes_NamesTheReason(t *testing.T) {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
+
+// Two targets that both ignore an environment field each get a note.
+// Accepting one must leave the other in place.
+func TestAcceptCoverageNotes_KeepsOtherTargetsEnvironmentNote(t *testing.T) {
+	buf := swapWarnerForNotes(t)
+	env := []spec.Entry{{Kind: spec.KindEnvironment, Name: "dev", Meta: map[string]any{"tasks": "x"}}}
+	RecordEnvironmentFields("codex", env)
+	RecordEnvironmentFields("cursor", env)
+	NoteFieldNoOp("codex", spec.KindEnvironment, "tasks", 1, "no file for it")
+	NoteFieldNoOp("cursor", spec.KindEnvironment, "tasks", 1, "no file for it")
+
+	AcceptCoverageNotes([]config.CoverageAccept{
+		{Target: "codex", Kind: "environments", Field: "tasks", Reason: "known"},
+	})
+
+	if got := PendingTargetCoverageNotesCount(); got != 1 {
+		t.Errorf("the cursor note should stay pending, got %d", got)
+	}
+	FlushCoverageNotes()
+	if !strings.Contains(buf.String(), "`tasks` on 1 environment has no effect on cursor") {
+		t.Errorf("the unaccepted cursor note should flush:\n%s", buf)
+	}
+}

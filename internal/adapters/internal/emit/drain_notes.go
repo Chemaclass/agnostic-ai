@@ -86,10 +86,12 @@ func SetAsideNotes() (restore func()) {
 	fields := coverageNoteState.pendingField
 	surfaces := coverageNoteState.pendingSurface
 	texts := coverageNoteState.pendingText
+	environmentFields := coverageNoteState.environmentFields
 	coverageNoteState.pending = nil
 	coverageNoteState.pendingField = nil
 	coverageNoteState.pendingSurface = nil
 	coverageNoteState.pendingText = nil
+	coverageNoteState.environmentFields = nil
 	coverageNoteState.mu.Unlock()
 
 	return func() {
@@ -102,6 +104,7 @@ func SetAsideNotes() (restore func()) {
 		coverageNoteState.pendingField = fields
 		coverageNoteState.pendingSurface = surfaces
 		coverageNoteState.pendingText = texts
+		coverageNoteState.environmentFields = environmentFields
 		coverageNoteState.mu.Unlock()
 
 		Warner = warner
