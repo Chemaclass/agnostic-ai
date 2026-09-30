@@ -22,10 +22,13 @@ const worktreeSetupMarker = "agnostic-ai-worktree-setup"
 // covers `--worktree` and Desktop sessions; SessionStart does not fire
 // for a subagent, so SubagentStart covers `isolation: worktree`, whose
 // payload `cwd` is the worktree root
-// (code.claude.com/docs/en/hooks#subagentstart).
+// (code.claude.com/docs/en/hooks#subagentstart). PostToolUse on
+// EnterWorktree covers a worktree Claude enters mid-session, since the
+// payload `cwd` follows Claude into it.
 var worktreeSetupEvents = []struct{ event, matcher string }{
 	{"SessionStart", "startup"},
 	{"SubagentStart", ""},
+	{"PostToolUse", "EnterWorktree"},
 }
 
 // environmentSetup returns the setup commands the last environment spec
@@ -59,16 +62,21 @@ func emitWorktreeSetup(sess *emit.Session, envs []spec.Entry, dir string, dryRun
 	if err := sess.WriteExecutableFile(path, worktreeSetupScript(setup), dryRun); err != nil {
 		return nil, err
 	}
-	command := `sh "$CLAUDE_PROJECT_DIR/` + filepath.ToSlash(path) + `"`
+	script := `"$CLAUDE_PROJECT_DIR/` + filepath.ToSlash(path) + `"`
 	if filepath.IsAbs(path) {
-		command = "sh " + emit.ShellQuote(path)
+		script = emit.ShellQuote(filepath.ToSlash(path))
 	}
+	// A checkout without the script, such as a worktree created before
+	// the first sync, skips setup instead of failing every session start.
+	command := `f=` + script + `; [ ! -f "$f" ] || sh "$f"`
 	hooks := make([]spec.Entry, 0, len(worktreeSetupEvents))
 	for _, h := range worktreeSetupEvents {
 		hooks = append(hooks, spec.Entry{
 			Kind: spec.KindHook,
 			Name: "worktree-setup",
-			Meta: map[string]any{"event": h.event, "matcher": h.matcher, "command": command},
+			// Claude Code falls back to PowerShell on Windows without Git
+			// Bash; the command and the script need a POSIX shell.
+			Meta: map[string]any{"event": h.event, "matcher": h.matcher, "command": command, "shell": "bash"},
 		})
 	}
 	return hooks, nil

@@ -238,7 +238,7 @@ name: dev
 setup: pnpm install --frozen-lockfile
 ```
 
-Codex and Cursor run `setup` in a new worktree from their own files. For Claude Code, sync writes a `SessionStart` and a `SubagentStart` hook that run it once in each new worktree, for CLI, subagent, and Desktop worktrees alike; see [Claude Code worktree setup](@/docs/spec-format/environments.md#claude-code-worktree-setup).
+Codex and Cursor run `setup` in a new worktree from their own files. For Claude Code, sync writes hooks that run it once in each new worktree: a `--worktree` or Desktop session, a subagent worktree, or a worktree Claude enters during a session. Delete a hand-written `bootstrap.yaml` hook from an earlier version of this recipe, since Claude Code runs matching hooks in parallel. See [Claude Code worktree setup](@/docs/spec-format/environments.md#claude-code-worktree-setup).
 
 Claude Code copies the gitignored files `.worktreeinclude` lists into each new worktree, and sync keeps its managed block there when `claude` is a target (see [gitignore](@/docs/configuration.md#gitignore)). The ignored `.claude/settings.json` and the setup script then reach the worktree. Without that, commit both, so a new worktree has them before any sync runs. In `agnostic-ai.yaml`:
 

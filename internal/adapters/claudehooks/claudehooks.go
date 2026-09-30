@@ -131,7 +131,7 @@ func (o *Order) UnmarshalJSON(data []byte) error {
 const WorktreeSetupScript = "agnostic-ai-worktree-setup.sh"
 
 // IsWorktreeSetupCommand reports whether a hook command runs the
-// generated worktree setup script.
+// generated worktree setup script, in slash or Windows path form.
 func IsWorktreeSetupCommand(command string) bool {
-	return strings.Contains(command, "/"+WorktreeSetupScript)
+	return strings.Contains(strings.ReplaceAll(command, `\`, "/"), "/"+WorktreeSetupScript)
 }

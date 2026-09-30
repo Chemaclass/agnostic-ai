@@ -35,7 +35,8 @@ func readHookSettings(t *testing.T, cwd string) claudehooks.Settings {
 }
 
 // An environment spec's setup runs from a SessionStart hook for a new
-// session and a SubagentStart hook for a subagent worktree (#1498).
+// session, a SubagentStart hook for a subagent worktree, and a
+// PostToolUse hook after EnterWorktree (#1498).
 func TestEmit_EnvironmentSetupWritesWorktreeHooks(t *testing.T) {
 	cwd := t.TempDir()
 	testutil.Chdir(t, cwd)
@@ -44,11 +45,15 @@ func TestEmit_EnvironmentSetupWritesWorktreeHooks(t *testing.T) {
 		t.Fatalf("emit: %v", err)
 	}
 	s := readHookSettings(t, cwd)
-	want := `sh "$CLAUDE_PROJECT_DIR/.claude/hooks/agnostic-ai-worktree-setup.sh"`
-	for event, matcher := range map[string]string{"SessionStart": "startup", "SubagentStart": ""} {
+	want := `f="$CLAUDE_PROJECT_DIR/.claude/hooks/agnostic-ai-worktree-setup.sh"; [ ! -f "$f" ] || sh "$f"`
+	for event, matcher := range map[string]string{"SessionStart": "startup", "SubagentStart": "", "PostToolUse": "EnterWorktree"} {
 		groups := s.Hooks[event]
-		if len(groups) != 1 || groups[0].Matcher != matcher || len(groups[0].Hooks) != 1 || groups[0].Hooks[0].Command != want {
-			t.Errorf("%s hooks = %+v, want one %q group running %s", event, groups, matcher, want)
+		if len(groups) != 1 || groups[0].Matcher != matcher || len(groups[0].Hooks) != 1 {
+			t.Errorf("%s hooks = %+v, want one %q group with one handler", event, groups, matcher)
+			continue
+		}
+		if h := groups[0].Hooks[0]; h.Command != want || h.Shell != "bash" {
+			t.Errorf("%s handler = %+v, want bash running %s", event, h, want)
 		}
 	}
 	script := filepath.Join(cwd, ".claude", "hooks", claudehooks.WorktreeSetupScript)
@@ -63,6 +68,30 @@ func TestEmit_EnvironmentSetupWritesWorktreeHooks(t *testing.T) {
 		if info, err := os.Stat(script); err != nil || info.Mode().Perm()&0o100 == 0 {
 			t.Errorf("script mode = %v, %v; want executable", info.Mode(), err)
 		}
+	}
+}
+
+// A worktree checked out without the script, such as one created before
+// the first sync, runs a hook command that does nothing.
+func TestEmit_WorktreeSetupCommandSkipsMissingScript(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("sh not on PATH")
+	}
+	cwd := t.TempDir()
+	testutil.Chdir(t, cwd)
+	if err := New().Emit(emit.NewSession(), environmentBundle(map[string]any{"setup": "false"}), &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	command := readHookSettings(t, cwd).Hooks["SessionStart"][0].Hooks[0].Command
+	if err := os.Remove(filepath.Join(cwd, ".claude", "hooks", claudehooks.WorktreeSetupScript)); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("sh", "-c", command)
+	cmd.Env = append(os.Environ(), "CLAUDE_PROJECT_DIR="+cwd, "AGNOSTIC_AI_TARGET=claude")
+	cmd.Stdin = strings.NewReader(`{"cwd":"` + cwd + `"}`)
+	out, err := cmd.CombinedOutput()
+	if err != nil || len(out) != 0 {
+		t.Errorf("hook with no script: err %v, output %q; want exit 0 and no output", err, out)
 	}
 }
 
