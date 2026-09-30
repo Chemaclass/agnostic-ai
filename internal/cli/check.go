@@ -222,10 +222,15 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 		emitted[outputManifestPath] = true
 	}
 	reports = append(reports, epRep)
-	// Orphans no captured producer generates stay listed; only removal needs every producer.
-	generated, _, err := orphanGeneratedPaths(cfg, b, reports)
+	generated, unloaded, err := orphanGeneratedPaths(cfg, b, reports)
 	if err != nil {
 		return nil, err
+	}
+	for _, target := range unloaded {
+		// A requested target that failed to resolve was reported above.
+		if !slices.Contains(targets, target) {
+			fmt.Fprintf(os.Stderr, "! could not load %s to check orphans; orphans it may still generate stay listed\n", target)
+		}
 	}
 	for i := range reports {
 		reports[i].Orphaned = slices.DeleteFunc(reports[i].Orphaned, func(path string) bool {

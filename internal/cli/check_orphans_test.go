@@ -558,7 +558,9 @@ func TestOrphanCheck_SkipsTargetsItCannotLoad(t *testing.T) {
 			logOut = &logged
 			defer func() { logOut = prev }()
 
-			out, err := runCLI(t, tc.args...)
+			var out string
+			var err error
+			stderr := captureStderr(t, func() { out, err = runCLI(t, tc.args...) })
 
 			if err == nil || !strings.Contains(err.Error(), "drift detected") {
 				t.Errorf("error=%v, want the drift error", err)
@@ -568,6 +570,9 @@ func TestOrphanCheck_SkipsTargetsItCannotLoad(t *testing.T) {
 			}
 			if !strings.Contains(logged.String(), keptReference) {
 				t.Errorf("recorded orphan not reported:\n%s%s", logged.String(), out)
+			}
+			if !strings.Contains(stderr, tc.target) || strings.Count(stderr, "could not load") > 1 {
+				t.Errorf("want one warning naming %s, got stderr:\n%s", tc.target, stderr)
 			}
 		})
 	}
