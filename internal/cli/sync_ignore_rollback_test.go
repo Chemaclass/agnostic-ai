@@ -60,19 +60,64 @@ func TestSync_FailedIgnoreWriteRestoresGitignoreOfSweptOrphan(t *testing.T) {
 }
 
 func TestSync_FailedIgnoreWriteRemovesTheGitignoreItCreated(t *testing.T) {
-	for _, args := range [][]string{{"sync"}, {"sync", "--json"}} {
-		t.Run(strings.Join(args, " "), func(t *testing.T) {
-			testutil.TempCwd(t)
-			silence(t)
-			captureLogOut(t)
-			mustWriteFile(t, "agnostic-ai.yaml", ignoreRollbackConfig)
+	testutil.TempCwd(t)
+	silence(t)
+	captureLogOut(t)
+	mustWriteFile(t, "agnostic-ai.yaml", ignoreRollbackConfig)
 
-			ignoreRollbackFail(t, args)
+	ignoreRollbackFail(t, []string{"sync"})
 
-			if _, err := os.Lstat(".gitignore"); !os.IsNotExist(err) {
-				t.Errorf("failed sync left the .gitignore it created: %v", err)
-			}
-		})
+	if _, err := os.Lstat(".gitignore"); !os.IsNotExist(err) {
+		t.Errorf("failed sync left the .gitignore it created: %v", err)
+	}
+}
+
+// sync --json keeps what targets wrote, so a failure after .gitignore
+// leaves a block that still ignores it.
+func TestSyncJSON_FailedWorktreeIncludeKeepsTheGitignoreItCreated(t *testing.T) {
+	dir, _ := gitRepo(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	captureLogOut(t)
+	mustWriteFile(t, "agnostic-ai.yaml", ignoreRollbackConfig)
+
+	ignoreRollbackFail(t, []string{"sync", "--json"})
+
+	if !fileExists("AGENTS.md") {
+		t.Fatal("sync --json did not keep AGENTS.md")
+	}
+	if !gitIgnored(t, dir, "AGENTS.md") {
+		t.Errorf("AGENTS.md is exposed to git add after the failed sync")
+	}
+}
+
+// The sweep sync --json undoes puts an orphan back beside the outputs it
+// keeps, so the block must ignore both.
+func TestSyncJSON_FailedWorktreeIncludeKeepsNewAndRestoredPathsIgnored(t *testing.T) {
+	dir, _ := gitRepo(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	captureLogOut(t)
+	mustWriteFile(t, "agnostic-ai.yaml", ignoreRollbackConfig)
+	mustWriteFile(t, ".agnostic-ai/skills/gone/SKILL.md", "---\nname: gone\ndescription: Gone.\n---\nOld.\n")
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if err := os.RemoveAll(".agnostic-ai/skills"); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, ".agnostic-ai/agents/helper.md", "---\nname: helper\ndescription: Helps.\n---\nHelp.\n")
+
+	ignoreRollbackFail(t, []string{"sync", "--json"})
+
+	for _, path := range []string{".agents/skills/gone/SKILL.md", ".codex/agents/helper.toml"} {
+		if !fileExists(path) {
+			t.Errorf("%s is not on disk", path)
+			continue
+		}
+		if !gitIgnored(t, dir, path) {
+			t.Errorf("%s is exposed to git add:\n%s", path, readFile(t, ".gitignore"))
+		}
 	}
 }
 

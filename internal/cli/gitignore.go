@@ -735,7 +735,8 @@ func writeWorktreeInclude(root string, cfg *config.Config, block []string) (chan
 	return true, nil
 }
 
-// priorFile is what a file held before a sync rewrote it.
+// priorFile is the state restoreFiles puts back at path after a failed
+// sync: content, or no file when absent.
 type priorFile struct {
 	path    string
 	content []byte
@@ -757,6 +758,37 @@ func priorIgnoreFiles(root string, cfg *config.Config) []priorFile {
 		case errors.Is(err, fs.ErrNotExist):
 			out = append(out, priorFile{path: path, absent: true})
 		}
+	}
+	return out
+}
+
+// widenIgnores returns files with the gitignore file at path set to list
+// every ignore of the block it held and of block, for a failed sync that
+// keeps the outputs it wrote and puts back the orphans it swept. The `!`
+// lines come from block alone, as the config it was built from asks.
+func widenIgnores(files []priorFile, path string, block []string) []priorFile {
+	out := slices.Clone(files)
+	for i, f := range out {
+		if f.path != path {
+			continue
+		}
+		var ignores, allows []string
+		for _, e := range managedBlockLines(string(f.content)) {
+			if !strings.HasPrefix(e, "!") {
+				ignores = append(ignores, e)
+			}
+		}
+		for _, e := range block {
+			switch {
+			case strings.HasPrefix(e, "!"):
+				allows = append(allows, e)
+			case !slices.Contains(ignores, e):
+				ignores = append(ignores, e)
+			}
+		}
+		sort.Strings(ignores)
+		content := replaceManagedBlock(stripLooseFixedDuplicates(string(f.content)), append(ignores, allows...))
+		out[i] = priorFile{path: path, content: []byte(content)}
 	}
 	return out
 }

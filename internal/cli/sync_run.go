@@ -850,7 +850,8 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	// target emits on its own session. The JSON path does not roll back
 	// writes: it reports per-target errors in the result instead. Only the
 	// orphan sweep and the ignore files are undone, when an ignore file
-	// fails after the sweep.
+	// fails after the sweep, and a .gitignore written by then keeps
+	// ignoring the outputs that stay.
 	mainSess := adapters.NewSession()
 	mainSess.SetUnmanaged(cfg.Sync.Unmanaged)
 	if backup {
@@ -942,7 +943,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 			return undoSweep(mainSess, prior, fmt.Errorf("gitignore: %w", err))
 		}
 		if _, err := writeWorktreeInclude(root, cfg, block); err != nil {
-			return undoSweep(mainSess, prior, fmt.Errorf("worktreeinclude: %w", err))
+			return undoSweep(mainSess, widenIgnores(prior, filepath.Join(root, gitignoreRel(cfg)), block), fmt.Errorf("worktreeinclude: %w", err))
 		}
 	}
 	mainSess.Commit()
