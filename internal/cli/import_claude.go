@@ -102,6 +102,7 @@ func importFromClaude(root string, src config.Sources, layout claudeLayout) erro
 	case mirrorUnchanged:
 		summaryf("  → %s unchanged (%s matches its fenced view)\n", agnosticMainFile, mainSrc)
 	}
+	noteRepeatedClaudeModels(filepath.Join(root, layout.agents))
 	if promotedNested {
 		noteNestedClaudeEntryFile(root)
 	}

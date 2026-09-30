@@ -128,3 +128,19 @@ func TestReportUnsupported_SkipsSettingsModelNamedForTarget(t *testing.T) {
 		t.Errorf("expected no model note, got:\n%s", got)
 	}
 }
+
+func TestReportUnsupported_NamesTheTierOfATierModel(t *testing.T) {
+	buf := swapWarner(t)
+	ResetCoverageNotes()
+	t.Cleanup(ResetCoverageNotes)
+	agent := agentWithModel("agents/a.md", map[string]any{"claude": "opus", "default": "opus"})
+	agent.ModelTier = "strong"
+	if err := ReportUnsupported(foreignModelCaps(), spec.Bundle{Agents: []spec.Entry{agent}}, OnUnsupportedWarn); err != nil {
+		t.Fatal(err)
+	}
+	FlushCoverageNotes()
+	want := "(opus is a Claude model name from models.strong; add models.strong.codex so codex gets its own model)"
+	if got := buf.String(); !strings.Contains(got, want) {
+		t.Errorf("missing %q in:\n%s", want, got)
+	}
+}

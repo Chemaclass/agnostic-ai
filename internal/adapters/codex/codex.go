@@ -150,6 +150,9 @@ func (Adapter) Name() string { return target }
 
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
+// ForeignClaudeModels lists the Claude model names the agent `model` key cannot load.
+func (Adapter) ForeignClaudeModels() []string { return caps.ForeignClaudeModels }
+
 func modelCoverage(cfg *config.Config, overlayKeys map[string]bool) emit.Capabilities {
 	coverage := caps
 	codexCfg := cfg.Outputs[target].Config

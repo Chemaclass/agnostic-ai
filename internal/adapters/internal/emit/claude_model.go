@@ -18,6 +18,12 @@ func ClaudeModel(model string) bool {
 	return matchesModelName(ClaudeModelNames, model)
 }
 
+// ForeignClaudeModel reports whether model is a Claude model name that
+// matches names, the ones a target cannot load.
+func ForeignClaudeModel(names []string, model string) bool {
+	return ClaudeModel(model) && matchesModelName(names, model)
+}
+
 func matchesModelName(names []string, model string) bool {
 	return slices.ContainsFunc(names, func(name string) bool {
 		if prefix, ok := strings.CutSuffix(name, "*"); ok {
@@ -37,43 +43,48 @@ func noteForeignClaudeModels(c Capabilities, b spec.Bundle, mode string) error {
 		return nil
 	}
 	foreign := func(model string) bool {
-		return ClaudeModel(model) && matchesModelName(c.ForeignClaudeModels, model)
+		return ForeignClaudeModel(c.ForeignClaudeModels, model)
 	}
 	type hit struct {
 		kind  spec.Kind
 		path  string
 		model string
+		tier  string
 	}
 	var hits []hit
 	if c.supports(spec.KindAgent) {
 		for _, a := range b.Agents {
-			if model := sharedModel(a.Meta, c.Target); foreign(model) {
-				hits = append(hits, hit{spec.KindAgent, a.Path, model})
+			if model := SharedModel(a.Meta, c.Target); foreign(model) {
+				hits = append(hits, hit{spec.KindAgent, a.Path, model, a.ModelTier})
 			}
 		}
 	}
 	if c.supports(spec.KindSettings) && !c.SettingsModelOverridden {
-		if path, model := sharedSettingsModel(b.Settings, c.Target); foreign(model) {
-			hits = append(hits, hit{spec.KindSettings, path, model})
+		if path, model, tier := sharedSettingsModel(b.Settings, c.Target); foreign(model) {
+			hits = append(hits, hit{spec.KindSettings, path, model, tier})
 		}
 	}
 	if len(hits) == 0 {
 		return nil
 	}
-	fix := func(model string) string {
+	fix := func(model, tier string) string {
+		if tier != "" {
+			return fmt.Sprintf("is a Claude model name from models.%s; add models.%s.%s so %s gets its own model", tier, tier, c.Target, c.Target)
+		}
 		return fmt.Sprintf("is a Claude model name; write model: {claude: %s} so %s uses its own default", model, c.Target)
 	}
 	if mode == OnUnsupportedError {
 		h := hits[0]
-		return fmt.Errorf("%s: model %q %s", h.path, h.model, fix(h.model))
+		return fmt.Errorf("%s: model %q %s", h.path, h.model, fix(h.model, h.tier))
 	}
 	type group struct {
 		kind  spec.Kind
 		model string
+		tier  string
 	}
 	counts := map[group]int{}
 	for _, h := range hits {
-		counts[group{h.kind, h.model}]++
+		counts[group{h.kind, h.model, h.tier}]++
 	}
 	groups := make([]group, 0, len(counts))
 	for g := range counts {
@@ -83,18 +94,21 @@ func noteForeignClaudeModels(c Capabilities, b spec.Bundle, mode string) error {
 		if groups[i].kind != groups[j].kind {
 			return groups[i].kind < groups[j].kind
 		}
-		return groups[i].model < groups[j].model
+		if groups[i].model != groups[j].model {
+			return groups[i].model < groups[j].model
+		}
+		return groups[i].tier < groups[j].tier
 	})
 	for _, g := range groups {
-		NoteFieldNoOp(c.Target, g.kind, "model", counts[g], g.model+" "+fix(g.model))
+		NoteFieldNoOp(c.Target, g.kind, "model", counts[g], g.model+" "+fix(g.model, g.tier))
 	}
 	return nil
 }
 
-// sharedModel returns the model meta gives target through a value every
+// SharedModel returns the model meta gives target through a value every
 // target shares: a string `model`, or the map's `default`. It returns ""
 // when `x-<target>.model` or `model.<target>` names one for target.
-func sharedModel(meta map[string]any, target string) string {
+func SharedModel(meta map[string]any, target string) string {
 	if custom, ok := meta[XPrefix+target].(map[string]any); ok {
 		if _, set := custom["model"]; set {
 			return ""
@@ -114,16 +128,16 @@ func sharedModel(meta map[string]any, target string) string {
 	return ""
 }
 
-// sharedSettingsModel returns the path and model of the settings spec
-// whose `model` wins for target, when that value is shared across
+// sharedSettingsModel returns the path, model, and tier of the settings
+// spec whose `model` wins for target, when that value is shared across
 // targets. The last spec that resolves a model wins, as in SettingsModel.
-func sharedSettingsModel(entries []spec.Entry, target string) (string, string) {
-	var path, model string
+func sharedSettingsModel(entries []spec.Entry, target string) (string, string, string) {
+	var path, model, tier string
 	for _, entry := range entries {
 		if SettingsModel([]spec.Entry{entry}, target) == "" {
 			continue
 		}
-		path, model = entry.Path, sharedModel(map[string]any{"model": entry.Meta["model"]}, target)
+		path, model, tier = entry.Path, SharedModel(map[string]any{"model": entry.Meta["model"]}, target), entry.ModelTier
 	}
-	return path, model
+	return path, model, tier
 }

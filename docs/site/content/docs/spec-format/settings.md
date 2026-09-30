@@ -49,7 +49,7 @@ effort:
 | `permissions.deny` | no | empty | Rules always blocked. |
 | `permissions.ask` | no | empty | Rules that prompt before running. |
 | `permissions.default-mode` | no | unset | Claude Code starting mode for `sync --global`: `default`, `manual`, `acceptEdits`, `plan`, `auto`, `dontAsk`, or `bypassPermissions`. Other targets raise a coverage note. |
-| `model` | no | empty | Default model: a string, or a map per target with an optional `default`, like [agent `model`](@/docs/spec-format/agents.md#per-target-model-and-effort). A target with no entry and no `default` gets no model. |
+| `model` | no | empty | Default model: a string, or a map per target with an optional `default`, like [agent `model`](@/docs/spec-format/agents.md#per-target-model-and-effort), or a [tier](@/docs/spec-format/agents.md#model-tiers) name. A target with no entry and no `default` gets no model. |
 | `effort` | no | empty | Default reasoning effort: a scalar, or a map per target with an optional `default`, like [agent `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort). Separate from an agent's own `effort`. |
 | `protected` | no | unset | Files agents must not edit without asking: `paths`, `decision` (`ask` or `deny`), and `reason`. See [protected paths](#protected-paths). |
 

@@ -35,6 +35,10 @@ type explainOutput struct {
 	// project's configured targets. Helps authors anticipate the impact
 	// of enabling a new target without having to edit and re-sync.
 	WouldEmitIfEnabled []contribution `json:"would_emit_if_enabled"`
+	// ModelTier and Models report the tier and the model and effort the
+	// spec resolves to on each configured target it reaches.
+	ModelTier string         `json:"model_tier,omitempty"`
+	Models    []explainModel `json:"models,omitempty"`
 }
 
 type explainSpecRef struct {
@@ -133,6 +137,8 @@ func newExplainCmd() *cobra.Command {
 					},
 					Contributions:      configured,
 					WouldEmitIfEnabled: extra,
+					ModelTier:          entry.ModelTier,
+					Models:             explainModels(entry, configured),
 				})
 			}
 			out := cmd.OutOrStdout()
@@ -143,6 +149,7 @@ func newExplainCmd() *cobra.Command {
 			for _, c := range configured {
 				_, _ = fmt.Fprintf(out, "  %s\n", formatContribution(c))
 			}
+			printExplainModels(out, entry.ModelTier, explainModels(entry, configured))
 			if len(extra) > 0 {
 				_, _ = fmt.Fprintln(out, "")
 				_, _ = fmt.Fprintln(out, "would emit if enabled:")

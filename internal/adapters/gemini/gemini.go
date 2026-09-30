@@ -161,6 +161,9 @@ func (Adapter) ProtectedPaths() (enforcement, reason string) {
 
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
+// ForeignClaudeModels lists the Claude model names the agent `model` key cannot load.
+func (Adapter) ForeignClaudeModels() []string { return caps.ForeignClaudeModels }
+
 // Emit writes one native subagent per agent under `.gemini/agents/`
 // (plus a command TOML per agent when opted in), one TOML per command
 // under `.gemini/commands/`, one native skill folder per skill under

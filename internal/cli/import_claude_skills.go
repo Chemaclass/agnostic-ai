@@ -91,6 +91,7 @@ func importClaudeAgents(root, dstDir string, layout claudeLayout) (int, error) {
 		return 0, fmt.Errorf("read %s: %w", src, err)
 	}
 	codexPresent := codexTreeExists(root)
+	tiers := importModelTiers(root)
 	count := 0
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
@@ -107,6 +108,11 @@ func importClaudeAgents(root, dstDir string, layout claudeLayout) (int, error) {
 			out = addTargetFrontmatter(out, "claude")
 		}
 		dstPath := filepath.Join(dstDir, e.Name())
+		if spec, err := os.ReadFile(dstPath); err == nil {
+			if _, _, meta := claudeFrontmatter(string(spec)); meta != nil {
+				out = keepClaudeTierModel(out, meta, tiers)
+			}
+		}
 		if err := importMkdirAll(filepath.Dir(dstPath), 0o755); err != nil {
 			return count, fmt.Errorf("mkdir %s: %w", filepath.Dir(dstPath), err)
 		}
