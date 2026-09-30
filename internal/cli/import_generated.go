@@ -48,7 +48,11 @@ func syncedRuleHasSource(srcPath, rel, dstDir string) bool {
 	if _, err := os.Stat(filepath.Join(dstDir, rel)); err == nil {
 		return true
 	}
-	fm, _, ok := splitFrontmatter(data)
+	source, err := os.ReadFile(filepath.Join(dstDir, filepath.Base(rel)))
+	if err != nil {
+		return false
+	}
+	fm, _, ok := splitFrontmatter(source)
 	if !ok {
 		return false
 	}
@@ -56,11 +60,10 @@ func syncedRuleHasSource(srcPath, rel, dstDir string) bool {
 		Scope string `yaml:"scope"`
 	}
 	if yaml.Unmarshal(fm, &meta) != nil || meta.Scope == "" ||
-		filepath.ToSlash(filepath.Dir(rel)) != strings.Trim(filepath.ToSlash(meta.Scope), "/") {
+		filepath.ToSlash(filepath.Dir(rel)) != filepath.ToSlash(filepath.Clean(meta.Scope)) {
 		return false
 	}
-	_, err = os.Stat(filepath.Join(dstDir, filepath.Base(rel)))
-	return err == nil
+	return true
 }
 
 // unchangedSinceSync reports whether data, the content of path, is what

@@ -105,3 +105,19 @@ func TestImport_SyncThenImportKeepsAgentSpecFrontmatter(t *testing.T) {
 		})
 	}
 }
+
+func TestImportCodex_SyncThenImportKeepsOmittedSkillFields(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	const path = ".agnostic-ai/skills/review/SKILL.md"
+	writeFile(t, path, "---\nname: review\ndescription: Review code.\nargument-hint: '[file]'\nallowed-tools: [Read]\neffort: high\n---\n\nReview.\n")
+	execCLI(t, "sync")
+	execCLI(t, "import", "codex")
+	got := readFile(t, path)
+	for _, field := range []string{"argument-hint: '[file]'", "allowed-tools: [Read]", "effort: high"} {
+		if !strings.Contains(got, field) {
+			t.Errorf("omitted skill field %s missing after import:\n%s", field, got)
+		}
+	}
+}

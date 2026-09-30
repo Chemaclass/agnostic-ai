@@ -22,6 +22,13 @@ func nestSectionHeadings(body string) string {
 	htmlEnd := ""
 	for i, raw := range lines {
 		line := strings.TrimSuffix(raw, "\r")
+		if htmlBlock {
+			if htmlEnd == "" && strings.TrimSpace(line) == "" || htmlEnd != "" && strings.Contains(strings.ToLower(line), htmlEnd) {
+				htmlBlock = false
+			}
+			paragraph = -1
+			continue
+		}
 		indent := len(line) - len(strings.TrimLeft(line, " "))
 		if indent > 3 || strings.HasPrefix(line[indent:], "\t") {
 			paragraph = -1
@@ -33,13 +40,6 @@ func nestSectionHeadings(body string) string {
 			if run >= fenceLength && strings.TrimSpace(line[run:]) == "" {
 				fence = 0
 			}
-			continue
-		}
-		if htmlBlock {
-			if htmlEnd == "" && strings.TrimSpace(line) == "" || htmlEnd != "" && strings.Contains(strings.ToLower(line), htmlEnd) {
-				htmlBlock = false
-			}
-			paragraph = -1
 			continue
 		}
 		if end, starts := sectionHTMLBlock(line); starts {

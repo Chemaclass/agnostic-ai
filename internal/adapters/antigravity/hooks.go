@@ -179,7 +179,7 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 		for _, command := range commands {
 			handlers = append(handlers, hookHandler{
 				Type:    "command",
-				Command: emit.RewriteHookPath(command, target),
+				Command: emit.RewriteHookPath(command, target, h.Meta),
 				Timeout: timeout,
 			})
 		}
