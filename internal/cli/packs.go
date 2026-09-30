@@ -492,9 +492,10 @@ func resolvePacksLayers(projectRoot string) []spec.Layer {
 			continue
 		}
 		out = append(out, spec.Layer{
-			Name:    layerNamePackPrefix + p.Name,
-			Root:    root,
-			Sources: defaultLayerSources(),
+			Name:     layerNamePackPrefix + p.Name,
+			Root:     root,
+			Sources:  defaultLayerSources(),
+			RuleRoot: projectRoot,
 		})
 	}
 	return out

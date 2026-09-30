@@ -676,13 +676,15 @@ type Layer struct {
 	// IncludeRoot is the project root that review `@path` lines resolve
 	// from. Empty leaves those lines as written.
 	IncludeRoot string
+	// RuleRoot overrides IncludeRoot for rule folders without expanding review includes.
+	RuleRoot string
 }
 
 // LoadBundle walks the source directories under root and returns a
 // pre-bucketed Bundle. Single-layer convenience wrapper around
 // LoadLayered.
 func LoadBundle(root string, cfg *config.Config) (Bundle, error) {
-	return LoadLayered([]Layer{{Name: "project", Root: root, Sources: cfg.Sources}})
+	return LoadLayered([]Layer{{Name: "project", Root: root, Sources: cfg.Sources, RuleRoot: root}})
 }
 
 // LoadLayered walks each layer's source directories in order and merges
@@ -715,6 +717,10 @@ func LoadLayered(layers []Layer) (Bundle, error) {
 
 func loadLayer(layer Layer) (Bundle, error) {
 	var b Bundle
+	ruleRoot := layer.RuleRoot
+	if ruleRoot == "" {
+		ruleRoot = layer.IncludeRoot
+	}
 	loaders := []struct {
 		src   string
 		ext   string
@@ -745,7 +751,7 @@ func loadLayer(layer Layer) (Bundle, error) {
 			}
 			return Bundle{}, fmt.Errorf("load %s [%s]: %w", l.kind, layer.Name, err)
 		}
-		assignScopes(entries, dir, l.kind, layer.IncludeRoot)
+		assignScopes(entries, dir, l.kind, ruleRoot)
 		if l.kind == KindReview && layer.IncludeRoot != "" {
 			if err := resolveEntryIncludes(entries, layer.IncludeRoot); err != nil {
 				return Bundle{}, err

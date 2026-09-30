@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -158,6 +159,41 @@ func TestResolveLayers_PacksLayerInsertedBeforeProject(t *testing.T) {
 	}
 	if layers[1].Name != layerNameProject {
 		t.Errorf("layer[1]=%q, want %q", layers[1].Name, layerNameProject)
+	}
+}
+
+func TestResolveLayers_PackRuleFoldersUseConsumingProjectDirectories(t *testing.T) {
+	root := testutil.TempCwd(t)
+	src := filepath.Join(t.TempDir(), "module-rules")
+	mustWrite(t, filepath.Join(src, "rules", "modules", "grouped.md"), "---\nname: grouped\n---\nGrouped.\n")
+	mustWrite(t, filepath.Join(src, "modules", "module.go"), "package modules\n")
+	mustWrite(t, filepath.Join(src, "rules", "backend", "auth.md"), "---\nname: auth\n---\nAuth.\n")
+	mustWrite(t, filepath.Join(src, "reviews", "review.md"), "---\nname: review\n---\n@missing.md\n")
+	if err := os.MkdirAll(filepath.Join(root, "backend"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	if err := runPacksAdd(root, src, "", &out); err != nil {
+		t.Fatalf("add: %v", err)
+	}
+	b, err := spec.LoadLayered(resolveLayers(root, &config.Config{Sources: defaultLayerSources()}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(b.Rules) != 2 {
+		t.Fatalf("expected two rules, got %d", len(b.Rules))
+	}
+	for _, r := range b.Rules {
+		want := ""
+		if r.Name == "auth" {
+			want = "backend"
+		}
+		if got, err := spec.RuleScope(r); err != nil || got != want {
+			t.Errorf("%s: RuleScope() = %q, %v; want %q", r.Name, got, err, want)
+		}
+	}
+	if len(b.Reviews) != 1 || b.Reviews[0].Body != "@missing.md\n" {
+		t.Errorf("pack review includes must remain literal, got %+v", b.Reviews)
 	}
 }
 
