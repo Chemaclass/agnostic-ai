@@ -206,7 +206,7 @@ func importKiroSteeringFile(root, path, filename string, src config.Sources, c *
 		return fmt.Errorf("read %s: %w", path, err)
 	}
 	meta, body := splitMdcFrontmatter([]byte(header.Strip(string(data))))
-	kind, name := classifyRulesDirFile(filename)
+	kind, name := classifyRulesDirFile(filename, data)
 	switch kind {
 	case "agents":
 		out := filepath.Join(root, src.Agents, name+".md")

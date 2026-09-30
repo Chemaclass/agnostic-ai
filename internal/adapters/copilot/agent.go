@@ -2,6 +2,7 @@ package copilot
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -28,7 +29,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 		if dropped && (!sess.UserTier() || !supportedEffort(a)) {
 			droppedEffort++
 		}
-		path := filepath.Join(dir, a.Name+agentFileSuffix)
+		path := agentPath(dir, a.Name)
 		if err := sess.WriteFile(path, emit.WithHeader(body, emit.FormatMarkdown), dryRun); err != nil {
 			return err
 		}
@@ -36,6 +37,21 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 	emit.NoteFieldNoOp(target, spec.KindAgent, "effort", droppedEffort,
 		"Copilot agent profiles have no effort key; set a per-agent effortLevel of low, medium, high, or xhigh under subagents.agents in ~/.copilot/settings.json")
 	return nil
+}
+
+// agentPath is `<dir>/<name>.agent.md`, unless the agent already lives at
+// `<dir>/<name>.md`: VS Code reads "any .md files in the .github/agents
+// folder" (code.visualstudio.com/docs/copilot/customization/custom-agents),
+// so writing the .agent.md form next to it would load the agent twice.
+func agentPath(dir, name string) string {
+	plain := filepath.Join(dir, name+".md")
+	suffixed := filepath.Join(dir, name+agentFileSuffix)
+	if _, err := os.Stat(suffixed); err != nil {
+		if _, err := os.Stat(plain); err == nil {
+			return plain
+		}
+	}
+	return suffixed
 }
 
 // effortLevels are the values Copilot documents for effortLevel.
@@ -86,8 +102,14 @@ func agentMarkdown(e spec.Entry) (string, bool) {
 	if desc == "" {
 		desc = e.Name
 	}
+	// `name` is the display name VS Code shows, and x-copilot.name sets
+	// one apart from the identifier the file is named after.
+	name, _ := resolved["name"].(string)
+	if name == "" {
+		name = e.Name
+	}
 	meta := map[string]any{
-		"name":        e.Name,
+		"name":        name,
 		"description": desc,
 	}
 	keys := []string{"name", "description"}

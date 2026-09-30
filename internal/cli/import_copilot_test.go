@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
+
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -135,12 +137,14 @@ func TestImportFromCopilot_ChatmodesBecomeAgents(t *testing.T) {
 	}
 }
 
+// Older syncs flattened agents and skills into prefixed instruction files
+// under our header; only such a file routes by its prefix.
 func TestImportFromCopilot_AgentAndSkillPrefixesRoute(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, copilotInstructionsDir, "agent-reviewer.instructions.md"),
-		"---\napplyTo: \"**\"\n---\n\nReview diffs.\n")
+		"---\napplyTo: \"**\"\n---\n\n"+header.Line(header.FormatMarkdown)+"\nReview diffs.\n")
 	writeFile(t, filepath.Join(dir, copilotInstructionsDir, "skill-yaml-validator.instructions.md"),
-		"---\napplyTo: \"**\"\n---\n\nValidate yaml.\n")
+		"---\napplyTo: \"**\"\n---\n\n"+header.Line(header.FormatMarkdown)+"\nValidate yaml.\n")
 	writeFile(t, filepath.Join(dir, copilotInstructionsDir, "go-style.instructions.md"),
 		"---\napplyTo: \"**/*.go\"\n---\n\ngofmt clean.\n")
 
@@ -267,5 +271,19 @@ func TestImportFromCopilot_ImportsEveryProjectSkillPathWithPrecedence(t *testing
 	shared := readFile(t, filepath.Join(dir, "skills", "shared", "SKILL.md"))
 	if !strings.Contains(shared, "from github") {
 		t.Errorf(".github/skills should win a same-name collision:\n%s", shared)
+	}
+}
+
+// A profile's name is VS Code's display name; the spec keeps the file's
+// name so sync writes the agent back to the same file.
+func TestCopilotAgentIdentity_MovesADisplayNameAside(t *testing.T) {
+	got := copilotAgentIdentity("---\nname: Data\ndescription: Queries.\n---\n\nBody.\n", "data")
+	for _, want := range []string{"name: data\n", "x-copilot:\n  name: \"Data\"", "Body."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+	if same := "---\nname: data\n---\n\nBody.\n"; copilotAgentIdentity(same, "data") != same {
+		t.Error("a name equal to the file name should stay as written")
 	}
 }

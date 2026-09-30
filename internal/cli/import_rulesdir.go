@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -146,7 +147,7 @@ func importRulesDirectoryWith(root, srcDir string, src config.Sources, opts rule
 			return fmt.Errorf("read %s: %w", path, err)
 		}
 
-		kind, baseName := classifyRulesDirFile(rel)
+		kind, baseName := classifyRulesDirFile(rel, data)
 		dstDir := pickKindDir(kind, src)
 		meta, rest := splitMdcFrontmatter([]byte(header.Strip(string(data))))
 		if opts.NormalizeMeta != nil {
@@ -245,8 +246,16 @@ func scopeDir(rel string) string {
 	return d
 }
 
-func classifyRulesDirFile(rel string) (kind, baseName string) {
+var flattenedTitleRE = regexp.MustCompile(`(?m)\A(?:---\n(?s:.*?)\n---\n\s*)?# (?:Agent|Skill): `)
+
+func classifyRulesDirFile(rel string, data []byte) (kind, baseName string) {
 	base := strings.TrimSuffix(filepath.Base(rel), ".md")
+	// The agent- and skill- prefixes are how older syncs flattened agents
+	// and skills into a rules dir, under our header or an "# Agent: <name>"
+	// title. A hand-written agent-host.md is a rule.
+	if !header.Has(string(data)) && !flattenedTitleRE.Match(data) {
+		return "rules", base
+	}
 	switch {
 	case strings.HasPrefix(base, "agent-"):
 		return "agents", strings.TrimPrefix(base, "agent-")

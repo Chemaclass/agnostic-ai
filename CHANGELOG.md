@@ -13,6 +13,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - LINT001 no longer calls a hook or MCP spec empty when it names a command, prompt, server, or URL.
 - `import` no longer writes each section of a hand-written `AGENTS.md`, `CLAUDE.md`, `CONVENTIONS.md`, `.rules`, or `.github/copilot-instructions.md` twice: the file imports whole as the shared body, and only a rules block `sync` wrote also becomes rule specs.
 - A hand-written nested `AGENTS.md` or `GEMINI.md` imports as one scoped rule and syncs back as it was: a directory with one rule gets that rule's text, without a `## Rules` or `### <name>` heading. `import.codex.shred: true` keeps the old split per `##` section.
+- An `agent-` or `skill-` file in a rules or instructions directory imports as an agent or a skill only when an earlier sync wrote it; a hand-written `agent-host.md` stays a rule.
 
 ### By tool
 
@@ -23,6 +24,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 #### Copilot
 
 - A rule's `description` goes to the `.instructions.md` frontmatter, where VS Code reads it to load the file on demand, instead of an italic line in the body. A rule with `alwaysApply: false` and no globs gets no `applyTo`, so it stays on demand, and `import copilot` reads a file without `applyTo` back that way instead of attaching it to every file.
+- An agent that lives at `.github/agents/<name>.md` is written back there instead of to a second `<name>.agent.md`, which VS Code loaded as a duplicate. A profile's `name` imports as `x-copilot.name` when it differs from the file name, so the file keeps its name.
+- A skill already in `.agents/skills/` or `.claude/skills/` is written there instead of copied into `.github/skills/`.
 
 #### Gemini CLI
 

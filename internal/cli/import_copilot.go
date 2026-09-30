@@ -7,7 +7,9 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -198,6 +200,33 @@ func normalizeCopilotHook(event string, native map[string]any) map[string]any {
 	return doc
 }
 
+var frontmatterNameRE = regexp.MustCompile(`(?m)^name:[ \t]*(.*?)[ \t]*$`)
+
+// copilotAgentIdentity keeps an agent named after its file. A profile's
+// `name` is the display name VS Code shows ("If not specified, the file
+// name is used"), so `name: Data` in data.md moves to x-copilot.name and
+// the spec is named data, which sync writes back to data.md.
+func copilotAgentIdentity(doc, stem string) string {
+	rest, ok := strings.CutPrefix(doc, "---\n")
+	if !ok {
+		return doc
+	}
+	front, body, ok := strings.Cut(rest, "\n---\n")
+	if !ok {
+		return doc
+	}
+	m := frontmatterNameRE.FindStringSubmatchIndex(front)
+	if m == nil {
+		return doc
+	}
+	display := strings.Trim(front[m[2]:m[3]], `"'`)
+	if display == stem || strings.Contains(front, "x-copilot:") {
+		return doc
+	}
+	front = front[:m[0]] + "name: " + stem + front[m[1]:] + "\nx-copilot:\n  name: " + strconv.Quote(display)
+	return "---\n" + front + "\n---\n" + body
+}
+
 // importCopilotAgents copies every native agent profile under
 // `.github/agents/` into the agents source dir. Both documented
 // filename forms are accepted (`<name>.agent.md` and `<name>.md`); the
@@ -224,7 +253,8 @@ func importCopilotAgents(root, dstDir string) (int, error) {
 			return count, fmt.Errorf("read %s: %w", srcPath, err)
 		}
 		dst := filepath.Join(dstDir, name+".md")
-		if err := importWriteSpecMarkdown(dst, []byte(header.Strip(string(data))), 0o644, copilotAgentFields); err != nil {
+		body := copilotAgentIdentity(header.Strip(string(data)), name)
+		if err := importWriteSpecMarkdown(dst, []byte(body), 0o644, copilotAgentFields); err != nil {
 			return count, fmt.Errorf("write %s: %w", dst, err)
 		}
 		count++
@@ -279,7 +309,7 @@ func importCopilotInstructions(src, root string, sources config.Sources) (copilo
 			return fmt.Errorf("read %s: %w", path, err)
 		}
 		base := strings.TrimSuffix(d.Name(), copilotInstructionSuffix)
-		kind, name := classifyRulesDirFile(base + ".md")
+		kind, name := classifyRulesDirFile(base+".md", data)
 		dstDir := pickKindDir(kind, sources)
 		translated, err := translateCopilotInstruction(name, data)
 		if err != nil {

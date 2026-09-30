@@ -141,7 +141,9 @@
 package copilot
 
 import (
+	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -203,8 +205,16 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
-	if err := sess.WriteSkillFolders(b.Skills, target, skillsDir, dryRun); err != nil {
-		return err
+	byDir := skillsByDir(sess, b.Skills, skillsDir, skillsDir == defaultSkillsDir)
+	dirs := make([]string, 0, len(byDir))
+	for dir := range byDir {
+		dirs = append(dirs, dir)
+	}
+	sort.Strings(dirs)
+	for _, dir := range dirs {
+		if err := sess.WriteSkillFolders(byDir[dir], target, dir, dryRun); err != nil {
+			return err
+		}
 	}
 	if err := emitChatmodes(sess, b, cfg, dryRun); err != nil {
 		return err
@@ -312,6 +322,44 @@ func renderChatmode(e spec.Entry) string {
 	b.WriteString("---\n\n")
 	b.WriteString(e.Body)
 	return b.String()
+}
+
+// otherSkillsDirs are the other project skill directories Copilot reads
+// ("create a `.github/skills`, `.claude/skills`, or `.agents/skills`
+// directory in your repository").
+var otherSkillsDirs = []string{".agents/skills", ".claude/skills"}
+
+// skillsByDir groups skills by the directory sync writes them to. With
+// the default directory, a skill that already lives in another directory
+// Copilot reads, and not in the default one, is written where it lives:
+// a copy in .github/skills would be a second folder for the same skill.
+// A directory another enabled target writes is left to that target, so
+// what is on disk there cannot change under a parallel sync.
+func skillsByDir(sess *emit.Session, skills []spec.Entry, dir string, isDefault bool) map[string][]spec.Entry {
+	out := map[string][]spec.Entry{}
+	for _, s := range skills {
+		to := dir
+		if isDefault && s.EffectiveScope() == "" {
+			to = existingSkillDir(sess, dir, s.Name)
+		}
+		out[to] = append(out[to], s)
+	}
+	return out
+}
+
+func existingSkillDir(sess *emit.Session, dir, name string) string {
+	if _, err := os.Stat(filepath.Join(dir, name, "SKILL.md")); err == nil {
+		return dir
+	}
+	for _, other := range otherSkillsDirs {
+		if sess.SkillsDirWrittenByOthers(other, target) {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(other, name, "SKILL.md")); err == nil {
+			return other
+		}
+	}
+	return dir
 }
 
 // emitInstructionFiles writes one `.instructions.md` per rule. Scoped

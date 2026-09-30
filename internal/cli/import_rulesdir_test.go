@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -201,10 +202,21 @@ func TestClassifyRulesDirFile(t *testing.T) {
 		"backend/auth.md":      {"rules", "auth"},
 		"backend/agent-foo.md": {"agents", "foo"},
 	}
+	generated := []byte(header.Line(header.FormatMarkdown) + "\nbody\n")
 	for in, want := range cases {
-		k, n := classifyRulesDirFile(in)
+		k, n := classifyRulesDirFile(in, generated)
 		if k != want.kind || n != want.baseName {
 			t.Errorf("%s: got (%q,%q), want (%q,%q)", in, k, n, want.kind, want.baseName)
+		}
+	}
+}
+
+// A hand-written agent-foo.md in a rules dir is a rule: only a file sync
+// wrote uses the prefix to flatten an agent or a skill.
+func TestClassifyRulesDirFile_HandWrittenPrefixStaysARule(t *testing.T) {
+	for _, in := range []string{"agent-host-interoperability.md", "skill-notes.md"} {
+		if k, n := classifyRulesDirFile(in, []byte("body\n")); k != "rules" || n != strings.TrimSuffix(in, ".md") {
+			t.Errorf("%s: got (%q,%q), want a rule named after the file", in, k, n)
 		}
 	}
 }

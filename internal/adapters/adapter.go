@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"sort"
 
@@ -571,6 +572,13 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 			codexSkills = emit.OutputSkillsDir(cfg, "codex", emit.CodexSkillsRoot)
 		}
 		sess.SetCodexSkillsDir(codexSkills)
+		writers := map[string][]string{}
+		for _, t := range cfg.Targets {
+			if dir := varsFor(cfg, t)[emit.VarSkillsDir]; dir != "" {
+				writers[filepath.Clean(dir)] = append(writers[filepath.Clean(dir)], t)
+			}
+		}
+		sess.SetSkillsDirWriters(writers)
 	}
 	own := expandBundleVars(b.For(a.Name()), cfg, a.Name())
 	own.Rules = withoutEntryPointRules(sess, cfg, b, a.Name(), own.Rules)

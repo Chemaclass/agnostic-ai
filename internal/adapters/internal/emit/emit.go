@@ -108,6 +108,9 @@ type Session struct {
 	// codexSkillsDir is a skills dir Codex was configured to emit into,
 	// atomic for the same reason as unmanaged.
 	codexSkillsDir atomic.Pointer[string]
+	// skillsDirWriters maps each skills dir to the enabled targets that
+	// write it, atomic for the same reason as unmanaged.
+	skillsDirWriters atomic.Pointer[map[string][]string]
 	// inlinedRules are the rules EmitWithProvenance left out of this
 	// emit because the entry point carries them.
 	inlinedRules []spec.Entry
@@ -154,6 +157,27 @@ func (s *Session) SetCodexSkillsDir(dir string) {
 		return
 	}
 	s.codexSkillsDir.Store(&dir)
+}
+
+// SetSkillsDirWriters records which enabled targets write each skills dir.
+func (s *Session) SetSkillsDirWriters(writers map[string][]string) {
+	s.skillsDirWriters.Store(&writers)
+}
+
+// SkillsDirWrittenByOthers reports whether a target other than self
+// writes dir in this sync. Only a dir no other target writes keeps its
+// disk state while self emits, whatever order parallel targets run in.
+func (s *Session) SkillsDirWrittenByOthers(dir, self string) bool {
+	writers := s.skillsDirWriters.Load()
+	if writers == nil {
+		return false
+	}
+	for _, t := range (*writers)[filepath.Clean(dir)] {
+		if t != self {
+			return true
+		}
+	}
+	return false
 }
 
 // SetInlinedRules records the rules the current emit leaves to the
