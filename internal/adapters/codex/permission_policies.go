@@ -164,7 +164,7 @@ func resolveExecPolicies(settings []spec.Entry, cfg *config.Config) ([]config.Co
 		for _, rule := range exactAllows {
 			pattern, _ := bashPermissionPrefix(rule.rule)
 			if prefixDecision(policies, pattern) == "allow" && prefixDecision(wildcards, pattern) != "allow" {
-				emit.NoteProject(fmt.Sprintf("codex: %s: permissions.%s rule %s becomes a Codex prefix rule, so Codex also allows `%s` with any extra arguments; add a deny or ask rule for arguments that need review", rule.path, rule.list, rule.rule, strings.Join(pattern, " ")))
+				emit.NoteProject(fmt.Sprintf("codex: %s: permissions.%s rule %s becomes a Codex prefix rule, so Codex also allows `%s` with extra arguments; add a deny or ask rule for arguments that need review", rule.path, rule.list, rule.rule, strings.Join(pattern, " ")))
 			}
 		}
 	}

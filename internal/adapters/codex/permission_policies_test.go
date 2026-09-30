@@ -281,7 +281,7 @@ func TestEmit_PermissionPoliciesNameExactAllowRulesCodexWidens(t *testing.T) {
 			previous := emit.Warner
 			emit.Warner = &notes
 			t.Cleanup(func() { emit.Warner = previous })
-			cfg := permissionPolicyConfig(t, "on-unsupported: "+mode+"\noutputs:\n  codex:\n    exec-policies-from-permissions: true\n  claude:\n    settings:\n      permissions:\n        allow: [\"Bash(git push)\", \"Bash(git diff:*)\", \"Bash(go:*)\", \"Bash(go test)\", \"Bash(npm run check)\"]\n        deny: [\"Bash(rm -rf)\"]\n        ask: [\"Bash(npm run:*)\"]\n")
+			cfg := permissionPolicyConfig(t, "on-unsupported: "+mode+"\noutputs:\n  codex:\n    exec-policies-from-permissions: true\n  claude:\n    settings:\n      permissions:\n        allow: [\"Bash(git push)\", \"Bash(git diff:*)\", \"Bash(go *)\", \"Bash(go test)\", \"Bash(npm run check)\", \"Bash(tar x)\"]\n        deny: [\"Bash(rm -rf)\", \"Bash(git push --force)\"]\n        ask: [\"Bash(npm run:*)\", \"Bash(tar)\"]\n")
 			b := spec.NewBundle([]spec.Entry{{Kind: spec.KindSettings, Name: "security", Path: "settings/security.yaml", Meta: map[string]any{"permissions": map[string]any{"allow": []any{"Bash(make lint)"}}}}})
 			if err := New().Emit(emit.NewSession(), b, cfg, false); err != nil {
 				t.Fatalf("a widened allow rule failed the sync: %v", err)
@@ -306,7 +306,7 @@ func TestEmit_PermissionPoliciesNameExactAllowRulesCodexWidens(t *testing.T) {
 					t.Errorf("notes lack %q:\n%s", want, got)
 				}
 			}
-			for _, unwidened := range []string{"Bash(git diff:*)", "Bash(go test)", "Bash(go:*)", "Bash(rm -rf)", "Bash(npm run check)"} {
+			for _, unwidened := range []string{"Bash(git diff:*)", "Bash(go test)", "Bash(go *)", "Bash(rm -rf)", "Bash(npm run check)", "Bash(tar x)", "Bash(git push --force)"} {
 				if strings.Contains(got, unwidened) {
 					t.Errorf("%s does not widen in Codex but was named:\n%s", unwidened, got)
 				}

@@ -186,7 +186,7 @@ Translation is opt-in because a prefix matches extra arguments, even for a bare 
 Sync names each exact `allow` rule that Codex widens, with its source:
 
 ```text
-note: codex: agnostic-ai.yaml: permissions.allow rule Bash(git push) becomes a Codex prefix rule, so Codex also allows `git push` with any extra arguments; add a deny or ask rule for arguments that need review
+note: codex: agnostic-ai.yaml: permissions.allow rule Bash(git push) becomes a Codex prefix rule, so Codex also allows `git push` with extra arguments; add a deny or ask rule for arguments that need review
 ```
 
 A deny or ask rule on the same or a shorter prefix, or a wildcard `allow` rule such as `Bash(git:*)` that already allows the extra arguments in Claude Code, silences the note. `on-unsupported: error` does not fail on it; `silent` omits it. Exact `deny` and `ask` rules only get stricter as a prefix, so they raise no note.
