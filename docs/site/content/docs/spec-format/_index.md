@@ -65,7 +65,7 @@ rules/
     └── api/limits.md            # scope: "backend/api"
 ```
 
-For rules, scope controls native activation or directory discovery. A flat rule may set `scope: services/payments`; source-layout scope wins. `agnostic-ai new rule payments-context --scope services/payments` creates one.
+For rules, scope controls native activation or directory discovery. A rule may set `scope: services/payments`, which wins over its folder under `rules/`. A folder scopes a rule only when it names a project directory. `agnostic-ai new rule payments-context --scope services/payments` creates one.
 
 Scoped bodies stay out of root instruction appendices. Supported targets get native path conditions or a nested instruction file. Unsupported targets skip the rule with a warning, or fail under `on-unsupported: error`. See [directory-specific instructions](@/docs/scoped-context.md) for the target matrix and selector limits.
 

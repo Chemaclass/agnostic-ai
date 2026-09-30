@@ -50,12 +50,17 @@ type Entry struct {
 	// Scope is the relative directory under the source kind directory in
 	// which the spec lives, with forward slashes. A spec at
 	// `rules/backend/auth.md` has Scope "backend"; a spec at the root of
-	// `rules/` has Scope "".
+	// `rules/` has Scope "". A rule takes no Scope from a folder when its
+	// frontmatter sets `scope` or the folder names no project directory:
+	// the folder only groups it (see Folder).
 	//
 	// Adapters that produce nested per-directory outputs (Codex, Cursor,
 	// Cline, Windsurf, Continue) honor Scope. Single-document adapters
 	// (Claude CLAUDE.md, Gemini, Aider, Copilot) merge regardless.
 	Scope string
+	// Folder is a rule's subfolder under `rules/` when that folder names a
+	// project directory, whether or not Scope took it.
+	Folder string
 	// Layer names the source layer this entry came from
 	// ("pack:<name>", "project", "project-user"). Empty when loaded
 	// outside the layered loader (legacy path).
@@ -498,10 +503,9 @@ func ValidGlobs(v any) bool {
 	return false
 }
 
-// EffectiveScope returns the routing prefix for the entry. A non-empty
-// Scope (derived from source layout) wins over a frontmatter override
-// (`scope: <relpath>`); the override wins over a globs prefix; an empty
-// result means root.
+// EffectiveScope returns the routing prefix for the entry: the layout
+// Scope, or the frontmatter `scope: <relpath>`, which the loader keeps
+// ahead of a rule's folder. An empty result means root.
 func (e Entry) EffectiveScope() string {
 	if e.Scope != "" {
 		return e.Scope
@@ -741,7 +745,7 @@ func loadLayer(layer Layer) (Bundle, error) {
 			}
 			return Bundle{}, fmt.Errorf("load %s [%s]: %w", l.kind, layer.Name, err)
 		}
-		assignScopes(entries, dir, l.kind)
+		assignScopes(entries, dir, l.kind, layer.IncludeRoot)
 		if l.kind == KindReview && layer.IncludeRoot != "" {
 			if err := resolveEntryIncludes(entries, layer.IncludeRoot); err != nil {
 				return Bundle{}, err
@@ -821,7 +825,10 @@ func dedupeLayer(src []Entry) ([]Entry, []Entry) {
 // from the source root. Skill nested layout (`skills/<name>/SKILL.md`)
 // is a special case: the immediate parent IS the skill name, not a
 // scope, so skill scope is derived from the grandparent only.
-func assignScopes(entries []Entry, dir string, kind Kind) {
+//
+// A rule folder scopes only a rule without frontmatter `scope`, and with
+// a projectRoot, only when it names a directory there.
+func assignScopes(entries []Entry, dir string, kind Kind, projectRoot string) {
 	for i := range entries {
 		rel, err := filepath.Rel(dir, entries[i].Path)
 		if err != nil {
@@ -834,8 +841,29 @@ func assignScopes(entries []Entry, dir string, kind Kind) {
 		if parent == "." {
 			parent = ""
 		}
+		if kind == KindRule {
+			if parent != "" && (projectRoot == "" || isDir(filepath.Join(projectRoot, filepath.FromSlash(parent)))) {
+				entries[i].Folder = parent
+			}
+			entries[i].Scope = entries[i].folderScope()
+			continue
+		}
 		entries[i].Scope = parent
 	}
+}
+
+// folderScope is the scope a rule takes from its folder: none when the
+// frontmatter sets `scope`, which wins.
+func (e Entry) folderScope() string {
+	if _, explicit := e.Meta["scope"]; explicit {
+		return ""
+	}
+	return e.Folder
+}
+
+func isDir(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
 }
 
 // LoadAll is a convenience wrapper that returns a flat slice. Prefer

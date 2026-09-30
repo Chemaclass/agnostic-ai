@@ -123,14 +123,16 @@ func TestPrepareScopedRules_PreservesAntigravityTriggerOverride(t *testing.T) {
 	}
 }
 
-func TestPrepareScopedRules_LayoutPrecedesMetadata(t *testing.T) {
+// A frontmatter scope, resolved for the target, wins over the folder
+// (#1430).
+func TestPrepareScopedRules_TargetScopePrecedesLayout(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	b := spec.NewBundle([]spec.Entry{{Kind: spec.KindRule, Name: "money", Scope: "payments", Meta: map[string]any{"scope": "catalog", "x-codex": map[string]any{"scope": "other"}}, Body: "money convention"}})
+	b := spec.NewBundle([]spec.Entry{{Kind: spec.KindRule, Name: "money", Scope: "payments", Meta: map[string]any{"x-codex": map[string]any{"scope": "other"}}, Body: "money convention"}})
 	_, files, err := PrepareScopedRules(b, &config.Config{}, "codex")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(files) != 1 || filepath.ToSlash(files[0].Path) != "payments/AGENTS.md" {
-		t.Fatalf("layout scope lost: %+v", files)
+	if len(files) != 1 || filepath.ToSlash(files[0].Path) != "other/AGENTS.md" {
+		t.Fatalf("x-codex scope lost: %+v", files)
 	}
 }

@@ -180,7 +180,7 @@ gitignore:
 		[]byte("---\ntrigger: manual\n---\n\nOnly load this on an @-mention.\n"), 0o644))
 
 	runCmd(t, "import", "antigravity")
-	must(t, os.RemoveAll(filepath.Join(dir, "backend")))
+	must(t, os.RemoveAll(filepath.Join(dir, "backend", ".agents")))
 	runCmd(t, "sync", "-t", "antigravity")
 
 	raw, err := os.ReadFile(filepath.Join(dir, "backend", ".agents", "rules", "manual-only.md"))
@@ -218,7 +218,7 @@ gitignore:
 		[]byte("---\ntrigger: manual\ndescription: Release checklist, read on demand.\n---\n\nConfirm the changelog and version bump.\n"), 0o644))
 
 	runCmd(t, "import", "antigravity")
-	must(t, os.RemoveAll(filepath.Join(dir, "backend")))
+	must(t, os.RemoveAll(filepath.Join(dir, "backend", ".agents")))
 	runCmd(t, "sync", "-t", "antigravity")
 
 	raw, err := os.ReadFile(filepath.Join(dir, "backend", ".agents", "rules", "checklist.md"))
@@ -256,7 +256,7 @@ gitignore:
 		[]byte("---\ntrigger: alwaysOn\n---\n\nUse tabs.\n"), 0o644))
 
 	runCmd(t, "import", "antigravity")
-	must(t, os.RemoveAll(filepath.Join(dir, "backend")))
+	must(t, os.RemoveAll(filepath.Join(dir, "backend", ".agents")))
 	runCmd(t, "sync", "-t", "antigravity")
 
 	raw, err := os.ReadFile(filepath.Join(dir, "backend", ".agents", "rules", "typo.md"))
@@ -458,7 +458,7 @@ gitignore:
 	assertNoFileContains(t, filepath.Join(dir, ".agnostic-ai", "rules"), "dormant scoped body")
 
 	must(t, os.RemoveAll(filepath.Join(dir, ".agents")))
-	must(t, os.RemoveAll(filepath.Join(dir, "backend")))
+	must(t, os.RemoveAll(filepath.Join(dir, "backend", ".agents")))
 	runCmd(t, "sync", "-t", "antigravity")
 
 	for _, p := range []string{
@@ -503,7 +503,7 @@ gitignore:
 		t.Fatalf("missing imported spec %s: %v", importedSpec, err)
 	}
 
-	must(t, os.RemoveAll(filepath.Join(dir, ".agents")))
+	must(t, os.RemoveAll(filepath.Join(dir, ".agents", ".agents")))
 	runCmd(t, "sync", "-t", "antigravity")
 
 	raw, err := os.ReadFile(filepath.Join(dir, ".agents", ".agents", "rules", "scoped.md"))
@@ -546,7 +546,7 @@ gitignore:
 		t.Fatalf("missing imported spec %s: %v", importedSpec, err)
 	}
 
-	must(t, os.RemoveAll(filepath.Join(dir, ".agent")))
+	must(t, os.RemoveAll(filepath.Join(dir, ".agent", ".agent")))
 	runCmd(t, "sync", "-t", "antigravity")
 
 	raw, err := os.ReadFile(filepath.Join(dir, ".agent", ".agent", "rules", "scoped.md"))
@@ -588,7 +588,7 @@ gitignore:
 		t.Fatalf("missing imported spec %s: %v", importedSpec, err)
 	}
 
-	must(t, os.RemoveAll(filepath.Join(dir, ".agents")))
+	must(t, os.RemoveAll(filepath.Join(dir, ".agents", "pkg", ".agents")))
 	runCmd(t, "sync", "-t", "antigravity")
 
 	raw, err := os.ReadFile(filepath.Join(dir, ".agents", "pkg", ".agents", "rules", "scoped.md"))
@@ -631,7 +631,7 @@ gitignore:
 		t.Fatalf("missing imported spec %s: %v", importedSpec, err)
 	}
 
-	must(t, os.RemoveAll(filepath.Join(dir, ".agent")))
+	must(t, os.RemoveAll(filepath.Join(dir, ".agent", "pkg", ".agent")))
 	runCmd(t, "sync", "-t", "antigravity")
 
 	raw, err := os.ReadFile(filepath.Join(dir, ".agent", "pkg", ".agent", "rules", "scoped.md"))

@@ -53,6 +53,9 @@ func TestImportAuditNestedActivationThroughSync(t *testing.T) {
 	} {
 		t.Run(tc.target+tc.fields, func(t *testing.T) {
 			root := testutil.TempCwd(t)
+			if err := os.MkdirAll(filepath.Join(root, "backend"), 0o755); err != nil {
+				t.Fatal(err)
+			}
 			native := filepath.Join(root, tc.dir, "backend/frontend.md")
 			writeFile(t, native, "---\n"+tc.fields+"\n---\nGuide.\n")
 			importFn := importFromContinue

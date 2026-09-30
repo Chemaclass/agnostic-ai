@@ -17,6 +17,7 @@ func setupCompareFixture(t *testing.T) string {
 	dir := t.TempDir()
 	files := map[string]string{
 		"agnostic-ai.yaml": "targets: [claude, cursor]\n",
+		"backend/main.go":  "package main\n",
 		".agnostic-ai/agents/reviewer.md": `---
 name: reviewer
 description: Reviews diffs.

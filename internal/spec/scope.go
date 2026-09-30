@@ -32,16 +32,15 @@ func NormalizeScope(scope string) (string, error) {
 	return scope, nil
 }
 
-// RuleScope keeps layout-derived scope ahead of target-resolved frontmatter.
+// RuleScope returns the rule's directory scope. A target-resolved
+// frontmatter `scope` wins over the layout scope.
 func RuleScope(e Entry) (string, error) {
 	scope := e.Scope
-	if scope == "" {
-		if raw, ok := e.Meta["scope"]; ok {
-			var valid bool
-			scope, valid = raw.(string)
-			if !valid {
-				return "", fmt.Errorf("%s: scope must be a directory string", e.Path)
-			}
+	if raw, ok := e.Meta["scope"]; ok {
+		var valid bool
+		scope, valid = raw.(string)
+		if !valid {
+			return "", fmt.Errorf("%s: scope must be a directory string", e.Path)
 		}
 	}
 	result, err := NormalizeScope(scope)

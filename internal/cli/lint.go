@@ -158,6 +158,7 @@ func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) [
 	findings = append(findings, lintDevCommands(b.Environments)...)
 	findings = append(findings, lintSkillScopeKey(b.Skills)...)
 	findings = append(findings, lintClaudeBodySyntax(b, targets, support)...)
+	findings = append(findings, lintRuleFolderScope(b.Rules)...)
 	findings = append(findings, lintMidWildcard(b.Settings)...)
 	findings = append(findings, lintMalformedGlobs(b.Rules)...)
 	findings = append(findings, lintNativeSpecPaths(b)...)

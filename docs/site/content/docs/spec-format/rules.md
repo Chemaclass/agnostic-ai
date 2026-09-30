@@ -63,7 +63,7 @@ Claude Code gets a conditional rule. Codex and Cursor share `services/payments/A
 |-------|----------|---------|-------------|
 | `name` | no | filename | Rule identifier. |
 | `description` | no | empty | Short summary. |
-| `scope` | no | project-wide | Project-relative directory and its descendants. Source-layout scope wins. A scope inside `node_modules` is refused. See [scoped context](@/docs/scoped-context.md). |
+| `scope` | no | project-wide | Project-relative directory and its descendants. It wins over the rule's folder. A folder that names a project directory scopes a rule without `scope`; any other folder only groups rules. A scope inside `node_modules` is refused. See [scoped context](@/docs/scoped-context.md). |
 | `globs` | no | target-dependent; `new rule` seeds `**/*` | Project-relative patterns, as a comma-separated string (`"*.go,*.mod"`) or a list. A comma inside a brace set does not separate patterns, so `"src/**/*.{ts,tsx}"` is one pattern. With `scope`, the selector must stay inside the directory. `new rule --scope` omits it. |
 | `paths` | no | unset | File patterns, as a string or list. Scoped rules accept it with or instead of `globs`; see [selector limits](@/docs/scoped-context.md#narrow-a-rule-to-certain-files). |
 | `alwaysApply` | no | target-dependent; `new rule` seeds `true` | Requests unconditional activation. With `scope`, only inside the directory. `new rule --scope` omits it. |
