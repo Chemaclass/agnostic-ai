@@ -552,13 +552,13 @@ func newDoctorCmd() *cobra.Command {
 			cmd.Println("Config:")
 			if !configOK {
 				cmd.Println("  ✗ agnostic-ai.yaml not found. Run: agnostic-ai init")
-				doctorNextStep(cmd, false, false, nil, 0, errDoctorNoConfig)
+				doctorNextStep(cmd, false, false, false, nil, 0, errDoctorNoConfig)
 				return errDoctorNoConfig
 			}
 			scope, err := loadCheckScope(false)
 			if err != nil {
 				cmd.Printf("  ✗ %v\n", err)
-				doctorNextStep(cmd, false, false, nil, 0, err)
+				doctorNextStep(cmd, false, false, false, nil, 0, err)
 				return err
 			}
 			cfg := scope.cfg
@@ -579,14 +579,29 @@ func newDoctorCmd() *cobra.Command {
 			// 4. Drift
 			cmd.Println()
 			cmd.Println("Sync drift:")
+			// A copy beside a scoped AGENTS.md stops the drift check, so
+			// --fix removes it before that check runs.
+			_, bundle, err := loadProject(".")
+			if err != nil {
+				return err
+			}
+			copies := nestedClaudeCopies(cfg, bundle)
+			reportNestedClaudeCopies(cmd, copies)
+			removedCopies := 0
+			if fix {
+				if removedCopies, err = removeNestedClaudeCopies(copies, backup); err != nil {
+					return err
+				}
+			}
 			reports, err := collectDrift(targets)
 			if err != nil {
 				return err
 			}
 			hasDrift := printDrift(reports)
+			copiesOnly := !hasDrift && len(copies) > 0
 			// A target that did not resolve was warned about and skipped,
 			// so its files were never compared.
-			if !hasDrift && allTargetsResolve(targets, cfg.Targets) {
+			if !hasDrift && len(copies) == 0 && allTargetsResolve(targets, cfg.Targets) {
 				cmd.Println("  ✓ generated files in sync")
 			}
 
@@ -624,13 +639,14 @@ func newDoctorCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			hasDrift = hasDrift || scriptDrift
+			copiesOnly = copiesOnly && !scriptDrift
+			hasDrift = hasDrift || scriptDrift || len(copies) > 0
 
 			// 6. Next step
 			manualFiles, manualOnly := manualOnlyDrift(reports)
 			// Hook script divergence is drift a scope document does not explain.
-			manualOnly = manualOnly && !scriptDrift
-			doctorNextStep(cmd, hasDrift, manualOnly, manualFiles, len(lint), nil)
+			manualOnly = manualOnly && !scriptDrift && len(copies) == 0
+			doctorNextStep(cmd, hasDrift, manualOnly, copiesOnly, manualFiles, len(lint), nil)
 
 			// A rule whose globs match nothing never loads, so it
 			// silently does not exist. Reported before, but exit 0 meant
@@ -646,13 +662,16 @@ func newDoctorCmd() *cobra.Command {
 					if manualOnly {
 						return fmt.Errorf("drift detected. delete %s", manualRemovalAdvice(manualFiles))
 					}
+					if copiesOnly {
+						return fmt.Errorf("drift detected. run `agnostic-ai doctor --fix`")
+					}
 					return fmt.Errorf("drift detected. run `agnostic-ai sync` to reconcile, or `agnostic-ai doctor --fix`")
 				}
 				fixed, err := fixDrift(reports, backup)
 				if err != nil {
 					return err
 				}
-				summaryf("→ reconciled %d file(s)\n", fixed)
+				summaryf("→ reconciled %d file(s)\n", fixed+removedCopies)
 				if n := orphanedCount(reports); n > 0 {
 					return fmt.Errorf("%d orphaned file(s) need manual removal", n)
 				}

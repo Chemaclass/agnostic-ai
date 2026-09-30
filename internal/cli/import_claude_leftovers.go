@@ -39,8 +39,9 @@ func noteNestedClaudeEntryFile(root string) {
 }
 
 // noteNestedClaudeMainFiles tells the user to delete each nested
-// CLAUDE.md a rule now holds. Sync writes that rule to the Claude rules
-// directory, and Claude Code would load both copies.
+// CLAUDE.md a rule now holds, which `doctor --fix` does. Sync writes that
+// rule to the Claude rules directory, and Claude Code would load both
+// copies.
 func noteNestedClaudeMainFiles(root string, files []importedNestedClaudeFile) {
 	if len(files) == 0 {
 		return
@@ -50,7 +51,7 @@ func noteNestedClaudeMainFiles(root string, files []importedNestedClaudeFile) {
 		return
 	}
 	for _, f := range files {
-		summaryf("  ! delete %s: rule %s holds its text, and after the next sync Claude Code would load it twice\n", f.path, f.rule)
+		summaryf("  ! delete %s with `agnostic-ai doctor --fix`: rule %s holds its text, and after the next sync Claude Code would load it twice\n", f.path, f.rule)
 	}
 }
 

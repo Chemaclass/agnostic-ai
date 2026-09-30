@@ -99,8 +99,9 @@ var errDoctorNoConfig = errors.New("no config found")
 // doctorNextStep prints a prioritized "what to do next" hint based on
 // whether drift or lint findings were found and why the config failed to
 // load, if it did. manualOnly means the drift is scope documents in
-// manual, which neither sync nor doctor --fix removes.
-func doctorNextStep(cmd *cobra.Command, drift, manualOnly bool, manual []string, lintFindings int, configErr error) {
+// manual, which neither sync nor doctor --fix removes. fixOnly means the
+// drift is nested CLAUDE.md copies, which only doctor --fix removes.
+func doctorNextStep(cmd *cobra.Command, drift, manualOnly, fixOnly bool, manual []string, lintFindings int, configErr error) {
 	cmd.Println()
 	cmd.Println("Next step:")
 	if errors.Is(configErr, errDoctorNoConfig) {
@@ -118,6 +119,8 @@ func doctorNextStep(cmd *cobra.Command, drift, manualOnly bool, manual []string,
 	switch {
 	case drift && manualOnly:
 		cmd.Println("  Delete " + manualRemovalAdvice(manual) + ".")
+	case drift && fixOnly:
+		cmd.Println("  Remove what a rule already holds: agnostic-ai doctor --fix")
 	case drift:
 		cmd.Println("  Emit missing or stale files: agnostic-ai sync")
 		cmd.Println("  Or reconcile in place:       agnostic-ai doctor --fix")

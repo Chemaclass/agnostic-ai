@@ -895,6 +895,24 @@ func (s *Session) RemoveOwned(path, sum string, dryRun bool) (removed bool, err 
 	return s.remove(path, sum, existing, false, dryRun)
 }
 
+// RemoveCopy deletes a hand-written file whose bytes still hash to sum,
+// the proof that a spec holds its text. A file edited since is kept.
+// Under backup mode the file is kept as `<path>.bak` so revert can
+// restore it.
+func (s *Session) RemoveCopy(path, sum string, dryRun bool) (removed bool, err error) {
+	existing, err := os.ReadFile(path)
+	if IsAbsent(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("read %s: %w", path, err)
+	}
+	if sum == "" || ContentSum(string(existing)) != sum || s.skipUnmanaged(path) {
+		return false, nil
+	}
+	return s.remove(path, sum, existing, true, dryRun)
+}
+
 // remove deletes path, whose bytes are existing, once the caller has
 // decided sync may. It honors capture, dry-run, transaction, and
 // detailed recording modes. handWritten marks a file sync did not write,
