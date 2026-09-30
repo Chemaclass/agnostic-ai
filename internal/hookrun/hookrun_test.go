@@ -181,6 +181,27 @@ func TestDecide_ReadsExitCodesAndJSONReplies(t *testing.T) {
 	}
 }
 
+func TestAddsContext_PlainStdoutOnContextEventsAndJSONAdditionalContext(t *testing.T) {
+	for _, tc := range []struct {
+		name, event string
+		r           Result
+		want        bool
+	}{
+		{"session start text", "SessionStart", Result{Stdout: "branch main\n"}, true},
+		{"prompt text", "UserPromptSubmit", Result{Stdout: "note"}, true},
+		{"tool call text", "PreToolUse", Result{Stdout: "note"}, false},
+		{"JSON context", "PostToolUse", Result{Stdout: `{"hookSpecificOutput":{"additionalContext":"lint passed"}}`}, true},
+		{"JSON without context", "SessionStart", Result{Stdout: `{"continue":true}`}, false},
+		{"failed hook", "SessionStart", Result{Exit: 1, Stdout: "x"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := AddsContext(tc.event, tc.r); got != tc.want {
+				t.Errorf("AddsContext = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestRun_KillsAHookAtItsTimeout(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("needs a POSIX shell")
@@ -192,6 +213,16 @@ func TestRun_KillsAHookAtItsTimeout(t *testing.T) {
 	}
 	if elapsed := time.Since(start); elapsed > 3*time.Second {
 		t.Errorf("Run took %s, want it to stop at the timeout", elapsed)
+	}
+}
+
+func TestRun_ABackgroundChildDoesNotTurnAnExitIntoAStartFailure(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("needs a POSIX shell")
+	}
+	r := Run([]string{"sh", "-c", "sleep 3 & echo started"}, t.TempDir(), os.Environ(), nil, time.Minute)
+	if r.StartErr != nil || r.Exit != 0 || r.TimedOut || !strings.Contains(r.Stdout, "started") {
+		t.Errorf("result = %+v, want exit 0", r)
 	}
 }
 

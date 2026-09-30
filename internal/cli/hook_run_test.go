@@ -112,6 +112,27 @@ func TestHookRun_TimeoutFails(t *testing.T) {
 	}
 }
 
+func TestHookRun_ATimeoutFailsEvenWhenAnotherCommandBlocks(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	hookRunProject(t, "name: guard\nevent: PreToolUse\nmatcher: Bash\ntarget: claude\ntimeout: 1\n"+
+		"command: ['exit 2', 'sleep 10']\n")
+
+	out, err := runHookRun(t, "guard", "--bash", "ls", "--expect", "block")
+	if err == nil || !strings.Contains(err.Error(), "timed out on claude") {
+		t.Fatalf("err = %v, want a timeout\n%s", err, out)
+	}
+}
+
+func TestHookRun_AMissingScriptFails(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	hookRunProject(t, "name: guard\nevent: UserPromptSubmit\ncommand: .agnostic-ai/scripts/missing.sh\n")
+
+	out, err := runHookRun(t, "guard")
+	if err == nil || !strings.Contains(err.Error(), "failed on claude, codex") {
+		t.Fatalf("err = %v, want a failure on both targets\n%s", err, out)
+	}
+}
+
 func TestHookRun_SessionStartUsesTheMatchedSource(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	hookRunProject(t, "name: guard\nevent: SessionStart\nmatcher: compact\n"+
@@ -121,7 +142,7 @@ func TestHookRun_SessionStartUsesTheMatchedSource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err = %v\n%s", err, out)
 	}
-	if !strings.Contains(out, "stdout: context-added") || strings.Contains(out, "claude:") {
+	if !strings.Contains(out, "stdout: context-added") || !strings.Contains(out, "context: codex adds the output") || strings.Contains(out, "claude:") {
 		t.Errorf("output = %s", out)
 	}
 }

@@ -30,7 +30,7 @@ func newHookRunCmd() *cobra.Command {
 			"environment, shell, and timeout that target gives it, from the project root. " +
 			"Builds payloads for " + strings.Join(hookrun.Targets(), " and ") + "; other targets are listed as not run. " +
 			"Prints each command's decision (allow, block, error, or timeout), exit code, time, stdout, and stderr. " +
-			"Exits 1 when a command times out, when targets decide differently, or when a decision differs from --expect. " +
+			"Exits 1 when a command times out or errors, when targets decide differently, or when a decision differs from --expect. " +
 			"Run sync first: commands run the scripts sync copied into each target's hook directory.",
 		Example: `  # Check that one protect-files hook blocks on Claude Code and Codex alike
   agnostic-ai hook run protect-files --edit .github/workflows/tests.yml --expect block
@@ -70,7 +70,7 @@ func newHookRunCmd() *cobra.Command {
 				}
 			}
 			if len(only) > 0 {
-				targets = only
+				targets = slices.DeleteFunc(targets, func(t string) bool { return !slices.Contains(only, t) })
 			}
 			root, err := os.Getwd()
 			if err != nil {
@@ -105,9 +105,12 @@ func findHook(b spec.Bundle, name string) (spec.Entry, bool) {
 	return spec.Entry{}, false
 }
 
+// hookTargetRun is one target's combined decision. failed holds every
+// timeout or error among its commands, even when another one blocked.
 type hookTargetRun struct {
 	target   string
 	decision hookrun.Decision
+	failed   []hookrun.Decision
 }
 
 func runHookTargets(w io.Writer, hook spec.Entry, targets []string, root string, in hookrun.Input) ([]hookTargetRun, error) {
@@ -117,36 +120,40 @@ func runHookTargets(w io.Writer, hook spec.Entry, targets []string, root string,
 	var runs []hookTargetRun
 	for _, target := range targets {
 		if !hookrun.Supported(target) {
-			fmt.Fprintf(w, "%s: not run (hook run builds no %s payload)\n", target, target)
+			_, _ = fmt.Fprintf(w, "%s: not run (hook run builds no %s payload)\n", target, target)
 			continue
 		}
 		handlers := adapters.HookHandlers(target, hook)
 		if len(handlers) == 0 {
-			return nil, fmt.Errorf("hook %s has no command for %s; hook run runs command hooks only", hook.Name, target)
+			_, _ = fmt.Fprintf(w, "%s: not run (no command handler; hook run runs command hooks only)\n", target)
+			continue
 		}
 		payload, err := hookrun.Build(target, event, matcher, root, in)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", target, err)
 		}
 		if !payload.Fires {
-			fmt.Fprintf(w, "%s: allow (not run: matcher %q does not match %s)\n", target, matcher, payload.Trigger)
-			runs = append(runs, hookTargetRun{target, hookrun.Allow})
+			_, _ = fmt.Fprintf(w, "%s: allow (not run: matcher %q does not match %s)\n", target, matcher, payload.Trigger)
+			runs = append(runs, hookTargetRun{target: target, decision: hookrun.Allow})
 			continue
 		}
 		env := hookRunEnv(target, root)
-		decision := hookrun.Allow
+		run := hookTargetRun{target: target, decision: hookrun.Allow}
 		for _, h := range handlers {
 			r := hookrun.Run(hookrun.Argv(target, runtime.GOOS, h), root, env, payload.Body, timeout)
 			d := hookrun.Decide(event, r)
 			printHookRun(w, target, event, payload.Trigger, h, r, d)
-			decision = strongerDecision(decision, d)
+			run.decision = strongerDecision(run.decision, d)
+			if d == hookrun.Timeout || d == hookrun.Error {
+				run.failed = append(run.failed, d)
+			}
 		}
 		if adapters.JudgesHooks(target) {
 			if reason := adapters.AcceptsHook(target, hook.Meta); reason != "" {
-				fmt.Fprintf(w, "  note: %s\n", reason)
+				_, _ = fmt.Fprintf(w, "  note: %s\n", reason)
 			}
 		}
-		runs = append(runs, hookTargetRun{target, decision})
+		runs = append(runs, run)
 	}
 	if len(runs) == 0 {
 		return nil, fmt.Errorf("hook %s reaches no target hook run builds payloads for (%s)", hook.Name, strings.Join(hookrun.Targets(), ", "))
@@ -168,22 +175,25 @@ func printHookRun(w io.Writer, target, event, trigger string, h hookrun.Handler,
 	elapsed := r.Elapsed.Round(time.Millisecond)
 	switch {
 	case r.TimedOut:
-		fmt.Fprintf(w, "%s: %s (after %s)\n", target, d, elapsed)
+		_, _ = fmt.Fprintf(w, "%s: %s (after %s)\n", target, d, elapsed)
 	case r.StartErr != nil:
-		fmt.Fprintf(w, "%s: %s (did not start: %v)\n", target, d, r.StartErr)
+		_, _ = fmt.Fprintf(w, "%s: %s (did not start: %v)\n", target, d, r.StartErr)
 	default:
-		fmt.Fprintf(w, "%s: %s (exit %d, %s)\n", target, d, r.Exit, elapsed)
+		_, _ = fmt.Fprintf(w, "%s: %s (exit %d, %s)\n", target, d, r.Exit, elapsed)
 	}
-	fmt.Fprintf(w, "  event: %s (%s)\n", event, trigger)
+	_, _ = fmt.Fprintf(w, "  event: %s (%s)\n", event, trigger)
 	command := h.Command
 	if runtime.GOOS == "windows" && h.CommandWindows != "" {
 		command = h.CommandWindows
 	}
-	fmt.Fprintf(w, "  command: %s\n", strings.Join(append([]string{command}, h.Args...), " "))
+	_, _ = fmt.Fprintf(w, "  command: %s\n", strings.Join(append([]string{command}, h.Args...), " "))
 	for _, stream := range []struct{ name, text string }{{"stdout", r.Stdout}, {"stderr", r.Stderr}} {
 		if text := strings.TrimSpace(stream.text); text != "" {
-			fmt.Fprintf(w, "  %s: %s\n", stream.name, strings.ReplaceAll(text, "\n", "\n          "))
+			_, _ = fmt.Fprintf(w, "  %s: %s\n", stream.name, strings.ReplaceAll(text, "\n", "\n          "))
 		}
+	}
+	if hookrun.AddsContext(event, r) {
+		_, _ = fmt.Fprintf(w, "  context: %s adds the output to the session\n", target)
 	}
 }
 
@@ -217,18 +227,24 @@ func hookTimeout(meta map[string]any) time.Duration {
 	return time.Duration(seconds) * time.Second
 }
 
-// judgeHookRuns fails on a timeout, on a decision other than expect, and
-// on targets that disagree.
+// judgeHookRuns fails on a command that timed out or errored, on a
+// decision other than expect, and on targets that disagree.
 func judgeHookRuns(name string, runs []hookTargetRun, expect hookrun.Decision) error {
-	var timedOut, summary []string
+	var timedOut, errored, summary []string
 	for _, r := range runs {
 		summary = append(summary, r.target+" "+string(r.decision))
-		if r.decision == hookrun.Timeout {
+		if slices.Contains(r.failed, hookrun.Timeout) {
 			timedOut = append(timedOut, r.target)
+		}
+		if slices.Contains(r.failed, hookrun.Error) {
+			errored = append(errored, r.target)
 		}
 	}
 	if len(timedOut) > 0 {
 		return fmt.Errorf("hook %s timed out on %s", name, strings.Join(timedOut, ", "))
+	}
+	if len(errored) > 0 {
+		return fmt.Errorf("hook %s failed on %s", name, strings.Join(errored, ", "))
 	}
 	if expect != "" {
 		for _, r := range runs {

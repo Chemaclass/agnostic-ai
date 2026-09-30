@@ -73,7 +73,7 @@ agnostic-ai hook run greet --prompt "ship it"
 agnostic-ai hook run on-stop --payload stop.json
 ```
 
-It exits 1 when a command times out, when two targets decide differently, or when a decision is not the one `--expect` names.
+It exits 1 when a command times out or errors (such as a missing script), when two targets decide differently, or when a decision is not the one `--expect` names.
 
 | Flag | Description |
 |------|-------------|

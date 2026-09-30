@@ -79,6 +79,9 @@ func Run(argv []string, dir string, env []string, stdin []byte, timeout time.Dur
 		r.TimedOut = true
 	case errors.As(err, &exitErr):
 		r.Exit = exitErr.ExitCode()
+	case errors.Is(err, exec.ErrWaitDelay):
+		// The hook exited; a child it left in the background held the pipes.
+		r.Exit = cmd.ProcessState.ExitCode()
 	case err != nil:
 		r.StartErr = err
 	}
@@ -89,7 +92,7 @@ func Run(argv []string, dir string, env []string, stdin []byte, timeout time.Dur
 type Decision string
 
 // Allow lets the event proceed, Block stops it, Error is a failure the
-// target reports and moves past, and Timeout is a hook it cancelled.
+// target reports and moves past, and Timeout is a hook it canceled.
 const (
 	Allow   Decision = "allow"
 	Block   Decision = "block"
@@ -117,20 +120,44 @@ func Decide(event string, r Result) Decision {
 	case r.Exit != 0:
 		return Error
 	}
-	var reply struct {
-		Continue           *bool  `json:"continue"`
-		Decision           string `json:"decision"`
-		HookSpecificOutput struct {
-			PermissionDecision string `json:"permissionDecision"`
-		} `json:"hookSpecificOutput"`
-	}
-	out := strings.TrimSpace(r.Stdout)
-	if !strings.HasPrefix(out, "{") || json.Unmarshal([]byte(out), &reply) != nil {
-		return Allow
-	}
-	if reply.HookSpecificOutput.PermissionDecision == "deny" || reply.Decision == "block" ||
-		(reply.Continue != nil && !*reply.Continue) {
+	reply, ok := readReply(r)
+	if ok && (reply.HookSpecificOutput.PermissionDecision == "deny" || reply.Decision == "block" ||
+		(reply.Continue != nil && !*reply.Continue)) {
 		return Block
 	}
 	return Allow
+}
+
+// contextEvents add a hook's plain stdout on exit 0 to the session.
+var contextEvents = []string{"SessionStart", "UserPromptSubmit"}
+
+// AddsContext reports whether the target adds the hook's output to what
+// the model sees: plain stdout on a context event, or a JSON reply's
+// additionalContext.
+func AddsContext(event string, r Result) bool {
+	if r.TimedOut || r.StartErr != nil || r.Exit != 0 {
+		return false
+	}
+	if reply, ok := readReply(r); ok {
+		return reply.HookSpecificOutput.AdditionalContext != ""
+	}
+	return slices.Contains(contextEvents, event) && strings.TrimSpace(r.Stdout) != ""
+}
+
+type hookReply struct {
+	Continue           *bool  `json:"continue"`
+	Decision           string `json:"decision"`
+	HookSpecificOutput struct {
+		PermissionDecision string `json:"permissionDecision"`
+		AdditionalContext  string `json:"additionalContext"`
+	} `json:"hookSpecificOutput"`
+}
+
+func readReply(r Result) (hookReply, bool) {
+	var reply hookReply
+	out := strings.TrimSpace(r.Stdout)
+	if !strings.HasPrefix(out, "{") || json.Unmarshal([]byte(out), &reply) != nil {
+		return reply, false
+	}
+	return reply, true
 }
