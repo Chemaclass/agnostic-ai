@@ -128,10 +128,11 @@ func parsePackagingIgnore(format, text string) ([]packagingIgnoreRule, error) {
 		}
 		rule.anchored = strings.HasPrefix(line, "/")
 		rule.directory = strings.HasSuffix(line, "/")
-		if format == ".dockerignore" {
+		switch format {
+		case ".dockerignore":
 			line = strings.TrimPrefix(path.Clean(line), "/")
 			rule.directory = false
-		} else if format == ".npmignore" {
+		case ".npmignore":
 			line = strings.TrimPrefix(line, "/")
 			line = strings.TrimSuffix(line, "/")
 		}
