@@ -157,7 +157,7 @@ func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 		for _, command := range commands {
 			byKey[k] = append(byKey[k], hookEntry{CommandEntry: claudehooks.CommandEntry{
 				Type:          "command",
-				Command:       emit.RewriteHookPath(command, target),
+				Command:       emit.RewriteHookPath(command, target, h.Meta),
 				Args:          args,
 				Timeout:       timeout,
 				StatusMessage: statusMessage,

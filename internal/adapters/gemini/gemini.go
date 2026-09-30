@@ -191,7 +191,7 @@ func materializeHookScripts(sess *emit.Session, hooks []spec.Entry, dryRun bool)
 	for _, h := range hooks {
 		for _, raw := range hookSourceCommands(h) {
 			sourceTool, _ := emit.SourceToolFromHookCommand(raw)
-			rewritten := emit.RewriteHookPath(raw, target)
+			rewritten := emit.RewriteHookPath(raw, target, h.Meta)
 			if err := sess.MaterializeHookScript(rewritten, target, sourceTool, dryRun); err != nil {
 				return err
 			}

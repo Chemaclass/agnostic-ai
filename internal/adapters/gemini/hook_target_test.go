@@ -1,6 +1,7 @@
 package gemini
 
 import (
+	"bytes"
 	"os"
 	"strings"
 	"testing"
@@ -48,4 +49,41 @@ func TestEmit_HookHandlersCarryTheTargetEnv(t *testing.T) {
 		t.Errorf("target env on %d handlers, want 3:\n%s", n, got)
 	}
 	assertContainsAll(t, got, `"FOO": "bar"`, `"command": "guard.sh"`)
+}
+
+func TestEmit_NativeHookRootWarnsAndHonorsError(t *testing.T) {
+	testutil.TempCwd(t)
+	hook := spec.Entry{Kind: spec.KindHook, Name: "native-guard", Path: "hooks/native-guard.yaml", Meta: map[string]any{"event": "BeforeTool", "x-gemini": map[string]any{"hooks": []any{map[string]any{"type": "command", "command": `"${CLAUDE_PROJECT_DIR:-/tmp}/guard.sh"`}}}}}
+	bundle := spec.NewBundle([]spec.Entry{hook})
+	if err := New().Emit(emit.NewSession(), bundle, &config.Config{OnUnsupported: "error"}, false); err == nil || !strings.Contains(err.Error(), "native-guard") {
+		t.Errorf("want named native hook error, got %v", err)
+	}
+	previous := emit.Warner
+	var warnings bytes.Buffer
+	emit.Warner = &warnings
+	emit.ResetCoverageNotes()
+	t.Cleanup(func() { emit.Warner = previous; emit.ResetCoverageNotes() })
+	if err := New().Emit(emit.NewSession(), bundle, &config.Config{OnUnsupported: "warn"}, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+	if !strings.Contains(warnings.String(), "native-guard") || !strings.Contains(warnings.String(), "CLAUDE_PROJECT_DIR") {
+		t.Errorf("missing native hook warning: %s", warnings.String())
+	}
+	got := readTargetFile(t, ".gemini/settings.json")
+	if !strings.Contains(got, "${CLAUDE_PROJECT_DIR:-/tmp}") {
+		t.Errorf("unsupported native command changed: %s", got)
+	}
+}
+
+func TestEmit_NativeHookRootIgnoresOverriddenTopLevelCommand(t *testing.T) {
+	testutil.TempCwd(t)
+	hook := spec.Entry{Kind: spec.KindHook, Name: "native-safe", Meta: map[string]any{"event": "BeforeTool", "command": `"${CLAUDE_PROJECT_DIR:-/tmp}/ignored.sh"`, "x-gemini": map[string]any{"hooks": []any{map[string]any{"type": "command", "command": `"${CLAUDE_PROJECT_DIR}/safe.sh"`, "shell": "bash"}}}, "shell": "powershell"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{hook}), &config.Config{OnUnsupported: "error"}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readTargetFile(t, ".gemini/settings.json")
+	if !strings.Contains(got, "safe.sh") || !strings.Contains(got, "${GEMINI_PROJECT_DIR}") || strings.Contains(got, "ignored.sh") {
+		t.Errorf("native override rendered wrong command: %s", got)
+	}
 }

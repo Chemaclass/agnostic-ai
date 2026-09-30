@@ -141,6 +141,7 @@ func emitTasks(sess *emit.Session, hooks []spec.Entry, path string, dryRun bool)
 	tasks := make([]map[string]any, 0, len(hooks))
 	for _, h := range hooks {
 		cmd, _ := h.Meta["command"].(string)
+		cmd = emit.RewriteHookRoot(cmd, target, h.Meta)
 		if cmd == "" {
 			continue
 		}

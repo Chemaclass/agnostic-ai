@@ -93,6 +93,11 @@ func ReportUnsupported(c Capabilities, b spec.Bundle, mode string) error {
 			capabilityWarnState.mu.Unlock()
 		}
 	}
+	if c.supports(spec.KindHook) {
+		if err := ReportHookProjectRoot(c.Target, b.HooksFor(c.Target), mode, false); err != nil {
+			return err
+		}
+	}
 	if c.supports(spec.KindSettings) && !slices.Contains(c.SettingsFields, "effort") {
 		noteDroppedSettingsEffort(c.Target, b.Settings)
 	}

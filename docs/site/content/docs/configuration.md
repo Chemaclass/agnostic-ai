@@ -320,6 +320,8 @@ Applies when an adapter receives a spec kind it does not support (e.g. `hooks` f
 | `error` | Fail the sync. |
 | `silent` | Skip without logging. |
 
+Imported Claude hook root references that cannot be translated also follow this policy, including exec-form placeholders and complex shell expansions. See [project-root paths](@/docs/spec-format/hooks.md#imported-project-root-paths).
+
 ## Coverage notes
 
 `sync` prints a `note:` line when specs of a kind exist but a target emits them only behind an inactive opt-in key, or not at all:
