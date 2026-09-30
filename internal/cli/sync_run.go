@@ -585,7 +585,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 				gitignoreEntries = append(gitignoreEntries, path)
 			}
 		}
-		block, err := syncManagedBlock(cfg, b, effectiveTargets, gitignoreEntries)
+		block, err := syncManagedBlock(root, cfg, b, effectiveTargets, gitignoreEntries)
 		if err != nil {
 			return err
 		}
@@ -933,7 +933,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 				gitignoreEntries = append(gitignoreEntries, path)
 			}
 		}
-		block, err := syncManagedBlock(cfg, b, effectiveTargets, gitignoreEntries)
+		block, err := syncManagedBlock(root, cfg, b, effectiveTargets, gitignoreEntries)
 		if err != nil {
 			return undoSweep(mainSess, nil, err)
 		}

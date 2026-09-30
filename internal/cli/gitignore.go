@@ -339,11 +339,19 @@ func holdsCommitted(committed map[string]struct{}, entry string) bool {
 // gitignore.commit kind is left out. Hints, scopes, and commit kinds
 // cover every configured target too, so a sync of a subset writes the
 // block a full sync would.
-func syncManagedBlock(cfg *config.Config, b spec.Bundle, targets, recorded []string) ([]string, error) {
+//
+// The outputs of the configured targets a sync leaves out come from the
+// ledger, which recorded carries. Those targets render in memory for
+// theirs when there is no ledger, as in a fresh clone, or when the block
+// would drop a line the file lists. The ledger then lacks their outputs:
+// the sync that started it left them out, or a pull added their specs.
+func syncManagedBlock(root string, cfg *config.Config, b spec.Bundle, targets, recorded []string) ([]string, error) {
 	blockTargets := slices.Clone(targets)
+	var leftOut []string
 	for _, target := range cfg.Targets {
 		if !slices.Contains(blockTargets, target) {
 			blockTargets = append(blockTargets, target)
+			leftOut = append(leftOut, target)
 		}
 	}
 	committed, err := committedOutputs(cfg, b, blockTargets)
@@ -351,7 +359,72 @@ func syncManagedBlock(cfg *config.Config, b spec.Bundle, targets, recorded []str
 		return nil, fmt.Errorf("gitignore.commit: %w", err)
 	}
 	entries := append(slices.Clone(recorded), gitignoreHintsForTargets(cfg, blockTargets)...)
-	return buildManagedBlockCommitting(cfg, entries, specScopes(b, blockTargets), committed), nil
+	scopes := specScopes(b, blockTargets)
+	block := buildManagedBlockCommitting(cfg, entries, scopes, committed)
+	if len(leftOut) > 0 && (ledgerMissing(root) || dropsListedEntries(root, cfg, block)) {
+		entries = append(entries, renderedOutputs(cfg, b, leftOut)...)
+		block = buildManagedBlockCommitting(cfg, entries, scopes, committed)
+	}
+	return block, nil
+}
+
+// renderedOutputs returns the paths targets write, rendered in memory:
+// each adapter's files and its entry point. A target that does not
+// resolve or render is skipped, so it never fails the sync.
+func renderedOutputs(cfg *config.Config, b spec.Bundle, targets []string) []string {
+	defer adapters.SetAsideNotes()()
+	sess := adapters.NewSession()
+	var out []string
+	for _, t := range targets {
+		adapter, err := adapters.Resolve(t)
+		if err != nil {
+			continue
+		}
+		files, err := captureAdapterFiles(sess, adapter, b, cfg)
+		if err != nil {
+			continue
+		}
+		for _, f := range files {
+			out = append(out, f.Path)
+		}
+		if path := adapters.EntryPointPath(cfg, t); path != "" && !cfg.IsUnmanaged(path) {
+			out = append(out, path)
+		}
+	}
+	return out
+}
+
+// dropsListedEntries reports whether block leaves out a line the managed
+// block in the gitignore file lists.
+func dropsListedEntries(root string, cfg *config.Config, block []string) bool {
+	data, err := os.ReadFile(filepath.Join(root, gitignoreRel(cfg)))
+	if err != nil {
+		return false
+	}
+	for _, e := range managedBlockLines(string(data)) {
+		if !slices.Contains(block, e) {
+			return true
+		}
+	}
+	return false
+}
+
+// managedBlockLines returns the entries the managed block in content
+// lists, without its comments and blank lines. A block with no end
+// marker runs to the end of content, as replaceRenderedBlock reads it.
+func managedBlockLines(content string) []string {
+	_, body, found := strings.Cut(content, gitignoreBlockStart)
+	if !found {
+		return nil
+	}
+	body, _, _ = strings.Cut(body, gitignoreBlockEnd)
+	var out []string
+	for _, line := range strings.Split(body, "\n") {
+		if line = strings.TrimSpace(line); line != "" && !strings.HasPrefix(line, "#") {
+			out = append(out, line)
+		}
+	}
+	return out
 }
 
 func trackedIgnoreCandidates(cfg *config.Config, outputs []string) []string {
