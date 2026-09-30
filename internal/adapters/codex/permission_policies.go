@@ -132,6 +132,9 @@ func resolveExecPolicies(settings []spec.Entry, cfg *config.Config) ([]config.Co
 		emit.NoteProject(fmt.Sprintf("codex: exec policies come from %s, so outputs.codex.exec-policies-from-permissions has no effect", source))
 		return policies, false, nil
 	}
+	var exactAllows []permissionRule
+	// Claude matches only wildcard rules against a command with extra arguments.
+	var wildcards []config.CodexExecPolicy
 	for _, rule := range permissionRules(settings, cfg) {
 		if !isBashRule(rule.rule) {
 			continue
@@ -148,9 +151,29 @@ func resolveExecPolicies(settings []spec.Entry, cfg *config.Config) ([]config.Co
 			}
 			continue
 		}
-		policies = append(policies, config.CodexExecPolicy{Pattern: pattern, Decision: permissionDecision(rule.list)})
+		policy := config.CodexExecPolicy{Pattern: pattern, Decision: permissionDecision(rule.list)}
+		policies = append(policies, policy)
+		switch {
+		case !isExactBashRule(rule.rule):
+			wildcards = append(wildcards, policy)
+		case rule.list == "allow":
+			exactAllows = append(exactAllows, rule)
+		}
+	}
+	if cfg.OnUnsupported != emit.OnUnsupportedSilent {
+		for _, rule := range exactAllows {
+			pattern, _ := bashPermissionPrefix(rule.rule)
+			if prefixDecision(policies, pattern) == "allow" && prefixDecision(wildcards, pattern) != "allow" {
+				emit.NoteProject(fmt.Sprintf("codex: %s: permissions.%s rule %s becomes a Codex prefix rule, so Codex also allows `%s` with any extra arguments; add a deny or ask rule for arguments that need review", rule.path, rule.list, rule.rule, strings.Join(pattern, " ")))
+			}
+		}
 	}
 	return policies, true, nil
+}
+
+func isExactBashRule(rule string) bool {
+	_, command, _ := spec.SplitPermissionRule(rule)
+	return !strings.HasSuffix(command, ":*") && !strings.HasSuffix(command, " *")
 }
 
 // PermissionPolicyMismatch names a portable rule explicit native policies do not cover with the same decision.
