@@ -14,6 +14,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### By tool
 
+#### Codex
+
+- `.codex/environments/environment.toml` always carries `[setup]`, with an empty script when no spec sets one, as the file the Codex app generates does; a spec with only dev commands used to drop the table.
+
 #### Gemini CLI
 
 - `import gemini` decodes a command's TOML strings, so a `\\(` in a `"""` prompt no longer comes back doubled and changes the shell command; keys other than `description` and `prompt` import under `x-gemini`.

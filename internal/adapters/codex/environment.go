@@ -60,7 +60,11 @@ func emitEnvironment(sess *emit.Session, envs []spec.Entry, cfg *config.Config, 
 	var sb strings.Builder
 	sb.WriteString("version = 1\n")
 	emit.WriteTOMLString(&sb, "name", doc.name)
-	writeScript(&sb, "setup", doc.setup)
+	// The Codex app writes `[setup]` with an empty script for a project
+	// with none, under "TODO(anp) make it optional to specify this field",
+	// so the table is written even for an action-only spec.
+	sb.WriteString("\n[setup]\n")
+	writeValue(&sb, "script", doc.setup)
 	writeScript(&sb, "setup.win32", doc.setupWindows)
 	writeScript(&sb, "cleanup", doc.cleanup)
 	actions := 0
@@ -127,7 +131,7 @@ func scriptText(v any) string {
 }
 
 // writeScript writes `[table]` with its script. An empty script writes no
-// table, so an action-only spec leaves `[setup]` out.
+// table.
 func writeScript(sb *strings.Builder, table, script string) {
 	if script == "" {
 		return
