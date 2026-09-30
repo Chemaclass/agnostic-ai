@@ -162,7 +162,7 @@ outputs:
 
 For many policies, use a separate file: `exec-policies-file: ./.agnostic-ai/codex.exec-policies.yaml`. Inline entries render first, then file entries. [Codex applies the strictest matching decision](https://learn.chatgpt.com/docs/agent-configuration/rules): `forbidden`, then `prompt`, then `allow`. Order does not override a restriction.
 
-`import codex` captures every `prefix_rule(...)` in `.codex/rules/default.rules` into `.agnostic-ai/overlays/codex.exec-policies.yaml`. Sync loads that overlay when neither an inline list nor `exec-policies-file` is set, so the round-trip preserves content with no extra config.
+`import codex` captures every `prefix_rule(...)` in `.codex/rules/default.rules` into `.agnostic-ai/overlays/codex.exec-policies.yaml`. It skips a file sync generated, since those rules already have a source. Sync loads that overlay when neither an inline list nor `exec-policies-file` is set, so the round-trip preserves content with no extra config.
 
 ### Translate Bash permissions
 
