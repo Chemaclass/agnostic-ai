@@ -26,7 +26,7 @@ func hookHandlers(h spec.Entry) []claudehooks.CommandEntry {
 		var handlers []claudehooks.CommandEntry
 		for _, command := range hookCommands(meta["command"]) {
 			handler := base
-			handler.Command = emit.RewriteHookPath(command, target)
+			handler.Command = emit.RewriteHookPath(command, target, meta)
 			handlers = append(handlers, handler)
 		}
 		return handlers
