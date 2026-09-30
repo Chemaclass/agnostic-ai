@@ -388,6 +388,7 @@ Claude Code builds a CLI `--worktree`, a subagent's, or a Desktop worktree from 
 - Files collapse to their generated subdirectory (`/.claude/rules/`), never higher, so siblings such as `.claude/settings.json` stay visible. A per-kind dir such as `outputs.<target>.rules-dir` collapses at the dir itself.
 - Output under a rule or review `scope` stays one line per file (`/services/api/AGENTS.md`), so new files in that directory are not ignored.
 - The block always holds `agnostic-ai.local.yaml`, `/.agnostic-ai/.sync-state`, `/.agnostic-ai/packs/`, and `/.agnostic-ai/local/`, seeded by `init` even with `gitignore.enabled: false`. `init`, `sync`, or `packs add` moves old loose copies into the block.
+- Kept orphans stay ignored until removed, even when a partial sync or deleted spec narrows the emitted paths.
 - A target can add entries of its own, such as [Claude Code](@/docs/targets/claude.md)'s local settings.
 
 ## Watched inputs

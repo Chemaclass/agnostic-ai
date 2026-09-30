@@ -62,6 +62,7 @@ agnostic-ai import claude codex --dry-run --diff  # preview existing tool config
 agnostic-ai compare claude cursor                # compare agent and skill fields and rule activation
 agnostic-ai why AGENTS.md                        # trace an output to its source
 agnostic-ai sync --check                         # find local drift
+agnostic-ai doctor --fix                         # repair drift, choose kept orphan removal
 ```
 
 Support spans [Claude Code, Codex, Cursor, Gemini CLI, Copilot, and more](https://agnostic-ai.org/docs/targets/#capability-matrix). Each tool supports a different set of spec kinds. The [spec format](https://agnostic-ai.org/docs/spec-format/) and [target reference](https://agnostic-ai.org/docs/targets/) show the exact paths and fields.

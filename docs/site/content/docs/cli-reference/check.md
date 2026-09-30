@@ -110,13 +110,13 @@ The verifier owns datasets, judging, results, and baselines.
 
 ## doctor
 
-Report missing (never synced), stale (out of date with the specs), edited (changed since the last sync), and orphaned (no longer generated, kept because edited) files. Read-only unless `--fix`. Exits non-zero on any drift, [lint](#lint) error, or untrusted or modified Codex hook. Unreadable hook trust state also fails; intentionally disabled hooks are reported without failing.
+Report missing (never synced), stale (out of date with the specs), edited (changed since the last sync), and orphaned (no longer generated, kept because ownership could not be proven) files. Read-only unless `--fix`. Exits non-zero on any drift, [lint](#lint) error, or untrusted or modified Codex hook. Unreadable hook trust state also fails; intentionally disabled hooks are reported without failing.
 
 | Flag | Description |
 |------|-------------|
 | `-t, --target <list>` | Comma-separated targets (default: all in config) |
-| `--fix` | Write missing, stale, and edited files, and remove each nested `CLAUDE.md` a rule already holds. Orphans stay for you to delete, so the exit stays non-zero while any remain. |
-| `--backup` | With `--fix`, copy each existing file to `<path>.bak` before overwriting. |
+| `--fix` | Write missing, stale, and edited files, and remove each nested `CLAUDE.md` a rule already holds. In a terminal, offers to remove each kept orphan recorded by sync, defaulting to no. Outside a terminal, keeps them and explains the manual step. The exit stays non-zero while any remain. |
+| `--backup` | With `--fix`, copy each existing file to `<path>.bak` before overwriting or confirmed orphan removal. |
 | `--check-globs` | Flag rules whose `globs:` match no files. Off by default. |
 | `--check-references` | Flag relative Markdown links in generated skills whose file is missing on disk. Off by default. |
 | `--json` | Drift report as JSON, same schema as `sync --check --json`, plus `lint` and `hook_trust` lists. With `--check-references`, adds a `references` list. |
