@@ -35,6 +35,9 @@ func extendEntry(base, over Entry) Entry {
 	}
 	if over.Kind == KindRule {
 		out.Scope = out.folderScope()
+		if len(out.NativeRuleTargets()) > 0 {
+			out.Scope = out.ruleFolder
+		}
 	}
 	if over.Kind == KindSkill && !skillShipsAssets(over.Path) {
 		out.AssetDir = base.SkillAssetDir()
