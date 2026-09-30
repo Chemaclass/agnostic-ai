@@ -3,8 +3,10 @@ package emit
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/markdown"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -22,6 +24,71 @@ func TestMergedDocument_SkipsWhenEmpty(t *testing.T) {
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Errorf("MergedDocument wrote %s with an empty bundle; want skip", path)
+	}
+}
+
+func TestWriteSection_RuleHeadingsNestUnderSection(t *testing.T) {
+	for _, tc := range []struct{ name, body, want string }{
+		{"subsections", "### Versioning\n#### Details\n", "#### Versioning\n##### Details\n"},
+		{"shallow headings", "# Title\n## Details\n###### Deep\n", "#### Title\n##### Details\n###### Deep\n"},
+		{"already nested", "#### Versioning\n##### Details\n", "#### Versioning\n##### Details\n"},
+		{"indented and escaped", "   ### Heading\n    # Code\n\\# Literal\n#hashtag\n", "   #### Heading\n    # Code\n\\# Literal\n#hashtag\n"},
+		{"setext", "Title\n=====\n\nDetails\n---\n", "#### Title\n\n##### Details\n"},
+		{"thematic break", "---\nTitle\n=====\n", "---\n#### Title\n"},
+		{"spaced thematic breaks", "* * *\nTitle\n=====\n- - -\nNext\n---\n", "* * *\n#### Title\n- - -\n##### Next\n"},
+		{"single-character setext", "Title\n-\n", "#### Title\n"},
+		{"ordered list and thematic break", "1. Run tests\n---\n\nTitle\n===\n", "1. Run tests\n---\n\n#### Title\n"},
+		{"ordered parenthesis list", "2) Run tests\n---\n", "2) Run tests\n---\n"},
+		{"list lazy continuation", "1. Run tests\nand lint\n---\n", "1. Run tests\nand lint\n---\n"},
+		{"quote lazy continuation", "> Note\nand this line\n---\n", "> Note\nand this line\n---\n"},
+		{"after a quote", "> Note\n\nTitle\n---\n", "> Note\n\n#### Title\n"},
+		{"HTML block", "<div>\nLiteral HTML\n---\n# Literal heading\n</div>\n\nTitle\n===\n", "<div>\nLiteral HTML\n---\n# Literal heading\n</div>\n\n#### Title\n"},
+		{"tag-led paragraph", "<b>Note:</b> read first\n---\n", "#### <b>Note:</b> read first\n"},
+		{"inline tag in a paragraph", "Press\n<kbd>Ctrl</kbd> to copy.\n### Heading\n", "Press\n<kbd>Ctrl</kbd> to copy.\n#### Heading\n"},
+		{"lone tag inside a paragraph", "Press\n<kbd>\n### Heading\n", "Press\n<kbd>\n#### Heading\n"},
+		{"lone tag block", "<custom-note>\n# Literal\n</custom-note>\n\n### Heading\n", "<custom-note>\n# Literal\n</custom-note>\n\n#### Heading\n"},
+		{"indented HTML closure", "<!--\n    -->\n### Versioning\n", "<!--\n    -->\n#### Versioning\n"},
+		{"indented HTML blank", "<div>\nLiteral HTML\n</div>\n    \n### Versioning\n", "<div>\nLiteral HTML\n</div>\n    \n#### Versioning\n"},
+		{"tab HTML blank", "<div>\n</div>\n\t\n### Versioning\n", "<div>\n</div>\n\t\n#### Versioning\n"},
+		{"HTML comment with blank", "<!--\n\nLiteral HTML\n---\n-->\nTitle\n===\n", "<!--\n\nLiteral HTML\n---\n-->\n#### Title\n"},
+		{"script HTML with blank", "<script>\n\nLiteral HTML\n---\n</script>\nTitle\n===\n", "<script>\n\nLiteral HTML\n---\n</script>\n#### Title\n"},
+		{"CDATA block", "<![CDATA[\nLiteral text\n---\n]]>\n", "<![CDATA[\nLiteral text\n---\n]]>\n"},
+		{"processing instruction", "<?xml\nLiteral text\n---\n?>\n", "<?xml\nLiteral text\n---\n?>\n"},
+		{"windows lines", "### Heading\r\nText.\r\n", "#### Heading\r\nText.\r\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var sb strings.Builder
+			e := spec.Entry{Kind: spec.KindRule, Name: "content", Body: tc.body}
+			WriteSection(&sb, e.Name, e)
+			if got := sb.String(); !strings.HasSuffix(got, tc.want+"\n\n") {
+				t.Errorf("headings do not nest:\n%s\nwant body:\n%s", got, tc.want)
+			}
+			if e.Body != tc.body {
+				t.Error("source body changed")
+			}
+			if got, _ := markdown.NestHeadings(tc.want, 3); got != tc.want {
+				t.Errorf("already emitted headings deepen again: %q", got)
+			}
+		})
+	}
+}
+
+func TestWriteSection_KeepsAgentBodyHeadings(t *testing.T) {
+	var sb strings.Builder
+	WriteSection(&sb, "agent", spec.Entry{Kind: spec.KindAgent, Body: "# Agent instructions\n"})
+	if !strings.Contains(sb.String(), "\n# Agent instructions\n") {
+		t.Errorf("agent body changed: %s", sb.String())
+	}
+}
+
+func TestWriteSection_RuleHeadingsPreserveFencedCode(t *testing.T) {
+	body := "### Versioning\n\n````markdown\n# Literal\n```\n### Still fenced\n`````\n\n~~~markdown\n## Literal\n~~~~\n\n### Following\n"
+	var sb strings.Builder
+	WriteSection(&sb, "content", spec.Entry{Kind: spec.KindRule, Body: body})
+	want := strings.ReplaceAll(body, "### Versioning", "#### Versioning")
+	want = strings.ReplaceAll(want, "### Following", "#### Following")
+	if !strings.HasSuffix(sb.String(), want+"\n\n") {
+		t.Errorf("fenced code changed or headings escaped:\n%s", sb.String())
 	}
 }
 

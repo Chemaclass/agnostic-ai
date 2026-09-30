@@ -57,6 +57,16 @@ Use integer minor units for monetary values.
 
 Claude Code gets a conditional rule. Codex and Cursor share `services/payments/AGENTS.md`. Gemini gets `services/payments/GEMINI.md`. See [directory-specific instructions](@/docs/scoped-context.md) for every target and the selector limits.
 
+## Headings in merged files
+
+When several rules share a document, such as Codex's `AGENTS.md` or Gemini's `GEMINI.md`, each rule gets a `### <name>` section. Sync shifts the rule body's heading levels together so its shallowest heading is at least `####`. A body with `### Doc versioning` and `#### Details` becomes `#### Doc versioning` and `##### Details`. The `outputs.claude.rules-file` layout writes `## <name>` sections, so there the shallowest body heading is at least `###`. Already nested headings keep their levels. Markdown has six heading levels, so no heading goes past `######`. When a body's deepest heading sits more than two levels below its shallowest, or three in the Claude layout, the deepest levels merge at `######`, and import cannot separate them again.
+
+Fenced code, including fences inside lists, and raw HTML blocks keep their headings as written. Link reference definitions stay separate from Setext headings. List items followed by a thematic break remain lists. Raw HTML blocks follow CommonMark: a line such as `<b>Note:</b> read first` is paragraph text, so a `---` under it forms a heading that nests too. Standalone rule files and a nested document containing one rule without a section wrapper also keep the source heading levels.
+
+The section's source comment records the shift, as in `<!-- source: .agnostic-ai/rules/content.md headings: +1 -->`, and import moves the headings back, so a rule survives sync and import unchanged. A Setext heading comes back as a `#` heading; hard line breaks in its text become `<br>` tags. Literal headings and source-comment examples inside fenced code and raw HTML stay in their rule body instead of starting another rule.
+
+When a rule leaves a code or HTML block open, its source comment also records `body-lines: <count>`. Import uses that extent to find the next section. Sync updates the count from the spec.
+
 ## Fields
 
 | Field | Required | Default | Description |

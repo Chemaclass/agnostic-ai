@@ -45,7 +45,7 @@ agnostic-ai sync --check
 
 Run `agnostic-ai install-hook --post-checkout` to regenerate ignored tool files after checkouts and pulls that merge. If `sync --untrack` removes committed outputs from Git, install these hooks in each clone before pulling, or run `agnostic-ai sync` after pulling. See [Git hooks](https://agnostic-ai.org/docs/git-hooks/#regenerate-on-checkout).
 
-A rule with `scope: src/a` and `globs: tests/a/**` applies to both directories. Claude writes both path patterns; Codex writes a nested `AGENTS.md` in each directory. See [scoped context](https://agnostic-ai.org/docs/scoped-context/) for selector limits and migration from the earlier intersection behavior.
+A rule with `scope: src/a` and `globs: tests/a/**` applies to both directories. Claude writes both path patterns; Codex writes a nested `AGENTS.md` in each directory. See [scoped context](https://agnostic-ai.org/docs/scoped-context/) for selector limits and migration from the earlier intersection behavior. Rule body headings nest beneath each rule section in merged instruction files; fenced code stays as written.
 
 Codex places unscoped whole-subtree rules such as `globs: src/app/api/**` in nested `AGENTS.md` files. Filename filters and root-file selectors stay inline with an always-loaded note. Set `outputs.codex.nested-glob-rules: false` to keep root inlining. Start Codex in the subtree to load its instruction chain.
 

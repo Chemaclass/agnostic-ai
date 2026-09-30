@@ -2,8 +2,10 @@ package emit
 
 import (
 	"path/filepath"
+	"strconv"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/markdown"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -18,10 +20,30 @@ import (
 // authors) find the originating spec when staring at AGENTS.md or
 // CONVENTIONS.md.
 func SourceComment(path string) string {
+	return SectionSourceComment(path, 0)
+}
+
+// SectionSourceComment is SourceComment for a section whose body headings
+// sync moved shift levels down. It records the shift so import can move
+// them back:
+//
+//	<!-- source: rules/content.md headings: +1 -->
+func SectionSourceComment(path string, shift int) string {
 	if path == "" {
 		return ""
 	}
-	return "<!-- source: " + filepath.ToSlash(path) + " -->\n"
+	if shift == 0 {
+		return "<!-- source: " + filepath.ToSlash(path) + " -->\n"
+	}
+	return "<!-- source: " + filepath.ToSlash(path) + " headings: +" + strconv.Itoa(shift) + " -->\n"
+}
+
+func BodySourceComment(path, body string, shift int) string {
+	comment := SectionSourceComment(path, shift)
+	if comment == "" || !markdown.LeavesBlockOpen(body) {
+		return comment
+	}
+	return strings.TrimSuffix(comment, " -->\n") + " body-lines: " + strconv.Itoa(strings.Count(body, "\n")) + " -->\n"
 }
 
 // MergedOpts configures MergedDocument output.
@@ -119,12 +141,17 @@ func (s *Session) MergedDocument(b spec.Bundle, opts MergedOpts, dryRun bool) er
 // heading is taken as a parameter (rather than e.Name) so callers can
 // prepend a prefix like "Agent: ".
 func WriteSection(sb *strings.Builder, heading string, e spec.Entry) {
-	sb.WriteString("### " + heading + "\n\n")
-	sb.WriteString(SourceComment(e.Path))
-	if d := e.Description(); d != "" {
-		sb.WriteString("_" + d + "_\n\n")
+	body, shift := e.Body, 0
+	if e.Kind == spec.KindRule {
+		body, shift = markdown.NestHeadings(body, 3)
 	}
-	sb.WriteString(e.Body + "\n\n")
+	sb.WriteString("### " + heading + "\n\n")
+	if d := e.Description(); d != "" {
+		body = "_" + d + "_\n\n" + body
+	}
+	body += "\n\n"
+	sb.WriteString(BodySourceComment(e.Path, body, shift))
+	sb.WriteString(body)
 }
 
 // WriteReference writes a "### <name>" reference block: provenance
