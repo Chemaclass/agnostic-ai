@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -136,21 +137,25 @@ func newSyncCmd() *cobra.Command {
 			}
 
 			if plan {
+				adapters.ResetCoverageNotes()
 				reports, err := collectDrift(effective)
 				if err != nil {
 					return err
 				}
+				notesErr := checkCoverageNotes(cfg, effective)
 				if jsonOut {
-					return printSyncPlanJSON(cmd, "sync --plan", reports, false)
+					return printSyncPlanJSON(cmd, "sync --plan", reports, false, notesErr)
 				}
 				printSyncPlan(cmd, reports)
-				return nil
+				return notesErr
 			}
 			if check {
+				adapters.ResetCoverageNotes()
 				reports, err := collectDrift(effective)
 				if err != nil {
 					return err
 				}
+				notesErr := checkCoverageNotes(cfg, effective)
 				if tree != nil {
 					filtered := len(targets) > 0 || len(only) > 0 || len(except) > 0
 					dropped, note, err := tree.droppedOutputs(filtered, reports)
@@ -172,13 +177,13 @@ func newSyncCmd() *cobra.Command {
 					}
 				}
 				if jsonOut {
-					return printSyncCheckJSON(cmd, reports)
+					return printSyncCheckJSON(cmd, reports, notesErr)
 				}
 				err = reportCheckDrift(cmd, reports, format, diff)
 				if err != nil && tree != nil && regeneratedDrift(reports) {
 					_, _ = fmt.Fprintln(cmd.ErrOrStderr(), againstHint(against))
 				}
-				return err
+				return errors.Join(err, notesErr)
 			}
 			if watchPoll && !watch {
 				return fmt.Errorf("--watch-poll requires --watch")
@@ -189,11 +194,12 @@ func newSyncCmd() *cobra.Command {
 				return watchSync(ctx, 200*time.Millisecond, ".", effective, dryRun, backup, gitignoreFlag, watchPoll, jobs)
 			}
 			if jsonOut && dryRun {
+				adapters.ResetCoverageNotes()
 				reports, err := collectDrift(effective)
 				if err != nil {
 					return err
 				}
-				return printSyncPlanJSON(cmd, "sync --dry-run", reports, true)
+				return printSyncPlanJSON(cmd, "sync --dry-run", reports, true, checkCoverageNotes(cfg, effective))
 			}
 			if jsonOut {
 				return runSyncJSON(cmd, ".", effective, backup, keepEdits, untrack, gitignoreFlag, jobs)

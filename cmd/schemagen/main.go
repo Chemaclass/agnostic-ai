@@ -14,7 +14,19 @@ import (
 )
 
 func main() {
-	r := jsonschema.Reflector{Mapper: mapType}
+	r := jsonschema.Reflector{Mapper: func(t reflect.Type) *jsonschema.Schema {
+		if s := mapType(t); s != nil {
+			return s
+		}
+		if t != reflect.TypeFor[config.CoverageTargets]() {
+			return nil
+		}
+		// One target name, or a list of them.
+		return &jsonschema.Schema{OneOf: []*jsonschema.Schema{
+			{Type: "string"},
+			{Type: "array", Items: &jsonschema.Schema{Type: "string"}},
+		}}
+	}}
 	schema := r.Reflect(&config.Config{})
 	schema.ID = "https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/schemas/config.schema.json"
 	schema.Title = "agnostic-ai configuration"

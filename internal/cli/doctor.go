@@ -60,13 +60,14 @@ func reportUnsupportedKinds(cmd *cobra.Command, cfg *config.Config) {
 	}
 }
 
-// reportSpecHealth prints the findings `lint` reports for the project
-// and returns them.
+// reportSpecHealth prints the findings `lint` reports for the project,
+// then the accepted coverage note count, and returns the findings.
 func reportSpecHealth(cmd *cobra.Command, scope checkScope) ([]lintFinding, error) {
-	findings, err := lintScopeFindings(scope)
+	findings, accepted, err := lintScopeReport(scope)
 	if err != nil {
 		return nil, err
 	}
+	defer reportAcceptedCoverageNotes(cmd, scope.cfg, accepted)
 	cmd.Println()
 	cmd.Println("Spec health:")
 	if len(findings) == 0 {

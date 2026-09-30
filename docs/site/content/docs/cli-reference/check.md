@@ -17,7 +17,7 @@ Load all specs, report parse errors, and print `loaded 12 entries. ok.` on succe
 |-------|------------|
 | Hook events | A hook spec's `event:` missing, or supported by no configured target (with the supported list). |
 | Orphaned kinds | Hook or MCP specs no enabled target consumes, one line per kind naming targets that would. |
-| Declared sources | An explicit `sources.<kind>` path in `agnostic-ai.yaml` with no directory. Warning only. |
+| Declared sources | An explicit `sources.<kind>` path in `agnostic-ai.yaml` with no directory, as a `note:` on stderr. The kind loads as empty and the run still passes, since a fresh clone lacks empty directories. |
 | Entry-point fences | A `::target` / `::targets` name in `.agnostic-ai/AGNOSTIC_AI.md` that is not a built-in target or listed in `targets` (external adapter), or that reads no entry-point file (`cursor`, or any target with `outputs.<target>.rules-file`). |
 | Global rules | With `--global`, a rule with scope, path, glob, or target conditions, which `sync --global` rejects. |
 | Global settings | With `--global`, a settings `effort` a target cannot take, such as `max` for Claude. |
@@ -64,6 +64,7 @@ agnostic-ai lint --strict
 | LINT019 | Warning. A skill or command line uses Claude Code body syntax (`` !`command` ``, a ` ```! ` block, `$ARGUMENTS`, or `$0`, `$1`, ...) outside a `::target` fence, and an enabled target reads it as plain text. The finding names the line and the targets. See [Claude Code body syntax](@/docs/spec-format/skills.md#claude-code-body-syntax). |
 | LINT020 | Warning. A rule sits in a folder that names a project directory, such as `rules/backend/`, but its `scope:` points outside it. The frontmatter wins. Move the file or drop `scope`. |
 | LINT021 | Warning. A supported Bash `allow` or `deny` rule in portable Settings or `outputs.claude.settings.permissions` has no covering explicit Codex prefix with the same effective decision, including portable deny and ask exclusions. Restrictive descendants also warn for an allowed prefix. Checks inline, YAML file, and imported policy sources when Codex is enabled. `lint --strict` fails. See [Bash permission translation](@/docs/targets/codex.md#translate-bash-permissions). |
+| LINT024 | Warning. A [`coverage.accept`](@/docs/configuration.md#coverageaccept) entry matches no coverage note on one of its targets, for example because the target now supports the field. Remove the entry or that target. A target that fails to load or emit gets its own LINT024 naming the error, and its entries are not checked. `lint --strict` fails. |
 | LINT025 | Warning. A [`models`](@/docs/configuration.md#models) tier that an agent, skill, command, or settings spec names has no entry and no `default` for an enabled target that writes the spec, so the spec gets that tool's default model. An effort-only tier is not checked. Also raised for a tier named like a Claude model, such as `opus`, since `model: opus` then names the tier. The editor server reports it too. `lint --strict` fails. |
 | LINT026 | Warning. A Claude model name reaches a target that cannot load it: through an agent's shared `model` (a scalar or `default`), or through the `default` of a tier an agent names. Write `model: {claude: <name>}` or add the target to the tier. `lint --strict` fails. |
 | LINT008 | Error. A stdio MCP server lacks `command:`, or an `http`/`sse`/`ws` one lacks `url:`. `x-<target>` cannot set either reserved field. |
@@ -138,6 +139,7 @@ Then doctor prints:
 | Block | What it shows | Counts as drift |
 |-------|---------------|-----------|
 | **Spec health** | The findings `agnostic-ai lint` reports. An error fails doctor; a warning shows without failing. With any finding, the next step points at `agnostic-ai lint`. | No |
+| **Coverage notes** | With [`coverage.accept`](@/docs/configuration.md#coverageaccept) set, how many coverage notes it accepts. `sync -v` lists them; `doctor --json` has the count as `coverage_accepted`. | No |
 | **Packaging ignores** | Generated paths not covered by an existing root `.npmignore`, `.vscodeignore`, or `.dockerignore`. Names the ignore file and paths. Unsupported patterns or read errors are reported separately. | No, advisory only |
 | **Tracked despite ignored** | A generated path git tracks and ignores, with the `git rm --cached` command. | No |
 | **Codex hook trust** | For selected Codex, inactive handlers in the project hooks file and user `hooks.json`, with `/hooks` as the next step. Reads only user trust from `CODEX_HOME/config.toml` (default `~/.codex/config.toml`). Untrusted, modified, or unreadable status fails; disabled status does not. | Never grants trust |
