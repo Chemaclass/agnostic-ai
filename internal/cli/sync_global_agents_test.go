@@ -317,7 +317,7 @@ func TestSyncGlobal_AgentReadonlyMaps(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(claude), "readonly: true\ndisallowedTools: Write, Edit, NotebookEdit\n") {
+	if !strings.Contains(string(claude), "disallowedTools: Write, Edit, NotebookEdit\n") || strings.Contains(string(claude), "readonly:") {
 		t.Errorf("readonly not mapped on the Claude agent: %s", claude)
 	}
 	if strings.Contains(warnings, "`readonly`") {
