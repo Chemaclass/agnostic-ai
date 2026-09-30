@@ -125,7 +125,7 @@ outputs:
     mcp-file: .cursor/mcp.json
 ```
 
-For Codex command rules, set `outputs.codex.exec-policies-from-permissions: true` to translate simple Bash entries from portable Settings specs and `outputs.claude.settings.permissions`. It defaults to `false`. Explicit inline, file, or imported Codex policies take precedence. Every translated rule matches a command prefix, including extra arguments. See [Bash permission translation](@/docs/targets/codex.md#translate-bash-permissions) for limits and LINT021 drift checks.
+For Codex command rules, set `outputs.codex.exec-policies-from-permissions: true` to translate simple Bash entries from portable Settings specs and `outputs.claude.settings.permissions`. It defaults to `false`. Explicit inline, file, or imported Codex policies take precedence. Every translated rule matches a command prefix, including extra arguments, and sync notes each exact `allow` rule that [Codex widens](@/docs/targets/codex.md#translate-bash-permissions). See [Bash permission translation](@/docs/targets/codex.md#translate-bash-permissions) for limits and LINT021 drift checks.
 
 ## `targets`
 
@@ -394,7 +394,7 @@ Claude Code builds a CLI `--worktree`, a subagent's, or a Desktop worktree from 
 
 ## Watched inputs
 
-`sync --watch` re-emits when the config files, any `sources` directory, `.agnostic-ai/local/`, or `.agnostic-ai/overlays/` change. Overlays hold keys the spec layer does not own, such as Claude `statusLine` or Codex `[profiles.*]`. See [`sync --watch`](@/docs/cli-reference/sync.md#sync).
+`sync --watch` re-emits when the config files, any `sources` directory, `.agnostic-ai/local/`, or `.agnostic-ai/overlays/` change. Overlays hold keys the spec layer does not own, such as Claude `statusLine` or Codex `[history]`. See [`sync --watch`](@/docs/cli-reference/sync.md#sync).
 
 ## Path semantics
 
@@ -499,7 +499,7 @@ Run `agnostic-ai list --global` to see effective specs with their `global` or `g
 - Skills render native frontmatter and copy bundled assets verbatim. Claude resolves skill `model` and `effort`, including per-target maps and `x-claude` overrides. Shared directories such as `~/.agents/skills/` keep neutral frontmatter.
 - Codex skills also get `agents/openai.yaml`, so `disable-model-invocation: true` keeps a skill manual-only there. Targets whose copy stays model-invocable print a coverage note.
 - Hooks and skills honor `target`, `targets`, and `targets-exclude`. Set hook events per target; sync does not translate event names.
-- Eighteen targets have global agent output; see [global output](@/docs/target-behavior.md#global-output). Others warn and skip agents. `readonly: true` maps to Codex's read-only sandbox and Claude's `disallowedTools`.
+- Eighteen targets have global agent output; see [global output](@/docs/target-behavior.md#global-output). Others warn and skip agents. `readonly: true` maps to Claude's `disallowedTools`; Codex agents keep the session sandbox and get a coverage note.
 - Output is real files, never symlinks. A user file that is itself a symlink (such as a dotfiles-managed `CLAUDE.md`) is written through. A symlink inside a skills, agents, or rules directory stops the run. Removing a spec behind a written-through symlink removes the link and the file it points at.
 - Ownership is recorded per target in `$AGNOSTIC_AI_HOME/state/global.json`. Sync keeps unrelated content and removes only recorded artifacts for the targets in the run, so `--only` never sweeps another target.
 - A managed hook or hooks file gone from disk is written again with a warning. A managed hook with the same matcher and command but other edits stops the run.
@@ -572,7 +572,7 @@ Sync edits only the keys it writes and records them in `state/global.json`. Ever
 - A key that already holds the value sync would write is adopted.
 - A key with another value stops the run and names the file, key, and both values. Codex's `/model` picker saves to `config.toml`, so this is normal: the message prints the line to put in the spec. `--backup` overwrites the key and keeps `<path>.bak`.
 - `--dry-run` lists each key a write sets or removes, and `--check` fails on a changed key.
-- An `x-<target>` block sets that target's own keys in the same file. Nested objects merge leaf by leaf, and an `x-claude` key wins over the portable field it shares a key with. Codex takes top-level scalars and arrays, such as `x-codex.notify`; tables such as `profiles`, `x-claude.hooks`, and `x-claude.permissions` raise a coverage note. A later spec wins key by key, and `null` drops an earlier key.
+- An `x-<target>` block sets that target's own keys in the same file. Nested objects merge leaf by leaf, and an `x-claude` key wins over the portable field it shares a key with. Global sync writes Codex top-level scalars and arrays, such as `x-codex.notify`, to `~/.codex/config.toml`; tables such as `profiles`, `x-claude.hooks`, and `x-claude.permissions` raise a coverage note. Project sync does not route `x-codex` into `.codex/config.toml`; it raises a coverage note instead. A later spec wins key by key, and `null` drops an earlier key.
 - `agnostic-ai explain --global settings/defaults.yaml` names the file and key each target gets.
 
 ### MCP servers {#global-mcp-servers}

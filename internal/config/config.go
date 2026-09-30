@@ -377,6 +377,9 @@ type ClaudePermissions struct {
 // These fields are written into the project-tier `.codex/config.toml` on each
 // sync. Keys not listed here (e.g. user-specific overrides) belong in the
 // user-level `~/.codex/config.toml` which Codex merges last.
+//
+// Notify, Profiles, and ModelProviders still parse but are never written:
+// Codex ignores those keys in a project config.toml, so sync prints a note.
 type CodexConfig struct {
 	Sandbox               string                        `yaml:"sandbox,omitempty"                 json:"sandbox,omitempty"`
 	ApprovalPolicy        string                        `yaml:"approval-policy,omitempty"         json:"approval-policy,omitempty"`
@@ -389,8 +392,8 @@ type CodexConfig struct {
 	ModelProviders        map[string]CodexModelProvider `yaml:"model-providers,omitempty"         json:"model-providers,omitempty"`
 }
 
-// CodexModelProvider mirrors a `[model_providers.<id>]` table in
-// `.codex/config.toml`. Each provider declares how Codex talks to a model
+// CodexModelProvider mirrors a `[model_providers.<id>]` table in the user
+// `~/.codex/config.toml`. Each provider declares how Codex talks to a model
 // backend (OpenAI-compatible, Azure, Ollama, custom OSS endpoints, ...).
 // `Name` and `BaseURL` are usually required; the other fields fill in
 // transport details.
@@ -402,10 +405,9 @@ type CodexModelProvider struct {
 	EnvKey    string `yaml:"env-key,omitempty"     json:"env-key,omitempty"`
 }
 
-// CodexProfile mirrors a `[profiles.<name>]` table in `.codex/config.toml`.
-// Codex resolves a profile by name (`codex --profile work`) and overlays its
-// fields on top of the top-level defaults. Empty fields fall through to the
-// top-level config.
+// CodexProfile mirrors a legacy `[profiles.<name>]` table. Codex 0.134.0 and
+// later read a profile from `~/.codex/<name>.config.toml` instead, selected
+// with `codex --profile <name>`.
 type CodexProfile struct {
 	Model                 string `yaml:"model,omitempty"                   json:"model,omitempty"`
 	Sandbox               string `yaml:"sandbox,omitempty"                 json:"sandbox,omitempty"`

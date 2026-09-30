@@ -300,7 +300,7 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 	if policy.active && (sess.IsUnmanaged(path) || sess.IsUnmanaged(policy.path)) {
 		return fmt.Errorf("claude: MCP rejection settings and ownership state must both be managed: %s", path)
 	}
-	overlay, overlayOK, err := loadSettingsOverlay(dryRun)
+	overlay, overlayOK, err := loadSettingsOverlay()
 	if err != nil {
 		return err
 	}
@@ -533,25 +533,20 @@ func orderedConfigKeys(m map[string]any) []string {
 // `.agnostic-ai/overlays/claude.settings.json`. Returns (doc, true, nil)
 // when the overlay exists and parses, (nil, false, nil) when it is
 // absent, and (nil, false, err) on a parse failure or unexpected read
-// error. Skips disk in dryRun so `--dry-run` previews remain pure.
-// Capture mode (used by `sync --check` and `doctor`) still reads the
-// overlay because it is a project-source input under `.agnostic-ai/`,
-// not a previously emitted output — skipping it would cause capture
-// output to diverge from real sync output and trigger false drift.
-func loadSettingsOverlay(dryRun bool) (*emit.OrderedJSON, bool, error) {
-	if dryRun {
-		return nil, false, nil
-	}
+// error. Dry-run and capture read it too: it is a project-source input
+// under `.agnostic-ai/`, not a previously emitted output, so skipping it
+// would make previews and `sync --check` diverge from a real sync.
+func loadSettingsOverlay() (*emit.OrderedJSON, bool, error) {
 	data, err := os.ReadFile(settingsOverlayPath)
 	if emit.IsAbsent(err) {
 		return nil, false, nil
 	}
 	if err != nil {
-		return nil, false, err
+		return nil, false, fmt.Errorf("read %s: %w", settingsOverlayPath, err)
 	}
 	doc := emit.NewOrderedJSON()
 	if err := json.Unmarshal(data, doc); err != nil {
-		return nil, false, err
+		return nil, false, fmt.Errorf("parse %s: %w", settingsOverlayPath, err)
 	}
 	return doc, true, nil
 }

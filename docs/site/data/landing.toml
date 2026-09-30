@@ -183,7 +183,7 @@ id = "overlays"
 name = "overlays/"
 hint = "native keys"
 files = ["overlays/claude.settings.json", "overlays/codex.config.toml"]
-summary = "Native keys no spec covers, one file per tool: the Claude Code status line, Codex notifications and profiles. Sync merges each into that tool's own file."
+summary = "Native keys no spec covers, one file per tool: the Claude Code status line, Codex notification settings. Sync merges each into that tool's own file."
 outputs = [
   { tool = "Claude Code", path = ".claude/settings.json" },
   { tool = "Codex", path = ".codex/config.toml" },
