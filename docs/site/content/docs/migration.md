@@ -77,6 +77,12 @@ Inspect the diff and the native files. The first sync can add headers, normalize
 
 Choose your [Git strategy](@/docs/getting-started.md#commit-or-ignore-generated-outputs). If you commit generated files, keep this initial regeneration in a separate commit from the import. Gitignore rules do not untrack files already in Git: `sync` and `doctor` name each generated path that is still tracked, with the exact `git rm --cached` command; `sync --untrack` runs it (the working tree copy stays). After committing that deletion, other clones lose these files on their next pull. Run `agnostic-ai install-hook --post-checkout` in those clones before pulling to install the checkout and merge hooks, or run `agnostic-ai sync` after pulling. The command prints this reminder, including under `--quiet` and on stderr with `--json`.
 
+## Check packaging after an upgrade
+
+Version 0.75 moved Codex skills from `.codex/skills/` to `.agents/skills/`. An ignore such as `.codex/**` no longer covers these skills. Check `.npmignore`, `.vscodeignore`, and `.dockerignore` when upgrading, and add `.agents/skills/**` where those files should be excluded.
+
+Run `agnostic-ai doctor` after sync. It names generated paths an existing root packaging ignore file does not cover. Then inspect the package with `npm pack --dry-run` or `vsce ls`, or check the Docker build context. Output overrides and future path changes need the same review.
+
 ## Back up and restore
 
 `sync --backup` creates `.bak` files before overwriting existing outputs. To undo the generated output:
