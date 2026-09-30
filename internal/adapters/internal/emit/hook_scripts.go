@@ -63,6 +63,15 @@ func (s *Session) MaterializeHookScript(cmd, target, sourceTool string, dryRun b
 	return s.writeFileWithMode("."+target+"/hooks/"+basename, string(body), mode, true, dryRun)
 }
 
+func (s *Session) MaterializedHookScriptBody(cmd, target, sourceTool string) ([]byte, bool, error) {
+	basename, ok := hookBasename(cmd, target)
+	if !ok || s.IsUnmanaged("."+target+"/hooks/"+basename) {
+		return nil, false, nil
+	}
+	body, _, found, err := findHookScriptBody(basename, target, sourceTool)
+	return body, found, err
+}
+
 // SourceToolFromHookCommand extracts the `.<tool>/hooks/` segment from
 // cmd. Recognizes bare paths (`.codex/hooks/x.sh`) and shell-expansion
 // wrappers (`"$(git rev-parse --show-toplevel)/.codex/hooks/x.sh"`) so

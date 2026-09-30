@@ -221,7 +221,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 	hooks := b.HooksFor(target)
-	if err := noteEditHookPayload(hooks, cfg.OnUnsupported); err != nil {
+	if err := noteEditHookPayload(sess, hooks, cfg.OnUnsupported); err != nil {
 		return err
 	}
 	if err := emitHooksJSON(sess, hooks, cfg, dryRun); err != nil {
