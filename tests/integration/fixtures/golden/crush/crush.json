@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "command": "export AGNOSTIC_AI_TARGET=crush; .crush/hooks/shared-guard.sh",
+        "name": "neutral-hook"
+      }
+    ]
+  }
+}

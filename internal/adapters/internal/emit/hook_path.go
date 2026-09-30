@@ -16,10 +16,11 @@ func RewriteHookPath(cmd, target string, metadata ...map[string]any) string {
 	if cmd == "" || target == "" {
 		return cmd
 	}
-	return RewriteHookDirectories(RewriteHookRoot(cmd, target, metadata...), target)
+	meta := hookRootMeta(target, metadata)
+	return RewriteHookRoot(RewriteHookDirectories(cmd, target, len(StringSlice(meta["args"])) > 0 || target == "augment"), target, metadata...)
 }
 
-func RewriteHookDirectories(cmd, target string) string {
+func RewriteHookDirectories(cmd, target string, literal ...bool) string {
 	if cmd == "" || target == "" {
 		return cmd
 	}
@@ -30,5 +31,93 @@ func RewriteHookDirectories(cmd, target string) string {
 		}
 		cmd = strings.ReplaceAll(cmd, prefix, replacement)
 	}
-	return cmd
+	return RewriteNeutralHookPath(cmd, HookScriptsDir(target), literal...)
+}
+
+func HookScriptsDir(target string) string {
+	switch target {
+	case "goose":
+		return ".agents/plugins/agnostic-ai/hooks"
+	case "copilot":
+		return ".github/hooks/scripts"
+	case "antigravity":
+		return ".agents/hooks"
+	case "windsurf":
+		return ".devin/hooks"
+	case "kiro":
+		return ".kiro/scripts"
+	case "cline":
+		return ".cline/hooks/scripts"
+	default:
+		return "." + target + "/hooks"
+	}
+}
+
+func HasNeutralHookPath(command string) bool {
+	return len(neutralHookReferences(command, false)) > 0
+}
+
+func RewriteNeutralHookPath(command, dir string, literal ...bool) string {
+	const prefix = agnosticScriptsDir + "/"
+	var out strings.Builder
+	from := 0
+	for _, ref := range neutralHookReferences(command, len(literal) > 0 && literal[0]) {
+		out.WriteString(command[from:ref.start])
+		directory := strings.TrimRight(dir, "/")
+		if (len(literal) == 0 || !literal[0]) && strings.IndexFunc(directory, func(r rune) bool { return !isShellWordRune(r) }) >= 0 {
+			switch ref.quote {
+			case '"':
+				directory = strings.NewReplacer("\\", "\\\\", "$", "\\$", "`", "\\`", "\"", "\\\"").Replace(directory)
+			case '\'':
+				directory = strings.ReplaceAll(directory, "'", "'\\''")
+			default:
+				directory = ShellQuote(directory)
+			}
+		}
+		out.WriteString(directory + "/")
+		out.WriteString(command[ref.start+len(prefix) : ref.end])
+		from = ref.end
+	}
+	out.WriteString(command[from:])
+	return out.String()
+}
+
+func RewriteGlobalHookPath(command, target, scriptsDir string, metadata ...map[string]any) string {
+	meta := hookRootMeta(target, metadata)
+	literal := len(StringSlice(meta["args"])) > 0 || target == "augment"
+	var out strings.Builder
+	from := 0
+	for _, ref := range neutralHookReferences(command, literal) {
+		out.WriteString(command[from:ref.rootStart])
+		out.WriteString(command[ref.start:ref.end])
+		from = ref.end
+	}
+	out.WriteString(command[from:])
+	command = RewriteNeutralHookPath(out.String(), scriptsDir, literal)
+	return RewriteGlobalHookRoot(command, target, metadata...)
+}
+
+func RewriteWindowsNeutralHookPath(command, dir string) string {
+	const prefix = agnosticScriptsDir + "/"
+	var out strings.Builder
+	from := 0
+	for _, ref := range neutralHookReferences(command, false) {
+		out.WriteString(command[from:ref.start])
+		directory := strings.TrimRight(dir, "/")
+		if ref.quote == 0 {
+			path := directory + "/" + ref.name
+			if strings.ContainsAny(path, " \t&|<>^()") {
+				path = `"` + path + `"`
+			}
+			out.WriteString(path)
+		} else {
+			if ref.quote == '\'' {
+				directory = strings.ReplaceAll(directory, "'", "''")
+			}
+			out.WriteString(directory + "/" + command[ref.start+len(prefix):ref.end])
+		}
+		from = ref.end
+	}
+	out.WriteString(command[from:])
+	return out.String()
 }

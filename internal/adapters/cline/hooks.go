@@ -169,8 +169,12 @@ func hookScript(commands []string) string {
 // that is not one of the ten event names, so a helper script is never
 // mistaken for an event.
 func materializeHookScripts(sess *emit.Session, hooks []spec.Entry, dryRun bool) error {
+	if err := sess.MaterializeNeutralHookScripts(hooks, target, emit.HookScriptsDir(target), dryRun); err != nil {
+		return err
+	}
 	for _, h := range hooks {
 		for _, raw := range emit.HookCommands(h.Meta["command"]) {
+			raw = emit.RewriteNeutralHookPath(raw, ".")
 			sourceTool, _ := emit.SourceToolFromHookCommand(raw)
 			rewritten := emit.RewriteHookPath(raw, target, h.Meta)
 			if err := sess.MaterializeHookScript(rewritten, target, sourceTool, dryRun); err != nil {

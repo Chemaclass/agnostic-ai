@@ -1,0 +1,24 @@
+[
+  {
+    "args": [
+      "-c",
+      ".zed/hooks/shared-guard.sh"
+    ],
+    "command": "sh",
+    "env": {
+      "AGNOSTIC_AI_TARGET": "zed"
+    },
+    "label": "neutral-hook — Run the shared hook script."
+  },
+  {
+    "args": [
+      "-c",
+      "echo edited"
+    ],
+    "command": "sh",
+    "env": {
+      "AGNOSTIC_AI_TARGET": "zed"
+    },
+    "label": "sample-hook — A sample hook for golden snapshot tests."
+  }
+]

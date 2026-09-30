@@ -294,9 +294,13 @@ func sweepLegacyTrees(sess *emit.Session, agentsDir, skillsDir, commandsDir stri
 // `.agnostic-ai/scripts/` into `.codex/hooks/` so the emitted
 // config.toml has the actual script alongside the path it references.
 func materializeHookScripts(sess *emit.Session, hooks []spec.Entry, dryRun bool) error {
+	if err := sess.MaterializeNeutralHookScripts(hooks, target, emit.HookScriptsDir(target), dryRun); err != nil {
+		return err
+	}
 	for _, h := range hooks {
 		cmds := hookCommands(h.Meta["command"])
 		for _, raw := range cmds {
+			raw = emit.RewriteNeutralHookPath(raw, ".")
 			sourceTool, _ := emit.SourceToolFromHookCommand(raw)
 			rewritten := emit.RewriteHookPath(raw, target, h.Meta)
 			if err := sess.MaterializeHookScript(rewritten, target, sourceTool, dryRun); err != nil {

@@ -7,6 +7,11 @@
         "matcher": "Edit"
       }
     ],
+    "beforeShellExecution": [
+      {
+        "command": ".cursor/hooks/shared-guard.sh"
+      }
+    ],
     "sessionStart": [
       {
         "command": "echo '{\"env\":{\"AGNOSTIC_AI_TARGET\":\"cursor\"}}'"

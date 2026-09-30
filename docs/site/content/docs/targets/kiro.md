@@ -53,7 +53,7 @@ Arbitrary `x-kiro` keys pass through on each entry. That is the only way to set 
 
 `timeout: 0` disables the command timeout; omitting it keeps Kiro's 60-second default.
 
-Stashed hook scripts under `.agnostic-ai/scripts/` do not copy into `.kiro/hooks/`, since Kiro reads hook definitions there, not scripts.
+Neutral `.agnostic-ai/scripts/<name>` references copy the script to `.kiro/scripts/<name>` and rewrite the action command. Script bodies stay outside `.kiro/hooks/`, where Kiro reads hook definitions. See [shared hook scripts](@/docs/spec-format/hooks.md#shared-hook-scripts).
 
 MCP servers write to `.kiro/settings/mcp.json` under `mcpServers`, Kiro's [workspace-level config](https://kiro.dev/docs/mcp/configuration/). A local server carries `command` plus optional `args` and `env`; a remote server carries `url` plus optional `headers` and `env`.
 

@@ -87,6 +87,31 @@ func TestEmit_EditHookReadingCommandHasNoNote(t *testing.T) {
 	}
 }
 
+func TestEmit_NonCommandHookDoesNotInspectUnusedScript(t *testing.T) {
+	for _, kind := range []string{"http", "prompt", "mcp_tool"} {
+		t.Run(kind, func(t *testing.T) {
+			testutil.TempCwd(t)
+			notes := swapWarner(t)
+			hook := editHook(".agnostic-ai/scripts/unused.sh")
+			hook.Meta["type"] = kind
+			hook.Meta["server"] = "tools"
+			hook.Meta["tool"] = "inspect"
+			hook.Meta["url"] = "http://localhost/hook"
+			hook.Meta["prompt"] = "Inspect the event."
+			if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{hook}), &config.Config{}, false); err != nil {
+				t.Fatalf("unused command in %s hook caused an error: %v", kind, err)
+			}
+			emit.FlushCoverageNotes()
+			if strings.Contains(notes.String(), "tool_input.file_path") {
+				t.Errorf("unused command produced a payload note: %s", notes)
+			}
+			if _, err := os.Stat(".codex/hooks/unused.sh"); !os.IsNotExist(err) {
+				t.Errorf("unused command materialized a script: %v", err)
+			}
+		})
+	}
+}
+
 func swapWarner(t *testing.T) *strings.Builder {
 	t.Helper()
 	emit.ResetCoverageNotes()
@@ -147,6 +172,78 @@ func TestEmit_EditPayloadChecksMaterializedScripts(t *testing.T) {
 				err = New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{editHook(tc.command)}), &config.Config{OnUnsupported: "error"}, false)
 				if err == nil || !strings.Contains(err.Error(), "guard.yaml") || !strings.Contains(err.Error(), "apply_patch") {
 					t.Errorf("missing named payload error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestEmit_EditPayloadChecksExactNeutralScript(t *testing.T) {
+	for _, tc := range []struct {
+		name, filename, command, shared, override string
+		args                                      []any
+		unmanaged, note                           bool
+	}{
+		{name: "quoted shared", filename: "my guard.sh", command: "sh '.agnostic-ai/scripts/my guard.sh'", shared: "jq -r .tool_input.file_path", note: true},
+		{name: "unsafe target override", filename: "my guard.sh", command: `sh ".agnostic-ai/scripts/my guard.sh"`, shared: "jq -r .tool_input.command", override: "jq -r .tool_input.file_path", note: true},
+		{name: "safe target override", filename: "my guard.sh", command: "sh '.agnostic-ai/scripts/my guard.sh'", shared: "jq -r .tool_input.file_path", override: "jq -r .tool_input.command"},
+		{name: "exec form", filename: "my guard;script.sh", command: ".agnostic-ai/scripts/my guard;script.sh", args: []any{"--strict"}, shared: "jq -r .tool_input.file_path", note: true},
+		{name: "two references one note", filename: "guard.sh", command: ".agnostic-ai/scripts/guard.sh && .agnostic-ai/scripts/guard.sh", shared: "jq -r .tool_input.file_path", note: true},
+		{name: "user owned", filename: "my guard.sh", command: "sh '.agnostic-ai/scripts/my guard.sh'", shared: "jq -r .tool_input.file_path", unmanaged: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			testutil.TempCwd(t)
+			for dir, body := range map[string]string{".agnostic-ai/scripts": tc.shared, ".agnostic-ai/scripts/codex": tc.override} {
+				if body == "" {
+					continue
+				}
+				if err := os.MkdirAll(dir, 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(dir, tc.filename), []byte(body), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			notes := swapWarner(t)
+			hook := editHook(tc.command)
+			if len(tc.args) > 0 {
+				hook.Meta["args"] = tc.args
+			}
+			sess := emit.NewSession()
+			path := filepath.Join(".codex/hooks", tc.filename)
+			if tc.unmanaged {
+				sess.SetUnmanaged([]string{path})
+			}
+			if err := New().Emit(sess, spec.NewBundle([]spec.Entry{hook}), &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			emit.FlushCoverageNotes()
+			wantNotes := 0
+			if tc.note {
+				wantNotes = 1
+			}
+			if got := strings.Count(notes.String(), "`tool_input.file_path` on 1 hook"); got != wantNotes {
+				t.Errorf("payload notes = %d, want %d: %s", got, wantNotes, notes)
+			}
+			if !tc.unmanaged {
+				body, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				wantBody := tc.shared
+				if tc.override != "" {
+					wantBody = tc.override
+				}
+				if string(body) != wantBody {
+					t.Errorf("copied script = %q, want %q", body, wantBody)
+				}
+			}
+			if !tc.unmanaged {
+				err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{hook}), &config.Config{OnUnsupported: "error"}, false)
+				if tc.note && (err == nil || !strings.Contains(err.Error(), "guard.yaml") || !strings.Contains(err.Error(), "apply_patch")) {
+					t.Errorf("missing named payload error: %v", err)
+				} else if !tc.note && err != nil {
+					t.Errorf("safe selected script rejected: %v", err)
 				}
 			}
 		})

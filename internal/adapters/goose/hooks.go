@@ -65,7 +65,9 @@ func (d hooksDoc) MarshalJSON() ([]byte, error) {
 // contributes. The caller writes the manifest, so one plugin carrying
 // both skills and hooks gets a single `plugin.json` (#862).
 func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRun bool) (string, error) {
-	doc := buildHooks(hooks)
+	hooksPath := emit.OutputHooksFile(cfg, target, defaultHooksFile)
+	scriptsDir := filepath.ToSlash(filepath.Dir(hooksPath))
+	doc := buildHooks(hooks, scriptsDir)
 	if doc == nil {
 		return "", nil
 	}
@@ -73,9 +75,11 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 	if err != nil {
 		return "", err
 	}
-	hooksPath := emit.OutputHooksFile(cfg, target, defaultHooksFile)
 	if filepath.Base(hooksPath) != "hooks.json" || filepath.Base(filepath.Dir(hooksPath)) != "hooks" {
 		return "", fmt.Errorf("goose: hooks file %s must end in hooks/hooks.json so Goose can discover the plugin", hooksPath)
+	}
+	if err := sess.MaterializeNeutralHookScripts(hooks, target, scriptsDir, dryRun); err != nil {
+		return "", err
 	}
 	if err := sess.WriteFile(hooksPath, string(hooksBody)+"\n", dryRun); err != nil {
 		return "", err
@@ -83,7 +87,11 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 	return filepath.ToSlash(filepath.Dir(filepath.Dir(hooksPath))), nil
 }
 
-func buildHooks(hooks []spec.Entry) *hooksDoc {
+func buildHooks(hooks []spec.Entry, scriptDirs ...string) *hooksDoc {
+	scriptsDir := emit.HookScriptsDir(target)
+	if len(scriptDirs) > 0 {
+		scriptsDir = scriptDirs[0]
+	}
 	type groupKey struct{ event, matcher string }
 	byKey := map[groupKey][]hookAction{}
 	var order []groupKey
@@ -112,7 +120,7 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 		for _, command := range commands {
 			byKey[key] = append(byKey[key], hookAction{
 				// Goose runs every command with `sh -c`, Windows included.
-				Type: "command", Command: emit.ExportHookTarget(emit.RewriteHookRoot(command, target, hook.Meta), target),
+				Type: "command", Command: emit.ExportHookTarget(emit.RewriteNeutralHookPath(emit.RewriteHookRoot(command, target, hook.Meta), scriptsDir), target),
 				Timeout: emit.HookIntMeta(hook.Meta, "timeout"), OnFailure: onFailure,
 			})
 		}

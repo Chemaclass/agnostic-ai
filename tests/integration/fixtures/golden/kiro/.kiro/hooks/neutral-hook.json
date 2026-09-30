@@ -1,0 +1,14 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "action": {
+        "type": "command",
+        "command": ".kiro/scripts/shared-guard.sh"
+      },
+      "description": "Run the shared hook script.",
+      "name": "neutral-hook",
+      "trigger": "PreToolUse"
+    }
+  ]
+}

@@ -1,5 +1,18 @@
 {
   "hooks": {
+    "BeforeTool": [
+      {
+        "hooks": [
+          {
+            "command": ".gemini/hooks/shared-guard.sh",
+            "env": {
+              "AGNOSTIC_AI_TARGET": "gemini"
+            },
+            "type": "command"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "hooks": [

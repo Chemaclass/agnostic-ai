@@ -1,0 +1,4 @@
+name: neutral-antigravity-hook
+target: antigravity
+event: PreInvocation
+command: .agnostic-ai/scripts/shared-guard.sh

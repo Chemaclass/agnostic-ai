@@ -88,7 +88,11 @@ func runGolden(t *testing.T, target string) {
 	// Each snapshot is the target on its own. With every target
 	// configured, a shared AGENTS.md would carry codex's rules block and
 	// the rule files that block replaces would drop out (#1224).
-	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte("version: 1\ntargets: ["+target+"]\n"), 0o644); err != nil {
+	config := "version: 1\ntargets: [" + target + "]\n"
+	if target == "zed" {
+		config += "outputs:\n  zed:\n    tasks-file: .zed/tasks.json\n"
+	}
+	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(config), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 	before := snapFiles(t, dir)
