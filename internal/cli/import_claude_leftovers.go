@@ -38,6 +38,22 @@ func noteNestedClaudeEntryFile(root string) {
 		filepath.ToSlash(nestedClaudeMainFile), filepath.ToSlash(entry))
 }
 
+// noteNestedClaudeMainFiles tells the user to delete each nested
+// CLAUDE.md a rule now holds. Sync writes that rule to the Claude rules
+// directory, and Claude Code would load both copies.
+func noteNestedClaudeMainFiles(root string, files []importedNestedClaudeFile) {
+	if len(files) == 0 {
+		return
+	}
+	cfg, err := config.Load(root)
+	if err != nil || !slices.Contains(cfg.Targets, "claude") {
+		return
+	}
+	for _, f := range files {
+		summaryf("  ! delete %s: rule %s holds its text, and after the next sync Claude Code would load it twice\n", f.path, f.rule)
+	}
+}
+
 // claudeFilesNotImported lists the files under .claude/ that `import
 // claude` did not read, as slash paths relative to root: the files a
 // skill or script may still use but no other tool receives. Files sync

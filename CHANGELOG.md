@@ -21,6 +21,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Claude Code
 
+- `import claude` turns each nested `<dir>/CLAUDE.md` into one rule scoped to its directory, and a companion that imports `@AGENTS.md` reads as that file (#1427).
 - A project whose `CLAUDE.md` imports `@AGENTS.md` keeps that layout with only Claude enabled: sync writes the shared body to `AGENTS.md` and `CLAUDE.md` stays `@AGENTS.md` plus its Claude-only text, instead of one `CLAUDE.md` holding the whole text while `AGENTS.md` goes stale.
 
 #### Codex

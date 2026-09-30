@@ -186,6 +186,8 @@ Any other setting round-trips through the overlay captured by `agnostic-ai impor
 | `CLAUDE.md` (any form) | `.agnostic-ai/AGNOSTIC_AI.md` (byte-identical copy) |
 | `AGENTS.md` or `.claude/AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` (only when no `CLAUDE.md` exists) |
 | `CLAUDE.md` that imports `@AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md`: the `AGENTS.md` text, then the rest of `CLAUDE.md` in a `::target claude` fence (no rules) |
+| `<dir>/CLAUDE.md` (nested, hand-written) | one rule with the whole file and `scope: <dir>`, named after the scope: `api.md` for `services/api/`, or `services-api.md` when another scope also ends in `api` (only when `.claude/rules/` is absent) |
+| `<dir>/CLAUDE.md` that imports `@AGENTS.md` | the same rule, holding the `AGENTS.md` text beside it, then the rest of `CLAUDE.md` in a `::target claude` fence. When `codex` imports in the same run, it owns that `AGENTS.md`, and only the fenced text lands, as `<scope>-claude.md` |
 | `.claude/agents/*.md` | `<agents>/<name>.md` (byte-identical copy) |
 | `.claude/skills/<name>/SKILL.md` | `<skills>/<name>/SKILL.md` (`allowed-tools` moves under `x-claude:`) |
 | `.claude/commands/*.md` | `<commands>/<name>.md` (`allowed-tools` moves under `x-claude:`) |
@@ -194,7 +196,7 @@ Any other setting round-trips through the overlay captured by `agnostic-ai impor
 | `.claude/settings.json` other non-hook keys | `.agnostic-ai/overlays/claude.settings.json` |
 | `.mcp.json` (`mcpServers.<name>`) | `<mcps>/<name>.yaml` (one spec per server) |
 
-A hand-written `CLAUDE.md` imports whole into `.agnostic-ai/AGNOSTIC_AI.md` and is not split into rules too, which would load each section twice. When `.claude/rules/` exists (even if empty), those files are the single source for rule files.
+A hand-written `CLAUDE.md` imports whole into `.agnostic-ai/AGNOSTIC_AI.md` and is not split into rules too, which would load each section twice. When `.claude/rules/` exists (even if empty), those files are the single source for rule files. Sync writes a nested rule to `.claude/rules/<dir>/`, so import tells you to delete each nested `CLAUDE.md` it read, except a companion that only imports `@AGENTS.md`, which sync removes itself.
 
 The instructions file is looked up in Claude Code's own order: `CLAUDE.md`, `.claude/CLAUDE.md`, `AGENTS.md`, `.claude/AGENTS.md`. Since v2.1.277 (v2.1.281 on Amazon Bedrock or with telemetry disabled), a session with no `CLAUDE.md` at or above the working directory loads `AGENTS.md`, so repos set up for other agents get their real instructions captured. The root `AGENTS.md` step is skipped when `codex`, `amp`, `warp`, `crush`, `kiro`, or `opencode` imports in the same run, since only one importer may slice that file.
 
