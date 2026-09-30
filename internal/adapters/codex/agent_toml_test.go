@@ -280,3 +280,41 @@ func TestAgentTOML_NicknameCandidatesIgnoresNonStringSlice(t *testing.T) {
 		t.Errorf("non-string slice should be skipped:\n%s", got)
 	}
 }
+
+// Current Codex keeps the parent session's sandbox for a custom agent
+// (openai/codex#39299), so one note counts every agent file that still
+// carries sandbox_mode, from readonly or x-codex, and the key stays.
+func TestEmit_NotesAgentSandboxModeHasNoEffect(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	buf := &strings.Builder{}
+	prev := emit.Warner
+	emit.Warner = buf
+	t.Cleanup(func() { emit.Warner = prev })
+
+	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "reviewer", Body: "b", Meta: map[string]any{"readonly": true}},
+		{Kind: spec.KindAgent, Name: "builder", Body: "b", Meta: map[string]any{
+			"x-codex": map[string]any{"sandbox_mode": "workspace-write"}}},
+		{Kind: spec.KindAgent, Name: "omitted", Body: "b", Meta: map[string]any{
+			"readonly": true, "x-codex": map[string]any{"sandbox_mode": nil}}},
+		{Kind: spec.KindAgent, Name: "writer", Body: "b", Meta: map[string]any{"readonly": false}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	emit.FlushCoverageNotes()
+
+	want := "note: `sandbox_mode` on 2 agents has no effect on codex (`readonly: true` also writes it;"
+	if got := buf.String(); strings.Count(got, want) != 1 {
+		t.Errorf("want one note %q, got: %s", want, got)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".codex", "agents", "reviewer.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `sandbox_mode = "read-only"`) {
+		t.Errorf("readonly agent lost sandbox_mode: %s", data)
+	}
+}

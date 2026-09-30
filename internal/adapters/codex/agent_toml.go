@@ -21,7 +21,8 @@ import (
 //	model                  (optional, from frontmatter or x-codex.model)
 //	model_reasoning_effort (optional, from x-codex.model_reasoning_effort or
 //	                        the portable `effort` field; see effort.go)
-//	sandbox_mode           (optional, from readonly or x-codex)
+//	sandbox_mode           (optional, from readonly or x-codex; ignored
+//	                        since openai/codex#39299)
 //	nickname_candidates    (optional, []string from x-codex)
 //	tools                  (optional config table from x-codex)
 //
@@ -62,12 +63,7 @@ func agentTOML(a spec.Entry) string {
 	if v, ok := codexReasoningEffort(meta); ok {
 		emit.WriteTOMLString(&sb, "model_reasoning_effort", v)
 	}
-	sandboxMode := stringOr(meta, "sandbox_mode", "")
-	custom, _ := a.Meta["x-codex"].(map[string]any)
-	if _, explicit := custom["sandbox_mode"]; !explicit && sandboxMode == "" && meta["readonly"] == true {
-		sandboxMode = "read-only"
-	}
-	if v := sandboxMode; v != "" {
+	if v := agentSandboxMode(a); v != "" {
 		emit.WriteTOMLString(&sb, "sandbox_mode", v)
 	}
 	emit.WriteTOMLMultiline(&sb, "developer_instructions", instructions)
@@ -76,6 +72,18 @@ func agentTOML(a spec.Entry) string {
 	}
 	writeXCodexExtras(&sb, a.Meta)
 	return sb.String()
+}
+
+// agentSandboxMode is the sandbox_mode an agent file carries: an
+// explicit x-codex value, or read-only from `readonly: true`.
+func agentSandboxMode(a spec.Entry) string {
+	meta := emit.ResolveMeta(a.Meta, target)
+	sandboxMode := stringOr(meta, "sandbox_mode", "")
+	custom, _ := a.Meta["x-codex"].(map[string]any)
+	if _, explicit := custom["sandbox_mode"]; !explicit && sandboxMode == "" && meta["readonly"] == true {
+		return "read-only"
+	}
+	return sandboxMode
 }
 
 // codexAgentEmittedKeys are the TOML keys agentTOML writes above. Any
@@ -270,7 +278,7 @@ func stringSlice(v any) []string {
 // EmitAgents writes native Codex agent definitions to dir.
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
 	noteUnsupportedCodexEffort(agents)
-	droppedAgentTools := 0
+	droppedAgentTools, inertSandboxModes := 0, 0
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+".toml")
 		if err := sess.WriteFile(path, emit.WithHeader(agentTOML(a), emit.FormatTOML), dryRun); err != nil {
@@ -279,7 +287,13 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 		if len(emit.StringSlice(a.Meta["tools"])) > 0 {
 			droppedAgentTools++
 		}
+		if agentSandboxMode(a) != "" {
+			inertSandboxModes++
+		}
 	}
+	// The key stays for Codex releases before rust-v0.155.0, which still honor it.
+	emit.NoteFieldNoOp(target, spec.KindAgent, "sandbox_mode", inertSandboxModes,
+		"`readonly: true` also writes it; since openai/codex#39299 an agent keeps the parent session's sandbox, so set sandbox_mode in config.toml instead")
 	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", droppedAgentTools,
 		"Codex uses tools as a configuration table, not a Claude-style allowlist; set x-codex.tools for Codex-native tool settings")
 	return nil
