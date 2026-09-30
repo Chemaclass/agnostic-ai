@@ -31,11 +31,11 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Codex
 
-- `exec-policies-from-permissions` translates Bash rules, lint flags drift, and an explicit `exec-policies: []` now overrides an imported overlay (#1451).
-- Sync names inactive hooks with `/hooks` and `doctor` shows hook trust; edit hook checks read copied scripts and honor `on-unsupported: error` (#1450, #1456).
 - Exact subtree rules write nested `AGENTS.md`; filename filters stay inline with a note. Set `nested-glob-rules: false` to opt out (#1435).
-- `import codex` strips generated skill headers and keeps an agent's model in `model.codex` (#1461, #1476).
-- `.codex/environments/environment.toml` always carries `[setup]`, as the Codex app writes it.
+- `exec-policies-from-permissions` translates Bash rules and lint flags drift. An explicit `exec-policies: []` now overrides an imported overlay (#1451).
+- Sync names inactive hooks with `/hooks` and `doctor` shows hook trust; edit hook checks read copied scripts and honor `on-unsupported: error` (#1450, #1456).
+- Exec policies and a Codex config or overlay `model` silence the notes they make redundant (#1432, #1462).
+- `import codex` strips generated skill headers and keeps an agent's model in `model.codex`; `environment.toml` always has `[setup]` (#1461, #1476).
 
 #### Copilot
 

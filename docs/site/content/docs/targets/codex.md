@@ -132,7 +132,7 @@ outputs:
 
 Sync also reads `.agnostic-ai/overlays/codex.config.toml` (captured by `import codex`) and writes it before the spec-derived `[mcp_servers.*]` sections. The overlay keeps every other `.codex/config.toml` key (`model`, `sandbox`, `approval_policy`, `notify`, `[history]`, `[profiles.*]`, `[model_providers.*]`, ...), so wiping `.codex/` between import and sync loses nothing.
 
-- `model` precedence, low to high: portable Settings spec, `outputs.codex.config.model`, overlay.
+- `model` precedence, low to high: portable Settings spec, `outputs.codex.config.model`, overlay. A model from either of the last two replaces the settings model, so a Claude model name in a settings spec raises no note; agent model notes still apply. A `[profiles.*]` model does not count, since a project config [cannot select a profile](https://learn.chatgpt.com/docs/config-file/config-advanced).
 - The overlay wins any other conflict with `outputs.codex.config.*`. The lower value is dropped to keep the TOML valid.
 - On import, a top-level `model_reasoning_effort` moves to `effort` in `<settings>/codex.yaml` when no settings spec sets `effort`, so every target syncs it. `[profiles.*]` values, and a value another settings spec shadows, stay in the overlay.
 

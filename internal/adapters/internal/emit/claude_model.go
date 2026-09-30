@@ -27,10 +27,11 @@ func matchesModelName(names []string, model string) bool {
 	})
 }
 
-// noteForeignClaudeModels reports each agent and settings spec whose
-// shared `model` (a scalar or the map's `default`) is a Claude model
-// name the target cannot load. A value set under `model.<target>` or
-// `x-<target>.model` is the author's choice for that target and passes.
+// noteForeignClaudeModels reports each agent, and the winning settings
+// spec, whose shared `model` (a scalar or the map's `default`) is a Claude
+// model name the target cannot load. A value set under `model.<target>` or
+// `x-<target>.model` is the author's choice for that target and passes, and
+// so does a settings model the target's own config replaces.
 func noteForeignClaudeModels(c Capabilities, b spec.Bundle, mode string) error {
 	if len(c.ForeignClaudeModels) == 0 || mode == OnUnsupportedSilent {
 		return nil
@@ -51,7 +52,7 @@ func noteForeignClaudeModels(c Capabilities, b spec.Bundle, mode string) error {
 			}
 		}
 	}
-	if c.supports(spec.KindSettings) {
+	if c.supports(spec.KindSettings) && !c.SettingsModelOverridden {
 		if path, model := sharedSettingsModel(b.Settings, c.Target); foreign(model) {
 			hits = append(hits, hit{spec.KindSettings, path, model})
 		}
