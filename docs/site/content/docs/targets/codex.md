@@ -181,7 +181,15 @@ outputs:
 
 This writes three `prefix_rule` entries to `.codex/rules/default.rules`. `Bash(a b c)`, `Bash(a b c *)`, and `Bash(a b c:*)` all become `pattern = ["a", "b", "c"]`. `allow`, `deny`, and `ask` become `allow`, `forbidden`, and `prompt`.
 
-Translation is opt-in because a prefix matches extra arguments, even for a bare rule without `:*`. For example, `Bash(npm run check)` also allows `npm run check -- --fix` in Codex. This is a supported command-prefix subset, not exact Claude permission equivalence. Codex rules govern requests to run outside the sandbox; project rules load only when the project config layer is trusted.
+Translation is opt-in because a prefix matches extra arguments, even for a bare rule without `:*`. Codex has no exact-match rule. For example, Claude Code allows `Bash(git push)` only as a bare `git push`, but Codex also allows `git push --force origin main`. This is a supported command-prefix subset, not exact Claude permission equivalence. Codex rules govern requests to run outside the sandbox: an `allow` match runs the command without asking, and outside the sandbox when every segment of the command matches an `allow` rule. Project rules load only when the project config layer is trusted.
+
+Sync names each exact `allow` rule that Codex widens, with its source:
+
+```text
+note: codex: agnostic-ai.yaml: permissions.allow rule Bash(git push) becomes a Codex prefix rule, so Codex also allows `git push` with extra arguments; add a deny or ask rule for arguments that need review
+```
+
+A deny or ask rule on the same or a shorter prefix, or a wildcard `allow` rule such as `Bash(git:*)` that already allows the extra arguments in Claude Code, silences the note. `on-unsupported: error` does not fail on it; `silent` omits it. Exact `deny` and `ask` rules only get stricter as a prefix, so they raise no note.
 
 Only plain, unquoted words are supported. A Bash rule with quotes, escapes, a `*` other than one trailing ` *` or `:*`, shell operators, expansions, assignments, or shell keywords produces a coverage note naming the exact rule and source. `on-unsupported: error` fails on it; `silent` omits the note. Rules for other tools, such as `Read(.env)` or `WebFetch`, share one `permissions` coverage note and never fail the sync. Use explicit `exec-policies` for a command that cannot translate.
 
