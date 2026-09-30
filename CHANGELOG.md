@@ -10,7 +10,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - New `AGNOSTIC_AI.md` files use a short editable template; existing files stay intact, and `doctor` points out old boilerplate (#1446).
 - **Breaking:** rule `scope`, `globs`, and `paths` form a union; rule folders scope existing directories. Remove `scope` to keep only a filter (#1429, #1430).
-- Partial syncs keep every target's ignores; no sync ignores `outputs.lock`. Kept orphans stay ignored and say why; `doctor --fix` offers removal (#1440, #1503).
+- Partial syncs keep all targets' ignores; no sync ignores `outputs.lock`. Kept orphans stay ignored and say why; `doctor --fix` offers removal (#1440, #1503).
 - `import` keeps hand-written instructions whole, a nested `AGENTS.md` becomes a scoped rule, and Claude hook roots resolve elsewhere (#1434, #1449, #1464).
 - Sync notes omitted skill fields, Claude model names, and Claude-only skill syntax; `compare` shows each target's skill fields (#1431, #1436, #1444, #1463).
 - `doctor` fails on lint errors, `sync --diff` requires `--check`, and a `requires` bump no longer trips AAI-005 or `--check --against` (#1425, #1433, #1439).
