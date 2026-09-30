@@ -83,6 +83,10 @@ Set `x-augment.toolPermissions` to write Augment's own rule objects. They pass t
 
 `import augment` reads the workspace indexing exclusions and the `toolPermissions` policy from `.augment/settings.json`, for Augment's six tool names. It skips entries that match on `shellInputRegex` (no portable form) and entries with a bare-string `permission` (malformed in Augment). Other Augment surfaces are not imported.
 
+## Protected paths
+
+Advisory. This target has no native edit guard that sync writes, so sync prints a coverage note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+
 ## Verify
 
 1. Install the Augment Code extension ([guidelines docs](https://docs.augmentcode.com/setup-augment/guidelines)).

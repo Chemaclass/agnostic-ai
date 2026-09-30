@@ -86,6 +86,10 @@ Older layouts still import:
 - Content flattened under `.junie/rules/` by older versions takes precedence over `.junie/AGENTS.md` when that directory exists. Each file is reclassified by [filename prefix](@/docs/cli-reference/start.md#filename-prefix-reclassification).
 - A legacy flat `.junie/rules/skill-<name>.md` imports as a skill.
 
+## Protected paths
+
+Advisory. This target has no native edit guard that sync writes, so sync prints a coverage note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+
 ## Verify
 
 1. Install the Junie plugin in a JetBrains IDE (or the Junie CLI, [docs](https://junie.jetbrains.com/docs/)).

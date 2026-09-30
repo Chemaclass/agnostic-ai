@@ -79,6 +79,10 @@ Skills import from the four project paths Cline scans, in order: `.cline/skills/
 
 `.agents/skills` is confirmed in Cline's source but not in [the skills page](https://docs.cline.bot/customization/skills), which lists three paths. Emission stays at the documented `.cline/skills`. To share one copy across targets, turn on `sync.shared-skills` or set `outputs.cline.skills-dir: .agents/skills`.
 
+## Protected paths
+
+Advisory. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+
 ## Verify
 
 1. Install the [Cline extension](https://marketplace.visualstudio.com/items?itemName=saoudrizwan.claude-dev) in VS Code.

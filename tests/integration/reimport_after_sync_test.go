@@ -17,6 +17,9 @@ func TestImportAll_AgainAfterSyncLeavesSourcesUnchanged(t *testing.T) {
 		// With .codex/ detected, codex imports the nested AGENTS.md as a
 		// scoped rule that claude writes under .claude/rules/services/api/.
 		"scoped rule": {".codex/config.toml": ""},
+		// Sync turns protected paths into Claude Edit rules and a
+		// generated Codex hook; neither is a source to import (#1497).
+		"protected paths": {".codex/config.toml": "", ".agnostic-ai/settings/protected.yaml": "protected:\n  paths: [.github/**]\n"},
 	}
 	for name, extra := range cases {
 		t.Run(name, func(t *testing.T) {

@@ -28,6 +28,7 @@ func buildSpecSettings(entries []spec.Entry) map[string]any {
 			permLayers = append(permLayers, p)
 		}
 	}
+	permLayers = append(permLayers, protectedPermissions(entries))
 	if model := emit.SettingsModel(entries, target); model != "" {
 		out["model"] = model
 	}
@@ -39,6 +40,27 @@ func buildSpecSettings(entries []spec.Entry) map[string]any {
 	}
 	return out
 }
+
+// protectedPermissions turns protected paths into Edit rules. Claude Code
+// checks file edits against Edit(path) rules only; a Write(path) rule is
+// accepted, never consulted, and warned about at startup
+// (code.claude.com/docs/en/permissions). writeSettings rejects an
+// invalid block before this runs.
+func protectedPermissions(entries []spec.Entry) map[string]any {
+	groups, _ := spec.ProtectedPaths(entries)
+	out := map[string]any{}
+	for _, group := range groups {
+		rules, _ := out[group.Decision].([]any)
+		for _, path := range group.Paths {
+			rules = append(rules, spec.ProtectEditRule(path))
+		}
+		out[group.Decision] = rules
+	}
+	return out
+}
+
+// ProtectedPaths reports that Claude Code enforces protected paths with permission rules.
+func (Adapter) ProtectedPaths() (enforcement, reason string) { return "permission", "" }
 
 // projectEffortLevels are the effortLevel values Claude Code documents.
 var projectEffortLevels = []string{"low", "medium", "high", "xhigh"}

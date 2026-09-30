@@ -71,6 +71,10 @@ AGENTS.md                              # canonical entry-point pointer body (wri
 
 `agnostic-ai import amp` reads `AGENTS.md`, skills from `.agents/skills/`, and MCP servers from `.amp/settings.json`. Settings keys are not imported, since none has a portable spelling. An old `.agents/commands/` tree still imports, one agent per file. Skill folders are restored in full, with bundled assets and executable modes.
 
+## Protected paths
+
+Advisory. This target has no native edit guard that sync writes, so sync prints a coverage note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+
 ## Verify
 
 1. Install with `curl -fsSL https://ampcode.com/install.sh | bash` (Amp's recommended installer), or `npm install -g @ampcode/cli`. The VS Code extension reads the same files.

@@ -61,6 +61,8 @@ Keep [personal overrides](https://agnostic-ai.org/docs/local-overrides/) in `.ag
 
 Set `outputs.codex.exec-policies-from-permissions: true` to turn simple Bash permissions into Codex command prefixes. Prefixes also match extra arguments. Explicit Codex policies take precedence, and `lint` warns on missing or conflicting prefixes. See [Bash permission translation](https://agnostic-ai.org/docs/targets/codex/#translate-bash-permissions).
 
+List files agents must not edit without asking in a settings `protected` block. Claude Code enforces it with `Edit` permission rules and Codex with a generated hook; other targets report it as advisory. See [protected paths](https://agnostic-ai.org/docs/spec-format/settings/#protected-paths).
+
 In an edit hook, `agnostic-ai hook paths` prints the edited files from the Claude Code, Codex, Cursor, Gemini, Factory, or Augment payload, so one format hook runs on each. See [edited paths](https://agnostic-ai.org/docs/spec-format/hooks/#edited-paths).
 
 ## Daily commands

@@ -5,7 +5,9 @@
       "Bash(go test:*)"
     ],
     "ask": [
-      "Write(.env*)"
+      "Write(.env*)",
+      "Edit(/.github/**)",
+      "Edit(/composer.lock)"
     ],
     "deny": [
       "Bash(rm:*)",

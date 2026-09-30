@@ -220,6 +220,12 @@ The permission lists land in a portable settings spec, so `lint` checks them and
 
 Imported MCP specs sync to every MCP-aware target: codex, copilot, cursor, continue, amp, zed, warp, gemini, opencode.
 
+## Protected paths
+
+Enforced (permission). Each path in a settings spec's `protected` block becomes an `Edit(/<path>)` rule in `permissions.ask` or `permissions.deny` of `.claude/settings.json`, joined with the portable permission lists. The leading `/` anchors the rule at the project root. Claude Code checks file edits against `Edit` rules only: a `Write(<path>)` rule is accepted, never consulted, and warned about at startup, so sync writes none ([permissions](https://code.claude.com/docs/en/permissions#read-and-edit)). With `decision: deny`, the rules also cover file commands Claude Code recognizes in Bash, such as `sed` and `>` redirections, but not a script that opens files itself. Claude Code documents that Bash coverage for deny rules only, so an `ask` rule guards its edit tools.
+
+Sync records the rules it added in `.claude/.agnostic-ai-protected.json`. Removing a path, or moving it from `deny` to `ask`, removes its old rule on the next sync. A matching rule that was in `settings.json` before sync added one stays yours. See [Protected paths](@/docs/spec-format/settings.md#protected-paths).
+
 ## Verify
 
 1. Install: `npm install -g @anthropic-ai/claude-code` (or the desktop app; both read the same files).

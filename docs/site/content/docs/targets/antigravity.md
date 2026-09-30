@@ -82,6 +82,10 @@ A rule's `trigger` maps to `alwaysApply` (`always_on` to `true`, `glob`/`model_d
 
 Agents and MCP servers import as described under **Agents** and **MCP**: nested profiles win over legacy flat files, and `serverUrl` becomes `url`.
 
+## Protected paths
+
+Advisory. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+
 ## Verify
 
 1. Install Antigravity from the Google Antigravity public-preview download page.
