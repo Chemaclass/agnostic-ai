@@ -203,22 +203,24 @@ func importRulesDirectoryWith(root, srcDir string, src config.Sources, opts rule
 // for a source file with no frontmatter, so the output there is
 // unchanged from before this function existed.
 func rulesDirFileContent(name string, meta map[string]any, body string, opts rulesDirImportOpts) (string, error) {
-	var sb strings.Builder
-	sb.WriteString("---\nname: " + name + "\n")
-	if desc, ok := meta["description"].(string); ok && desc != "" {
-		sb.WriteString(yamlFrontmatterLine("description", desc))
-	}
-	if globs := spec.JoinGlobs(meta["globs"]); !isCatchAllGlobs(globs) {
-		sb.WriteString(yamlFrontmatterLine("globs", globs))
-	}
-	if always, ok := meta["alwaysApply"].(bool); ok {
-		fmt.Fprintf(&sb, "alwaysApply: %t\n", always)
-	}
 	native := map[string]any{}
 	for _, key := range opts.NativeKeys {
 		if value, exists := meta[key]; exists {
 			native[key] = value
 		}
+	}
+	var sb strings.Builder
+	sb.WriteString("---\nname: " + name + "\n")
+	if desc, ok := meta["description"].(string); ok && desc != "" {
+		sb.WriteString(yamlFrontmatterLine("description", desc))
+	}
+	if _, nativeGlobs := native["globs"]; !nativeGlobs {
+		if globs := spec.JoinGlobs(meta["globs"]); !isCatchAllGlobs(globs) {
+			sb.WriteString(yamlFrontmatterLine("globs", globs))
+		}
+	}
+	if always, ok := meta["alwaysApply"].(bool); ok {
+		fmt.Fprintf(&sb, "alwaysApply: %t\n", always)
 	}
 	if len(native) > 0 {
 		data, err := yaml.Marshal(map[string]any{"x-" + opts.NativeTarget: native})

@@ -10,6 +10,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - `install-hook --post-checkout` adds `post-merge` to restore generated files after pulls; `sync --untrack` warns other clones to install it (#1478).
 
+- Breaking: rule `scope`, `globs`, and `paths` form a union. Remove `scope` to keep only a file filter; see the migration guide (#1429).
 - `sync --diff` without `--check` now fails and names `--check` instead of ignoring the flag and writing every output (#1439).
 - A Claude model name in a shared agent or settings `model` raises a coverage note on Codex, Gemini, OpenCode, Kilo Code, Cursor, Factory, and Kiro, naming `model: {claude: <name>}`. `on-unsupported: error` fails the sync (#1431).
 - AAI-005 says to update `requires` when `package.json` already pins the running release, as right after `pnpm add agnostic-ai@X.Y.Z`, instead of suggesting a downgrade.
@@ -39,6 +40,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - A project whose `CLAUDE.md` imports `@AGENTS.md` keeps that layout with only Claude enabled: sync writes the shared body to `AGENTS.md` and `CLAUDE.md` stays `@AGENTS.md` plus its Claude-only text, instead of one `CLAUDE.md` holding the whole text while `AGENTS.md` goes stale.
 
 #### Codex
+
+- Sync names inactive hooks with `/hooks` as the next step; doctor reports missing or stale user trust and disabled handlers (#1456).
 
 - `.codex/environments/environment.toml` always carries `[setup]`, with an empty script when no spec sets one, as the file the Codex app generates does; a spec with only dev commands used to drop the table.
 - `sync` no longer notes that `permissions` have no effect on Codex once exec policies are set, whether inline, in `exec-policies-file`, or in the captured overlay; without one, the note stays (#1432).

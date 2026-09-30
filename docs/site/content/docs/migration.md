@@ -24,6 +24,14 @@ Pick the tools to generate for. Replace `claude` with your source tool, or use `
 
 Import writes source specs only. It does not sync native output or change your target selection. Specs from [`.agnostic-ai/local/`](@/docs/local-overrides.md#import) stay out of the shared source. Re-running it overwrites matching source filenames. For a skill or agent, the body and every frontmatter key the tool writes come from the native file, while keys that tool has no field for stay on the spec. Deleting a key the tool does write removes it from the spec too. Rule frontmatter is rebuilt from the native file alone, because a rule widened to a catch-all `globs` has to come back unscoped.
 
+## Scope and pattern unions
+
+**Breaking change:** `scope` plus `globs` or `paths` now means the union. A rule with `scope: src/a` and `globs: tests/a/**` reaches both directories. Earlier versions intersected them and skipped a rule when its patterns were outside the scope.
+
+Remove `scope` when a rule should apply only to its file patterns, and spell those patterns relative to the project root. Keep the source file outside any folder under `rules/` that names a project directory. Remove `globs: "**/*"` from a rule that should apply only to its scope.
+
+Directory-document targets such as Codex require whole subdirectory patterns, such as `tests/a/**`. An external file filter such as `tests/a/**/*.go`, or a root selector such as `CHANGELOG.md` or `**/*`, warns and skips the rule; `on-unsupported: error` fails sync. File-filter targets can preserve those patterns. Preview with `agnostic-ai render` before syncing. See [scoped context](@/docs/scoped-context.md#narrow-a-rule-to-certain-files).
+
 ## Review before syncing
 
 Preview the import before it writes anything:
