@@ -217,12 +217,13 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if err != nil {
 		return err
 	}
-	// requireGlobalVersion already warned about a broken config under -t.
-	tiers, err := loadGlobalModels(source)
-	if err != nil && skipBroken == nil {
+	tiers, unloaded, err := loadGlobalModels(source, skipBroken)
+	if err != nil {
 		return err
 	}
-	bundle.ApplyModelTiers(tiers)
+	if err := applyGlobalTiers(&bundle, tiers, unloaded, warn); err != nil {
+		return err
+	}
 	for _, target := range targets {
 		if globalTargets[target].agents != "" {
 			continue

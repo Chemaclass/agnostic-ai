@@ -46,7 +46,9 @@ type checkScope struct {
 	// source is the global source root; empty for a project.
 	source string
 	// cfg is nil for the global scope, which has no config.
-	cfg     *config.Config
+	cfg *config.Config
+	// models are the tiers specs name: the project's, or the home configs'.
+	models  map[string]config.ModelTier
 	targets []string
 	// hookTargets narrows targets to those that write hooks, which for
 	// a project is every enabled target.
@@ -87,7 +89,7 @@ func loadSpecScope(global bool, skipBroken io.Writer) (checkScope, error) {
 		if err != nil {
 			return checkScope{}, err
 		}
-		return checkScope{cfg: cfg, targets: cfg.Targets, hookTargets: cfg.Targets, support: targetsSupportingKind, bundle: b}, nil
+		return checkScope{cfg: cfg, models: cfg.Models, targets: cfg.Targets, hookTargets: cfg.Targets, support: targetsSupportingKind, bundle: b}, nil
 	}
 	source, err := globalSourceRoot()
 	if err != nil {
@@ -100,12 +102,18 @@ func loadSpecScope(global bool, skipBroken io.Writer) (checkScope, error) {
 	if err != nil {
 		return checkScope{}, err
 	}
-	tiers, err := loadGlobalModels(source)
-	if err != nil && skipBroken == nil {
+	tiers, unloaded, err := loadGlobalModels(source, skipBroken)
+	if err != nil {
 		return checkScope{}, err
 	}
-	b.ApplyModelTiers(tiers)
-	return checkScope{global: true, source: source, support: globalKindSupport(), bundle: b}, nil
+	warn := skipBroken
+	if warn == nil {
+		warn = io.Discard
+	}
+	if err := applyGlobalTiers(&b, tiers, unloaded, warn); err != nil {
+		return checkScope{}, err
+	}
+	return checkScope{global: true, source: source, models: tiers, support: globalKindSupport(), bundle: b}, nil
 }
 
 func (s checkScope) emptyHint() string {

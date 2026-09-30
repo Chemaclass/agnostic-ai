@@ -525,6 +525,7 @@ func loadAndMerge(cfg *Config, basePath, localPath string) error {
 	if err != nil {
 		return err
 	}
+	replaceLocalTiers(base, local)
 	deepMerge(base, local)
 	data, err := yaml.Marshal(base)
 	if err != nil {
@@ -549,6 +550,18 @@ func readYAMLMap(path string) (map[string]any, error) {
 		return nil, errs.Coded(errs.CodeConfigDecode, "parse %s: %w", path, err)
 	}
 	return out, nil
+}
+
+// replaceLocalTiers drops each base model tier the local file redefines,
+// so a local tier replaces the shared one whole, as in the global home.
+// A merged tier would keep a shared target's model the local file meant
+// to leave out.
+func replaceLocalTiers(base, local map[string]any) {
+	localTiers, _ := local["models"].(map[string]any)
+	baseTiers, _ := base["models"].(map[string]any)
+	for name := range localTiers {
+		delete(baseTiers, name)
+	}
 }
 
 // deepMerge folds src into dst. Maps merge recursively; scalars and
