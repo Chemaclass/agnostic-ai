@@ -47,6 +47,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Site
 
+- The [CI page](https://agnostic-ai.org/docs/ci/) and the `sync` skill no longer point to a GitHub Action that does not exist. They show the npm dev dependency with `postinstall: agnostic-ai sync -q`, and `scripts/install.sh` with a pinned version (#1445).
 - The [spec format](https://agnostic-ai.org/docs/spec-format/) reference has one page per `.agnostic-ai/` folder, each opening with why the folder exists and a sample. New pages cover rules, commands, reviews, environments, ignore, and overlays; old links redirect.
 
 ## v0.75.0 - 2026-09-29
