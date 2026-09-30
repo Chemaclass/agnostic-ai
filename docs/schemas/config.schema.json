@@ -321,6 +321,9 @@
         },
         "worktree-include": {
           "type": "boolean"
+        },
+        "ignore-worktree-include": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,

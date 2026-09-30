@@ -48,3 +48,19 @@ func TestEmit_HookEntriesCarryTheTargetEnv(t *testing.T) {
 	}
 	assertContainsAll(t, got, `"FOO": "bar"`, `"command": "guard.sh"`)
 }
+
+func TestEmit_NonPOSIXHookRootStaysUnchanged(t *testing.T) {
+	testutil.TempCwd(t)
+	if err := os.Mkdir(".git", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	command := `"$CLAUDE_PROJECT_DIR/custom/guard.ps1"`
+	hook := spec.Entry{Kind: spec.KindHook, Name: "powershell-guard", Meta: map[string]any{"event": "preToolUse", "command": command, "shell": "powershell"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{hook}), &config.Config{OnUnsupported: "warn"}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readTargetFile(t, ".github/hooks/agnostic-ai.json")
+	if !strings.Contains(got, `\"$CLAUDE_PROJECT_DIR/custom/guard.ps1\"`) || strings.Contains(got, "git rev-parse") {
+		t.Errorf("non-POSIX root changed: %s", got)
+	}
+}

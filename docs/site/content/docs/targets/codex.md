@@ -41,6 +41,8 @@ AGENTS.md                                    # entry-point pointer body (written
 
   Each `command` starts with `export AGNOSTIC_AI_TARGET=codex; ` so a shared script knows Codex ran it ([which target ran a hook](@/docs/spec-format/hooks.md#hook-target)). Codex runs `commandWindows` on Windows, through PowerShell or cmd, so sync writes the command as declared there when the spec sets none, and sync does not set the variable on Windows. The prefix also needs a POSIX session shell, so a macOS or Linux login shell of `pwsh` or `nu` breaks it. `import codex` strips both. Codex hooks have no exec form, so a spec with `args` gets them folded into `command`, each in POSIX single quotes (`bash 'guard.sh'`), and keeps the prefix. The command is quoted too when it holds a space or another shell character. With no `commandWindows` in the spec, Windows runs the folded command, which PowerShell reads as intended for args without an apostrophe and cmd does not. Otherwise, set `commandWindows`. `import codex` reads it back as one shell-form `command`.
 
+  Imported shell-form `$CLAUDE_PROJECT_DIR` and `${CLAUDE_PROJECT_DIR}` paths resolve through the Git worktree root and the configured project's relative path, so hooks can run from a subdirectory. This requires a POSIX shell and Git. Unsupported root syntax or a project outside Git gets a named note; `on-unsupported: error` fails sync. See [project-root paths](@/docs/spec-format/hooks.md#imported-project-root-paths).
+
   Optional `timeout`, `statusMessage`, `commandWindows`, `additionalContextLimit`, and `async` pass through and survive `import codex`. `async` runs the hook in the background. An explicit `additionalContextLimit: 0` is kept, since Codex uses it to pass the full hook context.
 
   `import codex` also reads hooks from a hand-authored `.codex/config.toml` in the [documented inline shape](https://learn.chatgpt.com/docs/hooks.md): `[[hooks.<event>]]` holds `matcher`, and a nested `[[hooks.<event>.hooks]]` holds the command fields. The older, undocumented flat table with `matcher` and `command` together still decodes.
@@ -195,7 +197,7 @@ Any inline policy list (including `exec-policies: []`), `exec-policies-file` (in
 | `## Code Review Rules` or `## Review guidelines` in a nested `AGENTS.md`, or the review section `sync` writes to any `AGENTS.md` | `<reviews>/<scope-slug>.md` with `scope: <dir>` (`review.md` at the root), not a rule |
 | `## Conventions` / `## Agents` / `## Skills` wrapper sections | unwrapped: their `### children` become the rules |
 | Single-line italic (`_text_`) immediately under a rule heading | extracted into the rule's `description` (and removed from the body) |
-| `.codex/agents/*.toml` and `.agents/agents/*.toml` | `<agents>/<name>.md` |
+| `.codex/agents/*.toml` and `.agents/agents/*.toml` | `<agents>/<name>.md`. When the agent spec already exists, as after `import claude`, the Codex `model` lands as `model: {codex: <name>}`, or as a `codex` entry in an existing per-target map, so Claude Code keeps its own default. A shared scalar `model` that differs gets `x-codex.model` |
 | `.agents/skills/<name>/SKILL.md` (+ `agents/openai.yaml`, asset folders) | `<skills>/<name>/SKILL.md` (+ nested assets, exec bits preserved) |
 | `.codex/config.toml` `[[hooks.<event>]]` | `<hooks>/<event>-<hash8>.yaml` (one spec per entry) |
 | `.codex/config.toml` `[mcp_servers.<name>]` | `<mcps>/<name>.yaml` |
