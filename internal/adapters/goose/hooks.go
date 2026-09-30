@@ -112,7 +112,7 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 		for _, command := range commands {
 			byKey[key] = append(byKey[key], hookAction{
 				// Goose runs every command with `sh -c`, Windows included.
-				Type: "command", Command: emit.ExportHookTarget(command, target),
+				Type: "command", Command: emit.ExportHookTarget(emit.RewriteHookRoot(command, target, hook.Meta), target),
 				Timeout: emit.HookIntMeta(hook.Meta, "timeout"), OnFailure: onFailure,
 			})
 		}
