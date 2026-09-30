@@ -74,6 +74,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - The root `CLAUDE.md` is `@AGENTS.md` plus only your `::target claude` blocks when another target writes the root `AGENTS.md`, so Cursor, which loads both files, reads the instructions once (#1423).
 - With `gitignore.enabled`, sync keeps the managed block in `.worktreeinclude` too, so a CLI, subagent, or Desktop worktree starts with the generated files and the local layer; `gitignore.worktree-include: false` opts out (#1418).
 
+#### Codex
+
+- A Codex config or overlay model suppresses the Claude model note for overridden settings (#1462).
+
 #### Cursor
 
 - A skill's `workspaces: [apps/platforma]` also writes it under `apps/platforma/.cursor/skills/`, since Cursor loads skills only from the workspace it opens; `import cursor` sets it when a root skill links into a project directory. `lint` warns on a `scope:` key in a skill, which has no effect (LINT018) (#1423).

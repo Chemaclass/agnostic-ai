@@ -36,7 +36,8 @@ type Capabilities struct {
 	// ForeignClaudeModels lists the ClaudeModelNames this target's agent
 	// and settings `model` keys cannot load. ReportUnsupported notes each
 	// one that reaches the target through a shared `model` value.
-	ForeignClaudeModels []string
+	ForeignClaudeModels     []string
+	SettingsModelOverridden bool
 }
 
 // trackedAgentFields maps each portable agent field with a native key on

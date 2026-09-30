@@ -148,6 +148,17 @@ func (Adapter) Name() string { return target }
 
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
+func modelCoverage(cfg *config.Config, dryRun bool) emit.Capabilities {
+	coverage := caps
+	if output, ok := cfg.Outputs[target]; ok && output.Config != nil && output.Config.Model != "" {
+		coverage.SettingsModelOverridden = true
+		return coverage
+	}
+	_, keys, err := loadConfigOverlay(dryRun)
+	coverage.SettingsModelOverridden = err == nil && keys["model"]
+	return coverage
+}
+
 // Emit writes one TOML per agent, one folder per skill,
 // .codex/config.toml (MCP), .codex/hooks.json (hooks), and—when opted
 // in via outputs.codex.rules-file—a legacy concatenated rules document.
@@ -155,7 +166,7 @@ func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 // deprecated custom prompts and never reads a project-level tree). The
 // project-root AGENTS.md is written by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
-	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
+	if err := emit.ReportUnsupported(modelCoverage(cfg, dryRun), b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 

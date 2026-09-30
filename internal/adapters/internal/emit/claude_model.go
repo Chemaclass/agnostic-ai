@@ -51,7 +51,7 @@ func noteForeignClaudeModels(c Capabilities, b spec.Bundle, mode string) error {
 			}
 		}
 	}
-	if c.supports(spec.KindSettings) {
+	if c.supports(spec.KindSettings) && !c.SettingsModelOverridden {
 		if path, model := sharedSettingsModel(b.Settings, c.Target); foreign(model) {
 			hits = append(hits, hit{spec.KindSettings, path, model})
 		}
