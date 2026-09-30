@@ -114,7 +114,7 @@ Report missing (never synced), stale (out of date with the specs), edited (chang
 | Flag | Description |
 |------|-------------|
 | `-t, --target <list>` | Comma-separated targets (default: all in config) |
-| `--fix` | Write missing, stale, and edited files, and remove each nested `CLAUDE.md` a rule already holds. In a terminal, offers to remove each kept orphan recorded by sync, defaulting to no. Outside a terminal, keeps them and explains the manual step. The exit stays non-zero while any remain. |
+| `--fix` | Write missing, stale, and edited files, and remove each nested `CLAUDE.md` a rule already holds. In a terminal, offers to remove each kept orphan recorded by sync, defaulting to no. Outside a terminal, or when a configured target cannot be loaded, keeps them and says why. The exit stays non-zero while any remain. |
 | `--backup` | With `--fix`, copy each existing file to `<path>.bak` before overwriting or confirmed orphan removal. |
 | `--check-globs` | Flag rules whose `globs:` match no files. Off by default. |
 | `--check-references` | Flag relative Markdown links in generated skills whose file is missing on disk. Off by default. |
