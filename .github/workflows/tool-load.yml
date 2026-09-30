@@ -1,0 +1,79 @@
+name: Tool load
+
+# Syncs a probe project for Codex, Gemini CLI, and OpenCode, installs each
+# tool at its latest release, and asks the tool what it loaded.
+# Docs and schemas say where a tool reads; this shows that it reads what
+# sync wrote. Results go to one rolling issue labeled `tool-load`, never to
+# a pull request: a vendor release can break a check with no change here.
+
+on:
+  schedule:
+    # 06:37 UTC every Monday. An odd minute keeps it off the hour.
+    - cron: "37 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: tool-load
+  cancel-in-progress: false
+
+jobs:
+  load:
+    name: Tools load synced output
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '22'
+
+      - name: Build agnostic-ai
+        run: go build -o "$RUNNER_TEMP/agnostic-ai" ./cmd/agnostic-ai
+
+      - name: Ask each tool what it loaded
+        id: load
+        continue-on-error: true
+        run: scripts/tool-load.sh --bin "$RUNNER_TEMP/agnostic-ai" | tee "$RUNNER_TEMP/tool-load.tsv"
+
+      - name: Report on the tool-load issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ steps.load.outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          issue=$(gh issue list --label tool-load --state open --json number -q '.[0].number')
+          if [ "$OUTCOME" = success ]; then
+            if [ -n "$issue" ]; then
+              gh issue comment "$issue" --body "Every check passes again ($RUN_URL)."
+              gh issue close "$issue"
+            fi
+            exit 0
+          fi
+          {
+            echo "A tool no longer loads what \`agnostic-ai sync\` wrote, or the check could not run. Run: $RUN_URL"
+            echo
+            echo '| Result | Tool | Version | Check |'
+            echo '|---|---|---|---|'
+            awk -F '\t' 'NF == 4 { printf "| %s | %s | %s | %s |\n", $1, $2, $3, $4 }' "$RUNNER_TEMP/tool-load.tsv" 2>/dev/null
+            echo
+            echo 'Reproduce with `scripts/tool-load.sh <tool>`, then confirm the vendor change before fixing the adapter.'
+          } >"$RUNNER_TEMP/body.md"
+          gh label create tool-load --color d93f0b --description "A tool stopped loading synced output" 2>/dev/null || true
+          if [ -n "$issue" ]; then
+            gh issue comment "$issue" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh issue create --title "Tool load check failed" --label tool-load --body-file "$RUNNER_TEMP/body.md"
+          fi
+          exit 1

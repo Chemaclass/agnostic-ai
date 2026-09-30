@@ -24,7 +24,7 @@ test-shell: build
 	bashunit scripts/release-notes_test.sh scripts/target-facts_test.sh scripts/docfetch_test.sh \
 		scripts/install_test.sh scripts/npm-binaries_test.sh scripts/npm-publish_test.sh \
 		scripts/e2e_test.sh scripts/vendor-watch_test.sh scripts/jev-triage_test.sh \
-		scripts/signals-shipped_test.sh
+		scripts/signals-shipped_test.sh scripts/tool-load_test.sh
 
 # bench runs the permanent sync-hot-path benchmark suite. It is not part
 # of preflight or CI: benchmarks are for local comparison, not pass/fail.
