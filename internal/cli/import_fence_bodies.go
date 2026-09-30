@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 )
 
 // fenceDivergent merges two same-name spec bodies, wrapping the parts
@@ -111,7 +113,7 @@ func mergeSkillBodies(claudePath, codexPath string) error {
 	}
 
 	claudeFront, claudeBody, claudeOK := splitCodexAgentFrontmatter(string(claudeData))
-	codexFront, codexBody, codexOK := splitCodexAgentFrontmatter(string(codexData))
+	codexFront, codexBody, codexOK := splitCodexAgentFrontmatter(header.Strip(string(codexData)))
 	if !claudeOK || !codexOK {
 		return nil
 	}
