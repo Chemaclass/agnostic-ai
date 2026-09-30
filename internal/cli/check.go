@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -498,8 +499,9 @@ func newDoctorCmd() *cobra.Command {
 			"     a generated file still tracked despite being ignored.\n" +
 			"     --check-globs and --check-references add opt-in checks here.\n" +
 			"  6. Check MCP server command binaries.\n" +
-			"  7. Suggest a concrete next step.\n\n" +
-			"Exits non-zero on any drift or lint error; lint warnings show without\n" +
+			"  7. Check persisted Codex hook trust.\n" +
+			"  8. Suggest a concrete next step.\n\n" +
+			"Exits non-zero on any drift, lint error, or inactive Codex hook; lint warnings show without\n" +
 			"failing. Subcommands run individual checks.",
 		Example: `  # Full diagnostic (CI gate)
   agnostic-ai doctor
@@ -539,7 +541,7 @@ func newDoctorCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return printDoctorJSON(cmd, reports, refs, checkRefs, lint)
+				return printDoctorJSON(cmd, reports, refs, checkRefs, lint, collectCodexHookTrust(scope.cfg, targets))
 			}
 
 			configOK := doctorConfigOK()
@@ -552,13 +554,13 @@ func newDoctorCmd() *cobra.Command {
 			cmd.Println("Config:")
 			if !configOK {
 				cmd.Println("  ✗ agnostic-ai.yaml not found. Run: agnostic-ai init")
-				doctorNextStep(cmd, false, false, false, nil, 0, errDoctorNoConfig)
+				doctorNextStep(cmd, false, false, false, nil, 0, 0, errDoctorNoConfig)
 				return errDoctorNoConfig
 			}
 			scope, err := loadCheckScope(false)
 			if err != nil {
 				cmd.Printf("  ✗ %v\n", err)
-				doctorNextStep(cmd, false, false, false, nil, 0, err)
+				doctorNextStep(cmd, false, false, false, nil, 0, 0, err)
 				return err
 			}
 			cfg := scope.cfg
@@ -642,11 +644,14 @@ func newDoctorCmd() *cobra.Command {
 			copiesOnly = copiesOnly && !scriptDrift
 			hasDrift = hasDrift || scriptDrift || len(copies) > 0
 
+			hookTrust := collectCodexHookTrust(cfg, targets)
+			reportCodexHookTrust(cmd, hookTrust)
+
 			// 6. Next step
 			manualFiles, manualOnly := manualOnlyDrift(reports)
 			// Hook script divergence is drift a scope document does not explain.
 			manualOnly = manualOnly && !scriptDrift && len(copies) == 0
-			doctorNextStep(cmd, hasDrift, manualOnly, copiesOnly, manualFiles, len(lint), nil)
+			doctorNextStep(cmd, hasDrift, manualOnly, copiesOnly, manualFiles, len(lint), len(hookTrust), nil)
 
 			// A rule whose globs match nothing never loads, so it
 			// silently does not exist. Reported before, but exit 0 meant
@@ -672,9 +677,14 @@ func newDoctorCmd() *cobra.Command {
 					return err
 				}
 				summaryf("→ reconciled %d file(s)\n", fixed+removedCopies)
+				hookTrust = collectCodexHookTrust(cfg, targets)
+				reportCodexHookTrust(cmd, hookTrust)
 				if n := orphanedCount(reports); n > 0 {
 					return fmt.Errorf("%d orphaned file(s) need manual removal", n)
 				}
+			}
+			if err := codexHookTrustErr(hookTrust); err != nil {
+				return err
 			}
 			return lintErrorsErr(lint)
 		},
@@ -697,19 +707,23 @@ func newDoctorCmd() *cobra.Command {
 // --check-references.
 type doctorJSONOutput struct {
 	jsonOutput
-	Lint       []lintFinding       `json:"lint"`
-	References *[]referenceFinding `json:"references,omitempty"`
+	Lint       []lintFinding            `json:"lint"`
+	References *[]referenceFinding      `json:"references,omitempty"`
+	HookTrust  []codex.HookTrustFinding `json:"hook_trust"`
 }
 
 // printDoctorJSON emits a JSON drift report for `doctor`. Mirrors the schema
 // used by `sync --check --json`: missing, stale, and orphaned files appear
 // in writes. Lint findings appear in lint. With checkRefs, broken skill
 // references appear in references.
-func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []referenceFinding, checkRefs bool, lint []lintFinding) error {
+func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []referenceFinding, checkRefs bool, lint []lintFinding, hookTrust []codex.HookTrustFinding) error {
 	if lint == nil {
 		lint = []lintFinding{}
 	}
-	out := doctorJSONOutput{jsonOutput: jsonOutput{Version: "1", Command: "doctor", Writes: driftRecords(reports)}.withEmptyLists(), Lint: lint}
+	out := doctorJSONOutput{jsonOutput: jsonOutput{Version: "1", Command: "doctor", Writes: driftRecords(reports)}.withEmptyLists(), Lint: lint, HookTrust: hookTrust}
+	if out.HookTrust == nil {
+		out.HookTrust = []codex.HookTrustFinding{}
+	}
 	if checkRefs {
 		if refs == nil {
 			refs = []referenceFinding{}
@@ -724,6 +738,9 @@ func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []reference
 	}
 	if len(refs) > 0 {
 		return fmt.Errorf("%d broken skill reference(s)", len(refs))
+	}
+	if err := codexHookTrustErr(hookTrust); err != nil {
+		return err
 	}
 	return lintErrorsErr(lint)
 }
