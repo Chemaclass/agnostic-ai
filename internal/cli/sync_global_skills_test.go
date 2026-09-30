@@ -98,15 +98,15 @@ func TestSyncGlobal_SharedSkillsStayNeutralAcrossTargetSelections(t *testing.T) 
 	}
 }
 
-func TestSyncGlobal_ReportsDroppedSkillModelAndEffort(t *testing.T) {
+func TestSyncGlobal_ReportsDroppedSkillFields(t *testing.T) {
 	_, source := globalAgentTestHome(t)
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\nmodel: {claude: opus, codex: model-code, cursor: model-cursor}\neffort: high\n---\nReview.\n")
-	mustWriteGlobalTest(t, filepath.Join(source, "skills", "deploy", "SKILL.md"), "---\nname: deploy\nmodel: shared-model\neffort: low\n---\nDeploy.\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\nmodel: {claude: opus, codex: model-code, cursor: model-cursor}\neffort: high\nargument-hint: '[file]'\nallowed-tools: [Read]\n---\nReview.\n")
+	mustWriteGlobalTest(t, filepath.Join(source, "skills", "deploy", "SKILL.md"), "---\nname: deploy\nmodel: shared-model\neffort: low\nargument-hint: '[version]'\nallowed-tools: [Read]\n---\nDeploy.\n")
 	_, warnings, err := runGlobalAgentTest("--only", "claude,codex,cursor")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, field := range []string{"model", "effort"} {
+	for _, field := range []string{"model", "effort", "argument-hint", "allowed-tools"} {
 		if !strings.Contains(warnings, "`"+field+"` on 2 skills has no effect on codex, cursor") {
 			t.Errorf("missing %s coverage: %s", field, warnings)
 		}
@@ -303,5 +303,22 @@ func TestSyncGlobal_CodexCopiesAnUnparsableBundledOpenAIYAML(t *testing.T) {
 	}
 	if string(data) != "- a\n" {
 		t.Errorf("openai.yaml not verbatim: %q", data)
+	}
+}
+
+func TestSyncGlobal_ReportsOmittedFalseSkillInvocationFlag(t *testing.T) {
+	_, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Review.\ndisable-model-invocation: false\n---\nReview.\n")
+	_, warnings, err := runGlobalAgentTest("--only", "claude,codex,cursor,amp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(warnings, "`disable-model-invocation` on 1 skill has no effect on codex, amp") {
+		t.Errorf("missing invocation field coverage: %s", warnings)
+	}
+	for _, target := range []string{"claude", "cursor"} {
+		if strings.Contains(warnings, "has no effect on "+target) {
+			t.Errorf("retained %s invocation flag noted: %s", target, warnings)
+		}
 	}
 }
