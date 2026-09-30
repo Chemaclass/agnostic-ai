@@ -167,3 +167,55 @@ func TestDoctor_ReportsUserCodexHooksAndMalformedUserConfig(t *testing.T) {
 		t.Errorf("inspected unselected Codex: %+v", got)
 	}
 }
+
+func TestDoctor_ReportsNullCodexHookGroupsInTextAndJSON(t *testing.T) {
+	cases := []struct{ name, body string }{
+		{"null group", `{"hooks":{"PreToolUse":[null]}}`},
+		{"null handlers", `{"hooks":{"PreToolUse":[{"hooks":null}]}}`},
+		{"null handler", `{"hooks":{"PreToolUse":[{"hooks":[null]}]}}`},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			dir := setupFixture(t)
+			testutil.Chdir(t, dir)
+			silence(t)
+			home := t.TempDir()
+			t.Setenv("CODEX_HOME", home)
+			mustWriteGlobalTest(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+			root := NewRootCmd("test")
+			root.SetArgs([]string{"sync"})
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			mustWriteGlobalTest(t, filepath.Join(home, "hooks.json"), test.body)
+			var text bytes.Buffer
+			root = NewRootCmd("test")
+			root.SetOut(&text)
+			root.SetErr(&text)
+			root.SetArgs([]string{"doctor", "-t", "codex"})
+			if err := root.Execute(); err == nil {
+				t.Error("doctor accepted malformed hooks")
+			}
+			if !strings.Contains(text.String(), "cannot check hook trust") || strings.Contains(text.String(), "All checks passed") {
+				t.Errorf("missing malformed hooks diagnosis: %s", text.String())
+			}
+			var output bytes.Buffer
+			root = NewRootCmd("test")
+			root.SetOut(&output)
+			root.SetErr(&bytes.Buffer{})
+			root.SetArgs([]string{"doctor", "--json", "-t", "codex"})
+			if err := root.Execute(); err == nil {
+				t.Error("JSON doctor accepted malformed hooks")
+			}
+			var report struct {
+				HookTrust []struct{ Status, Problem string } `json:"hook_trust"`
+			}
+			if err := json.Unmarshal(output.Bytes(), &report); err != nil {
+				t.Fatal(err)
+			}
+			if len(report.HookTrust) != 1 || report.HookTrust[0].Status != "unknown" || report.HookTrust[0].Problem == "" {
+				t.Errorf("missing unknown diagnostic: %s", output.String())
+			}
+		})
+	}
+}

@@ -111,6 +111,23 @@ func NoteHookTrust(path string, body []byte) {
 	}
 }
 
+type trustHandlers []map[string]any
+
+func (handlers *trustHandlers) UnmarshalJSON(data []byte) error {
+	if bytes.Equal(bytes.TrimSpace(data), []byte("null")) {
+		return fmt.Errorf("hooks must be an array")
+	}
+	type entries trustHandlers
+	var next entries
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if err := decoder.Decode(&next); err != nil {
+		return err
+	}
+	*handlers = trustHandlers(next)
+	return nil
+}
+
 func inspectHookTrust(path string, body, userConfig []byte, platform string) ([]HookTrustFinding, error) {
 	var config map[string]any
 	if _, err := toml.Decode(string(userConfig), &config); err != nil {
@@ -151,9 +168,9 @@ func inspectHookTrust(path string, body, userConfig []byte, platform string) ([]
 		if !exists {
 			continue
 		}
-		var groups []struct {
-			Matcher *string          `json:"matcher"`
-			Hooks   []map[string]any `json:"hooks"`
+		var groups []*struct {
+			Matcher *string       `json:"matcher"`
+			Hooks   trustHandlers `json:"hooks"`
 		}
 		decoder := json.NewDecoder(bytes.NewReader(raw))
 		decoder.UseNumber()
@@ -164,11 +181,14 @@ func inspectHookTrust(path string, body, userConfig []byte, platform string) ([]
 			return nil, fmt.Errorf("parse %s %s: %w", path, event.name, err)
 		}
 		for gi, group := range groups {
+			if group == nil {
+				return nil, fmt.Errorf("parse %s: %s group %d must be an object", path, event.name, gi)
+			}
 			matcher := group.Matcher
 			if slices.Contains([]string{"UserPromptSubmit", "Stop", "Interrupt"}, event.name) {
 				matcher = nil
 			}
-			if matcher != nil {
+			if matcher != nil && *matcher != "*" {
 				if _, err := regexp.Compile(*matcher); err != nil {
 					return nil, fmt.Errorf("%s: %s matcher: %w", path, event.name, err)
 				}

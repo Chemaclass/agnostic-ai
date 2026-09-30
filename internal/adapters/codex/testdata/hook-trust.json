@@ -127,5 +127,17 @@
     "platform": "linux",
     "canonical": "{\"event_name\":\"pre_tool_use\",\"hooks\":[{\"async\":false,\"command\":\"export AGNOSTIC_AI_TARGET=codex; guard-env\",\"timeout\":600,\"type\":\"command\"}],\"matcher\":\"Bash\"}",
     "hash": "sha256:fd022754fe4b7274aa51f6229943be4f6bb80d966b69cffe4d793578e14ce6e8"
+  },
+  {
+    "name": "wildcard matcher",
+    "event": "PreToolUse",
+    "matcher": "*",
+    "handler": {
+      "type": "command",
+      "command": "guard-env"
+    },
+    "platform": "linux",
+    "canonical": "{\"event_name\":\"pre_tool_use\",\"hooks\":[{\"async\":false,\"command\":\"guard-env\",\"timeout\":600,\"type\":\"command\"}],\"matcher\":\"*\"}",
+    "hash": "sha256:3fc9f44c67769a01242b739cd7a49e9b01777778fbb92c22e8ed0c6fea9848a9"
   }
 ]

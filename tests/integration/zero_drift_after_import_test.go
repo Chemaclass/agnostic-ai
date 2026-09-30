@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -55,6 +56,8 @@ func TestZeroDrift_AfterClaudeImportSync(t *testing.T) {
 // differs byte-for-byte from the source (BurntSushi/toml whitespace
 // quirks), sync --check fails here.
 func TestZeroDrift_AfterCodexImportSync(t *testing.T) {
+	codexHome := t.TempDir()
+	t.Setenv("CODEX_HOME", codexHome)
 	dir := t.TempDir()
 	seedRichCodexNative(t, dir)
 	testutil.Chdir(t, dir)
@@ -64,6 +67,10 @@ func TestZeroDrift_AfterCodexImportSync(t *testing.T) {
 
 	runCmd(t, "import", "codex")
 	runCmd(t, "sync", "-t", "codex")
+	cwd, err := os.Getwd()
+	must(t, err)
+	key := filepath.Join(cwd, ".codex/hooks.json") + ":post_tool_use:0:0"
+	must(t, os.WriteFile(filepath.Join(codexHome, "config.toml"), []byte(fmt.Sprintf("[hooks.state.%q]\nenabled = false\n", key)), 0600))
 
 	runCmd(t, "sync", "--check", "-t", "codex")
 	runCmd(t, "doctor", "-t", "codex")
@@ -91,6 +98,7 @@ func TestZeroDrift_AfterCodexImportSync(t *testing.T) {
 // from it, so the rules source stays a single file and sync --check
 // still reports zero drift.
 func TestZeroDrift_CodexReimportAfterRulesInlined(t *testing.T) {
+	t.Setenv("CODEX_HOME", t.TempDir())
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 
@@ -126,6 +134,7 @@ func TestZeroDrift_CodexReimportAfterRulesInlined(t *testing.T) {
 // triggered only when both overlays coexist (e.g. a path collision the
 // per-target test wouldn't see).
 func TestZeroDrift_AfterClaudeAndCodexImportSync(t *testing.T) {
+	t.Setenv("CODEX_HOME", t.TempDir())
 	dir := t.TempDir()
 	seedClaudeNative(t, dir)
 	seedRichCodexNative(t, dir)
