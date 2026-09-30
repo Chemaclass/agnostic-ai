@@ -45,6 +45,8 @@ Stdio MCP servers keep `cwd`; every transport keeps `connectionTimeout` (millise
 
 Source subdirectories that name project directories imply scope. Scope and file patterns form a union, so the rule applies to the whole directory and every matching file. Scoped `regex` and scoped empty `globs` arrays are reported as unsupported. To keep only a narrow file filter, omit `scope` and keep the source file outside a folder that implies scope.
 
+Imported `x-continue.globs` and `x-continue.regex` preserve exact native activation without an explicit portable `scope`. A nested native rule keeps its folder for placement, including when that folder names no project directory. An explicit `scope` opts into the portable union and its selector limits.
+
 Skills import from `.continue/skills/` with their bundled files. A `skill-<name>.md` rule from an older sync still imports as a skill.
 
 MCP servers import from `.continue/mcpServers/`:

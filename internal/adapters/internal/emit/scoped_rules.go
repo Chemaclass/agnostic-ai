@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -71,6 +72,24 @@ func PrepareScopedDocuments(b spec.Bundle, cfg *config.Config, target string, re
 		if err != nil {
 			return out, nil, err
 		}
+		nativeTargets := original.NativeRuleTargets()
+		if slices.Contains(nativeTargets, target) {
+			if scope != "" {
+				if err := CheckScopePath(scope); err != nil {
+					return out, nil, fmt.Errorf("%s: %w", r.Path, err)
+				}
+			}
+			out.Rules = append(out.Rules, original)
+			continue
+		}
+		_, portableGlobs := original.Meta["globs"]
+		_, portablePaths := original.Meta["paths"]
+		if len(nativeTargets) > 0 && !portableGlobs && !portablePaths {
+			if err := unsupportedScope(cfg, target, r, "target-native selectors for "+strings.Join(nativeTargets, ", ")+" have no portable selector for "+target); err != nil {
+				return out, nil, err
+			}
+			continue
+		}
 		if scope == "" {
 			out.Rules = append(out.Rules, original)
 			continue
@@ -103,7 +122,7 @@ func PrepareScopedDocuments(b spec.Bundle, cfg *config.Config, target string, re
 			}
 			continue
 		}
-		patterns, err := scopePatterns(r, scope)
+		patterns, err := targetScopePatterns(r, scope, target)
 		if err != nil {
 			if err = unsupportedScope(cfg, target, r, err.Error()); err != nil {
 				return out, nil, err
@@ -165,6 +184,9 @@ func PrepareScopedDocuments(b spec.Bundle, cfg *config.Config, target string, re
 		r.Meta["paths"] = patterns
 		nativeGlobs := r.Meta["globs"]
 		r.Meta["globs"] = strings.Join(patterns, ",")
+		if listScopeSelectors(target) && target != "continue" {
+			r.Meta["globs"] = patterns
+		}
 		r.Meta["alwaysApply"] = false
 		// Native activation keys must not override the portable scope contract.
 		for _, k := range []string{"applyTo", "fileMatchPattern", "inclusion", "trigger", "glob", "regex"} {
@@ -349,6 +371,34 @@ func scopePatterns(r spec.Entry, scope string) ([]string, error) {
 	return unique, nil
 }
 
+func listScopeSelectors(target string) bool {
+	switch target {
+	case "claude", "cline", "continue", "qoder", "openhands", "kiro":
+		return true
+	default:
+		return false
+	}
+}
+
+func targetScopePatterns(r spec.Entry, scope, target string) ([]string, error) {
+	patterns, err := scopePatterns(r, scope)
+	if err != nil {
+		return nil, err
+	}
+	if scopeDocument(target) != "" {
+		if _, err := scopeDirectories(patterns); err != nil {
+			return nil, err
+		}
+	} else if !listScopeSelectors(target) {
+		for _, pattern := range patterns {
+			if len(spec.GlobList(pattern)) != 1 {
+				return nil, fmt.Errorf("native comma-separated selectors cannot preserve literal comma in %q; use brace patterns or a list-native target", pattern)
+			}
+		}
+	}
+	return patterns, nil
+}
+
 func selectorCovers(pattern, other string) bool {
 	if pattern == "**" {
 		return true
@@ -412,6 +462,12 @@ func EntryPointRules(b spec.Bundle, target string) spec.Bundle {
 	b = b.For(target)
 	rules := make([]spec.Entry, 0, len(b.Rules))
 	for _, r := range b.Rules {
+		nativeTargets := r.NativeRuleTargets()
+		_, portableGlobs := r.Meta["globs"]
+		_, portablePaths := r.Meta["paths"]
+		if len(nativeTargets) > 0 && !slices.Contains(nativeTargets, target) && !portableGlobs && !portablePaths {
+			continue
+		}
 		resolved := r
 		resolved.Meta = ResolveMeta(r.Meta, target)
 		scope, err := spec.RuleScope(resolved)
@@ -448,6 +504,9 @@ func CheckScopeReaders(bundles map[string]spec.Bundle, files map[string]Captured
 				}
 				var expected []spec.Entry
 				for _, r := range bundles[target].Rules {
+					if slices.Contains(r.NativeRuleTargets(), target) {
+						continue
+					}
 					r.Meta = ResolveMeta(r.Meta, target)
 					s, err := spec.RuleScope(r)
 					if err != nil {
@@ -456,12 +515,9 @@ func CheckScopeReaders(bundles map[string]spec.Bundle, files map[string]Captured
 					if s == "" {
 						continue
 					}
-					patterns, err := scopePatterns(r, s)
+					patterns, err := targetScopePatterns(r, s, target)
 					if err != nil {
-						if s != scope {
-							continue
-						}
-						return fmt.Errorf("%s: shared instructions cannot preserve %s's file filters: %w", path, target, err)
+						continue
 					}
 					applies := s == scope
 					for _, pattern := range patterns {

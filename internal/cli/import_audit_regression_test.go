@@ -43,13 +43,14 @@ func TestImportAuditContinueNestedActivation(t *testing.T) {
 func TestImportAuditNestedActivationThroughSync(t *testing.T) {
 	for _, tc := range []struct {
 		target, dir, fields string
-		unsupported         bool
 	}{
-		{"continue", ".continue/rules", "globs: ['backend/src/**', 'backend/tests/**']", false},
-		{"continue", ".continue/rules", "globs: ['backend/src/**']", false},
-		{"continue", ".continue/rules", "globs: ['src/**']", true},
-		{"continue", ".continue/rules", "globs: []", true},
-		{"cline", ".clinerules", "paths: []", false},
+		{"continue", ".continue/rules", "globs: ['backend/src/**', 'backend/tests/**']"},
+		{"continue", ".continue/rules", "globs: ['backend/src/**']"},
+		{"continue", ".continue/rules", "globs: ['src/**']"},
+		{"continue", ".continue/rules", "globs: []"},
+		{"continue", ".continue/rules", "globs: 'src/**'\nregex: '^import'"},
+		{"cline", ".clinerules", "paths: []"},
+		{"qoder", ".qoder/rules", "paths: ['src/**']\ntrigger: manual"},
 	} {
 		t.Run(tc.target+tc.fields, func(t *testing.T) {
 			root := testutil.TempCwd(t)
@@ -61,6 +62,8 @@ func TestImportAuditNestedActivationThroughSync(t *testing.T) {
 			importFn := importFromContinue
 			if tc.target == "cline" {
 				importFn = importFromCline
+			} else if tc.target == "qoder" {
+				importFn = importFromQoder
 			}
 			if err := importFn(root, rootSources()); err != nil {
 				t.Fatal(err)
@@ -72,12 +75,6 @@ func TestImportAuditNestedActivationThroughSync(t *testing.T) {
 			cmd := NewRootCmd("test")
 			cmd.SetArgs([]string{"sync", "--all"})
 			err := cmd.Execute()
-			if tc.unsupported {
-				if err == nil || !strings.Contains(err.Error(), "scoped rule") {
-					t.Fatalf("expected explicit unsupported scope error, got %v", err)
-				}
-				return
-			}
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -90,6 +87,45 @@ func TestImportAuditNestedActivationThroughSync(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestImportAuditNativeFolderPlacementWithoutProjectDirectory(t *testing.T) {
+	root := testutil.TempCwd(t)
+	native := filepath.Join(root, ".continue/rules/backend/frontend.md")
+	writeFile(t, native, "---\nglobs: ['src/**']\n---\nGuide.\n")
+	if err := importFromContinue(root, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(native); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\ntargets: [continue]\non-unsupported: error\nsources:\n  rules: rules\n")
+	execCLI(t, "sync")
+	got, _ := splitMdcFrontmatter([]byte(readFile(t, native)))
+	if !reflect.DeepEqual(got["globs"], []any{"src/**"}) {
+		t.Errorf("native activation = %#v, want src/**", got["globs"])
+	}
+	execCLI(t, "sync", "--check")
+}
+
+func TestImportAuditNativeFolderPlacementSurvivesLocalExtension(t *testing.T) {
+	root := testutil.TempCwd(t)
+	native := filepath.Join(root, ".continue/rules/backend/frontend.md")
+	writeFile(t, native, "---\nglobs: ['src/**']\n---\nGuide.\n")
+	if err := importFromContinue(root, rootSources()); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(native); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(root, ".agnostic-ai/local/rules/backend/frontend.md"), "---\nname: frontend\n---\nLocal guide.\n")
+	writeFile(t, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\ntargets: [continue]\non-unsupported: error\nsources:\n  rules: rules\n")
+	execCLI(t, "sync")
+	got, body := splitMdcFrontmatter([]byte(readFile(t, native)))
+	if !reflect.DeepEqual(got["globs"], []any{"src/**"}) || !strings.Contains(body, "Local guide.") {
+		t.Errorf("native placement or activation lost: %#v, %s", got, body)
+	}
+	execCLI(t, "sync", "--check")
 }
 
 func TestImportAuditClaudeReenableAfterOverlayCapture(t *testing.T) {

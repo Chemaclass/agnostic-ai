@@ -83,6 +83,10 @@ Patterns are project-relative, including `**/*.go`; they are not rewritten relat
 
 `paths` and `globs` contribute to the same union. Native `regex`, `applyTo`, `fileMatchPattern`, and `glob` keys cannot be combined with `scope`. Cline's empty `paths` array keeps the rule disabled. Continue's empty `globs` array reports unsupported with scope, since replacing it with a directory filter would change activation. Windsurf, Trae, and Antigravity write union rules in the project's rules directory when a selector reaches outside the scope.
 
+Imported native file selectors without explicit `scope` keep their exact activation. Their source folder preserves native placement and adds no files to the selector. A target with no portable equivalent skips that native-only rule under `on-unsupported`.
+
+List-native targets preserve literal commas inside selector list items. Targets that require comma-separated scalar selectors reject those literal commas; commas inside brace patterns such as `tests/{a,b}/**` remain supported.
+
 **Breaking change:** earlier versions intersected scope and patterns. Remove `scope` from rules that used it to narrow `globs`, and write the full project-relative filters instead. Remove a catch-all `globs: "**/*"` from a rule that should apply only to its scope. See [migration](@/docs/migration.md#scope-and-pattern-unions).
 
 Unsupported combinations warn and skip. Set `on-unsupported: error` to fail instead, or `silent` to suppress notices.

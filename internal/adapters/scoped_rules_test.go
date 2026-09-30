@@ -3,8 +3,11 @@ package adapters
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -102,6 +105,55 @@ func TestScopedRules_UnionReaderIgnoresUnrelatedUnsupportedSelectors(t *testing.
 	defer ResetCoverageNotes()
 	if err := ValidateScopedRules(cfg, b, cfg.Targets); err != nil {
 		t.Errorf("unrelated selector must follow warn policy, got %v", err)
+	}
+}
+
+func TestScopedRules_ListSelectorsPreserveLiteralCommas(t *testing.T) {
+	for _, tc := range []struct{ target, key string }{{"kiro", "fileMatchPattern"}, {"continue", "globs"}, {"claude", "paths"}, {"cline", "paths"}, {"qoder", "paths"}, {"openhands", "paths"}} {
+		t.Run(tc.target, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			b := spec.NewBundle([]spec.Entry{{Kind: spec.KindRule, Name: "module-a", Body: "Guide.", Meta: map[string]any{"scope": "src/a", "paths": []string{"tests/a,**"}}}})
+			cfg := &config.Config{Targets: []string{tc.target}, OnUnsupported: "error"}
+			a, _ := Get(tc.target)
+			sess := NewSession()
+			sess.StartCapture()
+			if err := EmitWithProvenance(sess, a, b, cfg, false); err != nil {
+				t.Fatal(err)
+			}
+			files := sess.StopCapture()
+			if len(files) != 1 {
+				t.Fatalf("expected one native rule, got %+v", files)
+			}
+			var meta map[string]any
+			front := strings.Split(files[0].Content, "---")
+			if len(front) < 3 {
+				t.Fatal("native rule has no frontmatter")
+			}
+			if err := yaml.Unmarshal([]byte(front[1]), &meta); err != nil {
+				t.Fatal(err)
+			}
+			want := []any{"src/a/**", "tests/a,**"}
+			if !reflect.DeepEqual(meta[tc.key], want) {
+				t.Errorf("%s = %#v, want %#v", tc.key, meta[tc.key], want)
+			}
+		})
+	}
+}
+
+func TestScopedRules_UnionReaderSkipsUnsupportedRuleAtAddedDestination(t *testing.T) {
+	for _, policy := range []string{"warn", "silent"} {
+		t.Run(policy, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			b := spec.NewBundle([]spec.Entry{
+				{Kind: spec.KindRule, Name: "module-a", Body: "Module convention.", Meta: map[string]any{"scope": "src/a", "globs": "tests/a/**"}},
+				{Kind: spec.KindRule, Name: "other", Body: "Other convention.", Meta: map[string]any{"scope": "tests/a", "target": "cursor", "x-cursor": map[string]any{"regex": ".*"}}},
+			})
+			cfg := &config.Config{Targets: []string{"codex", "cursor"}, OnUnsupported: policy}
+			defer ResetCoverageNotes()
+			if err := ValidateScopedRules(cfg, b, cfg.Targets); err != nil {
+				t.Errorf("skipped rule must follow %s policy, got %v", policy, err)
+			}
+		})
 	}
 }
 

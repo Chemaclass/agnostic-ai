@@ -212,7 +212,7 @@ TSX rules.
 	}
 }
 
-func TestExplainFile_ScopedRuleWithoutCursorOutputIsNotEmitted(t *testing.T) {
+func TestExplainFile_ScopedUnionMatchesItsWholeDirectory(t *testing.T) {
 	dir := setupFileContextFixture(t, "cursor")
 	if err := os.WriteFile(filepath.Join(dir, "rules", "split.md"), []byte(`---
 name: split
@@ -228,9 +228,9 @@ Split rule.
 	silence(t)
 
 	got := explainFileJSON(t, "services/payments/a/x.go")
-	it := findItem(t, got.Instructions, "rules/split.md", "")
-	if it.Status != contextNotEmitted {
-		t.Errorf("want not-emitted, got %+v", it)
+	it := findItem(t, got.Instructions, "rules/split.md", ".cursor/rules/services/payments/split.mdc")
+	if it.Status != contextMatch {
+		t.Errorf("want match, got %+v", it)
 	}
 }
 
