@@ -54,7 +54,10 @@ Read-only means no repository or GitHub changes. Temporary reproduction projects
 3. Read a changed `schema` row's delta first: one line per key path,
    type, enum value, or required key, so each `{+...+}` is a setting the
    vendor added and each `[-...-]` one it dropped. A reworded description
-   never moves it. Then read the saved changelog delta, or the body when
+   never moves it. A changed `code` row is a vendor source file that
+   defines a surface, such as the hook event enum: a new enum value, path,
+   or field in its delta is a lead the docs may not show yet. Then read
+   the saved changelog delta, or the body when
    there is no delta, newest entry first. It names what moved since the
    last audit faster than the docs do.
 4. Read the delta of each changed page, then quote this run's `.txt` copy.

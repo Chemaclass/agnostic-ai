@@ -18,6 +18,10 @@
 # key paths, types, enums, and required lists, one per line, so a new
 # setting reads as one added line and a reworded description is no change.
 #
+# A `code:` line pins a vendor source file on GitHub, such as the enum of
+# hook events or the loader that finds skills. It changes when the pull
+# request merges, before any docs page, and is hashed as raw text.
+#
 # Usage:
 #   scripts/docfetch.sh                      # every target, into today's run dir
 #   scripts/docfetch.sh claude zed           # only the named targets
@@ -44,7 +48,7 @@ Usage: scripts/docfetch.sh [--out DIR] [<target>...]
        scripts/docfetch.sh --update <docfetch.tsv> [<target>...]
        scripts/docfetch.sh --compare-mirrors <run dir a> <run dir b>
 
-  (no args)      fetch every registered target's docs, changelog, and schema URLs
+  (no args)      fetch every registered target's docs, changelog, schema, and code URLs
   <target>...    fetch only the named targets
   --out DIR      run directory (default local/target-audit/<utc date>-run)
   --urls         print "<target>\t<kind>\t<url>" without fetching
@@ -83,7 +87,8 @@ resolve_urls() {
     /^- docs: / { kind = "docs"; line = substr($0, 9) }
     /^- changelog: / { kind = "changelog"; line = substr($0, 14) }
     /^- schema: / { kind = "schema"; line = substr($0, 11) }
-    /^- (docs|changelog|schema): / {
+    /^- code: / { kind = "code"; line = substr($0, 9) }
+    /^- (docs|changelog|schema|code): / {
       n = split(strip_parens(line), w, /[ \t]+/)
       for (i = 1; i <= n; i++) {
         t = w[i]
@@ -971,7 +976,7 @@ compare_mirrors() {
 
 # fetch_target <target> <dir> fetches one target's URLs. A "- fetch:
 # reader-proxy" line in its source section sends every URL through the
-# proxy but a .md mirror or a schema, which serve plain data directly: a host that
+# proxy but a .md mirror, a schema, or a code file, which serve plain data directly: a host that
 # blocks some networks (kiro.dev, cursor.com) otherwise serves HTML to
 # one machine and a proxy copy to another, and the two never hash alike.
 fetch_target() {
@@ -990,7 +995,7 @@ fetch_target() {
     [ -n "$url" ] || continue
     idx=$((idx + 1))
     force=$proxy
-    case "$kind:$url" in *.md | schema:*) force="" ;; esac
+    case "$kind:$url" in *.md | schema:* | code:*) force="" ;; esac
     row=$(fetch_one "$target" "$kind" "$url" "$dir" "$idx" "$force")
     printf '%s\n' "$row"
     if [ -n "${DOCFETCH_MIRRORS:-}" ]; then

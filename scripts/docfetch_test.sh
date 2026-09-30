@@ -280,6 +280,18 @@ function test_fetch_one_hashes_a_schema_row_by_its_keys() {
     "$(printf '%s' "$row" | cut -f6)"
 }
 
+function test_resolve_urls_tags_a_code_line() {
+  assert_contains "code	https://github.com/openai/codex/blob/main/codex-rs/hooks/src/events/mod.rs" "$(resolve_urls codex)"
+}
+
+function test_fetch_one_reads_a_code_row_as_raw_text() {
+  stub_curl "https://raw.githubusercontent.com/*|200|pub mod session_start;"
+  local row
+  row=$(fetch_one codex code https://github.com/openai/codex/blob/main/codex-rs/hooks/src/events/mod.rs "$FIXTURES/run" 1)
+  assert_equals "raw-github" "$(printf '%s' "$row" | cut -f5)"
+  assert_equals "new" "$(printf '%s' "$row" | cut -f8)"
+}
+
 function test_resolve_urls_tags_a_schema_line() {
   assert_contains "schema	https://www.schemastore.org/claude-code-settings.json" "$(resolve_urls claude)"
 }

@@ -90,7 +90,7 @@ func TestAuditSources_EverySectionCarriesDocsAndWatch(t *testing.T) {
 }
 
 // maxProseWords caps one target's section, minus its `docs:`,
-// `changelog:`, and `schema:` lines, which carry the fetched URLs and so are not trimmed.
+// `changelog:`, `schema:`, and `code:` lines, which carry the fetched URLs and so are not trimmed.
 // Each audit loads the section into an auditor, and dated history
 // appended run after run once pushed several sections past 1,000 words
 // (#1109). Git history, signals.tsv, and the closed target-audit issues
@@ -102,7 +102,7 @@ func TestAuditSources_SectionsStayShort(t *testing.T) {
 	for name, body := range sourceSections(t) {
 		n := 0
 		for _, line := range strings.Split(body, "\n") {
-			if strings.HasPrefix(line, "- docs:") || strings.HasPrefix(line, "- changelog:") || strings.HasPrefix(line, "- schema:") {
+			if strings.HasPrefix(line, "- docs:") || strings.HasPrefix(line, "- changelog:") || strings.HasPrefix(line, "- schema:") || strings.HasPrefix(line, "- code:") {
 				continue
 			}
 			n += len(strings.Fields(line))
