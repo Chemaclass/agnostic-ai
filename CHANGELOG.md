@@ -37,6 +37,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Codex
 
+- `import codex` adds an agent `model` to an agent spec `import claude` already wrote as `model: {codex: <name>}`, or as a `codex` entry in its per-target map, instead of a shared `model` that Claude Code then loaded (#1461).
 - `.codex/environments/environment.toml` always carries `[setup]`, with an empty script when no spec sets one, as the file the Codex app generates does; a spec with only dev commands used to drop the table.
 - `sync` no longer notes that `permissions` have no effect on Codex once exec policies are set, whether inline, in `exec-policies-file`, or in the captured overlay; without one, the note stays (#1432).
 
