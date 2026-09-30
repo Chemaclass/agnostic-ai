@@ -311,6 +311,72 @@ func TestEmit_NotesPermissionsPointAtExecPolicies(t *testing.T) {
 	}
 }
 
+func TestEmit_PermissionsNoteStopsOnceExecPoliciesAreConfigured(t *testing.T) {
+	inline := []config.CodexExecPolicy{{Pattern: []string{"composer"}, Decision: "allow"}}
+	cases := []struct {
+		name     string
+		cfg      *config.Config
+		files    map[string]string
+		wantNote bool
+	}{
+		{name: "no exec policies", cfg: &config.Config{}, wantNote: true},
+		{
+			name: "inline exec policies",
+			cfg:  &config.Config{Outputs: map[string]config.Output{"codex": {ExecPolicies: inline}}},
+		},
+		{
+			name:  "exec policies file",
+			cfg:   &config.Config{Outputs: map[string]config.Output{"codex": {ExecPoliciesFile: "policies.yaml"}}},
+			files: map[string]string{"policies.yaml": "- pattern: [composer]\n  decision: allow\n"},
+		},
+		{
+			name:  "captured overlay",
+			cfg:   &config.Config{},
+			files: map[string]string{execPoliciesOverlayPath: "- pattern: [composer]\n  decision: allow\n"},
+		},
+		{
+			name:     "empty exec policies file",
+			cfg:      &config.Config{Outputs: map[string]config.Output{"codex": {ExecPoliciesFile: "empty.yaml"}}},
+			files:    map[string]string{"empty.yaml": "[]\n"},
+			wantNote: true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			emit.ResetCoverageNotes()
+			t.Cleanup(emit.ResetCoverageNotes)
+			buf := &strings.Builder{}
+			prev := emit.Warner
+			emit.Warner = buf
+			t.Cleanup(func() { emit.Warner = prev })
+			for rel, body := range tc.files {
+				path := filepath.Join(dir, rel)
+				if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			entries := []spec.Entry{
+				{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{"permissions": map[string]any{
+					"allow": []any{"Bash(composer *)"},
+				}}},
+			}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), tc.cfg, false); err != nil {
+				t.Fatal(err)
+			}
+			emit.FlushCoverageNotes()
+
+			if got := strings.Contains(buf.String(), "`permissions`"); got != tc.wantNote {
+				t.Errorf("permissions note present = %v, want %v\n%s", got, tc.wantNote, buf.String())
+			}
+		})
+	}
+}
+
 // Codex is the one settings target with no `x-<target>` passthrough:
 // `.codex/config.toml` is TOML rendered from the captured overlay plus
 // the first-class `outputs.codex.config` fields, so a JSON-shaped
