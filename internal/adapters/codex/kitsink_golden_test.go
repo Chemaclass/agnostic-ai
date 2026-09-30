@@ -38,7 +38,12 @@ func TestKitSink_GoldenSnapshot(t *testing.T) {
 		Outputs: map[string]config.Output{
 			// commands-dir opts into the deprecated project prompts
 			// layout so the snapshot keeps covering command emission.
-			"codex": {RulesFile: "AGENTS-rules.md", CommandsDir: ".codex/prompts"},
+			"codex": {RulesFile: "AGENTS-rules.md", CommandsDir: ".codex/prompts", ExecPoliciesFromPermissions: true},
+			"claude": {Settings: &config.ClaudeSettings{Permissions: &config.ClaudePermissions{
+				Allow: []string{"Bash(npm run check)", "Bash(npx vitest run:*)", "Bash(git diff:*)"},
+				Deny:  []string{"Bash(rm -rf:*)"},
+				Ask:   []string{"Bash(git push:*)"},
+			}}},
 		},
 	}
 	if err := New().Emit(emit.NewSession(), kitSinkBundle(), cfg, false); err != nil {

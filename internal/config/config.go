@@ -270,48 +270,48 @@ type CodexExecPolicy struct {
 }
 
 type Output struct {
-	Dir                  string            `yaml:"dir,omitempty"                      json:"dir,omitempty"`
-	File                 string            `yaml:"file,omitempty"                     json:"file,omitempty"`
-	RulesFile            string            `yaml:"rules-file,omitempty"               json:"rules-file,omitempty"`
-	RulesDir             string            `yaml:"rules-dir,omitempty"                json:"rules-dir,omitempty"`
-	ReviewFile           string            `yaml:"review-file,omitempty"              json:"review-file,omitempty"`
-	EnvironmentFile      string            `yaml:"environment-file,omitempty"         json:"environment-file,omitempty"`
-	SetupFile            string            `yaml:"setup-file,omitempty"               json:"setup-file,omitempty"`
-	IgnoreFile           string            `yaml:"ignore-file,omitempty"              json:"ignore-file,omitempty"`
-	RulesMode            string            `yaml:"rules-mode,omitempty"               json:"rules-mode,omitempty"`
-	MCPFile              string            `yaml:"mcp-file,omitempty"                 json:"mcp-file,omitempty"`
-	CLIMCPFile           string            `yaml:"cli-mcp-file,omitempty"             json:"cli-mcp-file,omitempty"`
-	RootMCPFile          string            `yaml:"root-mcp-file,omitempty"            json:"root-mcp-file,omitempty"`
-	AgentsDir            string            `yaml:"agents-dir,omitempty"               json:"agents-dir,omitempty"`
-	SkillsDir            string            `yaml:"skills-dir,omitempty"               json:"skills-dir,omitempty"`
-	InstructionsDir      string            `yaml:"instructions-dir,omitempty"         json:"instructions-dir,omitempty"`
-	CommandsDir          string            `yaml:"commands-dir,omitempty"             json:"commands-dir,omitempty"`
-	ChatmodesDir         string            `yaml:"chatmodes-dir,omitempty"            json:"chatmodes-dir,omitempty"`
-	WorkflowsDir         string            `yaml:"workflows-dir,omitempty"            json:"workflows-dir,omitempty"`
-	AssistantsDir        string            `yaml:"assistants-dir,omitempty"           json:"assistants-dir,omitempty"`
-	TasksFile            string            `yaml:"tasks-file,omitempty"               json:"tasks-file,omitempty"`
-	ConfFile             string            `yaml:"conf-file,omitempty"                json:"conf-file,omitempty"`
-	Model                string            `yaml:"model,omitempty"                    json:"model,omitempty"`
-	WeakModel            string            `yaml:"weak-model,omitempty"               json:"weak-model,omitempty"`
-	MCPDir               string            `yaml:"mcp-dir,omitempty"                  json:"mcp-dir,omitempty"`
-	EmitSkillsAsCommands bool              `yaml:"emit-skills-as-commands,omitempty"  json:"emit-skills-as-commands,omitempty"`
-	EmitAgentsAsCommands bool              `yaml:"emit-agents-as-commands,omitempty"  json:"emit-agents-as-commands,omitempty"`
-	SharedSubagents      *bool             `yaml:"shared-subagents,omitempty"         json:"shared-subagents,omitempty"`
-	NestedGlobRules      *bool             `yaml:"nested-glob-rules,omitempty"        json:"nested-glob-rules,omitempty"`
-	Settings             *ClaudeSettings   `yaml:"settings,omitempty"                 json:"settings,omitempty"`
-	Config               *CodexConfig      `yaml:"config,omitempty"                   json:"config,omitempty"`
-	ExecPolicies         []CodexExecPolicy `yaml:"exec-policies,omitempty"            json:"exec-policies,omitempty"`
-	ExecPoliciesFile     string            `yaml:"exec-policies-file,omitempty"       json:"exec-policies-file,omitempty"`
-	HooksFile            string            `yaml:"hooks-file,omitempty"               json:"hooks-file,omitempty"`
-	HooksDir             string            `yaml:"hooks-dir,omitempty"                json:"hooks-dir,omitempty"`
-	ProvenanceHeader     *bool             `yaml:"provenance-header,omitempty"        json:"provenance-header,omitempty"`
-	CollisionPolicy      string            `yaml:"collision-policy,omitempty"         json:"collision-policy,omitempty"`
+	Dir                         string            `yaml:"dir,omitempty"                      json:"dir,omitempty"`
+	File                        string            `yaml:"file,omitempty"                     json:"file,omitempty"`
+	RulesFile                   string            `yaml:"rules-file,omitempty"               json:"rules-file,omitempty"`
+	RulesDir                    string            `yaml:"rules-dir,omitempty"                json:"rules-dir,omitempty"`
+	ReviewFile                  string            `yaml:"review-file,omitempty"              json:"review-file,omitempty"`
+	EnvironmentFile             string            `yaml:"environment-file,omitempty"         json:"environment-file,omitempty"`
+	SetupFile                   string            `yaml:"setup-file,omitempty"               json:"setup-file,omitempty"`
+	IgnoreFile                  string            `yaml:"ignore-file,omitempty"              json:"ignore-file,omitempty"`
+	RulesMode                   string            `yaml:"rules-mode,omitempty"               json:"rules-mode,omitempty"`
+	MCPFile                     string            `yaml:"mcp-file,omitempty"                 json:"mcp-file,omitempty"`
+	CLIMCPFile                  string            `yaml:"cli-mcp-file,omitempty"             json:"cli-mcp-file,omitempty"`
+	RootMCPFile                 string            `yaml:"root-mcp-file,omitempty"            json:"root-mcp-file,omitempty"`
+	AgentsDir                   string            `yaml:"agents-dir,omitempty"               json:"agents-dir,omitempty"`
+	SkillsDir                   string            `yaml:"skills-dir,omitempty"               json:"skills-dir,omitempty"`
+	InstructionsDir             string            `yaml:"instructions-dir,omitempty"         json:"instructions-dir,omitempty"`
+	CommandsDir                 string            `yaml:"commands-dir,omitempty"             json:"commands-dir,omitempty"`
+	ChatmodesDir                string            `yaml:"chatmodes-dir,omitempty"            json:"chatmodes-dir,omitempty"`
+	WorkflowsDir                string            `yaml:"workflows-dir,omitempty"            json:"workflows-dir,omitempty"`
+	AssistantsDir               string            `yaml:"assistants-dir,omitempty"           json:"assistants-dir,omitempty"`
+	TasksFile                   string            `yaml:"tasks-file,omitempty"               json:"tasks-file,omitempty"`
+	ConfFile                    string            `yaml:"conf-file,omitempty"                json:"conf-file,omitempty"`
+	Model                       string            `yaml:"model,omitempty"                    json:"model,omitempty"`
+	WeakModel                   string            `yaml:"weak-model,omitempty"               json:"weak-model,omitempty"`
+	MCPDir                      string            `yaml:"mcp-dir,omitempty"                  json:"mcp-dir,omitempty"`
+	EmitSkillsAsCommands        bool              `yaml:"emit-skills-as-commands,omitempty"  json:"emit-skills-as-commands,omitempty"`
+	EmitAgentsAsCommands        bool              `yaml:"emit-agents-as-commands,omitempty"  json:"emit-agents-as-commands,omitempty"`
+	SharedSubagents             *bool             `yaml:"shared-subagents,omitempty"         json:"shared-subagents,omitempty"`
+	NestedGlobRules             *bool             `yaml:"nested-glob-rules,omitempty" json:"nested-glob-rules,omitempty"`
+	Settings                    *ClaudeSettings   `yaml:"settings,omitempty"                 json:"settings,omitempty"`
+	Config                      *CodexConfig      `yaml:"config,omitempty"                   json:"config,omitempty"`
+	ExecPolicies                []CodexExecPolicy `yaml:"exec-policies,omitempty"            json:"exec-policies,omitempty"`
+	ExecPoliciesFile            string            `yaml:"exec-policies-file,omitempty"       json:"exec-policies-file,omitempty"`
+	ExecPoliciesFromPermissions bool              `yaml:"exec-policies-from-permissions,omitempty" json:"exec-policies-from-permissions,omitempty"`
+	HooksFile                   string            `yaml:"hooks-file,omitempty"               json:"hooks-file,omitempty"`
+	HooksDir                    string            `yaml:"hooks-dir,omitempty"                json:"hooks-dir,omitempty"`
+	ProvenanceHeader            *bool             `yaml:"provenance-header,omitempty"        json:"provenance-header,omitempty"`
+	CollisionPolicy             string            `yaml:"collision-policy,omitempty"         json:"collision-policy,omitempty"`
 }
 
 // ClaudeSettings is the first-class representation of `.claude/settings.json`
 // keys that agnostic-ai understands schema-side, rather than treating every
-// key as an opaque overlay passthrough. Only the Claude adapter consumes
-// this struct today.
+// key as an opaque overlay passthrough. Codex can also translate its Bash permissions.
 //
 // Layering at emit time: overlay (captured during `import claude`) is the
 // base; non-zero fields here are written on top; the spec-derived `hooks`

@@ -169,6 +169,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emit.ReportUnsupported(modelCoverage(cfg, overlayKeys), b, cfg.OnUnsupported); err != nil {
 		return err
 	}
+	policies, translatingPermissions, err := resolveExecPolicies(b.Settings, cfg)
+	if err != nil {
+		return err
+	}
 
 	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
@@ -176,7 +180,11 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := (Adapter{}).EmitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
 		return err
 	}
-	if !hasExecPolicies(cfg) {
+	switch {
+	case translatingPermissions:
+		emit.NoteFieldNoOp(target, spec.KindSettings, "permissions",
+			specsWithOtherToolPermissions(b.Settings), otherToolPermissionsReason)
+	case len(policies) == 0:
 		emit.NoteFieldNoOp(target, spec.KindSettings, "permissions",
 			emit.SpecsWithPermissions(b.Settings), permissionsUseExecPoliciesReason)
 	}
@@ -234,7 +242,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitHooksJSON(sess, hooks, cfg, dryRun); err != nil {
 		return err
 	}
-	if err := emitExecPolicies(sess, cfg, dryRun); err != nil {
+	if err := emitExecPolicies(sess, cfg, policies, dryRun); err != nil {
 		return err
 	}
 	if err := materializeHookScripts(sess, hooks, dryRun); err != nil {

@@ -466,6 +466,9 @@
         "exec-policies-file": {
           "type": "string"
         },
+        "exec-policies-from-permissions": {
+          "type": "boolean"
+        },
         "hooks-file": {
           "type": "string"
         },

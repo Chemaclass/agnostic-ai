@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -64,6 +65,28 @@ prefix_rule(
 	}
 	if p.Decision != "forbidden" {
 		t.Errorf("policy[1] decision = %q", p.Decision)
+	}
+}
+
+func TestSync_ImportAfterTranslatedPoliciesKeepsTranslatingPermissions(t *testing.T) {
+	config := "targets: [codex]\noutputs:\n  codex:\n    exec-policies-from-permissions: true\n  claude:\n    settings:\n      permissions:\n        allow: [%s]\n"
+	dir := budgetProject(t, fmt.Sprintf(config, `"Bash(git diff:*)"`))
+	captureLogOut(t)
+	for _, args := range [][]string{{"sync"}, {"import", "codex"}} {
+		if out, err := runCLI(t, args...); err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, out)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai/overlays/codex.exec-policies.yaml")); !os.IsNotExist(err) {
+		t.Errorf("import captured generated policies as an overlay: %v", err)
+	}
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n"+fmt.Sprintf(config, `"Bash(git diff:*)", "Bash(go test:*)"`))
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync after import: %v\n%s", err, out)
+	}
+	got := readFile(t, filepath.Join(dir, ".codex/rules/default.rules"))
+	if !strings.Contains(got, `pattern = ["go", "test"]`) || strings.Contains(got, "justification") {
+		t.Errorf("sync after import stopped translating permissions:\n%s", got)
 	}
 }
 

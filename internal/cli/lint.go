@@ -54,7 +54,8 @@ func newLintCmd() *cobra.Command {
 			"a key agnostic-ai owns (allowed_tools vs tools), and allowed Bash rules " +
 			"with a wildcard before the end of the command, spec bodies that name " +
 			"another spec by one target's native path, skill and command lines with " +
-			"Claude Code body syntax an enabled target reads as plain text, and warns when a " +
+			"Claude Code body syntax an enabled target reads as plain text, missing or conflicting " +
+			"Codex command prefixes for Bash permissions, and warns when a " +
 			"target's always-loaded instructions pass the lint.instructions-words " +
 			"budget, the AGENTS.md chain Codex reads in a scope passes lint.codex-chain-bytes, " +
 			"or a skill or agent description passes lint.description-chars. " +
@@ -131,6 +132,13 @@ func lintScopeFindings(scope checkScope) ([]lintFinding, error) {
 	}
 	findings = append(findings, budget...)
 	findings = append(findings, lintGitignoreCommitTargets(scope.cfg)...)
+	if !scope.global {
+		permissions, err := lintCodexPermissions(scope.targets, scope.cfg, scope.bundle)
+		if err != nil {
+			return nil, err
+		}
+		findings = append(findings, permissions...)
+	}
 	return findings, nil
 }
 
