@@ -270,3 +270,69 @@ func TestEmit_PermissionPoliciesEmptyInlineListIsAuthoritativeAfterConfigLoad(t 
 		})
 	}
 }
+
+func TestEmit_PermissionPoliciesSkipExactAllowListedBeforeCoveringWildcard(t *testing.T) {
+	testutil.TempCwd(t)
+	emit.ResetCoverageNotes()
+	t.Cleanup(emit.ResetCoverageNotes)
+	var notes strings.Builder
+	previous := emit.Warner
+	emit.Warner = &notes
+	t.Cleanup(func() { emit.Warner = previous })
+	cfg := permissionPolicyConfig(t, "outputs:\n  codex:\n    exec-policies-from-permissions: true\n  claude:\n    settings:\n      permissions:\n        allow: [\"Bash(git status)\", \"Bash(git:*)\"]\n")
+	if err := New().Emit(emit.NewSession(), spec.Bundle{}, cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(defaultExecPoliciesFile)
+	if err != nil || !strings.Contains(string(data), `pattern = ["git", "status"]`) {
+		t.Errorf("exact rule not translated: %v\n%s", err, data)
+	}
+	emit.FlushCoverageNotes()
+	if strings.Contains(notes.String(), "Bash(git status)") {
+		t.Errorf("a later wildcard already allows extra arguments, but the exact rule was named:\n%s", notes.String())
+	}
+}
+
+func TestEmit_PermissionPoliciesNameExactAllowRulesCodexWidens(t *testing.T) {
+	for _, mode := range []string{"warn", "error", "silent"} {
+		t.Run(mode, func(t *testing.T) {
+			testutil.TempCwd(t)
+			emit.ResetCoverageNotes()
+			t.Cleanup(emit.ResetCoverageNotes)
+			var notes strings.Builder
+			previous := emit.Warner
+			emit.Warner = &notes
+			t.Cleanup(func() { emit.Warner = previous })
+			cfg := permissionPolicyConfig(t, "on-unsupported: "+mode+"\noutputs:\n  codex:\n    exec-policies-from-permissions: true\n  claude:\n    settings:\n      permissions:\n        allow: [\"Bash(git push)\", \"Bash(git diff:*)\", \"Bash(go *)\", \"Bash(go test)\", \"Bash(npm run check)\", \"Bash(tar x)\"]\n        deny: [\"Bash(rm -rf)\", \"Bash(git push --force)\"]\n        ask: [\"Bash(npm run:*)\", \"Bash(tar)\"]\n")
+			b := spec.NewBundle([]spec.Entry{{Kind: spec.KindSettings, Name: "security", Path: "settings/security.yaml", Meta: map[string]any{"permissions": map[string]any{"allow": []any{"Bash(make lint)"}}}}})
+			if err := New().Emit(emit.NewSession(), b, cfg, false); err != nil {
+				t.Fatalf("a widened allow rule failed the sync: %v", err)
+			}
+			data, err := os.ReadFile(defaultExecPoliciesFile)
+			if err != nil || !strings.Contains(string(data), `pattern = ["git", "push"]`) {
+				t.Errorf("exact rule not translated: %v\n%s", err, data)
+			}
+			emit.FlushCoverageNotes()
+			got := notes.String()
+			if mode == "silent" {
+				if got != "" {
+					t.Errorf("silent reports notes: %s", got)
+				}
+				return
+			}
+			for _, want := range []string{
+				"note: codex: settings/security.yaml: permissions.allow rule Bash(make lint) becomes a Codex prefix rule",
+				"note: codex: " + config.ConfigFileName + ": permissions.allow rule Bash(git push) becomes a Codex prefix rule",
+			} {
+				if !strings.Contains(got, want) {
+					t.Errorf("notes lack %q:\n%s", want, got)
+				}
+			}
+			for _, unwidened := range []string{"Bash(git diff:*)", "Bash(go test)", "Bash(go *)", "Bash(rm -rf)", "Bash(npm run check)", "Bash(tar x)", "Bash(git push --force)"} {
+				if strings.Contains(got, unwidened) {
+					t.Errorf("%s does not widen in Codex but was named:\n%s", unwidened, got)
+				}
+			}
+		})
+	}
+}
