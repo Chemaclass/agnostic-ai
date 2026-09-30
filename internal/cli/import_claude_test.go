@@ -1002,7 +1002,11 @@ func TestImportFromClaude_ReadonlyOverridesSurviveSyncImportSync(t *testing.T) {
 		name, fields, edit, want, absent string
 	}{
 		{"target optout", "readonly: true\nx-claude: {readonly: false}\n", "", "readonly: false", "disallowedTools:"},
+		{"merged target optout", "readonly: true\nx-cursor: &opts {readonly: false}\nx-claude: {<<: *opts}\n", "", "readonly: false", "disallowedTools:"},
+		{"merged explicit readonly wins", "readonly: true\nx-cursor: &opts {readonly: false}\nx-claude: {<<: *opts, readonly: true}\n", "", "readonly: true", ""},
+		{"merged sequence precedence", "readonly: true\nx-cursor: &first {readonly: false}\nx-codex: &second {readonly: true}\nx-claude: {<<: [*first, *second]}\n", "", "readonly: false", "disallowedTools:"},
 		{"null optout", "readonly: true\nx-claude: {disallowedTools: null}\n", "", "disallowedTools: null", "disallowedTools:"},
+		{"merged null optout", "readonly: false\nx-cursor: &opts {disallowedTools: null}\nx-claude: {<<: *opts}\n", "", "disallowedTools: null", "disallowedTools:"},
 		{"aliased null optout", "readonly: true\nx-cursor: &opts {disallowedTools: null}\nx-claude: *opts\n", "", "disallowedTools: null", "disallowedTools:"},
 		{"edited null optout", "readonly: true\nx-claude: {disallowedTools: null}\n", "disallowedTools: Bash\n", "disallowedTools: Bash", "disallowedTools: null"},
 		{"target readonly", "x-claude: {readonly: true}\n", "", "readonly: true", ""},

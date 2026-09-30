@@ -19,8 +19,9 @@ func preserveClaudeReadonly(existing, imported *yaml.Node) {
 		return
 	}
 	readonly := meta["readonly"] == true
-	if custom, ok := meta["x-claude"].(map[string]any); ok {
-		if value, set := custom["readonly"]; set {
+	customMeta, _ := meta["x-claude"].(map[string]any)
+	if customMeta != nil {
+		if value, set := customMeta["readonly"]; set {
 			readonly = value == true
 		}
 	}
@@ -32,6 +33,11 @@ func preserveClaudeReadonly(existing, imported *yaml.Node) {
 		custom := detachClaudeOverride(existing.Content[i+1])
 		var kept []*yaml.Node
 		if custom.Kind == yaml.MappingNode {
+			for _, key := range []string{"readonly", "disallowedTools"} {
+				if value, set := customMeta[key]; set && !mappingHasKey(custom, key) {
+					setMappingValue(custom, key, value)
+				}
+			}
 			for j := 0; j+1 < len(custom.Content); j += 2 {
 				key, value := custom.Content[j], custom.Content[j+1]
 				if key.Value == "readonly" || (key.Value == "disallowedTools" && value.Tag == "!!null" && !hasTools) {
