@@ -3,6 +3,7 @@ package adapters
 import (
 	"slices"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -13,6 +14,10 @@ import (
 type protectedPathsCoverage interface {
 	ProtectedPaths() (enforcement, reason string)
 }
+
+// ClaudeProtectedRulesFile names the file under `.claude/` that records
+// the Edit rules sync wrote for protected paths, so import skips them.
+const ClaudeProtectedRulesFile = claude.ProtectedRulesFile
 
 const advisoryProtectedPathsReason = "the target has no native edit guard sync writes, so protected paths are advisory; state them in a rule"
 

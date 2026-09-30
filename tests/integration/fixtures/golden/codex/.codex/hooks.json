@@ -16,7 +16,7 @@
           {
             "type": "command",
             "command": "export AGNOSTIC_AI_TARGET=codex; \"$(git rev-parse --show-toplevel 2\u003e/dev/null || pwd)/.codex/hooks/agnostic-ai-protect.sh\"",
-            "commandWindows": "sh .codex/hooks/agnostic-ai-protect.sh"
+            "commandWindows": "sh -c 'exec sh \"$(git rev-parse --show-toplevel 2\u003e/dev/null || pwd)/.codex/hooks/agnostic-ai-protect.sh\"'"
           }
         ]
       }

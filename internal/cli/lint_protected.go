@@ -32,14 +32,18 @@ func lintProtectedPaths(scope checkScope) ([]lintFinding, error) {
 	if len(groups) == 0 {
 		return nil, nil
 	}
-	written, err := syncWrittenPaths(scope)
-	if err != nil {
-		return nil, err
-	}
+	written, failures := syncWrittenPaths(scope)
 	var findings []lintFinding
+	for _, failure := range failures {
+		findings = append(findings, lintFinding{Code: "LINT022", Severity: lintWarn, Path: groups[0].Source,
+			Message: fmt.Sprintf("could not render %s to check protected paths against its output: %v", failure.target, failure.err)})
+	}
 	for _, group := range groups {
 		for _, pattern := range group.Paths {
 			one := spec.ProtectGroup{Paths: []string{pattern}}
+			if _, own := one.Match(filepath.ToSlash(group.Source)); own {
+				continue
+			}
 			var covered []string
 			for _, file := range written {
 				if _, ok := one.Match(file); ok {
@@ -57,14 +61,22 @@ func lintProtectedPaths(scope checkScope) ([]lintFinding, error) {
 	return findings, nil
 }
 
+type renderFailure struct {
+	target string
+	err    error
+}
+
 // syncWrittenPaths is every project-relative path a sync of the
-// scope's targets writes, entry points included, sorted.
-func syncWrittenPaths(scope checkScope) ([]string, error) {
+// scope's targets writes, entry points included, sorted. A target that
+// fails to render is reported and skipped, so one broken target does
+// not hide what the others write.
+func syncWrittenPaths(scope checkScope) ([]string, []renderFailure) {
 	sess := adapters.NewSession()
 	seen := map[string]bool{}
 	add := func(path string) {
 		seen[filepath.ToSlash(filepath.Clean(path))] = true
 	}
+	var failures []renderFailure
 	for _, target := range scope.targets {
 		adapter, err := adapters.Resolve(target)
 		if err != nil {
@@ -72,7 +84,8 @@ func syncWrittenPaths(scope checkScope) ([]string, error) {
 		}
 		files, err := captureAdapterFiles(sess, adapter, scope.bundle, scope.cfg)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", target, err)
+			failures = append(failures, renderFailure{target: target, err: err})
+			continue
 		}
 		for _, f := range files {
 			add(f.Path)
@@ -80,7 +93,7 @@ func syncWrittenPaths(scope checkScope) ([]string, error) {
 	}
 	entryPoints, err := collectEntryPointDrift(scope.cfg, scope.bundle, scope.targets)
 	if err != nil {
-		return nil, err
+		failures = append(failures, renderFailure{target: "the entry points", err: err})
 	}
 	for _, path := range driftGeneratedPaths([]driftReport{entryPoints}) {
 		add(path)
@@ -90,5 +103,5 @@ func syncWrittenPaths(scope checkScope) ([]string, error) {
 		out = append(out, path)
 	}
 	slices.Sort(out)
-	return out, nil
+	return out, failures
 }

@@ -169,14 +169,17 @@ func ProtectPatternRegexp(pattern string) string {
 
 // Match reports the first path of g that covers the project-relative
 // file path, either directly or through one of its parent directories.
+// Case is ignored, as the Codex hook ignores it: a checkout on a
+// case-insensitive file system opens `.GITHUB/ci.yml` as `.github/ci.yml`.
 func (g ProtectGroup) Match(file string) (string, bool) {
+	file = strings.ToLower(file)
 	candidates := []string{file}
 	for dir := file; strings.Contains(dir, "/"); {
 		dir = dir[:strings.LastIndex(dir, "/")]
 		candidates = append(candidates, dir)
 	}
 	for _, pattern := range g.Paths {
-		re := regexp.MustCompile(ProtectPatternRegexp(pattern))
+		re := regexp.MustCompile(strings.ToLower(ProtectPatternRegexp(pattern)))
 		if slices.ContainsFunc(candidates, re.MatchString) {
 			return pattern, true
 		}

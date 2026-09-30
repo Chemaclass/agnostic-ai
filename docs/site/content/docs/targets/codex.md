@@ -223,7 +223,9 @@ Two sections with the same heading in one file are deduplicated (`style.md`, `st
 
 Enforced (hook). Codex has no per-tool permission key, so sync writes `.codex/hooks/agnostic-ai-protect.sh` and a `PreToolUse` hook on `apply_patch` in `.codex/hooks.json`. The script reads every `Add File`, `Update File`, `Delete File`, and `Move to` path in the patch, and exits 2 with the reason on stderr when one is protected. Codex shows that reason and blocks the edit ([hooks docs](https://learn.chatgpt.com/docs/hooks)). The script needs only `sh` and `awk`.
 
-Codex parses an `ask` decision from a `PreToolUse` hook but does not support it yet, so `decision: ask` also blocks, and the message tells the agent to ask the user. The hook stays inactive until you trust it with `/hooks`, like every project hook. It does not see a shell command that writes a file. On Windows it runs through the `sh` on `PATH`, such as Git for Windows provides; without one the hook fails and the edit goes through. See [Protected paths](@/docs/spec-format/settings.md#protected-paths).
+Codex parses an `ask` decision from a `PreToolUse` hook but does not support it yet, so `decision: ask` also blocks, and the message tells the agent to ask the user. The hook stays inactive until you trust it with `/hooks`, like every project hook. It does not see a shell command that writes a file.
+
+The script blocks the edit when it cannot run: no `awk`, an unreadable project root, or an `awk` failure. It ignores case, reads `\` as a path separator, and blocks a header wrapped in control characters it cannot check. Both commands find the script from the Git root, so a session in a subdirectory still runs it. On Windows it runs through the `sh` on `PATH`, such as Git for Windows provides; without one Codex cannot start the hook and the edit goes through. See [Protected paths](@/docs/spec-format/settings.md#protected-paths).
 
 ## Verify
 

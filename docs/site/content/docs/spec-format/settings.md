@@ -72,7 +72,7 @@ protected:
 | `decision` | no | `ask` | `ask` makes the agent ask first. `deny` blocks the edit. |
 | `reason` | no | empty | Shown to the agent when an edit is blocked. |
 
-A path is anchored at the project root: `composer.lock` protects only the root file, and `**/composer.lock` protects every copy. Character classes, braces, negation, and paths outside the project are rejected, because the targets would read them differently. Each settings spec holds one block, so use one file per decision. Matching is case-sensitive, so on a case-insensitive file system a path spelled with other capitals is not protected.
+A path is anchored at the project root: `composer.lock` protects only the root file, and `**/composer.lock` protects every copy. Character classes, braces, negation, and paths outside the project are rejected, because the targets would read them differently. Each settings spec holds one block, so use one file per decision. The Codex hook and `lint` ignore case, so `.GITHUB/ci.yml` counts as protected on a case-insensitive file system. Claude Code's permission docs do not say whether `Edit` rules ignore case.
 
 | Target | Protection | How |
 |---|---|---|

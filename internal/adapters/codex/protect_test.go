@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -100,31 +103,9 @@ func runProtectHook(t *testing.T, root, cwd, patch string) hookRun {
 }
 
 // runProtectHookReporting runs the hook from dir with a payload whose cwd
-// field is reported, which Codex may spell through a symlink.
+// field is reported, which Codex may spell through a symlink. It runs
+// under every sh and awk it finds and fails when they disagree.
 func runProtectHookReporting(t *testing.T, root, dir, reported, patch string) hookRun {
-	t.Helper()
-	if runtime.GOOS == "windows" {
-		t.Skip("the generated hook needs a POSIX shell")
-	}
-	var shells []string
-	for _, name := range []string{"sh", "dash"} {
-		if path, err := exec.LookPath(name); err == nil {
-			shells = append(shells, path)
-		}
-	}
-	if len(shells) == 0 {
-		t.Skip("no sh on PATH")
-	}
-	first := runProtectHookWith(t, shells[0], root, dir, reported, patch)
-	for _, sh := range shells[1:] {
-		if got := runProtectHookWith(t, sh, root, dir, reported, patch); got != first {
-			t.Errorf("%s: %+v, but %s: %+v", sh, got, shells[0], first)
-		}
-	}
-	return first
-}
-
-func runProtectHookWith(t *testing.T, sh, root, dir, reported, patch string) hookRun {
 	t.Helper()
 	payload, err := json.Marshal(map[string]any{
 		"session_id":      "s",
@@ -136,13 +117,77 @@ func runProtectHookWith(t *testing.T, sh, root, dir, reported, patch string) hoo
 	if err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command(sh, filepath.Join(root, ".codex", "hooks", protectScriptName))
+	return runProtectHookPayload(t, root, dir, payload)
+}
+
+// hookRuntime is one shell plus the PATH that picks its awk.
+type hookRuntime struct {
+	name, sh, path string
+}
+
+// hookRuntimes lists sh and dash, each with the system awk and with
+// every other awk on PATH (mawk, gawk, busybox), so the script runs as
+// macOS and Debian ship it.
+func hookRuntimes(t *testing.T) []hookRuntime {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("the generated hook needs a POSIX shell")
+	}
+	paths := map[string]string{"awk": "/usr/bin:/bin"}
+	for _, name := range []string{"mawk", "gawk", "busybox"} {
+		bin, err := exec.LookPath(name)
+		if err != nil {
+			continue
+		}
+		dir := t.TempDir()
+		link := filepath.Join(dir, "awk")
+		if name == "busybox" {
+			if err := os.WriteFile(link, []byte("#!/bin/sh\nexec "+bin+" awk \"$@\"\n"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+		} else if err := os.Symlink(bin, link); err != nil {
+			t.Fatal(err)
+		}
+		paths[name] = dir + ":/usr/bin:/bin"
+	}
+	var out []hookRuntime
+	for _, shell := range []string{"sh", "dash"} {
+		sh, err := exec.LookPath(shell)
+		if err != nil {
+			continue
+		}
+		for awk, path := range paths {
+			out = append(out, hookRuntime{name: shell + "+" + awk, sh: sh, path: path})
+		}
+	}
+	if len(out) == 0 {
+		t.Skip("no sh on PATH")
+	}
+	slices.SortFunc(out, func(a, b hookRuntime) int { return strings.Compare(a.name, b.name) })
+	return out
+}
+
+func runProtectHookPayload(t *testing.T, root, dir string, payload []byte) hookRun {
+	t.Helper()
+	runtimes := hookRuntimes(t)
+	first := runProtectHookWith(t, runtimes[0], root, dir, payload)
+	for _, rt := range runtimes[1:] {
+		if got := runProtectHookWith(t, rt, root, dir, payload); got != first {
+			t.Errorf("%s: %+v, but %s: %+v", rt.name, got, runtimes[0].name, first)
+		}
+	}
+	return first
+}
+
+func runProtectHookWith(t *testing.T, rt hookRuntime, root, dir string, payload []byte) hookRun {
+	t.Helper()
+	cmd := exec.Command(rt.sh, filepath.Join(root, ".codex", "hooks", protectScriptName))
 	cmd.Dir = dir
-	cmd.Env = []string{"PATH=/usr/bin:/bin"}
+	cmd.Env = []string{"PATH=" + rt.path}
 	cmd.Stdin = bytes.NewReader(payload)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
-	err = cmd.Run()
+	err := cmd.Run()
 	var exit *exec.ExitError
 	switch {
 	case err == nil:
@@ -257,7 +302,120 @@ func TestProtectHook_CommandFindsTheScriptFromTheProjectRoot(t *testing.T) {
 	if command := meta["command"].(string); !strings.HasPrefix(command, `"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.codex/hooks/`) {
 		t.Errorf("command = %s", command)
 	}
-	if windows := meta["commandWindows"].(string); windows != "sh .codex/hooks/"+protectScriptName {
-		t.Errorf("commandWindows = %s", windows)
+	windows := meta["commandWindows"].(string)
+	if !strings.HasPrefix(windows, "sh -c ") || !strings.Contains(windows, "git rev-parse --show-toplevel") || !strings.Contains(windows, "/.codex/hooks/"+protectScriptName) {
+		t.Errorf("commandWindows = %s, want sh finding the script from the Git root", windows)
 	}
+}
+
+// Codex trims a header line with Rust's str::trim, which strips every
+// Unicode White_Space character (codex-rs apply-patch parser). The hook
+// must not let one of them carry a protected header past it, and blocks
+// when it cannot tell.
+func TestProtectHook_BlocksHeadersWrappedInAnyWhitespace(t *testing.T) {
+	root := emitProtect(t, protectSettings(map[string]any{"paths": []any{"composer.lock"}}))
+	for name, space := range map[string]string{
+		"form feed":           "\f",
+		"vertical tab":        "\v",
+		"carriage return":     "\r",
+		"next line":           "\u0085",
+		"no-break space":      " ",
+		"line separator":      " ",
+		"ideographic space":   "　",
+		"narrow no-break":     " ",
+		"form feed and space": "\f ",
+	} {
+		t.Run(name, func(t *testing.T) {
+			for _, header := range []string{
+				space + "*** Update File: composer.lock",
+				"*** Update File: composer.lock" + space,
+			} {
+				run := runProtectHook(t, root, root, "*** Begin Patch\n"+header+"\n+x\n*** End Patch")
+				if run.code != 2 {
+					t.Errorf("%q: exit = %d, stderr = %q; want 2", header, run.code, run.stderr)
+				}
+			}
+		})
+	}
+}
+
+func TestProtectHook_MatchesPathsWithoutRegardToCase(t *testing.T) {
+	root := emitProtect(t, protectSettings(map[string]any{"paths": []any{".github/**"}}))
+	sub := filepath.Join(root, "pkg")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	run := runProtectHook(t, root, sub, "*** Begin Patch\n*** Add File: ../.GITHUB/w.yml\n+x\n*** End Patch")
+
+	if run.code != 2 || !strings.Contains(run.stderr, ".GITHUB/w.yml is protected") {
+		t.Fatalf("exit = %d, stderr = %q; want .GITHUB/w.yml blocked", run.code, run.stderr)
+	}
+}
+
+func TestProtectHook_ReadsBackslashesAsPathSeparators(t *testing.T) {
+	root := emitProtect(t, protectSettings(map[string]any{"paths": []any{".github/**"}}))
+
+	run := runProtectHook(t, root, root, "*** Begin Patch\n*** Add File: .github\\workflows\\ci.yml\n+x\n*** End Patch")
+
+	if run.code != 2 || !strings.Contains(run.stderr, ".github/workflows/ci.yml is protected") {
+		t.Fatalf("exit = %d, stderr = %q; want the backslash path blocked", run.code, run.stderr)
+	}
+}
+
+func TestProtectHook_BlocksWhenAwkIsMissing(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the generated hook needs a POSIX shell")
+	}
+	root := emitProtect(t, protectSettings(map[string]any{"paths": []any{"composer.lock"}}))
+	for _, rt := range hookRuntimes(t) {
+		rt.path = t.TempDir()
+		run := runProtectHookWith(t, rt, root, root, []byte(`{"tool_input":{"command":"*** Begin Patch\n*** Update File: a.txt\n*** End Patch"}}`))
+		if run.code != 2 || !strings.Contains(run.stderr, "awk") {
+			t.Errorf("%s: exit = %d, stderr = %q; want 2 naming awk", rt.name, run.code, run.stderr)
+		}
+	}
+}
+
+func TestProtectHook_BlocksAnInputAwkCannotRead(t *testing.T) {
+	root := emitProtect(t, protectSettings(map[string]any{"paths": []any{"composer.lock"}}))
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "awk"), []byte("#!/bin/sh\nexit 3\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, rt := range hookRuntimes(t) {
+		rt.path = dir + ":/usr/bin:/bin"
+		run := runProtectHookWith(t, rt, root, root, []byte(`{}`))
+		if run.code != 2 {
+			t.Errorf("%s: exit = %d, stderr = %q; want 2 when awk fails", rt.name, run.code, run.stderr)
+		}
+	}
+}
+
+// A timed-out hook lets the edit through, so decoding must stay linear
+// in the patch size.
+func TestProtectHook_ReadsALargePatchQuickly(t *testing.T) {
+	if testing.Short() {
+		t.Skip("large patch")
+	}
+	root := emitProtect(t, protectSettings(map[string]any{"paths": []any{"composer.lock"}}))
+	var patch strings.Builder
+	patch.WriteString("*** Begin Patch\n*** Add File: big.txt\n")
+	for i := 0; i < 200000; i++ {
+		fmt.Fprintf(&patch, "+line %d with a \"quote\", a \\ backslash, and a tab\t.\n", i)
+	}
+	patch.WriteString("*** Update File: composer.lock\n+x\n*** End Patch")
+
+	start := time.Now()
+	run := runProtectHook(t, root, root, patch.String())
+	elapsed := time.Since(start)
+
+	if run.code != 2 || !strings.Contains(run.stderr, "composer.lock is protected") {
+		t.Fatalf("exit = %d, stderr = %q; want composer.lock blocked", run.code, run.stderr)
+	}
+	runs := len(hookRuntimes(t))
+	if limit := time.Duration(runs) * 10 * time.Second; elapsed > limit {
+		t.Errorf("%d runs took %s, over %s", runs, elapsed, limit)
+	}
+	t.Logf("%d runs took %s", runs, elapsed)
 }

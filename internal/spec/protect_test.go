@@ -102,7 +102,7 @@ func TestProtectPatternRegexp_MatchesProjectRootAnchoredGlobs(t *testing.T) {
 
 func TestProtectGroup_MatchCoversFilesInsideAProtectedDirectory(t *testing.T) {
 	g := ProtectGroup{Paths: []string{"vendor", "go.sum"}}
-	for _, p := range []string{"vendor", "vendor/a/b.go", "go.sum"} {
+	for _, p := range []string{"vendor", "vendor/a/b.go", "go.sum", "VENDOR/a.go", "Go.Sum"} {
 		if _, ok := g.Match(p); !ok {
 			t.Errorf("%s should be protected", p)
 		}
