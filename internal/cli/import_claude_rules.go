@@ -172,7 +172,7 @@ var (
 
 // splitH2Sections returns the preamble (content before the first `## heading`)
 // and one section per `## heading`. Slug collisions are deduplicated with
-// -2, -3 suffixes. Headings inside fenced code blocks are ignored so example
+// -2, -3 suffixes. Headings inside code and raw HTML are ignored so example
 // markdown does not fragment the output.
 func splitH2Sections(s string) (string, []h2Section) {
 	lines := strings.Split(s, "\n")
@@ -181,16 +181,8 @@ func splitH2Sections(s string) (string, []h2Section) {
 		title string
 	}
 	var heads []head
-	inFence := false
-	for i, line := range lines {
-		if fenceRE.MatchString(line) {
-			inFence = !inFence
-			continue
-		}
-		if inFence {
-			continue
-		}
-		if m := h2HeadingRE.FindStringSubmatch(line); m != nil {
+	for _, i := range markdownHeadingLines(lines, 2) {
+		if m := h2HeadingRE.FindStringSubmatch(lines[i]); m != nil {
 			heads = append(heads, head{i, m[1]})
 		}
 	}

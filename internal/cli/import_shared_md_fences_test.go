@@ -102,3 +102,47 @@ func TestImport_BlockLeftOpenByOneRuleKeepsTheRulesAfterIt(t *testing.T) {
 		})
 	}
 }
+
+func TestImport_H2LinesInsideCodeAndHTMLStayInTheirRule(t *testing.T) {
+	for _, literal := range []string{
+		"<div>\n## Literal\n</div>",
+		"````markdown\n```\n## Inside\n```\n````",
+		"<!--\n\n## Commented out\n\n-->",
+	} {
+		t.Run(literal, func(t *testing.T) {
+			block := adapters.RenderRulesAppendix(spec.Bundle{Rules: []spec.Entry{
+				{Kind: spec.KindRule, Name: "alpha", Path: ".agnostic-ai/rules/alpha.md", Body: "Alpha text.\n\n" + literal + "\n"},
+				{Kind: spec.KindRule, Name: "beta", Path: ".agnostic-ai/rules/beta.md", Body: "Beta text.\n"},
+			}})
+			for file, importer := range map[string]func(string, config.Sources) error{"AGENTS.md": importFromCodex, geminiMainFile: importFromGemini} {
+				dir := t.TempDir()
+				writeFile(t, filepath.Join(dir, file), "# Project\n\n"+block)
+				if err := importer(dir, rootSources()); err != nil {
+					t.Fatal(err)
+				}
+				want := []string{"alpha.md", "beta.md"}
+				if got := names(mustReadDir(t, filepath.Join(dir, "rules"))); !slices.Equal(got, want) {
+					t.Errorf("%s: rules = %v, want %v", file, got, want)
+				}
+				if alpha := readFileString(t, filepath.Join(dir, "rules", "alpha.md")); !strings.Contains(alpha, literal) {
+					t.Errorf("%s: alpha lost its literal heading:\n%s", file, alpha)
+				}
+			}
+		})
+	}
+}
+
+func TestSplitH2Sections_WrapperAfterAnOpenBlockStartsItsSection(t *testing.T) {
+	doc := "## Rules\n\n### alpha\n\n<!-- source: .agnostic-ai/rules/alpha.md -->\n<?php declare(strict_types=1);\n\n\n" +
+		"## Agents\n\n### reviewer\n\n<!-- source: .agnostic-ai/agents/reviewer.md -->\n<!-- draft\n\n\n" +
+		"## Skills\n\nNo native skill execution. Reference only; invoke by reading the source file.\n\n" +
+		"### tidy\n\n<!-- source: .agnostic-ai/skills/tidy/SKILL.md -->\nSource: `.agnostic-ai/skills/tidy/SKILL.md`\n"
+	_, sections := splitH2Sections(doc)
+	var slugs []string
+	for _, s := range sections {
+		slugs = append(slugs, s.slug)
+	}
+	if want := []string{"rules", "agents", "skills"}; !slices.Equal(slugs, want) {
+		t.Errorf("sections = %v, want %v", slugs, want)
+	}
+}

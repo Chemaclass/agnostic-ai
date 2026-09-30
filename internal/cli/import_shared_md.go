@@ -295,15 +295,24 @@ func markdownHeadingLines(lines []string, level int) []int {
 }
 
 var (
-	generatedSectionHeadingRE = regexp.MustCompile(`^###[ \t]+\S`)
+	generatedSectionHeadingRE = regexp.MustCompile(`^(#{2,3})[ \t]+\S`)
 	generatedSourceLineRE     = regexp.MustCompile(`^[ \t]*<!--\s*source:[^\n]*-->[ \t]*\r?$`)
 )
 
 // generatedSectionStart reports whether lines[i] opens a section sync
 // wrote: a `###` heading, a blank line, then the section's source comment.
+// A `##` wrapper such as `## Agents` opens one when its first section
+// follows, after at most one intro paragraph.
 func generatedSectionStart(lines []string, i int) bool {
-	return i+2 < len(lines) && generatedSectionHeadingRE.MatchString(lines[i]) &&
-		strings.TrimSpace(lines[i+1]) == "" && generatedSourceLineRE.MatchString(lines[i+2])
+	m := generatedSectionHeadingRE.FindStringSubmatch(lines[i])
+	if m == nil || i+2 >= len(lines) || strings.TrimSpace(lines[i+1]) != "" {
+		return false
+	}
+	if len(m[1]) == 3 {
+		return generatedSourceLineRE.MatchString(lines[i+2])
+	}
+	return generatedSectionStart(lines, i+2) ||
+		i+4 < len(lines) && strings.TrimSpace(lines[i+3]) == "" && generatedSectionStart(lines, i+4)
 }
 
 // writeAgentMD writes an agent spec to path with a name + optional
