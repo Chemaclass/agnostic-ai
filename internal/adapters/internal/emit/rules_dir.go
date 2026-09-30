@@ -122,6 +122,13 @@ func scopedDir(opts RulesDirOpts, e spec.Entry) string {
 	if !opts.ScopeAtRoot {
 		return filepath.Join(opts.Dir, s)
 	}
+	if e.Kind == spec.KindRule && len(e.NativeRuleTargets()) == 0 {
+		for _, pattern := range spec.GlobList(e.Meta["globs"]) {
+			if !strings.HasPrefix(pattern, s+"/") {
+				return opts.Dir
+			}
+		}
+	}
 	// A frontmatter `scope: ../x` would anchor the tool directory
 	// outside the project. Fall back to the unscoped dir: the entry
 	// loses its scope but still reaches the tool, which beats writing
