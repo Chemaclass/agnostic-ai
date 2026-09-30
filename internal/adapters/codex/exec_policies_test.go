@@ -299,7 +299,7 @@ func TestEmit_NotesPermissionsPointAtExecPolicies(t *testing.T) {
 	emit.FlushCoverageNotes()
 
 	note := buf.String()
-	for _, want := range []string{"`permissions`", "codex", "exec-policies"} {
+	for _, want := range []string{"`permissions`", "codex", "outputs.codex.exec-policies-from-permissions: true", "outputs.codex.exec-policies for"} {
 		if !strings.Contains(note, want) {
 			t.Errorf("expected coverage note to mention %q, got: %s", want, note)
 		}

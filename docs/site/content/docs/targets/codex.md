@@ -55,7 +55,7 @@ AGENTS.md                                    # entry-point pointer body (written
 
   Edit hooks get a different payload than on Claude Code. Codex accepts `Edit` and `Write` as matcher aliases for `apply_patch`, but reports `tool_name: "apply_patch"` and puts the patch in `tool_input.command`; there is no `tool_input.file_path` ([hooks docs](https://learn.chatgpt.com/docs/hooks)). A `PreToolUse`, `PostToolUse`, or `PermissionRequest` hook that fires on edits and whose `command` reads `tool_input.file_path` gets an empty value on Codex, so `sync` prints a note, and `on-unsupported: error` fails the sync. The check reads the `command` text and the selected managed script body under `.agnostic-ai/scripts/` that sync copies to Codex. Target-specific script overrides take precedence; user-owned scripts and arbitrary command paths are not read. Parse the file paths out of the patch, or add `target: claude` to the hook.
 - **Reviews**: review specs land in a `## Code Review Rules` section, the one [Codex code review](https://learn.chatgpt.com/docs/third-party/github) reads from the root `AGENTS.md` and from the `AGENTS.md` nearest each changed file. An unscoped spec goes to the root `AGENTS.md`, a spec with `scope: services/api` to `services/api/AGENTS.md`, after that scope's rules, and specs sharing a scope concatenate in one section, the same text Cursor writes to `BUGBOT.md`. Other `AGENTS.md` readers load the section too; set `targets:` on a spec to keep it out. With `outputs.codex.rules-file` set, sync does not write the root `AGENTS.md`, so unscoped reviews get a coverage note.
-- **Exec policies**: opt-in. Set `outputs.codex.exec-policies` (inline list) or `outputs.codex.exec-policies-file` (external YAML) to write `.codex/rules/default.rules` as Starlark `prefix_rule(...)` calls. Portable `permissions` lists do not feed this, because `prefix_rule` matches token lists, not globs. When no exec policy is set, they raise a coverage note pointing here; once any source is present (inline, file, or the captured overlay), the note stops.
+- **Exec policies**: opt-in. Set `outputs.codex.exec-policies` (inline list) or `outputs.codex.exec-policies-file` (external YAML) to write `.codex/rules/default.rules` as Starlark `prefix_rule(...)` calls, or set `outputs.codex.exec-policies-from-permissions: true` to [translate simple Bash permission rules](#translate-bash-permissions). Without either, portable `permissions` lists raise a coverage note naming both routes; once any source (inline, file, or the captured overlay) holds a rule, the note stops.
 - **Environment**: environment specs write the [local environment](https://learn.chatgpt.com/docs/environments/local-environment) the Codex app reads. `setup` and `cleanup` become the `[setup]` and `[cleanup]` scripts (a list runs one command per line), and `setup-windows` becomes `[setup.win32]`. `[setup]` is written even with no `setup`, as an empty script, because the file the Codex app generates always carries it. Each `dev-commands` entry becomes an `[[actions]]` button with its `name`, `command`, and an `icon` that defaults to `run`. A list command is joined into a shell line. An action runs from the project root, so a `cwd` becomes a `cd <cwd> &&` before the command, and `import codex` reads it back as `cwd`. Specs merge by top-level key, the last value wins, and `name` is the environment's name. Codex has no key for `port`, `auto-port`, `env`, `url`, `install`, or `terminals`, so each gets a no-effect note. The docs page does not show the file, so the layout follows what the app writes. Override the path with `outputs.codex.environment-file`.
 - **MCP**: lands in `.codex/config.toml` as `[mcp_servers.<name>]`. Stdio servers use `command`/`args`/`env`/`cwd` plus `env_vars`, whose entries are names or `{name, source}` objects with `source` set to `local` or `remote`. HTTP/SSE servers use `url`/`bearer_token_env_var`/`http_headers`/`env_http_headers`/`auth` (`oauth` or `chatgpt`)/`http_headers_helper` (a local command printing header JSON, documented for local HTTP servers only). `disabled: true` writes `enabled = false`.
 
@@ -91,6 +91,7 @@ AGENTS.md                                    # entry-point pointer body (written
 | `outputs.codex.environment-file` | `.codex/environments/environment.toml` | |
 | `outputs.codex.rules-file` | unset | writes legacy concatenated rules and skips the pointer-body write |
 | `outputs.codex.exec-policies` / `outputs.codex.exec-policies-file` | unset | write `.codex/rules/default.rules` |
+| `outputs.codex.exec-policies-from-permissions` | `false` | translate simple Bash permission rules when no native policy source is set |
 
 ## Codex config
 
@@ -131,7 +132,7 @@ outputs:
 
 Sync also reads `.agnostic-ai/overlays/codex.config.toml` (captured by `import codex`) and writes it before the spec-derived `[mcp_servers.*]` sections. The overlay keeps every other `.codex/config.toml` key (`model`, `sandbox`, `approval_policy`, `notify`, `[history]`, `[profiles.*]`, `[model_providers.*]`, ...), so wiping `.codex/` between import and sync loses nothing.
 
-- `model` precedence, low to high: portable Settings spec, `outputs.codex.config.model`, overlay.
+- `model` precedence, low to high: portable Settings spec, `outputs.codex.config.model`, overlay. A model from either of the last two replaces the settings model, so a Claude model name in a settings spec raises no note; agent model notes still apply. A `[profiles.*]` model does not count, since a project config [cannot select a profile](https://learn.chatgpt.com/docs/config-file/config-advanced).
 - The overlay wins any other conflict with `outputs.codex.config.*`. The lower value is dropped to keep the TOML valid.
 - On import, a top-level `model_reasoning_effort` moves to `effort` in `<settings>/codex.yaml` when no settings spec sets `effort`, so every target syncs it. `[profiles.*]` values, and a value another settings spec shadows, stay in the overlay.
 
@@ -156,12 +157,38 @@ outputs:
 |-------|----------|-------|
 | `pattern` | yes | Shell command prefix tokens (`["composer", "test"]`). Becomes the `prefix_rule(pattern = [...])` argument. |
 | `decision` | yes | One of `allow`, `forbidden`, `prompt`. |
-| `justification` | no | Free-form comment emitted above the rule as a `#` line. |
-| `match` | no | Example matches rendered as commented `# match: ...` lines below the rule. Documentation only; Codex CLI ignores them. |
+| `justification` | no | Human-readable reason passed to Codex as `justification`. |
+| `match` | no | Example command strings passed to Codex as `match`; Codex validates them when loading the policy. |
 
-For many policies, use a separate file: `exec-policies-file: ./.agnostic-ai/codex.exec-policies.yaml`. Inline entries render first, then file entries. Order matters: Codex evaluates rules top-down.
+For many policies, use a separate file: `exec-policies-file: ./.agnostic-ai/codex.exec-policies.yaml`. Inline entries render first, then file entries. [Codex applies the strictest matching decision](https://learn.chatgpt.com/docs/agent-configuration/rules): `forbidden`, then `prompt`, then `allow`. Order does not override a restriction.
 
-`import codex` captures every `prefix_rule(...)` in `.codex/rules/default.rules` into `.agnostic-ai/overlays/codex.exec-policies.yaml`. Sync loads that overlay when neither an inline list nor `exec-policies-file` is set, so the round-trip preserves content with no extra config.
+`import codex` captures every `prefix_rule(...)` in `.codex/rules/default.rules` into `.agnostic-ai/overlays/codex.exec-policies.yaml`. It skips a file sync generated, since those rules already have a source. Sync loads that overlay when neither an inline list nor `exec-policies-file` is set, so the round-trip preserves content with no extra config.
+
+### Translate Bash permissions
+
+Set `outputs.codex.exec-policies-from-permissions: true` to generate command prefixes from portable Settings specs and `outputs.claude.settings.permissions`. The lists combine in source order, with duplicates removed per list, as Claude combines the declared lists. Only Settings specs that target Codex contribute. Sync does not read hand-written Claude settings or user policy files for this translation.
+
+```yaml
+targets: [claude, codex]
+outputs:
+  claude:
+    settings:
+      permissions:
+        allow:
+          - Bash(npm run check)
+          - Bash(npx vitest run:*)
+          - Bash(git diff:*)
+  codex:
+    exec-policies-from-permissions: true
+```
+
+This writes three `prefix_rule` entries to `.codex/rules/default.rules`. `Bash(a b c)`, `Bash(a b c *)`, and `Bash(a b c:*)` all become `pattern = ["a", "b", "c"]`. `allow`, `deny`, and `ask` become `allow`, `forbidden`, and `prompt`.
+
+Translation is opt-in because a prefix matches extra arguments, even for a bare rule without `:*`. For example, `Bash(npm run check)` also allows `npm run check -- --fix` in Codex. This is a supported command-prefix subset, not exact Claude permission equivalence. Codex rules govern requests to run outside the sandbox; project rules load only when the project config layer is trusted.
+
+Only plain, unquoted words are supported. A Bash rule with quotes, escapes, a `*` other than one trailing ` *` or `:*`, shell operators, expansions, assignments, or shell keywords produces a coverage note naming the exact rule and source. `on-unsupported: error` fails on it; `silent` omits the note. Rules for other tools, such as `Read(.env)` or `WebFetch`, share one `permissions` coverage note and never fail the sync. Use explicit `exec-policies` for a command that cannot translate.
+
+Any inline policy list (including `exec-policies: []`), `exec-policies-file` (including an empty file), or imported policy overlay is authoritative: sync uses that source, skips automatic translation, and notes which source won. It never modifies the source policy file. `lint` warns with LINT021 when a supported Bash `allow` or `deny` rule lacks a covering native prefix with the same effective decision, including declared portable deny and ask exclusions. Broader native prefixes count; restrictive descendants also warn for an allowed prefix. This checks declared prefixes, not every shell invocation or other Codex config layer. `lint --strict` fails on the warning.
 
 ## Import
 

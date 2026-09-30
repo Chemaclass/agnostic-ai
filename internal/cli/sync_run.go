@@ -337,11 +337,12 @@ func rollbackSessions(sessions []*adapters.Session) error {
 	return errors.Join(errs...)
 }
 
-// undoSweep rolls back the orphan sweep logged on sess and returns err, so
-// a sync that fails after the sweep keeps every orphan its unchanged
-// ledger still names.
-func undoSweep(sess *adapters.Session, err error) error {
-	if rbErr := sess.Rollback(); rbErr != nil {
+// undoSweep rolls back the orphan sweep logged on sess, puts back the
+// ignore files in prior, and returns err, so a sync that fails after the
+// sweep keeps every orphan its unchanged ledger still names, and the
+// ignores that list them.
+func undoSweep(sess *adapters.Session, prior []priorFile, err error) error {
+	if rbErr := errors.Join(sess.Rollback(), restoreFiles(prior)); rbErr != nil {
 		fmt.Fprintf(os.Stderr, "! rollback: %v\n", rbErr)
 	}
 	return err
@@ -466,6 +467,8 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		keepEditsIn(mainSess, keep)
 	}
 	var sessions []*adapters.Session
+	// No session logs the ignore files, so the rollback restores them.
+	var ignoreFiles []priorFile
 	// writesCompleted marks the point past which a returned error (the
 	// --untrack index cleanup, below) is a real, already-written sync
 	// reported as failed, never grounds to undo the writes themselves.
@@ -475,7 +478,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		defer func() {
 			if retErr != nil && !writesCompleted {
 				fmt.Fprintf(os.Stderr, "! sync failed; rolling back partial writes\n")
-				if rbErr := rollbackSessions(sessions); rbErr != nil {
+				if rbErr := errors.Join(rollbackSessions(sessions), restoreFiles(ignoreFiles)); rbErr != nil {
 					fmt.Fprintf(os.Stderr, "! rollback: %v\n", rbErr)
 				}
 			} else {
@@ -485,7 +488,9 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	}
 	gitignoreOn := !dryRun && resolveGitignore(cfg, gitignoreFlag)
 
-	if err := shared.reconcile(prev.Outputs, dryRun); err != nil {
+	reconciled, err := shared.reconcile(prev.Outputs, dryRun)
+	sessions = append(sessions, reconciled) // written first (link removals), rolled back last
+	if err != nil {
 		return err
 	}
 
@@ -563,7 +568,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 			ledgerSession = append(ledgerSession, adapters.AgnosticEntryPointPath)
 		}
 	}
-	applied := shared.apply(dryRun)
+	applied := shared.apply(mainSess, dryRun)
 	ledgerSession = adjustLedgerForLinks(ledgerSession, applied)
 	ledger, kept, removed, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, effectiveTargets, cfg.Targets, dryRun)
 	if gitignoreOn {
@@ -580,10 +585,11 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 				gitignoreEntries = append(gitignoreEntries, path)
 			}
 		}
-		block, err := syncManagedBlock(cfg, b, effectiveTargets, gitignoreEntries)
+		block, err := syncManagedBlock(root, cfg, b, effectiveTargets, gitignoreEntries)
 		if err != nil {
 			return err
 		}
+		ignoreFiles = priorIgnoreFiles(root, cfg)
 		rel, changed, err := writeGitignoreBlock(root, cfg, block)
 		if err != nil {
 			return fmt.Errorf("gitignore: %w", err)
@@ -843,7 +849,9 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	// mainSess handles the serial entry-point and shared-link writes; each
 	// target emits on its own session. The JSON path does not roll back
 	// writes: it reports per-target errors in the result instead. Only the
-	// orphan sweep is undone, when an ignore file fails after it.
+	// orphan sweep and the ignore files are undone, when an ignore file
+	// fails after the sweep, and a .gitignore written by then keeps
+	// ignoring the outputs that stay.
 	mainSess := adapters.NewSession()
 	mainSess.SetUnmanaged(cfg.Sync.Unmanaged)
 	if backup {
@@ -853,7 +861,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 		keepEditsIn(mainSess, keep)
 	}
 	gitignoreOn := resolveGitignore(cfg, gitignoreFlag)
-	if err := shared.reconcile(prev.Outputs, false); err != nil {
+	if _, err := shared.reconcile(prev.Outputs, false); err != nil {
 		return err
 	}
 
@@ -905,7 +913,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 		gitignoreEntries = append(gitignoreEntries, mainSess.StopRecording()...)
 	}
 
-	applied := shared.apply(false)
+	applied := shared.apply(mainSess, false)
 	ledgerSession = adjustLedgerForLinks(ledgerSession, applied)
 	mainSess.StartTransaction()
 	ledger, kept, removed, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, effectiveTargets, cfg.Targets, false)
@@ -926,15 +934,16 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 				gitignoreEntries = append(gitignoreEntries, path)
 			}
 		}
-		block, err := syncManagedBlock(cfg, b, effectiveTargets, gitignoreEntries)
+		block, err := syncManagedBlock(root, cfg, b, effectiveTargets, gitignoreEntries)
 		if err != nil {
-			return undoSweep(mainSess, err)
+			return undoSweep(mainSess, nil, err)
 		}
+		prior := priorIgnoreFiles(root, cfg)
 		if err := updateGitignore(root, cfg, block); err != nil {
-			return undoSweep(mainSess, fmt.Errorf("gitignore: %w", err))
+			return undoSweep(mainSess, prior, fmt.Errorf("gitignore: %w", err))
 		}
 		if _, err := writeWorktreeInclude(root, cfg, block); err != nil {
-			return undoSweep(mainSess, fmt.Errorf("worktreeinclude: %w", err))
+			return undoSweep(mainSess, widenIgnores(prior, filepath.Join(root, gitignoreRel(cfg)), block), fmt.Errorf("worktreeinclude: %w", err))
 		}
 	}
 	mainSess.Commit()

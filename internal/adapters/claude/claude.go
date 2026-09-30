@@ -360,8 +360,8 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 		}
 	}
 	if hasHooks {
-		preferred := loadCapturedHookEventOrder()
-		if err := doc.Set("hooks", hookSettingsJSONWithOrder(hooks, preferred)); err != nil {
+		order := loadCapturedHookOrder()
+		if err := doc.SetAt(order.Index(doc.Keys()), "hooks", hookSettingsJSONWithOrder(hooks, order.Events)); err != nil {
 			return fmt.Errorf("claude settings: marshal hooks: %w", err)
 		}
 	} else {
@@ -431,20 +431,21 @@ func detectSettingsIndent(settingsPath string) string {
 	return ""
 }
 
-// loadCapturedHookEventOrder reads the sidecar file
+// loadCapturedHookOrder reads the sidecar file
 // `.agnostic-ai/overlays/claude.settings.hook-events.json` written by
-// import. Returns nil when the file is absent or malformed; the caller
-// then falls back to canonical lifecycle order.
-func loadCapturedHookEventOrder() []string {
+// import. Returns the zero Order when the file is absent or malformed;
+// the caller then appends `hooks` and falls back to canonical lifecycle
+// order.
+func loadCapturedHookOrder() claudehooks.Order {
 	data, err := os.ReadFile(filepath.Join(".agnostic-ai", "overlays", "claude.settings.hook-events.json"))
 	if err != nil {
-		return nil
+		return claudehooks.Order{}
 	}
-	var events []string
-	if err := json.Unmarshal(data, &events); err != nil {
-		return nil
+	var order claudehooks.Order
+	if err := json.Unmarshal(data, &order); err != nil {
+		return claudehooks.Order{}
 	}
-	return events
+	return order
 }
 
 // loadSettingsFromDisk reads an existing `.claude/settings.json` as the

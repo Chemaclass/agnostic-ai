@@ -125,6 +125,8 @@ outputs:
     mcp-file: .cursor/mcp.json
 ```
 
+For Codex command rules, set `outputs.codex.exec-policies-from-permissions: true` to translate simple Bash entries from portable Settings specs and `outputs.claude.settings.permissions`. It defaults to `false`. Explicit inline, file, or imported Codex policies take precedence. Every translated rule matches a command prefix, including extra arguments. See [Bash permission translation](@/docs/targets/codex.md#translate-bash-permissions) for limits and LINT021 drift checks.
+
 ## `targets`
 
 Default: every adapter except `amp`, `warp`, `jules`, `goose`, and `augment` (20 in total). Enabling those alongside `codex` is safe; the shared `AGENTS.md` body is written once. Unknown targets log a warning and are skipped. `-t/--target` overrides the list for one run.
@@ -386,7 +388,8 @@ Claude Code builds a CLI `--worktree`, a subagent's, or a Desktop worktree from 
 - Files collapse to their generated subdirectory (`/.claude/rules/`), never higher, so siblings such as `.claude/settings.json` stay visible. A per-kind dir such as `outputs.<target>.rules-dir` collapses at the dir itself.
 - Output under a rule or review `scope` stays one line per file (`/services/api/AGENTS.md`), so new files in that directory are not ignored.
 - The block always holds `agnostic-ai.local.yaml`, `/.agnostic-ai/.sync-state`, `/.agnostic-ai/packs/`, and `/.agnostic-ai/local/`, seeded by `init` even with `gitignore.enabled: false`. `init`, `sync`, or `packs add` moves old loose copies into the block.
-- Kept orphans stay ignored until removed, even when a partial sync or deleted spec narrows the emitted paths.
+- A partial sync keeps every configured target's entries. When `.sync-state` lacks the skipped targets' outputs, as in a fresh clone, sync renders those targets in memory to list them.
+- Kept orphans stay ignored until removed, even when a deleted spec narrows the emitted paths.
 - A target can add entries of its own, such as [Claude Code](@/docs/targets/claude.md)'s local settings.
 
 ## Watched inputs

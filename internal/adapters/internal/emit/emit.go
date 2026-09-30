@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -427,6 +428,12 @@ func (s *Session) Commit() {
 // are restored from their pre-write content, and removed symlinks are
 // recreated, along with any folders pruned above them. All entries are
 // attempted; errors are joined and returned.
+//
+// Entries are undone newest first, except that a removed link waits for
+// the entries logged before it: Windows fixes a link's file or directory
+// type when it creates the link, so the folder a swept link points at
+// must be back first. An entry at, above, or under a waiting link's path
+// depends on the link, so every waiting link comes back before it.
 func (s *Session) Rollback() error {
 	s.mu.Lock()
 	log := s.txLog
@@ -435,41 +442,83 @@ func (s *Session) Rollback() error {
 	s.mu.Unlock()
 
 	var errs []error
+	var links []txEntry
+	restoreLinks := func() {
+		for _, l := range links {
+			errs = append(errs, l.undo()...)
+		}
+		links = nil
+	}
 	for i := len(log) - 1; i >= 0; i-- {
 		e := log[i]
-		if e.content == nil && e.link == "" {
-			if err := os.Remove(e.path); err != nil && !os.IsNotExist(err) {
-				errs = append(errs, fmt.Errorf("rollback %s: %w", e.path, err))
-			}
-		} else {
-			mode := e.mode
-			if mode == 0 {
-				mode = filePerm
-			}
-			// A removed file may have given way to a directory of the
-			// same name (Cline's single-file `.clinerules`, #1060). The
-			// files written under it are undone by now, so prune the
-			// empty tree before the file comes back.
-			if info, err := os.Lstat(e.path); err == nil && info.IsDir() {
-				if err := removeEmptyDirs(e.path); err != nil {
-					errs = append(errs, fmt.Errorf("rollback %s: %w", e.path, err))
-				}
-			}
-			// A sweep that removed the path may have pruned the folders it emptied.
-			if err := mkdirAll(filepath.Dir(e.path), dirPerm); err != nil {
-				errs = append(errs, fmt.Errorf("rollback %s: %w", e.path, err))
-			} else if e.link != "" {
-				if err := os.Symlink(e.link, e.path); err != nil {
-					errs = append(errs, fmt.Errorf("rollback %s: %w", e.path, err))
-				}
-			} else if err := os.WriteFile(e.path, e.content, mode); err != nil {
-				errs = append(errs, fmt.Errorf("rollback %s: %w", e.path, err))
-			} else if err := os.Chmod(e.path, mode); err != nil {
-				errs = append(errs, fmt.Errorf("rollback %s mode: %w", e.path, err))
-			}
+		if e.link != "" {
+			links = append(links, e)
+			continue
+		}
+		if slices.ContainsFunc(links, func(l txEntry) bool { return pathsOverlap(l.path, e.path) }) {
+			restoreLinks()
+		}
+		errs = append(errs, e.undo()...)
+	}
+	restoreLinks()
+	return errors.Join(errs...)
+}
+
+// undo puts back the state e recorded before a write or removal.
+func (e txEntry) undo() []error {
+	if e.content == nil && e.link == "" {
+		if err := os.Remove(e.path); err != nil && !os.IsNotExist(err) {
+			return []error{fmt.Errorf("rollback %s: %w", e.path, err)}
+		}
+		return nil
+	}
+	var errs []error
+	mode := e.mode
+	if mode == 0 {
+		mode = filePerm
+	}
+	// A removed file may have given way to a directory of the
+	// same name (Cline's single-file `.clinerules`, #1060). The
+	// files written under it are undone by now, so prune the
+	// empty tree before the file comes back.
+	if info, err := os.Lstat(e.path); err == nil && info.IsDir() {
+		if err := removeEmptyDirs(e.path); err != nil {
+			errs = append(errs, fmt.Errorf("rollback %s: %w", e.path, err))
 		}
 	}
-	return errors.Join(errs...)
+	// A sweep that removed the path may have pruned the folders it emptied.
+	if err := mkdirAll(filepath.Dir(e.path), dirPerm); err != nil {
+		errs = append(errs, fmt.Errorf("rollback %s: %w", e.path, err))
+	} else if e.link != "" {
+		if err := restoreLink(e.link, e.path); err != nil {
+			errs = append(errs, fmt.Errorf("rollback %s: %w", e.path, err))
+		}
+	} else if err := os.WriteFile(e.path, e.content, mode); err != nil {
+		errs = append(errs, fmt.Errorf("rollback %s: %w", e.path, err))
+	} else if err := os.Chmod(e.path, mode); err != nil {
+		errs = append(errs, fmt.Errorf("rollback %s mode: %w", e.path, err))
+	}
+	return errs
+}
+
+// restoreLink recreates the symlink at path to target, over a symlink
+// written there since the removal. Removing a symlink never touches what
+// it points at.
+func restoreLink(target, path string) error {
+	if info, err := os.Lstat(path); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		if err := os.Remove(path); err != nil {
+			return err
+		}
+	}
+	return os.Symlink(target, path)
+}
+
+// pathsOverlap reports whether a and b are the same path or one lies
+// under the other.
+func pathsOverlap(a, b string) bool {
+	a, b = filepath.Clean(a), filepath.Clean(b)
+	sep := string(filepath.Separator)
+	return a == b || strings.HasPrefix(a, b+sep) || strings.HasPrefix(b, a+sep)
 }
 
 // WriteFile creates parent directories as needed and writes content to path.
@@ -940,6 +989,49 @@ func (s *Session) RemoveLink(path string, dryRun bool) (removed bool, err error)
 		return false, nil
 	}
 	return s.remove(path, "", nil, false, dryRun)
+}
+
+// ReplaceFolderWithLink runs replace, which swaps the folder at path for
+// a symlink. An open transaction logs the folder's files, then the link,
+// so Rollback puts the folder back before it undoes an earlier write
+// inside it, which would otherwise reach through the link. Nothing is
+// logged when replace fails.
+func (s *Session) ReplaceFolderWithLink(path string, replace func() error) error {
+	s.mu.Lock()
+	transacting := s.transacting
+	s.mu.Unlock()
+	if !transacting {
+		return replace()
+	}
+	var files []txEntry
+	err := filepath.WalkDir(path, func(p string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if !d.Type().IsRegular() {
+			return nil
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		data, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		files = append(files, txEntry{path: p, content: data, mode: info.Mode().Perm()})
+		return nil
+	})
+	if err != nil && !IsAbsent(err) {
+		return err
+	}
+	if err := replace(); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	s.txLog = append(append(s.txLog, files...), txEntry{path: path})
+	s.mu.Unlock()
+	return nil
 }
 
 // remove deletes path, whose bytes are existing, once the caller has

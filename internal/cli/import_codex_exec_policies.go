@@ -12,6 +12,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -53,7 +54,8 @@ func codexExecPoliciesHeaderOverlayPath(root string) string {
 // `sync -t codex` re-emits the same content. A file-level `#` comment
 // block separated from the first rule by a blank line is split off into
 // a sidecar `codex.exec-policies-header.txt` instead of being glued onto
-// the first rule's justification. Returns true when the rules overlay
+// the first rule's justification. A file sync generated is skipped, since
+// its policies already have a source. Returns true when the rules overlay
 // was written (used by the import summary printer).
 func importCodexExecPolicies(root string) (bool, error) {
 	src := filepath.Join(root, codexExecPoliciesFile)
@@ -64,7 +66,10 @@ func importCodexExecPolicies(root string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("%s: %w", src, err)
 	}
-	header, rest := extractFileLevelHeader(string(data))
+	if header.Has(string(data)) {
+		return false, nil
+	}
+	fileHeader, rest := extractFileLevelHeader(string(data))
 	policies, err := parseCodexExecPolicies(rest)
 	if err != nil {
 		return false, fmt.Errorf("parse %s: %w", src, err)
@@ -83,9 +88,9 @@ func importCodexExecPolicies(root string) (bool, error) {
 	if err := importWriteFile(dst, out, 0o644); err != nil {
 		return false, fmt.Errorf("write %s: %w", dst, err)
 	}
-	if header != "" {
+	if fileHeader != "" {
 		hdst := codexExecPoliciesHeaderOverlayPath(root)
-		if err := importWriteFile(hdst, []byte(header), 0o644); err != nil {
+		if err := importWriteFile(hdst, []byte(fileHeader), 0o644); err != nil {
 			return false, fmt.Errorf("write %s: %w", hdst, err)
 		}
 	}

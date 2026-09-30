@@ -12,7 +12,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - Doctor warns when existing packaging ignore files miss generated paths; upgrade notes flag the Codex skills path move (#1447).
 - New `AGNOSTIC_AI.md` files use a short editable template; existing files stay intact, and `doctor` points out old boilerplate (#1446).
 - Rule body headings nest under their section in merged instructions, Claude's `rules-file` included, and `import` restores their levels (#1452).
-- Partial syncs keep all targets' ignores; no sync ignores `outputs.lock`. Kept orphans stay ignored and say why; `doctor --fix` offers removal (#1440, #1503).
+- Partial syncs keep all targets' ignores and never ignore `outputs.lock`. Kept orphans say why; `doctor --fix` offers removal (#1440, #1503, #1509).
+- A failed sync puts back swept orphans, shared-skill links, and ignore files, and no longer deletes a shared skill through a swapped link (#1503, #1509).
 - `import` keeps hand-written instructions whole, a nested `AGENTS.md` becomes a scoped rule, and Claude hook roots resolve elsewhere (#1434, #1449, #1464).
 - Sync notes omitted skill fields, Claude model names, and Claude-only skill syntax; `compare` shows each target's skill fields (#1431, #1436, #1444, #1463).
 - `doctor` fails on lint errors, `sync --diff` requires `--check`, and a `requires` bump no longer trips AAI-005 or `--check --against` (#1425, #1433, #1439).
@@ -27,16 +28,15 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - Claude runtime paths stay out of `.worktreeinclude`; `gitignore.ignore-worktree-include: true` also keeps that file out of Git (#1438, #1441).
 - A `CLAUDE.md` that imports `@AGENTS.md` keeps that layout with only Claude enabled, so `AGENTS.md` no longer goes stale.
 - Native frontmatter drops translated `readonly` and `scope` keys, and a comma-separated `globs` string becomes one `paths` entry per pattern (#1428, #1458).
-- `import claude` turns each nested `CLAUDE.md` into a scoped rule, and `doctor --fix` removes the hand-written copy so Claude loads it once (#1427, #1465).
-- `import claude` writes a Claude agent model as `model: {claude: <name>}`, so other targets use their own default (#1431).
+- `import claude` turns nested `CLAUDE.md` into scoped rules, agent models into `model.claude`, and drops overlay `hooks: null` (#1427, #1431, #1453, #1465).
 
 #### Codex
 
-- Edit hook checks also inspect copied scripts for `tool_input.file_path` and honor `on-unsupported: error` (#1450).
 - Exact subtree rules write nested `AGENTS.md`; filename filters stay inline with a note. Set `nested-glob-rules: false` to opt out (#1435).
-- Sync names inactive hooks with `/hooks` as the next step, `doctor` reports hook trust, and exec policies silence the `permissions` note (#1432, #1456).
-- `import codex` strips generated skill headers and keeps an agent's model in `model.codex` (#1461, #1476).
-- `.codex/environments/environment.toml` always carries `[setup]`, as the Codex app writes it.
+- `exec-policies-from-permissions` translates Bash rules and lint flags drift. An explicit `exec-policies: []` now overrides an imported overlay (#1451).
+- Sync names inactive hooks with `/hooks` and `doctor` shows hook trust; edit hook checks read copied scripts and honor `on-unsupported: error` (#1450, #1456).
+- Exec policies and a Codex config or overlay `model` silence the notes they make redundant (#1432, #1462).
+- `import codex` strips generated skill headers and keeps an agent's model in `model.codex`; `environment.toml` always has `[setup]` (#1461, #1476).
 
 #### Copilot
 

@@ -535,12 +535,8 @@ func TestImportFromClaude_WritesSettingsOverlay(t *testing.T) {
 			t.Errorf("overlay missing %q: %s", want, raw)
 		}
 	}
-	// Hooks key is retained as a `null` sentinel so writeSettings can
-	// restore hooks to the author's original position (#227). The
-	// sentinel is overwritten with the spec-derived hook map on every
-	// sync.
-	if !strings.Contains(string(raw), `"hooks": null`) {
-		t.Errorf("overlay should carry hooks: null sentinel for position preservation: %s", raw)
+	if strings.Contains(string(raw), `"hooks"`) {
+		t.Errorf("hooks captured as specs must be absent from overlay: %s", raw)
 	}
 }
 
@@ -587,14 +583,8 @@ func TestImportFromClaude_OverlayPreservesKeyOrder(t *testing.T) {
 }
 
 // TestImportFromClaude_HooksFirstSurvivesRoundTrip regresses #227.
-// Source settings.json with hooks before statusLine/enabledPlugins
-// must round-trip with the same top-level key order. Before #227,
-// hooks was stripped from the overlay on import and always re-appended
-// last by writeSettings, so this order was destroyed.
 func TestImportFromClaude_HooksFirstSurvivesRoundTrip(t *testing.T) {
-	dir := t.TempDir()
-	testutil.Chdir(t, dir)
-	settings := `{
+	s := syncImportedClaudeSettings(t, `{
   "hooks": {
     "PostToolUse": [
       {"matcher": "Edit", "hooks": [{"type": "command", "command": "fmt"}]}
@@ -602,9 +592,43 @@ func TestImportFromClaude_HooksFirstSurvivesRoundTrip(t *testing.T) {
   },
   "statusLine": {"type": "command", "command": "echo status"},
   "enabledPlugins": {"plugin-a": true}
-}`
-	writeFile(t, filepath.Join(dir, ".claude", "settings.json"), settings)
+}`)
+	idxHooks := strings.Index(s, `"hooks"`)
+	idxStatus := strings.Index(s, `"statusLine"`)
+	idxPlugins := strings.Index(s, `"enabledPlugins"`)
+	if idxHooks < 0 || idxStatus <= idxHooks || idxPlugins <= idxStatus {
+		t.Errorf("expected hooks < statusLine < enabledPlugins (author order), got:\n%s", s)
+	}
+}
 
+func TestImportFromClaude_HooksBetweenKeysSurviveRoundTrip(t *testing.T) {
+	s := syncImportedClaudeSettings(t, `{
+  "statusLine": {"type": "command", "command": "echo status"},
+  "hooks": {
+    "PostToolUse": [
+      {"matcher": "Edit", "hooks": [{"type": "command", "command": "fmt"}]}
+    ]
+  },
+  "enabledPlugins": {"plugin-a": true}
+}`)
+	idxStatus := strings.Index(s, `"statusLine"`)
+	idxHooks := strings.Index(s, `"hooks"`)
+	idxPlugins := strings.Index(s, `"enabledPlugins"`)
+	if idxStatus < 0 || idxHooks <= idxStatus || idxPlugins <= idxHooks {
+		t.Errorf("expected statusLine < hooks < enabledPlugins (author order), got:\n%s", s)
+	}
+	if !strings.Contains(s, `"command": "fmt"`) {
+		t.Errorf("hook spec was not restored: %s", s)
+	}
+}
+
+// syncImportedClaudeSettings imports settings into a fresh project,
+// syncs Claude, and returns the settings.json sync wrote.
+func syncImportedClaudeSettings(t *testing.T, settings string) string {
+	t.Helper()
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	writeFile(t, filepath.Join(dir, ".claude", "settings.json"), settings)
 	srcs := rootSources()
 	if err := importFromClaude(dir, srcs, defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
@@ -621,13 +645,7 @@ func TestImportFromClaude_HooksFirstSurvivesRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := string(raw)
-	idxHooks := strings.Index(s, `"hooks"`)
-	idxStatus := strings.Index(s, `"statusLine"`)
-	idxPlugins := strings.Index(s, `"enabledPlugins"`)
-	if idxHooks < 0 || idxStatus <= idxHooks || idxPlugins <= idxStatus {
-		t.Errorf("expected hooks < statusLine < enabledPlugins (author order), got:\n%s", s)
-	}
+	return string(raw)
 }
 
 func TestImportFromClaude_OnlyHooks_NoOverlay(t *testing.T) {

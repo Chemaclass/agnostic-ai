@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
@@ -1761,6 +1762,59 @@ func TestEmit_SettingsJSON_HookEventOrderRespectsCapturedSidecar(t *testing.T) {
 	if postPos > prePos {
 		t.Errorf("expected PostToolUse before PreToolUse per sidecar; got Post@%d Pre@%d\n%s",
 			postPos, prePos, out)
+	}
+}
+
+func TestEmit_SettingsJSON_HooksKeepTheirPlace(t *testing.T) {
+	const overlay = `{"statusLine": {"type": "command", "command": "echo status"}, "enabledPlugins": {"plugin-a": true}}`
+	const legacyOverlay = `{"statusLine": {"type": "command", "command": "echo status"}, "hooks": null, "enabledPlugins": {"plugin-a": true}}`
+	hook := []spec.Entry{{Kind: spec.KindHook, Name: "h1", Meta: map[string]any{
+		"event": "PostToolUse", "matcher": "Edit", "command": "echo hi",
+	}}}
+	for _, tc := range []struct {
+		name    string
+		overlay string
+		sidecar string
+		hooks   []spec.Entry
+		want    []string
+	}{
+		{"legacy null placeholder", legacyOverlay, `["PostToolUse"]`, hook, []string{"statusLine", "hooks", "enabledPlugins", "env"}},
+		{"after the recorded key", overlay, `{"after": "statusLine", "events": ["PostToolUse"]}`, hook, []string{"statusLine", "hooks", "enabledPlugins", "env"}},
+		{"before the recorded key", overlay, `{"before": "statusLine", "events": ["PostToolUse"]}`, hook, []string{"hooks", "statusLine", "enabledPlugins", "env"}},
+		{"recorded key gone", overlay, `{"after": "model", "events": ["PostToolUse"]}`, hook, []string{"statusLine", "enabledPlugins", "hooks", "env"}},
+		{"legacy null without hook specs", legacyOverlay, `["PostToolUse"]`, nil, []string{"statusLine", "enabledPlugins"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.Chdir(t, dir)
+			overlays := filepath.Join(dir, ".agnostic-ai/overlays")
+			if err := os.MkdirAll(overlays, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(overlays, "claude.settings.json"), []byte(tc.overlay+"\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(overlays, "claude.settings.hook-events.json"), []byte(tc.sidecar+"\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle(tc.hooks), &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			raw, err := os.ReadFile(filepath.Join(dir, ".claude/settings.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			doc := emit.NewOrderedJSON()
+			if err := json.Unmarshal(raw, doc); err != nil {
+				t.Fatalf("parse: %v\n%s", err, raw)
+			}
+			if got := doc.Keys(); !slices.Equal(got, tc.want) {
+				t.Errorf("keys = %v, want %v\n%s", got, tc.want, raw)
+			}
+			if strings.Contains(string(raw), "null") {
+				t.Errorf("settings.json holds a null:\n%s", raw)
+			}
+		})
 	}
 }
 

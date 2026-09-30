@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -338,11 +339,19 @@ func holdsCommitted(committed map[string]struct{}, entry string) bool {
 // gitignore.commit kind is left out. Hints, scopes, and commit kinds
 // cover every configured target too, so a sync of a subset writes the
 // block a full sync would.
-func syncManagedBlock(cfg *config.Config, b spec.Bundle, targets, recorded []string) ([]string, error) {
+//
+// The outputs of the configured targets a sync leaves out come from the
+// ledger, which recorded carries. Those targets render in memory for
+// theirs when there is no ledger, as in a fresh clone, or when the block
+// would drop a line the file lists. The ledger then lacks their outputs:
+// the sync that started it left them out, or a pull added their specs.
+func syncManagedBlock(root string, cfg *config.Config, b spec.Bundle, targets, recorded []string) ([]string, error) {
 	blockTargets := slices.Clone(targets)
+	var leftOut []string
 	for _, target := range cfg.Targets {
 		if !slices.Contains(blockTargets, target) {
 			blockTargets = append(blockTargets, target)
+			leftOut = append(leftOut, target)
 		}
 	}
 	committed, err := committedOutputs(cfg, b, blockTargets)
@@ -350,7 +359,72 @@ func syncManagedBlock(cfg *config.Config, b spec.Bundle, targets, recorded []str
 		return nil, fmt.Errorf("gitignore.commit: %w", err)
 	}
 	entries := append(slices.Clone(recorded), gitignoreHintsForTargets(cfg, blockTargets)...)
-	return buildManagedBlockCommitting(cfg, entries, specScopes(b, blockTargets), committed), nil
+	scopes := specScopes(b, blockTargets)
+	block := buildManagedBlockCommitting(cfg, entries, scopes, committed)
+	if len(leftOut) > 0 && (ledgerMissing(root) || dropsListedEntries(root, cfg, block)) {
+		entries = append(entries, renderedOutputs(cfg, b, leftOut)...)
+		block = buildManagedBlockCommitting(cfg, entries, scopes, committed)
+	}
+	return block, nil
+}
+
+// renderedOutputs returns the paths targets write, rendered in memory:
+// each adapter's files and its entry point. A target that does not
+// resolve or render is skipped, so it never fails the sync.
+func renderedOutputs(cfg *config.Config, b spec.Bundle, targets []string) []string {
+	defer adapters.SetAsideNotes()()
+	sess := adapters.NewSession()
+	var out []string
+	for _, t := range targets {
+		adapter, err := adapters.Resolve(t)
+		if err != nil {
+			continue
+		}
+		files, err := captureAdapterFiles(sess, adapter, b, cfg)
+		if err != nil {
+			continue
+		}
+		for _, f := range files {
+			out = append(out, f.Path)
+		}
+		if path := adapters.EntryPointPath(cfg, t); path != "" && !cfg.IsUnmanaged(path) {
+			out = append(out, path)
+		}
+	}
+	return out
+}
+
+// dropsListedEntries reports whether block leaves out a line the managed
+// block in the gitignore file lists.
+func dropsListedEntries(root string, cfg *config.Config, block []string) bool {
+	data, err := os.ReadFile(filepath.Join(root, gitignoreRel(cfg)))
+	if err != nil {
+		return false
+	}
+	for _, e := range managedBlockLines(string(data)) {
+		if !slices.Contains(block, e) {
+			return true
+		}
+	}
+	return false
+}
+
+// managedBlockLines returns the entries the managed block in content
+// lists, without its comments and blank lines. A block with no end
+// marker runs to the end of content, as replaceRenderedBlock reads it.
+func managedBlockLines(content string) []string {
+	_, body, found := strings.Cut(content, gitignoreBlockStart)
+	if !found {
+		return nil
+	}
+	body, _, _ = strings.Cut(body, gitignoreBlockEnd)
+	var out []string
+	for _, line := range strings.Split(body, "\n") {
+		if line = strings.TrimSpace(line); line != "" && !strings.HasPrefix(line, "#") {
+			out = append(out, line)
+		}
+	}
+	return out
 }
 
 func trackedIgnoreCandidates(cfg *config.Config, outputs []string) []string {
@@ -551,7 +625,7 @@ func ensureManagedGitignore(root string) error {
 	path := filepath.Join(root, ".gitignore")
 	data, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("read %s: %w", path, err)
+		return err
 	}
 	if strings.Contains(string(data), gitignoreBlockStart) {
 		return nil
@@ -571,24 +645,30 @@ func updateGitignore(root string, cfg *config.Config, entries []string) error {
 	return err
 }
 
+// gitignoreRel is the project-relative path of the gitignore file sync
+// writes the managed block to.
+func gitignoreRel(cfg *config.Config) string {
+	if cfg.Gitignore.Path != "" {
+		return cfg.Gitignore.Path
+	}
+	return ".gitignore"
+}
+
 // writeGitignoreBlock is updateGitignore that also returns the file's
 // project-relative path and whether its bytes changed.
 func writeGitignoreBlock(root string, cfg *config.Config, entries []string) (rel string, changed bool, err error) {
-	rel = ".gitignore"
-	if cfg.Gitignore.Path != "" {
-		rel = cfg.Gitignore.Path
-	}
+	rel = gitignoreRel(cfg)
 	path := filepath.Join(root, rel)
 	existing, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return rel, false, fmt.Errorf("read %s: %w", path, err)
+		return rel, false, err
 	}
 	updated := replaceManagedBlock(stripLooseFixedDuplicates(string(existing)), entries)
 	if updated == string(existing) {
 		return rel, false, nil
 	}
 	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
-		return rel, false, fmt.Errorf("write %s: %w", path, err)
+		return rel, false, err
 	}
 	return rel, true, nil
 }
@@ -613,7 +693,7 @@ func writeWorktreeInclude(root string, cfg *config.Config, block []string) (chan
 	path := filepath.Join(root, worktreeIncludeFile)
 	existing, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return false, fmt.Errorf("read %s: %w", path, err)
+		return false, err
 	}
 	if !cfg.Gitignore.WorktreeIncludeEnabled() || !slices.Contains(cfg.Targets, "claude") {
 		if !strings.Contains(string(existing), gitignoreBlockStart) {
@@ -650,9 +730,88 @@ func writeWorktreeInclude(root string, cfg *config.Config, block []string) (chan
 		return true, os.Remove(path)
 	}
 	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
-		return false, fmt.Errorf("write %s: %w", path, err)
+		return false, err
 	}
 	return true, nil
+}
+
+// priorFile is the state restoreFiles puts back at path after a failed
+// sync: content, or no file when absent.
+type priorFile struct {
+	path    string
+	content []byte
+	absent  bool
+}
+
+// priorIgnoreFiles saves the gitignore file and .worktreeinclude before
+// sync writes them, so a sync that fails afterwards can put them back
+// with restoreFiles. A file it cannot read is left out, since its writer
+// fails on the same read.
+func priorIgnoreFiles(root string, cfg *config.Config) []priorFile {
+	var out []priorFile
+	for _, rel := range []string{gitignoreRel(cfg), worktreeIncludeFile} {
+		path := filepath.Join(root, rel)
+		data, err := os.ReadFile(path)
+		switch {
+		case err == nil:
+			out = append(out, priorFile{path: path, content: data})
+		case errors.Is(err, fs.ErrNotExist):
+			out = append(out, priorFile{path: path, absent: true})
+		}
+	}
+	return out
+}
+
+// widenIgnores returns files with the gitignore file at path set to list
+// every ignore of the block it held and of block, for a failed sync that
+// keeps the outputs it wrote and puts back the orphans it swept. The `!`
+// lines come from block alone, as the config it was built from asks.
+func widenIgnores(files []priorFile, path string, block []string) []priorFile {
+	out := slices.Clone(files)
+	for i, f := range out {
+		if f.path != path {
+			continue
+		}
+		var ignores, allows []string
+		for _, e := range managedBlockLines(string(f.content)) {
+			if !strings.HasPrefix(e, "!") {
+				ignores = append(ignores, e)
+			}
+		}
+		for _, e := range block {
+			switch {
+			case strings.HasPrefix(e, "!"):
+				allows = append(allows, e)
+			case !slices.Contains(ignores, e):
+				ignores = append(ignores, e)
+			}
+		}
+		sort.Strings(ignores)
+		content := replaceManagedBlock(stripLooseFixedDuplicates(string(f.content)), append(ignores, allows...))
+		out[i] = priorFile{path: path, content: []byte(content)}
+	}
+	return out
+}
+
+// restoreFiles writes back the bytes each file held and removes the ones
+// that did not exist. A file that still holds its bytes is left alone.
+func restoreFiles(files []priorFile) error {
+	var errs []error
+	for _, f := range files {
+		if f.absent {
+			if err := os.Remove(f.path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+				errs = append(errs, err)
+			}
+			continue
+		}
+		if data, err := os.ReadFile(f.path); err == nil && bytes.Equal(data, f.content) {
+			continue
+		}
+		if err := os.WriteFile(f.path, f.content, 0o644); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // replaceManagedBlock returns content with the agnostic-ai managed block

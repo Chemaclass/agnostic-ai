@@ -3,6 +3,7 @@ package codex
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -12,30 +13,9 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// permissionsUseExecPoliciesReason explains, in the flushed coverage
-// note, why a portable permission policy does not reach Codex on its
-// own. It deliberately does not claim Codex has no permission surface,
-// because Codex has three and none of them is a drop-in
-// (target-audit 2026-09-19, #923):
-//
-//   - `approval_policy` in `config.toml` is one global mode, never a
-//     per-rule list.
-//   - Beta Permission Profiles, `[permissions.<name>]`, map filesystem
-//     paths and network domains, and have no ask verb at all.
-//   - Exec-policy `prefix_rule(pattern=[...], decision=...)` under
-//     `.codex/rules/` really is allow, prompt and forbidden, and it is
-//     the one this project already writes, through
-//     `outputs.codex.exec-policies`.
-//
-// The portable lists are not translated into `prefix_rule` because its
-// `pattern` is a token list, `["gh","pr","view"]`, not a single-string
-// glob. Splitting a command into tokens would guess at quoting, and
-// only Bash-shaped rules would have anywhere to go: exec policies are
-// shell-only, so Read, Edit and mcp__ rules have no Codex target on any
-// of the three surfaces. Pointing at the field that does work beats
-// guessing, and matches how Augment's note points at
-// x-augment.toolPermissions.
-const permissionsUseExecPoliciesReason = "Codex has no per-tool allow/deny/ask key; its rule surface is exec policies, whose prefix_rule patterns are token lists rather than globs, so set outputs.codex.exec-policies for shell rules"
+const permissionsUseExecPoliciesReason = "Codex has no per-tool allow/deny/ask key; its rule surface is exec policies, so set outputs.codex.exec-policies-from-permissions: true to translate simple Bash rules, or outputs.codex.exec-policies for other shell rules"
+
+const otherToolPermissionsReason = "Codex has no per-tool allow/deny/ask key and its exec policies match shell commands, so only Bash rules translate"
 
 const (
 	defaultExecPoliciesFile = ".codex/rules/default.rules"
@@ -54,19 +34,8 @@ const (
 	execPoliciesHeaderOverlayPath = ".agnostic-ai/overlays/codex.exec-policies-header.txt"
 )
 
-// emitExecPolicies writes the Starlark `prefix_rule(...)` file at
-// `.codex/rules/default.rules` from the declarative list in
-// `outputs.codex.exec-policies` (inline) or `outputs.codex.exec-policies-file`
-// (path to a YAML list). The file is the exec-policy DSL Codex CLI reads to
-// allow- or forbid-list shell command prefixes for repo automation.
-//
-// No-op when neither field is set so users who do not opt in get no
-// surprise file under `.codex/rules/`.
-func emitExecPolicies(sess *emit.Session, cfg *config.Config, dryRun bool) error {
-	policies, err := loadExecPolicies(cfg)
-	if err != nil {
-		return err
-	}
+// emitExecPolicies writes resolved native or translated command prefixes.
+func emitExecPolicies(sess *emit.Session, cfg *config.Config, policies []config.CodexExecPolicy, dryRun bool) error {
 	if len(policies) == 0 {
 		return nil
 	}
@@ -113,7 +82,7 @@ func shouldUseExecPoliciesOverlay(cfg *config.Config) bool {
 	if !ok {
 		return true
 	}
-	if len(out.ExecPolicies) > 0 {
+	if out.ExecPolicies != nil {
 		return false
 	}
 	return out.ExecPoliciesFile == ""
@@ -126,26 +95,10 @@ func shouldUseExecPoliciesOverlay(cfg *config.Config) bool {
 // `agnostic-ai import codex` against an existing `.codex/rules/default.rules`
 // keeps the entries on re-sync without further config.
 //
-// File-derived entries land after inline entries; ordering matters
-// because Codex CLI evaluates rules top-down.
+// Codex applies the strictest decision across matching rules.
 func loadExecPolicies(cfg *config.Config) ([]config.CodexExecPolicy, error) {
-	out, hasOut := cfg.Outputs[target]
-	var policies []config.CodexExecPolicy
-	if hasOut {
-		policies = append(policies, out.ExecPolicies...)
-	}
-
-	filePath := ""
-	if hasOut && out.ExecPoliciesFile != "" {
-		filePath = out.ExecPoliciesFile
-	} else if len(policies) == 0 {
-		// Fall back to the captured overlay only when the user has no
-		// explicit declarations. A user with inline entries opts out of
-		// the overlay implicitly.
-		if _, err := os.Stat(execPoliciesOverlayPath); err == nil {
-			filePath = execPoliciesOverlayPath
-		}
-	}
+	policies := slices.Clone(cfg.Outputs[target].ExecPolicies)
+	filePath := execPoliciesSourceFile(cfg)
 	if filePath == "" {
 		return policies, nil
 	}
@@ -161,12 +114,19 @@ func loadExecPolicies(cfg *config.Config) ([]config.CodexExecPolicy, error) {
 	return policies, nil
 }
 
-// hasExecPolicies reports whether any exec-policy source yields a rule.
-// An unreadable source counts as none: emitExecPolicies reports that
-// error on the same sync.
-func hasExecPolicies(cfg *config.Config) bool {
-	policies, err := loadExecPolicies(cfg)
-	return err == nil && len(policies) > 0
+func execPoliciesSourceFile(cfg *config.Config) string {
+	out := cfg.Outputs[target]
+	if out.ExecPoliciesFile != "" {
+		return out.ExecPoliciesFile
+	}
+	// An inline list, even an empty one, opts out of the captured overlay.
+	if out.ExecPolicies != nil {
+		return ""
+	}
+	if _, err := os.Stat(execPoliciesOverlayPath); err == nil {
+		return execPoliciesOverlayPath
+	}
+	return ""
 }
 
 // validateExecPolicy enforces the minimal schema. Index is included in

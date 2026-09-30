@@ -22,7 +22,7 @@ An overlay reaches one tool only. When a portable spec kind covers a setting, mo
 | Overlay | Written into | Holds |
 |---------|--------------|-------|
 | `claude.settings.json` | `.claude/settings.json` | Every key import did not move into a spec, such as `statusLine` |
-| `claude.settings.hook-events.json` | `.claude/settings.json` | The hook event order import found, so the `hooks` block keeps it |
+| `claude.settings.hook-events.json` | `.claude/settings.json` | The key `hooks` sat next to and its event order, so the `hooks` block keeps both |
 | `codex.config.toml` | `.codex/config.toml` | The keys import did not move into a spec, such as `sandbox`, `[history]`, and `[profiles.*]` |
 | `codex.exec-policies.yaml` | `.codex/rules/default.rules` | Every `prefix_rule(...)` from the imported file |
 | `claude/<file>`, `codex/<file>` | `.claude/<file>`, `.codex/<file>` | Helper files: Claude `CLAUDE.md`, `README.md`, and `statusline.sh`; Codex `README.md`. File modes are kept, so a script stays executable |

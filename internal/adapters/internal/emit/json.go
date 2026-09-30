@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 )
 
 // MarshalJSONIndent renders v as indented JSON without HTML escaping
@@ -129,6 +130,17 @@ func (o *OrderedJSON) Set(key string, val any) error {
 	return nil
 }
 
+// SetAt assigns val for key like Set, but a new key lands at index i,
+// clamped to the current keys, instead of at the end.
+func (o *OrderedJSON) SetAt(i int, key string, val any) error {
+	raw, err := MarshalJSONIndent(val)
+	if err != nil {
+		return err
+	}
+	o.setRawAt(i, key, raw)
+	return nil
+}
+
 // SetRaw assigns a pre-marshaled json.RawMessage for key. Useful when
 // the caller wants to carry over a value byte-for-byte from another
 // OrderedJSON.
@@ -137,11 +149,15 @@ func (o *OrderedJSON) SetRaw(key string, raw json.RawMessage) {
 }
 
 func (o *OrderedJSON) setRaw(key string, raw json.RawMessage) {
+	o.setRawAt(len(o.keys), key, raw)
+}
+
+func (o *OrderedJSON) setRawAt(i int, key string, raw json.RawMessage) {
 	if o.vals == nil {
 		o.vals = map[string]json.RawMessage{}
 	}
 	if _, ok := o.vals[key]; !ok {
-		o.keys = append(o.keys, key)
+		o.keys = slices.Insert(o.keys, max(0, min(i, len(o.keys))), key)
 	}
 	o.vals[key] = raw
 }
