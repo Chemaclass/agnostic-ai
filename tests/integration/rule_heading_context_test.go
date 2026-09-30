@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -47,4 +48,51 @@ func TestRuleHeadingContext_SyncNestsRuleSections(t *testing.T) {
 		assertNoFileContains(t, filepath.Join(dir, path), "\n### Doc versioning\n")
 	}
 	testutil.AssertGoldenTree(t, dir, filepath.Join(packageDir, "fixtures", "rule-heading-context"), "agnostic-ai.yaml")
+	for _, fence := range []string{"~~~", "```"} {
+		if fence == "```" {
+			path := filepath.Join(dir, ".agnostic-ai/rules/content.md")
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			must(t, os.WriteFile(path, []byte(strings.ReplaceAll(string(data), "~~~", "```")), 0644))
+			cmd := exec.Command(binary, "sync", "--gitignore=off")
+			cmd.Dir = dir
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("backtick sync: %v\n%s", err, out)
+			}
+		}
+		before := map[string]string{}
+		for _, name := range []string{"AGENTS.md", "GEMINI.md"} {
+			data, err := os.ReadFile(filepath.Join(dir, name))
+			if err != nil {
+				t.Fatal(err)
+			}
+			before[name] = string(data)
+		}
+		for _, args := range [][]string{{"import", "codex", "gemini"}, {"sync", "--gitignore=off"}, {"sync", "--check", "--gitignore=off"}} {
+			cmd := exec.Command(binary, args...)
+			cmd.Dir = dir
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("%s roundtrip %v: %v\n%s", fence, args, err, out)
+			}
+		}
+		for name, original := range before {
+			data, err := os.ReadFile(filepath.Join(dir, name))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(data) != original {
+				t.Errorf("%s %s fence roundtrip changed output:\n%s", name, fence, data)
+			}
+		}
+		rules, err := os.ReadDir(filepath.Join(dir, ".agnostic-ai/rules"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(rules) != 2 {
+			t.Errorf("%s fence imported phantom rules: %v", fence, rules)
+		}
+	}
+
 }

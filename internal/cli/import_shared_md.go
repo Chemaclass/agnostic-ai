@@ -232,7 +232,7 @@ type mergedH3Child struct{ slug, body string }
 // no H3 children so the caller can fall back to writing the wrapper as
 // a single rule.
 func unwrapMergedH3Children(body string, used map[string]int) ([]mergedH3Child, bool) {
-	idx := h3HeadingRE.FindAllStringSubmatchIndex(body, -1)
+	idx := unfencedH3HeadingIndexes(body)
 	if len(idx) == 0 {
 		return nil, false
 	}
@@ -255,6 +255,45 @@ func unwrapMergedH3Children(body string, used map[string]int) ([]mergedH3Child, 
 		out = append(out, mergedH3Child{slug: slug, body: strings.TrimSpace(secBody)})
 	}
 	return out, true
+}
+
+func unfencedH3HeadingIndexes(body string) [][]int {
+	var indexes [][]int
+	var fence byte
+	fenceLength, offset := 0, 0
+	for _, raw := range strings.SplitAfter(body, "\n") {
+		line := strings.TrimSuffix(strings.TrimSuffix(raw, "\n"), "\r")
+		indent := len(line) - len(strings.TrimLeft(line, " "))
+		if indent <= 3 {
+			line = line[indent:]
+			if fence != 0 {
+				run := len(line) - len(strings.TrimLeft(line, string(fence)))
+				if run >= fenceLength && strings.TrimSpace(line[run:]) == "" {
+					fence = 0
+				}
+				offset += len(raw)
+				continue
+			}
+			if len(line) > 0 && (line[0] == '`' || line[0] == '~') {
+				run := len(line) - len(strings.TrimLeft(line, line[:1]))
+				if run >= 3 && (line[0] == '~' || !strings.Contains(line[run:], "`")) {
+					fence, fenceLength = line[0], run
+					offset += len(raw)
+					continue
+				}
+			}
+		}
+		if fence == 0 {
+			if match := h3HeadingRE.FindStringSubmatchIndex(raw); match != nil {
+				for i := range match {
+					match[i] += offset
+				}
+				indexes = append(indexes, match)
+			}
+		}
+		offset += len(raw)
+	}
+	return indexes
 }
 
 // writeAgentMD writes an agent spec to path with a name + optional

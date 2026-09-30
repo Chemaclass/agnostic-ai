@@ -323,7 +323,7 @@ var h3HeadingRE = regexp.MustCompile(`(?m)^###[ \t]+(.+?)[ \t]*$`)
 
 // unwrapH3 splits a wrapper's body by ### into one section per child.
 func unwrapH3(body string) []codexSection {
-	idx := h3HeadingRE.FindAllStringSubmatchIndex(body, -1)
+	idx := unfencedH3HeadingIndexes(body)
 	if len(idx) == 0 {
 		return nil
 	}
