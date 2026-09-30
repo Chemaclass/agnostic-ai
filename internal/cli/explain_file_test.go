@@ -192,7 +192,7 @@ func TestExplainFile_SharedScopedAgentsMDWithCodex(t *testing.T) {
 
 func TestExplainFile_FindsARuleWhoseHeadingsSyncNested(t *testing.T) {
 	dir := setupFileContextFixture(t, "cursor", "codex")
-	writeFile(t, filepath.Join(dir, "rules", "codex-only.md"), "---\nname: codex-only\ntargets: [codex]\n---\n\n# Codex notes\n\nCodex-only notes.\n")
+	writeFile(t, filepath.Join(dir, "rules", "codex-only.md"), "---\nname: codex-only\ntargets: [codex]\n---\n\n# Codex notes\n\nCodex-only notes.\n\n```sh\necho open\n")
 	testutil.Chdir(t, dir)
 	silence(t)
 

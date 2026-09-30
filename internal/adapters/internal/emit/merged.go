@@ -38,6 +38,14 @@ func SectionSourceComment(path string, shift int) string {
 	return "<!-- source: " + filepath.ToSlash(path) + " headings: +" + strconv.Itoa(shift) + " -->\n"
 }
 
+func BodySourceComment(path, body string, shift int) string {
+	comment := SectionSourceComment(path, shift)
+	if comment == "" || !markdown.LeavesBlockOpen(body) {
+		return comment
+	}
+	return strings.TrimSuffix(comment, " -->\n") + " body-lines: " + strconv.Itoa(strings.Count(body, "\n")) + " -->\n"
+}
+
 // MergedOpts configures MergedDocument output.
 type MergedOpts struct {
 	// OutFile is the target path.
@@ -138,11 +146,12 @@ func WriteSection(sb *strings.Builder, heading string, e spec.Entry) {
 		body, shift = markdown.NestHeadings(body, 3)
 	}
 	sb.WriteString("### " + heading + "\n\n")
-	sb.WriteString(SectionSourceComment(e.Path, shift))
 	if d := e.Description(); d != "" {
-		sb.WriteString("_" + d + "_\n\n")
+		body = "_" + d + "_\n\n" + body
 	}
-	sb.WriteString(body + "\n\n")
+	body += "\n\n"
+	sb.WriteString(BodySourceComment(e.Path, body, shift))
+	sb.WriteString(body)
 }
 
 // WriteReference writes a "### <name>" reference block: provenance

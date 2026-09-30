@@ -2,102 +2,78 @@ package markdown
 
 import (
 	"regexp"
+	"sort"
 	"strings"
+
+	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/parser"
+	"github.com/yuin/goldmark/text"
 )
 
-var listMarker = regexp.MustCompile(`^(?:[-+*]|[0-9]{1,9}[.)])(?:[ \t]|$)`)
+var commonMark = parser.NewParser(
+	parser.WithBlockParsers(parser.DefaultBlockParsers()...),
+	parser.WithInlineParsers(parser.DefaultInlineParsers()...),
+	parser.WithParagraphTransformers(parser.DefaultParagraphTransformers()...),
+)
 
-// Heading is a heading a Scanner found. Start and End index its first
-// and last lines: the same line for an ATX heading, the paragraph and its
-// underline for a Setext one.
-type Heading struct{ Start, End, Level int }
-
-// Scanner reads Markdown one line at a time and reports the headings
-// outside fenced code, indented code, raw HTML, lists, and block quotes.
-type Scanner struct {
-	line           int
-	fence          byte
-	fenceLength    int
-	html           htmlBlock
-	paragraph      bool
-	paragraphStart int
-	// lazy is set in a list item or block quote: until a blank line or a
-	// thematic break, a line may continue its paragraph, and no Setext
-	// underline can end it.
-	lazy bool
+type Heading struct {
+	Start, End, Level int
+	hardBreaks        map[int]int
+	codeTrailing      map[int]bool
+	contentStarts     map[int]int
 }
 
-// Reset closes every open block, as at the start of a document.
-func (s *Scanner) Reset() {
-	*s = Scanner{line: s.line}
-}
-
-// Scan reads the next line and returns the heading it completes.
-func (s *Scanner) Scan(line string) (Heading, bool) {
-	i := s.line
-	s.line++
-	line = strings.TrimSuffix(line, "\r")
-	if s.fence == 0 && s.html.consume(line, s.paragraph || s.lazy) {
-		s.paragraph = false
-		return Heading{}, false
-	}
-	indent := len(line) - len(strings.TrimLeft(line, " "))
-	if indent > 3 || strings.HasPrefix(line[indent:], "\t") {
-		s.paragraph = false
-		return Heading{}, false
-	}
-	line = line[indent:]
-	if s.fence != 0 {
-		run := len(line) - len(strings.TrimLeft(line, string(s.fence)))
-		if run >= s.fenceLength && strings.TrimSpace(line[run:]) == "" {
-			s.fence = 0
-		}
-		return Heading{}, false
-	}
-	if len(line) > 0 && (line[0] == '`' || line[0] == '~') {
-		run := len(line) - len(strings.TrimLeft(line, line[:1]))
-		if run >= 3 && (line[0] == '~' || !strings.Contains(line[run:], "`")) {
-			s.fence, s.fenceLength, s.paragraph = line[0], run, false
-			return Heading{}, false
-		}
-	}
-	if level := atxLevel(line); level > 0 {
-		s.paragraph, s.lazy = false, false
-		return Heading{i, i, level}, true
-	}
-	if s.lazy {
-		s.paragraph = false
-		if strings.TrimSpace(line) == "" || thematicBreak(line) {
-			s.lazy = false
-		}
-		return Heading{}, false
-	}
-	if level := setextLevel(line); s.paragraph && level > 0 {
-		s.paragraph = false
-		return Heading{s.paragraphStart, i, level}, true
-	}
-	if thematicBreak(line) {
-		s.paragraph = false
-		return Heading{}, false
-	}
-	if listMarker.MatchString(line) || strings.HasPrefix(line, ">") {
-		s.paragraph, s.lazy = false, true
-		return Heading{}, false
-	}
-	if strings.TrimSpace(line) == "" {
-		s.paragraph = false
-	} else if !s.paragraph {
-		s.paragraph, s.paragraphStart = true, i
-	}
-	return Heading{}, false
-}
-
-// NestHeadings moves every heading of body down by the same number of
-// levels, so the shallowest one sits below a heading at level parent. It
-// returns the body and the number of levels it moved.
-func NestHeadings(body string, parent int) (string, int) {
+func Headings(body string) []Heading {
 	lines := strings.Split(body, "\n")
-	headings := headingsOf(lines)
+	offsets := lineOffsets(lines)
+	doc := commonMark.Parse(text.NewReader([]byte(body)))
+	var headings []Heading
+	for node := doc.FirstChild(); node != nil; node = node.NextSibling() {
+		h, ok := node.(*ast.Heading)
+		if !ok {
+			continue
+		}
+		start := lineAt(offsets, h.Pos())
+		heading := Heading{Start: start, End: start, Level: h.Level}
+		if !atxHeading.MatchString(strings.TrimSuffix(lines[start], "\r")) {
+			heading.End = lineAt(offsets, h.Lines().At(h.Lines().Len()-1).Stop-1) + 1
+			heading.contentStarts = map[int]int{}
+			for i := 0; i < h.Lines().Len(); i++ {
+				segment := h.Lines().At(i)
+				line := lineAt(offsets, segment.Start)
+				heading.contentStarts[line] = segment.Start - offsets[line]
+			}
+		}
+		_ = ast.Walk(h, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
+			if code, ok := node.(*ast.CodeSpan); entering && ok {
+				if last, ok := code.LastChild().(*ast.Text); ok {
+					firstLine, lastLine := lineAt(offsets, code.Pos()), lineAt(offsets, last.Segment.Stop-1)
+					if firstLine < lastLine {
+						if heading.codeTrailing == nil {
+							heading.codeTrailing = map[int]bool{}
+						}
+						for i := firstLine; i < lastLine; i++ {
+							heading.codeTrailing[i] = true
+						}
+					}
+				}
+			}
+			if t, ok := node.(*ast.Text); entering && ok && t.HardLineBreak() {
+				if heading.hardBreaks == nil {
+					heading.hardBreaks = map[int]int{}
+				}
+				i := lineAt(offsets, t.Segment.Stop)
+				heading.hardBreaks[i] = t.Segment.Stop - offsets[i]
+			}
+			return ast.WalkContinue, nil
+		})
+		headings = append(headings, heading)
+	}
+	return headings
+}
+
+func NestHeadings(body string, parent int) (string, int) {
+	headings := Headings(body)
 	shallowest := parent + 1
 	for _, heading := range headings {
 		shallowest = min(shallowest, heading.Level)
@@ -106,28 +82,14 @@ func NestHeadings(body string, parent int) (string, int) {
 	if shift == 0 {
 		return body, 0
 	}
-	return shiftHeadings(lines, headings, shift), shift
+	return shiftHeadings(strings.Split(body, "\n"), headings, shift), shift
 }
 
-// ShiftHeadings moves every heading of body by shift levels, a negative
-// shift moving them up, within the six levels Markdown has.
 func ShiftHeadings(body string, shift int) string {
 	if shift == 0 {
 		return body
 	}
-	lines := strings.Split(body, "\n")
-	return shiftHeadings(lines, headingsOf(lines), shift)
-}
-
-func headingsOf(lines []string) []Heading {
-	var scan Scanner
-	var headings []Heading
-	for _, line := range lines {
-		if heading, ok := scan.Scan(line); ok {
-			headings = append(headings, heading)
-		}
-	}
-	return headings
+	return shiftHeadings(strings.Split(body, "\n"), Headings(body), shift)
 }
 
 func shiftHeadings(lines []string, headings []Heading, shift int) string {
@@ -140,15 +102,35 @@ func shiftHeadings(lines []string, headings []Heading, shift int) string {
 			lines[heading.Start] = line[:indent] + marks + line[indent+heading.Level:]
 			continue
 		}
-		text := make([]string, 0, heading.End-heading.Start)
+		var title strings.Builder
 		for i := heading.Start; i < heading.End; i++ {
-			text = append(text, strings.TrimSpace(lines[i]))
+			if i > heading.Start {
+				if _, hard := heading.hardBreaks[i-1]; !hard {
+					title.WriteByte(' ')
+				}
+			}
+			line := lines[i]
+			if stop, hard := heading.hardBreaks[i]; hard {
+				title.WriteString(strings.Trim(line[heading.contentStarts[i]:stop], " \t\r"))
+				title.WriteString("<br>")
+			} else {
+				line = strings.TrimSuffix(line[heading.contentStarts[i]:], "\r")
+				if !heading.codeTrailing[i] {
+					line = strings.TrimRight(line, " \t")
+				}
+				title.WriteString(line)
+			}
+		}
+		content := title.String()
+		closing := len(strings.TrimRight(content, "#"))
+		if closing < len(content) && (closing == 0 || content[closing-1] == ' ' || content[closing-1] == '\t') {
+			content = content[:closing] + "\\" + content[closing:]
 		}
 		ending := ""
 		if strings.HasSuffix(lines[heading.End], "\r") {
 			ending = "\r"
 		}
-		lines[heading.Start] = line[:indent] + marks + " " + strings.Join(text, " ") + ending
+		lines[heading.Start] = line[:indent] + marks + " " + content + ending
 		for i := heading.Start + 1; i <= heading.End; i++ {
 			removed[i] = true
 		}
@@ -162,29 +144,65 @@ func shiftHeadings(lines []string, headings []Heading, shift int) string {
 	return strings.Join(result, "\n")
 }
 
-func atxLevel(line string) int {
-	level := len(line) - len(strings.TrimLeft(line, "#"))
-	if level == 0 || level > 6 || level < len(line) && line[level] != ' ' && line[level] != '\t' {
-		return 0
+// LeavesBlockOpen identifies bodies whose last block would consume the next section.
+func LeavesBlockOpen(body string) bool {
+	source := []byte(body)
+	doc := commonMark.Parse(text.NewReader(source))
+	switch node := doc.LastChild().(type) {
+	case *ast.FencedCodeBlock:
+		start := node.Pos()
+		marker := source[start]
+		run := 0
+		for start+run < len(source) && source[start+run] == marker {
+			run++
+		}
+		end := strings.IndexByte(body[start:], '\n')
+		if end < 0 {
+			return true
+		}
+		end += start + 1
+		if node.Lines().Len() > 0 {
+			end = node.Lines().At(node.Lines().Len() - 1).Stop
+		}
+		return end >= len(body) || !strings.HasPrefix(strings.TrimSpace(strings.SplitN(body[end:], "\n", 2)[0]), strings.Repeat(string(marker), run))
+	case *ast.HTMLBlock:
+		if node.HTMLBlockType >= ast.HTMLBlockType6 || node.HasClosure() {
+			return false
+		}
+		if node.Lines().Len() > 1 {
+			return true
+		}
+		segment := node.Lines().At(0)
+		line := string(segment.Value(source))
+		switch node.HTMLBlockType {
+		case ast.HTMLBlockType1:
+			return !rawTextEnd.MatchString(line)
+		case ast.HTMLBlockType2:
+			return !strings.Contains(line, "-->")
+		case ast.HTMLBlockType3:
+			return !strings.Contains(line, "?>")
+		case ast.HTMLBlockType4:
+			return !strings.Contains(line, ">")
+		case ast.HTMLBlockType5:
+			return !strings.Contains(line, "]]>")
+		}
 	}
-	return level
+	return false
 }
 
-func setextLevel(line string) int {
-	underline := strings.TrimRight(line, " \t")
-	if underline == "" || strings.Trim(underline, underline[:1]) != "" {
-		return 0
+var (
+	rawTextEnd = regexp.MustCompile(`(?i)</(?:pre|script|style|textarea)>`)
+	atxHeading = regexp.MustCompile(`^ {0,3}#{1,6}(?:[ \t]|$)`)
+)
+
+func lineOffsets(lines []string) []int {
+	offsets := make([]int, len(lines))
+	for i := 1; i < len(lines); i++ {
+		offsets[i] = offsets[i-1] + len(lines[i-1]) + 1
 	}
-	switch underline[0] {
-	case '=':
-		return 1
-	case '-':
-		return 2
-	}
-	return 0
+	return offsets
 }
 
-func thematicBreak(line string) bool {
-	line = strings.Join(strings.Fields(line), "")
-	return len(line) >= 3 && strings.ContainsAny(line[:1], "-*_") && strings.Trim(line, line[:1]) == ""
+func lineAt(offsets []int, pos int) int {
+	return sort.Search(len(offsets), func(i int) bool { return offsets[i] > pos }) - 1
 }

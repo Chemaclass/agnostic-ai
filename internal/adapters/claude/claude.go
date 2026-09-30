@@ -561,7 +561,8 @@ func writeRules(sess *emit.Session, rules []spec.Entry, cfg *config.Config, dryR
 		sb.WriteString(emit.HeaderBlock(emit.FormatMarkdown))
 		for _, r := range rules {
 			body, shift := markdown.NestHeadings(r.Body, 2)
-			sb.WriteString("## " + r.Name + "\n\n" + emit.SectionSourceComment(r.Path, shift) + body + "\n\n")
+			body += "\n\n"
+			sb.WriteString("## " + r.Name + "\n\n" + emit.BodySourceComment(r.Path, body, shift) + body)
 		}
 		content, err := emit.AppendLegacyEntryPointLocal(cfg, target, sb.String())
 		if err != nil {

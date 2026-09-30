@@ -133,8 +133,8 @@ func TestImport_H2LinesInsideCodeAndHTMLStayInTheirRule(t *testing.T) {
 }
 
 func TestSplitH2Sections_WrapperAfterAnOpenBlockStartsItsSection(t *testing.T) {
-	doc := "## Rules\n\n### alpha\n\n<!-- source: .agnostic-ai/rules/alpha.md -->\n<?php declare(strict_types=1);\n\n\n" +
-		"## Agents\n\n### reviewer\n\n<!-- source: .agnostic-ai/agents/reviewer.md -->\n<!-- draft\n\n\n" +
+	doc := "## Rules\n\n### alpha\n\n<!-- source: .agnostic-ai/rules/alpha.md body-lines: 3 -->\n<?php declare(strict_types=1);\n\n\n" +
+		"## Agents\n\n### reviewer\n\n<!-- source: .agnostic-ai/agents/reviewer.md body-lines: 3 -->\n<!-- draft\n\n\n" +
 		"## Skills\n\nNo native skill execution. Reference only; invoke by reading the source file.\n\n" +
 		"### tidy\n\n<!-- source: .agnostic-ai/skills/tidy/SKILL.md -->\nSource: `.agnostic-ai/skills/tidy/SKILL.md`\n"
 	_, sections := splitH2Sections(doc)
