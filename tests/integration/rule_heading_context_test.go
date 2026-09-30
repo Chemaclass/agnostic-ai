@@ -48,6 +48,17 @@ func TestRuleHeadingContext_SyncNestsRuleSections(t *testing.T) {
 		assertNoFileContains(t, filepath.Join(dir, path), "\n### Doc versioning\n")
 	}
 	testutil.AssertGoldenTree(t, dir, filepath.Join(packageDir, "fixtures", "rule-heading-context"), "agnostic-ai.yaml")
+	path := filepath.Join(dir, ".agnostic-ai/rules/content.md")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	must(t, os.WriteFile(path, []byte(strings.Replace(string(data), "# Literal heading", "### Literal heading", 1)), 0644))
+	cmd := exec.Command(binary, "sync", "--gitignore=off")
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("HTML H3 sync: %v\n%s", err, out)
+	}
 	for _, fence := range []string{"~~~", "```"} {
 		if fence == "```" {
 			path := filepath.Join(dir, ".agnostic-ai/rules/content.md")

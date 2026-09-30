@@ -8,7 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
-- Rule body headings nest under their section in merged instructions; fenced code keeps its headings (#1452).
+- Rule body headings nest under their section in merged instructions; sync/import preserves headings in fenced code and raw HTML (#1452).
 - **Breaking:** rule `scope`, `globs`, and `paths` form a union; rule folders scope existing directories. Remove `scope` to keep only a filter (#1429, #1430).
 - Kept orphans from older sync ledgers stay gitignored and say why they were kept. Run `doctor --fix` to choose their removal (#1440).
 - `import` keeps hand-written instructions whole, a nested `AGENTS.md` becomes a scoped rule, and Claude hook roots resolve elsewhere (#1434, #1449, #1464).

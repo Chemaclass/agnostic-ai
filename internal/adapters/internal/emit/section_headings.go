@@ -3,10 +3,11 @@ package emit
 import (
 	"regexp"
 	"strings"
+
+	"github.com/chemaclass/agnostic-ai/internal/markdown"
 )
 
 var sectionListMarker = regexp.MustCompile(`^(?:[-+*]|[0-9]{1,9}[.)])(?:[ \t]|$)`)
-var sectionHTMLTag = regexp.MustCompile(`(?i)^</?([a-z][a-z0-9-]*)(?:[ \t/>]|$)`)
 
 type sectionHeading struct {
 	line, end, level int
@@ -18,14 +19,11 @@ func nestSectionHeadings(body string) string {
 	minimum, paragraph := 4, -1
 	var fence byte
 	fenceLength := 0
-	listBlock, htmlBlock := false, false
-	htmlEnd := ""
+	listBlock := false
+	var html markdown.HTMLBlock
 	for i, raw := range lines {
 		line := strings.TrimSuffix(raw, "\r")
-		if htmlBlock {
-			if htmlEnd == "" && strings.TrimSpace(line) == "" || htmlEnd != "" && strings.Contains(strings.ToLower(line), htmlEnd) {
-				htmlBlock = false
-			}
+		if fence == 0 && html.Consume(line) {
 			paragraph = -1
 			continue
 		}
@@ -40,12 +38,6 @@ func nestSectionHeadings(body string) string {
 			if run >= fenceLength && strings.TrimSpace(line[run:]) == "" {
 				fence = 0
 			}
-			continue
-		}
-		if end, starts := sectionHTMLBlock(line); starts {
-			htmlEnd = end
-			htmlBlock = end == "" || !strings.Contains(strings.ToLower(line), end)
-			paragraph = -1
 			continue
 		}
 		if len(line) > 0 && (line[0] == '`' || line[0] == '~') {
@@ -127,28 +119,4 @@ func nestSectionHeadings(body string) string {
 func sectionThematicBreak(line string) bool {
 	line = strings.Join(strings.Fields(line), "")
 	return len(line) >= 3 && strings.ContainsAny(line[:1], "-*_") && strings.Trim(line, line[:1]) == ""
-}
-
-func sectionHTMLBlock(line string) (string, bool) {
-	switch {
-	case strings.HasPrefix(line, "<!--"):
-		return "-->", true
-	case strings.HasPrefix(line, "<?"):
-		return "?>", true
-	case strings.HasPrefix(line, "<![CDATA["):
-		return "]]>", true
-	case len(line) > 2 && strings.HasPrefix(line, "<!") && line[2] >= 'A' && line[2] <= 'Z':
-		return ">", true
-	}
-	tag := sectionHTMLTag.FindStringSubmatch(line)
-	if tag == nil {
-		return "", false
-	}
-	if !strings.HasPrefix(line, "</") {
-		switch strings.ToLower(tag[1]) {
-		case "script", "pre", "style", "textarea":
-			return "</" + strings.ToLower(tag[1]) + ">", true
-		}
-	}
-	return "", true
 }

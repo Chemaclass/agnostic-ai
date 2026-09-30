@@ -10,6 +10,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
+	"github.com/chemaclass/agnostic-ai/internal/markdown"
 )
 
 // reduceToGeneratedRules returns the inner content of the sync-generated
@@ -260,9 +261,14 @@ func unwrapMergedH3Children(body string, used map[string]int) ([]mergedH3Child, 
 func unfencedH3HeadingIndexes(body string) [][]int {
 	var indexes [][]int
 	var fence byte
+	var html markdown.HTMLBlock
 	fenceLength, offset := 0, 0
 	for _, raw := range strings.SplitAfter(body, "\n") {
 		line := strings.TrimSuffix(strings.TrimSuffix(raw, "\n"), "\r")
+		if fence == 0 && html.Consume(line) {
+			offset += len(raw)
+			continue
+		}
 		indent := len(line) - len(strings.TrimLeft(line, " "))
 		if indent <= 3 {
 			line = line[indent:]
