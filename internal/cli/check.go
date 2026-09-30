@@ -161,7 +161,8 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 	if entryPointTargets == nil {
 		entryPointTargets = targets
 	}
-	if err := detectCollisions(cfg, b, targets); err != nil {
+	readerCfg := cfg.WithAdditionalTargets(append(append([]string{}, targets...), entryPointTargets...)...)
+	if err := detectCollisions(readerCfg, b, targets); err != nil {
 		return nil, err
 	}
 	sess := adapters.NewSession()
@@ -176,7 +177,7 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 			resolvedAll = false
 			continue
 		}
-		files, err := captureAdapterFiles(sess, adapter, b, cfg)
+		files, err := captureAdapterFiles(sess, adapter, b, readerCfg)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", t, err)
 		}
@@ -204,7 +205,7 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 		rep.Blocking = blockingRemovals(sess.CapturedRemovals(), rep.Missing)
 		reports = append(reports, rep)
 	}
-	epRep, err := collectEntryPointDrift(cfg, b, entryPointTargets)
+	epRep, err := collectEntryPointDrift(readerCfg, b, entryPointTargets)
 	if err != nil {
 		return nil, err
 	}

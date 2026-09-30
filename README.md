@@ -45,6 +45,8 @@ agnostic-ai sync --check
 
 A rule with `scope: src/a` and `globs: tests/a/**` applies to both directories. Claude writes both path patterns; Codex writes a nested `AGENTS.md` in each directory. See [scoped context](https://agnostic-ai.org/docs/scoped-context/) for selector limits and migration from the earlier intersection behavior.
 
+Codex places unscoped whole-subtree rules such as `globs: src/app/api/**` in nested `AGENTS.md` files. Filename filters and root-file selectors stay inline with an always-loaded note. Set `outputs.codex.nested-glob-rules: false` to keep root inlining. Start Codex in the subtree to load its instruction chain.
+
 Codex hooks require a trust review with `/hooks` after sync. Sync names inactive hooks; `agnostic-ai doctor -t codex` checks their persisted trust.
 
 `agnostic-ai doctor` warns when an existing `.npmignore`, `.vscodeignore`, or `.dockerignore` misses generated paths. Codex skills moved from `.codex/skills/` to `.agents/skills/` in 0.75; check packaging ignores after upgrading.
