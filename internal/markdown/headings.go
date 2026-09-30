@@ -13,7 +13,7 @@ var listMarker = regexp.MustCompile(`^(?:[-+*]|[0-9]{1,9}[.)])(?:[ \t]|$)`)
 type Heading struct{ Start, End, Level int }
 
 // Scanner reads Markdown one line at a time and reports the headings
-// outside fenced code, indented code, raw HTML, and lists.
+// outside fenced code, indented code, raw HTML, lists, and block quotes.
 type Scanner struct {
 	line           int
 	fence          byte
@@ -21,7 +21,10 @@ type Scanner struct {
 	html           htmlBlock
 	paragraph      bool
 	paragraphStart int
-	list           bool
+	// lazy is set in a list item or block quote: until a blank line or a
+	// thematic break, a line may continue its paragraph, and no Setext
+	// underline can end it.
+	lazy bool
 }
 
 // Reset closes every open block, as at the start of a document.
@@ -59,13 +62,13 @@ func (s *Scanner) Scan(line string) (Heading, bool) {
 		}
 	}
 	if level := atxLevel(line); level > 0 {
-		s.paragraph, s.list = false, false
+		s.paragraph, s.lazy = false, false
 		return Heading{i, i, level}, true
 	}
-	if s.list {
+	if s.lazy {
 		s.paragraph = false
 		if strings.TrimSpace(line) == "" || thematicBreak(line) {
-			s.list = false
+			s.lazy = false
 		}
 		return Heading{}, false
 	}
@@ -73,11 +76,11 @@ func (s *Scanner) Scan(line string) (Heading, bool) {
 		s.paragraph = false
 		return Heading{s.paragraphStart, i, level}, true
 	}
-	if listMarker.MatchString(line) {
-		s.paragraph, s.list = false, true
+	if listMarker.MatchString(line) || strings.HasPrefix(line, ">") {
+		s.paragraph, s.lazy = false, true
 		return Heading{}, false
 	}
-	if strings.TrimSpace(line) == "" || strings.HasPrefix(line, ">") || thematicBreak(line) {
+	if strings.TrimSpace(line) == "" || thematicBreak(line) {
 		s.paragraph = false
 	} else if !s.paragraph {
 		s.paragraph, s.paragraphStart = true, i

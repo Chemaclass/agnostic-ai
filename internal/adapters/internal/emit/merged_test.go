@@ -39,6 +39,8 @@ func TestWriteSection_RuleHeadingsNestUnderSection(t *testing.T) {
 		{"ordered list and thematic break", "1. Run tests\n---\n\nTitle\n===\n", "1. Run tests\n---\n\n#### Title\n"},
 		{"ordered parenthesis list", "2) Run tests\n---\n", "2) Run tests\n---\n"},
 		{"list lazy continuation", "1. Run tests\nand lint\n---\n", "1. Run tests\nand lint\n---\n"},
+		{"quote lazy continuation", "> Note\nand this line\n---\n", "> Note\nand this line\n---\n"},
+		{"after a quote", "> Note\n\nTitle\n---\n", "> Note\n\n#### Title\n"},
 		{"HTML block", "<div>\nLiteral HTML\n---\n# Literal heading\n</div>\n\nTitle\n===\n", "<div>\nLiteral HTML\n---\n# Literal heading\n</div>\n\n#### Title\n"},
 		{"indented HTML closure", "<!--\n    -->\n### Versioning\n", "<!--\n    -->\n#### Versioning\n"},
 		{"indented HTML blank", "<div>\nLiteral HTML\n</div>\n    \n### Versioning\n", "<div>\nLiteral HTML\n</div>\n    \n#### Versioning\n"},
