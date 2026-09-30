@@ -44,6 +44,12 @@ The user asks to release, tag, ship, or cut a new version.
    `.agnostic-ai/agents/changelog-curator.md`. Condensing keeps every `#NNN`.
    A path, flag, or case it drops must already be on the docs page or in the
    PR; if it is not, add it to the docs, not back to the bullet.
+
+   Then run `scripts/signals-shipped.sh`. It sets `shipped-date` in
+   `scripts/target-audit/signals.tsv` to the release date on every signal
+   whose issue the new section cites, and never moves a date already set.
+   Read the rows it names: a line that only mentions the issue, without
+   delivering support, does not ship the signal, so clear that date.
 5. Bump `version` in `cmd/agnostic-ai/main.go` and `extra.version` in
    `docs/site/config.toml`. The site footer publishes that value, and
    `make site-test` fails when either disagrees with the latest dated
@@ -54,8 +60,8 @@ The user asks to release, tag, ship, or cut a new version.
    Copy the release changelog section exactly, add only verified upstream CLI
    and model news, and keep those two sections visibly separate. Run
    `make site-build site-test`.
-7. Confirm the version file, dated changelog section, and briefing are all
-   staged for the same commit. Commit `chore(release): vX.Y.Z`, GPG-signed.
+7. Confirm the version file, dated changelog section, briefing, and any
+   `signals.tsv` change are all staged for the same commit. Commit `chore(release): vX.Y.Z`, GPG-signed.
 8. Push `main` and wait for the CI run on that exact commit. Confirm Linux,
    macOS, Windows, and every other job that ran passed. If no run starts,
    dispatch `gh workflow run ci.yml --ref main` and wait for that run.
