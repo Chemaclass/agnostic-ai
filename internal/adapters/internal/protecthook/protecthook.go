@@ -77,8 +77,12 @@ func awkString(s string) string {
 	return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(s) + `"`
 }
 
+// preamble unsets CDPATH, since a relative $0 such as
+// .gemini/hooks/x.sh would otherwise let cd pick a same-named directory
+// elsewhere, and then no path would fall under the root.
 const preamble = `LC_ALL=C
 export LC_ALL
+unset CDPATH
 fail() {
   printf 'agnostic-ai: %s, so the protect hook blocked this edit.\n' "$1" >&2
   exit 2

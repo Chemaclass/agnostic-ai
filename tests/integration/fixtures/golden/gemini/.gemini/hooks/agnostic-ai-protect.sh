@@ -6,6 +6,7 @@
 # Gemini CLI lets an edit through when a hook fails, so every failure exits 2.
 LC_ALL=C
 export LC_ALL
+unset CDPATH
 fail() {
   printf 'agnostic-ai: %s, so the protect hook blocked this edit.\n' "$1" >&2
   exit 2
@@ -139,7 +140,9 @@ function store(k, v,    s) {
   named[++nnamed] = v
   paths[++npaths] = v
   s = unprefixed(v)
-  if (s != "") paths[++npaths] = s
+  if (s == "") return
+  paths[++npaths] = s
+  if (v ~ /^@\//) paths[++npaths] = substr(v, 2)
 }
 function unprefixed(p) {
   if (p !~ /^@./) return ""

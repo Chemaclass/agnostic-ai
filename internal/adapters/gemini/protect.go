@@ -20,8 +20,9 @@ func (Adapter) ProtectedPaths() (enforcement, reason string) { return "hook", ""
 // packages/core/src/tools/tool-names.ts). The matcher is a regular
 // expression tested against the tool name, so it is anchored. Gemini CLI
 // loads project settings from the directory it starts in and runs hooks
-// from there, under bash or PowerShell, so a relative path through sh
-// reaches the script in both.
+// from there, under bash or PowerShell. The command reads the same in
+// both, but on Windows it needs an sh on PATH; without one PowerShell
+// fails the command with a status Gemini CLI does not read as a block.
 func protectHook() spec.Entry {
 	return spec.Entry{
 		Kind: spec.KindHook,
@@ -110,8 +111,9 @@ func renderProtectScript(groups []spec.ProtectGroup) string {
 // string value never matches. Only those values are copied: other
 // strings, such as write_file content, stream past.
 //
-// Gemini CLI strips NUL bytes from file_path, and drops a leading @ when
-// the literal path does not exist, so the hook checks both spellings.
+// Gemini CLI strips NUL bytes from file_path, and drops a leading @ and
+// the slashes after it when the literal path does not exist, so the
+// hook checks every spelling, with and without those slashes.
 // replace also searches the workspace for a relative path that does not
 // exist from the project root and edits the one file whose path ends
 // with it (correctPath in packages/core/src/utils/pathCorrector.ts). The
@@ -160,7 +162,9 @@ function store(k, v,    s) {
   named[++nnamed] = v
   paths[++npaths] = v
   s = unprefixed(v)
-  if (s != "") paths[++npaths] = s
+  if (s == "") return
+  paths[++npaths] = s
+  if (v ~ /^@\//) paths[++npaths] = substr(v, 2)
 }
 function unprefixed(p) {
   if (p !~ /^@./) return ""

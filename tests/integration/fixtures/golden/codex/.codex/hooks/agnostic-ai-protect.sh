@@ -6,6 +6,7 @@
 # Codex lets an edit through when a hook fails, so every failure exits 2.
 LC_ALL=C
 export LC_ALL
+unset CDPATH
 fail() {
   printf 'agnostic-ai: %s, so the protect hook blocked this edit.\n' "$1" >&2
   exit 2

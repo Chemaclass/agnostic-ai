@@ -20,9 +20,11 @@ type Result struct {
 	Stdout, Stderr string
 }
 
-// Runtime is one shell plus the PATH that picks its awk.
+// Runtime is one shell plus the PATH that picks its awk, and any other
+// environment the run adds.
 type Runtime struct {
 	Name, Sh, Path string
+	Env            []string
 }
 
 // Runtimes lists sh and dash, each with the system awk and with every
@@ -86,7 +88,7 @@ func Run(t *testing.T, rt Runtime, script, dir string, payload []byte) Result {
 	t.Helper()
 	cmd := exec.Command(rt.Sh, script)
 	cmd.Dir = dir
-	cmd.Env = []string{"PATH=" + rt.Path}
+	cmd.Env = append([]string{"PATH=" + rt.Path}, rt.Env...)
 	cmd.Stdin = bytes.NewReader(payload)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

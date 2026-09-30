@@ -200,6 +200,7 @@ func TestProtectHook_BlocksWriteFileAndReplaceOnAProtectedPath(t *testing.T) {
 		"write_file dot segments":  {"write_file", writeFile("src/../composer.lock"), []string{"composer.lock is protected"}},
 		"write_file backslashes":   {"write_file", writeFile(`.github\workflows\ci.yml`), []string{".github/workflows/ci.yml is protected"}},
 		"write_file at prefix":     {"write_file", writeFile("@composer.lock"), []string{"composer.lock is protected"}},
+		"write_file at absolute":   {"write_file", writeFile("@" + filepath.Join(root, "composer.lock")), []string{"composer.lock is protected"}},
 		"write_file NUL byte":      {"write_file", writeFile("composer\x00.lock"), []string{"composer.lock is protected"}},
 		"write_file escaped quote": {"write_file", map[string]any{"content": `"file_path": "a"`, "file_path": "composer.lock"}, []string{"composer.lock is protected"}},
 	} {
@@ -271,6 +272,23 @@ func TestProtectHook_BlocksAnAbsolutePathThroughASymlinkedCwd(t *testing.T) {
 	run := runProtectHookReporting(t, root, link, "write_file", writeFile(filepath.Join(link, "composer.lock")))
 	if run.Code != 2 || !strings.Contains(run.Stderr, "composer.lock is protected") {
 		t.Fatalf("exit = %d, stderr = %q; want composer.lock blocked", run.Code, run.Stderr)
+	}
+}
+
+// Gemini CLI runs the script by a relative path, so cd would consult
+// CDPATH and could resolve the root to a same-named directory elsewhere.
+func TestProtectHook_IgnoresCDPATHForTheRelativeScriptPath(t *testing.T) {
+	root := emitProtect(t, protectSettings(map[string]any{"paths": []any{"composer.lock"}}))
+	decoy := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(decoy, ".gemini", "hooks"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, rt := range hooktest.Runtimes(t) {
+		rt.Env = []string{"CDPATH=" + decoy}
+		run := hooktest.Run(t, rt, filepath.Join(".gemini", "hooks", protecthook.ScriptName), root, geminiPayload(t, root, "write_file", writeFile("composer.lock")))
+		if run.Code != 2 || !strings.Contains(run.Stderr, "composer.lock is protected") {
+			t.Errorf("%s: exit = %d, stderr = %q; want composer.lock blocked", rt.Name, run.Code, run.Stderr)
+		}
 	}
 }
 
