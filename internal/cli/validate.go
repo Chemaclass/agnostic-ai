@@ -41,11 +41,8 @@ func newValidateCmd() *cobra.Command {
 				scopeIssues = lintGlobalRules(b.Rules)
 				scopeIssues = append(scopeIssues, lintGlobalSettings(b.Settings, scope.targets)...)
 			} else {
-				// Declared-but-missing source dirs are reported even when no
-				// specs loaded: an all-missing-sources config is exactly the
-				// case where the warning matters most (#444).
-				scopeIssues = lintMissingSources(".")
-				scopeIssues = append(scopeIssues, lintEntryPointFences(".", scope.cfg)...)
+				reportNotes(cmd, missingSourceNotes("."))
+				scopeIssues = lintEntryPointFences(".", scope.cfg)
 			}
 			if len(entries) == 0 {
 				reportIssues(cmd, scopeIssues)
@@ -122,6 +119,14 @@ func reportIssues(cmd *cobra.Command, issues []validationIssue) {
 		cmd.Printf("  %s %s: %s\n", marker, i.Path, i.Message)
 	}
 	cmd.Printf("(* = autofixable; rerun with --fix)\n")
+}
+
+// reportNotes prints findings that do not fail the run to stderr, so
+// stdout keeps only the entry count and the issues.
+func reportNotes(cmd *cobra.Command, notes []validationIssue) {
+	for _, n := range notes {
+		cmd.PrintErrf("note: %s: %s\n", n.Path, n.Message)
+	}
 }
 
 // validationIssue is one problem flagged by the linter. A non-zero

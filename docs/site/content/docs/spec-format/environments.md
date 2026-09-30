@@ -58,9 +58,35 @@ Specs merge by top-level key, and the last value wins. A field one tool ignores 
 
 - [Cursor](@/docs/targets/cursor.md): `setup` and `setup-windows` go to `.cursor/worktrees.json`. The rest goes to `environment.json`, except the routing fields (`name`, `scope`, `target(s)`, `target(s)-exclude`, `description`) `dev-commands`, and `cleanup`, which get a no-effect note. `import cursor` reads both files back.
 - [Codex](@/docs/targets/codex.md): `setup`, `setup-windows`, `cleanup`, and `dev-commands` go to `.codex/environments/environment.toml` as scripts and action buttons. Other fields get a no-effect note. `import codex` reads the file back.
-- [Claude Code](@/docs/targets/claude.md): `dev-commands` goes to `.claude/launch.json`, where Claude Code reads a relative `cwd` from the project root, so the spec needs no `${workspaceFolder}`; every other field gets a no-effect note. Run worktree setup from a `WorktreeCreate` or `SessionStart` [hook](@/docs/spec-format/hooks.md) instead.
+- [Claude Code](@/docs/targets/claude.md): `setup` runs from generated hooks; see [Claude Code worktree setup](#claude-code-worktree-setup). `dev-commands` goes to `.claude/launch.json`, where Claude Code reads a relative `cwd` from the project root, so the spec needs no `${workspaceFolder}`. Every other field, `setup-windows` and `cleanup` included, gets a no-effect note.
 - [OpenHands](@/docs/targets/openhands.md) and [Amp](@/docs/targets/amp.md): `install` becomes a setup script. Amp also turns `terminals` into services. Both note `setup`, `cleanup`, and `dev-commands` as having no effect.
 - Other targets report the spec as unsupported.
+
+## Claude Code worktree setup {#claude-code-worktree-setup}
+
+Claude Code has no setup step for a worktree it creates ([worktrees](https://code.claude.com/docs/en/worktrees#set-up-the-worktree-environment)), so sync writes `setup` into `.claude/hooks/agnostic-ai-worktree-setup.sh` and runs that script from three hooks in `.claude/settings.json`:
+
+- `SessionStart` with matcher `startup`, for `claude --worktree` and Desktop worktree sessions.
+- `SubagentStart`, for a subagent with `isolation: worktree`. `SessionStart` does not fire for a subagent.
+- `PostToolUse` with matcher `EnterWorktree`, for a worktree Claude enters during a session.
+
+Each hook sets `shell: bash`, so on Windows the script needs Git Bash; without it the hook fails and setup does not run. A checkout without the script, such as a worktree created before the first sync, skips the hook.
+
+Claude Code runs matching hooks in parallel. Delete a hand-written `SessionStart` hook that installs the same dependencies, or it runs alongside setup.
+
+The script reads the worktree from the hook payload's `cwd`, since `$CLAUDE_PROJECT_DIR` stays at the directory the session started in. It runs `setup` from the worktree root through `sh`, only in a linked Git worktree and never in the main checkout. A successful run leaves a marker in the worktree's own Git directory, so later sessions in that worktree skip setup; a failed run leaves none, and the next new session, subagent, or worktree entry tries again. A linked worktree created before the first sync with `setup` has no marker either, so setup runs there once too. Claude Code stops a command hook after 600 seconds by default, so a longer setup fails and runs again next time. Setup output goes to stderr, because Claude Code adds a `SessionStart` hook's stdout to the session context. The script exits when `AGNOSTIC_AI_TARGET` is not `claude`, so a tool that also reads `.claude/settings.json` hooks, such as Cursor, does not run setup a second time.
+
+A new worktree needs `.claude/settings.json` and the script. With `gitignore.enabled`, both are ignored, and `.worktreeinclude`, which sync keeps when `claude` is a target, copies them into each worktree Claude Code creates (see [gitignore](@/docs/configuration.md#gitignore)). Without it, both files are committed, so the checkout has them.
+
+To keep `setup` for the other tools and bootstrap Claude Code another way, turn the hooks off:
+
+```yaml
+setup: composer install
+x-claude:
+  setup: false
+```
+
+`cleanup` has no Claude Code equivalent. Claude Code documents `WorktreeRemove` as the removal step for a worktree a `WorktreeCreate` hook made, and `SessionEnd` runs at the end of every session with a 1.5-second budget.
 
 ## Import
 

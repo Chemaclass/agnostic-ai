@@ -17,7 +17,7 @@ Load all specs, report parse errors, and print `loaded 12 entries. ok.` on succe
 |-------|------------|
 | Hook events | A hook spec's `event:` missing, or supported by no configured target (with the supported list). |
 | Orphaned kinds | Hook or MCP specs no enabled target consumes, one line per kind naming targets that would. |
-| Declared sources | An explicit `sources.<kind>` path in `agnostic-ai.yaml` with no directory. Warning only. |
+| Declared sources | An explicit `sources.<kind>` path in `agnostic-ai.yaml` with no directory, as a `note:` on stderr. The kind loads as empty and the run still passes, since a fresh clone lacks empty directories. |
 | Entry-point fences | A `::target` / `::targets` name in `.agnostic-ai/AGNOSTIC_AI.md` that is not a built-in target or listed in `targets` (external adapter), or that reads no entry-point file (`cursor`, or any target with `outputs.<target>.rules-file`). |
 | Global rules | With `--global`, a rule with scope, path, glob, or target conditions, which `sync --global` rejects. |
 | Global settings | With `--global`, a settings `effort` a target cannot take, such as `max` for Claude. |
@@ -66,6 +66,7 @@ agnostic-ai lint --strict
 | LINT021 | Warning. A supported Bash `allow` or `deny` rule in portable Settings or `outputs.claude.settings.permissions` has no covering explicit Codex prefix with the same effective decision, including portable deny and ask exclusions. Restrictive descendants also warn for an allowed prefix. Checks inline, YAML file, and imported policy sources when Codex is enabled. `lint --strict` fails. See [Bash permission translation](@/docs/targets/codex.md#translate-bash-permissions). |
 | LINT022 | Warning. A settings `protected` path covers a file sync writes, such as `.claude/**`. Sync regenerates that file from its source spec, so protect the spec under `.agnostic-ai/` instead. A path that also covers its own settings spec, such as `**`, is skipped. A target that fails to render gets its own LINT022 and the others are still checked. `lint --strict` fails. See [protected paths](@/docs/spec-format/settings.md#protected-paths). |
 | LINT023 | Error. A settings `protected` block is invalid: no `paths`, a `decision` other than `ask` or `deny`, an unknown key, or a path outside the project or with a character class, brace, or negation. `sync` fails on the same block. |
+| LINT024 | Warning. A [`coverage.accept`](@/docs/configuration.md#coverageaccept) entry matches no coverage note on one of its targets, for example because the target now supports the field. Remove the entry or that target. A target that fails to load or emit gets its own LINT024 naming the error, and its entries are not checked. `lint --strict` fails. |
 | LINT008 | Error. A stdio MCP server lacks `command:`, or an `http`/`sse`/`ws` one lacks `url:`. `x-<target>` cannot set either reserved field. |
 
 LINT007 warns on a frontmatter key one edit away from a key agnostic-ai reads (`glob:` for `globs:`), since the setting is lost. `sync` prints the same warning. Put target-native keys under `x-<target>:`. A key some targets read at the top level (Qoder's `glob:`, OpenCode's and Kilo's `mode:`) is flagged only when none of those targets is in `targets`. Settings and environment specs are not checked.
@@ -138,6 +139,7 @@ Then doctor prints:
 | Block | What it shows | Counts as drift |
 |-------|---------------|-----------|
 | **Spec health** | The findings `agnostic-ai lint` reports. An error fails doctor; a warning shows without failing. With any finding, the next step points at `agnostic-ai lint`. | No |
+| **Coverage notes** | With [`coverage.accept`](@/docs/configuration.md#coverageaccept) set, how many coverage notes it accepts. `sync -v` lists them; `doctor --json` has the count as `coverage_accepted`. | No |
 | **Packaging ignores** | Generated paths not covered by an existing root `.npmignore`, `.vscodeignore`, or `.dockerignore`. Names the ignore file and paths. Unsupported patterns or read errors are reported separately. | No, advisory only |
 | **Tracked despite ignored** | A generated path git tracks and ignores, with the `git rm --cached` command. | No |
 | **Codex hook trust** | For selected Codex, inactive handlers in the project hooks file and user `hooks.json`, with `/hooks` as the next step. Reads only user trust from `CODEX_HOME/config.toml` (default `~/.codex/config.toml`). Untrusted, modified, or unreadable status fails; disabled status does not. | Never grants trust |

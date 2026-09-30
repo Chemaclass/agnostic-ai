@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/claudehooks"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 )
 
@@ -42,7 +43,7 @@ func copyHookScriptsTree(srcDir, dstDir string) error {
 		return fmt.Errorf("read %s: %w", srcDir, err)
 	}
 	for _, e := range entries {
-		if e.IsDir() || strings.HasPrefix(e.Name(), ".") || importLocal.leavesHookScript(e.Name()) {
+		if e.IsDir() || strings.HasPrefix(e.Name(), ".") || e.Name() == claudehooks.WorktreeSetupScript || importLocal.leavesHookScript(e.Name()) {
 			continue
 		}
 		src := filepath.Join(srcDir, e.Name())
