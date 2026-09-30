@@ -47,7 +47,9 @@ func importFromClaude(root string, src config.Sources, layout claudeLayout) erro
 	defer stopTracking()
 	c := importCounts{}
 	var err error
-	if c.rules, err = importClaudeRules(root, filepath.Join(root, src.Rules), layout); err != nil {
+	var nestedLeftBehind []importedNestedClaudeFile
+	c.rules, nestedLeftBehind, err = importClaudeRules(root, filepath.Join(root, src.Rules), src, layout)
+	if err != nil {
 		return err
 	}
 	if c.agents, err = importClaudeAgents(root, filepath.Join(root, src.Agents), layout); err != nil {
@@ -103,6 +105,7 @@ func importFromClaude(root string, src config.Sources, layout claudeLayout) erro
 	if promotedNested {
 		noteNestedClaudeEntryFile(root)
 	}
+	noteNestedClaudeMainFiles(root, nestedLeftBehind)
 	if settingsImport.seeded {
 		summaryf("  → %s seeded from %s/settings.json (carries non-hook settings across re-syncs)\n",
 			claudeOverlayRelPath(), claudeDir)

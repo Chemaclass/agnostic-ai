@@ -1,28 +1,146 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
+
+// importedNestedClaudeFile is a nested CLAUDE.md whose text a rule now
+// holds, so Claude Code would load that text twice once sync writes it.
+type importedNestedClaudeFile struct{ path, rule string }
 
 // importClaudeRules imports rules from a Claude Code project. Prefers
 // `.claude/rules/*.md` (each file becomes one rule, byte-identical
-// copy). Falls back to slicing CLAUDE.md on `## ` headings when the
-// directory is absent. Without headings the slicer writes a single
-// rule named after the project directory.
-func importClaudeRules(root, dstDir string, layout claudeLayout) (int, error) {
+// copy). Without that directory, only a rules block sync wrote into the
+// root CLAUDE.md becomes rules, and each nested `<dir>/CLAUDE.md`
+// becomes one rule scoped to its directory.
+func importClaudeRules(root, dstDir string, src config.Sources, layout claudeLayout) (int, []importedNestedClaudeFile, error) {
 	rulesDir := filepath.Join(root, layout.rules)
 	if dirExists(rulesDir) {
-		return copyMarkdownTree(rulesDir, dstDir)
+		n, err := copyMarkdownTree(rulesDir, dstDir)
+		return n, nil, err
 	}
+	count, err := importRootClaudeRules(root, dstDir)
+	if err != nil {
+		return count, nil, err
+	}
+	nested, leftBehind, err := importNestedClaudeRules(root, dstDir, src)
+	return count + nested, leftBehind, err
+}
+
+func importRootClaudeRules(root, dstDir string) (int, error) {
 	// A CLAUDE.md that imports AGENTS.md feeds AGNOSTIC_AI.md instead: its
 	// own text is for Claude only, so it must not become a rule for all.
 	if _, companion, err := claudeCompanionBody(root); err != nil || companion {
 		return 0, err
 	}
 	return sliceMirroredMainFile(root, claudeMainFile, dstDir)
+}
+
+// importNestedClaudeRules writes each nested CLAUDE.md as one rule with
+// the whole file, scoped to its directory and named after that scope.
+func importNestedClaudeRules(root, dstDir string, src config.Sources) (int, []importedNestedClaudeFile, error) {
+	files, err := findHierarchicalMainFiles(root, claudeMainFile, src)
+	if err != nil {
+		return 0, nil, err
+	}
+	names := wholeFileRuleNames(root, files)
+	used := map[string]int{}
+	var leftBehind []importedNestedClaudeFile
+	count := 0
+	for _, f := range files {
+		if f.globs == "" {
+			continue
+		}
+		body, companionOnly, besideCodexRule, err := nestedClaudeRuleBody(root, f.path)
+		if err != nil {
+			return count, leftBehind, err
+		}
+		if body == "" {
+			continue
+		}
+		base := names[f.globs]
+		if besideCodexRule {
+			base += "-claude"
+		}
+		name := dedupSlug(used, base)
+		// A rule sliced from the root CLAUDE.md in this run may hold the name.
+		for importWritten[filepath.Join(dstDir, name+".md")] {
+			name = dedupSlug(used, base)
+		}
+		if err := writeScopedRule(dstDir, name, f.globs, body); err != nil {
+			return count, leftBehind, err
+		}
+		count++
+		if !companionOnly {
+			rel, _ := filepath.Rel(root, f.path)
+			leftBehind = append(leftBehind, importedNestedClaudeFile{path: filepath.ToSlash(rel), rule: name})
+		}
+	}
+	return count, leftBehind, nil
+}
+
+// nestedClaudeRuleBody returns the rule text of the nested CLAUDE.md at
+// path, "" when it holds none. A companion that imports the AGENTS.md
+// beside it reads as that file, the way Claude Code loads it, with its
+// own text in a claude fence. When codex imports that AGENTS.md in the
+// same run, only the fenced text is left, and besideCodexRule is true.
+func nestedClaudeRuleBody(root, path string) (body string, companionOnly, besideCodexRule bool, err error) {
+	raw, err := readEntryFile(root, path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", false, false, nil
+	}
+	if err != nil {
+		return "", false, false, fmt.Errorf("read %s: %w", path, err)
+	}
+	text := string(raw)
+	if header.Has(text) {
+		return "", false, false, nil
+	}
+	rest, companion := adapters.SplitAgentsCompanion(text)
+	if !companion {
+		return strings.TrimSpace(text), false, false, nil
+	}
+	var parts []string
+	peerOwnsAgents := slices.Contains(importRunSources, "codex")
+	if !peerOwnsAgents {
+		agents, err := nestedAgentsText(root, filepath.Join(filepath.Dir(path), claudeAgentsMainFile))
+		if err != nil {
+			return "", false, false, err
+		}
+		if agents != "" {
+			parts = append(parts, agents)
+		}
+	}
+	if rest != "" {
+		parts = append(parts, "::target claude\n"+rest+"\n::end")
+	}
+	return strings.Join(parts, "\n\n"), rest == "", peerOwnsAgents && rest != "", nil
+}
+
+// nestedAgentsText returns a hand-written AGENTS.md, "" when it is absent
+// or sync wrote it from specs the project already has.
+func nestedAgentsText(root, path string) (string, error) {
+	raw, err := readEntryFile(root, path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("read %s: %w", path, err)
+	}
+	if header.Has(string(raw)) {
+		return "", nil
+	}
+	return strings.TrimSpace(string(raw)), nil
 }
 
 var h1HeadingRE = regexp.MustCompile(`(?m)^#[ \t]+(.+?)[ \t]*$`)
