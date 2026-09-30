@@ -97,16 +97,31 @@ var readsFilePath = regexp.MustCompile(`tool_input\W{1,4}file_path`)
 // editMatchers are the matcher segments that fire on a Codex edit.
 var editMatchers = []string{"apply_patch", "Edit", "Write", "*"}
 
-// noteEditHookPayload reports each edit hook whose command reads
-// tool_input.file_path, which Codex never sends. mode is the project's
-// on-unsupported policy.
-func noteEditHookPayload(hooks []spec.Entry, mode string) error {
+// Codex never sends tool_input.file_path; inspect commands and the scripts sync copies.
+func noteEditHookPayload(sess *emit.Session, hooks []spec.Entry, mode string) error {
+	if mode == emit.OnUnsupportedSilent {
+		return nil
+	}
 	var paths []string
 	for _, h := range hooks {
-		if !firesOnEdit(h.Meta) || !slices.ContainsFunc(hookCommands(h.Meta["command"]), readsFilePath.MatchString) {
+		if !firesOnEdit(h.Meta) {
 			continue
 		}
-		paths = append(paths, h.Path)
+		for _, command := range hookCommands(h.Meta["command"]) {
+			reads := readsFilePath.MatchString(command)
+			if !reads {
+				sourceTool, _ := emit.SourceToolFromHookCommand(command)
+				body, found, err := sess.MaterializedHookScriptBody(emit.RewriteHookPath(command, target), target, sourceTool)
+				if err != nil {
+					return fmt.Errorf("inspect hook %s: %w", h.Path, err)
+				}
+				reads = found && readsFilePath.Match(body)
+			}
+			if reads {
+				paths = append(paths, h.Path)
+				break
+			}
+		}
 	}
 	if len(paths) == 0 {
 		return nil
