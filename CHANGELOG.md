@@ -39,6 +39,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Codex
 
+- A Codex config or overlay model suppresses the Claude model note for overridden settings (#1462).
+
 - `.codex/environments/environment.toml` always carries `[setup]`, with an empty script when no spec sets one, as the file the Codex app generates does; a spec with only dev commands used to drop the table.
 - `sync` no longer notes that `permissions` have no effect on Codex once exec policies are set, whether inline, in `exec-policies-file`, or in the captured overlay; without one, the note stays (#1432).
 
@@ -75,10 +77,6 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - The root `CLAUDE.md` is `@AGENTS.md` plus only your `::target claude` blocks when another target writes the root `AGENTS.md`, so Cursor, which loads both files, reads the instructions once (#1423).
 - With `gitignore.enabled`, sync keeps the managed block in `.worktreeinclude` too, so a CLI, subagent, or Desktop worktree starts with the generated files and the local layer; `gitignore.worktree-include: false` opts out (#1418).
-
-#### Codex
-
-- A Codex config or overlay model suppresses the Claude model note for overridden settings (#1462).
 
 #### Cursor
 
