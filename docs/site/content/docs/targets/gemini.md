@@ -22,7 +22,7 @@ GEMINI.md                              # entry-point pointer body (written by sy
 .geminiignore                          # when ignore entries exist
 ```
 
-- **Rules**: unscoped rules inline into the root `GEMINI.md`. A rule with `scope: services/payments` reaches `services/payments/GEMINI.md` instead. A `globs` field alone does not create a directory scope. Remove legacy `outputs.gemini.rules-file` overrides before using scoped rules. See [scoped context](@/docs/scoped-context.md) for selector and runtime limits.
+- **Rules**: unscoped rules inline into the root `GEMINI.md`. A rule with `scope: services/payments` reaches `services/payments/GEMINI.md` instead. Adding `globs: tests/payments/**` writes the same rule into `tests/payments/GEMINI.md`. External file filters and root selectors with scope follow `on-unsupported`; they cannot be preserved by directory documents. A `globs` field alone does not create a directory scope. Remove legacy `outputs.gemini.rules-file` overrides before using scoped rules. See [scoped context](@/docs/scoped-context.md) for selector and runtime limits.
 - **Agents**: one native [subagent](https://geminicli.com/docs/core/subagents.md) per agent at `.gemini/agents/<name>.md`, the project-level directory Gemini CLI scans. Subagents get automatic delegation, an isolated context window, `@name` invocation, and a `/agents` listing.
 
   Frontmatter carries the required `name` and `description` (falling back to the spec name), plus `kind`, `model`, `temperature`, `max_turns`, and `timeout_mins` when set. The body is the system prompt. Per-agent `mcpServers` has no agnostic-ai field, so set it through `x-gemini`.
