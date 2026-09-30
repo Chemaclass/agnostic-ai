@@ -148,13 +148,13 @@ func (Adapter) Name() string { return target }
 
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
-func modelCoverage(cfg *config.Config, dryRun bool) emit.Capabilities {
+func modelCoverage(cfg *config.Config) emit.Capabilities {
 	coverage := caps
 	if output, ok := cfg.Outputs[target]; ok && output.Config != nil && output.Config.Model != "" {
 		coverage.SettingsModelOverridden = true
 		return coverage
 	}
-	_, keys, err := loadConfigOverlay(dryRun)
+	_, keys, err := loadConfigOverlay()
 	coverage.SettingsModelOverridden = err == nil && keys["model"]
 	return coverage
 }
@@ -166,7 +166,7 @@ func modelCoverage(cfg *config.Config, dryRun bool) emit.Capabilities {
 // deprecated custom prompts and never reads a project-level tree). The
 // project-root AGENTS.md is written by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
-	if err := emit.ReportUnsupported(modelCoverage(cfg, dryRun), b, cfg.OnUnsupported); err != nil {
+	if err := emit.ReportUnsupported(modelCoverage(cfg), b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 
@@ -330,7 +330,7 @@ func emitConfigTOML(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if o, ok := cfg.Outputs[target]; ok {
 		codexCfg = o.Config
 	}
-	overlay, overlayKeys, err := loadConfigOverlay(dryRun)
+	overlay, overlayKeys, err := loadConfigOverlay()
 	if err != nil {
 		return err
 	}
@@ -348,11 +348,8 @@ func emitConfigTOML(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 
 // loadConfigOverlay returns the overlay body bytes and the set of
 // top-level keys it defines. Returns ("", nil, nil) when the overlay is
-// absent. Skips disk in dryRun so `--dry-run` previews remain pure.
-func loadConfigOverlay(dryRun bool) (string, map[string]bool, error) {
-	if dryRun {
-		return "", nil, nil
-	}
+// absent. Dry-run reads it too, so previews and notes match a real sync.
+func loadConfigOverlay() (string, map[string]bool, error) {
 	data, err := os.ReadFile(configOverlayPath)
 	if emit.IsAbsent(err) {
 		return "", nil, nil

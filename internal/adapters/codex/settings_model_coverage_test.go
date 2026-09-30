@@ -15,10 +15,11 @@ import (
 func TestEmit_SettingsModelCoverageFollowsOverrides(t *testing.T) {
 	for _, tc := range []struct {
 		name, model, overlay string
-		rejected             bool
+		dryRun, rejected     bool
 	}{
 		{name: "output", model: "test-codex-model"},
 		{name: "overlay", overlay: "model = \"overlay-model\"\n"},
+		{name: "overlay dry run", overlay: "model = \"overlay-model\"\n", dryRun: true},
 		{name: "no override", rejected: true},
 		{name: "profile only", overlay: "[profiles.work]\nmodel = \"profile-model\"\n", rejected: true},
 	} {
@@ -36,7 +37,11 @@ func TestEmit_SettingsModelCoverageFollowsOverrides(t *testing.T) {
 			b := spec.NewBundle([]spec.Entry{{Kind: spec.KindSettings, Name: "shared", Path: ".agnostic-ai/settings/shared.yaml", Meta: map[string]any{"model": "sonnet"}}})
 			emit.ResetCoverageNotes()
 			t.Cleanup(emit.ResetCoverageNotes)
-			err := New().Emit(emit.NewSession(), b, cfg, false)
+			sess := emit.NewSession()
+			if tc.dryRun {
+				sess.StartCapture()
+			}
+			err := New().Emit(sess, b, cfg, tc.dryRun)
 			if tc.rejected {
 				if err == nil || !strings.Contains(err.Error(), "Claude model") {
 					t.Errorf("expected model error, got %v", err)
@@ -46,7 +51,7 @@ func TestEmit_SettingsModelCoverageFollowsOverrides(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			body := readFile(t, defaultConfigFile)
+			body := emittedConfig(t, sess, tc.dryRun)
 			if strings.Contains(body, "sonnet") {
 				t.Errorf("shared model reached output: %s", body)
 			}
@@ -57,10 +62,24 @@ func TestEmit_SettingsModelCoverageFollowsOverrides(t *testing.T) {
 				t.Errorf("missing overlay model: %s", body)
 			}
 			b.Agents = []spec.Entry{{Kind: spec.KindAgent, Name: "reviewer", Path: ".agnostic-ai/agents/reviewer.md", Meta: map[string]any{"model": "sonnet"}}}
-			err = New().Emit(emit.NewSession(), b, cfg, false)
+			err = New().Emit(emit.NewSession(), b, cfg, tc.dryRun)
 			if err == nil || !strings.Contains(err.Error(), "reviewer.md") {
 				t.Errorf("agent model must remain rejected, got %v", err)
 			}
 		})
 	}
+}
+
+func emittedConfig(t *testing.T, sess *emit.Session, dryRun bool) string {
+	t.Helper()
+	if !dryRun {
+		return readFile(t, defaultConfigFile)
+	}
+	for _, f := range sess.StopCapture() {
+		if f.Path == defaultConfigFile {
+			return f.Content
+		}
+	}
+	t.Fatalf("dry run previewed no %s", defaultConfigFile)
+	return ""
 }
