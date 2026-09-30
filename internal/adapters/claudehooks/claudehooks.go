@@ -8,6 +8,11 @@
 // whichever side was not updated.
 package claudehooks
 
+import (
+	"encoding/json"
+	"slices"
+)
+
 // CommandEntry mirrors one native handler object inside a matcher
 // group's `hooks` array. A struct (not a map) makes `encoding/json` emit
 // the fields in declaration order rather than the alpha-sorted order map
@@ -71,4 +76,49 @@ type Group struct {
 // top-level `hooks` map keyed by event name.
 type Settings struct {
 	Hooks map[string][]Group `json:"hooks"`
+}
+
+// Order is the sidecar `import claude` writes beside the settings
+// overlay, which leaves `hooks` out: the key `hooks` sat next to and
+// the order of its events.
+type Order struct {
+	After  string   `json:"after,omitempty"`
+	Before string   `json:"before,omitempty"`
+	Events []string `json:"events,omitempty"`
+}
+
+// OrderOf records the key before `hooks` among keys, or the key after
+// it when `hooks` comes first, with the event order.
+func OrderOf(keys, events []string) Order {
+	o := Order{Events: events}
+	switch i := slices.Index(keys, "hooks"); {
+	case i > 0:
+		o.After = keys[i-1]
+	case i == 0 && len(keys) > 1:
+		o.Before = keys[1]
+	}
+	return o
+}
+
+// Index returns where a new `hooks` key goes among keys: beside the
+// recorded key, or last when that key is gone.
+func (o Order) Index(keys []string) int {
+	if i := slices.Index(keys, o.After); o.After != "" && i >= 0 {
+		return i + 1
+	}
+	if i := slices.Index(keys, o.Before); o.Before != "" && i >= 0 {
+		return i
+	}
+	return len(keys)
+}
+
+// UnmarshalJSON also reads the bare event list earlier releases wrote.
+func (o *Order) UnmarshalJSON(data []byte) error {
+	var events []string
+	if json.Unmarshal(data, &events) == nil {
+		*o = Order{Events: events}
+		return nil
+	}
+	type plain Order
+	return json.Unmarshal(data, (*plain)(o))
 }
