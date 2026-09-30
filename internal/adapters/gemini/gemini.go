@@ -29,9 +29,10 @@
 // Frontmatter carries the two required fields, `name` and `description`
 // (the latter falling back to the spec name), plus `kind`, `model`,
 // `temperature`, `max_turns`, and `timeout_mins` when declared. The body
-// is the system prompt. `mcpServers` (inline per-agent MCP servers) is
-// documented too and has no agnostic-ai spec equivalent, so it reaches
-// the file through `x-gemini` like any other arbitrary key.
+// is the system prompt. `mcp_servers` (inline per-agent MCP servers)
+// passes through when set, top-level or under `x-gemini`. Gemini's docs
+// call it `mcpServers`, but its agent loader rejects that key, so an
+// `x-gemini.mcpServers` is written as `mcp_servers` with a note.
 //
 // `tools` is the one field that needs translating. Gemini names its own
 // tools (`read_file`, `write_file`, `replace`, `glob`, `grep_search`,

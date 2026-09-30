@@ -1,6 +1,7 @@
 package gemini
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -15,7 +16,9 @@ import (
 // the values read below. `tools` is deliberately absent from this list,
 // since it is read from the raw meta instead and reaches the
 // frontmatter through the merge when set there (see xGeminiSetsTools).
-var resolvedAgentKeys = []string{"name", "description", "kind", "model", "temperature", "max_turns", "timeout_mins"}
+// `mcpServers` is listed so the name Gemini's docs show never reaches
+// the file: agentMCPServers writes it as `mcp_servers` instead.
+var resolvedAgentKeys = []string{"name", "description", "kind", "model", "temperature", "max_turns", "timeout_mins", "mcp_servers", "mcpServers"}
 
 // geminiToolName maps agnostic-ai's Claude-style tool identifiers onto
 // Gemini CLI's own tool names (geminicli.com/docs/reference/tools, whose
@@ -48,11 +51,14 @@ var geminiToolName = map[string]string{
 // entry for fold into one coverage note per sync rather than emitting a
 // restriction that silences the subagent.
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
-	unmappedTools := 0
+	unmappedTools, renamedMCP := 0, 0
 	for _, a := range agents {
-		md, hasUnmapped := agentMarkdown(a)
+		md, hasUnmapped, renamed := agentMarkdown(a)
 		if hasUnmapped {
 			unmappedTools++
+		}
+		if renamed {
+			renamedMCP++
 		}
 		path := filepath.Join(dir, a.Name+".md")
 		if err := sess.WriteFile(path, emit.WithHeader(md, emit.FormatMarkdown), dryRun); err != nil {
@@ -61,6 +67,9 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 	}
 	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", unmappedTools,
 		"value(s) outside agnostic-ai's Read/Write/Edit/Bash/Grep/Glob/WebFetch/WebSearch set have no confirmed Gemini tool name; set x-gemini.tools directly for those, or drop the field to inherit every tool from the parent session")
+	if renamedMCP > 0 {
+		emit.NoteProject(fmt.Sprintf("gemini: x-gemini.mcpServers on %d agent spec(s) is written as mcp_servers, the only per-agent MCP key Gemini's agent loader accepts; rename it in the spec", renamedMCP))
+	}
 	return nil
 }
 
@@ -69,9 +78,9 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 // emit (`description` falls back to the spec name). `kind`, `model`,
 // `temperature`, `max_turns`, and `timeout_mins` pass through verbatim
 // when declared, and `tools` translates onto Gemini's own vocabulary
-// (see geminiToolName). Arbitrary `x-gemini` keys merge on top, which
-// is the only route to `mcpServers` (inline per-agent MCP servers, a
-// documented field with no agnostic-ai spec equivalent).
+// (see geminiToolName). `mcp_servers` (inline per-agent MCP servers)
+// passes through too; see agentMCPServers. Arbitrary `x-gemini` keys
+// merge on top.
 //
 // `tools` is read from the raw meta rather than the resolved map for
 // the same reason kiro's agent renderer does: ResolveMeta would already
@@ -80,7 +89,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 // vocabulary as unmapped. xGeminiSetsTools guards that case explicitly,
 // so an explicit override always wins outright instead of merging
 // alongside a translated value.
-func agentMarkdown(a spec.Entry) (body string, hasUnmappedTools bool) {
+func agentMarkdown(a spec.Entry) (body string, hasUnmappedTools, renamedMCP bool) {
 	resolved := emit.ResolveMeta(a.Meta, target)
 	desc, _ := resolved["description"].(string)
 	if desc == "" {
@@ -114,13 +123,35 @@ func agentMarkdown(a spec.Entry) (body string, hasUnmappedTools bool) {
 			keys = append(keys, k)
 		}
 	}
+	servers, renamedMCP := agentMCPServers(a.Meta, resolved)
+	if servers != nil {
+		meta["mcp_servers"] = servers
+		keys = append(keys, "mcp_servers")
+	}
 	emit.MergeCustomTargetMeta(meta, &keys, a.Meta, target, resolvedAgentKeys...)
 	front := emit.FrontmatterOrdered(meta, keys)
 	trimmed := strings.TrimSpace(a.Body)
 	if trimmed == "" {
-		return front + "\n", hasUnmappedTools
+		return front + "\n", hasUnmappedTools, renamedMCP
 	}
-	return front + "\n" + trimmed + "\n", hasUnmappedTools
+	return front + "\n" + trimmed + "\n", hasUnmappedTools, renamedMCP
+}
+
+// agentMCPServers returns the agent's inline MCP servers. Gemini's
+// agent loader validates frontmatter with a strict schema whose key is
+// `mcp_servers` (packages/core/src/agents/agentLoader.ts), so any other
+// key makes it reject the whole agent. Its subagents docs still show
+// `mcpServers`, so an `x-gemini.mcpServers` written from them is
+// renamed and reported through renamed. A top-level `mcpServers` is
+// left alone: it is Claude's per-agent field, with a different shape.
+func agentMCPServers(meta, resolved map[string]any) (servers any, renamed bool) {
+	x, _ := emit.CustomTargetMeta(meta, target)
+	if _, ok := x["mcp_servers"]; !ok {
+		if v, ok := x["mcpServers"]; ok {
+			return v, true
+		}
+	}
+	return resolved["mcp_servers"], false
 }
 
 // translateTools maps a spec's generic Claude-style tools list onto
