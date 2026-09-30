@@ -222,10 +222,7 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 		emitted[outputManifestPath] = true
 	}
 	reports = append(reports, epRep)
-	generated, unloaded, err := orphanGeneratedPaths(cfg, b, reports)
-	if err != nil {
-		return nil, err
-	}
+	generated, unloaded := orphanGeneratedPaths(cfg, b, reports)
 	for _, target := range unloaded {
 		// A requested target that failed to resolve was reported above.
 		if !slices.Contains(targets, target) {
@@ -425,13 +422,14 @@ func driftGeneratedPaths(reports []driftReport) []string {
 
 // A partial check cannot classify a ledger orphan until every configured producer is captured.
 // A producer that does not resolve or fails to capture is named in unloaded and skipped without a warning.
-func orphanGeneratedPaths(cfg *config.Config, b spec.Bundle, reports []driftReport) (generated, unloaded []string, err error) {
+// Entry points that fail to render leave every unchecked target in unloaded.
+func orphanGeneratedPaths(cfg *config.Config, b spec.Bundle, reports []driftReport) (generated, unloaded []string) {
 	generated = driftGeneratedPaths(reports)
 	if cfg.Sync.OutputManifest {
 		generated = append(generated, outputManifestPath)
 	}
 	if orphanedCount(reports) == 0 {
-		return generated, nil, nil
+		return generated, nil
 	}
 	var checked []string
 	for _, report := range reports {
@@ -444,7 +442,7 @@ func orphanGeneratedPaths(cfg *config.Config, b spec.Bundle, reports []driftRepo
 		}
 	}
 	if len(remaining) == 0 {
-		return generated, nil, nil
+		return generated, nil
 	}
 	sess := adapters.NewSession()
 	for _, target := range remaining {
@@ -464,9 +462,9 @@ func orphanGeneratedPaths(cfg *config.Config, b spec.Bundle, reports []driftRepo
 	}
 	entryPoints, err := collectEntryPointDrift(cfg, b, cfg.Targets)
 	if err != nil {
-		return nil, nil, fmt.Errorf("verify orphan entry points: %w", err)
+		return generated, remaining
 	}
-	return append(generated, driftGeneratedPaths([]driftReport{entryPoints})...), unloaded, nil
+	return append(generated, driftGeneratedPaths([]driftReport{entryPoints})...), unloaded
 }
 
 // reportTrackedIgnored lists generated paths git both tracks and

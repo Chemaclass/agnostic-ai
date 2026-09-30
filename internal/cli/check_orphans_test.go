@@ -664,3 +664,102 @@ func TestDoctorFix_KeepsOrphansWhileAProducerIsUnloaded(t *testing.T) {
 		})
 	}
 }
+
+// danglingImportProject leaves a kept orphan beside an entry point only an
+// unrun target cannot render. Claude keeps the @-line for itself, while
+// codex's AGENTS.md needs the file it names under resolve-imports: inline.
+func danglingImportProject(t *testing.T) *config.Config {
+	t.Helper()
+	cfg := syncedWithKeptOrphan(t)
+	writeAgnosticFile(t, "# Pointer body\n\n@docs/missing.md\n")
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nsync:\n  resolve-imports: inline\n")
+	cfg.Targets = []string{"claude", "codex"}
+	cfg.Sync.ResolveImports = "inline"
+	return cfg
+}
+
+func TestOrphanCheck_KeepsCheckingWhenAnUnrunEntryPointFailsToRender(t *testing.T) {
+	for _, tc := range []struct {
+		args    []string
+		wantErr string
+	}{
+		{[]string{"sync", "-t", "claude", "--check"}, "drift detected"},
+		{[]string{"doctor", "-t", "claude"}, "drift detected"},
+		{[]string{"doctor", "-t", "claude", "--fix"}, "need manual removal"},
+	} {
+		t.Run(strings.Join(tc.args, " "), func(t *testing.T) {
+			danglingImportProject(t)
+			var logged bytes.Buffer
+			prev := logOut
+			logOut = &logged
+			defer func() { logOut = prev }()
+
+			var out string
+			var err error
+			stderr := captureStderr(t, func() { out, err = runCLI(t, tc.args...) })
+
+			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+				t.Errorf("error=%v, want %q", err, tc.wantErr)
+			}
+			if !strings.Contains(logged.String(), keptReference) {
+				t.Errorf("recorded orphan not reported:\n%s%s", logged.String(), out)
+			}
+			if !fileExists(keptReference) {
+				t.Error("orphan removed while codex cannot be loaded")
+			}
+			if !strings.Contains(stderr, "codex") || strings.Count(stderr, "could not load") != 1 {
+				t.Errorf("want one warning naming codex, got stderr:\n%s", stderr)
+			}
+		})
+	}
+}
+
+func TestOrphanCheck_WarnsOncePerUnloadedTarget(t *testing.T) {
+	danglingImportProject(t)
+	failingAdapterOnPath(t, "flaky")
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex, flaky]\nsync:\n  resolve-imports: inline\n")
+	var logged bytes.Buffer
+	prev := logOut
+	logOut = &logged
+	defer func() { logOut = prev }()
+
+	var err error
+	stderr := captureStderr(t, func() { _, err = runCLI(t, "sync", "-t", "claude", "--check") })
+
+	if err == nil || !strings.Contains(err.Error(), "drift detected") {
+		t.Errorf("error=%v, want the drift error", err)
+	}
+	for _, target := range []string{"codex", "flaky"} {
+		if got := strings.Count(stderr, "could not load "+target); got != 1 {
+			t.Errorf("%d warnings naming %s, want 1; stderr:\n%s", got, target, stderr)
+		}
+	}
+}
+
+func TestDoctorFix_KeepsOrphansWhileAnUnrunEntryPointCannotRender(t *testing.T) {
+	cfg := danglingImportProject(t)
+	reports := []driftReport{{Target: "claude"}, {Target: "agnostic-ai", Orphaned: []string{keptReference}}}
+	var logged bytes.Buffer
+	prev := logOut
+	logOut = &logged
+	defer func() { logOut = prev }()
+
+	removed, err := offerOrphanRemoval(cfg, reports, false, func(path string) (bool, error) {
+		t.Errorf("offered %s while codex cannot be loaded", path)
+		return true, nil
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if removed != 0 || orphanedCount(reports) != 1 || !fileExists(keptReference) {
+		t.Errorf("removed=%d remaining=%d", removed, orphanedCount(reports))
+	}
+	got := logged.String()
+	if strings.Count(got, "\n") != 1 || !strings.Contains(got, "codex") {
+		t.Errorf("want one line naming codex, got:\n%s", got)
+	}
+}

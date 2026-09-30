@@ -54,10 +54,7 @@ func offerOrphanRemoval(cfg *config.Config, reports []driftReport, backup bool, 
 	if err != nil {
 		return 0, err
 	}
-	generated, unloaded, err := orphanGeneratedPaths(cfg, bundle, reports)
-	if err != nil {
-		return 0, err
-	}
+	generated, unloaded := orphanGeneratedPaths(cfg, bundle, reports)
 	sess := adapters.NewSession()
 	sess.SetUnmanaged(cfg.Sync.Unmanaged)
 	sess.SetBackup(backup)
