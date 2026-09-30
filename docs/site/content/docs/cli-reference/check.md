@@ -110,7 +110,7 @@ The verifier owns datasets, judging, results, and baselines.
 
 ## doctor
 
-Report missing (never synced), stale (out of date with the specs), edited (changed since the last sync), and orphaned (no longer generated, kept because edited) files. Read-only unless `--fix`. Exits non-zero on any drift or [lint](#lint) error.
+Report missing (never synced), stale (out of date with the specs), edited (changed since the last sync), and orphaned (no longer generated, kept because edited) files. Read-only unless `--fix`. Exits non-zero on any drift, [lint](#lint) error, or untrusted or modified Codex hook. Unreadable hook trust state also fails; intentionally disabled hooks are reported without failing.
 
 | Flag | Description |
 |------|-------------|
@@ -119,7 +119,7 @@ Report missing (never synced), stale (out of date with the specs), edited (chang
 | `--backup` | With `--fix`, copy each existing file to `<path>.bak` before overwriting. |
 | `--check-globs` | Flag rules whose `globs:` match no files. Off by default. |
 | `--check-references` | Flag relative Markdown links in generated skills whose file is missing on disk. Off by default. |
-| `--json` | Drift report as JSON, same schema as `sync --check --json`, plus a `lint` list. With `--check-references`, adds a `references` list. |
+| `--json` | Drift report as JSON, same schema as `sync --check --json`, plus `lint` and `hook_trust` lists. With `--check-references`, adds a `references` list. |
 
 `--check-references` reads each Markdown document a selected target writes for its skills. A link is valid when it resolves from the document's own directory or, inside the project, from the project root. Code spans, code blocks, URLs, absolute paths, and `#fragment`-only links are skipped; only the file of a `file#fragment` link is checked. [`doctor.check-references.ignore`](@/docs/configuration.md#doctorcheck-referencesignore) exempts destinations that can never resolve. It exits non-zero on any broken link. Findings group by source spec and link:
 
@@ -129,7 +129,7 @@ Skill references:
       targets: claude, codex
 ```
 
-Each `references` entry in the JSON has `target`, `source` (omitted when unknown), `path`, `line`, and `destination`. Each `lint` entry has `code`, `severity` (`error` or `warn`), `path`, and `message`.
+Each `references` entry in the JSON has `target`, `source` (omitted when unknown), `path`, `line`, and `destination`. Each `lint` entry has `code`, `severity` (`error` or `warn`), `path`, and `message`. Each `hook_trust` entry has `path`, `event`, `group`, `handler`, `hook`, and `status` (`untrusted`, `modified`, `disabled`, or `unknown`). An `unknown` entry includes `problem` with the failed check.
 
 Then doctor prints:
 
@@ -137,6 +137,7 @@ Then doctor prints:
 |-------|---------------|-----------|
 | **Spec health** | The findings `agnostic-ai lint` reports. An error fails doctor; a warning shows without failing. With any finding, the next step points at `agnostic-ai lint`. | No |
 | **Tracked despite ignored** | A generated path git tracks and ignores, with the `git rm --cached` command. | No |
+| **Codex hook trust** | For selected Codex, inactive handlers in the project hooks file and user `hooks.json`, with `/hooks` as the next step. Reads only user trust from `CODEX_HOME/config.toml` (default `~/.codex/config.toml`). Untrusted, modified, or unreadable status fails; disabled status does not. | Never grants trust |
 | **MCP** | Whether each stdio `command:` resolves on PATH, with install hints. `url:`-only servers are skipped. | No |
 | **Nested CLAUDE.md** | With `claude` enabled, a hand-written `<dir>/CLAUDE.md` whose trimmed text equals the body of a rule scoped to `<dir>`, as `import claude` leaves it. Claude Code loads it beside the synced rule. A file whose text differs from every such rule is never listed. | Yes, `--fix` removes it |
 | **Script divergence** | Basenames under `.agnostic-ai/scripts/<tool>/` whose bodies differ across tools, with the suggested path `.agnostic-ai/scripts/<basename>`. | Yes, not auto-fixable |
