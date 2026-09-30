@@ -468,7 +468,7 @@ func TestGitignoreHintsForTargets_ClaudeContributesLocalArtifacts(t *testing.T) 
 	cfg := &config.Config{}
 	hints := gitignoreHintsForTargets(cfg, []string{"claude"})
 	block := buildManagedBlock(cfg, hints, nil)
-	for _, want := range []string{"/.claude/agent-memory-local/", "/.claude/settings.local.json"} {
+	for _, want := range []string{"/.claude/agent-memory-local/", "/.claude/settings.local.json", "/.claude/worktrees/", "/.claude/scheduled_tasks.lock"} {
 		found := false
 		for _, e := range block {
 			if e == want {
@@ -489,7 +489,7 @@ func TestGitignoreHintsForTargets_ClaudeContributesLocalArtifacts(t *testing.T) 
 func TestGitignoreHintsForTargets_ClaudeLocalArtifactsFollowDirOverride(t *testing.T) {
 	cfg := &config.Config{Outputs: map[string]config.Output{"claude": {Dir: "vendor/.claude"}}}
 	hints := gitignoreHintsForTargets(cfg, []string{"claude"})
-	want := []string{"vendor/.claude/agent-memory-local/", "vendor/.claude/settings.local.json"}
+	want := []string{"vendor/.claude/agent-memory-local/", "vendor/.claude/settings.local.json", "vendor/.claude/worktrees/", "vendor/.claude/scheduled_tasks.lock"}
 	if len(hints) != len(want) {
 		t.Fatalf("hints = %v, want %v", hints, want)
 	}

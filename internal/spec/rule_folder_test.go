@@ -84,3 +84,35 @@ func TestLoadLayered_LocalFolderYieldsToASharedFrontmatterScope(t *testing.T) {
 		t.Errorf("EffectiveScope() = %q, want src/a", got)
 	}
 }
+
+func TestLoadBundle_RuleFoldersUseProjectDirectories(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "backend"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, filepath.Join(root, "rules", "modules", "grouped.md"), "---\nname: grouped\n---\nGrouped.\n")
+	mustWrite(t, filepath.Join(root, "rules", "backend", "auth.md"), "---\nname: auth\n---\nAuth.\n")
+	mustWrite(t, filepath.Join(root, "reviews", "review.md"), "---\nname: review\n---\n@missing.md\n")
+	cfg := defaultsForTest()
+	cfg.Sources.Reviews = "reviews"
+	b, err := LoadBundle(root, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(b.Rules) != 2 {
+		t.Fatalf("expected two rules, got %d", len(b.Rules))
+	}
+	for _, r := range b.Rules {
+		want := ""
+		if r.Name == "auth" {
+			want = "backend"
+		}
+		if got, err := RuleScope(r); err != nil || got != want {
+			t.Errorf("%s: RuleScope() = %q, %v; want %q", r.Name, got, err, want)
+		}
+	}
+	if len(b.Reviews) != 1 || b.Reviews[0].Body != "@missing.md\n" {
+		t.Errorf("review includes must remain literal in LoadBundle, got %+v", b.Reviews)
+	}
+}

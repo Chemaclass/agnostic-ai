@@ -76,12 +76,46 @@ func TestSync_WorktreeIncludeOptOutAndOtherTargets(t *testing.T) {
 	}
 }
 
+<<<<<<< HEAD
 func TestSync_IgnoresManagedWorktreeIncludeWhenConfigured(t *testing.T) {
 	dir := syncGitignored(t, "version: 1\ntargets: [claude]\ngitignore:\n  enabled: true\n  ignore-worktree-include: true\n")
+=======
+func TestSync_WorktreeIncludeExcludesClaudeRuntimePaths(t *testing.T) {
+	for _, toolDir := range []string{".claude", "vendor/.claude", "./.claude", "vendor/.claude/", "vendor/../.claude"} {
+		t.Run(toolDir, func(t *testing.T) {
+			dir := syncGitignored(t, "version: 1\ntargets: [claude]\noutputs:\n  claude:\n    dir: "+toolDir+"\ngitignore:\n  enabled: true\n")
+			ignored, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			included, err := os.ReadFile(filepath.Join(dir, ".worktreeinclude"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, suffix := range []string{"/worktrees/", "/scheduled_tasks.lock"} {
+				path := normalizeGitignorePath(filepath.Join(toolDir, strings.Trim(suffix, "/")))
+				if strings.HasSuffix(suffix, "/") {
+					path += "/"
+				}
+				if !strings.Contains(string(ignored), path+"\n") {
+					t.Errorf("runtime path %s is not ignored: %s", path, ignored)
+				}
+				if strings.Contains(string(included), path+"\n") {
+					t.Errorf("runtime path %s is copied into worktrees: %s", path, included)
+				}
+			}
+		})
+	}
+}
+
+func TestSync_WorktreeIncludeExcludesRuntimePathsFromCollapsedDirectory(t *testing.T) {
+	dir := syncGitignored(t, "version: 1\ntargets: [claude]\noutputs:\n  claude:\n    dir: vendor/.claude\n    rules-dir: vendor/.claude\ngitignore:\n  enabled: true\n")
+>>>>>>> origin/main
 	data, err := os.ReadFile(filepath.Join(dir, ".worktreeinclude"))
 	if err != nil {
 		t.Fatal(err)
 	}
+<<<<<<< HEAD
 	if !strings.Contains(string(data), "/.claude/rules/\n") {
 		t.Errorf("worktreeinclude is not managed: %s", data)
 	}
@@ -163,3 +197,11 @@ func TestSyncJSON_ReportsIgnoredTrackedWorktreeInclude(t *testing.T) {
 	}
 	t.Errorf("JSON lacks tracked-and-ignored worktreeinclude: %s", out)
 }
+=======
+	for _, want := range []string{"/vendor/.claude/\n", "!/vendor/.claude/worktrees/\n", "!/vendor/.claude/scheduled_tasks.lock\n"} {
+		if !strings.Contains(string(data), want) {
+			t.Errorf("worktreeinclude lacks %q: %s", want, data)
+		}
+	}
+}
+>>>>>>> origin/main

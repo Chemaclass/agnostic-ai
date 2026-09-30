@@ -346,6 +346,9 @@ func TestLoadAll_MissingDirsAreSkipped(t *testing.T) {
 func TestLoadAll_DerivesScopeFromLayout(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "backend", "api"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	mustWrite(t, filepath.Join(dir, "rules", "root.md"), "body")
 	mustWrite(t, filepath.Join(dir, "rules", "backend", "auth.md"), "body")
 	mustWrite(t, filepath.Join(dir, "rules", "backend", "api", "limits.md"), "body")
