@@ -8,65 +8,48 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
-- Kept orphans from older sync ledgers name the missing checksum and stay gitignored. `doctor --fix` offers removal in a terminal, defaulting to no (#1440).
-- `sync` reports omitted skill fields, including `argument-hint`. `compare` shows which skill fields each target keeps, translates, or drops (#1444).
-
-- Breaking: rule `scope`, `globs`, and `paths` form a union. Remove `scope` to keep only a file filter; see the migration guide (#1429).
-- Imported Claude hook roots resolve on other targets. Unsupported shell or root syntax names the hook and follows `on-unsupported` (#1449).
-- `sync --diff` without `--check` now fails and names `--check` instead of ignoring the flag and writing every output (#1439).
-- A Claude model name in a shared agent or settings `model` raises a coverage note on Codex, Gemini, OpenCode, Kilo Code, Cursor, Factory, and Kiro, naming `model: {claude: <name>}`. `on-unsupported: error` fails the sync (#1431).
-- AAI-005 says to update `requires` when `package.json` already pins the running release, as right after `pnpm add agnostic-ai@X.Y.Z`, instead of suggesting a downgrade.
-- `sync --check --against` checks a bump commit's deleted-spec outputs too: the parent commit renders without its `requires`.
-- LINT001 no longer calls a hook or MCP spec empty when it names a command, prompt, server, or URL.
-- `import` no longer writes each section of a hand-written `AGENTS.md`, `CLAUDE.md`, `CONVENTIONS.md`, `.rules`, or `.github/copilot-instructions.md` twice: the file imports whole as the shared body, and only a rules block `sync` wrote also becomes rule specs.
-- A hand-written nested `AGENTS.md` or `GEMINI.md` imports as one scoped rule and syncs back as it was: a directory with one rule gets that rule's text, without a `## Rules` or `### <name>` heading. `import.codex.shred: true` keeps the old split per `##` section.
-- An `agent-` or `skill-` file in a rules or instructions directory imports as an agent or a skill only when an earlier sync wrote it; a hand-written `agent-host.md` stays a rule.
-- `doctor` lists `lint` findings under Spec health and fails on a lint error. It says all checks passed only when lint is clean too, and `doctor --json` adds a `lint` list (#1433).
-- `init --from all` and `import all` merge the sections of a hand-written root `AGENTS.md` that the imported body lacks into `AGNOSTIC_AI.md` and name them, instead of warning. `init` without a target list suggests enabling `codex` when a root `AGENTS.md` exists (#1434).
-- A skill or command line with Claude Code's `` !`command` ``, `$ARGUMENTS`, or `$1` gets a sync note naming the line for each target that reads it as plain text, such as Codex, and `lint` reports it as LINT019. `on-unsupported: error` fails the sync (#1436).
-- `sync --global` raises the same note for a skill line Claude Code expands and a target reads as plain text, and `on-unsupported` in the source root's `agnostic-ai.yaml` (or `local/agnostic-ai.yaml`) sets the policy: `error` fails the sync, `silent` hides the note (#1463).
-- `import all` and `init --from all` seed `AGNOSTIC_AI.md` from a hand-written root `AGENTS.md` when no other tool config is found, instead of importing nothing (#1464).
-- A comma-separated `globs` string, such as `src/x/**,tests/x/**`, reaches Claude Code `paths` and Continue `globs` as one entry per pattern, so the rule loads on those files. Commas inside `{a,b}` stay in their pattern (#1428).
-- Rule folders scope existing project directories, including from packs; explicit scopes win, and lint compares normalized scopes (#1430).
-- The Targets page says how to use a tool with no target, such as pi: enable `codex` for `AGENTS.md` and `.agents/skills/`, and copy MCP servers and commands by hand (#1480).
+- **Breaking:** rule `scope`, `globs`, and `paths` form a union; rule folders scope existing directories. Remove `scope` to keep only a filter (#1429, #1430).
+- Kept orphans from older sync ledgers stay gitignored and say why they were kept. Run `doctor --fix` to choose their removal (#1440).
+- `import` keeps hand-written instructions whole, a nested `AGENTS.md` becomes a scoped rule, and Claude hook roots resolve elsewhere (#1434, #1449, #1464).
+- Sync notes omitted skill fields, Claude model names, and Claude-only skill syntax; `compare` shows each target's skill fields (#1431, #1436, #1444, #1463).
+- `doctor` fails on lint errors, `sync --diff` requires `--check`, and a `requires` bump no longer trips AAI-005 or `--check --against` (#1425, #1433, #1439).
 
 ### By tool
 
 #### Claude Code
 
-- Translated `readonly` and rule `scope` keys no longer appear in native frontmatter (#1458).
 - Claude runtime paths stay out of `.worktreeinclude`; `gitignore.ignore-worktree-include: true` also keeps that file out of Git (#1438, #1441).
-- `import claude` turns each nested `<dir>/CLAUDE.md` into one rule scoped to its directory, and a companion that imports `@AGENTS.md` reads as that file (#1427).
-- `doctor` lists a hand-written nested `CLAUDE.md` whose text a rule scoped to its directory already holds, and `doctor --fix` removes it, so Claude Code stops loading the text twice and a Claude plus Codex project syncs without deleting it by hand. The import warning points there (#1465).
-- `import claude` writes an agent `model` set to a Claude model name (`sonnet`, `opus`, `haiku`, `inherit`, or a `claude-*` id) as `model: {claude: <name>}`, so Codex and other targets use their own default model instead of one they cannot load (#1431).
-- A project whose `CLAUDE.md` imports `@AGENTS.md` keeps that layout with only Claude enabled: sync writes the shared body to `AGENTS.md` and `CLAUDE.md` stays `@AGENTS.md` plus its Claude-only text, instead of one `CLAUDE.md` holding the whole text while `AGENTS.md` goes stale.
+- A `CLAUDE.md` that imports `@AGENTS.md` keeps that layout with only Claude enabled, so `AGENTS.md` no longer goes stale.
+- Native frontmatter drops translated `readonly` and `scope` keys, and a comma-separated `globs` string becomes one `paths` entry per pattern (#1428, #1458).
+- `import claude` turns each nested `CLAUDE.md` into a scoped rule, and `doctor --fix` removes the hand-written copy so Claude loads it once (#1427, #1465).
+- `import claude` writes a Claude agent model as `model: {claude: <name>}`, so other targets use their own default (#1431).
 
 #### Codex
 
 - A Codex config or overlay model suppresses the Claude model note for overridden settings (#1462).
-
-- `import codex` strips generated skill headers before merging bodies, preserving canonical instructions and importing authored edits (#1476).
-- Exact subtree selectors write nested `AGENTS.md`; filename filters stay inline with a coverage note. Disable with `nested-glob-rules: false` (#1435).
-- `import codex` keeps an imported agent model in `model.codex` when merging it into a Claude spec, preserving each tool's model (#1461).
-- Sync names inactive hooks with `/hooks` as the next step; doctor reports missing or stale user trust and disabled handlers (#1456).
-
-- `.codex/environments/environment.toml` always carries `[setup]`, with an empty script when no spec sets one, as the file the Codex app generates does; a spec with only dev commands used to drop the table.
-- `sync` no longer notes that `permissions` have no effect on Codex once exec policies are set, whether inline, in `exec-policies-file`, or in the captured overlay; without one, the note stays (#1432).
+- Exact subtree rules write nested `AGENTS.md`; filename filters stay inline with a note. Set `nested-glob-rules: false` to opt out (#1435).
+- Sync names inactive hooks with `/hooks` as the next step, `doctor` reports hook trust, and exec policies silence the `permissions` note (#1432, #1456).
+- `import codex` strips generated skill headers and keeps an agent's model in `model.codex` (#1461, #1476).
+- `.codex/environments/environment.toml` always carries `[setup]`, as the Codex app writes it.
 
 #### Copilot
 
-- A rule's `description` goes to the `.instructions.md` frontmatter, where VS Code reads it to load the file on demand, instead of an italic line in the body. A rule with `alwaysApply: false` and no globs gets no `applyTo`, so it stays on demand, and `import copilot` reads a file without `applyTo` back that way instead of attaching it to every file.
-- An agent that lives at `.github/agents/<name>.md` is written back there instead of to a second `<name>.agent.md`, which VS Code loaded as a duplicate. A profile's `name` imports as `x-copilot.name` when it differs from the file name, so the file keeps its name.
-- A skill already in `.agents/skills/` or `.claude/skills/` is written there instead of copied into `.github/skills/`.
+- A rule's `description` goes to `.instructions.md` frontmatter, and a rule with `alwaysApply: false` and no globs stays on demand without `applyTo`.
+- Agents and skills are written back where they live, such as `.github/agents/<name>.md` or `.agents/skills/`, instead of as duplicates.
+
+#### Continue
+
+- A comma-separated `globs` string becomes one `globs` entry per pattern, so the rule loads on those files (#1428).
 
 #### Gemini CLI
 
-- `import gemini` decodes a command's TOML strings, so a `\\(` in a `"""` prompt no longer comes back doubled and changes the shell command; keys other than `description` and `prompt` import under `x-gemini`.
+- `import gemini` decodes command TOML strings, so an escaped `\\(` in a prompt no longer doubles; other keys import under `x-gemini`.
 
 ### Site
 
-- The [CI page](https://agnostic-ai.org/docs/ci/) and the `sync` skill no longer point to a GitHub Action that does not exist. They show the npm dev dependency with `postinstall: agnostic-ai sync -q`, and `scripts/install.sh` with a pinned version (#1445).
-- The [spec format](https://agnostic-ai.org/docs/spec-format/) reference has one page per `.agnostic-ai/` folder, each opening with why the folder exists and a sample. New pages cover rules, commands, reviews, environments, ignore, and overlays; old links redirect.
+- The [spec format](https://agnostic-ai.org/docs/spec-format/) reference has one page per `.agnostic-ai/` folder; old links redirect.
+- The [CI page](https://agnostic-ai.org/docs/ci/) shows the npm dev dependency and pinned `install.sh` instead of a GitHub Action that does not exist (#1445).
+- The Targets page explains how to use a tool with no target, such as pi, through `codex` (#1480).
 
 ## v0.75.0 - 2026-09-29
 
