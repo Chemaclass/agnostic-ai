@@ -231,26 +231,24 @@ When the pin is installed, the step costs one `--version` call.
 
 A new linked worktree has no `node_modules`. A hook runner installed from npm, such as lefthook, may not start there, and the pinned binary is missing either way. The worktree gets its tool files once something runs `pnpm install` in it.
 
-Claude Desktop skips `WorktreeCreate` and bootstraps a worktree only through the `SessionStart` hook in that worktree's own `.claude/settings.json`. Write that hook as a spec, `.agnostic-ai/hooks/bootstrap.yaml`:
+Put the install in an environment spec, `.agnostic-ai/environments/dev.yaml`:
 
 ```yaml
-name: bootstrap
-description: Install dependencies in a new worktree, which runs sync.
-target: claude
-event: SessionStart
-matcher: startup
-command: 'cd "$CLAUDE_PROJECT_DIR" && { test -d node_modules || pnpm install --frozen-lockfile; }'
+name: dev
+setup: pnpm install --frozen-lockfile
 ```
 
-Claude Code copies the gitignored files `.worktreeinclude` lists into each new worktree, and sync keeps its managed block there when `claude` is a target (see [gitignore](@/docs/configuration.md#gitignore)). The ignored `.claude/settings.json` then reaches the worktree with the hook. Without that, keep `.claude/settings.json` committed, so a new worktree has it before any sync runs. In `agnostic-ai.yaml`:
+Codex and Cursor run `setup` in a new worktree from their own files. For Claude Code, sync writes hooks that run it once in each new worktree: a `--worktree` or Desktop session, a subagent worktree, or a worktree Claude enters during a session. Delete a hand-written `bootstrap.yaml` hook from an earlier version of this recipe, since Claude Code runs matching hooks in parallel. See [Claude Code worktree setup](@/docs/spec-format/environments.md#claude-code-worktree-setup).
+
+Claude Code copies the gitignored files `.worktreeinclude` lists into each new worktree, and sync keeps its managed block there when `claude` is a target (see [gitignore](@/docs/configuration.md#gitignore)). The ignored `.claude/settings.json` and the setup script then reach the worktree. Without that, commit both, so a new worktree has them before any sync runs. In `agnostic-ai.yaml`:
 
 ```yaml
 gitignore:
   enabled: true
-  commit: [hooks]
+  commit: [claude:environments]
 ```
 
-Commit the file after `sync` writes it. A fresh install writes the same bytes, so `git status` stays clean.
+Commit the files after `sync` writes them. A fresh install writes the same bytes, so `git status` stays clean.
 
 ### Workspace settings
 

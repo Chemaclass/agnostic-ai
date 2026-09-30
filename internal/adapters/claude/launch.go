@@ -24,7 +24,7 @@ const launchFileVersion = "0.0.1"
 // Code has no project file for, with the reason each note gives.
 var environmentFieldsWithoutEffect = []struct{ field, reason string }{
 	{"install", "Claude Code has no install step; run it from a SessionStart hook spec"},
-	{"setup", "Claude Code runs worktree setup from a WorktreeCreate or SessionStart hook spec"},
+	{"setup-windows", "the Claude Code setup hook runs only setup, through sh"},
 	{"cleanup", "Claude Code runs worktree cleanup from a WorktreeRemove hook spec"},
 	{"terminals", "Claude Code has no terminal list; use dev-commands for preview servers"},
 }
@@ -34,11 +34,7 @@ var environmentFieldsWithoutEffect = []struct{ field, reason string }{
 // environment field, the last spec that sets dev-commands wins.
 func emitLaunch(sess *emit.Session, envs []spec.Entry, dir string, dryRun bool) error {
 	for _, f := range environmentFieldsWithoutEffect {
-		count := emit.EnvironmentsWithField(target, envs, f.field)
-		if f.field == "setup" {
-			count = emit.EnvironmentsWithSetup(target, envs)
-		}
-		emit.NoteFieldNoOp(target, spec.KindEnvironment, f.field, count, f.reason)
+		emit.NoteFieldNoOp(target, spec.KindEnvironment, f.field, emit.EnvironmentsWithField(target, envs, f.field), f.reason)
 	}
 	noteOtherEnvironmentKeys(envs)
 	var commands []any
