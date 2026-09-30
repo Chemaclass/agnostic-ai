@@ -251,7 +251,7 @@ func TestImportQoder_RuleActivationSurvivesSync(t *testing.T) {
 	}
 }
 
-func TestSyncQoder_PortableScopeOverridesNativeActivation(t *testing.T) {
+func TestSyncQoder_PortableScopeUnionsNativePaths(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	silence(t)
@@ -262,7 +262,7 @@ func TestSyncQoder_PortableScopeOverridesNativeActivation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]any{"paths": []any{"src/**"}}
+	want := map[string]any{"paths": []any{"**"}}
 	if !reflect.DeepEqual(got.Meta, want) {
 		t.Errorf("scoped activation = %#v, want %#v", got.Meta, want)
 	}
