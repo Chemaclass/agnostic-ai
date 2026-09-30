@@ -98,6 +98,14 @@ func ReportUnsupported(c Capabilities, b spec.Bundle, mode string) error {
 	}
 	if c.supports(spec.KindSkill) {
 		NoteDroppedSkillFields(c.Target, b.Skills)
+		if err := ReportClaudeBodySyntax(c.Target, spec.KindSkill, b.Skills, mode); err != nil {
+			return err
+		}
+	}
+	if c.supports(spec.KindCommand) {
+		if err := ReportClaudeBodySyntax(c.Target, spec.KindCommand, b.Commands, mode); err != nil {
+			return err
+		}
 	}
 	if c.supports(spec.KindAgent) {
 		noteDroppedAgentFields(c, b.Agents)

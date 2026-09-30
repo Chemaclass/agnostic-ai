@@ -78,6 +78,10 @@ type Entry struct {
 	// style was the YAML default (PlainStyle, value 0).
 	MetaStyles map[string]yaml.Style
 	Body       string
+	// BodyLine is the 1-based line of Path where Body starts, or 0 once
+	// Body no longer maps line for line onto the file (an include,
+	// ::parent, or ::target fence rewrote it).
+	BodyLine int
 	// AssetDir is the skill folder whose assets ship when it is not the
 	// one holding Path: a local skill that only edits fields keeps the
 	// shared folder's assets. Read it through SkillAssetDir.
@@ -621,6 +625,7 @@ func filterEntriesFor(entries []Entry, target string) []Entry {
 		}
 		if resolved := e.BodyFor(target); resolved != e.Body {
 			e.Body = resolved
+			e.BodyLine = 0
 		}
 		out = append(out, e)
 	}
@@ -781,7 +786,9 @@ func mergeEntries(base, src []Entry, extends bool) ([]Entry, []Entry) {
 			continue
 		}
 		if extends {
-			e.Body = expandParent(e.Body, "")
+			if expanded := expandParent(e.Body, ""); expanded != e.Body {
+				e.Body, e.BodyLine = expanded, 0
+			}
 		}
 		idx[e.Name] = len(base)
 		base = append(base, e)
@@ -988,7 +995,8 @@ func parseMarkdown(path string) (Entry, error) {
 	if err != nil {
 		return Entry{}, fmt.Errorf("read: %w", err)
 	}
-	meta, keys, styles, body, err := splitFrontmatter(normalizeLineEndings(data))
+	normalized := normalizeLineEndings(data)
+	meta, keys, styles, body, err := splitFrontmatter(normalized)
 	if err != nil {
 		// Frontmatter starts at line 2 (line 1 is the opening `---`).
 		return Entry{}, formatYAMLError(path, err, 1)
@@ -1001,6 +1009,7 @@ func parseMarkdown(path string) (Entry, error) {
 		MetaKeys:   keys,
 		MetaStyles: styles,
 		Body:       body,
+		BodyLine:   bytes.Count(normalized[:len(normalized)-len(body)], []byte("\n")) + 1,
 	}, nil
 }
 

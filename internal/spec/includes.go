@@ -117,7 +117,9 @@ func resolveEntryIncludes(entries []Entry, root string) error {
 		if err != nil {
 			return fmt.Errorf("%s: %w", entries[i].Path, err)
 		}
-		entries[i].Body = body
+		if body != entries[i].Body {
+			entries[i].Body, entries[i].BodyLine = body, 0
+		}
 	}
 	return nil
 }
