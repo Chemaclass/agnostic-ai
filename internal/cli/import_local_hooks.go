@@ -90,7 +90,7 @@ func hookHandlerKeys(target string, meta map[string]any) []string {
 	case "", "command":
 		var keys []string
 		for _, c := range hookCommands(meta) {
-			keys = append(keys, hookCommandKey(target, c))
+			keys = append(keys, hookCommandKey(target, c, meta))
 		}
 		return keys
 	case "http":
@@ -103,11 +103,13 @@ func hookHandlerKeys(target string, meta map[string]any) []string {
 	return nil
 }
 
-// hookCommandKey keys a command as sync renders it for target, with the
-// target's hooks directory folded to one token: the command a spec
-// declares may name any sibling tool's directory.
-func hookCommandKey(target, command string) string {
-	command = adapters.RewriteHookPath(command, target)
+// Metadata renders a source command; native commands already contain their runtime root.
+func hookCommandKey(target, command string, metadata ...map[string]any) string {
+	if len(metadata) > 0 {
+		command = adapters.RewriteHookPath(command, target, metadata...)
+	} else {
+		command = adapters.RewriteHookDirectories(command, target)
+	}
 	if target != "" {
 		command = strings.ReplaceAll(command, "."+target+"/hooks/", "\x00hooks/")
 	}

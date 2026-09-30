@@ -121,7 +121,7 @@ func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 			keyOrder = append(keyOrder, k)
 		}
 		for _, command := range commands {
-			command = emit.RewriteHookPath(command, target)
+			command = emit.RewriteHookPath(command, target, h.Meta)
 			if !hasScriptExtension(command) {
 				badExtension++
 			}
