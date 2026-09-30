@@ -110,7 +110,7 @@ function test_github_rewrite_maps_a_blob_url_to_raw() {
 }
 
 function test_github_rewrite_maps_releases_to_the_api() {
-  assert_equals "https://api.github.com/repos/cline/cline/releases?per_page=10	github-api" \
+  assert_equals "https://api.github.com/repos/cline/cline/releases?per_page=30	github-api" \
     "$(github_rewrite https://github.com/cline/cline/releases)"
 }
 
@@ -294,6 +294,37 @@ function test_fetch_one_reads_a_code_row_as_raw_text() {
 
 function test_resolve_urls_tags_a_schema_line() {
   assert_contains "schema	https://www.schemastore.org/claude-code-settings.json" "$(resolve_urls claude)"
+}
+
+# ---- releases ------------------------------------------------------------------
+
+RELEASES='[{"tag_name":"v2","published_at":"2026-09-29T10:00:00Z","prerelease":false,"draft":false,"body":"Adds hooks.Stop."},{"tag_name":"nightly","published_at":"2026-09-30T01:00:00Z","prerelease":true,"draft":false,"body":"build"},{"tag_name":"v1","published_at":"2026-09-20T10:00:00Z","prerelease":false,"draft":false,"body":"Old."},{"tag_name":"v0","published_at":"2026-09-10T10:00:00Z","prerelease":false,"draft":false,"body":"Older."}]'
+
+function test_release_index_skips_prereleases() {
+  printf '%s' "$RELEASES" >"$FIXTURES/r.json"
+  local out
+  out=$(release_index "$FIXTURES/r.json")
+  assert_contains '"tag_name":"v2"' "$out"
+  assert_contains '"published_at":"2026-09-29T10:00:00Z"' "$out"
+  assert_not_contains "nightly" "$out"
+}
+
+function test_release_entries_prints_only_releases_newer_than_the_snapshot() {
+  printf '%s' "$RELEASES" >"$FIXTURES/r.json"
+  printf '"tag_name":"v1"\n"published_at":"2026-09-20T10:00:00Z"\n' >"$FIXTURES/snap.txt"
+  local out
+  out=$(release_entries "$FIXTURES/r.json" "$FIXTURES/snap.txt")
+  assert_contains "## v2 (2026-09-29)" "$out"
+  assert_contains "Adds hooks.Stop." "$out"
+  assert_not_contains "nightly" "$out"
+  # v0 is not in the snapshot but older than it: a longer page, not news.
+  assert_not_contains "## v0" "$out"
+  assert_not_contains "## v1" "$out"
+}
+
+function test_release_entries_counts_every_release_without_a_snapshot() {
+  printf '%s' "$RELEASES" >"$FIXTURES/r.json"
+  assert_equals 3 "$(release_entries "$FIXTURES/r.json" "$FIXTURES/none.txt" | grep -c '^## ')"
 }
 
 # ---- json_sum -----------------------------------------------------------------

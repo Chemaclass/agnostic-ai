@@ -119,7 +119,7 @@ github_rewrite() {
       ;;
     https://github.com/*/*/releases)
       path=${url#https://github.com/}
-      printf 'https://api.github.com/repos/%s?per_page=10\t%s\n' "$path" github-api
+      printf 'https://api.github.com/repos/%s?per_page=30\t%s\n' "$path" github-api
       ;;
     https://github.com/*/*)
       path=${url#https://github.com/}
@@ -593,6 +593,11 @@ write_deltas() {
     hashed=$(hashed_file "$dir" "$body")
     word_delta "$snap" "$hashed" >"${hashed%.*}.delta"
     moved_words "$snap" "$hashed" >"$vocab/moved"
+    # A releases row moves by tag; the notes behind a new tag are the news.
+    if [ -s "${hashed%.*}.entries.md" ]; then
+      { printf '\n# new releases\n\n'; cat "${hashed%.*}.entries.md"; } >>"${hashed%.*}.delta"
+      cat "${hashed%.*}.entries.md" >>"$vocab/moved"
+    fi
     label=$(delta_label "${hashed%.*}.delta" "$vocab/moved" "$vocab/$target")
     printf '%s\t%s\t%s\t%s\t%s\n' "$target" "$kind" "$url" "$label" "${hashed%.*}.delta" >>"$dir/deltas.tsv"
   done <"$dir/docfetch.tsv"
@@ -717,6 +722,44 @@ json_text() {
   command -v jq >/dev/null 2>&1 && jq -S . "$1" >"$2" 2>/dev/null || rm -f "$2"
 }
 
+# release_index <body> prints one tag line and one date line per release,
+# the text a releases row hashes. Prereleases and drafts are left out: a
+# rolling "nightly" tag bumps its date every day with the same body, and an
+# alpha is not what users run. The API answers on one line, so without jq
+# the values are matched rather than the lines: a line filter would keep
+# the whole payload and hash its download counts.
+release_index() {
+  if command -v jq >/dev/null 2>&1 && jq -e 'type == "array"' "$1" >/dev/null 2>&1; then
+    jq -r '.[] | select((.prerelease or .draft) | not) |
+      "\"tag_name\":\(.tag_name | tojson)", "\"published_at\":\(.published_at | tojson)"' "$1"
+  else
+    grep -oE '"(tag_name|published_at)":"[^"]*"' "$1" || true
+  fi
+}
+
+# release_entries <body> <snapshot> prints the notes of each release the
+# last audit's snapshot does not name and that is newer than every release
+# it does, newest first, so an auditor and Jev read what shipped instead of
+# a list of tag names. An older release that only entered the listed page
+# is not news. Each body is capped at RELEASE_ENTRY_CHARS (4000), and the
+# list at RELEASE_ENTRY_MAX (10) releases. With no snapshot every listed
+# release counts as new.
+release_entries() {
+  command -v jq >/dev/null 2>&1 || return 0
+  local seen="" newest=""
+  if [ -f "$2" ]; then
+    seen=$(sed -n 's/^"tag_name":"\(.*\)"$/\1/p' "$2")
+    newest=$(sed -n 's/^"published_at":"\(.*\)"$/\1/p' "$2" | LC_ALL=C sort | tail -n 1)
+  fi
+  jq -r --arg seen "$seen" --arg newest "$newest" --argjson cap "${RELEASE_ENTRY_CHARS:-4000}" \
+    --argjson max "${RELEASE_ENTRY_MAX:-10}" '
+    ($seen | split("\n")) as $old |
+    [.[]? | select((.prerelease or .draft) | not) | select(.tag_name as $t | $old | index($t) | not) |
+      select((.published_at // "") > $newest)] | .[0:$max][] |
+    "## \(.tag_name) (\(.published_at // "" | .[0:10]))\n\n\((.body // "") | .[0:$cap])\n"
+  ' "$1" 2>/dev/null || true
+}
+
 # row_status <url> <mode> <sha> compares one row against the committed lock.
 row_status() {
   local url="$1" mode="$2" sha="$3" locked
@@ -762,7 +805,7 @@ fetch_one() {
   # A rerun into the same run directory must not leave an earlier fetch's
   # extracted text or delta behind: hashed_file trusts that .txt exists
   # only when this fetch's mode wrote it.
-  rm -f "$stem.txt" "$stem.delta"
+  rm -f "$stem.txt" "$stem.delta" "$stem.entries.md"
 
   local result code_line
   if [ -n "$force_proxy" ]; then
@@ -862,10 +905,10 @@ fetch_one() {
       result=$(sha256_of "$stem.txt")
       ;;
     github-api)
-      # The API answers on one line, so match values rather than lines: a
-      # line filter keeps the whole payload and hashes its download counts.
-      grep -oE '"(tag_name|published_at)":"[^"]*"' "$body" >"$stem.txt" || true
+      release_index "$body" >"$stem.txt"
       result=$(sha256_of "$stem.txt")
+      release_entries "$body" "$(snapshot_file "$(locked_sha "$url")")" >"$stem.entries.md"
+      [ -s "$stem.entries.md" ] || rm -f "$stem.entries.md"
       ;;
     schema-keys)
       if schema_keys "$body" "$stem.txt"; then

@@ -59,7 +59,9 @@ Read-only means no repository or GitHub changes. Temporary reproduction projects
    or field in its delta is a lead the docs may not show yet. Then read
    the saved changelog delta, or the body when
    there is no delta, newest entry first. It names what moved since the
-   last audit faster than the docs do.
+   last audit faster than the docs do. A GitHub releases row's delta ends
+   with a `# new releases` section holding the notes of each release
+   since the last audit: read those notes, not only the tag lines.
 4. Read the delta of each changed page, then quote this run's `.txt` copy.
    Open the full page when the delta leaves scope or precedence unclear,
    or when the row is `no-snapshot`. The hash ignores navigation,
