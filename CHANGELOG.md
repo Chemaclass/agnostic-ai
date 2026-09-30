@@ -40,6 +40,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - Exec policies and a Codex config or overlay `model` silence the notes they make redundant (#1432, #1462).
 - `import codex` strips generated skill headers and keeps an agent's model in `model.codex`; `environment.toml` always has `[setup]` (#1461, #1476).
 - Sync no longer writes `notify`, `profiles`, `model_providers`, or other keys Codex ignores in a project `config.toml`, and notes where each goes (#1511).
+- Sync notes that `readonly` and `x-codex.sandbox_mode` have no effect on current Codex agents, which keep the session sandbox (#1519).
 
 #### Copilot
 

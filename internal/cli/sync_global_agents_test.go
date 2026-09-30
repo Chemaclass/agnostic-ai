@@ -320,7 +320,11 @@ func TestSyncGlobal_AgentReadonlyMaps(t *testing.T) {
 	if !strings.Contains(string(claude), "disallowedTools: Write, Edit, NotebookEdit\n") || strings.Contains(string(claude), "readonly:") {
 		t.Errorf("readonly not mapped on the Claude agent: %s", claude)
 	}
-	if strings.Contains(warnings, "`readonly`") {
+	codexNote := "note: `readonly` or `x-codex.sandbox_mode` on 1 agent has no effect on codex ("
+	if strings.Count(warnings, codexNote) != 1 {
+		t.Errorf("want one Codex sandbox note, got: %s", warnings)
+	}
+	if strings.Contains(strings.ReplaceAll(warnings, codexNote, ""), "`readonly`") {
 		t.Errorf("supported readonly got note: %s", warnings)
 	}
 	if _, _, err := runGlobalAgentTest("--only", "codex,cursor,claude", "--check"); err != nil {
