@@ -41,6 +41,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - A Codex config or overlay model suppresses the Claude model note for overridden settings (#1462).
 
+- `import codex` keeps an imported agent model in `model.codex` when merging it into a Claude spec, preserving each tool's model (#1461).
 - Sync names inactive hooks with `/hooks` as the next step; doctor reports missing or stale user trust and disabled handlers (#1456).
 
 - `.codex/environments/environment.toml` always carries `[setup]`, with an empty script when no spec sets one, as the file the Codex app generates does; a spec with only dev commands used to drop the table.
