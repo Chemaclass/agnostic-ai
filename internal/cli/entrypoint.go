@@ -97,6 +97,7 @@ type entryPointFile struct {
 // block, so personal text has the last word and import can drop it.
 // Fences and imports resolve in it exactly as in the shared body.
 func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, body string) ([]entryPointFile, error) {
+	cfg = cfg.WithAdditionalTargets(targets...)
 	body = adapters.StripGeneratedAppendices(body)
 
 	entryPoint := func(t string) string {
@@ -148,7 +149,7 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 		if inliners := pathRuleInliners(cfg, consumers[path]); len(inliners) > 0 {
 			var rulesAppendix string
 			for i, target := range inliners {
-				next := adapters.RenderRulesAppendix(adapters.EntryPointRules(b, target))
+				next := adapters.RenderRulesAppendix(adapters.EntryPointRules(b, target, cfg))
 				if i > 0 && next != rulesAppendix {
 					return nil, fmt.Errorf("%s: target-specific root rules differ between readers; use compatible target conditions or separate worktrees", path)
 				}
@@ -157,7 +158,7 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 			content = adapters.AppendRulesAppendix(content, rulesAppendix)
 			layers = append(layers, instructionLayer{Name: "rules", Text: rulesAppendix})
 		} else if importer := pathRulesImporter(cfg, consumers[path]); importer != "" {
-			content = adapters.AppendRulesAppendix(content, adapters.RenderRulesImportAppendix(cfg, importer, adapters.EntryPointRules(b, importer)))
+			content = adapters.AppendRulesAppendix(content, adapters.RenderRulesImportAppendix(cfg, importer, adapters.EntryPointRules(b, importer, cfg)))
 		} else if importer := pathLegacyRulesFileImporter(cfg, consumers[path]); importer != "" {
 			content = adapters.AppendRulesAppendix(content, adapters.RenderLegacyRulesFileImportAppendix(cfg, importer))
 		}

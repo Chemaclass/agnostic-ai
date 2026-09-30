@@ -63,6 +63,7 @@ func newRevertCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			cfg = cfg.WithAdditionalTargets(effective...)
 
 			if jsonOut {
 				return runRevertJSON(cmd, effective, dryRun, force)
@@ -209,6 +210,7 @@ func runRevertJSON(cmd *cobra.Command, targets []string, dryRun, force bool) err
 	if err != nil {
 		return err
 	}
+	cfg = cfg.WithAdditionalTargets(targets...)
 
 	out := jsonOutput{Version: "1", Command: "revert"}
 	seen := map[string]bool{}
