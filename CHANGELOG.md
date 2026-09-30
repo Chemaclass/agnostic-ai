@@ -8,7 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
-- Rule body headings nest beneath their `### <name>` section in merged instruction files, including Codex `AGENTS.md` and Gemini `GEMINI.md`; fenced code stays as written (#1452).
+- Rule body headings nest under their section in merged instructions; fenced code keeps its headings (#1452).
 
 - Breaking: rule `scope`, `globs`, and `paths` form a union. Remove `scope` to keep only a file filter; see the migration guide (#1429).
 - `sync --diff` without `--check` now fails and names `--check` instead of ignoring the flag and writing every output (#1439).

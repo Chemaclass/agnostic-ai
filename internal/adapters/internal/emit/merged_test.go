@@ -34,6 +34,15 @@ func TestWriteSection_RuleHeadingsNestUnderSection(t *testing.T) {
 		{"indented and escaped", "   ### Heading\n    # Code\n\\# Literal\n#hashtag\n", "   #### Heading\n    # Code\n\\# Literal\n#hashtag\n"},
 		{"setext", "Title\n=====\n\nDetails\n---\n", "#### Title\n\n##### Details\n"},
 		{"thematic break", "---\nTitle\n=====\n", "---\n#### Title\n"},
+		{"single-character setext", "Title\n-\n", "#### Title\n"},
+		{"ordered list and thematic break", "1. Run tests\n---\n\nTitle\n===\n", "1. Run tests\n---\n\n#### Title\n"},
+		{"ordered parenthesis list", "2) Run tests\n---\n", "2) Run tests\n---\n"},
+		{"list lazy continuation", "1. Run tests\nand lint\n---\n", "1. Run tests\nand lint\n---\n"},
+		{"HTML block", "<div>\nLiteral HTML\n---\n# Literal heading\n</div>\n\nTitle\n===\n", "<div>\nLiteral HTML\n---\n# Literal heading\n</div>\n\n#### Title\n"},
+		{"HTML comment with blank", "<!--\n\nLiteral HTML\n---\n-->\nTitle\n===\n", "<!--\n\nLiteral HTML\n---\n-->\n#### Title\n"},
+		{"script HTML with blank", "<script>\n\nLiteral HTML\n---\n</script>\nTitle\n===\n", "<script>\n\nLiteral HTML\n---\n</script>\n#### Title\n"},
+		{"CDATA block", "<![CDATA[\nLiteral text\n---\n]]>\n", "<![CDATA[\nLiteral text\n---\n]]>\n"},
+		{"processing instruction", "<?xml\nLiteral text\n---\n?>\n", "<?xml\nLiteral text\n---\n?>\n"},
 		{"windows lines", "### Heading\r\nText.\r\n", "#### Heading\r\nText.\r\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

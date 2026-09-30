@@ -61,7 +61,7 @@ Claude Code gets a conditional rule. Codex and Cursor share `services/payments/A
 
 When several rules share a document, such as Codex's `AGENTS.md` or Gemini's `GEMINI.md`, each rule gets a `### <name>` section. Sync shifts the rule body's heading levels together so its shallowest heading is at least `####`. A body with `### Doc versioning` and `#### Details` becomes `#### Doc versioning` and `##### Details`. Already nested headings keep their levels. Markdown has six heading levels, so deeper headings stop at `######`.
 
-Fenced code keeps its headings as written. Standalone rule files and a nested document containing one rule without a section wrapper also keep the source heading levels.
+Fenced code and raw HTML blocks keep their headings as written. List items followed by a thematic break remain lists. Tag-led text is treated conservatively rather than converted to a Setext heading. Standalone rule files and a nested document containing one rule without a section wrapper also keep the source heading levels.
 
 ## Fields
 

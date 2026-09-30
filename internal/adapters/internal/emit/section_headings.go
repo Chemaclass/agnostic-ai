@@ -1,6 +1,12 @@
 package emit
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+)
+
+var sectionListMarker = regexp.MustCompile(`^(?:[-+*]|[0-9]{1,9}[.)])(?:[ \t]|$)`)
+var sectionHTMLTag = regexp.MustCompile(`(?i)^</?([a-z][a-z0-9-]*)(?:[ \t/>]|$)`)
 
 type sectionHeading struct {
 	line, end, level int
@@ -12,6 +18,8 @@ func nestSectionHeadings(body string) string {
 	minimum, paragraph := 4, -1
 	var fence byte
 	fenceLength := 0
+	listBlock, htmlBlock := false, false
+	htmlEnd := ""
 	for i, raw := range lines {
 		line := strings.TrimSuffix(raw, "\r")
 		indent := len(line) - len(strings.TrimLeft(line, " "))
@@ -27,6 +35,19 @@ func nestSectionHeadings(body string) string {
 			}
 			continue
 		}
+		if htmlBlock {
+			if htmlEnd == "" && strings.TrimSpace(line) == "" || htmlEnd != "" && strings.Contains(strings.ToLower(line), htmlEnd) {
+				htmlBlock = false
+			}
+			paragraph = -1
+			continue
+		}
+		if end, starts := sectionHTMLBlock(line); starts {
+			htmlEnd = end
+			htmlBlock = end == "" || !strings.Contains(strings.ToLower(line), end)
+			paragraph = -1
+			continue
+		}
 		if len(line) > 0 && (line[0] == '`' || line[0] == '~') {
 			run := len(line) - len(strings.TrimLeft(line, line[:1]))
 			if run >= 3 && (line[0] == '~' || !strings.Contains(line[run:], "`")) {
@@ -38,7 +59,14 @@ func nestSectionHeadings(body string) string {
 		if level > 0 && level <= 6 && (level == len(line) || line[level] == ' ' || line[level] == '\t') {
 			headings = append(headings, sectionHeading{i, i, level})
 			minimum = min(minimum, level)
+			paragraph, listBlock = -1, false
+			continue
+		}
+		if listBlock {
 			paragraph = -1
+			if strings.TrimSpace(line) == "" || sectionThematicBreak(line) {
+				listBlock = false
+			}
 			continue
 		}
 		underline := strings.TrimRight(line, " \t")
@@ -50,6 +78,10 @@ func nestSectionHeadings(body string) string {
 			headings = append(headings, sectionHeading{paragraph, i, level})
 			minimum = min(minimum, level)
 			paragraph = -1
+			continue
+		}
+		if sectionListMarker.MatchString(line) {
+			paragraph, listBlock = -1, true
 			continue
 		}
 		if strings.TrimSpace(line) == "" || strings.HasPrefix(line, ">") || strings.HasPrefix(line, "- ") || strings.HasPrefix(line, "* ") || strings.HasPrefix(line, "+ ") || sectionThematicBreak(line) {
@@ -95,4 +127,28 @@ func nestSectionHeadings(body string) string {
 func sectionThematicBreak(line string) bool {
 	line = strings.Join(strings.Fields(line), "")
 	return len(line) >= 3 && strings.ContainsAny(line[:1], "-*_") && strings.Trim(line, line[:1]) == ""
+}
+
+func sectionHTMLBlock(line string) (string, bool) {
+	switch {
+	case strings.HasPrefix(line, "<!--"):
+		return "-->", true
+	case strings.HasPrefix(line, "<?"):
+		return "?>", true
+	case strings.HasPrefix(line, "<![CDATA["):
+		return "]]>", true
+	case len(line) > 2 && strings.HasPrefix(line, "<!") && line[2] >= 'A' && line[2] <= 'Z':
+		return ">", true
+	}
+	tag := sectionHTMLTag.FindStringSubmatch(line)
+	if tag == nil {
+		return "", false
+	}
+	if !strings.HasPrefix(line, "</") {
+		switch strings.ToLower(tag[1]) {
+		case "script", "pre", "style", "textarea":
+			return "</" + strings.ToLower(tag[1]) + ">", true
+		}
+	}
+	return "", true
 }

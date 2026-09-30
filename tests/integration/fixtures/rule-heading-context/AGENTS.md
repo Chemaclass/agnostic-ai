@@ -21,6 +21,15 @@ Versioning text.
 ### Code heading
 ~~~
 
+1. Run tests
+---
+
+<div>
+Literal HTML
+---
+# Literal heading
+</div>
+
 
 ### working-style
 
