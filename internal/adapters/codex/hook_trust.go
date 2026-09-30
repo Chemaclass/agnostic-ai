@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 )
 
