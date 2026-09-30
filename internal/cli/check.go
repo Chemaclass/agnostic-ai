@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 
@@ -25,7 +26,7 @@ import (
 // specs changed; Edited lists files whose bytes differ from that record,
 // a hand edit the next sync overwrites. Orphaned lists
 // files a prior sync wrote, no longer emits, and could not remove; no
-// write fixes them, so `--fix` leaves them to the user. Blocking lists
+// write fixes them, so `doctor --fix` offers their removal. Blocking lists
 // the removals sync makes before writing a missing file, for a file that
 // stands where the file's parent directory belongs (Cline's single-file
 // `.clinerules`, #1064); `--fix` replays them first. Leftover lists
@@ -221,6 +222,15 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 		emitted[outputManifestPath] = true
 	}
 	reports = append(reports, epRep)
+	generated, err := orphanGeneratedPaths(cfg, b, reports)
+	if err != nil {
+		return nil, err
+	}
+	for i := range reports {
+		reports[i].Orphaned = slices.DeleteFunc(reports[i].Orphaned, func(path string) bool {
+			return slices.ContainsFunc(generated, func(generatedPath string) bool { return samePath(generatedPath, path) })
+		})
+	}
 	// Another target's files are not in emitted, so only a check that
 	// covers every configured target can tell what sync stopped writing.
 	// The ledger does not record which target wrote a file, so leftovers
@@ -360,7 +370,10 @@ func collectEntryPointDrift(cfg *config.Config, b spec.Bundle, targets []string)
 		}
 		rep.Current = append(rep.Current, file)
 	}
-	rep.Orphaned = recordedOrphans(cfg)
+	generated := driftGeneratedPaths([]driftReport{rep})
+	rep.Orphaned = slices.DeleteFunc(recordedOrphans(cfg), func(path string) bool {
+		return slices.ContainsFunc(generated, func(generatedPath string) bool { return samePath(generatedPath, path) })
+	})
 	return rep, nil
 }
 
@@ -403,6 +416,49 @@ func driftGeneratedPaths(reports []driftReport) []string {
 		}
 	}
 	return out
+}
+
+// A partial check cannot classify a ledger orphan until every configured producer is captured.
+func orphanGeneratedPaths(cfg *config.Config, b spec.Bundle, reports []driftReport) ([]string, error) {
+	generated := driftGeneratedPaths(reports)
+	if cfg.Sync.OutputManifest {
+		generated = append(generated, outputManifestPath)
+	}
+	if orphanedCount(reports) == 0 {
+		return generated, nil
+	}
+	var checked []string
+	for _, report := range reports {
+		checked = append(checked, report.Target)
+	}
+	var remaining []string
+	for _, target := range cfg.Targets {
+		if !slices.Contains(checked, target) {
+			remaining = append(remaining, target)
+		}
+	}
+	if len(remaining) == 0 {
+		return generated, nil
+	}
+	sess := adapters.NewSession()
+	for _, target := range remaining {
+		adapter, err := adapters.Resolve(target)
+		if err != nil {
+			return nil, fmt.Errorf("verify orphan producers: %w", err)
+		}
+		files, err := captureAdapterFiles(sess, adapter, b, cfg)
+		if err != nil {
+			return nil, fmt.Errorf("verify orphan producers for %s: %w", target, err)
+		}
+		for _, file := range files {
+			generated = append(generated, file.Path)
+		}
+	}
+	entryPoints, err := collectEntryPointDrift(cfg, b, cfg.Targets)
+	if err != nil {
+		return nil, fmt.Errorf("verify orphan entry points: %w", err)
+	}
+	return append(generated, driftGeneratedPaths([]driftReport{entryPoints})...), nil
 }
 
 // reportTrackedIgnored lists generated paths git both tracks and
@@ -463,7 +519,7 @@ func printDrift(reports []driftReport) bool {
 				summaryf("      - %s\n", filepath.ToSlash(p))
 			}
 		} else if len(r.Orphaned) > 0 {
-			summaryf("    %d orphaned file(s) no longer generated but edited since sync (delete them, or list them under sync.unmanaged):\n", len(r.Orphaned))
+			summaryf("    %d orphaned file(s) no longer generated whose ownership could not be proven (run `agnostic-ai doctor --fix` to choose removal, or list them under sync.unmanaged):\n", len(r.Orphaned))
 			for _, p := range r.Orphaned {
 				summaryf("      - %s\n", filepath.ToSlash(p))
 			}
@@ -677,7 +733,11 @@ func newDoctorCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				summaryf("→ reconciled %d file(s)\n", fixed+removedCopies)
+				removedOrphans, err := offerOrphanRemoval(cfg, reports, backup, orphanRemovalPrompt(cmd))
+				if err != nil {
+					return err
+				}
+				summaryf("→ reconciled %d file(s)\n", fixed+removedCopies+removedOrphans)
 				hookTrust = collectCodexHookTrust(cfg, targets)
 				reportCodexHookTrust(cmd, hookTrust)
 				if n := orphanedCount(reports); n > 0 {
@@ -691,8 +751,8 @@ func newDoctorCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringSliceVarP(&targets, "target", "t", nil, "Targets to check (default: all in config)")
-	cmd.Flags().BoolVar(&fix, "fix", false, "Reconcile drift by writing missing/stale files")
-	cmd.Flags().BoolVar(&backup, "backup", false, "With --fix, copy each existing file to <path>.bak before overwriting")
+	cmd.Flags().BoolVar(&fix, "fix", false, "Reconcile drift and offer removal of kept orphans in a terminal")
+	cmd.Flags().BoolVar(&backup, "backup", false, "With --fix, copy each existing file to <path>.bak before overwriting or confirmed orphan removal")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for machine consumption")
 	cmd.Flags().BoolVar(&checkGlobs, "check-globs", false, "Flag rules whose `globs:` pattern matches no files in the working tree")
 	cmd.Flags().BoolVar(&checkRefs, "check-references", false, "Flag relative Markdown links in emitted skills whose file is missing on disk")
