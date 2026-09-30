@@ -8,8 +8,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
-- Imported Claude shell hooks using `$CLAUDE_PROJECT_DIR` or `${CLAUDE_PROJECT_DIR}` resolve to the project on other targets, through a native root variable or a Git-root lookup. Unsupported root syntax gets a note naming the hook, and `on-unsupported: error` fails the sync (#1449).
-
+- Breaking: rule `scope`, `globs`, and `paths` form a union. Remove `scope` to keep only a file filter; see the migration guide (#1429).
+- Imported Claude hook roots resolve on other targets. Unsupported shell or root syntax names the hook and follows `on-unsupported` (#1449).
 - `sync --diff` without `--check` now fails and names `--check` instead of ignoring the flag and writing every output (#1439).
 - A Claude model name in a shared agent or settings `model` raises a coverage note on Codex, Gemini, OpenCode, Kilo Code, Cursor, Factory, and Kiro, naming `model: {claude: <name>}`. `on-unsupported: error` fails the sync (#1431).
 - AAI-005 says to update `requires` when `package.json` already pins the running release, as right after `pnpm add agnostic-ai@X.Y.Z`, instead of suggesting a downgrade.
@@ -25,6 +25,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `import all` and `init --from all` seed `AGNOSTIC_AI.md` from a hand-written root `AGENTS.md` when no other tool config is found, instead of importing nothing (#1464).
 - A comma-separated `globs` string, such as `src/x/**,tests/x/**`, reaches Claude Code `paths` and Continue `globs` as one entry per pattern, so the rule loads on those files. Commas inside `{a,b}` stay in their pattern (#1428).
 - Rule folders scope existing project directories, including from packs; explicit scopes win, and lint compares normalized scopes (#1430).
+- The Targets page says how to use a tool with no target, such as pi: enable `codex` for `AGENTS.md` and `.agents/skills/`, and copy MCP servers and commands by hand (#1480).
 
 ### By tool
 
