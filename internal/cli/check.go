@@ -560,7 +560,8 @@ func newDoctorCmd() *cobra.Command {
 			"  2. Validate agnostic-ai.yaml config.\n" +
 			"  3. Report unsupported spec kinds per target, then spec health: the\n" +
 			"     findings `agnostic-ai lint` reports.\n" +
-			"  4. Report agentic config on disk not single-sourced from .agnostic-ai/.\n" +
+			"  4. Report agentic config on disk not single-sourced from .agnostic-ai/,\n" +
+			"     and project skills or agents that share a name with a global one.\n" +
 			"  5. Compare what sync would emit against files on disk (drift), and flag\n" +
 			"     a generated file still tracked despite being ignored.\n" +
 			"     --check-globs and --check-references add opt-in checks here.\n" +
@@ -604,11 +605,11 @@ func newDoctorCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				lint, err := lintScopeFindings(scope)
+				lint, accepted, err := lintScopeReport(scope)
 				if err != nil {
 					return err
 				}
-				return printDoctorJSON(cmd, reports, refs, checkRefs, lint, collectCodexHookTrust(scope.cfg, targets), collectPackagingIgnoreFindings(reports))
+				return printDoctorJSON(cmd, reports, refs, checkRefs, lint, accepted, collectCodexHookTrust(scope.cfg, targets), collectPackagingIgnoreFindings(reports))
 			}
 
 			configOK := doctorConfigOK()
@@ -645,6 +646,7 @@ func newDoctorCmd() *cobra.Command {
 			reportUnmanagedConfig(cmd, ".", cfg)
 			reportUserOwned(cmd, cfg)
 			reportLegacyDefaultInstructions(cmd)
+			reportGlobalNameClashes(cmd, scope.bundle, cfg.Targets)
 
 			// 4. Drift
 			cmd.Println()
@@ -783,17 +785,19 @@ type doctorJSONOutput struct {
 	References      *[]referenceFinding      `json:"references,omitempty"`
 	HookTrust       []codex.HookTrustFinding `json:"hook_trust"`
 	PackagingIgnore []packagingIgnoreFinding `json:"packaging_ignore"`
+	// CoverageAccepted counts the coverage notes coverage.accept matches.
+	CoverageAccepted int `json:"coverage_accepted"`
 }
 
 // printDoctorJSON emits a JSON drift report for `doctor`. Mirrors the schema
 // used by `sync --check --json`: missing, stale, and orphaned files appear
 // in writes. Lint, hook trust, and packaging findings have their own lists. With checkRefs, broken skill
 // references appear in references.
-func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []referenceFinding, checkRefs bool, lint []lintFinding, hookTrust []codex.HookTrustFinding, packaging []packagingIgnoreFinding) error {
+func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []referenceFinding, checkRefs bool, lint []lintFinding, coverageAccepted int, hookTrust []codex.HookTrustFinding, packaging []packagingIgnoreFinding) error {
 	if lint == nil {
 		lint = []lintFinding{}
 	}
-	out := doctorJSONOutput{jsonOutput: jsonOutput{Version: "1", Command: "doctor", Writes: driftRecords(reports)}.withEmptyLists(), Lint: lint, HookTrust: hookTrust, PackagingIgnore: packaging}
+	out := doctorJSONOutput{jsonOutput: jsonOutput{Version: "1", Command: "doctor", Writes: driftRecords(reports)}.withEmptyLists(), Lint: lint, HookTrust: hookTrust, PackagingIgnore: packaging, CoverageAccepted: coverageAccepted}
 	if out.HookTrust == nil {
 		out.HookTrust = []codex.HookTrustFinding{}
 	}

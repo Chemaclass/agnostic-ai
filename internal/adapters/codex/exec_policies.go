@@ -44,7 +44,7 @@ func emitExecPolicies(sess *emit.Session, cfg *config.Config, policies []config.
 			return err
 		}
 	}
-	header, err := loadExecPoliciesHeader(cfg, dryRun)
+	header, err := loadExecPoliciesHeader(cfg)
 	if err != nil {
 		return err
 	}
@@ -57,10 +57,9 @@ func emitExecPolicies(sess *emit.Session, cfg *config.Config, policies []config.
 // loadExecPoliciesHeader reads the file-level comment captured by
 // `agnostic-ai import codex` (sidecar to the YAML overlay). Returns ""
 // when absent or when the user opted into inline / explicit-file
-// policies (the overlay path is not used in those cases). dryRun skips
-// disk so `--dry-run` previews stay pure.
-func loadExecPoliciesHeader(cfg *config.Config, dryRun bool) (string, error) {
-	if dryRun || !shouldUseExecPoliciesOverlay(cfg) {
+// policies (the overlay path is not used in those cases).
+func loadExecPoliciesHeader(cfg *config.Config) (string, error) {
+	if !shouldUseExecPoliciesOverlay(cfg) {
 		return "", nil
 	}
 	data, err := os.ReadFile(execPoliciesHeaderOverlayPath)

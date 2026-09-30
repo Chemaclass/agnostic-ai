@@ -35,6 +35,7 @@ For directory-specific instructions, give a rule a `scope`; see [scoped context]
 | Gate on project checks | [Verify](#verify) |
 | Block older binaries | [`requires`](#requires) |
 | Instruction size warnings | [`lint`](#lint) |
+| Silence a known coverage note, or fail on the rest | [`coverage`](#coverage) |
 | Per-machine or personal overrides | [Local overrides](#local-overrides), [Local spec layers](@/docs/local-overrides.md) |
 | Which value wins | [Precedence](#precedence), [Layered specs](#layered-specs) |
 | Cross-project instructions | [Global configuration](#global-configuration) |
@@ -69,6 +70,7 @@ outputs:
 | [`sources`](#sources) | map | `.agnostic-ai/<kind>/` | Source directories. |
 | [`targets`](#targets) | list | 20 adapters | Adapters to emit. |
 | [`outputs`](#outputs) | map | per target | Output path overrides. |
+| [`models`](#models) | map | none | Model tiers that agents, skills, commands, and settings name. |
 | [`on-unsupported`](#on-unsupported) | string | `warn` | Unsupported kind handling. |
 | [`gitignore`](#gitignore) | map | `enabled: false` | Managed `.gitignore` block. |
 | [`sync`](#sync) | map | see section | Sync behavior. |
@@ -76,6 +78,7 @@ outputs:
 | [`import`](#import) | map | per source | Import behavior. |
 | [`lint`](#lint) | map | see section | Budgets for always-loaded text. |
 | [`doctor`](#doctor) | map | see section | Opt-in diagnostic checks. |
+| [`coverage`](#coverage) | map | none | Accepted coverage notes and the note gate. |
 
 ## `requires`
 
@@ -126,6 +129,19 @@ outputs:
 ```
 
 For Codex command rules, set `outputs.codex.exec-policies-from-permissions: true` to translate simple Bash entries from portable Settings specs and `outputs.claude.settings.permissions`. It defaults to `false`. Explicit inline, file, or imported Codex policies take precedence. Every translated rule matches a command prefix, including extra arguments, and sync notes each exact `allow` rule that [Codex widens](@/docs/targets/codex.md#translate-bash-permissions). See [Bash permission translation](@/docs/targets/codex.md#translate-bash-permissions) for limits and LINT021 drift checks.
+
+## `models`
+
+Names each model role once. A spec whose `model` names a tier gets the tier's model for each target. Each tier maps a target name to that target's model id, with an optional `default` for every other target, and an optional `effort` (a scalar or a per-target map).
+
+```yaml
+models:
+  strong:   {claude: opus, codex: gpt-5.5, effort: {claude: xhigh, codex: high}}
+  balanced: {claude: sonnet, codex: gpt-5.5}
+  fast:     {claude: haiku, codex: o4-mini, effort: low}
+```
+
+An agent then writes `model: strong`. A `model` that names no tier stays a literal model id. See [model tiers](@/docs/spec-format/agents.md#model-tiers) for precedence. Each key is a target name, `default`, or `effort`; any other key fails to load (AAI-004) with the closest target name. A tier with only `effort` keeps each tool's default model and sets its effort. A tier with neither a model nor an `effort` fails to load. `lint` warns when a tier a spec names has no entry and no `default` for a target that writes the spec, or when a tier is named like a Claude model (LINT025), and when that tier's `default` is a Claude model name another target cannot load (LINT026). `explain <spec>` shows the model and effort each target gets. The [global home config](#global-configuration) accepts the key too.
 
 ## `targets`
 
@@ -347,6 +363,45 @@ Setting the named key clears the note. Repeated warnings collapse into one count
 | `gemini` | agents with `tools` beyond Read/Write/Edit/Bash/Grep/Glob/WebFetch/WebSearch | None. Use `x-gemini: {tools: [...]}` or drop `tools`. |
 | `crush` | hooks not on `PreToolUse` | None. Crush runs `PreToolUse` only. |
 
+## `coverage`
+
+`on-unsupported` does not cover coverage notes: `error` never fails on them. Two keys handle notes instead. Both are project-only: `sync --global` ignores a `coverage:` key in the home config and warns about it.
+
+```yaml
+coverage:
+  fail-on-notes: true
+  accept:
+    - target: codex
+      kind: agents
+      field: tools
+      reason: Codex limits come from sandbox_mode; tools stays portable for other targets.
+    - target: [codex, gemini, cursor]
+      kind: skills
+      field: argument-hint
+      reason: Only Claude Code shows the hint.
+```
+
+### `coverage.fail-on-notes` {#coveragefail-on-notes}
+
+Default `false`. When `true`, sync fails on each coverage note that names a target and is not accepted. It prints the notes and rolls back the writes. This applies to `sync`, `sync --dry-run`, `sync --watch`, `sync --json`, `sync --check`, `sync --check --json`, and `sync --plan`. Under `-q` the failing notes still print on stderr.
+
+### `coverage.accept` {#coverageaccept}
+
+Some notes describe a decision the project already made. A portable `tools` list on an agent stays for Claude Code, while Codex gets its limits from `x-codex.sandbox_mode`. List such a note under `coverage.accept` with the reason. Each entry names one note with exactly one of `field`, `via`, or `surface`.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `target` | yes | One target name, or a list. The entry applies to each. A name must be a built-in target or listed in `targets`. |
+| `kind` | yes | `agents`, `skills`, `rules`, `hooks`, `mcps`, `commands`, `settings`, `reviews`, `environments`, or `ignores`. |
+| `field` | one of three | Matches "`<field>` on N specs has no effect on `<target>`" notes for that field, whatever reason the target gives. Copilot's four `matcher` notes on hooks all match `field: matcher`. |
+| `via` | one of three | Matches "N specs reach `<target>` only via `<via>`" notes, and "only in the source dir (`<via>`)" notes, with that exact text. |
+| `surface` | one of three | Matches "N specs reach `<target>` but not `<surface>`" notes with that surface. |
+| `reason` | yes | Why the note is expected. `sync -v` prints it. |
+
+An accepted note no longer prints on `sync`, and `fail-on-notes` ignores it. `sync -v` lists it as `accepted:`, with its reason on the next line. `doctor` shows how many notes are accepted, and `doctor --json` reports the count as `coverage_accepted`. `lint` warns with LINT024 when an entry matches no note on one of its targets, so an entry goes stale visibly once the target supports the field. Config loading fails on an unknown target, a repeated entry, or an entry with no `field`, `via`, or `surface`.
+
+Project notes are about the setup as a whole, not about one spec kind. Some start with a target name, such as `note: codex: outputs.codex.config.notify is not written`. `coverage.accept` cannot match them, and `fail-on-notes` does not fail on them. A failure that `on-unsupported: error` raises while emitting, such as a Claude model name on another target or a rule scope a target cannot keep, is not a note either. An entry does not stop it, even when the same entry accepts the note that `warn` prints.
+
 ## `gitignore`
 
 | Field | Default | Description |
@@ -464,7 +519,7 @@ Source root: `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when unset.
 
 ```text
 ~/.agnostic-ai/
-├── agnostic-ai.yaml        # optional: targets, requires, lint, on-unsupported
+├── agnostic-ai.yaml        # optional: targets, requires, lint, on-unsupported, models
 ├── AGNOSTIC_AI.md
 ├── agents/*.md
 ├── rules/*.md
@@ -489,6 +544,7 @@ targets: [claude, codex, cursor]
 - [`requires`](#requires) stops the `--global` commands on an older binary. `local/agnostic-ai.yaml` replaces the shared value.
 - `lint` sets the budgets `lint --global` uses.
 - [`on-unsupported`](#on-unsupported) sets what `sync --global` does with a skill line that Claude Code expands and a target reads as plain text (see [Claude Code body syntax](@/docs/spec-format/skills.md#claude-code-body-syntax)): `warn` prints a note, `error` fails the sync, `silent` hides it. `local/agnostic-ai.yaml` replaces the shared value.
+- [`models`](#models) names the tiers global specs use, so `model: strong` resolves per target as in a project. A tier in `local/agnostic-ai.yaml` replaces the same-name tier in the shared file.
 - Other keys except `version` print a warning and are ignored.
 - A target dropped from the list keeps its synced files and ownership records until you remove them by hand.
 
@@ -499,7 +555,7 @@ Run `agnostic-ai list --global` to see effective specs with their `global` or `g
 - Skills render native frontmatter and copy bundled assets verbatim. Claude resolves skill `model` and `effort`, including per-target maps and `x-claude` overrides. Shared directories such as `~/.agents/skills/` keep neutral frontmatter.
 - Codex skills also get `agents/openai.yaml`, so `disable-model-invocation: true` keeps a skill manual-only there. Targets whose copy stays model-invocable print a coverage note.
 - Hooks and skills honor `target`, `targets`, and `targets-exclude`. Set hook events per target; sync does not translate event names.
-- Eighteen targets have global agent output; see [global output](@/docs/target-behavior.md#global-output). Others warn and skip agents. `readonly: true` maps to Codex's read-only sandbox and Claude's `disallowedTools`.
+- Eighteen targets have global agent output; see [global output](@/docs/target-behavior.md#global-output). Others warn and skip agents. `readonly: true` maps to Claude's `disallowedTools`; Codex agents keep the session sandbox and get a coverage note.
 - Output is real files, never symlinks. A user file that is itself a symlink (such as a dotfiles-managed `CLAUDE.md`) is written through. A symlink inside a skills, agents, or rules directory stops the run. Removing a spec behind a written-through symlink removes the link and the file it points at.
 - Ownership is recorded per target in `$AGNOSTIC_AI_HOME/state/global.json`. Sync keeps unrelated content and removes only recorded artifacts for the targets in the run, so `--only` never sweeps another target.
 - A managed hook or hooks file gone from disk is written again with a warning. A managed hook with the same matcher and command but other edits stops the run.
@@ -509,11 +565,30 @@ Run `agnostic-ai list --global` to see effective specs with their `global` or `g
 - A hand edit to a file sync owns, or to an instructions file's managed block, stops the run and names the file. Move the edit into the source, or rerun with `--backup` to overwrite it and keep `<path>.bak`. Text outside the managed block never counts.
 - Without `--only`, explicit targets, or a home `targets` list, a target with a relative root variable or an invalid agent name is skipped with a warning. Naming the target makes it an error.
 - Empty surfaces create nothing: no instructions file (a recorded one is removed) and no hooks file.
-- Native tool precedence applies when global and project configuration both exist. Sync Goose and OpenHands together to update their shared agent file.
+- Native tool precedence applies when global and project configuration both exist; see [shared names](#global-shared-names). Sync Goose and OpenHands together to update their shared agent file.
 
-Ordinary `agnostic-ai sync` does not load `~/.agnostic-ai/`. Run inside the global source root (or under it), it stops before any write and points at `sync --global`. When `AGNOSTIC_AI_HOME` is your home directory itself, only that directory is guarded. A path through a symlink counts. `init`, `import`, `new`, `packs`, `cleanup`, `revert`, and `install-hook` stop the same way. Read-only commands such as `lint`, `validate`, and `doctor` still run there. Put project-only defaults in a project's `.agnostic-ai/` or a pack.
+Ordinary `agnostic-ai sync` does not load `~/.agnostic-ai/` specs; it reads only their names to [warn about shared names](#global-shared-names). Run inside the global source root (or under it), it stops before any write and points at `sync --global`. When `AGNOSTIC_AI_HOME` is your home directory itself, only that directory is guarded. A path through a symlink counts. `init`, `import`, `new`, `packs`, `cleanup`, `revert`, and `install-hook` stop the same way. Read-only commands such as `lint`, `validate`, and `doctor` still run there. Put project-only defaults in a project's `.agnostic-ai/` or a pack.
 
 For a home kept in git, `install-hook --global` writes a pre-commit hook that runs `lint --global --strict`, `validate --global`, and `sync --global --check`. To start a home from what your tools already hold, run `agnostic-ai import --global`; see [import](@/docs/cli-reference/start.md#import).
+
+### Shared names {#global-shared-names}
+
+A project skill or agent can share its `name` with one in the home. Both get written, and each tool decides which one it loads. `sync` and `doctor` in the project print one warning per shared name, naming each project target where one copy hides the other and which one wins:
+
+```text
+! .agnostic-ai/skills/gh-issue/SKILL.md: skill "gh-issue" also exists in ~/.agnostic-ai/skills/gh-issue/SKILL.md; claude loads the global one, gemini loads this one; rename one to load both
+```
+
+| Target | Skill with the same name | Agent with the same name |
+|--------|--------------------------|--------------------------|
+| Amp | Global wins when both sync `amp`: `~/.agents/skills/` masks `.agents/skills/` ([skills](https://ampcode.com/docs/customize/skills)) | No global agents |
+| Claude Code | Global wins ([skills](https://code.claude.com/docs/en/skills)) | Project wins ([subagents](https://code.claude.com/docs/en/sub-agents)) |
+| Codex | Both can appear in skill selectors, so no warning ([skills](https://learn.chatgpt.com/docs/build-skills)) | Not checked |
+| Gemini CLI | Project wins ([skills](https://geminicli.com/docs/cli/skills/)) | Not checked |
+
+Other targets document no precedence, so sync does not warn for them. The check covers targets both the project and the home's [`targets`](#global-configuration) write, and skips a spec whose `target`, `targets`, or `targets-exclude` leaves one of them out. Claude Code matches skill names ignoring case, spacing, invisible characters, and fullwidth forms, so the Claude check folds names the same way; other targets compare names exactly. A spec the project and the home share through a link, or a project that is the home, is not a clash. A missing or unreadable home adds no warning.
+
+To layer on purpose, give the project spec its own name. For example, keep a general `gh-issue` skill in the home and add a project `gh-issue-project` skill that holds only this repo's branch names and checks. Both then load everywhere, and the project one can point at the global one.
 
 ### Default model and effort {#global-default-model-and-effort}
 

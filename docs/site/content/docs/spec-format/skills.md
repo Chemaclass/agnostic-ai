@@ -69,7 +69,7 @@ model: {claude: opus}
 | `description` | no | empty | One-liner the model uses to decide whether to invoke the skill. |
 | `argument-hint` | no | unset | Hint for the arguments to a Claude Code slash command. Other targets omit it unless set under their `x-<target>` block. |
 | `disable-model-invocation` | no | unset | `true` keeps the skill out of automatic invocation; a person can still call it. See [support by target](#disable-model-invocation-support-by-target). |
-| `model` | no | unset | Claude Code model for the rest of the turn. Scalar or per-target map; `x-claude.model` wins. |
+| `model` | no | unset | Claude Code model for the rest of the turn. Scalar, per-target map, or [tier](@/docs/spec-format/agents.md#model-tiers) name; `x-claude.model` wins. |
 | `effort` | no | unset | Claude Code effort for the rest of the turn. Scalar or per-target map; `x-claude.effort` wins. |
 | `license` | no | unset | The Agent Skills license, kept in every target's `SKILL.md`. |
 | `workspaces` | no | empty | Project directories where Cursor also gets a copy, such as `[apps/web]`. Cursor loads skills only from the workspace it opens, so a session or SDK agent started in `apps/web` misses a root skill. The skill stays at the root for every tool. |

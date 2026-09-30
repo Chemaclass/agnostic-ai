@@ -33,18 +33,22 @@ func defaultSource(kind string) string {
 }
 
 type Config struct {
-	Version       int               `yaml:"version"                  json:"version"`
-	Requires      string            `yaml:"requires,omitempty"       json:"requires,omitempty"`
-	Sources       Sources           `yaml:"sources,omitempty"        json:"sources,omitempty"`
-	Targets       []string          `yaml:"targets,omitempty"        json:"targets,omitempty"`
-	Outputs       map[string]Output `yaml:"outputs,omitempty"        json:"outputs,omitempty"`
-	OnUnsupported string            `yaml:"on-unsupported,omitempty" json:"on-unsupported,omitempty"`
-	Gitignore     Gitignore         `yaml:"gitignore,omitempty"      json:"gitignore,omitempty"`
-	Sync          SyncConfig        `yaml:"sync,omitempty"           json:"sync,omitempty"`
-	Import        ImportConfig      `yaml:"import,omitempty"         json:"import,omitempty"`
-	Verify        VerifyConfig      `yaml:"verify,omitempty"         json:"verify,omitempty"`
-	Lint          LintConfig        `yaml:"lint,omitempty"           json:"lint,omitempty"`
-	Doctor        DoctorConfig      `yaml:"doctor,omitempty"         json:"doctor,omitempty"`
+	Version  int               `yaml:"version"                  json:"version"`
+	Requires string            `yaml:"requires,omitempty"       json:"requires,omitempty"`
+	Sources  Sources           `yaml:"sources,omitempty"        json:"sources,omitempty"`
+	Targets  []string          `yaml:"targets,omitempty"        json:"targets,omitempty"`
+	Outputs  map[string]Output `yaml:"outputs,omitempty"        json:"outputs,omitempty"`
+	// Models names model tiers once; a spec `model` that names a tier
+	// resolves through it per target.
+	Models        map[string]ModelTier `yaml:"models,omitempty"         json:"models,omitempty"`
+	OnUnsupported string               `yaml:"on-unsupported,omitempty" json:"on-unsupported,omitempty"`
+	Gitignore     Gitignore            `yaml:"gitignore,omitempty"      json:"gitignore,omitempty"`
+	Sync          SyncConfig           `yaml:"sync,omitempty"           json:"sync,omitempty"`
+	Import        ImportConfig         `yaml:"import,omitempty"         json:"import,omitempty"`
+	Verify        VerifyConfig         `yaml:"verify,omitempty"         json:"verify,omitempty"`
+	Lint          LintConfig           `yaml:"lint,omitempty"           json:"lint,omitempty"`
+	Doctor        DoctorConfig         `yaml:"doctor,omitempty"         json:"doctor,omitempty"`
+	Coverage      CoverageConfig       `yaml:"coverage,omitempty"       json:"coverage,omitempty"`
 }
 
 // VerifyConfig defines the external command that re-clears generated AI
@@ -465,10 +469,16 @@ func LoadWithSources(root string) (*Config, []string, error) {
 	if err := validateRequires(cfg.Requires, strings.Join(sources, " + ")); err != nil {
 		return nil, nil, err
 	}
+	if err := ValidateModels(cfg.Models, strings.Join(sources, " + ")); err != nil {
+		return nil, nil, err
+	}
 	if err := cfg.Lint.Validate(strings.Join(sources, " + ")); err != nil {
 		return nil, nil, err
 	}
 	if err := cfg.Gitignore.Validate(strings.Join(sources, " + ")); err != nil {
+		return nil, nil, err
+	}
+	if err := cfg.Coverage.Validate(strings.Join(sources, " + ")); err != nil {
 		return nil, nil, err
 	}
 	return cfg, sources, nil

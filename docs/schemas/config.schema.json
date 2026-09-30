@@ -261,6 +261,43 @@
           },
           "type": "object"
         },
+        "models": {
+          "additionalProperties": {
+            "properties": {
+              "effort": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "additionalProperties": {
+                      "oneOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "integer"
+                        }
+                      ]
+                    },
+                    "type": "object"
+                  }
+                ],
+                "description": "Effort the tier carries: a scalar, or a map of target name (or default) to a scalar."
+              }
+            },
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            },
+            "type": "object",
+            "description": "A model tier: target name (or default) to that target's model id, plus an optional effort."
+          },
+          "type": "object"
+        },
         "on-unsupported": {
           "type": "string"
         },
@@ -281,6 +318,9 @@
         },
         "doctor": {
           "$ref": "#/$defs/DoctorConfig"
+        },
+        "coverage": {
+          "$ref": "#/$defs/CoverageConfig"
         }
       },
       "additionalProperties": false,
@@ -288,6 +328,72 @@
       "required": [
         "version"
       ]
+    },
+    "CoverageAccept": {
+      "properties": {
+        "target": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "agents",
+            "skills",
+            "rules",
+            "hooks",
+            "mcps",
+            "commands",
+            "settings",
+            "reviews",
+            "environments",
+            "ignores"
+          ]
+        },
+        "field": {
+          "type": "string"
+        },
+        "via": {
+          "type": "string"
+        },
+        "surface": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "target",
+        "kind",
+        "reason"
+      ]
+    },
+    "CoverageConfig": {
+      "properties": {
+        "fail-on-notes": {
+          "type": "boolean"
+        },
+        "accept": {
+          "items": {
+            "$ref": "#/$defs/CoverageAccept"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "DoctorConfig": {
       "properties": {

@@ -8,7 +8,9 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- Name model tiers once under `models:`: a spec's `model: strong` resolves per target, in `sync --global` too, `explain` shows each result, `lint` flags gaps, and `import claude` suggests tiers (#1495).
 - **Breaking:** rule `scope`, `globs`, and `paths` form a union; rule folders scope existing directories. Remove `scope` to keep only a filter (#1429, #1430).
+- `coverage.accept` lists known coverage notes with a reason, so sync stops printing them; `coverage.fail-on-notes` fails sync on the rest (#1514).
 - Hooks can use `.agnostic-ai/scripts/<name>` to copy and run one shared script in each target, including with `sync --global` (#1454).
 - `agnostic-ai hook paths` prints the files an edit touched, Codex patches included, so one edit hook runs on several tools (#1493).
 - `agnostic-ai hook run` runs a hook with the Claude Code and Codex payloads and fails on a timeout, an error, or when they decide differently (#1494).
@@ -19,14 +21,17 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - A failed sync puts back swept orphans, shared-skill links, and ignore files, and no longer deletes a shared skill through a swapped link (#1503, #1509).
 - `import` keeps hand-written instructions whole, a nested `AGENTS.md` becomes a scoped rule, and Claude hook roots resolve elsewhere (#1434, #1449, #1464).
 - Sync notes omitted skill fields, Claude model names, and Claude-only skill syntax; `compare` shows each target's skill fields (#1431, #1436, #1444, #1463).
+- `sync` and `doctor` warn when a project skill or agent shares a name with a global one, naming the target where each copy wins (#1457).
 - `doctor` fails on lint errors, `sync --diff` requires `--check`, and a `requires` bump no longer trips AAI-005 or `--check --against` (#1425, #1433, #1439).
 
 - `install-hook --post-checkout` adds `post-merge` to restore generated files after pulls; `sync --untrack` warns other clones to install it (#1478).
+- `validate` notes a listed `sources` directory that does not exist instead of failing, so a fresh clone without empty source dirs passes (#1491).
 
 ### By tool
 
 #### Claude Code
 
+- An environment spec's `setup` runs once in each new Claude Code worktree through generated hooks; `x-claude.setup: false` turns it off. Delete a hand-written bootstrap hook, since it runs in parallel with setup (#1498).
 - Scoped companion cleanup waits for concurrent writes, so sync removes covered `CLAUDE.md` files consistently (#1478).
 - Claude runtime paths stay out of `.worktreeinclude`; `gitignore.ignore-worktree-include: true` also keeps that file out of Git (#1438, #1441).
 - A `CLAUDE.md` that imports `@AGENTS.md` keeps that layout with only Claude enabled, so `AGENTS.md` no longer goes stale.
@@ -43,6 +48,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - Exec policies and a Codex config or overlay `model` silence the notes they make redundant (#1432, #1462).
 - `import codex` strips generated skill headers and keeps an agent's model in `model.codex`; `environment.toml` always has `[setup]` (#1461, #1476).
 - Sync no longer writes `notify`, `profiles`, `model_providers`, or other keys Codex ignores in a project `config.toml`, and notes where each goes (#1511).
+- Sync notes that `readonly` and `x-codex.sandbox_mode` have no effect on current Codex agents, which keep the session sandbox (#1519).
+- `sync --dry-run` reads the captured exec-policies header, so its `.codex/rules/default.rules` preview matches a real sync (#1523).
 
 #### Copilot
 

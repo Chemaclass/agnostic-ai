@@ -55,7 +55,9 @@ func newLintCmd() *cobra.Command {
 			"with a wildcard before the end of the command, spec bodies that name " +
 			"another spec by one target's native path, skill and command lines with " +
 			"Claude Code body syntax an enabled target reads as plain text, missing or conflicting " +
-			"Codex command prefixes for Bash permissions, and warns when a " +
+			"Codex command prefixes for Bash permissions, coverage.accept entries " +
+			"that match no coverage note, model tiers with no model for an enabled " +
+			"target, Claude model names that reach another vendor's target, and warns when a " +
 			"target's always-loaded instructions pass the lint.instructions-words " +
 			"budget, the AGENTS.md chain Codex reads in a scope passes lint.codex-chain-bytes, " +
 			"or a skill or agent description passes lint.description-chars. " +
@@ -121,9 +123,16 @@ func newLintCmd() *cobra.Command {
 // lintScopeFindings is every finding `lint` reports for a scope. doctor
 // reads the same set, so it cannot pass while lint has findings.
 func lintScopeFindings(scope checkScope) ([]lintFinding, error) {
+	findings, _, err := lintScopeReport(scope)
+	return findings, err
+}
+
+// lintScopeReport is lintScopeFindings plus the number of coverage notes
+// coverage.accept matched, which doctor reports from the same emission.
+func lintScopeReport(scope checkScope) ([]lintFinding, int, error) {
 	budget, err := lintBudgetFindings(scope)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	findings := collectLintFindings(scope.targets, scope.support, scope.bundle)
 	if scope.global {
@@ -132,14 +141,19 @@ func lintScopeFindings(scope checkScope) ([]lintFinding, error) {
 	}
 	findings = append(findings, budget...)
 	findings = append(findings, lintGitignoreCommitTargets(scope.cfg)...)
+	accepted := 0
 	if !scope.global {
 		permissions, err := lintCodexPermissions(scope.targets, scope.cfg, scope.bundle)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		findings = append(findings, permissions...)
+		coverage := matchCoverageAccept(scope.cfg, scope.bundle, scope.targets)
+		findings = append(findings, lintCoverageAccept(coverage)...)
+		accepted = coverage.accepted
+		findings = append(findings, lintModels(scope.cfg, scope.targets, scope.support, scope.bundle)...)
 	}
-	return findings, nil
+	return findings, accepted, nil
 }
 
 // collectLintFindings runs every rule against a loaded bundle. Both `lint`

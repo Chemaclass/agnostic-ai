@@ -161,6 +161,17 @@ func NoteProject(text string) { emit.NoteProject(text) }
 // ClaudeModel reports whether model is a Claude Code model name.
 func ClaudeModel(model string) bool { return emit.ClaudeModel(model) }
 
+// ForeignClaudeModel reports whether model is a Claude model name that
+// target's agent `model` key cannot load.
+func ForeignClaudeModel(target, model string) bool {
+	a, ok := registry[target].(interface{ ForeignClaudeModels() []string })
+	return ok && emit.ForeignClaudeModel(a.ForeignClaudeModels(), model)
+}
+
+// SharedModel returns the model meta gives target through a value every
+// target shares: a string `model`, or the map's `default`.
+func SharedModel(meta map[string]any, target string) string { return emit.SharedModel(meta, target) }
+
 // Note is one buffered capability warning or coverage note in structured
 // form (re-exported from the emit layer).
 type Note = emit.Note
@@ -197,6 +208,24 @@ func CoverageNotesDigest() string { return emit.CoverageNotesDigest() }
 // PendingCoverageNotesCount returns the number of distinct
 // (target, kind, via) coverage notes currently buffered.
 func PendingCoverageNotesCount() int { return emit.PendingCoverageNotesCount() }
+
+// AcceptedNote is a coverage note a coverage.accept entry matched
+// (re-exported from the emit layer).
+type AcceptedNote = emit.AcceptedNote
+
+// AcceptCoverageNotes takes the buffered coverage notes accept matches
+// out of the buffers and returns them, with the entries that matched
+// none.
+func AcceptCoverageNotes(accept []config.CoverageAccept) ([]AcceptedNote, []config.CoverageAccept) {
+	return emit.AcceptCoverageNotes(accept)
+}
+
+// PrintAcceptedNotes prints each accepted note with its reason.
+func PrintAcceptedNotes(accepted []AcceptedNote) { emit.PrintAcceptedNotes(accepted) }
+
+// PendingTargetCoverageNotesCount returns the number of distinct
+// buffered coverage notes that name a target.
+func PendingTargetCoverageNotesCount() int { return emit.PendingTargetCoverageNotesCount() }
 
 // OrderBufferedDropsByTarget reorders the buffered capability warnings and
 // coverage notes to the given target sequence so their flushed output is

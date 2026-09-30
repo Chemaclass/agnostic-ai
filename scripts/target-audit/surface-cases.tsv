@@ -19,3 +19,4 @@ warp-skill-source-analytics	warp	The Conversation API returns skill loads as rea
 kiro-gpt-context-window	kiro	GPT-5.6 Sol, Terra, and Luna now support a 1M token context window, up from 272K, in the Kiro IDE, CLI, and Web.	no	local/target-audit/2026-09-25-run2/pages/kiro/changelog-15-kiro.dev-changelog.txt
 copilot-subagentstart-matcher	copilot	Supports an optional `matcher` field that filters by agent name. The value is treated as a regular expression wrapped as `^(?:matcher)$` and tested against `agentName`.	yes	1377
 cursor-security-review-dashboard	cursor	Security Review is available today. It reads every pull request in the context of the codebase and posts one review comment reporting exploitable bugs.	no	signal:cap-cursor-security-review
+kiro-workflow-recipes	kiro	Recipes can come from your workspace (`.kiro/workflows/`), your user configuration, recipes synchronized for your account, or the set bundled with Kiro.	yes	signal:cap-project-agent-workflows
