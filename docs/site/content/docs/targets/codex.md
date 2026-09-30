@@ -182,11 +182,11 @@ outputs:
     exec-policies-from-permissions: true
 ```
 
-This writes three `prefix_rule` entries to `.codex/rules/default.rules`. `Bash(a b c)` and `Bash(a b c:*)` both become `pattern = ["a", "b", "c"]`. `allow`, `deny`, and `ask` become `allow`, `forbidden`, and `prompt`.
+This writes three `prefix_rule` entries to `.codex/rules/default.rules`. `Bash(a b c)`, `Bash(a b c *)`, and `Bash(a b c:*)` all become `pattern = ["a", "b", "c"]`. `allow`, `deny`, and `ask` become `allow`, `forbidden`, and `prompt`.
 
 Translation is opt-in because a prefix matches extra arguments, even for a bare rule without `:*`. For example, `Bash(npm run check)` also allows `npm run check -- --fix` in Codex. This is a supported command-prefix subset, not exact Claude permission equivalence. Codex rules govern requests to run outside the sandbox; project rules load only when the project config layer is trusted.
 
-Only plain, unquoted words are supported. A Bash rule with quotes, escapes, globs inside tokens, shell operators, expansions, assignments, or shell keywords produces a coverage note naming the exact rule and source. `on-unsupported: error` fails on it; `silent` omits the note. Rules for other tools, such as `Read(.env)` or `WebFetch`, share one `permissions` coverage note and never fail the sync. Use explicit `exec-policies` for a command that cannot translate.
+Only plain, unquoted words are supported. A Bash rule with quotes, escapes, a `*` other than one trailing ` *` or `:*`, shell operators, expansions, assignments, or shell keywords produces a coverage note naming the exact rule and source. `on-unsupported: error` fails on it; `silent` omits the note. Rules for other tools, such as `Read(.env)` or `WebFetch`, share one `permissions` coverage note and never fail the sync. Use explicit `exec-policies` for a command that cannot translate.
 
 Any inline policy list (including `exec-policies: []`), `exec-policies-file` (including an empty file), or imported policy overlay is authoritative: sync uses that source, skips automatic translation, and notes which source won. It never modifies the source policy file. `lint` warns with LINT021 when a supported Bash `allow` or `deny` rule lacks a covering native prefix with the same effective decision, including declared portable deny and ask exclusions. Broader native prefixes count; restrictive descendants also warn for an allowed prefix. This checks declared prefixes, not every shell invocation or other Codex config layer. `lint --strict` fails on the warning.
 

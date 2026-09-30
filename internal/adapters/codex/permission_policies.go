@@ -22,7 +22,11 @@ func bashPermissionPrefix(rule string) ([]string, bool) {
 	if !ok || tool != "Bash" || strings.ContainsAny(command, "\r\n") {
 		return nil, false
 	}
-	command = strings.TrimSuffix(command, ":*")
+	// Claude reads `:*` and a trailing ` *` as the same wildcard; only one of them makes a prefix.
+	command, legacy := strings.CutSuffix(command, ":*")
+	if !legacy {
+		command = strings.TrimSuffix(command, " *")
+	}
 	words := strings.FieldsFunc(command, func(r rune) bool { return r == ' ' || r == '\t' })
 	if len(words) == 0 || strings.Contains(words[0], "=") {
 		return nil, false

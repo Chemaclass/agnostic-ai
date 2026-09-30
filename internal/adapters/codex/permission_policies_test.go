@@ -3,6 +3,7 @@ package codex
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -50,6 +51,26 @@ func TestEmit_PermissionPoliciesTranslateConfigAndPortableLists(t *testing.T) {
 	}
 	if got := strings.Count(string(data), `pattern = ["npm", "run", "check"]`); got != 1 {
 		t.Errorf("duplicate config/spec policy: %d", got)
+	}
+}
+
+func TestBashPermissionPrefix_ReadsOneTrailingWildcard(t *testing.T) {
+	cases := map[string][]string{
+		"Bash(git diff *)":   {"git", "diff"},
+		"Bash(git diff:*)":   {"git", "diff"},
+		"Bash(git diff)":     {"git", "diff"},
+		"Bash(git diff*)":    nil,
+		"Bash(git * diff)":   nil,
+		"Bash(git diff * *)": nil,
+		"Bash(git diff *:*)": nil,
+		"Bash(*)":            nil,
+		"Bash( *)":           nil,
+	}
+	for rule, want := range cases {
+		got, ok := bashPermissionPrefix(rule)
+		if ok != (want != nil) || !slices.Equal(got, want) {
+			t.Errorf("bashPermissionPrefix(%q) = %q, %v; want %q", rule, got, ok, want)
+		}
 	}
 }
 
