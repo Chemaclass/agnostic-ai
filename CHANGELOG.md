@@ -29,6 +29,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Claude Code
 
+- Translated `readonly` and rule `scope` keys no longer appear in native frontmatter (#1458).
+
 - Claude worktrees and task locks stay ignored and are excluded from `.worktreeinclude`, including with a moved output directory (#1438).
 
 - `import claude` turns each nested `<dir>/CLAUDE.md` into one rule scoped to its directory, and a companion that imports `@AGENTS.md` reads as that file (#1427).

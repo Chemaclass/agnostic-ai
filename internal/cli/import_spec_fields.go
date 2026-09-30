@@ -7,8 +7,9 @@ package cli
 // it, which the spec must lose. A target that round-trips everything
 // declares allSpecFields and gets a plain overwrite.
 type specFields struct {
-	keys map[string]bool
-	all  bool
+	keys    map[string]bool
+	all     bool
+	omitted map[string]bool
 }
 
 // allSpecFields marks a native format that carries every key a spec can
@@ -28,7 +29,7 @@ func fieldsOf(keys ...string) specFields {
 }
 
 // expresses reports whether the target's native file has a home for key.
-func (f specFields) expresses(key string) bool { return f.all || f.keys[key] }
+func (f specFields) expresses(key string) bool { return !f.omitted[key] && (f.all || f.keys[key]) }
 
 // Skills: every target writes the Agent Skills `name`, `description`,
 // and `license` and nothing else, except Claude (the format the spec
@@ -44,6 +45,7 @@ var (
 // Agents: one list per target that imports an agent spec over an
 // existing one.
 var (
+	claudeAgentFields      = specFields{all: true, omitted: map[string]bool{"readonly": true}}
 	clineAgentFields       = fieldsOf("name", "description")
 	cursorAgentFields      = fieldsOf("name", "description", "model")
 	copilotAgentFields     = fieldsOf("name", "description", "tools", "model")

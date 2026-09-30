@@ -23,7 +23,7 @@ import (
 // translators drop a catch-all `globs` and an empty `description` on
 // purpose (#429) and the spec has to follow.
 func importWriteSpecMarkdown(path string, data []byte, mode fs.FileMode, fields specFields) error {
-	if fields.all {
+	if fields.all && len(fields.omitted) == 0 {
 		return importWriteFile(path, data, mode)
 	}
 	existing, err := os.ReadFile(path)
