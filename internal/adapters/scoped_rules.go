@@ -14,8 +14,8 @@ import (
 )
 
 // EntryPointRules is the root-context projection of the shared scope contract.
-func EntryPointRules(b spec.Bundle, target string) spec.Bundle {
-	return emit.EntryPointRules(b, target)
+func EntryPointRules(b spec.Bundle, target string, configs ...*config.Config) spec.Bundle {
+	return emit.EntryPointRules(b, target, configs...)
 }
 
 // ScopedDocuments lists the files target writes inside a scope directory,
@@ -34,6 +34,12 @@ func ValidateScopedRules(cfg *config.Config, b spec.Bundle, requested []string) 
 		}
 	}
 	for _, r := range b.Rules {
+		if _, globs := r.Meta["globs"]; globs {
+			hasScope = true
+		}
+		if _, paths := r.Meta["paths"]; paths {
+			hasScope = true
+		}
 		if _, exists := r.Meta["scope"]; r.Scope != "" || exists {
 			hasScope = true
 			break
@@ -59,6 +65,7 @@ func ValidateScopedRules(cfg *config.Config, b spec.Bundle, requested []string) 
 		targets = append(targets, t)
 	}
 	sort.Strings(targets)
+	cfg = cfg.WithAdditionalTargets(targets...)
 	reviews := ReviewSections(b, cfg, requested...)
 	shared := map[string]emit.CapturedFile{}
 	resolved := make(map[string]spec.Bundle, len(targets))
@@ -132,7 +139,7 @@ func ValidateScopedRules(cfg *config.Config, b spec.Bundle, requested []string) 
 			}
 		}
 	}
-	return emit.CheckScopeReaders(resolved, shared, targets, reviews)
+	return emit.CheckScopeReaders(resolved, shared, targets, reviews, cfg)
 }
 
 // ReviewSections returns the Codex code review section per review scope
