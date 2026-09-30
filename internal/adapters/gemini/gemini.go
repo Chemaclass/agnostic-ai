@@ -126,8 +126,16 @@ func capabilities(cfg *config.Config) emit.Capabilities {
 	coverage := caps
 	if emit.EmitSkillsAsCommands(cfg, target) {
 		coverage.SkillFields.AdditionalFields = func(skill spec.Entry) map[string]any {
-			fields, _ := commandCustomMeta(skill)
-			return fields
+			fields, keys := commandCustomMeta(skill)
+			preserved := map[string]any{}
+			var native strings.Builder
+			for _, key := range keys {
+				native.Reset()
+				if emit.WriteTOMLValue(&native, key, fields[key]) {
+					preserved[key] = fields[key]
+				}
+			}
+			return preserved
 		}
 	}
 	return coverage

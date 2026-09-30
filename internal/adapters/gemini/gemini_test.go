@@ -1041,3 +1041,40 @@ func TestEmit_SkillCustomFieldsReachOptedInCommandsWithoutDropNotes(t *testing.T
 		})
 	}
 }
+
+func TestEmit_SkillCommandMirrorOnlyPreservesSerializedFields(t *testing.T) {
+	cases := []struct {
+		name, field string
+		value       any
+		preserved   bool
+	}{
+		{"model map with target scalar", "model", map[string]any{"gemini": "review-model"}, false},
+		{"mixed effort array", "effort", []any{"high", 2}, false},
+		{"string model", "model", "review-model", true},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			testutil.TempCwd(t)
+			emit.DrainNotes()
+			t.Cleanup(func() { emit.DrainNotes() })
+			skill := spec.Entry{Kind: spec.KindSkill, Name: "review", Body: "Review.", Meta: map[string]any{"description": "Review code.", "x-gemini": map[string]any{test.field: test.value}}}
+			cfg := &config.Config{Outputs: map[string]config.Output{target: {EmitSkillsAsCommands: true}}}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{skill}), cfg, false); err != nil {
+				t.Fatal(err)
+			}
+			command := readFile(t, ".gemini/commands/skill-review.toml")
+			if got := strings.Contains(command, test.field+" = "); got != test.preserved {
+				t.Errorf("field serialized=%v, want %v: %s", got, test.preserved, command)
+			}
+			noted := false
+			for _, note := range emit.DrainNotes() {
+				if note.Shape == emit.NoteField && note.Kind == spec.KindSkill && note.Field == test.field {
+					noted = true
+				}
+			}
+			if noted == test.preserved {
+				t.Errorf("dropped field note=%v, preserved=%v", noted, test.preserved)
+			}
+		})
+	}
+}
