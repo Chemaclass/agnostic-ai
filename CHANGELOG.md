@@ -10,6 +10,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - Breaking: rule `scope`, `globs`, and `paths` form a union. Remove `scope` to keep only a file filter; see the migration guide (#1429).
 - New `AGNOSTIC_AI.md` files use a short editable template; existing files stay intact, and `doctor` points out old boilerplate (#1446).
+- Imported Claude hook roots resolve on other targets. Unsupported shell or root syntax names the hook and follows `on-unsupported` (#1449).
 - `sync --diff` without `--check` now fails and names `--check` instead of ignoring the flag and writing every output (#1439).
 - A Claude model name in a shared agent or settings `model` raises a coverage note on Codex, Gemini, OpenCode, Kilo Code, Cursor, Factory, and Kiro, naming `model: {claude: <name>}`. `on-unsupported: error` fails the sync (#1431).
 - AAI-005 says to update `requires` when `package.json` already pins the running release, as right after `pnpm add agnostic-ai@X.Y.Z`, instead of suggesting a downgrade.
