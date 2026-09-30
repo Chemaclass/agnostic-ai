@@ -62,6 +62,28 @@ It exits 1 on invalid JSON, on an edit tool's `tool_input` that is not an object
 | `--action` | Print every change as `<action><TAB><path>`, with `add`, `update`, `delete`, or `move`. Deleted files and move sources show only here and in `--json`. |
 | `--json` | Print every change as a JSON array of `{action, path, from}`; `from` is a move's source. Not with `--action`. |
 
+## hook run
+
+Run one hook spec before a session fires it. For each target the hook reaches, it builds that target's payload, runs the command sync wrote with that target's env, shell, and timeout, from the project root, and prints the decision, exit code, time, stdout, and stderr. Run `sync` first, so the scripts sync copies are in place. See [test a hook](@/docs/spec-format/hooks.md#hook-run) for the payloads and decisions.
+
+```bash
+agnostic-ai hook run protect-files --edit .github/workflows/tests.yml --expect block
+agnostic-ai hook run guard --target codex --bash "git push --force"
+agnostic-ai hook run greet --prompt "ship it"
+agnostic-ai hook run on-stop --payload stop.json
+```
+
+It exits 1 when a command times out, when two targets decide differently, or when a decision is not the one `--expect` names.
+
+| Flag | Description |
+|------|-------------|
+| `-t`, `--target <names>` | Run only for these targets. Defaults to every configured target the hook reaches. |
+| `--edit <path>` | Build a `PreToolUse` or `PostToolUse` event that edits this path. |
+| `--bash <command>` | Build a `PreToolUse` or `PostToolUse` event that runs this shell command. |
+| `--prompt <text>` | Prompt text for `UserPromptSubmit`. |
+| `--payload <file>` | Send this JSON file to every target as the payload, for events with no builder. |
+| `--expect allow\|block` | Fail unless every target decides this. |
+
 ## install-hook
 
 Install a pre-commit hook that runs `sync --check`, or, with `--post-checkout`, hooks that regenerate tool files after a checkout or a pull that merges. See [git hooks](@/docs/git-hooks.md).

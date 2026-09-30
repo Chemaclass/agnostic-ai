@@ -63,6 +63,8 @@ Set `outputs.codex.exec-policies-from-permissions: true` to turn simple Bash per
 
 In an edit hook, `agnostic-ai hook paths` prints the edited files from the Claude Code, Codex, Cursor, Gemini, Factory, or Augment payload, so one format hook runs on each. See [edited paths](https://agnostic-ai.org/docs/spec-format/hooks/#edited-paths).
 
+`agnostic-ai hook run <hook> --edit <path>` runs a hook with the Claude Code and Codex payloads and fails when they decide differently. See [test a hook](https://agnostic-ai.org/docs/spec-format/hooks/#hook-run).
+
 ## Daily commands
 
 ```bash
