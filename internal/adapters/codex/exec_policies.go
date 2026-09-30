@@ -161,6 +161,14 @@ func loadExecPolicies(cfg *config.Config) ([]config.CodexExecPolicy, error) {
 	return policies, nil
 }
 
+// hasExecPolicies reports whether any exec-policy source yields a rule.
+// An unreadable source counts as none: emitExecPolicies reports that
+// error on the same sync.
+func hasExecPolicies(cfg *config.Config) bool {
+	policies, err := loadExecPolicies(cfg)
+	return err == nil && len(policies) > 0
+}
+
 // validateExecPolicy enforces the minimal schema. Index is included in
 // the error so users with a long list can find the offender.
 func validateExecPolicy(p config.CodexExecPolicy, index int) error {

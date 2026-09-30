@@ -164,8 +164,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := (Adapter{}).EmitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
 		return err
 	}
-	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions",
-		emit.SpecsWithPermissions(b.Settings), permissionsUseExecPoliciesReason)
+	if !hasExecPolicies(cfg) {
+		emit.NoteFieldNoOp(target, spec.KindSettings, "permissions",
+			emit.SpecsWithPermissions(b.Settings), permissionsUseExecPoliciesReason)
+	}
 	emit.NoteFieldNoOp(target, spec.KindSettings, emit.XPrefix+target,
 		specsWithCustomSettings(b.Settings), customSettingsNoRouteReason)
 
