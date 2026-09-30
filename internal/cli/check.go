@@ -491,14 +491,16 @@ func newDoctorCmd() *cobra.Command {
 		Long: "doctor runs a prioritized punch list:\n" +
 			"  1. Detect installed AI CLIs on PATH.\n" +
 			"  2. Validate agnostic-ai.yaml config.\n" +
-			"  3. Report unsupported spec kinds per target.\n" +
+			"  3. Report unsupported spec kinds per target, then spec health: the\n" +
+			"     findings `agnostic-ai lint` reports.\n" +
 			"  4. Report agentic config on disk not single-sourced from .agnostic-ai/.\n" +
 			"  5. Compare what sync would emit against files on disk (drift), and flag\n" +
 			"     a generated file still tracked despite being ignored.\n" +
 			"     --check-globs and --check-references add opt-in checks here.\n" +
 			"  6. Check MCP server command binaries.\n" +
 			"  7. Suggest a concrete next step.\n\n" +
-			"Exits non-zero on any drift. Subcommands run individual checks.",
+			"Exits non-zero on any drift or lint error; lint warnings show without\n" +
+			"failing. Subcommands run individual checks.",
 		Example: `  # Full diagnostic (CI gate)
   agnostic-ai doctor
 
@@ -529,7 +531,15 @@ func newDoctorCmd() *cobra.Command {
 						return err
 					}
 				}
-				return printDoctorJSON(cmd, reports, refs, checkRefs)
+				scope, err := loadCheckScope(false)
+				if err != nil {
+					return err
+				}
+				lint, err := lintScopeFindings(scope)
+				if err != nil {
+					return err
+				}
+				return printDoctorJSON(cmd, reports, refs, checkRefs, lint)
 			}
 
 			configOK := doctorConfigOK()
@@ -542,19 +552,24 @@ func newDoctorCmd() *cobra.Command {
 			cmd.Println("Config:")
 			if !configOK {
 				cmd.Println("  ✗ agnostic-ai.yaml not found. Run: agnostic-ai init")
-				doctorNextStep(cmd, false, false, nil, errDoctorNoConfig)
+				doctorNextStep(cmd, false, false, nil, 0, errDoctorNoConfig)
 				return errDoctorNoConfig
 			}
-			cfg, _, err := loadProject(".")
+			scope, err := loadCheckScope(false)
 			if err != nil {
 				cmd.Printf("  ✗ %v\n", err)
-				doctorNextStep(cmd, false, false, nil, err)
+				doctorNextStep(cmd, false, false, nil, 0, err)
 				return err
 			}
+			cfg := scope.cfg
 			cmd.Printf("  ✓ agnostic-ai.yaml valid (version %d, %d target(s))\n", cfg.Version, len(cfg.Targets))
 
-			// 3. Unsupported kinds
+			// 3. Unsupported kinds, then what `lint` reports.
 			reportUnsupportedKinds(cmd, cfg)
+			lint, err := reportSpecHealth(cmd, scope)
+			if err != nil {
+				return err
+			}
 
 			// 3b. Config present on disk but not single-sourced, then
 			// the paths the user owns through sync.unmanaged.
@@ -615,7 +630,7 @@ func newDoctorCmd() *cobra.Command {
 			manualFiles, manualOnly := manualOnlyDrift(reports)
 			// Hook script divergence is drift a scope document does not explain.
 			manualOnly = manualOnly && !scriptDrift
-			doctorNextStep(cmd, hasDrift, manualOnly, manualFiles, nil)
+			doctorNextStep(cmd, hasDrift, manualOnly, manualFiles, len(lint), nil)
 
 			// A rule whose globs match nothing never loads, so it
 			// silently does not exist. Reported before, but exit 0 meant
@@ -642,7 +657,7 @@ func newDoctorCmd() *cobra.Command {
 					return fmt.Errorf("%d orphaned file(s) need manual removal", n)
 				}
 			}
-			return nil
+			return lintErrorsErr(lint)
 		},
 	}
 	cmd.Flags().StringSliceVarP(&targets, "target", "t", nil, "Targets to check (default: all in config)")
@@ -658,19 +673,24 @@ func newDoctorCmd() *cobra.Command {
 	return cmd
 }
 
-// doctorJSONOutput extends the shared JSON schema with the opt-in
-// reference findings. The key is present only under --check-references,
-// so consumers of the plain drift report see the same document as before.
+// doctorJSONOutput extends the shared JSON schema with lint findings and
+// the opt-in reference findings. The references key is present only under
+// --check-references.
 type doctorJSONOutput struct {
 	jsonOutput
+	Lint       []lintFinding       `json:"lint"`
 	References *[]referenceFinding `json:"references,omitempty"`
 }
 
 // printDoctorJSON emits a JSON drift report for `doctor`. Mirrors the schema
 // used by `sync --check --json`: missing, stale, and orphaned files appear
-// in writes. With checkRefs, broken skill references appear in references.
-func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []referenceFinding, checkRefs bool) error {
-	out := doctorJSONOutput{jsonOutput: jsonOutput{Version: "1", Command: "doctor", Writes: driftRecords(reports)}.withEmptyLists()}
+// in writes. Lint findings appear in lint. With checkRefs, broken skill
+// references appear in references.
+func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []referenceFinding, checkRefs bool, lint []lintFinding) error {
+	if lint == nil {
+		lint = []lintFinding{}
+	}
+	out := doctorJSONOutput{jsonOutput: jsonOutput{Version: "1", Command: "doctor", Writes: driftRecords(reports)}.withEmptyLists(), Lint: lint}
 	if checkRefs {
 		if refs == nil {
 			refs = []referenceFinding{}
@@ -686,7 +706,7 @@ func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []reference
 	if len(refs) > 0 {
 		return fmt.Errorf("%d broken skill reference(s)", len(refs))
 	}
-	return nil
+	return lintErrorsErr(lint)
 }
 
 // driftRecords flattens reports into the JSON write records shared by
