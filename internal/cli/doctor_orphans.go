@@ -69,7 +69,7 @@ func offerOrphanRemoval(cfg *config.Config, reports []driftReport, backup bool, 
 		}
 		var remaining []string
 		for _, path := range reports[i].Orphaned {
-			if slices.Contains(generated, path) {
+			if slices.ContainsFunc(generated, func(generatedPath string) bool { return samePath(generatedPath, path) }) {
 				continue
 			}
 			clean := filepath.Clean(path)

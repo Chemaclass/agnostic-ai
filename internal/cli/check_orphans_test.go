@@ -472,3 +472,47 @@ func TestDoctorFix_PartialTargetKeepsOtherTargetRestoredOutput(t *testing.T) {
 		t.Errorf("genuine orphan count=%d exists=%v", removed, fileExists(genuine))
 	}
 }
+
+func TestDoctorFix_RestoredOutputPathAliasesAreNotOfferedAsOrphans(t *testing.T) {
+	for _, alias := range []string{"./" + keptReference, ".claude//skills/gone/references/a.md", ".claude/skills/gone/references/./a.md"} {
+		t.Run(alias, func(t *testing.T) {
+			testutil.TempCwd(t)
+			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+			mustWriteFile(t, ".agnostic-ai/skills/gone/SKILL.md", "---\nname: gone\ndescription: Restored skill.\n---\nRead references/a.md.\n")
+			mustWriteFile(t, ".agnostic-ai/skills/gone/references/a.md", "restored\n")
+			silence(t)
+			syncProject(t)
+			previous := readStateFile(".")
+			if err := writeStateFile(".", 0, "", "", syncLedger{outputs: previous.Outputs, orphans: []string{alias}}); err != nil {
+				t.Fatal(err)
+			}
+			reports, err := collectDrift(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, report := range reports {
+				for _, path := range report.Orphaned {
+					if path == alias {
+						t.Errorf("restored alias classified as orphan: %s", path)
+					}
+				}
+			}
+			reports = append(reports, driftReport{Target: "agnostic-ai", Orphaned: []string{alias}})
+			cfg, _, err := loadProject(".")
+			if err != nil {
+				t.Fatal(err)
+			}
+			removed, err := offerOrphanRemoval(cfg, reports, false, func(path string) (bool, error) {
+				t.Errorf("restored alias offered for deletion: %s", path)
+				return true, nil
+			})
+			if err != nil || removed != 0 {
+				t.Errorf("removal = %d, error %v", removed, err)
+			}
+			data, err := os.ReadFile(keptReference)
+			if err != nil || string(data) != "restored\n" {
+				t.Errorf("restored output %q, error %v", data, err)
+			}
+		})
+	}
+}

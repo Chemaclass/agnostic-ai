@@ -227,7 +227,7 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 	}
 	for i := range reports {
 		reports[i].Orphaned = slices.DeleteFunc(reports[i].Orphaned, func(path string) bool {
-			return slices.Contains(generated, path)
+			return slices.ContainsFunc(generated, func(generatedPath string) bool { return samePath(generatedPath, path) })
 		})
 	}
 	// Another target's files are not in emitted, so only a check that
@@ -371,7 +371,7 @@ func collectEntryPointDrift(cfg *config.Config, b spec.Bundle, targets []string)
 	}
 	generated := driftGeneratedPaths([]driftReport{rep})
 	rep.Orphaned = slices.DeleteFunc(recordedOrphans(cfg), func(path string) bool {
-		return slices.Contains(generated, path)
+		return slices.ContainsFunc(generated, func(generatedPath string) bool { return samePath(generatedPath, path) })
 	})
 	return rep, nil
 }
