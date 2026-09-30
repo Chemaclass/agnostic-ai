@@ -17,7 +17,8 @@ import (
 // default model. So is a tier named like a Claude model. A Claude model
 // name that reaches a target unable to load it, through a tier's
 // `default` or an agent's shared `model`, is LINT026.
-func lintModels(cfg *config.Config, targets []string, support kindSupport, b spec.Bundle) []lintFinding {
+// Tier findings name configPath, the config that declares tiers.
+func lintModels(tiers map[string]config.ModelTier, configPath string, targets []string, support kindSupport, b spec.Bundle) []lintFinding {
 	sorted := slices.Sorted(slices.Values(targets))
 	var agentTargets []string
 	for _, target := range sorted {
@@ -43,10 +44,10 @@ func lintModels(cfg *config.Config, targets []string, support kindSupport, b spe
 		}
 	}
 	var findings []lintFinding
-	for _, name := range sortedTierNames(cfg.Models) {
-		tier := cfg.Models[name]
+	for _, name := range sortedTierNames(tiers) {
+		tier := tiers[name]
 		if adapters.ClaudeModel(name) {
-			findings = append(findings, lintFinding{Code: "LINT025", Severity: lintWarn, Path: config.ConfigFileName, Message: tierNameShadowsClaudeModel(name)})
+			findings = append(findings, lintFinding{Code: "LINT025", Severity: lintWarn, Path: configPath, Message: tierNameShadowsClaudeModel(name)})
 		}
 		if len(tier.Models) == 0 {
 			continue
@@ -68,11 +69,11 @@ func lintModels(cfg *config.Config, targets []string, support kindSupport, b spe
 			}
 		}
 		if len(missing) > 0 {
-			findings = append(findings, lintFinding{Code: "LINT025", Severity: lintWarn, Path: config.ConfigFileName,
+			findings = append(findings, lintFinding{Code: "LINT025", Severity: lintWarn, Path: configPath,
 				Message: fmt.Sprintf("models.%s has no %s model and no default; specs naming it use that tool's default model", name, strings.Join(missing, ", "))})
 		}
 		if len(foreign) > 0 {
-			findings = append(findings, lintFinding{Code: "LINT026", Severity: lintWarn, Path: config.ConfigFileName,
+			findings = append(findings, lintFinding{Code: "LINT026", Severity: lintWarn, Path: configPath,
 				Message: fmt.Sprintf("models.%s.default %q is a Claude model name %s cannot load; name a model for each under models.%s", name, shared, strings.Join(foreign, ", "), name)})
 		}
 	}

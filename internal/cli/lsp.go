@@ -54,12 +54,7 @@ func lspLinter(root string) map[string][]lsp.Diagnostic {
 	}
 	b.ApplyModelTiers(cfg.Models)
 	findings := collectLintFindings(cfg.Targets, targetsSupportingKind, b)
-	for _, f := range lintModels(cfg, cfg.Targets, targetsSupportingKind, b) {
-		if f.Path == config.ConfigFileName {
-			f.Path = filepath.Join(root, config.ConfigFileName)
-		}
-		findings = append(findings, f)
-	}
+	findings = append(findings, lintModels(cfg.Models, filepath.Join(root, config.ConfigFileName), cfg.Targets, targetsSupportingKind, b)...)
 
 	out := map[string][]lsp.Diagnostic{}
 	for _, f := range findings {

@@ -194,7 +194,11 @@ func TestSync_QuietGateFailureStillNamesTheNotes(t *testing.T) {
 	}
 	prev := os.Stderr
 	os.Stderr = stderr
-	t.Cleanup(func() { os.Stderr = prev })
+	// Windows cannot remove the temp dir while the file is still open.
+	t.Cleanup(func() {
+		os.Stderr = prev
+		_ = stderr.Close()
+	})
 
 	_, runErr := runCLI(t, "-q", "sync")
 
