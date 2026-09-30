@@ -78,7 +78,9 @@ func emitWorktreeSetup(sess *emit.Session, envs []spec.Entry, dir string, dryRun
 // the payload's `cwd`, since `$CLAUDE_PROJECT_DIR` stays at the directory
 // the session started in. It runs setup only in a linked worktree, once,
 // and sends setup output to stderr because Claude Code adds a
-// SessionStart hook's stdout to the context. A failed setup leaves no
+// SessionStart hook's stdout to the context. Setup runs in a subshell as
+// a plain command: `set -e` has no effect inside a `( ) &&` list, and an
+// `exit` in setup ends only the subshell. A failed setup leaves no
 // marker, so the next session retries it. The target check skips tools
 // that also read `.claude/settings.json` hooks, such as Cursor, which run
 // setup from their own file.
@@ -97,9 +99,10 @@ marker="$git_dir/` + worktreeSetupMarker + `"
 [ ! -e "$marker" ] || exit 0
 cd "$root" || exit 1
 exec >&2
+(
 set -e
 `)
 	sb.WriteString(setup)
-	sb.WriteString("\n: > \"$marker\"\n")
+	sb.WriteString("\n)\nstatus=$?\n[ \"$status\" -eq 0 ] || exit \"$status\"\n: > \"$marker\"\n")
 	return sb.String()
 }

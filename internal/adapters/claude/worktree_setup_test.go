@@ -107,7 +107,9 @@ func TestEmit_EnvironmentSetupFollowsOutputDir(t *testing.T) {
 }
 
 // The generated script runs setup once in each linked worktree, never in
-// the main checkout, and retries after a failed run.
+// the main checkout, and retries after a failed run. It runs from the
+// worktree root when the session starts in a subdirectory, and an `exit`
+// in setup still records the run.
 func TestWorktreeSetupScript_RunsOncePerLinkedWorktree(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("the script runs through sh")
@@ -137,7 +139,11 @@ func TestWorktreeSetupScript_RunsOncePerLinkedWorktree(t *testing.T) {
 	gitRun(main, "worktree", "add", "-q", worktree)
 
 	script := filepath.Join(root, "setup.sh")
-	setup := "test ! -e " + emit.ShellQuote(gate) + "\npwd >> " + emit.ShellQuote(counter)
+	setup := "test ! -e " + emit.ShellQuote(gate) + "\npwd >> " + emit.ShellQuote(counter) + "\nexit 0"
+	sub := filepath.Join(worktree, "sub")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(script, []byte(worktreeSetupScript(setup)), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +179,7 @@ func TestWorktreeSetupScript_RunsOncePerLinkedWorktree(t *testing.T) {
 		t.Fatal(err)
 	}
 	for range 2 {
-		out, err := run(worktree)
+		out, err := run(sub)
 		if err != nil {
 			t.Fatalf("worktree: %v", err)
 		}
