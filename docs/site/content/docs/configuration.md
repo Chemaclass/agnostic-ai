@@ -320,6 +320,8 @@ Applies when an adapter receives a spec kind it does not support (e.g. `hooks` f
 | `error` | Fail the sync. |
 | `silent` | Skip without logging. |
 
+Imported Claude hook root references that cannot be translated also follow this policy, including exec-form placeholders and complex shell expansions. See [project-root paths](@/docs/spec-format/hooks.md#imported-project-root-paths).
+
 ## Coverage notes
 
 `sync` prints a `note:` line when specs of a kind exist but a target emits them only behind an inactive opt-in key, or not at all:
@@ -350,6 +352,7 @@ Setting the named key clears the note. Repeated warnings collapse into one count
 | `commit` | empty | Kinds of generated output to keep in Git, for every target or as `<target>:<kind>` for one. The block leaves out their paths. |
 | `allow` | empty | Gitignore globs written verbatim as `!` lines at the end of the block, so a hand-written file at a generated path (e.g. a `testdata/AGENTS.md` fixture) is not ignored. |
 | `worktree-include` | `true` | With `claude` in `targets`, keep the same block in `.worktreeinclude`, so Claude Code copies the ignored outputs and the local layer into each worktree it creates. |
+| `ignore-worktree-include` | `false` | Keep managing `.worktreeinclude` and list it in the managed ignore block. Requires `worktree-include: true` and `claude` in `targets`. |
 
 `sync --gitignore` and `init --gitignore` override it per run; see the [CLI reference](@/docs/cli-reference/start.md#init).
 
@@ -375,7 +378,7 @@ This keeps `.cursor/environment.json`, `.cursor/worktrees.json`, and every `BUGB
 
 The block sits between `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai (managed) <<<`. Lines outside it are kept.
 
-Claude Code builds a CLI `--worktree`, a subagent's, or a Desktop worktree from a checkout with no gitignored files, and Desktop runs no `WorktreeCreate` hook. It copies the gitignored files [`.worktreeinclude`](https://code.claude.com/docs/en/worktrees#copy-gitignored-files-into-worktrees) lists from the main checkout, so with `claude` in `targets` sync keeps the same block there, minus `.sync-state`. The local layer and packs come along, so the worktree renders what the main checkout does, and its first `sync --keep-edits` rewrites a copied output its specs no longer match. Set `gitignore.worktree-include: false` to manage the file yourself; sync then removes only its own block. A fresh clone or `git worktree` lacks these paths until `sync` runs (see [checkout and merge hooks](@/docs/git-hooks.md#regenerate-on-checkout)).
+Claude Code builds a CLI `--worktree`, a subagent's, or a Desktop worktree from a checkout with no gitignored files, and Desktop runs no `WorktreeCreate` hook. It copies the gitignored files [`.worktreeinclude`](https://code.claude.com/docs/en/worktrees#copy-gitignored-files-into-worktrees) lists from the main checkout, so with `claude` in `targets` sync keeps the block there without `.sync-state`, Claude worktree directories, or the task lock. The local layer and packs come along, so the worktree renders what the main checkout does, and its first `sync --keep-edits` rewrites a copied output its specs no longer match. Set `gitignore.ignore-worktree-include: true` to keep the managed file out of Git. It then stops appearing under files to commit. If the file is already tracked, run `agnostic-ai sync --untrack` to remove it from the index while keeping the file. Set `gitignore.worktree-include: false` to manage the file yourself; sync then removes only its own block. A fresh clone or `git worktree` lacks these paths until `sync` runs (see [checkout and merge hooks](@/docs/git-hooks.md#regenerate-on-checkout)).
 
 - Entries are root-anchored (`/AGENTS.md`), so nested same-named files are not ignored.
 - Files collapse to their generated subdirectory (`/.claude/rules/`), never higher, so siblings such as `.claude/settings.json` stay visible. A per-kind dir such as `outputs.<target>.rules-dir` collapses at the dir itself.
