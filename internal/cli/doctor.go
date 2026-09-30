@@ -60,13 +60,47 @@ func reportUnsupportedKinds(cmd *cobra.Command, cfg *config.Config) {
 	}
 }
 
+// reportSpecHealth prints the findings `lint` reports for the project
+// and returns them.
+func reportSpecHealth(cmd *cobra.Command, scope checkScope) ([]lintFinding, error) {
+	findings, err := lintScopeFindings(scope)
+	if err != nil {
+		return nil, err
+	}
+	cmd.Println()
+	cmd.Println("Spec health:")
+	if len(findings) == 0 {
+		cmd.Println("  ✓ no lint findings")
+		return nil, nil
+	}
+	for _, f := range findings {
+		mark := "!"
+		if f.Severity == lintError {
+			mark = "✗"
+		}
+		cmd.Printf("  %s %s\n", mark, f)
+	}
+	cmd.Printf("  %d finding(s): %d error(s), %d warning(s)\n",
+		len(findings), countSeverity(findings, lintError), countSeverity(findings, lintWarn))
+	return findings, nil
+}
+
+// lintErrorsErr fails doctor on error-severity lint findings. Warnings
+// are shown but never fail it, as with `lint` without --strict.
+func lintErrorsErr(findings []lintFinding) error {
+	if n := countSeverity(findings, lintError); n > 0 {
+		return fmt.Errorf("%d lint error(s) in source specs. run `agnostic-ai lint` for details", n)
+	}
+	return nil
+}
+
 var errDoctorNoConfig = errors.New("no config found")
 
 // doctorNextStep prints a prioritized "what to do next" hint based on
-// whether drift was found and why the config failed to load, if it did.
-// manualOnly means the drift is scope documents in manual, which neither
-// sync nor doctor --fix removes.
-func doctorNextStep(cmd *cobra.Command, drift, manualOnly bool, manual []string, configErr error) {
+// whether drift or lint findings were found and why the config failed to
+// load, if it did. manualOnly means the drift is scope documents in
+// manual, which neither sync nor doctor --fix removes.
+func doctorNextStep(cmd *cobra.Command, drift, manualOnly bool, manual []string, lintFindings int, configErr error) {
 	cmd.Println()
 	cmd.Println("Next step:")
 	if errors.Is(configErr, errDoctorNoConfig) {
@@ -81,16 +115,19 @@ func doctorNextStep(cmd *cobra.Command, drift, manualOnly bool, manual []string,
 		cmd.Println("  Fix the config error above, then run: agnostic-ai doctor")
 		return
 	}
-	if drift && manualOnly {
+	switch {
+	case drift && manualOnly:
 		cmd.Println("  Delete " + manualRemovalAdvice(manual) + ".")
-		return
-	}
-	if drift {
+	case drift:
 		cmd.Println("  Emit missing or stale files: agnostic-ai sync")
 		cmd.Println("  Or reconcile in place:       agnostic-ai doctor --fix")
-		return
 	}
-	cmd.Println("  All checks passed. Nothing to do.")
+	if lintFindings > 0 {
+		cmd.Println("  Review spec findings: agnostic-ai lint")
+	}
+	if !drift && lintFindings == 0 {
+		cmd.Println("  All checks passed. Nothing to do.")
+	}
 }
 
 // newDoctorMCPCmd is the `doctor mcp` subcommand that runs only the MCP

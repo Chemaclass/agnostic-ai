@@ -27,12 +27,16 @@ func (s lintSeverity) String() string {
 	return "warn"
 }
 
+func (s lintSeverity) MarshalText() ([]byte, error) {
+	return []byte(s.String()), nil
+}
+
 // lintFinding is one semantic issue reported by the linter.
 type lintFinding struct {
-	Code     string
-	Severity lintSeverity
-	Path     string
-	Message  string
+	Code     string       `json:"code"`
+	Severity lintSeverity `json:"severity"`
+	Path     string       `json:"path"`
+	Message  string       `json:"message"`
 }
 
 func (f lintFinding) String() string {
@@ -70,25 +74,17 @@ func newLintCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			// The budget runs first: a home or project with only
-			// AGNOSTIC_AI.md still loads it every session.
-			budget, err := lintBudgetFindings(scope)
+			findings, err := lintScopeFindings(scope)
 			if err != nil {
 				return err
 			}
 			entries := scope.bundle.All()
-			if len(entries) == 0 && len(budget) == 0 {
+			// A home or project with only AGNOSTIC_AI.md still loads it
+			// every session, so its budget findings count without specs.
+			if len(entries) == 0 && len(findings) == 0 {
 				cmd.PrintErrln(scope.emptyHint())
 				return nil
 			}
-
-			findings := collectLintFindings(scope.targets, scope.support, scope.bundle)
-			if scope.global {
-				findings = append(findings, lintGlobalRuleFindings(scope.bundle.Rules)...)
-				findings = append(findings, lintGlobalSettingsFindings(scope.bundle.Settings, scope.targets)...)
-			}
-			findings = append(findings, budget...)
-			findings = append(findings, lintGitignoreCommitTargets(scope.cfg)...)
 
 			if len(findings) == 0 {
 				cmd.Printf("ok — %d spec(s) clean\n", len(entries))
@@ -118,6 +114,23 @@ func newLintCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&strict, "strict", false, "Treat warnings as errors.")
 	cmd.Flags().BoolVar(&global, "global", false, "Lint the global specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, against the targets sync --global writes.")
 	return cmd
+}
+
+// lintScopeFindings is every finding `lint` reports for a scope. doctor
+// reads the same set, so it cannot pass while lint has findings.
+func lintScopeFindings(scope checkScope) ([]lintFinding, error) {
+	budget, err := lintBudgetFindings(scope)
+	if err != nil {
+		return nil, err
+	}
+	findings := collectLintFindings(scope.targets, scope.support, scope.bundle)
+	if scope.global {
+		findings = append(findings, lintGlobalRuleFindings(scope.bundle.Rules)...)
+		findings = append(findings, lintGlobalSettingsFindings(scope.bundle.Settings, scope.targets)...)
+	}
+	findings = append(findings, budget...)
+	findings = append(findings, lintGitignoreCommitTargets(scope.cfg)...)
+	return findings, nil
 }
 
 // collectLintFindings runs every rule against a loaded bundle. Both `lint`
