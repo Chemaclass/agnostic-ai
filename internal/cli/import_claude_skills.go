@@ -8,8 +8,72 @@ import (
 	"path/filepath"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 )
+
+func preserveClaudeReadonly(existing, imported *yaml.Node) {
+	var meta map[string]any
+	if existing.Decode(&meta) != nil {
+		return
+	}
+	readonly := meta["readonly"] == true
+	customMeta, _ := meta["x-claude"].(map[string]any)
+	if customMeta != nil {
+		if value, set := customMeta["readonly"]; set {
+			readonly = value == true
+		}
+	}
+	hasTools := mappingHasKey(imported, "disallowedTools")
+	for i := 0; i+1 < len(existing.Content); i += 2 {
+		if existing.Content[i].Value != "x-claude" {
+			continue
+		}
+		custom := detachClaudeOverride(existing.Content[i+1])
+		var kept []*yaml.Node
+		if custom.Kind == yaml.MappingNode {
+			for _, key := range []string{"readonly", "disallowedTools"} {
+				if value, set := customMeta[key]; set && !mappingHasKey(custom, key) {
+					setMappingValue(custom, key, value)
+				}
+			}
+			for j := 0; j+1 < len(custom.Content); j += 2 {
+				key, value := custom.Content[j], custom.Content[j+1]
+				if key.Value == "readonly" || (key.Value == "disallowedTools" && value.Tag == "!!null" && !hasTools) {
+					kept = append(kept, key, value)
+				}
+			}
+		}
+		if len(kept) == 0 {
+			existing.Content = append(existing.Content[:i], existing.Content[i+2:]...)
+		} else {
+			custom.Content = kept
+			existing.Content[i+1] = custom
+		}
+		break
+	}
+	// Removing native restrictions must override the retained portable translation.
+	if readonly && !hasTools {
+		custom := findOrAppendMapping(existing, "x-claude")
+		if !mappingHasKey(custom, "disallowedTools") {
+			setMappingValue(custom, "disallowedTools", nil)
+		}
+	}
+}
+
+func detachClaudeOverride(node *yaml.Node) *yaml.Node {
+	if node.Kind == yaml.AliasNode {
+		return detachClaudeOverride(node.Alias)
+	}
+	detached := *node
+	detached.Anchor = ""
+	detached.Content = make([]*yaml.Node, len(node.Content))
+	for i, child := range node.Content {
+		detached.Content[i] = detachClaudeOverride(child)
+	}
+	return &detached
+}
 
 // importClaudeAgents copies .claude/agents/*.md to dstDir, keeping the
 // frontmatter keys only the existing spec declares.
@@ -46,7 +110,7 @@ func importClaudeAgents(root, dstDir string, layout claudeLayout) (int, error) {
 		if err := importMkdirAll(filepath.Dir(dstPath), 0o755); err != nil {
 			return count, fmt.Errorf("mkdir %s: %w", filepath.Dir(dstPath), err)
 		}
-		if err := importWriteFile(dstPath, []byte(out), 0o644); err != nil {
+		if err := importWriteSpecMarkdown(dstPath, []byte(out), 0o644, claudeAgentFields); err != nil {
 			return count, fmt.Errorf("write %s: %w", dstPath, err)
 		}
 		count++
