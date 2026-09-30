@@ -222,6 +222,12 @@ func importAgentsFromClaude(cfg *config.Config, files []entryPointFile, body, lo
 			agentsAt = i
 		}
 	}
+	if claudeAt >= 0 && agentsAt < 0 && files[claudeAt].plain && claudeImportsAgentsOnDisk() {
+		// The project keeps its instructions in AGENTS.md, CLAUDE.md
+		// imports it, and no other target writes AGENTS.md: Claude Code's
+		// sync writes it, so an edit to AGENTS.md keeps reaching Claude.
+		return claudeWritesAgents(cfg, files, claudeAt, body, local)
+	}
 	if claudeAt < 0 || agentsAt < 0 || !files[claudeAt].plain || !files[agentsAt].plain {
 		return files, nil
 	}
@@ -251,6 +257,60 @@ func importAgentsFromClaude(cfg *config.Config, files []entryPointFile, body, lo
 	files[claudeAt].Content = strings.TrimRight(companion, "\n") + "\n"
 	files[claudeAt].Layers = []instructionLayer{{Name: "AGNOSTIC_AI.md (Claude Code only)", Text: strings.Join(parts[1:], "\n\n")}}
 	return files, nil
+}
+
+// claudeWritesAgents writes the shared body to AGENTS.md and makes
+// CLAUDE.md `@AGENTS.md` plus the ::target claude blocks, the layout the
+// project already has, instead of one CLAUDE.md with the whole text.
+func claudeWritesAgents(cfg *config.Config, files []entryPointFile, claudeAt int, body, local string) ([]entryPointFile, error) {
+	parts := []string{"@AGENTS.md"}
+	var shared []string
+	for _, text := range []string{body, local} {
+		if text == "" {
+			continue
+		}
+		rest, only := spec.SplitReaderOnly(text, "claude", nil)
+		view, err := entryPointView(cfg, "AGENTS.md", nil, rest)
+		if err != nil {
+			return nil, err
+		}
+		shared = append(shared, view)
+		if only != "" {
+			parts = append(parts, only)
+		}
+	}
+	if len(shared) == 0 {
+		return files, nil
+	}
+	agentsText := shared[0]
+	if len(shared) > 1 {
+		agentsText = adapters.AppendLocalInstructions(agentsText, shared[1])
+	}
+	rendered := strings.TrimRight(header.With(agentsText, header.FormatMarkdown), "\n") + "\n"
+	companion := header.With(strings.Join(parts, "\n\n")+"\n", header.FormatMarkdown)
+	files[claudeAt].Content = strings.TrimRight(companion, "\n") + "\n"
+	files[claudeAt].Layers = []instructionLayer{{Name: "AGNOSTIC_AI.md (Claude Code only)", Text: strings.Join(parts[1:], "\n\n")}}
+	return append(files, entryPointFile{
+		Path:    "AGENTS.md",
+		Content: rendered,
+		Readers: []string{"claude"},
+		Layers:  []instructionLayer{{Name: "AGNOSTIC_AI.md", Text: agentsText}},
+		plain:   true,
+	}), nil
+}
+
+// claudeImportsAgentsOnDisk reports whether the root CLAUDE.md is the
+// `@AGENTS.md` companion, hand-written or synced, with AGENTS.md next to it.
+func claudeImportsAgentsOnDisk() bool {
+	raw, err := os.ReadFile("CLAUDE.md")
+	if err != nil {
+		return false
+	}
+	if _, err := os.Stat("AGENTS.md"); err != nil {
+		return false
+	}
+	_, ok := adapters.SplitAgentsCompanion(header.Strip(adapters.StripGeneratedAppendices(string(raw))))
+	return ok
 }
 
 // entryPointView returns text as the readers of path see it: ::target

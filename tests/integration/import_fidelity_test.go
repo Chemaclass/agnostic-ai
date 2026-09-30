@@ -217,7 +217,7 @@ func normalizeNative(rel string, body []byte) string {
 	case ".json":
 		var v any
 		if json.Unmarshal([]byte(text), &v) == nil {
-			return canonicalJSON(v)
+			return canonicalJSON(dropHookTargetEnv(v))
 		}
 	case ".toml":
 		var v map[string]any
@@ -270,6 +270,23 @@ func trimText(text string) string {
 		lines[i] = strings.TrimRight(l, " \t")
 	}
 	return strings.Trim(strings.Join(lines, "\n"), "\n")
+}
+
+// dropHookTargetEnv removes the AGNOSTIC_AI_TARGET entry sync adds to a
+// settings `env` so a shared hook script knows which tool ran it. It is
+// documented output, new to the file, and changes no existing setting.
+func dropHookTargetEnv(v any) any {
+	doc, ok := v.(map[string]any)
+	if !ok {
+		return v
+	}
+	if env, ok := doc["env"].(map[string]any); ok {
+		delete(env, "AGNOSTIC_AI_TARGET")
+		if len(env) == 0 {
+			delete(doc, "env")
+		}
+	}
+	return doc
 }
 
 // trimValues trims every string in a decoded document the way trimText

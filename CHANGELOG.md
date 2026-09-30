@@ -17,6 +17,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### By tool
 
+#### Claude Code
+
+- A project whose `CLAUDE.md` imports `@AGENTS.md` keeps that layout with only Claude enabled: sync writes the shared body to `AGENTS.md` and `CLAUDE.md` stays `@AGENTS.md` plus its Claude-only text, instead of one `CLAUDE.md` holding the whole text while `AGENTS.md` goes stale.
+
 #### Codex
 
 - `.codex/environments/environment.toml` always carries `[setup]`, with an empty script when no spec sets one, as the file the Codex app generates does; a spec with only dev commands used to drop the table.
