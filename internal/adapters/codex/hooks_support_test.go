@@ -63,6 +63,9 @@ func TestEmit_NotesEditHookReadingFilePath(t *testing.T) {
 	if !strings.Contains(out, "`tool_input.file_path` on 1 hook") || !strings.Contains(out, "tool_input.command") {
 		t.Errorf("want one edit-payload note, got:\n%s", out)
 	}
+	if !strings.Contains(out, "agnostic-ai hook paths") {
+		t.Errorf("note does not suggest agnostic-ai hook paths:\n%s", out)
+	}
 }
 
 func TestEmit_EditHookPayloadErrorsUnderOnUnsupportedError(t *testing.T) {
@@ -172,6 +175,9 @@ func TestEmit_EditPayloadChecksMaterializedScripts(t *testing.T) {
 				err = New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{editHook(tc.command)}), &config.Config{OnUnsupported: "error"}, false)
 				if err == nil || !strings.Contains(err.Error(), "guard.yaml") || !strings.Contains(err.Error(), "apply_patch") {
 					t.Errorf("missing named payload error: %v", err)
+				}
+				if !strings.Contains(notes.String(), "agnostic-ai hook paths") {
+					t.Errorf("script note does not suggest agnostic-ai hook paths: %s", notes)
 				}
 			}
 		})
