@@ -351,6 +351,13 @@ func syncManagedBlock(cfg *config.Config, b spec.Bundle, targets, recorded []str
 	return buildManagedBlockCommitting(cfg, entries, specScopes(b, targets), committed), nil
 }
 
+func trackedIgnoreCandidates(cfg *config.Config, outputs []string) []string {
+	if cfg.Gitignore.IgnoreWorktreeInclude && cfg.Gitignore.WorktreeIncludeEnabled() && slices.Contains(cfg.Targets, "claude") {
+		return append(slices.Clone(outputs), worktreeIncludeFile)
+	}
+	return outputs
+}
+
 // buildManagedBlock assembles the managed-block lines: collapsed,
 // root-anchored ignores first, then the configured re-allow exceptions as
 // `!`-prefixed lines. Allows are emitted last so they override any broader
@@ -363,6 +370,9 @@ func buildManagedBlock(cfg *config.Config, entries, scopes []string) []string {
 // buildManagedBlockCommitting is buildManagedBlock that leaves out every
 // entry in committed, and every directory entry above one.
 func buildManagedBlockCommitting(cfg *config.Config, entries, scopes []string, committed map[string]struct{}) []string {
+	if cfg.Gitignore.IgnoreWorktreeInclude && cfg.Gitignore.WorktreeIncludeEnabled() && slices.Contains(cfg.Targets, "claude") {
+		entries = append(slices.Clone(entries), worktreeIncludeFile)
+	}
 	var ignored []string
 	for _, e := range normalizeAndSort(append(fixedManagedEntries(), dropSourceEntryPoint(entries)...)) {
 		if !holdsCommitted(committed, e) {

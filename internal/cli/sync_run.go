@@ -669,7 +669,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
 		ledger.specSums = sums
 	}
-	trackedIgnored := gitTrackedAndIgnored(root, ledger.outputs)
+	trackedIgnored := gitTrackedAndIgnored(root, trackedIgnoreCandidates(cfg, ledger.outputs))
 	var untrackErr error
 	if untrack && len(trackedIgnored) > 0 {
 		removed, err := gitRmCached(root, trackedIgnored)
@@ -940,7 +940,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	for _, p := range unmanagedSkips(sessions) {
 		out.Skipped = append(out.Skipped, fileRecord{Target: "agnostic-ai", Path: p, Action: "unmanaged"})
 	}
-	trackedIgnored := gitTrackedAndIgnored(root, ledger.outputs)
+	trackedIgnored := gitTrackedAndIgnored(root, trackedIgnoreCandidates(cfg, ledger.outputs))
 	if untrack && len(trackedIgnored) > 0 {
 		removedFromIndex, err := gitRmCached(root, trackedIgnored)
 		for _, p := range removedFromIndex {
