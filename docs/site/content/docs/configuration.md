@@ -394,7 +394,7 @@ Claude Code builds a CLI `--worktree`, a subagent's, or a Desktop worktree from 
 
 ## Watched inputs
 
-`sync --watch` re-emits when the config files, any `sources` directory, `.agnostic-ai/local/`, or `.agnostic-ai/overlays/` change. Overlays hold keys the spec layer does not own, such as Claude `statusLine` or Codex `[profiles.*]`. See [`sync --watch`](@/docs/cli-reference/sync.md#sync).
+`sync --watch` re-emits when the config files, any `sources` directory, `.agnostic-ai/local/`, or `.agnostic-ai/overlays/` change. Overlays hold keys the spec layer does not own, such as Claude `statusLine` or Codex `[history]`. See [`sync --watch`](@/docs/cli-reference/sync.md#sync).
 
 ## Path semantics
 

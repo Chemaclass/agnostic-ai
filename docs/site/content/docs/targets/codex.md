@@ -107,15 +107,6 @@ outputs:
       model-reasoning-effort: high
       model-reasoning-summary: auto
       history-persistence: project
-      notify: ["python3", "/etc/codex/notify.py"]
-      profiles:
-        work:
-          model: o4-mini
-          sandbox: workspace-write
-          approval-policy: on-failure
-        oss:
-          model: gpt-oss-20b
-          model-provider: ollama
 ```
 
 | Field | Type | Notes |
@@ -126,13 +117,19 @@ outputs:
 | `model-reasoning-effort` | string | Reasoning effort for o-series models: `low`, `medium`, `high`. |
 | `model-reasoning-summary` | string | Reasoning summary verbosity: `auto`, `concise`, `detailed`. |
 | `history-persistence` | string | Conversation history scope: `project`, `global`, or `none`. |
-| `notify` | string array | External program Codex invokes on session events. First element is the executable; rest are arguments. |
-| `profiles` | map | Named `[profiles.<name>]` blocks. Each entry overrides top-level fields when Codex runs with `--profile <name>`. Supported keys: `model`, `sandbox`, `approval-policy`, `model-reasoning-effort`, `model-reasoning-summary`, `model-provider`. |
-| `model-providers` | map | Named `[model_providers.<id>]` blocks declaring backends Codex can call. Supported keys: `name`, `base-url`, `wire-api`, `api-key-env`, `env-key`. Reference an `id` from `profiles.<name>.model-provider`. |
+| `notify` | string array | Not written. Codex ignores `notify` in a project config; set it in `~/.codex/config.toml`. |
+| `profiles` | map | Not written. Codex ignores `[profiles.*]` in a project config, and 0.134.0 and later read no `[profiles.*]` table from any `config.toml`. Put each profile in `~/.codex/<name>.config.toml` and select it with `--profile <name>`. |
+| `model-providers` | map | Not written. Codex ignores `[model_providers.*]` in a project config; set them in `~/.codex/config.toml`. |
 
-Sync also reads `.agnostic-ai/overlays/codex.config.toml` (captured by `import codex`) and writes it before the spec-derived `[mcp_servers.*]` sections. The overlay keeps every other `.codex/config.toml` key (`model`, `sandbox`, `approval_policy`, `notify`, `[history]`, `[profiles.*]`, `[model_providers.*]`, ...), so wiping `.codex/` between import and sync loses nothing.
+Sync also reads `.agnostic-ai/overlays/codex.config.toml` (captured by `import codex`) and writes it before the spec-derived `[mcp_servers.*]` sections. The overlay keeps every other `.codex/config.toml` key (`model`, `sandbox`, `approval_policy`, `[history]`, `[tui]`, ...), so wiping `.codex/` between import and sync loses nothing.
 
-- `model` precedence, low to high: portable Settings spec, `outputs.codex.config.model`, overlay. A model from either of the last two replaces the settings model, so a Claude model name in a settings spec raises no note; agent model notes still apply. A `[profiles.*]` model does not count, since a project config [cannot select a profile](https://learn.chatgpt.com/docs/config-file/config-advanced).
+### Keys Codex ignores in a project config
+
+Codex drops these top-level keys from a project `.codex/config.toml` and prints a startup warning for each ([config-advanced docs](https://learn.chatgpt.com/docs/config-file/config-advanced)): `openai_base_url`, `chatgpt_base_url`, `apps_mcp_product_sku`, `model_provider`, `model_providers`, `notify`, `profile`, `profiles`, `experimental_realtime_ws_base_url`, and `otel`. The Codex source list also has `responses_api_metadata` and `experimental_realtime_webrtc_call_base_url` ([`PROJECT_LOCAL_CONFIG_DENYLIST`](https://github.com/openai/codex/blob/0b1b78a4f1694e2b9e393d385c7b82ca714ca08a/codex-rs/config/src/loader/mod.rs#L88-L101)).
+
+Sync writes none of them. The `notify`, `profiles`, and `model-providers` fields above print a note. When the overlay sets one, sync leaves it out of `.codex/config.toml`, keeps the overlay file as it is, and prints a note naming the key. Set these keys in `~/.codex/config.toml`. Since Codex 0.134.0, `--profile <name>` reads `~/.codex/<name>.config.toml`, and neither `[profiles.<name>]` nor the top-level `profile` selector works in any `config.toml`.
+
+- `model` precedence, low to high: portable Settings spec, `outputs.codex.config.model`, overlay. A model from either of the last two replaces the settings model, so a Claude model name in a settings spec raises no note; agent model notes still apply. A `[profiles.*]` model does not count, since sync leaves profiles out.
 - The overlay wins any other conflict with `outputs.codex.config.*`. The lower value is dropped to keep the TOML valid.
 - On import, a top-level `model_reasoning_effort` moves to `effort` in `<settings>/codex.yaml` when no settings spec sets `effort`, so every target syncs it. `[profiles.*]` values, and a value another settings spec shadows, stay in the overlay.
 

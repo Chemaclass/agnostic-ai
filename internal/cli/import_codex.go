@@ -121,7 +121,7 @@ func importFromCodexWithOpts(root string, src config.Sources, opts importCodexOp
 	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d commands, %d reviews, %d environments\n",
 		rules, agents, skills, hooks, mcps, commands, reviews, environments)
 	if overlaySeeded {
-		summaryf("  → %s seeded from %s (carries model/sandbox/profiles/etc. across re-syncs)\n",
+		summaryf("  → %s seeded from %s (carries model/sandbox/history/etc. across re-syncs)\n",
 			codexOverlayRelPath(), codexConfigTOML)
 	}
 	if effortPromoted {
