@@ -130,6 +130,9 @@ func PendingCapabilityWarningsCount() int { return emit.PendingCapabilityWarning
 // target, so it flushes and sticky-suppresses with the coverage notes.
 func NoteProject(text string) { emit.NoteProject(text) }
 
+// ClaudeModel reports whether model is a Claude Code model name.
+func ClaudeModel(model string) bool { return emit.ClaudeModel(model) }
+
 // Note is one buffered capability warning or coverage note in structured
 // form (re-exported from the emit layer).
 type Note = emit.Note

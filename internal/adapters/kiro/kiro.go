@@ -204,6 +204,8 @@ var caps = emit.Capabilities{
 	AgentFieldReasons: map[string]string{
 		"mcpServers": "Kiro takes inline server definitions only; set x-kiro.mcpServers",
 	},
+	// Kiro reads claude-* model ids, not Claude's aliases.
+	ForeignClaudeModels: []string{"sonnet", "opus", "haiku"},
 }
 
 // Adapter emits AWS Kiro configs.

@@ -21,7 +21,7 @@ func setupCompareFixture(t *testing.T) string {
 name: reviewer
 description: Reviews diffs.
 tools: [Read, Grep]
-model: sonnet
+model: claude-sonnet-4-6
 ---
 
 Review the diff.

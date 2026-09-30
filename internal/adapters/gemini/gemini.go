@@ -117,8 +117,9 @@ const (
 )
 
 var caps = emit.Capabilities{
-	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindCommand, spec.KindIgnore, spec.KindSettings},
+	Target:              target,
+	Supports:            []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindCommand, spec.KindIgnore, spec.KindSettings},
+	ForeignClaudeModels: emit.ClaudeModelNames,
 }
 
 // Adapter emits Gemini CLI configs.

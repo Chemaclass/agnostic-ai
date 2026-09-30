@@ -182,6 +182,8 @@ var caps = emit.Capabilities{
 	// effort: frontmatter_policy.go notes the values outside the enum.
 	AgentFields:    []string{"effort", "mcpServers"},
 	SettingsFields: []string{"effort"},
+	// Factory reads inherit and claude-* model ids, not Claude's aliases.
+	ForeignClaudeModels: []string{"sonnet", "opus", "haiku"},
 }
 
 // Adapter emits Factory Droid CLI configs.

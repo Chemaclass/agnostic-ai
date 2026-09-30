@@ -132,8 +132,9 @@ var caps = emit.Capabilities{
 	// Environments land in .codex/environments/environment.toml.
 	Supports: []spec.Kind{spec.KindAgent, spec.KindRule, spec.KindSkill, spec.KindHook, spec.KindMCP, spec.KindCommand, spec.KindSettings, spec.KindReview, spec.KindEnvironment},
 	// effort: effort.go notes the integer budgets it cannot write.
-	AgentFields:    []string{"effort"},
-	SettingsFields: []string{"effort"},
+	AgentFields:         []string{"effort"},
+	SettingsFields:      []string{"effort"},
+	ForeignClaudeModels: emit.ClaudeModelNames,
 }
 
 // Adapter emits Codex configs.

@@ -79,6 +79,8 @@ var commandFrontmatterKeys = []string{"description", "agent", "model", "subtask"
 var caps = emit.Capabilities{
 	Target:   target,
 	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindCommand, spec.KindSettings, spec.KindHook},
+	// OpenCode names a model as provider/model, so a bare Claude name never loads.
+	ForeignClaudeModels: emit.ClaudeModelNames,
 }
 
 // skillNameRule is the regex opencode.ai/docs/skills states for a skill
