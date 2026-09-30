@@ -619,6 +619,9 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 		return err
 	}
 	prepared.Rules = withoutEntryPointRules(sess, cfg, b, a.Name(), prepared.Rules)
+	if err := checkProtectedPaths(a, prepared.Settings); err != nil {
+		return err
+	}
 	if err := a.Emit(sess, prepared, cfg, dryRun); err != nil {
 		return err
 	}

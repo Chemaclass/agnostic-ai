@@ -108,6 +108,10 @@ This is Qoder's own store, separate from the field above ([Qoder memory](https:/
 
 Auto memory is off by default, and agnostic-ai never reads or writes the store. See [Memory and local state](@/docs/target-behavior.md#memory-and-local-state).
 
+## Protected paths
+
+Advisory. This target has no native edit guard that sync writes, so sync prints a coverage note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+
 ## Verify
 
 1. Install Qoder from [qoder.com](https://qoder.com).

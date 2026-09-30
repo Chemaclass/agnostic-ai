@@ -304,6 +304,9 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 	if err != nil {
 		return err
 	}
+	if _, err := spec.ProtectedPaths(settings); err != nil {
+		return err
+	}
 	specSettings := buildSpecSettings(settings)
 	configSettings := buildConfigSettings(cfg)
 	retired := retiredConfigKeys(cfg)

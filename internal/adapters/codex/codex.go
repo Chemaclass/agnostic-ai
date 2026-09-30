@@ -83,6 +83,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/BurntSushi/toml"
 
@@ -173,6 +174,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err != nil {
 		return err
 	}
+	protected, err := spec.ProtectedPaths(b.Settings)
+	if err != nil {
+		return err
+	}
 
 	agentsDir := emit.OutputAgentsDir(cfg, target, defaultAgentsDir)
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
@@ -239,7 +244,14 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := noteEditHookPayload(sess, hooks, cfg.OnUnsupported); err != nil {
 		return err
 	}
-	if err := emitHooksJSON(sess, hooks, cfg, dryRun); err != nil {
+	emitted := hooks
+	if len(protected) > 0 {
+		emitted = append(slices.Clone(hooks), protectHook())
+	}
+	if err := emitHooksJSON(sess, emitted, cfg, dryRun); err != nil {
+		return err
+	}
+	if err := emitProtectScript(sess, protected, dryRun); err != nil {
 		return err
 	}
 	if err := emitExecPolicies(sess, cfg, policies, dryRun); err != nil {

@@ -9,6 +9,16 @@
             "commandWindows": ".codex/hooks/shared-guard.sh"
           }
         ]
+      },
+      {
+        "matcher": "apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "export AGNOSTIC_AI_TARGET=codex; \"$(git rev-parse --show-toplevel 2\u003e/dev/null || pwd)/.codex/hooks/agnostic-ai-protect.sh\"",
+            "commandWindows": "sh .codex/hooks/agnostic-ai-protect.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [

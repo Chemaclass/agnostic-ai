@@ -19,6 +19,7 @@ overwrite-behaviour = "@/docs/spec-format/ignore.md"
 
 - **One policy.** Allow `go test`, deny `rm`, and ask before pushing, in every tool that supports permissions.
 - **Safe translation.** A rule a tool cannot express raises a coverage note instead of being widened.
+- **Protected files.** List the files an agent must not edit without asking, and each tool gets its own guard for them.
 - **One default model.** Set it per tool with a fallback, since model names differ between vendors.
 - **Tool-only keys too.** An `x-<target>` block merges into that tool's own settings file.
 
@@ -50,6 +51,36 @@ effort:
 | `permissions.default-mode` | no | unset | Claude Code starting mode for `sync --global`: `default`, `manual`, `acceptEdits`, `plan`, `auto`, `dontAsk`, or `bypassPermissions`. Other targets raise a coverage note. |
 | `model` | no | empty | Default model: a string, or a map per target with an optional `default`, like [agent `model`](@/docs/spec-format/agents.md#per-target-model-and-effort). A target with no entry and no `default` gets no model. |
 | `effort` | no | empty | Default reasoning effort: a scalar, or a map per target with an optional `default`, like [agent `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort). Separate from an agent's own `effort`. |
+| `protected` | no | unset | Files agents must not edit without asking: `paths`, `decision` (`ask` or `deny`), and `reason`. See [protected paths](#protected-paths). |
+
+## Protected paths
+
+"Do not edit these files without asking" is a common project rule: CI workflows, lock files, generated code, migrations. A `protected` block states it once, and sync writes each target's strongest native form of it.
+
+```yaml
+protected:
+  paths:
+    - .github/**
+    - composer.lock
+  decision: ask     # ask (default) or deny
+  reason: CI and the lock file change only on purpose.
+```
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `paths` | yes | | Globs relative to the project root. `*` and `?` match inside one path segment, `**` matches across segments, and a path also covers every file under it, so `vendor` protects `vendor/a.go`. A trailing `/` means the directory's contents. |
+| `decision` | no | `ask` | `ask` makes the agent ask first. `deny` blocks the edit. |
+| `reason` | no | empty | Shown to the agent when an edit is blocked. |
+
+A path is anchored at the project root: `composer.lock` protects only the root file, and `**/composer.lock` protects every copy. Character classes, braces, negation, and paths outside the project are rejected, because the targets would read them differently. Each settings spec holds one block, so use one file per decision. Matching is case-sensitive, so on a case-insensitive file system a path spelled with other capitals is not protected.
+
+| Target | Protection | How |
+|---|---|---|
+| Claude Code | enforced (permission) | `Edit(/<path>)` rules in `permissions.ask` or `permissions.deny` ([details](@/docs/targets/claude.md#protected-paths)) |
+| Codex | enforced (hook) | a generated `PreToolUse` hook in `.codex/hooks/` that blocks a matching `apply_patch` ([details](@/docs/targets/codex.md#protected-paths)) |
+| Every other target | advisory | a coverage note on sync; state the paths in a rule |
+
+Protection covers the agent's edit tools. A shell command or script that writes the file directly can still change it. `agnostic-ai lint` warns (LINT022) when a protected path covers a file sync writes, since sync regenerates that file from its source spec, and reports an invalid block as LINT023. `sync --global` does not write protected paths.
 
 ## Permission rules
 

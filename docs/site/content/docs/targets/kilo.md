@@ -86,6 +86,10 @@ Ignore specs write project-root `.kilocodeignore`. Kilo's [migrator](https://kil
 | `outputs.kilo.mcp-file` | `kilo.jsonc` | |
 | `outputs.kilo.ignore-file` | `.kilocodeignore` | |
 
+## Protected paths
+
+Advisory. This target has no native edit guard that sync writes, so sync prints a coverage note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+
 ## Verify
 
 1. Install Kilo Code ([docs](https://kilo.ai/docs)).

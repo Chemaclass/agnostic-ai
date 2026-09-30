@@ -2,10 +2,12 @@ package cli
 
 import (
 	"bytes"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -257,6 +259,23 @@ func TestEditTOMLRoot_DottedRootKeyIsNotAPlainKey(t *testing.T) {
 	}
 	if !strings.HasPrefix(string(got), in) {
 		t.Errorf("the dotted line must stay: %q", got)
+	}
+}
+
+func TestGlobalSettings_NotesProtectedPathsAsProjectOnly(t *testing.T) {
+	var notes bytes.Buffer
+	adapters.ResetCoverageNotes()
+	adapters.SetWarner(&notes)
+	t.Cleanup(func() { adapters.ResetCoverageNotes(); adapters.SetWarner(os.Stderr) })
+	entries := []spec.Entry{{Path: "p.yaml", Meta: map[string]any{"protected": map[string]any{"paths": []any{"a"}}}}}
+
+	if got := globalSettingsFor("claude", globalTargets["claude"], entries); len(got) != 0 {
+		t.Errorf("protected paths reached user settings: %+v", got)
+	}
+	adapters.FlushCoverageNotes()
+
+	if !strings.Contains(notes.String(), "protected") || !strings.Contains(notes.String(), "sync --global") {
+		t.Errorf("notes = %q, want a protected note", notes.String())
 	}
 }
 

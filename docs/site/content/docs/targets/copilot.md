@@ -85,6 +85,10 @@ target_id = "copilot"
 
 All three skill directories are [documented project locations](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills). On a same-name collision the emit path wins, then `.claude/skills`, then `.agents/skills`.
 
+## Protected paths
+
+Advisory. Copilot takes deny and ask rules only from device-level MDM settings, not from a repository file, so sync prints a coverage note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+
 ## Verify
 
 1. Install the [GitHub Copilot extension](https://marketplace.visualstudio.com/items?itemName=GitHub.copilot) (and optional Copilot Chat) in VS Code.

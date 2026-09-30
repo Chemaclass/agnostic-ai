@@ -67,6 +67,10 @@ Skills import from `.opencode/skills/`, `.claude/skills/`, and `.agents/skills/`
 | `outputs.opencode.emit-skills-as-commands` | `false` | |
 | `outputs.opencode.rules-file` | unset | writes legacy concatenated rules and skips the pointer-body write |
 
+## Protected paths
+
+Advisory. This target has no native edit guard that sync writes, so sync prints a coverage note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+
 ## Verify
 
 1. Install: `npm install -g sst/opencode` ([install docs](https://opencode.ai/)).

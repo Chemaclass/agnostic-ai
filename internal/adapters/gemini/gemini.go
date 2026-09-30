@@ -150,6 +150,15 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
+// ProtectedPaths explains why protected paths stay advisory: the policy
+// engine documents a deny rule for write_file and replace, but its
+// workspace tier "is currently non-functional", so a project
+// `.gemini/policies/*.toml` has no effect
+// (geminicli.com/docs/reference/policy-engine).
+func (Adapter) ProtectedPaths() (enforcement, reason string) {
+	return "", "Gemini CLI does not load project policy files yet, so protected paths are advisory; state them in a rule"
+}
+
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
 // Emit writes one native subagent per agent under `.gemini/agents/`

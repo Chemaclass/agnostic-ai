@@ -13,6 +13,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claudehooks"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 const (
@@ -162,7 +163,7 @@ func moveClaudePermissions(root string, doc *adapters.OrderedJSON, settingsDir s
 
 // claudeOwnedPermissionRules returns, per list, the rules sync already
 // writes into settings.json from somewhere other than the spec this
-// import owns: other settings specs that reach Claude, portable or under x-claude, and
+// import owns: other settings specs that reach Claude, portable, protected paths, or under x-claude, and
 // outputs.claude.settings.permissions.
 func claudeOwnedPermissionRules(root, settingsDir string) (map[string]map[string]bool, error) {
 	owned := map[string]map[string]bool{}
@@ -190,6 +191,12 @@ func claudeOwnedPermissionRules(root, settingsDir string) (map[string]map[string
 			perms, _ := layer.(map[string]any)
 			for _, list := range claudePermissionLists {
 				add(list, stringSliceFromAny(perms[list]))
+			}
+		}
+		groups, _ := spec.ProtectedPaths([]spec.Entry{entry})
+		for _, group := range groups {
+			for _, path := range group.Paths {
+				add(group.Decision, []string{spec.ProtectEditRule(path)})
 			}
 		}
 	}

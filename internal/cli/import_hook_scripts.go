@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 )
 
 // agnosticScriptsDir is the project-relative root for stashed hook
@@ -16,7 +18,8 @@ const agnosticScriptsDir = ".agnostic-ai/scripts"
 
 // captureHookScripts copies every regular file under `<root>/.<tool>/hooks/`
 // into `<root>/.agnostic-ai/scripts/<tool>/`, preserving the file mode so
-// executable scripts stay executable. A no-op when the source directory
+// executable scripts stay executable. A script carrying the provenance
+// header is sync output, not a source, so it stays behind. A no-op when the source directory
 // is missing — projects that author hook commands inline (e.g. `gofmt`)
 // have nothing to stash.
 //
@@ -53,6 +56,9 @@ func copyHookScriptsTree(srcDir, dstDir string) error {
 		body, err := os.ReadFile(src)
 		if err != nil {
 			return fmt.Errorf("read %s: %w", src, err)
+		}
+		if header.Leads(src, string(body)) {
+			continue
 		}
 		if err := importMkdirAll(dstDir, 0o755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", dstDir, err)

@@ -214,6 +214,12 @@ Two sections with the same heading in one file are deduplicated (`style.md`, `st
 
 `sync -t codex` writes the overlay back, so every captured key survives a `.codex/` wipe. See [Codex config](#codex-config) for conflicts when both sides set a key. The [exec-policies overlay](#codex-exec-policies) works the same way.
 
+## Protected paths
+
+Enforced (hook). Codex has no per-tool permission key, so sync writes `.codex/hooks/agnostic-ai-protect.sh` and a `PreToolUse` hook on `apply_patch` in `.codex/hooks.json`. The script reads every `Add File`, `Update File`, `Delete File`, and `Move to` path in the patch, and exits 2 with the reason on stderr when one is protected. Codex shows that reason and blocks the edit ([hooks docs](https://learn.chatgpt.com/docs/hooks)). The script needs only `sh` and `awk`.
+
+Codex parses an `ask` decision from a `PreToolUse` hook but does not support it yet, so `decision: ask` also blocks, and the message tells the agent to ask the user. The hook stays inactive until you trust it with `/hooks`, like every project hook. It does not see a shell command that writes a file. On Windows it runs through the `sh` on `PATH`, such as Git for Windows provides; without one the hook fails and the edit goes through. See [Protected paths](@/docs/spec-format/settings.md#protected-paths).
+
 ## Verify
 
 1. Install: `npm install -g @openai/codex` ([quickstart](https://learn.chatgpt.com/docs/codex/cli)), then `codex --version`.

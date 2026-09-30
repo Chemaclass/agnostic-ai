@@ -114,6 +114,10 @@ Some data does not round-trip. Kiro's output stays the same, but the rebuilt spe
 - Two hook files with the same `name` keep both hooks, but the second gets a deterministic generated name, because spec names are unique and set the hook filename.
 - `{{filePath}}` in a command stays literal text. Kiro documents it as new in 3.0, and it means nothing on other targets.
 
+## Protected paths
+
+Advisory. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+
 ## Verify
 
 1. Install Kiro from [kiro.dev](https://kiro.dev).

@@ -32,6 +32,10 @@ CONVENTIONS.md           # pointer body + inlined rules block (written by sync)
 | `outputs.aider.rules-file` | unset | writes a legacy merged document and skips the pointer-body write |
 | `outputs.aider.ignore-file` | `.aiderignore` | |
 
+## Protected paths
+
+Advisory. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+
 ## Verify
 
 1. Install: `python -m pip install -U aider-chat` (or `pipx install aider-chat`).

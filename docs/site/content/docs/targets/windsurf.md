@@ -90,6 +90,10 @@ Skills import from `.agents/skills/`, `.devin/skills/`, then `.windsurf/skills/`
 
 A hand-authored ignore file imports from `.devinignore`, or `.windsurfignore` when the first is absent, so patterns in either survive sync taking both over.
 
+## Protected paths
+
+Advisory. This target has no native edit guard that sync writes, so sync prints a coverage note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+
 ## Verify
 
 1. Install Devin Desktop from [devin.ai](https://devin.ai) (formerly windsurf.com).
