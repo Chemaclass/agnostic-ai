@@ -8,9 +8,9 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
-- Rule body headings nest under their section in merged instructions; sync/import preserves headings in fenced code and raw HTML (#1452).
 - Doctor warns when existing packaging ignore files miss generated paths; upgrade notes flag the Codex skills path move (#1447).
 - New `AGNOSTIC_AI.md` files use a short editable template; existing files stay intact, and `doctor` points out old boilerplate (#1446).
+- Rule body headings nest under their section in merged instructions; sync/import preserves headings in fenced code and raw HTML (#1452).
 - **Breaking:** rule `scope`, `globs`, and `paths` form a union; rule folders scope existing directories. Remove `scope` to keep only a filter (#1429, #1430).
 - Partial syncs keep all targets' ignores; no sync ignores `outputs.lock`. Kept orphans stay ignored and say why; `doctor --fix` offers removal (#1440, #1503).
 - `import` keeps hand-written instructions whole, a nested `AGENTS.md` becomes a scoped rule, and Claude hook roots resolve elsewhere (#1434, #1449, #1464).
