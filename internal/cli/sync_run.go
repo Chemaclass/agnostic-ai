@@ -485,7 +485,9 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	}
 	gitignoreOn := !dryRun && resolveGitignore(cfg, gitignoreFlag)
 
-	if err := shared.reconcile(prev.Outputs, dryRun); err != nil {
+	reconciled, err := shared.reconcile(prev.Outputs, dryRun)
+	sessions = append(sessions, reconciled) // written first (link removals), rolled back last
+	if err != nil {
 		return err
 	}
 
@@ -853,7 +855,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 		keepEditsIn(mainSess, keep)
 	}
 	gitignoreOn := resolveGitignore(cfg, gitignoreFlag)
-	if err := shared.reconcile(prev.Outputs, false); err != nil {
+	if _, err := shared.reconcile(prev.Outputs, false); err != nil {
 		return err
 	}
 

@@ -242,10 +242,17 @@ func folderFingerprint(files map[string]string) string {
 // the user edited through the link. The copy keeps that file in place;
 // emission then regenerates the siblings. A failed copy aborts the sync
 // rather than risk the user's file.
-func (st *sharedSkillsState) reconcile(prior []string, dryRun bool) error {
+//
+// Removals go through a transaction on a session of their own. It is
+// returned even with an error, and is nil under dryRun, so a sync that
+// fails later can put the links back once the trees written in their
+// place are rolled back.
+func (st *sharedSkillsState) reconcile(prior []string, dryRun bool) (*adapters.Session, error) {
 	if dryRun {
-		return nil
+		return nil, nil
 	}
+	sess := adapters.NewSession()
+	sess.StartTransaction()
 	keep := map[string]string{}
 	for _, l := range st.links {
 		keep[l.path] = l.canonical
@@ -258,7 +265,7 @@ func (st *sharedSkillsState) reconcile(prior []string, dryRun bool) error {
 		}
 		if config.MatchUnmanagedDir(st.unmanaged, p) {
 			if err := materializeLink(p); err != nil {
-				return fmt.Errorf("shared-skills: %w", err)
+				return sess, fmt.Errorf("shared-skills: %w", err)
 			}
 			continue
 		}
@@ -270,11 +277,11 @@ func (st *sharedSkillsState) reconcile(prior []string, dryRun bool) error {
 		} else if !st.coversAll && !st.capturedDiffersUnder(p) {
 			continue
 		}
-		if os.Remove(p) == nil {
+		if ok, err := sess.RemoveLink(p, false); err == nil && ok {
 			pruneAncestorDirs(p, pruned)
 		}
 	}
-	return nil
+	return sess, nil
 }
 
 // materializeLink replaces the symlink at p with a real directory holding
