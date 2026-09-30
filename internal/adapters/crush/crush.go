@@ -93,7 +93,8 @@ const (
 const defaultIgnoreFile = ".crushignore"
 
 var caps = emit.Capabilities{
-	Target: target,
+	SkillFields: emit.SkillFieldCoverage{Handled: []string{manualOnlyField}},
+	Target:      target,
 	// KindRule is declared even though this adapter never writes rules
 	// itself: they reach Crush through the shared AGENTS.md entry-point
 	// sync writes centrally. KindAgent is absent; Crush has no agent
