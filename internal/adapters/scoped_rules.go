@@ -65,9 +65,7 @@ func ValidateScopedRules(cfg *config.Config, b spec.Bundle, requested []string) 
 		targets = append(targets, t)
 	}
 	sort.Strings(targets)
-	effective := *cfg
-	effective.Targets = targets
-	cfg = &effective
+	cfg = cfg.WithAdditionalTargets(targets...)
 	reviews := ReviewSections(b, cfg, requested...)
 	shared := map[string]emit.CapturedFile{}
 	resolved := make(map[string]spec.Bundle, len(targets))

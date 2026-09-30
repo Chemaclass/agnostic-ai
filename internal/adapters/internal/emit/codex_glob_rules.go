@@ -2,6 +2,7 @@ package emit
 
 import (
 	"fmt"
+	"path/filepath"
 	"slices"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -40,6 +41,12 @@ func codexGlobDirectories(cfg *config.Config, target string, r spec.Entry) ([]st
 	dirs, err := scopeDirectories(patterns)
 	if err != nil {
 		return nil, err.Error()
+	}
+	for _, directory := range dirs {
+		destination := filepath.Join(directory, "AGENTS.md")
+		if cfg.IsUnmanaged(destination) {
+			return nil, fmt.Sprintf("%s is unmanaged", filepath.ToSlash(destination))
+		}
 	}
 	for _, reader := range append([]string{"codex", target}, cfg.Targets...) {
 		if reader != "codex" && reader != "cursor" && scopeDocument(reader) != "AGENTS.md" && EntryPointPath(cfg, reader) != EntryPointPath(cfg, "codex") {

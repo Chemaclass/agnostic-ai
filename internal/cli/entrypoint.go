@@ -97,9 +97,7 @@ type entryPointFile struct {
 // block, so personal text has the last word and import can drop it.
 // Fences and imports resolve in it exactly as in the shared body.
 func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, body string) ([]entryPointFile, error) {
-	effective := *cfg
-	effective.Targets = append(append([]string{}, cfg.Targets...), targets...)
-	cfg = &effective
+	cfg = cfg.WithAdditionalTargets(targets...)
 	body = adapters.StripGeneratedAppendices(body)
 
 	entryPoint := func(t string) string {

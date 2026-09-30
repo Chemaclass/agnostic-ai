@@ -45,6 +45,7 @@ func newRenderCmd() *cobra.Command {
 			if len(targets) == 0 {
 				targets = cfg.Targets
 			}
+			cfg = cfg.WithAdditionalTargets(targets...)
 			if err := adapters.ValidateScopedRules(cfg, bundle, targets); err != nil {
 				return err
 			}

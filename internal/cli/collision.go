@@ -37,6 +37,7 @@ import (
 // overrides diverge), which would otherwise cause silent last-writer-wins
 // and perpetual drift in `sync --check`.
 func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) error {
+	cfg = cfg.WithAdditionalTargets(targets...)
 	if err := adapters.ValidateScopedRules(cfg, b, targets); err != nil {
 		return err
 	}

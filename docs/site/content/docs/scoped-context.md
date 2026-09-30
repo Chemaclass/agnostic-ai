@@ -72,7 +72,7 @@ The report lists each Cursor instruction with its source spec, output path, sele
 
 With Codex enabled, an unscoped rule with `globs: [src/app/api/**, prisma/**]` writes `src/app/api/AGENTS.md` and `prisma/AGENTS.md`, keeping that text out of root context. Compatible `AGENTS.md` readers share those files. `alwaysApply: true` keeps an unscoped rule project-wide. Set `outputs.codex.nested-glob-rules: false` to keep all unscoped rules inline.
 
-Every selector must cover a complete subtree. `src/api/**/*.ts`, `Dockerfile`, and a mix of root files and directory patterns stay wholly inline with a note naming the always-loaded rule. `on-unsupported: error` refuses that fallback. Output overrides and root readers without verified nested discovery also retain inline delivery with a note. Sync does not silently broaden a filename filter to a directory.
+Every selector must cover a complete subtree. `src/api/**/*.ts`, `Dockerfile`, and a mix of root files and directory patterns stay wholly inline with a note naming the always-loaded rule. `on-unsupported: error` refuses that fallback. Output overrides, unmanaged destinations, and root readers without verified nested discovery also retain the whole rule inline with a note. Configured and one-off command-line targets participate in the same reader check. Sync does not silently broaden a filename filter to a directory.
 
 Codex loads the instruction chain for its session working directory. Start it in the rule's subtree; starting at the root does not load every nested document for later edits.
 
