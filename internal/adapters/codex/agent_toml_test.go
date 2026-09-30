@@ -306,7 +306,7 @@ func TestEmit_NotesAgentSandboxModeHasNoEffect(t *testing.T) {
 	}
 	emit.FlushCoverageNotes()
 
-	want := "note: `readonly` or `x-codex.sandbox_mode` on 2 agents has no effect on codex"
+	want := "note: `sandbox_mode` on 2 agents has no effect on codex (`readonly: true` also writes it;"
 	if got := buf.String(); strings.Count(got, want) != 1 {
 		t.Errorf("want one note %q, got: %s", want, got)
 	}

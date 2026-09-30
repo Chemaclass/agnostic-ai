@@ -292,8 +292,8 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 		}
 	}
 	// The key stays for Codex releases before rust-v0.155.0, which still honor it.
-	emit.NoteFieldNoOp(target, spec.KindAgent, "readonly` or `x-codex.sandbox_mode", inertSandboxModes,
-		"since openai/codex#39299 an agent keeps the parent session's sandbox; set sandbox_mode in config.toml instead")
+	emit.NoteFieldNoOp(target, spec.KindAgent, "sandbox_mode", inertSandboxModes,
+		"`readonly: true` also writes it; since openai/codex#39299 an agent keeps the parent session's sandbox, so set sandbox_mode in config.toml instead")
 	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", droppedAgentTools,
 		"Codex uses tools as a configuration table, not a Claude-style allowlist; set x-codex.tools for Codex-native tool settings")
 	return nil
