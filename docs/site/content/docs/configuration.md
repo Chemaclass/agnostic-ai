@@ -402,7 +402,11 @@ Claude Code builds a CLI `--worktree`, a subagent's, or a Desktop worktree from 
 
 ## Entry-point files
 
-`sync` writes `.agnostic-ai/AGNOSTIC_AI.md` plus one root entry-point file per enabled target, all sharing the canonical pointer body. See the [per-target table](@/docs/target-behavior.md#entry-point-files). An ignored `.agnostic-ai/local/AGNOSTIC_AI.md` [extends that body](@/docs/local-overrides.md#extend-the-instructions) on one machine.
+`sync` copies `.agnostic-ai/AGNOSTIC_AI.md` into one root entry-point file per enabled target. See the [per-target table](@/docs/target-behavior.md#entry-point-files). An ignored `.agnostic-ai/local/AGNOSTIC_AI.md` [extends that body](@/docs/local-overrides.md#extend-the-instructions) on one machine.
+
+Write the project instructions every tool shares in `AGNOSTIC_AI.md`. When the file is missing, sync seeds it with one line saying the tool files are generated from `.agnostic-ai/`, plus a placeholder comment. Every session loads this text, so keep it to what an agent cannot infer from the code. Rules, agents, and skills stay in their own `sources` folders. Sync keeps whatever you write here; it overwrites only the root entry points.
+
+Projects created by an earlier release may still hold the old default text, a long description of agnostic-ai. `doctor` points it out; replace it with your own instructions.
 
 Setting `outputs.<target>.rules-file: <path>` restores the legacy layout: the adapter writes one merged document at `<path>`. Two adapters writing different content to one path fail unless you set `sync.collision-policy: prefer-spec`.
 
