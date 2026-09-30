@@ -132,6 +132,7 @@ func loadProject(root string) (*config.Config, spec.Bundle, error) {
 	if err != nil {
 		return nil, spec.Bundle{}, err
 	}
+	b.ApplyModelTiers(cfg.Models)
 	return cfg, b, nil
 }
 

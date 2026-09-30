@@ -161,6 +161,17 @@ func NoteProject(text string) { emit.NoteProject(text) }
 // ClaudeModel reports whether model is a Claude Code model name.
 func ClaudeModel(model string) bool { return emit.ClaudeModel(model) }
 
+// ForeignClaudeModel reports whether model is a Claude model name that
+// target's agent `model` key cannot load.
+func ForeignClaudeModel(target, model string) bool {
+	a, ok := registry[target].(interface{ ForeignClaudeModels() []string })
+	return ok && emit.ForeignClaudeModel(a.ForeignClaudeModels(), model)
+}
+
+// SharedModel returns the model meta gives target through a value every
+// target shares: a string `model`, or the map's `default`.
+func SharedModel(meta map[string]any, target string) string { return emit.SharedModel(meta, target) }
+
 // Note is one buffered capability warning or coverage note in structured
 // form (re-exported from the emit layer).
 type Note = emit.Note

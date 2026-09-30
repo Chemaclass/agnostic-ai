@@ -261,6 +261,43 @@
           },
           "type": "object"
         },
+        "models": {
+          "additionalProperties": {
+            "properties": {
+              "effort": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "additionalProperties": {
+                      "oneOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "integer"
+                        }
+                      ]
+                    },
+                    "type": "object"
+                  }
+                ],
+                "description": "Effort the tier carries: a scalar, or a map of target name (or default) to a scalar."
+              }
+            },
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            },
+            "type": "object",
+            "description": "A model tier: target name (or default) to that target's model id, plus an optional effort."
+          },
+          "type": "object"
+        },
         "on-unsupported": {
           "type": "string"
         },

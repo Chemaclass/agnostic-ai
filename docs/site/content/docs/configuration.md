@@ -69,6 +69,7 @@ outputs:
 | [`sources`](#sources) | map | `.agnostic-ai/<kind>/` | Source directories. |
 | [`targets`](#targets) | list | 20 adapters | Adapters to emit. |
 | [`outputs`](#outputs) | map | per target | Output path overrides. |
+| [`models`](#models) | map | none | Model tiers that agents, skills, commands, and settings name. |
 | [`on-unsupported`](#on-unsupported) | string | `warn` | Unsupported kind handling. |
 | [`gitignore`](#gitignore) | map | `enabled: false` | Managed `.gitignore` block. |
 | [`sync`](#sync) | map | see section | Sync behavior. |
@@ -126,6 +127,19 @@ outputs:
 ```
 
 For Codex command rules, set `outputs.codex.exec-policies-from-permissions: true` to translate simple Bash entries from portable Settings specs and `outputs.claude.settings.permissions`. It defaults to `false`. Explicit inline, file, or imported Codex policies take precedence. Every translated rule matches a command prefix, including extra arguments. See [Bash permission translation](@/docs/targets/codex.md#translate-bash-permissions) for limits and LINT021 drift checks.
+
+## `models`
+
+Names each model role once. A spec whose `model` names a tier gets the tier's model for each target. Each tier maps a target name to that target's model id, with an optional `default` for every other target, and an optional `effort` (a scalar or a per-target map).
+
+```yaml
+models:
+  strong:   {claude: opus, codex: gpt-5.5, effort: {claude: xhigh, codex: high}}
+  balanced: {claude: sonnet, codex: gpt-5.5}
+  fast:     {claude: haiku, codex: o4-mini, effort: low}
+```
+
+An agent then writes `model: strong`. A `model` that names no tier stays a literal model id. See [model tiers](@/docs/spec-format/agents.md#model-tiers) for precedence. `lint` warns when a tier has no entry and no `default` for an enabled target that writes agents (LINT023), and when a tier's `default` is a Claude model name another target cannot load (LINT024). `explain <spec>` shows the model and effort each target gets. `sync --global` does not read `models`.
 
 ## `targets`
 

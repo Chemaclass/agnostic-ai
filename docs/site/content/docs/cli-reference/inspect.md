@@ -24,11 +24,16 @@ agnostic-ai explain rules/conventional-commits.md --json
 
 Contributions are grouped by configured target, plus a "would emit if enabled" list for inactive adapters, tagged `(full file)` or `(section "<name>")`. With `--global`, an agent or skill is a whole file, a rule is a section of the instructions file, a hook is its event in the hooks file, an MCP server is its key in the user MCP file, and a settings spec lists each key it sets, tagged `(key "<key>")`.
 
+A spec that sets `model` or `effort` also lists the model and effort each configured target it reaches resolves to, and the [tier](@/docs/spec-format/agents.md#model-tiers) it names. `tool default` means the target writes no model. A target that has no effort key still drops the effort, with a coverage note on `sync`.
+
 ```json
 {"version": "1", "command": "explain", "spec": {"kind": "rule", "name": "...", "path": "..."},
  "contributions": [{"target": "...", "path": "...", "section": "...", "mode": "full|section|key"}],
- "would_emit_if_enabled": []}
+ "would_emit_if_enabled": [],
+ "model_tier": "strong", "models": [{"target": "...", "model": "...", "effort": "..."}]}
 ```
+
+`model_tier` and `models` are omitted when the spec sets neither `model` nor `effort`.
 
 ### Explain a source file
 

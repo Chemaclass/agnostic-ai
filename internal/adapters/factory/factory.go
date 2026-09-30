@@ -198,6 +198,9 @@ func (Adapter) Name() string { return target }
 
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
+// ForeignClaudeModels lists the Claude model names the agent `model` key cannot load.
+func (Adapter) ForeignClaudeModels() []string { return caps.ForeignClaudeModels }
+
 // Emit writes one droid Markdown file per agent spec under
 // `.factory/droids/`, one skill folder per skill spec under
 // `.agents/skills/`, a managed `.factory/mcp.json` for MCP servers,
