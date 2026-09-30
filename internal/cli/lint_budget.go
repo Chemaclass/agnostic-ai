@@ -135,7 +135,7 @@ func lintBudgetFindings(scope checkScope) ([]lintFinding, error) {
 func projectSessionLoads(cfg *config.Config, support kindSupport, b spec.Bundle) ([]sessionLoad, error) {
 	sess := adapters.NewSession()
 	sess.StartCapture()
-	body, err := resolveAgnosticBody(sess, cfg, false)
+	body, err := resolveAgnosticBody(sess, false)
 	sess.StopCapture()
 	if err != nil {
 		return nil, err

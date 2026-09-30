@@ -64,26 +64,72 @@ func TestWriteAgnosticEntryPoints_NoWarnWhenGeneratedHeaderPresent(t *testing.T)
 	}
 }
 
-func TestResolveAgnosticBody_SeedsTemplateWhenAbsent(t *testing.T) {
+func TestResolveAgnosticBody_SeedsEditableTemplateWhenAbsent(t *testing.T) {
 	testutil.TempCwd(t)
-	cfg := &config.Config{Sources: config.Sources{Rules: ".agnostic-ai/rules"}}
 
-	body, err := resolveAgnosticBody(adapters.NewSession(), cfg, false)
+	body, err := resolveAgnosticBody(adapters.NewSession(), false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-	if body == "" {
-		t.Fatal("body is empty")
 	}
 	data, err := os.ReadFile(adapters.AgnosticEntryPointPath)
 	if err != nil {
 		t.Fatalf("AGNOSTIC_AI.md not created: %v", err)
 	}
-	if !header.Has(string(data)) {
-		t.Errorf("AGNOSTIC_AI.md missing provenance header")
+	if header.Has(string(data)) {
+		t.Errorf("AGNOSTIC_AI.md is the source to edit and must not say do not edit:\n%s", data)
 	}
-	if !strings.Contains(string(data), body) {
-		t.Errorf("AGNOSTIC_AI.md body mismatch")
+	if string(data) != body {
+		t.Errorf("AGNOSTIC_AI.md = %q, want the returned body %q", data, body)
+	}
+	if !strings.Contains(body, "generated from `.agnostic-ai/`") || !strings.Contains(body, "<!--") {
+		t.Errorf("template should say the tool files are generated and leave a placeholder:\n%s", body)
+	}
+	if strings.Contains(body, "Where the specs live") || strings.Count(strings.TrimSpace(body), "\n") > 4 {
+		t.Errorf("template should stay short; the long explanation lives in the docs:\n%s", body)
+	}
+}
+
+func TestWriteAgnosticEntryPoints_SeededTemplateKeepsRootFilesGenerated(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	cfg := &config.Config{Targets: []string{"claude"}}
+
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+		t.Fatal(err)
+	}
+	claude, err := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !header.Has(string(claude)) {
+		t.Errorf("CLAUDE.md is overwritten on sync and must keep the provenance header:\n%s", claude)
+	}
+	if !strings.Contains(string(claude), adapters.EntryPointBody()) {
+		t.Errorf("CLAUDE.md should carry the seeded body:\n%s", claude)
+	}
+}
+
+func TestWriteAgnosticEntryPoints_LeavesOldDefaultBodyAlone(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	old := header.With(legacyDefaultBody, header.FormatMarkdown)
+	writeAgnosticFile(t, old)
+	cfg := &config.Config{Targets: []string{"claude"}}
+
+	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{}, cfg.Targets, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(adapters.AgnosticEntryPointPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != old {
+		t.Errorf("sync must not rewrite an existing AGNOSTIC_AI.md:\n%s", got)
+	}
+	claude, err := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(string(claude), header.Marker) != 1 || !strings.Contains(string(claude), "## Where the specs live") {
+		t.Errorf("CLAUDE.md should carry the old body under one header:\n%s", claude)
 	}
 }
 
@@ -92,7 +138,7 @@ func TestResolveAgnosticBody_UsesExistingContent(t *testing.T) {
 	custom := "# My Project\n\nCustom instructions here.\n"
 	writeAgnosticFile(t, custom)
 
-	body, err := resolveAgnosticBody(adapters.NewSession(), &config.Config{}, false)
+	body, err := resolveAgnosticBody(adapters.NewSession(), false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -106,7 +152,7 @@ func TestResolveAgnosticBody_StripsHeaderFromExisting(t *testing.T) {
 	rawBody := "# My Project\n\nInstructions.\n"
 	writeAgnosticFile(t, header.With(rawBody, header.FormatMarkdown))
 
-	body, err := resolveAgnosticBody(adapters.NewSession(), &config.Config{}, false)
+	body, err := resolveAgnosticBody(adapters.NewSession(), false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

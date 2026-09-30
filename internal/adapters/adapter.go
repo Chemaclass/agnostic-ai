@@ -233,18 +233,20 @@ func LegacyRulesFileOwnsEntryPoint(cfg *config.Config, target string) bool {
 	return emit.LegacyRulesFileOwnsEntryPoint(cfg, target)
 }
 
-// EntryPointBody returns the raw (no header) pointer body for entry-point
-// files. Use when the caller needs to prepend its own header or compare
-// against existing content.
-func EntryPointBody(cfg *config.Config) string {
-	return emit.EntryPointBody(cfg)
+// EntryPointBody returns the template body, without the provenance
+// header, that sync seeds into a missing AGNOSTIC_AI.md.
+func EntryPointBody() string {
+	return emit.EntryPointBody()
 }
 
-// RenderEntryPoint returns the canonical entry-point content (header
-// + pointer body) shared by .agnostic-ai/AGNOSTIC_AI.md and every
-// per-target entry-point file.
-func RenderEntryPoint(cfg *config.Config) string {
-	return emit.RenderEntryPoint(cfg)
+// LegacyEntryPointTemplateLead opens the long AGNOSTIC_AI.md body older
+// releases seeded (re-exported from the emit layer).
+const LegacyEntryPointTemplateLead = emit.LegacyEntryPointTemplateLead
+
+// RenderEntryPoint returns a root entry-point file: the provenance
+// header over the template body.
+func RenderEntryPoint() string {
+	return emit.RenderEntryPoint()
 }
 
 // NativeArtifact mirrors emit.NativeArtifact so callers outside the

@@ -17,7 +17,7 @@ Rules with `scope` use native file conditions or nested instruction documents on
 
 ## Entry-point files
 
-`sync` writes `.agnostic-ai/AGNOSTIC_AI.md` plus a root entry-point file per enabled target. All entry-point files share one pointer body, so an in-place edit is overwritten by the next sync.
+`sync` copies `.agnostic-ai/AGNOSTIC_AI.md` into a root entry-point file per enabled target. `AGNOSTIC_AI.md` is the source to edit: sync seeds it once with a short template and never rewrites it. The root entry points are generated, so the next sync overwrites an in-place edit.
 
 | Entry-point file | Targets |
 |---|---|
