@@ -217,8 +217,9 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if err != nil {
 		return err
 	}
+	// requireGlobalVersion already warned about a broken config under -t.
 	tiers, err := loadGlobalModels(source)
-	if err != nil {
+	if err != nil && skipBroken == nil {
 		return err
 	}
 	bundle.ApplyModelTiers(tiers)

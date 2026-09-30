@@ -85,3 +85,35 @@ func TestApplyModelTiers_LeavesLiteralModels(t *testing.T) {
 		t.Errorf("tiers mutated: %#v", tiers)
 	}
 }
+
+func TestApplyModelTiers_TierEffortSkipsTargetsTheSpecSets(t *testing.T) {
+	b := Bundle{Agents: []Entry{
+		{Kind: KindAgent, Name: "mapped", Meta: map[string]any{"model": map[string]any{"codex": "o4-mini", "default": "strong"}}},
+		{Kind: KindAgent, Name: "custom", Meta: map[string]any{"model": "strong", "x-codex": map[string]any{"model": "o4-mini"}}},
+	}}
+	b.ApplyModelTiers(modelTiersFixture())
+
+	for _, agent := range b.Agents {
+		if want := map[string]any{"claude": "xhigh"}; !reflect.DeepEqual(agent.Meta["effort"], want) {
+			t.Errorf("%s effort = %#v, want %#v", agent.Name, agent.Meta["effort"], want)
+		}
+	}
+	if custom := b.Agents[1].Meta["x-codex"].(map[string]any); custom["model"] != "o4-mini" {
+		t.Errorf("x-codex = %#v", custom)
+	}
+}
+
+func TestApplyModelTiers_ScalarTierEffortSkipsTargetsTheSpecSets(t *testing.T) {
+	tiers := map[string]config.ModelTier{"strong": {Models: map[string]string{"claude": "opus"}, Effort: "high"}}
+	b := Bundle{Agents: []Entry{{Kind: KindAgent, Name: "a", Meta: map[string]any{"model": map[string]any{"codex": "o4-mini", "default": "strong"}}}}}
+	b.ApplyModelTiers(tiers)
+
+	meta := b.Agents[0].Meta
+	if meta["effort"] != "high" {
+		t.Errorf("effort = %#v", meta["effort"])
+	}
+	custom, _ := meta["x-codex"].(map[string]any)
+	if v, set := custom["effort"]; !set || v != nil {
+		t.Errorf("codex needs an effort delete marker, got %#v", meta["x-codex"])
+	}
+}

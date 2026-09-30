@@ -139,7 +139,7 @@ models:
   fast:     {claude: haiku, codex: o4-mini, effort: low}
 ```
 
-An agent then writes `model: strong`. A `model` that names no tier stays a literal model id. See [model tiers](@/docs/spec-format/agents.md#model-tiers) for precedence. `lint` warns when a tier an agent names has no entry and no `default` for a target that writes the agent (LINT025), and when that tier's `default` is a Claude model name another target cannot load (LINT026). A tier with neither a model nor an `effort` fails to load. `explain <spec>` shows the model and effort each target gets. The [global home config](#global-configuration) accepts the key too.
+An agent then writes `model: strong`. A `model` that names no tier stays a literal model id. See [model tiers](@/docs/spec-format/agents.md#model-tiers) for precedence. Each key is a target name, `default`, or `effort`; any other key fails to load (AAI-004) with the closest target name. A tier with only `effort` keeps each tool's default model and sets its effort. A tier with neither a model nor an `effort` fails to load. `lint` warns when a tier a spec names has no entry and no `default` for a target that writes the spec, or when a tier is named like a Claude model (LINT025), and when that tier's `default` is a Claude model name another target cannot load (LINT026). `explain <spec>` shows the model and effort each target gets. The [global home config](#global-configuration) accepts the key too.
 
 ## `targets`
 

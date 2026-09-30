@@ -145,9 +145,9 @@ model: strong
 
 Claude gets `opus` with `xhigh`, Codex `gpt-5.5` with `high`, and every other target its own default. Skills, commands, and settings specs name tiers the same way.
 
-Precedence, high to low: `x-<target>.model`, then `model.<target>` in the spec, then the tier's entry for the target, then the tier's `default`, then the tool default. To override one target, write the tier as the map's `default`: `model: {codex: o4-mini, default: strong}`. The tier's `effort` applies only when the spec sets no `effort`; a spec `effort` replaces it whole. Values under `model.<target>` and `x-<target>.model` are always literal model ids.
+Precedence, high to low: `x-<target>.model`, then `model.<target>` in the spec, then the tier's entry for the target, then the tier's `default`, then the tool default. To override one target, write the tier as the map's `default`: `model: {codex: o4-mini, default: strong}`. The tier's `effort` applies only when the spec sets no `effort`; a spec `effort` replaces it whole. The tier's `effort` also skips a target whose model the spec sets itself, since it was chosen for the tier's model. Values under `model.<target>` and `x-<target>.model` are always literal model ids.
 
-`explain agents/architect.md` lists the model and effort each configured target gets. `lint` flags a tier an agent names with no entry and no `default` for one of the agent's targets (LINT025), and a Claude model name in a shared `model` or a tier `default` that reaches another vendor's target (LINT026). `import claude` suggests a tier when two or more agents set the same Claude model.
+`explain agents/architect.md` lists the model and effort each configured target gets. `lint` flags a tier a spec names with no entry and no `default` for one of the spec's targets, and a tier named like a Claude model (LINT025), and a Claude model name in a shared `model` or a tier `default` that reaches another vendor's target (LINT026). `import claude` suggests a tier when two or more agents set the same Claude model. `import claude` and `import codex` keep `model: strong` when the imported model and effort are the ones the tier gives that tool, so sync then import does not pin a model.
 
 ## `tools` support by target
 

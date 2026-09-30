@@ -139,7 +139,7 @@ func lintScopeFindings(scope checkScope) ([]lintFinding, error) {
 			return nil, err
 		}
 		findings = append(findings, permissions...)
-		findings = append(findings, lintModels(scope.cfg, scope.targets, scope.support, scope.bundle.Agents)...)
+		findings = append(findings, lintModels(scope.cfg, scope.targets, scope.support, scope.bundle)...)
 	}
 	return findings, nil
 }

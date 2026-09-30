@@ -121,6 +121,9 @@ func loadGlobalModels(source string) (map[string]config.ModelTier, error) {
 		if err := config.ValidateModels(layer, path); err != nil {
 			return nil, err
 		}
+		if err := validateTierTargets(layer, path); err != nil {
+			return nil, err
+		}
 		for name, tier := range layer {
 			tiers[name] = tier
 		}

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -10,39 +11,49 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// lintModels checks agent models against the enabled targets that write
-// agents. A tier an agent names with no entry and no `default` for one of
-// the agent's targets is LINT025: the agent falls back to that tool's
-// default model. A Claude model name that reaches a target unable to load
-// it, through a tier's `default` or an agent's shared `model`, is LINT026.
-func lintModels(cfg *config.Config, targets []string, support kindSupport, agents []spec.Entry) []lintFinding {
+// lintModels checks spec models against the enabled targets. A tier that
+// names a model, used by a spec with no entry and no `default` for one of
+// the spec's targets, is LINT025: the spec falls back to that tool's
+// default model. So is a tier named like a Claude model. A Claude model
+// name that reaches a target unable to load it, through a tier's
+// `default` or an agent's shared `model`, is LINT026.
+func lintModels(cfg *config.Config, targets []string, support kindSupport, b spec.Bundle) []lintFinding {
+	sorted := slices.Sorted(slices.Values(targets))
 	var agentTargets []string
-	for _, target := range targets {
+	for _, target := range sorted {
 		if _, ok := support[spec.KindAgent][target]; ok {
 			agentTargets = append(agentTargets, target)
 		}
 	}
-	sort.Strings(agentTargets)
+	agents := b.Agents
 	reached := map[string]map[string]bool{}
-	for _, agent := range agents {
-		if agent.ModelTier == "" {
-			continue
-		}
-		for _, target := range agentTargets {
-			if agent.EmitsTo(target) {
-				if reached[agent.ModelTier] == nil {
-					reached[agent.ModelTier] = map[string]bool{}
+	for _, entries := range [][]spec.Entry{b.Agents, b.Skills, b.Commands, b.Settings} {
+		for _, entry := range entries {
+			if entry.ModelTier == "" {
+				continue
+			}
+			for _, target := range sorted {
+				if _, ok := support[entry.Kind][target]; ok && entry.EmitsTo(target) {
+					if reached[entry.ModelTier] == nil {
+						reached[entry.ModelTier] = map[string]bool{}
+					}
+					reached[entry.ModelTier][target] = true
 				}
-				reached[agent.ModelTier][target] = true
 			}
 		}
 	}
 	var findings []lintFinding
 	for _, name := range sortedTierNames(cfg.Models) {
 		tier := cfg.Models[name]
+		if adapters.ClaudeModel(name) {
+			findings = append(findings, lintFinding{Code: "LINT025", Severity: lintWarn, Path: config.ConfigFileName, Message: tierNameShadowsClaudeModel(name)})
+		}
+		if len(tier.Models) == 0 {
+			continue
+		}
 		shared, hasDefault := tier.Models["default"]
 		var missing, foreign []string
-		for _, target := range agentTargets {
+		for _, target := range sorted {
 			if !reached[name][target] {
 				continue
 			}
@@ -58,7 +69,7 @@ func lintModels(cfg *config.Config, targets []string, support kindSupport, agent
 		}
 		if len(missing) > 0 {
 			findings = append(findings, lintFinding{Code: "LINT025", Severity: lintWarn, Path: config.ConfigFileName,
-				Message: fmt.Sprintf("models.%s has no %s model and no default; agents naming it use that tool's default model", name, strings.Join(missing, ", "))})
+				Message: fmt.Sprintf("models.%s has no %s model and no default; specs naming it use that tool's default model", name, strings.Join(missing, ", "))})
 		}
 		if len(foreign) > 0 {
 			findings = append(findings, lintFinding{Code: "LINT026", Severity: lintWarn, Path: config.ConfigFileName,

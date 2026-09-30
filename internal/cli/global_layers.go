@@ -101,7 +101,7 @@ func loadSpecScope(global bool, skipBroken io.Writer) (checkScope, error) {
 		return checkScope{}, err
 	}
 	tiers, err := loadGlobalModels(source)
-	if err != nil {
+	if err != nil && skipBroken == nil {
 		return checkScope{}, err
 	}
 	b.ApplyModelTiers(tiers)

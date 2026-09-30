@@ -125,6 +125,9 @@ func loadProject(root string) (*config.Config, spec.Bundle, error) {
 	if err := requireVersion(strings.Join(sources, " + "), cfg.Requires); err != nil {
 		return nil, spec.Bundle{}, err
 	}
+	if err := validateTierTargets(cfg.Models, strings.Join(sources, " + ")); err != nil {
+		return nil, spec.Bundle{}, err
+	}
 	if len(sources) > 1 {
 		verbosef("→ merged %d config layers: %s\n",
 			len(sources), strings.Join(sources, ", "))

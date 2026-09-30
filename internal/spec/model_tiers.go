@@ -3,6 +3,7 @@ package spec
 import (
 	"maps"
 	"slices"
+	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
@@ -11,7 +12,7 @@ import (
 // whose `model` names a tier in tiers, as a string or as the per-target
 // map's `default`, into the tier's per-target map. Entries the spec's own
 // map sets win over the tier's. The tier's effort applies only when the
-// spec sets no `effort`. Every other value, including `model.<target>`
+// spec sets no `effort`, and only to targets whose model the tier gives. Every other value, including `model.<target>`
 // and `x-<target>.model`, stays a literal model id.
 func (b *Bundle) ApplyModelTiers(tiers map[string]config.ModelTier) {
 	if len(tiers) == 0 {
@@ -53,15 +54,59 @@ func (e *Entry) applyModelTier(tiers map[string]config.ModelTier) {
 	if _, set := e.Meta["effort"]; set || tier.Effort == nil {
 		return
 	}
-	e.Meta["effort"] = cloneEffort(tier.Effort)
+	effort := tier.Effort
+	shared := true
+	if m, ok := effort.(map[string]any); ok {
+		m = maps.Clone(m)
+		_, shared = m["default"]
+		effort = m
+	}
+	for _, target := range e.ownModelTargets(own) {
+		if m, ok := effort.(map[string]any); ok {
+			delete(m, target)
+		}
+		if shared {
+			e.dropTargetEffort(target)
+		}
+	}
+	e.Meta["effort"] = effort
 	if at := slices.Index(e.MetaKeys, "model"); at >= 0 && !slices.Contains(e.MetaKeys, "effort") {
 		e.MetaKeys = slices.Insert(slices.Clone(e.MetaKeys), at+1, "effort")
 	}
 }
 
-func cloneEffort(effort any) any {
-	if m, ok := effort.(map[string]any); ok {
-		return maps.Clone(m)
+// ownModelTargets lists the targets whose model the spec sets itself,
+// under `model.<target>` or `x-<target>.model`. The tier's effort does
+// not reach them, since it was chosen for the tier's model.
+func (e *Entry) ownModelTargets(own map[string]any) []string {
+	var targets []string
+	for target := range own {
+		if target != "default" {
+			targets = append(targets, target)
+		}
 	}
-	return effort
+	for key, value := range e.Meta {
+		target, ok := strings.CutPrefix(key, "x-")
+		if custom, isMap := value.(map[string]any); ok && isMap {
+			if _, set := custom["model"]; set && !slices.Contains(targets, target) {
+				targets = append(targets, target)
+			}
+		}
+	}
+	return targets
+}
+
+// dropTargetEffort writes the `x-<target>.effort: null` delete marker so a
+// shared tier effort skips target, unless the spec sets one there.
+func (e *Entry) dropTargetEffort(target string) {
+	custom, _ := e.Meta["x-"+target].(map[string]any)
+	if _, set := custom["effort"]; set {
+		return
+	}
+	custom = maps.Clone(custom)
+	if custom == nil {
+		custom = map[string]any{}
+	}
+	custom["effort"] = nil
+	e.Meta["x-"+target] = custom
 }
