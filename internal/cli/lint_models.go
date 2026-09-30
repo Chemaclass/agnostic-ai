@@ -11,10 +11,10 @@ import (
 )
 
 // lintModels checks agent models against the enabled targets that write
-// agents. A tier with no entry and no `default` for one of them is
-// LINT023: agents naming it fall back to that tool's default model. A
-// Claude model name that reaches a target unable to load it, through a
-// tier's `default` or an agent's shared `model`, is LINT024.
+// agents. A tier an agent names with no entry and no `default` for one of
+// the agent's targets is LINT023: the agent falls back to that tool's
+// default model. A Claude model name that reaches a target unable to load
+// it, through a tier's `default` or an agent's shared `model`, is LINT024.
 func lintModels(cfg *config.Config, targets []string, support kindSupport, agents []spec.Entry) []lintFinding {
 	var agentTargets []string
 	for _, target := range targets {
@@ -23,12 +23,29 @@ func lintModels(cfg *config.Config, targets []string, support kindSupport, agent
 		}
 	}
 	sort.Strings(agentTargets)
+	reached := map[string]map[string]bool{}
+	for _, agent := range agents {
+		if agent.ModelTier == "" {
+			continue
+		}
+		for _, target := range agentTargets {
+			if agent.EmitsTo(target) {
+				if reached[agent.ModelTier] == nil {
+					reached[agent.ModelTier] = map[string]bool{}
+				}
+				reached[agent.ModelTier][target] = true
+			}
+		}
+	}
 	var findings []lintFinding
 	for _, name := range sortedTierNames(cfg.Models) {
 		tier := cfg.Models[name]
 		shared, hasDefault := tier.Models["default"]
 		var missing, foreign []string
 		for _, target := range agentTargets {
+			if !reached[name][target] {
+				continue
+			}
 			if _, own := tier.Models[target]; own {
 				continue
 			}

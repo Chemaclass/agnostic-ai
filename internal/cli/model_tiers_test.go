@@ -49,9 +49,11 @@ models:
   strong: {claude: opus, codex: gpt-5.5}
   balanced: {claude: sonnet}
   shared: {default: opus}
+  unused: {claude: haiku}
 `)
 	writeTierAgent(t, dir, "reviewer", "strong")
 	writeTierAgent(t, dir, "scout", "balanced")
+	writeTierAgent(t, dir, "helper", "shared")
 	writeTierAgent(t, dir, "literal", "sonnet")
 	writeTierAgent(t, dir, "scoped", "{claude: sonnet}")
 
@@ -63,7 +65,7 @@ models:
 	if !strings.Contains(gaps, `agnostic-ai.yaml: models.balanced has no codex model and no default`) {
 		t.Errorf("missing tier gap finding:\n%s", out)
 	}
-	if strings.Contains(gaps, "models.strong") || strings.Contains(gaps, "claude model") {
+	if strings.Contains(gaps, "models.strong") || strings.Contains(gaps, "models.unused") || strings.Contains(gaps, "claude model") {
 		t.Errorf("covered targets flagged:\n%s", gaps)
 	}
 	foreign := strings.Join(findingLines(out, "LINT024"), "\n")

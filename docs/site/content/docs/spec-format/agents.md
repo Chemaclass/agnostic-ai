@@ -147,7 +147,7 @@ Claude gets `opus` with `xhigh`, Codex `gpt-5.5` with `high`, and every other ta
 
 Precedence, high to low: `x-<target>.model`, then `model.<target>` in the spec, then the tier's entry for the target, then the tier's `default`, then the tool default. To override one target, write the tier as the map's `default`: `model: {codex: o4-mini, default: strong}`. The tier's `effort` applies only when the spec sets no `effort`; a spec `effort` replaces it whole. Values under `model.<target>` and `x-<target>.model` are always literal model ids.
 
-`explain agents/architect.md` lists the model and effort each configured target gets. `lint` flags a tier with no entry and no `default` for an enabled target (LINT023), and a Claude model name in a shared `model` or a tier `default` that reaches another vendor's target (LINT024). `import claude` suggests a tier when two or more agents set the same Claude model.
+`explain agents/architect.md` lists the model and effort each configured target gets. `lint` flags a tier an agent names with no entry and no `default` for one of the agent's targets (LINT023), and a Claude model name in a shared `model` or a tier `default` that reaches another vendor's target (LINT024). `import claude` suggests a tier when two or more agents set the same Claude model.
 
 ## `tools` support by target
 

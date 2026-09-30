@@ -40,6 +40,8 @@ func TestLoad_RejectsMalformedModelTiers(t *testing.T) {
 		"list effort":    "models:\n  strong: {claude: opus, effort: [high]}\n",
 		"nested effort":  "models:\n  strong: {claude: opus, effort: {claude: {level: high}}}\n",
 		"empty tier key": "models:\n  \"\": {claude: opus}\n",
+		"null tier":      "models:\n  strong:\n",
+		"float effort":   "models:\n  strong: {claude: opus, effort: 1.5}\n",
 	}
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {

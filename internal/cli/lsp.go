@@ -52,6 +52,7 @@ func lspLinter(root string) map[string][]lsp.Diagnostic {
 	if err != nil {
 		return nil
 	}
+	b.ApplyModelTiers(cfg.Models)
 	findings := collectLintFindings(cfg.Targets, targetsSupportingKind, b)
 
 	out := map[string][]lsp.Diagnostic{}

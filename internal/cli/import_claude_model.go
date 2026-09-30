@@ -92,7 +92,7 @@ func noteRepeatedClaudeModels(dir string) {
 			continue
 		}
 		_, _, meta := claudeFrontmatter(header.Strip(string(data)))
-		if model, _ := meta["model"].(string); adapters.ClaudeModel(model) {
+		if model, _ := meta["model"].(string); model != "inherit" && adapters.ClaudeModel(model) {
 			counts[model]++
 		}
 	}

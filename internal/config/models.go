@@ -42,6 +42,9 @@ func ValidateModels(tiers map[string]ModelTier, source string) error {
 			return errs.Coded(errs.CodeConfigDecode, "%s: models: a tier needs a name", source)
 		}
 		tier := tiers[name]
+		if len(tier.Models) == 0 && tier.Effort == nil {
+			return errs.Coded(errs.CodeConfigDecode, "%s: models.%s: a tier needs a model or an effort", source, name)
+		}
 		for target, model := range tier.Models {
 			if model == "" {
 				return errs.Coded(errs.CodeConfigDecode, "%s: models.%s.%s: model id is empty", source, name, target)
@@ -56,12 +59,12 @@ func ValidateModels(tiers map[string]ModelTier, source string) error {
 
 func validTierEffort(effort any) bool {
 	switch v := effort.(type) {
-	case nil, string, int, int64, float64:
+	case nil, string, int, int64:
 		return true
 	case map[string]any:
 		for _, value := range v {
 			switch value.(type) {
-			case string, int, int64, float64:
+			case string, int, int64:
 			default:
 				return false
 			}
