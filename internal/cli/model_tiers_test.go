@@ -61,14 +61,14 @@ models:
 	if err != nil {
 		t.Fatalf("model findings are advisory: %v\n%s", err, out)
 	}
-	gaps := strings.Join(findingLines(out, "LINT023"), "\n")
+	gaps := strings.Join(findingLines(out, "LINT025"), "\n")
 	if !strings.Contains(gaps, `agnostic-ai.yaml: models.balanced has no codex model and no default`) {
 		t.Errorf("missing tier gap finding:\n%s", out)
 	}
 	if strings.Contains(gaps, "models.strong") || strings.Contains(gaps, "models.unused") || strings.Contains(gaps, "claude model") {
 		t.Errorf("covered targets flagged:\n%s", gaps)
 	}
-	foreign := strings.Join(findingLines(out, "LINT024"), "\n")
+	foreign := strings.Join(findingLines(out, "LINT026"), "\n")
 	for _, want := range []string{
 		`literal.md: model "sonnet" is a Claude model name codex cannot load`,
 		`agnostic-ai.yaml: models.shared.default "opus" is a Claude model name codex cannot load`,

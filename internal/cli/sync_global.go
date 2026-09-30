@@ -217,6 +217,11 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if err != nil {
 		return err
 	}
+	tiers, err := loadGlobalModels(source)
+	if err != nil {
+		return err
+	}
+	bundle.ApplyModelTiers(tiers)
 	for _, target := range targets {
 		if globalTargets[target].agents != "" {
 			continue

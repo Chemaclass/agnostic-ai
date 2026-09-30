@@ -139,7 +139,7 @@ models:
   fast:     {claude: haiku, codex: o4-mini, effort: low}
 ```
 
-An agent then writes `model: strong`. A `model` that names no tier stays a literal model id. See [model tiers](@/docs/spec-format/agents.md#model-tiers) for precedence. `lint` warns when a tier an agent names has no entry and no `default` for a target that writes the agent (LINT023), and when that tier's `default` is a Claude model name another target cannot load (LINT024). A tier with neither a model nor an `effort` fails to load. `explain <spec>` shows the model and effort each target gets. `sync --global` does not read `models`.
+An agent then writes `model: strong`. A `model` that names no tier stays a literal model id. See [model tiers](@/docs/spec-format/agents.md#model-tiers) for precedence. `lint` warns when a tier an agent names has no entry and no `default` for a target that writes the agent (LINT025), and when that tier's `default` is a Claude model name another target cannot load (LINT026). A tier with neither a model nor an `effort` fails to load. `explain <spec>` shows the model and effort each target gets. The [global home config](#global-configuration) accepts the key too.
 
 ## `targets`
 
@@ -478,7 +478,7 @@ Source root: `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when unset.
 
 ```text
 ~/.agnostic-ai/
-├── agnostic-ai.yaml        # optional: targets, requires, lint, on-unsupported
+├── agnostic-ai.yaml        # optional: targets, requires, lint, on-unsupported, models
 ├── AGNOSTIC_AI.md
 ├── agents/*.md
 ├── rules/*.md
@@ -503,6 +503,7 @@ targets: [claude, codex, cursor]
 - [`requires`](#requires) stops the `--global` commands on an older binary. `local/agnostic-ai.yaml` replaces the shared value.
 - `lint` sets the budgets `lint --global` uses.
 - [`on-unsupported`](#on-unsupported) sets what `sync --global` does with a skill line that Claude Code expands and a target reads as plain text (see [Claude Code body syntax](@/docs/spec-format/skills.md#claude-code-body-syntax)): `warn` prints a note, `error` fails the sync, `silent` hides it. `local/agnostic-ai.yaml` replaces the shared value.
+- [`models`](#models) names the tiers global specs use, so `model: strong` resolves per target as in a project. A tier in `local/agnostic-ai.yaml` replaces the same-name tier in the shared file.
 - Other keys except `version` print a warning and are ignored.
 - A target dropped from the list keeps its synced files and ownership records until you remove them by hand.
 
