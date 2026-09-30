@@ -61,6 +61,7 @@ The report lists each Cursor instruction with its source spec, output path, sele
 - `scope` covers a project-relative directory and its descendants. Use `/` separators. Absolute paths, `..`, glob-control characters, and symlink escapes are rejected. Omit scope for project-wide rules; `scope: .` is invalid.
 - A folder under `rules/` that names a project directory scopes the rules in it: `.agnostic-ai/rules/services/payments/limits.md` has scope `services/payments`.
 - A `scope:` in the frontmatter wins over the folder. A folder that names no project directory only groups rules, so `rules/modules/a.md` with `scope: src/a` is scoped to `src/a`.
+- Installed packs check rule folders against the consuming project. A directory inside the pack does not give a rule scope.
 - `lint` warns when a rule's folder names a project directory and its `scope:` points elsewhere (LINT020).
 - Keep rule names unique across directories.
 - Deeper rules add local context. Parent loading and precedence belong to the tool.
