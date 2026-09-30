@@ -89,6 +89,9 @@ type Entry struct {
 	// one holding Path: a local skill that only edits fields keeps the
 	// shared folder's assets. Read it through SkillAssetDir.
 	AssetDir string
+	// ModelTier names the `models:` tier the spec's `model` resolved
+	// through, or "" for a literal model. See Bundle.ApplyModelTiers.
+	ModelTier string
 }
 
 // SkillAssetDir returns the folder whose sibling files ship with a skill,

@@ -70,6 +70,7 @@ outputs:
 | [`sources`](#sources) | map | `.agnostic-ai/<kind>/` | Source directories. |
 | [`targets`](#targets) | list | 20 adapters | Adapters to emit. |
 | [`outputs`](#outputs) | map | per target | Output path overrides. |
+| [`models`](#models) | map | none | Model tiers that agents, skills, commands, and settings name. |
 | [`on-unsupported`](#on-unsupported) | string | `warn` | Unsupported kind handling. |
 | [`gitignore`](#gitignore) | map | `enabled: false` | Managed `.gitignore` block. |
 | [`sync`](#sync) | map | see section | Sync behavior. |
@@ -128,6 +129,19 @@ outputs:
 ```
 
 For Codex command rules, set `outputs.codex.exec-policies-from-permissions: true` to translate simple Bash entries from portable Settings specs and `outputs.claude.settings.permissions`. It defaults to `false`. Explicit inline, file, or imported Codex policies take precedence. Every translated rule matches a command prefix, including extra arguments, and sync notes each exact `allow` rule that [Codex widens](@/docs/targets/codex.md#translate-bash-permissions). See [Bash permission translation](@/docs/targets/codex.md#translate-bash-permissions) for limits and LINT021 drift checks.
+
+## `models`
+
+Names each model role once. A spec whose `model` names a tier gets the tier's model for each target. Each tier maps a target name to that target's model id, with an optional `default` for every other target, and an optional `effort` (a scalar or a per-target map).
+
+```yaml
+models:
+  strong:   {claude: opus, codex: gpt-5.5, effort: {claude: xhigh, codex: high}}
+  balanced: {claude: sonnet, codex: gpt-5.5}
+  fast:     {claude: haiku, codex: o4-mini, effort: low}
+```
+
+An agent then writes `model: strong`. A `model` that names no tier stays a literal model id. See [model tiers](@/docs/spec-format/agents.md#model-tiers) for precedence. Each key is a target name, `default`, or `effort`; any other key fails to load (AAI-004) with the closest target name. A tier with only `effort` keeps each tool's default model and sets its effort. A tier with neither a model nor an `effort` fails to load. `lint` warns when a tier a spec names has no entry and no `default` for a target that writes the spec, or when a tier is named like a Claude model (LINT025), and when that tier's `default` is a Claude model name another target cannot load (LINT026). `explain <spec>` shows the model and effort each target gets. The [global home config](#global-configuration) accepts the key too.
 
 ## `targets`
 
@@ -505,7 +519,7 @@ Source root: `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when unset.
 
 ```text
 ~/.agnostic-ai/
-├── agnostic-ai.yaml        # optional: targets, requires, lint, on-unsupported
+├── agnostic-ai.yaml        # optional: targets, requires, lint, on-unsupported, models
 ├── AGNOSTIC_AI.md
 ├── agents/*.md
 ├── rules/*.md
@@ -530,6 +544,7 @@ targets: [claude, codex, cursor]
 - [`requires`](#requires) stops the `--global` commands on an older binary. `local/agnostic-ai.yaml` replaces the shared value.
 - `lint` sets the budgets `lint --global` uses.
 - [`on-unsupported`](#on-unsupported) sets what `sync --global` does with a skill line that Claude Code expands and a target reads as plain text (see [Claude Code body syntax](@/docs/spec-format/skills.md#claude-code-body-syntax)): `warn` prints a note, `error` fails the sync, `silent` hides it. `local/agnostic-ai.yaml` replaces the shared value.
+- [`models`](#models) names the tiers global specs use, so `model: strong` resolves per target as in a project. A tier in `local/agnostic-ai.yaml` replaces the same-name tier in the shared file.
 - Other keys except `version` print a warning and are ignored.
 - A target dropped from the list keeps its synced files and ownership records until you remove them by hand.
 

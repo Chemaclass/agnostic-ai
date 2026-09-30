@@ -100,6 +100,11 @@ func loadSpecScope(global bool, skipBroken io.Writer) (checkScope, error) {
 	if err != nil {
 		return checkScope{}, err
 	}
+	tiers, err := loadGlobalModels(source)
+	if err != nil && skipBroken == nil {
+		return checkScope{}, err
+	}
+	b.ApplyModelTiers(tiers)
 	return checkScope{global: true, source: source, support: globalKindSupport(), bundle: b}, nil
 }
 

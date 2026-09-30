@@ -58,7 +58,7 @@ func TestMergeCodexAgentIntoExisting_Model(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			existing := "---\nname: reviewer\n" + c.existing + "---\n\nReview.\n"
-			out, err := mergeCodexAgentIntoExisting(existing, "reviewer", map[string]any{"model": "gpt-5.5"})
+			out, err := mergeCodexAgentIntoExisting(existing, "reviewer", map[string]any{"model": "gpt-5.5"}, nil)
 			if err != nil {
 				t.Fatal(err)
 			}

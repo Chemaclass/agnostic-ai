@@ -41,7 +41,7 @@ func readGlobalConfig(path string) (map[string]yaml.Node, error) {
 
 // loadGlobalTargets reads the targets the home configs select. It
 // returns nil when neither file sets targets. Global mode reads only
-// targets, requires, lint, and on-unsupported, so each other key warns.
+// targets, requires, lint, on-unsupported, and models, so each other key warns.
 func loadGlobalTargets(source string, warn io.Writer) ([]string, error) {
 	var targets []string
 	for _, path := range globalConfigPaths(source) {
@@ -52,13 +52,13 @@ func loadGlobalTargets(source string, warn io.Writer) ([]string, error) {
 		var ignored []string
 		for key := range doc {
 			// Every agnostic-ai.yaml carries version, so it is not a surprise.
-			if key != "targets" && key != "requires" && key != "lint" && key != "on-unsupported" && key != "version" {
+			if key != "targets" && key != "requires" && key != "lint" && key != "on-unsupported" && key != "models" && key != "version" {
 				ignored = append(ignored, key)
 			}
 		}
 		if len(ignored) > 0 {
 			slices.Sort(ignored)
-			if _, err := fmt.Fprintf(warn, "warning: %s: global mode reads only targets, requires, lint, and on-unsupported; ignoring %s\n", path, strings.Join(ignored, ", ")); err != nil {
+			if _, err := fmt.Fprintf(warn, "warning: %s: global mode reads only targets, requires, lint, on-unsupported, and models; ignoring %s\n", path, strings.Join(ignored, ", ")); err != nil {
 				return nil, fmt.Errorf("write global config warning: %w", err)
 			}
 		}
@@ -99,6 +99,36 @@ func loadGlobalTargets(source string, warn io.Writer) ([]string, error) {
 		targets = kept
 	}
 	return targets, nil
+}
+
+// loadGlobalModels reads the model tiers the home configs name. A tier in
+// local/agnostic-ai.yaml replaces the same-name tier in the shared file.
+func loadGlobalModels(source string) (map[string]config.ModelTier, error) {
+	tiers := map[string]config.ModelTier{}
+	for _, path := range globalConfigPaths(source) {
+		doc, err := readGlobalConfig(path)
+		if err != nil {
+			return nil, err
+		}
+		node, ok := doc["models"]
+		if !ok {
+			continue
+		}
+		var layer map[string]config.ModelTier
+		if err := node.Decode(&layer); err != nil {
+			return nil, errs.Coded(errs.CodeConfigDecode, "parse %s: models: %w", path, err)
+		}
+		if err := config.ValidateModels(layer, path); err != nil {
+			return nil, err
+		}
+		if err := validateTierTargets(layer, path); err != nil {
+			return nil, err
+		}
+		for name, tier := range layer {
+			tiers[name] = tier
+		}
+	}
+	return tiers, nil
 }
 
 // loadGlobalOnUnsupported reads the on-unsupported policy the home

@@ -141,6 +141,9 @@ func (Adapter) Name() string { return target }
 
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
+// ForeignClaudeModels lists the Claude model names the agent `model` key cannot load.
+func (Adapter) ForeignClaudeModels() []string { return caps.ForeignClaudeModels }
+
 // Emit writes one .mdc per rule, one native subagent per agent under
 // `.cursor/agents/`, one native skill folder per skill under
 // `.cursor/skills/`, one command per command spec under

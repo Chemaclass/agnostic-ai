@@ -57,7 +57,7 @@ List each finding with its `file:line`, the attack it enables, and the smallest 
 | `name` | no | filename without `.md` | Agent identifier and output filename. |
 | `description` | no | empty | When to delegate to the agent. Tools show it in listings and use it to pick an agent. |
 | `tools` | no | unset | Tools the agent may invoke. See [`tools` support by target](#tools-support-by-target). |
-| `model` | no | unset | A string for every target, or a map per target. See [per-target `model` and `effort`](#per-target-model-and-effort). |
+| `model` | no | unset | A string for every target, a map per target, or a [tier](#model-tiers) name. See [per-target `model` and `effort`](#per-target-model-and-effort). |
 | `effort` | no | unset | A string or integer for every target, or a map per target. See [per-target `model` and `effort`](#per-target-model-and-effort). |
 | `color` | no | unset | Badge color. See [`color` support by target](#color-support-by-target). |
 | `readonly` | no | unset | `true` restricts the agent to reading. Cursor: restricted. Claude: `disallowedTools: Write, Edit, NotebookEdit` (Bash stays allowed). Codex: writes `sandbox_mode = "read-only"`, which current Codex ignores (the agent keeps the session sandbox), with a coverage note. Factory: `tools: read-only` with `mcpServers: []` unless servers are listed (wins over a portable `tools` list). An explicit `x-claude.disallowedTools`, `x-codex.sandbox_mode`, or `x-factory.tools` wins. Other targets report a coverage note. `false` is a no-op. |
@@ -116,7 +116,7 @@ Result: Claude gets `opus` and `xhigh`; Qoder `gpt-5.5` and `8000`; Junie `gpt-5
 
 Cursor encodes effort in the `model` string, so it rides on the `model` map. Factory ignores `reasoningEffort` when `model` resolves to `inherit`.
 
-**Claude model names on other targets.** A shared `model` (a scalar or `default`) set to a Claude model name raises a coverage note on a target that cannot load it, naming `model: {claude: <name>}`. `on-unsupported: error` fails the sync instead. A value under `model.<target>` or `x-<target>.model` passes. `import claude` writes these names as `model: {claude: <name>}`. `import codex` adds a Codex agent model to an existing spec as `model.codex`.
+**Claude model names on other targets.** A shared `model` (a scalar or `default`) set to a Claude model name raises a coverage note on a target that cannot load it, naming `model: {claude: <name>}`. `on-unsupported: error` fails the sync instead. A value under `model.<target>` or `x-<target>.model` passes. When the name comes from a tier's `default`, the note names the tier to fix. `import claude` writes these names as `model: {claude: <name>}`. `import codex` adds a Codex agent model to an existing spec as `model.codex`.
 
 | Target | Claude names that raise the note |
 |--------|----------------------------------|
@@ -124,6 +124,30 @@ Cursor encodes effort in the `model` string, so it rides on the `model` map. Fac
 | [Cursor](@/docs/targets/cursor.md), [Factory](@/docs/targets/factory.md), [Kiro](@/docs/targets/kiro.md) | `sonnet`, `opus`, and `haiku` |
 
 Only the targets listed were checked.
+
+## Model tiers {#model-tiers}
+
+Model ids belong to one vendor, so a per-target map repeats in every agent. Name the roles once under [`models`](@/docs/configuration.md#models) in `agnostic-ai.yaml` and write the tier name instead:
+
+```yaml
+# agnostic-ai.yaml
+models:
+  strong: {claude: opus, codex: gpt-5.5, effort: {claude: xhigh, codex: high}}
+```
+
+```yaml
+---
+name: architect
+description: Designs the change before anyone codes it.
+model: strong
+---
+```
+
+Claude gets `opus` with `xhigh`, Codex `gpt-5.5` with `high`, and every other target its own default. Skills, commands, and settings specs name tiers the same way.
+
+Precedence, high to low: `x-<target>.model`, then `model.<target>` in the spec, then the tier's entry for the target, then the tier's `default`, then the tool default. To override one target, write the tier as the map's `default`: `model: {codex: o4-mini, default: strong}`. The tier's `effort` applies only when the spec sets no `effort`; a spec `effort` replaces it whole. The tier's `effort` also skips a target whose model the spec sets itself, since it was chosen for the tier's model. Values under `model.<target>` and `x-<target>.model` are always literal model ids.
+
+`explain agents/architect.md` lists the model and effort each configured target gets. `lint` flags a tier a spec names with no entry and no `default` for one of the spec's targets, and a tier named like a Claude model (LINT025), and a Claude model name in a shared `model` or a tier `default` that reaches another vendor's target (LINT026). `import claude` suggests a tier when two or more agents set the same Claude model. `import claude` and `import codex` keep `model: strong` when the imported model and effort are the ones the tier gives that tool, so sync then import does not pin a model.
 
 ## `tools` support by target
 

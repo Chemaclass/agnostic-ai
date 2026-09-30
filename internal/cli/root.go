@@ -128,6 +128,9 @@ func loadProject(root string) (*config.Config, spec.Bundle, error) {
 	if err := validateCoverageTargets(cfg); err != nil {
 		return nil, spec.Bundle{}, err
 	}
+	if err := validateTierTargets(cfg.Models, strings.Join(sources, " + ")); err != nil {
+		return nil, spec.Bundle{}, err
+	}
 	if len(sources) > 1 {
 		verbosef("→ merged %d config layers: %s\n",
 			len(sources), strings.Join(sources, ", "))
@@ -136,6 +139,7 @@ func loadProject(root string) (*config.Config, spec.Bundle, error) {
 	if err != nil {
 		return nil, spec.Bundle{}, err
 	}
+	b.ApplyModelTiers(cfg.Models)
 	return cfg, b, nil
 }
 

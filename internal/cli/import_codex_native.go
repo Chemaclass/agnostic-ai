@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"sort"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claudehooks"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -44,6 +46,7 @@ func importCodexAgents(root, dstDir string) (int, error) {
 	count := 0
 	seen := map[string]bool{}
 	claudePresent := claudeTreeExists(root)
+	tiers := importModelTiers(root)
 	for _, sub := range codexAgentDirs {
 		dir := filepath.Join(root, sub)
 		entries, err := os.ReadDir(dir)
@@ -82,7 +85,7 @@ func importCodexAgents(root, dstDir string) (int, error) {
 			if claudePresent && !claudeHasAgent(root, canonical) {
 				scope = "codex"
 			}
-			wrote, err := mergeOrWriteCodexAgentSpec(dstDir, canonical, tomlName, doc, scope)
+			wrote, err := mergeOrWriteCodexAgentSpec(dstDir, canonical, tomlName, doc, scope, tiers)
 			if err != nil {
 				return count, err
 			}
@@ -135,7 +138,7 @@ var codexAgentTopLevel = map[string]bool{
 // differs from the canonical slug it lands under `x-codex.name` so the
 // codex emitter still produces TOML with the runtime-expected
 // underscored identifier.
-func mergeOrWriteCodexAgentSpec(dstDir, canonical, codexName string, doc map[string]any, scope string) (bool, error) {
+func mergeOrWriteCodexAgentSpec(dstDir, canonical, codexName string, doc map[string]any, scope string, tiers map[string]config.ModelTier) (bool, error) {
 	path := filepath.Join(dstDir, canonical+".md")
 	existing, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -144,7 +147,7 @@ func mergeOrWriteCodexAgentSpec(dstDir, canonical, codexName string, doc map[str
 	if err != nil {
 		return false, fmt.Errorf("read %s: %w", path, err)
 	}
-	merged, err := mergeCodexAgentIntoExisting(string(existing), codexName, doc)
+	merged, err := mergeCodexAgentIntoExisting(string(existing), codexName, doc, tiers)
 	if err != nil {
 		return false, err
 	}
@@ -206,8 +209,10 @@ func writeCodexAgentSpec(path, canonical, codexName string, doc map[string]any, 
 // through mergeCodexAgentModel. Other top-level keys with
 // divergent values across the two tools land under `x-codex.<key>` so
 // each target emit reproduces its source-of-truth value (#304). Claude's
-// richer body survives via mergeAgentBody.
-func mergeCodexAgentIntoExisting(existing, codexName string, doc map[string]any) (string, error) {
+// richer body survives via mergeAgentBody. A Codex model and effort that
+// equal what the spec's tier gives Codex are the tier's, so they add
+// nothing.
+func mergeCodexAgentIntoExisting(existing, codexName string, doc map[string]any, tiers map[string]config.ModelTier) (string, error) {
 	front, body, ok := splitCodexAgentFrontmatter(existing)
 	if !ok {
 		return existing, nil
@@ -230,7 +235,16 @@ func mergeCodexAgentIntoExisting(existing, codexName string, doc map[string]any)
 	// record the codex view under `x-codex.<key>` so ResolveMeta(codex)
 	// reproduces the codex source-of-truth.
 	mergeDivergentMetaKey(fm, xcodex, doc, "description")
-	mergeCodexAgentModel(fm, xcodex, doc)
+	tierModel, tierEffort, named := tierModelFor(fm, tiers, "codex")
+	if codexModel, _ := doc["model"].(string); named && codexModel == tierModel {
+		doc = maps.Clone(doc)
+		delete(doc, "model")
+		if sameScalar(doc["model_reasoning_effort"], tierEffort) {
+			delete(doc, "model_reasoning_effort")
+		}
+	} else {
+		mergeCodexAgentModel(fm, xcodex, doc)
+	}
 	for key, val := range doc {
 		if codexAgentTopLevel[key] {
 			continue

@@ -56,7 +56,8 @@ func newLintCmd() *cobra.Command {
 			"another spec by one target's native path, skill and command lines with " +
 			"Claude Code body syntax an enabled target reads as plain text, missing or conflicting " +
 			"Codex command prefixes for Bash permissions, coverage.accept entries " +
-			"that match no coverage note, and warns when a " +
+			"that match no coverage note, model tiers with no model for an enabled " +
+			"target, Claude model names that reach another vendor's target, and warns when a " +
 			"target's always-loaded instructions pass the lint.instructions-words " +
 			"budget, the AGENTS.md chain Codex reads in a scope passes lint.codex-chain-bytes, " +
 			"or a skill or agent description passes lint.description-chars. " +
@@ -150,6 +151,7 @@ func lintScopeReport(scope checkScope) ([]lintFinding, int, error) {
 		coverage := matchCoverageAccept(scope.cfg, scope.bundle, scope.targets)
 		findings = append(findings, lintCoverageAccept(coverage)...)
 		accepted = coverage.accepted
+		findings = append(findings, lintModels(scope.cfg, scope.targets, scope.support, scope.bundle)...)
 	}
 	return findings, accepted, nil
 }

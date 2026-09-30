@@ -248,6 +248,9 @@ func (Adapter) Name() string { return target }
 
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
+// ForeignClaudeModels lists the Claude model names the agent `model` key cannot load.
+func (Adapter) ForeignClaudeModels() []string { return caps.ForeignClaudeModels }
+
 // Emit writes one Markdown file per rule under `.kilo/rules/`, one
 // agent Markdown file per agent spec under `.kilo/agents/`, one shared
 // `.agents/skills/<name>/SKILL.md` folder per skill, one command
