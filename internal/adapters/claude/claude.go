@@ -163,7 +163,11 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if slices.Contains(cfg.Targets, "cursor") {
 		NoteCursorDropsArgs(hooks, ".claude/settings.json")
 	}
-	if err := writeSettings(sess, hooks, b.Settings, b.MCPs, dir, cfg, dryRun); err != nil {
+	setupHooks, err := emitWorktreeSetup(sess, b.Environments, dir, dryRun)
+	if err != nil {
+		return err
+	}
+	if err := writeSettings(sess, append(slices.Clone(hooks), setupHooks...), b.Settings, b.MCPs, dir, cfg, dryRun); err != nil {
 		return err
 	}
 	if err := emitLaunch(sess, b.Environments, dir, dryRun); err != nil {
