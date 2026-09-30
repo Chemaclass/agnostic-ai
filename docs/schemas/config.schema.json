@@ -448,6 +448,9 @@
         "shared-subagents": {
           "type": "boolean"
         },
+        "nested-glob-rules": {
+          "type": "boolean"
+        },
         "settings": {
           "$ref": "#/$defs/ClaudeSettings"
         },
