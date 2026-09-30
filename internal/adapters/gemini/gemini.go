@@ -122,6 +122,25 @@ var caps = emit.Capabilities{
 	ForeignClaudeModels: emit.ClaudeModelNames,
 }
 
+func capabilities(cfg *config.Config) emit.Capabilities {
+	coverage := caps
+	if emit.EmitSkillsAsCommands(cfg, target) {
+		coverage.SkillFields.AdditionalFields = func(skill spec.Entry) map[string]any {
+			fields, keys := commandCustomMeta(skill)
+			preserved := map[string]any{}
+			var native strings.Builder
+			for _, key := range keys {
+				native.Reset()
+				if emit.WriteTOMLValue(&native, key, fields[key]) {
+					preserved[key] = fields[key]
+				}
+			}
+			return preserved
+		}
+	}
+	return coverage
+}
+
 // Adapter emits Gemini CLI configs.
 type Adapter struct{}
 
@@ -141,7 +160,7 @@ func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 // outputs.gemini.rules-file—a legacy concatenated rules document. The
 // project-root GEMINI.md is written by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
-	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
+	if err := emit.ReportUnsupported(capabilities(cfg), b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 
@@ -353,6 +372,10 @@ func emitSkillCommands(sess *emit.Session, skills []spec.Entry, dir string, dryR
 	return nil
 }
 
+func commandCustomMeta(e spec.Entry) (map[string]any, []string) {
+	return emit.CustomTargetMeta(e.Meta, target, "description", "prompt")
+}
+
 // commandTOML renders one slash-command TOML. Schema:
 //
 //	description = "<spec description>"
@@ -375,7 +398,7 @@ func commandTOML(e spec.Entry) string {
 	if desc != "" {
 		emit.WriteTOMLString(&sb, "description", desc)
 	}
-	if cm, keys := emit.CustomTargetMeta(e.Meta, target, "description", "prompt"); cm != nil {
+	if cm, keys := commandCustomMeta(e); cm != nil {
 		for _, k := range keys {
 			emit.WriteTOMLValue(&sb, k, cm[k])
 		}

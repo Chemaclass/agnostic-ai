@@ -8,6 +8,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- `sync` reports omitted skill fields, including `argument-hint`. `compare` shows which skill fields each target keeps, translates, or drops (#1444).
+
 - Breaking: rule `scope`, `globs`, and `paths` form a union. Remove `scope` to keep only a file filter; see the migration guide (#1429).
 - Imported Claude hook roots resolve on other targets. Unsupported shell or root syntax names the hook and follows `on-unsupported` (#1449).
 - `sync --diff` without `--check` now fails and names `--check` instead of ignoring the flag and writing every output (#1439).

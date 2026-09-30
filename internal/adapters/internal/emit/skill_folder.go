@@ -2,6 +2,8 @@ package emit
 
 import (
 	"path/filepath"
+	"slices"
+	"sort"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -102,17 +104,62 @@ func (s *Session) WriteScopedSkillFolders(skills []spec.Entry, target, skillsDir
 	return nil
 }
 
-func NoteDroppedSkillFields(target string, skills []spec.Entry) {
-	if target == "claude" {
-		return
+type SkillFieldCoverage struct {
+	Markdown         func(spec.Entry) string
+	AdditionalFields func(spec.Entry) map[string]any
+	Handled          []string
+}
+
+func NoteDroppedSkillFields(target string, skills []spec.Entry, coverage ...SkillFieldCoverage) {
+	var fields SkillFieldCoverage
+	if len(coverage) > 0 {
+		fields = coverage[0]
 	}
-	for _, field := range []string{"model", "effort"} {
-		dropped := 0
-		for _, skill := range skills {
-			if value := ResolveMeta(skill.Meta, target)[field]; value != nil && value != "" {
-				dropped++
-			}
+	render := fields.Markdown
+	if render == nil {
+		render = func(skill spec.Entry) string { return SkillMarkdown(skill, target) }
+	}
+	dropped := map[string]int{}
+	for _, skill := range skills {
+		emitted, err := spec.ParseMarkdownBytes(spec.KindSkill, []byte(render(skill)))
+		if err != nil {
+			continue
 		}
-		NoteFieldNoOp(target, spec.KindSkill, field, dropped, "the skill file has no "+field+" field")
+		var additional map[string]any
+		if fields.AdditionalFields != nil {
+			additional = fields.AdditionalFields(skill)
+		}
+		for field, value := range ResolveMeta(skill.Meta, target) {
+			if field == "name" || field == "description" || slices.Contains(fields.Handled, field) || value == nil {
+				continue
+			}
+			if text, ok := value.(string); ok && text == "" {
+				continue
+			}
+			if _, kept := emitted.Meta[field]; kept {
+				continue
+			}
+			if _, kept := additional[field]; kept {
+				continue
+			}
+			if target == "codex" {
+				custom, _ := skill.Meta[XPrefix+target].(map[string]any)
+				if _, sidecar := custom[field]; sidecar && slices.Contains(OpenAIYAMLKeys, field) {
+					continue
+				}
+				if field == "disable-model-invocation" && SkillOpenAIYAMLPolicySet(skill) {
+					continue
+				}
+			}
+			dropped[field]++
+		}
+	}
+	keys := make([]string, 0, len(dropped))
+	for field := range dropped {
+		keys = append(keys, field)
+	}
+	sort.Strings(keys)
+	for _, field := range keys {
+		NoteFieldNoOp(target, spec.KindSkill, field, dropped[field], "the skill file has no "+field+" field")
 	}
 }
