@@ -12,6 +12,12 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `sync --check --against` checks a bump commit's deleted-spec outputs too: the parent commit renders without its `requires`.
 - LINT001 no longer calls a hook or MCP spec empty when it names a command, prompt, server, or URL.
 
+### By tool
+
+#### Gemini CLI
+
+- `import gemini` decodes a command's TOML strings, so a `\\(` in a `"""` prompt no longer comes back doubled and changes the shell command; keys other than `description` and `prompt` import under `x-gemini`.
+
 ### Site
 
 - The [spec format](https://agnostic-ai.org/docs/spec-format/) reference has one page per `.agnostic-ai/` folder, each opening with why the folder exists and a sample. New pages cover rules, commands, reviews, environments, ignore, and overlays; old links redirect.

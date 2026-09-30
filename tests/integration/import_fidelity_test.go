@@ -208,8 +208,8 @@ func fidelityReport(t *testing.T, dir string, original map[string]corpusFile) st
 
 // normalizeNative prints a file the way a tool reads it: without our
 // provenance header, and as a canonical value when it parses as JSON,
-// TOML, or YAML, or carries YAML frontmatter. A file that does not parse
-// compares as text with trailing spaces and edge blank lines trimmed.
+// TOML, or YAML, or carries YAML frontmatter. Text, and every string in a
+// parsed value, compares with trailing spaces and edge blank lines trimmed.
 func normalizeNative(rel string, body []byte) string {
 	text := stripProvenance(string(body))
 	switch strings.ToLower(path.Ext(rel)) {
@@ -266,7 +266,27 @@ func trimText(text string) string {
 	return strings.Trim(strings.Join(lines, "\n"), "\n")
 }
 
+// trimValues trims every string in a decoded document the way trimText
+// trims a file: trailing spaces on each line and blank edge lines are not
+// something a tool reads.
+func trimValues(v any) any {
+	switch x := v.(type) {
+	case string:
+		return trimText(x)
+	case map[string]any:
+		for k, e := range x {
+			x[k] = trimValues(e)
+		}
+	case []any:
+		for i, e := range x {
+			x[i] = trimValues(e)
+		}
+	}
+	return v
+}
+
 func canonicalJSON(v any) string {
+	v = trimValues(v)
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetEscapeHTML(false)

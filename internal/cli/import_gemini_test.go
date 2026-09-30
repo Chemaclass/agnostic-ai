@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/BurntSushi/toml"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
@@ -398,5 +400,41 @@ func TestImportFromGemini_KeepsTheTextAboveTheFirstSection(t *testing.T) {
 	data, _ := os.ReadFile(filepath.Join(dir, "rules", "api.md"))
 	if !strings.Contains(string(data), "Intro line.") || !strings.Contains(string(data), "scope: services/api") || strings.Contains(string(data), "integer minor units") {
 		t.Errorf("api.md should hold the scoped intro alone:\n%s", data)
+	}
+}
+
+// A `"""` prompt is a TOML basic string, so `\\(` is one backslash. Import
+// decodes it and sync escapes it again: the command Gemini runs survives.
+func TestImportFromGemini_CommandPromptKeepsItsEscapes(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	captureLogOut(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
+	native := "description=\"Find sources\"\nprompt = \"\"\"\n!{find . \\\\( -name \"*.ts\" \\\\) -print}\n\"\"\"\n"
+	writeFile(t, filepath.Join(".gemini", "commands", "find.toml"), native)
+	for _, args := range [][]string{{"import", "gemini"}, {"sync"}} {
+		root := NewRootCmd("test")
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+	}
+	var before, after map[string]any
+	if _, err := toml.Decode(native, &before); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := toml.Decode(readFile(t, filepath.Join(".gemini", "commands", "find.toml")), &after); err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(before["prompt"].(string)) != strings.TrimSpace(after["prompt"].(string)) {
+		t.Errorf("prompt changed:\nbefore %q\nafter  %q", before["prompt"], after["prompt"])
+	}
+}
+
+func TestParseGeminiCommandTOML_KeepsOtherKeys(t *testing.T) {
+	desc, extra, body := parseGeminiCommandTOML("description = \"d\"\nmodel = \"flash\"\nprompt = \"\"\"\nhi\n\"\"\"\n")
+	if desc != "d" || body != "hi" || extra["model"] != "flash" {
+		t.Errorf("got desc=%q body=%q extra=%v", desc, body, extra)
 	}
 }

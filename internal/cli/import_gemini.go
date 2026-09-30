@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/BurntSushi/toml"
 	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
@@ -197,10 +198,10 @@ func importGeminiCommands(root, dstDir string) (int, error) {
 		if err != nil {
 			return count, fmt.Errorf("read %s: %w", full, err)
 		}
-		desc, body := parseGeminiCommandTOML(string(data))
+		desc, extra, body := parseGeminiCommandTOML(string(data))
 		name := strings.TrimSuffix(e.Name(), ".toml")
 		out := filepath.Join(dstDir, name+".md")
-		if err := writeAgentMD(out, name, desc, nil, body); err != nil {
+		if err := writeGeminiCommandMD(out, name, desc, extra, body); err != nil {
 			return count, err
 		}
 		count++
@@ -208,15 +209,32 @@ func importGeminiCommands(root, dstDir string) (int, error) {
 	return count, nil
 }
 
-// parseGeminiCommandTOML extracts `description` and `prompt` from the
-// minimal subset of TOML Gemini command files use: a quoted string for
-// description, and either a triple-quoted block or a quoted string for
-// prompt. Gemini documents both prompt forms and a hand-authored file
-// often takes the single-line one (geminicli.com/docs/cli/custom-commands),
-// while the emitter always writes the block. Tolerant of either order.
-// Anything else passes through as the body raw text if `prompt` is
-// missing.
-func parseGeminiCommandTOML(s string) (description, body string) {
+// parseGeminiCommandTOML reads a Gemini command file as TOML, so an
+// escape such as `\\(` in a `"""` prompt decodes to the `\(` Gemini
+// runs; the emitter escapes it again on sync. Keys other than
+// `description` and `prompt` come back as extra, which sync writes from
+// an `x-gemini` block. A file that is not valid TOML falls back to the
+// line scan below, so a hand-written near miss still imports its text.
+func parseGeminiCommandTOML(s string) (description string, extra map[string]any, body string) {
+	var doc map[string]any
+	if _, err := toml.Decode(s, &doc); err == nil {
+		description, _ = doc["description"].(string)
+		body, _ = doc["prompt"].(string)
+		body = strings.TrimRight(body, "\n")
+		for k, v := range doc {
+			if k == "description" || k == "prompt" {
+				continue
+			}
+			if extra == nil {
+				extra = map[string]any{}
+			}
+			extra[k] = v
+		}
+		if body == "" {
+			body = strings.TrimSpace(s)
+		}
+		return description, extra, body
+	}
 	description = extractTOMLString(s, "description")
 	body = extractTOMLMultiline(s, "prompt")
 	if body == "" {
@@ -225,7 +243,28 @@ func parseGeminiCommandTOML(s string) (description, body string) {
 	if body == "" {
 		body = strings.TrimSpace(s)
 	}
-	return description, body
+	return description, nil, body
+}
+
+// writeGeminiCommandMD writes one command spec, with extra under
+// `x-gemini` so the keys reach the same TOML on sync.
+func writeGeminiCommandMD(path, name, description string, extra map[string]any, body string) error {
+	if len(extra) == 0 {
+		return writeAgentMD(path, name, description, nil, body)
+	}
+	front := map[string]any{"name": name, "x-gemini": extra}
+	if description != "" {
+		front["description"] = description
+	}
+	raw, err := yaml.Marshal(front)
+	if err != nil {
+		return fmt.Errorf("render %s: %w", path, err)
+	}
+	doc := "---\n" + string(raw) + "---\n\n" + strings.TrimRight(body, "\n") + "\n"
+	if err := importWriteSpecMarkdown(path, []byte(doc), 0o644, slicedAgentFields); err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
+	}
+	return nil
 }
 
 // extractTOMLString finds `key = "value"` and returns value. Empty if
