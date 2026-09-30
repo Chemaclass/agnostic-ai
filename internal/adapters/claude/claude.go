@@ -67,6 +67,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claudehooks"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/markdown"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -558,7 +559,8 @@ func writeRules(sess *emit.Session, rules []spec.Entry, cfg *config.Config, dryR
 		var sb strings.Builder
 		sb.WriteString(emit.HeaderBlock(emit.FormatMarkdown))
 		for _, r := range rules {
-			sb.WriteString("## " + r.Name + "\n\n" + r.Body + "\n\n")
+			body, shift := markdown.NestHeadings(r.Body, 2)
+			sb.WriteString("## " + r.Name + "\n\n" + emit.SectionSourceComment(r.Path, shift) + body + "\n\n")
 		}
 		content, err := emit.AppendLegacyEntryPointLocal(cfg, target, sb.String())
 		if err != nil {

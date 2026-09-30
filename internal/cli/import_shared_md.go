@@ -189,7 +189,8 @@ func sliceMainFileByH2(root, srcName, dstDir string) (int, error) {
 				continue
 			}
 		}
-		body := stripMergedDocSourceComment(s.body)
+		body, shift := splitSectionSource(s.body)
+		body = markdown.ShiftHeadings(stripMergedDocSourceComment(body), -shift)
 		path := filepath.Join(dstDir, s.slug+".md")
 		if err := writeRule(path, s.slug, body); err != nil {
 			return count, err
@@ -319,19 +320,19 @@ var (
 )
 
 // generatedSectionStart reports whether lines[i] opens a section sync
-// wrote: a `###` heading, a blank line, then the section's source comment.
-// A `##` wrapper such as `## Agents` opens one when its first section
-// follows, after at most one intro paragraph.
+// wrote: a `##` or `###` heading, a blank line, then the section's source
+// comment. A `##` wrapper such as `## Agents` opens one when its first
+// section follows, after at most one intro paragraph.
 func generatedSectionStart(lines []string, i int) bool {
 	m := generatedSectionHeadingRE.FindStringSubmatch(lines[i])
 	if m == nil || i+2 >= len(lines) || strings.TrimSpace(lines[i+1]) != "" {
 		return false
 	}
-	if len(m[1]) == 3 {
-		return generatedSourceLineRE.MatchString(lines[i+2])
+	if generatedSourceLineRE.MatchString(lines[i+2]) {
+		return true
 	}
-	return generatedSectionStart(lines, i+2) ||
-		i+4 < len(lines) && strings.TrimSpace(lines[i+3]) == "" && generatedSectionStart(lines, i+4)
+	return len(m[1]) == 2 && (generatedSectionStart(lines, i+2) ||
+		i+4 < len(lines) && strings.TrimSpace(lines[i+3]) == "" && generatedSectionStart(lines, i+4))
 }
 
 // writeAgentMD writes an agent spec to path with a name + optional

@@ -566,6 +566,39 @@ func TestEmit_RulesFileOverrideConcatenates(t *testing.T) {
 	}
 }
 
+func TestEmit_RulesFileNestsRuleHeadingsUnderTheirSection(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	cfg := &config.Config{
+		Outputs: map[string]config.Output{
+			"claude": {RulesFile: "CLAUDE.md"},
+		},
+	}
+	entries := []spec.Entry{
+		{Kind: spec.KindRule, Name: "content", Path: ".agnostic-ai/rules/content.md", Body: "Top text.\n\n## Sub\n\nSub text.\n"},
+		{Kind: spec.KindRule, Name: "style", Path: ".agnostic-ai/rules/style.md", Body: "Style text.\n\n### Details\n"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"## content\n\n<!-- source: .agnostic-ai/rules/content.md headings: +1 -->\nTop text.\n\n### Sub\n",
+		"## style\n\n<!-- source: .agnostic-ai/rules/style.md -->\nStyle text.\n\n### Details\n",
+	} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("CLAUDE.md lacks %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(string(got), "\n## Sub\n") {
+		t.Errorf("a body heading reads as a sibling rule:\n%s", got)
+	}
+}
+
 // TestWriteSettings_CaptureReadsExistingSettingsWithoutOverlay regresses
 // #465. With no import overlay, writeSettings falls back to the on-disk
 // .claude/settings.json as the base. Under capture mode (sync --check /

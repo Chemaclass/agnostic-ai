@@ -48,3 +48,47 @@ func TestSync_RuleHeadingsNestInCodexAndGeminiRootContext(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestImport_ClaudeRulesFileRestoresTheSpecHeadings(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+	if err := os.MkdirAll(".agnostic-ai/rules", 0755); err != nil {
+		t.Fatal(err)
+	}
+	specs := map[string]string{
+		".agnostic-ai/rules/content.md": "---\nname: content\n---\n\nTop text.\n\n## Sub\n\nSub text.\n\n<?php declare(strict_types=1);\n",
+		".agnostic-ai/rules/style.md":   "---\nname: style\n---\n\nStyle text.\n\n### Details\n",
+	}
+	files := map[string]string{"agnostic-ai.yaml": "version: 1\ntargets: [claude]\noutputs:\n  claude:\n    rules-file: CLAUDE.md\n"}
+	for path, body := range specs {
+		files[path] = body
+	}
+	for path, body := range files {
+		if err := os.WriteFile(path, []byte(body), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, args := range [][]string{{"sync", "--gitignore=off"}, {"import", "claude"}} {
+		if args[0] == "import" {
+			for path := range specs {
+				if err := os.Remove(path); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+		cmd := NewRootCmd("test")
+		cmd.SetArgs(args)
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+	}
+	for path, want := range specs {
+		got, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(got) != want {
+			t.Errorf("%s changed across sync and import:\n%s", path, got)
+		}
+	}
+}
