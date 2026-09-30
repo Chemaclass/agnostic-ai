@@ -196,7 +196,7 @@ Any other setting round-trips through the overlay captured by `agnostic-ai impor
 | `.claude/settings.json` other non-hook keys | `.agnostic-ai/overlays/claude.settings.json` |
 | `.mcp.json` (`mcpServers.<name>`) | `<mcps>/<name>.yaml` (one spec per server) |
 
-A hand-written `CLAUDE.md` imports whole into `.agnostic-ai/AGNOSTIC_AI.md` and is not split into rules too, which would load each section twice. When `.claude/rules/` exists (even if empty), those files are the single source for rule files. Sync writes a nested rule to `.claude/rules/<dir>/`, so import tells you to delete each nested `CLAUDE.md` it read, except a companion that only imports `@AGENTS.md`, which sync removes itself.
+A hand-written `CLAUDE.md` imports whole into `.agnostic-ai/AGNOSTIC_AI.md` and is not split into rules too, which would load each section twice. When `.claude/rules/` exists (even if empty), those files are the single source for rule files. Sync writes a nested rule to `.claude/rules/<dir>/`, so import tells you to delete each nested `CLAUDE.md` it read, except a companion that only imports `@AGENTS.md`, which sync removes itself. `doctor --fix` deletes a nested `CLAUDE.md` whose text still matches its rule, and keeps one you edited since.
 
 The instructions file is looked up in Claude Code's own order: `CLAUDE.md`, `.claude/CLAUDE.md`, `AGENTS.md`, `.claude/AGENTS.md`. Since v2.1.277 (v2.1.281 on Amazon Bedrock or with telemetry disabled), a session with no `CLAUDE.md` at or above the working directory loads `AGENTS.md`, so repos set up for other agents get their real instructions captured. The root `AGENTS.md` step is skipped when `codex`, `amp`, `warp`, `crush`, `kiro`, or `opencode` imports in the same run, since only one importer may slice that file.
 

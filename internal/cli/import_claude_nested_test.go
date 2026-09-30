@@ -28,7 +28,7 @@ func TestImportFromClaude_NestedCLAUDEmdBecomesOneScopedRule(t *testing.T) {
 	if entries := mustReadDir(t, filepath.Join(dir, "rules")); len(entries) != 1 {
 		t.Errorf("want only rules/a.md, got %d files", len(entries))
 	}
-	if !strings.Contains(buf.String(), "delete src/a/CLAUDE.md") {
+	if !strings.Contains(buf.String(), "delete src/a/CLAUDE.md with `agnostic-ai doctor --fix`") {
 		t.Errorf("summary should tell the user to delete the nested file, got:\n%s", buf.String())
 	}
 }

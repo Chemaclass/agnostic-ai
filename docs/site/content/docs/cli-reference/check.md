@@ -113,7 +113,7 @@ Report missing (never synced), stale (out of date with the specs), edited (chang
 | Flag | Description |
 |------|-------------|
 | `-t, --target <list>` | Comma-separated targets (default: all in config) |
-| `--fix` | Write missing, stale, and edited files. Orphans stay for you to delete, so the exit stays non-zero while any remain. |
+| `--fix` | Write missing, stale, and edited files, and remove each nested `CLAUDE.md` a rule already holds. Orphans stay for you to delete, so the exit stays non-zero while any remain. |
 | `--backup` | With `--fix`, copy each existing file to `<path>.bak` before overwriting. |
 | `--check-globs` | Flag rules whose `globs:` match no files. Off by default. |
 | `--check-references` | Flag relative Markdown links in generated skills whose file is missing on disk. Off by default. |
@@ -136,6 +136,7 @@ Then doctor prints:
 | **Spec health** | The findings `agnostic-ai lint` reports. An error fails doctor; a warning shows without failing. With any finding, the next step points at `agnostic-ai lint`. | No |
 | **Tracked despite ignored** | A generated path git tracks and ignores, with the `git rm --cached` command. | No |
 | **MCP** | Whether each stdio `command:` resolves on PATH, with install hints. `url:`-only servers are skipped. | No |
+| **Nested CLAUDE.md** | With `claude` enabled, a hand-written `<dir>/CLAUDE.md` whose trimmed text equals the body of a rule scoped to `<dir>`, as `import claude` leaves it. Claude Code loads it beside the synced rule. A file whose text differs from every such rule is never listed. | Yes, `--fix` removes it |
 | **Script divergence** | Basenames under `.agnostic-ai/scripts/<tool>/` whose bodies differ across tools, with the suggested path `.agnostic-ai/scripts/<basename>`. | Yes, not auto-fixable |
 | **Unmanaged config** | Markdown and TOML config files without a provenance marker, grouped by the `import` source that adopts each. | No |
 | **User-owned** | [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) entries, left out of Unmanaged config. | Never |
