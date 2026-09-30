@@ -224,7 +224,7 @@ func sweepLedgerOrphans(sess *adapters.Session, prior []string, priorSums map[st
 			continue
 		}
 		if err == nil && fi.Mode()&os.ModeSymlink != 0 {
-			if err := os.Remove(p); err == nil {
+			if ok, err := sess.RemoveLink(p, false); err == nil && ok {
 				removed = append(removed, p)
 				pruneAncestorDirs(p, prunedDirs)
 			}

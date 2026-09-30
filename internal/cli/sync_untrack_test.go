@@ -75,6 +75,11 @@ func TestSyncUntrack_RemovesFromIndexKeepsWorkingTree(t *testing.T) {
 	if !strings.Contains(logBuf.String(), "untracked") {
 		t.Errorf("sync --untrack should report the untrack, got:\n%s", logBuf.String())
 	}
+	for _, want := range []string{"other clones", "next pull", "install-hook --post-checkout", "agnostic-ai sync"} {
+		if !strings.Contains(logBuf.String(), want) {
+			t.Errorf("untrack warning misses %s: %s", want, logBuf.String())
+		}
+	}
 	if tracked := git(t, dir, "ls-files", "--", rule); tracked != "" {
 		t.Errorf("--untrack should remove %s from the index, git still lists: %q", rule, tracked)
 	}
@@ -115,6 +120,8 @@ func TestSyncUntrackJSON_ListsTrackedThenUntracked(t *testing.T) {
 	out.Reset()
 	root2 := NewRootCmd("test")
 	root2.SetOut(&out)
+	var warnings bytes.Buffer
+	root2.SetErr(&warnings)
 	root2.SetArgs([]string{"sync", "-t", "claude", "--json", "--untrack"})
 	if err := root2.Execute(); err != nil {
 		t.Fatalf("sync --json --untrack: %v", err)
@@ -128,6 +135,9 @@ func TestSyncUntrackJSON_ListsTrackedThenUntracked(t *testing.T) {
 		if filepath.ToSlash(r.Path) == rule && r.Action == "untracked" {
 			untracked = true
 		}
+	}
+	if !strings.Contains(warnings.String(), "other clones") || !strings.Contains(warnings.String(), "next pull") {
+		t.Errorf("JSON stderr lacks migration warning: %s", warnings.String())
 	}
 	if !untracked {
 		t.Errorf("writes should list %s as untracked, got %+v", rule, result2.Writes)
@@ -219,5 +229,19 @@ func TestDoctor_ReportsTrackedIgnored(t *testing.T) {
 	rule := filepath.ToSlash(filepath.Join(".claude", "rules", "r1.md"))
 	if !strings.Contains(out.String(), "Tracked despite ignored") || !strings.Contains(out.String(), "git rm --cached") || !strings.Contains(out.String(), rule) {
 		t.Errorf("doctor should report the tracked-and-ignored file, got:\n%s", out.String())
+	}
+}
+
+func TestSyncUntrack_QuietStillWarnsOtherClones(t *testing.T) {
+	untrackFixture(t)
+	warnings := captureStderr(t, func() {
+		if err := runSyncArgs(t, "--untrack", "--quiet"); err != nil {
+			t.Fatal(err)
+		}
+	})
+	for _, want := range []string{"other clones", "next pull", "install-hook --post-checkout", "agnostic-ai sync"} {
+		if !strings.Contains(warnings, want) {
+			t.Errorf("quiet migration warning misses %s: %s", want, warnings)
+		}
 	}
 }

@@ -337,6 +337,16 @@ func rollbackSessions(sessions []*adapters.Session) error {
 	return errors.Join(errs...)
 }
 
+// undoSweep rolls back the orphan sweep logged on sess and returns err, so
+// a sync that fails after the sweep keeps every orphan its unchanged
+// ledger still names.
+func undoSweep(sess *adapters.Session, err error) error {
+	if rbErr := sess.Rollback(); rbErr != nil {
+		fmt.Fprintf(os.Stderr, "! rollback: %v\n", rbErr)
+	}
+	return err
+}
+
 // commitSessions releases the transaction log on every session. Order is
 // irrelevant: Commit only clears state.
 func commitSessions(sessions []*adapters.Session) {
@@ -675,6 +685,9 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if untrack && len(trackedIgnored) > 0 {
 		removed, err := gitRmCached(root, trackedIgnored)
 		report.untracked = removed
+		if len(removed) > 0 && verbosity < levelDefault {
+			keptf("  %s %s\n", bang(), untrackPullAdvice)
+		}
 		trackedIgnored = removeMatching(trackedIgnored, removed)
 		if err != nil {
 			untrackErr = fmt.Errorf("untrack: %w", err)
@@ -828,8 +841,9 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	keep := keepSums(keepEdits, prev)
 
 	// mainSess handles the serial entry-point and shared-link writes; each
-	// target emits on its own session. The JSON path is not transactional:
-	// it reports per-target errors in the result rather than rolling back.
+	// target emits on its own session. The JSON path does not roll back
+	// writes: it reports per-target errors in the result instead. Only the
+	// orphan sweep is undone, when an ignore file fails after it.
 	mainSess := adapters.NewSession()
 	mainSess.SetUnmanaged(cfg.Sync.Unmanaged)
 	if backup {
@@ -893,6 +907,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 
 	applied := shared.apply(false)
 	ledgerSession = adjustLedgerForLinks(ledgerSession, applied)
+	mainSess.StartTransaction()
 	ledger, kept, removed, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, effectiveTargets, cfg.Targets, false)
 	for _, l := range applied {
 		out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: l.path, Action: "link"})
@@ -913,15 +928,16 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 		}
 		block, err := syncManagedBlock(cfg, b, effectiveTargets, gitignoreEntries)
 		if err != nil {
-			return err
+			return undoSweep(mainSess, err)
 		}
 		if err := updateGitignore(root, cfg, block); err != nil {
-			return fmt.Errorf("gitignore: %w", err)
+			return undoSweep(mainSess, fmt.Errorf("gitignore: %w", err))
 		}
 		if _, err := writeWorktreeInclude(root, cfg, block); err != nil {
-			return fmt.Errorf("worktreeinclude: %w", err)
+			return undoSweep(mainSess, fmt.Errorf("worktreeinclude: %w", err))
 		}
 	}
+	mainSess.Commit()
 	if sweepErr != nil {
 		out.Errors = append(out.Errors, errorRecord{Target: "agnostic-ai", Message: sweepErr.Error()})
 	}
@@ -946,6 +962,9 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 		removedFromIndex, err := gitRmCached(root, trackedIgnored)
 		for _, p := range removedFromIndex {
 			out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: p, Action: "untracked"})
+		}
+		if len(removedFromIndex) > 0 {
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  ! %s\n", untrackPullAdvice)
 		}
 		trackedIgnored = removeMatching(trackedIgnored, removedFromIndex)
 		if err != nil {

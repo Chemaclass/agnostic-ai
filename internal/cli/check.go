@@ -222,9 +222,15 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 		emitted[outputManifestPath] = true
 	}
 	reports = append(reports, epRep)
-	generated, err := orphanGeneratedPaths(cfg, b, reports)
+	generated, unloaded, err := orphanGeneratedPaths(cfg, b, reports)
 	if err != nil {
 		return nil, err
+	}
+	for _, target := range unloaded {
+		// A requested target that failed to resolve was reported above.
+		if !slices.Contains(targets, target) {
+			fmt.Fprintf(os.Stderr, "! could not load %s to check orphans; orphans it may still generate stay listed\n", target)
+		}
 	}
 	for i := range reports {
 		reports[i].Orphaned = slices.DeleteFunc(reports[i].Orphaned, func(path string) bool {
@@ -418,13 +424,14 @@ func driftGeneratedPaths(reports []driftReport) []string {
 }
 
 // A partial check cannot classify a ledger orphan until every configured producer is captured.
-func orphanGeneratedPaths(cfg *config.Config, b spec.Bundle, reports []driftReport) ([]string, error) {
-	generated := driftGeneratedPaths(reports)
+// A producer that does not resolve or fails to capture is named in unloaded and skipped without a warning.
+func orphanGeneratedPaths(cfg *config.Config, b spec.Bundle, reports []driftReport) (generated, unloaded []string, err error) {
+	generated = driftGeneratedPaths(reports)
 	if cfg.Sync.OutputManifest {
 		generated = append(generated, outputManifestPath)
 	}
 	if orphanedCount(reports) == 0 {
-		return generated, nil
+		return generated, nil, nil
 	}
 	var checked []string
 	for _, report := range reports {
@@ -437,17 +444,19 @@ func orphanGeneratedPaths(cfg *config.Config, b spec.Bundle, reports []driftRepo
 		}
 	}
 	if len(remaining) == 0 {
-		return generated, nil
+		return generated, nil, nil
 	}
 	sess := adapters.NewSession()
 	for _, target := range remaining {
 		adapter, err := adapters.Resolve(target)
 		if err != nil {
-			return nil, fmt.Errorf("verify orphan producers: %w", err)
+			unloaded = append(unloaded, target)
+			continue
 		}
 		files, err := captureAdapterFiles(sess, adapter, b, cfg)
 		if err != nil {
-			return nil, fmt.Errorf("verify orphan producers for %s: %w", target, err)
+			unloaded = append(unloaded, target)
+			continue
 		}
 		for _, file := range files {
 			generated = append(generated, file.Path)
@@ -455,9 +464,9 @@ func orphanGeneratedPaths(cfg *config.Config, b spec.Bundle, reports []driftRepo
 	}
 	entryPoints, err := collectEntryPointDrift(cfg, b, cfg.Targets)
 	if err != nil {
-		return nil, fmt.Errorf("verify orphan entry points: %w", err)
+		return nil, nil, fmt.Errorf("verify orphan entry points: %w", err)
 	}
-	return append(generated, driftGeneratedPaths([]driftReport{entryPoints})...), nil
+	return append(generated, driftGeneratedPaths([]driftReport{entryPoints})...), unloaded, nil
 }
 
 // reportTrackedIgnored lists generated paths git both tracks and
@@ -556,7 +565,8 @@ func newDoctorCmd() *cobra.Command {
 			"     --check-globs and --check-references add opt-in checks here.\n" +
 			"  6. Check MCP server command binaries.\n" +
 			"  7. Check persisted Codex hook trust.\n" +
-			"  8. Suggest a concrete next step.\n\n" +
+			"  8. Check existing packaging ignore files against generated paths.\n" +
+			"  9. Suggest a concrete next step.\n\n" +
 			"Exits non-zero on any drift, lint error, or inactive Codex hook; lint warnings show without\n" +
 			"failing. Subcommands run individual checks.",
 		Example: `  # Full diagnostic (CI gate)
@@ -597,7 +607,7 @@ func newDoctorCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return printDoctorJSON(cmd, reports, refs, checkRefs, lint, collectCodexHookTrust(scope.cfg, targets))
+				return printDoctorJSON(cmd, reports, refs, checkRefs, lint, collectCodexHookTrust(scope.cfg, targets), collectPackagingIgnoreFindings(reports))
 			}
 
 			configOK := doctorConfigOK()
@@ -701,6 +711,8 @@ func newDoctorCmd() *cobra.Command {
 			copiesOnly = copiesOnly && !scriptDrift
 			hasDrift = hasDrift || scriptDrift || len(copies) > 0
 
+			packaging := collectPackagingIgnoreFindings(reports)
+			reportPackagingIgnoreFindings(cmd, packaging)
 			hookTrust := collectCodexHookTrust(cfg, targets)
 			reportCodexHookTrust(cmd, hookTrust)
 
@@ -708,7 +720,7 @@ func newDoctorCmd() *cobra.Command {
 			manualFiles, manualOnly := manualOnlyDrift(reports)
 			// Hook script divergence is drift a scope document does not explain.
 			manualOnly = manualOnly && !scriptDrift && len(copies) == 0
-			doctorNextStep(cmd, hasDrift, manualOnly, copiesOnly, manualFiles, len(lint), len(hookTrust), nil)
+			doctorNextStep(cmd, hasDrift, manualOnly, copiesOnly, manualFiles, len(lint), len(hookTrust), nil, len(packaging))
 
 			// A rule whose globs match nothing never loads, so it
 			// silently does not exist. Reported before, but exit 0 meant
@@ -763,27 +775,29 @@ func newDoctorCmd() *cobra.Command {
 	return cmd
 }
 
-// doctorJSONOutput extends the shared JSON schema with lint findings and
-// the opt-in reference findings. The references key is present only under
-// --check-references.
+// doctorJSONOutput adds lint, hook trust, packaging warnings, and opt-in references.
 type doctorJSONOutput struct {
 	jsonOutput
-	Lint       []lintFinding            `json:"lint"`
-	References *[]referenceFinding      `json:"references,omitempty"`
-	HookTrust  []codex.HookTrustFinding `json:"hook_trust"`
+	Lint            []lintFinding            `json:"lint"`
+	References      *[]referenceFinding      `json:"references,omitempty"`
+	HookTrust       []codex.HookTrustFinding `json:"hook_trust"`
+	PackagingIgnore []packagingIgnoreFinding `json:"packaging_ignore"`
 }
 
 // printDoctorJSON emits a JSON drift report for `doctor`. Mirrors the schema
 // used by `sync --check --json`: missing, stale, and orphaned files appear
-// in writes. Lint findings appear in lint. With checkRefs, broken skill
+// in writes. Lint, hook trust, and packaging findings have their own lists. With checkRefs, broken skill
 // references appear in references.
-func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []referenceFinding, checkRefs bool, lint []lintFinding, hookTrust []codex.HookTrustFinding) error {
+func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []referenceFinding, checkRefs bool, lint []lintFinding, hookTrust []codex.HookTrustFinding, packaging []packagingIgnoreFinding) error {
 	if lint == nil {
 		lint = []lintFinding{}
 	}
-	out := doctorJSONOutput{jsonOutput: jsonOutput{Version: "1", Command: "doctor", Writes: driftRecords(reports)}.withEmptyLists(), Lint: lint, HookTrust: hookTrust}
+	out := doctorJSONOutput{jsonOutput: jsonOutput{Version: "1", Command: "doctor", Writes: driftRecords(reports)}.withEmptyLists(), Lint: lint, HookTrust: hookTrust, PackagingIgnore: packaging}
 	if out.HookTrust == nil {
 		out.HookTrust = []codex.HookTrustFinding{}
+	}
+	if out.PackagingIgnore == nil {
+		out.PackagingIgnore = []packagingIgnoreFinding{}
 	}
 	if checkRefs {
 		if refs == nil {
