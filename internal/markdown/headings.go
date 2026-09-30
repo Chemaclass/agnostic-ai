@@ -37,7 +37,7 @@ func (s *Scanner) Scan(line string) (Heading, bool) {
 	i := s.line
 	s.line++
 	line = strings.TrimSuffix(line, "\r")
-	if s.fence == 0 && s.html.consume(line) {
+	if s.fence == 0 && s.html.consume(line, s.paragraph || s.lazy) {
 		s.paragraph = false
 		return Heading{}, false
 	}
