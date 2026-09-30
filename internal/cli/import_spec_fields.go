@@ -1,5 +1,7 @@
 package cli
 
+import "gopkg.in/yaml.v3"
+
 // specFields names the frontmatter a target writes for one spec kind.
 // Import uses it to tell two cases apart that look identical on disk: a
 // key missing from a native file because the format has nowhere to put
@@ -7,9 +9,10 @@ package cli
 // it, which the spec must lose. A target that round-trips everything
 // declares allSpecFields and gets a plain overwrite.
 type specFields struct {
-	keys    map[string]bool
-	all     bool
-	omitted map[string]bool
+	keys     map[string]bool
+	all      bool
+	omitted  map[string]bool
+	preserve func(existing, imported *yaml.Node)
 }
 
 // allSpecFields marks a native format that carries every key a spec can
@@ -45,7 +48,7 @@ var (
 // Agents: one list per target that imports an agent spec over an
 // existing one.
 var (
-	claudeAgentFields      = specFields{all: true, omitted: map[string]bool{"readonly": true}}
+	claudeAgentFields      = specFields{all: true, omitted: map[string]bool{"readonly": true, "x-claude": true}, preserve: preserveClaudeReadonly}
 	clineAgentFields       = fieldsOf("name", "description")
 	cursorAgentFields      = fieldsOf("name", "description", "model")
 	copilotAgentFields     = fieldsOf("name", "description", "tools", "model")

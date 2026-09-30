@@ -8,8 +8,52 @@ import (
 	"path/filepath"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 )
+
+func preserveClaudeReadonly(existing, imported *yaml.Node) {
+	var meta map[string]any
+	if existing.Decode(&meta) != nil {
+		return
+	}
+	readonly := meta["readonly"] == true
+	if custom, ok := meta["x-claude"].(map[string]any); ok {
+		if value, set := custom["readonly"]; set {
+			readonly = value == true
+		}
+	}
+	hasTools := mappingHasKey(imported, "disallowedTools")
+	for i := 0; i+1 < len(existing.Content); i += 2 {
+		if existing.Content[i].Value != "x-claude" {
+			continue
+		}
+		custom := existing.Content[i+1]
+		var kept []*yaml.Node
+		if custom.Kind == yaml.MappingNode {
+			for j := 0; j+1 < len(custom.Content); j += 2 {
+				key, value := custom.Content[j], custom.Content[j+1]
+				if key.Value == "readonly" || (key.Value == "disallowedTools" && value.Tag == "!!null" && !hasTools) {
+					kept = append(kept, key, value)
+				}
+			}
+		}
+		if len(kept) == 0 {
+			existing.Content = append(existing.Content[:i], existing.Content[i+2:]...)
+		} else {
+			custom.Content = kept
+		}
+		break
+	}
+	// Removing native restrictions must override the retained portable translation.
+	if readonly && !hasTools {
+		custom := findOrAppendMapping(existing, "x-claude")
+		if !mappingHasKey(custom, "disallowedTools") {
+			setMappingValue(custom, "disallowedTools", nil)
+		}
+	}
+}
 
 // importClaudeAgents copies .claude/agents/*.md to dstDir, keeping the
 // frontmatter keys only the existing spec declares.
