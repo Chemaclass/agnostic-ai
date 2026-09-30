@@ -17,7 +17,7 @@ Load all specs, report parse errors, and print `loaded 12 entries. ok.` on succe
 |-------|------------|
 | Hook events | A hook spec's `event:` missing, or supported by no configured target (with the supported list). |
 | Orphaned kinds | Hook or MCP specs no enabled target consumes, one line per kind naming targets that would. |
-| Declared sources | An explicit `sources.<kind>` path in `agnostic-ai.yaml` with no directory. Warning only. |
+| Declared sources | An explicit `sources.<kind>` path in `agnostic-ai.yaml` with no directory, as a `note:` on stderr. The kind loads as empty and the run still passes, since a fresh clone lacks empty directories. |
 | Entry-point fences | A `::target` / `::targets` name in `.agnostic-ai/AGNOSTIC_AI.md` that is not a built-in target or listed in `targets` (external adapter), or that reads no entry-point file (`cursor`, or any target with `outputs.<target>.rules-file`). |
 | Global rules | With `--global`, a rule with scope, path, glob, or target conditions, which `sync --global` rejects. |
 | Global settings | With `--global`, a settings `effort` a target cannot take, such as `max` for Claude. |
