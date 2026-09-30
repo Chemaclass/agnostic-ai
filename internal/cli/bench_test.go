@@ -165,7 +165,7 @@ func BenchmarkEntryPointRender(b *testing.B) {
 		b.Run(fmt.Sprintf("specs=%d", n), func(b *testing.B) {
 			root := benchProject(b, n)
 			cfg, bundle := benchLoad(b, root)
-			body := adapters.EntryPointBody(cfg)
+			body := adapters.EntryPointBody()
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {

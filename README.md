@@ -41,7 +41,7 @@ agnostic-ai sync
 agnostic-ai sync --check
 ```
 
-`init` selects your tools. `new` creates your first rule under `.agnostic-ai/`; replace its TODO text before syncing. Generated files such as `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules/` are outputs. Keep the specs as your source of truth. Set `gitignore.ignore-worktree-include: true` to keep Claude's managed `.worktreeinclude` out of Git.
+`init` selects your tools. `new` creates your first rule under `.agnostic-ai/`; replace its TODO text before syncing. `AGNOSTIC_AI.md` is your editable project guidance; sync creates a short template and keeps an existing file. Generated files such as `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules/` are outputs. Keep the specs as your source of truth. Set `gitignore.ignore-worktree-include: true` to keep Claude's managed `.worktreeinclude` out of Git.
 
 Run `agnostic-ai install-hook --post-checkout` to regenerate ignored tool files after checkouts and pulls that merge. If `sync --untrack` removes committed outputs from Git, install these hooks in each clone before pulling, or run `agnostic-ai sync` after pulling. See [Git hooks](https://agnostic-ai.org/docs/git-hooks/#regenerate-on-checkout).
 
