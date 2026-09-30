@@ -31,10 +31,9 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Codex
 
-- Opt in to Bash permission translation with `outputs.codex.exec-policies-from-permissions`; lint warns on explicit policy drift (#1451).
-- Edit hook checks also inspect copied scripts for `tool_input.file_path` and honor `on-unsupported: error` (#1450).
+- `exec-policies-from-permissions` translates Bash rules, lint flags drift, and an explicit `exec-policies: []` now overrides an imported overlay (#1451).
+- Sync names inactive hooks with `/hooks` and `doctor` shows hook trust; edit hook checks read copied scripts and honor `on-unsupported: error` (#1450, #1456).
 - Exact subtree rules write nested `AGENTS.md`; filename filters stay inline with a note. Set `nested-glob-rules: false` to opt out (#1435).
-- Sync names inactive hooks with `/hooks` as the next step, `doctor` reports hook trust, and exec policies silence the `permissions` note (#1432, #1456).
 - `import codex` strips generated skill headers and keeps an agent's model in `model.codex` (#1461, #1476).
 - `.codex/environments/environment.toml` always carries `[setup]`, as the Codex app writes it.
 
