@@ -32,7 +32,7 @@ func TestDoctor_ListsLintWarningsWithoutFailing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a lint warning must not fail doctor: %v\n%s", err, out)
 	}
-	if !strings.Contains(out, "Spec health:\n") || !strings.Contains(out, "LINT007 [warn] .agnostic-ai/agents/reviewer.md") {
+	if !strings.Contains(out, "Spec health:\n") || !strings.Contains(out, "LINT007 [warn] "+filepath.FromSlash(".agnostic-ai/agents/reviewer.md")) {
 		t.Errorf("doctor should list the lint warning under Spec health:\n%s", out)
 	}
 	if strings.Contains(out, "All checks passed") {
@@ -56,7 +56,7 @@ func TestDoctor_FailsOnLintError(t *testing.T) {
 	if !strings.Contains(err.Error(), "agnostic-ai lint") {
 		t.Errorf("the error should point at lint, got %q", err.Error())
 	}
-	if !strings.Contains(out, "LINT006 [error] .agnostic-ai/rules/broken.md") {
+	if !strings.Contains(out, "LINT006 [error] "+filepath.FromSlash(".agnostic-ai/rules/broken.md")) {
 		t.Errorf("doctor should list the lint error:\n%s", out)
 	}
 }
@@ -102,7 +102,7 @@ func TestDoctorJSON_ListsLintFindingsAndFailsOnError(t *testing.T) {
 	if len(got.Writes) != 0 || len(got.Lint) != 1 {
 		t.Fatalf("want no drift and one lint finding, got %+v\n%s", got, out)
 	}
-	if f := got.Lint[0]; f.Code != "LINT006" || f.Severity != "error" || f.Path != ".agnostic-ai/rules/broken.md" || f.Message == "" {
+	if f := got.Lint[0]; f.Code != "LINT006" || f.Severity != "error" || f.Path != filepath.FromSlash(".agnostic-ai/rules/broken.md") || f.Message == "" {
 		t.Errorf("unexpected lint finding: %+v", f)
 	}
 }

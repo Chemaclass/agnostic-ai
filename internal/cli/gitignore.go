@@ -578,7 +578,7 @@ const worktreeIncludeFile = ".worktreeinclude"
 
 const (
 	worktreeIncludeHint      = "# Copied into each Claude Code worktree: the gitignored paths sync writes, and the local layer it reads."
-	worktreeIncludeAllowNote = "# Committed, so not copied (gitignore.allow):"
+	worktreeIncludeAllowNote = "# Not copied into worktrees:"
 )
 
 // writeWorktreeInclude mirrors the managed gitignore block into
@@ -600,15 +600,27 @@ func writeWorktreeInclude(root string, cfg *config.Config, block []string) (chan
 		}
 		block = nil
 	}
-	var entries []string
+	claudeDir := cfg.Outputs["claude"].Dir
+	if claudeDir == "" {
+		claudeDir = ".claude"
+	}
+	excluded := normalizeAndSort([]string{filepath.Join(claudeDir, "worktrees") + "/", filepath.Join(claudeDir, "scheduled_tasks.lock")})
+	var entries, exclusions []string
 	for _, e := range block {
-		// A worktree's first sync rewrites stale copies without the main
-		// checkout's ledger, and a copied ledger would name files the
-		// worktree never got.
-		if e != "/.agnostic-ai/.sync-state" {
-			entries = append(entries, e)
+		// Each worktree starts with its own ledger and runtime files.
+		if e == "/.agnostic-ai/.sync-state" || slices.Contains(excluded, e) {
+			continue
+		}
+		entries = append(entries, e)
+		if strings.HasSuffix(e, "/") && !strings.HasPrefix(e, "!") {
+			for _, path := range excluded {
+				if strings.HasPrefix(path, e) && !slices.Contains(exclusions, "!"+path) {
+					exclusions = append(exclusions, "!"+path)
+				}
+			}
 		}
 	}
+	entries = append(entries, exclusions...)
 	updated := replaceRenderedBlock(string(existing), renderBlockWith(entries, worktreeIncludeHint, worktreeIncludeAllowNote))
 	if updated == string(existing) {
 		return false, nil

@@ -17,7 +17,10 @@ func lintRuleFolderScope(rules []spec.Entry) []lintFinding {
 		if !ok || r.Folder == "" {
 			continue
 		}
-		scope = strings.Trim(scope, "/")
+		scope, err := spec.NormalizeScope(scope)
+		if err != nil {
+			continue
+		}
 		if scope == r.Folder || strings.HasPrefix(scope, r.Folder+"/") {
 			continue
 		}
