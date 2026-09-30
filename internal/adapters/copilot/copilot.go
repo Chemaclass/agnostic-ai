@@ -397,8 +397,14 @@ func alwaysOnRules(rules []spec.Entry) []spec.Entry {
 // has neither `globs` nor a source-layout scope to target.
 func isAlwaysOn(r spec.Entry) bool {
 	m := emit.ResolveMeta(r.Meta, target)
-	if v, ok := m["alwaysApply"].(bool); ok && v {
-		return true
+	if v, ok := m["alwaysApply"].(bool); ok {
+		if v {
+			return true
+		}
+		// alwaysApply: false without globs is an on-demand instruction.
+		if spec.JoinGlobs(m["globs"]) == "" && r.EffectiveScope() == "" {
+			return false
+		}
 	}
 	if g := spec.JoinGlobs(m["globs"]); g != "" {
 		return false
@@ -409,6 +415,8 @@ func isAlwaysOn(r spec.Entry) bool {
 // applyToFor returns the `applyTo` glob for a per-file instruction.
 // Explicit `globs` wins; otherwise the source-layout scope (e.g.
 // `rules/backend/auth.md` -> "backend/**"); otherwise the catch-all.
+// A rule with `alwaysApply: false` and neither gets "": VS Code then
+// loads the file on demand, when its description matches the task.
 func applyToFor(e spec.Entry) string {
 	m := emit.ResolveMeta(e.Meta, target)
 	if g := spec.JoinGlobs(m["globs"]); g != "" {
@@ -417,15 +425,28 @@ func applyToFor(e spec.Entry) string {
 	if s := e.EffectiveScope(); s != "" {
 		return s + "/**"
 	}
+	if v, ok := m["alwaysApply"].(bool); ok && !v {
+		return ""
+	}
 	return catchAllApplyTo
 }
 
 // renderInstruction renders a single `.instructions.md` body with
-// `applyTo:` frontmatter, an italic description (when present), and
-// the spec body.
+// `applyTo:` and `description:` frontmatter, then the spec body. VS Code
+// reads the description to load the file on demand ("Include it for
+// on-demand discovery", code.visualstudio.com/docs/copilot/customization/
+// custom-instructions), which an italic line in the body cannot do.
 func renderInstruction(e spec.Entry, applyTo string) string {
-	front := map[string]any{"applyTo": applyTo}
-	keys := []string{"applyTo"}
+	front := map[string]any{}
+	var keys []string
+	if applyTo != "" {
+		front["applyTo"] = applyTo
+		keys = append(keys, "applyTo")
+	}
+	if d := e.Description(); d != "" {
+		front["description"] = d
+		keys = append(keys, "description")
+	}
 	// applyTo stays double-quoted (its glob can start with `*`, which a
 	// plain scalar cannot). Forcing the source style keeps existing files
 	// byte-identical while custom x-copilot keys append below it. See #367.
@@ -435,9 +456,6 @@ func renderInstruction(e spec.Entry, applyTo string) string {
 	var b strings.Builder
 	b.WriteString(emit.FrontmatterStyled(front, keys, styles))
 	b.WriteString("\n")
-	if d := e.Description(); d != "" {
-		b.WriteString("_" + d + "_\n\n")
-	}
 	b.WriteString(e.Body)
 	return b.String()
 }

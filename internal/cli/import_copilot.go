@@ -313,7 +313,8 @@ func importCopilotInstructions(src, root string, sources config.Sources) (copilo
 
 // translateCopilotInstruction rewrites a Copilot `.instructions.md`
 // file as an agnostic rule. `applyTo:` becomes `globs:` (the catch-all
-// `**` is dropped). A `name:` field is injected from the filename when
+// `**` is dropped), and a file without it, loaded on demand, gets
+// `alwaysApply: false`. A `name:` field is injected from the filename when
 // absent. A leading single-line italic paragraph (the form the emitter
 // writes for `description:`) is lifted out of the body into the
 // `description:` frontmatter so a round-trip is loss-free.
@@ -330,6 +331,10 @@ func translateCopilotInstruction(name string, data []byte) ([]byte, error) {
 				meta["globs"] = applyTo
 			}
 		}
+	} else if _, exists := meta["alwaysApply"]; !exists {
+		// No applyTo: VS Code attaches the file only on demand, when its
+		// description matches the task. alwaysApply: false keeps that.
+		meta["alwaysApply"] = false
 	}
 	if desc, stripped, ok := extractLeadingItalic(body); ok {
 		if _, exists := meta["description"]; !exists {

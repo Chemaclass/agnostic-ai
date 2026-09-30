@@ -242,7 +242,7 @@ func TestLintBudget_CountsEachTargetsAlwaysOnRuleFiles(t *testing.T) {
 		"cline":       400, // no description mode, so req stays always active
 		"windsurf":    300, // req is model_decision
 		"kiro":        100, // globs become fileMatch
-		"copilot":     100, // globs become applyTo
+		"copilot":     0,   // globs become applyTo; req loads on demand from its description
 		"qoder":       300, // globs is not Qoder's key; alwaysApply false is manual
 		"continue":    0,   // globs match on demand; alwaysApply false is not always
 		"kilo":        0,   // both inline into AGENTS.md, which Kilo always reads
@@ -258,8 +258,9 @@ func TestLintBudget_CountsEachTargetsAlwaysOnRuleFiles(t *testing.T) {
 		"claude":  {RulesFile: ".claude/RULES.md"},
 		"copilot": {RulesFile: ".github/copilot-instructions.md"},
 	}}
-	// Claude's legacy file holds every rule; Copilot's keeps only always-on rules.
-	for target, want := range map[string]int{"claude": 400, "copilot": 100} {
+	// Claude's legacy file holds every rule; Copilot's keeps only always-on
+	// rules, and req loads on demand.
+	for target, want := range map[string]int{"claude": 400, "copilot": 0} {
 		if got := alwaysOnRuleWords(legacy, b, target); got != want {
 			t.Errorf("%s legacy rules-file: always-on rule words = %d, want %d", target, got, want)
 		}

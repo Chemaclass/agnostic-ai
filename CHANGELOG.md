@@ -20,6 +20,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - `.codex/environments/environment.toml` always carries `[setup]`, with an empty script when no spec sets one, as the file the Codex app generates does; a spec with only dev commands used to drop the table.
 
+#### Copilot
+
+- A rule's `description` goes to the `.instructions.md` frontmatter, where VS Code reads it to load the file on demand, instead of an italic line in the body. A rule with `alwaysApply: false` and no globs gets no `applyTo`, so it stays on demand, and `import copilot` reads a file without `applyTo` back that way instead of attaching it to every file.
+
 #### Gemini CLI
 
 - `import gemini` decodes a command's TOML strings, so a `\\(` in a `"""` prompt no longer comes back doubled and changes the shell command; keys other than `description` and `prompt` import under `x-gemini`.
