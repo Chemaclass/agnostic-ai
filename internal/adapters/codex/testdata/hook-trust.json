@@ -1,0 +1,131 @@
+[
+  {
+    "name": "command default",
+    "event": "PreToolUse",
+    "matcher": "Bash",
+    "handler": {
+      "type": "command",
+      "command": "guard-env"
+    },
+    "platform": "linux",
+    "canonical": "{\"event_name\":\"pre_tool_use\",\"hooks\":[{\"async\":false,\"command\":\"guard-env\",\"timeout\":600,\"type\":\"command\"}],\"matcher\":\"Bash\"}",
+    "hash": "sha256:e9d9cf155ba9ce2edebca3b635c99c5aa19d57db27499690a9f260388ada88fc"
+  },
+  {
+    "name": "ignored matcher and default context",
+    "event": "UserPromptSubmit",
+    "matcher": "ignored",
+    "handler": {
+      "type": "command",
+      "command": "echo ready",
+      "additionalContextLimit": 2500
+    },
+    "platform": "linux",
+    "canonical": "{\"event_name\":\"user_prompt_submit\",\"hooks\":[{\"async\":false,\"command\":\"echo ready\",\"timeout\":600,\"type\":\"command\"}]}",
+    "hash": "sha256:ab18a6e603ad2baff6001e5861a19bff76fc27585ccefd4424d8bb1083a917d2"
+  },
+  {
+    "name": "shutdown clamp and original async",
+    "event": "SessionEnd",
+    "matcher": "clear",
+    "handler": {
+      "type": "command",
+      "command": "bye",
+      "timeout": 99,
+      "async": true,
+      "additionalContextLimit": 0
+    },
+    "platform": "linux",
+    "canonical": "{\"event_name\":\"session_end\",\"hooks\":[{\"async\":true,\"command\":\"bye\",\"timeout\":3,\"type\":\"command\"}],\"matcher\":\"clear\"}",
+    "hash": "sha256:92a9ab52f98e65d0b019e731af981dda86e34d0d245395a5aedc8d54670a8b55"
+  },
+  {
+    "name": "nested MCP input",
+    "event": "PostToolUse",
+    "matcher": "Edit",
+    "handler": {
+      "type": "mcp_tool",
+      "server": "audit",
+      "tool": "record",
+      "input": {
+        "z": [
+          2,
+          true,
+          {
+            "b": "ok",
+            "a": 1
+          }
+        ],
+        "a": "${TOOL}"
+      },
+      "timeout": 0,
+      "statusMessage": "audit"
+    },
+    "platform": "linux",
+    "canonical": "{\"event_name\":\"post_tool_use\",\"hooks\":[{\"input\":{\"a\":\"${TOOL}\",\"z\":[2,true,{\"a\":1,\"b\":\"ok\"}]},\"server\":\"audit\",\"statusMessage\":\"audit\",\"timeout\":1,\"tool\":\"record\",\"type\":\"mcp_tool\"}],\"matcher\":\"Edit\"}",
+    "hash": "sha256:a5c0cdca5668759fcb5790df1e7f6cd298c1e03ffdd71d84c0ead00de2c028bd"
+  },
+  {
+    "name": "Windows command selection",
+    "event": "Stop",
+    "matcher": "ignored",
+    "handler": {
+      "type": "command",
+      "command": "sh guard",
+      "commandWindows": "pwsh guard"
+    },
+    "platform": "windows",
+    "canonical": "{\"event_name\":\"stop\",\"hooks\":[{\"async\":false,\"command\":\"pwsh guard\",\"timeout\":600,\"type\":\"command\"}]}",
+    "hash": "sha256:85eee3aebd58a1937d8099210952c5b17db0dddcd9ddd45dedf5ee787cc7d729"
+  },
+  {
+    "name": "unicode and zero context",
+    "event": "PreToolUse",
+    "matcher": "",
+    "handler": {
+      "type": "command",
+      "command": "echo <héllo> &  ",
+      "additionalContextLimit": 0,
+      "statusMessage": ""
+    },
+    "platform": "linux",
+    "canonical": "{\"event_name\":\"pre_tool_use\",\"hooks\":[{\"additionalContextLimit\":0,\"async\":false,\"command\":\"echo <héllo> &  \",\"statusMessage\":\"\",\"timeout\":600,\"type\":\"command\"}],\"matcher\":\"\"}",
+    "hash": "sha256:52786873ff3018736aec41476c432128d6c982df71f8ee1b00c9ab86f653d2a4"
+  },
+  {
+    "name": "MCP float serialization",
+    "event": "PostToolUse",
+    "matcher": "Edit",
+    "handler": {
+      "type": "mcp_tool",
+      "server": "audit",
+      "tool": "record",
+      "input": {
+        "values": [
+          1.0,
+          1e-05,
+          1e-06,
+          1000000000000000.0,
+          1e+16,
+          -0.0
+        ]
+      }
+    },
+    "platform": "linux",
+    "canonical": "{\"event_name\":\"post_tool_use\",\"hooks\":[{\"input\":{\"values\":[1.0,0.00001,1e-6,1000000000000000.0,1e+16,-0.0]},\"server\":\"audit\",\"timeout\":600,\"tool\":\"record\",\"type\":\"mcp_tool\"}],\"matcher\":\"Edit\"}",
+    "hash": "sha256:42f16c23ca364d0f36a97f21b9717b7cd44724f58785860fedb4c9e51d4c304a"
+  },
+  {
+    "name": "final emitted export command",
+    "event": "PreToolUse",
+    "matcher": "Bash",
+    "handler": {
+      "type": "command",
+      "command": "export AGNOSTIC_AI_TARGET=codex; guard-env",
+      "commandWindows": "guard-env"
+    },
+    "platform": "linux",
+    "canonical": "{\"event_name\":\"pre_tool_use\",\"hooks\":[{\"async\":false,\"command\":\"export AGNOSTIC_AI_TARGET=codex; guard-env\",\"timeout\":600,\"type\":\"command\"}],\"matcher\":\"Bash\"}",
+    "hash": "sha256:fd022754fe4b7274aa51f6229943be4f6bb80d966b69cffe4d793578e14ce6e8"
+  }
+]
