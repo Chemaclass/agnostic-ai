@@ -13,7 +13,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-const permissionsUseExecPoliciesReason = "Codex has no per-tool allow/deny/ask key; its rule surface is exec policies, whose prefix_rule patterns are token lists rather than globs, so set outputs.codex.exec-policies for shell rules"
+const permissionsUseExecPoliciesReason = "Codex has no per-tool allow/deny/ask key; its rule surface is exec policies, so set outputs.codex.exec-policies-from-permissions: true to translate simple Bash rules, or outputs.codex.exec-policies for other shell rules"
 
 const otherToolPermissionsReason = "Codex has no per-tool allow/deny/ask key and its exec policies match shell commands, so only Bash rules translate"
 
