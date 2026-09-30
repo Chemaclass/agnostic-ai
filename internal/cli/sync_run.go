@@ -660,6 +660,9 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if untrack && len(trackedIgnored) > 0 {
 		removed, err := gitRmCached(root, trackedIgnored)
 		report.untracked = removed
+		if len(removed) > 0 && verbosity < levelDefault {
+			keptf("  %s %s\n", bang(), untrackPullAdvice)
+		}
 		trackedIgnored = removeMatching(trackedIgnored, removed)
 		if err != nil {
 			untrackErr = fmt.Errorf("untrack: %w", err)
@@ -921,6 +924,9 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 		removedFromIndex, err := gitRmCached(root, trackedIgnored)
 		for _, p := range removedFromIndex {
 			out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: p, Action: "untracked"})
+		}
+		if len(removedFromIndex) > 0 {
+			fmt.Fprintf(cmd.ErrOrStderr(), "  ! %s\n", untrackPullAdvice)
 		}
 		trackedIgnored = removeMatching(trackedIgnored, removedFromIndex)
 		if err != nil {

@@ -45,22 +45,22 @@ agnostic-ai packs remove go-rules
 
 ## install-hook
 
-Install a pre-commit hook that runs `sync --check`, or, with `--post-checkout`, a hook that regenerates tool files after a checkout. See [git hooks](@/docs/git-hooks.md).
+Install a pre-commit hook that runs `sync --check`, or, with `--post-checkout`, hooks that regenerate tool files after a checkout or a pull that merges. See [git hooks](@/docs/git-hooks.md).
 
 ```bash
 agnostic-ai install-hook            # writes .git/hooks/pre-commit (local)
 agnostic-ai install-hook --shared   # writes .githooks/ and sets core.hooksPath
 agnostic-ai install-hook --global   # gates commits to a global home kept in git
 
-agnostic-ai install-hook --post-checkout            # writes .git/hooks/post-checkout (local)
-agnostic-ai install-hook --post-checkout --shared   # writes .githooks/post-checkout
+agnostic-ai install-hook --post-checkout            # writes .git/hooks/post-checkout and post-merge
+agnostic-ai install-hook --post-checkout --shared   # writes both hooks in .githooks/
 ```
 
 An existing hook keeps its content and the checks go at its end. A hook that already holds them stays as it is. A hook that would stop before reaching them (no `sh` or `bash` shebang, an `exec`, or an unindented `exit`) is left alone, and the command prints the lines to add by hand.
 
 - `--shared` writes `.githooks/<hook>` at the root of the main working tree, from any linked worktree. It stops when `core.hooksPath` already points elsewhere.
 - `--global` is for the global home, which must be the root of its own git repository. The hook runs `lint --global --strict`, `validate --global`, and `sync --global --check`; the commit fails when any fails. In a linked worktree it skips `sync --global --check`. It stops when run anywhere else, when `core.hooksPath` points elsewhere, or when the hook still runs the project `sync --check`. Not with `--shared` or `--post-checkout`.
-- `--post-checkout` runs `agnostic-ai sync -q` from the worktree root on a branch or worktree checkout (never a single-file checkout), when the binary and `agnostic-ai.yaml` are found. The hooks directory is shared across linked worktrees, so one install covers `git worktree add` everywhere.
+- `--post-checkout` installs `post-checkout` and `post-merge`, which run `agnostic-ai sync -q` from the worktree root after a branch or worktree checkout (never a single-file checkout) or a merge, including a pull. Both skip when the binary or `agnostic-ai.yaml` is missing. The hooks directory is shared across linked worktrees. Reinstall an older checkout-only setup to add pull coverage.
 
 ## completion
 
