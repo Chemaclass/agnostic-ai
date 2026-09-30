@@ -1,8 +1,14 @@
 package cli
 
 import (
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 func TestImport_H3ChildrenKeepFencedHeadingsInTheirBody(t *testing.T) {
@@ -68,5 +74,31 @@ func TestImport_H3AfterIndentedCodeIsNotHTML(t *testing.T) {
 	}
 	if children, ok := unwrapMergedH3Children(body, map[string]int{}); !ok || len(children) != 2 || children[1].slug != "following" {
 		t.Errorf("indented code swallowed a merged heading: %+v", children)
+	}
+}
+
+func TestImport_BlockLeftOpenByOneRuleKeepsTheRulesAfterIt(t *testing.T) {
+	for _, open := range []string{"```sh\necho unclosed", "<?php declare(strict_types=1);", "<!-- draft"} {
+		t.Run(open, func(t *testing.T) {
+			block := adapters.RenderRulesAppendix(spec.Bundle{Rules: []spec.Entry{
+				{Kind: spec.KindRule, Name: "alpha", Path: ".agnostic-ai/rules/alpha.md", Body: "Alpha text.\n\n" + open + "\n"},
+				{Kind: spec.KindRule, Name: "beta", Path: ".agnostic-ai/rules/beta.md", Body: "Beta text.\n"},
+				{Kind: spec.KindRule, Name: "gamma", Path: ".agnostic-ai/rules/gamma.md", Body: "Gamma text.\n"},
+			}})
+			for file, importer := range map[string]func(string, config.Sources) error{"AGENTS.md": importFromCodex, geminiMainFile: importFromGemini} {
+				dir := t.TempDir()
+				writeFile(t, filepath.Join(dir, file), "# Project\n\n"+block)
+				if err := importer(dir, rootSources()); err != nil {
+					t.Fatal(err)
+				}
+				want := []string{"alpha.md", "beta.md", "gamma.md"}
+				if got := names(mustReadDir(t, filepath.Join(dir, "rules"))); !slices.Equal(got, want) {
+					t.Errorf("%s: rules = %v, want %v", file, got, want)
+				}
+				if alpha := readFileString(t, filepath.Join(dir, "rules", "alpha.md")); strings.Contains(alpha, "Beta text.") {
+					t.Errorf("%s: alpha swallowed beta:\n%s", file, alpha)
+				}
+			}
+		})
 	}
 }

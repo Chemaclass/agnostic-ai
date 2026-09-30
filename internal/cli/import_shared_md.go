@@ -277,16 +277,33 @@ func unfencedH3HeadingIndexes(body string) [][]int {
 }
 
 // markdownHeadingLines returns the index of each line in lines that holds
-// an ATX heading at level, outside code and raw HTML.
+// an ATX heading at level, outside code and raw HTML. Sync nests each
+// section's body on its own, so each section it wrote is read on its own:
+// a block one body leaves open does not hide the sections after it.
 func markdownHeadingLines(lines []string, level int) []int {
 	var scan markdown.Scanner
 	var out []int
 	for i, line := range lines {
+		if generatedSectionStart(lines, i) {
+			scan.Reset()
+		}
 		if heading, ok := scan.Scan(line); ok && heading.Level == level && heading.Start == i {
 			out = append(out, i)
 		}
 	}
 	return out
+}
+
+var (
+	generatedSectionHeadingRE = regexp.MustCompile(`^###[ \t]+\S`)
+	generatedSourceLineRE     = regexp.MustCompile(`^[ \t]*<!--\s*source:[^\n]*-->[ \t]*\r?$`)
+)
+
+// generatedSectionStart reports whether lines[i] opens a section sync
+// wrote: a `###` heading, a blank line, then the section's source comment.
+func generatedSectionStart(lines []string, i int) bool {
+	return i+2 < len(lines) && generatedSectionHeadingRE.MatchString(lines[i]) &&
+		strings.TrimSpace(lines[i+1]) == "" && generatedSourceLineRE.MatchString(lines[i+2])
 }
 
 // writeAgentMD writes an agent spec to path with a name + optional
