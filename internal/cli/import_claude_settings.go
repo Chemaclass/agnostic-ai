@@ -54,6 +54,8 @@ func claudeOverlayPath(root string) string {
 	return filepath.Join(root, claudeOverlayDir, claudeOverlayFile)
 }
 
+// importClaudeSettingsOverlay writes no overlay when settings.json is
+// missing or holds only hooks, so a fresh project gets no empty file.
 func importClaudeSettingsOverlay(root, settingsDir string) (claudeSettingsImport, error) {
 	var out claudeSettingsImport
 	src := filepath.Join(root, claudeDir, "settings.json")
