@@ -148,3 +148,45 @@ func TestEmit_PermissionPoliciesStayOptIn(t *testing.T) {
 		t.Errorf("permissions grant without opt-in: %v", err)
 	}
 }
+
+func TestEmit_PermissionPoliciesEmptyInlineListIsAuthoritativeAfterConfigLoad(t *testing.T) {
+	for _, source := range []string{"base", "local", "overlay"} {
+		t.Run(source, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			body := "targets: [codex]\noutputs:\n  codex:\n    exec-policies-from-permissions: true\n    exec-policies: []\n  claude:\n    settings:\n      permissions:\n        allow: [\"Bash(git diff:*)\"]\n"
+			if source == "local" {
+				body = strings.Replace(body, "exec-policies: []", "exec-policies: [{pattern: [git], decision: forbidden}]", 1)
+			}
+			if err := os.WriteFile(filepath.Join(dir, config.ConfigFileName), []byte(body), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if source == "local" {
+				if err := os.WriteFile(filepath.Join(dir, config.LocalOverrideFileName), []byte("outputs:\n  codex:\n    exec-policies: []\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if source == "overlay" {
+				if err := os.MkdirAll(filepath.Dir(execPoliciesOverlayPath), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(execPoliciesOverlayPath, []byte("- {pattern: [git], decision: forbidden}\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			cfg, err := config.Load(dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			policies := cfg.Outputs["codex"].ExecPolicies
+			if policies == nil || len(policies) != 0 {
+				t.Fatalf("loaded explicit empty policies = %#v", policies)
+			}
+			if err := New().Emit(emit.NewSession(), spec.Bundle{}, cfg, false); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Stat(defaultExecPoliciesFile); !os.IsNotExist(err) {
+				t.Errorf("explicit empty list generated policies: %v", err)
+			}
+		})
+	}
+}

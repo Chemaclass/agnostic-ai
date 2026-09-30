@@ -89,3 +89,11 @@ outputs:
 		t.Errorf("matching portable restrictions reported as drift: %v\n%s", err, out)
 	}
 }
+
+func TestLint_CodexPoliciesEmptyInlineListReportsMissingPermissions(t *testing.T) {
+	budgetProject(t, "targets: [codex]\noutputs:\n  codex:\n    exec-policies-from-permissions: true\n    exec-policies: []\n  claude:\n    settings:\n      permissions:\n        allow: [\"Bash(git diff:*)\"]\n")
+	out, err := runCLI(t, "lint", "--strict")
+	if err == nil || !strings.Contains(out, "LINT021") || !strings.Contains(out, "Bash(git diff:*) has no matching prefix") {
+		t.Errorf("explicit empty list should report missing prefix: %v\n%s", err, out)
+	}
+}

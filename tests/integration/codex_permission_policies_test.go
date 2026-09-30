@@ -90,4 +90,19 @@ outputs:
 	if strings.Contains(string(data), "npm") || strings.Contains(string(data), `decision = "allow"`) {
 		t.Errorf("explicit native intent changed:\n%s", data)
 	}
+	empty := strings.Replace(cfg, "exec-policies-from-permissions: true", "exec-policies-from-permissions: true\n    exec-policies: []", 1)
+	must(t, os.WriteFile(configPath, []byte(empty), 0o644))
+	if out, err := run("sync"); err != nil {
+		t.Fatalf("empty explicit policy sync: %v\n%s", err, out)
+	}
+	if _, err := os.Stat(policyPath); !os.IsNotExist(err) {
+		t.Errorf("empty explicit policy list retained or generated rules: %v", err)
+	}
+	if out, err := run("sync", "--check"); err != nil {
+		t.Errorf("empty explicit policy check: %v\n%s", err, out)
+	}
+	if out, err := run("lint", "--strict"); err == nil || !strings.Contains(out, "LINT021") || !strings.Contains(out, "Bash(git diff:*) has no matching prefix") {
+		t.Errorf("empty explicit policy should report missing prefix: %v\n%s", err, out)
+	}
+
 }

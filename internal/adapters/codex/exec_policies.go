@@ -79,7 +79,7 @@ func shouldUseExecPoliciesOverlay(cfg *config.Config) bool {
 	if !ok {
 		return true
 	}
-	if len(out.ExecPolicies) > 0 {
+	if out.ExecPolicies != nil {
 		return false
 	}
 	return out.ExecPoliciesFile == ""
@@ -103,7 +103,7 @@ func loadExecPolicies(cfg *config.Config) ([]config.CodexExecPolicy, error) {
 	filePath := ""
 	if hasOut && out.ExecPoliciesFile != "" {
 		filePath = out.ExecPoliciesFile
-	} else if len(policies) == 0 {
+	} else if out.ExecPolicies == nil {
 		// Fall back to the captured overlay only when the user has no
 		// explicit declarations. A user with inline entries opts out of
 		// the overlay implicitly.

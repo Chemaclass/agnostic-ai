@@ -87,7 +87,7 @@ func permissionDecision(list string) string {
 
 func nativeExecPoliciesConfigured(cfg *config.Config) bool {
 	out := cfg.Outputs[target]
-	if len(out.ExecPolicies) > 0 || out.ExecPoliciesFile != "" {
+	if out.ExecPolicies != nil || out.ExecPoliciesFile != "" {
 		return true
 	}
 	_, err := os.Stat(execPoliciesOverlayPath)
