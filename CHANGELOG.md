@@ -21,6 +21,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - A skill or command line with Claude Code's `` !`command` ``, `$ARGUMENTS`, or `$1` gets a sync note naming the line for each target that reads it as plain text, such as Codex, and `lint` reports it as LINT019. `on-unsupported: error` fails the sync (#1436).
 - `import all` and `init --from all` seed `AGNOSTIC_AI.md` from a hand-written root `AGENTS.md` when no other tool config is found, instead of importing nothing (#1464).
 - A comma-separated `globs` string, such as `src/x/**,tests/x/**`, reaches Claude Code `paths` and Continue `globs` as one entry per pattern, so the rule loads on those files. Commas inside `{a,b}` stay in their pattern (#1428).
+- A rule's `scope:` wins over its folder under `rules/`, and a folder that names no project directory only groups rules, so `rules/modules/a.md` with `scope: src/a` is scoped to `src/a` instead of a `modules/` directory. `lint` warns when a folder names a project directory and `scope:` points elsewhere (LINT020) (#1430).
 
 ### By tool
 

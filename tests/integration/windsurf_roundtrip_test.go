@@ -59,9 +59,9 @@ func TestWindsurfRoundTrip_SyncImportSyncIsByteEqual(t *testing.T) {
 
 	runCmd(t, "import", "windsurf")
 
-	// `backend` holds the scoped rules dir, so it is emit output too and
-	// has to go before the second sync rebuilds from the imported specs.
-	for _, sub := range []string{".devin", ".agents", "backend"} {
+	// `backend/.devin` is emit output too and has to go before the second
+	// sync rebuilds from the imported specs.
+	for _, sub := range []string{".devin", ".agents", "backend/.devin"} {
 		if err := os.RemoveAll(filepath.Join(dir, sub)); err != nil {
 			t.Fatal(err)
 		}
@@ -148,7 +148,7 @@ gitignore:
 		t.Fatalf("missing imported spec %s: %v", imported, err)
 	}
 
-	must(t, os.RemoveAll(filepath.Join(dir, ".github")))
+	must(t, os.RemoveAll(filepath.Join(dir, ".github", ".devin")))
 	runCmd(t, "sync", "-t", "windsurf")
 
 	raw, err := os.ReadFile(filepath.Join(dir, ".github", ".devin", "rules", "release.md"))
@@ -187,7 +187,7 @@ gitignore:
 		t.Fatalf("missing imported spec %s: %v", imported, err)
 	}
 
-	must(t, os.RemoveAll(filepath.Join(dir, "vendor")))
+	must(t, os.RemoveAll(filepath.Join(dir, "vendor", ".devin")))
 	runCmd(t, "sync", "-t", "windsurf")
 
 	raw, err := os.ReadFile(filepath.Join(dir, "vendor", ".devin", "rules", "pkg.md"))
@@ -228,7 +228,7 @@ gitignore:
 		t.Fatalf("missing imported spec %s: %v", imported, err)
 	}
 
-	must(t, os.RemoveAll(filepath.Join(dir, "packages")))
+	must(t, os.RemoveAll(filepath.Join(dir, "packages", "api", "config", ".devin")))
 	runCmd(t, "sync", "-t", "windsurf")
 
 	raw, err := os.ReadFile(filepath.Join(dir, "packages", "api", "config", ".devin", "rules", "auth.md"))
@@ -281,7 +281,7 @@ gitignore:
 	}
 
 	must(t, os.RemoveAll(filepath.Join(dir, "custom")))
-	must(t, os.RemoveAll(filepath.Join(dir, "backend")))
+	must(t, os.RemoveAll(filepath.Join(dir, "backend", "custom")))
 	runCmd(t, "sync", "-t", "windsurf")
 
 	root, err := os.ReadFile(filepath.Join(dir, "custom", "rules", "house.md"))
@@ -337,6 +337,7 @@ gitignore:
 	// and translation paths on the import side, so the round-trip has
 	// to cover them.
 	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai/rules/backend"), 0o755))
+	must(t, os.MkdirAll(filepath.Join(dir, "backend"), 0o755))
 	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/rules/backend/auth.md"),
 		[]byte("---\nname: auth\n---\n\nauth body\n"), 0o644))
 	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/rules/globbed.md"),
