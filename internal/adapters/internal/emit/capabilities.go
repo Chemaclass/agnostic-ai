@@ -36,8 +36,10 @@ type Capabilities struct {
 	SettingsFields []string
 	// ForeignClaudeModels lists the ClaudeModelNames this target's agent
 	// and settings `model` keys cannot load. ReportUnsupported notes each
-	// one that reaches the target through a shared `model` value.
+	// agent, and the winning settings spec, whose shared `model` names one.
 	ForeignClaudeModels []string
+	// SettingsModelOverridden suppresses only the settings `model` note.
+	SettingsModelOverridden bool
 }
 
 // trackedAgentFields maps each portable agent field with a native key on

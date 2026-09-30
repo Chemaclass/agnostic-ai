@@ -148,6 +148,13 @@ func (Adapter) Name() string { return target }
 
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
+func modelCoverage(cfg *config.Config, overlayKeys map[string]bool) emit.Capabilities {
+	coverage := caps
+	codexCfg := cfg.Outputs[target].Config
+	coverage.SettingsModelOverridden = codexCfg != nil && codexCfg.Model != "" || overlayKeys["model"]
+	return coverage
+}
+
 // Emit writes one TOML per agent, one folder per skill,
 // .codex/config.toml (MCP), .codex/hooks.json (hooks), and—when opted
 // in via outputs.codex.rules-file—a legacy concatenated rules document.
@@ -155,7 +162,11 @@ func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 // deprecated custom prompts and never reads a project-level tree). The
 // project-root AGENTS.md is written by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
-	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
+	overlay, overlayKeys, err := loadConfigOverlay()
+	if err != nil {
+		return err
+	}
+	if err := emit.ReportUnsupported(modelCoverage(cfg, overlayKeys), b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 
@@ -207,7 +218,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 
-	if err := emitConfigTOML(sess, b, cfg, dryRun); err != nil {
+	if err := emitConfigTOML(sess, b, cfg, overlay, overlayKeys, dryRun); err != nil {
 		return err
 	}
 	if err := emitEnvironment(sess, b.Environments, cfg, dryRun); err != nil {
@@ -309,19 +320,15 @@ func codexEmitsSkills(cfg *config.Config) bool {
 }
 
 // emitConfigTOML writes `.codex/config.toml` with the captured overlay,
-// first-class config, hooks, and MCP servers when any content exists.
+// first-class config, and MCP servers when any content exists.
 // The project-tier config.toml is agnostic-ai-managed: overwrite on each
 // sync. The overlay (`.agnostic-ai/overlays/codex.config.toml`) carries
 // every user-authored key outside hooks/mcp_servers so a wipe of
 // `.codex/` between import and sync does not destroy them.
-func emitConfigTOML(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func emitConfigTOML(sess *emit.Session, b spec.Bundle, cfg *config.Config, overlay string, overlayKeys map[string]bool, dryRun bool) error {
 	var codexCfg *config.CodexConfig
 	if o, ok := cfg.Outputs[target]; ok {
 		codexCfg = o.Config
-	}
-	overlay, overlayKeys, err := loadConfigOverlay(dryRun)
-	if err != nil {
-		return err
 	}
 	body := renderConfigTOML(b.Settings, b.MCPs, codexCfg, overlay, overlayKeys)
 	path := emit.OutputMCPFile(cfg, target, defaultConfigFile)
@@ -337,11 +344,8 @@ func emitConfigTOML(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 
 // loadConfigOverlay returns the overlay body bytes and the set of
 // top-level keys it defines. Returns ("", nil, nil) when the overlay is
-// absent. Skips disk in dryRun so `--dry-run` previews remain pure.
-func loadConfigOverlay(dryRun bool) (string, map[string]bool, error) {
-	if dryRun {
-		return "", nil, nil
-	}
+// absent. Dry-run reads it too, so previews and notes match a real sync.
+func loadConfigOverlay() (string, map[string]bool, error) {
 	data, err := os.ReadFile(configOverlayPath)
 	if emit.IsAbsent(err) {
 		return "", nil, nil
