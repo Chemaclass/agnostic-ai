@@ -262,8 +262,9 @@ Controls how `agnostic-ai import codex` treats a nested `AGENTS.md`. The root fi
 
 | Value | Behavior |
 |-------|----------|
-| `true` | Default. One rule spec per `##` heading. |
-| `false` | One rule spec per `AGENTS.md`, full body verbatim. Use it to keep the file as a reference doc. |
+| unset | Default. A hand-written file becomes one rule with its full body, so sync writes it back as it was. A file `sync` wrote splits back into the rules it came from. |
+| `true` | One rule spec per `##` heading, also for a hand-written file. |
+| `false` | One rule spec per `AGENTS.md`, full body verbatim. |
 
 ```yaml
 import:

@@ -11,6 +11,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - AAI-005 says to update `requires` when `package.json` already pins the running release, as right after `pnpm add agnostic-ai@X.Y.Z`, instead of suggesting a downgrade.
 - `sync --check --against` checks a bump commit's deleted-spec outputs too: the parent commit renders without its `requires`.
 - LINT001 no longer calls a hook or MCP spec empty when it names a command, prompt, server, or URL.
+- `import` no longer writes each section of a hand-written `AGENTS.md`, `CLAUDE.md`, `CONVENTIONS.md`, `.rules`, or `.github/copilot-instructions.md` twice: the file imports whole as the shared body, and only a rules block `sync` wrote also becomes rule specs.
+- A hand-written nested `AGENTS.md` or `GEMINI.md` imports as one scoped rule and syncs back as it was: a directory with one rule gets that rule's text, without a `## Rules` or `### <name>` heading. `import.codex.shred: true` keeps the old split per `##` section.
 
 ### By tool
 

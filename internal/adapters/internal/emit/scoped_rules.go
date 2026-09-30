@@ -341,11 +341,22 @@ func scopePatterns(r spec.Entry, scope string) ([]string, error) {
 }
 
 // scopedDocument renders one scoped AGENTS.md: the rules block, then the
-// review section. Either may be empty.
+// review section. Either may be empty. A directory with one rule gets
+// that rule's text as written, inside the sentinel markers: the file is
+// the rule, so a "## Rules" and a "### <name>" heading would only add
+// words to a hand-written file that import brought in whole.
 func scopedDocument(rules []spec.Entry, reviewSection string) string {
 	sort.SliceStable(rules, func(i, j int) bool { return rules[i].Name < rules[j].Name })
 	content := ""
-	if len(rules) > 0 {
+	switch len(rules) {
+	case 0:
+	case 1:
+		content = RulesStartMarker + "\n\n" + SourceComment(rules[0].Path)
+		if d := rules[0].Description(); d != "" {
+			content += "_" + d + "_\n\n"
+		}
+		content += rules[0].Body + "\n\n" + RulesEndMarker + "\n"
+	default:
 		var body strings.Builder
 		for _, r := range rules {
 			WriteSection(&body, r.Name, r)

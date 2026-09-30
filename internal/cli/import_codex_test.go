@@ -82,7 +82,7 @@ gofmt-clean. No init() in business code.
 
 Conventional Commits, subject < 72 chars.
 `)
-	if err := importFromCodex(dir, rootSources()); err != nil {
+	if err := importFromCodexWithOpts(dir, rootSources(), shredOn()); err != nil {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"src-go-style", "src-commits"} {
@@ -180,7 +180,7 @@ Body of B.
 
 Plain body, no italic.
 `)
-	if err := importFromCodex(dir, rootSources()); err != nil {
+	if err := importFromCodexWithOpts(dir, rootSources(), shredOn()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -209,7 +209,7 @@ func TestImportFromCodex_NestedAgentsMdInfersGlobs(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "src", "AGENTS.md"), "## src-rule\n\nscoped to src.\n")
 	writeFile(t, filepath.Join(dir, "docs", "api", "AGENTS.md"), "## api-rule\n\nscoped to docs/api.\n")
 
-	if err := importFromCodex(dir, rootSources()); err != nil {
+	if err := importFromCodexWithOpts(dir, rootSources(), shredOn()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -238,7 +238,7 @@ func TestImportFromCodex_SkipsConventionsWrapper(t *testing.T) {
 
 body
 `)
-	if err := importFromCodex(dir, rootSources()); err != nil {
+	if err := importFromCodexWithOpts(dir, rootSources(), shredOn()); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "rules", "conventions.md")); err == nil {
@@ -252,7 +252,7 @@ body
 func TestImportFromCodex_KeepsHandWrittenConventionsWithoutChildren(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "svc", "AGENTS.md"), "# Svc\n\nIntro.\n\n## Layout\n\n- a/\n\n## Conventions\n\n- Path alias maps to svc/src.\n\n## Tests\n\nRun tests.\n")
-	if err := importFromCodex(dir, rootSources()); err != nil {
+	if err := importFromCodexWithOpts(dir, rootSources(), shredOn()); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, "rules", "svc-conventions.md"))
@@ -1448,8 +1448,8 @@ func TestImportCmd_CodexRoutes(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "rules", "src-routed.md")); err != nil {
-		t.Error("expected .agnostic-ai/rules/src-routed.md after import codex")
+	if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "rules", "src.md")); err != nil {
+		t.Error("expected .agnostic-ai/rules/src.md after import codex")
 	}
 }
 
@@ -1580,17 +1580,23 @@ func TestImportFromCodex_RulesFileMissingNoOp(t *testing.T) {
 	}
 }
 
-// Default behavior (Shred nil) still shards by H2. Regression guard.
-func TestImportFromCodex_ShredDefaultStillShards(t *testing.T) {
+// By default a hand-written nested AGENTS.md imports whole, headings
+// included, so sync writes the file back as it was.
+func TestImportFromCodex_DefaultKeepsHandWrittenNestedFileWhole(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "src", "AGENTS.md"), "## one\n\nbody one.\n\n## two\n\nbody two.\n")
+	body := "## one\n\nbody one.\n\n## two\n\nbody two.\n"
+	writeFile(t, filepath.Join(dir, "src", "AGENTS.md"), body)
 
 	if err := importFromCodexWithOpts(dir, rootSources(), importCodexOpts{}); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"src-one.md", "src-two.md"} {
-		if _, err := os.Stat(filepath.Join(dir, "rules", want)); err != nil {
-			t.Errorf("expected shard %s under default behavior: %v", want, err)
+	got := readFileString(t, filepath.Join(dir, "rules", "src.md"))
+	if !strings.Contains(got, body) {
+		t.Errorf("src.md should hold the whole file:\n%s", got)
+	}
+	for _, shard := range []string{"src-one.md", "src-two.md"} {
+		if _, err := os.Stat(filepath.Join(dir, "rules", shard)); !os.IsNotExist(err) {
+			t.Errorf("unexpected shard %s: %v", shard, err)
 		}
 	}
 }
@@ -1678,7 +1684,7 @@ func TestImportFromCodex_NamesScopedSectionsAfterTheirScope(t *testing.T) {
 		writeFile(t, filepath.Join(dir, d, "AGENTS.md"), "# "+d+"\n\n## Tests\n\nRun the tests for "+d+".\n")
 	}
 
-	if err := importFromCodex(dir, rootSources()); err != nil {
+	if err := importFromCodexWithOpts(dir, rootSources(), shredOn()); err != nil {
 		t.Fatal(err)
 	}
 	got := names(mustReadDir(t, filepath.Join(dir, "rules")))
@@ -1709,7 +1715,7 @@ func TestImportFromCodex_KeepsTheTextAboveTheFirstSection(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "services/api/AGENTS.md"), "# API\n\nIntro line.\n\n## Money\n\nUse integer minor units.\n\n## Testing\n\nRun make test.\n")
 	writeFile(t, filepath.Join(dir, "services/web/AGENTS.md"), "# Web\n\n## Tokens\n\nUse semantic tokens.\n")
 
-	if err := importFromCodex(dir, rootSources()); err != nil {
+	if err := importFromCodexWithOpts(dir, rootSources(), shredOn()); err != nil {
 		t.Fatal(err)
 	}
 	got := names(mustReadDir(t, filepath.Join(dir, "rules")))
@@ -1728,7 +1734,7 @@ func TestImportFromCodex_KeepsTheTextAboveTheFirstSection(t *testing.T) {
 func TestImportFromCodex_KeepsHandWrittenSkillsAndAgentsSections(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "svc", "AGENTS.md"), "# Svc\n\nIntro.\n\n## Layout\n\n- a/\n\n## Skills\n\nUse the svc-* skills. Entry points:\n\n- svc-start\n\n## Agents\n\n### planner\n\nPlan before editing.\n")
-	if err := importFromCodex(dir, rootSources()); err != nil {
+	if err := importFromCodexWithOpts(dir, rootSources(), shredOn()); err != nil {
 		t.Fatal(err)
 	}
 	for name, want := range map[string]string{
@@ -1749,7 +1755,7 @@ func TestImportFromCodex_KeepsHandWrittenSkillsAndAgentsSections(t *testing.T) {
 func TestImportFromCodex_KeepsSkillsSectionWithIntro(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "svc", "AGENTS.md"), "# Svc\n\n## Skills\n\nStart with the planner.\n\n### planner\n\nSource: `.agents/skills/planner/SKILL.md`\n")
-	if err := importFromCodex(dir, rootSources()); err != nil {
+	if err := importFromCodexWithOpts(dir, rootSources(), shredOn()); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, "rules", "svc-skills.md"))
@@ -1759,4 +1765,11 @@ func TestImportFromCodex_KeepsSkillsSectionWithIntro(t *testing.T) {
 	if !strings.Contains(string(got), "Start with the planner.") {
 		t.Errorf("intro lost:\n%s", got)
 	}
+}
+
+// shredOn asks for one rule per section, as import.codex.shred: true does.
+// A hand-written nested AGENTS.md otherwise imports whole.
+func shredOn() importCodexOpts {
+	shred := true
+	return importCodexOpts{Shred: &shred}
 }

@@ -39,7 +39,7 @@ func TestImportFromAider_MirrorsConventionsMd(t *testing.T) {
 
 func TestImportFromAider_SlicesH2(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, aiderMainFile), "## go-style\n\ngofmt clean.\n\n## commits\n\nConventional commits.\n")
+	writeFile(t, filepath.Join(dir, aiderMainFile), generatedEntry("## go-style\n\ngofmt clean.\n\n## commits\n\nConventional commits.\n"))
 	if err := importFromAider(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}

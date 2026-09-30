@@ -45,7 +45,7 @@ func TestImportFromGemini_NestedInfersGlobs(t *testing.T) {
 	if err := importFromGemini(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	src, _ := os.ReadFile(filepath.Join(dir, "rules", "src-rule.md"))
+	src, _ := os.ReadFile(filepath.Join(dir, "rules", "src.md"))
 	if !strings.Contains(string(src), "globs: src/**") || !strings.Contains(string(src), "scope: src") {
 		t.Errorf("src rule missing globs: src/**, got:\n%s", src)
 	}
@@ -363,11 +363,10 @@ func TestImportFromGemini_RootRulesBlockBecomesRules(t *testing.T) {
 	}
 }
 
-// Nested GEMINI.md files that share a section heading name each section
-// rule after its scope, as `import codex` does.
-func TestImportFromGemini_NamesScopedSectionsAfterTheirScope(t *testing.T) {
+// Two scopes ending in the same name still get distinct rule names.
+func TestImportFromGemini_NamesScopedFilesAfterTheirScope(t *testing.T) {
 	dir := t.TempDir()
-	for _, d := range []string{"services/api", "services/web"} {
+	for _, d := range []string{"services/api", "api"} {
 		writeFile(t, filepath.Join(dir, d, geminiMainFile), "# "+d+"\n\n## Tests\n\nRun the tests for "+d+".\n")
 	}
 
@@ -375,31 +374,35 @@ func TestImportFromGemini_NamesScopedSectionsAfterTheirScope(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := names(mustReadDir(t, filepath.Join(dir, "rules")))
-	want := []string{"api-tests.md", "web-tests.md"}
+	want := []string{"api.md", "services-api.md"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("rules = %v, want %v", got, want)
 	}
 }
 
-// Text above the first ## of a nested GEMINI.md becomes a rule named
-// after the scope, beside one rule per section, as `import codex` does.
-// A lone title above the sections adds no rule.
-func TestImportFromGemini_KeepsTheTextAboveTheFirstSection(t *testing.T) {
+// A hand-written nested GEMINI.md imports whole, title and sections
+// included, and sync writes it back as it was.
+func TestImportFromGemini_NestedFileRoundTripsWhole(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "services/api", geminiMainFile), "# API\n\nIntro line.\n\n## Money\n\nUse integer minor units.\n")
-	writeFile(t, filepath.Join(dir, "services/web", geminiMainFile), "# Web\n\n## Tokens\n\nUse semantic tokens.\n")
-
-	if err := importFromGemini(dir, rootSources()); err != nil {
-		t.Fatal(err)
+	testutil.Chdir(t, dir)
+	silence(t)
+	captureLogOut(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
+	body := "# API\n\nIntro line.\n\n## Money\n\nUse integer minor units.\n"
+	writeFile(t, filepath.Join("services", "api", geminiMainFile), body)
+	for _, args := range [][]string{{"import", "gemini"}, {"sync"}} {
+		root := NewRootCmd("test")
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
 	}
-	got := names(mustReadDir(t, filepath.Join(dir, "rules")))
-	want := []string{"api-money.md", "api.md", "web-tokens.md"}
-	if strings.Join(got, ",") != strings.Join(want, ",") {
-		t.Fatalf("rules = %v, want %v", got, want)
+	if got := names(mustReadDir(t, filepath.Join(".agnostic-ai", "rules"))); strings.Join(got, ",") != "api.md" {
+		t.Fatalf("rules = %v, want [api.md]", got)
 	}
-	data, _ := os.ReadFile(filepath.Join(dir, "rules", "api.md"))
-	if !strings.Contains(string(data), "Intro line.") || !strings.Contains(string(data), "scope: services/api") || strings.Contains(string(data), "integer minor units") {
-		t.Errorf("api.md should hold the scoped intro alone:\n%s", data)
+	got := readFile(t, filepath.Join("services", "api", geminiMainFile))
+	if !strings.Contains(got, body) || strings.Contains(got, "## Rules") || strings.Contains(got, "### api") {
+		t.Errorf("services/api/GEMINI.md should come back as written:\n%s", got)
 	}
 }
 

@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestImportFromOpencode_NoSources(t *testing.T) {
@@ -31,8 +33,10 @@ func TestImportFromOpencode_MirrorsAgentsMd(t *testing.T) {
 	if string(got) != body {
 		t.Errorf("AGNOSTIC_AI.md not byte-identical. got %q", got)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "rules", "rule-a.md")); err != nil {
-		t.Errorf("missing sliced rule rule-a.md: %v", err)
+	// A hand-written entry point imports as the shared body alone: slicing
+	// it too would sync every section twice.
+	if _, err := os.Stat(filepath.Join(dir, "rules", "rule-a.md")); !os.IsNotExist(err) {
+		t.Errorf("hand-written sections should not also import as rules: %v", err)
 	}
 }
 
@@ -53,8 +57,10 @@ func TestImportFromOpencode_FallsBackToLegacyEntryPoint(t *testing.T) {
 	if string(got) != body {
 		t.Errorf("AGNOSTIC_AI.md not byte-identical. got %q", got)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "rules", "legacy-rule.md")); err != nil {
-		t.Errorf("missing sliced rule legacy-rule.md: %v", err)
+	// A hand-written entry point imports as the shared body alone: slicing
+	// it too would sync every section twice.
+	if _, err := os.Stat(filepath.Join(dir, "rules", "legacy-rule.md")); !os.IsNotExist(err) {
+		t.Errorf("hand-written sections should not also import as rules: %v", err)
 	}
 }
 
@@ -67,11 +73,12 @@ func TestImportFromOpencode_PrefersRootOverLegacyEntryPoint(t *testing.T) {
 	if err := importFromOpencode(dir, rootSources()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "rules", "current.md")); err != nil {
-		t.Errorf("missing sliced rule current.md: %v", err)
+	got, err := os.ReadFile(filepath.Join(dir, agnosticMainFile))
+	if err != nil {
+		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "rules", "stale.md")); !os.IsNotExist(err) {
-		t.Errorf("legacy entry-point should not be sliced when the root one exists: %v", err)
+	if !strings.Contains(string(got), "new body.") || strings.Contains(string(got), "old body.") {
+		t.Errorf("the root entry-point should be the one imported, got %q", got)
 	}
 }
 
@@ -230,5 +237,27 @@ func TestImportFromOpencode_EnabledMCPHasNoDisabledKey(t *testing.T) {
 	out := string(got)
 	if strings.Contains(out, "disabled") {
 		t.Errorf("expected no disabled key for an enabled server, got:\n%s", out)
+	}
+}
+
+// A hand-written AGENTS.md imports as the shared body alone, so sync
+// writes each section once. Slicing it into rules too wrote every
+// section a second time, in the rules block.
+func TestImportThenSync_HandWrittenEntryPointWritesEachSectionOnce(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	captureLogOut(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [opencode]\n")
+	writeFile(t, "AGENTS.md", "# Project\n\n## Branch names\n\nUse short branch names.\n")
+	for _, args := range [][]string{{"import", "opencode"}, {"sync"}} {
+		root := NewRootCmd("test")
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+	}
+	if n := strings.Count(readFile(t, "AGENTS.md"), "Use short branch names."); n != 1 {
+		t.Errorf("section written %d times, want once:\n%s", n, readFile(t, "AGENTS.md"))
 	}
 }

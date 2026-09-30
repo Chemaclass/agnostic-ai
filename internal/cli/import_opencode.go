@@ -95,7 +95,7 @@ func importFromOpencode(root string, src config.Sources) error {
 // directory, and `.opencode/commands/*.md` is a slash-command surface,
 // not a rules one.
 func importOpencodeRules(root, dstDir string) (int, error) {
-	return sliceMainFileByH2(root, opencodeMainFile(root), dstDir)
+	return sliceMirroredMainFile(root, opencodeMainFile(root), dstDir)
 }
 
 // importOpencodeMarkdownDir copies every top-level `*.md` in the named

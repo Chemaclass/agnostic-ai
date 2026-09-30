@@ -31,8 +31,10 @@ func TestImportFromZed_MirrorsRulesFile(t *testing.T) {
 	if string(got) != body {
 		t.Errorf("AGNOSTIC_AI.md not byte-identical. got %q", got)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "rules", "rule-a.md")); err != nil {
-		t.Errorf("missing sliced rule rule-a.md: %v", err)
+	// A hand-written entry point imports as the shared body alone: slicing
+	// it too would sync every section twice.
+	if _, err := os.Stat(filepath.Join(dir, "rules", "rule-a.md")); !os.IsNotExist(err) {
+		t.Errorf("hand-written sections should not also import as rules: %v", err)
 	}
 }
 

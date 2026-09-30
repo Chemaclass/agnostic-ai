@@ -43,7 +43,7 @@ func rootSources() config.Sources {
 
 func TestImportFromClaude_SplitsRulesByH2(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "CLAUDE.md"), `# Project
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), generatedEntry(`# Project
 
 ## conventional-commits
 
@@ -52,7 +52,7 @@ Use feat:, fix:, etc.
 ## go-style
 
 gofmt clean.
-`)
+`))
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ gofmt clean.
 
 func TestImportFromClaude_MonolithicRules(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "Just a flat doc with no headings.\n")
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), generatedEntry("Just a flat doc with no headings.\n"))
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
@@ -696,7 +696,7 @@ func TestImportFromClaude_MalformedSettings(t *testing.T) {
 
 func TestImportFromClaude_HonorsCustomSourceDirs(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "## r1\n\nbody\n")
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), generatedEntry("## r1\n\nbody\n"))
 	src := config.Sources{
 		Agents: ".agnostic-ai/agents",
 		Skills: ".agnostic-ai/skills",
@@ -725,14 +725,14 @@ func TestSlugify_Collisions(t *testing.T) {
 
 func TestImportFromClaude_PreservesPreamble(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "CLAUDE.md"), `# Project Title
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), generatedEntry(`# Project Title
 
 Preamble explaining the project before any H2.
 
 ## rule-one
 
 Body one.
-`)
+`))
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
@@ -750,7 +750,7 @@ Body one.
 
 func TestImportFromClaude_PreambleFallbackSlug(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "Bare preamble, no H1.\n\n## rule-one\n\nBody.\n")
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), generatedEntry("Bare preamble, no H1.\n\n## rule-one\n\nBody.\n"))
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
@@ -761,9 +761,9 @@ func TestImportFromClaude_PreambleFallbackSlug(t *testing.T) {
 
 func TestImportFromClaude_IgnoresH2InsideFencedBlocks(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "## rule-one\n\nBody.\n\n"+
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), generatedEntry("## rule-one\n\nBody.\n\n"+
 		"```markdown\n## not-a-real-rule\n\nExample inside fence.\n```\n\n"+
-		"## rule-two\n\nBody two.\n")
+		"## rule-two\n\nBody two.\n"))
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)
 	}
@@ -813,7 +813,7 @@ func TestImportCmd_RequiresConfig(t *testing.T) {
 func TestImportCmd_ClaudeWritesIntoConfiguredSources(t *testing.T) {
 	dir := t.TempDir()
 	writeMinimalConfig(t, dir, ".agnostic-ai")
-	writeFile(t, filepath.Join(dir, "CLAUDE.md"), "## r1\n\nbody\n")
+	writeFile(t, filepath.Join(dir, "CLAUDE.md"), generatedEntry("## r1\n\nbody\n"))
 	testutil.Chdir(t, dir)
 	silence(t)
 
@@ -995,4 +995,11 @@ func TestImportFromClaude_ReadonlyAgentRoundTripKeepsOtherTargetsReadOnly(t *tes
 			t.Errorf("%s lost %q after sync, import, sync:\n%s", path, want, data)
 		}
 	}
+}
+
+// generatedEntry marks body as a document sync wrote, the only kind of
+// entry point import still slices into rules: a hand-written one imports
+// whole as the shared body.
+func generatedEntry(body string) string {
+	return header.Line(header.FormatMarkdown) + "\n" + body
 }

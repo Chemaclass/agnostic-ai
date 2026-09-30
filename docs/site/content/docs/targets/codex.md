@@ -159,8 +159,8 @@ For many policies, use a separate file: `exec-policies-file: ./.agnostic-ai/code
 | Source | Becomes |
 |--------|---------|
 | `AGENTS.md` at the root | `.agnostic-ai/AGNOSTIC_AI.md`; only the rules block `sync` appends becomes rules |
-| `<dir>/AGENTS.md` (nested, split on `## headings`) | `<rules>/<scope>-<slug>.md` per section (`api-tests.md` for `## Tests` in `services/api/`), with inferred `globs: <dir>/**`; text above the first `##`, past the title, becomes one more rule named after the scope |
-| `<dir>/AGENTS.md` (nested, no headings, or `shred: false`) | one rule named after the scope: `api.md` for `services/api/`, or `services-api.md` when another scope also ends in `api` |
+| `<dir>/AGENTS.md` (nested, hand-written) | one rule with the whole file, named after the scope: `api.md` for `services/api/`, or `services-api.md` when another scope also ends in `api`, with inferred `globs: <dir>/**`. Sync writes a directory with one rule as that rule's text, so the file comes back as it was |
+| `<dir>/AGENTS.md` (nested, with `import.codex.shred: true`, or written by `sync`) | one rule per section (`api-tests.md` for `## Tests` in `services/api/`); text above the first `##`, past the title, becomes one more rule named after the scope |
 | `## Code Review Rules` or `## Review guidelines` in a nested `AGENTS.md`, or the review section `sync` writes to any `AGENTS.md` | `<reviews>/<scope-slug>.md` with `scope: <dir>` (`review.md` at the root), not a rule |
 | `## Conventions` / `## Agents` / `## Skills` wrapper sections | unwrapped: their `### children` become the rules |
 | Single-line italic (`_text_`) immediately under a rule heading | extracted into the rule's `description` (and removed from the body) |

@@ -22,7 +22,7 @@ func importClaudeRules(root, dstDir string, layout claudeLayout) (int, error) {
 	if _, companion, err := claudeCompanionBody(root); err != nil || companion {
 		return 0, err
 	}
-	return sliceMainFileByH2(root, claudeMainFile, dstDir)
+	return sliceMirroredMainFile(root, claudeMainFile, dstDir)
 }
 
 var h1HeadingRE = regexp.MustCompile(`(?m)^#[ \t]+(.+?)[ \t]*$`)

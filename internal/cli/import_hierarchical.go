@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -83,6 +84,23 @@ func hierarchicalRulesText(f hierarchicalFile, raw string) (text string, ok bool
 	return reduceToGeneratedRules(raw), true
 }
 
+var leadingSourceCommentRE = regexp.MustCompile(`^<!--\s*source:\s*(\S+)\s*-->[ \t]*\n?`)
+
+// singleGeneratedRule reads the rules block sync writes for a directory
+// with one rule: the rule's source comment, an optional italic
+// description, then its body. A block for two or more rules opens with
+// its "## Rules" wrapper instead, so ok is false for it.
+func singleGeneratedRule(block string) (name, description, body string, ok bool) {
+	text := strings.TrimSpace(block)
+	m := leadingSourceCommentRE.FindStringSubmatchIndex(text)
+	if m == nil {
+		return "", "", "", false
+	}
+	name = strings.TrimSuffix(path.Base(text[m[2]:m[3]]), ".md")
+	description, body = extractItalicDescription(strings.TrimLeft(text[m[1]:], "\n"))
+	return name, description, strings.TrimSpace(body), name != ""
+}
+
 // sectionsPreamble returns the text above the first ## of a main file,
 // or "" when that is only a title and the intro line older syncs wrote.
 // It becomes a rule of its own so a section split does not drop it.
@@ -139,8 +157,17 @@ func sectionRuleName(wholeFileNames map[string]string, globs, section string) st
 // into dstDir/name.md. Used by importers that infer scope from a
 // hierarchical source layout.
 func writeScopedRule(dstDir, name, globs, body string) error {
+	return writeScopedRuleWithDescription(dstDir, name, globs, "", body)
+}
+
+// writeScopedRuleWithDescription is writeScopedRule with a description,
+// the one a single-rule scoped file carries as its italic first line.
+func writeScopedRuleWithDescription(dstDir, name, globs, description, body string) error {
 	var fm strings.Builder
 	fm.WriteString("---\nname: " + name + "\n")
+	if description != "" {
+		fm.WriteString(yamlFrontmatterLine("description", description))
+	}
 	if globs != "" {
 		fm.WriteString(yamlFrontmatterLine("globs", globs))
 		fm.WriteString(yamlFrontmatterLine("scope", strings.TrimSuffix(globs, "/**")))

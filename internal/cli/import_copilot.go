@@ -245,7 +245,7 @@ func importCopilotRules(root string, src config.Sources) (copilotCounts, error) 
 	if dirExists(instrDir) {
 		return importCopilotInstructions(instrDir, root, src)
 	}
-	n, err := sliceMainFileByH2(root, copilotMainFile, filepath.Join(root, src.Rules))
+	n, err := sliceMirroredMainFile(root, copilotMainFile, filepath.Join(root, src.Rules))
 	if err != nil {
 		return c, err
 	}

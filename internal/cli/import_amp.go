@@ -49,7 +49,7 @@ func importFromAmp(root string, src config.Sources) error {
 // importAmpRules slices AGENTS.md by `## ` headings. Amp has no native
 // rules directory, so the main file is always the source.
 func importAmpRules(root, dstDir string) (int, error) {
-	return sliceMainFileByH2(root, ampMainFile, dstDir)
+	return sliceMirroredMainFile(root, ampMainFile, dstDir)
 }
 
 // importAmpCommands copies `.agents/commands/*.md` byte-for-byte into

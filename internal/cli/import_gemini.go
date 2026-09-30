@@ -104,6 +104,13 @@ func importGeminiRules(root, dstDir string, src config.Sources) (int, error) {
 		if !ok {
 			continue
 		}
+		if name, desc, body, ok := singleGeneratedRule(text); ok && strings.Contains(string(data), adapters.RulesStartMarker) {
+			if err := writeScopedRuleWithDescription(dstDir, dedupSlug(used, name), f.globs, desc, body); err != nil {
+				return count, err
+			}
+			count++
+			continue
+		}
 		sections := geminiRuleSections(string(data), text)
 		if len(sections) == 0 {
 			body := strings.TrimSpace(text)
@@ -140,8 +147,8 @@ func importGeminiRules(root, dstDir string, src config.Sources) (int, error) {
 // section of a hand-written file.
 func geminiRuleSections(raw, text string) []h2Section {
 	if !strings.Contains(raw, adapters.RulesStartMarker) {
-		_, sections := splitH2Sections(text)
-		return sections
+		// A hand-written file imports whole: sync writes it back as it was.
+		return nil
 	}
 	var sections []h2Section
 	for _, c := range generatedBlockRules(text) {

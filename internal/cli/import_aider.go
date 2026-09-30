@@ -15,7 +15,7 @@ func importFromAider(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules); err != nil {
 		return err
 	}
-	n, err := sliceMainFileByH2(root, aiderMainFile, filepath.Join(root, src.Rules))
+	n, err := sliceMirroredMainFile(root, aiderMainFile, filepath.Join(root, src.Rules))
 	if err != nil {
 		return err
 	}

@@ -75,7 +75,7 @@ target_id = "copilot"
 
 | Source | Becomes |
 |---|---|
-| `.github/copilot-instructions.md` | `<rules>/<slug>.md` per `##` section, plus a copy at `.agnostic-ai/AGNOSTIC_AI.md` |
+| `.github/copilot-instructions.md` | `.agnostic-ai/AGNOSTIC_AI.md`, whole; only a rules block `sync` wrote also becomes `<rules>/<name>.md` specs |
 | `.github/instructions/<name>.instructions.md` | `<rules>/<name>.md`; the `agent-` and `skill-` filename prefixes become agents and skills |
 | `.github/agents/<name>.agent.md` and `.github/chatmodes/<name>.chatmode.md` | `<agents>/<name>.md`, keeping the frontmatter keys copilot does not emit |
 | `.github/skills/<name>/`, `.claude/skills/<name>/`, `.agents/skills/<name>/` | `<skills>/<name>/` |

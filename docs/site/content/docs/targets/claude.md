@@ -182,8 +182,7 @@ Any other setting round-trips through the overlay captured by `agnostic-ai impor
 | Source | Becomes |
 |--------|---------|
 | `.claude/rules/**/*.md` (preferred) | `<rules>/<sub>/<name>.md` (byte-identical copy, nested subdirectories preserved) |
-| `CLAUDE.md` (split on `## headings`) | `<rules>/<slug>.md` per section (only when `.claude/rules/` is absent) |
-| `CLAUDE.md` (no headings) | single `<rules>/<projectname>.md` (only when `.claude/rules/` is absent) |
+| `CLAUDE.md` rules block written by `sync` | `<rules>/<name>.md` per rule (only when `.claude/rules/` is absent) |
 | `CLAUDE.md` (any form) | `.agnostic-ai/AGNOSTIC_AI.md` (byte-identical copy) |
 | `AGENTS.md` or `.claude/AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` (only when no `CLAUDE.md` exists) |
 | `CLAUDE.md` that imports `@AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md`: the `AGENTS.md` text, then the rest of `CLAUDE.md` in a `::target claude` fence (no rules) |
@@ -195,7 +194,7 @@ Any other setting round-trips through the overlay captured by `agnostic-ai impor
 | `.claude/settings.json` other non-hook keys | `.agnostic-ai/overlays/claude.settings.json` |
 | `.mcp.json` (`mcpServers.<name>`) | `<mcps>/<name>.yaml` (one spec per server) |
 
-When `.claude/rules/` exists (even if empty), `CLAUDE.md` is not sliced, so the on-disk rules are the single source for rule files. `.agnostic-ai/AGNOSTIC_AI.md` is still written from `CLAUDE.md`.
+A hand-written `CLAUDE.md` imports whole into `.agnostic-ai/AGNOSTIC_AI.md` and is not split into rules too, which would load each section twice. When `.claude/rules/` exists (even if empty), those files are the single source for rule files.
 
 The instructions file is looked up in Claude Code's own order: `CLAUDE.md`, `.claude/CLAUDE.md`, `AGENTS.md`, `.claude/AGENTS.md`. Since v2.1.277 (v2.1.281 on Amazon Bedrock or with telemetry disabled), a session with no `CLAUDE.md` at or above the working directory loads `AGENTS.md`, so repos set up for other agents get their real instructions captured. The root `AGENTS.md` step is skipped when `codex`, `amp`, `warp`, `crush`, `kiro`, or `opencode` imports in the same run, since only one importer may slice that file.
 

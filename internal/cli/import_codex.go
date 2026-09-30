@@ -197,7 +197,18 @@ func importCodexRules(root, dstDir string, src config.Sources, opts importCodexO
 			text, _ = splitCodexReviewSections(text)
 		}
 		data := []byte(text)
-		if !opts.shredEnabled() {
+		if name, desc, body, ok := singleGeneratedRule(text); ok && strings.Contains(source, adapters.RulesStartMarker) {
+			if err := writeCodexRule(dstDir, dedupSlug(used, name), desc, f.globs, body); err != nil {
+				return count, err
+			}
+			count++
+			continue
+		}
+		// Unless import.codex.shred asks for sections, a hand-written nested
+		// AGENTS.md imports whole, so sync writes it back as it was instead
+		// of one section per heading under headings of its own.
+		handWrittenNested := f.globs != "" && !header.Has(source)
+		if !opts.shredEnabled() || (handWrittenNested && opts.Shred == nil) {
 			body := strings.TrimSpace(string(data))
 			if body == "" {
 				continue

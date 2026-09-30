@@ -303,5 +303,28 @@ func sliceEntryPointRules(root, name, dstDir string) (int, error) {
 	if isGeneratedPointerBody(root, name) {
 		return 0, nil
 	}
+	return sliceMirroredMainFile(root, name, dstDir)
+}
+
+// sliceMirroredMainFile slices rules out of an entry point the same
+// import also mirrors whole into AGNOSTIC_AI.md. Only rules sync wrote,
+// in its sentinel block, a file under our header, or a legacy
+// `rules-file` document, become specs.
+// A hand-written file imports as the shared body alone: slicing it too
+// emitted every section twice, once in the body and once as a rule.
+func sliceMirroredMainFile(root, name, dstDir string) (int, error) {
+	data, err := readEntryFile(root, filepath.Join(root, name))
+	if errors.Is(err, fs.ErrNotExist) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("read %s: %w", name, err)
+	}
+	raw := string(data)
+	generated := header.Leads(name, raw) || strings.Contains(raw, adapters.RulesStartMarker) ||
+		mergedDocPreambleRE.MatchString(raw)
+	if !generated {
+		return 0, nil
+	}
 	return sliceMainFileByH2(root, name, dstDir)
 }

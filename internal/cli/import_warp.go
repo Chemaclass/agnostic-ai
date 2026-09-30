@@ -35,7 +35,7 @@ func importFromWarp(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.MCPs); err != nil {
 		return err
 	}
-	rules, err := sliceMainFileByH2(root, warpMainFile, filepath.Join(root, src.Rules))
+	rules, err := sliceMirroredMainFile(root, warpMainFile, filepath.Join(root, src.Rules))
 	if err != nil {
 		return err
 	}

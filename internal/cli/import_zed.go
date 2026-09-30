@@ -28,7 +28,7 @@ func importFromZed(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Skills, src.Hooks, src.MCPs); err != nil {
 		return err
 	}
-	rules, err := sliceMainFileByH2(root, zedMainFile, filepath.Join(root, src.Rules))
+	rules, err := sliceMirroredMainFile(root, zedMainFile, filepath.Join(root, src.Rules))
 	if err != nil {
 		return err
 	}
