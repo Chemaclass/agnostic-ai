@@ -12,14 +12,13 @@ import (
 
 const defaultHooksFile = ".codex/hooks.json"
 
+func HooksFilePath(cfg *config.Config) string {
+	return emit.OutputHooksFile(cfg, target, defaultHooksFile)
+}
+
 // emitHooksJSON writes `.codex/hooks.json` using the same hook block
 // schema Claude's `.claude/settings.json` exposes (per-event arrays of
 // `{matcher, hooks: [{type, command, timeout, statusMessage}]}`).
-// Codex CLI reads either this file or `[[hooks.<event>]]` blocks in
-// `.codex/config.toml`; hooks.json is preferred because it preserves
-// the per-hook `timeout` and `statusMessage` metadata that the TOML
-// schema lacks.
-//
 // Matcher-aware dedupe: when two specs share an event and resolve to
 // the same shell command (after `RewriteHookPath` normalization), their
 // matcher pipe-segments are unioned into a single matcher string so
@@ -35,10 +34,16 @@ func emitHooksJSON(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, d
 	if err != nil {
 		return err
 	}
-	path := emit.OutputHooksFile(cfg, target, defaultHooksFile)
+	path := HooksFilePath(cfg)
 	// `.codex/hooks.json` lives under .codex/ alongside config.toml;
 	// WriteFile already handles parent-dir creation.
-	return sess.WriteFile(path, string(body)+"\n", dryRun)
+	if err := sess.WriteFile(path, string(body)+"\n", dryRun); err != nil {
+		return err
+	}
+	if !sess.IsCapturing() && !sess.IsUnmanaged(path) {
+		NoteHookTrust(path, body)
+	}
+	return nil
 }
 
 // hooksDoc is the top-level `.codex/hooks.json` shape:
