@@ -926,7 +926,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 			out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: p, Action: "untracked"})
 		}
 		if len(removedFromIndex) > 0 {
-			fmt.Fprintf(cmd.ErrOrStderr(), "  ! %s\n", untrackPullAdvice)
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  ! %s\n", untrackPullAdvice)
 		}
 		trackedIgnored = removeMatching(trackedIgnored, removedFromIndex)
 		if err != nil {
