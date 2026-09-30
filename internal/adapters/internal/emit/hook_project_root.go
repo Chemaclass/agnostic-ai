@@ -60,7 +60,7 @@ func hookRootReferences(command string) ([]hookRootReference, string) {
 			continue
 		}
 		rest := command[i:]
-		if strings.HasPrefix(rest, "${#"+claudeProjectDir) || strings.HasPrefix(rest, "${!"+claudeProjectDir) || strings.HasPrefix(rest, "$env:"+claudeProjectDir) || strings.HasPrefix(rest, "${env:"+claudeProjectDir+"}") {
+		if hookRootVariablePrefix(rest, "${#"+claudeProjectDir) || hookRootVariablePrefix(rest, "${!"+claudeProjectDir) || hookRootVariablePrefix(rest, "$env:"+claudeProjectDir) || strings.HasPrefix(rest, "${env:"+claudeProjectDir+"}") {
 			return references, "length, indirect, or PowerShell root syntax cannot be translated"
 		}
 		length := 0
@@ -89,6 +89,10 @@ func hookRootReferences(command string) ([]hookRootReference, string) {
 		return references, "nested shell substitutions or here-documents cannot be translated"
 	}
 	return references, ""
+}
+
+func hookRootVariablePrefix(command, prefix string) bool {
+	return strings.HasPrefix(command, prefix) && (len(command) == len(prefix) || !rootVariableRune(command[len(prefix)]))
 }
 
 func rootVariableRune(char byte) bool {
@@ -155,46 +159,54 @@ func ReportHookProjectRoot(target string, hooks []spec.Entry, mode string, globa
 		root = gitHookRoot
 	}
 	for _, hook := range hooks {
-		meta := ResolveMeta(hook.Meta, target)
-		if windows, _ := meta["commandWindows"].(string); windows != "" {
-			refs, reason := hookRootReferences(windows)
-			if len(refs) > 0 || reason != "" {
-				if err := reportHookRoot(target, hook, mode, "commandWindows", "Windows root references require a target-specific project root"); err != nil {
-					return err
+		metadata := []map[string]any{ResolveMeta(hook.Meta, target)}
+		if target == "gemini" && !global {
+			native, _ := hook.Meta["x-gemini"].(map[string]any)
+			if raw, exists := native["hooks"]; exists {
+				metadata = HookCommandEntries(raw)
+			}
+		}
+		for _, meta := range metadata {
+			if windows, _ := meta["commandWindows"].(string); windows != "" {
+				refs, reason := hookRootReferences(windows)
+				if len(refs) > 0 || reason != "" {
+					if err := reportHookRoot(target, hook, mode, "commandWindows", "Windows root references require a target-specific project root"); err != nil {
+						return err
+					}
 				}
 			}
-		}
-		args := StringSlice(meta["args"])
-		commands := HookCommands(meta["command"])
-		for _, arg := range args {
-			refs, reason := hookRootReferences(arg)
-			if len(refs) > 0 || reason != "" {
-				commands = append(commands, "$"+claudeProjectDir)
+			args := StringSlice(meta["args"])
+			commands := HookCommands(meta["command"])
+			for _, arg := range args {
+				refs, reason := hookRootReferences(arg)
+				if len(refs) > 0 || reason != "" {
+					commands = append(commands, "$"+claudeProjectDir)
+					break
+				}
+			}
+			for _, command := range commands {
+				references, reason := hookRootReferences(command)
+				if len(references) == 0 && reason == "" {
+					continue
+				}
+				switch {
+				case len(args) > 0:
+					reason = "exec-form root placeholders are not expanded by this target"
+				case nativeHookRoots[target] == claudeProjectDir:
+					continue
+				case reason != "":
+				case !hookPOSIXShell(meta):
+					reason = "a POSIX shell is required to translate the root reference"
+				case nativeHookRoots[target] == "" && root == "":
+					reason = "the project has no Git worktree root to resolve at runtime"
+				default:
+					continue
+				}
+				if err := reportHookRoot(target, hook, mode, "command", reason); err != nil {
+					return err
+				}
 				break
 			}
-		}
-		for _, command := range commands {
-			references, reason := hookRootReferences(command)
-			if len(references) == 0 && reason == "" {
-				continue
-			}
-			switch {
-			case len(args) > 0:
-				reason = "exec-form root placeholders are not expanded by this target"
-			case nativeHookRoots[target] == claudeProjectDir:
-				continue
-			case reason != "":
-			case !hookPOSIXShell(meta):
-				reason = "a POSIX shell is required to translate the root reference"
-			case nativeHookRoots[target] == "" && root == "":
-				reason = "the project has no Git worktree root to resolve at runtime"
-			default:
-				continue
-			}
-			if err := reportHookRoot(target, hook, mode, "command", reason); err != nil {
-				return err
-			}
-			break
 		}
 	}
 	return nil

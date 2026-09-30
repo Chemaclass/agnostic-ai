@@ -16,7 +16,13 @@ func RewriteHookPath(cmd, target string, metadata ...map[string]any) string {
 	if cmd == "" || target == "" {
 		return cmd
 	}
-	cmd = RewriteHookRoot(cmd, target, metadata...)
+	return RewriteHookDirectories(RewriteHookRoot(cmd, target, metadata...), target)
+}
+
+func RewriteHookDirectories(cmd, target string) string {
+	if cmd == "" || target == "" {
+		return cmd
+	}
 	replacement := "." + target + "/hooks/"
 	for _, prefix := range hookSiblingPrefixes {
 		if prefix == replacement {
