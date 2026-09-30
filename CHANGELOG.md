@@ -27,6 +27,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Claude Code
 
+- An environment spec's `setup` runs once in each new Claude Code worktree through generated hooks; `x-claude.setup: false` turns it off. Delete a hand-written bootstrap hook, since it runs in parallel with setup (#1498).
 - Scoped companion cleanup waits for concurrent writes, so sync removes covered `CLAUDE.md` files consistently (#1478).
 - Claude runtime paths stay out of `.worktreeinclude`; `gitignore.ignore-worktree-include: true` also keeps that file out of Git (#1438, #1441).
 - A `CLAUDE.md` that imports `@AGENTS.md` keeps that layout with only Claude enabled, so `AGENTS.md` no longer goes stale.
@@ -44,6 +45,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `import codex` strips generated skill headers and keeps an agent's model in `model.codex`; `environment.toml` always has `[setup]` (#1461, #1476).
 - Sync no longer writes `notify`, `profiles`, `model_providers`, or other keys Codex ignores in a project `config.toml`, and notes where each goes (#1511).
 - Sync notes that `readonly` and `x-codex.sandbox_mode` have no effect on current Codex agents, which keep the session sandbox (#1519).
+- `sync --dry-run` reads the captured exec-policies header, so its `.codex/rules/default.rules` preview matches a real sync (#1523).
 
 #### Copilot
 
