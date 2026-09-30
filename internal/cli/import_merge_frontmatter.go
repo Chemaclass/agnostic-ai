@@ -23,7 +23,7 @@ import (
 // translators drop a catch-all `globs` and an empty `description` on
 // purpose (#429) and the spec has to follow.
 func importWriteSpecMarkdown(path string, data []byte, mode fs.FileMode, fields specFields) error {
-	if fields.all {
+	if fields.all && len(fields.omitted) == 0 && fields.preserve == nil {
 		return importWriteFile(path, data, mode)
 	}
 	existing, err := os.ReadFile(path)
@@ -64,6 +64,9 @@ func mergeSpecFrontmatter(existing, imported []byte, fields specFields) ([]byte,
 	if importedMap == nil {
 		importedMap = &yaml.Node{Kind: yaml.MappingNode}
 	}
+	if fields.preserve != nil {
+		fields.preserve(existingMap, importedMap)
+	}
 
 	importedKeys := make(map[string]*yaml.Node, len(importedMap.Content)/2)
 	for i := 0; i+1 < len(importedMap.Content); i += 2 {
@@ -78,7 +81,7 @@ func mergeSpecFrontmatter(existing, imported []byte, fields specFields) ([]byte,
 			merged.Content = append(merged.Content, key, value)
 			continue
 		}
-		if hadImported && fields.expresses(key.Value) {
+		if (hadImported || fields.all) && fields.expresses(key.Value) {
 			continue
 		}
 		merged.Content = append(merged.Content, key, existingMap.Content[i+1])

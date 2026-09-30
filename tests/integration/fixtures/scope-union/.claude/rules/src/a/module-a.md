@@ -1,6 +1,5 @@
 ---
 name: module-a
-scope: src/a
 paths:
   - src/a/**
   - tests/a/**
