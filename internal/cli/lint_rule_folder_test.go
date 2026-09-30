@@ -18,6 +18,8 @@ func TestLint_WarnsWhenARuleFolderAndItsScopeDisagree(t *testing.T) {
 	rules := filepath.Join(dir, ".agnostic-ai", "rules")
 	mustWriteFile(t, filepath.Join(rules, "backend", "moved.md"), "---\nname: moved\ndescription: M\nscope: src/b\n---\nM\n")
 	mustWriteFile(t, filepath.Join(rules, "backend", "narrower.md"), "---\nname: narrower\ndescription: N\nscope: backend/api\n---\nN\n")
+	mustWriteFile(t, filepath.Join(rules, "backend", "same.md"), "---\nname: same\ndescription: S\nscope: ./backend\n---\nS\n")
+	mustWriteFile(t, filepath.Join(rules, "backend", "dot-narrower.md"), "---\nname: dot-narrower\ndescription: D\nscope: ./backend/api\n---\nD\n")
 	mustWriteFile(t, filepath.Join(rules, "modules", "grouped.md"), "---\nname: grouped\ndescription: G\nscope: src/a\n---\nG\n")
 
 	out, _ := runCLI(t, "lint")

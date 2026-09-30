@@ -24,11 +24,13 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `sync --global` raises the same note for a skill line Claude Code expands and a target reads as plain text, and `on-unsupported` in the source root's `agnostic-ai.yaml` (or `local/agnostic-ai.yaml`) sets the policy: `error` fails the sync, `silent` hides the note (#1463).
 - `import all` and `init --from all` seed `AGNOSTIC_AI.md` from a hand-written root `AGENTS.md` when no other tool config is found, instead of importing nothing (#1464).
 - A comma-separated `globs` string, such as `src/x/**,tests/x/**`, reaches Claude Code `paths` and Continue `globs` as one entry per pattern, so the rule loads on those files. Commas inside `{a,b}` stay in their pattern (#1428).
-- A rule's `scope:` wins over its folder under `rules/`, and a folder that names no project directory only groups rules, so `rules/modules/a.md` with `scope: src/a` is scoped to `src/a` instead of a `modules/` directory. `lint` warns when a folder names a project directory and `scope:` points elsewhere (LINT020) (#1430).
+- Rule folders scope existing project directories, including from packs; explicit scopes win, and lint compares normalized scopes (#1430).
 
 ### By tool
 
 #### Claude Code
+
+- Claude worktrees and task locks stay ignored and are excluded from `.worktreeinclude`, including with a moved output directory (#1438).
 
 - `import claude` turns each nested `<dir>/CLAUDE.md` into one rule scoped to its directory, and a companion that imports `@AGENTS.md` reads as that file (#1427).
 - `doctor` lists a hand-written nested `CLAUDE.md` whose text a rule scoped to its directory already holds, and `doctor --fix` removes it, so Claude Code stops loading the text twice and a Claude plus Codex project syncs without deleting it by hand. The import warning points there (#1465).
