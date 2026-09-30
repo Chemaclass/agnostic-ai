@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -571,13 +572,19 @@ func updateGitignore(root string, cfg *config.Config, entries []string) error {
 	return err
 }
 
+// gitignoreRel is the project-relative path of the gitignore file sync
+// writes the managed block to.
+func gitignoreRel(cfg *config.Config) string {
+	if cfg.Gitignore.Path != "" {
+		return cfg.Gitignore.Path
+	}
+	return ".gitignore"
+}
+
 // writeGitignoreBlock is updateGitignore that also returns the file's
 // project-relative path and whether its bytes changed.
 func writeGitignoreBlock(root string, cfg *config.Config, entries []string) (rel string, changed bool, err error) {
-	rel = ".gitignore"
-	if cfg.Gitignore.Path != "" {
-		rel = cfg.Gitignore.Path
-	}
+	rel = gitignoreRel(cfg)
 	path := filepath.Join(root, rel)
 	existing, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -653,6 +660,53 @@ func writeWorktreeInclude(root string, cfg *config.Config, block []string) (chan
 		return false, fmt.Errorf("write %s: %w", path, err)
 	}
 	return true, nil
+}
+
+// priorFile is what a file held before a sync rewrote it.
+type priorFile struct {
+	path    string
+	content []byte
+	absent  bool
+}
+
+// priorIgnoreFiles saves the gitignore file and .worktreeinclude before
+// sync writes them, so a sync that fails afterwards can put them back
+// with restoreFiles. A file it cannot read is left out, since its writer
+// fails on the same read.
+func priorIgnoreFiles(root string, cfg *config.Config) []priorFile {
+	var out []priorFile
+	for _, rel := range []string{gitignoreRel(cfg), worktreeIncludeFile} {
+		path := filepath.Join(root, rel)
+		data, err := os.ReadFile(path)
+		switch {
+		case err == nil:
+			out = append(out, priorFile{path: path, content: data})
+		case errors.Is(err, fs.ErrNotExist):
+			out = append(out, priorFile{path: path, absent: true})
+		}
+	}
+	return out
+}
+
+// restoreFiles writes back the bytes each file held and removes the ones
+// that did not exist. A file that still holds its bytes is left alone.
+func restoreFiles(files []priorFile) error {
+	var errs []error
+	for _, f := range files {
+		if f.absent {
+			if err := os.Remove(f.path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+				errs = append(errs, err)
+			}
+			continue
+		}
+		if data, err := os.ReadFile(f.path); err == nil && bytes.Equal(data, f.content) {
+			continue
+		}
+		if err := os.WriteFile(f.path, f.content, 0o644); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // replaceManagedBlock returns content with the agnostic-ai managed block
