@@ -255,6 +255,7 @@ func provenanceBatches(cfg *config.Config, targets []string) []provenanceBatch {
 // results — the JSON path, which reports per-target errors rather than
 // aborting the whole sync. A non-nil keep turns on KeepEditsSince.
 func emitTargetsConcurrent(targets []string, b spec.Bundle, cfg *config.Config, dryRun, backup, gitignoreOn, failFast bool, jobs int, keep map[string]string) ([]targetEmit, []*adapters.Session, error) {
+	cfg = cfg.WithAdditionalTargets(targets...)
 	results := make([]targetEmit, len(targets))
 	sessions := make([]*adapters.Session, len(targets))
 	for i, t := range targets {
