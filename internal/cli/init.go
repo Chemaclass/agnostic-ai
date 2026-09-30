@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -165,7 +166,8 @@ func newInitCmd() *cobra.Command {
 // project already uses win; otherwise config.DefaultTargets(). Never
 // every target: amp and warp collide with codex on AGENTS.md, and
 // --all is the explicit opt-in for that. One stderr line names the
-// choice so a CI log shows what was enabled and how to change it.
+// choice so a CI log shows what was enabled and how to change it. A
+// root AGENTS.md adds a hint to enable codex, which owns that file.
 func fallbackInitTargets(stderr io.Writer, detected []string) []string {
 	targets, kind := detected, "detected"
 	if len(targets) == 0 {
@@ -181,6 +183,10 @@ func fallbackInitTargets(stderr io.Writer, detected []string) []string {
 	_, _ = fmt.Fprintf(stderr,
 		"no target list piped; enabled %d %s %s: %s (pass --all, or pipe \"claude,codex\")\n",
 		len(targets), kind, noun, strings.Join(targets, ", "))
+	if !slices.Contains(targets, "codex") && regularFileInside(".", claudeAgentsMainFile) {
+		_, _ = fmt.Fprintf(stderr, "  hint: %s exists; enable codex so sync manages it (pipe %q)\n",
+			claudeAgentsMainFile, strings.Join(append(slices.Clone(targets), "codex"), ","))
+	}
 	return targets
 }
 

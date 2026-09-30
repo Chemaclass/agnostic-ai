@@ -15,6 +15,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - A hand-written nested `AGENTS.md` or `GEMINI.md` imports as one scoped rule and syncs back as it was: a directory with one rule gets that rule's text, without a `## Rules` or `### <name>` heading. `import.codex.shred: true` keeps the old split per `##` section.
 - An `agent-` or `skill-` file in a rules or instructions directory imports as an agent or a skill only when an earlier sync wrote it; a hand-written `agent-host.md` stays a rule.
 - `doctor` lists `lint` findings under Spec health and fails on a lint error. It says all checks passed only when lint is clean too, and `doctor --json` adds a `lint` list (#1433).
+- `init --from all` and `import all` merge the sections of a hand-written root `AGENTS.md` that the imported body lacks into `AGNOSTIC_AI.md` and name them, instead of warning. `init` without a target list suggests enabling `codex` when a root `AGENTS.md` exists (#1434).
 
 ### By tool
 

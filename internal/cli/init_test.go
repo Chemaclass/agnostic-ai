@@ -585,6 +585,35 @@ func TestInitCmd_NoTTYNoPipe_EnablesDetectedTargets(t *testing.T) {
 	if !strings.Contains(stderr.String(), want) {
 		t.Errorf("stderr missing %q:\n%s", want, stderr.String())
 	}
+	if strings.Contains(stderr.String(), "AGENTS.md") {
+		t.Errorf("no root AGENTS.md, so no codex hint:\n%s", stderr.String())
+	}
+}
+
+func TestInitCmd_NoTTYNoPipe_SuggestsCodexForRootAgentsMainFile(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	if err := os.MkdirAll(filepath.Join(dir, ".claude"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, filepath.Join(dir, "AGENTS.md"), "# Repository Guidelines\n")
+
+	stderr := &bytes.Buffer{}
+	root := NewRootCmd("test")
+	root.SetIn(devNullStdin(t))
+	root.SetErr(stderr)
+	root.SetArgs([]string{"init"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if got, want := configuredTargets(t, dir), []string{"claude"}; !slices.Equal(got, want) {
+		t.Errorf("the hint must not change the targets\ngot  %v\nwant %v", got, want)
+	}
+	want := `AGENTS.md exists; enable codex so sync manages it (pipe "claude,codex")`
+	if !strings.Contains(stderr.String(), want) {
+		t.Errorf("stderr missing %q:\n%s", want, stderr.String())
+	}
 }
 
 func TestInitCmd_AllFlagEnablesEveryTarget(t *testing.T) {

@@ -65,7 +65,7 @@ For existing native configuration, replace the example target list with the tool
 printf '%s\n' 'claude,codex' | agnostic-ai init --from all
 ```
 
-`--from all` imports every detected source. The last imported top-level file wins, so when several tools carry different top-level instructions, review `.agnostic-ai/AGNOSTIC_AI.md` and merge the useful content before syncing.
+`--from all` imports every detected source. The last imported top-level file wins, so when several tools carry different top-level instructions, review `.agnostic-ai/AGNOSTIC_AI.md` and merge the useful content before syncing. The sections of a hand-written root `AGENTS.md` that the body lacks are merged for you.
 
 For a fresh project:
 
