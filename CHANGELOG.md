@@ -9,7 +9,9 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### General
 
 - **Breaking:** rule `scope`, `globs`, and `paths` form a union; rule folders scope existing directories. Remove `scope` to keep only a filter (#1429, #1430).
+- `coverage.accept` lists known coverage notes with a reason, so sync stops printing them; `coverage.fail-on-notes` fails sync on the rest (#1514).
 - Hooks can use `.agnostic-ai/scripts/<name>` to copy and run one shared script in each target, including with `sync --global` (#1454).
+- `agnostic-ai hook paths` prints the files an edit touched, Codex patches included, so one edit hook runs on several tools (#1493).
 - Doctor warns when existing packaging ignore files miss generated paths; upgrade notes flag the Codex skills path move (#1447).
 - New `AGNOSTIC_AI.md` files use a short editable template; existing files stay intact, and `doctor` points out old boilerplate (#1446).
 - Rule body headings nest in merged instructions; import restores levels and preserves code, link definitions, and line breaks (#1452, #1505).
@@ -26,6 +28,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Claude Code
 
+- An environment spec's `setup` runs once in each new Claude Code worktree through generated hooks; `x-claude.setup: false` turns it off. Delete a hand-written bootstrap hook, since it runs in parallel with setup (#1498).
 - Scoped companion cleanup waits for concurrent writes, so sync removes covered `CLAUDE.md` files consistently (#1478).
 - Claude runtime paths stay out of `.worktreeinclude`; `gitignore.ignore-worktree-include: true` also keeps that file out of Git (#1438, #1441).
 - A `CLAUDE.md` that imports `@AGENTS.md` keeps that layout with only Claude enabled, so `AGENTS.md` no longer goes stale.
@@ -42,6 +45,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - Exec policies and a Codex config or overlay `model` silence the notes they make redundant (#1432, #1462).
 - `import codex` strips generated skill headers and keeps an agent's model in `model.codex`; `environment.toml` always has `[setup]` (#1461, #1476).
 - Sync no longer writes `notify`, `profiles`, `model_providers`, or other keys Codex ignores in a project `config.toml`, and notes where each goes (#1511).
+- Sync notes that `readonly` and `x-codex.sandbox_mode` have no effect on current Codex agents, which keep the session sandbox (#1519).
+- `sync --dry-run` reads the captured exec-policies header, so its `.codex/rules/default.rules` preview matches a real sync (#1523).
 
 #### Copilot
 

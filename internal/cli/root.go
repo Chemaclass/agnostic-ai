@@ -93,6 +93,7 @@ func NewRootCmd(version string) *cobra.Command {
 		newImportCmd(),
 		newDoctorCmd(),
 		newInstallHookCmd(),
+		newHookCmd(),
 		newRevertCmd(),
 		newCleanupCmd(),
 		newPacksCmd(),
@@ -122,6 +123,9 @@ func loadProject(root string) (*config.Config, spec.Bundle, error) {
 		return nil, spec.Bundle{}, err
 	}
 	if err := requireVersion(strings.Join(sources, " + "), cfg.Requires); err != nil {
+		return nil, spec.Bundle{}, err
+	}
+	if err := validateCoverageTargets(cfg); err != nil {
 		return nil, spec.Bundle{}, err
 	}
 	if len(sources) > 1 {

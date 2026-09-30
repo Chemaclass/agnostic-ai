@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 
 	"github.com/invopop/jsonschema"
 
@@ -13,7 +14,16 @@ import (
 )
 
 func main() {
-	r := jsonschema.Reflector{}
+	r := jsonschema.Reflector{Mapper: func(t reflect.Type) *jsonschema.Schema {
+		if t != reflect.TypeFor[config.CoverageTargets]() {
+			return nil
+		}
+		// One target name, or a list of them.
+		return &jsonschema.Schema{OneOf: []*jsonschema.Schema{
+			{Type: "string"},
+			{Type: "array", Items: &jsonschema.Schema{Type: "string"}},
+		}}
+	}}
 	schema := r.Reflect(&config.Config{})
 	schema.ID = "https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/docs/schemas/config.schema.json"
 	schema.Title = "agnostic-ai configuration"

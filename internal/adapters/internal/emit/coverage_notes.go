@@ -279,15 +279,7 @@ func flushGapNotesLocked() {
 	}
 	for _, k := range order {
 		targets := groups[k]
-		// A config-key hint reads as "only via outputs.x.y"; a free-text
-		// reason (no materialize key) reads as "only in the source dir (reason)".
-		tail := "via " + k.via
-		if !strings.HasPrefix(k.via, "outputs.") {
-			tail = "in the source dir (" + k.via + ")"
-		}
-		_, _ = fmt.Fprintf(Warner, "  note: %d %s %s %s only %s\n",
-			k.count, pluralizeKind(k.kind, k.count), reachVerb(k.count),
-			strings.Join(targets, ", "), tail)
+		_, _ = fmt.Fprintf(Warner, "  note: %s\n", gapNoteText(k.kind, k.count, k.via, targets))
 	}
 	coverageNoteState.pending = nil
 }
@@ -326,8 +318,7 @@ func flushFieldNotesLocked() {
 	}
 	for _, k := range order {
 		targets := groups[k]
-		_, _ = fmt.Fprintf(Warner, "  note: `%s` on %d %s has no effect on %s (%s)\n",
-			k.field, k.count, pluralizeKind(k.kind, k.count), strings.Join(targets, ", "), k.reason)
+		_, _ = fmt.Fprintf(Warner, "  note: %s (%s)\n", fieldNoteText(k.kind, k.field, k.count, targets), k.reason)
 	}
 	coverageNoteState.pendingField = nil
 	coverageNoteState.environmentFields = nil
@@ -364,11 +355,30 @@ func flushSurfaceNotesLocked() {
 		groups[k] = append(groups[k], p.target)
 	}
 	for _, k := range order {
-		_, _ = fmt.Fprintf(Warner, "  note: %d %s %s %s but not %s (%s)\n",
-			k.count, pluralizeKind(k.kind, k.count), reachVerb(k.count),
-			strings.Join(groups[k], ", "), k.surface, k.reason)
+		_, _ = fmt.Fprintf(Warner, "  note: %s (%s)\n", surfaceNoteText(k.kind, k.count, k.surface, groups[k]), k.reason)
 	}
 	coverageNoteState.pendingSurface = nil
+}
+
+// gapNoteText is the sentence for a coverage gap. A config-key hint
+// reads as "only via outputs.x.y"; a free-text reason (no materialize
+// key) reads as "only in the source dir (reason)".
+func gapNoteText(kind spec.Kind, count int, via string, targets []string) string {
+	tail := "via " + via
+	if !strings.HasPrefix(via, "outputs.") {
+		tail = "in the source dir (" + via + ")"
+	}
+	return fmt.Sprintf("%d %s %s %s only %s", count, pluralizeKind(kind, count), reachVerb(count), strings.Join(targets, ", "), tail)
+}
+
+// fieldNoteText is the sentence for a field no-op, before its reason.
+func fieldNoteText(kind spec.Kind, field string, count int, targets []string) string {
+	return fmt.Sprintf("`%s` on %d %s has no effect on %s", field, count, pluralizeKind(kind, count), strings.Join(targets, ", "))
+}
+
+// surfaceNoteText is the sentence for a surface gap, before its reason.
+func surfaceNoteText(kind spec.Kind, count int, surface string, targets []string) string {
+	return fmt.Sprintf("%d %s %s %s but not %s", count, pluralizeKind(kind, count), reachVerb(count), strings.Join(targets, ", "), surface)
 }
 
 // reachVerb agrees the verb with the subject count: "reaches" for a
@@ -454,6 +464,18 @@ func PendingCoverageNotesCount() int {
 	coverageNoteState.mu.Lock()
 	defer coverageNoteState.mu.Unlock()
 	pruneFieldNotesLocked()
+	seen := targetNoteKeysLocked()
+	for _, text := range coverageNoteState.pendingText {
+		seen["project\x00"+text] = true
+	}
+	return len(seen)
+}
+
+// targetNoteKeysLocked returns one key per distinct coverage gap
+// (target, kind, via), field no-op (target, kind, field, reason), and
+// surface gap (target, kind, surface, reason). Caller holds
+// coverageNoteState.mu.
+func targetNoteKeysLocked() map[string]bool {
 	seen := map[string]bool{}
 	for _, p := range coverageNoteState.pending {
 		seen["gap\x00"+p.target+"\x00"+string(p.kind)+"\x00"+p.via] = true
@@ -464,8 +486,5 @@ func PendingCoverageNotesCount() int {
 	for _, p := range coverageNoteState.pendingSurface {
 		seen["surface\x00"+p.target+"\x00"+string(p.kind)+"\x00"+p.surface+"\x00"+p.reason] = true
 	}
-	for _, text := range coverageNoteState.pendingText {
-		seen["project\x00"+text] = true
-	}
-	return len(seen)
+	return seen
 }
