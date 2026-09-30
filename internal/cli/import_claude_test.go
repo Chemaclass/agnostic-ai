@@ -1003,6 +1003,7 @@ func TestImportFromClaude_ReadonlyOverridesSurviveSyncImportSync(t *testing.T) {
 	}{
 		{"target optout", "readonly: true\nx-claude: {readonly: false}\n", "", "readonly: false", "disallowedTools:"},
 		{"null optout", "readonly: true\nx-claude: {disallowedTools: null}\n", "", "disallowedTools: null", "disallowedTools:"},
+		{"aliased null optout", "readonly: true\nx-cursor: &opts {disallowedTools: null}\nx-claude: *opts\n", "", "disallowedTools: null", "disallowedTools:"},
 		{"edited null optout", "readonly: true\nx-claude: {disallowedTools: null}\n", "disallowedTools: Bash\n", "disallowedTools: Bash", "disallowedTools: null"},
 		{"target readonly", "x-claude: {readonly: true}\n", "", "readonly: true", ""},
 		{"deleted target restrictions", "x-claude: {readonly: true}\n", "description: edited\n", "disallowedTools: null", "disallowedTools:"},
@@ -1078,6 +1079,58 @@ func TestImportFromClaude_NativeRestrictionsDoNotInferReadonly(t *testing.T) {
 	execCLI(t, "import", "claude")
 	if got := readFile(t, ".agnostic-ai/agents/reviewer.md"); strings.Contains(got, "readonly:") {
 		t.Errorf("native tools guessed portable readonly:\n%s", got)
+	}
+}
+
+func TestImportFromClaude_AliasedReadonlyOptoutSurvivesSyncImportSync(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".agnostic-ai/agents/reviewer.md", "---\nname: reviewer\nreadonly: true\nx-cursor: &opts {readonly: false, tools: [Read]}\nx-claude: *opts\n---\nReview code.\n")
+	execCLI(t, "sync")
+	before := readFile(t, ".claude/agents/reviewer.md")
+	if strings.Contains(before, "disallowedTools:") {
+		t.Fatalf("initial alias optout was not applied:\n%s", before)
+	}
+	execCLI(t, "import", "claude")
+	canonical := readFile(t, ".agnostic-ai/agents/reviewer.md")
+	if !strings.Contains(canonical, "x-claude: {readonly: false}") || strings.Contains(canonical, "*opts") {
+		t.Errorf("aliased override was not preserved independently:\n%s", canonical)
+	}
+	execCLI(t, "sync")
+	if got := readFile(t, ".claude/agents/reviewer.md"); got != before {
+		t.Errorf("native alias output changed after import:\nbefore:\n%s\nafter:\n%s", before, got)
+	}
+}
+
+func TestPreserveClaudeReadonly_DetachesSharedAliasBeforeFiltering(t *testing.T) {
+	existing, err := frontmatterMapping([]byte("readonly: true\nx-cursor: &opts {readonly: false, tools: [Read]}\nx-claude: *opts\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	imported, err := frontmatterMapping([]byte("tools: [Read]\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	preserveClaudeReadonly(existing, imported)
+	var meta map[string]any
+	if err := existing.Decode(&meta); err != nil {
+		t.Fatal(err)
+	}
+	cursor, ok := meta["x-cursor"].(map[string]any)
+	if !ok {
+		t.Fatalf("Cursor mapping was lost: %#v", meta)
+	}
+	claude, ok := meta["x-claude"].(map[string]any)
+	if !ok {
+		t.Fatalf("Claude alias mapping was lost: %#v", meta)
+	}
+	if claude["readonly"] != false || claude["tools"] != nil {
+		t.Errorf("Claude override was not filtered: %#v", claude)
+	}
+	if cursor["readonly"] != false || cursor["tools"] == nil {
+		t.Errorf("shared Cursor mapping was mutated: %#v", cursor)
 	}
 }
 
