@@ -43,7 +43,7 @@ outputs:
 	if err != nil {
 		t.Fatalf("CLAUDE.md must exist so Claude Code never falls back to AGENTS.md: %v", err)
 	}
-	if !strings.Contains(string(main), "AI Project Conventions") {
+	if !strings.Contains(string(main), "# Project instructions") {
 		t.Errorf("CLAUDE.md should carry the canonical pointer body, got:\n%s", main)
 	}
 	if strings.Contains(string(main), "SECRET-CODEX-ONLY") {
@@ -89,7 +89,7 @@ outputs:
 	if !strings.Contains(string(got), "rule body") {
 		t.Errorf("CLAUDE.md should hold the concatenated rule bodies, got:\n%s", got)
 	}
-	if strings.Contains(string(got), "AI Project Conventions") {
+	if strings.Contains(string(got), "# Project instructions") {
 		t.Errorf("the pointer body must not overwrite the adapter's write, got:\n%s", got)
 	}
 }
@@ -121,7 +121,7 @@ outputs:
 	if err != nil {
 		t.Fatalf("GEMINI.md must exist: %v", err)
 	}
-	if !strings.Contains(string(got), "AI Project Conventions") {
+	if !strings.Contains(string(got), "# Project instructions") {
 		t.Errorf("GEMINI.md should carry the canonical pointer body, got:\n%s", got)
 	}
 	if strings.Contains(string(got), "rule body") {

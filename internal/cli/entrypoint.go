@@ -33,7 +33,7 @@ import (
 // their content is about to be replaced. This is the same heuristic
 // the importer uses to skip files it did not write.
 func writeAgnosticEntryPoints(sess *adapters.Session, cfg *config.Config, b spec.Bundle, targets []string, dryRun bool) error {
-	body, err := resolveAgnosticBody(sess, cfg, dryRun)
+	body, err := resolveAgnosticBody(sess, dryRun)
 	if err != nil {
 		return err
 	}
@@ -438,9 +438,10 @@ func warnOnHandAuthoredEntryPoint(path string) {
 }
 
 // resolveAgnosticBody returns the raw (no header) body for entry-point files.
-// When AGNOSTIC_AI.md exists its content drives all targets; when absent the
-// template is generated, written to AGNOSTIC_AI.md, and returned.
-func resolveAgnosticBody(sess *adapters.Session, cfg *config.Config, dryRun bool) (string, error) {
+// When AGNOSTIC_AI.md exists its content drives all targets and is never
+// rewritten; when absent the template is written to AGNOSTIC_AI.md without
+// the provenance header, since it is the file the user edits.
+func resolveAgnosticBody(sess *adapters.Session, dryRun bool) (string, error) {
 	data, err := os.ReadFile(adapters.AgnosticEntryPointPath)
 	if err == nil {
 		return header.Strip(string(data)), nil
@@ -448,9 +449,8 @@ func resolveAgnosticBody(sess *adapters.Session, cfg *config.Config, dryRun bool
 	if !errors.Is(err, fs.ErrNotExist) {
 		return "", fmt.Errorf("%s: %w", adapters.AgnosticEntryPointPath, err)
 	}
-	body := adapters.EntryPointBody(cfg)
-	rendered := header.With(body, header.FormatMarkdown)
-	if err := sess.WriteFile(adapters.AgnosticEntryPointPath, rendered, dryRun); err != nil {
+	body := adapters.EntryPointBody()
+	if err := sess.WriteFile(adapters.AgnosticEntryPointPath, body, dryRun); err != nil {
 		return "", fmt.Errorf("write %s: %w", adapters.AgnosticEntryPointPath, err)
 	}
 	return body, nil

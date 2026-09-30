@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/cli"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
@@ -60,8 +61,9 @@ func TestSync_EmitsAllTargets(t *testing.T) {
 	// Every per-target entry-point shares the canonical pointer body.
 	// Targets with no native rules directory (codex/amp/warp/gemini/
 	// aider/opencode) append an inlined rules block, so the invariant is
-	// "strip the generated appendices and the body is byte-identical to
-	// AGNOSTIC_AI.md". Claude and Copilot carry no appendix here.
+	// "strip the generated appendices and the header, and the body is
+	// byte-identical to AGNOSTIC_AI.md". Claude and Copilot carry no
+	// appendix here.
 	body, err := os.ReadFile(filepath.Join(dir, ".agnostic-ai/AGNOSTIC_AI.md"))
 	if err != nil {
 		t.Fatalf("read AGNOSTIC_AI.md: %v", err)
@@ -71,7 +73,10 @@ func TestSync_EmitsAllTargets(t *testing.T) {
 		if err != nil {
 			t.Fatalf("read %s: %v", f, err)
 		}
-		if stripped := adapters.StripGeneratedAppendices(string(got)); stripped != string(body) {
+		if !header.Has(string(got)) {
+			t.Errorf("%s is overwritten on sync and should carry the provenance header", f)
+		}
+		if stripped := header.Strip(adapters.StripGeneratedAppendices(string(got))); stripped != string(body) {
 			t.Errorf("%s body should match AGNOSTIC_AI.md after stripping appendices", f)
 		}
 	}
