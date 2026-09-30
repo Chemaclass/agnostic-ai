@@ -972,119 +972,6 @@ func TestEmit_CodexConfig_ModelReasoningAndHistory(t *testing.T) {
 	}
 }
 
-func TestEmit_CodexConfig_Notify(t *testing.T) {
-	dir := testutil.TempCwd(t)
-
-	cfg := &config.Config{
-		Outputs: map[string]config.Output{
-			"codex": {
-				Config: &config.CodexConfig{
-					Notify: []string{"python3", "/etc/codex/notify.py"},
-				},
-			},
-		},
-	}
-	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
-		t.Fatal(err)
-	}
-	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
-	if !strings.Contains(got, `notify = ["python3", "/etc/codex/notify.py"]`) {
-		t.Errorf("missing notify array in:\n%s", got)
-	}
-}
-
-func TestEmit_CodexConfig_Profiles(t *testing.T) {
-	dir := testutil.TempCwd(t)
-
-	cfg := &config.Config{
-		Outputs: map[string]config.Output{
-			"codex": {
-				Config: &config.CodexConfig{
-					Profiles: map[string]config.CodexProfile{
-						"work": {
-							Model:          "o4-mini",
-							Sandbox:        "workspace-write",
-							ApprovalPolicy: "on-failure",
-						},
-						"oss": {
-							Model:         "gpt-oss-20b",
-							ModelProvider: "ollama",
-						},
-					},
-				},
-			},
-		},
-	}
-	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
-		t.Fatal(err)
-	}
-	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
-	for _, want := range []string{
-		"[profiles.oss]",
-		`model = "gpt-oss-20b"`,
-		`model_provider = "ollama"`,
-		"[profiles.work]",
-		`model = "o4-mini"`,
-		`sandbox = "workspace-write"`,
-		`approval_policy = "on-failure"`,
-	} {
-		if !strings.Contains(got, want) {
-			t.Errorf("missing %q in:\n%s", want, got)
-		}
-	}
-	// Sort order: oss before work alphabetically.
-	if strings.Index(got, "[profiles.oss]") > strings.Index(got, "[profiles.work]") {
-		t.Error("expected profiles to emit in sorted order (oss before work)")
-	}
-}
-
-func TestEmit_CodexConfig_ModelProviders(t *testing.T) {
-	dir := testutil.TempCwd(t)
-
-	cfg := &config.Config{
-		Outputs: map[string]config.Output{
-			"codex": {
-				Config: &config.CodexConfig{
-					ModelProviders: map[string]config.CodexModelProvider{
-						"ollama": {
-							Name:    "Ollama",
-							BaseURL: "http://localhost:11434/v1",
-							WireAPI: "responses",
-						},
-						"azure": {
-							Name:      "Azure",
-							BaseURL:   "https://my.openai.azure.com/openai",
-							WireAPI:   "responses",
-							APIKeyEnv: "AZURE_OPENAI_API_KEY",
-						},
-					},
-				},
-			},
-		},
-	}
-	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), cfg, false); err != nil {
-		t.Fatal(err)
-	}
-	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
-	for _, want := range []string{
-		"[model_providers.azure]",
-		`name = "Azure"`,
-		`base_url = "https://my.openai.azure.com/openai"`,
-		`api_key_env = "AZURE_OPENAI_API_KEY"`,
-		"[model_providers.ollama]",
-		`name = "Ollama"`,
-		`base_url = "http://localhost:11434/v1"`,
-		`wire_api = "responses"`,
-	} {
-		if !strings.Contains(got, want) {
-			t.Errorf("missing %q in:\n%s", want, got)
-		}
-	}
-	if strings.Index(got, "[model_providers.azure]") > strings.Index(got, "[model_providers.ollama]") {
-		t.Error("expected model providers to emit in sorted order (azure before ollama)")
-	}
-}
-
 // Overlay carries user-authored keys outside hooks/mcp_servers and is
 // concatenated before the spec-derived sections.
 func TestEmit_CodexConfig_OverlayLayered(t *testing.T) {
@@ -1095,8 +982,8 @@ func TestEmit_CodexConfig_OverlayLayered(t *testing.T) {
 	}
 	overlay := `model = "gpt-5"
 
-[profiles.work]
-model = "gpt-5"
+[tui]
+notifications = true
 `
 	if err := os.WriteFile(filepath.Join(dir, ".agnostic-ai/overlays/codex.config.toml"), []byte(overlay), 0o644); err != nil {
 		t.Fatal(err)
@@ -1115,14 +1002,14 @@ model = "gpt-5"
 	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
 	for _, want := range []string{
 		`model = "gpt-5"`,
-		`[profiles.work]`,
+		`[tui]`,
 		`[mcp_servers.fs]`,
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
 		}
 	}
-	if strings.Index(got, "[profiles.work]") > strings.Index(got, "[mcp_servers.fs]") {
+	if strings.Index(got, "[tui]") > strings.Index(got, "[mcp_servers.fs]") {
 		t.Error("overlay should precede spec-derived mcp_servers section")
 	}
 }
@@ -1254,7 +1141,7 @@ func TestEmit_CodexConfig_OverlayTableKeepsPortableKeysTopLevel(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, ".agnostic-ai/overlays"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	overlay := "[profiles.review]\nmodel_reasoning_effort = \"xhigh\"\n"
+	overlay := "[tui]\nnotifications = true\n"
 	if err := os.WriteFile(filepath.Join(dir, ".agnostic-ai/overlays/codex.config.toml"), []byte(overlay), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -1278,7 +1165,7 @@ func TestEmit_CodexConfig_OverlayTableKeepsPortableKeysTopLevel(t *testing.T) {
 		History              struct {
 			Persistence string `toml:"persistence"`
 		} `toml:"history"`
-		Profiles map[string]map[string]any `toml:"profiles"`
+		TUI map[string]any `toml:"tui"`
 	}
 	if _, err := toml.Decode(got, &doc); err != nil {
 		t.Fatalf("emitted config.toml does not parse: %v\n%s", err, got)
@@ -1286,9 +1173,8 @@ func TestEmit_CodexConfig_OverlayTableKeepsPortableKeysTopLevel(t *testing.T) {
 	if doc.Model != "gpt-6-sol" || doc.ModelReasoningEffort != "high" {
 		t.Errorf("top-level model = %q, effort = %q, want gpt-6-sol and high:\n%s", doc.Model, doc.ModelReasoningEffort, got)
 	}
-	review := doc.Profiles["review"]
-	if _, leaked := review["model"]; leaked || review["model_reasoning_effort"] != "xhigh" {
-		t.Errorf("profiles.review = %v, want only the overlay's model_reasoning_effort:\n%s", review, got)
+	if len(doc.TUI) != 1 || doc.TUI["notifications"] != true {
+		t.Errorf("tui = %v, want only the overlay's notifications:\n%s", doc.TUI, got)
 	}
 	if doc.History.Persistence != "none" {
 		t.Errorf("history.persistence = %q, want none:\n%s", doc.History.Persistence, got)

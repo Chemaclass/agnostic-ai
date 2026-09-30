@@ -83,6 +83,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/BurntSushi/toml"
 
@@ -115,7 +116,8 @@ const (
 	// import codex` writes this file; the emitter prepends it before
 	// the spec-derived hooks + MCP sections so a re-sync from a fresh
 	// checkout still carries the user's first-class Codex keys (model,
-	// sandbox, profiles, model_providers, history, notify, ...).
+	// sandbox, history, ...). Keys Codex ignores in a project config
+	// stay in the overlay but not in the output.
 	configOverlayPath = ".agnostic-ai/overlays/codex.config.toml"
 )
 
@@ -342,6 +344,7 @@ func emitConfigTOML(sess *emit.Session, b spec.Bundle, cfg *config.Config, overl
 	if o, ok := cfg.Outputs[target]; ok {
 		codexCfg = o.Config
 	}
+	noteIgnoredConfigFields(codexCfg)
 	body := renderConfigTOML(b.Settings, b.MCPs, codexCfg, overlay, overlayKeys)
 	path := emit.OutputMCPFile(cfg, target, defaultConfigFile)
 	if body == "" {
@@ -354,9 +357,10 @@ func emitConfigTOML(sess *emit.Session, b spec.Bundle, cfg *config.Config, overl
 	return sess.WriteFile(path, body, dryRun)
 }
 
-// loadConfigOverlay returns the overlay body bytes and the set of
-// top-level keys it defines. Returns ("", nil, nil) when the overlay is
-// absent. Dry-run reads it too, so previews and notes match a real sync.
+// loadConfigOverlay returns the overlay body and the set of top-level
+// keys it defines, without the keys Codex ignores in a project config.
+// Returns ("", nil, nil) when the overlay is absent. Dry-run reads it
+// too, so previews and notes match a real sync.
 func loadConfigOverlay() (string, map[string]bool, error) {
 	data, err := os.ReadFile(configOverlayPath)
 	if emit.IsAbsent(err) {
@@ -369,11 +373,17 @@ func loadConfigOverlay() (string, map[string]bool, error) {
 	if _, err := toml.Decode(string(data), &doc); err != nil {
 		return "", nil, fmt.Errorf("parse %s: %w", configOverlayPath, err)
 	}
+	body, dropped, err := dropIgnoredOverlayKeys(string(data), doc)
+	if err != nil {
+		return "", nil, fmt.Errorf("filter %s: %w", configOverlayPath, err)
+	}
 	keys := make(map[string]bool, len(doc))
 	for k := range doc {
-		keys[k] = true
+		if !slices.Contains(dropped, k) {
+			keys[k] = true
+		}
 	}
-	return string(data), keys, nil
+	return body, keys, nil
 }
 
 func unscopedReviews(reviews []spec.Entry) int {

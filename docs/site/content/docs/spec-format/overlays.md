@@ -9,7 +9,7 @@ group = "Reference"
 
 # Overlays
 
-`overlays/` keeps the parts of a tool's configuration that no portable spec holds yet, such as a Claude Code `statusLine`, Codex `[profiles.*]`, or a status-line script. `agnostic-ai import` writes them here, and `sync` writes them back into the tool's files. Nothing is lost when you adopt agnostic-ai, and sync rebuilds a deleted `.claude/` or `.codex/` directory with those keys.
+`overlays/` keeps the parts of a tool's configuration that no portable spec holds yet, such as a Claude Code `statusLine`, Codex `[tui]` settings, or a status-line script. `agnostic-ai import` writes them here, and `sync` writes them back into the tool's files. Nothing is lost when you adopt agnostic-ai, and sync rebuilds a deleted `.claude/` or `.codex/` directory with those keys.
 
 - **Safe adoption.** Import moves what it can into specs and keeps the rest verbatim.
 - **Still editable.** An overlay is tracked source; edit it and sync, like any spec.
@@ -23,7 +23,7 @@ An overlay reaches one tool only. When a portable spec kind covers a setting, mo
 |---------|--------------|-------|
 | `claude.settings.json` | `.claude/settings.json` | Every key import did not move into a spec, such as `statusLine` |
 | `claude.settings.hook-events.json` | `.claude/settings.json` | The key `hooks` sat next to and its event order, so the `hooks` block keeps both |
-| `codex.config.toml` | `.codex/config.toml` | The keys import did not move into a spec, such as `sandbox`, `[history]`, and `[profiles.*]` |
+| `codex.config.toml` | `.codex/config.toml` | The keys import did not move into a spec, such as `sandbox`, `[history]`, and `[tui]`. Keys Codex ignores in a project config stay here but are not written ([list](@/docs/targets/codex.md#keys-codex-ignores-in-a-project-config)) |
 | `codex.exec-policies.yaml` | `.codex/rules/default.rules` | Every `prefix_rule(...)` from the imported file |
 | `claude/<file>`, `codex/<file>` | `.claude/<file>`, `.codex/<file>` | Helper files: Claude `CLAUDE.md`, `README.md`, and `statusline.sh`; Codex `README.md`. File modes are kept, so a script stays executable |
 
