@@ -20,6 +20,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - A failed sync puts back swept orphans, shared-skill links, and ignore files, and no longer deletes a shared skill through a swapped link (#1503, #1509).
 - `import` keeps hand-written instructions whole, a nested `AGENTS.md` becomes a scoped rule, and Claude hook roots resolve elsewhere (#1434, #1449, #1464).
 - Sync notes omitted skill fields, Claude model names, and Claude-only skill syntax; `compare` shows each target's skill fields (#1431, #1436, #1444, #1463).
+- `sync` and `doctor` warn when a project skill or agent shares a name with a global one, naming the target where each copy wins (#1457).
 - `doctor` fails on lint errors, `sync --diff` requires `--check`, and a `requires` bump no longer trips AAI-005 or `--check --against` (#1425, #1433, #1439).
 
 - `install-hook --post-checkout` adds `post-merge` to restore generated files after pulls; `sync --untrack` warns other clones to install it (#1478).
