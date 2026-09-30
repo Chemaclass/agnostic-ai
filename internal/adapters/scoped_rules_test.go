@@ -90,7 +90,7 @@ func TestScopedRules_UnionReadersCheckEveryDestination(t *testing.T) {
 		t.Fatal(err)
 	}
 	b.Rules[0].Meta["x-amp"] = map[string]any{"globs": "tests/b/**"}
-	if err := ValidateScopedRules(cfg, b, cfg.Targets[:1]); err == nil || !strings.Contains(err.Error(), "tests/") {
+	if err := ValidateScopedRules(cfg, b, cfg.Targets[:1]); err == nil || !strings.Contains(err.Error(), filepath.Join("tests", "a", "AGENTS.md")) {
 		t.Errorf("expected conflict at the union's extra directory, got %v", err)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -14,7 +15,11 @@ func TestScopedRuleUnion_SyncWritesAndRemovesExtraDirectories(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	binary := filepath.Join(t.TempDir(), "agnostic-ai")
+	name := "agnostic-ai"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	binary := filepath.Join(t.TempDir(), name)
 	build := exec.Command("go", "build", "-o", binary, "./cmd/agnostic-ai")
 	build.Dir = filepath.Join(packageDir, "..", "..")
 	if out, err := build.CombinedOutput(); err != nil {
