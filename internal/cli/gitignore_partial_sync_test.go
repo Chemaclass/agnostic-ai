@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -117,6 +118,71 @@ func TestSync_PartialRunKeepsScopesOfTargetsItLeftOut(t *testing.T) {
 	}
 
 	args := []string{"--only", "claude"}
+	partialSyncRun(t, args...)
+
+	partialSyncAssertUnchanged(t, full, args)
+}
+
+// With no ledger and no block yet, a first sync of some targets writes
+// the block a full sync would.
+func TestSync_FirstRunOfSomeTargetsWritesTheFullBlock(t *testing.T) {
+	testutil.TempCwd(t)
+	silence(t)
+	captureLogOut(t)
+	mustWriteFile(t, "agnostic-ai.yaml", partialSyncConfig)
+	mustWriteFile(t, filepath.Join(".agnostic-ai", "rules", "style.md"), partialSyncStyleRule)
+	args := []string{"--only", "codex"}
+	partialSyncRun(t, args...)
+	partial := partialSyncBlockFiles(t)
+
+	partialSyncRun(t, "--all")
+
+	for name, full := range partialSyncBlockFiles(t) {
+		if partial[name] != full {
+			t.Errorf("first sync %s wrote a narrower %s:\n%s", strings.Join(args, " "), name,
+				labeledDiff("full sync", "first sync", splitLines(full), splitLines(partial[name]), diffBodyMax))
+		}
+	}
+}
+
+// A fresh clone has the committed block but no ledger to supply the
+// outputs of the targets a sync leaves out. Neither has the ledger that
+// sync writes, so the next partial sync must keep them too.
+func TestSync_PartialRunWithoutLedgerKeepsOtherTargetsIgnored(t *testing.T) {
+	for _, args := range [][]string{{"--only", "codex"}, {"--only", "codex", "--json"}} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			full := partialSyncProject(t, partialSyncConfig, partialSyncStyleRule)
+			if !strings.Contains(full[".gitignore"], "/CLAUDE.md\n") {
+				t.Fatalf("full sync does not ignore claude's entry point:\n%s", full[".gitignore"])
+			}
+			if err := os.Remove(stateFilePath(".")); err != nil {
+				t.Fatal(err)
+			}
+
+			partialSyncRun(t, args...)
+			partialSyncAssertUnchanged(t, full, args)
+
+			partialSyncRun(t, args...)
+			partialSyncAssertUnchanged(t, full, args)
+		})
+	}
+}
+
+// A pull can bring a spec together with the block a teammate's full sync
+// wrote for it. The ledger predates the spec, so a sync that leaves out a
+// target rendering it must keep that target's new entries.
+func TestSync_PartialRunKeepsEntriesOfPulledSpecs(t *testing.T) {
+	partialSyncProject(t, partialSyncConfig, partialSyncStyleRule)
+	ledger := readFile(t, stateFilePath("."))
+	mustWriteFile(t, filepath.Join(".agnostic-ai", "skills", "new", "SKILL.md"), "---\nname: new\ndescription: New.\n---\nNew skill.\n")
+	partialSyncRun(t, "--all")
+	full := partialSyncBlockFiles(t)
+	if !strings.Contains(full[".gitignore"], "/.claude/skills/\n") {
+		t.Fatalf("full sync does not ignore claude's skills:\n%s", full[".gitignore"])
+	}
+	mustWriteFile(t, stateFilePath("."), ledger)
+
+	args := []string{"--only", "codex"}
 	partialSyncRun(t, args...)
 
 	partialSyncAssertUnchanged(t, full, args)
