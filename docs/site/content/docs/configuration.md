@@ -509,11 +509,30 @@ Run `agnostic-ai list --global` to see effective specs with their `global` or `g
 - A hand edit to a file sync owns, or to an instructions file's managed block, stops the run and names the file. Move the edit into the source, or rerun with `--backup` to overwrite it and keep `<path>.bak`. Text outside the managed block never counts.
 - Without `--only`, explicit targets, or a home `targets` list, a target with a relative root variable or an invalid agent name is skipped with a warning. Naming the target makes it an error.
 - Empty surfaces create nothing: no instructions file (a recorded one is removed) and no hooks file.
-- Native tool precedence applies when global and project configuration both exist. Sync Goose and OpenHands together to update their shared agent file.
+- Native tool precedence applies when global and project configuration both exist; see [shared names](#global-shared-names). Sync Goose and OpenHands together to update their shared agent file.
 
-Ordinary `agnostic-ai sync` does not load `~/.agnostic-ai/`. Run inside the global source root (or under it), it stops before any write and points at `sync --global`. When `AGNOSTIC_AI_HOME` is your home directory itself, only that directory is guarded. A path through a symlink counts. `init`, `import`, `new`, `packs`, `cleanup`, `revert`, and `install-hook` stop the same way. Read-only commands such as `lint`, `validate`, and `doctor` still run there. Put project-only defaults in a project's `.agnostic-ai/` or a pack.
+Ordinary `agnostic-ai sync` does not load `~/.agnostic-ai/` specs; it reads only their names to [warn about shared names](#global-shared-names). Run inside the global source root (or under it), it stops before any write and points at `sync --global`. When `AGNOSTIC_AI_HOME` is your home directory itself, only that directory is guarded. A path through a symlink counts. `init`, `import`, `new`, `packs`, `cleanup`, `revert`, and `install-hook` stop the same way. Read-only commands such as `lint`, `validate`, and `doctor` still run there. Put project-only defaults in a project's `.agnostic-ai/` or a pack.
 
 For a home kept in git, `install-hook --global` writes a pre-commit hook that runs `lint --global --strict`, `validate --global`, and `sync --global --check`. To start a home from what your tools already hold, run `agnostic-ai import --global`; see [import](@/docs/cli-reference/start.md#import).
+
+### Shared names {#global-shared-names}
+
+A project skill or agent can share its `name` with one in the home. Both get written, and each tool decides which one it loads. `sync` and `doctor` in the project print one warning per shared name, naming each project target where one copy hides the other and which one wins:
+
+```text
+! .agnostic-ai/skills/gh-issue/SKILL.md: skill "gh-issue" also exists in ~/.agnostic-ai/skills/gh-issue/SKILL.md; claude loads the global one, gemini loads this one; rename one to load both
+```
+
+| Target | Skill with the same name | Agent with the same name |
+|--------|--------------------------|--------------------------|
+| Amp | Global wins ([skills](https://ampcode.com/docs/customize/skills)) | No global agents |
+| Claude Code | Global wins ([skills](https://code.claude.com/docs/en/skills)) | Project wins ([subagents](https://code.claude.com/docs/en/sub-agents)) |
+| Codex | Both can appear in skill selectors, so no warning ([skills](https://learn.chatgpt.com/docs/build-skills)) | Not checked |
+| Gemini CLI | Project wins ([skills](https://geminicli.com/docs/cli/skills/)) | Not checked |
+
+Other targets document no precedence, so sync does not warn for them. The check covers targets both the project and the home's [`targets`](#global-configuration) write, and skips a spec whose `target`, `targets`, or `targets-exclude` leaves one of them out. A missing or unreadable home adds no warning.
+
+To layer on purpose, give the project spec its own name. For example, keep a general `gh-issue` skill in the home and add a project `gh-issue-project` skill that holds only this repo's branch names and checks. Both then load everywhere, and the project one can point at the global one.
 
 ### Default model and effort {#global-default-model-and-effort}
 
