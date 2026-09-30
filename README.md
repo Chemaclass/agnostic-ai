@@ -45,6 +45,8 @@ agnostic-ai sync --check
 
 A rule with `scope: src/a` and `globs: tests/a/**` applies to both directories. Claude writes both path patterns; Codex writes a nested `AGENTS.md` in each directory. See [scoped context](https://agnostic-ai.org/docs/scoped-context/) for selector limits and migration from the earlier intersection behavior.
 
+Codex places unscoped whole-subtree rules such as `globs: src/app/api/**` in nested `AGENTS.md` files. Filename filters and root-file selectors stay inline with an always-loaded note. Set `outputs.codex.nested-glob-rules: false` to keep root inlining. Start Codex in the subtree to load its instruction chain.
+
 Use `agnostic-ai sync --global` for [user-level configuration](https://agnostic-ai.org/docs/configuration/#global-configuration). Global hooks and skills honor each spec's target filters. Skill metadata renders per target, while shared directories stay neutral. MCP specs in the home install servers in each tool's user MCP file, and settings specs set the default model and effort in Claude's, Codex's, Copilot's, Qoder's, and Gemini's user settings, key by key. Global settings also set Claude's starting permission mode through `permissions.default-mode`, preserving hand-written permission rules. Agents with `readonly: true` use Cursor's read-only mode, Codex's read-only sandbox, Factory's read-only tools, or Claude's `disallowedTools` for file edits.
 
 Keep [personal overrides](https://agnostic-ai.org/docs/local-overrides/) in `.agnostic-ai/local/` for one project, ignored by default, or in `~/.agnostic-ai/local/` for every project. `agnostic-ai list` and `list --global` show which layer supplies each spec.

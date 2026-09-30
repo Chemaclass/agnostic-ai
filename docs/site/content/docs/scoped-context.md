@@ -68,6 +68,14 @@ The report lists each Cursor instruction with its source spec, output path, sele
 - `alwaysApply: true` does not add files to the scope and pattern union. Sync chooses the native conditional flags.
 - Scope does not remove instructions already loaded into a conversation.
 
+## Codex rules with globs alone
+
+With Codex enabled, an unscoped rule with `globs: [src/app/api/**, prisma/**]` writes `src/app/api/AGENTS.md` and `prisma/AGENTS.md`, keeping that text out of root context. Compatible `AGENTS.md` readers share those files. `alwaysApply: true` keeps an unscoped rule project-wide. Set `outputs.codex.nested-glob-rules: false` to keep all unscoped rules inline.
+
+Every selector must cover a complete subtree. `src/api/**/*.ts`, `Dockerfile`, and a mix of root files and directory patterns stay wholly inline with a note naming the always-loaded rule. `on-unsupported: error` refuses that fallback. Output overrides and root readers without verified nested discovery also retain inline delivery with a note. Sync does not silently broaden a filename filter to a directory.
+
+Codex loads the instruction chain for its session working directory. Start it in the rule's subtree; starting at the root does not load every nested document for later edits.
+
 ## Narrow a rule to certain files
 
 `scope` plus `globs` or `paths` applies to the whole scope directory **and** every matching file. Use the union for a module and its tests:

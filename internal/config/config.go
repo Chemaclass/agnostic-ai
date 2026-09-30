@@ -285,6 +285,7 @@ type Output struct {
 	EmitSkillsAsCommands bool              `yaml:"emit-skills-as-commands,omitempty"  json:"emit-skills-as-commands,omitempty"`
 	EmitAgentsAsCommands bool              `yaml:"emit-agents-as-commands,omitempty"  json:"emit-agents-as-commands,omitempty"`
 	SharedSubagents      *bool             `yaml:"shared-subagents,omitempty"         json:"shared-subagents,omitempty"`
+	NestedGlobRules      *bool             `yaml:"nested-glob-rules,omitempty"        json:"nested-glob-rules,omitempty"`
 	Settings             *ClaudeSettings   `yaml:"settings,omitempty"                 json:"settings,omitempty"`
 	Config               *CodexConfig      `yaml:"config,omitempty"                   json:"config,omitempty"`
 	ExecPolicies         []CodexExecPolicy `yaml:"exec-policies,omitempty"            json:"exec-policies,omitempty"`
