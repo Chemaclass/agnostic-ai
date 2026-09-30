@@ -2,6 +2,7 @@ package cli
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -70,6 +71,46 @@ func TestSync_FailedIgnoreWriteRemovesTheGitignoreItCreated(t *testing.T) {
 
 			if _, err := os.Lstat(".gitignore"); !os.IsNotExist(err) {
 				t.Errorf("failed sync left the .gitignore it created: %v", err)
+			}
+		})
+	}
+}
+
+// The os error behind an ignore file failure already names the file, so
+// the message names it once.
+func TestIgnoreFileErrorsNameTheFileOnce(t *testing.T) {
+	runSync := func(t *testing.T) error {
+		_, err := runCLI(t, "sync")
+		return err
+	}
+	cases := []struct {
+		name, config, dir, file string
+		run                     func(t *testing.T) error
+	}{
+		{"read .gitignore", ignoreRollbackConfig, ".gitignore", ".gitignore", runSync},
+		{"read .worktreeinclude", ignoreRollbackConfig, worktreeIncludeFile, worktreeIncludeFile, runSync},
+		{"write .gitignore", ignoreRollbackConfig + "  path: missing/.gitignore\n", "", filepath.Join("missing", ".gitignore"), runSync},
+		{"packs add", ignoreRollbackConfig, ".gitignore", ".gitignore", func(*testing.T) error { return ensureManagedGitignore(".") }},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			testutil.TempCwd(t)
+			silence(t)
+			captureLogOut(t)
+			mustWriteFile(t, "agnostic-ai.yaml", c.config)
+			if c.dir != "" {
+				if err := os.Mkdir(c.dir, 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			err := c.run(t)
+
+			if err == nil {
+				t.Fatalf("%s: got no error", c.name)
+			}
+			if n := strings.Count(err.Error(), c.file); n != 1 {
+				t.Errorf("error names %s %d times, want once: %v", c.file, n, err)
 			}
 		})
 	}

@@ -625,7 +625,7 @@ func ensureManagedGitignore(root string) error {
 	path := filepath.Join(root, ".gitignore")
 	data, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("read %s: %w", path, err)
+		return err
 	}
 	if strings.Contains(string(data), gitignoreBlockStart) {
 		return nil
@@ -661,14 +661,14 @@ func writeGitignoreBlock(root string, cfg *config.Config, entries []string) (rel
 	path := filepath.Join(root, rel)
 	existing, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return rel, false, fmt.Errorf("read %s: %w", path, err)
+		return rel, false, err
 	}
 	updated := replaceManagedBlock(stripLooseFixedDuplicates(string(existing)), entries)
 	if updated == string(existing) {
 		return rel, false, nil
 	}
 	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
-		return rel, false, fmt.Errorf("write %s: %w", path, err)
+		return rel, false, err
 	}
 	return rel, true, nil
 }
@@ -693,7 +693,7 @@ func writeWorktreeInclude(root string, cfg *config.Config, block []string) (chan
 	path := filepath.Join(root, worktreeIncludeFile)
 	existing, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return false, fmt.Errorf("read %s: %w", path, err)
+		return false, err
 	}
 	if !cfg.Gitignore.WorktreeIncludeEnabled() || !slices.Contains(cfg.Targets, "claude") {
 		if !strings.Contains(string(existing), gitignoreBlockStart) {
@@ -730,7 +730,7 @@ func writeWorktreeInclude(root string, cfg *config.Config, block []string) (chan
 		return true, os.Remove(path)
 	}
 	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
-		return false, fmt.Errorf("write %s: %w", path, err)
+		return false, err
 	}
 	return true, nil
 }
