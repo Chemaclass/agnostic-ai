@@ -38,7 +38,7 @@ func (e *Entry) applyModelTier(tiers map[string]config.ModelTier) {
 	if !ok {
 		return
 	}
-	resolved := make(map[string]any, len(tier.Models)+len(own))
+	resolved := make(map[string]any, len(tier.Models))
 	for target, model := range tier.Models {
 		resolved[target] = model
 	}
