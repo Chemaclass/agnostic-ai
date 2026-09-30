@@ -80,3 +80,4 @@ on-unsupported: warn   # warn | error | silent
 sync:
   unmanaged:
     - tests/integration/fixtures/scope-union/
+    - tests/integration/fixtures/codex-glob-context/

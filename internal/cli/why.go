@@ -176,13 +176,13 @@ func traceEntryPointFile(rel string, cfg *config.Config, b spec.Bundle, projectR
 	var rules []spec.Entry
 	if inliners := pathRuleInliners(cfg, consumers); len(inliners) > 0 {
 		target = inliners[0]
-		rules = adapters.EntryPointRules(b, target).Rules
+		rules = adapters.EntryPointRules(b, target, cfg).Rules
 	} else if importer := pathRulesImporter(cfg, consumers); importer != "" {
 		target = importer
-		rules = adapters.EntryPointRules(b, importer).Rules
+		rules = adapters.EntryPointRules(b, importer, cfg).Rules
 	} else if importer := pathLegacyRulesFileImporter(cfg, consumers); importer != "" {
 		target = importer
-		rules = adapters.EntryPointRules(b, importer).Rules
+		rules = adapters.EntryPointRules(b, importer, cfg).Rules
 	}
 	local, _ := adapters.ReadLocalInstructions()
 	appended := len(rules) > 0 || local != "" || cfg.Sync.TargetOverview
