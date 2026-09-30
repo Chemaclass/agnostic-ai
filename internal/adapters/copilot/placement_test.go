@@ -62,7 +62,7 @@ func TestSkillsByDir_WritesASkillWhereItLives(t *testing.T) {
 	}
 	// Codex writes .agents/skills in the same sync, so what is there can
 	// change mid-run: the skill goes to .github/skills instead.
-	sess.SetSkillsDirWriters(map[string][]string{".agents/skills": {"codex", "copilot"}})
+	sess.SetSkillsDirWriters(map[string][]string{filepath.Clean(".agents/skills"): {"codex", "copilot"}})
 	if shared := skillsByDir(sess, skills, defaultSkillsDir, true); len(shared[defaultSkillsDir]) != 2 {
 		t.Errorf("a dir another target writes is not reused: %v", shared)
 	}
