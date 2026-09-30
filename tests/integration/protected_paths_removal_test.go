@@ -55,3 +55,37 @@ func readFile(t *testing.T, path string) string {
 	}
 	return string(data)
 }
+
+// .cursor/cli.json holds the user's own CLI permissions too, so sync
+// adds and removes only the Write rules it wrote (#1517).
+func TestProtectedPaths_CursorCLIConfigKeepsHandWrittenRules(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	spec := filepath.Join(dir, ".agnostic-ai", "settings", "protected.yaml")
+	must(t, os.MkdirAll(filepath.Dir(spec), 0o755))
+	must(t, os.MkdirAll(filepath.Join(dir, ".cursor"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [cursor]\n"), 0o644))
+	must(t, os.WriteFile(spec, []byte("protected:\n  paths: [composer.lock, .github/]\n  decision: deny\n"), 0o644))
+	cli := filepath.Join(dir, ".cursor", "cli.json")
+	must(t, os.WriteFile(cli, []byte(`{"permissions": {"allow": ["Shell(ls)"], "deny": ["Shell(rm)"]}}`), 0o644))
+
+	runCmd(t, "sync")
+	body := readFile(t, cli)
+	for _, want := range []string{"Shell(ls)", "Shell(rm)", "Write(composer.lock)", "Write(composer.lock/**)", "Write(.github/**)"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("cli.json lacks %s after sync:\n%s", want, body)
+		}
+	}
+	runCmd(t, "sync", "--check")
+
+	must(t, os.Remove(spec))
+	runCmd(t, "sync")
+	body = readFile(t, cli)
+	if strings.Contains(body, "Write(") {
+		t.Errorf("removing the block kept its rules:\n%s", body)
+	}
+	if !strings.Contains(body, "Shell(ls)") || !strings.Contains(body, "Shell(rm)") {
+		t.Errorf("removing the block dropped hand-written rules:\n%s", body)
+	}
+	runCmd(t, "sync", "--check")
+}

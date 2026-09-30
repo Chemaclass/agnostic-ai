@@ -78,6 +78,7 @@ A path is anchored at the project root: `composer.lock` protects only the root f
 |---|---|---|
 | Claude Code | enforced (permission) | `Edit(/<path>)` rules in `permissions.ask` or `permissions.deny` ([details](@/docs/targets/claude.md#protected-paths)) |
 | Codex | enforced (hook) | a generated `PreToolUse` hook in `.codex/hooks/` that blocks a matching `apply_patch` ([details](@/docs/targets/codex.md#protected-paths)) |
+| Cursor | enforced (permission), CLI only, `deny` only | `Write(<path>)` rules in `permissions.deny` of `.cursor/cli.json`; `ask` stays advisory ([details](@/docs/targets/cursor.md#protected-paths)) |
 | Every other target | advisory | a coverage note on sync; state the paths in a rule |
 
 Protection covers the agent's edit tools. A shell command or script that writes the file directly can still change it. `agnostic-ai lint` warns (LINT022) when a protected path covers a file sync writes, since sync regenerates that file from its source spec, and reports an invalid block as LINT023. `sync --global` does not write protected paths.

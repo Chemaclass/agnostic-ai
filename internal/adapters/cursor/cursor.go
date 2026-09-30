@@ -10,7 +10,8 @@
 // project commands location. Hooks land in .cursor/hooks.json, MCP
 // servers in .cursor/mcp.json, Bugbot review guidance in
 // .cursor/BUGBOT.md (root and per scope), background agent bootstrap in
-// .cursor/environment.json, and ignore lists in .cursorignore.
+// .cursor/environment.json, ignore lists in .cursorignore, and deny
+// protected paths in .cursor/cli.json.
 //
 // A BUGBOT.md file counts as one rule to Bugbot:
 // cursor.com/docs/bugbot#rule-limits documents "Each rule is truncated
@@ -113,7 +114,7 @@ const reviewTooLongSurface = "Bugbot's review in full"
 var caps = emit.Capabilities{
 	SkillFields: emit.SkillFieldCoverage{Markdown: skillMarkdown},
 	Target:      target,
-	Supports:    []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindCommand, spec.KindReview, spec.KindEnvironment, spec.KindIgnore},
+	Supports:    []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindCommand, spec.KindReview, spec.KindEnvironment, spec.KindIgnore, spec.KindSettings},
 	AgentFieldReasons: map[string]string{
 		"effort": `Cursor has no effort key; put it in the model id, e.g. model: {cursor: "claude-opus-5[effort=high]"}`,
 	},
@@ -213,6 +214,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		}
 	}
 	if err := emitHooks(sess, b.HooksFor(target), cfg, dryRun); err != nil {
+		return err
+	}
+	if err := emitCLIConfig(sess, b.Settings, dryRun); err != nil {
 		return err
 	}
 	mcps := emit.StripMCPDisabled(target, b.MCPs, mcpDisabledNoOpReason)

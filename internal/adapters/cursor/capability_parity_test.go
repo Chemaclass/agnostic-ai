@@ -37,6 +37,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindReview, []string{"BUGBOT.md", "backend/BUGBOT.md"}},
 		{spec.KindEnvironment, []string{".cursor/environment.json"}},
 		{spec.KindIgnore, []string{".cursorignore"}},
+		{spec.KindSettings, []string{".cursor/cli.json"}},
 	}
 	for _, k := range caps.Supports {
 		found := false
@@ -67,22 +68,6 @@ func TestEmit_NoCapabilityWarningsForKitSinkBundle(t *testing.T) {
 	}
 	if got := emit.PendingCapabilityWarningsCount(); got != 0 {
 		t.Errorf("expected no capability warnings, got %d", got)
-	}
-}
-
-func TestEmit_UnsupportedKindsWarn(t *testing.T) {
-	testutil.TempCwd(t)
-	emit.ResetCapabilityWarnings()
-	t.Cleanup(emit.ResetCapabilityWarnings)
-
-	entries := []spec.Entry{
-		{Kind: spec.KindSettings, Name: "perms", Path: "settings/perms.yaml", Meta: map[string]any{"model": "opus"}},
-	}
-	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{OnUnsupported: "warn"}, false); err != nil {
-		t.Fatalf("emit: %v", err)
-	}
-	if got := emit.PendingCapabilityWarningsCount(); got != 1 {
-		t.Errorf("expected 1 capability warning (settings), got %d", got)
 	}
 }
 

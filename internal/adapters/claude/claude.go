@@ -327,7 +327,7 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 	if err != nil {
 		return err
 	}
-	if !overlayOK && !hasHooks && !hasConfig && !hasSpec && len(custom) == 0 && !policy.active && !protect.active && !retiredOnDisk {
+	if !overlayOK && !hasHooks && !hasConfig && !hasSpec && len(custom) == 0 && !policy.active && !protect.Active() && !retiredOnDisk {
 		return nil
 	}
 	doc := overlay
@@ -358,16 +358,16 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 	// lower layer authored (e.g. config setting only `deny` would erase a
 	// spec `allow`). Union them across overlay (base), spec, then config so
 	// no layer silently loses another's rules. Scalars keep last-wins.
-	base := protect.strip(docPermissions(doc))
+	base := protect.Strip(docPermissions(doc))
 	mergedPerms := mergePermissions(base, mapOf(specSettings["permissions"]), mapOf(configSettings["permissions"]))
 	delete(specSettings, "permissions")
 	delete(configSettings, "permissions")
 	if len(mergedPerms) > 0 {
 		specSettings["permissions"] = mergedPerms
-	} else if protect.active {
+	} else if protect.Active() {
 		doc.Delete("permissions")
 	}
-	if err := protect.record(sess, base, dryRun); err != nil {
+	if err := protect.Record(sess, base, dryRun); err != nil {
 		return err
 	}
 	for _, k := range orderedConfigKeys(specSettings) {
