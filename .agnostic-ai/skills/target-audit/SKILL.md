@@ -107,7 +107,7 @@ After the report is written, run `scripts/docfetch.sh --update local/target-audi
 
 ## 5. File and fix
 
-Unless `--no-file-issues` is set, read `.agnostic-ai/skills/target-audit/references/issues-and-fixes.md` and file confirmed findings. The gitignored report and run directory must not be their only detailed record. After filing, add or update one row per signal in `scripts/target-audit/signals.tsv`. Spec candidates may receive design issues but never enter fix buckets without a separate implementation decision.
+Unless `--no-file-issues` is set, read `.agnostic-ai/skills/target-audit/references/issues-and-fixes.md` and file confirmed findings. The gitignored report and run directory must not be their only detailed record. After filing, add or update one row per signal in `scripts/target-audit/signals.tsv`. A new row takes `vendor-date` from the vendor entry's own date and `first-source` from the kind of row whose delta showed it (`docs`, `changelog`, `schema`, or `code`). Then set `shipped-date` on every row whose issue closed in a released version since the last run, to that release's date in `CHANGELOG.md`. Leave a value empty rather than guess it. The gaps between the three dates show which sources earn their fetch; the report states them for signals shipped this run. Spec candidates may receive design issues but never enter fix buckets without a separate implementation decision.
 
 With `--fix`, finish synthesis and settle all buckets before launching isolated `adapter-fixer` agents. Use the reference's scope, checklist, and validation rules. Never widen an active fixer's assignment; handle later findings separately.
 

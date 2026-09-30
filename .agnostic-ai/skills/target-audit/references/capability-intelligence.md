@@ -38,6 +38,9 @@ rename or reuse it. This keeps repeated audits tied to the same decision
 history. Record every synthesized signal as one row in
 `scripts/target-audit/signals.tsv`; that file and the published articles are
 the dedupe history a later run reads instead of the whole issue collection.
+Its `vendor-date`, `first-source`, and `shipped-date` columns measure lead
+time: from vendor announcement to first audit, and from there to release.
+`tests/integration/target_audit_signals_test.go` checks their shape.
 
 Exclude user-tier-only behavior, waitlists, unreleased beta features,
 marketing claims without usable documentation, cosmetic changes, and
