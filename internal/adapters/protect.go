@@ -15,9 +15,10 @@ type protectedPathsCoverage interface {
 	ProtectedPaths() (enforcement, reason string)
 }
 
-// ClaudeProtectedRulesFile names the file under `.claude/` that records
-// the Edit rules sync wrote for protected paths, so import skips them.
-const ClaudeProtectedRulesFile = claude.ProtectedRulesFile
+// ClaudeOwnedPermissionsFiles name the files under `.claude/` that
+// record the permission rules sync wrote, newest first, so import skips
+// them.
+var ClaudeOwnedPermissionsFiles = []string{claude.OwnedPermissionsFile, claude.LegacyProtectedRulesFile}
 
 const advisoryProtectedPathsReason = "the target has no native edit guard sync writes, so protected paths are advisory; state them in a rule"
 

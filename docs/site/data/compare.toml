@@ -30,7 +30,7 @@
 
   [[targets.kinds]]
     id = "settings"
-    paths = [".claude/settings.json"]
+    paths = [".claude/.agnostic-ai-permissions.json", ".claude/settings.json"]
 
   [[targets.kinds]]
     id = "review"
