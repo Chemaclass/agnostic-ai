@@ -51,13 +51,11 @@ type Entry struct {
 	// which the spec lives, with forward slashes. A spec at
 	// `rules/backend/auth.md` has Scope "backend"; a spec at the root of
 	// `rules/` has Scope "". A rule takes no Scope from a folder when its
-	// frontmatter sets `scope` or the folder names no project directory:
-	// the folder only groups it (see Folder).
-	//
-	// Adapters that produce nested per-directory outputs (Codex, Cursor,
-	// Cline, Windsurf, Continue) honor Scope. Single-document adapters
-	// (Claude CLAUDE.md, Gemini, Aider, Copilot) merge regardless.
+	// frontmatter sets `scope` or the folder names no project directory.
+	// Native file selectors keep the folder for placement without adding activation.
 	Scope string
+	// Keep the loader's folder for placement after local metadata merges.
+	ruleFolder string
 	// Folder is a rule's subfolder under `rules/` when that folder names a
 	// project directory, whether or not Scope took it.
 	Folder string
@@ -848,10 +846,14 @@ func assignScopes(entries []Entry, dir string, kind Kind, projectRoot string) {
 			parent = ""
 		}
 		if kind == KindRule {
+			entries[i].ruleFolder = parent
 			if parent != "" && (projectRoot == "" || isDir(filepath.Join(projectRoot, filepath.FromSlash(parent)))) {
 				entries[i].Folder = parent
 			}
 			entries[i].Scope = entries[i].folderScope()
+			if len(entries[i].NativeRuleTargets()) > 0 {
+				entries[i].Scope = parent
+			}
 			continue
 		}
 		entries[i].Scope = parent
