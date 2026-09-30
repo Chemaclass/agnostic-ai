@@ -6,6 +6,8 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
+	"slices"
 	"strings"
 	"syscall"
 	"testing"
@@ -512,6 +514,147 @@ func TestDoctorFix_RestoredOutputPathAliasesAreNotOfferedAsOrphans(t *testing.T)
 			data, err := os.ReadFile(keptReference)
 			if err != nil || string(data) != "restored\n" {
 				t.Errorf("restored output %q, error %v", data, err)
+			}
+		})
+	}
+}
+
+// failingAdapterOnPath puts an external adapter for target on PATH that
+// exits non-zero, so the target resolves but capturing its files fails.
+func failingAdapterOnPath(t *testing.T, target string) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("shell fixture requires a POSIX shell")
+	}
+	bin := t.TempDir()
+	script := filepath.Join(bin, "agnostic-ai-adapter-"+target)
+	mustWriteFile(t, script, "#!/bin/sh\necho adapter crashed >&2\nexit 1\n")
+	if err := os.Chmod(script, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
+func TestOrphanCheck_SkipsTargetsItCannotLoad(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		target  string
+		adapter func(*testing.T, string)
+		args    []string
+	}{
+		{"doctor with a binary not on PATH", "acme", nil, []string{"doctor"}},
+		{"sync --check with a binary not on PATH", "acme", nil, []string{"sync", "--check"}},
+		{"partial doctor with a failing adapter", "flaky", failingAdapterOnPath, []string{"doctor", "-t", "claude"}},
+		{"partial sync --check with a failing adapter", "flaky", failingAdapterOnPath, []string{"sync", "-t", "claude", "--check"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			syncedWithKeptOrphan(t)
+			if tc.adapter != nil {
+				tc.adapter(t, tc.target)
+			}
+			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, "+tc.target+"]\n")
+			var logged bytes.Buffer
+			prev := logOut
+			logOut = &logged
+			defer func() { logOut = prev }()
+
+			out, err := runCLI(t, tc.args...)
+
+			if err == nil || !strings.Contains(err.Error(), "drift detected") {
+				t.Errorf("error=%v, want the drift error", err)
+			}
+			if err != nil && strings.Contains(err.Error(), "verify orphan producers") {
+				t.Errorf("an unloadable target aborted the check: %v", err)
+			}
+			if !strings.Contains(logged.String(), keptReference) {
+				t.Errorf("recorded orphan not reported:\n%s%s", logged.String(), out)
+			}
+		})
+	}
+}
+
+func TestCollectDrift_UnloadedTargetDoesNotHideOtherProducers(t *testing.T) {
+	testutil.TempCwd(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [acme, claude, codex]\n")
+	mustWriteFile(t, ".agnostic-ai/skills/gone/SKILL.md", "---\nname: gone\ndescription: Restored skill.\ntarget: claude\n---\nRead references/a.md.\n")
+	mustWriteFile(t, ".agnostic-ai/skills/gone/references/a.md", "restored\n")
+	silence(t)
+	syncProject(t)
+	const genuine = ".claude/skills/removed/reference.md"
+	mustWriteFile(t, genuine, "legacy\n")
+	prev := readStateFile(".")
+	if err := writeStateFile(".", 0, "", "", syncLedger{outputs: append(prev.Outputs, genuine), orphans: []string{keptReference, genuine}}); err != nil {
+		t.Fatal(err)
+	}
+
+	reports, err := collectDrift([]string{"codex"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	foundGenuine := false
+	for _, rep := range reports {
+		for _, path := range rep.Orphaned {
+			if path == keptReference {
+				t.Errorf("output another target generates classified as orphan: %s", path)
+			}
+			if path == genuine {
+				foundGenuine = true
+			}
+		}
+	}
+	if !foundGenuine {
+		t.Error("genuine orphan disappeared")
+	}
+}
+
+func TestDoctorFix_KeepsOrphansWhileAProducerIsUnloaded(t *testing.T) {
+	const second = ".claude/skills/gone/references/b.md"
+	for _, tc := range []struct {
+		name             string
+		missing, failing []string
+	}{
+		{"binary not on PATH", []string{"acme"}, nil},
+		{"adapter fails", nil, []string{"flaky"}},
+		{"both", []string{"acme"}, []string{"flaky"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := syncedWithKeptOrphan(t)
+			unloaded := slices.Concat(tc.missing, tc.failing)
+			for _, target := range tc.failing {
+				failingAdapterOnPath(t, target)
+			}
+			cfg.Targets = append(cfg.Targets, unloaded...)
+			mustWriteFile(t, second, "edited\n")
+			ledger := syncLedger{outputs: []string{keptReference, second}, orphans: []string{keptReference, second}}
+			if err := writeStateFile(".", 0, "", "", ledger); err != nil {
+				t.Fatal(err)
+			}
+			reports := []driftReport{{Target: "agnostic-ai", Orphaned: []string{keptReference, second}}}
+			var logged bytes.Buffer
+			prev := logOut
+			logOut = &logged
+			defer func() { logOut = prev }()
+
+			removed, err := offerOrphanRemoval(cfg, reports, false, func(path string) (bool, error) {
+				t.Errorf("offered %s while %v cannot be loaded", path, unloaded)
+				return true, nil
+			})
+
+			if err != nil {
+				t.Fatal(err)
+			}
+			if removed != 0 || orphanedCount(reports) != 2 || !fileExists(keptReference) || !fileExists(second) {
+				t.Errorf("removed=%d remaining=%d", removed, orphanedCount(reports))
+			}
+			got := logged.String()
+			if strings.Count(got, "\n") != 1 {
+				t.Errorf("want one line, got:\n%s", got)
+			}
+			for _, target := range unloaded {
+				if !strings.Contains(got, target) {
+					t.Errorf("line does not name %s:\n%s", target, got)
+				}
 			}
 		})
 	}

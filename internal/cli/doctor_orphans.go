@@ -54,14 +54,14 @@ func offerOrphanRemoval(cfg *config.Config, reports []driftReport, backup bool, 
 	if err != nil {
 		return 0, err
 	}
-	generated, err := orphanGeneratedPaths(cfg, bundle, reports)
+	generated, unloaded, err := orphanGeneratedPaths(cfg, bundle, reports)
 	if err != nil {
 		return 0, err
 	}
 	sess := adapters.NewSession()
 	sess.SetUnmanaged(cfg.Sync.Unmanaged)
 	sess.SetBackup(backup)
-	removed := 0
+	removed, refused := 0, 0
 	pruned := map[string]bool{}
 	for i := range reports {
 		if reports[i].Unledgered {
@@ -85,6 +85,11 @@ func offerOrphanRemoval(cfg *config.Config, reports []driftReport, backup bool, 
 				return removed, fmt.Errorf("%s: %w", path, err)
 			}
 			if !info.Mode().IsRegular() {
+				remaining = append(remaining, path)
+				continue
+			}
+			if len(unloaded) > 0 {
+				refused++
 				remaining = append(remaining, path)
 				continue
 			}
@@ -140,6 +145,9 @@ func offerOrphanRemoval(cfg *config.Config, reports []driftReport, backup bool, 
 			pruneAncestorDirs(path, pruned)
 		}
 		reports[i].Orphaned = remaining
+	}
+	if refused > 0 {
+		keptf("  ~ kept %d orphaned file(s): target(s) %s could not be loaded, so what they generate is unknown (install or fix them, then run `agnostic-ai doctor --fix` again)\n", refused, strings.Join(unloaded, ", "))
 	}
 	return removed, nil
 }
