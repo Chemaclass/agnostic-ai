@@ -11,7 +11,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - Doctor warns when existing packaging ignore files miss generated paths; upgrade notes flag the Codex skills path move (#1447).
 - New `AGNOSTIC_AI.md` files use a short editable template; existing files stay intact, and `doctor` points out old boilerplate (#1446).
 - **Breaking:** rule `scope`, `globs`, and `paths` form a union; rule folders scope existing directories. Remove `scope` to keep only a filter (#1429, #1430).
-- Partial syncs keep all targets' ignores; no sync ignores `outputs.lock`. Kept orphans stay ignored and say why; `doctor --fix` offers removal (#1440, #1503).
+- Partial syncs keep all targets' ignores and never ignore `outputs.lock`. Kept orphans say why; `doctor --fix` offers removal (#1440, #1503, #1509).
+- A failed sync puts back swept orphans, shared-skill links, and ignore files, and no longer deletes a shared skill through a swapped link (#1503, #1509).
 - `import` keeps hand-written instructions whole, a nested `AGENTS.md` becomes a scoped rule, and Claude hook roots resolve elsewhere (#1434, #1449, #1464).
 - Sync notes omitted skill fields, Claude model names, and Claude-only skill syntax; `compare` shows each target's skill fields (#1431, #1436, #1444, #1463).
 - `doctor` fails on lint errors, `sync --diff` requires `--check`, and a `requires` bump no longer trips AAI-005 or `--check --against` (#1425, #1433, #1439).
