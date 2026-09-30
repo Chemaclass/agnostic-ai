@@ -879,6 +879,9 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		next.Hooks[target] = map[string][]any{}
 		path := g.path(home, g.hooks)
 		hooks := b.HooksFor(target)
+		if err := adapters.ReportHookProjectRoot(target, hooks, onUnsupported, true); err != nil {
+			return nil, next, err
+		}
 		if g.hooksFormat == "augment" {
 			augment.NoteUserHookGaps(hooks)
 		}
@@ -1318,6 +1321,7 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 			continue
 		}
 		for _, command := range globalHookCommands(entry.Meta["command"]) {
+			command = adapters.RewriteGlobalHookRoot(command, target.name, entry.Meta)
 			var item, plain any
 			switch format {
 			case "augment":
