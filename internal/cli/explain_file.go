@@ -195,7 +195,7 @@ func plannedAgentsDocs(cfg *config.Config, b spec.Bundle) ([]agentsDoc, error) {
 
 	sess := adapters.NewSession()
 	sess.StartCapture()
-	body, err := resolveAgnosticBody(sess, cfg, false)
+	body, err := resolveAgnosticBody(sess, false)
 	sess.StopCapture()
 	if err != nil {
 		return nil, err

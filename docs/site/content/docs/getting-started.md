@@ -62,9 +62,10 @@ Inspect the output:
 |---|---|
 | `.claude/rules/conventional-commits.md` | Claude Code rule |
 | `.cursor/rules/conventional-commits.mdc` | Cursor rule |
-| `CLAUDE.md` | Claude Code entry point that points back to the source specs |
+| `.agnostic-ai/AGNOSTIC_AI.md` | Shared project instructions, seeded with a short placeholder |
+| `CLAUDE.md` | Claude Code entry point, copied from `AGNOSTIC_AI.md` |
 
-Both rule files contain your commit convention. Edit the source and run `sync` again; never edit the generated copies.
+Both rule files contain your commit convention. Write project instructions in `AGNOSTIC_AI.md`. Edit the sources and run `sync` again; never edit the generated copies.
 
 To change tools later, edit `targets:` in `agnostic-ai.yaml`. See [target selection](@/docs/configuration.md#targets) for one-run filters and the first-sync picker.
 

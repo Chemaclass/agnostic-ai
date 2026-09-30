@@ -26,7 +26,7 @@ func TestSync_SharedEntryPoint_Deduped(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected AGENTS.md written once: %v", err)
 	}
-	if !strings.Contains(string(got), "AI Project Conventions") {
+	if !strings.Contains(string(got), "# Project instructions") {
 		t.Errorf("AGENTS.md should carry the canonical pointer body, got:\n%s", got)
 	}
 }
