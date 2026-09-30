@@ -14,14 +14,15 @@ import (
 
 func TestEmit_SettingsModelCoverageFollowsOverrides(t *testing.T) {
 	for _, tc := range []struct {
-		name, model, overlay string
-		dryRun, rejected     bool
+		name, model, overlay, err string
+		dryRun                    bool
 	}{
 		{name: "output", model: "test-codex-model"},
 		{name: "overlay", overlay: "model = \"overlay-model\"\n"},
 		{name: "overlay dry run", overlay: "model = \"overlay-model\"\n", dryRun: true},
-		{name: "no override", rejected: true},
-		{name: "profile only", overlay: "[profiles.work]\nmodel = \"profile-model\"\n", rejected: true},
+		{name: "no override", err: "Claude model"},
+		{name: "profile only", overlay: "[profiles.work]\nmodel = \"profile-model\"\n", err: "Claude model"},
+		{name: "broken overlay", overlay: "model =\n", err: "parse " + configOverlayPath},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			testutil.TempCwd(t)
@@ -42,9 +43,9 @@ func TestEmit_SettingsModelCoverageFollowsOverrides(t *testing.T) {
 				sess.StartCapture()
 			}
 			err := New().Emit(sess, b, cfg, tc.dryRun)
-			if tc.rejected {
-				if err == nil || !strings.Contains(err.Error(), "Claude model") {
-					t.Errorf("expected model error, got %v", err)
+			if tc.err != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.err) {
+					t.Errorf("expected %q error, got %v", tc.err, err)
 				}
 				return
 			}

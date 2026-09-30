@@ -148,14 +148,10 @@ func (Adapter) Name() string { return target }
 
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
-func modelCoverage(cfg *config.Config) emit.Capabilities {
+func modelCoverage(cfg *config.Config, overlayKeys map[string]bool) emit.Capabilities {
 	coverage := caps
-	if output, ok := cfg.Outputs[target]; ok && output.Config != nil && output.Config.Model != "" {
-		coverage.SettingsModelOverridden = true
-		return coverage
-	}
-	_, keys, err := loadConfigOverlay()
-	coverage.SettingsModelOverridden = err == nil && keys["model"]
+	codexCfg := cfg.Outputs[target].Config
+	coverage.SettingsModelOverridden = codexCfg != nil && codexCfg.Model != "" || overlayKeys["model"]
 	return coverage
 }
 
@@ -166,7 +162,11 @@ func modelCoverage(cfg *config.Config) emit.Capabilities {
 // deprecated custom prompts and never reads a project-level tree). The
 // project-root AGENTS.md is written by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
-	if err := emit.ReportUnsupported(modelCoverage(cfg), b, cfg.OnUnsupported); err != nil {
+	overlay, overlayKeys, err := loadConfigOverlay()
+	if err != nil {
+		return err
+	}
+	if err := emit.ReportUnsupported(modelCoverage(cfg, overlayKeys), b, cfg.OnUnsupported); err != nil {
 		return err
 	}
 
@@ -218,7 +218,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		return err
 	}
 
-	if err := emitConfigTOML(sess, b, cfg, dryRun); err != nil {
+	if err := emitConfigTOML(sess, b, cfg, overlay, overlayKeys, dryRun); err != nil {
 		return err
 	}
 	if err := emitEnvironment(sess, b.Environments, cfg, dryRun); err != nil {
@@ -320,19 +320,15 @@ func codexEmitsSkills(cfg *config.Config) bool {
 }
 
 // emitConfigTOML writes `.codex/config.toml` with the captured overlay,
-// first-class config, hooks, and MCP servers when any content exists.
+// first-class config, and MCP servers when any content exists.
 // The project-tier config.toml is agnostic-ai-managed: overwrite on each
 // sync. The overlay (`.agnostic-ai/overlays/codex.config.toml`) carries
 // every user-authored key outside hooks/mcp_servers so a wipe of
 // `.codex/` between import and sync does not destroy them.
-func emitConfigTOML(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
+func emitConfigTOML(sess *emit.Session, b spec.Bundle, cfg *config.Config, overlay string, overlayKeys map[string]bool, dryRun bool) error {
 	var codexCfg *config.CodexConfig
 	if o, ok := cfg.Outputs[target]; ok {
 		codexCfg = o.Config
-	}
-	overlay, overlayKeys, err := loadConfigOverlay()
-	if err != nil {
-		return err
 	}
 	body := renderConfigTOML(b.Settings, b.MCPs, codexCfg, overlay, overlayKeys)
 	path := emit.OutputMCPFile(cfg, target, defaultConfigFile)
