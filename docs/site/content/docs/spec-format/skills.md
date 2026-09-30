@@ -67,6 +67,7 @@ model: {claude: opus}
 |-------|----------|---------|-------------|
 | `name` | no | dir or filename | Skill identifier and output directory. Some targets restrict the format. |
 | `description` | no | empty | One-liner the model uses to decide whether to invoke the skill. |
+| `argument-hint` | no | unset | Hint for the arguments to a Claude Code slash command. Other targets omit it unless set under their `x-<target>` block. |
 | `disable-model-invocation` | no | unset | `true` keeps the skill out of automatic invocation; a person can still call it. See [support by target](#disable-model-invocation-support-by-target). |
 | `model` | no | unset | Claude Code model for the rest of the turn. Scalar or per-target map; `x-claude.model` wins. |
 | `effort` | no | unset | Claude Code effort for the rest of the turn. Scalar or per-target map; `x-claude.effort` wins. |
@@ -75,7 +76,7 @@ model: {claude: opus}
 
 A skill's scope comes from its folder: `skills/services/api/review/SKILL.md` moves the skill under `services/api/`, where only sessions in that directory load it. `scope:` in the frontmatter has no effect, and `lint` warns about it (LINT018). `import cursor` writes `workspaces` when a root `.cursor/skills/<name>` links to a skill folder under a project directory.
 
-Other targets omit skill `model` and `effort` and report a coverage note when a value resolves for them. Use `{claude: opus}` to choose a model only for Claude. Global sync uses the same renderers; shared global directories omit target overrides.
+Sync reports a coverage note for each skill field a target omits, including `argument-hint`, `model`, and `effort`. Fields kept in native frontmatter, an enabled command mirror, or a policy sidecar get no drop note. `agnostic-ai compare claude codex` shows which skill fields each target keeps, translates, or drops. Use `{claude: opus}` to choose a model only for Claude. Global sync uses the same renderers; shared global directories omit target overrides.
 
 ## Bundled files and output
 

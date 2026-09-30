@@ -844,8 +844,8 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			}
 		}
 		if g.skills != "" {
-			adapters.NoteDroppedSkillFields(target, b.Skills)
 			dir := g.path(home, g.skills)
+			adapters.NoteDroppedSkillFields(target, b.Skills, sharedGlobalSkillsDir(home, dir))
 			if err := adapters.NoteManualOnlySkillDrops(target, b.Skills, sharedGlobalSkillsDir(home, dir)); err != nil {
 				return nil, next, err
 			}

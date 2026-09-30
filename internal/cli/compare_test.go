@@ -241,7 +241,7 @@ func TestCompare_OrdersSpecsAndFieldsStablyAndStatesCoverage(t *testing.T) {
 		t.Fatalf("output is not deterministic:\n%s\n---\n%s", first, second)
 	}
 	for _, want := range []string{
-		"coverage: agent fields and rule scope/activation only",
+		"coverage: agent and skill fields and rule scope/activation only",
 		"agent claude-only  .agnostic-ai/agents/claude-only.md",
 		"tools (differs)",
 	} {
@@ -339,5 +339,107 @@ func TestCompare_FailsOnInvalidProjectConfig(t *testing.T) {
 	silence(t)
 	if _, err := runCompare(t, "claude", "cursor"); err == nil {
 		t.Error("expected an error for an invalid agnostic-ai.yaml")
+	}
+}
+
+func TestCompare_ReportsSkillFieldsAndCodexPolicyTranslation(t *testing.T) {
+	testutil.Chdir(t, setupCompareFixture(t))
+	silence(t)
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\nargument-hint: '[file]'\neffort: high\nlicense: MIT\ndisable-model-invocation: true\n---\n\nReview.\n")
+	out := compareJSON(t, "claude", "codex")
+	path := ".agnostic-ai/skills/review/SKILL.md"
+	for _, field := range []string{"description", "argument-hint", "effort", "license", "disable-model-invocation"} {
+		if r := findCompareResult(t, out, path, field, "claude"); r.Status != statusPreserved {
+			t.Errorf("claude %s: %q, want preserved", field, r.Status)
+		}
+	}
+	for _, field := range []string{"argument-hint", "effort"} {
+		r := findCompareResult(t, out, path, field, "codex")
+		if r.Status != statusUnsupported || !strings.Contains(r.Reason, "the skill file has no "+field+" field") {
+			t.Errorf("codex %s: %+v, want unsupported with coverage reason", field, r)
+		}
+	}
+	if r := findCompareResult(t, out, path, "license", "codex"); r.Status != statusPreserved {
+		t.Errorf("codex license: %+v, want preserved", r)
+	}
+	r := findCompareResult(t, out, path, "disable-model-invocation", "codex")
+	if r.Status != statusTranslated || len(r.Paths) != 1 || r.Paths[0] != ".agents/skills/review/agents/openai.yaml" {
+		t.Errorf("codex manual policy: %+v, want translated into openai.yaml", r)
+	}
+	if !strings.Contains(out.Coverage, "skill fields") || strings.Contains(out.Coverage, "skills, hooks") {
+		t.Errorf("coverage must include skills: %s", out.Coverage)
+	}
+}
+
+func TestCompare_ReportsExcludedSkillAndUnsupportedKind(t *testing.T) {
+	testutil.Chdir(t, setupCompareFixture(t))
+	silence(t)
+	writeFile(t, ".agnostic-ai/skills/claude-only/SKILL.md", "---\nname: claude-only\ndescription: Review.\ntarget: claude\nargument-hint: '[file]'\n---\n\nReview.\n")
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review.\nargument-hint: '[file]'\n---\n\nReview.\n")
+	out := compareJSON(t, "claude", "jules")
+	if r := findCompareResult(t, out, ".agnostic-ai/skills/claude-only/SKILL.md", "argument-hint", "jules"); r.Status != statusExcluded {
+		t.Errorf("filtered skill: %+v, want excluded", r)
+	}
+	if r := findCompareResult(t, out, ".agnostic-ai/skills/review/SKILL.md", "argument-hint", "jules"); r.Status != statusUnsupported {
+		t.Errorf("unsupported skill: %+v, want unsupported", r)
+	}
+}
+
+func TestCompare_ReportsSkillFieldsPreservedInOptedInOpenCodeCommands(t *testing.T) {
+	testutil.Chdir(t, setupCompareFixture(t))
+	silence(t)
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\nmodel: provider/review-model\nagent: reviewer\nsubtask: true\nargument-hint: '[file]'\n---\n\nReview.\n")
+	const path = ".agnostic-ai/skills/review/SKILL.md"
+	for _, mirror := range []bool{true, false} {
+		value := "false"
+		if mirror {
+			value = "true"
+		}
+		writeFile(t, "agnostic-ai.yaml", "targets: [claude, opencode]\noutputs:\n  opencode:\n    emit-skills-as-commands: "+value+"\n")
+		out := compareJSON(t, "claude", "opencode")
+		for _, field := range []string{"model", "agent", "subtask"} {
+			r := findCompareResult(t, out, path, field, "opencode")
+			want := statusUnsupported
+			if mirror {
+				want = statusPreserved
+			}
+			if r.Status != want {
+				t.Errorf("%s with mirror %v: %+v, want %s", field, mirror, r, want)
+			}
+			if mirror && (len(r.Paths) != 1 || r.Paths[0] != ".opencode/commands/skill-review.md") {
+				t.Errorf("%s: paths %v, want command mirror", field, r.Paths)
+			}
+		}
+		if r := findCompareResult(t, out, path, "argument-hint", "opencode"); r.Status != statusUnsupported {
+			t.Errorf("argument-hint: %+v, want unsupported", r)
+		}
+	}
+}
+
+func TestCompare_ReportsSkillFieldsPreservedInOptedInGeminiCommands(t *testing.T) {
+	testutil.Chdir(t, setupCompareFixture(t))
+	silence(t)
+	writeFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\nmodel: review-model\neffort: high\nx-gemini:\n  model: review-model\n  effort: high\n---\n\nReview.\n")
+	const path = ".agnostic-ai/skills/review/SKILL.md"
+	for _, mirror := range []bool{true, false} {
+		value := "false"
+		if mirror {
+			value = "true"
+		}
+		writeFile(t, "agnostic-ai.yaml", "targets: [claude, gemini]\noutputs:\n  gemini:\n    emit-skills-as-commands: "+value+"\n")
+		out := compareJSON(t, "claude", "gemini")
+		for _, field := range []string{"model", "effort"} {
+			r := findCompareResult(t, out, path, field, "gemini")
+			want := statusUnsupported
+			if mirror {
+				want = statusPreserved
+			}
+			if r.Status != want {
+				t.Errorf("%s with mirror %v: %+v, want %s", field, mirror, r, want)
+			}
+			if mirror && (len(r.Paths) != 1 || r.Paths[0] != ".gemini/commands/skill-review.toml") {
+				t.Errorf("%s: paths %v, want command mirror", field, r.Paths)
+			}
+		}
 	}
 }
