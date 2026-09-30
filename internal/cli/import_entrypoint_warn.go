@@ -66,16 +66,20 @@ func importingAll() bool {
 }
 
 // foldRootAgentsMainFile appends to AGNOSTIC_AI.md the sections of a
-// hand-written root AGENTS.md that it does not hold yet. `import all`
-// never detects codex from AGENTS.md alone, since many tools read that
-// file, so without this its text would be left for sync to overwrite.
-func foldRootAgentsMainFile(root string) error {
+// hand-written root AGENTS.md that it does not hold yet, seeding it when
+// absent, and reports whether it wrote. `import all` never detects codex
+// from AGENTS.md alone, since many tools read that file, so without this
+// its text would be left for sync to overwrite.
+func foldRootAgentsMainFile(root string) (bool, error) {
 	data, err := readEntryFile(root, filepath.Join(root, claudeAgentsMainFile))
 	if errors.Is(err, fs.ErrNotExist) {
-		return nil
+		return false, nil
 	}
 	if err != nil {
-		return fmt.Errorf("read %s: %w", claudeAgentsMainFile, err)
+		return false, fmt.Errorf("read %s: %w", claudeAgentsMainFile, err)
+	}
+	if header.Has(string(data)) {
+		return false, nil
 	}
 	dst := filepath.Join(root, agnosticMainFile)
 	existing, err := os.ReadFile(dst)
@@ -84,15 +88,15 @@ func foldRootAgentsMainFile(root string) error {
 		if result == mirrorWritten {
 			summaryf("  → %s seeded from %s\n", agnosticMainFile, claudeAgentsMainFile)
 		}
-		return err
+		return result == mirrorWritten, err
 	}
 	if err != nil {
-		return fmt.Errorf("read %s: %w", dst, err)
+		return false, fmt.Errorf("read %s: %w", dst, err)
 	}
 	captured := string(existing)
 	body := uncapturedEntryBody(root, claudeAgentsMainFile, captured, string(data))
 	if body == "" {
-		return nil
+		return false, nil
 	}
 	var added, titles []string
 	have := collapseSpace(captured)
@@ -104,11 +108,11 @@ func foldRootAgentsMainFile(root string) error {
 		titles = append(titles, fmt.Sprintf("%q", sectionTitle(section)))
 	}
 	if len(added) == 0 {
-		return nil
+		return false, nil
 	}
 	merged := strings.TrimRight(captured, "\n") + "\n\n" + strings.Join(added, "\n\n") + "\n"
 	if err := importWriteFile(dst, []byte(merged), 0o644); err != nil {
-		return fmt.Errorf("write %s: %w", dst, err)
+		return false, fmt.Errorf("write %s: %w", dst, err)
 	}
 	noun := "sections"
 	if len(added) == 1 {
@@ -116,7 +120,7 @@ func foldRootAgentsMainFile(root string) error {
 	}
 	summaryf("  → merged %d %s from %s into %s: %s\n",
 		len(added), noun, claudeAgentsMainFile, agnosticMainFile, strings.Join(titles, ", "))
-	return nil
+	return true, nil
 }
 
 func markdownH2Sections(body string) []string {

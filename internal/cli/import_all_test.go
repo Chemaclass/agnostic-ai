@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -209,6 +210,85 @@ func TestImportAll_LeavesAMatchingRootAgentsMainFileAlone(t *testing.T) {
 	}
 	if strings.Contains(buf.String(), "merged") {
 		t.Errorf("nothing to merge, got:\n%s", buf.String())
+	}
+}
+
+func TestImportAll_SeedsFromARootAgentsMainFileAlone(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	buf := captureSummary(t)
+	body := "# Repository Guidelines\n\nRun make lint before pushing.\n"
+	mustWrite(t, filepath.Join(dir, "AGENTS.md"), body)
+
+	var err error
+	out := captureStdout(t, func() {
+		root := NewRootCmd("test")
+		root.SetArgs([]string{"import", "all"})
+		err = root.Execute()
+	})
+	if err != nil {
+		t.Fatalf("import all: %v", err)
+	}
+
+	if got := mustRead(t, filepath.Join(dir, agnosticMainFile)); got != body {
+		t.Errorf("AGNOSTIC_AI.md\ngot  %q\nwant %q", got, body)
+	}
+	if strings.Contains(out, "no importable") {
+		t.Errorf("AGENTS.md was imported, got:\n%s", out)
+	}
+	if !strings.Contains(buf.String(), ".agnostic-ai/AGNOSTIC_AI.md seeded from AGENTS.md") {
+		t.Errorf("expected the seed to be reported, got:\n%s", buf.String())
+	}
+}
+
+func TestInitFromAll_SeedsFromARootAgentsMainFileAlone(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	buf := captureSummary(t)
+	body := "# Repository Guidelines\n\nRun make lint before pushing.\n"
+	mustWrite(t, filepath.Join(dir, "AGENTS.md"), body)
+
+	root := NewRootCmd("test")
+	root.SetIn(devNullStdin(t))
+	root.SetArgs([]string{"init", "--from", "all"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("init --from all: %v", err)
+	}
+
+	if got := mustRead(t, filepath.Join(dir, agnosticMainFile)); got != body {
+		t.Errorf("AGNOSTIC_AI.md\ngot  %q\nwant %q", got, body)
+	}
+	if !strings.Contains(buf.String(), ".agnostic-ai/AGNOSTIC_AI.md seeded from AGENTS.md") {
+		t.Errorf("expected the seed to be reported, got:\n%s", buf.String())
+	}
+}
+
+func TestImportAll_LeavesAGeneratedRootAgentsMainFileAlone(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	captureSummary(t)
+	generated := header.Line(header.FormatMarkdown) + "# Repository Guidelines\n\nRun make lint before pushing.\n"
+	mustWrite(t, filepath.Join(dir, "AGENTS.md"), generated)
+
+	var err error
+	out := captureStdout(t, func() {
+		root := NewRootCmd("test")
+		root.SetArgs([]string{"import", "all"})
+		err = root.Execute()
+	})
+	if err != nil {
+		t.Fatalf("import all: %v", err)
+	}
+
+	if _, statErr := os.Stat(filepath.Join(dir, agnosticMainFile)); statErr == nil {
+		t.Errorf("a generated AGENTS.md must not seed %s", agnosticMainFile)
+	}
+	if got := mustRead(t, filepath.Join(dir, "AGENTS.md")); got != generated {
+		t.Errorf("AGENTS.md changed\ngot  %q\nwant %q", got, generated)
+	}
+	if !strings.Contains(out, "no importable AI CLI configs detected") {
+		t.Errorf("expected the nothing-to-import message, got:\n%s", out)
 	}
 }
 
