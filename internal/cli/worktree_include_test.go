@@ -74,3 +74,44 @@ func TestSync_WorktreeIncludeOptOutAndOtherTargets(t *testing.T) {
 		t.Errorf("a codex-only project got a .worktreeinclude: %v", err)
 	}
 }
+
+func TestSync_WorktreeIncludeExcludesClaudeRuntimePaths(t *testing.T) {
+	for _, toolDir := range []string{".claude", "vendor/.claude", "./.claude", "vendor/.claude/", "vendor/../.claude"} {
+		t.Run(toolDir, func(t *testing.T) {
+			dir := syncGitignored(t, "version: 1\ntargets: [claude]\noutputs:\n  claude:\n    dir: "+toolDir+"\ngitignore:\n  enabled: true\n")
+			ignored, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			included, err := os.ReadFile(filepath.Join(dir, ".worktreeinclude"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, suffix := range []string{"/worktrees/", "/scheduled_tasks.lock"} {
+				path := normalizeGitignorePath(filepath.Join(toolDir, strings.Trim(suffix, "/")))
+				if strings.HasSuffix(suffix, "/") {
+					path += "/"
+				}
+				if !strings.Contains(string(ignored), path+"\n") {
+					t.Errorf("runtime path %s is not ignored: %s", path, ignored)
+				}
+				if strings.Contains(string(included), path+"\n") {
+					t.Errorf("runtime path %s is copied into worktrees: %s", path, included)
+				}
+			}
+		})
+	}
+}
+
+func TestSync_WorktreeIncludeExcludesRuntimePathsFromCollapsedDirectory(t *testing.T) {
+	dir := syncGitignored(t, "version: 1\ntargets: [claude]\noutputs:\n  claude:\n    dir: vendor/.claude\n    rules-dir: vendor/.claude\ngitignore:\n  enabled: true\n")
+	data, err := os.ReadFile(filepath.Join(dir, ".worktreeinclude"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"/vendor/.claude/\n", "!/vendor/.claude/worktrees/\n", "!/vendor/.claude/scheduled_tasks.lock\n"} {
+		if !strings.Contains(string(data), want) {
+			t.Errorf("worktreeinclude lacks %q: %s", want, data)
+		}
+	}
+}
