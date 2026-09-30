@@ -41,6 +41,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - Exec policies and a Codex config or overlay `model` silence the notes they make redundant (#1432, #1462).
 - `import codex` strips generated skill headers and keeps an agent's model in `model.codex`; `environment.toml` always has `[setup]` (#1461, #1476).
 - Sync no longer writes `notify`, `profiles`, `model_providers`, or other keys Codex ignores in a project `config.toml`, and notes where each goes (#1511).
+- `sync --dry-run` reads the captured exec-policies header, so its `.codex/rules/default.rules` preview matches a real sync (#1523).
 
 #### Copilot
 
