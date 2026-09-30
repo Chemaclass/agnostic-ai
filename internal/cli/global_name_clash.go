@@ -7,8 +7,10 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"unicode"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -19,8 +21,11 @@ import (
 // Codex shows both skills, and the other targets document none.
 var globalNameWinners = map[spec.Kind]map[string]bool{
 	// code.claude.com/docs/en/skills: personal over project.
-	// ampcode.com/docs/customize/skills: user-level directories mask a
-	// project skill. geminicli.com/docs/cli/skills: workspace over user.
+	// geminicli.com/docs/cli/skills: workspace over user.
+	// ampcode.com/docs/customize/skills: ~/.agents/skills/ masks
+	// .agents/skills/, the amp target's own paths. Amp reads project
+	// .claude/skills/ before ~/.claude/skills/, so a clash from the
+	// claude target alone loads the project copy there.
 	spec.KindSkill: {"amp": true, "claude": true, "gemini": false},
 	// code.claude.com/docs/en/sub-agents: .claude/agents/ over
 	// ~/.claude/agents/.
@@ -46,7 +51,7 @@ func (c globalNameClash) String() string {
 	}
 	return fmt.Sprintf("%s: %s %q also exists in %s; %s; rename one to load both",
 		filepath.ToSlash(c.project.Path), c.project.Kind, c.project.Name,
-		filepath.ToSlash(c.global.Path), strings.Join(winners, ", "))
+		homeRelative(c.global.Path), strings.Join(winners, ", "))
 }
 
 func loaders(targets []string) string {
@@ -56,15 +61,59 @@ func loaders(targets []string) string {
 	return strings.Join(targets[:len(targets)-1], ", ") + " and " + targets[len(targets)-1] + " load"
 }
 
+func homeRelative(path string) string {
+	if home, err := globalUserHome(); err == nil {
+		if rel, err := filepath.Rel(home, path); err == nil && filepath.IsLocal(rel) {
+			return "~/" + filepath.ToSlash(rel)
+		}
+	}
+	return filepath.ToSlash(path)
+}
+
+// claudeSkillName folds a skill name the way Claude Code matches it:
+// compatibility forms, case, spacing, and invisible characters do not
+// tell two names apart.
+func claudeSkillName(name string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsSpace(r) || unicode.Is(unicode.Cf, r) {
+			return -1
+		}
+		return unicode.ToLower(r)
+	}, norm.NFKC.String(name))
+}
+
+// sameNameIn reports whether target loads p and g under one name.
+func sameNameIn(kind spec.Kind, target string, p, g spec.Entry) bool {
+	if kind == spec.KindSkill && target == "claude" {
+		return claudeSkillName(p.Name) == claudeSkillName(g.Name)
+	}
+	return p.Name == g.Name
+}
+
+func hasUserLevelSurface(kind spec.Kind, target string) bool {
+	if kind == spec.KindAgent {
+		return globalTargets[target].agents != ""
+	}
+	return globalTargets[target].skills != ""
+}
+
+// sameFile is true when both paths name one file, as they do when the
+// project is the global home or the home links to the project's specs.
+func sameFile(a, b string) bool {
+	infoA, errA := os.Stat(a)
+	infoB, errB := os.Stat(b)
+	return errA == nil && errB == nil && os.SameFile(infoA, infoB)
+}
+
 // globalNameClashes compares the project's skills and agents with the
 // global home's, for the targets both write. A missing or broken global
 // home reports nothing: project sync never depends on it.
-func globalNameClashes(root string, b spec.Bundle, targets []string) []globalNameClash {
+func globalNameClashes(b spec.Bundle, targets []string) []globalNameClash {
 	source, err := globalSourceRoot()
 	if err != nil {
 		return nil
 	}
-	if info, err := os.Stat(source); err != nil || !info.IsDir() || sameDir(source, root) {
+	if info, err := os.Stat(source); err != nil || !info.IsDir() {
 		return nil
 	}
 	global, err := spec.LoadLayered(globalLayers(source))
@@ -92,29 +141,26 @@ func globalNameClashes(root string, b spec.Bundle, targets []string) []globalNam
 		{spec.KindAgent, b.Agents, global.Agents},
 		{spec.KindSkill, b.Skills, global.Skills},
 	} {
-		byName := map[string]spec.Entry{}
-		for _, e := range kind.global {
-			byName[e.Name] = e
-		}
 		for _, p := range kind.project {
-			g, ok := byName[p.Name]
-			if !ok {
-				continue
-			}
-			clash := globalNameClash{project: p, global: g}
-			for _, t := range shared {
-				globalWins, documented := globalNameWinners[kind.kind][t]
-				if !documented || !p.EmitsTo(t) || !g.EmitsTo(t) {
+			for _, g := range kind.global {
+				if claudeSkillName(p.Name) != claudeSkillName(g.Name) || sameFile(p.Path, g.Path) {
 					continue
 				}
-				if globalWins {
-					clash.globalWins = append(clash.globalWins, t)
-				} else {
-					clash.projectWins = append(clash.projectWins, t)
+				clash := globalNameClash{project: p, global: g}
+				for _, t := range shared {
+					globalWins, documented := globalNameWinners[kind.kind][t]
+					if !documented || !hasUserLevelSurface(kind.kind, t) || !sameNameIn(kind.kind, t, p, g) || !p.EmitsTo(t) || !g.EmitsTo(t) {
+						continue
+					}
+					if globalWins {
+						clash.globalWins = append(clash.globalWins, t)
+					} else {
+						clash.projectWins = append(clash.projectWins, t)
+					}
 				}
-			}
-			if len(clash.globalWins)+len(clash.projectWins) > 0 {
-				out = append(out, clash)
+				if len(clash.globalWins)+len(clash.projectWins) > 0 {
+					out = append(out, clash)
+				}
 			}
 		}
 	}
@@ -124,7 +170,7 @@ func globalNameClashes(root string, b spec.Bundle, targets []string) []globalNam
 // reportGlobalNameClashes lists them for doctor. A shared name can be
 // on purpose, so it never fails the run.
 func reportGlobalNameClashes(cmd *cobra.Command, b spec.Bundle, targets []string) {
-	clashes := globalNameClashes(".", b, targets)
+	clashes := globalNameClashes(b, targets)
 	if len(clashes) == 0 {
 		return
 	}

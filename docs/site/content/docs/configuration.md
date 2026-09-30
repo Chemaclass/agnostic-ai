@@ -566,12 +566,12 @@ A project skill or agent can share its `name` with one in the home. Both get wri
 
 | Target | Skill with the same name | Agent with the same name |
 |--------|--------------------------|--------------------------|
-| Amp | Global wins ([skills](https://ampcode.com/docs/customize/skills)) | No global agents |
+| Amp | Global wins when both sync `amp`: `~/.agents/skills/` masks `.agents/skills/` ([skills](https://ampcode.com/docs/customize/skills)) | No global agents |
 | Claude Code | Global wins ([skills](https://code.claude.com/docs/en/skills)) | Project wins ([subagents](https://code.claude.com/docs/en/sub-agents)) |
 | Codex | Both can appear in skill selectors, so no warning ([skills](https://learn.chatgpt.com/docs/build-skills)) | Not checked |
 | Gemini CLI | Project wins ([skills](https://geminicli.com/docs/cli/skills/)) | Not checked |
 
-Other targets document no precedence, so sync does not warn for them. The check covers targets both the project and the home's [`targets`](#global-configuration) write, and skips a spec whose `target`, `targets`, or `targets-exclude` leaves one of them out. A missing or unreadable home adds no warning.
+Other targets document no precedence, so sync does not warn for them. The check covers targets both the project and the home's [`targets`](#global-configuration) write, and skips a spec whose `target`, `targets`, or `targets-exclude` leaves one of them out. Claude Code matches skill names ignoring case, spacing, invisible characters, and fullwidth forms, so the Claude check folds names the same way; other targets compare names exactly. A spec the project and the home share through a link, or a project that is the home, is not a clash. A missing or unreadable home adds no warning.
 
 To layer on purpose, give the project spec its own name. For example, keep a general `gh-issue` skill in the home and add a project `gh-issue-project` skill that holds only this repo's branch names and checks. Both then load everywhere, and the project one can point at the global one.
 
