@@ -490,7 +490,7 @@ func (e txEntry) undo() []error {
 	if err := mkdirAll(filepath.Dir(e.path), dirPerm); err != nil {
 		errs = append(errs, fmt.Errorf("rollback %s: %w", e.path, err))
 	} else if e.link != "" {
-		if err := os.Symlink(e.link, e.path); err != nil {
+		if err := restoreLink(e.link, e.path); err != nil {
 			errs = append(errs, fmt.Errorf("rollback %s: %w", e.path, err))
 		}
 	} else if err := os.WriteFile(e.path, e.content, mode); err != nil {
@@ -499,6 +499,18 @@ func (e txEntry) undo() []error {
 		errs = append(errs, fmt.Errorf("rollback %s mode: %w", e.path, err))
 	}
 	return errs
+}
+
+// restoreLink recreates the symlink at path to target, over a symlink
+// written there since the removal. Removing a symlink never touches what
+// it points at.
+func restoreLink(target, path string) error {
+	if info, err := os.Lstat(path); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		if err := os.Remove(path); err != nil {
+			return err
+		}
+	}
+	return os.Symlink(target, path)
 }
 
 // pathsOverlap reports whether a and b are the same path or one lies
@@ -977,6 +989,49 @@ func (s *Session) RemoveLink(path string, dryRun bool) (removed bool, err error)
 		return false, nil
 	}
 	return s.remove(path, "", nil, false, dryRun)
+}
+
+// ReplaceFolderWithLink runs replace, which swaps the folder at path for
+// a symlink. An open transaction logs the folder's files, then the link,
+// so Rollback puts the folder back before it undoes an earlier write
+// inside it, which would otherwise reach through the link. Nothing is
+// logged when replace fails.
+func (s *Session) ReplaceFolderWithLink(path string, replace func() error) error {
+	s.mu.Lock()
+	transacting := s.transacting
+	s.mu.Unlock()
+	if !transacting {
+		return replace()
+	}
+	var files []txEntry
+	err := filepath.WalkDir(path, func(p string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if !d.Type().IsRegular() {
+			return nil
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		data, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		files = append(files, txEntry{path: p, content: data, mode: info.Mode().Perm()})
+		return nil
+	})
+	if err != nil && !IsAbsent(err) {
+		return err
+	}
+	if err := replace(); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	s.txLog = append(append(s.txLog, files...), txEntry{path: path})
+	s.mu.Unlock()
+	return nil
 }
 
 // remove deletes path, whose bytes are existing, once the caller has

@@ -568,7 +568,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 			ledgerSession = append(ledgerSession, adapters.AgnosticEntryPointPath)
 		}
 	}
-	applied := shared.apply(dryRun)
+	applied := shared.apply(mainSess, dryRun)
 	ledgerSession = adjustLedgerForLinks(ledgerSession, applied)
 	ledger, kept, removed, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, effectiveTargets, cfg.Targets, dryRun)
 	if gitignoreOn {
@@ -913,7 +913,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 		gitignoreEntries = append(gitignoreEntries, mainSess.StopRecording()...)
 	}
 
-	applied := shared.apply(false)
+	applied := shared.apply(mainSess, false)
 	ledgerSession = adjustLedgerForLinks(ledgerSession, applied)
 	mainSess.StartTransaction()
 	ledger, kept, removed, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, effectiveTargets, cfg.Targets, false)

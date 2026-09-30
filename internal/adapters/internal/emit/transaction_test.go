@@ -287,6 +287,80 @@ func TestTransaction_RollbackRestoresLinkBeforeWriteThroughIt(t *testing.T) {
 	}
 }
 
+// A write logged inside a folder before it became a link must be undone
+// in the folder, never through the link into the files it points at.
+func TestTransaction_RollbackPutsBackFolderReplacedWithLink(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "canonical", "SKILL.md"), "body\n")
+	probe := filepath.Join(dir, "probe")
+	if err := os.Symlink("canonical", probe); err != nil {
+		t.Skipf("symlinks unsupported: %v", err)
+	}
+	folder := filepath.Join(dir, "copy")
+	writeTestFile(t, filepath.Join(folder, "references", "a.md"), "kept\n")
+	sess := NewSession()
+	sess.StartTransaction()
+	if err := sess.WriteFile(filepath.Join(folder, "SKILL.md"), "body", false); err != nil {
+		t.Fatal(err)
+	}
+
+	err := sess.ReplaceFolderWithLink(folder, func() error {
+		if err := os.RemoveAll(folder); err != nil {
+			return err
+		}
+		return os.Symlink("canonical", folder)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := sess.Rollback(); err != nil {
+		t.Fatalf("rollback: %v", err)
+	}
+
+	if got, err := os.ReadFile(filepath.Join(dir, "canonical", "SKILL.md")); err != nil || string(got) != "body\n" {
+		t.Errorf("canonical file = %q, %v", got, err)
+	}
+	if fi, err := os.Lstat(folder); err != nil || !fi.IsDir() {
+		t.Fatalf("folder not put back: %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(folder, "SKILL.md")); !os.IsNotExist(err) {
+		t.Errorf("write logged before the swap not undone: %v", err)
+	}
+	if got, err := os.ReadFile(filepath.Join(folder, "references", "a.md")); err != nil || string(got) != "kept\n" {
+		t.Errorf("file the session never wrote = %q, %v", got, err)
+	}
+}
+
+func TestTransaction_RollbackRestoresLinkOverLinkLeftInItsPlace(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "old", "SKILL.md"), "old\n")
+	writeTestFile(t, filepath.Join(dir, "new", "SKILL.md"), "new\n")
+	link := filepath.Join(dir, "link")
+	if err := os.Symlink("old", link); err != nil {
+		t.Skipf("symlinks unsupported: %v", err)
+	}
+	sess := NewSession()
+	sess.StartTransaction()
+	if removed, err := sess.RemoveLink(link, false); err != nil || !removed {
+		t.Fatalf("RemoveLink = %v, %v; want the link removed", removed, err)
+	}
+	if err := os.Symlink("new", link); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := sess.Rollback(); err != nil {
+		t.Fatalf("rollback: %v", err)
+	}
+	if got, err := os.Readlink(link); err != nil || got != "old" {
+		t.Errorf("link = %q, %v; want old", got, err)
+	}
+	if got, err := os.ReadFile(filepath.Join(dir, "new", "SKILL.md")); err != nil || string(got) != "new\n" {
+		t.Errorf("folder behind the replaced link = %q, %v", got, err)
+	}
+}
+
 func TestTransaction_RemoveLinkLeavesRegularFile(t *testing.T) {
 	t.Parallel()
 	path := filepath.Join(t.TempDir(), "SKILL.md")

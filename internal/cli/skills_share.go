@@ -374,8 +374,10 @@ func (st *sharedSkillsState) capturedDiffersUnder(p string) bool {
 // filesystem without symlink support (e.g. Windows without the
 // privilege) degrades to real copies without ever losing the tree.
 // A folder holding any file this run did not render keeps its real copy,
-// untouched. Returns the links now in place.
-func (st *sharedSkillsState) apply(dryRun bool) []skillLink {
+// untouched. Each swap goes through sess, so a transaction there puts
+// the folder back before the target sessions undo what they wrote in it.
+// Returns the links now in place.
+func (st *sharedSkillsState) apply(sess *adapters.Session, dryRun bool) []skillLink {
 	var applied []skillLink
 	warned := false
 	warnf := func(format string, a ...any) {
@@ -415,7 +417,7 @@ func (st *sharedSkillsState) apply(dryRun bool) []skillLink {
 			warnf("%v", err)
 			continue
 		}
-		if err := swapInLink(l.path, tmp); err != nil {
+		if err := sess.ReplaceFolderWithLink(l.path, func() error { return swapInLink(l.path, tmp) }); err != nil {
 			_ = os.Remove(tmp)
 			warnf("%v", err)
 			continue
