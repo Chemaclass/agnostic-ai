@@ -68,7 +68,7 @@ var fileContextTargets = []string{"cursor"}
 
 // sourceMarkerRE captures the spec path from the `<!-- source: ... -->`
 // marker WriteSection stamps before each section of a merged document.
-var sourceMarkerRE = regexp.MustCompile(`(?m)^[ \t]*<!--\s*source:\s*(\S+)\s*-->`)
+var sourceMarkerRE = regexp.MustCompile(`(?m)^[ \t]*<!--\s*source:\s*(\S+)(?:\s+headings:\s*\+\d+)?\s*-->`)
 
 // validateExplainInput rejects mixed or incomplete input modes before
 // any project loading happens.

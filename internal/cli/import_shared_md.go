@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
@@ -250,12 +251,30 @@ func unwrapMergedH3Children(body string, used map[string]int) ([]mergedH3Child, 
 		if i+1 < len(idx) {
 			bodyEnd = idx[i+1][0]
 		}
-		secBody := strings.TrimSpace(body[bodyStart:bodyEnd])
+		secBody, shift := splitSectionSource(strings.TrimSpace(body[bodyStart:bodyEnd]))
 		secBody = stripMergedDocSourceComment(secBody)
 		_, secBody, _ = extractLeadingItalic(secBody)
-		out = append(out, mergedH3Child{slug: slug, body: strings.TrimSpace(secBody)})
+		out = append(out, mergedH3Child{slug: slug, body: markdown.ShiftHeadings(strings.TrimSpace(secBody), -shift)})
 	}
 	return out, true
+}
+
+// sectionSourceRE matches the source comment sync writes at the top of a
+// merged section, with the levels it moved the body's headings down.
+var sectionSourceRE = regexp.MustCompile(`\A[ \t]*<!--\s*source:\s*\S+(?:\s+headings:\s*\+(\d+))?\s*-->[ \t]*\r?(?:\n|\z)`)
+
+// splitSectionSource removes the source comment from the top of a merged
+// section and returns the body with the heading shift the comment records.
+func splitSectionSource(body string) (string, int) {
+	m := sectionSourceRE.FindStringSubmatchIndex(body)
+	if m == nil {
+		return body, 0
+	}
+	shift := 0
+	if m[2] >= 0 {
+		shift, _ = strconv.Atoi(body[m[2]:m[3]])
+	}
+	return body[m[1]:], shift
 }
 
 func unfencedH3HeadingIndexes(body string) [][]int {

@@ -63,7 +63,7 @@ When several rules share a document, such as Codex's `AGENTS.md` or Gemini's `GE
 
 Fenced code and raw HTML blocks keep their headings as written. List items followed by a thematic break remain lists. Tag-led text is treated conservatively rather than converted to a Setext heading. Standalone rule files and a nested document containing one rule without a section wrapper also keep the source heading levels.
 
-Importing merged Codex or Gemini instructions keeps literal headings inside fenced code and raw HTML in their rule body instead of creating another rule.
+The section's source comment records the shift, as in `<!-- source: .agnostic-ai/rules/content.md headings: +1 -->`, and import moves the headings back, so a rule survives sync and import unchanged. A Setext heading comes back as a `#` heading. Literal headings inside fenced code and raw HTML stay in their rule body instead of starting another rule.
 
 ## Fields
 

@@ -105,5 +105,45 @@ func TestRuleHeadingContext_SyncNestsRuleSections(t *testing.T) {
 			t.Errorf("%s fence imported phantom rules: %v", fence, rules)
 		}
 	}
+}
 
+func TestRuleHeadingContext_ImportRestoresTheSpecHeadings(t *testing.T) {
+	specs := map[string]string{
+		"content.md":       "---\nname: content\n---\n\nTop text.\n\n### Doc versioning\n\nVersioning text.\n\n#### Version details\n\n```markdown\n### Code heading\n```\n",
+		"overview.md":      "---\nname: overview\n---\n\n# Overview\n\n## Goals\n\nShip it.\n",
+		"working-style.md": "---\nname: working-style\n---\n\nStyle text.\n",
+	}
+	for _, target := range []string{"codex", "gemini"} {
+		t.Run(target, func(t *testing.T) {
+			t.Setenv("CODEX_HOME", t.TempDir())
+			dir := t.TempDir()
+			testutil.Chdir(t, dir)
+			rules := filepath.Join(dir, ".agnostic-ai", "rules")
+			must(t, os.MkdirAll(rules, 0o755))
+			must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte("version: 1\ntargets: ["+target+"]\ngitignore:\n  enabled: false\n"), 0o644))
+			must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), []byte("# Project\n\nRoot guidance.\n"), 0o644))
+			for name, body := range specs {
+				must(t, os.WriteFile(filepath.Join(rules, name), []byte(body), 0o644))
+			}
+			runCmd(t, "sync")
+			must(t, os.RemoveAll(rules))
+			runCmd(t, "import", target)
+			entries, err := os.ReadDir(rules)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(entries) != len(specs) {
+				t.Errorf("imported %d rules, want %d", len(entries), len(specs))
+			}
+			for name, want := range specs {
+				got, err := os.ReadFile(filepath.Join(rules, name))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if string(got) != want {
+					t.Errorf("%s changed across sync and import:\n%s", name, unifiedDiffLines(want, string(got)))
+				}
+			}
+		})
+	}
 }

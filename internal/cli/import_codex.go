@@ -12,6 +12,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/markdown"
 )
 
 // importCodexOpts toggles non-default import behavior. Zero value keeps
@@ -339,9 +340,9 @@ func unwrapH3(body string) []codexSection {
 		if i+1 < len(idx) {
 			bodyEnd = idx[i+1][0]
 		}
-		secBody := strings.TrimSpace(body[bodyStart:bodyEnd])
+		secBody, shift := splitSectionSource(strings.TrimSpace(body[bodyStart:bodyEnd]))
 		desc, secBody := extractItalicDescription(secBody)
-		out = append(out, codexSection{slug: slug, description: desc, body: secBody})
+		out = append(out, codexSection{slug: slug, description: desc, body: markdown.ShiftHeadings(secBody, -shift)})
 	}
 	return out
 }

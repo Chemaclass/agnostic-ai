@@ -90,20 +90,37 @@ func (s *Scanner) Scan(line string) (Heading, bool) {
 // returns the body and the number of levels it moved.
 func NestHeadings(body string, parent int) (string, int) {
 	lines := strings.Split(body, "\n")
-	var scan Scanner
-	var headings []Heading
+	headings := headingsOf(lines)
 	shallowest := parent + 1
-	for _, line := range lines {
-		if heading, ok := scan.Scan(line); ok {
-			headings = append(headings, heading)
-			shallowest = min(shallowest, heading.Level)
-		}
+	for _, heading := range headings {
+		shallowest = min(shallowest, heading.Level)
 	}
 	shift := parent + 1 - shallowest
 	if shift == 0 {
 		return body, 0
 	}
 	return shiftHeadings(lines, headings, shift), shift
+}
+
+// ShiftHeadings moves every heading of body by shift levels, a negative
+// shift moving them up, within the six levels Markdown has.
+func ShiftHeadings(body string, shift int) string {
+	if shift == 0 {
+		return body
+	}
+	lines := strings.Split(body, "\n")
+	return shiftHeadings(lines, headingsOf(lines), shift)
+}
+
+func headingsOf(lines []string) []Heading {
+	var scan Scanner
+	var headings []Heading
+	for _, line := range lines {
+		if heading, ok := scan.Scan(line); ok {
+			headings = append(headings, heading)
+		}
+	}
+	return headings
 }
 
 func shiftHeadings(lines []string, headings []Heading, shift int) string {

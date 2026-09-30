@@ -10,7 +10,7 @@ Root guidance.
 
 ### content
 
-<!-- source: .agnostic-ai/rules/content.md -->
+<!-- source: .agnostic-ai/rules/content.md headings: +1 -->
 #### Doc versioning
 
 Versioning text.

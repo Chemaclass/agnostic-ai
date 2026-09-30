@@ -190,6 +190,17 @@ func TestExplainFile_SharedScopedAgentsMDWithCodex(t *testing.T) {
 	}
 }
 
+func TestExplainFile_FindsARuleWhoseHeadingsSyncNested(t *testing.T) {
+	dir := setupFileContextFixture(t, "cursor", "codex")
+	writeFile(t, filepath.Join(dir, "rules", "codex-only.md"), "---\nname: codex-only\ntargets: [codex]\n---\n\n# Codex notes\n\nCodex-only notes.\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	got := explainFileJSON(t, "services/payments/handler.go")
+
+	findItem(t, got.Instructions, "rules/codex-only.md", "AGENTS.md")
+}
+
 func TestExplainFile_UnevaluableGlobIsUnknown(t *testing.T) {
 	dir := setupFileContextFixture(t, "cursor")
 	if err := os.WriteFile(filepath.Join(dir, "rules", "tsx.md"), []byte(`---
