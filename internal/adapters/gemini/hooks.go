@@ -49,7 +49,7 @@ func hookHandlers(h spec.Entry) []map[string]any {
 	for _, command := range emit.HookCommands(meta["command"]) {
 		// No args field: the args fold into the command, quoted for bash,
 		// which PowerShell on Windows also reads for args without `'`.
-		handler := map[string]any{"type": "command", "command": emit.ExecFormCommand(emit.RewriteHookPath(command, target), args)}
+		handler := map[string]any{"type": "command", "command": emit.ExecFormCommand(emit.RewriteHookPath(command, target, meta), args)}
 		if description, _ := meta["description"].(string); description != "" {
 			handler["description"] = description
 		}
@@ -74,7 +74,7 @@ func hookSourceCommands(h spec.Entry) []string {
 	native, _ := h.Meta["x-gemini"].(map[string]any)
 	if raw, exists := native["hooks"]; exists {
 		var commands []string
-		for _, meta := range nativeCommandEntries(raw) {
+		for _, meta := range emit.HookCommandEntries(raw) {
 			commands = append(commands, meta["command"].(string))
 		}
 		return commands
@@ -82,25 +82,10 @@ func hookSourceCommands(h spec.Entry) []string {
 	return emit.HookCommands(emit.ResolveMeta(h.Meta, target)["command"])
 }
 
-func nativeCommandEntries(raw any) []map[string]any {
-	entries, _ := raw.([]any)
-	var matched []map[string]any
-	for _, entry := range entries {
-		meta, ok := entry.(map[string]any)
-		if !ok || meta["type"] != "command" {
-			continue
-		}
-		if command, _ := meta["command"].(string); command != "" {
-			matched = append(matched, meta)
-		}
-	}
-	return matched
-}
-
 func nativeHookHandlers(raw any) []map[string]any {
 	var handlers []map[string]any
-	for _, meta := range nativeCommandEntries(raw) {
-		handler := map[string]any{"type": "command", "command": emit.RewriteHookPath(meta["command"].(string), target)}
+	for _, meta := range emit.HookCommandEntries(raw) {
+		handler := map[string]any{"type": "command", "command": emit.RewriteHookPath(meta["command"].(string), target, meta)}
 		for _, key := range []string{"name", "description", "timeout", "env"} {
 			if value, exists := meta[key]; exists {
 				handler[key] = value
