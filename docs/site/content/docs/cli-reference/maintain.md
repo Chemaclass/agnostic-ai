@@ -48,12 +48,17 @@ agnostic-ai packs remove go-rules
 Run inside an edit hook. Reads the hook payload on stdin and prints the files the edit leaves on disk, one per line, relative to the current directory. A tool call that is no edit prints nothing. See [edited paths](@/docs/spec-format/hooks.md#edited-paths) for the payloads each target sends.
 
 ```bash
-agnostic-ai hook paths | grep '\.go$' | while IFS= read -r f; do gofmt -w "$f"; done
+files=$(agnostic-ai hook paths) || exit 1
+printf '%s\n' "$files" | grep '\.go$' | while IFS= read -r f; do gofmt -w "$f"; done
 ```
+
+`agnostic-ai` must be on the hook's `PATH`. Capture the output first, as above: piped straight into the loop, a failure of `hook paths` ends with exit 0.
+
+It exits 1 on invalid JSON, on an edit tool's `tool_input` that is not an object, and on a missing or unsupported target.
 
 | Flag | Description |
 |------|-------------|
-| `-t`, `--target <name>` | Target that sent the payload. Defaults to `AGNOSTIC_AI_TARGET`; the command fails when neither is set, or for a target it does not read. |
+| `-t`, `--target <name>` | Target that sent the payload. Defaults to `AGNOSTIC_AI_TARGET`. With neither, a Claude Code file tool payload reads as `claude`, and any other payload fails. |
 | `--action` | Print every change as `<action><TAB><path>`, with `add`, `update`, `delete`, or `move`. Deleted files and move sources show only here and in `--json`. |
 | `--json` | Print every change as a JSON array of `{action, path, from}`; `from` is a move's source. Not with `--action`. |
 

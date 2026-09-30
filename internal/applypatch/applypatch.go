@@ -3,7 +3,10 @@
 // it tells which files a patch touches, not what it changes in them.
 package applypatch
 
-import "strings"
+import (
+	"strings"
+	"unicode"
+)
 
 // Kind is what a patch does to one file.
 type Kind string
@@ -33,18 +36,22 @@ const (
 // Parse returns the file operations in patch, in patch order. Hunk and
 // added lines start with a space, `+`, `-`, or `@@`, so a header-shaped
 // line inside a file body is never read as a header. Text around the
-// patch, such as a heredoc wrapper, is ignored.
+// patch, such as a heredoc wrapper, is ignored. As in Codex's parser
+// (codex-rs/apply-patch/src/streaming_parser.rs), a header line loses
+// its trailing whitespace, and a move counts only on the line right
+// after its update header.
 func Parse(patch string) []Op {
 	var ops []Op
+	afterUpdate := false
 	for _, line := range strings.Split(patch, "\n") {
-		line = strings.TrimRight(line, " \t\r")
-		if path, ok := strings.CutPrefix(line, moveHeader); ok {
-			if last := len(ops) - 1; last >= 0 && ops[last].Kind == Update && ops[last].MoveTo == "" && path != "" {
-				ops[last].MoveTo = path
-			}
+		line = strings.TrimRightFunc(line, unicode.IsSpace)
+		if path, ok := strings.CutPrefix(line, moveHeader); ok && afterUpdate && path != "" {
+			ops[len(ops)-1].MoveTo = path
+			afterUpdate = false
 			continue
 		}
 		kind, path, ok := header(line)
+		afterUpdate = ok && kind == Update && path != ""
 		if !ok || path == "" {
 			continue
 		}

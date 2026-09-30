@@ -39,10 +39,10 @@ description: Format the Go files the agent edits.
 targets: [claude, codex]
 event: PostToolUse
 matcher: Edit|Write
-command: 'agnostic-ai hook paths | grep "\.go$" | while IFS= read -r f; do gofmt -w "$f"; done'
+command: 'files=$(agnostic-ai hook paths) || exit 1; printf "%s\n" "$files" | grep "\.go$" | while IFS= read -r f; do gofmt -w "$f"; done'
 ```
 
-Codex takes `Edit` and `Write` as aliases for `apply_patch`, so the one matcher fires on both tools.
+Codex takes `Edit` and `Write` as aliases for `apply_patch`, so the one matcher fires on both tools. `agnostic-ai` must be on the hook's `PATH`. The `|| exit 1` makes the hook fail when `hook paths` fails, such as on a missing target, bad JSON, or a missing binary; a plain pipe into the loop would exit 0.
 
 Run a script with exact arguments and no shell, so spaces and `$` pass through untouched:
 
@@ -149,7 +149,7 @@ Trae, Factory, OpenHands, Antigravity, Kiro, Windsurf, and Augment do not get th
 
 ## Read the edited paths {#edited-paths}
 
-`agnostic-ai hook paths` reads a hook payload on stdin and prints each file the edit leaves on disk, one per line. Paths print relative to the directory the hook runs in; a path outside it prints in full. A tool call that is no edit prints nothing. The target comes from `AGNOSTIC_AI_TARGET`, or from `--target`, which wins. Codex on Windows (`commandWindows`) gets no `AGNOSTIC_AI_TARGET`, so pass `--target codex` there.
+`agnostic-ai hook paths` reads a hook payload on stdin and prints each file the edit leaves on disk, one per line. Paths print relative to the directory the hook runs in; a path outside it prints in full. A tool call that is no edit prints nothing. The target comes from `AGNOSTIC_AI_TARGET`, or from `--target`, which wins. Codex on Windows (`commandWindows`) gets no `AGNOSTIC_AI_TARGET`, so pass `--target codex` there. With no target at all, a payload whose `tool_input` object holds `file_path`, `edits`, or `notebook_path` reads as Claude Code: Cursor and Copilot run `.claude/settings.json` hooks with that payload and no variable. Any other payload with no target fails. Invalid JSON, and an edit tool's `tool_input` that is not an object, fail too (exit 1).
 
 ```sh
 agnostic-ai hook paths            # src/app.go
@@ -163,16 +163,16 @@ A plain run skips deleted files and the source of a move, so a formatter sees on
 |---|---|---|
 | Claude Code | `tool_input.file_path` of `Edit`, `Write`, and `MultiEdit`; `tool_input.notebook_path` of `NotebookEdit` | [Hooks guide](https://code.claude.com/docs/en/hooks-guide) |
 | Codex | The `*** Add File:`, `*** Update File:`, `*** Delete File:`, and `*** Move to:` headers of the `apply_patch` body in `tool_input.command`, every file in the patch | [Hooks](https://learn.chatgpt.com/docs/hooks) |
-| Cursor | `file_path` of `afterFileEdit` and `afterTabFileEdit` | [Hooks](https://cursor.com/docs/hooks) |
+| Cursor | `file_path` of `afterFileEdit` and `afterTabFileEdit` only; other Cursor events print nothing | [Hooks](https://cursor.com/docs/hooks) |
 | Gemini | `tool_input.file_path` of `write_file` and `replace`, a relative path starting at `cwd` | [Hooks reference](https://geminicli.com/docs/hooks/reference/), [file system tools](https://geminicli.com/docs/tools/file-system/) |
 | Factory | `tool_input.file_path` of `Create` and `Edit` | [Hooks](https://docs.factory.com/harness/hooks) |
-| Windsurf | `tool_info.file_path` of `pre_write_code` and `post_write_code` | [Cascade hooks](https://docs.devin.ai/desktop/cascade/hooks) |
 | Augment | `file_changes[].path` with its `changeType`; before the edit, `tool_input.path` of `str-replace-editor` and `save-file` | [Hooks](https://docs.augmentcode.com/cli/hooks) |
 
-Factory, Windsurf, and Augment do not get `AGNOSTIC_AI_TARGET`, so give their hooks their own spec with `--target`. Factory documents no input for `ApplyPatch`, so a Factory patch prints nothing.
+Factory and Augment do not get `AGNOSTIC_AI_TARGET`, so give their hooks their own spec with `--target`. Factory documents no input for `ApplyPatch`, so a Factory patch prints nothing.
 
 The command fails for a target it does not read:
 
+- Windsurf: sync writes Devin CLI hooks, and the [Devin CLI docs](https://docs.devin.ai/cli/extensibility/hooks) name the `edit`, `write`, and `apply_patch` tools but not their `tool_input` fields.
 - Qoder and Trae: the docs list no `tool_input` fields for the edit tools.
 - Copilot: the docs list no `toolArgs` keys for `edit`, `create`, or `apply_patch`.
 - Goose, Antigravity: the docs name the edit tools' arguments but show no edit hook payload.

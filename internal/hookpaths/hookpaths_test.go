@@ -2,6 +2,7 @@ package hookpaths
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -113,15 +114,6 @@ func TestRead_OtherTargetsReportTheirEditedFile(t *testing.T) {
 			want:    Payload{Cwd: "/p"},
 		},
 		{
-			target:  "windsurf",
-			payload: `{"agent_action_name":"post_write_code","tool_info":{"file_path":"/p/file.py","edits":[]}}`,
-			want:    Payload{Changes: []Change{{Action: ActionUpdate, Path: "/p/file.py"}}},
-		},
-		{
-			target:  "windsurf",
-			payload: `{"agent_action_name":"pre_run_command","tool_info":{"command_line":"ls"}}`,
-		},
-		{
 			target:  "factory",
 			payload: `{"cwd":"/p","hook_event_name":"PreToolUse","tool_name":"Create","tool_input":{"file_path":"/p/file.txt","content":"x"}}`,
 			want:    Payload{Cwd: "/p", Changes: []Change{{Action: ActionAdd, Path: "/p/file.txt"}}},
@@ -179,11 +171,36 @@ func TestRead_IgnoresOtherToolsWhateverTheirInputShape(t *testing.T) {
 }
 
 func TestRead_RejectsAnUnknownTargetAndBadJSON(t *testing.T) {
-	if _, err := Read("aider", []byte(`{}`)); !errors.Is(err, ErrUnsupportedTarget) {
-		t.Fatalf("Read(aider) error = %v, want ErrUnsupportedTarget", err)
+	// Devin CLI (the windsurf target) documents no edit tool input.
+	for _, target := range []string{"aider", "windsurf"} {
+		if _, err := Read(target, []byte(`{}`)); !errors.Is(err, ErrUnsupportedTarget) {
+			t.Errorf("Read(%s) error = %v, want ErrUnsupportedTarget", target, err)
+		}
 	}
 	if _, err := Read("claude", []byte(`not json`)); err == nil {
-		t.Fatal("Read(bad JSON) returned no error")
+		t.Error("Read(bad JSON) returned no error")
+	}
+	if _, err := Read("claude", []byte(`{"tool_name":"Edit","tool_input":"a.go"}`)); err == nil {
+		t.Error("Read(Edit with a string tool_input) returned no error")
+	}
+}
+
+func TestGuessTarget_ReadsAClaudeShapedEditWithoutATarget(t *testing.T) {
+	for _, tc := range []struct {
+		payload string
+		want    string
+	}{
+		{`{"tool_name":"Edit","tool_input":{"file_path":"/p/a.go"}}`, "claude"},
+		{`{"tool_name":"MultiEdit","tool_input":{"edits":[]}}`, "claude"},
+		{`{"tool_name":"NotebookEdit","tool_input":{"notebook_path":"/p/n.ipynb"}}`, "claude"},
+		{`{"tool_name":"apply_patch","tool_input":{"command":"*** Begin Patch"}}`, ""},
+		{`{"tool_name":"Edit","tool_input":"a.go"}`, ""},
+		{`{"file_path":"/p/a.go"}`, ""},
+		{`not json`, ""},
+	} {
+		if got := GuessTarget([]byte(tc.payload)); got != tc.want {
+			t.Errorf("GuessTarget(%s) = %q, want %q", tc.payload, got, tc.want)
+		}
 	}
 }
 
@@ -204,6 +221,27 @@ func TestRelative_ResolvesAgainstTheHookCwdAndPrintsFromTheRoot(t *testing.T) {
 		{Action: ActionUpdate, Path: filepath.Join("src", "a.go")},
 		{Action: ActionMove, Path: filepath.Join("sub", "b.go"), From: filepath.Join("sub", "a.go")},
 		{Action: ActionUpdate, Path: filepath.Join(outside, "x.go")},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Relative() = %#v, want %#v", got, want)
+	}
+}
+
+func TestRelative_ResolvesARootNamedThroughASymlink(t *testing.T) {
+	real := t.TempDir()
+	link := filepath.Join(t.TempDir(), "project")
+	if err := os.Symlink(real, link); err != nil {
+		t.Skipf("symlink: %v", err)
+	}
+	p := Payload{Changes: []Change{
+		{Action: ActionAdd, Path: filepath.Join(real, "new", "dir", "a.go")},
+		{Action: ActionDelete, Path: filepath.Join(real, "gone.go")},
+	}}
+
+	got := p.Relative(link)
+	want := []Change{
+		{Action: ActionAdd, Path: filepath.Join("new", "dir", "a.go")},
+		{Action: ActionDelete, Path: "gone.go"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Relative() = %#v, want %#v", got, want)

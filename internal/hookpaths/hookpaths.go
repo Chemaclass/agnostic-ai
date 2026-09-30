@@ -54,13 +54,36 @@ type decoder func(raw []byte) (Payload, error)
 // Each decoder follows the payload its vendor documents; the hooks page
 // of the docs site cites the sources.
 var decoders = map[string]decoder{
-	"augment":  readAugment,
-	"claude":   readToolInput,
-	"codex":    readToolInput,
-	"cursor":   readCursor,
-	"factory":  readFactory,
-	"gemini":   readGemini,
-	"windsurf": readWindsurf,
+	"augment": readAugment,
+	"claude":  readToolInput,
+	"codex":   readToolInput,
+	"cursor":  readCursor,
+	"factory": readFactory,
+	"gemini":  readGemini,
+}
+
+// GuessTarget names the target for a payload that arrives with none.
+// Cursor and Copilot also run the hooks in .claude/settings.json, which
+// get no AGNOSTIC_AI_TARGET there, and send them Claude Code's payload.
+// It returns "claude" when tool_input is an object holding a Claude
+// file tool's path or edits, and "" otherwise.
+func GuessTarget(raw []byte) string {
+	var in struct {
+		ToolInput json.RawMessage `json:"tool_input"`
+	}
+	if json.Unmarshal(raw, &in) != nil {
+		return ""
+	}
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(in.ToolInput, &fields) != nil {
+		return ""
+	}
+	for _, key := range []string{"file_path", "edits", "notebook_path"} {
+		if _, ok := fields[key]; ok {
+			return "claude"
+		}
+	}
+	return ""
 }
 
 // Targets lists the targets Read decodes.
@@ -239,24 +262,6 @@ func readCursor(raw []byte) (Payload, error) {
 		p.Changes = single(ActionUpdate, in.FilePath)
 	}
 	return p, nil
-}
-
-func readWindsurf(raw []byte) (Payload, error) {
-	var in struct {
-		Action   string          `json:"agent_action_name"`
-		ToolInfo json.RawMessage `json:"tool_info"`
-	}
-	if err := json.Unmarshal(raw, &in); err != nil {
-		return Payload{}, err
-	}
-	if in.Action != "pre_write_code" && in.Action != "post_write_code" {
-		return Payload{}, nil
-	}
-	info, err := toolPayload{ToolName: in.Action, ToolInput: in.ToolInfo}.editInput()
-	if err != nil {
-		return Payload{}, err
-	}
-	return Payload{Changes: single(ActionUpdate, info.FilePath)}, nil
 }
 
 // readAugment prefers file_changes, which says what happened to each

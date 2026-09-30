@@ -57,6 +57,49 @@ func TestParse_IgnoresAMoveWithNoUpdateAndAnEmptyPath(t *testing.T) {
 	}
 }
 
+func TestParse_AttachesAMoveOnlyRightAfterItsUpdateHeader(t *testing.T) {
+	patch := strings.Join([]string{
+		"*** Begin Patch",
+		"*** Update File: src/a.go",
+		"@@",
+		"-a",
+		"+b",
+		"*** Move to: src/late.go",
+		"*** Update File: src/c.go",
+		"*** Move to: src/d.go",
+		"*** End Patch",
+	}, "\n")
+
+	got := Parse(patch)
+	want := []Op{
+		{Kind: Update, Path: "src/a.go"},
+		{Kind: Update, Path: "src/c.go", MoveTo: "src/d.go"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Parse() = %#v, want %#v", got, want)
+	}
+}
+
+func TestParse_SkipsHeaderShapedHunkLinesAndEndOfFile(t *testing.T) {
+	patch := strings.Join([]string{
+		"*** Begin Patch",
+		"*** Update File: src/a.go",
+		"@@ func a() {",
+		" *** Delete File: context.go",
+		"-*** Add File: removed.go",
+		"+*** Update File: added.go",
+		"+*** Move to: added-move.go",
+		"*** End of File",
+		"*** End Patch",
+	}, "\n")
+
+	got := Parse(patch)
+	want := []Op{{Kind: Update, Path: "src/a.go"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Parse() = %#v, want %#v", got, want)
+	}
+}
+
 func TestParse_ReturnsNothingForTextThatIsNoPatch(t *testing.T) {
 	if got := Parse("go test ./..."); len(got) != 0 {
 		t.Errorf("Parse() = %#v, want none", got)

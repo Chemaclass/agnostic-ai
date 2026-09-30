@@ -31,10 +31,13 @@ func newHookPathsCmd() *cobra.Command {
 		Short: "Print the files an edit hook's payload touched, one per line",
 		Long: "Reads a hook payload on stdin and prints the files the edit leaves on disk, " +
 			"one per line, relative to the current directory. The target comes from --target " +
-			"or AGNOSTIC_AI_TARGET. Reads " + strings.Join(hookpaths.Targets(), ", ") + ". " +
-			"A tool call that is no edit prints nothing.",
-		Example: `  # Format the Go files the agent edited, on any supported target
-  agnostic-ai hook paths | grep '\.go$' | while IFS= read -r f; do gofmt -w "$f"; done
+			"or AGNOSTIC_AI_TARGET; with neither, a Claude Code file tool payload reads as claude. " +
+			"Reads " + strings.Join(hookpaths.Targets(), ", ") + ". " +
+			"A tool call that is no edit prints nothing. Invalid JSON, an edit tool input that is " +
+			"no object, and a missing or unsupported target exit 1.",
+		Example: `  # Format the Go files the agent edited; a failure stops the hook
+  files=$(agnostic-ai hook paths) || exit 1
+  printf '%s\n' "$files" | grep '\.go$' | while IFS= read -r f; do gofmt -w "$f"; done
 
   # Deleted files and move sources too, with the action in front
   agnostic-ai hook paths --action`,
@@ -43,15 +46,18 @@ func newHookPathsCmd() *cobra.Command {
 			if withAction && asJSON {
 				return errors.New("--action and --json are mutually exclusive")
 			}
+			raw, err := io.ReadAll(cmd.InOrStdin())
+			if err != nil {
+				return fmt.Errorf("read stdin: %w", err)
+			}
 			if target == "" {
 				target = os.Getenv(adapters.HookTargetEnv)
 			}
 			if target == "" {
-				return fmt.Errorf("no target: pass --target or set %s", adapters.HookTargetEnv)
+				target = hookpaths.GuessTarget(raw)
 			}
-			raw, err := io.ReadAll(cmd.InOrStdin())
-			if err != nil {
-				return fmt.Errorf("read stdin: %w", err)
+			if target == "" {
+				return fmt.Errorf("no target: pass --target or set %s", adapters.HookTargetEnv)
 			}
 			payload, err := hookpaths.Read(target, raw)
 			if err != nil {

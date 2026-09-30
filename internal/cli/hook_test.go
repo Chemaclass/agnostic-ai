@@ -134,6 +134,28 @@ func TestHookPaths_FailsWithoutATarget(t *testing.T) {
 	}
 }
 
+func TestHookPaths_ReadsAClaudePayloadWithoutATarget(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	t.Setenv("AGNOSTIC_AI_TARGET", "")
+	payload := `{"tool_name":"Edit","tool_input":{"file_path":` + jsonString(filepath.Join(dir, "a.go")) + `}}`
+
+	out, err := runHookPaths(t, payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out != "a.go\n" {
+		t.Errorf("output = %q, want a.go", out)
+	}
+}
+
+func TestHookPaths_FailsOnInvalidJSON(t *testing.T) {
+	testutil.TempCwd(t)
+
+	if _, err := runHookPaths(t, `{"tool_name":`, "--target", "claude"); err == nil {
+		t.Error("invalid JSON returned no error")
+	}
+}
+
 func TestHookPaths_FailsForATargetItCannotRead(t *testing.T) {
 	testutil.TempCwd(t)
 
