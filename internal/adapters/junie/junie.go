@@ -326,7 +326,7 @@ func entryPointBody(cfg *config.Config) (string, error) {
 	if !errors.Is(err, fs.ErrNotExist) {
 		return "", fmt.Errorf("%s: %w", emit.AgnosticEntryPointPath, err)
 	}
-	return emit.EntryPointBody(cfg), nil
+	return emit.EntryPointBody(), nil
 }
 
 // sweepLegacyRulesDir removes agnostic-ai-managed leftovers from the

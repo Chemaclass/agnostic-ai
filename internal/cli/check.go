@@ -337,11 +337,10 @@ func collectEntryPointDrift(cfg *config.Config, b spec.Bundle, targets []string)
 		body = header.Strip(string(data))
 		rep.Current = append(rep.Current, adapters.CapturedFile{Path: adapters.AgnosticEntryPointPath, Content: string(data)})
 	} else if errors.Is(err, fs.ErrNotExist) {
-		body = adapters.EntryPointBody(cfg)
-		rendered := header.With(body, header.FormatMarkdown)
+		body = adapters.EntryPointBody()
 		rep.Missing = append(rep.Missing, adapters.CapturedFile{
 			Path:    adapters.AgnosticEntryPointPath,
-			Content: rendered,
+			Content: body,
 		})
 	} else {
 		return rep, fmt.Errorf("%s: %w", adapters.AgnosticEntryPointPath, err)
@@ -635,6 +634,7 @@ func newDoctorCmd() *cobra.Command {
 			// the paths the user owns through sync.unmanaged.
 			reportUnmanagedConfig(cmd, ".", cfg)
 			reportUserOwned(cmd, cfg)
+			reportLegacyDefaultInstructions(cmd)
 
 			// 4. Drift
 			cmd.Println()

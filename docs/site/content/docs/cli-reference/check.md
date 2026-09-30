@@ -143,6 +143,7 @@ Then doctor prints:
 | **Script divergence** | Basenames under `.agnostic-ai/scripts/<tool>/` whose bodies differ across tools, with the suggested path `.agnostic-ai/scripts/<basename>`. | Yes, not auto-fixable |
 | **Unmanaged config** | Markdown and TOML config files without a provenance marker, grouped by the `import` source that adopts each. | No |
 | **User-owned** | [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) entries, left out of Unmanaged config. | Never |
+| **Instructions** | A hint when `AGNOSTIC_AI.md` still holds the long default text an earlier release seeded. Replace it with your project instructions. | Never |
 
 Packaging coverage uses the actual outputs for the selected targets, including configured paths and skill assets. It checks missing outputs too, so the warning can appear before sync. Doctor never changes packaging ignore files.
 
