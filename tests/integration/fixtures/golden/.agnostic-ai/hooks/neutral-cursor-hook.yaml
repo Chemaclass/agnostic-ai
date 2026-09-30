@@ -1,0 +1,4 @@
+name: neutral-cursor-hook
+target: cursor
+event: beforeShellExecution
+command: .agnostic-ai/scripts/shared-guard.sh

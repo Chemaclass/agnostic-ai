@@ -17,6 +17,17 @@
   },
   "model": "example-model",
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/shared-guard.sh"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit",

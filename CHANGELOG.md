@@ -10,6 +10,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - **Breaking:** `on-unsupported: error` fails on coverage notes. List a known note under `coverage.accept` with a reason to hide it; `sync -v` lists it, `lint` flags stale entries, `doctor` counts them (#1496).
 - **Breaking:** rule `scope`, `globs`, and `paths` form a union; rule folders scope existing directories. Remove `scope` to keep only a filter (#1429, #1430).
+- Hooks can use `.agnostic-ai/scripts/<name>` to copy and run one shared script in each target, including with `sync --global` (#1454).
 - Doctor warns when existing packaging ignore files miss generated paths; upgrade notes flag the Codex skills path move (#1447).
 - New `AGNOSTIC_AI.md` files use a short editable template; existing files stay intact, and `doctor` points out old boilerplate (#1446).
 - Rule body headings nest in merged instructions; import restores levels and preserves code, link definitions, and line breaks (#1452, #1505).
@@ -35,9 +36,11 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - Exact subtree rules write nested `AGENTS.md`; filename filters stay inline with a note. Set `nested-glob-rules: false` to opt out (#1435).
 - `exec-policies-from-permissions` translates Bash rules and lint flags drift. An explicit `exec-policies: []` now overrides an imported overlay (#1451).
+- Sync names each exact Bash `allow` rule, such as `Bash(git push)`, that Codex also applies to extra arguments (#1508).
 - Sync names inactive hooks with `/hooks` and `doctor` shows hook trust; edit hook checks read copied scripts and honor `on-unsupported: error` (#1450, #1456).
 - Exec policies and a Codex config or overlay `model` silence the notes they make redundant (#1432, #1462).
 - `import codex` strips generated skill headers and keeps an agent's model in `model.codex`; `environment.toml` always has `[setup]` (#1461, #1476).
+- Sync no longer writes `notify`, `profiles`, `model_providers`, or other keys Codex ignores in a project `config.toml`, and notes where each goes (#1511).
 
 #### Copilot
 

@@ -320,8 +320,12 @@ func buildHooks(hooks []spec.Entry) map[string]any {
 // hooks.json references a script that exists. Hooks whose command is a
 // free-form shell expression carry no stashed body and skip silently.
 func materializeHookScripts(sess *emit.Session, hooks []spec.Entry, dryRun bool) error {
+	if err := sess.MaterializeNeutralHookScripts(hooks, target, emit.HookScriptsDir(target), dryRun); err != nil {
+		return err
+	}
 	for _, h := range hooks {
 		for _, raw := range hookCommands(h.Meta["command"]) {
+			raw = emit.RewriteNeutralHookPath(raw, ".")
 			sourceTool, _ := emit.SourceToolFromHookCommand(raw)
 			rewritten := emit.RewriteHookPath(raw, target, h.Meta)
 			if err := sess.MaterializeHookScript(rewritten, target, sourceTool, dryRun); err != nil {

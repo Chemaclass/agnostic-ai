@@ -106,7 +106,7 @@ func TestRoundTrip_ClaudeCodexClaude(t *testing.T) {
 //
 // The codex overlay must carry every non-managed `.codex/config.toml`
 // key through the chain so the final config.toml still has the
-// user-authored `model`, `[profiles.*]`, `[history]` blocks.
+// user-authored `model` and `[history]` keys.
 //
 // Hooks imported from codex are auto-tagged `target: codex` (per #249) so
 // they intentionally do NOT leak into claude on the intermediate sync.
@@ -143,7 +143,7 @@ func TestRoundTrip_CodexClaudeCodex(t *testing.T) {
 		`[mcp_servers.fs]`, `command = "npx"`)
 	// Overlay carries first-class codex config keys through the chain.
 	assertContains(t, filepath.Join(dir, ".codex/config.toml"),
-		`model = "gpt-5"`, `[profiles.work]`)
+		`model = "gpt-5"`, `[history]`)
 	// Codex-scoped hook must not have leaked to claude during the
 	// intermediate sync, so it is gone after re-import from claude.
 	assertAbsent(t, filepath.Join(dir, ".codex/config.toml"),
@@ -252,8 +252,8 @@ Review code carefully.
 	must(t, os.WriteFile(filepath.Join(dir, ".codex/config.toml"),
 		[]byte(`model = "gpt-5"
 
-[profiles.work]
-model = "gpt-5"
+[history]
+persistence = "none"
 
 [mcp_servers.fs]
 command = "npx"

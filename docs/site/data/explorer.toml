@@ -31,7 +31,7 @@
 
 [[files]]
   path = ".agnostic-ai/overlays/codex.config.toml"
-  body = "notify = [\"terminal-notifier\", \"-title\", \"Codex\"]\n\n[profiles.review]\nmodel_reasoning_effort = \"xhigh\"\n"
+  body = "[tui]\nnotification_condition = \"always\"\n"
 
 [[files]]
   path = ".agnostic-ai/rules/testing.md"
@@ -83,7 +83,7 @@
 
 [[files]]
   path = ".codex/config.toml"
-  body = "model = \"gpt-6-sol\"\nmodel_reasoning_effort = \"high\"\n\nnotify = [\"terminal-notifier\", \"-title\", \"Codex\"]\n\n[profiles.review]\nmodel_reasoning_effort = \"xhigh\"\n\n[mcp_servers.github]\nurl = \"https://api.githubcopilot.com/mcp/\"\nhttp_headers = { Authorization = \"Bearer ${GITHUB_TOKEN}\" }\n"
+  body = "model = \"gpt-6-sol\"\nmodel_reasoning_effort = \"high\"\n\n[tui]\nnotification_condition = \"always\"\n\n[mcp_servers.github]\nurl = \"https://api.githubcopilot.com/mcp/\"\nhttp_headers = { Authorization = \"Bearer ${GITHUB_TOKEN}\" }\n"
 
 [[files]]
   path = ".codex/hooks.json"

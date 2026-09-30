@@ -141,9 +141,12 @@ func emitTasks(sess *emit.Session, hooks []spec.Entry, path string, dryRun bool)
 	tasks := make([]map[string]any, 0, len(hooks))
 	for _, h := range hooks {
 		cmd, _ := h.Meta["command"].(string)
-		cmd = emit.RewriteHookRoot(cmd, target, h.Meta)
+		cmd = emit.RewriteNeutralHookPath(emit.RewriteHookRoot(cmd, target, h.Meta), emit.HookScriptsDir(target))
 		if cmd == "" {
 			continue
+		}
+		if err := sess.MaterializeNeutralHookScripts([]spec.Entry{h}, target, emit.HookScriptsDir(target), dryRun); err != nil {
+			return err
 		}
 		label := h.Name
 		if d := h.Description(); d != "" {

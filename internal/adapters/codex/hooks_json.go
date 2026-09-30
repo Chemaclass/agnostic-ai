@@ -107,8 +107,7 @@ type hookCommandEntry struct {
 	Type    string `json:"type"`
 	Command string `json:"command"`
 	hookBase
-	// CommandWindows is Codex's optional Windows-specific command
-	// override, propagated from the spec's `commandWindows` Meta key.
+	// The Windows command omits the POSIX target export.
 	CommandWindows string `json:"commandWindows,omitempty"`
 	// AdditionalContextLimit caps how many tokens of this hook's output
 	// reach the model, propagated from the spec's `additionalContextLimit`
@@ -207,6 +206,7 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 		}
 
 		commandWindows, _ := h.Meta["commandWindows"].(string)
+		commandWindows = emit.RewriteHookDirectories(commandWindows, target)
 		additionalContextLimit := hookIntMetaPtr(h.Meta, "additionalContextLimit")
 		async := hookBoolMeta(h.Meta, "async")
 		args := emit.StringSlice(h.Meta["args"])
@@ -275,9 +275,7 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 			})
 			continue
 		}
-		// Codex picks commandWindows on Windows, where the shell is
-		// PowerShell or cmd and has no `export`, so it keeps the command
-		// as declared and the variable stays unset there.
+		// PowerShell and cmd have no POSIX export command.
 		commandWindows := a.commandWindows
 		if commandWindows == "" {
 			commandWindows = k.identity

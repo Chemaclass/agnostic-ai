@@ -150,6 +150,9 @@ func emitCrushJSON(sess *emit.Session, mcps, hooks []spec.Entry, path string, dr
 	if len(keys) == 0 {
 		return nil
 	}
+	if err := sess.MaterializeNeutralHookScripts(hooks, target, emit.HookScriptsDir(target), dryRun); err != nil {
+		return err
+	}
 	return sess.MergeJSONFile(path, keys, dryRun)
 }
 

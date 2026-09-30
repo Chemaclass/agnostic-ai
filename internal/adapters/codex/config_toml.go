@@ -1,7 +1,6 @@
 package codex
 
 import (
-	"maps"
 	"slices"
 	"strings"
 
@@ -71,8 +70,7 @@ func hasCodexConfig(cfg *config.CodexConfig) bool {
 	}
 	return cfg.Sandbox != "" || cfg.ApprovalPolicy != "" || cfg.Model != "" ||
 		cfg.ModelReasoningEffort != "" || cfg.ModelReasoningSummary != "" ||
-		cfg.HistoryPersistence != "" || len(cfg.Notify) > 0 ||
-		len(cfg.Profiles) > 0 || len(cfg.ModelProviders) > 0
+		cfg.HistoryPersistence != ""
 }
 
 // writeCodexConfigScalars emits the first-class top-level keys from
@@ -97,10 +95,6 @@ func writeCodexConfigScalars(sb *strings.Builder, cfg *config.CodexConfig, overl
 			wrote = true
 		}
 	}
-	if len(cfg.Notify) > 0 && !overlayKeys["notify"] {
-		emit.WriteTOMLStringArray(sb, "notify", cfg.Notify)
-		wrote = true
-	}
 	return wrote
 }
 
@@ -117,74 +111,7 @@ func writeCodexConfigTables(sb *strings.Builder, cfg *config.CodexConfig, overla
 		emit.WriteTOMLString(sb, "persistence", cfg.HistoryPersistence)
 		wrote = true
 	}
-	if !overlayKeys["model_providers"] && len(cfg.ModelProviders) > 0 {
-		writeCodexModelProviders(sb, cfg.ModelProviders)
-		wrote = true
-	}
-	if !overlayKeys["profiles"] && len(cfg.Profiles) > 0 {
-		writeCodexProfiles(sb, cfg.Profiles)
-		wrote = true
-	}
 	return wrote
-}
-
-// writeCodexModelProviders emits each `[model_providers.<id>]` table sorted
-// by id for deterministic output. Empty fields are skipped so each provider
-// only carries the keys the user actually set.
-func writeCodexModelProviders(sb *strings.Builder, providers map[string]config.CodexModelProvider) {
-	if len(providers) == 0 {
-		return
-	}
-	for _, id := range slices.Sorted(maps.Keys(providers)) {
-		p := providers[id]
-		sb.WriteString("\n[model_providers." + id + "]\n")
-		if p.Name != "" {
-			emit.WriteTOMLString(sb, "name", p.Name)
-		}
-		if p.BaseURL != "" {
-			emit.WriteTOMLString(sb, "base_url", p.BaseURL)
-		}
-		if p.WireAPI != "" {
-			emit.WriteTOMLString(sb, "wire_api", p.WireAPI)
-		}
-		if p.APIKeyEnv != "" {
-			emit.WriteTOMLString(sb, "api_key_env", p.APIKeyEnv)
-		}
-		if p.EnvKey != "" {
-			emit.WriteTOMLString(sb, "env_key", p.EnvKey)
-		}
-	}
-}
-
-// writeCodexProfiles emits each `[profiles.<name>]` table sorted by name for
-// deterministic output. Empty fields are skipped so the profile only carries
-// the overrides the user actually set.
-func writeCodexProfiles(sb *strings.Builder, profiles map[string]config.CodexProfile) {
-	if len(profiles) == 0 {
-		return
-	}
-	for _, name := range slices.Sorted(maps.Keys(profiles)) {
-		p := profiles[name]
-		sb.WriteString("\n[profiles." + name + "]\n")
-		if p.Model != "" {
-			emit.WriteTOMLString(sb, "model", p.Model)
-		}
-		if p.Sandbox != "" {
-			emit.WriteTOMLString(sb, "sandbox", p.Sandbox)
-		}
-		if p.ApprovalPolicy != "" {
-			emit.WriteTOMLString(sb, "approval_policy", p.ApprovalPolicy)
-		}
-		if p.ModelReasoningEffort != "" {
-			emit.WriteTOMLString(sb, "model_reasoning_effort", p.ModelReasoningEffort)
-		}
-		if p.ModelReasoningSummary != "" {
-			emit.WriteTOMLString(sb, "model_reasoning_summary", p.ModelReasoningSummary)
-		}
-		if p.ModelProvider != "" {
-			emit.WriteTOMLString(sb, "model_provider", p.ModelProvider)
-		}
-	}
 }
 
 func anyNamedMCP(mcps []spec.Entry) bool {

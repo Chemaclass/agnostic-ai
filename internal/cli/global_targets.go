@@ -420,6 +420,9 @@ func globalRoots(home string) []string {
 // Recorded files under these trees are swept when their source goes away.
 func (g globalTarget) trees(home string) []string {
 	var out []string
+	if g.hooks != "" {
+		out = append(out, filepath.Join(filepath.Dir(g.path(home, g.hooks)), "hooks"))
+	}
 	for _, p := range []string{g.skills, g.rules} {
 		if p != "" {
 			out = append(out, g.path(home, p))

@@ -104,6 +104,9 @@ func noteEditHookPayload(sess *emit.Session, hooks []spec.Entry, mode string) er
 	}
 	var paths []string
 	for _, h := range hooks {
+		if kind, _ := h.Meta["type"].(string); kind != "" && kind != "command" {
+			continue
+		}
 		if !firesOnEdit(h.Meta) {
 			continue
 		}
@@ -111,11 +114,11 @@ func noteEditHookPayload(sess *emit.Session, hooks []spec.Entry, mode string) er
 			reads := readsFilePath.MatchString(command)
 			if !reads {
 				sourceTool, _ := emit.SourceToolFromHookCommand(command)
-				body, found, err := sess.MaterializedHookScriptBody(emit.RewriteHookPath(command, target), target, sourceTool)
+				bodies, err := sess.MaterializedHookScriptBodies(command, target, sourceTool, h.Meta)
 				if err != nil {
 					return fmt.Errorf("inspect hook %s: %w", h.Path, err)
 				}
-				reads = found && readsFilePath.Match(body)
+				reads = slices.ContainsFunc(bodies, readsFilePath.Match)
 			}
 			if reads {
 				paths = append(paths, h.Path)

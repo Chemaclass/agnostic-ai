@@ -1,6 +1,15 @@
 {
   "version": 1,
   "hooks": {
+    "PreToolUse": [
+      {
+        "type": "command",
+        "command": ".github/hooks/scripts/shared-guard.sh",
+        "env": {
+          "AGNOSTIC_AI_TARGET": "copilot"
+        }
+      }
+    ],
     "PostToolUse": [
       {
         "type": "command",

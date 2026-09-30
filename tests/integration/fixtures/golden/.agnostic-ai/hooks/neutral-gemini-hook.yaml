@@ -1,0 +1,4 @@
+name: neutral-gemini-hook
+target: gemini
+event: BeforeTool
+command: .agnostic-ai/scripts/shared-guard.sh

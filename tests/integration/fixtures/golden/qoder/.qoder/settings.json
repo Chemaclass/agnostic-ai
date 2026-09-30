@@ -1,5 +1,19 @@
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".qoder/hooks/shared-guard.sh",
+            "env": {
+              "AGNOSTIC_AI_TARGET": "qoder"
+            }
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit",

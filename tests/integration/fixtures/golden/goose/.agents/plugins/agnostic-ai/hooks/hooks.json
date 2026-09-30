@@ -1,5 +1,15 @@
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "export AGNOSTIC_AI_TARGET=goose; .agents/plugins/agnostic-ai/hooks/shared-guard.sh"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit",

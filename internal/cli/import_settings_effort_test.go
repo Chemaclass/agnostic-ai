@@ -118,8 +118,8 @@ model_reasoning_effort = "low"
 	}
 	execCLI(t, "sync")
 	got := readFile(t, filepath.Join(dir, ".codex", "config.toml"))
-	if strings.Count(got, `model_reasoning_effort = "ultra"`) != 1 || !strings.Contains(got, `model_reasoning_effort = "low"`) {
-		t.Errorf("sync must write the promoted effort once and keep the profile's:\n%s", got)
+	if strings.Count(got, `model_reasoning_effort = "ultra"`) != 1 || strings.Contains(got, "[profiles.fast]") {
+		t.Errorf("sync must write the promoted effort once and leave out the profile Codex ignores:\n%s", got)
 	}
 }
 
