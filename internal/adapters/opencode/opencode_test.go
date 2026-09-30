@@ -667,3 +667,43 @@ func TestEmit_Skill_AcceptsValidVendorNames(t *testing.T) {
 		}
 	}
 }
+
+func TestEmit_SkillFieldsReachOptedInCommandsWithoutDropNotes(t *testing.T) {
+	for _, mirror := range []bool{false, true} {
+		t.Run(map[bool]string{false: "skill only", true: "command mirror"}[mirror], func(t *testing.T) {
+			testutil.TempCwd(t)
+			emit.DrainNotes()
+			t.Cleanup(func() { emit.DrainNotes() })
+			skill := spec.Entry{Kind: spec.KindSkill, Name: "review", Body: "Review.", Meta: map[string]any{
+				"description": "Review code.", "model": "provider/review-model", "agent": "reviewer", "subtask": true, "argument-hint": "[file]",
+			}}
+			cfg := &config.Config{Outputs: map[string]config.Output{target: {EmitSkillsAsCommands: mirror}}}
+			if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{skill}), cfg, false); err != nil {
+				t.Fatal(err)
+			}
+			readFile(t, ".opencode/skills/review/SKILL.md")
+			if mirror {
+				command := readFile(t, ".opencode/commands/skill-review.md")
+				for _, value := range []string{"model: provider/review-model", "agent: reviewer", "subtask: true"} {
+					if !strings.Contains(command, value) {
+						t.Errorf("command missing %s:\n%s", value, command)
+					}
+				}
+			}
+			noted := map[string]bool{}
+			for _, note := range emit.DrainNotes() {
+				if note.Shape == emit.NoteField && note.Kind == spec.KindSkill {
+					noted[note.Field] = true
+				}
+			}
+			for _, field := range []string{"model", "agent", "subtask"} {
+				if noted[field] == mirror {
+					t.Errorf("%s drop note = %v with command mirror %v", field, noted[field], mirror)
+				}
+			}
+			if !noted["argument-hint"] {
+				t.Error("argument-hint has no surface and must retain its drop note")
+			}
+		})
+	}
+}
