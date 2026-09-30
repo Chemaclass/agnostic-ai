@@ -600,11 +600,11 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 		sess.SetSkillsDirWriters(writers)
 	}
 	own := expandBundleVars(b.For(a.Name()), cfg, a.Name())
-	own.Rules = withoutEntryPointRules(sess, cfg, b, a.Name(), own.Rules)
 	prepared, files, err := emit.PrepareScopedDocuments(own, cfg, a.Name(), ReviewSections(b, cfg, a.Name()))
 	if err != nil {
 		return err
 	}
+	prepared.Rules = withoutEntryPointRules(sess, cfg, b, a.Name(), prepared.Rules)
 	if err := a.Emit(sess, prepared, cfg, dryRun); err != nil {
 		return err
 	}

@@ -128,7 +128,7 @@ func render(_ js.Value, args []js.Value) any {
 				inliner = adapters.EntryPointRuleInliner(cfg, t)
 			}
 			if inliner != "" {
-				content = adapters.AppendRulesAppendix(content, adapters.RenderRulesAppendix(adapters.EntryPointRules(bundle, inliner)))
+				content = adapters.AppendRulesAppendix(content, adapters.RenderRulesAppendix(adapters.EntryPointRules(bundle, inliner, cfg)))
 			}
 			content = adapters.AppendReviewSection(content, adapters.RootReviewSection(cfg, bundle, t))
 			files = append(files, map[string]any{

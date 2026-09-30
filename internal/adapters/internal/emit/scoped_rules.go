@@ -91,6 +91,20 @@ func PrepareScopedDocuments(b spec.Bundle, cfg *config.Config, target string, re
 			continue
 		}
 		if scope == "" {
+			directories, reason := codexGlobDirectories(cfg, target, r)
+			if err := reportCodexGlobFallback(cfg, target, r, reason); err != nil {
+				return out, nil, err
+			}
+			if len(directories) > 0 {
+				for _, directory := range directories {
+					if err := CheckScopePath(directory); err != nil {
+						return out, nil, fmt.Errorf("%s: %w", r.Path, err)
+					}
+					p := filepath.Join(directory, "AGENTS.md")
+					grouped[p] = append(grouped[p], r)
+				}
+				continue
+			}
 			out.Rules = append(out.Rules, original)
 			continue
 		}
@@ -293,8 +307,10 @@ func unsupportedScope(cfg *config.Config, target string, r spec.Entry, reason st
 
 // A scope adds its whole directory to the selector union.
 func scopePatterns(r spec.Entry, scope string) ([]string, error) {
-	bound := scope + "/**"
-	result := []string{bound}
+	var result []string
+	if scope != "" {
+		result = append(result, scope+"/**")
+	}
 	for _, key := range []string{"regex", "applyTo", "fileMatchPattern", "glob"} {
 		if _, exists := r.Meta[key]; exists {
 			return nil, fmt.Errorf("use portable paths or globs instead of %s with scope", key)
@@ -458,7 +474,11 @@ func scopedDocument(rules []spec.Entry, reviewSection string) string {
 }
 
 // EntryPointRules uses the same scope and target resolution as native emission.
-func EntryPointRules(b spec.Bundle, target string) spec.Bundle {
+func EntryPointRules(b spec.Bundle, target string, configs ...*config.Config) spec.Bundle {
+	var cfg *config.Config
+	if len(configs) > 0 {
+		cfg = configs[0]
+	}
 	b = b.For(target)
 	rules := make([]spec.Entry, 0, len(b.Rules))
 	for _, r := range b.Rules {
@@ -472,6 +492,9 @@ func EntryPointRules(b spec.Bundle, target string) spec.Bundle {
 		resolved.Meta = ResolveMeta(r.Meta, target)
 		scope, err := spec.RuleScope(resolved)
 		if err == nil && scope == "" {
+			if directories, _ := codexGlobDirectories(cfg, target, resolved); len(directories) > 0 {
+				continue
+			}
 			rules = append(rules, r)
 		}
 	}
@@ -482,7 +505,11 @@ func EntryPointRules(b spec.Bundle, target string) spec.Bundle {
 // CheckScopeReaders validates known cross-tool instruction discovery collisions.
 // It considers configured readers even during a partial sync.
 // reviews are the ReviewSections every AGENTS.md reader writes.
-func CheckScopeReaders(bundles map[string]spec.Bundle, files map[string]CapturedFile, targets []string, reviews map[string]string) error {
+func CheckScopeReaders(bundles map[string]spec.Bundle, files map[string]CapturedFile, targets []string, reviews map[string]string, configs ...*config.Config) error {
+	var cfg *config.Config
+	if len(configs) > 0 {
+		cfg = configs[0]
+	}
 	paths := make([]string, 0, len(files))
 	for path := range files {
 		paths = append(paths, path)
@@ -513,6 +540,13 @@ func CheckScopeReaders(bundles map[string]spec.Bundle, files map[string]Captured
 						return err
 					}
 					if s == "" {
+						projection := target
+						if scopeDocument(target) != "AGENTS.md" {
+							projection = "codex"
+						}
+						if directories, _ := codexGlobDirectories(cfg, projection, r); slices.Contains(directories, scope) {
+							expected = append(expected, r)
+						}
 						continue
 					}
 					patterns, err := targetScopePatterns(r, s, target)
