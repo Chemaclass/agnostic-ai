@@ -64,21 +64,25 @@ The report lists each Cursor instruction with its source spec, output path, sele
 - `lint` warns when a rule's folder names a project directory and its `scope:` points elsewhere (LINT020).
 - Keep rule names unique across directories.
 - Deeper rules add local context. Parent loading and precedence belong to the tool.
-- `alwaysApply: true` cannot widen scope. Sync chooses the native conditional flags.
+- `alwaysApply: true` does not add files to the scope and pattern union. Sync chooses the native conditional flags.
 - Scope does not remove instructions already loaded into a conversation.
 
 ## Narrow a rule to certain files
 
-On file-filter targets, use project-relative patterns inside the scope:
+`scope` plus `globs` or `paths` applies to the whole scope directory **and** every matching file. Use the union for a module and its tests:
 
 ```yaml
 scope: services/payments
-globs: "services/payments/**/*.go"
+globs: "tests/payments/**"
 ```
 
-`**/*` reduces to the whole scope. `**/*.go` is not rewritten relative to the scope and is unsupported. Directory-document targets such as Codex cannot express narrower file filters.
+Claude writes both `services/payments/**` and `tests/payments/**` in `paths`. Codex writes `AGENTS.md` in both directories. Directory-document targets accept complete subdirectory patterns such as `tests/payments/**`, and reject external file filters such as `tests/payments/**/*.go` rather than apply them to every file in that directory. Root selectors such as `CHANGELOG.md` and `**/*` are also unsupported with scope on those targets. File-filter targets keep those selectors.
 
-Prefer one `paths` or `globs` selector per rule. If both are present, their constrained patterns must agree or one must cover the scope. Multiple patterns work for scoped Claude, Cline, Continue, Qoder, and OpenHands rules. Native `regex`, `applyTo`, `fileMatchPattern`, and `glob` keys cannot be combined with `scope`. Cline's empty `paths` array keeps the rule disabled. Continue's empty `globs` array reports unsupported with scope, since replacing it with a directory filter would change activation.
+Patterns are project-relative, including `**/*.go`; they are not rewritten relative to the scope. A pattern inside the scope adds no files because the scope already includes that whole directory. To apply a rule only to certain files, omit `scope` and keep the rule outside a source folder that implies scope.
+
+`paths` and `globs` contribute to the same union. Native `regex`, `applyTo`, `fileMatchPattern`, and `glob` keys cannot be combined with `scope`. Cline's empty `paths` array keeps the rule disabled. Continue's empty `globs` array reports unsupported with scope, since replacing it with a directory filter would change activation. Windsurf, Trae, and Antigravity write union rules in the project's rules directory when a selector reaches outside the scope.
+
+**Breaking change:** earlier versions intersected scope and patterns. Remove `scope` from rules that used it to narrow `globs`, and write the full project-relative filters instead. Remove a catch-all `globs: "**/*"` from a rule that should apply only to its scope. See [migration](@/docs/migration.md#scope-and-pattern-unions).
 
 Unsupported combinations warn and skip. Set `on-unsupported: error` to fail instead, or `silent` to suppress notices.
 

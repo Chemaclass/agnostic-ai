@@ -2,6 +2,7 @@ package emit
 
 import (
 	"fmt"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -118,7 +119,7 @@ func PrepareScopedDocuments(b spec.Bundle, cfg *config.Config, target string, re
 		}
 		// Cursor reads shared nested AGENTS.md natively. Prefer that shared copy
 		// when its configured peers already require one for this same directory.
-		if target == "cursor" && len(patterns) == 1 && patterns[0] == scope+"/**" {
+		if _, err := scopeDirectories(patterns); target == "cursor" && err == nil {
 			for _, peer := range cfg.Targets {
 				if scopeDocument(peer) == "AGENTS.md" && r.EmitsTo(peer) {
 					doc = "AGENTS.md"
@@ -127,8 +128,9 @@ func PrepareScopedDocuments(b spec.Bundle, cfg *config.Config, target string, re
 			}
 		}
 		if doc != "" {
-			if len(patterns) != 1 || patterns[0] != scope+"/**" {
-				if err := unsupportedScope(cfg, target, r, "native directory instructions cannot preserve narrower file filters"); err != nil {
+			directories, err := scopeDirectories(patterns)
+			if err != nil {
+				if err := unsupportedScope(cfg, target, r, err.Error()); err != nil {
 					return out, nil, err
 				}
 				continue
@@ -136,13 +138,12 @@ func PrepareScopedDocuments(b spec.Bundle, cfg *config.Config, target string, re
 			if o := cfg.Outputs[target]; o.File != "" || o.RulesDir != "" {
 				return out, nil, fmt.Errorf("%s: %s: remove file/rules-dir overrides to use native scoped %s", r.Path, target, doc)
 			}
-			path := filepath.Join(scope, doc)
-			grouped[path] = append(grouped[path], r)
-			continue
-		}
-		if len(patterns) > 1 && target != "claude" && target != "cline" && target != "continue" && target != "qoder" && target != "openhands" {
-			if err := unsupportedScope(cfg, target, r, "multiple intersected patterns are not supported by this renderer; use one rule per pattern"); err != nil {
-				return out, nil, err
+			for _, directory := range directories {
+				if err := CheckScopePath(directory); err != nil {
+					return out, nil, fmt.Errorf("%s: %w", r.Path, err)
+				}
+				path := filepath.Join(directory, doc)
+				grouped[path] = append(grouped[path], r)
 			}
 			continue
 		}
@@ -268,8 +269,7 @@ func unsupportedScope(cfg *config.Config, target string, r spec.Entry, reason st
 	}
 }
 
-// scopePatterns handles portable conjunctions without guessing at glob algebra.
-// A literal subtree prefix proves a narrower pattern remains inside the scope.
+// A scope adds its whole directory to the selector union.
 func scopePatterns(r spec.Entry, scope string) ([]string, error) {
 	bound := scope + "/**"
 	result := []string{bound}
@@ -303,41 +303,76 @@ func scopePatterns(r spec.Entry, scope string) ([]string, error) {
 		if len(patterns) == 0 {
 			continue
 		}
-		constrained := []string{}
 		for _, p := range patterns {
 			p = strings.TrimSpace(p)
-			if p == "**" || p == "**/*" {
-				constrained = []string{bound}
-				break
-			}
-			if p == bound || p == scope+"/**/*" {
-				constrained = []string{bound}
-				break
-			}
-			if strings.HasPrefix(p, scope+"/") && !strings.Contains(p, "..") && !strings.ContainsAny(p, "{}!,\\") {
-				constrained = append(constrained, p)
+			if p == "" {
 				continue
 			}
-			// An explicit ancestor subtree is another safe intersection.
-			if strings.HasSuffix(p, "/**") && strings.HasPrefix(scope+"/", strings.TrimSuffix(p, "**")) {
-				constrained = []string{bound}
-				break
+			if strings.HasPrefix(p, "/") || strings.HasPrefix(p, "!") || strings.ContainsAny(p, "\\:\r\n\x00") {
+				return nil, fmt.Errorf("cannot combine %s %q with scope: use positive project-relative patterns", key, p)
 			}
-			return nil, fmt.Errorf("cannot intersect %s %q with scope %q", key, p, scope)
-		}
-		sort.Strings(constrained)
-		if len(result) == 1 && result[0] == bound {
-			result = constrained
-			continue
-		}
-		if len(constrained) == 1 && constrained[0] == bound {
-			continue
-		}
-		if strings.Join(result, "\x00") != strings.Join(constrained, "\x00") {
-			return nil, fmt.Errorf("paths and globs have different intersections; use one selector")
+			for _, part := range strings.Split(p, "/") {
+				if part == ".." {
+					return nil, fmt.Errorf("cannot combine %s %q with scope: parent traversal is not allowed", key, p)
+				}
+			}
+			p = path.Clean(p)
+			if p == "**/*" {
+				p = "**"
+			}
+			if strings.HasSuffix(p, "/**/*") {
+				p = strings.TrimSuffix(p, "/*")
+			}
+			result = append(result, p)
 		}
 	}
-	return result, nil
+	sort.Strings(result)
+	unique := make([]string, 0, len(result))
+	for _, p := range result {
+		if len(unique) > 0 && unique[len(unique)-1] == p {
+			continue
+		}
+		covered := false
+		for _, other := range result {
+			if other == p {
+				continue
+			}
+			if selectorCovers(other, p) {
+				covered = true
+				break
+			}
+		}
+		if !covered {
+			unique = append(unique, p)
+		}
+	}
+	return unique, nil
+}
+
+func selectorCovers(pattern, other string) bool {
+	if pattern == "**" {
+		return true
+	}
+	if !strings.HasSuffix(pattern, "/**") {
+		return false
+	}
+	directory := strings.TrimSuffix(pattern, "/**")
+	return !strings.ContainsAny(directory, "*?[]{}!,()") && strings.HasPrefix(other, directory+"/")
+}
+
+func scopeDirectories(patterns []string) ([]string, error) {
+	directories := make([]string, 0, len(patterns))
+	for _, pattern := range patterns {
+		if !strings.HasSuffix(pattern, "/**") || strings.ContainsAny(strings.TrimSuffix(pattern, "/**"), "*?[]{}!,()") {
+			return nil, fmt.Errorf("native directory instructions cannot preserve selector %q; use a complete directory pattern such as tests/a/**", pattern)
+		}
+		directory, err := spec.NormalizeScope(strings.TrimSuffix(pattern, "/**"))
+		if err != nil || directory == "" {
+			return nil, fmt.Errorf("native directory instructions cannot preserve selector %q: use a project subdirectory", pattern)
+		}
+		directories = append(directories, directory)
+	}
+	return directories, nil
 }
 
 // scopedDocument renders one scoped AGENTS.md: the rules block, then the
@@ -418,14 +453,33 @@ func CheckScopeReaders(bundles map[string]spec.Bundle, files map[string]Captured
 					if err != nil {
 						return err
 					}
-					if s != scope {
+					if s == "" {
 						continue
 					}
 					patterns, err := scopePatterns(r, s)
-					if err != nil || len(patterns) != 1 || patterns[0] != s+"/**" {
+					if err != nil {
+						if s != scope {
+							continue
+						}
+						return fmt.Errorf("%s: shared instructions cannot preserve %s's file filters: %w", path, target, err)
+					}
+					applies := s == scope
+					for _, pattern := range patterns {
+						applies = applies || pattern == "**" || strings.HasPrefix(pattern, scope+"/")
+					}
+					if !applies {
+						continue
+					}
+					directories, err := scopeDirectories(patterns)
+					if err != nil {
 						return fmt.Errorf("%s: shared instructions cannot preserve %s's file filters; use compatible selectors or separate worktrees", path, target)
 					}
-					expected = append(expected, r)
+					for _, directory := range directories {
+						if directory == scope {
+							expected = append(expected, r)
+							break
+						}
+					}
 				}
 				section := reviews[scope]
 				if len(expected) == 0 && section == "" || scopedDocument(expected, section) != file.Content {

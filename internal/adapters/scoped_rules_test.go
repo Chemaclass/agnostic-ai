@@ -37,7 +37,7 @@ func TestScopedRules_ReachNativeContext(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.target, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())
-			b := spec.NewBundle([]spec.Entry{{Kind: spec.KindRule, Name: "payments", Path: ".agnostic-ai/rules/payments.md", Body: "payment convention", Meta: map[string]any{"scope": "services/payments", "globs": "**/*", "alwaysApply": true}}})
+			b := spec.NewBundle([]spec.Entry{{Kind: spec.KindRule, Name: "payments", Path: ".agnostic-ai/rules/payments.md", Body: "payment convention", Meta: map[string]any{"scope": "services/payments", "globs": "services/payments/**/*.go", "alwaysApply": true}}})
 			a, _ := Get(tc.target)
 			cfg := &config.Config{Targets: []string{tc.target}}
 			if err := ValidateScopedRules(cfg, b, cfg.Targets); err != nil {
@@ -52,6 +52,82 @@ func TestScopedRules_ReachNativeContext(t *testing.T) {
 			}
 			if !strings.Contains(string(content), tc.selector) || !strings.Contains(string(content), "payment convention") {
 				t.Errorf("missing scoped content: %s", content)
+			}
+		})
+	}
+}
+
+func TestScopedRules_UnionReachesSourceAndTests(t *testing.T) {
+	packageDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, target := range []string{"claude", "codex", "gemini", "amp", "warp", "opencode", "goose", "augment", "factory", "kilo", "cursor", "copilot", "cline", "continue", "windsurf", "trae", "antigravity", "kiro", "qoder", "openhands"} {
+		t.Run(target, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			b := spec.NewBundle([]spec.Entry{{Kind: spec.KindRule, Name: "module-a", Path: ".agnostic-ai/rules/module-a.md", Body: "Module and test convention.", Meta: map[string]any{"scope": "src/a", "globs": []string{"tests/a/**"}}}})
+			cfg := &config.Config{Targets: []string{target}, OnUnsupported: "error"}
+			if err := ValidateScopedRules(cfg, b, cfg.Targets); err != nil {
+				t.Fatal(err)
+			}
+			a, _ := Get(target)
+			if err := EmitWithProvenance(NewSession(), a, b, cfg, false); err != nil {
+				t.Fatal(err)
+			}
+			testutil.AssertGoldenTree(t, dir, filepath.Join(packageDir, "testdata", "scope-union", target))
+		})
+	}
+}
+
+func TestScopedRules_UnionReadersCheckEveryDestination(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	b := spec.NewBundle([]spec.Entry{{Kind: spec.KindRule, Name: "module-a", Body: "Module convention.", Meta: map[string]any{"scope": "src/a", "globs": "tests/a/**"}}})
+	cfg := &config.Config{Targets: []string{"codex", "cursor", "amp"}, OnUnsupported: "error"}
+	if err := ValidateScopedRules(cfg, b, cfg.Targets); err != nil {
+		t.Fatal(err)
+	}
+	b.Rules[0].Meta["x-amp"] = map[string]any{"globs": "tests/b/**"}
+	if err := ValidateScopedRules(cfg, b, cfg.Targets[:1]); err == nil || !strings.Contains(err.Error(), "tests/") {
+		t.Errorf("expected conflict at the union's extra directory, got %v", err)
+	}
+}
+
+func TestScopedRules_UnionReaderIgnoresUnrelatedUnsupportedSelectors(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	b := spec.NewBundle([]spec.Entry{
+		{Kind: spec.KindRule, Name: "module-a", Body: "Module convention.", Meta: map[string]any{"scope": "src/a", "globs": "tests/a/**"}},
+		{Kind: spec.KindRule, Name: "other", Body: "Other convention.", Meta: map[string]any{"scope": "other", "target": "cursor", "x-cursor": map[string]any{"regex": ".*"}}},
+	})
+	cfg := &config.Config{Targets: []string{"codex", "cursor"}, OnUnsupported: "warn"}
+	defer ResetCoverageNotes()
+	if err := ValidateScopedRules(cfg, b, cfg.Targets); err != nil {
+		t.Errorf("unrelated selector must follow warn policy, got %v", err)
+	}
+}
+
+func TestScopedRules_UnionCatchAllKeepsProjectWideNativeSelector(t *testing.T) {
+	for _, target := range []string{"claude", "cursor", "copilot", "cline", "continue", "windsurf", "trae", "antigravity", "kiro", "qoder", "openhands"} {
+		t.Run(target, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			b := spec.NewBundle([]spec.Entry{{Kind: spec.KindRule, Name: "module-a", Body: "Union convention.", Meta: map[string]any{"scope": "src/a", "globs": "**/*"}}})
+			cfg := &config.Config{Targets: []string{target}, OnUnsupported: "error"}
+			a, _ := Get(target)
+			sess := NewSession()
+			sess.StartCapture()
+			if err := EmitWithProvenance(sess, a, b, cfg, false); err != nil {
+				t.Fatal(err)
+			}
+			found := false
+			for _, file := range sess.StopCapture() {
+				if strings.Contains(file.Content, "Union convention.") {
+					found = true
+					if strings.Contains(file.Content, "src/a/**") || !strings.Contains(file.Content, "**") {
+						t.Errorf("catch-all union narrowed at %s: %s", file.Path, file.Content)
+					}
+				}
+			}
+			if !found {
+				t.Fatal("no native rule carries the catch-all union")
 			}
 		})
 	}
