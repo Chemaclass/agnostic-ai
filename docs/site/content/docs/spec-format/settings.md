@@ -82,11 +82,12 @@ Multiple files merge: permission lists concatenate, de-duplicated in source orde
 |---|---|---|
 | Claude Code, Qoder, Kilo Code, OpenCode | yes | yes |
 | Factory | `Bash` rules only | yes |
+| Codex | `Bash` rules via `outputs.codex.exec-policies-from-permissions` | yes |
 | Windsurf | yes | no |
 | Augment | `allow` and `deny` only | no |
-| Codex, Copilot, Junie, Gemini | no | yes |
+| Copilot, Junie, Gemini | no | yes |
 
-Every other target takes neither. A field a target cannot represent produces a coverage note while the others still emit. Copilot, Junie, and Codex report the whole policy (Codex's note points at `outputs.codex.exec-policies`). Rules translate only as far as the vendor allows: Augment gates `read`, `edit`, and `write` as whole tools, and Factory's command lists take shell patterns, so a path-scoped rule raises a note instead of widening. Factory's `commandDenylist` prompts, so portable `ask` goes there and `deny` goes to `commandBlocklist`. Review an imported `model` before enabling more targets, since identifiers differ between vendors. A shared Claude model name raises the same coverage note as an [agent `model`](@/docs/spec-format/agents.md#per-target-model-and-effort) on Codex, Gemini, OpenCode, Kilo Code, and Factory.
+Every other target takes neither. A field a target cannot represent produces a coverage note while the others still emit. Copilot and Junie report the whole policy. Codex does too unless `outputs.codex.exec-policies-from-permissions: true` turns simple Bash rules into exec policies; the rest raise a note ([Bash permission translation](@/docs/targets/codex.md#translate-bash-permissions)). Rules translate only as far as the vendor allows: Augment gates `read`, `edit`, and `write` as whole tools, and Factory's command lists take shell patterns, so a path-scoped rule raises a note instead of widening. Factory's `commandDenylist` prompts, so portable `ask` goes there and `deny` goes to `commandBlocklist`. Review an imported `model` before enabling more targets, since identifiers differ between vendors. A shared Claude model name raises the same coverage note as an [agent `model`](@/docs/spec-format/agents.md#per-target-model-and-effort) on Codex, Gemini, OpenCode, Kilo Code, and Factory.
 
 ## Target-specific keys
 
