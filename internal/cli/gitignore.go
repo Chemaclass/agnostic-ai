@@ -337,7 +337,13 @@ func holdsCommitted(committed map[string]struct{}, entry string) bool {
 // entries, spec scopes stay visible, and every output of a
 // gitignore.commit kind is left out.
 func syncManagedBlock(cfg *config.Config, b spec.Bundle, targets, recorded []string) ([]string, error) {
-	committed, err := committedOutputs(cfg, b, targets)
+	commitTargets := slices.Clone(targets)
+	for _, target := range cfg.Targets {
+		if !slices.Contains(commitTargets, target) {
+			commitTargets = append(commitTargets, target)
+		}
+	}
+	committed, err := committedOutputs(cfg, b, commitTargets)
 	if err != nil {
 		return nil, fmt.Errorf("gitignore.commit: %w", err)
 	}
