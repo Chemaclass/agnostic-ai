@@ -266,14 +266,20 @@ func importAll(root string, cfg *config.Config) error {
 	for _, t := range unsupported {
 		_, _ = fmt.Fprintf(os.Stdout, "- skipping %s: detected, but there is no importer for it\n", t)
 	}
+	importAllSkippedEntryFiles = map[string]bool{}
+	defer func() { importAllSkippedEntryFiles = nil }()
 	if len(detected) == 0 {
-		fmt.Println("no importable AI CLI configs detected")
+		folded, err := foldRootAgentsMainFile(root)
+		if err != nil {
+			return err
+		}
+		if !folded {
+			fmt.Println("no importable AI CLI configs detected")
+		}
 		return nil
 	}
 	setImportRunSources(detected)
 	defer setImportRunSources(nil)
-	importAllSkippedEntryFiles = map[string]bool{}
-	defer func() { importAllSkippedEntryFiles = nil }()
 	var errs []string
 	for _, t := range detected {
 		_, _ = fmt.Fprintf(os.Stdout, "→ importing from %s\n", t)
@@ -282,7 +288,7 @@ func importAll(root string, cfg *config.Config) error {
 			errs = append(errs, t)
 		}
 	}
-	if err := foldRootAgentsMainFile(root); err != nil {
+	if _, err := foldRootAgentsMainFile(root); err != nil {
 		return err
 	}
 	if len(errs) > 0 {
