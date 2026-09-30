@@ -15,7 +15,7 @@ func lintCodexPermissions(targets []string, cfg *config.Config, b spec.Bundle) (
 	}
 	mismatches, err := codex.PermissionPolicyDrift(b.For("codex").Settings, cfg)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("codex: %w", err)
 	}
 	var findings []lintFinding
 	for _, mismatch := range mismatches {

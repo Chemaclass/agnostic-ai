@@ -163,20 +163,28 @@ func PermissionPolicyDrift(settings []spec.Entry, cfg *config.Config) ([]Permiss
 	if nativeExecPoliciesSource(cfg) == "" {
 		return nil, nil
 	}
-	policies, err := loadExecPolicies(cfg)
-	if err != nil {
-		return nil, err
-	}
-	for i, policy := range policies {
-		if err := validateExecPolicy(policy, i); err != nil {
-			return nil, err
-		}
-	}
 	rules := permissionRules(settings, cfg)
 	var portable []config.CodexExecPolicy
 	for _, rule := range rules {
 		if pattern, ok := bashPermissionPrefix(rule.rule); ok {
 			portable = append(portable, config.CodexExecPolicy{Pattern: pattern, Decision: permissionDecision(rule.list)})
+		}
+	}
+	if len(portable) == 0 {
+		return nil, nil
+	}
+	policies, err := loadExecPolicies(cfg)
+	if err != nil {
+		return nil, err
+	}
+	inline, file := len(cfg.Outputs[target].ExecPolicies), execPoliciesSourceFile(cfg)
+	for i, policy := range policies {
+		source, index := config.ConfigFileName, i
+		if i >= inline {
+			source, index = file, i-inline
+		}
+		if err := validateExecPolicy(policy, index); err != nil {
+			return nil, fmt.Errorf("%s: %w", source, err)
 		}
 	}
 	var mismatches []PermissionPolicyMismatch
