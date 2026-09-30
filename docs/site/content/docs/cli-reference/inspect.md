@@ -64,7 +64,7 @@ A root `AGENTS.md` written for a peer target such as Codex reaches Cursor too. T
 
 ## compare
 
-Compare how two built-in targets represent the project's agents and rule activation, before you switch or add a tool.
+Compare how two built-in targets represent the project's agent and skill fields and rule activation, before you switch or add a tool.
 
 ```bash
 agnostic-ai compare claude cursor
@@ -74,7 +74,7 @@ agnostic-ai compare claude cursor
 |------|-------------|
 | `--json` | Stable schema for scripts. |
 
-Coverage is agent fields plus rule `scope`, `paths`, `globs`, and `alwaysApply`. Other rules and spec kinds are left out. Each field gets one result per target:
+Coverage is agent and skill fields plus rule `scope`, `paths`, `globs`, and `alwaysApply`. Hooks and the other spec kinds are left out. Skill fields such as `argument-hint`, `effort`, and `disable-model-invocation` are classified from the files each adapter emits, including Codex policy sidecars. Each field gets one result per target:
 
 | Result | Meaning |
 |---|---|
