@@ -201,3 +201,119 @@ func TestInstallHookPostCheckout_SkipsSilentlyWhenNotReady(t *testing.T) {
 		t.Errorf("without agnostic-ai.yaml, sync must not run, got calls:\n%s", calls)
 	}
 }
+
+func TestInstallHookPostCheckout_KeepsManualHooksAndInstallsBothOnce(t *testing.T) {
+	for _, mode := range []string{"local", "shared", "linked"} {
+		t.Run(mode, func(t *testing.T) {
+			root := setupGitRepo(t)
+			dir := root
+			hooks := filepath.Join(root, ".git", "hooks")
+			args := []string{"--post-checkout"}
+			if mode == "shared" {
+				hooks = filepath.Join(root, sharedHooksPath)
+				args = append(args, "--shared")
+			}
+			if mode == "linked" {
+				git(t, root, "commit", "-q", "--allow-empty", "-m", "base")
+				dir = filepath.Join(t.TempDir(), "linked")
+				git(t, root, "worktree", "add", "-q", "-b", "linked", dir)
+			}
+			testutil.Chdir(t, dir)
+			if err := os.MkdirAll(hooks, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			for _, name := range []string{"post-checkout", "post-merge"} {
+				if err := os.WriteFile(filepath.Join(hooks, name), []byte("#!/bin/sh\necho manual-"+name+"\n"), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for range 2 {
+				if _, err := runInstallHook(args...); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for _, name := range []string{"post-checkout", "post-merge"} {
+				got := readHook(t, filepath.Join(hooks, name))
+				if !strings.Contains(got, "echo manual-"+name) || strings.Count(got, "agnostic-ai sync -q") != 1 {
+					t.Errorf("%s lost manual content or lacks one sync: %s", name, got)
+				}
+			}
+		})
+	}
+}
+
+func TestInstallHookPostCheckout_RefusesOtherHooksPathForBothHooks(t *testing.T) {
+	dir := setupGitRepo(t)
+	testutil.Chdir(t, dir)
+	custom := filepath.Join(t.TempDir(), "custom-hooks")
+	if err := os.Mkdir(custom, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	manual := "#!/bin/sh\necho manual\n"
+	if err := os.WriteFile(filepath.Join(custom, "post-merge"), []byte(manual), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	git(t, dir, "config", "core.hooksPath", custom)
+	if _, err := runInstallHook("--post-checkout"); err == nil || !strings.Contains(err.Error(), "core.hooksPath") {
+		t.Errorf("want hooksPath refusal, got %v", err)
+	}
+	if _, err := runInstallHook("--post-checkout", "--shared"); err == nil || !strings.Contains(err.Error(), "core.hooksPath") {
+		t.Errorf("want shared hooksPath refusal, got %v", err)
+	}
+	if got := readHook(t, filepath.Join(custom, "post-merge")); got != manual {
+		t.Errorf("custom hook changed: %s", got)
+	}
+	for _, name := range []string{"post-checkout", "post-merge"} {
+		if _, err := os.Stat(filepath.Join(dir, ".git", "hooks", name)); !os.IsNotExist(err) {
+			t.Errorf("inactive local %s written: %v", name, err)
+		}
+	}
+}
+
+func TestInstallHookPostMerge_SkipsMissingBinaryOrConfig(t *testing.T) {
+	dir := setupGitRepo(t)
+	testutil.Chdir(t, dir)
+	if _, err := runInstallHook("--post-checkout"); err != nil {
+		t.Fatal(err)
+	}
+	bin, log := fakeAgnosticAI(t)
+	hook := filepath.Join(dir, ".git", "hooks", "post-merge")
+	run := func(path string) {
+		t.Helper()
+		cmd := exec.Command("sh", hook, "0")
+		cmd.Dir = dir
+		cmd.Env = append(os.Environ(), "PATH="+path)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("post-merge: %v %s", err, out)
+		}
+	}
+	run(bin + string(os.PathListSeparator) + os.Getenv("PATH"))
+	if calls, _ := os.ReadFile(log); len(calls) != 0 {
+		t.Errorf("missing config ran sync: %s", calls)
+	}
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\n")
+	realGit, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	gitOnly := t.TempDir()
+	if err := os.Symlink(realGit, filepath.Join(gitOnly, "git")); err != nil {
+		t.Fatal(err)
+	}
+	run(gitOnly)
+	if calls, _ := os.ReadFile(log); len(calls) != 0 {
+		t.Errorf("missing binary ran sync: %s", calls)
+	}
+	run(bin + string(os.PathListSeparator) + os.Getenv("PATH"))
+	calls, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonical, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(string(calls)) != "sync -q cwd="+canonical {
+		t.Errorf("post-merge did not sync from root: %s", calls)
+	}
+}
