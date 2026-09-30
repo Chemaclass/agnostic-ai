@@ -1,0 +1,11 @@
+changed	.gemini/commands/core.toml
+changed	.gemini/commands/frontend.toml
+changed	.gemini/commands/full-context.toml
+changed	.gemini/commands/review-and-fix.toml
+changed	packages/a2a-server/GEMINI.md
+changed	packages/cli/GEMINI.md
+changed	packages/core/GEMINI.md
+changed	packages/devtools/GEMINI.md
+changed	packages/sdk/GEMINI.md
+changed	packages/test-utils/GEMINI.md
+changed	packages/vscode-ide-companion/GEMINI.md

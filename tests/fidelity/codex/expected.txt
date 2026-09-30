@@ -1,0 +1,2 @@
+changed	.codex/environments/environment.toml
+changed	codex-rs/tui/src/bottom_pane/AGENTS.md

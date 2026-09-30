@@ -1,0 +1,10 @@
+# Import fidelity corpus: native AI tool config from public repositories,
+# pinned to one commit each. scripts/fidelity-corpus.sh copies the listed
+# paths into tests/fidelity/<name>/repo.tar with the upstream license.
+# Upstream symlinks are dropped, so a checkout on Windows matches.
+# name	repo	commit	license	targets	paths (git glob pathspecs, space-separated)
+gemini-cli	google-gemini/gemini-cli	38700b4b38bf387dafded6c97c3f190d084b49e9	Apache-2.0	gemini	.gemini/** **/GEMINI.md .geminiignore
+codex	openai/codex	d42056091aded7feb1d88ac7e83972108b2aa478	Apache-2.0	codex	.codex/** **/AGENTS.md
+vscode	microsoft/vscode	f720bc375df41e4f29cf25b4820c76e698578eb8	MIT	copilot	.github/copilot-instructions.md .github/instructions/** .github/agents/** .github/prompts/** .agents/skills/** AGENTS.md
+opencode	anomalyco/opencode	2fa3363c924c5c3e367b84a87ae478296a0ed59b	MIT	opencode	.opencode/** opencode.json opencode.jsonc AGENTS.md
+supabase	supabase/supabase	904e3c4aa08ba6937a60f155398f8ec9e57f278c	Apache-2.0	claude	.claude/** .mcp.json CLAUDE.md AGENTS.md

@@ -1,0 +1,2 @@
+changed	.claude/settings.json
+changed	CLAUDE.md

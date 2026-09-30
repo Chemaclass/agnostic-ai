@@ -25,3 +25,6 @@
 docs/** linguist-documentation
 examples/** linguist-documentation
 *.md linguist-documentation
+
+# The import fidelity corpus is a byte-exact archive.
+*.tar binary
