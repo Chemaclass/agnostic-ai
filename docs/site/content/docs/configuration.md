@@ -451,7 +451,7 @@ Source root: `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when unset.
 
 ```text
 ~/.agnostic-ai/
-├── agnostic-ai.yaml        # optional: targets, requires, lint
+├── agnostic-ai.yaml        # optional: targets, requires, lint, on-unsupported
 ├── AGNOSTIC_AI.md
 ├── agents/*.md
 ├── rules/*.md
@@ -474,7 +474,9 @@ targets: [claude, codex, cursor]
 - `--only` and `--except` narrow the list for one run and must name configured targets. `--target` replaces it and skips the home config's `targets`.
 - A target with no user-level surface, such as `aider` or `continue`, is skipped with one warning. An unknown name stops the run.
 - [`requires`](#requires) stops the `--global` commands on an older binary. `local/agnostic-ai.yaml` replaces the shared value.
-- `lint` sets the budgets `lint --global` uses. Other keys except `version` print a warning and are ignored.
+- `lint` sets the budgets `lint --global` uses.
+- [`on-unsupported`](#on-unsupported) sets what `sync --global` does with a skill line that Claude Code expands and a target reads as plain text (see [Claude Code body syntax](@/docs/spec-format/skills.md#claude-code-body-syntax)): `warn` prints a note, `error` fails the sync, `silent` hides it. `local/agnostic-ai.yaml` replaces the shared value.
+- Other keys except `version` print a warning and are ignored.
 - A target dropped from the list keeps its synced files and ownership records until you remove them by hand.
 
 Run `agnostic-ai list --global` to see effective specs with their `global` or `global-local` layer, and `validate --global` and `lint --global` to check before a sync writes. Global layers never merge with project specs. [Local overrides](@/docs/local-overrides.md) compares this layer with the project one.

@@ -49,6 +49,12 @@ func NoteDroppedSkillFields(target string, skills []spec.Entry) {
 	emit.NoteDroppedSkillFields(target, (spec.Bundle{Skills: skills}).For(target).Skills)
 }
 
+// ReportClaudeSkillSyntax raises the Claude Code body syntax notes for
+// the skills that reach target. mode is the on-unsupported policy.
+func ReportClaudeSkillSyntax(target string, skills []spec.Entry, mode string) error {
+	return emit.ReportClaudeBodySyntax(target, spec.KindSkill, (spec.Bundle{Skills: skills}).For(target).Skills, mode)
+}
+
 // RenderSkillSidecars returns target's extra per-skill files, keyed by
 // path relative to the skill folder, or nil when it writes none.
 func RenderSkillSidecars(target string, skill spec.Entry) (map[string]string, error) {

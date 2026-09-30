@@ -111,13 +111,13 @@ func TestSyncGlobal_HomeConfigUnknownTargetSuggestsName(t *testing.T) {
 func TestSyncGlobal_HomeConfigWarnsOnKeysItIgnores(t *testing.T) {
 	_, source := globalConfigTestHome(t)
 	config := filepath.Join(source, "agnostic-ai.yaml")
-	mustWriteGlobalTest(t, config, "version: 1\ntargets: [claude]\non-unsupported: error\nsources:\n  rules: rules\n")
+	mustWriteGlobalTest(t, config, "version: 1\ntargets: [claude]\nsources:\n  rules: rules\n")
 
 	_, errOut, err := runGlobalCheck("sync")
 	if err != nil {
 		t.Fatalf("sync --global: %v", err)
 	}
-	want := fmt.Sprintf("warning: %s: global mode reads only targets, requires, and lint; ignoring on-unsupported, sources", config)
+	want := fmt.Sprintf("warning: %s: global mode reads only targets, requires, lint, and on-unsupported; ignoring sources", config)
 	if !strings.Contains(errOut, want) {
 		t.Errorf("expected %q, got:\n%s", want, errOut)
 	}
