@@ -220,7 +220,10 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 		emitted[outputManifestPath] = true
 	}
 	reports = append(reports, epRep)
-	generated := driftGeneratedPaths(reports)
+	generated, err := orphanGeneratedPaths(cfg, b, reports)
+	if err != nil {
+		return nil, err
+	}
 	for i := range reports {
 		reports[i].Orphaned = slices.DeleteFunc(reports[i].Orphaned, func(path string) bool {
 			return slices.Contains(generated, path)
@@ -411,6 +414,49 @@ func driftGeneratedPaths(reports []driftReport) []string {
 		}
 	}
 	return out
+}
+
+// A partial check cannot classify a ledger orphan until every configured producer is captured.
+func orphanGeneratedPaths(cfg *config.Config, b spec.Bundle, reports []driftReport) ([]string, error) {
+	generated := driftGeneratedPaths(reports)
+	if cfg.Sync.OutputManifest {
+		generated = append(generated, outputManifestPath)
+	}
+	if orphanedCount(reports) == 0 {
+		return generated, nil
+	}
+	var checked []string
+	for _, report := range reports {
+		checked = append(checked, report.Target)
+	}
+	var remaining []string
+	for _, target := range cfg.Targets {
+		if !slices.Contains(checked, target) {
+			remaining = append(remaining, target)
+		}
+	}
+	if len(remaining) == 0 {
+		return generated, nil
+	}
+	sess := adapters.NewSession()
+	for _, target := range remaining {
+		adapter, err := adapters.Resolve(target)
+		if err != nil {
+			return nil, fmt.Errorf("verify orphan producers: %w", err)
+		}
+		files, err := captureAdapterFiles(sess, adapter, b, cfg)
+		if err != nil {
+			return nil, fmt.Errorf("verify orphan producers for %s: %w", target, err)
+		}
+		for _, file := range files {
+			generated = append(generated, file.Path)
+		}
+	}
+	entryPoints, err := collectEntryPointDrift(cfg, b, cfg.Targets)
+	if err != nil {
+		return nil, fmt.Errorf("verify orphan entry points: %w", err)
+	}
+	return append(generated, driftGeneratedPaths([]driftReport{entryPoints})...), nil
 }
 
 // reportTrackedIgnored lists generated paths git both tracks and

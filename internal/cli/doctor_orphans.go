@@ -15,6 +15,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 func orphanRemovalPrompt(cmd *cobra.Command) func(string) (bool, error) {
@@ -46,7 +47,17 @@ func confirmOrphanRemoval(cmd *cobra.Command, reader *bufio.Reader, path string)
 
 func offerOrphanRemoval(cfg *config.Config, reports []driftReport, backup bool, confirm func(string) (bool, error)) (int, error) {
 	recorded := readStateFile(".").Orphans
-	generated := driftGeneratedPaths(reports)
+	if orphanedCount(reports) == 0 {
+		return 0, nil
+	}
+	bundle, err := spec.LoadLayered(resolveLayers(".", cfg))
+	if err != nil {
+		return 0, err
+	}
+	generated, err := orphanGeneratedPaths(cfg, bundle, reports)
+	if err != nil {
+		return 0, err
+	}
 	sess := adapters.NewSession()
 	sess.SetUnmanaged(cfg.Sync.Unmanaged)
 	sess.SetBackup(backup)

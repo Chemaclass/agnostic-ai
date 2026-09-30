@@ -407,3 +407,68 @@ func TestDoctorFix_RestoredSpecIsNotOfferedAsOrphan(t *testing.T) {
 		})
 	}
 }
+
+func TestDoctorFix_PartialTargetKeepsOtherTargetRestoredOutput(t *testing.T) {
+	testutil.TempCwd(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	mustWriteFile(t, ".agnostic-ai/skills/gone/SKILL.md", "---\nname: gone\ndescription: Restored skill.\ntarget: claude\n---\nRead references/a.md.\n")
+	mustWriteFile(t, ".agnostic-ai/skills/gone/references/a.md", "restored\n")
+	silence(t)
+	syncProject(t)
+	const genuine = ".claude/skills/removed/reference.md"
+	const other = ".claude/skills/gone/SKILL.md"
+	mustWriteFile(t, other, "edited other target\n")
+	mustWriteFile(t, genuine, "legacy\n")
+	prev := readStateFile(".")
+	if err := writeStateFile(".", 0, "", "", syncLedger{outputs: append(prev.Outputs, genuine), orphans: []string{keptReference, genuine}}); err != nil {
+		t.Fatal(err)
+	}
+	reports, err := collectDrift([]string{"codex"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundGenuine := false
+	for _, rep := range reports {
+		if rep.Target == "claude" {
+			t.Error("partial check added Claude drift to fix")
+		}
+		for _, path := range rep.Orphaned {
+			if path == keptReference {
+				t.Errorf("other target's restored output classified as orphan: %s", path)
+			}
+			if path == genuine {
+				foundGenuine = true
+			}
+		}
+	}
+	if !foundGenuine {
+		t.Error("genuine orphan disappeared")
+	}
+	if _, err := fixDrift(reports, false); err != nil {
+		t.Fatal(err)
+	}
+	// An outdated orphan report must not bypass the removal guard.
+	reports = append(reports, driftReport{Target: "agnostic-ai", Orphaned: []string{keptReference}})
+	cfg, _, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	removed, err := offerOrphanRemoval(cfg, reports, false, func(path string) (bool, error) {
+		if path == keptReference {
+			t.Errorf("other target's restored output offered for deletion: %s", path)
+		}
+		return true, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for path, want := range map[string]string{keptReference: "restored\n", other: "edited other target\n"} {
+		data, err := os.ReadFile(path)
+		if err != nil || string(data) != want {
+			t.Errorf("other target output %s=%q err=%v want=%q", path, data, err, want)
+		}
+	}
+	if removed != 1 || fileExists(genuine) {
+		t.Errorf("genuine orphan count=%d exists=%v", removed, fileExists(genuine))
+	}
+}
