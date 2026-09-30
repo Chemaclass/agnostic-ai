@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- **Breaking:** `on-unsupported: error` fails on coverage notes. List a known note under `coverage.accept` with a reason to hide it; `sync -v` lists it, `lint` flags stale entries, `doctor` counts them (#1496).
 - **Breaking:** rule `scope`, `globs`, and `paths` form a union; rule folders scope existing directories. Remove `scope` to keep only a filter (#1429, #1430).
 - Doctor warns when existing packaging ignore files miss generated paths; upgrade notes flag the Codex skills path move (#1447).
 - New `AGNOSTIC_AI.md` files use a short editable template; existing files stay intact, and `doctor` points out old boilerplate (#1446).

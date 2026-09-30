@@ -639,6 +639,9 @@ func newDoctorCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if err := reportAcceptedCoverageNotes(cmd, scope); err != nil {
+				return err
+			}
 
 			// 3b. Config present on disk but not single-sourced, then
 			// the paths the user owns through sync.unmanaged.

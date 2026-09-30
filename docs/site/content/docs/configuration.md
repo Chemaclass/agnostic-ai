@@ -35,6 +35,7 @@ For directory-specific instructions, give a rule a `scope`; see [scoped context]
 | Gate on project checks | [Verify](#verify) |
 | Block older binaries | [`requires`](#requires) |
 | Instruction size warnings | [`lint`](#lint) |
+| Silence a known coverage note | [`coverage.accept`](#coverageaccept) |
 | Per-machine or personal overrides | [Local overrides](#local-overrides), [Local spec layers](@/docs/local-overrides.md) |
 | Which value wins | [Precedence](#precedence), [Layered specs](#layered-specs) |
 | Cross-project instructions | [Global configuration](#global-configuration) |
@@ -76,6 +77,7 @@ outputs:
 | [`import`](#import) | map | per source | Import behavior. |
 | [`lint`](#lint) | map | see section | Budgets for always-loaded text. |
 | [`doctor`](#doctor) | map | see section | Opt-in diagnostic checks. |
+| [`coverage`](#coverageaccept) | map | none | Accepted coverage notes. |
 
 ## `requires`
 
@@ -321,7 +323,7 @@ Applies when an adapter receives a spec kind it does not support (e.g. `hooks` f
 | Value | Behavior |
 |-------|----------|
 | `warn` | Default. Log to stderr and continue. |
-| `error` | Fail the sync. |
+| `error` | Fail the sync, including on each [coverage note](#coverage-notes) not listed under [`coverage.accept`](#coverageaccept). |
 | `silent` | Skip without logging. |
 
 Imported Claude hook root references that cannot be translated also follow this policy, including exec-form placeholders and complex shell expansions. See [project-root paths](@/docs/spec-format/hooks.md#imported-project-root-paths).
@@ -346,6 +348,28 @@ Setting the named key clears the note. Repeated warnings collapse into one count
 | `kilo` | agents with `tools` | None. Use `x-kilo: {permission: {...}}`. |
 | `gemini` | agents with `tools` beyond Read/Write/Edit/Bash/Grep/Glob/WebFetch/WebSearch | None. Use `x-gemini: {tools: [...]}` or drop `tools`. |
 | `crush` | hooks not on `PreToolUse` | None. Crush runs `PreToolUse` only. |
+
+### `coverage.accept` {#coverageaccept}
+
+Some notes describe a decision the project already made. A portable `tools` list on an agent stays for Claude Code, while Codex gets its limits from `x-codex.sandbox_mode`. List such a note under `coverage.accept` with the reason:
+
+```yaml
+coverage:
+  accept:
+    - target: codex
+      kind: agents
+      field: tools
+      reason: Codex limits come from sandbox_mode; tools stays portable for other targets.
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `target` | yes | The target the note names. |
+| `kind` | yes | `agents`, `skills`, `rules`, `hooks`, `mcps`, `commands`, `settings`, `reviews`, `environments`, or `ignores`. |
+| `field` | no | The field in a "`<field>` on N specs has no effect on `<target>`" note. Leave it out to match the target's notes about the whole kind. |
+| `reason` | yes | Why the note is expected. `sync -v` prints it. |
+
+An accepted note no longer prints on `sync`, and `on-unsupported: error` ignores it. `sync -v` lists it as `accepted:` with its reason. `doctor` shows how many notes are accepted. `lint` warns with LINT022 when an entry matches no note, so an entry goes stale visibly once the target supports the field. Project-wide notes that name no target cannot be accepted and never fail the sync. A failure that `on-unsupported: error` raises while emitting, such as a Claude model name on another target, is not a note and is not affected.
 
 ## `gitignore`
 

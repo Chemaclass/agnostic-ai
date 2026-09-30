@@ -281,6 +281,9 @@
         },
         "doctor": {
           "$ref": "#/$defs/DoctorConfig"
+        },
+        "coverage": {
+          "$ref": "#/$defs/CoverageConfig"
         }
       },
       "additionalProperties": false,
@@ -288,6 +291,53 @@
       "required": [
         "version"
       ]
+    },
+    "CoverageAccept": {
+      "properties": {
+        "target": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "agents",
+            "skills",
+            "rules",
+            "hooks",
+            "mcps",
+            "commands",
+            "settings",
+            "reviews",
+            "environments",
+            "ignores"
+          ]
+        },
+        "field": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "target",
+        "kind",
+        "reason"
+      ]
+    },
+    "CoverageConfig": {
+      "properties": {
+        "accept": {
+          "items": {
+            "$ref": "#/$defs/CoverageAccept"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "DoctorConfig": {
       "properties": {
