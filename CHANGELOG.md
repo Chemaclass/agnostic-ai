@@ -30,6 +30,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - A `CLAUDE.md` that imports `@AGENTS.md` keeps that layout with only Claude enabled, so `AGENTS.md` no longer goes stale.
 - Native frontmatter drops translated `readonly` and `scope` keys, and a comma-separated `globs` string becomes one `paths` entry per pattern (#1428, #1458).
 - `import claude` turns nested `CLAUDE.md` into scoped rules, agent models into `model.claude`, and drops overlay `hooks: null` (#1427, #1431, #1453, #1465).
+- `sync --dry-run` reads the captured settings overlay, so its `.claude/settings.json` preview matches a real sync and a malformed overlay fails it (#1510).
 
 #### Codex
 
