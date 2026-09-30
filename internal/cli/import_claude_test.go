@@ -991,6 +991,147 @@ func TestImportFromClaude_ReadonlyAgentRoundTripKeepsOtherTargetsReadOnly(t *tes
 	}
 }
 
+func TestImportFromClaude_ReadonlyOverridesSurviveSyncImportSync(t *testing.T) {
+	cases := []struct {
+		name, fields, edit, want, absent string
+	}{
+		{"target optout", "readonly: true\nx-claude: {readonly: false}\n", "", "readonly: false", "disallowedTools:"},
+		{"merged target optout", "readonly: true\nx-cursor: &opts {readonly: false}\nx-claude: {<<: *opts}\n", "", "readonly: false", "disallowedTools:"},
+		{"merged explicit readonly wins", "readonly: true\nx-cursor: &opts {readonly: false}\nx-claude: {<<: *opts, readonly: true}\n", "", "readonly: true", ""},
+		{"merged sequence precedence", "readonly: true\nx-cursor: &first {readonly: false}\nx-codex: &second {readonly: true}\nx-claude: {<<: [*first, *second]}\n", "", "readonly: false", "disallowedTools:"},
+		{"null optout", "readonly: true\nx-claude: {disallowedTools: null}\n", "", "disallowedTools: null", "disallowedTools:"},
+		{"merged null optout", "readonly: false\nx-cursor: &opts {disallowedTools: null}\nx-claude: {<<: *opts}\n", "", "disallowedTools: null", "disallowedTools:"},
+		{"aliased null optout", "readonly: true\nx-cursor: &opts {disallowedTools: null}\nx-claude: *opts\n", "", "disallowedTools: null", "disallowedTools:"},
+		{"edited null optout", "readonly: true\nx-claude: {disallowedTools: null}\n", "disallowedTools: Bash\n", "disallowedTools: Bash", "disallowedTools: null"},
+		{"target readonly", "x-claude: {readonly: true}\n", "", "readonly: true", ""},
+		{"deleted target restrictions", "x-claude: {readonly: true}\n", "description: edited\n", "disallowedTools: null", "disallowedTools:"},
+		{"edited fields", "readonly: true\nx-claude: {readonly: false, model: sonnet, tools: [Read]}\n", "model: haiku\ntools: [Bash]\ndisallowedTools: Edit\n", "readonly: false", "sonnet"},
+		{"deleted translated tools", "readonly: true\n", "description: edited\n", "disallowedTools: null", "disallowedTools:"},
+		{"deleted native fields", "x-claude: {model: sonnet, tools: [Read]}\n", "description: edited\n", "description: edited", "model:"},
+		{"deleted native restrictions", "readonly: true\nx-claude: {disallowedTools: Bash}\n", "description: edited\n", "disallowedTools: null", "disallowedTools:"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			dir := setupFixture(t)
+			testutil.Chdir(t, dir)
+			silence(t)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+			path := filepath.Join(dir, ".agnostic-ai/agents/reviewer.md")
+			writeFile(t, path, "---\nname: reviewer\n"+c.fields+"---\nReview code.\n")
+			execCLI(t, "sync")
+			native := filepath.Join(dir, ".claude/agents/reviewer.md")
+			before := readFile(t, native)
+			if c.edit != "" {
+				writeFile(t, native, "---\nname: reviewer\n"+c.edit+"---\nReview code.\n")
+			}
+			execCLI(t, "import", "claude")
+			if got := readFile(t, path); !strings.Contains(got, c.want) {
+				t.Errorf("canonical translation intent lost:\n%s", got)
+			}
+			execCLI(t, "sync")
+			got := readFile(t, native)
+			if c.edit == "" && got != before {
+				t.Errorf("native output changed after import:\nbefore:\n%s\nafter:\n%s", before, got)
+			}
+			if c.absent != "" && strings.Contains(got, c.absent) {
+				t.Errorf("native output restored %q:\n%s", c.absent, got)
+			}
+			if c.name == "edited fields" && (!strings.Contains(got, "haiku") || !strings.Contains(got, "Bash") || !strings.Contains(got, "disallowedTools: Edit")) {
+				t.Errorf("native edits lost:\n%s", got)
+			}
+			if c.name == "edited null optout" && !strings.Contains(got, "disallowedTools: Bash") {
+				t.Errorf("native restriction edit lost:\n%s", got)
+			}
+		})
+	}
+}
+
+func TestImportFromClaude_RemovingAgentFrontmatterKeepsOnlyTranslationIntent(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".agnostic-ai/agents/reviewer.md", "---\nname: reviewer\nreadonly: true\nmodel: sonnet\ntools: [Read]\n---\nReview code.\n")
+	execCLI(t, "sync")
+	writeFile(t, ".claude/agents/reviewer.md", "Review code.\n")
+	execCLI(t, "import", "claude")
+	canonical := readFile(t, ".agnostic-ai/agents/reviewer.md")
+	if !strings.Contains(canonical, "readonly: true") || !strings.Contains(canonical, "disallowedTools: null") {
+		t.Errorf("canonical translation intent lost:\n%s", canonical)
+	}
+	execCLI(t, "sync")
+	got := readFile(t, ".claude/agents/reviewer.md")
+	for _, key := range []string{"name:", "model:", "tools:", "disallowedTools:", "readonly:"} {
+		if strings.Contains(got, key) {
+			t.Errorf("removed native %q resurrected:\n%s", key, got)
+		}
+	}
+}
+
+func TestImportFromClaude_NativeRestrictionsDoNotInferReadonly(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".claude/agents/reviewer.md", "---\nname: reviewer\ndisallowedTools: Write, Edit, NotebookEdit\n---\nReview code.\n")
+	execCLI(t, "import", "claude")
+	if got := readFile(t, ".agnostic-ai/agents/reviewer.md"); strings.Contains(got, "readonly:") {
+		t.Errorf("native tools guessed portable readonly:\n%s", got)
+	}
+}
+
+func TestImportFromClaude_AliasedReadonlyOptoutSurvivesSyncImportSync(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".agnostic-ai/agents/reviewer.md", "---\nname: reviewer\nreadonly: true\nx-cursor: &opts {readonly: false, tools: [Read]}\nx-claude: *opts\n---\nReview code.\n")
+	execCLI(t, "sync")
+	before := readFile(t, ".claude/agents/reviewer.md")
+	if strings.Contains(before, "disallowedTools:") {
+		t.Fatalf("initial alias optout was not applied:\n%s", before)
+	}
+	execCLI(t, "import", "claude")
+	canonical := readFile(t, ".agnostic-ai/agents/reviewer.md")
+	if !strings.Contains(canonical, "x-claude: {readonly: false}") || strings.Contains(canonical, "*opts") {
+		t.Errorf("aliased override was not preserved independently:\n%s", canonical)
+	}
+	execCLI(t, "sync")
+	if got := readFile(t, ".claude/agents/reviewer.md"); got != before {
+		t.Errorf("native alias output changed after import:\nbefore:\n%s\nafter:\n%s", before, got)
+	}
+}
+
+func TestPreserveClaudeReadonly_DetachesSharedAliasBeforeFiltering(t *testing.T) {
+	existing, err := frontmatterMapping([]byte("readonly: true\nx-cursor: &opts {readonly: false, tools: [Read]}\nx-claude: *opts\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	imported, err := frontmatterMapping([]byte("tools: [Read]\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	preserveClaudeReadonly(existing, imported)
+	var meta map[string]any
+	if err := existing.Decode(&meta); err != nil {
+		t.Fatal(err)
+	}
+	cursor, ok := meta["x-cursor"].(map[string]any)
+	if !ok {
+		t.Fatalf("Cursor mapping was lost: %#v", meta)
+	}
+	claude, ok := meta["x-claude"].(map[string]any)
+	if !ok {
+		t.Fatalf("Claude alias mapping was lost: %#v", meta)
+	}
+	if claude["readonly"] != false || claude["tools"] != nil {
+		t.Errorf("Claude override was not filtered: %#v", claude)
+	}
+	if cursor["readonly"] != false || cursor["tools"] == nil {
+		t.Errorf("shared Cursor mapping was mutated: %#v", cursor)
+	}
+}
+
 // generatedEntry marks body as a document sync wrote, the only kind of
 // entry point import still slices into rules: a hand-written one imports
 // whole as the shared body.

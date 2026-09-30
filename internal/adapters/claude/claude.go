@@ -89,6 +89,7 @@ const (
 )
 
 var caps = emit.Capabilities{
+	SkillFields:    emit.SkillFieldCoverage{Markdown: (Adapter{}).SkillMarkdown},
 	Target:         target,
 	Supports:       []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindHook, spec.KindMCP, spec.KindCommand, spec.KindSettings, spec.KindEnvironment},
 	AgentFields:    []string{"effort", "mcpServers"},
@@ -615,12 +616,13 @@ func ruleMetaWithPaths(meta map[string]any, keys []string) (map[string]any, []st
 	}
 	globs, hasGlobs := meta["globs"]
 	_, hasAlways := meta["alwaysApply"]
-	if !hasGlobs && !hasAlways {
+	_, hasScope := meta["scope"]
+	if !hasGlobs && !hasAlways && !hasScope {
 		return meta, keys
 	}
 	out := make(map[string]any, len(meta))
 	for k, v := range meta {
-		if k == "globs" || k == "alwaysApply" {
+		if k == "globs" || k == "alwaysApply" || k == "scope" {
 			continue
 		}
 		out[k] = v
@@ -635,7 +637,7 @@ func ruleMetaWithPaths(meta map[string]any, keys []string) (map[string]any, []st
 			if addPaths {
 				outKeys = append(outKeys, "paths")
 			}
-		case "alwaysApply":
+		case "alwaysApply", "scope":
 		default:
 			outKeys = append(outKeys, k)
 		}

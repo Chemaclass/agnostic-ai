@@ -26,21 +26,17 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 	return nil
 }
 
-// agentMeta resolves the agent frontmatter for Claude and writes
-// `disallowedTools` right after `readonly: true`. The `readonly` key
-// stays: Claude Code ignores it, but Cursor honors it when it reads
-// `.claude/agents/`, and `import claude` needs it to restore the spec. A
-// `disallowedTools` the spec sets itself wins, and an explicit
-// `x-claude.disallowedTools: null` opts out of the mapping.
 func agentMeta(a spec.Entry) (map[string]any, []string) {
 	meta, keys := emit.ResolveMetaOrdered(a.Meta, a.MetaKeys, target)
 	i := slices.Index(keys, "readonly")
 	if i < 0 {
 		return meta, keys
 	}
-	if meta["readonly"] != true {
-		delete(meta, "readonly")
-		return meta, slices.Delete(keys, i, i+1)
+	readonly := meta["readonly"] == true
+	delete(meta, "readonly")
+	keys = slices.Delete(keys, i, i+1)
+	if !readonly {
+		return meta, keys
 	}
 	custom, _ := a.Meta[emit.XPrefix+target].(map[string]any)
 	_, explicit := custom["disallowedTools"]
@@ -48,5 +44,5 @@ func agentMeta(a spec.Entry) (map[string]any, []string) {
 		return meta, keys
 	}
 	meta["disallowedTools"] = readonlyDisallowedTools
-	return meta, slices.Insert(keys, i+1, "disallowedTools")
+	return meta, slices.Insert(keys, i, "disallowedTools")
 }
