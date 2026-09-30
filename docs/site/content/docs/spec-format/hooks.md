@@ -205,7 +205,9 @@ For each configured target the hook reaches, it runs every command sync wrote fo
 - **Env.** Claude Code gets `AGNOSTIC_AI_TARGET=claude` and `CLAUDE_PROJECT_DIR`. Codex gets neither: its command sets the target itself. Both variables are removed from the calling shell's env first; other variables pass through.
 - **Shell.** Claude Code commands run with `bash -c`, exec-form `args` with no shell, and `shell: powershell` with PowerShell. Codex commands run with `sh -c`; on Windows, `commandWindows` runs with `powershell.exe -Command`.
 - **Timeout.** The spec's `timeout`, or the 600 seconds both tools wait by default.
-- **Matcher.** A matcher that does not match the tool or source means the target would not run the hook; that target reports `allow` and why.
+- **Matcher.** A matcher that does not match the tool or source means the target would not run the hook; that target reports `allow` and why. A target without the hook's event, such as Codex for `Notification`, is listed as not run.
+- **Async.** An `async: true` hook runs and prints its output, but its result is `not judged` and stays out of `--expect` and the comparison: neither tool waits for it.
+- **Background commands.** On macOS and Linux, a command the hook leaves running is killed once the hook exits.
 
 Each command reports one decision. Exit 2 is `block`, except on `SessionStart`, `SessionEnd`, `Notification`, `PreCompact`, and `PostCompact`, where it cannot stop anything and reads as `error`. On `PostToolUse` the tool already ran, so `block` sends stderr back to the model. Another non-zero exit is `error`. Exit 0 is `allow`, or `block` when stdout is a JSON reply with `"permissionDecision": "deny"`, `"decision": "block"`, or `"continue": false`. A command past its timeout is `timeout`. A `context` line marks output the target adds to the session: plain stdout on `SessionStart` and `UserPromptSubmit`, or a JSON reply's `additionalContext`.
 

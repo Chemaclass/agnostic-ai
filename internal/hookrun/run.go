@@ -73,17 +73,16 @@ func Run(argv []string, dir string, env []string, stdin []byte, timeout time.Dur
 	start := time.Now()
 	err := cmd.Run()
 	r := Result{Stdout: stdout.String(), Stderr: stderr.String(), Elapsed: time.Since(start)}
-	var exitErr *exec.ExitError
+	reapTree(cmd)
 	switch {
-	case errors.Is(ctx.Err(), context.DeadlineExceeded):
-		r.TimedOut = true
-	case errors.As(err, &exitErr):
-		r.Exit = exitErr.ExitCode()
-	case errors.Is(err, exec.ErrWaitDelay):
-		// The hook exited; a child it left in the background held the pipes.
-		r.Exit = cmd.ProcessState.ExitCode()
-	case err != nil:
+	case cmd.ProcessState == nil:
 		r.StartErr = err
+	// A hook that exited on its own before the deadline is no timeout,
+	// even when a child it left in the background held the pipes past it.
+	case !cmd.ProcessState.Exited() && errors.Is(ctx.Err(), context.DeadlineExceeded):
+		r.TimedOut = true
+	default:
+		r.Exit = cmd.ProcessState.ExitCode()
 	}
 	return r
 }

@@ -107,20 +107,27 @@ func findHook(b spec.Bundle, name string) (spec.Entry, bool) {
 
 // hookTargetRun is one target's combined decision. failed holds every
 // timeout or error among its commands, even when another one blocked.
+// An async run is not judged: the target does not wait for its result.
 type hookTargetRun struct {
 	target   string
 	decision hookrun.Decision
 	failed   []hookrun.Decision
+	async    bool
 }
 
 func runHookTargets(w io.Writer, hook spec.Entry, targets []string, root string, in hookrun.Input) ([]hookTargetRun, error) {
 	event, _ := hook.Meta["event"].(string)
 	matcher, _ := hook.Meta["matcher"].(string)
 	timeout := hookTimeout(hook.Meta)
+	async := hookRunAsync(hook.Meta)
 	var runs []hookTargetRun
 	for _, target := range targets {
 		if !hookrun.Supported(target) {
 			_, _ = fmt.Fprintf(w, "%s: not run (hook run builds no %s payload)\n", target, target)
+			continue
+		}
+		if _, ok := hookEventsByTarget[target][event]; !ok {
+			_, _ = fmt.Fprintf(w, "%s: not run (%s has no %s event)\n", target, target, event)
 			continue
 		}
 		handlers := adapters.HookHandlers(target, hook)
@@ -138,11 +145,18 @@ func runHookTargets(w io.Writer, hook spec.Entry, targets []string, root string,
 			continue
 		}
 		env := hookRunEnv(target, root)
-		run := hookTargetRun{target: target, decision: hookrun.Allow}
+		run := hookTargetRun{target: target, decision: hookrun.Allow, async: async}
 		for _, h := range handlers {
 			r := hookrun.Run(hookrun.Argv(target, runtime.GOOS, h), root, env, payload.Body, timeout)
 			d := hookrun.Decide(event, r)
-			printHookRun(w, target, event, payload.Trigger, h, r, d)
+			shown := d
+			if async {
+				shown = "not judged"
+			}
+			printHookRun(w, target, event, payload.Trigger, h, r, shown)
+			if async {
+				_, _ = fmt.Fprintf(w, "  note: async hook; %s does not wait for its result\n", target)
+			}
 			run.decision = strongerDecision(run.decision, d)
 			if d == hookrun.Timeout || d == hookrun.Error {
 				run.failed = append(run.failed, d)
@@ -211,6 +225,18 @@ func hookRunEnv(target, root string) []string {
 	return env
 }
 
+// hookRunAsync reads the spec's async field: both targets run such a
+// hook in the background, so its exit code blocks nothing.
+func hookRunAsync(meta map[string]any) bool {
+	switch v := meta["async"].(type) {
+	case bool:
+		return v
+	case string:
+		return v == "true"
+	}
+	return false
+}
+
 func hookTimeout(meta map[string]any) time.Duration {
 	var seconds int
 	switch v := meta["timeout"].(type) {
@@ -230,6 +256,10 @@ func hookTimeout(meta map[string]any) time.Duration {
 // judgeHookRuns fails on a command that timed out or errored, on a
 // decision other than expect, and on targets that disagree.
 func judgeHookRuns(name string, runs []hookTargetRun, expect hookrun.Decision) error {
+	runs = slices.DeleteFunc(slices.Clone(runs), func(r hookTargetRun) bool { return r.async })
+	if len(runs) == 0 {
+		return nil
+	}
 	var timedOut, errored, summary []string
 	for _, r := range runs {
 		summary = append(summary, r.target+" "+string(r.decision))

@@ -162,6 +162,38 @@ func TestHookRun_RawPayloadFile(t *testing.T) {
 	}
 }
 
+func TestHookRun_ATargetWithoutTheEventDoesNotRunIt(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	// Codex has no Notification event, so only Claude Code runs this.
+	dir := hookRunProject(t, "name: guard\nevent: Notification\ncommand: 'exit 2'\n")
+	payload := filepath.Join(dir, "note.json")
+	if err := os.WriteFile(payload, []byte(`{"hook_event_name":"Notification"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := runHookRun(t, "guard", "--payload", payload)
+	if !strings.Contains(out, "codex: not run (codex has no Notification event)") {
+		t.Errorf("output misses the codex skip:\n%s", out)
+	}
+	if err == nil || !strings.Contains(err.Error(), "failed on claude") || strings.Contains(err.Error(), "codex") {
+		t.Errorf("err = %v, want only the claude failure", err)
+	}
+}
+
+func TestHookRun_AnAsyncHookIsNotJudged(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	hookRunProject(t, "name: guard\nevent: PostToolUse\nmatcher: Bash\nasync: true\n"+
+		`command: 'test "$AGNOSTIC_AI_TARGET" = claude && exit 2; exit 0'`+"\n")
+
+	out, err := runHookRun(t, "guard", "--bash", "ls", "--expect", "block")
+	if err != nil {
+		t.Fatalf("err = %v, want async results kept out of --expect and divergence\n%s", err, out)
+	}
+	if !strings.Contains(out, "not judged") {
+		t.Errorf("output does not say the async result is not judged:\n%s", out)
+	}
+}
+
 func TestHookRun_UnknownHookAndTargetOutsideTheHook(t *testing.T) {
 	hookRunProject(t, "name: guard\nevent: PreToolUse\ntarget: claude\ncommand: 'true'\n")
 

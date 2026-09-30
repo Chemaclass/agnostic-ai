@@ -21,3 +21,11 @@ func killTree(cmd *exec.Cmd) {
 		return nil
 	}
 }
+
+// reapTree kills what the hook left running in its process group once
+// it returns, so a backgrounded command does not outlive the run.
+func reapTree(cmd *exec.Cmd) {
+	if cmd.Process != nil {
+		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	}
+}
