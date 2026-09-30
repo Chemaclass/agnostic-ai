@@ -261,12 +261,6 @@ func mergeCodexAgentIntoExisting(existing, codexName string, doc map[string]any)
 	return "---\n" + string(raw) + "---\n\n" + mergedBody, nil
 }
 
-// mergeCodexAgentModel records the Codex agent model under
-// `model.codex`, so no other target loads a model only Codex runs. A
-// spec without a model gains `model: {codex: <name>}`, and a per-target
-// map gains a `codex` entry unless it already has one. A shared scalar
-// model, or a Codex agent without one, keeps the `x-codex.model`
-// override of mergeDivergentMetaKey.
 func mergeCodexAgentModel(fm, xcodex, doc map[string]any) {
 	if _, set := xcodex["model"]; set {
 		return
