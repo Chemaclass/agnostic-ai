@@ -86,6 +86,9 @@ func newSyncCmd() *cobra.Command {
 			if jsonOut && (watch || diff) {
 				return errs.Coded(errs.CodeFlagConflict, "--json cannot be combined with --watch or --diff")
 			}
+			if diff && !check && !dryRun {
+				return errs.Coded(errs.CodeFlagConflict, "--diff requires --check (or --dry-run); add --check to preview drift without writing")
+			}
 			if err := refuseGlobalHome(".", globalHomeSyncRemedy); err != nil {
 				return err
 			}
@@ -203,7 +206,7 @@ func newSyncCmd() *cobra.Command {
 	cmd.Flags().StringSliceVar(&except, "except", nil, "Emit all configured targets except these (comma-separated); mutually exclusive with --only")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print outputs instead of writing")
 	cmd.Flags().BoolVar(&check, "check", false, "Compare emitted output to disk; non-zero exit on drift")
-	cmd.Flags().BoolVar(&diff, "diff", false, "With --check, print a unified diff per drifted file (default: counts only, so CI logs stay lean)")
+	cmd.Flags().BoolVar(&diff, "diff", false, "Requires --check (or --dry-run); prints a unified diff per drifted file (default: counts only, so CI logs stay lean)")
 	cmd.Flags().StringVar(&format, "format", checkFormatHuman, "With --check, drift report format: 'human' or 'github' (GitHub Actions ::error annotations)")
 	cmd.Flags().StringVar(&against, "against", "", "With --check, compare what Git holds instead of the working tree: 'index' (staged, for pre-commit hooks) or 'HEAD' (the last commit, for CI). Only outputs Git tracks are compared.")
 	cmd.Flags().BoolVar(&plan, "plan", false, "Show per-target added/changed counts without writing")

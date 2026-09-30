@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -63,6 +64,40 @@ func TestSyncCheck_Diff_ShowsChangedLines(t *testing.T) {
 	}
 	if !strings.Contains(got, "@@") {
 		t.Errorf("diff should carry a unified hunk header, got:\n%s", got)
+	}
+}
+
+func TestSync_DiffWithoutCheckRefusesAndWritesNothing(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "-t", "claude", "--diff"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "--check") {
+		t.Fatalf("--diff alone must fail naming --check, got %v", err)
+	}
+	if got := errs.CodeOf(err); got != errs.CodeFlagConflict {
+		t.Errorf("code=%q, want %q", got, errs.CodeFlagConflict)
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, ".claude/rules/r1.md")); !os.IsNotExist(statErr) {
+		t.Errorf("--diff alone must write nothing, stat err=%v", statErr)
+	}
+}
+
+func TestSync_DryRunDiffStillPreviews(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "-t", "claude", "--dry-run", "--diff"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("--dry-run --diff: %v", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, ".claude/rules/r1.md")); !os.IsNotExist(statErr) {
+		t.Errorf("--dry-run must write nothing, stat err=%v", statErr)
 	}
 }
 
