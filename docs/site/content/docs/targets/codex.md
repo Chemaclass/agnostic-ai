@@ -188,7 +188,7 @@ Translation is opt-in because a prefix matches extra arguments, even for a bare 
 
 Only plain, unquoted words are supported. Quotes, escapes, globs inside tokens, shell operators, expansions, assignments, shell keywords, and non-Bash tool rules produce a coverage note naming the exact rule and source. `on-unsupported: error` fails; `silent` omits the note. Use explicit `exec-policies` for a command that cannot translate.
 
-Any inline policy list (including `exec-policies: []`), `exec-policies-file` (including an empty file), or imported policy overlay is authoritative: sync uses that source and skips automatic translation. It never modifies the source policy file. `lint` warns with LINT021 when a supported Bash `allow` or `deny` rule lacks a covering native prefix with the same effective decision, including declared portable deny and ask exclusions. Broader native prefixes count; restrictive descendants also warn for an allowed prefix. This checks declared prefixes, not every shell invocation or other Codex config layer. `lint --strict` fails on the warning.
+Any inline policy list (including `exec-policies: []`), `exec-policies-file` (including an empty file), or imported policy overlay is authoritative: sync uses that source, skips automatic translation, and notes which source won. It never modifies the source policy file. `lint` warns with LINT021 when a supported Bash `allow` or `deny` rule lacks a covering native prefix with the same effective decision, including declared portable deny and ask exclusions. Broader native prefixes count; restrictive descendants also warn for an allowed prefix. This checks declared prefixes, not every shell invocation or other Codex config layer. `lint --strict` fails on the warning.
 
 ## Import
 

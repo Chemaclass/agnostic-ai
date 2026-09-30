@@ -3,6 +3,7 @@ package codex
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -94,23 +95,8 @@ func shouldUseExecPoliciesOverlay(cfg *config.Config) bool {
 //
 // Codex applies the strictest decision across matching rules.
 func loadExecPolicies(cfg *config.Config) ([]config.CodexExecPolicy, error) {
-	out, hasOut := cfg.Outputs[target]
-	var policies []config.CodexExecPolicy
-	if hasOut {
-		policies = append(policies, out.ExecPolicies...)
-	}
-
-	filePath := ""
-	if hasOut && out.ExecPoliciesFile != "" {
-		filePath = out.ExecPoliciesFile
-	} else if out.ExecPolicies == nil {
-		// Fall back to the captured overlay only when the user has no
-		// explicit declarations. A user with inline entries opts out of
-		// the overlay implicitly.
-		if _, err := os.Stat(execPoliciesOverlayPath); err == nil {
-			filePath = execPoliciesOverlayPath
-		}
-	}
+	policies := slices.Clone(cfg.Outputs[target].ExecPolicies)
+	filePath := execPoliciesSourceFile(cfg)
 	if filePath == "" {
 		return policies, nil
 	}
@@ -124,6 +110,21 @@ func loadExecPolicies(cfg *config.Config) ([]config.CodexExecPolicy, error) {
 	}
 	policies = append(policies, extra...)
 	return policies, nil
+}
+
+func execPoliciesSourceFile(cfg *config.Config) string {
+	out := cfg.Outputs[target]
+	if out.ExecPoliciesFile != "" {
+		return out.ExecPoliciesFile
+	}
+	// An inline list, even an empty one, opts out of the captured overlay.
+	if out.ExecPolicies != nil {
+		return ""
+	}
+	if _, err := os.Stat(execPoliciesOverlayPath); err == nil {
+		return execPoliciesOverlayPath
+	}
+	return ""
 }
 
 // validateExecPolicy enforces the minimal schema. Index is included in

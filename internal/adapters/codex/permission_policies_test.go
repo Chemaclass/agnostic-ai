@@ -106,6 +106,42 @@ func TestEmit_PermissionPoliciesNativeSourcesWin(t *testing.T) {
 	}
 }
 
+func TestEmit_PermissionPoliciesNoteTheNativeSourceThatWins(t *testing.T) {
+	cases := []struct{ field, file, source string }{
+		{"exec-policies: []", "", "outputs.codex.exec-policies"},
+		{"exec-policies-file: policies.yaml", "policies.yaml", "policies.yaml"},
+		{"", execPoliciesOverlayPath, execPoliciesOverlayPath},
+	}
+	for _, tc := range cases {
+		t.Run(tc.source, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			emit.ResetCoverageNotes()
+			t.Cleanup(emit.ResetCoverageNotes)
+			var notes strings.Builder
+			previous := emit.Warner
+			emit.Warner = &notes
+			t.Cleanup(func() { emit.Warner = previous })
+			if tc.file != "" {
+				if err := os.MkdirAll(filepath.Dir(filepath.Join(dir, tc.file)), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(dir, tc.file), []byte("- {pattern: [git], decision: forbidden}\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			cfg := permissionPolicyConfig(t, "outputs:\n  codex:\n    exec-policies-from-permissions: true\n    "+tc.field+"\n  claude:\n    settings:\n      permissions:\n        allow: [\"Bash(git diff:*)\"]\n")
+			if err := New().Emit(emit.NewSession(), spec.Bundle{}, cfg, true); err != nil {
+				t.Fatal(err)
+			}
+			emit.FlushCoverageNotes()
+			want := "note: codex: exec policies come from " + tc.source + ", so outputs.codex.exec-policies-from-permissions has no effect"
+			if !strings.Contains(notes.String(), want) {
+				t.Errorf("notes lack %q:\n%s", want, notes.String())
+			}
+		})
+	}
+}
+
 func TestEmit_PermissionPoliciesCoverageHonorsWarnSilentAndDryRun(t *testing.T) {
 	for _, mode := range []string{"warn", "silent", "error"} {
 		t.Run(mode, func(t *testing.T) {

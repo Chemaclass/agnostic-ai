@@ -2,7 +2,6 @@ package codex
 
 import (
 	"fmt"
-	"os"
 	"regexp"
 	"slices"
 	"strings"
@@ -85,13 +84,15 @@ func permissionDecision(list string) string {
 	}
 }
 
-func nativeExecPoliciesConfigured(cfg *config.Config) bool {
-	out := cfg.Outputs[target]
-	if out.ExecPolicies != nil || out.ExecPoliciesFile != "" {
-		return true
+func nativeExecPoliciesSource(cfg *config.Config) string {
+	var sources []string
+	if cfg.Outputs[target].ExecPolicies != nil {
+		sources = append(sources, "outputs.codex.exec-policies")
 	}
-	_, err := os.Stat(execPoliciesOverlayPath)
-	return err == nil
+	if file := execPoliciesSourceFile(cfg); file != "" {
+		sources = append(sources, file)
+	}
+	return strings.Join(sources, " and ")
 }
 
 func resolveExecPolicies(settings []spec.Entry, cfg *config.Config) ([]config.CodexExecPolicy, bool, error) {
@@ -99,7 +100,11 @@ func resolveExecPolicies(settings []spec.Entry, cfg *config.Config) ([]config.Co
 	if err != nil {
 		return nil, false, err
 	}
-	if !cfg.Outputs[target].ExecPoliciesFromPermissions || nativeExecPoliciesConfigured(cfg) {
+	if !cfg.Outputs[target].ExecPoliciesFromPermissions {
+		return policies, false, nil
+	}
+	if source := nativeExecPoliciesSource(cfg); source != "" {
+		emit.NoteProject(fmt.Sprintf("codex: exec policies come from %s, so outputs.codex.exec-policies-from-permissions has no effect", source))
 		return policies, false, nil
 	}
 	for _, rule := range permissionRules(settings, cfg) {
@@ -127,7 +132,7 @@ type PermissionPolicyMismatch struct {
 
 // PermissionPolicyDrift checks declared command prefixes, without reading user policy files.
 func PermissionPolicyDrift(settings []spec.Entry, cfg *config.Config) ([]PermissionPolicyMismatch, error) {
-	if !nativeExecPoliciesConfigured(cfg) {
+	if nativeExecPoliciesSource(cfg) == "" {
 		return nil, nil
 	}
 	policies, err := loadExecPolicies(cfg)
