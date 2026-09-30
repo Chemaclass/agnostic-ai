@@ -76,7 +76,7 @@ Any other frontmatter field passes through unchanged.
 
 | Want | Write |
 |------|-------|
-| Same model everywhere | `model: sonnet` |
+| Same model everywhere | `model: gpt-5.5` |
 | Per target, with a fallback | `model: {claude: sonnet, default: gpt-4o}` |
 | Per target, tool default elsewhere | `model: {claude: sonnet}` |
 | Different effort per target | `effort: {claude: xhigh, default: high}` |
@@ -115,6 +115,15 @@ Result: Claude gets `opus` and `xhigh`; Qoder `gpt-5.5` and `8000`; Junie `gpt-5
 | Every other target | none | Coverage note |
 
 Cursor encodes effort in the `model` string, so it rides on the `model` map. Factory ignores `reasoningEffort` when `model` resolves to `inherit`.
+
+**Claude model names on other targets.** A shared `model` (a scalar or `default`) set to a Claude model name raises a coverage note on a target that cannot load it, naming `model: {claude: <name>}`. `on-unsupported: error` fails the sync instead. A value under `model.<target>` or `x-<target>.model` passes. `import claude` writes these names as `model: {claude: <name>}`.
+
+| Target | Claude names that raise the note |
+|--------|----------------------------------|
+| [Codex](@/docs/targets/codex.md), [Gemini](@/docs/targets/gemini.md), [OpenCode](@/docs/targets/opencode.md), [Kilo Code](@/docs/targets/kilo.md) | `sonnet`, `opus`, `haiku`, `inherit`, and `claude-*` ids |
+| [Cursor](@/docs/targets/cursor.md), [Factory](@/docs/targets/factory.md), [Kiro](@/docs/targets/kiro.md) | `sonnet`, `opus`, and `haiku` |
+
+Only the targets listed were checked.
 
 ## `tools` support by target
 

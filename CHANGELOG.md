@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- A Claude model name in a shared agent or settings `model` raises a coverage note on Codex, Gemini, OpenCode, Kilo Code, Cursor, Factory, and Kiro, naming `model: {claude: <name>}`. `on-unsupported: error` fails the sync (#1431).
 - AAI-005 says to update `requires` when `package.json` already pins the running release, as right after `pnpm add agnostic-ai@X.Y.Z`, instead of suggesting a downgrade.
 - `sync --check --against` checks a bump commit's deleted-spec outputs too: the parent commit renders without its `requires`.
 - LINT001 no longer calls a hook or MCP spec empty when it names a command, prompt, server, or URL.
@@ -22,6 +23,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 #### Claude Code
 
 - `import claude` turns each nested `<dir>/CLAUDE.md` into one rule scoped to its directory, and a companion that imports `@AGENTS.md` reads as that file (#1427).
+- `import claude` writes an agent `model` set to a Claude model name (`sonnet`, `opus`, `haiku`, `inherit`, or a `claude-*` id) as `model: {claude: <name>}`, so Codex and other targets use their own default model instead of one they cannot load (#1431).
 - A project whose `CLAUDE.md` imports `@AGENTS.md` keeps that layout with only Claude enabled: sync writes the shared body to `AGENTS.md` and `CLAUDE.md` stays `@AGENTS.md` plus its Claude-only text, instead of one `CLAUDE.md` holding the whole text while `AGENTS.md` goes stale.
 
 #### Codex

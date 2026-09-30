@@ -37,7 +37,7 @@ func importClaudeAgents(root, dstDir string, layout claudeLayout) (int, error) {
 		if err != nil {
 			return count, fmt.Errorf("read %s: %w", srcPath, err)
 		}
-		out := header.Strip(string(data))
+		out := scopeClaudeModel(header.Strip(string(data)))
 		name := strings.TrimSuffix(e.Name(), ".md")
 		if codexPresent && !codexHasAgent(root, canonicalSpecSlug(name)) {
 			out = addTargetFrontmatter(out, "claude")

@@ -33,6 +33,10 @@ type Capabilities struct {
 	// key on only some targets, today just "effort", that this adapter
 	// writes. ReportUnsupported notes the field on every other target.
 	SettingsFields []string
+	// ForeignClaudeModels lists the ClaudeModelNames this target's agent
+	// and settings `model` keys cannot load. ReportUnsupported notes each
+	// one that reaches the target through a shared `model` value.
+	ForeignClaudeModels []string
 }
 
 // trackedAgentFields maps each portable agent field with a native key on
@@ -99,7 +103,7 @@ func ReportUnsupported(c Capabilities, b spec.Bundle, mode string) error {
 		noteDroppedAgentFields(c, b.Agents)
 		NoteDroppedAgentReadonly(c.Target, b.Agents)
 	}
-	return nil
+	return noteForeignClaudeModels(c, b, mode)
 }
 
 // noteDroppedAgentFields raises one field no-op note per tracked agent

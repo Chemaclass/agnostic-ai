@@ -116,6 +116,8 @@ var caps = emit.Capabilities{
 	AgentFieldReasons: map[string]string{
 		"effort": `Cursor has no effort key; put it in the model id, e.g. model: {cursor: "claude-opus-5[effort=high]"}`,
 	},
+	// Cursor reads inherit and claude-* model ids, not Claude's aliases.
+	ForeignClaudeModels: []string{"sonnet", "opus", "haiku"},
 }
 
 // environRoutingKeys are the agnostic-ai spec fields stripped after

@@ -233,6 +233,8 @@ var scannedSkillTrees = map[string]bool{
 var caps = emit.Capabilities{
 	Target:   target,
 	Supports: []spec.Kind{spec.KindRule, spec.KindAgent, spec.KindMCP, spec.KindSkill, spec.KindCommand, spec.KindIgnore, spec.KindSettings, spec.KindHook},
+	// Kilo names a model as provider/model, so a bare Claude name never loads.
+	ForeignClaudeModels: emit.ClaudeModelNames,
 }
 
 // Adapter emits Kilo Code configs.

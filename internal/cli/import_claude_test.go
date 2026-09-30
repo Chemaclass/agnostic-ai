@@ -257,7 +257,7 @@ func TestImportFromClaude_RoundTripStripsGeneratedMarker(t *testing.T) {
 
 func TestImportFromClaude_CopiesAgents(t *testing.T) {
 	dir := t.TempDir()
-	body := "---\nname: reviewer\nmodel: sonnet\n---\nReview diffs.\n"
+	body := "---\nname: reviewer\nmodel: gpt-5.5\n---\nReview diffs.\n"
 	writeFile(t, filepath.Join(dir, ".claude", "agents", "reviewer.md"), body)
 	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
 		t.Fatal(err)

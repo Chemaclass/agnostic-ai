@@ -188,7 +188,7 @@ Any other setting round-trips through the overlay captured by `agnostic-ai impor
 | `CLAUDE.md` that imports `@AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md`: the `AGENTS.md` text, then the rest of `CLAUDE.md` in a `::target claude` fence (no rules) |
 | `<dir>/CLAUDE.md` (nested, hand-written) | one rule with the whole file and `scope: <dir>`, named after the scope: `api.md` for `services/api/`, or `services-api.md` when another scope also ends in `api` (only when `.claude/rules/` is absent) |
 | `<dir>/CLAUDE.md` that imports `@AGENTS.md` | the same rule, holding the `AGENTS.md` text beside it, then the rest of `CLAUDE.md` in a `::target claude` fence. When `codex` imports in the same run, it owns that `AGENTS.md`, and only the fenced text lands, as `<scope>-claude.md` |
-| `.claude/agents/*.md` | `<agents>/<name>.md` (byte-identical copy) |
+| `.claude/agents/*.md` | `<agents>/<name>.md` (byte-identical copy, except a Claude model name becomes `model: {claude: <name>}`) |
 | `.claude/skills/<name>/SKILL.md` | `<skills>/<name>/SKILL.md` (`allowed-tools` moves under `x-claude:`) |
 | `.claude/commands/*.md` | `<commands>/<name>.md` (`allowed-tools` moves under `x-claude:`) |
 | `.claude/settings.json` hooks | `<hooks>/<event>[-<matcher>]-<command>.yaml`, such as `pretooluse-bash-exit-0.yaml`, with a `description` that says what runs and when (command hooks keep their grouping; HTTP, MCP-tool, and prompt handlers keep their native fields in separate specs; `target: claude` unless the hook can be shared, see below) |
@@ -202,7 +202,7 @@ The instructions file is looked up in Claude Code's own order: `CLAUDE.md`, `.cl
 
 When the text comes from `.claude/CLAUDE.md`, sync writes it to the root `CLAUDE.md` and Claude Code loads both files. Import says so: delete `.claude/CLAUDE.md` after the next sync.
 
-`allowed-tools` is a key only Claude Code reads, so import writes it under `x-claude:`, where `lint` accepts it and sync writes it back to the Claude file. A hook name comes from the script or first words of its command; two hooks that share a name keep them apart with a hash. A hook spec an earlier release named `<event>-<matcher>-<hash8>` keeps that name.
+`allowed-tools` is a key only Claude Code reads, so import writes it under `x-claude:`, where `lint` accepts it and sync writes it back to the Claude file. An agent `model` set to a Claude model name (`sonnet`, `opus`, `haiku`, `inherit`, or a `claude-*` id) imports as `model: {claude: <name>}`, so every other target uses its own default model. Sync writes `model: <name>` back to the Claude file. A hook name comes from the script or first words of its command; two hooks that share a name keep them apart with a hash. A hook spec an earlier release named `<event>-<matcher>-<hash8>` keeps that name.
 
 The import summary lists each file under `.claude/` it did not read, such as `.claude/templates/post.md`. Sync neither copies nor removes these files, so a skill that reads one still finds it in place, but other tools do not get a copy. Files sync wrote, hidden files, `settings.local.json`, and Claude Code's `worktrees/` and `agent-memory/` folders are not listed.
 
