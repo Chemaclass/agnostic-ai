@@ -99,6 +99,8 @@ func (s *Session) RemoveAgentsCompanion(dir, covered string, dryRun bool) error 
 		return nil
 	}
 	sibling := filepath.Join(dir, "AGENTS.md")
+	// A parallel target can still be writing the sibling's provenance header.
+	defer lockPath(sibling)()
 	agents, err := os.ReadFile(sibling)
 	if IsAbsent(err) {
 		return nil

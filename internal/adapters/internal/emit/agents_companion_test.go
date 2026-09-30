@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -105,6 +106,57 @@ func TestAgentsCompanionDirs(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestRemoveAgentsCompanion_WaitsForSiblingWrite(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	sibling := filepath.Join("services", "api", "AGENTS.md")
+	writeScoped(t, sibling, "Use integer minor units.\n")
+	writeScoped(t, "services/api/CLAUDE.md", "@AGENTS.md\n")
+	unlock := lockPath(sibling)
+	locked := true
+	defer func() {
+		if locked {
+			unlock()
+		}
+	}()
+	// A parallel scoped writer has truncated AGENTS.md and started its header.
+	writeScoped(t, sibling, "<!-- ")
+	started, finished := make(chan struct{}), make(chan error, 1)
+	sess := NewSession()
+	sess.SetBackup(true)
+	go func() {
+		close(started)
+		finished <- sess.RemoveAgentsCompanion("services/api", "Use integer minor units.\n", false)
+	}()
+	<-started
+	var result error
+	early := false
+	select {
+	case result = <-finished:
+		early = true
+		t.Error("companion removal read AGENTS.md while its writer held the path lock")
+	case <-time.After(100 * time.Millisecond):
+	}
+	writeScoped(t, sibling, HeaderBlock(FormatMarkdown)+"\nUse integer minor units.\n")
+	unlock()
+	locked = false
+	if !early {
+		select {
+		case result = <-finished:
+		case <-time.After(5 * time.Second):
+			t.Fatal("companion removal did not finish after sibling write")
+		}
+	}
+	if result != nil {
+		t.Fatal(result)
+	}
+	if _, err := os.Stat("services/api/CLAUDE.md"); !os.IsNotExist(err) {
+		t.Errorf("companion should be removed after completed sibling write, stat err = %v", err)
+	}
+	if got, err := os.ReadFile("services/api/CLAUDE.md.bak"); err != nil || string(got) != "@AGENTS.md\n" {
+		t.Errorf("backup = %q, %v, want original companion", got, err)
 	}
 }
 

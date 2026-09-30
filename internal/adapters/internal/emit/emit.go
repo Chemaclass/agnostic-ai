@@ -50,11 +50,13 @@ type CapturedRemoval struct {
 }
 
 // txEntry records the pre-write state of one file for transaction rollback.
-// content is nil when the file did not exist before the write.
+// content is nil when the file did not exist before the write. link is the
+// target of a symlink the transaction removed from path.
 type txEntry struct {
 	path    string
 	content []byte
 	mode    os.FileMode
+	link    string
 }
 
 // WrittenFile is one write event recorded during detailed recording mode.
@@ -420,9 +422,11 @@ func (s *Session) Commit() {
 	s.mu.Unlock()
 }
 
-// Rollback undoes all file writes recorded since StartTransaction. New files
-// are removed; overwritten files are restored from their pre-write content.
-// All entries are attempted; errors are joined and returned.
+// Rollback undoes all file writes and removals recorded since
+// StartTransaction. New files are removed; overwritten and removed files
+// are restored from their pre-write content, and removed symlinks are
+// recreated, along with any folders pruned above them. All entries are
+// attempted; errors are joined and returned.
 func (s *Session) Rollback() error {
 	s.mu.Lock()
 	log := s.txLog
@@ -433,7 +437,7 @@ func (s *Session) Rollback() error {
 	var errs []error
 	for i := len(log) - 1; i >= 0; i-- {
 		e := log[i]
-		if e.content == nil {
+		if e.content == nil && e.link == "" {
 			if err := os.Remove(e.path); err != nil && !os.IsNotExist(err) {
 				errs = append(errs, fmt.Errorf("rollback %s: %w", e.path, err))
 			}
@@ -451,7 +455,14 @@ func (s *Session) Rollback() error {
 					errs = append(errs, fmt.Errorf("rollback %s: %w", e.path, err))
 				}
 			}
-			if err := os.WriteFile(e.path, e.content, mode); err != nil {
+			// A sweep that removed the path may have pruned the folders it emptied.
+			if err := mkdirAll(filepath.Dir(e.path), dirPerm); err != nil {
+				errs = append(errs, fmt.Errorf("rollback %s: %w", e.path, err))
+			} else if e.link != "" {
+				if err := os.Symlink(e.link, e.path); err != nil {
+					errs = append(errs, fmt.Errorf("rollback %s: %w", e.path, err))
+				}
+			} else if err := os.WriteFile(e.path, e.content, mode); err != nil {
 				errs = append(errs, fmt.Errorf("rollback %s: %w", e.path, err))
 			} else if err := os.Chmod(e.path, mode); err != nil {
 				errs = append(errs, fmt.Errorf("rollback %s mode: %w", e.path, err))
@@ -913,10 +924,30 @@ func (s *Session) RemoveCopy(path, sum string, dryRun bool) (removed bool, err e
 	return s.remove(path, sum, existing, true, dryRun)
 }
 
+// RemoveLink deletes the symlink at path itself, never what it points to.
+// A user-owned path (sync.unmanaged) and anything but a symlink are left
+// alone, and so is disk in capture mode. A transaction logs the link's
+// target so Rollback can recreate it.
+func (s *Session) RemoveLink(path string, dryRun bool) (removed bool, err error) {
+	info, err := os.Lstat(path)
+	if IsAbsent(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("lstat %s: %w", path, err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 || s.skipUnmanaged(path) || s.IsCapturing() {
+		return false, nil
+	}
+	return s.remove(path, "", nil, false, dryRun)
+}
+
 // remove deletes path, whose bytes are existing, once the caller has
 // decided sync may. It honors capture, dry-run, transaction, and
-// detailed recording modes. handWritten marks a file sync did not write,
-// which backup mode keeps as `<path>.bak` so revert can restore it.
+// detailed recording modes; a transaction logs a symlink's target, not
+// the bytes it resolves to, so Rollback restores the link itself.
+// handWritten marks a file sync did not write, which backup mode keeps as
+// `<path>.bak` so revert can restore it.
 func (s *Session) remove(path, sum string, existing []byte, handWritten, dryRun bool) (removed bool, err error) {
 	s.mu.Lock()
 	capturing := s.capturing
@@ -937,12 +968,18 @@ func (s *Session) remove(path, sum string, existing []byte, handWritten, dryRun 
 	}
 
 	if transacting {
-		mode := filePerm
-		if info, statErr := os.Stat(path); statErr == nil {
-			mode = info.Mode().Perm()
+		entry := txEntry{path: path, content: existing, mode: filePerm}
+		if info, statErr := os.Lstat(path); statErr == nil && info.Mode()&os.ModeSymlink != 0 {
+			link, err := os.Readlink(path)
+			if err != nil {
+				return false, fmt.Errorf("readlink %s: %w", path, err)
+			}
+			entry = txEntry{path: path, link: link}
+		} else if statErr == nil {
+			entry.mode = info.Mode().Perm()
 		}
 		s.mu.Lock()
-		s.txLog = append(s.txLog, txEntry{path: path, content: existing, mode: mode})
+		s.txLog = append(s.txLog, entry)
 		s.mu.Unlock()
 	}
 

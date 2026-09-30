@@ -335,20 +335,22 @@ func holdsCommitted(committed map[string]struct{}, entry string) bool {
 // syncManagedBlock builds the managed block for a sync over targets from
 // the paths it recorded: each target's ignore-only hints join the
 // entries, spec scopes stay visible, and every output of a
-// gitignore.commit kind is left out.
+// gitignore.commit kind is left out. Hints, scopes, and commit kinds
+// cover every configured target too, so a sync of a subset writes the
+// block a full sync would.
 func syncManagedBlock(cfg *config.Config, b spec.Bundle, targets, recorded []string) ([]string, error) {
-	commitTargets := slices.Clone(targets)
+	blockTargets := slices.Clone(targets)
 	for _, target := range cfg.Targets {
-		if !slices.Contains(commitTargets, target) {
-			commitTargets = append(commitTargets, target)
+		if !slices.Contains(blockTargets, target) {
+			blockTargets = append(blockTargets, target)
 		}
 	}
-	committed, err := committedOutputs(cfg, b, commitTargets)
+	committed, err := committedOutputs(cfg, b, blockTargets)
 	if err != nil {
 		return nil, fmt.Errorf("gitignore.commit: %w", err)
 	}
-	entries := append(slices.Clone(recorded), gitignoreHintsForTargets(cfg, targets)...)
-	return buildManagedBlockCommitting(cfg, entries, specScopes(b, targets), committed), nil
+	entries := append(slices.Clone(recorded), gitignoreHintsForTargets(cfg, blockTargets)...)
+	return buildManagedBlockCommitting(cfg, entries, specScopes(b, blockTargets), committed), nil
 }
 
 func trackedIgnoreCandidates(cfg *config.Config, outputs []string) []string {
@@ -374,7 +376,7 @@ func buildManagedBlockCommitting(cfg *config.Config, entries, scopes []string, c
 		entries = append(slices.Clone(entries), worktreeIncludeFile)
 	}
 	var ignored []string
-	for _, e := range normalizeAndSort(append(fixedManagedEntries(), dropSourceEntryPoint(entries)...)) {
+	for _, e := range normalizeAndSort(append(fixedManagedEntries(), dropTrackedEntries(entries)...)) {
 		if !holdsCommitted(committed, e) {
 			ignored = append(ignored, e)
 		}
@@ -487,7 +489,8 @@ func specScopes(b spec.Bundle, targets []string) []string {
 	return sortedKeys(seen)
 }
 
-// dropSourceEntryPoint removes AGNOSTIC_AI.md from the recorded emissions.
+// dropTrackedEntries removes AGNOSTIC_AI.md from the recorded emissions, and
+// the output manifest with it.
 //
 // The first sync in a fresh project writes it and records it like any other
 // emission; later syncs read it from disk and skip the write, so it is absent
@@ -497,13 +500,21 @@ func specScopes(b spec.Bundle, targets []string) []string {
 // `init && sync && git add -A && git commit` silently left it out of the
 // repository (#580).
 //
-// It cannot be handled by protectedSourceTopDirs: that guards against
+// The manifest is committed too, and reaches the entries two ways: a sync of
+// some targets, or one whose orphan sweep failed, records every path in the
+// ledger, which lists it, and sync --json records its write.
+//
+// Neither can be handled by protectedSourceTopDirs: that guards against
 // collapsing entries into a directory-wide ignore, and `.agnostic-ai` legitimately
 // holds two managed entries (`.sync-state`, `packs/`) that must stay listed.
-func dropSourceEntryPoint(entries []string) []string {
+func dropTrackedEntries(entries []string) []string {
+	tracked := []string{
+		normalizeGitignorePath(adapters.AgnosticEntryPointPath),
+		normalizeGitignorePath(outputManifestPath),
+	}
 	out := make([]string, 0, len(entries))
 	for _, e := range entries {
-		if normalizeGitignorePath(e) == normalizeGitignorePath(adapters.AgnosticEntryPointPath) {
+		if slices.Contains(tracked, normalizeGitignorePath(e)) {
 			continue
 		}
 		out = append(out, e)

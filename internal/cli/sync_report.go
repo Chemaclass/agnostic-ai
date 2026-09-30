@@ -87,6 +87,8 @@ func (r *syncReport) filesChanged() int {
 	return len(r.created) + len(r.updated) + len(r.removed)
 }
 
+const untrackPullAdvice = "other clones lose these files on their next pull after this deletion is committed; run `agnostic-ai install-hook --post-checkout` there before pulling, or `agnostic-ai sync` after pulling"
+
 // render prints the change list and the closing summary line.
 func (r *syncReport) render(w io.Writer, targets int, elapsed time.Duration, verbose bool) {
 	if len(r.specs) > 0 {
@@ -104,6 +106,7 @@ func (r *syncReport) render(w io.Writer, targets int, elapsed time.Duration, ver
 	}
 	if n := len(r.untracked); n > 0 {
 		_, _ = fmt.Fprintf(w, "  %s untracked %d file%s no longer covered by git: %s\n", term.Bang(w), n, plural(n), strings.Join(r.untracked, " "))
+		_, _ = fmt.Fprintf(w, "  %s %s\n", term.Bang(w), untrackPullAdvice)
 	}
 	if n := len(r.trackedIgnored); n > 0 {
 		_, _ = fmt.Fprintf(w, "  %s %d file%s tracked despite being ignored: git rm --cached %s\n", term.Bang(w), n, plural(n), strings.Join(r.trackedIgnored, " "))
