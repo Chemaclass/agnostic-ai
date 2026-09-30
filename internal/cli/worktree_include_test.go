@@ -153,7 +153,7 @@ func trackedWorktreeIncludeProject(t *testing.T) string {
 	t.Helper()
 	dir := syncGitignored(t, "version: 1\ntargets: [claude]\ngitignore:\n  enabled: true\n")
 	git(t, dir, "add", worktreeIncludeFile)
-	git(t, dir, "commit", "-q", "-m", "worktree include")
+	git(t, dir, "-c", "user.email=t@example.com", "-c", "user.name=t", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "worktree include")
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\ngitignore:\n  enabled: true\n  ignore-worktree-include: true\n")
 	return dir
 }
