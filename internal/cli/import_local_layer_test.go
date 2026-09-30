@@ -475,3 +475,34 @@ func TestImport_HookEventOrderLeavesEventsOnlyLocalHooksFeed(t *testing.T) {
 		t.Errorf("dropped the event a shared hook feeds:\n%s", data)
 	}
 }
+
+func TestImport_FactoryKeepsDistinctRootBesideLocalPowerShellHook(t *testing.T) {
+	testutil.TempCwd(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [factory]\n")
+	writeAgnosticFile(t, "# Shared\n")
+	writeFile(t, filepath.Join(defaultProjectUser, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ncommand: '\"$CLAUDE_PROJECT_DIR/.claude/hooks/guard.ps1\"'\nshell: powershell\n")
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v %s", err, out)
+	}
+	data, err := os.ReadFile(".factory/hooks.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "$CLAUDE_PROJECT_DIR") {
+		t.Fatalf("local hook unexpectedly translated: %s", data)
+	}
+	writeFile(t, ".factory/hooks.json", `{"PreToolUse":[{"matcher":"","hooks":[{"type":"command","command":"\"$CLAUDE_PROJECT_DIR/.factory/hooks/guard.ps1\""},{"type":"command","command":"\"${FACTORY_PROJECT_DIR}/.factory/hooks/guard.ps1\""}]}]}`)
+	out := importCapturing(t, "factory")
+	files := sharedHookFiles(t)
+	if len(files) != 1 {
+		t.Errorf("want one distinct native hook, got %v", files)
+	}
+	for name, data := range files {
+		if !strings.Contains(data, "FACTORY_PROJECT_DIR") || strings.Contains(data, "CLAUDE_PROJECT_DIR") {
+			t.Errorf("%s kept wrong handler: %s", name, data)
+		}
+	}
+	if !strings.Contains(out, "hook guard") {
+		t.Errorf("local emitted handler was not recognized: %s", out)
+	}
+}

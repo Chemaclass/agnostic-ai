@@ -80,3 +80,18 @@ func HookBoolMeta(meta map[string]any, key string) bool {
 	}
 	return false
 }
+
+func HookCommandEntries(raw any) []map[string]any {
+	entries, _ := raw.([]any)
+	var matched []map[string]any
+	for _, entry := range entries {
+		meta, ok := entry.(map[string]any)
+		if !ok || meta["type"] != "command" {
+			continue
+		}
+		if command, _ := meta["command"].(string); command != "" {
+			matched = append(matched, meta)
+		}
+	}
+	return matched
+}
