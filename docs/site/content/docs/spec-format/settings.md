@@ -72,12 +72,13 @@ protected:
 | `decision` | no | `ask` | `ask` makes the agent ask first. `deny` blocks the edit. |
 | `reason` | no | empty | Shown to the agent when an edit is blocked. |
 
-A path is anchored at the project root: `composer.lock` protects only the root file, and `**/composer.lock` protects every copy. Character classes, braces, negation, and paths outside the project are rejected, because the targets would read them differently. Each settings spec holds one block, so use one file per decision. The Codex hook and `lint` ignore case, so `.GITHUB/ci.yml` counts as protected on a case-insensitive file system. Claude Code's permission docs do not say whether `Edit` rules ignore case.
+A path is anchored at the project root: `composer.lock` protects only the root file, and `**/composer.lock` protects every copy. Character classes, braces, negation, and paths outside the project are rejected, because the targets would read them differently. Each settings spec holds one block, so use one file per decision. The Codex and Gemini CLI hooks and `lint` ignore case, so `.GITHUB/ci.yml` counts as protected on a case-insensitive file system. Claude Code's permission docs do not say whether `Edit` rules ignore case.
 
 | Target | Protection | How |
 |---|---|---|
 | Claude Code | enforced (permission) | `Edit(/<path>)` rules in `permissions.ask` or `permissions.deny` ([details](@/docs/targets/claude.md#protected-paths)) |
 | Codex | enforced (hook) | a generated `PreToolUse` hook in `.codex/hooks/` that blocks a matching `apply_patch` ([details](@/docs/targets/codex.md#protected-paths)) |
+| Gemini CLI | enforced (hook) | a generated `BeforeTool` hook in `.gemini/hooks/` that blocks a matching `write_file` or `replace` ([details](@/docs/targets/gemini.md#protected-paths)) |
 | Every other target | advisory | a coverage note on sync; state the paths in a rule |
 
 Protection covers the agent's edit tools. A shell command or script that writes the file directly can still change it. `agnostic-ai lint` warns (LINT022) when a protected path covers a file sync writes, since sync regenerates that file from its source spec, and reports an invalid block as LINT023. `sync --global` does not write protected paths.

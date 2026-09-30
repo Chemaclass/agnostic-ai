@@ -46,6 +46,31 @@ func (s *Session) MergeJSONFileNested(path string, keys map[string]any, nestedKe
 	return s.mergeJSONFile(path, keys, nested, dryRun)
 }
 
+// RemoveJSONKey, as a key's value in a merge, deletes that key from the
+// document instead of setting it.
+var RemoveJSONKey any = removeJSONKey{}
+
+type removeJSONKey struct{}
+
+// ExistingJSONObject returns the top-level object at key in the JSON or
+// JSONC document at path. A missing file or key, or a key that holds
+// something else, yields nil.
+func (s *Session) ExistingJSONObject(path, key string, dryRun bool) map[string]any {
+	doc, err := s.readExistingJSON(path, dryRun)
+	if err != nil {
+		return nil
+	}
+	raw, found := doc.Get(key)
+	if !found {
+		return nil
+	}
+	var object map[string]any
+	if err := json.Unmarshal(raw, &object); err != nil {
+		return nil
+	}
+	return object
+}
+
 // ExistingStrings returns the top-level string list at key in the JSON
 // or JSONC document at path. A missing file or key yields nil.
 func (s *Session) ExistingStrings(path, key string, dryRun bool) []string {
@@ -96,6 +121,10 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 	sort.Strings(names)
 	for _, k := range names {
 		value := keys[k]
+		if _, remove := value.(removeJSONKey); remove {
+			doc.Delete(k)
+			continue
+		}
 		if nested[k] {
 			value = mergeJSONObject(doc, k, value)
 		}

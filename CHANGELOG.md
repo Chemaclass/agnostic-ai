@@ -63,6 +63,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 #### Gemini CLI
 
 - `import gemini` decodes command TOML strings, so an escaped `\\(` in a prompt no longer doubles; other keys import under `x-gemini`.
+- A generated `BeforeTool` hook enforces settings `protected` paths on `write_file` and `replace`, with the reason shown (#1518).
 
 ### Site
 
