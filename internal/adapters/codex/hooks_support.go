@@ -88,7 +88,7 @@ func codexMatcherSegment(event, seg string) bool {
 // editPayloadReason is the coverage note for an edit hook that reads the
 // Claude payload. Codex reports an edit as tool_name apply_patch with
 // the patch in tool_input.command (learn.chatgpt.com/docs/hooks).
-const editPayloadReason = "Codex reports an edit as apply_patch with the patch in tool_input.command, so a command reading tool_input.file_path gets an empty value"
+const editPayloadReason = "Codex reports an edit as apply_patch with the patch in tool_input.command, so a command reading tool_input.file_path gets an empty value; read the edited paths with `agnostic-ai hook paths` instead"
 
 // readsFilePath matches the field access in jq (.tool_input.file_path)
 // and in a script's subscript (["tool_input"]["file_path"]).

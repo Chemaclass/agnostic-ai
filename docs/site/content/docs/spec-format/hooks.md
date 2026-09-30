@@ -31,18 +31,18 @@ event: SessionStart
 command: "git status --short"
 ```
 
-Format Go files after Claude Code edits them. The hook reads the edited path from the event JSON on stdin:
+Format Go files after the agent edits them, on Claude Code and Codex alike. [`agnostic-ai hook paths`](#edited-paths) reads the edited files from the event JSON on stdin, whichever tool sent it:
 
 ```yaml
 name: gofmt-on-edit
-description: Format a Go file after the agent edits it.
-target: claude
+description: Format the Go files the agent edits.
+targets: [claude, codex]
 event: PostToolUse
 matcher: Edit|Write
-command: 'f=$(jq -r .tool_input.file_path); case "$f" in *.go) gofmt -w "$f" ;; esac'
+command: 'agnostic-ai hook paths | grep "\.go$" | while IFS= read -r f; do gofmt -w "$f"; done'
 ```
 
-It is scoped to Claude Code because Codex reports edits as `apply_patch` with no `tool_input.file_path`; see the [Codex page](@/docs/targets/codex.md).
+Codex takes `Edit` and `Write` as aliases for `apply_patch`, so the one matcher fires on both tools.
 
 Run a script with exact arguments and no shell, so spaces and `$` pass through untouched:
 
@@ -56,7 +56,7 @@ args: ["--deny", "git push --force"]
 timeout: 10
 ```
 
-Command hooks receive event JSON on stdin; read the edited path or shell command from the target's `tool_input` fields. `AGNOSTIC_AI_TARGET` names the target that ran the hook; see [which target ran a hook](#hook-target).
+Command hooks receive event JSON on stdin; read the shell command from the target's `tool_input` fields, and the edited paths with [`agnostic-ai hook paths`](#edited-paths). `AGNOSTIC_AI_TARGET` names the target that ran the hook; see [which target ran a hook](#hook-target).
 
 ## Fields
 
@@ -146,3 +146,39 @@ A spec that sets `AGNOSTIC_AI_TARGET` in its own `env` keeps that value. Where s
 Trae, Factory, OpenHands, Antigravity, Kiro, Windsurf, and Augment do not get the variable: none has a per-hook `env`, and a prefix would break hooks that work today. Tell them apart by their own variables, such as `TRAE_PROJECT_DIR`, `FACTORY_PROJECT_DIR`, `OPENHANDS_PROJECT_DIR`, `DEVIN_PROJECT_DIR`, or `AUGMENT_PROJECT_DIR`. `CLAUDE_PROJECT_DIR` does not identify Claude Code: Cursor and Trae provide it too.
 
 `sync --global` leaves a matching hand-written hook alone, so an adopted Codex, Gemini, or Qoder entry does not get the variable. Cursor and Copilot also run `.claude/settings.json` hooks but read no `env` from it: Cursor still gets `cursor` from `sessionStart`, Copilot gets nothing.
+
+## Read the edited paths {#edited-paths}
+
+`agnostic-ai hook paths` reads a hook payload on stdin and prints each file the edit leaves on disk, one per line. Paths print relative to the directory the hook runs in; a path outside it prints in full. A tool call that is no edit prints nothing. The target comes from `AGNOSTIC_AI_TARGET`, or from `--target`, which wins. Codex on Windows (`commandWindows`) gets no `AGNOSTIC_AI_TARGET`, so pass `--target codex` there.
+
+```sh
+agnostic-ai hook paths            # src/app.go
+agnostic-ai hook paths --action   # update<TAB>src/app.go
+agnostic-ai hook paths --json     # [{"action": "update", "path": "src/app.go"}]
+```
+
+A plain run skips deleted files and the source of a move, so a formatter sees only files that exist. `--action` and `--json` list every change as `add`, `update`, `delete`, or `move`. A move reads as a `delete` of its source and a `move` of its destination, and `--json` gives the destination a `from`. When a tool does not say whether a write created the file, the change reads as `update`. In a hook that runs before the edit, a new file is not on disk yet, so run formatters after the edit.
+
+| Target | What it reads | Vendor docs |
+|---|---|---|
+| Claude Code | `tool_input.file_path` of `Edit`, `Write`, and `MultiEdit`; `tool_input.notebook_path` of `NotebookEdit` | [Hooks guide](https://code.claude.com/docs/en/hooks-guide) |
+| Codex | The `*** Add File:`, `*** Update File:`, `*** Delete File:`, and `*** Move to:` headers of the `apply_patch` body in `tool_input.command`, every file in the patch | [Hooks](https://learn.chatgpt.com/docs/hooks) |
+| Cursor | `file_path` of `afterFileEdit` and `afterTabFileEdit` | [Hooks](https://cursor.com/docs/hooks) |
+| Gemini | `tool_input.file_path` of `write_file` and `replace`, a relative path starting at `cwd` | [Hooks reference](https://geminicli.com/docs/hooks/reference/), [file system tools](https://geminicli.com/docs/tools/file-system/) |
+| Factory | `tool_input.file_path` of `Create` and `Edit` | [Hooks](https://docs.factory.com/harness/hooks) |
+| Windsurf | `tool_info.file_path` of `pre_write_code` and `post_write_code` | [Cascade hooks](https://docs.devin.ai/desktop/cascade/hooks) |
+| Augment | `file_changes[].path` with its `changeType`; before the edit, `tool_input.path` of `str-replace-editor` and `save-file` | [Hooks](https://docs.augmentcode.com/cli/hooks) |
+
+Factory, Windsurf, and Augment do not get `AGNOSTIC_AI_TARGET`, so give their hooks their own spec with `--target`. Factory documents no input for `ApplyPatch`, so a Factory patch prints nothing.
+
+The command fails for a target it does not read:
+
+- Qoder and Trae: the docs list no `tool_input` fields for the edit tools.
+- Copilot: the docs list no `toolArgs` keys for `edit`, `create`, or `apply_patch`.
+- Goose, Antigravity: the docs name the edit tools' arguments but show no edit hook payload.
+- OpenHands: the docs name no file edit tool.
+- Kiro: the docs list no `fs_write` input. A `PostFileSave` command can use its `filePath` template variable.
+- Cline: the current docs do not describe the script payload.
+- Crush: only `PreToolUse` runs, and it sets `CRUSH_TOOL_INPUT_FILE_PATH`.
+- OpenCode and Kilo: plugins get tool arguments as JavaScript objects, not a payload on stdin.
+- Zed: no hook fires on an edit.
