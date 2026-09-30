@@ -176,4 +176,7 @@ func TestRewriteWindowsNeutralHookPath_QuotesWholePathForWindowsShells(t *testin
 			t.Errorf("Windows command = %q, want %q", got, c.want)
 		}
 	}
+	if got, want := RewriteWindowsNeutralHookPath(`type .agnostic-ai/scripts/sub/guard.txt`, `C:\Users\My Name\.codex\hooks\`), `type "C:\Users\My Name\.codex\hooks\sub\guard.txt"`; got != want {
+		t.Errorf("native Windows command = %q, want %q", got, want)
+	}
 }

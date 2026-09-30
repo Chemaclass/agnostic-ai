@@ -101,11 +101,16 @@ func RewriteWindowsNeutralHookPath(command, dir string) string {
 	const prefix = agnosticScriptsDir + "/"
 	var out strings.Builder
 	from := 0
+	sep := "/"
+	if strings.Contains(dir, `\`) {
+		// cmd.exe reads a forward slash as a switch, so keep a native path native.
+		sep = `\`
+	}
 	for _, ref := range neutralHookReferences(command, false) {
 		out.WriteString(command[from:ref.start])
-		directory := strings.TrimRight(dir, "/")
+		directory := strings.TrimRight(dir, `/\`)
 		if ref.quote == 0 {
-			path := directory + "/" + ref.name
+			path := directory + sep + strings.ReplaceAll(ref.name, "/", sep)
 			if strings.ContainsAny(path, " \t&|<>^()") {
 				path = `"` + path + `"`
 			}
@@ -114,7 +119,7 @@ func RewriteWindowsNeutralHookPath(command, dir string) string {
 			if ref.quote == '\'' {
 				directory = strings.ReplaceAll(directory, "'", "''")
 			}
-			out.WriteString(directory + "/" + command[ref.start+len(prefix):ref.end])
+			out.WriteString(directory + sep + strings.ReplaceAll(command[ref.start+len(prefix):ref.end], "/", sep))
 		}
 		from = ref.end
 	}

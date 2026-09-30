@@ -1815,7 +1815,7 @@ func (t globalHookTarget) tell(handler, meta map[string]any) {
 		if windows == "" {
 			windows = command
 		} else if t.scriptsDir != "" {
-			windows = adapters.RewriteWindowsNeutralHookPath(windows, filepath.ToSlash(t.scriptsDir))
+			windows = adapters.RewriteWindowsNeutralHookPath(windows, t.scriptsDir)
 		}
 		handler["command"] = adapters.ExportHookTarget(command, t.name)
 		handler["commandWindows"] = windows

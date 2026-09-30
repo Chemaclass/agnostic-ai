@@ -210,7 +210,7 @@ func TestEmit_EditPayloadChecksExactNeutralScript(t *testing.T) {
 				hook.Meta["args"] = tc.args
 			}
 			sess := emit.NewSession()
-			path := filepath.Join(".codex/hooks", tc.filename)
+			path := ".codex/hooks/" + tc.filename
 			if tc.unmanaged {
 				sess.SetUnmanaged([]string{path})
 			}

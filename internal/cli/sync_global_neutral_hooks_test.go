@@ -91,7 +91,9 @@ func TestSyncGlobal_NeutralHookScriptsCopyToUserTargets(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(string(native), filepath.ToSlash(script)) || strings.Contains(string(native), ".agnostic-ai/scripts/") {
+		// A temp dir such as RUNNER~1 on Windows makes sync shell-quote the directory.
+		unquoted := strings.ReplaceAll(string(native), "'", "")
+		if !strings.Contains(unquoted, filepath.ToSlash(script)) || strings.Contains(unquoted, ".agnostic-ai/scripts/") {
 			t.Errorf("%s native hook has no user script path:\n%s", target, native)
 		}
 	}
@@ -134,7 +136,7 @@ func TestSyncGlobal_WindowsHookUsesCopiedTargetScript(t *testing.T) {
 			}
 			handler := firstGlobalHandler(t, readGlobalJSON(t, filepath.Join(home, ".codex", "hooks.json")), "SessionStart")
 			script := filepath.Join(home, ".codex", "hooks", "guard.ps1")
-			if got, want := handler["commandWindows"], tc.prefix+filepath.ToSlash(script)+tc.suffix; got != want {
+			if got, want := handler["commandWindows"], tc.prefix+script+tc.suffix; got != want {
 				t.Errorf("commandWindows = %q, want %q", got, want)
 			}
 			copied, err := os.ReadFile(script)
