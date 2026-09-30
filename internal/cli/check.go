@@ -222,12 +222,15 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 		emitted[outputManifestPath] = true
 	}
 	reports = append(reports, epRep)
-	generated, unloaded := orphanGeneratedPaths(cfg, b, reports)
+	generated, unloaded, renderErr := orphanGeneratedPaths(cfg, b, reports)
 	for _, target := range unloaded {
 		// A requested target that failed to resolve was reported above.
 		if !slices.Contains(targets, target) {
 			fmt.Fprintf(os.Stderr, "! could not load %s to check orphans; orphans it may still generate stay listed\n", target)
 		}
+	}
+	if renderErr != nil {
+		fmt.Fprintf(os.Stderr, "! could not render entry points to check orphans, so orphans they may still generate stay listed: %v\n", renderErr)
 	}
 	for i := range reports {
 		reports[i].Orphaned = slices.DeleteFunc(reports[i].Orphaned, func(path string) bool {
@@ -422,14 +425,14 @@ func driftGeneratedPaths(reports []driftReport) []string {
 
 // A partial check cannot classify a ledger orphan until every configured producer is captured.
 // A producer that does not resolve or fails to capture is named in unloaded and skipped without a warning.
-// Entry points that fail to render leave every unchecked target in unloaded.
-func orphanGeneratedPaths(cfg *config.Config, b spec.Bundle, reports []driftReport) (generated, unloaded []string) {
+// renderErr says why the entry points of every configured target failed to render, which leaves their paths out of generated.
+func orphanGeneratedPaths(cfg *config.Config, b spec.Bundle, reports []driftReport) (generated, unloaded []string, renderErr error) {
 	generated = driftGeneratedPaths(reports)
 	if cfg.Sync.OutputManifest {
 		generated = append(generated, outputManifestPath)
 	}
 	if orphanedCount(reports) == 0 {
-		return generated, nil
+		return generated, nil, nil
 	}
 	var checked []string
 	for _, report := range reports {
@@ -442,7 +445,7 @@ func orphanGeneratedPaths(cfg *config.Config, b spec.Bundle, reports []driftRepo
 		}
 	}
 	if len(remaining) == 0 {
-		return generated, nil
+		return generated, nil, nil
 	}
 	sess := adapters.NewSession()
 	for _, target := range remaining {
@@ -462,9 +465,9 @@ func orphanGeneratedPaths(cfg *config.Config, b spec.Bundle, reports []driftRepo
 	}
 	entryPoints, err := collectEntryPointDrift(cfg, b, cfg.Targets)
 	if err != nil {
-		return generated, remaining
+		return generated, unloaded, err
 	}
-	return append(generated, driftGeneratedPaths([]driftReport{entryPoints})...), unloaded
+	return append(generated, driftGeneratedPaths([]driftReport{entryPoints})...), unloaded, nil
 }
 
 // reportTrackedIgnored lists generated paths git both tracks and

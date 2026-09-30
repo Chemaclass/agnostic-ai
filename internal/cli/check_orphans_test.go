@@ -708,10 +708,13 @@ func TestOrphanCheck_KeepsCheckingWhenAnUnrunEntryPointFailsToRender(t *testing.
 				t.Errorf("recorded orphan not reported:\n%s%s", logged.String(), out)
 			}
 			if !fileExists(keptReference) {
-				t.Error("orphan removed while codex cannot be loaded")
+				t.Error("orphan removed while codex's entry point cannot render")
 			}
-			if !strings.Contains(stderr, "codex") || strings.Count(stderr, "could not load") != 1 {
-				t.Errorf("want one warning naming codex, got stderr:\n%s", stderr)
+			if strings.Contains(stderr, "could not load") || strings.Contains(logged.String(), "could not be loaded") {
+				t.Errorf("codex reported as unloaded:\n%s%s", stderr, logged.String())
+			}
+			if strings.Count(stderr, "could not render entry points") != 1 || !strings.Contains(stderr, "docs/missing.md") {
+				t.Errorf("want one warning naming the render error, got stderr:\n%s", stderr)
 			}
 		})
 	}
@@ -732,9 +735,9 @@ func TestOrphanCheck_WarnsOncePerUnloadedTarget(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "drift detected") {
 		t.Errorf("error=%v, want the drift error", err)
 	}
-	for _, target := range []string{"codex", "flaky"} {
-		if got := strings.Count(stderr, "could not load "+target); got != 1 {
-			t.Errorf("%d warnings naming %s, want 1; stderr:\n%s", got, target, stderr)
+	for warning, want := range map[string]int{"could not load flaky": 1, "could not load codex": 0, "could not render entry points": 1} {
+		if got := strings.Count(stderr, warning); got != want {
+			t.Errorf("%d warnings %q, want %d; stderr:\n%s", got, warning, want, stderr)
 		}
 	}
 }
@@ -748,7 +751,7 @@ func TestDoctorFix_KeepsOrphansWhileAnUnrunEntryPointCannotRender(t *testing.T) 
 	defer func() { logOut = prev }()
 
 	removed, err := offerOrphanRemoval(cfg, reports, false, func(path string) (bool, error) {
-		t.Errorf("offered %s while codex cannot be loaded", path)
+		t.Errorf("offered %s while codex's entry point cannot render", path)
 		return true, nil
 	})
 
@@ -759,7 +762,34 @@ func TestDoctorFix_KeepsOrphansWhileAnUnrunEntryPointCannotRender(t *testing.T) 
 		t.Errorf("removed=%d remaining=%d", removed, orphanedCount(reports))
 	}
 	got := logged.String()
-	if strings.Count(got, "\n") != 1 || !strings.Contains(got, "codex") {
-		t.Errorf("want one line naming codex, got:\n%s", got)
+	if strings.Count(got, "\n") != 1 || !strings.Contains(got, "entry points could not be rendered") || strings.Contains(got, "could not be loaded") {
+		t.Errorf("want one line naming the render failure, got:\n%s", got)
+	}
+}
+
+func TestDoctorFix_NamesEachReasonItKeepsOrphans(t *testing.T) {
+	cfg := danglingImportProject(t)
+	failingAdapterOnPath(t, "flaky")
+	cfg.Targets = append(cfg.Targets, "flaky")
+	reports := []driftReport{{Target: "claude"}, {Target: "agnostic-ai", Orphaned: []string{keptReference}}}
+	var logged bytes.Buffer
+	prev := logOut
+	logOut = &logged
+	defer func() { logOut = prev }()
+
+	removed, err := offerOrphanRemoval(cfg, reports, false, func(path string) (bool, error) {
+		t.Errorf("offered %s while flaky and codex's entry point are unknown", path)
+		return true, nil
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if removed != 0 || !fileExists(keptReference) {
+		t.Errorf("removed=%d exists=%v", removed, fileExists(keptReference))
+	}
+	got := logged.String()
+	if strings.Count(got, "\n") != 1 || !strings.Contains(got, "target(s) flaky could not be loaded") || !strings.Contains(got, "entry points could not be rendered") {
+		t.Errorf("want one line naming both reasons, got:\n%s", got)
 	}
 }

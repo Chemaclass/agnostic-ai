@@ -54,7 +54,7 @@ func offerOrphanRemoval(cfg *config.Config, reports []driftReport, backup bool, 
 	if err != nil {
 		return 0, err
 	}
-	generated, unloaded := orphanGeneratedPaths(cfg, bundle, reports)
+	generated, unloaded, renderErr := orphanGeneratedPaths(cfg, bundle, reports)
 	sess := adapters.NewSession()
 	sess.SetUnmanaged(cfg.Sync.Unmanaged)
 	sess.SetBackup(backup)
@@ -85,7 +85,7 @@ func offerOrphanRemoval(cfg *config.Config, reports []driftReport, backup bool, 
 				remaining = append(remaining, path)
 				continue
 			}
-			if len(unloaded) > 0 {
+			if len(unloaded) > 0 || renderErr != nil {
 				refused++
 				remaining = append(remaining, path)
 				continue
@@ -144,7 +144,17 @@ func offerOrphanRemoval(cfg *config.Config, reports []driftReport, backup bool, 
 		reports[i].Orphaned = remaining
 	}
 	if refused > 0 {
-		keptf("  ~ kept %d orphaned file(s): target(s) %s could not be loaded, so what they generate is unknown (install or fix them, then run `agnostic-ai doctor --fix` again)\n", refused, strings.Join(unloaded, ", "))
+		var causes, fixes []string
+		if len(unloaded) > 0 {
+			causes = append(causes, "target(s) "+strings.Join(unloaded, ", ")+" could not be loaded")
+			fixes = append(fixes, "install or fix them")
+		}
+		// The drift check already printed renderErr itself.
+		if renderErr != nil {
+			causes = append(causes, "entry points could not be rendered")
+			fixes = append(fixes, "fix the render error")
+		}
+		keptf("  ~ kept %d orphaned file(s): %s, so what they generate is unknown (%s, then run `agnostic-ai doctor --fix` again)\n", refused, strings.Join(causes, " and "), strings.Join(fixes, " and "))
 	}
 	return removed, nil
 }
