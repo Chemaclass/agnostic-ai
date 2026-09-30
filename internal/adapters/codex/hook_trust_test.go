@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -246,6 +247,10 @@ func TestEmit_HookTrustDoesNotClaimAnUnmanagedFileWasInstalled(t *testing.T) {
 }
 
 func TestEmit_HookTrustRecognizesUserTrustAndChangedCommand(t *testing.T) {
+	hash := "sha256:fd022754fe4b7274aa51f6229943be4f6bb80d966b69cffe4d793578e14ce6e8"
+	if runtime.GOOS == "windows" {
+		hash = "sha256:e9d9cf155ba9ce2edebca3b635c99c5aa19d57db27499690a9f260388ada88fc"
+	}
 	testutil.TempCwd(t)
 	dir, err := os.Getwd()
 	if err != nil {
@@ -254,7 +259,7 @@ func TestEmit_HookTrustRecognizesUserTrustAndChangedCommand(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("CODEX_HOME", home)
 	key := filepath.Join(dir, ".codex/hooks.json") + ":pre_tool_use:0:0"
-	userConfig := fmt.Sprintf("[hooks.state.%q]\ntrusted_hash = %q\n", key, "sha256:fd022754fe4b7274aa51f6229943be4f6bb80d966b69cffe4d793578e14ce6e8")
+	userConfig := fmt.Sprintf("[hooks.state.%q]\ntrusted_hash = %q\n", key, hash)
 	if err := os.WriteFile(filepath.Join(home, "config.toml"), []byte(userConfig), 0600); err != nil {
 		t.Fatal(err)
 	}

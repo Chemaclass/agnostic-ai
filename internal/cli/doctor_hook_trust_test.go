@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -56,6 +57,10 @@ func TestDoctor_ReportsCodexHookTrustInTextAndJSON(t *testing.T) {
 }
 
 func TestSyncGlobal_CodexHookTrustUsesMergedCommandsAndPreservesState(t *testing.T) {
+	hash := "sha256:fd022754fe4b7274aa51f6229943be4f6bb80d966b69cffe4d793578e14ce6e8"
+	if runtime.GOOS == "windows" {
+		hash = "sha256:e9d9cf155ba9ce2edebca3b635c99c5aa19d57db27499690a9f260388ada88fc"
+	}
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
@@ -81,7 +86,11 @@ func TestSyncGlobal_CodexHookTrustUsesMergedCommandsAndPreservesState(t *testing
 		t.Fatal(err)
 	}
 	got := notes.String()
-	if !strings.Contains(got, "export AGNOSTIC_AI_TARGET=codex; guard-env") || !strings.Contains(got, "handwritten") || !strings.Contains(got, "/hooks") {
+	command := "export AGNOSTIC_AI_TARGET=codex; guard-env"
+	if runtime.GOOS == "windows" {
+		command = "guard-env"
+	}
+	if !strings.Contains(got, command) || !strings.Contains(got, "handwritten") || !strings.Contains(got, "/hooks") {
 		t.Errorf("missing merged hook trust notes: %s", got)
 	}
 	config, err := os.ReadFile(filepath.Join(codexHome, "config.toml"))
@@ -97,7 +106,7 @@ func TestSyncGlobal_CodexHookTrustUsesMergedCommandsAndPreservesState(t *testing
 		t.Fatal(err)
 	}
 	key := filepath.Join(resolvedHome, "hooks.json") + ":pre_tool_use:0:0"
-	trusted := append(config, []byte(fmt.Sprintf("\n[hooks.state.%q]\ntrusted_hash = %q\n", key, "sha256:fd022754fe4b7274aa51f6229943be4f6bb80d966b69cffe4d793578e14ce6e8"))...)
+	trusted := append(config, []byte(fmt.Sprintf("\n[hooks.state.%q]\ntrusted_hash = %q\n", key, hash))...)
 	mustWriteGlobalTest(t, filepath.Join(codexHome, "config.toml"), string(trusted))
 	body, err := os.ReadFile(filepath.Join(codexHome, "hooks.json"))
 	if err != nil {
