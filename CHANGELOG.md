@@ -9,6 +9,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### General
 
 - `install-hook --post-checkout` adds `post-merge` to restore generated files after pulls; `sync --untrack` warns other clones to install it (#1478).
+- Kept orphans from older sync ledgers name the missing checksum and stay gitignored. `doctor --fix` offers removal in a terminal, defaulting to no (#1440).
 - `sync` reports omitted skill fields, including `argument-hint`. `compare` shows which skill fields each target keeps, translates, or drops (#1444).
 
 - Breaking: rule `scope`, `globs`, and `paths` form a union. Remove `scope` to keep only a file filter; see the migration guide (#1429).
