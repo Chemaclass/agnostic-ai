@@ -36,7 +36,7 @@ The preview lists each spec the import would create or change, with a diff, and 
 
 After importing, compare `.agnostic-ai/AGNOSTIC_AI.md` and the imported spec folders against the original configuration.
 
-When importing multiple tools, the last imported top-level instructions replace the shared instructions body. Merge any unique content from other tools into `.agnostic-ai/AGNOSTIC_AI.md` before syncing. `--from all` and `import all` do this for a hand-written root `AGENTS.md`: the sections the shared body lacks are appended below it, and the output names each one. See [import behavior by source](@/docs/cli-reference/start.md#import).
+When importing multiple tools, the last imported top-level instructions replace the shared instructions body. Merge any unique content from other tools into `.agnostic-ai/AGNOSTIC_AI.md` before syncing. `--from all` and `import all` do this for a hand-written root `AGENTS.md`: the sections the shared body lacks are appended below it, and the output names each one. When that `AGENTS.md` is the only config found, it seeds `.agnostic-ai/AGNOSTIC_AI.md` instead. See [import behavior by source](@/docs/cli-reference/start.md#import).
 
 Keep the helper scripts that hooks or settings reference in Git. Files inside a skill directory round-trip with the skill, including imports from Zed, Warp, and Antigravity. Continue imports YAML and JSONC MCP files and preserves their connection options; Claude imports command, HTTP, MCP-tool, and prompt hook handlers. Selected native helpers, including `.claude/statusline.sh`, are captured under `.agnostic-ai/overlays/`. Preserve scripts outside those locations yourself.
 

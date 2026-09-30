@@ -70,6 +70,13 @@ func ruleActivation(e spec.Entry) (map[string]any, []string) {
 
 	globs, hasGlobs := m["globs"]
 	if hasGlobs {
+		// Continue matches a string as one pattern, so a portable comma list
+		// becomes an array; a native x-continue value stays as written.
+		if s, ok := globs.(string); ok && !nativeGlobs(e.Meta) {
+			if list := spec.GlobList(s); len(list) > 1 {
+				globs = list
+			}
+		}
 		meta["globs"] = globs
 		keys = append(keys, "globs")
 	} else if s := e.EffectiveScope(); s != "" {
@@ -86,6 +93,12 @@ func ruleActivation(e spec.Entry) (map[string]any, []string) {
 	}
 	emit.MergeCustomTargetMeta(meta, &keys, e.Meta, target, append(keys, "name")...)
 	return meta, keys
+}
+
+func nativeGlobs(meta map[string]any) bool {
+	x, _ := meta[emit.XPrefix+target].(map[string]any)
+	_, ok := x["globs"]
+	return ok
 }
 
 // orderedRuleKeys puts the documented keys in the vendor's own order

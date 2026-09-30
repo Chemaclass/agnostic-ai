@@ -20,6 +20,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `init --from all` and `import all` merge the sections of a hand-written root `AGENTS.md` that the imported body lacks into `AGNOSTIC_AI.md` and name them, instead of warning. `init` without a target list suggests enabling `codex` when a root `AGENTS.md` exists (#1434).
 - A skill or command line with Claude Code's `` !`command` ``, `$ARGUMENTS`, or `$1` gets a sync note naming the line for each target that reads it as plain text, such as Codex, and `lint` reports it as LINT019. `on-unsupported: error` fails the sync (#1436).
 - `sync --global` raises the same note for a skill line Claude Code expands and a target reads as plain text, and `on-unsupported` in the source root's `agnostic-ai.yaml` (or `local/agnostic-ai.yaml`) sets the policy: `error` fails the sync, `silent` hides the note (#1463).
+- `import all` and `init --from all` seed `AGNOSTIC_AI.md` from a hand-written root `AGENTS.md` when no other tool config is found, instead of importing nothing (#1464).
+- A comma-separated `globs` string, such as `src/x/**,tests/x/**`, reaches Claude Code `paths` and Continue `globs` as one entry per pattern, so the rule loads on those files. Commas inside `{a,b}` stay in their pattern (#1428).
 
 ### By tool
 
@@ -46,6 +48,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Site
 
+- The [CI page](https://agnostic-ai.org/docs/ci/) and the `sync` skill no longer point to a GitHub Action that does not exist. They show the npm dev dependency with `postinstall: agnostic-ai sync -q`, and `scripts/install.sh` with a pinned version (#1445).
 - The [spec format](https://agnostic-ai.org/docs/spec-format/) reference has one page per `.agnostic-ai/` folder, each opening with why the folder exists and a sample. New pages cover rules, commands, reviews, environments, ignore, and overlays; old links redirect.
 
 ## v0.75.0 - 2026-09-29

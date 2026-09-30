@@ -64,3 +64,20 @@ func TestEmit_ScopedRuleGetsGlobs(t *testing.T) {
 		t.Errorf("expected globs derived from the scope:\n%s", got)
 	}
 }
+
+// A native x-continue globs string is written as imported, commas and all.
+func TestEmit_NativeGlobsStringStaysAsWritten(t *testing.T) {
+	dir := testutil.TempCwd(t)
+
+	entries := []spec.Entry{{
+		Kind: spec.KindRule, Name: "native", Body: "native body",
+		Meta: map[string]any{"x-continue": map[string]any{"globs": "a/**,b/**"}},
+	}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".continue/rules/native.md"))
+	if !strings.Contains(got, "globs: a/**,b/**\n") {
+		t.Errorf("native globs must stay one string:\n%s", got)
+	}
+}

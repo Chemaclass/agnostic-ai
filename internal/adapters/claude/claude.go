@@ -634,7 +634,7 @@ func ruleMetaWithPaths(meta map[string]any, keys []string) (map[string]any, []st
 		out[k] = v
 	}
 	_, hasPaths := meta["paths"]
-	paths := globsToPaths(globs)
+	paths := spec.GlobList(globs)
 	addPaths := !hasPaths && len(paths) > 0
 	outKeys := make([]string, 0, len(keys))
 	for _, k := range keys {
@@ -652,31 +652,6 @@ func ruleMetaWithPaths(meta map[string]any, keys []string) (map[string]any, []st
 		out["paths"] = paths
 	}
 	return out, outKeys
-}
-
-// globsToPaths normalizes a `globs` value into the list shape Claude's
-// `paths:` field expects: a scalar string becomes a one-element list, a
-// list passes through with each element stringified.
-func globsToPaths(globs any) []string {
-	switch v := globs.(type) {
-	case string:
-		if v == "" {
-			return nil
-		}
-		return []string{v}
-	case []string:
-		return v
-	case []any:
-		out := make([]string, 0, len(v))
-		for _, item := range v {
-			if s, ok := item.(string); ok && s != "" {
-				out = append(out, s)
-			}
-		}
-		return out
-	default:
-		return nil
-	}
 }
 
 // hookSettingsJSONWithOrder returns the `"hooks"` block as ordered JSON.
