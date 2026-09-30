@@ -65,7 +65,7 @@ Kiro's `oauth` differs from Claude Code's, so each target maps only the sub-keys
 
 Ignore specs emit as `.kiroignore` in the project root, in gitignore syntax ([Kiro ignore](https://kiro.dev/docs/kiroignore/)). Multiple specs concatenate. Override via `outputs.kiro.ignore-file`.
 
-Two limits `sync` cannot change: the IDE honors `.kiroignore` only when it is listed in the `kiroAgent.agentIgnoreFiles` setting (Kiro suggests `[".gitignore", ".kiroignore"]`), and CLI V3 applies it only to content and filename search results.
+Two limits `sync` cannot change: the IDE honors `.kiroignore` only when it is listed in the `kiroAgent.agentIgnoreFiles` setting (Kiro suggests `[".gitignore", ".kiroignore"]`), and CLI V3 reads only the workspace file, with no global ignore file. In CLI V3 a workspace `.kiroignore` blocks direct reads of matching files and filters them from content and filename search results.
 
 ## Config keys
 
