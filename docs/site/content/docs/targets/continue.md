@@ -19,7 +19,7 @@ target_id = "continue"
 .continue/assistants/<name>.yaml       # one per agent, only when assistants-dir is set
 ```
 
-- **Rule activation**: scoped rules emit `globs` limited to the directory and omit `alwaysApply`, so file matching controls inclusion. Unscoped rules keep their `globs`, `alwaysApply`, and `description`; a comma-separated `globs` string becomes an array, since Continue reads a string as one pattern. `x-continue.regex` works only without `scope`. See [scoped selector limits](@/docs/scoped-context.md#narrow-a-rule-to-certain-files).
+- **Rule activation**: scoped rules emit the union of the scope directory and their `globs` or `paths`, and omit `alwaysApply`, so file matching controls inclusion. Unscoped rules keep their `globs`, `alwaysApply`, and `description`; a comma-separated `globs` string becomes an array, since Continue reads a string as one pattern. `x-continue.regex` works only without `scope`. See [scoped selector limits](@/docs/scoped-context.md#narrow-a-rule-to-certain-files).
 - **Skills**: one folder per skill at `.continue/skills/<name>/SKILL.md`, with bundled files copied byte-for-byte. Continue reads this tree and `.claude/skills/` in both the IDE extension and `cn`. It requires `name` and `description` frontmatter and offers every other file in the folder to the model on demand ([`loadMarkdownSkills.ts`](https://github.com/continuedev/continue/blob/main/core/config/markdown/loadMarkdownSkills.ts)). It does not merge duplicate names across the two trees, so with the `claude` target enabled each skill appears twice. Sync removes managed `.continue/rules/skill-<name>.md` files left by older versions.
 - **MCP**: each file under `.continue/mcpServers/` is a Continue block: `name`, `version`, and `schema: v1`, with the server nested under an `mcpServers:` list (a flat single-server file does not load). Stdio emits `command`/`args`/`env`. Remote servers emit `type`/`url`/`requestOptions` with no `env`, since Continue accepts `env` only on stdio; a remote `env` is dropped with a coverage note.
   - `type: http` becomes `type: streamable-http`, the only Streamable HTTP value [Continue's schema](https://github.com/continuedev/continue/blob/main/packages/config-yaml/src/schemas/mcp/index.ts) accepts (`sse` and `streamable-http` pass unchanged). `headers` nests as `requestOptions.headers`. `import continue` reverses both, so specs stay portable.
@@ -43,7 +43,9 @@ Stdio MCP servers keep `cwd`; every transport keeps `connectionTimeout` (millise
 
 `agnostic-ai import continue` reads rules from `.continue/rules/` and reclassifies each file by [filename prefix](@/docs/cli-reference/start.md#filename-prefix-reclassification). Native `globs` and `regex` strings or arrays survive through `x-continue`, including empty arrays and patterns with commas.
 
-Source subdirectories still impose directory scope. Nested rules keep one or more array patterns when they stay inside that scope. Conflicting selectors, scoped `regex`, and scoped empty `globs` arrays are reported as unsupported rather than widened to the whole directory. Keep such rules in root-level source files.
+Source subdirectories that name project directories imply scope. Scope and file patterns form a union, so the rule applies to the whole directory and every matching file. Scoped `regex` and scoped empty `globs` arrays are reported as unsupported. To keep only a narrow file filter, omit `scope` and keep the source file outside a folder that implies scope.
+
+Imported `x-continue.globs` and `x-continue.regex` preserve exact native activation without an explicit portable `scope`. A nested native rule keeps its folder for placement, including when that folder names no project directory. An explicit `scope` opts into the portable union and its selector limits.
 
 Skills import from `.continue/skills/` with their bundled files. A `skill-<name>.md` rule from an older sync still imports as a skill.
 

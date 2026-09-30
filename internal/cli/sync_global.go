@@ -21,6 +21,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/augment"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cursor"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -903,6 +904,9 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			emptied[path] = true
 		}
 		if doc != nil {
+			if target == "codex" {
+				codex.NoteHookTrust(path, doc)
+			}
 			// Ownership of a hooks file is per entry, so it carries no sum.
 			placed, err := place(path, doc, 0o644)
 			if err != nil {

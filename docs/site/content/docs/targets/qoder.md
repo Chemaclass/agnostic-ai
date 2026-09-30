@@ -70,7 +70,7 @@ Qoder rules keep `description`, `alwaysApply`, `trigger`, `glob`, and `paths` fr
 | Model-selected | `trigger: model_decision` plus a non-empty `description` |
 | File matching | `trigger: glob` plus `glob`, or `paths` |
 
-`trigger` wins over `alwaysApply`. Portable `scope` stays authoritative: scoped rules emit normalized `paths` with no competing activation fields. Scope validation still rejects selectors it cannot safely intersect.
+`trigger` wins over `alwaysApply`. Scoped rules emit normalized `paths` for the union of the scope directory and file patterns, with no competing activation fields. Scope validation rejects selectors it cannot preserve.
 
 For a manual release rule:
 

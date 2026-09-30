@@ -204,7 +204,7 @@ func TestCompare_ReportsTargetExclusionWithNextStep(t *testing.T) {
 	}
 }
 
-func TestCompare_ReportsScopeLimitation(t *testing.T) {
+func TestCompare_ReportsScopedUnionTranslation(t *testing.T) {
 	testutil.Chdir(t, setupCompareFixture(t))
 	silence(t)
 	out := compareJSON(t, "claude", "codex")
@@ -213,11 +213,11 @@ func TestCompare_ReportsScopeLimitation(t *testing.T) {
 		t.Errorf("claude scope: status %q, want translated", r.Status)
 	}
 	r := findCompareResult(t, out, ".agnostic-ai/rules/backend/api.md", "scope", "codex")
-	if r.Status != statusExcluded {
-		t.Errorf("codex scope: status %q, want excluded", r.Status)
+	if r.Status != statusTranslated {
+		t.Errorf("codex scope: status %q, want translated", r.Status)
 	}
-	if !strings.Contains(r.Reason, "narrower file filters") {
-		t.Errorf("codex scope: reason %q must name the limitation", r.Reason)
+	if len(r.Paths) != 1 || r.Paths[0] != "backend/AGENTS.md" {
+		t.Errorf("codex scope: paths %v, want backend/AGENTS.md", r.Paths)
 	}
 	// An unscoped rule's globs reach codex nowhere: the rule body lands in
 	// AGENTS.md and the filter is not written.
