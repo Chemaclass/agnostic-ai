@@ -133,7 +133,7 @@ func profileEachRun(cmd *cobra.Command, path *string) {
 func loadProject(root string) (*config.Config, spec.Bundle, error) {
 	cfg, sources, err := config.LoadWithSources(root)
 	if unknown, ok := errors.AsType[*config.UnknownKeysError](err); ok {
-		if rerr := requireVersion(config.ConfigFileName, unknown.Requires); rerr != nil {
+		if rerr := requireVersion(unknown.Source, unknown.Requires); rerr != nil {
 			return nil, spec.Bundle{}, rerr
 		}
 	}

@@ -124,7 +124,7 @@ Missing directories are skipped silently. See [path semantics](#path-semantics).
 
 `outputs.codex.nested-glob-rules` defaults to `true`: exact whole-subtree rule selectors write nested `AGENTS.md` files. Set it to `false` to inline those rules in the root as before. Filename filters and root-file selectors stay inline with an always-loaded note under `on-unsupported`. See [Codex rules](@/docs/targets/codex.md).
 
-`outputs.<target>.*` overrides where one target writes; unknown fields are ignored. Target pages list the keys and defaults, starting at the [targets index](@/docs/targets/_index.md). [Claude Code](@/docs/targets/claude.md#claude-settings) and [Codex](@/docs/targets/codex.md#codex-config) also accept settings blocks.
+`outputs.<target>.*` overrides where one target writes; an unknown field fails with AAI-004. Target pages list the keys and defaults, starting at the [targets index](@/docs/targets/_index.md). [Claude Code](@/docs/targets/claude.md#claude-settings) and [Codex](@/docs/targets/codex.md#codex-config) also accept settings blocks.
 
 ```yaml
 outputs:

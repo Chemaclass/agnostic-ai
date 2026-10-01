@@ -16,6 +16,7 @@ import (
 // tell an older binary about the upgrade before the keys a newer release
 // added.
 type UnknownKeysError struct {
+	Source   string
 	Requires string
 	Keys     []string
 }
@@ -48,6 +49,9 @@ func unknownKeys(path string) ([]string, error) {
 }
 
 func walkKeys(n *yaml.Node, t reflect.Type, prefix string, unknown func(n *yaml.Node, key string, known []string)) {
+	if n.Kind == yaml.AliasNode {
+		n = n.Alias
+	}
 	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
@@ -68,6 +72,8 @@ func walkKeys(n *yaml.Node, t reflect.Type, prefix string, unknown func(n *yaml.
 			key, val := n.Content[i], n.Content[i+1]
 			ft, ok := fields[key.Value]
 			switch {
+			case key.Tag == "!!merge":
+				walkMerged(val, t, prefix, unknown)
 			case ok:
 				walkKeys(val, ft, prefix+key.Value+".", unknown)
 			case !open:
@@ -79,6 +85,10 @@ func walkKeys(n *yaml.Node, t reflect.Type, prefix string, unknown func(n *yaml.
 			return
 		}
 		for i := 0; i+1 < len(n.Content); i += 2 {
+			if n.Content[i].Tag == "!!merge" {
+				walkMerged(n.Content[i+1], t, prefix, unknown)
+				continue
+			}
 			walkKeys(n.Content[i+1], t.Elem(), prefix+n.Content[i].Value+".", unknown)
 		}
 	case reflect.Slice:
@@ -89,6 +99,21 @@ func walkKeys(n *yaml.Node, t reflect.Type, prefix string, unknown func(n *yaml.
 			walkKeys(item, t.Elem(), fmt.Sprintf("%s[%d].", strings.TrimSuffix(prefix, "."), i), unknown)
 		}
 	}
+}
+
+// walkMerged checks the mappings a `<<` merge key pulls in as if they
+// were written in place: one mapping, an alias, or a list of them.
+func walkMerged(n *yaml.Node, t reflect.Type, prefix string, unknown func(n *yaml.Node, key string, known []string)) {
+	if n.Kind == yaml.AliasNode {
+		n = n.Alias
+	}
+	if n.Kind == yaml.SequenceNode {
+		for _, item := range n.Content {
+			walkMerged(item, t, prefix, unknown)
+		}
+		return
+	}
+	walkKeys(n, t, prefix, unknown)
 }
 
 // yamlFields maps each YAML key t reads to its field type. open is true
