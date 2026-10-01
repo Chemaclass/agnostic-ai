@@ -144,6 +144,9 @@ type Session struct {
 	backupSums map[string]string
 	merging    map[string]bool
 	overwrote  []string
+	// backedUp holds the edits left in place because `<path>.bak`
+	// already existed, so writing over them would lose one.
+	backedUp []string
 	// committedSum, when set, gives a path with no recorded sum the sum of
 	// its committed version, "" when there is none (see SetCommittedSum).
 	committedSum func(path string) string
@@ -260,6 +263,14 @@ func (s *Session) OverwroteEdits() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return append([]string(nil), s.overwrote...)
+}
+
+// BackupBlockedEdits returns the paths whose hand edit this session left
+// in place because `<path>.bak` already existed, in write order.
+func (s *Session) BackupBlockedEdits() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.backedUp...)
 }
 
 // backsUpEdit reports whether a write of content to path replaces a hand
@@ -794,10 +805,21 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(path), err)
 	}
 	editBackup := s.backsUpEdit(path, content)
-	backup = backup || editBackup
 	var backupPath string
 	if editBackup {
 		backupPath = path + ".bak"
+		switch err := backUpEdit(path, backupPath); {
+		case errors.Is(err, fs.ErrExist):
+			s.mu.Lock()
+			s.backedUp = append(s.backedUp, path)
+			if detailing {
+				s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: "edited", Sum: s.backupSums[path]})
+			}
+			s.mu.Unlock()
+			return nil
+		case err != nil:
+			return fmt.Errorf("backup %s: %w", path, err)
+		}
 	}
 
 	// Detailed recording: inspect existing content to classify the action.
@@ -883,6 +905,24 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 		s.mu.Unlock()
 	}
 	return nil
+}
+
+// backUpEdit copies path to backup, which must not exist yet in any form,
+// so an earlier backup is never lost and a planted link is never followed.
+func backUpEdit(path, backup string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	f, err := os.OpenFile(backup, os.O_WRONLY|os.O_CREATE|os.O_EXCL, filePerm)
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write(data); err != nil {
+		_ = f.Close()
+		return err
+	}
+	return f.Close()
 }
 
 // createUntrackedFileExclusive atomically claims path as a brand-new

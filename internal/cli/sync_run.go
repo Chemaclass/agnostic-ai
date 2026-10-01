@@ -685,11 +685,14 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 			keptf("  ~ kept leftover %s (looks generated, with no ledger to prove sync wrote it; delete it by hand if stale, or list it under sync.unmanaged)\n", filepath.ToSlash(p))
 		}
 	}
-	for _, p := range keptEdits(sessions) {
+	for _, p := range sessionPaths(sessions, (*adapters.Session).KeptEdits) {
 		keptf("  ~ kept %s (edited since the last sync; move the edit into .agnostic-ai/, then run `agnostic-ai sync`)\n", p)
 	}
-	for _, p := range overwroteEdits(sessions) {
+	for _, p := range sessionPaths(sessions, (*adapters.Session).OverwroteEdits) {
 		keptf("%s overwrote a hand edit to %s (saved as %s.bak); move the edit into .agnostic-ai/\n", bang(), p, p)
+	}
+	for _, p := range sessionPaths(sessions, (*adapters.Session).BackupBlockedEdits) {
+		keptf("%s kept a hand edit to %s: %s.bak already holds an earlier one; move both into .agnostic-ai/, then delete the .bak\n", bang(), p, p)
 	}
 	// After the sweep, so refused orphan removals are reported too.
 	for _, p := range unmanagedSkips(sessions) {
@@ -765,20 +768,6 @@ func unmanagedSkips(sessions []*adapters.Session) []string {
 	return sortedKeys(seen)
 }
 
-// keptEdits returns every path a session left alone under --keep-edits,
-// deduplicated and sorted, since targets sharing a path each keep it.
-func keptEdits(sessions []*adapters.Session) []string {
-	seen := map[string]struct{}{}
-	for _, s := range sessions {
-		if s == nil {
-			continue
-		}
-		for _, p := range s.KeptEdits() {
-			seen[filepath.ToSlash(p)] = struct{}{}
-		}
-	}
-	return sortedKeys(seen)
-}
 
 // editGuard is how a sync treats an output edited by hand since the
 // last sync: --keep-edits leaves it in place, and otherwise sync keeps it
@@ -822,15 +811,16 @@ func committedSum(path string) string {
 	return adapters.ContentSum(blob)
 }
 
-// overwroteEdits returns every path whose hand edit a session saved as
-// `<path>.bak` before writing over it, deduplicated and sorted.
-func overwroteEdits(sessions []*adapters.Session) []string {
+
+// sessionPaths collects the paths paths returns for each session,
+// deduplicated and sorted, since targets sharing a path each report it.
+func sessionPaths(sessions []*adapters.Session, paths func(*adapters.Session) []string) []string {
 	seen := map[string]struct{}{}
 	for _, s := range sessions {
 		if s == nil {
 			continue
 		}
-		for _, p := range s.OverwroteEdits() {
+		for _, p := range paths(s) {
 			seen[filepath.ToSlash(p)] = struct{}{}
 		}
 	}

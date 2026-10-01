@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -134,5 +135,43 @@ func TestRevert_RestoresAHandEditSyncBackedUp(t *testing.T) {
 
 	if got := readFile(t, handEditSkill); got != edited {
 		t.Errorf("revert left %q, want the hand edit", got)
+	}
+}
+
+// A second edit must not replace the backup of the first, and a link
+// planted at the backup path must not be followed.
+func TestSync_LeavesAHandEditInPlaceWhenItsBackupExists(t *testing.T) {
+	outside := filepath.Join(t.TempDir(), "outside.txt")
+	for name, plant := range map[string]func(){
+		"earlier backup": func() { mustWriteFile(t, handEditSkill+".bak", "first edit\n") },
+		"planted link": func() {
+			if err := os.Symlink(outside, handEditSkill+".bak"); err != nil {
+				t.Skip(err)
+			}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			handEditProject(t, "claude")
+			plant()
+			before, _ := os.Readlink(handEditSkill + ".bak")
+			edited := readFile(t, handEditSkill) + "second edit\n"
+			mustWriteFile(t, handEditSkill, edited)
+			log := captureLog(t)
+
+			runSyncOK(t)
+
+			if got := readFile(t, handEditSkill); got != edited {
+				t.Errorf("sync wrote over the edit: %q", got)
+			}
+			if after, _ := os.Readlink(handEditSkill + ".bak"); after != before {
+				t.Errorf("backup link changed: %q to %q", before, after)
+			}
+			if _, err := os.Stat(outside); err == nil {
+				t.Error("sync wrote through the planted link")
+			}
+			if !strings.Contains(log.String(), "already holds an earlier one") {
+				t.Errorf("sync output does not explain the kept edit:\n%s", log.String())
+			}
+		})
 	}
 }
