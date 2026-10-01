@@ -50,6 +50,40 @@ func TestSync_ProfileEnvWritesCPUProfile(t *testing.T) {
 	assertValidCPUProfile(t, prof)
 }
 
+// A run that fails, such as sync --check on drift, still writes a complete
+// profile: cobra skips the post-run hooks when the command returns an error.
+func TestSync_ProfileWrittenWhenTheRunFails(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	prof := filepath.Join(t.TempDir(), "cpu.prof")
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "-t", "claude", "--check", "--profile", prof})
+	if err := root.Execute(); err == nil {
+		t.Fatal("sync --check passed before any sync")
+	}
+
+	assertValidCPUProfile(t, prof)
+}
+
+// A flag check that fails before the command runs leaves no empty profile.
+func TestProfile_NoEmptyFileWhenFlagChecksFail(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+
+	prof := filepath.Join(t.TempDir(), "cpu.prof")
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"install-hook", "--shared", "--global", "--profile", prof})
+	if err := root.Execute(); err == nil {
+		t.Fatal("install-hook accepted --shared with --global")
+	}
+
+	if info, err := os.Stat(prof); err == nil && info.Size() == 0 {
+		t.Error("a failed flag check left an empty profile")
+	}
+}
+
 // TestSync_VerboseShowsPerTargetTiming verifies the --verbose summary appends
 // per-target wall time to each target line, so a slow sync can be attributed
 // to a specific adapter.
