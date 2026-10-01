@@ -116,25 +116,26 @@ func (s *Session) DropStaleMergedKeys(path string, doc *OrderedJSON, claimed []M
 		return slices.ContainsFunc(claimed, func(k MergedKey) bool { return slices.Equal(k.Path, keyPath) }) ||
 			slices.ContainsFunc(released, func(p []string) bool { return isPathPrefix(p, keyPath) })
 	}
-	holdsClaim := func(keyPath []string) bool {
+	overlapsClaim := func(keyPath []string) bool {
 		return slices.ContainsFunc(claimed, func(k MergedKey) bool {
-			return len(k.Path) > len(keyPath) && isPathPrefix(keyPath, k.Path)
+			return isPathPrefix(keyPath, k.Path) || isPathPrefix(k.Path, keyPath)
 		})
 	}
-	return s.dropStaleClaims(path, doc, settled, holdsClaim)
+	return s.dropStaleClaims(path, doc, settled, overlapsClaim)
 }
 
-// dropStaleClaims takes out each prior claim settled does not cover. An
-// object that holds a value this write claims only loses its claim: the
-// object stays, or that value would go with it.
-func (s *Session) dropStaleClaims(path string, doc *OrderedJSON, settled, holdsClaim func([]string) bool) [][]string {
+// dropStaleClaims takes out each prior claim settled does not cover. A
+// stale claim that overlaps one this write makes, an object holding a
+// claimed value or a value inside a claimed object, only loses its
+// claim: deleting it would take the current value with it.
+func (s *Session) dropStaleClaims(path string, doc *OrderedJSON, settled, overlapsClaim func([]string) bool) [][]string {
 	var dropped [][]string
 	for _, claim := range priorMergedKeys(path) {
 		if len(claim.Path) == 0 || settled(claim.Path) {
 			continue
 		}
 		dropped = append(dropped, claim.Path)
-		if holdsClaim != nil && holdsClaim(claim.Path) {
+		if overlapsClaim != nil && overlapsClaim(claim.Path) {
 			continue
 		}
 		raw, found := jsonValueAt(doc, claim.Path)
