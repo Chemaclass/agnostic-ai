@@ -8,84 +8,53 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
-- Sync merges MCP servers into shared settings files by name, so servers you add by hand stay; a removed spec takes out only its own server (#1552).
-- Name model tiers once under `models:`: a spec's `model: strong` resolves per target, in `sync --global` too, `explain` shows each result, `lint` flags gaps, and `import claude` suggests tiers (#1495).
-- **Breaking:** rule `scope`, `globs`, and `paths` form a union; rule folders scope existing directories. Remove `scope` to keep only a filter (#1429, #1430).
-- `coverage.accept` lists known coverage notes with a reason, so sync stops printing them; `coverage.fail-on-notes` fails sync on the rest (#1514).
-- Hooks can use `.agnostic-ai/scripts/<name>` to copy and run one shared script in each target, including with `sync --global` (#1454).
-- `agnostic-ai hook paths` prints the files an edit touched, Codex patches included, so one edit hook runs on several tools (#1493).
-- `agnostic-ai hook run` runs a hook with the Claude Code, Codex, and Gemini payloads and fails on a timeout, error, or disagreement (#1494, #1529).
-- `hook run --format json` prints one result per target, and `hook run` warns when a synced hook file does not run the spec's command (#1529).
-- Doctor warns when existing packaging ignore files miss generated paths; upgrade notes flag the Codex skills path move (#1447).
-- New `AGNOSTIC_AI.md` files use a short editable template; existing files stay intact, and `doctor` points out old boilerplate (#1446).
-- Rule body headings nest in merged instructions; import restores levels and preserves code, link definitions, and line breaks (#1452, #1505).
-- Partial syncs keep all targets' ignores and never ignore `outputs.lock`. Kept orphans say why; `doctor --fix` offers removal (#1440, #1503, #1509).
-- Removing the last spec or target that writes a shared settings file, such as `.gemini/settings.json`, takes out only sync's keys and keeps yours (#1541).
-- A failed sync puts back swept orphans, shared-skill links, and ignore files, and no longer deletes a shared skill through a swapped link (#1503, #1509).
-- `sync --jobs` no longer fails now and then with "Access is denied" on Windows when Codex and Antigravity both write under `.agents/agents` (#1548).
-- `import` keeps hand-written instructions whole, a nested `AGENTS.md` becomes a scoped rule, and Claude hook roots resolve elsewhere (#1434, #1449, #1464).
-- Sync notes omitted skill fields, Claude model names, and Claude-only skill syntax; `compare` shows each target's skill fields (#1431, #1436, #1444, #1463).
-- `sync` and `doctor` warn when a project skill or agent shares a name with a global one, naming the target where each copy wins (#1457).
-- `doctor` fails on lint errors, `sync --diff` requires `--check`, and a `requires` bump no longer trips AAI-005 or `--check --against` (#1425, #1433, #1439).
-
-- `install-hook --post-checkout` adds `post-merge` to restore generated files after pulls; `sync --untrack` warns other clones to install it (#1478).
-- A settings `protected` block lists files agents must not edit without asking. Claude Code gets `Edit` rules, Codex a generated hook, and other targets a coverage note; `lint` flags generated paths (#1497).
-- `validate` notes a listed `sources` directory that does not exist instead of failing, so a fresh clone without empty source dirs passes (#1491).
+- **Breaking:** rule `scope`, `globs`, and `paths` form a union; folders scope only existing directories. Drop `scope` to keep a filter (#1472, #1477, #1481).
+- Shared settings files keep your keys, MCP servers, and hooks; a partial or failed sync keeps ignores and files (#1503, #1509, #1551, #1557, #1558, #1559).
+- Name model tiers once in `models:`, and list `protected` paths that Claude Code, Codex, Gemini CLI, and Cursor enforce (#1520, #1526, #1537, #1543, #1544).
+- Hooks share `.agnostic-ai/scripts/`, `hook paths` reads edited files, and `hook run` tests each target's payload (#1512, #1515, #1531, #1546, #1553).
+- `import all` merges `AGENTS.md`, `doctor` runs lint, `coverage.accept` mutes known notes, and global name clashes warn (#1442, #1448, #1468, #1514, #1528).
 
 ### By tool
 
 #### Claude Code
 
-- Hooks you write back by hand after sync removed them now stay when you drop the claude target (#1555).
-- A permission rule removed from a settings spec, `outputs.claude.settings`, or `x-claude` now leaves `settings.json` on the next sync; hand-written rules stay (#1530).
-- An environment spec's `setup` runs once in each new Claude Code worktree through generated hooks; `x-claude.setup: false` turns it off. Delete a hand-written bootstrap hook, since it runs in parallel with setup (#1498).
-- Scoped companion cleanup waits for concurrent writes, so sync removes covered `CLAUDE.md` files consistently (#1478).
-- Claude runtime paths stay out of `.worktreeinclude`; `gitignore.ignore-worktree-include: true` also keeps that file out of Git (#1438, #1441).
-- A `CLAUDE.md` that imports `@AGENTS.md` keeps that layout with only Claude enabled, so `AGENTS.md` no longer goes stale.
-- Native frontmatter drops translated `readonly` and `scope` keys, and a comma-separated `globs` string becomes one `paths` entry per pattern (#1428, #1458).
-- `import claude` turns nested `CLAUDE.md` into scoped rules, agent models into `model.claude`, and drops overlay `hooks: null` (#1427, #1431, #1453, #1465).
-- `sync --dry-run` reads the captured settings overlay, so its `.claude/settings.json` preview matches a real sync and a malformed overlay fails it (#1510).
+- An environment spec's `setup` runs once in each new Claude Code worktree, unless `x-claude.setup: false`. Delete a hand-written bootstrap hook (#1521).
+- Sync removes permission rules it no longer writes and keeps yours, and `sync --dry-run` previews the settings overlay (#1524, #1540).
+- `.worktreeinclude` skips Claude runtime paths, and `gitignore.ignore-worktree-include: true` keeps the file out of Git (#1473, #1484).
+- Frontmatter drops translated `readonly` and `scope`, comma `globs` become `paths` entries, and `CLAUDE.md` keeps `@AGENTS.md` with only Claude (#1470, #1488).
+- `import claude` turns nested `CLAUDE.md` into scoped rules and agent models into `model.claude`, and drops `hooks: null` (#1455, #1459, #1471, #1504).
 
 #### Codex
 
-- Exact subtree rules write nested `AGENTS.md`; filename filters stay inline with a note. Set `nested-glob-rules: false` to opt out (#1435).
-- `exec-policies-from-permissions` translates Bash rules and lint flags drift. An explicit `exec-policies: []` now overrides an imported overlay (#1451).
-- Sync names each exact Bash `allow` rule, such as `Bash(git push)`, that Codex also applies to extra arguments (#1508).
-- Sync names inactive hooks with `/hooks` and `doctor` shows hook trust; edit hook checks read copied scripts and honor `on-unsupported: error` (#1450, #1456).
-- Exec policies and a Codex config or overlay `model` silence the notes they make redundant (#1432, #1462).
-- `import codex` strips generated skill headers and keeps an agent's model in `model.codex`; `environment.toml` always has `[setup]` (#1461, #1476).
-- Sync no longer writes `notify`, `profiles`, `model_providers`, or other keys Codex ignores in a project `config.toml`, and notes where each goes (#1511).
-- Sync notes that `readonly` and `x-codex.sandbox_mode` have no effect on current Codex agents, which keep the session sandbox (#1519).
-- `sync --dry-run` reads the captured exec-policies header, so its `.codex/rules/default.rules` preview matches a real sync (#1523).
+- Exact subtree rules write nested `AGENTS.md`; filename filters stay inline with a note. Set `nested-glob-rules: false` to opt out (#1490).
+- `exec-policies-from-permissions: true` turns Bash permissions into exec policies, and `sync --dry-run` previews them (#1506, #1525).
+- A project `config.toml` skips keys Codex ignores there, such as `notify`, with a note, and `environment.toml` always has `[setup]` (#1513).
+- Notes name Bash `allow` rules Codex widens and agent `readonly` or `sandbox_mode` it ignores, and stop once moot (#1437, #1507, #1516, #1522).
+- Sync names inactive hooks, `doctor` shows hook trust, and `import codex` strips skill headers and keeps agent models (#1482, #1485, #1486, #1502).
 
 #### Copilot
 
-- A rule's `description` goes to `.instructions.md` frontmatter, and a rule with `alwaysApply: false` and no globs stays on demand without `applyTo`.
 - Agents and skills are written back where they live, such as `.github/agents/<name>.md` or `.agents/skills/`, instead of as duplicates.
-
-#### Cursor
-
-- Portable `allow` and `deny` rules become Cursor CLI rules in `.cursor/cli.json`; multi-word commands, `ask`, and unmapped rules get a note (#1542).
-- Protected paths with `decision: deny` become `Write` deny rules in `.cursor/cli.json`, beside your own rules. Only the Cursor CLI reads them (#1517).
-
-#### Continue
-
-- A comma-separated `globs` string becomes one `globs` entry per pattern, so the rule loads on those files (#1428).
+- A rule's `description` goes to `.instructions.md` frontmatter, and a rule with `alwaysApply: false` and no globs stays on demand.
 
 #### Gemini CLI
 
+- Agents with inline MCP servers load: sync writes `mcp_servers` and renames `x-gemini.mcpServers` with a note (#1538).
 - `import gemini` decodes command TOML strings, so an escaped `\\(` in a prompt no longer doubles; other keys import under `x-gemini`.
-- Agents with inline MCP servers load: sync writes `mcp_servers`, renames `x-gemini.mcpServers` with a note, and keeps the key through import (#1538).
-- A generated `BeforeTool` hook enforces settings `protected` paths on `write_file` and `replace`, with the reason shown (#1518).
-- Hooks sync wrote beside a removed protect hook leave `.gemini/settings.json` with the last spec, instead of staying active as a kept orphan (#1556).
+
+#### Cursor
+
+- Portable `allow` and `deny` rules become Cursor CLI rules in `.cursor/cli.json`; multi-word commands, `ask`, and unmapped rules get a note (#1547).
+
+#### Continue
+
+- A comma-separated `globs` string becomes one `globs` entry per pattern, so the rule loads on those files (#1470).
 
 ### Site
 
 - The [spec format](https://agnostic-ai.org/docs/spec-format/) reference has one page per `.agnostic-ai/` folder; old links redirect.
-- The [CI page](https://agnostic-ai.org/docs/ci/) shows the npm dev dependency and pinned `install.sh` instead of a GitHub Action that does not exist (#1445).
-- The Targets page explains how to use a tool with no target, such as pi, through `codex` (#1480).
-- The [Kiro page](https://agnostic-ai.org/docs/targets/kiro/) says CLI V3 blocks direct reads of `.kiroignore` paths, not only search results (#1534).
-- The Copilot page notes VS Code 1.140 deprecates `.vscode/mcp.json` and shows the `.mcp.json` opt-in for projects without Claude (#1533).
+- The [CI page](https://agnostic-ai.org/docs/ci/) installs with npm or a pinned `install.sh`; Targets covers tools with no target, such as pi (#1467, #1480).
+- Target pages note Kiro CLI V3 blocking `.kiroignore` reads and VS Code 1.140 deprecating `.vscode/mcp.json` (#1539, #1545).
 
 ## v0.75.0 - 2026-09-29
 
