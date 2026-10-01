@@ -74,6 +74,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - The [CI page](https://agnostic-ai.org/docs/ci/) shows the npm dev dependency and pinned `install.sh` instead of a GitHub Action that does not exist (#1445).
 - The Targets page explains how to use a tool with no target, such as pi, through `codex` (#1480).
 - The [Kiro page](https://agnostic-ai.org/docs/targets/kiro/) says CLI V3 blocks direct reads of `.kiroignore` paths, not only search results (#1534).
+- The Copilot page notes VS Code 1.140 deprecates `.vscode/mcp.json` and shows the `.mcp.json` opt-in for projects without Claude (#1533).
 
 ## v0.75.0 - 2026-09-29
 
