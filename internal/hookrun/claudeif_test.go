@@ -68,7 +68,7 @@ func TestClaudeIfRuns_FileRules(t *testing.T) {
 		{"Edit(/src/**)", "Edit", "/p/src/x/a.ts", true},
 		{"Edit(/src/**)", "Edit", "/p/vendor/src/a.ts", false},
 		{"Edit(**/src/**)", "MultiEdit", "/p/vendor/pkg/src/lib.js", true},
-		{"Edit(src/**)", "Edit", "/p/vendor/pkg/src/lib.js", true},
+		{"Edit(src/**)", "Edit", "/p/vendor/pkg/src/lib.js", false},
 		{"Edit(src/components/**)", "Edit", "/p/vendor/src/components/a.ts", false},
 		{"Edit(.env)", "Write", "/p/a/b/.env", true},
 		{"Edit(//tmp/scratch.txt)", "Write", "/tmp/scratch.txt", true},

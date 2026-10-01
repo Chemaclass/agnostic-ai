@@ -133,8 +133,8 @@ func decideGoose(event string, h Handler, r Result) Decision {
 
 // decideAugment follows the Augment hooks reference: exit 2 blocks on
 // PreToolUse only, another non-zero exit is a non-blocking error, and on
-// exit 0 permissionDecision deny, decision block, or continue false
-// blocks.
+// exit 0 permissionDecision deny, hookSpecificOutput.decision block, or
+// continue false blocks.
 func decideAugment(event string, r Result) Decision {
 	switch {
 	case r.TimedOut:
@@ -146,12 +146,23 @@ func decideAugment(event string, r Result) Decision {
 	case r.Exit != 0:
 		return Error
 	}
+	// Stop and PostToolUse nest their decision in hookSpecificOutput.
 	reply, ok := readReply(r)
-	if ok && (reply.HookSpecificOutput.PermissionDecision == "deny" || reply.Decision == "block" ||
-		(reply.Continue != nil && !*reply.Continue)) {
+	if ok && (reply.HookSpecificOutput.PermissionDecision == "deny" || reply.HookSpecificOutput.Decision == "block" ||
+		reply.Decision == "block" || (reply.Continue != nil && !*reply.Continue)) {
 		return Block
 	}
 	return Allow
+}
+
+// PayloadTool is the tool_name a payload names, "" for an event with no
+// tool call.
+func PayloadTool(body []byte) string {
+	var call struct {
+		ToolName string `json:"tool_name"`
+	}
+	_ = json.Unmarshal(body, &call)
+	return call.ToolName
 }
 
 // HandlersFromDoc reads the command handlers out of the hooks file sync

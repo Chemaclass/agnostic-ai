@@ -231,7 +231,7 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 			if target == "augment" && !hookrun.AugmentRuns(h.Command) {
 				continue
 			}
-			env := hookRunEnv(target, root, hookEnvContext{event: event, tool: payload.Trigger, pluginRoot: adapters.HookPluginRoot(cfg, target)}, h)
+			env := hookRunEnv(target, root, hookEnvContext{event: event, tool: hookrun.PayloadTool(payload.Body), pluginRoot: adapters.HookPluginRoot(cfg, target)}, h)
 			r := hookrun.Run(hookrun.Argv(target, runtime.GOOS, h), root, env, payload.Body, timeout)
 			d := hookrun.DecideHandler(target, event, h, r)
 			run.Commands = append(run.Commands, newHookCommandRun(shown, d, r, hookrun.AddsContext(target, event, r)))
@@ -417,14 +417,14 @@ func hookRunEnv(target, root string, ctx hookEnvContext, h hookrun.Handler) []st
 	case "openhands":
 		// executor.py sets these on every command hook.
 		env = append(env, "OPENHANDS_PROJECT_DIR="+root, "OPENHANDS_SESSION_ID="+hookrun.SessionID, "OPENHANDS_EVENT_TYPE="+ctx.event)
-		if ctx.tool == "terminal" {
+		if ctx.tool != "" {
 			env = append(env, "OPENHANDS_TOOL_NAME="+ctx.tool)
 		}
 	case "goose":
 		env = append(env, "PLUGIN_ROOT="+filepath.Join(root, filepath.FromSlash(ctx.pluginRoot)))
 	case "augment":
 		env = append(env, "AUGMENT_PROJECT_DIR="+root, "AUGMENT_CONVERSATION_ID="+hookrun.SessionID, "AUGMENT_HOOK_EVENT="+ctx.event)
-		if ctx.tool != "session" {
+		if ctx.tool != "" {
 			env = append(env, "AUGMENT_TOOL_NAME="+ctx.tool)
 		}
 	}

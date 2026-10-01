@@ -202,6 +202,7 @@ type hookReply struct {
 	HookSpecificOutput struct {
 		PermissionDecision string `json:"permissionDecision"`
 		AdditionalContext  string `json:"additionalContext"`
+		Decision           string `json:"decision"`
 	} `json:"hookSpecificOutput"`
 }
 

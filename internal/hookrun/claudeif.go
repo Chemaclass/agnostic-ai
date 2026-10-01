@@ -292,8 +292,9 @@ func closingParen(runes []rune, from int) int {
 // `//path` from the filesystem root, `~/path` from home, `/path` from the
 // project root, where Claude Code anchors project settings, and `path` or
 // `./path` from the working directory, which is the project root here. A
-// pattern with no `/`, or a single directory segment such as `src/**`,
-// matches at any depth, as a deny or ask rule does.
+// bare name matches at any depth; a single directory segment such as
+// `src/**` matches only under the working directory, as an `if`
+// condition does since Claude Code v2.1.214.
 func pathRuleMatches(pattern, file, root string) bool {
 	file = filepath.ToSlash(filepath.Clean(file))
 	var anchor string
@@ -310,8 +311,7 @@ func pathRuleMatches(pattern, file, root string) bool {
 		anchor, pattern = filepath.ToSlash(root), strings.TrimPrefix(pattern, "/")
 	default:
 		anchor, pattern = filepath.ToSlash(root), strings.TrimPrefix(pattern, "./")
-		trimmed := strings.TrimSuffix(pattern, "/**")
-		if !strings.Contains(strings.TrimSuffix(pattern, "/"), "/") || !strings.Contains(trimmed, "/") {
+		if !strings.Contains(strings.TrimSuffix(pattern, "/"), "/") {
 			pattern = "**/" + pattern
 		}
 	}

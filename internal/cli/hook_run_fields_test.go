@@ -48,7 +48,7 @@ func TestHookRun_WarnsWhenTheSyncedMatcherTimeoutOrEnvDiffers(t *testing.T) {
 	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "gem.yaml"),
 		"name: gem\nevent: BeforeTool\nmatcher: run_shell_command\ntarget: gemini\nx-gemini:\n  env:\n    MODE: loose\ncommand: 'cat >/dev/null'\n")
 	out, _ = runHookRun(t, "gem", "--bash", "ls")
-	if !strings.Contains(out, `.gemini/settings.json runs "cat >/dev/null" with env`) {
+	if !strings.Contains(out, `.gemini/settings.json runs "cat >/dev/null" with different env MODE`) {
 		t.Errorf("output misses the env drift:\n%s", out)
 	}
 }

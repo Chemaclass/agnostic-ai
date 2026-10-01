@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -100,9 +101,27 @@ func fieldDrift(target, nativeMatcher, matcher string, n nativeHandler, h Handle
 		return fmt.Sprintf("runs %q with timeout %s, not %s", h.Command, got, h.Timeout)
 	}
 	if target == "gemini" && !maps.Equal(n.Env, h.Env) {
-		return fmt.Sprintf("runs %q with env %v, not %v", h.Command, n.Env, h.Env)
+		return fmt.Sprintf("runs %q with different env %s", h.Command, strings.Join(envKeysDiffering(n.Env, h.Env), ", "))
 	}
 	return ""
+}
+
+// envKeysDiffering names the keys whose value differs or that only one
+// side sets. Values stay out of the warning: an env can hold secrets.
+func envKeysDiffering(a, b map[string]string) []string {
+	var keys []string
+	for k, v := range a {
+		if w, ok := b[k]; !ok || w != v {
+			keys = append(keys, k)
+		}
+	}
+	for k := range b {
+		if _, ok := a[k]; !ok {
+			keys = append(keys, k)
+		}
+	}
+	slices.Sort(keys)
+	return keys
 }
 
 func shownCommand(h Handler, goos string) string {

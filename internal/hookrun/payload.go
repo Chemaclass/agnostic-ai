@@ -235,17 +235,19 @@ func firstMatch(match matchFunc, matcher string, candidates []string) (string, b
 	return candidates[0], false, nil
 }
 
-var exactMatcher = regexp.MustCompile(`^[A-Za-z0-9_|]+$`)
+var exactMatcher = regexp.MustCompile(`^[A-Za-z0-9_\-, |]+$`)
 
 // matches follows Claude Code's matcher rules, which Codex shares: empty
-// or `*` matches everything, letters, digits, `_`, and `|` list exact
-// names, and anything else is a regular expression.
+// or `*` matches everything; letters, digits, `_`, `-`, spaces, `,`, and
+// `|` list exact names separated by `|` or `,`; anything else is a
+// regular expression.
 func matches(matcher, value string) (bool, error) {
 	if matcher == "" || matcher == "*" {
 		return true, nil
 	}
 	if exactMatcher.MatchString(matcher) {
-		return slices.Contains(strings.Split(matcher, "|"), value), nil
+		names := strings.FieldsFunc(matcher, func(r rune) bool { return r == '|' || r == ',' })
+		return slices.ContainsFunc(names, func(n string) bool { return strings.TrimSpace(n) == value }), nil
 	}
 	re, err := regexp.Compile(matcher)
 	if err != nil {
