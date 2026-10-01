@@ -361,8 +361,15 @@ func isSyncBackup(path string) bool {
 	if !strings.HasSuffix(path, ".bak") {
 		return false
 	}
-	sum, ok := readStateFile(".").Backups[filepath.ToSlash(filepath.Clean(path))]
-	return ok && fileSum(path) == sum
+	// The walk may reach the folder through a link, so match the name
+	// and bytes, not the path the ledger recorded.
+	got := fileSum(path)
+	for b, sum := range readStateFile(".").Backups {
+		if sum == got && filepath.Base(b) == filepath.Base(path) {
+			return true
+		}
+	}
+	return false
 }
 
 func copyDirTreeWith(srcDir, dstDir string, transformSkill func([]byte) ([]byte, error), fields specFields) error {

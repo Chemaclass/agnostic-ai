@@ -298,3 +298,26 @@ func TestImport_KeepsABackupTheUserChanged(t *testing.T) {
 		t.Errorf("import dropped a changed backup: %v", err)
 	}
 }
+
+// With shared skills, a target's skill folder is a link; import walks
+// it and must still skip the backup sync made there.
+func TestImport_SkipsASyncBackupBehindASharedSkillLink(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\nsync:\n  shared-skills: true\n")
+	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview.\n")
+	runSyncOK(t)
+	if fi, err := os.Lstat(".claude/skills/review"); err != nil || fi.Mode()&os.ModeSymlink == 0 {
+		t.Skip("no shared-skill link on this platform")
+	}
+	mustWriteFile(t, ".agents/skills/review/SKILL.md", readFile(t, ".agents/skills/review/SKILL.md")+"my local tweak\n")
+	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview twice.\n")
+	runSyncOK(t)
+
+	if out, err := runCLI(t, "import", "claude"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+
+	if _, err := os.Stat(".agnostic-ai/skills/review/SKILL.md.bak"); err == nil {
+		t.Error("import copied the backup behind the link into the skill")
+	}
+}
