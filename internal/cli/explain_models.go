@@ -13,6 +13,8 @@ import (
 type explainModel struct {
 	Target string `json:"target"`
 	Model  string `json:"model,omitempty"`
+	// Alias is the vendor alias Model resolved from, such as sol.
+	Alias  string `json:"alias,omitempty"`
 	Effort any    `json:"effort,omitempty"`
 }
 
@@ -34,7 +36,7 @@ func explainModels(e spec.Entry, contributions []contribution) []explainModel {
 		seen[c.Target] = true
 		resolved := adapters.ResolveMeta(e.Meta, c.Target)
 		model, _ := resolved["model"].(string)
-		out = append(out, explainModel{Target: c.Target, Model: model, Effort: resolved["effort"]})
+		out = append(out, explainModel{Target: c.Target, Model: model, Alias: adapters.ModelAliasIn(e.Meta, c.Target), Effort: resolved["effort"]})
 	}
 	return out
 }
@@ -52,6 +54,9 @@ func printExplainModels(out io.Writer, tier string, models []explainModel) {
 		model := m.Model
 		if model == "" {
 			model = "tool default"
+		}
+		if m.Alias != "" {
+			model = m.Alias + " → " + model
 		}
 		if m.Effort != nil {
 			model += fmt.Sprintf(", effort %v", m.Effort)

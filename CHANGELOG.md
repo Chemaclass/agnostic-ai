@@ -13,6 +13,12 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `fable`, `best`, `opusplan`, `sonnet[1m]`, and `opus[1m]` count as Claude model names, so a shared one raises the coverage note on other targets and `lint` flags it in tiers (#1571).
 - A shared Claude model name is left out of the files of targets that cannot load it, as the coverage note says, so they use their own default (#1574).
 
+### By tool
+
+#### Codex
+
+- `model` values `sol`, `luna`, and `astra` resolve to the current Codex ids, and `explain` shows the resolution (#1572).
+
 ## v0.76.0 - 2026-10-01
 
 ### General

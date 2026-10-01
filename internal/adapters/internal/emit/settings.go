@@ -63,6 +63,9 @@ func lastSettingsValue(entries []spec.Entry, key, target string) any {
 		resolved := map[string]any{key: raw}
 		keys := []string{key}
 		collapseTargetMap(resolved, &keys, key, target)
+		if key == "model" {
+			resolveModelAlias(resolved, target)
+		}
 		switch v := resolved[key].(type) {
 		case string:
 			if v != "" {

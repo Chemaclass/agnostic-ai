@@ -140,13 +140,23 @@ Name each model role once, then write the role in specs instead of a vendor's mo
 
 ```yaml
 models:
-  frontier: {claude: fable,  codex: gpt-6-astra, effort: xhigh}
-  strong:   {claude: opus,   codex: gpt-6.1-sol, effort: high}
-  balanced: {claude: sonnet, codex: gpt-5.5,     effort: medium}
-  fast:     {claude: haiku,  codex: gpt-6-luna,  effort: low}
+  frontier: {claude: fable,  codex: astra,   effort: xhigh}
+  strong:   {claude: opus,   codex: sol,     effort: high}
+  balanced: {claude: sonnet, codex: gpt-5.5, effort: medium}
+  fast:     {claude: haiku,  codex: luna,    effort: low}
 ```
 
-An agent with `model: fast` gets `haiku` in Claude Code and `gpt-6-luna` in Codex, both at `low` effort. Other targets keep their default model. Skills, commands, and settings specs name tiers the same way, and every spec that names a tier follows when you change it here. Claude Code moves `opus`, `sonnet`, `haiku`, and `fable` to its latest models itself; Codex takes exact ids, so its tier entry is the one line to bump when a new model ships.
+An agent with `model: fast` gets `haiku` in Claude Code and `gpt-6-luna` in Codex, both at `low` effort. Other targets keep their default model. Skills, commands, and settings specs name tiers the same way, and every spec that names a tier follows when you change it here.
+
+Claude Code resolves `opus`, `sonnet`, `haiku`, and `fable` to its latest models itself. Codex documents only exact ids, so agnostic-ai resolves these aliases for it when it writes the files:
+
+| Codex alias | Model id |
+|-------------|----------|
+| `sol` | `gpt-6.1-sol` |
+| `luna` | `gpt-6-luna` |
+| `astra` | `gpt-6-astra` |
+
+Each release fixes the ids, so a project that pins [`requires`](#requires) writes the same ones on every machine, and upgrading agnostic-ai moves them. `explain <spec>` shows the resolution, such as `sol → gpt-6.1-sol`. An alias works anywhere Codex reads a `model`: a tier, `model.codex`, a shared `model`, or a settings spec. `x-codex.model` is written as given, so it can send an id the table does not know.
 
 | Tier key | Value |
 |----------|-------|

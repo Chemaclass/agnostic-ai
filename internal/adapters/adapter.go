@@ -188,6 +188,10 @@ func ClaudeModel(model string) bool { return emit.ClaudeModel(model) }
 // the emit layer).
 func FlowScalar(s string) string { return emit.FlowScalar(s) }
 
+// ModelAliasIn names the vendor model alias target resolves from meta, or
+// "" for an exact id (re-exported from the emit layer).
+func ModelAliasIn(meta map[string]any, target string) string { return emit.ModelAliasIn(meta, target) }
+
 // ForeignClaudeModel reports whether model is a Claude model name that
 // target's agent `model` key cannot load.
 func ForeignClaudeModel(target, model string) bool {
