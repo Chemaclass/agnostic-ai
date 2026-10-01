@@ -1,7 +1,7 @@
 // Package cursor emits Cursor editor configs.
 //
-// Rules emit as .cursor/rules/*.mdc with alwaysApply=true (frontmatter
-// override honored). Agents emit natively as Cursor subagents at
+// Rules emit as .cursor/rules/*.mdc with alwaysApply=true, or false for a
+// rule with narrower globs (frontmatter override honored). Agents emit natively as Cursor subagents at
 // .cursor/agents/<name>.md (Cursor 2.4+); Cursor also reads .claude/agents/
 // and .codex/agents/, and .cursor/ wins a name clash. Skills emit natively
 // as one folder per skill under .cursor/skills/<name>/SKILL.md (the Agent

@@ -94,7 +94,7 @@ func unscopableRules(rules []spec.Entry) int {
 		if _, ok := m["paths"]; ok {
 			continue
 		}
-		if always, ok := m["alwaysApply"].(bool); !ok || always {
+		if emit.RuleAlwaysApplies(m) {
 			continue
 		}
 		if len(rulePaths(r)) == 0 {

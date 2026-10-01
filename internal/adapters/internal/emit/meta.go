@@ -293,12 +293,14 @@ func removeKey(out map[string]any, keys *[]string, key string) {
 }
 
 // RuleAlwaysApplies resolves a rule's alwaysApply from its resolved meta:
-// the value the spec sets, or, when unset, true only for a rule with no
-// globs. A rule that names globs loads on matching files, as Claude Code
-// scopes it, so every tool with an activation field agrees (#1597).
+// the value the spec sets, or, when unset, true only for a rule whose
+// globs match every file or are absent. A rule that names narrower globs
+// loads on matching files, as Claude Code scopes it, so every tool with
+// an activation field agrees (#1597). A catch-all stays always-on, as
+// import reads it, so the rule round-trips.
 func RuleAlwaysApplies(m map[string]any) bool {
 	if v, ok := m["alwaysApply"].(bool); ok {
 		return v
 	}
-	return spec.JoinGlobs(m["globs"]) == ""
+	return spec.IsCatchAllGlobs(spec.JoinGlobs(m["globs"]))
 }
