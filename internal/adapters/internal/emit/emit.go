@@ -80,6 +80,9 @@ type WrittenFile struct {
 	Bytes  int
 	Action string
 	Sum    string
+	// Backup is the `<path>.bak` that holds a hand edit this write
+	// replaced, empty when the file was not edited since the last sync.
+	Backup string
 	// Merged marks a JSON file sync merged into, which may also hold
 	// keys sync did not write. Keys lists the values sync set there,
 	// and Released the key paths it removed or left to the user.
@@ -133,6 +136,19 @@ type Session struct {
 	// and recorded in kept (see KeepEditsSince).
 	keepSums map[string]string
 	kept     []string
+	// backupSums, when non-nil, are the output sums of the last sync: a
+	// write over a file whose bytes no longer match its sum first keeps
+	// them as `<path>.bak` and records the path in overwrote (see
+	// BackUpEditsSince). merging holds the paths a merged write is
+	// writing, which hold user keys by design.
+	backupSums map[string]string
+	merging    map[string]bool
+	overwrote  []string
+	// backedUp holds the edits left in place because `<path>.bak`
+	// already existed, so writing over them would lose one.
+	backedUp []string
+	// backups lists every `<path>.bak` this session wrote.
+	backups []string
 	// committedSum, when set, gives a path with no recorded sum the sum of
 	// its committed version, "" when there is none (see SetCommittedSum).
 	committedSum func(path string) string
@@ -231,6 +247,72 @@ func (s *Session) KeepEditsSince(sums map[string]string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.keepSums = sums
+}
+
+// BackUpEditsSince makes this session keep each hand edit it writes over:
+// a file whose bytes differ both from the new content and from sums[path],
+// the sum the last sync recorded, is copied to `<path>.bak` first. A path
+// with no recorded sum has no proof of an edit. Set before any write.
+func (s *Session) BackUpEditsSince(sums map[string]string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.backupSums = sums
+}
+
+// OverwroteEdits returns the paths whose hand edit this session saved as
+// `<path>.bak` before writing over it, in write order.
+func (s *Session) OverwroteEdits() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.overwrote...)
+}
+
+// Backups returns every `<path>.bak` this session wrote, for a hand edit
+// or under --backup, in write order.
+func (s *Session) Backups() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.backups...)
+}
+
+// noteBackup records a `<path>.bak` this session wrote.
+func (s *Session) noteBackup(path string) {
+	s.mu.Lock()
+	s.backups = append(s.backups, path+".bak")
+	s.mu.Unlock()
+}
+
+// BackupBlockedEdits returns the paths whose hand edit this session left
+// in place because `<path>.bak` already existed, in write order.
+func (s *Session) BackupBlockedEdits() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.backedUp...)
+}
+
+// backsUpEdit reports whether a write of content to path replaces a hand
+// edit BackUpEditsSince must keep. Call it under the path lock, so a
+// second target writing the same bytes sees the first one's write.
+func (s *Session) backsUpEdit(path, content string) bool {
+	s.mu.Lock()
+	sum := s.backupSums[path]
+	merging := s.merging[path]
+	committed := s.committedSum
+	s.mu.Unlock()
+	if sum == "" || merging {
+		return false
+	}
+	// A link's target may live outside the project; never copy it in.
+	if info, err := os.Lstat(path); err != nil || !info.Mode().IsRegular() {
+		return false
+	}
+	existing, err := os.ReadFile(path)
+	if err != nil || string(existing) == content {
+		return false
+	}
+	got := ContentSum(string(existing))
+	// A checkout or pull, not the user, changed a file that matches Git.
+	return got != sum && (committed == nil || got != committed(path))
 }
 
 // SetCommittedSum sets the lookup KeepEditsSince falls back on for a path
@@ -749,6 +831,31 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	if err := mkdirAll(filepath.Dir(path), dirPerm); err != nil {
 		return fmt.Errorf("mkdir %s: %w", filepath.Dir(path), err)
 	}
+	editBackup := s.backsUpEdit(path, content)
+	var backupPath string
+	if editBackup {
+		backupPath = path + ".bak"
+		switch err := backUpEdit(path, backupPath); {
+		case errors.Is(err, fs.ErrExist):
+			s.mu.Lock()
+			s.backedUp = append(s.backedUp, path)
+			if detailing {
+				s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: "edited", Sum: s.backupSums[path]})
+			}
+			s.mu.Unlock()
+			return nil
+		case err != nil:
+			return fmt.Errorf("backup %s: %w", path, err)
+		}
+		s.noteBackup(path)
+		if transacting {
+			// A rollback removes it, so a retry does not take it for an
+			// earlier backup and leave the edit stuck in place.
+			s.mu.Lock()
+			s.txLog = append(s.txLog, txEntry{path: backupPath})
+			s.mu.Unlock()
+		}
+	}
 
 	// Detailed recording: inspect existing content to classify the action.
 	if detailing {
@@ -785,12 +892,16 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 			if err := os.WriteFile(path+".bak", existing, filePerm); err != nil {
 				return fmt.Errorf("backup %s: %w", path, err)
 			}
+			s.noteBackup(path)
 		}
 		if err := writeFileAt(path, content, mode, enforceMode); err != nil {
 			return fmt.Errorf("write %s: %w", path, err)
 		}
 		s.mu.Lock()
-		s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: action, Sum: ContentSum(content)})
+		s.detailed = append(s.detailed, WrittenFile{Path: path, Bytes: len(content), Action: action, Sum: ContentSum(content), Backup: backupPath})
+		if editBackup {
+			s.overwrote = append(s.overwrote, path)
+		}
 		s.mu.Unlock()
 		return nil
 	}
@@ -819,12 +930,44 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 			if err := os.WriteFile(path+".bak", existing, filePerm); err != nil {
 				return fmt.Errorf("backup %s: %w", path, err)
 			}
+			s.noteBackup(path)
 		}
 	}
 	if err := writeFileAt(path, content, mode, enforceMode); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
+	if editBackup {
+		s.mu.Lock()
+		s.overwrote = append(s.overwrote, path)
+		s.mu.Unlock()
+	}
 	return nil
+}
+
+// backUpEdit copies path to backup, which must not exist yet in any form,
+// so an earlier backup is never lost and a planted link is never followed.
+func backUpEdit(path, backup string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	f, err := os.OpenFile(backup, os.O_WRONLY|os.O_CREATE|os.O_EXCL, info.Mode().Perm())
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(data)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		// A partial copy would read as an earlier backup on the next sync.
+		_ = os.Remove(backup)
+	}
+	return err
 }
 
 // createUntrackedFileExclusive atomically claims path as a brand-new
@@ -1090,6 +1233,7 @@ func (s *Session) remove(path, sum string, existing []byte, handWritten, dryRun 
 		if err := os.WriteFile(path+".bak", existing, filePerm); err != nil {
 			return false, fmt.Errorf("backup %s: %w", path, err)
 		}
+		s.noteBackup(path)
 	}
 	if err := os.Remove(path); err != nil && !IsAbsent(err) {
 		return false, fmt.Errorf("remove %s: %w", path, err)

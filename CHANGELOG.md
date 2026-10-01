@@ -8,8 +8,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
-- `sync` and `sync --check` stop on a likely hook event typo before writing it into every tool, and warn on an agent `skills:` typo (#1591).
 - **Breaking:** an unknown config key, a misspelled target, or a bad `on-unsupported` value fails before sync writes anything, not silently (#1589).
+- `sync --check --plan` exits 1 on drift, as `sync --check` does, instead of passing a CI step (#1593).
+- `sync` and `sync --check` stop on a likely hook event typo before writing it into every tool, and warn on an agent `skills:` typo (#1591).
+- `sync` saves a hand edit to a generated file as `<path>.bak` and says so before writing over it, so `revert` can restore it (#1590).
 - Release binaries build with Go 1.27.1, so on macOS they need macOS 13 Ventura or later. On macOS 12, `go install` with Go 1.26 still works.
 - A global name clash says whether the two copies differ, who it affects, and how to fix it.
 - The config schema checks `requires` values and describes `requires` and `models` for editors.
@@ -29,6 +31,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - `validate` accepts the `SessionEnd` hook trigger Kiro CLI 2.25 added (#1576).
 - `validate` reports a kiro hook on `AgentSpawn` or `agentSpawn` as an alias of `SessionStart`, not as an unknown event (#1580).
+
+### Site
+
+- [Why agnostic-ai](https://agnostic-ai.org/docs/why-agnostic-ai/) replaces the symlinks page: shorter, and it compares copies, one `AGENTS.md`, and scripts. The old URL redirects.
 
 ## v0.76.0 - 2026-10-01
 

@@ -487,7 +487,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		"agnostic-ai agent setup",
 		"/agent-setup.txt",
 		"Why not just symlink one file?",
-		`href="https://agnostic-ai.org/docs/alternatives-why-not-symlinks/"`,
+		`href="https://agnostic-ai.org/docs/why-agnostic-ai/"`,
 	} {
 		if !strings.Contains(normalizedHome, required) {
 			t.Errorf("home page is missing %q", required)

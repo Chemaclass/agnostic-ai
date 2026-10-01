@@ -154,12 +154,18 @@ func (s *Session) WriteMergedJSON(path, content string, keys []MergedKey, releas
 func (s *Session) writeMerged(path, content string, keys []MergedKey, released [][]string, dryRun bool) error {
 	s.mu.Lock()
 	mark, captureMark := len(s.detailed), len(s.captured)
-	s.mu.Unlock()
-	if err := s.WriteFile(path, content, dryRun); err != nil {
-		return err
+	if s.merging == nil {
+		s.merging = map[string]bool{}
 	}
+	s.merging[path] = true
+	s.mu.Unlock()
+	err := s.WriteFile(path, content, dryRun)
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	delete(s.merging, path)
+	if err != nil {
+		return err
+	}
 	for i := mark; i < len(s.detailed); i++ {
 		if s.detailed[i].Path == path {
 			s.detailed[i].Merged = true

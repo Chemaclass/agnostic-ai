@@ -521,7 +521,7 @@ func printDrift(reports []driftReport) bool {
 			}
 		}
 		if len(r.Edited) > 0 {
-			summaryf("    %d file(s) edited locally since last sync (sync will overwrite them; move the edits into .agnostic-ai/ first):\n", len(r.Edited))
+			summaryf("    %d file(s) edited locally since last sync (sync saves each as <path>.bak, then writes the spec version; move the edits into .agnostic-ai/):\n", len(r.Edited))
 			for _, f := range r.Edited {
 				summaryf("      - %s\n", filepath.ToSlash(f.Path))
 			}
