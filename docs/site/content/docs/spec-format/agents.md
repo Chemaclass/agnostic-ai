@@ -43,7 +43,7 @@ A read-only auditor on a stronger model for Claude Code, with a fallback everywh
 name: security-auditor
 description: Checks a diff for injection, leaked secrets, and unsafe input handling. Use before merging auth or payment changes.
 readonly: true
-model: {claude: opus, default: gpt-6-sol}
+model: {claude: opus, default: gpt-6.1-sol}
 mcpServers: [github]
 ---
 
@@ -76,8 +76,8 @@ Any other frontmatter field passes through unchanged.
 
 | Want | Write |
 |------|-------|
-| Same model everywhere | `model: gpt-6-sol` |
-| Per target, with a fallback | `model: {claude: sonnet, default: gpt-6-terra}` |
+| Same model everywhere | `model: gpt-6.1-sol` |
+| Per target, with a fallback | `model: {claude: sonnet, default: gpt-5.5}` |
 | Per target, tool default elsewhere | `model: {claude: sonnet}` |
 | Different effort per target | `effort: {claude: xhigh, default: high}` |
 
@@ -88,7 +88,7 @@ description: Designs the change before anyone codes it.
 model:
   claude: opus
   cursor: "claude-opus-5[effort=high]"
-  default: gpt-6-sol
+  default: gpt-6.1-sol
 effort:
   claude: xhigh
   qoder: 8000
@@ -99,7 +99,7 @@ x-codex:
 ---
 ```
 
-Result: Claude gets `opus` and `xhigh`; Qoder `gpt-6-sol` and `8000`; Junie `gpt-6-sol` and `high`; Cursor `claude-opus-5[effort=high]` (resolved effort discarded); Codex `gpt-6-sol` with `x-codex` overriding effort to `xhigh`; Factory `gpt-6-sol` with no `reasoningEffort` (`max` is outside its enum, coverage note); Trae drops both with notes.
+Result: Claude gets `opus` and `xhigh`; Qoder `gpt-6.1-sol` and `8000`; Junie `gpt-6.1-sol` and `high`; Cursor `claude-opus-5[effort=high]` (resolved effort discarded); Codex `gpt-6.1-sol` with `x-codex` overriding effort to `xhigh`; Factory `gpt-6.1-sol` with no `reasoningEffort` (`max` is outside its enum, coverage note); Trae drops both with notes.
 
 **`effort` values by target.** Only the targets listed were checked. Omitting `effort` inherits the session's level.
 
@@ -132,7 +132,7 @@ Model ids belong to one vendor, so a per-target map repeats in every agent. Name
 ```yaml
 # agnostic-ai.yaml
 models:
-  strong: {claude: opus, codex: gpt-6-sol, effort: {claude: xhigh, codex: high}}
+  strong: {claude: opus, codex: gpt-6.1-sol, effort: {claude: xhigh, codex: high}}
 ```
 
 ```yaml
@@ -143,7 +143,7 @@ model: strong
 ---
 ```
 
-Claude gets `opus` with `xhigh`, Codex `gpt-6-sol` with `high`, and every other target its own default. Skills, commands, and settings specs name tiers the same way.
+Claude gets `opus` with `xhigh`, Codex `gpt-6.1-sol` with `high`, and every other target its own default. Skills, commands, and settings specs name tiers the same way.
 
 Precedence, high to low: `x-<target>.model`, then `model.<target>` in the spec, then the tier's entry for the target, then the tier's `default`, then the tool default. To override one target, write the tier as the map's `default`: `model: {codex: gpt-6-luna, default: strong}`. The tier's `effort` applies only when the spec sets no `effort`; a spec `effort` replaces it whole. The tier's `effort` also skips a target whose model the spec sets itself, since it was chosen for the tier's model. Values under `model.<target>` and `x-<target>.model` are always literal model ids.
 

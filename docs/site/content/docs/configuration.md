@@ -140,12 +140,13 @@ Name each model role once, then write the role in specs instead of a vendor's mo
 
 ```yaml
 models:
-  strong:   {claude: opus,   codex: gpt-6-sol,   effort: high}
-  balanced: {claude: sonnet, codex: gpt-6-terra, effort: medium}
+  frontier: {claude: fable,  codex: gpt-6-astra, effort: xhigh}
+  strong:   {claude: opus,   codex: gpt-6.1-sol, effort: high}
+  balanced: {claude: sonnet, codex: gpt-5.5,     effort: medium}
   fast:     {claude: haiku,  codex: gpt-6-luna,  effort: low}
 ```
 
-An agent with `model: fast` gets `haiku` in Claude Code and `gpt-6-luna` in Codex, both at `low` effort. Other targets keep their default model. Skills, commands, and settings specs name tiers the same way, and every spec that names a tier follows when you change it here.
+An agent with `model: fast` gets `haiku` in Claude Code and `gpt-6-luna` in Codex, both at `low` effort. Other targets keep their default model. Skills, commands, and settings specs name tiers the same way, and every spec that names a tier follows when you change it here. Claude Code moves `opus`, `sonnet`, `haiku`, and `fable` to its latest models itself; Codex takes exact ids, so its tier entry is the one line to bump when a new model ships.
 
 | Tier key | Value |
 |----------|-------|
