@@ -368,7 +368,8 @@ func copyDirTreeWith(srcDir, dstDir string, transformSkill func([]byte) ([]byte,
 		if d.IsDir() {
 			return importMkdirAll(target, 0o755)
 		}
-		if !d.Type().IsRegular() {
+		// A .bak is sync's copy of a hand edit, not part of the skill.
+		if !d.Type().IsRegular() || strings.HasSuffix(d.Name(), ".bak") {
 			return nil
 		}
 		info, err := d.Info()

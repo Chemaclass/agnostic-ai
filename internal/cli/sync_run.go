@@ -794,6 +794,7 @@ func (g editGuard) apply(sess *adapters.Session) {
 		sess.SetCommittedSum(committedSum)
 	case g.sums != nil:
 		sess.BackUpEditsSince(g.sums)
+		sess.SetCommittedSum(committedSum)
 	}
 }
 

@@ -280,12 +280,18 @@ func (s *Session) backsUpEdit(path, content string) bool {
 	s.mu.Lock()
 	sum := s.backupSums[path]
 	merging := s.merging[path]
+	committed := s.committedSum
 	s.mu.Unlock()
 	if sum == "" || merging {
 		return false
 	}
 	existing, err := os.ReadFile(path)
-	return err == nil && string(existing) != content && ContentSum(string(existing)) != sum
+	if err != nil || string(existing) == content {
+		return false
+	}
+	got := ContentSum(string(existing))
+	// A checkout or pull, not the user, changed a file that matches Git.
+	return got != sum && (committed == nil || got != committed(path))
 }
 
 // SetCommittedSum sets the lookup KeepEditsSince falls back on for a path
@@ -914,15 +920,23 @@ func backUpEdit(path, backup string) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.OpenFile(backup, os.O_WRONLY|os.O_CREATE|os.O_EXCL, filePerm)
+	info, err := os.Stat(path)
 	if err != nil {
 		return err
 	}
-	if _, err := f.Write(data); err != nil {
-		_ = f.Close()
+	f, err := os.OpenFile(backup, os.O_WRONLY|os.O_CREATE|os.O_EXCL, info.Mode().Perm())
+	if err != nil {
 		return err
 	}
-	return f.Close()
+	_, err = f.Write(data)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		// A partial copy would read as an earlier backup on the next sync.
+		_ = os.Remove(backup)
+	}
+	return err
 }
 
 // createUntrackedFileExclusive atomically claims path as a brand-new

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -173,5 +174,55 @@ func TestSync_LeavesAHandEditInPlaceWhenItsBackupExists(t *testing.T) {
 				t.Errorf("sync output does not explain the kept edit:\n%s", log.String())
 			}
 		})
+	}
+}
+
+// A checkout or pull, not the user, changed an output that now matches
+// what Git holds: there is no hand edit to keep.
+func TestSync_OutputMatchingTheCommittedVersionIsNotAHandEdit(t *testing.T) {
+	handEditProject(t, "claude")
+	isolateGit(t)
+	gitInit(t, ".")
+	mustWriteFile(t, handEditSkill, readFile(t, handEditSkill)+"from another branch\n")
+	git(t, ".", "add", "-A", "-f")
+	git(t, ".", "commit", "-q", "-m", "outputs")
+
+	runSyncOK(t)
+
+	if _, err := os.Stat(handEditSkill + ".bak"); err == nil {
+		t.Error("a file matching its committed version was backed up")
+	}
+}
+
+func TestSync_BackupKeepsAnExecutableMode(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no executable bit")
+	}
+	handEditProject(t, "claude")
+	if err := os.Chmod(handEditSkill, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, handEditSkill, readFile(t, handEditSkill)+"my local tweak\n")
+
+	runSyncOK(t)
+
+	info, err := os.Stat(handEditSkill + ".bak")
+	if err != nil || info.Mode().Perm() != 0o755 {
+		t.Errorf("backup mode = %v, %v; want 0755", info, err)
+	}
+}
+
+// A backup sync left in a skill folder is not part of the skill.
+func TestImport_SkipsABackupInASkillFolder(t *testing.T) {
+	handEditProject(t, "claude")
+	mustWriteFile(t, handEditSkill, readFile(t, handEditSkill)+"my local tweak\n")
+	runSyncOK(t)
+
+	if out, err := runCLI(t, "import", "claude"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+
+	if _, err := os.Stat(".agnostic-ai/skills/review/SKILL.md.bak"); err == nil {
+		t.Error("import copied the backup into the skill")
 	}
 }
