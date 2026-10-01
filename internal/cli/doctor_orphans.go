@@ -140,6 +140,11 @@ func offerOrphanRemoval(cfg *config.Config, reports []driftReport, backup bool, 
 			// A merged file also holds the user's keys: the confirmation
 			// releases sync's keys, the edited ones included, not the file.
 			if m, ok := merged[path]; ok && !m.Unrecorded {
+				// Confirmation authorizes these bytes only; an edit during the prompt stays.
+				if now, err := os.ReadFile(path); err != nil || string(now) != string(data) {
+					remaining = append(remaining, path)
+					continue
+				}
 				result, _, err := sess.ReleaseMergedJSON(path, m.Keys, m.Created, true, false)
 				if err != nil {
 					return removed, err

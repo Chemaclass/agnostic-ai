@@ -425,6 +425,15 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 			claimed = append(claimed, emit.MergedKey{Path: []string{"permissions", list}, Items: rules})
 		}
 	}
+	for _, layer := range generated {
+		for k, v := range layer {
+			switch v.(type) {
+			case []any, []string, map[string]any:
+			default:
+				claimed = append(claimed, emit.MergedKey{Path: []string{"permissions", k}})
+			}
+		}
+	}
 	return sess.WriteMergedJSON(path, string(raw)+"\n", claimed, nil, dryRun)
 }
 

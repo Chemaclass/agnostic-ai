@@ -50,7 +50,7 @@ func TestMergeJSONFileNested_RecordsTheValuesSyncSet(t *testing.T) {
 	}
 	released := slices.Clone(writes[0].Released)
 	slices.SortFunc(released, slices.Compare[[]string])
-	if want := [][]string{{"kept"}, {"permissions", "deny"}, {"skills", "paths"}}; !reflect.DeepEqual(released, want) {
+	if want := [][]string{{"kept"}, {"skills", "paths"}}; !reflect.DeepEqual(released, want) {
 		t.Errorf("released = %v, want %v", released, want)
 	}
 }

@@ -38,24 +38,34 @@ type claimedItems struct {
 
 // ClaimedJSONItems, as a list value in a merge, sets the list and claims
 // only items, the entries sync added beside the user's own. With no
-// items, nothing is claimed.
+// items it claims nothing new and keeps what an earlier sync claimed
+// there: an entry sync added before is already in the list.
 func ClaimedJSONItems(value any, items []string) any {
-	if len(items) == 0 {
-		return CarriedJSONValue(value)
-	}
 	return claimedItems{value: value, items: slices.Clone(items)}
 }
 
-// mergeClaim unwraps a merge value and says how much of it sync claims:
-// all of it (claimed, nil items), some list entries, or nothing.
-func mergeClaim(value any) (unwrapped any, claimed bool, items []string) {
+// mergeClaimKind says how much of a merge value sync claims.
+type mergeClaimKind int
+
+const (
+	claimWhole mergeClaimKind = iota
+	claimItems
+	claimNothing
+	claimKeep
+)
+
+// mergeClaim unwraps a merge value and says how much of it sync claims.
+func mergeClaim(value any) (unwrapped any, kind mergeClaimKind, items []string) {
 	switch v := value.(type) {
 	case carriedJSONValue:
-		return v.value, false, nil
+		return v.value, claimNothing, nil
 	case claimedItems:
-		return v.value, true, v.items
+		if len(v.items) == 0 {
+			return v.value, claimKeep, nil
+		}
+		return v.value, claimItems, v.items
 	}
-	return value, true, nil
+	return value, claimWhole, nil
 }
 
 // WriteMergedJSON is WriteFile for a JSON file that also holds keys sync

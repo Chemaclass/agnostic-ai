@@ -72,20 +72,30 @@ func withMergedKeys(base, keys []adapters.MergedKey) []adapters.MergedKey {
 // created, and so does one an older ledger listed without a record:
 // once only sync's keys are left, there is nothing of the user's to
 // keep. released overrides the record of a file the sweep kept.
-func ledgerMerged(ledger []string, merged map[string]mergedOutput, prev syncStateFile, released map[string]mergedOutput) map[string]mergedOutput {
+//
+// A file an older ledger lists that this run did not write, such as a
+// skipped target's on a partial sync, is marked unrecorded, so a later
+// sweep keeps it once the ledger no longer reads as older. A file sync
+// writes whole drops that mark.
+func ledgerMerged(ledger []string, merged map[string]mergedOutput, written map[string]string, prev syncStateFile, released map[string]mergedOutput) map[string]mergedOutput {
 	out := map[string]mergedOutput{}
 	for _, p := range ledger {
 		if m, ok := released[p]; ok {
 			out[p] = m
 			continue
 		}
-		current, written := merged[p]
+		current, mergedNow := merged[p]
 		last, recorded := prev.Merged[p]
-		if !written && !recorded {
-			continue
-		}
-		if !written {
+		_, writtenNow := written[p]
+		switch {
+		case mergedNow:
+		case recorded && (!writtenNow || !last.Unrecorded):
 			out[p] = last
+			continue
+		case !writtenNow && unrecordedMergedCandidate(prev, p):
+			out[p] = mergedOutput{Unrecorded: true}
+			continue
+		default:
 			continue
 		}
 		var kept []adapters.MergedKey
@@ -154,15 +164,17 @@ func releaseMergedOrphans(sess *adapters.Session, prev syncStateFile, current []
 		if sess.KeepsEdits() && editedSince(p, prev.OutputSums[p]) {
 			continue
 		}
-		released = append(released, p)
 		if m.Unrecorded {
+			released = append(released, p)
 			kept = append(kept, p)
 			continue
 		}
 		result, edited, err := sess.ReleaseMergedJSON(p, m.Keys, m.Created, false, false)
 		if err != nil {
+			// Left out of released, so the failed sweep keeps its record.
 			return released, removed, stripped, kept, records, err
 		}
+		released = append(released, p)
 		switch result {
 		case adapters.MergedRemoved:
 			removed = append(removed, p)

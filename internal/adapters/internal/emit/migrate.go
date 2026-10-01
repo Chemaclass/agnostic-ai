@@ -121,33 +121,32 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 	sort.Strings(names)
 	var owned []MergedKey
 	var released [][]string
+	claim := func(path []string, kind mergeClaimKind, items []string) {
+		switch kind {
+		case claimWhole, claimItems:
+			owned = append(owned, MergedKey{Path: path, Items: items})
+		case claimNothing:
+			released = append(released, path)
+		}
+	}
 	for _, k := range names {
-		value, claimed, items := mergeClaim(keys[k])
+		value, kind, items := mergeClaim(keys[k])
 		if _, remove := value.(removeJSONKey); remove {
 			doc.Delete(k)
 			released = append(released, []string{k})
 			continue
 		}
-		if !claimed {
-			released = append(released, []string{k})
-		}
 		incoming, isObject := value.(map[string]any)
-		switch {
-		case nested[k] && isObject:
+		if !nested[k] || !isObject || kind != claimWhole {
+			claim([]string{k}, kind, items)
+		} else {
 			children := make(map[string]any, len(incoming))
 			for child, childValue := range incoming {
-				childValue, childClaimed, childItems := mergeClaim(childValue)
+				childValue, childKind, childItems := mergeClaim(childValue)
 				children[child] = childValue
-				switch {
-				case claimed && childClaimed:
-					owned = append(owned, MergedKey{Path: []string{k, child}, Items: childItems})
-				case claimed:
-					released = append(released, []string{k, child})
-				}
+				claim([]string{k, child}, childKind, childItems)
 			}
 			value = mergeJSONObject(doc, k, children)
-		case claimed:
-			owned = append(owned, MergedKey{Path: []string{k}, Items: items})
 		}
 		if err := doc.Set(k, value); err != nil {
 			return fmt.Errorf("marshal %s key %s: %w", path, k, err)

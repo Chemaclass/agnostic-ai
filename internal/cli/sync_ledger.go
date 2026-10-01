@@ -161,7 +161,7 @@ func sweepAndFinalizeLedger(sess *adapters.Session, prev syncStateFile, session 
 		outputs: outputs,
 		sums:    ledgerSums(outputs, written, prev.OutputSums),
 		orphans: finalizeLedger(orphans),
-		merged:  ledgerMerged(outputs, merged, prev, records),
+		merged:  ledgerMerged(outputs, merged, written, prev, records),
 	}, kept, removed, stripped, err
 }
 

@@ -405,11 +405,9 @@ func emitKiloJSONC(sess *emit.Session, b spec.Bundle, rulesDir, skillsDir, path 
 	if servers := buildMCPMap(b.MCPs); len(servers) > 0 {
 		keys["mcp"] = servers
 	}
-	if paths := skillsPaths(sess, b.Skills, skillsDir, path, dryRun); len(paths) == 1 {
-		keys["skills"] = map[string]any{"paths": paths}
-	} else if len(paths) > 1 {
-		// The user's own paths ride along, so the list is not sync's to remove.
-		keys["skills"] = map[string]any{"paths": emit.CarriedJSONValue(paths)}
+	if paths, added := skillsPaths(sess, b.Skills, skillsDir, path, dryRun); len(paths) > 0 {
+		// The user's own paths ride along, so sync claims only the one it adds.
+		keys["skills"] = map[string]any{"paths": emit.ClaimedJSONItems(paths, added)}
 	}
 	if model := emit.SettingsModel(b.Settings, target); model != "" {
 		keys["model"] = model
@@ -442,18 +440,18 @@ func emitKiloJSONC(sess *emit.Session, b spec.Bundle, rulesDir, skillsDir, path 
 // Any path the user already listed is carried over: the merge replaces
 // the whole array, so dropping them here would delete their skills from
 // the next sync.
-func skillsPaths(sess *emit.Session, skills []spec.Entry, skillsDir, path string, dryRun bool) []string {
+func skillsPaths(sess *emit.Session, skills []spec.Entry, skillsDir, path string, dryRun bool) (paths, added []string) {
 	dir := filepath.ToSlash(filepath.Clean(skillsDir))
 	if len(skills) == 0 || scannedSkillTrees[dir] {
-		return nil
+		return nil, nil
 	}
-	paths := sess.ExistingNestedStrings(path, "skills", "paths", dryRun)
+	paths = sess.ExistingNestedStrings(path, "skills", "paths", dryRun)
 	for _, p := range paths {
 		if filepath.ToSlash(filepath.Clean(p)) == dir {
-			return paths
+			return paths, nil
 		}
 	}
-	return append(paths, dir)
+	return append(paths, dir), []string{dir}
 }
 
 // AlwaysOnRule reports whether Kilo Code loads r in every session:
