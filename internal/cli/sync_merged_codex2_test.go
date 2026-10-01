@@ -3,6 +3,7 @@ package cli
 import (
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -52,8 +53,9 @@ func TestDoctorFix_RecordsMergedKeysItWrites(t *testing.T) {
 	assertOnlyUserSettings(t, settings)
 }
 
-// Dropping the protect hook keeps sync's claim on the hooks it wrote
-// before, so they are not left behind untracked.
+// Dropping the protect hook moves sync's claim to the hooks it leaves,
+// so once the last spec goes they leave too, and no retired hook stays
+// active behind a kept orphan (#1556).
 func TestSync_ProtectCleanupKeepsClaimOnGeneratedHooks(t *testing.T) {
 	const settings = ".gemini/settings.json"
 	testutil.Chdir(t, t.TempDir())
@@ -65,10 +67,40 @@ func TestSync_ProtectCleanupKeepsClaimOnGeneratedHooks(t *testing.T) {
 	mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\n")
 	removeSpecs(t, geminiFmtHookSpec)
 	runSyncOK(t)
+	if strings.Contains(readFileString(t, settings), "agnostic-ai-protect") {
+		t.Fatalf("protect hook stayed after its block left:\n%s", readFileString(t, settings))
+	}
 	removeSpecs(t, ".agnostic-ai/settings/model.yaml")
 	runSyncOK(t)
-	tracked := slices.Contains(readStateFile(".").Orphans, settings)
-	if hooks := readJSONMap(t, settings)["hooks"]; hooks != nil && !tracked {
-		t.Errorf("generated hooks left behind untracked: %#v", hooks)
+	assertOnlyUserSettings(t, settings)
+	if slices.Contains(readStateFile(".").Orphans, settings) {
+		t.Errorf("%s kept as an orphan", settings)
+	}
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check: %v\n%s", err, out)
+	}
+}
+
+// A hook the user adds to sync's hooks block makes the block theirs, so
+// it stays through the protect cleanup and the release, and the protect
+// hook, whose script is gone, does not.
+func TestSync_ProtectCleanupKeepsAHandWrittenHook(t *testing.T) {
+	const settings = ".gemini/settings.json"
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
+	mustWriteFile(t, settings, userSettings)
+	mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\nprotected:\n  paths: [.env]\n")
+	runSyncOK(t)
+	doc := readJSONMap(t, settings)
+	hooks := doc["hooks"].(map[string]any)
+	hooks["AfterTool"] = []any{map[string]any{"hooks": []any{map[string]any{"type": "command", "command": "./mine.sh"}}}}
+	writeJSONFile(t, settings, doc)
+	mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\n")
+	runSyncOK(t)
+	removeSpecs(t, ".agnostic-ai/settings/model.yaml")
+	runSyncOK(t)
+	body := readFileString(t, settings)
+	if !strings.Contains(body, "./mine.sh") || strings.Contains(body, "agnostic-ai-protect") {
+		t.Errorf("want the hand-written hook kept and the protect hook gone:\n%s", body)
 	}
 }

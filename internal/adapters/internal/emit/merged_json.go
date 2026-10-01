@@ -17,6 +17,30 @@ type MergedKey struct {
 	// content sum once written, so the ledger holds no rule text.
 	// Releasing the file takes out only these.
 	Items []string `json:"items,omitempty"`
+	// Follows, when set, is the sum of the value this write replaced. The
+	// key is claimed only if an earlier sync's claim still has that sum;
+	// otherwise the earlier claim stays as it was. It is never stored.
+	Follows string `json:"-"`
+}
+
+// cleanedJSONValue is a merge value a cleanup rewrote from sync's own.
+type cleanedJSONValue struct {
+	value  any
+	before string
+}
+
+// CleanedJSONValue, as a key's value in a merge, sets the key to after,
+// a cleanup of before, the value on disk. When an earlier sync's claim
+// still matches before, the user has not edited it, so the claim moves
+// to after and releasing the file later takes after out whole.
+// Otherwise it keeps whatever an earlier sync claimed, as
+// KeptJSONValue does.
+func CleanedJSONValue(before, after any) any {
+	raw, err := json.Marshal(before)
+	if err != nil {
+		return KeptJSONValue(after)
+	}
+	return cleanedJSONValue{value: after, before: jsonValueSum(raw)}
 }
 
 // carriedJSONValue is a merge value sync writes without claiming it.
@@ -63,10 +87,20 @@ const (
 	claimItems
 	claimNothing
 	claimKeep
+	claimFollow
 )
 
 // mergeClaim unwraps a merge value and says how much of it sync claims.
-func mergeClaim(value any) (unwrapped any, kind mergeClaimKind, items []string) {
+// follows is the sum a claimFollow value's earlier claim must match.
+func mergeClaim(value any) (unwrapped any, kind mergeClaimKind, items []string, follows string) {
+	if v, ok := value.(cleanedJSONValue); ok {
+		return v.value, claimFollow, nil, v.before
+	}
+	unwrapped, kind, items = mergeClaimOf(value)
+	return unwrapped, kind, items, ""
+}
+
+func mergeClaimOf(value any) (unwrapped any, kind mergeClaimKind, items []string) {
 	switch v := value.(type) {
 	case carriedJSONValue:
 		return v.value, claimNothing, nil
