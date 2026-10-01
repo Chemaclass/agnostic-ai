@@ -420,9 +420,15 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 		return sess.WriteFile(path, string(raw)+"\n", dryRun)
 	}
 	claimed := claimedSettingsKeys(hooks, custom, specSettings, configSettings)
-	for list, rules := range emit.OwnedRulesOf(docPermissions(doc), keep, generated) {
-		if len(rules) > 0 {
+	// The owned-rules record is the whole truth for the rule lists: a list
+	// with none of sync's rules left releases what an earlier sync claimed.
+	owns := emit.OwnedRulesOf(docPermissions(doc), keep, generated)
+	var released [][]string
+	for _, list := range emit.PermissionLists() {
+		if rules := owns[list]; len(rules) > 0 {
 			claimed = append(claimed, emit.MergedKey{Path: []string{"permissions", list}, Items: rules})
+		} else {
+			released = append(released, []string{"permissions", list})
 		}
 	}
 	for _, layer := range generated {
@@ -434,7 +440,7 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 			}
 		}
 	}
-	return sess.WriteMergedJSON(path, string(raw)+"\n", claimed, nil, dryRun)
+	return sess.WriteMergedJSON(path, string(raw)+"\n", claimed, released, dryRun)
 }
 
 // claimedSettingsKeys lists the key paths sync set in a settings.json it

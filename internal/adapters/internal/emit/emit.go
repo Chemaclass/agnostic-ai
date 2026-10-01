@@ -39,6 +39,11 @@ const (
 type CapturedFile struct {
 	Path    string
 	Content string
+	// Merged, Keys, and Released carry a merged JSON write's claims, as
+	// WrittenFile does, so `doctor --fix` can record what it writes.
+	Merged   bool
+	Keys     []MergedKey
+	Released [][]string
 }
 
 // CapturedRemoval is one removal RemoveOwned would have made outside

@@ -9,6 +9,9 @@ import (
 
 var permissionLists = []string{"allow", "deny", "ask"}
 
+// PermissionLists names the rule lists an OwnedRules record covers.
+func PermissionLists() []string { return slices.Clone(permissionLists) }
+
 // OwnedRules is the record of the permission rules the last sync added
 // to a settings file that merges into the file on disk. Without it a
 // removed rule would stay.

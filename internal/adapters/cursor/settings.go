@@ -92,10 +92,15 @@ func emitCLIConfig(sess *emit.Session, settings []spec.Entry, dryRun bool) error
 		return err
 	}
 	// The lists hold the user's rules too, so sync claims only its own.
+	// The record is the whole truth: a list with none of sync's rules
+	// left releases any rule an earlier sync claimed there.
 	owns := emit.OwnedRulesOf(final, base, generated)
 	permissions := make(map[string]any, len(final))
 	for list, rules := range final {
-		permissions[list] = emit.ClaimedJSONItems(rules, owns[list])
+		permissions[list] = emit.CarriedJSONValue(rules)
+		if len(owns[list]) > 0 {
+			permissions[list] = emit.ClaimedJSONItems(rules, owns[list])
+		}
 	}
 	return sess.MergeJSONFileNested(cliConfigFile, map[string]any{"permissions": permissions}, []string{"permissions"}, dryRun)
 }

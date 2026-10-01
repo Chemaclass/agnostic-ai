@@ -264,7 +264,7 @@ func emitSettings(sess *emit.Session, b spec.Bundle, hooks []spec.Entry, path st
 	}
 	if _, writing := keys["hooks"]; !writing {
 		if kept, stale := withoutProtectHook(sess.ExistingJSONObject(path, "hooks", dryRun)); stale {
-			keys["hooks"] = emit.CarriedJSONValue(kept)
+			keys["hooks"] = emit.KeptJSONValue(kept)
 			if len(kept) == 0 {
 				keys["hooks"] = emit.RemoveJSONKey
 			}

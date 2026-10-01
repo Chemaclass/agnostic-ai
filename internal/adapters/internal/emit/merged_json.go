@@ -30,6 +30,17 @@ func CarriedJSONValue(value any) any {
 	return carriedJSONValue{value: value}
 }
 
+// keptJSONValue is a merge value that neither claims nor releases.
+type keptJSONValue struct{ value any }
+
+// KeptJSONValue, as a key's value in a merge, sets the key and keeps
+// whatever an earlier sync claimed there, claiming nothing new. Use it
+// for a value a cleanup rewrites from the file, whose entries may be
+// sync's from before or the user's.
+func KeptJSONValue(value any) any {
+	return keptJSONValue{value: value}
+}
+
 // claimedItems is a list merge value of which sync owns only items.
 type claimedItems struct {
 	value any
@@ -59,6 +70,8 @@ func mergeClaim(value any) (unwrapped any, kind mergeClaimKind, items []string) 
 	switch v := value.(type) {
 	case carriedJSONValue:
 		return v.value, claimNothing, nil
+	case keptJSONValue:
+		return v.value, claimKeep, nil
 	case claimedItems:
 		if len(v.items) == 0 {
 			return v.value, claimKeep, nil
@@ -76,7 +89,7 @@ func mergeClaim(value any) (unwrapped any, kind mergeClaimKind, items []string) 
 func (s *Session) WriteMergedJSON(path, content string, keys []MergedKey, released [][]string, dryRun bool) error {
 	keys = withValueSums(content, keys)
 	s.mu.Lock()
-	mark := len(s.detailed)
+	mark, captureMark := len(s.detailed), len(s.captured)
 	s.mu.Unlock()
 	if err := s.WriteFile(path, content, dryRun); err != nil {
 		return err
@@ -88,6 +101,13 @@ func (s *Session) WriteMergedJSON(path, content string, keys []MergedKey, releas
 			s.detailed[i].Merged = true
 			s.detailed[i].Keys = keys
 			s.detailed[i].Released = released
+		}
+	}
+	for i := captureMark; i < len(s.captured); i++ {
+		if s.captured[i].Path == path {
+			s.captured[i].Merged = true
+			s.captured[i].Keys = keys
+			s.captured[i].Released = released
 		}
 	}
 	return nil

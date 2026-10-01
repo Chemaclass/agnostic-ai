@@ -228,6 +228,34 @@ func recordMergedRelease(root string, records map[string]*mergedOutput) error {
 	if len(records) == 0 {
 		return nil
 	}
+	return updateStateFile(root, func(state *syncStateFile) {
+		releaseMergedRecords(state, records)
+	})
+}
+
+// recordMergedFixes stores the claims of the merged files `doctor --fix`
+// wrote, folded into the stored records the way a sync folds them.
+func recordMergedFixes(root string, fixes map[string]mergedOutput, written map[string]string) error {
+	if len(fixes) == 0 {
+		return nil
+	}
+	return updateStateFile(root, func(state *syncStateFile) {
+		paths := make([]string, 0, len(fixes))
+		for path := range fixes {
+			paths = append(paths, path)
+		}
+		for path, record := range ledgerMerged(paths, fixes, written, *state, nil) {
+			if state.Merged == nil {
+				state.Merged = map[string]mergedOutput{}
+			}
+			state.Merged[path] = record
+		}
+	})
+}
+
+// updateStateFile applies update to the stored ledger. With no readable
+// ledger there is nothing to update; the next sync writes one.
+func updateStateFile(root string, update func(*syncStateFile)) error {
 	p := stateFilePath(root)
 	data, err := os.ReadFile(p)
 	if err != nil {
@@ -237,6 +265,18 @@ func recordMergedRelease(root string, records map[string]*mergedOutput) error {
 	if err := json.Unmarshal(data, &state); err != nil {
 		return fmt.Errorf("parse %s: %w", p, err)
 	}
+	update(&state)
+	out, err := json.Marshal(state)
+	if err != nil {
+		return fmt.Errorf("%s: %w", p, err)
+	}
+	if err := os.WriteFile(p, out, 0o644); err != nil {
+		return fmt.Errorf("%s: %w", p, err)
+	}
+	return nil
+}
+
+func releaseMergedRecords(state *syncStateFile, records map[string]*mergedOutput) {
 	for path, record := range records {
 		if record == nil {
 			state.Outputs = removeMatching(state.Outputs, []string{path})
@@ -253,12 +293,4 @@ func recordMergedRelease(root string, records map[string]*mergedOutput) error {
 			state.Orphans = finalizeLedger(append(state.Orphans, path))
 		}
 	}
-	out, err := json.Marshal(state)
-	if err != nil {
-		return fmt.Errorf("%s: %w", p, err)
-	}
-	if err := os.WriteFile(p, out, 0o644); err != nil {
-		return fmt.Errorf("%s: %w", p, err)
-	}
-	return nil
 }

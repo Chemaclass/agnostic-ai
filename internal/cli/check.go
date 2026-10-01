@@ -867,8 +867,9 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 	}
 	fixed := map[string]string{}
 	releasedMerged := map[string]*mergedOutput{}
+	fixedMerged := map[string]mergedOutput{}
 	defer func() {
-		if err := errors.Join(recordOutputSums(".", fixed), recordMergedRelease(".", releasedMerged)); err != nil {
+		if err := errors.Join(recordOutputSums(".", fixed), recordMergedFixes(".", fixedMerged, fixed), recordMergedRelease(".", releasedMerged)); err != nil {
 			fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 		}
 	}()
@@ -883,10 +884,14 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 			}
 		}
 		for _, f := range append(append([]adapters.CapturedFile{}, r.Missing...), r.changed()...) {
+			created := !fileExists(f.Path)
 			if err := sess.WriteFile(f.Path, f.Content, false); err != nil {
 				return written, err
 			}
 			fixed[f.Path] = adapters.ContentSum(f.Content)
+			if f.Merged {
+				fixedMerged[f.Path] = mergedOutput{Keys: f.Keys, Released: f.Released, Created: created}
+			}
 			written++
 		}
 		if len(r.Leftover) == 0 {
