@@ -15,10 +15,8 @@ func TestInit_GitignoreTakesOnAndOff(t *testing.T) {
 		args []string
 		on   bool
 	}{
-		{[]string{"--gitignore", "off"}, false},
 		{[]string{"--gitignore=off"}, false},
 		{[]string{"--gitignore=false"}, false},
-		{[]string{"--gitignore", "on"}, true},
 		{[]string{"--gitignore"}, true},
 	} {
 		t.Run(strings.Join(tc.args, " "), func(t *testing.T) {
@@ -36,9 +34,26 @@ func TestInit_GitignoreTakesOnAndOff(t *testing.T) {
 	}
 }
 
+// A bool-style --gitignore leaves `off` in `--gitignore off` as the
+// [dir] argument; init asks for the = form instead of making a folder.
+func TestInit_GitignoreWithASpaceAsksForTheEqualsForm(t *testing.T) {
+	for _, args := range [][]string{{"--gitignore", "off"}, {"config/ai", "--gitignore", "off"}, {"--gitignore", "on"}} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			_, err := runCLI(t, append([]string{"init", "--all"}, args...)...)
+			if err == nil || !strings.Contains(err.Error(), "--gitignore=") {
+				t.Errorf("init error = %v, want the = form", err)
+			}
+			if _, err := os.Stat("agnostic-ai.yaml"); err == nil {
+				t.Error("init wrote a project")
+			}
+		})
+	}
+}
+
 func TestInit_GitignoreValueKeepsTheDirArgument(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	if out, err := runCLI(t, "init", "--all", "--gitignore", "off", "config/ai"); err != nil {
+	if out, err := runCLI(t, "init", "--all", "--gitignore=off", "config/ai"); err != nil {
 		t.Fatalf("init: %v\n%s", err, out)
 	}
 	if _, err := os.Stat("config/ai"); err != nil {

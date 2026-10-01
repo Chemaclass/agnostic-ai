@@ -24,7 +24,7 @@ echo "claude,codex" | agnostic-ai init
 | `--demo` | Seed example specs, one per source folder plus the `memory-curator` skill, so the first `sync` produces output. Never overwrites files. |
 | `--preset <name>` | Seed starter specs for a stack: `go`, `ts-react`, `python`. Combines with `--demo` and `--all`. Never overwrites files. |
 | `-a, --all` | Skip the target picker and enable every supported target. |
-| `--gitignore <on\|off>` | On by default: generated outputs go into a managed `.gitignore` block. `--gitignore off` commits them instead. `true` and `false` work too, here and on `sync`. |
+| `--gitignore[=on\|off]` | On by default: generated outputs go into a managed `.gitignore` block. `--gitignore=off` commits them instead. `true` and `false` work too, here and on `sync`. Give the value after `=`: `--gitignore off` stops with a hint, since `off` would read as the folder argument. |
 | `--from <cli>` | After scaffolding, import existing config from this CLI (`claude`, `cursor`, `all`, and the other [import](#import) sources). |
 | `--dry-run` | List what the scaffold would create without writing. With `--from`, also list every file the import would write. |
 

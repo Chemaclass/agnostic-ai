@@ -39,7 +39,7 @@ func newInitCmd() *cobra.Command {
 			"to skip both prompts and enable every supported target. " +
 			"With no terminal and nothing piped, init enables the CLIs it detects in the project, " +
 			"or the default target set when it detects none, and prints which it picked. " +
-			"The managed .gitignore block is on by default; pass --gitignore off to commit generated outputs instead. " +
+			"The managed .gitignore block is on by default; pass --gitignore=off to commit generated outputs instead. " +
 			"Pass --demo to seed example specs: a minimal one per source folder, plus the memory-curator skill. " +
 			"Pass --preset <name> to seed idiomatic specs for a stack (go, ts-react, python). " +
 			"Pass --from <cli> to scaffold and then import existing CLI config in one step.",
@@ -59,7 +59,7 @@ func newInitCmd() *cobra.Command {
   echo "claude,codex" | agnostic-ai init
 
   # Commit generated outputs instead of ignoring them
-  agnostic-ai init --all --gitignore off
+  agnostic-ai init --all --gitignore=off
 
   # Seed example specs, one per source folder plus the memory-curator skill
   agnostic-ai init --demo
@@ -76,18 +76,20 @@ func newInitCmd() *cobra.Command {
 
   # Custom base directory
   agnostic-ai init config/ai`,
-		Args: cobra.MaximumNArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			// A bool flag leaves the value of `--gitignore off` as a
-			// positional; read it back before the [dir] argument.
-			if len(args) > 0 && cmd.Flags().Changed("gitignore") {
-				if on, err := parseSwitch(args[0]); err == nil {
-					gitignore, args = switchValue(on), args[1:]
+		Args: func(cmd *cobra.Command, args []string) error {
+			// --gitignore is a switch, so `--gitignore off` leaves off as
+			// the [dir] argument. Which word was meant is ambiguous, so
+			// ask for the = form instead of guessing.
+			if cmd.Flags().Changed("gitignore") {
+				for _, a := range args {
+					if _, err := parseSwitch(a); err == nil {
+						return fmt.Errorf("--gitignore takes its value after =, as --gitignore=%s; for a folder named %q, pass ./%s", a, a, a)
+					}
 				}
 			}
-			if len(args) > 1 {
-				return fmt.Errorf("init takes at most one [dir] argument, got %d", len(args))
-			}
+			return cobra.MaximumNArgs(1)(cmd, args)
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
 				return err
 			}
@@ -165,7 +167,7 @@ func newInitCmd() *cobra.Command {
 	cmd.Flags().StringVar(&fromCLI, "from", "",
 		"After scaffolding, import existing config from this CLI (e.g. claude, cursor, all).")
 	cmd.Flags().Var(&gitignore, "gitignore",
-		"on or off: persist gitignore.enabled so sync keeps a managed .gitignore block of every emitted target path. On by default; pass off to commit generated outputs instead. When unset and stdin is a TTY, init prompts (defaulting to on).")
+		"on or off: persist gitignore.enabled so sync keeps a managed .gitignore block of every emitted target path. On by default; pass --gitignore=off to commit generated outputs instead. When unset and stdin is a TTY, init prompts (defaulting to on).")
 	cmd.Flags().Lookup("gitignore").NoOptDefVal = "on"
 	_ = cmd.RegisterFlagCompletionFunc("preset", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return availablePresets(), cobra.ShellCompDirectiveNoFileComp
