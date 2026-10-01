@@ -397,15 +397,18 @@ func hasNativePermission(e spec.Entry) bool {
 // every source is empty.
 func emitKiloJSONC(sess *emit.Session, b spec.Bundle, rulesDir, skillsDir, path string, dryRun bool) error {
 	keys := map[string]any{}
+	carriedInstructions := false
 	if instructions := ruleInstructions(b.Rules, rulesDir); len(instructions) > 0 {
 		keys["instructions"] = instructions
 	} else if kept, stale := withoutInlinedRules(sess.ExistingStrings(path, "instructions", dryRun), sess.InlinedRules(), rulesDir); stale {
 		keys["instructions"] = kept
+		carriedInstructions = true
 	}
 	if servers := buildMCPMap(b.MCPs); len(servers) > 0 {
 		keys["mcp"] = servers
 	}
-	if paths := skillsPaths(sess, b.Skills, skillsDir, path, dryRun); len(paths) > 0 {
+	paths, addedPaths := skillsPaths(sess, b.Skills, skillsDir, path, dryRun)
+	if len(paths) > 0 {
 		keys["skills"] = map[string]any{"paths": paths}
 	}
 	if model := emit.SettingsModel(b.Settings, target); model != "" {
@@ -427,6 +430,15 @@ func emitKiloJSONC(sess *emit.Session, b spec.Bundle, rulesDir, skillsDir, path 
 	if len(keys) == 0 {
 		return nil
 	}
+	// Ownership wraps the merged values, so x-kilo lists join them first.
+	// Kept instructions are read back from the file, and the user's skill
+	// paths ride along beside the one sync adds.
+	if carriedInstructions {
+		keys["instructions"] = emit.CarriedJSONValue(keys["instructions"])
+	}
+	if skills, ok := keys["skills"].(map[string]any); ok && len(paths) > 0 {
+		skills["paths"] = emit.ClaimedJSONItems(skills["paths"], addedPaths)
+	}
 	return sess.MergeJSONFileNested(path, keys, []string{"skills", permissionKey}, dryRun)
 }
 
@@ -439,18 +451,18 @@ func emitKiloJSONC(sess *emit.Session, b spec.Bundle, rulesDir, skillsDir, path 
 // Any path the user already listed is carried over: the merge replaces
 // the whole array, so dropping them here would delete their skills from
 // the next sync.
-func skillsPaths(sess *emit.Session, skills []spec.Entry, skillsDir, path string, dryRun bool) []string {
+func skillsPaths(sess *emit.Session, skills []spec.Entry, skillsDir, path string, dryRun bool) (paths, added []string) {
 	dir := filepath.ToSlash(filepath.Clean(skillsDir))
 	if len(skills) == 0 || scannedSkillTrees[dir] {
-		return nil
+		return nil, nil
 	}
-	paths := sess.ExistingNestedStrings(path, "skills", "paths", dryRun)
+	paths = sess.ExistingNestedStrings(path, "skills", "paths", dryRun)
 	for _, p := range paths {
 		if filepath.ToSlash(filepath.Clean(p)) == dir {
-			return paths
+			return paths, nil
 		}
 	}
-	return append(paths, dir)
+	return append(paths, dir), []string{dir}
 }
 
 // AlwaysOnRule reports whether Kilo Code loads r in every session:

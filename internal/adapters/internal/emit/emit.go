@@ -39,6 +39,11 @@ const (
 type CapturedFile struct {
 	Path    string
 	Content string
+	// Merged, Keys, and Released carry a merged JSON write's claims, as
+	// WrittenFile does, so `doctor --fix` can record what it writes.
+	Merged   bool
+	Keys     []MergedKey
+	Released [][]string
 }
 
 // CapturedRemoval is one removal RemoveOwned would have made outside
@@ -75,6 +80,12 @@ type WrittenFile struct {
 	Bytes  int
 	Action string
 	Sum    string
+	// Merged marks a JSON file sync merged into, which may also hold
+	// keys sync did not write. Keys lists the values sync set there,
+	// and Released the key paths it removed or left to the user.
+	Merged   bool
+	Keys     []MergedKey
+	Released [][]string
 }
 
 // Session holds the mutable mode flags for one emission pass: capture,

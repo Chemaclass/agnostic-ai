@@ -25,9 +25,9 @@ import (
 // syncStateVersion identifies the on-disk schema of `.agnostic-ai/.sync-state`.
 // Bumped to 2 when the per-sync output ledger (Outputs) was added, and to 3
 // when OutputSums and Orphans were added, to 4 when SpecSums was added,
-// and to 5 when Unledgered was added.
+// to 5 when Unledgered was added, and to 6 when Merged was added.
 // Readers tolerate older versions by treating missing fields as zero values.
-const syncStateVersion = 5
+const syncStateVersion = mergedLedgerVersion
 
 type syncStateFile struct {
 	Version        int       `json:"version,omitempty"`
@@ -65,6 +65,10 @@ type syncStateFile struct {
 	// out of Outputs and no sync removes them; `sync --check` and
 	// `doctor` report them while they remain (#1354).
 	Unledgered []string `json:"unledgered,omitempty"`
+	// Merged records the ledgered JSON files sync merges into beside
+	// keys it did not write. Once sync stops writing one, it takes out
+	// only these keys instead of deleting the file (#1541).
+	Merged map[string]mergedOutput `json:"merged,omitempty"`
 	// SpecSums fingerprints each source spec and the merged config, so
 	// the next sync can name which sources changed since this one.
 	SpecSums map[string]string `json:"spec_sums,omitempty"`
@@ -81,6 +85,7 @@ type syncLedger struct {
 	orphans []string
 	// unledgered lists the leftovers no ledger proves sync wrote.
 	unledgered []string
+	merged     map[string]mergedOutput
 	// specSums is not part of the output footprint, but it is written
 	// beside it so the next sync can diff sources against this one.
 	specSums map[string]string
@@ -120,6 +125,7 @@ func writeStateFile(projectRoot string, filesChanged int, warningsDigest, notesD
 		OutputSums:     ledger.sums,
 		Orphans:        ledger.orphans,
 		Unledgered:     ledger.unledgered,
+		Merged:         ledger.merged,
 		SpecSums:       ledger.specSums,
 	})
 	if err != nil {
@@ -521,6 +527,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	var report syncReport
 	var ledgerSession []string
 	ledgerWritten := map[string]string{}
+	ledgerMergedWrites := map[string]mergedOutput{}
 	var gitignoreEntries []string
 	complete := true
 	for _, e := range emits {
@@ -534,6 +541,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 			continue
 		}
 		recordLedgerWrites(e.writes, &ledgerSession, ledgerWritten)
+		recordMergedWrites(e.writes, ledgerMergedWrites)
 		report.addWrites(e.target, e.writes)
 		if verbose {
 			created, updated, skipped := classifyDetailedWrites(e.writes)
@@ -578,7 +586,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	}
 	applied := shared.apply(mainSess, dryRun)
 	ledgerSession = adjustLedgerForLinks(ledgerSession, applied)
-	ledger, kept, removed, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, effectiveTargets, cfg.Targets, dryRun)
+	ledger, kept, removed, stripped, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, ledgerMergedWrites, effectiveTargets, cfg.Targets, dryRun)
 	if gitignoreOn {
 		for _, l := range applied {
 			gitignoreEntries = append(gitignoreEntries, l.path)
@@ -658,11 +666,11 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	for _, p := range removed {
 		report.removed = append(report.removed, filepath.ToSlash(p))
 	}
+	for _, p := range stripped {
+		report.updated = append(report.updated, filepath.ToSlash(p))
+	}
 	for _, p := range kept {
-		reason := "edited since sync"
-		if prev.OutputSums[p] == "" {
-			reason = "the sync that wrote it recorded no checksum"
-		}
+		reason := keptOrphanReason(ledger.merged, prev.OutputSums, p)
 		keptf("  ~ kept orphan %s (%s; run `agnostic-ai doctor --fix` to choose removal, or list it under sync.unmanaged)\n", p, reason)
 	}
 	if !dryRun {
@@ -880,6 +888,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	out := jsonOutput{Version: "1", Command: "sync"}
 	var ledgerSession []string
 	ledgerWritten := map[string]string{}
+	ledgerMergedWrites := map[string]mergedOutput{}
 	var gitignoreEntries []string
 
 	// Emit every target concurrently; failFast is off so all per-target
@@ -905,6 +914,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 		}
 		gitignoreEntries = append(gitignoreEntries, e.recorded...)
 		recordLedgerWrites(e.writes, &ledgerSession, ledgerWritten)
+		recordMergedWrites(e.writes, ledgerMergedWrites)
 		appendFileRecords(&out, e.target, e.writes)
 	}
 
@@ -939,7 +949,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	applied := shared.apply(mainSess, false)
 	ledgerSession = adjustLedgerForLinks(ledgerSession, applied)
 	mainSess.StartTransaction()
-	ledger, kept, removed, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, effectiveTargets, cfg.Targets, false)
+	ledger, kept, removed, stripped, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, ledgerMergedWrites, effectiveTargets, cfg.Targets, false)
 	for _, l := range applied {
 		out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: l.path, Action: "link"})
 	}
@@ -975,6 +985,9 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	}
 	for _, p := range removed {
 		out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: p, Action: "delete"})
+	}
+	for _, p := range stripped {
+		out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: p, Action: "update"})
 	}
 	for _, p := range kept {
 		out.Skipped = append(out.Skipped, fileRecord{Target: "agnostic-ai", Path: p, Action: "orphan"})

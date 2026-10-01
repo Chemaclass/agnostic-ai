@@ -408,7 +408,8 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 	if err := owned.Record(sess, docPermissions(doc), keep, generated, dryRun); err != nil {
 		return err
 	}
-	if err := policy.apply(sess, doc, dryRun); err != nil {
+	rejected, err := policy.apply(sess, doc, dryRun)
+	if err != nil {
 		return err
 	}
 	indent := detectSettingsIndent(path)
@@ -416,7 +417,80 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 	if err != nil {
 		return err
 	}
-	return sess.WriteFile(path, string(raw)+"\n", dryRun)
+	if overlay != nil {
+		return sess.WriteFile(path, string(raw)+"\n", dryRun)
+	}
+	claimed := claimedSettingsKeys(hooks, custom, specSettings, configSettings)
+	// The owned-rules record is the whole truth for the rule lists: a list
+	// with none of sync's rules left releases what an earlier sync claimed.
+	owns := emit.OwnedRulesOf(docPermissions(doc), keep, generated)
+	var released [][]string
+	for _, list := range emit.PermissionLists() {
+		if rules := owns[list]; len(rules) > 0 {
+			claimed = append(claimed, emit.MergedKey{Path: []string{"permissions", list}, Items: rules})
+		} else {
+			released = append(released, []string{"permissions", list})
+		}
+	}
+	// Like the rule lists, the rejection list holds the user's entries
+	// too, and its record decides which ones are sync's.
+	if len(rejected) > 0 {
+		claimed = append(claimed, emit.MergedKey{Path: []string{rejectionKey}, Items: rejected})
+	} else {
+		released = append(released, []string{rejectionKey})
+	}
+	for _, layer := range generated {
+		for k, v := range layer {
+			switch v.(type) {
+			case []any, []string, map[string]any:
+			default:
+				claimed = append(claimed, emit.MergedKey{Path: []string{"permissions", k}})
+			}
+		}
+	}
+	return sess.WriteMergedJSON(path, string(raw)+"\n", claimed, released, dryRun)
+}
+
+// claimedSettingsKeys lists the key paths sync set in a settings.json it
+// merged into, so a sync that stops writing the file takes out only
+// those. Permissions hold the user's rules too, so the caller claims
+// only the rules the owned-rules record lists. An `x-claude` value merges into the file's, so only
+// its scalars, top-level or one object deep, are claimed: a list or
+// object under it may hold the user's entries.
+func claimedSettingsKeys(hooks []spec.Entry, custom map[string]any, layers ...map[string]any) []emit.MergedKey {
+	var claimed []emit.MergedKey
+	if len(hooks) > 0 {
+		claimed = append(claimed, emit.MergedKey{Path: []string{"hooks"}})
+	}
+	if hasCommandHook(hooks) {
+		claimed = append(claimed, emit.MergedKey{Path: []string{"env", emit.HookTargetEnv}})
+	}
+	for _, layer := range layers {
+		for k := range layer {
+			if k != "permissions" {
+				claimed = append(claimed, emit.MergedKey{Path: []string{k}})
+			}
+		}
+	}
+	for k, v := range custom {
+		switch value := v.(type) {
+		case map[string]any:
+			if k == "permissions" {
+				continue
+			}
+			for child, childValue := range value {
+				switch childValue.(type) {
+				case map[string]any, []any:
+				default:
+					claimed = append(claimed, emit.MergedKey{Path: []string{k, child}})
+				}
+			}
+		case []any:
+		default:
+			claimed = append(claimed, emit.MergedKey{Path: []string{k}})
+		}
+	}
+	return claimed
 }
 
 // mergeCustomKey merges one `x-claude` value onto whatever the layers

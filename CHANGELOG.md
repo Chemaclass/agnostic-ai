@@ -19,6 +19,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - New `AGNOSTIC_AI.md` files use a short editable template; existing files stay intact, and `doctor` points out old boilerplate (#1446).
 - Rule body headings nest in merged instructions; import restores levels and preserves code, link definitions, and line breaks (#1452, #1505).
 - Partial syncs keep all targets' ignores and never ignore `outputs.lock`. Kept orphans say why; `doctor --fix` offers removal (#1440, #1503, #1509).
+- Removing the last spec or target that writes a shared settings file, such as `.gemini/settings.json`, takes out only sync's keys and keeps yours (#1541).
 - A failed sync puts back swept orphans, shared-skill links, and ignore files, and no longer deletes a shared skill through a swapped link (#1503, #1509).
 - `sync --jobs` no longer fails now and then with "Access is denied" on Windows when Codex and Antigravity both write under `.agents/agents` (#1548).
 - `import` keeps hand-written instructions whole, a nested `AGENTS.md` becomes a scoped rule, and Claude hook roots resolve elsewhere (#1434, #1449, #1464).

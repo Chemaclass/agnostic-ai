@@ -284,7 +284,8 @@ func leftoverReports(cfg *config.Config, emitted map[string]bool) []driftReport 
 			continue
 		}
 		sum := state.OutputSums[p]
-		if header.Has(string(data)) || sum != "" && adapters.ContentSum(string(data)) == sum {
+		_, merged := state.Merged[p]
+		if merged || header.Has(string(data)) || sum != "" && adapters.ContentSum(string(data)) == sum {
 			rep.Leftover = append(rep.Leftover, p)
 		}
 	}
@@ -865,13 +866,16 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 		defer sess.SetBackup(false)
 	}
 	fixed := map[string]string{}
+	releasedMerged := map[string]*mergedOutput{}
+	fixedMerged := map[string]mergedOutput{}
 	defer func() {
-		if err := recordOutputSums(".", fixed); err != nil {
+		if err := errors.Join(recordOutputSums(".", fixed), recordMergedFixes(".", fixedMerged, fixed), recordMergedRelease(".", releasedMerged)); err != nil {
 			fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 		}
 	}()
 	written := 0
-	for _, r := range reports {
+	for i := range reports {
+		r := reports[i]
 		if !r.hasDrift() {
 			continue
 		}
@@ -881,10 +885,16 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 			}
 		}
 		for _, f := range append(append([]adapters.CapturedFile{}, r.Missing...), r.changed()...) {
+			created := !fileExists(f.Path)
 			if err := sess.WriteFile(f.Path, f.Content, false); err != nil {
 				return written, err
 			}
 			fixed[f.Path] = adapters.ContentSum(f.Content)
+			if f.Merged {
+				fixedMerged[f.Path] = mergedOutput{Keys: f.Keys, Released: f.Released, Created: created, wroteMerge: true}
+			} else {
+				fixedMerged[f.Path] = mergedOutput{wroteWhole: true}
+			}
 			written++
 		}
 		if len(r.Leftover) == 0 {
@@ -893,10 +903,42 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 		// The same ownership guard as the orphan sweep in sync. With no
 		// ledger, a mention of the marker is no proof: RemoveOwned would
 		// take one, so the header must still open the file.
-		sums := readStateFile(".").OutputSums
+		state := readStateFile(".")
+		sums := state.OutputSums
 		unledgered := r.Unledgered || ledgerMissing(".")
 		pruned := map[string]bool{}
 		for _, p := range r.Leftover {
+			m, merged := state.Merged[p]
+			// A merged file sync cannot fully release stays, and the run
+			// reports it, so doctor does not pass while check still fails.
+			if !unledgered && (m.Unrecorded || !merged && unrecordedMergedCandidate(state, p)) {
+				reports[i].Orphaned = append(reports[i].Orphaned, p)
+				continue
+			}
+			if merged && !unledgered {
+				result, edited, err := sess.ReleaseMergedJSON(p, m.Keys, m.Created, false, false)
+				if err != nil {
+					return written, err
+				}
+				switch result {
+				case adapters.MergedRemoved:
+					pruneAncestorDirs(p, pruned)
+					written++
+					releasedMerged[p] = nil
+				case adapters.MergedStripped:
+					written++
+					releasedMerged[p] = nil
+				case adapters.MergedUnchanged:
+					releasedMerged[p] = nil
+				case adapters.MergedEdited:
+					written++
+					releasedMerged[p] = &mergedOutput{Keys: edited, Created: m.Created}
+					reports[i].Orphaned = append(reports[i].Orphaned, p)
+				case adapters.MergedKept:
+					reports[i].Orphaned = append(reports[i].Orphaned, p)
+				}
+				continue
+			}
 			sum := sums[p]
 			if unledgered && !ownedWithoutLedger(p) {
 				if sum = r.proven[p]; sum == "" {

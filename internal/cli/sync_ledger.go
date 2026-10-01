@@ -130,17 +130,23 @@ func reconcilePartialLedger(ledger, priorOutputs []string, coversAll bool) []str
 // A dry run records no writes, so the current output set is unknown and
 // every prior output would look orphaned. It sweeps nothing and returns
 // an empty ledger, which callers never persist on a dry run.
-func sweepAndFinalizeLedger(sess *adapters.Session, prev syncStateFile, session []string, written map[string]string, emitted, configured []string, dryRun bool) (ledger syncLedger, kept, removed []string, err error) {
+func sweepAndFinalizeLedger(sess *adapters.Session, prev syncStateFile, session []string, written map[string]string, merged map[string]mergedOutput, emitted, configured []string, dryRun bool) (ledger syncLedger, kept, removed, stripped []string, err error) {
 	if dryRun {
-		return syncLedger{}, nil, nil, nil
+		return syncLedger{}, nil, nil, nil, nil
 	}
 	coversAll := coversAllConfiguredTargets(emitted, configured)
 	outputs := reconcilePartialLedger(finalizeLedger(session), prev.Outputs, coversAll)
-	removed, kept, err = sweepLedgerOrphans(sess, prev.Outputs, prev.OutputSums, outputs)
+	released, removed, stripped, kept, records, err := releaseMergedOrphans(sess, prev, outputs)
+	if err == nil {
+		var sweptRemoved, sweptKept []string
+		sweptRemoved, sweptKept, err = sweepLedgerOrphans(sess, removeMatching(prev.Outputs, released), prev.OutputSums, outputs)
+		removed = append(removed, sweptRemoved...)
+		kept = append(kept, sweptKept...)
+	}
 	orphans := ledgerOrphans(kept, prev.Orphans, written, coversAll)
 	if err != nil {
 		for _, path := range prev.Outputs {
-			if !slices.Contains(removed, path) && !sess.IsUnmanaged(path) {
+			if !slices.Contains(released, path) && !slices.Contains(removed, path) && !sess.IsUnmanaged(path) {
 				outputs = append(outputs, path)
 			}
 		}
@@ -155,7 +161,8 @@ func sweepAndFinalizeLedger(sess *adapters.Session, prev syncStateFile, session 
 		outputs: outputs,
 		sums:    ledgerSums(outputs, written, prev.OutputSums),
 		orphans: finalizeLedger(orphans),
-	}, kept, removed, err
+		merged:  ledgerMerged(outputs, merged, written, prev, records),
+	}, kept, removed, stripped, err
 }
 
 // keepUnledgered records in ledger the leftovers no ledger proves sync

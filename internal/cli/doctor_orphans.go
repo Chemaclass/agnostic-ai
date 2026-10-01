@@ -46,7 +46,8 @@ func confirmOrphanRemoval(cmd *cobra.Command, reader *bufio.Reader, path string)
 }
 
 func offerOrphanRemoval(cfg *config.Config, reports []driftReport, backup bool, confirm func(string) (bool, error)) (int, error) {
-	recorded := readStateFile(".").Orphans
+	state := readStateFile(".")
+	recorded, merged := state.Orphans, state.Merged
 	if orphanedCount(reports) == 0 {
 		return 0, nil
 	}
@@ -60,6 +61,12 @@ func offerOrphanRemoval(cfg *config.Config, reports []driftReport, backup bool, 
 	sess.SetUnmanaged(cfg.Sync.Unmanaged)
 	sess.SetBackup(backup)
 	removed, refused := 0, 0
+	released := map[string]*mergedOutput{}
+	defer func() {
+		if err := recordMergedRelease(".", released); err != nil {
+			fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
+		}
+	}()
 	pruned := map[string]bool{}
 	for i := range reports {
 		if reports[i].Unledgered {
@@ -129,6 +136,29 @@ func offerOrphanRemoval(cfg *config.Config, reports []driftReport, backup bool, 
 				if err == nil && backupInfo.Mode()&os.ModeSymlink != 0 {
 					return removed, fmt.Errorf("%s: refusing symlink backup destination", backupPath)
 				}
+			}
+			// A merged file also holds the user's keys: the confirmation
+			// releases sync's keys, the edited ones included, not the file.
+			if m, ok := merged[path]; ok && !m.Unrecorded {
+				// Confirmation authorizes these bytes only; an edit during the prompt stays.
+				if now, err := os.ReadFile(path); err != nil || string(now) != string(data) {
+					remaining = append(remaining, path)
+					continue
+				}
+				result, _, err := sess.ReleaseMergedJSON(path, m.Keys, m.Created, true, false)
+				if err != nil {
+					return removed, err
+				}
+				if result == adapters.MergedKept {
+					remaining = append(remaining, path)
+					continue
+				}
+				if result == adapters.MergedRemoved {
+					pruneAncestorDirs(path, pruned)
+				}
+				released[path] = nil
+				removed++
+				continue
 			}
 			// Confirmation authorizes these bytes only; an edit during the prompt stays.
 			done, err := sess.RemoveCopy(path, adapters.ContentSum(string(data)), false)
