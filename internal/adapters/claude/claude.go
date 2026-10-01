@@ -344,6 +344,15 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 			doc = emit.NewOrderedJSON()
 		}
 	}
+	claimed := claimedSettingsKeys(hooks, custom, specSettings, configSettings)
+	produced := producedCustomSettingsKeys(custom)
+	for _, key := range claimed {
+		produced = append(produced, key.Path)
+	}
+	var released [][]string
+	if overlay == nil {
+		released = sess.DropRetiredMergedParents(path, doc, claimed, produced)
+	}
 	if err := policy.removeOwned(doc); err != nil {
 		return err
 	}
@@ -394,7 +403,7 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 		if err := doc.SetAt(order.Index(doc.Keys()), "hooks", hookSettingsJSONWithOrder(hooks, order.Events)); err != nil {
 			return fmt.Errorf("claude settings: marshal hooks: %w", err)
 		}
-	} else {
+	} else if overlay != nil {
 		doc.Delete("hooks")
 	}
 	if err := addHookTargetEnv(doc, hooks); err != nil {
@@ -420,11 +429,9 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 		}
 		return sess.WriteFile(path, string(raw)+"\n", dryRun)
 	}
-	claimed := claimedSettingsKeys(hooks, custom, specSettings, configSettings)
 	// The owned-rules record is the whole truth for the rule lists: a list
 	// with none of sync's rules left releases what an earlier sync claimed.
 	owns := emit.OwnedRulesOf(docPermissions(doc), keep, generated)
-	var released [][]string
 	for _, list := range emit.PermissionLists() {
 		if rules := owns[list]; len(rules) > 0 {
 			claimed = append(claimed, emit.MergedKey{Path: []string{"permissions", list}, Items: rules})
@@ -451,7 +458,7 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 	}
 	// The file on disk is the base, so a key an earlier sync set and the
 	// specs no longer produce would stay without this (#1549).
-	released = append(released, sess.DropStaleMergedKeys(path, doc, claimed, released)...)
+	released = append(released, sess.DropStaleMergedKeys(path, doc, claimed, released, produced)...)
 	raw, err := emit.MarshalJSONIndentWith(doc, indent)
 	if err != nil {
 		return err
@@ -459,11 +466,7 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 	return sess.WriteMergedJSON(path, string(raw)+"\n", claimed, released, dryRun)
 }
 
-// releasedHookKeys lists the hook keys this write deleted because no
-// hook spec is left, so their earlier claims go: a value the user writes
-// back by hand is theirs. A key still in the file, such as an `x-claude`
-// value or a hook env naming another target, which sync leaves, keeps
-// its claim.
+// releasedHookKeys gives up hook paths removed while rendering the current specs.
 func releasedHookKeys(doc *emit.OrderedJSON, hooks []spec.Entry) [][]string {
 	var released [][]string
 	if _, kept := doc.Get("hooks"); len(hooks) == 0 && !kept {
@@ -491,6 +494,20 @@ func docHasEnv(doc *emit.OrderedJSON, name string) bool {
 	}
 	_, ok = env[name]
 	return ok
+}
+
+func producedCustomSettingsKeys(custom map[string]any) [][]string {
+	var produced [][]string
+	for key, value := range custom {
+		if object, ok := value.(map[string]any); ok && len(object) > 0 {
+			for child := range object {
+				produced = append(produced, []string{key, child})
+			}
+		} else {
+			produced = append(produced, []string{key})
+		}
+	}
+	return produced
 }
 
 // claimedSettingsKeys lists the key paths sync set in a settings.json it

@@ -107,13 +107,30 @@ func sameJSONValue(raw json.RawMessage, value any) bool {
 	return err == nil && jsonValueSum(raw) == jsonValueSum(encoded)
 }
 
-// DropStaleMergedKeys takes out of doc, the merged JSON file at path,
-// each value the last sync claimed there that this write neither claims
-// in claimed nor gives up in released. A merge sets only what the specs
-// produce now, so without this an old value would stay (#1549). A value
-// the user edited since stays as theirs. Every such claim is returned
-// as released.
-func (s *Session) DropStaleMergedKeys(path string, doc *OrderedJSON, claimed []MergedKey, released [][]string) [][]string {
+// DropRetiredMergedParents removes unchanged retired parents before current values merge into them.
+func (s *Session) DropRetiredMergedParents(path string, doc *OrderedJSON, claimed []MergedKey, produced [][]string) [][]string {
+	var released [][]string
+	priorKeys := priorMergedKeys(path)
+	for _, prior := range priorKeys {
+		if len(prior.Path) == 0 || prior.Items != nil {
+			continue
+		}
+		if slices.ContainsFunc(claimed, func(k MergedKey) bool { return isPathPrefix(k.Path, prior.Path) }) {
+			continue
+		}
+		if !slices.ContainsFunc(produced, func(p []string) bool { return isPathPrefix(prior.Path, p) }) {
+			continue
+		}
+		released = append(released, prior.Path)
+		if raw, found := jsonValueAt(doc, prior.Path); found && unchangedSince(priorKeys, prior.Path, raw) {
+			editJSONPath(doc, prior.Path, func(json.RawMessage) (any, bool, bool) { return nil, false, true })
+		}
+	}
+	return released
+}
+
+// DropStaleMergedKeys releases retired claims while preserving produced values and user edits.
+func (s *Session) DropStaleMergedKeys(path string, doc *OrderedJSON, claimed []MergedKey, released, produced [][]string) [][]string {
 	settled := func(keyPath []string) bool {
 		return slices.ContainsFunc(claimed, func(k MergedKey) bool { return slices.Equal(k.Path, keyPath) }) ||
 			slices.ContainsFunc(released, func(p []string) bool { return isPathPrefix(p, keyPath) })
@@ -121,6 +138,8 @@ func (s *Session) DropStaleMergedKeys(path string, doc *OrderedJSON, claimed []M
 	overlapsClaim := func(keyPath []string) bool {
 		return slices.ContainsFunc(claimed, func(k MergedKey) bool {
 			return isPathPrefix(keyPath, k.Path) || isPathPrefix(k.Path, keyPath)
+		}) || slices.ContainsFunc(produced, func(p []string) bool {
+			return isPathPrefix(keyPath, p) || isPathPrefix(p, keyPath)
 		})
 	}
 	return s.dropStaleClaims(path, doc, settled, overlapsClaim)

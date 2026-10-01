@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -45,4 +47,76 @@ func TestSync_StaleParentClaimKeepsCurrentChild(t *testing.T) {
 		t.Errorf("env = %#v, want BAR kept", env)
 	}
 	runSyncOK(t, "--check")
+}
+
+func TestSync_ClaudePortableHookMovesToUnclaimedCustomHooks(t *testing.T) {
+	const settings = ".claude/settings.json"
+	for _, tc := range []struct {
+		name, command string
+		stop          bool
+		priorUserStop bool
+	}{
+		{"same hook", "echo hi", false, false},
+		{"changed hook", "echo changed", false, false},
+		{"additional event", "echo hi", true, false},
+		{"prior user hook", "echo hi", false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cline]\n")
+			mustWriteFile(t, settings, userSettings)
+			mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\n")
+			mustWriteFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: PostToolUse\ncommand: echo hi\n")
+			runSyncOK(t)
+			priorStop := []any{map[string]any{"hooks": []any{map[string]any{"type": "command", "command": "echo prior"}}}}
+			if tc.priorUserStop {
+				doc := readJSONMap(t, settings)
+				priorHooks, ok := doc["hooks"].(map[string]any)
+				if !ok {
+					t.Fatalf("hooks = %#v, want the generated object", doc["hooks"])
+				}
+				priorHooks["Stop"] = priorStop
+				writeJSONFile(t, settings, doc)
+			}
+			removeSpecs(t, ".agnostic-ai/hooks/fmt.yaml")
+			body := "model: example-model\nx-claude:\n  hooks:\n    PostToolUse:\n      - matcher: ''\n        hooks:\n          - type: command\n            command: " + tc.command + "\n"
+			if tc.stop {
+				body += "    Stop:\n      - hooks:\n          - type: command\n            command: echo custom\n"
+			}
+			mustWriteFile(t, ".agnostic-ai/settings/model.yaml", body)
+			runSyncOK(t)
+			want := map[string]any{"PostToolUse": []any{map[string]any{"matcher": "", "hooks": []any{map[string]any{"type": "command", "command": tc.command}}}}}
+			if tc.stop {
+				want["Stop"] = []any{map[string]any{"hooks": []any{map[string]any{"type": "command", "command": "echo custom"}}}}
+			}
+			if tc.priorUserStop {
+				want["Stop"] = priorStop
+			}
+			if got := readJSONMap(t, settings)["hooks"]; !reflect.DeepEqual(got, want) {
+				t.Errorf("hooks = %#v, want %#v", got, want)
+			}
+			record, recorded := readStateFile(".").Merged[filepath.FromSlash(settings)]
+			if !recorded {
+				t.Error("settings.json has no merged ownership record")
+			}
+			for _, key := range record.Keys {
+				if len(key.Path) > 0 && key.Path[0] == "hooks" {
+					t.Errorf("custom hooks claimed as sync's: %#v", key)
+				}
+			}
+			runSyncOK(t, "--check")
+
+			doc := readJSONMap(t, settings)
+			stop, _ := want["Stop"].([]any)
+			want["Stop"] = append(stop, map[string]any{"hooks": []any{map[string]any{"type": "command", "command": "echo mine"}}})
+			doc["hooks"] = want
+			writeJSONFile(t, settings, doc)
+			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
+			runSyncOK(t)
+			if got := readJSONMap(t, settings); !reflect.DeepEqual(got["hooks"], want) || got["userKey"] != "mine" {
+				t.Errorf("custom or user hooks lost on release: %#v", got)
+			}
+			runSyncOK(t, "--check")
+		})
+	}
 }

@@ -2,7 +2,9 @@ package cli
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -101,5 +103,52 @@ func TestSync_ClaudeDropsStaleKeysAndReleasesDeletedHooks(t *testing.T) {
 	runSyncOK(t)
 	if final := readJSONMap(t, settings); !reflect.DeepEqual(final["hooks"], hooks) || final["userKey"] != "kept" {
 		t.Errorf("hand-restored hook or user key lost: %#v", final)
+	}
+}
+
+func TestSync_ClaudeRetiredEnvParentDropsOnlyUneditedValues(t *testing.T) {
+	const settings = ".claude/settings.json"
+	for _, tc := range []struct {
+		name string
+		edit map[string]any
+		want map[string]any
+	}{
+		{"unchanged parent", nil, map[string]any{"FOO": "current"}},
+		{"edited sibling", map[string]any{"BAR": "mine"}, map[string]any{"FOO": "current", "BAR": "mine"}},
+		{"added sibling", map[string]any{"BAZ": "mine"}, map[string]any{"FOO": "current", "BAR": "stale", "BAZ": "mine"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\noutputs:\n  claude:\n    settings:\n      env:\n        FOO: first\n        BAR: stale\n")
+			mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "model: example-model\n")
+			runSyncOK(t)
+			if tc.edit != nil {
+				doc := readJSONMap(t, settings)
+				env, ok := doc["env"].(map[string]any)
+				if !ok {
+					t.Fatalf("env = %#v, want the generated object", doc["env"])
+				}
+				for key, value := range tc.edit {
+					env[key] = value
+				}
+				writeJSONFile(t, settings, doc)
+			}
+			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+			mustWriteFile(t, ".agnostic-ai/settings/env.yaml", "x-claude:\n  env:\n    FOO: current\n")
+			runSyncOK(t)
+			if got := readJSONMap(t, settings)["env"]; !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("env = %#v, want %#v", got, tc.want)
+			}
+			record, recorded := readStateFile(".").Merged[filepath.FromSlash(settings)]
+			if !recorded {
+				t.Error("settings.json has no merged ownership record")
+			}
+			for _, key := range record.Keys {
+				if slices.Equal(key.Path, []string{"env"}) {
+					t.Errorf("retired env parent stayed claimed: %#v", key)
+				}
+			}
+			runSyncOK(t, "--check")
+		})
 	}
 }
