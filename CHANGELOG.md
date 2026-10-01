@@ -8,8 +8,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
-- `sync` saves a hand edit to a generated file as `<path>.bak` and says so before writing over it, so `revert` can restore it (#1590).
 - **Breaking:** an unknown config key, a misspelled target, or a bad `on-unsupported` value fails before sync writes anything, not silently (#1589).
+- `sync` saves a hand edit to a generated file as `<path>.bak` and says so before writing over it, so `revert` can restore it (#1590).
 - Release binaries build with Go 1.27.1, so on macOS they need macOS 13 Ventura or later. On macOS 12, `go install` with Go 1.26 still works.
 - A global name clash says whether the two copies differ, who it affects, and how to fix it.
 - The config schema checks `requires` values and describes `requires` and `models` for editors.
