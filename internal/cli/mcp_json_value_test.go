@@ -2,6 +2,7 @@ package cli
 
 import (
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -32,7 +33,7 @@ func TestSync_FailsOnAnMCPValueJSONCannotHold(t *testing.T) {
 	if err == nil {
 		t.Fatalf("sync passed:\n%s", out)
 	}
-	for _, want := range []string{nanMCPSpec, `"gh"`, "timeout"} {
+	for _, want := range []string{filepath.FromSlash(nanMCPSpec), `"gh"`, "timeout"} {
 		if !strings.Contains(err.Error()+out, want) {
 			t.Errorf("error does not name %s: %v\n%s", want, err, out)
 		}
@@ -87,7 +88,7 @@ func TestSync_AnotherTargetsBadMCPValueDoesNotFailThisTarget(t *testing.T) {
 func TestValidate_ReportsAnMCPValueJSONCannotHold(t *testing.T) {
 	nanMCPProject(t)
 	out, err := runCLI(t, "validate")
-	if err == nil || !strings.Contains(out, nanMCPSpec) || !strings.Contains(out, "timeout") {
+	if err == nil || !strings.Contains(out, filepath.FromSlash(nanMCPSpec)) || !strings.Contains(out, "timeout") {
 		t.Errorf("validate: %v\n%s", err, out)
 	}
 }
@@ -96,7 +97,7 @@ func TestLint_ReportsAnMCPValueJSONCannotHold(t *testing.T) {
 	nanMCPProject(t)
 	out, err := runCLI(t, "lint")
 	lines := strings.Join(findingLines(out, "LINT027"), "\n")
-	if err == nil || !strings.Contains(lines, nanMCPSpec) || !strings.Contains(lines, "x-amp.timeout") {
+	if err == nil || !strings.Contains(lines, filepath.FromSlash(nanMCPSpec)) || !strings.Contains(lines, "x-amp.timeout") {
 		t.Errorf("lint: %v\n%s", err, out)
 	}
 }
