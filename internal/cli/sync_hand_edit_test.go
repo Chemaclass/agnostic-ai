@@ -226,3 +226,16 @@ func TestImport_SkipsABackupInASkillFolder(t *testing.T) {
 		t.Error("import copied the backup into the skill")
 	}
 }
+
+func TestImport_KeepsASkillAssetNamedBak(t *testing.T) {
+	handEditProject(t, "claude")
+	mustWriteFile(t, ".claude/skills/review/examples/patch.bak", "a user asset\n")
+
+	if out, err := runCLI(t, "import", "claude"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+
+	if _, err := os.Stat(".agnostic-ai/skills/review/examples/patch.bak"); err != nil {
+		t.Errorf("import dropped a user asset: %v", err)
+	}
+}

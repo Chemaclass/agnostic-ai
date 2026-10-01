@@ -826,6 +826,13 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 		case err != nil:
 			return fmt.Errorf("backup %s: %w", path, err)
 		}
+		if transacting {
+			// A rollback removes it, so a retry does not take it for an
+			// earlier backup and leave the edit stuck in place.
+			s.mu.Lock()
+			s.txLog = append(s.txLog, txEntry{path: backupPath})
+			s.mu.Unlock()
+		}
 	}
 
 	// Detailed recording: inspect existing content to classify the action.

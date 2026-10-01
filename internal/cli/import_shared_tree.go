@@ -355,6 +355,17 @@ func skillFields(override *specFields) specFields {
 	return *override
 }
 
+// isSyncBackup reports whether path is the `<file>.bak` sync keeps of a
+// hand edit beside the file, not an asset of the skill.
+func isSyncBackup(path string) bool {
+	file, ok := strings.CutSuffix(path, ".bak")
+	if !ok {
+		return false
+	}
+	_, err := os.Lstat(file)
+	return err == nil
+}
+
 func copyDirTreeWith(srcDir, dstDir string, transformSkill func([]byte) ([]byte, error), fields specFields) error {
 	return filepath.WalkDir(srcDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -368,8 +379,7 @@ func copyDirTreeWith(srcDir, dstDir string, transformSkill func([]byte) ([]byte,
 		if d.IsDir() {
 			return importMkdirAll(target, 0o755)
 		}
-		// A .bak is sync's copy of a hand edit, not part of the skill.
-		if !d.Type().IsRegular() || strings.HasSuffix(d.Name(), ".bak") {
+		if !d.Type().IsRegular() || isSyncBackup(path) {
 			return nil
 		}
 		info, err := d.Info()
