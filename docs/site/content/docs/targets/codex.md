@@ -101,7 +101,7 @@ The `outputs.codex.config` block sets first-class `.codex/config.toml` keys, wri
 outputs:
   codex:
     config:
-      model: o4-mini
+      model: gpt-6-luna
       sandbox: workspace
       approval-policy: on-failure
       model-reasoning-effort: high
