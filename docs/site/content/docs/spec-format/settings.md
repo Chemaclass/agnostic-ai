@@ -92,6 +92,8 @@ Keep a `Bash` wildcard at the end of an `allow` or `deny` rule. `Bash(git * main
 
 Multiple files merge: permission lists concatenate, de-duplicated in source order, and the last non-empty `model` and `effort` win. Each target resolves its own map entry first, so `model: {codex: gpt-6-luna}` in a later file changes only Codex.
 
+Removing a rule from a spec removes it from Claude Code's `settings.json` on the next sync; rules you wrote there by hand stay ([Claude settings](@/docs/targets/claude.md#claude-settings)).
+
 `sync --global` also reads settings specs from the home, for `model`, `effort`, target-specific keys, and `permissions.default-mode`; see [default model and effort](@/docs/configuration.md#global-default-model-and-effort).
 
 ## Effort by target
