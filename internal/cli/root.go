@@ -108,7 +108,28 @@ func NewRootCmd(version string) *cobra.Command {
 		newUpgradeCmd(),
 	)
 	root.InitDefaultCompletionCmd()
+	stopProfileAfterRun(root, &profileFile)
 	return root
+}
+
+// stopProfileAfterRun makes every RunE stop the CPU profile itself, since
+// cobra skips PersistentPostRunE when RunE fails and a failed run such as
+// sync --check on drift would leave an empty profile.
+func stopProfileAfterRun(cmd *cobra.Command, file **os.File) {
+	if run := cmd.RunE; run != nil {
+		cmd.RunE = func(c *cobra.Command, args []string) error {
+			err := run(c, args)
+			stopErr := stopCPUProfile(*file)
+			*file = nil
+			if err != nil {
+				return err
+			}
+			return stopErr
+		}
+	}
+	for _, sub := range cmd.Commands() {
+		stopProfileAfterRun(sub, file)
+	}
 }
 
 // loadProject loads config and project-scoped specs. Packs have lower

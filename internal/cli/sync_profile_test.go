@@ -50,6 +50,23 @@ func TestSync_ProfileEnvWritesCPUProfile(t *testing.T) {
 	assertValidCPUProfile(t, prof)
 }
 
+// A run that fails, such as sync --check on drift, still writes a complete
+// profile: cobra skips the post-run hooks when the command returns an error.
+func TestSync_ProfileWrittenWhenTheRunFails(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	prof := filepath.Join(t.TempDir(), "cpu.prof")
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "-t", "claude", "--check", "--profile", prof})
+	if err := root.Execute(); err == nil {
+		t.Fatal("sync --check passed before any sync")
+	}
+
+	assertValidCPUProfile(t, prof)
+}
+
 // TestSync_VerboseShowsPerTargetTiming verifies the --verbose summary appends
 // per-target wall time to each target line, so a slow sync can be attributed
 // to a specific adapter.
