@@ -97,3 +97,14 @@ func TestConfig_RequiresMessageComesBeforeAnUnknownKey(t *testing.T) {
 		t.Errorf("sync error = %v, want the requires message only", err)
 	}
 }
+
+// A name close to no built-in may be an external adapter missing from
+// this PATH: sync warns and skips it instead of failing.
+func TestConfig_DistantUnknownTargetStaysAWarning(t *testing.T) {
+	syncedKeysProject(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor, acme-internal]\n")
+
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Errorf("sync: %v\n%s", err, out)
+	}
+}
