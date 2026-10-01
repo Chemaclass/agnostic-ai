@@ -154,6 +154,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
+	b = emit.WithoutForeignClaudeModels(caps, b)
 	if err := sess.RulesDirectory(b, emit.RulesDirOpts{
 		Dir: emit.OutputRulesDir(cfg, target, defaultDir),
 		Ext: defaultExt,

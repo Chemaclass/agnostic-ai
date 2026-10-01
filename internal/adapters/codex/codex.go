@@ -171,9 +171,11 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err != nil {
 		return err
 	}
-	if err := emit.ReportUnsupported(modelCoverage(cfg, overlayKeys), b, cfg.OnUnsupported); err != nil {
+	coverage := modelCoverage(cfg, overlayKeys)
+	if err := emit.ReportUnsupported(coverage, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
+	b = emit.WithoutForeignClaudeModels(coverage, b)
 	policies, translatingPermissions, err := resolveExecPolicies(b.Settings, cfg)
 	if err != nil {
 		return err

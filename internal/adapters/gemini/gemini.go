@@ -166,9 +166,11 @@ func (Adapter) ForeignClaudeModels() []string { return caps.ForeignClaudeModels 
 // outputs.gemini.rules-file—a legacy concatenated rules document. The
 // project-root GEMINI.md is written by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
-	if err := emit.ReportUnsupported(capabilities(cfg), b, cfg.OnUnsupported); err != nil {
+	coverage := capabilities(cfg)
+	if err := emit.ReportUnsupported(coverage, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
+	b = emit.WithoutForeignClaudeModels(coverage, b)
 	protected, err := spec.ProtectedPaths(b.Settings)
 	if err != nil {
 		return err

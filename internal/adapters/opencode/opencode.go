@@ -125,9 +125,11 @@ func (Adapter) ForeignClaudeModels() []string { return caps.ForeignClaudeModels 
 // here; this Emit only sweeps the stale `.opencode/AGENTS.md` a
 // pre-#623 sync left behind.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
-	if err := emit.ReportUnsupported(capabilities(cfg), b, cfg.OnUnsupported); err != nil {
+	coverage := capabilities(cfg)
+	if err := emit.ReportUnsupported(coverage, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
+	b = emit.WithoutForeignClaudeModels(coverage, b)
 	if err := emit.ValidateNames(b.Skills, target, "skill", skillNameRule); err != nil {
 		return err
 	}

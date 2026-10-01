@@ -177,7 +177,7 @@ func TestEmit_Agent_WritesAgentFile(t *testing.T) {
 	entries := []spec.Entry{
 		{
 			Kind: spec.KindAgent, Name: "reviewer",
-			Meta: map[string]any{"description": "Reviews diffs.", "model": "sonnet", "tools": []any{"Read", "Grep"}},
+			Meta: map[string]any{"description": "Reviews diffs.", "model": "gpt-6.1-sol", "tools": []any{"Read", "Grep"}},
 			Body: "Review the diff for correctness.",
 		},
 	}
@@ -190,7 +190,7 @@ func TestEmit_Agent_WritesAgentFile(t *testing.T) {
 	}
 	for _, want := range []string{
 		"description: Reviews diffs.",
-		"model: sonnet",
+		"model: gpt-6.1-sol",
 		"Review the diff for correctness.",
 	} {
 		if !strings.Contains(got, want) {

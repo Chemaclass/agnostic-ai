@@ -116,7 +116,7 @@ Result: Claude gets `opus` and `xhigh`; Qoder `gpt-6.1-sol` and `8000`; Junie `g
 
 Cursor encodes effort in the `model` string, so it rides on the `model` map. Factory ignores `reasoningEffort` when `model` resolves to `inherit`.
 
-**Claude model names on other targets.** A shared `model` (a scalar or `default`) set to a Claude model name raises a coverage note on a target that cannot load it, naming `model: {claude: <name>}`. `on-unsupported: error` fails the sync instead. A value under `model.<target>` or `x-<target>.model` passes. When the name comes from a tier's `default`, the note names the tier to fix. `import claude` writes these names as `model: {claude: <name>}`. `import codex` adds a Codex agent model to an existing spec as `model.codex`.
+**Claude model names on other targets.** A shared `model` (a scalar or `default`) set to a Claude model name raises a coverage note on a target that cannot load it, naming `model: {claude: <name>}`, and sync leaves the value out, so that target uses its own default. A map keeps its other entries. `on-unsupported: error` fails the sync instead. A Claude name in a later settings spec no longer hides an earlier settings model. A value under `model.<target>` or `x-<target>.model` passes. When the name comes from a tier's `default`, the note names the tier to fix. `import claude` writes these names as `model: {claude: <name>}`. `import codex` adds a Codex agent model to an existing spec as `model.codex`.
 
 Claude Code's [aliases](https://code.claude.com/docs/en/model-config) are `sonnet`, `opus`, `haiku`, `fable`, `best`, `opusplan`, `sonnet[1m]`, and `opus[1m]`. The model value `default` resets Claude's model rather than naming one, so it raises no note.
 

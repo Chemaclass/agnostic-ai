@@ -208,3 +208,32 @@ func TestImportFromClaude_KeepsBracketedAliasesValidYAML(t *testing.T) {
 		t.Errorf("the hint must parse as YAML: %v", err)
 	}
 }
+
+func TestSync_DropsASharedClaudeModelWhereTheNoteSaysItHasNoEffect(t *testing.T) {
+	dir := budgetProject(t, "targets: [claude, codex, cursor]\n")
+	writeTierAgent(t, dir, "reviewer", "sonnet")
+	writeTierAgent(t, dir, "architect", "{claude: opus, default: fable}")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "team.yaml"), "model: opus\n")
+	notes := &strings.Builder{}
+	adapters.SetWarner(notes)
+	t.Cleanup(func() { adapters.SetWarner(os.Stderr) })
+
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+
+	if !strings.Contains(notes.String(), "`model` on 1 agent has no effect on codex (sonnet is a Claude model name") {
+		t.Errorf("the note must still fire:\n%s", notes)
+	}
+	for _, path := range []string{".codex/agents/reviewer.toml", ".codex/agents/architect.toml", ".codex/config.toml", ".cursor/agents/reviewer.md", ".cursor/agents/architect.md"} {
+		if got, err := os.ReadFile(filepath.Join(dir, path)); err == nil && strings.Contains(string(got), "model") {
+			t.Errorf("%s must not carry the Claude model the note drops:\n%s", path, got)
+		}
+	}
+	if claude := readFileString(t, filepath.Join(dir, ".claude", "agents", "reviewer.md")); !strings.Contains(claude, "model: sonnet\n") {
+		t.Errorf("claude keeps its own model:\n%s", claude)
+	}
+	if claude := readFileString(t, filepath.Join(dir, ".claude", "agents", "architect.md")); !strings.Contains(claude, "model: opus\n") {
+		t.Errorf("claude keeps its map entry:\n%s", claude)
+	}
+}

@@ -213,6 +213,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
+	b = emit.WithoutForeignClaudeModels(caps, b)
 	dir := emit.OutputAgentsDir(cfg, target, defaultDroidsDir)
 	if err := (Adapter{}).EmitAgents(sess, b.Agents, dir, dryRun); err != nil {
 		return err

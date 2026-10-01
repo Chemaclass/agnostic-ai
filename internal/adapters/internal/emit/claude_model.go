@@ -2,6 +2,7 @@ package emit
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 	"strconv"
@@ -118,6 +119,51 @@ func noteForeignClaudeModels(c Capabilities, b spec.Bundle, mode string) error {
 		NoteFieldNoOp(c.Target, g.kind, "model", counts[g], g.model+" "+fix(g.model, g.tier))
 	}
 	return nil
+}
+
+// WithoutForeignClaudeModels returns b without the shared Claude model
+// names noteForeignClaudeModels reports, so the target falls back to its
+// own default as the note says. Entries are copied: other targets read
+// the same bundle.
+func WithoutForeignClaudeModels(c Capabilities, b spec.Bundle) spec.Bundle {
+	if len(c.ForeignClaudeModels) == 0 {
+		return b
+	}
+	foreign := func(model string) bool {
+		return ForeignClaudeModel(c.ForeignClaudeModels, model)
+	}
+	if c.supports(spec.KindAgent) {
+		b.Agents = withoutSharedModel(b.Agents, func(meta map[string]any) bool {
+			return foreign(SharedModel(meta, c.Target))
+		})
+	}
+	if c.supports(spec.KindSettings) && !c.SettingsModelOverridden {
+		b.Settings = withoutSharedModel(b.Settings, func(meta map[string]any) bool {
+			return foreign(SharedModel(map[string]any{"model": meta["model"]}, c.Target))
+		})
+	}
+	return b
+}
+
+// withoutSharedModel copies entries, dropping the shared part of `model`
+// (a scalar, or the map's `default`) from each one drop matches.
+func withoutSharedModel(entries []spec.Entry, drop func(map[string]any) bool) []spec.Entry {
+	out := slices.Clone(entries)
+	for i, e := range out {
+		if !drop(e.Meta) {
+			continue
+		}
+		meta := maps.Clone(e.Meta)
+		if model, ok := meta["model"].(map[string]any); ok && len(model) > 1 {
+			model = maps.Clone(model)
+			delete(model, "default")
+			meta["model"] = model
+		} else {
+			delete(meta, "model")
+		}
+		out[i].Meta = meta
+	}
+	return out
 }
 
 // SharedModel returns the model meta gives target through a value every
