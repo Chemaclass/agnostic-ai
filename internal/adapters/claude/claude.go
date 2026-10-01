@@ -432,6 +432,7 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 			released = append(released, []string{"permissions", list})
 		}
 	}
+	released = append(released, releasedHookKeys(doc, hooks)...)
 	// Like the rule lists, the rejection list holds the user's entries
 	// too, and its record decides which ones are sync's.
 	if len(rejected) > 0 {
@@ -449,6 +450,40 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 		}
 	}
 	return sess.WriteMergedJSON(path, string(raw)+"\n", claimed, released, dryRun)
+}
+
+// releasedHookKeys lists the hook keys this write deleted because no
+// hook spec is left, so their earlier claims go: a value the user writes
+// back by hand is theirs. A key still in the file, such as an `x-claude`
+// value or a hook env naming another target, which sync leaves, keeps
+// its claim.
+func releasedHookKeys(doc *emit.OrderedJSON, hooks []spec.Entry) [][]string {
+	var released [][]string
+	if _, kept := doc.Get("hooks"); len(hooks) == 0 && !kept {
+		released = append(released, []string{"hooks"})
+	}
+	if !hasCommandHook(hooks) && !docHasEnv(doc, emit.HookTargetEnv) {
+		released = append(released, []string{"env", emit.HookTargetEnv})
+		// A config `env` block is claimed whole; deleting the hook env
+		// can empty it, and then the object is gone too.
+		if _, kept := doc.Get("env"); !kept {
+			released = append(released, []string{"env"})
+		}
+	}
+	return released
+}
+
+func docHasEnv(doc *emit.OrderedJSON, name string) bool {
+	raw, ok := doc.Get("env")
+	if !ok {
+		return false
+	}
+	var env map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &env); err != nil {
+		return true
+	}
+	_, ok = env[name]
+	return ok
 }
 
 // claimedSettingsKeys lists the key paths sync set in a settings.json it

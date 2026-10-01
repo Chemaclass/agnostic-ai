@@ -36,6 +36,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Claude Code
 
+- Hooks you write back by hand after sync removed them now stay when you drop the claude target (#1555).
 - A permission rule removed from a settings spec, `outputs.claude.settings`, or `x-claude` now leaves `settings.json` on the next sync; hand-written rules stay (#1530).
 - An environment spec's `setup` runs once in each new Claude Code worktree through generated hooks; `x-claude.setup: false` turns it off. Delete a hand-written bootstrap hook, since it runs in parallel with setup (#1498).
 - Scoped companion cleanup waits for concurrent writes, so sync removes covered `CLAUDE.md` files consistently (#1478).
