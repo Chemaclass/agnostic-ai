@@ -3,6 +3,8 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -159,5 +161,20 @@ func TestLoad_LocalRequiresReplacesBase(t *testing.T) {
 	}
 	if cfg.Requires != ">=0.70.0" {
 		t.Errorf("Requires = %q, want the local >=0.70.0", cfg.Requires)
+	}
+}
+
+func TestRequiresSchemaPatternMatchesTheParser(t *testing.T) {
+	field, _ := reflect.TypeFor[Config]().FieldByName("Requires")
+	pattern := strings.TrimPrefix(field.Tag.Get("jsonschema"), "pattern=")
+	re := regexp.MustCompile(pattern)
+	for _, value := range []string{
+		">=0.71.0", "0.73.0", "=0.73.0", "v0.73.0", ">= 0.71.0", ">=0.73.0 <0.74.0", "  <=1.0.0  ",
+		"latest", ">0.71.0", "0.73", ">=0.73.0,<0.74.0", "0.73.0x", "~0.73.0", ">=", ">=0.69.0<0.70.0", ">=0.69.0-rc.1", "0.69.0.1",
+	} {
+		_, err := ParseRequirement(value)
+		if got, want := re.MatchString(value), err == nil; got != want {
+			t.Errorf("%q: schema pattern matches=%v, parser accepts=%v", value, got, want)
+		}
 	}
 }

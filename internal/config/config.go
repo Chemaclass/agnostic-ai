@@ -33,14 +33,15 @@ func defaultSource(kind string) string {
 }
 
 type Config struct {
-	Version  int               `yaml:"version"                  json:"version"`
-	Requires string            `yaml:"requires,omitempty"       json:"requires,omitempty"`
+	Version int `yaml:"version"                  json:"version"`
+	// The pattern mirrors ParseRequirement so editors flag a bad value.
+	Requires string            `yaml:"requires,omitempty"       json:"requires,omitempty" jsonschema:"pattern=^\\s*$|^\\s*(>=|<=|<|=)?\\s*v?\\d+\\.\\d+\\.\\d+(\\s+(>=|<=|<|=)?\\s*v?\\d+\\.\\d+\\.\\d+)*\\s*$" jsonschema_description:"agnostic-ai releases the specs work with: a minimum (>=0.71.0), one release (0.73.0), or a range (>=0.73.0 <0.74.0)."`
 	Sources  Sources           `yaml:"sources,omitempty"        json:"sources,omitempty"`
 	Targets  []string          `yaml:"targets,omitempty"        json:"targets,omitempty"`
 	Outputs  map[string]Output `yaml:"outputs,omitempty"        json:"outputs,omitempty"`
 	// Models names model tiers once; a spec `model` that names a tier
 	// resolves through it per target.
-	Models        map[string]ModelTier `yaml:"models,omitempty"         json:"models,omitempty"`
+	Models        map[string]ModelTier `yaml:"models,omitempty"         json:"models,omitempty" jsonschema_description:"Model tiers by name. A spec whose model names a tier gets that tier's model and effort for each target."`
 	OnUnsupported string               `yaml:"on-unsupported,omitempty" json:"on-unsupported,omitempty"`
 	Gitignore     Gitignore            `yaml:"gitignore,omitempty"      json:"gitignore,omitempty"`
 	Sync          SyncConfig           `yaml:"sync,omitempty"           json:"sync,omitempty"`

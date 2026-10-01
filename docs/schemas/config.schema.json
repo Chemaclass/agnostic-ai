@@ -244,7 +244,9 @@
           "type": "integer"
         },
         "requires": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^\\s*$|^\\s*(\u003e=|\u003c=|\u003c|=)?\\s*v?\\d+\\.\\d+\\.\\d+(\\s+(\u003e=|\u003c=|\u003c|=)?\\s*v?\\d+\\.\\d+\\.\\d+)*\\s*$",
+          "description": "agnostic-ai releases the specs work with: a minimum (\u003e=0.71.0), one release (0.73.0), or a range (\u003e=0.73.0 \u003c0.74.0)."
         },
         "sources": {
           "$ref": "#/$defs/Sources"
@@ -296,7 +298,8 @@
             "type": "object",
             "description": "A model tier: target name (or default) to that target's model id, plus an optional effort."
           },
-          "type": "object"
+          "type": "object",
+          "description": "Model tiers by name. A spec whose model names a tier gets that tier's model and effort for each target."
         },
         "on-unsupported": {
           "type": "string"

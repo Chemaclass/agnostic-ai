@@ -33,7 +33,7 @@ For directory-specific instructions, give a rule a `scope`; see [scoped context]
 | Keep generated files out of Git | [Gitignore](#gitignore) |
 | Tune sync | [Sync](#sync), [`sync.unmanaged`](#syncunmanaged) |
 | Gate on project checks | [Verify](#verify) |
-| Block older binaries | [`requires`](#requires) |
+| Pin the agnostic-ai release | [`requires`](#requires) |
 | Instruction size warnings | [`lint`](#lint) |
 | Silence a known coverage note, or fail on the rest | [`coverage`](#coverage) |
 | Per-machine or personal overrides | [Local overrides](#local-overrides), [Local spec layers](@/docs/local-overrides.md) |
@@ -66,7 +66,7 @@ outputs:
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `version` | int | `1` | Schema version, reserved for migrations. |
-| [`requires`](#requires) | string | none | Oldest agnostic-ai release the specs work with. |
+| [`requires`](#requires) | string | none | agnostic-ai releases the specs work with: a minimum, one release, or a range. |
 | [`sources`](#sources) | map | `.agnostic-ai/<kind>/` | Source directories. |
 | [`targets`](#targets) | list | 20 adapters | Adapters to emit. |
 | [`outputs`](#outputs) | map | per target | Output path overrides. |
@@ -82,15 +82,19 @@ outputs:
 
 ## `requires`
 
-Set it when your specs rely on behavior from a specific release, or when the files you commit must come from one:
+Names the agnostic-ai releases your specs work with. Pick the form by what it protects:
 
 ```yaml
-requires: ">=0.71.0"    # this release or newer
-requires: "0.73.0"      # exactly this release; "=0.73.0" means the same
-requires: ">=0.73.0 <0.74.0"   # a range
+requires: ">=0.71.0"           # minimum: 0.71.0 or any newer release
+requires: "0.73.0"             # exact: only 0.73.0; "=0.73.0" means the same
+requires: ">=0.73.0 <0.74.0"   # range: 0.73.0 and its patch releases
 ```
 
-Every command that reads your specs stops on a binary outside the value before it reads specs or writes files. The error is [AAI-005](@/docs/errors.md#aai-005-installed-version-older-than-requires) and names the command that installs a fitting release: `agnostic-ai upgrade` for a minimum, `agnostic-ai upgrade --version vX.Y.Z` when the value pins or bounds a release. A binary installed into the project's `node_modules` gets its package manager's command instead, such as `pnpm install`, picked from the lockfile. `sync --watch` stops when a pulled config puts the binary outside `requires`. Releases before 0.70.0 ignore the key. Releases before 0.74.0 read only `>=X.Y.Z` and stop on an exact or range value with AAI-004, whose text suggests `>=X.Y.Z`. Install the release the value names instead of editing `requires`.
+- **Minimum**: the specs use a feature from that release, and generated files stay out of Git. Newer releases keep working.
+- **Exact**: you commit generated files. Another release can write different bytes, so `sync --check` would fail in CI. When npm installs the tool, pin the same release in `package.json`.
+- **Range**: accept patch releases but not the next minor one.
+
+Every command that reads your specs stops on a binary outside the value before it reads specs or writes files. The error is [AAI-005](@/docs/errors.md#aai-005-installed-version-outside-requires) and names the command that installs a fitting release: `agnostic-ai upgrade` for a minimum, `agnostic-ai upgrade --version vX.Y.Z` when the value pins or bounds a release. A binary installed into the project's `node_modules` gets its package manager's command instead, such as `pnpm install`, picked from the lockfile. `sync --watch` stops when a pulled config puts the binary outside `requires`. Releases before 0.70.0 ignore the key. Releases before 0.74.0 read only `>=X.Y.Z` and stop on an exact or range value with AAI-004, whose text suggests `>=X.Y.Z`. Install the release the value names instead of editing `requires`.
 
 A value is one or more terms separated by spaces, and every term must hold: `>=X.Y.Z`, `<X.Y.Z`, `<=X.Y.Z`, `=X.Y.Z`, or a bare `X.Y.Z`. Anything else fails as AAI-004 naming the file. A build from source (`go run`, or a commit after a tag) is not a release and warns once instead. `agnostic-ai.local.yaml` can replace the value, and an empty `requires:` there turns the check off. The [global home config](#global-configuration) accepts the key too.
 
@@ -132,16 +136,28 @@ For Codex command rules, set `outputs.codex.exec-policies-from-permissions: true
 
 ## `models`
 
-Names each model role once. A spec whose `model` names a tier gets the tier's model for each target. Each tier maps a target name to that target's model id, with an optional `default` for every other target, and an optional `effort` (a scalar or a per-target map).
+Name each model role once, then write the role in specs instead of a vendor's model id:
 
 ```yaml
 models:
-  strong:   {claude: opus, codex: gpt-5.5, effort: {claude: xhigh, codex: high}}
-  balanced: {claude: sonnet, codex: gpt-5.5}
-  fast:     {claude: haiku, codex: o4-mini, effort: low}
+  strong:   {claude: opus,   codex: gpt-5.5,    effort: high}
+  balanced: {claude: sonnet, codex: gpt-5.5,    effort: medium}
+  fast:     {claude: haiku,  codex: gpt-6-luna, effort: low}
 ```
 
-An agent then writes `model: strong`. A `model` that names no tier stays a literal model id. See [model tiers](@/docs/spec-format/agents.md#model-tiers) for precedence. Each key is a target name, `default`, or `effort`; any other key fails to load (AAI-004) with the closest target name. A tier with only `effort` keeps each tool's default model and sets its effort. A tier with neither a model nor an `effort` fails to load. `lint` warns when a tier a spec names has no entry and no `default` for a target that writes the spec, or when a tier is named like a Claude model (LINT025), and when that tier's `default` is a Claude model name another target cannot load (LINT026). `explain <spec>` shows the model and effort each target gets. A tier in `agnostic-ai.local.yaml` replaces the same-name tier whole instead of merging key by key, so leaving a target out of it drops that target's shared model. The [global home config](#global-configuration) accepts the key too.
+An agent with `model: fast` gets `haiku` in Claude Code and `gpt-6-luna` in Codex, both at `low` effort. Other targets keep their default model. Skills, commands, and settings specs name tiers the same way, and every spec that names a tier follows when you change it here.
+
+| Tier key | Value |
+|----------|-------|
+| A target name | That target's model id. |
+| `default` | The model id for each target the tier does not name. |
+| `effort` | One effort for every target, or a per-target map such as `{claude: xhigh, codex: high}`. |
+
+- A `model` that names no tier stays a literal model id.
+- A tier with only `effort` keeps each tool's default model. A tier with neither a model nor `effort` fails to load, and so does any other key (AAI-004, naming the closest target).
+- Per-spec overrides and precedence: [model tiers](@/docs/spec-format/agents.md#model-tiers). `explain <spec>` shows the model and effort each target gets.
+- `lint` warns when a tier a spec names has no entry and no `default` for a target that writes the spec, when a tier is named like a Claude model (LINT025), and when a tier's `default` is a Claude model another target cannot load (LINT026).
+- A tier in `agnostic-ai.local.yaml` replaces the same-name tier whole, so leaving a target out drops its shared model. The [global home config](#global-configuration) accepts the key too.
 
 ## `targets`
 

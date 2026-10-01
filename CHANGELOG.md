@@ -9,6 +9,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### General
 
 - A global name clash says whether the two copies differ, who it affects, and how to fix it.
+- The config schema checks `requires` values and describes `requires` and `models` for editors.
 
 ## v0.76.0 - 2026-10-01
 

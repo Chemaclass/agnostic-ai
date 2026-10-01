@@ -65,11 +65,11 @@ Neither `agnostic-ai.yaml` nor the legacy `agnostic.config.yaml` exists in the p
 
 ### AAI-004: Config decode failed
 
-The config file was found but could not be parsed as YAML, or its keys do not match the schema.
+The config file was found but could not be parsed as YAML, or its keys do not match the schema. A [`requires`](@/docs/configuration.md#requires) value that is not a version constraint, such as `latest` or `>=0.73.0,<0.74.0`, fails here too.
 
 **Fix:** validate against `docs/schemas/config.schema.json`. Check indentation and that list keys (e.g. `targets:`) hold a YAML sequence. Run `agnostic-ai doctor` for a full diagnosis.
 
-### AAI-005: Installed version older than requires
+### AAI-005: Installed version outside requires
 
 The config's `requires` key names the agnostic-ai releases its specs work with: a minimum, one exact release, or a range. The installed binary is outside it. Every command that reads the specs, such as `sync`, `lint`, `validate`, `doctor`, `revert`, and `cleanup`, stops before it reads specs or writes files. The message names the file, the required version, and the installed one:
 

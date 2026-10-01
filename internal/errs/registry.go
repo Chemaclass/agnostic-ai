@@ -34,12 +34,12 @@ var registry = map[Code]Entry{
 	CodeConfigDecode: {
 		Code:  CodeConfigDecode,
 		Title: "Config decode failed",
-		Cause: "The config file was found but could not be parsed as YAML, or its keys do not match the expected schema.",
+		Cause: "The config file was found but could not be parsed as YAML, or its keys do not match the expected schema. A `requires` value that is not a version constraint fails here too.",
 		Fix:   "Validate against `docs/schemas/config.schema.json`. Check indentation and that list keys (e.g. `targets:`) hold a YAML sequence. Run `agnostic-ai doctor` for a full diagnosis.",
 	},
 	CodeRequiresUnmet: {
 		Code:  CodeRequiresUnmet,
-		Title: "Installed version older than requires",
+		Title: "Installed version outside requires",
 		Cause: "The config's `requires` key names the agnostic-ai releases its specs work with: a minimum, one exact release, or a range. The installed binary is outside it. Every command that reads the specs, such as `sync`, `lint`, `validate`, `doctor`, `revert`, and `cleanup`, stops before it reads specs or writes files.",
 		Fix:   "Run `agnostic-ai upgrade`, or `agnostic-ai upgrade --version vX.Y.Z` when `requires` pins or bounds a release, which also downgrades a standalone binary. A binary installed into the project by npm, pnpm, Yarn, or Bun comes from that package manager, so run its install after a version bump, or update `requires` when package.json already pins the running release. If the version stays the same, `agnostic-ai upgrade --check` shows which binary runs and any older copy that shadows it on PATH.",
 	},
