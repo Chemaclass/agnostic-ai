@@ -9,7 +9,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### General
 
 - **Breaking:** an unknown config key, a misspelled target, or a bad `on-unsupported` value fails before sync writes anything, not silently (#1589).
-- The `install-hook` pre-commit check compares the staged files, so a commit without its regenerated outputs fails; installing again updates an older hook (#1592).
+- The `install-hook` pre-commit check compares the staged files, so a commit missing its regenerated outputs fails; reinstall to update (#1592).
 - `sync --check --plan` exits 1 on drift, as `sync --check` does, instead of passing a CI step (#1593).
 - `init --gitignore off` stops with a hint to use `--gitignore=off` instead of creating a folder named `off` (#1594).
 - `sync` and `sync --check` stop on a likely hook event typo before writing it into every tool, and warn on an agent `skills:` typo (#1591).
