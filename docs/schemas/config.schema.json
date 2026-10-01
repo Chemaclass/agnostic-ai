@@ -302,7 +302,12 @@
           "description": "Model tiers by name. A spec whose model names a tier gets that tier's model and effort for each target."
         },
         "on-unsupported": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "warn",
+            "error",
+            "silent"
+          ]
         },
         "gitignore": {
           "$ref": "#/$defs/Gitignore"

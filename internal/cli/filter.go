@@ -5,7 +5,9 @@ import (
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
+	"github.com/chemaclass/agnostic-ai/internal/suggest"
 )
 
 // filterTargets computes the effective target list from --only / --except.
@@ -39,12 +41,32 @@ func filterTargets(configured, only, except []string) ([]string, error) {
 	return configured, nil
 }
 
+// validateConfigTargets fails on a config target that is a likely typo of
+// a built-in one, before sync removes the real target's files. A name with
+// no close match may be an external adapter missing from this PATH, which
+// sync reports as a warning.
+func validateConfigTargets(cfg *config.Config, source string) error {
+	for _, t := range cfg.Targets {
+		if slices.Contains(adapters.Names(), t) {
+			continue
+		}
+		s := suggest.Name(t, adapters.Names())
+		if s == "" {
+			continue
+		}
+		if _, err := adapters.Resolve(t); err != nil {
+			return errs.Coded(errs.CodeSyncTargetUnknown, "%s: targets: unknown target %q (did you mean %s?)", source, t, s)
+		}
+	}
+	return nil
+}
+
 // notATargetError explains why name is not among targets: a likely typo of
 // one of them, a real adapter this run does not include, or no adapter.
 // Callers differ in where their targets come from (config, -t, the global
 // set), so the message states the fact and leaves the remedy out.
 func notATargetError(name string, targets []string) error {
-	if s := adapters.SuggestName(name, targets); s != "" {
+	if s := suggest.Name(name, targets); s != "" {
 		return errs.Coded(errs.CodeSyncTargetUnknown, "unknown target: %s (did you mean %s?)", name, s)
 	}
 	if slices.Contains(adapters.Names(), name) {

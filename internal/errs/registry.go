@@ -35,7 +35,7 @@ var registry = map[Code]Entry{
 		Code:  CodeConfigDecode,
 		Title: "Config decode failed",
 		Cause: "The config file was found but could not be parsed as YAML, or its keys do not match the expected schema. A `requires` value that is not a version constraint fails here too.",
-		Fix:   "Validate against `docs/schemas/config.schema.json`. Check indentation and that list keys (e.g. `targets:`) hold a YAML sequence. Run `agnostic-ai doctor` for a full diagnosis.",
+		Fix:   "Rename or remove each unknown key the message names, taking its did-you-mean when one is given. Otherwise validate against `docs/schemas/config.schema.json`. Check indentation and that list keys (e.g. `targets:`) hold a YAML sequence. Run `agnostic-ai doctor` for a full diagnosis.",
 	},
 	CodeRequiresUnmet: {
 		Code:  CodeRequiresUnmet,

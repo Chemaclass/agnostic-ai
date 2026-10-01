@@ -1,11 +1,11 @@
-package adapters
+package suggest
 
 import "strings"
 
-// SuggestName returns the name in names closest to a mistyped input, or ""
+// Name returns the name in names closest to a mistyped input, or ""
 // when nothing is close enough to be a likely typo, when two names are
 // equally close, or when input already is one of the names.
-func SuggestName(input string, names []string) string {
+func Name(input string, names []string) string {
 	in := strings.ToLower(input)
 	if in == "" {
 		return ""

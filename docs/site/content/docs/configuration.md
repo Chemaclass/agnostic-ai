@@ -63,6 +63,8 @@ outputs:
 
 ## Top-level fields
 
+A key that is not listed in this reference fails every command that reads the config with [AAI-004](@/docs/errors.md#aai-004-config-decode-failed), naming its file, line, and closest known key. This holds in `agnostic-ai.local.yaml` too, so a typo cannot silently drop a setting.
+
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `version` | int | `1` | Schema version, reserved for migrations. |
@@ -172,7 +174,7 @@ Each release fixes the ids, so a project that pins [`requires`](#requires) write
 
 ## `targets`
 
-Default: every adapter except `amp`, `warp`, `jules`, `goose`, and `augment` (20 in total). Enabling those alongside `codex` is safe; the shared `AGENTS.md` body is written once. Unknown targets log a warning and are skipped. `-t/--target` overrides the list for one run.
+Default: every adapter except `amp`, `warp`, `jules`, `goose`, and `augment` (20 in total). Enabling those alongside `codex` is safe; the shared `AGENTS.md` body is written once. A likely typo of a built-in target, such as `cursr`, fails before any file is written. Another unknown name logs a warning and is skipped, since it may be an external adapter missing from this machine's PATH. `-t/--target` overrides the list for one run.
 
 `init` and the first `sync` can write this list through a [picker](@/docs/cli-reference/sync.md#first-sync-target-picker).
 
@@ -366,6 +368,8 @@ Applies when an adapter receives a spec kind it does not support (e.g. `hooks` f
 | `warn` | Default. Log to stderr and continue. |
 | `error` | Fail the sync. |
 | `silent` | Skip without logging. |
+
+Any other value fails with AAI-004.
 
 Imported Claude hook root references that cannot be translated also follow this policy, including exec-form placeholders and complex shell expansions. See [project-root paths](@/docs/spec-format/hooks.md#imported-project-root-paths).
 

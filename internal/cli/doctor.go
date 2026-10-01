@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -163,8 +164,11 @@ func newDoctorConfigCmd() *cobra.Command {
 		Use:   "config",
 		Short: "Validate agnostic-ai.yaml schema and report any issues.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.Load(".")
+			cfg, sources, err := config.LoadWithSources(".")
 			if err != nil {
+				return fmt.Errorf("config: %w", err)
+			}
+			if err := validateConfigTargets(cfg, strings.Join(sources, " + ")); err != nil {
 				return fmt.Errorf("config: %w", err)
 			}
 			if cfg.Version < 1 {

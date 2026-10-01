@@ -11,6 +11,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/suggest"
 )
 
 // validateTierTargets rejects a tier key that is neither a target, nor
@@ -27,7 +28,7 @@ func validateTierTargets(tiers map[string]config.ModelTier, source string) error
 			if key == "default" || slices.Contains(adapters.Names(), key) {
 				continue
 			}
-			if s := adapters.SuggestName(key, adapters.Names()); s != "" {
+			if s := suggest.Name(key, adapters.Names()); s != "" {
 				return errs.Coded(errs.CodeConfigDecode, "%s: models.%s: unknown target %q (did you mean %s?)", source, name, key, s)
 			}
 			return errs.Coded(errs.CodeConfigDecode, "%s: models.%s: unknown target %q", source, name, key)

@@ -13,6 +13,9 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 )
 
+// OnUnsupportedModes are the values on-unsupported accepts.
+var OnUnsupportedModes = []string{"warn", "error", "silent"}
+
 // File names recognized by Load.
 const (
 	ConfigFileName        = "agnostic-ai.yaml"
@@ -42,7 +45,7 @@ type Config struct {
 	// Models names model tiers once; a spec `model` that names a tier
 	// resolves through it per target.
 	Models        map[string]ModelTier `yaml:"models,omitempty"         json:"models,omitempty" jsonschema_description:"Model tiers by name. A spec whose model names a tier gets that tier's model and effort for each target."`
-	OnUnsupported string               `yaml:"on-unsupported,omitempty" json:"on-unsupported,omitempty"`
+	OnUnsupported string               `yaml:"on-unsupported,omitempty" json:"on-unsupported,omitempty" jsonschema:"enum=warn,enum=error,enum=silent"`
 	Gitignore     Gitignore            `yaml:"gitignore,omitempty"      json:"gitignore,omitempty"`
 	Sync          SyncConfig           `yaml:"sync,omitempty"           json:"sync,omitempty"`
 	Import        ImportConfig         `yaml:"import,omitempty"         json:"import,omitempty"`
@@ -463,6 +466,21 @@ func LoadWithSources(root string) (*Config, []string, error) {
 	sources := []string{basePath}
 	if localExists {
 		sources = append(sources, localPath)
+	}
+	var unknown []string
+	for _, src := range sources {
+		keys, err := unknownKeys(src)
+		if err != nil {
+			return nil, nil, err
+		}
+		unknown = append(unknown, keys...)
+	}
+	if len(unknown) > 0 {
+		return nil, nil, errs.Coded(errs.CodeConfigDecode, "%w", &UnknownKeysError{Requires: cfg.Requires, Keys: unknown})
+	}
+	if !slices.Contains(OnUnsupportedModes, cfg.OnUnsupported) {
+		return nil, nil, errs.Coded(errs.CodeConfigDecode, "%s: on-unsupported: %q is not one of %s",
+			strings.Join(sources, " + "), cfg.OnUnsupported, strings.Join(OnUnsupportedModes, ", "))
 	}
 	if err := validateUnmanaged(cfg.Sync.Unmanaged, strings.Join(sources, " + ")); err != nil {
 		return nil, nil, err
