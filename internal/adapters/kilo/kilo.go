@@ -439,6 +439,7 @@ func emitKiloJSONC(sess *emit.Session, b spec.Bundle, rulesDir, skillsDir, path 
 	if skills, ok := keys["skills"].(map[string]any); ok && len(paths) > 0 {
 		skills["paths"] = emit.ClaimedJSONItems(skills["paths"], addedPaths)
 	}
+	emit.MergeEntriesOf(keys, "mcp")
 	return sess.MergeJSONFileNested(path, keys, []string{"skills", permissionKey}, dryRun)
 }
 

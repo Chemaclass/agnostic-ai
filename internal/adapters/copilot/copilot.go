@@ -254,7 +254,7 @@ func emitMCP(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool)
 	mcps := emit.StripMCPDisabled(target, b.MCPs, mcpDisabledNoOpReason)
 	servers := emit.BuildMCPServersMap(mcps, emit.MCPSchemaVSCodeServers, emit.WithVSCodeMCPExtras())
 	if len(servers) > 0 {
-		if err := sess.MergeJSONFile(emit.OutputMCPFile(cfg, target, defaultMCPFile), map[string]any{"servers": servers}, dryRun); err != nil {
+		if err := sess.MergeJSONFile(emit.OutputMCPFile(cfg, target, defaultMCPFile), map[string]any{"servers": emit.MergeJSONEntries(servers)}, dryRun); err != nil {
 			return err
 		}
 	}

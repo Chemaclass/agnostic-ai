@@ -84,6 +84,7 @@ func emitSettings(sess *emit.Session, mcps, hooks, settings []spec.Entry, path s
 	if err := sess.MaterializeNeutralHookScripts(hooks, target, emit.HookScriptsDir(target), dryRun); err != nil {
 		return err
 	}
+	emit.MergeEntriesOf(keys, qoderMCPKey)
 	return sess.MergeJSONFileNested(path, keys, []string{"model", "permissions"}, dryRun)
 }
 
