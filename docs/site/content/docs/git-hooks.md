@@ -107,7 +107,7 @@ A plain `sync --check` reads the working tree. When `sync` already rewrote `AGEN
 agnostic-ai sync --check --against index
 ```
 
-A staged spec change without its regenerated output fails, names the file, and says to stage it with `git add` (or, for `--against HEAD`, to commit it). The hook `agnostic-ai install-hook` writes runs this form; running `install-hook` again updates a hook an older version wrote. `--against HEAD` does the same for the last commit, for a CI job that runs after `postinstall` has rewritten the working tree. Only outputs Git tracks are compared, so an output that `gitignore` leaves out never fails. A tracked output whose spec is gone fails until you delete it, since the check also renders the last commit's specs. Specs come from the same state, so an untracked `agnostic-ai.local.yaml` or `.agnostic-ai/local/` is not read.
+A staged spec change without its regenerated output fails, names the file, and says to run `agnostic-ai sync`, then stage the output with `git add` (or, for `--against HEAD`, commit it). The hook `agnostic-ai install-hook` writes runs this form; running `install-hook` again updates a hook an older version wrote. `--against` needs agnostic-ai 0.74.0 or later, so a `--shared` hook blocks commits for a teammate on an older release until they upgrade. The check copies the tracked files to a temporary folder on each commit; in a large repository, the lint-staged recipe above runs it only when specs are staged. `--against HEAD` does the same for the last commit, for a CI job that runs after `postinstall` has rewritten the working tree. Only outputs Git tracks are compared, so an output that `gitignore` leaves out never fails. A tracked output whose spec is gone fails until you delete it, since the check also renders the last commit's specs. Specs come from the same state, so an untracked `agnostic-ai.local.yaml` or `.agnostic-ai/local/` is not read.
 
 A hook manager that runs a command only when matching files are staged needs every input in its glob, including a README a review inlines with `@path`. `agnostic-ai explain --inputs` prints them, one per line:
 
@@ -280,5 +280,5 @@ Keep formatters away from the generated files you commit, or each sync undoes th
 
 - The hook needs `agnostic-ai` on `PATH`. Document the install in `CONTRIBUTING.md` so a new contributor does not hit `command not found` on their first commit.
 - To recover from drift, run `agnostic-ai sync` and stage the regenerated outputs with the spec change.
-- Set `gitignore.enabled: true` in `agnostic-ai.yaml` to keep generated outputs out of git. The hook still catches drift because `sync --check` ignores `gitignore`.
+- Set `gitignore.enabled: true` in `agnostic-ai.yaml` to keep generated outputs out of git. The `install-hook` hook then checks that the staged specs render, since `--against index` compares only outputs Git tracks; a plain `sync --check` still compares every output.
 - Skip a hook for one commit with `git commit --no-verify`. Keep that for emergencies.

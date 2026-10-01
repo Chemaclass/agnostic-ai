@@ -544,17 +544,18 @@ func markAgainst(reports []driftReport, ref string) {
 // the regenerated ones there.
 func againstPlace(ref string) (where, step string) {
 	if ref == againstHEAD {
-		return "in the last commit", "commit the regenerated files"
+		return "in the last commit", "run agnostic-ai sync, then commit the regenerated files"
 	}
-	return "in the Git index", "stage the regenerated files with git add"
+	return "in the Git index", "run agnostic-ai sync, then stage the regenerated files with git add"
 }
 
 // againstHint says which step settles drift found against ref.
 func againstHint(ref string) string {
+	_, step := againstPlace(ref)
 	if ref == againstHEAD {
-		return "the check compared the last commit; commit the regenerated files"
+		return "the check compared the last commit; " + step
 	}
-	return "the check compared the Git index; stage the regenerated files with git add"
+	return "the check compared the Git index; " + step
 }
 
 // gitInput runs git in dir with the environment env, feeding it stdin.

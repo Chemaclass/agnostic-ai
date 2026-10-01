@@ -411,7 +411,7 @@ func TestSyncCheckAgainstIndex_NamesStagingAsTheOneStep(t *testing.T) {
 
 	out, stderr, err := checkAgainst(t, "index")
 
-	if err == nil || !strings.Contains(err.Error(), "stage the regenerated files with git add") {
+	if err == nil || !strings.Contains(err.Error(), "run agnostic-ai sync, then stage the regenerated files with git add") {
 		t.Fatalf("err = %v, want the staging step", err)
 	}
 	if !strings.Contains(out, "in the Git index do not match the specs there") {
