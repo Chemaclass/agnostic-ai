@@ -6,19 +6,17 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+## v0.76.0 - 2026-10-01
+
 ### General
 
-- **Breaking:** rule `scope`, `globs`, and `paths` form a union; folders scope only existing directories. Drop `scope` to keep a filter (#1472, #1477, #1481).
-- Shared settings keep your keys, MCP servers and hooks, drop stale ones, and failed syncs keep files (#1503, #1509, #1551, #1557, #1558, #1559, #1560, #1563).
-- Name model tiers once in `models:`, and list `protected` paths that Claude Code, Codex, Gemini CLI, and Cursor enforce (#1520, #1526, #1537, #1543, #1544).
+- **Breaking:** `scope`, `globs` and `paths` form a union; folders scope existing directories. For filters only, remove both scopes (#1472, #1477, #1481).
+- Sync keeps user keys and files on failures, restores merged outputs and drops stale keys (#1500, #1503, #1509, #1551, #1557, #1558, #1559, #1560, #1563).
+- Name `models:` tiers and protect paths across tools; accept coverage notes and see global name clashes (#1514, #1520, #1526, #1528, #1537, #1543, #1544).
 - Hooks share scripts, `hook paths` reads edited files, and `hook run` tests seven tools' payloads and matchers (#1512, #1515, #1531, #1546, #1553, #1568).
-- `import all` merges `AGENTS.md`, `doctor` runs lint, `coverage.accept` mutes known notes, and global name clashes warn (#1442, #1448, #1468, #1514, #1528).
+- Init seeds editable text; imports keep whole files; doctor checks lint and packaging; invalid MCP JSON fails (#1442, #1448, #1468, #1492, #1501, #1564).
 
 ### By tool
-
-#### Aider
-
-- A `rules-file` change takes the old path's `read:` entry sync added out of `.aider.conf.yml`; an entry you listed stays (#1562).
 
 #### Claude Code
 
@@ -49,6 +47,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 #### Cursor
 
 - Portable `allow` and `deny` rules become Cursor CLI rules in `.cursor/cli.json`; multi-word commands, `ask`, and unmapped rules get a note (#1547).
+
+#### Aider
+
+- A `rules-file` change takes the old path's `read:` entry sync added out of `.aider.conf.yml`; an entry you listed stays (#1562, #1565).
 
 #### Continue
 
