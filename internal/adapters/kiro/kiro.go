@@ -206,7 +206,7 @@ var caps = emit.Capabilities{
 		"mcpServers": "Kiro takes inline server definitions only; set x-kiro.mcpServers",
 	},
 	// Kiro reads claude-* model ids, not Claude's aliases.
-	ForeignClaudeModels: []string{"sonnet", "opus", "haiku"},
+	ForeignClaudeModels: emit.ClaudeModelAliases,
 }
 
 // Adapter emits AWS Kiro configs.

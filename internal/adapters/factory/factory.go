@@ -184,7 +184,7 @@ var caps = emit.Capabilities{
 	AgentFields:    []string{"effort", "mcpServers"},
 	SettingsFields: []string{"effort"},
 	// Factory reads inherit and claude-* model ids, not Claude's aliases.
-	ForeignClaudeModels: []string{"sonnet", "opus", "haiku"},
+	ForeignClaudeModels: emit.ClaudeModelAliases,
 }
 
 // Adapter emits Factory Droid CLI configs.

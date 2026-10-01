@@ -144,3 +144,29 @@ func TestReportUnsupported_NamesTheTierOfATierModel(t *testing.T) {
 		t.Errorf("missing %q in:\n%s", want, got)
 	}
 }
+
+func TestClaudeModel_KnowsEveryClaudeCodeAlias(t *testing.T) {
+	for _, model := range []string{"sonnet", "opus", "haiku", "fable", "best", "opusplan", "sonnet[1m]", "opus[1m]", "inherit", "claude-opus-5"} {
+		if !ClaudeModel(model) {
+			t.Errorf("ClaudeModel(%q) = false, want true", model)
+		}
+	}
+	for _, model := range []string{"default", "gpt-6.1-sol", "fable-5", "Opus"} {
+		if ClaudeModel(model) {
+			t.Errorf("ClaudeModel(%q) = true, want false", model)
+		}
+	}
+}
+
+func TestForeignClaudeModel_AliasListSkipsWhatAliasFreeTargetsRead(t *testing.T) {
+	for _, model := range []string{"fable", "best", "opusplan", "opus[1m]"} {
+		if !ForeignClaudeModel(ClaudeModelAliases, model) {
+			t.Errorf("%q is an alias a target without aliases cannot load", model)
+		}
+	}
+	for _, model := range []string{"inherit", "claude-opus-5"} {
+		if ForeignClaudeModel(ClaudeModelAliases, model) {
+			t.Errorf("%q is no alias, so a target that reads claude-* ids loads it", model)
+		}
+	}
+}

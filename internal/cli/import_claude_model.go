@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -105,6 +106,15 @@ func noteRepeatedClaudeModels(dir string) {
 	sort.Strings(models)
 	for _, model := range models {
 		summaryf("  → %d agents set model %s; to name it once, add models: {<tier>: {claude: %s}} to %s and write model: <tier> in each\n",
-			counts[model], model, model, config.ConfigFileName)
+			counts[model], model, flowScalar(model), config.ConfigFileName)
 	}
+}
+
+// flowScalar quotes a value that flow YAML would misread, such as the
+// brackets in opus[1m], so the hint parses when pasted.
+func flowScalar(s string) string {
+	if strings.ContainsAny(s, "[]{},:#") {
+		return strconv.Quote(s)
+	}
+	return s
 }

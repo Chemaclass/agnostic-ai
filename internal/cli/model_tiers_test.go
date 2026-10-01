@@ -2,9 +2,14 @@ package cli
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 )
 
 const modelTiersConfig = `targets: [claude, codex]
@@ -134,5 +139,69 @@ func TestImportFromClaude_SuggestsTiersForRepeatedModels(t *testing.T) {
 	}
 	if strings.Contains(got, "model haiku") {
 		t.Errorf("a model one agent uses needs no tier:\n%s", got)
+	}
+}
+
+func TestLintAndSync_TreatNewerClaudeAliasesAsClaudeModels(t *testing.T) {
+	dir := budgetProject(t, `targets: [claude, codex]
+models:
+  frontier: {default: fable}
+  best: {claude: opus, codex: gpt-6.1-sol}
+`)
+	writeTierAgent(t, dir, "architect", "frontier")
+	writeTierAgent(t, dir, "planner", "opusplan")
+	writeTierAgent(t, dir, "reader", `"sonnet[1m]"`)
+
+	out, err := runCLI(t, "lint")
+	if err != nil {
+		t.Fatalf("model findings are advisory: %v\n%s", err, out)
+	}
+	if !strings.Contains(strings.Join(findingLines(out, "LINT025"), "\n"), "models.best: the tier name is a Claude model name") {
+		t.Errorf("a tier named best must warn:\n%s", out)
+	}
+	foreign := strings.Join(findingLines(out, "LINT026"), "\n")
+	for _, want := range []string{
+		`agnostic-ai.yaml: models.frontier.default "fable" is a Claude model name codex cannot load`,
+		`planner.md: model "opusplan" is a Claude model name codex cannot load`,
+		`reader.md: model "sonnet[1m]" is a Claude model name codex cannot load`,
+	} {
+		if !strings.Contains(foreign, want) {
+			t.Errorf("missing %q:\n%s", want, out)
+		}
+	}
+
+	writeTierAgent(t, dir, "architect", "fable")
+	notes := &strings.Builder{}
+	adapters.SetWarner(notes)
+	t.Cleanup(func() { adapters.SetWarner(os.Stderr) })
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if want := "`model` on 1 agent has no effect on codex (fable is a Claude model name; write model: {claude: fable} so codex uses its own default)"; !strings.Contains(notes.String(), want) {
+		t.Errorf("a shared model: fable must raise the codex coverage note %q:\n%s", want, notes)
+	}
+}
+
+func TestImportFromClaude_KeepsBracketedAliasesValidYAML(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"reviewer", "architect"} {
+		writeFile(t, filepath.Join(dir, ".claude", "agents", name+".md"),
+			"---\nname: "+name+"\ndescription: d.\nmodel: opus[1m]\n---\n\nBody.\n")
+	}
+	summary := captureSummary(t)
+	if err := importFromClaude(dir, rootSources(), defaultClaudeLayout()); err != nil {
+		t.Fatal(err)
+	}
+	spec := readFileString(t, filepath.Join(dir, "agents", "reviewer.md"))
+	if !strings.Contains(spec, "model:\n  claude: opus[1m]\n") {
+		t.Errorf("opus[1m] should import scoped to claude:\n%s", spec)
+	}
+	hint := `models: {<tier>: {claude: "opus[1m]"}}`
+	if !strings.Contains(summary.String(), hint) {
+		t.Fatalf("missing quoted tier hint %q:\n%s", hint, summary)
+	}
+	var parsed map[string]any
+	if err := yaml.Unmarshal([]byte(strings.TrimPrefix(hint, "models: ")), &parsed); err != nil {
+		t.Errorf("the hint must parse as YAML: %v", err)
 	}
 }

@@ -9,9 +9,14 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// ClaudeModelNames are the Claude Code model names: the aliases it
-// resolves itself, and "claude-*" for any full Claude model id.
-var ClaudeModelNames = []string{"sonnet", "opus", "haiku", "inherit", "claude-*"}
+// ClaudeModelAliases are the model aliases Claude Code resolves itself,
+// from code.claude.com/docs/en/model-config. "default" is left out: it
+// resets Claude's model rather than naming one.
+var ClaudeModelAliases = []string{"sonnet", "opus", "haiku", "fable", "best", "opusplan", "sonnet[1m]", "opus[1m]"}
+
+// ClaudeModelNames are the Claude Code model names: its aliases,
+// "inherit" for a subagent, and "claude-*" for any full Claude model id.
+var ClaudeModelNames = append(slices.Clone(ClaudeModelAliases), "inherit", "claude-*")
 
 // ClaudeModel reports whether model is a Claude Code model name.
 func ClaudeModel(model string) bool {
