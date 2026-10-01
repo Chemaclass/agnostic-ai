@@ -11,6 +11,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/suggest"
 )
 
 func newValidateCmd() *cobra.Command {
@@ -52,6 +53,7 @@ func newValidateCmd() *cobra.Command {
 			issues := lintEntries(entries)
 			issues = append(issues, lintHookEvents(entries, scope.hookTargets)...)
 			issues = append(issues, lintOrphanKinds(b, scope.targets, scope.support)...)
+			issues = append(issues, agentSkillTypos(b)...)
 			issues = append(issues, scopeIssues...)
 			if !fix {
 				reportIssues(cmd, issues)
@@ -195,6 +197,14 @@ func lintHookEvents(entries []spec.Entry, targets []string) []validationIssue {
 				Path:    e.Path,
 				Field:   "event",
 				Message: "hook event " + quote(event) + " is a " + target + " alias of " + quote(canonical) + "; use " + quote(canonical),
+			})
+			continue
+		}
+		if s := suggest.Name(event, sortedKeys(allowed)); s != "" {
+			out = append(out, validationIssue{
+				Path:    e.Path,
+				Field:   "event",
+				Message: fmt.Sprintf("unknown hook event %q (did you mean %s?)", event, s),
 			})
 			continue
 		}
