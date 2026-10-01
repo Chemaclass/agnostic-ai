@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- Release binaries build with Go 1.27.1, so on macOS they need macOS 13 Ventura or later. On macOS 12, `go install` with Go 1.26 still works.
 - A global name clash says whether the two copies differ, who it affects, and how to fix it.
 - The config schema checks `requires` values and describes `requires` and `models` for editors.
 - `fable`, `best`, `opusplan`, `sonnet[1m]`, and `opus[1m]` count as Claude model names, so a shared one raises the coverage note on other targets and `lint` flags it in tiers (#1571).
