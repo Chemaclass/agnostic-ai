@@ -2,16 +2,26 @@ package hookrun
 
 import (
 	"encoding/json"
+	"fmt"
+	"maps"
 	"slices"
+	"time"
 )
 
-// nativeHandler is one handler in the hooks block Claude Code, Codex,
-// and Gemini CLI share: per event, matcher groups that list handlers.
+// nativeGroup is one matcher group in the hooks block Claude Code,
+// Codex, and Gemini CLI share: per event, groups that list handlers.
+type nativeGroup struct {
+	Matcher string          `json:"matcher"`
+	Hooks   []nativeHandler `json:"hooks"`
+}
+
 type nativeHandler struct {
-	Type           string   `json:"type"`
-	Command        string   `json:"command"`
-	Args           []string `json:"args"`
-	CommandWindows string   `json:"commandWindows"`
+	Type           string            `json:"type"`
+	Command        string            `json:"command"`
+	Args           []string          `json:"args"`
+	CommandWindows string            `json:"commandWindows"`
+	Timeout        float64           `json:"timeout"`
+	Env            map[string]string `json:"env"`
 }
 
 // runs compares what the target starts on goos: Codex runs
@@ -27,27 +37,80 @@ func (n nativeHandler) runs(h Handler, goos string) bool {
 	return n.Command == h.Command && slices.Equal(n.Args, h.Args)
 }
 
-// Unsynced returns the handlers that no handler under event in the
-// synced native file body runs on goos: the file is stale or edited by
-// hand. The matcher is not compared, since sync can merge matchers.
-func Unsynced(body []byte, event, goos string, handlers []Handler) ([]Handler, error) {
+// timeout reads the native timeout: milliseconds on Gemini CLI, seconds
+// on Claude Code and Codex.
+func (n nativeHandler) timeout(target string) time.Duration {
+	if target == "gemini" {
+		return time.Duration(n.Timeout * float64(time.Millisecond))
+	}
+	return time.Duration(n.Timeout * float64(time.Second))
+}
+
+// HandlerDrift is a handler the synced native file does not run as the
+// spec says, and why.
+type HandlerDrift struct {
+	Handler Handler
+	Reason  string
+}
+
+// Drift compares each handler with the handlers under event in the
+// synced native file body: the command (with args), the group matcher,
+// the timeout, and, on Gemini CLI, the handler env. covers reports
+// whether a native matcher can be what sync wrote for the spec's, since
+// Codex joins the matchers of specs that share a command.
+func Drift(target string, body []byte, event, matcher, goos string, handlers []Handler, covers func(native, spec string) bool) ([]HandlerDrift, error) {
 	var doc struct {
-		Hooks map[string][]struct {
-			Hooks []nativeHandler `json:"hooks"`
-		} `json:"hooks"`
+		Hooks map[string][]nativeGroup `json:"hooks"`
 	}
 	if err := json.Unmarshal(body, &doc); err != nil {
 		return nil, err
 	}
-	var native []nativeHandler
-	for _, group := range doc.Hooks[event] {
-		native = append(native, group.Hooks...)
-	}
-	var missing []Handler
+	var drift []HandlerDrift
 	for _, h := range handlers {
-		if !slices.ContainsFunc(native, func(n nativeHandler) bool { return n.runs(h, goos) }) {
-			missing = append(missing, h)
+		reason := fmt.Sprintf("has no %s command %q", event, shownCommand(h, goos))
+		for _, group := range doc.Hooks[event] {
+			for _, n := range group.Hooks {
+				if !n.runs(h, goos) {
+					continue
+				}
+				reason = fieldDrift(target, group.Matcher, matcher, n, h, covers)
+				if reason == "" {
+					break
+				}
+			}
+			if reason == "" {
+				break
+			}
+		}
+		if reason != "" {
+			drift = append(drift, HandlerDrift{Handler: h, Reason: reason})
 		}
 	}
-	return missing, nil
+	return drift, nil
+}
+
+func fieldDrift(target, nativeMatcher, matcher string, n nativeHandler, h Handler, covers func(native, spec string) bool) string {
+	if !covers(nativeMatcher, matcher) {
+		return fmt.Sprintf("runs %q with matcher %q, not %q", h.Command, nativeMatcher, matcher)
+	}
+	// Codex keeps the first timeout among specs that share a command, so
+	// a spec without one cannot tell a stale value from a sibling's.
+	if got := n.timeout(target); got != h.Timeout && (target != "codex" || h.Timeout != 0) {
+		return fmt.Sprintf("runs %q with timeout %s, not %s", h.Command, got, h.Timeout)
+	}
+	if target == "gemini" && !maps.Equal(n.Env, h.Env) {
+		return fmt.Sprintf("runs %q with env %v, not %v", h.Command, n.Env, h.Env)
+	}
+	return ""
+}
+
+func shownCommand(h Handler, goos string) string {
+	command := h.Command
+	if goos == "windows" && h.CommandWindows != "" {
+		command = h.CommandWindows
+	}
+	for _, a := range h.Args {
+		command += " " + a
+	}
+	return command
 }

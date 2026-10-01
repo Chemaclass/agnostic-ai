@@ -193,11 +193,23 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 			return nil, fmt.Errorf("%s: %w", target, err)
 		}
 		run.Event, run.Trigger, run.Decision = event, payload.Trigger, hookrun.Allow
-		run.Warnings = append(run.Warnings, hookFileWarnings(cfg, target, event, root, handlers)...)
+		run.Warnings = append(run.Warnings, hookFileWarnings(cfg, target, event, matcher, root, handlers)...)
 		if !payload.Fires {
 			run.Reason = fmt.Sprintf("matcher %q does not match %s", matcher, payload.Trigger)
 			add(run)
 			continue
+		}
+		// Claude Code writes the spec's `if` on every handler it emits.
+		if rule := handlers[0].If; target == "claude" && rule != "" {
+			runs, err := hookrun.ClaudeIfRuns(rule, event, payload.Body, root)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", target, err)
+			}
+			if !runs {
+				run.Reason = fmt.Sprintf("if %q does not match this %s call", rule, payload.Trigger)
+				add(run)
+				continue
+			}
 		}
 		// Gemini CLI has no async hooks; sync writes none there.
 		run.Async = hookRunAsync(hook.Meta) && target != "gemini"
@@ -253,7 +265,7 @@ func shownHookCommand(h hookrun.Handler) string {
 
 // hookFileWarnings names each handler the synced native file of target
 // does not run, so a run that passes cannot hide a stale file.
-func hookFileWarnings(cfg *config.Config, target, event, root string, handlers []hookrun.Handler) []string {
+func hookFileWarnings(cfg *config.Config, target, event, matcher, root string, handlers []hookrun.Handler) []string {
 	file := adapters.HookFile(cfg, target)
 	path := file
 	if !filepath.IsAbs(path) {
@@ -267,13 +279,14 @@ func hookFileWarnings(cfg *config.Config, target, event, root string, handlers [
 	if err != nil {
 		return []string{fmt.Sprintf("%s: %v", shown, err)}
 	}
-	missing, err := hookrun.Unsynced(body, event, runtime.GOOS, handlers)
+	covers := func(native, spec string) bool { return adapters.HookMatcherCovers(target, native, spec) }
+	drift, err := hookrun.Drift(target, body, event, matcher, runtime.GOOS, handlers, covers)
 	if err != nil {
 		return []string{fmt.Sprintf("%s: parse: %v", shown, err)}
 	}
 	var warnings []string
-	for _, h := range missing {
-		warnings = append(warnings, fmt.Sprintf("%s has no %s command %q; run agnostic-ai sync", shown, event, shownHookCommand(h)))
+	for _, d := range drift {
+		warnings = append(warnings, fmt.Sprintf("%s %s; run agnostic-ai sync", shown, d.Reason))
 	}
 	return warnings
 }
@@ -409,7 +422,8 @@ func hookTimeout(target string, meta map[string]any) time.Duration {
 		seconds = int(v)
 	}
 	if seconds <= 0 {
-		return hookrun.DefaultTimeout(target)
+		event, _ := meta["event"].(string)
+		return hookrun.DefaultTimeout(target, event)
 	}
 	return time.Duration(seconds) * time.Second
 }

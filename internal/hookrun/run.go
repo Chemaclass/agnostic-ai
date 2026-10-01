@@ -11,12 +11,21 @@ import (
 	"time"
 )
 
-// DefaultTimeout is how long target waits for a command hook that sets
-// no timeout: 600 seconds on Claude Code and Codex, 60 on Gemini CLI
-// (gemini-cli c6bccb7 hookRunner.ts DEFAULT_HOOK_TIMEOUT).
-func DefaultTimeout(target string) time.Duration {
-	if target == "gemini" {
+// DefaultTimeout is how long target waits for a command hook on event
+// that sets no timeout: 600 seconds on Codex, 60 on Gemini CLI
+// (gemini-cli c6bccb7 hookRunner.ts DEFAULT_HOOK_TIMEOUT), and on Claude
+// Code 600, lowered to 30 on UserPromptSubmit, PreModelSwitch, and
+// PostModelSwitch and to 10 on MessageDisplay (code.claude.com/docs/en/hooks).
+func DefaultTimeout(target, event string) time.Duration {
+	switch {
+	case target == "gemini":
 		return 60 * time.Second
+	case target != "claude":
+		return 600 * time.Second
+	case event == "MessageDisplay":
+		return 10 * time.Second
+	case event == "UserPromptSubmit" || event == "PreModelSwitch" || event == "PostModelSwitch":
+		return 30 * time.Second
 	}
 	return 600 * time.Second
 }
@@ -32,9 +41,11 @@ type Handler struct {
 	CommandWindows string
 	// Env is what the handler's own env adds, as on Gemini CLI.
 	Env map[string]string
-	// Timeout is the handler's own timeout when the target writes one
-	// per handler, as Gemini CLI does in milliseconds.
+	// Timeout is the timeout sync writes on the handler; zero when it
+	// writes none and the target's default applies.
 	Timeout time.Duration
+	// If is Claude Code's `if` permission rule.
+	If string
 }
 
 // Argv returns the process target starts for h on goos. Claude Code runs

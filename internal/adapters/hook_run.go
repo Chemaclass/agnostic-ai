@@ -1,6 +1,8 @@
 package adapters
 
 import (
+	"time"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
@@ -16,11 +18,11 @@ func HookHandlers(target string, h spec.Entry) []hookrun.Handler {
 	switch target {
 	case "claude":
 		for _, c := range claude.CommandHandlers(h) {
-			out = append(out, hookrun.Handler{Command: c.Command, Args: c.Args, Shell: c.Shell})
+			out = append(out, hookrun.Handler{Command: c.Command, Args: c.Args, Shell: c.Shell, If: c.If, Timeout: time.Duration(c.Timeout) * time.Second})
 		}
 	case "codex":
 		for _, c := range codex.HookCommands(h) {
-			out = append(out, hookrun.Handler{Command: c.Command, CommandWindows: c.CommandWindows})
+			out = append(out, hookrun.Handler{Command: c.Command, CommandWindows: c.CommandWindows, Timeout: time.Duration(c.Timeout) * time.Second})
 		}
 	case "gemini":
 		for _, c := range gemini.HookCommands(h) {
