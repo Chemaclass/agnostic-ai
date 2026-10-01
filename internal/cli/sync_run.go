@@ -729,11 +729,16 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if verbosity >= levelDefault {
 		report.pending = removeMatching(gitPending(root, report.changedPaths()), report.trackedIgnored)
 	}
+	// --quiet prints no notes, so it keeps the old record for the next
+	// sync that does to report a moved alias.
 	resolvedAliases := adapters.TakeResolvedAliases()
-	for _, note := range movedAliasNotes(prev.ModelAliases, resolvedAliases) {
-		summaryf("  note: %s\n", note)
+	ledger.modelAliases = prev.ModelAliases
+	if verbosity >= levelDefault {
+		for _, note := range movedAliasNotes(prev.ModelAliases, resolvedAliases) {
+			summaryf("  note: %s\n", note)
+		}
+		ledger.modelAliases = nextModelAliases(prev.ModelAliases, resolvedAliases, emitted)
 	}
-	ledger.modelAliases = nextModelAliases(prev.ModelAliases, resolvedAliases, emitted)
 	if err := writeStateFile(root, report.filesChanged(), digest, notesDigest, ledger); err != nil {
 		fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 	}

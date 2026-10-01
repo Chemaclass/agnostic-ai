@@ -58,3 +58,20 @@ func seedModelAlias(t *testing.T, dir, target, alias, model string) {
 		t.Fatal(err)
 	}
 }
+
+// --quiet prints no notes, so a moved alias waits for the next sync that
+// does.
+func TestSync_QuietKeepsAMovedAliasForTheNextSync(t *testing.T) {
+	dir := budgetProject(t, "targets: [codex]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "team.yaml"), "model: sol\n")
+	syncOutput(t)
+	seedModelAlias(t, dir, "codex", "sol", "gpt-6-sol")
+
+	if out := syncOutput(t, "--quiet"); strings.Contains(out, "now resolves") {
+		t.Errorf("--quiet must print no note:\n%s", out)
+	}
+
+	if out := syncOutput(t); !strings.Contains(out, "codex: sol now resolves to gpt-6.1-sol (was gpt-6-sol)") {
+		t.Errorf("the sync after --quiet must note the moved alias:\n%s", out)
+	}
+}
