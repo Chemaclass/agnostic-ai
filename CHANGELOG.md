@@ -25,7 +25,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 #### Kiro
 
 - `validate` accepts the `SessionEnd` hook trigger Kiro CLI 2.25 added (#1576).
-- `validate` calls a kiro hook on `AgentSpawn` or `agentSpawn` an alias and names `SessionStart`, not an unknown event (#1580).
+- `validate` reports a kiro hook on `AgentSpawn` or `agentSpawn` as an alias of `SessionStart`, not as an unknown event (#1580).
 
 ## v0.76.0 - 2026-10-01
 
