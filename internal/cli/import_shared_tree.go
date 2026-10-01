@@ -355,6 +355,44 @@ func skillFields(override *specFields) specFields {
 	return *override
 }
 
+// isSyncBackup reports whether path is a backup sync made and still holds
+// what sync wrote, not an asset of the skill.
+func isSyncBackup(path string) bool {
+	if !strings.HasSuffix(path, ".bak") {
+		return false
+	}
+	// The walk may reach the folder through a link, so compare the real
+	// paths, not the spelling the ledger recorded.
+	real := realPath(path)
+	if real == "" {
+		return false
+	}
+	got := fileSum(path)
+	for b, sum := range readStateFile(".").Backups {
+		if sum != got {
+			continue
+		}
+		if realPath(b) == real {
+			return true
+		}
+	}
+	return false
+}
+
+// realPath is path made absolute with every link resolved, "" when it
+// does not resolve.
+func realPath(path string) string {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return ""
+	}
+	real, err := filepath.EvalSymlinks(abs)
+	if err != nil {
+		return ""
+	}
+	return real
+}
+
 func copyDirTreeWith(srcDir, dstDir string, transformSkill func([]byte) ([]byte, error), fields specFields) error {
 	return filepath.WalkDir(srcDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -368,7 +406,7 @@ func copyDirTreeWith(srcDir, dstDir string, transformSkill func([]byte) ([]byte,
 		if d.IsDir() {
 			return importMkdirAll(target, 0o755)
 		}
-		if !d.Type().IsRegular() {
+		if !d.Type().IsRegular() || isSyncBackup(path) {
 			return nil
 		}
 		info, err := d.Info()
