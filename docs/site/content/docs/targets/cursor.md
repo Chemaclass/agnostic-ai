@@ -19,6 +19,7 @@ target_id = "cursor"
 .cursor/commands/<name>.md           # one per command spec
 .cursor/hooks.json                   # when hook specs exist (managed, overwritten each sync)
 .cursor/mcp.json                     # when MCP entries exist
+.cursor/cli.json                     # from settings permissions and deny protected paths (merged)
 ```
 
 - **Rules**: emit with `alwaysApply: true` (override in spec frontmatter). An always-apply rule omits `globs`. A non-always rule without `globs` falls back to the Claude-spelled `paths` list (comma-joined). With neither, `globs` is omitted rather than defaulted to `**/*`, so Cursor treats the rule as "Apply Intelligently" (description-driven) or "Apply Manually" instead of attaching it to every file. Scalar globs keep minimal quoting so a hand-authored `.mdc` round-trips clean.
@@ -91,9 +92,43 @@ Both skill directories are read because [Skills](https://cursor.com/docs/skills.
 
 Import round-trips cleanly: a later `sync` regenerates equivalent rules, skill folders, command files, and `BUGBOT.md` files. Cursor writes no `argument-hint` or `allowed-tools` on a skill, so import leaves both on the spec. Keys Cursor does write, such as a skill's `icon` or an agent's `model`, follow the native file, so deleting one there deletes it from the spec. A rule's frontmatter comes from the `.mdc` alone, so widening `globs` to `**/*` unscopes the spec.
 
+## Permissions
+
+A settings spec's portable `allow` and `deny` lists become Cursor CLI rules in `permissions.allow` and `permissions.deny` of `.cursor/cli.json`, beside the protected-path rules. Only spellings the [CLI permissions](https://cursor.com/docs/cli/reference/permissions) page documents are written, and a rule is never widened. Like protected paths, the rules guard the Cursor CLI only, not the IDE agent.
+
+| Portable rule | Cursor rule | Notes |
+|---|---|---|
+| `Bash(git:*)`, `Bash(git *)` | `Shell(git)` | One command word only. Cursor matches "the first token in the command line", so `Shell(git)` covers bare `git` too, as both portable forms do in Claude Code. |
+| `Read(<path>)` | `Read(<path>)` | `/path` loses its `/`, since Cursor scopes a relative path to the workspace. `//path` becomes the absolute `/path`. On `deny`, a path with no `*` or `?` also gets `Read(<path>/**)`, so a directory's files are covered. |
+| `Edit(<path>)`, `Write(<path>)` | `Write(<path>)` | Same path rules as `Read`. |
+| `WebFetch(domain:<host>)` | `WebFetch(<host>)` | An exact host, `*.host`, or `*`, the three forms Cursor documents. |
+| `mcp__<server>__<tool>` | `Mcp(<server>:<tool>)` | `mcp__<server>` becomes `Mcp(<server>:*)`. On `deny` only, `mcp__*` becomes `Mcp(*:*)` and `mcp__*__<tool>` becomes `Mcp(*:<tool>)`, the "any server's" form Cursor documents. |
+
+These stay out:
+
+- A multi-word command such as `Bash(go test:*)` or `Bash(git push:*)`. `Shell` takes one command word, and the page shows the `command:args` form only as `curl:*` without saying how it matches the rest of the line. `Shell(go)` would allow or block every `go` command.
+- An exact command such as `Bash(ls)` or `Bash(rm)`, since `Shell(rm)` also matches `rm` with arguments.
+- A path starting with `~` or `!`, or using `[]`, `{}`, or `\`. The page lists only `*`, `**`, and `?`.
+- A `WebFetch` host with a path, a port, or a wildcard other than a leading `*.`.
+- `ask` rules. Cursor CLI permissions have no ask list; the CLI already prompts before a call no `allow` rule covers.
+- Other tools, such as `WebSearch`, `Grep`, or a bare `Bash`.
+
+An `allow` rule that stays out raises a coverage note. A `deny` rule that stays out loosens the policy, so sync names each one: `deny rule not enforced on cursor: Bash(git push:*)`. Block those another way, such as a [Cursor hook](https://cursor.com/docs/hooks) on `beforeShellExecution`.
+
+The page does not say how `Shell` matches a chained command such as `git status && rm -rf build`, or a pipe. Claude Code requires an `allow` rule to match each subcommand of a chain ([compound commands](https://code.claude.com/docs/en/permissions#compound-commands)), so an `allow` rule may approve more in the Cursor CLI than in Claude Code.
+
+A portable relative path (`path` or `./path`) means the current directory in Claude Code and the workspace in Cursor, which match when the agent starts at the project root. Sync records the rules it added in `.cursor/.agnostic-ai-permissions.json`, so a rule you remove from a spec leaves `cli.json` on the next sync, and a rule you wrote there yourself stays.
+
 ## Protected paths
 
-Advisory. Cursor takes no settings specs, so sync reports a spec with a `protected` block as unsupported. The Cursor CLI reads `Write(<glob>)` deny rules from `.cursor/cli.json` ([CLI permissions](https://cursor.com/docs/cli/reference/permissions)); sync does not write that file yet. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+Enforced (permission). In the Cursor CLI, each path of a `decision: deny` block becomes `Write(<path>)` and `Write(<path>/**)` rules in `permissions.deny` of `.cursor/cli.json`, the project CLI config ([configuration](https://cursor.com/docs/cli/reference/configuration)). A path that already ends in `**` gets the first rule only. The rules carry no leading `/`: Cursor scopes a relative path to the workspace and reads a leading `/` as an absolute path ([CLI permissions](https://cursor.com/docs/cli/reference/permissions)). The docs list the same `*`, `**`, and `?` wildcards the protected grammar takes, but do not say whether a match ignores case.
+
+- **IDE agent**: the rules guard the CLI only. Cursor's IDE permissions page says "The Cursor CLI has its own permissions system" ([permissions](https://cursor.com/docs/reference/permissions.md)), and the IDE's own files take no write rules. State the paths in a rule if the IDE agent should know about them.
+- **`decision: ask`**: advisory, with a coverage note. The CLI lists have `allow` and `deny` but no ask list. Its default already prompts before a write no `allow` rule covers, and a `deny` rule would block an edit the user means to approve with no reason shown. Use `decision: deny` to block the edit.
+- **`reason`**: not written. A CLI permission rule has no message field.
+- **Other settings fields**: `model`, `effort`, and `x-cursor` raise a coverage note, since a project `cli.json` takes permissions only. Portable `permissions` translate as [Permissions](#permissions) describes.
+
+`cli.json` merges into the file on disk, so your own `allow` and `deny` rules and any other key stay. Sync records the rules it added in `.cursor/.agnostic-ai-permissions.json`, the same record Claude Code keeps beside `settings.json`, and removing a path or its block removes its rules on the next sync. A matching rule that was in `cli.json` before sync added one stays yours. See [Protected paths](@/docs/spec-format/settings.md#protected-paths).
 
 ## Verify
 

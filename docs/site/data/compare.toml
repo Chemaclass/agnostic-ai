@@ -73,7 +73,7 @@
 
   [[targets.kinds]]
     id = "settings"
-    paths = [".codex/config.toml"]
+    paths = [".codex/config.toml", ".codex/hooks.json", ".codex/hooks/agnostic-ai-protect.sh"]
 
   [[targets.kinds]]
     id = "review"
@@ -116,7 +116,7 @@
 
   [[targets.kinds]]
     id = "settings"
-    paths = [".gemini/settings.json"]
+    paths = [".gemini/hooks/agnostic-ai-protect.sh", ".gemini/settings.json"]
 
   [[targets.kinds]]
     id = "review"
@@ -159,7 +159,7 @@
 
   [[targets.kinds]]
     id = "settings"
-    paths = []
+    paths = [".cursor/.agnostic-ai-permissions.json", ".cursor/cli.json"]
 
   [[targets.kinds]]
     id = "review"

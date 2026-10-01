@@ -13,7 +13,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `coverage.accept` lists known coverage notes with a reason, so sync stops printing them; `coverage.fail-on-notes` fails sync on the rest (#1514).
 - Hooks can use `.agnostic-ai/scripts/<name>` to copy and run one shared script in each target, including with `sync --global` (#1454).
 - `agnostic-ai hook paths` prints the files an edit touched, Codex patches included, so one edit hook runs on several tools (#1493).
-- `agnostic-ai hook run` runs a hook with the Claude Code and Codex payloads and fails on a timeout, an error, or when they decide differently (#1494).
+- `agnostic-ai hook run` runs a hook with the Claude Code, Codex, and Gemini payloads and fails on a timeout, error, or disagreement (#1494, #1529).
 - Doctor warns when existing packaging ignore files miss generated paths; upgrade notes flag the Codex skills path move (#1447).
 - New `AGNOSTIC_AI.md` files use a short editable template; existing files stay intact, and `doctor` points out old boilerplate (#1446).
 - Rule body headings nest in merged instructions; import restores levels and preserves code, link definitions, and line breaks (#1452, #1505).
@@ -58,6 +58,11 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - A rule's `description` goes to `.instructions.md` frontmatter, and a rule with `alwaysApply: false` and no globs stays on demand without `applyTo`.
 - Agents and skills are written back where they live, such as `.github/agents/<name>.md` or `.agents/skills/`, instead of as duplicates.
+
+#### Cursor
+
+- Portable `allow` and `deny` rules become Cursor CLI rules in `.cursor/cli.json`; multi-word commands, `ask`, and unmapped rules get a note (#1542).
+- Protected paths with `decision: deny` become `Write` deny rules in `.cursor/cli.json`, beside your own rules. Only the Cursor CLI reads them (#1517).
 
 #### Continue
 

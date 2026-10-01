@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "deny": [
+      "Write(composer.lock)",
+      "Write(composer.lock/**)"
+    ]
+  }
+}

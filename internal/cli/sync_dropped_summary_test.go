@@ -9,8 +9,8 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-// setupDroppedFixture writes a project with a rule (cursor-supported) and a
-// settings spec (cursor-unsupported, so it buffers a capability warning the
+// setupDroppedFixture writes a project with a rule (cline-supported) and a
+// settings spec (cline-unsupported, so it buffers a capability warning the
 // per-target summary can report). droppedSummary toggles the opt-in flag.
 func setupDroppedFixture(t *testing.T, droppedSummary bool) string {
 	t.Helper()
@@ -20,7 +20,7 @@ func setupDroppedFixture(t *testing.T, droppedSummary bool) string {
 			t.Fatal(err)
 		}
 	}
-	cfg := "version: 1\ntargets:\n  - cursor\n"
+	cfg := "version: 1\ntargets:\n  - cline\n"
 	if droppedSummary {
 		cfg += "sync:\n  dropped-summary: true\n"
 	}
@@ -61,8 +61,8 @@ func TestSync_DroppedSummary_RendersWhenEnabled(t *testing.T) {
 	if !strings.Contains(out, "dropped summary (per target):") {
 		t.Errorf("expected per-target summary, got:\n%s", out)
 	}
-	if !strings.Contains(out, "cursor: 1 settings dropped (unsupported)") {
-		t.Errorf("expected cursor settings drop, got:\n%s", out)
+	if !strings.Contains(out, "cline: 1 settings dropped (unsupported)") {
+		t.Errorf("expected cline settings drop, got:\n%s", out)
 	}
 }
 

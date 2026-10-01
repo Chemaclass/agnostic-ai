@@ -13,7 +13,7 @@ import (
 )
 
 func TestProtectedPathsEnforcement_NamesTheNativeMechanism(t *testing.T) {
-	want := map[string]string{"claude": "permission", "codex": "hook", "gemini": "hook"}
+	want := map[string]string{"claude": "permission", "codex": "hook", "cursor": "permission", "gemini": "hook"}
 	for _, name := range Names() {
 		if got := ProtectedPathsEnforcement(name); got != want[name] {
 			t.Errorf("%s enforcement = %q, want %q", name, got, want[name])
