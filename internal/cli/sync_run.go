@@ -768,7 +768,6 @@ func unmanagedSkips(sessions []*adapters.Session) []string {
 	return sortedKeys(seen)
 }
 
-
 // editGuard is how a sync treats an output edited by hand since the
 // last sync: --keep-edits leaves it in place, and otherwise sync keeps it
 // as `<path>.bak` before writing over it.
@@ -810,7 +809,6 @@ func committedSum(path string) string {
 	}
 	return adapters.ContentSum(blob)
 }
-
 
 // sessionPaths collects the paths paths returns for each session,
 // deduplicated and sorted, since targets sharing a path each report it.
