@@ -45,7 +45,7 @@ Duplicates collapse to one category. Each category is a bundle, so access widens
 
 Any other `tools` value is dropped with a coverage note; the values that do translate still emit. Set `x-kiro.tools` to use Kiro's vocabulary directly; it always wins over the translated form. Arbitrary `x-kiro` keys always pass through.
 
-Hooks are [native](https://kiro.dev/docs/hooks/): one JSON file per hook spec, `{"version": "v1", "hooks": [{name, trigger, matcher, action, timeout, enabled, description}]}`. `event` becomes `trigger`, verbatim. `command` (string or list) becomes `action: {"type": "command", "command": ...}`, one entry per command in the same file, with `name` suffixed `-2`, `-3`, ... to stay unique.
+Hooks are [native](https://kiro.dev/docs/hooks/): one JSON file per hook spec, `{"version": "v1", "hooks": [{name, trigger, matcher, action, timeout, enabled, description}]}`. `event` becomes `trigger`, verbatim. `validate` flags `AgentSpawn` and `agentSpawn`, which Kiro V3 accepts only as compatibility aliases, and names `SessionStart` instead. `command` (string or list) becomes `action: {"type": "command", "command": ...}`, one entry per command in the same file, with `name` suffixed `-2`, `-3`, ... to stay unique.
 
 `disabled: true` writes `"enabled": false`; enabled needs no key. The spec's `description` reaches the file (Kiro treats it as documentation only).
 

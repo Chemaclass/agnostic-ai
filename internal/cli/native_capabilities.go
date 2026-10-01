@@ -14,6 +14,16 @@ import (
 // Sources of truth (kept out of source comments because they rot):
 // the per-adapter docs under `docs/site/content/docs/targets/`. When a
 // target adds a new event, append it here so validation stays useful.
+// hookEventAliases maps, per target, an event name the tool still
+// accepts for compatibility to its canonical name. validate flags the
+// alias and names the canonical event, so specs stay on it (#1580).
+var hookEventAliases = map[string]map[string]string{
+	// kiro.dev/docs/hooks/types/: "CLI V3 uses `SessionStart` as the
+	// canonical trigger but accepts `AgentSpawn` and `agentSpawn` for
+	// compatibility."
+	"kiro": {"AgentSpawn": "SessionStart", "agentSpawn": "SessionStart"},
+}
+
 var hookEventsByTarget = map[string]map[string]struct{}{
 	"claude": setOf(
 		"Setup",
@@ -60,8 +70,8 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 	// (kiro.dev/docs/cli/v3/hooks/), plus `SessionEnd`, which CLI 2.25
 	// added for V3 sessions (kiro.dev/docs/hooks/types/). `AgentSpawn`
 	// stays out: V3 accepts it only as a compatibility alias of
-	// `SessionStart`, so validate flags it to keep specs on the canonical
-	// name (#907, #1580). `Manual` is documented and was missing.
+	// `SessionStart` (hookEventAliases). `Manual` is documented and was
+	// missing.
 	"kiro": setOf(
 		"SessionStart", "SessionEnd", "Stop",
 		"PreToolUse", "PostToolUse",
