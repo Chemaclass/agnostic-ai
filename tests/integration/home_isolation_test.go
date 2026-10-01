@@ -22,7 +22,7 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func runIsolated(m *testing.M) (int, error) {
+func runIsolated(m *testing.M) (code int, err error) {
 	if err := pinGoEnv("GOCACHE", "GOMODCACHE", "GOPATH", "GOENV"); err != nil {
 		return 1, err
 	}
@@ -30,7 +30,11 @@ func runIsolated(m *testing.M) (int, error) {
 	if err != nil {
 		return 1, err
 	}
-	defer os.RemoveAll(home)
+	defer func() {
+		if rmErr := os.RemoveAll(home); rmErr != nil && err == nil {
+			err = rmErr
+		}
+	}()
 	for _, key := range []string{"HOME", "USERPROFILE"} {
 		if err := os.Setenv(key, home); err != nil {
 			return 1, err
