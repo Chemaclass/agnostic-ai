@@ -148,16 +148,15 @@ func TestEmit_SettingsFieldsCursorDoesNotWriteRaiseNotes(t *testing.T) {
 	buf := swapNoteWarner(t)
 
 	emitSettings(t, settingsSpec(map[string]any{
-		"model":       "claude-opus-5",
-		"permissions": map[string]any{"deny": []any{"Bash(rm:*)"}},
-		"x-cursor":    map[string]any{"editor": map[string]any{"vimMode": true}},
+		"model":    "claude-opus-5",
+		"x-cursor": map[string]any{"editor": map[string]any{"vimMode": true}},
 	}))
 	emit.FlushCoverageNotes()
 
 	if _, err := os.Stat(filepath.Join(dir, ".cursor", "cli.json")); !os.IsNotExist(err) {
-		t.Errorf(".cursor/cli.json exists (err=%v), want none without protected paths", err)
+		t.Errorf(".cursor/cli.json exists (err=%v), want none without permission rules", err)
 	}
-	for _, field := range []string{"model", "permissions", "x-cursor"} {
+	for _, field := range []string{"model", "x-cursor"} {
 		if !strings.Contains(buf.String(), field) {
 			t.Errorf("want a coverage note for %s, got:\n%s", field, buf.String())
 		}
