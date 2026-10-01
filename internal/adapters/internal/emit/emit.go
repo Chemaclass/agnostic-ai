@@ -1180,49 +1180,51 @@ func (s *Session) removeGeneratedTree(dir, ext string, dryRun bool) error {
 // pruneEmptiedDirs removes each file's parent directory, and its
 // ancestors up to and including root, while they are empty. Non-empty
 // directories (user-authored files survived) stay put.
+// Candidates are tried deepest first, so a parent is checked only after
+// every emptied child below it is gone.
 func pruneEmptiedDirs(root string, files []string) error {
 	root = filepath.Clean(root)
 	seen := map[string]bool{}
+	var dirs []string
 	for _, f := range files {
 		for d := filepath.Dir(f); !seen[d]; d = filepath.Dir(d) {
 			seen[d] = true
-			removed, err := removeIfEmpty(d)
-			if err != nil {
-				return err
-			}
-			if !removed || d == root || !strings.HasPrefix(d, root+string(filepath.Separator)) {
+			dirs = append(dirs, d)
+			if d == root || !strings.HasPrefix(d, root+string(filepath.Separator)) {
 				break
 			}
+		}
+	}
+	sort.SliceStable(dirs, func(i, j int) bool {
+		return strings.Count(dirs[i], string(filepath.Separator)) > strings.Count(dirs[j], string(filepath.Separator))
+	})
+	for _, d := range dirs {
+		if err := removeIfEmpty(d); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-// removeIfEmpty removes dir when it has no entries and reports whether
-// it is gone.
-func removeIfEmpty(dir string) (bool, error) {
+// removeIfEmpty removes dir when it has no entries.
+func removeIfEmpty(dir string) error {
 	entries, err := os.ReadDir(dir)
 	if IsAbsent(err) {
-		return true, nil
+		return nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("readdir %s: %w", dir, err)
+		return fmt.Errorf("readdir %s: %w", dir, err)
 	}
 	if len(entries) > 0 {
-		return false, nil
+		return nil
 	}
 	// A concurrent write from another target can land between the
 	// ReadDir above and this Remove, and then the directory is no
 	// longer ours to prune.
-	if err := os.Remove(dir); err != nil {
-		if isDirNotEmpty(err) {
-			return false, nil
-		}
-		if !IsAbsent(err) {
-			return false, fmt.Errorf("remove %s: %w", dir, err)
-		}
+	if err := os.Remove(dir); err != nil && !isDirNotEmpty(err) && !IsAbsent(err) {
+		return fmt.Errorf("remove %s: %w", dir, err)
 	}
-	return true, nil
+	return nil
 }
 
 // removeEmptyDirs walks dir bottom-up and removes every directory
