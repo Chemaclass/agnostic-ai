@@ -228,6 +228,9 @@ func ResolveMetaOrdered(meta map[string]any, keys []string, target string) (map[
 	for _, k := range collapsedKeys {
 		collapseTargetMap(out, &outKeys, k, target)
 	}
+	if !literalTargetModel(meta, target) {
+		resolveModelAlias(out, target)
+	}
 	return out, outKeys
 }
 

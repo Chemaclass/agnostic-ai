@@ -237,3 +237,41 @@ func TestSync_DropsASharedClaudeModelWhereTheNoteSaysItHasNoEffect(t *testing.T)
 		t.Errorf("claude keeps its map entry:\n%s", claude)
 	}
 }
+
+func TestSyncAndExplain_ResolveACodexModelAlias(t *testing.T) {
+	dir := budgetProject(t, "targets: [claude, codex]\nmodels:\n  strong: {claude: opus, codex: sol}\n")
+	writeTierAgent(t, dir, "architect", "strong")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "team.yaml"), "model: {claude: sonnet, codex: luna}\n")
+
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if codex := readFileString(t, filepath.Join(dir, ".codex", "agents", "architect.toml")); !strings.Contains(codex, `model = "gpt-6.1-sol"`) {
+		t.Errorf("codex: sol must resolve to the current sol:\n%s", codex)
+	}
+	if config := readFileString(t, filepath.Join(dir, ".codex", "config.toml")); !strings.Contains(config, `model = "gpt-6-luna"`) {
+		t.Errorf("a settings alias must resolve too:\n%s", config)
+	}
+	if claude := readFileString(t, filepath.Join(dir, ".claude", "agents", "architect.md")); !strings.Contains(claude, "model: opus\n") {
+		t.Errorf("claude keeps its own alias:\n%s", claude)
+	}
+
+	out, err := runCLI(t, "explain", ".agnostic-ai/agents/architect.md")
+	if err != nil {
+		t.Fatalf("explain: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "[codex] sol → gpt-6.1-sol\n") || !strings.Contains(out, "[claude] opus\n") {
+		t.Errorf("explain must show the resolution:\n%s", out)
+	}
+	out, err = runCLI(t, "explain", ".agnostic-ai/agents/architect.md", "--json")
+	if err != nil {
+		t.Fatalf("explain --json: %v\n%s", err, out)
+	}
+	var got explainOutput
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("decode: %v\n%s", err, out)
+	}
+	if len(got.Models) != 2 || got.Models[1] != (explainModel{Target: "codex", Model: "gpt-6.1-sol", Alias: "sol"}) {
+		t.Errorf("json models = %#v", got.Models)
+	}
+}
