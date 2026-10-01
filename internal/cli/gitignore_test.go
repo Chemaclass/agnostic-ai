@@ -339,12 +339,12 @@ func TestResolveGitignore_FlagOverridesConfig(t *testing.T) {
 }
 
 func TestValidateGitignoreFlag(t *testing.T) {
-	for _, ok := range []string{"", "on", "off"} {
+	for _, ok := range []string{"", "on", "off", "true", "false"} {
 		if err := validateGitignoreFlag(ok); err != nil {
 			t.Errorf("expected %q to validate, got %v", ok, err)
 		}
 	}
-	for _, bad := range []string{"true", "false", "yes", "no", "1", "0", "maybe"} {
+	for _, bad := range []string{"yes", "no", "1", "0", "maybe"} {
 		if err := validateGitignoreFlag(bad); err == nil {
 			t.Errorf("expected %q to error", bad)
 		}

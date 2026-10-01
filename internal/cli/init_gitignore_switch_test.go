@@ -35,12 +35,3 @@ func TestInit_GitignoreTakesOnAndOff(t *testing.T) {
 		})
 	}
 }
-
-func TestSync_GitignoreTakesTrueAndFalse(t *testing.T) {
-	if err := validateGitignoreFlag("false"); err != nil {
-		t.Errorf("--gitignore=false: %v", err)
-	}
-	if err := validateGitignoreFlag("maybe"); err == nil {
-		t.Error("--gitignore=maybe passed")
-	}
-}
