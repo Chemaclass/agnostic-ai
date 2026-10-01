@@ -235,12 +235,12 @@ func TestLintBudget_CountsEachTargetsAlwaysOnRuleFiles(t *testing.T) {
 	// go: globs, alwaysApply unset. req: alwaysApply false plus a description.
 	cases := map[string]int{
 		"claude":      100, // globs become paths; alwaysApply has no Claude meaning
-		"cursor":      300, // alwaysApply defaults to true; false is agent requested
-		"trae":        300,
-		"antigravity": 300, // req is model_decision
+		"cursor":      0,   // globs scope go; false is agent requested
+		"trae":        0,
+		"antigravity": 0,   // go is glob, req is model_decision
 		"augment":     0,   // both inline into AGENTS.md, which Augment always reads
-		"cline":       400, // no description mode, so req stays always active
-		"windsurf":    300, // req is model_decision
+		"cline":       100, // go becomes paths; no description mode, so req stays always active
+		"windsurf":    0,   // go is glob, req is model_decision
 		"kiro":        100, // globs become fileMatch
 		"copilot":     0,   // globs become applyTo; req loads on demand from its description
 		"qoder":       300, // globs is not Qoder's key; alwaysApply false is manual

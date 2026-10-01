@@ -519,16 +519,13 @@ func (Adapter) AlwaysOnRule(r spec.Entry) bool {
 	return alwaysApplies(emit.ResolveMeta(r.Meta, target))
 }
 
-// alwaysApplies reads `alwaysApply`, true when the spec leaves it unset.
+// alwaysApplies reads `alwaysApply`; see emit.RuleAlwaysApplies.
 func alwaysApplies(m map[string]any) bool {
-	if v, ok := m["alwaysApply"].(bool); ok {
-		return v
-	}
-	return true
+	return emit.RuleAlwaysApplies(m)
 }
 
 // mdc renders one rule as a `.mdc` file. Rules default to
-// `alwaysApply: true`; the spec frontmatter overrides.
+// `alwaysApply: true`, or false with globs; the spec frontmatter overrides.
 func mdc(e spec.Entry) string {
 	m := emit.ResolveMeta(e.Meta, target)
 	desc, _ := m["description"].(string)

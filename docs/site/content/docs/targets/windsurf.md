@@ -36,7 +36,7 @@ Set `outputs.windsurf.rules-dir: .windsurf/rules` to keep the old layout. Otherw
   - `x-windsurf.allowed-tools` writes Devin's vocabulary directly, and `x-windsurf.max-nesting` sets nesting, which has no generic field. `model` passes through verbatim. Devin marks custom subagents as experimental, so the format may change.
 - **Scoped rules**: a scoped rule lands at `<scope>/.devin/rules/<name>.md`, following Desktop's discovery of `.devin/rules` or `.windsurf/rules` in any sub-directory ([Desktop rules reference](https://docs.devin.ai/desktop/cascade/memories)). Devin CLI v3000.11.1 also discovers rules recursively under `.devin/rules/` and `.windsurf/rules/` ([CLI changelog](https://docs.devin.ai/cli/changelog/stable.md)), but that does not establish the same behavior in Desktop, so the layout stays. Sync still sweeps the old `.devin/rules/<scope>/<name>.md` tree.
   - With `outputs.windsurf.rules-dir` set, the prefix follows it, so the legacy layout scopes to `<scope>/.windsurf/rules/<name>.md`. Devin CLI loads a sub-directory rules dir when the agent touches files there; Desktop loads all of them at session start. The scope narrows what the CLI sees, not what Desktop sees.
-- **Rule activation**: a rule that sets `alwaysApply: false` carries a `trigger` frontmatter key.
+- **Rule activation**: a rule that sets `alwaysApply: false`, or sets `globs` without `alwaysApply`, carries a `trigger` frontmatter key.
 
   | Rule has | Emitted trigger |
   | --- | --- |

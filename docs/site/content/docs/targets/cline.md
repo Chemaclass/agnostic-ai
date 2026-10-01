@@ -31,7 +31,7 @@ Cline reads two project rules layouts, `.clinerules/` and `.cline/rules/`, and [
   - The provenance comment sits below the closing delimiter, inside the prompt. Above it, the file would not load.
   - `tools`, `skills`, `providerId`, `modelId`, and `maxIterations` go through `x-cline`. No heading is added above the body.
   - Older releases wrote `<name>.md` with no frontmatter, which Cline skipped. Sync sweeps a stale managed `.md`; hand-authored files stay.
-- **Rule activation**: scoped rules emit conditional `paths` constrained to the directory, even with `alwaysApply: true`. For unscoped rules, `alwaysApply: false` enables native `paths` derived from the file selector; without a usable selector, the adapter reports a coverage note. See [Cline conditions](https://docs.cline.bot/customization/cline-rules) and [scoped selector limits](@/docs/scoped-context.md#narrow-a-rule-to-certain-files).
+- **Rule activation**: scoped rules emit conditional `paths` constrained to the directory, even with `alwaysApply: true`. For unscoped rules, `alwaysApply: false`, or `globs` without `alwaysApply`, enables native `paths` derived from the file selector; without a usable selector, the adapter reports a coverage note. See [Cline conditions](https://docs.cline.bot/customization/cline-rules) and [scoped selector limits](@/docs/scoped-context.md#narrow-a-rule-to-certain-files).
 - **Skills**: one folder per skill under `.cline/skills/<name>/SKILL.md`, the path [Cline's skills docs](https://docs.cline.bot/customization/skills) recommend (`GlobalFileNames.clineSkillsDir` in the extension). A flat file under the rules directory never loads as a skill. Frontmatter carries `name` and `description`; sibling assets copy byte-for-byte.
 
 ### Hooks

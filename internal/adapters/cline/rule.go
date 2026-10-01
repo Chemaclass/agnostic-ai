@@ -33,8 +33,8 @@ func (Adapter) AlwaysOnRule(r spec.Entry) bool {
 // pathsFrontmatter renders Cline's one conditional, `paths`, and
 // returns "" for a rule that has nothing to scope to.
 //
-//	alwaysApply true or unset       -> always active (no frontmatter)
-//	alwaysApply false + globs       -> paths, with the globs verbatim
+//	alwaysApply true, or unset without globs -> always active (no frontmatter)
+//	alwaysApply false or unset, + globs      -> paths, with the globs verbatim
 //	alwaysApply false + scope       -> paths: ["<scope>/**"]
 //	alwaysApply false, neither      -> always active (see below)
 //
@@ -72,7 +72,7 @@ func pathsFrontmatter(e spec.Entry) string {
 // applies.
 func rulePaths(e spec.Entry) []string {
 	m := emit.ResolveMeta(e.Meta, target)
-	if always, ok := m["alwaysApply"].(bool); !ok || always {
+	if emit.RuleAlwaysApplies(m) {
 		return nil
 	}
 	if globs := spec.GlobList(m["globs"]); len(globs) > 0 {
