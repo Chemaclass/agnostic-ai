@@ -46,8 +46,10 @@ func TestEmit_VSCodeMCPPreservesSiblingSettings(t *testing.T) {
 	if len(got.Inputs) != 1 || got.Inputs[0]["id"] != "api-key" || got.Sandbox["filesystem"] == nil {
 		t.Errorf("VS Code sibling settings lost: %+v", got)
 	}
-	if len(got.Servers) != 1 || got.Servers["new"] == nil {
-		t.Errorf("servers map did not replace managed contents: %+v", got.Servers)
+	// Servers merge by name, so the user's own server stays beside the
+	// spec's (#1552).
+	if len(got.Servers) != 2 || got.Servers["new"] == nil || got.Servers["old"] == nil {
+		t.Errorf("servers = %+v, want the spec's new beside the user's old", got.Servers)
 	}
 }
 

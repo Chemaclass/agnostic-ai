@@ -263,13 +263,15 @@ func emitSettings(sess *emit.Session, b spec.Bundle, hooks []spec.Entry, path st
 		return nil
 	}
 	if _, writing := keys["hooks"]; !writing {
-		if kept, stale := withoutProtectHook(sess.ExistingJSONObject(path, "hooks", dryRun)); stale {
-			keys["hooks"] = emit.KeptJSONValue(kept)
+		existing := sess.ExistingJSONObject(path, "hooks", dryRun)
+		if kept, stale := withoutProtectHook(existing); stale {
+			keys["hooks"] = emit.CleanedJSONValue(existing, kept)
 			if len(kept) == 0 {
 				keys["hooks"] = emit.RemoveJSONKey
 			}
 		}
 	}
+	emit.MergeEntriesOf(keys, "mcpServers")
 	return sess.MergeJSONFileNested(path, keys, []string{"model"}, dryRun)
 }
 

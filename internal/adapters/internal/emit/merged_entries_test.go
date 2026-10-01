@@ -1,0 +1,81 @@
+package emit
+
+import (
+	"encoding/json"
+	"os"
+	"reflect"
+	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
+)
+
+func TestMergeJSONEntries_UsesPriorClaims(t *testing.T) {
+	const path = "settings.json"
+	sum := func(v string) string { return jsonValueSum(json.RawMessage(v)) }
+	for _, tc := range []struct {
+		name   string
+		before string
+		prior  []MergedKey
+		want   []string
+	}{
+		{
+			"first sync keeps the user's entries",
+			`{"mcpServers":{"mine":{"command":"m"}}}`,
+			nil,
+			[]string{"gh", "mine"},
+		},
+		{
+			"an unchanged entry sync wrote leaves",
+			`{"mcpServers":{"mine":{"command":"m"},"old":{"command":"o"}}}`,
+			[]MergedKey{{Path: []string{"mcpServers", "old"}, Sum: sum(`{"command":"o"}`)}},
+			[]string{"gh", "mine"},
+		},
+		{
+			"an entry the user edited since stays",
+			`{"mcpServers":{"old":{"command":"edited"}}}`,
+			[]MergedKey{{Path: []string{"mcpServers", "old"}, Sum: sum(`{"command":"o"}`)}},
+			[]string{"gh", "old"},
+		},
+		{
+			"an unchanged map sync wrote whole is sync's",
+			`{"mcpServers":{"old":{"command":"o"}}}`,
+			[]MergedKey{{Path: []string{"mcpServers"}, Sum: sum(`{"old":{"command":"o"}}`)}},
+			[]string{"gh"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			testutil.TempCwd(t)
+			if err := os.WriteFile(path, []byte(tc.before), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			PriorMergedKeys = func(string) []MergedKey { return tc.prior }
+			defer func() { PriorMergedKeys = nil }()
+			sess := NewSession()
+			sess.StartDetailedRecording()
+			err := sess.MergeJSONFile(path, map[string]any{"mcpServers": MergeJSONEntries(map[string]any{"gh": map[string]any{"command": "npx"}})}, false)
+			writes := sess.StopDetailedRecording()
+			if err != nil {
+				t.Fatal(err)
+			}
+			var doc struct {
+				MCPServers map[string]any `json:"mcpServers"`
+			}
+			data, _ := os.ReadFile(path)
+			if err := json.Unmarshal(data, &doc); err != nil {
+				t.Fatal(err)
+			}
+			var names []string
+			for _, name := range []string{"gh", "mine", "old"} {
+				if _, ok := doc.MCPServers[name]; ok {
+					names = append(names, name)
+				}
+			}
+			if !reflect.DeepEqual(names, tc.want) {
+				t.Errorf("servers = %v, want %v", names, tc.want)
+			}
+			if len(writes) != 1 || len(writes[0].Keys) != 1 || !reflect.DeepEqual(writes[0].Keys[0].Path, []string{"mcpServers", "gh"}) {
+				t.Errorf("claims = %#v, want only mcpServers.gh", writes)
+			}
+		})
+	}
+}

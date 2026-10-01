@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- Sync merges MCP servers into shared settings files by name, so servers you add by hand stay; a removed spec takes out only its own server (#1552).
 - Name model tiers once under `models:`: a spec's `model: strong` resolves per target, in `sync --global` too, `explain` shows each result, `lint` flags gaps, and `import claude` suggests tiers (#1495).
 - **Breaking:** rule `scope`, `globs`, and `paths` form a union; rule folders scope existing directories. Remove `scope` to keep only a filter (#1429, #1430).
 - `coverage.accept` lists known coverage notes with a reason, so sync stops printing them; `coverage.fail-on-notes` fails sync on the rest (#1514).
@@ -39,6 +40,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Claude Code
 
+- Hooks you write back by hand after sync removed them now stay when you drop the claude target (#1555).
 - A permission rule removed from a settings spec, `outputs.claude.settings`, or `x-claude` now leaves `settings.json` on the next sync; hand-written rules stay (#1530).
 - An environment spec's `setup` runs once in each new Claude Code worktree through generated hooks; `x-claude.setup: false` turns it off. Delete a hand-written bootstrap hook, since it runs in parallel with setup (#1498).
 - Scoped companion cleanup waits for concurrent writes, so sync removes covered `CLAUDE.md` files consistently (#1478).
@@ -79,6 +81,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `import gemini` decodes command TOML strings, so an escaped `\\(` in a prompt no longer doubles; other keys import under `x-gemini`.
 - Agents with inline MCP servers load: sync writes `mcp_servers`, renames `x-gemini.mcpServers` with a note, and keeps the key through import (#1538).
 - A generated `BeforeTool` hook enforces settings `protected` paths on `write_file` and `replace`, with the reason shown (#1518).
+- Hooks sync wrote beside a removed protect hook leave `.gemini/settings.json` with the last spec, instead of staying active as a kept orphan (#1556).
 
 ### Site
 

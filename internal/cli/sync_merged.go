@@ -23,6 +23,16 @@ const (
 	mergedYAMLLedgerVersion = 7
 )
 
+// The merge writers read what the last sync claimed in a merged file
+// from the ledger, so an entry a spec no longer sets leaves and the
+// user's own entries stay. Capture reads the same ledger, so check
+// renders what sync writes.
+func init() {
+	adapters.SetPriorMergedKeys(func(path string) []adapters.MergedKey {
+		return readStateFile(".").Merged[path].Keys
+	})
+}
+
 // mergedOutput is what the ledger keeps about a JSON file sync merges
 // into: the values it set there, and whether sync created the file.
 // Unrecorded marks a file an older sync wrote before keys were recorded:
@@ -122,10 +132,31 @@ func ledgerMerged(ledger []string, merged map[string]mergedOutput, written map[s
 			}
 		}
 		created := current.Created || last.Created || !recorded && slices.Contains(prev.Outputs, p)
-		out[p] = mergedOutput{Keys: withMergedKeys(kept, current.Keys), Created: created}
+		out[p] = mergedOutput{Keys: withMergedKeys(kept, followedKeys(current.Keys, last.Keys)), Created: created}
 	}
 	if len(out) == 0 {
 		return nil
+	}
+	return out
+}
+
+// followedKeys returns the keys this run claims. A key a cleanup
+// rewrote (Follows set) takes over the earlier claim at its path only
+// when that claim's sum is the one the cleanup started from, so sync
+// still owns the whole value. Otherwise the earlier claim stands.
+func followedKeys(current, last []adapters.MergedKey) []adapters.MergedKey {
+	out := make([]adapters.MergedKey, 0, len(current))
+	for _, key := range current {
+		if key.Follows == "" {
+			out = append(out, key)
+			continue
+		}
+		i := slices.IndexFunc(last, func(k adapters.MergedKey) bool { return slices.Equal(k.Path, key.Path) })
+		if i < 0 || last[i].Items != nil || last[i].Sum != key.Follows {
+			continue
+		}
+		key.Follows = ""
+		out = append(out, key)
 	}
 	return out
 }
