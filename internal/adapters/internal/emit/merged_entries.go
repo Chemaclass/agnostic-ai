@@ -104,3 +104,41 @@ func sameJSONValue(raw json.RawMessage, value any) bool {
 	encoded, err := json.Marshal(value)
 	return err == nil && jsonValueSum(raw) == jsonValueSum(encoded)
 }
+
+// DropStaleMergedKeys takes out of doc, the merged JSON file at path,
+// each value the last sync claimed there that this write neither claims
+// in claimed nor gives up in released. A merge sets only what the specs
+// produce now, so without this an old value would stay (#1549). A value
+// the user edited since stays as theirs. Every such claim is returned
+// as released.
+func (s *Session) DropStaleMergedKeys(path string, doc *OrderedJSON, claimed []MergedKey, released [][]string) [][]string {
+	return s.dropStaleClaims(path, doc, func(keyPath []string) bool {
+		return slices.ContainsFunc(claimed, func(k MergedKey) bool { return slices.Equal(k.Path, keyPath) }) ||
+			slices.ContainsFunc(released, func(p []string) bool { return isPathPrefix(p, keyPath) })
+	})
+}
+
+func (s *Session) dropStaleClaims(path string, doc *OrderedJSON, settled func([]string) bool) [][]string {
+	var dropped [][]string
+	for _, claim := range priorMergedKeys(path) {
+		if len(claim.Path) == 0 || settled(claim.Path) {
+			continue
+		}
+		dropped = append(dropped, claim.Path)
+		raw, found := jsonValueAt(doc, claim.Path)
+		switch {
+		case !found:
+		case claim.Items != nil:
+			editJSONPath(doc, claim.Path, func(raw json.RawMessage) (any, bool, bool) {
+				return withoutItems(raw, claim.Items)
+			})
+		case claim.Sum != "" && jsonValueSum(raw) == claim.Sum:
+			editJSONPath(doc, claim.Path, func(json.RawMessage) (any, bool, bool) { return nil, false, true })
+		}
+	}
+	return dropped
+}
+
+func isPathPrefix(prefix, path []string) bool {
+	return len(prefix) <= len(path) && slices.Equal(prefix, path[:len(prefix)])
+}

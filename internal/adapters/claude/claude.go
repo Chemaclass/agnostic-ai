@@ -413,11 +413,11 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 		return err
 	}
 	indent := detectSettingsIndent(path)
-	raw, err := emit.MarshalJSONIndentWith(doc, indent)
-	if err != nil {
-		return err
-	}
 	if overlay != nil {
+		raw, err := emit.MarshalJSONIndentWith(doc, indent)
+		if err != nil {
+			return err
+		}
 		return sess.WriteFile(path, string(raw)+"\n", dryRun)
 	}
 	claimed := claimedSettingsKeys(hooks, custom, specSettings, configSettings)
@@ -447,6 +447,13 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 				claimed = append(claimed, emit.MergedKey{Path: []string{"permissions", k}})
 			}
 		}
+	}
+	// The file on disk is the base, so a key an earlier sync set and the
+	// specs no longer produce would stay without this (#1549).
+	released = append(released, sess.DropStaleMergedKeys(path, doc, claimed, released)...)
+	raw, err := emit.MarshalJSONIndentWith(doc, indent)
+	if err != nil {
+		return err
 	}
 	return sess.WriteMergedJSON(path, string(raw)+"\n", claimed, released, dryRun)
 }

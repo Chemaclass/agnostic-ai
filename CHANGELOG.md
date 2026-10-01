@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- A key sync set in a shared settings file and no spec produces any more now leaves on the next sync, unless you edited it since (#1549).
 - Sync merges MCP servers into shared settings files by name, so servers you add by hand stay; a removed spec takes out only its own server (#1552).
 - Name model tiers once under `models:`: a spec's `model: strong` resolves per target, in `sync --global` too, `explain` shows each result, `lint` flags gaps, and `import claude` suggests tiers (#1495).
 - **Breaking:** rule `scope`, `globs`, and `paths` form a union; rule folders scope existing directories. Remove `scope` to keep only a filter (#1429, #1430).

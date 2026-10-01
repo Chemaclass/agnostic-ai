@@ -167,6 +167,19 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 			return fmt.Errorf("marshal %s key %s: %w", path, k, err)
 		}
 	}
+	released = append(released, s.dropStaleClaims(path, doc, func(keyPath []string) bool {
+		value, set := keys[keyPath[0]]
+		if !set {
+			return false
+		}
+		unwrapped, _, _, _ := mergeClaim(value)
+		incoming, isObject := unwrapped.(map[string]any)
+		if !nested[keyPath[0]] || !isObject || len(keyPath) == 1 {
+			return true
+		}
+		_, child := incoming[keyPath[1]]
+		return child
+	})...)
 	raw, err := MarshalJSONIndent(doc)
 	if err != nil {
 		return fmt.Errorf("marshal %s: %w", path, err)
