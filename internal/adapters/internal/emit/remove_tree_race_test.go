@@ -1,9 +1,10 @@
 package emit
 
 import (
+	"os"
 	"path/filepath"
-	"strconv"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -16,15 +17,17 @@ import (
 func TestRemoveGeneratedTreeExt_DoesNotRaceAConcurrentWriter(t *testing.T) {
 	testutil.TempCwd(t)
 	shared := filepath.Join(".agents", "agents")
-	const rounds = 300
+	path := filepath.Join(shared, "agent-1", "agent.md")
+	const rounds = 2000
 
+	var done atomic.Bool
 	var wg sync.WaitGroup
 	errs := make(chan error, 2*rounds)
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
 		sweeper := NewSession()
-		for i := 0; i < rounds; i++ {
+		for !done.Load() {
 			if err := sweeper.RemoveGeneratedTreeExt(shared, ".toml", false); err != nil {
 				errs <- err
 			}
@@ -32,12 +35,14 @@ func TestRemoveGeneratedTreeExt_DoesNotRaceAConcurrentWriter(t *testing.T) {
 	}()
 	go func() {
 		defer wg.Done()
-		writer := NewSession()
+		defer done.Store(true)
 		for i := 0; i < rounds; i++ {
-			path := filepath.Join(shared, "agent-"+strconv.Itoa(i), "agent.md")
-			if err := writer.WriteFile(path, "x\n", false); err != nil {
+			// A fresh session each round, as each sync is, so the write
+			// is a create into a directory that may have to be made.
+			if err := NewSession().WriteFile(path, "x\n", false); err != nil {
 				errs <- err
 			}
+			_ = os.Remove(path)
 		}
 	}()
 	wg.Wait()
