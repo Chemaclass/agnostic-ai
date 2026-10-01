@@ -107,6 +107,76 @@ func sameJSONValue(raw json.RawMessage, value any) bool {
 	return err == nil && jsonValueSum(raw) == jsonValueSum(encoded)
 }
 
+// DropRetiredMergedParents removes unchanged retired parents before current values merge into them.
+func (s *Session) DropRetiredMergedParents(path string, doc *OrderedJSON, claimed []MergedKey, produced [][]string) [][]string {
+	var released [][]string
+	priorKeys := priorMergedKeys(path)
+	for _, prior := range priorKeys {
+		if len(prior.Path) == 0 || prior.Items != nil {
+			continue
+		}
+		if slices.ContainsFunc(claimed, func(k MergedKey) bool { return isPathPrefix(k.Path, prior.Path) }) {
+			continue
+		}
+		if !slices.ContainsFunc(produced, func(p []string) bool { return isPathPrefix(prior.Path, p) }) {
+			continue
+		}
+		released = append(released, prior.Path)
+		if raw, found := jsonValueAt(doc, prior.Path); found && unchangedSince(priorKeys, prior.Path, raw) {
+			editJSONPath(doc, prior.Path, func(json.RawMessage) (any, bool, bool) { return nil, false, true })
+		}
+	}
+	return released
+}
+
+// DropStaleMergedKeys releases retired claims while preserving produced values and user edits.
+func (s *Session) DropStaleMergedKeys(path string, doc *OrderedJSON, claimed []MergedKey, released, produced [][]string) [][]string {
+	settled := func(keyPath []string) bool {
+		return slices.ContainsFunc(claimed, func(k MergedKey) bool { return slices.Equal(k.Path, keyPath) }) ||
+			slices.ContainsFunc(released, func(p []string) bool { return isPathPrefix(p, keyPath) })
+	}
+	overlapsClaim := func(keyPath []string) bool {
+		return slices.ContainsFunc(claimed, func(k MergedKey) bool {
+			return isPathPrefix(keyPath, k.Path) || isPathPrefix(k.Path, keyPath)
+		}) || slices.ContainsFunc(produced, func(p []string) bool {
+			return isPathPrefix(keyPath, p) || isPathPrefix(p, keyPath)
+		})
+	}
+	return s.dropStaleClaims(path, doc, settled, overlapsClaim)
+}
+
+// dropStaleClaims takes out each prior claim settled does not cover. A
+// stale claim that overlaps one this write makes, an object holding a
+// claimed value or a value inside a claimed object, only loses its
+// claim: deleting it would take the current value with it.
+func (s *Session) dropStaleClaims(path string, doc *OrderedJSON, settled, overlapsClaim func([]string) bool) [][]string {
+	var dropped [][]string
+	for _, claim := range priorMergedKeys(path) {
+		if len(claim.Path) == 0 || settled(claim.Path) {
+			continue
+		}
+		dropped = append(dropped, claim.Path)
+		if overlapsClaim != nil && overlapsClaim(claim.Path) {
+			continue
+		}
+		raw, found := jsonValueAt(doc, claim.Path)
+		switch {
+		case !found:
+		case claim.Items != nil:
+			editJSONPath(doc, claim.Path, func(raw json.RawMessage) (any, bool, bool) {
+				return withoutItems(raw, claim.Items)
+			})
+		case claim.Sum != "" && jsonValueSum(raw) == claim.Sum:
+			editJSONPath(doc, claim.Path, func(json.RawMessage) (any, bool, bool) { return nil, false, true })
+		}
+	}
+	return dropped
+}
+
+func isPathPrefix(prefix, path []string) bool {
+	return len(prefix) <= len(path) && slices.Equal(prefix, path[:len(prefix)])
+}
+
 // PriorClaimedItems returns the sums of the list entries the last sync
 // claimed at keyPath in the merged file at path.
 func PriorClaimedItems(path string, keyPath []string) []string {

@@ -265,7 +265,8 @@ func emitSettings(sess *emit.Session, b spec.Bundle, hooks []spec.Entry, path st
 	if _, writing := keys["hooks"]; !writing {
 		existing := sess.ExistingJSONObject(path, "hooks", dryRun)
 		if kept, stale := withoutProtectHook(existing); stale {
-			keys["hooks"] = emit.CleanedJSONValue(existing, kept)
+			// No hook spec is left, so hooks sync wrote are retired too.
+			keys["hooks"] = emit.RetiredJSONValue(existing, kept)
 			if len(kept) == 0 {
 				keys["hooks"] = emit.RemoveJSONKey
 			}
