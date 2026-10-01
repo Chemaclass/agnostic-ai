@@ -83,13 +83,15 @@ func (p mcpRejections) removeOwned(doc *emit.OrderedJSON) error {
 	return doc.Set(rejectionKey, names)
 }
 
-func (p mcpRejections) apply(sess *emit.Session, doc *emit.OrderedJSON, dryRun bool) error {
+// apply adds the disabled servers to the rejection list and records the
+// ones sync added, which it returns.
+func (p mcpRejections) apply(sess *emit.Session, doc *emit.OrderedJSON, dryRun bool) ([]string, error) {
 	if !p.active {
-		return nil
+		return nil, nil
 	}
 	names, err := rejectionNames(doc)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	owned := []string{}
 	for _, name := range p.disabled {
@@ -100,12 +102,12 @@ func (p mcpRejections) apply(sess *emit.Session, doc *emit.OrderedJSON, dryRun b
 	}
 	if len(names) > 0 {
 		if err := doc.Set(rejectionKey, names); err != nil {
-			return fmt.Errorf("claude settings: rejection list: %w", err)
+			return nil, fmt.Errorf("claude settings: rejection list: %w", err)
 		}
 	}
 	raw, err := json.MarshalIndent(owned, "", "  ")
 	if err != nil {
-		return fmt.Errorf("%s: %w", p.path, err)
+		return nil, fmt.Errorf("%s: %w", p.path, err)
 	}
-	return sess.WriteFile(p.path, string(raw)+"\n", dryRun)
+	return owned, sess.WriteFile(p.path, string(raw)+"\n", dryRun)
 }

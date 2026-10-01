@@ -408,7 +408,8 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 	if err := owned.Record(sess, docPermissions(doc), keep, generated, dryRun); err != nil {
 		return err
 	}
-	if err := policy.apply(sess, doc, dryRun); err != nil {
+	rejected, err := policy.apply(sess, doc, dryRun)
+	if err != nil {
 		return err
 	}
 	indent := detectSettingsIndent(path)
@@ -430,6 +431,13 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 		} else {
 			released = append(released, []string{"permissions", list})
 		}
+	}
+	// Like the rule lists, the rejection list holds the user's entries
+	// too, and its record decides which ones are sync's.
+	if len(rejected) > 0 {
+		claimed = append(claimed, emit.MergedKey{Path: []string{rejectionKey}, Items: rejected})
+	} else {
+		released = append(released, []string{rejectionKey})
 	}
 	for _, layer := range generated {
 		for k, v := range layer {
