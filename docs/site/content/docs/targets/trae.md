@@ -43,7 +43,7 @@ ByteDance [Trae](https://docs.trae.ai/ide/rules) reads rules from `.trae/rules/`
   - Stdio entries carry `command` (required) plus optional `args` and `env`. HTTP entries carry `url` (required) plus optional `headers`. No `type` is written: Trae infers it from `command` or `url`.
   - Trae has no per-server `disabled` key, only a project-level toggle under Settings > MCP, so `disabled: true` is stripped with a coverage note.
   - A stdio `command` must not contain spaces, or Trae fails to parse it.
-- **Hooks**: written to `.trae/hooks.json`, the project tier of Trae's [hook configuration](https://docs.trae.ai/ide/hook-configuration-reference).
+- **Hooks**: written to `.trae/hooks.json`, the project tier of Trae's [hook configuration](https://docs.trae.ai/ide/hook-configuration-reference). [`agnostic-ai hook run`](@/docs/spec-format/hooks.md#hook-run) runs these hooks with Trae's payload, shell, and timeout before a session does.
   - The file wraps a `hooks` map in a `version` field (always 1). Each event holds `{matcher, hooks: [{type, command, timeout}]}` groups, the same shape as Claude Code, Codex, OpenHands, and Qoder, so one hook spec feeds all five.
   - Six [events](https://docs.trae.ai/ide/automate-actions-with-hooks): `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`, `Notification`. Per entry: `type` (only `command`), `command`, and `timeout` (seconds, default 30).
   - A spec's `loop_limit` also emits. It caps how often a `Stop` hook may block the agent. Leave it unset for the default of 5.

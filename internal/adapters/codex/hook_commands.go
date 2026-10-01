@@ -9,6 +9,8 @@ import (
 type HookCommand struct {
 	Command        string
 	CommandWindows string
+	// Timeout is the spec's timeout in seconds, zero when it sets none.
+	Timeout int
 }
 
 // HookCommands returns the command handlers sync writes for h, one per
@@ -21,7 +23,7 @@ func HookCommands(h spec.Entry) []HookCommand {
 	var out []HookCommand
 	for _, raw := range hookCommands(h.Meta["command"]) {
 		cmd := specCommand(h, raw)
-		c := HookCommand{Command: emit.ExportHookTarget(cmd, target), CommandWindows: windows}
+		c := HookCommand{Command: emit.ExportHookTarget(cmd, target), CommandWindows: windows, Timeout: hookIntMeta(h.Meta, "timeout")}
 		if c.CommandWindows == "" {
 			c.CommandWindows = cmd
 		}

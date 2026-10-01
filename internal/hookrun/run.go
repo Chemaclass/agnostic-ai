@@ -11,12 +11,24 @@ import (
 	"time"
 )
 
-// DefaultTimeout is how long target waits for a command hook that sets
-// no timeout: 600 seconds on Claude Code and Codex, 60 on Gemini CLI
-// (gemini-cli c6bccb7 hookRunner.ts DEFAULT_HOOK_TIMEOUT).
-func DefaultTimeout(target string) time.Duration {
-	if target == "gemini" {
+// DefaultTimeout is how long target waits for a command hook on event
+// that sets no timeout: 600 seconds on Codex, 60 on Gemini CLI
+// (gemini-cli c6bccb7 hookRunner.ts DEFAULT_HOOK_TIMEOUT), and on Claude
+// Code 600, lowered to 30 on UserPromptSubmit, PreModelSwitch, and
+// PostModelSwitch and to 10 on MessageDisplay (code.claude.com/docs/en/hooks).
+func DefaultTimeout(target, event string) time.Duration {
+	if d, ok := otherDefaultTimeouts[target]; ok {
+		return d
+	}
+	switch {
+	case target == "gemini":
 		return 60 * time.Second
+	case target != "claude":
+		return 600 * time.Second
+	case event == "MessageDisplay":
+		return 10 * time.Second
+	case event == "UserPromptSubmit" || event == "PreModelSwitch" || event == "PostModelSwitch":
+		return 30 * time.Second
 	}
 	return 600 * time.Second
 }
@@ -32,15 +44,22 @@ type Handler struct {
 	CommandWindows string
 	// Env is what the handler's own env adds, as on Gemini CLI.
 	Env map[string]string
-	// Timeout is the handler's own timeout when the target writes one
-	// per handler, as Gemini CLI does in milliseconds.
+	// Timeout is the timeout sync writes on the handler; zero when it
+	// writes none and the target's default applies.
 	Timeout time.Duration
+	// If is Claude Code's `if` permission rule.
+	If string
+	// FailClosed is Goose's `on_failure: block`: a failed run blocks.
+	FailClosed bool
 }
 
 // Argv returns the process target starts for h on goos. Claude Code runs
 // shell-form hooks with bash (Git Bash on Windows). Codex runs command
 // through a POSIX shell, and commandWindows through PowerShell.
 func Argv(target, goos string, h Handler) []string {
+	if argv, ok := otherArgv(target, goos, h); ok {
+		return argv
+	}
 	switch {
 	case target == "gemini" && goos == "windows":
 		// shell-utils.ts falls back to Windows PowerShell, and
@@ -154,8 +173,19 @@ var contextEvents = []string{"SessionStart", "UserPromptSubmit"}
 // the model sees: plain stdout on a context event, or a JSON reply's
 // additionalContext.
 func AddsContext(target, event string, r Result) bool {
-	if target == "gemini" {
+	switch target {
+	case "gemini":
 		return geminiAddsContext(r)
+	case "goose", "augment":
+		return false
+	case "openhands":
+		var reply struct {
+			AdditionalContext string `json:"additionalContext"`
+		}
+		return !r.TimedOut && json.Unmarshal([]byte(strings.TrimSpace(r.Stdout)), &reply) == nil && reply.AdditionalContext != ""
+	case "trae":
+		reply, ok := readReply(r)
+		return ok && r.Exit == 0 && reply.HookSpecificOutput.AdditionalContext != ""
 	}
 	if r.TimedOut || r.StartErr != nil || r.Exit != 0 {
 		return false
@@ -172,6 +202,7 @@ type hookReply struct {
 	HookSpecificOutput struct {
 		PermissionDecision string `json:"permissionDecision"`
 		AdditionalContext  string `json:"additionalContext"`
+		Decision           string `json:"decision"`
 	} `json:"hookSpecificOutput"`
 }
 

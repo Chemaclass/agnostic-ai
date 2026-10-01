@@ -16,7 +16,9 @@ import (
 )
 
 // Targets lists the targets Build writes payloads for.
-func Targets() []string { return []string{"claude", "codex", "gemini"} }
+func Targets() []string {
+	return []string{"claude", "codex", "gemini", "trae", "openhands", "goose", "augment"}
+}
 
 // Supported reports whether Build writes payloads for target.
 func Supported(target string) bool { return slices.Contains(Targets(), target) }
@@ -71,21 +73,14 @@ func Build(target, event, matcher, root string, in Input) (Payload, error) {
 		return Payload{}, fmt.Errorf("hook run builds no %s payload", target)
 	}
 	if in.Raw != nil {
-		return Payload{Body: in.Raw, Fires: true, Trigger: "--payload"}, nil
+		return rawPayload(target, event, matcher, in.Raw)
+	}
+	if build, ok := otherBuilders[target]; ok {
+		return build(event, matcher, root, in)
 	}
 	v := vocabularies[target]
-	isTool := event == v.pre || event == v.post
-	switch {
-	case !isTool && event != "SessionStart" && event != v.prompt:
-		return Payload{}, fmt.Errorf("hook run builds no %s %s payload; pass --payload <file>", target, event)
-	case !isTool && (in.Edit != "" || in.Bash != ""):
-		return Payload{}, fmt.Errorf("--edit and --bash build tool events, not %s", event)
-	case in.Prompt != "" && event != v.prompt:
-		return Payload{}, fmt.Errorf("--prompt builds %s, not %s", v.prompt, event)
-	case isTool && in.Edit == "" && in.Bash == "":
-		return Payload{}, fmt.Errorf("%s needs --edit <path>, --bash <command>, or --payload <file>", event)
-	case in.Edit != "" && in.Bash != "":
-		return Payload{}, errors.New("--edit and --bash are mutually exclusive")
+	if err := checkInput(target, event, v.pre, v.post, v.prompt, in); err != nil {
+		return Payload{}, err
 	}
 	doc := map[string]any{
 		"session_id":      SessionID,
@@ -123,6 +118,56 @@ func Build(target, event, matcher, root string, in Input) (Payload, error) {
 	}
 	p.Body, err = json.Marshal(doc)
 	return p, err
+}
+
+func rawPayload(target, event, matcher string, body []byte) (Payload, error) {
+	p := Payload{Body: body, Fires: true, Trigger: "--payload"}
+	if target == "goose" {
+		var ctx struct {
+			MatcherContext string `json:"matcher_context"`
+		}
+		_ = json.Unmarshal(body, &ctx)
+		fires, err := gooseMatches(matcher, ctx.MatcherContext)
+		p.Fires, p.Trigger = fires, ctx.MatcherContext
+		if p.Trigger == "" {
+			p.Trigger = "session"
+		}
+		return p, err
+	}
+	if !slices.Contains(claudeIfEvents, event) && event != "BeforeTool" && event != "AfterTool" && event != "PreToolUseResult" {
+		return p, nil
+	}
+	p.Trigger = PayloadTool(body)
+	match := toolMatcher(target)
+	var err error
+	if target == "codex" && p.Trigger == "apply_patch" {
+		_, p.Fires, err = firstMatch(match, matcher, []string{"apply_patch", "Edit", "Write"})
+	} else {
+		p.Fires, err = match(matcher, p.Trigger)
+	}
+	return p, err
+}
+
+// checkInput rejects an input the event has no builder for. pre and post
+// are the target's tool events and prompt its prompt event, "" when it
+// has none.
+func checkInput(target, event, pre, post, prompt string, in Input) error {
+	isTool := event == pre || event == post
+	switch {
+	case !isTool && event != "SessionStart" && (prompt == "" || event != prompt):
+		return fmt.Errorf("hook run builds no %s %s payload; pass --payload <file>", target, event)
+	case !isTool && (in.Edit != "" || in.Bash != ""):
+		return fmt.Errorf("--edit and --bash build tool events, not %s", event)
+	case in.Prompt != "" && prompt == "":
+		return fmt.Errorf("%s has no prompt event; --prompt does not apply", target)
+	case in.Prompt != "" && event != prompt:
+		return fmt.Errorf("--prompt builds %s, not %s", prompt, event)
+	case isTool && in.Edit == "" && in.Bash == "":
+		return fmt.Errorf("%s needs --edit <path>, --bash <command>, or --payload <file>", event)
+	case in.Edit != "" && in.Bash != "":
+		return errors.New("--edit and --bash are mutually exclusive")
+	}
+	return nil
 }
 
 type matchFunc func(matcher, value string) (bool, error)
@@ -218,17 +263,19 @@ func firstMatch(match matchFunc, matcher string, candidates []string) (string, b
 	return candidates[0], false, nil
 }
 
-var exactMatcher = regexp.MustCompile(`^[A-Za-z0-9_|]+$`)
+var exactMatcher = regexp.MustCompile(`^[A-Za-z0-9_\-, |]+$`)
 
 // matches follows Claude Code's matcher rules, which Codex shares: empty
-// or `*` matches everything, letters, digits, `_`, and `|` list exact
-// names, and anything else is a regular expression.
+// or `*` matches everything; letters, digits, `_`, `-`, spaces, `,`, and
+// `|` list exact names separated by `|` or `,`; anything else is a
+// regular expression.
 func matches(matcher, value string) (bool, error) {
 	if matcher == "" || matcher == "*" {
 		return true, nil
 	}
 	if exactMatcher.MatchString(matcher) {
-		return slices.Contains(strings.Split(matcher, "|"), value), nil
+		names := strings.FieldsFunc(matcher, func(r rune) bool { return r == '|' || r == ',' })
+		return slices.ContainsFunc(names, func(n string) bool { return strings.TrimSpace(n) == value }), nil
 	}
 	re, err := regexp.Compile(matcher)
 	if err != nil {
@@ -238,8 +285,11 @@ func matches(matcher, value string) (bool, error) {
 }
 
 func toolMatcher(target string) matchFunc {
-	if target == "gemini" {
+	switch target {
+	case "gemini", "trae", "augment":
 		return geminiToolMatches
+	case "openhands":
+		return func(matcher, value string) (bool, error) { return openHandsMatches(matcher, value) }
 	}
 	return matches
 }

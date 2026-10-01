@@ -44,7 +44,7 @@ MCP servers merge into `.augment/settings.json` under `mcpServers`. Stdio uses `
 
 ### Hooks
 
-Hooks merge into the same `.augment/settings.json` under `hooks`, in the same write as `mcpServers`. Five events are supported: `PreToolUse`, `PostToolUse`, `Stop`, `SessionStart`, `SessionEnd` ([hooks docs](https://docs.augmentcode.com/cli/hooks)).
+Hooks merge into the same `.augment/settings.json` under `hooks`, in the same write as `mcpServers`. Five events are supported: `PreToolUse`, `PostToolUse`, `Stop`, `SessionStart`, `SessionEnd` ([hooks docs](https://docs.augmentcode.com/cli/hooks)). [`agnostic-ai hook run`](@/docs/spec-format/hooks.md#hook-run) runs these hooks with Auggie's payload, shell, and timeout before a session does.
 
 - `timeout` is written in **milliseconds**: the spec's seconds value times 1000 (vendor default 60000).
 - `command` must be a script path ending in `.sh`, `.ps1`, `.cmd`, or `.bat`. Augment never runs an inline shell string. A command without one of these extensions still emits verbatim, with a coverage note.
