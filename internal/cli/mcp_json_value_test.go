@@ -71,6 +71,19 @@ func TestSyncJSON_AFailedTargetKeepsItsEarlierOutputs(t *testing.T) {
 	}
 }
 
+// An x-amp value fails amp only: claude never reads it.
+func TestSync_AnotherTargetsBadMCPValueDoesNotFailThisTarget(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [amp, claude]\n")
+	mustWriteFile(t, nanMCPSpec, "name: gh\ncommand: npx\nx-amp:\n  timeout: .nan\n")
+
+	runSyncOK(t, "-t", "claude")
+
+	if _, err := runCLI(t, "sync", "-t", "amp"); err == nil {
+		t.Error("sync -t amp passed with its own .nan")
+	}
+}
+
 func TestValidate_ReportsAnMCPValueJSONCannotHold(t *testing.T) {
 	nanMCPProject(t)
 	out, err := runCLI(t, "validate")

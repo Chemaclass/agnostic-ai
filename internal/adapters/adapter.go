@@ -672,7 +672,7 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 		return err
 	}
 	if slices.Contains(a.Capabilities(), spec.KindMCP) {
-		if err := spec.CheckMCPJSONValues(prepared.MCPs); err != nil {
+		if err := spec.CheckMCPJSONValues(prepared.MCPs, a.Name()); err != nil {
 			return err
 		}
 	}

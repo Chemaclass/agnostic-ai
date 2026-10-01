@@ -5,6 +5,7 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"strings"
 )
 
 // NonJSONValue returns the dotted path of the first value in meta that
@@ -39,6 +40,12 @@ func nonJSONValue(prefix string, value any) (string, any, bool) {
 				return p, bad, true
 			}
 		}
+	case map[any]any:
+		named := make(map[string]any, len(v))
+		for key, item := range v {
+			named[fmt.Sprint(key)] = item
+		}
+		return nonJSONValue(prefix, named)
 	case []any:
 		for i, item := range v {
 			if p, bad, ok := nonJSONValue(prefix+"["+strconv.Itoa(i)+"]", item); ok {
@@ -50,13 +57,27 @@ func nonJSONValue(prefix string, value any) (string, any, bool) {
 }
 
 // CheckMCPJSONValues rejects an MCP spec holding a value JSON cannot
-// hold. Most targets write MCP servers as JSON, and a value that does
-// not encode would leave the server out or keep a stale copy.
-func CheckMCPJSONValues(mcps []Entry) error {
+// hold, as target reads it. Most targets write MCP servers as JSON, and
+// a value that does not encode would leave the server out or keep a
+// stale copy. Another target's `x-<target>` block is skipped, since it
+// never reaches this one.
+func CheckMCPJSONValues(mcps []Entry, target string) error {
 	for _, e := range mcps {
-		if field, value, ok := NonJSONValue(e.Meta); ok {
+		if field, value, ok := NonJSONValue(metaFor(e.Meta, target)); ok {
 			return fmt.Errorf("%s: MCP server %q: %s is %v, which JSON cannot hold", e.Path, e.Name, field, value)
 		}
 	}
 	return nil
+}
+
+// metaFor drops every x-<target> block but target's own.
+func metaFor(meta map[string]any, target string) map[string]any {
+	out := make(map[string]any, len(meta))
+	for key, value := range meta {
+		if strings.HasPrefix(key, "x-") && key != "x-"+target {
+			continue
+		}
+		out[key] = value
+	}
+	return out
 }
