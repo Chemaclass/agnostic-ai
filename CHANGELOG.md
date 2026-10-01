@@ -37,6 +37,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 #### Aider
 
 - Dropping aider or `conf-file` takes out only sync's keys and `read:` entry from `.aider.conf.yml` and keeps yours, in order, with comments (#1550).
+- A `rules-file` change takes the old path's `read:` entry sync added out of `.aider.conf.yml`; an entry you listed stays (#1562).
 
 #### Claude Code
 

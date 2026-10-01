@@ -248,3 +248,38 @@ func setLedgerVersion(t *testing.T, version int) {
 	doc["version"] = version
 	writeJSONFile(t, stateFilePath("."), doc)
 }
+
+// A rules-file change takes the entry sync added for the old path out
+// of read:, so dropping aider later leaves no stale entry (#1562). An
+// entry the user listed stays.
+func TestSync_AiderRulesFileChangeDropsTheOldReadEntry(t *testing.T) {
+	const conf = "version: 1\ntargets: [aider, cline]\noutputs:\n  aider:\n    conf-file: .aider.conf.yml\n    rules-file: %s\n"
+	for _, tc := range []struct {
+		name, seed string
+		afterMove  []any
+	}{
+		{"sync's entry", aiderUserConf, []any{"NOTES.md", "SECOND.md"}},
+		{"user's entry", "dark-mode: true\nread: [NOTES.md, FIRST.md]\n", []any{"NOTES.md", "FIRST.md", "SECOND.md"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			mustWriteFile(t, aiderConf, tc.seed)
+			mustWriteFile(t, ".agnostic-ai/rules/style.md", "---\nname: style\n---\nBe terse.\n")
+			mustWriteFile(t, "agnostic-ai.yaml", fmt.Sprintf(conf, "FIRST.md"))
+			runSyncOK(t)
+			mustWriteFile(t, "agnostic-ai.yaml", fmt.Sprintf(conf, "SECOND.md"))
+			runSyncOK(t)
+			if got := readYAMLMap(t, aiderConf)["read"]; !reflect.DeepEqual(got, tc.afterMove) {
+				t.Errorf("read = %#v, want %#v", got, tc.afterMove)
+			}
+			runSyncOK(t, "--check")
+			mustWriteFile(t, "agnostic-ai.yaml", withoutAiderCfg)
+			runSyncOK(t)
+			got := readYAMLMap(t, aiderConf)
+			want := map[string]any{"dark-mode": true, "read": tc.afterMove[:len(tc.afterMove)-1]}
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("%s = %#v, want %#v", aiderConf, got, want)
+			}
+		})
+	}
+}

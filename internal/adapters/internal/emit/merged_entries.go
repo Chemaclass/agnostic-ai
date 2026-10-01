@@ -104,3 +104,10 @@ func sameJSONValue(raw json.RawMessage, value any) bool {
 	encoded, err := json.Marshal(value)
 	return err == nil && jsonValueSum(raw) == jsonValueSum(encoded)
 }
+
+// PriorClaimedItems returns the sums of the list entries the last sync
+// claimed at keyPath in the merged file at path.
+func PriorClaimedItems(path string, keyPath []string) []string {
+	claim, _ := priorClaim(priorMergedKeys(path), keyPath)
+	return claim.Items
+}
