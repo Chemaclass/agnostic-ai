@@ -174,7 +174,7 @@ func TestDecide_ReadsExitCodesAndJSONReplies(t *testing.T) {
 		{"start failure", "PreToolUse", Result{StartErr: os.ErrNotExist}, Error},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := Decide(tc.event, tc.r); got != tc.want {
+			if got := Decide("claude", tc.event, tc.r); got != tc.want {
 				t.Errorf("Decide = %s, want %s", got, tc.want)
 			}
 		})
@@ -195,7 +195,7 @@ func TestAddsContext_PlainStdoutOnContextEventsAndJSONAdditionalContext(t *testi
 		{"failed hook", "SessionStart", Result{Exit: 1, Stdout: "x"}, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := AddsContext(tc.event, tc.r); got != tc.want {
+			if got := AddsContext("claude", tc.event, tc.r); got != tc.want {
 				t.Errorf("AddsContext = %v, want %v", got, tc.want)
 			}
 		})

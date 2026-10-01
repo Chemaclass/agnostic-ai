@@ -12,10 +12,11 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 )
 
 // Targets lists the targets Build writes payloads for.
-func Targets() []string { return []string{"claude", "codex"} }
+func Targets() []string { return []string{"claude", "codex", "gemini"} }
 
 // Supported reports whether Build writes payloads for target.
 func Supported(target string) bool { return slices.Contains(Targets(), target) }
@@ -38,21 +39,33 @@ type Payload struct {
 	Trigger string
 }
 
+// SessionID is the session_id every payload carries.
+const SessionID = "agnostic-ai-hook-run"
+
 const (
-	sessionID = "agnostic-ai-hook-run"
 	toolUseID = "hook-run-tool-use"
 	turnID    = "hook-run-turn"
 )
 
-var toolEvents = []string{"PreToolUse", "PostToolUse"}
+// vocabulary is what one target calls the events Build writes, and the
+// SessionStart sources it documents, in the order a matcher is tried.
+type vocabulary struct {
+	pre, post, prompt string
+	sources           []string
+}
 
-// sessionSources are the SessionStart sources Claude Code and Codex
-// both document, in the order a matcher is tried against them.
-var sessionSources = []string{"startup", "resume", "clear", "compact"}
+var vocabularies = map[string]vocabulary{
+	"claude": {"PreToolUse", "PostToolUse", "UserPromptSubmit", []string{"startup", "resume", "clear", "compact"}},
+	"codex":  {"PreToolUse", "PostToolUse", "UserPromptSubmit", []string{"startup", "resume", "clear", "compact"}},
+	// gemini-cli c6bccb7 packages/core/src/hooks/types.ts SessionStartSource.
+	"gemini": {"BeforeTool", "AfterTool", "BeforeAgent", []string{"startup", "resume", "clear"}},
+}
 
-// Build writes target's payload for event. Both Claude Code
-// (code.claude.com/docs/en/hooks) and Codex (learn.chatgpt.com/docs/hooks)
-// document the fields; tool_response carries placeholder values.
+// Build writes target's payload for event, from the fields each vendor
+// documents: Claude Code (code.claude.com/docs/en/hooks), Codex
+// (learn.chatgpt.com/docs/hooks), and Gemini CLI (gemini-cli c6bccb7,
+// packages/core/src/hooks/hookEventHandler.ts). tool_response carries
+// placeholder values.
 func Build(target, event, matcher, root string, in Input) (Payload, error) {
 	if !Supported(target) {
 		return Payload{}, fmt.Errorf("hook run builds no %s payload", target)
@@ -60,42 +73,47 @@ func Build(target, event, matcher, root string, in Input) (Payload, error) {
 	if in.Raw != nil {
 		return Payload{Body: in.Raw, Fires: true, Trigger: "--payload"}, nil
 	}
-	isTool := slices.Contains(toolEvents, event)
+	v := vocabularies[target]
+	isTool := event == v.pre || event == v.post
 	switch {
-	case !isTool && event != "SessionStart" && event != "UserPromptSubmit":
-		return Payload{}, fmt.Errorf("hook run builds no %s payload; pass --payload <file>", event)
+	case !isTool && event != "SessionStart" && event != v.prompt:
+		return Payload{}, fmt.Errorf("hook run builds no %s %s payload; pass --payload <file>", target, event)
 	case !isTool && (in.Edit != "" || in.Bash != ""):
 		return Payload{}, fmt.Errorf("--edit and --bash build tool events, not %s", event)
-	case in.Prompt != "" && event != "UserPromptSubmit":
-		return Payload{}, fmt.Errorf("--prompt builds UserPromptSubmit, not %s", event)
+	case in.Prompt != "" && event != v.prompt:
+		return Payload{}, fmt.Errorf("--prompt builds %s, not %s", v.prompt, event)
 	case isTool && in.Edit == "" && in.Bash == "":
 		return Payload{}, fmt.Errorf("%s needs --edit <path>, --bash <command>, or --payload <file>", event)
 	case in.Edit != "" && in.Bash != "":
 		return Payload{}, errors.New("--edit and --bash are mutually exclusive")
 	}
 	doc := map[string]any{
-		"session_id":      sessionID,
+		"session_id":      SessionID,
 		"cwd":             root,
 		"hook_event_name": event,
 	}
-	if target == "claude" {
+	switch target {
+	case "claude":
 		doc["transcript_path"] = ""
 		doc["permission_mode"] = "default"
-	} else {
+	case "codex":
 		doc["transcript_path"] = nil
 		doc["model"] = ""
+	case "gemini":
+		doc["transcript_path"] = ""
+		doc["timestamp"] = time.Now().UTC().Format(time.RFC3339Nano)
 	}
 	p := Payload{Fires: true}
 	var err error
 	switch event {
 	case "SessionStart":
-		p.Trigger, p.Fires, err = firstMatch(matcher, sessionSources)
+		p.Trigger, p.Fires, err = firstMatch(sourceMatcher(target), matcher, v.sources)
 		doc["source"] = p.Trigger
-	case "UserPromptSubmit":
+	case v.prompt:
 		p.Trigger = "prompt"
 		doc["prompt"] = in.Prompt
 	default:
-		err = toolCall(doc, &p, target, event, matcher, root, in)
+		err = toolCall(doc, &p, target, event == v.post, matcher, root, in)
 	}
 	if err != nil {
 		return Payload{}, err
@@ -107,23 +125,29 @@ func Build(target, event, matcher, root string, in Input) (Payload, error) {
 	return p, err
 }
 
-func toolCall(doc map[string]any, p *Payload, target, event, matcher, root string, in Input) error {
+type matchFunc func(matcher, value string) (bool, error)
+
+func toolCall(doc map[string]any, p *Payload, target string, post bool, matcher, root string, in Input) error {
+	match := toolMatcher(target)
+	file := in.Edit
+	if !filepath.IsAbs(file) {
+		file = filepath.Join(root, file)
+	}
 	var input, response map[string]any
 	var err error
 	switch {
+	case in.Bash != "" && target == "gemini":
+		p.Trigger = "run_shell_command"
+		p.Fires, err = match(matcher, p.Trigger)
+		input = map[string]any{"command": in.Bash}
+		response = map[string]any{"llmContent": "", "returnDisplay": ""}
 	case in.Bash != "":
 		p.Trigger = "Bash"
-		p.Fires, err = matches(matcher, "Bash")
+		p.Fires, err = match(matcher, "Bash")
 		input = map[string]any{"command": in.Bash}
 		response = map[string]any{"stdout": "", "stderr": "", "interrupted": false}
 	case target == "claude":
-		file := in.Edit
-		if !filepath.IsAbs(file) {
-			file = filepath.Join(root, file)
-		}
-		var fires bool
-		p.Trigger, fires, err = firstMatch(matcher, []string{"Write", "Edit", "MultiEdit"})
-		p.Fires = fires
+		p.Trigger, p.Fires, err = firstMatch(match, matcher, []string{"Write", "Edit", "MultiEdit"})
 		input = map[string]any{"file_path": file}
 		switch p.Trigger {
 		case "Write":
@@ -134,11 +158,21 @@ func toolCall(doc map[string]any, p *Payload, target, event, matcher, root strin
 			input["edits"] = []any{}
 		}
 		response = map[string]any{"filePath": file, "success": true}
+	case target == "gemini":
+		// EDIT_TOOL_NAMES in packages/core/src/tools/tool-names.ts.
+		p.Trigger, p.Fires, err = firstMatch(match, matcher, []string{"write_file", "replace"})
+		input = map[string]any{"file_path": file}
+		if p.Trigger == "write_file" {
+			input["content"] = ""
+		} else {
+			input["old_string"], input["new_string"] = "", ""
+		}
+		response = map[string]any{"llmContent": "", "returnDisplay": ""}
 	default:
 		// Codex reports every edit as apply_patch and takes Edit and
 		// Write as matcher aliases for it.
 		p.Trigger = "apply_patch"
-		_, p.Fires, err = firstMatch(matcher, []string{"apply_patch", "Edit", "Write"})
+		_, p.Fires, err = firstMatch(match, matcher, []string{"apply_patch", "Edit", "Write"})
 		input = map[string]any{"command": patch(root, in.Edit)}
 		response = map[string]any{}
 	}
@@ -147,8 +181,10 @@ func toolCall(doc map[string]any, p *Payload, target, event, matcher, root strin
 	}
 	doc["tool_name"] = p.Trigger
 	doc["tool_input"] = input
-	doc["tool_use_id"] = toolUseID
-	if event == "PostToolUse" {
+	if target != "gemini" {
+		doc["tool_use_id"] = toolUseID
+	}
+	if post {
 		doc["tool_response"] = response
 	}
 	return nil
@@ -172,9 +208,9 @@ func patch(root, path string) string {
 
 // firstMatch returns the first candidate matcher matches, or the first
 // candidate and false when it matches none.
-func firstMatch(matcher string, candidates []string) (string, bool, error) {
+func firstMatch(match matchFunc, matcher string, candidates []string) (string, bool, error) {
 	for _, c := range candidates {
-		ok, err := matches(matcher, c)
+		ok, err := match(matcher, c)
 		if err != nil || ok {
 			return c, ok, err
 		}
@@ -199,4 +235,39 @@ func matches(matcher, value string) (bool, error) {
 		return false, errors.Join(fmt.Errorf("matcher %q", matcher), err)
 	}
 	return re.MatchString(value), nil
+}
+
+func toolMatcher(target string) matchFunc {
+	if target == "gemini" {
+		return geminiToolMatches
+	}
+	return matches
+}
+
+func sourceMatcher(target string) matchFunc {
+	if target == "gemini" {
+		return geminiSourceMatches
+	}
+	return matches
+}
+
+// geminiToolMatches follows gemini-cli c6bccb7 hookPlanner.ts: the
+// trimmed matcher is an unanchored regular expression, and one that does
+// not compile is compared as a literal name.
+func geminiToolMatches(matcher, value string) (bool, error) {
+	matcher = strings.TrimSpace(matcher)
+	if matcher == "" || matcher == "*" {
+		return true, nil
+	}
+	re, err := regexp.Compile(matcher)
+	if err != nil {
+		return matcher == value, nil
+	}
+	return re.MatchString(value), nil
+}
+
+// geminiSourceMatches compares a lifecycle source exactly.
+func geminiSourceMatches(matcher, value string) (bool, error) {
+	matcher = strings.TrimSpace(matcher)
+	return matcher == "" || matcher == "*" || matcher == value, nil
 }
