@@ -88,7 +88,7 @@ It exits 1 when a command times out or errors (such as a missing script), when t
 
 ## install-hook
 
-Install a pre-commit hook that runs `sync --check`, or, with `--post-checkout`, hooks that regenerate tool files after a checkout or a pull that merges. See [git hooks](@/docs/git-hooks.md).
+Install a pre-commit hook that runs `sync --check --against index`, so a commit that leaves regenerated files unstaged fails, or, with `--post-checkout`, hooks that regenerate tool files after a checkout or a pull that merges. See [git hooks](@/docs/git-hooks.md).
 
 ```bash
 agnostic-ai install-hook            # writes .git/hooks/pre-commit (local)
