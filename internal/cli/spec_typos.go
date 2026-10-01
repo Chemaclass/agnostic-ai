@@ -10,14 +10,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/suggest"
 )
 
-// specTypos reports each hook event and agent skill name that is a likely
-// typo of a known one. A name close to no known one may still be valid,
-// such as a newer vendor event or a user's own skill, so only validate
-// reports it.
-func specTypos(b spec.Bundle, targets []string) []validationIssue {
-	return append(hookEventTypos(b, targets), agentSkillTypos(b)...)
-}
-
 // hookEventTypos compares with the events every target reads, not only
 // the enabled ones: hooks carry each tool's own names, so another tool's
 // event is not a typo.
@@ -36,9 +28,16 @@ func hookEventTypos(b spec.Bundle, targets []string) []validationIssue {
 			}
 		}
 		events := slices.Sorted(maps.Values(byFold))
+		// Some tools take any case or snake_case, as OpenHands'
+		// session_start for SessionStart, so a spelling that only
+		// differs that way is known.
+		loose := map[string]bool{}
+		for ev := range known {
+			loose[looseEvent(ev)] = true
+		}
 		for _, e := range b.Hooks {
 			event, _ := e.Meta["event"].(string)
-			if _, ok := known[event]; event == "" || ok {
+			if event == "" || loose[looseEvent(event)] {
 				continue
 			}
 			if _, _, alias := hookEventAlias(targets, event); alias {
@@ -61,7 +60,8 @@ func agentSkillTypos(b spec.Bundle) []validationIssue {
 	}
 	for _, a := range b.Agents {
 		for _, name := range agentSkills(a.Meta["skills"]) {
-			if slices.Contains(skills, name) {
+			// plugin:skill names a plugin's skill, never a project one.
+			if slices.Contains(skills, name) || strings.Contains(name, ":") {
 				continue
 			}
 			if s := suggest.Name(name, skills); s != "" {
@@ -73,10 +73,26 @@ func agentSkillTypos(b spec.Bundle) []validationIssue {
 	return out
 }
 
-// specTyposError stops a sync on the typos specTypos finds, before it
-// writes them into every tool's files.
-func specTyposError(b spec.Bundle, targets []string) error {
-	issues := specTypos(b, targets)
+// stopOnSpecTypos stops a sync on a hook event typo before it is written
+// into every tool's files. An agent skill typo only warns, since the
+// name may be a user or plugin skill sync cannot see; validate fails on
+// it. Pack specs are not the user's to edit, so validate reports them.
+func stopOnSpecTypos(b spec.Bundle, targets []string) error {
+	own := spec.Bundle{Skills: b.Skills}
+	for _, e := range b.Hooks {
+		if !strings.HasPrefix(e.Layer, "pack:") {
+			own.Hooks = append(own.Hooks, e)
+		}
+	}
+	for _, e := range b.Agents {
+		if !strings.HasPrefix(e.Layer, "pack:") {
+			own.Agents = append(own.Agents, e)
+		}
+	}
+	for _, is := range agentSkillTypos(own) {
+		summaryf("%s %s: %s\n", bang(), is.Path, is.Message)
+	}
+	issues := hookEventTypos(own, targets)
 	if len(issues) == 0 {
 		return nil
 	}
@@ -85,6 +101,12 @@ func specTyposError(b spec.Bundle, targets []string) error {
 		lines[i] = is.Path + ": " + is.Message
 	}
 	return fmt.Errorf("%s", strings.Join(lines, "\n"))
+}
+
+// looseEvent folds case and underscores, so session_start and
+// SessionStart compare equal.
+func looseEvent(event string) string {
+	return strings.ToLower(strings.ReplaceAll(event, "_", ""))
 }
 
 // agentSkills reads an agent's skills field: a list, or one

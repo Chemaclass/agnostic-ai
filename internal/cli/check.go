@@ -162,7 +162,7 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 	if entryPointTargets == nil {
 		entryPointTargets = targets
 	}
-	if err := specTyposError(b, append(slices.Clone(cfg.Targets), targets...)); err != nil {
+	if err := stopOnSpecTypos(b, append(slices.Clone(cfg.Targets), targets...)); err != nil {
 		return nil, err
 	}
 	readerCfg := cfg.WithAdditionalTargets(append(append([]string{}, targets...), entryPointTargets...)...)

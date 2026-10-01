@@ -432,7 +432,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if len(effectiveTargets) == 0 {
 		effectiveTargets = cfg.Targets
 	}
-	if err := specTyposError(b, append(slices.Clone(cfg.Targets), effectiveTargets...)); err != nil {
+	if err := stopOnSpecTypos(b, append(slices.Clone(cfg.Targets), effectiveTargets...)); err != nil {
 		return err
 	}
 	if err := detectCollisions(cfg, b, effectiveTargets); err != nil {
@@ -876,7 +876,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	if len(effectiveTargets) == 0 {
 		effectiveTargets = cfg.Targets
 	}
-	if err := specTyposError(b, append(slices.Clone(cfg.Targets), effectiveTargets...)); err != nil {
+	if err := stopOnSpecTypos(b, append(slices.Clone(cfg.Targets), effectiveTargets...)); err != nil {
 		return err
 	}
 	if err := detectCollisions(cfg, b, effectiveTargets); err != nil {

@@ -8,7 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
-- `sync` and `sync --check` stop on a likely typo in a hook event or an agent's `skills:` name before writing it into every tool (#1591).
+- `sync` and `sync --check` stop on a likely hook event typo before writing it into every tool, and warn on an agent `skills:` typo (#1591).
 - **Breaking:** an unknown config key, a misspelled target, or a bad `on-unsupported` value fails before sync writes anything, not silently (#1589).
 - Release binaries build with Go 1.27.1, so on macOS they need macOS 13 Ventura or later. On macOS 12, `go install` with Go 1.26 still works.
 - A global name clash says whether the two copies differ, who it affects, and how to fix it.
