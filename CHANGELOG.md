@@ -16,6 +16,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### By tool
 
+#### Aider
+
+- A `rules-file` change takes the old path's `read:` entry sync added out of `.aider.conf.yml`; an entry you listed stays (#1562).
+
 #### Claude Code
 
 - An environment spec's `setup` runs once in each new Claude Code worktree, unless `x-claude.setup: false`. Delete a hand-written bootstrap hook (#1521).

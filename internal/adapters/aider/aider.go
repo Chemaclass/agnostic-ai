@@ -99,15 +99,30 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 //
 // The write records what sync set, so dropping aider or conf-file takes
 // out only that and keeps the user's keys (#1550). In `read:` it claims
-// only the entry it adds: one the user listed first stays theirs.
+// only the entry it adds: one the user listed first stays theirs. An
+// entry it added for an earlier rules path goes (#1562).
 func emitConf(sess *emit.Session, confPath, readEntry, model, weakModel string, dryRun bool) error {
 	if confPath == "" {
 		return nil
 	}
 	doc := readExistingYAML(confPath, dryRun)
 	var claimed []emit.MergedKey
-	if readEntry != "" && !slices.Contains(toStringList(doc["read"]), readEntry) {
+	var released [][]string
+	prior := emit.PriorClaimedItems(confPath, []string{"read"})
+	addedBySync := func(entry string) bool { return slices.Contains(prior, emit.ContentSum(entry)) }
+	list := toStringList(doc["read"])
+	if kept := slices.DeleteFunc(slices.Clone(list), func(entry string) bool { return entry != readEntry && addedBySync(entry) }); len(kept) < len(list) {
+		list = kept
+		doc["read"] = kept
+		if len(kept) == 0 {
+			delete(doc, "read")
+		}
+	}
+	switch {
+	case readEntry != "" && (!slices.Contains(list, readEntry) || addedBySync(readEntry)):
 		claimed = append(claimed, emit.MergedKey{Path: []string{"read"}, Items: []string{readEntry}})
+	case len(prior) > 0:
+		released = append(released, []string{"read"})
 	}
 	mergeReadEntry(doc, readEntry)
 	for _, kv := range [][2]string{{"model", model}, {"weak-model", weakModel}} {
@@ -120,7 +135,7 @@ func emitConf(sess *emit.Session, confPath, readEntry, model, weakModel string, 
 	if err != nil {
 		return fmt.Errorf("marshal %s: %w", confPath, err)
 	}
-	return sess.WriteMergedYAML(confPath, emit.HeaderBlock(emit.FormatYAML)+string(raw), claimed, nil, dryRun)
+	return sess.WriteMergedYAML(confPath, emit.HeaderBlock(emit.FormatYAML)+string(raw), claimed, released, dryRun)
 }
 
 // readExistingYAML loads the user's aider config so emitConf overwrites
