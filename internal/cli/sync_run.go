@@ -263,8 +263,8 @@ func provenanceBatches(cfg *config.Config, targets []string) []provenanceBatch {
 // (unknown target) stay non-fatal and ride along in the result. Without
 // it, every target runs to completion and all errors ride along in the
 // results — the JSON path, which reports per-target errors rather than
-// aborting the whole sync. A non-nil keep turns on KeepEditsSince.
-func emitTargetsConcurrent(targets []string, b spec.Bundle, cfg *config.Config, dryRun, backup, gitignoreOn, failFast bool, jobs int, keep map[string]string) ([]targetEmit, []*adapters.Session, error) {
+// aborting the whole sync. edits sets how each session treats a hand edit.
+func emitTargetsConcurrent(targets []string, b spec.Bundle, cfg *config.Config, dryRun, backup, gitignoreOn, failFast bool, jobs int, edits editGuard) ([]targetEmit, []*adapters.Session, error) {
 	cfg = cfg.WithAdditionalTargets(targets...)
 	results := make([]targetEmit, len(targets))
 	sessions := make([]*adapters.Session, len(targets))
@@ -294,9 +294,7 @@ func emitTargetsConcurrent(targets []string, b spec.Bundle, cfg *config.Config, 
 				if backup {
 					sess.SetBackup(true)
 				}
-				if keep != nil {
-					keepEditsIn(sess, keep)
-				}
+				edits.apply(sess)
 				if !dryRun {
 					sess.StartTransaction()
 				}
@@ -466,7 +464,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		return err
 	}
 	prev := readStateFile(root)
-	keep := keepSums(keepEdits, prev)
+	edits := editGuardFor(keepEdits, prev)
 
 	// mainSess drives the serial post-emission writes (entry points,
 	// shared-skill links, orphan sweep). Each concurrent target owns its
@@ -477,9 +475,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if backup {
 		mainSess.SetBackup(true)
 	}
-	if keep != nil {
-		keepEditsIn(mainSess, keep)
-	}
+	edits.apply(mainSess)
 	var sessions []*adapters.Session
 	// No session logs the ignore files, so the rollback restores them.
 	var ignoreFiles []priorFile
@@ -511,7 +507,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	// Emit every target concurrently (bounded by jobs) on its own session,
 	// collecting per-target results in stable order. The first emit error
 	// cancels the group and trips the rollback above.
-	emits, targetSessions, emitErr := emitTargetsConcurrent(effectiveTargets, b, cfg, dryRun, backup, gitignoreOn, true, jobs, keep)
+	emits, targetSessions, emitErr := emitTargetsConcurrent(effectiveTargets, b, cfg, dryRun, backup, gitignoreOn, true, jobs, edits)
 	for _, s := range targetSessions {
 		if s != nil {
 			sessions = append(sessions, s)
@@ -692,6 +688,9 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	for _, p := range keptEdits(sessions) {
 		keptf("  ~ kept %s (edited since the last sync; move the edit into .agnostic-ai/, then run `agnostic-ai sync`)\n", p)
 	}
+	for _, p := range overwroteEdits(sessions) {
+		keptf("%s overwrote a hand edit to %s (saved as %s.bak); move the edit into .agnostic-ai/\n", bang(), p, p)
+	}
 	// After the sweep, so refused orphan removals are reported too.
 	for _, p := range unmanagedSkips(sessions) {
 		summaryf("  ~ skip (unmanaged) %s\n", p)
@@ -781,11 +780,33 @@ func keptEdits(sessions []*adapters.Session) []string {
 	return sortedKeys(seen)
 }
 
-// keepEditsIn turns on --keep-edits for sess. A path the ledger has no sum
-// for is compared with the version Git committed (#1397).
-func keepEditsIn(sess *adapters.Session, keep map[string]string) {
-	sess.KeepEditsSince(keep)
-	sess.SetCommittedSum(committedSum)
+// editGuard is how a sync treats an output edited by hand since the
+// last sync: --keep-edits leaves it in place, and otherwise sync keeps it
+// as `<path>.bak` before writing over it.
+type editGuard struct {
+	keep bool
+	sums map[string]string
+}
+
+// editGuardFor compares outputs against the sums the last sync recorded.
+// Under --keep-edits a path the ledger has no sum for is compared with
+// the version Git committed (#1397); with no ledger at all, the default
+// backup has no proof of an edit and stays off.
+func editGuardFor(keepEdits bool, prev syncStateFile) editGuard {
+	if keepEdits && prev.OutputSums == nil {
+		return editGuard{keep: true, sums: map[string]string{}}
+	}
+	return editGuard{keep: keepEdits, sums: prev.OutputSums}
+}
+
+func (g editGuard) apply(sess *adapters.Session) {
+	switch {
+	case g.keep:
+		sess.KeepEditsSince(g.sums)
+		sess.SetCommittedSum(committedSum)
+	case g.sums != nil:
+		sess.BackUpEditsSince(g.sums)
+	}
 }
 
 // committedSum returns the content sum of the version of path at HEAD, or
@@ -801,17 +822,19 @@ func committedSum(path string) string {
 	return adapters.ContentSum(blob)
 }
 
-// keepSums returns the output sums --keep-edits compares against, or nil
-// when the flag is off. With no ledger yet the map is empty, so the ledger
-// keeps nothing and committedSum decides.
-func keepSums(keepEdits bool, prev syncStateFile) map[string]string {
-	if !keepEdits {
-		return nil
+// overwroteEdits returns every path whose hand edit a session saved as
+// `<path>.bak` before writing over it, deduplicated and sorted.
+func overwroteEdits(sessions []*adapters.Session) []string {
+	seen := map[string]struct{}{}
+	for _, s := range sessions {
+		if s == nil {
+			continue
+		}
+		for _, p := range s.OverwroteEdits() {
+			seen[filepath.ToSlash(p)] = struct{}{}
+		}
 	}
-	if prev.OutputSums == nil {
-		return map[string]string{}
-	}
-	return prev.OutputSums
+	return sortedKeys(seen)
 }
 
 func classifyDetailedWrites(files []adapters.WrittenFile) (created, updated, skipped int) {
@@ -849,7 +872,7 @@ func shortDuration(d time.Duration) string {
 // appendFileRecords sorts each write event into out.Writes or out.Skipped, tagged by target.
 func appendFileRecords(out *jsonOutput, target string, writes []adapters.WrittenFile) {
 	for _, f := range writes {
-		rec := fileRecord{Target: target, Path: f.Path, Action: f.Action, Bytes: f.Bytes}
+		rec := fileRecord{Target: target, Path: f.Path, Action: f.Action, Bytes: f.Bytes, Backup: filepath.ToSlash(f.Backup)}
 		if f.Action == "skip" || f.Action == "edited" {
 			out.Skipped = append(out.Skipped, rec)
 		} else {
@@ -881,7 +904,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 		return err
 	}
 	prev := readStateFile(root)
-	keep := keepSums(keepEdits, prev)
+	edits := editGuardFor(keepEdits, prev)
 
 	// mainSess handles the serial entry-point and shared-link writes; each
 	// target emits on its own session. The JSON path does not roll back
@@ -895,9 +918,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	if backup {
 		mainSess.SetBackup(true)
 	}
-	if keep != nil {
-		keepEditsIn(mainSess, keep)
-	}
+	edits.apply(mainSess)
 	gitignoreOn := resolveGitignore(cfg, gitignoreFlag)
 	reconciled, err := shared.reconcile(prev.Outputs, false)
 	if err != nil {
@@ -912,7 +933,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 
 	// Emit every target concurrently; failFast is off so all per-target
 	// errors ride along in the results and are reported in target order.
-	emits, sessions, _ := emitTargetsConcurrent(effectiveTargets, b, cfg, false, backup, gitignoreOn, false, jobs, keep)
+	emits, sessions, _ := emitTargetsConcurrent(effectiveTargets, b, cfg, false, backup, gitignoreOn, false, jobs, edits)
 	sessions = append(sessions, mainSess)
 	normalizeSharedWriteAttribution(emits)
 	if _, notesErr := applyCoverageAccept(cfg, effectiveTargets); notesErr != nil {
