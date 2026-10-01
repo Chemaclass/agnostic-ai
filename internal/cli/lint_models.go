@@ -92,7 +92,7 @@ func lintModels(tiers map[string]config.ModelTier, configPath string, targets []
 		}
 		for model, foreign := range byModel {
 			findings = append(findings, lintFinding{Code: "LINT026", Severity: lintWarn, Path: agent.Path,
-				Message: fmt.Sprintf("model %q is a Claude model name %s cannot load; write model: {claude: %s} or name a tier", model, strings.Join(foreign, ", "), model)})
+				Message: fmt.Sprintf("model %q is a Claude model name %s cannot load; write model: {claude: %s} or name a tier", model, strings.Join(foreign, ", "), adapters.FlowScalar(model))})
 		}
 	}
 	return findings

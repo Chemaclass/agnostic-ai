@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -167,6 +169,19 @@ func TestForeignClaudeModel_AliasListSkipsWhatAliasFreeTargetsRead(t *testing.T)
 	for _, model := range []string{"inherit", "claude-opus-5"} {
 		if ForeignClaudeModel(ClaudeModelAliases, model) {
 			t.Errorf("%q is no alias, so a target that reads claude-* ids loads it", model)
+		}
+	}
+}
+
+func TestFlowScalar_SuggestedClaudeScopeParsesToTheSameModel(t *testing.T) {
+	for _, model := range []string{"opus", "fable", "sonnet[1m]", "opus[1m]", "claude-opus-5"} {
+		var got map[string]string
+		if err := yaml.Unmarshal([]byte("{claude: "+FlowScalar(model)+"}"), &got); err != nil {
+			t.Errorf("%q: suggested scope does not parse: %v", model, err)
+			continue
+		}
+		if got["claude"] != model {
+			t.Errorf("%q: suggested scope parses to %q", model, got["claude"])
 		}
 	}
 }

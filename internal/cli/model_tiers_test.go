@@ -163,7 +163,7 @@ models:
 	for _, want := range []string{
 		`agnostic-ai.yaml: models.frontier.default "fable" is a Claude model name codex cannot load`,
 		`planner.md: model "opusplan" is a Claude model name codex cannot load`,
-		`reader.md: model "sonnet[1m]" is a Claude model name codex cannot load`,
+		`reader.md: model "sonnet[1m]" is a Claude model name codex cannot load; write model: {claude: "sonnet[1m]"} or name a tier`,
 	} {
 		if !strings.Contains(foreign, want) {
 			t.Errorf("missing %q:\n%s", want, out)
@@ -179,6 +179,9 @@ models:
 	}
 	if want := "`model` on 1 agent has no effect on codex (fable is a Claude model name; write model: {claude: fable} so codex uses its own default)"; !strings.Contains(notes.String(), want) {
 		t.Errorf("a shared model: fable must raise the codex coverage note %q:\n%s", want, notes)
+	}
+	if want := `sonnet[1m] is a Claude model name; write model: {claude: "sonnet[1m]"} so codex uses its own default`; !strings.Contains(notes.String(), want) {
+		t.Errorf("a bracketed alias must be quoted in the note %q:\n%s", want, notes)
 	}
 }
 

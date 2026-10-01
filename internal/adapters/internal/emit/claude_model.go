@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -17,6 +18,15 @@ var ClaudeModelAliases = []string{"sonnet", "opus", "haiku", "fable", "best", "o
 // ClaudeModelNames are the Claude Code model names: its aliases,
 // "inherit" for a subagent, and "claude-*" for any full Claude model id.
 var ClaudeModelNames = append(slices.Clone(ClaudeModelAliases), "inherit", "claude-*")
+
+// FlowScalar quotes a value flow YAML would misread, such as the
+// brackets in opus[1m], so a suggested {claude: <model>} parses.
+func FlowScalar(s string) string {
+	if strings.ContainsAny(s, "[]{},:#") {
+		return strconv.Quote(s)
+	}
+	return s
+}
 
 // ClaudeModel reports whether model is a Claude Code model name.
 func ClaudeModel(model string) bool {
@@ -76,7 +86,7 @@ func noteForeignClaudeModels(c Capabilities, b spec.Bundle, mode string) error {
 		if tier != "" {
 			return fmt.Sprintf("is a Claude model name from models.%s; add models.%s.%s so %s gets its own model", tier, tier, c.Target, c.Target)
 		}
-		return fmt.Sprintf("is a Claude model name; write model: {claude: %s} so %s uses its own default", model, c.Target)
+		return fmt.Sprintf("is a Claude model name; write model: {claude: %s} so %s uses its own default", FlowScalar(model), c.Target)
 	}
 	if mode == OnUnsupportedError {
 		h := hits[0]
