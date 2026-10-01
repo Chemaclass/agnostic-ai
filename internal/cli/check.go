@@ -874,7 +874,8 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 		}
 	}()
 	written := 0
-	for _, r := range reports {
+	for i := range reports {
+		r := reports[i]
 		if !r.hasDrift() {
 			continue
 		}
@@ -905,10 +906,14 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 		unledgered := r.Unledgered || ledgerMissing(".")
 		pruned := map[string]bool{}
 		for _, p := range r.Leftover {
-			if m, merged := state.Merged[p]; merged && !unledgered {
-				if m.Unrecorded {
-					continue
-				}
+			m, merged := state.Merged[p]
+			// A merged file sync cannot fully release stays, and the run
+			// reports it, so doctor does not pass while check still fails.
+			if !unledgered && (m.Unrecorded || !merged && unrecordedMergedCandidate(state, p)) {
+				reports[i].Orphaned = append(reports[i].Orphaned, p)
+				continue
+			}
+			if merged && !unledgered {
 				result, edited, err := sess.ReleaseMergedJSON(p, m.Keys, m.Created, false, false)
 				if err != nil {
 					return written, err
@@ -926,6 +931,9 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 				case adapters.MergedEdited:
 					written++
 					releasedMerged[p] = &mergedOutput{Keys: edited, Created: m.Created}
+					reports[i].Orphaned = append(reports[i].Orphaned, p)
+				case adapters.MergedKept:
+					reports[i].Orphaned = append(reports[i].Orphaned, p)
 				}
 				continue
 			}

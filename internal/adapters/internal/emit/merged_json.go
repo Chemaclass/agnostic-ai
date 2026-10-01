@@ -204,7 +204,9 @@ func (s *Session) ReleaseMergedJSON(path string, keys []MergedKey, created, forc
 		}
 	}
 	if len(edited) == 0 && doc.Len() == 0 && created {
-		if _, err := s.remove(path, "", existing, false, dryRun); err != nil {
+		// A forced release takes out values the user edited, so backup mode
+		// keeps the bytes, as for any file sync did not write itself.
+		if _, err := s.remove(path, "", existing, force, dryRun); err != nil {
 			return MergedKept, nil, err
 		}
 		return MergedRemoved, nil, nil
