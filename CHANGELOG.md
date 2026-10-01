@@ -60,6 +60,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Cursor
 
+- Portable `allow` and `deny` rules become Cursor CLI rules in `.cursor/cli.json`; multi-word commands, `ask`, and unmapped rules get a note (#1542).
 - Protected paths with `decision: deny` become `Write` deny rules in `.cursor/cli.json`, beside your own rules. Only the Cursor CLI reads them (#1517).
 
 #### Continue

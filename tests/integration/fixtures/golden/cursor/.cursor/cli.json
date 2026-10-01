@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(**)"
+    ],
+    "deny": [
+      "Shell(rm)",
+      "Mcp(github:create_issue)"
+    ]
+  }
+}

@@ -14,67 +14,95 @@ import (
 const cliConfigFile = ".cursor/cli.json"
 
 // OwnedPermissionsFile records the rules sync added to cli.json, so a
-// removed protected path loses its rule while a hand-written one stays.
+// removed rule or protected path leaves while a hand-written rule stays.
 const OwnedPermissionsFile = ".agnostic-ai-permissions.json"
 
 const (
-	modelNoOpReason       = "Cursor reads a model only from the user CLI config; a project .cursor/cli.json takes permissions only"
-	permissionsNoOpReason = "sync does not translate portable permission rules into Cursor CLI permissions yet"
-	customNoOpReason      = "a project .cursor/cli.json takes permissions only, and sync writes those from protected paths"
-	protectAskNoOpReason  = "Cursor CLI permissions have no ask list, so a decision: ask block stays advisory; the CLI already prompts before a write no allow rule covers, and decision: deny blocks it"
+	modelNoOpReason      = "Cursor reads a model only from the user CLI config; a project .cursor/cli.json takes permissions only"
+	customNoOpReason     = "a project .cursor/cli.json takes permissions only, and sync writes those from portable permissions and protected paths"
+	protectAskNoOpReason = "Cursor CLI permissions have no ask list, so a decision: ask block stays advisory; the CLI already prompts before a write no allow rule covers, and decision: deny blocks it"
 )
 
 // ProtectedPaths reports that Cursor enforces deny protected paths with
 // CLI permission rules.
 func (Adapter) ProtectedPaths() (enforcement, reason string) { return "permission", "" }
 
-// emitCLIConfig writes the deny protected paths into .cursor/cli.json and
-// notes the settings fields Cursor has no project key for.
+// emitCLIConfig writes the translated portable permissions and the deny
+// protected paths into .cursor/cli.json, and notes the settings fields
+// Cursor has no project key for.
 func emitCLIConfig(sess *emit.Session, settings []spec.Entry, dryRun bool) error {
 	noteSettingsNoOps(settings)
 	groups, err := spec.ProtectedPaths(settings)
 	if err != nil {
 		return err
 	}
-	var deny []string
-	asks := 0
+	portable, dropped, asks, droppedDeny := cliPermissions(settings)
+	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions", dropped, permissionsUntranslatedReason)
+	if len(droppedDeny) > 0 {
+		emit.NoteProject("deny rule not enforced on cursor: " + strings.Join(droppedDeny, ", ") + " (no Cursor CLI rule blocks exactly that; block it another way)")
+	}
+	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions.ask", asks, permissionsAskReason)
+	var protected []string
+	protectAsks := 0
 	for _, group := range groups {
 		if group.Decision != spec.ProtectDeny {
-			asks++
+			protectAsks++
 			continue
 		}
 		for _, path := range group.Paths {
 			for _, rule := range protectWriteRules(path) {
-				if !slices.Contains(deny, rule) {
-					deny = append(deny, rule)
+				if !slices.Contains(protected, rule) {
+					protected = append(protected, rule)
 				}
 			}
 		}
 	}
-	emit.NoteFieldNoOp(target, spec.KindSettings, "protected", asks, protectAskNoOpReason)
+	emit.NoteFieldNoOp(target, spec.KindSettings, "protected", protectAsks, protectAskNoOpReason)
 	owned, err := emit.ReadOwnedRules(filepath.Join(filepath.Dir(cliConfigFile), OwnedPermissionsFile))
-	if err != nil || (len(deny) == 0 && !owned.Exists()) {
+	if err != nil || (len(portable) == 0 && len(protected) == 0 && !owned.Exists()) {
 		return err
 	}
-	var existing []any
-	for _, rule := range sess.ExistingNestedStrings(cliConfigFile, "permissions", "deny", dryRun) {
-		existing = append(existing, rule)
-	}
-	base := owned.Strip(map[string]any{"deny": existing})
-	merged, _ := base["deny"].([]any)
-	for _, rule := range deny {
-		if !slices.Contains(merged, any(rule)) {
-			merged = append(merged, rule)
+	onDisk := map[string]any{}
+	for _, list := range cliPermissionLists {
+		if rules := sess.ExistingNestedStrings(cliConfigFile, "permissions", list, dryRun); rules != nil {
+			onDisk[list] = toAny(rules)
 		}
 	}
-	if merged == nil {
-		merged = []any{}
+	base := owned.Strip(onDisk)
+	generated := []map[string]any{{"allow": toAny(portable["allow"]), "deny": toAny(portable["deny"])}, {"deny": toAny(protected)}}
+	final := map[string]any{}
+	for _, list := range cliPermissionLists {
+		merged, _ := base[list].([]any)
+		for _, layer := range generated {
+			for _, rule := range emit.StringSlice(layer[list]) {
+				if !slices.Contains(merged, any(rule)) {
+					merged = append(merged, rule)
+				}
+			}
+		}
+		if len(merged) == 0 && onDisk[list] == nil {
+			continue
+		}
+		if merged == nil {
+			merged = []any{}
+		}
+		final[list] = merged
 	}
-	generated := []map[string]any{{"deny": deny}}
-	if err := owned.Record(sess, map[string]any{"deny": merged}, base, generated, dryRun); err != nil {
+	if err := owned.Record(sess, final, base, generated, dryRun); err != nil {
 		return err
 	}
-	return sess.MergeJSONFileNested(cliConfigFile, map[string]any{"permissions": map[string]any{"deny": merged}}, []string{"permissions"}, dryRun)
+	return sess.MergeJSONFileNested(cliConfigFile, map[string]any{"permissions": final}, []string{"permissions"}, dryRun)
+}
+
+// cliPermissionLists are the two lists Cursor CLI permissions take.
+var cliPermissionLists = []string{"allow", "deny"}
+
+func toAny(rules []string) []any {
+	out := make([]any, len(rules))
+	for i, rule := range rules {
+		out[i] = rule
+	}
+	return out
 }
 
 // protectWriteRules spells a normalized protected path as Cursor CLI
@@ -101,6 +129,5 @@ func noteSettingsNoOps(settings []spec.Entry) {
 		}
 	}
 	emit.NoteFieldNoOp(target, spec.KindSettings, "model", models, modelNoOpReason)
-	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions", emit.SpecsWithPermissions(settings), permissionsNoOpReason)
 	emit.NoteFieldNoOp(target, spec.KindSettings, "x-"+target, custom, customNoOpReason)
 }
