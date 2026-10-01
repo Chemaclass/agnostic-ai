@@ -86,6 +86,15 @@ func TestReleaseMergedYAML(t *testing.T) {
 			result:  MergedRemoved,
 		},
 		{
+			name: "keeps a value the user anchored",
+			seed: "model: &m x\nweak-model: *m\nread: [&r CONVENTIONS.md, *r]\n",
+			keys: func(t *testing.T) []MergedKey {
+				return []MergedKey{{Path: []string{"model"}, Sum: sumOf(t, "x")}, {Path: []string{"read"}, Items: []string{ContentSum("CONVENTIONS.md")}}}
+			},
+			want:   "model: &m x\nweak-model: *m\nread: [&r CONVENTIONS.md, *r]\n",
+			result: MergedEdited,
+		},
+		{
 			name:   "keeps a file that does not parse",
 			seed:   "model: [x\n",
 			keys:   func(*testing.T) []MergedKey { return []MergedKey{{Path: []string{"model"}}} },

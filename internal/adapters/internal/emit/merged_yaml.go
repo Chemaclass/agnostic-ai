@@ -156,7 +156,8 @@ func (s *Session) ReleaseMergedYAML(path string, keys []MergedKey, created, forc
 					deleteYAMLPath(doc, key.Path, parent)
 				}
 			}
-		case !force && key.Sum != "" && yamlValueSum(value) != key.Sum:
+		case hasYAMLAnchor(value), !force && key.Sum != "" && yamlValueSum(value) != key.Sum:
+			// Sync writes no anchors, and an alias elsewhere may name one.
 			edited = append(edited, key)
 		default:
 			deleteYAMLPath(doc, key.Path, parent)
@@ -200,12 +201,12 @@ func (s *Session) ReleaseMergedYAML(path string, keys []MergedKey, created, forc
 func withoutYAMLItems(value *yaml.Node, items []string) (keep, dropped bool) {
 	switch value.Kind {
 	case yaml.ScalarNode:
-		if slices.Contains(items, ContentSum(value.Value)) {
+		if value.Anchor == "" && slices.Contains(items, ContentSum(value.Value)) {
 			return false, true
 		}
 	case yaml.SequenceNode:
 		kept := slices.DeleteFunc(slices.Clone(value.Content), func(entry *yaml.Node) bool {
-			return entry.Kind == yaml.ScalarNode && slices.Contains(items, ContentSum(entry.Value))
+			return entry.Kind == yaml.ScalarNode && entry.Anchor == "" && slices.Contains(items, ContentSum(entry.Value))
 		})
 		if len(kept) == len(value.Content) {
 			return true, false
@@ -214,6 +215,13 @@ func withoutYAMLItems(value *yaml.Node, items []string) (keep, dropped bool) {
 		return len(kept) > 0, true
 	}
 	return true, false
+}
+
+func hasYAMLAnchor(node *yaml.Node) bool {
+	if node.Anchor != "" {
+		return true
+	}
+	return slices.ContainsFunc(node.Content, hasYAMLAnchor)
 }
 
 // deleteYAMLPath removes the key at path from parent, then every
