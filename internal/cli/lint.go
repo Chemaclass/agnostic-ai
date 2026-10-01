@@ -8,9 +8,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/suggest"
 )
 
 // lintSeverity classifies the impact of a lint finding.
@@ -521,7 +521,7 @@ func keyTypo(kind spec.Kind, key string, targets []string) (nearMiss, bool) {
 	if targetOnly && slices.ContainsFunc(readers, func(t string) bool { return slices.Contains(targets, t) }) {
 		return nearMiss{}, false
 	}
-	s := adapters.SuggestName(key, specKeys)
+	s := suggest.Name(key, specKeys)
 	switch {
 	case s == "":
 		return nearMiss{}, false

@@ -12,6 +12,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/suggest"
 )
 
 // applyCoverageAccept takes the notes coverage.accept matches out of the
@@ -62,7 +63,7 @@ func validateCoverageTargets(cfg *config.Config) error {
 			if slices.Contains(known, t) || slices.Contains(cfg.Targets, t) {
 				continue
 			}
-			if s := adapters.SuggestName(t, known); s != "" {
+			if s := suggest.Name(t, known); s != "" {
 				return errs.Coded(errs.CodeConfigDecode, "%s: coverage.accept[%d]: unknown target %q (did you mean %s?)", config.ConfigFileName, i, t, s)
 			}
 			return errs.Coded(errs.CodeConfigDecode, "%s: coverage.accept[%d]: unknown target %q", config.ConfigFileName, i, t)

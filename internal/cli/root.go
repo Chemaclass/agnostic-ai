@@ -132,10 +132,18 @@ func profileEachRun(cmd *cobra.Command, path *string) {
 // the upgrade hint.
 func loadProject(root string) (*config.Config, spec.Bundle, error) {
 	cfg, sources, err := config.LoadWithSources(root)
+	if unknown, ok := errors.AsType[*config.UnknownKeysError](err); ok {
+		if rerr := requireVersion(unknown.Source, unknown.Requires); rerr != nil {
+			return nil, spec.Bundle{}, rerr
+		}
+	}
 	if err != nil {
 		return nil, spec.Bundle{}, err
 	}
 	if err := requireVersion(strings.Join(sources, " + "), cfg.Requires); err != nil {
+		return nil, spec.Bundle{}, err
+	}
+	if err := validateConfigTargets(cfg, strings.Join(sources, " + ")); err != nil {
 		return nil, spec.Bundle{}, err
 	}
 	if err := validateCoverageTargets(cfg); err != nil {

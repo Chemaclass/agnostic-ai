@@ -15,6 +15,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/suggest"
 )
 
 // globalConfigPaths lists the home configs in load order: the source
@@ -304,7 +305,7 @@ func unsupportedGlobalTarget(where, target string) error {
 	if _, ok := globalTargets[target]; ok {
 		return nil
 	}
-	if s := adapters.SuggestName(target, globalTargetNames()); s != "" {
+	if s := suggest.Name(target, globalTargetNames()); s != "" {
 		return fmt.Errorf("%s: unsupported target %q (did you mean %s?)", where, target, s)
 	}
 	return fmt.Errorf("%s: unsupported target %q (supported: %s)", where, target, strings.Join(globalTargetNames(), ", "))

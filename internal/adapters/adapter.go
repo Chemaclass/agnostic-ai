@@ -40,6 +40,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/suggest"
 )
 
 // CapturedFile mirrors emit.CapturedFile so callers outside the internal
@@ -754,7 +755,7 @@ func Resolve(name string) (Adapter, error) {
 		return a, nil
 	}
 	if errors.Is(err, exec.ErrNotFound) {
-		if s := SuggestName(name, Names()); s != "" {
+		if s := suggest.Name(name, Names()); s != "" {
 			return nil, errs.Coded(errs.CodeSyncTargetUnknown,
 				"unknown target: %s (did you mean %s? no %s%s on PATH)",
 				name, s, external.BinaryPrefix, name)
