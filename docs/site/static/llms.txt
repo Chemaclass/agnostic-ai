@@ -49,7 +49,7 @@ stop duplicating prompt files per tool.
 - [Git hooks](https://agnostic-ai.org/docs/git-hooks/): keeping generated files in step with commits.
 - [Graph](https://agnostic-ai.org/docs/graph/): visualising what reaches which tool.
 - [Errors](https://agnostic-ai.org/docs/errors/): every diagnostic, and what fixes it.
-- [Why not symlinks](https://agnostic-ai.org/docs/alternatives-why-not-symlinks/): the alternatives considered.
+- [Why agnostic-ai](https://agnostic-ai.org/docs/why-agnostic-ai/): the problem, why symlinks, copies, and one `AGENTS.md` fall short, and what agnostic-ai does instead.
 
 ## Machine-readable
 

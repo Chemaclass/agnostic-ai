@@ -29,6 +29,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `validate` accepts the `SessionEnd` hook trigger Kiro CLI 2.25 added (#1576).
 - `validate` reports a kiro hook on `AgentSpawn` or `agentSpawn` as an alias of `SessionStart`, not as an unknown event (#1580).
 
+### Site
+
+- [Why agnostic-ai](https://agnostic-ai.org/docs/why-agnostic-ai/) replaces the symlinks page: shorter, and it compares copies, one `AGENTS.md`, and scripts. The old URL redirects.
+
 ## v0.76.0 - 2026-10-01
 
 ### General
