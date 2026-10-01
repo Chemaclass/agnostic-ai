@@ -14,6 +14,8 @@ import (
 // target, rules stay out of scope, and code or external links never count
 // as local references.
 func TestDoctorCheckReferences_CleanForEveryTarget(t *testing.T) {
+	// doctor also reads the user's Codex hooks.json for trust findings.
+	t.Setenv("CODEX_HOME", t.TempDir())
 	targets := adapters.Names()
 	sort.Strings(targets)
 	for _, target := range targets {
