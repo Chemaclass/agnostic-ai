@@ -47,8 +47,8 @@ func TestSync_MistypedHookEventFailsBeforeAnyWrite(t *testing.T) {
 }
 
 // An agent may name a user or plugin skill sync cannot see, so a likely
-// typo warns in sync and fails validate.
-func TestSync_MistypedAgentSkillWarnsAndValidateFails(t *testing.T) {
+// typo only warns, in sync and in validate, and never in --json output.
+func TestSync_MistypedAgentSkillWarns(t *testing.T) {
 	syncedTyposProject(t)
 	mustWriteFile(t, ".agnostic-ai/agents/reviewer.md", "---\nname: reviewer\ndescription: Review code.\nskills: [pr-swep]\n---\nReview.\n")
 	log := captureLog(t)
@@ -58,8 +58,12 @@ func TestSync_MistypedAgentSkillWarnsAndValidateFails(t *testing.T) {
 	if want := `unknown skill "pr-swep" (did you mean pr-sweep?)`; !strings.Contains(log.String(), want) {
 		t.Errorf("sync does not warn %q:\n%s", want, log.String())
 	}
-	if out, err := runCLI(t, "validate"); err == nil || !strings.Contains(out, "pr-swep") {
+	if out, err := runCLI(t, "validate"); err != nil || !strings.Contains(out, "pr-swep") {
 		t.Errorf("validate: %v\n%s", err, out)
+	}
+	log.Reset()
+	if out, err := runCLI(t, "sync", "--json"); err != nil || strings.Contains(log.String()+out, "pr-swep") {
+		t.Errorf("sync --json: %v, warning leaked:\n%s%s", err, log.String(), out)
 	}
 }
 

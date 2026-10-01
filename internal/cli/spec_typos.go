@@ -74,10 +74,24 @@ func agentSkillTypos(b spec.Bundle) []validationIssue {
 }
 
 // stopOnSpecTypos stops a sync on a hook event typo before it is written
-// into every tool's files. An agent skill typo only warns, since the
-// name may be a user or plugin skill sync cannot see; validate fails on
-// it. Pack specs are not the user's to edit, so validate reports them.
+// into every tool's files. Pack specs are not the user's to edit, so
+// validate reports them.
 func stopOnSpecTypos(b spec.Bundle, targets []string) error {
+	own := ownSpecs(b)
+	issues := hookEventTypos(own, targets)
+	if len(issues) == 0 {
+		return nil
+	}
+	lines := make([]string, len(issues))
+	for i, is := range issues {
+		lines[i] = is.Path + ": " + is.Message
+	}
+	return fmt.Errorf("%s", strings.Join(lines, "\n"))
+}
+
+// ownSpecs keeps the hooks and agents outside packs, with every skill an
+// agent may name.
+func ownSpecs(b spec.Bundle) spec.Bundle {
 	own := spec.Bundle{Skills: b.Skills}
 	for _, e := range b.Hooks {
 		if !strings.HasPrefix(e.Layer, "pack:") {
@@ -89,18 +103,7 @@ func stopOnSpecTypos(b spec.Bundle, targets []string) error {
 			own.Agents = append(own.Agents, e)
 		}
 	}
-	for _, is := range agentSkillTypos(own) {
-		summaryf("%s %s: %s\n", bang(), is.Path, is.Message)
-	}
-	issues := hookEventTypos(own, targets)
-	if len(issues) == 0 {
-		return nil
-	}
-	lines := make([]string, len(issues))
-	for i, is := range issues {
-		lines[i] = is.Path + ": " + is.Message
-	}
-	return fmt.Errorf("%s", strings.Join(lines, "\n"))
+	return own
 }
 
 // looseEvent folds case and underscores, so session_start and

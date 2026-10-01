@@ -43,6 +43,8 @@ func newValidateCmd() *cobra.Command {
 				scopeIssues = append(scopeIssues, lintGlobalSettings(b.Settings, scope.targets)...)
 			} else {
 				reportNotes(cmd, missingSourceNotes("."))
+				// A user or plugin skill is valid and invisible here.
+				reportNotes(cmd, agentSkillTypos(b))
 				scopeIssues = lintEntryPointFences(".", scope.cfg)
 			}
 			if len(entries) == 0 {
@@ -53,7 +55,6 @@ func newValidateCmd() *cobra.Command {
 			issues := lintEntries(entries)
 			issues = append(issues, lintHookEvents(entries, scope.hookTargets)...)
 			issues = append(issues, lintOrphanKinds(b, scope.targets, scope.support)...)
-			issues = append(issues, agentSkillTypos(b)...)
 			issues = append(issues, scopeIssues...)
 			if !fix {
 				reportIssues(cmd, issues)

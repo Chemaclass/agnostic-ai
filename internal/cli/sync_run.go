@@ -461,6 +461,11 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 			unscoped = append(unscoped, e)
 		}
 	}
+	// An agent may name a user or plugin skill sync cannot see, so a
+	// likely typo of a project skill only warns.
+	for _, is := range agentSkillTypos(ownSpecs(b)) {
+		summaryf("%s %s: %s\n", bang(), is.Path, is.Message)
+	}
 	for _, f := range lintMalformedGlobs(unscoped) {
 		summaryf("%s %s: %s (%s); the rule loads in every session\n", bang(), filepath.ToSlash(f.Path), f.Message, f.Code)
 	}
