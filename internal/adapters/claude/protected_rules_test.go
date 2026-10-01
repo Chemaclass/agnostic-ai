@@ -114,9 +114,11 @@ func TestEmit_ChangingDenyToAskMovesTheRule(t *testing.T) {
 	}
 }
 
-// A rule the user wrote before sync ever protected the path stays theirs.
+// Once sync keeps a record, a rule the user wrote before sync first
+// protected the path stays theirs.
 func TestEmit_AHandWrittenRuleThatMatchesAProtectedPathSurvivesRemoval(t *testing.T) {
 	dir := testutil.TempCwd(t)
+	emitSettings(t, settingsEntry(map[string]any{"permissions": map[string]any{"allow": []any{"Read(**)"}}}))
 	addHandWrittenRule(t, dir, "deny", "Edit(/composer.lock)")
 	emitSettings(t, protectSpec("deny", "composer.lock"))
 

@@ -101,7 +101,7 @@ Enforced (permission). In the Cursor CLI, each path of a `decision: deny` block 
 - **`reason`**: not written. A CLI permission rule has no message field.
 - **Other settings fields**: `model`, `effort`, `permissions`, and `x-cursor` raise a coverage note. A project `cli.json` takes permissions only, and sync does not translate portable permission rules into Cursor's yet.
 
-`cli.json` merges into the file on disk, so your own `allow` and `deny` rules and any other key stay. Sync records the rules it added in `.cursor/.agnostic-ai-protected.json`, and removing a path or its block removes its rules on the next sync. A matching rule that was in `cli.json` before sync added one stays yours. See [Protected paths](@/docs/spec-format/settings.md#protected-paths).
+`cli.json` merges into the file on disk, so your own `allow` and `deny` rules and any other key stay. Sync records the rules it added in `.cursor/.agnostic-ai-permissions.json`, the same record Claude Code keeps beside `settings.json`, and removing a path or its block removes its rules on the next sync. A matching rule that was in `cli.json` before sync added one stays yours. See [Protected paths](@/docs/spec-format/settings.md#protected-paths).
 
 ## Verify
 

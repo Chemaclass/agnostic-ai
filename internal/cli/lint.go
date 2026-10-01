@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -157,8 +158,12 @@ func lintScopeReport(scope checkScope) ([]lintFinding, int, error) {
 			return nil, 0, err
 		}
 		findings = append(findings, protected...)
-		findings = append(findings, lintModels(scope.cfg, scope.targets, scope.support, scope.bundle)...)
 	}
+	configPath := config.ConfigFileName
+	if scope.global {
+		configPath = globalConfigPaths(scope.source)[0]
+	}
+	findings = append(findings, lintModels(scope.models, configPath, scope.targets, scope.support, scope.bundle)...)
 	return findings, accepted, nil
 }
 

@@ -6,6 +6,7 @@
 # Codex lets an edit through when a hook fails, so every failure exits 2.
 LC_ALL=C
 export LC_ALL
+unset CDPATH
 fail() {
   printf 'agnostic-ai: %s, so the protect hook blocked this edit.\n' "$1" >&2
   exit 2
@@ -70,6 +71,32 @@ function check(p,    rel, cand, i) {
 function block(message) {
   blocked[++nblocked] = "agnostic-ai: " message
 }
+function addAlias(p) {
+  p = drive(p)
+  if (substr(p, 1, 1) != "/") return
+  p = clean(p)
+  if (p != "" && p != cwd) alias[++nalias] = p
+}
+function restore(p, code, text,    parts, n, i, out) {
+  if (index(p, code) == 0) return p
+  n = split(p, parts, code)
+  out = parts[1]
+  for (i = 2; i <= n; i++) out = out text parts[i]
+  return out
+}
+function unicode(h,    v, i, d) {
+  v = 0
+  for (i = 1; i <= 4; i++) {
+    d = index("0123456789abcdef", tolower(substr(h, i, 1)))
+    if (d == 0) return "\003"
+    v = v * 16 + d - 1
+  }
+  if (v == 0) return "\003"
+  if (v == 34) return "\002"
+  if (v == 92) return "\001"
+  if (v >= 128) return "\200"
+  return sprintf("%c", v)
+}
 function trimmed(c) {
   return c != "" && (index(" \t\v\f\r", c) > 0 || c >= "\200")
 }
@@ -110,31 +137,9 @@ function stringAt(s, from,    p, end) {
   if (end > 0) p = substr(p, 1, end - 1)
   return restore(p, "\002", "\"")
 }
-function addAlias(p) {
-  p = drive(p)
-  if (substr(p, 1, 1) != "/") return
-  p = clean(p)
-  if (p != "" && p != cwd) alias[++nalias] = p
-}
-function restore(p, code, text,    parts, n, i, out) {
-  if (index(p, code) == 0) return p
-  n = split(p, parts, code)
-  out = parts[1]
-  for (i = 2; i <= n; i++) out = out text parts[i]
-  return out
-}
-function unicode(h,    v, i, d) {
-  v = 0
-  for (i = 1; i <= 4; i++) {
-    d = index("0123456789abcdef", tolower(substr(h, i, 1)))
-    if (d == 0) return "\003"
-    v = v * 16 + d - 1
-  }
-  if (v == 0) return "\003"
-  if (v == 34) return "\002"
-  if (v == 92) return "\001"
-  if (v >= 128) return "\200"
-  return sprintf("%c", v)
+function start() {
+  first = 1
+  fresh = 1
 }
 function text(s,    i) {
   while ((i = index(s, "\n")) > 0) {
@@ -169,6 +174,9 @@ function newline() {
   fresh = 1
   first = 0
 }
+function finish() {
+  newline()
+}
 function line(l) {
   if (!havecwd && match(l, /"cwd"[ \t]*:[ \t]*"/)) {
     havecwd = 1
@@ -181,9 +189,7 @@ function line(l) {
 }
 BEGIN {
   RS = "\\"
-  first = 1
-  fresh = 1
-  esc["\""] = "\002"; esc["/"] = "/"; esc["t"] = "\t"; esc["r"] = "\r"; esc["f"] = "\f"; esc["b"] = "\b"
+  esc["\""] = "\002"; esc["/"] = "/"; esc["t"] = "\t"; esc["r"] = "\r"; esc["f"] = "\f"; esc["b"] = "\b"; esc["n"] = "\n"
   root = drive(ENVIRON["AGNOSTIC_AI_ROOT"])
   lroot = drive(ENVIRON["AGNOSTIC_AI_LOGICAL_ROOT"])
   cwd = drive(ENVIRON["AGNOSTIC_AI_CWD"])
@@ -192,6 +198,7 @@ BEGIN {
   pat[1] = "^\\.github/.+$"; txt[1] = ".github/**"; grp[1] = 1
   pat[2] = "^composer\\.lock$"; txt[2] = "composer.lock"; grp[2] = 1
   npat = 2
+  start()
 }
 NR == 1 { text($0); next }
 plain { plain = 0; text($0); next }
@@ -199,13 +206,12 @@ $0 == "" { text("\001"); plain = 1; next }
 {
   c = substr($0, 1, 1)
   r = substr($0, 2)
-  if (c == "n") { newline(); text(r) }
-  else if (c == "u") text(unicode(substr(r, 1, 4)) substr(r, 5))
+  if (c == "u") text(unicode(substr(r, 1, 4)) substr(r, 5))
   else if (c in esc) text(esc[c] r)
   else text(c r)
 }
 END {
-  newline()
+  finish()
   for (i = 1; i <= npaths; i++) check(paths[i])
   for (i = 1; i <= nblocked; i++) print blocked[i]
   if (nblocked > 0) exit 2

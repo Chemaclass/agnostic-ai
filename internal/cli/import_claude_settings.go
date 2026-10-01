@@ -200,14 +200,18 @@ func claudeOwnedPermissionRules(root, settingsDir string) (map[string]map[string
 			}
 		}
 	}
-	recorded, err := os.ReadFile(filepath.Join(root, claudeDir, adapters.ClaudeProtectedRulesFile))
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return nil, fmt.Errorf("read %s: %w", adapters.ClaudeProtectedRulesFile, err)
-	}
-	if err == nil {
+	for _, name := range adapters.ClaudeOwnedPermissionsFiles {
+		path := filepath.Join(root, claudeDir, name)
+		recorded, err := os.ReadFile(path)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("read %s: %w", path, err)
+		}
 		var lists map[string][]string
 		if err := json.Unmarshal(recorded, &lists); err != nil {
-			return nil, fmt.Errorf("parse %s: %w", adapters.ClaudeProtectedRulesFile, err)
+			return nil, fmt.Errorf("parse %s: %w", path, err)
 		}
 		for list, rules := range lists {
 			add(list, rules)

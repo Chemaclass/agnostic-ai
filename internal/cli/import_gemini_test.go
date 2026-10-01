@@ -406,6 +406,31 @@ func TestImportFromGemini_NestedFileRoundTripsWhole(t *testing.T) {
 	}
 }
 
+// A subagent's inline `mcp_servers` survives import and a re-sync, so
+// the agent Gemini loaded before still loads with its servers.
+func TestImportFromGemini_AgentMcpServersRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	captureLogOut(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
+	writeFile(t, filepath.Join(geminiAgentsDir, "docs.md"),
+		"---\nname: docs\ndescription: Reads docs.\nmcp_servers:\n  docs:\n    command: node\n    args:\n      - server.js\n---\n\nRead the docs.\n")
+	for _, args := range [][]string{{"import", "gemini"}, {"sync"}} {
+		root := NewRootCmd("test")
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+	}
+	got := readFile(t, filepath.Join(geminiAgentsDir, "docs.md"))
+	for _, want := range []string{"mcp_servers:", "command: node", "server.js"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("expected %q after import and sync:\n%s", want, got)
+		}
+	}
+}
+
 // A `"""` prompt is a TOML basic string, so `\\(` is one backslash. Import
 // decodes it and sync escapes it again: the command Gemini runs survives.
 func TestImportFromGemini_CommandPromptKeepsItsEscapes(t *testing.T) {

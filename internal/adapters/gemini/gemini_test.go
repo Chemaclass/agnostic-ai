@@ -307,6 +307,63 @@ func TestEmit_Agent_PassesThroughDocumentedFields(t *testing.T) {
 	}
 }
 
+// Gemini's agent loader rejects an unknown frontmatter key, and the
+// per-agent MCP key it accepts is `mcp_servers`. A spec that followed
+// the vendor docs and set x-gemini.mcpServers is written under the
+// accepted key, with a note to rename it at the source.
+func TestEmit_Agent_RenamesXGeminiMcpServers(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
+
+	entries := []spec.Entry{
+		{
+			Kind: spec.KindAgent,
+			Name: "auditor",
+			Meta: map[string]any{
+				"x-gemini": map[string]any{"mcpServers": map[string]any{"docs": map[string]any{"command": "node"}}},
+			},
+			Body: "audit",
+		},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, filepath.Join(dir, ".gemini/agents/auditor.md"))
+	if !strings.Contains(got, "mcp_servers:") || strings.Contains(got, "mcpServers") {
+		t.Errorf("expected mcp_servers and no mcpServers in %s", got)
+	}
+	emit.FlushCoverageNotes()
+	if !strings.Contains(buf.String(), "x-gemini.mcpServers") {
+		t.Errorf("expected a note naming x-gemini.mcpServers, got: %s", buf.String())
+	}
+}
+
+// The accepted key passes through as written, whether the spec sets it
+// top-level (as `import gemini` leaves it) or under x-gemini.
+func TestEmit_Agent_PassesThroughMcpServers(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	buf := swapNoteWarner(t)
+
+	servers := map[string]any{"docs": map[string]any{"command": "node"}}
+	entries := []spec.Entry{
+		{Kind: spec.KindAgent, Name: "top", Meta: map[string]any{"mcp_servers": servers}, Body: "a"},
+		{Kind: spec.KindAgent, Name: "scoped", Meta: map[string]any{"x-gemini": map[string]any{"mcp_servers": servers}}, Body: "b"},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"top", "scoped"} {
+		got := readFile(t, filepath.Join(dir, ".gemini/agents", name+".md"))
+		if strings.Count(got, "mcp_servers:") != 1 || !strings.Contains(got, "command: node") {
+			t.Errorf("%s: expected one mcp_servers block in %s", name, got)
+		}
+	}
+	emit.FlushCoverageNotes()
+	if buf.Len() != 0 {
+		t.Errorf("expected no note for the accepted key, got: %s", buf.String())
+	}
+}
+
 func TestEmit_AgentsDirOverride(t *testing.T) {
 	dir := testutil.TempCwd(t)
 

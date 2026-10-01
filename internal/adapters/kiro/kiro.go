@@ -159,8 +159,9 @@
 // neither is something an emitter can set: the IDE reads ignore
 // filenames from its own `kiroAgent.agentIgnoreFiles` setting, so
 // `.kiroignore` has to be in that array before the IDE honors it, and
-// CLI V3 applies it to content- and filename-search results only rather
-// than across every agent tool.
+// CLI V3 reads only a workspace `.kiroignore` (no global ignore file),
+// blocking direct reads of matching files and filtering them from
+// content- and filename-search results.
 //
 // The root `AGENTS.md` entry-point (which Kiro reads directly and
 // always includes) is written centrally by `sync`, not by this

@@ -29,9 +29,10 @@
 // Frontmatter carries the two required fields, `name` and `description`
 // (the latter falling back to the spec name), plus `kind`, `model`,
 // `temperature`, `max_turns`, and `timeout_mins` when declared. The body
-// is the system prompt. `mcpServers` (inline per-agent MCP servers) is
-// documented too and has no agnostic-ai spec equivalent, so it reaches
-// the file through `x-gemini` like any other arbitrary key.
+// is the system prompt. `mcp_servers` (inline per-agent MCP servers)
+// passes through when set, top-level or under `x-gemini`. Gemini's docs
+// call it `mcpServers`, but its agent loader rejects that key, so an
+// `x-gemini.mcpServers` is written as `mcp_servers` with a note.
 //
 // `tools` is the one field that needs translating. Gemini names its own
 // tools (`read_file`, `write_file`, `replace`, `glob`, `grep_search`,
@@ -88,6 +89,7 @@ package gemini
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -150,15 +152,6 @@ func New() *Adapter { return &Adapter{} }
 // Name returns the target identifier.
 func (Adapter) Name() string { return target }
 
-// ProtectedPaths explains why protected paths stay advisory: the policy
-// engine documents a deny rule for write_file and replace, but its
-// workspace tier "is currently non-functional", so a project
-// `.gemini/policies/*.toml` has no effect
-// (geminicli.com/docs/reference/policy-engine).
-func (Adapter) ProtectedPaths() (enforcement, reason string) {
-	return "", "Gemini CLI does not load project policy files yet, so protected paths are advisory; state them in a rule"
-}
-
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
 // ForeignClaudeModels lists the Claude model names the agent `model` key cannot load.
@@ -168,12 +161,22 @@ func (Adapter) ForeignClaudeModels() []string { return caps.ForeignClaudeModels 
 // (plus a command TOML per agent when opted in), one TOML per command
 // under `.gemini/commands/`, one native skill folder per skill under
 // `.gemini/skills/` (plus a TOML per skill when opted in),
-// `.gemini/settings.json`, `.geminiignore`, and—when opted in via
+// `.gemini/settings.json`, `.geminiignore`, the protect hook script
+// when settings protect paths, and—when opted in via
 // outputs.gemini.rules-file—a legacy concatenated rules document. The
 // project-root GEMINI.md is written by `sync`, not here.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(capabilities(cfg), b, cfg.OnUnsupported); err != nil {
 		return err
+	}
+	protected, err := spec.ProtectedPaths(b.Settings)
+	if err != nil {
+		return err
+	}
+	hooks := b.HooksFor(target)
+	emitted := hooks
+	if len(protected) > 0 {
+		emitted = append(slices.Clone(hooks), protectHook())
 	}
 
 	commandsDir := emit.OutputCommandsDir(cfg, target, defaultCommandsDir)
@@ -200,7 +203,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "GEMINI.md"}, dryRun); err != nil {
 		return err
 	}
-	if err := emitSettings(sess, b, emit.OutputMCPFile(cfg, target, defaultSettingsFile), dryRun); err != nil {
+	if err := emitSettings(sess, b, emitted, emit.OutputMCPFile(cfg, target, defaultSettingsFile), dryRun); err != nil {
+		return err
+	}
+	if err := emitProtectScript(sess, protected, dryRun); err != nil {
 		return err
 	}
 	ignoreFile := emit.OutputIgnoreFile(cfg, target, defaultIgnoreFile)
@@ -212,7 +218,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 			return err
 		}
 	}
-	return materializeHookScripts(sess, b.HooksFor(target), dryRun)
+	return materializeHookScripts(sess, hooks, dryRun)
 }
 
 // materializeHookScripts copies each hook's stashed script body from
@@ -238,12 +244,12 @@ func materializeHookScripts(sess *emit.Session, hooks []spec.Entry, dryRun bool)
 // emitSettings writes (or merges into) .gemini/settings.json with the
 // `mcpServers`, `hooks`, and settings keys. Routes through a nested merge so
 // any user-managed Gemini settings survive the sync.
-func emitSettings(sess *emit.Session, b spec.Bundle, path string, dryRun bool) error {
+func emitSettings(sess *emit.Session, b spec.Bundle, hooks []spec.Entry, path string, dryRun bool) error {
 	keys := map[string]any{}
 	if servers := buildMCPServers(b.MCPs); len(servers) > 0 {
 		keys["mcpServers"] = servers
 	}
-	if hooks := buildHooks(b.HooksFor(target)); len(hooks) > 0 {
+	if hooks := buildHooks(hooks); len(hooks) > 0 {
 		keys["hooks"] = hooks
 	}
 	if model := emit.SettingsModel(b.Settings, target); model != "" {
@@ -255,6 +261,14 @@ func emitSettings(sess *emit.Session, b spec.Bundle, path string, dryRun bool) e
 	emit.MergeSettingsCustomRecordMap(keys, b.Settings, target, "mcpServers")
 	if len(keys) == 0 {
 		return nil
+	}
+	if _, writing := keys["hooks"]; !writing {
+		if kept, stale := withoutProtectHook(sess.ExistingJSONObject(path, "hooks", dryRun)); stale {
+			keys["hooks"] = kept
+			if len(kept) == 0 {
+				keys["hooks"] = emit.RemoveJSONKey
+			}
+		}
 	}
 	return sess.MergeJSONFileNested(path, keys, []string{"model"}, dryRun)
 }

@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -13,6 +14,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // globalConfigPaths lists the home configs in load order: the source
@@ -103,32 +105,85 @@ func loadGlobalTargets(source string, warn io.Writer) ([]string, error) {
 
 // loadGlobalModels reads the model tiers the home configs name. A tier in
 // local/agnostic-ai.yaml replaces the same-name tier in the shared file.
-func loadGlobalModels(source string) (map[string]config.ModelTier, error) {
+// With skipBroken set, a file whose models do not load warns there and
+// adds none, and the names it declares come back as unloaded, so no spec
+// writes one as a model id.
+func loadGlobalModels(source string, skipBroken io.Writer) (map[string]config.ModelTier, []string, error) {
 	tiers := map[string]config.ModelTier{}
+	var unloaded []string
 	for _, path := range globalConfigPaths(source) {
 		doc, err := readGlobalConfig(path)
 		if err != nil {
-			return nil, err
+			if skipBroken != nil {
+				// requireGlobalVersion already warned about this file.
+				continue
+			}
+			return nil, nil, err
 		}
 		node, ok := doc["models"]
 		if !ok {
 			continue
 		}
-		var layer map[string]config.ModelTier
-		if err := node.Decode(&layer); err != nil {
-			return nil, errs.Coded(errs.CodeConfigDecode, "parse %s: models: %w", path, err)
-		}
-		if err := config.ValidateModels(layer, path); err != nil {
-			return nil, err
-		}
-		if err := validateTierTargets(layer, path); err != nil {
-			return nil, err
+		layer, err := decodeGlobalTiers(node, path)
+		if err != nil {
+			if skipBroken == nil {
+				return nil, nil, err
+			}
+			if _, werr := fmt.Fprintf(skipBroken, "warning: %v; skipping the models in %s\n", err, path); werr != nil {
+				return nil, nil, fmt.Errorf("write global config warning: %w", werr)
+			}
+			for i := 0; i+1 < len(node.Content); i += 2 {
+				unloaded = append(unloaded, node.Content[i].Value)
+			}
+			continue
 		}
 		for name, tier := range layer {
 			tiers[name] = tier
 		}
 	}
-	return tiers, nil
+	return tiers, unloaded, nil
+}
+
+func decodeGlobalTiers(node yaml.Node, path string) (map[string]config.ModelTier, error) {
+	var layer map[string]config.ModelTier
+	if err := node.Decode(&layer); err != nil {
+		return nil, errs.Coded(errs.CodeConfigDecode, "parse %s: models: %w", path, err)
+	}
+	if err := config.ValidateModels(layer, path); err != nil {
+		return nil, err
+	}
+	if err := validateTierTargets(layer, path); err != nil {
+		return nil, err
+	}
+	return layer, nil
+}
+
+// applyGlobalTiers resolves tiers in b, then drops each spec `model` that
+// still names a tier from a skipped file, warning on warn, so a tier name
+// never reaches a tool as a model id.
+func applyGlobalTiers(b *spec.Bundle, tiers map[string]config.ModelTier, unloaded []string, warn io.Writer) error {
+	b.ApplyModelTiers(tiers)
+	if len(unloaded) == 0 {
+		return nil
+	}
+	for _, entries := range [][]spec.Entry{b.Agents, b.Skills, b.Commands, b.Settings} {
+		for i := range entries {
+			e := &entries[i]
+			name, _ := e.Meta["model"].(string)
+			if scoped, ok := e.Meta["model"].(map[string]any); ok {
+				name, _ = scoped["default"].(string)
+			}
+			if e.ModelTier != "" || !slices.Contains(unloaded, name) {
+				continue
+			}
+			if _, err := fmt.Fprintf(warn, "warning: %s: model %q names a tier that did not load; omitting model\n", e.Path, name); err != nil {
+				return fmt.Errorf("write global config warning: %w", err)
+			}
+			e.Meta = maps.Clone(e.Meta)
+			delete(e.Meta, "model")
+		}
+	}
+	return nil
 }
 
 // loadGlobalOnUnsupported reads the on-unsupported policy the home

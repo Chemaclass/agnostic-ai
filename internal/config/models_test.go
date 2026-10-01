@@ -3,6 +3,8 @@ package config_test
 import (
 	"encoding/json"
 	"maps"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -31,6 +33,24 @@ models:
 	}
 	if fast := cfg.Models["fast"]; fast.Effort != "low" || fast.Models["claude"] != "haiku" {
 		t.Errorf("fast = %#v", fast)
+	}
+}
+
+func TestLoad_LocalOverrideReplacesATierWhole(t *testing.T) {
+	dir := t.TempDir()
+	writeConfig(t, dir, "version: 1\ntargets: [claude, codex]\nmodels:\n  strong: {claude: sonnet, codex: gpt-5.4}\n  fast: {claude: haiku}\n")
+	if err := os.WriteFile(filepath.Join(dir, config.LocalOverrideFileName), []byte("models:\n  strong: {claude: opus}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := map[string]string{"claude": "opus"}; !maps.Equal(cfg.Models["strong"].Models, want) {
+		t.Errorf("strong = %v, want %v", cfg.Models["strong"].Models, want)
+	}
+	if cfg.Models["fast"].Models["claude"] != "haiku" {
+		t.Errorf("a tier the local file leaves alone must stay: %v", cfg.Models)
 	}
 }
 

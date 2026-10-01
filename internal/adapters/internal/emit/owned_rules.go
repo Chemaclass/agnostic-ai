@@ -7,40 +7,52 @@ import (
 	"slices"
 )
 
-// OwnedRules tracks the permission rules sync adds to a settings file
-// that merges into what is on disk. Without the record a rule would
-// outlive the spec that wrote it. A rule already on disk before sync
-// first wrote it belongs to the user and is never recorded.
+var permissionLists = []string{"allow", "deny", "ask"}
+
+// OwnedRules is the record of the permission rules the last sync added
+// to a settings file that merges into the file on disk. Without it a
+// removed rule would stay.
 type OwnedRules struct {
-	path   string
-	rules  map[string][]string
-	owned  map[string][]string
-	active bool
+	path  string
+	owned map[string][]string
+	// exists is true when the record or a legacy one is on disk.
+	exists bool
+	// recorded is true when the record at path exists. A legacy record
+	// may hold only some of the rules sync wrote.
+	recorded bool
 }
 
-// ReadOwnedRules loads the record at path for the rules, keyed by
-// list, that this sync writes.
-func ReadOwnedRules(path string, rules map[string][]string) (OwnedRules, error) {
-	o := OwnedRules{path: path, rules: rules}
-	raw, err := os.ReadFile(path)
-	if err != nil && !IsAbsent(err) {
-		return o, fmt.Errorf("%s: %w", path, err)
-	}
-	if err == nil {
-		if err := json.Unmarshal(raw, &o.owned); err != nil {
-			return o, fmt.Errorf("parse %s: %w", path, err)
+// ReadOwnedRules loads the record at path, or else the first legacy
+// record found. Record always writes path.
+func ReadOwnedRules(path string, legacy ...string) (OwnedRules, error) {
+	o := OwnedRules{path: path}
+	for _, candidate := range append([]string{path}, legacy...) {
+		raw, err := os.ReadFile(candidate)
+		if IsAbsent(err) {
+			continue
 		}
+		if err != nil {
+			return o, fmt.Errorf("%s: %w", candidate, err)
+		}
+		if err := json.Unmarshal(raw, &o.owned); err != nil {
+			return o, fmt.Errorf("parse %s: %w", candidate, err)
+		}
+		o.exists = true
+		o.recorded = candidate == path
+		break
 	}
-	o.active = len(rules) > 0 || err == nil
 	return o, nil
 }
 
-// Active reports whether this sync writes rules or an earlier one did.
-func (o OwnedRules) Active() bool { return o.active }
+// Exists reports whether a record, current or legacy, is on disk.
+func (o OwnedRules) Exists() bool { return o.exists }
+
+// Recorded reports whether the current record is on disk.
+func (o OwnedRules) Recorded() bool { return o.recorded }
 
 // Strip returns base without the rules the last sync recorded.
 func (o OwnedRules) Strip(base map[string]any) map[string]any {
-	if !o.active || base == nil {
+	if base == nil || len(o.owned) == 0 {
 		return base
 	}
 	out := make(map[string]any, len(base))
@@ -62,24 +74,47 @@ func (o OwnedRules) Strip(base map[string]any) map[string]any {
 	return out
 }
 
-// Record writes the rules the stripped base does not already hold,
-// which are the ones this sync adds.
-func (o OwnedRules) Record(sess *Session, base map[string]any, dryRun bool) error {
-	if !o.active {
-		return nil
-	}
+// Record writes the rules of final that sync generated and keep does
+// not hold. keep is the user's own rules; a nil keep adopts every
+// generated rule already on disk, so removing it from the spec later
+// removes it from the file.
+func (o OwnedRules) Record(sess *Session, final, keep map[string]any, generated []map[string]any, dryRun bool) error {
 	owned := map[string][]string{}
-	for list, rules := range o.rules {
-		existing, _ := base[list].([]any)
-		for _, rule := range rules {
-			if !slices.Contains(existing, any(rule)) {
+	for _, list := range permissionLists {
+		made := map[string]bool{}
+		for _, layer := range generated {
+			for _, rule := range stringRules(layer[list]) {
+				made[rule] = true
+			}
+		}
+		user := stringRules(keep[list])
+		for _, rule := range stringRules(final[list]) {
+			if made[rule] && !slices.Contains(user, rule) && !slices.Contains(owned[list], rule) {
 				owned[list] = append(owned[list], rule)
 			}
 		}
+	}
+	if !o.exists && len(owned) == 0 {
+		return nil
 	}
 	body, err := json.MarshalIndent(owned, "", "  ")
 	if err != nil {
 		return fmt.Errorf("%s: %w", o.path, err)
 	}
 	return sess.WriteFile(o.path, string(body)+"\n", dryRun)
+}
+
+func stringRules(raw any) []string {
+	var out []string
+	switch list := raw.(type) {
+	case []any:
+		for _, rule := range list {
+			if s, ok := rule.(string); ok {
+				out = append(out, s)
+			}
+		}
+	case []string:
+		out = append(out, list...)
+	}
+	return out
 }

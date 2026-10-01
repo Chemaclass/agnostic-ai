@@ -13,9 +13,9 @@ import (
 // configured at the project level" (cursor.com/docs/cli/reference/configuration).
 const cliConfigFile = ".cursor/cli.json"
 
-// ProtectedRulesFile records the Write rules sync added to cli.json, so
-// a removed protected path loses its rule while a hand-written one stays.
-const ProtectedRulesFile = ".agnostic-ai-protected.json"
+// OwnedPermissionsFile records the rules sync added to cli.json, so a
+// removed protected path loses its rule while a hand-written one stays.
+const OwnedPermissionsFile = ".agnostic-ai-permissions.json"
 
 const (
 	modelNoOpReason       = "Cursor reads a model only from the user CLI config; a project .cursor/cli.json takes permissions only"
@@ -52,12 +52,8 @@ func emitCLIConfig(sess *emit.Session, settings []spec.Entry, dryRun bool) error
 		}
 	}
 	emit.NoteFieldNoOp(target, spec.KindSettings, "protected", asks, protectAskNoOpReason)
-	rules := map[string][]string{}
-	if len(deny) > 0 {
-		rules["deny"] = deny
-	}
-	owned, err := emit.ReadOwnedRules(filepath.Join(filepath.Dir(cliConfigFile), ProtectedRulesFile), rules)
-	if err != nil || !owned.Active() {
+	owned, err := emit.ReadOwnedRules(filepath.Join(filepath.Dir(cliConfigFile), OwnedPermissionsFile))
+	if err != nil || (len(deny) == 0 && !owned.Exists()) {
 		return err
 	}
 	var existing []any
@@ -74,7 +70,8 @@ func emitCLIConfig(sess *emit.Session, settings []spec.Entry, dryRun bool) error
 	if merged == nil {
 		merged = []any{}
 	}
-	if err := owned.Record(sess, base, dryRun); err != nil {
+	generated := []map[string]any{{"deny": deny}}
+	if err := owned.Record(sess, map[string]any{"deny": merged}, base, generated, dryRun); err != nil {
 		return err
 	}
 	return sess.MergeJSONFileNested(cliConfigFile, map[string]any{"permissions": map[string]any{"deny": merged}}, []string{"permissions"}, dryRun)

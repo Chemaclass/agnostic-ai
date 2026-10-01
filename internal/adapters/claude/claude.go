@@ -311,7 +311,7 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 	if _, err := spec.ProtectedPaths(settings); err != nil {
 		return err
 	}
-	protect, err := readProtectedRules(dir, settings)
+	owned, err := readOwnedPermissions(dir)
 	if err != nil {
 		return err
 	}
@@ -327,7 +327,7 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 	if err != nil {
 		return err
 	}
-	if !overlayOK && !hasHooks && !hasConfig && !hasSpec && len(custom) == 0 && !policy.active && !protect.Active() && !retiredOnDisk {
+	if !overlayOK && !hasHooks && !hasConfig && !hasSpec && len(custom) == 0 && !policy.active && !owned.Exists() && !retiredOnDisk {
 		return nil
 	}
 	doc := overlay
@@ -358,17 +358,26 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 	// lower layer authored (e.g. config setting only `deny` would erase a
 	// spec `allow`). Union them across overlay (base), spec, then config so
 	// no layer silently loses another's rules. Scalars keep last-wins.
-	base := protect.Strip(docPermissions(doc))
+	// Without an overlay the base is the file on disk, which holds the
+	// rules the last sync added, so those are stripped first. An overlay
+	// is the user's own settings and is never stripped.
+	docBase := docPermissions(doc)
+	base, keep := docBase, docBase
+	if overlay == nil {
+		base = owned.Strip(docBase)
+		keep = nil
+		if owned.Recorded() {
+			keep = base
+		}
+	}
+	generated := []map[string]any{mapOf(specSettings["permissions"]), mapOf(configSettings["permissions"]), mapOf(mapOf(custom)["permissions"])}
 	mergedPerms := mergePermissions(base, mapOf(specSettings["permissions"]), mapOf(configSettings["permissions"]))
 	delete(specSettings, "permissions")
 	delete(configSettings, "permissions")
 	if len(mergedPerms) > 0 {
 		specSettings["permissions"] = mergedPerms
-	} else if protect.Active() {
+	} else if docBase != nil {
 		doc.Delete("permissions")
-	}
-	if err := protect.Record(sess, base, dryRun); err != nil {
-		return err
 	}
 	for _, k := range orderedConfigKeys(specSettings) {
 		if err := doc.Set(k, specSettings[k]); err != nil {
@@ -395,6 +404,9 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 		if err := doc.Set(k, mergeCustomKey(doc, k, custom[k])); err != nil {
 			return fmt.Errorf("claude settings: marshal %s: %w", k, err)
 		}
+	}
+	if err := owned.Record(sess, docPermissions(doc), keep, generated, dryRun); err != nil {
+		return err
 	}
 	if err := policy.apply(sess, doc, dryRun); err != nil {
 		return err
