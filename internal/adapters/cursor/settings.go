@@ -36,8 +36,11 @@ func emitCLIConfig(sess *emit.Session, settings []spec.Entry, dryRun bool) error
 	if err != nil {
 		return err
 	}
-	portable, dropped, asks := cliPermissions(settings)
+	portable, dropped, asks, droppedDeny := cliPermissions(settings)
 	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions", dropped, permissionsUntranslatedReason)
+	if len(droppedDeny) > 0 {
+		emit.NoteProject("deny rule not enforced on cursor: " + strings.Join(droppedDeny, ", ") + " (no Cursor CLI rule blocks exactly that; block it another way)")
+	}
 	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions.ask", asks, permissionsAskReason)
 	var protected []string
 	protectAsks := 0

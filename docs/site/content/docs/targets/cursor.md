@@ -94,24 +94,28 @@ Import round-trips cleanly: a later `sync` regenerates equivalent rules, skill f
 
 ## Permissions
 
-A settings spec's portable `allow` and `deny` lists become Cursor CLI rules in `permissions.allow` and `permissions.deny` of `.cursor/cli.json`, beside the protected-path rules. Only spellings the [CLI permissions](https://cursor.com/docs/cli/reference/permissions) page documents are written; anything else stays out with a coverage note. Like protected paths, the rules guard the Cursor CLI only, not the IDE agent.
+A settings spec's portable `allow` and `deny` lists become Cursor CLI rules in `permissions.allow` and `permissions.deny` of `.cursor/cli.json`, beside the protected-path rules. Only spellings the [CLI permissions](https://cursor.com/docs/cli/reference/permissions) page documents are written, and a rule is never widened. Like protected paths, the rules guard the Cursor CLI only, not the IDE agent.
 
 | Portable rule | Cursor rule | Notes |
 |---|---|---|
-| `Bash(git:*)`, `Bash(git *)` | `Shell(git)` | One command word only. Cursor matches "the first token in the command line". |
-| `Bash(rm)` | `Shell(rm)` | `deny` only. `Shell(rm)` also matches `rm` with arguments, which is safe to block but not to allow. |
-| `Read(<path>)` | `Read(<path>)` | `/path` loses its `/`, since Cursor scopes a relative path to the workspace. `//path` becomes the absolute `/path`. |
+| `Bash(git:*)`, `Bash(git *)` | `Shell(git)` | One command word only. Cursor matches "the first token in the command line", so `Shell(git)` covers bare `git` too, as both portable forms do in Claude Code. |
+| `Read(<path>)` | `Read(<path>)` | `/path` loses its `/`, since Cursor scopes a relative path to the workspace. `//path` becomes the absolute `/path`. On `deny`, a path with no `*` or `?` also gets `Read(<path>/**)`, so a directory's files are covered. |
 | `Edit(<path>)`, `Write(<path>)` | `Write(<path>)` | Same path rules as `Read`. |
 | `WebFetch(domain:<host>)` | `WebFetch(<host>)` | An exact host, `*.host`, or `*`, the three forms Cursor documents. |
-| `mcp__<server>__<tool>` | `Mcp(<server>:<tool>)` | `mcp__<server>` becomes `Mcp(<server>:*)`; `mcp__*` becomes `Mcp(*:*)` on `deny` only. |
+| `mcp__<server>__<tool>` | `Mcp(<server>:<tool>)` | `mcp__<server>` becomes `Mcp(<server>:*)`. On `deny` only, `mcp__*` becomes `Mcp(*:*)` and `mcp__*__<tool>` becomes `Mcp(*:<tool>)`, the "any server's" form Cursor documents. |
 
-These stay out with a coverage note:
+These stay out:
 
-- A multi-word command such as `Bash(go test:*)` or `Bash(git push --force)`. `Shell` takes one command word, and the page shows the `command:args` form only as `curl:*` without saying how it matches the rest of the line. Widening the rule to `Shell(go)` would allow or block every `go` command.
-- A one-word exact command on `allow`, such as `Bash(ls)`.
+- A multi-word command such as `Bash(go test:*)` or `Bash(git push:*)`. `Shell` takes one command word, and the page shows the `command:args` form only as `curl:*` without saying how it matches the rest of the line. `Shell(go)` would allow or block every `go` command.
+- An exact command such as `Bash(ls)` or `Bash(rm)`, since `Shell(rm)` also matches `rm` with arguments.
 - A path starting with `~` or `!`, or using `[]`, `{}`, or `\`. The page lists only `*`, `**`, and `?`.
+- A `WebFetch` host with a path, a port, or a wildcard other than a leading `*.`.
 - `ask` rules. Cursor CLI permissions have no ask list; the CLI already prompts before a call no `allow` rule covers.
 - Other tools, such as `WebSearch`, `Grep`, or a bare `Bash`.
+
+An `allow` rule that stays out raises a coverage note. A `deny` rule that stays out loosens the policy, so sync names each one: `deny rule not enforced on cursor: Bash(git push:*)`. Block those another way, such as a [Cursor hook](https://cursor.com/docs/hooks) on `beforeShellExecution`.
+
+The page does not say how `Shell` matches a chained command such as `git status && rm -rf build`, or a pipe. Claude Code requires an `allow` rule to match each subcommand of a chain ([compound commands](https://code.claude.com/docs/en/permissions#compound-commands)), so an `allow` rule may approve more in the Cursor CLI than in Claude Code.
 
 A portable relative path (`path` or `./path`) means the current directory in Claude Code and the workspace in Cursor, which match when the agent starts at the project root. Sync records the rules it added in `.cursor/.agnostic-ai-permissions.json`, so a rule you remove from a spec leaves `cli.json` on the next sync, and a rule you wrote there yourself stays.
 
