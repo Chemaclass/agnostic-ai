@@ -136,6 +136,19 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 			released = append(released, []string{k})
 			continue
 		}
+		if entries, ok := value.(entriesJSONValue); ok {
+			merged, claimed := s.mergeJSONEntries(path, doc, k, entries.entries)
+			// Claims move to the entries, so a claim on the whole map, or
+			// on an entry that left, goes.
+			released = append(released, []string{k})
+			for _, entryPath := range claimed {
+				owned = append(owned, MergedKey{Path: entryPath})
+			}
+			if err := doc.Set(k, merged); err != nil {
+				return fmt.Errorf("marshal %s key %s: %w", path, k, err)
+			}
+			continue
+		}
 		incoming, isObject := value.(map[string]any)
 		if !nested[k] || !isObject || kind != claimWhole {
 			claim([]string{k}, kind, items)

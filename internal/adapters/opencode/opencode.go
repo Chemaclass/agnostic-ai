@@ -209,6 +209,7 @@ func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, path str
 		keys[permissionKey] = permissions
 	}
 	emit.MergeSettingsCustomKeys(keys, settings, target, permissionKey)
+	emit.MergeEntriesOf(keys, "mcp")
 	return sess.MergeJSONFile(path, keys, dryRun)
 }
 

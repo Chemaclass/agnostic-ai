@@ -74,6 +74,7 @@ func emitSettingsFile(sess *emit.Session, mcps, settings []spec.Entry, path stri
 	if len(keys) == 0 {
 		return nil
 	}
+	emit.MergeEntriesOf(keys, ampMCPKey)
 	return sess.MergeJSONFile(path, keys, dryRun)
 }
 

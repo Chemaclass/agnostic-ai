@@ -17,6 +17,16 @@ import (
 // user's in a JSON file.
 const mergedLedgerVersion = 6
 
+// The merge writers read what the last sync claimed in a merged file
+// from the ledger, so an entry a spec no longer sets leaves and the
+// user's own entries stay. Capture reads the same ledger, so check
+// renders what sync writes.
+func init() {
+	adapters.SetPriorMergedKeys(func(path string) []adapters.MergedKey {
+		return readStateFile(".").Merged[path].Keys
+	})
+}
+
 // mergedOutput is what the ledger keeps about a JSON file sync merges
 // into: the values it set there, and whether sync created the file.
 // Unrecorded marks a file an older sync wrote before keys were recorded:

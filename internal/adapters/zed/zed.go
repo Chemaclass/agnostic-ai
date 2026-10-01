@@ -199,7 +199,7 @@ func emitContextServers(sess *emit.Session, mcps []spec.Entry, path string, dryR
 	if len(servers) == 0 {
 		return nil
 	}
-	return sess.MergeJSONFile(path, map[string]any{zedMCPKey: servers}, dryRun)
+	return sess.MergeJSONFile(path, map[string]any{zedMCPKey: emit.MergeJSONEntries(servers)}, dryRun)
 }
 
 func buildContextServers(mcps []spec.Entry) map[string]any {

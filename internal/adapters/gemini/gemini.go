@@ -270,6 +270,7 @@ func emitSettings(sess *emit.Session, b spec.Bundle, hooks []spec.Entry, path st
 			}
 		}
 	}
+	emit.MergeEntriesOf(keys, "mcpServers")
 	return sess.MergeJSONFileNested(path, keys, []string{"model"}, dryRun)
 }
 

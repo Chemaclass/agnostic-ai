@@ -332,6 +332,7 @@ func emitSettings(sess *emit.Session, mcps, hooks, settings []spec.Entry, path s
 	if err := sess.MaterializeNeutralHookScripts(hooks, target, emit.HookScriptsDir(target), dryRun); err != nil {
 		return err
 	}
+	emit.MergeEntriesOf(keys, mcpServersKey)
 	return sess.MergeJSONFile(path, keys, dryRun)
 }
 
