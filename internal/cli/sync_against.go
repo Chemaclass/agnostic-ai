@@ -529,6 +529,26 @@ func regeneratedDrift(reports []driftReport) bool {
 	return false
 }
 
+// markAgainst records that reports compared ref. The ledger describes
+// the working tree, not ref, so a file that differs there is out of date,
+// not edited by hand.
+func markAgainst(reports []driftReport, ref string) {
+	for i := range reports {
+		reports[i].against = ref
+		reports[i].Stale = append(reports[i].Stale, reports[i].Edited...)
+		reports[i].Edited = nil
+	}
+}
+
+// againstPlace names where ref keeps the outputs and the step that puts
+// the regenerated ones there.
+func againstPlace(ref string) (where, step string) {
+	if ref == againstHEAD {
+		return "in the last commit", "commit the regenerated files"
+	}
+	return "in the Git index", "stage the regenerated files with git add"
+}
+
 // againstHint says which step settles drift found against ref.
 func againstHint(ref string) string {
 	if ref == againstHEAD {

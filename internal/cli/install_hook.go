@@ -22,6 +22,9 @@ type hookBlock struct {
 	// legacy is the line older versions wrote without a sentinel.
 	legacy string
 	checks string
+	// upgrades maps a check line an older version wrote to the line that
+	// replaces it, so installing again updates an existing hook.
+	upgrades map[string]string
 }
 
 func (b hookBlock) text() string {
@@ -42,7 +45,13 @@ var projectHook = hookBlock{
 	file:     "pre-commit",
 	sentinel: "# agnostic-ai install-hook",
 	legacy:   "agnostic-ai sync --check",
-	checks:   "agnostic-ai sync --check || exit 1",
+	// The staged state is what the commit holds: checking the working
+	// tree passed a commit that left regenerated outputs unstaged.
+	checks: "agnostic-ai sync --check --against index || exit 1",
+	upgrades: map[string]string{
+		"agnostic-ai sync --check || exit 1": "agnostic-ai sync --check --against index || exit 1",
+		"agnostic-ai sync --check":           "agnostic-ai sync --check --against index || exit 1",
+	},
 }
 
 // globalHook runs from the home's repository root, so the checks read
@@ -363,6 +372,7 @@ const (
 	hookCreated hookWrite = iota
 	hookAppended
 	hookUnchanged
+	hookUpdated
 )
 
 func reportHook(out io.Writer, path string, written hookWrite, suffix string) {
@@ -371,6 +381,8 @@ func reportHook(out io.Writer, path string, written hookWrite, suffix string) {
 		_, _ = fmt.Fprintf(out, "✓ appended the checks to %s, after its existing content%s\n", path, suffix)
 	case hookUnchanged:
 		_, _ = fmt.Fprintf(out, "✓ %s already runs the checks%s\n", path, suffix)
+	case hookUpdated:
+		_, _ = fmt.Fprintf(out, "✓ updated the checks in %s to compare the staged files%s\n", path, suffix)
 	default:
 		_, _ = fmt.Fprintf(out, "✓ installed %s%s\n", path, suffix)
 	}
@@ -392,7 +404,18 @@ func writeHookAt(dir string, block hookBlock) (hookWrite, error) {
 		return hookCreated, os.WriteFile(path, []byte("#!/bin/sh\n"+block.text()), 0o755)
 	}
 	if block.installedIn(string(existing)) {
-		return hookUnchanged, nil
+		lines := strings.Split(string(existing), "\n")
+		updated := false
+		for i, line := range lines {
+			if next, ok := block.upgrades[strings.TrimSpace(line)]; ok {
+				lines[i] = strings.Replace(line, strings.TrimSpace(line), next, 1)
+				updated = true
+			}
+		}
+		if !updated {
+			return hookUnchanged, nil
+		}
+		return hookUpdated, os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o755)
 	}
 	if reason := appendBlocker(string(existing)); reason != "" {
 		return 0, fmt.Errorf("%s %s, so checks appended to it would never run; add these lines by hand where they run:\n\n%s", path, reason, block.text())

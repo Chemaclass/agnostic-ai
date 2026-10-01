@@ -397,3 +397,29 @@ func TestRegeneratedDrift_OnlyForOutputsSyncWrites(t *testing.T) {
 		t.Error("a stale output did not ask for regeneration")
 	}
 }
+
+// The ledger describes the working tree, so a regenerated file that is
+// synced but not staged was called a hand edit, with three conflicting
+// next steps (#1592). It now names one: stage it.
+func TestSyncCheckAgainstIndex_NamesStagingAsTheOneStep(t *testing.T) {
+	dir := committedProject(t, "instructions")
+	editRuleSpec(t, dir, "Staged rule.\n")
+	if err := runSyncArgs(t); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	git(t, dir, "add", ".agnostic-ai/rules/r1.md")
+
+	out, stderr, err := checkAgainst(t, "index")
+
+	if err == nil || !strings.Contains(err.Error(), "stage the regenerated files with git add") {
+		t.Fatalf("err = %v, want the staging step", err)
+	}
+	if !strings.Contains(out, "in the Git index do not match the specs there") {
+		t.Errorf("drift not named as unstaged:\n%s", out)
+	}
+	for _, wrong := range []string{"edited locally", "to reconcile, run: agnostic-ai sync"} {
+		if strings.Contains(out+stderr, wrong) {
+			t.Errorf("output still says %q:\n%s%s", wrong, out, stderr)
+		}
+	}
+}
