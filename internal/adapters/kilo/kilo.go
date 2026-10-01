@@ -397,17 +397,19 @@ func hasNativePermission(e spec.Entry) bool {
 // every source is empty.
 func emitKiloJSONC(sess *emit.Session, b spec.Bundle, rulesDir, skillsDir, path string, dryRun bool) error {
 	keys := map[string]any{}
+	carriedInstructions := false
 	if instructions := ruleInstructions(b.Rules, rulesDir); len(instructions) > 0 {
 		keys["instructions"] = instructions
 	} else if kept, stale := withoutInlinedRules(sess.ExistingStrings(path, "instructions", dryRun), sess.InlinedRules(), rulesDir); stale {
-		keys["instructions"] = emit.CarriedJSONValue(kept)
+		keys["instructions"] = kept
+		carriedInstructions = true
 	}
 	if servers := buildMCPMap(b.MCPs); len(servers) > 0 {
 		keys["mcp"] = servers
 	}
-	if paths, added := skillsPaths(sess, b.Skills, skillsDir, path, dryRun); len(paths) > 0 {
-		// The user's own paths ride along, so sync claims only the one it adds.
-		keys["skills"] = map[string]any{"paths": emit.ClaimedJSONItems(paths, added)}
+	paths, addedPaths := skillsPaths(sess, b.Skills, skillsDir, path, dryRun)
+	if len(paths) > 0 {
+		keys["skills"] = map[string]any{"paths": paths}
 	}
 	if model := emit.SettingsModel(b.Settings, target); model != "" {
 		keys["model"] = model
@@ -427,6 +429,15 @@ func emitKiloJSONC(sess *emit.Session, b spec.Bundle, rulesDir, skillsDir, path 
 	emit.MergeSettingsCustomKeys(keys, b.Settings, target, permissionKey)
 	if len(keys) == 0 {
 		return nil
+	}
+	// Ownership wraps the merged values, so x-kilo lists join them first.
+	// Kept instructions are read back from the file, and the user's skill
+	// paths ride along beside the one sync adds.
+	if carriedInstructions {
+		keys["instructions"] = emit.CarriedJSONValue(keys["instructions"])
+	}
+	if skills, ok := keys["skills"].(map[string]any); ok && len(paths) > 0 {
+		skills["paths"] = emit.ClaimedJSONItems(skills["paths"], addedPaths)
 	}
 	return sess.MergeJSONFileNested(path, keys, []string{"skills", permissionKey}, dryRun)
 }

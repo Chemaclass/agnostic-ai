@@ -891,7 +891,9 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 			}
 			fixed[f.Path] = adapters.ContentSum(f.Content)
 			if f.Merged {
-				fixedMerged[f.Path] = mergedOutput{Keys: f.Keys, Released: f.Released, Created: created}
+				fixedMerged[f.Path] = mergedOutput{Keys: f.Keys, Released: f.Released, Created: created, wroteMerge: true}
+			} else {
+				fixedMerged[f.Path] = mergedOutput{wroteWhole: true}
 			}
 			written++
 		}

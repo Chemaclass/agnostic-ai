@@ -21,12 +21,15 @@ const mergedLedgerVersion = 6
 // into: the values it set there, and whether sync created the file.
 // Unrecorded marks a file an older sync wrote before keys were recorded:
 // it stays until `doctor --fix` removes it. Released holds this run's
-// given-up key paths until ledgerMerged drops them; it is never stored.
+// given-up key paths until ledgerMerged drops them; it is never stored,
+// and neither is whether this run wrote the file merged or whole.
 type mergedOutput struct {
 	Keys       []adapters.MergedKey `json:"keys,omitempty"`
 	Created    bool                 `json:"created,omitempty"`
 	Unrecorded bool                 `json:"unrecorded,omitempty"`
 	Released   [][]string           `json:"-"`
+	wroteMerge bool
+	wroteWhole bool
 }
 
 // recordMergedWrites adds the merged JSON writes in writes to merged.
@@ -35,17 +38,22 @@ type mergedOutput struct {
 // record the last sync stored.
 func recordMergedWrites(writes []adapters.WrittenFile, merged map[string]mergedOutput) {
 	for _, w := range writes {
-		if !w.Merged {
-			continue
-		}
 		switch w.Action {
 		case "create", "update", "skip":
-			m := merged[w.Path]
-			m.Keys = withMergedKeys(m.Keys, w.Keys)
-			m.Released = append(m.Released, w.Released...)
-			m.Created = m.Created || w.Action == "create"
-			merged[w.Path] = m
+		default:
+			continue
 		}
+		m := merged[w.Path]
+		if !w.Merged {
+			m.wroteWhole = true
+			merged[w.Path] = m
+			continue
+		}
+		m.Keys = withMergedKeys(m.Keys, w.Keys)
+		m.Released = append(m.Released, w.Released...)
+		m.Created = m.Created || w.Action == "create"
+		m.wroteMerge = true
+		merged[w.Path] = m
 	}
 }
 
@@ -84,11 +92,14 @@ func ledgerMerged(ledger []string, merged map[string]mergedOutput, written map[s
 			out[p] = m
 			continue
 		}
-		current, mergedNow := merged[p]
+		current := merged[p]
 		last, recorded := prev.Merged[p]
 		_, writtenNow := written[p]
 		switch {
-		case mergedNow:
+		case current.wroteMerge:
+		case current.wroteWhole:
+			// Sync owns the whole file now, so the claims are stale.
+			continue
 		case recorded && (!writtenNow || !last.Unrecorded):
 			out[p] = last
 			continue
@@ -244,7 +255,13 @@ func recordMergedFixes(root string, fixes map[string]mergedOutput, written map[s
 		for path := range fixes {
 			paths = append(paths, path)
 		}
-		for path, record := range ledgerMerged(paths, fixes, written, *state, nil) {
+		records := ledgerMerged(paths, fixes, written, *state, nil)
+		for _, path := range paths {
+			record, ok := records[path]
+			if !ok {
+				delete(state.Merged, path)
+				continue
+			}
 			if state.Merged == nil {
 				state.Merged = map[string]mergedOutput{}
 			}
