@@ -4,6 +4,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/hookrun"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -27,4 +28,18 @@ func HookHandlers(target string, h spec.Entry) []hookrun.Handler {
 		}
 	}
 	return out
+}
+
+// HookFile is the native file sync writes target's hooks to, for the
+// targets hookrun builds payloads for.
+func HookFile(cfg *config.Config, target string) string {
+	switch target {
+	case "claude":
+		return claude.SettingsFilePath(cfg)
+	case "codex":
+		return codex.HooksFilePath(cfg)
+	case "gemini":
+		return gemini.SettingsFilePath(cfg)
+	}
+	return ""
 }

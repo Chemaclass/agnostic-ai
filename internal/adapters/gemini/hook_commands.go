@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -37,4 +38,9 @@ func HookCommands(h spec.Entry) []HookCommand {
 		out = append(out, c)
 	}
 	return out
+}
+
+// SettingsFilePath is the settings file sync writes hooks to.
+func SettingsFilePath(cfg *config.Config) string {
+	return emit.OutputMCPFile(cfg, target, defaultSettingsFile)
 }

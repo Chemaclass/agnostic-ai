@@ -208,12 +208,44 @@ For each configured target the hook reaches, it runs every command sync wrote fo
 - **Matcher.** A matcher that does not match the tool or source means the target would not run the hook; that target reports `allow` and why. A target without the hook's event, such as Codex for `Notification`, is listed as not run.
 - **Async.** An `async: true` hook runs and prints its output, but its result is `not judged` and stays out of `--expect` and the comparison: neither tool waits for it.
 - **Background commands.** On macOS and Linux, a command the hook leaves running is killed once the hook exits.
+- **Stale native file.** Commands come from the spec, so the run works before a sync. When the synced file (`.claude/settings.json`, `.codex/hooks.json`, `.gemini/settings.json`, or the path `outputs` sets) is missing, or no handler under the event runs the command the spec produces, the target prints a `warning` naming the file. A warning does not fail the run; `sync` clears it. The matcher is not compared, since sync can merge matchers. On Windows, Codex compares `commandWindows`.
 
 Each command reports one decision. Exit 2 is `block`, except on `SessionStart`, `SessionEnd`, `Notification`, `PreCompact`, and `PostCompact`, where it cannot stop anything and reads as `error`. On `PostToolUse` the tool already ran, so `block` sends stderr back to the model. Another non-zero exit is `error`. Exit 0 is `allow`, or `block` when stdout is a JSON reply with `"permissionDecision": "deny"`, `"decision": "block"`, or `"continue": false`. A command past its timeout is `timeout`. A `context` line marks output the target adds to the session: plain stdout on `SessionStart` and `UserPromptSubmit`, or a JSON reply's `additionalContext`.
 
 Gemini reads its reply from stdout, or stderr when stdout is empty. A JSON reply with `"decision": "deny"` or `"block"`, or `"continue": false`, is `block`. Plain text with an exit other than 0 and 1 is `block`; with no text at all, Gemini decides nothing and the run reads `error`. Exit 1 is `error`. `SessionStart`, `SessionEnd`, `Notification`, and `PreCompress` ignore decisions, so a block there reads as `error`. Only a JSON `additionalContext` reaches the model; plain stdout is a message for the user.
 
 The run exits 1 when a command times out or errors, when two targets decide differently, or, with `--expect allow` or `--expect block`, when a target decides otherwise. That makes it a CI check.
+
+`--format json` prints the same results as one JSON object, for a CI job to read. Each target has a `decision` (`allow`, `block`, `error`, `timeout`, or `not run` with a `reason`), its `warnings`, and one entry per command. `exit_code` is `null` after a timeout or a command that did not start. `error` holds the reason the run fails, and the exit code is the same as in text:
+
+```json
+{
+  "hook": "protect-files",
+  "targets": [
+    {
+      "target": "claude",
+      "decision": "block",
+      "event": "PreToolUse",
+      "trigger": "Write",
+      "async": false,
+      "commands": [
+        {
+          "command": ".claude/hooks/protect-files.sh",
+          "decision": "block",
+          "exit_code": 2,
+          "elapsed_ms": 12,
+          "timed_out": false,
+          "stdout": "",
+          "stderr": "Blocked: .github/workflows/tests.yml is protected.\n",
+          "adds_context": false
+        }
+      ],
+      "notes": [],
+      "warnings": []
+    }
+  ]
+}
+```
 
 | Target | Payload | Vendor docs |
 |---|---|---|
