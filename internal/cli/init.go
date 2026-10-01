@@ -24,7 +24,8 @@ const defaultBaseDir = ".agnostic-ai"
 var demoFS embed.FS
 
 func newInitCmd() *cobra.Command {
-	var demo, all, dryRun, gitignore bool
+	var demo, all, dryRun bool
+	gitignore := switchValue(true)
 	var preset, fromCLI string
 	cmd := &cobra.Command{
 		Use:   "init [dir]",
@@ -38,7 +39,7 @@ func newInitCmd() *cobra.Command {
 			"to skip both prompts and enable every supported target. " +
 			"With no terminal and nothing piped, init enables the CLIs it detects in the project, " +
 			"or the default target set when it detects none, and prints which it picked. " +
-			"The managed .gitignore block is on by default; pass --gitignore=false to commit generated outputs instead. " +
+			"The managed .gitignore block is on by default; pass --gitignore off to commit generated outputs instead. " +
 			"Pass --demo to seed example specs: a minimal one per source folder, plus the memory-curator skill. " +
 			"Pass --preset <name> to seed idiomatic specs for a stack (go, ts-react, python). " +
 			"Pass --from <cli> to scaffold and then import existing CLI config in one step.",
@@ -58,7 +59,7 @@ func newInitCmd() *cobra.Command {
   echo "claude,codex" | agnostic-ai init
 
   # Commit generated outputs instead of ignoring them
-  agnostic-ai init --all --gitignore=false
+  agnostic-ai init --all --gitignore off
 
   # Seed example specs, one per source folder plus the memory-curator skill
   agnostic-ai init --demo
@@ -81,6 +82,13 @@ func newInitCmd() *cobra.Command {
 				return err
 			}
 			base := defaultBaseDir
+			// --gitignore is a switch, so `--gitignore off` leaves off as
+			// the [dir] argument; read it as the value instead.
+			if len(args) == 1 && cmd.Flags().Changed("gitignore") {
+				if on, err := parseSwitch(args[0]); err == nil {
+					gitignore, args = switchValue(on), nil
+				}
+			}
 			if len(args) == 1 {
 				base = args[0]
 			}
@@ -101,7 +109,7 @@ func newInitCmd() *cobra.Command {
 					targets = fallbackInitTargets(cmd.ErrOrStderr(), detected)
 				}
 			}
-			gitignoreEnabled, err := resolveGitignoreChoice(cmd, all, gitignore)
+			gitignoreEnabled, err := resolveGitignoreChoice(cmd, all, bool(gitignore))
 			if err != nil {
 				return err
 			}
@@ -153,8 +161,9 @@ func newInitCmd() *cobra.Command {
 		"Print files that would be scaffolded without writing.")
 	cmd.Flags().StringVar(&fromCLI, "from", "",
 		"After scaffolding, import existing config from this CLI (e.g. claude, cursor, all).")
-	cmd.Flags().BoolVar(&gitignore, "gitignore", true,
-		"Persist gitignore.enabled so `sync` keeps a managed .gitignore block of every emitted target path. Enabled by default; pass --gitignore=false to commit generated outputs instead. When unset and stdin is a TTY, init prompts (defaulting to yes).")
+	cmd.Flags().Var(&gitignore, "gitignore",
+		"on or off: persist gitignore.enabled so sync keeps a managed .gitignore block of every emitted target path. On by default; pass off to commit generated outputs instead. When unset and stdin is a TTY, init prompts (defaulting to on).")
+	cmd.Flags().Lookup("gitignore").NoOptDefVal = "on"
 	_ = cmd.RegisterFlagCompletionFunc("preset", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return availablePresets(), cobra.ShellCompDirectiveNoFileComp
 	})
@@ -195,7 +204,7 @@ func fallbackInitTargets(stderr io.Writer, detected []string) []string {
 // outputs by default; the source specs under .agnostic-ai/ stay the one
 // committed copy and contributors run `sync` locally.
 //
-//   - an explicit --gitignore / --gitignore=false wins (the typed value sticks),
+//   - an explicit --gitignore on or off wins (the typed value sticks),
 //   - --all skips the prompt and enables the managed block,
 //   - otherwise the TTY confirm prompt drives the choice (defaulting to
 //     yes); non-TTY stdin enables it so first-time and CI inits never
