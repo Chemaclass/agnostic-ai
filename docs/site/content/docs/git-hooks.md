@@ -80,7 +80,7 @@ In Node projects, [husky](https://typicode.github.io/husky) plus [lint-staged](h
     "prepare": "husky"
   },
   "lint-staged": {
-    "{.agnostic-ai/**,agnostic-ai.yaml}": "agnostic-ai sync --check --"
+    "{.agnostic-ai/**,agnostic-ai.yaml}": "agnostic-ai sync --check --against index --"
   }
 }
 ```
