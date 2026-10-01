@@ -60,8 +60,9 @@ func unchangedSince(prior []MergedKey, keyPath []string, raw json.RawMessage) bo
 // in by name, and the paths of the entries sync now claims. An entry an
 // earlier sync wrote, whole map or by name, that entries no longer
 // holds goes while it is unchanged. A spec entry that replaces one the
-// user wrote is noted.
-func (s *Session) mergeJSONEntries(path string, doc *OrderedJSON, key string, entries map[string]any) (*OrderedJSON, [][]string) {
+// user wrote is noted. An entry JSON cannot encode, such as one holding a
+// YAML .nan, fails the merge instead of being left out.
+func (s *Session) mergeJSONEntries(path string, doc *OrderedJSON, key string, entries map[string]any) (*OrderedJSON, [][]string, error) {
 	prior := priorMergedKeys(path)
 	merged := NewOrderedJSON()
 	raw, found := doc.Get(key)
@@ -93,11 +94,12 @@ func (s *Session) mergeJSONEntries(path string, doc *OrderedJSON, key string, en
 				_, _ = fmt.Fprintf(Warner, "%s: the %q entry under %s comes from a spec now and replaces the one already there\n", path, name, key)
 			}
 		}
-		if err := merged.Set(name, entries[name]); err == nil {
-			claimed = append(claimed, entryPath)
+		if err := merged.Set(name, entries[name]); err != nil {
+			return nil, nil, fmt.Errorf("%s: %s entry %q has a value JSON cannot hold: %w", path, key, name, err)
 		}
+		claimed = append(claimed, entryPath)
 	}
-	return merged, claimed
+	return merged, claimed, nil
 }
 
 func sameJSONValue(raw json.RawMessage, value any) bool {
@@ -154,4 +156,11 @@ func (s *Session) dropStaleClaims(path string, doc *OrderedJSON, settled, overla
 
 func isPathPrefix(prefix, path []string) bool {
 	return len(prefix) <= len(path) && slices.Equal(prefix, path[:len(prefix)])
+}
+
+// PriorClaimedItems returns the sums of the list entries the last sync
+// claimed at keyPath in the merged file at path.
+func PriorClaimedItems(path string, keyPath []string) []string {
+	claim, _ := priorClaim(priorMergedKeys(path), keyPath)
+	return claim.Items
 }

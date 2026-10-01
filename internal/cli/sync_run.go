@@ -25,9 +25,10 @@ import (
 // syncStateVersion identifies the on-disk schema of `.agnostic-ai/.sync-state`.
 // Bumped to 2 when the per-sync output ledger (Outputs) was added, and to 3
 // when OutputSums and Orphans were added, to 4 when SpecSums was added,
-// to 5 when Unledgered was added, and to 6 when Merged was added.
+// to 5 when Unledgered was added, to 6 when Merged was added, and to 7
+// when Merged covered Aider's YAML config.
 // Readers tolerate older versions by treating missing fields as zero values.
-const syncStateVersion = mergedLedgerVersion
+const syncStateVersion = mergedYAMLLedgerVersion
 
 type syncStateFile struct {
 	Version        int       `json:"version,omitempty"`
@@ -907,11 +908,15 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 		}
 		return notesErr
 	}
+	// A target that failed recorded no writes, so the sweep must not treat
+	// it as emitted: its earlier outputs would read as orphans and go.
+	var emitted []string
 	for _, e := range emits {
 		if e.err != nil {
 			out.Errors = append(out.Errors, errorRecord{Target: e.target, Message: e.err.Error()})
 			continue
 		}
+		emitted = append(emitted, e.target)
 		gitignoreEntries = append(gitignoreEntries, e.recorded...)
 		recordLedgerWrites(e.writes, &ledgerSession, ledgerWritten)
 		recordMergedWrites(e.writes, ledgerMergedWrites)
@@ -949,7 +954,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	applied := shared.apply(mainSess, false)
 	ledgerSession = adjustLedgerForLinks(ledgerSession, applied)
 	mainSess.StartTransaction()
-	ledger, kept, removed, stripped, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, ledgerMergedWrites, effectiveTargets, cfg.Targets, false)
+	ledger, kept, removed, stripped, sweepErr := sweepAndFinalizeLedger(mainSess, prev, ledgerSession, ledgerWritten, ledgerMergedWrites, emitted, cfg.Targets, false)
 	for _, l := range applied {
 		out.Writes = append(out.Writes, fileRecord{Target: "agnostic-ai", Path: l.path, Action: "link"})
 	}
@@ -959,7 +964,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 		}
 
 		retained := ledger.orphans
-		if sweepErr != nil || !coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
+		if sweepErr != nil || !coversAllConfiguredTargets(emitted, cfg.Targets) {
 			retained = ledger.outputs
 		}
 		for _, path := range retained {
