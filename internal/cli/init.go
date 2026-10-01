@@ -76,19 +76,22 @@ func newInitCmd() *cobra.Command {
 
   # Custom base directory
   agnostic-ai init config/ai`,
-		Args: cobra.MaximumNArgs(1),
+		Args: cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// A bool flag leaves the value of `--gitignore off` as a
+			// positional; read it back before the [dir] argument.
+			if len(args) > 0 && cmd.Flags().Changed("gitignore") {
+				if on, err := parseSwitch(args[0]); err == nil {
+					gitignore, args = switchValue(on), args[1:]
+				}
+			}
+			if len(args) > 1 {
+				return fmt.Errorf("init takes at most one [dir] argument, got %d", len(args))
+			}
 			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
 				return err
 			}
 			base := defaultBaseDir
-			// --gitignore is a switch, so `--gitignore off` leaves off as
-			// the [dir] argument; read it as the value instead.
-			if len(args) == 1 && cmd.Flags().Changed("gitignore") {
-				if on, err := parseSwitch(args[0]); err == nil {
-					gitignore, args = switchValue(on), nil
-				}
-			}
 			if len(args) == 1 {
 				base = args[0]
 			}

@@ -35,3 +35,13 @@ func TestInit_GitignoreTakesOnAndOff(t *testing.T) {
 		})
 	}
 }
+
+func TestInit_GitignoreValueKeepsTheDirArgument(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	if out, err := runCLI(t, "init", "--all", "--gitignore", "off", "config/ai"); err != nil {
+		t.Fatalf("init: %v\n%s", err, out)
+	}
+	if _, err := os.Stat("config/ai"); err != nil {
+		t.Errorf("init lost the dir argument: %v", err)
+	}
+}
