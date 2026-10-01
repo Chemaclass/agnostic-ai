@@ -505,3 +505,10 @@ func TestValidate_AcceptsKiroManualTrigger(t *testing.T) {
 		t.Errorf("validate rejected the documented Manual trigger: %s", got)
 	}
 }
+
+// Kiro CLI 2.25 added `SessionEnd` for V3 sessions (#1576).
+func TestValidate_AcceptsKiroSessionEndTrigger(t *testing.T) {
+	if got := validateKiroHookEvent(t, "SessionEnd"); strings.Contains(got, "unknown hook event") {
+		t.Errorf("validate rejected the documented SessionEnd trigger: %s", got)
+	}
+}
