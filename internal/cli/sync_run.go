@@ -166,7 +166,8 @@ func recordOutputSums(projectRoot string, sums map[string]string) error {
 // the text, dry-run, and JSON sync paths so the resolve+record+emit boilerplate
 // lives in one place. resolved reports whether the adapter resolved, letting
 // callers tell a resolve failure (skippable) from an emit failure (fatal for
-// text sync); writes holds the recorded write events and is empty in dry-run.
+// text sync); writes holds the recorded write events, including those made
+// before an emit error, and is empty in dry-run.
 // The recording buffer is always stopped before returning, so no global
 // recording state leaks.
 func emitTarget(sess *adapters.Session, t string, b spec.Bundle, cfg *config.Config, dryRun bool) (writes []adapters.WrittenFile, resolved bool, err error) {
@@ -175,11 +176,8 @@ func emitTarget(sess *adapters.Session, t string, b spec.Bundle, cfg *config.Con
 		return nil, false, err
 	}
 	sess.StartDetailedRecording()
-	if err := adapters.EmitWithProvenance(sess, adapter, b, cfg, dryRun); err != nil {
-		sess.StopDetailedRecording()
-		return nil, true, err
-	}
-	return sess.StopDetailedRecording(), true, nil
+	err = adapters.EmitWithProvenance(sess, adapter, b, cfg, dryRun)
+	return sess.StopDetailedRecording(), true, err
 }
 
 // targetEmit is one target's emission result. Collecting these lets the
@@ -868,7 +866,8 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 
 	// mainSess handles the serial entry-point and shared-link writes; each
 	// target emits on its own session. The JSON path does not roll back
-	// writes: it reports per-target errors in the result instead. Only the
+	// writes, since targets share paths such as AGENTS.md: it reports a
+	// failed target's error and the writes it made before it. Only the
 	// orphan sweep and the ignore files are undone, when an ignore file
 	// fails after the sweep, and a .gitignore written by then keeps
 	// ignoring the outputs that stay.
@@ -908,15 +907,17 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 		}
 		return notesErr
 	}
-	// A target that failed recorded no writes, so the sweep must not treat
-	// it as emitted: its earlier outputs would read as orphans and go.
+	// A failed target stays on disk with the writes it made before the
+	// error, so they are reported and ledgered like any other. The sweep
+	// must not treat it as emitted: its earlier outputs would read as
+	// orphans and go.
 	var emitted []string
 	for _, e := range emits {
 		if e.err != nil {
 			out.Errors = append(out.Errors, errorRecord{Target: e.target, Message: e.err.Error()})
-			continue
+		} else {
+			emitted = append(emitted, e.target)
 		}
-		emitted = append(emitted, e.target)
 		gitignoreEntries = append(gitignoreEntries, e.recorded...)
 		recordLedgerWrites(e.writes, &ledgerSession, ledgerWritten)
 		recordMergedWrites(e.writes, ledgerMergedWrites)

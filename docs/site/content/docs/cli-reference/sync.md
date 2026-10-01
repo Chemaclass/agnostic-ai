@@ -111,7 +111,7 @@ Neither has a config-file key.
 | `command` | `"sync"`, `"sync --plan"`, `"sync --dry-run"`, or `"sync --check"`. |
 | `writes` | Files written (`"create"`, `"update"`), orphans removed (`"delete"`), or, for `--check`, files needing attention (`"missing"`, `"stale"`, `"edited"`, `"orphan"`, `"leftover"`). `"stale"`: the specs changed. `"edited"`: the file changed since the last sync. `"leftover"`: no longer generated, removed by the next full sync (target `ledger`, or `unledgered` when no ledger proves sync wrote it). With `--untrack`, a path removed from the index is `"untracked"`, target `agnostic-ai`. |
 | `skipped` | Files already matching (`"skip"`), user-owned (`"unmanaged"`), orphans kept because ownership could not be proven (`"orphan"`), unledgered leftovers kept (`"leftover"` for `doctor --fix` to remove, `"orphan"` for a scope document), or, with `--keep-edits`, hand edits left in place (`"edited"`). A path git tracks and ignores, without `--untrack`, is `"tracked"`, target `agnostic-ai`. Empty for `--check`. |
-| `errors` | Per-target errors with `target` and `message`. |
+| `errors` | Per-target errors with `target` and `message`. `sync --json` goes on with the other targets. A failed target keeps what it wrote before the error, and those files are in `writes` and the ledger. |
 
 `writes` and `skipped` entries have `target`, `path`, `action` (strings), and `bytes` (number), for example `{"target": "claude", "path": "CLAUDE.md", "action": "create", "bytes": 1284}`.
 

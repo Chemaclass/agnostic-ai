@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -365,5 +366,56 @@ func TestSyncJSON_EmptyArraysWhenClean(t *testing.T) {
 		if v == nil {
 			t.Errorf("field %q is null, expected empty array", field)
 		}
+	}
+}
+
+// A target that writes a file and then fails in sync --json reports the
+// file and records it in the ledger, so a later sync knows sync wrote it
+// and removes it with its spec (#1567). Amp writes skills before it
+// merges its settings, which fails on a settings file that is not JSON.
+// prefer-spec skips the collision pass, which would stop on that file
+// before any write.
+func TestSyncJSON_AFailedTargetReportsAndLedgersItsEarlierWrites(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [amp]\nsync:\n  collision-policy: prefer-spec\n")
+	mustWriteFile(t, ".agnostic-ai/mcps/gh.yaml", "name: gh\ncommand: npx\n")
+	runSyncOK(t)
+	skill := filepath.FromSlash(".agents/skills/review/SKILL.md")
+	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview.\n")
+	mustWriteFile(t, ".amp/settings.json", "{")
+
+	out, err := runCLI(t, "sync", "--json")
+
+	if err != nil {
+		t.Fatalf("sync --json: %v\n%s", err, out)
+	}
+	var result jsonOutput
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out)
+	}
+	if len(result.Errors) != 1 || result.Errors[0].Target != "amp" {
+		t.Errorf("errors = %+v, want one amp error", result.Errors)
+	}
+	if !slices.ContainsFunc(result.Writes, func(w fileRecord) bool {
+		return w.Target == "amp" && w.Path == skill && w.Action == "create"
+	}) {
+		t.Errorf("writes do not report the amp create of %s:\n%s", skill, out)
+	}
+	if _, err := os.Stat(skill); err != nil {
+		t.Fatalf("%s: %v", skill, err)
+	}
+	if !slices.Contains(readStateFile(".").Outputs, skill) {
+		t.Errorf("ledger outputs %v miss %s", readStateFile(".").Outputs, skill)
+	}
+
+	if err := os.RemoveAll(".agnostic-ai/skills/review"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(".amp/settings.json"); err != nil {
+		t.Fatal(err)
+	}
+	runSyncOK(t)
+	if _, err := os.Stat(skill); !os.IsNotExist(err) {
+		t.Errorf("%s stayed after its skill went: %v", skill, err)
 	}
 }
