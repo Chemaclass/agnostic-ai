@@ -432,7 +432,7 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 			released = append(released, []string{"permissions", list})
 		}
 	}
-	released = append(released, releasedHookKeys(hooks, custom)...)
+	released = append(released, releasedHookKeys(doc, hooks)...)
 	// Like the rule lists, the rejection list holds the user's entries
 	// too, and its record decides which ones are sync's.
 	if len(rejected) > 0 {
@@ -454,18 +454,31 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 
 // releasedHookKeys lists the hook keys this write deleted because no
 // hook spec is left, so their earlier claims go: a value the user writes
-// back by hand is theirs. An `x-claude` key that sets one again keeps
-// it claimed.
-func releasedHookKeys(hooks []spec.Entry, custom map[string]any) [][]string {
+// back by hand is theirs. A key still in the file, such as an `x-claude`
+// value or a hook env naming another target, which sync leaves, keeps
+// its claim.
+func releasedHookKeys(doc *emit.OrderedJSON, hooks []spec.Entry) [][]string {
 	var released [][]string
-	if _, set := custom["hooks"]; len(hooks) == 0 && !set {
+	if _, kept := doc.Get("hooks"); len(hooks) == 0 && !kept {
 		released = append(released, []string{"hooks"})
 	}
-	env, _ := custom["env"].(map[string]any)
-	if _, set := env[emit.HookTargetEnv]; !hasCommandHook(hooks) && !set {
+	if !hasCommandHook(hooks) && !docHasEnv(doc, emit.HookTargetEnv) {
 		released = append(released, []string{"env", emit.HookTargetEnv})
 	}
 	return released
+}
+
+func docHasEnv(doc *emit.OrderedJSON, name string) bool {
+	raw, ok := doc.Get("env")
+	if !ok {
+		return false
+	}
+	var env map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &env); err != nil {
+		return true
+	}
+	_, ok = env[name]
+	return ok
 }
 
 // claimedSettingsKeys lists the key paths sync set in a settings.json it

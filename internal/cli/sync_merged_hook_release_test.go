@@ -43,6 +43,30 @@ func TestSync_HandRestoredHookSurvivesDroppingClaude(t *testing.T) {
 	}
 }
 
+// Sync deletes the hook env only when it holds this target's name. A
+// value an x-claude override wrote stays in the file, so it stays
+// claimed and dropping the target still takes it out.
+func TestSync_KeptHookEnvOverrideStaysClaimedAfterHooksGo(t *testing.T) {
+	const settings = ".claude/settings.json"
+	const hookSpec = ".agnostic-ai/hooks/fmt.yaml"
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cline]\n")
+	mustWriteFile(t, settings, "{\"userKey\": \"mine\"}\n")
+	mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "model: opus\nx-claude:\n  env:\n    AGNOSTIC_AI_TARGET: gemini\n")
+	mustWriteFile(t, hookSpec, "name: fmt\nevent: PostToolUse\nmatcher: Edit\ncommand: echo hi\n")
+	runSyncOK(t)
+
+	removeSpecs(t, hookSpec)
+	mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "model: opus\n")
+	runSyncOK(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
+	runSyncOK(t)
+
+	if got, want := readJSONMap(t, settings), map[string]any{"userKey": "mine"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("%s = %#v, want %#v", settings, got, want)
+	}
+}
+
 // An x-claude key that sets hooks or the hook env again keeps them
 // claimed, so dropping the target still takes out what sync wrote.
 func TestSync_XClaudeHooksStayClaimedWithoutHookSpecs(t *testing.T) {
