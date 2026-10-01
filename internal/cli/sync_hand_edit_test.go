@@ -268,3 +268,17 @@ func TestImport_KeepsAUserBakBesideAGeneratedFile(t *testing.T) {
 		t.Errorf("import dropped a user asset: %v", err)
 	}
 }
+
+func TestImport_SkipsASyncBackupCopy(t *testing.T) {
+	handEditProject(t, "claude")
+	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview twice.\n")
+	runSyncOK(t, "--backup")
+
+	if out, err := runCLI(t, "import", "claude"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+
+	if _, err := os.Stat(".agnostic-ai/skills/review/SKILL.md.bak"); err == nil {
+		t.Error("import copied a sync --backup copy into the skill")
+	}
+}

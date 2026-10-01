@@ -747,7 +747,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	} else {
 		ledger.modelAliases = addedModelAliases(prev.ModelAliases, resolvedAliases, emitted)
 	}
-	ledger.backups = syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).OverwroteEdits))
+	ledger.backups = syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups))
 	if err := writeStateFile(root, report.filesChanged(), digest, notesDigest, ledger); err != nil {
 		fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 	}
@@ -818,16 +818,16 @@ func committedSum(path string) string {
 }
 
 // syncBackups returns the backups sync made that are still on disk, plus
-// the one for each path this run overwrote.
-func syncBackups(prior, overwrote []string) []string {
+// the ones this run made.
+func syncBackups(prior, made []string) []string {
 	seen := map[string]struct{}{}
 	for _, b := range prior {
 		if _, err := os.Lstat(b); err == nil {
 			seen[b] = struct{}{}
 		}
 	}
-	for _, p := range overwrote {
-		seen[p+".bak"] = struct{}{}
+	for _, b := range made {
+		seen[b] = struct{}{}
 	}
 	return sortedKeys(seen)
 }
@@ -1083,7 +1083,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	if len(out.Errors) == 0 && coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
 		ledger.specSums = specSums(cfg, b)
 	}
-	ledger.backups = syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).OverwroteEdits))
+	ledger.backups = syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups))
 	if err := writeStateFile(root, len(out.Writes), prev.WarningsDigest, prev.NotesDigest, ledger); err != nil {
 		fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 	}

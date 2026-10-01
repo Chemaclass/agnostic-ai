@@ -147,6 +147,8 @@ type Session struct {
 	// backedUp holds the edits left in place because `<path>.bak`
 	// already existed, so writing over them would lose one.
 	backedUp []string
+	// backups lists every `<path>.bak` this session wrote.
+	backups []string
 	// committedSum, when set, gives a path with no recorded sum the sum of
 	// its committed version, "" when there is none (see SetCommittedSum).
 	committedSum func(path string) string
@@ -263,6 +265,21 @@ func (s *Session) OverwroteEdits() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return append([]string(nil), s.overwrote...)
+}
+
+// Backups returns every `<path>.bak` this session wrote, for a hand edit
+// or under --backup, in write order.
+func (s *Session) Backups() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.backups...)
+}
+
+// noteBackup records a `<path>.bak` this session wrote.
+func (s *Session) noteBackup(path string) {
+	s.mu.Lock()
+	s.backups = append(s.backups, path+".bak")
+	s.mu.Unlock()
 }
 
 // BackupBlockedEdits returns the paths whose hand edit this session left
@@ -830,6 +847,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 		case err != nil:
 			return fmt.Errorf("backup %s: %w", path, err)
 		}
+		s.noteBackup(path)
 		if transacting {
 			// A rollback removes it, so a retry does not take it for an
 			// earlier backup and leave the edit stuck in place.
@@ -874,6 +892,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 			if err := os.WriteFile(path+".bak", existing, filePerm); err != nil {
 				return fmt.Errorf("backup %s: %w", path, err)
 			}
+			s.noteBackup(path)
 		}
 		if err := writeFileAt(path, content, mode, enforceMode); err != nil {
 			return fmt.Errorf("write %s: %w", path, err)
@@ -911,6 +930,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 			if err := os.WriteFile(path+".bak", existing, filePerm); err != nil {
 				return fmt.Errorf("backup %s: %w", path, err)
 			}
+			s.noteBackup(path)
 		}
 	}
 	if err := writeFileAt(path, content, mode, enforceMode); err != nil {
@@ -1213,6 +1233,7 @@ func (s *Session) remove(path, sum string, existing []byte, handWritten, dryRun 
 		if err := os.WriteFile(path+".bak", existing, filePerm); err != nil {
 			return false, fmt.Errorf("backup %s: %w", path, err)
 		}
+		s.noteBackup(path)
 	}
 	if err := os.Remove(path); err != nil && !IsAbsent(err) {
 		return false, fmt.Errorf("remove %s: %w", path, err)
