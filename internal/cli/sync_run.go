@@ -25,9 +25,10 @@ import (
 // syncStateVersion identifies the on-disk schema of `.agnostic-ai/.sync-state`.
 // Bumped to 2 when the per-sync output ledger (Outputs) was added, and to 3
 // when OutputSums and Orphans were added, to 4 when SpecSums was added,
-// to 5 when Unledgered was added, and to 6 when Merged was added.
+// to 5 when Unledgered was added, to 6 when Merged was added, and to 7
+// when Merged covered Aider's YAML config.
 // Readers tolerate older versions by treating missing fields as zero values.
-const syncStateVersion = mergedLedgerVersion
+const syncStateVersion = mergedYAMLLedgerVersion
 
 type syncStateFile struct {
 	Version        int       `json:"version,omitempty"`
