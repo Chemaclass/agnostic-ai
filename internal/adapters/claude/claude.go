@@ -464,6 +464,11 @@ func releasedHookKeys(doc *emit.OrderedJSON, hooks []spec.Entry) [][]string {
 	}
 	if !hasCommandHook(hooks) && !docHasEnv(doc, emit.HookTargetEnv) {
 		released = append(released, []string{"env", emit.HookTargetEnv})
+		// A config `env` block is claimed whole; deleting the hook env
+		// can empty it, and then the object is gone too.
+		if _, kept := doc.Get("env"); !kept {
+			released = append(released, []string{"env"})
+		}
 	}
 	return released
 }

@@ -67,6 +67,43 @@ func TestSync_KeptHookEnvOverrideStaysClaimedAfterHooksGo(t *testing.T) {
 	}
 }
 
+// A config `env` block is claimed whole. When sync deletes the last
+// entry and with it the `env` object, the whole claim goes too, so an
+// env the user writes back survives dropping the target.
+func TestSync_HandRestoredEnvSurvivesAfterConfigEnvAndHooksGo(t *testing.T) {
+	const settings = ".claude/settings.json"
+	const hookSpec = ".agnostic-ai/hooks/fmt.yaml"
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cline]\noutputs:\n  claude:\n    settings:\n      env:\n        AGNOSTIC_AI_TARGET: claude\n")
+	mustWriteFile(t, ".agnostic-ai/settings/model.yaml", "model: opus\n")
+	mustWriteFile(t, hookSpec, "name: fmt\nevent: PostToolUse\nmatcher: Edit\ncommand: echo hi\n")
+	runSyncOK(t)
+	written := readJSONMap(t, settings)
+	if written["env"] == nil {
+		t.Fatalf("sync wrote no env: %#v", written)
+	}
+
+	removeSpecs(t, hookSpec)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cline]\n")
+	runSyncOK(t)
+	doc := readJSONMap(t, settings)
+	if doc["env"] != nil {
+		t.Fatalf("env stayed after its config and the hooks went: %#v", doc)
+	}
+	doc["hooks"] = written["hooks"]
+	doc["env"] = written["env"]
+	writeJSONFile(t, settings, doc)
+
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
+	runSyncOK(t)
+
+	got := readJSONMap(t, settings)
+	want := map[string]any{"hooks": written["hooks"], "env": written["env"]}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("%s = %#v, want the hand-restored %#v", settings, got, want)
+	}
+}
+
 // An x-claude key that sets hooks or the hook env again keeps them
 // claimed, so dropping the target still takes out what sync wrote.
 func TestSync_XClaudeHooksStayClaimedWithoutHookSpecs(t *testing.T) {
