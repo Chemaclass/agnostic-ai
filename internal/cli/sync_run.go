@@ -76,6 +76,9 @@ type syncStateFile struct {
 	// ModelAliases records the id each vendor model alias resolved to,
 	// by target, so the next sync can say when an upgrade moved one.
 	ModelAliases map[string]map[string]string `json:"model_aliases,omitempty"`
+	// Backups lists the `<path>.bak` copies of hand edits sync made, so
+	// import can tell them from a skill's own assets.
+	Backups []string `json:"backups,omitempty"`
 }
 
 // showRepeatedDrops lets -v print capability warnings and coverage notes
@@ -94,6 +97,7 @@ type syncLedger struct {
 	// beside it so the next sync can diff sources against this one.
 	specSums     map[string]string
 	modelAliases map[string]map[string]string
+	backups      []string
 }
 
 func stateFilePath(projectRoot string) string {
@@ -133,6 +137,7 @@ func writeStateFile(projectRoot string, filesChanged int, warningsDigest, notesD
 		Merged:         ledger.merged,
 		SpecSums:       ledger.specSums,
 		ModelAliases:   ledger.modelAliases,
+		Backups:        ledger.backups,
 	})
 	if err != nil {
 		return err
@@ -742,6 +747,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	} else {
 		ledger.modelAliases = addedModelAliases(prev.ModelAliases, resolvedAliases, emitted)
 	}
+	ledger.backups = syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).OverwroteEdits))
 	if err := writeStateFile(root, report.filesChanged(), digest, notesDigest, ledger); err != nil {
 		fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 	}
@@ -809,6 +815,21 @@ func committedSum(path string) string {
 		return ""
 	}
 	return adapters.ContentSum(blob)
+}
+
+// syncBackups returns the backups sync made that are still on disk, plus
+// the one for each path this run overwrote.
+func syncBackups(prior, overwrote []string) []string {
+	seen := map[string]struct{}{}
+	for _, b := range prior {
+		if _, err := os.Lstat(b); err == nil {
+			seen[b] = struct{}{}
+		}
+	}
+	for _, p := range overwrote {
+		seen[p+".bak"] = struct{}{}
+	}
+	return sortedKeys(seen)
 }
 
 // sessionPaths collects the paths paths returns for each session,
@@ -1062,6 +1083,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	if len(out.Errors) == 0 && coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
 		ledger.specSums = specSums(cfg, b)
 	}
+	ledger.backups = syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).OverwroteEdits))
 	if err := writeStateFile(root, len(out.Writes), prev.WarningsDigest, prev.NotesDigest, ledger); err != nil {
 		fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 	}

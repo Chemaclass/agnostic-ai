@@ -34,3 +34,25 @@ func TestRollback_RemovesAHandEditBackupTheRunMade(t *testing.T) {
 		t.Errorf("rollback left %q, want the hand edit", data)
 	}
 }
+
+// A link's target may live outside the project, so sync never copies it
+// into a backup.
+func TestBackUpEdits_NeverCopiesALinkTarget(t *testing.T) {
+	dir := t.TempDir()
+	outside := filepath.Join(t.TempDir(), "secret.txt")
+	if err := os.WriteFile(outside, []byte("secret\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "SKILL.md")
+	if err := os.Symlink(outside, path); err != nil {
+		t.Skip(err)
+	}
+	s := NewSession()
+	s.BackUpEditsSince(map[string]string{path: ContentSum("generated\n")})
+
+	_ = s.WriteFile(path, "generated twice\n", false)
+
+	if _, err := os.Lstat(path + ".bak"); err == nil {
+		t.Error("sync copied a link target into a backup")
+	}
+}

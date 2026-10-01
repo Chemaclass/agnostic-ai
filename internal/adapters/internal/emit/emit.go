@@ -285,6 +285,10 @@ func (s *Session) backsUpEdit(path, content string) bool {
 	if sum == "" || merging {
 		return false
 	}
+	// A link's target may live outside the project; never copy it in.
+	if info, err := os.Lstat(path); err != nil || !info.Mode().IsRegular() {
+		return false
+	}
 	existing, err := os.ReadFile(path)
 	if err != nil || string(existing) == content {
 		return false

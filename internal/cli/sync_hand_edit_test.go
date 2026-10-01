@@ -253,3 +253,18 @@ func TestImport_KeepsAUserPairOfFileAndBak(t *testing.T) {
 		t.Errorf("import dropped a user asset: %v", err)
 	}
 }
+
+// Only a backup sync recorded is skipped, not a user's own file that
+// happens to sit beside a generated one.
+func TestImport_KeepsAUserBakBesideAGeneratedFile(t *testing.T) {
+	handEditProject(t, "claude")
+	mustWriteFile(t, handEditSkill+".bak", "a user asset\n")
+
+	if out, err := runCLI(t, "import", "claude"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+
+	if _, err := os.Stat(".agnostic-ai/skills/review/SKILL.md.bak"); err != nil {
+		t.Errorf("import dropped a user asset: %v", err)
+	}
+}
