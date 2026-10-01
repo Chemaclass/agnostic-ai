@@ -9,7 +9,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### General
 
 - **Breaking:** rule `scope`, `globs`, and `paths` form a union; folders scope only existing directories. Drop `scope` to keep a filter (#1472, #1477, #1481).
-- Shared settings files keep your keys, MCP servers, and hooks; a partial or failed sync keeps ignores and files (#1503, #1509, #1551, #1557, #1558, #1559).
+- Shared settings files keep your keys, MCP servers and hooks; partial or failed syncs keep ignores and files (#1503, #1509, #1551, #1557, #1558, #1559, #1560).
 - Name model tiers once in `models:`, and list `protected` paths that Claude Code, Codex, Gemini CLI, and Cursor enforce (#1520, #1526, #1537, #1543, #1544).
 - Hooks share `.agnostic-ai/scripts/`, `hook paths` reads edited files, and `hook run` tests each target's payload (#1512, #1515, #1531, #1546, #1553).
 - `import all` merges `AGENTS.md`, `doctor` runs lint, `coverage.accept` mutes known notes, and global name clashes warn (#1442, #1448, #1468, #1514, #1528).
