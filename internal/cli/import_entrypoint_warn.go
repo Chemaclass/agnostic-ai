@@ -85,9 +85,6 @@ func foldRootAgentsMainFile(root string) (bool, error) {
 	existing, err := os.ReadFile(dst)
 	if errors.Is(err, fs.ErrNotExist) {
 		result, err := mirrorMainFile(root, claudeAgentsMainFile)
-		if result == mirrorWritten {
-			summaryf("  → %s seeded from %s\n", agnosticMainFile, claudeAgentsMainFile)
-		}
 		return result == mirrorWritten, err
 	}
 	if err != nil {
@@ -98,6 +95,27 @@ func foldRootAgentsMainFile(root string) (bool, error) {
 	if body == "" {
 		return false, nil
 	}
+	result, err := foldSections(dst, captured, body, claudeAgentsMainFile)
+	return result == mirrorMerged, err
+}
+
+// foldSections appends to dst, which holds captured, each section of body
+// it does not hold yet, and names them.
+func foldSections(dst, captured, body, srcName string) (mirrorResult, error) {
+	merged, titles := foldText(captured, body)
+	if len(titles) == 0 {
+		return mirrorUnchanged, nil
+	}
+	if err := importWriteFile(dst, []byte(merged), 0o644); err != nil {
+		return mirrorAbsent, fmt.Errorf("write %s: %w", dst, err)
+	}
+	reportMerged(titles, srcName)
+	return mirrorMerged, nil
+}
+
+// foldText returns captured with each section of body it does not hold
+// yet appended, and the titles of those sections.
+func foldText(captured, body string) (string, []string) {
 	var added, titles []string
 	have := collapseSpace(captured)
 	for _, section := range markdownH2Sections(body) {
@@ -108,19 +126,29 @@ func foldRootAgentsMainFile(root string) (bool, error) {
 		titles = append(titles, fmt.Sprintf("%q", sectionTitle(section)))
 	}
 	if len(added) == 0 {
-		return false, nil
+		return captured, nil
 	}
-	merged := strings.TrimRight(captured, "\n") + "\n\n" + strings.Join(added, "\n\n") + "\n"
-	if err := importWriteFile(dst, []byte(merged), 0o644); err != nil {
-		return false, fmt.Errorf("write %s: %w", dst, err)
+	return strings.TrimRight(captured, "\n") + "\n\n" + strings.Join(added, "\n\n") + "\n", titles
+}
+
+func reportMerged(titles []string, srcName string) {
+	if len(titles) == 0 {
+		return
 	}
 	noun := "sections"
-	if len(added) == 1 {
+	if len(titles) == 1 {
 		noun = "section"
 	}
 	summaryf("  → merged %d %s from %s into %s: %s\n",
-		len(added), noun, claudeAgentsMainFile, agnosticMainFile, strings.Join(titles, ", "))
-	return true, nil
+		len(titles), noun, srcName, agnosticMainFile, strings.Join(titles, ", "))
+}
+
+// isEntryPointSeed reports whether body is the placeholder text sync
+// seeds into AGNOSTIC_AI.md, now or in an older release, which an import
+// replaces.
+func isEntryPointSeed(body string) bool {
+	b := strings.TrimSpace(body)
+	return b == "" || b == strings.TrimSpace(adapters.EntryPointBody()) || strings.HasPrefix(b, adapters.LegacyEntryPointTemplateLead)
 }
 
 func markdownH2Sections(body string) []string {

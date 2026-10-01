@@ -96,11 +96,8 @@ func importFromClaude(root string, src config.Sources, layout claudeLayout) erro
 	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d commands, %d environments\n",
 		c.rules, c.agents, c.skills, c.hooks, c.mcps, c.commands, environments)
 	switch mainResult {
-	case mirrorWritten:
-		summaryf("  → %s seeded from %s (commit this file — sync distributes it to all targets)\n",
-			agnosticMainFile, mainSrc)
 	case mirrorUnchanged:
-		summaryf("  → %s unchanged (%s matches its fenced view)\n", agnosticMainFile, mainSrc)
+		summaryf("  → %s unchanged (it already holds what %s says)\n", agnosticMainFile, mainSrc)
 	}
 	noteRepeatedClaudeModels(filepath.Join(root, layout.agents))
 	if promotedNested {
@@ -249,9 +246,12 @@ const (
 	mirrorAbsent mirrorResult = iota
 	// mirrorWritten: AGNOSTIC_AI.md was (re)seeded from the source.
 	mirrorWritten
-	// mirrorUnchanged: the source is exactly the view sync renders from a
-	// fenced AGNOSTIC_AI.md, which is kept as is.
+	// mirrorUnchanged: AGNOSTIC_AI.md already holds what the source says,
+	// or the source is the view sync renders from a fenced AGNOSTIC_AI.md.
 	mirrorUnchanged
+	// mirrorMerged: the source's new sections were added to the
+	// instructions AGNOSTIC_AI.md already held.
+	mirrorMerged
 )
 
 // mirrorMainFile copies <root>/<srcName> to
@@ -259,8 +259,8 @@ const (
 // source is absent so the caller can skip its "seeded from <src>"
 // summary line, and mirrorUnchanged when a fenced source is kept. Each importer calls this with the target's own
 // top-level instructions filename so the project keeps a CLI-agnostic
-// copy under the managed directory. Later imports overwrite earlier
-// mirrors (last-import wins).
+// copy under the managed directory. Instructions it already holds stay,
+// and the source's new sections are added (see mirrorBody).
 //
 // The generated appendices (inlined rules + target-overview) are
 // stripped before the write: they are per-entry-point derived output,
@@ -320,16 +320,39 @@ func claudeCompanionBody(root string) (body string, ok bool, err error) {
 // uncaptured-content warning skips them.
 func mirrorBody(root, srcName, body string, alsoCaptured ...string) (mirrorResult, error) {
 	dst := filepath.Join(root, agnosticMainFile)
-
-	// A fenced source renders a per-file view; when the imported entry point
-	// is exactly that view there is nothing new to capture and overwriting
-	// would erase every other target's ::target block.
-	if existing, readErr := os.ReadFile(dst); readErr == nil && strings.Contains(string(existing), "::target") {
-		source := header.Strip(string(existing))
-		if strings.TrimSpace(source) == strings.TrimSpace(body) || matchesRenderedView(root, srcName, source, body) {
+	current := ""
+	if existing, readErr := os.ReadFile(dst); readErr == nil {
+		current = header.Strip(string(existing))
+		// A fenced source renders a per-file view; when the imported entry
+		// point is exactly that view there is nothing new to capture.
+		if strings.Contains(current, "::target") &&
+			(strings.TrimSpace(current) == strings.TrimSpace(body) || matchesRenderedView(root, srcName, current, body)) {
 			return mirrorUnchanged, nil
 		}
-		summaryf("  ! %s replaced a fenced %s; ::target blocks for other tools are gone. Restore them from git if needed.\n", srcName, agnosticMainFile)
+	}
+	// Instructions held before this import, such as another tool's, are
+	// the user's: add what is new instead of replacing them (#1595). In a
+	// multi-source run each source builds on that same copy, so the last
+	// source wins, as the preview reports, without dropping it.
+	base := current
+	if len(importRunSources) > 0 {
+		if !importMainSeen {
+			importMainBefore, importMainSeen = current, true
+		}
+		base = importMainBefore
+	}
+	if !isEntryPointSeed(base) {
+		merged, titles := foldText(base, body)
+		// A multi-source run still writes, so the preview sees each
+		// source's proposal.
+		if merged == current && len(importRunSources) == 0 {
+			return mirrorUnchanged, nil
+		}
+		if err := importWriteFile(dst, []byte(merged), 0o644); err != nil {
+			return mirrorAbsent, fmt.Errorf("write %s: %w", dst, err)
+		}
+		reportMerged(titles, srcName)
+		return mirrorMerged, nil
 	}
 
 	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
@@ -338,6 +361,7 @@ func mirrorBody(root, srcName, body string, alsoCaptured ...string) (mirrorResul
 	if err := importWriteFile(dst, []byte(body), 0o644); err != nil {
 		return mirrorAbsent, fmt.Errorf("write %s: %w", dst, err)
 	}
+	summaryf("  → %s seeded from %s\n", agnosticMainFile, srcName)
 	warnUncapturedEntryPoints(root, body, append([]string{srcName}, alsoCaptured...)...)
 	return mirrorWritten, nil
 }

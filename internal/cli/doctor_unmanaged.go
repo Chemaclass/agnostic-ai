@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 
 	"github.com/spf13/cobra"
@@ -152,7 +153,13 @@ func reportUnmanagedConfig(cmd *cobra.Command, root string, cfg *config.Config) 
 		for _, p := range byTarget[target] {
 			cmd.Printf("  ✗ %s\n", p)
 		}
-		cmd.Printf("    → adopt with: agnostic-ai import %s\n", target)
+		// Import alone leaves a tool outside targets unmanaged, so
+		// doctor would keep giving the same advice.
+		if slices.Contains(cfg.Targets, target) {
+			cmd.Printf("    → adopt with: agnostic-ai import %s\n", target)
+		} else {
+			cmd.Printf("    → adopt with: add %s to targets in agnostic-ai.yaml, then agnostic-ai import %s\n", target, target)
+		}
 	}
 	return len(findings)
 }

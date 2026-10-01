@@ -108,7 +108,6 @@ func TestImport_DryRunDiffReportsCompetingEntryPointAndWinner(t *testing.T) {
 		"import order: 1. claude, 2. codex",
 		"change    .agnostic-ai/AGNOSTIC_AI.md  (claude, codex)",
 		"! conflict .agnostic-ai/AGNOSTIC_AI.md: claude, codex propose different content; codex (last) is kept",
-		"-Old shared body.",
 		"+Agents body.",
 		"! conflict .agnostic-ai/skills/review/SKILL.md: claude, codex propose different content; codex (last) is kept",
 		"+Codex review steps.",
