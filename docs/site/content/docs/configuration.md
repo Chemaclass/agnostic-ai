@@ -156,7 +156,7 @@ Claude Code resolves `opus`, `sonnet`, `haiku`, and `fable` to its latest models
 | `luna` | `gpt-6-luna` |
 | `astra` | `gpt-6-astra` |
 
-Each release fixes the ids, so a project that pins [`requires`](#requires) writes the same ones on every machine, and upgrading agnostic-ai moves them. `explain <spec>` shows the resolution, such as `sol → gpt-6.1-sol`. An alias works anywhere Codex reads a `model`: a tier, `model.codex`, a shared `model`, or a settings spec. `x-codex.model` is written as given, so it can send an id the table does not know.
+Each release fixes the ids, so a project that pins [`requires`](#requires) writes the same ones on every machine, and upgrading agnostic-ai moves them. The first `sync` after such an upgrade prints `note: codex: sol now resolves to <new id> (was <old id>)` once. `explain <spec>` shows the resolution, such as `sol → gpt-6.1-sol`. An alias works anywhere Codex reads a `model`: a tier, `model.codex`, a shared `model`, or a settings spec. `x-codex.model` is written as given, so it can send an id the table does not know.
 
 | Tier key | Value |
 |----------|-------|
