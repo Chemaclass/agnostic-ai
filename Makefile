@@ -6,7 +6,7 @@ PKG := ./cmd/agnostic-ai
 # Pinned to match the golangci-lint-action version in
 # .github/workflows/ci.yml. Bump both together;
 # tests/integration/toolchain_pins_test.go holds them level.
-GOLANGCI_LINT_VERSION := v2.13.2
+GOLANGCI_LINT_VERSION := v2.14.0
 LEFTHOOK_VERSION := v1.10.10
 ZOLA_VERSION := 0.23.6
 
