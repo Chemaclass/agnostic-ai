@@ -334,7 +334,13 @@ func mirrorBody(root, srcName, body string, alsoCaptured ...string) (mirrorResul
 	// source in it, are the user's: add what is new instead of replacing
 	// them (#1595).
 	if !isEntryPointSeed(current) {
-		merged, titles, twice := foldText(current, body)
+		// A fenced source renders a view per tool, so an edit to one view
+		// cannot be placed without knowing which block it belongs to.
+		if strings.Contains(current, "::target") {
+			summaryf("  ! %s differs from what sync renders from the fenced %s; %s is unchanged, so merge the edit into it by hand\n", srcName, agnosticMainFile, agnosticMainFile)
+			return mirrorUnchanged, nil
+		}
+		merged, titles, twice := foldText(current, current, body)
 		// A multi-source run still writes, so the preview sees each
 		// source's proposal.
 		if merged == current && len(importRunSources) == 0 {

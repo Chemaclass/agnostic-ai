@@ -937,10 +937,10 @@ func TestImportFromClaude_NoMCPFile(t *testing.T) {
 	}
 }
 
-// A hand-edited CLAUDE.md that no longer matches the fenced view adds its
-// new text to AGNOSTIC_AI.md, keeping every target's ::target block, instead
-// of replacing the source (#1595).
-func TestMirrorMainFile_MergesIntoAFencedSource(t *testing.T) {
+// A hand-edited CLAUDE.md that no longer matches the fenced view leaves
+// AGNOSTIC_AI.md as it is: which ::target block the edit belongs to is
+// unknown, and appending it unfenced would reach every tool (#1595).
+func TestMirrorMainFile_LeavesAFencedSourceAndSaysSo(t *testing.T) {
 	dir := t.TempDir()
 	source := "Shared.\n\n::target claude\nClaude-only line.\n::end\n\n::target gemini\nGemini-only line.\n::end\n"
 	writeFile(t, filepath.Join(dir, agnosticMainFile), source)
@@ -955,20 +955,18 @@ func TestMirrorMainFile_MergesIntoAFencedSource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result != mirrorMerged {
-		t.Errorf("result = %v, want merged", result)
+	if result != mirrorUnchanged {
+		t.Errorf("result = %v, want unchanged", result)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, agnosticMainFile))
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"::target gemini", "Gemini-only line.", "Hand-edited, no longer matches sync."} {
-		if !strings.Contains(string(got), want) {
-			t.Errorf("AGNOSTIC_AI.md lacks %q:\n%s", want, got)
-		}
+	if string(got) != source {
+		t.Errorf("AGNOSTIC_AI.md changed:\n%s", got)
 	}
-	if !strings.Contains(buf.String(), "merged 1 section from CLAUDE.md") {
-		t.Errorf("expected the merge to be named, got:\n%s", buf.String())
+	if !strings.Contains(buf.String(), "merge the edit into it by hand") {
+		t.Errorf("expected the edit to be named, got:\n%s", buf.String())
 	}
 }
 

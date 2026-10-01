@@ -88,3 +88,17 @@ func TestImport_ReimportingAnEditedSectionNamesBothVersions(t *testing.T) {
 		t.Errorf("import did not name the second version:\n%s", log.String())
 	}
 }
+
+// amp writes the root AGENTS.md too, so `import codex` alone adopts it.
+func TestDoctor_AdoptStepSkipsAddingCodexWhenAnotherTargetWritesAgentsMd(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, amp]\n")
+	runSyncOK(t)
+	mustWriteFile(t, "AGENTS.md", "# Hand written\n")
+
+	out, _ := runCLI(t, "doctor")
+
+	if strings.Contains(out, "add codex to targets") {
+		t.Errorf("doctor asks to add codex though amp writes AGENTS.md:\n%s", out)
+	}
+}

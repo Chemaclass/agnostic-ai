@@ -102,7 +102,7 @@ func foldRootAgentsMainFile(root string) (bool, error) {
 // foldSections appends to dst, which holds captured, each section of body
 // it does not hold yet, and names them.
 func foldSections(dst, captured, body, srcName string) (mirrorResult, error) {
-	merged, titles, twice := foldText(captured, body)
+	merged, titles, twice := foldText(captured, captured, body)
 	if len(titles) == 0 {
 		return mirrorUnchanged, nil
 	}
@@ -113,14 +113,15 @@ func foldSections(dst, captured, body, srcName string) (mirrorResult, error) {
 	return mirrorMerged, nil
 }
 
-// foldText returns captured with each section of body it does not hold
-// yet appended, the titles of those sections, and the titles captured
-// already has: an edited section comes back as a second copy.
-func foldText(captured, body string) (string, []string, []string) {
+// foldText returns captured with each section of body that held lacks
+// appended, the titles of those sections, and the titles held already
+// has: an edited section comes back as a second copy. held is captured,
+// plus any view rendered from it.
+func foldText(captured, heldText, body string) (string, []string, []string) {
 	var added, titles, twice []string
-	have := collapseSpace(captured)
+	have := collapseSpace(heldText)
 	held := map[string]bool{}
-	for _, section := range markdownH2Sections(captured) {
+	for _, section := range markdownH2Sections(heldText) {
 		held[sectionTitle(section)] = true
 	}
 	for _, section := range markdownH2Sections(body) {

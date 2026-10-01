@@ -65,7 +65,7 @@ For existing native configuration, replace the example target list with the tool
 printf '%s\n' 'claude,codex' | agnostic-ai init --from all
 ```
 
-`--from all` imports every detected source. Each one adds to `.agnostic-ai/AGNOSTIC_AI.md` the sections it lacks, naming them, instead of replacing what an earlier source or import captured, so review the file before syncing when tools say the same thing in different words.
+`--from all` imports every detected source. Each one adds to `.agnostic-ai/AGNOSTIC_AI.md` the sections it lacks, naming them, instead of replacing what an earlier source or import captured, so review the file before syncing when tools say the same thing in different words. An edited section comes back as a second version, and import names it so you keep one. A file with `::target` fences is left as it is when the imported file differs from what sync renders, since the edit's block is unknown; import says to merge it by hand.
 
 For a fresh project:
 
