@@ -2,6 +2,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -121,10 +122,10 @@ func stopProfileAfterRun(cmd *cobra.Command, file **os.File) {
 			err := run(c, args)
 			stopErr := stopCPUProfile(*file)
 			*file = nil
-			if err != nil {
+			if stopErr == nil {
 				return err
 			}
-			return stopErr
+			return errors.Join(err, stopErr)
 		}
 	}
 	for _, sub := range cmd.Commands() {
