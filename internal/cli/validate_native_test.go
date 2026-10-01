@@ -474,23 +474,24 @@ func validateKiroHookEvent(t *testing.T, event string) string {
 	return out.String()
 }
 
-// TestValidate_FlagsKiroAgentSpawn covers #907, and replaces a test
-// that asserted the opposite.
+// TestValidate_PointsKiroAgentSpawnAtSessionStart covers #907 and #1580.
 //
-// #660 accepted `AgentSpawn` on good evidence: kiro.dev then documented
-// it, and quoted "AgentSpawn hooks are never cached" from
-// /docs/hooks/actions/. Kiro CLI 3.0 removed it. That sentence is gone
-// and the name now returns zero matches across /docs/hooks/,
-// /docs/hooks/types/ and /docs/hooks/actions/. Only the 2.x camelCase
-// `agentSpawn` survives, in a legacy payload example, and its
-// documented 3.0 successor is `SessionStart`.
-//
-// So the old test was right when written and its premise expired. A
-// spec carrying `AgentSpawn` now emits a `trigger` Kiro never fires.
-func TestValidate_FlagsKiroAgentSpawn(t *testing.T) {
-	if got := validateKiroHookEvent(t, "AgentSpawn"); !strings.Contains(got, "unknown hook event") ||
-		!strings.Contains(got, "AgentSpawn") {
-		t.Errorf("expected AgentSpawn to be flagged as unknown, got: %s", got)
+// #660 accepted `AgentSpawn` when kiro.dev documented it. Kiro CLI 3.0
+// made `SessionStart` the trigger, so #907 flagged `AgentSpawn` as
+// unknown. Kiro's hook types page now says V3 "accepts `AgentSpawn` and
+// `agentSpawn` for compatibility". validate still flags both, so specs
+// stay on the canonical name, but names `SessionStart` instead of
+// calling them unknown.
+func TestValidate_PointsKiroAgentSpawnAtSessionStart(t *testing.T) {
+	for _, event := range []string{"AgentSpawn", "agentSpawn"} {
+		got := validateKiroHookEvent(t, event)
+		if strings.Contains(got, "unknown hook event") {
+			t.Errorf("%s is a documented kiro alias, not unknown: %s", event, got)
+		}
+		want := `hook event "` + event + `" is a kiro alias of "SessionStart"; use "SessionStart"`
+		if !strings.Contains(got, want) {
+			t.Errorf("validate must point %s at SessionStart, want %q in: %s", event, want, got)
+		}
 	}
 }
 

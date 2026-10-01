@@ -190,6 +190,14 @@ func lintHookEvents(entries []spec.Entry, targets []string) []validationIssue {
 		if _, ok := allowed[event]; ok {
 			continue
 		}
+		if target, canonical, ok := hookEventAlias(targets, event); ok {
+			out = append(out, validationIssue{
+				Path:    e.Path,
+				Field:   "event",
+				Message: "hook event " + quote(event) + " is a " + target + " alias of " + quote(canonical) + "; use " + quote(canonical),
+			})
+			continue
+		}
 		out = append(out, validationIssue{
 			Path:    e.Path,
 			Field:   "event",
@@ -234,6 +242,17 @@ func lintOrphanKinds(b spec.Bundle, targets []string, support kindSupport) []val
 		})
 	}
 	return out
+}
+
+// hookEventAlias returns the first enabled target that accepts event as
+// an alias, and the canonical event it stands for.
+func hookEventAlias(targets []string, event string) (target, canonical string, ok bool) {
+	for _, t := range targets {
+		if canonical, ok := hookEventAliases[t][event]; ok {
+			return t, canonical, true
+		}
+	}
+	return "", "", false
 }
 
 func unionEvents(targets []string) map[string]struct{} {
