@@ -1,0 +1,42 @@
+package codex
+
+import (
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
+)
+
+// HookCommand is one command handler sync writes for a hook spec.
+type HookCommand struct {
+	Command        string
+	CommandWindows string
+}
+
+// HookCommands returns the command handlers sync writes for h, one per
+// entry of its command list.
+func HookCommands(h spec.Entry) []HookCommand {
+	if kind, _ := h.Meta["type"].(string); kind != "" && kind != "command" {
+		return nil
+	}
+	windows := specCommandWindows(h)
+	var out []HookCommand
+	for _, raw := range hookCommands(h.Meta["command"]) {
+		cmd := specCommand(h, raw)
+		c := HookCommand{Command: emit.ExportHookTarget(cmd, target), CommandWindows: windows}
+		if c.CommandWindows == "" {
+			c.CommandWindows = cmd
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
+// specCommand is one entry of h's command as Codex runs it, before the
+// target export.
+func specCommand(h spec.Entry, raw string) string {
+	return emit.ExecFormCommand(emit.RewriteHookPath(raw, target, h.Meta), emit.StringSlice(h.Meta["args"]))
+}
+
+func specCommandWindows(h spec.Entry) string {
+	windows, _ := h.Meta["commandWindows"].(string)
+	return emit.RewriteHookDirectories(windows, target)
+}

@@ -17,7 +17,7 @@ moved = { per-target-body-fences = "@/docs/spec-format/_index.md" }
 - **Fresh context.** Print the branch, open issues, or service status when a session starts.
 - **One script, many tools.** Tools that share event names, such as Claude Code and Codex, run one spec. `AGNOSTIC_AI_TARGET` tells a shared script which tool called it.
 
-agnostic-ai never runs a hook itself; the configured tools do. Review hook specs like code.
+Sync never runs a hook; the configured tools do. [`agnostic-ai hook run`](#hook-run) runs one when you ask. Review hook specs like code.
 
 ## Write one
 
@@ -182,3 +182,42 @@ The command fails for a target it does not read:
 - Crush: only `PreToolUse` runs, and it sets `CRUSH_TOOL_INPUT_FILE_PATH`.
 - OpenCode and Kilo: plugins get tool arguments as JavaScript objects, not a payload on stdin.
 - Zed: no hook fires on an edit.
+
+## Test a hook {#hook-run}
+
+`agnostic-ai hook run <hook>` runs a hook spec the way each target would, before a session fires it. A hook that blocks on Claude Code and does nothing on Codex shows up here instead of in a live session:
+
+```text
+$ agnostic-ai hook run protect-files --edit .github/workflows/tests.yml
+claude: block (exit 2, 12ms)
+  event: PreToolUse (Write)
+  command: .claude/hooks/protect-files.sh
+  stderr: Blocked: .github/workflows/tests.yml is protected.
+codex: allow (exit 0, 9ms)
+  event: PreToolUse (apply_patch)
+  command: export AGNOSTIC_AI_TARGET=codex; .codex/hooks/protect-files.sh
+hook protect-files: targets decide differently: claude block, codex allow
+```
+
+For each configured target the hook reaches, it runs every command sync wrote for that target, from the project root:
+
+- **Payload.** `--edit <path>` and `--bash <command>` build a `PreToolUse` or `PostToolUse` tool call, `--prompt <text>` builds `UserPromptSubmit`, and `SessionStart` takes its `source` from the matcher (`startup` when the matcher is empty). `--payload <file>` sends a JSON file as is, for any event.
+- **Env.** Claude Code gets `AGNOSTIC_AI_TARGET=claude` and `CLAUDE_PROJECT_DIR`. Codex gets neither: its command sets the target itself. Both variables are removed from the calling shell's env first; other variables pass through.
+- **Shell.** Claude Code commands run with `bash -c`, exec-form `args` with no shell, and `shell: powershell` with PowerShell. Codex commands run with `sh -c`; on Windows, `commandWindows` runs with `powershell.exe -Command`.
+- **Timeout.** The spec's `timeout`, or the 600 seconds both tools wait by default.
+- **Matcher.** A matcher that does not match the tool or source means the target would not run the hook; that target reports `allow` and why. A target without the hook's event, such as Codex for `Notification`, is listed as not run.
+- **Async.** An `async: true` hook runs and prints its output, but its result is `not judged` and stays out of `--expect` and the comparison: neither tool waits for it.
+- **Background commands.** On macOS and Linux, a command the hook leaves running is killed once the hook exits.
+
+Each command reports one decision. Exit 2 is `block`, except on `SessionStart`, `SessionEnd`, `Notification`, `PreCompact`, and `PostCompact`, where it cannot stop anything and reads as `error`. On `PostToolUse` the tool already ran, so `block` sends stderr back to the model. Another non-zero exit is `error`. Exit 0 is `allow`, or `block` when stdout is a JSON reply with `"permissionDecision": "deny"`, `"decision": "block"`, or `"continue": false`. A command past its timeout is `timeout`. A `context` line marks output the target adds to the session: plain stdout on `SessionStart` and `UserPromptSubmit`, or a JSON reply's `additionalContext`.
+
+The run exits 1 when a command times out or errors, when two targets decide differently, or, with `--expect allow` or `--expect block`, when a target decides otherwise. That makes it a CI check.
+
+| Target | Payload | Vendor docs |
+|---|---|---|
+| Claude Code | Documented shape. `--edit` calls the first of `Write`, `Edit`, and `MultiEdit` the matcher matches, with an absolute `tool_input.file_path`. | [Hooks reference](https://code.claude.com/docs/en/hooks) |
+| Codex | Documented shape. `--edit` calls `apply_patch` with an `*** Add File:` or `*** Update File:` patch in `tool_input.command`, and `Edit` and `Write` match it. | [Hooks](https://learn.chatgpt.com/docs/hooks) |
+
+On both, `tool_response` holds placeholder values, and session IDs and transcript paths are made up. Claude Code's `if` field is not evaluated.
+
+Every other target is listed as not run. Claude Code and Codex share event names, payload fields, and the exit-code and JSON reply protocol read above. Other targets name events and tools their own way (Cursor's `beforeShellExecution`, Gemini's `BeforeTool` and `write_file`), reply in another format, or document no edit payload (see [edited paths](#edited-paths)), so each needs its own payload builder and decision reader.
