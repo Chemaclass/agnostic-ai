@@ -12,6 +12,8 @@ type fileRecord struct {
 	Path   string `json:"path"`
 	Action string `json:"action"`
 	Bytes  int    `json:"bytes"`
+	// Backup is the `<path>.bak` holding a hand edit this write replaced.
+	Backup string `json:"backup,omitempty"`
 }
 
 // errorRecord reports a per-target error in a JSON command output.
