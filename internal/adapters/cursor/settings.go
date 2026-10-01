@@ -91,7 +91,13 @@ func emitCLIConfig(sess *emit.Session, settings []spec.Entry, dryRun bool) error
 	if err := owned.Record(sess, final, base, generated, dryRun); err != nil {
 		return err
 	}
-	return sess.MergeJSONFileNested(cliConfigFile, map[string]any{"permissions": final}, []string{"permissions"}, dryRun)
+	// The lists hold the user's rules too, so sync claims only its own.
+	owns := emit.OwnedRulesOf(final, base, generated)
+	permissions := make(map[string]any, len(final))
+	for list, rules := range final {
+		permissions[list] = emit.ClaimedJSONItems(rules, owns[list])
+	}
+	return sess.MergeJSONFileNested(cliConfigFile, map[string]any{"permissions": permissions}, []string{"permissions"}, dryRun)
 }
 
 // cliPermissionLists are the two lists Cursor CLI permissions take.

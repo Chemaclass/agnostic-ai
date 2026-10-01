@@ -83,7 +83,12 @@ const (
 	MergedUnchanged = emit.MergedUnchanged
 	MergedStripped  = emit.MergedStripped
 	MergedRemoved   = emit.MergedRemoved
+	MergedEdited    = emit.MergedEdited
 )
+
+// MergedKey mirrors emit.MergedKey: one value sync set in a JSON file it
+// merges into.
+type MergedKey = emit.MergedKey
 
 // Session mirrors emit.Session so the cli and cmd layers — which cannot
 // import the internal emit tree — can construct one emission session per

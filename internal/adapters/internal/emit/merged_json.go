@@ -4,7 +4,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"slices"
 )
+
+// MergedKey is one value sync set in a JSON file it merges into.
+type MergedKey struct {
+	Path []string `json:"path"`
+	// Sum fingerprints the value sync wrote, so a value the user edited
+	// since stays when the file is released.
+	Sum string `json:"sum,omitempty"`
+	// Items names sync's entries in a list it shares with the user, by
+	// content sum once written, so the ledger holds no rule text.
+	// Releasing the file takes out only these.
+	Items []string `json:"items,omitempty"`
+}
 
 // carriedJSONValue is a merge value sync writes without claiming it.
 type carriedJSONValue struct{ value any }
@@ -17,19 +30,41 @@ func CarriedJSONValue(value any) any {
 	return carriedJSONValue{value: value}
 }
 
-func uncarried(value any) (any, bool) {
-	if c, ok := value.(carriedJSONValue); ok {
-		return c.value, false
+// claimedItems is a list merge value of which sync owns only items.
+type claimedItems struct {
+	value any
+	items []string
+}
+
+// ClaimedJSONItems, as a list value in a merge, sets the list and claims
+// only items, the entries sync added beside the user's own. With no
+// items, nothing is claimed.
+func ClaimedJSONItems(value any, items []string) any {
+	if len(items) == 0 {
+		return CarriedJSONValue(value)
 	}
-	return value, true
+	return claimedItems{value: value, items: slices.Clone(items)}
+}
+
+// mergeClaim unwraps a merge value and says how much of it sync claims:
+// all of it (claimed, nil items), some list entries, or nothing.
+func mergeClaim(value any) (unwrapped any, claimed bool, items []string) {
+	switch v := value.(type) {
+	case carriedJSONValue:
+		return v.value, false, nil
+	case claimedItems:
+		return v.value, true, v.items
+	}
+	return value, true, nil
 }
 
 // WriteMergedJSON is WriteFile for a JSON file that also holds keys sync
-// did not write. keys lists the key paths sync set, so a later sync that
+// did not write. keys lists the values sync set, so a later sync that
 // stops writing the file can take out only those (ReleaseMergedJSON).
-// released lists the paths this write removed or left to the user, which
-// an earlier sync may have set.
-func (s *Session) WriteMergedJSON(path, content string, keys, released [][]string, dryRun bool) error {
+// released lists the key paths this write removed or left to the user,
+// which an earlier sync may have set.
+func (s *Session) WriteMergedJSON(path, content string, keys []MergedKey, released [][]string, dryRun bool) error {
+	keys = withValueSums(content, keys)
 	s.mu.Lock()
 	mark := len(s.detailed)
 	s.mu.Unlock()
@@ -48,6 +83,42 @@ func (s *Session) WriteMergedJSON(path, content string, keys, released [][]strin
 	return nil
 }
 
+// withValueSums fills in the sum of each whole value content holds.
+func withValueSums(content string, keys []MergedKey) []MergedKey {
+	doc := NewOrderedJSON()
+	if err := json.Unmarshal([]byte(content), doc); err != nil {
+		return keys
+	}
+	out := make([]MergedKey, 0, len(keys))
+	for _, key := range keys {
+		if key.Items != nil {
+			sums := make([]string, len(key.Items))
+			for i, item := range key.Items {
+				sums[i] = ContentSum(item)
+			}
+			key.Items = sums
+		} else if raw, found := jsonValueAt(doc, key.Path); found {
+			key.Sum = jsonValueSum(raw)
+		}
+		out = append(out, key)
+	}
+	return out
+}
+
+// jsonValueSum fingerprints a JSON value regardless of its formatting
+// and key order.
+func jsonValueSum(raw json.RawMessage) string {
+	var value any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return ContentSum(string(raw))
+	}
+	canonical, err := json.Marshal(value)
+	if err != nil {
+		return ContentSum(string(raw))
+	}
+	return ContentSum(string(canonical))
+}
+
 // MergedRelease says what ReleaseMergedJSON did with a file.
 type MergedRelease int
 
@@ -62,53 +133,108 @@ const (
 	// MergedRemoved deleted a file sync created once nothing else was
 	// left in it.
 	MergedRemoved
+	// MergedEdited took out sync's unedited keys and kept the ones the
+	// user edited since sync wrote them.
+	MergedEdited
 )
 
-// ReleaseMergedJSON takes the key paths sync set out of the merged JSON
-// file at path and keeps every other key. The file goes away only when
-// sync created it and nothing else is left. A missing file is
-// MergedUnchanged.
-func (s *Session) ReleaseMergedJSON(path string, keys [][]string, created, dryRun bool) (MergedRelease, error) {
+// ReleaseMergedJSON takes the values sync set out of the merged JSON
+// file at path and keeps every other key. A value whose sum no longer
+// matches was edited by the user and stays, unless force is set; edited
+// lists those. The file goes away only when sync created it and nothing
+// else is left. A missing file is MergedUnchanged.
+func (s *Session) ReleaseMergedJSON(path string, keys []MergedKey, created, force, dryRun bool) (result MergedRelease, edited []MergedKey, err error) {
 	if s.skipUnmanaged(path) {
-		return MergedKept, nil
+		return MergedKept, nil, nil
 	}
 	existing, err := os.ReadFile(path)
 	if IsAbsent(err) {
-		return MergedUnchanged, nil
+		return MergedUnchanged, nil, nil
 	}
 	if err != nil {
-		return MergedKept, fmt.Errorf("read %s: %w", path, err)
+		return MergedKept, nil, fmt.Errorf("read %s: %w", path, err)
 	}
 	doc, err := s.readExistingJSON(path, false)
 	if err != nil {
-		return MergedKept, nil
+		return MergedKept, nil, nil
 	}
 	changed := false
 	for _, key := range keys {
-		changed = deleteJSONPath(doc, key) || changed
-	}
-	if doc.Len() == 0 && created {
-		if _, err := s.remove(path, "", existing, false, dryRun); err != nil {
-			return MergedKept, err
+		raw, found := jsonValueAt(doc, key.Path)
+		switch {
+		case !found:
+		case key.Items != nil:
+			changed = editJSONPath(doc, key.Path, func(raw json.RawMessage) (any, bool, bool) {
+				return withoutItems(raw, key.Items)
+			}) || changed
+		case !force && key.Sum != "" && jsonValueSum(raw) != key.Sum:
+			edited = append(edited, key)
+		default:
+			changed = editJSONPath(doc, key.Path, func(json.RawMessage) (any, bool, bool) { return nil, false, true }) || changed
 		}
-		return MergedRemoved, nil
 	}
-	if !changed {
-		return MergedUnchanged, nil
+	if len(edited) == 0 && doc.Len() == 0 && created {
+		if _, err := s.remove(path, "", existing, false, dryRun); err != nil {
+			return MergedKept, nil, err
+		}
+		return MergedRemoved, nil, nil
 	}
-	raw, err := MarshalJSONIndentWith(doc, DetectJSONIndent(existing))
-	if err != nil {
-		return MergedKept, fmt.Errorf("marshal %s: %w", path, err)
+	if changed {
+		raw, err := MarshalJSONIndentWith(doc, DetectJSONIndent(existing))
+		if err != nil {
+			return MergedKept, nil, fmt.Errorf("marshal %s: %w", path, err)
+		}
+		if err := s.WriteFile(path, string(raw)+"\n", dryRun); err != nil {
+			return MergedKept, nil, err
+		}
 	}
-	if err := s.WriteFile(path, string(raw)+"\n", dryRun); err != nil {
-		return MergedKept, err
+	switch {
+	case len(edited) > 0:
+		return MergedEdited, edited, nil
+	case changed:
+		return MergedStripped, nil, nil
 	}
-	return MergedStripped, nil
+	return MergedUnchanged, nil, nil
 }
 
-// deleteJSONPath removes the value at path, then every object on the
-// way that the removal left empty. It reports whether doc changed.
-func deleteJSONPath(doc *OrderedJSON, path []string) bool {
+// withoutItems drops the entries whose sums are in items from the JSON
+// list raw. It keeps the value unless the list ends up empty, and leaves
+// anything but a list alone.
+func withoutItems(raw json.RawMessage, items []string) (value any, keep, changed bool) {
+	var list []any
+	if err := json.Unmarshal(raw, &list); err != nil {
+		return nil, true, false
+	}
+	kept := slices.DeleteFunc(slices.Clone(list), func(entry any) bool {
+		s, ok := entry.(string)
+		return ok && slices.Contains(items, ContentSum(s))
+	})
+	if len(kept) == len(list) {
+		return nil, true, false
+	}
+	return kept, len(kept) > 0, true
+}
+
+// jsonValueAt returns the raw value at path in doc.
+func jsonValueAt(doc *OrderedJSON, path []string) (json.RawMessage, bool) {
+	if len(path) == 0 {
+		return nil, false
+	}
+	raw, found := doc.Get(path[0])
+	if !found || len(path) == 1 {
+		return raw, found
+	}
+	child := NewOrderedJSON()
+	if err := json.Unmarshal(raw, child); err != nil {
+		return nil, false
+	}
+	return jsonValueAt(child, path[1:])
+}
+
+// editJSONPath replaces the value at path with what edit returns, or
+// removes it when edit does not keep it, then removes every object on
+// the way that the removal left empty. It reports whether doc changed.
+func editJSONPath(doc *OrderedJSON, path []string, edit func(json.RawMessage) (value any, keep, changed bool)) bool {
 	if len(path) == 0 {
 		return false
 	}
@@ -117,11 +243,18 @@ func deleteJSONPath(doc *OrderedJSON, path []string) bool {
 		return false
 	}
 	if len(path) == 1 {
-		doc.Delete(path[0])
-		return true
+		value, keep, changed := edit(raw)
+		switch {
+		case !changed:
+			return false
+		case !keep:
+			doc.Delete(path[0])
+			return true
+		}
+		return doc.Set(path[0], value) == nil
 	}
 	child := NewOrderedJSON()
-	if err := json.Unmarshal(raw, child); err != nil || !deleteJSONPath(child, path[1:]) {
+	if err := json.Unmarshal(raw, child); err != nil || !editJSONPath(child, path[1:], edit) {
 		return false
 	}
 	if child.Len() == 0 {

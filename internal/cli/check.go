@@ -866,8 +866,9 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 		defer sess.SetBackup(false)
 	}
 	fixed := map[string]string{}
+	releasedMerged := map[string]*mergedOutput{}
 	defer func() {
-		if err := recordOutputSums(".", fixed); err != nil {
+		if err := errors.Join(recordOutputSums(".", fixed), recordMergedRelease(".", releasedMerged)); err != nil {
 			fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 		}
 	}()
@@ -900,7 +901,10 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 		pruned := map[string]bool{}
 		for _, p := range r.Leftover {
 			if m, merged := state.Merged[p]; merged && !unledgered {
-				result, err := sess.ReleaseMergedJSON(p, m.Keys, m.Created, false)
+				if m.Unrecorded {
+					continue
+				}
+				result, edited, err := sess.ReleaseMergedJSON(p, m.Keys, m.Created, false, false)
 				if err != nil {
 					return written, err
 				}
@@ -908,13 +912,15 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 				case adapters.MergedRemoved:
 					pruneAncestorDirs(p, pruned)
 					written++
+					releasedMerged[p] = nil
 				case adapters.MergedStripped:
-					// The new sum keeps the next sync from reading the
-					// stripped file as a hand edit.
-					if data, err := os.ReadFile(p); err == nil {
-						fixed[p] = adapters.ContentSum(string(data))
-					}
 					written++
+					releasedMerged[p] = nil
+				case adapters.MergedUnchanged:
+					releasedMerged[p] = nil
+				case adapters.MergedEdited:
+					written++
+					releasedMerged[p] = &mergedOutput{Keys: edited, Created: m.Created}
 				}
 				continue
 			}

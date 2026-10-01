@@ -25,9 +25,9 @@ import (
 // syncStateVersion identifies the on-disk schema of `.agnostic-ai/.sync-state`.
 // Bumped to 2 when the per-sync output ledger (Outputs) was added, and to 3
 // when OutputSums and Orphans were added, to 4 when SpecSums was added,
-// and to 5 when Unledgered was added.
+// to 5 when Unledgered was added, and to 6 when Merged was added.
 // Readers tolerate older versions by treating missing fields as zero values.
-const syncStateVersion = 5
+const syncStateVersion = mergedLedgerVersion
 
 type syncStateFile struct {
 	Version        int       `json:"version,omitempty"`
@@ -670,10 +670,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		report.updated = append(report.updated, filepath.ToSlash(p))
 	}
 	for _, p := range kept {
-		reason := "edited since sync"
-		if prev.OutputSums[p] == "" {
-			reason = "the sync that wrote it recorded no checksum"
-		}
+		reason := keptOrphanReason(ledger.merged, prev.OutputSums, p)
 		keptf("  ~ kept orphan %s (%s; run `agnostic-ai doctor --fix` to choose removal, or list it under sync.unmanaged)\n", p, reason)
 	}
 	if !dryRun {

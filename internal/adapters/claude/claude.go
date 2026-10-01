@@ -420,27 +420,32 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 		return sess.WriteFile(path, string(raw)+"\n", dryRun)
 	}
 	claimed := claimedSettingsKeys(hooks, custom, specSettings, configSettings)
+	for list, rules := range emit.OwnedRulesOf(docPermissions(doc), keep, generated) {
+		if len(rules) > 0 {
+			claimed = append(claimed, emit.MergedKey{Path: []string{"permissions", list}, Items: rules})
+		}
+	}
 	return sess.WriteMergedJSON(path, string(raw)+"\n", claimed, nil, dryRun)
 }
 
 // claimedSettingsKeys lists the key paths sync set in a settings.json it
 // merged into, so a sync that stops writing the file takes out only
-// those. Permissions are left out: the owned-rules record strips sync's
-// rules from them. An `x-claude` value merges into the file's, so only
+// those. Permissions hold the user's rules too, so the caller claims
+// only the rules the owned-rules record lists. An `x-claude` value merges into the file's, so only
 // its scalars, top-level or one object deep, are claimed: a list or
 // object under it may hold the user's entries.
-func claimedSettingsKeys(hooks []spec.Entry, custom map[string]any, layers ...map[string]any) [][]string {
-	var claimed [][]string
+func claimedSettingsKeys(hooks []spec.Entry, custom map[string]any, layers ...map[string]any) []emit.MergedKey {
+	var claimed []emit.MergedKey
 	if len(hooks) > 0 {
-		claimed = append(claimed, []string{"hooks"})
+		claimed = append(claimed, emit.MergedKey{Path: []string{"hooks"}})
 	}
 	if hasCommandHook(hooks) {
-		claimed = append(claimed, []string{"env", emit.HookTargetEnv})
+		claimed = append(claimed, emit.MergedKey{Path: []string{"env", emit.HookTargetEnv}})
 	}
 	for _, layer := range layers {
 		for k := range layer {
 			if k != "permissions" {
-				claimed = append(claimed, []string{k})
+				claimed = append(claimed, emit.MergedKey{Path: []string{k}})
 			}
 		}
 	}
@@ -454,12 +459,12 @@ func claimedSettingsKeys(hooks []spec.Entry, custom map[string]any, layers ...ma
 				switch childValue.(type) {
 				case map[string]any, []any:
 				default:
-					claimed = append(claimed, []string{k, child})
+					claimed = append(claimed, emit.MergedKey{Path: []string{k, child}})
 				}
 			}
 		case []any:
 		default:
-			claimed = append(claimed, []string{k})
+			claimed = append(claimed, emit.MergedKey{Path: []string{k}})
 		}
 	}
 	return claimed

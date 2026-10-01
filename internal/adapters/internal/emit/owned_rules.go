@@ -79,6 +79,20 @@ func (o OwnedRules) Strip(base map[string]any) map[string]any {
 // generated rule already on disk, so removing it from the spec later
 // removes it from the file.
 func (o OwnedRules) Record(sess *Session, final, keep map[string]any, generated []map[string]any, dryRun bool) error {
+	owned := OwnedRulesOf(final, keep, generated)
+	if !o.exists && len(owned) == 0 {
+		return nil
+	}
+	body, err := json.MarshalIndent(owned, "", "  ")
+	if err != nil {
+		return fmt.Errorf("%s: %w", o.path, err)
+	}
+	return sess.WriteFile(o.path, string(body)+"\n", dryRun)
+}
+
+// OwnedRulesOf returns, per list, the rules of final that sync generated
+// and keep does not hold: what Record writes.
+func OwnedRulesOf(final, keep map[string]any, generated []map[string]any) map[string][]string {
 	owned := map[string][]string{}
 	for _, list := range permissionLists {
 		made := map[string]bool{}
@@ -94,14 +108,7 @@ func (o OwnedRules) Record(sess *Session, final, keep map[string]any, generated 
 			}
 		}
 	}
-	if !o.exists && len(owned) == 0 {
-		return nil
-	}
-	body, err := json.MarshalIndent(owned, "", "  ")
-	if err != nil {
-		return fmt.Errorf("%s: %w", o.path, err)
-	}
-	return sess.WriteFile(o.path, string(body)+"\n", dryRun)
+	return owned
 }
 
 func stringRules(raw any) []string {
