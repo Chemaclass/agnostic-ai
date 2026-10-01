@@ -33,22 +33,28 @@ func recordLedgerWrites(writes []adapters.WrittenFile, session *[]string, writte
 
 // mergedOutput is what the ledger keeps about a JSON file sync merges
 // into: the key paths it set there, and whether sync created the file.
+// Released holds the paths this run removed or left to the user, until
+// ledgerMerged drops them from the record; it is never stored.
 type mergedOutput struct {
-	Keys    [][]string `json:"keys,omitempty"`
-	Created bool       `json:"created,omitempty"`
+	Keys     [][]string `json:"keys,omitempty"`
+	Created  bool       `json:"created,omitempty"`
+	Released [][]string `json:"-"`
 }
 
 // recordMergedWrites adds the merged JSON writes in writes to merged.
-// Targets that write one shared file each add the keys they set.
+// Targets that write one shared file each add the keys they set. A hand
+// edit --keep-edits left in place was not written, so it keeps the
+// record the last sync stored.
 func recordMergedWrites(writes []adapters.WrittenFile, merged map[string]mergedOutput) {
 	for _, w := range writes {
 		if !w.Merged {
 			continue
 		}
 		switch w.Action {
-		case "create", "update", "skip", "edited":
+		case "create", "update", "skip":
 			m := merged[w.Path]
 			m.Keys = mergedKeyPaths(append(m.Keys, w.Keys...))
+			m.Released = append(m.Released, w.Released...)
 			m.Created = m.Created || w.Action == "create"
 			merged[w.Path] = m
 		}
@@ -61,26 +67,35 @@ func mergedKeyPaths(keys [][]string) [][]string {
 }
 
 // ledgerMerged returns the merged-file records to store for ledger. A
-// file merged this run takes this run's keys and stays created if an
-// earlier sync created it. One not written this run keeps its prior
-// record.
-func ledgerMerged(ledger []string, merged map[string]mergedOutput, written map[string]string, prior map[string]mergedOutput) map[string]mergedOutput {
+// merge sets only the keys the specs produce now and leaves the others
+// on disk, so a key an earlier sync set stays claimed until a merge
+// removes it or leaves it to the user. A file sync created stays
+// created.
+func ledgerMerged(ledger []string, merged, prior map[string]mergedOutput) map[string]mergedOutput {
 	out := map[string]mergedOutput{}
 	for _, p := range ledger {
-		m, ok := merged[p]
-		if ok {
-			m.Created = m.Created || prior[p].Created
-		} else if _, rewritten := written[p]; !rewritten {
-			m, ok = prior[p]
+		current, written := merged[p]
+		last, recorded := prior[p]
+		if !written && !recorded {
+			continue
 		}
-		if ok {
-			out[p] = m
+		keys := current.Keys
+		for _, key := range last.Keys {
+			if !slices.ContainsFunc(current.Released, func(released []string) bool { return isKeyPrefix(released, key) }) {
+				keys = append(keys, key)
+			}
 		}
+		out[p] = mergedOutput{Keys: mergedKeyPaths(keys), Created: current.Created || last.Created}
 	}
 	if len(out) == 0 {
 		return nil
 	}
 	return out
+}
+
+// isKeyPrefix reports whether prefix names key or an object holding it.
+func isKeyPrefix(prefix, key []string) bool {
+	return len(prefix) <= len(key) && slices.Equal(prefix, key[:len(prefix)])
 }
 
 // ledgerSums returns the content sums to store for ledger. A path written
@@ -213,7 +228,7 @@ func sweepAndFinalizeLedger(sess *adapters.Session, prev syncStateFile, session 
 		outputs: outputs,
 		sums:    ledgerSums(outputs, written, prev.OutputSums),
 		orphans: finalizeLedger(orphans),
-		merged:  ledgerMerged(outputs, merged, written, prev.Merged),
+		merged:  ledgerMerged(outputs, merged, prev.Merged),
 	}, kept, removed, stripped, err
 }
 

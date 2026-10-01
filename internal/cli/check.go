@@ -284,7 +284,8 @@ func leftoverReports(cfg *config.Config, emitted map[string]bool) []driftReport 
 			continue
 		}
 		sum := state.OutputSums[p]
-		if header.Has(string(data)) || sum != "" && adapters.ContentSum(string(data)) == sum {
+		_, merged := state.Merged[p]
+		if merged || header.Has(string(data)) || sum != "" && adapters.ContentSum(string(data)) == sum {
 			rep.Leftover = append(rep.Leftover, p)
 		}
 	}
@@ -903,10 +904,16 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 				if err != nil {
 					return written, err
 				}
-				if result == adapters.MergedRemoved {
+				switch result {
+				case adapters.MergedRemoved:
 					pruneAncestorDirs(p, pruned)
-				}
-				if result == adapters.MergedRemoved || result == adapters.MergedStripped {
+					written++
+				case adapters.MergedStripped:
+					// The new sum keeps the next sync from reading the
+					// stripped file as a hand edit.
+					if data, err := os.ReadFile(p); err == nil {
+						fixed[p] = adapters.ContentSum(string(data))
+					}
 					written++
 				}
 				continue

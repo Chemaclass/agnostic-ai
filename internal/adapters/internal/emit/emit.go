@@ -76,9 +76,11 @@ type WrittenFile struct {
 	Action string
 	Sum    string
 	// Merged marks a JSON file sync merged into, which may also hold
-	// keys sync did not write. Keys lists the key paths sync set there.
-	Merged bool
-	Keys   [][]string
+	// keys sync did not write. Keys lists the key paths sync set there,
+	// and Released the ones it removed or left to the user.
+	Merged   bool
+	Keys     [][]string
+	Released [][]string
 }
 
 // Session holds the mutable mode flags for one emission pass: capture,

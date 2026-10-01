@@ -420,15 +420,15 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 		return sess.WriteFile(path, string(raw)+"\n", dryRun)
 	}
 	claimed := claimedSettingsKeys(hooks, custom, specSettings, configSettings)
-	return sess.WriteMergedJSON(path, string(raw)+"\n", claimed, dryRun)
+	return sess.WriteMergedJSON(path, string(raw)+"\n", claimed, nil, dryRun)
 }
 
 // claimedSettingsKeys lists the key paths sync set in a settings.json it
 // merged into, so a sync that stops writing the file takes out only
 // those. Permissions are left out: the owned-rules record strips sync's
-// rules from them. An `x-claude` object claims only its own children,
-// and a list it unions with the file claims nothing, since both may
-// hold the user's entries.
+// rules from them. An `x-claude` value merges into the file's, so only
+// its scalars, top-level or one object deep, are claimed: a list or
+// object under it may hold the user's entries.
 func claimedSettingsKeys(hooks []spec.Entry, custom map[string]any, layers ...map[string]any) [][]string {
 	var claimed [][]string
 	if len(hooks) > 0 {
@@ -450,8 +450,12 @@ func claimedSettingsKeys(hooks []spec.Entry, custom map[string]any, layers ...ma
 			if k == "permissions" {
 				continue
 			}
-			for child := range value {
-				claimed = append(claimed, []string{k, child})
+			for child, childValue := range value {
+				switch childValue.(type) {
+				case map[string]any, []any:
+				default:
+					claimed = append(claimed, []string{k, child})
+				}
 			}
 		case []any:
 		default:

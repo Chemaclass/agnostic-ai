@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -233,4 +234,69 @@ func TestSync_RemovingLastSpecKeepsUserPermissionsInClaudeSettings(t *testing.T)
 		t.Errorf("%s =\n%s", settings, data)
 	}
 	runSyncOK(t, "--check")
+}
+
+// A key sync stopped writing while other specs still wrote the file
+// stays claimed, so the last removal takes it out too.
+func TestSync_RemovingSpecsOneAtATimeReleasesEveryKeySyncSet(t *testing.T) {
+	const settings = ".gemini/settings.json"
+	for _, tc := range []struct {
+		name string
+		seed string
+	}{
+		{"user file", userSettings},
+		{"created by sync", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
+			if tc.seed != "" {
+				mustWriteFile(t, settings, tc.seed)
+			}
+			writeMergedSettingsSpecs(t, nil)
+			runSyncOK(t)
+			for _, p := range []string{".agnostic-ai/hooks/fmt.yaml", ".agnostic-ai/mcps/gh.yaml", ".agnostic-ai/settings/model.yaml"} {
+				if err := os.Remove(p); err != nil {
+					t.Fatal(err)
+				}
+				runSyncOK(t)
+			}
+			if tc.seed == "" {
+				if fileExists(settings) {
+					data, _ := os.ReadFile(settings)
+					t.Errorf("%s survived with nothing of the user's in it:\n%s", settings, data)
+				}
+				return
+			}
+			assertOnlyUserSettings(t, settings)
+		})
+	}
+}
+
+// An x-claude list merges with the user's entries in the file, so
+// releasing it must not take the user's entries out.
+func TestSync_RemovingXClaudeListKeepsUserEntries(t *testing.T) {
+	const settings = ".claude/settings.json"
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, settings, "{\"sandbox\": {\"excludedCommands\": [\"mine\"]}}\n")
+	mustWriteFile(t, ".agnostic-ai/settings/sandbox.yaml", "x-claude:\n  sandbox:\n    excludedCommands: [ours]\n")
+	runSyncOK(t)
+	if err := os.Remove(".agnostic-ai/settings/sandbox.yaml"); err != nil {
+		t.Fatal(err)
+	}
+	runSyncOK(t)
+	data, err := os.ReadFile(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("%v\n%s", err, data)
+	}
+	sandbox, _ := got["sandbox"].(map[string]any)
+	list, _ := sandbox["excludedCommands"].([]any)
+	if !slices.Contains(list, any("mine")) {
+		t.Errorf("%s lost the user's entry:\n%s", settings, data)
+	}
 }

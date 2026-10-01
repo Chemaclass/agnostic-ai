@@ -27,7 +27,9 @@ func uncarried(value any) (any, bool) {
 // WriteMergedJSON is WriteFile for a JSON file that also holds keys sync
 // did not write. keys lists the key paths sync set, so a later sync that
 // stops writing the file can take out only those (ReleaseMergedJSON).
-func (s *Session) WriteMergedJSON(path, content string, keys [][]string, dryRun bool) error {
+// released lists the paths this write removed or left to the user, which
+// an earlier sync may have set.
+func (s *Session) WriteMergedJSON(path, content string, keys, released [][]string, dryRun bool) error {
 	s.mu.Lock()
 	mark := len(s.detailed)
 	s.mu.Unlock()
@@ -40,6 +42,7 @@ func (s *Session) WriteMergedJSON(path, content string, keys [][]string, dryRun 
 		if s.detailed[i].Path == path {
 			s.detailed[i].Merged = true
 			s.detailed[i].Keys = keys
+			s.detailed[i].Released = released
 		}
 	}
 	return nil
