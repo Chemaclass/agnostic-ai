@@ -65,7 +65,7 @@ List files agents must not edit without asking in a settings `protected` block. 
 
 In an edit hook, `agnostic-ai hook paths` prints the edited files from the Claude Code, Codex, Cursor, Gemini, Factory, or Augment payload, so one format hook runs on each. See [edited paths](https://agnostic-ai.org/docs/spec-format/hooks/#edited-paths).
 
-`agnostic-ai hook run <hook> --edit <path>` runs a hook with the Claude Code, Codex, and Gemini payloads and fails when they decide differently; `--format json` gives CI one result per target. See [test a hook](https://agnostic-ai.org/docs/spec-format/hooks/#hook-run).
+`agnostic-ai hook run <hook> --edit <path>` runs a hook with each target's payload (Claude Code, Codex, Gemini, Trae, OpenHands, Goose, Augment) and fails when they decide differently; `--format json` gives CI one result per target. See [test a hook](https://agnostic-ai.org/docs/spec-format/hooks/#hook-run).
 
 ## Daily commands
 

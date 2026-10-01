@@ -182,9 +182,17 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 			add(run)
 			continue
 		}
-		handlers := adapters.HookHandlers(target, hook)
+		handlers, err := adapters.HookHandlers(cfg, target, hook)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", target, err)
+		}
 		if len(handlers) == 0 {
 			run.Reason = "no command handler; hook run runs command hooks only"
+			add(run)
+			continue
+		}
+		if target == "augment" && !slices.ContainsFunc(handlers, func(h hookrun.Handler) bool { return hookrun.AugmentRuns(h.Command) }) {
+			run.Reason = "Augment runs only a hook command that is a .sh, .ps1, .cmd, or .bat script path"
 			add(run)
 			continue
 		}
@@ -193,7 +201,7 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 			return nil, fmt.Errorf("%s: %w", target, err)
 		}
 		run.Event, run.Trigger, run.Decision = event, payload.Trigger, hookrun.Allow
-		run.Warnings = append(run.Warnings, hookFileWarnings(cfg, target, event, matcher, root, handlers)...)
+		run.Warnings = append(run.Warnings, hookFileWarnings(cfg, target, event, adapters.HookNativeMatcher(target, event, matcher), root, handlers)...)
 		if !payload.Fires {
 			run.Reason = fmt.Sprintf("matcher %q does not match %s", matcher, payload.Trigger)
 			add(run)
@@ -212,7 +220,7 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 			}
 		}
 		// Gemini CLI has no async hooks; sync writes none there.
-		run.Async = hookRunAsync(hook.Meta) && target != "gemini"
+		run.Async = hookRunAsync(hook.Meta) && slices.Contains(asyncHookTargets, target)
 		for _, h := range handlers {
 			timeout := h.Timeout
 			if timeout <= 0 {
@@ -220,8 +228,12 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 			}
 			shown := shownHookCommand(h)
 			h.Command = hookrun.ExpandCommand(target, runtime.GOOS, h.Command, root)
-			r := hookrun.Run(hookrun.Argv(target, runtime.GOOS, h), root, hookRunEnv(target, root, h), payload.Body, timeout)
-			d := hookrun.Decide(target, event, r)
+			if target == "augment" && !hookrun.AugmentRuns(h.Command) {
+				continue
+			}
+			env := hookRunEnv(target, root, hookEnvContext{event: event, tool: payload.Trigger, pluginRoot: adapters.HookPluginRoot(cfg, target)}, h)
+			r := hookrun.Run(hookrun.Argv(target, runtime.GOOS, h), root, env, payload.Body, timeout)
+			d := hookrun.DecideHandler(target, event, h, r)
 			run.Commands = append(run.Commands, newHookCommandRun(shown, d, r, hookrun.AddsContext(target, event, r)))
 			run.Decision = strongerDecision(run.Decision, d)
 			if d == hookrun.Timeout || d == hookrun.Error {
@@ -372,10 +384,23 @@ func printHookRunJSON(w io.Writer, name string, runs []hookTargetRun, failure er
 // sessionEnvKeys are the variables a target session sets for its hooks.
 // They are dropped first, so a run from inside one session does not hand
 // them to another target.
-var sessionEnvKeys = []string{adapters.HookTargetEnv, claudeProjectDirEnv, "GEMINI_PROJECT_DIR", "GEMINI_CWD", "GEMINI_SESSION_ID", "GEMINI_PLANS_DIR"}
+var sessionEnvKeys = []string{
+	adapters.HookTargetEnv, claudeProjectDirEnv, "GEMINI_PROJECT_DIR", "GEMINI_CWD", "GEMINI_SESSION_ID", "GEMINI_PLANS_DIR",
+	"TRAE_PROJECT_DIR", "OPENHANDS_PROJECT_DIR", "OPENHANDS_SESSION_ID", "OPENHANDS_EVENT_TYPE", "OPENHANDS_TOOL_NAME",
+	"PLUGIN_ROOT", "AUGMENT_PROJECT_DIR", "AUGMENT_CONVERSATION_ID", "AUGMENT_HOOK_EVENT", "AUGMENT_TOOL_NAME",
+}
+
+// asyncHookTargets run an `async: true` hook in the background, so its
+// result blocks nothing: Claude Code, Codex, and OpenHands.
+var asyncHookTargets = []string{"claude", "codex", "openhands"}
+
+// hookEnvContext is what a target's hook env names about the event.
+type hookEnvContext struct {
+	event, tool, pluginRoot string
+}
 
 // hookRunEnv is the environment target gives handler h.
-func hookRunEnv(target, root string, h hookrun.Handler) []string {
+func hookRunEnv(target, root string, ctx hookEnvContext, h hookrun.Handler) []string {
 	env := slices.DeleteFunc(os.Environ(), func(kv string) bool {
 		key, _, _ := strings.Cut(kv, "=")
 		return slices.ContainsFunc(sessionEnvKeys, func(k string) bool { return strings.EqualFold(k, key) })
@@ -387,6 +412,21 @@ func hookRunEnv(target, root string, h hookrun.Handler) []string {
 		// hookRunner.ts sets these, then spreads the handler's env over them.
 		env = append(env, "GEMINI_PROJECT_DIR="+root, "GEMINI_CWD="+root,
 			"GEMINI_SESSION_ID="+hookrun.SessionID, claudeProjectDirEnv+"="+root)
+	case "trae":
+		env = append(env, "TRAE_PROJECT_DIR="+root, claudeProjectDirEnv+"="+root)
+	case "openhands":
+		// executor.py sets these on every command hook.
+		env = append(env, "OPENHANDS_PROJECT_DIR="+root, "OPENHANDS_SESSION_ID="+hookrun.SessionID, "OPENHANDS_EVENT_TYPE="+ctx.event)
+		if ctx.tool == "terminal" {
+			env = append(env, "OPENHANDS_TOOL_NAME="+ctx.tool)
+		}
+	case "goose":
+		env = append(env, "PLUGIN_ROOT="+filepath.Join(root, filepath.FromSlash(ctx.pluginRoot)))
+	case "augment":
+		env = append(env, "AUGMENT_PROJECT_DIR="+root, "AUGMENT_CONVERSATION_ID="+hookrun.SessionID, "AUGMENT_HOOK_EVENT="+ctx.event)
+		if ctx.tool != "session" {
+			env = append(env, "AUGMENT_TOOL_NAME="+ctx.tool)
+		}
 	}
 	keys := make([]string, 0, len(h.Env))
 	for k := range h.Env {

@@ -16,7 +16,9 @@ import (
 )
 
 // Targets lists the targets Build writes payloads for.
-func Targets() []string { return []string{"claude", "codex", "gemini"} }
+func Targets() []string {
+	return []string{"claude", "codex", "gemini", "trae", "openhands", "goose", "augment"}
+}
 
 // Supported reports whether Build writes payloads for target.
 func Supported(target string) bool { return slices.Contains(Targets(), target) }
@@ -73,19 +75,12 @@ func Build(target, event, matcher, root string, in Input) (Payload, error) {
 	if in.Raw != nil {
 		return Payload{Body: in.Raw, Fires: true, Trigger: "--payload"}, nil
 	}
+	if build, ok := otherBuilders[target]; ok {
+		return build(event, matcher, root, in)
+	}
 	v := vocabularies[target]
-	isTool := event == v.pre || event == v.post
-	switch {
-	case !isTool && event != "SessionStart" && event != v.prompt:
-		return Payload{}, fmt.Errorf("hook run builds no %s %s payload; pass --payload <file>", target, event)
-	case !isTool && (in.Edit != "" || in.Bash != ""):
-		return Payload{}, fmt.Errorf("--edit and --bash build tool events, not %s", event)
-	case in.Prompt != "" && event != v.prompt:
-		return Payload{}, fmt.Errorf("--prompt builds %s, not %s", v.prompt, event)
-	case isTool && in.Edit == "" && in.Bash == "":
-		return Payload{}, fmt.Errorf("%s needs --edit <path>, --bash <command>, or --payload <file>", event)
-	case in.Edit != "" && in.Bash != "":
-		return Payload{}, errors.New("--edit and --bash are mutually exclusive")
+	if err := checkInput(target, event, v.pre, v.post, v.prompt, in); err != nil {
+		return Payload{}, err
 	}
 	doc := map[string]any{
 		"session_id":      SessionID,
@@ -123,6 +118,28 @@ func Build(target, event, matcher, root string, in Input) (Payload, error) {
 	}
 	p.Body, err = json.Marshal(doc)
 	return p, err
+}
+
+// checkInput rejects an input the event has no builder for. pre and post
+// are the target's tool events and prompt its prompt event, "" when it
+// has none.
+func checkInput(target, event, pre, post, prompt string, in Input) error {
+	isTool := event == pre || event == post
+	switch {
+	case !isTool && event != "SessionStart" && (prompt == "" || event != prompt):
+		return fmt.Errorf("hook run builds no %s %s payload; pass --payload <file>", target, event)
+	case !isTool && (in.Edit != "" || in.Bash != ""):
+		return fmt.Errorf("--edit and --bash build tool events, not %s", event)
+	case in.Prompt != "" && prompt == "":
+		return fmt.Errorf("%s has no prompt event; --prompt does not apply", target)
+	case in.Prompt != "" && event != prompt:
+		return fmt.Errorf("--prompt builds %s, not %s", prompt, event)
+	case isTool && in.Edit == "" && in.Bash == "":
+		return fmt.Errorf("%s needs --edit <path>, --bash <command>, or --payload <file>", event)
+	case in.Edit != "" && in.Bash != "":
+		return errors.New("--edit and --bash are mutually exclusive")
+	}
+	return nil
 }
 
 type matchFunc func(matcher, value string) (bool, error)

@@ -17,6 +17,9 @@ import (
 // Code 600, lowered to 30 on UserPromptSubmit, PreModelSwitch, and
 // PostModelSwitch and to 10 on MessageDisplay (code.claude.com/docs/en/hooks).
 func DefaultTimeout(target, event string) time.Duration {
+	if d, ok := otherDefaultTimeouts[target]; ok {
+		return d
+	}
 	switch {
 	case target == "gemini":
 		return 60 * time.Second
@@ -46,12 +49,17 @@ type Handler struct {
 	Timeout time.Duration
 	// If is Claude Code's `if` permission rule.
 	If string
+	// FailClosed is Goose's `on_failure: block`: a failed run blocks.
+	FailClosed bool
 }
 
 // Argv returns the process target starts for h on goos. Claude Code runs
 // shell-form hooks with bash (Git Bash on Windows). Codex runs command
 // through a POSIX shell, and commandWindows through PowerShell.
 func Argv(target, goos string, h Handler) []string {
+	if argv, ok := otherArgv(target, goos, h); ok {
+		return argv
+	}
 	switch {
 	case target == "gemini" && goos == "windows":
 		// shell-utils.ts falls back to Windows PowerShell, and
@@ -165,8 +173,19 @@ var contextEvents = []string{"SessionStart", "UserPromptSubmit"}
 // the model sees: plain stdout on a context event, or a JSON reply's
 // additionalContext.
 func AddsContext(target, event string, r Result) bool {
-	if target == "gemini" {
+	switch target {
+	case "gemini":
 		return geminiAddsContext(r)
+	case "goose", "augment":
+		return false
+	case "openhands":
+		var reply struct {
+			AdditionalContext string `json:"additionalContext"`
+		}
+		return !r.TimedOut && json.Unmarshal([]byte(strings.TrimSpace(r.Stdout)), &reply) == nil && reply.AdditionalContext != ""
+	case "trae":
+		reply, ok := readReply(r)
+		return ok && r.Exit == 0 && reply.HookSpecificOutput.AdditionalContext != ""
 	}
 	if r.TimedOut || r.StartErr != nil || r.Exit != 0 {
 		return false

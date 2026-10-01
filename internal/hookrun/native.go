@@ -22,6 +22,7 @@ type nativeHandler struct {
 	CommandWindows string            `json:"commandWindows"`
 	Timeout        float64           `json:"timeout"`
 	Env            map[string]string `json:"env"`
+	OnFailure      string            `json:"on_failure"`
 }
 
 // runs compares what the target starts on goos: Codex runs
@@ -37,10 +38,10 @@ func (n nativeHandler) runs(h Handler, goos string) bool {
 	return n.Command == h.Command && slices.Equal(n.Args, h.Args)
 }
 
-// timeout reads the native timeout: milliseconds on Gemini CLI, seconds
-// on Claude Code and Codex.
+// timeout reads the native timeout: milliseconds on Gemini CLI and
+// Augment, seconds elsewhere.
 func (n nativeHandler) timeout(target string) time.Duration {
-	if target == "gemini" {
+	if target == "gemini" || target == "augment" {
 		return time.Duration(n.Timeout * float64(time.Millisecond))
 	}
 	return time.Duration(n.Timeout * float64(time.Second))
