@@ -68,7 +68,11 @@ GEMINI.md                              # entry-point pointer body (written by sy
 
 ## Protected paths
 
-Advisory. Gemini CLI's policy engine documents a deny rule for `write_file` and `replace`, but its workspace tier "is currently non-functional", so a project `.gemini/policies/*.toml` has no effect ([policy engine](https://geminicli.com/docs/reference/policy-engine/)). Sync prints a coverage note for [protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.
+Enforced (hook). Gemini CLI's policy engine has a deny rule for `write_file` and `replace`, but its workspace tier "is currently non-functional" ([policy engine](https://geminicli.com/docs/reference/policy-engine/)), so sync writes `.gemini/hooks/agnostic-ai-protect.sh` and a `BeforeTool` hook on `^(write_file|replace)$` in `.gemini/settings.json`. The script reads `tool_input.file_path` and exits 2 with the reason on stderr when the path is protected. Gemini CLI blocks the call and shows that reason ([hooks reference](https://geminicli.com/docs/hooks/reference/)). The script needs only `sh` and `awk`.
+
+`decision: ask` also blocks, and the message tells the agent to ask the user. Gemini CLI runs project hooks only in a trusted folder, and reads `.gemini/settings.json` from the directory the session starts in, so start it at the project root. The hook does not see a shell command that writes a file.
+
+The script blocks the edit when it cannot run: no `awk`, an unreadable project root, or an `awk` failure, since Gemini CLI lets an edit through on exit 1 or a timeout. It ignores case, reads `\` as a path separator, and checks a path with a leading `@` both ways, as Gemini CLI strips it. `replace` searches the workspace for a relative path that does not exist from the project root, so the hook blocks that call and asks for the full path. On Windows the command runs through the `sh` on `PATH`, such as Git for Windows provides; without one the edit goes through. See [Protected paths](@/docs/spec-format/settings.md#protected-paths).
 
 ## Verify
 
