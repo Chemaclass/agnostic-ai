@@ -356,14 +356,15 @@ func skillFields(override *specFields) specFields {
 }
 
 // isSyncBackup reports whether path is the `<file>.bak` sync keeps of a
-// hand edit beside the file, not an asset of the skill.
+// hand edit: file is an output the ledger records, so the copy is sync's,
+// not an asset of the skill.
 func isSyncBackup(path string) bool {
 	file, ok := strings.CutSuffix(path, ".bak")
 	if !ok {
 		return false
 	}
-	_, err := os.Lstat(file)
-	return err == nil
+	_, ledgered := readStateFile(".").OutputSums[filepath.ToSlash(filepath.Clean(file))]
+	return ledgered
 }
 
 func copyDirTreeWith(srcDir, dstDir string, transformSkill func([]byte) ([]byte, error), fields specFields) error {
