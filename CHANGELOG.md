@@ -20,6 +20,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - Rule body headings nest in merged instructions; import restores levels and preserves code, link definitions, and line breaks (#1452, #1505).
 - Partial syncs keep all targets' ignores and never ignore `outputs.lock`. Kept orphans say why; `doctor --fix` offers removal (#1440, #1503, #1509).
 - A failed sync puts back swept orphans, shared-skill links, and ignore files, and no longer deletes a shared skill through a swapped link (#1503, #1509).
+- `sync --jobs` no longer fails now and then with "Access is denied" on Windows when Codex and Antigravity both write under `.agents/agents` (#1548).
 - `import` keeps hand-written instructions whole, a nested `AGENTS.md` becomes a scoped rule, and Claude hook roots resolve elsewhere (#1434, #1449, #1464).
 - Sync notes omitted skill fields, Claude model names, and Claude-only skill syntax; `compare` shows each target's skill fields (#1431, #1436, #1444, #1463).
 - `sync` and `doctor` warn when a project skill or agent shares a name with a global one, naming the target where each copy wins (#1457).
