@@ -662,7 +662,7 @@ func parentGone(err error) bool {
 // into it. Observed as both `no such file or directory` and `invalid
 // argument` on macOS. The prune is correct and the write is correct;
 // only their interleaving is wrong, and recreating the parent is the
-// cheap half of that fix. See removeEmptyDirs for the other half.
+// cheap half of that fix. See pruneEmptiedDirs for the other half.
 func writeFileAt(path, content string, mode os.FileMode, enforceMode bool) error {
 	err := os.WriteFile(path, []byte(content), mode)
 	if err == nil {
@@ -1170,9 +1170,59 @@ func (s *Session) removeGeneratedTree(dir, ext string, dryRun bool) error {
 	if capturing {
 		return nil
 	}
-	// Remove empty directories bottom-up. Non-empty dirs (user-authored
-	// files survived) stay put.
-	return removeEmptyDirs(dir)
+	// Prune only the directories that held a file this sweep removed.
+	// Under `sync --jobs`, another target may have just created an
+	// empty directory under dir to write into; removing it fails that
+	// write, as "Access is denied" on Windows (#1548).
+	return pruneEmptiedDirs(dir, filePaths)
+}
+
+// pruneEmptiedDirs removes each file's parent directory, and its
+// ancestors up to and including root, while they are empty. Non-empty
+// directories (user-authored files survived) stay put.
+func pruneEmptiedDirs(root string, files []string) error {
+	root = filepath.Clean(root)
+	seen := map[string]bool{}
+	for _, f := range files {
+		for d := filepath.Dir(f); !seen[d]; d = filepath.Dir(d) {
+			seen[d] = true
+			removed, err := removeIfEmpty(d)
+			if err != nil {
+				return err
+			}
+			if !removed || d == root || !strings.HasPrefix(d, root+string(filepath.Separator)) {
+				break
+			}
+		}
+	}
+	return nil
+}
+
+// removeIfEmpty removes dir when it has no entries and reports whether
+// it is gone.
+func removeIfEmpty(dir string) (bool, error) {
+	entries, err := os.ReadDir(dir)
+	if IsAbsent(err) {
+		return true, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("readdir %s: %w", dir, err)
+	}
+	if len(entries) > 0 {
+		return false, nil
+	}
+	// A concurrent write from another target can land between the
+	// ReadDir above and this Remove, and then the directory is no
+	// longer ours to prune.
+	if err := os.Remove(dir); err != nil {
+		if isDirNotEmpty(err) {
+			return false, nil
+		}
+		if !IsAbsent(err) {
+			return false, fmt.Errorf("remove %s: %w", dir, err)
+		}
+	}
+	return true, nil
 }
 
 // removeEmptyDirs walks dir bottom-up and removes every directory
