@@ -67,3 +67,24 @@ func TestDoctor_NamesTheAdoptStepForUnmanagedConfig(t *testing.T) {
 		t.Errorf("doctor passed while listing unmanaged config:\n%s", out)
 	}
 }
+
+// An edited section comes back as a second copy beside the first, which
+// stays; import names it so the user keeps one.
+func TestImport_ReimportingAnEditedSectionNamesBothVersions(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, "CLAUDE.md", "# Acme API\n\n## Tooling\n\nUse npm.\n")
+	if out, err := runCLI(t, "import", "claude"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+	mustWriteFile(t, "CLAUDE.md", "# Acme API\n\n## Tooling\n\nUse pnpm.\n")
+	log := captureLog(t)
+
+	if out, err := runCLI(t, "import", "claude"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+
+	if !strings.Contains(log.String(), `now holds two versions of "Tooling"`) {
+		t.Errorf("import did not name the second version:\n%s", log.String())
+	}
+}

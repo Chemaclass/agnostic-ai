@@ -102,36 +102,47 @@ func foldRootAgentsMainFile(root string) (bool, error) {
 // foldSections appends to dst, which holds captured, each section of body
 // it does not hold yet, and names them.
 func foldSections(dst, captured, body, srcName string) (mirrorResult, error) {
-	merged, titles := foldText(captured, body)
+	merged, titles, twice := foldText(captured, body)
 	if len(titles) == 0 {
 		return mirrorUnchanged, nil
 	}
 	if err := importWriteFile(dst, []byte(merged), 0o644); err != nil {
 		return mirrorAbsent, fmt.Errorf("write %s: %w", dst, err)
 	}
-	reportMerged(titles, srcName)
+	reportMerged(titles, twice, srcName)
 	return mirrorMerged, nil
 }
 
 // foldText returns captured with each section of body it does not hold
-// yet appended, and the titles of those sections.
-func foldText(captured, body string) (string, []string) {
-	var added, titles []string
+// yet appended, the titles of those sections, and the titles captured
+// already has: an edited section comes back as a second copy.
+func foldText(captured, body string) (string, []string, []string) {
+	var added, titles, twice []string
 	have := collapseSpace(captured)
+	held := map[string]bool{}
+	for _, section := range markdownH2Sections(captured) {
+		held[sectionTitle(section)] = true
+	}
 	for _, section := range markdownH2Sections(body) {
 		if strings.Contains(have, collapseSpace(section)) {
 			continue
 		}
 		added = append(added, section)
 		titles = append(titles, fmt.Sprintf("%q", sectionTitle(section)))
+		if held[sectionTitle(section)] {
+			twice = append(twice, fmt.Sprintf("%q", sectionTitle(section)))
+		}
 	}
 	if len(added) == 0 {
-		return captured, nil
+		return captured, nil, nil
 	}
-	return strings.TrimRight(captured, "\n") + "\n\n" + strings.Join(added, "\n\n") + "\n", titles
+	return strings.TrimRight(captured, "\n") + "\n\n" + strings.Join(added, "\n\n") + "\n", titles, twice
 }
 
-func reportMerged(titles []string, srcName string) {
+func reportMerged(titles, twice []string, srcName string) {
+	if len(twice) > 0 {
+		summaryf("  ! %s now holds two versions of %s; keep the one you want\n", agnosticMainFile, strings.Join(twice, ", "))
+	}
 	if len(titles) == 0 {
 		return
 	}

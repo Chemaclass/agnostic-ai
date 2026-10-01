@@ -334,7 +334,7 @@ func mirrorBody(root, srcName, body string, alsoCaptured ...string) (mirrorResul
 	// source in it, are the user's: add what is new instead of replacing
 	// them (#1595).
 	if !isEntryPointSeed(current) {
-		merged, titles := foldText(current, body)
+		merged, titles, twice := foldText(current, body)
 		// A multi-source run still writes, so the preview sees each
 		// source's proposal.
 		if merged == current && len(importRunSources) == 0 {
@@ -343,7 +343,7 @@ func mirrorBody(root, srcName, body string, alsoCaptured ...string) (mirrorResul
 		if err := importWriteFile(dst, []byte(merged), 0o644); err != nil {
 			return mirrorAbsent, fmt.Errorf("write %s: %w", dst, err)
 		}
-		reportMerged(titles, srcName)
+		reportMerged(titles, twice, srcName)
 		return mirrorMerged, nil
 	}
 
