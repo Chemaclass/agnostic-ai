@@ -86,7 +86,7 @@ Handler-specific fields emit only where the target's schema defines them:
 
 ## Events
 
-`event` is written verbatim; names are never translated between tools. Claude Code and Codex share `PreToolUse`, `PostToolUse`, and `UserPromptSubmit`, so one spec feeds both. Other tools need their own names, such as Cursor's `beforeShellExecution` or Gemini's `BeforeTool`. `agnostic-ai validate` flags an event a target does not recognize. Targets without hook support log a warning and skip.
+`event` is written verbatim; names are never translated between tools. Claude Code and Codex share `PreToolUse`, `PostToolUse`, and `UserPromptSubmit`, so one spec feeds both. Other tools need their own names, such as Cursor's `beforeShellExecution` or Gemini's `BeforeTool`. `agnostic-ai validate` flags an event a target does not recognize. `sync` and `sync --check` stop before writing on an event that is a likely typo of a known one, such as `PreToolUze`, and name the closest. Targets without hook support log a warning and skip.
 
 ## Shared hook scripts
 

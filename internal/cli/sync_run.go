@@ -435,6 +435,9 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if len(effectiveTargets) == 0 {
 		effectiveTargets = cfg.Targets
 	}
+	if err := stopOnSpecTypos(b, append(slices.Clone(cfg.Targets), effectiveTargets...)); err != nil {
+		return err
+	}
 	if err := detectCollisions(cfg, b, effectiveTargets); err != nil {
 		return err
 	}
@@ -457,6 +460,11 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		if e.Kind == spec.KindRule && e.EffectiveScope() == "" {
 			unscoped = append(unscoped, e)
 		}
+	}
+	// An agent may name a user or plugin skill sync cannot see, so a
+	// likely typo of a project skill only warns.
+	for _, is := range agentSkillTypos(ownSpecs(b)) {
+		summaryf("%s %s: %s\n", bang(), is.Path, is.Message)
 	}
 	for _, f := range lintMalformedGlobs(unscoped) {
 		summaryf("%s %s: %s (%s); the rule loads in every session\n", bang(), filepath.ToSlash(f.Path), f.Message, f.Code)
@@ -923,6 +931,9 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	effectiveTargets := targets
 	if len(effectiveTargets) == 0 {
 		effectiveTargets = cfg.Targets
+	}
+	if err := stopOnSpecTypos(b, append(slices.Clone(cfg.Targets), effectiveTargets...)); err != nil {
+		return err
 	}
 	if err := detectCollisions(cfg, b, effectiveTargets); err != nil {
 		return err

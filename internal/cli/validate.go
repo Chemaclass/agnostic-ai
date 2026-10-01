@@ -11,6 +11,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/suggest"
 )
 
 func newValidateCmd() *cobra.Command {
@@ -42,6 +43,8 @@ func newValidateCmd() *cobra.Command {
 				scopeIssues = append(scopeIssues, lintGlobalSettings(b.Settings, scope.targets)...)
 			} else {
 				reportNotes(cmd, missingSourceNotes("."))
+				// A user or plugin skill is valid and invisible here.
+				reportNotes(cmd, agentSkillTypos(b))
 				scopeIssues = lintEntryPointFences(".", scope.cfg)
 			}
 			if len(entries) == 0 {
@@ -195,6 +198,14 @@ func lintHookEvents(entries []spec.Entry, targets []string) []validationIssue {
 				Path:    e.Path,
 				Field:   "event",
 				Message: "hook event " + quote(event) + " is a " + target + " alias of " + quote(canonical) + "; use " + quote(canonical),
+			})
+			continue
+		}
+		if s := suggest.Name(event, sortedKeys(allowed)); s != "" {
+			out = append(out, validationIssue{
+				Path:    e.Path,
+				Field:   "event",
+				Message: fmt.Sprintf("unknown hook event %q (did you mean %s?)", event, s),
 			})
 			continue
 		}
