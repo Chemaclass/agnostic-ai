@@ -83,7 +83,7 @@ func newInitCmd() *cobra.Command {
 			if cmd.Flags().Changed("gitignore") {
 				for _, a := range args {
 					if _, err := parseSwitch(a); err == nil {
-						return fmt.Errorf("--gitignore takes its value after =, as --gitignore=%s; for a folder named %q, pass ./%s", a, a, a)
+						return fmt.Errorf("%q after --gitignore is ambiguous: pass the value as --gitignore=on or --gitignore=off, or the folder as ./%s", a, a)
 					}
 				}
 			}
@@ -209,7 +209,7 @@ func fallbackInitTargets(stderr io.Writer, detected []string) []string {
 // outputs by default; the source specs under .agnostic-ai/ stay the one
 // committed copy and contributors run `sync` locally.
 //
-//   - an explicit --gitignore on or off wins (the typed value sticks),
+//   - an explicit --gitignore or --gitignore=on|off wins (the typed value sticks),
 //   - --all skips the prompt and enables the managed block,
 //   - otherwise the TTY confirm prompt drives the choice (defaulting to
 //     yes); non-TTY stdin enables it so first-time and CI inits never
