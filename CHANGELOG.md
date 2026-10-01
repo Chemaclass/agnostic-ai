@@ -6,6 +6,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### General
+
+- A global name clash says whether the two copies differ, who it affects, and how to fix it.
+
 ## v0.76.0 - 2026-10-01
 
 ### General

@@ -573,11 +573,13 @@ For a home kept in git, `install-hook --global` writes a pre-commit hook that ru
 
 ### Shared names {#global-shared-names}
 
-A project skill or agent can share its `name` with one in the home. Both get written, and each tool decides which one it loads. `sync` and `doctor` in the project print one warning per shared name, naming each project target where one copy hides the other and which one wins:
+A project skill or agent can share its `name` with one in the home. Both get written, and each tool decides which one it loads. `sync` and `doctor` in the project print one warning per shared name, naming each project target where one copy hides the other, which one wins, and how to fix it:
 
 ```text
-! .agnostic-ai/skills/gh-issue/SKILL.md: skill "gh-issue" also exists in ~/.agnostic-ai/skills/gh-issue/SKILL.md; claude loads the global one, gemini loads this one; rename one to load both
+! .agnostic-ai/skills/gh-issue/SKILL.md: skill "gh-issue" also exists in ~/.agnostic-ai/skills/gh-issue/SKILL.md with different content; claude loads the global one, which exists only on this machine, gemini loads this one; to load both, rename the global one (such as gh-issue-personal), or delete it to drop it, then run `agnostic-ai sync --global`
 ```
+
+The home exists only on your machine, so a global copy that wins changes what you run, not what others run from the repository. When only project copies win, the warning says the global one is unused in this project. When both copies have the same frontmatter (apart from `name`), body, and skill files, every target loads the same content, and the warning says to delete one copy before they drift apart. A copy that names a [`models:`](#models) tier (each side resolves it through its own config), or a skill file sync cannot read, leaves the warning with no claim about content.
 
 | Target | Skill with the same name | Agent with the same name |
 |--------|--------------------------|--------------------------|

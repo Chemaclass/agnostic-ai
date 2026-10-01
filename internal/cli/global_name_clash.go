@@ -1,10 +1,14 @@
 package cli
 
 import (
+	"bytes"
 	"fmt"
 	"io"
+	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"unicode"
@@ -39,19 +43,140 @@ type globalNameClash struct {
 	global      spec.Entry
 	globalWins  []string
 	projectWins []string
+	content     contentMatch
 }
 
+// contentMatch says how a clash's two copies compare.
+type contentMatch int
+
+const (
+	// contentUnknown makes no claim: a file could not be read, or a
+	// `models:` tier resolves through a different config on each side.
+	contentUnknown contentMatch = iota
+	contentDiffers
+	contentIdentical
+)
+
 func (c globalNameClash) String() string {
+	head := fmt.Sprintf("%s: %s %q", filepath.ToSlash(c.project.Path), c.project.Kind, c.project.Name)
+	global := homeRelative(c.global.Path)
+	if c.content == contentIdentical {
+		return fmt.Sprintf("%s is identical in %s, so every target loads the same content; delete one copy to keep them from drifting apart, and run `agnostic-ai sync --global` after deleting the global one", head, global)
+	}
 	var winners []string
 	if len(c.globalWins) > 0 {
-		winners = append(winners, loaders(c.globalWins)+" the global one")
+		winners = append(winners, loaders(c.globalWins)+" the global one, which exists only on this machine")
 	}
 	if len(c.projectWins) > 0 {
-		winners = append(winners, loaders(c.projectWins)+" this one")
+		loads := loaders(c.projectWins) + " this one"
+		if len(c.globalWins) == 0 {
+			loads += ", so the global one is unused here"
+		}
+		winners = append(winners, loads)
 	}
-	return fmt.Sprintf("%s: %s %q also exists in %s; %s; rename one to load both",
-		filepath.ToSlash(c.project.Path), c.project.Kind, c.project.Name,
-		homeRelative(c.global.Path), strings.Join(winners, ", "))
+	fix := "rename one to load both"
+	if len(c.globalWins) > 0 {
+		fix = fmt.Sprintf("to load both, rename the global one (such as %s-personal), or delete it to drop it, then run `agnostic-ai sync --global`", c.global.Name)
+	}
+	differs := ""
+	if c.content == contentDiffers {
+		differs = " with different content"
+	}
+	return fmt.Sprintf("%s also exists in %s%s; %s; %s",
+		head, global, differs, strings.Join(winners, ", "), fix)
+}
+
+// compareContent compares the frontmatter two specs load (the name
+// aside, since a target matched them by it), their body, and skill assets.
+func compareContent(p, g spec.Entry) contentMatch {
+	if strings.TrimSpace(p.Body) != strings.TrimSpace(g.Body) {
+		return contentDiffers
+	}
+	pm, gm := maps.Clone(p.Meta), maps.Clone(g.Meta)
+	delete(pm, "name")
+	delete(gm, "name")
+	// Each side resolves a tier through its own `models:` config, so
+	// neither the tier name nor the resolved model proves a match.
+	tiered := p.ModelTier != "" || g.ModelTier != ""
+	if tiered {
+		delete(pm, "model")
+		delete(gm, "model")
+	}
+	if len(pm) != len(gm) || (len(pm) > 0 && !reflect.DeepEqual(pm, gm)) {
+		return contentDiffers
+	}
+	assets := compareSkillAssets(p, g)
+	if assets == contentIdentical && tiered {
+		return contentUnknown
+	}
+	return assets
+}
+
+// compareSkillAssets compares the files two skills ship beside their
+// SKILL.md: names and sizes first, then bytes one pair at a time.
+func compareSkillAssets(p, g spec.Entry) contentMatch {
+	pa, err := skillAssets(p)
+	if err != nil {
+		return contentUnknown
+	}
+	ga, err := skillAssets(g)
+	if err != nil {
+		return contentUnknown
+	}
+	if len(pa) != len(ga) {
+		return contentDiffers
+	}
+	for rel, pf := range pa {
+		if gf, ok := ga[rel]; !ok || gf.size != pf.size {
+			return contentDiffers
+		}
+	}
+	for rel, pf := range pa {
+		pb, err := os.ReadFile(pf.path)
+		if err != nil {
+			return contentUnknown
+		}
+		gb, err := os.ReadFile(ga[rel].path)
+		if err != nil {
+			return contentUnknown
+		}
+		if !bytes.Equal(pb, gb) {
+			return contentDiffers
+		}
+	}
+	return contentIdentical
+}
+
+type skillAsset struct {
+	path string
+	size int64
+}
+
+// skillAssets maps each file a skill ships beside its SKILL.md, by slash
+// path. A flat-file skill or an agent ships none. Like the emitter, it
+// skips anything but regular files.
+func skillAssets(e spec.Entry) (map[string]skillAsset, error) {
+	out := map[string]skillAsset{}
+	dir := e.SkillAssetDir()
+	if e.Kind != spec.KindSkill || dir == "" {
+		return out, nil
+	}
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || !d.Type().IsRegular() {
+			return err
+		}
+		rel, err := filepath.Rel(dir, path)
+		if err != nil || rel == "SKILL.md" {
+			return err
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		out[filepath.ToSlash(rel)] = skillAsset{path: path, size: info.Size()}
+		return nil
+	})
+	return out, err
 }
 
 func loaders(targets []string) string {
@@ -159,6 +284,7 @@ func globalNameClashes(b spec.Bundle, targets []string) []globalNameClash {
 					}
 				}
 				if len(clash.globalWins)+len(clash.projectWins) > 0 {
+					clash.content = compareContent(p, g)
 					out = append(out, clash)
 				}
 			}
