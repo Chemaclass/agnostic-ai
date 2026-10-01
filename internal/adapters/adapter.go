@@ -671,6 +671,11 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 	if err := checkProtectedPaths(a, prepared.Settings); err != nil {
 		return err
 	}
+	if slices.Contains(a.Capabilities(), spec.KindMCP) {
+		if err := spec.CheckMCPJSONValues(prepared.MCPs); err != nil {
+			return err
+		}
+	}
 	if err := a.Emit(sess, prepared, cfg, dryRun); err != nil {
 		return err
 	}

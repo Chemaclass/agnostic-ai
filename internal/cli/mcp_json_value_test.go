@@ -1,0 +1,73 @@
+package cli
+
+import (
+	"os"
+	"reflect"
+	"strings"
+	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
+)
+
+const nanMCPSpec = ".agnostic-ai/mcps/gh.yaml"
+
+func nanMCPProject(t *testing.T) {
+	t.Helper()
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [amp]\n")
+	mustWriteFile(t, nanMCPSpec, "name: gh\ncommand: npx\n")
+	runSyncOK(t)
+	mustWriteFile(t, nanMCPSpec, "name: gh\ncommand: npx\nx-amp:\n  timeout: .nan\n")
+}
+
+// An MCP server value JSON cannot hold, such as a YAML .nan, fails the
+// sync and names the spec and the server, instead of being dropped while
+// the old server stays (#1561).
+func TestSync_FailsOnAnMCPValueJSONCannotHold(t *testing.T) {
+	nanMCPProject(t)
+	before := snapshotFiles(t, ".amp/settings.json", ".agnostic-ai/.sync-state")
+
+	out, err := runCLI(t, "sync")
+
+	if err == nil {
+		t.Fatalf("sync passed:\n%s", out)
+	}
+	for _, want := range []string{nanMCPSpec, `"gh"`, "timeout"} {
+		if !strings.Contains(err.Error()+out, want) {
+			t.Errorf("error does not name %s: %v\n%s", want, err, out)
+		}
+	}
+	if after := snapshotFiles(t, ".amp/settings.json", ".agnostic-ai/.sync-state"); !reflect.DeepEqual(after, before) {
+		t.Errorf("a failed sync changed the output or the ledger")
+	}
+}
+
+func TestValidate_ReportsAnMCPValueJSONCannotHold(t *testing.T) {
+	nanMCPProject(t)
+	out, err := runCLI(t, "validate")
+	if err == nil || !strings.Contains(out, nanMCPSpec) || !strings.Contains(out, "timeout") {
+		t.Errorf("validate: %v\n%s", err, out)
+	}
+}
+
+func TestLint_ReportsAnMCPValueJSONCannotHold(t *testing.T) {
+	nanMCPProject(t)
+	out, err := runCLI(t, "lint")
+	lines := strings.Join(findingLines(out, "LINT027"), "\n")
+	if err == nil || !strings.Contains(lines, nanMCPSpec) || !strings.Contains(lines, "x-amp.timeout") {
+		t.Errorf("lint: %v\n%s", err, out)
+	}
+}
+
+func snapshotFiles(t *testing.T, paths ...string) map[string]string {
+	t.Helper()
+	out := map[string]string{}
+	for _, p := range paths {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatalf("%s: %v", p, err)
+		}
+		out[p] = string(data)
+	}
+	return out
+}

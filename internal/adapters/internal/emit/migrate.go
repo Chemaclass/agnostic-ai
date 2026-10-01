@@ -139,7 +139,10 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 			continue
 		}
 		if entries, ok := value.(entriesJSONValue); ok {
-			merged, claimed := s.mergeJSONEntries(path, doc, k, entries.entries)
+			merged, claimed, err := s.mergeJSONEntries(path, doc, k, entries.entries)
+			if err != nil {
+				return err
+			}
 			// Claims move to the entries, so a claim on the whole map, or
 			// on an entry that left, goes.
 			released = append(released, []string{k})

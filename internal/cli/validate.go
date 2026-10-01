@@ -83,6 +83,12 @@ func newValidateCmd() *cobra.Command {
 func lintEntries(entries []spec.Entry) []validationIssue {
 	var out []validationIssue
 	for _, e := range entries {
+		if e.Kind == spec.KindMCP {
+			if field, value, ok := spec.NonJSONValue(e.Meta); ok {
+				out = append(out, validationIssue{Path: e.Path, Field: field, Message: nonJSONValueMessage(e.Name, field, value), entry: e})
+			}
+			continue
+		}
 		if e.Kind != spec.KindRule {
 			continue
 		}
@@ -91,6 +97,10 @@ func lintEntries(entries []spec.Entry) []validationIssue {
 		}
 	}
 	return out
+}
+
+func nonJSONValueMessage(server, field string, value any) string {
+	return fmt.Sprintf("MCP server %q: %s is %v, which JSON cannot hold; sync fails on it, so write a number or a string", server, field, value)
 }
 
 // issuesError turns a non-empty issue list into the command's exit
