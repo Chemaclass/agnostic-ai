@@ -105,7 +105,7 @@ func TestEmit_Agent_WritesNativeAgentFile(t *testing.T) {
 	entries := []spec.Entry{
 		{
 			Kind: spec.KindAgent, Name: "ship-it",
-			Meta: map[string]any{"description": "Ships releases.", "model": "sonnet"},
+			Meta: map[string]any{"description": "Ships releases.", "model": "claude-sonnet-5"},
 			Body: "Run the release.",
 		},
 	}
@@ -121,7 +121,7 @@ func TestEmit_Agent_WritesNativeAgentFile(t *testing.T) {
 	if !strings.HasPrefix(body, "---\n") {
 		t.Fatalf("frontmatter must be first, got:\n%s", body)
 	}
-	for _, want := range []string{"description: Ships releases.", "model: sonnet", "Run the release."} {
+	for _, want := range []string{"description: Ships releases.", "model: claude-sonnet-5", "Run the release."} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %q in:\n%s", want, body)
 		}

@@ -1,6 +1,7 @@
 package emit
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -183,5 +184,55 @@ func TestFlowScalar_SuggestedClaudeScopeParsesToTheSameModel(t *testing.T) {
 		if got["claude"] != model {
 			t.Errorf("%q: suggested scope parses to %q", model, got["claude"])
 		}
+	}
+}
+
+func TestWithoutForeignClaudeModels_DropsWhatTheNoteReports(t *testing.T) {
+	shared := map[string]any{"claude": "opus", "default": "fable"}
+	b := spec.Bundle{
+		Agents: []spec.Entry{
+			agentWithModel("agents/a.md", "sonnet"),
+			agentWithModel("agents/b.md", shared),
+			agentWithModel("agents/c.md", "gpt-6.1-sol"),
+			agentWithModel("agents/d.md", map[string]any{"codex": "gpt-6-luna", "default": "opus"}),
+			{Name: "e", Meta: map[string]any{"model": "sonnet", "x-codex": map[string]any{"model": "gpt-5.5"}}},
+		},
+		Settings: []spec.Entry{
+			{Name: "base", Meta: map[string]any{"model": "gpt-5.5"}},
+			{Name: "team", Meta: map[string]any{"model": "opus[1m]"}},
+		},
+	}
+
+	got := WithoutForeignClaudeModels(foreignModelCaps(), b)
+
+	if _, ok := got.Agents[0].Meta["model"]; ok {
+		t.Errorf("a shared Claude name must be dropped: %v", got.Agents[0].Meta)
+	}
+	if model := got.Agents[1].Meta["model"]; !reflect.DeepEqual(model, map[string]any{"claude": "opus"}) {
+		t.Errorf("only the shared default goes; the claude entry stays: %v", model)
+	}
+	for i, want := range []any{"gpt-6.1-sol", map[string]any{"codex": "gpt-6-luna", "default": "opus"}, "sonnet"} {
+		if model := got.Agents[i+2].Meta["model"]; !reflect.DeepEqual(model, want) {
+			t.Errorf("agent %d: a model the target names or overrides must stay: %v", i+2, model)
+		}
+	}
+	if model := SettingsModel(got.Settings, "codex"); model != "gpt-5.5" {
+		t.Errorf("settings must fall back to the last model the target can load, got %q", model)
+	}
+	if !reflect.DeepEqual(shared, map[string]any{"claude": "opus", "default": "fable"}) || b.Agents[0].Meta["model"] != "sonnet" {
+		t.Errorf("the input bundle must not change, other targets read it: %v %v", shared, b.Agents[0].Meta)
+	}
+}
+
+func TestWithoutForeignClaudeModels_KeepsModelsWhenTheTargetConfigReplacesThem(t *testing.T) {
+	caps := foreignModelCaps()
+	caps.SettingsModelOverridden = true
+	b := spec.Bundle{Settings: []spec.Entry{{Name: "team", Meta: map[string]any{"model": "opus"}}}}
+
+	if got := WithoutForeignClaudeModels(caps, b); got.Settings[0].Meta["model"] != "opus" {
+		t.Errorf("no note fires for an overridden settings model, so nothing drops: %v", got.Settings[0].Meta)
+	}
+	if got := WithoutForeignClaudeModels(Capabilities{Target: "claude", Supports: caps.Supports}, spec.Bundle{Agents: []spec.Entry{agentWithModel("a.md", "opus")}}); got.Agents[0].Meta["model"] != "opus" {
+		t.Errorf("a target with no foreign names keeps every model: %v", got.Agents[0].Meta)
 	}
 }

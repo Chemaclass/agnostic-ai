@@ -41,7 +41,7 @@ func TestEmit_Agent_WritesDroidFile(t *testing.T) {
 	entries := []spec.Entry{
 		{
 			Kind: spec.KindAgent, Name: "release-manager",
-			Meta: map[string]any{"description": "Ships releases.", "model": "opus", "tools": []any{"Read", "Bash"}},
+			Meta: map[string]any{"description": "Ships releases.", "model": "claude-opus-5", "tools": []any{"Read", "Bash"}},
 			Body: "Run the release checklist.",
 		},
 	}
@@ -55,7 +55,7 @@ func TestEmit_Agent_WritesDroidFile(t *testing.T) {
 	for _, want := range []string{
 		"name: release-manager",
 		"description: Ships releases.",
-		"model: opus",
+		"model: claude-opus-5",
 		"tools:",
 		"- Read",
 		"- Execute",
