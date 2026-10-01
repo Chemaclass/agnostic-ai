@@ -43,6 +43,27 @@ func CleanedJSONValue(before, after any) any {
 	return cleanedJSONValue{value: after, before: jsonValueSum(raw)}
 }
 
+// retiredJSONValue is a merge value read back from the file that no
+// spec produces any more.
+type retiredJSONValue struct {
+	value  any
+	before string
+}
+
+// RetiredJSONValue, as a key's value in a merge, stands for a value on
+// disk, before, that no spec produces any more, with after the part to
+// keep if it is not sync's. When an earlier sync's claim still matches
+// before, the user has not edited it, so the key goes in this write.
+// Otherwise after is set and the earlier claim kept, as KeptJSONValue
+// does.
+func RetiredJSONValue(before, after any) any {
+	raw, err := json.Marshal(before)
+	if err != nil {
+		return KeptJSONValue(after)
+	}
+	return retiredJSONValue{value: after, before: jsonValueSum(raw)}
+}
+
 // carriedJSONValue is a merge value sync writes without claiming it.
 type carriedJSONValue struct{ value any }
 
@@ -88,6 +109,7 @@ const (
 	claimNothing
 	claimKeep
 	claimFollow
+	claimRetire
 )
 
 // mergeClaim unwraps a merge value and says how much of it sync claims.
@@ -95,6 +117,9 @@ const (
 func mergeClaim(value any) (unwrapped any, kind mergeClaimKind, items []string, follows string) {
 	if v, ok := value.(cleanedJSONValue); ok {
 		return v.value, claimFollow, nil, v.before
+	}
+	if v, ok := value.(retiredJSONValue); ok {
+		return v.value, claimRetire, nil, v.before
 	}
 	unwrapped, kind, items = mergeClaimOf(value)
 	return unwrapped, kind, items, ""

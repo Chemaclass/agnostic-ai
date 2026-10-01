@@ -138,6 +138,16 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 			released = append(released, []string{k})
 			continue
 		}
+		if kind == claimRetire {
+			// A value no spec produces that sync wrote and the user has
+			// not edited since goes in this write, not a later one.
+			if claim, ok := priorClaim(priorMergedKeys(path), []string{k}); ok && claim.Items == nil && claim.Sum == follows {
+				doc.Delete(k)
+				released = append(released, []string{k})
+				continue
+			}
+			kind = claimKeep
+		}
 		if entries, ok := value.(entriesJSONValue); ok {
 			merged, claimed := s.mergeJSONEntries(path, doc, k, entries.entries)
 			// Claims move to the entries, so a claim on the whole map, or
@@ -179,7 +189,7 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 		}
 		_, child := incoming[keyPath[1]]
 		return child
-	})...)
+	}, nil)...)
 	raw, err := MarshalJSONIndent(doc)
 	if err != nil {
 		return fmt.Errorf("marshal %s: %w", path, err)

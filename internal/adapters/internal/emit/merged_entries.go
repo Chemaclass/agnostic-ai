@@ -112,19 +112,31 @@ func sameJSONValue(raw json.RawMessage, value any) bool {
 // the user edited since stays as theirs. Every such claim is returned
 // as released.
 func (s *Session) DropStaleMergedKeys(path string, doc *OrderedJSON, claimed []MergedKey, released [][]string) [][]string {
-	return s.dropStaleClaims(path, doc, func(keyPath []string) bool {
+	settled := func(keyPath []string) bool {
 		return slices.ContainsFunc(claimed, func(k MergedKey) bool { return slices.Equal(k.Path, keyPath) }) ||
 			slices.ContainsFunc(released, func(p []string) bool { return isPathPrefix(p, keyPath) })
-	})
+	}
+	holdsClaim := func(keyPath []string) bool {
+		return slices.ContainsFunc(claimed, func(k MergedKey) bool {
+			return len(k.Path) > len(keyPath) && isPathPrefix(keyPath, k.Path)
+		})
+	}
+	return s.dropStaleClaims(path, doc, settled, holdsClaim)
 }
 
-func (s *Session) dropStaleClaims(path string, doc *OrderedJSON, settled func([]string) bool) [][]string {
+// dropStaleClaims takes out each prior claim settled does not cover. An
+// object that holds a value this write claims only loses its claim: the
+// object stays, or that value would go with it.
+func (s *Session) dropStaleClaims(path string, doc *OrderedJSON, settled, holdsClaim func([]string) bool) [][]string {
 	var dropped [][]string
 	for _, claim := range priorMergedKeys(path) {
 		if len(claim.Path) == 0 || settled(claim.Path) {
 			continue
 		}
 		dropped = append(dropped, claim.Path)
+		if holdsClaim != nil && holdsClaim(claim.Path) {
+			continue
+		}
 		raw, found := jsonValueAt(doc, claim.Path)
 		switch {
 		case !found:
