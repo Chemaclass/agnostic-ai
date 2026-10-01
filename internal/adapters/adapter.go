@@ -192,6 +192,10 @@ func FlowScalar(s string) string { return emit.FlowScalar(s) }
 // "" for an exact id (re-exported from the emit layer).
 func ModelAliasIn(meta map[string]any, target string) string { return emit.ModelAliasIn(meta, target) }
 
+// TakeResolvedAliases re-exports emit.TakeResolvedAliases: the vendor
+// model aliases resolved since the last call, by target.
+func TakeResolvedAliases() map[string]map[string]string { return emit.TakeResolvedAliases() }
+
 // ForeignClaudeModel reports whether model is a Claude model name that
 // target's agent `model` key cannot load.
 func ForeignClaudeModel(target, model string) bool {

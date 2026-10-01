@@ -19,6 +19,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 #### Codex
 
 - `model` values `sol`, `luna`, and `astra` resolve to the current Codex ids, and `explain` shows the resolution (#1572).
+- `sync` notes once when an upgrade moves the id an alias resolves to, such as `sol now resolves to <new id> (was <old id>)` (#1578).
 
 #### Kiro
 

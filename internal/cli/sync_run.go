@@ -73,6 +73,9 @@ type syncStateFile struct {
 	// SpecSums fingerprints each source spec and the merged config, so
 	// the next sync can name which sources changed since this one.
 	SpecSums map[string]string `json:"spec_sums,omitempty"`
+	// ModelAliases records the id each vendor model alias resolved to,
+	// by target, so the next sync can say when an upgrade moved one.
+	ModelAliases map[string]map[string]string `json:"model_aliases,omitempty"`
 }
 
 // showRepeatedDrops lets -v print capability warnings and coverage notes
@@ -89,7 +92,8 @@ type syncLedger struct {
 	merged     map[string]mergedOutput
 	// specSums is not part of the output footprint, but it is written
 	// beside it so the next sync can diff sources against this one.
-	specSums map[string]string
+	specSums     map[string]string
+	modelAliases map[string]map[string]string
 }
 
 func stateFilePath(projectRoot string) string {
@@ -128,6 +132,7 @@ func writeStateFile(projectRoot string, filesChanged int, warningsDigest, notesD
 		Unledgered:     ledger.unledgered,
 		Merged:         ledger.merged,
 		SpecSums:       ledger.specSums,
+		ModelAliases:   ledger.modelAliases,
 	})
 	if err != nil {
 		return err
@@ -418,6 +423,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	start := time.Now()
 	adapters.ResetCapabilityWarnings()
 	adapters.ResetCoverageNotes()
+	adapters.TakeResolvedAliases()
 	cfg, b, err := loadProject(root)
 	if err != nil {
 		return err
@@ -529,12 +535,14 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	ledgerMergedWrites := map[string]mergedOutput{}
 	var gitignoreEntries []string
 	complete := true
+	var emitted []string
 	for _, e := range emits {
 		if e.err != nil && !e.resolved {
 			fmt.Fprintf(os.Stderr, "! %v\n", e.err)
 			complete = false
 			continue
 		}
+		emitted = append(emitted, e.target)
 		gitignoreEntries = append(gitignoreEntries, e.recorded...)
 		if dryRun {
 			continue
@@ -721,6 +729,11 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if verbosity >= levelDefault {
 		report.pending = removeMatching(gitPending(root, report.changedPaths()), report.trackedIgnored)
 	}
+	resolvedAliases := adapters.TakeResolvedAliases()
+	for _, note := range movedAliasNotes(prev.ModelAliases, resolvedAliases) {
+		summaryf("  note: %s\n", note)
+	}
+	ledger.modelAliases = nextModelAliases(prev.ModelAliases, resolvedAliases, emitted)
 	if err := writeStateFile(root, report.filesChanged(), digest, notesDigest, ledger); err != nil {
 		fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 	}
@@ -1029,6 +1042,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	// previous digests so the next non-JSON run can still
 	// sticky-suppress.
 	ledger.specSums = prev.SpecSums
+	ledger.modelAliases = prev.ModelAliases
 	if len(out.Errors) == 0 && coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
 		ledger.specSums = specSums(cfg, b)
 	}
