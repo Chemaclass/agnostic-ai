@@ -95,6 +95,15 @@ func TestReleaseMergedYAML(t *testing.T) {
 			result: MergedEdited,
 		},
 		{
+			name: "keeps a list the user anchored",
+			seed: "read: &docs [CONVENTIONS.md]\nfile: *docs\n",
+			keys: func(*testing.T) []MergedKey {
+				return []MergedKey{{Path: []string{"read"}, Items: []string{ContentSum("CONVENTIONS.md")}}}
+			},
+			want:   "read: &docs [CONVENTIONS.md]\nfile: *docs\n",
+			result: MergedEdited,
+		},
+		{
 			name:   "keeps a file that does not parse",
 			seed:   "model: [x\n",
 			keys:   func(*testing.T) []MergedKey { return []MergedKey{{Path: []string{"model"}}} },
