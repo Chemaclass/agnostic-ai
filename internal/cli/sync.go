@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"slices"
 	"syscall"
 	"time"
 
@@ -143,11 +144,17 @@ func newSyncCmd() *cobra.Command {
 					return err
 				}
 				notesErr := checkCoverageNotes(cfg, effective)
+				// With --check the plan still gates, so a CI step that
+				// asks for the short report does not pass on drift.
+				var driftErr error
+				if check && slices.ContainsFunc(reports, driftReport.hasDrift) {
+					driftErr = errDriftDetected()
+				}
 				if jsonOut {
-					return printSyncPlanJSON(cmd, "sync --plan", reports, false, notesErr)
+					return errors.Join(printSyncPlanJSON(cmd, "sync --plan", reports, false, notesErr), driftErr)
 				}
 				printSyncPlan(cmd, reports)
-				return notesErr
+				return errors.Join(notesErr, driftErr)
 			}
 			if check {
 				adapters.ResetCoverageNotes()
