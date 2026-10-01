@@ -14,6 +14,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -418,7 +419,7 @@ func geminiHookSpec(event string, definition map[string]any) map[string]any {
 				continue
 			}
 			command, _ := handler["command"].(string)
-			if command != "" {
+			if command != "" && !gemini.IsProtectHookCommand(command) {
 				dropHookTargetEnv(handler, "gemini")
 				handlers = append(handlers, handler)
 				commands = append(commands, command)

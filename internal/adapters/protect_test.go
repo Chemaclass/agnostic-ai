@@ -13,7 +13,7 @@ import (
 )
 
 func TestProtectedPathsEnforcement_NamesTheNativeMechanism(t *testing.T) {
-	want := map[string]string{"claude": "permission", "codex": "hook"}
+	want := map[string]string{"claude": "permission", "codex": "hook", "gemini": "hook"}
 	for _, name := range Names() {
 		if got := ProtectedPathsEnforcement(name); got != want[name] {
 			t.Errorf("%s enforcement = %q, want %q", name, got, want[name])
@@ -43,13 +43,13 @@ func TestEmitWithProvenance_NotesAdvisoryProtectedPaths(t *testing.T) {
 	}
 	FlushCoverageNotes()
 	out := notes.String()
-	for _, target := range []string{"gemini", "kilo"} {
+	for _, target := range []string{"kilo"} {
 		if !strings.Contains(out, target) || !strings.Contains(out, "protected") {
 			t.Errorf("no protected note for %s:\n%s", target, out)
 		}
 	}
 	for _, line := range strings.Split(out, "\n") {
-		if strings.Contains(line, "protected") && slices.ContainsFunc([]string{"claude", "codex"}, func(t string) bool { return strings.Contains(line, t+":") }) {
+		if strings.Contains(line, "protected") && slices.ContainsFunc([]string{"claude", "codex", "gemini"}, func(t string) bool { return strings.Contains(line, t+":") }) {
 			t.Errorf("enforcing target noted as advisory: %s", line)
 		}
 	}

@@ -57,3 +57,11 @@ func hookHandlers(h spec.Entry) []claudehooks.CommandEntry {
 	}
 	return []claudehooks.CommandEntry{base}
 }
+
+// CommandHandlers returns the command handlers sync writes for h.
+func CommandHandlers(h spec.Entry) []claudehooks.CommandEntry {
+	if kind, _ := h.Meta["type"].(string); kind != "" && kind != "command" {
+		return nil
+	}
+	return hookHandlers(h)
+}

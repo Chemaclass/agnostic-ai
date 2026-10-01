@@ -127,6 +127,8 @@ The `outputs.claude.settings` block declares first-class `.claude/settings.json`
 
 Unset keys fall through to lower layers. `x-claude` merges with what lower layers wrote: `x-claude.permissions.deny` adds to the translated deny list, and only scalars such as `model` are replaced.
 
+Without a captured overlay, sync merges permission lists into the `settings.json` on disk, so it records the rules it added in `.claude/.agnostic-ai-permissions.json`. Those are the portable, protected-path, `outputs.claude.settings`, and `x-claude` rules. On the next sync it removes them before the merge, so a rule you drop from a spec, or move from `allow` to `deny`, leaves the file. Rules you wrote into `settings.json` yourself, and every rule in a captured overlay, stay. The first sync that finds no record keeps every rule and records the ones the specs produce, so a rule that matches a spec rule counts as the spec's from then on.
+
 ```yaml
 outputs:
   claude:
@@ -224,7 +226,7 @@ Imported MCP specs sync to every MCP-aware target: codex, copilot, cursor, conti
 
 Enforced (permission). Each path in a settings spec's `protected` block becomes an `Edit(/<path>)` rule in `permissions.ask` or `permissions.deny` of `.claude/settings.json`, joined with the portable permission lists. The leading `/` anchors the rule at the project root. Claude Code checks file edits against `Edit` rules only: a `Write(<path>)` rule is accepted, never consulted, and warned about at startup, so sync writes none ([permissions](https://code.claude.com/docs/en/permissions#read-and-edit)). With `decision: deny`, the rules also cover file commands Claude Code recognizes in Bash, such as `sed` and `>` redirections, but not a script that opens files itself. Claude Code documents that Bash coverage for deny rules only, so an `ask` rule guards its edit tools.
 
-Sync records the rules it added in `.claude/.agnostic-ai-protected.json`. Removing a path, or moving it from `deny` to `ask`, removes its old rule on the next sync. A matching rule that was in `settings.json` before sync added one stays yours. See [Protected paths](@/docs/spec-format/settings.md#protected-paths).
+Removing a path, or moving it from `deny` to `ask`, removes its old rule on the next sync, as for every rule sync writes ([Claude settings](#claude-settings)). See [Protected paths](@/docs/spec-format/settings.md#protected-paths).
 
 ## Verify
 

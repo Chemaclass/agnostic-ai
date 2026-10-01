@@ -11,6 +11,18 @@
             "type": "command"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "command": "sh .gemini/hooks/agnostic-ai-protect.sh",
+            "env": {
+              "AGNOSTIC_AI_TARGET": "gemini"
+            },
+            "type": "command"
+          }
+        ],
+        "matcher": "^(write_file|replace)$"
       }
     ],
     "PostToolUse": [

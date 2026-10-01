@@ -47,6 +47,46 @@ func TestProtectedPaths_RemovingTheBlockRemovesTheRulesAndImportSkipsThem(t *tes
 	}
 }
 
+// Gemini CLI settings.json keeps the user's keys, so the generated
+// BeforeTool hook and its script must leave with the block, and import
+// must not turn them into a hook spec (#1518).
+func TestProtectedPaths_GeminiHookLeavesWithTheBlockAndImportSkipsIt(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	spec := filepath.Join(dir, ".agnostic-ai", "settings", "protected.yaml")
+	must(t, os.MkdirAll(filepath.Dir(spec), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [gemini]\n"), 0o644))
+	must(t, os.WriteFile(spec, []byte("protected:\n  paths: [composer.lock]\n"), 0o644))
+	must(t, os.WriteFile(filepath.Join(filepath.Dir(spec), "model.yaml"), []byte("model: gemini-2.5-pro\n"), 0o644))
+	settings := filepath.Join(dir, ".gemini", "settings.json")
+	script := filepath.Join(dir, ".gemini", "hooks", "agnostic-ai-protect.sh")
+
+	runCmd(t, "sync")
+	if body := readFile(t, settings); !strings.Contains(body, "agnostic-ai-protect.sh") || !strings.Contains(body, "BeforeTool") {
+		t.Fatalf("sync did not write the protect hook:\n%s", body)
+	}
+	if _, err := os.Stat(script); err != nil {
+		t.Fatalf("protect script: %v", err)
+	}
+	runCmd(t, "import", "gemini")
+	for rel, body := range sourceSnapshot(t, filepath.Join(dir, ".agnostic-ai")) {
+		if strings.Contains(body, "agnostic-ai-protect") {
+			t.Errorf("import brought the protect hook in as %s:\n%s", rel, body)
+		}
+	}
+	runCmd(t, "sync", "--check")
+
+	must(t, os.Remove(spec))
+	runCmd(t, "sync")
+	if body := readFile(t, settings); strings.Contains(body, "agnostic-ai-protect") || !strings.Contains(body, "gemini-2.5-pro") {
+		t.Fatalf("removing the block kept its hook or lost the model:\n%s", body)
+	}
+	if _, err := os.Stat(script); !os.IsNotExist(err) {
+		t.Errorf("removing the block kept its script: %v", err)
+	}
+	runCmd(t, "sync", "--check")
+}
+
 func readFile(t *testing.T, path string) string {
 	t.Helper()
 	data, err := os.ReadFile(path)

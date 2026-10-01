@@ -13,6 +13,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `coverage.accept` lists known coverage notes with a reason, so sync stops printing them; `coverage.fail-on-notes` fails sync on the rest (#1514).
 - Hooks can use `.agnostic-ai/scripts/<name>` to copy and run one shared script in each target, including with `sync --global` (#1454).
 - `agnostic-ai hook paths` prints the files an edit touched, Codex patches included, so one edit hook runs on several tools (#1493).
+- `agnostic-ai hook run` runs a hook with the Claude Code and Codex payloads and fails on a timeout, an error, or when they decide differently (#1494).
 - Doctor warns when existing packaging ignore files miss generated paths; upgrade notes flag the Codex skills path move (#1447).
 - New `AGNOSTIC_AI.md` files use a short editable template; existing files stay intact, and `doctor` points out old boilerplate (#1446).
 - Rule body headings nest in merged instructions; import restores levels and preserves code, link definitions, and line breaks (#1452, #1505).
@@ -31,6 +32,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Claude Code
 
+- A permission rule removed from a settings spec, `outputs.claude.settings`, or `x-claude` now leaves `settings.json` on the next sync; hand-written rules stay (#1530).
 - An environment spec's `setup` runs once in each new Claude Code worktree through generated hooks; `x-claude.setup: false` turns it off. Delete a hand-written bootstrap hook, since it runs in parallel with setup (#1498).
 - Scoped companion cleanup waits for concurrent writes, so sync removes covered `CLAUDE.md` files consistently (#1478).
 - Claude runtime paths stay out of `.worktreeinclude`; `gitignore.ignore-worktree-include: true` also keeps that file out of Git (#1438, #1441).
@@ -64,12 +66,14 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - `import gemini` decodes command TOML strings, so an escaped `\\(` in a prompt no longer doubles; other keys import under `x-gemini`.
 - Agents with inline MCP servers load: sync writes `mcp_servers`, renames `x-gemini.mcpServers` with a note, and keeps the key through import (#1538).
+- A generated `BeforeTool` hook enforces settings `protected` paths on `write_file` and `replace`, with the reason shown (#1518).
 
 ### Site
 
 - The [spec format](https://agnostic-ai.org/docs/spec-format/) reference has one page per `.agnostic-ai/` folder; old links redirect.
 - The [CI page](https://agnostic-ai.org/docs/ci/) shows the npm dev dependency and pinned `install.sh` instead of a GitHub Action that does not exist (#1445).
 - The Targets page explains how to use a tool with no target, such as pi, through `codex` (#1480).
+- The [Kiro page](https://agnostic-ai.org/docs/targets/kiro/) says CLI V3 blocks direct reads of `.kiroignore` paths, not only search results (#1534).
 - The Copilot page notes VS Code 1.140 deprecates `.vscode/mcp.json` and shows the `.mcp.json` opt-in for projects without Claude (#1533).
 
 ## v0.75.0 - 2026-09-29
