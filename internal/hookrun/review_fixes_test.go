@@ -1,6 +1,8 @@
 package hookrun
 
 import (
+	"encoding/json"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -45,10 +47,100 @@ func TestClaudeIfRuns_SingleDirectoryIsAnchoredAtTheWorkingDirectory(t *testing.
 		{"/p/src/x/a.ts", true},
 		{"/p/vendor/pkg/src/lib.js", false},
 	} {
-		got, err := ClaudeIfRuns("Edit(src/**)", "PreToolUse", toolBody(t, "Edit", map[string]any{"file_path": tc.file}), "/p")
+		got, err := ClaudeIfRuns("Edit(src/**)", "PreToolUse", toolBody(t, "Edit", map[string]any{"file_path": filepath.FromSlash(tc.file)}), filepath.FromSlash("/p"))
 		if err != nil || got != tc.want {
 			t.Errorf("Edit(src/**) on %s = %v, %v, want %v", tc.file, got, err, tc.want)
 		}
+	}
+}
+
+func TestBuild_RawToolPayloadUsesTheTargetMatcher(t *testing.T) {
+	for _, tc := range []struct {
+		target, event, tool, matcher string
+		fires                        bool
+	}{
+		{"claude", "PreToolUse", "Read", "Bash", false},
+		{"claude", "PostToolUseFailure", "Read", "Read, Write", true},
+		{"codex", "PreToolUse", "apply_patch", "Edit", true},
+		{"codex", "PreToolUse", "apply_patch", "MultiEdit", false},
+		{"gemini", "BeforeTool", "read_file", "write", false},
+		{"gemini", "AfterTool", "read_file", "read", true},
+		{"trae", "PreToolUse", "RunCommand", "Edit", false},
+		{"trae", "PostToolUse", "RunCommand", "Run", true},
+		{"openhands", "PreToolUse", "file_editor", "file", false},
+		{"openhands", "PostToolUse", "file_editor", "/file.*/", true},
+		{"augment", "PreToolUse", "web-fetch", "launch-process", false},
+		{"augment", "PostToolUse", "web-fetch", "web", true},
+	} {
+		raw := toolBody(t, tc.tool, map[string]any{})
+		p, err := Build(tc.target, tc.event, tc.matcher, t.TempDir(), Input{Raw: raw})
+		if err != nil {
+			t.Errorf("%s %s: %v", tc.target, tc.event, err)
+			continue
+		}
+		if p.Fires != tc.fires || p.Trigger != tc.tool {
+			t.Errorf("%s %s matcher %q: fires=%v trigger=%q, want %v %q", tc.target, tc.event, tc.matcher, p.Fires, p.Trigger, tc.fires, tc.tool)
+		}
+		if string(p.Body) != string(raw) {
+			t.Errorf("%s changed the supplied payload: %s", tc.target, p.Body)
+		}
+	}
+}
+
+func TestBuild_RawGoosePayloadMatchesTheContext(t *testing.T) {
+	for _, tc := range []struct {
+		event, tool, context, matcher string
+		fires                         bool
+	}{
+		{"PreToolUse", "developer__shell", "shell", "^shell$", true},
+		{"PreToolUse", "shell", "developer__shell", "^shell$", false},
+		{"PostToolUse", "developer__shell", "shell", "^shell$", true},
+		{"PostToolUse", "shell", "developer__shell", "^shell$", false},
+		{"BeforeShellExecution", "shell", "git push", "^git push$", true},
+		{"BeforeShellExecution", "shell", "git status", "^git push$", false},
+		{"AfterShellExecution", "shell", "git push", "^git push$", true},
+		{"AfterShellExecution", "shell", "git status", "^git push$", false},
+		{"BeforeReadFile", "read", "/project/src/a.go", "^/project/src/", true},
+		{"BeforeReadFile", "read", "/project/vendor/a.go", "^/project/src/", false},
+		{"AfterFileEdit", "edit", "/project/src/a.go", "^/project/src/", true},
+		{"AfterFileEdit", "edit", "/project/vendor/a.go", "^/project/src/", false},
+		{"UserPromptSubmit", "", "run tests", "^run tests$", true},
+		{"UserPromptSubmit", "", "hello", "^run tests$", false},
+		{"SessionStart", "", "", "^$", true},
+		{"SessionStart", "", "", "^shell$", false},
+		{"Stop", "", "", "", true},
+		{"Stop", "", "", "*", false},
+	} {
+		raw, err := json.MarshalIndent(map[string]any{"event": tc.event, "tool_name": tc.tool, "matcher_context": tc.context}, "", "  ")
+		if err != nil {
+			t.Fatal(err)
+		}
+		p, err := Build("goose", tc.event, tc.matcher, t.TempDir(), Input{Raw: raw})
+		if err != nil {
+			t.Errorf("%s: %v", tc.event, err)
+			continue
+		}
+		trigger := tc.context
+		if trigger == "" {
+			trigger = "session"
+		}
+		if p.Fires != tc.fires || p.Trigger != trigger {
+			t.Errorf("%s matcher %q: fires=%v trigger=%q, want %v %q", tc.event, tc.matcher, p.Fires, p.Trigger, tc.fires, trigger)
+		}
+		if string(p.Body) != string(raw) {
+			t.Errorf("%s changed the supplied payload: %s", tc.event, p.Body)
+		}
+	}
+}
+
+func TestDecide_AugmentStopNeedsAnExitZeroJSONBlock(t *testing.T) {
+	r := Result{Exit: 2, Stdout: `{"hookSpecificOutput":{"hookEventName":"Stop","decision":"block","reason":"Run tests"}}`}
+	if got := DecideHandler("augment", "Stop", Handler{}, r); got != Error {
+		t.Errorf("Stop exit 2 with JSON = %s, want error", got)
+	}
+	r.Exit = 0
+	if got := DecideHandler("augment", "Stop", Handler{}, r); got != Block {
+		t.Errorf("Stop exit 0 with JSON = %s, want block", got)
 	}
 }
 

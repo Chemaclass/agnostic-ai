@@ -73,7 +73,7 @@ func Build(target, event, matcher, root string, in Input) (Payload, error) {
 		return Payload{}, fmt.Errorf("hook run builds no %s payload", target)
 	}
 	if in.Raw != nil {
-		return Payload{Body: in.Raw, Fires: true, Trigger: "--payload"}, nil
+		return rawPayload(target, event, matcher, in.Raw)
 	}
 	if build, ok := otherBuilders[target]; ok {
 		return build(event, matcher, root, in)
@@ -117,6 +117,34 @@ func Build(target, event, matcher, root string, in Input) (Payload, error) {
 		doc["turn_id"] = turnID
 	}
 	p.Body, err = json.Marshal(doc)
+	return p, err
+}
+
+func rawPayload(target, event, matcher string, body []byte) (Payload, error) {
+	p := Payload{Body: body, Fires: true, Trigger: "--payload"}
+	if target == "goose" {
+		var ctx struct {
+			MatcherContext string `json:"matcher_context"`
+		}
+		_ = json.Unmarshal(body, &ctx)
+		fires, err := gooseMatches(matcher, ctx.MatcherContext)
+		p.Fires, p.Trigger = fires, ctx.MatcherContext
+		if p.Trigger == "" {
+			p.Trigger = "session"
+		}
+		return p, err
+	}
+	if !slices.Contains(claudeIfEvents, event) && event != "BeforeTool" && event != "AfterTool" && event != "PreToolUseResult" {
+		return p, nil
+	}
+	p.Trigger = PayloadTool(body)
+	match := toolMatcher(target)
+	var err error
+	if target == "codex" && p.Trigger == "apply_patch" {
+		_, p.Fires, err = firstMatch(match, matcher, []string{"apply_patch", "Edit", "Write"})
+	} else {
+		p.Fires, err = match(matcher, p.Trigger)
+	}
 	return p, err
 }
 
@@ -257,8 +285,11 @@ func matches(matcher, value string) (bool, error) {
 }
 
 func toolMatcher(target string) matchFunc {
-	if target == "gemini" {
+	switch target {
+	case "gemini", "trae", "augment":
 		return geminiToolMatches
+	case "openhands":
+		return func(matcher, value string) (bool, error) { return openHandsMatches(matcher, value) }
 	}
 	return matches
 }
