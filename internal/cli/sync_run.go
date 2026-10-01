@@ -1238,7 +1238,9 @@ func reportCheckDrift(cmd *cobra.Command, reports []driftReport, format string, 
 	if !drift {
 		return nil
 	}
-	_, _ = fmt.Fprintln(cmd.ErrOrStderr(), reconcileHint(reports))
+	if hint := reconcileHint(reports); hint != "" {
+		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), hint)
+	}
 	return errDriftDetected()
 }
 
@@ -1257,6 +1259,8 @@ func reconcileHint(reports []driftReport) string {
 		}
 		switch {
 		case !r.hasDrift():
+		case r.against != "" && len(r.Leftover)+len(r.Orphaned) == 0:
+			// The --against step, not sync, settles it.
 		case len(r.Unmanaged) > 0:
 		case r.Unledgered:
 			removable = removable || len(r.Leftover) > 0
@@ -1305,15 +1309,23 @@ func printDriftGitHub(cmd *cobra.Command, reports []driftReport) bool {
 	out := cmd.OutOrStdout()
 	drift := false
 	for _, r := range reports {
+		missing, stale := "run agnostic-ai sync to generate it", "run agnostic-ai sync to reconcile"
+		if r.against != "" {
+			where, step := againstPlace(r.against)
+			missing = "is not " + where + "; " + step
+			stale = "does not match the specs " + where + "; " + step
+		} else {
+			missing, stale = "is missing; "+missing, "drifted from specs; "+stale
+		}
 		for _, f := range r.Missing {
 			drift = true
-			_, _ = fmt.Fprintf(out, "::error file=%s::%s is missing; run agnostic-ai sync to generate it\n",
-				githubProp(f.Path), githubData(filepath.ToSlash(f.Path)))
+			_, _ = fmt.Fprintf(out, "::error file=%s::%s %s\n",
+				githubProp(f.Path), githubData(filepath.ToSlash(f.Path)), missing)
 		}
 		for _, f := range r.Stale {
 			drift = true
-			_, _ = fmt.Fprintf(out, "::error file=%s,line=%d::%s drifted from specs; run agnostic-ai sync to reconcile\n",
-				githubProp(f.Path), firstChangedLine(f.Path, f.Content), githubData(filepath.ToSlash(f.Path)))
+			_, _ = fmt.Fprintf(out, "::error file=%s,line=%d::%s %s\n",
+				githubProp(f.Path), firstChangedLine(f.Path, f.Content), githubData(filepath.ToSlash(f.Path)), stale)
 		}
 		for _, f := range r.Edited {
 			drift = true

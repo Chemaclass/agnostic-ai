@@ -175,6 +175,7 @@ func newSyncCmd() *cobra.Command {
 					if reports, err = tree.trackedDrift(reports, dropped); err != nil {
 						return err
 					}
+					markAgainst(reports, against)
 					unmanaged, err := tree.trackedUnmanaged(cfg)
 					if err != nil {
 						return err
@@ -188,7 +189,7 @@ func newSyncCmd() *cobra.Command {
 				}
 				err = reportCheckDrift(cmd, reports, format, diff)
 				if err != nil && tree != nil && regeneratedDrift(reports) {
-					_, _ = fmt.Fprintln(cmd.ErrOrStderr(), againstHint(against))
+					err = errors.New(againstHint(against))
 				}
 				return errors.Join(err, notesErr)
 			}

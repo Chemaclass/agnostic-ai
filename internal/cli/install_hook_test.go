@@ -60,7 +60,7 @@ func TestInstallHook_CreatesPreCommit(t *testing.T) {
 	}
 
 	got := readHook(t, filepath.Join(dir, ".git", "hooks", "pre-commit"))
-	for _, want := range []string{"#!/bin/sh\n", "# agnostic-ai install-hook\n", "agnostic-ai sync --check || exit 1\n"} {
+	for _, want := range []string{"#!/bin/sh\n", "# agnostic-ai install-hook\n", "agnostic-ai sync --check --against index || exit 1\n"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("hook missing %q, got:\n%s", want, got)
 		}
@@ -139,23 +139,28 @@ func TestInstallHook_Idempotent(t *testing.T) {
 	}
 }
 
-func TestInstallHook_KeepsAHookFromAnOlderVersion(t *testing.T) {
-	dir := setupGitRepo(t)
-	hookPath := filepath.Join(dir, ".git", "hooks", "pre-commit")
-	legacy := "#!/bin/sh\nagnostic-ai sync --check\n"
-	if err := os.WriteFile(hookPath, []byte(legacy), 0o755); err != nil {
-		t.Fatal(err)
-	}
+// A hook an older version wrote checked the working tree, which passed
+// a commit that left regenerated outputs unstaged (#1592). Installing
+// again moves it to the staged state.
+func TestInstallHook_UpdatesAHookFromAnOlderVersion(t *testing.T) {
+	for _, old := range []string{"agnostic-ai sync --check", "# agnostic-ai install-hook\nagnostic-ai sync --check || exit 1"} {
+		dir := setupGitRepo(t)
+		hookPath := filepath.Join(dir, ".git", "hooks", "pre-commit")
+		if err := os.WriteFile(hookPath, []byte("#!/bin/sh\n"+old+"\n"), 0o755); err != nil {
+			t.Fatal(err)
+		}
 
-	var out strings.Builder
-	if err := installPreCommitHook(dir, false, &out, io.Discard); err != nil {
-		t.Fatal(err)
-	}
-	if got := readHook(t, hookPath); got != legacy {
-		t.Errorf("hook from an older version changed:\n%s", got)
-	}
-	if !strings.Contains(out.String(), "already runs the checks") {
-		t.Errorf("want the no-op reported, got %q", out.String())
+		var out strings.Builder
+		if err := installPreCommitHook(dir, false, &out, io.Discard); err != nil {
+			t.Fatal(err)
+		}
+		got := readHook(t, hookPath)
+		if !strings.Contains(got, "agnostic-ai sync --check --against index || exit 1\n") || strings.Count(got, "sync --check") != 1 {
+			t.Errorf("hook from an older version not updated:\n%s", got)
+		}
+		if !strings.Contains(out.String(), "updated the checks") {
+			t.Errorf("want the update reported, got %q", out.String())
+		}
 	}
 }
 
