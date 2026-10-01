@@ -321,3 +321,24 @@ func TestImport_SkipsASyncBackupBehindASharedSkillLink(t *testing.T) {
 		t.Error("import copied the backup behind the link into the skill")
 	}
 }
+
+// Another skill's asset with the same name and bytes as a sync backup is
+// the user's, so import keeps it.
+func TestImport_KeepsAnUnrelatedCopyOfASyncBackup(t *testing.T) {
+	handEditProject(t, "claude")
+	mustWriteFile(t, handEditSkill, readFile(t, handEditSkill)+"my local tweak\n")
+	runSyncOK(t)
+	mustWriteFile(t, ".claude/skills/other/SKILL.md", "---\nname: other\ndescription: Other.\n---\nOther.\n")
+	mustWriteFile(t, ".claude/skills/other/SKILL.md.bak", readFile(t, handEditSkill+".bak"))
+
+	if out, err := runCLI(t, "import", "claude"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+
+	if _, err := os.Stat(".agnostic-ai/skills/other/SKILL.md.bak"); err != nil {
+		t.Errorf("import dropped an unrelated asset: %v", err)
+	}
+	if _, err := os.Stat(".agnostic-ai/skills/review/SKILL.md.bak"); err == nil {
+		t.Error("import copied the sync backup")
+	}
+}

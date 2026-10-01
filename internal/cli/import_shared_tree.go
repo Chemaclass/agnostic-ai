@@ -361,15 +361,36 @@ func isSyncBackup(path string) bool {
 	if !strings.HasSuffix(path, ".bak") {
 		return false
 	}
-	// The walk may reach the folder through a link, so match the name
-	// and bytes, not the path the ledger recorded.
+	// The walk may reach the folder through a link, so compare the real
+	// paths, not the spelling the ledger recorded.
+	real := realPath(path)
+	if real == "" {
+		return false
+	}
 	got := fileSum(path)
 	for b, sum := range readStateFile(".").Backups {
-		if sum == got && filepath.Base(b) == filepath.Base(path) {
+		if sum != got {
+			continue
+		}
+		if realPath(b) == real {
 			return true
 		}
 	}
 	return false
+}
+
+// realPath is path made absolute with every link resolved, "" when it
+// does not resolve.
+func realPath(path string) string {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return ""
+	}
+	real, err := filepath.EvalSymlinks(abs)
+	if err != nil {
+		return ""
+	}
+	return real
 }
 
 func copyDirTreeWith(srcDir, dstDir string, transformSkill func([]byte) ([]byte, error), fields specFields) error {
