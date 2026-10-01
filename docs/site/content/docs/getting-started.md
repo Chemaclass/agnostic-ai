@@ -73,7 +73,7 @@ To change tools later, edit `targets:` in `agnostic-ai.yaml`. See [target select
 
 `init` enables `gitignore.enabled` by default. Commit `.agnostic-ai/`, `agnostic-ai.yaml`, and `.gitignore`. The local `.agnostic-ai/.sync-state` cache and personal overrides stay ignored. Every fresh clone or worktree needs `agnostic-ai sync` to create its tool files. [Checkout and merge hooks](@/docs/git-hooks.md#regenerate-on-checkout), installed with `agnostic-ai install-hook --post-checkout`, run it after checkouts and pulls that merge, and a Node project can run it on install: see [Node monorepos](@/docs/git-hooks.md#node-monorepos).
 
-To keep generated outputs in Git, set `gitignore.enabled: false` and remove their entries from the managed `.gitignore` block. `init --gitignore=false` sets this from the start on a new project. Commit the specs and generated files together, then use the [CI drift gate](@/docs/ci.md#committed-outputs).
+To keep generated outputs in Git, set `gitignore.enabled: false` and remove their entries from the managed `.gitignore` block. `init --gitignore=off` sets this from the start on a new project. Commit the specs and generated files together, then use the [CI drift gate](@/docs/ci.md#committed-outputs).
 
 If outputs are ignored, CI validates the specs and generates the files. It cannot compare a fresh checkout against files that were never committed. See [CI for ignored outputs](@/docs/ci.md#ignored-outputs).
 
