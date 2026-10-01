@@ -19,6 +19,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - `model` values `sol`, `luna`, and `astra` resolve to the current Codex ids, and `explain` shows the resolution (#1572).
 
+#### Kiro
+
+- `validate` accepts the `SessionEnd` hook trigger Kiro CLI 2.25 added (#1576).
+
 ## v0.76.0 - 2026-10-01
 
 ### General

@@ -57,13 +57,15 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"WorktreeCreate",
 	),
 	// The eleven triggers in Kiro CLI 3.0's own table
-	// (kiro.dev/docs/cli/v3/hooks/). `AgentSpawn` used to sit here and
-	// does not: it is the PascalCase form of 2.x's `agentSpawn`, whose
-	// documented 3.0 successor is `SessionStart`, and it appears on no
-	// Kiro 3.0 page. Vouching for it emitted a `trigger` Kiro never
-	// fires (#907). `Manual` is documented and was missing.
+	// (kiro.dev/docs/cli/v3/hooks/), plus `SessionEnd`, which CLI 2.25
+	// added for V3 sessions (kiro.dev/docs/hooks/types/). `AgentSpawn`
+	// used to sit here and does not: it is the PascalCase form of 2.x's
+	// `agentSpawn`, whose documented 3.0 successor is `SessionStart`,
+	// and it appeared on no Kiro 3.0 page. Vouching for it emitted a
+	// `trigger` Kiro never fires (#907). `Manual` is documented and was
+	// missing.
 	"kiro": setOf(
-		"SessionStart", "Stop",
+		"SessionStart", "SessionEnd", "Stop",
 		"PreToolUse", "PostToolUse",
 		"PreTaskExec", "PostTaskExec",
 		"UserPromptSubmit",
