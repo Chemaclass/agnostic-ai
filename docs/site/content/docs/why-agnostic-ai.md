@@ -59,7 +59,7 @@ One tool: use its own files. Two tools that read the same Markdown at the same p
 
 ```bash
 agnostic-ai init --from all
-agnostic-ai sync --dry-run
+agnostic-ai sync --plan
 agnostic-ai sync
 ```
 
