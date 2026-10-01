@@ -49,6 +49,8 @@ If you turn `AGENTS.md` off in the tool itself (Cline's Rules panel, or a Qoder 
 
 The next full sync removes a rule file it no longer writes while the file still carries the agnostic-ai header, edited or not. Until then `sync --check`, `doctor`, and `status` report it as `ledger` drift, and `doctor --fix` removes it.
 
+Some settings files also hold keys you write, such as `.gemini/settings.json`, `.claude/settings.json`, or `opencode.json`. Sync merges its keys into them and records which keys it set. Once no spec writes the file, or its target leaves `targets`, sync and `doctor --fix` take out only those keys. The file goes away only when sync created it and nothing else is left.
+
 A partial sync (`--only`, `--except`, `--target`) renders a shared entry point for every configured target that reads it, so the file matches a full sync.
 
 Set `outputs.<target>.rules-file: <path>` for the legacy layout: one merged rules document at `<path>`, with no pointer-body write for that target.

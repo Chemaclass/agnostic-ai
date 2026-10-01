@@ -400,13 +400,16 @@ func emitKiloJSONC(sess *emit.Session, b spec.Bundle, rulesDir, skillsDir, path 
 	if instructions := ruleInstructions(b.Rules, rulesDir); len(instructions) > 0 {
 		keys["instructions"] = instructions
 	} else if kept, stale := withoutInlinedRules(sess.ExistingStrings(path, "instructions", dryRun), sess.InlinedRules(), rulesDir); stale {
-		keys["instructions"] = kept
+		keys["instructions"] = emit.CarriedJSONValue(kept)
 	}
 	if servers := buildMCPMap(b.MCPs); len(servers) > 0 {
 		keys["mcp"] = servers
 	}
-	if paths := skillsPaths(sess, b.Skills, skillsDir, path, dryRun); len(paths) > 0 {
+	if paths := skillsPaths(sess, b.Skills, skillsDir, path, dryRun); len(paths) == 1 {
 		keys["skills"] = map[string]any{"paths": paths}
+	} else if len(paths) > 1 {
+		// The user's own paths ride along, so the list is not sync's to remove.
+		keys["skills"] = map[string]any{"paths": emit.CarriedJSONValue(paths)}
 	}
 	if model := emit.SettingsModel(b.Settings, target); model != "" {
 		keys["model"] = model

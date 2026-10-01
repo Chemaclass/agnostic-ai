@@ -893,10 +893,24 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 		// The same ownership guard as the orphan sweep in sync. With no
 		// ledger, a mention of the marker is no proof: RemoveOwned would
 		// take one, so the header must still open the file.
-		sums := readStateFile(".").OutputSums
+		state := readStateFile(".")
+		sums := state.OutputSums
 		unledgered := r.Unledgered || ledgerMissing(".")
 		pruned := map[string]bool{}
 		for _, p := range r.Leftover {
+			if m, merged := state.Merged[p]; merged && !unledgered {
+				result, err := sess.ReleaseMergedJSON(p, m.Keys, m.Created, false)
+				if err != nil {
+					return written, err
+				}
+				if result == adapters.MergedRemoved {
+					pruneAncestorDirs(p, pruned)
+				}
+				if result == adapters.MergedRemoved || result == adapters.MergedStripped {
+					written++
+				}
+				continue
+			}
 			sum := sums[p]
 			if unledgered && !ownedWithoutLedger(p) {
 				if sum = r.proven[p]; sum == "" {

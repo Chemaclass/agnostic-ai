@@ -31,6 +31,58 @@ func recordLedgerWrites(writes []adapters.WrittenFile, session *[]string, writte
 	}
 }
 
+// mergedOutput is what the ledger keeps about a JSON file sync merges
+// into: the key paths it set there, and whether sync created the file.
+type mergedOutput struct {
+	Keys    [][]string `json:"keys,omitempty"`
+	Created bool       `json:"created,omitempty"`
+}
+
+// recordMergedWrites adds the merged JSON writes in writes to merged.
+// Targets that write one shared file each add the keys they set.
+func recordMergedWrites(writes []adapters.WrittenFile, merged map[string]mergedOutput) {
+	for _, w := range writes {
+		if !w.Merged {
+			continue
+		}
+		switch w.Action {
+		case "create", "update", "skip", "edited":
+			m := merged[w.Path]
+			m.Keys = mergedKeyPaths(append(m.Keys, w.Keys...))
+			m.Created = m.Created || w.Action == "create"
+			merged[w.Path] = m
+		}
+	}
+}
+
+func mergedKeyPaths(keys [][]string) [][]string {
+	slices.SortFunc(keys, slices.Compare[[]string])
+	return slices.CompactFunc(keys, slices.Equal[[]string])
+}
+
+// ledgerMerged returns the merged-file records to store for ledger. A
+// file merged this run takes this run's keys and stays created if an
+// earlier sync created it. One not written this run keeps its prior
+// record.
+func ledgerMerged(ledger []string, merged map[string]mergedOutput, written map[string]string, prior map[string]mergedOutput) map[string]mergedOutput {
+	out := map[string]mergedOutput{}
+	for _, p := range ledger {
+		m, ok := merged[p]
+		if ok {
+			m.Created = m.Created || prior[p].Created
+		} else if _, rewritten := written[p]; !rewritten {
+			m, ok = prior[p]
+		}
+		if ok {
+			out[p] = m
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 // ledgerSums returns the content sums to store for ledger. A path written
 // this run takes its fresh sum. A path not written this run (another
 // target's on a partial sync, or a kept orphan) carries its prior sum so
@@ -130,17 +182,23 @@ func reconcilePartialLedger(ledger, priorOutputs []string, coversAll bool) []str
 // A dry run records no writes, so the current output set is unknown and
 // every prior output would look orphaned. It sweeps nothing and returns
 // an empty ledger, which callers never persist on a dry run.
-func sweepAndFinalizeLedger(sess *adapters.Session, prev syncStateFile, session []string, written map[string]string, emitted, configured []string, dryRun bool) (ledger syncLedger, kept, removed []string, err error) {
+func sweepAndFinalizeLedger(sess *adapters.Session, prev syncStateFile, session []string, written map[string]string, merged map[string]mergedOutput, emitted, configured []string, dryRun bool) (ledger syncLedger, kept, removed, stripped []string, err error) {
 	if dryRun {
-		return syncLedger{}, nil, nil, nil
+		return syncLedger{}, nil, nil, nil, nil
 	}
 	coversAll := coversAllConfiguredTargets(emitted, configured)
 	outputs := reconcilePartialLedger(finalizeLedger(session), prev.Outputs, coversAll)
-	removed, kept, err = sweepLedgerOrphans(sess, prev.Outputs, prev.OutputSums, outputs)
+	released, removed, stripped, kept, err := releaseMergedOrphans(sess, prev, outputs)
+	if err == nil {
+		var sweptRemoved, sweptKept []string
+		sweptRemoved, sweptKept, err = sweepLedgerOrphans(sess, removeMatching(prev.Outputs, released), prev.OutputSums, outputs)
+		removed = append(removed, sweptRemoved...)
+		kept = append(kept, sweptKept...)
+	}
 	orphans := ledgerOrphans(kept, prev.Orphans, written, coversAll)
 	if err != nil {
 		for _, path := range prev.Outputs {
-			if !slices.Contains(removed, path) && !sess.IsUnmanaged(path) {
+			if !slices.Contains(released, path) && !slices.Contains(removed, path) && !sess.IsUnmanaged(path) {
 				outputs = append(outputs, path)
 			}
 		}
@@ -155,7 +213,47 @@ func sweepAndFinalizeLedger(sess *adapters.Session, prev syncStateFile, session 
 		outputs: outputs,
 		sums:    ledgerSums(outputs, written, prev.OutputSums),
 		orphans: finalizeLedger(orphans),
-	}, kept, removed, err
+		merged:  ledgerMerged(outputs, merged, written, prev.Merged),
+	}, kept, removed, stripped, err
+}
+
+// releaseMergedOrphans hands back the merged JSON files the last sync
+// wrote and this one does not. It takes out the keys sync set there and
+// keeps the rest, which a whole-file sweep would delete with them
+// (#1541). released lists every path it dealt with, so the sweep leaves
+// them alone. A file it cannot read is kept, and anything but a regular
+// file is left to the sweep.
+func releaseMergedOrphans(sess *adapters.Session, prev syncStateFile, current []string) (released, removed, stripped, kept []string, err error) {
+	pruned := make(map[string]bool)
+	for _, p := range prev.Outputs {
+		m, ok := prev.Merged[p]
+		if !ok || slices.Contains(current, p) || underSymlinkedDir(p) {
+			continue
+		}
+		if fi, statErr := os.Lstat(p); statErr != nil || !fi.Mode().IsRegular() {
+			continue
+		}
+		if sess.KeepsEdits() && editedSince(p, prev.OutputSums[p]) {
+			continue
+		}
+		result, err := sess.ReleaseMergedJSON(p, m.Keys, m.Created, false)
+		if err != nil {
+			return released, removed, stripped, kept, err
+		}
+		released = append(released, p)
+		switch result {
+		case adapters.MergedRemoved:
+			removed = append(removed, p)
+			pruneAncestorDirs(p, pruned)
+		case adapters.MergedStripped:
+			stripped = append(stripped, p)
+		case adapters.MergedKept:
+			if !sess.IsUnmanaged(p) {
+				kept = append(kept, p)
+			}
+		}
+	}
+	return released, removed, stripped, kept, nil
 }
 
 // keepUnledgered records in ledger the leftovers no ledger proves sync

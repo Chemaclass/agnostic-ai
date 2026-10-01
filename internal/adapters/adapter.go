@@ -74,6 +74,17 @@ func DetectJSONIndent(data []byte) string { return emit.DetectJSONIndent(data) }
 // emit tree can consume detailed recording output.
 type WrittenFile = emit.WrittenFile
 
+// MergedRelease mirrors emit.MergedRelease: what releasing a merged JSON
+// file did with it.
+type MergedRelease = emit.MergedRelease
+
+const (
+	MergedKept      = emit.MergedKept
+	MergedUnchanged = emit.MergedUnchanged
+	MergedStripped  = emit.MergedStripped
+	MergedRemoved   = emit.MergedRemoved
+)
+
 // Session mirrors emit.Session so the cli and cmd layers — which cannot
 // import the internal emit tree — can construct one emission session per
 // sync run and drive its capture / recording / backup / transaction

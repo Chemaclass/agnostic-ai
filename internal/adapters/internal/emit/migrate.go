@@ -119,14 +119,27 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 		names = append(names, k)
 	}
 	sort.Strings(names)
+	var owned [][]string
 	for _, k := range names {
-		value := keys[k]
+		value, claimed := uncarried(keys[k])
 		if _, remove := value.(removeJSONKey); remove {
 			doc.Delete(k)
 			continue
 		}
-		if nested[k] {
-			value = mergeJSONObject(doc, k, value)
+		incoming, isObject := value.(map[string]any)
+		switch {
+		case nested[k] && isObject:
+			children := make(map[string]any, len(incoming))
+			for child, childValue := range incoming {
+				childValue, childClaimed := uncarried(childValue)
+				children[child] = childValue
+				if claimed && childClaimed {
+					owned = append(owned, []string{k, child})
+				}
+			}
+			value = mergeJSONObject(doc, k, children)
+		case claimed:
+			owned = append(owned, []string{k})
 		}
 		if err := doc.Set(k, value); err != nil {
 			return fmt.Errorf("marshal %s key %s: %w", path, k, err)
@@ -136,7 +149,7 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 	if err != nil {
 		return fmt.Errorf("marshal %s: %w", path, err)
 	}
-	return s.WriteFile(path, string(raw)+"\n", dryRun)
+	return s.WriteMergedJSON(path, string(raw)+"\n", owned, dryRun)
 }
 
 func mergeJSONObject(doc *OrderedJSON, key string, value any) any {
