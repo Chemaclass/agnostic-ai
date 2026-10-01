@@ -126,10 +126,31 @@ func ledgerMerged(ledger []string, merged map[string]mergedOutput, written map[s
 			}
 		}
 		created := current.Created || last.Created || !recorded && slices.Contains(prev.Outputs, p)
-		out[p] = mergedOutput{Keys: withMergedKeys(kept, current.Keys), Created: created}
+		out[p] = mergedOutput{Keys: withMergedKeys(kept, followedKeys(current.Keys, last.Keys)), Created: created}
 	}
 	if len(out) == 0 {
 		return nil
+	}
+	return out
+}
+
+// followedKeys returns the keys this run claims. A key a cleanup
+// rewrote (Follows set) takes over the earlier claim at its path only
+// when that claim's sum is the one the cleanup started from, so sync
+// still owns the whole value. Otherwise the earlier claim stands.
+func followedKeys(current, last []adapters.MergedKey) []adapters.MergedKey {
+	out := make([]adapters.MergedKey, 0, len(current))
+	for _, key := range current {
+		if key.Follows == "" {
+			out = append(out, key)
+			continue
+		}
+		i := slices.IndexFunc(last, func(k adapters.MergedKey) bool { return slices.Equal(k.Path, key.Path) })
+		if i < 0 || last[i].Items != nil || last[i].Sum != key.Follows {
+			continue
+		}
+		key.Follows = ""
+		out = append(out, key)
 	}
 	return out
 }

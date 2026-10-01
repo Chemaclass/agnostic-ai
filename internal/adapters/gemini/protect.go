@@ -2,6 +2,7 @@ package gemini
 
 import (
 	"fmt"
+	"maps"
 	"path/filepath"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -49,7 +50,8 @@ func IsProtectHookCommand(command string) bool {
 // withoutProtectHook drops the protect handler from a hooks object sync
 // wrote before. The merge keeps a hooks key sync no longer writes, and
 // Gemini CLI blocks every edit when that handler's script is gone,
-// since sh then exits 127.
+// since sh then exits 127. hooks stays as it was, so the caller can
+// fingerprint the value the cleanup started from.
 func withoutProtectHook(hooks map[string]any) (map[string]any, bool) {
 	stale := false
 	kept := map[string]any{}
@@ -76,8 +78,9 @@ func withoutProtectHook(hooks map[string]any) (map[string]any, bool) {
 				keptHandlers = append(keptHandlers, rawHandler)
 			}
 			if len(keptHandlers) > 0 {
-				definition["hooks"] = keptHandlers
-				keptDefinitions = append(keptDefinitions, definition)
+				cleaned := maps.Clone(definition)
+				cleaned["hooks"] = keptHandlers
+				keptDefinitions = append(keptDefinitions, cleaned)
 			}
 		}
 		if len(keptDefinitions) > 0 {
