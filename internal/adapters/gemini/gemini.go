@@ -203,7 +203,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "GEMINI.md"}, dryRun); err != nil {
 		return err
 	}
-	if err := emitSettings(sess, b, emitted, emit.OutputMCPFile(cfg, target, defaultSettingsFile), dryRun); err != nil {
+	if err := emitSettings(sess, b, emitted, SettingsFilePath(cfg), dryRun); err != nil {
 		return err
 	}
 	if err := emitProtectScript(sess, protected, dryRun); err != nil {

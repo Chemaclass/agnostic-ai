@@ -71,9 +71,10 @@ agnostic-ai hook run protect-files --edit .github/workflows/tests.yml --expect b
 agnostic-ai hook run guard --target codex --bash "git push --force"
 agnostic-ai hook run greet --prompt "ship it"
 agnostic-ai hook run on-stop --payload stop.json
+agnostic-ai hook run protect-files --edit .env --format json
 ```
 
-It exits 1 when a command times out or errors (such as a missing script), when two targets decide differently, or when a decision is not the one `--expect` names.
+It exits 1 when a command times out or errors (such as a missing script), when two targets decide differently, or when a decision is not the one `--expect` names. It warns, without failing, when a target's synced native file, such as `.claude/settings.json` or `.codex/hooks.json`, does not run the command the spec produces: run `sync`.
 
 | Flag | Description |
 |------|-------------|
@@ -83,6 +84,7 @@ It exits 1 when a command times out or errors (such as a missing script), when t
 | `--prompt <text>` | Prompt text for `UserPromptSubmit`. |
 | `--payload <file>` | Send this JSON file to every target as the payload, for events with no builder. |
 | `--expect allow\|block` | Fail unless every target decides this. |
+| `--format text\|json` | `json` prints one object per target, with its decision, warnings, and each command's exit code, time, stdout, and stderr. Defaults to `text`. |
 
 ## install-hook
 

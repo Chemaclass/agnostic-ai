@@ -1,9 +1,13 @@
 package cli
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
@@ -12,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/hookrun"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -19,17 +24,22 @@ import (
 // claudeProjectDirEnv is the project root Claude Code gives every hook.
 const claudeProjectDirEnv = "CLAUDE_PROJECT_DIR"
 
+// notRun is the decision of a target hook run cannot run the hook for.
+const notRun hookrun.Decision = "not run"
+
 func newHookRunCmd() *cobra.Command {
 	var only []string
 	var in hookrun.Input
-	var payloadFile, expect string
+	var payloadFile, expect, format string
 	cmd := &cobra.Command{
 		Use:   "run <hook>",
 		Short: "Run a hook spec with each target's payload and report what each target decides",
 		Long: "Runs the hook spec named <hook> once for every target it reaches, with the payload, " +
 			"environment, shell, and timeout that target gives it, from the project root. " +
 			"Builds payloads for " + strings.Join(hookrun.Targets(), " and ") + "; other targets are listed as not run. " +
-			"Prints each command's decision (allow, block, error, or timeout), exit code, time, stdout, and stderr. " +
+			"Prints each command's decision (allow, block, error, or timeout), exit code, time, stdout, and stderr, " +
+			"and warns when the synced native file does not run the command the spec produces. " +
+			"--format json prints one object per target instead. " +
 			"Exits 1 when a command times out or errors, when targets decide differently, or when a decision differs from --expect. " +
 			"Run sync first: commands run the scripts sync copied into each target's hook directory.",
 		Example: `  # Check that one protect-files hook blocks on Claude Code and Codex alike
@@ -39,11 +49,17 @@ func newHookRunCmd() *cobra.Command {
   agnostic-ai hook run guard --target codex --bash "git push --force"
 
   # An event with no payload builder
-  agnostic-ai hook run on-stop --payload stop.json`,
+  agnostic-ai hook run on-stop --payload stop.json
+
+  # Per-target results for a CI job
+  agnostic-ai hook run protect-files --edit .env --format json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if expect != "" && expect != string(hookrun.Allow) && expect != string(hookrun.Block) {
 				return fmt.Errorf("--expect: expected allow or block, got %q", expect)
+			}
+			if format != "text" && format != "json" {
+				return fmt.Errorf("--format: expected text or json, got %q", format)
 			}
 			if payloadFile != "" {
 				if in.Edit != "" || in.Bash != "" || in.Prompt != "" {
@@ -76,11 +92,21 @@ func newHookRunCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("get working directory: %w", err)
 			}
-			runs, err := runHookTargets(cmd.OutOrStdout(), hook, targets, root, in)
+			show := func(r hookTargetRun) { printHookTarget(cmd.OutOrStdout(), r) }
+			if format == "json" {
+				show = func(hookTargetRun) {}
+			}
+			runs, err := runHookTargets(cfg, hook, targets, root, in, show)
 			if err != nil {
 				return err
 			}
-			return judgeHookRuns(hook.Name, runs, hookrun.Decision(expect))
+			judged := judgeHookRuns(hook.Name, runs, hookrun.Decision(expect))
+			if format == "json" {
+				if err := printHookRunJSON(cmd.OutOrStdout(), hook.Name, runs, judged); err != nil {
+					return err
+				}
+			}
+			return judged
 		},
 	}
 	cmd.Flags().StringSliceVarP(&only, "target", "t", nil, "Run only for these targets (default: every target the hook reaches)")
@@ -89,10 +115,12 @@ func newHookRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&in.Prompt, "prompt", "", "Prompt text for a UserPromptSubmit event")
 	cmd.Flags().StringVar(&payloadFile, "payload", "", "Send this JSON file to every target as the payload")
 	cmd.Flags().StringVar(&expect, "expect", "", "Fail unless every target decides allow or block")
+	cmd.Flags().StringVar(&format, "format", "text", "Output format: text or json")
 	_ = cmd.RegisterFlagCompletionFunc("target", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return hookrun.Targets(), cobra.ShellCompDirectiveNoFileComp
 	})
 	_ = cmd.RegisterFlagCompletionFunc("expect", cobra.FixedCompletions([]string{"allow", "block"}, cobra.ShellCompDirectiveNoFileComp))
+	_ = cmd.RegisterFlagCompletionFunc("format", cobra.FixedCompletions([]string{"text", "json"}, cobra.ShellCompDirectiveNoFileComp))
 	return cmd
 }
 
@@ -109,74 +137,145 @@ func findHook(b spec.Bundle, name string) (spec.Entry, bool) {
 // timeout or error among its commands, even when another one blocked.
 // An async run is not judged: the target does not wait for its result.
 type hookTargetRun struct {
-	target   string
-	decision hookrun.Decision
+	Target   string           `json:"target"`
+	Decision hookrun.Decision `json:"decision"`
+	Reason   string           `json:"reason,omitempty"`
+	Event    string           `json:"event,omitempty"`
+	Trigger  string           `json:"trigger,omitempty"`
+	Async    bool             `json:"async"`
+	Commands []hookCommandRun `json:"commands"`
+	Notes    []string         `json:"notes"`
+	Warnings []string         `json:"warnings"`
 	failed   []hookrun.Decision
-	async    bool
 }
 
-func runHookTargets(w io.Writer, hook spec.Entry, targets []string, root string, in hookrun.Input) ([]hookTargetRun, error) {
+type hookCommandRun struct {
+	Command     string           `json:"command"`
+	Decision    hookrun.Decision `json:"decision"`
+	ExitCode    *int             `json:"exit_code"`
+	ElapsedMS   int64            `json:"elapsed_ms"`
+	TimedOut    bool             `json:"timed_out"`
+	StartError  string           `json:"start_error,omitempty"`
+	Stdout      string           `json:"stdout"`
+	Stderr      string           `json:"stderr"`
+	AddsContext bool             `json:"adds_context"`
+	result      hookrun.Result
+}
+
+func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root string, in hookrun.Input, show func(hookTargetRun)) ([]hookTargetRun, error) {
 	event, _ := hook.Meta["event"].(string)
 	matcher, _ := hook.Meta["matcher"].(string)
 	var runs []hookTargetRun
+	add := func(r hookTargetRun) {
+		show(r)
+		runs = append(runs, r)
+	}
 	for _, target := range targets {
+		run := hookTargetRun{Target: target, Decision: notRun, Commands: []hookCommandRun{}, Notes: []string{}, Warnings: []string{}}
 		if !hookrun.Supported(target) {
-			_, _ = fmt.Fprintf(w, "%s: not run (hook run builds no %s payload)\n", target, target)
+			run.Reason = fmt.Sprintf("hook run builds no %s payload", target)
+			add(run)
 			continue
 		}
 		if _, ok := hookEventsByTarget[target][event]; !ok {
-			_, _ = fmt.Fprintf(w, "%s: not run (%s has no %s event)\n", target, target, event)
+			run.Reason = fmt.Sprintf("%s has no %s event", target, event)
+			add(run)
 			continue
 		}
 		handlers := adapters.HookHandlers(target, hook)
 		if len(handlers) == 0 {
-			_, _ = fmt.Fprintf(w, "%s: not run (no command handler; hook run runs command hooks only)\n", target)
+			run.Reason = "no command handler; hook run runs command hooks only"
+			add(run)
 			continue
 		}
 		payload, err := hookrun.Build(target, event, matcher, root, in)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", target, err)
 		}
+		run.Event, run.Trigger, run.Decision = event, payload.Trigger, hookrun.Allow
+		run.Warnings = append(run.Warnings, hookFileWarnings(cfg, target, event, root, handlers)...)
 		if !payload.Fires {
-			_, _ = fmt.Fprintf(w, "%s: allow (not run: matcher %q does not match %s)\n", target, matcher, payload.Trigger)
-			runs = append(runs, hookTargetRun{target: target, decision: hookrun.Allow})
+			run.Reason = fmt.Sprintf("matcher %q does not match %s", matcher, payload.Trigger)
+			add(run)
 			continue
 		}
 		// Gemini CLI has no async hooks; sync writes none there.
-		async := hookRunAsync(hook.Meta) && target != "gemini"
-		run := hookTargetRun{target: target, decision: hookrun.Allow, async: async}
+		run.Async = hookRunAsync(hook.Meta) && target != "gemini"
 		for _, h := range handlers {
 			timeout := h.Timeout
 			if timeout <= 0 {
 				timeout = hookTimeout(target, hook.Meta)
 			}
+			shown := shownHookCommand(h)
 			h.Command = hookrun.ExpandCommand(target, runtime.GOOS, h.Command, root)
 			r := hookrun.Run(hookrun.Argv(target, runtime.GOOS, h), root, hookRunEnv(target, root, h), payload.Body, timeout)
 			d := hookrun.Decide(target, event, r)
-			shown := d
-			if async {
-				shown = "not judged"
-			}
-			printHookRun(w, target, event, payload.Trigger, h, r, shown)
-			if async {
-				_, _ = fmt.Fprintf(w, "  note: async hook; %s does not wait for its result\n", target)
-			}
-			run.decision = strongerDecision(run.decision, d)
+			run.Commands = append(run.Commands, newHookCommandRun(shown, d, r, hookrun.AddsContext(target, event, r)))
+			run.Decision = strongerDecision(run.Decision, d)
 			if d == hookrun.Timeout || d == hookrun.Error {
 				run.failed = append(run.failed, d)
 			}
 		}
 		if adapters.JudgesHooks(target) {
 			if reason := adapters.AcceptsHook(target, hook.Meta); reason != "" {
-				_, _ = fmt.Fprintf(w, "  note: %s\n", reason)
+				run.Notes = append(run.Notes, reason)
 			}
 		}
-		runs = append(runs, run)
-	}
-	if len(runs) == 0 {
-		return nil, fmt.Errorf("hook %s reaches no target hook run builds payloads for (%s)", hook.Name, strings.Join(hookrun.Targets(), ", "))
+		add(run)
 	}
 	return runs, nil
+}
+
+func newHookCommandRun(command string, d hookrun.Decision, r hookrun.Result, addsContext bool) hookCommandRun {
+	c := hookCommandRun{
+		Command: command, Decision: d, ElapsedMS: r.Elapsed.Milliseconds(), TimedOut: r.TimedOut,
+		Stdout: r.Stdout, Stderr: r.Stderr, AddsContext: addsContext, result: r,
+	}
+	switch {
+	case r.StartErr != nil:
+		c.StartError = r.StartErr.Error()
+	case !r.TimedOut:
+		exit := r.Exit
+		c.ExitCode = &exit
+	}
+	return c
+}
+
+// shownHookCommand is the command the target starts on this platform,
+// as the native file spells it.
+func shownHookCommand(h hookrun.Handler) string {
+	command := h.Command
+	if runtime.GOOS == "windows" && h.CommandWindows != "" {
+		command = h.CommandWindows
+	}
+	return strings.Join(append([]string{command}, h.Args...), " ")
+}
+
+// hookFileWarnings names each handler the synced native file of target
+// does not run, so a run that passes cannot hide a stale file.
+func hookFileWarnings(cfg *config.Config, target, event, root string, handlers []hookrun.Handler) []string {
+	file := adapters.HookFile(cfg, target)
+	path := file
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(root, path)
+	}
+	shown := filepath.ToSlash(file)
+	body, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return []string{shown + " does not exist; run agnostic-ai sync"}
+	}
+	if err != nil {
+		return []string{fmt.Sprintf("%s: %v", shown, err)}
+	}
+	missing, err := hookrun.Unsynced(body, event, runtime.GOOS, handlers)
+	if err != nil {
+		return []string{fmt.Sprintf("%s: parse: %v", shown, err)}
+	}
+	var warnings []string
+	for _, h := range missing {
+		warnings = append(warnings, fmt.Sprintf("%s has no %s command %q; run agnostic-ai sync", shown, event, shownHookCommand(h)))
+	}
+	return warnings
 }
 
 // strongerDecision combines the handlers of one event: any block stops
@@ -189,7 +288,33 @@ func strongerDecision(a, b hookrun.Decision) hookrun.Decision {
 	return a
 }
 
-func printHookRun(w io.Writer, target, event, trigger string, h hookrun.Handler, r hookrun.Result, d hookrun.Decision) {
+func printHookTarget(w io.Writer, run hookTargetRun) {
+	switch {
+	case run.Decision == notRun:
+		_, _ = fmt.Fprintf(w, "%s: not run (%s)\n", run.Target, run.Reason)
+	case run.Reason != "":
+		_, _ = fmt.Fprintf(w, "%s: allow (not run: %s)\n", run.Target, run.Reason)
+	}
+	for _, c := range run.Commands {
+		d := c.Decision
+		if run.Async {
+			d = "not judged"
+		}
+		printHookRun(w, run.Target, run.Event, run.Trigger, c, d)
+		if run.Async {
+			_, _ = fmt.Fprintf(w, "  note: async hook; %s does not wait for its result\n", run.Target)
+		}
+	}
+	for _, note := range run.Notes {
+		_, _ = fmt.Fprintf(w, "  note: %s\n", note)
+	}
+	for _, warning := range run.Warnings {
+		_, _ = fmt.Fprintf(w, "  warning: %s\n", warning)
+	}
+}
+
+func printHookRun(w io.Writer, target, event, trigger string, c hookCommandRun, d hookrun.Decision) {
+	r := c.result
 	elapsed := r.Elapsed.Round(time.Millisecond)
 	switch {
 	case r.TimedOut:
@@ -200,19 +325,35 @@ func printHookRun(w io.Writer, target, event, trigger string, h hookrun.Handler,
 		_, _ = fmt.Fprintf(w, "%s: %s (exit %d, %s)\n", target, d, r.Exit, elapsed)
 	}
 	_, _ = fmt.Fprintf(w, "  event: %s (%s)\n", event, trigger)
-	command := h.Command
-	if runtime.GOOS == "windows" && h.CommandWindows != "" {
-		command = h.CommandWindows
-	}
-	_, _ = fmt.Fprintf(w, "  command: %s\n", strings.Join(append([]string{command}, h.Args...), " "))
+	_, _ = fmt.Fprintf(w, "  command: %s\n", c.Command)
 	for _, stream := range []struct{ name, text string }{{"stdout", r.Stdout}, {"stderr", r.Stderr}} {
 		if text := strings.TrimSpace(stream.text); text != "" {
 			_, _ = fmt.Fprintf(w, "  %s: %s\n", stream.name, strings.ReplaceAll(text, "\n", "\n          "))
 		}
 	}
-	if hookrun.AddsContext(target, event, r) {
+	if c.AddsContext {
 		_, _ = fmt.Fprintf(w, "  context: %s adds the output to the session\n", target)
 	}
+}
+
+// printHookRunJSON prints every target's result and the reason the run
+// fails, when it does.
+func printHookRunJSON(w io.Writer, name string, runs []hookTargetRun, failure error) error {
+	report := struct {
+		Hook    string          `json:"hook"`
+		Targets []hookTargetRun `json:"targets"`
+		Error   string          `json:"error,omitempty"`
+	}{Hook: name, Targets: runs}
+	if report.Targets == nil {
+		report.Targets = []hookTargetRun{}
+	}
+	if failure != nil {
+		report.Error = failure.Error()
+	}
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	enc.SetEscapeHTML(false)
+	return enc.Encode(report)
 }
 
 // sessionEnvKeys are the variables a target session sets for its hooks.
@@ -273,21 +414,26 @@ func hookTimeout(target string, meta map[string]any) time.Duration {
 	return time.Duration(seconds) * time.Second
 }
 
-// judgeHookRuns fails on a command that timed out or errored, on a
-// decision other than expect, and on targets that disagree.
+// judgeHookRuns fails when no target ran the hook, on a command that
+// timed out or errored, on a decision other than expect, and on
+// targets that disagree.
 func judgeHookRuns(name string, runs []hookTargetRun, expect hookrun.Decision) error {
-	runs = slices.DeleteFunc(slices.Clone(runs), func(r hookTargetRun) bool { return r.async })
+	runs = slices.DeleteFunc(slices.Clone(runs), func(r hookTargetRun) bool { return r.Decision == notRun })
+	if len(runs) == 0 {
+		return fmt.Errorf("hook %s reaches no target hook run builds payloads for (%s)", name, strings.Join(hookrun.Targets(), ", "))
+	}
+	runs = slices.DeleteFunc(runs, func(r hookTargetRun) bool { return r.Async })
 	if len(runs) == 0 {
 		return nil
 	}
 	var timedOut, errored, summary []string
 	for _, r := range runs {
-		summary = append(summary, r.target+" "+string(r.decision))
+		summary = append(summary, r.Target+" "+string(r.Decision))
 		if slices.Contains(r.failed, hookrun.Timeout) {
-			timedOut = append(timedOut, r.target)
+			timedOut = append(timedOut, r.Target)
 		}
 		if slices.Contains(r.failed, hookrun.Error) {
-			errored = append(errored, r.target)
+			errored = append(errored, r.Target)
 		}
 	}
 	if len(timedOut) > 0 {
@@ -298,13 +444,13 @@ func judgeHookRuns(name string, runs []hookTargetRun, expect hookrun.Decision) e
 	}
 	if expect != "" {
 		for _, r := range runs {
-			if r.decision != expect {
+			if r.Decision != expect {
 				return fmt.Errorf("hook %s: expected %s, got %s", name, expect, strings.Join(summary, ", "))
 			}
 		}
 	}
 	for _, r := range runs[1:] {
-		if r.decision != runs[0].decision {
+		if r.Decision != runs[0].Decision {
 			return fmt.Errorf("hook %s: targets decide differently: %s", name, strings.Join(summary, ", "))
 		}
 	}
