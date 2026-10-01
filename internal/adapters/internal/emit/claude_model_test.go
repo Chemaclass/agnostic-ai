@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -142,5 +144,44 @@ func TestReportUnsupported_NamesTheTierOfATierModel(t *testing.T) {
 	want := "(opus is a Claude model name from models.strong; add models.strong.codex so codex gets its own model)"
 	if got := buf.String(); !strings.Contains(got, want) {
 		t.Errorf("missing %q in:\n%s", want, got)
+	}
+}
+
+func TestClaudeModel_KnowsEveryClaudeCodeAlias(t *testing.T) {
+	for _, model := range []string{"sonnet", "opus", "haiku", "fable", "best", "opusplan", "sonnet[1m]", "opus[1m]", "inherit", "claude-opus-5"} {
+		if !ClaudeModel(model) {
+			t.Errorf("ClaudeModel(%q) = false, want true", model)
+		}
+	}
+	for _, model := range []string{"default", "gpt-6.1-sol", "fable-5", "Opus"} {
+		if ClaudeModel(model) {
+			t.Errorf("ClaudeModel(%q) = true, want false", model)
+		}
+	}
+}
+
+func TestForeignClaudeModel_AliasListSkipsWhatAliasFreeTargetsRead(t *testing.T) {
+	for _, model := range []string{"fable", "best", "opusplan", "opus[1m]"} {
+		if !ForeignClaudeModel(ClaudeModelAliases, model) {
+			t.Errorf("%q is an alias a target without aliases cannot load", model)
+		}
+	}
+	for _, model := range []string{"inherit", "claude-opus-5"} {
+		if ForeignClaudeModel(ClaudeModelAliases, model) {
+			t.Errorf("%q is no alias, so a target that reads claude-* ids loads it", model)
+		}
+	}
+}
+
+func TestFlowScalar_SuggestedClaudeScopeParsesToTheSameModel(t *testing.T) {
+	for _, model := range []string{"opus", "fable", "sonnet[1m]", "opus[1m]", "claude-opus-5"} {
+		var got map[string]string
+		if err := yaml.Unmarshal([]byte("{claude: "+FlowScalar(model)+"}"), &got); err != nil {
+			t.Errorf("%q: suggested scope does not parse: %v", model, err)
+			continue
+		}
+		if got["claude"] != model {
+			t.Errorf("%q: suggested scope parses to %q", model, got["claude"])
+		}
 	}
 }

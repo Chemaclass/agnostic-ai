@@ -105,6 +105,6 @@ func noteRepeatedClaudeModels(dir string) {
 	sort.Strings(models)
 	for _, model := range models {
 		summaryf("  → %d agents set model %s; to name it once, add models: {<tier>: {claude: %s}} to %s and write model: <tier> in each\n",
-			counts[model], model, model, config.ConfigFileName)
+			counts[model], model, adapters.FlowScalar(model), config.ConfigFileName)
 	}
 }

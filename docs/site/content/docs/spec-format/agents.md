@@ -118,10 +118,12 @@ Cursor encodes effort in the `model` string, so it rides on the `model` map. Fac
 
 **Claude model names on other targets.** A shared `model` (a scalar or `default`) set to a Claude model name raises a coverage note on a target that cannot load it, naming `model: {claude: <name>}`. `on-unsupported: error` fails the sync instead. A value under `model.<target>` or `x-<target>.model` passes. When the name comes from a tier's `default`, the note names the tier to fix. `import claude` writes these names as `model: {claude: <name>}`. `import codex` adds a Codex agent model to an existing spec as `model.codex`.
 
+Claude Code's [aliases](https://code.claude.com/docs/en/model-config) are `sonnet`, `opus`, `haiku`, `fable`, `best`, `opusplan`, `sonnet[1m]`, and `opus[1m]`. The model value `default` resets Claude's model rather than naming one, so it raises no note.
+
 | Target | Claude names that raise the note |
 |--------|----------------------------------|
-| [Codex](@/docs/targets/codex.md), [Gemini](@/docs/targets/gemini.md), [OpenCode](@/docs/targets/opencode.md), [Kilo Code](@/docs/targets/kilo.md) | `sonnet`, `opus`, `haiku`, `inherit`, and `claude-*` ids |
-| [Cursor](@/docs/targets/cursor.md), [Factory](@/docs/targets/factory.md), [Kiro](@/docs/targets/kiro.md) | `sonnet`, `opus`, and `haiku` |
+| [Codex](@/docs/targets/codex.md), [Gemini](@/docs/targets/gemini.md), [OpenCode](@/docs/targets/opencode.md), [Kilo Code](@/docs/targets/kilo.md) | The aliases, `inherit`, and `claude-*` ids |
+| [Cursor](@/docs/targets/cursor.md), [Factory](@/docs/targets/factory.md), [Kiro](@/docs/targets/kiro.md) | The aliases |
 
 Only the targets listed were checked.
 

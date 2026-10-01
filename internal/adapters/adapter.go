@@ -184,6 +184,10 @@ func NoteProject(text string) { emit.NoteProject(text) }
 // ClaudeModel reports whether model is a Claude Code model name.
 func ClaudeModel(model string) bool { return emit.ClaudeModel(model) }
 
+// FlowScalar quotes a model value for a flow YAML hint (re-exported from
+// the emit layer).
+func FlowScalar(s string) string { return emit.FlowScalar(s) }
+
 // ForeignClaudeModel reports whether model is a Claude model name that
 // target's agent `model` key cannot load.
 func ForeignClaudeModel(target, model string) bool {
