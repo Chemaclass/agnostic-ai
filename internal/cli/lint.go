@@ -57,7 +57,7 @@ func newLintCmd() *cobra.Command {
 			"another spec by one target's native path, skill and command lines with " +
 			"Claude Code body syntax an enabled target reads as plain text, missing or conflicting " +
 			"Codex command prefixes for Bash permissions, coverage.accept entries " +
-			"that match no coverage note, invalid protected paths and protected " +
+			"that match no coverage note, MCP values JSON cannot hold, invalid protected paths and protected " +
 			"paths that cover a file sync writes, model tiers with no model for an enabled " +
 			"target, Claude model names that reach another vendor's target, and warns when a " +
 			"target's always-loaded instructions pass the lint.instructions-words " +
@@ -188,6 +188,7 @@ func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) [
 	findings = append(findings, lintUnterminatedFrontmatter(entries)...)
 	findings = append(findings, lintNearMissKeys(entries, targets)...)
 	findings = append(findings, lintMCPMissingRequiredField(b.MCPs)...)
+	findings = append(findings, lintMCPNonJSONValues(b.MCPs)...)
 	findings = append(findings, lintDevCommands(b.Environments)...)
 	findings = append(findings, lintSkillScopeKey(b.Skills)...)
 	findings = append(findings, lintClaudeBodySyntax(b, targets, support)...)
@@ -371,6 +372,18 @@ func lintUnterminatedFrontmatter(entries []spec.Entry) []lintFinding {
 // will never start. `x-<target>` cannot rescue it either. Both field
 // names are on every adapter's reserved list, so an override that sets
 // one is dropped before it reaches the file.
+// lintMCPNonJSONValues flags an MCP spec value JSON cannot hold, such as
+// a YAML .nan (LINT027, error). Sync fails on it; validate reports it too.
+func lintMCPNonJSONValues(mcps []spec.Entry) []lintFinding {
+	var out []lintFinding
+	for _, e := range mcps {
+		if field, value, ok := spec.NonJSONValue(e.Meta); ok {
+			out = append(out, lintFinding{Code: "LINT027", Severity: lintError, Path: e.Path, Message: nonJSONValueMessage(e.Name, field, value)})
+		}
+	}
+	return out
+}
+
 func lintMCPMissingRequiredField(mcps []spec.Entry) []lintFinding {
 	var out []lintFinding
 	for _, e := range mcps {

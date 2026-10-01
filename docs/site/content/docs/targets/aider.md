@@ -19,7 +19,7 @@ CONVENTIONS.md           # pointer body + inlined rules block (written by sync)
 ```
 
 - **Rules**: `CONVENTIONS.md` holds the pointer body plus a sentinel-marked `## Rules` block with unscoped rule bodies inline. `import aider` strips that block. Load it with `aider --read CONVENTIONS.md`.
-- **Auto-load**: set `outputs.aider.conf-file: .aider.conf.yml` to merge a `read:` entry into Aider's [project config](https://aider.chat/docs/config/aider_conf.html). `model` and `weak-model` go into the same file when set. Existing keys are kept, and the `read:` list is de-duplicated.
+- **Auto-load**: set `outputs.aider.conf-file: .aider.conf.yml` to merge a `read:` entry into Aider's [project config](https://aider.chat/docs/config/aider_conf.html). `model` and `weak-model` go into the same file when set. Existing keys are kept, and the `read:` list is de-duplicated. Each sync rewrites the file with sorted keys and drops its comments. When aider leaves `targets` or `conf-file` is unset, sync takes out only `model`, `weak-model`, and the `read:` entry it added, keeps your keys in their order with the comments they have then, and drops the header. When `rules-file` changes, sync takes the `read:` entry it added for the old path out of the list.
 - **Ignore**: ignore entries write `.aiderignore` in the project root, Aider's default path ([Aider config docs](https://aider.chat/docs/config/aider_conf.html)), so no wiring is needed. If you point `outputs.aider.ignore-file` elsewhere, Aider reads it only when the config file's `aiderignore:` key names that path.
 
 ## Config keys

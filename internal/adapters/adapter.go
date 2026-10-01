@@ -86,9 +86,12 @@ const (
 	MergedEdited    = emit.MergedEdited
 )
 
-// MergedKey mirrors emit.MergedKey: one value sync set in a JSON file it
-// merges into.
+// MergedKey mirrors emit.MergedKey: one value sync set in a JSON or
+// YAML file it merges into.
 type MergedKey = emit.MergedKey
+
+// ParsesMerged mirrors emit.ParsesMerged.
+func ParsesMerged(path string) bool { return emit.ParsesMerged(path) }
 
 // SetPriorMergedKeys tells the merge writers where to find the values
 // the last sync recorded for a merged file.
@@ -670,6 +673,11 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 	prepared.Rules = withoutEntryPointRules(sess, cfg, b, a.Name(), prepared.Rules)
 	if err := checkProtectedPaths(a, prepared.Settings); err != nil {
 		return err
+	}
+	if slices.Contains(a.Capabilities(), spec.KindMCP) {
+		if err := spec.CheckMCPJSONValues(prepared.MCPs, a.Name()); err != nil {
+			return err
+		}
 	}
 	if err := a.Emit(sess, prepared, cfg, dryRun); err != nil {
 		return err

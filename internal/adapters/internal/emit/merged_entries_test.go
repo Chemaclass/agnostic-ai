@@ -2,8 +2,10 @@ package emit
 
 import (
 	"encoding/json"
+	"math"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -77,5 +79,30 @@ func TestMergeJSONEntries_UsesPriorClaims(t *testing.T) {
 				t.Errorf("claims = %#v, want only mcpServers.gh", writes)
 			}
 		})
+	}
+}
+
+// A server JSON cannot hold, such as one with a YAML .nan, fails the
+// write and names the file, key, and server, leaving the file as it was
+// (#1561).
+func TestMergeJSONEntries_FailsOnAServerJSONCannotHold(t *testing.T) {
+	const path = "settings.json"
+	const before = `{"mcpServers":{"old":{"command":"o"}}}`
+	testutil.TempCwd(t)
+	if err := os.WriteFile(path, []byte(before), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	servers := map[string]any{"gh": map[string]any{"command": "npx", "timeout": math.NaN()}}
+	err := NewSession().MergeJSONFile(path, map[string]any{"mcpServers": MergeJSONEntries(servers)}, false)
+	if err == nil {
+		t.Fatal("want an error for a server JSON cannot hold")
+	}
+	for _, want := range []string{path, "mcpServers", `"gh"`} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not name %s", err, want)
+		}
+	}
+	if got, _ := os.ReadFile(path); string(got) != before {
+		t.Errorf("file = %s, want it unchanged", got)
 	}
 }

@@ -916,7 +916,7 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 				continue
 			}
 			if merged && !unledgered {
-				result, edited, err := sess.ReleaseMergedJSON(p, m.Keys, m.Created, false, false)
+				result, edited, err := sess.ReleaseMerged(p, m.Keys, m.Created, false, false)
 				if err != nil {
 					return written, err
 				}
