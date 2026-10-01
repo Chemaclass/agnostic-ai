@@ -380,7 +380,7 @@ func TestSyncJSON_AFailedTargetReportsAndLedgersItsEarlierWrites(t *testing.T) {
 	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [amp]\nsync:\n  collision-policy: prefer-spec\n")
 	mustWriteFile(t, ".agnostic-ai/mcps/gh.yaml", "name: gh\ncommand: npx\n")
 	runSyncOK(t)
-	const skill = ".agents/skills/review/SKILL.md"
+	skill := filepath.FromSlash(".agents/skills/review/SKILL.md")
 	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview.\n")
 	mustWriteFile(t, ".amp/settings.json", "{")
 
