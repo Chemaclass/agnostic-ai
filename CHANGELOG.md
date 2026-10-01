@@ -10,6 +10,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - **Breaking:** an unknown config key, a misspelled target, or a bad `on-unsupported` value fails before sync writes anything, not silently (#1589).
 - `sync --check --plan` exits 1 on drift, as `sync --check` does, instead of passing a CI step (#1593).
+- `init --gitignore off` stops with a hint to use `--gitignore=off` instead of creating a folder named `off` (#1594).
 - `sync` and `sync --check` stop on a likely hook event typo before writing it into every tool, and warn on an agent `skills:` typo (#1591).
 - `sync` saves a hand edit to a generated file as `<path>.bak` and says so before writing over it, so `revert` can restore it (#1590).
 - Release binaries build with Go 1.27.1, so on macOS they need macOS 13 Ventura or later. On macOS 12, `go install` with Go 1.26 still works.

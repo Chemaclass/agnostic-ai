@@ -1456,13 +1456,8 @@ func githubProp(s string) string {
 // resolveGitignore picks the effective gitignore mode: the --gitignore
 // flag wins when set, otherwise cfg.Gitignore.Enabled.
 func resolveGitignore(cfg *config.Config, flag string) bool {
-	switch flag {
-	case "":
-		return cfg.Gitignore.Enabled
-	case "on":
-		return true
-	case "off":
-		return false
+	if on, err := parseSwitch(flag); err == nil {
+		return on
 	}
 	return cfg.Gitignore.Enabled
 }
@@ -1471,9 +1466,11 @@ func resolveGitignore(cfg *config.Config, flag string) bool {
 // error. Used by sync to fail fast on bad input rather than silently
 // falling back to config.
 func validateGitignoreFlag(flag string) error {
-	switch flag {
-	case "", "on", "off":
+	if flag == "" {
 		return nil
 	}
-	return fmt.Errorf("--gitignore: expected 'on' or 'off', got %q", flag)
+	if _, err := parseSwitch(flag); err != nil {
+		return fmt.Errorf("--gitignore: %w", err)
+	}
+	return nil
 }
