@@ -81,7 +81,7 @@ func TestSyncJSON_NamesTheBackupOfAHandEdit(t *testing.T) {
 		t.Fatalf("decode: %v\n%s", err, out)
 	}
 	for _, w := range got.Writes {
-		if w.Path == handEditSkill && w.Backup == handEditSkill+".bak" {
+		if filepath.ToSlash(w.Path) == handEditSkill && w.Backup == handEditSkill+".bak" {
 			return
 		}
 	}
