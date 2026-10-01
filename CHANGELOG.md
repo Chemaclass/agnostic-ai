@@ -33,6 +33,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### By tool
 
+#### Aider
+
+- Dropping aider or `conf-file` takes out only sync's keys and `read:` entry from `.aider.conf.yml` and keeps yours, in order, with comments (#1550).
+
 #### Claude Code
 
 - A permission rule removed from a settings spec, `outputs.claude.settings`, or `x-claude` now leaves `settings.json` on the next sync; hand-written rules stay (#1530).

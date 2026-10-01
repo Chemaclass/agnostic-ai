@@ -87,7 +87,12 @@ func mergeClaim(value any) (unwrapped any, kind mergeClaimKind, items []string) 
 // released lists the key paths this write removed or left to the user,
 // which an earlier sync may have set.
 func (s *Session) WriteMergedJSON(path, content string, keys []MergedKey, released [][]string, dryRun bool) error {
-	keys = withValueSums(content, keys)
+	return s.writeMerged(path, content, withValueSums(content, keys), released, dryRun)
+}
+
+// writeMerged writes content and records keys, already summed, and
+// released as the claims of a merged write.
+func (s *Session) writeMerged(path, content string, keys []MergedKey, released [][]string, dryRun bool) error {
 	s.mu.Lock()
 	mark, captureMark := len(s.detailed), len(s.captured)
 	s.mu.Unlock()
@@ -122,17 +127,21 @@ func withValueSums(content string, keys []MergedKey) []MergedKey {
 	out := make([]MergedKey, 0, len(keys))
 	for _, key := range keys {
 		if key.Items != nil {
-			sums := make([]string, len(key.Items))
-			for i, item := range key.Items {
-				sums[i] = ContentSum(item)
-			}
-			key.Items = sums
+			key.Items = itemSums(key.Items)
 		} else if raw, found := jsonValueAt(doc, key.Path); found {
 			key.Sum = jsonValueSum(raw)
 		}
 		out = append(out, key)
 	}
 	return out
+}
+
+func itemSums(items []string) []string {
+	sums := make([]string, len(items))
+	for i, item := range items {
+		sums[i] = ContentSum(item)
+	}
+	return sums
 }
 
 // jsonValueSum fingerprints a JSON value regardless of its formatting
@@ -142,9 +151,16 @@ func jsonValueSum(raw json.RawMessage) string {
 	if err := json.Unmarshal(raw, &value); err != nil {
 		return ContentSum(string(raw))
 	}
+	return canonicalValueSum(value, string(raw))
+}
+
+// canonicalValueSum fingerprints a decoded value as canonical JSON, so
+// the same value read from JSON or YAML sums the same. fallback is
+// summed when the value has no JSON form.
+func canonicalValueSum(value any, fallback string) string {
 	canonical, err := json.Marshal(value)
 	if err != nil {
-		return ContentSum(string(raw))
+		return ContentSum(fallback)
 	}
 	return ContentSum(string(canonical))
 }

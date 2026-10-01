@@ -8,14 +8,20 @@ import (
 	"slices"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 )
 
 // mergedLedgerVersion is the first .sync-state version that records the
-// keys of merged files. An older ledger cannot tell sync's keys from the
-// user's in a JSON file.
-const mergedLedgerVersion = 6
+// keys of merged JSON files, and mergedYAMLLedgerVersion the first that
+// records them for Aider's YAML config. An older ledger cannot tell
+// sync's keys from the user's in such a file.
+const (
+	mergedLedgerVersion     = 6
+	mergedYAMLLedgerVersion = 7
+)
 
 // mergedOutput is what the ledger keeps about a JSON file sync merges
 // into: the values it set there, and whether sync created the file.
@@ -131,21 +137,47 @@ func isKeyPrefix(prefix, key []string) bool {
 
 // unrecordedMergedCandidate reports whether path, which an older ledger
 // lists without a key record, may hold the user's keys: a JSON file
-// with no provenance header.
+// with no provenance header, or an Aider config.
 func unrecordedMergedCandidate(prev syncStateFile, path string) bool {
-	if prev.Version >= mergedLedgerVersion {
-		return false
-	}
 	switch strings.ToLower(filepath.Ext(path)) {
 	case ".json", ".jsonc":
-	default:
-		return false
+		if prev.Version >= mergedLedgerVersion {
+			return false
+		}
+		data, err := os.ReadFile(path)
+		return err == nil && !header.Has(string(data))
+	case ".yml", ".yaml":
+		return prev.Version < mergedYAMLLedgerVersion && looksLikeAiderConf(path)
 	}
-	data, err := os.ReadFile(path)
-	return err == nil && !header.Has(string(data))
+	return false
 }
 
-// releaseMergedOrphans hands back the merged JSON files the last sync
+// looksLikeAiderConf reports whether the YAML file at path may be an
+// Aider config sync merged into: Aider's file name, or one of the keys
+// sync sets there. Keeping a whole-written YAML file by mistake only
+// leaves it for `doctor --fix`.
+func looksLikeAiderConf(path string) bool {
+	switch strings.ToLower(filepath.Base(path)) {
+	case ".aider.conf.yml", ".aider.conf.yaml":
+		return true
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	var doc map[string]any
+	if yaml.Unmarshal(data, &doc) != nil {
+		return false
+	}
+	for _, key := range []string{"read", "model", "weak-model"} {
+		if _, ok := doc[key]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// releaseMergedOrphans hands back the merged files the last sync
 // wrote and this one does not. It takes out the keys sync set there and
 // keeps the rest, which a whole-file sweep would delete with them
 // (#1541). A value the user edited since stays, and so does a file an
@@ -180,7 +212,7 @@ func releaseMergedOrphans(sess *adapters.Session, prev syncStateFile, current []
 			kept = append(kept, p)
 			continue
 		}
-		result, edited, err := sess.ReleaseMergedJSON(p, m.Keys, m.Created, false, false)
+		result, edited, err := sess.ReleaseMerged(p, m.Keys, m.Created, false, false)
 		if err != nil {
 			// Left out of released, so the failed sweep keeps its record.
 			return released, removed, stripped, kept, records, err
@@ -210,7 +242,7 @@ func keptOrphanReason(merged map[string]mergedOutput, priorSums map[string]strin
 		switch {
 		case m.Unrecorded:
 			return "an older sync wrote it before recording which keys are its own"
-		case !parsesAsJSON(path):
+		case !adapters.ParsesMerged(path):
 			return "it does not parse, so sync's keys cannot be taken out"
 		default:
 			return "you edited a value sync set; the other keys sync set are gone"
@@ -220,15 +252,6 @@ func keptOrphanReason(merged map[string]mergedOutput, priorSums map[string]strin
 		return "the sync that wrote it recorded no checksum"
 	}
 	return "edited since sync"
-}
-
-func parsesAsJSON(path string) bool {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return false
-	}
-	stripped, _ := adapters.StripJSONC(data)
-	return json.Valid(stripped)
 }
 
 // recordMergedRelease updates the ledger after `doctor --fix` released

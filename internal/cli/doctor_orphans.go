@@ -145,7 +145,7 @@ func offerOrphanRemoval(cfg *config.Config, reports []driftReport, backup bool, 
 					remaining = append(remaining, path)
 					continue
 				}
-				result, _, err := sess.ReleaseMergedJSON(path, m.Keys, m.Created, true, false)
+				result, _, err := sess.ReleaseMerged(path, m.Keys, m.Created, true, false)
 				if err != nil {
 					return removed, err
 				}
