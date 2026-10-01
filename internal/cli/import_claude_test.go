@@ -955,8 +955,8 @@ func TestMirrorMainFile_LeavesAFencedSourceAndSaysSo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result != mirrorUnchanged {
-		t.Errorf("result = %v, want unchanged", result)
+	if result != mirrorKept {
+		t.Errorf("result = %v, want kept", result)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, agnosticMainFile))
 	if err != nil {

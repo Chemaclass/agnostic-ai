@@ -97,7 +97,11 @@ func importFromClaude(root string, src config.Sources, layout claudeLayout) erro
 		c.rules, c.agents, c.skills, c.hooks, c.mcps, c.commands, environments)
 	switch mainResult {
 	case mirrorUnchanged:
-		summaryf("  → %s unchanged (it already holds what %s says)\n", agnosticMainFile, mainSrc)
+		verb := "says"
+		if strings.Contains(mainSrc, " and ") {
+			verb = "say"
+		}
+		summaryf("  → %s unchanged (it already holds what %s %s)\n", agnosticMainFile, mainSrc, verb)
 	}
 	noteRepeatedClaudeModels(filepath.Join(root, layout.agents))
 	if promotedNested {
@@ -252,6 +256,9 @@ const (
 	// mirrorMerged: the source's new sections were added to the
 	// instructions AGNOSTIC_AI.md already held.
 	mirrorMerged
+	// mirrorKept: a fenced AGNOSTIC_AI.md was left as is although the
+	// source differs from its view; the user merges the edit by hand.
+	mirrorKept
 )
 
 // mirrorMainFile copies <root>/<srcName> to
@@ -338,7 +345,7 @@ func mirrorBody(root, srcName, body string, alsoCaptured ...string) (mirrorResul
 		// cannot be placed without knowing which block it belongs to.
 		if strings.Contains(current, "::target") {
 			summaryf("  ! %s differs from what sync renders from the fenced %s; %s is unchanged, so merge the edit into it by hand\n", srcName, agnosticMainFile, agnosticMainFile)
-			return mirrorUnchanged, nil
+			return mirrorKept, nil
 		}
 		merged, titles, twice := foldText(current, current, body)
 		// A multi-source run still writes, so the preview sees each
