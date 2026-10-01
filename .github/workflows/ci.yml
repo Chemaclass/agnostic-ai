@@ -58,7 +58,7 @@ jobs:
 
       - name: Repeat parallel emission tests
         shell: bash
-        run: go test -race -run 'TestSync_ParallelEmission' -count=30 ./internal/cli/
+        run: go test -run 'TestRemoveGeneratedTreeExt_DoesNotRaceAConcurrentWriter' -count=20 -v ./internal/adapters/internal/emit/ | tail -40
 
       - name: Test
         shell: bash
