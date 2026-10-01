@@ -10,8 +10,9 @@ import (
 
 // TestMain points HOME at a temp dir and unsets CODEX_HOME, so no test
 // reads the user's own tool config, such as ~/.codex/config.toml. The Go
-// caches stay where they were: they default under HOME, and the tests
-// that build the binary would start cold.
+// caches and `go env -w` settings stay where they were: they can default
+// under HOME, and the tests that build the binary would start cold or
+// lose a private proxy.
 func TestMain(m *testing.M) {
 	code, err := runIsolated(m)
 	if err != nil {
@@ -22,7 +23,7 @@ func TestMain(m *testing.M) {
 }
 
 func runIsolated(m *testing.M) (int, error) {
-	if err := pinGoEnv("GOCACHE", "GOMODCACHE", "GOPATH"); err != nil {
+	if err := pinGoEnv("GOCACHE", "GOMODCACHE", "GOPATH", "GOENV"); err != nil {
 		return 1, err
 	}
 	home, err := os.MkdirTemp("", "agnostic-integration-tests-")
