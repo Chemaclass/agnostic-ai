@@ -26,6 +26,30 @@ func nextModelAliases(prev, resolved map[string]map[string]string, emitted []str
 	return next
 }
 
+// addedModelAliases is prev plus each alias an emitted target resolved
+// that prev does not record yet. A moved alias keeps its old id.
+func addedModelAliases(prev, resolved map[string]map[string]string, emitted []string) map[string]map[string]string {
+	next := map[string]map[string]string{}
+	for target, aliases := range prev {
+		next[target] = maps.Clone(aliases)
+	}
+	for _, target := range emitted {
+		for alias, model := range resolved[target] {
+			if _, ok := next[target][alias]; ok {
+				continue
+			}
+			if next[target] == nil {
+				next[target] = map[string]string{}
+			}
+			next[target][alias] = model
+		}
+	}
+	if len(next) == 0 {
+		return nil
+	}
+	return next
+}
+
 // movedAliasNotes names each alias that now resolves to another id than
 // the previous sync recorded, sorted by target and alias.
 func movedAliasNotes(prev, resolved map[string]map[string]string) []string {
