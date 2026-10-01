@@ -10,7 +10,7 @@ scripts = ["assets/scripts/landing.js"]
 
 # Installation
 
-Every installer puts the same prebuilt binary for your OS and CPU on your machine. You do not need Go.
+Every installer puts the same prebuilt binary for your OS and CPU on your machine. You do not need Go. On macOS the binary needs macOS 13 Ventura or later.
 
 {{ <install_picker /> }}
 
