@@ -282,3 +282,19 @@ func TestImport_SkipsASyncBackupCopy(t *testing.T) {
 		t.Error("import copied a sync --backup copy into the skill")
 	}
 }
+
+// A backup the user has since changed is theirs, so import keeps it.
+func TestImport_KeepsABackupTheUserChanged(t *testing.T) {
+	handEditProject(t, "claude")
+	mustWriteFile(t, handEditSkill, readFile(t, handEditSkill)+"my local tweak\n")
+	runSyncOK(t)
+	mustWriteFile(t, handEditSkill+".bak", "now a user asset\n")
+
+	if out, err := runCLI(t, "import", "claude"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+
+	if _, err := os.Stat(".agnostic-ai/skills/review/SKILL.md.bak"); err != nil {
+		t.Errorf("import dropped a changed backup: %v", err)
+	}
+}

@@ -76,9 +76,9 @@ type syncStateFile struct {
 	// ModelAliases records the id each vendor model alias resolved to,
 	// by target, so the next sync can say when an upgrade moved one.
 	ModelAliases map[string]map[string]string `json:"model_aliases,omitempty"`
-	// Backups lists the `<path>.bak` copies of hand edits sync made, so
-	// import can tell them from a skill's own assets.
-	Backups []string `json:"backups,omitempty"`
+	// Backups maps each `<path>.bak` sync made to the sum of its bytes, so
+	// import can tell it from a skill's own asset while it is unchanged.
+	Backups map[string]string `json:"backups,omitempty"`
 }
 
 // showRepeatedDrops lets -v print capability warnings and coverage notes
@@ -97,7 +97,7 @@ type syncLedger struct {
 	// beside it so the next sync can diff sources against this one.
 	specSums     map[string]string
 	modelAliases map[string]map[string]string
-	backups      []string
+	backups      map[string]string
 }
 
 func stateFilePath(projectRoot string) string {
@@ -817,19 +817,37 @@ func committedSum(path string) string {
 	return adapters.ContentSum(blob)
 }
 
-// syncBackups returns the backups sync made that are still on disk, plus
-// the ones this run made.
-func syncBackups(prior, made []string) []string {
-	seen := map[string]struct{}{}
-	for _, b := range prior {
-		if _, err := os.Lstat(b); err == nil {
-			seen[b] = struct{}{}
+// syncBackups returns the backups sync made that still hold what it
+// wrote, plus the ones this run made, each with the sum of its bytes.
+func syncBackups(prior map[string]string, made []string) map[string]string {
+	out := map[string]string{}
+	for b, sum := range prior {
+		if fileSum(b) == sum {
+			out[b] = sum
 		}
 	}
 	for _, b := range made {
-		seen[b] = struct{}{}
+		if sum := fileSum(b); sum != "" {
+			out[b] = sum
+		}
 	}
-	return sortedKeys(seen)
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// fileSum is the content sum of the regular file at path, "" when there
+// is none.
+func fileSum(path string) string {
+	if info, err := os.Lstat(path); err != nil || !info.Mode().IsRegular() {
+		return ""
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	return adapters.ContentSum(string(data))
 }
 
 // sessionPaths collects the paths paths returns for each session,

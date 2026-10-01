@@ -355,10 +355,14 @@ func skillFields(override *specFields) specFields {
 	return *override
 }
 
-// isSyncBackup reports whether path is a copy of a hand edit sync made,
-// not an asset of the skill.
+// isSyncBackup reports whether path is a backup sync made and still holds
+// what sync wrote, not an asset of the skill.
 func isSyncBackup(path string) bool {
-	return strings.HasSuffix(path, ".bak") && slices.Contains(readStateFile(".").Backups, filepath.ToSlash(filepath.Clean(path)))
+	if !strings.HasSuffix(path, ".bak") {
+		return false
+	}
+	sum, ok := readStateFile(".").Backups[filepath.ToSlash(filepath.Clean(path))]
+	return ok && fileSum(path) == sum
 }
 
 func copyDirTreeWith(srcDir, dstDir string, transformSkill func([]byte) ([]byte, error), fields specFields) error {
