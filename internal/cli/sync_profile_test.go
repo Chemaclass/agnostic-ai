@@ -67,6 +67,23 @@ func TestSync_ProfileWrittenWhenTheRunFails(t *testing.T) {
 	assertValidCPUProfile(t, prof)
 }
 
+// A flag check that fails before the command runs leaves no empty profile.
+func TestProfile_NoEmptyFileWhenFlagChecksFail(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+
+	prof := filepath.Join(t.TempDir(), "cpu.prof")
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"install-hook", "--shared", "--global", "--profile", prof})
+	if err := root.Execute(); err == nil {
+		t.Fatal("install-hook accepted --shared with --global")
+	}
+
+	if info, err := os.Stat(prof); err == nil && info.Size() == 0 {
+		t.Error("a failed flag check left an empty profile")
+	}
+}
+
 // TestSync_VerboseShowsPerTargetTiming verifies the --verbose summary appends
 // per-target wall time to each target line, so a slow sync can be attributed
 // to a specific adapter.

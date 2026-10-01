@@ -45,11 +45,7 @@ func NewRootCmd(version string) *cobra.Command {
 	root.PersistentFlags().CountP("verbose", "v", "Increase output verbosity")
 	root.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "Suppress non-error output")
 
-	// profilePath drives opt-in CPU profiling of the whole run. profileFile
-	// is captured by the pre/post hooks so the file opened before the command
-	// runs is flushed and closed after it finishes.
 	var profilePath string
-	var profileFile *os.File
 	root.PersistentFlags().StringVar(&profilePath, "profile", "",
 		"Write a runtime/pprof CPU profile of the run to this file (or set AGNOSTIC_AI_PROFILE); off by default")
 
@@ -73,15 +69,7 @@ func NewRootCmd(version string) *cobra.Command {
 		default:
 			verbosity = v
 		}
-		f, err := startCPUProfile(profilePath)
-		if err != nil {
-			return err
-		}
-		profileFile = f
 		return nil
-	}
-	root.PersistentPostRunE = func(_ *cobra.Command, _ []string) error {
-		return stopCPUProfile(profileFile)
 	}
 
 	root.AddCommand(
@@ -109,27 +97,30 @@ func NewRootCmd(version string) *cobra.Command {
 		newUpgradeCmd(),
 	)
 	root.InitDefaultCompletionCmd()
-	stopProfileAfterRun(root, &profileFile)
+	profileEachRun(root, &profilePath)
 	return root
 }
 
-// stopProfileAfterRun makes every RunE stop the CPU profile itself, since
-// cobra skips PersistentPostRunE when RunE fails and a failed run such as
-// sync --check on drift would leave an empty profile.
-func stopProfileAfterRun(cmd *cobra.Command, file **os.File) {
+// profileEachRun starts and stops the CPU profile inside every RunE, so
+// a run that fails, such as sync --check on drift, still leaves a complete
+// profile. Cobra skips PersistentPostRunE on an error, and its flag checks
+// run between the pre-run hooks and RunE.
+func profileEachRun(cmd *cobra.Command, path *string) {
 	if run := cmd.RunE; run != nil {
 		cmd.RunE = func(c *cobra.Command, args []string) error {
-			err := run(c, args)
-			stopErr := stopCPUProfile(*file)
-			*file = nil
-			if stopErr == nil {
+			f, err := startCPUProfile(*path)
+			if err != nil {
 				return err
 			}
-			return errors.Join(err, stopErr)
+			err = run(c, args)
+			if stopErr := stopCPUProfile(f); stopErr != nil {
+				return errors.Join(err, stopErr)
+			}
+			return err
 		}
 	}
 	for _, sub := range cmd.Commands() {
-		stopProfileAfterRun(sub, file)
+		profileEachRun(sub, path)
 	}
 }
 
