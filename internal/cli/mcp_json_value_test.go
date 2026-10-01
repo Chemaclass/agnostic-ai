@@ -42,6 +42,35 @@ func TestSync_FailsOnAnMCPValueJSONCannotHold(t *testing.T) {
 	}
 }
 
+// sync --json reports a failed target and goes on with the others. The
+// failed target wrote nothing, so its earlier outputs are not orphans:
+// they and their ledger records stay.
+func TestSyncJSON_AFailedTargetKeepsItsEarlierOutputs(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [amp]\nsync:\n  collision-policy: prefer-spec\n")
+	mustWriteFile(t, nanMCPSpec, "name: gh\ncommand: npx\n")
+	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview.\n")
+	runSyncOK(t)
+	outputs := readStateFile(".").Outputs
+	before := snapshotFiles(t, outputs...)
+	mustWriteFile(t, nanMCPSpec, "name: gh\ncommand: npx\nx-amp:\n  timeout: .nan\n")
+
+	out, _ := runCLI(t, "sync", "--json")
+
+	if !strings.Contains(out, `"errors"`) || !strings.Contains(out, "timeout") {
+		t.Errorf("sync --json did not report the failed target:\n%s", out)
+	}
+	for path, body := range before {
+		data, err := os.ReadFile(path)
+		if err != nil || string(data) != body {
+			t.Errorf("%s changed or went after a failed target: %v", path, err)
+		}
+	}
+	if got := readStateFile(".").Outputs; !reflect.DeepEqual(got, outputs) {
+		t.Errorf("ledger outputs = %v, want %v", got, outputs)
+	}
+}
+
 func TestValidate_ReportsAnMCPValueJSONCannotHold(t *testing.T) {
 	nanMCPProject(t)
 	out, err := runCLI(t, "validate")
