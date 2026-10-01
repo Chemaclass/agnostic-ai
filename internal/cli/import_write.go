@@ -28,18 +28,9 @@ var importSandboxOutsideFiles map[string]bool
 // first importer call, cleared afterward. Sequential test use only.
 var importRunSources []string
 
-// importMainBefore is what AGNOSTIC_AI.md held when the current
-// multi-source run first read it, once importMainSeen is set. Each source
-// merges into that copy, so the last one wins without dropping it.
-var (
-	importMainBefore string
-	importMainSeen   bool
-)
-
 // setImportRunSources records the sources of the current `import` run.
 func setImportRunSources(sources []string) {
 	importRunSources = append([]string(nil), sources...)
-	importMainBefore, importMainSeen = "", false
 }
 
 // importPlannedWrite is one importer write seen by an import preview:

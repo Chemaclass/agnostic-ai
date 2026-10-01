@@ -330,19 +330,11 @@ func mirrorBody(root, srcName, body string, alsoCaptured ...string) (mirrorResul
 			return mirrorUnchanged, nil
 		}
 	}
-	// Instructions held before this import, such as another tool's, are
-	// the user's: add what is new instead of replacing them (#1595). In a
-	// multi-source run each source builds on that same copy, so the last
-	// source wins, as the preview reports, without dropping it.
-	base := current
-	if len(importRunSources) > 0 {
-		if !importMainSeen {
-			importMainBefore, importMainSeen = current, true
-		}
-		base = importMainBefore
-	}
-	if !isEntryPointSeed(base) {
-		merged, titles := foldText(base, body)
+	// Instructions already captured, before this run or by an earlier
+	// source in it, are the user's: add what is new instead of replacing
+	// them (#1595).
+	if !isEntryPointSeed(current) {
+		merged, titles := foldText(current, body)
 		// A multi-source run still writes, so the preview sees each
 		// source's proposal.
 		if merged == current && len(importRunSources) == 0 {
