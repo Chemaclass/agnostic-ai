@@ -327,7 +327,7 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 	if err != nil {
 		return err
 	}
-	if !overlayOK && !hasHooks && !hasConfig && !hasSpec && len(custom) == 0 && !policy.active && !owned.exists && !retiredOnDisk {
+	if !overlayOK && !hasHooks && !hasConfig && !hasSpec && len(custom) == 0 && !policy.active && !owned.Exists() && !retiredOnDisk {
 		return nil
 	}
 	doc := overlay
@@ -364,9 +364,9 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 	docBase := docPermissions(doc)
 	base, keep := docBase, docBase
 	if overlay == nil {
-		base = owned.strip(docBase)
+		base = owned.Strip(docBase)
 		keep = nil
-		if owned.recorded {
+		if owned.Recorded() {
 			keep = base
 		}
 	}
@@ -405,7 +405,7 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 			return fmt.Errorf("claude settings: marshal %s: %w", k, err)
 		}
 	}
-	if err := owned.record(sess, docPermissions(doc), keep, generated, dryRun); err != nil {
+	if err := owned.Record(sess, docPermissions(doc), keep, generated, dryRun); err != nil {
 		return err
 	}
 	if err := policy.apply(sess, doc, dryRun); err != nil {

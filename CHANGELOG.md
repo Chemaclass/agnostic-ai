@@ -58,6 +58,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - A rule's `description` goes to `.instructions.md` frontmatter, and a rule with `alwaysApply: false` and no globs stays on demand without `applyTo`.
 - Agents and skills are written back where they live, such as `.github/agents/<name>.md` or `.agents/skills/`, instead of as duplicates.
 
+#### Cursor
+
+- Protected paths with `decision: deny` become `Write` deny rules in `.cursor/cli.json`, beside your own rules. Only the Cursor CLI reads them (#1517).
+
 #### Continue
 
 - A comma-separated `globs` string becomes one `globs` entry per pattern, so the rule loads on those files (#1428).

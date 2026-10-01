@@ -947,7 +947,7 @@ function test_delta_vocab_keeps_paths_and_keys_but_not_plain_words() {
   out=$(delta_vocab cursor)
   assert_contains ".cursor/BUGBOT.md" "$out"
   assert_contains ".cursor/rules" "$out"
-  assert_not_contains "$(printf '\nmodel\n')" "$(printf '\n%s\n' "$out")"
+  assert_empty "$(printf '%s\n' "$out" | grep -x model)"
 }
 
 # ---- snapshots and deltas ----------------------------------------------------

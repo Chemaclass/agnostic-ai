@@ -99,7 +99,7 @@ statuses = ["native", "native", "native", "native", "native", "native", "native"
 id = "cursor"
 name = "Cursor"
 href = "@/docs/targets/cursor.md"
-statuses = ["native", "native", "native", "native", "native", "native", "no", "native", "native", "native"]
+statuses = ["native", "native", "native", "native", "native", "native", "native", "native", "native", "native"]
 
 [[targets]]
 id = "copilot"

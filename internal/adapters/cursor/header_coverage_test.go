@@ -120,6 +120,10 @@ func kitSinkBundle() spec.Bundle {
 			Meta: map[string]any{"name": "default", "install": "go mod download"},
 		},
 		{Kind: spec.KindIgnore, Name: "secrets", Path: "ignore/secrets.md", Body: "*.env\nsecrets/"},
+		{
+			Kind: spec.KindSettings, Name: "protected", Path: "settings/protected.yaml",
+			Meta: map[string]any{"protected": map[string]any{"paths": []any{"composer.lock"}, "decision": "deny"}},
+		},
 	}
 	return spec.NewBundle(entries)
 }
