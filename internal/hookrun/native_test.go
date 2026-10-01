@@ -33,6 +33,16 @@ func TestUnsynced_ComparesTheWindowsCommandOnlyOnWindows(t *testing.T) {
 	}
 }
 
+func TestUnsynced_CountsOnlyCommandHandlers(t *testing.T) {
+	for _, handler := range []string{`{"command":"a.sh"}`, `{"type":"prompt","command":"a.sh"}`} {
+		native := []byte(`{"hooks":{"Stop":[{"hooks":[` + handler + `]}]}}`)
+
+		if got, err := Unsynced(native, "Stop", "linux", []Handler{{Command: "a.sh"}}); err != nil || len(got) != 1 {
+			t.Errorf("%s: Unsynced = %+v, %v, want a handler that is no command hook reported", handler, got, err)
+		}
+	}
+}
+
 func TestUnsynced_RejectsAFileThatIsNoJSON(t *testing.T) {
 	if _, err := Unsynced([]byte("{"), "Stop", "linux", []Handler{{Command: "a.sh"}}); err == nil {
 		t.Error("err = nil, want a parse error")

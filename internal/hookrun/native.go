@@ -8,14 +8,19 @@ import (
 // nativeHandler is one handler in the hooks block Claude Code, Codex,
 // and Gemini CLI share: per event, matcher groups that list handlers.
 type nativeHandler struct {
+	Type           string   `json:"type"`
 	Command        string   `json:"command"`
 	Args           []string `json:"args"`
 	CommandWindows string   `json:"commandWindows"`
 }
 
 // runs compares what the target starts on goos: Codex runs
-// commandWindows on Windows and command elsewhere.
+// commandWindows on Windows and command elsewhere. Each target needs
+// type command to run a command at all.
 func (n nativeHandler) runs(h Handler, goos string) bool {
+	if n.Type != "command" {
+		return false
+	}
 	if goos == "windows" && n.CommandWindows != h.CommandWindows {
 		return false
 	}
