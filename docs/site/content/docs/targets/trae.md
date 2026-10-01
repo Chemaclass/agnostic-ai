@@ -26,7 +26,7 @@ AGENTS.md                     # pointer body, plus the rules block when an inlin
 ByteDance [Trae](https://docs.trae.ai/ide/rules) reads rules from `.trae/rules/`, the root `AGENTS.md`, and project subagents from `.trae/agents/`. It reads `AGENTS.md` only after you turn on **Include AGENTS.md in the context** under Settings > Rules, so every rule keeps its `.trae/rules/` file. With that switch on and codex or another inlining target enabled, the always-on rules load twice. See [target behavior](@/docs/target-behavior.md#entry-point-files).
 
 - **Rules**: every `.trae/rules/*.md` file carries `description`, `globs`, and `alwaysApply` frontmatter, the same activation fields as Cursor's `.mdc` rules.
-  - `alwaysApply` defaults to `true`, or `false` when the spec sets `globs`, and a `true` rule omits `globs`. `alwaysApply: false` with no `globs` falls back to the Claude `paths` list, comma-joined.
+  - `alwaysApply` defaults to `true`, or `false` when the spec sets `globs` other than a catch-all such as `**/*`, and a `true` rule omits `globs`. `alwaysApply: false` with no `globs` falls back to the Claude `paths` list, comma-joined.
   - Trae does not document the default for a file with none of the keys, so all three are always written.
   - `x-trae.scene: git_message` marks a rule for AI-generated commit messages. It combines with the other activation fields.
 - **Agents**: one project subagent per agent at `.trae/agents/<name>.md` ([subagents docs](https://docs.trae.ai/ide/subagents)).
