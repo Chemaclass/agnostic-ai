@@ -194,6 +194,37 @@ func TestHookRun_AnAsyncHookIsNotJudged(t *testing.T) {
 	}
 }
 
+func TestHookRun_GeminiBlocksAnEditWithTheSyncedEnv(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	dir := testutil.TempCwd(t)
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, gemini]\n")
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\nevent: BeforeTool\nmatcher: write_file|replace\ntarget: gemini\ntimeout: 5\n"+
+		`command: 'test "$AGNOSTIC_AI_TARGET/$GEMINI_PROJECT_DIR" = "gemini/$(pwd -P)" || test "$AGNOSTIC_AI_TARGET/$GEMINI_PROJECT_DIR" = "gemini/$PWD" || exit 1; grep -q "\"file_path\":\"[^\"]*workflows" && { echo protected >&2; exit 2; }; exit 0'`+"\n")
+
+	out, err := runHookRun(t, "guard", "--edit", ".github/workflows/tests.yml", "--expect", "block")
+	if err != nil {
+		t.Fatalf("err = %v\n%s", err, out)
+	}
+	for _, want := range []string{"gemini: block (exit 2", "event: BeforeTool (write_file)", "stderr: protected"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output misses %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestHookRun_GeminiTimeoutIsMilliseconds(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	dir := testutil.TempCwd(t)
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [gemini]\n")
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"),
+		"name: guard\nevent: BeforeAgent\nx-gemini:\n  timeout: 300\ncommand: 'sleep 5'\n")
+
+	out, err := runHookRun(t, "guard", "--prompt", "hi")
+	if err == nil || !strings.Contains(err.Error(), "timed out on gemini") {
+		t.Fatalf("err = %v, want a timeout at 300ms\n%s", err, out)
+	}
+}
+
 func TestHookRun_UnknownHookAndTargetOutsideTheHook(t *testing.T) {
 	hookRunProject(t, "name: guard\nevent: PreToolUse\ntarget: claude\ncommand: 'true'\n")
 

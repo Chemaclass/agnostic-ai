@@ -11,9 +11,15 @@ import (
 	"time"
 )
 
-// DefaultTimeout is what Claude Code and Codex both wait for a command
-// hook that sets no timeout.
-const DefaultTimeout = 600 * time.Second
+// DefaultTimeout is how long target waits for a command hook that sets
+// no timeout: 600 seconds on Claude Code and Codex, 60 on Gemini CLI
+// (gemini-cli c6bccb7 hookRunner.ts DEFAULT_HOOK_TIMEOUT).
+func DefaultTimeout(target string) time.Duration {
+	if target == "gemini" {
+		return 60 * time.Second
+	}
+	return 600 * time.Second
+}
 
 // Handler is one command a target runs for a hook, as sync writes it.
 type Handler struct {
@@ -24,6 +30,11 @@ type Handler struct {
 	Shell string
 	// CommandWindows is what Codex runs on Windows.
 	CommandWindows string
+	// Env is what the handler's own env adds, as on Gemini CLI.
+	Env map[string]string
+	// Timeout is the handler's own timeout when the target writes one
+	// per handler, as Gemini CLI does in milliseconds.
+	Timeout time.Duration
 }
 
 // Argv returns the process target starts for h on goos. Claude Code runs
@@ -31,6 +42,12 @@ type Handler struct {
 // through a POSIX shell, and commandWindows through PowerShell.
 func Argv(target, goos string, h Handler) []string {
 	switch {
+	case target == "gemini" && goos == "windows":
+		// shell-utils.ts falls back to Windows PowerShell, and
+		// hookRunner.ts appends the exit code check.
+		return []string{"powershell.exe", "-NoProfile", "-NonInteractive", "-Command", h.Command + "; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }"}
+	case target == "gemini":
+		return []string{"bash", "-c", h.Command}
 	case target == "codex" && goos == "windows":
 		return []string{"powershell.exe", "-NoProfile", "-Command", h.CommandWindows}
 	case target == "codex":
@@ -106,7 +123,10 @@ var nonBlockingEvents = []string{"SessionStart", "SessionEnd", "Notification", "
 // Decide reads a result the way Claude Code and Codex do: exit 2 blocks,
 // another non-zero exit is an error, and exit 0 may carry a JSON reply
 // that denies, blocks, or stops.
-func Decide(event string, r Result) Decision {
+func Decide(target, event string, r Result) Decision {
+	if target == "gemini" {
+		return decideGemini(event, r)
+	}
 	switch {
 	case r.TimedOut:
 		return Timeout
@@ -133,7 +153,10 @@ var contextEvents = []string{"SessionStart", "UserPromptSubmit"}
 // AddsContext reports whether the target adds the hook's output to what
 // the model sees: plain stdout on a context event, or a JSON reply's
 // additionalContext.
-func AddsContext(event string, r Result) bool {
+func AddsContext(target, event string, r Result) bool {
+	if target == "gemini" {
+		return geminiAddsContext(r)
+	}
 	if r.TimedOut || r.StartErr != nil || r.Exit != 0 {
 		return false
 	}

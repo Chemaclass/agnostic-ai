@@ -118,8 +118,6 @@ type hookTargetRun struct {
 func runHookTargets(w io.Writer, hook spec.Entry, targets []string, root string, in hookrun.Input) ([]hookTargetRun, error) {
 	event, _ := hook.Meta["event"].(string)
 	matcher, _ := hook.Meta["matcher"].(string)
-	timeout := hookTimeout(hook.Meta)
-	async := hookRunAsync(hook.Meta)
 	var runs []hookTargetRun
 	for _, target := range targets {
 		if !hookrun.Supported(target) {
@@ -144,11 +142,17 @@ func runHookTargets(w io.Writer, hook spec.Entry, targets []string, root string,
 			runs = append(runs, hookTargetRun{target: target, decision: hookrun.Allow})
 			continue
 		}
-		env := hookRunEnv(target, root)
+		// Gemini CLI has no async hooks; sync writes none there.
+		async := hookRunAsync(hook.Meta) && target != "gemini"
 		run := hookTargetRun{target: target, decision: hookrun.Allow, async: async}
 		for _, h := range handlers {
-			r := hookrun.Run(hookrun.Argv(target, runtime.GOOS, h), root, env, payload.Body, timeout)
-			d := hookrun.Decide(event, r)
+			timeout := h.Timeout
+			if timeout <= 0 {
+				timeout = hookTimeout(target, hook.Meta)
+			}
+			h.Command = hookrun.ExpandCommand(target, runtime.GOOS, h.Command, root)
+			r := hookrun.Run(hookrun.Argv(target, runtime.GOOS, h), root, hookRunEnv(target, root, h), payload.Body, timeout)
+			d := hookrun.Decide(target, event, r)
 			shown := d
 			if async {
 				shown = "not judged"
@@ -206,21 +210,37 @@ func printHookRun(w io.Writer, target, event, trigger string, h hookrun.Handler,
 			_, _ = fmt.Fprintf(w, "  %s: %s\n", stream.name, strings.ReplaceAll(text, "\n", "\n          "))
 		}
 	}
-	if hookrun.AddsContext(event, r) {
+	if hookrun.AddsContext(target, event, r) {
 		_, _ = fmt.Fprintf(w, "  context: %s adds the output to the session\n", target)
 	}
 }
 
-// hookRunEnv is the environment target gives a hook. The variables a
-// session sets are dropped first, so a run from inside Claude Code does
-// not hand them to Codex.
-func hookRunEnv(target, root string) []string {
+// sessionEnvKeys are the variables a target session sets for its hooks.
+// They are dropped first, so a run from inside one session does not hand
+// them to another target.
+var sessionEnvKeys = []string{adapters.HookTargetEnv, claudeProjectDirEnv, "GEMINI_PROJECT_DIR", "GEMINI_CWD", "GEMINI_SESSION_ID", "GEMINI_PLANS_DIR"}
+
+// hookRunEnv is the environment target gives handler h.
+func hookRunEnv(target, root string, h hookrun.Handler) []string {
 	env := slices.DeleteFunc(os.Environ(), func(kv string) bool {
 		key, _, _ := strings.Cut(kv, "=")
-		return strings.EqualFold(key, adapters.HookTargetEnv) || strings.EqualFold(key, claudeProjectDirEnv)
+		return slices.ContainsFunc(sessionEnvKeys, func(k string) bool { return strings.EqualFold(k, key) })
 	})
-	if target == "claude" {
+	switch target {
+	case "claude":
 		env = append(env, adapters.HookTargetEnv+"=claude", claudeProjectDirEnv+"="+root)
+	case "gemini":
+		// hookRunner.ts sets these, then spreads the handler's env over them.
+		env = append(env, "GEMINI_PROJECT_DIR="+root, "GEMINI_CWD="+root,
+			"GEMINI_SESSION_ID="+hookrun.SessionID, claudeProjectDirEnv+"="+root)
+	}
+	keys := make([]string, 0, len(h.Env))
+	for k := range h.Env {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	for _, k := range keys {
+		env = append(env, k+"="+h.Env[k])
 	}
 	return env
 }
@@ -237,7 +257,7 @@ func hookRunAsync(meta map[string]any) bool {
 	return false
 }
 
-func hookTimeout(meta map[string]any) time.Duration {
+func hookTimeout(target string, meta map[string]any) time.Duration {
 	var seconds int
 	switch v := meta["timeout"].(type) {
 	case int:
@@ -248,7 +268,7 @@ func hookTimeout(meta map[string]any) time.Duration {
 		seconds = int(v)
 	}
 	if seconds <= 0 {
-		return hookrun.DefaultTimeout
+		return hookrun.DefaultTimeout(target)
 	}
 	return time.Duration(seconds) * time.Second
 }
