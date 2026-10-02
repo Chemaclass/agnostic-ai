@@ -57,8 +57,8 @@ The user asks to release, tag, ship, or cut a new version.
 6. Immediately before the release commit, create exactly one
    `docs/site/content/updates/YYYY-MM-DD-vX.Y.Z.md` release briefing. Read and
    follow [references/release-briefing.md](references/release-briefing.md).
-   Explain how to upgrade from the previous release, describe shipped
-   features with useful examples, and add verified target changes. Keep
+   Explain how to upgrade from the previous release, name the main shipped
+   value with a few useful examples, and select consequential target changes. Keep
    agnostic-ai support separate from upstream availability. Run
    `make site-build site-test`.
 7. Confirm the version file, dated changelog section, briefing, and any
