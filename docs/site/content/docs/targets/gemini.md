@@ -10,6 +10,8 @@ target_id = "gemini"
 
 # Gemini CLI (`gemini`)
 
+agnostic-ai writes `GEMINI.md`, native subagents, commands, and skills under `.gemini/`, and merges MCP, hooks, and settings into `.gemini/settings.json`.
+
 ## Output
 
 ```
@@ -22,36 +24,31 @@ GEMINI.md                              # entry-point pointer body (written by sy
 .geminiignore                          # when ignore entries exist
 ```
 
-- **Rules**: unscoped rules inline into the root `GEMINI.md`. A rule with `scope: services/payments` reaches `services/payments/GEMINI.md` instead. Adding `globs: tests/payments/**` writes the same rule into `tests/payments/GEMINI.md`. External file filters and root selectors with scope follow `on-unsupported`; they cannot be preserved by directory documents. A `globs` field alone does not create a directory scope. Remove legacy `outputs.gemini.rules-file` overrides before using scoped rules. See [scoped context](@/docs/scoped-context.md) for selector and runtime limits.
-- **Agents**: one native [subagent](https://geminicli.com/docs/core/subagents.md) per agent at `.gemini/agents/<name>.md`, the project-level directory Gemini CLI scans. Subagents get automatic delegation, an isolated context window, `@name` invocation, and a `/agents` listing.
-
-  Frontmatter carries the required `name` and `description` (falling back to the spec name), plus `kind`, `model`, `temperature`, `max_turns`, and `timeout_mins` when set. The body is the system prompt. Per-agent MCP servers have no agnostic-ai field, so set them as `x-gemini.mcp_servers`, with snake_case server keys such as `http_url` and `include_tools`. Gemini's docs show `mcpServers`, but its agent loader rejects that key and skips the agent, so sync writes `x-gemini.mcpServers` as `mcp_servers` and prints a note.
-
-  A generic `tools` list maps onto [Gemini's tool names](https://geminicli.com/docs/reference/tools): `Read` to `read_file`, `Write` to `write_file`, `Edit` to `replace`, `Glob` to `glob`, `Grep` to `grep_search`, `Bash` to `run_shell_command`, `WebFetch` to `web_fetch`, `WebSearch` to `google_web_search`. Other names are dropped with a coverage note, because an unknown entry would restrict the subagent to a tool that does not exist (no `tools` key inherits every tool). `x-gemini.tools` writes Gemini's own names directly, including the `*`, `mcp_*`, and `mcp_<server>_*` wildcards, and replaces the translated list.
-
-  Set `outputs.gemini.emit-agents-as-commands: true` to also write each agent as a `<name>.toml` slash command, for projects that already type `/name`. With the key off, managed TOMLs from earlier syncs are swept.
-- **Skills**: native [Agent Skills](https://geminicli.com/docs/cli/skills/) folders at `.gemini/skills/<name>/SKILL.md`, with bundled files copied byte-for-byte. Gemini CLI also reads `.agents/skills/`, which wins over `.gemini/skills/` for a skill with the same name; Gemini resolves that itself at session start. Set `outputs.gemini.emit-skills-as-commands: true` to also emit one `skill-<name>.toml` command per skill.
-- **Commands**: one TOML per command at `.gemini/commands/<name>.toml`, the [project slash-command directory](https://geminicli.com/docs/cli/custom-commands.md). `description` maps to the TOML `description` and the body becomes `prompt`. A command and an agent can share a name.
-- **Settings**: the portable `model` maps to `model.name` in `.gemini/settings.json`. Other model options and unrelated settings survive. `x-gemini` settings keys merge into the same file. Portable permission rules produce a coverage note. Import restores the default model.
-- **MCP + hooks**: written to `.gemini/settings.json` (`mcpServers` and `hooks` maps). Streamable-HTTP servers (`type: http`) use `httpUrl` and SSE servers (`type: sse`) use `url`; the adapter picks the right one. Stdio servers also accept `cwd`.
-
-  Every server also accepts `timeout` (milliseconds), `trust` (skip tool-call confirmations), `description`, `includeTools`, and `excludeTools`, all passed through verbatim ([configuration reference](https://geminicli.com/docs/reference/configuration.md)).
-
-  Hooks route by `event`. Gemini CLI documents 11 events: `BeforeTool`, `AfterTool`, `BeforeAgent`, `AfterAgent`, `Notification`, `SessionStart`, `SessionEnd`, `PreCompress`, `BeforeModel`, `AfterModel`, `BeforeToolSelection`. Each definition has a `matcher` and a nested `hooks` array of `{type: "command", command}` handlers ([hook reference](https://geminicli.com/docs/hooks/reference/)).
-
-  A handler has no `args` field, and Gemini runs `command` through `bash -c`, or PowerShell on Windows. So a spec with `args` gets them folded into `command`, each in single quotes (`node 'guard.js'`), in project and global sync. PowerShell reads that the same way for args without an apostrophe. A command path with a space is quoted too, which bash runs and PowerShell does not. For those, write a shell-form `command` instead. `import gemini` reads a folded command back as one shell-form `command`. Gemini replaces its `$GEMINI_*` path variables and `$CLAUDE_PROJECT_DIR` in the command text with its own quoted path, even inside those quotes, so such an argument splits when the project path has a space. [`agnostic-ai hook run`](@/docs/spec-format/hooks.md#hook-run) runs a `BeforeTool`, `AfterTool`, `BeforeAgent`, or `SessionStart` hook the same way before a session does.
+- **Rules**: unscoped rules inline into the root `GEMINI.md`. `scope: services/payments` sends a rule to `services/payments/GEMINI.md` instead, and `globs: tests/payments/**` adds it to `tests/payments/GEMINI.md`. `globs` alone creates no directory scope. External file filters and root selectors with scope follow `on-unsupported`; directory documents cannot hold them. Scoped rules need legacy `outputs.gemini.rules-file` overrides removed. See [scoped context](@/docs/scoped-context.md) for selector and runtime limits.
+- **Agents**: native [subagents](https://geminicli.com/docs/core/subagents.md) in the project directory Gemini CLI scans. They get automatic delegation, an isolated context window, `@name` invocation, and a `/agents` listing. Frontmatter carries the required `name` and `description` (default: spec name), plus `kind`, `model`, `temperature`, `max_turns`, and `timeout_mins` when set. The body is the system prompt.
+  - Per-agent MCP servers have no agnostic-ai field: set `x-gemini.mcp_servers`, with snake_case keys such as `http_url` and `include_tools`. Gemini's loader rejects the documented `mcpServers` key and skips the agent, so sync renames `x-gemini.mcpServers` to `mcp_servers` with a note.
+  - A generic `tools` list maps onto [Gemini's tool names](https://geminicli.com/docs/reference/tools): `Read`: `read_file`, `Write`: `write_file`, `Edit`: `replace`, `Glob`: `glob`, `Grep`: `grep_search`, `Bash`: `run_shell_command`, `WebFetch`: `web_fetch`, `WebSearch`: `google_web_search`. Other names drop with a coverage note, since an unknown entry restricts the subagent to a missing tool (omitting `tools` inherits all).
+  - `x-gemini.tools` replaces the translated list with Gemini's own names, including the `*`, `mcp_*`, and `mcp_<server>_*` wildcards.
+  - `outputs.gemini.emit-agents-as-commands: true` also writes each agent as a `<name>.toml` slash command for projects that type `/name`; with it off, sync sweeps earlier managed TOMLs.
+- **Skills**: native [Agent Skills](https://geminicli.com/docs/cli/skills/) at `.gemini/skills/<name>/SKILL.md`, bundled files copied byte-for-byte. Gemini CLI also reads `.agents/skills/`, which wins a same-name clash with `.gemini/skills/` at session start. `outputs.gemini.emit-skills-as-commands: true` adds one `skill-<name>.toml` command per skill.
+- **Commands**: `.gemini/commands/<name>.toml`, the [project slash-command directory](https://geminicli.com/docs/cli/custom-commands.md). `description` maps to the TOML `description` and the body to `prompt`. A command and an agent can share a name.
+- **Settings**: the portable `model` maps to `model.name`, keeping other model options and unrelated settings. `x-gemini` settings keys merge in. Portable permission rules get a coverage note.
+- **MCP**: the `mcpServers` map. Streamable-HTTP servers (`type: http`) use `httpUrl`, SSE servers (`type: sse`) use `url`, and stdio servers also accept `cwd`. `timeout` (milliseconds), `trust` (skip tool-call confirmations), `description`, `includeTools`, and `excludeTools` pass through verbatim ([configuration reference](https://geminicli.com/docs/reference/configuration.md)).
+- **Hooks**: the `hooks` map, routed by `event`. 11 documented events: `BeforeTool`, `AfterTool`, `BeforeAgent`, `AfterAgent`, `Notification`, `SessionStart`, `SessionEnd`, `PreCompress`, `BeforeModel`, `AfterModel`, `BeforeToolSelection`. Each definition has a `matcher` and a nested `hooks` array of `{type: "command", command}` handlers ([hook reference](https://geminicli.com/docs/hooks/reference/)).
   - Timeouts convert from seconds to milliseconds (vendor default 60000 ms).
-  - A `command` list becomes separate handlers in one definition. `x-gemini.sequential: true` runs them in order.
-  - `description` reaches each handler, `x-gemini.name` sets its display name, and `x-gemini.env` sets per-handler environment variables.
-  - Existing user keys survive syncs.
-- **Ignore**: ignore specs emit as `.geminiignore` (gitignore syntax), the file [Gemini CLI reads](https://geminicli.com/docs/cli/gemini-ignore/). Multiple specs concatenate. Override with `outputs.gemini.ignore-file`. Older versions wrote `.aiexclude`, which Gemini CLI never reads; sync removes a managed one.
-- **Import**: `import gemini` reads `.gemini/agents/*.md` as agents, `.gemini/commands/*.toml` as commands, `.gemini/skills/<name>/` as skills, and `.gemini/settings.json` as MCP, hook, and default-model settings specs. A command's `prompt` becomes the body in either documented form (triple-quoted block or single-line string), and `description` stays in frontmatter.
+  - A `command` list becomes separate handlers in one definition; `x-gemini.sequential: true` runs them in order.
+  - `description` reaches each handler, `x-gemini.name` sets its display name, and `x-gemini.env` its environment variables. Existing user keys survive.
+  - Gemini runs `command` through `bash -c` (PowerShell on Windows) and has no `args` field, so project and global sync fold `args` into `command`, each single-quoted (`node 'guard.js'`). `import gemini` reads it back as one shell-form `command`.
+  - [`agnostic-ai hook run`](@/docs/spec-format/hooks.md#hook-run) runs a `BeforeTool`, `AfterTool`, `BeforeAgent`, or `SessionStart` hook the same way before a session does.
+- **Ignore**: ignore specs concatenate into `.geminiignore` (gitignore syntax), the file [Gemini CLI reads](https://geminicli.com/docs/cli/gemini-ignore/). Override with `outputs.gemini.ignore-file`.
 
-  The root `GEMINI.md` lands in `.agnostic-ai/AGNOSTIC_AI.md`, and only the rules block `sync` appends to it becomes rules. A hand-written nested `<dir>/GEMINI.md` becomes one rule with the whole file and `scope: <dir>`, named after the scope: `api.md` for `services/api/`, or `services-api.md` when another scope also ends in `api`. Sync writes a directory with one rule as that rule's text, so the file comes back as it was. A nested file `sync` wrote splits back into the rules it came from.
+{% <details summary="Folded args edge cases"> %}
+PowerShell reads folded args the same way unless one holds an apostrophe. A quoted command path with a space runs in bash but not PowerShell; use a shell-form `command` there. Gemini replaces `$GEMINI_*` path variables and `$CLAUDE_PROJECT_DIR` with its own quoted path, even inside those quotes, so such an argument splits when the project path has a space.
+{% </details> %}
 
-  Command TOMLs import as commands, including agents emitted as commands by older versions and the mirrors that `emit-agents-as-commands` and `emit-skills-as-commands` write. A re-sync writes them back to the same path with identical bytes.
-
-  Nested hooks keep commands, matchers, names, descriptions, environment maps, timeouts, and sequential groups. Distinct definitions with the same command and matcher import into separate files. A single handler's timeout imports in seconds when it is a whole second; otherwise `x-gemini.timeout` keeps the native milliseconds. Multiple handlers stay together under `x-gemini.hooks`, which replaces `command` emission for Gemini. Old flat hook files still import.
+{% <details summary="Old .aiexclude files"> %}
+Older versions wrote `.aiexclude`, which Gemini CLI never reads. Sync removes a managed one.
+{% </details> %}
 
 ## Config keys
 
@@ -66,13 +63,26 @@ GEMINI.md                              # entry-point pointer body (written by sy
 | `outputs.gemini.rules-file` | unset | writes legacy concatenated rules and skips the pointer-body write |
 | `outputs.gemini.ignore-file` | `.geminiignore` | |
 
+## Import
+
+`import gemini` reads `.gemini/agents/*.md`, `.gemini/commands/*.toml`, `.gemini/skills/<name>/`, and the MCP, hooks, and default model in `.gemini/settings.json`.
+
+- **Instructions**: the root `GEMINI.md` lands in `.agnostic-ai/AGNOSTIC_AI.md`; only the rules block `sync` appends becomes rules.
+- **Nested files**: a hand-written `<dir>/GEMINI.md` becomes one rule with the whole file and `scope: <dir>`, named after the scope: `api.md` for `services/api/`, or `services-api.md` when another scope also ends in `api`. A one-rule directory syncs back unchanged. A nested file `sync` wrote splits back into its rules.
+- **Commands**: `prompt` becomes the body in either documented form (triple-quoted block or single-line string); `description` stays in frontmatter. That includes older agent-as-command files and the `emit-agents-as-commands` and `emit-skills-as-commands` mirrors, which re-sync byte-identical.
+- **Hooks**: nested hooks keep commands, matchers, names, descriptions, environment maps, timeouts, and sequential groups. Distinct definitions with the same command and matcher import separately. A single handler's whole-second timeout imports in seconds; otherwise `x-gemini.timeout` keeps the native milliseconds. Multiple handlers stay together under `x-gemini.hooks`, which replaces `command` emission for Gemini. Old flat hook files still import.
+
 ## Protected paths
 
-Enforced (hook). Gemini CLI's policy engine has a deny rule for `write_file` and `replace`, but its workspace tier "is currently non-functional" ([policy engine](https://geminicli.com/docs/reference/policy-engine/)), so sync writes `.gemini/hooks/agnostic-ai-protect.sh` and a `BeforeTool` hook on `^(write_file|replace)$` in `.gemini/settings.json`. The script reads `tool_input.file_path` and exits 2 with the reason on stderr when the path is protected. Gemini CLI blocks the call and shows that reason ([hooks reference](https://geminicli.com/docs/hooks/reference/)). The script needs only `sh` and `awk`.
+Enforced (hook). Gemini CLI's policy engine can deny `write_file` and `replace`, but its workspace tier "is currently non-functional" ([policy engine](https://geminicli.com/docs/reference/policy-engine/)), so sync writes `.gemini/hooks/agnostic-ai-protect.sh` and a `BeforeTool` hook on `^(write_file|replace)$` in `.gemini/settings.json`. For a protected `tool_input.file_path`, the script exits 2 with the reason on stderr, and Gemini CLI blocks the call and shows it ([hooks reference](https://geminicli.com/docs/hooks/reference/)). It needs only `sh` and `awk`.
 
-`decision: ask` also blocks, and the message tells the agent to ask the user. Gemini CLI runs project hooks only in a trusted folder, and reads `.gemini/settings.json` from the directory the session starts in, so start it at the project root. The hook does not see a shell command that writes a file.
+`decision: ask` also blocks and tells the agent to ask. Gemini CLI runs project hooks only in a trusted folder and reads `.gemini/settings.json` from the starting directory, so start at the project root. It misses shell commands that write files.
 
-The script blocks the edit when it cannot run: no `awk`, an unreadable project root, or an `awk` failure, since Gemini CLI lets an edit through on exit 1 or a timeout. It ignores case, reads `\` as a path separator, and checks a path with a leading `@` both ways, as Gemini CLI strips it. `replace` searches the workspace for a relative path that does not exist from the project root, so the hook blocks that call and asks for the full path. On Windows the command runs through the `sh` on `PATH`, such as Git for Windows provides; without one the edit goes through. See [Protected paths](@/docs/spec-format/settings.md#protected-paths).
+{% <details summary="Script failures and odd paths"> %}
+Gemini CLI lets an edit through on exit 1 or a timeout, so the script blocks when it cannot run: no `awk`, an unreadable project root, or an `awk` failure. It ignores case, reads `\` as a path separator, and checks a path with a leading `@` both ways, as Gemini CLI strips it. `replace` searches the workspace for a relative path missing from the project root, so the hook blocks that call and asks for the full path. On Windows it needs a `sh` on `PATH` (Git for Windows has one), or the edit goes through.
+{% </details> %}
+
+See [Protected paths](@/docs/spec-format/settings.md#protected-paths).
 
 ## Verify
 
@@ -80,4 +90,4 @@ The script blocks the edit when it cannot run: no `awk`, an unreadable project r
 2. Check the tree: `ls GEMINI.md .gemini/agents/ .gemini/commands/ .gemini/settings.json`, `head -2 .gemini/agents/*.md` (frontmatter first), `head -1 .gemini/commands/*.toml` for the provenance header, and `python -m json.tool .gemini/settings.json > /dev/null`.
 3. `gemini --list-commands` parses every `<name>.toml` with no "invalid TOML" or "unknown field" errors, and `/agents` lists every `.gemini/agents/<name>.md`.
 4. `gemini --list-mcp-servers` shows each `mcpServers.<name>` ready.
-5. Perform a hook's matcher action (e.g. an `AfterTool`). The hook command runs.
+5. Trigger a hook (e.g. an `AfterTool`); it runs.

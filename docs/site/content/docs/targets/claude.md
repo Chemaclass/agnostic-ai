@@ -10,6 +10,8 @@ target_id = "claude"
 
 # Claude Code (`claude`)
 
+Claude Code reads `CLAUDE.md`, the `.claude/` tree, and `.mcp.json`.
+
 ## Output
 
 ```
@@ -23,34 +25,56 @@ CLAUDE.md                # canonical entry-point pointer body (written by sync)
 .mcp.json
 ```
 
-- **Instructions**: `CLAUDE.md` carries `.agnostic-ai/AGNOSTIC_AI.md`. When another target writes the root `AGENTS.md` (Codex, Amp, Warp, OpenCode, Zed, and others), `CLAUDE.md` is `@AGENTS.md` followed by only your `::target claude` blocks. Claude Code expands the import to the same text, and Cursor, which loads both files, reads it once. It keeps a full copy when the two files would hold different text, such as a rules appendix in `AGENTS.md` or a `::target` block Claude Code does not read. When no other target writes the root `AGENTS.md` but the project's `CLAUDE.md` already imports it, sync keeps that layout: it writes the shared body to `AGENTS.md` and `CLAUDE.md` stays `@AGENTS.md` plus the `::target claude` blocks, so an edit to `AGENTS.md` still reaches Claude Code. A session started in a subfolder treats the root `@AGENTS.md` as an import from outside its working directory: an interactive session asks once to allow it, and a headless `claude -p` run skips it.
-- **Rules**: one file per spec under `.claude/rules/`. Claude Code loads every `.md` file there (recursively) at session start. A spec with the cross-tool `globs` field (or a native `paths` list) emits `paths:` frontmatter, which scopes the rule to matching files. A comma-separated `globs` string becomes one `paths` entry per pattern.
+- **Instructions**: `CLAUDE.md` carries `.agnostic-ai/AGNOSTIC_AI.md`.
+  - When another target writes the root `AGENTS.md` (Codex, Amp, Warp, OpenCode, Zed, and others), `CLAUDE.md` is `@AGENTS.md` plus your `::target claude` blocks. Claude Code expands the import; Cursor, loading both files, reads the text once.
+  - A full copy stays when the files would differ (a rules appendix in `AGENTS.md`, or a `::target` block Claude Code skips).
+  - If `CLAUDE.md` already imports `AGENTS.md` and no other target writes it, sync keeps that layout and writes the shared body to `AGENTS.md`.
+  - Sessions started in a subfolder treat the root `@AGENTS.md` as an outside import: interactive ones ask once, headless `claude -p` skips it.
+- **Rules**: Claude Code loads every `.md` file under `.claude/rules/` (recursively) at session start. `globs` (or a native `paths` list) emits `paths:` frontmatter, scoping the rule to matching files; a comma-separated string gives one entry per pattern. Portable `scope`, `globs`, and `alwaysApply` keys are omitted once translated into `paths`.
 
-  A rule with `scope: src/a` and `globs: tests/a/**` emits both `src/a/**` and `tests/a/**` in `paths`. Scope and patterns form a union. To keep only a narrow file filter, omit `scope` and keep the source file outside a folder that implies scope.
-- **Legacy rules modes**: `outputs.claude.rules-mode: import` appends a sentinel-marked block of `@.claude/rules/<name>.md` imports to the pointer body, which `import` strips. Use it only on Claude Code versions without native `.claude/rules/` loading. `outputs.claude.rules-file: CLAUDE.md` concatenates rule bodies into that one file and skips the pointer-body write. Any other `rules-file` path still writes `CLAUDE.md` with an `@<path>` import, because a file outside `.claude/rules/` is not auto-loaded, and without `CLAUDE.md` Claude Code reads `AGENTS.md` instead.
-- **Skills**: one folder per skill at `.claude/skills/<name>/SKILL.md`. Every `x-claude` key passes through, for example `disable-model-invocation: true`. Skill `model` and `effort` resolve scalars or per-target maps in project and global sync; `x-claude` overrides win. Claude applies these settings for the rest of the turn.
-- **Commands**: one file per spec at `.claude/commands/<name>.md`. Spec `deploy` becomes `/deploy`. Frontmatter passes through; the body is the prompt template.
-- **Agents**: one file per spec at `.claude/agents/<name>.md`. Resolved frontmatter passes through, so a portable `effort` (scalar or per-target map) is written verbatim and not validated. Claude Code documents `low`, `medium`, `high`, `xhigh`, and `max`. See [per-target `model` and `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort).
-- **Read-only agents**: `readonly: true` adds `disallowedTools: Write, Edit, NotebookEdit` in both project and global agent files. Bash stays allowed, so this is weaker than Cursor's read-only mode, which also blocks state-changing shell commands. The portable `readonly` key is omitted from native frontmatter. A `disallowedTools` value in the spec or under `x-claude` overrides the mapping, and `x-claude.disallowedTools: null` omits it. `readonly: false` writes nothing. Portable rule `scope`, `globs`, and `alwaysApply` keys are omitted after activation is translated into `paths`.
-- **Global agents**: `sync --global --only claude` writes `~/.claude/agents/<name>.md`. See [global configuration](@/docs/configuration.md#global-configuration).
-- **Environment**: `dev-commands` in environment specs emit as `.claude/launch.json` preview servers ([configure preview servers](https://code.claude.com/docs/en/desktop#configure-preview-servers)). `command` splits into `runtimeExecutable` and `runtimeArgs`; `auto-port` becomes `autoPort`, and `cwd` is written as given, since Claude Code documents a relative `cwd` as relative to the project root ([configuration fields](https://code.claude.com/docs/en/desktop#configuration-fields)); `x-claude.autoVerify` sets the file's `autoVerify`. The file follows `outputs.claude.dir`, like `settings.json`; Claude Code reads it from `.claude/` in the folder a session starts in. `import claude` reads a hand-written `launch.json` into `environments/dev.yaml`, turning a `cwd` of `${workspaceFolder}/apps/docs` into `cwd: apps/docs` and a bare `${workspaceFolder}` into no `cwd`; when a configuration has no command to start, such as a `url` alone, import leaves the whole file as written and says why, since sync rebuilds `launch.json` from the spec. An environment spec's `setup` becomes `.claude/hooks/agnostic-ai-worktree-setup.sh`, which a `SessionStart` hook (matcher `startup`), a `SubagentStart` hook, and a `PostToolUse` hook (matcher `EnterWorktree`) run once in each new linked worktree, from the worktree root the payload's `cwd` names ([SessionStart](https://code.claude.com/docs/en/hooks#sessionstart), [SubagentStart](https://code.claude.com/docs/en/hooks#subagentstart)). The hooks set `shell: bash`, so Windows needs Git Bash. `x-claude.setup: false` leaves them out, and `import claude` skips them. See [Claude Code worktree setup](@/docs/spec-format/environments.md#claude-code-worktree-setup). Every other environment field, such as `install`, `setup-windows`, `cleanup`, `terminals`, or a Cursor `environment.json` key, has no Claude Code file and is noted.
-- **MCP**: written to `.mcp.json` under `mcpServers`. Stdio entries use `command`/`args`/`env` with no `type`; remote entries use `type` plus `url`/`headers`. Every entry also accepts `timeout` (per-tool-call timeout in milliseconds; values under 1000 are ignored) and `alwaysLoad` (load the server's tools at session start instead of deferring them behind tool search).
-  - `http`, `sse`, and `ws` entries also accept `headersHelper` (a command whose output merges into the connection headers, for non-OAuth auth) and an `oauth` object `{clientId, callbackPort, authServerMetadataUrl, scopes}`, where `scopes` is one space-separated string ([Claude Code MCP docs](https://code.claude.com/docs/en/mcp)). `oauth.clientSecret` is never written; Claude Code keeps it in the system keychain.
-  - A spec's `roots` list still emits, but Claude Code documents no per-server `roots` key, so treat it as passthrough. Claude Code derives roots from the launch directory plus directories added with `--add-dir`, `/add-dir`, or `additionalDirectories` ([Claude Code MCP docs](https://code.claude.com/docs/en/mcp)).
-  - `disabled: true` adds the server to `disabledMcpjsonServers` in project settings. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
-  - Each sync replaces `.mcp.json` as a whole from MCP specs. Import hand-authored servers first.
-- **First-class settings**: `outputs.claude.settings.*` declares model, outputStyle, statusLine, permissions, enabledPlugins, env, apiKeyHelper, cleanupPeriodDays, attribution, and bashOutputMaxChars, which needs Claude Code v2.1.261 or later. taskOutputMaxChars is still accepted but no longer written: Claude Code v2.1.277 removed it. The deprecated includeCoAuthoredBy stays available for older versions. Copilot CLI also reads enabledPlugins, see [Copilot](@/docs/targets/copilot.md). See [Claude settings](#claude-settings) for precedence.
+  Scope and patterns form a union: `scope: src/a` with `globs: tests/a/**` emits `src/a/**` and `tests/a/**`. For a narrow file filter only, omit `scope` and keep the source outside a folder that implies scope.
+- **Legacy rules modes**:
+  - `outputs.claude.rules-mode: import` appends a sentinel-marked block of `@.claude/rules/<name>.md` imports to the pointer body (`import` strips it). Use it only on Claude Code versions without native `.claude/rules/` loading.
+  - `outputs.claude.rules-file: CLAUDE.md` concatenates rule bodies into that file, with no pointer body.
+  - Any other `rules-file` path still writes `CLAUDE.md` with an `@<path>` import: Claude Code does not auto-load files outside `.claude/rules/`, and without `CLAUDE.md` it reads `AGENTS.md`.
+- **Skills** (`.claude/skills/<name>/SKILL.md`): every `x-claude` key passes through, such as `disable-model-invocation: true`. Skill `model` and `effort` resolve scalars or per-target maps in project and global sync; `x-claude` wins. Claude applies them for the rest of the turn.
+- **Commands** (`.claude/commands/<name>.md`): spec `deploy` becomes `/deploy`. Frontmatter passes through; the body is the prompt template.
+- **Agents** (`.claude/agents/<name>.md`): resolved frontmatter passes through, so a portable `effort` (scalar or per-target map) is written verbatim, unvalidated. Claude Code documents `low`, `medium`, `high`, `xhigh`, and `max`. See [per-target `model` and `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort).
+- **Read-only agents**: `readonly: true` becomes `disallowedTools: Write, Edit, NotebookEdit` in project and global agents, and `readonly` itself is dropped. Bash stays allowed, unlike Cursor's read-only mode, which also blocks state-changing shell commands. A `disallowedTools` value in the spec or `x-claude` wins; `x-claude.disallowedTools: null` omits it. `readonly: false` writes nothing.
+- **Global agents**: `sync --global --only claude` writes `~/.claude/agents/<name>.md` ([global configuration](@/docs/configuration.md#global-configuration)).
+- **Environment**: `dev-commands` become `.claude/launch.json` preview servers ([configure preview servers](https://code.claude.com/docs/en/desktop#configure-preview-servers)); `setup` becomes a worktree setup hook.
+- **MCP**: `mcpServers`: stdio uses `command`/`args`/`env` with no `type`; remote uses `type` plus `url`/`headers`. All entries take `timeout` (per tool call, milliseconds; under 1000 ignored) and `alwaysLoad` (load tools at session start, not behind tool search).
+  - `http`, `sse`, and `ws` also take `headersHelper` (a command whose output merges into headers, for non-OAuth auth) and `oauth` `{clientId, callbackPort, authServerMetadataUrl, scopes}`, with space-separated `scopes` ([Claude Code MCP docs](https://code.claude.com/docs/en/mcp)). `oauth.clientSecret` is never written; Claude Code keeps it in the system keychain.
+  - `roots` passes through, though Claude Code documents no per-server `roots`; it derives roots from the launch directory plus `--add-dir`, `/add-dir`, or `additionalDirectories` ([Claude Code MCP docs](https://code.claude.com/docs/en/mcp)).
+  - `disabled: true` adds the server to `disabledMcpjsonServers` in project settings ([`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target)).
+  - Each sync rebuilds `.mcp.json` from MCP specs, so import hand-authored servers first.
+- **First-class settings**: `outputs.claude.settings.*` declares model, outputStyle, statusLine, permissions, enabledPlugins, env, apiKeyHelper, cleanupPeriodDays, attribution, and bashOutputMaxChars (Claude Code v2.1.261 or later). taskOutputMaxChars is accepted but not written, since Claude Code v2.1.277 removed it. Deprecated includeCoAuthoredBy stays for older versions. Copilot CLI also reads enabledPlugins ([Copilot](@/docs/targets/copilot.md)). Precedence: [Claude settings](#claude-settings).
+
+{% <details summary="Environment and worktree setup"> %}
+In `.claude/launch.json`, `command` splits into `runtimeExecutable` and `runtimeArgs`, and `auto-port` becomes `autoPort`. `cwd` is written as given, relative to the project root ([configuration fields](https://code.claude.com/docs/en/desktop#configuration-fields)). `x-claude.autoVerify` sets `autoVerify`. The file follows `outputs.claude.dir`; Claude Code reads it from `.claude/` in the session's start folder.
+
+`import claude` reads a hand-written `launch.json` into `environments/dev.yaml`: `${workspaceFolder}/apps/docs` becomes `cwd: apps/docs`; a bare `${workspaceFolder}` drops `cwd`. A configuration with no command (such as a `url` alone) keeps the whole file as written, with a note, since sync rebuilds `launch.json` from the spec.
+
+`setup` becomes `.claude/hooks/agnostic-ai-worktree-setup.sh`. `SessionStart` (matcher `startup`), `SubagentStart`, and `PostToolUse` (matcher `EnterWorktree`) hooks run it once per new linked worktree, from the root the payload's `cwd` names ([SessionStart](https://code.claude.com/docs/en/hooks#sessionstart), [SubagentStart](https://code.claude.com/docs/en/hooks#subagentstart)). They set `shell: bash`, so Windows needs Git Bash. `x-claude.setup: false` omits them; `import claude` skips them. See [Claude Code worktree setup](@/docs/spec-format/environments.md#claude-code-worktree-setup).
+
+Other fields, such as `install`, `setup-windows`, `cleanup`, `terminals`, or a Cursor `environment.json` key, have no Claude Code file and get a note.
+{% </details> %}
+
+{% <details summary="Disabled MCP server tracking"> %}
+`.claude/.agnostic-ai-mcp-disabled.json` lists generated rejections only; re-enabling a server removes its entry and keeps manual ones and unrelated settings. Keep it with the generated settings; both follow `outputs.claude.dir`. Disabling needs the project `.mcp.json` path; a custom path fails with an actionable error. Import restores disabled state from the project rejection list and keeps generated rejections out of the overlay, so a re-enabled server's old rejection stays gone.
+{% </details> %}
 
 Hooks support `command`, `http`, `mcp_tool`, and `prompt` handlers:
 
 - HTTP: `url`, optional `headers`, and `allowedEnvVars`.
 - MCP: `server`, `tool`, and optional `input`.
 - Prompt: `prompt`, optional `model`, and `continueOnBlock`. With `continueOnBlock: true`, a blocking result returns its reason to Claude and the turn continues.
-- All stable handlers keep `timeout`, `statusMessage`, `if`, and `once`. `args`, `async`, `asyncRewake`, and `shell` apply to command handlers only. A `command` list becomes one handler per entry; setting `args` switches to exec form, with the executable in `command`.
+- All stable handlers keep `timeout`, `statusMessage`, `if`, and `once`. `args`, `async`, `asyncRewake`, and `shell` are command-only.
+- A `command` list gives one handler per entry. `args` switches to exec form, with the executable in `command`.
 
-While a command hook exists, sync adds `AGNOSTIC_AI_TARGET: claude` to the settings `env`, since a Claude Code hook has no `env` of its own. It reaches shell form, exec form, and PowerShell hooks, and every other process of the session. A value in `outputs.claude.settings.env` or `x-claude.env` wins. See [which target ran a hook](@/docs/spec-format/hooks.md#hook-target).
+With a command hook present, sync adds `AGNOSTIC_AI_TARGET: claude` to the settings `env` (Claude Code hooks have no `env`). Shell, exec, and PowerShell hooks and every other session process see it. `outputs.claude.settings.env` or `x-claude.env` wins. See [which target ran a hook](@/docs/spec-format/hooks.md#hook-target).
 
-`import claude` preserves all of these handlers. Experimental agent handlers are not emitted. `once` is written but has no effect, because [Claude Code hooks](https://code.claude.com/docs/en/hooks) honor it only in skill frontmatter and every portable hook lands in `.claude/settings.json`; `sync` prints a note. See [hook fields](@/docs/spec-format/hooks.md).
+`import claude` preserves these handlers. Experimental agent handlers are not emitted. `once` is written but inert, with a sync note: [Claude Code hooks](https://code.claude.com/docs/en/hooks) honor it only in skill frontmatter, and portable hooks land in `.claude/settings.json`. See [hook fields](@/docs/spec-format/hooks.md).
 
 `event` passes through verbatim. Common events:
 
@@ -83,15 +107,17 @@ Any other documented event works too (`Setup`, `InstructionsLoaded`, `TaskComple
 | `outputs.claude.mcp-file` | `.mcp.json` | |
 | `outputs.claude.settings` | | first-class settings block |
 
-`import claude` and `agnostic-ai doctor` read the same resolved paths, so a moved directory round-trips and unmanaged files under it are still reported.
+`import claude` and `agnostic-ai doctor` read the resolved paths, so a moved directory round-trips and its unmanaged files are still reported.
 
-`dir` moves the whole tool directory: with `dir: vendor/.claude`, rules land in `vendor/.claude/rules/`, commands in `vendor/.claude/commands/`, and `{{rules_dir}}` and the other path variables resolve there. A per-kind key overrides its own path. After moving `dir`, the old files stay until the next full sync sweeps them as orphans. Claude Code auto-loads only a project-root `.claude/rules/`, so a moved rules directory needs `rules-mode: import`.
+`dir` moves the whole tool directory: with `dir: vendor/.claude`, rules land in `vendor/.claude/rules/`, commands in `vendor/.claude/commands/`, and <code>{&#123;rules_dir}}</code> and other path variables resolve there. Per-kind keys override their own path. The next full sync sweeps old files as orphans. Claude Code auto-loads only a project-root `.claude/rules/`, so a moved rules directory needs `rules-mode: import`.
 
-With `gitignore.enabled`, the managed `.gitignore` block also lists `/.claude/agent-memory-local/`, `/.claude/settings.local.json`, `/.claude/worktrees/`, and `/.claude/scheduled_tasks.lock`, following `outputs.claude.dir`. `.claude/agent-memory/` (`memory: project`) stays out because Claude Code documents it as shareable. An ignore line does not untrack files, so run `git rm -r --cached .claude/agent-memory-local` if that store is already committed. The block goes into `.worktreeinclude` without the worktree directories or task lock, so a worktree Claude Code creates starts with the ignored outputs; see [gitignore](@/docs/configuration.md#gitignore). Set `gitignore.ignore-worktree-include: true` to ignore the managed `.worktreeinclude` too. Set `gitignore.worktree-include: false` to manage that file yourself.
+With `gitignore.enabled`, the managed `.gitignore` block also lists `/.claude/agent-memory-local/`, `/.claude/settings.local.json`, `/.claude/worktrees/`, and `/.claude/scheduled_tasks.lock`, following `outputs.claude.dir`. It omits `.claude/agent-memory/` (`memory: project`), which Claude Code documents as shareable. Ignoring does not untrack: run `git rm -r --cached .claude/agent-memory-local` if that store is committed.
+
+The block also goes into `.worktreeinclude`, minus the worktree directories and task lock, so new Claude Code worktrees start with the ignored outputs ([gitignore](@/docs/configuration.md#gitignore)). `gitignore.ignore-worktree-include: true` ignores the managed `.worktreeinclude` too; `gitignore.worktree-include: false` leaves it to you.
 
 ## Agent memory
 
-A top-level `memory` key gives a subagent a directory that persists across sessions. Only Claude Code acts on it. Junie copies the key into its agent file unchanged, and every other adapter drops it.
+A top-level `memory` key gives a subagent a directory that persists across sessions. Only Claude Code acts on it; Junie copies the key unchanged, and other adapters drop it.
 
 ```yaml
 ---
@@ -107,17 +133,13 @@ memory: project
 | `project` | `.claude/agent-memory/<name>/` | shareable; commit it if the team wants it shared |
 | `local` | `.claude/agent-memory-local/<name>/` | do not commit |
 
-Claude Code creates the directory on first use. agnostic-ai emits the frontmatter key and never reads or writes the store.
-
-This is separate from session auto memory under `~/.claude/projects/<project>/memory/`, which agnostic-ai leaves alone. It still needs auto memory enabled: with `autoMemoryEnabled` off or `CLAUDE_CODE_DISABLE_AUTO_MEMORY` set, `memory` has no effect. See [Memory and local state](@/docs/target-behavior.md#memory-and-local-state).
-
-Disabled MCP servers are tracked in `.claude/.agnostic-ai-mcp-disabled.json`, which lists only generated rejection entries. Re-enabling a server removes its generated rejection and keeps manual entries and unrelated settings. Keep this file with the generated settings; both follow `outputs.claude.dir`. A disabled server requires the project `.mcp.json` path; a custom MCP path fails with an actionable error. Import restores disabled state from the project rejection list and keeps generated rejections out of the settings overlay, so a re-enabled server's old rejection does not come back.
+Claude Code creates it on first use; agnostic-ai only emits the key. Session auto memory (`~/.claude/projects/<project>/memory/`) is separate and left alone, but `memory` needs it: with `autoMemoryEnabled` off or `CLAUDE_CODE_DISABLE_AUTO_MEMORY` set, `memory` does nothing. See [Memory and local state](@/docs/target-behavior.md#memory-and-local-state).
 
 ## Claude settings
 
-For user settings, `sync --global --only claude` maps `permissions.default-mode` from a home settings spec to `permissions.defaultMode` in `~/.claude/settings.json`. It preserves hand-written permission rules. See [global settings](@/docs/configuration.md#global-default-model-and-effort) for modes, ownership, and conflict handling.
+`sync --global --only claude` maps a home settings spec's `permissions.default-mode` to `permissions.defaultMode` in `~/.claude/settings.json`, keeping hand-written permission rules ([global settings](@/docs/configuration.md#global-default-model-and-effort) covers modes, ownership, and conflicts).
 
-The `outputs.claude.settings` block declares first-class `.claude/settings.json` keys. Layers, from lowest to highest precedence:
+`outputs.claude.settings` declares first-class `.claude/settings.json` keys. Layers, lowest precedence first:
 
 1. Captured overlay (from `import claude`).
 2. Agnostic `settings` specs (`.agnostic-ai/settings/`), the cross-tool source for `permissions`, `model`, and `effort`. `effort` lands as `effortLevel` when it is `low`, `medium`, `high`, or `xhigh`.
@@ -125,9 +147,9 @@ The `outputs.claude.settings` block declares first-class `.claude/settings.json`
 4. The spec-derived `hooks` block.
 5. An `x-claude` block on a settings spec.
 
-Unset keys fall through to lower layers. `x-claude` merges with what lower layers wrote: `x-claude.permissions.deny` adds to the translated deny list, and only scalars such as `model` are replaced.
+Unset keys fall through; `x-claude` merges: `x-claude.permissions.deny` adds to the translated deny list; only scalars such as `model` are replaced.
 
-Without a captured overlay, sync merges permission lists into the `settings.json` on disk, so it records the rules it added in `.claude/.agnostic-ai-permissions.json`. Those are the portable, protected-path, `outputs.claude.settings`, and `x-claude` rules. On the next sync it removes them before the merge, so a rule you drop from a spec, or move from `allow` to `deny`, leaves the file. Rules you wrote into `settings.json` yourself, and every rule in a captured overlay, stay. The first sync that finds no record keeps every rule and records the ones the specs produce, so a rule that matches a spec rule counts as the spec's from then on.
+Without a captured overlay, sync merges permission lists into the on-disk `settings.json` and records the rules it added (portable, protected-path, `outputs.claude.settings`, and `x-claude`) in `.claude/.agnostic-ai-permissions.json`. The next sync removes those first, so a rule dropped from a spec, or moved from `allow` to `deny`, leaves the file. Hand-written and overlay rules stay. The first sync without a record keeps every rule and records the spec ones; a matching hand-written rule then counts as the spec's.
 
 ```yaml
 outputs:
@@ -177,7 +199,7 @@ outputs:
 | `statusLine` | object | `type`, `command`, and optional `padding`, `refreshInterval` (seconds, minimum 1), and `hideVimModeIndicator`. |
 | `permissions` | object | `allow`, `deny`, `ask` lists of tool-pattern strings. |
 
-Any other setting round-trips through the overlay captured by `agnostic-ai import claude` (`.agnostic-ai/overlays/claude.settings.json`). For a scalar key set in both, this config block wins. `permissions` `allow`/`deny`/`ask` lists are the exception: they are unioned across the overlay, `settings` specs, and this block, so no layer drops another's rules.
+Other settings round-trip through the overlay `agnostic-ai import claude` captures (`.agnostic-ai/overlays/claude.settings.json`). For a scalar in both, this block wins. `permissions` `allow`/`deny`/`ask` lists union across the overlay, `settings` specs, and this block, so no layer drops another's rules.
 
 ## Import
 
@@ -200,33 +222,52 @@ Any other setting round-trips through the overlay captured by `agnostic-ai impor
 | `.claude/settings.json` other non-hook keys | `.agnostic-ai/overlays/claude.settings.json` |
 | `.mcp.json` (`mcpServers.<name>`) | `<mcps>/<name>.yaml` (one spec per server) |
 
-A hand-written `CLAUDE.md` imports whole into `.agnostic-ai/AGNOSTIC_AI.md` and is not split into rules too, which would load each section twice. When `.claude/rules/` exists (even if empty), those files are the single source for rule files. Sync writes a nested rule to `.claude/rules/<dir>/`, so import tells you to delete each nested `CLAUDE.md` it read, except a companion that only imports `@AGENTS.md`, which sync removes itself. `doctor --fix` deletes a nested `CLAUDE.md` whose text still matches its rule, and keeps one you edited since.
+**Instructions.** A hand-written `CLAUDE.md` imports whole, not also split into rules (each section would load twice). An existing `.claude/rules/` (even empty) is the single source for rule files. Import follows Claude Code's lookup order: `CLAUDE.md`, `.claude/CLAUDE.md`, `AGENTS.md`, `.claude/AGENTS.md`. Since v2.1.277 (v2.1.281 on Amazon Bedrock or with telemetry disabled), a session with no `CLAUDE.md` at or above the working directory loads `AGENTS.md`, so repos set up for other agents get their real instructions captured. Only one importer may slice the root `AGENTS.md`, so import skips it when `codex`, `amp`, `warp`, `crush`, `kiro`, or `opencode` imports too. Text from `.claude/CLAUDE.md` syncs to the root `CLAUDE.md`; Claude Code would load both, so delete `.claude/CLAUDE.md` after the next sync, as import says.
 
-The instructions file is looked up in Claude Code's own order: `CLAUDE.md`, `.claude/CLAUDE.md`, `AGENTS.md`, `.claude/AGENTS.md`. Since v2.1.277 (v2.1.281 on Amazon Bedrock or with telemetry disabled), a session with no `CLAUDE.md` at or above the working directory loads `AGENTS.md`, so repos set up for other agents get their real instructions captured. The root `AGENTS.md` step is skipped when `codex`, `amp`, `warp`, `crush`, `kiro`, or `opencode` imports in the same run, since only one importer may slice that file.
+**Nested `CLAUDE.md`.** Sync writes nested rules to `.claude/rules/<dir>/`, so import tells you to delete each nested `CLAUDE.md` it read, except a companion that only imports `@AGENTS.md`, which sync removes. `doctor --fix` deletes a nested `CLAUDE.md` still matching its rule, and keeps one you edited.
 
-When the text comes from `.claude/CLAUDE.md`, sync writes it to the root `CLAUDE.md` and Claude Code loads both files. Import says so: delete `.claude/CLAUDE.md` after the next sync.
+**Agents, skills, commands.** `allowed-tools`, read only by Claude Code, moves under `x-claude:`, where `lint` accepts it and sync writes it back. An agent `model` naming a Claude model (an alias such as `opus` or `fable`, `inherit`, or a `claude-*` id) imports as `model: {claude: <name>}`, so other targets use their default; sync writes `model: <name>` back.
 
-`allowed-tools` is a key only Claude Code reads, so import writes it under `x-claude:`, where `lint` accepts it and sync writes it back to the Claude file. An agent `model` set to a Claude model name (an alias such as `opus` or `fable`, `inherit`, or a `claude-*` id) imports as `model: {claude: <name>}`, so every other target uses its own default model. Sync writes `model: <name>` back to the Claude file. A hook name comes from the script or first words of its command; two hooks that share a name keep them apart with a hash. A hook spec an earlier release named `<event>-<matcher>-<hash8>` keeps that name.
+**Hooks.** A hook's name comes from its script or first command words; a hash separates two with one name. A spec an earlier release named `<event>-<matcher>-<hash8>` keeps that name.
 
-The import summary lists each file under `.claude/` it did not read, such as `.claude/templates/post.md`. Sync neither copies nor removes these files, so a skill that reads one still finds it in place, but other tools do not get a copy. Files sync wrote, hidden files, `settings.local.json`, and Claude Code's `worktrees/` and `agent-memory/` folders are not listed.
+**Settings.** Permission lists become a portable settings spec that `lint` checks and every target gets (with a coverage note where unsupported). Import skips rules another settings spec or `outputs.claude.settings.permissions` declares, since sync wrote them into settings.json. Add `target: claude` to keep them Claude-only. The overlay captures every other non-`hooks` key, including `permissions.defaultMode`. Re-import after editing settings.json by hand. Precedence: [Claude settings](#claude-settings).
 
-A `CLAUDE.md` whose instruction is `@AGENTS.md` is a companion that lets Claude Code read `AGENTS.md`. Its import line never reaches other tools. `sync` deletes a nested companion that only imports its `AGENTS.md` (a `# CLAUDE.md` title aside) once `.claude/rules/` holds that directory's scoped rules, so Claude Code does not load them twice. Any other line, headings included, keeps the file, and so does listing it in `sync.unmanaged`; sync then reports it as a conflict with the scoped `AGENTS.md`. `sync --backup` keeps the deleted companion as `CLAUDE.md.bak`, and `revert` restores it.
+`effortLevel` is the one key import moves out of the overlay. A valid value becomes `effort` in `<settings>/claude.yaml`, which every target syncs, unless another settings spec sets a different effort; then it goes under `x-claude.effortLevel` there. An invalid value stays in the overlay.
 
-Imported text that names a Claude path of a spec the import wrote, such as `.claude/skills/style/SKILL.md`, now names its source, `.agnostic-ai/skills/style/SKILL.md`, since other targets write that spec elsewhere. An `@.claude/rules/<name>.md` line for an imported rule is dropped, because every target already receives the rule. Import reports each Claude path it leaves alone.
+**MCP.** Imported MCP specs sync to every MCP-aware target: codex, copilot, cursor, continue, amp, zed, warp, gemini, opencode.
 
-An imported hook gets `target: claude`, except when every other configured target can check the hook and runs it as written. Only Codex can check today: the event must exist on Codex, each matcher segment must be a tool or source Codex reports (`Bash`, `apply_patch`, `Edit`, `Write`, `mcp__*`, or a `SessionStart` or compact source), the handler must be a command or `mcp_tool`, and the hook must not set `if`, `shell`, `once`, or `asyncRewake`. So in a `claude,codex` project a `PreToolUse` hook on `Bash` stays portable, and the import summary names the reason for each hook that keeps the pin. A project with a target that cannot check, such as `cursor`, keeps every pin.
+{% <details summary="Unread files and rewritten paths"> %}
+The import summary lists each unread file under `.claude/`, such as `.claude/templates/post.md`. Sync leaves them in place: a skill reading one still finds it, but other tools get no copy. The list skips files sync wrote, hidden files, `settings.local.json`, and Claude Code's `worktrees/` and `agent-memory/` folders.
 
-The permission lists land in a portable settings spec, so `lint` checks them and every target in the project gets them, with a coverage note where a target has no equivalent. A rule another settings spec or `outputs.claude.settings.permissions` already declares is skipped, since sync wrote it into settings.json. Add `target: claude` to the spec to keep the rules on Claude Code only. The settings overlay captures every other non-`hooks` key of `.claude/settings.json`, including `permissions.defaultMode`. Import records the key `hooks` sat next to in `claude.settings.hook-events.json`. `sync -t claude` writes the spec-derived `hooks` back beside that key, reproducing the full file after `.claude/` is wiped. An old `hooks: null` in a committed overlay is harmless; re-running `import claude` removes it. Re-run `import claude` after editing settings.json by hand. For precedence, see [Claude settings](#claude-settings).
+Imported text naming an imported spec's Claude path, such as `.claude/skills/style/SKILL.md`, now names its source, `.agnostic-ai/skills/style/SKILL.md`, since other targets write it elsewhere. An `@.claude/rules/<name>.md` line for an imported rule is dropped; every target already gets the rule. Import reports each Claude path it leaves alone.
+{% </details> %}
 
-`effortLevel` is the one key import moves out of the overlay. A valid value becomes `effort` in `<settings>/claude.yaml`, so every target syncs it, unless another settings spec already sets a different effort; then it goes under `x-claude.effortLevel` in that file. An invalid value stays in the overlay.
+{% <details summary="Companion CLAUDE.md files"> %}
+A `CLAUDE.md` whose instruction is `@AGENTS.md` is a companion letting Claude Code read `AGENTS.md`; its import line never reaches other tools. Once `.claude/rules/` holds a directory's scoped rules, `sync` deletes a nested companion that only imports its `AGENTS.md` (a `# CLAUDE.md` title aside), so Claude Code does not load them twice. Any other line, headings included, or a `sync.unmanaged` entry keeps the file, and sync reports a conflict with the scoped `AGENTS.md`. `sync --backup` keeps the deleted companion as `CLAUDE.md.bak`; `revert` restores it.
+{% </details> %}
 
-Imported MCP specs sync to every MCP-aware target: codex, copilot, cursor, continue, amp, zed, warp, gemini, opencode.
+{% <details summary="Portable imported hooks"> %}
+An imported hook is pinned with `target: claude` unless every other configured target can check it and run it as written. Only Codex can check today, and the hook must:
+
+- use an event Codex has;
+- match only tools or sources Codex reports (`Bash`, `apply_patch`, `Edit`, `Write`, `mcp__*`, or a `SessionStart` or compact source);
+- use a command or `mcp_tool` handler;
+- not set `if`, `shell`, `once`, or `asyncRewake`.
+
+So in a `claude,codex` project a `PreToolUse` hook on `Bash` stays portable; the import summary explains each kept pin. With any target that cannot check, such as `cursor`, every pin stays.
+{% </details> %}
+
+{% <details summary="Rebuilding settings.json from the overlay"> %}
+Import records the key `hooks` sat next to in `claude.settings.hook-events.json`. `sync -t claude` writes the spec-derived `hooks` back beside it, reproducing the full file after `.claude/` is wiped. An old `hooks: null` in a committed overlay is harmless; re-running `import claude` removes it.
+{% </details> %}
 
 ## Protected paths
 
-Enforced (permission). Each path in a settings spec's `protected` block becomes an `Edit(/<path>)` rule in `permissions.ask` or `permissions.deny` of `.claude/settings.json`, joined with the portable permission lists. The leading `/` anchors the rule at the project root. Claude Code checks file edits against `Edit` rules only: a `Write(<path>)` rule is accepted, never consulted, and warned about at startup, so sync writes none ([permissions](https://code.claude.com/docs/en/permissions#read-and-edit)). With `decision: deny`, the rules also cover file commands Claude Code recognizes in Bash, such as `sed` and `>` redirections, but not a script that opens files itself. Claude Code documents that Bash coverage for deny rules only, so an `ask` rule guards its edit tools.
+Enforced (permission). Each path in a settings spec's `protected` block becomes an `Edit(/<path>)` rule in `permissions.ask` or `permissions.deny` of `.claude/settings.json`, joined with the portable permission lists. The leading `/` anchors the rule at the project root.
 
-Removing a path, or moving it from `deny` to `ask`, removes its old rule on the next sync, as for every rule sync writes ([Claude settings](#claude-settings)). See [Protected paths](@/docs/spec-format/settings.md#protected-paths).
+Claude Code checks edits against `Edit` rules only; it accepts but ignores a `Write(<path>)` rule and warns at startup, so sync writes none ([permissions](https://code.claude.com/docs/en/permissions#read-and-edit)). `decision: deny` rules also cover file commands Claude Code recognizes in Bash, such as `sed` and `>` redirections, but not a script that opens files itself. That Bash coverage is documented for deny only; an `ask` rule guards edit tools.
+
+Removing a path, or moving it from `deny` to `ask`, drops its old rule on the next sync ([Claude settings](#claude-settings)). See [Protected paths](@/docs/spec-format/settings.md#protected-paths).
 
 ## Verify
 
