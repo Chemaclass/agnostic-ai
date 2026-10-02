@@ -38,6 +38,8 @@ var mcpEnvRefTargets = map[string]mcpEnvRefForms{
 	"cursor":    {env: spec.EnvRefDollarEnv, headers: spec.EnvRefDollarEnv},
 	"windsurf":  {env: spec.EnvRefDollarEnv, headers: spec.EnvRefDollarEnv},
 	"opencode":  {env: spec.EnvRefBraceEnv, headers: spec.EnvRefBraceEnv},
+	// https://docs.continue.dev/guides/configuring-models-rules-tools#working-with-secrets
+	"continue": {env: spec.EnvRefSecrets, headers: spec.EnvRefSecrets},
 }
 
 // ReadMCPEnvRefs rewrites target's own reference form in a native
@@ -46,7 +48,7 @@ var mcpEnvRefTargets = map[string]mcpEnvRefForms{
 func ReadMCPEnvRefs(target string, server map[string]any) {
 	forms := mcpEnvRefTargets[target]
 	for _, f := range forms.fields() {
-		values, _ := server[f.name].(map[string]any)
+		values := f.values(server)
 		for key, v := range values {
 			if s, ok := v.(string); ok {
 				values[key] = f.syntax.Read(s, forms.reading)
@@ -61,7 +63,32 @@ type mcpEnvRefField struct {
 }
 
 func (f mcpEnvRefForms) fields() []mcpEnvRefField {
-	return []mcpEnvRefField{{"env", f.env}, {"headers", f.headers}}
+	fields := []mcpEnvRefField{{"env", f.env}, {"headers", f.headers}}
+	if f.headers == spec.EnvRefSecrets {
+		fields = append(fields, mcpEnvRefField{"requestOptions.headers", f.headers})
+	}
+	return fields
+}
+
+func (f mcpEnvRefField) values(block map[string]any) map[string]any {
+	key := f.name
+	if parent, child, nested := strings.Cut(key, "."); nested {
+		block, _ = block[parent].(map[string]any)
+		key = child
+	}
+	values, _ := block[key].(map[string]any)
+	return values
+}
+
+func (f mcpEnvRefField) setValues(block, values map[string]any) {
+	if parent, child, nested := strings.Cut(f.name, "."); nested {
+		old, _ := block[parent].(map[string]any)
+		copied := maps.Clone(old)
+		setOrDelete(copied, child, values)
+		setOrDelete(block, parent, copied)
+		return
+	}
+	setOrDelete(block, f.name, values)
 }
 
 // RewriteMCPEnvRefs returns mcps with every `${NAME}` in an `env` or
@@ -90,8 +117,8 @@ func xBlock(meta map[string]any, target string) map[string]any {
 }
 
 func hasMCPEnvRef(block map[string]any) bool {
-	for _, field := range []string{"env", "headers"} {
-		values, _ := block[field].(map[string]any)
+	for _, name := range []string{"env", "headers", "requestOptions.headers"} {
+		values := (mcpEnvRefField{name: name}).values(block)
 		for _, v := range values {
 			if s, ok := v.(string); ok && spec.HasEnvRef(s) {
 				return true
@@ -109,8 +136,8 @@ func rewriteMCPEnvRefBlock(target, server string, block map[string]any) map[stri
 	}
 	forms := mcpEnvRefTargets[target]
 	for _, f := range forms.fields() {
-		values, ok := block[f.name].(map[string]any)
-		if !ok {
+		values := f.values(block)
+		if values == nil {
 			continue
 		}
 		rewritten := make(map[string]any, len(values))
@@ -126,7 +153,7 @@ func rewriteMCPEnvRefBlock(target, server string, block map[string]any) map[stri
 			}
 			rewritten[key] = f.syntax.Write(s)
 		}
-		setOrDelete(out, f.name, rewritten)
+		f.setValues(out, rewritten)
 	}
 	return out
 }

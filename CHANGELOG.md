@@ -40,6 +40,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `model` values `sol`, `luna`, and `astra` resolve to the current Codex ids, and `explain` shows the resolution (#1572).
 - `sync` notes once when an upgrade moves the id an alias resolves to, such as `sol now resolves to <new id> (was <old id>)` (#1578).
 
+#### Continue
+
+- MCP imports replace literal credentials with references; sync writes `${{ secrets.NAME }}` for Continue's `.env` files (#1619).
+
 #### Kiro
 
 - `validate` accepts the `SessionEnd` hook trigger Kiro CLI 2.25 added (#1576).

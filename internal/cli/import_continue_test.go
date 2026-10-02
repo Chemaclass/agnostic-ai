@@ -137,7 +137,7 @@ func TestImportFromContinue_MCPUnwrapsVendorSpellings(t *testing.T) {
 	if strings.Contains(string(got), "requestOptions") {
 		t.Errorf("requestOptions wrapper survived import: %s", got)
 	}
-	if !strings.Contains(string(got), "headers:\n    Authorization: Bearer x") {
+	if !strings.Contains(string(got), "headers:\n    Authorization: Bearer ${LINEAR_AUTHORIZATION}") {
 		t.Errorf("headers not lifted to the top level: %s", got)
 	}
 }
@@ -167,7 +167,7 @@ func TestImportFromContinue_MCPConnectionOptionsRoundTrip(t *testing.T) {
 				"caBundlePath": []any{"/etc/company-ca.pem"},
 				"proxy":        "http://proxy.test:8080",
 				"timeout":      30000,
-				"headers":      map[string]any{"Authorization": "Bearer token"},
+				"headers":      map[string]any{"Authorization": "Bearer ${REMOTE_AUTHORIZATION}"},
 			},
 		},
 	}
@@ -245,7 +245,7 @@ func TestImportFromContinue_MCPJSONBareServerUsesFilename(t *testing.T) {
 	got := readContinueImportedMCP(t, filepath.Join(dir, "mcps/search.yaml"))
 	want := map[string]any{
 		"name": "search", "command": "search-server", "args": []any{"--local"},
-		"env": map[string]any{"CACHE": "./cache"},
+		"env": map[string]any{"CACHE": "${CACHE}"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("bare server = %#v, want %#v", got, want)

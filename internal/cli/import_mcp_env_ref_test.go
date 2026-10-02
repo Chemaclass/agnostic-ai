@@ -92,6 +92,7 @@ func TestImportMCP_EnvRefsRoundTrip(t *testing.T) {
 	for target, tc := range map[string]struct{ native, form string }{
 		"claude":   {".mcp.json", `"${GITHUB_TOKEN}"`},
 		"codex":    {".codex/config.toml", `env_vars = ["GITHUB_TOKEN"]`},
+		"continue": {".continue/mcpServers/gh.yaml", "GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}"},
 		"windsurf": {".devin/mcp_config.json", `"${env:GITHUB_TOKEN}"`},
 	} {
 		t.Run(target, func(t *testing.T) {
@@ -130,6 +131,7 @@ func TestImportMCP_EnvRefsRoundTrip(t *testing.T) {
 			if second := snapshotEmitted(t, dir)[tc.native]; second != first {
 				t.Errorf("%s changed after import:\n%s\nwant:\n%s", tc.native, second, first)
 			}
+			execCLI(t, "sync", "--check", "-t", target)
 		})
 	}
 }

@@ -28,7 +28,9 @@ func TestKitSink_GoldenSnapshot(t *testing.T) {
 			"continue": {AssistantsDir: ".continue/assistants"},
 		},
 	}
-	if err := New().Emit(emit.NewSession(), kitSinkBundle(), cfg, false); err != nil {
+	b := kitSinkBundle()
+	b.MCPs = emit.RewriteMCPEnvRefs(target, b.MCPs)
+	if err := New().Emit(emit.NewSession(), b, cfg, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
 
