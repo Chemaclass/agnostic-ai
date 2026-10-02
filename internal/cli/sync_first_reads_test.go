@@ -93,3 +93,20 @@ func TestSync_FirstRunListLeavesOutATargetThatDidNotEmit(t *testing.T) {
 		t.Errorf("list should name codex and not acme-tool:\n%s", log.String())
 	}
 }
+
+// A kind the target cannot load is not listed as read.
+func TestSync_FirstRunListLeavesOutUnsupportedKinds(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	isolateGit(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [jules]\n")
+	mustWriteFile(t, ".agnostic-ai/rules/style.md", "---\nname: style\ndescription: Style.\n---\nKeep it short.\n")
+	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review a PR.\n---\nReview.\n")
+	log := captureLog(t)
+
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if !strings.Contains(log.String(), "jules now reads") || strings.Contains(log.String(), "1 skill") {
+		t.Errorf("list should name jules without the unsupported skill:\n%s", log.String())
+	}
+}

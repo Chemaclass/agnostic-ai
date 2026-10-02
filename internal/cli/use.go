@@ -437,9 +437,15 @@ func printToolReads(w io.Writer, cfg *config.Config, b spec.Bundle, tools []stri
 				where[strings.ToLower(a.Label)] = a.Location
 			}
 		}
+		// A kind the adapter does not declare is skipped with a warning,
+		// so the tool does not read it.
+		var supports []spec.Kind
+		if a, err := adapters.Resolve(t); err == nil {
+			supports = a.Capabilities()
+		}
 		for _, kind := range []string{"Rules", "Skills", "Agents", "Commands", "Hooks", "MCP servers"} {
 			entries := entriesFor(mine, kind)
-			if len(entries) == 0 {
+			if len(entries) == 0 || !slices.Contains(supports, kindOf(kind)) {
 				continue
 			}
 			label := fmt.Sprintf("%d %s", len(entries), countLabel(kind, len(entries)))
@@ -459,6 +465,25 @@ func countLabel(label string, n int) string {
 		label = strings.TrimSuffix(label, "s")
 	}
 	return label
+}
+
+// kindOf returns the spec kind a native artifact label lists.
+func kindOf(label string) spec.Kind {
+	switch strings.ToLower(label) {
+	case "skills":
+		return spec.KindSkill
+	case "agents":
+		return spec.KindAgent
+	case "rules":
+		return spec.KindRule
+	case "commands":
+		return spec.KindCommand
+	case "hooks":
+		return spec.KindHook
+	case "mcp servers":
+		return spec.KindMCP
+	}
+	return ""
 }
 
 // entriesFor returns the specs a native artifact label lists.
