@@ -127,3 +127,23 @@ func TestSync_BackupStopsWhenTheBackupExists(t *testing.T) {
 		t.Errorf("CLAUDE.md.bak replaced: %q", got)
 	}
 }
+
+// --keep-edits keeps only a tracked file that differs from HEAD, so a
+// committed hand-written file it would rewrite stops the sync.
+func TestSyncKeepEdits_StopsOnACommittedHandWrittenFile(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	isolateGit(t)
+	gitInit(t, dir)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, "CLAUDE.md", handWrittenClaude)
+	git(t, dir, "add", "-A")
+	git(t, dir, "commit", "-q", "-m", "base")
+
+	if _, err := runCLI(t, "sync", "--keep-edits"); err == nil || !strings.Contains(err.Error(), "agnostic-ai import claude") {
+		t.Errorf("err = %v, want a stop", err)
+	}
+	if got := readFile(t, "CLAUDE.md"); got != handWrittenClaude {
+		t.Errorf("CLAUDE.md changed:\n%s", got)
+	}
+}

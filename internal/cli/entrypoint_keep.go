@@ -45,9 +45,11 @@ func keepHandWrittenInstructions(cfg *config.Config, b spec.Bundle, targets, led
 		if cfg.IsUnmanaged(f.Path) || slices.Contains(ledgered, filepath.ToSlash(f.Path)) {
 			continue
 		}
-		// --keep-edits keeps a file Git tracks, comparing it with HEAD.
-		if keepEdits && committedSum(f.Path) != "" {
-			continue
+		// --keep-edits keeps a file Git tracks when it differs from HEAD.
+		if keepEdits {
+			if sum := committedSum(f.Path); sum != "" && fileSum(f.Path) != sum {
+				continue
+			}
 		}
 		uncaptured, err := handWrittenUncaptured(f.Path, held)
 		if err != nil {
