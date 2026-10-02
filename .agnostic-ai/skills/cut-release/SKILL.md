@@ -50,10 +50,11 @@ The user asks to release, tag, ship, or cut a new version.
    whose issue the new section cites, and never moves a date already set.
    Read the rows it names: a line that only mentions the issue, without
    delivering support, does not ship the signal, so clear that date.
-5. Bump `version` in `cmd/agnostic-ai/main.go` and `extra.version` in
-   `docs/site/config.toml`. The site footer publishes that value, and
-   `make site-test` fails when either disagrees with the latest dated
-   changelog section.
+5. Bump `version` in `cmd/agnostic-ai/main.go`, `extra.version` in
+   `docs/site/config.toml`, and both pins in the root `agnostic-ai.yaml`:
+   exact `requires: "X.Y.Z"` and the `$schema` URL's `vX.Y.Z` tag. Keep
+   them in the release commit. `make site-test` fails when these values
+   disagree with the latest dated changelog section.
 6. Immediately before the release commit, create exactly one
    `docs/site/content/updates/YYYY-MM-DD-vX.Y.Z.md` release briefing. Read and
    follow [references/release-briefing.md](references/release-briefing.md).
@@ -61,8 +62,9 @@ The user asks to release, tag, ship, or cut a new version.
    value with a few useful examples, and select consequential target changes. Keep
    agnostic-ai support separate from upstream availability. Run
    `make site-build site-test`.
-7. Confirm the version file, dated changelog section, briefing, and any
-   `signals.tsv` change are all staged for the same commit. Commit `chore(release): vX.Y.Z`, GPG-signed.
+7. Confirm the version file, site version, project config pins, dated
+   changelog section, briefing, and any `signals.tsv` change are all staged
+   for the same commit. Commit `chore(release): vX.Y.Z`, GPG-signed.
 8. Push `main` and wait for the CI run on that exact commit. Confirm Linux,
    macOS, Windows, and every other job that ran passed. If no run starts,
    dispatch `gh workflow run ci.yml --ref main` and wait for that run.

@@ -87,6 +87,35 @@ func (r Requirement) Allows(version string) (allowed, release bool) {
 	return true, true
 }
 
+// Above reports whether version exceeds a requirement that accepts a stable release.
+func (r Requirement) Above(version string) bool {
+	m := releaseRE.FindStringSubmatch(strings.TrimSpace(version))
+	if m == nil {
+		return false
+	}
+	v := parseRelease(m[1:])
+	var floor release
+	for _, t := range r.terms {
+		if (t.op == atLeast || t.op == exactly) && compareReleases(t.at, floor) > 0 {
+			floor = t.at
+		}
+	}
+	for _, t := range r.terms {
+		if !t.holds(floor) {
+			return false
+		}
+	}
+	if compareReleases(v, floor) < 0 {
+		return false
+	}
+	for _, t := range r.terms {
+		if !t.holds(v) {
+			return true
+		}
+	}
+	return false
+}
+
 func (t term) holds(v release) bool {
 	c := compareReleases(v, t.at)
 	switch t.op {

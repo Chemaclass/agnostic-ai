@@ -152,7 +152,20 @@ agnostic-ai upgrade --version v0.56.1
 |------|-------------|
 | `--check` | Print install details and exit without changing anything. With `--version`, adds a `Requested:` line and downloads nothing. |
 | `--version <tag>` | Install one release, downgrades included. The leading `v` is optional. Standalone binaries only. Package-manager installs are told to pin through their manager. |
+| `--requires` | Set this project's `requires` and schema tag to the installed release, then sync. |
 | `--run` | Accepted for compatibility; upgrading is the default. |
+
+After upgrading through a package manager, use its installed CLI from the project root:
+
+```bash
+pnpm exec agnostic-ai upgrade --requires
+```
+
+`--requires` replaces a minimum, range, or older pin with the installed exact release. It updates the base config and any existing local `requires` override, including a null override. Comments and unrelated settings stay intact. The command holds the project lock through the config changes and sync. If sync fails, the new pins remain; fix the reported output problem and run `sync` again.
+
+This mode requires a stable release build. It works with `agnostic.config.yaml` too. It cannot combine with `--check`, `--version`, or `--run`, and it does not update global home config. Install and dependency files are managed by your package manager.
+
+The editor keeps unrelated YAML bytes intact. Convert flow-style root mappings, merged root keys, and anchored or multiline `requires` values to a plain block mapping and single-line scalar before running it.
 
 | Binary location | Upgrade |
 |-----------------|---------|
@@ -169,4 +182,3 @@ Scoop, WinGet, and `node_modules` markers match case-insensitively. `upgrade` al
 ## lsp
 
 Start the Language Server on stdin/stdout. Point your editor at `agnostic-ai lsp` for spec files (`.agnostic-ai/**/*.md`, `*.mdc`). It pushes lint diagnostics on open and save.
-

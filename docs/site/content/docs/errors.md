@@ -77,10 +77,11 @@ The config's `requires` key names the agnostic-ai releases its specs work with: 
 [AAI-005] agnostic-ai.yaml requires agnostic-ai >=0.71.0, but 0.70.0 is installed; run `agnostic-ai upgrade`
 ```
 
-**Fix:** run `agnostic-ai upgrade`. When `requires` pins or bounds a release, run `agnostic-ai upgrade --version vX.Y.Z`; this also downgrades a standalone binary.
+**Fix:** after installing a newer release, run `agnostic-ai upgrade --requires` from the project root. It aligns `requires` and the schema tag with the installed release, then syncs. Use the installed package-manager CLI, such as `pnpm exec agnostic-ai upgrade --requires`.
 
-- **Installed by npm, pnpm, Yarn, or Bun:** the package manager owns the binary. Run its install after a version bump. The message names the command, such as `pnpm install`.
-- **`package.json` already pins the running release**, as right after `pnpm add agnostic-ai@X.Y.Z`: the message says to update `requires` instead.
+- **Older installed release:** run `agnostic-ai upgrade`, or `upgrade --version vX.Y.Z` for an exact pin or range. Project package-manager installs name their install command, such as `pnpm install`, after pulling a version bump.
+- **Keep an intentional older project pin:** install the release it names through your package manager or `upgrade --version`. The latter also downgrades a standalone binary.
+- **Global home config:** edit `requires` in the named file to adopt the installed release. `upgrade --requires` changes project config only.
 - **The version does not change:** `agnostic-ai upgrade --check` shows which binary runs and any older copy that shadows it on PATH.
 
 ### AAI-102: Targets emit to the same output path

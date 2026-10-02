@@ -38,11 +38,13 @@ agnostic-ai sync
 
 Edit sources under `.agnostic-ai/`, including `AGNOSTIC_AI.md` for shared project instructions, then sync again. Generated files such as `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules/` are outputs.
 
-`sync`, `import`, `use`, and `init` take a project lock. A second writer stops and names the running command; retry when it finishes. Read-only checks and previews can still run.
+`sync`, `import`, `use`, `init`, and `upgrade --requires` take a project lock. A second writer stops and names the running command; retry when it finishes. Read-only checks and previews can still run.
 
 See [Getting started](https://agnostic-ai.org/docs/getting-started/) to add your first rule, [all install options](https://agnostic-ai.org/docs/installation/) for other installers, and [Migration](https://agnostic-ai.org/docs/migration/) to review an existing setup.
 
 `import`, `sync`, and `validate` use the same `sources` paths, including absolute directories and linked source roots. Watch mode follows their edits too. Polling picks up edits made during a re-sync on the next tick. `import --dry-run` previews those destinations without writing them.
+
+After installing a newer release, run `agnostic-ai upgrade --requires` from the project root. It pins `requires` and the config's schema URL to the installed release, then syncs the generated files. See the [upgrade reference](https://agnostic-ai.org/docs/cli-reference/maintain/#upgrade).
 
 ## Daily commands
 

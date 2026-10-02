@@ -96,11 +96,12 @@ requires: ">=0.73.0 <0.74.0"   # range: 0.73.0 and its patch releases
 - **Exact**: you commit generated files. Another release can write different bytes, so `sync --check` would fail in CI. When npm installs the tool, pin the same release in `package.json`.
 - **Range**: accept patch releases but not the next minor one.
 
-A binary outside the value stops every command that reads your specs, before it reads specs or writes files. The error is [AAI-005](@/docs/errors.md#aai-005-installed-version-outside-requires). It names the command that installs a fitting release:
+A binary outside the value stops every command that reads your specs, before it reads specs or writes files. The error is [AAI-005](@/docs/errors.md#aai-005-installed-version-outside-requires). Its main fix depends on the installed release:
 
-- `agnostic-ai upgrade` for a minimum.
-- `agnostic-ai upgrade --version vX.Y.Z` when the value pins or bounds a release.
-- The package manager's command, such as `pnpm install`, for a binary in the project's `node_modules`. It is picked from the lockfile.
+- **Newer than the project permits:** `agnostic-ai upgrade --requires` adopts the installed release. It sets an exact pin and matching schema URL, then syncs. Run it after your package-manager upgrade, using that manager's CLI, such as `pnpm exec agnostic-ai upgrade --requires`.
+- **Older than the project needs:** install a fitting release with `agnostic-ai upgrade`, `upgrade --version vX.Y.Z`, or the project's package manager. The message names the command.
+
+To keep an intentional older pin, install the release it names. `upgrade --requires` updates the base config and any existing local override. It handles project config only; edit a global home pin in the file the error names.
 
 `sync --watch` stops when a pulled config puts the binary outside `requires`.
 

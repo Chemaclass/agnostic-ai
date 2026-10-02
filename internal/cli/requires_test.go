@@ -118,8 +118,12 @@ func TestProjectCommands_ExactRequiresStopsOlderAndNewerBinaries(t *testing.T) {
 			for _, installed := range []string{"v0.72.0", "v0.74.0"} {
 				_, _, err := runAsVersion(t, installed, args...)
 				assertUnmetRequires(t, err, "agnostic-ai.yaml", "0.73.0", strings.TrimPrefix(installed, "v"))
-				if !strings.Contains(err.Error(), "`agnostic-ai upgrade --version v0.73.0`") {
-					t.Errorf("%s on %s: the message must name the pinned release to install: %v", pin, installed, err)
+				want := "`agnostic-ai upgrade --version v0.73.0`"
+				if installed == "v0.74.0" {
+					want = "`agnostic-ai upgrade --requires`"
+				}
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("%s on %s: the message must name %s: %v", pin, installed, want, err)
 				}
 			}
 		}
@@ -159,13 +163,13 @@ func TestProjectCommands_MinimumRequiresKeepsItsOldMessage(t *testing.T) {
 	}
 }
 
-func TestProjectCommands_UpperBoundOnlyRequiresAsksForARelease(t *testing.T) {
+func TestProjectCommands_UpperBoundOnlyRequiresOffersInstalledRelease(t *testing.T) {
 	requiresProject(t, "<0.74.0")
 
 	_, _, err := runAsVersion(t, "v0.74.0", "sync")
 	assertUnmetRequires(t, err, "agnostic-ai.yaml", "<0.74.0", "0.74.0")
-	if !strings.Contains(err.Error(), "`agnostic-ai upgrade --version vX.Y.Z`") {
-		t.Errorf("the message must show how to install a release inside the range: %v", err)
+	if !strings.Contains(err.Error(), "`agnostic-ai upgrade --requires`") || strings.Contains(err.Error(), "--version") {
+		t.Errorf("the message must offer adoption of the installed release: %v", err)
 	}
 }
 
@@ -288,6 +292,25 @@ func TestGlobalSync_LocalHomeConfigRequiresReplacesShared(t *testing.T) {
 	assertUnmetRequires(t, err, local, ">=0.70.0", "0.69.0")
 }
 
+func TestGlobalSync_NewerReleaseNamesTheHomeConfig(t *testing.T) {
+	_, source := globalConfigTestHome(t)
+	path := filepath.Join(source, "agnostic-ai.yaml")
+	mustWriteGlobalTest(t, path, "requires: \"0.76.0\"\n")
+
+	_, _, err := runAsVersion(t, "v0.77.0", "sync", "--global")
+	if errs.CodeOf(err) != errs.CodeRequiresUnmet {
+		t.Fatalf("want %s, got %v", errs.CodeRequiresUnmet, err)
+	}
+	for _, want := range []string{path, "update `requires`", "0.77.0"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("global advice misses %q: %v", want, err)
+		}
+	}
+	if strings.Contains(err.Error(), "upgrade --requires") || strings.Contains(err.Error(), "upgrade --version") {
+		t.Errorf("global advice must name a manual home-config reconciliation: %v", err)
+	}
+}
+
 func TestGlobalSync_NullLocalRequiresClearsShared(t *testing.T) {
 	home, source := globalConfigTestHome(t)
 	mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "requires: \">=0.70.0\"\ntargets: [claude]\n")
@@ -386,6 +409,7 @@ func TestRequiresFix_NamesTheProjectPackageManager(t *testing.T) {
 	source := filepath.Join(project, "apps", "web", "agnostic-ai.yaml")
 	exe := filepath.Join(project, "node_modules", ".pnpm", "pkg", "node_modules", "@agnostic-ai", "darwin-arm64", "bin", "agnostic-ai")
 	setRunningExecutable(t, exe)
+	setRunningVersion(t, "v0.73.0")
 
 	if got, want := requiresFix(req, source), "run `npm install`, or `npm install -D agnostic-ai@0.74.0` if package.json pins another release"; got != want {
 		t.Errorf("no lockfile:\n got %s\nwant %s", got, want)
@@ -424,6 +448,7 @@ func TestRequiresFix_FindsTheWorkspaceLockfile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	setRunningVersion(t, "v0.73.0")
 	root := t.TempDir()
 	for _, f := range []string{".git/HEAD", "pnpm-lock.yaml", "pnpm-workspace.yaml"} {
 		writeFile(t, filepath.Join(root, f), "")
@@ -439,10 +464,7 @@ func TestRequiresFix_FindsTheWorkspaceLockfile(t *testing.T) {
 	}
 }
 
-// Right after `pnpm add agnostic-ai@0.75.0` the postinstall sync still
-// reads the old requires. package.json already pins the running release,
-// so the fix is to update requires, not to downgrade.
-func TestRequiresFix_NamesRequiresWhenPackageJSONPinsTheRunningRelease(t *testing.T) {
+func TestRequiresFix_OffersReconciliationWhenPackageJSONPinsTheNewerRelease(t *testing.T) {
 	req, err := config.ParseRequirement("0.74.0")
 	if err != nil {
 		t.Fatal(err)
@@ -454,8 +476,68 @@ func TestRequiresFix_NamesRequiresWhenPackageJSONPinsTheRunningRelease(t *testin
 	setRunningVersion(t, "v0.75.0")
 
 	got := requiresFix(req, filepath.Join(project, "agnostic-ai.yaml"))
-	if !strings.Contains(got, "update `requires`") || !strings.Contains(got, `"0.75.0"`) || strings.Contains(got, "0.74.0") {
+	if !strings.Contains(got, "`agnostic-ai upgrade --requires`") || !strings.Contains(got, "0.75.0") || strings.Contains(got, "0.74.0") {
 		t.Errorf("fix = %q", got)
+	}
+}
+
+func TestRequiresFix_OffersAdoptionForNewerReleases(t *testing.T) {
+	setRunningExecutable(t, filepath.Join(t.TempDir(), "external-store", "agnostic-ai"))
+	cases := []struct {
+		requires  string
+		installed string
+	}{
+		{"0.9.0", "v0.10.0"},
+		{"=0.76.0", "v0.77.0"},
+		{"<0.77.0", "v0.77.0"},
+		{"<=0.77.0", "v0.77.1"},
+		{">=0.76.0 <0.77.0", "v0.77.0"},
+	}
+	for _, c := range cases {
+		t.Run(c.requires, func(t *testing.T) {
+			req, err := config.ParseRequirement(c.requires)
+			if err != nil {
+				t.Fatal(err)
+			}
+			setRunningVersion(t, c.installed)
+			got := requiresFix(req, "agnostic-ai.yaml")
+			if !strings.Contains(got, "`agnostic-ai upgrade --requires`") || !strings.Contains(got, strings.TrimPrefix(c.installed, "v")) || strings.Contains(got, "--version") {
+				t.Errorf("fix = %q, want installed-release reconciliation", got)
+			}
+		})
+	}
+}
+
+func TestRequiresFix_DoesNotInventAdoptionForContradictoryRanges(t *testing.T) {
+	setRunningVersion(t, "v0.78.0")
+	for _, requires := range []string{">=0.77.0 <0.77.0", "=0.76.0 >=0.77.0", "=0.76.0 =0.77.0"} {
+		t.Run(requires, func(t *testing.T) {
+			req, err := config.ParseRequirement(requires)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := requiresFix(req, "agnostic-ai.yaml"); strings.Contains(got, "upgrade --requires") {
+				t.Errorf("contradictory constraint invents an adoption direction: %q", got)
+			}
+		})
+	}
+}
+
+func TestRequiresFix_MatchingOlderPackagePinStillInstallsRequiredRelease(t *testing.T) {
+	req, err := config.ParseRequirement("0.10.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	project := t.TempDir()
+	writeFile(t, filepath.Join(project, "package.json"), `{"devDependencies": {"agnostic-ai": "0.9.0"}}`)
+	writeFile(t, filepath.Join(project, "pnpm-lock.yaml"), "")
+	setRunningExecutable(t, filepath.Join(project, "node_modules", "agnostic-ai", "bin", "agnostic-ai"))
+	setRunningVersion(t, "v0.9.0")
+
+	got := requiresFix(req, filepath.Join(project, "agnostic-ai.yaml"))
+	want := "run `pnpm install`, or `pnpm add -D agnostic-ai@0.10.0` if package.json pins another release"
+	if got != want {
+		t.Errorf("older package pin:\n got %s\nwant %s", got, want)
 	}
 }
 

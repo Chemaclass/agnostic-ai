@@ -14,6 +14,8 @@ import (
 
 	"github.com/BurntSushi/toml"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -941,6 +943,22 @@ func TestSiteDocs_FooterPublishesTheReleasedVersion(t *testing.T) {
 	}
 	if published != released[1] {
 		t.Errorf("footer version = %q, latest changelog section = %q", published, released[1])
+	}
+
+	project := readBuiltFile(t, "../../agnostic-ai.yaml")
+	var pins struct {
+		Requires string `yaml:"requires"`
+	}
+	if err := yaml.Unmarshal([]byte(project), &pins); err != nil {
+		t.Fatalf("parse project config: %v", err)
+	}
+	if want := strings.TrimPrefix(published, "v"); pins.Requires != want {
+		t.Errorf("project requires = %q, released version = %q", pins.Requires, want)
+	}
+	schema := regexp.MustCompile(`(?m)^# yaml-language-server: \$schema=(\S+)`).FindStringSubmatch(project)
+	wantSchema := "https://raw.githubusercontent.com/Chemaclass/agnostic-ai/" + published + "/docs/schemas/config.schema.json"
+	if schema == nil || schema[1] != wantSchema {
+		t.Errorf("project schema directive must pin %s", wantSchema)
 	}
 
 	footer := readBuiltFile(t, "../../docs/site/templates/base.html")
