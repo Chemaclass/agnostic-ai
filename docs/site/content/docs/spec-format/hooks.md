@@ -148,8 +148,9 @@ What `sync` writes for the variable:
 
 If the configuration lives in a subdirectory of a Git worktree, the emitted path includes that subdirectory. A hook started from a descendant still resolves to the configured project. The sibling hook-directory rewrite applies too, such as `.claude/hooks/` to `.codex/hooks/`. Custom script paths keep their directory.
 
-{% <details summary="Global sync and unsupported syntax"> %}
+{% <details summary="Global sync"> %}
 `sync --global` uses the runtime Git root for those targets. It never binds a command to the global specs checkout. This fallback needs Git and a hook running inside the intended Git worktree. It cannot locate a project outside Git, or tell apart multiple configured projects within one worktree.
+{% </details> %}
 
 These stay literal: exec-form `args`, escaped dollars, and single-quoted variables.
 
@@ -161,7 +162,6 @@ These get a note naming the hook when the target cannot preserve them:
 - a project without a Git worktree
 
 `on-unsupported: error` fails the sync; `silent` hides the note. Use a target-specific command or `target: claude` for these cases. For Windows, set the target's Windows command explicitly.
-{% </details> %}
 
 ## Which target ran a hook {#hook-target}
 
@@ -307,12 +307,10 @@ See the [`if` field](https://code.claude.com/docs/en/hooks) and [permission rule
 
 Each command reports one decision.
 
-| Result | When |
-|--------|------|
-| `block` | Exit 2, or exit 0 with a JSON reply that has `"permissionDecision": "deny"`, `"decision": "block"`, or `"continue": false` |
-| `allow` | Exit 0 otherwise |
-| `error` | Any other non-zero exit |
-| `timeout` | The command ran past its timeout |
+- `block`: exit 2, or exit 0 with a JSON reply that has `"permissionDecision": "deny"`, `"decision": "block"`, or `"continue": false`.
+- `allow`: exit 0 otherwise.
+- `error`: any other non-zero exit.
+- `timeout`: the command ran past its timeout.
 
 Exit 2 cannot stop anything on `SessionStart`, `SessionEnd`, `Notification`, `PreCompact`, and `PostCompact`, so it reads as `error` there. On `PostToolUse` the tool already ran, so `block` sends stderr back to the model. A `context` line marks output the target adds to the session: plain stdout on `SessionStart` and `UserPromptSubmit`, or a JSON reply's `additionalContext`.
 
