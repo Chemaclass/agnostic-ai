@@ -124,6 +124,7 @@ func TestEdgeCase_CodexOverlayWinsOverFirstClassConfig(t *testing.T) {
 	dir := t.TempDir()
 	must(t, os.WriteFile(filepath.Join(dir, "AGENTS.md"), []byte("# P\n"), 0o644))
 	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai/overlays"), 0o755))
+	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/AGNOSTIC_AI.md"), []byte("# P\n"), 0o644))
 	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/overlays/codex.config.toml"),
 		[]byte(`model = "overlay-model"
 sandbox = "overlay-sandbox"
