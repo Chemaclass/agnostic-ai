@@ -664,3 +664,29 @@ func TestImport_PartialSyncKeepsWhatAnEarlierSyncWroteForOtherTools(t *testing.T
 		t.Errorf("review rule = %q, want cursor's edit", got)
 	}
 }
+
+// A target taken out of the config loses what sync wrote for it, so its
+// own rule of the same name, written later, may not replace the spec.
+func TestUse_StopsOnASpecSyncedForAToolSinceRemoved(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
+	mine := "---\nname: r\ndescription: Mine.\n---\nMine\n"
+	mustWriteFile(t, ".agnostic-ai/rules/r.md", mine)
+	runSyncOK(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	runSyncOK(t)
+	if err := os.RemoveAll(".cursor"); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, ".cursor/rules/r.mdc", "---\ndescription: Unrelated.\nalwaysApply: true\n---\nSomething else.\n")
+
+	_, err := runCLI(t, "use", "cursor")
+
+	if errs.CodeOf(err) != errs.CodeImportWouldReplace {
+		t.Fatalf("use cursor did not stop on a rule cursor no longer held: %v", err)
+	}
+	if got := readFile(t, ".agnostic-ai/rules/r.md"); got != mine {
+		t.Errorf("rule = %q, want it untouched", got)
+	}
+}

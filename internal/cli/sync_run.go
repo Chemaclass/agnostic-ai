@@ -771,7 +771,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
 		ledger.specSums = sums
 	}
-	ledger.specFileSums = syncedSpecFileSums(root, prev.SpecFileSums, b, effectiveTargets)
+	ledger.specFileSums = syncedSpecFileSums(root, prev.SpecFileSums, b, effectiveTargets, cfg.Targets)
 	trackedIgnored := gitTrackedAndIgnored(root, trackedIgnoreCandidates(cfg, ledger.outputs))
 	var untrackErr error
 	if untrack && len(trackedIgnored) > 0 {
@@ -1203,7 +1203,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	}
 	ledger.specFileSums = prev.SpecFileSums
 	if len(out.Errors) == 0 {
-		ledger.specFileSums = syncedSpecFileSums(root, prev.SpecFileSums, b, effectiveTargets)
+		ledger.specFileSums = syncedSpecFileSums(root, prev.SpecFileSums, b, effectiveTargets, cfg.Targets)
 	}
 	ledger.backups = syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups))
 	ledger.listed = carriedListed(prev)
