@@ -16,10 +16,10 @@ AI tools store instructions in different files. Keeping those files by hand make
 Paste this into Claude Code, Codex, Cursor, or another coding agent:
 
 ```text
-Set up agnostic-ai in this repository. Follow https://agnostic-ai.org/agent-setup.txt exactly. Preserve existing AI tool behavior, import native configuration before syncing, and finish with agnostic-ai sync --check. Summarize the targets selected and every file changed.
+Set up agnostic-ai in this repository. Follow https://agnostic-ai.org/agent-setup.txt exactly. Preserve existing AI tool behavior. Before any sync, check for existing CLAUDE.md, AGENTS.md, and similar files, and ask me what to do with their content. Finish with agnostic-ai sync --check. Summarize the targets selected and every file changed.
 ```
 
-The [agent setup guide](https://agnostic-ai.org/docs/agent-setup/) explains each step.
+It takes about two minutes. The [agent setup guide](https://agnostic-ai.org/docs/agent-setup/) is the checklist the agent follows.
 
 ## Set up manually
 

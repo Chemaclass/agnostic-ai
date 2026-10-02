@@ -563,6 +563,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		"TL;DR · Paste into your coding agent",
 		`data-copy aria-label="Copy agent setup prompt"`,
 		"Follow https://agnostic-ai.org/agent-setup.txt exactly.",
+		"You do not need to read the rest of this page",
 	} {
 		if !strings.Contains(normalizedAgentSetupGuide, required) {
 			t.Errorf("agent setup guide is missing quick handoff %q", required)
@@ -885,7 +886,8 @@ func TestSiteDocs_BuildsPlainTextAgentEntryPoints(t *testing.T) {
 	fullDocs := readBuiltFile(t, filepath.Join(outputDir, "llms-full.txt"))
 	for _, required := range []string{
 		"# Set up agnostic-ai with a coding agent",
-		"## Safety contract",
+		"## What the agent does",
+		"### Safety contract",
 		"agnostic-ai init --from all",
 		"agnostic-ai sync --check",
 		"https://agnostic-ai.org/docs/installation/",
@@ -893,6 +895,9 @@ func TestSiteDocs_BuildsPlainTextAgentEntryPoints(t *testing.T) {
 		if !strings.Contains(agentSetup, required) {
 			t.Errorf("agent-setup.txt is missing %q", required)
 		}
+	}
+	if strings.Contains(agentSetup, "You do not need to read the rest") {
+		t.Error("agent-setup.txt carries the line meant for the person")
 	}
 	if !strings.Contains(fullDocs, "# Set up agnostic-ai with a coding agent") {
 		t.Error("llms-full.txt does not include the agent setup guide")

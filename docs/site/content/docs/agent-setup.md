@@ -1,6 +1,6 @@
 +++
 title = "Set up agnostic-ai with a coding agent"
-description = "A safe workflow for a coding agent to set up agnostic-ai in any repository."
+description = "Paste one prompt into your coding agent, and it sets agnostic-ai up in about two minutes."
 weight = 15
 
 [extra]
@@ -9,21 +9,24 @@ group = "Start"
 
 # Set up agnostic-ai with a coding agent
 
-Follow this when a user asks you to install or configure agnostic-ai in a repository. Preserve existing AI tool behavior, make `.agnostic-ai/` the source of truth, and leave the project with a clean validation result.
-
 {{ <agent_setup_prompt /> }}
 
-## Safety contract
+## What the agent does
+
+Follow this when a user asks you to install or configure agnostic-ai in a repository. Preserve existing AI tool behavior, make `.agnostic-ai/` the source of truth, and leave the project with a clean validation result.
+
+### Safety contract
 
 - Work from the repository root. Read its contributor and agent instructions first.
 - Check `git status --short`. Preserve unrelated work and never discard user changes.
 - Inspect `agnostic-ai.yaml`, `.agnostic-ai/`, and the native configuration for tools the project already uses.
+- Look for existing instructions files such as `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md` first. Tell the user what they hold and ask whether to import their content before any sync.
 - Import existing native configuration before the first sync. Sync is an output operation, not a migration shortcut.
 - Enable only the targets the project uses or the user requests. Never select every target by default.
 - Preview changes before writing. Stop on an ownership or overwrite error and explain the conflicting path.
 - Treat `.agnostic-ai/` as canonical after setup. Native target files are generated outputs.
 
-## 1. Install or verify the CLI
+### 1. Install or verify the CLI
 
 Start with:
 
@@ -47,7 +50,7 @@ irm https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/instal
 
 Run `agnostic-ai --version` again. If the shell cannot find the binary, add the installer destination to `PATH`. See [Installation](@/docs/installation.md) for pinned versions and other methods.
 
-## 2. Detect the project state
+### 2. Detect the project state
 
 Choose one path:
 
@@ -57,7 +60,7 @@ Choose one path:
 
 When target choice is ambiguous, ask the user. Do not infer that every installed CLI belongs in this repository.
 
-## 3. Initialize safely
+### 3. Initialize safely
 
 Ask the user whether Git should track the generated files, and pass the answer as `--gitignore=on` or `--gitignore=off`. Ignoring them keeps Git to the specs (`.agnostic-ai/` and `agnostic-ai.yaml`), but every teammate must install agnostic-ai and run `agnostic-ai sync` after cloning. Committing them lets a clone work without the tool, with `agnostic-ai sync --check` in CI to keep them current.
 
@@ -77,7 +80,7 @@ printf '%s\n' 'claude,codex' | agnostic-ai init --gitignore=on
 
 Do not use `--demo` in a real repository unless the user asks for example specs. Add project rules only from conventions already in the repository or supplied by the user. See [Getting started](@/docs/getting-started.md) for the spec workflow and [Migration](@/docs/migration.md) for import behavior.
 
-## 4. Validate and preview
+### 4. Validate and preview
 
 Run these commands in order:
 
@@ -89,7 +92,7 @@ agnostic-ai sync --dry-run
 
 Confirm the preview's targets, output paths, and preserved instructions match the project. Fix validation errors in the canonical specs. Do not silence unsupported-capability warnings until you understand their effect.
 
-## 5. Sync and prove the result
+### 5. Sync and prove the result
 
 ```bash
 agnostic-ai sync
@@ -104,6 +107,7 @@ Finish by reporting:
 
 - the agnostic-ai version and install method;
 - selected targets and imported sources;
+- what each tool now reads from `.agnostic-ai/`, as the first `agnostic-ai sync` lists it;
 - canonical files created or changed under `.agnostic-ai/`;
 - generated outputs and whether Git tracks them;
 - the results of `validate`, `lint`, and `sync --check`;
