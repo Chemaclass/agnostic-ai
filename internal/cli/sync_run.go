@@ -82,7 +82,9 @@ type syncStateFile struct {
 	// Listed names the targets a sync has shown what they read. A project
 	// whose first sync covered only some targets lists the others once
 	// later; a project synced before this field lists none.
-	Listed []string `json:"listed,omitempty"`
+	// Written even when empty, so an empty list stays apart from a
+	// ledger older than the field.
+	Listed []string `json:"listed"`
 	// PendingImports lists the tools `use` added to targets before their
 	// own config was imported. A sync waits until `use` finishes them, so
 	// it never writes over native config nothing has imported.
@@ -773,9 +775,9 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	}
 	ledger.backups = syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups))
 	toList := unlistedTargets(prev, intersect(effectiveTargets, emitted))
-	ledger.listed = prev.Listed
-	if verbosity >= levelDefault {
-		ledger.listed = append(slices.Clone(prev.Listed), toList...)
+	ledger.listed = carriedListed(prev)
+	if verbosity >= levelDefault && len(toList) > 0 {
+		ledger.listed = append(slices.Clone(ledger.listed), toList...)
 	}
 	if err := writeStateFile(root, report.filesChanged(), digest, notesDigest, ledger); err != nil {
 		fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
@@ -805,6 +807,18 @@ func unlistedTargets(prev syncStateFile, targets []string) []string {
 		}
 	}
 	return out
+}
+
+// carriedListed is the listed set a sync keeps when it shows nothing: an
+// older ledger stays older, and any other starts as an empty list.
+func carriedListed(prev syncStateFile) []string {
+	if prev.Listed == nil && len(prev.Outputs) > 0 {
+		return nil
+	}
+	if prev.Listed == nil {
+		return []string{}
+	}
+	return prev.Listed
 }
 
 // unmanagedSkips merges the user-owned paths every session refused to
@@ -1161,6 +1175,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 		ledger.specSums = specSums(cfg, b)
 	}
 	ledger.backups = syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups))
+	ledger.listed = carriedListed(prev)
 	if err := writeStateFile(root, len(out.Writes), prev.WarningsDigest, prev.NotesDigest, ledger); err != nil {
 		fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 	}

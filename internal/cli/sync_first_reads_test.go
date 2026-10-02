@@ -169,3 +169,47 @@ func TestUse_ListsAnAddedToolOnce(t *testing.T) {
 		t.Errorf("claude was listed again:\n%s", log.String())
 	}
 }
+
+// A first sync that shows nothing, quiet or JSON, leaves the list for a
+// later one.
+func TestSync_AQuietOrJSONFirstSyncLeavesTheListForLater(t *testing.T) {
+	for name, args := range map[string][]string{"quiet": {"sync", "--quiet"}, "json": {"sync", "--json"}} {
+		t.Run(name, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			isolateGit(t)
+			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+			if out, err := runCLI(t, args...); err != nil {
+				t.Fatalf("%v: %v\n%s", args, err, out)
+			}
+			log := captureLog(t)
+
+			if out, err := runCLI(t, "sync"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+			if !strings.Contains(log.String(), "codex now reads") {
+				t.Errorf("the later sync did not list codex:\n%s", log.String())
+			}
+		})
+	}
+}
+
+// A JSON sync between two plain ones keeps what was listed.
+func TestSync_AJSONSyncKeepsTheListedTools(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	isolateGit(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	for _, args := range [][]string{{"sync"}, {"sync", "--json"}} {
+		if out, err := runCLI(t, args...); err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, out)
+		}
+	}
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex, claude]\n")
+	log := captureLog(t)
+
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if !strings.Contains(log.String(), "claude now reads") || strings.Contains(log.String(), "codex now reads") {
+		t.Errorf("want claude listed and codex not:\n%s", log.String())
+	}
+}

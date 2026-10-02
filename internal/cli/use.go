@@ -64,7 +64,7 @@ func newUseCmd() *cobra.Command {
 			added = slices.DeleteFunc(added, func(t string) bool {
 				return slices.Contains(listedNow, t) && !slices.Contains(listedBefore, t)
 			})
-			if len(added) == 0 {
+			if len(added) == 0 || verbosity < levelDefault {
 				return nil
 			}
 			cfg, b, err := loadProject(".")
