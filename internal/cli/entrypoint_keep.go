@@ -34,29 +34,49 @@ func keepHandWrittenInstructions(cfg *config.Config, b spec.Bundle, targets, led
 	if err != nil {
 		return err
 	}
+	// Personal text in the local layer reaches the same files, so it is
+	// held too, and import must not copy it into the shared body.
+	held := captured
+	local, err := adapters.ReadLocalInstructions()
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(local) != "" {
+		held += "\n\n" + local
+	}
 	var lines []string
 	for _, f := range files {
 		if cfg.IsUnmanaged(f.Path) || slices.Contains(ledgered, filepath.ToSlash(f.Path)) {
 			continue
 		}
-		uncaptured, err := handWrittenUncaptured(f.Path, captured)
+		uncaptured, err := handWrittenUncaptured(f.Path, held)
 		if err != nil {
 			return fmt.Errorf("%w; nothing was written", err)
 		}
 		if !uncaptured {
 			continue
 		}
-		source := f.Path
-		if len(f.Readers) > 0 {
-			source = f.Readers[0]
-		}
-		lines = append(lines, fmt.Sprintf("%s holds instructions agnostic-ai did not write, and %s does not have them.\n  keep them:    agnostic-ai import %s\n  replace them: move %s away, then run agnostic-ai sync",
-			f.Path, adapters.AgnosticEntryPointPath, source, f.Path))
+		lines = append(lines, fmt.Sprintf("%s holds instructions agnostic-ai did not write, and %s does not have them.\n  keep them:    agnostic-ai import %s\n  replace them: agnostic-ai sync --backup, which keeps the file as %s.bak",
+			f.Path, adapters.AgnosticEntryPointPath, importSourceFor(f), f.Path))
 	}
 	if len(lines) == 0 {
 		return nil
 	}
 	return fmt.Errorf("%s\nnothing was written", strings.Join(lines, "\n"))
+}
+
+// importSourceFor names an import source that reads f: its first reader
+// with an importer, else codex for the root AGENTS.md, which it reads.
+func importSourceFor(f entryPointFile) string {
+	for _, r := range f.Readers {
+		if _, rulesDir := rulesDirImporters[r]; rulesDir || slices.Contains(importSourceNames, r) {
+			return r
+		}
+	}
+	if filepath.ToSlash(f.Path) == claudeAgentsMainFile {
+		return "codex"
+	}
+	return "all"
 }
 
 // handWrittenUncaptured reports whether path holds hand-written text,
@@ -84,4 +104,18 @@ func handWrittenUncaptured(path, captured string) (bool, error) {
 	}
 	_, missing, _ := foldText(captured, captured, body)
 	return len(missing) > 0, nil
+}
+
+// checkHandWrittenInstructions runs keepHandWrittenInstructions for a
+// preview (--check, --plan, --json --dry-run), so it agrees with the sync
+// it previews.
+func checkHandWrittenInstructions(targets []string) error {
+	cfg, b, err := loadProject(".")
+	if err != nil {
+		return err
+	}
+	if len(targets) == 0 {
+		targets = cfg.Targets
+	}
+	return keepHandWrittenInstructions(cfg, b, targets, readStateFile(".").Outputs)
 }

@@ -45,3 +45,42 @@ func TestSync_WritesAnInstructionsFileOnceImported(t *testing.T) {
 		t.Errorf("CLAUDE.md lost the imported text:\n%s", got)
 	}
 }
+
+// The previews stop the same way the sync they preview does.
+func TestSyncPreviews_StopOnAHandWrittenInstructionsFile(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, "CLAUDE.md", handWrittenClaude)
+
+	for _, args := range [][]string{{"sync", "--check"}, {"sync", "--plan"}, {"sync", "--json", "--dry-run"}} {
+		if _, err := runCLI(t, args...); err == nil || !strings.Contains(err.Error(), "agnostic-ai import claude") {
+			t.Errorf("%s: err = %v, want the import step", strings.Join(args, " "), err)
+		}
+	}
+}
+
+// Personal text the local layer holds reaches CLAUDE.md, so it is not
+// lost, and importing would copy it into the shared body.
+func TestSync_LocalLayerTextCountsAsHeld(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "## Shared\n\nShared text.\n")
+	mustWriteFile(t, ".agnostic-ai/local/AGNOSTIC_AI.md", "## Mine\n\nMy text.\n")
+	mustWriteFile(t, "CLAUDE.md", "## Shared\n\nShared text.\n\n## Mine\n\nMy text.\n")
+
+	runSyncOK(t)
+}
+
+// --backup replaces the file and keeps it, the way out after trimming
+// what import captured.
+func TestSync_BackupReplacesAHandWrittenFileAndKeepsIt(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, "CLAUDE.md", handWrittenClaude)
+
+	runSyncOK(t, "--backup")
+
+	if got := readFile(t, "CLAUDE.md.bak"); got != handWrittenClaude {
+		t.Errorf("CLAUDE.md.bak = %q, want the hand-written file", got)
+	}
+}
