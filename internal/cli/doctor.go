@@ -25,6 +25,18 @@ var knownCLIBinaries = map[string]string{
 	"opencode": "opencode",
 }
 
+// installedCLITargets returns the targets whose binary is on PATH, in
+// canonical order.
+func installedCLITargets() []string {
+	found := map[string]bool{}
+	for target, bin := range knownCLIBinaries {
+		if _, err := exec.LookPath(bin); err == nil {
+			found[target] = true
+		}
+	}
+	return filterToCanonicalOrder(found)
+}
+
 // reportInstalledCLIs prints which known AI CLI tools are present on PATH.
 func reportInstalledCLIs(cmd *cobra.Command) {
 	cmd.Println()

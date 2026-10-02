@@ -125,7 +125,7 @@ Per run:
 agnostic-ai sync -t claude,cursor,copilot
 ```
 
-The flag overrides config. Unknown targets log a warning and are skipped. Five targets are opt-in; `-t amp,warp,jules,goose,augment` enables them for one run. The [default set](@/docs/configuration.md#targets) lists them, and [`init`](@/docs/cli-reference/start.md#init) pre-ticks the tools it detects.
+The flag overrides config. Unknown targets log a warning and are skipped. Five targets are opt-in; `-t amp,warp,jules,goose,augment` enables them for one run. The [default set](@/docs/configuration.md#targets) lists them, and [`init`](@/docs/cli-reference/start.md#init) pre-ticks the tools it detects, else the CLIs on `PATH`, else `claude` and `codex`.
 
 ## New targets
 

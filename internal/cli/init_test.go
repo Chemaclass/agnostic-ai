@@ -574,13 +574,15 @@ func TestInitCmd_PipedEmptyFallsBackToDefaults(t *testing.T) {
 	testutil.Chdir(t, dir)
 	silence(t)
 
+	fakePATH(t)
+
 	root := NewRootCmd("test")
 	root.SetIn(strings.NewReader("\n"))
 	root.SetArgs([]string{"init"})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if got, want := configuredTargets(t, dir), config.DefaultTargets(); !slices.Equal(got, want) {
+	if got, want := configuredTargets(t, dir), []string{"claude", "codex"}; !slices.Equal(got, want) {
 		t.Errorf("empty piped line must fall back to the default targets\ngot  %v\nwant %v", got, want)
 	}
 }
@@ -612,6 +614,7 @@ func TestInitCmd_NoTTYNoPipe_EmptyRepoEnablesDefaultTargets(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	silence(t)
+	fakePATH(t)
 
 	stderr := &bytes.Buffer{}
 	root := NewRootCmd("test")
@@ -621,18 +624,12 @@ func TestInitCmd_NoTTYNoPipe_EmptyRepoEnablesDefaultTargets(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	got := configuredTargets(t, dir)
-	if want := config.DefaultTargets(); !slices.Equal(got, want) {
-		t.Errorf("non-interactive init must enable the default targets, not all\ngot  %v\nwant %v", got, want)
-	}
-	for _, colliding := range []string{"amp", "warp"} {
-		if slices.Contains(got, colliding) {
-			t.Errorf("%s collides with codex on AGENTS.md and must not be enabled by default: %v", colliding, got)
-		}
+	if got, want := configuredTargets(t, dir), []string{"claude", "codex"}; !slices.Equal(got, want) {
+		t.Errorf("non-interactive init must enable claude and codex, not all\ngot  %v\nwant %v", got, want)
 	}
 	msg := stderr.String()
 	for _, want := range []string{
-		"no target list piped; enabled 20 default targets: claude, codex,",
+		"no target list piped; enabled 2 default targets: claude, codex",
 		`(pass --all, or pipe "claude,codex")`,
 	} {
 		if !strings.Contains(msg, want) {
@@ -903,18 +900,18 @@ func TestFallbackInitTargets_QuietPrintsNothing(t *testing.T) {
 	verbosity = levelQuiet
 	t.Cleanup(func() { verbosity = prev })
 	var buf bytes.Buffer
-	got := fallbackInitTargets(&buf, nil)
+	got := fallbackInitTargets(&buf, []string{"claude", "codex"}, "default")
 	if buf.Len() != 0 {
 		t.Errorf("--quiet must print nothing, got %q", buf.String())
 	}
-	if len(got) != len(config.DefaultTargets()) {
+	if !slices.Equal(got, []string{"claude", "codex"}) {
 		t.Errorf("quiet must not change the choice: got %v", got)
 	}
 }
 
 func TestFallbackInitTargets_SingularForOneTarget(t *testing.T) {
 	var buf bytes.Buffer
-	fallbackInitTargets(&buf, []string{"claude"})
+	fallbackInitTargets(&buf, []string{"claude"}, "detected")
 	if want := "enabled 1 detected target: claude"; !strings.Contains(buf.String(), want) {
 		t.Errorf("want %q, got %q", want, buf.String())
 	}

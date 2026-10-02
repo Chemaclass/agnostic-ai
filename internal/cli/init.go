@@ -4,9 +4,11 @@ import (
 	"embed"
 	"fmt"
 	"io"
+	"path/filepath"
 	"slices"
 	"strings"
 
+	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -37,8 +39,9 @@ func newInitCmd() *cobra.Command {
 			"and whether to keep a managed .gitignore block of every emitted target path (default yes); " +
 			"pipe a comma-separated list to skip the target prompt, or pass --all / -a " +
 			"to skip both prompts and enable every supported target. " +
-			"With no terminal and nothing piped, init enables the CLIs it detects in the project, " +
-			"or the default target set when it detects none, and prints which it picked. " +
+			"The prompt starts with the CLIs the project already uses ticked, else the CLIs found on PATH, " +
+			"else claude and codex. With no terminal and nothing piped, init enables that same set and prints which it picked. " +
+			"In a terminal, when the project has existing tool config, init offers to import it as --from all does. " +
 			"The managed .gitignore block is on by default; pass --gitignore=off to commit generated outputs instead. " +
 			"Pass --demo to seed example specs: a minimal one per source folder, plus the memory-curator skill. " +
 			"Pass --preset <name> to seed idiomatic specs for a stack (go, ts-react, python). " +
@@ -111,19 +114,25 @@ func newInitCmd() *cobra.Command {
 			}
 			targets := allTargetNames()
 			if !all {
-				detected := detectExistingTargets(".")
-				picked, err := selectTargetsForSync(cmd.InOrStdin(), cmd.ErrOrStderr(), detected)
+				defaults, kind := initDefaultTargets(".")
+				picked, err := selectTargetsForSync(cmd.InOrStdin(), cmd.ErrOrStderr(), defaults)
 				if err != nil {
 					return err
 				}
 				targets = picked
 				if len(targets) == 0 {
-					targets = fallbackInitTargets(cmd.ErrOrStderr(), detected)
+					targets = fallbackInitTargets(cmd.ErrOrStderr(), defaults, kind)
 				}
 			}
 			gitignoreEnabled, gitignoreDefaulted, err := resolveGitignoreChoice(cmd, all, bool(gitignore))
 			if err != nil {
 				return err
+			}
+			if fromCLI == "" && !all && !dryRun {
+				fromCLI, err = offerExistingImport(".", stdinIsTerminal(cmd.InOrStdin()), promptImportExisting)
+				if err != nil {
+					return err
+				}
 			}
 			opts := scaffoldOptions{
 				Root:             ".",
@@ -190,18 +199,28 @@ func newInitCmd() *cobra.Command {
 	return cmd
 }
 
-// fallbackInitTargets picks the targets for an init that got no
-// selection: stdin is not a terminal and nothing was piped. The CLIs the
-// project already uses win; otherwise config.DefaultTargets(). Never
-// every target: amp and warp collide with codex on AGENTS.md, and
-// --all is the explicit opt-in for that. One stderr line names the
-// choice so a CI log shows what was enabled and how to change it. A
-// root AGENTS.md adds a hint to enable codex, which owns that file.
-func fallbackInitTargets(stderr io.Writer, detected []string) []string {
-	targets, kind := detected, "detected"
-	if len(targets) == 0 {
-		targets, kind = config.DefaultTargets(), "default"
+// initDefaultTargets picks the targets init starts from when the user
+// names none: the CLIs the project already uses, else the CLIs found on
+// PATH, else claude and codex. kind names the tier for the notice. The
+// terminal picker pre-ticks this set and the non-terminal path enables
+// it, so both start from the same choice.
+func initDefaultTargets(root string) (targets []string, kind string) {
+	if detected := detectExistingTargets(root); len(detected) > 0 {
+		return detected, "detected"
 	}
+	if installed := installedCLITargets(); len(installed) > 0 {
+		return installed, "installed"
+	}
+	return []string{"claude", "codex"}, "default"
+}
+
+// fallbackInitTargets returns the initDefaultTargets choice for an init
+// that got no selection: stdin is not a terminal and nothing was piped.
+// Never every target: --all is the explicit opt-in for that. One stderr
+// line names the choice so a CI log shows what was enabled and how to
+// change it. A root AGENTS.md adds a hint to enable codex, which owns
+// that file.
+func fallbackInitTargets(stderr io.Writer, targets []string, kind string) []string {
 	if verbosity < levelDefault {
 		return targets // --quiet: errors only
 	}
@@ -217,6 +236,44 @@ func fallbackInitTargets(stderr io.Writer, detected []string) []string {
 			claudeAgentsMainFile, strings.Join(append(slices.Clone(targets), "codex"), ","))
 	}
 	return targets
+}
+
+// offerExistingImport returns "all" when the user agrees to import the
+// tool config the project already has, as init --from all does. Without
+// a terminal it never imports: the scaffold summary lists the import
+// commands instead, so a CI run does not copy config nobody reviewed.
+func offerExistingImport(root string, terminal bool, confirm func(sources []string) (bool, error)) (string, error) {
+	if !terminal {
+		return "", nil
+	}
+	sources, _ := detectImportSources(root)
+	if len(sources) == 0 && regularFileInside(root, filepath.Join(root, claudeAgentsMainFile)) {
+		sources = []string{claudeAgentsMainFile}
+	}
+	if len(sources) == 0 {
+		return "", nil
+	}
+	ok, err := confirm(sources)
+	if err != nil || !ok {
+		return "", err
+	}
+	return "all", nil
+}
+
+// promptImportExisting asks whether init should import the config it
+// found, defaulting to yes.
+func promptImportExisting(sources []string) (bool, error) {
+	picked := true
+	form := huh.NewConfirm().
+		Title("Import existing config from " + strings.Join(sources, ", ") + "?").
+		Description("Same as agnostic-ai init --from all: copies it into specs under the source folders.").
+		Affirmative("Import").
+		Negative("Skip").
+		Value(&picked)
+	if err := form.Run(); err != nil {
+		return false, err
+	}
+	return picked, nil
 }
 
 // resolveGitignoreChoice picks the effective gitignore.enabled value
