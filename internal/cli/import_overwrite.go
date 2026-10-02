@@ -142,11 +142,12 @@ func alreadyRead(rec specFileSum, ok bool, before []byte, sources []string) bool
 // already in what the writing sources read. It sets e.heldBy to the
 // tools the current bytes came from or went to, for the stop message.
 func replacesSpec(e *importPreviewEntry, specDirs []string, sums map[string]specFileSum) bool {
+	key := specPathKey(e.path)
 	if !e.existed || !e.replaced || bytes.Equal(e.before, e.after) ||
-		e.path == agnosticMainFile || !underAny(e.path, specDirs) {
+		key == agnosticMainFile || !underAny(key, specDirs) {
 		return false
 	}
-	rec, ok := sums[e.path]
+	rec, ok := sums[key]
 	if ok && rec.Sum == sha256Hex(e.before) {
 		e.heldBy = rec.By + ":" + strings.Join(rec.holders(), ", ")
 	}
@@ -165,21 +166,49 @@ func (p importPreview) overwrites() []importPreviewEntry {
 	return out
 }
 
-// importSpecDirs lists the spec directories of the project at root,
-// slash-form and relative to it: the source base and every configured
-// source directory.
+// importSpecDirs lists the spec directories of the project at root, the
+// working directory, as specPathKey names them: the source base and
+// every configured source directory.
 func importSpecDirs(root string) []string {
-	dirs := []string{config.SourceBaseDir}
+	dirs := []string{specPathKey(filepath.Join(root, config.SourceBaseDir))}
 	cfg, err := config.Load(root)
 	if err != nil {
 		return dirs
 	}
 	for _, d := range sourceDirsByKind(cfg.Sources) {
-		if d != "" && !filepath.IsAbs(d) {
-			dirs = append(dirs, filepath.ToSlash(filepath.Clean(d)))
+		switch {
+		case d == "":
+		case filepath.IsAbs(d):
+			dirs = append(dirs, specPathKey(d))
+		default:
+			dirs = append(dirs, specPathKey(filepath.Join(root, d)))
 		}
 	}
 	return dirs
+}
+
+// specPathKey names path the one way import compares spec paths: slash
+// form, relative to the working directory when inside it, and absolute
+// otherwise, so a source directory configured as an absolute path
+// matches the writes into it.
+func specPathKey(path string) string {
+	abs, err := filepath.Abs(filepath.FromSlash(path))
+	if err != nil {
+		return filepath.ToSlash(filepath.Clean(path))
+	}
+	if real, err := filepath.EvalSymlinks(filepath.Dir(abs)); err == nil {
+		abs = filepath.Join(real, filepath.Base(abs))
+	}
+	wd, err := os.Getwd()
+	if err == nil {
+		if real, err := filepath.EvalSymlinks(wd); err == nil {
+			wd = real
+		}
+		if rel, err := filepath.Rel(wd, abs); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return filepath.ToSlash(rel)
+		}
+	}
+	return filepath.ToSlash(abs)
 }
 
 // underAny reports whether the slash-form path lies inside one of dirs.
@@ -318,21 +347,22 @@ func recordImportedSpecFiles(root string, entries []importPreviewEntry, specDirs
 	}
 	changed := false
 	for _, e := range entries {
-		if !underAny(e.path, specDirs) {
+		key := specPathKey(e.path)
+		if !underAny(key, specDirs) {
 			continue
 		}
 		if state.SpecFileSums == nil {
 			state.SpecFileSums = map[string]specFileSum{}
 		}
 		if e.after == nil {
-			delete(state.SpecFileSums, e.path)
+			delete(state.SpecFileSums, key)
 			changed = true
 			continue
 		}
 		sum := sha256Hex(e.after)
-		rec, ok := state.SpecFileSums[e.path]
+		rec, ok := state.SpecFileSums[key]
 		if !ok || rec.Sum != sum {
-			state.SpecFileSums[e.path] = specFileSum{Sum: sum, By: specSumByImport, Sources: slices.Sorted(slices.Values(e.sources))}
+			state.SpecFileSums[key] = specFileSum{Sum: sum, By: specSumByImport, Sources: slices.Sorted(slices.Values(e.sources))}
 			changed = true
 			continue
 		}
@@ -353,7 +383,7 @@ func recordImportedSpecFiles(root string, entries []importPreviewEntry, specDirs
 		} else {
 			rec.Targets = holders
 		}
-		state.SpecFileSums[e.path] = rec
+		state.SpecFileSums[key] = rec
 		changed = true
 	}
 	if !changed {

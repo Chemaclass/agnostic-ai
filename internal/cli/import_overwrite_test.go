@@ -590,3 +590,25 @@ func TestWithHeldOutput_ReleaseRestoresStderrAndRemovesHeldFiles(t *testing.T) {
 		}
 	}
 }
+
+// A source directory configured as an absolute path is guarded like a
+// relative one: the directory and a write into it compare as one key.
+func TestReplacesSpec_GuardsAnAbsoluteSourceDir(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	skills := filepath.Join(dir, "specs", "skills")
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  skills: "+filepath.ToSlash(skills)+"\n")
+	spec := filepath.Join(skills, "review", "SKILL.md")
+	mustWriteFile(t, spec, handSkill)
+
+	for _, path := range []string{spec, "specs/skills/review/SKILL.md"} {
+		e := importPreviewEntry{
+			path: filepath.ToSlash(path), existed: true, replaced: true,
+			before: []byte(handSkill), after: []byte(nativeSkill), sources: []string{"claude"},
+		}
+		if !replacesSpec(&e, importSpecDirs("."), nil) {
+			t.Errorf("%s: a write into the absolute source dir does not count as replacing a spec", path)
+		}
+	}
+}
