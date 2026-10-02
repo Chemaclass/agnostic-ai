@@ -13,6 +13,8 @@ group = "Reference"
 
 List every output file and section that one spec contributes to. This is the reverse of the `<!-- source: ... -->` markers in merged documents. With `--file`, list the instructions configured for one source file instead.
 
+Given an [error code](@/docs/errors.md) such as `AAI-003` or a [lint code](@/docs/cli-reference/check.md#lint) such as `LINT011`, it prints the code's cause and fix. A lint code also shows its severity and any `lint` config key that tunes it; `--json` adds `severity` and `config` fields.
+
 ```bash
 agnostic-ai explain rules/conventional-commits.md --json
 ```
