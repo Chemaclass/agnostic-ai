@@ -156,7 +156,7 @@ These stay literal: exec-form `args`, escaped dollars, and single-quoted variabl
 
 These get a note naming the hook when the target cannot preserve them:
 
-- parameter operators such as `${CLAUDE_PROJECT_DIR:-fallback}` and `${#CLAUDE_PROJECT_DIR}`
+- parameter operators such as `${CLAUDE_PROJECT_DIR:-fallback}` and <code>${&#35;CLAUDE_PROJECT_DIR}</code>
 - nested substitutions and here-documents
 - non-POSIX root syntax
 - a project without a Git worktree
