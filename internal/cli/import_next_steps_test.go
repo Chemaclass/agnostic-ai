@@ -14,7 +14,7 @@ func TestPrintImportNextSteps_PrintsSyncBlock(t *testing.T) {
 	out := buf.String()
 	for _, want := range []string{
 		"next steps:",
-		"agnostic-ai sync --check",
+		"agnostic-ai sync --plan",
 		"agnostic-ai sync",
 	} {
 		if !strings.Contains(out, want) {

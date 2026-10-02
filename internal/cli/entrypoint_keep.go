@@ -39,26 +39,11 @@ func keepHandWrittenInstructions(cfg *config.Config, b spec.Bundle, targets, led
 		if cfg.IsUnmanaged(f.Path) || slices.Contains(ledgered, filepath.ToSlash(f.Path)) {
 			continue
 		}
-		data, err := os.ReadFile(f.Path)
-		if errors.Is(err, fs.ErrNotExist) {
-			continue
-		}
+		uncaptured, err := handWrittenUncaptured(f.Path, captured)
 		if err != nil {
-			return fmt.Errorf("%s: %w; nothing was written", f.Path, err)
+			return fmt.Errorf("%w; nothing was written", err)
 		}
-		if strings.TrimSpace(string(data)) == "" || header.Has(string(data)) {
-			continue
-		}
-		body := uncapturedEntryBody(".", f.Path, captured, string(data))
-		// A CLAUDE.md that pulls AGENTS.md in with @AGENTS.md adds only
-		// what follows that line.
-		if rest, ok := adapters.SplitAgentsCompanion(body); ok {
-			body = rest
-		}
-		if strings.TrimSpace(body) == "" {
-			continue
-		}
-		if _, missing, _ := foldText(captured, captured, body); len(missing) == 0 {
+		if !uncaptured {
 			continue
 		}
 		source := f.Path
@@ -72,4 +57,31 @@ func keepHandWrittenInstructions(cfg *config.Config, b spec.Bundle, targets, led
 		return nil
 	}
 	return fmt.Errorf("%s\nnothing was written", strings.Join(lines, "\n"))
+}
+
+// handWrittenUncaptured reports whether path holds hand-written text,
+// without the generated header, whose sections captured, the
+// AGNOSTIC_AI.md body, does not hold. A missing file holds none.
+func handWrittenUncaptured(path, captured string) (bool, error) {
+	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("%s: %w", path, err)
+	}
+	if strings.TrimSpace(string(data)) == "" || header.Has(string(data)) {
+		return false, nil
+	}
+	body := uncapturedEntryBody(".", path, captured, string(data))
+	// A CLAUDE.md that pulls AGENTS.md in with @AGENTS.md adds only
+	// what follows that line.
+	if rest, ok := adapters.SplitAgentsCompanion(body); ok {
+		body = rest
+	}
+	if strings.TrimSpace(body) == "" {
+		return false, nil
+	}
+	_, missing, _ := foldText(captured, captured, body)
+	return len(missing) > 0, nil
 }

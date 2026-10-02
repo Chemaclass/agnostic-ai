@@ -12,7 +12,9 @@ group = "Start"
 
 Create one rule and sync it to Claude Code and Cursor. The explicit targets keep the commands working in a non-interactive shell.
 
-Already have `CLAUDE.md`, `AGENTS.md`, or tool-specific configuration? Follow [Migration](@/docs/migration.md) before syncing.
+Already use one tool and want another? One command keeps what you have and sets up the rest, for example `agnostic-ai use codex`. See [use](@/docs/cli-reference/start.md#use).
+
+Already have `CLAUDE.md`, `AGENTS.md`, or tool-specific configuration and want more control? Follow [Migration](@/docs/migration.md) before syncing.
 
 ## Install
 

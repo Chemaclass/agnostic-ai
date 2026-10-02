@@ -95,6 +95,7 @@ func NewRootCmd(version string) *cobra.Command {
 		newGraphCmd(),
 		newLSPCmd(),
 		newUpgradeCmd(),
+		newUseCmd(),
 	)
 	root.InitDefaultCompletionCmd()
 	profileEachRun(root, &profilePath)

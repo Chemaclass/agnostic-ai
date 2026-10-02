@@ -9,6 +9,30 @@ group = "Reference"
 
 # Start a project
 
+## use
+
+Start using an AI tool with what the project already has, in one step:
+
+```bash
+agnostic-ai use codex                  # switching to Codex this month
+agnostic-ai use claude codex cursor    # a team on several tools
+```
+
+- In a project with no `agnostic-ai.yaml`, it creates one that enables the tools it detects plus the ones you name. It imports their instructions, skills, agents, hooks, and MCP servers into `.agnostic-ai/`, and asks about the `.gitignore` block as `init` does.
+- In an existing project, it adds each named tool to `targets` and first imports that tool's own config, such as a hand-written `AGENTS.md`, so the sync keeps it.
+
+It then syncs and shows what each added tool now reads:
+
+```
+✓ codex now reads, from .agnostic-ai/:
+    instructions     AGENTS.md
+    1 skill          .agents/skills/        review
+    1 MCP server     .codex/config.toml     github
+  edit .agnostic-ai/ and run agnostic-ai sync to change what every tool reads
+```
+
+A tool already in `targets` changes nothing. A mistyped name fails with the closest one. `use` only adds tools; remove one from `targets` by hand.
+
 ## init
 
 Scaffold a project: `agnostic-ai.yaml` and the managed `.gitignore` block. Errors if `agnostic-ai.yaml` exists. It creates only the source folders that `--demo` or `--preset` seed; `new` and `import` create the rest on first use.
