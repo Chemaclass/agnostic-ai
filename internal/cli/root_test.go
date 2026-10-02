@@ -153,3 +153,21 @@ func silence(t *testing.T) {
 	})
 	_ = io.Discard
 }
+
+func TestRoot_ResultsGoToStdout(t *testing.T) {
+	testutil.Chdir(t, setupFixture(t))
+
+	for _, args := range [][]string{{"list"}, {"status"}, {"validate"}} {
+		var stdout string
+		stderr := captureStderr(t, func() {
+			stdout = captureStdout(t, func() {
+				root := NewRootCmd("test")
+				root.SetArgs(args)
+				_ = root.Execute()
+			})
+		})
+		if stdout == "" {
+			t.Errorf("%v printed nothing to stdout; stderr: %q", args, stderr)
+		}
+	}
+}

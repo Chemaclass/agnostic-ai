@@ -40,6 +40,9 @@ func NewRootCmd(version string) *cobra.Command {
   # CI gate: fail when emitted files drift from specs
   agnostic-ai sync --check`,
 	}
+	// Cobra's cmd.Print* writes to stderr until an output is set, which hid
+	// every report from a pipe.
+	root.SetOut(os.Stdout)
 
 	var quiet bool
 	root.PersistentFlags().CountP("verbose", "v", "Increase output verbosity")
