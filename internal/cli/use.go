@@ -48,6 +48,7 @@ func newUseCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			listedBefore := readStateFile(".").Listed
 			// Always sync, a no-op when nothing changed, so a run that
 			// stopped halfway finishes on the next try.
 			if err := runSyncPass(".", nil, false, false, false, false, "", 0); err != nil {
@@ -55,6 +56,15 @@ func newUseCmd() *cobra.Command {
 			}
 			if len(added) == 0 {
 				summaryf("%s %s already in use; edit .agnostic-ai/ and run agnostic-ai sync to change what it reads\n", tick(), strings.Join(tools, ", "))
+				return nil
+			}
+			// The sync lists a tool the first time it writes for it, so use
+			// lists only the added tools it did not.
+			listedNow := readStateFile(".").Listed
+			added = slices.DeleteFunc(added, func(t string) bool {
+				return slices.Contains(listedNow, t) && !slices.Contains(listedBefore, t)
+			})
+			if len(added) == 0 || verbosity < levelDefault {
 				return nil
 			}
 			cfg, b, err := loadProject(".")
@@ -437,9 +447,16 @@ func printToolReads(w io.Writer, cfg *config.Config, b spec.Bundle, tools []stri
 				where[strings.ToLower(a.Label)] = a.Location
 			}
 		}
+		// A kind the adapter does not declare is skipped with a warning,
+		// so the tool does not read it. A plugin adapter declares none and
+		// gets the whole bundle.
+		var supports []spec.Kind
+		if a, err := adapters.Resolve(t); err == nil {
+			supports = a.Capabilities()
+		}
 		for _, kind := range []string{"Rules", "Skills", "Agents", "Commands", "Hooks", "MCP servers"} {
 			entries := entriesFor(mine, kind)
-			if len(entries) == 0 {
+			if len(entries) == 0 || supports != nil && !slices.Contains(supports, kindOf(kind)) {
 				continue
 			}
 			label := fmt.Sprintf("%d %s", len(entries), countLabel(kind, len(entries)))
@@ -459,6 +476,25 @@ func countLabel(label string, n int) string {
 		label = strings.TrimSuffix(label, "s")
 	}
 	return label
+}
+
+// kindOf returns the spec kind a native artifact label lists.
+func kindOf(label string) spec.Kind {
+	switch strings.ToLower(label) {
+	case "skills":
+		return spec.KindSkill
+	case "agents":
+		return spec.KindAgent
+	case "rules":
+		return spec.KindRule
+	case "commands":
+		return spec.KindCommand
+	case "hooks":
+		return spec.KindHook
+	case "mcp servers":
+		return spec.KindMCP
+	}
+	return ""
 }
 
 // entriesFor returns the specs a native artifact label lists.
