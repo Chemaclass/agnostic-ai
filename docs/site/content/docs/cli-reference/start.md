@@ -63,9 +63,17 @@ echo "claude,codex" | agnostic-ai init
 
 Without `--all`, `init` takes targets from a TTY prompt or from a comma-separated list on piped stdin. Unknown names error and write nothing.
 
-With no terminal and nothing piped (CI), it enables the tools it detects, else the [default set](@/docs/configuration.md#targets). It prints one line naming them. When a root `AGENTS.md` exists and `codex` is not in that set, a second line suggests enabling it, because Codex owns that file.
+The prompt starts with a default set ticked, so Enter accepts it. It shows `space to toggle, enter to confirm`. The default is the first of these that is not empty:
 
-The prompt and the [first-sync picker](@/docs/cli-reference/sync.md#first-sync-target-picker) pre-tick tools detected from a marker such as `.claude/`, a root `CLAUDE.md`, `.codex/`, `.gemini/`, `.cursor/`, or `.github/copilot-instructions.md`. A root `AGENTS.md` is not a marker, because most tools read it.
+1. Tools the project already uses, detected from a marker such as `.claude/`, a root `CLAUDE.md`, `.codex/`, `.gemini/`, `.cursor/`, or `.github/copilot-instructions.md`. A root `AGENTS.md` is not a marker, because most tools read it.
+2. Tools whose CLI is on `PATH`: the ones [`doctor install`](@/docs/cli-reference/check.md#doctor) reports.
+3. `claude` and `codex`.
+
+With no terminal and nothing piped (CI), or an empty piped line, `init` enables that same default and prints one line naming it. When a root `AGENTS.md` exists and `codex` is not in that set, a second line suggests enabling it, because Codex owns that file.
+
+In a terminal, when the project already has config a tool's importer reads, or a root `AGENTS.md`, plain `init` asks whether to import it, as `--from all` does. Without a terminal it does not import; the summary lists the `agnostic-ai import <tool>` commands instead. `--all` and `--dry-run` skip the question.
+
+The [first-sync picker](@/docs/cli-reference/sync.md#first-sync-target-picker) pre-ticks only detected tools.
 
 ## import
 
