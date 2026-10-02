@@ -195,19 +195,44 @@ type EnvRefReading struct {
 // Read turns each reference in this syntax, and in the extra forms of
 // r, back into the spec form.
 func (s EnvRefSyntax) Read(value string, r EnvRefReading) string {
+	return s.read(value, r, false)
+}
+
+// ReadLaunch is Read for an MCP `url` or `args` element. A reference to
+// a variable named like an editor variable, such as Cursor's
+// `${env:workspaceFolder}`, stays as written: read back, it would turn
+// into the editor variable.
+func (s EnvRefSyntax) ReadLaunch(value string, r EnvRefReading) string {
+	return s.read(value, r, true)
+}
+
+func (s EnvRefSyntax) read(value string, r EnvRefReading, keepEditorNames bool) string {
+	replace := func(p *regexp.Regexp, value string) string {
+		return p.ReplaceAllStringFunc(value, func(text string) string {
+			m := p.FindStringSubmatch(text)
+			prefix, name := "", m[len(m)-1]
+			if len(m) == 3 {
+				prefix = m[1]
+			}
+			if keepEditorNames && editorVariables[name] {
+				return text
+			}
+			return prefix + EnvRef(name)
+		})
+	}
 	switch s {
 	case EnvRefDollarEnv:
-		value = envRefDollarEnvPattern.ReplaceAllString(value, "$${$1}")
+		value = replace(envRefDollarEnvPattern, value)
 	case EnvRefBraceEnv:
-		value = envRefBraceEnvPattern.ReplaceAllString(value, "$1$${$2}")
+		value = replace(envRefBraceEnvPattern, value)
 	case EnvRefSecrets:
-		value = envRefSecretsPattern.ReplaceAllString(value, "$${$1}")
+		value = replace(envRefSecretsPattern, value)
 	}
 	if r.Unbraced {
-		value = envRefUnbracedPattern.ReplaceAllString(value, "$${$1}")
+		value = replace(envRefUnbracedPattern, value)
 	}
 	if r.Percent {
-		value = envRefPercentPattern.ReplaceAllString(value, "$${$1}")
+		value = replace(envRefPercentPattern, value)
 	}
 	return value
 }

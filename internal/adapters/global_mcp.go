@@ -28,7 +28,7 @@ func UserMCPServers(target string, mcps []spec.Entry) (map[string]any, bool) {
 	if !ok {
 		return nil, false
 	}
-	return r.UserMCPServers(userMCPs(target, mcps)), true
+	return r.UserMCPServers(userMCPs(a, mcps)), true
 }
 
 // UserMCPServerTables renders the MCP specs that emit to target as TOML
@@ -43,11 +43,11 @@ func UserMCPServerTables(target string, mcps []spec.Entry) (map[string]string, b
 	if !ok {
 		return nil, false
 	}
-	return r.UserMCPServerTables(userMCPs(target, mcps)), true
+	return r.UserMCPServerTables(userMCPs(a, mcps)), true
 }
 
-func userMCPs(target string, mcps []spec.Entry) []spec.Entry {
-	return emit.RewriteMCPEnvRefs(target, (spec.Bundle{MCPs: mcps}).For(target).MCPs)
+func userMCPs(a Adapter, mcps []spec.Entry) []spec.Entry {
+	return rewriteMCPRefs(a, (spec.Bundle{MCPs: mcps}).For(a.Name()).MCPs)
 }
 
 // ReadMCPEnvRefs rewrites target's own environment reference form in a

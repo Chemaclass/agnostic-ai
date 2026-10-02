@@ -74,7 +74,7 @@ func ReadMCPEnvRefs(target string, server map[string]any) {
 	for _, field := range mcpLaunchFields {
 		syntax := forms.launchSyntax(field)
 		if v, ok := server[field]; ok && syntax != spec.EnvRefNone {
-			server[field] = mapLaunchValue(v, func(s string) string { return syntax.Read(s, reading) })
+			server[field] = mapLaunchValue(v, func(s string) string { return syntax.ReadLaunch(s, reading) })
 		}
 	}
 }
@@ -117,13 +117,14 @@ func (f mcpEnvRefField) setValues(block, values map[string]any) {
 // `headers`, `url`, or `args` value, top level or under `x-<target>`,
 // written in target's own form. An env or header value target cannot
 // reference is left out and noted, so a reference never lands as a
-// literal. A server whose url or args holds such a reference is left
-// out whole, since dropping one argument changes the command. Neither
+// literal. A server whose emitted url or args, as view reads them,
+// holds such a reference is left out whole, since dropping one argument
+// changes the command. Neither
 // the slice nor its Meta maps are mutated.
-func RewriteMCPEnvRefs(target string, mcps []spec.Entry) []spec.Entry {
+func RewriteMCPEnvRefs(target string, view MCPLaunchView, mcps []spec.Entry) []spec.Entry {
 	out := make([]spec.Entry, 0, len(mcps))
 	for _, e := range mcps {
-		if field, token, why, ok := unwritableLaunchRef(target, e.Meta); ok {
+		if field, token, why, ok := unwritableLaunchRef(target, view, e.Meta); ok {
 			NoteFieldNoOp(target, spec.KindMCP, field, 1,
 				fmt.Sprintf("server %s reads %s in `%s`: %s, so sync leaves the server out instead of writing the reference as text", e.Name, token.Display(), field, why))
 			continue
@@ -223,18 +224,62 @@ func hasLaunchRef(block map[string]any) bool {
 	return false
 }
 
-// unwritableLaunchRef returns the first reference in the url or args
-// target emits that target cannot write: the `x-<target>` value when it
-// sets the field, else the top-level one.
-func unwritableLaunchRef(target string, meta map[string]any) (string, spec.EnvRefToken, string, bool) {
-	forms := mcpEnvRefTargets[target]
-	x := xBlock(meta, target)
+// MCPLaunchView says which `url` and `args` values a target's MCP
+// writer emits, so a server is left out only for a reference the
+// written file would hold. The zero value is a writer that reads the
+// top-level fields and ignores `x-<target>` for them.
+type MCPLaunchView struct {
+	// Resolved marks a writer that reads ResolveMeta(meta, target), so
+	// an `x-<target>` key replaces the top-level one, `type` included,
+	// before the transport is picked.
+	Resolved bool
+	// Passthrough lists the launch fields the writer copies from
+	// `x-<target>` as written, whatever the transport.
+	Passthrough []string
+}
+
+// LaunchPassthrough returns the launch fields a MergeCustomTargetMeta
+// call with these exclusions copies through.
+func LaunchPassthrough(excluded ...string) []string {
+	var out []string
 	for _, field := range mcpLaunchFields {
-		value := meta[field]
-		if v, set := x[field]; set {
-			value = v
+		if !slices.Contains(excluded, field) {
+			out = append(out, field)
 		}
-		for _, s := range launchStrings(value) {
+	}
+	return out
+}
+
+// emittedLaunchValues returns, per launch field, the strings view's
+// writer puts in the file: `url` for a remote transport, `args` for
+// stdio, plus any field copied through from `x-<target>`.
+func (v MCPLaunchView) emittedLaunchValues(target string, meta map[string]any) map[string][]string {
+	base := meta
+	if v.Resolved {
+		base = ResolveMeta(meta, target)
+	}
+	field := "args"
+	switch transport, _ := base["type"].(string); transport {
+	case "http", "sse", "ws", "remote":
+		field = "url"
+	}
+	out := map[string][]string{field: launchStrings(base[field])}
+	if !v.Resolved {
+		x := xBlock(meta, target)
+		for _, f := range v.Passthrough {
+			out[f] = append(out[f], launchStrings(x[f])...)
+		}
+	}
+	return out
+}
+
+// unwritableLaunchRef returns the first reference in the url or args
+// target's writer emits that target cannot write.
+func unwritableLaunchRef(target string, view MCPLaunchView, meta map[string]any) (string, spec.EnvRefToken, string, bool) {
+	forms := mcpEnvRefTargets[target]
+	values := view.emittedLaunchValues(target, meta)
+	for _, field := range mcpLaunchFields {
+		for _, s := range values[field] {
 			for _, t := range launchRefs(s) {
 				switch {
 				case forms.launchSyntax(field) == spec.EnvRefNone:

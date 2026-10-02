@@ -106,7 +106,7 @@ url: https://${API_HOST}/mcp
 args: [--token, "${GH_TOKEN}"]
 ```
 
-Sync writes each tool's own form. A tool that reads no reference in that field gets no server at all, and the note names the server, the field, and the variable: dropping one argument would change the command. A `${NAME:-default}` follows the same rule outside Claude Code, Crush, and OpenHands.
+Sync writes each tool's own form. A tool that reads no reference in that field gets no server at all, and the note names the server, the field, and the variable: dropping one argument would change the command. Sync checks only the field the tool writes for the server's transport, after any `x-<target>` override that tool applies. A `${NAME:-default}` follows the same rule outside Claude Code, Crush, and OpenHands.
 
 `${workspaceFolder}`, `${workspaceFolderBasename}`, `${userHome}`, and `${pathSeparator}` are tool variables, not environment references, and stay as written. So does any other `${...}`, such as `${input:id}`, and every literal URL or argument.
 
@@ -120,7 +120,7 @@ Sync writes each tool's own form. A tool that reads no reference in that field g
 | [Continue](@/docs/targets/continue.md) | `{% raw %}${{ secrets.NAME }}{% endraw %}` | `{% raw %}${{ secrets.NAME }}{% endraw %}` |
 | [Codex](@/docs/targets/codex.md), [Factory](@/docs/targets/factory.md), [Kiro](@/docs/targets/kiro.md), [Antigravity](@/docs/targets/antigravity.md), [Augment](@/docs/targets/augment.md), [Copilot](@/docs/targets/copilot.md), [Junie](@/docs/targets/junie.md), [Kilo Code](@/docs/targets/kilo.md), [Qoder](@/docs/targets/qoder.md), [Trae](@/docs/targets/trae.md), [Warp](@/docs/targets/warp.md), [Zed](@/docs/targets/zed.md) | Server left out | Server left out |
 
-Import reads each tool's form in `url` and `args` back as `${NAME}`, including a whole-argument `$NAME` on Gemini and Crush. It never turns a literal URL or argument into a reference.
+Import reads each tool's form in `url` and `args` back as `${NAME}`, including a whole-argument `$NAME` on Gemini and Crush. A tool reference to a variable named like one of the four tool variables, such as Cursor's `${env:workspaceFolder}`, is kept as written so it never turns into the tool variable. It never turns a literal URL or argument into a reference.
 
 ### What import writes
 

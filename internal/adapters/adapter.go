@@ -693,7 +693,7 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 		}
 		// An external adapter receives the spec's own `${NAME}` form.
 		if _, inTree := registry[a.Name()]; inTree {
-			prepared.MCPs = emit.RewriteMCPEnvRefs(a.Name(), prepared.MCPs)
+			prepared.MCPs = rewriteMCPRefs(a, prepared.MCPs)
 		}
 	}
 	if err := a.Emit(sess, prepared, cfg, dryRun); err != nil {

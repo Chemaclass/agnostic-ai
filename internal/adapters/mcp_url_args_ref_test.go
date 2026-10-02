@@ -7,7 +7,9 @@ import (
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func urlArgsRefMCPs() []spec.Entry {
@@ -41,7 +43,11 @@ func rewriteURLArgs(t *testing.T, target string, mcps []spec.Entry) (map[string]
 	ResetCoverageNotes()
 	t.Cleanup(func() { emit.Warner = old; ResetCoverageNotes() })
 	kept := map[string]map[string]any{}
-	for _, e := range emit.RewriteMCPEnvRefs(target, mcps) {
+	a, err := Resolve(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range rewriteMCPRefs(a, mcps) {
 		kept[e.Name] = e.Meta
 	}
 	FlushCoverageNotes()
@@ -171,8 +177,11 @@ func TestMCPURLArgsRefs_TargetBlockOverridesWithoutMutatingTheSpec(t *testing.T)
 		t.Errorf("the spec's top-level args were mutated: %v", args)
 	}
 	kept, notes := rewriteURLArgs(t, "zed", mcps)
-	if _, ok := kept["gh"]; !ok {
-		t.Errorf("x-zed args replace the top-level reference, so zed keeps the server:\n%s", notes)
+	if _, ok := kept["gh"]; ok {
+		t.Errorf("zed writes the top-level args and ignores x-zed.args, so ${TOP} must leave the server out")
+	}
+	if !strings.Contains(notes, "server gh reads ${TOP} in `args`") {
+		t.Errorf("no note for the left-out server:\n%s", notes)
 	}
 }
 
@@ -209,4 +218,162 @@ func TestMCPURLArgsRefs_ReadKeepsTextATargetDoesNotExpand(t *testing.T) {
 	if server["url"] != "https://${env:HOST}/mcp" || !slices.Equal(server["args"].([]any), []any{"$TOKEN", "{env:X}"}) {
 		t.Errorf("zed expands nothing, so import keeps its text: %v", server)
 	}
+}
+
+// emitMCPEntries emits mcps to target and returns every written file
+// joined, plus the coverage notes.
+func emitMCPEntries(t *testing.T, target string, mcps []spec.Entry) (string, string) {
+	t.Helper()
+	testutil.TempCwd(t)
+	var notes bytes.Buffer
+	old := emit.Warner
+	emit.Warner = &notes
+	ResetCoverageNotes()
+	t.Cleanup(func() { emit.Warner = old; ResetCoverageNotes() })
+	a, err := Resolve(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess := NewSession()
+	sess.StartCapture()
+	if err := EmitWithProvenance(sess, a, spec.NewBundle(mcps), &config.Config{Targets: []string{target}}, false); err != nil {
+		sess.StopCapture()
+		t.Fatalf("%s: %v", target, err)
+	}
+	var out strings.Builder
+	for _, f := range sess.StopCapture() {
+		out.WriteString(f.Content)
+	}
+	FlushCoverageNotes()
+	return out.String(), notes.String()
+}
+
+func mcpEntry(name string, meta map[string]any) []spec.Entry {
+	return []spec.Entry{{Kind: spec.KindMCP, Name: name, Path: "mcps/" + name + ".yaml", Meta: meta}}
+}
+
+func TestMCPURLArgsRefs_EmitChecksTheArgsEachWriterWrites(t *testing.T) {
+	for _, tc := range []struct {
+		name, target string
+		meta         map[string]any
+		kept         bool
+		want, absent string
+	}{
+		{"zed writes top-level args over x-zed", "zed", map[string]any{
+			"command": "gh-mcp", "args": []any{"${TOP}"}, "x-zed": map[string]any{"args": []any{"--plain"}},
+		}, false, "", "${TOP}"},
+		{"zed ignores a reference only in x-zed", "zed", map[string]any{
+			"command": "gh-mcp", "args": []any{"--plain"}, "x-zed": map[string]any{"args": []any{"${X_ONLY}"}},
+		}, true, "--plain", "X_ONLY"},
+		{"codex writes top-level args only", "codex", map[string]any{
+			"command": "gh-mcp", "args": []any{"--plain"}, "x-codex": map[string]any{"args": []any{"${X_ONLY}"}},
+		}, true, "--plain", "X_ONLY"},
+		{"kilo resolves x-kilo over top-level args", "kilo", map[string]any{
+			"command": "gh-mcp", "args": []any{"--plain"}, "x-kilo": map[string]any{"args": []any{"${X_ONLY}"}},
+		}, false, "", "X_ONLY"},
+		{"opencode copies x-opencode args as written", "opencode", map[string]any{
+			"command": "gh-mcp", "args": []any{"--plain"}, "x-opencode": map[string]any{"args": []any{"${X_ONLY}"}},
+		}, true, "{env:X_ONLY}", "${X_ONLY}"},
+		{"antigravity copies x-antigravity url as written", "antigravity", map[string]any{
+			"type": "http", "url": "https://mcp.example.com/mcp", "x-antigravity": map[string]any{"url": "https://${X_ONLY}/mcp"},
+		}, false, "", "X_ONLY"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			out, notes := emitMCPEntries(t, tc.target, mcpEntry("gh", tc.meta))
+			if tc.absent != "" && strings.Contains(out, tc.absent) {
+				t.Errorf("%s must not reach %s:\n%s", tc.absent, tc.target, out)
+			}
+			if tc.want != "" && !strings.Contains(out, tc.want) {
+				t.Errorf("missing %s in:\n%s", tc.want, out)
+			}
+			if dropped := strings.Contains(notes, "sync leaves the server out"); dropped == tc.kept {
+				t.Errorf("kept = %v, but notes say:\n%s", tc.kept, notes)
+			}
+		})
+	}
+}
+
+func TestMCPURLArgsRefs_EmitChecksOnlyTheEffectiveTransport(t *testing.T) {
+	t.Run("factory stdio override ignores the inherited url", func(t *testing.T) {
+		out, notes := emitMCPEntries(t, "factory", mcpEntry("api", map[string]any{
+			"type": "http", "url": "https://${HOST}/mcp",
+			"x-factory": map[string]any{"type": "stdio", "command": "run-api", "args": []any{"--plain"}},
+		}))
+		if !strings.Contains(out, "run-api") || strings.Contains(out, "HOST") {
+			t.Errorf("factory writes the stdio override and no url:\n%s", out)
+		}
+		if strings.Contains(notes, "sync leaves the server out") {
+			t.Errorf("an unused url must not leave the server out:\n%s", notes)
+		}
+	})
+	t.Run("codex http server ignores unused args", func(t *testing.T) {
+		out, notes := emitMCPEntries(t, "codex", mcpEntry("api", map[string]any{
+			"type": "http", "url": "https://api.example.com/mcp", "args": []any{"${UNUSED}"},
+			"headers": map[string]any{"Authorization": "Bearer ${API_KEY}"},
+		}))
+		if !strings.Contains(out, `bearer_token_env_var = "API_KEY"`) || strings.Contains(out, "UNUSED") {
+			t.Errorf("codex forwards the header and writes no args:\n%s", out)
+		}
+		if strings.Contains(notes, "sync leaves the server out") {
+			t.Errorf("unused args must not leave the server out:\n%s", notes)
+		}
+	})
+	t.Run("zed stdio server ignores an unused url", func(t *testing.T) {
+		out, notes := emitMCPEntries(t, "zed", mcpEntry("gh", map[string]any{
+			"command": "gh-mcp", "url": "https://${HOST}/mcp",
+		}))
+		if !strings.Contains(out, "gh-mcp") || strings.Contains(notes, "sync leaves the server out") {
+			t.Errorf("zed keeps a stdio server whose url it never writes:\n%s\n%s", out, notes)
+		}
+	})
+}
+
+// An explicit native env reference named like an editor variable must
+// come back the same way, not as the editor variable.
+func TestMCPURLArgsRefs_EditorVariableNamesRoundTrip(t *testing.T) {
+	for _, name := range []string{"workspaceFolder", "workspaceFolderBasename", "userHome", "pathSeparator"} {
+		for target, native := range map[string]string{
+			"cursor":   "${env:" + name + "}",
+			"windsurf": "${env:" + name + "}",
+			"opencode": "{env:" + name + "}",
+			"continue": "${{ secrets." + name + " }}",
+			"crush":    "$" + name,
+			"gemini":   "$" + name,
+			"claude":   "${" + name + "}",
+		} {
+			t.Run(target+"/"+name, func(t *testing.T) {
+				server := map[string]any{"type": "http", "url": "https://h/" + native, "args": []any{native}}
+				ReadMCPEnvRefs(target, server)
+				a, err := Resolve(target)
+				if err != nil {
+					t.Fatal(err)
+				}
+				kept, notes := rewriteURLArgsMeta(t, a, server)
+				if kept == nil {
+					t.Fatalf("server left out:\n%s", notes)
+				}
+				if got := kept["url"]; got != "https://h/"+native {
+					t.Errorf("url = %v, want https://h/%s", got, native)
+				}
+				if got := kept["args"].([]any); got[0] != native {
+					t.Errorf("args = %v, want %s", got, native)
+				}
+			})
+		}
+	}
+}
+
+func rewriteURLArgsMeta(t *testing.T, a Adapter, meta map[string]any) (map[string]any, string) {
+	t.Helper()
+	var notes bytes.Buffer
+	old := emit.Warner
+	emit.Warner = &notes
+	ResetCoverageNotes()
+	t.Cleanup(func() { emit.Warner = old; ResetCoverageNotes() })
+	got := rewriteMCPRefs(a, mcpEntry("s", meta))
+	FlushCoverageNotes()
+	if len(got) == 0 {
+		return nil, notes.String()
+	}
+	return got[0].Meta, notes.String()
 }

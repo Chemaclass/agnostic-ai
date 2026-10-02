@@ -413,3 +413,9 @@ func droidMarkdown(e spec.Entry) (body string, hasDroppedTools, readonlyOverrode
 	front := emit.FrontmatterOrdered(meta, keys)
 	return front + "\n" + strings.TrimSpace(e.Body) + "\n", hasDroppedTools, readonlyOverrodeTools
 }
+
+// MCPLaunchView reports that the MCP builder reads ResolveMeta, so an
+// `x-<target>` url, args, or type replaces the top-level one.
+func (Adapter) MCPLaunchView() emit.MCPLaunchView {
+	return emit.MCPLaunchView{Resolved: true}
+}

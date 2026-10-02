@@ -294,8 +294,19 @@ func buildContextServer(e spec.Entry) map[string]any {
 		out["enabled"] = false
 	}
 	var keys []string
-	emit.MergeCustomTargetMeta(out, &keys, e.Meta, target,
-		"command", "args", "env", "url", "headers", "enabled")
+	emit.MergeCustomTargetMeta(out, &keys, e.Meta, target, mcpBuiltKeys...)
 
 	return out
+}
+
+// mcpBuiltKeys are the server keys the MCP builder writes itself, so an
+// `x-zed` value never overrides them.
+var mcpBuiltKeys = []string{
+	"command", "args", "env", "url", "headers", "enabled",
+}
+
+// MCPLaunchView reports the `url` and `args` values the MCP builder
+// copies from `x-<target>` as written.
+func (Adapter) MCPLaunchView() emit.MCPLaunchView {
+	return emit.MCPLaunchView{Passthrough: emit.LaunchPassthrough(mcpBuiltKeys...)}
 }
