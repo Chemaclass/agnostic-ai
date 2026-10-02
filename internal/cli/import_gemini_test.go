@@ -466,3 +466,28 @@ func TestParseGeminiCommandTOML_KeepsOtherKeys(t *testing.T) {
 		t.Errorf("got desc=%q body=%q extra=%v", desc, body, extra)
 	}
 }
+
+func TestImportFromGemini_RemoteMCPRoundTrips(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [gemini]\n")
+	writeFile(t, filepath.Join(dir, ".gemini", "settings.json"),
+		`{"mcpServers":{"h":{"httpUrl":"https://example.com/mcp"},"s":{"url":"https://example.com/sse"}}}`+"\n")
+
+	execCLI(t, "import", "gemini")
+
+	h := readFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "h.yaml"))
+	if !strings.Contains(h, "type: http") || !strings.Contains(h, "url: https://example.com/mcp") || strings.Contains(h, "httpUrl") {
+		t.Errorf("httpUrl should import as type http with url:\n%s", h)
+	}
+	s := readFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "s.yaml"))
+	if !strings.Contains(s, "type: sse") {
+		t.Errorf("a bare url should import as type sse:\n%s", s)
+	}
+	execCLI(t, "sync")
+	settings := readFile(t, filepath.Join(dir, ".gemini", "settings.json"))
+	if !strings.Contains(settings, `"httpUrl": "https://example.com/mcp"`) || !strings.Contains(settings, `"url": "https://example.com/sse"`) {
+		t.Errorf("sync should write each server back with its transport key:\n%s", settings)
+	}
+}
