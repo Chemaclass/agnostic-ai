@@ -381,8 +381,8 @@ func (Adapter) AlwaysOnRule(r spec.Entry) bool {
 // stays bare. The mapping mirrors the one cursor's `.mdc` renderer
 // applies to the same three fields:
 //
-//	alwaysApply true or unset          -> always_on (no frontmatter)
-//	alwaysApply false + globs          -> glob, with the globs verbatim
+//	alwaysApply true, or unset without globs -> always_on (no frontmatter)
+//	alwaysApply false or unset, + globs      -> glob, with the globs verbatim
 //	alwaysApply false + description    -> model_decision
 //	alwaysApply false, neither         -> manual
 //
@@ -391,7 +391,7 @@ func (Adapter) AlwaysOnRule(r spec.Entry) bool {
 // (#628).
 func activationFrontmatter(e spec.Entry) string {
 	m := emit.ResolveMeta(e.Meta, target)
-	if always, ok := m["alwaysApply"].(bool); !ok || always {
+	if emit.RuleAlwaysApplies(m) {
 		return ""
 	}
 	desc, _ := m["description"].(string)

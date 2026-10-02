@@ -16,7 +16,7 @@
 // `alwaysApply` YAML frontmatter: docs.trae.ai/ide/rules documents all
 // three but never states what activation mode a file with none of them
 // gets (#607), so this adapter always emits them rather than leave the
-// mode to guesswork. alwaysApply defaults to true; a true rule omits
+// mode to guesswork. alwaysApply defaults to true, or false with globs; a true rule omits
 // globs entirely; alwaysApply:false without an explicit globs falls
 // back to the Claude spelling (`paths`, comma-joined). This is the same
 // three-field matrix Cursor's `.mdc` files use off the same spec
@@ -302,12 +302,9 @@ func (Adapter) AlwaysOnRule(r spec.Entry) bool {
 	return alwaysApplies(emit.ResolveMeta(r.Meta, target))
 }
 
-// alwaysApplies reads `alwaysApply`, true when the spec leaves it unset.
+// alwaysApplies reads `alwaysApply`; see emit.RuleAlwaysApplies.
 func alwaysApplies(m map[string]any) bool {
-	if v, ok := m["alwaysApply"].(bool); ok {
-		return v
-	}
-	return true
+	return emit.RuleAlwaysApplies(m)
 }
 
 // ruleForm renders one rule as a `.md` file: the
@@ -324,7 +321,7 @@ func ruleForm(e spec.Entry) string {
 // activationFrontmatter renders the description/globs/alwaysApply block
 // docs.trae.ai/ide/rules documents, ported from Cursor's identical
 // three-field matrix (internal/adapters/cursor's mdc, off the same spec
-// metadata): alwaysApply defaults to true; an alwaysApply:true rule
+// metadata): alwaysApply defaults to true, or false with globs; an alwaysApply:true rule
 // ignores globs entirely, so none is synthesized; alwaysApply:false
 // without an explicit globs falls back to the Claude spelling (`paths`,
 // a scalar or list, comma-joined). An empty description still emits a

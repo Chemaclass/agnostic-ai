@@ -89,11 +89,9 @@ func TestEmit_Rule_GlobsWithAlwaysApplyTrue_StaysAlwaysOn(t *testing.T) {
 	}
 }
 
-// `globs` alone, with no explicit `alwaysApply: false`, also stays
-// `always_on`: an unset `alwaysApply` behaves like `true` (windsurf's
-// `!ok || always` check and cursor's `always := true` default both
-// treat a missing key that way), so this adapter does too.
-func TestEmit_Rule_GlobsAlone_StaysAlwaysOn(t *testing.T) {
+// A rule that names globs loads on matching files, as Claude Code scopes
+// it, so `globs` alone is a glob trigger (#1597).
+func TestEmit_Rule_GlobsAlone_IsAGlobTrigger(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	swapNoteWarner(t)
 
@@ -111,11 +109,8 @@ func TestEmit_Rule_GlobsAlone_StaysAlwaysOn(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := string(raw)
-	if !strings.Contains(got, "trigger: always_on\n") {
-		t.Errorf("expected trigger: always_on, got:\n%s", got)
-	}
-	if strings.Contains(got, "globs:") {
-		t.Errorf("an always_on rule must not carry a globs key, got:\n%s", got)
+	if !strings.Contains(got, "trigger: glob\n") || !strings.Contains(got, "globs:") {
+		t.Errorf("expected trigger: glob with globs, got:\n%s", got)
 	}
 }
 

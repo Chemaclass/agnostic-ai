@@ -215,7 +215,7 @@ func rulesDirFileContent(name string, meta map[string]any, body string, opts rul
 		sb.WriteString(yamlFrontmatterLine("description", desc))
 	}
 	if _, nativeGlobs := native["globs"]; !nativeGlobs {
-		if globs := spec.JoinGlobs(meta["globs"]); !isCatchAllGlobs(globs) {
+		if globs := spec.JoinGlobs(meta["globs"]); !spec.IsCatchAllGlobs(globs) {
 			sb.WriteString(yamlFrontmatterLine("globs", globs))
 		}
 	}

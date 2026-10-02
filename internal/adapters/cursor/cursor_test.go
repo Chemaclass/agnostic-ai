@@ -345,8 +345,9 @@ func TestEmit_WritesMdcRule(t *testing.T) {
 	if !strings.Contains(string(got), `globs: '**/*.go'`) {
 		t.Errorf("missing globs: %s", got)
 	}
-	if !strings.Contains(string(got), "alwaysApply: true") {
-		t.Errorf("rule should default alwaysApply=true: %s", got)
+	// A rule that names globs loads on matching files (#1597).
+	if !strings.Contains(string(got), "alwaysApply: false") {
+		t.Errorf("a globs rule should default alwaysApply=false: %s", got)
 	}
 }
 
