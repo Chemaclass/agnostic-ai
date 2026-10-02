@@ -145,6 +145,8 @@ Neither has a config-file key.
 
 It uses fsnotify with a 50 ms debounce, polls every 200 ms where fsnotify fails, and exits on Ctrl+C. A spec change re-syncs only the targets that emit that kind. Config and overlay edits, deletes, and renames re-sync everything.
 
+Polling picks up edits made during a re-sync on the next tick. Config changes update the source paths it watches.
+
 Watch mode also polls when a missing external source has no safe parent to watch. It never adds a watch on a parent that contains the project.
 
 ### Parallel emission {#parallel-emission}

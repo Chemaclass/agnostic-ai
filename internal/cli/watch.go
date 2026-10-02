@@ -197,6 +197,9 @@ func watchError(err error) error {
 	return nil
 }
 
+// pollSyncPause lets tests edit inputs after emission and before the next poll.
+var pollSyncPause = func() {}
+
 // watchSyncPoll is the original mtime-poll loop. Used as a fallback
 // when fsnotify fails (e.g. some network mounts) or with --watch-poll.
 // With reconcile set it re-syncs once after taking its baseline, so a
@@ -235,9 +238,9 @@ func watchSyncPoll(ctx context.Context, interval time.Duration, root string, tar
 			if err := resyncForChanges(root, targets, changed, dryRun, backup, gitignoreFlag, jobs); err != nil {
 				fmt.Fprintf(os.Stderr, "! sync: %v\n", err)
 			}
+			pollSyncPause()
 			if newCfg, err := config.Load(root); err == nil {
 				watched = watchDirs(root, newCfg)
-				snapshot = collectMtimes(watched)
 			}
 		}
 	}
