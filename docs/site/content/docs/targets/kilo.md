@@ -74,8 +74,6 @@ A hand-written `.kilo/kilo.jsonc`, which this adapter never writes, merges over 
 
 **Ignore** specs write project-root `.kilocodeignore`. Kilo's [migrator](https://kilo.ai/docs/customize/context/kilocodeignore), not this adapter, turns it into read/edit permission denials. The shared hand-authored-file protection applies.
 
-`import kilo` reads only `.kilocodeignore`, the default model (into `settings/kilo.yaml`), and the `permission` map (into `settings/permissions-kilo.yaml`). Keys with no portable spelling (`external_directory`, `lsp`, `doom_loop`, namespaced MCP keys) stay in the file.
-
 ## Config keys
 
 | Key | Default | Notes |
@@ -87,6 +85,12 @@ A hand-written `.kilo/kilo.jsonc`, which this adapter never writes, merges over 
 | `outputs.kilo.hooks-dir` | `.kilo/plugin` | Kilo only loads plugins from `plugin/` or `plugins/`, so moving this takes the hooks out of range |
 | `outputs.kilo.mcp-file` | `kilo.jsonc` | |
 | `outputs.kilo.ignore-file` | `.kilocodeignore` | |
+
+## Import
+
+`agnostic-ai import kilo` reads `.kilocodeignore` and two fields from the root `kilo.jsonc`: the default `model` (into `settings/kilo.yaml`) and portable entries in the `permission` map (into `settings/permissions-kilo.yaml`). Keys with no portable spelling (`external_directory`, `lsp`, `doom_loop`, namespaced MCP keys) stay in the file.
+
+Generated rule sections in `AGENTS.md` are recovered when their source specs are missing. Hand-written instructions, native rule directories, agents, skills, commands, MCP servers, and plugin hooks are not imported.
 
 ## Protected paths
 

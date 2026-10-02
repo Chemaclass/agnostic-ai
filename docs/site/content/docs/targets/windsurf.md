@@ -30,7 +30,7 @@ AGENTS.md                            # shared pointer body, plus the rules block
 - **Rules**: Devin prefers `.devin/rules/*.md` and still reads `.windsurf/rules/` (`.windsurfrules` is legacy). Set `outputs.windsurf.rules-dir: .windsurf/rules` to keep the old layout. Otherwise sync sweeps managed leftovers there, sparing hand-authored files.
 - **Entry point**: Devin also reads the root `AGENTS.md`, so `sync` writes the shared pointer body there.
   - When codex or another inlining target adds the `## Rules` block, Devin loads each always-on rule twice, since every rule keeps its `.devin/rules/` file.
-  - Devin [limits](https://docs.devin.ai/desktop/cascade/memories) a workspace rule file to 12,000 characters and runs a root `AGENTS.md` through the same engine, with no documented exemption. One file with every rule could be cut short. See [target behavior](@/docs/target-behavior.md#entry-point-files).
+  - Legacy Cascade [limits](https://docs.devin.ai/desktop/cascade/memories#rules) each workspace rule file to 12,000 characters and processes `AGENTS.md` through the same Rules engine. The [Devin CLI rules reference](https://docs.devin.ai/cli/extensibility/rules) specifies no size limit. Sync keeps the per-rule files for compatibility; see [target behavior](@/docs/target-behavior.md#entry-point-files).
 - **Agents**: custom subagent profiles ([subagents docs](https://docs.devin.ai/cli/subagents)) with `name`, `description`, `model`, `allowed-tools`, and `max-nesting`. The body is the system prompt. A scoped agent lands flat, since Devin discovers sub-directories for rules only.
   - `allowed-tools` maps Claude-style names to Devin's ([permissions reference](https://docs.devin.ai/cli/reference/permissions), [CLI changelog](https://docs.devin.ai/cli/changelog/stable.md)): `Read`/`Grep`/`Glob`/`Bash` to `read`/`grep`/`glob`/`exec`, and `Write`/`Edit` to `write`/`edit`. `write` needs Devin CLI v3000.11.1 or later. `mcp__<server>__<tool>` passes through. Anything else drops with a coverage note.
   - **Devin also reads `.agents/agents/`**, flat `<name>.md` and nested `<name>/agent.md`. With Antigravity, Goose, or OpenHands in `targets`, Devin sees two profiles with one name, and only this one carries `allowed-tools`. See the [cross-cutting agents note](@/docs/targets/_index.md).
@@ -99,7 +99,7 @@ AGENTS.md                            # shared pointer body, plus the rules block
 - **Rules**: from `outputs.windsurf.rules-dir` when set, else `.devin/rules/`, then legacy `.windsurf/rules/`, reclassified by [filename prefix](@/docs/cli-reference/start.md#filename-prefix-reclassification). Scoped copies (`<scope>/<rules-dir>/*.md`) rebuild scoped rules, including scopes like `.github` or `vendor`. It skips every `node_modules/`.
 - **Permissions**: from `.devin/config.json`. `Exec` has no exact-command form, so it imports as `Bash(<cmd>:*)`, not `Bash(<cmd>)`.
 - **Skills**: from `.agents/skills/`, `.devin/skills/`, then `.windsurf/skills/`; the first same-name skill wins. Bundled assets and executable modes survive; `triggers` move under `x-windsurf`.
-- **Ignore**: from `.devinignore`, or `.windsurfignore` when the first is absent, so hand-written patterns survive sync owning both.
+- **Ignore**: from `.devinignore`, or `.windsurfignore` when the first is absent. When both files have different hand-written patterns, combine them in the imported ignore spec and preserve their order before syncing.
 
 ## Protected paths
 
