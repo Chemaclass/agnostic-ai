@@ -130,13 +130,14 @@ func kitSinkBundle() spec.Bundle {
 			Kind: spec.KindMCP, Name: "stdio-server",
 			Meta: map[string]any{
 				"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-filesystem"},
-				"timeout": 600000, "alwaysLoad": true,
+				"timeout": 600000, "alwaysLoad": true, "bareElicitationCapability": false,
 			},
 		},
 		{
 			Kind: spec.KindMCP, Name: "http-server",
 			Meta: map[string]any{
 				"type": "http", "url": "https://example.test/mcp",
+				"alwaysLoad": false, "bareElicitationCapability": true,
 				"headersHelper": "/opt/bin/get-mcp-auth-headers.sh",
 				"oauth": map[string]any{
 					"clientId":              "client-abc",

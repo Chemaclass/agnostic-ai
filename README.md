@@ -59,6 +59,8 @@ Support spans [Claude Code, Codex, Cursor, Gemini CLI, Copilot, and more](https:
 
 MCP import replaces literal environment and header values with portable references. Continue sync writes its secret syntax for `.env` files. See [MCP references](https://agnostic-ai.org/docs/spec-format/mcps/#environment-references).
 
+Claude MCP import and sync preserve `alwaysLoad` and `bareElicitationCapability`, including explicit `false` values. See [Claude MCP options](https://agnostic-ai.org/docs/targets/claude/#output) for tool loading and connection compatibility.
+
 ## Develop agnostic-ai
 
 ```bash

@@ -1,0 +1,6 @@
+name: claude-flags
+targets: [claude]
+command: example-server
+x-claude:
+  alwaysLoad: false
+  bareElicitationCapability: true

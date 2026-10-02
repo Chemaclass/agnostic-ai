@@ -13,16 +13,6 @@
 // in .claude/settings.json. An internal sidecar records generated additions
 // so re-enabling a server preserves manually authored rejection entries.
 //
-// Four other `.mcp.json` per-server fields do emit, all four confirmed
-// on the same vendor page (target-audit 2026-08-27, #634):
-// `headersHelper` (a command run at connection time for a server on
-// Kerberos, short-lived tokens, or internal SSO), `timeout` (tool
-// execution, milliseconds), `alwaysLoad` (exempt the server's tools
-// from tool-search deferral), and an `oauth` object carrying
-// `clientId`, `callbackPort`, `authServerMetadataUrl`, and `scopes`.
-// `oauth.clientSecret` is not among them on purpose: the vendor stores
-// the secret in the system keychain, "not in your config".
-//
 // Rules emit one file per spec under `.claude/rules/` so a hand-authored
 // CLAUDE.md is never clobbered. Claude Code auto-loads every `.md` file
 // under that directory (recursively) at session start, and scopes a rule

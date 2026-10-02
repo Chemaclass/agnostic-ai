@@ -4,6 +4,8 @@
       "command": "x"
     },
     "http-server": {
+      "alwaysLoad": false,
+      "bareElicitationCapability": true,
       "headersHelper": "/opt/bin/get-mcp-auth-headers.sh",
       "oauth": {
         "authServerMetadataUrl": "https://auth.example.test/.well-known/openid-configuration",
@@ -20,6 +22,7 @@
         "-y",
         "@modelcontextprotocol/server-filesystem"
       ],
+      "bareElicitationCapability": false,
       "command": "npx",
       "timeout": 600000
     }
