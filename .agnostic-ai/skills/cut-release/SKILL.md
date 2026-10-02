@@ -57,8 +57,9 @@ The user asks to release, tag, ship, or cut a new version.
 6. Immediately before the release commit, create exactly one
    `docs/site/content/updates/YYYY-MM-DD-vX.Y.Z.md` release briefing. Read and
    follow [references/release-briefing.md](references/release-briefing.md).
-   Copy the release changelog section exactly, add only verified upstream CLI
-   and model news, and keep those two sections visibly separate. Run
+   Explain how to upgrade from the previous release, describe shipped
+   features with useful examples, and add verified target changes. Keep
+   agnostic-ai support separate from upstream availability. Run
    `make site-build site-test`.
 7. Confirm the version file, dated changelog section, briefing, and any
    `signals.tsv` change are all staged for the same commit. Commit `chore(release): vX.Y.Z`, GPG-signed.
@@ -81,5 +82,7 @@ The user asks to release, tag, ship, or cut a new version.
 - The briefing orders breaking behavior, default changes, removals, and
   deprecations before additions. It never presents upstream news as shipped
   agnostic-ai support.
+- Cover every substantial feature and migration. A fixed bullet count must
+  never hide a change a reader needs to use the release.
 - Tag format `vX.Y.Z` (lowercase `v`). GoReleaser matches this prefix.
 - Commit message follows Conventional Commits. Never mention AI in the message.

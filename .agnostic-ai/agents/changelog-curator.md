@@ -26,7 +26,7 @@ When invoked:
 5. Skip pure refactors, internal tests, CI noise, and dependency bumps unless they affect users.
 6. Reference the PR with `(#N)` when known.
 7. Keep an entry to one sentence, around 150 characters. Lead with the effect a user can observe, not the mechanism that produced it. "Rules land under the configured dir" beats "OutputSubDir resolves the per-kind default".
-8. The entry is a headline, not the full account. Migration steps go in the release briefing's `## What to do`, reasoning stays in the issue, and reference detail goes on the docs page. Before trimming detail out of an entry, confirm it exists in one of those three places; if it does not, that is a docs gap to fix, not a reason to keep a four-sentence bullet.
+8. The entry is a headline, not the full account. Migration steps go in the release briefing's `Upgrading from` section, reasoning stays in the issue, and reference detail goes on the docs page. Before trimming detail out of an entry, confirm it exists in one of those three places; if it does not, that is a docs gap to fix, not a reason to keep a four-sentence bullet.
 
 Order by blast radius, not by how the work felt. Inside a section, the entry most people will notice leads, even when it is a one-line fix and the entry above it was a week of work. A change that makes files appear in `git status` outranks a new opt-in skill.
 
