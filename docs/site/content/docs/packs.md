@@ -9,8 +9,7 @@ group = "Workflows"
 
 # Spec packs
 
-
-A pack is a versioned directory of agnostic specs (agents, skills, rules, hooks, MCPs), published as a Git repo or shared on disk. Use one to reuse conventions across projects instead of copying spec files between them.
+A pack is a versioned directory of specs (agents, skills, rules, hooks, MCPs), published as a Git repo or shared on disk. Use one to reuse conventions across projects instead of copying spec files.
 
 ## Install
 
@@ -19,7 +18,7 @@ agnostic-ai packs add github.com/chemaclass/go-rules@v1.2.0
 agnostic-ai packs add ./shared/security-rules
 ```
 
-The pack is fetched into `.agnostic-ai/packs/<name>/` and pinned in `agnostic.packs.lock`. `agnostic-ai sync` loads pack specs in a layer below the project layer, so a project-local spec with the same name wins.
+The pack is fetched into `.agnostic-ai/packs/<name>/` and pinned in `agnostic.packs.lock`. `sync` loads pack specs in a layer below the project layer, so a project spec with the same name wins.
 
 ## List, update, remove
 
@@ -40,11 +39,11 @@ agnostic-ai packs remove go-rules
 | Git URL with ref | `github.com/foo/bar@v1.2.0`          |
 | Local directory  | `./local/pack`, `file:///abs/path`   |
 
-Git URLs are cloned with `--depth 1`. The `.git` directory is stripped after the sha is captured.
+Git URLs are cloned with `--depth 1`. The `.git` directory is removed after the sha is recorded.
 
 ## Pack layout
 
-A pack mirrors the standard agnostic source layout at its root:
+A pack has the standard source layout at its root:
 
 ```
 <pack>/
@@ -55,7 +54,7 @@ A pack mirrors the standard agnostic source layout at its root:
 └── mcps/
 ```
 
-Empty directories may be omitted. Frontmatter rules mirror the [spec format](@/docs/spec-format/_index.md).
+Empty directories may be omitted. Frontmatter follows the [spec format](@/docs/spec-format/_index.md).
 
 ## Lockfile
 
@@ -70,14 +69,14 @@ packs:
     sha: 9f8b3c1e0a5d4e8b2c7d6f3a1b0c4d5e6f7a8b9c
 ```
 
-Commit it so peers and CI install the same revisions. The file is sorted by name, and removing the last pack deletes it.
+Commit it so teammates and CI install the same revisions. The file is sorted by name. Removing the last pack deletes it.
 
 ## Layer precedence
 
-Packs load before the project and personal project layers:
+Layers load in this order:
 
 ```
 packs  →  project  →  project-user
 ```
 
-`project-user` is your ignored [local layer](@/docs/local-overrides.md). Higher layers override by `(kind, name)`. A project rule named `conventional-commits` masks the pack rule with the same name, which is how you adapt a pack convention to one project.
+`project-user` is your ignored [local layer](@/docs/local-overrides.md). A higher layer overrides a lower one by `(kind, name)`. A project rule named `conventional-commits` replaces the pack rule with that name, which is how you adapt a pack convention to one project.

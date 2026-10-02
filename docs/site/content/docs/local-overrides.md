@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Local overrides
 
-A local layer holds your personal setup. It edits shared specs field by field, adds new ones, and extends the shared instructions. It stays out of Git, so the committed `.agnostic-ai/` remains the source of truth for the team.
+A local layer holds your personal setup. It edits shared specs field by field, adds new ones, and extends the shared instructions. It stays out of Git, so the committed `.agnostic-ai/` stays the team's source of truth.
 
 There are two local layers:
 
@@ -22,21 +22,19 @@ A layer loads only when its directory exists. The two never mix: project sync ig
 
 ## Why a local layer
 
-The team agrees on `.agnostic-ai/`. You still work your own way. Without a local layer, the only options are to edit the shared specs, which leaks into the next commit, or to edit generated files, which the next `sync` overwrites.
+The team agrees on `.agnostic-ai/`, but you work your own way. Without a local layer, you must either edit the shared specs, which leaks into your next commit, or edit generated files, which the next `sync` overwrites. A local layer keeps your changes on your machine and the team's in Git.
 
-A local layer keeps them apart. Git holds what the team agreed on. Your machine holds the difference.
-
-Typical reasons:
+Typical uses:
 
 - **Model and effort.** Your plan includes Opus, the team default is Sonnet. Change one field, keep the rest of the skill.
-- **Personal steps.** Add "run my local benchmark" to the end of the shared review skill, without forking it.
-- **Experiments.** Try a new agent or rule for a week. Promote it to `.agnostic-ai/` when it earns its place, or delete it.
-- **Machine specifics.** Point an MCP server at your local port, or add an env var your setup needs.
-- **Stricter or looser tools.** Drop a tool from an agent, or add one, on your machine only.
+- **Personal steps.** Add "run my local benchmark" to the shared review skill without forking it.
+- **Experiments.** Try a new agent or rule for a week. Promote it to `.agnostic-ai/` if it earns its place, or delete it.
+- **Machine specifics.** Point an MCP server at your local port, or add an env var.
+- **Tools.** Drop or add a tool for an agent on your machine only.
 
 ## Layout
 
-Both layers have the same shape: a `local/` folder inside the source directory, mirroring it.
+Both layers have the same shape: a `local/` folder inside the source directory that mirrors it.
 
 ```text
 my-project/.agnostic-ai/
@@ -49,13 +47,13 @@ my-project/.agnostic-ai/
     └── skills/review/SKILL.md     # same name: edits the shared skill
 ```
 
-It reads every spec kind: `agents/`, `skills/`, `rules/`, `hooks/`, `mcps/`, `commands/`, `settings/`, `reviews/`, `environments/`, and `ignore/`. The folder stays at `.agnostic-ai/local/` even when custom `sources` paths in `agnostic-ai.yaml` move the shared specs.
+The project layer reads every spec kind: `agents/`, `skills/`, `rules/`, `hooks/`, `mcps/`, `commands/`, `settings/`, `reviews/`, `environments/`, and `ignore/`. The folder stays at `.agnostic-ai/local/` even when custom `sources` paths in `agnostic-ai.yaml` move the shared specs.
 
 The global layer reads `AGNOSTIC_AI.md`, `agents/`, `skills/`, `rules/`, and `hooks/`. See [global configuration](@/docs/configuration.md#global-configuration).
 
 ## Add a spec
 
-A local spec with a new name appends to the shared set. Every target receives it like any other spec.
+A local spec with a new name is added to the shared set. Every target receives it like any other spec.
 
 ## Override fields
 
@@ -97,7 +95,7 @@ model:
 Read the merged PRs since the last tag.
 ```
 
-The frontmatter merges key by key, the same way `agnostic-ai.local.yaml` merges over `agnostic-ai.yaml`:
+Frontmatter merges key by key, as `agnostic-ai.local.yaml` merges over `agnostic-ai.yaml`:
 
 | Local value | Result |
 |---|---|
@@ -106,15 +104,15 @@ The frontmatter merges key by key, the same way `agnostic-ai.local.yaml` merges 
 | `null` | removes the key |
 | missing | keeps the shared value |
 
-So `tools: [Read]` replaces the whole shared list, and `tools: null` drops it. Inside an `x-<target>` map, `null` keeps its usual meaning: `x-codex.model: null` drops `model` for Codex only. `x-claude:` merges with the shared `x-claude:` like any other map.
+So `tools: [Read]` replaces the whole shared list, and `tools: null` drops it. Inside an `x-<target>` map, `null` still removes the key: `x-codex.model: null` drops `model` for Codex only. `x-claude:` merges with the shared `x-claude:` like any other map.
 
-Where the local file sits decides its scope. `local/rules/style.md` applies to the whole project even when the shared `rules/backend/style.md` applies to `backend/` only.
+The local file's location sets its scope. `local/rules/style.md` applies to the whole project even when the shared `rules/backend/style.md` applies to `backend/` only.
 
-The same rules apply to YAML specs: hooks, MCP servers, settings, and environments. A local `mcps/docs.yaml` can change `env.PORT` and keep the shared command and args.
+YAML specs (hooks, MCP servers, settings, environments) follow the same rules. A local `mcps/docs.yaml` can change `env.PORT` and keep the shared command and args.
 
 ## Turn a shared spec off
 
-Exclude the targets you do not want. Nothing else to copy:
+Exclude the targets you do not want. There is nothing to copy:
 
 ```md
 ---
@@ -125,7 +123,7 @@ targets-exclude: [claude, codex, cursor]
 
 ## Stay current after a pull
 
-A local file holds only your changes. When the team edits the shared spec, the next sync picks up their change and applies yours on top. No diff to merge by hand, unless you replaced the whole body.
+A local file holds only your changes. When the team edits the shared spec, the next sync picks up their change and applies yours on top. You merge nothing by hand, unless you replaced the whole body.
 
 ## Extend the body
 
@@ -161,17 +159,17 @@ foo for
 bar baz
 ```
 
-`::parent` must start at column 0 and stand alone on its line, like the `::target` and `::end` fences. Keep it outside a `::target` fence: fences do not nest, so the shared body's own fences would end yours. A fence the shared body leaves open is closed after it, so your lines still reach every target. A `::parent` line in a local spec with a new name has nothing to extend, so sync drops it.
+`::parent` must start at column 0 and stand alone on its line, like the `::target` and `::end` fences. Keep it outside a `::target` fence, because fences do not nest and the shared body's own fences would end yours. A fence the shared body leaves open is closed after it, so your lines still reach every target. In a local spec with a new name, `::parent` has nothing to extend, so sync drops it.
 
 ## Skill assets
 
-A local skill folder with only a `SKILL.md` keeps the shared folder's scripts and templates. Once the local folder holds any other file, its own files ship instead of the shared ones.
+A local skill folder with only a `SKILL.md` keeps the shared folder's scripts and templates. Once the local folder holds any other file, its own files replace the shared ones.
 
 ## What does not merge
 
-Only the two local layers merge. A project spec over a [pack](@/docs/packs.md) spec still replaces it whole, because a project adapting a pack means to own that spec.
+Only the two local layers merge. A project spec over a [pack](@/docs/packs.md) spec still replaces it whole, because a project that adapts a pack means to own that spec.
 
-Two files with the same name inside one layer are still an authoring mistake: one wins, and `agnostic-ai lint` reports the other (LINT003).
+Two files with the same name in one layer are a mistake: one wins, and `agnostic-ai lint` reports the other (LINT003).
 
 ## Extend the instructions
 
@@ -195,23 +193,23 @@ In the global layer, `local/AGNOSTIC_AI.md` comes last in the managed instructio
 
 ## Import
 
-`agnostic-ai import` keeps local specs out of `.agnostic-ai/`. Sync writes them into the same native files import reads, such as a local rule inlined into `AGENTS.md` or a local agent in `.claude/agents/`. Import writes no shared file for a name the local layer declares, and a shared spec the local layer extends keeps its own content. The run lists the local specs it left out.
+`agnostic-ai import` keeps local specs out of `.agnostic-ai/`. Sync writes local specs into the same native files that import reads, such as a local rule inlined into `AGENTS.md` or a local agent in `.claude/agents/`. Import writes no shared file for a name the local layer declares, and a shared spec the local layer extends keeps its own content. The run lists the local specs it left out.
 
-Native hook settings drop the spec name, so import matches a hook by its event, matcher, and handler instead. A local handler that shares a native entry with a shared one is removed from the imported hook, and a hook script only local hooks run stays out of `.agnostic-ai/scripts/`.
+Native hook settings drop the spec name, so import matches a hook by event, matcher, and handler. A local handler that shares a native entry with a shared one is removed from the imported hook. A hook script that only local hooks run stays out of `.agnostic-ai/scripts/`.
 
-Settings, reviews, and environments merge into one native file per target. When the local layer holds a spec of one of these kinds, import leaves every shared spec of that kind as it was and says so.
+Settings, reviews, and environments merge into one native file per target. When the local layer holds a spec of one of these kinds, import leaves every shared spec of that kind unchanged and says so.
 
 ## Stay out of Git
 
-`init` and `sync` keep `/.agnostic-ai/local/` in the managed `.gitignore` block, next to `/agnostic-ai.local.yaml`. Nothing to add by hand. See [gitignore](@/docs/configuration.md#gitignore).
+`init` and `sync` keep `/.agnostic-ai/local/` in the managed `.gitignore` block, next to `/agnostic-ai.local.yaml`. Add nothing by hand. See [gitignore](@/docs/configuration.md#gitignore).
 
-For the global layer, add this line to `~/.agnostic-ai/.gitignore` when that home is a Git repository:
+For the global layer, if `~/.agnostic-ai/` is a Git repository, add this line to its `.gitignore`:
 
 ```gitignore
 /local/
 ```
 
-Per-machine config tweaks belong in `agnostic-ai.local.yaml`, which deep-merges over `agnostic-ai.yaml`. See [configuration](@/docs/configuration.md#local-overrides).
+Put per-machine config tweaks in `agnostic-ai.local.yaml`, which deep-merges over `agnostic-ai.yaml`. See [configuration](@/docs/configuration.md#local-overrides).
 
 ## See the effective layer
 

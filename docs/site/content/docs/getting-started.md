@@ -9,16 +9,13 @@ group = "Start"
 
 # Getting started
 
+Write one rule and sync it to Claude Code and Cursor.
 
-Create one rule and sync it to Claude Code and Cursor. The explicit targets keep the commands working in a non-interactive shell.
-
-Already use one tool and want another? One command keeps what you have and sets up the rest, for example `agnostic-ai use codex`. See [use](@/docs/cli-reference/start.md#use).
-
-Already have `CLAUDE.md`, `AGENTS.md`, or tool-specific configuration and want more control? Follow [Migration](@/docs/migration.md) before syncing.
+Already use one tool and want another? Run `agnostic-ai use codex` (see [use](@/docs/cli-reference/start.md#use)). Already have `CLAUDE.md`, `AGENTS.md`, or other tool files? Follow [Migration](@/docs/migration.md) first.
 
 ## Install
 
-Follow [Installation](@/docs/installation.md), then confirm `agnostic-ai --version` works.
+Follow [Installation](@/docs/installation.md), then check that `agnostic-ai --version` works.
 
 ## Scaffold
 
@@ -29,9 +26,7 @@ echo "claude,cursor" | agnostic-ai init
 agnostic-ai new rule conventional-commits
 ```
 
-`init` creates `agnostic-ai.yaml`. `new` writes `.agnostic-ai/rules/conventional-commits.md`, creating the folder it needs.
-
-For an interactive target picker, run `agnostic-ai init` without the pipe and pick only the tools you use. `init --demo` adds sample specs; `init --preset go`, `ts-react`, or `python` adds stack-specific starters. See [init options](@/docs/cli-reference/start.md#init).
+`init` creates `agnostic-ai.yaml`. `new` creates `.agnostic-ai/rules/conventional-commits.md`. Run `init` without the pipe to pick tools interactively. See [init options](@/docs/cli-reference/start.md#init) for `--demo` and stack presets.
 
 ## First rule
 
@@ -51,86 +46,51 @@ Keep the subject under 72 characters.
 ## Sync
 
 ```bash
-agnostic-ai sync --dry-run
-agnostic-ai sync
-agnostic-ai sync --check
+agnostic-ai sync --dry-run   # preview
+agnostic-ai sync             # write
+agnostic-ai sync --check     # exit 0 when outputs match the specs
 ```
 
-`--dry-run` shows the planned output. `sync` writes it. `--check` exits zero when the files match the specs.
-
-Inspect the output:
+Sync writes:
 
 | Output | Purpose |
 |---|---|
 | `.claude/rules/conventional-commits.md` | Claude Code rule |
 | `.cursor/rules/conventional-commits.mdc` | Cursor rule |
-| `.agnostic-ai/AGNOSTIC_AI.md` | Shared project instructions, seeded with a short placeholder |
+| `.agnostic-ai/AGNOSTIC_AI.md` | Shared project instructions (you edit this) |
 | `CLAUDE.md` | Claude Code entry point, copied from `AGNOSTIC_AI.md` |
 
-Both rule files contain your commit convention. Write project instructions in `AGNOSTIC_AI.md`. Edit the sources and run `sync` again; never edit the generated copies.
-
-To change tools later, edit `targets:` in `agnostic-ai.yaml`. See [target selection](@/docs/configuration.md#targets) for one-run filters and the first-sync picker.
+Edit sources under `.agnostic-ai/`, then sync again. Never edit the generated copies. To change tools, edit `targets:` in `agnostic-ai.yaml` ([target selection](@/docs/configuration.md#targets)).
 
 ## Commit or ignore generated outputs
 
-`init` asks whether to git-ignore the generated files, and without a terminal, or with `--all`, it ignores them and says so. Each choice has a cost:
+`init` asks. Without a terminal, or with `--all`, it ignores them.
 
-- **Ignore them (default):** Git holds only `.agnostic-ai/`, `agnostic-ai.yaml`, and `.gitignore`. Every teammate needs the tool and runs `agnostic-ai sync` after cloning. [Checkout and merge hooks](@/docs/git-hooks.md#regenerate-on-checkout), installed with `agnostic-ai install-hook --post-checkout`, run it after checkouts and pulls that merge, and a Node project can run it on install: see [Node monorepos](@/docs/git-hooks.md#node-monorepos).
-- **Commit them (`init --gitignore=off`):** a clone works without the tool, and reviews show the generated files beside their specs. Run the [CI drift gate](@/docs/ci.md#committed-outputs) so they stay current. On an existing project, set `gitignore.enabled: false` and remove their entries from the managed `.gitignore` block.
-
-The local `.agnostic-ai/.sync-state` cache and personal overrides stay ignored either way.
-
-If outputs are ignored, CI validates the specs and generates the files. It cannot compare a fresh checkout against files that were never committed. See [CI for ignored outputs](@/docs/ci.md#ignored-outputs).
+- **Ignore (default):** Git holds only `.agnostic-ai/`, `agnostic-ai.yaml`, and `.gitignore`. Every teammate installs the tool and runs `agnostic-ai sync` after cloning. [Checkout hooks](@/docs/git-hooks.md#regenerate-on-checkout) can run it for them. CI [validates and generates](@/docs/ci.md#ignored-outputs) instead of comparing.
+- **Commit (`init --gitignore=off`):** a clone works without the tool. Add the [CI drift gate](@/docs/ci.md#committed-outputs) to keep files current. To switch an existing project, see [gitignore](@/docs/configuration.md#gitignore).
 
 ## Daily use
 
-```bash
-agnostic-ai sync --watch
-```
+Run `agnostic-ai sync --watch` while you edit specs. Run `agnostic-ai status` for loaded specs, tools, and drift.
 
-Keep it running while you edit specs. Run `agnostic-ai status` for a summary of loaded specs, selected tools, and drift.
+<a id="shell-completion"></a>
+<a id="add-a-single-spec"></a>
+<a id="import-an-existing-ai-cli-config"></a>
+<a id="recommended-adoption-workflow"></a>
+<a id="what-import-does-not-capture"></a>
+<a id="agnostic-aisync-state"></a>
+<a id="check-project-status"></a>
+<a id="roll-back-a-sync"></a>
+<a id="watch-mode"></a>
+<a id="auto-manage-gitignore"></a>
+<a id="ci-gate"></a>
+<a id="upgrade"></a>
+<a id="inside-claude-code"></a>
 
 ## Next steps
 
 - [Directory-specific instructions](@/docs/scoped-context.md): keep service conventions inside their subtree.
 - [Spec format](@/docs/spec-format/_index.md): add skills, agents, hooks, and MCP servers.
 - [Configuration](@/docs/configuration.md): select tools and change output paths.
-- [Git hooks](@/docs/git-hooks.md): generate output on a fresh checkout.
+- [Git hooks](@/docs/git-hooks.md) and [CI gate](@/docs/ci.md): keep outputs current.
 - [Troubleshooting](@/docs/troubleshooting.md): fix missing files or failing syncs.
-
-<a id="shell-completion"></a>
-
-<a id="add-a-single-spec"></a>
-
-<a id="import-an-existing-ai-cli-config"></a>
-
-<a id="recommended-adoption-workflow"></a>
-
-<a id="what-import-does-not-capture"></a>
-
-<a id="agnostic-aisync-state"></a>
-
-<a id="check-project-status"></a>
-
-<a id="roll-back-a-sync"></a>
-
-<a id="watch-mode"></a>
-
-<a id="auto-manage-gitignore"></a>
-
-<a id="ci-gate"></a>
-
-<a id="upgrade"></a>
-
-<a id="inside-claude-code"></a>
-
-## More workflows
-
-- [Shell completion](@/docs/cli-reference/maintain.md#completion)
-- [Add a single spec](@/docs/cli-reference/start.md#new)
-- [Import an existing AI CLI config](@/docs/migration.md)
-- [Check project status](@/docs/cli-reference/check.md#status)
-- [Roll back a sync](@/docs/migration.md#back-up-and-restore)
-- [Watch mode](@/docs/cli-reference/sync.md#sync)
-- [Auto-manage .gitignore](@/docs/configuration.md#gitignore)
-- [CI gate](@/docs/ci.md)

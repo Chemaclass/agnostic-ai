@@ -36,9 +36,11 @@ agnostic-ai validate
 agnostic-ai doctor
 ```
 
-`status` summarizes the project and reports drift without a failing exit code. `validate` checks source specs. `doctor` diagnoses configuration and output problems and can exit non-zero. See [CLI reference](@/docs/cli-reference/_index.md) for flags and exit behavior.
+- `status` summarizes the project and reports drift. It always exits zero.
+- `validate` checks source specs.
+- `doctor` diagnoses configuration and output problems. It can exit non-zero.
 
-Use [why](@/docs/trace.md) to trace a generated file to its source, or [graph](@/docs/graph.md) to see which targets receive a spec. For a diagnostic code, run `agnostic-ai explain AAI-003` with the code you were given.
+See the [CLI reference](@/docs/cli-reference/_index.md) for flags and exit codes. To trace a generated file to its source, use [why](@/docs/trace.md). To see which targets receive a spec, use [graph](@/docs/graph.md). To explain a diagnostic code, run `agnostic-ai explain` with it, such as `agnostic-ai explain AAI-003`.
 
 ## Scoped rules
 
@@ -55,16 +57,18 @@ Use [why](@/docs/trace.md) to trace a generated file to its source, or [graph](@
 
 ## Broken skill references
 
-A skill can sync cleanly while a relative link in it points at nothing. `agnostic-ai doctor --check-references` lists each broken link grouped by source spec and destination, with every affected target on one line. A link that resolves from the project root, such as `apps/engine/src/lib.ts`, counts as valid even when the skill folder itself does not carry that file. That proves the file exists, not that every tool resolves the link from the project root, so prefer a path the agent can open from where it runs. A link that leaves the project, such as `../shared/setup.md`, never counts.
+A skill can sync cleanly while a relative link in it points at nothing. `agnostic-ai doctor --check-references` lists each broken link by source spec and destination, with every affected target on one line.
+
+A link that resolves from the project root, such as `apps/engine/src/lib.ts`, counts as valid even when the skill folder lacks the file. That proves the file exists, not that every tool resolves links from the project root. Prefer a path the agent can open from where it runs. A link that leaves the project, such as `../shared/setup.md`, never counts.
 
 | Cause | Fix |
 |---|---|
-| The linked file is missing from the skill folder under `.agnostic-ai/skills/<name>/`, and does not exist at that path from the project root either | Add it, then run `agnostic-ai sync` |
+| The linked file is in neither `.agnostic-ai/skills/<name>/` nor at that path from the project root | Add it, then run `agnostic-ai sync` |
 | The link leaves the skill folder, such as `../shared/setup.md`, and no file sits at that path from the project root | Move the file into the skill folder and update the link. Sync copies only the skill's own folder |
 | The target flattens skills to one file and drops bundled files | Link to a URL, inline the content, or accept the gap for that target |
 | A generated reference was deleted by hand | Run `agnostic-ai sync` to restore it |
-| A placeholder link in an example template, such as `[Logs](url)`, can never resolve to a real file | List its destination under [`doctor.check-references.ignore`](@/docs/configuration.md#doctorcheck-referencesignore) |
+| A placeholder link in an example template, such as `[Logs](url)`, can never resolve | List its destination under [`doctor.check-references.ignore`](@/docs/configuration.md#doctorcheck-referencesignore) |
 
 ## Report a problem
 
-Include the CLI version, OS, failing command, full error, and the smallest config or spec that reproduces it. Strip credentials from MCP configuration and logs first. Open a [bug report](https://github.com/Chemaclass/agnostic-ai/issues/new?template=bug_report.yml).
+Include the CLI version, OS, failing command, full error, and the smallest config or spec that reproduces it. Remove credentials from MCP configuration and logs first. Open a [bug report](https://github.com/Chemaclass/agnostic-ai/issues/new?template=bug_report.yml).

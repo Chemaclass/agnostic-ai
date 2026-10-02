@@ -9,65 +9,43 @@ group = "Start"
 
 # Import existing tool configuration
 
+Move a project's existing AI tool instructions into `.agnostic-ai/`, review them, then generate output for the tools you pick.
 
-Move an existing project's instructions into `.agnostic-ai/`, review them, then generate configuration for your selected tools.
+## 1. Import
 
-## Scaffold and import
-
-Start from a clean Git working tree, at the project root, so the new files are easy to review:
+From the project root, with a clean Git working tree:
 
 ```bash
-agnostic-ai init --from claude
+agnostic-ai init --from claude   # or --from all to detect every tool
 ```
 
-Pick the tools to generate for. Replace `claude` with your source tool, or use `--from all` to detect existing configuration. If the project already uses agnostic-ai, run `agnostic-ai import claude` instead.
+Already using agnostic-ai? Run `agnostic-ai import claude` instead.
 
-Import writes source specs only. It does not sync native output or change your target selection. Specs from [`.agnostic-ai/local/`](@/docs/local-overrides.md#import) stay out of the shared source. Re-running it overwrites matching source filenames. For a skill or agent, the body and every frontmatter key the tool writes come from the native file, while keys that tool has no field for stay on the spec. Deleting a key the tool does write removes it from the spec too. Rule frontmatter is rebuilt from the native file alone, because a rule widened to a catch-all `globs` has to come back unscoped.
+Import writes source specs only. It does not sync or change your targets. Re-running it overwrites specs with the same filename. [Local specs](@/docs/local-overrides.md#import) stay out of the shared source. See [import](@/docs/cli-reference/start.md#import) for how it merges frontmatter and multiple sources.
 
-## Scope and pattern unions
+## 2. Review
 
-**Breaking change:** `scope` plus `globs` or `paths` now means the union. A rule with `scope: src/a` and `globs: tests/a/**` reaches both directories. Earlier versions intersected them and skipped a rule when its patterns were outside the scope.
-
-Remove `scope` when a rule should apply only to its file patterns, and spell those patterns relative to the project root. Keep the source file outside any folder under `rules/` that names a project directory. Remove `globs: "**/*"` from a rule that should apply only to its scope.
-
-Directory-document targets such as Codex require whole subdirectory patterns, such as `tests/a/**`. An external file filter such as `tests/a/**/*.go`, or a root selector such as `CHANGELOG.md` or `**/*`, warns and skips the rule; `on-unsupported: error` fails sync. File-filter targets can preserve those patterns. Preview with `agnostic-ai render` before syncing. See [scoped context](@/docs/scoped-context.md#narrow-a-rule-to-certain-files).
-
-## Review before syncing
-
-Preview the import before it writes anything:
+Preview before writing:
 
 ```bash
 agnostic-ai import claude codex --dry-run --diff
 ```
 
-The preview lists each spec the import would create or change, with a diff, and names the tools that propose different content for the same file. The last tool in the list wins. Reorder the arguments or merge the content by hand if the winner is wrong.
+It shows each spec it would create or change, and flags files two tools disagree on. The last tool listed wins; reorder or merge by hand.
 
-After importing, compare `.agnostic-ai/AGNOSTIC_AI.md` and the imported spec folders against the original configuration.
+Then check:
 
-Import does not copy MCP `env` or `headers` values into specs. It writes each one as a `${NAME}` reference and prints the variable to set, so a token in `.mcp.json` never reaches a committed spec. Plain settings such as `NODE_ENV` become variables too. Export them before you start the tool, or put a plain setting back in the spec by hand. Sync leaves a reference out of a tool that cannot read it, such as Gemini headers or Amp `env`, with a note. Continue MCP files are copied as they are. See [environment references](@/docs/spec-format/mcps.md#environment-references).
+- `.agnostic-ai/AGNOSTIC_AI.md` against your original instructions. With several tools, the last one's instructions win, except a hand-written root `AGENTS.md`, whose missing sections `--from all` appends.
+- Helper scripts that hooks or settings call. Skill folders and some native helpers (such as `.claude/statusline.sh`, under `.agnostic-ai/overlays/`) come along. Keep any other script in Git yourself.
+- MCP `env` and `headers` values. Import writes each one as a `${NAME}` reference and prints the variable to set, so a token never reaches a committed spec. Plain settings such as `NODE_ENV` become variables too: export them, or put a plain setting back by hand. Sync leaves a reference out of a tool that cannot read it, such as Gemini headers or Amp `env`, with a note. Continue MCP files are copied as they are. See [environment references](@/docs/spec-format/mcps.md#environment-references).
 
-When importing multiple tools, the last imported top-level instructions replace the shared instructions body. Merge any unique content from other tools into `.agnostic-ai/AGNOSTIC_AI.md` before syncing. `--from all` and `import all` do this for a hand-written root `AGENTS.md`: the sections the shared body lacks are appended below it, and the output names each one. When that `AGENTS.md` is the only config found, it seeds `.agnostic-ai/AGNOSTIC_AI.md` instead. See [import behavior by source](@/docs/cli-reference/start.md#import).
-
-Keep the helper scripts that hooks or settings reference in Git. Files inside a skill directory round-trip with the skill, including imports from Zed, Warp, and Antigravity. Continue imports YAML and JSONC MCP files and preserves their connection options; Claude imports command, HTTP, MCP-tool, and prompt hook handlers. Selected native helpers, including `.claude/statusline.sh`, are captured under `.agnostic-ai/overlays/`. Preserve scripts outside those locations yourself.
-
-For a separate migration checkpoint, commit the reviewed source specs, `agnostic-ai.yaml`, and `.gitignore` before generating output. The instructions source lives inside `.agnostic-ai/`, not at the repository root.
+Optional: commit the reviewed specs, `agnostic-ai.yaml`, and `.gitignore` as a checkpoint before generating output.
 
 ## Keep directory-specific instructions
 
-`import codex` and `import gemini` retain discovered nested instruction directories as `scope`. `import claude` preserves subdirectories within `.claude/rules/`, but does not import every nested `CLAUDE.md`. For other layouts, create a rule with `new rule <name> --scope <directory>` and copy the instructions into it.
+`import codex` and `import gemini` keep nested instruction directories as `scope`. `import claude` keeps subfolders of `.claude/rules/`, but not nested `CLAUDE.md` files. For those, run `agnostic-ai new rule <name> --scope <directory>` and copy the text in.
 
-Review and commit the imported source, then run `sync`. It replaces a hand-authored original whose text the imported specs hold. A file with a line no spec holds, such as an edit made after the import, stops the run, and the error quotes that line. Move the line into its spec, or set the original aside before syncing:
-
-```bash
-mv services/payments/AGENTS.md services/payments/AGENTS.md.before-agnostic
-agnostic-ai sync --dry-run
-```
-
-Keep the saved file until you have checked the generated output. The same applies to conflicting `AGENTS.override.md`, `WARP.md`, `CLAUDE.md`, or `.goosehints` aliases. `sync --backup` does not bypass ownership checks.
-
-Upgrading older generated scopes can move output paths or skip unsupported targets. Run a full `sync`, then `sync --check`, to drop obsolete managed files. See [scoped context](@/docs/scoped-context.md) for compatibility.
-
-## Generate and inspect
+## 3. Generate
 
 ```bash
 agnostic-ai sync --dry-run
@@ -75,24 +53,40 @@ agnostic-ai sync --backup
 agnostic-ai sync --check
 ```
 
-Inspect the diff and the native files. The first sync can add headers, normalize formatting, and replace entry-point content with the shared instructions, so check the content and not only the formatting.
+Sync replaces a hand-written file only when the specs hold all its text. Otherwise it stops and quotes the missing line. Move that line into a spec, or set the original aside:
 
-Choose your [Git strategy](@/docs/getting-started.md#commit-or-ignore-generated-outputs). If you commit generated files, keep this initial regeneration in a separate commit from the import. Gitignore rules do not untrack files already in Git: `sync` and `doctor` name each generated path that is still tracked, with the exact `git rm --cached` command; `sync --untrack` runs it (the working tree copy stays). After committing that deletion, other clones lose these files on their next pull. Run `agnostic-ai install-hook --post-checkout` in those clones before pulling to install the checkout and merge hooks, or run `agnostic-ai sync` after pulling. The command prints this reminder, including under `--quiet` and on stderr with `--json`.
+```bash
+mv services/payments/AGENTS.md services/payments/AGENTS.md.before-agnostic
+```
 
-## Check packaging after an upgrade
+Keep the saved copy until you have checked the output. `--backup` does not bypass this check.
 
-Version 0.75 moved Codex skills from `.codex/skills/` to `.agents/skills/`. An ignore such as `.codex/**` no longer covers these skills. Check `.npmignore`, `.vscodeignore`, and `.dockerignore` when upgrading, and add `.agents/skills/**` where those files should be excluded.
+Review the diff for content, not only formatting: the first sync adds headers and replaces entry points with the shared instructions.
 
-Run `agnostic-ai doctor` after sync. It names generated paths an existing root packaging ignore file does not cover. Then inspect the package with `npm pack --dry-run` or `vsce ls`, or check the Docker build context. Output overrides and future path changes need the same review.
+## 4. Commit or ignore outputs
+
+Pick a [Git strategy](@/docs/getting-started.md#commit-or-ignore-generated-outputs). If you commit outputs, put this first regeneration in its own commit.
+
+Ignoring files Git already tracks needs one more step. `sync` and `doctor` list them; `sync --untrack` runs `git rm --cached` (your copy stays). Other clones lose those files on their next pull, so have teammates run `agnostic-ai install-hook --post-checkout` first, or `agnostic-ai sync` after pulling.
 
 ## Back up and restore
 
-`sync --backup` creates `.bak` files before overwriting existing outputs. To undo the generated output:
+`sync --backup` saves a `.bak` before overwriting an output. To undo generated output:
 
 ```bash
 agnostic-ai revert
 ```
 
-Revert restores backups where they exist and leaves other files in place. `revert --force` also deletes unbacked generated files. It does not undo edits to source specs. Repeated backup syncs replace earlier backups, so use Git for lasting checkpoints.
+It restores backups and leaves other files. `revert --force` also deletes generated files with no backup. It never undoes spec edits, and each backup sync replaces the last backup, so use Git for lasting checkpoints. When done, `agnostic-ai cleanup` removes the backups. See [revert](@/docs/cli-reference/maintain.md#revert) and [cleanup](@/docs/cli-reference/maintain.md#cleanup).
 
-Once the migration looks right, `agnostic-ai cleanup` removes the backups sync created. See [revert](@/docs/cli-reference/maintain.md#revert) and [cleanup](@/docs/cli-reference/maintain.md#cleanup) for filters and previews.
+## Upgrading from older versions
+
+### Scope and pattern unions
+
+**Breaking change:** `scope` plus `globs` or `paths` now applies to both, not their overlap. Remove `scope` when a rule should match only its patterns, and remove `globs: "**/*"` when it should match only its scope. Preview with `agnostic-ai render`. See [scoped context](@/docs/scoped-context.md#narrow-a-rule-to-certain-files).
+
+Older generated scopes can move or skip output on upgrade. Run `sync`, then `sync --check`, to drop obsolete files.
+
+### Codex skills moved in 0.75
+
+Codex skills moved from `.codex/skills/` to `.agents/skills/`. Add `.agents/skills/**` to `.npmignore`, `.vscodeignore`, or `.dockerignore` where you exclude them. `agnostic-ai doctor` names generated paths a packaging ignore file misses; confirm with `npm pack --dry-run`, `vsce ls`, or your Docker context.

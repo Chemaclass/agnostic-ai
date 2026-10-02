@@ -48,7 +48,7 @@ targets: [claude, codex]
 
 `name` is the server identifier, not the filename. It may contain package-style slashes, such as `npm:@modelcontextprotocol/server-sequential.thinking`. Such names are percent-encoded in YAML filenames and kept as-is in every generated config. Other spec kinds need one safe path segment, because their names become output paths.
 
-A server needs `command` (stdio) or `url` (remote). `agnostic-ai lint` reports a missing one as LINT008; `validate` and `sync` do not, and some targets write a server that cannot start. See [lint](@/docs/cli-reference/check.md#lint).
+A server needs `command` (stdio) or `url` (remote). `agnostic-ai lint` reports a missing one as LINT008. `validate` and `sync` do not, so some targets write a server that cannot start. See [lint](@/docs/cli-reference/check.md#lint).
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
