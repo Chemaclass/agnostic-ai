@@ -56,9 +56,9 @@ A server needs `command` (stdio) or `url` (remote). `agnostic-ai lint` reports a
 | `description` | no | empty | Free-form documentation. Dropped where the target's MCP schema has no such key (Junie, Warp). |
 | `type` | no | `stdio` | `stdio`, `http`, `sse`, or `ws`. Remote transports write an explicit `type`; `stdio` stays implicit. A `ws` entry emits no server on Augment, Factory, and Qoder. |
 | `command` | stdio only | none | Executable to launch. |
-| `args` | no | empty | Argument list for the command. |
+| `args` | no | empty | Argument list for the command. An element can hold a [reference](#references-in-url-and-args). |
 | `env` | no | empty | Environment variables for the server. Write a secret as a [reference](#environment-references). |
-| `url` | http/sse/ws only | none | Endpoint URL. |
+| `url` | http/sse/ws only | none | Endpoint URL. It can hold a [reference](#references-in-url-and-args). |
 | `headers` | no | empty | HTTP headers for `http`/`sse`. Write a secret as a [reference](#environment-references). |
 | `cwd` | no | empty | Working directory for a stdio server, where supported. |
 | `timeout` | no | empty | Units vary by target: milliseconds on most. |
@@ -96,6 +96,31 @@ Sync writes each tool's own form. Where a tool cannot read a reference in that f
 Kiro expands only the variables approved under **Mcp Approved Env Vars** in its settings. Factory fails the connection when a referenced variable is unset, and Claude Code passes the unexpanded `${NAME}` text to the server.
 
 Continue's IDE extensions read secrets from project `.env`, `.continue/.env`, or `~/.continue/.env` files. Its CLI also reads process environment variables. See [Continue's secret resolution](https://docs.continue.dev/faqs#managing-local-secrets-and-environment-variables). Keep `.env` files out of Git.
+
+### References in `url` and `args`
+
+A `${NAME}` can also sit in `url` or in an `args` element, such as a host that differs per machine or a token a server takes on its command line:
+
+```yaml
+url: https://${API_HOST}/mcp
+args: [--token, "${GH_TOKEN}"]
+```
+
+Sync writes each tool's own form. A tool that reads no reference in that field gets no server at all, and the note names the server, the field, and the variable: dropping one argument would change the command. A `${NAME:-default}` follows the same rule outside Claude Code, Crush, and OpenHands.
+
+`${workspaceFolder}`, `${workspaceFolderBasename}`, `${userHome}`, and `${pathSeparator}` are tool variables, not environment references, and stay as written. So does any other `${...}`, such as `${input:id}`, and every literal URL or argument.
+
+| Target | `url` | `args` |
+|--------|-------|--------|
+| [Claude Code](@/docs/targets/claude.md), [Crush](@/docs/targets/crush.md), [OpenHands](@/docs/targets/openhands.md) | `${NAME}`, `${NAME:-default}` | `${NAME}`, `${NAME:-default}` |
+| [Gemini](@/docs/targets/gemini.md) | `${NAME}` | `${NAME}` |
+| [Amp](@/docs/targets/amp.md) | `${NAME}` | Server left out |
+| [Cursor](@/docs/targets/cursor.md), [Windsurf](@/docs/targets/windsurf.md) | `${env:NAME}` | `${env:NAME}` |
+| [OpenCode](@/docs/targets/opencode.md) | `{env:NAME}` | `{env:NAME}` |
+| [Continue](@/docs/targets/continue.md) | `{% raw %}${{ secrets.NAME }}{% endraw %}` | `{% raw %}${{ secrets.NAME }}{% endraw %}` |
+| [Codex](@/docs/targets/codex.md), [Factory](@/docs/targets/factory.md), [Kiro](@/docs/targets/kiro.md), [Antigravity](@/docs/targets/antigravity.md), [Augment](@/docs/targets/augment.md), [Copilot](@/docs/targets/copilot.md), [Junie](@/docs/targets/junie.md), [Kilo Code](@/docs/targets/kilo.md), [Qoder](@/docs/targets/qoder.md), [Trae](@/docs/targets/trae.md), [Warp](@/docs/targets/warp.md), [Zed](@/docs/targets/zed.md) | Server left out | Server left out |
+
+Import reads each tool's form in `url` and `args` back as `${NAME}`, including a whole-argument `$NAME` on Gemini and Crush. It never turns a literal URL or argument into a reference.
 
 ### What import writes
 

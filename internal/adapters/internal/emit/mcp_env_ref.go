@@ -11,6 +11,9 @@ import (
 
 type mcpEnvRefForms struct {
 	env, headers spec.EnvRefSyntax
+	// url and args are the forms the tool expands in a remote server's
+	// `url` and in each element of a stdio server's `args`.
+	url, args spec.EnvRefSyntax
 	// defaults marks a tool that documents `${NAME:-default}`.
 	defaults bool
 	// reading lists the other forms the tool expands, which import
@@ -19,32 +22,43 @@ type mcpEnvRefForms struct {
 }
 
 // mcpEnvRefTargets lists the reference form each target's vendor
-// documents for MCP `env` and `headers` values (#1619). A target not
-// listed documents none, so a reference there is left out with a note
-// rather than written as text the tool never expands. Codex forwards
-// variables by name instead; see forwardCodexMCPEnvRefs.
+// documents for MCP `env` and `headers` values (#1619), and for `url`
+// and `args` (#1633). A target or field not listed documents none, so a
+// reference there is left out with a note rather than written as text
+// the tool never expands. Codex forwards env and header variables by
+// name instead; see forwardCodexMCPEnvRefs.
 //
 // A `${NAME:-default}` is left out where the tool documents no default,
 // not narrowed to `${NAME}`: the default may be what lets the server
 // start, and Factory fails a connection on an unset variable.
 var mcpEnvRefTargets = map[string]mcpEnvRefForms{
-	"claude":    {env: spec.EnvRefDollar, headers: spec.EnvRefDollar, defaults: true},
-	"crush":     {env: spec.EnvRefDollar, headers: spec.EnvRefDollar, defaults: true, reading: spec.EnvRefReading{Unbraced: true}},
-	"openhands": {env: spec.EnvRefDollar, headers: spec.EnvRefDollar, defaults: true},
+	// url, args: https://code.claude.com/docs/en/mcp#environment-variable-expansion-in-mcp-json
+	"claude": {env: spec.EnvRefDollar, headers: spec.EnvRefDollar, url: spec.EnvRefDollar, args: spec.EnvRefDollar, defaults: true},
+	// url, args: ResolvedURL and ResolvedArgs in https://github.com/charmbracelet/crush/blob/bdcf796cb1ff241b0eb18139071d46a84dc1ee91/internal/config/config.go
+	"crush": {env: spec.EnvRefDollar, headers: spec.EnvRefDollar, url: spec.EnvRefDollar, args: spec.EnvRefDollar, defaults: true, reading: spec.EnvRefReading{Unbraced: true}},
+	// url, args: expand_mcp_variables in https://github.com/OpenHands/software-agent-sdk/blob/35410b3af87e672b0264ba711755053c9d517bef/openhands-sdk/openhands/sdk/skills/utils.py
+	"openhands": {env: spec.EnvRefDollar, headers: spec.EnvRefDollar, url: spec.EnvRefDollar, args: spec.EnvRefDollar, defaults: true},
 	"factory":   {env: spec.EnvRefDollar, headers: spec.EnvRefDollar},
 	"kiro":      {env: spec.EnvRefDollar, headers: spec.EnvRefDollar},
-	"gemini":    {env: spec.EnvRefDollar, reading: spec.EnvRefReading{Unbraced: true, Percent: true}},
-	"amp":       {headers: spec.EnvRefDollar},
-	"cursor":    {env: spec.EnvRefDollarEnv, headers: spec.EnvRefDollarEnv},
-	"windsurf":  {env: spec.EnvRefDollarEnv, headers: spec.EnvRefDollarEnv},
-	"opencode":  {env: spec.EnvRefBraceEnv, headers: spec.EnvRefBraceEnv},
+	// url, args: https://geminicli.com/docs/reference/configuration (string values in settings.json)
+	"gemini": {env: spec.EnvRefDollar, url: spec.EnvRefDollar, args: spec.EnvRefDollar, reading: spec.EnvRefReading{Unbraced: true, Percent: true}},
+	// url: https://ampcode.com/docs/customize/mcp
+	"amp": {headers: spec.EnvRefDollar, url: spec.EnvRefDollar},
+	// url, args: https://cursor.com/docs/mcp#config-interpolation
+	"cursor": {env: spec.EnvRefDollarEnv, headers: spec.EnvRefDollarEnv, url: spec.EnvRefDollarEnv, args: spec.EnvRefDollarEnv},
+	// url, args: https://docs.devin.ai/desktop/cascade/mcp#config-interpolation
+	"windsurf": {env: spec.EnvRefDollarEnv, headers: spec.EnvRefDollarEnv, url: spec.EnvRefDollarEnv, args: spec.EnvRefDollarEnv},
+	// url, args: https://opencode.ai/docs/config#variables
+	"opencode": {env: spec.EnvRefBraceEnv, headers: spec.EnvRefBraceEnv, url: spec.EnvRefBraceEnv, args: spec.EnvRefBraceEnv},
 	// https://docs.continue.dev/guides/configuring-models-rules-tools#working-with-secrets
-	"continue": {env: spec.EnvRefSecrets, headers: spec.EnvRefSecrets},
+	// args: https://docs.continue.dev/customize/deep-dives/mcp#how-to-work-with-secrets-in-mcp-servers
+	// url: fillTemplateVariables over the whole file in https://github.com/continuedev/continue/blob/5522c6f44ca0ac3528b37244818fbfa39b5af470/packages/config-yaml/src/load/unroll.ts
+	"continue": {env: spec.EnvRefSecrets, headers: spec.EnvRefSecrets, url: spec.EnvRefSecrets, args: spec.EnvRefSecrets},
 }
 
 // ReadMCPEnvRefs rewrites target's own reference form in a native
-// server's `env` and `headers` values back to the spec's `${NAME}`, in
-// place.
+// server's `env`, `headers`, `url`, and `args` values back to the spec's
+// `${NAME}`, in place. A literal url or argument stays as it is.
 func ReadMCPEnvRefs(target string, server map[string]any) {
 	forms := mcpEnvRefTargets[target]
 	for _, f := range forms.fields() {
@@ -53,6 +67,14 @@ func ReadMCPEnvRefs(target string, server map[string]any) {
 			if s, ok := v.(string); ok {
 				values[key] = f.syntax.Read(s, forms.reading)
 			}
+		}
+	}
+	// `%NAME%` is documented for Gemini `env` only.
+	reading := spec.EnvRefReading{Unbraced: forms.reading.Unbraced}
+	for _, field := range mcpLaunchFields {
+		syntax := forms.launchSyntax(field)
+		if v, ok := server[field]; ok && syntax != spec.EnvRefNone {
+			server[field] = mapLaunchValue(v, func(s string) string { return syntax.Read(s, reading) })
 		}
 	}
 }
@@ -91,14 +113,21 @@ func (f mcpEnvRefField) setValues(block, values map[string]any) {
 	setOrDelete(block, f.name, values)
 }
 
-// RewriteMCPEnvRefs returns mcps with every `${NAME}` in an `env` or
-// `headers` value, top level or under `x-<target>`, written in target's
-// own form. A value target cannot reference is left out and noted, so a
-// reference never lands as a literal. Neither the slice nor its Meta
-// maps are mutated.
+// RewriteMCPEnvRefs returns mcps with every `${NAME}` in an `env`,
+// `headers`, `url`, or `args` value, top level or under `x-<target>`,
+// written in target's own form. An env or header value target cannot
+// reference is left out and noted, so a reference never lands as a
+// literal. A server whose url or args holds such a reference is left
+// out whole, since dropping one argument changes the command. Neither
+// the slice nor its Meta maps are mutated.
 func RewriteMCPEnvRefs(target string, mcps []spec.Entry) []spec.Entry {
-	out := make([]spec.Entry, len(mcps))
-	for i, e := range mcps {
+	out := make([]spec.Entry, 0, len(mcps))
+	for _, e := range mcps {
+		if field, token, why, ok := unwritableLaunchRef(target, e.Meta); ok {
+			NoteFieldNoOp(target, spec.KindMCP, field, 1,
+				fmt.Sprintf("server %s reads %s in `%s`: %s, so sync leaves the server out instead of writing the reference as text", e.Name, token.Display(), field, why))
+			continue
+		}
 		if hasMCPEnvRef(e.Meta) || hasMCPEnvRef(xBlock(e.Meta, target)) {
 			meta := rewriteMCPEnvRefBlock(target, e.Name, e.Meta)
 			if x := xBlock(e.Meta, target); x != nil {
@@ -106,7 +135,133 @@ func RewriteMCPEnvRefs(target string, mcps []spec.Entry) []spec.Entry {
 			}
 			e.Meta = meta
 		}
-		out[i] = e
+		if hasLaunchRef(e.Meta) || hasLaunchRef(xBlock(e.Meta, target)) {
+			e.Meta = rewriteLaunchRefs(target, e.Meta)
+		}
+		out = append(out, e)
+	}
+	return out
+}
+
+// mcpLaunchFields are the fields that say where a server runs, as
+// opposed to the credentials in `env` and `headers`.
+var mcpLaunchFields = []string{"url", "args"}
+
+func (f mcpEnvRefForms) launchSyntax(field string) spec.EnvRefSyntax {
+	if field == "url" {
+		return f.url
+	}
+	return f.args
+}
+
+// launchStrings returns the url, or each string argument.
+func launchStrings(v any) []string {
+	switch v := v.(type) {
+	case string:
+		return []string{v}
+	case []any:
+		var out []string
+		for _, arg := range v {
+			if s, ok := arg.(string); ok {
+				out = append(out, s)
+			}
+		}
+		return out
+	case []string:
+		return v
+	}
+	return nil
+}
+
+// mapLaunchValue applies fn to the url, or to each string argument,
+// and returns a copy.
+func mapLaunchValue(v any, fn func(string) string) any {
+	switch v := v.(type) {
+	case string:
+		return fn(v)
+	case []any:
+		out := make([]any, len(v))
+		for i, arg := range v {
+			if s, ok := arg.(string); ok {
+				out[i] = fn(s)
+			} else {
+				out[i] = arg
+			}
+		}
+		return out
+	case []string:
+		out := make([]string, len(v))
+		for i, s := range v {
+			out[i] = fn(s)
+		}
+		return out
+	}
+	return v
+}
+
+// launchRefs returns the environment references in a url or argument.
+// An editor variable such as `${workspaceFolder}`, and any other
+// `${...}`, is the tool's own text and not a reference.
+func launchRefs(value string) []spec.EnvRefToken {
+	var refs []spec.EnvRefToken
+	for _, t := range spec.EnvRefTokens(value) {
+		if t.Known() && !t.EditorVariable() {
+			refs = append(refs, t)
+		}
+	}
+	return refs
+}
+
+func hasLaunchRef(block map[string]any) bool {
+	for _, field := range mcpLaunchFields {
+		for _, s := range launchStrings(block[field]) {
+			if len(launchRefs(s)) > 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// unwritableLaunchRef returns the first reference in the url or args
+// target emits that target cannot write: the `x-<target>` value when it
+// sets the field, else the top-level one.
+func unwritableLaunchRef(target string, meta map[string]any) (string, spec.EnvRefToken, string, bool) {
+	forms := mcpEnvRefTargets[target]
+	x := xBlock(meta, target)
+	for _, field := range mcpLaunchFields {
+		value := meta[field]
+		if v, set := x[field]; set {
+			value = v
+		}
+		for _, s := range launchStrings(value) {
+			for _, t := range launchRefs(s) {
+				switch {
+				case forms.launchSyntax(field) == spec.EnvRefNone:
+					return field, t, "this tool documents no environment reference in that field", true
+				case t.HasDefault && !forms.defaults:
+					return field, t, "this tool documents no default value for a reference", true
+				}
+			}
+		}
+	}
+	return "", spec.EnvRefToken{}, "", false
+}
+
+func rewriteLaunchRefs(target string, meta map[string]any) map[string]any {
+	forms := mcpEnvRefTargets[target]
+	rewrite := func(block map[string]any) map[string]any {
+		out := maps.Clone(block)
+		for _, field := range mcpLaunchFields {
+			if v, ok := block[field]; ok {
+				out[field] = mapLaunchValue(v, forms.launchSyntax(field).WriteLaunch)
+			}
+		}
+		return out
+	}
+	out := rewrite(meta)
+	if x := xBlock(meta, target); x != nil {
+		out[XPrefix+target] = rewrite(x)
 	}
 	return out
 }

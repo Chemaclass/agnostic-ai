@@ -51,8 +51,8 @@ func userMCPs(target string, mcps []spec.Entry) []spec.Entry {
 }
 
 // ReadMCPEnvRefs rewrites target's own environment reference form in a
-// native MCP server's `env` and `headers` values back to the spec's
-// `${NAME}`, in place.
+// native MCP server's `env`, `headers`, `url`, and `args` values back to
+// the spec's `${NAME}`, in place.
 func ReadMCPEnvRefs(target string, server map[string]any) {
 	emit.ReadMCPEnvRefs(target, server)
 }

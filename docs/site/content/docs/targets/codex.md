@@ -73,7 +73,7 @@ AGENTS.md                                    # entry-point pointer body (written
 - **MCP**: `[mcp_servers.<name>]` tables. `disabled: true` writes `enabled = false`.
   - Stdio: `command`/`args`/`env`/`cwd` plus `env_vars`, whose entries are names or `{name, source}` objects with `source` set to `local` or `remote`.
   - HTTP/SSE: `url`/`bearer_token_env_var`/`http_headers`/`env_http_headers`/`auth` (`oauth` or `chatgpt`)/`http_headers_helper` (a local command printing header JSON, documented for local HTTP servers only).
-  - A `${NAME}` reference in `env` or `headers` becomes `env_vars`, `bearer_token_env_var`, or `env_http_headers`, since Codex forwards variables by name. See [environment references](@/docs/spec-format/mcps.md#environment-references).
+  - A `${NAME}` reference in `env` or `headers` becomes `env_vars`, `bearer_token_env_var`, or `env_http_headers`, since Codex forwards variables by name. Codex documents no reference in `url` or `args`, so a server with one there is left out with a note. See [environment references](@/docs/spec-format/mcps.md#environment-references).
   - Any transport: `enabled_tools`/`disabled_tools` ([config reference](https://learn.chatgpt.com/docs/config-file/config-reference.md); `disabled_tools` applies after `enabled_tools`) and the fields below. Set only one of `startup_timeout_sec` and its millisecond alias `startup_timeout_ms`.
 
   | Field | Default | Meaning |

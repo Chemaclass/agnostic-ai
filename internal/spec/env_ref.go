@@ -53,6 +53,23 @@ type EnvRefToken struct {
 // Known reports whether the token is `${NAME}` or `${NAME:-default}`.
 func (t EnvRefToken) Known() bool { return t.Name != "" }
 
+// editorVariables are the variables a VS Code style tool fills in
+// itself in MCP `args` and `url`, such as `${workspaceFolder}`
+// (cursor.com/docs/mcp#config-interpolation). They name no environment
+// variable.
+var editorVariables = map[string]bool{
+	"workspaceFolder":         true,
+	"workspaceFolderBasename": true,
+	"userHome":                true,
+	"pathSeparator":           true,
+}
+
+// EditorVariable reports whether the token is an editor variable such
+// as `${workspaceFolder}` rather than an environment reference.
+func (t EnvRefToken) EditorVariable() bool {
+	return !t.HasDefault && editorVariables[t.Name]
+}
+
 // Display spells the token without its default value, which may be a
 // secret.
 func (t EnvRefToken) Display() string {
@@ -137,9 +154,19 @@ func EnvRef(name string) string {
 // Write turns each `${NAME}` in value into this syntax. Other tokens are
 // left as written; the caller decides whether the target reads them.
 func (s EnvRefSyntax) Write(value string) string {
+	return s.write(value, false)
+}
+
+// WriteLaunch is Write for an MCP `url` or `args` element, which also
+// keeps each editor variable as written.
+func (s EnvRefSyntax) WriteLaunch(value string) string {
+	return s.write(value, true)
+}
+
+func (s EnvRefSyntax) write(value string, keepEditorVariables bool) string {
 	return envRefTokenPattern.ReplaceAllStringFunc(value, func(text string) string {
 		t := EnvRefTokens(text)[0]
-		if !t.Known() || t.HasDefault {
+		if !t.Known() || t.HasDefault || (keepEditorVariables && t.EditorVariable()) {
 			return text
 		}
 		switch s {
