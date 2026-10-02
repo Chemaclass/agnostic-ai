@@ -438,14 +438,15 @@ func printToolReads(w io.Writer, cfg *config.Config, b spec.Bundle, tools []stri
 			}
 		}
 		// A kind the adapter does not declare is skipped with a warning,
-		// so the tool does not read it.
+		// so the tool does not read it. A plugin adapter declares none and
+		// gets the whole bundle.
 		var supports []spec.Kind
 		if a, err := adapters.Resolve(t); err == nil {
 			supports = a.Capabilities()
 		}
 		for _, kind := range []string{"Rules", "Skills", "Agents", "Commands", "Hooks", "MCP servers"} {
 			entries := entriesFor(mine, kind)
-			if len(entries) == 0 || !slices.Contains(supports, kindOf(kind)) {
+			if len(entries) == 0 || supports != nil && !slices.Contains(supports, kindOf(kind)) {
 				continue
 			}
 			label := fmt.Sprintf("%d %s", len(entries), countLabel(kind, len(entries)))
