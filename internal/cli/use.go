@@ -124,7 +124,7 @@ func useTools(cmd *cobra.Command, tools []string) ([]string, error) {
 		if localSetsTargets() {
 			return nil, fmt.Errorf("%s sets targets, which win over %s; add %s there", config.LocalOverrideFileName, filepath.Base(path), strings.Join(added, ", "))
 		}
-		if err := refuseUnmanagedImport(cfg, added); err != nil {
+		if err := refuseUnmanagedImport(cfg, added, false); err != nil {
 			return nil, err
 		}
 		if err := setPendingImports(importing); err != nil {
@@ -186,14 +186,20 @@ func uncapturedInstructions(cfg *config.Config, target string) bool {
 // exists while its instructions file is in sync.unmanaged: the importer
 // would copy that file to every tool, and skipping the import would let
 // the sync write over the tool's other files.
-func refuseUnmanagedImport(cfg *config.Config, added []string) error {
+// A new project has no config for `import` to run against yet, so its
+// remedy starts with `init`.
+func refuseUnmanagedImport(cfg *config.Config, added []string, newProject bool) error {
 	detected := detectExistingTargets(".")
+	first := ""
+	if newProject {
+		first = "run agnostic-ai init, then "
+	}
 	for _, t := range added {
 		path := adapters.EntryPointPath(cfg, t)
 		if path != "" && cfg.IsUnmanaged(path) && slices.Contains(detected, t) {
 			return fmt.Errorf("%s is in sync.unmanaged, so use cannot import %s without copying it to every tool; "+
-				"run agnostic-ai import %s, remove what only %s should read from .agnostic-ai/AGNOSTIC_AI.md, then add %s to targets",
-				path, t, t, t, t)
+				"%sagnostic-ai import %s, remove what only %s should read from .agnostic-ai/AGNOSTIC_AI.md, and add %s to targets",
+				path, t, first, t, t, t)
 		}
 	}
 	return nil
@@ -239,6 +245,9 @@ func refuseNestedProject() error {
 // startProject writes agnostic-ai.yaml for the detected tools plus
 // tools, then imports everything the project already has.
 func startProject(cmd *cobra.Command, tools []string) error {
+	if localSetsTargets() {
+		return fmt.Errorf("%s sets targets, which win over %s; add %s there", config.LocalOverrideFileName, config.ConfigFileName, strings.Join(tools, ", "))
+	}
 	detected := detectExistingTargets(".")
 	targets := slices.Clone(detected)
 	for _, t := range tools {
@@ -271,7 +280,7 @@ func startProject(cmd *cobra.Command, tools []string) error {
 	}
 	// agnostic-ai.local.yaml can list an instructions file as unmanaged
 	// before the project exists.
-	if err := refuseUnmanagedImport(cfg, targets); err != nil {
+	if err := refuseUnmanagedImport(cfg, targets, true); err != nil {
 		return errors.Join(err, os.Remove(config.ConfigFileName), setPendingImports(nil))
 	}
 	var sources []string
@@ -518,5 +527,24 @@ func setPendingImports(tools []string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(p, data, 0o644)
+	// A rename replaces the file whole, so a stop mid-write never leaves
+	// a state that reads as nothing pending.
+	tmp, err := os.CreateTemp(filepath.Dir(p), ".sync-state-*")
+	if err != nil {
+		return err
+	}
+	_, werr := tmp.Write(data)
+	if err := errors.Join(werr, tmp.Sync(), tmp.Close()); err != nil {
+		_ = os.Remove(tmp.Name())
+		return err
+	}
+	if err := os.Chmod(tmp.Name(), 0o644); err != nil {
+		_ = os.Remove(tmp.Name())
+		return err
+	}
+	if err := os.Rename(tmp.Name(), p); err != nil {
+		_ = os.Remove(tmp.Name())
+		return err
+	}
+	return nil
 }

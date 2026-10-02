@@ -200,6 +200,21 @@ func TestUse_RefusesToStartAProjectInsideAnother(t *testing.T) {
 	}
 }
 
+func TestUse_RefusesToStartWhenTheLocalFileSetsTargets(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	isolateGit(t)
+	mustWriteFile(t, "agnostic-ai.local.yaml", "targets: [cursor]\n")
+
+	_, err := runCLI(t, "use", "codex")
+
+	if err == nil || !strings.Contains(err.Error(), "agnostic-ai.local.yaml sets targets") {
+		t.Fatalf("err = %v, want the local file named", err)
+	}
+	if _, err := os.Stat("agnostic-ai.yaml"); err == nil {
+		t.Error("a refused start wrote agnostic-ai.yaml")
+	}
+}
+
 func TestUse_RefusesToStartAProjectInsideAnotherOutsideGit(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
@@ -335,8 +350,8 @@ func TestUse_RefusesToStartWithAnUnmanagedDetectedTool(t *testing.T) {
 
 	_, err := runCLI(t, "use", "codex")
 
-	if err == nil || !strings.Contains(err.Error(), "CLAUDE.md is in sync.unmanaged") {
-		t.Fatalf("err = %v, want a refusal naming CLAUDE.md", err)
+	if err == nil || !strings.Contains(err.Error(), "CLAUDE.md is in sync.unmanaged") || !strings.Contains(err.Error(), "run agnostic-ai init, then agnostic-ai import claude") {
+		t.Fatalf("err = %v, want a refusal naming CLAUDE.md and init first", err)
 	}
 	if _, err := os.Stat("agnostic-ai.yaml"); err == nil {
 		t.Error("a refused start left agnostic-ai.yaml")
