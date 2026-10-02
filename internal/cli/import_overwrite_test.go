@@ -404,3 +404,42 @@ func TestImport_RealRunDoesNotCopyTheProject(t *testing.T) {
 		t.Fatalf("import --overwrite without a temp dir: %v\n%s", err, out)
 	}
 }
+
+// The singular `target:` key scopes a spec as `targets:` does.
+func TestImport_StopsOnASpecWithATargetKeyForAnotherTool(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	mine := "---\nname: review\ndescription: Mine.\ntarget: codex\n---\nMine\n"
+	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", mine)
+	runSyncOK(t)
+	mustWriteFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
+
+	_, err := runCLI(t, "import", "claude")
+
+	if errs.CodeOf(err) != errs.CodeImportWouldReplace {
+		t.Fatalf("import claude did not stop on a skill with target: codex: %v", err)
+	}
+	if got := readFile(t, ".agnostic-ai/skills/review/SKILL.md"); got != mine {
+		t.Errorf("review skill = %q, want it untouched", got)
+	}
+}
+
+// A skill an earlier import wrote comes back from a later native edit.
+func TestImport_ReimportsASkillAnEarlierImportWrote(t *testing.T) {
+	importOverwriteProject(t)
+	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", nativeSkill)
+	if out, err := runCLI(t, "import", "claude"); err != nil {
+		t.Fatalf("first import: %v\n%s", err, out)
+	}
+	edited := strings.Replace(nativeSkill, "Native\n", "Native, edited\n", 1)
+	mustWriteFile(t, ".claude/skills/deploy/SKILL.md", "---\nname: deploy\ndescription: Ship.\n---\nShip, edited\n")
+	mustWriteFile(t, ".claude/skills/review/SKILL.md", edited)
+
+	if out, err := runCLI(t, "import", "claude"); err != nil {
+		t.Fatalf("re-import of an imported skill: %v\n%s", err, out)
+	}
+	if got := readFile(t, ".agnostic-ai/skills/deploy/SKILL.md"); !strings.Contains(got, "Ship, edited") {
+		t.Errorf("deploy skill = %q, want the native edit", got)
+	}
+}

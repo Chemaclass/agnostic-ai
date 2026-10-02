@@ -276,14 +276,17 @@ func (t *importTransaction) entries(rec *importRecorder) ([]importPreviewEntry, 
 }
 
 // recordImportedSpecFiles stores the raw-bytes sum of each spec file the
-// run changed, as written by import, so a later import may replace it
-// while nothing else has touched it. A file the run left as it was keeps
-// its record.
+// run wrote, as written by import, so a later import may replace it
+// while nothing else has touched it. A file whose record already holds
+// its bytes keeps that record.
 func recordImportedSpecFiles(root string, entries []importPreviewEntry, specDirs []string) error {
 	state := readStateFile(root)
 	changed := false
 	for _, e := range entries {
-		if !underAny(e.path, specDirs) || (e.existed && bytes.Equal(e.before, e.after)) {
+		if !underAny(e.path, specDirs) {
+			continue
+		}
+		if rec, ok := state.SpecFileSums[e.path]; ok && e.after != nil && rec.Sum == sha256Hex(e.after) {
 			continue
 		}
 		if state.SpecFileSums == nil {
