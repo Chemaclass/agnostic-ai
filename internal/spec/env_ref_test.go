@@ -77,7 +77,8 @@ func TestOnlyEnvRefs(t *testing.T) {
 	for value, want := range map[string]bool{
 		"${A}":                         true,
 		"Bearer ${A}":                  true,
-		"${A} ${input:b}":              true,
+		"${A:-x} ${B}":                 true,
+		"${A} ${input:b}":              false,
 		"postgres://u:hunter2@${HOST}": false,
 		"Bearer sk-1 ${EXTRA}":         false,
 		"literal":                      false,

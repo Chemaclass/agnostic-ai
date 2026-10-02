@@ -271,3 +271,20 @@ func TestImportMCP_TextAroundAReferenceIsReplacedWhole(t *testing.T) {
 		t.Errorf("no set line for the replaced value:\n%s", out)
 	}
 }
+
+func TestImportMCP_UnknownTokenIsReplacedWhole(t *testing.T) {
+	specs, out := importMCPServers(t, "copilot", map[string]any{
+		"vs": map[string]any{"command": "vs", "env": map[string]any{"API_KEY": "${input:api-key}", "CFG": "${workspaceFolder}/cfg"}},
+	})
+	for _, want := range []string{"API_KEY: ${API_KEY}", "CFG: ${CFG}"} {
+		if !strings.Contains(specs["vs"], want) {
+			t.Errorf("missing %q:\n%s", want, specs["vs"])
+		}
+	}
+	if strings.Contains(specs["vs"], "input:") {
+		t.Errorf("an unknown token reached the spec:\n%s", specs["vs"])
+	}
+	if !strings.Contains(out, "env API_KEY now reads ${API_KEY}; set API_KEY (the value prompted for input api-key)") {
+		t.Errorf("output does not name the prompt:\n%s", out)
+	}
+}

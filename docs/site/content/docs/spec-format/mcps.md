@@ -102,7 +102,7 @@ Kiro expands only the variables approved under **Mcp Approved Env Vars** in its 
 - A header reads `<SERVER>_<HEADER>` in upper case, with any character other than a letter or digit as `_`, and keeps a `Bearer ` prefix outside the reference.
 - When two different values would share a name, or the import already references that name, each one reads `<SERVER>_<KEY>` instead, then `_2`, `_3` if that still clashes. Equal values share one name. Codex forwards a variable only under its key's own name, so a renamed `env` value such as `API_KEY: ${GH_API_KEY}` is left out of `.codex/config.toml` with a note. Rename the variable to the key when Codex needs that server.
 - A `${NAME:-default}` loses its default, since a default is a value too.
-- A value with text around its references, such as `postgres://u:pw@${HOST}/db` or `Bearer sk-1 ${EXTRA}`, is replaced whole, since that text may be the secret.
+- A value with text around its references, such as `postgres://u:pw@${HOST}/db` or `Bearer sk-1 ${EXTRA}`, is replaced whole, since that text may be the secret. So is a value with any other `${...}`, such as a VS Code `${input:id}` prompt, which sync could not write; the output names the prompt.
 - A Crush `$(command)` value becomes a reference, and the output names the command it ran.
 
 Import prints each replacement and the variable to set. `import --global` keeps literal values, since the user files it adopts must render back unchanged.

@@ -141,6 +141,8 @@ type mcpLiteralRef struct {
 	defaulted bool
 	// ran is the command a `$(...)` value ran, never its arguments.
 	ran string
+	// prompted is the id of a VS Code `${input:id}` prompt the value used.
+	prompted string
 }
 
 type mcpLiteral struct {
@@ -149,13 +151,18 @@ type mcpLiteral struct {
 	prefix, secret     string
 }
 
-var mcpCommandPattern = regexp.MustCompile(`\$\(\s*([^\s)]+)`)
+var (
+	mcpCommandPattern = regexp.MustCompile(`\$\(\s*([^\s)]+)`)
+	mcpInputPattern   = regexp.MustCompile(`\$\{input:([^}]+)\}`)
+)
 
 // referenceMCPLiterals replaces every literal `env` and `headers` value
 // with a reference, and strips the default from a `${NAME:-default}`,
 // since a default is a value too. A value with any text around its
 // references counts as a literal and is replaced whole, since that text
-// may be the secret (`postgres://u:pw@${HOST}/db`). A `Bearer ` prefix
+// may be the secret (`postgres://u:pw@${HOST}/db`); so does one with a
+// `${...}` sync cannot write, such as `${input:id}`, which would
+// otherwise reach the spec and drop from every target. A `Bearer ` prefix
 // stays outside the reference. See mcpLiteralNames for the variable
 // names.
 func referenceMCPLiterals(servers map[string]any) []mcpLiteralRef {
@@ -198,6 +205,9 @@ func referenceMCPLiterals(servers map[string]any) []mcpLiteralRef {
 		ref := mcpLiteralRef{server: l.server, field: l.field, key: l.key, value: l.values[l.key].(string), variable: variable}
 		if m := mcpCommandPattern.FindStringSubmatch(l.secret); m != nil {
 			ref.ran = m[1]
+		}
+		if m := mcpInputPattern.FindStringSubmatch(l.secret); m != nil {
+			ref.prompted = m[1]
 		}
 		refs = append(refs, ref)
 	}
@@ -256,11 +266,14 @@ func reportMCPLiteralRefs(refs []mcpLiteralRef) {
 			keptf("%s MCP server %s: %s %s now reads %s without its default; set %s\n", bang(), r.server, r.field, r.key, r.value, r.variable)
 			continue
 		}
-		ran := ""
-		if r.ran != "" {
-			ran = fmt.Sprintf(" (the value ran %s)", r.ran)
+		was := ""
+		switch {
+		case r.ran != "":
+			was = fmt.Sprintf(" (the value ran %s)", r.ran)
+		case r.prompted != "":
+			was = fmt.Sprintf(" (the value prompted for input %s)", r.prompted)
 		}
-		keptf("%s MCP server %s: %s %s now reads %s; set %s%s\n", bang(), r.server, r.field, r.key, r.value, r.variable, ran)
+		keptf("%s MCP server %s: %s %s now reads %s; set %s%s\n", bang(), r.server, r.field, r.key, r.value, r.variable, was)
 	}
 	keptf("  hint: import does not copy env or header values into specs; export each variable above in the shell that starts your tool\n")
 }

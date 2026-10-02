@@ -92,12 +92,20 @@ func HasEnvRef(value string) bool {
 	return envRefTokenPattern.MatchString(value)
 }
 
-// OnlyEnvRefs reports whether value is references and nothing else,
-// ignoring whitespace and a leading `Bearer `. Any other text may be a
-// secret written around a reference, such as a password in a URL.
+// OnlyEnvRefs reports whether value is `${NAME}` or `${NAME:-default}`
+// references and nothing else, ignoring whitespace and a leading
+// `Bearer `. Any other text may be a secret written around a reference,
+// such as a password in a URL, and any other `${...}` is one sync cannot
+// write.
 func OnlyEnvRefs(value string) bool {
-	if !HasEnvRef(value) {
+	tokens := EnvRefTokens(value)
+	if len(tokens) == 0 {
 		return false
+	}
+	for _, t := range tokens {
+		if !t.Known() {
+			return false
+		}
 	}
 	rest := envRefTokenPattern.ReplaceAllString(strings.TrimPrefix(value, "Bearer "), "")
 	return strings.TrimSpace(rest) == ""
