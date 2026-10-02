@@ -37,20 +37,20 @@ func importFromCrush(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Skills, src.Hooks, src.MCPs); err != nil {
 		return err
 	}
-	rules, err := sliceMirroredMainFile(root, crushMainFile, filepath.Join(root, src.Rules))
+	rules, err := sliceMirroredMainFile(root, crushMainFile, importSourcePath(root, src.Rules))
 	if err != nil {
 		return err
 	}
-	skills, err := importSkillFolders(root, filepath.Join(root, crushSkillsDir), filepath.Join(root, src.Skills))
+	skills, err := importSkillFolders(root, filepath.Join(root, crushSkillsDir), importSourcePath(root, src.Skills))
 	if err != nil {
 		return err
 	}
-	hooks, err := importCrushHooks(root, filepath.Join(root, src.Hooks))
+	hooks, err := importCrushHooks(root, importSourcePath(root, src.Hooks))
 	if err != nil {
 		return err
 	}
 	mcps, err := importJSONMCPMap("crush", filepath.Join(root, crushMCPFile), crushMCPKey,
-		filepath.Join(root, src.MCPs))
+		importSourcePath(root, src.MCPs))
 	if err != nil {
 		return err
 	}

@@ -67,11 +67,11 @@ func importFromCodexWithOpts(root string, src config.Sources, opts importCodexOp
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs, src.Commands); err != nil {
 		return err
 	}
-	rules, err := importCodexRules(root, filepath.Join(root, src.Rules), src, opts)
+	rules, err := importCodexRules(root, importSourcePath(root, src.Rules), src, opts)
 	if err != nil {
 		return err
 	}
-	rulesFileRules, err := importCodexRulesFile(root, filepath.Join(root, src.Rules), opts)
+	rulesFileRules, err := importCodexRulesFile(root, importSourcePath(root, src.Rules), opts)
 	if err != nil {
 		return err
 	}
@@ -80,26 +80,26 @@ func importFromCodexWithOpts(root string, src config.Sources, opts importCodexOp
 	if err != nil {
 		return err
 	}
-	agents, err := importCodexAgents(root, filepath.Join(root, src.Agents))
+	agents, err := importCodexAgents(root, importSourcePath(root, src.Agents))
 	if err != nil {
 		return err
 	}
-	skills, err := importCodexSkills(root, filepath.Join(root, src.Skills))
+	skills, err := importCodexSkills(root, importSourcePath(root, src.Skills))
 	if err != nil {
 		return err
 	}
-	hooks, mcps, err := importCodexConfig(root, filepath.Join(root, src.Hooks), filepath.Join(root, src.MCPs))
+	hooks, mcps, err := importCodexConfig(root, importSourcePath(root, src.Hooks), importSourcePath(root, src.MCPs))
 	if err != nil {
 		return err
 	}
 	if err := captureHookScripts(root, "codex"); err != nil {
 		return err
 	}
-	commands, err := importCodexCommands(root, filepath.Join(root, src.Commands))
+	commands, err := importCodexCommands(root, importSourcePath(root, src.Commands))
 	if err != nil {
 		return err
 	}
-	overlaySeeded, effortPromoted, err := importCodexConfigOverlay(root, filepath.Join(root, src.Settings))
+	overlaySeeded, effortPromoted, err := importCodexConfigOverlay(root, importSourcePath(root, src.Settings))
 	if err != nil {
 		return err
 	}

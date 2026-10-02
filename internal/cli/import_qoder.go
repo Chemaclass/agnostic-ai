@@ -49,19 +49,19 @@ func importFromQoder(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	agents, err := importQoderAgents(root, filepath.Join(root, src.Agents))
+	agents, err := importQoderAgents(root, importSourcePath(root, src.Agents))
 	if err != nil {
 		return err
 	}
-	skills, err := importSkillFolders(root, filepath.Join(root, qoderSkillsDir), filepath.Join(root, src.Skills))
+	skills, err := importSkillFolders(root, filepath.Join(root, qoderSkillsDir), importSourcePath(root, src.Skills))
 	if err != nil {
 		return err
 	}
-	commands, err := importQoderCommands(root, filepath.Join(root, src.Commands))
+	commands, err := importQoderCommands(root, importSourcePath(root, src.Commands))
 	if err != nil {
 		return err
 	}
-	settings, err := importPortableSettings(root, qoderSettingsFile, filepath.Join(root, src.Settings), portableSettingsShape{target: "qoder", nestedModel: true, permissions: true})
+	settings, err := importPortableSettings(root, qoderSettingsFile, importSourcePath(root, src.Settings), portableSettingsShape{target: "qoder", nestedModel: true, permissions: true})
 	if err != nil {
 		return err
 	}

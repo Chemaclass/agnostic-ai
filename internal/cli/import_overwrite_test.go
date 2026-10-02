@@ -1001,6 +1001,45 @@ func TestImport_RollbackRestoresAFileWrittenThroughTwoPaths(t *testing.T) {
 	}
 }
 
+func TestImportTransaction_RollbackRemovesNewFileWrittenThroughDirectoryAlias(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	external := t.TempDir()
+	shared := filepath.Join(external, "shared")
+	alias := filepath.Join(external, "alias")
+	if err := os.Mkdir(shared, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := createImportSourceAlias(shared, alias); err != nil {
+		t.Fatal(err)
+	}
+	viaAlias := filepath.Join(alias, "foo.md")
+	viaTarget := filepath.Join(shared, "foo.md")
+	txn := importTransaction{files: map[string]*savedImportFile{}}
+	if err := txn.saveFile(viaAlias); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, viaAlias, "First import.\n")
+	if err := txn.saveFile(viaTarget); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, viaTarget, "Second import.\n")
+	entries, err := txn.entries(&importRecorder{writes: []importPlannedWrite{{path: viaAlias}, {path: viaTarget}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if entry.existed {
+			t.Errorf("new destination was marked as existing: %s", entry.path)
+		}
+	}
+	if err := txn.rollback(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(viaTarget); !os.IsNotExist(err) {
+		t.Errorf("rollback left a new file through its alias: %v", err)
+	}
+}
+
 func TestImport_LeavesADanglingDestinationLinkAndItsTargetAlone(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("symlinks need privileges on Windows")

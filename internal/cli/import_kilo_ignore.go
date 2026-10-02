@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"path/filepath"
-
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -14,11 +12,11 @@ func importKiloIgnore(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	settings, err := importPortableSettings(root, "kilo.jsonc", filepath.Join(root, src.Settings), portableSettingsShape{target: "kilo"})
+	settings, err := importPortableSettings(root, "kilo.jsonc", importSourcePath(root, src.Settings), portableSettingsShape{target: "kilo"})
 	if err != nil {
 		return err
 	}
-	permissions, err := importKiloPermissions(root, filepath.Join(root, src.Settings))
+	permissions, err := importKiloPermissions(root, importSourcePath(root, src.Settings))
 	if err != nil {
 		return err
 	}

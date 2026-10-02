@@ -36,7 +36,7 @@ func importCursorReviews(root string, src config.Sources) (int, error) {
 		return 0, err
 	}
 	sort.Slice(dirs, func(i, j int) bool { return dirs[i].scope < dirs[j].scope })
-	dstDir := filepath.Join(root, src.Reviews)
+	dstDir := importSourcePath(root, src.Reviews)
 	used := map[string]int{}
 	count := 0
 	for _, dir := range dirs {

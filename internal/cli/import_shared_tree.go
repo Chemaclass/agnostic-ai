@@ -264,12 +264,12 @@ func skillFolderSource(root, dir, dstDir string, e fs.DirEntry) (string, bool) {
 	if err != nil {
 		return "", false
 	}
+	if copiedFromOutside(root, abs) {
+		noteOutsideSkill(link, abs)
+		return "", false
+	}
 	if e.Type()&fs.ModeSymlink == 0 {
 		if !e.IsDir() {
-			return "", false
-		}
-		if copiedFromOutside(root, abs) {
-			noteOutsideSkill(link, abs)
 			return "", false
 		}
 		return link, true

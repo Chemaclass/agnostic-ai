@@ -22,19 +22,19 @@ func importFromAmp(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.MCPs); err != nil {
 		return err
 	}
-	rules, err := importAmpRules(root, filepath.Join(root, src.Rules))
+	rules, err := importAmpRules(root, importSourcePath(root, src.Rules))
 	if err != nil {
 		return err
 	}
-	agents, err := importAmpCommands(root, filepath.Join(root, src.Agents))
+	agents, err := importAmpCommands(root, importSourcePath(root, src.Agents))
 	if err != nil {
 		return err
 	}
-	skills, err := importSkillFolders(root, filepath.Join(root, ampSkillsDir), filepath.Join(root, src.Skills))
+	skills, err := importSkillFolders(root, filepath.Join(root, ampSkillsDir), importSourcePath(root, src.Skills))
 	if err != nil {
 		return err
 	}
-	mcps, err := importAmpMCP(root, filepath.Join(root, src.MCPs))
+	mcps, err := importAmpMCP(root, importSourcePath(root, src.MCPs))
 	if err != nil {
 		return err
 	}

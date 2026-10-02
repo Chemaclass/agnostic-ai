@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"path/filepath"
-
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -17,7 +15,7 @@ func importFromAugment(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	settings, err := importAugmentPermissions(root, filepath.Join(root, src.Settings))
+	settings, err := importAugmentPermissions(root, importSourcePath(root, src.Settings))
 	if err != nil {
 		return err
 	}

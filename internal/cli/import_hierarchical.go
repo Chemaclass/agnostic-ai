@@ -31,7 +31,7 @@ func findHierarchicalMainFiles(root, filename string, src config.Sources) ([]hie
 	skipDirs := map[string]bool{"vendor": true}
 	for _, p := range []string{src.Agents, src.Skills, src.Rules, src.Hooks, src.MCPs} {
 		if p != "" {
-			skipDirs[firstSegment(p)] = true
+			skipDirs[firstSegment(importSourceRelativePath(root, p))] = true
 		}
 	}
 	tree := importTreeFor(root)

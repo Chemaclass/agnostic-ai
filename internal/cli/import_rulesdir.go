@@ -154,7 +154,7 @@ func importRulesDirectoryWith(root, srcDir string, src config.Sources, opts rule
 			opts.NormalizeMeta(meta)
 		}
 		body := stripLeadingHeading(rest)
-		out := filepath.Join(root, dstDir, opts.ScopePrefix, scopeDir(rel), baseName+".md")
+		out := filepath.Join(importSourcePath(root, dstDir), opts.ScopePrefix, scopeDir(rel), baseName+".md")
 		if err := importMkdirAll(filepath.Dir(out), 0o755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", filepath.Dir(out), err)
 		}

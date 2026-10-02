@@ -9,14 +9,12 @@ import (
 	"os/signal"
 	"path/filepath"
 	"slices"
-	"strings"
 	"sync"
 	"syscall"
 )
 
-// importSandbox is the directory a dry-run import runs in, or "" outside
-// one. A write that resolves outside it is recorded but never reaches
-// disk, so no path shape can lead a dry-run into the project.
+// importSandbox is the project copy a preview runs in. Only it and
+// the source copies may be written during the preview.
 // Sequential test use only.
 var importSandbox string
 
@@ -152,7 +150,7 @@ func importMkdirAll(dir string, perm fs.FileMode) error {
 }
 
 // inImportSandbox reports whether path may be written: always outside a
-// dry-run, and only under importSandbox during one.
+// dry-run, and only under the project or source copies during one.
 func inImportSandbox(path string) bool {
 	if importSandbox == "" {
 		return true
@@ -161,8 +159,13 @@ func inImportSandbox(path string) bool {
 	if err != nil {
 		return false
 	}
-	rel, err := filepath.Rel(importSandbox, abs)
-	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+	if _, inside := pathBelow(importSandbox, abs); inside {
+		return true
+	}
+	return slices.ContainsFunc(importSourceCopies, func(copy importSourceCopy) bool {
+		_, inside := pathBelow(copy.shadow, abs)
+		return inside
+	})
 }
 
 // importTransaction keeps each file a real import writes as it was before
@@ -202,7 +205,7 @@ func (t *importTransaction) saveFile(path string) error {
 	if err != nil {
 		return fmt.Errorf("resolve %s: %w", path, err)
 	}
-	resolved = resolveExisting(resolved)
+	resolved = resolveImportSourceExisting(resolved)
 	if t.paths == nil {
 		t.paths = map[string]string{}
 	}

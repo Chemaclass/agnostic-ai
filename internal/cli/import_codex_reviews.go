@@ -35,7 +35,7 @@ func importCodexReviews(root string, src config.Sources) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	dstDir := filepath.Join(root, src.Reviews)
+	dstDir := importSourcePath(root, src.Reviews)
 	used := map[string]int{}
 	count := 0
 	for _, f := range files {

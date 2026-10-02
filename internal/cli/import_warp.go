@@ -35,19 +35,19 @@ func importFromWarp(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.MCPs); err != nil {
 		return err
 	}
-	rules, err := sliceMirroredMainFile(root, warpMainFile, filepath.Join(root, src.Rules))
+	rules, err := sliceMirroredMainFile(root, warpMainFile, importSourcePath(root, src.Rules))
 	if err != nil {
 		return err
 	}
-	agents, err := importWarpWorkflows(root, filepath.Join(root, src.Agents))
+	agents, err := importWarpWorkflows(root, importSourcePath(root, src.Agents))
 	if err != nil {
 		return err
 	}
-	skills, err := importScopedSkillFoldersFrom(root, warpSkillsDirs, filepath.Join(root, src.Skills))
+	skills, err := importScopedSkillFoldersFrom(root, warpSkillsDirs, importSourcePath(root, src.Skills))
 	if err != nil {
 		return err
 	}
-	mcps, err := importWarpMCP(root, filepath.Join(root, src.MCPs))
+	mcps, err := importWarpMCP(root, importSourcePath(root, src.MCPs))
 	if err != nil {
 		return err
 	}

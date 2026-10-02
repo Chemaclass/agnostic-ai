@@ -95,7 +95,7 @@ func importFromCline(root string, src config.Sources) error {
 		}
 		c.add(imported)
 	}
-	nativeAgents, err := importClineAgents(filepath.Join(root, clineAgentsDir), filepath.Join(root, src.Agents))
+	nativeAgents, err := importClineAgents(filepath.Join(root, clineAgentsDir), importSourcePath(root, src.Agents))
 	if err != nil {
 		return err
 	}
@@ -105,7 +105,7 @@ func importFromCline(root string, src config.Sources) error {
 		if !dirExists(filepath.Join(root, filepath.Dir(skillsDir))) {
 			continue
 		}
-		folderSkills, err := importSkillFoldersWith(root, filepath.Join(root, skillsDir), filepath.Join(root, src.Skills), skillFolderImportOpts{SkipNames: seenSkills})
+		folderSkills, err := importSkillFoldersWith(root, filepath.Join(root, skillsDir), importSourcePath(root, src.Skills), skillFolderImportOpts{SkipNames: seenSkills})
 		if err != nil {
 			return err
 		}

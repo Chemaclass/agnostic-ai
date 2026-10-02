@@ -247,14 +247,14 @@ func importFromWindsurf(root string, src config.Sources, cfg *config.Config) err
 		}
 		c.add(scoped)
 	}
-	nativeAgents, err := importFlatMarkdownFiles(filepath.Join(root, windsurfAgentsDir), filepath.Join(root, src.Agents), windsurfAgentFields)
+	nativeAgents, err := importFlatMarkdownFiles(filepath.Join(root, windsurfAgentsDir), importSourcePath(root, src.Agents), windsurfAgentFields)
 	if err != nil {
 		return err
 	}
 	c.agents += nativeAgents
 	seenSkills := map[string]bool{}
 	for _, skillsDir := range windsurfSkillsDirs {
-		folderSkills, err := importSkillFoldersWith(root, filepath.Join(root, skillsDir), filepath.Join(root, src.Skills), skillFolderImportOpts{
+		folderSkills, err := importSkillFoldersWith(root, filepath.Join(root, skillsDir), importSourcePath(root, src.Skills), skillFolderImportOpts{
 			SkipNames:      seenSkills,
 			TransformSkill: normalizeWindsurfSkill,
 		})
@@ -263,11 +263,11 @@ func importFromWindsurf(root string, src config.Sources, cfg *config.Config) err
 		}
 		c.skills += folderSkills
 	}
-	mcps, err := importWindsurfMCP(root, filepath.Join(root, src.MCPs))
+	mcps, err := importWindsurfMCP(root, importSourcePath(root, src.MCPs))
 	if err != nil {
 		return err
 	}
-	hooks, err := importWindsurfHooks(root, filepath.Join(root, src.Hooks))
+	hooks, err := importWindsurfHooks(root, importSourcePath(root, src.Hooks))
 	if err != nil {
 		return err
 	}
@@ -275,7 +275,7 @@ func importFromWindsurf(root string, src config.Sources, cfg *config.Config) err
 	if err != nil {
 		return err
 	}
-	settings, err := importWindsurfPermissions(root, filepath.Join(root, src.Settings))
+	settings, err := importWindsurfPermissions(root, importSourcePath(root, src.Settings))
 	if err != nil {
 		return err
 	}

@@ -69,7 +69,7 @@ func importCursorEnvironment(root string, src config.Sources) (int, error) {
 		}
 	}
 
-	dstDir := filepath.Join(root, src.Environments)
+	dstDir := importSourcePath(root, src.Environments)
 	out := filepath.Join(dstDir, cursorEnvironmentSpecName+".yaml")
 	if fileExists(out) {
 		summaryf("  ! skipped %s: %s already exists; move its keys there by hand\n",

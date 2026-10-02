@@ -80,13 +80,13 @@ func importFromJunie(root string, src config.Sources) error {
 	}
 	seenSkills := map[string]bool{}
 	for _, skillsDir := range []string{junieSkillsDir, ".agents/skills"} {
-		folderSkills, err := importSkillFoldersWith(root, filepath.Join(root, skillsDir), filepath.Join(root, src.Skills), skillFolderImportOpts{SkipNames: seenSkills})
+		folderSkills, err := importSkillFoldersWith(root, filepath.Join(root, skillsDir), importSourcePath(root, src.Skills), skillFolderImportOpts{SkipNames: seenSkills})
 		if err != nil {
 			return err
 		}
 		c.skills += folderSkills
 	}
-	commands, err := importJunieCommands(root, filepath.Join(root, src.Commands))
+	commands, err := importJunieCommands(root, importSourcePath(root, src.Commands))
 	if err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func importFromJunie(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	settings, err := importPortableSettings(root, junieConfigFile, filepath.Join(root, src.Settings), portableSettingsShape{target: "junie"})
+	settings, err := importPortableSettings(root, junieConfigFile, importSourcePath(root, src.Settings), portableSettingsShape{target: "junie"})
 	if err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ func importJunieRulesAndAgents(root string, src config.Sources) (rulesDirCounts,
 	}
 
 	var c rulesDirCounts
-	agents, err := importJunieAgents(root, filepath.Join(root, src.Agents))
+	agents, err := importJunieAgents(root, importSourcePath(root, src.Agents))
 	if err != nil {
 		return c, err
 	}
@@ -132,14 +132,14 @@ func importJunieRulesAndAgents(root string, src config.Sources) (rulesDirCounts,
 	}
 	body := string(data)
 
-	rules, err := importJunieAppendix(body, adapters.RulesStartMarker, adapters.RulesEndMarker, filepath.Join(root, src.Rules))
+	rules, err := importJunieAppendix(body, adapters.RulesStartMarker, adapters.RulesEndMarker, importSourcePath(root, src.Rules))
 	if err != nil {
 		return c, err
 	}
 	c.rules = rules
 
 	if c.agents == 0 {
-		legacyAgents, err := importJunieAppendix(body, adapters.AgentsStartMarker, adapters.AgentsEndMarker, filepath.Join(root, src.Agents))
+		legacyAgents, err := importJunieAppendix(body, adapters.AgentsStartMarker, adapters.AgentsEndMarker, importSourcePath(root, src.Agents))
 		if err != nil {
 			return c, err
 		}

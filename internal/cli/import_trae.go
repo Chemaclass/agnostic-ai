@@ -61,25 +61,25 @@ func importFromTrae(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	nativeAgents, err := importFlatMarkdownFiles(filepath.Join(root, traeAgentsDir), filepath.Join(root, src.Agents), traeAgentFields)
+	nativeAgents, err := importFlatMarkdownFiles(filepath.Join(root, traeAgentsDir), importSourcePath(root, src.Agents), traeAgentFields)
 	if err != nil {
 		return err
 	}
 	c.agents += nativeAgents
-	folderSkills, err := importSkillFolders(root, filepath.Join(root, traeSkillsDir), filepath.Join(root, src.Skills))
+	folderSkills, err := importSkillFolders(root, filepath.Join(root, traeSkillsDir), importSourcePath(root, src.Skills))
 	if err != nil {
 		return err
 	}
 	c.skills += folderSkills
-	commands, err := importTraeCommands(root, filepath.Join(root, src.Commands))
+	commands, err := importTraeCommands(root, importSourcePath(root, src.Commands))
 	if err != nil {
 		return err
 	}
-	hooks, err := importTraeHooks(root, filepath.Join(root, src.Hooks))
+	hooks, err := importTraeHooks(root, importSourcePath(root, src.Hooks))
 	if err != nil {
 		return err
 	}
-	mcps, err := importTraeMCP(root, filepath.Join(root, src.MCPs))
+	mcps, err := importTraeMCP(root, importSourcePath(root, src.MCPs))
 	if err != nil {
 		return err
 	}

@@ -38,30 +38,30 @@ func importFromGemini(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs, src.Commands); err != nil {
 		return err
 	}
-	rules, err := importGeminiRules(root, filepath.Join(root, src.Rules), src)
+	rules, err := importGeminiRules(root, importSourcePath(root, src.Rules), src)
 	if err != nil {
 		return err
 	}
-	agents, err := importGeminiAgents(root, filepath.Join(root, src.Agents))
+	agents, err := importGeminiAgents(root, importSourcePath(root, src.Agents))
 	if err != nil {
 		return err
 	}
-	commands, err := importGeminiCommands(root, filepath.Join(root, src.Commands))
+	commands, err := importGeminiCommands(root, importSourcePath(root, src.Commands))
 	if err != nil {
 		return err
 	}
-	skills, err := importSkillFolders(root, filepath.Join(root, ".gemini", "skills"), filepath.Join(root, src.Skills))
+	skills, err := importSkillFolders(root, filepath.Join(root, ".gemini", "skills"), importSourcePath(root, src.Skills))
 	if err != nil {
 		return err
 	}
-	mcps, hooks, err := importGeminiSettings(root, filepath.Join(root, src.MCPs), filepath.Join(root, src.Hooks))
+	mcps, hooks, err := importGeminiSettings(root, importSourcePath(root, src.MCPs), importSourcePath(root, src.Hooks))
 	if err != nil {
 		return err
 	}
 	if err := captureHookScripts(root, "gemini"); err != nil {
 		return err
 	}
-	settings, err := importPortableSettings(root, geminiSettings, filepath.Join(root, src.Settings), portableSettingsShape{target: "gemini", nestedModel: true})
+	settings, err := importPortableSettings(root, geminiSettings, importSourcePath(root, src.Settings), portableSettingsShape{target: "gemini", nestedModel: true})
 	if err != nil {
 		return err
 	}

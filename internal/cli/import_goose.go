@@ -78,15 +78,15 @@ func importFromGoose(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.Reviews); err != nil {
 		return err
 	}
-	rules, err := importGooseRules(root, filepath.Join(root, src.Rules))
+	rules, err := importGooseRules(root, importSourcePath(root, src.Rules))
 	if err != nil {
 		return err
 	}
-	agents, err := importFlatMarkdownFiles(filepath.Join(root, gooseAgentsDir), filepath.Join(root, src.Agents), gooseAgentFields)
+	agents, err := importFlatMarkdownFiles(filepath.Join(root, gooseAgentsDir), importSourcePath(root, src.Agents), gooseAgentFields)
 	if err != nil {
 		return err
 	}
-	skills, err := importSkillFolders(root, filepath.Join(root, gooseSkillsDir), filepath.Join(root, src.Skills))
+	skills, err := importSkillFolders(root, filepath.Join(root, gooseSkillsDir), importSourcePath(root, src.Skills))
 	if err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func importFromGoose(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	reviews, err := importGooseReview(root, filepath.Join(root, src.Reviews))
+	reviews, err := importGooseReview(root, importSourcePath(root, src.Reviews))
 	if err != nil {
 		return err
 	}
@@ -151,12 +151,12 @@ func importGoosePlugins(root string, src config.Sources) (skills, hooks int, err
 			continue
 		}
 		plugin := filepath.Join(dir, e.Name())
-		n, err := importSkillFolders(root, filepath.Join(plugin, "skills"), filepath.Join(root, src.Skills))
+		n, err := importSkillFolders(root, filepath.Join(plugin, "skills"), importSourcePath(root, src.Skills))
 		if err != nil {
 			return skills, hooks, err
 		}
 		skills += n
-		n, err = importGooseHooks(filepath.Join(plugin, "hooks", "hooks.json"), filepath.Join(root, src.Hooks))
+		n, err = importGooseHooks(filepath.Join(plugin, "hooks", "hooks.json"), importSourcePath(root, src.Hooks))
 		if err != nil {
 			return skills, hooks, err
 		}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // importInlinedEntryPointRules recovers the rules source loads from the
@@ -36,17 +37,22 @@ func importInlinedEntryPointRules(root, source string, cfg *config.Config) error
 		return nil
 	}
 	specs := map[string]bool{}
-	if _, b, err := loadProject(root); err == nil {
+	mapped := *cfg
+	mapped.Sources = importMappedSources(root, cfg.Sources)
+	if b, err := spec.LoadLayered(resolveLayers(root, &mapped)); err == nil {
 		for _, r := range b.Rules {
 			specs[r.Name] = true
 		}
 	}
-	dstDir := filepath.Join(root, cfg.Sources.Rules)
+	dstDir := importSourcePath(root, cfg.Sources.Rules)
 	count := 0
 	for _, c := range generatedBlockRules(reduceToGeneratedRules(string(data))) {
 		path := filepath.Join(dstDir, c.slug+".md")
 		if specs[c.slug] || fileExists(path) {
 			continue
+		}
+		if err := importMkdirAll(filepath.Dir(path), 0o755); err != nil {
+			return fmt.Errorf("%s: %w", filepath.Dir(path), err)
 		}
 		if err := writeRule(path, c.slug, c.body); err != nil {
 			return err
