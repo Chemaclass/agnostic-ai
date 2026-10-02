@@ -937,11 +937,10 @@ func TestImportFromClaude_NoMCPFile(t *testing.T) {
 	}
 }
 
-// A hand-edited CLAUDE.md that no longer matches the fenced source's
-// rendered view carries content import must capture, so the source is
-// overwritten as before, with a warning that the other targets'
-// ::target blocks are gone.
-func TestMirrorMainFile_WarnsWhenFencedSourceReplaced(t *testing.T) {
+// A hand-edited CLAUDE.md that no longer matches the fenced view leaves
+// AGNOSTIC_AI.md as it is: which ::target block the edit belongs to is
+// unknown, and appending it unfenced would reach every tool (#1595).
+func TestMirrorMainFile_LeavesAFencedSourceAndSaysSo(t *testing.T) {
 	dir := t.TempDir()
 	source := "Shared.\n\n::target claude\nClaude-only line.\n::end\n\n::target gemini\nGemini-only line.\n::end\n"
 	writeFile(t, filepath.Join(dir, agnosticMainFile), source)
@@ -956,18 +955,18 @@ func TestMirrorMainFile_WarnsWhenFencedSourceReplaced(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result != mirrorWritten {
-		t.Error("mirrorMainFile reported nothing written")
+	if result != mirrorKept {
+		t.Errorf("result = %v, want kept", result)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, agnosticMainFile))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(got), "::target") {
-		t.Errorf("expected the fenced source to be overwritten, fences survived:\n%s", got)
+	if string(got) != source {
+		t.Errorf("AGNOSTIC_AI.md changed:\n%s", got)
 	}
-	if !strings.Contains(buf.String(), "replaced a fenced") {
-		t.Errorf("expected a warning about the replaced fenced source, got:\n%s", buf.String())
+	if !strings.Contains(buf.String(), "merge the edit into it by hand") {
+		t.Errorf("expected the edit to be named, got:\n%s", buf.String())
 	}
 }
 

@@ -103,7 +103,7 @@ var errDoctorNoConfig = errors.New("no config found")
 // load, if it did. manualOnly means the drift is scope documents in
 // manual, which neither sync nor doctor --fix removes. fixOnly means the
 // drift is nested CLAUDE.md copies, which only doctor --fix removes.
-func doctorNextStep(cmd *cobra.Command, drift, manualOnly, fixOnly bool, manual []string, lintFindings, hookFindings int, configErr error, packagingWarnings ...int) {
+func doctorNextStep(cmd *cobra.Command, drift, manualOnly, fixOnly bool, manual []string, lintFindings, hookFindings, unmanaged int, configErr error, packagingWarnings ...int) {
 	cmd.Println()
 	cmd.Println("Next step:")
 	if errors.Is(configErr, errDoctorNoConfig) {
@@ -127,6 +127,9 @@ func doctorNextStep(cmd *cobra.Command, drift, manualOnly, fixOnly bool, manual 
 		cmd.Println("  Emit missing or stale files: agnostic-ai sync")
 		cmd.Println("  Or reconcile in place:       agnostic-ai doctor --fix")
 	}
+	if unmanaged > 0 {
+		cmd.Println("  Adopt the unmanaged config listed above with its → command, or list it under sync.unmanaged")
+	}
 	if lintFindings > 0 {
 		cmd.Println("  Review spec findings: agnostic-ai lint")
 	}
@@ -140,7 +143,7 @@ func doctorNextStep(cmd *cobra.Command, drift, manualOnly, fixOnly bool, manual 
 	if packaging > 0 {
 		cmd.Println("  Review packaging ignore coverage before publishing.")
 	}
-	if !drift && lintFindings == 0 && hookFindings == 0 && packaging == 0 {
+	if !drift && lintFindings == 0 && hookFindings == 0 && unmanaged == 0 && packaging == 0 {
 		cmd.Println("  All checks passed. Nothing to do.")
 	}
 }

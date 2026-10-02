@@ -637,13 +637,13 @@ func newDoctorCmd() *cobra.Command {
 			cmd.Println("Config:")
 			if !configOK {
 				cmd.Println("  ✗ agnostic-ai.yaml not found. Run: agnostic-ai init")
-				doctorNextStep(cmd, false, false, false, nil, 0, 0, errDoctorNoConfig)
+				doctorNextStep(cmd, false, false, false, nil, 0, 0, 0, errDoctorNoConfig)
 				return errDoctorNoConfig
 			}
 			scope, err := loadCheckScope(false)
 			if err != nil {
 				cmd.Printf("  ✗ %v\n", err)
-				doctorNextStep(cmd, false, false, false, nil, 0, 0, err)
+				doctorNextStep(cmd, false, false, false, nil, 0, 0, 0, err)
 				return err
 			}
 			cfg := scope.cfg
@@ -658,7 +658,7 @@ func newDoctorCmd() *cobra.Command {
 
 			// 3b. Config present on disk but not single-sourced, then
 			// the paths the user owns through sync.unmanaged.
-			reportUnmanagedConfig(cmd, ".", cfg)
+			unmanaged := reportUnmanagedConfig(cmd, ".", cfg)
 			reportUserOwned(cmd, cfg)
 			reportLegacyDefaultInstructions(cmd)
 			reportGlobalNameClashes(cmd, scope.bundle, cfg.Targets)
@@ -738,7 +738,7 @@ func newDoctorCmd() *cobra.Command {
 			manualFiles, manualOnly := manualOnlyDrift(reports)
 			// Hook script divergence is drift a scope document does not explain.
 			manualOnly = manualOnly && !scriptDrift && len(copies) == 0
-			doctorNextStep(cmd, hasDrift, manualOnly, copiesOnly, manualFiles, len(lint), len(hookTrust), nil, len(packaging))
+			doctorNextStep(cmd, hasDrift, manualOnly, copiesOnly, manualFiles, len(lint), len(hookTrust), unmanaged, nil, len(packaging))
 
 			// A rule whose globs match nothing never loads, so it
 			// silently does not exist. Reported before, but exit 0 meant

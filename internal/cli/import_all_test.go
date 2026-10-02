@@ -57,7 +57,7 @@ func TestImportAll_ImportsDetectedCLI(t *testing.T) {
 	}
 }
 
-func TestImport_MultipleSources_LastWinsAgnosticMainFile(t *testing.T) {
+func TestImport_MultipleSources_KeepEverySourcesInstructions(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
 	silence(t)
@@ -81,8 +81,8 @@ func TestImport_MultipleSources_LastWinsAgnosticMainFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read AGNOSTIC_AI.md: %v", err)
 	}
-	if string(got) != "# Codex top-level\n" {
-		t.Errorf("AGNOSTIC_AI.md should reflect last source (codex), got %q", got)
+	if string(got) != "# Claude top-level\n\n# Codex top-level\n" {
+		t.Errorf("AGNOSTIC_AI.md should hold both sources, got %q", got)
 	}
 }
 

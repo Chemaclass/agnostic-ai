@@ -85,9 +85,6 @@ func foldRootAgentsMainFile(root string) (bool, error) {
 	existing, err := os.ReadFile(dst)
 	if errors.Is(err, fs.ErrNotExist) {
 		result, err := mirrorMainFile(root, claudeAgentsMainFile)
-		if result == mirrorWritten {
-			summaryf("  → %s seeded from %s\n", agnosticMainFile, claudeAgentsMainFile)
-		}
 		return result == mirrorWritten, err
 	}
 	if err != nil {
@@ -98,29 +95,100 @@ func foldRootAgentsMainFile(root string) (bool, error) {
 	if body == "" {
 		return false, nil
 	}
-	var added, titles []string
-	have := collapseSpace(captured)
+	if hasTargetFences(captured) {
+		summaryf("  ! %s differs from what sync renders from the fenced %s; %s is unchanged, so merge the edit into it by hand\n", claudeAgentsMainFile, agnosticMainFile, agnosticMainFile)
+		return false, nil
+	}
+	result, err := foldSections(dst, captured, body, claudeAgentsMainFile)
+	return result == mirrorMerged, err
+}
+
+// foldSections appends to dst, which holds captured, each section of body
+// it does not hold yet, and names them.
+func foldSections(dst, captured, body, srcName string) (mirrorResult, error) {
+	merged, titles, twice := foldText(captured, captured, body)
+	if len(titles) == 0 {
+		return mirrorUnchanged, nil
+	}
+	if err := importWriteFile(dst, []byte(merged), 0o644); err != nil {
+		return mirrorAbsent, fmt.Errorf("write %s: %w", dst, err)
+	}
+	reportMerged(titles, twice, srcName)
+	return mirrorMerged, nil
+}
+
+// foldText returns captured with each section of body that held lacks
+// appended, the titles of those sections, and the titles held already
+// has: an edited section comes back as a second copy. held is captured,
+// plus any view rendered from it.
+func foldText(captured, heldText, body string) (string, []string, []string) {
+	var added, titles, twice []string
+	// A code example that quotes a section does not capture it, so a
+	// section without a fence is looked for outside code examples.
+	have := collapseSpace(heldText)
+	prose := collapseSpace(withoutCodeFences(heldText))
+	held := map[string]bool{}
+	for _, section := range markdownH2Sections(heldText) {
+		held[sectionTitle(section)] = true
+	}
 	for _, section := range markdownH2Sections(body) {
-		if strings.Contains(have, collapseSpace(section)) {
+		in := prose
+		if withoutCodeFences(section) != section {
+			in = have
+		}
+		if strings.Contains(in, collapseSpace(section)) {
 			continue
 		}
 		added = append(added, section)
 		titles = append(titles, fmt.Sprintf("%q", sectionTitle(section)))
+		if held[sectionTitle(section)] {
+			twice = append(twice, fmt.Sprintf("%q", sectionTitle(section)))
+		}
 	}
 	if len(added) == 0 {
-		return false, nil
+		return captured, nil, nil
 	}
-	merged := strings.TrimRight(captured, "\n") + "\n\n" + strings.Join(added, "\n\n") + "\n"
-	if err := importWriteFile(dst, []byte(merged), 0o644); err != nil {
-		return false, fmt.Errorf("write %s: %w", dst, err)
+	return strings.TrimRight(captured, "\n") + "\n\n" + strings.Join(added, "\n\n") + "\n", titles, twice
+}
+
+// withoutCodeFences returns text with every fenced code block removed.
+func withoutCodeFences(text string) string {
+	var kept []string
+	inFence := false
+	for _, line := range strings.Split(text, "\n") {
+		if fenceRE.MatchString(line) {
+			inFence = !inFence
+			continue
+		}
+		if !inFence {
+			kept = append(kept, line)
+		}
+	}
+	return strings.Join(kept, "\n")
+}
+
+func reportMerged(titles, twice []string, srcName string) {
+	if len(twice) > 0 {
+		summaryf("  ! %s now holds two versions of %s; keep the one you want\n", agnosticMainFile, strings.Join(twice, ", "))
+	}
+	if len(titles) == 0 {
+		return
 	}
 	noun := "sections"
-	if len(added) == 1 {
+	if len(titles) == 1 {
 		noun = "section"
 	}
 	summaryf("  → merged %d %s from %s into %s: %s\n",
-		len(added), noun, claudeAgentsMainFile, agnosticMainFile, strings.Join(titles, ", "))
-	return true, nil
+		len(titles), noun, srcName, agnosticMainFile, strings.Join(titles, ", "))
+}
+
+// isEntryPointSeed reports whether body is exactly the placeholder text
+// sync seeds into AGNOSTIC_AI.md, which an import replaces. The older
+// long template is only known by its lead, and the user may have written
+// below it, so a file that opens with it is merged into instead.
+func isEntryPointSeed(body string) bool {
+	b := strings.TrimSpace(body)
+	return b == "" || b == strings.TrimSpace(adapters.EntryPointBody())
 }
 
 func markdownH2Sections(body string) []string {
