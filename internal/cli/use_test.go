@@ -44,6 +44,9 @@ func TestUse_StartsAProjectFromWhatTheRepositoryHas(t *testing.T) {
 			t.Errorf("summary lacks %q:\n%s", want, log.String())
 		}
 	}
+	if n := strings.Count(log.String(), "codex now reads"); n != 1 {
+		t.Errorf("summary printed %d times, want once:\n%s", n, log.String())
+	}
 }
 
 func TestUse_AgainChangesNothing(t *testing.T) {

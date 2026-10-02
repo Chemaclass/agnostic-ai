@@ -1,6 +1,6 @@
 +++
 title = "Set up agnostic-ai with a coding agent"
-description = "A safe workflow for a coding agent to set up agnostic-ai in any repository."
+description = "Paste one prompt into your coding agent, and it sets agnostic-ai up in about two minutes."
 weight = 15
 
 [extra]
@@ -9,20 +9,23 @@ group = "Start"
 
 # Set up agnostic-ai with a coding agent
 
-Follow this when a user asks you to install or configure agnostic-ai in a repository. Goal: keep existing AI tool behavior, make `.agnostic-ai/` the source of truth, and finish with a clean `sync --check`.
-
 {{ <agent_setup_prompt /> }}
 
-## Safety contract
+## What the agent does
+
+Follow this when a user asks you to install or configure agnostic-ai in a repository. Goal: keep existing AI tool behavior, make `.agnostic-ai/` the source of truth, and finish with a clean `sync --check`.
+
+### Safety contract
 
 - Work from the repository root. Read its contributor and agent instructions first.
 - Run `git status --short`. Never discard user changes.
+- Look for existing instructions files such as `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md`. Tell the user what they hold and ask whether to import them before any sync.
 - Import existing native configuration before the first sync. Sync writes output; it does not migrate.
 - Enable only the targets the project uses or the user names. Never select every target.
 - Preview before writing. On an ownership or overwrite error, stop and name the path.
 - After setup, edit `.agnostic-ai/` only. Native files are generated.
 
-## 1. Install or verify the CLI
+### 1. Install or verify the CLI
 
 ```bash
 agnostic-ai --version
@@ -42,7 +45,7 @@ irm https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/instal
 
 Check `--version` again. If not found, add the install directory to `PATH`. See [Installation](@/docs/installation.md) for other methods.
 
-## 2. Detect the project state
+### 2. Detect the project state
 
 | State | Signal | Action |
 |---|---|---|
@@ -52,7 +55,7 @@ Check `--version` again. If not found, add the install directory to `PATH`. See 
 
 If the target list is unclear, ask the user. An installed CLI does not mean the repository uses it.
 
-## 3. Initialize
+### 3. Initialize
 
 Ask the user whether Git should track generated files, and pass `--gitignore=on` (ignore them; teammates run `sync` after cloning) or `--gitignore=off` (commit them; CI runs `sync --check`).
 
@@ -70,7 +73,7 @@ printf '%s\n' 'claude,codex' | agnostic-ai init --gitignore=on
 
 Do not use `--demo` unless the user asks. Add rules only from conventions the repository or user already states.
 
-## 4. Validate and preview
+### 4. Validate and preview
 
 ```bash
 agnostic-ai validate
@@ -80,7 +83,7 @@ agnostic-ai sync --dry-run
 
 Check that targets, output paths, and preserved instructions match the project. Fix errors in the specs. Understand an unsupported-capability warning before you silence it.
 
-## 5. Sync and prove the result
+### 5. Sync and prove the result
 
 ```bash
 agnostic-ai sync
@@ -95,6 +98,7 @@ Report:
 
 - agnostic-ai version and install method;
 - targets and imported sources;
+- what each tool now reads from `.agnostic-ai/`, as the first `agnostic-ai sync` lists it;
 - files changed under `.agnostic-ai/`;
 - generated outputs and whether Git tracks them;
 - results of `validate`, `lint`, and `sync --check`;
