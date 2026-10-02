@@ -45,7 +45,7 @@ func writeAgnosticEntryPoints(sess *adapters.Session, cfg *config.Config, b spec
 		// A user-owned file is expected to be hand-authored. sess still
 		// receives the write so it records the skip for the summary.
 		if !cfg.IsUnmanaged(f.Path) {
-			warnOnHandAuthoredEntryPoint(f.Path)
+			warnOnHandAuthoredEntryPoint(f.Path, body)
 		}
 		if err := sess.WriteFile(f.Path, f.Content, dryRun); err != nil {
 			return fmt.Errorf("write entry-point %s: %w", f.Path, err)
@@ -421,16 +421,14 @@ func entryPointPaths(cfg *config.Config, targets []string) []string {
 // generated file. Read errors are swallowed: sync proceeds with the
 // overwrite either way (preserving the historic behavior) but a quiet
 // I/O failure does not block the user.
-func warnOnHandAuthoredEntryPoint(path string) {
-	data, err := os.ReadFile(path)
+func warnOnHandAuthoredEntryPoint(path, captured string) {
+	// Text AGNOSTIC_AI.md or the local layer holds is not lost, so there
+	// is nothing to warn about.
+	held, err := heldInstructions(captured)
 	if err != nil {
 		return
 	}
-	body := strings.TrimSpace(string(data))
-	if body == "" {
-		return
-	}
-	if header.Has(string(data)) {
+	if uncaptured, err := handWrittenUncaptured(path, held); err != nil || !uncaptured {
 		return
 	}
 	summaryf("  ! %s appears hand-authored (no agnostic-ai header) — overwriting with the canonical pointer body. Move custom content into %s first to keep it.\n",
