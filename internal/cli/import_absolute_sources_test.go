@@ -35,7 +35,8 @@ func TestImport_WritesAbsoluteSourcesAndRecordsProvenance(t *testing.T) {
 	if got := readFile(t, filepath.Join(external, "review", "examples.md")); got != "An example.\n" {
 		t.Errorf("asset = %q", got)
 	}
-	if _, err := os.Stat(filepath.Join(".", external)); err == nil {
+	mirror := filepath.Join(".", strings.TrimLeft(strings.TrimPrefix(external, filepath.VolumeName(external)), `/\`))
+	if _, err := os.Stat(mirror); err == nil {
 		t.Error("import created a project mirror of the absolute source")
 	}
 	rec := readStateFile(".").SpecFileSums[filepath.ToSlash(path)]
@@ -64,7 +65,7 @@ func TestImport_AbsoluteSourcesPreviewDoesNotWrite(t *testing.T) {
 			if err != nil {
 				t.Fatalf("preview: %v\n%s", err, out)
 			}
-			if !strings.Contains(out, filepath.ToSlash(path)) {
+			if !strings.Contains(filepath.ToSlash(out), filepath.ToSlash(path)) {
 				t.Errorf("preview lacks absolute destination %s:\n%s", path, out)
 			}
 			if _, err := os.Stat(external); !os.IsNotExist(err) {

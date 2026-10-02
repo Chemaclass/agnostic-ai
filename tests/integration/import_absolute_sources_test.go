@@ -47,7 +47,7 @@ func TestImportClaude_AbsoluteSourcesPreviewAndSync(t *testing.T) {
 	}
 	for _, flags := range [][]string{{"--dry-run"}, {"--dry-run", "--diff"}} {
 		out := run(append([]string{"import", "claude"}, flags...)...)
-		if !strings.Contains(out, filepath.ToSlash(path)) {
+		if !strings.Contains(filepath.ToSlash(out), filepath.ToSlash(path)) {
 			t.Errorf("preview lacks absolute destination %s:\n%s", path, out)
 		}
 		if _, err := os.Stat(source); !os.IsNotExist(err) {
@@ -59,7 +59,8 @@ func TestImportClaude_AbsoluteSourcesPreviewAndSync(t *testing.T) {
 	}
 	run("import", "claude")
 	assertContains(t, path, "Native guidance.")
-	if _, err := os.Stat(filepath.Join(project, source)); !os.IsNotExist(err) {
+	mirror := filepath.Join(project, strings.TrimLeft(strings.TrimPrefix(source, filepath.VolumeName(source)), `/\`))
+	if _, err := os.Stat(mirror); !os.IsNotExist(err) {
 		t.Errorf("import created a project mirror of its absolute source: %v", err)
 	}
 	must(t, os.WriteFile(path, []byte(strings.ReplaceAll(skill, "Native", "Portable")), 0o644))
