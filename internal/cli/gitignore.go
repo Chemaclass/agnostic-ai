@@ -30,7 +30,7 @@ const (
 
 // fixedManagedEntries are the always-ignored agnostic-ai paths that are
 // not discovered from sync output: the local-override config, the sync
-// state file, the installed-packs dir, and the project-local spec
+// state and command lock files, the installed-packs dir, and the project-local spec
 // layer (`.agnostic-ai/local/`). They live inside the managed
 // block (not as loose lines) so one block owns every agnostic-ai
 // gitignore entry: anchored, deduplicated, and refreshed on each write.
@@ -40,6 +40,7 @@ const (
 func fixedManagedEntries() []string {
 	return []string{
 		config.LocalOverrideFileName,
+		".agnostic-ai/" + projectLockName,
 		".agnostic-ai/.sync-state",
 		packsDir + "/",
 		defaultProjectUser + "/",
@@ -580,7 +581,7 @@ func specScopes(b spec.Bundle, targets []string) []string {
 //
 // Neither can be handled by protectedSourceTopDirs: that guards against
 // collapsing entries into a directory-wide ignore, and `.agnostic-ai` legitimately
-// holds two managed entries (`.sync-state`, `packs/`) that must stay listed.
+// holds runtime files and local layers that must stay listed.
 func dropTrackedEntries(entries []string) []string {
 	tracked := []string{
 		normalizeGitignorePath(adapters.AgnosticEntryPointPath),
@@ -615,23 +616,40 @@ func normalizeAllowEntries(patterns []string) []string {
 	return sortedKeys(seen)
 }
 
-// ensureManagedGitignore guarantees a managed block exists at root with
-// at least the fixed agnostic-ai entries (local-override config, sync
-// state, packs dir). An existing block is left untouched, since it
-// already carries the fixed entries and sync owns its generated lines;
-// only an absent block is created. Used by `packs add`, which must
-// ignore the packs dir but does not know the generated-output paths.
 func ensureManagedGitignore(root string) error {
 	path := filepath.Join(root, ".gitignore")
 	data, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return err
+		return fmt.Errorf("read runtime ignores: %w", err)
 	}
-	if strings.Contains(string(data), gitignoreBlockStart) {
+	content := string(data)
+	start := strings.Index(content, gitignoreBlockStart)
+	if start < 0 {
+		cfg := &config.Config{}
+		return updateGitignore(root, cfg, buildManagedBlock(cfg, nil, nil))
+	}
+	listed := normalizeAndSort(managedBlockLines(content))
+	var missing []string
+	for _, entry := range normalizeAndSort(fixedManagedEntries()) {
+		if !slices.Contains(listed, entry) {
+			missing = append(missing, entry)
+		}
+	}
+	if len(missing) == 0 {
 		return nil
 	}
-	cfg := &config.Config{}
-	return updateGitignore(root, cfg, buildManagedBlock(cfg, nil, nil))
+	start += len(gitignoreBlockStart)
+	end := strings.Index(content[start:], gitignoreBlockEnd)
+	if end < 0 {
+		content = strings.TrimRight(content, "\n") + "\n" + strings.Join(missing, "\n") + "\n"
+	} else {
+		end += start
+		content = content[:end] + strings.Join(missing, "\n") + "\n" + content[end:]
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		return fmt.Errorf("write runtime ignores: %w", err)
+	}
+	return nil
 }
 
 // updateGitignore rewrites the managed block in `<root>/.gitignore` (or
@@ -709,7 +727,7 @@ func writeWorktreeInclude(root string, cfg *config.Config, block []string) (chan
 	var entries, exclusions []string
 	for _, e := range block {
 		// Each worktree starts with its own ledger and runtime files.
-		if e == "/.agnostic-ai/.sync-state" || slices.Contains(excluded, e) {
+		if e == "/.agnostic-ai/.sync-state" || e == "/.agnostic-ai/"+projectLockName || slices.Contains(excluded, e) {
 			continue
 		}
 		entries = append(entries, e)

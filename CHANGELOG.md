@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- `sync`, `import`, `use`, and `init` take one project lock, so a concurrent writer stops and names the running command (#1618).
 - `import`, `init --from`, and `use` stop before replacing a spec with different content and list each one; `import --overwrite` replaces them (#1620).
 - Import protects specs sync did not write and restores linked files on conflicts or interrupts; identical specs keep their modification time (#1622).
 - **Breaking:** a rule with narrow `globs` and no `alwaysApply` loads only on matching files in Cursor, Trae, Devin, Cline, and Antigravity (#1597).

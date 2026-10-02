@@ -133,6 +133,7 @@ func TestBuildManagedBlock_IncludesFixedEntries(t *testing.T) {
 	block := buildManagedBlock(&config.Config{}, nil, nil)
 	for _, want := range []string{
 		"/agnostic-ai.local.yaml",
+		"/.agnostic-ai/.command-lock",
 		"/.agnostic-ai/.sync-state",
 		"/.agnostic-ai/packs/",
 		"/.agnostic-ai/local/",

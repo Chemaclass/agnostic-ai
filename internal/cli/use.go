@@ -44,6 +44,11 @@ func newUseCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			lock, err := acquireProjectLock(".", "use")
+			if err != nil {
+				return err
+			}
+			defer func() { _ = lock.Close() }()
 			added, err := useTools(cmd, tools)
 			if err != nil {
 				return err

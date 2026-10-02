@@ -435,6 +435,9 @@ func (c previewCopier) copyDir(from, to string) error {
 			return err
 		}
 		target := filepath.Join(to, rel)
+		if target == filepath.Join(c.dstRoot, defaultBaseDir, projectLockName) {
+			return nil
+		}
 		if d.Name() == ".git" && path != from {
 			c.noteNested(filepath.Dir(target))
 			if d.IsDir() {
