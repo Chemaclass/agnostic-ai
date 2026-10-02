@@ -26,23 +26,66 @@
     });
   }
 
-  // Every docs code block gets the same copy control the setup prompt has.
-  Array.prototype.forEach.call(document.querySelectorAll(".docs-content pre"), function (pre) {
-    if (pre.closest("[data-copy-container]") || !pre.querySelector("code")) {
+  function enableScrollFocus(element, label) {
+    if (element.hasAttribute("tabindex")) {
       return;
     }
+    function update() {
+      var overflows = element.scrollWidth > element.clientWidth;
+      if (overflows) {
+        element.setAttribute("tabindex", "0");
+        element.setAttribute("aria-label", label);
+        if (element.tagName === "PRE") {
+          element.setAttribute("role", "region");
+        }
+      } else {
+        element.removeAttribute("tabindex");
+        element.removeAttribute("aria-label");
+        if (element.tagName === "PRE") {
+          element.removeAttribute("role");
+        }
+      }
+    }
+    update();
+    if (window.ResizeObserver) {
+      new ResizeObserver(update).observe(element);
+    }
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".docs-content pre, .article-body pre"), function (pre) {
+    var code = pre.querySelector("code");
+    if (pre.closest("[data-copy-container]") || !code) {
+      return;
+    }
+    var language = pre.getAttribute("data-lang") || code.getAttribute("data-lang") ||
+      (code.className.match(/\blanguage-([\w-]+)/) || [])[1] || "code";
     var block = document.createElement("div");
     block.className = "code-block";
     block.setAttribute("data-copy-container", "");
     pre.parentNode.insertBefore(block, pre);
+    var toolbar = document.createElement("div");
+    toolbar.className = "code-toolbar";
+    var label = document.createElement("span");
+    label.textContent = /^(bash|sh|shell|zsh)$/.test(language) ? "Shell" : language.toUpperCase();
+    toolbar.appendChild(label);
+    block.appendChild(toolbar);
     block.appendChild(pre);
     var button = document.createElement("button");
     button.type = "button";
     button.className = "code-copy";
     button.setAttribute("data-copy", "");
-    button.setAttribute("aria-label", "Copy code");
+    button.setAttribute("aria-label", "Copy " + label.textContent + " code");
+    button.setAttribute("aria-live", "polite");
     button.textContent = "Copy";
-    block.appendChild(button);
+    toolbar.appendChild(button);
+    enableScrollFocus(pre, label.textContent + " example");
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".article-body table"), function (table) {
+    var headers = Array.prototype.map.call(table.querySelectorAll("thead th"), function (cell) {
+      return cell.textContent;
+    });
+    enableScrollFocus(table, headers.join(", ") || "Release details");
   });
 
   Array.prototype.forEach.call(document.querySelectorAll("[data-copy]"), function (button) {

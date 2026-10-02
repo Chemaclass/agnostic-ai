@@ -477,78 +477,6 @@
   margin-top: 0.35rem;
 }
 
-/* Generated files and shell transcripts are the substance of these guides, so
-   they sit on the slab: one dark surface that reads as the tool's own output
-   and separates a listing from the prose around it at a glance. */
-.docs-content pre {
-  max-width: 100%;
-  margin-block: 1.25rem;
-  padding: 1rem;
-  overflow-x: auto;
-  border: 1px solid var(--slab-line);
-  border-radius: 12px;
-  background: var(--slab);
-  color: var(--slab-ink);
-  font-size: 0.84rem;
-  line-height: 1.65;
-}
-
-.docs-content .code-block {
-  position: relative;
-  margin-block: 1.25rem;
-}
-
-.docs-content .code-block > pre {
-  margin-block: 0;
-}
-
-.code-copy {
-  position: absolute;
-  top: 0.55rem;
-  right: 0.55rem;
-  min-height: 2rem;
-  padding: 0.3rem 0.65rem;
-  border: 1px solid var(--slab-line);
-  border-radius: 4px;
-  background: var(--slab-raised);
-  color: var(--slab-ink);
-  font-family: var(--mono);
-  font-size: 0.72rem;
-  cursor: pointer;
-}
-
-.code-copy:hover,
-.code-copy:focus-visible {
-  border-color: var(--accent);
-  color: var(--slab-ink);
-}
-
-/* Touch devices have no hover, so the control only hides where a pointer can reveal it. */
-@media (hover: hover) and (pointer: fine) {
-  .code-copy {
-    opacity: 0;
-    transition: opacity 120ms ease;
-  }
-
-  .code-block:hover .code-copy,
-  .code-block:focus-within .code-copy {
-    opacity: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .code-copy {
-    transition: none;
-  }
-}
-
-.docs-content pre code {
-  padding: 0;
-  background: transparent;
-  color: inherit;
-  font-size: inherit;
-}
-
 .docs-content .agent-prompt-guide {
   margin-block: 2rem 0;
 }
@@ -563,42 +491,6 @@
   color: var(--ink-soft);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-
-.docs-content table {
-  width: 100%;
-  display: block;
-  margin-block: 1.5rem;
-  overflow-x: auto;
-  border-collapse: collapse;
-  font-size: 0.88rem;
-  /* Edge shadows appear only while a table has more to scroll: the paper-coloured
-     layers travel with the content and uncover them. */
-  background:
-    linear-gradient(to right, var(--paper) 40%, transparent) 0 0 / 1.75rem 100% no-repeat local,
-    linear-gradient(to left, var(--paper) 40%, transparent) 100% 0 / 1.75rem 100% no-repeat local,
-    linear-gradient(to right, color-mix(in srgb, var(--ink) 18%, transparent), transparent) 0 0 / 0.65rem 100% no-repeat scroll,
-    linear-gradient(to left, color-mix(in srgb, var(--ink) 18%, transparent), transparent) 100% 0 / 0.65rem 100% no-repeat scroll;
-}
-
-.docs-content th,
-.docs-content td {
-  min-width: 8rem;
-  padding: 0.65rem 0.75rem;
-  border-bottom: 1px solid var(--line);
-  text-align: left;
-  vertical-align: top;
-}
-
-.docs-content th {
-  color: var(--ink);
-  font-family: var(--mono);
-  font-size: 0.72rem;
-}
-
-/* Inline code scales with its cell, which drops it below a legible size in dense tables. */
-.docs-content table code {
-  font-size: 0.78rem;
 }
 
 .install-picker {
@@ -1908,8 +1800,7 @@
     display: table-row !important;
   }
 
-  .install-tabs,
-  .code-copy {
+  .install-tabs {
     display: none !important;
   }
 

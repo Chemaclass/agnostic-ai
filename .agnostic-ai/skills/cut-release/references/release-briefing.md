@@ -11,8 +11,7 @@ outcome. Use concrete nouns, commands, or workflows. A maintenance release
 should say what it fixes; do not inflate it into a new feature.
 
 The dek is one or two sentences and at most 220 characters. Name the main
-change and its consequence. The body must still explain that change well
-enough for a reader to use it.
+new capabilities and their value. Keep migration details in the upgrade steps.
 
 | Layer | Purpose |
 |---|---|
@@ -21,28 +20,29 @@ enough for a reader to use it.
 | `What agnostic-ai changed` | Shipped features, before/after behavior, and examples |
 | `What changed in the targets` | Verified vendor changes and their support here |
 
-Expand the summary into actions and examples. Do not repeat the same short
-claim in several sections without adding information. Avoid announcement
+Make the main value visible in the headings and first sentence of each item.
+Do not repeat a claim in several sections. Avoid announcement
 preambles, metaphors, rhetorical questions, and a project introduction.
 Use "you" for what the reader does and plain words for what the software does.
 
 ## Curation
 
 A release briefing answers three questions: how do I move from the previous
-version, what can I do now, and what changed in the tools I use? Lead with the
-highest-consequence changes, then cover every substantial feature, migration,
-and target compatibility change. The GitHub release notes remain the
-exhaustive record of smaller fixes.
+version, what can I do now, and what changed in the tools I use? Lead with
+upgrade blockers, then group substantial features into a few reader outcomes.
+Name the important capabilities without explaining their full contracts.
+Keep smaller fixes and secondary details in the linked release notes.
 
 - Mention site work only when it changes how a reader uses the site. Omit
   internal design and visual polish. If most work was on the site, say so.
-- Each feature names the effect a reader sees, its entry point, and any limit
-  that changes how they use it. Link the reference for the full contract.
+- Each feature gets a short paragraph or bullet: the benefit, entry point,
+  and a limit only when it changes the reader's decision. Link the reference
+  for settings, edge cases, and the full contract.
 - Never cap a release briefing at a fixed number of bullets or characters.
   Group related fixes into a reader outcome without deleting substantial work.
-- Use short paragraphs, lists, and feature subsections as needed. Give the
-  smallest working command or config example for a feature whose syntax a
-  reader needs to adopt it. Commands can appear in feature sections.
+- Keep examples for the main features readers can adopt. Use the smallest
+  working command or config; link optional examples instead of adding another
+  block. Avoid turning every fix or vendor setting into a subsection.
 - State the win concretely. "Rules land under the configured dir" is a win a
   reader can check; "improved path resolution" is not.
 - No audit counts or closing pleasantry. Do not claim that nothing else needs
@@ -91,12 +91,13 @@ Use these three sections, with feature or target subsections when useful:
    and watcher shutdown before package install hooks can run sync. Preserve a
    deliberate range or minimum requirement; do not tell every project to use
    an exact pin.
-2. `## What agnostic-ai changed` explains the substantial shipped features.
-   Name who benefits, show how to use the feature, and explain relevant
-   behavior changes. End with a link to the GitHub release notes. Do not copy
-   the changelog or group changes by internal modules.
-3. `## What changed in the targets` explains important external changes and
-   their practical consequences. Name the affected product and version when
+2. `## What agnostic-ai changed` makes the main shipped value easy to scan.
+   Use brief feature groups and a few adoption examples. End with a link to
+   the GitHub release notes. Do not copy the changelog or group changes by
+   internal modules.
+3. `## What changed in the targets` selects important external changes and
+   their practical consequences. Use short bullets or paragraphs. Name the
+   affected product and version when
    known, the announcement date or explicitly the documentation discovery
    date, and what this agnostic-ai release can express.
 
