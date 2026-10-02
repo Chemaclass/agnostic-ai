@@ -13,8 +13,8 @@ cap-agent-scoped-mcp-allowlist	2026-09-18	2026-09-18
 cap-agent-shared-board	2026-09-15	2026-09-21						
 cap-agent-skill-scoping	2026-09-18	2026-09-18						
 cap-agent-tool-permission-policy	2026-09-15	2026-09-26	adapter-gap	1162			2026-09-26	Factory documents a tools: read-only category (docs.factory.ai/harness/subagents); portable readonly now maps to it with mcpServers: [] unless servers are listed (#1164).
-cap-claude-attribution-boolean-shorthand	2026-09-25	2026-09-25	target-extension					Claude Code v2.1.281+ accepts attribution: false; older versions skip the whole settings file. Reachable via x-claude today; no first-class field while npm stable < 2.1.281.
-cap-codex-auto-review-policy	2026-09-27	2026-09-27	watch					codex config-reference: auto_review.extra_policy is "Additional local Markdown policy for automatic review"; approvals_reviewer auto_review "uses the reviewer subagent". One table row, no docs page; an approval gate, not the review kind. Overlay already round-trips it.
+cap-claude-attribution-boolean-shorthand	2026-09-25	2026-10-02	target-extension					Claude attribution:false works through x-claude; stable 2.1.285 clears the 2.1.281 channel gate. Older clients still skip settings containing false.
+cap-codex-auto-review-policy	2026-09-27	2026-10-02	watch					Codex 0.160 adds opt-in Guardian history/handoff context; features are UnderDevelopment, false by default. Native project TOML overlay round-trips all controls.
 cap-cosmos-daemon-pool-config	2026-09-25	2026-09-25	watch					augment Auggie CLI 0.35.0 (2026-08-13): "declarative configuration for daemon pools"; Cosmos daemons page lists a project-scope daemon-config.json with no stated path or availability tier.
 cap-cross-tool-config-import-toggle	2026-09-18	2026-09-18						
 cap-directory-scoped-skills	2026-09-15	2026-09-21						published
@@ -29,7 +29,7 @@ cap-project-config-trust-gates	2026-09-15	2026-09-15
 cap-project-default-model-settings	2026-09-15	2026-09-16						
 cap-project-default-reasoning-effort	2026-09-18	2026-09-23	spec-candidate	1069			2026-09-23	published; the settings effort field shipped in v0.66.0 from the 1069 design (claude, copilot, codex, factory).
 cap-project-demo-environments	2026-09-21	2026-09-21						
-cap-project-extension-bundles	2026-09-15	2026-09-25						published; factory: project .factory/settings.json enabledPlugins and extraKnownMarketplaces install as project scope (docs.factory.ai/harness/plugins); reachable through x-factory today.
+cap-project-extension-bundles	2026-09-15	2026-10-02	target-extension					Factory project marketplaces cannot be deleted in the manager while settings declare them (0.232.0, 2026-10-02); x-factory preserves project declarations.
 cap-project-index-exclusions	2026-09-15	2026-09-15						
 cap-project-model-allowlist	2026-09-16	2026-09-18						
 cap-project-parameterized-recipes	2026-09-23	2026-09-23	watch					goose discovers committed recipes in ./.goose/recipes/ (goose-docs.ai storing-recipes); v1.52.0 hardens recipe params and consent. No kind or x-goose route writes that path. Question: does a second target document a committed, parameterized task file the command kind cannot carry? Read the recipe field list directly first.
@@ -41,6 +41,13 @@ cap-scheduled-project-agents	2026-09-15	2026-09-15
 cap-session-start-prompt-injection	2026-09-15	2026-09-15						
 cap-subagent-project-context-exclusion	2026-09-15	2026-09-15						
 cap-factory-permission-rules	2026-09-28	2026-09-28	target-extension	1376			2026-09-28	Factory permissionRules (ID-resolved, test-verified command rules) replaces the deprecated command lists; x-factory.permissionRules reaches it today.
-cap-cursor-security-review	2026-09-28	2026-09-28	watch					Cursor Security Review is enabled per repository from the dashboard; no repo file documented for its team rules.
+cap-cursor-security-review	2026-09-28	2026-10-02	watch		2026-09-23			Cursor Security Review has no documented repo rules file; vendor changelog announcement is 2026-09-23, first observed 2026-09-28.
 cap-codex-mcp-oauth-client-secret	2026-09-28	2026-09-28	watch					Codex CLI 0.158.0 connects to MCP servers with pre-registered OAuth client secrets via codex mcp add --oauth-client-secret.
-cap-project-agent-workflows	2026-09-30	2026-10-01	watch		2026-09-30	changelog		Kiro IDE 1.2.4, CLI 2.26.0, and Web run opt-in multi-agent workflow recipes from .kiro/workflows/*.workflow.json (kiro.dev/docs/workflows). No kind or x-kiro route writes that path. Question: does a second target document a committed multi-agent workflow file?
+cap-project-agent-workflows	2026-09-30	2026-10-02	watch		2026-09-30	changelog		Kiro .workflow.json/yaml/yml recipes have documented graph schema and account/trust gates; existing Agent metadata emits Markdown, not recipes. No second target verified.
+cap-project-review-service-settings	2026-10-02	2026-10-02	target-extension			docs		Cursor reads .cursor/config/bugbot.yaml on default branch, separate from BUGBOT.md; current settings/review kinds cannot emit or import service policy.
+cap-mcp-elicitation-handshake-compatibility	2026-10-02	2026-10-02	adapter-gap	1642	2026-10-01	changelog		Claude 2.1.287 bareElicitationCapability:true restores MCP compatibility; import preserves it but emission drops it, including x-claude.
+cap-mcp-server-forced-tool-deferral	2026-10-02	2026-10-02	adapter-gap	1642	2026-10-01	changelog		Claude 2.1.287 alwaysLoad:false forces all server tools behind search; emitter drops false despite successful import.
+cap-inprocess-agent-session-extensions	2026-10-02	2026-10-02	target-extension		2026-10-01	changelog		Claude 2.1.287 Mods run unsandboxed in-process; Skill assets can bundle a skills-dir plugin with x-claude.enabledPlugins, verified without a live session.
+cap-precommit-skill-checks	2026-10-02	2026-10-02	target-extension		2026-09-30	docs		Claude 2.1.286 commit instructions request project verify/simplify skills at session start, except docs/tests changes; existing Skill and includeGitInstructions settings emit.
+cap-hook-session-sandboxing	2026-10-02	2026-10-02	watch			docs		Copilot CLI repository command hooks inherit enabled session sandbox grants; cwd/env do not widen access, admin hooks remain on host. Output schema unchanged.
+cap-image-generation-model-selection	2026-10-02	2026-10-02	target-extension			docs		Factory project imageGenerationModel defaults are independent of coding models; x-factory emits them, org image allowlists remain authoritative.

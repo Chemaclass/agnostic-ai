@@ -26,10 +26,10 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 
 ## claude
 
-- docs: https://code.claude.com/docs/en/memory (rules) · /docs/en/hooks · /docs/en/sub-agents · /docs/en/skills (slash-commands merged in; `.claude/commands/` still works) · /docs/en/mcp · /docs/en/settings (prose on file precedence and reload) · /docs/en/settings-reference (the settings **key** table; that is the page an auditor needs, and it is a different page from /settings, both 200 as of 2026-09-11) · /docs/en/desktop (preview servers in `.claude/launch.json`, which environment `dev-commands` write since #1372)
+- docs: https://code.claude.com/docs/en/memory (rules) · /docs/en/hooks · /docs/en/sub-agents · /docs/en/skills (slash-commands merged in; `.claude/commands/` still works) · /docs/en/mcp · /docs/en/settings (prose on file precedence and reload) · /docs/en/settings-reference (the settings **key** table; that is the page an auditor needs, and it is a different page from /settings, both 200 as of 2026-09-11) · /docs/en/desktop (preview servers in `.claude/launch.json`, which environment `dev-commands` write since #1372) · /docs/en/plugins/mods/overview · /docs/en/plugins/mods/events · /docs/en/plugins/mods/reference · /docs/en/plugins/loading
 - changelog: https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md
 - schema: https://www.schemastore.org/claude-code-settings.json · /claude-code-launch.json
-- watch: `.claude/rules/` native loading, settings.json keys, plugin and marketplace keys. The `.mcp.json` per-server fields `headersHelper`, `timeout`, `alwaysLoad` and `oauth`, emitted behind `emit.WithClaudeMCPExtras()`. The AGENTS.md fallback default, its Bedrock/Vertex/Foundry carve-out, the toggle gaining project scope, and `.claude/AGENTS.md` leaving the read list. Stable hook handler common fields, apart from command-only options.
+- watch: `.claude/rules/` loading, settings.json, plugin and marketplace keys. MCP fields `headersHelper`, `timeout`, `alwaysLoad`, `bareElicitationCapability` and `oauth`; explicit false forces tool deferral since 2.1.287 (#1642). AGENTS.md fallback, provider carve-outs, project toggle scope, and `.claude/AGENTS.md` discovery. Stable hook common fields.
 - decision: `oauth.clientSecret` is not emitted. The secret "is stored securely in your system keychain ... not in your config".
 - decision: experimental agent hooks stay excluded. Command, HTTP, MCP-tool and prompt handlers emit and import.
 - quirk: when `/settings-reference` and the CHANGELOG disagree, prefer the CHANGELOG. The reference once documented `taskOutputMaxChars` without a marker after v2.1.277 made it a no-op; since 2026-09-25 it carries "Removed in v2.1.277". A missing deprecation marker there has meant stale before.
@@ -39,7 +39,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - trap: Claude does not read `AGENTS.local.md`, `AGENTS.override.md` or anything under `.agents/`.
 - trap: Claude Code reads AGENTS.md when no CLAUDE.md exists (v2.1.277). So claude must always write CLAUDE.md, in every layout, or it inherits codex's AGENTS.md (#885). The user toggle cannot substitute: "Claude Code ignores it in project and local settings files."
 - decision: `import claude` walks CLAUDE.md, `.claude/CLAUDE.md`, AGENTS.md, `.claude/AGENTS.md`; root AGENTS.md yields to codex, amp, warp, crush, kiro or opencode (#893). `doctor_unmanaged.go` keeps `{"AGENTS.md", "codex"}` single-owner on purpose.
-- trap: "Claude Code mods" is not a documented surface. The docs name the built-in `agents-md` plugin under `pluginConfigs`, and `/docs/en/mods` 404s. Do not file on it. If it ships, it may be a new spec kind.
+- trap: Mods ship in 2.1.287 at `/docs/en/plugins/mods/`, not `/docs/en/mods`. In-process handlers are unsandboxed and differ from settings hooks. Skill assets can bundle a skills-dir plugin enabled through `x-claude.enabledPlugins`.
 
 ## codex
 
@@ -72,7 +72,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - fetch: reader-proxy (cursor.com answers 403 from some networks and HTML from others; one representation keeps the lock stable everywhere)
 - watch: `.mdc` frontmatter fields; camelCase hook events (`beforeShellExecution`); environment.json schema; the Third-Party Imports default flipping or being renamed; `.cursor/hooks.json` changing rank; a skill precedence rule or a new compatibility root.
 - trap: Cursor loads Claude Code hooks. `/docs/reference/third-party-hooks.md` ranks `.cursor/hooks.json` 3rd and `.claude/settings.json` 6th, and "All matching hooks from every source run." Syncing claude and cursor runs every hook twice. Gated by "Include Third-Party Plugins, Skills, and Other Configs", on by default. Do not assert whether camelCase names inside `.claude/settings.json` fire; the mapping covers PascalCase only.
-- trap: Cursor also loads `.claude/skills/`, `.codex/skills/` and their `~/` forms, same switch (#957). Say "read from three roots, precedence undocumented", never "loaded three times". The non-merging sentence on `/docs/skills` is about Codex's loader.
+- trap: Cursor natively loads `.cursor/skills/` and `.agents/skills/`, where codex now writes. The third-party switch gates Claude/Codex compatibility roots, not the native shared root (#957). Do not infer cross-root precedence or repeated loading.
 - decision: cursor stdio MCP entries emit `type` (the field table marks it required, #895). Keep it cursor-only: Claude Code reads a missing `type` as stdio, and the shared builder serves claude, kiro, junie, qoder, factory and copilot.
 - trap: `/docs/mcp` rows **Roots** as "Supported". That is the protocol capability, not a config key; no per-server field table has `roots`.
 - quirk: `r.jina.ai` refuses anonymous requests from low-reputation networks (401, target-audit 2026-09-26). Plain `curl -sL https://cursor.com/docs/<page>.md` served all six pages that day; it has also timed out before.
@@ -227,7 +227,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 
 ## kiro
 
-- docs: https://kiro.dev/docs/steering.md · /docs/mcp.md · /docs/mcp/configuration.md · /docs/hooks.md · /docs/hooks/types.md · /docs/hooks/actions.md · /docs/skills.md · /docs/custom-agents.md · /docs/custom-agents/configuration-reference.md · /docs/tools.md · /docs/powers.md · /docs/powers/installation.md · https://kiro.dev/docs/kiroignore.md · https://kiro.dev/docs/cli/v3/hooks-migration.md (the vendor's own current link for the 2.x-to-3.0 hook migration page; the `/docs/cli/v3/hooks/` form recorded below still resolves to the same page, both 200 through the proxy on 2026-09-20)
+- docs: https://kiro.dev/docs/steering.md · /docs/mcp.md · /docs/mcp/configuration.md · /docs/hooks.md · /docs/hooks/types.md · /docs/hooks/actions.md · /docs/skills.md · /docs/custom-agents.md · /docs/custom-agents/configuration-reference.md · /docs/workflows.md · /docs/workflows/authoring.md · /docs/tools.md · /docs/powers.md · /docs/powers/installation.md · https://kiro.dev/docs/kiroignore.md · https://kiro.dev/docs/cli/v3/hooks-migration.md (the vendor's own current link for the 2.x-to-3.0 hook migration page; the `/docs/cli/v3/hooks/` form recorded below still resolves to the same page, both 200 through the proxy on 2026-09-20)
 - changelog: https://kiro.dev/changelog/ (the slashless form 301s here)
 - watch: steering `inclusion:` values (`always` / `fileMatch`); the agent `tools` category vocabulary (`read`/`write`/`shell`/`web`/`subagent`/`knowledge`/`todo_list`, plus `@server_name`/`@mcp`/`@builtin`/`*`), which `kiroToolCategory` in kiro.go maps onto; a new row in the `/docs/hooks/types/` triggers table; a `type` discriminant on remote MCP entries (none documented, we emit `"type": "http"`); the `/docs/kiroignore/` Capability table, since enforcement differs by surface; a project-level powers directory.
 - fetch: reader-proxy
@@ -235,12 +235,13 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - quirk: the old `/docs/cli/custom-agents/configuration-reference/` path is an HTTP 200 meta-refresh stub, not a 3xx. Inspect with `curl -D -` before calling a page gone.
 - trap: take trigger casing from `/docs/hooks/actions/`, never from display names. "Prompt Submit" is `UserPromptSubmit`, "Pre Task Execution" is `PreTaskExec`.
 - trap: camelCase triggers (`agentSpawn`, `preToolUse`, `fileEdited`) are the 2.x format inside agent config. 3.0 uses PascalCase `trigger` values in standalone `.kiro/hooks/*.json`, which we emit. Tell them apart by schema keys, never page dates: `trigger` in a `version: v1` envelope is 3.0.
-- trap: the 12 v1 triggers are `SessionStart`, `SessionEnd` (since CLI 2.25, #1576), `Stop`, `PreToolUse`, `PostToolUse`, `PreTaskExec`, `PostTaskExec`, `UserPromptSubmit`, `PostFileCreate`, `PostFileSave`, `PostFileDelete`, `Manual`, all in `hookEventsByTarget["kiro"]`. camelCase is the 2.x agent-config format; documented renames include `agentSpawn` to `SessionStart`, `fileEdited` to `PostFileSave`, `fileCreated` to `PostFileCreate` (#907). Legacy Manual Hook is correctly absent. `Manual` looks ruled out, but that sentence covers IDE 0.x hooks. The CLI page lists it as current.
+- trap: V3 `v1` triggers: `SessionStart`, `SessionEnd`, `Stop`, `PreToolUse`, `PostToolUse`, `PreTaskExec`, `PostTaskExec`, `UserPromptSubmit`, `PostFileCreate`, `PostFileSave`, `PostFileDelete`, `Manual` (#907, #1576). CLI `Manual` remains supported; its exclusion covers IDE hooks. Legacy agent-config renames: `agentSpawn` to `SessionStart`, `fileEdited` to `PostFileSave`, `fileCreated` to `PostFileCreate`.
 - trap: V3 accepts `AgentSpawn` only as an alias of `SessionStart` (`/docs/hooks/types/`); validate names `SessionStart` (#907, #1580).
 - decision: hook `version` is the string `"v1"`, and the adapter writes it as a string (`hooksFile.Version` in `kiro/hooks.go`).
 - decision: MCP `oauth` and `oauthScopes` (remote only), `autoApprove` and `disabledTools` emit behind `emit.WithKiroMCPExtras()` (#634). Skills write natively to `.kiro/skills/` (#642). Hook `description` emits generically, `confirm` only via `x-kiro`.
 - decision: a valid `x-kiro.action` works without a command and replaces the fallback command list; invalid actions error (#772). An omitted timeout uses the vendor default.
 - decision: we emit no powers. Powers install per user with no committed project path. Agents reach installed powers through `x-kiro.includePowers` (#1068).
+- trap: Custom agents inherit default resources alongside listed `resources`. `chat.disableInheritingDefaultResources` defaults false and is workspace-overridable. Keep the conservative steering fallback until its opt-out representation is settled (#1643).
 
 ## crush
 

@@ -192,12 +192,7 @@ func EntryPointRuleInliner(cfg *config.Config, target string) string {
 	return ""
 }
 
-// EntryPointInlinedRules returns, by name, the rules in the block
-// EntryPointRuleInliner names for target, as that block holds them:
-// fences resolved for the inliner and variables left as written. It is
-// nil when there is no such block, or when a Kiro agent lists its own
-// `resources`, since a Kiro custom agent loads only the steering files
-// it lists.
+// Kiro steering files remain for native disabled-inheritance workflows.
 func EntryPointInlinedRules(cfg *config.Config, b spec.Bundle, target string) map[string]spec.Entry {
 	inliner := EntryPointRuleInliner(cfg, target)
 	if inliner == "" || target == "kiro" && kiroAgentListsResources(b) {
