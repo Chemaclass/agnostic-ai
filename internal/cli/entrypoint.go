@@ -422,8 +422,13 @@ func entryPointPaths(cfg *config.Config, targets []string) []string {
 // overwrite either way (preserving the historic behavior) but a quiet
 // I/O failure does not block the user.
 func warnOnHandAuthoredEntryPoint(path, captured string) {
-	// Text AGNOSTIC_AI.md holds is not lost, so there is nothing to warn about.
-	if uncaptured, err := handWrittenUncaptured(path, captured); err != nil || !uncaptured {
+	// Text AGNOSTIC_AI.md or the local layer holds is not lost, so there
+	// is nothing to warn about.
+	held, err := heldInstructions(captured)
+	if err != nil {
+		return
+	}
+	if uncaptured, err := handWrittenUncaptured(path, held); err != nil || !uncaptured {
 		return
 	}
 	summaryf("  ! %s appears hand-authored (no agnostic-ai header) — overwriting with the canonical pointer body. Move custom content into %s first to keep it.\n",

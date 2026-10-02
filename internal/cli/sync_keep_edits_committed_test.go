@@ -39,7 +39,9 @@ func TestSyncKeepEdits_NoLedgerKeepsEditToCommittedOutput(t *testing.T) {
 	}
 }
 
-func TestSyncKeepEdits_NoLedgerRewritesUntrackedFile(t *testing.T) {
+// An untracked file has no committed version to keep it by, so sync stops
+// instead of writing over the hand-written text (#1611).
+func TestSyncKeepEdits_NoLedgerStopsOnAnUntrackedHandWrittenFile(t *testing.T) {
 	dir := committedClaudeOutputsWithoutLedger(t)
 	entry := filepath.Join(dir, "CLAUDE.md")
 	git(t, dir, "rm", "-q", "--cached", "CLAUDE.md")
@@ -48,16 +50,15 @@ func TestSyncKeepEdits_NoLedgerRewritesUntrackedFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := runSyncArgs(t, "--keep-edits"); err != nil {
-		t.Fatalf("sync --keep-edits: %v", err)
+	if err := runSyncArgs(t, "--keep-edits"); err == nil || !strings.Contains(err.Error(), "agnostic-ai import claude") {
+		t.Errorf("sync --keep-edits: err = %v, want a stop", err)
 	}
-
-	if got := readFile(t, entry); got == "hand edit\n" {
-		t.Error("an untracked file has no committed version to compare, so sync should rewrite it")
+	if got := readFile(t, entry); got != "hand edit\n" {
+		t.Errorf("CLAUDE.md = %q, want the hand edit kept", got)
 	}
 }
 
-func TestSyncKeepEdits_NoLedgerOutsideGitRewritesFile(t *testing.T) {
+func TestSyncKeepEdits_NoLedgerOutsideGitStopsOnAHandWrittenFile(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
 	silence(t)
@@ -70,12 +71,11 @@ func TestSyncKeepEdits_NoLedgerOutsideGitRewritesFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := runSyncArgs(t, "--keep-edits"); err != nil {
-		t.Fatalf("sync --keep-edits: %v", err)
+	if err := runSyncArgs(t, "--keep-edits"); err == nil || !strings.Contains(err.Error(), "agnostic-ai import claude") {
+		t.Errorf("sync --keep-edits: err = %v, want a stop", err)
 	}
-
-	if got := readFile(t, entry); got == "hand edit\n" {
-		t.Error("outside a git work tree there is no committed version, so sync should rewrite the file")
+	if got := readFile(t, entry); got != "hand edit\n" {
+		t.Errorf("CLAUDE.md = %q, want the hand edit kept", got)
 	}
 }
 

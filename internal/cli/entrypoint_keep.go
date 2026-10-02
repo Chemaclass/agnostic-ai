@@ -22,8 +22,10 @@ import (
 // agent asked to set agnostic-ai up runs. A file with the generated
 // header, one an earlier sync wrote (the ledger lists it, and a hand edit
 // to it is kept as `<path>.bak`), or one whose sections AGNOSTIC_AI.md
-// already holds, is written as before.
-func keepHandWrittenInstructions(cfg *config.Config, b spec.Bundle, targets, ledgered []string) error {
+// already holds, is written as before. With backup, a file is replaced
+// when its `<path>.bak` is free. --keep-edits keeps only a file the ledger
+// or Git knows, so only those are exempt.
+func keepHandWrittenInstructions(cfg *config.Config, b spec.Bundle, targets, ledgered []string, backup, keepEdits bool) error {
 	captured := ""
 	if data, err := os.ReadFile(adapters.AgnosticEntryPointPath); err == nil {
 		captured = header.Strip(string(data))
@@ -34,26 +36,35 @@ func keepHandWrittenInstructions(cfg *config.Config, b spec.Bundle, targets, led
 	if err != nil {
 		return err
 	}
-	// Personal text in the local layer reaches the same files, so it is
-	// held too, and import must not copy it into the shared body.
-	held := captured
-	local, err := adapters.ReadLocalInstructions()
+	held, err := heldInstructions(captured)
 	if err != nil {
 		return err
-	}
-	if strings.TrimSpace(local) != "" {
-		held += "\n\n" + local
 	}
 	var lines []string
 	for _, f := range files {
 		if cfg.IsUnmanaged(f.Path) || slices.Contains(ledgered, filepath.ToSlash(f.Path)) {
 			continue
 		}
+		// --keep-edits keeps a file Git tracks when it differs from HEAD.
+		if keepEdits {
+			if sum := committedSum(f.Path); sum != "" && fileSum(f.Path) != sum {
+				continue
+			}
+		}
 		uncaptured, err := handWrittenUncaptured(f.Path, held)
 		if err != nil {
 			return fmt.Errorf("%w; nothing was written", err)
 		}
 		if !uncaptured {
+			continue
+		}
+		// --backup keeps the file as <path>.bak, unless that would replace
+		// an earlier backup.
+		if backup {
+			if _, err := os.Lstat(f.Path + ".bak"); errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			lines = append(lines, fmt.Sprintf("%s holds instructions agnostic-ai did not write, and %s.bak already exists, so --backup would replace it.\n  move %s.bak away, then run agnostic-ai sync --backup", f.Path, f.Path, f.Path))
 			continue
 		}
 		lines = append(lines, fmt.Sprintf("%s holds instructions agnostic-ai did not write, and %s does not have them.\n  keep them:    agnostic-ai import %s\n  replace them: agnostic-ai sync --backup, which keeps the file as %s.bak",
@@ -63,6 +74,20 @@ func keepHandWrittenInstructions(cfg *config.Config, b spec.Bundle, targets, led
 		return nil
 	}
 	return fmt.Errorf("%s\nnothing was written", strings.Join(lines, "\n"))
+}
+
+// heldInstructions is captured, the AGNOSTIC_AI.md body, plus the local
+// layer: personal text there reaches the same files, so it is held too,
+// and import must not copy it into the shared body.
+func heldInstructions(captured string) (string, error) {
+	local, err := adapters.ReadLocalInstructions()
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(local) == "" {
+		return captured, nil
+	}
+	return captured + "\n\n" + local, nil
 }
 
 // importSourceFor names an import source that reads f: its first reader
@@ -109,7 +134,7 @@ func handWrittenUncaptured(path, captured string) (bool, error) {
 // checkHandWrittenInstructions runs keepHandWrittenInstructions for a
 // preview (--check, --plan, --json --dry-run), so it agrees with the sync
 // it previews.
-func checkHandWrittenInstructions(targets []string) error {
+func checkHandWrittenInstructions(targets []string, backup bool) error {
 	cfg, b, err := loadProject(".")
 	if err != nil {
 		return err
@@ -117,5 +142,5 @@ func checkHandWrittenInstructions(targets []string) error {
 	if len(targets) == 0 {
 		targets = cfg.Targets
 	}
-	return keepHandWrittenInstructions(cfg, b, targets, readStateFile(".").Outputs)
+	return keepHandWrittenInstructions(cfg, b, targets, readStateFile(".").Outputs, backup, false)
 }
