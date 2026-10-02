@@ -9,6 +9,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### General
 
 - **Breaking:** an unknown config key, a misspelled target, or a bad `on-unsupported` value fails before sync writes anything, not silently (#1589).
+- The `install-hook` pre-commit check compares the staged files, so a commit missing its outputs fails; needs 0.74.0+, reinstall to update (#1592).
 - `import` adds the sections `AGNOSTIC_AI.md` lacks instead of replacing it, so a second import keeps the first one's instructions (#1595).
 - `sync --check --plan` exits 1 on drift, as `sync --check` does, instead of passing a CI step (#1593).
 - `init --gitignore off` stops with a hint to use `--gitignore=off` instead of creating a folder named `off` (#1594).

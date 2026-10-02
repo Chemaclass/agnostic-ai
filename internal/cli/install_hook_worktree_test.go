@@ -77,7 +77,7 @@ func TestInstallHook_LocalFromLinkedWorktreeWritesToTheCommonHooksDir(t *testing
 	}
 
 	got := readHook(t, filepath.Join(main, ".git", "hooks", "pre-commit"))
-	if !strings.Contains(got, "agnostic-ai sync --check || exit 1") {
+	if !strings.Contains(got, "agnostic-ai sync --check --against index || exit 1") {
 		t.Errorf("hook missing the check, got:\n%s", got)
 	}
 }

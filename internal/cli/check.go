@@ -54,6 +54,9 @@ type driftReport struct {
 	// manifest or the last commit's render proves sync wrote, the proof
 	// doctor --fix removes it with.
 	proven map[string]string
+	// against is the Git state `--against` compared, index or HEAD, or ""
+	// for the working tree.
+	against string
 }
 
 // leftoverFix names the command that removes the report's Leftover. Sync
@@ -508,13 +511,21 @@ func printDrift(reports []driftReport) bool {
 		}
 		any = true
 		summaryf("%s %s: drift\n", cross(), r.Target)
-		if len(r.Missing) > 0 {
+		if r.against != "" {
+			where, step := againstPlace(r.against)
+			if n := len(r.Missing) + len(r.Stale); n > 0 {
+				summaryf("    %d file(s) %s do not match the specs there (%s):\n", n, where, step)
+				for _, f := range append(append([]adapters.CapturedFile(nil), r.Missing...), r.Stale...) {
+					summaryf("      - %s\n", filepath.ToSlash(f.Path))
+				}
+			}
+		} else if len(r.Missing) > 0 {
 			summaryf("    %d file(s) missing (run `agnostic-ai sync` to create):\n", len(r.Missing))
 			for _, f := range r.Missing {
 				summaryf("      - %s\n", filepath.ToSlash(f.Path))
 			}
 		}
-		if len(r.Stale) > 0 {
+		if len(r.Stale) > 0 && r.against == "" {
 			summaryf("    %d file(s) out of date (run `agnostic-ai sync` to update):\n", len(r.Stale))
 			for _, f := range r.Stale {
 				summaryf("      - %s\n", filepath.ToSlash(f.Path))
