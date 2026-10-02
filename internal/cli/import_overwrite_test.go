@@ -2,10 +2,12 @@ package cli
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -114,37 +116,51 @@ func TestImport_SourcesInOneRunStillReplaceEachOther(t *testing.T) {
 	}
 }
 
-func TestImport_DryRunReportsAnExistingSpecItWouldReplace(t *testing.T) {
+// A dry-run fails as the real run would, instead of counting the files
+// it would write.
+func TestImport_DryRunStopsOnAnExistingSpecItWouldReplace(t *testing.T) {
 	importOverwriteProject(t)
+	var err error
 
 	out := captureStdout(t, func() {
-		if _, err := runCLI(t, "import", "claude", "--dry-run"); err != nil {
-			t.Errorf("import --dry-run: %v", err)
-		}
+		_, err = runCLI(t, "import", "claude", "--dry-run")
 	})
 
-	if !strings.Contains(out, ".agnostic-ai/skills/review/SKILL.md already holds different content (claude); the import stops unless --overwrite") {
-		t.Errorf("dry-run did not report the replaced spec:\n%s", out)
+	if errs.CodeOf(err) != errs.CodeImportWouldReplace || !strings.Contains(err.Error(), ".agnostic-ai/skills/review/SKILL.md (from claude)") {
+		t.Fatalf("import --dry-run did not stop on the replaced spec: %v", err)
 	}
-	if strings.Contains(out, "skills/deploy/SKILL.md already holds") {
-		t.Errorf("dry-run reported a new spec as replaced:\n%s", out)
+	if strings.Contains(out, "would be written") {
+		t.Errorf("dry-run counted files as written while the import would stop:\n%s", out)
 	}
 	if got := readFile(t, ".agnostic-ai/skills/review/SKILL.md"); got != handSkill {
 		t.Errorf("dry-run changed the review skill: %q", got)
 	}
 }
 
-func TestImport_DiffReportsAnExistingSpecItWouldReplace(t *testing.T) {
+func TestImport_DiffStopsOnAnExistingSpecItWouldReplace(t *testing.T) {
+	importOverwriteProject(t)
+	var err error
+
+	captureStdout(t, func() {
+		_, err = runCLI(t, "import", "claude", "--dry-run", "--diff")
+	})
+
+	if errs.CodeOf(err) != errs.CodeImportWouldReplace {
+		t.Fatalf("import --dry-run --diff did not stop on the replaced spec: %v", err)
+	}
+}
+
+func TestImport_DryRunWithOverwriteListsTheReplacedSpec(t *testing.T) {
 	importOverwriteProject(t)
 
 	out := captureStdout(t, func() {
-		if _, err := runCLI(t, "import", "claude", "--dry-run", "--diff"); err != nil {
-			t.Errorf("import --dry-run --diff: %v", err)
+		if _, err := runCLI(t, "import", "claude", "--dry-run", "--overwrite"); err != nil {
+			t.Errorf("import --dry-run --overwrite: %v", err)
 		}
 	})
 
-	if !strings.Contains(out, ".agnostic-ai/skills/review/SKILL.md already holds different content (claude)") {
-		t.Errorf("diff did not report the replaced spec:\n%s", out)
+	if !strings.Contains(out, "replaces .agnostic-ai/skills/review/SKILL.md") {
+		t.Errorf("dry-run did not name the replaced spec:\n%s", out)
 	}
 }
 
@@ -273,5 +289,118 @@ func TestImport_StopsOnASyncedSpecTheSourceNeverReceived(t *testing.T) {
 	}
 	if got := readFile(t, ".agnostic-ai/rules/style.md"); got != mine {
 		t.Errorf("style rule = %q, want it untouched", got)
+	}
+}
+
+// Codex was the only target at the last sync, so the skill never reached
+// claude: claude's own skill of the same name would replace it unseen.
+func TestUse_StopsOnASyncedSpecTheNewToolNeverReceived(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", handSkill)
+	runSyncOK(t)
+	mustWriteFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
+
+	_, err := runCLI(t, "use", "claude")
+
+	if errs.CodeOf(err) != errs.CodeImportWouldReplace || !strings.Contains(err.Error(), "agnostic-ai import claude --overwrite") {
+		t.Fatalf("use did not stop on a spec claude never received: %v", err)
+	}
+	if got := readFile(t, ".agnostic-ai/skills/review/SKILL.md"); got != handSkill {
+		t.Errorf("review skill = %q, want it untouched", got)
+	}
+}
+
+func TestImport_StopsOnASpecScopedToAnotherTool(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	mine := "---\nname: review\ndescription: Mine.\ntargets: [codex]\n---\nMine\n"
+	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", mine)
+	runSyncOK(t)
+	mustWriteFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
+
+	_, err := runCLI(t, "import", "claude")
+
+	if errs.CodeOf(err) != errs.CodeImportWouldReplace {
+		t.Fatalf("import claude did not stop on a skill scoped to codex: %v", err)
+	}
+	if got := readFile(t, ".agnostic-ai/skills/review/SKILL.md"); got != mine {
+		t.Errorf("review skill = %q, want it untouched", got)
+	}
+}
+
+// A comment is an edit: the spec no longer holds the bytes sync rendered.
+func TestImport_StopsOnACommentAddedSinceTheLastSync(t *testing.T) {
+	claudeSyncedReviewSkill(t)
+	edited := strings.Replace(handSkill, "description: Mine.\n", "description: Mine.\n# keep the review short\n", 1)
+	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", edited)
+
+	_, err := runCLI(t, "import", "claude")
+
+	if errs.CodeOf(err) != errs.CodeImportWouldReplace {
+		t.Fatalf("import did not stop on a spec with a new comment: %v", err)
+	}
+	if got := readFile(t, ".agnostic-ai/skills/review/SKILL.md"); got != edited {
+		t.Errorf("review skill = %q, want the comment kept", got)
+	}
+}
+
+// What an import wrote, and nothing changed since, is the tool's own
+// config: a later import replaces it as a second source in one run would.
+func TestImport_ReplacesWhatAnEarlierImportWrote(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	mustWriteFile(t, ".mcp.json", `{"mcpServers":{"fs":{"command":"npx","args":["fs-mcp"]}}}`)
+	mustWriteFile(t, ".codex/config.toml", "[mcp_servers.fs]\ncommand = \"uvx\"\nargs = [\"fs-mcp\"]\n")
+	if out, err := runCLI(t, "import", "claude"); err != nil {
+		t.Fatalf("import claude: %v\n%s", err, out)
+	}
+
+	if out, err := runCLI(t, "import", "codex"); err != nil {
+		t.Fatalf("import codex after import claude: %v\n%s", err, out)
+	}
+	if got := readFile(t, ".agnostic-ai/mcps/fs.yaml"); !strings.Contains(got, "uvx") {
+		t.Errorf("fs.yaml = %q, want codex's server", got)
+	}
+}
+
+func TestImport_ReimportsAChangedSettingsOverlay(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, ".claude/settings.json", `{"statusLine": {"type": "command", "command": "first"}}`+"\n")
+	if out, err := runCLI(t, "import", "claude"); err != nil {
+		t.Fatalf("first import: %v\n%s", err, out)
+	}
+	mustWriteFile(t, ".claude/settings.json", `{"statusLine": {"type": "command", "command": "second"}}`+"\n")
+
+	if out, err := runCLI(t, "import", "claude"); err != nil {
+		t.Fatalf("re-import after a settings change: %v\n%s", err, out)
+	}
+	if got := readFile(t, ".agnostic-ai/overlays/claude.settings.json"); !strings.Contains(got, "second") {
+		t.Errorf("overlay = %q, want the new statusLine", got)
+	}
+}
+
+// The guard restores what a stopped run wrote instead of running the
+// import in a copy first, so a real import never copies the project: it
+// works with no usable temp directory.
+func TestImport_RealRunDoesNotCopyTheProject(t *testing.T) {
+	importOverwriteProject(t)
+	t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "missing"))
+
+	_, err := runCLI(t, "import", "claude")
+
+	if errs.CodeOf(err) != errs.CodeImportWouldReplace {
+		t.Fatalf("import without a temp dir: %v", err)
+	}
+	if _, err := os.Stat(".agnostic-ai/skills/deploy"); !os.IsNotExist(err) {
+		t.Errorf("the stopped import left the deploy skill folder: %v", err)
+	}
+	if out, err := runCLI(t, "import", "claude", "--overwrite"); err != nil {
+		t.Fatalf("import --overwrite without a temp dir: %v\n%s", err, out)
 	}
 }

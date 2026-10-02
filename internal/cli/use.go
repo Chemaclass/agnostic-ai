@@ -411,10 +411,10 @@ func importToolConfig(cfg *config.Config, tools []string) (failed []string, err 
 			})
 		})
 	}
-	if err := stopOnImportOverwrites(func() error { return run(new([]string)) }, importOverwriteRemedy); err != nil {
+	err = runGuardedImport(false, importOverwriteRemedy, func() error { return run(&failed) })
+	if errs.CodeOf(err) == errs.CodeImportWouldReplace {
 		return sources, err
 	}
-	err = run(&failed)
 	if err != nil && len(failed) == 0 {
 		failed = sources
 	}
@@ -529,12 +529,17 @@ func stillConfigured(failed []string) []string {
 // setPendingImports records the tools whose import has not finished in
 // the state file, which keeps every other field.
 func setPendingImports(tools []string) error {
-	p := stateFilePath(".")
 	state := readStateFile(".")
 	if slices.Equal(state.PendingImports, tools) {
 		return nil
 	}
 	state.PendingImports = tools
+	return replaceStateFile(".", state)
+}
+
+// replaceStateFile writes state as the state file under root whole.
+func replaceStateFile(root string, state syncStateFile) error {
+	p := stateFilePath(root)
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		return err
 	}

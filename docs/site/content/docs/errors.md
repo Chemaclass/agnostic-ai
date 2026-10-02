@@ -97,6 +97,12 @@ The argument to `agnostic-ai import` matches no registered source.
 
 **Fix:** run `agnostic-ai import --help` for the supported list. Spelling counts.
 
+### AAI-203: Import would replace an existing spec
+
+`import`, `init --from`, or `use` would replace a spec under the source directories with content the importing tool never read: a hand-written spec, one edited since the last sync or import (a comment counts), or one the last sync never wrote for that tool. The import writes no spec. The message lists each spec and the tool that wanted it. `import --dry-run` fails the same way.
+
+**Fix:** rename the existing spec to keep both and import again, or run `agnostic-ai import <tool> --overwrite` to replace it.
+
 ### AAI-301: Unknown sync target
 
 A target requested via `--target`, `--only`, or the config is not a built-in adapter and no `agnostic-ai-adapter-<name>` binary is on PATH.

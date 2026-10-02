@@ -52,7 +52,7 @@ func TestImportAntigravity_PrefersCurrentSkillsAndFallsBackToLegacy(t *testing.T
 	}
 
 	writeFile(t, ".agents/skills/deploy/SKILL.md", "Current skill.\n")
-	execCLI(t, "import", "antigravity", "--overwrite")
+	execCLI(t, "import", "antigravity")
 	if got := readFile(t, ".agnostic-ai/skills/deploy/SKILL.md"); got != "Current skill.\n" {
 		t.Errorf("preferred skill = %q", got)
 	}

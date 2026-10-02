@@ -159,12 +159,9 @@ func newInitCmd() *cobra.Command {
 					})
 				})
 			}
-			if err := stopOnImportOverwrites(run, func([]string) string {
+			return runGuardedImport(false, func([]string) string {
 				return importOverwriteRemedy([]string{fromCLI})
-			}); err != nil {
-				return err
-			}
-			return run()
+			}, run)
 		},
 	}
 	cmd.Flags().BoolVar(&demo, "demo", false,

@@ -73,6 +73,11 @@ type syncStateFile struct {
 	// SpecSums fingerprints each source spec and the merged config, so
 	// the next sync can name which sources changed since this one.
 	SpecSums map[string]string `json:"spec_sums,omitempty"`
+	// SpecFileSums maps each spec file, slash-form and relative to the
+	// project, to the sha256 of its raw bytes when sync rendered it or
+	// import wrote it, so import can tell a spec a tool already reads
+	// from one it would replace unseen (#1620).
+	SpecFileSums map[string]specFileSum `json:"spec_file_sums,omitempty"`
 	// ModelAliases records the id each vendor model alias resolved to,
 	// by target, so the next sync can say when an upgrade moved one.
 	ModelAliases map[string]map[string]string `json:"model_aliases,omitempty"`
@@ -100,6 +105,7 @@ type syncLedger struct {
 	// specSums is not part of the output footprint, but it is written
 	// beside it so the next sync can diff sources against this one.
 	specSums     map[string]string
+	specFileSums map[string]specFileSum
 	modelAliases map[string]map[string]string
 	backups      map[string]string
 }
@@ -140,6 +146,7 @@ func writeStateFile(projectRoot string, filesChanged int, warningsDigest, notesD
 		Unledgered:     ledger.unledgered,
 		Merged:         ledger.merged,
 		SpecSums:       ledger.specSums,
+		SpecFileSums:   ledger.specFileSums,
 		ModelAliases:   ledger.modelAliases,
 		Backups:        ledger.backups,
 	})
@@ -737,6 +744,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
 		ledger.specSums = sums
 	}
+	ledger.specFileSums = syncedSpecFileSums(root, prev.SpecFileSums, b, effectiveTargets)
 	trackedIgnored := gitTrackedAndIgnored(root, trackedIgnoreCandidates(cfg, ledger.outputs))
 	var untrackErr error
 	if untrack && len(trackedIgnored) > 0 {
@@ -1127,6 +1135,10 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	ledger.modelAliases = prev.ModelAliases
 	if len(out.Errors) == 0 && coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
 		ledger.specSums = specSums(cfg, b)
+	}
+	ledger.specFileSums = prev.SpecFileSums
+	if len(out.Errors) == 0 {
+		ledger.specFileSums = syncedSpecFileSums(root, prev.SpecFileSums, b, effectiveTargets)
 	}
 	ledger.backups = syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups))
 	if err := writeStateFile(root, len(out.Writes), prev.WarningsDigest, prev.NotesDigest, ledger); err != nil {

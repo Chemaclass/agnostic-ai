@@ -64,7 +64,7 @@ func TestImport_DryRunDiffShowsCreatedChangedAndUnchanged(t *testing.T) {
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "same.md"), "---\ndescription: same\n---\n\nKeep me.\n")
 
 	stdout := captureStdout(t, func() {
-		if _, err := runCLI(t, "import", "claude", "--dry-run", "--diff"); err != nil {
+		if _, err := runCLI(t, "import", "claude", "--dry-run", "--diff", "--overwrite"); err != nil {
 			t.Fatalf("import: %v", err)
 		}
 	})
@@ -99,7 +99,7 @@ func TestImport_DryRunDiffReportsCompetingEntryPointAndWinner(t *testing.T) {
 	before := snapshotProject(t, dir)
 
 	stdout := captureStdout(t, func() {
-		if _, err := runCLI(t, "import", "claude", "codex", "--dry-run", "--diff"); err != nil {
+		if _, err := runCLI(t, "import", "claude", "codex", "--dry-run", "--diff", "--overwrite"); err != nil {
 			t.Fatalf("import: %v", err)
 		}
 	})
@@ -128,7 +128,7 @@ func TestImport_DryRunDiffIgnoresIdenticalProposals(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "AGENTS.md"), "# Claude\n\nClaude body.\n")
 
 	stdout := captureStdout(t, func() {
-		if _, err := runCLI(t, "import", "claude", "codex", "--dry-run", "--diff"); err != nil {
+		if _, err := runCLI(t, "import", "claude", "codex", "--dry-run", "--diff", "--overwrite"); err != nil {
 			t.Fatalf("import: %v", err)
 		}
 	})
@@ -184,7 +184,9 @@ func TestImport_PreviewFinalBytesMatchRealImport(t *testing.T) {
 		}
 	}
 	for p, v := range after {
-		if before[p] == v || strings.HasPrefix(v, "<dir") {
+		// The state file records what import wrote; it is not an import
+		// output the preview plans.
+		if before[p] == v || strings.HasPrefix(v, "<dir") || filepath.ToSlash(p) == ".agnostic-ai/.sync-state" {
 			continue
 		}
 		if !planned[p] {
@@ -200,7 +202,7 @@ func TestImport_DryRunWithoutDiffStillOmitsBodies(t *testing.T) {
 	writePreviewFixture(t, dir)
 
 	stdout := captureStdout(t, func() {
-		if _, err := runCLI(t, "import", "claude", "codex", "--dry-run"); err != nil {
+		if _, err := runCLI(t, "import", "claude", "codex", "--dry-run", "--overwrite"); err != nil {
 			t.Fatalf("import: %v", err)
 		}
 	})
@@ -236,7 +238,7 @@ func TestImport_DryRunDiffNeverWritesThroughOutsideSymlink(t *testing.T) {
 	before := snapshotProject(t, outside)
 
 	stdout := captureStdout(t, func() {
-		if _, err := runCLI(t, "import", "claude", "--dry-run", "--diff"); err != nil {
+		if _, err := runCLI(t, "import", "claude", "--dry-run", "--diff", "--overwrite"); err != nil {
 			t.Fatalf("import: %v", err)
 		}
 	})

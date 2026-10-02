@@ -41,7 +41,7 @@ func TestEdgeCase_ImportClaudeTwiceOverwritesOverlay(t *testing.T) {
 	must(t, os.WriteFile(filepath.Join(dir, ".claude/settings.json"),
 		[]byte(`{"statusLine": {"type": "command", "command": "second"}}`+"\n"), 0o644))
 
-	runCmd(t, "import", "claude", "--overwrite")
+	runCmd(t, "import", "claude")
 
 	second, err := os.ReadFile(overlay)
 	if err != nil {

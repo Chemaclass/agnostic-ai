@@ -118,18 +118,13 @@ func newImportCmd() *cobra.Command {
 	return cmd
 }
 
-// runImportArgs imports every named source in order, after checking that
-// the import replaces no existing spec with different content, unless
-// overwrite is set.
+// runImportArgs imports every named source in order, and stops when that
+// replaces an existing spec with different content, unless overwrite is
+// set (see runGuardedImport).
 func runImportArgs(args []string, overwrite bool) error {
-	if !overwrite {
-		if err := stopOnImportOverwrites(func() error { return importArgs(args) }, func([]string) string {
-			return importOverwriteRemedy(args)
-		}); err != nil {
-			return err
-		}
-	}
-	return importArgs(args)
+	return runGuardedImport(overwrite, func([]string) string { return importOverwriteRemedy(args) }, func() error {
+		return importArgs(args)
+	})
 }
 
 // importArgs loads the project config from the working directory and

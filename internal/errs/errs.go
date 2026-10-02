@@ -43,7 +43,8 @@ const (
 	CodeIgnoreOverwrite Code = "AAI-103"
 
 	// Import.
-	CodeImportFileUnknown Code = "AAI-202"
+	CodeImportFileUnknown  Code = "AAI-202"
+	CodeImportWouldReplace Code = "AAI-203"
 
 	// Sync / validate.
 	CodeSyncTargetUnknown Code = "AAI-301"

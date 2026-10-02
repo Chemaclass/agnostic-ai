@@ -294,7 +294,9 @@ func assertDryRunMatchesRealImport(t *testing.T, source string, seed func(t *tes
 		}
 	}
 	for p, v := range after {
-		if before[p] == v || strings.HasPrefix(v, "<dir") {
+		// The state file records what import wrote; it is not an import
+		// output the preview plans.
+		if before[p] == v || strings.HasPrefix(v, "<dir") || filepath.ToSlash(p) == ".agnostic-ai/.sync-state" {
 			continue
 		}
 		if !listed[filepath.ToSlash(p)] {

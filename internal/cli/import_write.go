@@ -2,9 +2,12 @@ package cli
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -99,6 +102,11 @@ func importWriteFile(path string, data []byte, mode fs.FileMode) error {
 			return err
 		}
 	}
+	if importTxn != nil {
+		if err := importTxn.saveFile(path); err != nil {
+			return err
+		}
+	}
 	if importRecording != nil {
 		importRecording.record(path, data)
 	}
@@ -122,6 +130,9 @@ func importMkdirAll(dir string, perm fs.FileMode) error {
 	if !inImportSandbox(dir) {
 		return nil
 	}
+	if importTxn != nil {
+		importTxn.saveDirs(dir)
+	}
 	return os.MkdirAll(dir, perm)
 }
 
@@ -137,4 +148,83 @@ func inImportSandbox(path string) bool {
 	}
 	rel, err := filepath.Rel(importSandbox, abs)
 	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+// importTransaction keeps each file a real import writes as it was before
+// the run's first write to it, and the directories the run creates, so a
+// run that would replace an existing spec can be undone whole. It costs
+// one read per written file, never a walk of the project.
+type importTransaction struct {
+	// files maps each written path, cleaned, to its prior content, or nil
+	// when it did not exist.
+	files map[string]*savedImportFile
+	// dirs lists the directories the run created, in creation order.
+	dirs []string
+}
+
+// importTxn is the active transaction, or nil outside a guarded import.
+// Sequential use only, like importSandbox.
+var importTxn *importTransaction
+
+func (t *importTransaction) saveFile(path string) error {
+	path = filepath.Clean(path)
+	if _, seen := t.files[path]; seen {
+		return nil
+	}
+	t.saveDirs(filepath.Dir(path))
+	info, err := os.Stat(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		t.files[path] = nil
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	prior, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	t.files[path] = &savedImportFile{data: prior, mode: info.Mode().Perm()}
+	return nil
+}
+
+// saveDirs records dir and each missing parent the run is about to create.
+func (t *importTransaction) saveDirs(dir string) {
+	var missing []string
+	for dir = filepath.Clean(dir); ; dir = filepath.Dir(dir) {
+		if _, err := os.Stat(dir); !errors.Is(err, fs.ErrNotExist) || filepath.Dir(dir) == dir {
+			break
+		}
+		missing = append(missing, dir)
+	}
+	for _, d := range missing {
+		if !slices.Contains(t.dirs, d) {
+			t.dirs = append(t.dirs, d)
+		}
+	}
+}
+
+// rollback puts every written file back as it was and removes the
+// directories the run created, deepest first and never recursively.
+func (t *importTransaction) rollback() error {
+	var errs []error
+	for path, prior := range t.files {
+		var err error
+		if prior == nil {
+			if err = os.Remove(path); errors.Is(err, fs.ErrNotExist) {
+				err = nil
+			}
+		} else if err = os.WriteFile(path, prior.data, prior.mode); err == nil {
+			err = os.Chmod(path, prior.mode)
+		}
+		if err != nil {
+			errs = append(errs, fmt.Errorf("restore %s: %w", path, err))
+		}
+	}
+	dirs := slices.Clone(t.dirs)
+	slices.SortFunc(dirs, func(a, b string) int { return len(b) - len(a) })
+	for _, dir := range dirs {
+		_ = os.Remove(dir)
+	}
+	return errors.Join(errs...)
 }
