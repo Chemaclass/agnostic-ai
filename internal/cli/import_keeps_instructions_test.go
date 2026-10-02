@@ -102,3 +102,20 @@ func TestDoctor_AdoptStepSkipsAddingCodexWhenAnotherTargetWritesAgentsMd(t *test
 		t.Errorf("doctor asks to add codex though amp writes AGENTS.md:\n%s", out)
 	}
 }
+
+// A code example that quotes a section is not that section.
+func TestImport_ASectionQuotedInACodeExampleIsStillMerged(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, "CLAUDE.md", "# Acme API\n\n## Docs\n\nAn example file:\n\n```md\n## Deploy\n\nRun make deploy.\n```\n")
+	mustWriteFile(t, "AGENTS.md", "# Acme API\n\n## Deploy\n\nRun make deploy.\n")
+	for _, source := range []string{"claude", "codex"} {
+		if out, err := runCLI(t, "import", source); err != nil {
+			t.Fatalf("import %s: %v\n%s", source, err, out)
+		}
+	}
+
+	if got := readFile(t, ".agnostic-ai/AGNOSTIC_AI.md"); strings.Count(got, "## Deploy") != 2 {
+		t.Errorf("the Deploy section was not merged:\n%s", got)
+	}
+}

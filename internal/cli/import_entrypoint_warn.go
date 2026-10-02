@@ -119,7 +119,8 @@ func foldSections(dst, captured, body, srcName string) (mirrorResult, error) {
 // plus any view rendered from it.
 func foldText(captured, heldText, body string) (string, []string, []string) {
 	var added, titles, twice []string
-	have := collapseSpace(heldText)
+	// Text inside a code example is not a captured section.
+	have := collapseSpace(withoutCodeFences(heldText))
 	held := map[string]bool{}
 	for _, section := range markdownH2Sections(heldText) {
 		held[sectionTitle(section)] = true
@@ -138,6 +139,22 @@ func foldText(captured, heldText, body string) (string, []string, []string) {
 		return captured, nil, nil
 	}
 	return strings.TrimRight(captured, "\n") + "\n\n" + strings.Join(added, "\n\n") + "\n", titles, twice
+}
+
+// withoutCodeFences returns text with every fenced code block removed.
+func withoutCodeFences(text string) string {
+	var kept []string
+	inFence := false
+	for _, line := range strings.Split(text, "\n") {
+		if fenceRE.MatchString(line) {
+			inFence = !inFence
+			continue
+		}
+		if !inFence {
+			kept = append(kept, line)
+		}
+	}
+	return strings.Join(kept, "\n")
 }
 
 func reportMerged(titles, twice []string, srcName string) {
