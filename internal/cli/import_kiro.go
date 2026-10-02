@@ -88,7 +88,7 @@ func importFromKiro(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	mcps, err := importJSONMCPMap(filepath.Join(root, kiroMCPFile), kiroMCPKey,
+	mcps, err := importJSONMCPMap("kiro", filepath.Join(root, kiroMCPFile), kiroMCPKey,
 		filepath.Join(root, src.MCPs))
 	if err != nil {
 		return err

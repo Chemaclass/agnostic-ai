@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -27,7 +28,7 @@ func UserMCPServers(target string, mcps []spec.Entry) (map[string]any, bool) {
 	if !ok {
 		return nil, false
 	}
-	return r.UserMCPServers((spec.Bundle{MCPs: mcps}).For(target).MCPs), true
+	return r.UserMCPServers(userMCPs(target, mcps)), true
 }
 
 // UserMCPServerTables renders the MCP specs that emit to target as TOML
@@ -42,5 +43,16 @@ func UserMCPServerTables(target string, mcps []spec.Entry) (map[string]string, b
 	if !ok {
 		return nil, false
 	}
-	return r.UserMCPServerTables((spec.Bundle{MCPs: mcps}).For(target).MCPs), true
+	return r.UserMCPServerTables(userMCPs(target, mcps)), true
+}
+
+func userMCPs(target string, mcps []spec.Entry) []spec.Entry {
+	return emit.RewriteMCPEnvRefs(target, (spec.Bundle{MCPs: mcps}).For(target).MCPs)
+}
+
+// ReadMCPEnvRefs rewrites target's own environment reference form in a
+// native MCP server's `env` and `headers` values back to the spec's
+// `${NAME}`, in place.
+func ReadMCPEnvRefs(target string, server map[string]any) {
+	emit.ReadMCPEnvRefs(target, server)
 }

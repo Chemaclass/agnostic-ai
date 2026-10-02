@@ -363,7 +363,7 @@ func importOpenhandsMCP(src, dstDir string) (int, error) {
 			servers[uniqueMCPName(servers, mcpNameFromURL(rawURL))] = entry
 		}
 	}
-	return writeMCPYAMLs(servers, dstDir)
+	return writeMCPYAMLs("openhands", servers, dstDir)
 }
 
 // openhandsRemoteEntry reads one sse/shttp element in either documented

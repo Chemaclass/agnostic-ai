@@ -83,7 +83,7 @@
 
 [[files]]
   path = ".codex/config.toml"
-  body = "model = \"gpt-6-sol\"\nmodel_reasoning_effort = \"high\"\n\n[tui]\nnotification_condition = \"always\"\n\n[mcp_servers.github]\nurl = \"https://api.githubcopilot.com/mcp/\"\nhttp_headers = { Authorization = \"Bearer ${GITHUB_TOKEN}\" }\n"
+  body = "model = \"gpt-6-sol\"\nmodel_reasoning_effort = \"high\"\n\n[tui]\nnotification_condition = \"always\"\n\n[mcp_servers.github]\nurl = \"https://api.githubcopilot.com/mcp/\"\nbearer_token_env_var = \"GITHUB_TOKEN\"\n"
 
 [[files]]
   path = ".codex/hooks.json"
@@ -99,7 +99,7 @@
 
 [[files]]
   path = ".gemini/settings.json"
-  body = "{\n  \"mcpServers\": {\n    \"github\": {\n      \"headers\": {\n        \"Authorization\": \"Bearer ${GITHUB_TOKEN}\"\n      },\n      \"httpUrl\": \"https://api.githubcopilot.com/mcp/\"\n    }\n  }\n}\n"
+  body = "{\n  \"mcpServers\": {\n    \"github\": {\n      \"httpUrl\": \"https://api.githubcopilot.com/mcp/\"\n    }\n  }\n}\n"
 
 [[files]]
   path = ".gemini/skills/release/SKILL.md"

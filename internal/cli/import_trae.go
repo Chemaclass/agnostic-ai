@@ -105,5 +105,5 @@ func importTraeCommands(root, dstDir string) (int, error) {
 // importTraeMCP reads `.trae/mcp.json` and writes one yaml per
 // `mcpServers.<name>` entry into dstDir. No-op when the file is absent.
 func importTraeMCP(root, dstDir string) (int, error) {
-	return importJSONMCPMap(filepath.Join(root, traeMCPFile), traeMCPKey, dstDir)
+	return importJSONMCPMap("trae", filepath.Join(root, traeMCPFile), traeMCPKey, dstDir)
 }

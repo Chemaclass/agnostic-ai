@@ -344,7 +344,7 @@ func importGeminiSettings(root, mcpDst, hooksDst string) (int, int, error) {
 				clean[k] = sub
 			}
 		}
-		n, err := writeMCPYAMLs(clean, mcpDst)
+		n, err := writeMCPYAMLs("gemini", clean, mcpDst)
 		if err != nil {
 			return n, 0, err
 		}

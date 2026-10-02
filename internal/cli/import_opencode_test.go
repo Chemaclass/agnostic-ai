@@ -144,7 +144,7 @@ func TestImportFromOpencode_ImportsMCP(t *testing.T) {
 		"args:",
 		"- --root",
 		"env:",
-		"TOKEN: abc",
+		"TOKEN: ${TOKEN}",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("expected %q in mcp file:\n%s", want, out)

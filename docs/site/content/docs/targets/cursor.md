@@ -58,6 +58,7 @@ Cursor reads its project configuration from `.cursor/`, including `.cursor/rules
   - A hook has only `command`, run through `$SHELL -c` or, on Windows, PowerShell. A spec's `args` fold into `command`, each in single quotes (`node 'guard.js'`), in project and global sync.
 - **MCP**: `.cursor/mcp.json` under `mcpServers` (a builder shared with Claude Code). Each sync replaces the whole file from MCP specs. Three fields are Cursor-only ([cursor.com/docs/mcp](https://cursor.com/docs/mcp.md)):
   - A stdio server accepts `envFile`, a path to an env file with extra variables.
+  - A `${NAME}` reference in `env` or `headers` is written as Cursor's `${env:NAME}`. See [environment references](@/docs/spec-format/mcps.md#environment-references).
   - A remote (`url`) server accepts a static-OAuth `auth`, `{CLIENT_ID, CLIENT_SECRET, scopes}` with `CLIENT_ID` required, for providers without OAuth Dynamic Client Registration.
   - A stdio server carries an explicit `"type": "stdio"`, which Cursor marks required. Claude Code [reads a type-less entry as stdio](https://code.claude.com/docs/en/mcp), so other targets on this builder keep it type-less.
   - A `roots` list emits as passthrough. Cursor documents no per-server `roots` key: its "Roots: Supported" row is the protocol capability, and config interpolation covers only `command`, `args`, `env`, `url`, and `headers`.

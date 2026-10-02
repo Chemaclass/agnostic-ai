@@ -99,7 +99,7 @@ func importFromFactory(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	mcps, err := importJSONMCPMap(filepath.Join(root, factoryMCPFile), factoryMCPKey, filepath.Join(root, src.MCPs))
+	mcps, err := importJSONMCPMap("factory", filepath.Join(root, factoryMCPFile), factoryMCPKey, filepath.Join(root, src.MCPs))
 	if err != nil {
 		return err
 	}

@@ -46,5 +46,5 @@ func importClaudeMCPWithSettings(root, dstDir, settingsDir string) (int, error) 
 			}
 		}
 	}
-	return writeMCPYAMLs(servers, dstDir)
+	return writeMCPYAMLs("claude", servers, dstDir)
 }

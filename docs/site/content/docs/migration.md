@@ -37,6 +37,7 @@ Then check:
 
 - `.agnostic-ai/AGNOSTIC_AI.md` against your original instructions. With several tools, the last one's instructions win, except a hand-written root `AGENTS.md`, whose missing sections `--from all` appends.
 - Helper scripts that hooks or settings call. Skill folders and some native helpers (such as `.claude/statusline.sh`, under `.agnostic-ai/overlays/`) come along. Keep any other script in Git yourself.
+- MCP `env` and `headers` values. Import writes each one as a `${NAME}` reference and prints the variable to set, so a token never reaches a committed spec. Plain settings such as `NODE_ENV` become variables too: export them, or put a plain setting back by hand. Sync leaves a reference out of a tool that cannot read it, such as Gemini headers or Amp `env`, with a note. Continue MCP files are copied as they are. See [environment references](@/docs/spec-format/mcps.md#environment-references).
 
 Optional: commit the reviewed specs, `agnostic-ai.yaml`, and `.gitignore` as a checkpoint before generating output.
 

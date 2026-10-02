@@ -130,7 +130,7 @@ func importOpencodeMCP(root, dstDir string) (int, error) {
 		}
 		normalized[name] = normalizeOpencodeMCPEntry(entry)
 	}
-	return writeMCPYAMLs(normalized, dstDir)
+	return writeMCPYAMLs("opencode", normalized, dstDir)
 }
 
 // normalizeOpencodeMCPEntry maps OpenCode's MCP entry shape to the
