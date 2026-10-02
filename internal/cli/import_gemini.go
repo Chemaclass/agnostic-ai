@@ -341,6 +341,7 @@ func importGeminiSettings(root, mcpDst, hooksDst string) (int, int, error) {
 		clean := map[string]any{}
 		for k, v := range servers {
 			if sub, ok := v.(map[string]any); ok {
+				normalizeGeminiTransport(sub)
 				clean[k] = sub
 			}
 		}

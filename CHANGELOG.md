@@ -18,6 +18,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### By tool
 
+#### Gemini CLI
+
+- Project import reads `httpUrl` and SSE `url` MCP servers back with their transport, so sync writes them as before (#1665).
+
 #### Kiro
 
 - Import skips `manual` and `auto` steering files with a note instead of turning them into always-on rules (#1656).
