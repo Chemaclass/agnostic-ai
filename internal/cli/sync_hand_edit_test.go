@@ -218,7 +218,7 @@ func TestImport_SkipsABackupInASkillFolder(t *testing.T) {
 	mustWriteFile(t, handEditSkill, readFile(t, handEditSkill)+"my local tweak\n")
 	runSyncOK(t)
 
-	if out, err := runCLI(t, "import", "claude", "--overwrite"); err != nil {
+	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
 	}
 
@@ -231,7 +231,7 @@ func TestImport_KeepsASkillAssetNamedBak(t *testing.T) {
 	handEditProject(t, "claude")
 	mustWriteFile(t, ".claude/skills/review/examples/patch.bak", "a user asset\n")
 
-	if out, err := runCLI(t, "import", "claude", "--overwrite"); err != nil {
+	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
 	}
 
@@ -245,7 +245,7 @@ func TestImport_KeepsAUserPairOfFileAndBak(t *testing.T) {
 	mustWriteFile(t, ".claude/skills/review/examples/patch", "new\n")
 	mustWriteFile(t, ".claude/skills/review/examples/patch.bak", "old\n")
 
-	if out, err := runCLI(t, "import", "claude", "--overwrite"); err != nil {
+	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
 	}
 
@@ -260,7 +260,7 @@ func TestImport_KeepsAUserBakBesideAGeneratedFile(t *testing.T) {
 	handEditProject(t, "claude")
 	mustWriteFile(t, handEditSkill+".bak", "a user asset\n")
 
-	if out, err := runCLI(t, "import", "claude", "--overwrite"); err != nil {
+	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
 	}
 
@@ -274,7 +274,7 @@ func TestImport_SkipsASyncBackupCopy(t *testing.T) {
 	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview twice.\n")
 	runSyncOK(t, "--backup")
 
-	if out, err := runCLI(t, "import", "claude", "--overwrite"); err != nil {
+	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
 	}
 
@@ -290,7 +290,7 @@ func TestImport_KeepsABackupTheUserChanged(t *testing.T) {
 	runSyncOK(t)
 	mustWriteFile(t, handEditSkill+".bak", "now a user asset\n")
 
-	if out, err := runCLI(t, "import", "claude", "--overwrite"); err != nil {
+	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
 	}
 
@@ -313,7 +313,7 @@ func TestImport_SkipsASyncBackupBehindASharedSkillLink(t *testing.T) {
 	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview twice.\n")
 	runSyncOK(t)
 
-	if out, err := runCLI(t, "import", "claude", "--overwrite"); err != nil {
+	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
 	}
 
@@ -331,7 +331,7 @@ func TestImport_KeepsAnUnrelatedCopyOfASyncBackup(t *testing.T) {
 	mustWriteFile(t, ".claude/skills/other/SKILL.md", "---\nname: other\ndescription: Other.\n---\nOther.\n")
 	mustWriteFile(t, ".claude/skills/other/SKILL.md.bak", readFile(t, handEditSkill+".bak"))
 
-	if out, err := runCLI(t, "import", "claude", "--overwrite"); err != nil {
+	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
 	}
 

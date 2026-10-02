@@ -103,7 +103,7 @@ func TestImport_DeletingAFieldTheTargetWritesRemovesItFromTheSpec(t *testing.T) 
 
 	execCLI(t, "sync")
 	writeFile(t, ".qoder/agents/rev.md", "---\nname: rev\ndescription: d\neffort: high\n---\n\nbody\n")
-	execCLI(t, "import", "qoder", "--overwrite")
+	execCLI(t, "import", "qoder")
 
 	got := readFile(t, ".agnostic-ai/agents/rev.md")
 	if strings.Contains(got, "model:") {
@@ -125,7 +125,7 @@ func TestImportFromClaude_RemovingRulePathsUnscopesTheSpec(t *testing.T) {
 
 	execCLI(t, "sync")
 	writeFile(t, ".claude/rules/go-style.md", "---\nname: go-style\ndescription: d\n---\n\nbody\n")
-	execCLI(t, "import", "claude", "--overwrite")
+	execCLI(t, "import", "claude")
 
 	if got := readFile(t, ".agnostic-ai/rules/go-style.md"); strings.Contains(got, "paths:") {
 		t.Errorf("import restored the scope the user removed:\n%s", got)

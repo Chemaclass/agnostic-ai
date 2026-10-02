@@ -46,7 +46,7 @@ func TestImportAntigravity_PrefersCurrentSkillsAndFallsBackToLegacy(t *testing.T
 	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [antigravity]\n")
 	writeFile(t, ".agent/skills/deploy/SKILL.md", "Legacy skill.\n")
 
-	execCLI(t, "import", "antigravity", "--overwrite")
+	execCLI(t, "import", "antigravity")
 	if got := readFile(t, ".agnostic-ai/skills/deploy/SKILL.md"); got != "Legacy skill.\n" {
 		t.Errorf("legacy fallback = %q", got)
 	}
@@ -94,7 +94,7 @@ func TestImport_SyncThenImportKeepsAgentSpecFrontmatter(t *testing.T) {
 			writeFile(t, ".agnostic-ai/agents/reviewer.md", spec)
 
 			execCLI(t, "sync")
-			execCLI(t, "import", target, "--overwrite")
+			execCLI(t, "import", target)
 
 			got := readFile(t, ".agnostic-ai/agents/reviewer.md")
 			for _, key := range []string{"tools:", "effort:"} {

@@ -81,7 +81,7 @@ func TestRuleHeadingContext_SyncNestsRuleSections(t *testing.T) {
 			}
 			before[name] = string(data)
 		}
-		for _, args := range [][]string{{"import", "codex", "gemini", "--overwrite"}, {"sync", "--gitignore=off"}, {"sync", "--check", "--gitignore=off"}} {
+		for _, args := range [][]string{{"import", "codex", "gemini"}, {"sync", "--gitignore=off"}, {"sync", "--check", "--gitignore=off"}} {
 			cmd := exec.Command(binary, args...)
 			cmd.Dir = dir
 			if out, err := cmd.CombinedOutput(); err != nil {

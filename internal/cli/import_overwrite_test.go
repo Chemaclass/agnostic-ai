@@ -194,3 +194,62 @@ func TestUse_StopsBeforeReplacingAHandWrittenRule(t *testing.T) {
 		}
 	}
 }
+
+// Copilot and kiro write an agent's tools in another shape, so a sync
+// and import with no edit in between change the spec bytes. The spec
+// still matches what the last sync rendered, so nothing stops.
+func TestImport_UneditedRoundTripNeedsNoFlag(t *testing.T) {
+	const agent = "---\nname: reviewer\ndescription: Review the diff.\ntools: [Read, Grep]\neffort: high\n---\n\nReview what changed.\n"
+	for _, target := range []string{"copilot", "kiro"} {
+		t.Run(target, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			silence(t)
+			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+target+"]\n")
+			mustWriteFile(t, ".agnostic-ai/agents/reviewer.md", agent)
+			runSyncOK(t)
+
+			if out, err := runCLI(t, "import", target); err != nil {
+				t.Fatalf("import %s after sync: %v\n%s", target, err, out)
+			}
+		})
+	}
+}
+
+// claudeSyncedReviewSkill syncs a review skill to claude, then edits the
+// native copy, the documented way to bring a native edit back.
+func claudeSyncedReviewSkill(t *testing.T) {
+	t.Helper()
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", handSkill)
+	runSyncOK(t)
+	mustWriteFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
+}
+
+func TestImport_ReimportsANativeEditWithoutAFlag(t *testing.T) {
+	claudeSyncedReviewSkill(t)
+
+	if out, err := runCLI(t, "import", "claude"); err != nil {
+		t.Fatalf("import after a native edit: %v\n%s", err, out)
+	}
+
+	if got := readFile(t, ".agnostic-ai/skills/review/SKILL.md"); !strings.Contains(got, "Native") {
+		t.Errorf("review skill = %q, want the native edit", got)
+	}
+}
+
+func TestImport_StopsWhenTheSpecChangedSinceTheLastSync(t *testing.T) {
+	claudeSyncedReviewSkill(t)
+	edited := strings.Replace(handSkill, "Mine\n", "Mine, edited\n", 1)
+	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", edited)
+
+	_, err := runCLI(t, "import", "claude")
+
+	if err == nil || !strings.Contains(err.Error(), ".agnostic-ai/skills/review/SKILL.md (from claude)") {
+		t.Fatalf("import did not stop on a spec edited since the last sync: %v", err)
+	}
+	if got := readFile(t, ".agnostic-ai/skills/review/SKILL.md"); got != edited {
+		t.Errorf("review skill = %q, want the edit kept", got)
+	}
+}

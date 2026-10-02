@@ -33,8 +33,9 @@ type importPreviewEntry struct {
 	conflict bool     // two or more sources proposed different bytes
 	winner   string   // source whose write a real import keeps
 	replaced bool     // a write replaced the file instead of merging into it
-	// overwrites marks an existing spec the import replaces with
-	// different content, which stops a real import without --overwrite.
+	// overwrites marks an existing spec, never synced or edited since
+	// the last sync, that the import replaces with different content,
+	// which stops a real import without --overwrite.
 	overwrites bool
 }
 
@@ -183,6 +184,7 @@ func buildImportPreview(project, shadow string, rec *importRecorder) (importPrev
 		e.replaced = e.replaced || !w.merge
 	}
 	specDirs := importSpecDirs(shadow)
+	synced := syncedSpecFiles(project)
 	for path, e := range byPath {
 		native := filepath.FromSlash(path)
 		after, err := os.ReadFile(filepath.Join(shadow, native))
@@ -199,7 +201,7 @@ func buildImportPreview(project, shadow string, rec *importRecorder) (importPrev
 		}
 		e.conflict = distinctProposals(proposals[path]) > 1
 		e.overwrites = e.existed && e.replaced && !bytes.Equal(e.before, e.after) &&
-			path != agnosticMainFile && underAny(path, specDirs)
+			path != agnosticMainFile && underAny(path, specDirs) && !synced[path]
 		preview.entries = append(preview.entries, *e)
 	}
 	sort.Slice(preview.entries, func(i, j int) bool {

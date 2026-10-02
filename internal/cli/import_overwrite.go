@@ -24,6 +24,47 @@ func (p importPreview) overwrites() []importPreviewEntry {
 	return out
 }
 
+// syncedSpecFiles returns the spec files under project, slash-form and
+// relative to it, whose spec still matches the fingerprint the last sync
+// recorded: their native files were rendered from them, so an import
+// replacing one is the documented re-import of a native edit. A skill
+// counts with every file in its folder, since its fingerprint covers
+// them all.
+func syncedSpecFiles(project string) map[string]bool {
+	synced := map[string]bool{}
+	sums := readStateFile(project).SpecSums
+	if len(sums) == 0 {
+		return synced
+	}
+	_, b, err := loadProject(project)
+	if err != nil {
+		return synced
+	}
+	add := func(path string) {
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(project, path)
+		}
+		if rel, err := filepath.Rel(project, path); err == nil {
+			synced[filepath.ToSlash(rel)] = true
+		}
+	}
+	for _, e := range b.All() {
+		if e.Path == "" || sums[specKey(e)] != entrySum(e) {
+			continue
+		}
+		add(e.Path)
+		if dir := e.SkillAssetDir(); dir != "" {
+			_ = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+				if err == nil && !d.IsDir() {
+					add(p)
+				}
+				return nil
+			})
+		}
+	}
+	return synced
+}
+
 // importSpecDirs lists the spec directories of the project at root,
 // slash-form and relative to it: the source base and every configured
 // source directory.
