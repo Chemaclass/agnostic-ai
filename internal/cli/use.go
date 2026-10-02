@@ -147,7 +147,11 @@ func uncapturedInstructions(cfg *config.Config, target string) bool {
 	if data, err := os.ReadFile(adapters.AgnosticEntryPointPath); err == nil {
 		captured = header.Strip(string(data))
 	}
-	uncaptured, err := handWrittenUncaptured(path, captured)
+	held, err := heldInstructions(captured)
+	if err != nil {
+		return false
+	}
+	uncaptured, err := handWrittenUncaptured(path, held)
 	return err == nil && uncaptured
 }
 
