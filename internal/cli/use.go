@@ -142,6 +142,7 @@ func useTools(cmd *cobra.Command, tools []string) ([]string, error) {
 			})); rerr != nil {
 				return nil, errors.Join(err, rerr)
 			}
+			return nil, fmt.Errorf("%w (left %s out of targets; fix this and run agnostic-ai use again)", err, strings.Join(added, ", "))
 		}
 		return nil, err
 	}
@@ -235,18 +236,32 @@ func startProject(cmd *cobra.Command, tools []string) error {
 			sources = append(sources, t)
 		}
 	}
-	return importToolConfig(cfg, sources)
+	if err := importToolConfig(cfg, sources); err != nil {
+		// Without the config, a retry starts the project again and
+		// imports every source, not only what this run left out.
+		if rerr := os.Remove(config.ConfigFileName); rerr != nil {
+			return errors.Join(err, rerr)
+		}
+		return fmt.Errorf("%w (removed %s; fix this and run agnostic-ai use again)", err, config.ConfigFileName)
+	}
+	return nil
 }
 
 // hasOwnConfig reports whether the project already holds config for
 // target that sync would otherwise write over: a marker init detects, or
-// its instructions file written by hand and not listed in sync.unmanaged.
+// its instructions file written by hand. A tool whose instructions file
+// is in sync.unmanaged has none.
 func hasOwnConfig(cfg *config.Config, target string) bool {
+	path := adapters.EntryPointPath(cfg, target)
+	// The importer reads the instructions file even when unmanaged, so a
+	// tool whose file stays its own is not imported at all.
+	if path != "" && cfg.IsUnmanaged(path) {
+		return false
+	}
 	if slices.Contains(detectExistingTargets("."), target) {
 		return true
 	}
-	path := adapters.EntryPointPath(cfg, target)
-	if path == "" || cfg.IsUnmanaged(path) {
+	if path == "" {
 		return false
 	}
 	data, err := os.ReadFile(path)

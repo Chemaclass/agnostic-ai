@@ -243,6 +243,56 @@ func TestUse_AgainKeepsSpecEdits(t *testing.T) {
 	}
 }
 
+// A tool whose instructions file is unmanaged is not imported, even with
+// a marker such as .claude/.
+func TestUse_LeavesAnUnmanagedToolWithAMarkerAlone(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	isolateGit(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\nsync:\n  unmanaged: [CLAUDE.md]\n")
+	mustWriteFile(t, "CLAUDE.md", "# Mine\n\nSecret claude note.\n")
+	mustWriteFile(t, ".claude/settings.json", "{}\n")
+
+	_, _ = runCLI(t, "use", "claude")
+
+	if data, _ := os.ReadFile(".agnostic-ai/AGNOSTIC_AI.md"); strings.Contains(string(data), "Secret claude note.") {
+		t.Errorf("use imported the unmanaged CLAUDE.md:\n%s", data)
+	}
+}
+
+// A failed first import leaves no config, so a retry imports everything.
+func TestUse_AFailedStartLeavesNoProject(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	isolateGit(t)
+	mustWriteFile(t, ".claude/settings.json", "{bad\n")
+
+	_, err := runCLI(t, "use", "codex")
+
+	if err == nil || !strings.Contains(err.Error(), "run agnostic-ai use again") {
+		t.Fatalf("err = %v, want the import failure", err)
+	}
+	if _, err := os.Stat("agnostic-ai.yaml"); err == nil {
+		t.Error("a failed start left agnostic-ai.yaml, so a retry would skip its imports")
+	}
+}
+
+// A failed import leaves the added tool out of targets, so a retry
+// imports it again.
+func TestUse_AFailedImportLeavesTheToolOut(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	isolateGit(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	mustWriteFile(t, ".claude/settings.json", "{bad\n")
+
+	_, err := runCLI(t, "use", "claude")
+
+	if err == nil || !strings.Contains(err.Error(), "left claude out of targets") {
+		t.Fatalf("err = %v, want the import failure", err)
+	}
+	if got := readFile(t, "agnostic-ai.yaml"); strings.Contains(got, "claude") {
+		t.Errorf("claude stayed in targets after a failed import:\n%s", got)
+	}
+}
+
 // Tools whose adapter describes no file layout still list what they got.
 func TestUse_SummaryListsSpecsForEveryTool(t *testing.T) {
 	claudeOnlyProject(t)
