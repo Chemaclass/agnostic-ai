@@ -119,14 +119,20 @@ func foldSections(dst, captured, body, srcName string) (mirrorResult, error) {
 // plus any view rendered from it.
 func foldText(captured, heldText, body string) (string, []string, []string) {
 	var added, titles, twice []string
-	// Text inside a code example is not a captured section.
-	have := collapseSpace(withoutCodeFences(heldText))
+	// A code example that quotes a section does not capture it, so a
+	// section without a fence is looked for outside code examples.
+	have := collapseSpace(heldText)
+	prose := collapseSpace(withoutCodeFences(heldText))
 	held := map[string]bool{}
 	for _, section := range markdownH2Sections(heldText) {
 		held[sectionTitle(section)] = true
 	}
 	for _, section := range markdownH2Sections(body) {
-		if strings.Contains(have, collapseSpace(section)) {
+		in := prose
+		if withoutCodeFences(section) != section {
+			in = have
+		}
+		if strings.Contains(in, collapseSpace(section)) {
 			continue
 		}
 		added = append(added, section)

@@ -119,3 +119,22 @@ func TestImport_ASectionQuotedInACodeExampleIsStillMerged(t *testing.T) {
 		t.Errorf("the Deploy section was not merged:\n%s", got)
 	}
 }
+
+// Re-importing a section that holds a code example changes nothing.
+func TestImport_ReimportingASectionWithACodeExampleIsIdempotent(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, "CLAUDE.md", "# Acme API\n\n## Build\n\nRun:\n\n```sh\nmake build\n```\n")
+	if out, err := runCLI(t, "import", "claude"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+	first := readFile(t, ".agnostic-ai/AGNOSTIC_AI.md")
+
+	if out, err := runCLI(t, "import", "claude"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+
+	if got := readFile(t, ".agnostic-ai/AGNOSTIC_AI.md"); got != first {
+		t.Errorf("re-import changed AGNOSTIC_AI.md:\n%s", got)
+	}
+}
