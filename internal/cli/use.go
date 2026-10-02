@@ -48,18 +48,19 @@ func newUseCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// A first sync lists what every tool reads, so use lists the
+			// added tools only after a later one.
+			firstSync := len(readStateFile(".").Outputs) == 0
 			// Always sync, a no-op when nothing changed, so a run that
 			// stopped halfway finishes on the next try.
-			// use lists the tools it added itself; with none added, a first
-			// sync still shows what each tool reads.
-			firstSyncReadsOff = len(added) > 0
-			err = runSyncPass(".", nil, false, false, false, false, "", 0)
-			firstSyncReadsOff = false
-			if err != nil {
+			if err := runSyncPass(".", nil, false, false, false, false, "", 0); err != nil {
 				return err
 			}
 			if len(added) == 0 {
 				summaryf("%s %s already in use; edit .agnostic-ai/ and run agnostic-ai sync to change what it reads\n", tick(), strings.Join(tools, ", "))
+				return nil
+			}
+			if firstSync {
 				return nil
 			}
 			cfg, b, err := loadProject(".")

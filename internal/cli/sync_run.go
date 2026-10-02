@@ -773,16 +773,12 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		report.render(logOut, len(effectiveTargets), time.Since(start), verbose)
 		// The first sync is where the setup pays off, so it shows what
 		// each tool now reads from the one source.
-		if len(prev.Outputs) == 0 && !firstSyncReadsOff {
+		if len(prev.Outputs) == 0 {
 			printToolReads(logOut, cfg, b, effectiveTargets)
 		}
 	}
 	return untrackErr
 }
-
-// firstSyncReadsOff stops the first sync listing what each tool reads,
-// for a caller such as `use` that lists it itself.
-var firstSyncReadsOff bool
 
 // unmanagedSkips merges the user-owned paths every session refused to
 // touch, deduplicated and sorted. A shared path reaches several target

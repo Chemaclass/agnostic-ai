@@ -62,3 +62,20 @@ func TestSync_FirstRunListIsQuietUnderQuiet(t *testing.T) {
 		t.Errorf("--quiet printed the first-sync list:\n%s", log.String())
 	}
 }
+
+// A first sync under use lists every target, not only the added one.
+func TestUse_FirstSyncListsEveryTarget(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	isolateGit(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	log := captureLog(t)
+
+	if out, err := runCLI(t, "use", "codex"); err != nil {
+		t.Fatalf("use codex: %v\n%s", err, out)
+	}
+	for _, want := range []string{"claude now reads", "codex now reads"} {
+		if n := strings.Count(log.String(), want); n != 1 {
+			t.Errorf("%q printed %d times, want once:\n%s", want, n, log.String())
+		}
+	}
+}
