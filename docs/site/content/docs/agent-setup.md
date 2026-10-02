@@ -9,8 +9,6 @@ group = "Start"
 
 # Set up agnostic-ai with a coding agent
 
-Copy the prompt below into your coding agent. Setup takes about two minutes, and the agent asks you a few questions: which tools you use, what to do with instructions you already have, and whether Git should track the generated files. You do not need to read the rest of this page; it is the agent's checklist.
-
 {{ <agent_setup_prompt /> }}
 
 ## What the agent does

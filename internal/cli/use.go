@@ -50,7 +50,9 @@ func newUseCmd() *cobra.Command {
 			}
 			// Always sync, a no-op when nothing changed, so a run that
 			// stopped halfway finishes on the next try.
-			firstSyncReadsOff = true
+			// use lists the tools it added itself; with none added, a first
+			// sync still shows what each tool reads.
+			firstSyncReadsOff = len(added) > 0
 			err = runSyncPass(".", nil, false, false, false, false, "", 0)
 			firstSyncReadsOff = false
 			if err != nil {

@@ -32,3 +32,33 @@ func TestSync_FirstRunShowsWhatEachToolReads(t *testing.T) {
 		t.Errorf("a later sync repeated the summary:\n%s", log.String())
 	}
 }
+
+// use for a tool already in targets prints nothing of its own, so a first
+// sync still lists what each tool reads.
+func TestUse_AlreadyInUseStillShowsTheFirstSyncList(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	isolateGit(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	log := captureLog(t)
+
+	if out, err := runCLI(t, "use", "codex"); err != nil {
+		t.Fatalf("use codex: %v\n%s", err, out)
+	}
+	if !strings.Contains(log.String(), "codex now reads") {
+		t.Errorf("first sync under use lost its list:\n%s", log.String())
+	}
+}
+
+func TestSync_FirstRunListIsQuietUnderQuiet(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	isolateGit(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	log := captureLog(t)
+
+	if out, err := runCLI(t, "sync", "--quiet"); err != nil {
+		t.Fatalf("sync --quiet: %v\n%s", err, out)
+	}
+	if strings.Contains(log.String(), "now reads") {
+		t.Errorf("--quiet printed the first-sync list:\n%s", log.String())
+	}
+}
