@@ -6,15 +6,21 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+## v0.77.0 - 2026-10-02
+
 ### General
 
 - **Breaking:** Narrow `globs` load rules on matching files and bad config stops sync; set `alwaysApply: true` and fix named keys (#1597, #1589).
-- **Breaking:** Go 1.27.1 release binaries need macOS 13+; on macOS 12, run `go install` with Go 1.26.
-- Import and sync honor absolute sources; previews name them; imports guard specs and sync saves edits (#1620, #1622, #1611, #1590, #1595, #1630, #1640).
-- `use` starts a tool; init explains committing outputs; sync shows loaded files; MCPs use env references (#1613, #1615, #1614, #1594, #1619).
+- **Breaking:** Release binaries need macOS 13+; on macOS 12, run `go install` with Go 1.26.8+ and `GOTOOLCHAIN=local`.
+- Import, sync, watch and validation honor absolute sources; previews name them; sync keeps edits (#1611, #1590, #1595, #1630, #1640, #1639, #1645).
+- `use` starts tools; init shows output costs; sync lists read files; imports guard specs; MCPs use env refs (#1613, #1615, #1614, #1594, #1619, #1620, #1622).
 - Writes take a lock; checks catch drift and typos; models get notes; JSON and profiles keep error data (#1618, #1592, #1593, #1591, #1571, #1574, #1567).
 
 ### By tool
+
+#### Claude Code
+
+- MCP import and sync keep explicit `alwaysLoad` and `bareElicitationCapability` values (#1642, #1647).
 
 #### Codex
 
@@ -33,6 +39,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - README, landing and getting started share one install, import, preview and sync quickstart (#1609).
 - Errors, hook coverage, imports and Codex options match the CLI and vendor docs (#1628).
 - [Why agnostic-ai](https://agnostic-ai.org/docs/why-agnostic-ai/) compares copies, one `AGENTS.md` and scripts; the old symlinks URL redirects.
+- Cursor and Kiro docs explain shared skill roots and custom agent resource inheritance (#1635, #1643, #1646).
 
 ## v0.76.0 - 2026-10-01
 
