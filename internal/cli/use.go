@@ -204,10 +204,13 @@ func localSetsTargets() bool {
 	if err != nil {
 		return false
 	}
-	var local struct {
-		Targets []string `yaml:"targets"`
+	// Key presence, not value: `targets: null` still replaces the list.
+	var local map[string]any
+	if yaml.Unmarshal(data, &local) != nil {
+		return false
 	}
-	return yaml.Unmarshal(data, &local) == nil && local.Targets != nil
+	_, ok := local["targets"]
+	return ok
 }
 
 // refuseNestedProject stops `use` from starting a second project inside

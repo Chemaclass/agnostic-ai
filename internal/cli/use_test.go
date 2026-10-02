@@ -159,17 +159,24 @@ func TestUse_KeepsAHandWrittenAgentsMdWhenSwitchingAway(t *testing.T) {
 }
 
 func TestUse_RefusesWhenTheLocalFileSetsTargets(t *testing.T) {
-	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
-	mustWriteFile(t, "agnostic-ai.local.yaml", "targets: [claude, cursor]\n")
+	for name, local := range map[string]string{
+		"list": "targets: [claude, cursor]\n",
+		"null": "targets: null\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+			mustWriteFile(t, "agnostic-ai.local.yaml", local)
 
-	_, err := runCLI(t, "use", "codex")
+			_, err := runCLI(t, "use", "codex")
 
-	if err == nil || !strings.Contains(err.Error(), "agnostic-ai.local.yaml sets targets") {
-		t.Errorf("err = %v, want the local file named", err)
-	}
-	if cfg := readFile(t, "agnostic-ai.yaml"); strings.Contains(cfg, "codex") || strings.Contains(cfg, "cursor") {
-		t.Errorf("committed config changed:\n%s", cfg)
+			if err == nil || !strings.Contains(err.Error(), "agnostic-ai.local.yaml sets targets") {
+				t.Errorf("err = %v, want the local file named", err)
+			}
+			if cfg := readFile(t, "agnostic-ai.yaml"); strings.Contains(cfg, "codex") || strings.Contains(cfg, "cursor") {
+				t.Errorf("committed config changed:\n%s", cfg)
+			}
+		})
 	}
 }
 
