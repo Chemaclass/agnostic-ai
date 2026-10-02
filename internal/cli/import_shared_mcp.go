@@ -8,8 +8,10 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -127,41 +129,119 @@ func writeMCPSpecs(servers map[string]any, dstDir string) (int, error) {
 	return count, nil
 }
 
-// mcpLiteralRef is one literal value import replaced with a reference.
+// mcpLiteralRef is one value import rewrote so the spec holds no
+// secret: a literal replaced with a reference, or a reference whose
+// default was removed.
 type mcpLiteralRef struct {
-	server, field, key, value string
-	variable                  string
+	server, field, key string
+	// value is the reference the spec now holds.
+	value    string
+	variable string
+	// defaulted marks a `${NAME:-default}` that lost its default.
+	defaulted bool
+	// ran is the command a `$(...)` value ran, never its arguments.
+	ran string
 }
 
+type mcpLiteral struct {
+	server, field, key string
+	values             map[string]any
+	prefix, secret     string
+}
+
+var mcpCommandPattern = regexp.MustCompile(`\$\(\s*([^\s)]+)`)
+
 // referenceMCPLiterals replaces every literal `env` and `headers` value
-// with a reference, in place. An `env` value reads the variable its key
-// names. A header reads `<SERVER>_<HEADER>`, and a `Bearer ` prefix
-// stays outside the reference.
+// with a reference, and strips the default from a `${NAME:-default}`,
+// since a default is a value too. A `Bearer ` prefix stays outside the
+// reference. See mcpLiteralNames for the variable names.
 func referenceMCPLiterals(servers map[string]any) []mcpLiteralRef {
 	var refs []mcpLiteralRef
+	var literals []mcpLiteral
+	referenced := map[string]bool{}
 	for _, name := range slices.Sorted(maps.Keys(servers)) {
 		server, _ := servers[name].(map[string]any)
 		for _, field := range []string{"env", "headers"} {
 			values, _ := server[field].(map[string]any)
 			for _, key := range slices.Sorted(maps.Keys(values)) {
-				literal, _ := values[key].(string)
-				if literal == "" || spec.HasEnvRef(literal) {
+				value, _ := values[key].(string)
+				if value == "" {
 					continue
 				}
-				prefix := ""
-				variable := spec.EnvVarName(key)
-				if field == "headers" {
-					variable = strings.ToUpper(spec.EnvVarName(name + "_" + key))
-					if token, ok := strings.CutPrefix(literal, "Bearer "); ok && token != "" {
-						prefix = "Bearer "
+				if spec.HasEnvRef(value) {
+					stripped, defaulted := spec.StripEnvRefDefaults(value)
+					for _, t := range spec.EnvRefTokens(stripped) {
+						if t.Known() {
+							referenced[t.Name] = true
+						}
 					}
+					values[key] = stripped
+					for _, variable := range defaulted {
+						refs = append(refs, mcpLiteralRef{server: name, field: field, key: key, value: stripped, variable: variable, defaulted: true})
+					}
+					continue
 				}
-				values[key] = prefix + spec.EnvRef(variable)
-				refs = append(refs, mcpLiteralRef{server: name, field: field, key: key, value: values[key].(string), variable: variable})
+				l := mcpLiteral{server: name, field: field, key: key, values: values, secret: value}
+				if token, ok := strings.CutPrefix(value, "Bearer "); ok && field == "headers" && token != "" {
+					l.prefix, l.secret = "Bearer ", token
+				}
+				literals = append(literals, l)
 			}
 		}
 	}
+	for i, variable := range mcpLiteralNames(literals, referenced) {
+		l := literals[i]
+		l.values[l.key] = l.prefix + spec.EnvRef(variable)
+		ref := mcpLiteralRef{server: l.server, field: l.field, key: l.key, value: l.values[l.key].(string), variable: variable}
+		if m := mcpCommandPattern.FindStringSubmatch(l.secret); m != nil {
+			ref.ran = m[1]
+		}
+		refs = append(refs, ref)
+	}
 	return refs
+}
+
+// mcpLiteralNames picks one variable per literal. An `env` value reads
+// the variable its key names, and a header reads `<SERVER>_<HEADER>` in
+// upper case. A name that two different values would share, or that the
+// import already references, becomes `<SERVER>_<KEY>`; one still shared
+// gets a `_2`, `_3` suffix in source order. Equal values share a name.
+func mcpLiteralNames(literals []mcpLiteral, referenced map[string]bool) []string {
+	qualified := func(l mcpLiteral) string { return strings.ToUpper(spec.EnvVarName(l.server + "_" + l.key)) }
+	base := func(l mcpLiteral) string {
+		if l.field == "env" {
+			return spec.EnvVarName(l.key)
+		}
+		return qualified(l)
+	}
+	secrets := map[string]map[string]bool{}
+	for _, l := range literals {
+		n := base(l)
+		if secrets[n] == nil {
+			secrets[n] = map[string]bool{}
+		}
+		secrets[n][l.secret] = true
+	}
+	owner := map[string]string{}
+	names := make([]string, len(literals))
+	for i, l := range literals {
+		n := base(l)
+		if referenced[n] || len(secrets[n]) > 1 {
+			n = qualified(l)
+		}
+		candidate := n
+		for k := 2; ; k++ {
+			if secret, taken := owner[candidate]; taken && secret == l.secret {
+				break
+			} else if !taken && !referenced[candidate] {
+				owner[candidate] = l.secret
+				break
+			}
+			candidate = n + "_" + strconv.Itoa(k)
+		}
+		names[i] = candidate
+	}
+	return names
 }
 
 func reportMCPLiteralRefs(refs []mcpLiteralRef) {
@@ -169,7 +249,15 @@ func reportMCPLiteralRefs(refs []mcpLiteralRef) {
 		return
 	}
 	for _, r := range refs {
-		keptf("%s MCP server %s: %s %s now reads %s; set %s\n", bang(), r.server, r.field, r.key, r.value, r.variable)
+		if r.defaulted {
+			keptf("%s MCP server %s: %s %s now reads %s without its default; set %s\n", bang(), r.server, r.field, r.key, r.value, r.variable)
+			continue
+		}
+		ran := ""
+		if r.ran != "" {
+			ran = fmt.Sprintf(" (the value ran %s)", r.ran)
+		}
+		keptf("%s MCP server %s: %s %s now reads %s; set %s%s\n", bang(), r.server, r.field, r.key, r.value, r.variable, ran)
 	}
 	keptf("  hint: import does not copy env or header values into specs; export each variable above in the shell that starts your tool\n")
 }

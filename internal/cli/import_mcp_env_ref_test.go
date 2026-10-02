@@ -14,7 +14,7 @@ import (
 func TestImportClaudeMCP_LiteralsBecomeReferences(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".mcp.json"), `{"mcpServers": {
-  "gh": {"command": "gh-mcp", "env": {"GITHUB_TOKEN": "ghp_example", "KEEP": "${KEEP:-x}"}},
+  "gh": {"command": "gh-mcp", "env": {"GITHUB_TOKEN": "ghp_example", "KEEP": "${KEEP}"}},
   "my-api": {"type": "http", "url": "https://api.example.com/mcp", "headers": {"Authorization": "Bearer sk-live", "X-Api-Key": "k1", "X-Team": "Bearer ${TEAM}"}}
 }}`)
 	log := captureLog(t)
@@ -32,7 +32,7 @@ func TestImportClaudeMCP_LiteralsBecomeReferences(t *testing.T) {
 		}
 	}
 	for doc, wants := range map[string][]string{
-		gh:  {"GITHUB_TOKEN: ${GITHUB_TOKEN}", "KEEP: ${KEEP:-x}"},
+		gh:  {"GITHUB_TOKEN: ${GITHUB_TOKEN}", "KEEP: ${KEEP}"},
 		api: {"Authorization: Bearer ${MY_API_AUTHORIZATION}", "X-Api-Key: ${MY_API_X_API_KEY}", "X-Team: Bearer ${TEAM}"},
 	} {
 		for _, want := range wants {
@@ -160,5 +160,88 @@ func TestImportGlobal_CursorEnvRefsRoundTrip(t *testing.T) {
 	}
 	if got := readGlobalTest(t, cursorPath); got != want {
 		t.Errorf("mcp.json changed after import:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+// importMCPServers runs the shared writer for target and returns each
+// written spec by server name plus the printed lines.
+func importMCPServers(t *testing.T, target string, servers map[string]any) (map[string]string, string) {
+	t.Helper()
+	dir := t.TempDir()
+	log := captureLog(t)
+	if _, err := writeMCPYAMLs(target, servers, dir); err != nil {
+		t.Fatal(err)
+	}
+	specs := map[string]string{}
+	for name := range servers {
+		specs[name] = readFile(t, filepath.Join(dir, name+".yaml"))
+	}
+	return specs, log.String()
+}
+
+func TestImportMCP_StripsADefaultValue(t *testing.T) {
+	specs, out := importMCPServers(t, "claude", map[string]any{
+		"gh": map[string]any{"command": "gh-mcp", "env": map[string]any{"API_KEY": "${VAR:-sk-live-123}", "EMPTY": "${E:-}"}},
+	})
+	if strings.Contains(specs["gh"]+out, "sk-live-123") {
+		t.Errorf("a default value reached the spec or the output:\n%s\n%s", specs["gh"], out)
+	}
+	for _, want := range []string{"API_KEY: ${VAR}", "EMPTY: ${E:-}"} {
+		if !strings.Contains(specs["gh"], want) {
+			t.Errorf("missing %q:\n%s", want, specs["gh"])
+		}
+	}
+	if !strings.Contains(out, "MCP server gh: env API_KEY now reads ${VAR} without its default; set VAR") {
+		t.Errorf("output does not name the variable:\n%s", out)
+	}
+}
+
+func TestImportMCP_VariableNamesNeverCollide(t *testing.T) {
+	specs, _ := importMCPServers(t, "claude", map[string]any{
+		"a":   map[string]any{"command": "a", "env": map[string]any{"API_KEY": "one"}},
+		"b":   map[string]any{"command": "b", "env": map[string]any{"API_KEY": "two"}},
+		"c":   map[string]any{"url": "https://c", "env": map[string]any{"TOKEN": "same"}, "headers": map[string]any{"d-X": "p"}},
+		"c-d": map[string]any{"url": "https://cd", "env": map[string]any{"TOKEN": "same"}, "headers": map[string]any{"X": "q"}},
+		"e":   map[string]any{"command": "e", "env": map[string]any{"GH": "${GH}"}},
+		"f":   map[string]any{"command": "f", "env": map[string]any{"GH": "lit"}},
+		"foo": map[string]any{"url": "https://foo", "headers": map[string]any{"x-a": "1", "x_a": "2"}},
+	})
+	for name, wants := range map[string][]string{
+		"a":   {"API_KEY: ${A_API_KEY}"},
+		"b":   {"API_KEY: ${B_API_KEY}"},
+		"c":   {"TOKEN: ${TOKEN}", "d-X: ${C_D_X}"},
+		"c-d": {"TOKEN: ${TOKEN}", "X: ${C_D_X_2}"},
+		"f":   {"GH: ${F_GH}"},
+		"foo": {"x-a: ${FOO_X_A}", "x_a: ${FOO_X_A_2}"},
+	} {
+		for _, want := range wants {
+			if !strings.Contains(specs[name], want) {
+				t.Errorf("%s lacks %q:\n%s", name, want, specs[name])
+			}
+		}
+	}
+}
+
+func TestImportMCP_ReadsGeminiAndCrushForms(t *testing.T) {
+	specs, out := importMCPServers(t, "gemini", map[string]any{
+		"g": map[string]any{"command": "g", "env": map[string]any{"A": "%WIN_TOKEN%", "B": "prefix-$MY_KEY"}},
+	})
+	for _, want := range []string{"A: ${WIN_TOKEN}", "B: prefix-${MY_KEY}"} {
+		if !strings.Contains(specs["g"], want) {
+			t.Errorf("missing %q:\n%s", want, specs["g"])
+		}
+	}
+	if strings.Contains(out, "now reads") {
+		t.Errorf("a value that already reads a variable is not replaced:\n%s", out)
+	}
+
+	specs, out = importMCPServers(t, "crush", map[string]any{
+		"c": map[string]any{"command": "c", "env": map[string]any{"TOKEN": "$(op read op://vault/item)"}},
+	})
+	if !strings.Contains(specs["c"], "TOKEN: ${TOKEN}") {
+		t.Errorf("a command value becomes a reference:\n%s", specs["c"])
+	}
+	if !strings.Contains(out, "(the value ran op)") || strings.Contains(out, "vault") {
+		t.Errorf("output must name the command and nothing else:\n%s", out)
 	}
 }

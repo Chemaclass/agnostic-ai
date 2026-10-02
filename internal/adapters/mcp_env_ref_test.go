@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"bytes"
+	"slices"
 	"strings"
 	"testing"
 
@@ -144,5 +145,49 @@ func TestMCPEnvRefs_RewritesTheTargetBlockWithoutMutatingTheSpec(t *testing.T) {
 	original := mcps[0].Meta["x-cursor"].(map[string]any)["env"].(map[string]any)
 	if original["GITHUB_TOKEN"] != "${GITHUB_TOKEN}" {
 		t.Errorf("the spec's meta was mutated: %v", original)
+	}
+}
+
+func TestMCPEnvRefs_DefaultsAndUnknownTokens(t *testing.T) {
+	mcps := []spec.Entry{{Kind: spec.KindMCP, Name: "gh", Meta: map[string]any{
+		"command": "gh-mcp",
+		"env": map[string]any{
+			"BASE":  "${BASE:-https://example.com}",
+			"INPUT": "${input:token}",
+			"TOKEN": "${TOKEN}",
+		},
+	}}}
+	for target, want := range map[string][]string{
+		"claude":    {"BASE", "TOKEN"},
+		"crush":     {"BASE", "TOKEN"},
+		"openhands": {"BASE", "TOKEN"},
+		"cursor":    {"TOKEN"},
+		"factory":   {"TOKEN"},
+		"gemini":    {"TOKEN"},
+	} {
+		t.Run(target, func(t *testing.T) {
+			var notes bytes.Buffer
+			old := emit.Warner
+			emit.Warner = &notes
+			ResetCoverageNotes()
+			t.Cleanup(func() { emit.Warner = old; ResetCoverageNotes() })
+			got := emit.RewriteMCPEnvRefs(target, mcps)
+			env, _ := got[0].Meta["env"].(map[string]any)
+			var keys []string
+			for k := range env {
+				keys = append(keys, k)
+			}
+			slices.Sort(keys)
+			if !slices.Equal(keys, want) {
+				t.Errorf("env keys = %v, want %v", keys, want)
+			}
+			FlushCoverageNotes()
+			if !strings.Contains(notes.String(), "${input:token}") {
+				t.Errorf("no note for the unknown token:\n%s", notes.String())
+			}
+			if strings.Contains(notes.String(), "example.com") {
+				t.Errorf("a note must not print a default value:\n%s", notes.String())
+			}
+		})
 	}
 }

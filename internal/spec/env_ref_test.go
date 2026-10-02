@@ -17,36 +17,64 @@ func TestEnvRefSyntax_WriteAndReadBack(t *testing.T) {
 		if got := tc.syntax.Write("Bearer ${API_KEY}"); got != tc.native {
 			t.Errorf("Write = %q, want %q", got, tc.native)
 		}
-		if got := tc.syntax.Read(tc.native, false); got != "Bearer ${API_KEY}" {
+		if got := tc.syntax.Read(tc.native, EnvRefReading{}); got != "Bearer ${API_KEY}" {
 			t.Errorf("Read(%q) = %q", tc.native, got)
 		}
 	}
 }
 
-func TestEnvRefSyntax_ReadUnbracedOnlyWhenAsked(t *testing.T) {
-	if got := EnvRefDollar.Read("$TOKEN", true); got != "${TOKEN}" {
-		t.Errorf("unbraced read = %q", got)
-	}
-	if got := EnvRefDollar.Read("$TOKEN", false); got != "$TOKEN" {
-		t.Errorf("a tool without the bare form must keep it: %q", got)
-	}
-	if got := EnvRefDollar.Read("pa$TOKEN", true); got != "pa$TOKEN" {
-		t.Errorf("only a whole value reads as a bare reference: %q", got)
+func TestEnvRefSyntax_WriteLeavesOtherTokens(t *testing.T) {
+	if got := EnvRefDollarEnv.Write("${A:-x} ${input:b} ${C}"); got != "${A:-x} ${input:b} ${env:C}" {
+		t.Errorf("Write = %q", got)
 	}
 }
 
-func TestEnvRefNames(t *testing.T) {
-	if got := EnvRefNames("${A}:${B_2} ${env:C} ${D:-x}"); !slices.Equal(got, []string{"A", "B_2"}) {
-		t.Errorf("EnvRefNames = %v", got)
+func TestEnvRefSyntax_ReadsOnlyTheFormsAToolExpands(t *testing.T) {
+	if got := EnvRefDollar.Read("$TOKEN", EnvRefReading{Unbraced: true}); got != "${TOKEN}" {
+		t.Errorf("unbraced read = %q", got)
+	}
+	if got := EnvRefDollar.Read("Bearer $TOKEN", EnvRefReading{Unbraced: true}); got != "Bearer ${TOKEN}" {
+		t.Errorf("embedded unbraced read = %q", got)
+	}
+	if got := EnvRefDollar.Read("%TOKEN%", EnvRefReading{Percent: true}); got != "${TOKEN}" {
+		t.Errorf("percent read = %q", got)
+	}
+	if got := EnvRefDollar.Read("$TOKEN %TOKEN%", EnvRefReading{}); got != "$TOKEN %TOKEN%" {
+		t.Errorf("a tool without those forms must keep them: %q", got)
+	}
+}
+
+func TestEnvRefTokens_ClassifiesEveryToken(t *testing.T) {
+	tokens := EnvRefTokens("${A}:${B_2:-x} ${env:C} ${D:-}")
+	if len(tokens) != 4 {
+		t.Fatalf("tokens = %v", tokens)
+	}
+	if tokens[0].Name != "A" || tokens[0].HasDefault {
+		t.Errorf("plain token = %+v", tokens[0])
+	}
+	if tokens[1].Name != "B_2" || tokens[1].Default != "x" || tokens[1].Display() != "${B_2:-...}" {
+		t.Errorf("default token = %+v", tokens[1])
+	}
+	if tokens[2].Known() || tokens[2].Display() != "${env:C}" {
+		t.Errorf("unknown token = %+v", tokens[2])
 	}
 	if name, ok := WholeEnvRef("${TOKEN}"); !ok || name != "TOKEN" {
 		t.Errorf("WholeEnvRef = %q, %v", name, ok)
 	}
-	if _, ok := WholeEnvRef("Bearer ${TOKEN}"); ok {
-		t.Error("an embedded reference is not a whole value")
+	for _, v := range []string{"Bearer ${TOKEN}", "${TOKEN:-x}", "${env:TOKEN}"} {
+		if _, ok := WholeEnvRef(v); ok {
+			t.Errorf("WholeEnvRef(%q) must be false", v)
+		}
 	}
 	if !HasEnvRef("${TOKEN:-dev}") || HasEnvRef("ghp_example") {
 		t.Error("HasEnvRef must accept any ${...} and reject a literal")
+	}
+}
+
+func TestStripEnvRefDefaults(t *testing.T) {
+	got, names := StripEnvRefDefaults("${A:-sk-live} ${B:-} ${C}")
+	if got != "${A} ${B:-} ${C}" || !slices.Equal(names, []string{"A"}) {
+		t.Errorf("StripEnvRefDefaults = %q, %v", got, names)
 	}
 }
 

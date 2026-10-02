@@ -23,37 +23,88 @@ const (
 const envRefName = `([A-Za-z_][A-Za-z0-9_]*)`
 
 var (
-	envRefPattern          = regexp.MustCompile(`\$\{` + envRefName + `\}`)
+	// envRefTokenPattern is every `${...}` in a value. Import and emit
+	// both classify these tokens through EnvRefTokens, so a token one
+	// side keeps is a token the other side knows how to write or drop.
+	envRefTokenPattern     = regexp.MustCompile(`\$\{([^}]*)\}`)
+	envRefPlainPattern     = regexp.MustCompile(`^` + envRefName + `$`)
+	envRefDefaultPattern   = regexp.MustCompile(`^` + envRefName + `:-(.*)$`)
 	envRefDollarEnvPattern = regexp.MustCompile(`\$\{env:` + envRefName + `\}`)
 	envRefBraceEnvPattern  = regexp.MustCompile(`(^|[^$])\{env:` + envRefName + `\}`)
-	envRefUnbracedPattern  = regexp.MustCompile(`^\$` + envRefName + `$`)
-	envRefAnyPattern       = regexp.MustCompile(`\$\{[^}]+\}`)
+	envRefUnbracedPattern  = regexp.MustCompile(`\$` + envRefName)
+	envRefPercentPattern   = regexp.MustCompile(`%` + envRefName + `%`)
 )
 
-// EnvRefNames returns the variables value references in the spec form,
-// in order of appearance.
-func EnvRefNames(value string) []string {
-	var names []string
-	for _, m := range envRefPattern.FindAllStringSubmatch(value, -1) {
-		names = append(names, m[1])
+// EnvRefToken is one `${...}` in a value.
+type EnvRefToken struct {
+	// Text is the token as written.
+	Text string
+	// Name is the variable, empty when the token is not `${NAME}` or
+	// `${NAME:-default}`.
+	Name string
+	// Default is the fallback of `${NAME:-default}`.
+	Default    string
+	HasDefault bool
+}
+
+// Known reports whether the token is `${NAME}` or `${NAME:-default}`.
+func (t EnvRefToken) Known() bool { return t.Name != "" }
+
+// Display spells the token without its default value, which may be a
+// secret.
+func (t EnvRefToken) Display() string {
+	switch {
+	case !t.Known():
+		return t.Text
+	case t.HasDefault:
+		return "${" + t.Name + ":-...}"
 	}
-	return names
+	return EnvRef(t.Name)
+}
+
+// EnvRefTokens returns every `${...}` in value, in order.
+func EnvRefTokens(value string) []EnvRefToken {
+	var tokens []EnvRefToken
+	for _, m := range envRefTokenPattern.FindAllStringSubmatch(value, -1) {
+		t := EnvRefToken{Text: m[0]}
+		if p := envRefPlainPattern.FindStringSubmatch(m[1]); p != nil {
+			t.Name = p[1]
+		} else if d := envRefDefaultPattern.FindStringSubmatch(m[1]); d != nil {
+			t.Name, t.Default, t.HasDefault = d[1], d[2], true
+		}
+		tokens = append(tokens, t)
+	}
+	return tokens
 }
 
 // WholeEnvRef returns the variable name when value is exactly one
-// spec-form reference.
+// `${NAME}`.
 func WholeEnvRef(value string) (string, bool) {
-	m := envRefPattern.FindStringSubmatch(value)
-	if m == nil || m[0] != value {
+	tokens := EnvRefTokens(value)
+	if len(tokens) != 1 || tokens[0].Text != value || !tokens[0].Known() || tokens[0].HasDefault {
 		return "", false
 	}
-	return m[1], true
+	return tokens[0].Name, true
 }
 
-// HasEnvRef reports whether value already reads from the environment:
-// any `${...}`, including forms with a default such as `${NAME:-x}`.
+// HasEnvRef reports whether value holds any `${...}`.
 func HasEnvRef(value string) bool {
-	return envRefAnyPattern.MatchString(value)
+	return envRefTokenPattern.MatchString(value)
+}
+
+// StripEnvRefDefaults turns each `${NAME:-default}` with a non-empty
+// default into `${NAME}`, and returns the names it changed.
+func StripEnvRefDefaults(value string) (string, []string) {
+	var names []string
+	out := envRefTokenPattern.ReplaceAllStringFunc(value, func(text string) string {
+		t := EnvRefTokens(text)[0]
+		if !t.HasDefault || t.Default == "" {
+			return text
+		}
+		names = append(names, t.Name)
+		return EnvRef(t.Name)
+	})
+	return out, names
 }
 
 // EnvRef renders a spec-form reference to name.
@@ -61,29 +112,47 @@ func EnvRef(name string) string {
 	return "${" + name + "}"
 }
 
-// Write turns each spec-form reference in value into this syntax.
+// Write turns each `${NAME}` in value into this syntax. Other tokens are
+// left as written; the caller decides whether the target reads them.
 func (s EnvRefSyntax) Write(value string) string {
-	switch s {
-	case EnvRefDollarEnv:
-		return envRefPattern.ReplaceAllString(value, "$${env:$1}")
-	case EnvRefBraceEnv:
-		return envRefPattern.ReplaceAllString(value, "{env:$1}")
-	}
-	return value
+	return envRefTokenPattern.ReplaceAllStringFunc(value, func(text string) string {
+		t := EnvRefTokens(text)[0]
+		if !t.Known() || t.HasDefault {
+			return text
+		}
+		switch s {
+		case EnvRefDollarEnv:
+			return "${env:" + t.Name + "}"
+		case EnvRefBraceEnv:
+			return "{env:" + t.Name + "}"
+		}
+		return text
+	})
 }
 
-// Read turns each reference in this syntax back into the spec form.
-// unbraced also reads a whole value of `$NAME`, for a tool that expands
-// that form.
-func (s EnvRefSyntax) Read(value string, unbraced bool) string {
+// EnvRefReading lists the extra forms a tool expands besides its own
+// syntax, which import reads back.
+type EnvRefReading struct {
+	// Unbraced is `$NAME`.
+	Unbraced bool
+	// Percent is `%NAME%`.
+	Percent bool
+}
+
+// Read turns each reference in this syntax, and in the extra forms of
+// r, back into the spec form.
+func (s EnvRefSyntax) Read(value string, r EnvRefReading) string {
 	switch s {
 	case EnvRefDollarEnv:
 		value = envRefDollarEnvPattern.ReplaceAllString(value, "$${$1}")
 	case EnvRefBraceEnv:
 		value = envRefBraceEnvPattern.ReplaceAllString(value, "$1$${$2}")
 	}
-	if unbraced {
+	if r.Unbraced {
 		value = envRefUnbracedPattern.ReplaceAllString(value, "$${$1}")
+	}
+	if r.Percent {
+		value = envRefPercentPattern.ReplaceAllString(value, "$${$1}")
 	}
 	return value
 }

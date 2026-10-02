@@ -11,9 +11,11 @@ import (
 
 type mcpEnvRefForms struct {
 	env, headers spec.EnvRefSyntax
-	// unbraced marks a tool that also expands a bare `$NAME`, which
-	// import reads back.
-	unbraced bool
+	// defaults marks a tool that documents `${NAME:-default}`.
+	defaults bool
+	// reading lists the other forms the tool expands, which import
+	// reads back.
+	reading spec.EnvRefReading
 }
 
 // mcpEnvRefTargets lists the reference form each target's vendor
@@ -21,13 +23,17 @@ type mcpEnvRefForms struct {
 // listed documents none, so a reference there is left out with a note
 // rather than written as text the tool never expands. Codex forwards
 // variables by name instead; see forwardCodexMCPEnvRefs.
+//
+// A `${NAME:-default}` is left out where the tool documents no default,
+// not narrowed to `${NAME}`: the default may be what lets the server
+// start, and Factory fails a connection on an unset variable.
 var mcpEnvRefTargets = map[string]mcpEnvRefForms{
-	"claude":    {env: spec.EnvRefDollar, headers: spec.EnvRefDollar},
-	"crush":     {env: spec.EnvRefDollar, headers: spec.EnvRefDollar, unbraced: true},
-	"openhands": {env: spec.EnvRefDollar, headers: spec.EnvRefDollar},
+	"claude":    {env: spec.EnvRefDollar, headers: spec.EnvRefDollar, defaults: true},
+	"crush":     {env: spec.EnvRefDollar, headers: spec.EnvRefDollar, defaults: true, reading: spec.EnvRefReading{Unbraced: true}},
+	"openhands": {env: spec.EnvRefDollar, headers: spec.EnvRefDollar, defaults: true},
 	"factory":   {env: spec.EnvRefDollar, headers: spec.EnvRefDollar},
 	"kiro":      {env: spec.EnvRefDollar, headers: spec.EnvRefDollar},
-	"gemini":    {env: spec.EnvRefDollar, unbraced: true},
+	"gemini":    {env: spec.EnvRefDollar, reading: spec.EnvRefReading{Unbraced: true, Percent: true}},
 	"amp":       {headers: spec.EnvRefDollar},
 	"cursor":    {env: spec.EnvRefDollarEnv, headers: spec.EnvRefDollarEnv},
 	"windsurf":  {env: spec.EnvRefDollarEnv, headers: spec.EnvRefDollarEnv},
@@ -43,7 +49,7 @@ func ReadMCPEnvRefs(target string, server map[string]any) {
 		values, _ := server[f.name].(map[string]any)
 		for key, v := range values {
 			if s, ok := v.(string); ok {
-				values[key] = f.syntax.Read(s, forms.unbraced)
+				values[key] = f.syntax.Read(s, forms.reading)
 			}
 		}
 	}
@@ -87,7 +93,7 @@ func hasMCPEnvRef(block map[string]any) bool {
 	for _, field := range []string{"env", "headers"} {
 		values, _ := block[field].(map[string]any)
 		for _, v := range values {
-			if s, ok := v.(string); ok && len(spec.EnvRefNames(s)) > 0 {
+			if s, ok := v.(string); ok && spec.HasEnvRef(s) {
 				return true
 			}
 		}
@@ -101,7 +107,8 @@ func rewriteMCPEnvRefBlock(target, server string, block map[string]any) map[stri
 		forwardCodexMCPEnvRefs(server, out)
 		return out
 	}
-	for _, f := range mcpEnvRefTargets[target].fields() {
+	forms := mcpEnvRefTargets[target]
+	for _, f := range forms.fields() {
 		values, ok := block[f.name].(map[string]any)
 		if !ok {
 			continue
@@ -109,19 +116,47 @@ func rewriteMCPEnvRefBlock(target, server string, block map[string]any) map[stri
 		rewritten := make(map[string]any, len(values))
 		for _, key := range slices.Sorted(maps.Keys(values)) {
 			s, _ := values[key].(string)
-			names := spec.EnvRefNames(s)
-			switch {
-			case len(names) == 0:
+			if !spec.HasEnvRef(s) {
 				rewritten[key] = values[key]
-			case f.syntax == spec.EnvRefNone:
-				noteMCPEnvRefDropped(target, server, f.name, key, names[0], "this field has no environment reference form")
-			default:
-				rewritten[key] = f.syntax.Write(s)
+				continue
 			}
+			if token, why, ok := forms.unwritable(f.syntax, s); ok {
+				noteMCPEnvRefDropped(target, server, f.name, key, token, why)
+				continue
+			}
+			rewritten[key] = f.syntax.Write(s)
 		}
 		setOrDelete(out, f.name, rewritten)
 	}
 	return out
+}
+
+// unwritable returns the first token in value that syntax cannot write,
+// and why.
+func (f mcpEnvRefForms) unwritable(syntax spec.EnvRefSyntax, value string) (spec.EnvRefToken, string, bool) {
+	for _, t := range spec.EnvRefTokens(value) {
+		switch {
+		case !t.Known():
+			return t, "only `${NAME}` and `${NAME:-default}` are environment references in a spec", true
+		case syntax == spec.EnvRefNone:
+			return t, "this field has no environment reference form", true
+		case t.HasDefault && !f.defaults:
+			return t, "this tool documents no default value for a reference", true
+		}
+	}
+	return spec.EnvRefToken{}, "", false
+}
+
+// unforwardable returns the first token in value, for a value Codex
+// cannot forward by name.
+func unforwardable(value string) spec.EnvRefToken {
+	tokens := spec.EnvRefTokens(value)
+	for _, t := range tokens {
+		if !t.Known() || t.HasDefault {
+			return t
+		}
+	}
+	return tokens[0]
 }
 
 // forwardCodexMCPEnvRefs moves references into the keys Codex forwards
@@ -137,8 +172,7 @@ func forwardCodexMCPEnvRefs(server string, block map[string]any) {
 		forwarded = slices.Clone(forwarded)
 		for _, key := range slices.Sorted(maps.Keys(env)) {
 			s, _ := env[key].(string)
-			names := spec.EnvRefNames(s)
-			if len(names) == 0 {
+			if !spec.HasEnvRef(s) {
 				kept[key] = env[key]
 				continue
 			}
@@ -148,7 +182,7 @@ func forwardCodexMCPEnvRefs(server string, block map[string]any) {
 				}
 				continue
 			}
-			noteMCPEnvRefDropped("codex", server, "env", key, names[0], "Codex forwards a variable only under its own name, as `env_vars`")
+			noteMCPEnvRefDropped("codex", server, "env", key, unforwardable(s), "Codex forwards a variable only whole and under its own name, as `env_vars`")
 		}
 		setOrDelete(block, "env", kept)
 		if len(forwarded) > 0 {
@@ -164,8 +198,7 @@ func forwardCodexMCPEnvRefs(server string, block map[string]any) {
 		}
 		for _, key := range slices.Sorted(maps.Keys(headers)) {
 			s, _ := headers[key].(string)
-			names := spec.EnvRefNames(s)
-			if len(names) == 0 {
+			if !spec.HasEnvRef(s) {
 				kept[key] = headers[key]
 				continue
 			}
@@ -181,7 +214,7 @@ func forwardCodexMCPEnvRefs(server string, block map[string]any) {
 				}
 				continue
 			}
-			noteMCPEnvRefDropped("codex", server, "headers", key, names[0], "Codex reads a header from the environment only as a whole value or as `Authorization: Bearer ${NAME}`")
+			noteMCPEnvRefDropped("codex", server, "headers", key, unforwardable(s), "Codex reads a header from the environment only as a whole value or as `Authorization: Bearer ${NAME}`")
 		}
 		setOrDelete(block, "headers", kept)
 		setOrDelete(block, "env_http_headers", envHeaders)
@@ -212,7 +245,7 @@ func setOrDelete(block map[string]any, key string, values map[string]any) {
 	block[key] = values
 }
 
-func noteMCPEnvRefDropped(target, server, field, key, name, why string) {
+func noteMCPEnvRefDropped(target, server, field, key string, token spec.EnvRefToken, why string) {
 	NoteFieldNoOp(target, spec.KindMCP, field+"."+key, 1,
-		fmt.Sprintf("server %s reads %s: %s, so sync leaves the key out instead of writing the reference as text", server, spec.EnvRef(name), why))
+		fmt.Sprintf("server %s reads %s: %s, so sync leaves the key out instead of writing the reference as text", server, token.Display(), why))
 }

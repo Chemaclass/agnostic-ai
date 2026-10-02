@@ -77,11 +77,14 @@ headers:
   Authorization: Bearer ${API_KEY}
 ```
 
-Sync writes each tool's own form. Where a tool documents no form for the field, sync leaves that key out and prints a note naming the server, the key, and the variable. It never writes the reference as plain text. A literal value is written as it is.
+`${NAME:-default}` falls back to `default` when `NAME` is unset. Only Claude Code, Crush, and OpenHands document that form. Any other `${...}`, such as `${env:NAME}` or `${input:id}`, is not a reference in a spec.
+
+Sync writes each tool's own form. Where a tool cannot read a reference in that field, sync leaves the key out and prints a note naming the server, the key, and the variable. It never writes the reference as plain text. That covers a whole target with no form, Gemini headers, Amp `env`, a `${NAME:-default}` outside the three tools above, and any other `${...}`. A literal value is written as it is.
 
 | Target | `env` | `headers` |
 |--------|-------|-----------|
-| [Claude Code](@/docs/targets/claude.md), [Crush](@/docs/targets/crush.md), [Factory](@/docs/targets/factory.md), [Kiro](@/docs/targets/kiro.md), [OpenHands](@/docs/targets/openhands.md) | `${NAME}` | `${NAME}` |
+| [Claude Code](@/docs/targets/claude.md), [Crush](@/docs/targets/crush.md), [OpenHands](@/docs/targets/openhands.md) | `${NAME}`, `${NAME:-default}` | `${NAME}`, `${NAME:-default}` |
+| [Factory](@/docs/targets/factory.md), [Kiro](@/docs/targets/kiro.md) | `${NAME}` | `${NAME}` |
 | [Gemini](@/docs/targets/gemini.md) | `${NAME}` | Left out |
 | [Amp](@/docs/targets/amp.md) | Left out | `${NAME}` |
 | [Cursor](@/docs/targets/cursor.md), [Windsurf](@/docs/targets/windsurf.md) | `${env:NAME}` | `${env:NAME}` |
@@ -89,9 +92,19 @@ Sync writes each tool's own form. Where a tool documents no form for the field, 
 | [Codex](@/docs/targets/codex.md) | `KEY: ${KEY}` adds `KEY` to `env_vars`. Any other reference is left out | `Authorization: Bearer ${NAME}` sets `bearer_token_env_var`. Another header of exactly `${NAME}` joins `env_http_headers`. Any other reference is left out |
 | [Antigravity](@/docs/targets/antigravity.md), [Augment](@/docs/targets/augment.md), [Continue](@/docs/targets/continue.md), [Copilot](@/docs/targets/copilot.md), [Junie](@/docs/targets/junie.md), [Kilo Code](@/docs/targets/kilo.md), [Qoder](@/docs/targets/qoder.md), [Trae](@/docs/targets/trae.md), [Warp](@/docs/targets/warp.md), [Zed](@/docs/targets/zed.md) | Left out | Left out |
 
-Kiro expands only the variables approved under **Mcp Approved Env Vars** in its settings. Factory fails the connection when a referenced variable is unset.
+Kiro expands only the variables approved under **Mcp Approved Env Vars** in its settings. Factory fails the connection when a referenced variable is unset, and Claude Code passes the unexpanded `${NAME}` text to the server.
 
-`import` reads each tool's own form back as `${NAME}`. It also replaces every literal `env` and `headers` value with a reference, because it cannot tell a token from a plain setting and a spec is meant to be committed. An `env` value reads the variable its key names. A header reads `<SERVER>_<HEADER>` in upper case, with any character other than a letter or digit as `_`, and keeps a `Bearer ` prefix outside the reference. Import prints each replacement and the variable to set. `import --global` keeps literal values, since the user files it adopts must render back unchanged.
+### What import writes
+
+`import` reads each tool's own form back as `${NAME}`, including Gemini's `$NAME` and `%NAME%` and Crush's `$NAME`. It also replaces every literal `env` and `headers` value with a reference, because it cannot tell a token from a plain setting and a spec is meant to be committed. A plain setting such as `NODE_ENV: production` becomes `NODE_ENV: ${NODE_ENV}`, a variable you must now set: Factory fails the connection without it. Put a plain setting back by hand when it is not a secret.
+
+- An `env` value reads the variable its key names.
+- A header reads `<SERVER>_<HEADER>` in upper case, with any character other than a letter or digit as `_`, and keeps a `Bearer ` prefix outside the reference.
+- When two different values would share a name, or the import already references that name, each one reads `<SERVER>_<KEY>` instead, then `_2`, `_3` if that still clashes. Equal values share one name.
+- A `${NAME:-default}` loses its default, since a default is a value too.
+- A Crush `$(command)` value becomes a reference, and the output names the command it ran.
+
+Import prints each replacement and the variable to set. `import --global` keeps literal values, since the user files it adopts must render back unchanged.
 
 ## Target-only fields
 
