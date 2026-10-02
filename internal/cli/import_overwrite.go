@@ -144,7 +144,7 @@ func alreadyRead(rec specFileSum, ok bool, before []byte, sources []string) bool
 func replacesSpec(e *importPreviewEntry, specDirs []string, sums map[string]specFileSum) bool {
 	key := specPathKey(e.path)
 	if !e.existed || !e.replaced || bytes.Equal(e.before, e.after) ||
-		key == agnosticMainFile || !underAny(key, specDirs) {
+		key == agnosticMainFile || !inSpecDir(e.path, specDirs) {
 		return false
 	}
 	rec, ok := sums[key]
@@ -167,46 +167,81 @@ func (p importPreview) overwrites() []importPreviewEntry {
 }
 
 // importSpecDirs lists the spec directories of the project at root, the
-// working directory, as specPathKey names them: the source base and
-// every configured source directory.
+// working directory: the source base and every configured source
+// directory, each in both forms specPathForms gives.
 func importSpecDirs(root string) []string {
-	dirs := []string{specPathKey(filepath.Join(root, config.SourceBaseDir))}
-	cfg, err := config.Load(root)
-	if err != nil {
-		return dirs
+	paths := []string{filepath.Join(root, config.SourceBaseDir)}
+	if cfg, err := config.Load(root); err == nil {
+		for _, d := range sourceDirsByKind(cfg.Sources) {
+			switch {
+			case d == "":
+			case filepath.IsAbs(d):
+				paths = append(paths, d)
+			default:
+				paths = append(paths, filepath.Join(root, d))
+			}
+		}
 	}
-	for _, d := range sourceDirsByKind(cfg.Sources) {
-		switch {
-		case d == "":
-		case filepath.IsAbs(d):
-			dirs = append(dirs, specPathKey(d))
-		default:
-			dirs = append(dirs, specPathKey(filepath.Join(root, d)))
+	var dirs []string
+	for _, p := range paths {
+		for _, form := range specPathForms(p) {
+			if !slices.Contains(dirs, form) {
+				dirs = append(dirs, form)
+			}
 		}
 	}
 	return dirs
 }
 
-// specPathKey names path the one way import compares spec paths: slash
-// form, relative to the working directory when inside it, and absolute
-// otherwise, so a source directory configured as an absolute path
-// matches the writes into it.
+// inSpecDir reports whether path lies in a spec directory, as written or
+// with its links resolved: a skill folder linked out of the source still
+// holds a spec, and a source directory reached through a link still
+// counts.
+func inSpecDir(path string, specDirs []string) bool {
+	return slices.ContainsFunc(specPathForms(path), func(form string) bool { return underAny(form, specDirs) })
+}
+
+// specPathKey names path the way spec file sums key it, lexically like
+// specEntryFiles: slash form, relative to the working directory when
+// inside it, and absolute otherwise.
 func specPathKey(path string) string {
 	abs, err := filepath.Abs(filepath.FromSlash(path))
 	if err != nil {
 		return filepath.ToSlash(filepath.Clean(path))
 	}
-	if real, err := filepath.EvalSymlinks(filepath.Dir(abs)); err == nil {
-		abs = filepath.Join(real, filepath.Base(abs))
+	wd, err := os.Getwd()
+	if err != nil {
+		return filepath.ToSlash(abs)
+	}
+	return relativeKey(wd, abs)
+}
+
+// specPathForms returns path as specPathKey names it, and again with
+// every link in it resolved against the resolved working directory, so
+// /var and /private/var on macOS name one directory.
+func specPathForms(path string) []string {
+	forms := []string{specPathKey(path)}
+	abs, err := filepath.Abs(filepath.FromSlash(path))
+	if err != nil {
+		return forms
 	}
 	wd, err := os.Getwd()
-	if err == nil {
-		if real, err := filepath.EvalSymlinks(wd); err == nil {
-			wd = real
-		}
-		if rel, err := filepath.Rel(wd, abs); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-			return filepath.ToSlash(rel)
-		}
+	if err != nil {
+		return forms
+	}
+	if real, err := filepath.EvalSymlinks(wd); err == nil {
+		wd = real
+	}
+	if resolved := relativeKey(wd, resolveExisting(abs)); resolved != forms[0] {
+		forms = append(forms, resolved)
+	}
+	return forms
+}
+
+// relativeKey is abs in slash form, relative to wd when inside it.
+func relativeKey(wd, abs string) string {
+	if rel, err := filepath.Rel(wd, abs); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return filepath.ToSlash(rel)
 	}
 	return filepath.ToSlash(abs)
 }
@@ -348,7 +383,7 @@ func recordImportedSpecFiles(root string, entries []importPreviewEntry, specDirs
 	changed := false
 	for _, e := range entries {
 		key := specPathKey(e.path)
-		if !underAny(key, specDirs) {
+		if !inSpecDir(e.path, specDirs) {
 			continue
 		}
 		if state.SpecFileSums == nil {

@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -610,5 +611,33 @@ func TestReplacesSpec_GuardsAnAbsoluteSourceDir(t *testing.T) {
 		if !replacesSpec(&e, importSpecDirs("."), nil) {
 			t.Errorf("%s: a write into the absolute source dir does not count as replacing a spec", path)
 		}
+	}
+}
+
+// A skill folder linked out of the source still holds a spec: a write
+// through the link counts as replacing it.
+func TestImport_StopsBeforeReplacingASkillThroughALinkedFolder(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks need privileges on Windows")
+	}
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, "shared/review/SKILL.md", handSkill)
+	if err := os.MkdirAll(".agnostic-ai/skills", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("../../shared/review", ".agnostic-ai/skills/review"); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
+
+	_, err := runCLI(t, "import", "claude")
+
+	if errs.CodeOf(err) != errs.CodeImportWouldReplace {
+		t.Fatalf("import did not stop on a skill behind a linked folder: %v", err)
+	}
+	if got := readFile(t, "shared/review/SKILL.md"); got != handSkill {
+		t.Errorf("shared skill = %q, want it untouched", got)
 	}
 }
