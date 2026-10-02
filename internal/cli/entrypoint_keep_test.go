@@ -112,3 +112,18 @@ func TestSync_NoWarningForTextTheLocalLayerHolds(t *testing.T) {
 		t.Errorf("sync warned about text the local layer holds:\n%s", log.String())
 	}
 }
+
+// --backup must not replace an earlier backup of the same file.
+func TestSync_BackupStopsWhenTheBackupExists(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, "CLAUDE.md", handWrittenClaude)
+	mustWriteFile(t, "CLAUDE.md.bak", "an earlier backup\n")
+
+	if _, err := runCLI(t, "sync", "--backup"); err == nil || !strings.Contains(err.Error(), "CLAUDE.md.bak already exists") {
+		t.Errorf("err = %v, want a stop", err)
+	}
+	if got := readFile(t, "CLAUDE.md.bak"); got != "an earlier backup\n" {
+		t.Errorf("CLAUDE.md.bak replaced: %q", got)
+	}
+}

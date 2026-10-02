@@ -22,8 +22,10 @@ import (
 // agent asked to set agnostic-ai up runs. A file with the generated
 // header, one an earlier sync wrote (the ledger lists it, and a hand edit
 // to it is kept as `<path>.bak`), or one whose sections AGNOSTIC_AI.md
-// already holds, is written as before.
-func keepHandWrittenInstructions(cfg *config.Config, b spec.Bundle, targets, ledgered []string) error {
+// already holds, is written as before. With backup, a file is replaced
+// when its `<path>.bak` is free. --keep-edits keeps only a file the ledger
+// or Git knows, so only those are exempt.
+func keepHandWrittenInstructions(cfg *config.Config, b spec.Bundle, targets, ledgered []string, backup, keepEdits bool) error {
 	captured := ""
 	if data, err := os.ReadFile(adapters.AgnosticEntryPointPath); err == nil {
 		captured = header.Strip(string(data))
@@ -43,11 +45,24 @@ func keepHandWrittenInstructions(cfg *config.Config, b spec.Bundle, targets, led
 		if cfg.IsUnmanaged(f.Path) || slices.Contains(ledgered, filepath.ToSlash(f.Path)) {
 			continue
 		}
+		// --keep-edits keeps a file Git tracks, comparing it with HEAD.
+		if keepEdits && committedSum(f.Path) != "" {
+			continue
+		}
 		uncaptured, err := handWrittenUncaptured(f.Path, held)
 		if err != nil {
 			return fmt.Errorf("%w; nothing was written", err)
 		}
 		if !uncaptured {
+			continue
+		}
+		// --backup keeps the file as <path>.bak, unless that would replace
+		// an earlier backup.
+		if backup {
+			if _, err := os.Lstat(f.Path + ".bak"); errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			lines = append(lines, fmt.Sprintf("%s holds instructions agnostic-ai did not write, and %s.bak already exists, so --backup would replace it.\n  move %s.bak away, then run agnostic-ai sync --backup", f.Path, f.Path, f.Path))
 			continue
 		}
 		lines = append(lines, fmt.Sprintf("%s holds instructions agnostic-ai did not write, and %s does not have them.\n  keep them:    agnostic-ai import %s\n  replace them: agnostic-ai sync --backup, which keeps the file as %s.bak",
@@ -117,7 +132,7 @@ func handWrittenUncaptured(path, captured string) (bool, error) {
 // checkHandWrittenInstructions runs keepHandWrittenInstructions for a
 // preview (--check, --plan, --json --dry-run), so it agrees with the sync
 // it previews.
-func checkHandWrittenInstructions(targets []string) error {
+func checkHandWrittenInstructions(targets []string, backup bool) error {
 	cfg, b, err := loadProject(".")
 	if err != nil {
 		return err
@@ -125,5 +140,5 @@ func checkHandWrittenInstructions(targets []string) error {
 	if len(targets) == 0 {
 		targets = cfg.Targets
 	}
-	return keepHandWrittenInstructions(cfg, b, targets, readStateFile(".").Outputs)
+	return keepHandWrittenInstructions(cfg, b, targets, readStateFile(".").Outputs, backup, false)
 }
