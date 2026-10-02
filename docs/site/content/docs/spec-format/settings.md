@@ -72,7 +72,11 @@ protected:
 | `decision` | no | `ask` | `ask` makes the agent ask first. `deny` blocks the edit. |
 | `reason` | no | empty | Shown to the agent when an edit is blocked. |
 
-A path is anchored at the project root: `composer.lock` protects only the root file, and `**/composer.lock` protects every copy. Character classes, braces, negation, and paths outside the project are rejected, because the targets would read them differently. Each settings spec holds one block, so use one file per decision. The Codex and Gemini CLI hooks and `lint` ignore case, so `.GITHUB/ci.yml` counts as protected on a case-insensitive file system. Claude Code's permission docs do not say whether `Edit` rules ignore case.
+A path is anchored at the project root. `composer.lock` protects only the root file. `**/composer.lock` protects every copy.
+
+- Character classes, braces, negation, and paths outside the project are rejected, because the targets would read them differently.
+- Each settings spec holds one block, so use one file per decision.
+- The Codex and Gemini CLI hooks and `lint` ignore case, so `.GITHUB/ci.yml` counts as protected on a case-insensitive file system. Claude Code's permission docs do not say whether `Edit` rules ignore case.
 
 | Target | Protection | How |
 |---|---|---|
@@ -82,17 +86,26 @@ A path is anchored at the project root: `composer.lock` protects only the root f
 | Gemini CLI | enforced (hook) | a generated `BeforeTool` hook in `.gemini/hooks/` that blocks a matching `write_file` or `replace` ([details](@/docs/targets/gemini.md#protected-paths)) |
 | Every other target | advisory | a coverage note on sync; state the paths in a rule |
 
-Protection covers the agent's edit tools. A shell command or script that writes the file directly can still change it. `agnostic-ai lint` warns (LINT022) when a protected path covers a file sync writes, since sync regenerates that file from its source spec, and reports an invalid block as LINT023. `sync --global` does not write protected paths.
+Protection covers the agent's edit tools. A shell command or script that writes the file directly can still change it.
+
+- `agnostic-ai lint` warns (LINT022) when a protected path covers a file sync writes, since sync regenerates that file from its source spec.
+- `lint` reports an invalid block as LINT023.
+- `sync --global` does not write protected paths.
 
 ## Permission rules
 
 A rule is a bare tool name (whole tool) or `Scope(argument)`. An MCP tool is `mcp__<server>__<tool>`. `Scope()` with an empty argument is dropped, not read as the bare tool, which would widen it.
 
-Keep a `Bash` wildcard at the end of an `allow` or `deny` rule. `Bash(git * main)` also approves options inserted at the `*`, and Claude Code matches a mid-command `*` in a `deny` rule literally, so it blocks nothing. `agnostic-ai lint` reports both as LINT009.
+Keep a `Bash` wildcard at the end of an `allow` or `deny` rule.
+
+- `Bash(git * main)` also approves options inserted at the `*`.
+- Claude Code matches a mid-command `*` in a `deny` rule literally, so it blocks nothing.
+
+`agnostic-ai lint` reports both as LINT009.
 
 ## Merging
 
-Multiple files merge: permission lists concatenate, de-duplicated in source order, and the last non-empty `model` and `effort` win. Each target resolves its own map entry first, so `model: {codex: gpt-6-luna}` in a later file changes only Codex.
+Multiple files merge. Permission lists concatenate, de-duplicated in source order. The last non-empty `model` and `effort` win. Each target resolves its own map entry first, so `model: {codex: gpt-6-luna}` in a later file changes only Codex.
 
 Removing a rule from a spec removes it from Claude Code's `settings.json` on the next sync; rules you wrote there by hand stay ([Claude settings](@/docs/targets/claude.md#claude-settings)).
 
@@ -100,9 +113,9 @@ Removing a rule from a spec removes it from Claude Code's `settings.json` on the
 
 ## Effort by target
 
-`effort` reaches four targets, each under its own key. A value the target does not accept is not written and raises a coverage note; the other targets still emit. `x-<target>` wins, so `x-claude.effortLevel` overrides the portable value. Every other target reports a coverage note.
+`effort` reaches four targets, each under its own key. A value the target does not accept is not written and raises a coverage note. The other targets still emit. `x-<target>` wins, so `x-claude.effortLevel` overrides the portable value. Every other target reports a coverage note.
 
-`import` fills `effort` from these keys when the target accepts the value and no other settings spec sets it; otherwise the value lands under `x-<target>`.
+`import` fills `effort` from these keys when the target accepts the value and no other settings spec sets it. Otherwise the value lands under `x-<target>`.
 
 | Target | Native key | Accepted values |
 |---|---|---|
@@ -123,12 +136,26 @@ Removing a rule from a spec removes it from Claude Code's `settings.json` on the
 | Cursor | `allow` and `deny` in `.cursor/cli.json`, for the Cursor CLI ([details](@/docs/targets/cursor.md#permissions)) | no |
 | Copilot, Junie, Gemini | no | yes |
 
-Every other target takes neither. A field a target cannot represent produces a coverage note while the others still emit. Copilot and Junie report the whole policy. Codex does too unless `outputs.codex.exec-policies-from-permissions: true` turns simple Bash rules into exec policies; the rest raise a note ([Bash permission translation](@/docs/targets/codex.md#translate-bash-permissions)). Rules translate only as far as the vendor allows: Augment gates `read`, `edit`, and `write` as whole tools, and Factory's command lists take shell patterns, so a path-scoped rule raises a note instead of widening. Factory's `commandDenylist` prompts, so portable `ask` goes there and `deny` goes to `commandBlocklist`. Review an imported `model` before enabling more targets, since identifiers differ between vendors. A shared Claude model name raises the same coverage note as an [agent `model`](@/docs/spec-format/agents.md#per-target-model-and-effort) on Codex, Gemini, OpenCode, Kilo Code, and Factory. Codex skips it when `outputs.codex.config.model` or the [captured overlay](@/docs/targets/codex.md#codex-config) sets the model.
+Every other target takes neither. A field a target cannot represent produces a coverage note while the others still emit.
+
+- Copilot and Junie report the whole policy.
+- Codex does too, unless `outputs.codex.exec-policies-from-permissions: true` turns simple Bash rules into exec policies. The rest raise a note ([Bash permission translation](@/docs/targets/codex.md#translate-bash-permissions)).
+- Rules translate only as far as the vendor allows. Augment gates `read`, `edit`, and `write` as whole tools. Factory's command lists take shell patterns. A path-scoped rule raises a note instead of widening.
+- Factory's `commandDenylist` prompts, so portable `ask` goes there and `deny` goes to `commandBlocklist`.
+- Review an imported `model` before enabling more targets, since identifiers differ between vendors.
+- A shared Claude model name raises the same coverage note as an [agent `model`](@/docs/spec-format/agents.md#per-target-model-and-effort) on Codex, Gemini, OpenCode, Kilo Code, and Factory. Codex skips it when `outputs.codex.config.model` or the [captured overlay](@/docs/targets/codex.md#codex-config) sets the model.
 
 ## Target-specific keys
 
 Target-specific keys go under `x-<target>` and merge into that target's settings file (`x-factory.sandbox` reaches `.factory/settings.json`). Codex is the exception: its `.codex/config.toml` comes from the captured overlay plus `outputs.codex.config`, so an `x-codex` block raises a coverage note naming both routes.
 
-On a key this tool also writes, lists union (translated entries first), objects merge recursively, and a scalar such as `model` is replaced. A list against a string cannot merge: the `x-<target>` value wins with a coverage note. Maps of whole records (`x-qoder.mcpServers`, `x-augment.mcpServers`) merge by name, and a server both sides name comes from the `x-<target>` block entire (#974). Fixed-order blocks (`x-qoder.hooks`, `x-augment.hooks`) keep their order, with your own events appended (#976).
+On a key this tool also writes:
 
-Four keys take one shape each: `x-augment.toolPermissions` a list; `x-windsurf.permissions`, `x-kilo.permission`, `x-opencode.permission` an object. Another shape is skipped, the translated rules ship, and a coverage note names the key (#976).
+- Lists union, with translated entries first.
+- Objects merge recursively.
+- A scalar such as `model` is replaced.
+- A list against a string cannot merge. The `x-<target>` value wins, with a coverage note.
+- Maps of whole records (`x-qoder.mcpServers`, `x-augment.mcpServers`) merge by name. A server both sides name comes from the `x-<target>` block entire (#974).
+- Fixed-order blocks (`x-qoder.hooks`, `x-augment.hooks`) keep their order, with your own events appended (#976).
+
+Four keys take one shape each: `x-augment.toolPermissions` a list, and `x-windsurf.permissions`, `x-kilo.permission`, and `x-opencode.permission` an object. Another shape is skipped, the translated rules ship, and a coverage note names the key (#976).

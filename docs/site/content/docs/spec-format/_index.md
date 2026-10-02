@@ -43,13 +43,19 @@ Each folder holds one spec kind. Pick the page for what you want the agent to do
 | [`ignore/`](@/docs/spec-format/ignore.md) | Paths the agent must not read | secrets or build output must stay out of context |
 | [`overlays/`](@/docs/spec-format/overlays.md) | Native settings and helper files that `import` captured | a tool setting has no portable spec |
 
-Two more entries sit next to them. `AGNOSTIC_AI.md` is the instruction body every entry-point file carries, such as `AGENTS.md` and `CLAUDE.md`; see [entry-point files](@/docs/configuration.md#entry-point-files). `local/` holds personal specs that stay out of Git; see [local overrides](@/docs/local-overrides.md).
+Two more entries sit next to them:
 
-Paths are relative to `.agnostic-ai/` by default, so `rules/*.md` means `.agnostic-ai/rules/*.md`. Override the directories with [`sources`](@/docs/configuration.md#sources). The [capability matrix](@/docs/targets/_index.md#capability-matrix) shows which targets receive each kind, and each target page shows how that tool renders it.
+- `AGNOSTIC_AI.md` is the instruction body every entry-point file carries, such as `AGENTS.md` and `CLAUDE.md`. See [entry-point files](@/docs/configuration.md#entry-point-files).
+- `local/` holds personal specs that stay out of Git. See [local overrides](@/docs/local-overrides.md).
+
+Paths are relative to `.agnostic-ai/` by default, so `rules/*.md` means `.agnostic-ai/rules/*.md`. Override the directories with [`sources`](@/docs/configuration.md#sources). The [capability matrix](@/docs/targets/_index.md#capability-matrix) shows which targets receive each kind. Each target page shows how that tool renders it.
 
 `agnostic-ai new <kind> <name>` scaffolds an agent, skill, rule, hook, or MCP server. [Getting started](@/docs/getting-started.md) walks through a first rule.
 
-Discovery is recursive: every `.md` under `agents/`, `skills/`, `rules/`, `commands/`, `reviews/`, and `ignore/` loads, and every `.yaml` under `hooks/`, `mcps/`, `settings/`, and `environments/`.
+Discovery is recursive:
+
+- Every `.md` under `agents/`, `skills/`, `rules/`, `commands/`, `reviews/`, and `ignore/` loads.
+- Every `.yaml` under `hooks/`, `mcps/`, `settings/`, and `environments/` loads.
 
 The sections below apply to every kind.
 
@@ -67,7 +73,7 @@ rules/
 
 For rules, scope controls native activation or directory discovery. A rule may set `scope: services/payments`, which wins over its folder under `rules/`. A folder scopes a rule only when it names a project directory. `agnostic-ai new rule payments-context --scope services/payments` creates one.
 
-Scoped bodies stay out of root instruction appendices. Supported targets get native path conditions or a nested instruction file. Unsupported targets skip the rule with a warning, or fail under `on-unsupported: error`. See [directory-specific instructions](@/docs/scoped-context.md) for the target matrix and selector limits.
+Scoped bodies stay out of root instruction appendices. Supported targets get native path conditions or a nested instruction file. Unsupported targets skip the rule with a warning, or fail under `on-unsupported: error`. [Directory-specific instructions](@/docs/scoped-context.md) has the target matrix and selector limits.
 
 ## Target scoping
 
@@ -86,7 +92,7 @@ With none set, the spec emits to every target that supports its kind. `target` b
 
 A hook imported from a tool gets `target: <tool>` (`codex`, `claude`, or `gemini`). Delete the field to let it reach every target.
 
-`import claude` and `import codex` do the same for agents and skills. When both `.claude/` and `.codex/` exist but only one has a spec, it gets `target: <tool>`. A spec in both stays unscoped, and so does every spec in a single-tool project, so round-trips stay byte-identical.
+`import claude` and `import codex` do the same for agents and skills. When both `.claude/` and `.codex/` exist but only one has a spec, it gets `target: <tool>`. A spec in both stays unscoped. So does every spec in a single-tool project, so round-trips stay byte-identical.
 
 ## Frontmatter rules
 
@@ -166,6 +172,10 @@ For each target, all `x-*` keys are dropped, then the matching `x-<target>` bloc
 
 ### Arbitrary custom keys
 
-Any other key under `x-<target>` emits verbatim into that target's output, in sorted order, and never leaks across targets. Validate them against the target's schema yourself. Each target page lists the keys its adapter manages. A target with no surface for a spec kind drops custom keys for that kind. Gemini TOML accepts only a string, bool, number, or string array, and skips nested tables.
+Any other key under `x-<target>` emits verbatim into that target's output, in sorted order, and never leaks across targets.
+
+- Validate the keys against the target's schema yourself. Each target page lists the keys its adapter manages.
+- A target with no surface for a spec kind drops custom keys for that kind.
+- Gemini TOML accepts only a string, bool, number, or string array, and skips nested tables.
 
 On a settings spec the block merges into the target's settings file by the rules in [settings](@/docs/spec-format/settings.md#target-specific-keys).

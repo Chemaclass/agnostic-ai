@@ -74,15 +74,20 @@ model: {claude: opus}
 | `license` | no | unset | The Agent Skills license, kept in every target's `SKILL.md`. |
 | `workspaces` | no | empty | Project directories where Cursor also gets a copy, such as `[apps/web]`. Cursor loads skills only from the workspace it opens, so a session or SDK agent started in `apps/web` misses a root skill. The skill stays at the root for every tool. |
 
-A skill's scope comes from its folder: `skills/services/api/review/SKILL.md` moves the skill under `services/api/`, where only sessions in that directory load it. `scope:` in the frontmatter has no effect, and `lint` warns about it (LINT018). `import cursor` writes `workspaces` when a root `.cursor/skills/<name>` links to a skill folder under a project directory.
+A skill's scope comes from its folder. `skills/services/api/review/SKILL.md` moves the skill under `services/api/`, where only sessions in that directory load it. `scope:` in the frontmatter has no effect, and `lint` warns about it (LINT018). `import cursor` writes `workspaces` when a root `.cursor/skills/<name>` links to a skill folder under a project directory.
 
-Sync reports a coverage note for each skill field a target omits, including `argument-hint`, `model`, and `effort`. Fields kept in native frontmatter, an enabled command mirror, or a policy sidecar get no drop note. `agnostic-ai compare claude codex` shows which skill fields each target keeps, translates, or drops. Use `{claude: opus}` to choose a model only for Claude. Global sync uses the same renderers; shared global directories omit target overrides.
+Sync reports a coverage note for each skill field a target omits, including `argument-hint`, `model`, and `effort`.
+
+- Fields kept in native frontmatter, an enabled command mirror, or a policy sidecar get no drop note.
+- `agnostic-ai compare claude codex` shows which skill fields each target keeps, translates, or drops.
+- Use `{claude: opus}` to choose a model only for Claude.
+- Global sync uses the same renderers. Shared global directories omit target overrides.
 
 ## Bundled files and output
 
 Only `SKILL.md` and flat `skills/*.md` parse as skills. Every other file in a nested skill directory is a bundled asset (scripts, templates, fixtures, extra `*.md`). Assets copy verbatim to the same relative path under each target's skills dir. Import and sync preserve executable bits.
 
-Most targets write `<dir>/<name>/SKILL.md` with assets. Several share `.agents/skills/`, so identical bytes write once. Targets with no skill surface flatten it to a `skill-<name>.md` rule and raise a coverage note, since assets cannot follow. Set `outputs.<target>.emit-skills-as-commands: true` to also emit a slash command. Each target page gives the exact directory.
+Most targets write `<dir>/<name>/SKILL.md` with assets. Several share `.agents/skills/`, so identical bytes write once. Targets with no skill surface flatten the skill to a `skill-<name>.md` rule and raise a coverage note, since assets cannot follow. Set `outputs.<target>.emit-skills-as-commands: true` to also emit a slash command. Each target page gives the exact directory.
 
 A body can point at another skill with [`{{$SKILLS_DIR}}`](@/docs/spec-format/_index.md#path-variables-name), which resolves to each target's own skills directory.
 
@@ -100,7 +105,9 @@ No other target documents this syntax for skills, so each one reads it as plain 
   note: `!`command`` on 1 skill has no effect on codex (the command does not run at .agnostic-ai/skills/pr/SKILL.md:8; put the line in a ::target claude fence)
 ```
 
-`on-unsupported: error` fails the sync instead, and `silent` hides the note. `sync --global` raises the same notes for the skills it writes to user-level directories, with `on-unsupported` read from the source root's `agnostic-ai.yaml`. `lint` reports each line as LINT019. Put the Claude line in a fence and give other targets their own text:
+`on-unsupported: error` fails the sync instead, and `silent` hides the note. `lint` reports each line as LINT019. `sync --global` raises the same notes for the skills it writes to user-level directories, with `on-unsupported` read from the source root's `agnostic-ai.yaml`.
+
+Put the Claude line in a fence and give other targets their own text:
 
 ```markdown
 ::target claude
@@ -111,7 +118,9 @@ Run `git log main..HEAD --oneline` first. `$ARGUMENTS` below means the text pass
 ::end
 ```
 
-A `$1` or `` !`command` `` inside a fenced code block counts as an example and is not reported. `$ARGUMENTS` is reported there too. Escape a literal dollar as `\$1`, as Claude Code expects. `import claude` keeps the body as written, so Claude Code keeps its dynamic context. [Commands](@/docs/spec-format/commands.md#claude-code-body-syntax) use the same syntax, and a few targets expand part of it there.
+A `$1` or `` !`command` `` inside a fenced code block counts as an example and is not reported. `$ARGUMENTS` is reported there too. Escape a literal dollar as `\$1`, as Claude Code expects. `import claude` keeps the body as written, so Claude Code keeps its dynamic context.
+
+[Commands](@/docs/spec-format/commands.md#claude-code-body-syntax) use the same syntax, and a few targets expand part of it there.
 
 ## `disable-model-invocation` support by target {#disable-model-invocation-support-by-target}
 
@@ -124,6 +133,6 @@ Only the targets listed were checked. Setting it keeps a skill out of automatic 
 | [Crush](@/docs/targets/crush.md) | Dropped with a note. Set `x-crush.disable-model-invocation` |
 | [Factory](@/docs/targets/factory.md) | Dropped with a note. Set `x-factory.disable-model-invocation` |
 
-Crush and Factory skills land in the shared `.agents/skills/` tree, so emitting the key would hand it to targets with no such field. Use the `x-` key: a manual-only skill turning model-invocable is a safety boundary.
+Crush and Factory skills land in the shared `.agents/skills/` tree, so emitting the key would hand it to targets with no such field. Use the `x-` key. A manual-only skill turning model-invocable is a safety boundary.
 
 OpenHands' `triggers` is unrelated: it injects a skill on a keyword. Devin spells this restriction `triggers: [user]`.

@@ -35,7 +35,7 @@ scope: backend
 Flag any handler that talks to the database directly instead of going through a repository.
 ```
 
-Reviews honor `scope` and the source layout like [rules](@/docs/spec-format/rules.md) do. Specs with the same scope concatenate into one review file, written as a plain body without frontmatter. For Codex the section sits in `AGENTS.md`, which every `AGENTS.md` reader loads; a `targets:` filter that omits `codex` keeps a spec out of it.
+Reviews honor `scope` and the source layout like [rules](@/docs/spec-format/rules.md) do. Specs with the same scope concatenate into one review file, written as a plain body without frontmatter. For Codex the section sits in `AGENTS.md`, which every `AGENTS.md` reader loads. A `targets:` filter that omits `codex` keeps a spec out of it.
 
 ## Include a file
 
@@ -50,4 +50,9 @@ target: cursor
 @services/billing/README.md
 ```
 
-Sync writes the file's text where the line stood, so a change to the README shows up in `sync --check`. A missing file, an absolute path, or a path that leaves the project fails the load ([AAI-001](@/docs/errors.md#aai-001-spec-parse-failed)). A line inside a fenced code block stays as written, and an included file is not searched for further includes. Only reviews take `@path` lines; on `AGNOSTIC_AI.md` the [`resolve-imports`](@/docs/configuration.md#syncresolve-imports) setting governs them.
+Sync writes the file's text where the line stood, so a change to the README shows up in `sync --check`.
+
+- A missing file, an absolute path, or a path that leaves the project fails the load ([AAI-001](@/docs/errors.md#aai-001-spec-parse-failed)).
+- A line inside a fenced code block stays as written.
+- An included file is not searched for further includes.
+- Only reviews take `@path` lines. On `AGNOSTIC_AI.md` the [`resolve-imports`](@/docs/configuration.md#syncresolve-imports) setting governs them.
