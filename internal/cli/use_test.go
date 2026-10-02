@@ -92,3 +92,19 @@ func TestUse_RejectsAMistypedTool(t *testing.T) {
 		t.Error("use wrote a config for a mistyped tool")
 	}
 }
+
+// A run that stopped before importing finishes on the next try, though
+// the tool is already in targets.
+func TestUse_ARetryImportsWhatAnEarlierRunLeft(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	mustWriteFile(t, "AGENTS.md", "# Agents\n\n## Reviews\n\nKeep PRs small.\n")
+
+	if out, err := runCLI(t, "use", "codex"); err != nil {
+		t.Fatalf("use codex: %v\n%s", err, out)
+	}
+
+	if got := readFile(t, ".agnostic-ai/AGNOSTIC_AI.md"); !strings.Contains(got, "Keep PRs small.") {
+		t.Errorf("use did not import the left-over AGENTS.md:\n%s", got)
+	}
+}

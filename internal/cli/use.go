@@ -44,12 +44,14 @@ func newUseCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// Always sync, a no-op when nothing changed, so a run that
+			// stopped halfway finishes on the next try.
+			if err := runSyncPass(".", nil, false, false, false, false, "", 0); err != nil {
+				return err
+			}
 			if len(added) == 0 {
 				summaryf("%s %s already in use; edit .agnostic-ai/ and run agnostic-ai sync to change what it reads\n", tick(), strings.Join(tools, ", "))
 				return nil
-			}
-			if err := runSyncPass(".", nil, false, false, false, false, "", 0); err != nil {
-				return err
 			}
 			cfg, b, err := loadProject(".")
 			if err != nil {
@@ -100,23 +102,39 @@ func useTools(cmd *cobra.Command, tools []string) ([]string, error) {
 			added = append(added, t)
 		}
 	}
-	if len(added) == 0 {
-		return nil, nil
+	if len(added) > 0 {
+		if err := config.PersistTargets(".", append(slices.Clone(cfg.Targets), added...)); err != nil {
+			return nil, fmt.Errorf("add %s to targets: %w", strings.Join(added, ", "), err)
+		}
+		summaryf("→ added %s to targets in %s\n", strings.Join(added, ", "), config.ConfigFileName)
+		if cfg, err = config.Load("."); err != nil {
+			return nil, err
+		}
 	}
-	if err := config.PersistTargets(".", append(slices.Clone(cfg.Targets), added...)); err != nil {
-		return nil, fmt.Errorf("add %s to targets: %w", strings.Join(added, ", "), err)
-	}
-	summaryf("→ added %s to targets in %s\n", strings.Join(added, ", "), config.ConfigFileName)
-	if cfg, err = config.Load("."); err != nil {
-		return nil, err
-	}
+	// A tool added now brings its own config; one already in targets
+	// still does when an earlier run stopped before importing it.
 	var sources []string
-	for _, t := range added {
-		if hasOwnConfig(cfg, t) {
+	for _, t := range tools {
+		if slices.Contains(added, t) && hasOwnConfig(cfg, t) || uncapturedInstructions(cfg, t) {
 			sources = append(sources, t)
 		}
 	}
 	return added, importToolConfig(cfg, sources)
+}
+
+// uncapturedInstructions reports whether target's instructions file holds
+// hand-written text AGNOSTIC_AI.md does not have, which sync would stop on.
+func uncapturedInstructions(cfg *config.Config, target string) bool {
+	path := adapters.EntryPointPath(cfg, target)
+	if path == "" {
+		return false
+	}
+	captured := ""
+	if data, err := os.ReadFile(adapters.AgnosticEntryPointPath); err == nil {
+		captured = header.Strip(string(data))
+	}
+	uncaptured, err := handWrittenUncaptured(path, captured)
+	return err == nil && uncaptured
 }
 
 // startProject writes agnostic-ai.yaml for the detected tools plus
