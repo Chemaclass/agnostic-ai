@@ -114,7 +114,7 @@ func newInitCmd() *cobra.Command {
 					targets = fallbackInitTargets(cmd.ErrOrStderr(), detected)
 				}
 			}
-			gitignoreEnabled, err := resolveGitignoreChoice(cmd, all, bool(gitignore))
+			gitignoreEnabled, gitignoreDefaulted, err := resolveGitignoreChoice(cmd, all, bool(gitignore))
 			if err != nil {
 				return err
 			}
@@ -137,6 +137,9 @@ func newInitCmd() *cobra.Command {
 			}
 			if err := scaffold(opts); err != nil {
 				return err
+			}
+			if gitignoreDefaulted && !dryRun && verbosity >= levelDefault {
+				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), gitignoreDefaultNote)
 			}
 			if fromCLI == "" {
 				return nil
@@ -205,21 +208,19 @@ func fallbackInitTargets(stderr io.Writer, detected []string) []string {
 }
 
 // resolveGitignoreChoice picks the effective gitignore.enabled value
-// for a single init invocation. A fresh project ignores its generated
-// outputs by default; the source specs under .agnostic-ai/ stay the one
-// committed copy and contributors run `sync` locally.
-//
-//   - an explicit --gitignore or --gitignore=on|off wins (the typed value sticks),
-//   - --all skips the prompt and enables the managed block,
-//   - otherwise the TTY confirm prompt drives the choice (defaulting to
-//     yes); non-TTY stdin enables it so first-time and CI inits never
-//     silently commit generated files.
-func resolveGitignoreChoice(cmd *cobra.Command, all, flagValue bool) (bool, error) {
+// for a single init invocation, and whether it took the default without
+// asking. An explicit --gitignore wins; otherwise a terminal asks, and
+// --all or no terminal takes the default (ignore), which init then names,
+// since the choice decides what a fresh clone holds.
+func resolveGitignoreChoice(cmd *cobra.Command, all, flagValue bool) (enabled, defaulted bool, err error) {
 	if cmd.Flags().Changed("gitignore") {
-		return flagValue, nil
+		return flagValue, false, nil
 	}
-	if all {
-		return true, nil
+	if all || !stdinIsTerminal(cmd.InOrStdin()) {
+		return true, true, nil
 	}
-	return promptGitignoreEnable(cmd.InOrStdin())
+	enabled, err = promptGitignoreEnable(cmd.InOrStdin())
+	return enabled, false, err
 }
+
+const gitignoreDefaultNote = "generated files are git-ignored, so each clone needs agnostic-ai sync (pass --gitignore=off to commit them, so a clone works without the tool)"

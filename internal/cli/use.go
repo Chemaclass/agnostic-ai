@@ -236,6 +236,9 @@ func startProject(cmd *cobra.Command, tools []string) error {
 		return err
 	}
 	summaryf("→ created %s with targets: %s\n", config.ConfigFileName, strings.Join(targets, ", "))
+	if !stdinIsTerminal(cmd.InOrStdin()) {
+		summaryf("  generated files are git-ignored, so each clone needs agnostic-ai sync (set gitignore.enabled: false in %s to commit them)\n", config.ConfigFileName)
+	}
 	cfg, err := config.Load(".")
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)

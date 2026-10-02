@@ -24,6 +24,9 @@ func TestUse_StartsAProjectFromWhatTheRepositoryHas(t *testing.T) {
 	if out, err := runCLI(t, "use", "codex"); err != nil {
 		t.Fatalf("use codex: %v\n%s", err, out)
 	}
+	if !strings.Contains(log.String(), "generated files are git-ignored") {
+		t.Errorf("use without a terminal must say it ignored generated files:\n%s", log.String())
+	}
 
 	if got := readFile(t, "AGENTS.md"); !strings.Contains(got, "Never touch prod.") {
 		t.Errorf("AGENTS.md lacks the project's instructions:\n%s", got)
