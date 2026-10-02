@@ -155,12 +155,13 @@ func reportMerged(titles, twice []string, srcName string) {
 		len(titles), noun, srcName, agnosticMainFile, strings.Join(titles, ", "))
 }
 
-// isEntryPointSeed reports whether body is the placeholder text sync
-// seeds into AGNOSTIC_AI.md, now or in an older release, which an import
-// replaces.
+// isEntryPointSeed reports whether body is exactly the placeholder text
+// sync seeds into AGNOSTIC_AI.md, which an import replaces. The older
+// long template is only known by its lead, and the user may have written
+// below it, so a file that opens with it is merged into instead.
 func isEntryPointSeed(body string) bool {
 	b := strings.TrimSpace(body)
-	return b == "" || b == strings.TrimSpace(adapters.EntryPointBody()) || strings.HasPrefix(b, adapters.LegacyEntryPointTemplateLead)
+	return b == "" || b == strings.TrimSpace(adapters.EntryPointBody())
 }
 
 func markdownH2Sections(body string) []string {
