@@ -384,21 +384,8 @@ func addWatchPaths(w *fsnotify.Watcher, paths []string) error {
 		return nil
 	}
 	for _, p := range paths {
-		info, err := os.Stat(p)
-		if err != nil {
-			continue
-		}
-		if !info.IsDir() {
-			if err := add(p); err != nil {
-				return err
-			}
-			continue
-		}
-		if err := add(p); err != nil {
-			return err
-		}
-		walkErr := filepath.WalkDir(p, func(sub string, d fs.DirEntry, err error) error {
-			if err != nil || !d.IsDir() || sub == p {
+		walkErr := spec.WalkSourceRoot(p, func(sub string, d fs.DirEntry, err error) error {
+			if err != nil || (sub != p && !d.IsDir()) {
 				return nil
 			}
 			return add(sub)
@@ -613,15 +600,7 @@ func watchDirs(root string, cfg *config.Config) []string {
 func collectMtimes(paths []string) map[string]time.Time {
 	mtimes := make(map[string]time.Time)
 	for _, p := range paths {
-		info, err := os.Stat(p)
-		if err != nil {
-			continue
-		}
-		if !info.IsDir() {
-			mtimes[p] = info.ModTime()
-			continue
-		}
-		_ = filepath.WalkDir(p, func(path string, d fs.DirEntry, err error) error {
+		_ = spec.WalkSourceRoot(p, func(path string, d fs.DirEntry, err error) error {
 			if err != nil || d.IsDir() {
 				return nil
 			}

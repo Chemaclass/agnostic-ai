@@ -3,9 +3,11 @@ package emit
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestFolderBasedSkill(t *testing.T) {
@@ -89,6 +91,51 @@ func TestPropagateSkillAssets_FolderCopiesSiblings(t *testing.T) {
 }
 
 func skipNothing(string) bool { return false }
+
+func TestPropagateSkillAssets_LinkedSourceRootCopiesRegularAssets(t *testing.T) {
+	root := t.TempDir()
+	testutil.Chdir(t, root)
+	source := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(source, "scripts"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(source, "SKILL.md"), []byte("Skill body.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	const script = "#!/bin/sh\necho shared\n"
+	if err := os.WriteFile(filepath.Join(source, "scripts", "run.sh"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "outside.txt"), []byte("Do not copy.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	testutil.DirectoryAlias(t, outside, filepath.Join(source, "nested-link"))
+	alias := filepath.Join(root, "skills-alias")
+	testutil.DirectoryAlias(t, source, alias)
+	sk := spec.Entry{Kind: spec.KindSkill, Name: "shared", Path: filepath.Join(alias, "SKILL.md")}
+	if !SkillHasBundledAssets(sk, SkipSKILLMd) {
+		t.Error("linked skill root hides bundled assets")
+	}
+	dst := filepath.Join(root, "out")
+	if err := NewSession().PropagateSkillAssets(sk, dst, SkipSKILLMd, false); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dst, "scripts", "run.sh")
+	if got, err := os.ReadFile(path); err != nil || string(got) != script {
+		t.Errorf("copied asset = %q, %v; want %q", got, err, script)
+	}
+	if runtime.GOOS != "windows" {
+		if info, err := os.Stat(path); err != nil || info.Mode().Perm() != 0o755 {
+			t.Errorf("copied executable mode: %v, %v", info, err)
+		}
+	}
+	for _, rel := range []string{"SKILL.md", filepath.Join("nested-link", "outside.txt")} {
+		if _, err := os.Stat(filepath.Join(dst, rel)); !os.IsNotExist(err) {
+			t.Errorf("unexpected copied file %s: %v", rel, err)
+		}
+	}
+}
 
 func TestSkillHasBundledAssets(t *testing.T) {
 	t.Parallel()

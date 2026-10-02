@@ -126,6 +126,10 @@ That build is checked as release X.Y.Z. Setting `main.version` changes only what
 
 Missing directories are skipped silently. See [path semantics](#path-semantics).
 
+Source roots can be directory symlinks on macOS or Linux, or directory junctions on Windows. Source provenance uses the configured path.
+
+Directory links nested below a source root are not traversed. A cycle in a source-root link fails loading with a path error; a missing target is skipped.
+
 | Field | Default | Description |
 |-------|---------|-------------|
 | `agents` | `agents` | `*.md` agent specs. |

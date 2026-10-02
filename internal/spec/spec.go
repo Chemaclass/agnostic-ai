@@ -953,12 +953,12 @@ func hasDotPathSegment(name string) bool {
 }
 
 func walkDir(dir, ext string, kind Kind, parse func(string) (Entry, error)) ([]Entry, error) {
-	if _, err := os.Stat(dir); errors.Is(err, fs.ErrNotExist) {
-		return nil, nil
-	}
 	var entries []Entry
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
+	err := WalkSourceRoot(dir, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
+			if path == dir && errors.Is(walkErr, fs.ErrNotExist) {
+				return nil
+			}
 			return walkErr
 		}
 		if d.IsDir() || filepath.Ext(path) != ext {

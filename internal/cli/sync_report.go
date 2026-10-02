@@ -197,7 +197,7 @@ func entrySum(e spec.Entry) string {
 	}
 	_, _ = fmt.Fprintf(h, "%s\x00%s\x00%s\x00%s\x00", meta, strings.Join(e.MetaKeys, "\x01"), styles, e.Body)
 	if dir := e.SkillAssetDir(); dir != "" {
-		_ = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		_ = spec.WalkSourceRoot(dir, func(p string, d fs.DirEntry, err error) error {
 			if err != nil || d.IsDir() {
 				return nil
 			}

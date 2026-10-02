@@ -69,7 +69,7 @@ func SkillHasBundledAssets(s spec.Entry, skip func(rel string) bool) bool {
 	}
 	root := s.SkillAssetDir()
 	found := false
-	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	_ = spec.WalkSourceRoot(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !d.Type().IsRegular() {
 			return nil
 		}

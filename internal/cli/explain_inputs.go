@@ -108,7 +108,7 @@ func reviewIncludes(dir string) ([]string, error) {
 		return nil, nil
 	}
 	var out []string
-	err := filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
+	err := spec.WalkSourceRoot(dir, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
 			if os.IsNotExist(err) {
 				return filepath.SkipDir

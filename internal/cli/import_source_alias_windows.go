@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"golang.org/x/sys/windows"
 )
 
@@ -43,7 +44,7 @@ func createImportSourceAlias(target, alias string) error {
 		binary.LittleEndian.PutUint16(data[16+2*i:], char)
 	}
 
-	path, err := importSourceWindowsPath(alias)
+	path, err := config.WindowsSourcePath(alias)
 	if err != nil {
 		return err
 	}

@@ -138,7 +138,7 @@ func specEntryFiles(root string, e spec.Entry, include func(asset string) bool) 
 		add(e.Path)
 	}
 	if dir := e.SkillAssetDir(); dir != "" {
-		_ = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		_ = spec.WalkSourceRoot(dir, func(p string, d fs.DirEntry, err error) error {
 			if err == nil && d.Type().IsRegular() && filepath.Clean(p) != filepath.Clean(e.Path) {
 				if rel, err := filepath.Rel(dir, p); err == nil && rel != "SKILL.md" && include(filepath.ToSlash(rel)) {
 					add(p)
