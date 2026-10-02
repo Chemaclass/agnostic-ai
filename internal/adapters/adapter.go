@@ -232,6 +232,17 @@ func DrainNotes() []Note { return emit.DrainNotes() }
 // Used by tests and by `sync --watch` before each new pass.
 func ResetCoverageNotes() { emit.ResetCoverageNotes() }
 
+// DiscardCoverageNotes clears buffered coverage notes without printing
+// and keeps the record of entries each target left out.
+func DiscardCoverageNotes() { emit.DiscardCoverageNotes() }
+
+// OmittedEntry reports whether target's output left out the spec of
+// kind named name in the current sync pass, with a coverage note saying
+// why.
+func OmittedEntry(target string, kind spec.Kind, name string) bool {
+	return emit.OmittedEntry(target, kind, name)
+}
+
 // FlushCoverageNotes prints any buffered coverage notes, grouped by
 // kind, then clears the buffer. Call once at the end of a sync pass.
 func FlushCoverageNotes() { emit.FlushCoverageNotes() }

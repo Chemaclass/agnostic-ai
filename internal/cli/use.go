@@ -438,6 +438,7 @@ func importToolConfig(cfg *config.Config, tools []string) (failed []string, err 
 
 // printToolReads shows what each tool now reads from .agnostic-ai/: its
 // instructions file, then each kind of spec it got, with where it lives.
+// A spec the last sync pass left out for a tool is not listed for it.
 func printToolReads(w io.Writer, cfg *config.Config, b spec.Bundle, tools []string) {
 	for _, t := range tools {
 		mine := b.For(t)
@@ -460,7 +461,9 @@ func printToolReads(w io.Writer, cfg *config.Config, b spec.Bundle, tools []stri
 			supports = a.Capabilities()
 		}
 		for _, kind := range []string{"Rules", "Skills", "Agents", "Commands", "Hooks", "MCP servers"} {
-			entries := entriesFor(mine, kind)
+			entries := slices.DeleteFunc(slices.Clone(entriesFor(mine, kind)), func(e spec.Entry) bool {
+				return adapters.OmittedEntry(t, kindOf(kind), e.Name)
+			})
 			if len(entries) == 0 || supports != nil && !slices.Contains(supports, kindOf(kind)) {
 				continue
 			}

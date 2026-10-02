@@ -81,6 +81,35 @@ var coverageNoteState struct {
 	// specs set, so a field one target ignores and another reads is not
 	// reported as having no effect.
 	environmentFields map[string]map[string]bool
+	// omitted holds the specs a target's output left out whole, which
+	// outlive a flush so the list of what each tool reads skips them.
+	omitted map[omittedEntry]bool
+}
+
+type omittedEntry struct {
+	target string
+	kind   spec.Kind
+	name   string
+}
+
+// NoteEntryOmitted records that target's output leaves out the spec of
+// kind named name, so the list of what target reads does not name it.
+// Call it next to the coverage note that says why.
+func NoteEntryOmitted(target string, kind spec.Kind, name string) {
+	coverageNoteState.mu.Lock()
+	if coverageNoteState.omitted == nil {
+		coverageNoteState.omitted = map[omittedEntry]bool{}
+	}
+	coverageNoteState.omitted[omittedEntry{target, kind, name}] = true
+	coverageNoteState.mu.Unlock()
+}
+
+// OmittedEntry reports whether target's output left out the spec of
+// kind named name since the last ResetCoverageNotes.
+func OmittedEntry(target string, kind spec.Kind, name string) bool {
+	coverageNoteState.mu.Lock()
+	defer coverageNoteState.mu.Unlock()
+	return coverageNoteState.omitted[omittedEntry{target, kind, name}]
 }
 
 // RecordEnvironmentFields records the fields that target's environment
@@ -391,15 +420,30 @@ func reachVerb(n int) string {
 }
 
 // ResetCoverageNotes clears buffered coverage gaps, field no-ops,
-// surface gaps, and project notes without printing. Used by tests and by `sync --watch` between runs.
+// surface gaps, project notes, and omitted entries without printing.
+// Used by tests and by `sync --watch` between runs.
 func ResetCoverageNotes() {
 	coverageNoteState.mu.Lock()
+	discardCoverageNotesLocked()
+	coverageNoteState.environmentFields = nil
+	coverageNoteState.omitted = nil
+	coverageNoteState.mu.Unlock()
+}
+
+// DiscardCoverageNotes clears the buffered notes without printing, as a
+// flush would, and keeps the omitted entries for the list of what each
+// tool reads.
+func DiscardCoverageNotes() {
+	coverageNoteState.mu.Lock()
+	discardCoverageNotesLocked()
+	coverageNoteState.mu.Unlock()
+}
+
+func discardCoverageNotesLocked() {
 	coverageNoteState.pending = nil
 	coverageNoteState.pendingField = nil
 	coverageNoteState.pendingSurface = nil
 	coverageNoteState.pendingText = nil
-	coverageNoteState.environmentFields = nil
-	coverageNoteState.mu.Unlock()
 }
 
 // CoverageNotesDigest returns a stable hex digest of the buffered

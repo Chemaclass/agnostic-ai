@@ -633,6 +633,7 @@ func DropMCPWebSocket(target string, mcps []spec.Entry, reason string) []spec.En
 	for _, e := range mcps {
 		if transport, _ := e.Meta["type"].(string); transport == "ws" {
 			dropped++
+			NoteEntryOmitted(target, spec.KindMCP, e.Name)
 			continue
 		}
 		out = append(out, e)
@@ -739,6 +740,7 @@ func DropMCPDisabled(target string, mcps []spec.Entry, reason string) []spec.Ent
 	out := make([]spec.Entry, 0, len(mcps))
 	for _, e := range mcps {
 		if disabled, _ := e.Meta["disabled"].(bool); disabled {
+			NoteEntryOmitted(target, spec.KindMCP, e.Name)
 			continue
 		}
 		out = append(out, e)

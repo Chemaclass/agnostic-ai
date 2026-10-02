@@ -192,6 +192,9 @@ func noteDroppedAgentColor(agents []spec.Entry) {
 // OpenHands releases don't read MCP servers from a config.toml [mcp]
 // section ... That format belongs to legacy OpenHands (V0)".
 func noteMCPGlobalOnly(mcps []spec.Entry) {
+	for _, m := range mcps {
+		emit.NoteEntryOmitted(target, spec.KindMCP, m.Name)
+	}
 	emit.NoteCoverageGap(target, spec.KindMCP, len(mcps),
 		"current OpenHands releases read MCP servers from ~/.openhands/mcp.json; copy the specs to ~/.agnostic-ai/mcps/ and run `agnostic-ai sync --global`")
 }

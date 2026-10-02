@@ -730,7 +730,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if notesUnchanged {
 		n := adapters.PendingCoverageNotesCount()
 		hidden = append(hidden, fmt.Sprintf("%d coverage note%s", n, plural(n)))
-		adapters.ResetCoverageNotes()
+		adapters.DiscardCoverageNotes()
 	} else {
 		adapters.FlushCoverageNotes()
 	}

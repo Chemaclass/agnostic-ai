@@ -213,3 +213,73 @@ func TestSync_AJSONSyncKeepsTheListedTools(t *testing.T) {
 		t.Errorf("want claude listed and codex not:\n%s", log.String())
 	}
 }
+
+// A server sync leaves out for one target is not listed as read by it
+// (#1666).
+func TestSync_FirstRunListLeavesOutAnMCPServerATargetDidNotGet(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	isolateGit(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, zed]\n")
+	mustWriteFile(t, ".agnostic-ai/mcps/gh.yaml", "name: gh\ncommand: gh-mcp\nargs: [--token, \"${TOKEN}\"]\n")
+	mustWriteFile(t, ".agnostic-ai/mcps/plain.yaml", "name: plain\ncommand: npx\nargs: [-y, server]\n")
+	log := captureLog(t)
+	notes := captureNotes(t)
+
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	assertMCPReads(t, log.String(), 2)
+	if !strings.Contains(notes.String(), "server gh reads ${TOKEN} in `args`") {
+		t.Errorf("the coverage note no longer names gh:\n%s", notes.String())
+	}
+}
+
+// use lists a tool sync listed before, after its unchanged notes were
+// hidden.
+func TestUse_ListLeavesOutAnMCPServerATargetDidNotGet(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	isolateGit(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, zed]\n")
+	mustWriteFile(t, ".agnostic-ai/mcps/gh.yaml", "name: gh\ncommand: gh-mcp\nargs: [--token, \"${TOKEN}\"]\n")
+	mustWriteFile(t, ".agnostic-ai/mcps/plain.yaml", "name: plain\ncommand: npx\nargs: [-y, server]\n")
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	log := captureLog(t)
+
+	if out, err := runCLI(t, "use", "zed"); err != nil {
+		t.Fatalf("use zed: %v\n%s", err, out)
+	}
+	if !strings.Contains(log.String(), "zed now reads") {
+		t.Fatalf("use did not list zed:\n%s", log.String())
+	}
+	if !strings.Contains(log.String(), "coverage note unchanged since last sync") {
+		t.Fatalf("the sync under use should hide its unchanged note:\n%s", log.String())
+	}
+	assertMCPReads(t, log.String(), 1)
+}
+
+// assertMCPReads checks each MCP line of the list, and that it printed
+// lines of them.
+func assertMCPReads(t *testing.T, log string, lines int) {
+	t.Helper()
+	listed := 0
+	for line := range strings.Lines(log) {
+		switch {
+		case strings.Contains(line, "MCP server") && strings.Contains(line, ".zed/"):
+			listed++
+			if strings.Contains(line, "gh") || !strings.Contains(line, "1 MCP server ") || !strings.Contains(line, "plain") {
+				t.Errorf("zed's line should list plain only:\n%s", line)
+			}
+		case strings.Contains(line, "MCP server") && strings.Contains(line, ".mcp.json"):
+			listed++
+			if !strings.Contains(line, "2 MCP servers") || !strings.Contains(line, "gh, plain") {
+				t.Errorf("claude's line should list gh and plain:\n%s", line)
+			}
+		}
+	}
+	if listed != lines {
+		t.Errorf("want %d MCP lines, got %d:\n%s", lines, listed, log)
+	}
+}
