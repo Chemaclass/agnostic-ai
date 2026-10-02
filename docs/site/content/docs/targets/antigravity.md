@@ -21,6 +21,7 @@ Antigravity reads per-rule files under `.agents/rules/` and custom subagents und
 .agents/agents/<name>/agent.md # one per agent (custom subagent)
 .agents/skills/<name>/SKILL.md # one folder per skill (Antigravity's native path)
 .agents/mcp_config.json        # when MCP entries exist
+.agents/hooks.json             # when hook entries exist
 .agents/plugins/<name>/plugin.json  # only when a per-kind dir points into a plugin
 ```
 

@@ -100,7 +100,7 @@ func detectCollisions(cfg *config.Config, b spec.Bundle, targets []string) error
 	// prompt: error with resolution hint
 	msg := "output collision: targets emit to the same path\n%s\n" +
 		"resolve by dropping one from `targets:` in agnostic-ai.yaml, " +
-		"or override the collider via `outputs.<target>.file`"
+		"or override the matching `outputs.<target>` path setting for that output"
 	if !term.IsTerminal(os.Stdin.Fd()) {
 		msg += "\nfor CI use: set `sync.collision-policy: prefer-spec` in agnostic-ai.yaml"
 	}

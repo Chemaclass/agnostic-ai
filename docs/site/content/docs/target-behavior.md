@@ -41,7 +41,7 @@ To avoid loading a rule twice, `sync` skips a rule file whose text (body and des
 
 {% <details summary="When sync keeps every rule file"> %}
 - Trae reads `AGENTS.md` only after you turn on **Include AGENTS.md in the context** under Settings > Rules.
-- Windsurf (Devin) caps a rule file at 12,000 characters and runs `AGENTS.md` through the same engine, so one file with every rule could be cut short.
+- Windsurf (Devin) keeps rule files for legacy Cascade compatibility. [Cascade](https://docs.devin.ai/desktop/cascade/memories#rules) caps each workspace rule file at 12,000 characters and processes `AGENTS.md` through the same Rules engine.
 - Kiro, when any agent spec sets `x-kiro.resources`: a Kiro custom agent loads only the files it lists.
 - A target whose `outputs.<target>.file` moves its entry point off the root `AGENTS.md`.
 - Any target, when `AGENTS.md` is under `sync.unmanaged`. Sync then stops writing `AGENTS.md`, so codex and every other reader stop getting rule changes there.
@@ -184,10 +184,9 @@ Paths marked `~/.config/` follow `XDG_CONFIG_HOME` when set, except Devin agents
 - Continue's one documented home surface is the `rules:` list in the `config.yaml` it rewrites itself.
 - Jules documents nothing at user scope.
 
-Hooks reach five targets at user scope. Claude Code, Codex, Gemini, and Qoder document the Claude-style `{"hooks": {"<Event>": [{"matcher", "hooks": [...]}]}}` shape, so one renderer serves them. Cursor keeps its own. The other seventeen are declined:
+Hooks reach six targets at user scope: Claude Code, Codex, Gemini, Qoder, Cursor, and Augment. Claude Code, Codex, Gemini, and Qoder use the Claude-style `{"hooks": {"<Event>": [{"matcher", "hooks": [...]}]}}` shape, so one renderer serves them. Cursor keeps its own. [Augment](https://docs.augmentcode.com/cli/hooks#settings-file-locations) uses the grouped shape with narrower fields, millisecond timeouts, and a required script extension. The other targets have no user-level hook output:
 
 - Factory keys `hooks.json` by event with no wrapper.
-- Augment measures `timeout` in milliseconds and requires a script extension.
 - Devin CLI keys `.devin/hooks.v1.json` as an unwrapped array of eight events, with `type` accepting `prompt` as well as `command`.
 - Antigravity nests events under a named hook object.
 - Crush supports `PreToolUse` alone.

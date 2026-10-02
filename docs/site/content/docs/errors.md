@@ -27,7 +27,7 @@ Cause:
   Neither `agnostic-ai.yaml` nor the legacy `agnostic.config.yaml` exists in the project root.
 
 Fix:
-  Run `agnostic-ai init` to scaffold a config, or `cd` into the directory that already contains one.
+  Run `agnostic-ai init` to scaffold a config, or `cd` into the directory that already contains one. Run `agnostic-ai doctor` for a full diagnosis.
 ```
 
 Pass `--json` for machine-readable output.
@@ -85,15 +85,19 @@ The config's `requires` key names the agnostic-ai releases its specs work with: 
 
 ### AAI-102: Targets emit to the same output path
 
-Two or more enabled targets would write to the same path. The last writer would win and hide drift. The usual case is the root `AGENTS.md`, shared by codex, amp, warp, cline, windsurf, junie, kiro, crush, trae, jules, goose, augment, qoder, openhands, factory, and kilo.
+Two or more enabled targets would write different content to the same path. Last-writer-wins would mask drift.
 
-**Fix:** drop one colliding target from `targets:` in `agnostic-ai.yaml`, or override the path via `outputs.<target>.file`.
+**Fix:** Drop one of the colliding targets from `targets:` in agnostic-ai.yaml, or override the matching `outputs.<target>` path setting, such as `file`, `rules-file`, or `skills-dir`.
 
-### AAI-103: Hand-authored ignore file cannot be safely overwritten
+<a id="aai-103-hand-authored-ignore-file-cannot-be-safely-overwritten"></a>
 
-A target's ignore file (`.cursorignore`, `.geminiignore`, `.aiderignore`, `.devinignore`, `.windsurfignore`, `.kiroignore`, `.trae/.ignore`, `.aiignore`) has no agnostic-ai header. `sync` cannot prove its exclusions survive, so it leaves the file untouched. Missing or reordered patterns, new negations, and changed whitespace all trigger this check.
+### AAI-103: Hand-authored ignore file would lose patterns
 
-**Fix:** run `agnostic-ai import <target>` to copy the file's patterns into an ignore spec. Keep their order and whitespace. Review any negations from other specs, then sync again. Extra exclusion patterns are allowed. See [ignore overwrite behavior](@/docs/spec-format/ignore.md#overwrite-behaviour).
+Replacing a target's ignore file without an agnostic-ai header would remove or reorder existing patterns, or add a negation. These changes can make excluded files readable, so sync refuses the overwrite.
+
+**Fix:** Run `agnostic-ai import <target>` to copy the imported file's patterns into an ignore spec. When a target reads several ignore files, combine their patterns in the spec and preserve their order before syncing. The error names a risky negation or up to five missing or reordered patterns, with a count for the rest. Deleting the file also clears the error, at the cost of those patterns.
+
+See [ignore overwrite behavior](@/docs/spec-format/ignore.md#overwrite-behaviour).
 
 ### AAI-202: Import source name unknown
 

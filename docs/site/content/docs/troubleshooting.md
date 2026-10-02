@@ -23,7 +23,7 @@ Run commands from the directory containing `agnostic-ai.yaml`.
 | `sync --check` reports drift | Run `agnostic-ai sync`, review the result, and commit outputs if the project tracks them |
 | CI fails on every fresh checkout | Match the [CI recipe](@/docs/ci.md) to whether generated outputs are committed |
 | Two targets emit to the same path | Read [AAI-102](@/docs/errors.md#aai-102-targets-emit-to-the-same-output-path) and inspect output overrides |
-| `sync` refuses to write a `.*ignore` file | Read [AAI-103](@/docs/errors.md#aai-103-hand-authored-ignore-file-cannot-be-safely-overwritten), import the patterns, and review their order and negations |
+| `sync` refuses to write a `.*ignore` file | Read [AAI-103](@/docs/errors.md#aai-103-hand-authored-ignore-file-would-lose-patterns), import the patterns, and review their order and negations |
 | A scoped rule is skipped, conflicts, or appears missing | Check [scoped-rule diagnostics](#scoped-rules) |
 | A generated skill links to a file the agent cannot open | Run `agnostic-ai doctor --check-references`; see [broken skill references](#broken-skill-references) |
 | Watch mode misses changes on a mounted filesystem | Try `agnostic-ai sync --watch --watch-poll` |

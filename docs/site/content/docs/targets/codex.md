@@ -122,7 +122,7 @@ outputs:
     config:
       model: gpt-6-luna
       sandbox: workspace
-      approval-policy: on-failure
+      approval-policy: on-request
       model-reasoning-effort: high
       model-reasoning-summary: auto
       history-persistence: project
@@ -132,8 +132,8 @@ outputs:
 |-------|------|-------|
 | `model` | string | Model identifier Codex uses for this project. |
 | `sandbox` | string | Sandbox profile (e.g. `workspace`). |
-| `approval-policy` | string | When Codex asks for approval: `never`, `on-failure`, or `always`. |
-| `model-reasoning-effort` | string | Reasoning effort for o-series models: `low`, `medium`, `high`. |
+| `approval-policy` | string | `on-request` for interactive approvals or `never` to reject approval prompts. `on-failure` is deprecated; `untrusted` is unsupported ([config reference](https://learn.chatgpt.com/docs/config-file/config-reference)). |
+| `model-reasoning-effort` | string | Passed through unchanged. Use an effort the selected model and client advertise, such as `low`, `medium`, `high`, `xhigh`, `max`, or `ultra` ([config reference](https://learn.chatgpt.com/docs/config-file/config-reference)). |
 | `model-reasoning-summary` | string | Reasoning summary verbosity: `auto`, `concise`, `detailed`. |
 | `history-persistence` | string | Conversation history scope: `project`, `global`, or `none`. |
 | `notify` | string array | Not written. Codex ignores `notify` in a project config; set it in `~/.codex/config.toml`. |
@@ -239,11 +239,13 @@ An inline policy list (even `exec-policies: []`), `exec-policies-file` (even an 
 | Single-line italic (`_text_`) immediately under a rule heading | extracted into the rule's `description` (and removed from the body) |
 | `.codex/agents/*.toml` and `.agents/agents/*.toml` | `<agents>/<name>.md`. When the agent spec already exists, as after `import claude`, the Codex `model` lands as `model: {codex: <name>}`, or as a `codex` entry in an existing per-target map, so Claude Code keeps its own default. A shared scalar `model` that differs gets `x-codex.model` |
 | `.agents/skills/<name>/SKILL.md` (+ `agents/openai.yaml`, asset folders) | `<skills>/<name>/SKILL.md` (+ nested assets, exec bits preserved) |
-| `.codex/config.toml` `[[hooks.<event>]]` | `<hooks>/<event>-<hash8>.yaml` (one spec per entry) |
+| `.codex/hooks.json` and inline hooks in `.codex/config.toml` | `<hooks>/<event>-<hash8>.yaml` (one spec per handler). Duplicate command hooks match by event, matcher, and command; the JSON definition wins. MCP tool hooks match by event, matcher, server, and tool |
 | `.codex/config.toml` `[mcp_servers.<name>]` | `<mcps>/<name>.yaml` |
 | `.codex/config.toml` remaining keys (model, sandbox, approval_policy, notify, `[history]`, `[profiles.*]`, `[model_providers.*]`, …) | `.agnostic-ai/overlays/codex.config.toml` (`hooks` + `mcp_servers` stripped). `notify`, `[profiles.*]`, `[model_providers.*]`, and the other [ignored keys](#keys-codex-ignores-in-a-project-config) stay in the overlay but are left out of `.codex/config.toml` on sync |
 | `.codex/prompts/*.md` | `<commands>/<name>.md` (byte-identical copy, so user-authored prompts round-trip) |
 | `.codex/environments/environment.toml` | `<environments>/codex.yaml`: `[setup]`, `[setup.win32]`, `[cleanup]`, and `[[actions]]` become `setup`, `setup-windows`, `cleanup`, and `dev-commands`. A file with a `[setup.darwin]` script, an action `platform`, or another key stays as written with a note |
+
+Codex [reads both hook formats](https://learn.chatgpt.com/docs/hooks#where-codex-looks-for-hooks). Sync writes `.codex/hooks.json`; import also accepts grouped inline TOML and the older flat form.
 
 Two sections with the same heading in one file get separate names (`style.md`, `style-2.md`). The walk skips hidden directories, the configured source directories, `node_modules/`, `vendor/`, directories git ignores, and directories with their own `.git` (a clone, submodule, or worktree).
 

@@ -51,6 +51,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Site
 
+- Error text, global hook coverage, target imports, and Codex options match the CLI and current vendor docs (#1628).
 - [Why agnostic-ai](https://agnostic-ai.org/docs/why-agnostic-ai/) replaces symlinks: shorter comparison of copies, one `AGENTS.md`, scripts; old URL redirects.
 
 ## v0.76.0 - 2026-10-01
