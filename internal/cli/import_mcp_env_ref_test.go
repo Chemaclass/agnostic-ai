@@ -224,14 +224,17 @@ func TestImportMCP_VariableNamesNeverCollide(t *testing.T) {
 
 func TestImportMCP_ReadsGeminiAndCrushForms(t *testing.T) {
 	specs, out := importMCPServers(t, "gemini", map[string]any{
-		"g": map[string]any{"command": "g", "env": map[string]any{"A": "%WIN_TOKEN%", "B": "prefix-$MY_KEY"}},
+		"g": map[string]any{"command": "g", "env": map[string]any{"A": "%WIN_TOKEN%", "B": "$MY_KEY", "PASS": "pa55$word"}},
 	})
-	for _, want := range []string{"A: ${WIN_TOKEN}", "B: prefix-${MY_KEY}"} {
+	for _, want := range []string{"A: ${WIN_TOKEN}", "B: ${MY_KEY}", "PASS: ${PASS}"} {
 		if !strings.Contains(specs["g"], want) {
 			t.Errorf("missing %q:\n%s", want, specs["g"])
 		}
 	}
-	if strings.Contains(out, "now reads") {
+	if strings.Contains(specs["g"], "pa55") || !strings.Contains(out, "env PASS now reads ${PASS}") {
+		t.Errorf("a `$` inside a literal is not a reference:\n%s\n%s", specs["g"], out)
+	}
+	if strings.Contains(out, "env A ") || strings.Contains(out, "env B ") {
 		t.Errorf("a value that already reads a variable is not replaced:\n%s", out)
 	}
 
@@ -243,5 +246,28 @@ func TestImportMCP_ReadsGeminiAndCrushForms(t *testing.T) {
 	}
 	if !strings.Contains(out, "(the value ran op)") || strings.Contains(out, "vault") {
 		t.Errorf("output must name the command and nothing else:\n%s", out)
+	}
+}
+
+func TestImportMCP_TextAroundAReferenceIsReplacedWhole(t *testing.T) {
+	specs, out := importMCPServers(t, "claude", map[string]any{
+		"db": map[string]any{
+			"url":     "https://db.example.com/mcp",
+			"env":     map[string]any{"DB_URL": "postgres://u:hunter2@${HOST}/db", "PAIR": "${HOST}:${PORT}"},
+			"headers": map[string]any{"Authorization": "Bearer sk-1 ${EXTRA}", "X-Ref": "Bearer ${TOKEN}"},
+		},
+	})
+	for _, secret := range []string{"hunter2", "sk-1"} {
+		if strings.Contains(specs["db"]+out, secret) {
+			t.Errorf("literal %q survived:\n%s\n%s", secret, specs["db"], out)
+		}
+	}
+	for _, want := range []string{"DB_URL: ${DB_URL}", "PAIR: ${PAIR}", "Authorization: Bearer ${DB_AUTHORIZATION}", "X-Ref: Bearer ${TOKEN}"} {
+		if !strings.Contains(specs["db"], want) {
+			t.Errorf("missing %q:\n%s", want, specs["db"])
+		}
+	}
+	if !strings.Contains(out, "env DB_URL now reads ${DB_URL}; set DB_URL") {
+		t.Errorf("no set line for the replaced value:\n%s", out)
 	}
 }

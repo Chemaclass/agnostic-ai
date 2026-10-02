@@ -94,7 +94,7 @@ func TestMCPEnvRefs_CodexForwardsNames(t *testing.T) {
 			t.Errorf("codex cannot read %s:\n%s", unwanted, out)
 		}
 	}
-	for _, want := range []string{"`env.GH_HOST`", "server gh reads ${HOST}", "`headers.X-Mixed`", "server api reads ${TEAM_ID}"} {
+	for _, want := range []string{"`env.GH_HOST`", "server gh reads ${HOST}", "`env_vars` has no way to rename one", "`headers.X-Mixed`", "server api reads ${TEAM_ID}"} {
 		if !strings.Contains(notes, want) {
 			t.Errorf("notes missing %q:\n%s", want, notes)
 		}

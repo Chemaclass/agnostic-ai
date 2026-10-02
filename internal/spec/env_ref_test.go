@@ -33,8 +33,10 @@ func TestEnvRefSyntax_ReadsOnlyTheFormsAToolExpands(t *testing.T) {
 	if got := EnvRefDollar.Read("$TOKEN", EnvRefReading{Unbraced: true}); got != "${TOKEN}" {
 		t.Errorf("unbraced read = %q", got)
 	}
-	if got := EnvRefDollar.Read("Bearer $TOKEN", EnvRefReading{Unbraced: true}); got != "Bearer ${TOKEN}" {
-		t.Errorf("embedded unbraced read = %q", got)
+	for _, literal := range []string{"Bearer $TOKEN", "pa55$word", "a%B%c"} {
+		if got := EnvRefDollar.Read(literal, EnvRefReading{Unbraced: true, Percent: true}); got != literal {
+			t.Errorf("only a whole value reads back: %q became %q", literal, got)
+		}
 	}
 	if got := EnvRefDollar.Read("%TOKEN%", EnvRefReading{Percent: true}); got != "${TOKEN}" {
 		t.Errorf("percent read = %q", got)
@@ -68,6 +70,21 @@ func TestEnvRefTokens_ClassifiesEveryToken(t *testing.T) {
 	}
 	if !HasEnvRef("${TOKEN:-dev}") || HasEnvRef("ghp_example") {
 		t.Error("HasEnvRef must accept any ${...} and reject a literal")
+	}
+}
+
+func TestOnlyEnvRefs(t *testing.T) {
+	for value, want := range map[string]bool{
+		"${A}":                         true,
+		"Bearer ${A}":                  true,
+		"${A} ${input:b}":              true,
+		"postgres://u:hunter2@${HOST}": false,
+		"Bearer sk-1 ${EXTRA}":         false,
+		"literal":                      false,
+	} {
+		if got := OnlyEnvRefs(value); got != want {
+			t.Errorf("OnlyEnvRefs(%q) = %v, want %v", value, got, want)
+		}
 	}
 }
 

@@ -31,8 +31,8 @@ var (
 	envRefDefaultPattern   = regexp.MustCompile(`^` + envRefName + `:-(.*)$`)
 	envRefDollarEnvPattern = regexp.MustCompile(`\$\{env:` + envRefName + `\}`)
 	envRefBraceEnvPattern  = regexp.MustCompile(`(^|[^$])\{env:` + envRefName + `\}`)
-	envRefUnbracedPattern  = regexp.MustCompile(`\$` + envRefName)
-	envRefPercentPattern   = regexp.MustCompile(`%` + envRefName + `%`)
+	envRefUnbracedPattern  = regexp.MustCompile(`^\$` + envRefName + `$`)
+	envRefPercentPattern   = regexp.MustCompile(`^%` + envRefName + `%$`)
 )
 
 // EnvRefToken is one `${...}` in a value.
@@ -92,6 +92,17 @@ func HasEnvRef(value string) bool {
 	return envRefTokenPattern.MatchString(value)
 }
 
+// OnlyEnvRefs reports whether value is references and nothing else,
+// ignoring whitespace and a leading `Bearer `. Any other text may be a
+// secret written around a reference, such as a password in a URL.
+func OnlyEnvRefs(value string) bool {
+	if !HasEnvRef(value) {
+		return false
+	}
+	rest := envRefTokenPattern.ReplaceAllString(strings.TrimPrefix(value, "Bearer "), "")
+	return strings.TrimSpace(rest) == ""
+}
+
 // StripEnvRefDefaults turns each `${NAME:-default}` with a non-empty
 // default into `${NAME}`, and returns the names it changed.
 func StripEnvRefDefaults(value string) (string, []string) {
@@ -131,7 +142,9 @@ func (s EnvRefSyntax) Write(value string) string {
 }
 
 // EnvRefReading lists the extra forms a tool expands besides its own
-// syntax, which import reads back.
+// syntax, which import reads back. Each is read only as a whole value,
+// the form the vendors document, so a literal such as `pa55$word` is
+// never taken for a reference.
 type EnvRefReading struct {
 	// Unbraced is `$NAME`.
 	Unbraced bool

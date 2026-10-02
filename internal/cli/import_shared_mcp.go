@@ -153,8 +153,11 @@ var mcpCommandPattern = regexp.MustCompile(`\$\(\s*([^\s)]+)`)
 
 // referenceMCPLiterals replaces every literal `env` and `headers` value
 // with a reference, and strips the default from a `${NAME:-default}`,
-// since a default is a value too. A `Bearer ` prefix stays outside the
-// reference. See mcpLiteralNames for the variable names.
+// since a default is a value too. A value with any text around its
+// references counts as a literal and is replaced whole, since that text
+// may be the secret (`postgres://u:pw@${HOST}/db`). A `Bearer ` prefix
+// stays outside the reference. See mcpLiteralNames for the variable
+// names.
 func referenceMCPLiterals(servers map[string]any) []mcpLiteralRef {
 	var refs []mcpLiteralRef
 	var literals []mcpLiteral
@@ -168,7 +171,7 @@ func referenceMCPLiterals(servers map[string]any) []mcpLiteralRef {
 				if value == "" {
 					continue
 				}
-				if spec.HasEnvRef(value) {
+				if spec.OnlyEnvRefs(value) {
 					stripped, defaulted := spec.StripEnvRefDefaults(value)
 					for _, t := range spec.EnvRefTokens(stripped) {
 						if t.Known() {

@@ -182,7 +182,7 @@ func forwardCodexMCPEnvRefs(server string, block map[string]any) {
 				}
 				continue
 			}
-			noteMCPEnvRefDropped("codex", server, "env", key, unforwardable(s), "Codex forwards a variable only whole and under its own name, as `env_vars`")
+			noteMCPEnvRefDropped("codex", server, "env", key, unforwardable(s), "Codex forwards a variable only as a whole value under its own name (`env_vars` has no way to rename one), so name the variable after the key to reach Codex")
 		}
 		setOrDelete(block, "env", kept)
 		if len(forwarded) > 0 {
