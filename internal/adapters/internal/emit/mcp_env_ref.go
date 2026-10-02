@@ -176,13 +176,18 @@ func forwardCodexMCPEnvRefs(server string, block map[string]any) {
 				kept[key] = env[key]
 				continue
 			}
-			if name, whole := spec.WholeEnvRef(s); whole && name == key {
+			name, whole := spec.WholeEnvRef(s)
+			switch {
+			case whole && name == key:
 				if !forwardsEnvVar(forwarded, name) {
 					forwarded = append(forwarded, name)
 				}
-				continue
+			case whole:
+				NoteFieldNoOp("codex", spec.KindMCP, "env."+key, 1,
+					fmt.Sprintf("server %s: `env_vars` cannot rename a variable, so sync leaves `env.%s` out of .codex/config.toml. Name the variable after the key (%s) to forward it", server, key, spec.EnvRef(key)))
+			default:
+				noteMCPEnvRefDropped("codex", server, "env", key, unforwardable(s), "Codex forwards only a whole `${NAME}`, as `env_vars`")
 			}
-			noteMCPEnvRefDropped("codex", server, "env", key, unforwardable(s), "Codex forwards a variable only as a whole value under its own name (`env_vars` has no way to rename one), so name the variable after the key to reach Codex")
 		}
 		setOrDelete(block, "env", kept)
 		if len(forwarded) > 0 {
