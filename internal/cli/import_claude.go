@@ -264,7 +264,7 @@ const (
 // mirrorMainFile copies <root>/<srcName> to
 // <root>/.agnostic-ai/AGNOSTIC_AI.md. Returns mirrorAbsent when the
 // source is absent so the caller can skip its "seeded from <src>"
-// summary line, and mirrorUnchanged when a fenced source is kept. Each importer calls this with the target's own
+// summary line, and mirrorKept when a fenced source is kept. Each importer calls this with the target's own
 // top-level instructions filename so the project keeps a CLI-agnostic
 // copy under the managed directory. Instructions it already holds stay,
 // and the source's new sections are added (see mirrorBody).
