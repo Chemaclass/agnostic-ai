@@ -491,3 +491,20 @@ func TestImportFromGemini_RemoteMCPRoundTrips(t *testing.T) {
 		t.Errorf("sync should write each server back with its transport key:\n%s", settings)
 	}
 }
+
+func TestImportFromGemini_EmptyHTTPURLKeepsURL(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [gemini]\n")
+	writeFile(t, filepath.Join(dir, ".gemini", "settings.json"),
+		`{"mcpServers":{"h":{"type":"http","httpUrl":"","url":"https://example.com/mcp","trust":true}}}`+"\n")
+
+	execCLI(t, "import", "gemini")
+	execCLI(t, "sync")
+
+	settings := readFile(t, filepath.Join(dir, ".gemini", "settings.json"))
+	if !strings.Contains(settings, "https://example.com/mcp") {
+		t.Errorf("the endpoint should survive an empty httpUrl:\n%s", settings)
+	}
+}

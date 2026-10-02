@@ -386,12 +386,14 @@ func normalizeImportedMCP(target string, servers map[string]any) {
 // normalizeGeminiTransport spells a Gemini server's transport the
 // portable way: `httpUrl` is streamable HTTP and a bare `url` is SSE.
 func normalizeGeminiTransport(server map[string]any) {
-	if url, ok := server["httpUrl"]; ok {
+	// Gemini ignores an empty httpUrl and connects through url.
+	if url, _ := server["httpUrl"].(string); url != "" {
 		delete(server, "httpUrl")
 		server["url"] = url
 		server["type"] = "http"
 		return
 	}
+	delete(server, "httpUrl")
 	if _, ok := server["url"]; ok && server["type"] == nil {
 		server["type"] = "sse"
 	}
