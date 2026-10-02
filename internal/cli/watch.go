@@ -441,6 +441,9 @@ func addWatchAnchors(w *fsnotify.Watcher, root string, watched []string) (bool, 
 	for _, p := range watched {
 		anchor, ok := watchAnchor(root, p)
 		if !ok {
+			if _, err := os.Stat(p); errors.Is(err, fs.ErrNotExist) {
+				return added, fmt.Errorf("watch %s: %w", p, errWatchLost)
+			}
 			continue
 		}
 		if _, ok := existing[anchor]; ok {
@@ -477,22 +480,33 @@ func dropWatchesUnder(w *fsnotify.Watcher, path string) {
 // watch.
 func watchAnchor(root, p string) (string, bool) {
 	dir := filepath.Dir(filepath.Clean(p))
-	if !pathWithin(root, dir) {
-		absDir, errDir := filepath.Abs(dir)
-		absRoot, errRoot := filepath.Abs(root)
-		if errDir != nil || errRoot != nil || pathWithin(absDir, absRoot) {
-			return "", false
-		}
+	absDir, errDir := filepath.Abs(dir)
+	absRoot, errRoot := filepath.Abs(root)
+	if errDir != nil || errRoot != nil || (!pathWithin(absRoot, absDir) && pathWithin(absDir, absRoot)) {
+		return "", false
 	}
 	for {
 		if info, err := os.Stat(dir); err == nil && info.IsDir() {
+			realDir, errDir := resolveImportSource(absDir)
+			realRoot, errRoot := resolveImportSource(absRoot)
+			if errDir != nil || errRoot != nil || (realDir != realRoot && pathWithin(realDir, realRoot)) {
+				return "", false
+			}
+			if realDir == realRoot {
+				if absDir != absRoot {
+					return "", false
+				}
+				return root, true
+			}
 			return dir, true
 		}
 		parent := filepath.Dir(dir)
-		if parent == dir || !pathWithin(root, parent) {
+		absParent, err := filepath.Abs(parent)
+		if err != nil || parent == dir || !pathWithin(absRoot, absParent) {
 			return "", false
 		}
 		dir = parent
+		absDir = absParent
 	}
 }
 
@@ -583,7 +597,7 @@ func watchDirs(root string, cfg *config.Config) []string {
 		cfg.Sources.Ignore,
 	} {
 		if src != "" {
-			paths = append(paths, filepath.Join(root, src))
+			paths = append(paths, config.ResolveSourcePath(root, src))
 		}
 	}
 	return append(paths,
@@ -693,11 +707,14 @@ func planWatchResync(root string, cfg *config.Config, b spec.Bundle, changed, co
 	kinds := map[spec.Kind]struct{}{}
 	affected := map[string]struct{}{}
 	for _, raw := range changed {
-		cp := filepath.Clean(raw)
+		cp, err := filepath.Abs(raw)
+		if err != nil {
+			return affectedResync{full: true, reason: "unrecognized path " + filepath.ToSlash(raw)}
+		}
 		if isFullSyncPath(root, cp) {
 			return affectedResync{full: true, reason: "config, overlay, or local instructions change"}
 		}
-		kind, ok := watchKindForPath(root, cfg, cp)
+		_, ok := watchKindForPath(root, cfg, cp)
 		if !ok {
 			return affectedResync{full: true, reason: "unrecognized path " + filepath.ToSlash(cp)}
 		}
@@ -705,6 +722,7 @@ func planWatchResync(root string, cfg *config.Config, b spec.Bundle, changed, co
 		if !ok {
 			return affectedResync{full: true, reason: "removed or renamed spec"}
 		}
+		kind := owner.Kind
 		kinds[kind] = struct{}{}
 		for _, t := range affectedTargetsForKind(kind, configured, owner) {
 			affected[t] = struct{}{}
@@ -728,6 +746,10 @@ func planWatchResync(root string, cfg *config.Config, b spec.Bundle, changed, co
 // per-target overlays, or every entry point, so a full re-sync is the
 // only correct response.
 func isFullSyncPath(root, cp string) bool {
+	root, err := filepath.Abs(root)
+	if err != nil {
+		return false
+	}
 	for _, name := range []string{
 		config.ConfigFileName,
 		config.LegacyConfigFileName,
@@ -765,7 +787,7 @@ func watchKindForPath(root string, cfg *config.Config, cp string) (spec.Kind, bo
 		if sk.src == "" {
 			continue
 		}
-		if pathWithin(filepath.Join(root, sk.src), cp) {
+		if pathWithin(config.ResolveSourcePath(root, sk.src), cp) {
 			return sk.kind, true
 		}
 	}
@@ -779,7 +801,10 @@ func watchKindForPath(root string, cfg *config.Config, cp string) (spec.Kind, bo
 // not-yet-loaded file), which the caller escalates to a full re-sync.
 func findSpecOwner(b spec.Bundle, cp string) (spec.Entry, bool) {
 	for _, e := range b.All() {
-		ep := filepath.Clean(e.Path)
+		ep, err := filepath.Abs(e.Path)
+		if err != nil {
+			continue
+		}
 		if ep == cp {
 			return e, true
 		}
@@ -826,8 +851,14 @@ func kindList(kinds map[spec.Kind]struct{}) string {
 // operands are cleaned so a relative watched root ("./.agnostic-ai/rules")
 // and an absolute event path compare on equal footing.
 func pathWithin(dir, cp string) bool {
-	dir = filepath.Clean(dir)
-	cp = filepath.Clean(cp)
+	dir, err := filepath.Abs(dir)
+	if err != nil {
+		return false
+	}
+	cp, err = filepath.Abs(cp)
+	if err != nil {
+		return false
+	}
 	if dir == cp {
 		return true
 	}

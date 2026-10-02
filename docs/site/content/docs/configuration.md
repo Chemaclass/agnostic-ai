@@ -540,7 +540,7 @@ A fresh clone or `git worktree` lacks these paths until `sync` runs. See [checko
 
 ## Path semantics
 
-- Relative `sources` and `outputs` paths start at the directory holding `agnostic-ai.yaml`. Absolute `sources` paths are used as written by both `sync` and `import`.
+- Relative `sources` and `outputs` paths start at the directory holding `agnostic-ai.yaml`. Absolute `sources` paths are used as written by `sync`, `import`, and `validate`, including watch mode.
 - Output directories are created on demand. Existing files are overwritten.
 
 ## Entry-point files

@@ -1,12 +1,38 @@
 package cli
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
+
+func TestValidate_AbsoluteSourceNotesOnlyNameMissingDirectories(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	external := t.TempDir()
+	rules := filepath.Join(external, "rules")
+	missing := filepath.Join(external, "hooks")
+	mustWriteFile(t, filepath.Join(rules, "demo.md"), "---\ndescription: demo\n---\nExternal rule.\n")
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), fmt.Sprintf(
+		"version: 1\nsources:\n  rules: %q\n  hooks: %q\ntargets: [claude]\n",
+		filepath.ToSlash(rules), filepath.ToSlash(missing)))
+
+	out, err := runCLI(t, "validate")
+	if err != nil {
+		t.Fatalf("validate failed: %v\n%s", err, out)
+	}
+	if strings.Contains(out, "note: "+filepath.ToSlash(rules)+": directory not found") {
+		t.Errorf("existing absolute source was reported missing:\n%s", out)
+	}
+	if !strings.Contains(out, "note: "+filepath.ToSlash(missing)+": directory not found (no hooks will be emitted)") {
+		t.Errorf("missing absolute source was not reported:\n%s", out)
+	}
+	if !strings.Contains(out, "loaded 1 entries.") {
+		t.Errorf("external rule was not loaded:\n%s", out)
+	}
+}
 
 // A declared source whose directory is missing is reported; a declared
 // source that exists, and an undeclared (defaulted) kind, are not.
