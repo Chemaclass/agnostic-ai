@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -24,45 +25,65 @@ func (p importPreview) overwrites() []importPreviewEntry {
 	return out
 }
 
-// syncedSpecFiles returns the spec files under project, slash-form and
-// relative to it, whose spec still matches the fingerprint the last sync
-// recorded: their native files were rendered from them, so an import
-// replacing one is the documented re-import of a native edit. A skill
-// counts with every file in its folder, since its fingerprint covers
-// them all.
-func syncedSpecFiles(project string) map[string]bool {
-	synced := map[string]bool{}
+// syncedSpecFiles maps each spec file under project, slash-form and
+// relative to it, to the targets the last sync rendered it for, when the
+// spec and the config still match the fingerprints that sync recorded.
+// An import from one of those targets replacing it is the documented
+// re-import of a native edit; any other source never received the spec.
+// A skill counts with every file in its folder, since its fingerprint
+// covers them all.
+func syncedSpecFiles(project string) map[string]map[string]bool {
+	synced := map[string]map[string]bool{}
 	sums := readStateFile(project).SpecSums
 	if len(sums) == 0 {
 		return synced
 	}
-	_, b, err := loadProject(project)
+	cfg, b, err := loadProject(project)
 	if err != nil {
 		return synced
 	}
-	add := func(path string) {
+	// A changed config, such as a target `use` just added, leaves no
+	// record of which targets the last sync wrote for.
+	if data, err := json.Marshal(cfg); err != nil || sums[configSpecKey] != sha256Hex(data) {
+		return synced
+	}
+	add := func(path, target string) {
 		if !filepath.IsAbs(path) {
 			path = filepath.Join(project, path)
 		}
-		if rel, err := filepath.Rel(project, path); err == nil {
-			synced[filepath.ToSlash(rel)] = true
+		rel, err := filepath.Rel(project, path)
+		if err != nil {
+			return
 		}
+		rel = filepath.ToSlash(rel)
+		if synced[rel] == nil {
+			synced[rel] = map[string]bool{}
+		}
+		synced[rel][target] = true
 	}
-	for _, e := range b.All() {
-		if e.Path == "" || sums[specKey(e)] != entrySum(e) {
-			continue
-		}
-		add(e.Path)
-		if dir := e.SkillAssetDir(); dir != "" {
-			_ = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
-				if err == nil && !d.IsDir() {
-					add(p)
-				}
-				return nil
-			})
+	for _, target := range cfg.Targets {
+		for _, e := range b.For(target).All() {
+			if e.Path == "" || sums[specKey(e)] != entrySum(e) {
+				continue
+			}
+			add(e.Path, target)
+			if dir := e.SkillAssetDir(); dir != "" {
+				_ = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+					if err == nil && !d.IsDir() {
+						add(p, target)
+					}
+					return nil
+				})
+			}
 		}
 	}
 	return synced
+}
+
+// renderedFor reports whether every source in sources is a target the
+// last sync rendered the spec for (see syncedSpecFiles).
+func renderedFor(targets map[string]bool, sources []string) bool {
+	return len(sources) > 0 && !slices.ContainsFunc(sources, func(s string) bool { return !targets[s] })
 }
 
 // importSpecDirs lists the spec directories of the project at root,

@@ -253,3 +253,25 @@ func TestImport_StopsWhenTheSpecChangedSinceTheLastSync(t *testing.T) {
 		t.Errorf("review skill = %q, want the edit kept", got)
 	}
 }
+
+// A synced spec is exempt only for a tool sync wrote it for: a rule
+// scoped to claude never reached cursor, so cursor's own rule of the
+// same name would replace it unseen.
+func TestImport_StopsOnASyncedSpecTheSourceNeverReceived(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
+	mine := "---\nname: style\ndescription: Mine.\ntargets: [claude]\n---\nUse tabs.\n"
+	mustWriteFile(t, ".agnostic-ai/rules/style.md", mine)
+	runSyncOK(t)
+	mustWriteFile(t, ".cursor/rules/style.mdc", "---\ndescription: Cursor style.\nalwaysApply: true\n---\nUse spaces.\n")
+
+	_, err := runCLI(t, "import", "cursor")
+
+	if err == nil || !strings.Contains(err.Error(), ".agnostic-ai/rules/style.md (from cursor)") {
+		t.Fatalf("import did not stop on a spec cursor never received: %v", err)
+	}
+	if got := readFile(t, ".agnostic-ai/rules/style.md"); got != mine {
+		t.Errorf("style rule = %q, want it untouched", got)
+	}
+}
