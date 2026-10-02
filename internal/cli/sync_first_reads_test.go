@@ -79,3 +79,17 @@ func TestUse_FirstSyncListsEveryTarget(t *testing.T) {
 		}
 	}
 }
+
+// A target sync could not load writes nothing, so the list leaves it out.
+func TestSync_FirstRunListLeavesOutATargetThatDidNotEmit(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	isolateGit(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex, acme-tool]\n")
+	log := captureLog(t)
+
+	_, _ = runCLI(t, "sync")
+
+	if !strings.Contains(log.String(), "codex now reads") || strings.Contains(log.String(), "acme-tool now reads") {
+		t.Errorf("list should name codex and not acme-tool:\n%s", log.String())
+	}
+}

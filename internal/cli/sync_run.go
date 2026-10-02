@@ -774,7 +774,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		// The first sync is where the setup pays off, so it shows what
 		// each tool now reads from the one source.
 		if len(prev.Outputs) == 0 {
-			printToolReads(logOut, cfg, b, effectiveTargets)
+			printToolReads(logOut, cfg, b, intersect(effectiveTargets, emitted))
 		}
 	}
 	return untrackErr
