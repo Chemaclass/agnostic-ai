@@ -168,18 +168,18 @@ func localSetsTargets() bool {
 }
 
 // refuseNestedProject stops `use` from starting a second project inside
-// one an enclosing directory, up to the Git root, already holds.
+// one an enclosing directory already holds, up to the Git root, or up to
+// the filesystem root outside Git.
 func refuseNestedProject() error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
 	}
-	top, err := gitRevParse(cwd, "--show-toplevel")
-	if err != nil {
-		return nil
-	}
-	top, _ = filepath.EvalSymlinks(top)
 	dir, _ := filepath.EvalSymlinks(cwd)
+	top := ""
+	if root, err := gitRevParse(cwd, "--show-toplevel"); err == nil {
+		top, _ = filepath.EvalSymlinks(root)
+	}
 	for dir != top && filepath.Dir(dir) != dir {
 		dir = filepath.Dir(dir)
 		if _, _, err := config.ResolveConfigPath(dir); err == nil {

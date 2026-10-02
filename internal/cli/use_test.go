@@ -188,6 +188,23 @@ func TestUse_RefusesToStartAProjectInsideAnother(t *testing.T) {
 	}
 }
 
+func TestUse_RefusesToStartAProjectInsideAnotherOutsideGit(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	isolateGit(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, "web/README.md", "web\n")
+	testutil.Chdir(t, "web")
+
+	_, err := runCLI(t, "use", "codex")
+
+	if err == nil || !strings.Contains(err.Error(), "inside the agnostic-ai project") {
+		t.Errorf("err = %v, want a refusal", err)
+	}
+	if _, err := os.Stat("agnostic-ai.yaml"); err == nil {
+		t.Error("use started a nested project")
+	}
+}
+
 // Tools whose adapter describes no file layout still list what they got.
 func TestUse_SummaryListsSpecsForEveryTool(t *testing.T) {
 	claudeOnlyProject(t)
