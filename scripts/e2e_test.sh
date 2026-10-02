@@ -37,14 +37,10 @@ function tear_down() {
   [[ -n "$PROJECT" ]] && rm -rf "$PROJECT"
 }
 
-# tree_digest hashes emitted output so two runs can be compared.
-#
-# .agnostic-ai/.sync-state is the one exclusion: it records which warnings have
-# already been shown, so it is expected to differ between runs. Everything else
-# including .gitignore is covered, which is what guards #580.
+# Runtime state and lock metadata change between commands.
 function tree_digest() {
   find . -path ./.git -prune -o -type f -print \
-    | grep -vE '/\.sync-state$' \
+    | grep -vE '^\./\.agnostic-ai/\.(sync-state|command-lock)$' \
     | sort | xargs shasum 2>/dev/null | shasum | cut -d' ' -f1
 }
 

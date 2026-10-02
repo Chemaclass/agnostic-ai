@@ -62,8 +62,6 @@ func TestImportAll_AgainAfterSyncLeavesSourcesUnchanged(t *testing.T) {
 	}
 }
 
-// sourceSnapshot maps every source file under dir, except the sync
-// state cache, to its content.
 func sourceSnapshot(t *testing.T, dir string) map[string]string {
 	t.Helper()
 	out := map[string]string{}
@@ -71,7 +69,7 @@ func sourceSnapshot(t *testing.T, dir string) map[string]string {
 		if err != nil {
 			return err
 		}
-		if d.IsDir() || d.Name() == ".sync-state" {
+		if d.IsDir() || d.Name() == ".sync-state" || d.Name() == ".command-lock" {
 			return nil
 		}
 		data, err := os.ReadFile(path)

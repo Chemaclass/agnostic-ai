@@ -33,6 +33,14 @@ agnostic-ai [command] [flags]
 
 Walkthroughs: [Getting started](@/docs/getting-started.md), [Migration](@/docs/migration.md). Automation: [exit codes](#exit-codes), [CI guide](@/docs/ci.md).
 
+## Concurrent commands
+
+`sync`, `import`, `use`, and `init` hold one project lock while they run. A second writer exits with the running command's name and process ID. Retry after that command finishes. `sync --watch` holds the lock until it exits.
+
+The lock file is `.agnostic-ai/.command-lock`, ignored by the managed `.gitignore` block. Writing commands refresh the fixed runtime ignores even when generated outputs are committed. It stays on disk after the command exits. The operating system releases the lock when the process exits or is killed; leave the file in place.
+
+`sync --check`, `sync --plan`, dry runs, `status`, and `list` do not take the lock. Global commands are outside the project lock. Locks coordinate processes on one machine; network file systems are outside this guarantee.
+
 ## Global flags
 
 | Flag | Description |

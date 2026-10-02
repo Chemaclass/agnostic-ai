@@ -38,6 +38,8 @@ agnostic-ai sync
 
 Edit sources under `.agnostic-ai/`, including `AGNOSTIC_AI.md` for shared project instructions, then sync again. Generated files such as `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules/` are outputs.
 
+`sync`, `import`, `use`, and `init` take a project lock. A second writer stops and names the running command; retry when it finishes. Read-only checks and previews can still run.
+
 See [Getting started](https://agnostic-ai.org/docs/getting-started/) to add your first rule, [all install options](https://agnostic-ai.org/docs/installation/) for other installers, and [Migration](https://agnostic-ai.org/docs/migration/) to review an existing setup.
 
 ## Daily commands

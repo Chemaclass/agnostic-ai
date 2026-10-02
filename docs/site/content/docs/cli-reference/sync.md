@@ -11,7 +11,7 @@ group = "Reference"
 
 ## sync
 
-Emit per-target configs.
+Emit per-target configs. A writing run takes the [project lock](@/docs/cli-reference/_index.md#concurrent-commands); `--watch` holds it until it exits.
 
 ```bash
 agnostic-ai sync --only claude,cursor
