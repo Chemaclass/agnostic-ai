@@ -322,9 +322,10 @@ func importToolConfig(cfg *config.Config, tools []string) (failed []string, err 
 	}
 	// A hand-written root AGENTS.md no source above reads, such as a
 	// Codex setup with no .codex/ folder, is folded in as `import all`
-	// does; text already held is left alone.
+	// does; text already held is left alone, and an unmanaged one stays
+	// its tool's own.
 	defer func() {
-		if err == nil {
+		if err == nil && !cfg.IsUnmanaged(claudeAgentsMainFile) {
 			_, err = foldRootAgentsMainFile(".")
 		}
 	}()

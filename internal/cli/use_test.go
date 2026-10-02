@@ -246,6 +246,21 @@ func TestUse_AgainKeepsSpecEdits(t *testing.T) {
 	}
 }
 
+func TestUse_LeavesAnUnmanagedAgentsMdOutOfSharedInstructions(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	isolateGit(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsync:\n  unmanaged: [AGENTS.md]\n")
+	mustWriteFile(t, "AGENTS.md", "# Mine\n\nSecret codex note.\n")
+
+	if out, err := runCLI(t, "use", "gemini"); err != nil {
+		t.Fatalf("use gemini: %v\n%s", err, out)
+	}
+
+	if data, _ := os.ReadFile(".agnostic-ai/AGNOSTIC_AI.md"); strings.Contains(string(data), "Secret codex note.") {
+		t.Errorf("use folded the unmanaged AGENTS.md into shared instructions:\n%s", data)
+	}
+}
+
 // A tool with its own config and an unmanaged instructions file can be
 // neither imported nor skipped safely, so use stops before writing.
 func TestUse_RefusesAToolWhoseInstructionsAreUnmanaged(t *testing.T) {
