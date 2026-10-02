@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -109,6 +110,14 @@ func useTools(cmd *cobra.Command, tools []string) ([]string, error) {
 			added = append(added, t)
 		}
 	}
+	// Tools an interrupted run added before importing them count as new.
+	pending := readStateFile(".").PendingImports
+	importing := slices.Clone(added)
+	for _, t := range pending {
+		if slices.Contains(cfg.Targets, t) && !slices.Contains(importing, t) {
+			importing = append(importing, t)
+		}
+	}
 	if len(added) > 0 {
 		// The local file's targets win over the committed list, so a
 		// tool added to the committed list would never sync.
@@ -116,6 +125,9 @@ func useTools(cmd *cobra.Command, tools []string) ([]string, error) {
 			return nil, fmt.Errorf("%s sets targets, which win over %s; add %s there", config.LocalOverrideFileName, filepath.Base(path), strings.Join(added, ", "))
 		}
 		if err := refuseUnmanagedImport(cfg, added); err != nil {
+			return nil, err
+		}
+		if err := setPendingImports(importing); err != nil {
 			return nil, err
 		}
 		if err := config.PersistTargets(".", append(slices.Clone(cfg.Targets), added...)); err != nil {
@@ -132,12 +144,19 @@ func useTools(cmd *cobra.Command, tools []string) ([]string, error) {
 	// is imported too.
 	var sources []string
 	for _, t := range cfg.Targets {
-		if slices.Contains(added, t) && hasOwnConfig(cfg, t) || uncapturedInstructions(cfg, t) {
+		if slices.Contains(importing, t) && hasOwnConfig(cfg, t) || uncapturedInstructions(cfg, t) {
 			sources = append(sources, t)
 		}
 	}
-	if failed, err := importToolConfig(cfg, sources); err != nil {
-		return nil, leaveOut(cfg, intersect(failed, added), err)
+	failed, err := importToolConfig(cfg, sources)
+	if err != nil {
+		err = leaveOut(cfg, intersect(failed, importing), err)
+	}
+	if perr := setPendingImports(nil); perr != nil {
+		return nil, errors.Join(err, perr)
+	}
+	if err != nil {
+		return nil, err
 	}
 	return added, nil
 }
@@ -227,6 +246,9 @@ func startProject(cmd *cobra.Command, tools []string) error {
 	if err != nil {
 		return err
 	}
+	if err := setPendingImports(targets); err != nil {
+		return err
+	}
 	if err := scaffoldSilently(scaffoldOptions{
 		Root:             ".",
 		Targets:          targets,
@@ -249,8 +271,15 @@ func startProject(cmd *cobra.Command, tools []string) error {
 			sources = append(sources, t)
 		}
 	}
-	if failed, err := importToolConfig(cfg, sources); err != nil {
-		return leaveOut(cfg, failed, err)
+	failed, err := importToolConfig(cfg, sources)
+	if err != nil {
+		err = leaveOut(cfg, failed, err)
+	}
+	if perr := setPendingImports(nil); perr != nil {
+		return errors.Join(err, perr)
+	}
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -428,4 +457,33 @@ func entryNames(entries []spec.Entry) string {
 		names = append(names, e.Name)
 	}
 	return strings.Join(names, ", ")
+}
+
+// stopOnPendingImports stops a sync while `use` has tools in targets
+// whose own config it has not imported yet.
+func stopOnPendingImports(root string) error {
+	if pending := readStateFile(root).PendingImports; len(pending) > 0 {
+		return fmt.Errorf("agnostic-ai use stopped before importing the config of %s; run agnostic-ai use %s before syncing",
+			strings.Join(pending, ", "), strings.Join(pending, " "))
+	}
+	return nil
+}
+
+// setPendingImports records the tools whose import has not finished in
+// the state file, which keeps every other field.
+func setPendingImports(tools []string) error {
+	p := stateFilePath(".")
+	state := readStateFile(".")
+	if slices.Equal(state.PendingImports, tools) {
+		return nil
+	}
+	state.PendingImports = tools
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		return err
+	}
+	data, err := json.Marshal(state)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(p, data, 0o644)
 }

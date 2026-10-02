@@ -2,6 +2,7 @@ package cli
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -258,6 +259,34 @@ func TestUse_LeavesAnUnmanagedAgentsMdOutOfSharedInstructions(t *testing.T) {
 
 	if data, _ := os.ReadFile(".agnostic-ai/AGNOSTIC_AI.md"); strings.Contains(string(data), "Secret codex note.") {
 		t.Errorf("use folded the unmanaged AGENTS.md into shared instructions:\n%s", data)
+	}
+}
+
+// A run stopped between adding claude and importing it leaves claude
+// pending: sync waits, and the next use imports it.
+func TestUse_FinishesAnImportAnInterruptedRunLeft(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	isolateGit(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex, claude]\n")
+	mustWriteFile(t, ".agnostic-ai/.sync-state", `{"pending_imports":["claude"]}`)
+	mustWriteFile(t, ".mcp.json", `{"mcpServers":{"srv":{"command":"srv"}}}`+"\n")
+	mustWriteFile(t, ".claude/settings.json", "{}\n")
+
+	if _, err := runCLI(t, "sync"); err == nil || !strings.Contains(err.Error(), "run agnostic-ai use claude before syncing") {
+		t.Fatalf("sync err = %v, want it to wait for the pending import", err)
+	}
+	if out, err := runCLI(t, "use", "codex"); err != nil {
+		t.Fatalf("use codex: %v\n%s", err, out)
+	}
+
+	if got := readFile(t, ".mcp.json"); !strings.Contains(got, "srv") {
+		t.Errorf(".mcp.json lost its server:\n%s", got)
+	}
+	if m, _ := filepath.Glob(".agnostic-ai/mcps/srv*"); len(m) == 0 {
+		t.Error("use did not import the pending claude MCP server")
+	}
+	if got := readStateFile(".").PendingImports; len(got) != 0 {
+		t.Errorf("pending imports = %v, want none", got)
 	}
 }
 

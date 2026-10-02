@@ -20,6 +20,7 @@ agnostic-ai use claude codex cursor    # a team on several tools
 
 - In a project with no `agnostic-ai.yaml`, it creates one that enables the tools it detects plus the ones you name. It imports their instructions, skills, agents, hooks, and MCP servers into `.agnostic-ai/`, and asks about the `.gitignore` block as `init` does.
 - In an existing project, it adds each named tool to `targets` and first imports that tool's own config, such as a hand-written `AGENTS.md`, so the sync keeps it. A tool whose instructions file is in `sync.unmanaged` stops `use`, since importing it would copy that file to every tool; import it by hand instead.
+- If an import fails, `use` leaves that tool out of `targets` and names the command to retry. If `use` is interrupted before its imports finish, `sync` stops until `use` runs again.
 
 It then syncs and shows what each added tool now reads:
 
