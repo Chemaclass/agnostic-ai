@@ -140,10 +140,12 @@ Neither has a config-file key.
 
 - `agnostic-ai.yaml` and `agnostic-ai.local.yaml`
 - `.agnostic-ai/AGNOSTIC_AI.md`
-- every `sources.*` directory
+- every `sources.*` directory, including absolute paths outside the project
 - `.agnostic-ai/local/` and `.agnostic-ai/overlays/`
 
 It uses fsnotify with a 50 ms debounce, polls every 200 ms where fsnotify fails, and exits on Ctrl+C. A spec change re-syncs only the targets that emit that kind. Config and overlay edits, deletes, and renames re-sync everything.
+
+Watch mode also polls when a missing external source has no safe parent to watch. It never adds a watch on a parent that contains the project.
 
 ### Parallel emission {#parallel-emission}
 
@@ -168,4 +170,3 @@ It uses fsnotify with a 50 ms debounce, polls every 200 ms where fsnotify fails,
 `writes` and `skipped` entries have `target`, `path`, `action` (strings), and `bytes` (number), for example `{"target": "claude", "path": "CLAUDE.md", "action": "create", "bytes": 1284}`.
 
 `--plan --json` and `--dry-run --json` write nothing and exit 0. Each leftover they would remove is `"delete"` in `writes`. Kept files are `"orphan"` or `"leftover"` in `skipped`. `--dry-run --json` also lists every unchanged output as `"skip"`. Count `writes` by `target` for the per-target numbers `--plan` prints.
-

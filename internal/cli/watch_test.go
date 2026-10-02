@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -128,6 +129,29 @@ func TestWatchSync_ReEmitsOnChange(t *testing.T) {
 	cancel()
 	if err := <-done; err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestWatchSync_PreservesOrdinarySyncBytes(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	if err := runSyncOnce(".", []string{"codex"}, false, false, "off", 1); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "AGENTS.md")
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, stop := startWatch(t, []string{"codex"}, false)
+	defer stop()
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Errorf("watch initial sync changed ordinary sync bytes:\nbefore:\n%s\nafter:\n%s", before, after)
 	}
 }
 
@@ -403,6 +427,63 @@ func TestPlanWatchResync_RuleHitsEveryRuleEmitter(t *testing.T) {
 	}
 	if !slices.Equal(plan.targets, configured) {
 		t.Errorf("rule edit targets = %v, want %v (every rule-emitting target)", plan.targets, configured)
+	}
+}
+
+func TestPlanWatchResync_AbsoluteSourceChangesStayIncremental(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	external := t.TempDir()
+	rules := filepath.Join(external, "rules")
+	skills := filepath.Join(external, "skills")
+	rule := filepath.Join(rules, "demo.md")
+	skill := filepath.Join(skills, "demo", "SKILL.md")
+	asset := filepath.Join(skills, "demo", "references", "guide.txt")
+	writeTestFile(t, rule, "---\nname: demo\ntarget: claude\n---\nExternal rule.\n")
+	writeTestFile(t, skill, "---\nname: demo\ndescription: demo\ntarget: codex\n---\nExternal skill.\n")
+	writeTestFile(t, asset, "External asset.\n")
+	writeTestFile(t, config.ConfigFileName, fmt.Sprintf(
+		"version: 1\nsources:\n  rules: %q\n  skills: %q\ntargets: [claude, codex]\n",
+		filepath.ToSlash(rules), filepath.ToSlash(skills)))
+	cfg, b, err := loadProject(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range []struct {
+		path, kind, target string
+	}{
+		{rule, "rule", "claude"},
+		{skill, "skill", "codex"},
+		{asset, "skill", "codex"},
+	} {
+		t.Run(tc.kind+"/"+filepath.Base(tc.path), func(t *testing.T) {
+			plan := planWatchResync(dir, cfg, b, []string{tc.path}, cfg.Targets)
+			if plan.full {
+				t.Errorf("absolute source change forced a full re-sync: %+v", plan)
+			}
+			if plan.reason != tc.kind || !slices.Equal(plan.targets, []string{tc.target}) {
+				t.Errorf("plan = %+v, want %s change for [%s]", plan, tc.kind, tc.target)
+			}
+		})
+	}
+}
+
+func TestPlanWatchResync_OverlappingAbsoluteSourcesUseLoadedKind(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	external := t.TempDir()
+	hooks := filepath.Join(external, "hooks")
+	hook := filepath.Join(hooks, "gate.yaml")
+	writeTestFile(t, hook, "name: gate\nevent: PreToolUse\ncommand: echo guard\n")
+	writeTestFile(t, config.ConfigFileName, fmt.Sprintf(
+		"version: 1\nsources:\n  agents: %q\n  hooks: %q\ntargets: [crush]\n",
+		filepath.ToSlash(external), filepath.ToSlash(hooks)))
+	cfg, b, err := loadProject(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan := planWatchResync(dir, cfg, b, []string{hook}, cfg.Targets)
+	if plan.full || plan.reason != "hook" || !slices.Equal(plan.targets, []string{"crush"}) {
+		t.Errorf("plan = %+v, want incremental hook change for [crush]", plan)
 	}
 }
 
@@ -858,6 +939,10 @@ func TestIsWatchNoise_KeepsDirectoryLeadingToMissingInput(t *testing.T) {
 func TestWatchAnchor_StopsAtNearestExistingDirInsideRoot(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
+	absDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := os.MkdirAll(filepath.Join("a", "b"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -866,6 +951,7 @@ func TestWatchAnchor_StopsAtNearestExistingDirInsideRoot(t *testing.T) {
 		ok         bool
 	}{
 		{filepath.Join("a", "b", "c", "d"), filepath.Join("a", "b"), true},
+		{filepath.Join(absDir, "a", "b", "c", "d"), filepath.Join(absDir, "a", "b"), true},
 		{filepath.Join("x", "y", "z"), ".", true},
 		{"agnostic-ai.yaml", ".", true},
 		{filepath.Join("..", "missing-sibling", "rules"), "", false},
@@ -1098,6 +1184,104 @@ func TestWatchSync_PicksUpNestedSourceDirCreatedMidSession(t *testing.T) {
 
 func TestWatchSync_PollPicksUpNestedSourceDirCreatedMidSession(t *testing.T) {
 	assertWatchPicksUpNestedSourceDir(t, true)
+}
+
+func assertWatchReEmitsAbsoluteSources(t *testing.T, forcePoll bool) {
+	t.Helper()
+	dir := testutil.TempCwd(t)
+	silence(t)
+	external := t.TempDir()
+	rules := filepath.Join(external, "rules")
+	skills := filepath.Join(external, "skills")
+	rule := filepath.Join(rules, "demo.md")
+	asset := filepath.Join(skills, "demo", "references", "guide.txt")
+	writeTestFile(t, rule, "---\nname: demo\n---\nInitial external rule.\n")
+	writeTestFile(t, filepath.Join(skills, "demo", "SKILL.md"),
+		"---\nname: demo\ndescription: demo\n---\nExternal skill.\n")
+	writeTestFile(t, asset, "Initial external asset.\n")
+	writeTestFile(t, config.ConfigFileName, fmt.Sprintf(
+		"version: 1\nsources:\n  rules: %q\n  skills: %q\ntargets: [claude]\n",
+		filepath.ToSlash(rules), filepath.ToSlash(skills)))
+	t.Run("rule", func(t *testing.T) {
+		buf, stop := startWatch(t, nil, forcePoll)
+		defer stop()
+		if !forcePoll && !strings.Contains(buf.String(), "fsnotify") {
+			t.Fatalf("fsnotify test fell back to polling:\n%s", buf.String())
+		}
+		writeAndBumpMtime(t, rule, []byte("---\nname: demo\n---\nUpdated external rule.\n"))
+		waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "demo.md"), "Updated external rule.", 5*time.Second)
+		waitForOutput(t, buf, "rule change · re-syncing 1 target: claude", 5*time.Second)
+	})
+	t.Run("skill asset", func(t *testing.T) {
+		buf, stop := startWatch(t, nil, forcePoll)
+		defer stop()
+		if !forcePoll && !strings.Contains(buf.String(), "fsnotify") {
+			t.Fatalf("fsnotify test fell back to polling:\n%s", buf.String())
+		}
+		writeAndBumpMtime(t, asset, []byte("Updated external asset.\n"))
+		waitForFileContaining(t, filepath.Join(dir, ".claude", "skills", "demo", "references", "guide.txt"), "Updated external asset.", 5*time.Second)
+		waitForOutput(t, buf, "skill change · re-syncing 1 target: claude", 5*time.Second)
+	})
+}
+
+func TestWatchSync_ReEmitsAbsoluteSources(t *testing.T) {
+	assertWatchReEmitsAbsoluteSources(t, false)
+}
+
+func TestWatchSync_PollReEmitsAbsoluteSources(t *testing.T) {
+	assertWatchReEmitsAbsoluteSources(t, true)
+}
+
+func TestWatchSync_WatchesMissingAbsoluteSourceWithinProject(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	absDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	rules := filepath.Join(absDir, "specs", "team", "rules")
+	writeTestFile(t, config.ConfigFileName, fmt.Sprintf("version: 1\nsources:\n  rules: %q\ntargets: [claude]\n", filepath.ToSlash(rules)))
+	buf, stop := startWatch(t, nil, false)
+	defer stop()
+	if !strings.Contains(buf.String(), "fsnotify") {
+		t.Fatalf("fsnotify test fell back to polling:\n%s", buf.String())
+	}
+	writeTestFile(t, filepath.Join(rules, "late.md"), "---\nname: late\n---\nLate absolute rule.\n")
+	waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "late.md"), "Late absolute rule.", 5*time.Second)
+}
+
+func TestWatchSync_PollsMissingAbsoluteSourceWithoutSafeAnchor(t *testing.T) {
+	workspace := t.TempDir()
+	dir := filepath.Join(workspace, "project")
+	rules := filepath.Join(workspace, "shared")
+	writeTestFile(t, filepath.Join(dir, config.ConfigFileName), fmt.Sprintf("version: 1\nsources:\n  rules: %q\ntargets: [claude]\n", filepath.ToSlash(rules)))
+	testutil.Chdir(t, dir)
+	silence(t)
+	buf, stop := startWatch(t, nil, false)
+	defer stop()
+	if !strings.Contains(buf.String(), "(poll)") {
+		t.Fatalf("missing source without a safe anchor must use polling:\n%s", buf.String())
+	}
+	writeTestFile(t, filepath.Join(rules, "late.md"), "---\nname: late\n---\nLate external rule.\n")
+	waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "late.md"), "Late external rule.", 5*time.Second)
+}
+
+func TestWatchSync_PollsMissingAbsoluteSourceUnderProjectAlias(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	alias := filepath.Join(t.TempDir(), "alias")
+	if err := createImportSourceAlias(dir, alias); err != nil {
+		t.Fatal(err)
+	}
+	rules := filepath.Join(alias, "rules")
+	writeTestFile(t, config.ConfigFileName, fmt.Sprintf("version: 1\nsources:\n  rules: %q\ntargets: [claude]\n", filepath.ToSlash(rules)))
+	buf, stop := startWatch(t, nil, false)
+	defer stop()
+	if !strings.Contains(buf.String(), "(poll)") {
+		t.Fatalf("missing aliased source must use polling:\n%s", buf.String())
+	}
+	writeTestFile(t, filepath.Join(rules, "late.md"), "---\nname: late\n---\nLate aliased rule.\n")
+	waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "late.md"), "Late aliased rule.", 5*time.Second)
 }
 
 // Watching the project root to see new inputs appear must not turn the

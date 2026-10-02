@@ -9,16 +9,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
-// missingSourceNotes lists each `sources.<kind>` path explicitly
-// declared in agnostic-ai.yaml that does not resolve to an existing
-// directory under root. Only declared paths count: defaults that
-// config.Load fills in are conventions, not a coverage claim, so a
-// minimal project (just rules/) is never nagged about the kinds it never
-// asked for.
-//
-// A missing source loads as empty. These are notes, not issues: they
-// name the path so a typo stays visible (#444), but a fresh clone lacks
-// every empty source directory, since Git tracks files only (#1491).
+// Only declared paths count; a fresh clone omits empty source directories.
 func missingSourceNotes(root string) []validationIssue {
 	data, ok := readConfigFile(root)
 	if !ok {
@@ -47,7 +38,7 @@ func missingSourceNotes(root string) []validationIssue {
 		if d.path == "" {
 			continue
 		}
-		info, err := os.Stat(filepath.Join(root, filepath.FromSlash(d.path)))
+		info, err := os.Stat(config.ResolveSourcePath(root, filepath.FromSlash(d.path)))
 		if err == nil && info.IsDir() {
 			continue
 		}

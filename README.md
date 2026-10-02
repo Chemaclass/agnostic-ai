@@ -42,7 +42,7 @@ Edit sources under `.agnostic-ai/`, including `AGNOSTIC_AI.md` for shared projec
 
 See [Getting started](https://agnostic-ai.org/docs/getting-started/) to add your first rule, [all install options](https://agnostic-ai.org/docs/installation/) for other installers, and [Migration](https://agnostic-ai.org/docs/migration/) to review an existing setup.
 
-`import` and `sync` use the same `sources` paths, including absolute directories. `import --dry-run` previews those destinations without writing them.
+`import`, `sync`, and `validate` use the same `sources` paths, including absolute directories. Watch mode follows external source edits too. `import --dry-run` previews those destinations without writing them.
 
 ## Daily commands
 
