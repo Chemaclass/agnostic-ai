@@ -12,6 +12,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - Linked source roots load specs and assets; both watch modes follow nested edits (#1644, #1651).
 - `list`, `status`, `doctor`, `validate`, `lint` and `sync --check` print results on stdout, so pipes see them; diagnostics stay on stderr (#1607).
 - `sync --check`, `--diff`, `--format github` and `status` show a file several targets share once, naming the targets (#1608).
+- `explain LINT011` and every other lint code print the cause, fix, severity and config key; `lint` points at it (#1648).
 
 ### By tool
 

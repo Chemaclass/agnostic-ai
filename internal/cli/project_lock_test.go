@@ -220,7 +220,15 @@ func TestProjectLock_WatchHoldsLockUntilKilled(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = proc.Wait()
-	lock, err = acquireProjectLock(dir, "import")
+	// A git child forked by the watch's sync shares the locked file until it execs.
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		lock, err = acquireProjectLock(dir, "import")
+		if err == nil || !strings.Contains(err.Error(), "project is locked") || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
 	if err != nil {
 		t.Fatalf("acquire after watch died: %v", err)
 	}

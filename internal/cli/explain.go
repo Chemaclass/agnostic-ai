@@ -56,13 +56,13 @@ func newExplainCmd() *cobra.Command {
 		inputs  bool
 	)
 	cmd := &cobra.Command{
-		Use:   "explain <spec | AAI-NNN> | --file <path> --target cursor",
+		Use:   "explain <spec | AAI-NNN | LINTNNN> | --file <path> --target cursor",
 		Short: "List every output file and section a spec contributes to, describe an error code, or show the instructions configured for a source file.",
 		Long: "Reverse provenance: takes one spec and shows where it lands in " +
 			"each target's emission. Pairs with the `<!-- source: ... -->` " +
 			"forward markers adapters write into merged documents.\n\n" +
-			"When the argument matches an `AAI-NNN` error code, prints the " +
-			"code's title, cause, and suggested fix instead.\n\n" +
+			"When the argument matches an `AAI-NNN` error code or a `LINTNNN` " +
+			"lint code, prints the code's title, cause, and suggested fix instead.\n\n" +
 			"With --file and --target, starts from a project file instead: lists " +
 			"each configured instruction the target would read, its canonical " +
 			"source, output path, selector, and why it matches or not. This is " +
@@ -79,6 +79,9 @@ func newExplainCmd() *cobra.Command {
 
   # Look up an error code
   agnostic-ai explain AAI-001
+
+  # Look up a lint code
+  agnostic-ai explain LINT011
 
   # Which Cursor instructions are configured for a source file
   agnostic-ai explain --file services/payments/handler.go --target cursor
@@ -104,6 +107,9 @@ func newExplainCmd() *cobra.Command {
 			}
 			if errs.IsCode(args[0]) {
 				return runExplainCode(cmd, errs.Code(args[0]), jsonOut)
+			}
+			if isLintCode(args[0]) {
+				return runExplainLintCode(cmd, args[0], jsonOut)
 			}
 			if global {
 				return runExplainGlobal(cmd, args[0], jsonOut)

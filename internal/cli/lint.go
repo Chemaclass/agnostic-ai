@@ -110,6 +110,7 @@ func newLintCmd() *cobra.Command {
 			}
 			cmd.Printf("\n%d finding(s): %d error(s), %d warning(s)\n",
 				len(findings), countSeverity(findings, lintError), countSeverity(findings, lintWarn))
+			cmd.Printf("Run `agnostic-ai explain %s` for a code's cause and fix.\n", findings[0].Code)
 
 			if hasError || (strict && hasWarn) {
 				return fmt.Errorf("lint failed")
