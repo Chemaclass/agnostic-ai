@@ -392,6 +392,40 @@ func TestInitCmd_NonTTY_NoPromptDefaultsEnabled(t *testing.T) {
 	}
 }
 
+func TestInitCmd_NonTTY_SaysWhichGitignoreChoiceItTook(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+
+	var stderr strings.Builder
+	root := NewRootCmd("test")
+	root.SetIn(strings.NewReader("claude\n"))
+	root.SetErr(&stderr)
+	root.SetArgs([]string{"init"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(stderr.String(), "git-ignored, so each clone needs agnostic-ai sync (pass --gitignore=off") {
+		t.Errorf("init without a terminal must say it ignored generated files and how to commit them:\n%s", stderr.String())
+	}
+}
+
+func TestInitCmd_ExplicitGitignoreSaysNothing(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+
+	var stderr strings.Builder
+	root := NewRootCmd("test")
+	root.SetIn(strings.NewReader("claude\n"))
+	root.SetErr(&stderr)
+	root.SetArgs([]string{"init", "--gitignore=off"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Contains(stderr.String(), "git-ignored") {
+		t.Errorf("an explicit --gitignore needs no note:\n%s", stderr.String())
+	}
+}
+
 func TestInitCmd_GitignoreOptOut(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)

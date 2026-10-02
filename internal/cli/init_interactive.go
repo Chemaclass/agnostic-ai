@@ -149,33 +149,31 @@ func runInteractivePrompt(stderr io.Writer, preselected []string) ([]string, err
 	return filterToCanonicalOrder(pickedSet), nil
 }
 
-// promptGitignoreEnable asks the user whether to enable
-// gitignore.enabled in the rendered config. Only TTY stdin runs the
-// confirm widget; piped or closed stdin falls back to true so first-time
-// and CI inits ignore generated outputs without a prompt (pass
-// --gitignore=false to commit them instead).
-//
-// Defaults to true: the source specs under .agnostic-ai/ are the one
-// committed copy, and treating the emitted target files (CLAUDE.md,
-// AGENTS.md, .cursor/, ...) as build artifacts keeps them out of git
-// and review noise. Flip off if teammates lack the CLI and need the
-// generated conventions committed.
+// promptGitignoreEnable asks whether sync should git-ignore the files it
+// generates, naming what each answer costs a teammate who clones the
+// repository. Without a terminal it returns the default, true.
 func promptGitignoreEnable(in io.Reader) (bool, error) {
-	f, ok := in.(*os.File)
-	if !ok || !term.IsTerminal(f.Fd()) {
+	if !stdinIsTerminal(in) {
 		return true, nil
 	}
 	picked := true
 	form := huh.NewConfirm().
-		Title("Ignore generated target files in .gitignore?").
-		Description("`sync` will keep a managed block of every emitted target path. On by default; flip off if your team commits emitted files so teammates without the CLI still see the conventions.").
-		Affirmative("Yes, ignore them").
-		Negative("No, commit them").
+		Title("Ignore generated files (CLAUDE.md, AGENTS.md, ...) in .gitignore?").
+		Description("Ignore: Git holds only .agnostic-ai/, and every teammate runs agnostic-ai sync after cloning.\n" +
+			"Commit: a clone works without the tool; add agnostic-ai sync --check to CI to keep them current.").
+		Affirmative("Ignore them").
+		Negative("Commit them").
 		Value(&picked)
 	if err := form.Run(); err != nil {
 		return false, err
 	}
 	return picked, nil
+}
+
+// stdinIsTerminal reports whether in is a terminal a prompt can read.
+func stdinIsTerminal(in io.Reader) bool {
+	f, ok := in.(*os.File)
+	return ok && term.IsTerminal(f.Fd())
 }
 
 // targetMarkers maps each canonical target to filesystem paths that
