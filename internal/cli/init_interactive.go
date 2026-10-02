@@ -115,15 +115,30 @@ func filterToCanonicalOrder(picked map[string]bool) []string {
 	return out
 }
 
-// runInteractivePrompt drives the huh multi-select. It is glue around
-// the third-party widget; behavior is verified manually rather than
-// in unit tests. preselected names are pre-ticked on entry.
-func runInteractivePrompt(stderr io.Writer, preselected []string) ([]string, error) {
+// pickerKeyHint names the keys the target picker reads, so Enter on a
+// fresh picker is not a guess.
+const pickerKeyHint = "space to toggle, enter to confirm"
+
+// newTargetPicker builds the target multi-select with the known names in
+// picked pre-ticked. Options must be set before Value: huh ticks the
+// options that match the bound value only when Value runs.
+func newTargetPicker(picked *[]string) *huh.MultiSelect[string] {
 	opts := make([]huh.Option[string], len(allTargets))
 	for i, t := range allTargets {
 		label := fmt.Sprintf("%-9s %s", t.Name, t.Desc)
 		opts[i] = huh.NewOption(label, t.Name)
 	}
+	return huh.NewMultiSelect[string]().
+		Title("Select targets to enable").
+		Description(pickerKeyHint).
+		Options(opts...).
+		Value(picked)
+}
+
+// runInteractivePrompt drives the huh multi-select. It is glue around
+// the third-party widget; behavior is verified manually rather than
+// in unit tests. preselected names are pre-ticked on entry.
+func runInteractivePrompt(stderr io.Writer, preselected []string) ([]string, error) {
 	picked := make([]string, 0, len(preselected))
 	known := map[string]bool{}
 	for _, n := range preselected {
@@ -132,11 +147,7 @@ func runInteractivePrompt(stderr io.Writer, preselected []string) ([]string, err
 			picked = append(picked, n)
 		}
 	}
-	form := huh.NewMultiSelect[string]().
-		Title("Select targets to enable").
-		Options(opts...).
-		Value(&picked)
-	if err := form.Run(); err != nil {
+	if err := newTargetPicker(&picked).Run(); err != nil {
 		return nil, err
 	}
 	if len(picked) == 0 {

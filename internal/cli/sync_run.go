@@ -1422,7 +1422,7 @@ func reconcileHint(reports []driftReport) string {
 func printDriftGitHub(cmd *cobra.Command, reports []driftReport) bool {
 	out := cmd.OutOrStdout()
 	drift := false
-	for _, r := range reports {
+	for _, r := range foldSharedDrift(reports) {
 		missing, stale := "run agnostic-ai sync to generate it", "run agnostic-ai sync to reconcile"
 		if r.against != "" {
 			where, step := againstPlace(r.against)
@@ -1433,18 +1433,18 @@ func printDriftGitHub(cmd *cobra.Command, reports []driftReport) bool {
 		}
 		for _, f := range r.Missing {
 			drift = true
-			_, _ = fmt.Fprintf(out, "::error file=%s::%s %s\n",
-				githubProp(f.Path), githubData(filepath.ToSlash(f.Path)), missing)
+			_, _ = fmt.Fprintf(out, "::error file=%s::%s %s%s\n",
+				githubProp(f.Path), githubData(filepath.ToSlash(f.Path)), missing, githubData(r.sharedNote(f.Path)))
 		}
 		for _, f := range r.Stale {
 			drift = true
-			_, _ = fmt.Fprintf(out, "::error file=%s,line=%d::%s %s\n",
-				githubProp(f.Path), firstChangedLine(f.Path, f.Content), githubData(filepath.ToSlash(f.Path)), stale)
+			_, _ = fmt.Fprintf(out, "::error file=%s,line=%d::%s %s%s\n",
+				githubProp(f.Path), firstChangedLine(f.Path, f.Content), githubData(filepath.ToSlash(f.Path)), stale, githubData(r.sharedNote(f.Path)))
 		}
 		for _, f := range r.Edited {
 			drift = true
-			_, _ = fmt.Fprintf(out, "::error file=%s,line=%d::%s was edited since the last sync; move the edit into .agnostic-ai/, then run agnostic-ai sync\n",
-				githubProp(f.Path), firstChangedLine(f.Path, f.Content), githubData(filepath.ToSlash(f.Path)))
+			_, _ = fmt.Fprintf(out, "::error file=%s,line=%d::%s was edited since the last sync; move the edit into .agnostic-ai/, then run agnostic-ai sync%s\n",
+				githubProp(f.Path), firstChangedLine(f.Path, f.Content), githubData(filepath.ToSlash(f.Path)), githubData(r.sharedNote(f.Path)))
 		}
 		orphanHint := "is no longer generated and its ownership could not be proven; run agnostic-ai doctor --fix to choose removal, or list it under sync.unmanaged"
 		if r.Unledgered {
@@ -1452,12 +1452,12 @@ func printDriftGitHub(cmd *cobra.Command, reports []driftReport) bool {
 		}
 		for _, p := range r.Orphaned {
 			drift = true
-			_, _ = fmt.Fprintf(out, "::error file=%s::%s %s\n", githubProp(p), githubData(filepath.ToSlash(p)), orphanHint)
+			_, _ = fmt.Fprintf(out, "::error file=%s::%s %s%s\n", githubProp(p), githubData(filepath.ToSlash(p)), orphanHint, githubData(r.sharedNote(p)))
 		}
 		for _, p := range r.Leftover {
 			drift = true
-			_, _ = fmt.Fprintf(out, "::error file=%s::%s is no longer generated but still loaded; run agnostic-ai %s to remove it\n",
-				githubProp(p), githubData(filepath.ToSlash(p)), r.leftoverFix())
+			_, _ = fmt.Fprintf(out, "::error file=%s::%s is no longer generated but still loaded; run agnostic-ai %s to remove it%s\n",
+				githubProp(p), githubData(filepath.ToSlash(p)), r.leftoverFix(), githubData(r.sharedNote(p)))
 		}
 		for _, f := range r.Unmanaged {
 			drift = true
@@ -1478,7 +1478,7 @@ const diffBodyMax = 200
 // in-sync run stays silent. Presentation only; nothing is written.
 func printDriftDiffs(cmd *cobra.Command, reports []driftReport) {
 	out := cmd.OutOrStdout()
-	for _, r := range reports {
+	for _, r := range foldSharedDrift(reports) {
 		for _, f := range r.Missing {
 			_, _ = fmt.Fprintf(out, "would create %s (%d bytes)\n", filepath.ToSlash(f.Path), len(f.Content))
 		}

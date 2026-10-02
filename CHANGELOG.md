@@ -8,9 +8,12 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- `init` pre-ticks the tools the project uses, else the CLIs on `PATH`, else `claude` and `codex`, and names the picker keys; without a terminal it enables that set instead of 20 targets (#1610).
+- In a terminal, plain `init` offers to import existing tool config, as `init --from all` does (#1610).
 - Polling watch emits edits made during a re-sync and keeps watching roots added by config reload (#1641, #1650).
 - Linked source roots load specs and assets; both watch modes follow nested edits (#1644, #1651).
 - `list`, `status`, `doctor`, `validate`, `lint` and `sync --check` print results on stdout, so pipes see them; diagnostics stay on stderr (#1607).
+- `sync --check`, `--diff`, `--format github` and `status` show a file several targets share once, naming the targets (#1608).
 - `explain LINT011` and every other lint code print the cause, fix, severity and config key; `lint` points at it (#1648).
 - MCP `url` and `args` take `${NAME}` references; each tool gets its own form, and a tool that reads none leaves the server out with a note (#1633).
 
