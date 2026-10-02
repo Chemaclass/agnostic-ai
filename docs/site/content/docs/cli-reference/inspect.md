@@ -11,7 +11,7 @@ group = "Reference"
 
 ## explain
 
-List every output file and section one spec contributes to, the reverse of the `<!-- source: ... -->` markers in merged documents. With `--file`, list the instructions configured for one source file instead.
+List every output file and section that one spec contributes to. This is the reverse of the `<!-- source: ... -->` markers in merged documents. With `--file`, list the instructions configured for one source file instead.
 
 ```bash
 agnostic-ai explain rules/conventional-commits.md --json
@@ -22,9 +22,19 @@ agnostic-ai explain rules/conventional-commits.md --json
 | `--json` | Stable schema for editor extensions and scripts. |
 | `--global` | Explain a spec in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) or its `local/` layer. A relative path resolves against that root. |
 
-Contributions are grouped by configured target, plus a "would emit if enabled" list for inactive adapters, tagged `(full file)` or `(section "<name>")`. With `--global`, an agent or skill is a whole file, a rule is a section of the instructions file, a hook is its event in the hooks file, an MCP server is its key in the user MCP file, and a settings spec lists each key it sets, tagged `(key "<key>")`.
+Contributions are grouped by configured target. A "would emit if enabled" list covers inactive adapters. Each entry is tagged `(full file)` or `(section "<name>")`.
 
-A spec that sets `model` or `effort` also lists the model and effort each configured target it reaches resolves to, and the [tier](@/docs/spec-format/agents.md#model-tiers) it names. `tool default` means the target writes no model. This is the resolved value: a target with no model or effort key for that kind, such as Codex skills, still drops it with a coverage note on `sync`.
+With `--global`, contributions read like this:
+
+| Spec | Contribution |
+|------|--------------|
+| Agent or skill | A whole file. |
+| Rule | A section of the instructions file. |
+| Hook | Its event in the hooks file. |
+| MCP server | Its key in the user MCP file. |
+| Settings | Each key it sets, tagged `(key "<key>")`. |
+
+A spec that sets `model` or `effort` also lists the model and effort that each configured target it reaches resolves to, and the [tier](@/docs/spec-format/agents.md#model-tiers) it names. `tool default` means the target writes no model. The list shows the resolved value. A target with no model or effort key for that kind, such as Codex skills, still drops it with a coverage note on `sync`.
 
 ```json
 {"version": "1", "command": "explain", "spec": {"kind": "rule", "name": "...", "path": "..."},
@@ -47,7 +57,16 @@ agnostic-ai explain --file services/payments/handler.go --target cursor
 |------|-------------|
 | `--file <path>` | Project file to inspect. The file does not have to exist. Cannot be combined with a spec or error code argument. |
 | `--target <name>` | Required with `--file`. Must be a configured target. Other targets fail with an unsupported-target error. |
-| `--inputs` | List every file and directory whose change can change a generated output, one per line (`--json` for an array): the config files, `.agnostic-ai/**`, source directories outside it, files reviews inline with `@path` (and the entry point's, with `sync.resolve-imports: inline`), `agnostic.packs.lock`, and `.gitignore`. Paths are relative to the repository root, like a hook manager's glob. Takes no spec. See [git hooks](@/docs/git-hooks.md#check-staged-files). |
+| `--inputs` | List every file and directory whose change can change a generated output, one per line (`--json` for an array). Paths are relative to the repository root, like a hook manager's glob. Takes no spec. See [git hooks](@/docs/git-hooks.md#check-staged-files) and the list below. |
+
+`--inputs` lists:
+
+- the config files
+- `.agnostic-ai/**`
+- source directories outside `.agnostic-ai/`
+- files that reviews inline with `@path` (and the entry point's, with `sync.resolve-imports: inline`)
+- `agnostic.packs.lock`
+- `.gitignore`
 
 | Status | Meaning |
 |--------|---------|
@@ -60,7 +79,7 @@ agnostic-ai explain --file services/payments/handler.go --target cursor
 | `excluded` | Target selection (`target`, `targets`, `target-exclude`) leaves the target out. |
 | `not-emitted` | The rule targets Cursor but sync writes nothing for it. |
 
-A root `AGENTS.md` written for a peer target such as Codex reaches Cursor too. The report shows configured applicability, not the model's active context.
+A root `AGENTS.md` written for a peer target such as Codex reaches Cursor too. The report shows configured applicability, not the active context of the model.
 
 ```json
 {"version": "1", "command": "explain", "file": "...", "target": "cursor", "note": "...",
@@ -89,7 +108,9 @@ Coverage is agent and skill fields plus rule `scope`, `paths`, `globs`, and `alw
 | `excluded` | The spec never reaches the target: a target filter, an opt-in output, or an inexpressible scope. |
 | `unknown` | The emission gives no evidence either way. |
 
-`preserved` describes the written file, not runtime behavior. `(differs)` marks a field with a different result per target. Each result names the output paths or reason, plus a `next:` step when known. Unknown targets, the same target twice, invalid specs or config, and external adapters fail the command.
+`preserved` describes the written file, not runtime behavior. `(differs)` marks a field with a different result per target. Each result names the output paths or the reason, plus a `next:` step when known.
+
+The command fails on unknown targets, the same target twice, invalid specs or config, and external adapters.
 
 ```json
 {"version": "1", "command": "compare", "targets": ["claude", "cursor"], "coverage": "...", "caveat": "...",
@@ -114,7 +135,7 @@ Each file prints as `# target: <name>: <output path>` and its body. Targets that
 
 ## graph
 
-Render the spec → target → file dependency graph. Read-only. Full guide in [graph](@/docs/graph.md).
+Render the spec → target → file dependency graph. It is read-only. Full guide in [graph](@/docs/graph.md).
 
 ```bash
 agnostic-ai graph --format mermaid --target claude

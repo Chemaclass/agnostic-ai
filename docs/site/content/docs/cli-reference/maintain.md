@@ -11,7 +11,7 @@ group = "Reference"
 
 ## revert
 
-Undo a `sync --backup`. For every emitted file and entry-point file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.agnostic-ai/AGNOSTIC_AI.md`), `revert` restores `<path>.bak` and removes the .bak. It also restores a nested `CLAUDE.md` that sync deleted for Claude's scoped rules. Files without a `.bak` stay unless you pass `--force`.
+Undo a `sync --backup`. For every emitted file and entry-point file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.agnostic-ai/AGNOSTIC_AI.md`), `revert` restores `<path>.bak` and removes the `.bak`. It also restores a nested `CLAUDE.md` that sync deleted for Claude's scoped rules. Files without a `.bak` stay unless you pass `--force`.
 
 | Flag | Description |
 |------|-------------|
@@ -45,16 +45,20 @@ agnostic-ai packs remove go-rules
 
 ## hook paths
 
-Run inside an edit hook. Reads the hook payload on stdin and prints the files the edit leaves on disk, one per line, relative to the current directory. A tool call that is no edit prints nothing. See [edited paths](@/docs/spec-format/hooks.md#edited-paths) for the payloads each target sends.
+Run inside an edit hook. It reads the hook payload on stdin and prints the files the edit leaves on disk, one per line, relative to the current directory. A tool call that is not an edit prints nothing. See [edited paths](@/docs/spec-format/hooks.md#edited-paths) for the payloads each target sends.
 
 ```bash
 files=$(agnostic-ai hook paths) || exit 1
 printf '%s\n' "$files" | grep '\.go$' | while IFS= read -r f; do gofmt -w "$f"; done
 ```
 
-`agnostic-ai` must be on the hook's `PATH`. Capture the output first, as above: piped straight into the loop, a failure of `hook paths` ends with exit 0.
+`agnostic-ai` must be on the hook's `PATH`. Capture the output first, as above. Piped straight into the loop, a failure of `hook paths` ends with exit 0.
 
-It exits 1 on invalid JSON, on an edit tool's `tool_input` that is not an object, and on a missing or unsupported target.
+It exits 1 on:
+
+- invalid JSON
+- an edit tool's `tool_input` that is not an object
+- a missing or unsupported target
 
 | Flag | Description |
 |------|-------------|
@@ -64,7 +68,13 @@ It exits 1 on invalid JSON, on an edit tool's `tool_input` that is not an object
 
 ## hook run
 
-Run one hook spec before a session fires it. For each target the hook reaches, it builds that target's payload, runs the command sync wrote with that target's env, shell, and timeout, from the project root, and prints the decision, exit code, time, stdout, and stderr. Run `sync` first, so the scripts sync copies are in place. See [test a hook](@/docs/spec-format/hooks.md#hook-run) for the payloads and decisions.
+Run one hook spec before a session fires it. Run `sync` first, so the scripts that sync copies are in place. For each target the hook reaches, `hook run`:
+
+1. Builds that target's payload.
+2. Runs the command sync wrote, from the project root, with that target's env, shell, and timeout.
+3. Prints the decision, exit code, time, stdout, and stderr.
+
+See [test a hook](@/docs/spec-format/hooks.md#hook-run) for the payloads and decisions.
 
 ```bash
 agnostic-ai hook run protect-files --edit .github/workflows/tests.yml --expect block
@@ -74,7 +84,13 @@ agnostic-ai hook run on-stop --payload stop.json
 agnostic-ai hook run protect-files --edit .env --format json
 ```
 
-It exits 1 when a command times out or errors (such as a missing script), when two targets decide differently, or when a decision is not the one `--expect` names. It warns, without failing, when a target's synced native file, such as `.claude/settings.json` or `.codex/hooks.json`, does not run the command the spec produces: run `sync`.
+It exits 1 when:
+
+- a command times out or errors (such as a missing script)
+- two targets decide differently
+- a decision is not the one `--expect` names
+
+It warns, without failing, when a target's synced native file does not run the command the spec produces. Such files are `.claude/settings.json` and `.codex/hooks.json`. Run `sync` to fix it.
 
 | Flag | Description |
 |------|-------------|
@@ -88,7 +104,7 @@ It exits 1 when a command times out or errors (such as a missing script), when t
 
 ## install-hook
 
-Install a pre-commit hook that runs `sync --check --against index`, so a commit that leaves regenerated files unstaged fails, or, with `--post-checkout`, hooks that regenerate tool files after a checkout or a pull that merges. See [git hooks](@/docs/git-hooks.md).
+Install git hooks. By default it installs a pre-commit hook that runs `sync --check --against index`, so a commit that leaves regenerated files unstaged fails. With `--post-checkout`, it installs hooks that regenerate tool files after a checkout or a pull that merges. See [git hooks](@/docs/git-hooks.md).
 
 ```bash
 agnostic-ai install-hook            # writes .git/hooks/pre-commit (local)
@@ -99,11 +115,17 @@ agnostic-ai install-hook --post-checkout            # writes .git/hooks/post-che
 agnostic-ai install-hook --post-checkout --shared   # writes both hooks in .githooks/
 ```
 
-An existing hook keeps its content and the checks go at its end. A hook that already holds them stays as it is. A hook that would stop before reaching them (no `sh` or `bash` shebang, an `exec`, or an unindented `exit`) is left alone, and the command prints the lines to add by hand.
+An existing hook keeps its content, and the checks go at its end. A hook that already holds them stays as it is. A hook that would stop before reaching them is left alone, and the command prints the lines to add by hand. Such a hook has no `sh` or `bash` shebang, an `exec`, or an unindented `exit`.
 
 - `--shared` writes `.githooks/<hook>` at the root of the main working tree, from any linked worktree. It stops when `core.hooksPath` already points elsewhere.
-- `--global` is for the global home, which must be the root of its own git repository. The hook runs `lint --global --strict`, `validate --global`, and `sync --global --check`; the commit fails when any fails. In a linked worktree it skips `sync --global --check`. It stops when run anywhere else, when `core.hooksPath` points elsewhere, or when the hook still runs the project `sync --check`. Not with `--shared` or `--post-checkout`.
-- `--post-checkout` installs `post-checkout` and `post-merge`, which run `agnostic-ai sync -q` from the worktree root after a branch or worktree checkout (never a single-file checkout) or a merge, including a pull. Both skip when the binary or `agnostic-ai.yaml` is missing. The hooks directory is shared across linked worktrees. Reinstall an older checkout-only setup to add pull coverage.
+- `--global` is for the global home, which must be the root of its own git repository. The hook runs `lint --global --strict`, `validate --global`, and `sync --global --check`. The commit fails when any of them fails. In a linked worktree it skips `sync --global --check`. Not with `--shared` or `--post-checkout`.
+- `--post-checkout` installs `post-checkout` and `post-merge`. They run `agnostic-ai sync -q` from the worktree root after a branch or worktree checkout (never a single-file checkout) or a merge, including a pull. Both skip when the binary or `agnostic-ai.yaml` is missing. The hooks directory is shared across linked worktrees.
+
+{% <details summary="When install-hook --global stops, and older setups"> %}
+`--global` stops when run anywhere but the root of the global home's repository, when `core.hooksPath` points elsewhere, or when the hook still runs the project `sync --check`.
+
+Reinstall an older checkout-only `--post-checkout` setup to add pull coverage.
+{% </details> %}
 
 ## completion
 
@@ -116,11 +138,11 @@ agnostic-ai completion fish > ~/.config/fish/completions/agnostic-ai.fish
 agnostic-ai completion powershell | Out-String | Invoke-Expression
 ```
 
-Restart your shell or `source` the file. Completing `--target` reads `agnostic-ai.yaml` in the current directory, or offers every target. See `agnostic-ai completion <shell> --help`.
+Restart your shell or `source` the file. Completing `--target` reads `agnostic-ai.yaml` in the current directory, or offers every target if there is none. See `agnostic-ai completion <shell> --help`.
 
 ## upgrade
 
-Upgrade the running binary to the latest release with the method it was installed with. `update` is an alias.
+Upgrade the running binary to the latest release, using the method it was installed with. `update` is an alias.
 
 ```bash
 agnostic-ai upgrade --version v0.56.1
@@ -129,7 +151,7 @@ agnostic-ai upgrade --version v0.56.1
 | Flag | Description |
 |------|-------------|
 | `--check` | Print install details and exit without changing anything. With `--version`, adds a `Requested:` line and downloads nothing. |
-| `--version <tag>` | Install one release, downgrades included. The leading `v` is optional. Standalone binaries only; package-manager installs are told to pin through their manager. |
+| `--version <tag>` | Install one release, downgrades included. The leading `v` is optional. Standalone binaries only. Package-manager installs are told to pin through their manager. |
 | `--run` | Accepted for compatibility; upgrading is the default. |
 
 | Binary location | Upgrade |
