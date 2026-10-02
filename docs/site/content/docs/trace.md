@@ -10,10 +10,9 @@ group = "Workflows"
 
 # `agnostic-ai why <file>`
 
+Trace a generated file back to its source: the adapter that wrote it, the source specs, the `outputs.<target>.*` keys behind its path, and the last sync time.
 
-Trace an emitted file back to its source: the adapter that wrote it, the source spec(s), the `outputs.<target>.*` keys used for the path, and the last sync time.
-
-[`agnostic-ai explain <spec>`](@/docs/cli-reference/inspect.md#explain) does the inverse, spec to outputs.
+[`agnostic-ai explain <spec>`](@/docs/cli-reference/inspect.md#explain) does the reverse: spec to outputs.
 
 ## Usage
 
@@ -22,9 +21,9 @@ agnostic-ai why <file>
 agnostic-ai why <file> --format json
 ```
 
-`<file>` resolves relative to the project root. Symlinks in the file path and the project root are both followed, so a project opened through a link (macOS `/tmp`, a linked checkout) traces the same as its real path. The file does not have to exist yet. `--format json` returns the same data with stable keys, for editor extensions and CI scripts.
+`<file>` is relative to the project root. The file does not have to exist yet. Symlinks in the file path and the project root are followed, so a project opened through a link (macOS `/tmp`, a linked checkout) traces the same as its real path. `--format json` returns the same data with stable keys, for editor extensions and CI scripts.
 
-In VS Code, the [agnostic-ai extension](https://github.com/Chemaclass/agnostic-ai/tree/main/editors/vscode) wraps this: `agnostic-ai: Open canonical source` runs `why --format json` on the open file and opens its source spec. For a merged file, it lists every source to pick from.
+The [VS Code extension](https://github.com/Chemaclass/agnostic-ai/tree/main/editors/vscode) wraps this. `agnostic-ai: Open canonical source` runs `why --format json` on the open file and opens its source spec. For a merged file, it lists every source to pick from.
 
 ## Example
 
@@ -42,15 +41,15 @@ $ agnostic-ai why .cursor/rules/no-console-log.mdc
 
 | Field | Meaning |
 |-------|---------|
-| `adapter` | Target whose adapter wrote the file. For a shared entry-point file (`AGENTS.md`), the first consuming target in registry order. A path several adapters share (`.agents/skills/`) goes to a target listed in `targets`. When only an unlisted target writes the path, the line reads `adapter: amp (not configured)`. |
+| `adapter` | Target whose adapter wrote the file. For a shared entry-point file (`AGENTS.md`), the first consuming target in registry order. For a path several adapters share (`.agents/skills/`), a target listed in `targets`. When only an unlisted target writes the path, the line reads `adapter: amp (not configured)`. |
 | `output keys` | Every `outputs.<target>.*` key whose value appears in the path. `(adapter defaults)` when no overrides match. |
 | `last sync` | UTC timestamp from `.agnostic-ai/.sync-state`. `unknown` when the state file is missing. |
-| `configured` | JSON only. `true` when the adapter's target is listed in `targets`, `false` when it is not. |
-| `sources` | Every spec that contributes. Mode is `full` (spec owns the file) or `section` (one of many merged into a shared document). |
+| `configured` | JSON only. `true` when the adapter's target is listed in `targets`. |
+| `sources` | Every spec that contributes. Mode is `full` (the spec owns the file) or `section` (one of many merged into a shared document). |
 
 ## Entry-point files
 
-Every target's entry-point file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, ...) is a copy of `.agnostic-ai/AGNOSTIC_AI.md`, so `why` lists that file first, as an `instructions` source. It is `full` when nothing else lands in the file.
+Each entry-point file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, ...) is a copy of `.agnostic-ai/AGNOSTIC_AI.md`, so `why` lists that file first, as an `instructions` source. It is `full` when nothing else lands in the file.
 
 ```sh
 $ agnostic-ai why CLAUDE.md
@@ -61,10 +60,10 @@ CLAUDE.md
     [instructions] AGNOSTIC_AI.md (.agnostic-ai/AGNOSTIC_AI.md): full
 ```
 
-The ignored `.agnostic-ai/local/AGNOSTIC_AI.md` follows when present. Targets with no native rules directory (codex, gemini, aider, amp, warp, zed, opencode, crush, jules, goose, openhands, factory, kilo) also inline rule bodies under a sentinel `## Rules` block; Augment inlines into `AGENTS.md` too. Each inlined rule is a `section` source. The file is credited to its first consuming target by name.
+The ignored `.agnostic-ai/local/AGNOSTIC_AI.md` follows when present. Targets with no native rules directory (codex, gemini, aider, amp, warp, zed, opencode, crush, jules, goose, openhands, factory, kilo) also inline rule bodies under a sentinel `## Rules` block. Augment inlines into `AGENTS.md` too. Each inlined rule is a `section` source. The file is credited to its first consuming target by name.
 
 ## Errors
 
-- **No sync state**: `.agnostic-ai/.sync-state` is absent. `why` tells you to run `agnostic-ai sync` first.
-- **Source file**: a spec (`.agnostic-ai/rules/x.md`) is an input, so `why` points at `agnostic-ai explain <spec>` for the files it writes. `.agnostic-ai/AGNOSTIC_AI.md` gets the same note, naming the entry points it feeds.
-- **Untracked file**: the path matches no adapter emission. `why` reports "not synced or not tracked" and tells you to re-run `sync` or check the path.
+- **No sync state**: `.agnostic-ai/.sync-state` is missing. `why` tells you to run `agnostic-ai sync` first.
+- **Source file**: a spec (`.agnostic-ai/rules/x.md`) is an input, so `why` points to `agnostic-ai explain <spec>` for the files it writes. `.agnostic-ai/AGNOSTIC_AI.md` gets the same note, naming the entry points it feeds.
+- **Untracked file**: the path matches no adapter output. `why` reports "not synced or not tracked" and tells you to re-run `sync` or check the path.
