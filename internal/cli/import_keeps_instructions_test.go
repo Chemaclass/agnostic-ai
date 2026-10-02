@@ -138,3 +138,19 @@ func TestImport_ReimportingASectionWithACodeExampleIsIdempotent(t *testing.T) {
 		t.Errorf("re-import changed AGNOSTIC_AI.md:\n%s", got)
 	}
 }
+
+// Prose that names the fence syntax is not a fence.
+func TestImport_MergesIntoAFileThatOnlyMentionsTargetFences(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "# Acme API\n\n## Fences\n\nUse a `::target claude` line to fence text.\n")
+	mustWriteFile(t, "AGENTS.md", "# Acme API\n\n## Reviews\n\nKeep PRs small.\n")
+
+	if out, err := runCLI(t, "import", "codex"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+
+	if got := readFile(t, ".agnostic-ai/AGNOSTIC_AI.md"); !strings.Contains(got, "Keep PRs small.") {
+		t.Errorf("import did not merge:\n%s", got)
+	}
+}

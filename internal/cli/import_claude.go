@@ -332,7 +332,7 @@ func mirrorBody(root, srcName, body string, alsoCaptured ...string) (mirrorResul
 		current = header.Strip(string(existing))
 		// A fenced source renders a per-file view; when the imported entry
 		// point is exactly that view there is nothing new to capture.
-		if strings.Contains(current, "::target") &&
+		if hasTargetFences(current) &&
 			(strings.TrimSpace(current) == strings.TrimSpace(body) || matchesRenderedView(root, srcName, current, body)) {
 			return mirrorUnchanged, nil
 		}
@@ -343,7 +343,7 @@ func mirrorBody(root, srcName, body string, alsoCaptured ...string) (mirrorResul
 	if !isEntryPointSeed(current) {
 		// A fenced source renders a view per tool, so an edit to one view
 		// cannot be placed without knowing which block it belongs to.
-		if strings.Contains(current, "::target") {
+		if hasTargetFences(current) {
 			summaryf("  ! %s differs from what sync renders from the fenced %s; %s is unchanged, so merge the edit into it by hand\n", srcName, agnosticMainFile, agnosticMainFile)
 			return mirrorKept, nil
 		}
@@ -369,6 +369,12 @@ func mirrorBody(root, srcName, body string, alsoCaptured ...string) (mirrorResul
 	summaryf("  → %s seeded from %s\n", agnosticMainFile, srcName)
 	warnUncapturedEntryPoints(root, body, append([]string{srcName}, alsoCaptured...)...)
 	return mirrorWritten, nil
+}
+
+// hasTargetFences reports whether body holds a ::target fence the spec
+// parser reads, not just the words in prose.
+func hasTargetFences(body string) bool {
+	return spec.FilterFences(body, []string{"\x00"}) != body
 }
 
 // matchesRenderedView reports whether body is the view sync renders for
