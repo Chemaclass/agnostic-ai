@@ -6,6 +6,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### General
+
+- Polling watch emits edits made during a re-sync and keeps watching roots added by config reload (#1641, #1650).
+
 ## v0.77.0 - 2026-10-02
 
 ### General
