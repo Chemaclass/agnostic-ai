@@ -106,7 +106,18 @@ func buildMCPServer(e spec.Entry) map[string]any {
 		out["disabled"] = true
 	}
 	var keys []string
-	emit.MergeCustomTargetMeta(out, &keys, e.Meta, target,
-		"command", "args", "env", "cwd", "serverUrl", "headers", "disabled")
+	emit.MergeCustomTargetMeta(out, &keys, e.Meta, target, mcpBuiltKeys...)
 	return out
+}
+
+// mcpBuiltKeys are the server keys the MCP builder writes itself, so an
+// `x-antigravity` value never overrides them.
+var mcpBuiltKeys = []string{
+	"command", "args", "env", "cwd", "serverUrl", "headers", "disabled",
+}
+
+// MCPLaunchView reports the `url` and `args` values the MCP builder
+// copies from `x-<target>` as written.
+func (Adapter) MCPLaunchView() emit.MCPLaunchView {
+	return emit.MCPLaunchView{Passthrough: emit.LaunchPassthrough(mcpBuiltKeys...)}
 }

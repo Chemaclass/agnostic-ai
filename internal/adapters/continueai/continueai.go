@@ -387,3 +387,9 @@ func mcpRequestOptions(meta map[string]any) map[string]any {
 	opts["headers"] = headers
 	return opts
 }
+
+// MCPLaunchView reports that the MCP builder reads ResolveMeta, so an
+// `x-<target>` url, args, or type replaces the top-level one.
+func (Adapter) MCPLaunchView() emit.MCPLaunchView {
+	return emit.MCPLaunchView{Resolved: true}
+}

@@ -189,10 +189,7 @@ func buildMCPServer(e spec.Entry) map[string]any {
 	}
 
 	var keys []string
-	emit.MergeCustomTargetMeta(out, &keys, e.Meta, target,
-		"type", "url", "headers", "command", "args", "cwd", "env",
-		"description", "timeout", "trust", "includeTools", "excludeTools",
-		"alwaysAllow", "disabled", "oauth")
+	emit.MergeCustomTargetMeta(out, &keys, e.Meta, target, mcpBuiltKeys...)
 
 	return out
 }
@@ -201,4 +198,18 @@ func buildMCPServer(e spec.Entry) map[string]any {
 // settings file, with the builder the project file uses.
 func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
 	return buildMCPMap(emit.DropMCPWebSocket(target, mcps, mcpWebSocketGapReason))
+}
+
+// mcpBuiltKeys are the server keys the MCP builder writes itself, so an
+// `x-qoder` value never overrides them.
+var mcpBuiltKeys = []string{
+	"type", "url", "headers", "command", "args", "cwd", "env",
+	"description", "timeout", "trust", "includeTools", "excludeTools",
+	"alwaysAllow", "disabled", "oauth",
+}
+
+// MCPLaunchView reports the `url` and `args` values the MCP builder
+// copies from `x-<target>` as written.
+func (Adapter) MCPLaunchView() emit.MCPLaunchView {
+	return emit.MCPLaunchView{Passthrough: emit.LaunchPassthrough(mcpBuiltKeys...)}
 }

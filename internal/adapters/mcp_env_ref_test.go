@@ -183,7 +183,11 @@ func TestMCPEnvRefs_RewritesTheTargetBlockWithoutMutatingTheSpec(t *testing.T) {
 			"env": map[string]any{"GITHUB_TOKEN": "${GITHUB_TOKEN}"},
 		},
 	}}}
-	got := emit.RewriteMCPEnvRefs("cursor", mcps)
+	a, err := Resolve("cursor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := rewriteMCPRefs(a, mcps)
 	block, _ := got[0].Meta["x-cursor"].(map[string]any)
 	env, _ := block["env"].(map[string]any)
 	if env["GITHUB_TOKEN"] != "${env:GITHUB_TOKEN}" {
@@ -218,7 +222,11 @@ func TestMCPEnvRefs_DefaultsAndUnknownTokens(t *testing.T) {
 			emit.Warner = &notes
 			ResetCoverageNotes()
 			t.Cleanup(func() { emit.Warner = old; ResetCoverageNotes() })
-			got := emit.RewriteMCPEnvRefs(target, mcps)
+			a, err := Resolve(target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := rewriteMCPRefs(a, mcps)
 			env, _ := got[0].Meta["env"].(map[string]any)
 			var keys []string
 			for k := range env {

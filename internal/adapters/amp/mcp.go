@@ -66,7 +66,18 @@ func buildMCPEntry(e spec.Entry) map[string]any {
 		entry["env"] = env
 	}
 	var keys []string
-	emit.MergeCustomTargetMeta(entry, &keys, e.Meta, target,
-		"command", "args", "url", "headers", "env")
+	emit.MergeCustomTargetMeta(entry, &keys, e.Meta, target, mcpBuiltKeys...)
 	return entry
+}
+
+// mcpBuiltKeys are the server keys the MCP builder writes itself, so an
+// `x-amp` value never overrides them.
+var mcpBuiltKeys = []string{
+	"command", "args", "url", "headers", "env",
+}
+
+// MCPLaunchView reports the `url` and `args` values the MCP builder
+// copies from `x-<target>` as written.
+func (Adapter) MCPLaunchView() emit.MCPLaunchView {
+	return emit.MCPLaunchView{Passthrough: emit.LaunchPassthrough(mcpBuiltKeys...)}
 }

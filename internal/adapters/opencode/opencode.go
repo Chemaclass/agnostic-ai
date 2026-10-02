@@ -301,8 +301,7 @@ func buildMCPEntry(e spec.Entry) map[string]any {
 		entry["timeout"] = timeout
 	}
 	var keys []string
-	emit.MergeCustomTargetMeta(entry, &keys, e.Meta, target,
-		"type", "command", "cwd", "url", "headers", "environment", "enabled", "timeout")
+	emit.MergeCustomTargetMeta(entry, &keys, e.Meta, target, mcpBuiltKeys...)
 	return entry
 }
 
@@ -383,4 +382,16 @@ func pickKeys(meta map[string]any, allowed []string) map[string]any {
 		out[k] = v
 	}
 	return out
+}
+
+// mcpBuiltKeys are the server keys the MCP builder writes itself, so an
+// `x-opencode` value never overrides them.
+var mcpBuiltKeys = []string{
+	"type", "command", "cwd", "url", "headers", "environment", "enabled", "timeout",
+}
+
+// MCPLaunchView reports the `url` and `args` values the MCP builder
+// copies from `x-<target>` as written.
+func (Adapter) MCPLaunchView() emit.MCPLaunchView {
+	return emit.MCPLaunchView{Passthrough: emit.LaunchPassthrough(mcpBuiltKeys...)}
 }

@@ -135,7 +135,18 @@ func buildMCPServer(e spec.Entry) map[string]any {
 		out["env"] = env
 	}
 	var keys []string
-	emit.MergeCustomTargetMeta(out, &keys, e.Meta, target,
-		"command", "args", "env", "working_directory", "url", "headers")
+	emit.MergeCustomTargetMeta(out, &keys, e.Meta, target, mcpBuiltKeys...)
 	return out
+}
+
+// mcpBuiltKeys are the server keys the MCP builder writes itself, so an
+// `x-warp` value never overrides them.
+var mcpBuiltKeys = []string{
+	"command", "args", "env", "working_directory", "url", "headers",
+}
+
+// MCPLaunchView reports the `url` and `args` values the MCP builder
+// copies from `x-<target>` as written.
+func (Adapter) MCPLaunchView() emit.MCPLaunchView {
+	return emit.MCPLaunchView{Passthrough: emit.LaunchPassthrough(mcpBuiltKeys...)}
 }

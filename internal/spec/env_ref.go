@@ -53,6 +53,23 @@ type EnvRefToken struct {
 // Known reports whether the token is `${NAME}` or `${NAME:-default}`.
 func (t EnvRefToken) Known() bool { return t.Name != "" }
 
+// editorVariables are the variables a VS Code style tool fills in
+// itself in MCP `args` and `url`, such as `${workspaceFolder}`
+// (cursor.com/docs/mcp#config-interpolation). They name no environment
+// variable.
+var editorVariables = map[string]bool{
+	"workspaceFolder":         true,
+	"workspaceFolderBasename": true,
+	"userHome":                true,
+	"pathSeparator":           true,
+}
+
+// EditorVariable reports whether the token is an editor variable such
+// as `${workspaceFolder}` rather than an environment reference.
+func (t EnvRefToken) EditorVariable() bool {
+	return !t.HasDefault && editorVariables[t.Name]
+}
+
 // Display spells the token without its default value, which may be a
 // secret.
 func (t EnvRefToken) Display() string {
@@ -137,9 +154,19 @@ func EnvRef(name string) string {
 // Write turns each `${NAME}` in value into this syntax. Other tokens are
 // left as written; the caller decides whether the target reads them.
 func (s EnvRefSyntax) Write(value string) string {
+	return s.write(value, false)
+}
+
+// WriteLaunch is Write for an MCP `url` or `args` element, which also
+// keeps each editor variable as written.
+func (s EnvRefSyntax) WriteLaunch(value string) string {
+	return s.write(value, true)
+}
+
+func (s EnvRefSyntax) write(value string, keepEditorVariables bool) string {
 	return envRefTokenPattern.ReplaceAllStringFunc(value, func(text string) string {
 		t := EnvRefTokens(text)[0]
-		if !t.Known() || t.HasDefault {
+		if !t.Known() || t.HasDefault || (keepEditorVariables && t.EditorVariable()) {
 			return text
 		}
 		switch s {
@@ -168,19 +195,44 @@ type EnvRefReading struct {
 // Read turns each reference in this syntax, and in the extra forms of
 // r, back into the spec form.
 func (s EnvRefSyntax) Read(value string, r EnvRefReading) string {
+	return s.read(value, r, false)
+}
+
+// ReadLaunch is Read for an MCP `url` or `args` element. A reference to
+// a variable named like an editor variable, such as Cursor's
+// `${env:workspaceFolder}`, stays as written: read back, it would turn
+// into the editor variable.
+func (s EnvRefSyntax) ReadLaunch(value string, r EnvRefReading) string {
+	return s.read(value, r, true)
+}
+
+func (s EnvRefSyntax) read(value string, r EnvRefReading, keepEditorNames bool) string {
+	replace := func(p *regexp.Regexp, value string) string {
+		return p.ReplaceAllStringFunc(value, func(text string) string {
+			m := p.FindStringSubmatch(text)
+			prefix, name := "", m[len(m)-1]
+			if len(m) == 3 {
+				prefix = m[1]
+			}
+			if keepEditorNames && editorVariables[name] {
+				return text
+			}
+			return prefix + EnvRef(name)
+		})
+	}
 	switch s {
 	case EnvRefDollarEnv:
-		value = envRefDollarEnvPattern.ReplaceAllString(value, "$${$1}")
+		value = replace(envRefDollarEnvPattern, value)
 	case EnvRefBraceEnv:
-		value = envRefBraceEnvPattern.ReplaceAllString(value, "$1$${$2}")
+		value = replace(envRefBraceEnvPattern, value)
 	case EnvRefSecrets:
-		value = envRefSecretsPattern.ReplaceAllString(value, "$${$1}")
+		value = replace(envRefSecretsPattern, value)
 	}
 	if r.Unbraced {
-		value = envRefUnbracedPattern.ReplaceAllString(value, "$${$1}")
+		value = replace(envRefUnbracedPattern, value)
 	}
 	if r.Percent {
-		value = envRefPercentPattern.ReplaceAllString(value, "$${$1}")
+		value = replace(envRefPercentPattern, value)
 	}
 	return value
 }

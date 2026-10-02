@@ -30,6 +30,26 @@ func TestEnvRefSyntax_WriteLeavesOtherTokens(t *testing.T) {
 	}
 }
 
+func TestEnvRefSyntax_WriteLaunchKeepsEditorVariables(t *testing.T) {
+	in := "${workspaceFolder}/${userHome}/${TOKEN}"
+	if got := EnvRefDollarEnv.WriteLaunch(in); got != "${workspaceFolder}/${userHome}/${env:TOKEN}" {
+		t.Errorf("WriteLaunch = %q", got)
+	}
+	if got := EnvRefDollarEnv.Write(in); got != "${env:workspaceFolder}/${env:userHome}/${env:TOKEN}" {
+		t.Errorf("Write must not change for env and headers: %q", got)
+	}
+	for _, text := range []string{"${workspaceFolder}", "${workspaceFolderBasename}", "${userHome}", "${pathSeparator}"} {
+		if !EnvRefTokens(text)[0].EditorVariable() {
+			t.Errorf("%s is an editor variable", text)
+		}
+	}
+	for _, text := range []string{"${WORKSPACE}", "${workspaceFolder:-x}", "${input:id}"} {
+		if EnvRefTokens(text)[0].EditorVariable() {
+			t.Errorf("%s is not an editor variable", text)
+		}
+	}
+}
+
 func TestEnvRefSyntax_ReadsOnlyTheFormsAToolExpands(t *testing.T) {
 	if got := EnvRefDollar.Read("$TOKEN", EnvRefReading{Unbraced: true}); got != "${TOKEN}" {
 		t.Errorf("unbraced read = %q", got)

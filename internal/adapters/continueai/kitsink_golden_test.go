@@ -29,7 +29,7 @@ func TestKitSink_GoldenSnapshot(t *testing.T) {
 		},
 	}
 	b := kitSinkBundle()
-	b.MCPs = emit.RewriteMCPEnvRefs(target, b.MCPs)
+	b.MCPs = emit.RewriteMCPEnvRefs(target, Adapter{}.MCPLaunchView(), b.MCPs)
 	if err := New().Emit(emit.NewSession(), b, cfg, false); err != nil {
 		t.Fatalf("emit: %v", err)
 	}
