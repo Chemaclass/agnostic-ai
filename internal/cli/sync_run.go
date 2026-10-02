@@ -442,7 +442,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if err := stopOnSpecTypos(b, append(slices.Clone(cfg.Targets), effectiveTargets...)); err != nil {
 		return err
 	}
-	if err := stopOnPendingImports(root); err != nil {
+	if err := stopOnPendingImports(root, cfg); err != nil {
 		return err
 	}
 	if err := keepHandWrittenInstructions(cfg, b, effectiveTargets, readStateFile(root).Outputs, backup, keepEdits); err != nil {
@@ -945,7 +945,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	if err := stopOnSpecTypos(b, append(slices.Clone(cfg.Targets), effectiveTargets...)); err != nil {
 		return err
 	}
-	if err := stopOnPendingImports(root); err != nil {
+	if err := stopOnPendingImports(root, cfg); err != nil {
 		return err
 	}
 	if err := keepHandWrittenInstructions(cfg, b, effectiveTargets, readStateFile(root).Outputs, backup, keepEdits); err != nil {

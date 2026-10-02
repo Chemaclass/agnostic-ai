@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -297,6 +298,17 @@ func TestUse_FinishesAnImportAnInterruptedRunLeft(t *testing.T) {
 	}
 }
 
+func TestUse_SyncIgnoresAPendingToolNoLongerInTargets(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	isolateGit(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	mustWriteFile(t, ".agnostic-ai/.sync-state", `{"pending_imports":["cursor"]}`)
+
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+}
+
 // A tool with its own config and an unmanaged instructions file can be
 // neither imported nor skipped safely, so use stops before writing.
 func TestUse_RefusesAToolWhoseInstructionsAreUnmanaged(t *testing.T) {
@@ -383,5 +395,17 @@ func TestUse_SummaryListsSpecsForEveryTool(t *testing.T) {
 
 	if !strings.Contains(log.String(), "1 skill") {
 		t.Errorf("cursor summary lists nothing:\n%s", log.String())
+	}
+}
+
+// A failed tool a rollback could not drop from targets stays pending.
+func TestStillConfigured(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	if got := stillConfigured([]string{"claude"}); got != nil {
+		t.Errorf("without a config = %v, want none", got)
+	}
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex, claude]\n")
+	if got := stillConfigured([]string{"claude", "cursor"}); !slices.Equal(got, []string{"claude"}) {
+		t.Errorf("got %v, want [claude]", got)
 	}
 }

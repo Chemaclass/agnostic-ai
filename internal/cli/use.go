@@ -152,7 +152,7 @@ func useTools(cmd *cobra.Command, tools []string) ([]string, error) {
 	if err != nil {
 		err = leaveOut(cfg, intersect(failed, importing), err)
 	}
-	if perr := setPendingImports(nil); perr != nil {
+	if perr := setPendingImports(stillConfigured(failed)); perr != nil {
 		return nil, errors.Join(err, perr)
 	}
 	if err != nil {
@@ -278,7 +278,7 @@ func startProject(cmd *cobra.Command, tools []string) error {
 	if err != nil {
 		err = leaveOut(cfg, failed, err)
 	}
-	if perr := setPendingImports(nil); perr != nil {
+	if perr := setPendingImports(stillConfigured(failed)); perr != nil {
 		return errors.Join(err, perr)
 	}
 	if err != nil {
@@ -463,13 +463,37 @@ func entryNames(entries []spec.Entry) string {
 }
 
 // stopOnPendingImports stops a sync while `use` has tools in targets
-// whose own config it has not imported yet.
-func stopOnPendingImports(root string) error {
-	if pending := readStateFile(root).PendingImports; len(pending) > 0 {
+// whose own config it has not imported yet. A pending tool no longer in
+// targets has nothing for the sync to write over.
+func stopOnPendingImports(root string, cfg *config.Config) error {
+	var pending []string
+	for _, t := range readStateFile(root).PendingImports {
+		if slices.Contains(cfg.Targets, t) {
+			pending = append(pending, t)
+		}
+	}
+	if len(pending) > 0 {
 		return fmt.Errorf("agnostic-ai use stopped before importing the config of %s; run agnostic-ai use %s before syncing",
 			strings.Join(pending, ", "), strings.Join(pending, " "))
 	}
 	return nil
+}
+
+// stillConfigured returns the failed tools a rollback did not take out
+// of targets, which stay pending so sync keeps off their native files.
+// With the config gone, none are.
+func stillConfigured(failed []string) []string {
+	if len(failed) == 0 {
+		return nil
+	}
+	cfg, err := config.Load(".")
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) || errs.CodeOf(err) == errs.CodeConfigMissing {
+			return nil
+		}
+		return failed
+	}
+	return intersect(failed, cfg.Targets)
 }
 
 // setPendingImports records the tools whose import has not finished in
