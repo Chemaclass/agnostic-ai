@@ -140,7 +140,7 @@ Neither has a config-file key.
 
 - `agnostic-ai.yaml` and `agnostic-ai.local.yaml`
 - `.agnostic-ai/AGNOSTIC_AI.md`
-- every `sources.*` directory, including absolute paths outside the project
+- every `sources.*` directory, including absolute paths outside the project and linked roots
 - `.agnostic-ai/local/` and `.agnostic-ai/overlays/`
 
 It uses fsnotify with a 50 ms debounce, polls every 200 ms where fsnotify fails, and exits on Ctrl+C. A spec change re-syncs only the targets that emit that kind. Config and overlay edits, deletes, and renames re-sync everything.

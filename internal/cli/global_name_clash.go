@@ -161,7 +161,7 @@ func skillAssets(e spec.Entry) (map[string]skillAsset, error) {
 	if e.Kind != spec.KindSkill || dir == "" {
 		return out, nil
 	}
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+	err := spec.WalkSourceRoot(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || !d.Type().IsRegular() {
 			return err
 		}

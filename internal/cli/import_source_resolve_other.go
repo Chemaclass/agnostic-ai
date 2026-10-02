@@ -4,11 +4,12 @@ package cli
 
 import (
 	"io/fs"
-	"path/filepath"
+
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 func resolveImportSource(path string) (string, error) {
-	return filepath.EvalSymlinks(path)
+	return config.ResolveSourceAlias(path)
 }
 
 func resolveImportSourceExisting(path string) string {

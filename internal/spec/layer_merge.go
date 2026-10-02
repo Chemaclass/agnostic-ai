@@ -128,7 +128,7 @@ func expandParent(body, parent string) string {
 	return strings.Join(out, "\n")
 }
 
-// skillShipsAssets reports whether a folder skill holds any file besides
+// skillShipsAssets reports whether a folder skill holds a regular file besides
 // its SKILL.md.
 func skillShipsAssets(path string) bool {
 	if filepath.Base(path) != "SKILL.md" {
@@ -136,11 +136,11 @@ func skillShipsAssets(path string) bool {
 	}
 	root := filepath.Dir(path)
 	found := false
-	_ = filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
+	_ = WalkSourceRoot(root, func(p string, d os.DirEntry, err error) error {
 		if err != nil || found {
 			return filepath.SkipDir
 		}
-		if !d.IsDir() && p != path {
+		if d.Type().IsRegular() && p != path {
 			found = true
 			return filepath.SkipAll
 		}

@@ -1241,11 +1241,11 @@ func addGlobalSkill(dst string, skill spec.Entry, target string, shared bool, ov
 	if root == "" {
 		return nil
 	}
-	return filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	return spec.WalkSourceRoot(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if d.IsDir() {
+		if !d.Type().IsRegular() {
 			return nil
 		}
 		rel, err := filepath.Rel(root, path)

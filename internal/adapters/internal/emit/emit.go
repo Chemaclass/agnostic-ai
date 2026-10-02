@@ -1439,29 +1439,25 @@ func isDirNotEmpty(err error) bool {
 
 // CopyTree mirrors the regular files under srcDir into dstDir,
 // preserving file mode bits so executable scripts keep their +x bit.
-// Empty source dir is a no-op. Symlinks and other irregular entries
-// are skipped silently.
+// Empty source dir is a no-op. A linked root is followed; nested
+// links and other irregular entries are skipped silently.
 //
 // Each copied file flows through the same mode pipeline as WriteFile,
 // so dryRun, capture, recording, detailed recording, and backup all
 // behave identically. skip is an optional predicate keyed on the path
-// relative to srcDir (forward slashes). Returning true skips the file
-// — adapters use this to exclude SKILL.md when they re-render the
+// relative to srcDir (forward slashes). Returning true skips the file.
+// Adapters use this to exclude SKILL.md when they re-render the
 // frontmatter themselves and only want sibling assets propagated.
 func (s *Session) CopyTree(srcDir, dstDir string, skip func(rel string) bool, dryRun bool) error {
-	info, err := os.Stat(srcDir)
-	if err != nil {
-		if IsAbsent(err) {
-			return nil
-		}
-		return fmt.Errorf("stat %s: %w", srcDir, err)
-	}
-	if !info.IsDir() {
-		return nil
-	}
-	return filepath.WalkDir(srcDir, func(path string, d fs.DirEntry, walkErr error) error {
+	return spec.WalkSourceRoot(srcDir, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
+			if path == srcDir && IsAbsent(walkErr) {
+				return nil
+			}
 			return walkErr
+		}
+		if path == srcDir && !d.IsDir() {
+			return filepath.SkipAll
 		}
 		if d.IsDir() || !d.Type().IsRegular() {
 			return nil
