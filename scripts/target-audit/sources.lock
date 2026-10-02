@@ -8,11 +8,11 @@ amp	docs	https://ampcode.com/docs/cli/settings	200	html	f0ae926b82945e5a62cadf26
 amp	docs	https://ampcode.com/docs/customize/agents-md	200	html	44f27714b9778574b8fc354fdd9625646de050c97f62f1a3c1b506dbdfb8e566	2026-09-25
 amp	docs	https://ampcode.com/docs/customize/global-plugins-and-skills	200	html	f23edbf138e301aaf4efae98c3a6d5dabdd7e470f973ec8d20d967bc383def0e	2026-09-24
 amp	docs	https://ampcode.com/docs/customize/mcp	200	html	9830c23015ae5e8e627b703a0329de648994c3ccf3b58bbfd6c9f1d58e01d4d6	2026-09-29
-amp	docs	https://ampcode.com/docs/customize/plugins	200	html	f5184fb255cf7b03dfab79a40d9ef45995fea068afda7dc923b1eec3b86639e2	2026-09-30
+amp	docs	https://ampcode.com/docs/customize/plugins	200	html	18f2ad92cac9b2b874e2665ba3df1d3809c2db7fd1029471dbfc33c37304a5c4	2026-10-02
 amp	docs	https://ampcode.com/docs/customize/skills	200	html	3a0ba9f2d42ed6b35a66d7ca5dab8e382a55bbe1a7b06cf23cf53b4fef54f47c	2026-09-28
 amp	docs	https://ampcode.com/docs/orbs/customizing	200	html	ec09829a7c619fec597706c5516d52272c43b23a13f41dda301700747b1639ba	2026-10-01
 amp	docs	https://ampcode.com/docs/orbs/portals	200	html	cb58166646d093e16e080027519c47de597d24a0776b4e591bd8a38c76232fee	2026-09-24
-amp	docs	https://ampcode.com/docs/the-dial	200	html	2f38e94e1f0d238a625244dcbda2c53daee99efc3edae7cc9e1fcdaeee7f348f	2026-10-01
+amp	docs	https://ampcode.com/docs/the-dial	200	html	4304d3dfd08de6ce6151dcc6b48e95ecfe58d254f3e4af16dbd376ecc4fdcad9	2026-10-02
 amp	docs	https://ampcode.com/docs/tools	200	html	081e20c17a6021991c642755ab3f133446eac08f31f30458b3afad8ae6c9781b	2026-09-28
 amp	docs	https://ampcode.com/llms.txt	200	text	e2c939dbdc8b9aec3919ea10c8637d7352a8aa45fb8b317ff3336a3af1fe9f9b	2026-09-25
 amp	schema	https://ampcode.com/cli-settings.schema.json	200	schema-keys	2280837ae5d21ff966c5f5e935c4840e140dc3a3837af02ede2717c42fb1c72e	2026-09-30
@@ -24,7 +24,7 @@ antigravity	docs	https://antigravity.google/docs/plugins	200	html	d492f7cb28640b
 antigravity	docs	https://antigravity.google/docs/rules	200	html	b10461d5dbc639f75236f4f26f3d9e6a5ac70f842bbb9eb39a95e809fdb9835a	2026-10-01
 antigravity	docs	https://antigravity.google/docs/skills?tab=ide	200	html	0ce78e8fde25972a85f98a5b8b37b9181c4012876105ad77eba3b68bfbdbbdba	2026-10-01
 antigravity	docs	https://antigravity.google/docs/slash-commands	200	html	043372f5cf2487765e5a1c5bbe1f8165f4656326c59c61bf0dad3efb57ba7784	2026-10-01
-antigravity	docs	https://antigravity.google/docs/subagents	200	html	1035dbb5bf1f08dc21caf66ba3b45c079afcce7fbe2ace61d0db7668e7442e92	2026-10-01
+antigravity	docs	https://antigravity.google/docs/subagents	200	html	741e0e9db05e93aa9adf038d37e37c09c20b73ce5651b3653fbfec8bc21c29eb	2026-10-02
 antigravity	docs	https://codelabs.developers.google.com/getting-started-with-antigravity-skills	200	html	9f3d51c635e862b358e235e6a99b3fa284f3d758d258612ddc3a68c2e65b9c16	2026-09-22
 augment	changelog	https://www.augmentcode.com/changelog	200	html	312a1c6fcd73bc1ab1eb034acaa3f6cdc84dbbe5307ec0e72062381e3618cb1c	2026-10-02
 augment	docs	https://docs.augmentcode.com/cli/config.md	200	markdown-mirror	d4c6bbcf5654396516eb2ed8e717e2757ac8a3cccd0dba43d78886dfd9ade835	2026-10-02
@@ -39,10 +39,14 @@ augment	docs	https://docs.augmentcode.com/setup-augment/guidelines.md	200	markdo
 claude	changelog	https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md	200	raw-github	797d9c8136c1141c323a6a82bcd90a33bb2f183bc379ac8f4264076121f880e7	2026-10-02
 claude	docs	https://code.claude.com/docs/en/desktop	200	html	3e331f799c518754a0d358cea7a6637f965e70f1b15012a0ba5b382334967327	2026-10-02
 claude	docs	https://code.claude.com/docs/en/hooks	200	html	313ace5083878330704b2faf8dd32df2426e28576f69eba730adf826e650e878	2026-10-02
-claude	docs	https://code.claude.com/docs/en/mcp	200	html	abe6aa3b8bb8c065c2c7fb74f6fa49aabffe32f6c8609dd8f57656e92e2f23ae	2026-10-02
+claude	docs	https://code.claude.com/docs/en/mcp	200	html	c6085f57b289c53b3483cb4321514e43dd9b1a9e42b144d3a1f065c4a01021bd	2026-10-02
 claude	docs	https://code.claude.com/docs/en/memory	200	html	6a35ddad6e90ba7278b4b0f301bdc32260c5d98104b7399bd0653b73948791c3	2026-10-02
+claude	docs	https://code.claude.com/docs/en/plugins/loading	200	html	4ab36f5621d1e507dc413ae665a004a63af4a276fc73971aa25b93cae7d65ae9	2026-10-02
+claude	docs	https://code.claude.com/docs/en/plugins/mods/events	200	html	3738c4659156b6fadfc2e72f582e64b2532f01bd8686a815b16a970678e4bdb6	2026-10-02
+claude	docs	https://code.claude.com/docs/en/plugins/mods/overview	200	html	5c2a5f3b6850e3c883f224f170e4738243064f00be361993a74f7fd5549ff1e6	2026-10-02
+claude	docs	https://code.claude.com/docs/en/plugins/mods/reference	200	html	7f6943c0adfa72391720d696202faf1d03868001440046c1fd9dce92cc571cec	2026-10-02
 claude	docs	https://code.claude.com/docs/en/settings	200	html	701d580dc863dabf29cd884b9a8fdf8c5a00fbb2c07781fcacfd33f3c2ecdd13	2026-09-30
-claude	docs	https://code.claude.com/docs/en/settings-reference	200	html	09313be615fcd1960ba37e176f8642a2782a34b80c8ec824e8242482eaaff145	2026-10-02
+claude	docs	https://code.claude.com/docs/en/settings-reference	200	html	0dbe796ab0fe2a1a34def8427dbb70d521376ea5a1ef433ef22f2e392ad8dabf	2026-10-02
 claude	docs	https://code.claude.com/docs/en/skills	200	html	b513b9f57fff9c3dd67ded4cb2a6ea555d9738bb49b7d05e61ae63eefb879a7b	2026-10-02
 claude	docs	https://code.claude.com/docs/en/sub-agents	200	html	d03afa7ca4b495d65c7dca1efcf924fe7be768e8c444fbfb0cdac25a5124f26a	2026-10-02
 claude	schema	https://www.schemastore.org/claude-code-launch.json	200	schema-keys	98ec297b1920aef478914155baf62cd23c81087832505e4077759f8cd0c50f16	2026-09-30
@@ -52,7 +56,7 @@ cline	docs	https://docs.cline.bot/customization/cline-rules.md	200	markdown-mirr
 cline	docs	https://docs.cline.bot/customization/skills.md	200	markdown-mirror	aaee85c3e6ea70283edabf5ea08016f9696e31b78a831ce521e91ddcc2ca6c63	2026-10-02
 cline	docs	https://docs.cline.bot/getting-started/config.md	200	markdown-mirror	b1babf605692c9f9cd0ffd1058aefaa414c4d09478d9a697d83ad6e7cc2df4db	2026-10-02
 codex	changelog	https://github.com/openai/codex/releases	200	github-api	ce9a0fbf82aa044d82cda5e760725f616ef9f5e6c0a9dafc76060e708be9dc22	2026-10-02
-codex	changelog	https://learn.chatgpt.com/docs/changelog	200	html	d3851978cb837936d9a86250793bc9d8258ec7f953f489ac9c454341d8a53862	2026-10-02
+codex	changelog	https://learn.chatgpt.com/docs/changelog	200	html	7924207bf75941662b8d583a4b892dde7d7a2dd357df17b6f03008f3a7833b71	2026-10-02
 codex	code	https://github.com/openai/codex/blob/main/codex-rs/core/src/agents_md.rs	200	raw-github	97427a870741b904a3f3c143f5990eaaa65b5bfa99ddac1808b2980052b5fc78	2026-09-30
 codex	code	https://github.com/openai/codex/blob/main/codex-rs/hooks/src/events/mod.rs	200	raw-github	215121424f62569df3ec920b22a059d1620edf47e1618bdebc4fb23ee6aed5ae	2026-09-30
 codex	docs	https://learn.chatgpt.com/docs/agent-configuration/agents-md.md	200	markdown-mirror	9d1f87a2d1cb55b4782b95abe710692b35b9659789c2db31a22c7074a3383e8e	2026-09-25
@@ -70,7 +74,7 @@ continue	changelog	https://github.com/continuedev/continue/releases	200	github-a
 continue	docs	https://docs.continue.dev/customize/deep-dives/mcp	200	html	9a9eb0b55cc061761f48fb71035ba6d8b3e5527d9394bf18528f306acb804962	2026-09-22
 continue	docs	https://docs.continue.dev/customize/deep-dives/rules	200	html	d9c4a571cebdf2e028c6d3e0d279631e1a54e87c7d085e5688c8d7d01f55e737	2026-09-22
 continue	docs	https://docs.continue.dev/reference	200	html	a0067dd0c4619606119427464ddfc3c7708814a2d4973e6d8416dacf147cc3a4	2026-09-22
-copilot	changelog	https://github.blog/changelog/label/copilot/	200	html	ac29aa18dbd0f3b80615c7bd8bb6066beee17917856f7d2a59ee0bbaf1eb763c	2026-09-30
+copilot	changelog	https://github.blog/changelog/label/copilot/	200	html	00085af8f40f431870088d4052b5627d06d569c91e914773b35f833a6beb1f9c	2026-10-02
 copilot	docs	https://code.visualstudio.com/docs/agent-customization/mcp-servers	200	html	0b1592f39afb325d9bacd2c60b3cd0d365f0d5732d7071ba8a131ea1e81a56a8	2026-10-02
 copilot	docs	https://code.visualstudio.com/docs/agents/reference/mcp-configuration	200	html	687bcc5aaf4bd8fc24645211d3e14c4de51244dbb1556168e7264f1030a08e9e	2026-10-02
 copilot	docs	https://docs.github.com/en/copilot/concepts/agents/hooks.md	200	markdown-mirror	bfd40aa93ad62133efc17a50f189034f01594dc89a5d31a13a0c541d691acede	2026-09-25
@@ -85,7 +89,7 @@ crush	docs	https://github.com/charmbracelet/crush	200	raw-github	4a72550d9d6d9b8
 crush	docs	https://github.com/charmbracelet/crush/blob/main/docs/hooks/README.md	200	raw-github	0871ecba435c774b38650046a10341cccf07661c78a4bf803ce585c8740f4d38	2026-09-22
 crush	schema	https://raw.githubusercontent.com/charmbracelet/crush/main/schema.json	200	schema-keys	308ae8defeb921dcda55cabc280d30243312983e91cc7256fb6002807c788c5f	2026-09-30
 cursor	changelog	https://cursor.com/changelog	200	reader-proxy	8e37a602549f4b0c86ecf8c77d3925329bd621936deb2bf236f0f58fd5a45114	2026-09-29
-cursor	docs	https://cursor.com/docs/bugbot	200	reader-proxy	5922007b258846e6dd9aca48846c5083cebaa5ad37b4657da420be92d0dc3adf	2026-10-02
+cursor	docs	https://cursor.com/docs/bugbot	200	reader-proxy	5729b5ab7e5131c85faa1a36125647f239da9be3f336f21ac34190cdbabf5617	2026-10-02
 cursor	docs	https://cursor.com/docs/configuration/worktrees	200	reader-proxy	a2f2c3b4212216a33234fe6ccb7fdb5ef3305b38287bb79b3893f244dafda58a	2026-09-29
 cursor	docs	https://cursor.com/docs/hooks	200	reader-proxy	edb0d388b7743bf62a49848f8f71b6edcac2c3555996ca8fa64c3838d1d0b544	2026-09-29
 cursor	docs	https://cursor.com/docs/mcp	200	reader-proxy	1cd0265281aae01edeadaa048afeee6ebd8c901a85774ed991b2fe43045c37e4	2026-10-01
@@ -117,7 +121,7 @@ gemini	docs	https://geminicli.com/docs/hooks/reference/	200	html	51790ee211df1c1
 gemini	docs	https://geminicli.com/docs/reference/configuration	200	html	55122869b1f732ff1f2d8df0bb91107aa6c72e091854d015523b80c8d5e54ccb	2026-09-23
 gemini	docs	https://geminicli.com/docs/reference/tools.md	200	markdown-mirror	6b92328b478daae81baa2192d94c0e023fd57a91439f4d6888dcfb3b8c8a673c	2026-09-22
 gemini	schema	https://github.com/google-gemini/gemini-cli/blob/main/schemas/settings.schema.json	200	schema-keys	a58f970b4db122dcffa89c36e1e52521025913bcd4a35eb8dc526ac46bb34683	2026-09-30
-goose	changelog	https://github.com/aaif-goose/goose/releases	200	github-api	d11bb6c7d96c788fe8870cad8d3725e28e2c2248b9d31b40bf1ae9700b5ddc81	2026-09-30
+goose	changelog	https://github.com/aaif-goose/goose/releases	200	github-api	0afcb873f1bcbe950d77fd6bc64cdc013100eccf564854bb7dcaa04cf4a53966	2026-10-02
 goose	docs	https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/custom-agents.md	200	raw-github	2476673c6e2b11acfe3f95314c942dc2dac67efc79d74861233aeaa18e1b2560	2026-09-22
 goose	docs	https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/hooks.md	200	raw-github	6d9b62f75529f877799e3efae6fd5552605070c18bfc8b1bc32a6ddad940be39	2026-09-22
 goose	docs	https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/plugins.md	200	raw-github	ae9f8ac6449f02169219e0a9f77f77c224d63dcaefc5de64354c4148ed366b01	2026-09-22
@@ -153,10 +157,10 @@ kilo	docs	https://kilo.ai/docs/customize/custom-subagents	200	html	26ae84fff5daa
 kilo	docs	https://kilo.ai/docs/customize/skills	200	html	cdc320d1955a1b11f32807b13ca70e39cfe68517d249147096bd6b7e095a5e47	2026-09-23
 kilo	docs	https://kilo.ai/docs/getting-started/settings/auto-approving-actions	200	html	3d660caed47c7252466c544bcec647c9e1b470d71a56bfea50f9bf9e11208568	2026-09-22
 kilo	schema	https://app.kilo.ai/config.json	200	schema-keys	fe883bddf4435af05f14f721c74b931d161b5723d02b8c2399b835324e505a59	2026-09-30
-kiro	changelog	https://kiro.dev/changelog/	200	reader-proxy	93f1398acff1f39d916d2363d85b8dab788fdd54c57e1d257b4c28fb64b445a8	2026-10-02
+kiro	changelog	https://kiro.dev/changelog/	200	reader-proxy	b79707f1126838f928d1681627b64a26270bf943bec03db6c668c507c8cfe08b	2026-10-02
 kiro	docs	https://kiro.dev/docs/cli/v3/hooks-migration.md	200	markdown-mirror	47257b52caedeec916a92a82c7c3e20a22889b37c47c4688dfb989f70370f13f	2026-09-25
 kiro	docs	https://kiro.dev/docs/custom-agents.md	200	markdown-mirror	4901ef1d9bb61a831849697619ca484a4b0517ac23ea3afd94de5fd399799400	2026-09-25
-kiro	docs	https://kiro.dev/docs/custom-agents/configuration-reference.md	200	markdown-mirror	80484017b11180fe9e27f9ee5f71c0e8812afa53591793d162bfb7027b99a4c3	2026-09-25
+kiro	docs	https://kiro.dev/docs/custom-agents/configuration-reference.md	200	markdown-mirror	f103f560ddecfafbb98a01ffc2c92b384e78a8ae0254aff3d5630ce8a8edc347	2026-10-02
 kiro	docs	https://kiro.dev/docs/hooks.md	200	markdown-mirror	3a9b32842c5b4ede401320283f5608ee6b99afc64ac8f1049e9cfcdae77e92b0	2026-09-30
 kiro	docs	https://kiro.dev/docs/hooks/actions.md	200	markdown-mirror	965f9795d94c255ba8e59b9f06f6db7c3eabf1038d31313c9bd25b7a0ea146ef	2026-09-25
 kiro	docs	https://kiro.dev/docs/hooks/types.md	200	markdown-mirror	c9513418c6a104ff05b5388ae1cfaba145def4d092342fb2f9b9cd06b07edb6f	2026-09-30
@@ -166,8 +170,10 @@ kiro	docs	https://kiro.dev/docs/mcp/configuration.md	200	markdown-mirror	be8074c
 kiro	docs	https://kiro.dev/docs/powers.md	200	markdown-mirror	257918bf671baec01c537dd7d67f2ca48554bcd217244c70955fefecda77a366	2026-09-25
 kiro	docs	https://kiro.dev/docs/powers/installation.md	200	markdown-mirror	bc80c474c62a2b96ec82fe2dbfd86eabdfdec3a3491760e9d3ede37272a533ce	2026-09-30
 kiro	docs	https://kiro.dev/docs/skills.md	200	markdown-mirror	bec2e34ac47043aa71224a7b434c4919ffca6e5c6fd68b8754809b00209b9355	2026-09-25
-kiro	docs	https://kiro.dev/docs/steering.md	200	markdown-mirror	c9419024bcba5bee0f5796e020a020855416d82cd504c19d9657883a1540e74c	2026-09-25
-kiro	docs	https://kiro.dev/docs/tools.md	200	markdown-mirror	e9e4341ddb377bf94cba8f692ec8a3b4daadd6559de25070d774bc73d9996882	2026-09-30
+kiro	docs	https://kiro.dev/docs/steering.md	200	markdown-mirror	18bb43662c4959e9004050603605c5b962146ef43c2a0cf49f7cd7093b200263	2026-10-02
+kiro	docs	https://kiro.dev/docs/tools.md	200	markdown-mirror	ab03acfa8b09d3ef44456b97d27f4f9d4cb11ced4a82cd549e739c20a99e5be2	2026-10-02
+kiro	docs	https://kiro.dev/docs/workflows.md	200	markdown-mirror	1f8e1e37761f7b305ba3c340a9459fd12766111cfa52308938eb6c86d8688b65	2026-10-02
+kiro	docs	https://kiro.dev/docs/workflows/authoring.md	200	markdown-mirror	babc841792d257054790c5b454caa1b254ea16df8f13c52daa1099276e73c4c5	2026-10-02
 opencode	changelog	https://github.com/anomalyco/opencode/releases	200	github-api	9bbc00ed80d4acdaf1c261b5a6d282452c7469f04f44547e1ac3aa8d06b95a72	2026-10-01
 opencode	docs	https://opencode.ai/docs/agents.md	200	markdown-mirror	7b7dfc8ca2fc363358d6c6f4625bc13d8386942f9b64b0fcaa711a5aeee56074	2026-09-25
 opencode	docs	https://opencode.ai/docs/commands.md	200	markdown-mirror	7a1db15a20488c4c1813e135962480978788bf0509d866346d2e3cdde8a850e1	2026-09-25
@@ -187,7 +193,6 @@ openhands	docs	https://docs.openhands.dev/overview/skills/path	200	html	35845786
 openhands	docs	https://docs.openhands.dev/sdk/guides/agent-file-based	200	html	90c57fe1f71e42346e64d46326b949247d5eff12c95a09c58daeeb25dd847d7b	2026-09-22
 qoder	changelog	https://docs.qoder.com/release-notes/desktop.md	200	markdown-mirror	82bef796cc4931048754dc4497f2b77837c2771d3ffb62256b7352445e52b5b8	2026-09-24
 qoder	changelog	https://docs.qoder.com/release-notes/qoder-cli.md	200	markdown-mirror	539cbefc242c212590fa3248daf6039e855226288f0181f0810f7c92019194f0	2026-09-24
-qoder	docs	https://docs.qoder.com/cli/Skills.md	200	markdown-mirror	c40f99c6382f998547c18783a4ffd7cb22740d6340b936ed8dd484f2dd07b237	2026-09-25
 qoder	docs	https://docs.qoder.com/cli/commands.md	200	markdown-mirror	05f8f47cf709adc33f9d8c90e665213e471371249d5410eab0d3512fb6531239	2026-09-25
 qoder	docs	https://docs.qoder.com/cli/config-scope.md	200	markdown-mirror	d3bce256c0fcfdeafc269d8bbf756ac25a3693020227af095094f046368abb2f	2026-09-25
 qoder	docs	https://docs.qoder.com/cli/hooks-reference.md	200	markdown-mirror	695e7fdbc3f17f14181863dcec7149137e3d5991b48e6fc8453e7b767c4b7633	2026-09-25
@@ -198,6 +203,7 @@ qoder	docs	https://docs.qoder.com/cli/memory.md	200	markdown-mirror	6698230aca88
 qoder	docs	https://docs.qoder.com/cli/permissions.md	200	markdown-mirror	6f483f3ae5c8d2a6cd704e04137516b74cea4bb717f1dac05738ae57f381bba9	2026-09-25
 qoder	docs	https://docs.qoder.com/cli/settings-reference.md	200	markdown-mirror	ad3b59ab957bf799e2d0013ac1d135413b61e1adc704f176ac64f320d034c9d4	2026-09-25
 qoder	docs	https://docs.qoder.com/cli/settings.md	200	markdown-mirror	9f643742b6f619e2dad9a177a1668d461359598b2aa143b4e067a77321158f4f	2026-09-25
+qoder	docs	https://docs.qoder.com/cli/Skills.md	200	markdown-mirror	c40f99c6382f998547c18783a4ffd7cb22740d6340b936ed8dd484f2dd07b237	2026-09-25
 qoder	docs	https://docs.qoder.com/cli/subagent.md	200	markdown-mirror	bf536a0db661663ce4c75fae1fb82a3cb380679af03b85328a15e5188b782368	2026-09-25
 qoder	docs	https://docs.qoder.com/extensions/skills.md	200	markdown-mirror	2c1471069017c0ec4f3e499f8d270fe8b65c413579c547213b0c91ffee09bb0f	2026-09-25
 qoder	docs	https://docs.qoder.com/extensions/subagent.md	200	markdown-mirror	fbb291b96ac225dfe34fda3116a3877ae37f452586a39ba763ddf3bee272399e	2026-09-25

@@ -96,7 +96,7 @@ An explicit `x-claude.disallowedTools`, `x-codex.sandbox_mode`, or `x-factory.to
 | Want | Write |
 |------|-------|
 | Same model everywhere | `model: gpt-6.1-sol` |
-| Per target, with a fallback | `model: {claude: sonnet, default: gpt-5.5}` |
+| Per target, with a fallback | `model: {claude: sonnet, default: gpt-5.6-terra}` |
 | Per target, tool default elsewhere | `model: {claude: sonnet}` |
 | Different effort per target | `effort: {claude: xhigh, default: high}` |
 
