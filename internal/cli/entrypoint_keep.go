@@ -40,7 +40,13 @@ func keepHandWrittenInstructions(cfg *config.Config, b spec.Bundle, targets, led
 			continue
 		}
 		data, err := os.ReadFile(f.Path)
-		if err != nil || strings.TrimSpace(string(data)) == "" || header.Has(string(data)) {
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("%s: %w; nothing was written", f.Path, err)
+		}
+		if strings.TrimSpace(string(data)) == "" || header.Has(string(data)) {
 			continue
 		}
 		body := uncapturedEntryBody(".", f.Path, captured, string(data))
