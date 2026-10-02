@@ -1,5 +1,9 @@
 package cli
 
+// importNextStepsOff hides the post-import guidance while a command such
+// as `use` runs the next steps itself. Sequential use only.
+var importNextStepsOff bool
+
 // printImportNextSteps emits the post-import guidance block. It always
 // suggests the sync workflow first, then surfaces up to three other
 // detected CLIs as `import <name>` hints so users discover the rest of
@@ -9,9 +13,12 @@ package cli
 // is filtered out of the suggested list so users do not see their own
 // CLI echoed back.
 func printImportNextSteps(root, justImported string) {
+	if importNextStepsOff {
+		return
+	}
 	summaryf("\n")
 	summaryf("next steps:\n")
-	summaryf("  agnostic-ai sync --check   # preview what changes\n")
+	summaryf("  agnostic-ai sync --plan    # preview what changes\n")
 	summaryf("  agnostic-ai sync           # write to configured targets\n")
 
 	detected, _ := detectImportSources(root)

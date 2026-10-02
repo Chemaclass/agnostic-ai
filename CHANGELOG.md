@@ -11,6 +11,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - **Breaking:** a rule with narrow `globs` and no `alwaysApply` loads on matching files in Cursor, Trae, Devin, Cline, and Antigravity, not on every file (#1597).
 - **Breaking:** an unknown config key, a misspelled target, or a bad `on-unsupported` value fails before sync writes anything, not silently (#1589).
 - `init` names what ignoring or committing generated files costs a team, and without a terminal says which it picked (#1615).
+- `agnostic-ai use <tool>` starts using a tool in one step: it sets up or extends the project, imports, syncs, and shows what the tool reads (#1613).
 - `sync` stops before replacing a hand-written `CLAUDE.md` or `AGENTS.md` it has not imported, and names the `import` that keeps it (#1611).
 - The `install-hook` pre-commit check compares the staged files, so a commit missing its outputs fails; needs 0.74.0+, reinstall to update (#1592).
 - `import` adds the sections `AGNOSTIC_AI.md` lacks instead of replacing it, so a second import keeps the first one's instructions (#1595).

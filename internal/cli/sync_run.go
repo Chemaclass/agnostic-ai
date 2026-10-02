@@ -79,6 +79,10 @@ type syncStateFile struct {
 	// Backups maps each `<path>.bak` sync made to the sum of its bytes, so
 	// import can tell it from a skill's own asset while it is unchanged.
 	Backups map[string]string `json:"backups,omitempty"`
+	// PendingImports lists the tools `use` added to targets before their
+	// own config was imported. A sync waits until `use` finishes them, so
+	// it never writes over native config nothing has imported.
+	PendingImports []string `json:"pending_imports,omitempty"`
 }
 
 // showRepeatedDrops lets -v print capability warnings and coverage notes
@@ -436,6 +440,9 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		effectiveTargets = cfg.Targets
 	}
 	if err := stopOnSpecTypos(b, append(slices.Clone(cfg.Targets), effectiveTargets...)); err != nil {
+		return err
+	}
+	if err := stopOnPendingImports(root, cfg); err != nil {
 		return err
 	}
 	if err := keepHandWrittenInstructions(cfg, b, effectiveTargets, readStateFile(root).Outputs, backup, keepEdits); err != nil {
@@ -936,6 +943,9 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 		effectiveTargets = cfg.Targets
 	}
 	if err := stopOnSpecTypos(b, append(slices.Clone(cfg.Targets), effectiveTargets...)); err != nil {
+		return err
+	}
+	if err := stopOnPendingImports(root, cfg); err != nil {
 		return err
 	}
 	if err := keepHandWrittenInstructions(cfg, b, effectiveTargets, readStateFile(root).Outputs, backup, keepEdits); err != nil {
