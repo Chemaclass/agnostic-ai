@@ -61,7 +61,7 @@ When target choice is ambiguous, ask the user. Do not infer that every installed
 
 Ask the user whether Git should track the generated files, and pass the answer as `--gitignore=on` or `--gitignore=off`. Ignoring them keeps Git to the specs (`.agnostic-ai/` and `agnostic-ai.yaml`), but every teammate must install agnostic-ai and run `agnostic-ai sync` after cloning. Committing them lets a clone work without the tool, with `agnostic-ai sync --check` in CI to keep them current.
 
-For existing native configuration, replace the example target list with the tools the project uses:
+For existing native configuration, replace the example target list with the tools the project uses, and `--gitignore=on` with the user's answer:
 
 ```bash
 printf '%s\n' 'claude,codex' | agnostic-ai init --from all --gitignore=on
@@ -69,7 +69,7 @@ printf '%s\n' 'claude,codex' | agnostic-ai init --from all --gitignore=on
 
 `--from all` imports every detected source. Each one adds to `.agnostic-ai/AGNOSTIC_AI.md` the sections it lacks, naming them, instead of replacing what an earlier source or import captured, so review the file before syncing when tools say the same thing in different words. An edited section comes back as a second version, and import names it so you keep one. A file with `::target` fences is left as it is when the imported file differs from what sync renders, since the edit's block is unknown; import says to merge it by hand.
 
-For a fresh project:
+For a fresh project, with the same two replacements:
 
 ```bash
 printf '%s\n' 'claude,codex' | agnostic-ai init --gitignore=on
