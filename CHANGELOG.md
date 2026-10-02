@@ -12,6 +12,12 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - Linked source roots load specs and assets; both watch modes follow nested edits (#1644, #1651).
 - `list`, `status`, `doctor`, `validate`, `lint` and `sync --check` print results on stdout, so pipes see them; diagnostics stay on stderr (#1607).
 
+### By tool
+
+#### Kiro
+
+- Import skips `manual` and `auto` steering files with a note instead of turning them into always-on rules (#1656).
+
 ### Site
 
 - The last five release briefings give concise upgrade and feature guidance, with readable code blocks, copy controls and tables (#1652, #1653).
