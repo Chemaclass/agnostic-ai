@@ -11,6 +11,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - Polling watch emits edits made during a re-sync and keeps watching roots added by config reload (#1641, #1650).
 - Linked source roots load specs and assets; both watch modes follow nested edits (#1644, #1651).
 - `list`, `status`, `doctor`, `validate`, `lint` and `sync --check` print results on stdout, so pipes see them; diagnostics stay on stderr (#1607).
+- `explain LINT011` and every other lint code print the cause, fix, severity and config key; `lint` points at it (#1648).
 
 ### Site
 

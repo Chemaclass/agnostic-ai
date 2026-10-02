@@ -40,7 +40,7 @@ agnostic-ai doctor
 - `validate` checks source specs.
 - `doctor` diagnoses configuration and output problems. It can exit non-zero.
 
-See the [CLI reference](@/docs/cli-reference/_index.md) for flags and exit codes. To trace a generated file to its source, use [why](@/docs/trace.md). To see which targets receive a spec, use [graph](@/docs/graph.md). To explain a diagnostic code, run `agnostic-ai explain` with it, such as `agnostic-ai explain AAI-003`.
+See the [CLI reference](@/docs/cli-reference/_index.md) for flags and exit codes. To trace a generated file to its source, use [why](@/docs/trace.md). To see which targets receive a spec, use [graph](@/docs/graph.md). To explain a diagnostic code, run `agnostic-ai explain` with it, such as `agnostic-ai explain AAI-003` or `agnostic-ai explain LINT011`.
 
 ## Scoped rules
 

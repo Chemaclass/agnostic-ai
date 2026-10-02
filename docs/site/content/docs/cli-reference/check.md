@@ -51,9 +51,14 @@ agnostic-ai lint --strict
 | `--strict` | Exit 1 on warnings too, for CI. |
 | `--global` | Lint the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides. Also reports LINT010 and LINT014. Budgets come from the `lint` key in the home config. Works outside a project. |
 
+`agnostic-ai explain LINT011` prints any code's cause, fix, and config key. `lint` names the command after its findings.
+
 | Code | Finding |
 |------|---------|
-| LINT003 | Two specs of one kind share a `name`. The loader keeps one body. Hooks that share an event and matcher are fine. |
+| LINT001 | Warning. A spec has no body and no description. |
+| LINT003 | Error. Two specs of one kind share a `name`. The loader keeps one body. Hooks that share an event and matcher are fine. |
+| LINT004 | Warning. No enabled target supports the spec's kind, so sync writes it nowhere. The finding lists the targets that do. |
+| LINT005 | Warning. A hook sets `matcher` on an event that does not consume one, so the tool ignores it. Drop it or use a tool-call event such as `PreToolUse`. |
 | LINT006 | Error. Frontmatter opens with `---` and never closes, so the raw YAML is emitted as body. |
 | LINT010 | Error, `--global` only. A rule with scope, path, glob, or target conditions. `sync --global` rejects it. |
 | LINT014 | Error, `--global` only. A settings `effort` that a target's user effort key cannot take, such as `max` for Claude or Copilot. `sync --global` drops it with a note. |
