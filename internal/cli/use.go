@@ -402,23 +402,29 @@ func importToolConfig(cfg *config.Config, tools []string) (failed []string, err 
 	defer func() { importNextStepsOff = false }()
 	setImportRunSources(sources)
 	defer setImportRunSources(nil)
-	err = withImportTree(".", func() error {
-		return withLocalImportGuard(".", cfg, func() error {
-			for _, s := range sources {
-				if len(sources) > 1 {
-					_, _ = fmt.Fprintf(os.Stdout, "→ importing from %s\n", s)
+	run := func(failed *[]string) error {
+		return withImportTree(".", func() error {
+			return withLocalImportGuard(".", cfg, func() error {
+				for _, s := range sources {
+					if len(sources) > 1 {
+						_, _ = fmt.Fprintf(os.Stdout, "→ importing from %s\n", s)
+					}
+					if err := runImport(".", s, cfg); err != nil {
+						_, _ = fmt.Fprintf(os.Stderr, "! %s: %v\n", s, err)
+						*failed = append(*failed, s)
+					}
 				}
-				if err := runImport(".", s, cfg); err != nil {
-					_, _ = fmt.Fprintf(os.Stderr, "! %s: %v\n", s, err)
-					failed = append(failed, s)
+				if len(*failed) > 0 {
+					return fmt.Errorf("import failed for: %s", strings.Join(*failed, ", "))
 				}
-			}
-			if len(failed) > 0 {
-				return fmt.Errorf("import failed for: %s", strings.Join(failed, ", "))
-			}
-			return nil
+				return nil
+			})
 		})
-	})
+	}
+	err = runGuardedImport(false, importOverwriteRemedy, func() error { return run(&failed) })
+	if errs.CodeOf(err) == errs.CodeImportWouldReplace {
+		return sources, err
+	}
 	if err != nil && len(failed) == 0 {
 		failed = sources
 	}
@@ -559,37 +565,47 @@ func stillConfigured(failed []string) []string {
 // setPendingImports records the tools whose import has not finished in
 // the state file, which keeps every other field.
 func setPendingImports(tools []string) error {
-	p := stateFilePath(".")
-	state := readStateFile(".")
+	// Writing over a ledger that does not parse would lose it, and the
+	// marker this writes is what keeps a sync off unimported config.
+	state, err := readStateFileStrict(".")
+	if err != nil {
+		return fmt.Errorf("%w; fix or delete it, then run agnostic-ai use again", err)
+	}
 	if slices.Equal(state.PendingImports, tools) {
 		return nil
 	}
 	state.PendingImports = tools
+	return replaceStateFile(".", state)
+}
+
+// replaceStateFile writes state as the state file under root whole.
+func replaceStateFile(root string, state syncStateFile) error {
+	p := stateFilePath(root)
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
-		return err
+		return fmt.Errorf("%s: %w", filepath.Dir(p), err)
 	}
 	data, err := json.Marshal(state)
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal %s: %w", p, err)
 	}
 	// A rename replaces the file whole, so a stop mid-write never leaves
 	// a state that reads as nothing pending.
 	tmp, err := os.CreateTemp(filepath.Dir(p), ".sync-state-*")
 	if err != nil {
-		return err
+		return fmt.Errorf("create %s: %w", p, err)
 	}
 	_, werr := tmp.Write(data)
 	if err := errors.Join(werr, tmp.Sync(), tmp.Close()); err != nil {
 		_ = os.Remove(tmp.Name())
-		return err
+		return fmt.Errorf("write %s: %w", p, err)
 	}
 	if err := os.Chmod(tmp.Name(), 0o644); err != nil {
 		_ = os.Remove(tmp.Name())
-		return err
+		return fmt.Errorf("chmod %s: %w", p, err)
 	}
 	if err := os.Rename(tmp.Name(), p); err != nil {
 		_ = os.Remove(tmp.Name())
-		return err
+		return fmt.Errorf("replace %s: %w", p, err)
 	}
 	return nil
 }

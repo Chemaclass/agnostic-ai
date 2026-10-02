@@ -198,6 +198,19 @@ func (Adapter) Name() string { return target }
 
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
+func (Adapter) RendersSpecFile(e spec.Entry, _ *config.Config, _ string) bool {
+	switch e.Kind {
+	case spec.KindAgent:
+		return strings.TrimSpace(e.Body) != ""
+	case spec.KindSettings:
+		b := emit.WithoutForeignClaudeModels(caps, spec.Bundle{Settings: []spec.Entry{e}})
+		keys, _ := settingsKeys(b.Settings)
+		return len(keys) > 0
+	default:
+		return true
+	}
+}
+
 // ForeignClaudeModels lists the Claude model names the agent `model` key cannot load.
 func (Adapter) ForeignClaudeModels() []string { return caps.ForeignClaudeModels }
 

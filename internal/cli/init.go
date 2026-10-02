@@ -146,17 +146,22 @@ func newInitCmd() *cobra.Command {
 			}
 			if dryRun {
 				opts.DryRun = false
-				return dryRunImport([]string{fromCLI}, func() error { return scaffoldSilently(opts) })
+				return dryRunImport([]string{fromCLI}, func() error { return scaffoldSilently(opts) }, false)
 			}
 			cfg, err := config.Load(".")
 			if err != nil {
 				return fmt.Errorf("load config after init: %w", err)
 			}
-			return withImportTree(".", func() error {
-				return withLocalImportGuard(".", cfg, func() error {
-					return runImport(".", fromCLI, cfg)
+			run := func() error {
+				return withImportTree(".", func() error {
+					return withLocalImportGuard(".", cfg, func() error {
+						return runImport(".", fromCLI, cfg)
+					})
 				})
-			})
+			}
+			return runGuardedImport(false, func([]string) string {
+				return importOverwriteRemedy([]string{fromCLI})
+			}, run)
 		},
 	}
 	cmd.Flags().BoolVar(&demo, "demo", false,

@@ -152,7 +152,7 @@ func mergeOrWriteCodexAgentSpec(dstDir, canonical, codexName string, doc map[str
 	if err != nil {
 		return false, err
 	}
-	if err := importWriteFile(path, []byte(merged), 0o644); err != nil {
+	if err := withImportMerge(func() error { return importWriteFile(path, []byte(merged), 0o644) }); err != nil {
 		return false, fmt.Errorf("write %s: %w", path, err)
 	}
 	return true, nil
@@ -489,7 +489,7 @@ func importCodexSkills(root, dstDir string) (int, error) {
 			seen[identity] = true
 			merged := dirExists(skillDst)
 			if merged {
-				if err := mergeCodexSkillIntoExisting(skillSrc, skillDst); err != nil {
+				if err := withImportMerge(func() error { return mergeCodexSkillIntoExisting(skillSrc, skillDst) }); err != nil {
 					return count, fmt.Errorf("merge skill %s: %w", e.Name(), err)
 				}
 			} else if err := copyDirTree(skillSrc, skillDst); err != nil {

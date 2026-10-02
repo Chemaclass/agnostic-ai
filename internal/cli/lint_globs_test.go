@@ -104,7 +104,7 @@ func TestKiro_ListFileMatchPatternRoundTrips(t *testing.T) {
 	}
 
 	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go.md"), "")
-	if out, err := runCLI(t, "import", "kiro"); err != nil {
+	if out, err := runCLI(t, "import", "kiro", "--overwrite"); err != nil {
 		t.Fatalf("import kiro: %v\n%s", err, out)
 	}
 	if got := readFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go.md")); !strings.Contains(got, "*.go,src/**/*.{ts,tsx}") {

@@ -150,6 +150,33 @@ func (Adapter) Name() string { return target }
 
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
+func (Adapter) RendersSpecFile(e spec.Entry, cfg *config.Config, _ string) bool {
+	switch e.Kind {
+	case spec.KindCommand:
+		return emit.OutputCommandsDir(cfg, target, "") != ""
+	case spec.KindSkill:
+		return codexEmitsSkills(cfg)
+	case spec.KindSettings:
+		settings := emit.WithoutForeignClaudeModels(caps, spec.Bundle{Settings: []spec.Entry{e}}).Settings
+		protected, _ := spec.ProtectedPaths(settings)
+		if renderConfigTOML(settings, nil, nil, "", nil) != "" || len(protected) > 0 {
+			return true
+		}
+		if cfg.Outputs[target].ExecPoliciesFromPermissions && nativeExecPoliciesSource(cfg) == "" {
+			for _, list := range []string{"allow", "ask", "deny"} {
+				for _, rule := range specPermissions(e, list) {
+					if _, ok := bashPermissionPrefix(rule); isBashRule(rule) && ok {
+						return true
+					}
+				}
+			}
+		}
+		return false
+	default:
+		return true
+	}
+}
+
 // ForeignClaudeModels lists the Claude model names the agent `model` key cannot load.
 func (Adapter) ForeignClaudeModels() []string { return caps.ForeignClaudeModels }
 

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"io/fs"
@@ -18,12 +19,21 @@ import (
 // reads. The header sits on the first lines, below frontmatter at most.
 const headerProbeBytes = 8 << 10
 
-// ledgerMissing reports whether no `.sync-state` exists. An empty or
-// unreadable ledger is still a record of what sync wrote, so only a
-// missing one sends the leftover scan to git-tracked files (#1334).
+// ledgerMissing reports whether no sync has written `.sync-state`. An
+// empty or unreadable ledger is still a record of what sync wrote, so
+// only a missing one sends the leftover scan to git-tracked files
+// (#1334). `import` and `use` write the file too, with no sync time, to
+// keep their own records; that is no ledger either.
 func ledgerMissing(root string) bool {
-	_, err := os.Lstat(stateFilePath(root))
-	return errors.Is(err, fs.ErrNotExist)
+	if _, err := os.Lstat(stateFilePath(root)); errors.Is(err, fs.ErrNotExist) {
+		return true
+	}
+	data, err := os.ReadFile(stateFilePath(root))
+	if err != nil {
+		return false
+	}
+	var s syncStateFile
+	return json.Unmarshal(data, &s) == nil && s.SyncedAt.IsZero()
 }
 
 // unledgeredReport lists the leftovers no ledger proves sync wrote. With

@@ -61,6 +61,12 @@ var registry = map[Code]Entry{
 		Cause: "The argument passed to `agnostic-ai import` does not match any registered source.",
 		Fix:   "Run `agnostic-ai import --help` for the supported list. Spelling counts.",
 	},
+	CodeImportWouldReplace: {
+		Code:  CodeImportWouldReplace,
+		Title: "Import would replace an existing spec",
+		Cause: "`import`, `init --from`, or `use` would replace a spec under the source directories with different content that the importing tool never read: a hand-written spec, one edited since the last sync or import, one sync never wrote for that tool, or one another tool's import wrote. No spec was written.",
+		Fix:   "Rename the existing spec to keep both and import again, or run `agnostic-ai import <tool> --overwrite` to replace it. The message names each spec and the tool that wanted it.",
+	},
 	CodeSyncTargetUnknown: {
 		Code:  CodeSyncTargetUnknown,
 		Title: "Unknown sync target",

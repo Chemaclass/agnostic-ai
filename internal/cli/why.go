@@ -2,10 +2,8 @@ package cli
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -458,10 +456,10 @@ func lastSyncTimestamp(projectRoot string) *string {
 	return &formatted
 }
 
-// whyNotTrackedError builds a clear "not tracked" error. When the sync
-// state file is absent altogether, suggest running sync first.
+// whyNotTrackedError builds a clear "not tracked" error. When no sync has
+// written the state file, suggest running sync first.
 func whyNotTrackedError(input, projectRoot string) error {
-	if _, err := os.Stat(stateFilePath(projectRoot)); errors.Is(err, fs.ErrNotExist) {
+	if ledgerMissing(projectRoot) {
 		return fmt.Errorf("%s: no sync state found at %s. Run `agnostic-ai sync` first",
 			input, filepath.ToSlash(stateFilePath(projectRoot)))
 	}

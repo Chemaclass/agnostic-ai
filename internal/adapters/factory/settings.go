@@ -104,6 +104,15 @@ var reasoningEffortLevels = []string{"none", "dynamic", "off", "minimal", "low",
 func (Adapter) SettingsEffortLevels() []string { return reasoningEffortLevels }
 
 func emitSettings(sess *emit.Session, settings []spec.Entry, path string, dryRun bool) error {
+	keys, dropped := settingsKeys(settings)
+	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions", dropped, permissionsNonShellReason)
+	if len(keys) == 0 {
+		return nil
+	}
+	return sess.MergeJSONFile(path, keys, dryRun)
+}
+
+func settingsKeys(settings []spec.Entry) (map[string]any, int) {
 	keys := map[string]any{}
 	if model := emit.SettingsModel(settings, target); model != "" {
 		keys["model"] = model
@@ -112,15 +121,11 @@ func emitSettings(sess *emit.Session, settings []spec.Entry, path string, dryRun
 		keys["reasoningEffort"] = level
 	}
 	lists, dropped := buildCommandLists(settings)
-	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions", dropped, permissionsNonShellReason)
 	for key, patterns := range lists {
 		keys[key] = patterns
 	}
 	emit.MergeSettingsCustomKeys(keys, settings, target)
-	if len(keys) == 0 {
-		return nil
-	}
-	return sess.MergeJSONFile(path, keys, dryRun)
+	return keys, dropped
 }
 
 // buildCommandLists renders the portable allow, ask, and deny lists as

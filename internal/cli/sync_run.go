@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -73,6 +74,11 @@ type syncStateFile struct {
 	// SpecSums fingerprints each source spec and the merged config, so
 	// the next sync can name which sources changed since this one.
 	SpecSums map[string]string `json:"spec_sums,omitempty"`
+	// SpecFileSums maps each spec file, slash-form and relative to the
+	// project, to the sha256 of its raw bytes when sync rendered it or
+	// import wrote it, so import can tell a spec a tool already reads
+	// from one it would replace unseen (#1620).
+	SpecFileSums map[string]specFileSum `json:"spec_file_sums,omitempty"`
 	// ModelAliases records the id each vendor model alias resolved to,
 	// by target, so the next sync can say when an upgrade moved one.
 	ModelAliases map[string]map[string]string `json:"model_aliases,omitempty"`
@@ -106,6 +112,7 @@ type syncLedger struct {
 	// specSums is not part of the output footprint, but it is written
 	// beside it so the next sync can diff sources against this one.
 	specSums     map[string]string
+	specFileSums map[string]specFileSum
 	modelAliases map[string]map[string]string
 	backups      map[string]string
 	listed       []string
@@ -130,6 +137,24 @@ func readStateFile(projectRoot string) syncStateFile {
 	return s
 }
 
+// readStateFileStrict is readStateFile that reports a state file that
+// exists but cannot be read or parsed, for a caller about to write it.
+func readStateFileStrict(projectRoot string) (syncStateFile, error) {
+	var s syncStateFile
+	p := stateFilePath(projectRoot)
+	data, err := os.ReadFile(p)
+	if errors.Is(err, fs.ErrNotExist) {
+		return s, nil
+	}
+	if err != nil {
+		return s, fmt.Errorf("read %s: %w", p, err)
+	}
+	if err := json.Unmarshal(data, &s); err != nil {
+		return s, fmt.Errorf("parse %s: %w", p, err)
+	}
+	return s, nil
+}
+
 func writeStateFile(projectRoot string, filesChanged int, warningsDigest, notesDigest string, ledger syncLedger) error {
 	p := stateFilePath(projectRoot)
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
@@ -147,6 +172,7 @@ func writeStateFile(projectRoot string, filesChanged int, warningsDigest, notesD
 		Unledgered:     ledger.unledgered,
 		Merged:         ledger.merged,
 		SpecSums:       ledger.specSums,
+		SpecFileSums:   ledger.specFileSums,
 		ModelAliases:   ledger.modelAliases,
 		Backups:        ledger.backups,
 		Listed:         ledger.listed,
@@ -212,6 +238,26 @@ type targetEmit struct {
 	resolved bool     // false when the adapter could not be resolved (skippable)
 	err      error
 	dur      time.Duration // wall time the target's emit took, for the verbose summary
+}
+
+func importProvenanceTargets(emits []targetEmit, sessions []*adapters.Session, main *adapters.Session) []string {
+	// Skipped outputs cannot prove that a changed spec reached its tool.
+	if len(main.KeptEdits()) > 0 || len(main.UnmanagedSkips()) > 0 || len(main.BackupBlockedEdits()) > 0 {
+		return nil
+	}
+	var targets []string
+	for i, e := range emits {
+		if !e.resolved || e.err != nil || slices.ContainsFunc(e.writes, func(w adapters.WrittenFile) bool {
+			return w.Action == "edited"
+		}) {
+			continue
+		}
+		if i < len(sessions) && sessions[i] != nil && len(sessions[i].UnmanagedSkips()) > 0 {
+			continue
+		}
+		targets = append(targets, e.target)
+	}
+	return targets
 }
 
 // resolveJobs maps the --jobs flag to a worker count: 0 or negative means
@@ -745,6 +791,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
 		ledger.specSums = sums
 	}
+	ledger.specFileSums = syncedSpecFileSums(root, prev.SpecFileSums, b, importProvenanceTargets(emits, targetSessions, mainSess), cfg)
 	trackedIgnored := gitTrackedAndIgnored(root, trackedIgnoreCandidates(cfg, ledger.outputs))
 	var untrackErr error
 	if untrack && len(trackedIgnored) > 0 {
@@ -1173,6 +1220,10 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	ledger.modelAliases = prev.ModelAliases
 	if len(out.Errors) == 0 && coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
 		ledger.specSums = specSums(cfg, b)
+	}
+	ledger.specFileSums = prev.SpecFileSums
+	if len(out.Errors) == 0 {
+		ledger.specFileSums = syncedSpecFileSums(root, prev.SpecFileSums, b, importProvenanceTargets(emits, sessions, mainSess), cfg)
 	}
 	ledger.backups = syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups))
 	ledger.listed = carriedListed(prev)

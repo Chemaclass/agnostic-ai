@@ -201,6 +201,18 @@ func (Adapter) Name() string { return target }
 
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
+func (Adapter) RendersSpecFile(e spec.Entry, _ *config.Config, _ string) bool {
+	if e.Kind != spec.KindSettings {
+		return true
+	}
+	settings := []spec.Entry{e}
+	permissions, _ := buildToolPermissions(settings)
+	keys := map[string]any{}
+	emit.MergeSettingsCustomKeys(keys, settings, target, toolPermissionsKey, mcpServersKey)
+	emit.MergeSettingsCustomRecordMap(keys, settings, target, mcpServersKey)
+	return len(permissions) > 0 || len(keys) > 0
+}
+
 // Emit writes one `.augment/rules/<name>.md` per rule, one
 // `.augment/agents/<name>.md` per agent, one shared
 // `.agents/skills/<name>/SKILL.md` folder per skill, one native command

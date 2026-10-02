@@ -127,6 +127,13 @@ func (Adapter) Name() string { return target }
 
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
+func (Adapter) RendersSpecFile(e spec.Entry, cfg *config.Config, _ string) bool {
+	if e.Kind == spec.KindSettings {
+		return len(emit.SettingsCustomKeys([]spec.Entry{e}, target, ampMCPKey)) > 0
+	}
+	return e.Kind != spec.KindAgent || emit.OutputRulesFile(cfg, target, "") != ""
+}
+
 // Emit writes a folder per skill under `.agents/skills/<name>/SKILL.md`,
 // `.amp/settings.json` for MCP servers and settings, Amp's two
 // environment files, and, when opted in via outputs.amp.rules-file, a

@@ -30,22 +30,35 @@ type importPreviewEntry struct {
 	before   []byte   // current bytes, nil when !existed
 	after    []byte   // bytes the sequential import leaves
 	sources  []string // sources that wrote it, in import order
-	conflict bool     // two or more sources proposed different bytes
-	winner   string   // source whose write a real import keeps
+	holders  []string
+	conflict bool   // two or more sources proposed different bytes
+	winner   string // source whose write a real import keeps
+	replaced bool   // a write replaced the file instead of merging into it
+	// overwrites marks an existing spec whose replacement stops a real
+	// import without --overwrite (see replacesSpec).
+	overwrites bool
+	// heldBy names, as "<sync|import>:<tools>", where the current bytes
+	// came from, when a record still matches them.
+	heldBy string
 }
 
 // importPreview is the plan an `import --dry-run --diff` run reports.
 type importPreview struct {
-	order   []string
-	entries []importPreviewEntry // sorted by path
+	order     []string
+	entries   []importPreviewEntry // sorted by path
+	overwrite bool                 // the import runs with --overwrite
 }
 
 // previewImport runs the import preview for args and prints the report.
 // An importer failure still prints what the other sources planned, then
 // returns the error, as a real multi-source import does.
-func previewImport(args []string) error {
+func previewImport(args []string, overwrite bool) error {
 	preview, err := planImportPreview(args)
+	preview.overwrite = overwrite
 	printImportPreview(os.Stdout, preview)
+	if overwrites := preview.overwrites(); len(overwrites) > 0 && !overwrite {
+		return errors.Join(err, importOverwriteError(overwrites, func([]string) string { return importOverwriteRemedy(args) }))
+	}
 	return err
 }
 
@@ -54,9 +67,15 @@ func previewImport(args []string) error {
 // the importer would write, sorted and listed once however many stages
 // write it, ending with a count. Equivalent in shape to `sync --plan`.
 // The summary prints even when an importer fails. prepare, when set,
-// runs in the copy before the import.
-func dryRunImport(args []string, prepare func() error) error {
-	rec, err := runImportInCopy(args, prepare, nil)
+// runs in the copy before the import. Existing specs the import would
+// replace fail the preview as they fail a real run without overwrite.
+func dryRunImport(args []string, prepare func() error, overwrite bool) error {
+	var overwrites []importPreviewEntry
+	rec, err := runImportInCopy(func() error { return importArgs(args) }, prepare, func(project, shadow string, rec *importRecorder) error {
+		preview, err := buildImportPreview(project, shadow, rec)
+		overwrites = preview.overwrites()
+		return err
+	})
 	paths := make([]string, 0, len(rec.writes))
 	for _, w := range rec.writes {
 		paths = append(paths, filepath.FromSlash(w.path))
@@ -66,6 +85,10 @@ func dryRunImport(args []string, prepare func() error) error {
 	for _, p := range paths {
 		fmt.Printf("  would write %s\n", p)
 	}
+	if len(overwrites) > 0 && !overwrite {
+		return errors.Join(err, importOverwriteError(overwrites, func([]string) string { return importOverwriteRemedy(args) }))
+	}
+	printImportOverwrites(os.Stdout, overwrites)
 	fmt.Printf("dry-run: %d file(s) would be written\n", len(paths))
 	return err
 }
@@ -74,7 +97,7 @@ func dryRunImport(args []string, prepare func() error) error {
 // compares the result with the project.
 func planImportPreview(args []string) (importPreview, error) {
 	var preview importPreview
-	_, err := runImportInCopy(args, nil, func(project, shadow string, rec *importRecorder) error {
+	_, err := runImportInCopy(func() error { return importArgs(args) }, nil, func(project, shadow string, rec *importRecorder) error {
 		var err error
 		preview, err = buildImportPreview(project, shadow, rec)
 		return err
@@ -83,14 +106,14 @@ func planImportPreview(args []string) (importPreview, error) {
 }
 
 // runImportInCopy copies the working directory (without .git) into a
-// temporary directory, runs the real importers there with every write
+// temporary directory, runs the import there with every write
 // recorded, and calls inspect, when set, before the copy is removed. Running the
 // ordinary import is what keeps a dry-run equal to a real one: a later
 // stage reads what an earlier one wrote, frontmatter merges and fences
 // included. The project itself is never written. An inspect error wins
 // over an importer error. prepare, when set, runs in the copy first,
 // such as the scaffold `init --from` writes before it imports.
-func runImportInCopy(args []string, prepare func() error, inspect func(project, shadow string, rec *importRecorder) error) (*importRecorder, error) {
+func runImportInCopy(run func() error, prepare func() error, inspect func(project, shadow string, rec *importRecorder) error) (*importRecorder, error) {
 	rec := &importRecorder{}
 	project, err := os.Getwd()
 	if err != nil {
@@ -138,7 +161,8 @@ func runImportInCopy(args []string, prepare func() error, inspect func(project, 
 		importRecording, importSandbox, importSandboxOutsideFiles, importRunTree = nil, "", nil, nil
 	}()
 
-	runErr := runImportArgs(args)
+	rec.specDirs = importSpecDirs(shadow)
+	runErr := run()
 	if inspect != nil {
 		if err := inspect(project, shadow, rec); err != nil {
 			return rec, err
@@ -166,7 +190,10 @@ func buildImportPreview(project, shadow string, rec *importRecorder) (importPrev
 		}
 		proposals[w.path][w.source] = w.data
 		e.winner = w.source
+		e.replaced = e.replaced || !w.merge
 	}
+	specDirs := rec.specDirs
+	sums := readStateFile(project).SpecFileSums
 	for path, e := range byPath {
 		native := filepath.FromSlash(path)
 		after, err := os.ReadFile(filepath.Join(shadow, native))
@@ -178,16 +205,32 @@ func buildImportPreview(project, shadow string, rec *importRecorder) (importPrev
 		switch {
 		case err == nil:
 			e.existed, e.before = true, before
+		case errors.Is(err, fs.ErrNotExist):
+			if info, linkErr := os.Lstat(filepath.Join(project, native)); linkErr == nil && info.Mode()&os.ModeSymlink != 0 {
+				return importPreview{}, fmt.Errorf("%s: %w", path, err)
+			}
 		case !errors.Is(err, fs.ErrNotExist):
 			return importPreview{}, fmt.Errorf("%s: %w", path, err)
 		}
 		e.conflict = distinctProposals(proposals[path]) > 1
+		e.holders = importContentHolders(e.sources, proposals[path], e.after)
+		e.overwrites = replacesSpec(e, specDirs, sums)
 		preview.entries = append(preview.entries, *e)
 	}
 	sort.Slice(preview.entries, func(i, j int) bool {
 		return preview.entries[i].path < preview.entries[j].path
 	})
 	return preview, nil
+}
+
+func importContentHolders(sources []string, proposals map[string][]byte, content []byte) []string {
+	var holders []string
+	for _, source := range sources {
+		if bytes.Equal(proposals[source], content) {
+			holders = append(holders, source)
+		}
+	}
+	return holders
 }
 
 // distinctProposals counts the different byte sequences sources proposed.
@@ -234,6 +277,9 @@ func printImportPreview(w io.Writer, p importPreview) {
 		conflicts++
 		_, _ = fmt.Fprintf(w, "  ! conflict %s: %s propose different content; %s (last) is kept\n",
 			e.path, strings.Join(e.sources, ", "), e.winner)
+	}
+	if p.overwrite {
+		printImportOverwrites(w, p.overwrites())
 	}
 	for _, e := range p.entries {
 		if e.status() != "unchanged" {
@@ -288,6 +334,7 @@ func copyImportPreviewTree(src, dst string, tree importTree, keep previewKeep) (
 	c := previewCopier{
 		root: root, dstRoot: dst, tree: tree, keep: keep,
 		visited: map[string]bool{}, outsideFiles: map[string]bool{}, nested: map[string]bool{},
+		files: map[previewFileKey][]previewCopiedFile{},
 	}
 	return previewCopy{outsideFiles: c.outsideFiles, nested: c.nested}, c.copyDir(root, dst)
 }
@@ -365,6 +412,17 @@ type previewCopier struct {
 	outside      bool
 	outsideFiles map[string]bool
 	nested       map[string]bool
+	files        map[previewFileKey][]previewCopiedFile
+}
+
+type previewFileKey struct {
+	size     int64
+	modified int64
+}
+
+type previewCopiedFile struct {
+	path string
+	info os.FileInfo
 }
 
 func (c previewCopier) copyDir(from, to string) error {
@@ -403,10 +461,30 @@ func (c previewCopier) copyDir(from, to string) error {
 			if c.outside {
 				c.noteOutside(target)
 			}
-			return copyPreviewFile(path, target, info.Mode().Perm())
+			return c.copyFile(path, target, info)
 		}
 		return nil
 	})
+}
+
+func (c previewCopier) copyFile(from, to string, info os.FileInfo) error {
+	if c.outside {
+		return copyPreviewFile(from, to, info.Mode().Perm())
+	}
+	key := previewFileKey{size: info.Size(), modified: info.ModTime().UnixNano()}
+	for _, copied := range c.files[key] {
+		if os.SameFile(info, copied.info) {
+			if err := os.Link(copied.path, to); err != nil {
+				return fmt.Errorf("link %s: %w", to, err)
+			}
+			return nil
+		}
+	}
+	if err := copyPreviewFile(from, to, info.Mode().Perm()); err != nil {
+		return err
+	}
+	c.files[key] = append(c.files[key], previewCopiedFile{path: to, info: info})
+	return nil
 }
 
 // leavesOut reports whether the copy skips the project directory rel:
@@ -479,8 +557,9 @@ func (c previewCopier) copySymlink(link, target string) error {
 	if !info.IsDir() {
 		if outside {
 			c.noteOutside(target)
+			return copyPreviewFile(resolved, target, info.Mode().Perm())
 		}
-		return copyPreviewFile(resolved, target, info.Mode().Perm())
+		return c.copyFile(resolved, target, info)
 	}
 	if c.detached {
 		if c.visited[resolved] {

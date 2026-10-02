@@ -46,7 +46,7 @@ func TestShouldPromptTargetSelection_StateFilePresent(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, ".agnostic-ai"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(stateFilePath(dir), []byte("{}"), 0o644); err != nil {
+	if err := os.WriteFile(stateFilePath(dir), []byte(`{"synced_at":"2026-01-01T00:00:00Z"}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	cfg := &config.Config{Targets: allTargetNames()}

@@ -142,7 +142,7 @@ func TestImportFromCopilot_ChatmodeKeepsPortableOnlyAgentFields(t *testing.T) {
 	writeFile(t, ".agnostic-ai/agents/rev.md", "---\nname: rev\ndescription: old\neffort: high\nmemory: project\n---\n\nold body\n")
 	writeFile(t, ".github/chatmodes/rev.chatmode.md", "---\ndescription: new\ntools: [Read]\n---\n\nnew body\n")
 
-	execCLI(t, "import", "copilot")
+	execCLI(t, "import", "copilot", "--overwrite")
 
 	got := readFile(t, ".agnostic-ai/agents/rev.md")
 	for _, key := range []string{"effort:", "memory:"} {

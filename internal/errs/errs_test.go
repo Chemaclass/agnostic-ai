@@ -84,7 +84,7 @@ func TestRegistry_AllCoveredCodesHaveEntries(t *testing.T) {
 	codes := []Code{
 		CodeSpecParse, CodeUnsupportedKind, CodeConfigMissing, CodeConfigDecode,
 		CodeOutputCollision,
-		CodeImportFileUnknown,
+		CodeImportFileUnknown, CodeImportWouldReplace,
 		CodeSyncTargetUnknown, CodeFlagConflict,
 	}
 	for _, c := range codes {

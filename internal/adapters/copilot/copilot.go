@@ -191,6 +191,12 @@ func (Adapter) ProtectedPaths() (enforcement, reason string) {
 
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
+func (Adapter) RendersSpecFile(e spec.Entry, _ *config.Config, _ string) bool {
+	settings := []spec.Entry{e}
+	return e.Kind != spec.KindSettings || emit.SettingsModel(settings, target) != "" ||
+		emit.SettingsEffortLevel(settings, target, effortLevels) != "" || len(emit.SettingsCustomKeys(settings, target)) > 0
+}
+
 // Emit writes per-rule instructions, one native agent profile per
 // agent, one native skill folder per skill, the optional legacy
 // concatenated always-on rules file (only when
