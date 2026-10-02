@@ -247,3 +247,27 @@ func TestImportKiro_SkipsOnDemandSteeringRules(t *testing.T) {
 		})
 	}
 }
+
+func TestImportKiro_OnDemandSteeringWarnsWhenARuleWouldOverwriteIt(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	var logged strings.Builder
+	prev := logOut
+	logOut = &logged
+	defer func() { logOut = prev }()
+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [kiro]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "troubleshooting.md"), "---\nname: troubleshooting\n---\n\nOld rule.\n")
+	writeFile(t, filepath.Join(dir, ".kiro", "steering", "troubleshooting.md"),
+		"---\ninclusion: manual\n---\n\nTroubleshooting notes.\n")
+
+	execCLI(t, "import", "kiro")
+
+	if !strings.Contains(logged.String(), "sync will overwrite it") {
+		t.Errorf("expected a warning that the same-named rule overwrites the steering file, got:\n%s", logged.String())
+	}
+	if !strings.Contains(readFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "troubleshooting.md")), "Old rule.") {
+		t.Error("expected the existing rule source to stay untouched")
+	}
+}
