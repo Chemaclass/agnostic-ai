@@ -50,7 +50,10 @@ func newUseCmd() *cobra.Command {
 			}
 			// Always sync, a no-op when nothing changed, so a run that
 			// stopped halfway finishes on the next try.
-			if err := runSyncPass(".", nil, false, false, false, false, "", 0); err != nil {
+			firstSyncReadsOff = true
+			err = runSyncPass(".", nil, false, false, false, false, "", 0)
+			firstSyncReadsOff = false
+			if err != nil {
 				return err
 			}
 			if len(added) == 0 {

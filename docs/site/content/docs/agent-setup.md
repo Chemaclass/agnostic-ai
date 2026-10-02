@@ -109,6 +109,7 @@ Finish by reporting:
 
 - the agnostic-ai version and install method;
 - selected targets and imported sources;
+- what each tool now reads from `.agnostic-ai/`, as the first `agnostic-ai sync` lists it;
 - canonical files created or changed under `.agnostic-ai/`;
 - generated outputs and whether Git tracks them;
 - the results of `validate`, `lint`, and `sync --check`;
