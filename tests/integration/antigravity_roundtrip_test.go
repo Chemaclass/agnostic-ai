@@ -701,7 +701,7 @@ gitignore:
 	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/mcps/fs.yaml"),
 		[]byte("name: fs\ncommand: npx\nargs:\n  - \"-y\"\n  - \"@modelcontextprotocol/server-filesystem\"\ncwd: /workspace\n"), 0o644))
 	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/mcps/github.yaml"),
-		[]byte("name: github\ntype: http\nurl: https://api.githubcopilot.com/mcp/\nheaders:\n  Authorization: Bearer x\n"), 0o644))
+		[]byte("name: github\ntype: http\nurl: https://api.githubcopilot.com/mcp/\nheaders:\n  Authorization: Bearer ${GITHUB_TOKEN}\n"), 0o644))
 }
 
 // snapshotAntigravityEmit reads every file under .agent/ (the

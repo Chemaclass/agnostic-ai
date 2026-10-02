@@ -254,7 +254,7 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, war
 					delete(servers, name)
 				}
 			}
-			if _, err := writeCodexMCPs(servers, dir); err != nil {
+			if _, err := writeMCPSpecs(codexMCPDocs(servers), dir); err != nil {
 				return err
 			}
 			data, err := os.ReadFile(path)
@@ -278,7 +278,7 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, war
 				native[name] = jsonRoundTrip(server)
 			}
 			normalizeImportedMCP(target, servers)
-			if _, err := writeMCPYAMLs(servers, dir); err != nil {
+			if _, err := writeMCPSpecs(servers, dir); err != nil {
 				return err
 			}
 		}
@@ -350,13 +350,15 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, war
 // way, so the spec renders back to the same entry: Gemini's `httpUrl`
 // is streamable HTTP and a bare `url` is SSE, Copilot's `local` is the
 // stdio default, and OpenHands' `transport` becomes `type` once its
-// saved defaults are dropped.
+// saved defaults are dropped. target's own environment references read
+// back as `${NAME}`.
 func normalizeImportedMCP(target string, servers map[string]any) {
 	for _, raw := range servers {
 		server, ok := raw.(map[string]any)
 		if !ok {
 			continue
 		}
+		adapters.ReadMCPEnvRefs(target, server)
 		if target == "copilot" {
 			if server["type"] == "local" || server["type"] == "stdio" {
 				delete(server, "type")

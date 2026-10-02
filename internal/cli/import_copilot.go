@@ -459,5 +459,5 @@ func writeFrontmatter(meta map[string]any, body string) ([]byte, error) {
 // importCopilotMCP reads `.vscode/mcp.json` (VS Code's MCP shape:
 // `{servers: {name: {...}}}`) and writes one yaml per server.
 func importCopilotMCP(root, dstDir string) (int, error) {
-	return importJSONMCPMap(filepath.Join(root, copilotMCPFile), "servers", dstDir)
+	return importJSONMCPMap("copilot", filepath.Join(root, copilotMCPFile), "servers", dstDir)
 }

@@ -10,6 +10,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - **Breaking:** a rule with narrow `globs` and no `alwaysApply` loads on matching files in Cursor, Trae, Devin, Cline, and Antigravity, not on every file (#1597).
 - **Breaking:** an unknown config key, a misspelled target, or a bad `on-unsupported` value fails before sync writes anything, not silently (#1589).
+- `import` writes MCP `env` and `headers` values as `${NAME}` references, not tokens, and `sync` writes each tool's own reference form (#1619).
 - `init` names what ignoring or committing generated files costs a team, and without a terminal says which it picked (#1615).
 - `agnostic-ai use <tool>` starts using a tool in one step: it sets up or extends the project, imports, syncs, and shows what the tool reads (#1613).
 - `sync` stops before replacing a hand-written `CLAUDE.md` or `AGENTS.md` it has not imported, and names the `import` that keeps it (#1611).

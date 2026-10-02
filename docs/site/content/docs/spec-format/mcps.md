@@ -57,14 +57,41 @@ A server needs `command` (stdio) or `url` (remote). `agnostic-ai lint` reports a
 | `type` | no | `stdio` | `stdio`, `http`, `sse`, or `ws`. Remote transports write an explicit `type`; `stdio` stays implicit. A `ws` entry emits no server on Augment, Factory, and Qoder. |
 | `command` | stdio only | none | Executable to launch. |
 | `args` | no | empty | Argument list for the command. |
-| `env` | no | empty | Environment variables for the server. |
+| `env` | no | empty | Environment variables for the server. Write a secret as a [reference](#environment-references). |
 | `url` | http/sse/ws only | none | Endpoint URL. |
-| `headers` | no | empty | HTTP headers for `http`/`sse`. |
+| `headers` | no | empty | HTTP headers for `http`/`sse`. Write a secret as a [reference](#environment-references). |
 | `cwd` | no | empty | Working directory for a stdio server, where supported. |
 | `timeout` | no | empty | Units vary by target: milliseconds on most. |
 | `oauth` | no | empty | OAuth settings. The shape is target-specific; see the target page. |
 | `disabled` | no | `false` | See [`disabled` support by target](#disabled-support-by-target). |
 | `roots` | no | empty | List of `{uri, name}` objects, for targets that support MCP roots. |
+
+## Environment references
+
+Write a token or key as `${NAME}` in an `env` or `headers` value, so the spec names the variable and never holds the secret. The reference can be the whole value or part of it:
+
+```yaml
+env:
+  GITHUB_TOKEN: ${GITHUB_TOKEN}
+headers:
+  Authorization: Bearer ${API_KEY}
+```
+
+Sync writes each tool's own form. Where a tool documents no form for the field, sync leaves that key out and prints a note naming the server, the key, and the variable. It never writes the reference as plain text. A literal value is written as it is.
+
+| Target | `env` | `headers` |
+|--------|-------|-----------|
+| [Claude Code](@/docs/targets/claude.md), [Crush](@/docs/targets/crush.md), [Factory](@/docs/targets/factory.md), [Kiro](@/docs/targets/kiro.md), [OpenHands](@/docs/targets/openhands.md) | `${NAME}` | `${NAME}` |
+| [Gemini](@/docs/targets/gemini.md) | `${NAME}` | Left out |
+| [Amp](@/docs/targets/amp.md) | Left out | `${NAME}` |
+| [Cursor](@/docs/targets/cursor.md), [Windsurf](@/docs/targets/windsurf.md) | `${env:NAME}` | `${env:NAME}` |
+| [OpenCode](@/docs/targets/opencode.md) | `{env:NAME}` | `{env:NAME}` |
+| [Codex](@/docs/targets/codex.md) | `KEY: ${KEY}` adds `KEY` to `env_vars`. Any other reference is left out | `Authorization: Bearer ${NAME}` sets `bearer_token_env_var`. Another header of exactly `${NAME}` joins `env_http_headers`. Any other reference is left out |
+| [Antigravity](@/docs/targets/antigravity.md), [Augment](@/docs/targets/augment.md), [Continue](@/docs/targets/continue.md), [Copilot](@/docs/targets/copilot.md), [Junie](@/docs/targets/junie.md), [Kilo Code](@/docs/targets/kilo.md), [Qoder](@/docs/targets/qoder.md), [Trae](@/docs/targets/trae.md), [Warp](@/docs/targets/warp.md), [Zed](@/docs/targets/zed.md) | Left out | Left out |
+
+Kiro expands only the variables approved under **Mcp Approved Env Vars** in its settings. Factory fails the connection when a referenced variable is unset.
+
+`import` reads each tool's own form back as `${NAME}`. It also replaces every literal `env` and `headers` value with a reference, because it cannot tell a token from a plain setting and a spec is meant to be committed. An `env` value reads the variable its key names. A header reads `<SERVER>_<HEADER>` in upper case, with any character other than a letter or digit as `_`, and keeps a `Bearer ` prefix outside the reference. Import prints each replacement and the variable to set. `import --global` keeps literal values, since the user files it adopts must render back unchanged.
 
 ## Target-only fields
 

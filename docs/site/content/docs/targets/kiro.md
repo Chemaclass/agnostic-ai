@@ -55,7 +55,7 @@ Arbitrary `x-kiro` keys pass through on each entry. That is the only way to set 
 
 Neutral `.agnostic-ai/scripts/<name>` references copy the script to `.kiro/scripts/<name>` and rewrite the action command. Script bodies stay outside `.kiro/hooks/`, where Kiro reads hook definitions. See [shared hook scripts](@/docs/spec-format/hooks.md#shared-hook-scripts).
 
-MCP servers write to `.kiro/settings/mcp.json` under `mcpServers`, Kiro's [workspace-level config](https://kiro.dev/docs/mcp/configuration/). A local server carries `command` plus optional `args` and `env`; a remote server carries `url` plus optional `headers` and `env`.
+MCP servers write to `.kiro/settings/mcp.json` under `mcpServers`, Kiro's [workspace-level config](https://kiro.dev/docs/mcp/configuration/). A local server carries `command` plus optional `args` and `env`; a remote server carries `url` plus optional `headers` and `env`. Kiro expands a `${NAME}` reference only after you approve the variable under **Mcp Approved Env Vars** in its settings; see [environment references](@/docs/spec-format/mcps.md#environment-references).
 
 `disabled` passes through under that name (default `false`). Kiro also accepts `autoApprove` (tool names to approve without prompting, `"*"` for all) and `disabledTools` (tool names to hide from the agent).
 

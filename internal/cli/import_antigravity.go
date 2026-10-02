@@ -402,7 +402,7 @@ func importAntigravityMCP(root, dstDir string) (int, error) {
 		}
 		normalized[name] = normalizeAntigravityMCPEntry(entry)
 	}
-	return writeMCPYAMLs(normalized, dstDir)
+	return writeMCPYAMLs("antigravity", normalized, dstDir)
 }
 
 // normalizeAntigravityMCPEntry maps one mcp_config.json server object

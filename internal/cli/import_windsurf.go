@@ -307,5 +307,5 @@ func importWindsurfMCP(root, dstDir string) (int, error) {
 			delete(entry, "transport")
 		}
 	}
-	return writeMCPYAMLs(servers, dstDir)
+	return writeMCPYAMLs("windsurf", servers, dstDir)
 }

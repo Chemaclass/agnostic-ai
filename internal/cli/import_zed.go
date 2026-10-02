@@ -246,5 +246,5 @@ func importZedContextServers(root, dstDir string) (int, error) {
 	if len(flat) == 0 {
 		return 0, nil
 	}
-	return writeMCPYAMLs(flat, dstDir)
+	return writeMCPYAMLs("zed", flat, dstDir)
 }

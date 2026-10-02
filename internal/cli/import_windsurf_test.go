@@ -38,7 +38,7 @@ func TestImportWindsurf_RoundTripFixedPoint(t *testing.T) {
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "fs.yaml"),
 		"name: fs\ncommand: npx\nargs: [\"-y\", \"@modelcontextprotocol/server-filesystem\"]\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "linear.yaml"),
-		"name: linear\ntype: http\nurl: https://mcp.linear.app\nheaders:\n  Authorization: Bearer x\n")
+		"name: linear\ntype: http\nurl: https://mcp.linear.app\nheaders:\n  Authorization: Bearer ${LINEAR_TOKEN}\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "fmt.yaml"),
 		"name: fmt\nevent: PostToolUse\nmatcher: exec\ncommand: gofmt -w\n")
 

@@ -5,12 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -18,12 +22,12 @@ import (
 // flat-or-dotted key, and writes one yaml per server into dstDir.
 // Common helper for amp / opencode / vscode-style MCP shapes where
 // servers are a map keyed by name.
-func importJSONMCPMap(srcPath, mapKey, dstDir string) (int, error) {
+func importJSONMCPMap(target, srcPath, mapKey, dstDir string) (int, error) {
 	servers, err := readJSONMapAt(srcPath, mapKey)
 	if err != nil || len(servers) == 0 {
 		return 0, err
 	}
-	return writeMCPYAMLs(servers, dstDir)
+	return writeMCPYAMLs(target, servers, dstDir)
 }
 
 // readJSONMapAt loads srcPath as JSON and returns the map at mapKey.
@@ -61,7 +65,27 @@ func readJSONMapAt(srcPath, mapKey string) (map[string]any, error) {
 	return out, nil
 }
 
-// writeMCPYAMLs writes one yaml file per server into dstDir. Each
+// writeMCPYAMLs writes one project MCP spec per server, read from
+// target's native file. target's own environment references become the
+// spec's `${NAME}`, and every literal `env` or `headers` value becomes a
+// reference too: import cannot tell a token from a setting, and a spec
+// is a file meant to be committed (#1619).
+func writeMCPYAMLs(target string, servers map[string]any, dstDir string) (int, error) {
+	for _, raw := range servers {
+		if server, ok := raw.(map[string]any); ok {
+			adapters.ReadMCPEnvRefs(target, server)
+		}
+	}
+	refs := referenceMCPLiterals(servers)
+	count, err := writeMCPSpecs(servers, dstDir)
+	if err != nil {
+		return count, err
+	}
+	reportMCPLiteralRefs(refs)
+	return count, nil
+}
+
+// writeMCPSpecs writes one yaml file per server into dstDir. Each
 // destination doc has `name: <key>` prepended; server fields pass
 // through verbatim so transport-specific keys (command/args/env or
 // url/headers) survive a round-trip. When the source JSON omits an
@@ -69,7 +93,7 @@ func readJSONMapAt(srcPath, mapKey string) (map[string]any, error) {
 // shape (`url` present → `type: http`) so re-emit picks the same
 // branch in adapter buildMCPEntry helpers and the round-trip
 // converges.
-func writeMCPYAMLs(servers map[string]any, dstDir string) (int, error) {
+func writeMCPSpecs(servers map[string]any, dstDir string) (int, error) {
 	names := make([]string, 0, len(servers))
 	for k := range servers {
 		names = append(names, k)
@@ -101,4 +125,51 @@ func writeMCPYAMLs(servers map[string]any, dstDir string) (int, error) {
 		count++
 	}
 	return count, nil
+}
+
+// mcpLiteralRef is one literal value import replaced with a reference.
+type mcpLiteralRef struct {
+	server, field, key, value string
+	variable                  string
+}
+
+// referenceMCPLiterals replaces every literal `env` and `headers` value
+// with a reference, in place. An `env` value reads the variable its key
+// names. A header reads `<SERVER>_<HEADER>`, and a `Bearer ` prefix
+// stays outside the reference.
+func referenceMCPLiterals(servers map[string]any) []mcpLiteralRef {
+	var refs []mcpLiteralRef
+	for _, name := range slices.Sorted(maps.Keys(servers)) {
+		server, _ := servers[name].(map[string]any)
+		for _, field := range []string{"env", "headers"} {
+			values, _ := server[field].(map[string]any)
+			for _, key := range slices.Sorted(maps.Keys(values)) {
+				literal, _ := values[key].(string)
+				if literal == "" || spec.HasEnvRef(literal) {
+					continue
+				}
+				prefix := ""
+				variable := spec.EnvVarName(key)
+				if field == "headers" {
+					variable = strings.ToUpper(spec.EnvVarName(name + "_" + key))
+					if token, ok := strings.CutPrefix(literal, "Bearer "); ok && token != "" {
+						prefix = "Bearer "
+					}
+				}
+				values[key] = prefix + spec.EnvRef(variable)
+				refs = append(refs, mcpLiteralRef{server: name, field: field, key: key, value: values[key].(string), variable: variable})
+			}
+		}
+	}
+	return refs
+}
+
+func reportMCPLiteralRefs(refs []mcpLiteralRef) {
+	if len(refs) == 0 {
+		return
+	}
+	for _, r := range refs {
+		keptf("%s MCP server %s: %s %s now reads %s; set %s\n", bang(), r.server, r.field, r.key, r.value, r.variable)
+	}
+	keptf("  hint: import does not copy env or header values into specs; export each variable above in the shell that starts your tool\n")
 }
