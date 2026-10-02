@@ -110,3 +110,62 @@ func TestSync_FirstRunListLeavesOutUnsupportedKinds(t *testing.T) {
 		t.Errorf("list should name jules without the unsupported skill:\n%s", log.String())
 	}
 }
+
+// A first sync for some targets leaves the rest to be listed by a later one.
+func TestSync_APartialFirstSyncLeavesTheOtherToolsToALaterOne(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	isolateGit(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	log := captureLog(t)
+
+	if out, err := runCLI(t, "sync", "-t", "claude"); err != nil {
+		t.Fatalf("sync -t claude: %v\n%s", err, out)
+	}
+	if strings.Contains(log.String(), "codex now reads") {
+		t.Errorf("a claude-only sync listed codex:\n%s", log.String())
+	}
+	log.Reset()
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if !strings.Contains(log.String(), "codex now reads") || strings.Contains(log.String(), "claude now reads") {
+		t.Errorf("the full sync should list codex only:\n%s", log.String())
+	}
+}
+
+// A project synced before targets were recorded as listed shows no list.
+func TestSync_AnOlderLedgerShowsNoList(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	isolateGit(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	mustWriteFile(t, ".agnostic-ai/.sync-state", `{"outputs":["AGENTS.md"]}`)
+	log := captureLog(t)
+
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if strings.Contains(log.String(), "now reads") {
+		t.Errorf("an older ledger listed tools:\n%s", log.String())
+	}
+}
+
+// use on a project whose earlier sync listed claude lists codex once.
+func TestUse_ListsAnAddedToolOnce(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	isolateGit(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	log := captureLog(t)
+
+	if out, err := runCLI(t, "use", "codex"); err != nil {
+		t.Fatalf("use codex: %v\n%s", err, out)
+	}
+	if n := strings.Count(log.String(), "codex now reads"); n != 1 {
+		t.Errorf("codex listed %d times, want once:\n%s", n, log.String())
+	}
+	if strings.Contains(log.String(), "claude now reads") {
+		t.Errorf("claude was listed again:\n%s", log.String())
+	}
+}

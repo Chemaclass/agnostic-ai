@@ -79,6 +79,10 @@ type syncStateFile struct {
 	// Backups maps each `<path>.bak` sync made to the sum of its bytes, so
 	// import can tell it from a skill's own asset while it is unchanged.
 	Backups map[string]string `json:"backups,omitempty"`
+	// Listed names the targets a sync has shown what they read. A project
+	// whose first sync covered only some targets lists the others once
+	// later; a project synced before this field lists none.
+	Listed []string `json:"listed,omitempty"`
 	// PendingImports lists the tools `use` added to targets before their
 	// own config was imported. A sync waits until `use` finishes them, so
 	// it never writes over native config nothing has imported.
@@ -102,6 +106,7 @@ type syncLedger struct {
 	specSums     map[string]string
 	modelAliases map[string]map[string]string
 	backups      map[string]string
+	listed       []string
 }
 
 func stateFilePath(projectRoot string) string {
@@ -142,6 +147,7 @@ func writeStateFile(projectRoot string, filesChanged int, warningsDigest, notesD
 		SpecSums:       ledger.specSums,
 		ModelAliases:   ledger.modelAliases,
 		Backups:        ledger.backups,
+		Listed:         ledger.listed,
 	})
 	if err != nil {
 		return err
@@ -766,6 +772,11 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		ledger.modelAliases = addedModelAliases(prev.ModelAliases, resolvedAliases, emitted)
 	}
 	ledger.backups = syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups))
+	toList := unlistedTargets(prev, intersect(effectiveTargets, emitted))
+	ledger.listed = prev.Listed
+	if verbosity >= levelDefault {
+		ledger.listed = append(slices.Clone(prev.Listed), toList...)
+	}
 	if err := writeStateFile(root, report.filesChanged(), digest, notesDigest, ledger); err != nil {
 		fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 	}
@@ -773,11 +784,27 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		report.render(logOut, len(effectiveTargets), time.Since(start), verbose)
 		// The first sync is where the setup pays off, so it shows what
 		// each tool now reads from the one source.
-		if len(prev.Outputs) == 0 {
-			printToolReads(logOut, cfg, b, intersect(effectiveTargets, emitted))
+		if len(toList) > 0 {
+			printToolReads(logOut, cfg, b, toList)
 		}
 	}
 	return untrackErr
+}
+
+// unlistedTargets returns the targets whose first sync has not shown
+// what they read yet: all of them on a project's first sync, then the ones
+// a partial first sync left out.
+func unlistedTargets(prev syncStateFile, targets []string) []string {
+	if len(prev.Outputs) > 0 && prev.Listed == nil {
+		return nil
+	}
+	var out []string
+	for _, t := range targets {
+		if !slices.Contains(prev.Listed, t) {
+			out = append(out, t)
+		}
+	}
+	return out
 }
 
 // unmanagedSkips merges the user-owned paths every session refused to
