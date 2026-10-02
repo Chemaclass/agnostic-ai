@@ -99,7 +99,7 @@
 
 [[files]]
   path = ".gemini/settings.json"
-  body = "{\n  \"mcpServers\": {\n    \"github\": {\n      \"httpUrl\": \"https://api.githubcopilot.com/mcp/\"\n    }\n  }\n}\n"
+  body = "{\n  \"mcpServers\": {\n    \"github\": {\n      \"headers\": {\n        \"Authorization\": \"Bearer ${GITHUB_TOKEN}\"\n      },\n      \"httpUrl\": \"https://api.githubcopilot.com/mcp/\"\n    }\n  }\n}\n"
 
 [[files]]
   path = ".gemini/skills/release/SKILL.md"
