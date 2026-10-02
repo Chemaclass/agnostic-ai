@@ -25,7 +25,7 @@ AGENTS.md                              # canonical entry-point pointer body (wri
 - **Skills**: [Warp skills](https://docs.warp.dev/agents/capabilities/skills) at `.agents/skills/<name>/SKILL.md`, Warp's recommended path. A source-layout scope moves the tree and survives import. Identical root renders dedupe.
   - Warp also scans `.warp/skills/`, `.claude/skills/`, `.codex/skills/`, `.cursor/skills/`, `.gemini/skills/`, `.copilot/skills/`, `.factory/skills/`, `.github/skills/`, and `.opencode/skills/`. The adapter writes only `.agents/skills/`. Warp picks up OpenCode's default `.opencode/skills/` with no extra write.
   - `WARP_SKILL_DIRS` adds directories for Cloud agents indexing skills outside the repo, not to the project scan list.
-- **Workflows**: with `outputs.warp.workflows-dir` set, each agent becomes a [Warp Workflow](https://docs.warp.dev/terminal/entry/yaml-workflows) at `<dir>/<name>.yaml` (`name`/`command`/`description`/`tags`). Warp now recommends cloud-stored Warp Drive workflows, but `{{path_to_git_repo}}/.warp/workflows/` still loads.
+- **Workflows**: with `outputs.warp.workflows-dir` set, each agent becomes a [Warp Workflow](https://docs.warp.dev/terminal/entry/yaml-workflows) at `<dir>/<name>.yaml` (`name`/`command`/`description`/`tags`). Warp now recommends cloud-stored Warp Drive workflows, but <code>{&#123;path_to_git_repo}}/.warp/workflows/</code> still loads.
   - `command:` is the agent body verbatim, so write it as a Warp-friendly shell snippet.
   - `shells`, `arguments`, `source_url`, `author`, and `author_url` pass through under `x-warp`; `import warp` reads them back.
 - **MCP**: `mcpServers` carries only the keys in [Warp's MCP docs](https://docs.warp.dev/agents/capabilities/mcp):

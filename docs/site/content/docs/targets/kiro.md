@@ -109,7 +109,7 @@ The rebuilt spec loses some data, though Kiro's output stays the same:
 - A legacy flattened agent or skill keeps only its body; that form never carried a description, model, or bundled assets.
 - An explicit `enabled: true` leaves no key, since it is the default.
 - Two hook files sharing a `name` keep both hooks; the second gets a deterministic generated name, since spec names are unique filenames.
-- `{{filePath}}` stays literal: Kiro documents it as new in 3.0, and it means nothing elsewhere.
+- <code>{&#123;filePath}}</code> stays literal: Kiro documents it as new in 3.0, and it means nothing elsewhere.
 
 ## Protected paths
 

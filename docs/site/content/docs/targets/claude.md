@@ -109,7 +109,7 @@ Any other documented event works too (`Setup`, `InstructionsLoaded`, `TaskComple
 
 `import claude` and `agnostic-ai doctor` read the resolved paths, so a moved directory round-trips and its unmanaged files are still reported.
 
-`dir` moves the whole tool directory: with `dir: vendor/.claude`, rules land in `vendor/.claude/rules/`, commands in `vendor/.claude/commands/`, and `{{rules_dir}}` and other path variables resolve there. Per-kind keys override their own path. The next full sync sweeps old files as orphans. Claude Code auto-loads only a project-root `.claude/rules/`, so a moved rules directory needs `rules-mode: import`.
+`dir` moves the whole tool directory: with `dir: vendor/.claude`, rules land in `vendor/.claude/rules/`, commands in `vendor/.claude/commands/`, and <code>{&#123;rules_dir}}</code> and other path variables resolve there. Per-kind keys override their own path. The next full sync sweeps old files as orphans. Claude Code auto-loads only a project-root `.claude/rules/`, so a moved rules directory needs `rules-mode: import`.
 
 With `gitignore.enabled`, the managed `.gitignore` block also lists `/.claude/agent-memory-local/`, `/.claude/settings.local.json`, `/.claude/worktrees/`, and `/.claude/scheduled_tasks.lock`, following `outputs.claude.dir`. It omits `.claude/agent-memory/` (`memory: project`), which Claude Code documents as shareable. Ignoring does not untrack: run `git rm -r --cached .claude/agent-memory-local` if that store is committed.
 
