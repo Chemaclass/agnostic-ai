@@ -129,6 +129,8 @@ A drifting `--check` exits non-zero in every format. Each drifted file gets one 
 
 Without a record of the last sync, as in a fresh CI checkout, a changed file reads as out of date. Stderr names the fix, `agnostic-ai sync`, and points at `agnostic-ai doctor`.
 
+A file several targets read, such as `.agents/skills/<name>/SKILL.md`, is listed once under the first target, followed by `(shared with <targets>)`. `--diff`, `--format=github`, and the `status` count show it once too. `--json` keeps one record per target.
+
 - `--diff` prints changed lines. A missing file gets a one-line create summary. A large diff truncates with a count.
 - `--format=github` emits `::error file=...,line=...::` annotations on the pull request.
 

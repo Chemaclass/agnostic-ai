@@ -57,6 +57,9 @@ type driftReport struct {
 	// against is the Git state `--against` compared, index or HEAD, or ""
 	// for the working tree.
 	against string
+	// sharedWith maps a path to the other targets that read it, set by
+	// foldSharedDrift for printing.
+	sharedWith map[string][]string
 }
 
 // leftoverFix names the command that removes the report's Leftover. Sync
@@ -504,7 +507,7 @@ func reportTrackedIgnored(cmd *cobra.Command, reports []driftReport) {
 // Returns true if any drift exists.
 func printDrift(reports []driftReport) bool {
 	any := false
-	for _, r := range reports {
+	for _, r := range foldSharedDrift(reports) {
 		if !r.hasDrift() {
 			verbosef("%s %s: in sync\n", tick(), r.Target)
 			continue
@@ -516,48 +519,48 @@ func printDrift(reports []driftReport) bool {
 			if n := len(r.Missing) + len(r.Stale); n > 0 {
 				summaryf("    %d file(s) %s do not match the specs there (%s):\n", n, where, step)
 				for _, f := range append(append([]adapters.CapturedFile(nil), r.Missing...), r.Stale...) {
-					summaryf("      - %s\n", filepath.ToSlash(f.Path))
+					summaryf("      - %s\n", r.label(f.Path))
 				}
 			}
 		} else if len(r.Missing) > 0 {
 			summaryf("    %d file(s) missing (run `agnostic-ai sync` to create):\n", len(r.Missing))
 			for _, f := range r.Missing {
-				summaryf("      - %s\n", filepath.ToSlash(f.Path))
+				summaryf("      - %s\n", r.label(f.Path))
 			}
 		}
 		if len(r.Stale) > 0 && r.against == "" {
 			summaryf("    %d file(s) out of date (run `agnostic-ai sync` to update):\n", len(r.Stale))
 			for _, f := range r.Stale {
-				summaryf("      - %s\n", filepath.ToSlash(f.Path))
+				summaryf("      - %s\n", r.label(f.Path))
 			}
 		}
 		if len(r.Edited) > 0 {
 			summaryf("    %d file(s) edited locally since last sync (sync saves each as <path>.bak, then writes the spec version; move the edits into .agnostic-ai/):\n", len(r.Edited))
 			for _, f := range r.Edited {
-				summaryf("      - %s\n", filepath.ToSlash(f.Path))
+				summaryf("      - %s\n", r.label(f.Path))
 			}
 		}
 		if len(r.Orphaned) > 0 && r.Unledgered {
 			summaryf("    %d file(s) that look generated, with no ledger to prove sync wrote them (delete them by hand if stale, or list them under sync.unmanaged):\n", len(r.Orphaned))
 			for _, p := range r.Orphaned {
-				summaryf("      - %s\n", filepath.ToSlash(p))
+				summaryf("      - %s\n", r.label(p))
 			}
 		} else if len(r.Orphaned) > 0 {
 			summaryf("    %d orphaned file(s) no longer generated whose ownership could not be proven (run `agnostic-ai doctor --fix` to choose removal, or list them under sync.unmanaged):\n", len(r.Orphaned))
 			for _, p := range r.Orphaned {
-				summaryf("      - %s\n", filepath.ToSlash(p))
+				summaryf("      - %s\n", r.label(p))
 			}
 		}
 		if len(r.Leftover) > 0 {
 			summaryf("    %d file(s) no longer generated and still loaded (run `agnostic-ai %s` to remove):\n", len(r.Leftover), r.leftoverFix())
 			for _, p := range r.Leftover {
-				summaryf("      - %s\n", filepath.ToSlash(p))
+				summaryf("      - %s\n", r.label(p))
 			}
 		}
 		if len(r.Unmanaged) > 0 {
 			summaryf("    %d hand-written file(s) tracked in a generated folder, read by one tool only (adopt into .agnostic-ai/, then untrack):\n", len(r.Unmanaged))
 			for _, f := range r.Unmanaged {
-				summaryf("      - %s  (agnostic-ai import %s)\n", f.Path, f.Target)
+				summaryf("      - %s  (agnostic-ai import %s)\n", r.label(f.Path), f.Target)
 			}
 		}
 	}
