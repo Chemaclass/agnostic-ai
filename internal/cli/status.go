@@ -104,6 +104,8 @@ func gatherStatus(projectRoot string) (*statusResult, error) {
 func captureAllAndDiff(targets []string, cfg *config.Config, b spec.Bundle) (driftFiles int, allPaths []string, err error) {
 	sess := adapters.NewSession()
 	resolvedAll := true
+	// Targets that share a file, such as .agents/skills/, count it once.
+	counted := map[string]bool{}
 	defer func() {
 		if err == nil && resolvedAll {
 			emitted := make(map[string]bool, len(allPaths))
@@ -129,8 +131,13 @@ func captureAllAndDiff(targets []string, cfg *config.Config, b spec.Bundle) (dri
 		files := sess.StopCapture()
 		for _, f := range files {
 			allPaths = append(allPaths, f.Path)
+			key := filepath.ToSlash(filepath.Clean(f.Path))
+			if counted[key] {
+				continue
+			}
 			disk, readErr := os.ReadFile(f.Path)
 			if os.IsNotExist(readErr) {
+				counted[key] = true
 				driftFiles++
 				continue
 			}
@@ -138,6 +145,7 @@ func captureAllAndDiff(targets []string, cfg *config.Config, b spec.Bundle) (dri
 				return 0, nil, fmt.Errorf("read %s: %w", f.Path, readErr)
 			}
 			if string(disk) != f.Content {
+				counted[key] = true
 				driftFiles++
 			}
 		}
