@@ -10,6 +10,8 @@ target_id = "crush"
 
 # Crush (`crush`)
 
+Charm [Crush](https://github.com/charmbracelet/crush) reads `AGENTS.md`, `.agents/skills/`, `crush.json`, and `.crushignore`.
+
 ## Output
 
 ```
@@ -18,37 +20,42 @@ AGENTS.md                          # entry-point pointer body + inlined rules (s
 crush.json                         # when MCP or PreToolUse hook entries exist (merged with existing user config)
 .crushignore                       # project-root ignore patterns
 ```
+- **Rules**: Crush has no per-rule directory, so rule bodies inline into `AGENTS.md`.
+- **Skills**: `.agents/skills/` is the first project path Crush scans. It matches codex/amp/zed byte for byte, so the shared tree dedupes. `x-crush.user-invocable: true` also adds a skill to the command palette (ctrl+p).
+- **Agents**: no Crush surface; they skip with a warning.
+- **`crush.json`**: sync keeps your `models`, `providers`, `lsp`, and `options` keys. Crush now prefers `crushrc`, a Bash script it sources on startup, and adds new options only there. JSON is deprecated but stays supported, so sync writes `crush.json` (no `crushrc` emitter). An MCP field that ships only in `crushrc` has no path here.
+- **Ignore**: `.crushignore` uses gitignore syntax, supported since [Crush v0.94.1](https://raw.githubusercontent.com/charmbracelet/crush/v0.94.1/README.md). The shared hand-authored-file protection applies.
 
-Charm [Crush](https://github.com/charmbracelet/crush) reads the root `AGENTS.md` and has no per-rule directory, so rule bodies inline there. Skills emit into `.agents/skills/`, the first project path Crush scans; the render matches codex/amp/zed byte for byte, so the shared tree dedupes. Set `x-crush.user-invocable: true` on a skill to also add it to Crush's command palette (ctrl+p).
+{% <details summary="A hand-written crushrc too"> %}
+Crush merges every config file: `./.crushrc`, then `./crushrc`, then `$XDG_CONFIG_HOME/crush/crushrc`, with legacy `crush.json` / `.crush.json` merged in (project over global, `crushrc` over JSON in the same directory). A directory with both logs a startup warning on every launch.
+{% </details> %}
 
-MCP servers merge into the `mcp` key of `crush.json` (`{type: stdio, command, args, env}`, `{type: http, url, headers, oauth, oauth_client_id, oauth_client_secret, oauth_callback_port}`, or `{type: sse, url, headers, oauth, ...}`). The oauth fields are optional and need Crush v0.87.0.
+### MCP
 
-`sse` stays `sse`, since Crush routes it to a different transport than `http`. A spec's `remote` type has no Crush equivalent and defaults to `http`.
+Servers merge into the `mcp` key of `crush.json`:
 
-Every transport also carries these fields from [Crush's `schema.json`](https://raw.githubusercontent.com/charmbracelet/crush/main/schema.json):
+- stdio: `{type: stdio, command, args, env}`
+- HTTP: `{type: http, url, headers, oauth, oauth_client_id, oauth_client_secret, oauth_callback_port}`
+- SSE: `{type: sse, url, headers, oauth, ...}`
 
-- `disabled` passes through unchanged.
-- `sessionless` marks a server that sends no `Mcp-Session-Id`, so Crush skips the subscription stream (Crush v0.91.2). Leave it unset to let Crush auto-detect known cases such as GitHub MCP.
-- `enabled_tools` and `disabled_tools` gate which of the server's tools reach the agent.
+The oauth fields are optional and need Crush v0.87.0. `sse` stays `sse`, since Crush routes it to a different transport than `http`. A spec's `remote` type defaults to `http`.
 
-Each field maps explicitly, with no generic `x-crush` passthrough, because Crush rejects any unknown MCP key. Skill frontmatter has no such limit, so skills still take `x-crush` keys.
+Every transport also takes these fields from [Crush's `schema.json`](https://raw.githubusercontent.com/charmbracelet/crush/main/schema.json):
 
-User-managed keys (`models`, `providers`, `lsp`, `options`) survive every sync. Agents have no Crush surface and skip with a warning.
+- `disabled` passes through.
+- `sessionless` marks a server that sends no `Mcp-Session-Id`, so Crush skips the subscription stream (Crush v0.91.2). Unset, Crush auto-detects known cases such as GitHub MCP.
+- `enabled_tools` and `disabled_tools` gate which tools reach the agent.
 
-- **Hooks**: merge into the same `crush.json` under `hooks`, alongside `mcp`, in one write.
-  - Crush supports only `PreToolUse` ([Crush hooks](https://github.com/charmbracelet/crush/blob/main/docs/hooks/README.md)). A hook for any other event gets a coverage note instead of a dead entry.
-  - Crush accepts any case or snake_case spelling (`PreToolUse`, `pretooluse`, `pre_tool_use`, `PRE_TOOL_USE`, ...). The adapter recognizes all of them and always writes `PreToolUse`.
-  - Each entry renders flat, one array item per hook (`{"name": ..., "matcher": ..., "command": ..., "timeout": ...}`), not the Claude-style `{"matcher": ..., "hooks": [...]}` grouping. `command` is required; `timeout` is in seconds, default 30.
-  - Crush's tool names are lowercase (`bash`, `edit`, `write`, `mcp_<server>_<tool>`, e.g. `^bash$`). A Claude-style matcher (`Bash`, `Edit`) is valid regex but matches nothing, so `sync` prints a field no-op note.
+Crush rejects unknown MCP keys, so MCP has no `x-crush` passthrough. Skills still take `x-crush` keys.
 
-`crush.json` is Crush's deprecated format. Crush now prefers `crushrc`, a Bash script it sources on startup, and adds new options only there. JSON still loads, and Crush plans to keep supporting it, so this adapter still writes `crush.json`. There is no `crushrc` emitter.
+### Hooks
 
-Two consequences:
+Hooks merge into `crush.json` under `hooks`, beside `mcp`.
 
-- A future Crush-only MCP field that ships only in `crushrc` has no path through this adapter.
-- Crush merges config files instead of picking one: `./.crushrc`, then `./crushrc`, then `$XDG_CONFIG_HOME/crush/crushrc`, with legacy `crush.json` / `.crush.json` merged in (project over global, `crushrc` over JSON in the same directory). A directory with both logs a startup warning, so a project that also has a hand-written `crushrc` sees it on every launch.
-
-Ignore specs write project-root `.crushignore` in gitignore syntax, supported since [Crush v0.94.1](https://raw.githubusercontent.com/charmbracelet/crush/v0.94.1/README.md). The shared hand-authored-file protection applies.
+- Crush supports only `PreToolUse` ([Crush hooks](https://github.com/charmbracelet/crush/blob/main/docs/hooks/README.md)). Other events get a coverage note.
+- Sync reads any case or snake_case spelling (`PreToolUse`, `pretooluse`, `pre_tool_use`, `PRE_TOOL_USE`, ...) and writes `PreToolUse`.
+- Each hook is one flat array item (`{"name": ..., "matcher": ..., "command": ..., "timeout": ...}`), not the Claude-style `{"matcher": ..., "hooks": [...]}` group. `command` is required. `timeout` is in seconds, default 30.
+- Tool names are lowercase (`bash`, `edit`, `write`, `mcp_<server>_<tool>`, e.g. `^bash$`). A Claude-style matcher (`Bash`, `Edit`) matches nothing, so `sync` prints a field no-op note.
 
 ## Config keys
 
@@ -60,7 +67,7 @@ Ignore specs write project-root `.crushignore` in gitignore syntax, supported si
 
 ## Import
 
-`agnostic-ai import crush` reverses the Crush layout. Rules come from the inlined block in `AGENTS.md`:
+`agnostic-ai import crush` reads:
 
 | Source | Becomes |
 |--------|---------|
@@ -71,7 +78,7 @@ Ignore specs write project-root `.crushignore` in gitignore syntax, supported si
 | `.crushignore` | an ignore spec |
 | `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
 
-Crush has no verified directory scope, so scoped source rules are skipped on sync, and import cannot recover scope from flattened instructions. See [scoped context](@/docs/scoped-context.md).
+Crush has no verified directory scope. Sync skips scoped rules, and import cannot recover scope from flattened instructions. See [scoped context](@/docs/scoped-context.md).
 
 ## Protected paths
 
@@ -81,4 +88,4 @@ Advisory. This target takes no settings specs, so sync reports a spec with a `pr
 
 1. Install: `brew install charmbracelet/tap/crush` (or see the [README](https://github.com/charmbracelet/crush)).
 2. Check the tree: `ls AGENTS.md .agents/skills/`, `python -m json.tool crush.json > /dev/null`.
-3. Launch `crush`. The context loads `AGENTS.md`, the skills list shows each `.agents/skills/<name>/`, each `mcp.<name>` connects, and a `PreToolUse` hook's matcher fires (or stays silent) as expected on a real tool call.
+3. Launch `crush`. It loads `AGENTS.md`, lists each `.agents/skills/<name>/`, and connects each `mcp.<name>`. A `PreToolUse` hook's matcher fires (or stays silent) as expected on a real tool call.
