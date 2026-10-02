@@ -61,7 +61,7 @@ agnostic-ai lint --strict
 | LINT005 | Warning. A hook sets `matcher` on an event that does not consume one, so the tool ignores it. Drop it or use a tool-call event such as `PreToolUse`. |
 | LINT006 | Error. Frontmatter opens with `---` and never closes, so the raw YAML is emitted as body. |
 | LINT010 | Error, `--global` only. A rule with scope, path, glob, or target conditions. `sync --global` rejects it. |
-| LINT014 | Error, `--global` only. A settings `effort` that a target's user effort key cannot take, such as `max` for Claude or Copilot. `sync --global` drops it with a note. |
+| LINT014 | Error, `--global` only. A settings `effort` or `permissions.default-mode` that a target's user settings cannot take, such as effort `max` for Claude or Copilot. `sync --global` drops it with a note. |
 | LINT013 | Error. A rule's `globs` or `x-<target>.globs` is neither a string nor a list of strings, so the rule loads in every session. `validate` reports it too. |
 | LINT016 | Error. A `dev-commands` entry in an environment spec has no `name:` or `command:`, repeats a name, is not a mapping, sets a key no target reads, or gives `cwd`, `url`, `auto-port`, `port`, or `env` the wrong type. `x-claude` overrides are checked too. |
 | LINT017 | Warning. A `gitignore.commit` entry such as `cursor:environments` names a target missing from `targets`, so it commits nothing. |

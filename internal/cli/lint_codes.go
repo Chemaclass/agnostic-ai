@@ -99,9 +99,9 @@ var lintCodes = map[string]lintCode{
 	},
 	"LINT014": {
 		Severity: lintError,
-		Title:    "Global effort a target cannot take",
-		Cause:    "With `--global`, a settings `effort` is a value a target's user effort key cannot take, such as `max` for Claude or Copilot. `sync --global` drops it with a note.",
-		Fix:      "Use an effort level every enabled target accepts, or set it per target.",
+		Title:    "Global setting a target cannot take",
+		Cause:    "With `--global`, a settings `effort` or `permissions.default-mode` holds a value a target's user settings cannot take, such as effort `max` for Claude or Copilot. `sync --global` drops it with a note. The finding names the field and the values the target accepts.",
+		Fix:      "Use one of the values the finding lists, or set the field per target.",
 	},
 	"LINT015": {
 		Severity: lintWarn,
@@ -131,7 +131,7 @@ var lintCodes = map[string]lintCode{
 		Severity: lintWarn,
 		Title:    "Claude Code body syntax other targets read as text",
 		Cause:    "A skill or command line uses Claude Code body syntax (a `!` command substitution, a `!` code block, `$ARGUMENTS`, or `$0`, `$1`, ...) outside a `::target` fence, and an enabled target reads it as plain text.",
-		Fix:      "Wrap the line in a `::claude` fence and give other targets their own wording, or rewrite it without the syntax.",
+		Fix:      "Put the line between `::target claude` and `::end`, and give other targets their own `::target` block, or rewrite it without the syntax.",
 	},
 	"LINT020": {
 		Severity: lintWarn,
@@ -159,9 +159,9 @@ var lintCodes = map[string]lintCode{
 	},
 	"LINT024": {
 		Severity: lintWarn,
-		Title:    "Unused coverage.accept entry",
-		Cause:    "A `coverage.accept` entry matches no coverage note on one of its targets, for example because the target now supports the field.",
-		Fix:      "Remove the entry, or remove that target from it.",
+		Title:    "Unused or unchecked coverage.accept entry",
+		Cause:    "A `coverage.accept` entry matches no coverage note on one of its targets, for example because the target now supports the field. A target that fails to load or emit gets its own LINT024 naming the error, and its entries are not checked.",
+		Fix:      "For an unused entry, remove it or that target from it. For an unchecked target, fix the error the finding names and run lint again before removing anything.",
 	},
 	"LINT025": {
 		Severity: lintWarn,
