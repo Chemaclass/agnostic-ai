@@ -172,7 +172,7 @@ func TestLeftoverReport_EmptyLedgerDoesNotFallBack(t *testing.T) {
 	cfg := &config.Config{Targets: []string{"codex"}}
 	generated := filepath.Join("services", "api", "AGENTS.md")
 	mustWriteFile(t, generated, header.With("api rule body\n", header.FormatMarkdown))
-	mustWriteFile(t, stateFilePath("."), "{\"version\":4,\"outputs\":[]}\n")
+	mustWriteFile(t, stateFilePath("."), "{\"version\":4,\"synced_at\":\"2026-01-01T00:00:00Z\",\"outputs\":[]}\n")
 	git("add", "-A")
 	git("commit", "-q", "-m", "base")
 

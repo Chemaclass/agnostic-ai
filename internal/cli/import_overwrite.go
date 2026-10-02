@@ -246,7 +246,9 @@ func runGuardedImport(overwrite bool, remedy func(sources []string) string, run 
 	txn := &importTransaction{files: map[string]*savedImportFile{}}
 	return withHeldOutput(func() (bool, error) {
 		importRecording, importTxn = rec, txn
+		stopOnSignal := txn.rollbackOnSignal()
 		runErr := run()
+		stopOnSignal()
 		importRecording, importTxn = nil, nil
 		entries, err := txn.entries(rec)
 		if err != nil {
@@ -261,7 +263,7 @@ func runGuardedImport(overwrite bool, remedy func(sources []string) string, run 
 			}
 		}
 		if len(overwrites) > 0 && !overwrite {
-			return false, errors.Join(importOverwriteError(overwrites, remedy), txn.rollback())
+			return false, errors.Join(runErr, importOverwriteError(overwrites, remedy), txn.rollback())
 		}
 		return true, errors.Join(runErr, recordImportedSpecFiles(".", entries, specDirs))
 	})
@@ -303,9 +305,10 @@ func (t *importTransaction) entries(rec *importRecorder) ([]importPreviewEntry, 
 }
 
 // recordImportedSpecFiles stores the raw-bytes sum of each spec file the
-// run wrote, as written by import, so a later import may replace it
-// while nothing else has touched it. A file whose record already holds
-// its bytes keeps that record.
+// run wrote, as written by import of its sources, so a later import of
+// them may replace it while nothing else has touched it. A file whose
+// record already holds its bytes keeps that record, with the sources
+// added to the tools that hold them.
 func recordImportedSpecFiles(root string, entries []importPreviewEntry, specDirs []string) error {
 	state := readStateFile(root)
 	changed := false
@@ -313,30 +316,39 @@ func recordImportedSpecFiles(root string, entries []importPreviewEntry, specDirs
 		if !underAny(e.path, specDirs) {
 			continue
 		}
-		next := specFileSum{By: specSumByImport, Sources: slices.Clone(e.sources)}
-		if e.after != nil {
-			next.Sum = sha256Hex(e.after)
-		}
-		rec, ok := state.SpecFileSums[e.path]
-		if ok && e.after != nil && rec.Sum == next.Sum {
-			if rec.By != specSumByImport || !slices.ContainsFunc(e.sources, func(s string) bool { return !slices.Contains(rec.Sources, s) }) {
-				continue
-			}
-			for _, s := range rec.Sources {
-				if !slices.Contains(next.Sources, s) {
-					next.Sources = append(next.Sources, s)
-				}
-			}
-		}
-		sort.Strings(next.Sources)
 		if state.SpecFileSums == nil {
 			state.SpecFileSums = map[string]specFileSum{}
 		}
 		if e.after == nil {
 			delete(state.SpecFileSums, e.path)
-		} else {
-			state.SpecFileSums[e.path] = next
+			changed = true
+			continue
 		}
+		sum := sha256Hex(e.after)
+		rec, ok := state.SpecFileSums[e.path]
+		if !ok || rec.Sum != sum {
+			state.SpecFileSums[e.path] = specFileSum{Sum: sum, By: specSumByImport, Sources: slices.Sorted(slices.Values(e.sources))}
+			changed = true
+			continue
+		}
+		// The bytes are what the record holds, and now also what these
+		// sources hold.
+		holders := slices.Clone(rec.holders())
+		for _, s := range e.sources {
+			if !slices.Contains(holders, s) {
+				holders = append(holders, s)
+			}
+		}
+		if len(holders) == len(rec.holders()) {
+			continue
+		}
+		sort.Strings(holders)
+		if rec.By == specSumByImport {
+			rec.Sources = holders
+		} else {
+			rec.Targets = holders
+		}
+		state.SpecFileSums[e.path] = rec
 		changed = true
 	}
 	if !changed {

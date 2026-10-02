@@ -14,13 +14,13 @@ import (
 
 // shouldPromptTargetSelection reports whether sync should run the
 // first-time target picker. True only when:
-//   - no `.agnostic-ai/.sync-state` file exists (proxy for "first sync"),
+//   - no sync has written `.agnostic-ai/.sync-state` (first sync),
 //   - the config still has every supported target enabled (proxy for
 //     "user hasn't already curated"),
 //   - the caller hasn't opted out via --all, -t, --only, or --except
 //     (handled upstream).
 func shouldPromptTargetSelection(root string, cfg *config.Config) bool {
-	if _, err := os.Stat(stateFilePath(root)); err == nil {
+	if !ledgerMissing(root) {
 		return false
 	}
 	return targetsMatchDefault(cfg.Targets)

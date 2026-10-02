@@ -273,7 +273,7 @@ func TestCollectDrift_UnledgeredReportHasItsOwnTarget(t *testing.T) {
 // recorded leftovers it did not write again.
 func TestKeepUnledgered_PartialRunCarriesRecordForward(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	mustWriteFile(t, stateFilePath("."), "{\"version\":5}\n")
+	mustWriteFile(t, stateFilePath("."), "{\"version\":5,\"synced_at\":\"2026-01-01T00:00:00Z\"}\n")
 	prev := syncStateFile{Unledgered: []string{unledgeredToolFile, unledgeredScopedDoc}}
 	var ledger syncLedger
 

@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
+	"syscall"
 )
 
 // importSandbox is the directory a dry-run import runs in, or "" outside
@@ -97,6 +100,10 @@ func withImportMerge(fn func() error) error {
 // write that stores a project local spec in the shared source is undone
 // when the run ends (see localImportGuard).
 func importWriteFile(path string, data []byte, mode fs.FileMode) error {
+	if importTxn != nil {
+		importTxn.mu.Lock()
+		defer importTxn.mu.Unlock()
+	}
 	if importLocal != nil && inImportSandbox(path) {
 		if err := importLocal.track(path, data, false); err != nil {
 			return err
@@ -122,6 +129,10 @@ func importWriteFile(path string, data []byte, mode fs.FileMode) error {
 // importMkdirAll creates dir and its parents, unless a dry-run is active
 // and dir resolves outside its sandbox.
 func importMkdirAll(dir string, perm fs.FileMode) error {
+	if importTxn != nil {
+		importTxn.mu.Lock()
+		defer importTxn.mu.Unlock()
+	}
 	if importLocal != nil && inImportSandbox(dir) {
 		if err := importLocal.track(dir, nil, true); err != nil {
 			return err
@@ -160,6 +171,9 @@ type importTransaction struct {
 	files map[string]*savedImportFile
 	// dirs lists the directories the run created, in creation order.
 	dirs []string
+	// mu covers each whole import write, so a rollback on a signal never
+	// runs between saving a file and writing it.
+	mu sync.Mutex
 }
 
 // importTxn is the active transaction, or nil outside a guarded import.
@@ -201,6 +215,31 @@ func (t *importTransaction) saveDirs(dir string) {
 		if !slices.Contains(t.dirs, d) {
 			t.dirs = append(t.dirs, d)
 		}
+	}
+}
+
+// rollbackOnSignal rolls the run back and exits with status 130 when the
+// process gets an interrupt or a termination signal, until the returned
+// func stops it. A kill that cannot be caught, or a crash, still leaves
+// the files the run wrote in place.
+func (t *importTransaction) rollbackOnSignal() (stop func()) {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-sigs:
+			t.mu.Lock()
+			if err := t.rollback(); err != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "! import interrupted: %v\n", err)
+			}
+			os.Exit(130)
+		case <-done:
+		}
+	}()
+	return func() {
+		signal.Stop(sigs)
+		close(done)
 	}
 }
 

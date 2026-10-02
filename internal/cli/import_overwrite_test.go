@@ -467,3 +467,68 @@ func TestImport_ReimportsASkillAnEarlierImportWrote(t *testing.T) {
 		t.Errorf("deploy skill = %q, want the native edit", got)
 	}
 }
+
+// Two tools' own rules of one name: the second import may not replace
+// what the first one wrote.
+func TestImport_StopsOnARuleAnotherToolsImportWrote(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
+	mustWriteFile(t, ".claude/rules/style.md", "---\ndescription: Claude style.\n---\nUse tabs.\n")
+	mustWriteFile(t, ".cursor/rules/style.mdc", "---\ndescription: Cursor style.\nalwaysApply: true\n---\nUse spaces.\n")
+	if out, err := runCLI(t, "import", "claude"); err != nil {
+		t.Fatalf("import claude: %v\n%s", err, out)
+	}
+	claudeRule := readFile(t, ".agnostic-ai/rules/style.md")
+
+	_, err := runCLI(t, "import", "cursor")
+
+	if errs.CodeOf(err) != errs.CodeImportWouldReplace ||
+		!strings.Contains(err.Error(), ".agnostic-ai/rules/style.md (from cursor; now holds what import claude wrote)") {
+		t.Fatalf("import cursor did not stop on claude's rule: %v", err)
+	}
+	if got := readFile(t, ".agnostic-ai/rules/style.md"); got != claudeRule {
+		t.Errorf("style rule = %q, want claude's kept", got)
+	}
+}
+
+// An import that finds a synced spec already in its tool's files records
+// that tool too, so the tool's next edit comes back without a flag.
+func TestImport_RecordsAToolThatAlreadyHeldASyncedSpec(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\n")
+	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", handSkill)
+	runSyncOK(t)
+	mustWriteFile(t, ".claude/skills/review/SKILL.md", handSkill)
+	if out, err := runCLI(t, "import", "claude"); err != nil {
+		t.Fatalf("import of an identical skill: %v\n%s", err, out)
+	}
+	mustWriteFile(t, ".claude/skills/review/SKILL.md", nativeSkill)
+
+	if out, err := runCLI(t, "import", "claude"); err != nil {
+		t.Fatalf("re-import after a claude edit: %v\n%s", err, out)
+	}
+	if got := readFile(t, ".agnostic-ai/skills/review/SKILL.md"); !strings.Contains(got, "Native") {
+		t.Errorf("review skill = %q, want claude's edit", got)
+	}
+}
+
+// import writes the state file to keep its records, but no sync ran: the
+// first-sync picker and why's "run sync first" still apply.
+func TestImport_StateFileItWritesDoesNotCountAsASync(t *testing.T) {
+	importOverwriteProject(t)
+	if out, err := runCLI(t, "import", "claude", "--overwrite"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+	if _, err := os.Stat(stateFilePath(".")); err != nil {
+		t.Fatalf("import kept no record: %v", err)
+	}
+
+	if !shouldPromptTargetSelection(".", &config.Config{Targets: allTargetNames()}) {
+		t.Error("the first-sync picker is skipped after an import with no sync")
+	}
+	if err := whyNotTrackedError("CLAUDE.md", "."); !strings.Contains(err.Error(), "Run `agnostic-ai sync` first") {
+		t.Errorf("why does not say to sync first after an import: %v", err)
+	}
+}
