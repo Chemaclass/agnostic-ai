@@ -290,7 +290,7 @@ func importFromAntigravity(root string, src config.Sources, cfg *config.Config) 
 	}
 
 	agentsDir := filepath.Join(root, antigravityAgentsDirFromCfg(cfg))
-	nativeAgents, err := importAntigravityAgents(agentsDir, filepath.Join(root, src.Agents))
+	nativeAgents, err := importAntigravityAgents(agentsDir, importSourcePath(root, src.Agents))
 	if err != nil {
 		return err
 	}
@@ -299,7 +299,7 @@ func importFromAntigravity(root string, src config.Sources, cfg *config.Config) 
 	if !dirExists(skillsDir) {
 		skillsDir = filepath.Join(root, ".agent", "skills")
 	}
-	nativeSkills, err := importSkillFolders(root, skillsDir, filepath.Join(root, src.Skills))
+	nativeSkills, err := importSkillFolders(root, skillsDir, importSourcePath(root, src.Skills))
 	if err != nil {
 		return err
 	}
@@ -307,14 +307,14 @@ func importFromAntigravity(root string, src config.Sources, cfg *config.Config) 
 
 	rulesFileCount := 0
 	if rulesFile := antigravityRulesFileFromCfg(cfg); rulesFile != "" {
-		n, err := sliceMainFileByH2(root, rulesFile, filepath.Join(root, src.Rules))
+		n, err := sliceMainFileByH2(root, rulesFile, importSourcePath(root, src.Rules))
 		if err != nil {
 			return err
 		}
 		rulesFileCount = n
 	}
 
-	mcps, err := importAntigravityMCP(root, filepath.Join(root, src.MCPs))
+	mcps, err := importAntigravityMCP(root, importSourcePath(root, src.MCPs))
 	if err != nil {
 		return err
 	}

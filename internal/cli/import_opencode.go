@@ -53,31 +53,31 @@ func importFromOpencode(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands, src.MCPs, src.Settings); err != nil {
 		return err
 	}
-	rules, err := importOpencodeRules(root, filepath.Join(root, src.Rules))
+	rules, err := importOpencodeRules(root, importSourcePath(root, src.Rules))
 	if err != nil {
 		return err
 	}
-	agents, err := importOpencodeMarkdownDir(root, opencodeAgentsDir, filepath.Join(root, src.Agents))
+	agents, err := importOpencodeMarkdownDir(root, opencodeAgentsDir, importSourcePath(root, src.Agents))
 	if err != nil {
 		return err
 	}
-	skills, err := importScopedSkillFoldersFrom(root, []string{opencodeSkillsDir, ".claude/skills", ".agents/skills"}, filepath.Join(root, src.Skills))
+	skills, err := importScopedSkillFoldersFrom(root, []string{opencodeSkillsDir, ".claude/skills", ".agents/skills"}, importSourcePath(root, src.Skills))
 	if err != nil {
 		return err
 	}
-	commands, err := importOpencodeMarkdownDir(root, opencodeCommandsDir, filepath.Join(root, src.Commands))
+	commands, err := importOpencodeMarkdownDir(root, opencodeCommandsDir, importSourcePath(root, src.Commands))
 	if err != nil {
 		return err
 	}
-	mcps, err := importOpencodeMCP(root, filepath.Join(root, src.MCPs))
+	mcps, err := importOpencodeMCP(root, importSourcePath(root, src.MCPs))
 	if err != nil {
 		return err
 	}
-	settings, err := importPortableSettings(root, opencodeMCPFile, filepath.Join(root, src.Settings), portableSettingsShape{target: "opencode"})
+	settings, err := importPortableSettings(root, opencodeMCPFile, importSourcePath(root, src.Settings), portableSettingsShape{target: "opencode"})
 	if err != nil {
 		return err
 	}
-	permissions, err := importOpencodePermissions(root, filepath.Join(root, src.Settings))
+	permissions, err := importOpencodePermissions(root, importSourcePath(root, src.Settings))
 	if err != nil {
 		return err
 	}

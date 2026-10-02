@@ -28,19 +28,19 @@ func importFromZed(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Skills, src.Hooks, src.MCPs); err != nil {
 		return err
 	}
-	rules, err := sliceMirroredMainFile(root, zedMainFile, filepath.Join(root, src.Rules))
+	rules, err := sliceMirroredMainFile(root, zedMainFile, importSourcePath(root, src.Rules))
 	if err != nil {
 		return err
 	}
-	skills, err := importSkillFolders(root, filepath.Join(root, ".agents", "skills"), filepath.Join(root, src.Skills))
+	skills, err := importSkillFolders(root, filepath.Join(root, ".agents", "skills"), importSourcePath(root, src.Skills))
 	if err != nil {
 		return err
 	}
-	hooks, err := importZedTasks(root, filepath.Join(root, src.Hooks))
+	hooks, err := importZedTasks(root, importSourcePath(root, src.Hooks))
 	if err != nil {
 		return err
 	}
-	mcps, err := importZedContextServers(root, filepath.Join(root, src.MCPs))
+	mcps, err := importZedContextServers(root, importSourcePath(root, src.MCPs))
 	if err != nil {
 		return err
 	}

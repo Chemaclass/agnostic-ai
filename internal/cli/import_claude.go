@@ -48,17 +48,17 @@ func importFromClaude(root string, src config.Sources, layout claudeLayout) erro
 	c := importCounts{}
 	var err error
 	var nestedLeftBehind []importedNestedClaudeFile
-	c.rules, nestedLeftBehind, err = importClaudeRules(root, filepath.Join(root, src.Rules), src, layout)
+	c.rules, nestedLeftBehind, err = importClaudeRules(root, importSourcePath(root, src.Rules), src, layout)
 	if err != nil {
 		return err
 	}
-	if c.agents, err = importClaudeAgents(root, filepath.Join(root, src.Agents), layout); err != nil {
+	if c.agents, err = importClaudeAgents(root, importSourcePath(root, src.Agents), layout); err != nil {
 		return err
 	}
-	if c.skills, err = importClaudeSkills(root, filepath.Join(root, src.Skills), layout); err != nil {
+	if c.skills, err = importClaudeSkills(root, importSourcePath(root, src.Skills), layout); err != nil {
 		return err
 	}
-	if c.hooks, err = importClaudeHooks(root, filepath.Join(root, src.Hooks)); err != nil {
+	if c.hooks, err = importClaudeHooks(root, importSourcePath(root, src.Hooks)); err != nil {
 		return err
 	}
 	if err := captureHookScripts(root, "claude"); err != nil {
@@ -79,13 +79,13 @@ func importFromClaude(root string, src config.Sources, layout claudeLayout) erro
 	if err != nil {
 		return err
 	}
-	if c.mcps, err = importClaudeMCPWithSettings(root, filepath.Join(root, src.MCPs), layout.dir); err != nil {
+	if c.mcps, err = importClaudeMCPWithSettings(root, importSourcePath(root, src.MCPs), layout.dir); err != nil {
 		return err
 	}
-	if c.commands, err = importClaudeCommands(root, filepath.Join(root, src.Commands), layout); err != nil {
+	if c.commands, err = importClaudeCommands(root, importSourcePath(root, src.Commands), layout); err != nil {
 		return err
 	}
-	settingsImport, err := importClaudeSettingsOverlay(root, filepath.Join(root, src.Settings))
+	settingsImport, err := importClaudeSettingsOverlay(root, importSourcePath(root, src.Settings))
 	if err != nil {
 		return err
 	}
@@ -488,7 +488,7 @@ func mkdirAllSources(root string, dirs ...string) error {
 		if d == "" {
 			continue
 		}
-		if err := importMkdirAll(filepath.Join(root, d), 0o755); err != nil {
+		if err := importMkdirAll(importSourcePath(root, d), 0o755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", d, err)
 		}
 	}

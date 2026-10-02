@@ -126,10 +126,11 @@ func runImportInCopy(run func() error, prepare func() error, inspect func(projec
 	defer removeImportPreviewDir(tmp)
 	// The copy keeps the project's directory name: codex names the rule
 	// it shreds from a root AGENTS.md after it.
-	shadow := filepath.Join(tmp, filepath.Base(project))
-	if err := os.Mkdir(shadow, 0o700); err != nil {
+	shadow := importPreviewProjectPath(project, tmp)
+	if err := os.MkdirAll(shadow, 0o700); err != nil {
 		return rec, fmt.Errorf("%s: %w", shadow, err)
 	}
+	rec.specDirs = importSpecDirs(project)
 	tree := loadImportTree(project)
 	copied, err := copyImportPreviewTree(project, shadow, tree, importPreviewKeeps(project))
 	if err != nil {
@@ -153,6 +154,13 @@ func runImportInCopy(run func() error, prepare func() error, inspect func(projec
 	if err != nil {
 		return rec, fmt.Errorf("getwd: %w", err)
 	}
+	shadow = sandbox
+	copies, err := copyImportAbsoluteSources(project, shadow, resolveImportSourceExisting(tmp), copied)
+	if err != nil {
+		return rec, err
+	}
+	importSourceCopies = copies
+	defer func() { importSourceCopies = nil }()
 	// The copy has no .git to ask, so the walks there leave out what
 	// they would leave out in the project.
 	tree.root, tree.nested = sandbox, copied.nested
@@ -161,8 +169,10 @@ func runImportInCopy(run func() error, prepare func() error, inspect func(projec
 		importRecording, importSandbox, importSandboxOutsideFiles, importRunTree = nil, "", nil, nil
 	}()
 
-	rec.specDirs = importSpecDirs(shadow)
 	runErr := run()
+	for i := range rec.writes {
+		rec.writes[i].path = filepath.ToSlash(importOriginalSourcePath(rec.writes[i].path))
+	}
 	if inspect != nil {
 		if err := inspect(project, shadow, rec); err != nil {
 			return rec, err
@@ -192,21 +202,31 @@ func buildImportPreview(project, shadow string, rec *importRecorder) (importPrev
 		e.winner = w.source
 		e.replaced = e.replaced || !w.merge
 	}
-	specDirs := rec.specDirs
+	specDirs := slices.Clone(rec.specDirs)
+	for _, dir := range rec.specDirs {
+		if !filepath.IsAbs(dir) {
+			specDirs = append(specDirs, filepath.ToSlash(config.ResolveSourcePath(project, dir)))
+		}
+	}
 	sums := readStateFile(project).SpecFileSums
+	for path, sum := range maps.Clone(sums) {
+		if !filepath.IsAbs(filepath.FromSlash(path)) {
+			sums[filepath.ToSlash(config.ResolveSourcePath(project, path))] = sum
+		}
+	}
 	for path, e := range byPath {
 		native := filepath.FromSlash(path)
-		after, err := os.ReadFile(filepath.Join(shadow, native))
+		after, err := os.ReadFile(importPreviewSourcePath(config.ResolveSourcePath(shadow, native)))
 		if err != nil {
 			return importPreview{}, fmt.Errorf("%s: %w", path, err)
 		}
 		e.after = after
-		before, err := os.ReadFile(filepath.Join(project, native))
+		before, err := os.ReadFile(config.ResolveSourcePath(project, native))
 		switch {
 		case err == nil:
 			e.existed, e.before = true, before
 		case errors.Is(err, fs.ErrNotExist):
-			if info, linkErr := os.Lstat(filepath.Join(project, native)); linkErr == nil && info.Mode()&os.ModeSymlink != 0 {
+			if info, linkErr := os.Lstat(config.ResolveSourcePath(project, native)); linkErr == nil && info.Mode()&os.ModeSymlink != 0 {
 				return importPreview{}, fmt.Errorf("%s: %w", path, err)
 			}
 		case !errors.Is(err, fs.ErrNotExist):
@@ -311,6 +331,8 @@ func isBinary(data []byte) bool {
 
 // previewCopy is what copyImportPreviewTree reports about a copy.
 type previewCopy struct {
+	files map[previewFileKey][]previewCopiedFile
+	dirs  previewDirectoryCopies
 	// outsideFiles holds the copied files and directories that came from
 	// outside the project, relative to the copy.
 	outsideFiles map[string]bool
@@ -319,24 +341,19 @@ type previewCopy struct {
 	nested map[string]bool
 }
 
-// copyImportPreviewTree copies the project at src into dst for a preview
-// run. It skips .git and the directories leavesOut names, so a large
-// node_modules does not slow the preview down. A symlink that
-// resolves inside the project is recreated as a relative link, so the copy
-// keeps the same shape; one that resolves outside is copied by content, so
-// no preview write can reach a file outside the copy. Dangling links,
-// sockets, and devices are skipped.
+// copyImportPreviewTree keeps linked directories in the same shadow tree.
 func copyImportPreviewTree(src, dst string, tree importTree, keep previewKeep) (previewCopy, error) {
-	root, err := filepath.EvalSymlinks(src)
+	root, err := resolveImportSource(src)
 	if err != nil {
 		return previewCopy{}, fmt.Errorf("%s: %w", src, err)
 	}
 	c := previewCopier{
 		root: root, dstRoot: dst, tree: tree, keep: keep,
 		visited: map[string]bool{}, outsideFiles: map[string]bool{}, nested: map[string]bool{},
-		files: map[previewFileKey][]previewCopiedFile{},
+		files: map[previewFileKey][]previewCopiedFile{}, dirs: previewDirectoryCopies{root: dst},
+		excluded: []string{resolveImportSourceExisting(dst)},
 	}
-	return previewCopy{outsideFiles: c.outsideFiles, nested: c.nested}, c.copyDir(root, dst)
+	return previewCopy{outsideFiles: c.outsideFiles, nested: c.nested, files: c.files, dirs: c.dirs}, c.copyDir(root, dst)
 }
 
 // previewKeep names what the preview copy keeps whole even when git
@@ -356,11 +373,22 @@ func importPreviewKeeps(project string) previewKeep {
 	if err != nil {
 		cfg = &config.Config{}
 	}
+	projectAbs, _ := filepath.Abs(project)
 	paths := map[string]bool{}
 	keep := previewKeep{toolDirs: map[string]bool{}}
 	add := func(p string) {
-		if p == "" || filepath.IsAbs(p) {
+		if p == "" {
 			return
+		}
+		if filepath.IsAbs(p) {
+			rel, inside := pathBelow(projectAbs, p)
+			if !inside {
+				rel, inside = pathBelow(resolveImportSourceExisting(projectAbs), resolveImportSourceExisting(p))
+			}
+			if !inside {
+				return
+			}
+			p = rel
 		}
 		p = strings.TrimSuffix(filepath.ToSlash(filepath.Clean(p)), "/")
 		if p == "." || p == ".." || strings.HasPrefix(p, "../") || strings.ContainsAny(p, "<>*?[{~$") {
@@ -394,14 +422,7 @@ func importPreviewKeeps(project string) previewKeep {
 	return keep
 }
 
-// previewCopier holds the state of one copyImportPreviewTree call.
-// visited holds the directories one project link copies by content: the
-// link's target, and each directory a link inside that copy reaches,
-// followed once so a cycle stops and a web of package links stays small.
-// Every project link starts a fresh set.
-// detached is set while copying a linked directory by content, whose
-// paths are not the project's; outside, while that directory lies
-// outside the project.
+// Directory identities share future writes; visited bounds link traversal.
 type previewCopier struct {
 	root         string
 	dstRoot      string
@@ -411,8 +432,44 @@ type previewCopier struct {
 	detached     bool
 	outside      bool
 	outsideFiles map[string]bool
+	excluded     []string
+	retainedDirs []string
 	nested       map[string]bool
 	files        map[previewFileKey][]previewCopiedFile
+	dirs         previewDirectoryCopies
+	sourceCopy   bool
+}
+
+type previewDirectoryCopies map[string]string
+
+func newImportSourceAlias(parent, target string) (string, error) {
+	target = resolveImportSourceExisting(target)
+	if err := os.MkdirAll(target, 0o700); err != nil {
+		return "", fmt.Errorf("%s: %w", target, err)
+	}
+	alias, err := os.MkdirTemp(parent, "source-")
+	if err != nil {
+		return "", fmt.Errorf("create source preview alias: %w", err)
+	}
+	if err := os.Remove(alias); err != nil {
+		return "", fmt.Errorf("%s: %w", alias, err)
+	}
+	if err := createImportSourceAlias(target, alias); err != nil {
+		return "", err
+	}
+	return alias, nil
+}
+
+func (dirs previewDirectoryCopies) shadow(path string) (string, bool) {
+	for root := path; ; root = filepath.Dir(root) {
+		if copied, ok := dirs[root]; ok {
+			rel, inside := pathBelow(root, path)
+			return filepath.Join(copied, rel), inside
+		}
+		if filepath.Dir(root) == root {
+			return "", false
+		}
+	}
 }
 
 type previewFileKey struct {
@@ -428,7 +485,22 @@ type previewCopiedFile struct {
 func (c previewCopier) copyDir(from, to string) error {
 	return filepath.WalkDir(from, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
+			if c.skipsSourceReadError(path, err) {
+				if d != nil && d.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
 			return err
+		}
+		if d.IsDir() && slices.Contains(c.retainedDirs, path) {
+			return filepath.SkipDir
+		}
+		if c.excludes(path) {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 		rel, err := filepath.Rel(from, path)
 		if err != nil {
@@ -447,19 +519,36 @@ func (c previewCopier) copyDir(from, to string) error {
 		}
 		info, err := d.Info()
 		if err != nil {
+			if c.skipsSourceReadError(path, err) {
+				return nil
+			}
 			return fmt.Errorf("%s: %w", path, err)
 		}
 		switch {
-		case d.Type()&fs.ModeSymlink != 0:
-			return c.copySymlink(path, target)
+		case d.Type()&fs.ModeSymlink != 0 || importSourceDirectoryLink(info):
+			return c.copySymlink(path, target, info)
 		case d.IsDir():
 			if rel == "." {
+				c.dirs[path] = target
 				return nil
 			}
 			if (c.detached && isPackagesDir(d.Name())) || (!c.detached && c.leavesOut(filepath.ToSlash(rel))) {
 				return filepath.SkipDir
 			}
-			return os.Mkdir(target, info.Mode().Perm()|0o700)
+			if copied, ok := c.dirs[path]; ok && copied != target {
+				if c.outside {
+					c.noteOutside(target)
+				}
+				if err := createImportSourceAlias(copied, target); err != nil {
+					return err
+				}
+				return filepath.SkipDir
+			}
+			if err := os.MkdirAll(target, info.Mode().Perm()|0o700); err != nil {
+				return fmt.Errorf("%s: %w", target, err)
+			}
+			c.dirs[path] = target
+			return nil
 		case d.Type().IsRegular():
 			if c.outside {
 				c.noteOutside(target)
@@ -471,9 +560,6 @@ func (c previewCopier) copyDir(from, to string) error {
 }
 
 func (c previewCopier) copyFile(from, to string, info os.FileInfo) error {
-	if c.outside {
-		return copyPreviewFile(from, to, info.Mode().Perm())
-	}
 	key := previewFileKey{size: info.Size(), modified: info.ModTime().UnixNano()}
 	for _, copied := range c.files[key] {
 		if os.SameFile(info, copied.info) {
@@ -484,10 +570,18 @@ func (c previewCopier) copyFile(from, to string, info os.FileInfo) error {
 		}
 	}
 	if err := copyPreviewFile(from, to, info.Mode().Perm()); err != nil {
+		if c.skipsSourceReadError(from, err) {
+			return nil
+		}
 		return err
 	}
 	c.files[key] = append(c.files[key], previewCopiedFile{path: to, info: info})
 	return nil
+}
+
+func (c previewCopier) skipsSourceReadError(path string, err error) bool {
+	var pathErr *os.PathError
+	return c.sourceCopy && errors.Is(err, fs.ErrPermission) && errors.As(err, &pathErr) && pathErr.Path == path
 }
 
 // leavesOut reports whether the copy skips the project directory rel:
@@ -535,22 +629,28 @@ func (c previewCopier) noteOutside(target string) {
 	}
 }
 
-// copySymlink recreates a link inside the project as a relative link, so
-// the copy keeps the same shape. A link that leaves the project, or whose
-// target the copy leaves out, is copied by content instead, so an import
-// reading through it finds the same files.
-func (c previewCopier) copySymlink(link, target string) error {
-	resolved, err := filepath.EvalSymlinks(link)
+// copySymlink rebases links into the shadow tree and shares copied directories.
+func (c previewCopier) copySymlink(link, target string, original fs.FileInfo) error {
+	resolved, err := resolveImportSource(link)
 	if err != nil {
-		return nil // dangling: an import reading it finds nothing either
+		return nil
+	}
+	if c.excludes(resolved) {
+		return nil
 	}
 	info, err := os.Stat(resolved)
 	if err != nil {
+		if c.skipsSourceReadError(resolved, err) {
+			return nil
+		}
 		return fmt.Errorf("%s: %w", link, err)
 	}
 	inside, err := filepath.Rel(c.root, resolved)
 	outside := err != nil || inside == ".." || strings.HasPrefix(inside, ".."+string(filepath.Separator))
 	if !outside && !c.targetLeftOut(filepath.ToSlash(inside), info.IsDir()) {
+		if info.IsDir() && original.Mode()&fs.ModeSymlink == 0 {
+			return createImportSourceAlias(filepath.Join(c.dstRoot, inside), target)
+		}
 		rel, err := filepath.Rel(filepath.Dir(target), filepath.Join(c.dstRoot, inside))
 		if err != nil {
 			return fmt.Errorf("%s: %w", link, err)
@@ -560,9 +660,14 @@ func (c previewCopier) copySymlink(link, target string) error {
 	if !info.IsDir() {
 		if outside {
 			c.noteOutside(target)
-			return copyPreviewFile(resolved, target, info.Mode().Perm())
 		}
 		return c.copyFile(resolved, target, info)
+	}
+	if copied, ok := c.dirs[resolved]; ok {
+		if outside {
+			c.noteOutside(target)
+		}
+		return createImportSourceAlias(copied, target)
 	}
 	if c.detached {
 		if c.visited[resolved] {
@@ -622,4 +727,11 @@ func removeImportPreviewDir(dir string) {
 		return
 	}
 	_ = os.RemoveAll(dir)
+}
+
+func (c previewCopier) excludes(path string) bool {
+	return slices.ContainsFunc(c.excluded, func(base string) bool {
+		_, inside := pathBelow(base, path)
+		return inside
+	})
 }

@@ -105,7 +105,7 @@ func importCodexEnvironment(root string, src config.Sources) (int, error) {
 		return 0, nil
 	}
 
-	dstDir := filepath.Join(root, src.Environments)
+	dstDir := importSourcePath(root, src.Environments)
 	out := filepath.Join(dstDir, codexEnvironmentSpecName+".yaml")
 	if fileExists(out) {
 		summaryf("  ! skipped %s: %s already exists; move its scripts and actions there by hand\n",

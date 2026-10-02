@@ -37,19 +37,19 @@ func importFromCursor(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands); err != nil {
 		return err
 	}
-	rules, err := importCursorRules(root, filepath.Join(root, src.Rules))
+	rules, err := importCursorRules(root, importSourcePath(root, src.Rules))
 	if err != nil {
 		return err
 	}
-	agents, err := importFlatMarkdownFiles(filepath.Join(root, ".cursor", "agents"), filepath.Join(root, src.Agents), cursorAgentFields)
+	agents, err := importFlatMarkdownFiles(filepath.Join(root, ".cursor", "agents"), importSourcePath(root, src.Agents), cursorAgentFields)
 	if err != nil {
 		return err
 	}
-	skills, err := importCursorSkills(root, filepath.Join(root, src.Skills))
+	skills, err := importCursorSkills(root, importSourcePath(root, src.Skills))
 	if err != nil {
 		return err
 	}
-	commands, err := importFlatMarkdownFiles(filepath.Join(root, ".cursor", "commands"), filepath.Join(root, src.Commands), cursorCommandFields)
+	commands, err := importFlatMarkdownFiles(filepath.Join(root, ".cursor", "commands"), importSourcePath(root, src.Commands), cursorCommandFields)
 	if err != nil {
 		return err
 	}

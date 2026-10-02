@@ -87,10 +87,10 @@ func importIgnoreFile(root, target string, src config.Sources) (int, error) {
 	if strings.Trim(body, " \n") == "" {
 		return 0, nil
 	}
-	if err := importMkdirAll(filepath.Join(root, src.Ignore), 0o755); err != nil {
+	if err := importMkdirAll(importSourcePath(root, src.Ignore), 0o755); err != nil {
 		return 0, fmt.Errorf("mkdir %s: %w", src.Ignore, err)
 	}
-	out := filepath.Join(root, src.Ignore, target+".md")
+	out := filepath.Join(importSourcePath(root, src.Ignore), target+".md")
 	fence := ignoreSpecFence(body)
 	specFile := fmt.Sprintf("---\nname: %s\ndescription: Imported from %s.\ntarget: %s\n---\n\n%sgitignore\n%s\n%s\n", target, name, target, fence, body, fence)
 	if err := importWriteFile(out, []byte(specFile), 0o644); err != nil {

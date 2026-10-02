@@ -42,8 +42,7 @@ func trackImportWrites() func() map[string]bool {
 // directory import copied it into.
 type nativeRefPrefix struct{ native, source string }
 
-// claudeRefPrefixes pairs each Claude-native spec directory with its
-// source directory, both project-relative with forward slashes.
+// claudeRefPrefixes pairs each native directory with its source path.
 func claudeRefPrefixes(src config.Sources, layout claudeLayout) []nativeRefPrefix {
 	var out []nativeRefPrefix
 	for _, p := range [][2]string{
@@ -113,7 +112,7 @@ func dropImportedRuleLines(root, text, rulesPrefix, rulesSource string, written 
 	for _, line := range lines {
 		ref := strings.TrimPrefix(strings.TrimPrefix(strings.TrimSpace(line), "@"), "./")
 		if strings.HasPrefix(strings.TrimSpace(line), "@") && strings.HasPrefix(ref, rulesPrefix) {
-			rule := filepath.Clean(filepath.Join(root, rulesSource, strings.TrimPrefix(ref, rulesPrefix)))
+			rule := filepath.Clean(filepath.Join(importSourcePath(root, rulesSource), strings.TrimPrefix(ref, rulesPrefix)))
 			if written[rule] {
 				if n := len(out); n > 0 && strings.TrimSpace(out[n-1]) == "" {
 					out = out[:n-1]
@@ -143,13 +142,16 @@ func rewriteNativeRefs(root, path, text string, prefixes []nativeRefPrefix) stri
 				continue
 			}
 			mapped := p.source + strings.TrimPrefix(bare, p.native)
-			if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(mapped))); err != nil {
+			if _, err := os.Stat(importSourcePath(root, filepath.FromSlash(mapped))); err != nil {
 				rel, relErr := filepath.Rel(root, path)
 				if relErr != nil {
 					rel = path
 				}
 				summaryf("  ! %s names %s, which no imported spec replaces; left as is\n", filepath.ToSlash(rel), bare)
 				return m
+			}
+			if filepath.IsAbs(filepath.FromSlash(mapped)) {
+				dot = ""
 			}
 			return lead + dot + mapped + trail
 		}

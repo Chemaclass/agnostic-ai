@@ -67,7 +67,7 @@ func importFromOpenhands(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs, src.Environments); err != nil {
 		return err
 	}
-	rules, err := sliceEntryPointRules(root, openhandsMainFile, filepath.Join(root, src.Rules))
+	rules, err := sliceEntryPointRules(root, openhandsMainFile, importSourcePath(root, src.Rules))
 	if err != nil {
 		return err
 	}
@@ -75,19 +75,19 @@ func importFromOpenhands(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	agents, err := importFlatMarkdownFiles(filepath.Join(root, openhandsAgentsDir), filepath.Join(root, src.Agents), gooseAgentFields)
+	agents, err := importFlatMarkdownFiles(filepath.Join(root, openhandsAgentsDir), importSourcePath(root, src.Agents), gooseAgentFields)
 	if err != nil {
 		return err
 	}
-	hooks, err := importOpenhandsHooks(filepath.Join(root, openhandsHooksFile), filepath.Join(root, src.Hooks))
+	hooks, err := importOpenhandsHooks(filepath.Join(root, openhandsHooksFile), importSourcePath(root, src.Hooks))
 	if err != nil {
 		return err
 	}
-	mcps, err := importOpenhandsMCP(filepath.Join(root, openhandsMCPFile), filepath.Join(root, src.MCPs))
+	mcps, err := importOpenhandsMCP(filepath.Join(root, openhandsMCPFile), importSourcePath(root, src.MCPs))
 	if err != nil {
 		return err
 	}
-	envs, err := importOpenhandsSetup(filepath.Join(root, openhandsSetupFile), filepath.Join(root, src.Environments))
+	envs, err := importOpenhandsSetup(filepath.Join(root, openhandsSetupFile), importSourcePath(root, src.Environments))
 	if err != nil {
 		return err
 	}
@@ -149,12 +149,12 @@ func importOpenhandsSkillDir(dir, root string, src config.Sources, seen map[stri
 		case "skill":
 			continue // copied with its assets below
 		case "rule":
-			err = writeOpenhandsRule(filepath.Join(root, src.Rules, name+".md"), name, meta, body)
+			err = writeOpenhandsRule(filepath.Join(importSourcePath(root, src.Rules), name+".md"), name, meta, body)
 			rules++
 		default:
 			// `triggers` has no portable spelling, so it stays under
 			// x-openhands with any other native key.
-			err = writeOpenhandsSpec(filepath.Join(root, src.Skills, name, "SKILL.md"), openhandsSpecMeta(name, meta), body)
+			err = writeOpenhandsSpec(filepath.Join(importSourcePath(root, src.Skills), name, "SKILL.md"), openhandsSpecMeta(name, meta), body)
 			skills++
 		}
 		if err != nil {
@@ -162,7 +162,7 @@ func importOpenhandsSkillDir(dir, root string, src config.Sources, seen map[stri
 		}
 		seen[name] = true
 	}
-	n, err := importSkillFoldersWith(root, dir, filepath.Join(root, src.Skills), skillFolderImportOpts{SkipNames: seen})
+	n, err := importSkillFoldersWith(root, dir, importSourcePath(root, src.Skills), skillFolderImportOpts{SkipNames: seen})
 	return rules, skills + n, err
 }
 

@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"path/filepath"
-
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -15,7 +13,7 @@ func importFromAider(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules); err != nil {
 		return err
 	}
-	n, err := sliceMirroredMainFile(root, aiderMainFile, filepath.Join(root, src.Rules))
+	n, err := sliceMirroredMainFile(root, aiderMainFile, importSourcePath(root, src.Rules))
 	if err != nil {
 		return err
 	}

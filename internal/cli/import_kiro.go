@@ -76,20 +76,20 @@ func importFromKiro(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	agents, err := importKiroAgents(root, filepath.Join(root, src.Agents))
+	agents, err := importKiroAgents(root, importSourcePath(root, src.Agents))
 	if err != nil {
 		return err
 	}
-	skills, err := importSkillFolders(root, filepath.Join(root, kiroSkillsDir), filepath.Join(root, src.Skills))
+	skills, err := importSkillFolders(root, filepath.Join(root, kiroSkillsDir), importSourcePath(root, src.Skills))
 	if err != nil {
 		return err
 	}
-	hooks, err := importKiroHooks(root, filepath.Join(root, src.Hooks))
+	hooks, err := importKiroHooks(root, importSourcePath(root, src.Hooks))
 	if err != nil {
 		return err
 	}
 	mcps, err := importJSONMCPMap("kiro", filepath.Join(root, kiroMCPFile), kiroMCPKey,
-		filepath.Join(root, src.MCPs))
+		importSourcePath(root, src.MCPs))
 	if err != nil {
 		return err
 	}
@@ -209,13 +209,13 @@ func importKiroSteeringFile(root, path, filename string, src config.Sources, c *
 	kind, name := classifyRulesDirFile(filename, data)
 	switch kind {
 	case "agents":
-		out := filepath.Join(root, src.Agents, name+".md")
+		out := filepath.Join(importSourcePath(root, src.Agents), name+".md")
 		if err := writeAgentMD(out, name, "", nil, body); err != nil {
 			return err
 		}
 		c.agents++
 	case "skills":
-		out := filepath.Join(root, src.Skills, name, "SKILL.md")
+		out := filepath.Join(importSourcePath(root, src.Skills), name, "SKILL.md")
 		if err := importMkdirAll(filepath.Dir(out), 0o755); err != nil {
 			return fmt.Errorf("mkdir %s: %w", filepath.Dir(out), err)
 		}
@@ -225,7 +225,7 @@ func importKiroSteeringFile(root, path, filename string, src config.Sources, c *
 		}
 		c.skills++
 	default:
-		out := filepath.Join(root, src.Rules, name+".md")
+		out := filepath.Join(importSourcePath(root, src.Rules), name+".md")
 		// A list fileMatchPattern reads back as the comma form sync splits.
 		globs := spec.JoinGlobs(meta["fileMatchPattern"])
 		if err := writeRuleWithGlobs(out, name, globs, body); err != nil {

@@ -36,7 +36,7 @@ func scopedRulesDirs(root, rulesDir string, ownOutputSubtrees map[string]bool, s
 	}
 	for _, p := range []string{src.Agents, src.Skills, src.Rules, src.Hooks, src.MCPs} {
 		if p != "" {
-			skipDirs[filepath.ToSlash(filepath.Clean(p))] = true
+			skipDirs[importSourceRelativePath(root, p)] = true
 		}
 	}
 	tree := importTreeFor(root)

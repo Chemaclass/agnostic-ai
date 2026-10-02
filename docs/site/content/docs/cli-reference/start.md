@@ -69,7 +69,7 @@ The prompt and the [first-sync picker](@/docs/cli-reference/sync.md#first-sync-t
 
 ## import
 
-Translate an existing AI CLI configuration into agnostic specs, written into the `sources:` directories from `agnostic-ai.yaml`.
+Translate an existing AI CLI configuration into agnostic specs, written into the `sources:` directories from `agnostic-ai.yaml`. Absolute source paths keep their destination; `--dry-run` and `--dry-run --diff` preview those files in a temporary copy.
 
 ```bash
 agnostic-ai import claude

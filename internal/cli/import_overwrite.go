@@ -64,7 +64,7 @@ func syncedSpecFileSums(root string, prev map[string]specFileSum, b spec.Bundle,
 			for _, path := range specEntryFiles(root, e, include) {
 				rec, ok := next[path]
 				if !ok {
-					data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(path)))
+					data, err := os.ReadFile(config.ResolveSourcePath(root, filepath.FromSlash(path)))
 					if err != nil {
 						continue
 					}
@@ -92,7 +92,7 @@ func syncedSpecFileSums(root string, prev map[string]specFileSum, b spec.Bundle,
 			next[path] = old
 		case !ok && old.By == specSumBySync:
 			kept := uncovered(old)
-			data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(path)))
+			data, err := os.ReadFile(config.ResolveSourcePath(root, filepath.FromSlash(path)))
 			if len(kept) > 0 && err == nil && sha256Hex(data) == old.Sum {
 				old.Targets = kept
 				next[path] = old
@@ -113,8 +113,8 @@ func syncedSpecFileSums(root string, prev map[string]specFileSum, b spec.Bundle,
 	return next
 }
 
-// specEntryFiles lists the files of e under root, slash-form and relative
-// to it: its spec file and, for a skill, every file in its folder.
+// specEntryFiles lists the spec and skill assets, relative to root when
+// inside it and absolute otherwise.
 func specEntryFiles(root string, e spec.Entry, include func(asset string) bool) []string {
 	var files []string
 	add := func(path string) {
@@ -129,10 +129,7 @@ func specEntryFiles(root string, e spec.Entry, include func(asset string) bool) 
 		if err != nil {
 			return
 		}
-		rel, err := filepath.Rel(absRoot, abs)
-		if err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-			files = append(files, filepath.ToSlash(rel))
-		}
+		files = append(files, relativeKey(absRoot, abs))
 	}
 	if e.Path == "" {
 		return nil

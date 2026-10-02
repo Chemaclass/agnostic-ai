@@ -83,31 +83,31 @@ func importFromFactory(root string, src config.Sources) error {
 	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Commands, src.Hooks, src.MCPs, src.Settings); err != nil {
 		return err
 	}
-	rules, err := sliceEntryPointRules(root, factoryMainFile, filepath.Join(root, src.Rules))
+	rules, err := sliceEntryPointRules(root, factoryMainFile, importSourcePath(root, src.Rules))
 	if err != nil {
 		return err
 	}
-	agents, err := importFactoryDroids(filepath.Join(root, factoryDroidsDir), filepath.Join(root, src.Agents))
+	agents, err := importFactoryDroids(filepath.Join(root, factoryDroidsDir), importSourcePath(root, src.Agents))
 	if err != nil {
 		return err
 	}
-	skills, err := importScopedSkillFoldersFrom(root, factorySkillDirs, filepath.Join(root, src.Skills))
+	skills, err := importScopedSkillFoldersFrom(root, factorySkillDirs, importSourcePath(root, src.Skills))
 	if err != nil {
 		return err
 	}
-	commands, err := importFlatMarkdownFiles(filepath.Join(root, factoryCommandsDir), filepath.Join(root, src.Commands), factoryCommandFields)
+	commands, err := importFlatMarkdownFiles(filepath.Join(root, factoryCommandsDir), importSourcePath(root, src.Commands), factoryCommandFields)
 	if err != nil {
 		return err
 	}
-	mcps, err := importJSONMCPMap("factory", filepath.Join(root, factoryMCPFile), factoryMCPKey, filepath.Join(root, src.MCPs))
+	mcps, err := importJSONMCPMap("factory", filepath.Join(root, factoryMCPFile), factoryMCPKey, importSourcePath(root, src.MCPs))
 	if err != nil {
 		return err
 	}
-	hooks, err := importFactoryHooks(root, filepath.Join(root, src.Hooks))
+	hooks, err := importFactoryHooks(root, importSourcePath(root, src.Hooks))
 	if err != nil {
 		return err
 	}
-	settings, err := importFactorySettings(filepath.Join(root, factorySettingsFile), filepath.Join(root, src.Settings))
+	settings, err := importFactorySettings(filepath.Join(root, factorySettingsFile), importSourcePath(root, src.Settings))
 	if err != nil {
 		return err
 	}

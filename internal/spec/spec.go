@@ -754,7 +754,7 @@ func loadLayer(layer Layer) (Bundle, error) {
 		if l.src == "" {
 			continue
 		}
-		dir := filepath.Join(layer.Root, l.src)
+		dir := config.ResolveSourcePath(layer.Root, l.src)
 		entries, err := walkDir(dir, l.ext, l.kind, l.parse)
 		if err != nil {
 			if errs.CodeOf(err) == errs.CodeSpecParse {

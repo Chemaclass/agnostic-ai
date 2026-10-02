@@ -129,7 +129,7 @@ func newLocalImportGuard(root string, cfg *config.Config) (*localImportGuard, er
 		if dir == "" {
 			continue
 		}
-		abs, err := filepath.Abs(filepath.Join(root, dir))
+		abs, err := filepath.Abs(importSourcePath(root, dir))
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", dir, err)
 		}

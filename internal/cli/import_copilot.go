@@ -57,32 +57,32 @@ func importFromCopilot(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	agents, err := importCopilotAgents(root, filepath.Join(root, src.Agents))
+	agents, err := importCopilotAgents(root, importSourcePath(root, src.Agents))
 	if err != nil {
 		return err
 	}
 	skills := 0
 	seenSkills := map[string]bool{}
 	for _, skillsDir := range copilotSkillsDirs {
-		folderSkills, err := importSkillFoldersWith(root, filepath.Join(root, skillsDir), filepath.Join(root, src.Skills), skillFolderImportOpts{SkipNames: seenSkills})
+		folderSkills, err := importSkillFoldersWith(root, filepath.Join(root, skillsDir), importSourcePath(root, src.Skills), skillFolderImportOpts{SkipNames: seenSkills})
 		if err != nil {
 			return err
 		}
 		skills += folderSkills
 	}
-	chatmodes, err := importCopilotChatmodes(root, filepath.Join(root, src.Agents))
+	chatmodes, err := importCopilotChatmodes(root, importSourcePath(root, src.Agents))
 	if err != nil {
 		return err
 	}
-	mcps, err := importCopilotMCP(root, filepath.Join(root, src.MCPs))
+	mcps, err := importCopilotMCP(root, importSourcePath(root, src.MCPs))
 	if err != nil {
 		return err
 	}
-	hooks, err := importCopilotHooks(root, filepath.Join(root, src.Hooks))
+	hooks, err := importCopilotHooks(root, importSourcePath(root, src.Hooks))
 	if err != nil {
 		return err
 	}
-	settings, err := importPortableSettings(root, copilotSettingsFile, filepath.Join(root, src.Settings), portableSettingsShape{target: "copilot", effortKey: "effortLevel"})
+	settings, err := importPortableSettings(root, copilotSettingsFile, importSourcePath(root, src.Settings), portableSettingsShape{target: "copilot", effortKey: "effortLevel"})
 	if err != nil {
 		return err
 	}
@@ -275,7 +275,7 @@ func importCopilotRules(root string, src config.Sources) (copilotCounts, error) 
 	if dirExists(instrDir) {
 		return importCopilotInstructions(instrDir, root, src)
 	}
-	n, err := sliceMirroredMainFile(root, copilotMainFile, filepath.Join(root, src.Rules))
+	n, err := sliceMirroredMainFile(root, copilotMainFile, importSourcePath(root, src.Rules))
 	if err != nil {
 		return c, err
 	}
@@ -315,7 +315,7 @@ func importCopilotInstructions(src, root string, sources config.Sources) (copilo
 		if err != nil {
 			return fmt.Errorf("translate %s: %w", rel, err)
 		}
-		out := filepath.Join(root, dstDir, scopeDir(rel), name+".md")
+		out := filepath.Join(importSourcePath(root, dstDir), scopeDir(rel), name+".md")
 		if err := importMkdirAll(filepath.Dir(out), 0o755); err != nil {
 			return fmt.Errorf("%s: %w", filepath.Dir(out), err)
 		}

@@ -49,11 +49,11 @@ func importFromContinue(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	skills, err := importSkillFolders(root, filepath.Join(root, continueSkillsDir), filepath.Join(root, src.Skills))
+	skills, err := importSkillFolders(root, filepath.Join(root, continueSkillsDir), importSourcePath(root, src.Skills))
 	if err != nil {
 		return err
 	}
-	mcps, err := importContinueMCPs(root, filepath.Join(root, src.MCPs))
+	mcps, err := importContinueMCPs(root, importSourcePath(root, src.MCPs))
 	if err != nil {
 		return err
 	}

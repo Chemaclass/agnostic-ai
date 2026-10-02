@@ -112,7 +112,7 @@ func importClaudeLaunch(root string, src config.Sources, layout claudeLayout) (i
 		return 0, nil
 	}
 
-	dstDir := filepath.Join(root, src.Environments)
+	dstDir := importSourcePath(root, src.Environments)
 	out := filepath.Join(dstDir, claudeLaunchSpecName+".yaml")
 	if fileExists(out) {
 		summaryf("  ! skipped %s: %s already exists; move its dev-commands there by hand\n",
