@@ -831,15 +831,38 @@ func TestScaffold_EchoesEnabledTargets(t *testing.T) {
 func TestScaffold_SeededSuggestsSyncNotImport(t *testing.T) {
 	dir := t.TempDir()
 	buf := captureSummary(t)
-	if err := scaffold(scaffoldOptions{Root: dir, Base: "", Demo: true, Targets: allTargetNames()}); err != nil {
+	if err := scaffold(scaffoldOptions{Root: dir, Base: "", Demo: true, Targets: []string{"claude"}}); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "agnostic-ai sync --check") {
-		t.Errorf("seeded scaffold should suggest sync --check:\n%s", out)
+	if !strings.Contains(out, "agnostic-ai sync --plan") {
+		t.Errorf("seeded scaffold should suggest sync --plan:\n%s", out)
 	}
 	if strings.Contains(out, "agnostic-ai import <target>") {
 		t.Errorf("seeded scaffold should not show import <target>:\n%s", out)
+	}
+	var preview string
+	for _, line := range strings.Split(out, "\n") {
+		if strings.Contains(line, "# preview") {
+			preview = strings.TrimSpace(strings.SplitN(line, "#", 2)[0])
+			break
+		}
+	}
+	if preview == "" {
+		t.Fatal("seeded scaffold has no preview command")
+	}
+	testutil.Chdir(t, dir)
+	root := NewRootCmd("test")
+	root.SetOut(buf)
+	root.SetErr(buf)
+	root.SetArgs(strings.Fields(preview)[1:])
+	if err := root.Execute(); err != nil {
+		t.Errorf("suggested preview fails before the first sync: %v", err)
+	}
+	for _, path := range []string{"CLAUDE.md", ".claude"} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Errorf("suggested preview wrote %s: %v", path, err)
+		}
 	}
 }
 

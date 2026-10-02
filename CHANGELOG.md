@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- `init --demo` and `init --preset` suggest `sync --plan` to preview the first output (#1609).
 - `sync`, `import`, `use`, and `init` take one project lock, so a concurrent writer stops and names the running command (#1618).
 - `import`, `init --from`, and `use` stop before replacing a spec with different content and list each one; `import --overwrite` replaces them (#1620).
 - Import protects specs sync did not write and restores linked files on conflicts or interrupts; identical specs keep their modification time (#1622).
@@ -52,6 +53,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Site
 
+- README, landing page, and getting started share one install, import, preview, and sync quickstart (#1609).
 - Error text, global hook coverage, target imports, and Codex options match the CLI and current vendor docs (#1628).
 - [Why agnostic-ai](https://agnostic-ai.org/docs/why-agnostic-ai/) replaces symlinks: shorter comparison of copies, one `AGENTS.md`, scripts; old URL redirects.
 

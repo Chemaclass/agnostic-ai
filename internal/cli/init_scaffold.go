@@ -274,7 +274,7 @@ func printNextSteps(root, base string, targets []string, seeded bool) {
 	summaryf("\n")
 	summaryf("next steps:\n")
 	if seeded {
-		summaryf("  agnostic-ai sync --check      # preview what will be written\n")
+		summaryf("  agnostic-ai sync --plan       # preview what changes\n")
 		summaryf("  agnostic-ai sync              # emit to your configured targets\n")
 	} else {
 		summaryf("  agnostic-ai new rule <name>   # write your first spec\n")

@@ -1,6 +1,6 @@
 +++
 title = "Getting started"
-description = "Install agnostic-ai and sync one rule to two AI coding tools."
+description = "Install agnostic-ai, import existing tool files, preview the changes, and sync."
 weight = 20
 
 [extra]
@@ -9,26 +9,34 @@ group = "Start"
 
 # Getting started
 
-Write one rule and sync it to Claude Code and Cursor.
+Install agnostic-ai and bring your AI coding tool setup into one source directory.
 
-Already use one tool and want another? Run `agnostic-ai use codex` (see [use](@/docs/cli-reference/start.md#use)). Already have `CLAUDE.md`, `AGENTS.md`, or other tool files? Follow [Migration](@/docs/migration.md) first.
+<a id="install"></a>
+<a id="scaffold"></a>
+<a id="sync"></a>
 
-## Install
+## Quickstart
 
-Follow [Installation](@/docs/installation.md), then check that `agnostic-ai --version` works.
-
-## Scaffold
-
-From a project root with no tool configuration:
+From your project root, with Node 18 or newer:
 
 ```bash
-echo "claude,cursor" | agnostic-ai init
-agnostic-ai new rule conventional-commits
+npm install -g agnostic-ai
+agnostic-ai init --from all
+agnostic-ai sync --plan
+agnostic-ai sync
 ```
 
-`init` creates `agnostic-ai.yaml`. `new` creates `.agnostic-ai/rules/conventional-commits.md`. Run `init` without the pipe to pick tools interactively. See [init options](@/docs/cli-reference/start.md#init) for `--demo` and stack presets.
+`init --from all` creates `agnostic-ai.yaml` and imports existing tool files into `.agnostic-ai/` when it finds them. Pick the tools you use when prompted. Without a terminal, init selects detected tools, or its default set when it finds none. `sync --plan` previews the changes; `sync` writes the native files.
+
+For other installers, see [Installation](@/docs/installation.md). To review an existing setup before generating files, see [Migration](@/docs/migration.md). Already use one tool and want another? Run `agnostic-ai use codex` (see [use](@/docs/cli-reference/start.md#use)).
 
 ## First rule
+
+Add a rule to the setup:
+
+```bash
+agnostic-ai new rule conventional-commits
+```
 
 Replace `.agnostic-ai/rules/conventional-commits.md` with:
 
@@ -43,24 +51,14 @@ Use feat:, fix:, docs:, refactor:, test:, or chore: prefixes.
 Keep the subject under 72 characters.
 ```
 
-## Sync
-
-```bash
-agnostic-ai sync --dry-run   # preview
-agnostic-ai sync             # write
-agnostic-ai sync --check     # exit 0 when outputs match the specs
-```
-
-Sync writes:
+Run `agnostic-ai sync` again. With Claude Code and Cursor selected, the rule reaches:
 
 | Output | Purpose |
 |---|---|
 | `.claude/rules/conventional-commits.md` | Claude Code rule |
 | `.cursor/rules/conventional-commits.mdc` | Cursor rule |
-| `.agnostic-ai/AGNOSTIC_AI.md` | Shared project instructions (you edit this) |
-| `CLAUDE.md` | Claude Code entry point, copied from `AGNOSTIC_AI.md` |
 
-Edit sources under `.agnostic-ai/`, then sync again. Never edit the generated copies. To change tools, edit `targets:` in `agnostic-ai.yaml` ([target selection](@/docs/configuration.md#targets)).
+Write shared project instructions in `.agnostic-ai/AGNOSTIC_AI.md`. Sync seeds this file once and keeps your edits. Edit sources under `.agnostic-ai/`, then sync again. To change tools, edit `targets:` in `agnostic-ai.yaml` ([target selection](@/docs/configuration.md#targets)).
 
 ## Commit or ignore generated outputs
 
@@ -71,7 +69,7 @@ Edit sources under `.agnostic-ai/`, then sync again. Never edit the generated co
 
 ## Daily use
 
-Run `agnostic-ai sync --watch` while you edit specs. Run `agnostic-ai status` for loaded specs, tools, and drift.
+Run `agnostic-ai sync --watch` while you edit specs. Run `agnostic-ai status` for loaded specs, tools, and drift. Use `agnostic-ai sync --check` after syncing or in CI to detect drift.
 
 <a id="shell-completion"></a>
 <a id="add-a-single-spec"></a>

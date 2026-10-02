@@ -1,6 +1,6 @@
 # agnostic-ai
 
-**One source to rule them all.** Write agents, skills, rules, hooks, and MCP configuration once. `agnostic-ai sync` turns those specs into native files for the AI coding tools you use.
+agnostic-ai is for developers and teams using more than one AI coding tool, or preparing to change tools. Write agents, skills, rules, hooks, and MCP configuration once; `agnostic-ai sync` turns those specs into each tool's native files. See [Why agnostic-ai](https://agnostic-ai.org/docs/why-agnostic-ai/).
 
 [![CI](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/agnostic-ai?logo=npm&label=npm)](https://www.npmjs.com/package/agnostic-ai)
@@ -21,53 +21,26 @@ Set up agnostic-ai in this repository. Follow https://agnostic-ai.org/agent-setu
 
 It takes about two minutes. The [agent setup guide](https://agnostic-ai.org/docs/agent-setup/) is the checklist the agent follows.
 
-## Set up manually
+<a id="set-up-manually"></a>
 
-Install with Homebrew on macOS or Linux, or npm on a machine with Node 18 or newer:
+## Quickstart
+
+From your project root, with Node 18 or newer:
 
 ```bash
-brew install --cask Chemaclass/tap/agnostic-ai
-# or
 npm install -g agnostic-ai
-```
-
-See [all install options](https://agnostic-ai.org/docs/installation/) for Windows, Go, and direct downloads. If the project already has native AI tool files, follow the [migration guide](https://agnostic-ai.org/docs/migration/) before the first sync.
-
-```bash
-agnostic-ai init
-agnostic-ai new rule team-conventions
-# edit .agnostic-ai/rules/team-conventions.md
+agnostic-ai init --from all
+agnostic-ai sync --plan
 agnostic-ai sync
-agnostic-ai sync --check
 ```
 
-`init` selects your tools. `new` creates your first rule under `.agnostic-ai/`; replace its TODO text before syncing. `AGNOSTIC_AI.md` is your editable project guidance; sync creates a short template and keeps an existing file. Generated files such as `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules/` are outputs. Keep the specs as your source of truth. Set `gitignore.ignore-worktree-include: true` to keep Claude's managed `.worktreeinclude` out of Git.
+`init --from all` creates the project config and imports existing tool files when it finds them. Pick the tools you use when prompted. `sync --plan` previews the changes; `sync` writes the native files.
+
+Edit sources under `.agnostic-ai/`, including `AGNOSTIC_AI.md` for shared project instructions, then sync again. Generated files such as `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules/` are outputs.
 
 `sync`, `import`, `use`, and `init` take a project lock. A second writer stops and names the running command; retry when it finishes. Read-only checks and previews can still run.
 
-Run `agnostic-ai install-hook --post-checkout` to regenerate ignored tool files after checkouts and pulls that merge. If `sync --untrack` removes committed outputs from Git, install these hooks in each clone before pulling, or run `agnostic-ai sync` after pulling. See [Git hooks](https://agnostic-ai.org/docs/git-hooks/#regenerate-on-checkout).
-
-A rule with `scope: src/a` and `globs: tests/a/**` applies to both directories. Claude writes both path patterns; Codex writes a nested `AGENTS.md` in each directory. See [scoped context](https://agnostic-ai.org/docs/scoped-context/) for selector limits and migration from the earlier intersection behavior. Rule body headings nest beneath each rule section in merged instruction files; fenced code stays as written.
-
-Codex places unscoped whole-subtree rules such as `globs: src/app/api/**` in nested `AGENTS.md` files. Filename filters and root-file selectors stay inline with an always-loaded note. Set `outputs.codex.nested-glob-rules: false` to keep root inlining. Start Codex in the subtree to load its instruction chain.
-
-Codex hooks require a trust review with `/hooks` after sync. Sync names inactive hooks; `agnostic-ai doctor -t codex` checks their persisted trust.
-
-Hook commands can reference `.agnostic-ai/scripts/guard.sh` to share one script. Sync copies it into each target's script directory and rewrites the command. See [shared hook scripts](https://agnostic-ai.org/docs/spec-format/hooks/#shared-hook-scripts).
-
-`agnostic-ai doctor` warns when an existing `.npmignore`, `.vscodeignore`, or `.dockerignore` misses generated paths. Codex skills moved from `.codex/skills/` to `.agents/skills/` in 0.75; check packaging ignores after upgrading.
-
-Use `agnostic-ai sync --global` for [user-level configuration](https://agnostic-ai.org/docs/configuration/#global-configuration). Global hooks and skills honor each spec's target filters. Imported Claude shell hooks resolve simple project-root variables on other targets; [project-root paths](https://agnostic-ai.org/docs/spec-format/hooks/#imported-project-root-paths) explains the Git and shell requirements. Skill metadata renders per target, while shared directories stay neutral. MCP specs in the home install servers in each tool's user MCP file, and settings specs set the default model and effort in Claude's, Codex's, Copilot's, Qoder's, and Gemini's user settings, key by key. Global settings also set Claude's starting permission mode through `permissions.default-mode`, preserving hand-written permission rules. Agents with `readonly: true` use Cursor's read-only mode, Factory's read-only tools, or Claude's `disallowedTools` for file edits. Codex agents keep the session sandbox.
-
-Keep [personal overrides](https://agnostic-ai.org/docs/local-overrides/) in `.agnostic-ai/local/` for one project, ignored by default, or in `~/.agnostic-ai/local/` for every project. `agnostic-ai list` and `list --global` show which layer supplies each spec.
-
-Set `outputs.codex.exec-policies-from-permissions: true` to turn simple Bash permissions into Codex command prefixes. Prefixes also match extra arguments. Explicit Codex policies take precedence, and `lint` warns on missing or conflicting prefixes. See [Bash permission translation](https://agnostic-ai.org/docs/targets/codex/#translate-bash-permissions).
-
-List files agents must not edit without asking in a settings `protected` block. Claude Code enforces it with `Edit` permission rules, Codex and Gemini CLI with a generated hook, and the Cursor CLI with `Write` deny rules for `decision: deny`; other targets report it as advisory. See [protected paths](https://agnostic-ai.org/docs/spec-format/settings/#protected-paths).
-
-In an edit hook, `agnostic-ai hook paths` prints the edited files from the Claude Code, Codex, Cursor, Gemini, Factory, or Augment payload, so one format hook runs on each. See [edited paths](https://agnostic-ai.org/docs/spec-format/hooks/#edited-paths).
-
-`agnostic-ai hook run <hook> --edit <path>` runs a hook with each target's payload (Claude Code, Codex, Gemini, Trae, OpenHands, Goose, Augment) and fails when they decide differently; `--format json` gives CI one result per target. See [test a hook](https://agnostic-ai.org/docs/spec-format/hooks/#hook-run).
+See [Getting started](https://agnostic-ai.org/docs/getting-started/) to add your first rule, [all install options](https://agnostic-ai.org/docs/installation/) for other installers, and [Migration](https://agnostic-ai.org/docs/migration/) to review an existing setup.
 
 ## Daily commands
 

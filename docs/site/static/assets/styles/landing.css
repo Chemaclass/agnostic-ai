@@ -900,10 +900,6 @@ main > section[id] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .workflow-steps {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .update-brief-grid {
     grid-template-columns: minmax(0, 0.9fr) minmax(22rem, 1.1fr);
     align-items: start;

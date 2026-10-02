@@ -478,7 +478,7 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 		`data-installer-os="linux"`,
 		"brew install --cask Chemaclass/tap/agnostic-ai",
 		"agnostic-ai init --from all",
-		"agnostic-ai sync --dry-run",
+		"agnostic-ai sync --plan",
 		"Keep the setup current.",
 		"Read the latest briefing",
 		`href="https://agnostic-ai.org/docs/targets/"`,
@@ -493,6 +493,8 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 			t.Errorf("home page is missing %q", required)
 		}
 	}
+	assertRenderedQuickstart(t, home)
+
 	// The explorer has to read correctly with the script missing: both tab
 	// lists ship inert rather than as buttons nothing is listening to, one
 	// entry is open, and each entry shows exactly one generated file.
