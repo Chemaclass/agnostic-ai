@@ -205,6 +205,44 @@ func TestUse_RefusesToStartAProjectInsideAnotherOutsideGit(t *testing.T) {
 	}
 }
 
+func TestUse_LeavesAnUnmanagedInstructionsFileToItsTool(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	isolateGit(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsync:\n  unmanaged: [CLAUDE.md]\n")
+	mustWriteFile(t, "CLAUDE.md", "# Mine\n\nSecret claude note.\n")
+
+	if out, err := runCLI(t, "use", "codex"); err != nil {
+		t.Fatalf("use codex: %v\n%s", err, out)
+	}
+
+	for _, f := range []string{".agnostic-ai/AGNOSTIC_AI.md", "AGENTS.md"} {
+		if data, _ := os.ReadFile(f); strings.Contains(string(data), "Secret claude note.") {
+			t.Errorf("%s took text from the unmanaged CLAUDE.md:\n%s", f, data)
+		}
+	}
+	if data, _ := os.ReadFile("CLAUDE.md"); !strings.Contains(string(data), "Secret claude note.") {
+		t.Errorf("CLAUDE.md lost its text:\n%s", data)
+	}
+}
+
+// A rerun for a tool already in use leaves spec edits alone.
+func TestUse_AgainKeepsSpecEdits(t *testing.T) {
+	claudeOnlyProject(t)
+	if out, err := runCLI(t, "use", "codex"); err != nil {
+		t.Fatalf("use codex: %v\n%s", err, out)
+	}
+	spec := ".agnostic-ai/skills/review/SKILL.md"
+	mustWriteFile(t, spec, strings.Replace(readFile(t, spec), "Review carefully.", "Review twice.", 1))
+
+	if out, err := runCLI(t, "use", "claude"); err != nil {
+		t.Fatalf("use claude: %v\n%s", err, out)
+	}
+
+	if got := readFile(t, spec); !strings.Contains(got, "Review twice.") {
+		t.Errorf("use reimported .claude/ over the spec edit:\n%s", got)
+	}
+}
+
 // Tools whose adapter describes no file layout still list what they got.
 func TestUse_SummaryListsSpecsForEveryTool(t *testing.T) {
 	claudeOnlyProject(t)

@@ -123,24 +123,37 @@ func useTools(cmd *cobra.Command, tools []string) ([]string, error) {
 			return nil, err
 		}
 	}
-	// Import is idempotent, so the named tools' own config is imported on
-	// every run, and one an earlier run stopped partway through finishes.
-	// Another target's hand-written instructions file would stop the
-	// sync, so it is imported too.
+	// Only an added tool's own config is imported, so a rerun never
+	// replaces spec edits with native config imported before. Another
+	// target's hand-written instructions file would stop the sync, so it
+	// is imported too.
 	var sources []string
 	for _, t := range cfg.Targets {
-		if slices.Contains(tools, t) && hasOwnConfig(cfg, t) || uncapturedInstructions(cfg, t) {
+		if slices.Contains(added, t) && hasOwnConfig(cfg, t) || uncapturedInstructions(cfg, t) {
 			sources = append(sources, t)
 		}
 	}
-	return added, importToolConfig(cfg, sources)
+	if err := importToolConfig(cfg, sources); err != nil {
+		// Drop the added tools again, so a retry still sees them as new
+		// and imports what this run did not.
+		if len(added) > 0 {
+			if rerr := config.PersistTargets(".", slices.DeleteFunc(slices.Clone(cfg.Targets), func(t string) bool {
+				return slices.Contains(added, t)
+			})); rerr != nil {
+				return nil, errors.Join(err, rerr)
+			}
+		}
+		return nil, err
+	}
+	return added, nil
 }
 
 // uncapturedInstructions reports whether target's instructions file holds
-// hand-written text AGNOSTIC_AI.md does not have, which sync stops on.
+// hand-written text AGNOSTIC_AI.md does not have, which sync stops on. An
+// unmanaged file stays its tool's own, so it is never imported.
 func uncapturedInstructions(cfg *config.Config, target string) bool {
 	path := adapters.EntryPointPath(cfg, target)
-	if path == "" {
+	if path == "" || cfg.IsUnmanaged(path) {
 		return false
 	}
 	captured := ""
@@ -227,13 +240,13 @@ func startProject(cmd *cobra.Command, tools []string) error {
 
 // hasOwnConfig reports whether the project already holds config for
 // target that sync would otherwise write over: a marker init detects, or
-// its instructions file written by hand.
+// its instructions file written by hand and not listed in sync.unmanaged.
 func hasOwnConfig(cfg *config.Config, target string) bool {
 	if slices.Contains(detectExistingTargets("."), target) {
 		return true
 	}
 	path := adapters.EntryPointPath(cfg, target)
-	if path == "" {
+	if path == "" || cfg.IsUnmanaged(path) {
 		return false
 	}
 	data, err := os.ReadFile(path)
