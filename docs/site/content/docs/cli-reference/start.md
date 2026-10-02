@@ -31,7 +31,7 @@ It then syncs and shows what each added tool now reads:
   edit .agnostic-ai/ and run agnostic-ai sync to change what every tool reads
 ```
 
-A tool already in `targets` changes nothing. A mistyped name fails with the closest one. `use` only adds tools; remove one from `targets` by hand.
+A tool already in `targets` changes nothing, and a run that stopped partway finishes on the next try. A mistyped name fails with the closest one. `use` refuses to start a project inside one an enclosing directory holds, and to add a tool when `agnostic-ai.local.yaml` sets `targets`, since that list wins; add it there instead. `use` only adds tools; remove one from `targets` by hand.
 
 ## init
 

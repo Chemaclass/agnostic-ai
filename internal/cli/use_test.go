@@ -139,3 +139,65 @@ func TestUse_KeepsFlatInstructionsBesideAnExistingBody(t *testing.T) {
 		t.Errorf("AGENTS.md lost its flat instructions:\n%s", got)
 	}
 }
+
+// A Codex setup is often just AGENTS.md; switching to Claude keeps it.
+func TestUse_KeepsAHandWrittenAgentsMdWhenSwitchingAway(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "AGENTS.md", "# Agents\n\n## Reviews\n\nKeep PRs small.\n")
+
+	if out, err := runCLI(t, "use", "claude"); err != nil {
+		t.Fatalf("use claude: %v\n%s", err, out)
+	}
+
+	if got := readFile(t, ".agnostic-ai/AGNOSTIC_AI.md"); !strings.Contains(got, "Keep PRs small.") {
+		t.Errorf("AGNOSTIC_AI.md lacks the AGENTS.md text:\n%s", got)
+	}
+}
+
+func TestUse_RefusesWhenTheLocalFileSetsTargets(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, "agnostic-ai.local.yaml", "targets: [claude, cursor]\n")
+
+	_, err := runCLI(t, "use", "codex")
+
+	if err == nil || !strings.Contains(err.Error(), "agnostic-ai.local.yaml sets targets") {
+		t.Errorf("err = %v, want the local file named", err)
+	}
+	if cfg := readFile(t, "agnostic-ai.yaml"); strings.Contains(cfg, "codex") || strings.Contains(cfg, "cursor") {
+		t.Errorf("committed config changed:\n%s", cfg)
+	}
+}
+
+func TestUse_RefusesToStartAProjectInsideAnother(t *testing.T) {
+	root := t.TempDir()
+	testutil.Chdir(t, root)
+	isolateGit(t)
+	gitInit(t, root)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, "web/README.md", "web\n")
+	testutil.Chdir(t, "web")
+
+	_, err := runCLI(t, "use", "codex")
+
+	if err == nil || !strings.Contains(err.Error(), "inside the agnostic-ai project") {
+		t.Errorf("err = %v, want a refusal", err)
+	}
+	if _, err := os.Stat("agnostic-ai.yaml"); err == nil {
+		t.Error("use started a nested project")
+	}
+}
+
+// Tools whose adapter describes no file layout still list what they got.
+func TestUse_SummaryListsSpecsForEveryTool(t *testing.T) {
+	claudeOnlyProject(t)
+	log := captureLog(t)
+
+	if out, err := runCLI(t, "use", "cursor"); err != nil {
+		t.Fatalf("use cursor: %v\n%s", err, out)
+	}
+
+	if !strings.Contains(log.String(), "1 skill") {
+		t.Errorf("cursor summary lists nothing:\n%s", log.String())
+	}
+}

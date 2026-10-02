@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
@@ -31,7 +33,8 @@ func newUseCmd() *cobra.Command {
 
   # A team on several tools
   agnostic-ai use claude codex cursor`,
-		Args: cobra.MinimumNArgs(1),
+		Args:      cobra.MinimumNArgs(1),
+		ValidArgs: adapters.Names(),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
 				return err
@@ -86,8 +89,12 @@ func knownTools(args []string) ([]string, error) {
 // too and imports what they already have. An existing one imports each
 // added tool's own config before the sync would write over it.
 func useTools(cmd *cobra.Command, tools []string) ([]string, error) {
-	if _, _, err := config.ResolveConfigPath("."); err != nil {
+	path, _, err := config.ResolveConfigPath(".")
+	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) && errs.CodeOf(err) != errs.CodeConfigMissing {
+			return nil, err
+		}
+		if err := refuseNestedProject(); err != nil {
 			return nil, err
 		}
 		return tools, startProject(cmd, tools)
@@ -103,23 +110,79 @@ func useTools(cmd *cobra.Command, tools []string) ([]string, error) {
 		}
 	}
 	if len(added) > 0 {
+		// The local file's targets win over the committed list, so a
+		// tool added to the committed list would never sync.
+		if localSetsTargets() {
+			return nil, fmt.Errorf("%s sets targets, which win over %s; add %s there", config.LocalOverrideFileName, filepath.Base(path), strings.Join(added, ", "))
+		}
 		if err := config.PersistTargets(".", append(slices.Clone(cfg.Targets), added...)); err != nil {
 			return nil, fmt.Errorf("add %s to targets: %w", strings.Join(added, ", "), err)
 		}
-		summaryf("→ added %s to targets in %s\n", strings.Join(added, ", "), config.ConfigFileName)
+		summaryf("→ added %s to targets in %s\n", strings.Join(added, ", "), filepath.Base(path))
 		if cfg, err = config.Load("."); err != nil {
 			return nil, err
 		}
 	}
-	// Import is idempotent, so the named tools' own config is imported
-	// on every run: one an earlier run stopped partway through finishes.
+	// Import is idempotent, so the named tools' own config is imported on
+	// every run, and one an earlier run stopped partway through finishes.
+	// Another target's hand-written instructions file would stop the
+	// sync, so it is imported too.
 	var sources []string
-	for _, t := range tools {
-		if hasOwnConfig(cfg, t) {
+	for _, t := range cfg.Targets {
+		if slices.Contains(tools, t) && hasOwnConfig(cfg, t) || uncapturedInstructions(cfg, t) {
 			sources = append(sources, t)
 		}
 	}
 	return added, importToolConfig(cfg, sources)
+}
+
+// uncapturedInstructions reports whether target's instructions file holds
+// hand-written text AGNOSTIC_AI.md does not have, which sync stops on.
+func uncapturedInstructions(cfg *config.Config, target string) bool {
+	path := adapters.EntryPointPath(cfg, target)
+	if path == "" {
+		return false
+	}
+	captured := ""
+	if data, err := os.ReadFile(adapters.AgnosticEntryPointPath); err == nil {
+		captured = header.Strip(string(data))
+	}
+	uncaptured, err := handWrittenUncaptured(path, captured)
+	return err == nil && uncaptured
+}
+
+// localSetsTargets reports whether agnostic-ai.local.yaml sets targets.
+func localSetsTargets() bool {
+	data, err := os.ReadFile(config.LocalOverrideFileName)
+	if err != nil {
+		return false
+	}
+	var local struct {
+		Targets []string `yaml:"targets"`
+	}
+	return yaml.Unmarshal(data, &local) == nil && local.Targets != nil
+}
+
+// refuseNestedProject stops `use` from starting a second project inside
+// one an enclosing directory, up to the Git root, already holds.
+func refuseNestedProject() error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	top, err := gitRevParse(cwd, "--show-toplevel")
+	if err != nil {
+		return nil
+	}
+	top, _ = filepath.EvalSymlinks(top)
+	dir, _ := filepath.EvalSymlinks(cwd)
+	for dir != top && filepath.Dir(dir) != dir {
+		dir = filepath.Dir(dir)
+		if _, _, err := config.ResolveConfigPath(dir); err == nil {
+			return fmt.Errorf("this directory is inside the agnostic-ai project at %s; run agnostic-ai use there", dir)
+		}
+	}
+	return nil
 }
 
 // startProject writes agnostic-ai.yaml for the detected tools plus
@@ -173,26 +236,24 @@ func hasOwnConfig(cfg *config.Config, target string) bool {
 	return err == nil && strings.TrimSpace(string(data)) != "" && !header.Has(string(data))
 }
 
-// importToolConfig imports each source that has an importer. A tool
-// without one, such as jules, reads the root AGENTS.md, whose hand-written
-// sections are folded into AGNOSTIC_AI.md instead.
-func importToolConfig(cfg *config.Config, tools []string) error {
+// importToolConfig imports each tool that has an importer. A tool
+// without one, such as jules, reads the root AGENTS.md, which is folded
+// in for every run.
+func importToolConfig(cfg *config.Config, tools []string) (err error) {
 	var sources []string
-	foldAgents := false
 	for _, t := range tools {
-		_, rulesDir := rulesDirImporters[t]
-		switch {
-		case slices.Contains(importSourceNames, t) || rulesDir:
+		if _, rulesDir := rulesDirImporters[t]; rulesDir || slices.Contains(importSourceNames, t) {
 			sources = append(sources, t)
-		case adapters.EntryPointPath(cfg, t) == claudeAgentsMainFile:
-			foldAgents = true
 		}
 	}
-	if foldAgents {
-		if _, err := foldRootAgentsMainFile("."); err != nil {
-			return err
+	// A hand-written root AGENTS.md no source above reads, such as a
+	// Codex setup with no .codex/ folder, is folded in as `import all`
+	// does; text already held is left alone.
+	defer func() {
+		if err == nil {
+			_, err = foldRootAgentsMainFile(".")
 		}
-	}
+	}()
 	if len(sources) == 0 {
 		return nil
 	}
@@ -217,13 +278,20 @@ func printToolReads(w io.Writer, cfg *config.Config, b spec.Bundle, tools []stri
 		if path := adapters.EntryPointPath(cfg, t); path != "" {
 			_, _ = fmt.Fprintf(w, "    %-16s %s\n", "instructions", path)
 		}
+		// Where the tool keeps each kind, when its adapter says so.
+		where := map[string]string{}
 		for _, a := range adapters.NativeArtifactsFor(t, cfg) {
-			entries := entriesFor(mine, a.Label)
+			if _, seen := where[strings.ToLower(a.Label)]; !seen {
+				where[strings.ToLower(a.Label)] = a.Location
+			}
+		}
+		for _, kind := range []string{"Rules", "Skills", "Agents", "Commands", "Hooks", "MCP servers"} {
+			entries := entriesFor(mine, kind)
 			if len(entries) == 0 {
 				continue
 			}
-			label := fmt.Sprintf("%d %s", len(entries), countLabel(a.Label, len(entries)))
-			_, _ = fmt.Fprintf(w, "    %-16s %-22s %s\n", label, a.Location, entryNames(entries))
+			label := fmt.Sprintf("%d %s", len(entries), countLabel(kind, len(entries)))
+			_, _ = fmt.Fprintf(w, "    %-16s %-22s %s\n", label, where[strings.ToLower(kind)], entryNames(entries))
 		}
 	}
 	_, _ = fmt.Fprintln(w, "  edit .agnostic-ai/ and run agnostic-ai sync to change what every tool reads")
