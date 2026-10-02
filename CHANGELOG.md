@@ -13,7 +13,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Site
 
-- The last five release briefings explain upgrades, feature examples and target changes, with dates and support limits (#1652).
+- The last five release briefings give concise upgrade and feature guidance, with readable code blocks, copy controls and tables (#1652, #1653).
 
 ## v0.77.0 - 2026-10-02
 
