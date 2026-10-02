@@ -565,7 +565,12 @@ func stillConfigured(failed []string) []string {
 // setPendingImports records the tools whose import has not finished in
 // the state file, which keeps every other field.
 func setPendingImports(tools []string) error {
-	state := readStateFile(".")
+	// Writing over a ledger that does not parse would lose it, and the
+	// marker this writes is what keeps a sync off unimported config.
+	state, err := readStateFileStrict(".")
+	if err != nil {
+		return fmt.Errorf("%w; fix or delete it, then run agnostic-ai use again", err)
+	}
 	if slices.Equal(state.PendingImports, tools) {
 		return nil
 	}

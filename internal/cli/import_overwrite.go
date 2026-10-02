@@ -310,7 +310,12 @@ func (t *importTransaction) entries(rec *importRecorder) ([]importPreviewEntry, 
 // record already holds its bytes keeps that record, with the sources
 // added to the tools that hold them.
 func recordImportedSpecFiles(root string, entries []importPreviewEntry, specDirs []string) error {
-	state := readStateFile(root)
+	// An unreadable ledger still counts as one (#1334); a stub written
+	// over it would not, so the records wait for the next sync.
+	state, err := readStateFileStrict(root)
+	if err != nil {
+		return nil
+	}
 	changed := false
 	for _, e := range entries {
 		if !underAny(e.path, specDirs) {
@@ -357,6 +362,10 @@ func recordImportedSpecFiles(root string, entries []importPreviewEntry, specDirs
 	return replaceStateFile(root, state)
 }
 
+// releaseHeldOutput gives back the streams withHeldOutput holds and
+// removes its files, or is nil outside it. Sequential use only.
+var releaseHeldOutput func()
+
 // withHeldOutput runs fn with standard output, standard error, and the
 // summary log held back, then prints them when fn says to keep them.
 // Output it cannot hold prints as it comes.
@@ -381,8 +390,19 @@ func withHeldOutput(fn func() (keep bool, err error)) error {
 	} else {
 		logOut = &logBuf
 	}
+	restore := func() { os.Stdout, os.Stderr, logOut = stdout, stderr, log }
+	// A signal exits without running the defers, so the handler restores
+	// the streams and removes the held files through this.
+	releaseHeldOutput = func() {
+		restore()
+		_ = out.Close()
+		_ = os.Remove(out.Name())
+		_ = errOut.Close()
+		_ = os.Remove(errOut.Name())
+	}
+	defer func() { releaseHeldOutput = nil }()
 	keep, runErr := func() (bool, error) {
-		defer func() { os.Stdout, os.Stderr, logOut = stdout, stderr, log }()
+		defer restore()
 		return fn()
 	}()
 	if keep {

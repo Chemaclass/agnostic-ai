@@ -532,3 +532,61 @@ func TestImport_StateFileItWritesDoesNotCountAsASync(t *testing.T) {
 		t.Errorf("why does not say to sync first after an import: %v", err)
 	}
 }
+
+const corruptState = "{not json\n"
+
+// An unreadable ledger still counts as one (#1334), so import keeps it
+// instead of writing a stub over it.
+func TestImport_KeepsAStateFileThatDoesNotParse(t *testing.T) {
+	importOverwriteProject(t)
+	mustWriteFile(t, stateFilePath("."), corruptState)
+
+	if out, err := runCLI(t, "import", "claude", "--overwrite"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+
+	if got := readFile(t, stateFilePath(".")); got != corruptState {
+		t.Errorf("state file = %q, want it left as it was", got)
+	}
+	if ledgerMissing(".") {
+		t.Error("the unreadable ledger no longer counts as one")
+	}
+}
+
+func TestUse_RefusesToWriteOverAStateFileThatDoesNotParse(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, ".cursor/rules/style.mdc", "---\ndescription: Cursor style.\nalwaysApply: true\n---\nUse spaces.\n")
+	mustWriteFile(t, stateFilePath("."), corruptState)
+
+	_, err := runCLI(t, "use", "cursor")
+
+	if err == nil || !strings.Contains(err.Error(), "fix or delete it, then run agnostic-ai use again") {
+		t.Fatalf("use did not refuse the unreadable state file: %v", err)
+	}
+	if got := readFile(t, stateFilePath(".")); got != corruptState {
+		t.Errorf("state file = %q, want it left as it was", got)
+	}
+}
+
+// The signal handler exits without running defers, so it gives the
+// streams back and removes the held files through releaseHeldOutput.
+func TestWithHeldOutput_ReleaseRestoresStderrAndRemovesHeldFiles(t *testing.T) {
+	stderr := os.Stderr
+	var held []string
+	_ = withHeldOutput(func() (bool, error) {
+		held = []string{os.Stdout.Name(), os.Stderr.Name()}
+		releaseHeldOutput()
+		return false, nil
+	})
+
+	if os.Stderr != stderr {
+		t.Error("stderr still points at the held file")
+	}
+	for _, p := range held {
+		if _, err := os.Stat(p); !os.IsNotExist(err) {
+			t.Errorf("held file %s is still there: %v", p, err)
+		}
+	}
+}

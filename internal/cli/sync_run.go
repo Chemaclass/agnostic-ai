@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -134,6 +135,24 @@ func readStateFile(projectRoot string) syncStateFile {
 	}
 	_ = json.Unmarshal(data, &s)
 	return s
+}
+
+// readStateFileStrict is readStateFile that reports a state file that
+// exists but cannot be read or parsed, for a caller about to write it.
+func readStateFileStrict(projectRoot string) (syncStateFile, error) {
+	var s syncStateFile
+	p := stateFilePath(projectRoot)
+	data, err := os.ReadFile(p)
+	if errors.Is(err, fs.ErrNotExist) {
+		return s, nil
+	}
+	if err != nil {
+		return s, fmt.Errorf("read %s: %w", p, err)
+	}
+	if err := json.Unmarshal(data, &s); err != nil {
+		return s, fmt.Errorf("parse %s: %w", p, err)
+	}
+	return s, nil
 }
 
 func writeStateFile(projectRoot string, filesChanged int, warningsDigest, notesDigest string, ledger syncLedger) error {

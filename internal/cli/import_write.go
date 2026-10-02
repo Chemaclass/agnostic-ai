@@ -230,8 +230,13 @@ func (t *importTransaction) rollbackOnSignal() (stop func()) {
 		select {
 		case <-sigs:
 			t.mu.Lock()
-			if err := t.rollback(); err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "! import interrupted: %v\n", err)
+			err := t.rollback()
+			if releaseHeldOutput != nil {
+				releaseHeldOutput()
+			}
+			_, _ = fmt.Fprintf(os.Stderr, "! import interrupted; undid %d write(s)\n", len(t.files))
+			if err != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "! %v\n", err)
 			}
 			os.Exit(130)
 		case <-done:
