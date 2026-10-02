@@ -34,15 +34,9 @@ func keepHandWrittenInstructions(cfg *config.Config, b spec.Bundle, targets, led
 	if err != nil {
 		return err
 	}
-	// Personal text in the local layer reaches the same files, so it is
-	// held too, and import must not copy it into the shared body.
-	held := captured
-	local, err := adapters.ReadLocalInstructions()
+	held, err := heldInstructions(captured)
 	if err != nil {
 		return err
-	}
-	if strings.TrimSpace(local) != "" {
-		held += "\n\n" + local
 	}
 	var lines []string
 	for _, f := range files {
@@ -63,6 +57,20 @@ func keepHandWrittenInstructions(cfg *config.Config, b spec.Bundle, targets, led
 		return nil
 	}
 	return fmt.Errorf("%s\nnothing was written", strings.Join(lines, "\n"))
+}
+
+// heldInstructions is captured, the AGNOSTIC_AI.md body, plus the local
+// layer: personal text there reaches the same files, so it is held too,
+// and import must not copy it into the shared body.
+func heldInstructions(captured string) (string, error) {
+	local, err := adapters.ReadLocalInstructions()
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(local) == "" {
+		return captured, nil
+	}
+	return captured + "\n\n" + local, nil
 }
 
 // importSourceFor names an import source that reads f: its first reader

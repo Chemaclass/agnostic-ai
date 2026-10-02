@@ -84,3 +84,31 @@ func TestSync_BackupReplacesAHandWrittenFileAndKeepsIt(t *testing.T) {
 		t.Errorf("CLAUDE.md.bak = %q, want the hand-written file", got)
 	}
 }
+
+// Previews with --backup agree with `sync --backup`, which proceeds.
+func TestSyncPreviews_WithBackupProceed(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, "CLAUDE.md", handWrittenClaude)
+
+	if out, err := runCLI(t, "sync", "--json", "--dry-run", "--backup"); err != nil {
+		t.Errorf("sync --json --dry-run --backup: %v\n%s", err, out)
+	}
+}
+
+// The warning names no step that would move local text into the shared
+// body.
+func TestSync_NoWarningForTextTheLocalLayerHolds(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "## Shared\n\nShared text.\n")
+	mustWriteFile(t, ".agnostic-ai/local/AGNOSTIC_AI.md", "## Mine\n\nMy text.\n")
+	mustWriteFile(t, "CLAUDE.md", "## Shared\n\nShared text.\n\n## Mine\n\nMy text.\n")
+	log := captureLog(t)
+
+	runSyncOK(t)
+
+	if strings.Contains(log.String(), "appears hand-authored") {
+		t.Errorf("sync warned about text the local layer holds:\n%s", log.String())
+	}
+}

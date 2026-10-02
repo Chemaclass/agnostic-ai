@@ -139,8 +139,10 @@ func newSyncCmd() *cobra.Command {
 
 			if plan {
 				adapters.ResetCoverageNotes()
-				if err := checkHandWrittenInstructions(effective); err != nil {
-					return err
+				if !backup {
+					if err := checkHandWrittenInstructions(effective); err != nil {
+						return err
+					}
 				}
 				reports, err := collectDrift(effective)
 				if err != nil {
@@ -162,7 +164,7 @@ func newSyncCmd() *cobra.Command {
 			if check {
 				adapters.ResetCoverageNotes()
 				// --against compares what Git holds, not these files.
-				if tree == nil {
+				if tree == nil && !backup {
 					if err := checkHandWrittenInstructions(effective); err != nil {
 						return err
 					}
@@ -212,8 +214,10 @@ func newSyncCmd() *cobra.Command {
 			}
 			if jsonOut && dryRun {
 				adapters.ResetCoverageNotes()
-				if err := checkHandWrittenInstructions(effective); err != nil {
-					return err
+				if !backup {
+					if err := checkHandWrittenInstructions(effective); err != nil {
+						return err
+					}
 				}
 				reports, err := collectDrift(effective)
 				if err != nil {
