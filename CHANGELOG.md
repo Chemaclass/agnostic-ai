@@ -9,6 +9,11 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### General
 
 - Polling watch emits edits made during a re-sync and keeps watching roots added by config reload (#1641, #1650).
+- Linked source roots load specs and assets; both watch modes follow nested edits (#1644, #1651).
+
+### Site
+
+- The last five release briefings explain upgrades, feature examples and target changes, with dates and support limits (#1652).
 
 ## v0.77.0 - 2026-10-02
 
