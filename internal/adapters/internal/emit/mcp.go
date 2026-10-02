@@ -92,26 +92,7 @@ func WithCursorMCPExtras() MCPOption {
 	return func(o *mcpOptions) { o.cursorExtras = true }
 }
 
-// WithClaudeMCPExtras turns on the four Claude Code MCP fields that
-// reached `.mcp.json` by no route before, top-level or namespaced
-// (target-audit 2026-08-27, #634). code.claude.com/docs/en/mcp:
-//
-//   - headersHelper (remote only): "If your MCP server uses an
-//     authentication scheme other than OAuth, such as Kerberos,
-//     short-lived tokens, or an internal SSO, use headersHelper to
-//     generate request headers at connection time."
-//   - timeout: "Set a per-server tool execution timeout by adding a
-//     timeout field in milliseconds to that server's .mcp.json entry".
-//   - alwaysLoad: "If a server's tools should always be visible to
-//     Claude without a search step, set alwaysLoad to true in that
-//     server's configuration." The page adds that it "is available on
-//     all server types", so it is not gated on transport.
-//   - oauth (remote only): "Set authServerMetadataUrl in the oauth
-//     object of your server's config in .mcp.json".
-//
-// Kept opt-in rather than always-on because this builder also serves
-// Cursor, Kiro, Junie, Qoder, Factory, and Copilot's root-mcp-file
-// mirror. Their supported fields and OAuth shapes differ.
+// WithClaudeMCPExtras keeps Claude-only fields out of other targets' MCP configs.
 func WithClaudeMCPExtras() MCPOption {
 	return func(o *mcpOptions) { o.claudeExtras = true }
 }
@@ -345,15 +326,16 @@ func buildServer(e spec.Entry, schema MCPSchema, o mcpOptions) map[string]any {
 	if roots := BuildRoots(e.Meta); len(roots) > 0 {
 		out["roots"] = roots
 	}
-	// timeout and alwaysLoad are transport-independent on Claude Code
-	// ("The alwaysLoad field is available on all server types"), so they
-	// land here rather than in a transport branch. See #634.
 	if o.claudeExtras {
 		if timeout, ok := IntField(e.Meta, "timeout"); ok {
 			out["timeout"] = timeout
 		}
-		if alwaysLoad, _ := e.Meta["alwaysLoad"].(bool); alwaysLoad {
-			out["alwaysLoad"] = true
+		meta := ResolveMeta(e.Meta, "claude")
+		if alwaysLoad, ok := meta["alwaysLoad"].(bool); ok {
+			out["alwaysLoad"] = alwaysLoad
+		}
+		if bareElicitationCapability, ok := meta["bareElicitationCapability"].(bool); ok {
+			out["bareElicitationCapability"] = bareElicitationCapability
 		}
 	}
 	// Kiro lists autoApprove and disabledTools in both its local-server

@@ -122,13 +122,21 @@ These fields apply only to the listed targets and are ignored elsewhere.
 | [Qoder](@/docs/targets/qoder.md) | `trust`, `includeTools`, `excludeTools`, `alwaysAllow` |
 | [Kiro](@/docs/targets/kiro.md) | `autoApprove`, `disabledTools`, `oauthScopes` |
 | [Factory](@/docs/targets/factory.md) | `disabledTools`, `connectTimeout` |
-| [Claude Code](@/docs/targets/claude.md) | `alwaysLoad`, `headersHelper` |
+| [Claude Code](@/docs/targets/claude.md) | `alwaysLoad`, `bareElicitationCapability`, `headersHelper` |
 | [Cursor](@/docs/targets/cursor.md) | `envFile`, `auth` |
 | [Copilot / VS Code](@/docs/targets/copilot.md) | `envFile`, `dev`, `sandboxEnabled` (VS Code file only), `tools` (Copilot CLI files only) |
 | [Continue](@/docs/targets/continue.md) | `connectionTimeout`, `requestOptions` |
 | [OpenHands](@/docs/targets/openhands.md) | `auth: oauth`, or a truthy `oauth`, which sets `auth: "oauth"` on a remote server in `~/.openhands/mcp.json` |
 
 On Amp, set `x-amp.includeTools`. Use `x-factory`, `x-kilo`, or `x-continue` to override the matching top-level options for that target.
+
+Claude Code's `alwaysLoad` and `bareElicitationCapability` preserve explicit `true` and `false` through import and sync. Omit a flag to keep Claude Code's default. Set them at the top level or under `x-claude`, where they override the matching top-level value. Other targets omit both flags. See [Claude Code MCP behavior](@/docs/targets/claude.md#output) for tool loading and connection compatibility.
+
+```yaml
+x-claude:
+  alwaysLoad: false
+  bareElicitationCapability: true
+```
 
 ## `disabled` support by target
 

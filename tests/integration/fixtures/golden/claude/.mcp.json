@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "claude-flags": {
+      "alwaysLoad": false,
+      "bareElicitationCapability": true,
+      "command": "example-server"
+    }
+  }
+}
