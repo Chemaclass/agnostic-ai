@@ -95,6 +95,10 @@ func foldRootAgentsMainFile(root string) (bool, error) {
 	if body == "" {
 		return false, nil
 	}
+	if hasTargetFences(captured) {
+		summaryf("  ! %s differs from what sync renders from the fenced %s; %s is unchanged, so merge the edit into it by hand\n", claudeAgentsMainFile, agnosticMainFile, agnosticMainFile)
+		return false, nil
+	}
 	result, err := foldSections(dst, captured, body, claudeAgentsMainFile)
 	return result == mirrorMerged, err
 }
