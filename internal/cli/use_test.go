@@ -356,6 +356,9 @@ func TestUse_RefusesToStartWithAnUnmanagedDetectedTool(t *testing.T) {
 	if _, err := os.Stat("agnostic-ai.yaml"); err == nil {
 		t.Error("a refused start left agnostic-ai.yaml")
 	}
+	if _, err := os.Stat(".agnostic-ai/.sync-state"); err == nil {
+		t.Error("a refused start left .agnostic-ai/.sync-state")
+	}
 	if got := readFile(t, ".mcp.json"); !strings.Contains(got, "srv") {
 		t.Errorf(".mcp.json lost its server:\n%s", got)
 	}

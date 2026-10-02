@@ -244,9 +244,18 @@ func refuseNestedProject() error {
 
 // startProject writes agnostic-ai.yaml for the detected tools plus
 // tools, then imports everything the project already has.
-func startProject(cmd *cobra.Command, tools []string) error {
+func startProject(cmd *cobra.Command, tools []string) (err error) {
 	if localSetsTargets() {
 		return fmt.Errorf("%s sets targets, which win over %s; add %s there", config.LocalOverrideFileName, config.ConfigFileName, strings.Join(tools, ", "))
+	}
+	// A start that leaves no config takes back the state file it made, so
+	// a later init and first sync see a project with no ledger.
+	if _, serr := os.Stat(stateFilePath(".")); errors.Is(serr, os.ErrNotExist) {
+		defer func() {
+			if _, cerr := os.Stat(config.ConfigFileName); err != nil && errors.Is(cerr, os.ErrNotExist) {
+				_ = os.Remove(stateFilePath("."))
+			}
+		}()
 	}
 	detected := detectExistingTargets(".")
 	targets := slices.Clone(detected)
