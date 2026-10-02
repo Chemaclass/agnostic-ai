@@ -143,8 +143,8 @@ func TestInit_PresetSuggestsSyncInNextSteps(t *testing.T) {
 		t.Fatalf("scaffold: %v", err)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "agnostic-ai sync --check") {
-		t.Errorf("preset scaffold should suggest sync --check:\n%s", out)
+	if !strings.Contains(out, "agnostic-ai sync --plan") {
+		t.Errorf("preset scaffold should suggest sync --plan:\n%s", out)
 	}
 	if strings.Contains(out, "agnostic-ai import <target>") {
 		t.Errorf("preset scaffold should not show import <target>:\n%s", out)

@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- `init --demo` and `init --preset` suggest `sync --plan` to preview the first output (#1609).
 - `import`, `init --from`, and `use` stop before replacing a spec with different content and list each one; `import --overwrite` replaces them (#1620).
 - Import protects specs sync did not write and restores linked files on conflicts or interrupts; identical specs keep their modification time (#1622).
 - **Breaking:** a rule with narrow `globs` and no `alwaysApply` loads only on matching files in Cursor, Trae, Devin, Cline, and Antigravity (#1597).
@@ -51,6 +52,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Site
 
+- README, landing page, and getting started share one install, import, preview, and sync quickstart (#1609).
 - Error text, global hook coverage, target imports, and Codex options match the CLI and current vendor docs (#1628).
 - [Why agnostic-ai](https://agnostic-ai.org/docs/why-agnostic-ai/) replaces symlinks: shorter comparison of copies, one `AGENTS.md`, scripts; old URL redirects.
 

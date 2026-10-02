@@ -40,20 +40,24 @@ answer = "Each tool reads a different format at a different path. A symlink shar
 link_label = "See how the formats diverge"
 
 [workflow]
-title = "Three commands."
-muted_title = "Import, preview, sync."
+title = "Four commands."
+muted_title = "Install, import, preview, sync."
 install_label = "All install options"
 guide_label = "Open the getting started guide"
 migration_label = "Migrate an existing setup"
 
+[[workflow.steps]]
+title = "Install"
+command = "npm install -g agnostic-ai"
+body = "Node 18 or newer, from your project root."
 [[workflow.steps]]
 title = "Start or import"
 command = "agnostic-ai init --from all"
 body = "Import existing AI tool files first."
 [[workflow.steps]]
 title = "Review the output"
-command = "agnostic-ai sync --dry-run"
-body = "Preview every native file before writing it."
+command = "agnostic-ai sync --plan"
+body = "Review the planned changes before writing them."
 [[workflow.steps]]
 title = "Write the files"
 command = "agnostic-ai sync"
@@ -92,7 +96,7 @@ tab = "npm"
 label = "npm"
 prompt = "$"
 command = "npm install -g agnostic-ai"
-note = "Node 18 or newer, on any OS. To try it without installing, run `npx agnostic-ai sync`."
+note = "Node 18 or newer, on any OS."
 
 [explorer]
 title = "Write it once."
