@@ -18,6 +18,8 @@ const (
 	EnvRefDollarEnv
 	// EnvRefBraceEnv is `{env:NAME}`.
 	EnvRefBraceEnv
+	// EnvRefSecrets is `${{ secrets.NAME }}`.
+	EnvRefSecrets
 )
 
 const envRefName = `([A-Za-z_][A-Za-z0-9_]*)`
@@ -31,6 +33,7 @@ var (
 	envRefDefaultPattern   = regexp.MustCompile(`^` + envRefName + `:-(.*)$`)
 	envRefDollarEnvPattern = regexp.MustCompile(`\$\{env:` + envRefName + `\}`)
 	envRefBraceEnvPattern  = regexp.MustCompile(`(^|[^$])\{env:` + envRefName + `\}`)
+	envRefSecretsPattern   = regexp.MustCompile(`\$\{\{\s*secrets\.` + envRefName + `\s*\}\}`)
 	envRefUnbracedPattern  = regexp.MustCompile(`^\$` + envRefName + `$`)
 	envRefPercentPattern   = regexp.MustCompile(`^%` + envRefName + `%$`)
 )
@@ -144,6 +147,8 @@ func (s EnvRefSyntax) Write(value string) string {
 			return "${env:" + t.Name + "}"
 		case EnvRefBraceEnv:
 			return "{env:" + t.Name + "}"
+		case EnvRefSecrets:
+			return "${{ secrets." + t.Name + " }}"
 		}
 		return text
 	})
@@ -168,6 +173,8 @@ func (s EnvRefSyntax) Read(value string, r EnvRefReading) string {
 		value = envRefDollarEnvPattern.ReplaceAllString(value, "$${$1}")
 	case EnvRefBraceEnv:
 		value = envRefBraceEnvPattern.ReplaceAllString(value, "$1$${$2}")
+	case EnvRefSecrets:
+		value = envRefSecretsPattern.ReplaceAllString(value, "$${$1}")
 	}
 	if r.Unbraced {
 		value = envRefUnbracedPattern.ReplaceAllString(value, "$${$1}")

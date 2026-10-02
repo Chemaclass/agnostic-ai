@@ -258,6 +258,10 @@ func mcpLiteralNames(literals []mcpLiteral, referenced map[string]bool) []string
 }
 
 func reportMCPLiteralRefs(refs []mcpLiteralRef) {
+	reportMCPLiteralRefsWithHint(refs, "import does not copy env or header values into specs; export each variable above in the shell that starts your tool")
+}
+
+func reportMCPLiteralRefsWithHint(refs []mcpLiteralRef, hint string) {
 	if len(refs) == 0 {
 		return
 	}
@@ -275,5 +279,5 @@ func reportMCPLiteralRefs(refs []mcpLiteralRef) {
 		}
 		keptf("%s MCP server %s: %s %s now reads %s; set %s%s\n", bang(), r.server, r.field, r.key, r.value, r.variable, was)
 	}
-	keptf("  hint: import does not copy env or header values into specs; export each variable above in the shell that starts your tool\n")
+	keptf("  hint: %s\n", hint)
 }

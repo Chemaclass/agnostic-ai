@@ -1,0 +1,6 @@
+name: continue-http
+targets: [continue]
+type: http
+url: https://example.test/mcp
+headers:
+  Authorization: Bearer ${API_KEY}

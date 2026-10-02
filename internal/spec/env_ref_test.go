@@ -13,6 +13,7 @@ func TestEnvRefSyntax_WriteAndReadBack(t *testing.T) {
 		{EnvRefDollar, "Bearer ${API_KEY}"},
 		{EnvRefDollarEnv, "Bearer ${env:API_KEY}"},
 		{EnvRefBraceEnv, "Bearer {env:API_KEY}"},
+		{EnvRefSecrets, "Bearer ${{ secrets.API_KEY }}"},
 	} {
 		if got := tc.syntax.Write("Bearer ${API_KEY}"); got != tc.native {
 			t.Errorf("Write = %q, want %q", got, tc.native)

@@ -98,7 +98,7 @@ func kitSinkBundle() spec.Bundle {
 			Meta: map[string]any{
 				"command": "npx",
 				"args":    []any{"-y", "@modelcontextprotocol/server-filesystem"},
-				"env":     map[string]any{"ALLOWED_PATHS": "."},
+				"env":     map[string]any{"ALLOWED_PATHS": ".", "GITHUB_TOKEN": "${GITHUB_TOKEN}"},
 			},
 		},
 		{
@@ -106,7 +106,7 @@ func kitSinkBundle() spec.Bundle {
 			Meta: map[string]any{
 				"type":    "http",
 				"url":     "https://example.test/mcp",
-				"headers": map[string]any{"Authorization": "Bearer x"},
+				"headers": map[string]any{"Authorization": "Bearer ${API_KEY}"},
 				"env":     map[string]any{"TOKEN": "abc"},
 			},
 		},

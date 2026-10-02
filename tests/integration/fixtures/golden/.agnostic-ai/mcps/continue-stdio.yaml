@@ -1,0 +1,5 @@
+name: continue-stdio
+targets: [continue]
+command: gh-mcp
+env:
+  GITHUB_TOKEN: ${GITHUB_TOKEN}

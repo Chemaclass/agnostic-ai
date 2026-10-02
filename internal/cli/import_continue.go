@@ -36,8 +36,7 @@ const (
 //     byte-for-byte via importSkillFolders, so bundled assets survive.
 //     A `skill-<name>.md` rule from an older sync still imports above;
 //     the native folder imports after it and merges onto that spec.
-//   - `.continue/mcpServers/*.yaml` copies one MCP spec per file with
-//     the provenance header stripped on the way back in.
+//   - `.continue/mcpServers/*.yaml` imports one MCP spec per file.
 //   - `.continue/mcpServers/*.json` accepts JSONC with a named
 //     `mcpServers` map or a single server named after its source file.
 func importFromContinue(root string, src config.Sources) error {
@@ -65,8 +64,8 @@ func importFromContinue(root string, src config.Sources) error {
 }
 
 type continueMCPFile struct {
-	name string
-	body []byte
+	name, source, serverName string
+	body                     []byte
 }
 
 // importContinueMCPs imports YAML blocks and JSONC server definitions.
@@ -101,10 +100,14 @@ func importContinueMCPs(root, dstDir string) (int, error) {
 				return 0, err
 			}
 		} else {
-			body := unwrapContinueMCP(strings.TrimLeft(header.Strip(string(data)), "\n"))
-			imported = []continueMCPFile{{name: e.Name(), body: []byte(body)}}
+			body, err := parseContinueYAMLMCP(src, []byte(strings.TrimLeft(header.Strip(string(data)), "\n")))
+			if err != nil {
+				return 0, err
+			}
+			imported = []continueMCPFile{{name: e.Name(), body: body}}
 		}
 		for _, file := range imported {
+			file.source = src
 			key := strings.ToLower(file.name)
 			if previous, exists := sources[key]; exists {
 				return 0, fmt.Errorf("%s: MCP destination %q conflicts with %s", src, file.name, previous)
@@ -116,17 +119,50 @@ func importContinueMCPs(root, dstDir string) (int, error) {
 	if len(files) == 0 {
 		return 0, nil
 	}
+	servers := make(map[string]any, len(files))
+	var names []string
+	for i := range files {
+		file := &files[i]
+		var server map[string]any
+		if err := yaml.Unmarshal(file.body, &server); err != nil {
+			return 0, fmt.Errorf("parse %s: %w", file.source, err)
+		}
+		if server == nil {
+			return 0, fmt.Errorf("parse %s: MCP server must be an object", file.source)
+		}
+		file.serverName, _ = server["name"].(string)
+		if file.serverName == "" {
+			file.serverName = strings.TrimSuffix(file.name, ".yaml")
+			server["name"] = file.serverName
+		}
+		names = append(names, file.serverName)
+		unvendorContinueServer(server)
+		if err := normalizeContinueMCPCredentials(server); err != nil {
+			return 0, fmt.Errorf("parse %s: %w", file.source, err)
+		}
+		adapters.ReadMCPEnvRefs("continue", server)
+		servers[file.serverName] = server
+	}
+	if err := spec.ValidateMCPNames(names); err != nil {
+		return 0, fmt.Errorf("parse %s: %w", srcDir, err)
+	}
+	refs := referenceMCPLiterals(servers)
 	if err := importMkdirAll(dstDir, 0o755); err != nil {
 		return 0, fmt.Errorf("mkdir %s: %w", dstDir, err)
 	}
 	count := 0
 	for _, file := range files {
+		raw, err := yaml.Marshal(servers[file.serverName])
+		if err != nil {
+			return count, fmt.Errorf("marshal MCP %s: %w", file.name, err)
+		}
 		dst := filepath.Join(dstDir, file.name)
-		if err := importWriteFile(dst, file.body, 0o644); err != nil {
+		if err := importWriteFile(dst, raw, 0o644); err != nil {
 			return count, fmt.Errorf("write %s: %w", dst, err)
 		}
 		count++
 	}
+	reportMCPLiteralRefsWithHint(refs, "Continue IDE reads secrets from .env files; set these variables in .continue/.env or ~/.continue/.env")
 	return count, nil
 }
 
@@ -180,28 +216,86 @@ func parseContinueJSONMCPs(src string, data []byte) ([]continueMCPFile, error) {
 	return files, nil
 }
 
-// unwrapContinueMCP converts a Continue block file (`name`/`version`/
-// `schema: v1` wrapper with the server nested under `mcpServers:`) back
-// into a flat single-server MCP spec. When the document is not a block
-// wrapper (a hand-authored flat file, or a future schema), the input is
-// returned unchanged so import stays lossless.
-func unwrapContinueMCP(body string) string {
-	var doc struct {
-		MCPServers []map[string]any `yaml:"mcpServers"`
+func parseContinueYAMLMCP(src string, data []byte) ([]byte, error) {
+	var node yaml.Node
+	if err := yaml.Unmarshal(data, &node); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", src, continueMCPYAMLError{err})
 	}
-	if err := yaml.Unmarshal([]byte(body), &doc); err != nil || len(doc.MCPServers) == 0 {
-		return body
+	if err := continueMCPStringKeys(&node); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", src, err)
 	}
-	server := doc.MCPServers[0]
-	if len(server) == 0 {
-		return body
+	var server map[string]any
+	if err := node.Decode(&server); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", src, continueMCPYAMLError{err})
+	}
+	if raw, wrapped := server["mcpServers"]; wrapped {
+		blocks, ok := raw.([]any)
+		if !ok || len(blocks) != 1 {
+			return nil, fmt.Errorf("parse %s: an MCP YAML block must contain exactly one server", src)
+		}
+		server, _ = blocks[0].(map[string]any)
+	}
+	if server == nil {
+		return nil, fmt.Errorf("parse %s: MCP server must be an object", src)
 	}
 	unvendorContinueServer(server)
 	raw, err := yaml.Marshal(server)
 	if err != nil {
-		return body
+		return nil, fmt.Errorf("marshal %s: %w", src, err)
 	}
-	return string(raw)
+	return raw, nil
+}
+
+func continueMCPStringKeys(node *yaml.Node) error {
+	if node.Kind == yaml.MappingNode {
+		for i := 0; i < len(node.Content); i += 2 {
+			key := node.Content[i]
+			if key.Kind != yaml.ScalarNode {
+				return fmt.Errorf("MCP mapping keys must be scalar values")
+			}
+			if key.Tag != "!!merge" {
+				key.Tag = "!!str"
+			}
+		}
+	}
+	for _, child := range node.Content {
+		if err := continueMCPStringKeys(child); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type continueMCPYAMLError struct{ err error }
+
+func (e continueMCPYAMLError) Error() string { return "invalid YAML MCP data" }
+func (e continueMCPYAMLError) Unwrap() error { return e.err }
+
+func normalizeContinueMCPCredentials(server map[string]any) error {
+	if opts := server["requestOptions"]; opts != nil {
+		if _, ok := opts.(map[string]any); !ok {
+			return fmt.Errorf("MCP requestOptions must be a mapping")
+		}
+	}
+	for _, field := range []string{"env", "headers"} {
+		if server[field] == nil {
+			continue
+		}
+		raw, err := yaml.Marshal(server[field])
+		if err != nil {
+			return fmt.Errorf("marshal MCP %s: %w", field, err)
+		}
+		var values map[string]string
+		if err := yaml.Unmarshal(raw, &values); err != nil {
+			return fmt.Errorf("MCP %s must be a mapping of scalar values: %w", field, continueMCPYAMLError{err})
+		}
+		converted := make(map[string]any, len(values))
+		for key, value := range values {
+			converted[key] = value
+		}
+		server[field] = converted
+	}
+	return nil
 }
 
 // unvendorContinueServer rewrites the two Continue-native spellings back

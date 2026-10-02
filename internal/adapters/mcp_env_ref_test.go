@@ -2,6 +2,8 @@ package adapters
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -98,6 +100,51 @@ func TestMCPEnvRefs_CodexForwardsNames(t *testing.T) {
 		if !strings.Contains(notes, want) {
 			t.Errorf("notes missing %q:\n%s", want, notes)
 		}
+	}
+}
+
+func TestMCPEnvRefs_ContinueWritesSecrets(t *testing.T) {
+	out, notes := emitEnvRefs(t, "continue")
+	for _, want := range []string{"GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}", "Authorization: Bearer ${{ secrets.API_KEY }}", "X-Mixed: team-${{ secrets.TEAM_ID }}"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %s in output: %s", want, out)
+		}
+	}
+	if notes != "" {
+		t.Errorf("supported references should have no notes: %s", notes)
+	}
+}
+
+func TestMCPEnvRefs_ContinueNativeHeadersUseSecrets(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	a, err := Resolve("continue")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := map[string]any{
+		"type": "http", "url": "https://example.test/mcp",
+		"headers": map[string]any{"Authorization": "Bearer ${PORTABLE}"},
+		"x-continue": map[string]any{
+			"requestOptions": map[string]any{
+				"timeout": 3000,
+				"headers": map[string]any{"Authorization": "Bearer ${NATIVE}"},
+			},
+		},
+	}
+	b := spec.NewBundle([]spec.Entry{{Kind: spec.KindMCP, Name: "api", Meta: m}})
+	if err := EmitWithProvenance(NewSession(), a, b, &config.Config{Targets: []string{"continue"}}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".continue/mcpServers/api.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(raw); !strings.Contains(got, "Authorization: Bearer ${{ secrets.NATIVE }}") || strings.Contains(got, "PORTABLE") || !strings.Contains(got, "timeout: 3000") {
+		t.Errorf("native headers lost precedence or reference syntax: %s", got)
+	}
+	opts := m["x-continue"].(map[string]any)["requestOptions"].(map[string]any)
+	if got := opts["headers"].(map[string]any)["Authorization"]; got != "Bearer ${NATIVE}" {
+		t.Errorf("emission changed the source metadata: %v", got)
 	}
 }
 
