@@ -115,6 +115,9 @@ func useTools(cmd *cobra.Command, tools []string) ([]string, error) {
 		if localSetsTargets() {
 			return nil, fmt.Errorf("%s sets targets, which win over %s; add %s there", config.LocalOverrideFileName, filepath.Base(path), strings.Join(added, ", "))
 		}
+		if err := refuseUnmanagedImport(cfg, added); err != nil {
+			return nil, err
+		}
 		if err := config.PersistTargets(".", append(slices.Clone(cfg.Targets), added...)); err != nil {
 			return nil, fmt.Errorf("add %s to targets: %w", strings.Join(added, ", "), err)
 		}
@@ -157,6 +160,23 @@ func uncapturedInstructions(cfg *config.Config, target string) bool {
 	}
 	uncaptured, err := handWrittenUncaptured(path, held)
 	return err == nil && uncaptured
+}
+
+// refuseUnmanagedImport stops `use` from adding a tool whose own config
+// exists while its instructions file is in sync.unmanaged: the importer
+// would copy that file to every tool, and skipping the import would let
+// the sync write over the tool's other files.
+func refuseUnmanagedImport(cfg *config.Config, added []string) error {
+	detected := detectExistingTargets(".")
+	for _, t := range added {
+		path := adapters.EntryPointPath(cfg, t)
+		if path != "" && cfg.IsUnmanaged(path) && slices.Contains(detected, t) {
+			return fmt.Errorf("%s is in sync.unmanaged, so use cannot import %s without copying it to every tool; "+
+				"run agnostic-ai import %s, remove what only %s should read from .agnostic-ai/AGNOSTIC_AI.md, then add %s to targets",
+				path, t, t, t, t)
+		}
+	}
+	return nil
 }
 
 // localSetsTargets reports whether agnostic-ai.local.yaml sets targets.

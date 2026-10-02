@@ -243,19 +243,27 @@ func TestUse_AgainKeepsSpecEdits(t *testing.T) {
 	}
 }
 
-// A tool whose instructions file is unmanaged is not imported, even with
-// a marker such as .claude/.
-func TestUse_LeavesAnUnmanagedToolWithAMarkerAlone(t *testing.T) {
+// A tool with its own config and an unmanaged instructions file can be
+// neither imported nor skipped safely, so use stops before writing.
+func TestUse_RefusesAToolWhoseInstructionsAreUnmanaged(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
-	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\nsync:\n  unmanaged: [CLAUDE.md]\n")
+	cfg := "version: 1\ntargets: [codex]\nsync:\n  unmanaged: [CLAUDE.md]\n"
+	mustWriteFile(t, "agnostic-ai.yaml", cfg)
 	mustWriteFile(t, "CLAUDE.md", "# Mine\n\nSecret claude note.\n")
+	mustWriteFile(t, ".mcp.json", `{"mcpServers":{"srv":{"command":"srv"}}}`+"\n")
 	mustWriteFile(t, ".claude/settings.json", "{}\n")
 
-	_, _ = runCLI(t, "use", "claude")
+	_, err := runCLI(t, "use", "claude")
 
-	if data, _ := os.ReadFile(".agnostic-ai/AGNOSTIC_AI.md"); strings.Contains(string(data), "Secret claude note.") {
-		t.Errorf("use imported the unmanaged CLAUDE.md:\n%s", data)
+	if err == nil || !strings.Contains(err.Error(), "CLAUDE.md is in sync.unmanaged") {
+		t.Fatalf("err = %v, want a refusal naming CLAUDE.md", err)
+	}
+	if got := readFile(t, "agnostic-ai.yaml"); got != cfg {
+		t.Errorf("config changed:\n%s", got)
+	}
+	if got := readFile(t, ".mcp.json"); !strings.Contains(got, "srv") {
+		t.Errorf(".mcp.json lost its server:\n%s", got)
 	}
 }
 
