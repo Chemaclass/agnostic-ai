@@ -59,7 +59,7 @@ When target choice is ambiguous, ask the user. Do not infer that every installed
 
 ## 3. Initialize safely
 
-Ask the user whether Git should track the generated files, and pass the answer as `--gitignore=on` or `--gitignore=off`. Ignoring them keeps Git to `.agnostic-ai/`, but every teammate must install agnostic-ai and run `agnostic-ai sync` after cloning. Committing them lets a clone work without the tool, with `agnostic-ai sync --check` in CI to keep them current.
+Ask the user whether Git should track the generated files, and pass the answer as `--gitignore=on` or `--gitignore=off`. Ignoring them keeps Git to the specs (`.agnostic-ai/` and `agnostic-ai.yaml`), but every teammate must install agnostic-ai and run `agnostic-ai sync` after cloning. Committing them lets a clone work without the tool, with `agnostic-ai sync --check` in CI to keep them current.
 
 For existing native configuration, replace the example target list with the tools the project uses:
 

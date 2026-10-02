@@ -159,7 +159,7 @@ func promptGitignoreEnable(in io.Reader) (bool, error) {
 	picked := true
 	form := huh.NewConfirm().
 		Title("Ignore generated files (CLAUDE.md, AGENTS.md, ...) in .gitignore?").
-		Description("Ignore: Git holds only .agnostic-ai/, and every teammate runs agnostic-ai sync after cloning.\n" +
+		Description("Ignore: Git holds only the specs (.agnostic-ai/, agnostic-ai.yaml), and every teammate runs agnostic-ai sync after cloning.\n" +
 			"Commit: a clone works without the tool; add agnostic-ai sync --check to CI to keep them current.").
 		Affirmative("Ignore them").
 		Negative("Commit them").

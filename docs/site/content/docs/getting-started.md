@@ -71,7 +71,7 @@ To change tools later, edit `targets:` in `agnostic-ai.yaml`. See [target select
 
 ## Commit or ignore generated outputs
 
-`init` asks whether to git-ignore the generated files, and without a terminal it ignores them and says so. Each choice has a cost:
+`init` asks whether to git-ignore the generated files, and without a terminal, or with `--all`, it ignores them and says so. Each choice has a cost:
 
 - **Ignore them (default):** Git holds only `.agnostic-ai/`, `agnostic-ai.yaml`, and `.gitignore`. Every teammate needs the tool and runs `agnostic-ai sync` after cloning. [Checkout and merge hooks](@/docs/git-hooks.md#regenerate-on-checkout), installed with `agnostic-ai install-hook --post-checkout`, run it after checkouts and pulls that merge, and a Node project can run it on install: see [Node monorepos](@/docs/git-hooks.md#node-monorepos).
 - **Commit them (`init --gitignore=off`):** a clone works without the tool, and reviews show the generated files beside their specs. Run the [CI drift gate](@/docs/ci.md#committed-outputs) so they stay current. On an existing project, set `gitignore.enabled: false` and remove their entries from the managed `.gitignore` block.
