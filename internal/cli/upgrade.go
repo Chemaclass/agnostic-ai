@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/chemaclass/agnostic-ai/internal/errs"
 )
 
 // Repository + distribution coordinates. Kept as package-level constants
@@ -123,11 +125,12 @@ func newUpgradeCmdWithDeps(deps upgradeDeps) *cobra.Command {
 	var (
 		checkOnly     bool
 		targetVersion string
+		reconcile     bool
 	)
 	cmd := &cobra.Command{
 		Use:     "upgrade",
 		Aliases: []string{"update"},
-		Short:   "Upgrade agnostic-ai to the latest release.",
+		Short:   "Upgrade agnostic-ai or reconcile the project with the installed release.",
 		Long: `upgrade detects how the running agnostic-ai binary was installed
 (Homebrew, ` + "`go install`" + `, Scoop, winget, npm, or a raw prebuilt
 binary) and upgrades it to the latest release. Package-manager installs
@@ -139,6 +142,10 @@ which is how a project pinned to an older version gets there in one
 command. Downgrades are allowed, and standalone binary installs only: a
 package-manager install pins through its own package manager.
 
+Pass --requires to pin this project's requires and schema to the installed
+stable release, then sync. Existing local requires overrides are updated
+too. This mode does not install a binary or change package dependencies.
+
 Pass --check to show install details without changing anything. --run
 is still accepted for compatibility.`,
 		Example: `  # Upgrade to the latest release
@@ -147,9 +154,23 @@ is still accepted for compatibility.`,
   # Install the release this project pins, even an older one
   agnostic-ai upgrade --version v0.56.1
 
+  # Reconcile project pins and generated files after a package upgrade
+  agnostic-ai upgrade --requires
+
   # Diagnose install location + PATH shadowing
   agnostic-ai upgrade --check`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if reconcile {
+				for _, flag := range []string{"version", "check", "run"} {
+					if cmd.Flags().Changed(flag) {
+						return errs.Coded(errs.CodeFlagConflict, "--requires cannot be combined with --%s", flag)
+					}
+				}
+				if err := cobra.NoArgs(cmd, args); err != nil {
+					return err
+				}
+				return runUpgradeRequires()
+			}
 			want := ""
 			if cmd.Flags().Changed("version") {
 				v, err := normalizeReleaseVersion(targetVersion)
@@ -164,6 +185,7 @@ is still accepted for compatibility.`,
 	cmd.Flags().Bool("run", false, "Run upgrade (now the default)")
 	cmd.Flags().BoolVar(&checkOnly, "check", false, "Print detection details and exit without running")
 	cmd.Flags().StringVar(&targetVersion, "version", "", "Install this release instead of the latest (e.g. v0.56.1)")
+	cmd.Flags().BoolVar(&reconcile, "requires", false, "Pin project requires and schema to the installed stable release, then sync")
 	return cmd
 }
 

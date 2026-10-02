@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -95,7 +94,7 @@ func requireGlobalVersion(source string, skipBroken io.Writer) error {
 			return errs.Coded(errs.CodeConfigDecode, "%s: requires: %w", p, err)
 		}
 	}
-	return requireVersion(path, requires)
+	return requireVersionInScope(path, requires, true)
 }
 
 // requireVersion stops the command when the running binary is outside
@@ -103,6 +102,10 @@ func requireGlobalVersion(source string, skipBroken io.Writer) error {
 // no place in the order, so it warns and runs: contributors build from
 // source.
 func requireVersion(source, requires string) error {
+	return requireVersionInScope(source, requires, false)
+}
+
+func requireVersionInScope(source, requires string, global bool) error {
 	if requires == "" {
 		return nil
 	}
@@ -130,24 +133,23 @@ func requireVersion(source, requires string) error {
 		return nil
 	}
 	if !allowed {
-		return errs.Coded(errs.CodeRequiresUnmet, "%s requires agnostic-ai %s, but %s is installed; %s", source, req, running, requiresFix(req, source))
+		var fix string
+		if global && req.Above(runningVersion) {
+			fix = "update `requires` and the schema in " + source + " to adopt installed agnostic-ai " + running
+		} else {
+			fix = requiresFix(req, source)
+		}
+		return errs.Coded(errs.CodeRequiresUnmet, "%s requires agnostic-ai %s, but %s is installed; %s", source, req, running, fix)
 	}
 	return nil
 }
 
-// requiresFix names the command that puts a binary outside req inside it.
-// A minimum alone is met by the latest release; anything else needs a
-// named one, since upgrade would jump past an upper bound. A binary a
-// package manager installed for the project that source configures gets
-// that manager's command, since upgrade cannot replace it.
 func requiresFix(req config.Requirement, source string) string {
+	if req.Above(runningVersion) {
+		return "run `agnostic-ai upgrade --requires` to adopt installed agnostic-ai " + strings.TrimPrefix(runningVersion, "v")
+	}
 	version, latest := req.InstallTarget()
-	if pm, project, ok := projectPackageManager(source); ok {
-		// package.json already pins the running release, as right after
-		// `pnpm add agnostic-ai@X`: requires is what lags, not the install.
-		if running := strings.TrimPrefix(runningVersion, "v"); running != "" && packageJSONPin(project) == running {
-			return "update `requires` in " + strings.Split(source, " + ")[0] + " to \"" + running + "\", the release package.json pins"
-		}
+	if pm, ok := projectPackageManager(source); ok {
 		switch {
 		case latest:
 			return "run `" + pm.add + " " + binaryName + "@latest`"
@@ -183,15 +185,10 @@ var projectLockfiles = []struct {
 	{"bun.lockb", packageManager{"bun install", "bun add -D"}},
 }
 
-// projectPackageManager reports the package manager that installed the
-// running binary into a node_modules of the project holding one of the
-// config files source names (joined with " + " when layered). A global
-// install sits in a node_modules outside that project, so it gets the
-// upgrade advice.
-func projectPackageManager(source string) (packageManager, string, bool) {
+func projectPackageManager(source string) (packageManager, bool) {
 	exe, err := runningExecutable()
 	if err != nil || source == "" {
-		return packageManager{}, "", false
+		return packageManager{}, false
 	}
 	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
 		exe = resolved
@@ -199,39 +196,15 @@ func projectPackageManager(source string) (packageManager, string, bool) {
 	sep := string(filepath.Separator)
 	i := strings.Index(exe, sep+"node_modules"+sep)
 	if i < 0 {
-		return packageManager{}, "", false
+		return packageManager{}, false
 	}
 	project := exe[:i]
 	for _, s := range strings.Split(source, " + ") {
 		if within(project, s) {
-			return lockfileManager(project), project, true
+			return lockfileManager(project), true
 		}
 	}
-	return packageManager{}, "", false
-}
-
-// packageJSONPin returns the exact agnostic-ai version project's
-// package.json pins as a dependency, or "" for a range or no entry.
-func packageJSONPin(project string) string {
-	data, err := os.ReadFile(filepath.Join(project, "package.json"))
-	if err != nil {
-		return ""
-	}
-	var pkg struct {
-		Dependencies    map[string]string `json:"dependencies"`
-		DevDependencies map[string]string `json:"devDependencies"`
-	}
-	if json.Unmarshal(data, &pkg) != nil {
-		return ""
-	}
-	pin := pkg.DevDependencies[binaryName]
-	if pin == "" {
-		pin = pkg.Dependencies[binaryName]
-	}
-	if !regexp.MustCompile(`^\d+\.\d+\.\d+$`).MatchString(pin) {
-		return ""
-	}
-	return pin
+	return packageManager{}, false
 }
 
 // within reports whether the config file path sits in dir or below it,

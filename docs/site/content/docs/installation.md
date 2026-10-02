@@ -32,6 +32,7 @@ Next: [Getting started](@/docs/getting-started.md), or [Migration](@/docs/migrat
 | `agnostic-ai upgrade` | Upgrade to the latest release. |
 | `agnostic-ai upgrade --check` | Report the install and older binaries on `PATH`. Changes nothing. |
 | `agnostic-ai upgrade --version vX.Y.Z` | Install one specific release. |
+| `agnostic-ai upgrade --requires` | Pin this project's config and schema to the installed release, then sync. |
 
 Package-manager installs upgrade through their package manager. See the [upgrade reference](@/docs/cli-reference/maintain.md#upgrade).
 
@@ -60,7 +61,7 @@ A JavaScript project can add the CLI as a dev dependency, so every clone and CI 
 pnpm add -D agnostic-ai@X.Y.Z    # or npm install -D, yarn add -D, bun add -D
 ```
 
-Set the same release in [`requires`](@/docs/configuration.md#requires), such as `requires: "X.Y.Z"`. After a pull bumps both, run your package manager's install; until then, commands stop with AAI-005.
+Run `agnostic-ai upgrade --requires` from the project root using that installed CLI, such as `pnpm exec agnostic-ai upgrade --requires`. It sets [`requires`](@/docs/configuration.md#requires) and the schema URL to the installed release, then syncs. Commit the config and dependency changes together. After a pull bumps both, run your package manager's install; until then, commands stop with AAI-005.
 
 ## Optional extras
 
