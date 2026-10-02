@@ -52,8 +52,8 @@ func newImportCmd() *cobra.Command {
 		Short: "Import existing config from one or more AI CLIs into this project's source directories.",
 		Long: "Reads agnostic-ai.yaml to resolve source paths, then translates " +
 			"existing AI CLI configurations into agnostic specs. Sources: " + importSources() + ". " +
-			"Pass multiple sources to import from each in order; `.agnostic-ai/AGNOSTIC_AI.md` " +
-			"reflects the last source's top-level instructions file (last-wins). " +
+			"Pass multiple sources to import from each in order; each adds to " +
+			"`.agnostic-ai/AGNOSTIC_AI.md` the sections of its top-level instructions file it lacks. " +
 			"`--dry-run` runs the import in a temporary copy of the project (without .git) and " +
 			"lists the files it would write; the project stays untouched. Add `--diff` to show " +
 			"each proposed change, which sources wrote it, and where sources disagree.",

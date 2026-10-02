@@ -108,3 +108,17 @@ func TestUse_ARetryImportsWhatAnEarlierRunLeft(t *testing.T) {
 		t.Errorf("use did not import the left-over AGENTS.md:\n%s", got)
 	}
 }
+
+// jules has no importer; its AGENTS.md is folded in as root instructions.
+func TestUse_AToolWithoutAnImporterKeepsItsInstructions(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "AGENTS.md", "# Agents\n\n## Reviews\n\nKeep PRs small.\n")
+
+	if out, err := runCLI(t, "use", "jules"); err != nil {
+		t.Fatalf("use jules: %v\n%s", err, out)
+	}
+
+	if got := readFile(t, "AGENTS.md"); !strings.Contains(got, "Keep PRs small.") {
+		t.Errorf("AGENTS.md lost its instructions:\n%s", got)
+	}
+}

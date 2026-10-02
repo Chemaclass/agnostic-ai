@@ -111,30 +111,15 @@ func useTools(cmd *cobra.Command, tools []string) ([]string, error) {
 			return nil, err
 		}
 	}
-	// A tool added now brings its own config; one already in targets
-	// still does when an earlier run stopped before importing it.
+	// Import is idempotent, so the named tools' own config is imported
+	// on every run: one an earlier run stopped partway through finishes.
 	var sources []string
 	for _, t := range tools {
-		if slices.Contains(added, t) && hasOwnConfig(cfg, t) || uncapturedInstructions(cfg, t) {
+		if hasOwnConfig(cfg, t) {
 			sources = append(sources, t)
 		}
 	}
 	return added, importToolConfig(cfg, sources)
-}
-
-// uncapturedInstructions reports whether target's instructions file holds
-// hand-written text AGNOSTIC_AI.md does not have, which sync would stop on.
-func uncapturedInstructions(cfg *config.Config, target string) bool {
-	path := adapters.EntryPointPath(cfg, target)
-	if path == "" {
-		return false
-	}
-	captured := ""
-	if data, err := os.ReadFile(adapters.AgnosticEntryPointPath); err == nil {
-		captured = header.Strip(string(data))
-	}
-	uncaptured, err := handWrittenUncaptured(path, captured)
-	return err == nil && uncaptured
 }
 
 // startProject writes agnostic-ai.yaml for the detected tools plus
@@ -188,7 +173,26 @@ func hasOwnConfig(cfg *config.Config, target string) bool {
 	return err == nil && strings.TrimSpace(string(data)) != "" && !header.Has(string(data))
 }
 
-func importToolConfig(cfg *config.Config, sources []string) error {
+// importToolConfig imports each source that has an importer. A tool
+// without one, such as jules, reads the root AGENTS.md, whose hand-written
+// sections are folded into AGNOSTIC_AI.md instead.
+func importToolConfig(cfg *config.Config, tools []string) error {
+	var sources []string
+	foldAgents := false
+	for _, t := range tools {
+		_, rulesDir := rulesDirImporters[t]
+		switch {
+		case slices.Contains(importSourceNames, t) || rulesDir:
+			sources = append(sources, t)
+		case adapters.EntryPointPath(cfg, t) == claudeAgentsMainFile:
+			foldAgents = true
+		}
+	}
+	if foldAgents {
+		if _, err := foldRootAgentsMainFile("."); err != nil {
+			return err
+		}
+	}
 	if len(sources) == 0 {
 		return nil
 	}
