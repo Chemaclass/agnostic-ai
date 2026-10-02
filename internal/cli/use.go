@@ -133,18 +133,8 @@ func useTools(cmd *cobra.Command, tools []string) ([]string, error) {
 			sources = append(sources, t)
 		}
 	}
-	if err := importToolConfig(cfg, sources); err != nil {
-		// Drop the added tools again, so a retry still sees them as new
-		// and imports what this run did not.
-		if len(added) > 0 {
-			if rerr := config.PersistTargets(".", slices.DeleteFunc(slices.Clone(cfg.Targets), func(t string) bool {
-				return slices.Contains(added, t)
-			})); rerr != nil {
-				return nil, errors.Join(err, rerr)
-			}
-			return nil, fmt.Errorf("%w (left %s out of targets; fix this and run agnostic-ai use again)", err, strings.Join(added, ", "))
-		}
-		return nil, err
+	if failed, err := importToolConfig(cfg, sources); err != nil {
+		return nil, leaveOut(cfg, intersect(failed, added), err)
 	}
 	return added, nil
 }
@@ -236,15 +226,44 @@ func startProject(cmd *cobra.Command, tools []string) error {
 			sources = append(sources, t)
 		}
 	}
-	if err := importToolConfig(cfg, sources); err != nil {
-		// Without the config, a retry starts the project again and
-		// imports every source, not only what this run left out.
+	if failed, err := importToolConfig(cfg, sources); err != nil {
+		return leaveOut(cfg, failed, err)
+	}
+	return nil
+}
+
+// leaveOut takes the tools whose import failed back out of targets, so a
+// retry of `use` for them imports again, while the tools that imported
+// stay and are not imported over later spec edits. With no target left,
+// it removes the config, so a retry starts the project again.
+func leaveOut(cfg *config.Config, failed []string, err error) error {
+	if len(failed) == 0 {
+		return err
+	}
+	kept := slices.DeleteFunc(slices.Clone(cfg.Targets), func(t string) bool {
+		return slices.Contains(failed, t)
+	})
+	if len(kept) == 0 {
 		if rerr := os.Remove(config.ConfigFileName); rerr != nil {
 			return errors.Join(err, rerr)
 		}
 		return fmt.Errorf("%w (removed %s; fix this and run agnostic-ai use again)", err, config.ConfigFileName)
 	}
-	return nil
+	if rerr := config.PersistTargets(".", kept); rerr != nil {
+		return errors.Join(err, rerr)
+	}
+	names := strings.Join(failed, " ")
+	return fmt.Errorf("%w (left %s out of targets; fix this and run agnostic-ai use %s)", err, strings.Join(failed, ", "), names)
+}
+
+func intersect(a, b []string) []string {
+	var out []string
+	for _, x := range a {
+		if slices.Contains(b, x) {
+			out = append(out, x)
+		}
+	}
+	return out
 }
 
 // hasOwnConfig reports whether the project already holds config for
@@ -268,10 +287,10 @@ func hasOwnConfig(cfg *config.Config, target string) bool {
 	return err == nil && strings.TrimSpace(string(data)) != "" && !header.Has(string(data))
 }
 
-// importToolConfig imports each tool that has an importer. A tool
-// without one, such as jules, reads the root AGENTS.md, which is folded
-// in for every run.
-func importToolConfig(cfg *config.Config, tools []string) (err error) {
+// importToolConfig imports each tool that has an importer, one at a
+// time, and returns the ones that failed. A tool without one, such as
+// jules, reads the root AGENTS.md, which is folded in for every run.
+func importToolConfig(cfg *config.Config, tools []string) (failed []string, err error) {
 	var sources []string
 	for _, t := range tools {
 		if _, rulesDir := rulesDirImporters[t]; rulesDir || slices.Contains(importSourceNames, t) {
@@ -287,18 +306,33 @@ func importToolConfig(cfg *config.Config, tools []string) (err error) {
 		}
 	}()
 	if len(sources) == 0 {
-		return nil
+		return nil, nil
 	}
 	importNextStepsOff = true
 	defer func() { importNextStepsOff = false }()
-	return withImportTree(".", func() error {
+	setImportRunSources(sources)
+	defer setImportRunSources(nil)
+	err = withImportTree(".", func() error {
 		return withLocalImportGuard(".", cfg, func() error {
-			if len(sources) == 1 {
-				return runImport(".", sources[0], cfg)
+			for _, s := range sources {
+				if len(sources) > 1 {
+					_, _ = fmt.Fprintf(os.Stdout, "→ importing from %s\n", s)
+				}
+				if err := runImport(".", s, cfg); err != nil {
+					_, _ = fmt.Fprintf(os.Stderr, "! %s: %v\n", s, err)
+					failed = append(failed, s)
+				}
 			}
-			return runImportMany(".", sources, cfg)
+			if len(failed) > 0 {
+				return fmt.Errorf("import failed for: %s", strings.Join(failed, ", "))
+			}
+			return nil
 		})
 	})
+	if err != nil && len(failed) == 0 {
+		failed = sources
+	}
+	return failed, err
 }
 
 // printToolReads shows what each tool now reads from .agnostic-ai/: its

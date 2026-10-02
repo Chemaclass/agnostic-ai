@@ -259,13 +259,30 @@ func TestUse_LeavesAnUnmanagedToolWithAMarkerAlone(t *testing.T) {
 	}
 }
 
-// A failed first import leaves no config, so a retry imports everything.
-func TestUse_AFailedStartLeavesNoProject(t *testing.T) {
+// A failed first import leaves the failed tool out of targets and keeps
+// the rest, so a retry imports only what failed.
+func TestUse_AFailedStartLeavesTheFailedToolOut(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	isolateGit(t)
 	mustWriteFile(t, ".claude/settings.json", "{bad\n")
 
 	_, err := runCLI(t, "use", "codex")
+
+	if err == nil || !strings.Contains(err.Error(), "run agnostic-ai use claude") {
+		t.Fatalf("err = %v, want the import failure", err)
+	}
+	if got := readFile(t, "agnostic-ai.yaml"); strings.Contains(got, "claude") || !strings.Contains(got, "codex") {
+		t.Errorf("targets should keep codex and drop claude:\n%s", got)
+	}
+}
+
+// When every tool fails, no config is left, so a retry starts again.
+func TestUse_AFailedStartWithNothingImportedLeavesNoProject(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	isolateGit(t)
+	mustWriteFile(t, ".claude/settings.json", "{bad\n")
+
+	_, err := runCLI(t, "use", "claude")
 
 	if err == nil || !strings.Contains(err.Error(), "run agnostic-ai use again") {
 		t.Fatalf("err = %v, want the import failure", err)
