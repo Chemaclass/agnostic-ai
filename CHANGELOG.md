@@ -9,7 +9,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### General
 
 - `import`, `init --from`, and `use` stop before replacing a spec with different content and list each one; `import --overwrite` replaces them (#1620).
-- **Breaking:** a rule with narrow `globs` and no `alwaysApply` loads on matching files in Cursor, Trae, Devin, Cline, and Antigravity, not on every file (#1597).
+- Import protects specs sync did not write and restores linked files on conflicts or interrupts; identical specs keep their modification time (#1622).
+- **Breaking:** a rule with narrow `globs` and no `alwaysApply` loads only on matching files in Cursor, Trae, Devin, Cline, and Antigravity (#1597).
 - **Breaking:** an unknown config key, a misspelled target, or a bad `on-unsupported` value fails before sync writes anything, not silently (#1589).
 - `import` writes MCP `env` and `headers` values as `${NAME}` variables to set, plain settings like `NODE_ENV` included, never the value itself (#1619).
 - `sync` writes an MCP `${NAME}` in each tool's own form, and leaves it out with a note where the tool cannot read it, such as Gemini headers (#1619).
@@ -27,7 +28,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - Release binaries build with Go 1.27.1, so on macOS they need macOS 13 Ventura or later. On macOS 12, `go install` with Go 1.26 still works.
 - A global name clash says whether the two copies differ, who it affects, and how to fix it.
 - The config schema checks `requires` values and describes `requires` and `models` for editors.
-- `fable`, `best`, `opusplan`, `sonnet[1m]`, and `opus[1m]` count as Claude model names, so a shared one raises the coverage note on other targets and `lint` flags it in tiers (#1571).
+- Shared Claude names `fable`, `best`, `opusplan`, `sonnet[1m]`, and `opus[1m]` raise coverage notes on other targets and get flagged by tier lint (#1571).
 - A shared Claude model name is left out of the files of targets that cannot load it, as the coverage note says, so they use their own default (#1574).
 - `sync --json` reports and records the files a target wrote before it failed, so a later sync removes them with their specs (#1567).
 - `--profile` writes a complete profile when the command fails, such as `sync --check` on drift.
@@ -46,7 +47,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Site
 
-- [Why agnostic-ai](https://agnostic-ai.org/docs/why-agnostic-ai/) replaces the symlinks page: shorter, and it compares copies, one `AGENTS.md`, and scripts. The old URL redirects.
+- [Why agnostic-ai](https://agnostic-ai.org/docs/why-agnostic-ai/) replaces symlinks: shorter comparison of copies, one `AGENTS.md`, scripts; old URL redirects.
 
 ## v0.76.0 - 2026-10-01
 

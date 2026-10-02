@@ -54,6 +54,13 @@ func (Adapter) Name() string { return target }
 
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
+func (Adapter) RendersSpecFile(e spec.Entry, cfg *config.Config, asset string) bool {
+	if asset != "" {
+		return false
+	}
+	return (e.Kind != spec.KindAgent && e.Kind != spec.KindSkill) || emit.OutputRulesFile(cfg, target, "") != ""
+}
+
 // Emit writes the optional legacy concatenated CONVENTIONS.md (only
 // when `outputs.aider.rules-file` is set) and, when configured, merges
 // Aider's project config file so it auto-loads the conventions

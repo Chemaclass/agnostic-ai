@@ -173,6 +173,17 @@ func (Adapter) Name() string { return target }
 
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
+func (Adapter) RendersSpecFile(e spec.Entry, _ *config.Config, _ string) bool {
+	if e.Kind != spec.KindSettings {
+		return true
+	}
+	settings := []spec.Entry{e}
+	keys := map[string]any{}
+	emit.MergeSettingsCustomKeys(keys, settings, target, qoderMCPKey)
+	emit.MergeSettingsCustomRecordMap(keys, settings, target, qoderMCPKey)
+	return emit.SettingsModel(settings, target) != "" || emit.SettingsPermissions(settings) != nil || len(keys) > 0
+}
+
 // Emit writes one .md per rule into the rules directory (default
 // `.qoder/rules`), one .md per agent into the agents directory (default
 // `.qoder/agents`), one folder per skill into the skills directory

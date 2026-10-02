@@ -240,6 +240,26 @@ type targetEmit struct {
 	dur      time.Duration // wall time the target's emit took, for the verbose summary
 }
 
+func importProvenanceTargets(emits []targetEmit, sessions []*adapters.Session, main *adapters.Session) []string {
+	// Skipped outputs cannot prove that a changed spec reached its tool.
+	if len(main.KeptEdits()) > 0 || len(main.UnmanagedSkips()) > 0 || len(main.BackupBlockedEdits()) > 0 {
+		return nil
+	}
+	var targets []string
+	for i, e := range emits {
+		if !e.resolved || e.err != nil || slices.ContainsFunc(e.writes, func(w adapters.WrittenFile) bool {
+			return w.Action == "edited"
+		}) {
+			continue
+		}
+		if i < len(sessions) && sessions[i] != nil && len(sessions[i].UnmanagedSkips()) > 0 {
+			continue
+		}
+		targets = append(targets, e.target)
+	}
+	return targets
+}
+
 // resolveJobs maps the --jobs flag to a worker count: 0 or negative means
 // runtime.NumCPU(). The count is capped at the target count (idle workers
 // buy nothing) and floored at 1.
@@ -771,7 +791,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
 		ledger.specSums = sums
 	}
-	ledger.specFileSums = syncedSpecFileSums(root, prev.SpecFileSums, b, effectiveTargets, cfg.Targets)
+	ledger.specFileSums = syncedSpecFileSums(root, prev.SpecFileSums, b, importProvenanceTargets(emits, targetSessions, mainSess), cfg)
 	trackedIgnored := gitTrackedAndIgnored(root, trackedIgnoreCandidates(cfg, ledger.outputs))
 	var untrackErr error
 	if untrack && len(trackedIgnored) > 0 {
@@ -1203,7 +1223,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	}
 	ledger.specFileSums = prev.SpecFileSums
 	if len(out.Errors) == 0 {
-		ledger.specFileSums = syncedSpecFileSums(root, prev.SpecFileSums, b, effectiveTargets, cfg.Targets)
+		ledger.specFileSums = syncedSpecFileSums(root, prev.SpecFileSums, b, importProvenanceTargets(emits, sessions, mainSess), cfg)
 	}
 	ledger.backups = syncBackups(prev.Backups, sessionPaths(sessions, (*adapters.Session).Backups))
 	ledger.listed = carriedListed(prev)

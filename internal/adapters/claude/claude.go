@@ -212,6 +212,14 @@ func materializeHookScripts(sess *emit.Session, hooks []spec.Entry, dryRun bool)
 	return nil
 }
 
+func (*Adapter) RendersSpecFile(e spec.Entry, _ *config.Config, asset string) bool {
+	if e.Kind == spec.KindSettings {
+		settings := []spec.Entry{e}
+		return len(buildSpecSettings(settings)) > 0 || len(emit.SettingsCustomKeys(settings, target)) > 0
+	}
+	return asset == "" || !claudeSkillSkipFor(e)(asset)
+}
+
 // claudeSkillSkipFor returns a per-skill skip predicate honoring the
 // hardcoded codex-only entries (`SKILL.md`, `agents/`) plus any top-
 // level paths the importer recorded as codex-only under

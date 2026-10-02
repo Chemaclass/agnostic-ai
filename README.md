@@ -71,6 +71,7 @@ In an edit hook, `agnostic-ai hook paths` prints the edited files from the Claud
 
 ```bash
 agnostic-ai import claude codex --dry-run --diff  # preview existing tool config
+agnostic-ai import claude --overwrite           # replace conflicting specs
 agnostic-ai compare claude cursor                # compare agent and skill fields and rule activation
 agnostic-ai why AGENTS.md                        # trace an output to its source
 agnostic-ai sync --check                         # find local drift

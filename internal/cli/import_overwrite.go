@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -41,16 +42,26 @@ const (
 	specSumByImport = "import"
 )
 
-// syncedSpecFileSums returns the spec file sums after a sync that rendered
-// b for targets. A spec file still holding the bytes an earlier sync
-// rendered for a configured target this one did not cover keeps that
-// target, also when no covered target reads it. An import's sum
-// outlives the sync for a file sync does not render, such as an overlay.
-func syncedSpecFileSums(root string, prev map[string]specFileSum, b spec.Bundle, targets, configured []string) map[string]specFileSum {
+type importSpecFileFilter interface {
+	RendersSpecFile(spec.Entry, *config.Config, string) bool
+}
+
+// syncedSpecFileSums records only files a target rendered, retaining
+// unchanged provenance for targets this sync did not cover.
+func syncedSpecFileSums(root string, prev map[string]specFileSum, b spec.Bundle, targets []string, cfg *config.Config) map[string]specFileSum {
 	next := map[string]specFileSum{}
 	for _, target := range targets {
+		adapter, err := adapters.Resolve(target)
+		if err != nil {
+			continue
+		}
+		filter, filtered := adapter.(importSpecFileFilter)
 		for _, e := range b.For(target).All() {
-			for _, path := range specEntryFiles(root, e) {
+			if caps := adapter.Capabilities(); len(caps) > 0 && !slices.Contains(caps, e.Kind) {
+				continue
+			}
+			include := func(asset string) bool { return !filtered || filter.RendersSpecFile(e, cfg, asset) }
+			for _, path := range specEntryFiles(root, e, include) {
 				rec, ok := next[path]
 				if !ok {
 					data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(path)))
@@ -71,7 +82,7 @@ func syncedSpecFileSums(root string, prev map[string]specFileSum, b spec.Bundle,
 	// target taken out of the config may lose those files, so it drops.
 	uncovered := func(old specFileSum) []string {
 		return slices.DeleteFunc(slices.Clone(old.Targets), func(t string) bool {
-			return slices.Contains(targets, t) || !slices.Contains(configured, t)
+			return slices.Contains(targets, t) || !slices.Contains(cfg.Targets, t)
 		})
 	}
 	for path, old := range prev {
@@ -104,7 +115,7 @@ func syncedSpecFileSums(root string, prev map[string]specFileSum, b spec.Bundle,
 
 // specEntryFiles lists the files of e under root, slash-form and relative
 // to it: its spec file and, for a skill, every file in its folder.
-func specEntryFiles(root string, e spec.Entry) []string {
+func specEntryFiles(root string, e spec.Entry, include func(asset string) bool) []string {
 	var files []string
 	add := func(path string) {
 		if !filepath.IsAbs(path) {
@@ -126,11 +137,15 @@ func specEntryFiles(root string, e spec.Entry) []string {
 	if e.Path == "" {
 		return nil
 	}
-	add(e.Path)
+	if include("") {
+		add(e.Path)
+	}
 	if dir := e.SkillAssetDir(); dir != "" {
 		_ = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
-			if err == nil && !d.IsDir() && filepath.Clean(p) != filepath.Clean(e.Path) {
-				add(p)
+			if err == nil && d.Type().IsRegular() && filepath.Clean(p) != filepath.Clean(e.Path) {
+				if rel, err := filepath.Rel(dir, p); err == nil && rel != "SKILL.md" && include(filepath.ToSlash(rel)) {
+					add(p)
+				}
 			}
 			return nil
 		})
@@ -264,8 +279,17 @@ func relativeKey(wd, abs string) string {
 
 // underAny reports whether the slash-form path lies inside one of dirs.
 func underAny(path string, dirs []string) bool {
+	abs, err := filepath.Abs(filepath.FromSlash(path))
+	if err != nil {
+		return false
+	}
 	return slices.ContainsFunc(dirs, func(d string) bool {
-		return strings.HasPrefix(path, d+"/")
+		base, err := filepath.Abs(filepath.FromSlash(d))
+		if err != nil {
+			return false
+		}
+		rel, err := filepath.Rel(base, abs)
+		return err == nil && rel != "." && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 	})
 }
 
@@ -324,28 +348,38 @@ func importOverwriteRemedy(args []string) string {
 func runGuardedImport(overwrite bool, remedy func(sources []string) string, run func() error) error {
 	rec := &importRecorder{}
 	txn := &importTransaction{files: map[string]*savedImportFile{}}
+	specDirs := importSpecDirs(".")
+	sums := readStateFile(".").SpecFileSums
 	return withHeldOutput(func() (bool, error) {
 		importRecording, importTxn = rec, txn
+		defer func() { importRecording, importTxn = nil, nil }()
 		stopOnSignal := txn.rollbackOnSignal()
+		defer stopOnSignal()
 		runErr := run()
-		stopOnSignal()
-		importRecording, importTxn = nil, nil
 		entries, err := txn.entries(rec)
 		if err != nil {
-			return true, errors.Join(runErr, err)
+			txn.mu.Lock()
+			defer txn.mu.Unlock()
+			rollbackErr := txn.rollback()
+			txn.finished = true
+			return false, errors.Join(runErr, err, rollbackErr)
 		}
-		specDirs := importSpecDirs(".")
-		sums := readStateFile(".").SpecFileSums
 		var overwrites []importPreviewEntry
 		for _, e := range entries {
 			if replacesSpec(&e, specDirs, sums) {
 				overwrites = append(overwrites, e)
 			}
 		}
+		txn.mu.Lock()
+		defer txn.mu.Unlock()
 		if len(overwrites) > 0 && !overwrite {
-			return false, errors.Join(runErr, importOverwriteError(overwrites, remedy), txn.rollback())
+			rollbackErr := txn.rollback()
+			txn.finished = true
+			return false, errors.Join(runErr, importOverwriteError(overwrites, remedy), rollbackErr)
 		}
-		return true, errors.Join(runErr, recordImportedSpecFiles(".", entries, specDirs))
+		recordErr := recordImportedSpecFiles(".", entries, specDirs)
+		txn.finished = true
+		return true, errors.Join(runErr, recordErr)
 	})
 }
 
@@ -353,23 +387,27 @@ func runGuardedImport(overwrite bool, remedy func(sources []string) string, run 
 // per written file, with its bytes before the run and on disk now.
 func (t *importTransaction) entries(rec *importRecorder) ([]importPreviewEntry, error) {
 	byPath := map[string]*importPreviewEntry{}
+	proposals := map[string]map[string][]byte{}
 	for _, w := range rec.writes {
 		e, ok := byPath[w.path]
 		if !ok {
 			e = &importPreviewEntry{path: w.path}
 			byPath[w.path] = e
+			proposals[w.path] = map[string][]byte{}
 		}
+		proposals[w.path][w.source] = w.data
 		if !slices.Contains(e.sources, w.source) {
 			e.sources = append(e.sources, w.source)
 		}
 		e.replaced = e.replaced || !w.merge
 	}
 	var out []importPreviewEntry
-	for path, prior := range t.files {
-		e, ok := byPath[filepath.ToSlash(path)]
+	for _, e := range byPath {
+		path, ok := t.paths[filepath.Clean(filepath.FromSlash(e.path))]
 		if !ok {
 			continue
 		}
+		prior := t.files[path]
 		if prior != nil {
 			e.existed, e.before = true, prior.data
 		}
@@ -378,6 +416,7 @@ func (t *importTransaction) entries(rec *importRecorder) ([]importPreviewEntry, 
 			return nil, fmt.Errorf("%s: %w", path, err)
 		}
 		e.after = after
+		e.holders = importContentHolders(e.sources, proposals[e.path], after)
 		out = append(out, *e)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].path < out[j].path })
@@ -413,14 +452,14 @@ func recordImportedSpecFiles(root string, entries []importPreviewEntry, specDirs
 		sum := sha256Hex(e.after)
 		rec, ok := state.SpecFileSums[key]
 		if !ok || rec.Sum != sum {
-			state.SpecFileSums[key] = specFileSum{Sum: sum, By: specSumByImport, Sources: slices.Sorted(slices.Values(e.sources))}
+			state.SpecFileSums[key] = specFileSum{Sum: sum, By: specSumByImport, Sources: slices.Sorted(slices.Values(e.holders))}
 			changed = true
 			continue
 		}
 		// The bytes are what the record holds, and now also what these
 		// sources hold.
 		holders := slices.Clone(rec.holders())
-		for _, s := range e.sources {
+		for _, s := range e.holders {
 			if !slices.Contains(holders, s) {
 				holders = append(holders, s)
 			}

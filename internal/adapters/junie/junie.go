@@ -201,6 +201,11 @@ func (Adapter) Name() string { return target }
 
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
+func (Adapter) RendersSpecFile(e spec.Entry, _ *config.Config, _ string) bool {
+	settings := []spec.Entry{e}
+	return e.Kind != spec.KindSettings || emit.SettingsModel(settings, target) != "" || len(emit.SettingsCustomKeys(settings, target)) > 0
+}
+
 // mcpDisabledNoOpReason and mcpDescriptionNoOpReason explain, in the
 // flushed coverage notes, why neither key reaches `.junie/mcp/mcp.json`.
 // The vendor's mcp.json structure block documents neither, and a server

@@ -582,30 +582,30 @@ func setPendingImports(tools []string) error {
 func replaceStateFile(root string, state syncStateFile) error {
 	p := stateFilePath(root)
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
-		return err
+		return fmt.Errorf("%s: %w", filepath.Dir(p), err)
 	}
 	data, err := json.Marshal(state)
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal %s: %w", p, err)
 	}
 	// A rename replaces the file whole, so a stop mid-write never leaves
 	// a state that reads as nothing pending.
 	tmp, err := os.CreateTemp(filepath.Dir(p), ".sync-state-*")
 	if err != nil {
-		return err
+		return fmt.Errorf("create %s: %w", p, err)
 	}
 	_, werr := tmp.Write(data)
 	if err := errors.Join(werr, tmp.Sync(), tmp.Close()); err != nil {
 		_ = os.Remove(tmp.Name())
-		return err
+		return fmt.Errorf("write %s: %w", p, err)
 	}
 	if err := os.Chmod(tmp.Name(), 0o644); err != nil {
 		_ = os.Remove(tmp.Name())
-		return err
+		return fmt.Errorf("chmod %s: %w", p, err)
 	}
 	if err := os.Rename(tmp.Name(), p); err != nil {
 		_ = os.Remove(tmp.Name())
-		return err
+		return fmt.Errorf("replace %s: %w", p, err)
 	}
 	return nil
 }

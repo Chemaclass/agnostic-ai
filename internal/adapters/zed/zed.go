@@ -88,6 +88,18 @@ func (Adapter) Name() string { return target }
 
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
+func (Adapter) RendersSpecFile(e spec.Entry, cfg *config.Config, _ string) bool {
+	switch e.Kind {
+	case spec.KindAgent:
+		return emit.OutputRulesFile(cfg, target, "") != ""
+	case spec.KindHook:
+		cmd, _ := e.Meta["command"].(string)
+		return emit.OutputTasksFile(cfg, target, "") != "" && cmd != ""
+	default:
+		return true
+	}
+}
+
 // Emit writes one native skill folder per skill under .agents/skills/,
 // the legacy merged rules document when opted in via
 // outputs.zed.rules-file, Zed Tasks when outputs.zed.tasks-file is set,

@@ -99,18 +99,21 @@ See [Claude import](@/docs/targets/claude.md#import) for what `import claude` le
 | Flag | Effect |
 |---|---|
 | `--dry-run` | List every file the import would write, once each, without file bodies. Runs in a temporary copy of the project and writes nothing to it. |
-| `--diff` | With `--dry-run`, show each destination as `create`, `change`, or `unchanged`, the sources that wrote it, and a unified diff. Lists every destination two sources propose different content for, and the source a real import keeps (the last). A conflict is reported, not resolved: exit status stays 0. Requires `--dry-run`. |
+| `--diff` | With `--dry-run`, show each destination as `create`, `change`, or `unchanged`, the sources that wrote it, and a unified diff. Lists every destination two sources propose different content for, and the source a real import keeps (the last). Disagreement between sources alone keeps exit status 0. Replacing a protected existing spec still requires `--overwrite`. Requires `--dry-run`. |
 | `--overwrite` | Replace existing specs the import would change. Without it, see below. |
 
 - Writes only spec files under `sources:`. Run it after `init`.
 - An import that would replace an existing spec with content the tool never read stops with [AAI-203](@/docs/errors.md) and writes no spec. It lists each one and the source that wanted it: rename one to keep both, or pass `--overwrite`. A spec the tool already reads may be replaced, which is how a native edit comes back: one the last sync wrote for that tool, or one an earlier import of that tool wrote, while its bytes are unchanged since. A spec another tool's import wrote stops it, and the message names both tools. `.agnostic-ai/AGNOSTIC_AI.md` never stops it, since import adds sections to it. In `import claude codex` a later source still replaces what an earlier one wrote. `--dry-run` and `init --from` stop the same way.
+- An identical spec keeps its content and modification time. After several sources import one file, only sources whose final content matches the file may re-import it without `--overwrite`.
+- A sync that keeps edited or unmanaged outputs preserves earlier records for unchanged specs. It does not make changed specs safe to replace from that tool. An output not enabled, an omitted skill asset, or settings with no translated fields do not count as read by that tool.
+- Destination file links are preserved. A dangling destination link fails with its path. A conflict or interrupt restores import writes through symlinks and hard links. Dry-run preserves those file relationships in its preview.
 - Nested config search skips git-ignored directories, directories with their own `.git`, and `node_modules/`.
 - A symlinked skill folder that links outside the project is skipped with a `skipped <path>` note.
 - An existing skill or agent spec keeps frontmatter keys that the source tool has nowhere to put, such as Cursor's `argument-hint`. Deleting a key the tool does write is read as deliberate and reaches the spec: removing `model` from a Qoder agent removes it from the spec. Rules are rebuilt from the native file.
 - Each source mirrors its top-level instructions file to `.agnostic-ai/AGNOSTIC_AI.md`, so the last argument wins. A fenced `AGNOSTIC_AI.md` stays untouched when the entry point matches its rendered view. Otherwise import overwrites it and warns.
 - If another entry point holds different hand-written content (a distinct `AGENTS.md` next to `CLAUDE.md`), import warns that `sync` would overwrite it. Merge that content into `.agnostic-ai/AGNOSTIC_AI.md` first. `import all` merges a root `AGENTS.md` itself instead of warning.
 - `all` cannot combine with other sources.
-- Valid sources: `claude`, `codex`, `cursor`, `aider`, `amp`, `warp`, `gemini`, `copilot`, `opencode`, `zed`, `antigravity`, `continue`, `cline`, `windsurf`, `junie`, `trae`, `kiro`, `crush`, `qoder`, `kilo`, `goose`, plus `all`. `factory`, `openhands`, `jules`, and `augment` are emit-only.
+- Valid sources: `claude`, `codex`, `cursor`, `aider`, `amp`, `warp`, `gemini`, `copilot`, `opencode`, `zed`, `antigravity`, `continue`, `cline`, `windsurf`, `junie`, `trae`, `kiro`, `crush`, `qoder`, `kilo`, `goose`, `factory`, `openhands`, `augment`, plus `all`. `jules` is emit-only.
 
 Each [target page](@/docs/targets/_index.md) lists what `import <target>` reads under its Import section.
 
@@ -158,4 +161,3 @@ agnostic-ai new rule payments-context --scope services/payments
 | `--scope <dir>` | `new rule` only. Create a flat rule for a project-relative directory. See [scoped context](@/docs/scoped-context.md). |
 
 It errors if the destination exists. Names must be lowercase slugs (`[a-z0-9][a-z0-9-]*`).
-

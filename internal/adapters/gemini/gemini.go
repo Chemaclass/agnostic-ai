@@ -154,6 +154,18 @@ func (Adapter) Name() string { return target }
 
 func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 
+func (Adapter) RendersSpecFile(e spec.Entry, cfg *config.Config, _ string) bool {
+	if e.Kind != spec.KindSettings {
+		return true
+	}
+	settings := emit.WithoutForeignClaudeModels(capabilities(cfg), spec.Bundle{Settings: []spec.Entry{e}}).Settings
+	keys := map[string]any{}
+	emit.MergeSettingsCustomKeys(keys, settings, target, "mcpServers")
+	emit.MergeSettingsCustomRecordMap(keys, settings, target, "mcpServers")
+	protected, _ := spec.ProtectedPaths(settings)
+	return emit.SettingsModel(settings, target) != "" || len(keys) > 0 || len(protected) > 0
+}
+
 // ForeignClaudeModels lists the Claude model names the agent `model` key cannot load.
 func (Adapter) ForeignClaudeModels() []string { return caps.ForeignClaudeModels }
 

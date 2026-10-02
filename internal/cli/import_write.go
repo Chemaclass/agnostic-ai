@@ -54,8 +54,9 @@ type importPlannedWrite struct {
 // run, attributed to the source that made it.
 // order lists the sources in the sequence they ran.
 type importRecorder struct {
-	order  []string
-	writes []importPlannedWrite
+	order    []string
+	writes   []importPlannedWrite
+	specDirs []string
 }
 
 // importRecording is the active recorder, or nil outside a dry-run.
@@ -123,6 +124,9 @@ func importWriteFile(path string, data []byte, mode fs.FileMode) error {
 	if !inImportSandbox(path) {
 		return nil
 	}
+	if current, err := os.ReadFile(path); err == nil && bytes.Equal(current, data) {
+		return nil
+	}
 	return os.WriteFile(path, data, mode)
 }
 
@@ -166,14 +170,17 @@ func inImportSandbox(path string) bool {
 // run that would replace an existing spec can be undone whole. It costs
 // one read per written file, never a walk of the project.
 type importTransaction struct {
-	// files maps each written path, cleaned, to its prior content, or nil
-	// when it did not exist.
+	// Each physical file is saved once, including writes through aliases.
 	files map[string]*savedImportFile
+	infos map[string]os.FileInfo
+	// paths maps imported paths to the physical files saved above.
+	paths map[string]string
 	// dirs lists the directories the run created, in creation order.
 	dirs []string
 	// mu covers each whole import write, so a rollback on a signal never
 	// runs between saving a file and writing it.
-	mu sync.Mutex
+	mu       sync.Mutex
+	finished bool
 }
 
 // importTxn is the active transaction, or nil outside a guarded import.
@@ -182,11 +189,30 @@ var importTxn *importTransaction
 
 func (t *importTransaction) saveFile(path string) error {
 	path = filepath.Clean(path)
+	original := path
+	info, err := os.Lstat(path)
+	if err == nil && info.Mode()&os.ModeSymlink != 0 {
+		if _, err := os.Stat(path); err != nil {
+			return fmt.Errorf("%s: %w", path, err)
+		}
+	} else if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	resolved, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("resolve %s: %w", path, err)
+	}
+	resolved = resolveExisting(resolved)
+	if t.paths == nil {
+		t.paths = map[string]string{}
+	}
+	t.paths[path] = resolved
+	path = resolved
 	if _, seen := t.files[path]; seen {
 		return nil
 	}
 	t.saveDirs(filepath.Dir(path))
-	info, err := os.Stat(path)
+	info, err = os.Stat(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		t.files[path] = nil
 		return nil
@@ -194,11 +220,21 @@ func (t *importTransaction) saveFile(path string) error {
 	if err != nil {
 		return fmt.Errorf("%s: %w", path, err)
 	}
+	for saved, savedInfo := range t.infos {
+		if os.SameFile(info, savedInfo) {
+			t.paths[original] = saved
+			return nil
+		}
+	}
 	prior, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("%s: %w", path, err)
 	}
 	t.files[path] = &savedImportFile{data: prior, mode: info.Mode().Perm()}
+	if t.infos == nil {
+		t.infos = map[string]os.FileInfo{}
+	}
+	t.infos[path] = info
 	return nil
 }
 
@@ -226,10 +262,16 @@ func (t *importTransaction) rollbackOnSignal() (stop func()) {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
 	done := make(chan struct{})
+	stopped := make(chan struct{})
 	go func() {
+		defer close(stopped)
 		select {
 		case <-sigs:
 			t.mu.Lock()
+			defer t.mu.Unlock()
+			if t.finished {
+				return
+			}
 			err := t.rollback()
 			if releaseHeldOutput != nil {
 				releaseHeldOutput()
@@ -245,6 +287,7 @@ func (t *importTransaction) rollbackOnSignal() (stop func()) {
 	return func() {
 		signal.Stop(sigs)
 		close(done)
+		<-stopped
 	}
 }
 
@@ -258,8 +301,14 @@ func (t *importTransaction) rollback() error {
 			if err = os.Remove(path); errors.Is(err, fs.ErrNotExist) {
 				err = nil
 			}
-		} else if err = os.WriteFile(path, prior.data, prior.mode); err == nil {
-			err = os.Chmod(path, prior.mode)
+		} else {
+			current, readErr := os.ReadFile(path)
+			if readErr != nil || !bytes.Equal(current, prior.data) {
+				err = os.WriteFile(path, prior.data, prior.mode)
+			}
+			if err == nil {
+				err = os.Chmod(path, prior.mode)
+			}
 		}
 		if err != nil {
 			errs = append(errs, fmt.Errorf("restore %s: %w", path, err))
