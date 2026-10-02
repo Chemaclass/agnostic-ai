@@ -59,6 +59,8 @@ agnostic-ai doctor --fix                         # repair drift, choose kept orp
 
 Support spans [Claude Code, Codex, Cursor, Gemini CLI, Copilot, and more](https://agnostic-ai.org/docs/targets/#capability-matrix). Each tool supports a different set of spec kinds. The [spec format](https://agnostic-ai.org/docs/spec-format/) and [target reference](https://agnostic-ai.org/docs/targets/) show the exact paths and fields.
 
+Model tiers share roles across tools. Codex aliases resolve to explicit IDs; see [Models and aliases](https://agnostic-ai.org/docs/configuration/#models).
+
 MCP import replaces literal environment and header values with portable references. Continue sync writes its secret syntax for `.env` files. See [MCP references](https://agnostic-ai.org/docs/spec-format/mcps/#environment-references).
 
 Claude MCP import and sync preserve `alwaysLoad` and `bareElicitationCapability`, including explicit `false` values. See [Claude MCP options](https://agnostic-ai.org/docs/targets/claude/#output) for tool loading and connection compatibility.

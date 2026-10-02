@@ -14,16 +14,44 @@ func TestResolveMeta_ResolvesAVendorModelAliasForItsTarget(t *testing.T) {
 		want   any
 	}{
 		{name: "scalar on codex", meta: map[string]any{"model": "sol"}, target: "codex", want: "gpt-6.1-sol"},
+		{name: "terra on codex", meta: map[string]any{"model": "terra"}, target: "codex", want: "gpt-5.6-terra"},
 		{name: "map entry on codex", meta: map[string]any{"model": map[string]any{"claude": "opus", "codex": "luna"}}, target: "codex", want: "gpt-6-luna"},
 		{name: "map default on codex", meta: map[string]any{"model": map[string]any{"claude": "opus", "default": "astra"}}, target: "codex", want: "gpt-6-astra"},
 		{name: "claude keeps its alias", meta: map[string]any{"model": map[string]any{"claude": "opus", "codex": "sol"}}, target: "claude", want: "opus"},
 		{name: "no alias on another target", meta: map[string]any{"model": "sol"}, target: "gemini", want: "sol"},
 		{name: "an exact id stays", meta: map[string]any{"model": "gpt-6-sol"}, target: "codex", want: "gpt-6-sol"},
+		{name: "an exact terra id stays", meta: map[string]any{"model": "gpt-5.6-terra"}, target: "codex", want: "gpt-5.6-terra"},
 		{name: "x-codex.model stays literal", meta: map[string]any{"model": "luna", "x-codex": map[string]any{"model": "sol"}}, target: "codex", want: "sol"},
+		{name: "x-codex.model terra stays literal", meta: map[string]any{"model": "sol", "x-codex": map[string]any{"model": "terra"}}, target: "codex", want: "terra"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := ResolveMeta(tc.meta, tc.target)["model"]; got != tc.want {
 				t.Errorf("model = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestSettingsModel_ResolvesCodexTerraAlias(t *testing.T) {
+	entries := []spec.Entry{{Name: "team", Meta: map[string]any{"model": map[string]any{"codex": "terra"}}}}
+	if got := SettingsModel(entries, "codex"); got != "gpt-5.6-terra" {
+		t.Errorf("SettingsModel(codex) = %q, want gpt-5.6-terra", got)
+	}
+}
+
+func TestModelAliasIn_IdentifiesCodexTerraAlias(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		meta map[string]any
+		want string
+	}{
+		{name: "target alias", meta: map[string]any{"model": map[string]any{"codex": "terra"}}, want: "terra"},
+		{name: "exact id", meta: map[string]any{"model": "gpt-5.6-terra"}},
+		{name: "literal override", meta: map[string]any{"model": "terra", "x-codex": map[string]any{"model": "terra"}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := ModelAliasIn(tc.meta, "codex"); got != tc.want {
+				t.Errorf("codex alias = %q, want %q", got, tc.want)
 			}
 		})
 	}

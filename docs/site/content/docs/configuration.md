@@ -162,10 +162,10 @@ Name each model role once, then write the role in specs instead of a vendor's mo
 
 ```yaml
 models:
-  frontier: {claude: fable,  codex: astra,   effort: xhigh}
-  strong:   {claude: opus,   codex: sol,     effort: high}
-  balanced: {claude: sonnet, codex: gpt-5.5, effort: medium}
-  fast:     {claude: haiku,  codex: luna,    effort: low}
+  frontier: {claude: fable,  codex: astra, effort: xhigh}
+  strong:   {claude: opus,   codex: sol,   effort: high}
+  balanced: {claude: sonnet, codex: terra, effort: medium}
+  fast:     {claude: haiku,  codex: luna,  effort: low}
 ```
 
 An agent with `model: fast` gets `haiku` in Claude Code and `gpt-6-luna` in Codex, both at `low` effort. Other targets keep their default model. Skills, commands, and settings specs name tiers the same way. Change a tier here and every spec that names it follows.
@@ -177,6 +177,9 @@ Claude Code resolves `opus`, `sonnet`, `haiku`, and `fable` to its latest models
 | `sol` | `gpt-6.1-sol` |
 | `luna` | `gpt-6-luna` |
 | `astra` | `gpt-6-astra` |
+| `terra` | `gpt-5.6-terra` |
+
+The `terra` alias was added after v0.77.0. On v0.77.0, use its full ID, `gpt-5.6-terra`.
 
 Each release fixes the ids. A project that pins [`requires`](#requires) writes the same ids on every machine, and upgrading agnostic-ai moves them. The first `sync` after such an upgrade prints `note: codex: sol now resolves to <new id> (was <old id>)` once. `explain <spec>` shows the resolution, such as `sol → gpt-6.1-sol`.
 
