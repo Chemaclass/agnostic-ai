@@ -284,7 +284,7 @@ func TestImport_StopsOnASyncedSpecTheSourceNeverReceived(t *testing.T) {
 
 	_, err := runCLI(t, "import", "cursor")
 
-	if err == nil || !strings.Contains(err.Error(), ".agnostic-ai/rules/style.md (from cursor)") {
+	if err == nil || !strings.Contains(err.Error(), ".agnostic-ai/rules/style.md (from cursor; now holds what sync wrote for claude)") {
 		t.Fatalf("import did not stop on a spec cursor never received: %v", err)
 	}
 	if got := readFile(t, ".agnostic-ai/rules/style.md"); got != mine {
@@ -347,9 +347,10 @@ func TestImport_StopsOnACommentAddedSinceTheLastSync(t *testing.T) {
 	}
 }
 
-// What an import wrote, and nothing changed since, is the tool's own
-// config: a later import replaces it as a second source in one run would.
-func TestImport_ReplacesWhatAnEarlierImportWrote(t *testing.T) {
+// mcpImportedFromClaude imports claude's fs server, next to codex's own
+// fs server with a different command.
+func mcpImportedFromClaude(t *testing.T) {
+	t.Helper()
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
 	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
@@ -358,12 +359,35 @@ func TestImport_ReplacesWhatAnEarlierImportWrote(t *testing.T) {
 	if out, err := runCLI(t, "import", "claude"); err != nil {
 		t.Fatalf("import claude: %v\n%s", err, out)
 	}
+}
 
-	if out, err := runCLI(t, "import", "codex"); err != nil {
-		t.Fatalf("import codex after import claude: %v\n%s", err, out)
+// What an import of claude wrote, and nothing changed since, is claude's
+// own config: a later claude import brings back an edit made there.
+func TestImport_ReplacesWhatAnEarlierImportOfTheSameToolWrote(t *testing.T) {
+	mcpImportedFromClaude(t)
+	mustWriteFile(t, ".mcp.json", `{"mcpServers":{"fs":{"command":"bunx","args":["fs-mcp"]}}}`)
+
+	if out, err := runCLI(t, "import", "claude"); err != nil {
+		t.Fatalf("re-import of claude: %v\n%s", err, out)
 	}
-	if got := readFile(t, ".agnostic-ai/mcps/fs.yaml"); !strings.Contains(got, "uvx") {
-		t.Errorf("fs.yaml = %q, want codex's server", got)
+	if got := readFile(t, ".agnostic-ai/mcps/fs.yaml"); !strings.Contains(got, "bunx") {
+		t.Errorf("fs.yaml = %q, want claude's edited server", got)
+	}
+}
+
+// Codex never held claude's server: replacing it would make the next
+// sync write codex's server into claude's .mcp.json.
+func TestImport_StopsOnWhatAnotherToolsImportWrote(t *testing.T) {
+	mcpImportedFromClaude(t)
+
+	_, err := runCLI(t, "import", "codex")
+
+	if errs.CodeOf(err) != errs.CodeImportWouldReplace ||
+		!strings.Contains(err.Error(), ".agnostic-ai/mcps/fs.yaml (from codex; now holds what import claude wrote)") {
+		t.Fatalf("import codex did not stop on claude's server: %v", err)
+	}
+	if got := readFile(t, ".agnostic-ai/mcps/fs.yaml"); !strings.Contains(got, "npx") {
+		t.Errorf("fs.yaml = %q, want claude's server kept", got)
 	}
 }
 

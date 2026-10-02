@@ -36,6 +36,9 @@ type importPreviewEntry struct {
 	// overwrites marks an existing spec whose replacement stops a real
 	// import without --overwrite (see replacesSpec).
 	overwrites bool
+	// heldBy names, as "<sync|import>:<tools>", where the current bytes
+	// came from, when a record still matches them.
+	heldBy string
 }
 
 // importPreview is the plan an `import --dry-run --diff` run reports.
@@ -204,7 +207,7 @@ func buildImportPreview(project, shadow string, rec *importRecorder) (importPrev
 			return importPreview{}, fmt.Errorf("%s: %w", path, err)
 		}
 		e.conflict = distinctProposals(proposals[path]) > 1
-		e.overwrites = replacesSpec(*e, specDirs, sums)
+		e.overwrites = replacesSpec(e, specDirs, sums)
 		preview.entries = append(preview.entries, *e)
 	}
 	sort.Slice(preview.entries, func(i, j int) bool {

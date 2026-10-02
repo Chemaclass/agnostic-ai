@@ -19,11 +19,21 @@ import (
 
 // specFileSum is the raw-bytes sum of one spec file and what put those
 // bytes where a tool reads them: a sync that rendered the spec for
-// Targets, or an import that wrote it from the tool's own files.
+// Targets, or an import that wrote it from the own files of Sources.
 type specFileSum struct {
 	Sum     string   `json:"sum"`
 	By      string   `json:"by"`
 	Targets []string `json:"targets,omitempty"`
+	Sources []string `json:"sources,omitempty"`
+}
+
+// holders names the tools whose files the recorded bytes came from or
+// went to.
+func (r specFileSum) holders() []string {
+	if r.By == specSumByImport {
+		return r.Sources
+	}
+	return r.Targets
 }
 
 const (
@@ -113,29 +123,33 @@ func specEntryFiles(root string, e spec.Entry) []string {
 }
 
 // alreadyRead reports whether before, the bytes of an existing spec,
-// already reached what every source in sources reads: a sync rendered
-// them for each source, or an import wrote them and nothing changed them
-// since. Replacing such a spec brings back an edit made in the tool.
+// already came from or reached the files of every source in sources: a
+// sync rendered them for each source, or an import of those sources
+// wrote them, and nothing changed them since. Replacing such a spec
+// brings back an edit made in the tool. A spec another tool's import
+// wrote is that tool's, so a different source stops.
 func alreadyRead(rec specFileSum, ok bool, before []byte, sources []string) bool {
 	if !ok || rec.Sum != sha256Hex(before) || len(sources) == 0 {
 		return false
 	}
-	if rec.By == specSumByImport {
-		return true
-	}
-	return !slices.ContainsFunc(sources, func(s string) bool { return !slices.Contains(rec.Targets, s) })
+	held := rec.holders()
+	return !slices.ContainsFunc(sources, func(s string) bool { return !slices.Contains(held, s) })
 }
 
 // replacesSpec reports whether an import write stops the run: it replaces
 // an existing spec with different content, the spec is not
 // AGNOSTIC_AI.md, which import merges into, and its bytes were not
-// already in what the writing sources read.
-func replacesSpec(e importPreviewEntry, specDirs []string, sums map[string]specFileSum) bool {
+// already in what the writing sources read. It sets e.heldBy to the
+// tools the current bytes came from or went to, for the stop message.
+func replacesSpec(e *importPreviewEntry, specDirs []string, sums map[string]specFileSum) bool {
 	if !e.existed || !e.replaced || bytes.Equal(e.before, e.after) ||
 		e.path == agnosticMainFile || !underAny(e.path, specDirs) {
 		return false
 	}
 	rec, ok := sums[e.path]
+	if ok && rec.Sum == sha256Hex(e.before) {
+		e.heldBy = rec.By + ":" + strings.Join(rec.holders(), ", ")
+	}
 	return !alreadyRead(rec, ok, e.before, e.sources)
 }
 
@@ -190,7 +204,7 @@ func importOverwriteError(entries []importPreviewEntry, remedy func(sources []st
 	var sources []string
 	fmt.Fprintf(&b, "import would replace %d existing spec(s) with different content, so no spec was written:\n", len(entries))
 	for _, e := range entries {
-		fmt.Fprintf(&b, "  %s (from %s)\n", e.path, strings.Join(e.sources, ", "))
+		fmt.Fprintf(&b, "  %s (from %s%s)\n", e.path, strings.Join(e.sources, ", "), heldByNote(e.heldBy))
 		for _, s := range e.sources {
 			if !slices.Contains(sources, s) {
 				sources = append(sources, s)
@@ -199,6 +213,19 @@ func importOverwriteError(entries []importPreviewEntry, remedy func(sources []st
 	}
 	b.WriteString(remedy(sources))
 	return errs.Coded(errs.CodeImportWouldReplace, "%s", b.String())
+}
+
+// heldByNote says where the bytes an import would replace came from.
+func heldByNote(heldBy string) string {
+	by, tools, ok := strings.Cut(heldBy, ":")
+	switch {
+	case !ok || tools == "":
+		return ""
+	case by == specSumByImport:
+		return "; now holds what import " + tools + " wrote"
+	default:
+		return "; now holds what sync wrote for " + tools
+	}
 }
 
 // importOverwriteRemedy names the two ways past an import that would
@@ -229,7 +256,7 @@ func runGuardedImport(overwrite bool, remedy func(sources []string) string, run 
 		sums := readStateFile(".").SpecFileSums
 		var overwrites []importPreviewEntry
 		for _, e := range entries {
-			if replacesSpec(e, specDirs, sums) {
+			if replacesSpec(&e, specDirs, sums) {
 				overwrites = append(overwrites, e)
 			}
 		}
@@ -286,16 +313,29 @@ func recordImportedSpecFiles(root string, entries []importPreviewEntry, specDirs
 		if !underAny(e.path, specDirs) {
 			continue
 		}
-		if rec, ok := state.SpecFileSums[e.path]; ok && e.after != nil && rec.Sum == sha256Hex(e.after) {
-			continue
+		next := specFileSum{By: specSumByImport, Sources: slices.Clone(e.sources)}
+		if e.after != nil {
+			next.Sum = sha256Hex(e.after)
 		}
+		rec, ok := state.SpecFileSums[e.path]
+		if ok && e.after != nil && rec.Sum == next.Sum {
+			if rec.By != specSumByImport || !slices.ContainsFunc(e.sources, func(s string) bool { return !slices.Contains(rec.Sources, s) }) {
+				continue
+			}
+			for _, s := range rec.Sources {
+				if !slices.Contains(next.Sources, s) {
+					next.Sources = append(next.Sources, s)
+				}
+			}
+		}
+		sort.Strings(next.Sources)
 		if state.SpecFileSums == nil {
 			state.SpecFileSums = map[string]specFileSum{}
 		}
 		if e.after == nil {
 			delete(state.SpecFileSums, e.path)
 		} else {
-			state.SpecFileSums[e.path] = specFileSum{Sum: sha256Hex(e.after), By: specSumByImport}
+			state.SpecFileSums[e.path] = next
 		}
 		changed = true
 	}
