@@ -12,12 +12,15 @@ scripts = ["assets/scripts/compare-targets.js"]
 # Compare targets
 
 
-Pick two tools to see what `agnostic-ai sync` writes for each spec kind, and where. Target C is optional: pick one to compare three. The page URL keeps the choice, so you can share a comparison.
+Pick two tools to see what `agnostic-ai sync` writes for each spec kind, and where. Add an optional third in Target C. The URL keeps your choice, so you can share it.
 
 {{ <compare_targets /> }}
 
 ## Where the data comes from
 
-Support states come from the [capability matrix](@/docs/targets/_index.md#capability-matrix). Paths come from a real sync of one sample spec per kind, and CI fails when either drifts from the adapters. File formats come from each path's extension. A file that holds more than one kind, such as `.claude/settings.json`, appears under each kind that writes to it.
+- Support states come from the [capability matrix](@/docs/targets/_index.md#capability-matrix).
+- Paths come from a real sync of one sample spec per kind. CI fails when either drifts from the adapters.
+- File formats come from each path's extension.
+- A file that holds several kinds, such as `.claude/settings.json`, appears under each kind that writes to it.
 
-This page compares output files, not how each tool behaves once it reads them. Open a target page for field-level caveats and the config keys an Opt-in kind needs.
+This page compares output files, not how each tool behaves once it reads them. Each target page lists field-level caveats and the config keys an Opt-in kind needs.
