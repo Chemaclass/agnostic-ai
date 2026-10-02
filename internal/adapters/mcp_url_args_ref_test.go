@@ -318,6 +318,22 @@ func TestMCPURLArgsRefs_EmitChecksOnlyTheEffectiveTransport(t *testing.T) {
 			t.Errorf("unused args must not leave the server out:\n%s", notes)
 		}
 	})
+	t.Run("qoder streamable-http url is checked", func(t *testing.T) {
+		out, notes := emitMCPEntries(t, "qoder", mcpEntry("api", map[string]any{
+			"type": "streamable-http", "url": "https://${HOST}/mcp",
+		}))
+		if strings.Contains(out, "${HOST}") || !strings.Contains(notes, "sync leaves the server out") {
+			t.Errorf("qoder has no url form, so the server is left out:\n%s\n%s", out, notes)
+		}
+	})
+	t.Run("continue streamable-http url default is checked", func(t *testing.T) {
+		out, notes := emitMCPEntries(t, "continue", mcpEntry("api", map[string]any{
+			"type": "streamable-http", "url": "https://${HOST:-example.com}/mcp",
+		}))
+		if strings.Contains(out, "HOST") || !strings.Contains(notes, "sync leaves the server out") {
+			t.Errorf("continue documents no default, so the server is left out:\n%s\n%s", out, notes)
+		}
+	})
 	t.Run("zed stdio server ignores an unused url", func(t *testing.T) {
 		out, notes := emitMCPEntries(t, "zed", mcpEntry("gh", map[string]any{
 			"command": "gh-mcp", "url": "https://${HOST}/mcp",

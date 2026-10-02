@@ -258,9 +258,16 @@ func (v MCPLaunchView) emittedLaunchValues(target string, meta map[string]any) m
 	if v.Resolved {
 		base = ResolveMeta(meta, target)
 	}
+	// Writers spell remote transports many ways (http, sse,
+	// streamable-http, ...), so anything not stdio counts as remote.
 	field := "args"
 	switch transport, _ := base["type"].(string); transport {
-	case "http", "sse", "ws", "remote":
+	case "stdio", "local":
+	case "":
+		if _, hasCommand := base["command"]; !hasCommand && base["url"] != nil {
+			field = "url"
+		}
+	default:
 		field = "url"
 	}
 	out := map[string][]string{field: launchStrings(base[field])}
