@@ -40,8 +40,8 @@ var mcpEnvRefTargets = map[string]mcpEnvRefForms{
 	"openhands": {env: spec.EnvRefDollar, headers: spec.EnvRefDollar, url: spec.EnvRefDollar, args: spec.EnvRefDollar, defaults: true},
 	"factory":   {env: spec.EnvRefDollar, headers: spec.EnvRefDollar},
 	"kiro":      {env: spec.EnvRefDollar, headers: spec.EnvRefDollar},
-	// url, args: https://geminicli.com/docs/reference/configuration (string values in settings.json)
-	"gemini": {env: spec.EnvRefDollar, url: spec.EnvRefDollar, args: spec.EnvRefDollar, reading: spec.EnvRefReading{Unbraced: true, Percent: true}},
+	// https://geminicli.com/docs/reference/configuration: every string value in settings.json, defaults included
+	"gemini": {env: spec.EnvRefDollar, headers: spec.EnvRefDollar, url: spec.EnvRefDollar, args: spec.EnvRefDollar, defaults: true, reading: spec.EnvRefReading{Unbraced: true, Percent: true}},
 	// url: https://ampcode.com/docs/customize/mcp
 	"amp": {headers: spec.EnvRefDollar, url: spec.EnvRefDollar},
 	// url, args: https://cursor.com/docs/mcp#config-interpolation

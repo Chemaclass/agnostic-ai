@@ -163,16 +163,16 @@ func TestMCPEnvRefs_TargetWithoutFormDropsTheKey(t *testing.T) {
 	}
 }
 
-func TestMCPEnvRefs_GeminiKeepsEnvAndDropsHeaders(t *testing.T) {
+func TestMCPEnvRefs_GeminiKeepsEnvAndHeaders(t *testing.T) {
 	out, notes := emitEnvRefs(t, "gemini")
 	if !strings.Contains(out, `"GITHUB_TOKEN": "${GITHUB_TOKEN}"`) {
 		t.Errorf("gemini expands env references:\n%s", out)
 	}
-	if strings.Contains(out, "API_KEY") {
-		t.Errorf("gemini documents no header expansion:\n%s", out)
+	if !strings.Contains(out, `"Authorization": "Bearer ${API_KEY}"`) {
+		t.Errorf("gemini expands every settings string, headers included:\n%s", out)
 	}
-	if !strings.Contains(notes, "`headers.Authorization`") {
-		t.Errorf("no note for the dropped header:\n%s", notes)
+	if strings.Contains(notes, "`headers.Authorization`") {
+		t.Errorf("no note expected for a header gemini expands:\n%s", notes)
 	}
 }
 
@@ -214,7 +214,7 @@ func TestMCPEnvRefs_DefaultsAndUnknownTokens(t *testing.T) {
 		"openhands": {"BASE", "TOKEN"},
 		"cursor":    {"TOKEN"},
 		"factory":   {"TOKEN"},
-		"gemini":    {"TOKEN"},
+		"gemini":    {"BASE", "TOKEN"},
 	} {
 		t.Run(target, func(t *testing.T) {
 			var notes bytes.Buffer

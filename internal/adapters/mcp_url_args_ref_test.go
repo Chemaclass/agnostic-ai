@@ -141,13 +141,13 @@ func TestMCPURLArgsRefs_DefaultOnlyWhereDocumented(t *testing.T) {
 		"type": "http",
 		"url":  "${API_BASE:-https://secret.example.com}/mcp",
 	}}}
-	for _, target := range []string{"claude", "crush", "openhands"} {
+	for _, target := range []string{"claude", "crush", "openhands", "gemini"} {
 		kept, _ := rewriteURLArgs(t, target, mcps)
 		if got := kept["api"]["url"]; got != "${API_BASE:-https://secret.example.com}/mcp" {
 			t.Errorf("%s documents defaults: url = %v", target, got)
 		}
 	}
-	for _, target := range []string{"cursor", "gemini", "amp"} {
+	for _, target := range []string{"cursor", "amp"} {
 		kept, notes := rewriteURLArgs(t, target, mcps)
 		if _, ok := kept["api"]; ok {
 			t.Errorf("%s documents no default, so the server must be left out", target)
