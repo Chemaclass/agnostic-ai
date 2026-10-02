@@ -77,15 +77,14 @@ headers:
   Authorization: Bearer ${API_KEY}
 ```
 
-`${NAME:-default}` falls back to `default` when `NAME` is unset. Only Claude Code, Crush, and OpenHands document that form. Any other `${...}`, such as `${env:NAME}` or `${input:id}`, is not a reference in a spec.
+`${NAME:-default}` falls back to `default` when `NAME` is unset. Only Claude Code, Crush, OpenHands, and Gemini document that form. Any other `${...}`, such as `${env:NAME}` or `${input:id}`, is not a reference in a spec.
 
-Sync writes each tool's own form. Where a tool cannot read a reference in that field, sync leaves the key out and prints a note naming the server, the key, and the variable. It never writes the reference as plain text. That covers a whole target with no form, Gemini headers, Amp `env`, a `${NAME:-default}` outside the three tools above, and any other `${...}`. A literal value is written as it is.
+Sync writes each tool's own form. Where a tool cannot read a reference in that field, sync leaves the key out and prints a note naming the server, the key, and the variable. It never writes the reference as plain text. That covers a whole target with no form, Amp `env`, a `${NAME:-default}` outside the four tools above, and any other `${...}`. A literal value is written as it is.
 
 | Target | `env` | `headers` |
 |--------|-------|-----------|
-| [Claude Code](@/docs/targets/claude.md), [Crush](@/docs/targets/crush.md), [OpenHands](@/docs/targets/openhands.md) | `${NAME}`, `${NAME:-default}` | `${NAME}`, `${NAME:-default}` |
+| [Claude Code](@/docs/targets/claude.md), [Crush](@/docs/targets/crush.md), [OpenHands](@/docs/targets/openhands.md), [Gemini](@/docs/targets/gemini.md) | `${NAME}`, `${NAME:-default}` | `${NAME}`, `${NAME:-default}` |
 | [Factory](@/docs/targets/factory.md), [Kiro](@/docs/targets/kiro.md) | `${NAME}` | `${NAME}` |
-| [Gemini](@/docs/targets/gemini.md) | `${NAME}` | Left out |
 | [Amp](@/docs/targets/amp.md) | Left out | `${NAME}` |
 | [Cursor](@/docs/targets/cursor.md), [Windsurf](@/docs/targets/windsurf.md) | `${env:NAME}` | `${env:NAME}` |
 | [OpenCode](@/docs/targets/opencode.md) | `{env:NAME}` | `{env:NAME}` |
@@ -106,14 +105,13 @@ url: https://${API_HOST}/mcp
 args: [--token, "${GH_TOKEN}"]
 ```
 
-Sync writes each tool's own form. A tool that reads no reference in that field gets no server at all, and the note names the server, the field, and the variable: dropping one argument would change the command. Sync checks only the field the tool writes for the server's transport, after any `x-<target>` override that tool applies. A `${NAME:-default}` follows the same rule outside Claude Code, Crush, and OpenHands.
+Sync writes each tool's own form. A tool that reads no reference in that field gets no server at all, and the note names the server, the field, and the variable: dropping one argument would change the command. Sync checks only the field the tool writes for the server's transport, after any `x-<target>` override that tool applies. A `${NAME:-default}` follows the same rule outside Claude Code, Crush, OpenHands, and Gemini.
 
 `${workspaceFolder}`, `${workspaceFolderBasename}`, `${userHome}`, and `${pathSeparator}` are tool variables, not environment references, and stay as written. So does any other `${...}`, such as `${input:id}`, and every literal URL or argument.
 
 | Target | `url` | `args` |
 |--------|-------|--------|
-| [Claude Code](@/docs/targets/claude.md), [Crush](@/docs/targets/crush.md), [OpenHands](@/docs/targets/openhands.md) | `${NAME}`, `${NAME:-default}` | `${NAME}`, `${NAME:-default}` |
-| [Gemini](@/docs/targets/gemini.md) | `${NAME}` | `${NAME}` |
+| [Claude Code](@/docs/targets/claude.md), [Crush](@/docs/targets/crush.md), [OpenHands](@/docs/targets/openhands.md), [Gemini](@/docs/targets/gemini.md) | `${NAME}`, `${NAME:-default}` | `${NAME}`, `${NAME:-default}` |
 | [Amp](@/docs/targets/amp.md) | `${NAME}` | Server left out |
 | [Cursor](@/docs/targets/cursor.md), [Windsurf](@/docs/targets/windsurf.md) | `${env:NAME}` | `${env:NAME}` |
 | [OpenCode](@/docs/targets/opencode.md) | `{env:NAME}` | `{env:NAME}` |
