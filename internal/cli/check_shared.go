@@ -8,7 +8,7 @@ import (
 )
 
 // foldSharedDrift lists each drifted path under the first report that holds
-// it. Several targets read one file, such as .agents/skills/<name>/SKILL.md,
+// it with the same content. Several targets read one file, such as .agents/skills/<name>/SKILL.md,
 // so a per-target listing repeats it. Later targets go into the first
 // report's sharedWith, and a report left with no drift is dropped. The
 // printers use the result; JSON and --fix keep the per-target reports.
@@ -21,9 +21,11 @@ func foldSharedDrift(reports []driftReport) []driftReport {
 			continue
 		}
 		idx := len(out)
-		claim := func(path string) bool {
+		// variant tells apart renderings of one path that differ, which
+		// sync.collision-policy: prefer-spec allows, so each stays visible.
+		claim := func(path, variant string) bool {
 			key := filepath.ToSlash(filepath.Clean(path))
-			if i, ok := owner[key]; ok {
+			if i, ok := owner[key+"\x00"+variant]; ok {
 				if i == idx {
 					return false
 				}
@@ -33,13 +35,13 @@ func foldSharedDrift(reports []driftReport) []driftReport {
 				out[i].sharedWith[key] = append(out[i].sharedWith[key], r.Target)
 				return false
 			}
-			owner[key] = idx
+			owner[key+"\x00"+variant] = idx
 			return true
 		}
 		files := func(in []adapters.CapturedFile) []adapters.CapturedFile {
 			var kept []adapters.CapturedFile
 			for _, f := range in {
-				if claim(f.Path) {
+				if claim(f.Path, f.Content) {
 					kept = append(kept, f)
 				}
 			}
@@ -48,7 +50,7 @@ func foldSharedDrift(reports []driftReport) []driftReport {
 		paths := func(in []string) []string {
 			var kept []string
 			for _, p := range in {
-				if claim(p) {
+				if claim(p, "") {
 					kept = append(kept, p)
 				}
 			}
@@ -63,7 +65,7 @@ func foldSharedDrift(reports []driftReport) []driftReport {
 		folded.Leftover = paths(r.Leftover)
 		folded.Unmanaged = nil
 		for _, f := range r.Unmanaged {
-			if claim(f.Path) {
+			if claim(f.Path, "") {
 				folded.Unmanaged = append(folded.Unmanaged, f)
 			}
 		}

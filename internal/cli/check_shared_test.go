@@ -91,3 +91,19 @@ func TestSyncCheck_JSONKeepsOneRecordPerTarget(t *testing.T) {
 		t.Errorf("--json shape changed: shared file appears %d times:\n%s", n, got)
 	}
 }
+
+func TestSyncCheck_DiffKeepsDifferingRenderingsOfASharedPath(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex, amp]\nsync:\n  collision-policy: prefer-spec\n")
+	skill := filepath.Join(dir, ".agnostic-ai", "skills", "style", "SKILL.md")
+	writeFile(t, skill, "---\nname: style\ndescription: Style guide.\nx-codex:\n  description: Codex style.\nx-amp:\n  description: Amp style.\n---\n\nBody.\n")
+	writeFile(t, filepath.Join(dir, ".agents", "skills", "style", "SKILL.md"), "---\nname: style\ndescription: Neither.\n---\n\nBody.\n")
+	captureLogOut(t)
+
+	got := runCheck(t, "--diff")
+	if !strings.Contains(got, "Codex style.") || !strings.Contains(got, "Amp style.") {
+		t.Errorf("expected both renderings in the diff:\n%s", got)
+	}
+}
