@@ -108,6 +108,11 @@ func newImportCmd() *cobra.Command {
 			if dryRun {
 				return dryRunImport(args, nil, overwrite)
 			}
+			lock, err := acquireProjectLock(".", "import")
+			if err != nil {
+				return err
+			}
+			defer func() { _ = lock.Close() }()
 			return runImportArgs(args, overwrite)
 		},
 	}

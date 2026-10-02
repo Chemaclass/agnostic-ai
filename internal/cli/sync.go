@@ -104,6 +104,17 @@ func newSyncCmd() *cobra.Command {
 				tree = entered
 				defer tree.leave()
 			}
+			if !check && !plan && !dryRun {
+				command := "sync"
+				if watch {
+					command += " --watch"
+				}
+				lock, err := acquireProjectLock(".", command)
+				if err != nil {
+					return err
+				}
+				defer func() { _ = lock.Close() }()
+			}
 			cfg, _, err := loadProject(".")
 			if err != nil {
 				return err
@@ -121,7 +132,7 @@ func newSyncCmd() *cobra.Command {
 			if len(base) == 0 {
 				base = cfg.Targets
 			}
-			if !check && !dryRun && !allTargets && len(targets) == 0 && len(only) == 0 && len(except) == 0 {
+			if !check && !plan && !dryRun && !allTargets && len(targets) == 0 && len(only) == 0 && len(except) == 0 {
 				if shouldPromptTargetSelection(".", cfg) {
 					picked, err := firstSyncTargetSelection(".", cmd.InOrStdin(), cmd.OutOrStdout())
 					if err != nil {

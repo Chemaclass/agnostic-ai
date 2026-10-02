@@ -59,16 +59,23 @@ func TestSync_FailedIgnoreWriteRestoresGitignoreOfSweptOrphan(t *testing.T) {
 	}
 }
 
-func TestSync_FailedIgnoreWriteRemovesTheGitignoreItCreated(t *testing.T) {
-	testutil.TempCwd(t)
+func TestSync_FailedIgnoreWriteKeepsOnlyRuntimeIgnores(t *testing.T) {
+	dir, _ := gitRepo(t)
+	testutil.Chdir(t, dir)
 	silence(t)
 	captureLogOut(t)
 	mustWriteFile(t, "agnostic-ai.yaml", ignoreRollbackConfig)
 
 	ignoreRollbackFail(t, []string{"sync"})
 
-	if _, err := os.Lstat(".gitignore"); !os.IsNotExist(err) {
-		t.Errorf("failed sync left the .gitignore it created: %v", err)
+	if !gitIgnored(t, dir, filepath.Join(defaultBaseDir, projectLockName)) {
+		t.Error("failed sync left its persistent command lock visible to Git")
+	}
+	if strings.Contains(readFile(t, ".gitignore"), "/AGENTS.md\n") {
+		t.Error("failed sync left an ignore entry for its rolled-back output")
+	}
+	if fileExists("AGENTS.md") {
+		t.Error("failed sync left its generated output")
 	}
 }
 

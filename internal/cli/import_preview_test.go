@@ -184,9 +184,8 @@ func TestImport_PreviewFinalBytesMatchRealImport(t *testing.T) {
 		}
 	}
 	for p, v := range after {
-		// The state file records what import wrote; it is not an import
-		// output the preview plans.
-		if before[p] == v || strings.HasPrefix(v, "<dir") || filepath.ToSlash(p) == ".agnostic-ai/.sync-state" {
+		// Runtime state is separate from the import output the preview plans.
+		if before[p] == v || strings.HasPrefix(v, "<dir") || filepath.ToSlash(p) == ".agnostic-ai/.sync-state" || filepath.ToSlash(p) == ".agnostic-ai/"+projectLockName || filepath.ToSlash(p) == ".gitignore" {
 			continue
 		}
 		if !planned[p] {

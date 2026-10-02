@@ -43,6 +43,8 @@ agnostic-ai sync --check
 
 `init` selects your tools. `new` creates your first rule under `.agnostic-ai/`; replace its TODO text before syncing. `AGNOSTIC_AI.md` is your editable project guidance; sync creates a short template and keeps an existing file. Generated files such as `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules/` are outputs. Keep the specs as your source of truth. Set `gitignore.ignore-worktree-include: true` to keep Claude's managed `.worktreeinclude` out of Git.
 
+`sync`, `import`, `use`, and `init` take a project lock. A second writer stops and names the running command; retry when it finishes. Read-only checks and previews can still run.
+
 Run `agnostic-ai install-hook --post-checkout` to regenerate ignored tool files after checkouts and pulls that merge. If `sync --untrack` removes committed outputs from Git, install these hooks in each clone before pulling, or run `agnostic-ai sync` after pulling. See [Git hooks](https://agnostic-ai.org/docs/git-hooks/#regenerate-on-checkout).
 
 A rule with `scope: src/a` and `globs: tests/a/**` applies to both directories. Claude writes both path patterns; Codex writes a nested `AGENTS.md` in each directory. See [scoped context](https://agnostic-ai.org/docs/scoped-context/) for selector limits and migration from the earlier intersection behavior. Rule body headings nest beneath each rule section in merged instruction files; fenced code stays as written.

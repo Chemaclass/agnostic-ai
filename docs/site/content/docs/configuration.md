@@ -516,7 +516,7 @@ The block sits between `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai 
 
 Claude Code builds a worktree from a checkout with no gitignored files. That covers a CLI `--worktree`, a subagent's worktree, and a Desktop worktree, and Desktop runs no `WorktreeCreate` hook. Claude Code then copies the gitignored files that [`.worktreeinclude`](https://code.claude.com/docs/en/worktrees#copy-gitignored-files-into-worktrees) lists from the main checkout.
 
-So with `claude` in `targets`, sync keeps the block in `.worktreeinclude` too, without `.sync-state`, Claude worktree directories, or the task lock. The local layer and packs come along, so the worktree renders what the main checkout does. Its first `sync --keep-edits` rewrites a copied output its specs no longer match.
+So with `claude` in `targets`, sync keeps the block in `.worktreeinclude` too, without `.sync-state`, `.command-lock`, Claude worktree directories, or the task lock. The local layer and packs come along, so the worktree renders what the main checkout does. Its first `sync --keep-edits` rewrites a copied output its specs no longer match.
 
 - Set `gitignore.ignore-worktree-include: true` to keep the managed file out of Git. It then stops appearing under files to commit. If the file is already tracked, run `agnostic-ai sync --untrack` to remove it from the index and keep the file.
 - Set `gitignore.worktree-include: false` to manage the file yourself. Sync then removes only its own block.
@@ -529,7 +529,7 @@ A fresh clone or `git worktree` lacks these paths until `sync` runs. See [checko
 - Files collapse to their generated subdirectory (`/.claude/rules/`), never higher, so siblings such as `.claude/settings.json` stay visible.
 - A per-kind dir such as `outputs.<target>.rules-dir` collapses at the dir itself.
 - Output under a rule or review `scope` stays one line per file (`/services/api/AGENTS.md`), so new files in that directory are not ignored.
-- The block always holds `agnostic-ai.local.yaml`, `/.agnostic-ai/.sync-state`, `/.agnostic-ai/packs/`, and `/.agnostic-ai/local/`. `init` seeds them even with `gitignore.enabled: false`. `init`, `sync`, or `packs add` moves old loose copies into the block.
+- The block always holds `agnostic-ai.local.yaml`, `/.agnostic-ai/.command-lock`, `/.agnostic-ai/.sync-state`, `/.agnostic-ai/packs/`, and `/.agnostic-ai/local/`. `init` seeds them even with `gitignore.enabled: false`. `init`, `sync`, or `packs add` moves old loose copies into the block.
 - A partial sync keeps every configured target's entries. When `.sync-state` lacks the skipped targets' outputs, as in a fresh clone, sync renders those targets in memory to list them.
 - Kept orphans stay ignored until removed, even when a deleted spec narrows the emitted paths.
 - A target can add entries of its own, such as [Claude Code](@/docs/targets/claude.md)'s local settings.

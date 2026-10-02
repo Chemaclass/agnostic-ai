@@ -45,8 +45,8 @@ func TestSync_WorktreeIncludeMirrorsTheManagedBlock(t *testing.T) {
 			t.Errorf(".worktreeinclude lacks %q:\n%s", want, data)
 		}
 	}
-	if strings.Contains(string(data), ".sync-state") || strings.Contains(string(data), "Not committed") {
-		t.Errorf(".worktreeinclude carries the ledger or the gitignore hint:\n%s", data)
+	if strings.Contains(string(data), ".sync-state") || strings.Contains(string(data), projectLockName) || strings.Contains(string(data), "Not committed") {
+		t.Errorf(".worktreeinclude carries runtime state or the gitignore hint:\n%s", data)
 	}
 	for _, line := range strings.Split(string(data), "\n") {
 		if strings.HasPrefix(line, "/") && !strings.Contains(string(gitignore), line+"\n") {

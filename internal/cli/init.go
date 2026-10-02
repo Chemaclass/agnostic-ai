@@ -102,6 +102,13 @@ func newInitCmd() *cobra.Command {
 					return err
 				}
 			}
+			if !dryRun {
+				lock, err := acquireProjectLock(".", "init")
+				if err != nil {
+					return err
+				}
+				defer func() { _ = lock.Close() }()
+			}
 			targets := allTargetNames()
 			if !all {
 				detected := detectExistingTargets(".")

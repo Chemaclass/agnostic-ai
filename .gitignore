@@ -118,7 +118,8 @@ WARP.md
 /.kilocodeignore
 /.kiroignore
 /.windsurfignore
-# Local sync state written by `agnostic-ai sync`.
+# Local runtime state written by agnostic-ai.
+.agnostic-ai/.command-lock
 .agnostic-ai/.sync-state
 # Per-target audit fixtures need to ship their emitted tree intact so
 # the kit-sink golden snapshot replays in CI.
