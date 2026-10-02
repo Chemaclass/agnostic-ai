@@ -67,7 +67,7 @@ name: custom
 description: Draft the release notes.
 model:
   claude: sonnet
-  codex: gpt-5.5
+  codex: gpt-5.6-terra
 ---
 Read the merged PRs since the last tag.
 ```
@@ -90,7 +90,7 @@ name: custom
 description: Draft the release notes.
 model:
   claude: opus
-  codex: gpt-5.5
+  codex: gpt-5.6-terra
 ---
 Read the merged PRs since the last tag.
 ```
