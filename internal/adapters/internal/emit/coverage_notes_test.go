@@ -394,3 +394,28 @@ func TestFieldNoOp_ParentNoteAndFalseFlagDoNotHideANote(t *testing.T) {
 		t.Error("auto-port: false recorded as a set field")
 	}
 }
+
+// An omitted entry outlives a flush or a discard, so the list of what a
+// tool reads after the notes print still skips it (#1666).
+func TestNoteEntryOmitted_LastsUntilReset(t *testing.T) {
+	swapWarnerForNotes(t)
+	NoteEntryOmitted("zed", spec.KindMCP, "gh")
+
+	FlushCoverageNotes()
+	DiscardCoverageNotes()
+	restore := SetAsideNotes()
+	if OmittedEntry("zed", spec.KindMCP, "gh") {
+		t.Error("a capture sees the omission it set aside")
+	}
+	restore()
+	if !OmittedEntry("zed", spec.KindMCP, "gh") {
+		t.Error("the omission did not outlive the flush, discard, and capture")
+	}
+	if OmittedEntry("claude", spec.KindMCP, "gh") || OmittedEntry("zed", spec.KindSkill, "gh") {
+		t.Error("an omission leaked to another target or kind")
+	}
+	ResetCoverageNotes()
+	if OmittedEntry("zed", spec.KindMCP, "gh") {
+		t.Error("reset kept the omission")
+	}
+}

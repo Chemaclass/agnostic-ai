@@ -216,10 +216,12 @@ func emitMCPServers(sess *emit.Session, mcps []spec.Entry, dir string, dryRun bo
 		transport := mcpTransport(m)
 		if !mappedTransport(transport) {
 			unmapped++
+			emit.NoteEntryOmitted(target, spec.KindMCP, m.Name)
 			continue
 		}
 		if !hasRequiredField(m, transport) {
 			incomplete++
+			emit.NoteEntryOmitted(target, spec.KindMCP, m.Name)
 			continue
 		}
 		if transport != "stdio" && len(emit.StringMap(m.Meta["env"])) > 0 {

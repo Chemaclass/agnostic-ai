@@ -127,6 +127,7 @@ func RewriteMCPEnvRefs(target string, view MCPLaunchView, mcps []spec.Entry) []s
 		if field, token, why, ok := unwritableLaunchRef(target, view, e.Meta); ok {
 			NoteFieldNoOp(target, spec.KindMCP, field, 1,
 				fmt.Sprintf("server %s reads %s in `%s`: %s, so sync leaves the server out instead of writing the reference as text", e.Name, token.Display(), field, why))
+			NoteEntryOmitted(target, spec.KindMCP, e.Name)
 			continue
 		}
 		if hasMCPEnvRef(e.Meta) || hasMCPEnvRef(xBlock(e.Meta, target)) {

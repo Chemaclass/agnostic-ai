@@ -36,6 +36,7 @@ func buildMCPDocument(mcps []spec.Entry) (string, error) {
 		transport, _ := e.Meta["type"].(string)
 		if transport == "ws" {
 			dropped++
+			emit.NoteEntryOmitted(target, spec.KindMCP, e.Name)
 			continue
 		}
 		entry := buildMCPServer(e)
