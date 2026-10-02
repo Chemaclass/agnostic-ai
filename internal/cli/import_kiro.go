@@ -225,7 +225,19 @@ func importKiroSteeringFile(root, path, filename string, src config.Sources, c *
 		}
 		c.skills++
 	default:
+		// A rule spec has no on-demand mode, so importing one would make
+		// sync rewrite it as `inclusion: always`.
 		out := filepath.Join(importSourcePath(root, src.Rules), name+".md")
+		if mode, _ := meta["inclusion"].(string); mode == "manual" || mode == "auto" {
+			if _, err := os.Stat(out); err == nil {
+				summaryf("  ! skipped %s: inclusion: %s has no rule equivalent, and sync will overwrite it with rule %s; rename one of them\n",
+					filepath.ToSlash(path), mode, filepath.ToSlash(out))
+				return nil
+			}
+			summaryf("  ! skipped %s: inclusion: %s has no rule equivalent; keep it as a hand-written steering file\n",
+				filepath.ToSlash(path), mode)
+			return nil
+		}
 		// A list fileMatchPattern reads back as the comma form sync splits.
 		globs := spec.JoinGlobs(meta["fileMatchPattern"])
 		if err := writeRuleWithGlobs(out, name, globs, body); err != nil {

@@ -215,3 +215,59 @@ func keys(m map[string]string) []string {
 	}
 	return out
 }
+
+func TestImportKiro_SkipsOnDemandSteeringRules(t *testing.T) {
+	for _, mode := range []string{"manual", "auto"} {
+		t.Run(mode, func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.Chdir(t, dir)
+			silence(t)
+			var logged strings.Builder
+			prev := logOut
+			logOut = &logged
+			defer func() { logOut = prev }()
+
+			writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [kiro]\n")
+			writeFile(t, filepath.Join(dir, ".kiro", "steering", "troubleshooting.md"),
+				"---\ninclusion: "+mode+"\ndescription: Debugging steps\n---\n\nTroubleshooting notes.\n")
+			writeFile(t, filepath.Join(dir, ".kiro", "steering", "style.md"),
+				"---\ninclusion: always\n---\n\nStyle rules.\n")
+
+			execCLI(t, "import", "kiro")
+
+			if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "rules", "troubleshooting.md")); !os.IsNotExist(err) {
+				t.Errorf("expected the %s steering file to stay out of the always-on rules, stat err=%v", mode, err)
+			}
+			if !strings.Contains(readFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md")), "Style rules.") {
+				t.Error("expected the always steering file to import as a rule")
+			}
+			if !strings.Contains(logged.String(), "troubleshooting.md") || !strings.Contains(logged.String(), "inclusion: "+mode) {
+				t.Errorf("expected a skip note naming the file and its mode, got:\n%s", logged.String())
+			}
+		})
+	}
+}
+
+func TestImportKiro_OnDemandSteeringWarnsWhenARuleWouldOverwriteIt(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	var logged strings.Builder
+	prev := logOut
+	logOut = &logged
+	defer func() { logOut = prev }()
+
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [kiro]\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "troubleshooting.md"), "---\nname: troubleshooting\n---\n\nOld rule.\n")
+	writeFile(t, filepath.Join(dir, ".kiro", "steering", "troubleshooting.md"),
+		"---\ninclusion: manual\n---\n\nTroubleshooting notes.\n")
+
+	execCLI(t, "import", "kiro")
+
+	if !strings.Contains(logged.String(), "sync will overwrite it") {
+		t.Errorf("expected a warning that the same-named rule overwrites the steering file, got:\n%s", logged.String())
+	}
+	if !strings.Contains(readFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "troubleshooting.md")), "Old rule.") {
+		t.Error("expected the existing rule source to stay untouched")
+	}
+}
