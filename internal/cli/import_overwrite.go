@@ -43,7 +43,8 @@ const (
 
 // syncedSpecFileSums returns the spec file sums after a sync that rendered
 // b for targets. A spec file still holding the bytes an earlier sync
-// rendered for another target keeps that target. An import's sum
+// rendered for a target this one did not cover keeps that target, also
+// when no covered target reads it. An import's sum
 // outlives the sync for a file sync does not render, such as an overlay.
 func syncedSpecFileSums(root string, prev map[string]specFileSum, b spec.Bundle, targets []string) map[string]specFileSum {
 	next := map[string]specFileSum{}
@@ -65,14 +66,26 @@ func syncedSpecFileSums(root string, prev map[string]specFileSum, b spec.Bundle,
 			}
 		}
 	}
+	// A target this sync did not cover still holds what an earlier sync
+	// wrote for it, while the spec file keeps those bytes.
+	uncovered := func(old specFileSum) []string {
+		return slices.DeleteFunc(slices.Clone(old.Targets), func(t string) bool { return slices.Contains(targets, t) })
+	}
 	for path, old := range prev {
 		rec, ok := next[path]
 		switch {
 		case !ok && old.By == specSumByImport:
 			next[path] = old
+		case !ok && old.By == specSumBySync:
+			kept := uncovered(old)
+			data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(path)))
+			if len(kept) > 0 && err == nil && sha256Hex(data) == old.Sum {
+				old.Targets = kept
+				next[path] = old
+			}
 		case ok && old.By == specSumBySync && old.Sum == rec.Sum:
-			for _, t := range old.Targets {
-				if !slices.Contains(targets, t) && !slices.Contains(rec.Targets, t) {
+			for _, t := range uncovered(old) {
+				if !slices.Contains(rec.Targets, t) {
 					rec.Targets = append(rec.Targets, t)
 				}
 			}

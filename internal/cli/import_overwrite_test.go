@@ -641,3 +641,26 @@ func TestImport_StopsBeforeReplacingASkillThroughALinkedFolder(t *testing.T) {
 		t.Errorf("shared skill = %q, want it untouched", got)
 	}
 }
+
+// A sync of one target keeps what an earlier sync wrote for the others,
+// so cursor's own edit to a cursor-only rule still comes back. Codex
+// would merge a skill rather than replace it, so cursor shows it.
+func TestImport_PartialSyncKeepsWhatAnEarlierSyncWroteForOtherTools(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, cursor]\n")
+	mustWriteFile(t, ".agnostic-ai/rules/review.md", "---\nname: review\ndescription: Mine.\ntargets: [cursor]\n---\nMine\n")
+	runSyncOK(t)
+	if out, err := runCLI(t, "sync", "--only", "claude"); err != nil {
+		t.Fatalf("sync --only claude: %v\n%s", err, out)
+	}
+	native := ".cursor/rules/review.mdc"
+	mustWriteFile(t, native, strings.Replace(readFile(t, native), "Mine", "Mine, edited in cursor", 1))
+
+	if out, err := runCLI(t, "import", "cursor"); err != nil {
+		t.Fatalf("import cursor after a partial sync: %v\n%s", err, out)
+	}
+	if got := readFile(t, ".agnostic-ai/rules/review.md"); !strings.Contains(got, "edited in cursor") {
+		t.Errorf("review rule = %q, want cursor's edit", got)
+	}
+}
