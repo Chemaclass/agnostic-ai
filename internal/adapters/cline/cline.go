@@ -68,7 +68,8 @@
 // on the next `import cline` and double itself on the next sync, since
 // nothing downstream of a native agent file expects to strip one out.
 //
-// A rule that declares `alwaysApply: false` narrows through Cline's one
+// A rule that declares `alwaysApply: false`, or sets narrower globs
+// without it, narrows through Cline's one
 // conditional, `paths`: "Currently, `paths` is the supported
 // conditional. It takes an array of glob patterns"
 // (docs.cline.bot/customization/cline-rules). Explicit globs win over

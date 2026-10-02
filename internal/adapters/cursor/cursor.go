@@ -1,7 +1,7 @@
 // Package cursor emits Cursor editor configs.
 //
-// Rules emit as .cursor/rules/*.mdc with alwaysApply=true (frontmatter
-// override honored). Agents emit natively as Cursor subagents at
+// Rules emit as .cursor/rules/*.mdc with alwaysApply=true, or false for a
+// rule with narrower globs (frontmatter override honored). Agents emit natively as Cursor subagents at
 // .cursor/agents/<name>.md (Cursor 2.4+); Cursor also reads .claude/agents/
 // and .codex/agents/, and .cursor/ wins a name clash. Skills emit natively
 // as one folder per skill under .cursor/skills/<name>/SKILL.md (the Agent
@@ -519,16 +519,13 @@ func (Adapter) AlwaysOnRule(r spec.Entry) bool {
 	return alwaysApplies(emit.ResolveMeta(r.Meta, target))
 }
 
-// alwaysApplies reads `alwaysApply`, true when the spec leaves it unset.
+// alwaysApplies reads `alwaysApply`; see emit.RuleAlwaysApplies.
 func alwaysApplies(m map[string]any) bool {
-	if v, ok := m["alwaysApply"].(bool); ok {
-		return v
-	}
-	return true
+	return emit.RuleAlwaysApplies(m)
 }
 
 // mdc renders one rule as a `.mdc` file. Rules default to
-// `alwaysApply: true`; the spec frontmatter overrides.
+// `alwaysApply: true`, or false with globs; the spec frontmatter overrides.
 func mdc(e spec.Entry) string {
 	m := emit.ResolveMeta(e.Meta, target)
 	desc, _ := m["description"].(string)

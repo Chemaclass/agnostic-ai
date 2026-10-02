@@ -408,6 +408,16 @@ func (e Entry) Globs() string {
 	return JoinGlobs(e.Meta["globs"])
 }
 
+// IsCatchAllGlobs reports whether a joined globs value matches every
+// file, so it carries no scoping intent.
+func IsCatchAllGlobs(g string) bool {
+	switch strings.TrimSpace(g) {
+	case "", "**/*", "*":
+		return true
+	}
+	return false
+}
+
 // JoinGlobs returns a `globs` value as the comma-separated string the
 // adapters read: a string as written, a YAML list of strings joined with
 // ",", so `["*.go", "*.mod"]` reads as `"*.go,*.mod"`. Any other value,

@@ -208,7 +208,7 @@ func translateCursorRule(name string, data []byte) ([]byte, error) {
 // carrying either back makes import->sync non-idempotent on the source.
 // Nil-valued keys are dropped too.
 func normalizeCursorRuleMeta(meta map[string]any) {
-	if g, ok := meta["globs"]; ok && isCatchAllGlobs(spec.JoinGlobs(g)) && spec.ValidGlobs(g) {
+	if g, ok := meta["globs"]; ok && spec.IsCatchAllGlobs(spec.JoinGlobs(g)) && spec.ValidGlobs(g) {
 		delete(meta, "globs")
 	}
 	for k, v := range meta {
@@ -216,18 +216,6 @@ func normalizeCursorRuleMeta(meta map[string]any) {
 			delete(meta, k)
 		}
 	}
-}
-
-// isCatchAllGlobs reports whether g targets every file, matching the
-// scope-routing convention (empty, `**/*`, or `*`). Such a glob carries
-// no scoping intent regardless of whether a human wrote it directly or
-// it is a leftover from a pre-#536 sync.
-func isCatchAllGlobs(g string) bool {
-	switch strings.TrimSpace(g) {
-	case "", "**/*", "*":
-		return true
-	}
-	return false
 }
 
 // splitMdcFrontmatter mirrors spec.splitFrontmatter for the import path.

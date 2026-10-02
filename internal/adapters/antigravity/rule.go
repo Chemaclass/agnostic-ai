@@ -134,8 +134,8 @@ func (Adapter) AlwaysOnRule(r spec.Entry) bool {
 // three fields (internal/adapters/windsurf/windsurf.go, #628), itself
 // mirroring cursor's `.mdc` renderer:
 //
-//	alwaysApply true or unset          -> always_on
-//	alwaysApply false + globs          -> glob
+//	alwaysApply true, or unset without globs -> always_on
+//	alwaysApply false or unset, + globs      -> glob
 //	alwaysApply false + description    -> model_decision
 //	alwaysApply false, neither         -> manual
 //
@@ -146,11 +146,9 @@ func (Adapter) AlwaysOnRule(r spec.Entry) bool {
 // together, docs/site/content/docs/spec-format/rules.md) stays
 // `always_on`: turning it into `trigger: glob` would only activate the
 // rule when the agent touches a matching file, not on every turn.
-// `alwaysApply` unset behaves the same as `true`: windsurf's own
-// `!ok || always` check and cursor's `always := true` default both
-// treat a missing key as always-on, so this adapter does too, and
-// `globs` alone (no `alwaysApply: false`) still resolves to
-// `always_on`. Every one of these four branches reaches a trigger with
+// `alwaysApply` unset is `false` on a rule with `globs` and `true`
+// otherwise (emit.RuleAlwaysApplies), the same in every tool with an
+// activation field. Every one of these four branches reaches a trigger with
 // no unmet vendor requirement, so none of them can set the invalid
 // return.
 //
@@ -180,11 +178,7 @@ func ruleTrigger(m map[string]any) (trigger, desc, globs string, invalid bool) {
 		return triggerManual, desc, "", true
 	}
 
-	always := true
-	if v, ok := m["alwaysApply"].(bool); ok {
-		always = v
-	}
-	if always {
+	if emit.RuleAlwaysApplies(m) {
 		return triggerAlwaysOn, desc, "", false
 	}
 	switch {
