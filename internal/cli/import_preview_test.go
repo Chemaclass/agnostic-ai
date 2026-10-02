@@ -166,7 +166,7 @@ func TestImport_PreviewFinalBytesMatchRealImport(t *testing.T) {
 
 	before := snapshotProject(t, realDir)
 	testutil.Chdir(t, realDir)
-	if _, err := runCLI(t, append([]string{"import"}, args...)...); err != nil {
+	if _, err := runCLI(t, append([]string{"import", "--overwrite"}, args...)...); err != nil {
 		t.Fatalf("real import: %v", err)
 	}
 	after := snapshotProject(t, realDir)
@@ -350,7 +350,7 @@ func TestRunImportInCopy_CopiesOnlyWhatAnImportCanRead(t *testing.T) {
 	}
 
 	var missing, copied []string
-	_, err := runImportInCopy([]string{"claude"}, nil, func(_, shadow string, _ *importRecorder) error {
+	_, err := runImportInCopy(func() error { return importArgs([]string{"claude"}) }, nil, func(_, shadow string, _ *importRecorder) error {
 		for _, p := range kept {
 			if _, err := os.Stat(filepath.Join(shadow, p)); err != nil {
 				missing = append(missing, p)

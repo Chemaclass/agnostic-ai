@@ -340,7 +340,7 @@ func TestImport_SharedHookKeepsNoFieldOfALocalHandlerInItsGroup(t *testing.T) {
 				t.Fatalf("sync: %v\n%s", err, out)
 			}
 
-			out := importCapturing(t, source)
+			out := importCapturing(t, source, "--overwrite")
 
 			for name, data := range sharedHookFiles(t) {
 				if name == "start.yaml" {

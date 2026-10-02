@@ -1047,7 +1047,7 @@ func TestImportFromClaude_ReadonlyOverridesSurviveSyncImportSync(t *testing.T) {
 			if c.edit != "" {
 				writeFile(t, native, "---\nname: reviewer\n"+c.edit+"---\nReview code.\n")
 			}
-			execCLI(t, "import", "claude")
+			execCLI(t, "import", "claude", "--overwrite")
 			if got := readFile(t, path); !strings.Contains(got, c.want) {
 				t.Errorf("canonical translation intent lost:\n%s", got)
 			}
@@ -1077,7 +1077,7 @@ func TestImportFromClaude_RemovingAgentFrontmatterKeepsOnlyTranslationIntent(t *
 	writeFile(t, ".agnostic-ai/agents/reviewer.md", "---\nname: reviewer\nreadonly: true\nmodel: sonnet\ntools: [Read]\n---\nReview code.\n")
 	execCLI(t, "sync")
 	writeFile(t, ".claude/agents/reviewer.md", "Review code.\n")
-	execCLI(t, "import", "claude")
+	execCLI(t, "import", "claude", "--overwrite")
 	canonical := readFile(t, ".agnostic-ai/agents/reviewer.md")
 	if !strings.Contains(canonical, "readonly: true") || !strings.Contains(canonical, "disallowedTools: null") {
 		t.Errorf("canonical translation intent lost:\n%s", canonical)
@@ -1114,7 +1114,7 @@ func TestImportFromClaude_AliasedReadonlyOptoutSurvivesSyncImportSync(t *testing
 	if strings.Contains(before, "disallowedTools:") {
 		t.Fatalf("initial alias optout was not applied:\n%s", before)
 	}
-	execCLI(t, "import", "claude")
+	execCLI(t, "import", "claude", "--overwrite")
 	canonical := readFile(t, ".agnostic-ai/agents/reviewer.md")
 	if !strings.Contains(canonical, "x-claude: {readonly: false}") || strings.Contains(canonical, "*opts") {
 		t.Errorf("aliased override was not preserved independently:\n%s", canonical)

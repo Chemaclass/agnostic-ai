@@ -103,7 +103,7 @@ func TestImport_DeletingAFieldTheTargetWritesRemovesItFromTheSpec(t *testing.T) 
 
 	execCLI(t, "sync")
 	writeFile(t, ".qoder/agents/rev.md", "---\nname: rev\ndescription: d\neffort: high\n---\n\nbody\n")
-	execCLI(t, "import", "qoder")
+	execCLI(t, "import", "qoder", "--overwrite")
 
 	got := readFile(t, ".agnostic-ai/agents/rev.md")
 	if strings.Contains(got, "model:") {
@@ -125,7 +125,7 @@ func TestImportFromClaude_RemovingRulePathsUnscopesTheSpec(t *testing.T) {
 
 	execCLI(t, "sync")
 	writeFile(t, ".claude/rules/go-style.md", "---\nname: go-style\ndescription: d\n---\n\nbody\n")
-	execCLI(t, "import", "claude")
+	execCLI(t, "import", "claude", "--overwrite")
 
 	if got := readFile(t, ".agnostic-ai/rules/go-style.md"); strings.Contains(got, "paths:") {
 		t.Errorf("import restored the scope the user removed:\n%s", got)
@@ -142,7 +142,7 @@ func TestImportFromCopilot_ChatmodeKeepsPortableOnlyAgentFields(t *testing.T) {
 	writeFile(t, ".agnostic-ai/agents/rev.md", "---\nname: rev\ndescription: old\neffort: high\nmemory: project\n---\n\nold body\n")
 	writeFile(t, ".github/chatmodes/rev.chatmode.md", "---\ndescription: new\ntools: [Read]\n---\n\nnew body\n")
 
-	execCLI(t, "import", "copilot")
+	execCLI(t, "import", "copilot", "--overwrite")
 
 	got := readFile(t, ".agnostic-ai/agents/rev.md")
 	for _, key := range []string{"effort:", "memory:"} {

@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- `import`, `init --from`, and `use` stop before replacing a spec with different content and list each one; `import --overwrite` replaces them (#1620).
 - **Breaking:** a rule with narrow `globs` and no `alwaysApply` loads on matching files in Cursor, Trae, Devin, Cline, and Antigravity, not on every file (#1597).
 - **Breaking:** an unknown config key, a misspelled target, or a bad `on-unsupported` value fails before sync writes anything, not silently (#1589).
 - `init` names what ignoring or committing generated files costs a team, and without a terminal says which it picked (#1615).

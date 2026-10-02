@@ -32,19 +32,25 @@ type importPreviewEntry struct {
 	sources  []string // sources that wrote it, in import order
 	conflict bool     // two or more sources proposed different bytes
 	winner   string   // source whose write a real import keeps
+	replaced bool     // a write replaced the file instead of merging into it
+	// overwrites marks an existing spec the import replaces with
+	// different content, which stops a real import without --overwrite.
+	overwrites bool
 }
 
 // importPreview is the plan an `import --dry-run --diff` run reports.
 type importPreview struct {
-	order   []string
-	entries []importPreviewEntry // sorted by path
+	order     []string
+	entries   []importPreviewEntry // sorted by path
+	overwrite bool                 // the import runs with --overwrite
 }
 
 // previewImport runs the import preview for args and prints the report.
 // An importer failure still prints what the other sources planned, then
 // returns the error, as a real multi-source import does.
-func previewImport(args []string) error {
+func previewImport(args []string, overwrite bool) error {
 	preview, err := planImportPreview(args)
+	preview.overwrite = overwrite
 	printImportPreview(os.Stdout, preview)
 	return err
 }
@@ -54,9 +60,16 @@ func previewImport(args []string) error {
 // the importer would write, sorted and listed once however many stages
 // write it, ending with a count. Equivalent in shape to `sync --plan`.
 // The summary prints even when an importer fails. prepare, when set,
-// runs in the copy before the import.
-func dryRunImport(args []string, prepare func() error) error {
-	rec, err := runImportInCopy(args, prepare, nil)
+// runs in the copy before the import. Existing specs the import would
+// replace follow the list, since a real run without overwrite stops on
+// them.
+func dryRunImport(args []string, prepare func() error, overwrite bool) error {
+	var overwrites []importPreviewEntry
+	rec, err := runImportInCopy(func() error { return importArgs(args) }, prepare, func(project, shadow string, rec *importRecorder) error {
+		preview, err := buildImportPreview(project, shadow, rec)
+		overwrites = preview.overwrites()
+		return err
+	})
 	paths := make([]string, 0, len(rec.writes))
 	for _, w := range rec.writes {
 		paths = append(paths, filepath.FromSlash(w.path))
@@ -66,6 +79,7 @@ func dryRunImport(args []string, prepare func() error) error {
 	for _, p := range paths {
 		fmt.Printf("  would write %s\n", p)
 	}
+	printImportOverwrites(os.Stdout, overwrites, overwrite)
 	fmt.Printf("dry-run: %d file(s) would be written\n", len(paths))
 	return err
 }
@@ -74,7 +88,7 @@ func dryRunImport(args []string, prepare func() error) error {
 // compares the result with the project.
 func planImportPreview(args []string) (importPreview, error) {
 	var preview importPreview
-	_, err := runImportInCopy(args, nil, func(project, shadow string, rec *importRecorder) error {
+	_, err := runImportInCopy(func() error { return importArgs(args) }, nil, func(project, shadow string, rec *importRecorder) error {
 		var err error
 		preview, err = buildImportPreview(project, shadow, rec)
 		return err
@@ -83,14 +97,14 @@ func planImportPreview(args []string) (importPreview, error) {
 }
 
 // runImportInCopy copies the working directory (without .git) into a
-// temporary directory, runs the real importers there with every write
+// temporary directory, runs the import there with every write
 // recorded, and calls inspect, when set, before the copy is removed. Running the
 // ordinary import is what keeps a dry-run equal to a real one: a later
 // stage reads what an earlier one wrote, frontmatter merges and fences
 // included. The project itself is never written. An inspect error wins
 // over an importer error. prepare, when set, runs in the copy first,
 // such as the scaffold `init --from` writes before it imports.
-func runImportInCopy(args []string, prepare func() error, inspect func(project, shadow string, rec *importRecorder) error) (*importRecorder, error) {
+func runImportInCopy(run func() error, prepare func() error, inspect func(project, shadow string, rec *importRecorder) error) (*importRecorder, error) {
 	rec := &importRecorder{}
 	project, err := os.Getwd()
 	if err != nil {
@@ -138,7 +152,7 @@ func runImportInCopy(args []string, prepare func() error, inspect func(project, 
 		importRecording, importSandbox, importSandboxOutsideFiles, importRunTree = nil, "", nil, nil
 	}()
 
-	runErr := runImportArgs(args)
+	runErr := run()
 	if inspect != nil {
 		if err := inspect(project, shadow, rec); err != nil {
 			return rec, err
@@ -166,7 +180,9 @@ func buildImportPreview(project, shadow string, rec *importRecorder) (importPrev
 		}
 		proposals[w.path][w.source] = w.data
 		e.winner = w.source
+		e.replaced = e.replaced || !w.merge
 	}
+	specDirs := importSpecDirs(shadow)
 	for path, e := range byPath {
 		native := filepath.FromSlash(path)
 		after, err := os.ReadFile(filepath.Join(shadow, native))
@@ -182,6 +198,8 @@ func buildImportPreview(project, shadow string, rec *importRecorder) (importPrev
 			return importPreview{}, fmt.Errorf("%s: %w", path, err)
 		}
 		e.conflict = distinctProposals(proposals[path]) > 1
+		e.overwrites = e.existed && e.replaced && !bytes.Equal(e.before, e.after) &&
+			path != agnosticMainFile && underAny(path, specDirs)
 		preview.entries = append(preview.entries, *e)
 	}
 	sort.Slice(preview.entries, func(i, j int) bool {
@@ -235,6 +253,7 @@ func printImportPreview(w io.Writer, p importPreview) {
 		_, _ = fmt.Fprintf(w, "  ! conflict %s: %s propose different content; %s (last) is kept\n",
 			e.path, strings.Join(e.sources, ", "), e.winner)
 	}
+	printImportOverwrites(w, p.overwrites(), p.overwrite)
 	for _, e := range p.entries {
 		if e.status() != "unchanged" {
 			_, _ = fmt.Fprint(w, importPreviewDiff(e))
@@ -540,4 +559,18 @@ func removeImportPreviewDir(dir string) {
 		return
 	}
 	_ = os.RemoveAll(dir)
+}
+
+// quietImport runs fn with standard output, standard error, and the
+// summary log discarded, so a preflight import prints nothing.
+func quietImport(fn func() error) error {
+	null, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = null.Close() }()
+	stdout, stderr, log := os.Stdout, os.Stderr, logOut
+	os.Stdout, os.Stderr, logOut = null, null, io.Discard
+	defer func() { os.Stdout, os.Stderr, logOut = stdout, stderr, log }()
+	return fn()
 }

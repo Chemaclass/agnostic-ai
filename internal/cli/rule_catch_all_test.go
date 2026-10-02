@@ -18,7 +18,7 @@ func TestSync_CatchAllGlobsRuleStaysAlwaysOnThroughImport(t *testing.T) {
 		t.Fatalf("catch-all rule not always-on:\n%s", got)
 	}
 
-	if out, err := runCLI(t, "import", "cursor"); err != nil {
+	if out, err := runCLI(t, "import", "cursor", "--overwrite"); err != nil {
 		t.Fatalf("import: %v\n%s", err, out)
 	}
 	runSyncOK(t)

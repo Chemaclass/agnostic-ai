@@ -20,6 +20,7 @@ agnostic-ai use claude codex cursor    # a team on several tools
 
 - In a project with no `agnostic-ai.yaml`, it creates one that enables the tools it detects plus the ones you name. It imports their instructions, skills, agents, hooks, and MCP servers into `.agnostic-ai/`, and asks about the `.gitignore` block as `init` does.
 - In an existing project, it adds each named tool to `targets` and first imports that tool's own config, such as a hand-written `AGENTS.md`, so the sync keeps it. A tool whose instructions file is in `sync.unmanaged` stops `use`, since importing it would copy that file to every tool; import it by hand instead.
+- If an import would replace an existing spec with different content, `use` stops before writing anything, lists each one, and names the `agnostic-ai import <tool> --overwrite` that replaces them.
 - If an import fails, `use` leaves that tool out of `targets` and names the command to retry. If `use` is interrupted before its imports finish, `sync` stops until `use` runs again.
 
 It then syncs and shows what each added tool now reads:
@@ -76,8 +77,10 @@ agnostic-ai import claude codex --dry-run --diff   # review content and conflict
 |---|---|
 | `--dry-run` | List every file the import would write, once each, without file bodies. Runs in a temporary copy of the project and writes nothing to it. |
 | `--diff` | With `--dry-run`, show each destination as `create`, `change`, or `unchanged`, the sources that wrote it, and a unified diff. Lists every destination two sources propose different content for, and the source a real import keeps (the last). A conflict is reported, not resolved: exit status stays 0. Requires `--dry-run`. |
+| `--overwrite` | Replace existing specs the import would change. Without it, see below. |
 
-- Writes only spec files under `sources:`. Run it after `init`; re-running overwrites by filename.
+- Writes only spec files under `sources:`. Run it after `init`.
+- An import that would replace an existing spec with different content stops before writing anything, lists each spec and the source that wanted it, and says to rename one to keep both or pass `--overwrite`. A spec with the same content is left alone. `.agnostic-ai/AGNOSTIC_AI.md` never stops it, since import adds sections to it. Only specs there before the run count, so in `import claude codex` a later source still replaces what an earlier one wrote. `--dry-run` lists the specs that would stop it. `init --from` stops the same way and names the `import --overwrite` to run next.
 - Nested config search skips git-ignored directories, directories with their own `.git`, and `node_modules/`.
 - A symlinked skill folder that links outside the project is skipped with a `skipped <path>` note.
 - An existing skill or agent spec keeps frontmatter keys the source tool has nowhere to put (such as Cursor's `argument-hint`). Deleting a key the tool does write is read as deliberate and reaches the spec (removing `model` from a Qoder agent removes it from the spec). Rules are rebuilt from the native file.

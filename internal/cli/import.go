@@ -46,7 +46,7 @@ func importSources() string {
 }
 
 func newImportCmd() *cobra.Command {
-	var dryRun, diff, global bool
+	var dryRun, diff, global, overwrite bool
 	cmd := &cobra.Command{
 		Use:   "import <source>...",
 		Short: "Import existing config from one or more AI CLIs into this project's source directories.",
@@ -56,7 +56,9 @@ func newImportCmd() *cobra.Command {
 			"`.agnostic-ai/AGNOSTIC_AI.md` the sections of its top-level instructions file it lacks. " +
 			"`--dry-run` runs the import in a temporary copy of the project (without .git) and " +
 			"lists the files it would write; the project stays untouched. Add `--diff` to show " +
-			"each proposed change, which sources wrote it, and where sources disagree.",
+			"each proposed change, which sources wrote it, and where sources disagree. " +
+			"An import that would replace an existing spec with different content stops before " +
+			"writing anything and lists each one; `--overwrite` replaces them.",
 		Example: `  # Migrate an existing Claude Code project
   agnostic-ai init
   agnostic-ai import claude
@@ -74,7 +76,10 @@ func newImportCmd() *cobra.Command {
   agnostic-ai import claude --dry-run
 
   # Review the proposed content and sources that compete for one file
-  agnostic-ai import claude codex --dry-run --diff`,
+  agnostic-ai import claude codex --dry-run --diff
+
+  # Replace existing specs that hold different content
+  agnostic-ai import claude --overwrite`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if global {
 				return nil
@@ -86,6 +91,9 @@ func newImportCmd() *cobra.Command {
 				if diff {
 					return errs.Coded(errs.CodeFlagConflict, "--global does not support --diff")
 				}
+				if overwrite {
+					return errs.Coded(errs.CodeFlagConflict, "--global does not support --overwrite")
+				}
 				return runImportGlobal(cmd, args, dryRun)
 			}
 			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
@@ -95,23 +103,38 @@ func newImportCmd() *cobra.Command {
 				return errs.Coded(errs.CodeFlagConflict, "--diff requires --dry-run")
 			}
 			if diff {
-				return previewImport(args)
+				return previewImport(args, overwrite)
 			}
 			if dryRun {
-				return dryRunImport(args, nil)
+				return dryRunImport(args, nil, overwrite)
 			}
-			return runImportArgs(args)
+			return runImportArgs(args, overwrite)
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Report which spec files would be written without touching disk.")
 	cmd.Flags().BoolVar(&global, "global", false, "Read the user settings and MCP files sync --global writes into specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai). Takes target names, or none for every supported one. Never replaces an existing spec.")
+	cmd.Flags().BoolVar(&overwrite, "overwrite", false, "Replace existing specs the import would change. Without it, an import that would replace a spec with different content stops before writing anything.")
 	cmd.Flags().BoolVar(&diff, "diff", false, "With --dry-run, show created, changed, and unchanged destinations, a unified diff per change, and sources that propose different content for one destination.")
 	return cmd
 }
 
-// runImportArgs loads the project config from the working directory and
+// runImportArgs imports every named source in order, after checking that
+// the import replaces no existing spec with different content, unless
+// overwrite is set.
+func runImportArgs(args []string, overwrite bool) error {
+	if !overwrite {
+		if err := stopOnImportOverwrites(func() error { return importArgs(args) }, func([]string) string {
+			return importOverwriteRemedy(args)
+		}); err != nil {
+			return err
+		}
+	}
+	return importArgs(args)
+}
+
+// importArgs loads the project config from the working directory and
 // imports every named source in order.
-func runImportArgs(args []string) error {
+func importArgs(args []string) error {
 	cfg, err := config.Load(".")
 	if err != nil {
 		return fmt.Errorf("load config: %w (run `agnostic-ai init` first)", err)

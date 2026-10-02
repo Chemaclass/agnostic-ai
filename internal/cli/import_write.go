@@ -35,10 +35,13 @@ func setImportRunSources(sources []string) {
 
 // importPlannedWrite is one importer write seen by an import preview:
 // the destination, the source being imported, and the bytes proposed.
+// merge marks a write that layers onto the file already there instead
+// of replacing it (see withImportMerge).
 type importPlannedWrite struct {
 	path   string
 	source string
 	data   []byte
+	merge  bool
 }
 
 // importRecorder collects every importer write of an `import --dry-run`
@@ -68,7 +71,22 @@ func (r *importRecorder) record(path string, data []byte) {
 		path:   filepath.ToSlash(filepath.Clean(path)),
 		source: source,
 		data:   bytes.Clone(data),
+		merge:  importMerging,
 	})
+}
+
+// importMerging is set while an importer layers a source onto a spec
+// that is already there, keeping what it holds, such as codex onto a
+// claude skill or agent of the same name. Sequential use only.
+var importMerging bool
+
+// withImportMerge runs fn with its writes marked as merges, which do not
+// count as replacing an existing spec (see importOverwrites).
+func withImportMerge(fn func() error) error {
+	prior := importMerging
+	importMerging = true
+	defer func() { importMerging = prior }()
+	return fn()
 }
 
 // importWriteFile writes data to path with the given mode, recording it

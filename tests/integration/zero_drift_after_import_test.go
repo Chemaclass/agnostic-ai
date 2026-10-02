@@ -144,7 +144,7 @@ func TestZeroDrift_AfterClaudeAndCodexImportSync(t *testing.T) {
 		[]byte(claudeAndCodexConfig), 0o644))
 
 	runCmd(t, "import", "claude")
-	runCmd(t, "import", "codex")
+	runCmd(t, "import", "codex", "--overwrite")
 	runCmd(t, "sync")
 
 	runCmd(t, "sync", "--check")

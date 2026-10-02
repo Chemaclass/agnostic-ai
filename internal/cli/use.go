@@ -392,23 +392,29 @@ func importToolConfig(cfg *config.Config, tools []string) (failed []string, err 
 	defer func() { importNextStepsOff = false }()
 	setImportRunSources(sources)
 	defer setImportRunSources(nil)
-	err = withImportTree(".", func() error {
-		return withLocalImportGuard(".", cfg, func() error {
-			for _, s := range sources {
-				if len(sources) > 1 {
-					_, _ = fmt.Fprintf(os.Stdout, "→ importing from %s\n", s)
+	run := func(failed *[]string) error {
+		return withImportTree(".", func() error {
+			return withLocalImportGuard(".", cfg, func() error {
+				for _, s := range sources {
+					if len(sources) > 1 {
+						_, _ = fmt.Fprintf(os.Stdout, "→ importing from %s\n", s)
+					}
+					if err := runImport(".", s, cfg); err != nil {
+						_, _ = fmt.Fprintf(os.Stderr, "! %s: %v\n", s, err)
+						*failed = append(*failed, s)
+					}
 				}
-				if err := runImport(".", s, cfg); err != nil {
-					_, _ = fmt.Fprintf(os.Stderr, "! %s: %v\n", s, err)
-					failed = append(failed, s)
+				if len(*failed) > 0 {
+					return fmt.Errorf("import failed for: %s", strings.Join(*failed, ", "))
 				}
-			}
-			if len(failed) > 0 {
-				return fmt.Errorf("import failed for: %s", strings.Join(failed, ", "))
-			}
-			return nil
+				return nil
+			})
 		})
-	})
+	}
+	if err := stopOnImportOverwrites(func() error { return run(new([]string)) }, importOverwriteRemedy); err != nil {
+		return sources, err
+	}
+	err = run(&failed)
 	if err != nil && len(failed) == 0 {
 		failed = sources
 	}
