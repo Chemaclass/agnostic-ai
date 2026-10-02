@@ -10,6 +10,8 @@ target_id = "factory"
 
 # Factory (`factory`)
 
+Factory [Droid](https://docs.factory.ai/harness/subagents) reads the root `AGENTS.md` and custom droids in `.factory/droids/`. Factory has no per-rule directory, so rule bodies inline into the `AGENTS.md` `## Rules` block.
+
 ## Output
 
 ```
@@ -22,37 +24,36 @@ AGENTS.md                          # pointer body + inlined rules (shared path)
 .factory/settings.json             # when a settings entry carries a model, a shell-command rule, or an x-factory key
 ```
 
-Factory [Droid](https://docs.factory.ai/harness/subagents) reads the root `AGENTS.md` and loads custom droids from `.factory/droids/`. Factory has no per-rule directory, so rule bodies inline into the `AGENTS.md` `## Rules` block.
-
-- **Agents**: one `<name>.md` profile per agent with `name`, `description`, and optional `model` and `tools` frontmatter. Arbitrary `x-factory` keys pass through.
-  - An agent with an empty body is skipped with a coverage note, because Droid CLI requires a non-empty system prompt.
-  - A portable `mcpServers` list emits as-is. `mcpServers: []` excludes every MCP server, even global ones, so list the servers you want instead of an empty list. See [`mcpServers`](@/docs/spec-format/agents.md#mcpservers-support-by-target).
-  - A portable `effort` emits as `reasoningEffort`, which accepts `low`, `medium`, and `high` only. `xhigh`, `max`, and integer budgets drop with a coverage note. Factory ignores the field under `model: inherit`. See [per-target `model` and `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort).
-  - **Read-only agents**: `readonly: true` emits `tools: read-only`, Factory's own category for `Read`, `LS`, `Grep`, `Glob`. It wins outright over a portable `tools` list on the same agent rather than narrowing it, with a coverage note naming `x-factory.tools` as the escape hatch for a custom list. A droid also gets the tools of its MCP servers, so a read-only droid with no `mcpServers` list writes `mcpServers: []` instead of inheriting every server. A listed set is kept. `x-factory.tools` still wins over `readonly` itself. `readonly: false` is a no-op.
-- **Tools**: the generic `tools` list is translated onto Droid CLI's tool IDs (`Read`, `LS`, `Grep`, `Glob`, `Create`, `Edit`, `ApplyPatch`, `Execute`, `WebSearch`, `FetchUrl`). Factory rejects the whole droid on one unknown ID.
-  - `Bash` becomes `Execute`, `Write` becomes `Create`, and `WebFetch` becomes `FetchUrl`, the same renames Factory's Claude Code importer makes. The rest already match.
-  - `TodoWrite` and `Skill` drop silently, since every droid gets them anyway. `ExitSpecMode` and `GenerateDroid` drop because custom droids cannot enable them. `tools: all` is never written; an omitted key already allows every tool.
-  - Any other name drops with a coverage note. The names that translate still emit.
-  - `x-factory.tools` writes Factory's own vocabulary directly and wins over the translation. It is the only way to reach a category (`read-only`, `edit`, `execute`, `web`, `mcp`) or an MCP tool ID. See [`tools` support by target](@/docs/spec-format/agents.md#tools-support-by-target).
-- **Skills**: load from `.agents/skills/`, the tree codex, amp, zed, and crush share. The render is identical, so the tree is written once. Factory also reads [`.agent/skills/**/SKILL.md`](https://docs.factory.ai/harness/skills), which this adapter does not write.
-- **Commands**: written to `.factory/commands/<name>.md` with `description` and `argument-hint` frontmatter. `$ARGUMENTS` is preserved. Factory recommends Skills for new workflows but still loads commands.
-- **Hooks**: written to `.factory/hooks.json`, the committed project file ([hooks docs](https://docs.factory.ai/harness/hooks)).
-  - `sync` overwrites the file whole, with no merge. A hand edit is lost on the next sync; change the hook spec instead.
+- **Agents**: each `<name>.md` carries `name`, `description`, and optional `model` and `tools`. Arbitrary `x-factory` keys pass through.
+  - An empty body is skipped with a coverage note, since Droid CLI requires a system prompt.
+  - A portable `mcpServers` list emits as-is. `mcpServers: []` excludes every MCP server, even global ones, so list the ones you want. See [`mcpServers`](@/docs/spec-format/agents.md#mcpservers-support-by-target).
+  - A portable `effort` emits as `reasoningEffort`, which accepts only `low`, `medium`, and `high`. `xhigh`, `max`, and integer budgets drop with a coverage note. Factory ignores the field under `model: inherit`. See [per-target `model` and `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort).
+  - `readonly: true` emits `tools: read-only`, Factory's category for `Read`, `LS`, `Grep`, `Glob`. It replaces a portable `tools` list rather than narrowing it, with a coverage note naming `x-factory.tools` for a custom list. `x-factory.tools` wins over `readonly`. `readonly: false` is a no-op.
+  - A droid gets its MCP servers' tools, so a read-only droid without an `mcpServers` list writes `mcpServers: []`. A listed set is kept.
+- **Tools**: the generic `tools` list maps onto Droid CLI's IDs (`Read`, `LS`, `Grep`, `Glob`, `Create`, `Edit`, `ApplyPatch`, `Execute`, `WebSearch`, `FetchUrl`). One unknown ID makes Factory reject the droid.
+  - `Bash` becomes `Execute`, `Write` becomes `Create`, and `WebFetch` becomes `FetchUrl`, as in Factory's Claude Code importer. The rest already match.
+  - `TodoWrite` and `Skill` drop silently, since every droid gets them. `ExitSpecMode` and `GenerateDroid` drop because custom droids cannot enable them. `tools: all` is never written, since an omitted key allows every tool.
+  - Any other name drops with a coverage note; translated names still emit.
+  - `x-factory.tools` writes Factory's vocabulary directly and wins over the translation. Only it reaches a category (`read-only`, `edit`, `execute`, `web`, `mcp`) or an MCP tool ID. See [`tools` support by target](@/docs/spec-format/agents.md#tools-support-by-target).
+- **Skills**: the tree codex, amp, zed, and crush share, written once. Factory also reads [`.agent/skills/**/SKILL.md`](https://docs.factory.ai/harness/skills), which this adapter does not write.
+  - Scoped skills emit at `<scope>/.factory/skills/<name>/SKILL.md` with bundled assets. Unscoped skills keep `.agents/skills/`.
+  - `outputs.factory.skills-dir` replaces the directory at the root and in each scope. Unmanaged files keep their contents.
+- **Commands**: `.factory/commands/<name>.md` takes `description` and `argument-hint`. `$ARGUMENTS` is preserved. Factory prefers Skills for new workflows but still loads commands.
+- **Hooks**: `.factory/hooks.json` is the committed project file ([hooks docs](https://docs.factory.ai/harness/hooks)). `sync` overwrites it whole, so change the hook spec, not the file.
   - Nine events: `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Notification`, `Stop`, `SubagentStop`, `PreCompact`, `SessionStart`, `SessionEnd`.
-  - The file is keyed directly by event name, `{"<Event>": [{matcher, hooks: [...]}]}`, with no `hooks` wrapper (unlike Claude Code, Codex, Gemini, and Qoder).
-  - Per entry: `type` (always `"command"`), `command`, and optional `timeout` in seconds (default 60).
-  - `matcher` is a regex over Factory's tool names, which match Claude's except `Bash`, `Write`, and `WebFetch`. A matcher using one of those still emits verbatim, with one coverage note, because it matches nothing.
-  - Factory's `commandRegex` field has no generic spec counterpart and is not emitted.
-- **MCP**: written to `.factory/mcp.json` under `mcpServers`, the Claude Code and Cursor shape (stdio: `command`/`args`/`env`, no `type`; remote: `type` + `url`/`headers`).
-  - `sync` overwrites the file whole. Factory's [MCP docs](https://docs.factory.ai/harness/mcp) tell you to remove project servers by editing this file; that edit is lost on the next sync, so remove the MCP spec instead.
-  - Factory supports a per-server `disabled` boolean, so `disabled: true` passes through. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
-  - Both transports keep `disabledTools`, `timeout`, and `connectTimeout` (milliseconds), including explicit zeros.
-  - Remote HTTP/SSE servers also accept `oauth: false` or an OAuth object with `scopes`, `resource`, `authorizationServerIssuer`, `clientId`, `clientSecret`, `clientMetadataUrl`, `tokenEndpointAuthMethod`, and `callbackPort`.
-  - `x-factory` overrides each top-level option, scoped to Factory. A `type: ws` spec emits no server and raises a coverage note, since Factory supports only stdio, HTTP, and SSE.
-- **Settings**: a portable `model` merges into `<git-root>/.factory/settings.json`, the project tier of Factory's [hierarchical settings](https://docs.factory.ai/enterprise/hierarchical-settings-and-org-control). A portable `effort` merges as top-level `reasoningEffort` ([CLI settings](https://docs.factory.ai/droid-cli/settings)): `none`, `dynamic`, `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`, with each model accepting a subset. Another value raises a coverage note. The managed `sessionDefaultSettings.reasoningEffort` key is not written.
-  - This file is merged, not overwritten. Only `model`, `reasoningEffort`, the command lists, and `x-factory` keys are set, so `disabledSkills` and other keys survive.
-  - An `x-factory` block merges into the same file for keys this tool does not model. `sandbox` is the main case: kernel-enforced isolation with no portable equivalent. Entries in one of the three command lists add to the translated ones, so `x-factory.commandBlocklist: ["author-only"]` beside `deny: ["Bash(rm:*)"]` writes both.
-  - The portable `allow`, `deny`, and `ask` lists write Factory's shell-command lists. `Bash(npm:*)` becomes `"npm *"` and `Bash(curl)` becomes `"curl"`.
+  - The file is keyed by event name, `{"<Event>": [{matcher, hooks: [...]}]}`, with no `hooks` wrapper (unlike Claude Code, Codex, Gemini, and Qoder).
+  - Per entry: `type` (always `"command"`), `command`, and optional `timeout` in seconds (default 60). Factory's `commandRegex` has no spec counterpart and is not emitted.
+  - `matcher` is a regex over Factory's tool names, which match Claude's except `Bash`, `Write`, and `WebFetch`. A matcher using those emits verbatim, matching nothing, with a coverage note.
+- **MCP**: `.factory/mcp.json` under `mcpServers`, the Claude Code and Cursor shape (stdio: `command`/`args`/`env`, no `type`; remote: `type` + `url`/`headers`).
+  - `sync` overwrites the file whole. Factory's [MCP docs](https://docs.factory.ai/harness/mcp) say to remove project servers by editing this file, but sync loses that edit, so remove the MCP spec.
+  - `disabled: true` passes through as Factory's per-server boolean. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
+  - Both transports keep `disabledTools`, `timeout`, and `connectTimeout` (milliseconds), explicit zeros included. Remote HTTP/SSE servers also accept `oauth: false` or an OAuth object with `scopes`, `resource`, `authorizationServerIssuer`, `clientId`, `clientSecret`, `clientMetadataUrl`, `tokenEndpointAuthMethod`, and `callbackPort`.
+  - `x-factory` overrides each top-level option. A `type: ws` spec emits no server, with a coverage note, since Factory supports only stdio, HTTP, and SSE.
+- **Settings**: a portable `model` merges into `<git-root>/.factory/settings.json`, the project tier of Factory's [hierarchical settings](https://docs.factory.ai/enterprise/hierarchical-settings-and-org-control).
+  - A portable `effort` merges as top-level `reasoningEffort` ([CLI settings](https://docs.factory.ai/droid-cli/settings)): `none`, `dynamic`, `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`, each model accepting a subset. Another value raises a coverage note. The managed `sessionDefaultSettings.reasoningEffort` is not written.
+  - Sync merges, setting only `model`, `reasoningEffort`, the command lists, and `x-factory` keys, so `disabledSkills` and other keys survive.
+  - `x-factory` reaches unmodeled keys, mainly `sandbox` (kernel-enforced isolation, no portable equivalent). Its command-list entries add to the translated ones: `x-factory.commandBlocklist: ["author-only"]` beside `deny: ["Bash(rm:*)"]` writes both.
+  - Portable `allow`, `deny`, and `ask` write Factory's shell-command lists. `Bash(npm:*)` becomes `"npm *"` and `Bash(curl)` becomes `"curl"`.
 
 | portable | Factory key | why |
 |---|---|---|
@@ -60,13 +61,21 @@ Factory [Droid](https://docs.factory.ai/harness/subagents) reads the root `AGENT
 | `ask` | `commandDenylist` | Always asks for confirmation; the user can approve it. |
 | `deny` | `commandBlocklist` | Never runs; no approval path. |
 
-  - The names mislead: Factory's denylist prompts, so portable `deny` maps to the blocklist, not the denylist.
-  - Precedence matches agnostic-ai's: denylist wins over allowlist, and blocklist wins over both.
-  - Rules scoping a path, a URL, or an MCP tool (such as `Read(src/**)`) have no shell-pattern form and raise a coverage note.
-  - A list is written only when at least one rule translates into it, so a hand-maintained list survives a sync with nothing for it. A sync that has rules replaces that key.
-  - Factory now marks the three command lists deprecated in favor of `permissionRules`, and still reads them ([LLM safety and agent controls](https://docs.factory.ai/enterprise/llm-safety-and-agent-controls)). A permission rule needs a stable `id`, a `match.prefix` token list, and `tests.match` and `tests.noMatch` examples, which the portable string lists do not carry. Write rules under `x-factory.permissionRules`; the object reaches `.factory/settings.json` unchanged, next to any translated list.
+  - Factory's denylist prompts, so portable `deny` maps to the blocklist, not the denylist. Precedence matches agnostic-ai's: denylist beats allowlist, and blocklist beats both.
+  - Rules scoping a path, URL, or MCP tool (such as `Read(src/**)`) have no shell form and raise a coverage note.
+  - A list is written only when a rule translates into it, so a hand-kept list survives a sync with nothing for it. A sync with rules replaces that key.
+  - Factory marks the three lists deprecated in favor of `permissionRules` but still reads them ([LLM safety and agent controls](https://docs.factory.ai/enterprise/llm-safety-and-agent-controls)). A permission rule needs a stable `id`, a `match.prefix` token list, and `tests.match` and `tests.noMatch` examples, which portable lists lack. Put them under `x-factory.permissionRules`, which reaches `.factory/settings.json` unchanged.
 
-Scoped skills emit at `<scope>/.factory/skills/<name>/SKILL.md` with bundled assets; unscoped skills keep `.agents/skills/`. `outputs.factory.skills-dir` replaces the directory at the root and in each scope. Unmanaged files keep their contents.
+## Config keys
+
+| Key | Default |
+| --- | --- |
+| `outputs.factory.agents-dir` | `.factory/droids` |
+| `outputs.factory.skills-dir` | `.agents/skills` |
+| `outputs.factory.commands-dir` | `.factory/commands` |
+| `outputs.factory.hooks-file` | `.factory/hooks.json` |
+| `outputs.factory.mcp-file` | `.factory/mcp.json` |
+| `outputs.factory.conf-file` | `.factory/settings.json` |
 
 ## Import
 
@@ -84,20 +93,12 @@ Scoped skills emit at `<scope>/.factory/skills/<name>/SKILL.md` with bundled ass
 | `.factory/settings.json` `model`, `reasoningEffort`, and command lists | `<settings>/factory.yaml`; `reasoningEffort` becomes `effort`, or `x-factory.reasoningEffort` when another settings spec sets a different effort |
 | `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
 
-A droid's `tools` renames back: `Execute` to `Bash`, `Create` to `Write`, `FetchUrl` to `WebFetch`. A list holding a category (`read-only`) or an MCP tool ID has no portable spelling, so it lands under `x-factory.tools` untouched, including a `tools: read-only` written from a portable `readonly: true`: import does not guess a category back into `readonly`, so re-syncing the imported spec still reaches the same droid file through the `x-factory.tools` override. `reasoningEffort` becomes `effort`, and every other droid key lands under `x-factory`.
+- **Droids**: `tools` renames back (`Execute` to `Bash`, `Create` to `Write`, `FetchUrl` to `WebFetch`). A list with a category (`read-only`) or an MCP tool ID lands under `x-factory.tools` untouched. `reasoningEffort` becomes `effort`. Other droid keys land under `x-factory`.
+- **Command lists**: they read back as `Bash(...)` rules: `commandAllowlist` to `allow`, `commandDenylist` to `ask`, `commandBlocklist` to `deny`. A pattern ending in ` *` becomes `Bash(x:*)`. Other `settings.json` keys stay in the file, which sync merges into.
 
-The command lists read back as `Bash(...)` rules: `commandAllowlist` to `allow`, `commandDenylist` to `ask`, `commandBlocklist` to `deny`. A pattern ending in ` *` becomes the prefix form `Bash(x:*)`. Other `settings.json` keys stay in the file, which sync merges into.
-
-## Config keys
-
-| Key | Default |
-| --- | --- |
-| `outputs.factory.agents-dir` | `.factory/droids` |
-| `outputs.factory.skills-dir` | `.agents/skills` |
-| `outputs.factory.commands-dir` | `.factory/commands` |
-| `outputs.factory.hooks-file` | `.factory/hooks.json` |
-| `outputs.factory.mcp-file` | `.factory/mcp.json` |
-| `outputs.factory.conf-file` | `.factory/settings.json` |
+{% <details summary="Read-only droids on import"> %}
+A `tools: read-only` from a portable `readonly: true` also lands under `x-factory.tools`, since import does not guess `readonly` back. Re-syncing writes the same droid file through that override.
+{% </details> %}
 
 ## Protected paths
 

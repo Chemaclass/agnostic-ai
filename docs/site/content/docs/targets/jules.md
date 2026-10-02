@@ -10,13 +10,15 @@ target_id = "jules"
 
 # Jules (`jules`)
 
+Google [Jules](https://jules.google/docs) is a cloud agent that reads the root `AGENTS.md`. agnostic-ai writes only the shared pointer body and the inlined `## Rules` block there.
+
 ## Output
 
 ```
 AGENTS.md                     # canonical entry-point pointer body + inlined rules (written by sync, shared path)
 ```
 
-Google [Jules](https://jules.google/docs) is a cloud agent that reads the root `AGENTS.md`. It has no project-local surface, so it gets only the shared pointer body and the inlined `## Rules` block. It adds no unique output, so it is opt-in (see [Selecting targets](@/docs/configuration.md#targets)). Agents, skills, hooks, and MCP skip with a warning.
+Jules has no project-local surface. It adds no unique output, so it is opt-in (see [Selecting targets](@/docs/configuration.md#targets)). Agents, skills, hooks, and MCP skip with a warning.
 
 ## Config keys
 

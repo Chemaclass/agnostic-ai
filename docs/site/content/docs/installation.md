@@ -10,7 +10,7 @@ scripts = ["assets/scripts/landing.js"]
 
 # Installation
 
-Every installer puts the same prebuilt binary for your OS and CPU on your machine. You do not need Go. On macOS the binary needs macOS 13 Ventura or later.
+Every installer puts the same prebuilt binary on your machine. You do not need Go. macOS needs 13 Ventura or later.
 
 {{ <install_picker /> }}
 
@@ -21,21 +21,19 @@ agnostic-ai --version
 # agnostic-ai version X.Y.Z
 ```
 
-Command not found? Open a new terminal, or add the install directory to `PATH`.
+Command not found? Open a new terminal, or add the install directory to `PATH`. To prove the binary came from this repository, see [Verify a release](@/docs/verify-a-release.md).
 
-To check that the binary is the one this repository built, see [Verify a release](@/docs/verify-a-release.md).
-
-Next, follow [Getting started](@/docs/getting-started.md). If you already have `CLAUDE.md`, `AGENTS.md`, or other tool configuration, follow [Migration](@/docs/migration.md) instead.
+Next: [Getting started](@/docs/getting-started.md), or [Migration](@/docs/migration.md) if you already have `CLAUDE.md`, `AGENTS.md`, or other tool files.
 
 ## Upgrade
 
 | Command | Effect |
 |---|---|
-| `agnostic-ai upgrade` | Upgrades the detected install to the latest release. |
-| `agnostic-ai upgrade --check` | Inspects the install and finds older binaries on `PATH`, without changing anything. |
-| `agnostic-ai upgrade --version vX.Y.Z` | Installs one release instead of the latest, including an older one a project pins. |
+| `agnostic-ai upgrade` | Upgrade to the latest release. |
+| `agnostic-ai upgrade --check` | Report the install and older binaries on `PATH`. Changes nothing. |
+| `agnostic-ai upgrade --version vX.Y.Z` | Install one specific release. |
 
-Package-manager installs upgrade through their package manager. A standalone binary on macOS or Linux is downloaded, checked against the release checksum, and replaced in place. See the [upgrade reference](@/docs/cli-reference/maintain.md#upgrade).
+Package-manager installs upgrade through their package manager. See the [upgrade reference](@/docs/cli-reference/maintain.md#upgrade).
 
 ## Pin a version or directory
 
@@ -52,23 +50,22 @@ On Windows, download [`install.ps1`](https://github.com/Chemaclass/agnostic-ai/b
 .\install.ps1 -Version vX.Y.Z -InstallDir C:\tools\agnostic-ai
 ```
 
-With npm, pin the package: `npm install -g agnostic-ai@X.Y.Z`.
+With npm: `npm install -g agnostic-ai@X.Y.Z`.
 
 ## Pin it per project
 
-A JavaScript project can install the CLI as a dev dependency, so every clone, worktree, and CI job runs the release the lockfile names:
+A JavaScript project can add the CLI as a dev dependency, so every clone and CI job runs the lockfile's release:
 
 ```bash
 pnpm add -D agnostic-ai@X.Y.Z    # or npm install -D, yarn add -D, bun add -D
 ```
 
-Pair it with the same release in [`requires`](@/docs/configuration.md#requires), such as `requires: "X.Y.Z"`. After a pull that bumps both, run `pnpm install` (or your manager's install). Until then, commands stop with AAI-005 and name that install command.
+Set the same release in [`requires`](@/docs/configuration.md#requires), such as `requires: "X.Y.Z"`. After a pull bumps both, run your package manager's install; until then, commands stop with AAI-005.
 
 ## Optional extras
 
-Shell completion for Bash, Zsh, Fish, and PowerShell: see [completion](@/docs/cli-reference/maintain.md#completion).
-
-The Claude Code [plugin](https://github.com/Chemaclass/agnostic-ai/tree/main/plugins/agnostic-ai) adds install, setup, import, and sync commands inside Claude Code:
+- Shell completion for Bash, Zsh, Fish, and PowerShell: [completion](@/docs/cli-reference/maintain.md#completion).
+- The Claude Code [plugin](https://github.com/Chemaclass/agnostic-ai/tree/main/plugins/agnostic-ai) adds install, setup, import, and sync commands:
 
 ```text
 /plugin marketplace add Chemaclass/agnostic-ai
@@ -79,8 +76,8 @@ The Claude Code [plugin](https://github.com/Chemaclass/agnostic-ai/tree/main/plu
 
 | Method | Instructions |
 |---|---|
-| Go | `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest` (Go version from [go.mod](https://github.com/Chemaclass/agnostic-ai/blob/main/go.mod) or newer; put `$(go env GOPATH)/bin` on `PATH`) |
-| Manual download | Download your OS/CPU archive and `checksums.txt` from [GitHub Releases](https://github.com/Chemaclass/agnostic-ai/releases), verify the checksum, and extract the binary into a directory on `PATH` |
+| Go | `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest`, with the Go version from [go.mod](https://github.com/Chemaclass/agnostic-ai/blob/main/go.mod) or newer. Put `$(go env GOPATH)/bin` on `PATH`. |
+| Manual | Download your archive and `checksums.txt` from [GitHub Releases](https://github.com/Chemaclass/agnostic-ai/releases), verify the checksum, and put the binary on `PATH`. |
 
 ## Troubleshooting
 

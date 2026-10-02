@@ -10,6 +10,8 @@ target_id = "zed"
 
 # Zed (`zed`)
 
+Zed reads `.rules`, `.agents/skills/`, `.zed/settings.json` MCP servers, and optional tasks.
+
 ## Output
 
 ```
@@ -19,20 +21,24 @@ target_id = "zed"
 .zed/tasks.json                        # one task per hook, only when tasks-file is set
 ```
 
-- **Rules**: Zed 1.4.2 retired its rules library, so project instructions live in an instruction file. `sync` writes the pointer body plus the sentinel-marked `## Rules` block to the root `.rules`. Zed reads [the first matching file](https://zed.dev/docs/ai/instructions) from `.rules`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `.github/copilot-instructions.md`, `AGENT.md`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` and stops there.
-  - `.rules` ranks first, so nothing agnostic-ai emits can shadow it. `AGENTS.md` ranks behind Copilot's entry point, which carries only the pointer body, so rules written there would never reach Zed with copilot enabled.
-  - Zed calls `AGENTS.md` its primary file and `.rules` a compatibility one; if Zed drops `.rules`, this output moves back. For older Zed versions, set `outputs.zed.rules-file: .rules` to replace the pointer body with the legacy merged document (which also carries agent bodies).
-- **Skills**: native [Zed skills](https://zed.dev/docs/ai/skills) folders at `.agents/skills/<name>/SKILL.md`, the path codex, amp, and crush share. Identical rendered bytes dedupe into one write; divergent `x-zed` overrides surface through the collision check.
-  - To hide a skill from the agent's catalog (slash command or @-mention only), set `x-zed: {disable-model-invocation: true}`. The renderer merges only `x-zed` keys, so a plain top-level `disable-model-invocation:` (the form Cursor promotes) has no effect here.
-  - Skill names must be 1-64 lowercase letters or digits, with single hyphens between segments. Invalid names such as `Deploy`, `my_skill`, and `my--skill` fail sync with the name and required format; they are not renamed.
-- **Agents**: no per-agent surface in current Zed. Sync prints a coverage note unless `outputs.zed.rules-file` is set (the merged document carries agent sections).
-- **MCP**: written to `.zed/settings.json` under `context_servers` (not `mcpServers`). Stdio servers use flat `command`/`args`/`env`; remote (HTTP / SSE) servers use `url`/`headers`.
-  - `disabled: true` emits as Zed's `enabled: false`; enabled servers get no key, since Zed defaults to true. The toggle is read from the file. [Zed's MCP docs](https://zed.dev/docs/ai/mcp) do not name it; the evidence is Zed's settings source, [`crates/settings_content/src/project.rs`](https://github.com/zed-industries/zed/blob/main/crates/settings_content/src/project.rs).
-  - The same source defines `timeout` (both transports; seconds per tool call, default 60), `oauth` (HTTP), and `remote` (stdio and extension servers). Set these through `x-zed`, since no other target has a matching field.
-  - User keys (theme, buffer_font_size) are kept. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
-- **Hooks**: when `outputs.zed.tasks-file` is set, hook specs emit as [Zed Tasks](https://zed.dev/docs/tasks) running `sh -c "<hook command>"`.
-  - `WorktreeCreate` writes `hooks: ["create_worktree"]`, so Zed runs the task after creating a linked worktree; import restores that event. Tasks without that hook import as `OnDemand` and run from the command palette.
-  - The adapter manages `label`, `command`, `args`, and `hooks` (so `WorktreeCreate` can add `create_worktree` without dropping other hook names). Other Zed Task fields pass through under `x-zed`, such as `cwd`, `env`, `shell`, `reveal`, `hide`, `save`, `allow_concurrent_runs`, `use_new_terminal`, `tags`, and `reevaluate_context`.
+- **Rules**: Zed 1.4.2 retired its rules library, so `sync` writes the pointer body and sentinel-marked `## Rules` block to `.rules`.
+  - Zed reads [the first matching file](https://zed.dev/docs/ai/instructions) of `.rules`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `.github/copilot-instructions.md`, `AGENT.md`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`. Nothing agnostic-ai emits outranks `.rules`. `AGENTS.md` ranks behind Copilot's pointer-only entry point, so with copilot enabled, rules there never reach Zed.
+  - Zed calls `AGENTS.md` primary and `.rules` a compatibility file; if Zed drops `.rules`, this output moves back.
+  - For older Zed, `outputs.zed.rules-file: .rules` replaces the pointer body with the legacy merged document (agent bodies included).
+- **Skills**: [Zed skills](https://zed.dev/docs/ai/skills). Identical bytes dedupe; the collision check reports divergent `x-zed` overrides.
+  - `x-zed: {disable-model-invocation: true}` hides a skill from the agent's catalog (slash command or @-mention only). The renderer merges only `x-zed` keys, so a top-level `disable-model-invocation:` (Cursor's form) does nothing here.
+  - Names must be 1-64 lowercase letters or digits, with single hyphens between segments. Sync fails on names such as `Deploy`, `my_skill`, and `my--skill`, stating the format, and never renames them.
+- **Agents**: Zed has no per-agent surface. Sync prints a coverage note unless `outputs.zed.rules-file` is set (the merged document carries agent sections).
+- **MCP**: `context_servers` (not `mcpServers`): flat `command`/`args`/`env` for stdio, `url`/`headers` for remote (HTTP / SSE). User keys (theme, buffer_font_size) stay.
+  - `disabled: true` emits `enabled: false`; enabled servers get no key, as Zed defaults to true. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
+  - Set `timeout` (both transports; seconds per tool call, default 60), `oauth` (HTTP), and `remote` (stdio and extension servers) through `x-zed`; no other target has them.
+- **Hooks**: with `outputs.zed.tasks-file` set, hooks become [Zed Tasks](https://zed.dev/docs/tasks) running `sh -c "<hook command>"`.
+  - `WorktreeCreate` writes `hooks: ["create_worktree"]`, so the task runs after Zed creates a linked worktree. Import restores it; other tasks import as `OnDemand` (command palette).
+  - The adapter manages `label`, `command`, `args`, and `hooks` (adding `create_worktree` keeps other hook names). `x-zed` passes other fields, such as `cwd`, `env`, `shell`, `reveal`, `hide`, `save`, `allow_concurrent_runs`, `use_new_terminal`, `tags`, and `reevaluate_context`.
+
+{% <details summary="Source for the MCP keys"> %}
+[Zed's MCP docs](https://zed.dev/docs/ai/mcp) do not name the `enabled` toggle Zed reads. Its settings source, [`crates/settings_content/src/project.rs`](https://github.com/zed-industries/zed/blob/main/crates/settings_content/src/project.rs), defines it, plus `timeout`, `oauth`, and `remote`.
+{% </details> %}
 
 ## Config keys
 
@@ -45,7 +51,7 @@ target_id = "zed"
 
 ## Import
 
-`agnostic-ai import zed` reads `.rules`, `.zed/tasks.json` (into hook specs, see **Hooks**), and MCP servers from `.zed/settings.json`. It copies `.agents/skills/<name>/SKILL.md` with all bundled assets.
+`agnostic-ai import zed` reads `.rules`, `.zed/tasks.json` (as hook specs), and MCP servers from `.zed/settings.json`. It copies `.agents/skills/<name>/SKILL.md` with all bundled assets.
 
 ## Protected paths
 

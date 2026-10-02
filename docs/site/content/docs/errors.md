@@ -10,7 +10,7 @@ group = "Reference"
 # Error codes
 
 
-Every user-facing error has a stable code of the form `AAI-NNN`, prefixed in square brackets, with its fix on the next line:
+Every user-facing error starts with a stable code in square brackets, `[AAI-NNN]`. Its fix follows on the next line:
 
 ```
 [AAI-003] read config: no agnostic-ai.yaml or agnostic.config.yaml in /path/to/project
@@ -41,7 +41,7 @@ Pass `--json` for machine-readable output.
 | `200-299` | import                     |
 | `300-399` | sync / validate            |
 
-Codes are stable across releases. New codes append; existing codes are never renumbered.
+Codes are stable across releases. New codes are added at the end; existing codes never change number.
 
 ## Codes
 
@@ -53,7 +53,7 @@ A spec file could not be parsed. Markdown specs use YAML frontmatter; hooks and 
 
 ### AAI-002: Spec kind not supported by target
 
-A spec kind (hook, mcp, command, ...) is in the bundle but the target adapter does not emit it. Default policy logs a warning; `on-unsupported: error` makes it a hard failure.
+A spec kind (hook, mcp, command, ...) is in the bundle, but the target adapter does not emit it. By default this logs a warning. `on-unsupported: error` makes it a hard failure.
 
 **Fix:** drop the spec, switch to a target that supports the kind, or set `on-unsupported: warn` (or `silent`) in `agnostic-ai.yaml`.
 
@@ -65,31 +65,35 @@ Neither `agnostic-ai.yaml` nor the legacy `agnostic.config.yaml` exists in the p
 
 ### AAI-004: Config decode failed
 
-The config file was found but could not be parsed as YAML, or its keys do not match the schema. Each unknown key is named with its file, line, and dotted path, such as `agnostic-ai.yaml:4: unknown key "sync.collsion-policy" (did you mean collision-policy?)`. A [`requires`](@/docs/configuration.md#requires) value that is not a version constraint, such as `latest` or `>=0.73.0,<0.74.0`, fails here too.
+The config file was found, but it is not valid YAML or its keys do not match the schema. Each unknown key is named with its file, line, and dotted path, such as `agnostic-ai.yaml:4: unknown key "sync.collsion-policy" (did you mean collision-policy?)`. A [`requires`](@/docs/configuration.md#requires) value that is not a version constraint, such as `latest` or `>=0.73.0,<0.74.0`, fails here too.
 
-**Fix:** rename or remove each unknown key the message names, taking its did-you-mean when one is given. Otherwise validate against `docs/schemas/config.schema.json`. Check indentation and that list keys (e.g. `targets:`) hold a YAML sequence. Run `agnostic-ai doctor` for a full diagnosis.
+**Fix:** rename or remove each unknown key the message names. Use its did-you-mean suggestion when there is one. Otherwise validate against `docs/schemas/config.schema.json`. Check indentation and that list keys (e.g. `targets:`) hold a YAML sequence. Run `agnostic-ai doctor` for a full diagnosis.
 
 ### AAI-005: Installed version outside requires
 
-The config's `requires` key names the agnostic-ai releases its specs work with: a minimum, one exact release, or a range. The installed binary is outside it. Every command that reads the specs, such as `sync`, `lint`, `validate`, `doctor`, `revert`, and `cleanup`, stops before it reads specs or writes files. The message names the file, the required version, and the installed one:
+The config's `requires` key names the agnostic-ai releases its specs work with: a minimum, one exact release, or a range. The installed binary is outside it. Every command that reads the specs stops before it reads specs or writes files. That includes `sync`, `lint`, `validate`, `doctor`, `revert`, and `cleanup`. The message names the file, the required version, and the installed one:
 
 ```
 [AAI-005] agnostic-ai.yaml requires agnostic-ai >=0.71.0, but 0.70.0 is installed; run `agnostic-ai upgrade`
 ```
 
-**Fix:** run `agnostic-ai upgrade`, or `agnostic-ai upgrade --version vX.Y.Z` when `requires` pins or bounds a release, which also downgrades a standalone binary. A binary installed into the project by npm, pnpm, Yarn, or Bun comes from that package manager, so run its install after a version bump; the message names the command, such as `pnpm install`. When `package.json` already pins the running release, as right after `pnpm add agnostic-ai@X.Y.Z`, the message says to update `requires` instead. If the version stays the same, `agnostic-ai upgrade --check` shows which binary runs and any older copy that shadows it on PATH.
+**Fix:** run `agnostic-ai upgrade`. When `requires` pins or bounds a release, run `agnostic-ai upgrade --version vX.Y.Z`; this also downgrades a standalone binary.
+
+- **Installed by npm, pnpm, Yarn, or Bun:** the package manager owns the binary. Run its install after a version bump. The message names the command, such as `pnpm install`.
+- **`package.json` already pins the running release**, as right after `pnpm add agnostic-ai@X.Y.Z`: the message says to update `requires` instead.
+- **The version does not change:** `agnostic-ai upgrade --check` shows which binary runs and any older copy that shadows it on PATH.
 
 ### AAI-102: Targets emit to the same output path
 
-Two or more enabled targets would write to the same path (commonly the root `AGENTS.md`, shared by codex, amp, warp, cline, windsurf, junie, kiro, crush, trae, jules, goose, augment, qoder, openhands, factory and kilo). Last-writer-wins would mask drift.
+Two or more enabled targets would write to the same path. The last writer would win and hide drift. The usual case is the root `AGENTS.md`, shared by codex, amp, warp, cline, windsurf, junie, kiro, crush, trae, jules, goose, augment, qoder, openhands, factory, and kilo.
 
 **Fix:** drop one colliding target from `targets:` in `agnostic-ai.yaml`, or override the path via `outputs.<target>.file`.
 
 ### AAI-103: Hand-authored ignore file cannot be safely overwritten
 
-A target's ignore file (`.cursorignore`, `.geminiignore`, `.aiderignore`, `.devinignore`, `.windsurfignore`, `.kiroignore`, `.trae/.ignore`, `.aiignore`) carries no agnostic-ai header, so `sync` cannot prove its exclusions survive and leaves the file untouched. Missing or reordered patterns, new negations, and changed whitespace all trigger this check.
+A target's ignore file (`.cursorignore`, `.geminiignore`, `.aiderignore`, `.devinignore`, `.windsurfignore`, `.kiroignore`, `.trae/.ignore`, `.aiignore`) has no agnostic-ai header. `sync` cannot prove its exclusions survive, so it leaves the file untouched. Missing or reordered patterns, new negations, and changed whitespace all trigger this check.
 
-**Fix:** run `agnostic-ai import <target>` to copy the file's patterns into an ignore spec. Keep their order and whitespace, and review any negations contributed by other specs before syncing again. Extra exclusion patterns are allowed. See [ignore overwrite behavior](@/docs/spec-format/ignore.md#overwrite-behaviour).
+**Fix:** run `agnostic-ai import <target>` to copy the file's patterns into an ignore spec. Keep their order and whitespace. Review any negations from other specs, then sync again. Extra exclusion patterns are allowed. See [ignore overwrite behavior](@/docs/spec-format/ignore.md#overwrite-behaviour).
 
 ### AAI-202: Import source name unknown
 
@@ -107,14 +111,14 @@ The argument to `agnostic-ai import` matches no registered source.
 
 A target requested via `--target`, `--only`, or the config is not a built-in adapter and no `agnostic-ai-adapter-<name>` binary is on PATH.
 
-A name passed with `--target` fails the run. A config target that does not resolve only warns, so a teammate without an external adapter can still sync. When the name is one edit from a built-in (two for longer names), the message suggests it: `unknown target: claud (did you mean claude? no agnostic-ai-adapter-claud on PATH)`.
+A name passed with `--target` fails the run. A config target that does not resolve only warns, so a teammate without an external adapter can still sync. When the name is one edit from a built-in (two for longer names), the message suggests the built-in: `unknown target: claud (did you mean claude? no agnostic-ai-adapter-claud on PATH)`.
 
 A known target outside this run (`sync --only codex` with `targets: [claude]`) reports `codex is not in this run's targets (claude)`.
 
-**Fix:** check the spelling. Add a target that exists but is not in this run to `targets`, or pass it with `-t`. Built-ins: `claude`, `codex`, `gemini`, `cursor`, `copilot`, `aider`, `cline`, `windsurf`, `continue`, `amp`, `zed`, `warp`, `opencode`, `antigravity`, `junie`, `kiro`, `crush`, `trae`, `qoder`, `openhands`, `factory`, `kilo`, `jules`, `goose`, `augment`. External adapters live on PATH as `agnostic-ai-adapter-<name>`.
+**Fix:** check the spelling. If the target exists but is not in this run, add it to `targets` or pass it with `-t`. Built-ins: `claude`, `codex`, `gemini`, `cursor`, `copilot`, `aider`, `cline`, `windsurf`, `continue`, `amp`, `zed`, `warp`, `opencode`, `antigravity`, `junie`, `kiro`, `crush`, `trae`, `qoder`, `openhands`, `factory`, `kilo`, `jules`, `goose`, `augment`. External adapters live on PATH as `agnostic-ai-adapter-<name>`.
 
 ### AAI-302: Mutually exclusive flags
 
-Two conflicting flags were passed together (e.g. `--only` with `--except`, or `--watch` with `--check`), or a flag was passed without the one it needs (`--diff` without `--dry-run`).
+Two conflicting flags were passed together, such as `--only` with `--except`, or `--watch` with `--check`. Or a flag was passed without the one it needs, such as `--diff` without `--dry-run`.
 
 **Fix:** the message names both flags. Drop one when they conflict; add the missing one when a flag needs another.

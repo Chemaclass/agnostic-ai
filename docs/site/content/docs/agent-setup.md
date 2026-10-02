@@ -13,76 +13,67 @@ group = "Start"
 
 ## What the agent does
 
-Follow this when a user asks you to install or configure agnostic-ai in a repository. Preserve existing AI tool behavior, make `.agnostic-ai/` the source of truth, and leave the project with a clean validation result.
+Follow this when a user asks you to install or configure agnostic-ai in a repository. Goal: keep existing AI tool behavior, make `.agnostic-ai/` the source of truth, and finish with a clean `sync --check`.
 
 ### Safety contract
 
 - Work from the repository root. Read its contributor and agent instructions first.
-- Check `git status --short`. Preserve unrelated work and never discard user changes.
-- Inspect `agnostic-ai.yaml`, `.agnostic-ai/`, and the native configuration for tools the project already uses.
-- Look for existing instructions files such as `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md` first. Tell the user what they hold and ask whether to import their content before any sync.
-- Import existing native configuration before the first sync. Sync is an output operation, not a migration shortcut.
-- Enable only the targets the project uses or the user requests. Never select every target by default.
-- Preview changes before writing. Stop on an ownership or overwrite error and explain the conflicting path.
-- Treat `.agnostic-ai/` as canonical after setup. Native target files are generated outputs.
+- Run `git status --short`. Never discard user changes.
+- Look for existing instructions files such as `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md`. Tell the user what they hold and ask whether to import them before any sync.
+- Import existing native configuration before the first sync. Sync writes output; it does not migrate.
+- Enable only the targets the project uses or the user names. Never select every target.
+- Preview before writing. On an ownership or overwrite error, stop and name the path.
+- After setup, edit `.agnostic-ai/` only. Native files are generated.
 
 ### 1. Install or verify the CLI
-
-Start with:
 
 ```bash
 agnostic-ai --version
 ```
 
-If the command is missing, use the platform installer.
-
-macOS or Linux:
+If missing, install it:
 
 ```bash
+# macOS or Linux
 curl -fsSL https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.sh | bash
 ```
 
-Windows PowerShell:
-
 ```powershell
+# Windows PowerShell
 irm https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.ps1 | iex
 ```
 
-Run `agnostic-ai --version` again. If the shell cannot find the binary, add the installer destination to `PATH`. See [Installation](@/docs/installation.md) for pinned versions and other methods.
+Check `--version` again. If not found, add the install directory to `PATH`. See [Installation](@/docs/installation.md) for other methods.
 
 ### 2. Detect the project state
 
-Choose one path:
+| State | Signal | Action |
+|---|---|---|
+| Already configured | `agnostic-ai.yaml` and `.agnostic-ai/` exist | Skip `init`. Go to step 4. |
+| Existing tool config | `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `.cursor/`, `.github/copilot-instructions.md` | Import during `init`. |
+| Fresh | Neither | Plain `init`. |
 
-- **Already configured:** `agnostic-ai.yaml` and `.agnostic-ai/` exist. Do not run `init` again. Review the configured targets and go to validation.
-- **Existing native AI configuration:** files such as `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `.cursor/`, or `.github/copilot-instructions.md` exist, but agnostic-ai is not configured. Import them during initialization.
-- **Fresh setup:** no canonical or native AI configuration exists. Initialize only the targets the project will use.
+If the target list is unclear, ask the user. An installed CLI does not mean the repository uses it.
 
-When target choice is ambiguous, ask the user. Do not infer that every installed CLI belongs in this repository.
+### 3. Initialize
 
-### 3. Initialize safely
+Ask the user whether Git should track generated files, and pass `--gitignore=on` (ignore them; teammates run `sync` after cloning) or `--gitignore=off` (commit them; CI runs `sync --check`).
 
-Ask the user whether Git should track the generated files, and pass the answer as `--gitignore=on` or `--gitignore=off`. Ignoring them keeps Git to the specs (`.agnostic-ai/` and `agnostic-ai.yaml`), but every teammate must install agnostic-ai and run `agnostic-ai sync` after cloning. Committing them lets a clone work without the tool, with `agnostic-ai sync --check` in CI to keep them current.
-
-For existing native configuration, replace the example target list with the tools the project uses, and `--gitignore=on` with the user's answer:
+Replace `claude,codex` with the project's tools:
 
 ```bash
+# existing tool config
 printf '%s\n' 'claude,codex' | agnostic-ai init --from all --gitignore=on
-```
 
-`--from all` imports every detected source. Each one adds to `.agnostic-ai/AGNOSTIC_AI.md` the sections it lacks, naming them, instead of replacing what an earlier source or import captured, so review the file before syncing when tools say the same thing in different words. An edited section comes back as a second version, and import names it so you keep one. A file with `::target` fences is left as it is when the imported file differs from what sync renders, since the edit's block is unknown; import says to merge it by hand.
-
-For a fresh project, with the same two replacements:
-
-```bash
+# fresh project
 printf '%s\n' 'claude,codex' | agnostic-ai init --gitignore=on
 ```
 
-Do not use `--demo` in a real repository unless the user asks for example specs. Add project rules only from conventions already in the repository or supplied by the user. See [Getting started](@/docs/getting-started.md) for the spec workflow and [Migration](@/docs/migration.md) for import behavior.
+`--from all` adds each source's missing sections to `.agnostic-ai/AGNOSTIC_AI.md` and names them. Review that file for duplicates before syncing; import tells you when a section needs a manual merge. Details: [Migration](@/docs/migration.md).
+
+Do not use `--demo` unless the user asks. Add rules only from conventions the repository or user already states.
 
 ### 4. Validate and preview
-
-Run these commands in order:
 
 ```bash
 agnostic-ai validate
@@ -90,7 +81,7 @@ agnostic-ai lint
 agnostic-ai sync --dry-run
 ```
 
-Confirm the preview's targets, output paths, and preserved instructions match the project. Fix validation errors in the canonical specs. Do not silence unsupported-capability warnings until you understand their effect.
+Check that targets, output paths, and preserved instructions match the project. Fix errors in the specs. Understand an unsupported-capability warning before you silence it.
 
 ### 5. Sync and prove the result
 
@@ -101,16 +92,16 @@ git status --short
 git diff -- .
 ```
 
-Inspect the generated files and `.gitignore` changes. If the user chose to ignore generated outputs, a fresh clone must run `agnostic-ai sync`. If they chose to commit them, keep them in the same change as their source specs.
+Inspect generated files and `.gitignore`. If outputs are committed, keep them in the same change as their specs.
 
-Finish by reporting:
+Report:
 
-- the agnostic-ai version and install method;
-- selected targets and imported sources;
+- agnostic-ai version and install method;
+- targets and imported sources;
 - what each tool now reads from `.agnostic-ai/`, as the first `agnostic-ai sync` lists it;
-- canonical files created or changed under `.agnostic-ai/`;
+- files changed under `.agnostic-ai/`;
 - generated outputs and whether Git tracks them;
-- the results of `validate`, `lint`, and `sync --check`;
-- any unsupported capability or decision left for the user.
+- results of `validate`, `lint`, and `sync --check`;
+- open decisions for the user.
 
-Setup is not complete until `agnostic-ai sync --check` exits successfully.
+Setup is done only when `agnostic-ai sync --check` exits 0.

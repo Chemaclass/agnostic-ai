@@ -71,5 +71,5 @@ func importAmpCommands(root, dstDir string) (int, error) {
 // importAmpMCP reads `.amp/settings.json` and writes one yaml per
 // `amp.mcpServers.<name>` entry into <dstDir>/<name>.yaml.
 func importAmpMCP(root, dstDir string) (int, error) {
-	return importJSONMCPMap(filepath.Join(root, ampSettingsFile), ampSettingsKey, dstDir)
+	return importJSONMCPMap("amp", filepath.Join(root, ampSettingsFile), ampSettingsKey, dstDir)
 }

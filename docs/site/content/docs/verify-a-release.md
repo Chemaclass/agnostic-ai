@@ -9,7 +9,7 @@ group = "Start"
 
 # Verify a release
 
-Every release ships proof you can check yourself instead of trusting the download. Each check below answers a different question, so pick the ones your threat model needs.
+Every release ships proof you can check yourself. Each check answers a different question; pick the ones you need.
 
 | Check | Proves | Command |
 |---|---|---|
@@ -21,7 +21,7 @@ Every release ships proof you can check yourself instead of trusting the downloa
 
 ## Checksums
 
-`install.sh`, `install.ps1`, and `agnostic-ai upgrade` compare the archive's SHA-256 with `checksums.txt` from the same release and stop on a mismatch. The installers also stop when `checksums.txt` cannot be downloaded or no SHA-256 tool is found, so an archive never installs unchecked. By hand:
+`install.sh`, `install.ps1`, and `agnostic-ai upgrade` check the archive against `checksums.txt` and stop on a mismatch, a missing `checksums.txt`, or no SHA-256 tool. By hand:
 
 ```bash
 curl -fsSLO https://github.com/Chemaclass/agnostic-ai/releases/download/vX.Y.Z/agnostic-ai_linux_amd64.tar.gz
@@ -29,25 +29,27 @@ curl -fsSLO https://github.com/Chemaclass/agnostic-ai/releases/download/vX.Y.Z/c
 grep ' agnostic-ai_linux_amd64.tar.gz$' checksums.txt | sha256sum -c    # macOS: shasum -a 256 -c
 ```
 
-A checksum comes from the same release page as the archive, so it catches a corrupted or swapped download, not a compromised release.
+The checksum comes from the same release page, so it catches a corrupted download, not a compromised release.
 
 ## Build provenance
 
-Releases after 0.74.0 carry a signed [build provenance attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations) for every archive and SBOM. It is signed through Sigstore by the release workflow itself, so no long-lived key exists to leak. Verify an archive with the [GitHub CLI](https://cli.github.com/):
+Releases after 0.74.0 carry a [build provenance attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations) for every archive and SBOM, signed through Sigstore by the release workflow (no long-lived key). Verify with the [GitHub CLI](https://cli.github.com/):
 
 ```bash
 gh attestation verify agnostic-ai_linux_amd64.tar.gz --repo Chemaclass/agnostic-ai
 ```
 
-A pass means the file was built by a workflow run in `Chemaclass/agnostic-ai` from a tagged commit. The release also attaches the attestation as `agnostic-ai.intoto.jsonl`, so you can check a download against the file from the release page instead of GitHub's attestation API:
+A pass means a workflow in `Chemaclass/agnostic-ai` built the file from a tagged commit. To check offline against the release's `agnostic-ai.intoto.jsonl` instead of GitHub's API:
 
 ```bash
 gh attestation verify agnostic-ai_linux_amd64.tar.gz --repo Chemaclass/agnostic-ai --bundle agnostic-ai.intoto.jsonl
-``` To have the installers run that check, set `AGNOSTIC_AI_VERIFY_ATTESTATION=1` for `install.sh`, or pass `-VerifyAttestation` to `install.ps1`. Both then stop when `gh` is missing or the attestation does not verify.
+```
+
+To have the installers run this check, set `AGNOSTIC_AI_VERIFY_ATTESTATION=1` for `install.sh` or pass `-VerifyAttestation` to `install.ps1`. Both stop when `gh` is missing or the check fails.
 
 ## SBOM
 
-Each archive has an SPDX SBOM next to it, such as `agnostic-ai_linux_amd64.tar.gz.sbom.json`, listing every Go module in the binary. It is in `checksums.txt` and carries its own provenance. Feed it to a scanner such as `grype sbom:agnostic-ai_linux_amd64.tar.gz.sbom.json` to check for known vulnerabilities.
+Each archive has an SPDX SBOM beside it, such as `agnostic-ai_linux_amd64.tar.gz.sbom.json`, listing every Go module in the binary. It is in `checksums.txt` and has its own provenance. Scan it with a tool such as `grype sbom:agnostic-ai_linux_amd64.tar.gz.sbom.json`.
 
 ## npm
 
@@ -57,7 +59,7 @@ The `agnostic-ai` package and its six `@agnostic-ai/*` platform packages are pub
 npm audit signatures
 ```
 
-It checks the registry signature of every installed package and the provenance attestation of each that has one. The platform package's binary is the release archive's binary, checked against `checksums.txt` before it is packed.
+It checks each package's registry signature and provenance. The platform package holds the release archive's binary, checked against `checksums.txt` before packing.
 
 ## Signed tags and commits
 
@@ -70,8 +72,8 @@ git verify-tag vX.Y.Z
 
 ## Build from source
 
-`go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@vX.Y.Z` builds the tagged source on your machine. The Go toolchain checks the module against the [Go checksum database](https://sum.golang.org/), so a tag moved after publication fails the install.
+`go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@vX.Y.Z` builds the tagged source locally. Go checks the module against the [checksum database](https://sum.golang.org/), so a tag moved after publication fails.
 
 ## Report a problem
 
-A check that fails on a published release is a security issue. Report it through a [private advisory](https://github.com/Chemaclass/agnostic-ai/security/advisories/new), not a public issue.
+A failed check on a published release is a security issue. Report it through a [private advisory](https://github.com/Chemaclass/agnostic-ai/security/advisories/new), not a public issue.

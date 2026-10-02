@@ -101,7 +101,7 @@ env = { ROOT = "/tmp" }
 
 	mcps := filepath.Join(dir, ".agnostic-ai", "mcps")
 	for file, wants := range map[string][]string{
-		"fs.yaml":                  {"command: npx", "@modelcontextprotocol/server-filesystem", "ROOT: /tmp"},
+		"fs.yaml":                  {"command: npx", "@modelcontextprotocol/server-filesystem", "ROOT: ${ROOT}"},
 		"docs-example-test.yaml":   {"type: sse", "url: https://docs.example.test/sse"},
 		"search-example-test.yaml": {"type: http", "api_key: secret", "timeout: 1800"},
 		"mcp-notion-com.yaml":      {"type: http", "auth: oauth"},

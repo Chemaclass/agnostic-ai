@@ -60,7 +60,7 @@ List each finding with its `file:line`, the attack it enables, and the smallest 
 | `model` | no | unset | A string for every target, a map per target, or a [tier](#model-tiers) name. See [per-target `model` and `effort`](#per-target-model-and-effort). |
 | `effort` | no | unset | A string or integer for every target, or a map per target. See [per-target `model` and `effort`](#per-target-model-and-effort). |
 | `color` | no | unset | Badge color. See [`color` support by target](#color-support-by-target). |
-| `readonly` | no | unset | `true` restricts the agent to reading. Cursor: restricted. Claude: `disallowedTools: Write, Edit, NotebookEdit` (Bash stays allowed). Codex: writes `sandbox_mode = "read-only"`, which current Codex ignores (the agent keeps the session sandbox), with a coverage note. Factory: `tools: read-only` with `mcpServers: []` unless servers are listed (wins over a portable `tools` list). An explicit `x-claude.disallowedTools`, `x-codex.sandbox_mode`, or `x-factory.tools` wins. Other targets report a coverage note. `false` is a no-op. |
+| `readonly` | no | unset | `true` restricts the agent to reading; `false` is a no-op. See [`readonly` by target](#readonly-by-target). |
 | `memory` | no | unset | Persistent memory scope: `user`, `project`, or `local`. |
 | `mcpServers` | no | unset | MCP servers this agent may reach. See [`mcpServers` support by target](#mcpservers-support-by-target). |
 | `permissionMode` | no | unset | Approval boundary for this agent. See [`permissionMode` and agent `hooks`](#agent-policy-support-by-target). |
@@ -68,11 +68,30 @@ List each finding with its `file:line`, the attack it enables, and the smallest 
 
 Any other frontmatter field passes through unchanged.
 
-`memory` gives the agent a directory that survives across sessions. Only [Claude Code](@/docs/targets/claude.md#agent-memory) is confirmed to act on it; [Qoder](@/docs/targets/qoder.md#subagent-memory) gets the key unconfirmed, Junie passes it through, and every other adapter drops it.
+`memory` gives the agent a directory that survives across sessions. Only [Claude Code](@/docs/targets/claude.md#agent-memory) is confirmed to act on it. [Qoder](@/docs/targets/qoder.md#subagent-memory) gets the key unconfirmed, Junie passes it through, and every other adapter drops it.
+
+### `readonly` by target {#readonly-by-target}
+
+| Target | Effect |
+|--------|--------|
+| Cursor | Restricted |
+| Claude Code | `disallowedTools: Write, Edit, NotebookEdit` (Bash stays allowed) |
+| Codex | Writes `sandbox_mode = "read-only"`, which current Codex ignores (the agent keeps the session sandbox), with a coverage note |
+| Factory | `tools: read-only` with `mcpServers: []` unless servers are listed; wins over a portable `tools` list |
+| Other targets | Coverage note |
+
+An explicit `x-claude.disallowedTools`, `x-codex.sandbox_mode`, or `x-factory.tools` wins.
 
 ## Per-target `model` and `effort` {#per-target-model-and-effort}
 
-`model:` and `effort:` each take a scalar or a map keyed by target name, with an optional `default`. Precedence: `x-<target>.<key>`, then `<key>.<target>`, then `<key>.default`, then the key is not written and the tool uses its own default. `x-<target>.<key>: null` deletes it. A non-scalar value under a target key falls through to `default`.
+`model:` and `effort:` each take a scalar or a map keyed by target name, with an optional `default`. Precedence, high to low:
+
+1. `x-<target>.<key>`
+2. `<key>.<target>`
+3. `<key>.default`
+4. The key is not written and the tool uses its own default.
+
+`x-<target>.<key>: null` deletes the key. A non-scalar value under a target key falls through to `default`.
 
 | Want | Write |
 |------|-------|
@@ -99,7 +118,15 @@ x-codex:
 ---
 ```
 
-Result: Claude gets `opus` and `xhigh`; Qoder `gpt-6.1-sol` and `8000`; Junie `gpt-6.1-sol` and `high`; Cursor `claude-opus-5[effort=high]` (resolved effort discarded); Codex `gpt-6.1-sol` with `x-codex` overriding effort to `xhigh`; Factory `gpt-6.1-sol` with no `reasoningEffort` (`max` is outside its enum, coverage note); Trae drops both with notes.
+Result:
+
+- Claude gets `opus` and `xhigh`.
+- Qoder gets `gpt-6.1-sol` and `8000`.
+- Junie gets `gpt-6.1-sol` and `high`.
+- Cursor gets `claude-opus-5[effort=high]`; the resolved effort is discarded.
+- Codex gets `gpt-6.1-sol`, with `x-codex` overriding effort to `xhigh`.
+- Factory gets `gpt-6.1-sol` and no `reasoningEffort`, because `max` is outside its enum (coverage note).
+- Trae drops both, with notes.
 
 **`effort` values by target.** Only the targets listed were checked. Omitting `effort` inherits the session's level.
 
@@ -116,7 +143,15 @@ Result: Claude gets `opus` and `xhigh`; Qoder `gpt-6.1-sol` and `8000`; Junie `g
 
 Cursor encodes effort in the `model` string, so it rides on the `model` map. Factory ignores `reasoningEffort` when `model` resolves to `inherit`.
 
-**Claude model names on other targets.** A shared `model` (a scalar or `default`) set to a Claude model name raises a coverage note on a target that cannot load it, naming `model: {claude: <name>}`, and sync leaves the value out, so that target uses its own default. A map keeps its other entries. `on-unsupported: error` fails the sync instead. A Claude name in a later settings spec no longer hides an earlier settings model. A value under `model.<target>` or `x-<target>.model` passes. When the name comes from a tier's `default`, the note names the tier to fix. `import claude` writes these names as `model: {claude: <name>}`. `import codex` adds a Codex agent model to an existing spec as `model.codex`.
+**Claude model names on other targets.** A shared `model` (a scalar or `default`) set to a Claude model name raises a coverage note on a target that cannot load it. The note names `model: {claude: <name>}`. Sync leaves the value out, so that target uses its own default.
+
+- A map keeps its other entries.
+- `on-unsupported: error` fails the sync instead.
+- A Claude name in a later settings spec no longer hides an earlier settings model.
+- A value under `model.<target>` or `x-<target>.model` passes.
+- When the name comes from a tier's `default`, the note names the tier to fix.
+- `import claude` writes these names as `model: {claude: <name>}`.
+- `import codex` adds a Codex agent model to an existing spec as `model.codex`.
 
 Claude Code's [aliases](https://code.claude.com/docs/en/model-config) are `sonnet`, `opus`, `haiku`, `fable`, `best`, `opusplan`, `sonnet[1m]`, and `opus[1m]`. The model value `default` resets Claude's model rather than naming one, so it raises no note.
 
@@ -147,9 +182,32 @@ model: strong
 
 Claude gets `opus` with `xhigh`, Codex `gpt-6.1-sol` with `high`, and every other target its own default. Skills, commands, and settings specs name tiers the same way.
 
-Precedence, high to low: `x-<target>.model`, then `model.<target>` in the spec, then the tier's entry for the target, then the tier's `default`, then the tool default. To override one target, write the tier as the map's `default`: `model: {codex: gpt-6-luna, default: strong}`. The tier's `effort` applies only when the spec sets no `effort`; a spec `effort` replaces it whole. The tier's `effort` also skips a target whose model the spec sets itself, since it was chosen for the tier's model. Values under `model.<target>` and `x-<target>.model` never name a tier. A `model.<target>` value can be a [vendor alias](@/docs/configuration.md#models) such as `codex: sol`; `x-<target>.model` is written as given.
+Precedence for `model`, high to low:
 
-`explain agents/architect.md` lists the model and effort each configured target gets. `lint` flags a tier a spec names with no entry and no `default` for one of the spec's targets, and a tier named like a Claude model (LINT025), and a Claude model name in a shared `model` or a tier `default` that reaches another vendor's target (LINT026). `import claude` suggests a tier when two or more agents set the same Claude model. `import claude` and `import codex` keep `model: strong` when the imported model and effort are the ones the tier gives that tool, so sync then import does not pin a model.
+1. `x-<target>.model`
+2. `model.<target>` in the spec
+3. The tier's entry for the target
+4. The tier's `default`
+5. The tool default
+
+To override one target, write the tier as the map's `default`: `model: {codex: gpt-6-luna, default: strong}`.
+
+- The tier's `effort` applies only when the spec sets no `effort`. A spec `effort` replaces it whole.
+- The tier's `effort` also skips a target whose model the spec sets itself, since it was chosen for the tier's model.
+- Values under `model.<target>` and `x-<target>.model` never name a tier.
+- A `model.<target>` value can be a [vendor alias](@/docs/configuration.md#models) such as `codex: sol`. `x-<target>.model` is written as given.
+
+`explain agents/architect.md` lists the model and effort each configured target gets.
+
+{% <details summary="Lint and import with tiers"> %}
+`lint` flags:
+
+- a tier a spec names with no entry and no `default` for one of the spec's targets
+- a tier named like a Claude model (LINT025)
+- a Claude model name in a shared `model` or a tier `default` that reaches another vendor's target (LINT026)
+
+`import claude` suggests a tier when two or more agents set the same Claude model. `import claude` and `import codex` keep `model: strong` when the imported model and effort are the ones the tier gives that tool, so sync then import does not pin a model.
+{% </details> %}
 
 ## `tools` support by target
 

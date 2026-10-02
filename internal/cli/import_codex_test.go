@@ -948,7 +948,7 @@ env_http_headers = { Authorization = "MCP_TOKEN" }
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"env_vars:", "- LOCAL_TOKEN", "name: REMOTE_TOKEN", "source: remote"} {
+	for _, want := range []string{"LOCAL_TOKEN: ${LOCAL_TOKEN}", "env_vars:", "name: REMOTE_TOKEN", "source: remote"} {
 		if !strings.Contains(string(worker), want) {
 			t.Errorf("expected %q in worker spec:\n%s", want, worker)
 		}
@@ -957,7 +957,10 @@ env_http_headers = { Authorization = "MCP_TOKEN" }
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"env_http_headers:", "Authorization: MCP_TOKEN"} {
+	if strings.Contains(string(worker), "- LOCAL_TOKEN") {
+		t.Errorf("a forwarded name should read back as an env reference:\n%s", worker)
+	}
+	for _, want := range []string{"Authorization: ${MCP_TOKEN}"} {
 		if !strings.Contains(string(api), want) {
 			t.Errorf("expected %q in api spec:\n%s", want, api)
 		}

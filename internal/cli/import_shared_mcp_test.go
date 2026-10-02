@@ -10,7 +10,7 @@ import (
 func TestWriteMCPYAMLs_PackageNameUsesFlatFilename(t *testing.T) {
 	dir := t.TempDir()
 	want := "npm:@modelcontextprotocol/server-sequential.thinking"
-	count, err := writeMCPYAMLs(map[string]any{
+	count, err := writeMCPYAMLs("claude", map[string]any{
 		want: map[string]any{"command": "npx"},
 	}, dir)
 	if err != nil {
@@ -31,7 +31,7 @@ func TestWriteMCPYAMLs_PackageNameUsesFlatFilename(t *testing.T) {
 
 func TestWriteMCPYAMLs_InvalidNameWritesNothing(t *testing.T) {
 	dir := t.TempDir()
-	count, err := writeMCPYAMLs(map[string]any{
+	count, err := writeMCPYAMLs("claude", map[string]any{
 		"a-valid":      map[string]any{"command": "first"},
 		"z/../invalid": map[string]any{"command": "second"},
 	}, dir)

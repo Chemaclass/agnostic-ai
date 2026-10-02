@@ -10,6 +10,8 @@ target_id = "kiro"
 
 # Kiro (`kiro`)
 
+agnostic-ai writes AWS Kiro steering files, native skills, agents, and hooks under `.kiro/`, plus MCP servers and `.kiroignore`.
+
 ## Output
 
 ```
@@ -22,17 +24,22 @@ AGENTS.md                          # entry-point pointer body, plus the rules bl
 .kiroignore                        # when ignore entries exist
 ```
 
-AWS Kiro loads [steering files](https://kiro.dev/docs/steering/) whose YAML frontmatter must come first in the file. Unscoped rules use `inclusion: always`; globbed rules use `fileMatch` with `fileMatchPattern`, a string for one pattern and a list for several. Kiro's `auto` and `manual` modes are not used. Kiro also always includes the root `AGENTS.md`, which carries the shared pointer body. When codex or another inlining target adds the `## Rules` block to it, an `inclusion: always` rule whose text matches that block gets no steering file and loads once; `fileMatch` rules keep theirs. A Kiro custom agent loads only the steering files its `resources` list, so when any agent spec sets `x-kiro.resources`, every rule keeps its steering file. Listing `AGENTS.md` under `sync.unmanaged` also keeps them all, but sync then stops writing `AGENTS.md` at all, so codex and every other reader stop getting rule changes there. See [target behavior](@/docs/target-behavior.md#entry-point-files).
+- **Rules**: [steering files](https://kiro.dev/docs/steering/) must start with their YAML frontmatter. Unscoped rules use `inclusion: always`; globbed rules use `fileMatch` with `fileMatchPattern`, a string for one pattern and a list for several. Kiro's `auto` and `manual` modes go unused.
+- **`AGENTS.md`**: Kiro always includes it. When codex or another inlining target adds the `## Rules` block, an `inclusion: always` rule matching that block gets no steering file and loads once; `fileMatch` rules keep theirs. A Kiro custom agent loads only the steering files its `resources` list, so any agent spec with `x-kiro.resources` makes every rule keep its file. See [target behavior](@/docs/target-behavior.md#entry-point-files).
+- **Skills**: [native](https://kiro.dev/docs/skills/) at `.kiro/skills/<name>/SKILL.md`, read by the skill picker. The render (`name` and `description` frontmatter) is byte-identical with the shared `.agents/skills/` one. Bundled `scripts/`, `references/`, and `assets/` copy alongside.
+- **Agents**: [native custom agents](https://kiro.dev/docs/custom-agents/) in YAML-frontmatter Markdown, read by the agent picker. `description` (default: agent name) and `model` pass through. The spec name stays the filename; `x-kiro.name` sets Kiro's optional display name and survives import.
 
-Skills are [native](https://kiro.dev/docs/skills/): one folder per skill at `.kiro/skills/<name>/SKILL.md`, the tree Kiro's skill picker reads. The render (`name` and `description` frontmatter) is byte-identical with the shared `.agents/skills/` render. Bundled `scripts/`, `references/`, and `assets/` copy alongside.
+{% <details summary="Unmanaged AGENTS.md"> %}
+Listing `AGENTS.md` under `sync.unmanaged` also keeps every steering file, but sync then stops writing `AGENTS.md`, so codex and every other reader lose rule changes there.
+{% </details> %}
 
-Agents are [native custom agents](https://kiro.dev/docs/custom-agents/): one YAML-frontmatter Markdown file per agent at `.kiro/agents/<name>.md`, the tree Kiro's agent picker reads. `description` (falls back to the agent name) and `model` pass through. The spec name stays the filename; `x-kiro.name` sets Kiro's optional display name and survives import.
+{% <details summary="Old flattened steering files"> %}
+Older versions flattened skills into `.kiro/steering/skill-<name>.md` and agents into `.kiro/steering/agent-<name>.md`, which never reached the pickers. `sync` sweeps them.
+{% </details> %}
 
-Older versions flattened skills into `.kiro/steering/skill-<name>.md` and agents into `.kiro/steering/agent-<name>.md`, which never reached the pickers. `sync` sweeps those stale files.
+Kiro's [agent schema](https://kiro.dev/docs/custom-agents/configuration-reference/) also carries `tools`, `mcpServers`, `permissions`, `hooks`, `keyboardShortcut`, `welcomeMessage`, `excludedTools`, `includeMcpJson`, and `includePowers`. `tools` translates from the portable field. Kiro's `mcpServers` holds inline definitions, not names: set `x-kiro.mcpServers`. The rest, and any arbitrary key, pass through `x-kiro`.
 
-Kiro's [agent schema](https://kiro.dev/docs/custom-agents/configuration-reference/) also carries `tools`, `mcpServers`, `permissions`, `hooks`, `keyboardShortcut`, `welcomeMessage`, `excludedTools`, `includeMcpJson`, and `includePowers`. `tools` translates from the portable field. Kiro's `mcpServers` holds inline server definitions, so the portable name list does not map; set `x-kiro.mcpServers`. The rest reach the file through `x-kiro`.
-
-Kiro's `tools` vocabulary uses category tags plus `@server_name`, `@server_name/tool_name`, `@mcp`, `@builtin`, and `*`. The [configuration reference](https://kiro.dev/docs/custom-agents/configuration-reference/) and the [tools page](https://kiro.dev/docs/tools/) disagree on some categories (`knowledge`, `todo_list`, `spec`, `context`), but both agree on the four the portable list translates to:
+Kiro's `tools` takes category tags plus `@server_name`, `@server_name/tool_name`, `@mcp`, `@builtin`, and `*`. The [configuration reference](https://kiro.dev/docs/custom-agents/configuration-reference/) and [tools page](https://kiro.dev/docs/tools/) disagree on some categories (`knowledge`, `todo_list`, `spec`, `context`) but agree on the four the portable list uses:
 
 | Spec `tools` values | Kiro category |
 | --- | --- |
@@ -41,31 +48,21 @@ Kiro's `tools` vocabulary uses category tags plus `@server_name`, `@server_name/
 | `Bash` | `shell` |
 | `WebFetch`, `WebSearch` | `web` |
 
-Duplicates collapse to one category. Each category is a bundle, so access widens: `write` also covers `delete_file` (declaring only `Edit` grants delete), and `web` covers both fetch and search.
+Duplicates collapse. Categories are bundles, so access widens: `write` also covers `delete_file` (even `Edit` alone grants delete), and `web` covers fetch and search. Other values drop with a coverage note while the rest still emit. `x-kiro.tools` takes Kiro's vocabulary and always wins.
 
-Any other `tools` value is dropped with a coverage note; the values that do translate still emit. Set `x-kiro.tools` to use Kiro's vocabulary directly; it always wins over the translated form. Arbitrary `x-kiro` keys always pass through.
+**Hooks** are [native](https://kiro.dev/docs/hooks/): one JSON file per spec, `{"version": "v1", "hooks": [{name, trigger, matcher, action, timeout, enabled, description}]}`.
 
-Hooks are [native](https://kiro.dev/docs/hooks/): one JSON file per hook spec, `{"version": "v1", "hooks": [{name, trigger, matcher, action, timeout, enabled, description}]}`. `event` becomes `trigger`, verbatim. `validate` flags `AgentSpawn` and `agentSpawn`, which Kiro V3 accepts only as compatibility aliases, and names `SessionStart` instead. `command` (string or list) becomes `action: {"type": "command", "command": ...}`, one entry per command in the same file, with `name` suffixed `-2`, `-3`, ... to stay unique.
+- `event` becomes `trigger`, verbatim. `validate` flags `AgentSpawn` and `agentSpawn`, Kiro V3's compatibility aliases, and suggests `SessionStart`.
+- Each `command` (string or list) becomes an `action: {"type": "command", "command": ...}` entry in the same file, with `name` suffixed `-2`, `-3`, ... to stay unique.
+- `disabled: true` writes `"enabled": false`. `description` reaches the file as documentation only.
+- `timeout: 0` disables the timeout; omitting it keeps Kiro's 60-second default.
+- `x-kiro` keys pass through per entry, the only way to set `confirm` (ask before a Stop command hook runs, with `question`, `options` of `id`/`label`/`run`, and optional `confirmCommand`).
+- `x-kiro.action` takes `{type: agent, prompt: ...}` or `{type: command, command: ...}`. A valid one needs no generic `command` and replaces the whole list with one action; an invalid one fails sync.
+- Neutral `.agnostic-ai/scripts/<name>` references copy to `.kiro/scripts/<name>`, outside `.kiro/hooks/` where Kiro reads definitions, and the command is rewritten. See [shared hook scripts](@/docs/spec-format/hooks.md#shared-hook-scripts).
 
-`disabled: true` writes `"enabled": false`; enabled needs no key. The spec's `description` reaches the file (Kiro treats it as documentation only).
+**MCP** servers go to `.kiro/settings/mcp.json` under `mcpServers`, Kiro's [workspace-level config](https://kiro.dev/docs/mcp/configuration/). Local servers carry `command` plus optional `args` and `env`; remote ones carry `url` plus optional `headers` and `env`. Kiro expands a `${NAME}` reference only after you approve the variable under **Mcp Approved Env Vars** in its settings; see [environment references](@/docs/spec-format/mcps.md#environment-references). `disabled` passes through (default `false`). Kiro also accepts `autoApprove` (tools approved without prompting, `"*"` for all) and `disabledTools` (tools hidden from the agent). A remote server can add `oauth` (`{clientId, clientSecret, redirectUri, clientMetadataUrl, oauthScopes}`) and a top-level `oauthScopes` fallback; `oauth.oauthScopes` wins. An empty `oauthScopes: []` emits as written, Kiro's documented fix for scope errors. Kiro's `oauth` differs from Claude Code's, so each target maps only its vendor's sub-keys. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
 
-Arbitrary `x-kiro` keys pass through on each entry. That is the only way to set `confirm` (ask before a Stop command hook runs, with `question`, `options` of `id`/`label`/`run`, and optional `confirmCommand`). `x-kiro.action` accepts `{type: agent, prompt: ...}` or `{type: command, command: ...}`. A valid explicit action needs no generic `command` and replaces the whole command list with one native action. An invalid action fails sync instead of falling back.
-
-`timeout: 0` disables the command timeout; omitting it keeps Kiro's 60-second default.
-
-Neutral `.agnostic-ai/scripts/<name>` references copy the script to `.kiro/scripts/<name>` and rewrite the action command. Script bodies stay outside `.kiro/hooks/`, where Kiro reads hook definitions. See [shared hook scripts](@/docs/spec-format/hooks.md#shared-hook-scripts).
-
-MCP servers write to `.kiro/settings/mcp.json` under `mcpServers`, Kiro's [workspace-level config](https://kiro.dev/docs/mcp/configuration/). A local server carries `command` plus optional `args` and `env`; a remote server carries `url` plus optional `headers` and `env`.
-
-`disabled` passes through under that name (default `false`). Kiro also accepts `autoApprove` (tool names to approve without prompting, `"*"` for all) and `disabledTools` (tool names to hide from the agent).
-
-A remote server can add an `oauth` object, `{clientId, clientSecret, redirectUri, clientMetadataUrl, oauthScopes}`, and a top-level `oauthScopes` fallback. `oauth.oauthScopes` wins when both are set. An empty `oauthScopes: []` emits as written, since Kiro documents it as the fix for scope errors.
-
-Kiro's `oauth` differs from Claude Code's, so each target maps only the sub-keys its vendor documents. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
-
-Ignore specs emit as `.kiroignore` in the project root, in gitignore syntax ([Kiro ignore](https://kiro.dev/docs/kiroignore/)). Multiple specs concatenate. Override via `outputs.kiro.ignore-file`.
-
-Two limits `sync` cannot change: the IDE honors `.kiroignore` only when it is listed in the `kiroAgent.agentIgnoreFiles` setting (Kiro suggests `[".gitignore", ".kiroignore"]`), and CLI V3 reads only the workspace file, with no global ignore file. In CLI V3 a workspace `.kiroignore` blocks direct reads of matching files and filters them from content and filename search results.
+**Ignore** specs concatenate into `.kiroignore` in gitignore syntax ([Kiro ignore](https://kiro.dev/docs/kiroignore/)); override with `outputs.kiro.ignore-file`. Two limits sync cannot change: the IDE honors it only when listed in `kiroAgent.agentIgnoreFiles` (Kiro suggests `[".gitignore", ".kiroignore"]`), and CLI V3 reads only the workspace file, with no global one. There it blocks direct reads of matches and filters them from content and filename search.
 
 ## Config keys
 
@@ -80,7 +77,7 @@ Two limits `sync` cannot change: the IDE honors `.kiroignore` only when it is li
 
 ## Import
 
-`agnostic-ai import kiro` reverses the Kiro layout. Native agent and skill trees import first. Then `.kiro/steering/` files fill in rules plus any legacy flattened agents and skills (the filename prefix picks the kind):
+`agnostic-ai import kiro` reads native agent and skill trees first, then fills in rules and legacy flattened agents and skills from `.kiro/steering/` (the filename prefix picks the kind):
 
 | Source | Becomes |
 |--------|---------|
@@ -94,25 +91,25 @@ Two limits `sync` cannot change: the IDE honors `.kiroignore` only when it is li
 | `.kiro/settings/mcp.json` (`mcpServers.<name>`) | `<mcps>/<name>.yaml` |
 | `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
 
-A name present in both a native tree and legacy steering keeps the native copy.
+Native copies win over legacy steering of the same name.
 
-Hook import reads every vendor field, not only the ones `sync` writes:
+Hook import reads every vendor field:
 
-- `trigger` becomes `event`; `matcher`, `description`, and `timeout` (including `timeout: 0`) map straight across; `enabled: false` becomes `disabled: true`.
-- An `action.type: "agent"` action lands under `x-kiro.action`, not the portable prompt handler, which [spec-format.md](@/docs/spec-format/hooks.md) scopes to Claude Code, Cursor, and Copilot.
-- `confirm` and any other unknown key land under `x-kiro`, so future fields are kept.
-- A file with several `trigger` values splits into one spec per trigger.
-- Entries that differ only in `action.command` recombine into one spec with a `command:` list, dropping the `-2`/`-3` suffixes.
+- `trigger` becomes `event`; `matcher`, `description`, and `timeout` (including `timeout: 0`) map across; `enabled: false` becomes `disabled: true`.
+- `action.type: "agent"` lands under `x-kiro.action`, not the portable prompt handler, which [spec-format.md](@/docs/spec-format/hooks.md) scopes to Claude Code, Cursor, and Copilot.
+- `confirm` and unknown keys land under `x-kiro`, so future fields survive.
+- Several `trigger` values split into one spec each.
+- Entries differing only in `action.command` recombine into one `command:` list, without the `-2`/`-3` suffixes.
 - A human-readable name ("Lint on save") slugs into the filename and stays intact on `name:`.
-- An action with no payload (`type: "command"` with no `command`, `type: "agent"` with no `prompt`) is skipped with a warning.
+- An action with no payload (`type: "command"` with no `command`, `type: "agent"` with no `prompt`) skips with a warning.
 
-Some data does not round-trip. Kiro's output stays the same, but the rebuilt spec loses it:
+The rebuilt spec loses some data, though Kiro's output stays the same:
 
 - A rule's source-layout scope collapses into an equivalent `globs:`.
-- A legacy flattened steering agent or skill keeps only its body. That form never carried a description, model, or bundled assets.
-- A hook's explicit `enabled: true` leaves no key, since it is the default.
-- Two hook files with the same `name` keep both hooks, but the second gets a deterministic generated name, because spec names are unique and set the hook filename.
-- `{{filePath}}` in a command stays literal text. Kiro documents it as new in 3.0, and it means nothing on other targets.
+- A legacy flattened agent or skill keeps only its body; that form never carried a description, model, or bundled assets.
+- An explicit `enabled: true` leaves no key, since it is the default.
+- Two hook files sharing a `name` keep both hooks; the second gets a deterministic generated name, since spec names are unique filenames.
+- <code>{&#123;filePath}}</code> stays literal: Kiro documents it as new in 3.0, and it means nothing elsewhere.
 
 ## Protected paths
 
@@ -122,5 +119,5 @@ Advisory. This target takes no settings specs, so sync reports a spec with a `pr
 
 1. Install Kiro from [kiro.dev](https://kiro.dev).
 2. Check the tree: `ls AGENTS.md .kiro/steering/ .kiro/skills/ .kiro/agents/ .kiro/hooks/ .kiro/settings/mcp.json .kiroignore`, `head -2 .kiro/steering/*.md .kiro/skills/*/SKILL.md .kiro/agents/*.md` (frontmatter first, no leading blank lines), `python -m json.tool .kiro/settings/mcp.json > /dev/null`, and `python -m json.tool .kiro/hooks/*.json > /dev/null`.
-3. Open the project. The steering panel lists every rule with its inclusion mode and no parse warnings. The skill picker lists every `.kiro/skills/<name>/` folder, and the agent picker lists every `.kiro/agents/<name>.md`.
+3. Open the project. The steering panel lists every rule with its inclusion mode and no parse warnings; the skill and agent pickers list every `.kiro/skills/<name>/` and `.kiro/agents/<name>.md`.
 4. Trigger a hook's event (e.g. save a file for `PostFileSave`). The command runs with no schema warning.

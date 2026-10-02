@@ -34,7 +34,7 @@ func TestImportTrae_RoundTripFixedPoint(t *testing.T) {
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "fs.yaml"),
 		"name: fs\ncommand: npx\nargs: [\"-y\", \"@modelcontextprotocol/server-filesystem\"]\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "linear.yaml"),
-		"name: linear\ntype: http\nurl: https://mcp.linear.app\nheaders:\n  Authorization: Bearer x\n")
+		"name: linear\ntype: http\nurl: https://mcp.linear.app\nheaders:\n  Authorization: Bearer ${LINEAR_TOKEN}\n")
 
 	execCLI(t, "sync", "-t", "trae")
 	first := snapshotEmitted(t, dir)

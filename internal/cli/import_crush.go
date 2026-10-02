@@ -49,7 +49,7 @@ func importFromCrush(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
-	mcps, err := importJSONMCPMap(filepath.Join(root, crushMCPFile), crushMCPKey,
+	mcps, err := importJSONMCPMap("crush", filepath.Join(root, crushMCPFile), crushMCPKey,
 		filepath.Join(root, src.MCPs))
 	if err != nil {
 		return err

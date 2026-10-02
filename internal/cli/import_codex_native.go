@@ -1098,31 +1098,44 @@ func codexMCPOAuthDoc(o codexMCPOAuth) map[string]any {
 }
 
 func writeCodexMCPs(servers map[string]codexMCPEntry, dstDir string) (int, error) {
-	names := make([]string, 0, len(servers))
-	for n := range servers {
-		names = append(names, n)
-	}
-	sort.Strings(names)
-	if err := spec.ValidateMCPNames(names); err != nil {
-		return 0, err
-	}
+	return writeMCPYAMLs("codex", codexMCPDocs(servers), dstDir)
+}
 
-	count := 0
-	for _, name := range names {
-		s := servers[name]
+// codexMCPDocs converts each `[mcp_servers.<name>]` table to its spec
+// fields. A variable Codex forwards by name reads back as the spec's
+// `${NAME}`: an `env_vars` name as an `env` entry, `bearer_token_env_var`
+// as an `Authorization: Bearer` header, and an `env_http_headers` entry
+// as that header (#1619).
+func codexMCPDocs(servers map[string]codexMCPEntry) map[string]any {
+	docs := make(map[string]any, len(servers))
+	for name, s := range servers {
 		doc := map[string]any{"name": name}
+		env := stringAnyMap(s.Env)
 		switch {
 		case s.URL != "":
 			doc["type"] = "http"
 			doc["url"] = s.URL
+			headers := stringAnyMap(s.HTTPHeaders)
 			if s.BearerTokenEnvVar != "" {
-				doc["bearer_token_env_var"] = s.BearerTokenEnvVar
+				if hasHeader(headers, "Authorization") {
+					doc["bearer_token_env_var"] = s.BearerTokenEnvVar
+				} else {
+					headers["Authorization"] = "Bearer " + spec.EnvRef(s.BearerTokenEnvVar)
+				}
 			}
-			if len(s.HTTPHeaders) > 0 {
-				doc["headers"] = s.HTTPHeaders
+			envHeaders := map[string]string{}
+			for header, variable := range s.EnvHTTPHeaders {
+				if hasHeader(headers, header) {
+					envHeaders[header] = variable
+					continue
+				}
+				headers[header] = spec.EnvRef(variable)
 			}
-			if len(s.EnvHTTPHeaders) > 0 {
-				doc["env_http_headers"] = s.EnvHTTPHeaders
+			if len(headers) > 0 {
+				doc["headers"] = headers
+			}
+			if len(envHeaders) > 0 {
+				doc["env_http_headers"] = envHeaders
 			}
 			if s.Auth != "" {
 				doc["auth"] = s.Auth
@@ -1150,12 +1163,21 @@ func writeCodexMCPs(servers map[string]codexMCPEntry, dstDir string) (int, error
 			if s.Cwd != "" {
 				doc["cwd"] = s.Cwd
 			}
-			if len(s.EnvVars) > 0 {
-				doc["env_vars"] = s.EnvVars
+			var envVars []any
+			for _, entry := range s.EnvVars {
+				variable, plain := entry.(string)
+				if _, set := env[variable]; !plain || set {
+					envVars = append(envVars, entry)
+					continue
+				}
+				env[variable] = spec.EnvRef(variable)
+			}
+			if len(envVars) > 0 {
+				doc["env_vars"] = envVars
 			}
 		}
-		if len(s.Env) > 0 {
-			doc["env"] = s.Env
+		if len(env) > 0 {
+			doc["env"] = env
 		}
 		if s.Description != "" {
 			doc["description"] = s.Description
@@ -1203,15 +1225,24 @@ func writeCodexMCPs(servers map[string]codexMCPEntry, dstDir string) (int, error
 		if s.ExperimentalEnvironment != "" {
 			doc["experimental_environment"] = s.ExperimentalEnvironment
 		}
-		raw, err := yaml.Marshal(doc)
-		if err != nil {
-			return count, fmt.Errorf("marshal mcp %s: %w", name, err)
-		}
-		path := filepath.Join(dstDir, spec.MCPFileName(name))
-		if err := importWriteFile(path, raw, 0o644); err != nil {
-			return count, fmt.Errorf("write %s: %w", path, err)
-		}
-		count++
+		docs[name] = doc
 	}
-	return count, nil
+	return docs
+}
+
+func stringAnyMap(m map[string]string) map[string]any {
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
+}
+
+func hasHeader(headers map[string]any, name string) bool {
+	for key := range headers {
+		if strings.EqualFold(key, name) {
+			return true
+		}
+	}
+	return false
 }

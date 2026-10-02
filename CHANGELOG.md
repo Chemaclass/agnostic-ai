@@ -11,6 +11,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `import`, `init --from`, and `use` stop before replacing a spec with different content and list each one; `import --overwrite` replaces them (#1620).
 - **Breaking:** a rule with narrow `globs` and no `alwaysApply` loads on matching files in Cursor, Trae, Devin, Cline, and Antigravity, not on every file (#1597).
 - **Breaking:** an unknown config key, a misspelled target, or a bad `on-unsupported` value fails before sync writes anything, not silently (#1589).
+- `import` writes MCP `env` and `headers` values as `${NAME}` variables to set, plain settings like `NODE_ENV` included, never the value itself (#1619).
+- `sync` writes an MCP `${NAME}` in each tool's own form, and leaves it out with a note where the tool cannot read it, such as Gemini headers (#1619).
 - `init` names what ignoring or committing generated files costs a team, and without a terminal says which it picked (#1615).
 - `agnostic-ai use <tool>` starts using a tool in one step: it sets up or extends the project, imports, syncs, and shows what the tool reads (#1613).
 - The first `sync` ends by listing what each tool now reads from `.agnostic-ai/`: its instructions file, skills, agents, hooks, and MCP servers (#1614).

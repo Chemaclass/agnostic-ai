@@ -10,6 +10,8 @@ target_id = "copilot"
 
 # GitHub Copilot (`copilot`)
 
+GitHub Copilot reads most project configuration from `.github/`, and VS Code reads MCP servers from `.vscode/mcp.json`.
+
 ## Output
 
 ```
@@ -23,27 +25,37 @@ target_id = "copilot"
 .github/hooks/agnostic-ai.json                              # when hook entries exist
 .github/copilot/settings.json                              # when a Settings model or a disabled MCP server exists
 ```
-
-- **Rules**: a rule with `globs` or a source-layout scope (like `rules/backend/auth.md`) emits as its own `.instructions.md` with `applyTo` frontmatter. Scope and patterns form a union, so `scope: src/a` with `globs: tests/a/**` emits `applyTo: src/a/**,tests/a/**`. An unscoped always-on rule (no globs, or `alwaysApply: true`) gets `applyTo: "**"`. A rule with `alwaysApply: false` and neither gets no `applyTo`, so VS Code loads it on demand when its `description` matches the task ([custom instructions](https://code.visualstudio.com/docs/copilot/customization/custom-instructions)); `import copilot` reads such a file back that way. `description` is written to the frontmatter, where VS Code reads it. Every `x-copilot` key lands next to `applyTo`.
-- **Agents**: [custom agent profiles](https://docs.github.com/en/copilot/reference/custom-agents-configuration) at `.github/agents/<name>.agent.md`, or at `<name>.md` when the agent already lives there, since VS Code reads any `.md` in that folder and a second file would load it twice. The frontmatter carries `name` and `description`, plus `tools` and `model` when set; `x-copilot.name` sets a display name apart from the file name, which `import copilot` fills when a profile's `name` differs from its file. The body is the agent prompt. Arbitrary `x-copilot` keys (`target`, `user-invocable`, `mcp-servers`, `effort`, ...) pass through.
+- **Rules**: a rule with `globs` or a source-layout scope (like `rules/backend/auth.md`) gets its own `.instructions.md` with `applyTo`.
+  - Scope and patterns form a union: `scope: src/a` with `globs: tests/a/**` emits `applyTo: src/a/**,tests/a/**`.
+  - An unscoped always-on rule (no globs, or `alwaysApply: true`) gets `applyTo: "**"`.
+  - A rule with `alwaysApply: false` and neither gets no `applyTo`. VS Code loads it when its `description` matches the task ([custom instructions](https://code.visualstudio.com/docs/copilot/customization/custom-instructions)), and `import copilot` reads it back that way.
+  - `description` and every `x-copilot` key land next to `applyTo`.
+- **Agents**: [custom agent profiles](https://docs.github.com/en/copilot/reference/custom-agents-configuration) at `.github/agents/<name>.agent.md`. An existing `<name>.md` keeps its path, since VS Code reads any `.md` there and a second file would load twice.
+  - Frontmatter carries `name`, `description`, and any set `tools` and `model`.
+  - `x-copilot.name` sets a display name apart from the file name. Import fills it when the two differ.
+  - Other `x-copilot` keys (`target`, `user-invocable`, `mcp-servers`, `effort`, ...) pass through.
   - The profile has no effort key, so a portable `effort` raises a coverage note. Per-agent `effortLevel` exists only in the user-tier `subagents.agents` setting of `~/.copilot/settings.json`, which `sync --global` writes (see [global output](@/docs/target-behavior.md#global-output)).
-  - Old flattened `agent-<name>.instructions.md` copies are swept.
-- **Skills**: [Copilot skills](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills) at `.github/skills/<name>/SKILL.md`, with bundled files copied byte-for-byte. Copilot also scans `.claude/skills/` and `.agents/skills/`, so a skill that already lives in one of them, and not in `.github/skills/`, is written where it lives instead of copied; `outputs.copilot.skills-dir` sends every skill to one directory. Old flattened `skill-<name>.instructions.md` copies are swept.
-- **Chat modes**: with `outputs.copilot.chatmodes-dir` set, each agent also emits as a VS Code [Custom Chat Mode](https://code.visualstudio.com/docs/copilot/customization/custom-chat-modes) at `<dir>/<name>.chatmode.md` with `description`/`model`/`tools` frontmatter. The agent profile still emits.
-- **Settings**: the last portable `model` merges into `.github/copilot/settings.json` as Copilot CLI's repository default model. A portable `effort` of `low`, `medium`, `high`, or `xhigh` merges as `effortLevel`; another value raises a coverage note. Other repository settings survive.
+- **Skills**: [Copilot skills](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills) at `.github/skills/<name>/SKILL.md`. Copilot also scans `.claude/skills/` and `.agents/skills/`, so a skill found there and not in `.github/skills/` is written in place. `outputs.copilot.skills-dir` sends every skill to one directory.
+- **Old copies**: flattened `agent-<name>.instructions.md` and `skill-<name>.instructions.md` files are swept.
+- **Chat modes**: with `outputs.copilot.chatmodes-dir` set, each agent also emits as a VS Code [Custom Chat Mode](https://code.visualstudio.com/docs/copilot/customization/custom-chat-modes) at `<dir>/<name>.chatmode.md` with `description`/`model`/`tools` frontmatter.
+- **Settings**: `.github/copilot/settings.json` keeps other keys and gets:
+  - the last portable `model`, as Copilot CLI's repository default.
+  - a portable `effort` of `low`, `medium`, `high`, or `xhigh`, as `effortLevel`. Other values raise a coverage note.
+  - a settings spec's `x-copilot` block, for unmodeled keys such as `respectGitignore`.
+  - `x-copilot.deniedUrls`, Copilot's blocked URL list. No portable rule reaches it. `allowedUrls` is user-tier only.
+  - every MCP spec with `disabled: true`, sorted, in `disabledMcpServers`. It is Copilot's only file-based way to stop a configured server from starting ([CLI config reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference)).
   - `import copilot` restores the model to `settings/copilot.yaml` and `effortLevel` as `effort` (or `x-copilot.effortLevel` when another settings spec sets a different effort). Target-only keys stay in the native file.
-  - An `x-copilot` block on a settings spec merges into the same file, for keys this tool does not model, such as `respectGitignore`.
-  - `x-copilot.deniedUrls` writes Copilot's blocked URL list. No portable rule reaches it, and no allow list can: `allowedUrls` is user-tier only.
-  - Every MCP spec with `disabled: true` is written to `disabledMcpServers` in the same file, sorted. It is Copilot's only file-based way to keep a configured server from starting ([CLI config reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference)).
-- **MCP**: two files, because VS Code and Copilot CLI read different ones.
-  - `.vscode/mcp.json` uses the VS Code schema: top-level `servers`, each entry with a `type` (`stdio`, `http`, or `sse`). VS Code's Agent Host does not read the file itself; VS Code forwards the config, except servers that need interactive input ([VS Code MCP servers](https://code.visualstudio.com/docs/agent-customization/mcp-servers)).
-  - `.github/mcp.json` carries the same servers under `mcpServers` for Copilot CLI, which rejects the VS Code `servers` key ([Copilot CLI MCP docs](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers)). Override the paths with `outputs.copilot.mcp-file` and `outputs.copilot.cli-mcp-file`.
-  - `.vscode/mcp.json` output owns the whole `servers` map and keeps other top-level keys, such as `inputs` and `sandbox`. JSONC is accepted; sync strips comments and normalizes formatting, and invalid JSONC aborts the write. `.github/mcp.json` and the root mirror are managed as whole documents.
-  - A per-server `tools` allowlist (default `*`) reaches `.github/mcp.json` and the root mirror only. VS Code documents no such key, and Codex's `tools` has a different shape.
-  - Only `.vscode/mcp.json` gets the VS Code fields: stdio `cwd`, `envFile` (for example `${workspaceFolder}/.env`), and `sandboxEnabled` (macOS and Linux only), remote `oauth: {clientId, enterpriseManaged}`, and `dev.watch` (a glob or glob array that restarts the server on change) on all transports. `dev.debug` (`debug: {type: "node"|"debugpy", debugpyPath}`) is stdio-only; a remote server that sets it gets a coverage note, and its watch patterns still emit. See [VS Code MCP configuration](https://code.visualstudio.com/docs/agents/reference/mcp-configuration).
-  - A `roots` list still emits, but neither VS Code nor GitHub documents it as a per-server key, so treat it as passthrough.
-  - VS Code 1.140 calls `.vscode/mcp.json` deprecated. It still loads the file and forwards its servers to the Agent Host, and no removal date is announced. **MCP: Add Server** now saves workspace servers to a root `.mcp.json`, which uses the portable `mcpServers` key instead of `servers` ([VS Code MCP servers](https://code.visualstudio.com/docs/agent-customization/mcp-servers), [VS Code MCP configuration](https://code.visualstudio.com/docs/agents/reference/mcp-configuration), [1.140 release notes](https://code.visualstudio.com/updates/v1_140)).
-  - A project that does not target `claude` can add the root file:
+
+### MCP
+
+VS Code and Copilot CLI read different files, so sync writes two. Override them with `outputs.copilot.mcp-file` and `outputs.copilot.cli-mcp-file`.
+
+- `.vscode/mcp.json` uses the VS Code schema: top-level `servers`, each with a `type` (`stdio`, `http`, or `sse`). VS Code forwards it to the Agent Host, except servers that need interactive input ([VS Code MCP servers](https://code.visualstudio.com/docs/agent-customization/mcp-servers)). Sync owns `servers` and keeps other top-level keys, such as `inputs` and `sandbox`. Sync strips JSONC comments and normalizes formatting. Invalid JSONC aborts the write.
+- `.github/mcp.json` carries the same servers under `mcpServers`, since Copilot CLI rejects the `servers` key ([Copilot CLI MCP docs](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers)). It and the root mirror are whole-document managed.
+- A per-server `tools` allowlist (default `*`) reaches `.github/mcp.json` and the root mirror only. VS Code documents no such key, and Codex's `tools` differs.
+- Only `.vscode/mcp.json` gets the VS Code fields ([VS Code MCP configuration](https://code.visualstudio.com/docs/agents/reference/mcp-configuration)): stdio `cwd`, `envFile` (for example `${workspaceFolder}/.env`), and `sandboxEnabled` (macOS and Linux only); remote `oauth: {clientId, enterpriseManaged}`; and `dev.watch` (a glob or glob array that restarts the server on change) on all transports. `dev.debug` (`debug: {type: "node"|"debugpy", debugpyPath}`) is stdio-only. On a remote server it gets a coverage note, and its watch patterns still emit.
+- A `roots` list emits as passthrough. Neither VS Code nor GitHub documents it per server.
+- VS Code 1.140 calls `.vscode/mcp.json` deprecated but still loads it, with no removal date. **MCP: Add Server** now saves workspace servers to a root `.mcp.json` under the portable `mcpServers` key ([VS Code MCP servers](https://code.visualstudio.com/docs/agent-customization/mcp-servers), [VS Code MCP configuration](https://code.visualstudio.com/docs/agents/reference/mcp-configuration), [1.140 release notes](https://code.visualstudio.com/updates/v1_140)). A project without the `claude` target can opt in:
 
     ```yaml
     outputs:
@@ -51,19 +63,31 @@ target_id = "copilot"
         root-mcp-file: .mcp.json
     ```
 
-    Sync then writes the same servers to `.mcp.json` under `mcpServers`, with the `tools` allowlist and without the VS Code-only fields, and keeps writing `.vscode/mcp.json`. VS Code reads a root `.mcp.json` whether or not this is on, and in a trusted workspace starts its servers next to `.vscode/mcp.json`'s with no extra prompt. VS Code does not document which file wins, or whether it dedupes, when both define a server with the same name.
-  - The root file is not the default because the `claude` target writes `.mcp.json` too. A plain server comes out byte-identical from both targets, so sync writes it once. A field that only one tool documents, such as Claude Code's `timeout` or Copilot CLI's `tools`, makes the two copies differ, and sync stops with an output collision. The default will be revisited once VS Code documents precedence between the two files ([design notes on #1533](https://github.com/Chemaclass/agnostic-ai/issues/1533#issuecomment-5919420911)).
-- **Hooks**: written to `.github/hooks/agnostic-ai.json` (override via `outputs.copilot.hooks-file`). Copilot CLI and cloud agent load and merge every `.github/hooks/*.json` ([hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference)). The wrapper is `{"version": 1, "hooks": {...}}` with an **integer** version. Each entry is flat, `{"type": "command", "matcher": ..., "command": ..., "timeoutSec": ...}`, not Claude Code's nested `{matcher, hooks: [...]}` group. Copilot documents 14 events.
-  - `event:` passes through verbatim. Copilot accepts both PascalCase (`PreToolUse`, the "VS Code compatible" payload) and camelCase (`preToolUse`). PascalCase uses Claude's matcher semantics and tool names, so `matcher: Bash` works unchanged. camelCase tests the matcher as a full-match regex against a different value per event: Copilot's lowercase tool names (`bash`, `edit`, `view`, ...) on `preToolUse`, `postToolUse`, and `permissionRequest`, the subagent's name on `subagentStart`, `notification_type` on `notification`, and `manual` or `auto` on `preCompact` ([matcher filtering](https://docs.github.com/en/copilot/reference/hooks-reference#matcher-filtering)). Copilot skips a hook whose matcher is not a valid regex. `sync` raises a coverage note for a Claude tool name on a camelCase event, a matcher on an event that documents none, and an invalid regex.
-  - `userPromptTransformed` and `subagentStart` exist only in camelCase. A PascalCase spelling, such as `SubagentStart` (valid in Claude Code and Codex), never fires, and `validate` flags it.
-  - Command hooks also carry `cwd` (relative to the repository root, or absolute) and `env` (with variable expansion). Set them at the spec's top level or under `x-copilot`. Both are copilot-only and round-trip through `import copilot`.
-  - Command, HTTP (`url`, `headers`, `allowedEnvVars`), and `sessionStart` prompt handlers all survive `import copilot` and re-emission.
-  - A hook spec with `args` emits Copilot's shell-free form, `{"type": "command", "exec": <command>, "args": [...]}`. Copilot does not allow `exec` next to `command`, so the executable moves out of `command`, unlike Claude Code's exec form. Use it for paths or arguments with spaces.
-  - `exec` and `args` work only in Copilot CLI. Cloud agent honors only `bash` or `command` entries and skips an exec-form entry whole, so `sync` raises a coverage note. Leave `args` unset for a hook that must run under cloud agent.
+    Sync then also writes the servers there, with the `tools` allowlist and without the VS Code-only fields.
 
-  **Every hook runs twice when you sync `claude` and `copilot` together.** Copilot also reads `.claude/settings.json` and `.claude/settings.local.json`, combines all sources, and runs every entry for an event. Both targets are in the default target list, so this happens out of the box: a formatter runs twice, an audit hook writes twice, and a blocking `preToolUse` returns two decisions. Copilot has no toggle for this, unlike Cursor and Trae. Give the hook spec a single `target:` instead of both.
+{% <details summary="Why root .mcp.json is opt-in"> %}
+VS Code always reads a root `.mcp.json`, and in a trusted workspace starts its servers next to `.vscode/mcp.json`'s with no prompt. VS Code does not document which wins, or whether it dedupes, when both define the same server name.
 
-  **The cross-read covers settings too.** Copilot CLI reads a shared subset of `.claude/settings.json` and `.claude/settings.local.json`: `companyAnnouncements`, `disableAllHooks`, `enabledPlugins`, `extraKnownMarketplaces`, and `hooks` ([CLI config reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference)). agnostic-ai writes two of them: `hooks`, and `enabledPlugins` via `outputs.claude.settings.enabledPlugins`. So that key also sets Copilot CLI's repository plugin policy. Set it deliberately, or drop `claude` from the targets if the two tools should differ.
+The `claude` target writes `.mcp.json` too. A plain server is byte-identical from both, so sync writes it once. A field only one tool documents, such as Claude Code's `timeout` or Copilot CLI's `tools`, makes the copies differ, and sync stops with an output collision. This will be revisited once VS Code documents precedence ([design notes on #1533](https://github.com/Chemaclass/agnostic-ai/issues/1533#issuecomment-5919420911)).
+{% </details> %}
+
+### Hooks
+
+Hooks go to `.github/hooks/agnostic-ai.json` (override with `outputs.copilot.hooks-file`). Copilot CLI and cloud agent load and merge every `.github/hooks/*.json` ([hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference)). Copilot documents 14 events.
+
+- The wrapper is `{"version": 1, "hooks": {...}}` with an **integer** version. Each entry is flat, `{"type": "command", "matcher": ..., "command": ..., "timeoutSec": ...}`, not Claude Code's nested `{matcher, hooks: [...]}` group.
+- `event:` passes through. Copilot accepts PascalCase (`PreToolUse`, the "VS Code compatible" payload) and camelCase (`preToolUse`).
+  - PascalCase uses Claude's matcher semantics and tool names, so `matcher: Bash` works unchanged.
+  - camelCase full-matches the matcher as a regex against a per-event value: Copilot's lowercase tool names (`bash`, `edit`, `view`, ...) on `preToolUse`, `postToolUse`, and `permissionRequest`, the subagent's name on `subagentStart`, `notification_type` on `notification`, and `manual` or `auto` on `preCompact` ([matcher filtering](https://docs.github.com/en/copilot/reference/hooks-reference#matcher-filtering)).
+  - Copilot skips a hook with an invalid regex matcher. `sync` notes that, a Claude tool name on a camelCase event, and a matcher on an event that documents none.
+  - `userPromptTransformed` and `subagentStart` exist only in camelCase. A PascalCase `SubagentStart` (valid in Claude Code and Codex) never fires, and `validate` flags it.
+- Command hooks also carry `cwd` (relative to the repository root, or absolute) and `env` (with variable expansion), set at the spec's top level or under `x-copilot`. Both are copilot-only and round-trip.
+- Command, HTTP (`url`, `headers`, `allowedEnvVars`), and `sessionStart` prompt handlers round-trip through `import copilot`.
+- A spec with `args` emits Copilot's shell-free form, `{"type": "command", "exec": <command>, "args": [...]}`, for paths or arguments with spaces. Copilot does not allow `exec` next to `command`, so the executable moves out of `command`, unlike Claude Code's exec form. Only Copilot CLI runs it. Cloud agent honors only `bash` or `command` entries, so `sync` raises a coverage note. Leave `args` unset for a hook that must run under cloud agent.
+
+**Every hook runs twice when you sync `claude` and `copilot` together.** Copilot also reads `.claude/settings.json` and `.claude/settings.local.json` and runs every entry for an event. Both targets are defaults, so a formatter runs twice, an audit hook writes twice, and a blocking `preToolUse` returns two decisions. Unlike Cursor and Trae, Copilot has no toggle. Give the hook spec a single `target:`.
+
+**The cross-read covers settings too.** Copilot CLI reads `companyAnnouncements`, `disableAllHooks`, `enabledPlugins`, `extraKnownMarketplaces`, and `hooks` from `.claude/settings.json` and `.claude/settings.local.json` ([CLI config reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference)). agnostic-ai writes `hooks`, and `enabledPlugins` via `outputs.claude.settings.enabledPlugins`, so that key also sets Copilot CLI's repository plugin policy. Set it deliberately, or drop `claude` if the tools should differ.
 
 ## Config keys
 
@@ -93,7 +117,7 @@ target_id = "copilot"
 | `.vscode/mcp.json` | `<mcps>/<name>.yaml` |
 | `.github/copilot/settings.json` `model` | the portable Settings source |
 
-All three skill directories are [documented project locations](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills). On a same-name collision the emit path wins, then `.claude/skills`, then `.agents/skills`.
+All three skill directories are [documented](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills). On a name clash the emit path wins, then `.claude/skills`, then `.agents/skills`.
 
 ## Protected paths
 

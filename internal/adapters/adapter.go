@@ -691,6 +691,10 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 		if err := spec.CheckMCPJSONValues(prepared.MCPs, a.Name()); err != nil {
 			return err
 		}
+		// An external adapter receives the spec's own `${NAME}` form.
+		if _, inTree := registry[a.Name()]; inTree {
+			prepared.MCPs = emit.RewriteMCPEnvRefs(a.Name(), prepared.MCPs)
+		}
 	}
 	if err := a.Emit(sess, prepared, cfg, dryRun); err != nil {
 		return err

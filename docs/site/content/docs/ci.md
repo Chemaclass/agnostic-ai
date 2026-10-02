@@ -9,8 +9,7 @@ group = "Workflows"
 
 # CI
 
-
-Pick the check that matches your Git strategy. Run it from the project root, after installing the CLI.
+Pick the check that matches your Git strategy. Run it from the project root, after you install the CLI.
 
 ## Committed outputs
 
@@ -24,15 +23,19 @@ agnostic-ai sync --check
 
 Never run `sync` right before this check in CI. It erases the drift you are testing for.
 
-When an earlier step already rewrote the files, as a `postinstall` sync does, compare the commit instead:
+If an earlier step already rewrote the files, as a `postinstall` sync does, compare the commit instead:
 
 ```bash
 agnostic-ai sync --check --against HEAD
 ```
 
-It renders the specs as committed and compares them with the committed outputs. Outputs that `gitignore` leaves out are skipped. A committed output that no spec produces anymore fails too, so one command catches a leftover without `doctor`: a file with the generated header where a target writes, and any file the parent commit's specs rendered, such as a JSON file with no header. In a pull request's merge commit the parent is the base branch. `actions/checkout` fetches one commit by default, so set `fetch-depth: 2` to give the check that parent; without it a note says the comparison was skipped.
+It renders the specs as committed and compares them with the committed outputs. Outputs that `gitignore` leaves out are skipped.
 
-After a project moves its specs into `.agnostic-ai/`, a branch that predates the move can still add a skill in the old place, such as `.cursor/skills/<name>/SKILL.md`. Git keeps tracking it inside the ignored folder, and only Cursor reads it. The same check fails on it and names the fix: `agnostic-ai import cursor`, then `git rm --cached` the file.
+`actions/checkout` fetches one commit by default. Set `fetch-depth: 2` so the check has the parent commit (in a pull request's merge commit, the base branch). Without it, a note says the comparison was skipped.
+
+A committed output that no spec produces anymore also fails, so this one command catches leftovers without `doctor`. That covers a file with the generated header where a target writes, and any file the parent commit's specs rendered, such as a JSON file with no header.
+
+After a project moves its specs into `.agnostic-ai/`, a branch from before the move can still add a skill in the old place, such as `.cursor/skills/<name>/SKILL.md`. Git keeps tracking it inside the ignored folder, and only Cursor reads it. The same check fails on it and names the fix: `agnostic-ai import cursor`, then `git rm --cached` the file.
 
 ## Ignored outputs
 
@@ -43,7 +46,7 @@ agnostic-ai validate
 agnostic-ai sync
 ```
 
-Add `agnostic-ai lint` for source quality. A `sync --check` afterwards confirms the generated output is consistent, but proves nothing about committed files.
+Add `agnostic-ai lint` for source quality. A `sync --check` afterwards confirms the generated output is consistent. It says nothing about committed files.
 
 In a Node workspace that pins the CLI and syncs on `postinstall`, `pnpm install --frozen-lockfile` already runs `sync`. See [Node monorepos](@/docs/git-hooks.md#node-monorepos).
 
@@ -51,7 +54,7 @@ This repository ignores generated tool files and runs spec lint in CI. See [cont
 
 ## Install the CLI in CI
 
-Install the CLI with the project's dependencies, or with the install script for other projects.
+Install the CLI with the project's dependencies, or use the install script for other projects.
 
 ### Node projects
 
@@ -71,7 +74,7 @@ npm install -D -E agnostic-ai    # or pnpm add -D -E, yarn add -D -E, bun add -D
 
 The lockfile carries the platform packages for every OS and CPU, so one pin works on macOS, Linux, and Windows runners. For workspaces and git hooks, see [Node monorepos](@/docs/git-hooks.md#node-monorepos).
 
-With ignored outputs, `npm ci` already runs `postinstall`. The job only checks the source:
+With ignored outputs, `npm ci` already runs `postinstall`, so the job only checks the source:
 
 ```yaml
 steps:
@@ -112,7 +115,7 @@ steps:
   - run: agnostic-ai sync --check --diff
 ```
 
-`AGNOSTIC_AI_VERSION` takes a release tag. Without it the script installs the latest release. The script checks the archive against the release checksum. Set `AGNOSTIC_AI_VERIFY_ATTESTATION: 1` to also check the [build provenance](@/docs/verify-a-release.md#build-provenance); it needs the GitHub CLI, which GitHub-hosted runners include. On Windows runners, use `install.ps1`: see [Installation](@/docs/installation.md#pin-a-version-or-directory).
+`AGNOSTIC_AI_VERSION` takes a release tag. Without it, the script installs the latest release. It checks the archive against the release checksum. Set `AGNOSTIC_AI_VERIFY_ATTESTATION: 1` to also check the [build provenance](@/docs/verify-a-release.md#build-provenance); this needs the GitHub CLI, which GitHub-hosted runners include. On Windows runners, use `install.ps1`: see [Installation](@/docs/installation.md#pin-a-version-or-directory).
 
 ## Diagnose drift
 
@@ -120,7 +123,7 @@ Run `agnostic-ai sync --check --diff` to see the changes. The [CLI reference](@/
 
 ## Gate model and CLI changes
 
-`sync --check` proves the generated files match their specs. It proves nothing about whether a model or CLI still produces good results for your project.
+`sync --check` proves the generated files match their specs. It does not show whether a model or CLI still gives good results for your project.
 
 Configure a project-owned verifier:
 
@@ -136,4 +139,4 @@ Add the gate after installing the AI CLI it needs:
   run: agnostic-ai verify --target codex
 ```
 
-agnostic-ai checks drift first, fingerprints the harness, detects the CLI identity when available, then sends versioned JSON to the script on stdin. The script owns execution and scoring. Its stdout, stderr, and non-zero exit code reach CI unchanged. See the [`verify` command](@/docs/cli-reference/check.md#verify) for the JSON contract.
+`verify` checks drift first, fingerprints the harness, detects the CLI identity when available, then sends versioned JSON to the script on stdin. The script runs and scores. Its stdout, stderr, and non-zero exit code reach CI unchanged. See the [`verify` command](@/docs/cli-reference/check.md#verify) for the JSON contract.

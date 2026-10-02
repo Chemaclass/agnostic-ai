@@ -122,7 +122,7 @@ func importWarpMCP(root, dstDir string) (int, error) {
 		}
 		normalized[name] = normalizeWarpMCPEntry(entry)
 	}
-	return writeMCPYAMLs(normalized, dstDir)
+	return writeMCPYAMLs("warp", normalized, dstDir)
 }
 
 // normalizeWarpMCPEntry maps `.warp/.mcp.json`'s `working_directory` key

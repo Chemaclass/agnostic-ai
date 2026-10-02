@@ -9,10 +9,9 @@ group = "Workflows"
 
 # graph
 
+Show which specs reach which targets, and which files they produce.
 
-Render the spec to target to file dependency graph for the current project.
-
-`graph` walks the loaded spec bundle, asks every configured target adapter which files each spec produces, and prints the result. Read-only: it never invokes Emit on disk. Output is deterministic, sorted by spec name then target.
+`graph` walks the loaded specs, asks each configured adapter which files each spec produces, and prints the result. It is read-only: it never invokes Emit on disk. Output is deterministic, sorted by spec name, then target.
 
 ## Synopsis
 
@@ -33,7 +32,7 @@ agnostic-ai graph [flags]
 
 ### text (default)
 
-Aligned matrix: rows are specs, columns are targets. Each cell holds the kind that target emits, or `-` when nothing is produced.
+A matrix: rows are specs, columns are targets. Each cell holds the kind that target emits, or `-` when it emits nothing.
 
 ```text
 spec           | claude cursor codex
@@ -44,7 +43,7 @@ other          | rule   rule   rule
 
 ### mermaid
 
-`graph LR` for embedding in markdown docs.
+`graph LR`, for embedding in Markdown docs.
 
 ```mermaid
 graph LR
@@ -54,7 +53,7 @@ graph LR
 
 ### dot
 
-Graphviz directed graph. Pipe to `dot(1)` for SVG or PNG.
+Graphviz directed graph. Pipe it to `dot(1)` for SVG or PNG.
 
 ```bash
 agnostic-ai graph --format dot | dot -Tsvg > graph.svg
