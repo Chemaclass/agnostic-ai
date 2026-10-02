@@ -149,10 +149,11 @@ func useTools(cmd *cobra.Command, tools []string) ([]string, error) {
 		}
 	}
 	failed, err := importToolConfig(cfg, sources)
+	failedNew := intersect(failed, importing)
 	if err != nil {
-		err = leaveOut(cfg, intersect(failed, importing), err)
+		err = leaveOut(cfg, failedNew, err)
 	}
-	if perr := setPendingImports(stillConfigured(failed)); perr != nil {
+	if perr := setPendingImports(stillConfigured(failedNew)); perr != nil {
 		return nil, errors.Join(err, perr)
 	}
 	if err != nil {
@@ -267,6 +268,11 @@ func startProject(cmd *cobra.Command, tools []string) error {
 	cfg, err := config.Load(".")
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
+	}
+	// agnostic-ai.local.yaml can list an instructions file as unmanaged
+	// before the project exists.
+	if err := refuseUnmanagedImport(cfg, targets); err != nil {
+		return errors.Join(err, os.Remove(config.ConfigFileName), setPendingImports(nil))
 	}
 	var sources []string
 	for _, t := range targets {

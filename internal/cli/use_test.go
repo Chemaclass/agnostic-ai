@@ -309,6 +309,43 @@ func TestUse_SyncIgnoresAPendingToolNoLongerInTargets(t *testing.T) {
 	}
 }
 
+// A failed import of a tool use did not add leaves sync to its own guard.
+func TestUse_AFailedImportOfAnEarlierToolLeavesNothingPending(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	isolateGit(t)
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, codex]\n")
+	mustWriteFile(t, "CLAUDE.md", "# Mine\n\nUse pnpm.\n")
+	mustWriteFile(t, ".claude/settings.json", "{bad\n")
+
+	if _, err := runCLI(t, "use", "codex"); err == nil {
+		t.Fatal("use codex should report the failed claude import")
+	}
+
+	if got := readStateFile(".").PendingImports; len(got) != 0 {
+		t.Errorf("pending imports = %v, want none", got)
+	}
+}
+
+func TestUse_RefusesToStartWithAnUnmanagedDetectedTool(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	isolateGit(t)
+	mustWriteFile(t, "agnostic-ai.local.yaml", "sync:\n  unmanaged: [CLAUDE.md]\n")
+	mustWriteFile(t, "CLAUDE.md", "# Mine\n\nSecret claude note.\n")
+	mustWriteFile(t, ".mcp.json", `{"mcpServers":{"srv":{"command":"srv"}}}`+"\n")
+
+	_, err := runCLI(t, "use", "codex")
+
+	if err == nil || !strings.Contains(err.Error(), "CLAUDE.md is in sync.unmanaged") {
+		t.Fatalf("err = %v, want a refusal naming CLAUDE.md", err)
+	}
+	if _, err := os.Stat("agnostic-ai.yaml"); err == nil {
+		t.Error("a refused start left agnostic-ai.yaml")
+	}
+	if got := readFile(t, ".mcp.json"); !strings.Contains(got, "srv") {
+		t.Errorf(".mcp.json lost its server:\n%s", got)
+	}
+}
+
 // A tool with its own config and an unmanaged instructions file can be
 // neither imported nor skipped safely, so use stops before writing.
 func TestUse_RefusesAToolWhoseInstructionsAreUnmanaged(t *testing.T) {
