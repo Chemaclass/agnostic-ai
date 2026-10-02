@@ -122,3 +122,20 @@ func TestUse_AToolWithoutAnImporterKeepsItsInstructions(t *testing.T) {
 		t.Errorf("AGENTS.md lost its instructions:\n%s", got)
 	}
 }
+
+// Text with no ## headings is one section, so it is kept too.
+func TestUse_KeepsFlatInstructionsBesideAnExistingBody(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, ".agnostic-ai/AGNOSTIC_AI.md", "# P\n\nUse pnpm.\n")
+	runSyncOK(t)
+	mustWriteFile(t, "AGENTS.md", "Keep PRs small.\nNever touch prod.\n")
+
+	if out, err := runCLI(t, "use", "jules"); err != nil {
+		t.Logf("use jules: %v\n%s", err, out)
+	}
+
+	if got := readFile(t, "AGENTS.md"); !strings.Contains(got, "Never touch prod.") {
+		t.Errorf("AGENTS.md lost its flat instructions:\n%s", got)
+	}
+}
