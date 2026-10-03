@@ -156,7 +156,7 @@ func newSyncCmd() *cobra.Command {
 			}
 
 			if plan {
-				adapters.ResetCoverageNotes()
+				resetDrops()
 				if err := checkHandWrittenInstructions(effective, backup); err != nil {
 					return err
 				}
@@ -164,7 +164,7 @@ func newSyncCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				notesErr := checkCoverageNotes(cfg, effective)
+				drops, notesErr := checkCoverageNotes(cfg, effective)
 				// With --check the plan still gates, so a CI step that
 				// asks for the short report does not pass on drift.
 				var driftErr error
@@ -172,13 +172,13 @@ func newSyncCmd() *cobra.Command {
 					driftErr = errDriftDetected()
 				}
 				if jsonOut {
-					return errors.Join(printSyncPlanJSON(cmd, "sync --plan", reports, false, notesErr), driftErr)
+					return errors.Join(printSyncPlanJSON(cmd, "sync --plan", reports, false, drops, notesErr), driftErr)
 				}
 				printSyncPlan(cmd, reports)
 				return errors.Join(notesErr, driftErr)
 			}
 			if check {
-				adapters.ResetCoverageNotes()
+				resetDrops()
 				// --against compares what Git holds, not these files.
 				if tree == nil {
 					if err := checkHandWrittenInstructions(effective, backup); err != nil {
@@ -189,7 +189,7 @@ func newSyncCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				notesErr := checkCoverageNotes(cfg, effective)
+				drops, notesErr := checkCoverageNotes(cfg, effective)
 				if tree != nil {
 					filtered := len(targets) > 0 || len(only) > 0 || len(except) > 0
 					dropped, note, err := tree.droppedOutputs(filtered, reports)
@@ -212,7 +212,7 @@ func newSyncCmd() *cobra.Command {
 					}
 				}
 				if jsonOut {
-					return printSyncCheckJSON(cmd, reports, notesErr)
+					return printSyncCheckJSON(cmd, reports, drops, notesErr)
 				}
 				err = reportCheckDrift(cmd, reports, format, diff)
 				if err != nil && tree != nil && regeneratedDrift(reports) {
@@ -229,7 +229,7 @@ func newSyncCmd() *cobra.Command {
 				return watchSync(ctx, 200*time.Millisecond, ".", effective, dryRun, backup, gitignoreFlag, watchPoll, jobs)
 			}
 			if jsonOut && dryRun {
-				adapters.ResetCoverageNotes()
+				resetDrops()
 				if err := checkHandWrittenInstructions(effective, backup); err != nil {
 					return err
 				}
@@ -237,7 +237,8 @@ func newSyncCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return printSyncPlanJSON(cmd, "sync --dry-run", reports, true, checkCoverageNotes(cfg, effective))
+				drops, notesErr := checkCoverageNotes(cfg, effective)
+				return printSyncPlanJSON(cmd, "sync --dry-run", reports, true, drops, notesErr)
 			}
 			if jsonOut {
 				return runSyncJSON(cmd, ".", effective, backup, keepEdits, untrack, gitignoreFlag, jobs)
