@@ -114,26 +114,41 @@ func exactNameList(matcher string) ([]string, bool) {
 	return names, true
 }
 
-// literalWord finds the names a regex spells out.
-var literalWord = regexp.MustCompile(`[A-Za-z0-9_]+`)
-
 // regexFires reports whether a regex matcher may fire on a tool or source
-// name Codex reports for the event. Codex names MCP tools
-// mcp__<server>__<tool> and the servers are unknown, so a tool matcher
-// also counts when it matches a synthetic MCP name built from its own
-// words, or mentions mcp at all. Erring toward "fires" avoids a false note.
+// name Codex reports for the event. It does when it matches a built-in
+// name. MCP server names are unknown, so a tool matcher also counts unless
+// it provably cannot match an mcp__ name; see rejectsMCPNames.
 func regexFires(event, matcher string, re *regexp.Regexp) bool {
 	if !slices.Contains(toolEvents, event) {
 		return slices.ContainsFunc(sourceMatchers[event], re.MatchString)
 	}
-	if slices.ContainsFunc(toolMatchers, re.MatchString) || strings.Contains(strings.ToLower(matcher), "mcp") {
-		return true
+	return slices.ContainsFunc(toolMatchers, re.MatchString) || !rejectsMCPNames(matcher)
+}
+
+// rejectsMCPNames proves the trivial case only: a regex anchored with ^
+// and with no top-level |, whose literal prefix (up to the first
+// metacharacter, minus a quantified last character) neither is a prefix of
+// mcp__ nor starts with it.
+func rejectsMCPNames(matcher string) bool {
+	if !strings.HasPrefix(matcher, "^") {
+		return false
 	}
-	synthetic := []string{spec.MCPToolPrefix + "x__x"}
-	for _, word := range literalWord.FindAllString(matcher, -1) {
-		synthetic = append(synthetic, spec.MCPToolPrefix+word+"__"+word)
+	alternation := false
+	scanRegex(matcher, func(_ int, c byte, depth int) {
+		alternation = alternation || (c == '|' && depth == 0)
+	})
+	if alternation {
+		return false
 	}
-	return slices.ContainsFunc(synthetic, re.MatchString)
+	body := matcher[1:]
+	end := strings.IndexAny(body, `\.+*?()[]{}|^$`)
+	if end < 0 {
+		end = len(body)
+	} else if strings.IndexByte("*?+{", body[end]) >= 0 && end > 0 {
+		end--
+	}
+	prefix := body[:end]
+	return !strings.HasPrefix(spec.MCPToolPrefix, prefix) && !strings.HasPrefix(prefix, spec.MCPToolPrefix)
 }
 
 // scanRegex calls visit for each ( ) and | in a regex that is not escaped
