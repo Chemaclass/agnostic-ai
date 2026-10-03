@@ -404,7 +404,8 @@ func TestSyncJSON_AFailedTargetReportsAndLedgersItsEarlierWrites(t *testing.T) {
 	if _, err := os.Stat(skill); err != nil {
 		t.Fatalf("%s: %v", skill, err)
 	}
-	if !slices.Contains(readStateFile(".").Outputs, skill) {
+	// The ledger keeps OS paths; only the JSON uses slashes.
+	if !slices.Contains(readStateFile(".").Outputs, filepath.FromSlash(skill)) {
 		t.Errorf("ledger outputs %v miss %s", readStateFile(".").Outputs, skill)
 	}
 
