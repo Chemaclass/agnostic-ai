@@ -118,18 +118,61 @@ func TestImportMCP_URLArgsCredentialsBecomeReferences(t *testing.T) {
 		}
 	}
 	for _, want := range []string{
-		"MCP server pg: args[2] password now reads postgresql://admin:${PG_PASSWORD}@db:5432/app; set PG_PASSWORD",
-		"MCP server api: url token now reads https://x.example/mcp?token=${API_TOKEN}&page=2&api_key=${API_API_KEY}#top; set API_TOKEN",
-		"MCP server api: url api_key now reads https://x.example/mcp?token=${API_TOKEN}&page=2&api_key=${API_API_KEY}#top; set API_API_KEY",
-		"MCP server db: args[1] password now reads https://u:${DB_PASSWORD}@h/x?client_secret=${DB_CLIENT_SECRET}; set DB_PASSWORD",
-		"MCP server db: args[1] client_secret now reads https://u:${DB_PASSWORD}@h/x?client_secret=${DB_CLIENT_SECRET}; set DB_CLIENT_SECRET",
+		"MCP server pg: args[2] password now reads ${PG_PASSWORD}; set PG_PASSWORD",
+		"MCP server api: url token now reads ${API_TOKEN}; set API_TOKEN",
+		"MCP server api: url api_key now reads ${API_API_KEY}; set API_API_KEY",
+		"MCP server db: args[1] password now reads ${DB_PASSWORD}; set DB_PASSWORD",
+		"MCP server db: args[1] client_secret now reads ${DB_CLIENT_SECRET}; set DB_CLIENT_SECRET",
 	} {
 		if !strings.Contains(out, want) {
-			t.Errorf("output lacks %q:\n%s", want, out)
+			t.Errorf("output lacks %q", want)
 		}
 	}
 	if strings.Contains(out, "DB_PW") {
 		t.Errorf("a reference already in a url is not reported:\n%s", out)
+	}
+}
+
+func TestImportMCP_URLArgsCredentialDefaultsAndTemplatedBase(t *testing.T) {
+	secrets := []string{"SK-L1VE", "0THER", "T0KEN", "PW-DEF", "ARG-T0KEN"}
+	specs, out := importMCPServers(t, "claude", map[string]any{
+		"api":  map[string]any{"url": "https://x.example/mcp?token=${TOKEN:-SK-L1VE}&key=0THER"},
+		"base": map[string]any{"url": "${API_BASE}/mcp?token=T0KEN&page=2"},
+		"db":   map[string]any{"command": "db-mcp", "args": []any{"postgres://u:${PW:-PW-DEF}@h/x", "--url=${API_BASE}/mcp?api_key=ARG-T0KEN"}},
+	})
+	for name, spec := range specs {
+		for _, secret := range secrets {
+			if strings.Contains(spec, secret) {
+				t.Errorf("spec %s keeps a credential from url or args", name)
+			}
+		}
+	}
+	for _, secret := range secrets {
+		if strings.Contains(out, secret) {
+			t.Errorf("import output prints a credential value")
+		}
+	}
+	for name, wants := range map[string][]string{
+		"api":  {"url: https://x.example/mcp?token=${TOKEN}&key=${API_KEY}"},
+		"base": {"url: ${API_BASE}/mcp?token=${BASE_TOKEN}&page=2"},
+		"db":   {"- postgres://u:${PW}@h/x", "- --url=${API_BASE}/mcp?api_key=${DB_API_KEY}"},
+	} {
+		for _, want := range wants {
+			if !strings.Contains(specs[name], want) {
+				t.Errorf("spec %s lacks %q", name, want)
+			}
+		}
+	}
+	for _, want := range []string{
+		"MCP server api: url token now reads ${TOKEN} without its default; set TOKEN",
+		"MCP server api: url key now reads ${API_KEY}; set API_KEY",
+		"MCP server base: url token now reads ${BASE_TOKEN}; set BASE_TOKEN",
+		"MCP server db: args[0] password now reads ${PW} without its default; set PW",
+		"MCP server db: args[1] api_key now reads ${DB_API_KEY}; set DB_API_KEY",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output lacks %q", want)
+		}
 	}
 }
 

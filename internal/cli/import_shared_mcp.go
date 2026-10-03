@@ -197,43 +197,45 @@ func mcpCredentialParam(name string) bool {
 	return false
 }
 
-func mcpLiteralSecret(value string) bool {
-	return value != "" && !spec.OnlyEnvRefs(value) && !spec.OnlyEscapedEnvRefs(value)
+func mcpCredentialValue(value string) bool {
+	return value != "" && !spec.OnlyEscapedEnvRefs(value)
 }
 
 // splitMCPURLCredentials finds the `user:password@` password and each
-// credential query parameter in the first URL inside value. It returns
-// the value split into pieces and, for each credential, its piece index
-// and name. It reads the text by hand because a URL may hold `${NAME}`
-// references that net/url rejects.
+// credential query parameter in the first URL inside value. A URL whose
+// base is a reference (`${API_BASE}/mcp?token=x`) has no parseable
+// password, but its query still counts. It returns the value split into
+// pieces and, for each credential, its piece index and name. It reads
+// the text by hand because a URL may hold `${NAME}` references that
+// net/url rejects.
 func splitMCPURLCredentials(value string) ([]string, map[int]string) {
-	scheme := strings.Index(value, "://")
-	if scheme < 0 {
-		return nil, nil
-	}
 	var pieces []string
 	creds := map[int]string{}
-	text := value[:scheme+3]
+	text, rest := "", value
 	credential := func(name, secret string) {
 		pieces = append(pieces, text, secret)
 		creds[len(pieces)-1] = name
 		text = ""
 	}
-	rest := value[scheme+3:]
-	end := strings.IndexAny(rest, "/?#")
-	if end < 0 {
-		end = len(rest)
-	}
-	authority := rest[:end]
-	if at := strings.LastIndex(authority, "@"); at >= 0 {
-		if user, password, ok := strings.Cut(authority[:at], ":"); ok && mcpLiteralSecret(password) {
-			text += user + ":"
-			credential("password", password)
-			authority = authority[at:]
+	if scheme := strings.Index(value, "://"); scheme >= 0 {
+		text, rest = value[:scheme+3], value[scheme+3:]
+		end := strings.IndexAny(rest, "/?#")
+		if end < 0 {
+			end = len(rest)
 		}
+		authority := rest[:end]
+		if at := strings.LastIndex(authority, "@"); at >= 0 {
+			if user, password, ok := strings.Cut(authority[:at], ":"); ok && mcpCredentialValue(password) {
+				text += user + ":"
+				credential("password", password)
+				authority = authority[at:]
+			}
+		}
+		text += authority
+		rest = rest[end:]
+	} else if base, _, ok := strings.Cut(value, "?"); !ok || !strings.Contains(base, "${") {
+		return nil, nil
 	}
-	text += authority
-	rest = rest[end:]
 	fragment := ""
 	if hash := strings.Index(rest, "#"); hash >= 0 {
 		rest, fragment = rest[:hash], rest[hash:]
@@ -247,7 +249,7 @@ func splitMCPURLCredentials(value string) ([]string, map[int]string) {
 				text += "&"
 			}
 			name, secret, ok := strings.Cut(pair, "=")
-			if ok && mcpCredentialParam(name) && mcpLiteralSecret(secret) {
+			if ok && mcpCredentialParam(name) && mcpCredentialValue(secret) {
 				text += name + "="
 				credential(name, secret)
 				continue
@@ -316,7 +318,9 @@ func referenceMCPLiterals(servers map[string]any) []mcpLiteralRef {
 				literals = append(literals, l)
 			}
 		}
-		literals = append(literals, mcpURLLiterals(name, server, referenced)...)
+		urlLiterals, urlRefs := mcpURLLiterals(name, server, referenced)
+		literals = append(literals, urlLiterals...)
+		refs = append(refs, urlRefs...)
 	}
 	names := mcpLiteralNames(literals, referenced)
 	for i, variable := range names {
@@ -338,10 +342,13 @@ func referenceMCPLiterals(servers map[string]any) []mcpLiteralRef {
 
 // mcpURLLiterals returns the credentials in server's `url` and `args`:
 // a URL password and each query parameter mcpCredentialParam names. The
-// rest of the URL stays as written. It records the references a URL
-// already holds in referenced.
-func mcpURLLiterals(name string, server map[string]any, referenced map[string]bool) []mcpLiteral {
+// rest of the URL stays as written. A credential that is already a
+// reference stays one but loses its default. It records the references
+// a URL already holds in referenced. A literal reports only its own
+// reference, never the URL around it.
+func mcpURLLiterals(name string, server map[string]any, referenced map[string]bool) ([]mcpLiteral, []mcpLiteralRef) {
 	var literals []mcpLiteral
+	var refs []mcpLiteralRef
 	add := func(field, value string, write func(string)) {
 		for _, t := range spec.EnvRefTokens(value) {
 			if t.Known() {
@@ -354,9 +361,17 @@ func mcpURLLiterals(name string, server map[string]any, referenced map[string]bo
 		}
 		v := &mcpURLValue{pieces: pieces, write: write}
 		for _, i := range slices.Sorted(maps.Keys(creds)) {
+			if spec.OnlyEnvRefs(pieces[i]) {
+				stripped, defaulted := spec.StripEnvRefDefaults(pieces[i])
+				v.set(i, stripped)
+				for _, variable := range defaulted {
+					refs = append(refs, mcpLiteralRef{server: name, field: field, key: creds[i], value: stripped, variable: variable, defaulted: true})
+				}
+				continue
+			}
 			literals = append(literals, mcpLiteral{server: name, field: field, key: creds[i], secret: pieces[i],
 				replace: func(text string) { v.set(i, text) },
-				value:   v.String})
+				value:   func() string { return v.pieces[i] }})
 		}
 	}
 	if value, ok := server["url"].(string); ok {
@@ -368,7 +383,7 @@ func mcpURLLiterals(name string, server map[string]any, referenced map[string]bo
 			add("args["+strconv.Itoa(i)+"]", value, func(s string) { args[i] = s })
 		}
 	}
-	return literals
+	return literals, refs
 }
 
 // mcpLiteralNames picks one variable per literal. An `env` value reads
