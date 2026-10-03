@@ -520,3 +520,63 @@ func TestEmit_HooksJSON_UnionKeepsCommaListsExact(t *testing.T) {
 		t.Error("a comma list written natively must cover its names")
 	}
 }
+
+func emittedMatcher(t *testing.T, matchers ...string) string {
+	t.Helper()
+	dir := testutil.TempCwd(t)
+	var entries []spec.Entry
+	for i, m := range matchers {
+		entries = append(entries, spec.Entry{Kind: spec.KindHook, Name: "h" + string(rune('a'+i)), Meta: map[string]any{
+			"event": "PreToolUse", "matcher": m, "command": "echo go",
+		}})
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".codex/hooks.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Hooks map[string][]struct {
+			Matcher string `json:"matcher"`
+		} `json:"hooks"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if len(doc.Hooks["PreToolUse"]) != 1 {
+		t.Fatalf("want one merged group, got:\n%s", raw)
+	}
+	return doc.Hooks["PreToolUse"][0].Matcher
+}
+
+// Once a union holds a regex, hookrun reads the whole matcher as a regex,
+// so exact names must be anchored or they match as substrings.
+func TestEmit_HooksJSON_MixedUnionAnchorsExactNames(t *testing.T) {
+	matcher := emittedMatcher(t, "Bash,apply_patch", "^(Edit|Write)$")
+	for tool, want := range map[string]bool{
+		"Bash": true, "apply_patch": true, "Edit": true, "Write": true,
+		"mcp__server__apply_patch": false, "mcp__x__Bash": false,
+	} {
+		if got, err := hookrun.Matches(matcher, tool); err != nil || got != want {
+			t.Errorf("%q matches %s = %v (err %v), want %v", matcher, tool, got, err, want)
+		}
+	}
+	for _, m := range []string{"Bash,apply_patch", "Bash", "^(Edit|Write)$"} {
+		if !(Adapter{}).HookMatcherCovers(matcher, m) {
+			t.Errorf("emitted %q does not cover %q", matcher, m)
+		}
+	}
+	if (Adapter{}).HookMatcherCovers(matcher, "Read") {
+		t.Errorf("emitted %q covers Read", matcher)
+	}
+}
+
+func TestEmit_HooksJSON_SingleSpecMatcherUnchanged(t *testing.T) {
+	for _, m := range []string{"^(Bash|exec)$", "Bash|apply_patch", "mcp__fs__.*"} {
+		if got := emittedMatcher(t, m); got != m {
+			t.Errorf("single spec %q emitted as %q", m, got)
+		}
+	}
+}

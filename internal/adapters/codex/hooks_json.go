@@ -3,6 +3,7 @@ package codex
 import (
 	"encoding/json"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -334,21 +335,30 @@ func matcherSegments(matcher string) []string {
 	return out
 }
 
-// unionMatcher joins segments with |. With more than one segment, each
-// regex segment is wrapped so its own | stays inside it.
+// unionMatcher joins segments with |. A union of plain names stays a
+// plain list. Once one segment is a regex, the target reads the whole
+// matcher as an unanchored regex, so each name is anchored and each
+// regex wrapped, which keeps their | and substring rules apart.
 func unionMatcher(segments []string) string {
-	if len(segments) < 2 {
+	if len(segments) < 2 || !slices.ContainsFunc(segments, func(seg string) bool { return !plainName.MatchString(seg) }) {
 		return strings.Join(segments, "|")
 	}
 	parts := make([]string, len(segments))
 	for i, seg := range segments {
-		parts[i] = seg
-		if !plainName.MatchString(seg) {
+		switch {
+		case seg == "*":
+			parts[i] = ".*"
+		case plainName.MatchString(seg):
+			parts[i] = "^" + regexp.QuoteMeta(seg) + "$"
+		default:
 			parts[i] = "(?:" + seg + ")"
 		}
 	}
 	return strings.Join(parts, "|")
 }
+
+// anchoredName matches a name unionMatcher anchored.
+var anchoredName = regexp.MustCompile(`^\^((?:[\w:-]|\\\*)+)\$$`)
 
 // unionSegments reads a native matcher back into the segments unionMatcher
 // joined: it splits on top-level pipes only and unwraps each (?:...).
@@ -359,6 +369,11 @@ func unionSegments(matcher string) []string {
 		seg := strings.TrimSpace(matcher[start:end])
 		if body, ok := outerGroup(seg); ok && strings.HasPrefix(seg, "(?:") {
 			seg = body
+		}
+		if m := anchoredName.FindStringSubmatch(seg); m != nil {
+			seg = strings.ReplaceAll(m[1], `\*`, "*")
+		} else if seg == ".*" {
+			seg = "*"
 		}
 		out = append(out, matcherSegments(seg)...)
 	}
