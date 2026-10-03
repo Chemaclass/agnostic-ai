@@ -169,6 +169,26 @@ targets: [claude]
 	}
 }
 
+func TestNew_AgentScaffoldLintsCleanForEveryTarget(t *testing.T) {
+	dir := setupEmptyProject(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\nsources:\n  agents: .agnostic-ai/agents\n  skills: .agnostic-ai/skills\n  rules: .agnostic-ai/rules\n  hooks: .agnostic-ai/hooks\n  mcps: .agnostic-ai/mcps\ntargets: [claude, codex, cursor]\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"new", "agent", "foo"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	report, _, _ := runLintJSON(t)
+	for _, f := range report.Findings {
+		if strings.HasSuffix(f.Path, "foo.md") {
+			t.Errorf("fresh agent scaffold has a finding: %s %s", f.Code, f.Message)
+		}
+	}
+}
+
 func TestNew_MistypedKindSuggestsTheClosest(t *testing.T) {
 	testutil.Chdir(t, setupEmptyProject(t))
 	silence(t)
