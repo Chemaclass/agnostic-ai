@@ -70,3 +70,20 @@ func TestImportMCP_CodexKeepsLiteralsApartFromForwardedVariables(t *testing.T) {
 		t.Errorf("sync --check after import: %v\n%s", err, out)
 	}
 }
+
+// A default is text that may be a secret: import still replaces the
+// value with a reference instead of committing it.
+func TestImportMCP_EscapedDefaultIsNotCommitted(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	captureLog(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [warp]\n")
+	writeFile(t, filepath.Join(dir, ".warp", ".mcp.json"), `{"mcpServers": {"srv": {"command": "srv", "env": {"TOKEN": "${TOKEN:-sk-real}"}}}}`)
+
+	execCLI(t, "import", "warp")
+
+	if got := readFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "srv.yaml")); strings.Contains(got, "sk-real") {
+		t.Errorf("the default must not reach the spec:\n%s", got)
+	}
+}

@@ -131,7 +131,7 @@ command: npx
 args: ["-y", "mcp-remote", "https://mcp.example.com", "--header", "x-chroma-token: $${X_CHROMA_TOKEN}"]
 ```
 
-Sync writes `${X_CHROMA_TOKEN}` to every tool: no tool form, no left-out server, no note. Quote it inside a `[...]` list, as you would `${NAME}`. Only `$${` is special; any other `$$` is written as it is.
+Sync writes `${X_CHROMA_TOKEN}` to every built-in tool: no tool form, no left-out server, no note. An external adapter receives the spec as written, `$${NAME}` included. Quote it inside a `[...]` list, as you would `${NAME}`. Only `$${` is special; any other `$$` is written as it is.
 
 A tool that expands `${NAME}` in that field fills in the value from its own environment before the server sees it: Claude Code, Crush, OpenHands, and Gemini in `url` and `args`, Amp in `url`, and the tools with `${NAME}` in the [`env` and `headers` table](#environment-references). The server inherits that environment, so it gets the same value. Claude Code passes the text through when the variable is unset.
 
@@ -139,7 +139,7 @@ When sync leaves out a reference a tool cannot read, the note names the `$${NAME
 
 ### What import writes
 
-`import` reads each tool's own form back as `${NAME}`, including a whole-value `$NAME` on Gemini and Crush and `%NAME%` on Gemini. A `${NAME}` in a field the tool never expands is text, so import writes it as [`$${NAME}`](#literal-text) and keeps it as written: Warp, Zed, and Codex `args`, for example. It also replaces every literal `env` and `headers` value with a reference, because it cannot tell a token from a plain setting and a spec is meant to be committed. A plain setting such as `NODE_ENV: production` becomes `NODE_ENV: ${NODE_ENV}`, a variable you must now set: Factory fails the connection without it. Put a plain setting back by hand when it is not a secret.
+`import` reads each tool's own form back as `${NAME}`, including a whole-value `$NAME` on Gemini and Crush and `%NAME%` on Gemini. A `${NAME}` in a field the tool never expands is text, so the spec gets [`$${NAME}`](#literal-text) and the tool's file keeps `${NAME}`: Warp, Zed, and Codex `args`, for example. A `${NAME}` in a Codex `env` table is text too, so it no longer imports as a variable Codex forwards; `env_vars` still does. It also replaces every literal `env` and `headers` value with a reference, because it cannot tell a token from a plain setting and a spec is meant to be committed. A plain setting such as `NODE_ENV: production` becomes `NODE_ENV: ${NODE_ENV}`, a variable you must now set: Factory fails the connection without it. Put a plain setting back by hand when it is not a secret.
 
 - An `env` value reads the variable its key names.
 - A header reads `<SERVER>_<HEADER>` in upper case, with any character other than a letter or digit as `_`, and keeps a `Bearer ` prefix outside the reference.

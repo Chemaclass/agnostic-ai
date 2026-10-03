@@ -160,7 +160,7 @@ const envRefEscape = "$${"
 // pattern reads the `${` inside it.
 const escapeMask = "\x00{"
 
-var escapedPlaceholderPattern = regexp.MustCompile(`\$\$\{[^}]*\}`)
+var escapedPlaceholderPattern = regexp.MustCompile(`\$\$\{` + envRefName + `\}`)
 
 func maskEscapes(value string) string {
 	return strings.ReplaceAll(value, envRefEscape, escapeMask)
@@ -191,8 +191,10 @@ func EscapeEnvRefs(value string) string {
 	return unmaskEscapes(out)
 }
 
-// OnlyEscapedEnvRefs reports whether value is escaped placeholders and
-// nothing else, ignoring whitespace and a leading `Bearer `.
+// OnlyEscapedEnvRefs reports whether value is escaped `$${NAME}`
+// placeholders and nothing else, ignoring whitespace and a leading
+// `Bearer `. A default such as `$${NAME:-x}` is text that may be a
+// secret, so it does not count.
 func OnlyEscapedEnvRefs(value string) bool {
 	value = strings.TrimPrefix(value, "Bearer ")
 	if !strings.Contains(value, envRefEscape) {
