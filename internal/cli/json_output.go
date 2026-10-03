@@ -3,8 +3,11 @@ package cli
 import (
 	"encoding/json"
 	"path/filepath"
+	"slices"
 
 	"github.com/spf13/cobra"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 )
 
 // fileRecord is one entry in a JSON command output's writes or skipped list.
@@ -77,6 +80,45 @@ func slashedRecords(records []fileRecord) []fileRecord {
 		r.Path = filepath.ToSlash(r.Path)
 		r.Backup = filepath.ToSlash(r.Backup)
 		out[i] = r
+	}
+	return out
+}
+
+// slashLintPaths and its siblings copy findings with `/` paths, as every
+// --json writer prints them.
+func slashLintPaths(in []lintFinding) []lintFinding {
+	out := slices.Clone(in)
+	for i := range out {
+		out[i].Path = filepath.ToSlash(out[i].Path)
+	}
+	return out
+}
+
+func slashHookTrustPaths(in []codex.HookTrustFinding) []codex.HookTrustFinding {
+	out := slices.Clone(in)
+	for i := range out {
+		out[i].Path = filepath.ToSlash(out[i].Path)
+	}
+	return out
+}
+
+func slashPackagingPaths(in []packagingIgnoreFinding) []packagingIgnoreFinding {
+	out := slices.Clone(in)
+	for i := range out {
+		out[i].Path = filepath.ToSlash(out[i].Path)
+		out[i].Uncovered = slices.Clone(out[i].Uncovered)
+		for j, u := range out[i].Uncovered {
+			out[i].Uncovered[j] = filepath.ToSlash(u)
+		}
+	}
+	return out
+}
+
+func slashReferencePaths(in []referenceFinding) []referenceFinding {
+	out := slices.Clone(in)
+	for i := range out {
+		out[i].Source = filepath.ToSlash(out[i].Source)
+		out[i].Path = filepath.ToSlash(out[i].Path)
 	}
 	return out
 }

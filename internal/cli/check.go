@@ -815,7 +815,7 @@ func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []reference
 	if lint == nil {
 		lint = []lintFinding{}
 	}
-	out := doctorJSONOutput{jsonOutput: jsonOutput{Version: "1", Command: "doctor", Writes: driftRecords(reports)}.forOutput(), Lint: lint, HookTrust: hookTrust, PackagingIgnore: packaging, CoverageAccepted: coverageAccepted}
+	out := doctorJSONOutput{jsonOutput: jsonOutput{Version: "1", Command: "doctor", Writes: driftRecords(reports)}.forOutput(), Lint: slashLintPaths(lint), HookTrust: slashHookTrustPaths(hookTrust), PackagingIgnore: slashPackagingPaths(packaging), CoverageAccepted: coverageAccepted}
 	if out.HookTrust == nil {
 		out.HookTrust = []codex.HookTrustFinding{}
 	}
@@ -826,7 +826,8 @@ func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []reference
 		if refs == nil {
 			refs = []referenceFinding{}
 		}
-		out.References = &refs
+		slashed := slashReferencePaths(refs)
+		out.References = &slashed
 	}
 	if err := writeIndentedJSON(cmd, out); err != nil {
 		return err
