@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -51,7 +52,7 @@ func TestBuildFactory_WritesTheDocumentedPayloads(t *testing.T) {
 	if err != nil || !p.Fires || p.Trigger != "Create" {
 		t.Fatalf("--edit calls Create, whose input is documented: %+v %v", p, err)
 	}
-	if err := json.Unmarshal(p.Body, &doc); err != nil || doc["tool_input"].(map[string]any)["file_path"] != "/project/a.go" || doc["tool_response"] == nil {
+	if err := json.Unmarshal(p.Body, &doc); err != nil || doc["tool_input"].(map[string]any)["file_path"] != filepath.Join("/project", "a.go") || doc["tool_response"] == nil {
 		t.Errorf("payload = %s", p.Body)
 	}
 	if _, err := buildFactory("PreToolUse", "ApplyPatch", "/project", Input{Edit: "a.go"}); err == nil {
