@@ -239,8 +239,8 @@ type mcpCredentialSpan struct {
 
 var (
 	mcpSchemePattern     = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.\-]*://`)
-	mcpQueryParamPattern = regexp.MustCompile(`[?&]([^=&?#\s'"]+)=([^&?#\s'"]*)`)
-	mcpRefOnlyPattern    = regexp.MustCompile(`^\$?\$\{[A-Za-z_][A-Za-z0-9_]*\}[;&|)}]*$`)
+	mcpQueryParamPattern = regexp.MustCompile(`[?&]([^=&?#\s'"]+)=([^&?#\s]*)`)
+	mcpRefOnlyPattern    = regexp.MustCompile(`^['"]?\$?\$\{[A-Za-z_][A-Za-z0-9_]*\}['"]?[;&|)}'"]*$`)
 )
 
 // mcpSingleURL reports whether value is one URL import can rewrite: no
@@ -255,7 +255,7 @@ func mcpSingleURL(value string) bool {
 }
 
 func mcpLiteralCredential(value string) bool {
-	return value != "" && !mcpRefOnlyPattern.MatchString(value)
+	return strings.Trim(value, `'"`) != "" && !mcpRefOnlyPattern.MatchString(value)
 }
 
 // mcpURLCredentialDetected reports whether value holds a literal URL
@@ -541,9 +541,16 @@ func mcpURLLiterals(name string, server map[string]any, referenced map[string]bo
 	if value, ok := server["url"].(string); ok {
 		add("url", value, func(s string) { server["url"] = s })
 	}
-	args, _ := server["args"].([]any)
-	for i, arg := range args {
-		if value, ok := arg.(string); ok {
+	// Codex, OpenCode, and Zed import args as []string, the others as []any.
+	switch args := server["args"].(type) {
+	case []any:
+		for i, arg := range args {
+			if value, ok := arg.(string); ok {
+				add("args["+strconv.Itoa(i)+"]", value, func(s string) { args[i] = s })
+			}
+		}
+	case []string:
+		for i, value := range args {
 			add("args["+strconv.Itoa(i)+"]", value, func(s string) { args[i] = s })
 		}
 	}

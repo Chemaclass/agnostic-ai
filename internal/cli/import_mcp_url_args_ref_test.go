@@ -305,6 +305,64 @@ func TestImportMCP_URLCredentialOutsideOneURLLeavesServerOut(t *testing.T) {
 	}
 }
 
+func TestImportMCP_URLCredentialInStringArgsFromNativeImport(t *testing.T) {
+	dir := t.TempDir()
+	captureLog(t)
+	writeFile(t, filepath.Join(dir, ".codex", "config.toml"), "[mcp_servers.pg]\ncommand = \"npx\"\nargs = [\"-y\", \"postgresql://admin:PASSW0RD@db/app\"]\n")
+	writeFile(t, filepath.Join(dir, opencodeMCPFile), `{"mcp": {"pg": {"type": "local", "command": ["npx", "-y", "postgresql://admin:PASSW0RD@db/app"]}}}`)
+	writeFile(t, filepath.Join(dir, ".zed", "settings.json"), `{"context_servers": {"pg": {"command": "npx", "args": ["-y", "postgresql://admin:PASSW0RD@db/app"]}}}`)
+	for target, run := range map[string]func(dst string) error{
+		"codex": func(dst string) error {
+			_, _, err := importCodexConfig(dir, filepath.Join(dir, "hooks-codex"), dst)
+			return err
+		},
+		"opencode": func(dst string) error { _, err := importOpencodeMCP(dir, dst); return err },
+		"zed":      func(dst string) error { _, err := importZedContextServers(dir, dst); return err },
+	} {
+		dst := filepath.Join(dir, "mcps-"+target)
+		if err := os.MkdirAll(dst, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := run(dst); err != nil {
+			t.Fatalf("%s: %v", target, err)
+		}
+		got := readFile(t, filepath.Join(dst, "pg.yaml"))
+		if strings.Contains(got, "PASSW0RD") {
+			t.Errorf("%s: spec keeps a password from args", target)
+		}
+		if !strings.Contains(got, "postgresql://admin:${PG_PASSWORD}@db/app") {
+			t.Errorf("%s: spec lacks the password reference", target)
+		}
+	}
+}
+
+func TestImportMCP_URLQuotedQueryCredentialLeavesServerOut(t *testing.T) {
+	dir := t.TempDir()
+	log := captureLog(t)
+	if _, err := writeMCPYAMLs("claude", map[string]any{
+		"single": map[string]any{"command": "sh", "args": []any{"-c", "exec npx mcp-remote https://x.example/mcp?token='T0KEN'"}},
+		"double": map[string]any{"command": "sh", "args": []any{"-c", `exec npx mcp-remote "https://x.example/mcp?a=1&token="T0KEN`}},
+		"ref":    map[string]any{"command": "sh", "args": []any{"-c", `exec npx mcp-remote https://x.example/mcp?token='${TOKEN}'&key="${KEY}"`}},
+	}, dir); err != nil {
+		t.Fatal(err)
+	}
+	out := log.String()
+	if strings.Contains(out, "T0KEN") {
+		t.Errorf("import output prints a credential value")
+	}
+	for _, name := range []string{"single", "double"} {
+		if _, err := os.Stat(filepath.Join(dir, name+".yaml")); !os.IsNotExist(err) {
+			t.Errorf("server %s has a quoted token and must be left out", name)
+		}
+		if want := "MCP server " + name + ": left out; args[1]"; !strings.Contains(out, want) {
+			t.Errorf("output lacks %q", want)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, "ref.yaml")); err != nil {
+		t.Errorf("a quoted reference is not a credential: %v", err)
+	}
+}
+
 func TestImportMCP_URLWithoutCredentialImportsUnchanged(t *testing.T) {
 	args := []any{
 		"curl https://health.example/ping?a=1&b=2; exec srv",
