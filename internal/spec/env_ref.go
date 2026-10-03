@@ -181,6 +181,9 @@ func DecodeEnvRefEscapes(value string) string {
 // variables such as `${workspaceFolder}` and other tokens stay as
 // written.
 func EscapeEnvRefs(value string) string {
+	// Text that already reads `$${` gains one `$`, so decoding gives it
+	// back unchanged.
+	value = strings.ReplaceAll(value, envRefEscape, "$"+envRefEscape)
 	out := envRefTokenPattern.ReplaceAllStringFunc(maskEscapes(value), func(text string) string {
 		t := EnvRefTokens(text)[0]
 		if !t.Known() || t.EditorVariable() {
@@ -305,7 +308,7 @@ func (s EnvRefSyntax) LaunchRefs(value string) []string {
 		return nil
 	}
 	var refs []string
-	for _, m := range p.FindAllStringSubmatch(value, -1) {
+	for _, m := range p.FindAllStringSubmatch(maskEscapes(value), -1) {
 		if editorVariables[m[len(m)-1]] {
 			continue
 		}

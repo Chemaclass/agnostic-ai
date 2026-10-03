@@ -35,12 +35,14 @@ func TestDecodeEnvRefEscapes_TurnsOnlyTheEscapeIntoLiteralText(t *testing.T) {
 
 func TestEscapeEnvRefs_EscapesReferencesButNotToolVariables(t *testing.T) {
 	in := "--h ${X} ${X:-d} ${workspaceFolder} ${input:token} ${env:Y} $${Z}"
-	want := "--h $${X} $${X:-d} ${workspaceFolder} ${input:token} ${env:Y} $${Z}"
+	want := "--h $${X} $${X:-d} ${workspaceFolder} ${input:token} ${env:Y} $$${Z}"
 	if got := EscapeEnvRefs(in); got != want {
 		t.Errorf("EscapeEnvRefs = %q, want %q", got, want)
 	}
-	if got := DecodeEnvRefEscapes(EscapeEnvRefs("${X}")); got != "${X}" {
-		t.Errorf("round trip = %q", got)
+	for _, native := range []string{"${X}", "$${X}", "a $${X} ${Y}"} {
+		if got := DecodeEnvRefEscapes(EscapeEnvRefs(native)); got != native {
+			t.Errorf("round trip of %q = %q", native, got)
+		}
 	}
 }
 
@@ -56,5 +58,11 @@ func TestOnlyEscapedEnvRefs(t *testing.T) {
 		if got := OnlyEscapedEnvRefs(in); got != want {
 			t.Errorf("OnlyEscapedEnvRefs(%q) = %v, want %v", in, got, want)
 		}
+	}
+}
+
+func TestLaunchRefs_SkipsAnEscapedToolForm(t *testing.T) {
+	if refs := EnvRefDollarEnv.LaunchRefs("$${env:X} ${env:Y}"); len(refs) != 1 || refs[0] != "${env:Y}" {
+		t.Errorf("LaunchRefs = %v, want only ${env:Y}", refs)
 	}
 }
