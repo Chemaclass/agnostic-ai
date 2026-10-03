@@ -1,6 +1,6 @@
 +++
 title = "MCP recipes"
-description = "Specs for GitHub, Context7, Playwright, and the reference filesystem server, ready to copy into mcps/."
+description = "Specs for GitHub, Context7, Playwright, and the reference filesystem server, ready to copy into your MCP specs."
 weight = 65
 
 [extra]
@@ -9,7 +9,7 @@ group = "Reference"
 
 # MCP recipes
 
-Four servers to start from. Copy one into `mcps/<name>.yaml`, run `agnostic-ai sync`, and every selected tool gets the entry. Field meanings are in [MCP servers](@/docs/spec-format/mcps.md).
+Four servers to start from. Copy one into `.agnostic-ai/mcps/<name>.yaml` (or the directory set by `sources.mcps` in `agnostic-ai.yaml`) and run `agnostic-ai sync`. Each selected tool gets the entry in its own form. A tool that cannot read a `${NAME}` reference in that field gets a note instead, as the [reference tables](@/docs/spec-format/mcps.md#environment-references) show. Field meanings are in [MCP servers](@/docs/spec-format/mcps.md).
 
 Checked on 2026-10-03. Upstream changes names and URLs often, so compare against the linked source before you rely on one.
 
@@ -32,9 +32,9 @@ Create a personal access token on GitHub and export it as `GITHUB_PAT`.
 
 ### Keep it personal
 
-A GitHub token is yours, not the team's. Save the spec as `.agnostic-ai/local/mcps/github.yaml` instead. The [local layer](@/docs/local-overrides.md) stays out of Git, and `sync` still writes the server for you. Teammates who want it add their own file.
+A GitHub token is yours, not the team's. Save the spec as `.agnostic-ai/local/mcps/github.yaml` instead, whatever `sources.mcps` says. The [local layer](@/docs/local-overrides.md) stays out of version control, so only you get the server. Teammates who want it add their own file.
 
-`disabled: true` does not keep a server off on Cursor, Augment, Junie, Trae, or Warp. Sync strips the key there. Leave a server you do not want out of `mcps/`, or put it in the local layer. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
+`disabled: true` does not keep a server off on Cursor, Augment, Junie, Trae, or Warp. Sync strips the key there. The local layer always loads, so it does not turn a server off. To keep a server off, leave it out of every loaded layer, or turn it off in the tool itself. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
 
 ## Context7 (remote)
 
