@@ -845,27 +845,28 @@ func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []reference
 
 // driftRecords flattens reports into the JSON write records shared by
 // `sync --check --json` and `doctor --json`: one per missing, stale,
-// edited, orphaned, or leftover file.
+// edited, orphaned, or leftover file. Paths use `/` on every OS, as
+// `--plan --json` does.
 func driftRecords(reports []driftReport) []fileRecord {
 	var records []fileRecord
 	for _, r := range reports {
 		for _, f := range r.Missing {
-			records = append(records, fileRecord{Target: r.Target, Path: f.Path, Action: "missing", Bytes: len(f.Content)})
+			records = append(records, fileRecord{Target: r.Target, Path: filepath.ToSlash(f.Path), Action: "missing", Bytes: len(f.Content)})
 		}
 		for _, f := range r.Stale {
-			records = append(records, fileRecord{Target: r.Target, Path: f.Path, Action: "stale", Bytes: len(f.Content)})
+			records = append(records, fileRecord{Target: r.Target, Path: filepath.ToSlash(f.Path), Action: "stale", Bytes: len(f.Content)})
 		}
 		for _, f := range r.Edited {
-			records = append(records, fileRecord{Target: r.Target, Path: f.Path, Action: "edited", Bytes: len(f.Content)})
+			records = append(records, fileRecord{Target: r.Target, Path: filepath.ToSlash(f.Path), Action: "edited", Bytes: len(f.Content)})
 		}
 		for _, p := range r.Orphaned {
-			records = append(records, fileRecord{Target: r.Target, Path: p, Action: "orphan"})
+			records = append(records, fileRecord{Target: r.Target, Path: filepath.ToSlash(p), Action: "orphan"})
 		}
 		for _, p := range r.Leftover {
-			records = append(records, fileRecord{Target: r.Target, Path: p, Action: "leftover"})
+			records = append(records, fileRecord{Target: r.Target, Path: filepath.ToSlash(p), Action: "leftover"})
 		}
 		for _, f := range r.Unmanaged {
-			records = append(records, fileRecord{Target: f.Target, Path: f.Path, Action: "unmanaged"})
+			records = append(records, fileRecord{Target: f.Target, Path: filepath.ToSlash(f.Path), Action: "unmanaged"})
 		}
 	}
 	return records
