@@ -19,6 +19,7 @@ import (
 //     context-engineering/hooks.md and crates/goose/src/hooks/mod.rs.
 //   - Augment: docs.augmentcode.com/cli/hooks.
 //   - Factory: see factory.go.
+//   - Qoder: see qoder.go.
 //   - Antigravity: see antigravity.go.
 
 type builder func(event, matcher, root string, in Input) (Payload, error)
@@ -31,6 +32,7 @@ var otherBuilders = map[string]builder{
 	"cursor":      buildCursor,
 	"factory":     buildFactory,
 	"copilot":     buildCopilot,
+	"qoder":       buildQoder,
 	"antigravity": buildAntigravity,
 }
 

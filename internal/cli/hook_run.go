@@ -244,9 +244,14 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 			continue
 		}
 		run.Assumptions = assumptions
-		// Claude Code writes the spec's `if` on every handler it emits.
-		if rule := handlers[0].If; target == "claude" && rule != "" {
-			runs, err := hookrun.ClaudeIfRuns(rule, event, payload.Body, root)
+		// Claude Code and Qoder write the spec's `if` on every handler.
+		if rule := handlers[0].If; (target == "claude" || target == "qoder") && rule != "" {
+			runs, err := hookrun.IfRuns(target, rule, event, payload.Body, root)
+			if errors.As(err, &unbuilt) {
+				run.Decision, run.Reason = notRun, unbuilt.Reason
+				add(run)
+				continue
+			}
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", target, err)
 			}
@@ -291,6 +296,10 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 				r = hookrun.Run(hookrun.Argv(target, runtime.GOOS, h), dir, env, payload.Body, timeout)
 			}
 			d := hookrun.DecideHandler(target, event, h, r)
+			if target == "qoder" && d == hookrun.Block && hookrun.QoderPolicyChange(event, payload.Body) {
+				d = hookrun.Error
+				run.Notes = append(run.Notes, "Qoder enforces a policy_settings change; the hook runs for audit and cannot block it")
+			}
 			if target == "cursor" && hookrun.CursorAsks(event, r) {
 				run.Notes = append(run.Notes, "replied ask: Cursor asks the user before the action runs; read as block")
 			}
@@ -308,6 +317,9 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 					run.uncounted = reason
 					run.Notes = append(run.Notes, "not counted: "+reason)
 				}
+			}
+			if target == "qoder" && hookrun.QoderAsks(event, r) {
+				run.Notes = append(run.Notes, "replied ask: Qoder asks the user before the tool runs; read as block")
 			}
 			if target == "copilot" && hookrun.CopilotAsks(event, r) {
 				run.Notes = append(run.Notes, "replied ask: Copilot CLI asks the user before the tool runs, and cloud agent denies it; read as block")
@@ -603,12 +615,13 @@ var sessionEnvKeys = []string{
 	adapters.HookTargetEnv, claudeProjectDirEnv, "GEMINI_PROJECT_DIR", "GEMINI_CWD", "GEMINI_SESSION_ID", "GEMINI_PLANS_DIR",
 	"TRAE_PROJECT_DIR", "OPENHANDS_PROJECT_DIR", "OPENHANDS_SESSION_ID", "OPENHANDS_EVENT_TYPE", "OPENHANDS_TOOL_NAME",
 	"PLUGIN_ROOT", "CURSOR_PROJECT_DIR", "CURSOR_VERSION", "CURSOR_USER_EMAIL", "CURSOR_TRANSCRIPT_PATH", "CURSOR_CODE_REMOTE", "FACTORY_PROJECT_DIR", "AUGMENT_PROJECT_DIR", "AUGMENT_CONVERSATION_ID", "AUGMENT_HOOK_EVENT", "AUGMENT_TOOL_NAME",
+	"QODER_PROJECT_DIR", "QODER_PLUGIN_ROOT", "QODER_PLUGIN_DATA",
 	"CRUSH_EVENT", "CRUSH_TOOL_NAME", "CRUSH_SESSION_ID", "CRUSH_CWD", "CRUSH_PROJECT_DIR", "CRUSH_TOOL_INPUT_COMMAND", "CRUSH_TOOL_INPUT_FILE_PATH",
 }
 
 // asyncHookTargets run an `async: true` hook in the background, so its
-// result blocks nothing: Claude Code, Codex, and OpenHands.
-var asyncHookTargets = []string{"claude", "codex", "openhands"}
+// result blocks nothing: Claude Code, Codex, OpenHands, and Qoder.
+var asyncHookTargets = []string{"claude", "codex", "openhands", "qoder"}
 
 // hookEnvContext is what a target's hook env names about the event.
 type hookEnvContext struct {
@@ -644,6 +657,8 @@ func hookRunEnv(target, root string, ctx hookEnvContext, h hookrun.Handler) []st
 		env = append(env, "CURSOR_PROJECT_DIR="+root, "CURSOR_VERSION=", claudeProjectDirEnv+"="+root, adapters.HookTargetEnv+"=cursor")
 	case "factory":
 		env = append(env, "FACTORY_PROJECT_DIR="+root)
+	case "qoder":
+		env = append(env, "QODER_PROJECT_DIR="+root)
 	case "augment":
 		env = append(env, "AUGMENT_PROJECT_DIR="+root, "AUGMENT_CONVERSATION_ID="+hookrun.SessionID, "AUGMENT_HOOK_EVENT="+ctx.event)
 		if ctx.tool != "" {
