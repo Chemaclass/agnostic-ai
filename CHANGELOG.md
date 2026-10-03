@@ -32,6 +32,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - Hook commands that run a synced script start with `./`, so the script runs and a guard hook blocks on every OS (#1695, #1698).
 - `hook run` runs Crush hooks in its embedded shell on every platform; exit 2 blocks and exit 49 halts the turn (#1678).
 
+#### Antigravity
+
+- `hook run` runs Antigravity hooks on an assumed shell; only exit 0 with a documented `decision` can count (#1678).
+
 #### Copilot
 
 - A hook with `cwd` gets its synced script path written relative to that directory, so it starts; import restores the repository path (#1699, #1706).

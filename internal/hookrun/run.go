@@ -189,6 +189,8 @@ func AddsContext(target, event string, r Result) bool {
 		return crushAddsContext(r)
 	case "copilot":
 		return copilotAddsContext(event, r)
+	case "antigravity":
+		return antigravityAddsContext(event, r)
 	case "cursor":
 		var reply struct {
 			AdditionalContext string `json:"additional_context"`
