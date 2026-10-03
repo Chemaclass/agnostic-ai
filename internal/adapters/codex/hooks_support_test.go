@@ -23,6 +23,25 @@ func TestAcceptsHook(t *testing.T) {
 		{"mcp tool", map[string]any{"event": "PreToolUse", "matcher": "mcp__fs__read"}, ""},
 		{"session source", map[string]any{"event": "SessionStart", "matcher": "startup"}, ""},
 		{"no matcher", map[string]any{"event": "Stop"}, ""},
+		{"anchored group", map[string]any{"event": "PreToolUse", "matcher": "^(Bash|exec)$"}, ""},
+		{"anchored group of edits", map[string]any{"event": "PostToolUse", "matcher": "^(Edit|Write)$"}, ""},
+		{"anchored single tool", map[string]any{"event": "PreToolUse", "matcher": "^Bash$"}, ""},
+		{"group of one", map[string]any{"event": "PreToolUse", "matcher": "(Bash)"}, ""},
+		{"non-capturing group", map[string]any{"event": "PreToolUse", "matcher": "(?:Bash|apply_patch)"}, ""},
+		{"emitted union", map[string]any{"event": "PreToolUse", "matcher": "(?:^(Bash|exec)$)|(?:^(Bash|apply_patch)$)"}, ""},
+		{"unanchored mcp suffix regex", map[string]any{"event": "PreToolUse", "matcher": "__read_(file|directory)$"}, ""},
+		{"anchored literal prefix names no tool", map[string]any{"event": "PreToolUse", "matcher": "^Grep.*"}, `does not match "^Grep.*"`},
+		{"anchored quantified prefix", map[string]any{"event": "PreToolUse", "matcher": "^mc*p__x$"}, ""},
+		{"alternation hides the prefix", map[string]any{"event": "PreToolUse", "matcher": "^Grep|__read$"}, ""},
+		{"invalid regex", map[string]any{"event": "PreToolUse", "matcher": "^(Bash"}, "not a valid regular expression"},
+		{"mcp regex without the prefix", map[string]any{"event": "PreToolUse", "matcher": "^mcp.*__read$"}, ""},
+		{"mcp regex with a wildcard server", map[string]any{"event": "PreToolUse", "matcher": "^.*__read$"}, ""},
+		{"mcp regex", map[string]any{"event": "PreToolUse", "matcher": "mcp__fs__.*"}, ""},
+		{"source regex", map[string]any{"event": "SessionStart", "matcher": "^(startup|resume)$"}, ""},
+		{"anchored literal names no Codex tool", map[string]any{"event": "PreToolUse", "matcher": "^Grep$"}, `does not match "^Grep$"`},
+		{"group is not provably unreachable", map[string]any{"event": "PreToolUse", "matcher": "^(Grep|Read)$"}, ""},
+		{"group with one Codex tool", map[string]any{"event": "PreToolUse", "matcher": "(Bash|Read)"}, ""},
+		{"plain list keeps every name", map[string]any{"event": "PreToolUse", "matcher": "Bash|Read"}, `does not match "Read"`},
 		{"claude-only tool", map[string]any{"event": "PreToolUse", "matcher": "Read"}, `does not match "Read"`},
 		{"claude-only event", map[string]any{"event": "Notification"}, "no Notification event"},
 		{"http handler", map[string]any{"event": "Stop", "type": "http"}, "no http handler"},
@@ -65,6 +84,22 @@ func TestEmit_NotesEditHookReadingFilePath(t *testing.T) {
 	}
 	if !strings.Contains(out, "agnostic-ai hook paths") {
 		t.Errorf("note does not suggest agnostic-ai hook paths:\n%s", out)
+	}
+}
+
+// Only a matcher that can fire on apply_patch, Edit or Write is an edit
+// hook; a regex like \W matches other tools but none of those (#1733).
+func TestEmit_EditHookPayloadIgnoresRegexThatMissesEditTools(t *testing.T) {
+	for matcher, wantErr := range map[string]bool{`\W`: false, `^(Edit|Write)$`: true, `*`: true, `^(Bash`: false} {
+		testutil.Chdir(t, t.TempDir())
+		swapWarner(t)
+		hook := editHook("jq -r '.tool_input.file_path // empty'")
+		hook.Meta["matcher"] = matcher
+		cfg := &config.Config{OnUnsupported: emit.OnUnsupportedError}
+		err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{hook}), cfg, false)
+		if (err != nil) != wantErr {
+			t.Errorf("matcher %q: err = %v, want error %v", matcher, err, wantErr)
+		}
 	}
 }
 
