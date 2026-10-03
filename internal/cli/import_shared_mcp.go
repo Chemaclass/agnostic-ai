@@ -179,12 +179,23 @@ func (v *mcpURLValue) set(i int, text string) {
 
 func (v *mcpURLValue) String() string { return strings.Join(v.pieces, "") }
 
-// mcpCredentialParams are the last words of a query parameter name that
-// make import treat it as a credential, so `api_key` counts and
-// `key_id` does not.
-var mcpCredentialParams = map[string]bool{
+// mcpCredentialWords are the last words of a name that make import
+// treat its value as a credential, so `api_key` counts and `key_id` does
+// not.
+var mcpCredentialWords = map[string]bool{
 	"token": true, "key": true, "secret": true, "password": true, "passwd": true, "pwd": true,
 	"apikey": true, "accesstoken": true, "authtoken": true,
+}
+
+// mcpCredentialQueryWords count only in a query or fragment parameter
+// name, where `code` or `sig` is a signed or one-time value.
+var mcpCredentialQueryWords = map[string]bool{
+	"auth": true, "sig": true, "signature": true, "code": true, "session": true, "jwt": true, "bearer": true,
+}
+
+func mcpCredentialName(name string) bool {
+	words := mcpNameWords(name)
+	return len(words) > 0 && mcpCredentialWords[words[len(words)-1]]
 }
 
 func mcpCredentialParam(name string) bool {
@@ -192,7 +203,7 @@ func mcpCredentialParam(name string) bool {
 		name = unescaped
 	}
 	words := mcpNameWords(name)
-	return len(words) > 0 && mcpCredentialParams[words[len(words)-1]]
+	return len(words) > 0 && (mcpCredentialWords[words[len(words)-1]] || mcpCredentialQueryWords[words[len(words)-1]])
 }
 
 // mcpNameWords splits a name into lower-case words at punctuation and at
@@ -236,7 +247,7 @@ type mcpCredentialSpan struct {
 
 var (
 	mcpSchemePattern     = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.\-]*://`)
-	mcpQueryParamPattern = regexp.MustCompile(`[?&;]([^=&;?#\s'"]+)=([^&;?#\s]*)`)
+	mcpQueryParamPattern = regexp.MustCompile(`[?&;#]([^=&;?#\s'"]+)=([^&;?#\s]*)`)
 	mcpRefDefaultPattern = regexp.MustCompile(`\$?\$\{[A-Za-z_][A-Za-z0-9_]*:-([^{}]*)\}`)
 	mcpPlainRefPattern   = regexp.MustCompile(`\$?\$\{[A-Za-z_][A-Za-z0-9_]*\}`)
 )
@@ -274,20 +285,86 @@ func mcpDetectorText(value string) string {
 	return mcpPlainRefPattern.ReplaceAllString(value, mcpRefSentinel)
 }
 
-// mcpURLCredentialDetected reports whether value holds a literal URL
-// password or a literal credential query parameter anywhere, reference
-// defaults and escaped references included. It errs toward finding one,
-// since a false find only leaves a server out with a warning. A password
-// is a literal after a `:` and before an `@` in the text from `://` to
-// the next `/`, `?`, or `#`. An `@` after that counts too, unless the
-// text before it is a host with a port, as in `https://host:8443/@scope`.
-// It reads value as written and again with shell quotes and backslashes
-// removed, so `?'token=x'` counts too.
-func mcpURLCredentialDetected(value string) bool {
-	return mcpURLCredentialIn(mcpDetectorText(value)) || mcpURLCredentialIn(mcpDetectorText(mcpShellUnquote.Replace(value)))
+// mcpCredentialDetected reports whether value holds a literal credential
+// anywhere, reference defaults and escaped references included: a URL
+// password or credential query or fragment parameter, a token by its
+// prefix, a scheme-less `user:password@host`, or a `NAME=value` whose
+// name ends in a credential word. It errs toward finding one, since a
+// false find only leaves a server out with a warning. A password is a
+// literal after a `:` and before an `@` in the text from `://` to the
+// next `/`, `?`, or `#`. An `@` after that counts too, unless the text
+// before it is a host with a port, as in `https://host:8443/@scope`. It
+// reads value as written and again with shell quotes and backslashes
+// removed, so `?'token=x'` counts too, and each of those again with
+// percent-encoded separators decoded once.
+func mcpCredentialDetected(value string) bool {
+	for _, text := range []string{mcpDetectorText(value), mcpDetectorText(mcpShellUnquote.Replace(value))} {
+		for _, t := range []string{text, mcpEncodedSeparators.Replace(text)} {
+			if mcpURLCredentialIn(t) || mcpTokenIn(t) || mcpUserPasswordIn(t) || mcpAssignmentIn(t) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
-var mcpShellUnquote = strings.NewReplacer(`'`, "", `"`, "", `\`, "")
+var (
+	mcpShellUnquote      = strings.NewReplacer(`'`, "", `"`, "", `\`, "")
+	mcpEncodedSeparators = strings.NewReplacer("%26", "&", "%3D", "=", "%3d", "=", "%3F", "?", "%3f", "?", "%23", "#")
+)
+
+// mcpTokenPrefixes are token formats that name their issuer: GitHub,
+// GitLab, Slack, OpenAI-style `sk-`, and AWS access key ids.
+const mcpTokenPrefixes = `gh[pousr]_[A-Za-z0-9_]{8,}|github_pat_[A-Za-z0-9_]{8,}|glpat-[A-Za-z0-9_\-]{8,}|xox[bpa]-[A-Za-z0-9\-]{8,}|sk-[A-Za-z0-9_\-]{20,}|AKIA[0-9A-Z]{16}`
+
+var (
+	mcpTokenPattern      = regexp.MustCompile(`^(?:` + mcpTokenPrefixes + `)$`)
+	mcpEmbeddedToken     = regexp.MustCompile(`(?:^|[^A-Za-z0-9_])(` + mcpTokenPrefixes + `)(?:[^A-Za-z0-9]|$)`)
+	mcpUserPasswordAt    = regexp.MustCompile(`(?:^|[\s'"=,])[A-Za-z0-9._%+\-\x00]+:([^\s@/:'"]+)@(\S*)`)
+	mcpAssignment        = regexp.MustCompile(`(?:^|[^A-Za-z0-9_\x00])([A-Za-z_][A-Za-z0-9_\-]*)=([^\s;&|#]+)`)
+	mcpShellVariable     = regexp.MustCompile(`^\$[A-Za-z_][A-Za-z0-9_]*$`)
+	mcpImageDigestSuffix = regexp.MustCompile(`^sha[0-9]+:`)
+)
+
+// mcpToken reports whether value is a whole token by its prefix. An
+// `sk-` token needs a digit, so a package name such as
+// `sk-learn-mcp-server-tools` is not one.
+func mcpToken(value string) bool {
+	return mcpTokenPattern.MatchString(value) && (!strings.HasPrefix(value, "sk-") || strings.ContainsAny(value, "0123456789"))
+}
+
+func mcpTokenIn(text string) bool {
+	for _, m := range mcpEmbeddedToken.FindAllStringSubmatch(text, -1) {
+		if mcpToken(m[1]) {
+			return true
+		}
+	}
+	return false
+}
+
+// mcpUserPasswordIn finds a scheme-less `user:password@host`, as in
+// `root:pw@db:3306` or an scp-style `user:pw@host:path`. An image digest
+// such as `node:20@sha256:...` is not one.
+func mcpUserPasswordIn(text string) bool {
+	for _, m := range mcpUserPasswordAt.FindAllStringSubmatch(text, -1) {
+		if mcpLiteralCredential(m[1]) && !mcpImageDigestSuffix.MatchString(m[2]) {
+			return true
+		}
+	}
+	return false
+}
+
+// mcpAssignmentIn finds a `NAME=value` whose name ends in a credential
+// word, as in `TOKEN=x` inside a `sh -c` command. A shell expansion such
+// as `$TOKEN` or `$(cat f)` is not a literal.
+func mcpAssignmentIn(text string) bool {
+	for _, m := range mcpAssignment.FindAllStringSubmatch(text, -1) {
+		if mcpCredentialName(m[1]) && mcpLiteralCredential(m[2]) && !strings.HasPrefix(strings.Trim(m[2], `'"`), "$") {
+			return true
+		}
+	}
+	return false
+}
 
 func mcpURLCredentialIn(text string) bool {
 	for _, m := range mcpQueryParamPattern.FindAllStringSubmatch(text, -1) {
@@ -308,7 +385,12 @@ func mcpURLCredentialIn(text string) bool {
 			if strings.HasPrefix(hostPort, "[") {
 				hostPort = hostPort[indexAnyOrLen(hostPort, "]"):]
 			}
-			if _, port, ok := strings.Cut(hostPort, ":"); !ok || port != "" && strings.Trim(port, "0123456789"+mcpRefSentinel) == "" {
+			host, port, ok := strings.Cut(hostPort, ":")
+			// `redis://:1234#5@host` hides an all-digit password before
+			// `#`, or before `/` when no host precedes it.
+			next := len(authority)
+			hidden := ok && next < len(rest) && (rest[next] == '#' || host == "")
+			if !hidden && (!ok || port != "" && strings.Trim(port, "0123456789"+mcpRefSentinel) == "") {
 				continue
 			}
 			if at = strings.Index(rest, "@"); at < 0 {
@@ -355,7 +437,15 @@ func mcpURLCredentialSpans(word, mask string) ([]mcpCredentialSpan, bool) {
 			return nil, false
 		}
 		if at := strings.LastIndex(authority, "@"); at >= 0 {
-			if colon := strings.Index(authority[:at], ":"); colon >= 0 {
+			user := authority[:at]
+			colon := strings.Index(user, ":")
+			if colon >= 0 {
+				user = user[:colon]
+			}
+			if mcpToken(word[pos : pos+len(user)]) {
+				spans = append(spans, mcpCredentialSpan{"token", pos, pos + len(user)})
+			}
+			if colon >= 0 {
 				if start, stop := pos+colon+1, pos+at; mcpCredentialValue(word[start:stop]) {
 					spans = append(spans, mcpCredentialSpan{"password", start, stop})
 				}
@@ -367,17 +457,31 @@ func mcpURLCredentialSpans(word, mask string) ([]mcpCredentialSpan, bool) {
 	}
 	end := pos + indexAnyOrLen(mask[pos:], "#")
 	if q := strings.Index(mask[pos:end], "?"); q >= 0 {
-		for start := pos + q + 1; start <= end; {
-			stop := start + indexAnyOrLen(mask[start:end], "&;")
-			if eq := strings.Index(mask[start:stop], "="); eq >= 0 {
-				if name := word[start : start+eq]; mcpCredentialParam(name) && mcpCredentialValue(word[start+eq+1:stop]) {
-					spans = append(spans, mcpCredentialSpan{name, start + eq + 1, stop})
-				}
-			}
-			start = stop + 1
+		spans = append(spans, mcpParamSpans(word, mask, pos+q+1, end)...)
+	}
+	// A fragment such as `#access_token=...` carries parameters too.
+	if end < len(mask) {
+		start := end + 1
+		if q := strings.Index(mask[start:], "?"); q >= 0 {
+			start += q + 1
 		}
+		spans = append(spans, mcpParamSpans(word, mask, start, len(mask))...)
 	}
 	return spans, true
+}
+
+func mcpParamSpans(word, mask string, start, end int) []mcpCredentialSpan {
+	var spans []mcpCredentialSpan
+	for start <= end {
+		stop := start + indexAnyOrLen(mask[start:end], "&;")
+		if eq := strings.Index(mask[start:stop], "="); eq >= 0 {
+			if name := word[start : start+eq]; mcpCredentialParam(name) && mcpCredentialValue(word[start+eq+1:stop]) {
+				spans = append(spans, mcpCredentialSpan{name, start + eq + 1, stop})
+			}
+		}
+		start = stop + 1
+	}
+	return spans
 }
 
 // maskMCPRefs returns value with every `${...}` token, nested ones
@@ -507,54 +611,42 @@ func referenceMCPLiterals(servers map[string]any) []mcpLiteralRef {
 }
 
 // mcpURLLiterals returns the credentials in server's `url` and `args`:
-// a URL password and each query parameter mcpCredentialParam names. The
-// rest of the URL stays as written. A credential that is already a
-// reference stays one but loses its default, and so does a reference
-// whose default holds a URL credential. Only a value that is one URL is
-// rewritten; any other value with a credential, or a URL that still
-// shows one after the rewrite, sets unreadable to its field, and then
-// the server must be left out. It records the references a value
-// already holds in referenced. A literal reports only its own reference,
-// never the URL around it.
+// a URL password, a URL username that is a token, each query or fragment
+// parameter mcpCredentialParam names, the value of a `--name` or
+// `--name=value` flag whose name ends in a credential word, and an
+// argument that is a whole token. The rest of the value stays as
+// written. A credential that is already a reference stays one but loses
+// its default, and so does a reference whose default holds a URL
+// credential. Any other value with a credential, a value that still
+// shows one after the rewrite, or one in `command`, `cwd`,
+// `requestOptions`, or an `x-<target>` block sets unreadable to its
+// field, and then the server must be left out. It records the references
+// a value already holds in referenced. A literal reports only its own
+// reference, never the value around it.
 func mcpURLLiterals(name string, server map[string]any, referenced map[string]bool) (literals []mcpLiteral, refs []mcpLiteralRef, unreadable string) {
-	add := func(field, value string, write func(string)) {
-		if unreadable != "" {
-			return
-		}
+	record := func(value string) {
 		for _, t := range spec.EnvRefTokens(value) {
 			if t.Known() {
 				referenced[t.Name] = true
 			}
 		}
-		if !mcpSingleURL(value) {
-			if mcpURLCredentialDetected(value) {
-				unreadable = field
-			}
-			return
-		}
-		var stripped []mcpLiteralRef
-		for _, t := range spec.EnvRefTokens(value) {
-			if t.Known() && t.HasDefault && mcpURLCredentialDetected(t.Default) {
-				value = strings.Replace(value, t.Text, spec.EnvRef(t.Name), 1)
-				stripped = append(stripped, mcpLiteralRef{server: name, field: field, key: "reference", value: spec.EnvRef(t.Name), variable: t.Name, defaulted: true})
-			}
-		}
-		pieces, creds, ok := splitMCPURLCredentials(value)
+	}
+	// split writes pieces back, with each credential piece creds names
+	// as a reference.
+	split := func(field string, pieces []string, creds map[int]string, write func(string)) {
 		scrubbed := slices.Clone(pieces)
 		for i := range creds {
 			scrubbed[i] = spec.EnvRef("X")
 		}
-		if !ok || mcpURLCredentialDetected(strings.Join(scrubbed, "")) || creds == nil && mcpURLCredentialDetected(value) {
+		if mcpCredentialDetected(strings.Join(scrubbed, "")) {
 			unreadable = field
-			return
-		}
-		write(value)
-		refs = append(refs, stripped...)
-		if creds == nil {
 			return
 		}
 		v := &mcpURLValue{pieces: pieces, write: write}
 		for _, i := range slices.Sorted(maps.Keys(creds)) {
+			if !mcpCredentialValue(pieces[i]) {
+				continue
+			}
 			if spec.OnlyEnvRefs(pieces[i]) {
 				stripped, defaulted := spec.StripEnvRefDefaults(pieces[i])
 				v.set(i, stripped)
@@ -568,23 +660,136 @@ func mcpURLLiterals(name string, server map[string]any, referenced map[string]bo
 				value:   func() string { return v.pieces[i] }})
 		}
 	}
+	add := func(field, value string, write func(string)) {
+		if unreadable != "" {
+			return
+		}
+		record(value)
+		if !mcpSingleURL(value) {
+			if mcpCredentialDetected(value) {
+				unreadable = field
+			}
+			return
+		}
+		var stripped []mcpLiteralRef
+		for _, t := range spec.EnvRefTokens(value) {
+			if t.Known() && t.HasDefault && mcpCredentialDetected(t.Default) {
+				value = strings.Replace(value, t.Text, spec.EnvRef(t.Name), 1)
+				stripped = append(stripped, mcpLiteralRef{server: name, field: field, key: "reference", value: spec.EnvRef(t.Name), variable: t.Name, defaulted: true})
+			}
+		}
+		pieces, creds, ok := splitMCPURLCredentials(value)
+		if !ok || creds == nil && mcpCredentialDetected(value) {
+			unreadable = field
+			return
+		}
+		write(value)
+		if creds == nil {
+			refs = append(refs, stripped...)
+			return
+		}
+		split(field, pieces, creds, write)
+		if unreadable == "" {
+			refs = append(refs, stripped...)
+		}
+	}
+	// addCredential reads value as one credential named key.
+	addCredential := func(field, key, prefix, value string, write func(string)) {
+		if unreadable != "" {
+			return
+		}
+		record(value)
+		if mcpShellVariable.MatchString(value) {
+			return
+		}
+		split(field, []string{prefix, value}, map[int]string{1: key}, write)
+	}
 	if value, ok := server["url"].(string); ok {
 		add("url", value, func(s string) { server["url"] = s })
 	}
 	// Codex, OpenCode, and Zed import args as []string, the others as []any.
-	switch args := server["args"].(type) {
+	var args []string
+	var setArg func(i int, s string)
+	switch raw := server["args"].(type) {
 	case []any:
-		for i, arg := range args {
-			if value, ok := arg.(string); ok {
-				add("args["+strconv.Itoa(i)+"]", value, func(s string) { args[i] = s })
-			}
+		args = make([]string, len(raw))
+		for i, arg := range raw {
+			args[i], _ = arg.(string)
 		}
+		setArg = func(i int, s string) { raw[i] = s }
 	case []string:
-		for i, value := range args {
-			add("args["+strconv.Itoa(i)+"]", value, func(s string) { args[i] = s })
+		args, setArg = raw, func(i int, s string) { raw[i] = s }
+	}
+	for i := 0; i < len(args); i++ {
+		at := i
+		field := "args[" + strconv.Itoa(at) + "]"
+		write := func(s string) { setArg(at, s) }
+		flag, value, hasValue := mcpCredentialFlag(args[at])
+		switch {
+		case flag != "" && hasValue:
+			addCredential(field, flag, args[at][:len(args[at])-len(value)], value, write)
+		case flag != "":
+			// A short flag such as `-p` may be a port or profile, so only
+			// a long flag reads the next argument as its value.
+			if at+1 < len(args) && args[at+1] != "" && !strings.HasPrefix(args[at+1], "-") {
+				next := at + 1
+				i = next
+				addCredential("args["+strconv.Itoa(next)+"]", flag, "", args[next], func(s string) { setArg(next, s) })
+			}
+		case mcpToken(args[at]):
+			addCredential(field, "token", "", args[at], write)
+		case args[at] != "":
+			add(field, args[at], write)
+		}
+	}
+	for _, field := range slices.Sorted(maps.Keys(server)) {
+		if field == "command" || field == "cwd" || field == "requestOptions" || strings.HasPrefix(field, "x-") {
+			walkMCPStrings(field, server[field], func(path, value string) {
+				if unreadable == "" && mcpCredentialDetected(value) {
+					unreadable = path
+				}
+			})
 		}
 	}
 	return literals, refs, unreadable
+}
+
+// mcpCredentialFlag returns the name of a `--name` or `--name=value`
+// argument whose name ends in a credential word, and the value after
+// `=`, so `--api-key` counts and `--key-id` or `--token-file` does not.
+func mcpCredentialFlag(arg string) (name, value string, hasValue bool) {
+	rest, ok := strings.CutPrefix(arg, "--")
+	if !ok {
+		return "", "", false
+	}
+	name, value, hasValue = strings.Cut(rest, "=")
+	if !mcpFlagName.MatchString(name) || !mcpCredentialName(name) {
+		return "", "", false
+	}
+	return name, value, hasValue
+}
+
+var mcpFlagName = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_.\-]*$`)
+
+// walkMCPStrings calls visit with each string in value and its path,
+// such as `x-claude.env.TOKEN` or `requestOptions.proxy`.
+func walkMCPStrings(path string, value any, visit func(path, value string)) {
+	switch v := value.(type) {
+	case string:
+		visit(path, v)
+	case map[string]any:
+		for _, k := range slices.Sorted(maps.Keys(v)) {
+			walkMCPStrings(path+"."+k, v[k], visit)
+		}
+	case []any:
+		for i, item := range v {
+			walkMCPStrings(path+"["+strconv.Itoa(i)+"]", item, visit)
+		}
+	case []string:
+		for i, item := range v {
+			walkMCPStrings(path+"["+strconv.Itoa(i)+"]", item, visit)
+		}
+	}
 }
 
 // mcpLiteralNames picks one variable per literal. An `env` value reads
@@ -640,7 +845,7 @@ func reportMCPLiteralRefsWithHint(refs []mcpLiteralRef, hint string) {
 	}
 	for _, r := range refs {
 		if r.leftOut {
-			keptf("%s MCP server %s: left out; %s holds a URL credential import cannot rewrite\n", bang(), r.server, r.field)
+			keptf("%s MCP server %s: left out; %s holds a credential import cannot rewrite\n", bang(), r.server, r.field)
 			continue
 		}
 		if r.defaulted {

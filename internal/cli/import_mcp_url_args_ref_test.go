@@ -67,12 +67,12 @@ func TestImportMCP_URLArgsRefsRoundTrip(t *testing.T) {
 
 func TestImportMCP_URLArgsLiteralsStayLiteral(t *testing.T) {
 	specs, out := importMCPServers(t, "claude", map[string]any{
-		"gh":    map[string]any{"command": "gh-mcp", "args": []any{"--token", "ghp_example", "--host", "$HOST"}},
+		"gh":    map[string]any{"command": "gh-mcp", "args": []any{"--token-file", "./t", "--host", "$HOST"}},
 		"plain": map[string]any{"command": "pg-mcp", "args": []any{"postgresql://admin@db:5432/app", "https://x.example/mcp?page=2&monkey=1"}},
 		"api":   map[string]any{"type": "http", "url": "https://api.example.com/mcp?filter=x&keyword=y"},
 	})
 	for name, wants := range map[string][]string{
-		"gh":    {"- ghp_example", "- $HOST"},
+		"gh":    {"- --token-file", "- ./t", "- $HOST"},
 		"plain": {"- postgresql://admin@db:5432/app", "- https://x.example/mcp?page=2&monkey=1"},
 		"api":   {"url: https://api.example.com/mcp?filter=x&keyword=y"},
 	} {
@@ -291,7 +291,7 @@ func TestImportMCP_URLCredentialOutsideOneURLLeavesServerOut(t *testing.T) {
 				if _, err := os.Stat(filepath.Join(dir, name+".yaml")); !os.IsNotExist(err) {
 					t.Errorf("server %s holds a credential import cannot rewrite and must be left out", name)
 				}
-				if want := "MCP server " + name + ": left out; " + field + " holds a URL credential import cannot rewrite"; !strings.Contains(out, want) {
+				if want := "MCP server " + name + ": left out; " + field + " holds a credential import cannot rewrite"; !strings.Contains(out, want) {
 					t.Errorf("output lacks %q", want)
 				}
 			}
