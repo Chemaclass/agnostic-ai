@@ -336,9 +336,19 @@ func TestDemoHook_BlocksForcePushOnClaudeAndCodex(t *testing.T) {
 		{"git commit -m \"$(cat <<'EOF'\nfix: stop git push --force\nEOF\n)\"", "allow"},
 		{"git commit -m \"$(cat <<'EOF'\nfix: a\nEOF\n)\" && git push --force", "block"},
 	}
+	// On Windows, the `bash` a runner finds first may be WSL's launcher, not
+	// the Git Bash Claude Code runs hooks with, so only Codex runs there.
+	targets := []string{"claude", "codex"}
+	if runtime.GOOS == "windows" {
+		targets = []string{"codex"}
+	}
 	for _, c := range cases {
 		t.Run(c.command, func(t *testing.T) {
-			out, err := runHookRun(t, "no-force-push", "--bash", c.command, "--expect", c.expect)
+			args := []string{"no-force-push", "--bash", c.command, "--expect", c.expect}
+			if len(targets) == 1 {
+				args = append(args, "--target", targets[0])
+			}
+			out, err := runHookRun(t, args...)
 			if err != nil {
 				t.Fatalf("err = %v\n%s", err, out)
 			}
@@ -346,7 +356,8 @@ func TestDemoHook_BlocksForcePushOnClaudeAndCodex(t *testing.T) {
 			if c.expect == "block" {
 				code = "(exit 2"
 			}
-			for _, target := range []string{"claude: " + c.expect + " " + code, "codex: " + c.expect + " " + code} {
+			for _, target := range targets {
+				target += ": " + c.expect + " " + code
 				if !strings.Contains(out, target) {
 					t.Errorf("output misses %q:\n%s", target, out)
 				}
