@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- `init --demo` seeds a `no-force-push` guard for Claude Code and Codex in place of a format hook that did nothing; `--force-with-lease` passes (#1732).
 - `lint` warns with LINT031 when a spec still has the `TODO` description that `new` writes (#1739).
 - `new agent` leaves `model` out, so a fresh agent lints clean in projects that target more than Claude (#1738).
 - `doctor` lists each MCP `${NAME}` reference that is unset in your shell, by name (#1729).
@@ -21,6 +22,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Codex
 
+- A hook `commandWindows` keeps the project root path, so a script under the project runs from any subdirectory (#1732).
 - A grouped or anchored hook matcher such as `^(Bash|exec)$` no longer gets a false "does not match" note, and specs sharing a command merge into a valid matcher (#1743).
 
 #### Kiro
