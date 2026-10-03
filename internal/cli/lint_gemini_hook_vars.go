@@ -69,6 +69,16 @@ func lintGeminiHookVariables(cfg *config.Config, targets []string, b spec.Bundle
 // track, so every bare variable after a `$(` or backquote counts.
 func quotedGeminiVariables(command string) []string {
 	var out []string
+	if strings.Contains(command, "<<") {
+		// A heredoc body has its own rules and a replaced value can end it
+		// early, so every bare variable counts.
+		for _, v := range geminiHookVariables {
+			if strings.Contains(command, v) {
+				out = append(out, v)
+			}
+		}
+		return out
+	}
 	inSingle, inDouble, inSubstitution := false, false, false
 	escaped := -1
 	for i := 0; i < len(command); i++ {
