@@ -22,6 +22,7 @@ Use a temporary project when experimenting with imported or generated files. Ada
 |---|---|
 | Go behavior | Focused package tests during development; `make preflight` before submission |
 | Concurrency | `make test-race` |
+| Dependencies (`go.mod`) | `make size-check`; raise [`scripts/binary-size-budget`](../../scripts/binary-size-budget) only when the growth is worth it, and say why in the PR |
 | Shell scripts or CLI end-to-end behavior | `make test-shell` (requires bashunit on PATH) |
 | Config struct or schema fields | `go run ./cmd/schemagen`; include the updated schema |
 | Project source specs | `go run ./cmd/agnostic-ai lint`, then `go run ./cmd/agnostic-ai sync` |

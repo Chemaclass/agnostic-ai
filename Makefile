@@ -1,4 +1,4 @@
-.PHONY: build test test-race ci-local test-shell bench coverage coverage-html cover lint fmt fmt-check vet preflight tools hooks install clean release site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
+.PHONY: build test test-race ci-local test-shell size-check bench coverage coverage-html cover lint fmt fmt-check vet preflight tools hooks install clean release site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
 
 BIN := agnostic-ai
 PKG := ./cmd/agnostic-ai
@@ -19,12 +19,19 @@ test:
 test-race:
 	go test -race ./...
 
+# Same target and flags as the linux/amd64 build in .goreleaser.yml, so the
+# number matches the published binary.
+size-check:
+	@dir=$$(mktemp -d) && trap 'rm -rf "$$dir"' EXIT && \
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w -X main.version=0.0.0" -o "$$dir/$(BIN)" $(PKG) && \
+	scripts/binary-size.sh "$$dir/$(BIN)"
+
 # e2e_test.sh drives the built binary, so build first.
 test-shell: build
 	bashunit scripts/release-notes_test.sh scripts/target-facts_test.sh scripts/docfetch_test.sh \
 		scripts/install_test.sh scripts/npm-binaries_test.sh scripts/npm-publish_test.sh \
 		scripts/e2e_test.sh scripts/vendor-watch_test.sh scripts/jev-triage_test.sh \
-		scripts/signals-shipped_test.sh scripts/tool-load_test.sh
+		scripts/signals-shipped_test.sh scripts/tool-load_test.sh scripts/binary-size_test.sh
 
 # bench runs the permanent sync-hot-path benchmark suite. It is not part
 # of preflight or CI: benchmarks are for local comparison, not pass/fail.
@@ -92,6 +99,7 @@ ci-local: fmt-check test-race build lint
 	$(MAKE) build
 	./$(BIN) lint
 	$(MAKE) test-shell
+	$(MAKE) size-check
 	cd editors/vscode && (npm ci || npm install --no-audit --no-fund) && npm run compile && npm test
 ifeq ($(SKIP_JETBRAINS),1)
 	@echo "ci-local: SKIPPED the JetBrains plugin. This run did NOT gate it."
