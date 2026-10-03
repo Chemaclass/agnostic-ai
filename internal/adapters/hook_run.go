@@ -8,6 +8,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/copilot"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/crush"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cursor"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/factory"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
@@ -43,6 +44,16 @@ func HookHandlers(cfg *config.Config, target string, h spec.Entry) ([]hookrun.Ha
 		}
 		event, _ := h.Meta["event"].(string)
 		handlers, err := hookrun.CursorHandlers(doc, event, cursor.HookTargetCommand)
+		if err != nil {
+			return nil, fmt.Errorf("parse %s: %w", h.Path, err)
+		}
+		return handlers, nil
+	case "crush":
+		doc, err := crush.HookDoc(h)
+		if err != nil {
+			return nil, err
+		}
+		handlers, err := hookrun.CrushHandlers(doc)
 		if err != nil {
 			return nil, fmt.Errorf("parse %s: %w", h.Path, err)
 		}
@@ -107,6 +118,8 @@ func HookFile(cfg *config.Config, target string) string {
 		return augment.SettingsFilePath(cfg)
 	case "cursor":
 		return cursor.HooksFilePath(cfg)
+	case "crush":
+		return crush.HooksFilePath(cfg)
 	case "factory":
 		return factory.HooksFilePath(cfg)
 	case "copilot":
