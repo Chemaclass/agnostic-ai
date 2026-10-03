@@ -573,6 +573,46 @@ func TestEmit_HooksJSON_MixedUnionAnchorsExactNames(t *testing.T) {
 	}
 }
 
+// A merged matcher fires on exactly the tools one of its specs fires on,
+// under hookrun's rule for exact lists and regexes.
+func TestEmit_HooksJSON_MixedUnionKeepsEachSpecsMatchSet(t *testing.T) {
+	tools := []string{"Bash", "exec", "apply_patch", "Edit", "Write", "Grep", "mcp__fs__read", "mcp__x__Bash", "mcp__server__apply_patch", "mcp__"}
+	cases := [][]string{
+		{"mcp__*", "^(Bash|exec)$"},
+		{"Bash,apply_patch", "^(Edit|Write)$"},
+		{"Bash|Edit", "mcp__.*"},
+		{"*", "^(Bash|exec)$"},
+		{"Bash", "Edit", "^Grep$"},
+		{"Bash,Edit", "mcp__fs__.*", "^Write$"},
+	}
+	for _, specs := range cases {
+		t.Run(strings.Join(specs, " + "), func(t *testing.T) {
+			matcher := emittedMatcher(t, specs...)
+			if _, err := regexp.Compile(matcher); err != nil {
+				t.Fatalf("emitted %q: %v", matcher, err)
+			}
+			for _, tool := range tools {
+				want := false
+				for _, m := range specs {
+					ok, err := hookrun.Matches(m, tool)
+					if err != nil {
+						t.Fatal(err)
+					}
+					want = want || ok
+				}
+				if got, err := hookrun.Matches(matcher, tool); err != nil || got != want {
+					t.Errorf("%q matches %s = %v (err %v), want %v", matcher, tool, got, err, want)
+				}
+			}
+			for _, m := range specs {
+				if !(Adapter{}).HookMatcherCovers(matcher, m) {
+					t.Errorf("emitted %q does not cover %q", matcher, m)
+				}
+			}
+		})
+	}
+}
+
 func TestEmit_HooksJSON_SingleSpecMatcherUnchanged(t *testing.T) {
 	for _, m := range []string{"^(Bash|exec)$", "Bash|apply_patch", "mcp__fs__.*"} {
 		if got := emittedMatcher(t, m); got != m {

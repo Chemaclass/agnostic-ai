@@ -307,8 +307,9 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 	return doc
 }
 
-// plainName matches a tool or source name written without regex syntax.
-var plainName = regexp.MustCompile(`^[\w*:-]+$`)
+// plainName matches an exact name in the grammar hookrun reads as exact:
+// letters, digits, _ and -. Anything else, `*` included, is a regex.
+var plainName = regexp.MustCompile(`^[\w-]+$`)
 
 // matcherSegments splits a Codex/Claude `matcher` string into its
 // alternatives. Plain names separated by | or , are exact names (the rule
@@ -358,7 +359,20 @@ func unionMatcher(segments []string) string {
 }
 
 // anchoredName matches a name unionMatcher anchored.
-var anchoredName = regexp.MustCompile(`^\^((?:[\w:-]|\\\*)+)\$$`)
+var anchoredName = regexp.MustCompile(`^\^([\w-]+)\$$`)
+
+// unwrapSegment undoes unionMatcher on one segment: ^name$ is name and .*
+// is *. A regex a user wrote as ^name$ reads the same, which is fine
+// because the two match alike.
+func unwrapSegment(seg string) string {
+	if m := anchoredName.FindStringSubmatch(seg); m != nil {
+		return m[1]
+	}
+	if seg == ".*" {
+		return "*"
+	}
+	return seg
+}
 
 // unionSegments reads a native matcher back into the segments unionMatcher
 // joined: it splits on top-level pipes only and unwraps each (?:...).
@@ -370,12 +384,7 @@ func unionSegments(matcher string) []string {
 		if body, ok := outerGroup(seg); ok && strings.HasPrefix(seg, "(?:") {
 			seg = body
 		}
-		if m := anchoredName.FindStringSubmatch(seg); m != nil {
-			seg = strings.ReplaceAll(m[1], `\*`, "*")
-		} else if seg == ".*" {
-			seg = "*"
-		}
-		out = append(out, matcherSegments(seg)...)
+		out = append(out, matcherSegments(unwrapSegment(seg))...)
 	}
 	for i, r := range matcher {
 		switch r {
@@ -414,7 +423,7 @@ func (Adapter) HookMatcherCovers(native, spec string) bool {
 	for _, seg := range unionSegments(native) {
 		segments[seg] = true
 	}
-	for _, seg := range matcherSegments(spec) {
+	for _, seg := range matcherSegments(unwrapSegment(strings.TrimSpace(spec))) {
 		if !segments[seg] && strings.TrimSpace(native) != seg {
 			return false
 		}
