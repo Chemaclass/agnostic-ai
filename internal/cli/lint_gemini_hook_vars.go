@@ -50,7 +50,7 @@ func lintGeminiHookVariables(cfg *config.Config, targets []string, b spec.Bundle
 			Code:     "LINT030",
 			Severity: lintWarn,
 			Path:     hook.Path,
-			Message: fmt.Sprintf("Hook %q holds %s inside quotes or a command substitution; Gemini replaces it with a shell-escaped value before the shell runs, which breaks the quoting. Write \"${NAME}\" (Gemini leaves the braced form to the shell) or drop the quotes",
+			Message: fmt.Sprintf("Hook %q holds %s escaped, inside quotes, or in a command substitution or comment; Gemini replaces it with a shell-escaped value before the shell runs, which breaks the quoting. Write \"${NAME}\" (Gemini leaves the braced form to the shell) or drop the quotes",
 				hook.Name, strings.Join(found, ", ")),
 		})
 	}
@@ -79,6 +79,13 @@ func quotedGeminiVariables(command string) []string {
 				inSingle = false
 			}
 		case c == '\\':
+			// Gemini replaces text, so an escaped $NAME is replaced too and
+			// the backslash then escapes the value's opening quote.
+			for _, v := range geminiHookVariables {
+				if strings.HasPrefix(command[i+1:], v) && !slices.Contains(out, v) {
+					out = append(out, v)
+				}
+			}
 			i++
 			escaped = i
 		case c == '`' || c == '$' && i+1 < len(command) && command[i+1] == '(':
