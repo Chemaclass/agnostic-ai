@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -25,10 +26,14 @@ func TestRunCrush_HookCannotSignalHookRunsProcessGroup(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "hooks", "guard.sh"), []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	for _, command := range []string{"./hooks/guard.sh", "hooks/guard.sh"} {
+	// The shell may exit 2 first, or die from its own SIGTERM, as dash
+	// does. Crush reads that death as exit 1 for a ./ script it starts
+	// through the shebang (dispatch.go:203-208) and as 128+15 for a
+	// program it starts itself (exec_unix.go:95-99).
+	for command, exits := range map[string][]int{"./hooks/guard.sh": {2, 1}, "hooks/guard.sh": {2, 128 + 15}} {
 		r := RunCrush(command, dir, os.Environ(), nil, 5*time.Second, runtime.GOOS)
-		if r.TimedOut || r.StartErr != nil || (r.Exit != 2 && r.Exit != 128+15) {
-			t.Errorf("%s: result = %+v", command, r)
+		if r.TimedOut || r.StartErr != nil || !slices.Contains(exits, r.Exit) {
+			t.Errorf("%s: result = %+v, want exit in %v", command, r, exits)
 		}
 	}
 }
@@ -44,7 +49,7 @@ func TestRunCrush_InterruptsBeforeKillingOnTimeout(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "hooks", "slow.sh"), []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	r := RunCrush("hooks/slow.sh", dir, os.Environ(), nil, 200*time.Millisecond, runtime.GOOS)
+	r := RunCrush("hooks/slow.sh", dir, os.Environ(), nil, time.Second, runtime.GOOS)
 	if r.TimedOut || r.Exit != 2 || DecideHandler("crush", "PreToolUse", Handler{}, r) != Block {
 		t.Errorf("result = %+v", r)
 	}
@@ -63,7 +68,7 @@ func TestRunCrush_LeavesNoProcessBehind(t *testing.T) {
 	}
 	for _, command := range []string{"hooks/stuck.sh", "./hooks/stuck.sh", `sh -c "trap '' INT; sleep 30 & echo \$! > child.pid; wait"`} {
 		_ = os.Remove(filepath.Join(dir, "child.pid"))
-		r := RunCrush(command, dir, os.Environ(), nil, 200*time.Millisecond, runtime.GOOS)
+		r := RunCrush(command, dir, os.Environ(), nil, time.Second, runtime.GOOS)
 		if !r.TimedOut {
 			t.Errorf("%s: result = %+v", command, r)
 		}
