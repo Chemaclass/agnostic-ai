@@ -114,18 +114,26 @@ func exactNameList(matcher string) ([]string, bool) {
 	return names, true
 }
 
-// regexFires reports whether a regex matcher matches a tool or source
+// literalWord finds the names a regex spells out.
+var literalWord = regexp.MustCompile(`[A-Za-z0-9_]+`)
+
+// regexFires reports whether a regex matcher may fire on a tool or source
 // name Codex reports for the event. Codex names MCP tools
-// mcp__<server>__<tool>, so a regex naming that prefix counts.
+// mcp__<server>__<tool> and the servers are unknown, so a tool matcher
+// also counts when it matches a synthetic MCP name built from its own
+// words, or mentions mcp at all. Erring toward "fires" avoids a false note.
 func regexFires(event, matcher string, re *regexp.Regexp) bool {
-	candidates := sourceMatchers[event]
-	if slices.Contains(toolEvents, event) {
-		candidates = toolMatchers
-		if strings.Contains(matcher, spec.MCPToolPrefix) {
-			return true
-		}
+	if !slices.Contains(toolEvents, event) {
+		return slices.ContainsFunc(sourceMatchers[event], re.MatchString)
 	}
-	return slices.ContainsFunc(candidates, re.MatchString)
+	if slices.ContainsFunc(toolMatchers, re.MatchString) || strings.Contains(strings.ToLower(matcher), "mcp") {
+		return true
+	}
+	synthetic := []string{spec.MCPToolPrefix + "x__x"}
+	for _, word := range literalWord.FindAllString(matcher, -1) {
+		synthetic = append(synthetic, spec.MCPToolPrefix+word+"__"+word)
+	}
+	return slices.ContainsFunc(synthetic, re.MatchString)
 }
 
 // scanRegex calls visit for each ( ) and | in a regex that is not escaped

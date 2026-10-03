@@ -118,6 +118,19 @@ func TestImportClaudeHooks_UnpinsGroupedMatcher(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
 	writeFile(t, filepath.Join(root, ".claude", "settings.json"),
+		`{"hooks":{"PreToolUse":[{"matcher":"^mcp.*__read$","hooks":[{"type":"command","command":"exit 0"}]}]}}`)
+	mcpLog := captureLog(t)
+	mcpDst := filepath.Join(root, "mcp-hooks")
+	if err := os.MkdirAll(mcpDst, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := importClaudeHooks(root, mcpDst); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	if got := importedHookTargets(t, mcpDst)["PreToolUse"]; got != nil {
+		t.Errorf("mcp regex hook pinned to %v, want it portable\n%s", got, mcpLog.String())
+	}
+	writeFile(t, filepath.Join(root, ".claude", "settings.json"),
 		`{"hooks":{"PreToolUse":[{"matcher":"^(Bash|exec)$","hooks":[{"type":"command","command":"exit 0"}]}]}}`)
 	log := captureLog(t)
 	dst := filepath.Join(root, "hooks")

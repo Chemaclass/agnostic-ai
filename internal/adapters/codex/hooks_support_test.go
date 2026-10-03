@@ -29,6 +29,8 @@ func TestAcceptsHook(t *testing.T) {
 		{"group of one", map[string]any{"event": "PreToolUse", "matcher": "(Bash)"}, ""},
 		{"non-capturing group", map[string]any{"event": "PreToolUse", "matcher": "(?:Bash|apply_patch)"}, ""},
 		{"emitted union", map[string]any{"event": "PreToolUse", "matcher": "(?:^(Bash|exec)$)|(?:^(Bash|apply_patch)$)"}, ""},
+		{"mcp regex without the prefix", map[string]any{"event": "PreToolUse", "matcher": "^mcp.*__read$"}, ""},
+		{"mcp regex with a wildcard server", map[string]any{"event": "PreToolUse", "matcher": "^.*__read$"}, ""},
 		{"mcp regex", map[string]any{"event": "PreToolUse", "matcher": "mcp__fs__.*"}, ""},
 		{"source regex", map[string]any{"event": "SessionStart", "matcher": "^(startup|resume)$"}, ""},
 		{"anchored group names no Codex tool", map[string]any{"event": "PreToolUse", "matcher": "^(Grep|Read)$"}, `does not match "^(Grep|Read)$"`},
