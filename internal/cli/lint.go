@@ -134,7 +134,7 @@ func printLintJSON(cmd *cobra.Command, findings []lintFinding, strict bool) erro
 	if findings == nil {
 		findings = []lintFinding{}
 	}
-	if err := writeIndentedJSON(cmd, lintJSONOutput{Version: "1", Command: "lint", Findings: findings}); err != nil {
+	if err := writeIndentedJSON(cmd, lintJSONOutput{Version: "1", Command: "lint", Findings: slashLintPaths(findings)}); err != nil {
 		return err
 	}
 	return lintExitErr(findings, strict)
