@@ -323,7 +323,7 @@ The manifest is CI's record of what sync wrote. `.sync-state` is never committed
 
 - With no `.sync-state`, `doctor` and `sync --check` count a tracked file the manifest lists but no spec produces as a leftover. `doctor --fix` removes it.
 - A file edited since sync wrote it no longer matches its sum, so it is left for you.
-- `sync --check --against` reads the manifest of the state it checks. It catches a deleted spec's outputs even in a one-commit shallow clone. The manifest must not have been regenerated in the same commit.
+- `sync --check --against` reads the manifest of the state it checks. It catches a deleted spec's outputs even in a one-commit shallow clone, as long as the manifest was not regenerated in the same commit.
 
 ## `verify`
 

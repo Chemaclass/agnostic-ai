@@ -46,7 +46,7 @@ agnostic-ai writes Continue rules, skills, and MCP servers under `.continue/`, p
 
 `agnostic-ai import continue` reads `.continue/rules/` and reclassifies each file by [filename prefix](@/docs/cli-reference/start.md#filename-prefix-reclassification). Native `globs` and `regex` strings or arrays survive through `x-continue`, including empty arrays and patterns with commas.
 
-- **Scope**: source subdirectories that name project directories imply scope. Scope and patterns form a union. Import reports scoped `regex` and scoped empty `globs` arrays as unsupported. To filter by file only, omit `scope` and keep the source file outside a folder that implies scope.
+- **Scope**: source subdirectories that name project directories imply scope. Scope and patterns form a union. Scoped `regex` and scoped empty `globs` arrays are reported as unsupported. To filter by file only, omit `scope` and keep the source file outside a folder that implies scope.
 - **Native activation**: `x-continue.globs` and `x-continue.regex` keep exact activation without a portable `scope`. A nested native rule keeps its folder for placement, even one naming no project directory. An explicit `scope` opts into the union and its selector limits.
 - **Skills**: from `.continue/skills/` with bundled files.
 - **MCP**: from `.continue/mcpServers/`: `*.yaml` blocks with one server, and `.json` files parsed as JSONC with an `mcpServers` map or a bare server named after the file. Duplicate or unsafe names fail before any spec is written. Connection options round-trip.

@@ -41,7 +41,7 @@ AGENTS.md                        # entry-point pointer body, plus the rules bloc
   - `PreToolUse`/`PostToolUse` matchers use Claude Code's tool names (`Bash`, `Write`, `Edit`, `Read`, `Glob`, `Grep`, `mcp__server__tool`), so Claude-authored matchers work unchanged.
   - Command entries carry `command`, `type: command`, optional `args`, `timeout` (seconds, default 600), `statusMessage`, `async`, `asyncRewake`, `shell` (`bash` or `powershell`), `if` (a permission-rule filter, for example `Bash(git *)`), and `once`.
   - `args` switches to exec form: `command` is one executable, each `args` element one literal argument, with no shell. Qoder then ignores `shell`; sync still writes both, with a note.
-  - `once` has no effect, and `sync` notes it. Qoder honors it only for session-scoped hooks ([Hooks](https://docs.qoder.com/cli/hooks), [Subagent](https://docs.qoder.com/cli/subagent)), and portable hooks land in settings.
+  - `once` has no effect, and `sync` notes it, since Qoder honors it only for session-scoped hooks ([Hooks](https://docs.qoder.com/cli/hooks), [Subagent](https://docs.qoder.com/cli/subagent)), and portable hooks land in settings.
   - HTTP handlers carry `url`, optional `headers`, and `allowedEnvVars`. Prompt handlers carry `prompt` and optional `model`. Both keep filters, timeouts in seconds, and matcher groups.
   - Other handler types get a coverage note. Qoder's `env`, `rewakeMessage`, `rewakeSummary`, and agent handlers are not emitted.
 
@@ -100,7 +100,7 @@ It works only when top-level `autoMemoryEnabled` is on in [settings](https://doc
 
 Qoder's own store is separate from the field above ([Qoder memory](https://docs.qoder.com/cli/memory)). It lives at `~/.qoder/projects/<project>/memory/` (project) and `~/.qoder/memory/` (user). Each is a `MEMORY.md` index plus one file per topic. `/memory` shows them. `/memory manage` views, edits, or deletes a topic. A session loads the first 200 lines or about 25KB of each active `MEMORY.md`.
 
-It is off by default. agnostic-ai never reads or writes it. See [Memory and local state](@/docs/target-behavior.md#memory-and-local-state).
+Auto memory is off by default. agnostic-ai never reads or writes the store. See [Memory and local state](@/docs/target-behavior.md#memory-and-local-state).
 
 ## Import
 

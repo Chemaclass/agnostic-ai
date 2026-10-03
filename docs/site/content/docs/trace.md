@@ -49,7 +49,7 @@ $ agnostic-ai why .cursor/rules/no-console-log.mdc
 
 ## Entry-point files
 
-Each entry-point file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, ...) is a copy of `.agnostic-ai/AGNOSTIC_AI.md`. `why` lists that file first, as an `instructions` source. It is `full` when nothing else lands in the file.
+Each entry-point file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, ...) is a copy of `.agnostic-ai/AGNOSTIC_AI.md`, so `why` lists that file first, as an `instructions` source. It is `full` when nothing else lands in the file.
 
 ```sh
 $ agnostic-ai why CLAUDE.md

@@ -47,7 +47,7 @@ Cline finds a hook script by file name only. Its source lists ten names (`TaskSt
 
 Cline's source confirms this, but its docs barely do. The [hooks page](https://docs.cline.bot/customization/hooks) is a stub pointing at SDK Plugins (a TypeScript API). Only the [config reference](https://docs.cline.bot/getting-started/config) lists `.cline/hooks/` as lifecycle hooks.
 
-- Scripts have no shebang. The provenance comment must be the first line for sync to manage the file, and Cline runs `.sh` under `bash` anyway.
+- Scripts have no shebang, because the provenance comment must be the first line for sync to manage the file, and Cline runs `.sh` under `bash` anyway.
 - **`matcher` and `timeout` are inert**, each with a note. A hook runs on every occurrence of its event and must filter itself. Cline uses its own timeout.
 - Two specs on one event share one script, in spec order, under `set -e`, and share stdout. Cline reads stdout as control JSON (the last `HOOK_CONTROL<TAB><json>` line wins), so send anything else to stderr.
 - `PreCompact` has no runtime event yet. Its script is written and reported but never runs.
