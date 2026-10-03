@@ -40,5 +40,5 @@ func specCommand(h spec.Entry, raw string) string {
 
 func specCommandWindows(h spec.Entry) string {
 	windows, _ := h.Meta["commandWindows"].(string)
-	return emit.RewriteHookDirectories(windows, target)
+	return emit.RewriteWindowsHookRoot(emit.RewriteHookDirectories(windows, target), target)
 }

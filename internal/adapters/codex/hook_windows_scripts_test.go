@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -73,5 +74,32 @@ func TestEmit_WindowsHookUsesCopiedTargetScript(t *testing.T) {
 				t.Errorf("copied Windows script = %q, want target variant", copied)
 			}
 		})
+	}
+}
+
+func TestHookCommands_WindowsRootKeepsProjectPathBelowGitRoot(t *testing.T) {
+	repo := t.TempDir()
+	if err := os.Mkdir(filepath.Join(repo, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	project := filepath.Join(repo, "packages", "a$b")
+	if err := os.MkdirAll(project, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	testutil.Chdir(t, project)
+	entry := spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{
+		"event":          "PreToolUse",
+		"command":        `"$CLAUDE_PROJECT_DIR/tools/guard.sh"`,
+		"commandWindows": `& "$CLAUDE_PROJECT_DIR/tools/guard.ps1"`,
+	}}
+	got := HookCommands(entry)
+	if len(got) != 1 {
+		t.Fatalf("HookCommands = %v", got)
+	}
+	if want := "& \"$(git rev-parse --show-toplevel)/packages/a`$b/tools/guard.ps1\""; got[0].CommandWindows != want {
+		t.Errorf("CommandWindows = %q\nwant %q", got[0].CommandWindows, want)
+	}
+	if want := `"$(git rev-parse --show-toplevel)/packages/a\$b/tools/guard.sh"`; !strings.HasSuffix(got[0].Command, want) {
+		t.Errorf("Command = %q\nwant suffix %q", got[0].Command, want)
 	}
 }

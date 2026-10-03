@@ -105,13 +105,13 @@ targets: [claude, codex]
 event: PreToolUse
 matcher: Bash
 command: '"$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/no-force-push.sh"'
-commandWindows: '$LASTEXITCODE = 1; sh "$(git rev-parse --show-toplevel)/.agnostic-ai/scripts/no-force-push.sh"; exit $LASTEXITCODE'
+commandWindows: '$LASTEXITCODE = 1; sh "$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/no-force-push.sh"; exit $LASTEXITCODE'
 timeout: 10
 ```
 
 The script reads `tool_input.command` from the event JSON on stdin, with no `jq`. It splits the command into words the way `sh` does, so a quoted `git push --force` in a commit message or a comment passes. On a force push it prints the reason on stderr and exits 2, which both tools read as a block.
 
-Both tools start a hook in the session directory, which can be below the project root, so the path starts at the root. Claude Code keeps [`$CLAUDE_PROJECT_DIR`](#imported-project-root-paths); Codex gets `$(git rev-parse --show-toplevel)`.
+Both tools start a hook in the session directory, which can be below the project root, so the path starts at the root. Claude Code keeps [`$CLAUDE_PROJECT_DIR`](#imported-project-root-paths); Codex gets `$(git rev-parse --show-toplevel)`, in both commands, plus the project's path below the Git root.
 
 On Windows, Codex runs `commandWindows` with `powershell.exe -Command`:
 
@@ -295,7 +295,7 @@ What `sync` writes for the variable:
 
 - Claude Code, Cursor, and Trae provide it, so sync keeps it.
 - Gemini, Qoder, and Factory use their native project-root variable.
-- Other targets use `$(git rev-parse --show-toplevel)` in a POSIX shell.
+- Other targets use `$(git rev-parse --show-toplevel)` in a POSIX shell. Codex uses it in `commandWindows` too, since PowerShell reads `$(...)` the same way.
 
 If the configuration lives in a subdirectory of a Git worktree, the emitted path includes that subdirectory. A hook started from a descendant still resolves to the configured project. The sibling hook-directory rewrite applies too, such as `.claude/hooks/` to `.codex/hooks/`. Custom script paths keep their directory.
 

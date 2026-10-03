@@ -34,11 +34,23 @@ func TestScaffold_Demo_SeedsHookScriptWhereSyncReadsIt(t *testing.T) {
 // fresh Git repository, the working directory, and syncs them.
 func syncDemoProject(t *testing.T) string {
 	t.Helper()
+	return syncDemoProjectBelowGitRoot(t, "")
+}
+
+// syncDemoProjectBelowGitRoot seeds and syncs the demo project in rel
+// below a fresh Git repository's root, the working directory.
+func syncDemoProjectBelowGitRoot(t *testing.T, rel string) string {
+	t.Helper()
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git is not on PATH")
 	}
-	dir := testutil.TempCwd(t)
-	gitInit(t, dir)
+	repo := t.TempDir()
+	gitInit(t, repo)
+	dir := filepath.Join(repo, filepath.FromSlash(rel))
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	testutil.Chdir(t, dir)
 	silence(t)
 	if err := scaffold(scaffoldOptions{Root: dir, Demo: true, Targets: []string{"claude", "codex"}}); err != nil {
 		t.Fatal(err)
@@ -108,6 +120,59 @@ func TestDemoHook_BlocksFromNestedDirectory(t *testing.T) {
 		t.Run(r.target, func(t *testing.T) {
 			cmd := exec.Command(r.shell, "-c", preToolUseHandler(t, r.file, "command"))
 			cmd.Dir = nested
+			cmd.Env = append(os.Environ(), "CLAUDE_PROJECT_DIR="+dir)
+			cmd.Stdin = strings.NewReader(payload)
+			out, err := cmd.CombinedOutput()
+			var exit *exec.ExitError
+			if !errors.As(err, &exit) || exit.ExitCode() != 2 {
+				t.Errorf("exit = %v, want 2\n%s", err, out)
+			}
+		})
+	}
+}
+
+// A project below the Git root keeps its path in every emitted command,
+// the Windows one included.
+func TestDemoHook_BlocksInProjectBelowGitRoot(t *testing.T) {
+	dir := syncDemoProjectBelowGitRoot(t, "packages/app")
+	codexFile := filepath.Join(dir, ".codex", "hooks.json")
+	windows := preToolUseHandler(t, codexFile, "commandWindows")
+	want := `$LASTEXITCODE = 1; sh "$(git rev-parse --show-toplevel)/packages/app/.codex/hooks/no-force-push.sh"; exit $LASTEXITCODE`
+	if windows != want {
+		t.Errorf("commandWindows = %q\nwant %q", windows, want)
+	}
+
+	descendant := filepath.Join(dir, "src")
+	if err := os.MkdirAll(descendant, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	payload := `{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git push --force origin main"}}`
+	var runs []struct {
+		name string
+		argv []string
+	}
+	add := func(name string, argv ...string) {
+		runs = append(runs, struct {
+			name string
+			argv []string
+		}{name, argv})
+	}
+	if runtime.GOOS != "windows" {
+		add("claude", "bash", "-c", preToolUseHandler(t, filepath.Join(dir, ".claude", "settings.json"), "command"))
+		add("codex", "sh", "-c", preToolUseHandler(t, codexFile, "command"))
+	}
+	if _, err := exec.LookPath("sh"); err == nil {
+		for _, powershell := range []string{"powershell.exe", "pwsh"} {
+			if _, err := exec.LookPath(powershell); err == nil {
+				add("codex-windows", powershell, "-NoProfile", "-Command", windows)
+				break
+			}
+		}
+	}
+	for _, r := range runs {
+		t.Run(r.name, func(t *testing.T) {
+			cmd := exec.Command(r.argv[0], r.argv[1:]...)
+			cmd.Dir = descendant
 			cmd.Env = append(os.Environ(), "CLAUDE_PROJECT_DIR="+dir)
 			cmd.Stdin = strings.NewReader(payload)
 			out, err := cmd.CombinedOutput()
