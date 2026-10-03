@@ -67,12 +67,56 @@ func (Adapter) AcceptsHook(meta map[string]any) string {
 		}
 	}
 	matcher, _ := meta["matcher"].(string)
-	for _, seg := range matcherSegments(matcher) {
+	alternatives, regex := matcherAlternatives(matcher)
+	if regex {
+		// A regex matches when any alternative does, so it only fails
+		// when none names a tool or source Codex reports.
+		if len(alternatives) > 0 && !slices.ContainsFunc(alternatives, func(seg string) bool { return codexMatcherSegment(event, seg) }) {
+			return fmt.Sprintf("Codex %s does not match %q", event, alternatives[0])
+		}
+		return ""
+	}
+	for _, seg := range alternatives {
 		if !codexMatcherSegment(event, seg) {
 			return fmt.Sprintf("Codex %s does not match %q", event, seg)
 		}
 	}
 	return ""
+}
+
+// matcherAlternatives returns the names a matcher can match. It strips
+// ^ and $ anchors and one outer group, so `^(Bash|exec)$` yields Bash
+// and exec. regex reports whether it stripped any of them. Other regex
+// syntax stays inside the names.
+func matcherAlternatives(matcher string) (names []string, regex bool) {
+	inner := strings.TrimSpace(matcher)
+	inner = strings.TrimSuffix(strings.TrimPrefix(inner, "^"), "$")
+	if body, ok := outerGroup(inner); ok {
+		inner = body
+	}
+	return matcherSegments(inner), inner != strings.TrimSpace(matcher)
+}
+
+// outerGroup returns the body of s when one (...) or (?:...) group spans
+// all of it.
+func outerGroup(s string) (string, bool) {
+	if !strings.HasPrefix(s, "(") || !strings.HasSuffix(s, ")") {
+		return "", false
+	}
+	depth := 0
+	for i, r := range s {
+		switch r {
+		case '(':
+			depth++
+		case ')':
+			depth--
+			if depth == 0 && i != len(s)-1 {
+				return "", false
+			}
+		}
+	}
+	body := strings.TrimPrefix(s[1:len(s)-1], "?:")
+	return body, depth == 0
 }
 
 func codexMatcherSegment(event, seg string) bool {
@@ -145,7 +189,7 @@ func firesOnEdit(meta map[string]any) bool {
 		return false
 	}
 	matcher, _ := meta["matcher"].(string)
-	segments := matcherSegments(matcher)
+	segments, _ := matcherAlternatives(matcher)
 	if len(segments) == 0 {
 		return true
 	}

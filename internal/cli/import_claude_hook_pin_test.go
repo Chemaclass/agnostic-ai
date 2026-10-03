@@ -111,3 +111,24 @@ func TestImportClaudeHooks_PinsWhenAnotherTargetCannotTell(t *testing.T) {
 		t.Errorf("summary missing the reason:\n%s", log.String())
 	}
 }
+
+// An anchored, grouped matcher names Bash and exec, so Codex runs it and
+// the hook stays portable (#1733).
+func TestImportClaudeHooks_UnpinsGroupedMatcher(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n")
+	writeFile(t, filepath.Join(root, ".claude", "settings.json"),
+		`{"hooks":{"PreToolUse":[{"matcher":"^(Bash|exec)$","hooks":[{"type":"command","command":"exit 0"}]}]}}`)
+	log := captureLog(t)
+	dst := filepath.Join(root, "hooks")
+	if err := os.MkdirAll(dst, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := importClaudeHooks(root, dst); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	if got := importedHookTargets(t, dst)["PreToolUse"]; got != nil {
+		t.Errorf("grouped Bash hook pinned to %v, want it portable\n%s", got, log.String())
+	}
+}
