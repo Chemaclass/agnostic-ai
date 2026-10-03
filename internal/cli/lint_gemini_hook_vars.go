@@ -50,7 +50,7 @@ func lintGeminiHookVariables(cfg *config.Config, targets []string, b spec.Bundle
 			Code:     "LINT030",
 			Severity: lintWarn,
 			Path:     hook.Path,
-			Message: fmt.Sprintf("Hook %q holds %s in a command with quotes, a backslash, a comment, a heredoc, or a command substitution; Gemini replaces it with a shell-escaped value before the shell runs, which breaks the quoting. Write \"${NAME}\" (Gemini leaves the braced form to the shell) or drop the quotes",
+			Message: fmt.Sprintf("Hook %q holds %s in a command that is not plain words (letters, digits, spaces, and / . _ - + = : , @ %%); Gemini replaces it with a shell-escaped value before the shell runs, which breaks the quoting. Write \"${NAME}\" (Gemini leaves the braced form to the shell) or drop the quotes",
 				hook.Name, strings.Join(found, ", ")),
 		})
 	}
@@ -60,10 +60,10 @@ func lintGeminiHookVariables(cfg *config.Config, targets []string, b spec.Bundle
 // quotedGeminiVariables returns each Gemini-replaced variable written bare
 // in a command where that is unsafe. Gemini inserts a shell-escaped value
 // before the shell parses the command, so the value is only safe as a
-// plain unquoted word. Any quote, backslash, comment, heredoc, or command
-// substitution in the command can put it somewhere else, and the shell has
-// too many such forms to track, so every bare variable in such a command
-// counts. `${NAME}` is never replaced and always fine.
+// plain unquoted word. Any other shell syntax in the command can put it
+// somewhere else, and the shell has too many such forms to track, so a
+// bare variable counts unless the command is plain words. `${NAME}` is
+// never replaced and always fine.
 func quotedGeminiVariables(command string) []string {
 	var out []string
 	for _, v := range geminiHookVariables {
@@ -71,8 +71,20 @@ func quotedGeminiVariables(command string) []string {
 			out = append(out, v)
 		}
 	}
-	if len(out) == 0 || !strings.ContainsAny(command, "'\"`\\#") && !strings.Contains(command, "<<") && !strings.Contains(command, "$(") {
+	if len(out) == 0 || plainWords(command) {
 		return nil
 	}
 	return out
+}
+
+// plainWords reports whether command, with each Gemini-replaced variable
+// taken out, holds only characters that a shell reads as part of a plain
+// word or as a word break.
+func plainWords(command string) bool {
+	for _, v := range geminiHookVariables {
+		command = strings.ReplaceAll(command, v, "")
+	}
+	return strings.IndexFunc(command, func(r rune) bool {
+		return (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && !strings.ContainsRune(" \t/._-+=:,@%", r)
+	}) < 0
 }

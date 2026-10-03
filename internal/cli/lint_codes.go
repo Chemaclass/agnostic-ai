@@ -196,8 +196,8 @@ var lintCodes = map[string]lintCode{
 	"LINT030": {
 		Severity: lintWarn,
 		Title:    "Gemini hook variable outside a plain word",
-		Cause:    "A hook that emits to Gemini CLI has a command with a bare `$GEMINI_PROJECT_DIR`, `$GEMINI_CWD`, `$GEMINI_PLANS_DIR`, `$GEMINI_SESSION_ID`, or `$CLAUDE_PROJECT_DIR`, and the command also holds a quote, a backslash, a comment, a heredoc, or a command substitution. Gemini replaces each bare `$NAME` with a shell-escaped value before the shell runs, whatever quoting surrounds it: in single quotes the value closes the quotes, and in double quotes its apostrophes stay literal and a path holding `$(...)` runs as code. The braced `${NAME}` form is not replaced. See https://github.com/google-gemini/gemini-cli/blob/fb972b2f87fe7d5b06d37eac711490162d98de2c/packages/core/src/hooks/hookRunner.ts#L526-L531.",
-		Fix:      "Write `\"${NAME}\"`: Gemini leaves the braced form to the shell, which reads the variable Gemini sets. A bare `$NAME` also works in a plain command with none of those.",
+		Cause:    "A hook that emits to Gemini CLI has a command with a bare `$GEMINI_PROJECT_DIR`, `$GEMINI_CWD`, `$GEMINI_PLANS_DIR`, `$GEMINI_SESSION_ID`, or `$CLAUDE_PROJECT_DIR`, and the command is not plain words: anything besides letters, digits, spaces, and `/ . _ - + = : , @ %` around it. Gemini replaces each bare `$NAME` with a shell-escaped value before the shell runs, whatever quoting surrounds it: in single quotes the value closes the quotes, and in double quotes its apostrophes stay literal and a path holding `$(...)` runs as code. The braced `${NAME}` form is not replaced. See https://github.com/google-gemini/gemini-cli/blob/fb972b2f87fe7d5b06d37eac711490162d98de2c/packages/core/src/hooks/hookRunner.ts#L526-L531.",
+		Fix:      "Write `\"${NAME}\"`: Gemini leaves the braced form to the shell, which reads the variable Gemini sets. A bare `$NAME` also works in a command of plain words only.",
 	},
 }
 
