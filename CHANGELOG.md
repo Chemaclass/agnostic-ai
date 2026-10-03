@@ -29,6 +29,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Site
 
+- The Spec packs page uses real pack repos in its examples and lists three public repos that install as packs (#1740).
 - The Why page notes that betagouv/agnostic-ai is a separate project with the same name (#1737).
 
 ## v0.78.0 - 2026-10-03
