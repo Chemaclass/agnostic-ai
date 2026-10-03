@@ -151,7 +151,7 @@ func rawPayload(target, event, matcher string, body []byte) (Payload, error) {
 		p.Fires, p.Trigger = fires, value
 		return p, err
 	}
-		if !slices.Contains(claudeIfEvents, event) && event != "BeforeTool" && event != "AfterTool" && event != "PreToolUseResult" {
+	if !slices.Contains(claudeIfEvents, event) && event != "BeforeTool" && event != "AfterTool" && event != "PreToolUseResult" {
 		return p, nil
 	}
 	p.Trigger = PayloadTool(body)
