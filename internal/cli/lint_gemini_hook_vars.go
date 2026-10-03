@@ -50,7 +50,7 @@ func lintGeminiHookVariables(cfg *config.Config, targets []string, b spec.Bundle
 			Code:     "LINT030",
 			Severity: lintWarn,
 			Path:     hook.Path,
-			Message: fmt.Sprintf("Hook %q holds %s inside quotes or a command substitution; Gemini replaces it with a shell-escaped value before the shell runs, which breaks the quoting. Write \"${NAME}\" (Gemini leaves the braced form to the shell) or drop the quotes",
+			Message: fmt.Sprintf("Hook %q holds %s in a command with quotes, a backslash, a comment, a heredoc, or a command substitution; Gemini replaces it with a shell-escaped value before the shell runs, which breaks the quoting. Write \"${NAME}\" (Gemini leaves the braced form to the shell) or drop the quotes",
 				hook.Name, strings.Join(found, ", ")),
 		})
 	}
@@ -58,56 +58,21 @@ func lintGeminiHookVariables(cfg *config.Config, targets []string, b spec.Bundle
 }
 
 // quotedGeminiVariables returns each Gemini-replaced variable written bare
-// inside single or double quotes. Gemini inserts a shell-escaped value
-// before the shell parses the command, so the value's own apostrophes
-// show up literally in double quotes and close the quotes in single ones.
-// Unquoted words and `${NAME}` are fine. A `#` at the start of a word
-// outside quotes begins a comment, so its apostrophes open nothing, but a
-// bare variable there still counts: a replaced value holding a newline
-// ends the comment and runs the rest. Quotes
-// inside a command substitution start a new context this scan does not
-// track, so every bare variable after a `$(` or backquote counts.
+// in a command where that is unsafe. Gemini inserts a shell-escaped value
+// before the shell parses the command, so the value is only safe as a
+// plain unquoted word. Any quote, backslash, comment, heredoc, or command
+// substitution in the command can put it somewhere else, and the shell has
+// too many such forms to track, so every bare variable in such a command
+// counts. `${NAME}` is never replaced and always fine.
 func quotedGeminiVariables(command string) []string {
 	var out []string
-	inSingle, inDouble, inSubstitution := false, false, false
-	escaped := -1
-	for i := 0; i < len(command); i++ {
-		c := command[i]
-		switch {
-		case inSingle:
-			if c == '\'' {
-				inSingle = false
-			}
-		case c == '\\':
-			i++
-			escaped = i
-		case c == '`' || c == '$' && i+1 < len(command) && command[i+1] == '(':
-			inSubstitution = true
-		case c == '"':
-			inDouble = !inDouble
-		case c == '\'' && !inDouble:
-			inSingle = true
-		case c == '#' && !inDouble && !inSubstitution && (i == 0 || escaped != i-1 && strings.ContainsRune(" \t\n;&|()", rune(command[i-1]))):
-			end := strings.IndexByte(command[i:], '\n')
-			if end < 0 {
-				end = len(command) - i
-			}
-			for _, v := range geminiHookVariables {
-				if strings.Contains(command[i:i+end], v) && !slices.Contains(out, v) {
-					out = append(out, v)
-				}
-			}
-			i += end
+	for _, v := range geminiHookVariables {
+		if strings.Contains(command, v) {
+			out = append(out, v)
 		}
-		if c != '$' || (!inSingle && !inDouble && !inSubstitution) {
-			continue
-		}
-		for _, v := range geminiHookVariables {
-			if strings.HasPrefix(command[i:], v) && !slices.Contains(out, v) {
-				out = append(out, v)
-				break
-			}
-		}
+	}
+	if len(out) == 0 || !strings.ContainsAny(command, "'\"`\\#") && !strings.Contains(command, "<<") && !strings.Contains(command, "$(") {
+		return nil
 	}
 	return out
 }
