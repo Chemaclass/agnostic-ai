@@ -44,6 +44,18 @@ function test_rejects_a_budget_that_is_not_a_number() {
   assert_contains "must hold one byte count" "$out"
 }
 
+function test_rejects_two_budget_lines() {
+  printf '100\n200\n' > "$dir/budget"
+  check_binary_size "$dir/bin" "$dir/budget" >/dev/null 2>&1
+  assert_general_error "$?"
+}
+
+function test_rejects_a_budget_too_large_to_compare() {
+  printf '18446744073709551616\n' > "$dir/budget"
+  check_binary_size "$dir/bin" "$dir/budget" >/dev/null 2>&1
+  assert_general_error "$?"
+}
+
 function test_fails_without_a_binary() {
   printf '100\n' > "$dir/budget"
   local out

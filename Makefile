@@ -19,10 +19,10 @@ test:
 test-race:
 	go test -race ./...
 
-# Same target and flags as the release build, so the number matches the
-# published linux/amd64 binary.
+# Same target and flags as the linux/amd64 build in .goreleaser.yml, so the
+# number matches the published binary.
 size-check:
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /tmp/agnostic-ai-size $(PKG)
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w -X main.version=0.0.0" -o /tmp/agnostic-ai-size $(PKG)
 	scripts/binary-size.sh /tmp/agnostic-ai-size
 
 # e2e_test.sh drives the built binary, so build first.
