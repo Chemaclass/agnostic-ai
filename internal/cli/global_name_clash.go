@@ -83,6 +83,9 @@ func (c globalNameClash) silencedBy(s config.SyncConfig) string {
 	}) {
 		return "allowed by sync.allow-global-names"
 	}
+	if s.GlobalNameClash == "ignore" {
+		return "ignored by sync.global-name-clash"
+	}
 	return ""
 }
 

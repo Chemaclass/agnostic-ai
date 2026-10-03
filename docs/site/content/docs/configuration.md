@@ -224,6 +224,7 @@ Per-run flags such as `--diff`, `--format`, and `--jobs` have no config key. See
 | [`unmanaged`](#syncunmanaged) | empty | Paths sync never touches. |
 | [`output-manifest`](#syncoutput-manifest) | `false` | Write `.agnostic-ai/outputs.lock`, the committed list of generated paths. |
 | [`allow-global-names`](#syncallow-global-names) | empty | Names shared with the global home that `sync` does not warn about. |
+| [`global-name-clash`](#syncglobal-name-clash) | `warn` | Whether `sync` warns about names shared with the global home. |
 
 ### `sync.collision-policy` {#synccollision-policy}
 
@@ -340,6 +341,21 @@ sync:
 - Names match the way Claude Code folds skill names: case, spacing, and invisible characters do not count.
 - `doctor` still lists each allowed name under **Global names**, marked as allowed.
 - `agnostic-ai.local.yaml` replaces the list whole.
+
+### `sync.global-name-clash` {#syncglobal-name-clash}
+
+What `sync` does with every name this project shares with the [global home](#global-shared-names): `warn` prints the warning, `ignore` prints nothing.
+
+```yaml
+# agnostic-ai.local.yaml
+sync:
+  global-name-clash: ignore
+```
+
+- Use it when a project shadows global skills or agents as a rule. To accept a few names and keep warning about the rest, use [`sync.allow-global-names`](#syncallow-global-names).
+- With `warn`, names in `sync.allow-global-names` still print nothing.
+- `doctor` still lists each shared name under **Global names**, marked as ignored.
+- Any other value fails config load.
 
 ## `verify`
 
@@ -718,7 +734,7 @@ Other targets document no precedence, so sync does not warn for them.
 
 To layer on purpose, give the project spec its own name. For example, keep a general `gh-issue` skill in the home, and add a project `gh-issue-project` skill with only this repo's branch names and checks. Both then load everywhere, and the project one can point at the global one.
 
-To keep one name in both places, list it in [`sync.allow-global-names`](#syncallow-global-names). `sync` stops warning about it, and `doctor` marks it as allowed.
+To keep one name in both places, list it in [`sync.allow-global-names`](#syncallow-global-names). `sync` stops warning about it, and `doctor` marks it as allowed. To stop the warning for every shared name, set [`sync.global-name-clash: ignore`](#syncglobal-name-clash).
 
 ### Default model and effort {#global-default-model-and-effort}
 

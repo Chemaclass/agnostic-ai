@@ -16,6 +16,9 @@ import (
 // OnUnsupportedModes are the values on-unsupported accepts.
 var OnUnsupportedModes = []string{"warn", "error", "silent"}
 
+// GlobalNameClashModes are the values sync.global-name-clash accepts.
+var GlobalNameClashModes = []string{"warn", "ignore"}
+
 // File names recognized by Load.
 const (
 	ConfigFileName        = "agnostic-ai.yaml"
@@ -135,6 +138,11 @@ type SyncConfig struct {
 	// them; doctor still lists each one, marked as allowed. Names match
 	// the way Claude Code folds skill names.
 	AllowGlobalNames []string `yaml:"allow-global-names,omitempty" json:"allow-global-names,omitempty"`
+	// GlobalNameClash sets what sync does with a skill or agent name the
+	// project shares with the global home: `warn` (the default when
+	// empty) prints the warning, `ignore` prints nothing. doctor still
+	// lists each one, marked as ignored.
+	GlobalNameClash string `yaml:"global-name-clash,omitempty" json:"global-name-clash,omitempty" jsonschema:"enum=warn,enum=ignore"`
 }
 
 func (c *Config) WithAdditionalTargets(targets ...string) *Config {
@@ -486,6 +494,10 @@ func LoadWithSources(root string) (*Config, []string, error) {
 	if !slices.Contains(OnUnsupportedModes, cfg.OnUnsupported) {
 		return nil, nil, errs.Coded(errs.CodeConfigDecode, "%s: on-unsupported: %q is not one of %s",
 			strings.Join(sources, " + "), cfg.OnUnsupported, strings.Join(OnUnsupportedModes, ", "))
+	}
+	if mode := cfg.Sync.GlobalNameClash; mode != "" && !slices.Contains(GlobalNameClashModes, mode) {
+		return nil, nil, errs.Coded(errs.CodeConfigDecode, "%s: sync.global-name-clash: %q is not one of %s",
+			strings.Join(sources, " + "), mode, strings.Join(GlobalNameClashModes, ", "))
 	}
 	if err := validateUnmanaged(cfg.Sync.Unmanaged, strings.Join(sources, " + ")); err != nil {
 		return nil, nil, err
