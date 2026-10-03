@@ -259,3 +259,12 @@ func TestClineDrift_FindsTheSpecInTheSharedScript(t *testing.T) {
 		t.Errorf("drift = %+v", drift)
 	}
 }
+
+func TestClineSharedScript_NamesTheSiblings(t *testing.T) {
+	if ClineSharedScript(nil) != "" {
+		t.Error("a spec alone in its script counts")
+	}
+	if got := ClineSharedScript([]string{"a", "b"}); got != "Cline runs this hook in one script with a, b, which can change its result" {
+		t.Errorf("reason = %q", got)
+	}
+}

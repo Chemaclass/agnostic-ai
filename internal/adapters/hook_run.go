@@ -3,6 +3,7 @@ package adapters
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/antigravity"
@@ -123,6 +124,31 @@ func hookDoc(cfg *config.Config, target string, h spec.Entry) ([]byte, error) {
 		return antigravity.HookDoc(h)
 	}
 	return nil, nil
+}
+
+// HookScriptSiblings names, sorted, the other specs in hooks that sync
+// writes into the same script as h on target: Cline joins every spec on
+// an event in one script, with one stdout.
+func HookScriptSiblings(cfg *config.Config, target string, hooks []spec.Entry, h spec.Entry) []string {
+	if target != "cline" {
+		return nil
+	}
+	event, _ := h.Meta["event"].(string)
+	path := cline.HookScriptPath(cfg, event)
+	if path == "" {
+		return nil
+	}
+	var names []string
+	for _, other := range hooks {
+		otherEvent, _ := other.Meta["event"].(string)
+		if (other.Name == h.Name && other.Path == h.Path) || !other.EmitsTo(target) ||
+			cline.HookScriptPath(cfg, otherEvent) != path || cline.HookScript(other) == "" {
+			continue
+		}
+		names = append(names, other.Name)
+	}
+	slices.Sort(names)
+	return names
 }
 
 // HookFile is the native file sync writes target's hooks on event to,

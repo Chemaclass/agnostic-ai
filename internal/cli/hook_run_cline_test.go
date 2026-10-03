@@ -212,3 +212,66 @@ func TestHookRun_ClineDoesNotRunPreCompact(t *testing.T) {
 		t.Errorf("PreCompact never runs on Cline: %v\n%s", err, out)
 	}
 }
+
+// clineSibling adds a second hook spec, run by its own script, and syncs.
+func clineSibling(t *testing.T, dir, name, meta, body string) {
+	t.Helper()
+	script := filepath.Join(dir, ".agnostic-ai", "scripts", name+".sh")
+	mustWrite(t, script, body)
+	if err := os.Chmod(script, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", name+".yaml"), "name: "+name+"\n"+meta+"command: .agnostic-ai/scripts/"+name+".sh\n")
+	mustSync(t)
+}
+
+func TestHookRun_ClineSharedEventScriptIsNotCounted(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	dir := clineProject(t, clineHookSpec, clineGuardScript)
+	clineSibling(t, dir, "allow-all", "event: PreToolUse\ntargets: [cline]\n", "#!/bin/sh\ncat >/dev/null\nprintf 'HOOK_CONTROL\\t{\"cancel\":false}\\n'\n")
+	if synced, err := os.ReadFile(filepath.Join(dir, ".cline", "hooks", "PreToolUse.sh")); err != nil || !strings.Contains(string(synced), "allow-all.sh") || !strings.Contains(string(synced), "block-rm.sh") {
+		t.Fatalf("sync joins both specs in one script: %v\n%s", err, synced)
+	}
+	reason := "Cline runs this hook in one script with allow-all, which can change its result"
+
+	out, err := runHookRun(t, "block-rm", "--bash", "rm -rf /", "--expect", "block", "--include-assumed")
+	if !strings.Contains(out, "cline: block (exit 0") || !strings.Contains(out, "note: not counted: "+reason) {
+		t.Errorf("output = %s", out)
+	}
+	if err != nil {
+		t.Errorf("claude still passes --expect: %v", err)
+	}
+
+	out, _ = runHookRun(t, "block-rm", "--bash", "rm -rf /", "--include-assumed", "--format", "json")
+	var report struct {
+		Targets []struct {
+			Target  string `json:"target"`
+			Counted bool   `json:"counted"`
+		} `json:"targets"`
+	}
+	if err := json.Unmarshal([]byte(out), &report); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out)
+	}
+	for _, r := range report.Targets {
+		if r.Target == "cline" && r.Counted {
+			t.Errorf("a shared Cline script must not be counted:\n%s", out)
+		}
+	}
+
+	_, err = runHookRun(t, "block-rm", "--target", "cline", "--bash", "rm -rf /", "--expect", "block", "--include-assumed")
+	if err == nil || !strings.Contains(err.Error(), "--expect checks nothing") || !strings.Contains(err.Error(), reason) {
+		t.Errorf("--expect on a shared Cline script alone must fail and say why: %v", err)
+	}
+}
+
+func TestHookRun_ClineCountsASpecAloneInItsScript(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	dir := clineProject(t, clineHookSpec, clineGuardScript)
+	clineSibling(t, dir, "claude-only", "event: PreToolUse\ntargets: [claude]\n", "#!/bin/sh\ncat >/dev/null\n")
+	clineSibling(t, dir, "after-edit", "event: PostToolUse\n", "#!/bin/sh\ncat >/dev/null\n")
+
+	out, err := runHookRun(t, "block-rm", "--target", "cline", "--bash", "rm -rf /", "--expect", "block", "--include-assumed")
+	if err != nil || strings.Contains(out, "not counted") || !strings.Contains(out, "1 checked, 1 assumed (counted)") {
+		t.Errorf("specs that sync keeps out of PreToolUse.sh must not uncount it: %v\n%s", err, out)
+	}
+}

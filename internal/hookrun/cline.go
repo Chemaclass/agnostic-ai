@@ -255,6 +255,18 @@ func clineContext(reply map[string]any) string {
 	return text
 }
 
+// ClineSharedScript is why a Cline result is not counted when sync joins
+// the hook with siblings in one event script, or "" when it has none.
+// The siblings share its stdout, so a later reply or a second JSON object
+// changes what Cline reads, and an earlier command can stop the script
+// or read its stdin first.
+func ClineSharedScript(siblings []string) string {
+	if len(siblings) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("Cline runs this hook in one script with %s, which can change its result", strings.Join(siblings, ", "))
+}
+
 // ClineNotes explains a Cline result: what Cline does with a failure, a
 // cancel, or an exit code it ignores.
 func ClineNotes(event string, r Result) []string {

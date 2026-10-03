@@ -99,7 +99,7 @@ func newHookRunCmd() *cobra.Command {
 			if format == "json" {
 				show = func(hookTargetRun) {}
 			}
-			runs, err := runHookTargets(cfg, hook, targets, root, in, show)
+			runs, err := runHookTargets(cfg, hook, b.Hooks, targets, root, in, show)
 			if err != nil {
 				return err
 			}
@@ -185,7 +185,9 @@ type hookCommandRun struct {
 	result      hookrun.Result
 }
 
-func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root string, in hookrun.Input, show func(hookTargetRun)) ([]hookTargetRun, error) {
+// runHookTargets runs hook on each target. hooks is every hook spec in
+// the project, which a target that joins specs in one file needs.
+func runHookTargets(cfg *config.Config, hook spec.Entry, hooks []spec.Entry, targets []string, root string, in hookrun.Input, show func(hookTargetRun)) ([]hookTargetRun, error) {
 	event, _ := hook.Meta["event"].(string)
 	matcher, _ := hook.Meta["matcher"].(string)
 	var runs []hookTargetRun
@@ -267,6 +269,10 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 		}
 		if target == "cline" {
 			run.Notes = append(run.Notes, hookrun.ClineRunNotes(event, matcher, specTimeout(hook.Meta), payload.Trigger)...)
+			if reason := hookrun.ClineSharedScript(adapters.HookScriptSiblings(cfg, target, hooks, hook)); reason != "" && !run.Async {
+				run.uncounted = reason
+				run.Notes = append(run.Notes, "not counted: "+reason)
+			}
 		}
 		var crushResults []hookrun.Result
 		if target == "crush" {
