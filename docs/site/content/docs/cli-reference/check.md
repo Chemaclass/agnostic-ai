@@ -77,6 +77,7 @@ agnostic-ai lint --strict
 | LINT026 | Warning. A Claude model name reaches a target that cannot load it, through an agent's shared `model` (a scalar or `default`) or through the `default` of a tier the agent names. Write `model: {claude: <name>}` or add the target to the tier. `lint --strict` fails. |
 | LINT027 | Error. An MCP spec holds a value JSON cannot hold, such as a YAML `.nan` or `.inf`. The finding names the field, for example `x-amp.timeout`. `validate` reports it too. `sync` fails on it instead of leaving the server out. |
 | LINT028 | Warning. An MCP `url` or `args` element holds a reference form only one tool reads, such as `${env:NAME}`, `{env:NAME}`, or `{% raw %}${{ secrets.NAME }}{% endraw %}`. Sync copies it as text to each enabled tool that does not read that form, which the finding names. Only the field sync writes for the transport is checked. Write `${NAME}`, or move the value under `x-<target>:`. Older imports wrote these. `lint --strict` fails. |
+| LINT029 | Warning. With Kiro and an inlining target such as codex enabled, a Kiro agent sets `x-kiro.resources` without `file://AGENTS.md`. The always-on rules reach Kiro only through `AGENTS.md`, which custom agents inherit by default. With Kiro's `chat.disableInheritingDefaultResources` on, that agent loads none of them. Add `file://AGENTS.md` to its resources. `lint --strict` fails. |
 | LINT008 | Error. A stdio MCP server lacks `command:`, or an `http`/`sse`/`ws` one lacks `url:`. `x-<target>` cannot set either reserved field. |
 
 More warnings:

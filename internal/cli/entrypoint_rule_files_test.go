@@ -286,17 +286,20 @@ func TestImport_ClineReadsTheRulesBlockItsCopiesWereSkippedFor(t *testing.T) {
 	}
 }
 
-// A Kiro custom agent loads only the steering files its `resources`
-// list, so the always-on steering files stay.
-func TestSync_KiroKeepsSteeringFilesWhenAnAgentSetsResources(t *testing.T) {
+// Kiro custom agents inherit AGENTS.md and steering alongside their own
+// `resources` by default, so a steering copy would load each rule twice.
+func TestSync_KiroSkipsSteeringCopyWhenAnAgentSetsResources(t *testing.T) {
 	dir := ruleFilesProject(t, "targets: [codex, kiro]\n")
 	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "helper.md"),
 		"---\nname: helper\ndescription: Helps.\nx-kiro:\n  resources: [\"file://.kiro/steering/**\"]\n---\nHelp.\n")
 
 	mustSync(t)
 
-	if !exists(filepath.Join(dir, ".kiro", "steering", "always.md")) {
-		t.Error(".kiro/steering/always.md must stay: the custom agent reads steering, not AGENTS.md")
+	if exists(filepath.Join(dir, ".kiro", "steering", "always.md")) {
+		t.Error(".kiro/steering/always.md must not be written: AGENTS.md already carries the rule")
+	}
+	if n := strings.Count(readFile(t, filepath.Join(dir, "AGENTS.md")), "Always body."); n != 1 {
+		t.Errorf("AGENTS.md carries the rule %d times, want 1", n)
 	}
 }
 
