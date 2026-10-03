@@ -87,6 +87,22 @@ func TestEmit_NotesEditHookReadingFilePath(t *testing.T) {
 	}
 }
 
+// Only a matcher that can fire on apply_patch, Edit or Write is an edit
+// hook; a regex like \W matches other tools but none of those (#1733).
+func TestEmit_EditHookPayloadIgnoresRegexThatMissesEditTools(t *testing.T) {
+	for matcher, wantErr := range map[string]bool{`\W`: false, `^(Edit|Write)$`: true, `*`: true, `^(Bash`: false} {
+		testutil.Chdir(t, t.TempDir())
+		swapWarner(t)
+		hook := editHook("jq -r '.tool_input.file_path // empty'")
+		hook.Meta["matcher"] = matcher
+		cfg := &config.Config{OnUnsupported: emit.OnUnsupportedError}
+		err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{hook}), cfg, false)
+		if (err != nil) != wantErr {
+			t.Errorf("matcher %q: err = %v, want error %v", matcher, err, wantErr)
+		}
+	}
+}
+
 func TestEmit_EditHookPayloadErrorsUnderOnUnsupportedError(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	swapWarner(t)

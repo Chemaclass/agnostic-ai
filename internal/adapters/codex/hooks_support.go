@@ -238,6 +238,10 @@ var readsFilePath = regexp.MustCompile(`tool_input\W{1,4}file_path`)
 // editMatchers are the matcher segments that fire on a Codex edit.
 var editMatchers = []string{"apply_patch", "Edit", "Write", "*"}
 
+// editToolNames are the concrete names a regex matcher is tried against;
+// `*` is a name-list wildcard, not a tool, so a regex never sees it.
+var editToolNames = []string{"apply_patch", "Edit", "Write"}
+
 // Codex never sends tool_input.file_path; inspect commands and the scripts sync copies.
 func noteEditHookPayload(sess *emit.Session, hooks []spec.Entry, mode string) error {
 	if mode == emit.OnUnsupportedSilent {
@@ -291,5 +295,5 @@ func firesOnEdit(meta map[string]any) bool {
 		return len(segments) == 0 || slices.ContainsFunc(segments, func(seg string) bool { return slices.Contains(editMatchers, seg) })
 	}
 	re, err := regexp.Compile(matcher)
-	return err != nil || slices.ContainsFunc(editMatchers, re.MatchString)
+	return err == nil && slices.ContainsFunc(editToolNames, re.MatchString)
 }
