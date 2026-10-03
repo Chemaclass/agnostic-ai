@@ -260,7 +260,7 @@ For each configured target the hook reaches, it runs every command sync wrote fo
 - **Timeout.** The timeout sync writes (Gemini's is in milliseconds), or the tool's default.
 - **Async.** An `async: true` hook runs and prints its output. Its result is `not judged` and stays out of `--expect` and the comparison, because neither tool waits for it.
 - **Background commands.** On macOS and Linux, a command the hook leaves running is killed once the hook exits.
-- **Stale native file.** Commands come from the spec, so the run works before a sync. The target prints a `warning` naming the file when the synced file is missing, or when no handler under the event runs the command the spec produces. It also warns when that handler's group matcher, timeout, or (on Gemini) `env` differs from the spec. An `env` warning names the keys that differ, never their values. A warning does not fail the run; `sync` clears it. The files are `.claude/settings.json`, `.codex/hooks.json`, `.gemini/settings.json`, `.trae/hooks.json`, `.openhands/hooks.json`, the Goose plugin `hooks/hooks.json`, `.augment/settings.json`, or the path `outputs` sets.
+- **Stale native file.** Commands come from the spec, so the run works before a sync. The target prints a `warning` naming the file when the synced file is missing, or when no handler under the event runs the command the spec produces. It also warns when that handler's group matcher, timeout, or (on Gemini) `env` differs from the spec. An `env` warning names the keys that differ, never their values. A warning does not fail the run; `sync` clears it. The files are `.claude/settings.json`, `.codex/hooks.json`, `.gemini/settings.json`, `.trae/hooks.json`, `.openhands/hooks.json`, the Goose plugin `hooks/hooks.json`, `.augment/settings.json`, `.cursor/hooks.json`, or the path `outputs` sets. On Cursor it also compares `failClosed`.
 
 {% <details summary="Codex sync checks"> %}
 A Codex matcher that joins this spec's segments with another spec's counts as in sync, since sync merges them. So does a Codex timeout when the spec sets none. On Windows, Codex compares `commandWindows`.
@@ -278,6 +278,7 @@ Variables listed here are removed from the calling shell's env first. Other vari
 | OpenHands | `OPENHANDS_PROJECT_DIR`, `OPENHANDS_SESSION_ID`, `OPENHANDS_EVENT_TYPE`, `OPENHANDS_TOOL_NAME` |
 | Goose | `PLUGIN_ROOT`, with `AGNOSTIC_AI_TARGET=goose` from its command |
 | Augment | `AUGMENT_PROJECT_DIR`, `AUGMENT_CONVERSATION_ID`, `AUGMENT_HOOK_EVENT`, `AUGMENT_TOOL_NAME` |
+| Cursor | `CURSOR_PROJECT_DIR`, `CURSOR_VERSION` (empty), `CLAUDE_PROJECT_DIR`, and `AGNOSTIC_AI_TARGET=cursor`, which the `sessionStart` entry sync adds sets for later hooks |
 {% </details> %}
 
 {% <details summary="Shell and default timeout per target"> %}
@@ -290,6 +291,7 @@ Variables listed here are removed from the calling shell's env first. Other vari
 | OpenHands | `/bin/sh -c`, or `cmd.exe /c` on Windows, as Python's `shell=True` does | 60 seconds |
 | Goose | `sh -c` on every platform | 30 seconds |
 | Augment | Only a `.sh`, `.ps1`, `.cmd`, or `.bat` script path: the script itself on macOS and Linux, a `.ps1` with `powershell.exe -Command` and a `.cmd` or `.bat` with `cmd.exe /c` on Windows. An inline command is listed as not run. | 60 seconds |
+| Cursor | Assumed `sh -c`, for a script path and plain arguments only. A command with shell syntax, and any command on Windows, is listed as not run. | Assumed 30 seconds |
 {% </details> %}
 
 {% <details summary="Claude Code `if` rules"> %}
@@ -319,10 +321,22 @@ Exit 2 cannot stop anything on `SessionStart`, `SessionEnd`, `Notification`, `Pr
 - **Trae.** It reads replies as Claude Code does.
 - **OpenHands.** It blocks on exit 2, or on a JSON `"decision": "deny"` or `"continue": false` whatever the exit code. It acts on a block only on `PreToolUse`, `UserPromptSubmit`, and `Stop`.
 - **Goose.** It blocks on `PreToolUse` and `Stop` only: on exit 2, or on stdout starting with `{` whose `decision` is `"block"`, whatever the exit code. Exit 0 with empty stdout or `"decision": "allow"` allows. Anything else is no decision, read as `error`, or as `block` when the action sets `x-goose.on_failure: block`.
+- **Cursor.** It blocks on exit 2 on the permission events (`beforeShellExecution`, `beforeMCPExecution`, `beforeReadFile`, `beforeTabFileRead`, `subagentStart`, `preToolUse`) and `beforeSubmitPrompt`. At exit 0, a permission event blocks on `"permission": "deny"`, on `"ask"` (except on `preToolUse`, which does not enforce it), and on output that is not a JSON reply, empty output included. `beforeSubmitPrompt` blocks on `"continue": false`. Any other failure fails open as `error`, or blocks with `failClosed: true`.
 - **Augment.** It blocks on exit 2 on `PreToolUse` only. It also blocks on exit 0 with `permissionDecision: "deny"`, a `decision: "block"` (inside `hookSpecificOutput` on `Stop` and `PostToolUse`), or `"continue": false`.
 {% </details> %}
 
 The run exits 1 when a command times out or errors, when two targets decide differently, or, with `--expect allow` or `--expect block`, when a target decides otherwise. That makes it a CI check.
+
+### Assumed results {#assumed-results}
+
+Cursor documents its payloads, working directory, and reply rules, but not the shell that runs a command or its default timeout. `hook run` runs Cursor on stated assumptions instead of leaving it out:
+
+- Shell: `sh -c` on macOS and Linux, only for a script path with plain arguments, which every POSIX shell reads the same way. A command with shell syntax, such as a pipe, is listed as not run with "Cursor does not document its shell; use a script path". Windows is not run.
+- Timeout: 30 seconds when the spec sets none. Set `timeout` in the spec to remove this assumption.
+
+The result line ends in `(assumed: shell, timeout)`, followed by one line per assumption and the docs link. An assumed result is shown but not counted: it stays out of `--expect` and the comparison unless you pass `--include-assumed`. When it disagrees with them, a warning says so, and a summary such as `0 checked, 1 assumed (not counted; --include-assumed to count)` shows what was left out. A run where only assumed results ran fails and asks for `--include-assumed`, so a CI check never passes on nothing. In JSON, each target has `assumptions` (`item`, `value`, `reason`) and `counted`.
+
+A Cursor hook spec uses Cursor's own event names, so it runs only on Cursor; other targets are listed as not run.
 
 `--format json` prints the same results as one JSON object, for a CI job to read. Each target has a `decision` (`allow`, `block`, `error`, `timeout`, or `not run` with a `reason`), its `warnings`, and one entry per command. `exit_code` is `null` after a timeout or a command that did not start. `error` holds the reason the run fails, and the exit code is the same as in text:
 
@@ -363,8 +377,9 @@ The run exits 1 when a command times out or errors, when two targets decide diff
 | Trae | Documented shape. `--bash` calls `RunCommand`; `llm_tool_name` repeats the tool name. Trae lists no edit tool input, so `--edit` is refused. The matcher is an unanchored regular expression. | [Hook reference](https://docs.trae.cn/ide_hook-configuration-reference), [automate actions with hooks](https://docs.trae.cn/ide_automate-actions-with-hooks) |
 | OpenHands | Documented `HookEvent`: `event_type`, `tool_name`, `tool_input`, `message`, `session_id`, `working_dir`. `--bash` calls `terminal`; the file editor's input is undocumented, so `--edit` is refused. A `*` or empty matcher matches all; one with a regex character, or written `/re/`, must match the whole tool name; any other is an exact name. A matcher on an event with no tool never runs. | [Hooks](https://docs.openhands.dev/openhands/usage/customization/hooks), software-agent-sdk [`fad6377`](https://github.com/OpenHands/software-agent-sdk/tree/fad63774459171b08f889b12fd3b4d6346168c3e/openhands-sdk/openhands/sdk/hooks) |
 | Goose | Documented shape: `event`, `session_id`, `matcher_context`, `tool_name`, `tool_input`, `working_dir`, `tool_call_id`. `--bash` calls `shell`; `--edit` calls the first of `write` and `edit` the matcher matches, with an absolute `path`. `BeforeShellExecution` and `AfterShellExecution` take `--bash`, and `AfterFileEdit` and `BeforeReadFile` take `--edit`. The matcher is an unanchored regular expression on `matcher_context`; one that does not compile, such as `*`, skips the rule. | [Hooks](https://goose-docs.ai/docs/guides/context-engineering/hooks/), goose [`bab8ff6`](https://github.com/aaif-goose/goose/blob/bab8ff641039c9cd3331121cd84a5c6045f365ca/documentation/docs/guides/context-engineering/hooks.md) docs and [runner](https://github.com/aaif-goose/goose/blob/bab8ff641039c9cd3331121cd84a5c6045f365ca/crates/goose/src/hooks/mod.rs) |
+| Cursor | Documented shape: the common fields (`conversation_id`, `hook_event_name`, `workspace_roots`, ...) plus the event's own. `--bash` builds `beforeShellExecution` and `afterShellExecution` (`command`, `cwd`), and `preToolUse` and `postToolUse` on the `Shell` tool. `--edit` builds `afterFileEdit` only, since the `Write` tool's input is undocumented. `--prompt` builds `beforeSubmitPrompt`. The matcher is an unanchored regular expression, tested against the command on the shell events, the tool type on the tool events, and a fixed name on the rest. | [Hooks](https://cursor.com/docs/hooks) |
 | Augment | Documented shape. `--bash` calls `launch-process`; `--edit` calls the first of `str-replace-editor` and `save-file` the matcher matches, with a `path` relative to the workspace root, and `PostToolUse` adds `file_changes`. Augment has no prompt event. The matcher is an unanchored regular expression. | [Hooks](https://docs.augmentcode.com/cli/hooks) |
 
 On each, `tool_response` holds placeholder values, and session IDs and transcript paths are made up. Gemini matchers compile as Go regular expressions, which reject a few JavaScript forms such as lookahead; Gemini CLI would run those, and `hook run` compares them as a literal name. `GEMINI_PLANS_DIR` is not set.
 
-Every other target is listed as not run: its docs leave out the shell, the working directory, the payload, the reply rules, or the default timeout, so a run would have to guess. [#1566](https://github.com/Chemaclass/agnostic-ai/issues/1566) lists what each one lacks.
+Every other target is listed as not run: its docs leave out more than `hook run` can assume safely. [#1566](https://github.com/Chemaclass/agnostic-ai/issues/1566) and [#1678](https://github.com/Chemaclass/agnostic-ai/issues/1678) list what each one lacks.

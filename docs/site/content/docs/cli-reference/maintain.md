@@ -100,6 +100,7 @@ It warns, without failing, when a target's synced native file does not run the c
 | `--prompt <text>` | Prompt text for `UserPromptSubmit`. |
 | `--payload <file>` | Send this JSON file to every target as the payload, for events with no builder. |
 | `--expect allow\|block` | Fail unless every target decides this. |
+| `--include-assumed` | Count results that rest on an assumed shell or timeout, such as Cursor's, in `--expect` and the comparison. See [assumed results](@/docs/spec-format/hooks.md#assumed-results). |
 | `--format text\|json` | `json` prints one object per target, with its decision, warnings, and each command's exit code, time, stdout, and stderr. Defaults to `text`. |
 
 ## install-hook
