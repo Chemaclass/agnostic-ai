@@ -175,6 +175,9 @@ type hookTargetRun struct {
 	// result, and for one left out only for uncounted, since one
 	// command's unclear reply says nothing about another's timeout.
 	judged bool
+	// sharedScript marks a result run apart from the specs the target
+	// runs it with, so none of it is judged.
+	sharedScript bool
 }
 
 type hookCommandRun struct {
@@ -275,7 +278,7 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, hooks []spec.Entry, tar
 		if target == "cline" {
 			run.Notes = append(run.Notes, hookrun.ClineRunNotes(event, matcher, specTimeout(hook.Meta), payload.Trigger)...)
 			if reason := hookrun.ClineSharedScript(adapters.HookScriptSiblings(cfg, target, hooks, hook)); reason != "" && !run.Async {
-				run.uncounted = reason
+				run.uncounted, run.sharedScript = reason, true
 				run.Notes = append(run.Notes, "not counted: "+reason)
 			}
 		}
@@ -496,7 +499,7 @@ func countHookRuns(runs []hookTargetRun, expect hookrun.Decision, includeAssumed
 	reference := expect
 	for i := range runs {
 		r := &runs[i]
-		r.judged = r.Decision != notRun && !r.Async && (len(r.Assumptions) == 0 || includeAssumed)
+		r.judged = r.Decision != notRun && !r.Async && !r.sharedScript && (len(r.Assumptions) == 0 || includeAssumed)
 		r.Counted = r.judged && r.uncounted == ""
 		if r.Counted && reference == "" {
 			reference = r.Decision

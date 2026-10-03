@@ -70,3 +70,17 @@ func TestHookRun_AnUncountedReplyKeepsAnotherCommandsError(t *testing.T) {
 		t.Errorf("the documented exit 1 must still fail the run: %v\n%s", err, out)
 	}
 }
+
+func TestHookRun_ASharedClineScriptIsNotJudged(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	dir := clineProject(t, clineHookSpec, "#!/bin/sh\ncat >/dev/null\necho checked\n")
+	clineSibling(t, dir, "allow-all", "event: PreToolUse\ntargets: [cline]\n", "#!/bin/sh\ncat >/dev/null\nprintf 'HOOK_CONTROL\\t{\"cancel\":false}\\n'\n")
+
+	out, err := runHookRun(t, "block-rm", "--bash", "ls", "--include-assumed")
+	if !strings.Contains(out, "cline: error") || !strings.Contains(out, "not counted: Cline runs this hook in one script with allow-all") {
+		t.Errorf("output = %s", out)
+	}
+	if err != nil {
+		t.Errorf("the spec's error alone says nothing about the shared script, which allows: %v", err)
+	}
+}
