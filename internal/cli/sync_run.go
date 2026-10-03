@@ -1011,7 +1011,7 @@ func shortDuration(d time.Duration) string {
 // appendFileRecords sorts each write event into out.Writes or out.Skipped, tagged by target.
 func appendFileRecords(out *jsonOutput, target string, writes []adapters.WrittenFile) {
 	for _, f := range writes {
-		rec := fileRecord{Target: target, Path: f.Path, Action: f.Action, Bytes: f.Bytes, Backup: filepath.ToSlash(f.Backup)}
+		rec := fileRecord{Target: target, Path: f.Path, Action: f.Action, Bytes: f.Bytes, Backup: f.Backup}
 		if f.Action == "skip" || f.Action == "edited" {
 			out.Skipped = append(out.Skipped, rec)
 		} else {
@@ -1289,24 +1289,24 @@ func printSyncPlanJSON(cmd *cobra.Command, command string, reports []driftReport
 	out.addError(notesErr)
 	for _, r := range reports {
 		for _, f := range r.Missing {
-			out.Writes = append(out.Writes, fileRecord{Target: r.Target, Path: filepath.ToSlash(f.Path), Action: "create", Bytes: len(f.Content)})
+			out.Writes = append(out.Writes, fileRecord{Target: r.Target, Path: f.Path, Action: "create", Bytes: len(f.Content)})
 		}
 		for _, f := range r.changed() {
-			out.Writes = append(out.Writes, fileRecord{Target: r.Target, Path: filepath.ToSlash(f.Path), Action: "update", Bytes: len(f.Content)})
+			out.Writes = append(out.Writes, fileRecord{Target: r.Target, Path: f.Path, Action: "update", Bytes: len(f.Content)})
 		}
 		for _, p := range r.Leftover {
 			if r.Unledgered {
-				out.Skipped = append(out.Skipped, fileRecord{Target: r.Target, Path: filepath.ToSlash(p), Action: "leftover"})
+				out.Skipped = append(out.Skipped, fileRecord{Target: r.Target, Path: p, Action: "leftover"})
 				continue
 			}
-			out.Writes = append(out.Writes, fileRecord{Target: r.Target, Path: filepath.ToSlash(p), Action: "delete"})
+			out.Writes = append(out.Writes, fileRecord{Target: r.Target, Path: p, Action: "delete"})
 		}
 		for _, p := range r.Orphaned {
-			out.Skipped = append(out.Skipped, fileRecord{Target: r.Target, Path: filepath.ToSlash(p), Action: "orphan"})
+			out.Skipped = append(out.Skipped, fileRecord{Target: r.Target, Path: p, Action: "orphan"})
 		}
 		if withCurrent {
 			for _, f := range r.Current {
-				out.Skipped = append(out.Skipped, fileRecord{Target: r.Target, Path: filepath.ToSlash(f.Path), Action: "skip", Bytes: len(f.Content)})
+				out.Skipped = append(out.Skipped, fileRecord{Target: r.Target, Path: f.Path, Action: "skip", Bytes: len(f.Content)})
 			}
 		}
 	}

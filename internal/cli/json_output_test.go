@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 )
 
 // assertJSONShape verifies the top-level fields expected in every --json output.
@@ -433,5 +435,21 @@ func TestJSONOutput_RecordPathsUseSlashesAndListsAreNeverNull(t *testing.T) {
 	empty := jsonOutput{}.forOutput()
 	if empty.Writes == nil || empty.Skipped == nil || empty.Errors == nil {
 		t.Errorf("lists must be empty, not nil: %+v", empty)
+	}
+}
+
+func TestJSONFindings_PathsUseSlashes(t *testing.T) {
+	native := filepath.FromSlash("a/b/c.md")
+	lint := slashLintPaths([]lintFinding{{Code: "LINT001", Path: native}})
+	trust := slashHookTrustPaths([]codex.HookTrustFinding{{Path: native}})
+	pack := slashPackagingPaths([]packagingIgnoreFinding{{Path: native, Uncovered: []string{native}}})
+	refs := slashReferencePaths([]referenceFinding{{Source: native, Path: native}})
+	for name, got := range map[string]string{
+		"lint": lint[0].Path, "hook trust": trust[0].Path, "packaging": pack[0].Path,
+		"packaging uncovered": pack[0].Uncovered[0], "reference source": refs[0].Source, "reference path": refs[0].Path,
+	} {
+		if got != "a/b/c.md" {
+			t.Errorf("%s path = %q, want a/b/c.md", name, got)
+		}
 	}
 }
