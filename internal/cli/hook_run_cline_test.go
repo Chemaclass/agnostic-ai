@@ -53,7 +53,7 @@ func TestHookRun_ClineBlocksOnACancelReply(t *testing.T) {
 	for _, want := range []string{
 		"claude: block (exit 2",
 		"cline: block (exit 0", "(assumed: working directory)", "event: PreToolUse (run_commands)",
-		"command: .cline/hooks/PreToolUse.sh",
+		"command: .clinerules/hooks/PreToolUse",
 		"assumed working directory: project root (Cline runs a hook from the directory the CLI started in)",
 		"docs: https://github.com/cline/cline/tree/39ff2359f7e08231281539696e48a166ce49270c/sdk/packages/core/src/hooks",
 		"note: cancel: Cline skips the tool call and stops the run",
@@ -81,30 +81,28 @@ func TestHookRun_ClineBlocksOnACancelReply(t *testing.T) {
 	}
 }
 
-func TestHookRun_ClineIgnoresAClaudeStyleExit2(t *testing.T) {
+func TestHookRun_ClineBlocksOnAClaudeStyleExit2(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	clineProject(t, "name: block-rm\nevent: PreToolUse\nmatcher: Bash\ntimeout: 5\ncommand: .agnostic-ai/scripts/block-rm.sh\n", clineExitScript)
 
 	out, err := runHookRun(t, "block-rm", "--bash", "rm -rf /", "--expect", "block")
 	for _, want := range []string{
 		"claude: block (exit 2",
-		"cline: allow (exit 2",
-		`note: Cline ignores the exit code; print {"cancel": true} to block`,
+		"cline: block (exit 0",
+		"note: cancel: Cline skips the tool call and stops the run",
 		`note: Cline has no matcher: sync drops "Bash", and the script runs on every tool call`,
 		"note: Cline has no per-hook timeout: sync drops the spec's 5s, and hook run uses Cline's 120s",
-		"cline: warning: assumed result allow differs from block and is not counted; pass --include-assumed to count it",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output misses %q:\n%s", want, out)
 		}
 	}
-	if err != nil {
-		t.Errorf("an uncounted disagreement only warns: %v", err)
+	if err != nil || strings.Contains(out, "warning:") {
+		t.Errorf("the synced script turns exit 2 into a cancel reply: %v\n%s", err, out)
 	}
 
-	_, err = runHookRun(t, "block-rm", "--bash", "rm -rf /", "--expect", "block", "--include-assumed")
-	if err == nil || !strings.Contains(err.Error(), "expected block, got claude block, cline allow") {
-		t.Errorf("a counted Cline allow must fail --expect block: %v", err)
+	if _, err = runHookRun(t, "block-rm", "--bash", "rm -rf /", "--expect", "block", "--include-assumed"); err != nil {
+		t.Errorf("a counted Cline block passes --expect block: %v", err)
 	}
 }
 
@@ -127,7 +125,7 @@ func TestHookRun_ClinePromptHookIsNotJudged(t *testing.T) {
 
 	out, err := runHookRun(t, "block-rm", "--prompt", "rm -rf /", "--expect", "block", "--include-assumed")
 	for _, want := range []string{
-		"cline: not judged (exit 2", "event: UserPromptSubmit (prompt)", "command: .cline/hooks/UserPromptSubmit.sh",
+		"cline: not judged (exit 0", "event: UserPromptSubmit (prompt)", "command: .clinerules/hooks/UserPromptSubmit",
 		"note: cline runs UserPromptSubmit fire-and-forget; it does not wait for the result",
 		"note: Cline may not send this event: its source says orchestrated sessions, which the CLI runs, seed the prompt without it",
 	} {
@@ -184,11 +182,11 @@ func TestHookRun_ClineJSONListsItsAssumption(t *testing.T) {
 func TestHookRun_ClineWarnsWhenTheSyncedScriptDrops(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := clineProject(t, clineHookSpec, clineGuardScript)
-	script := filepath.Join(dir, ".cline", "hooks", "PreToolUse.sh")
+	script := filepath.Join(dir, ".clinerules", "hooks", "PreToolUse")
 
 	mustWrite(t, script, "set -e\nexport AGNOSTIC_AI_TARGET=cline\n\n./old.sh\n")
 	out, _ := runHookRun(t, "block-rm", "--target", "cline", "--bash", "ls")
-	if !strings.Contains(out, "warning: .cline/hooks/PreToolUse.sh does not run this spec's PreToolUse commands; run agnostic-ai sync") {
+	if !strings.Contains(out, "warning: .clinerules/hooks/PreToolUse does not run this spec's PreToolUse commands; run agnostic-ai sync") {
 		t.Errorf("a stale script must warn:\n%s", out)
 	}
 
@@ -196,7 +194,7 @@ func TestHookRun_ClineWarnsWhenTheSyncedScriptDrops(t *testing.T) {
 		t.Fatal(err)
 	}
 	out, _ = runHookRun(t, "block-rm", "--target", "cline", "--bash", "ls")
-	if !strings.Contains(out, "warning: .cline/hooks/PreToolUse.sh does not exist; run agnostic-ai sync") {
+	if !strings.Contains(out, "warning: .clinerules/hooks/PreToolUse does not exist; run agnostic-ai sync") {
 		t.Errorf("a missing script must warn:\n%s", out)
 	}
 }
@@ -229,7 +227,7 @@ func TestHookRun_ClineSharedEventScriptIsNotCounted(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := clineProject(t, clineHookSpec, clineGuardScript)
 	clineSibling(t, dir, "allow-all", "event: PreToolUse\ntargets: [cline]\n", "#!/bin/sh\ncat >/dev/null\nprintf 'HOOK_CONTROL\\t{\"cancel\":false}\\n'\n")
-	if synced, err := os.ReadFile(filepath.Join(dir, ".cline", "hooks", "PreToolUse.sh")); err != nil || !strings.Contains(string(synced), "allow-all.sh") || !strings.Contains(string(synced), "block-rm.sh") {
+	if synced, err := os.ReadFile(filepath.Join(dir, ".clinerules", "hooks", "PreToolUse")); err != nil || !strings.Contains(string(synced), "allow-all.sh") || !strings.Contains(string(synced), "block-rm.sh") {
 		t.Fatalf("sync joins both specs in one script: %v\n%s", err, synced)
 	}
 	reason := "Cline runs this hook in one script with allow-all, which can change its result"
@@ -272,6 +270,6 @@ func TestHookRun_ClineCountsASpecAloneInItsScript(t *testing.T) {
 
 	out, err := runHookRun(t, "block-rm", "--target", "cline", "--bash", "rm -rf /", "--expect", "block", "--include-assumed")
 	if err != nil || strings.Contains(out, "not counted") || !strings.Contains(out, "1 checked, 1 assumed (counted)") {
-		t.Errorf("specs that sync keeps out of PreToolUse.sh must not uncount it: %v\n%s", err, out)
+		t.Errorf("specs that sync keeps out of the PreToolUse script must not uncount it: %v\n%s", err, out)
 	}
 }

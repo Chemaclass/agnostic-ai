@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- `init --demo` seeds a `no-force-push` guard for Claude Code and Codex in place of a format hook that did nothing; `--force-with-lease` passes (#1732).
 - `import` turns a password or credential query parameter in an MCP `url` or URL argument into a `${NAME}` reference, or leaves the server out (#1736).
 - `import` catches more MCP credential shapes, such as `--token X` and bare tokens; `import --global` leaves out any server with a literal credential (#1742).
 - `lint` warns with LINT031 when a spec still has the `TODO` description that `new` writes (#1739).
@@ -19,10 +20,13 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Cline
 
+- A hook command that exits 2 now blocks on Cline: the synced script prints a `{"cancel": true}` reply with its stderr (#1722).
+- Hooks sync to `.clinerules/hooks/<Event>`, an executable with a bash shebang and no extension, so the VS Code extension runs them too; old `.cline/hooks/<Event>.sh` files are removed (#1723).
 - `hook run` runs Cline hook scripts with bash as the Cline CLI does; only stdout `{"cancel": true}` blocks, and the exit code is ignored (#1678).
 
 #### Codex
 
+- A hook `commandWindows` keeps the project root path, so a script under the project runs from any subdirectory (#1732).
 - A grouped or anchored hook matcher such as `^(Bash|exec)$` no longer gets a false "does not match" note, and specs sharing a command merge into a valid matcher (#1743).
 
 #### Kiro

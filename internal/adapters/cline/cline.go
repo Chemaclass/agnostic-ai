@@ -97,8 +97,10 @@
 // `.clinerules/`); the SKILL.md frontmatter carries `name` +
 // `description` and sibling assets copy byte-for-byte.
 //
-// Hooks emit as one executable script per event under `.cline/hooks/`,
-// named after the event. Cline discovers a hook by file name and
+// Hooks emit as one extensionless executable script per event under
+// `.clinerules/hooks/`, named after the event, the one layout both the
+// VS Code extension and the SDK runtime run (see defaultHooksDir).
+// Cline discovers a hook by file name and
 // nothing else: `HookConfigFileName` declares ten names
 // (sdk/packages/core/src/hooks/hook-file-config.ts:17), an extension
 // allowlist gates the file (L49), and `listHookConfigFiles` (L81) scans
@@ -201,7 +203,7 @@ func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 // use is swept unless the user explicitly opted into it via
 // outputs.cline.rules-dir; Cline reads both layouts, so leaving one
 // behind would load the rules twice. Hooks emit as one executable script per
-// event under the hooks directory (default `.cline/hooks`), named
+// event under the hooks directory (default `.clinerules/hooks`), named
 // after the event, which is how Cline discovers them. When
 // `outputs.cline.workflows-dir` is set, each agent additionally emits
 // as a Markdown file at `<dir>/<name>.md` in the shape this adapter

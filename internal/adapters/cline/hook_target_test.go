@@ -40,6 +40,6 @@ func assertContainsAll(t *testing.T, got string, want ...string) {
 // Cline runs each generated event script with bash on every platform.
 func TestEmit_HookScriptExportsTheTarget(t *testing.T) {
 	emitTargetHooks(t, &config.Config{}, spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"event": "PreToolUse", "command": "guard.sh"}})
-	got := readTargetFile(t, ".cline/hooks/PreToolUse.sh")
-	assertContainsAll(t, got, "set -e\nexport AGNOSTIC_AI_TARGET=cline\n\nguard.sh\n")
+	got := readTargetFile(t, ".clinerules/hooks/PreToolUse")
+	assertContainsAll(t, got, "set -e\nexport AGNOSTIC_AI_TARGET=cline\n", "\n(\nset -e\nguard.sh\n)")
 }

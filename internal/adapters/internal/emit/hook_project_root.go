@@ -99,7 +99,18 @@ func rootVariableRune(char byte) bool {
 	return char >= 'a' && char <= 'z' || char >= 'A' && char <= 'Z' || char >= '0' && char <= '9' || char == '_'
 }
 
+// posixRootEscape and powershellRootEscape keep a project path literal
+// inside a double-quoted string of the shell that runs the hook.
+var (
+	posixRootEscape      = strings.NewReplacer("\\", "\\\\", "$", "\\$", "`", "\\`", "\"", "\\\"")
+	powershellRootEscape = strings.NewReplacer("`", "``", "$", "`$", "\"", "`\"")
+)
+
 func projectHookRoot() string {
+	return projectHookRootEscaped(posixRootEscape)
+}
+
+func projectHookRootEscaped(escape *strings.Replacer) string {
 	project, err := os.Getwd()
 	if err != nil {
 		return ""
@@ -113,7 +124,6 @@ func projectHookRoot() string {
 			if prefix == "." {
 				return gitHookRoot
 			}
-			escape := strings.NewReplacer("\\", "\\\\", "$", "\\$", "`", "\\`", "\"", "\\\"")
 			return gitHookRoot + "/" + escape.Replace(filepath.ToSlash(prefix))
 		}
 		if filepath.Dir(root) == root {
@@ -169,7 +179,8 @@ func ReportHookProjectRoot(target string, hooks []spec.Entry, mode string, globa
 		for _, meta := range metadata {
 			if windows, _ := meta["commandWindows"].(string); windows != "" {
 				refs, reason := hookRootReferences(windows)
-				if len(refs) > 0 || reason != "" {
+				translated := target == "codex" && !global && reason == "" && root != ""
+				if !translated && (len(refs) > 0 || reason != "") {
 					if err := reportHookRoot(target, hook, mode, "commandWindows", "Windows root references require a target-specific project root"); err != nil {
 						return err
 					}
@@ -243,6 +254,13 @@ func RewriteHookRoot(command, target string, metadata ...map[string]any) string 
 		return command
 	}
 	return RewriteHookProjectRoot(command, target, projectHookRoot(), StringSlice(meta["args"]))
+}
+
+// RewriteWindowsHookRoot translates root references in Codex's
+// commandWindows, which PowerShell runs. `$(...)` is a subexpression there
+// too, so the root resolves as in the POSIX command.
+func RewriteWindowsHookRoot(command, target string) string {
+	return RewriteHookProjectRoot(command, target, projectHookRootEscaped(powershellRootEscape), nil)
 }
 
 func RewriteGlobalHookRoot(command, target string, metadata ...map[string]any) string {

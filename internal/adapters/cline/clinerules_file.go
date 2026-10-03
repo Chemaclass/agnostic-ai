@@ -26,7 +26,7 @@ import (
 func replaceClinerulesFile(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	path := defaultRulesDir
 	info, err := os.Lstat(path)
-	if err != nil || !info.Mode().IsRegular() || !writesUnderClinerules(cfg) || sess.IsUnmanaged(path) {
+	if err != nil || !info.Mode().IsRegular() || !writesUnderClinerules(cfg, len(b.Hooks) > 0) || sess.IsUnmanaged(path) {
 		return nil
 	}
 	data, err := os.ReadFile(path)
@@ -41,14 +41,17 @@ func replaceClinerulesFile(sess *emit.Session, b spec.Bundle, cfg *config.Config
 }
 
 // writesUnderClinerules reports whether any output directory resolves
-// to `.clinerules` or below it.
-func writesUnderClinerules(cfg *config.Config) bool {
+// to `.clinerules` or below it. The hooks directory counts only when
+// there are hooks to write.
+func writesUnderClinerules(cfg *config.Config, hooks bool) bool {
 	dirs := []string{
 		emit.OutputRulesDir(cfg, target, defaultRulesDir),
 		emit.OutputAgentsDir(cfg, target, defaultAgentsDir),
 		emit.OutputSkillsDir(cfg, target, defaultSkillsDir),
-		emit.OutputHooksDir(cfg, target, defaultHooksDir),
 		emit.OutputWorkflowsDir(cfg, target, ""),
+	}
+	if hooks {
+		dirs = append(dirs, emit.OutputHooksDir(cfg, target, defaultHooksDir))
 	}
 	for _, d := range dirs {
 		d = filepath.ToSlash(filepath.Clean(d))

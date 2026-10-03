@@ -276,7 +276,7 @@
 
   [[targets.kinds]]
     id = "hook"
-    paths = [".cline/hooks/PreToolUse.sh"]
+    paths = [".clinerules/hooks/PreToolUse"]
 
   [[targets.kinds]]
     id = "mcp"

@@ -19,10 +19,11 @@ import (
 const defaultBaseDir = ".agnostic-ai"
 
 // demoFS holds the example specs `init --demo` seeds: one minimal sample
-// per source kind, plus the memory-curator skill. A fresh project can run
-// `sync` immediately and see what each adapter produces.
+// per source kind, plus the memory-curator skill and the script the demo
+// hook runs. A fresh project can run `sync` immediately and see what each
+// adapter produces.
 //
-//go:embed initdata/agents/* initdata/skills/* initdata/rules/* initdata/hooks/* initdata/mcps/*
+//go:embed initdata/agents/* initdata/skills/* initdata/rules/* initdata/hooks/* initdata/mcps/* initdata/scripts/*
 var demoFS embed.FS
 
 func newInitCmd() *cobra.Command {
