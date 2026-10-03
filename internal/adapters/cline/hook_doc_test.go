@@ -17,7 +17,7 @@ func TestHookScript_IsTheEventScriptSyncWritesForOneSpec(t *testing.T) {
 	if got != "set -e\nexport AGNOSTIC_AI_TARGET=cline\n\n./a.sh\n\n./b.sh\n" {
 		t.Errorf("HookScript = %q", got)
 	}
-	if synced := readTargetFile(t, ".cline/hooks/PreToolUse.sh"); !strings.HasSuffix(synced, got) {
+	if synced := readTargetFile(t, ".clinerules/hooks/PreToolUse"); !strings.HasSuffix(synced, got) {
 		t.Errorf("the synced script ends with a different body:\n%s", synced)
 	}
 	if HookScript(spec.Entry{Meta: map[string]any{"event": "PreToolUse"}}) != "" {
@@ -26,11 +26,11 @@ func TestHookScript_IsTheEventScriptSyncWritesForOneSpec(t *testing.T) {
 }
 
 func TestHookScriptPath_FoldsTheEventAndFollowsHooksDir(t *testing.T) {
-	if got := HookScriptPath(&config.Config{}, "pretooluse"); got != filepath.Join(".cline", "hooks", "PreToolUse.sh") {
+	if got := HookScriptPath(&config.Config{}, "pretooluse"); got != filepath.Join(".clinerules", "hooks", "PreToolUse") {
 		t.Errorf("default path = %q", got)
 	}
-	cfg := &config.Config{Outputs: map[string]config.Output{"cline": {HooksDir: ".clinerules/hooks"}}}
-	if got := HookScriptPath(cfg, "PostToolUse"); got != filepath.Join(".clinerules/hooks", "PostToolUse.sh") {
+	cfg := &config.Config{Outputs: map[string]config.Output{"cline": {HooksDir: ".cline/hooks"}}}
+	if got := HookScriptPath(cfg, "PostToolUse"); got != filepath.Join(".cline/hooks", "PostToolUse") {
 		t.Errorf("hooks-dir path = %q", got)
 	}
 	if got := HookScriptPath(&config.Config{}, "Stop"); got != "" {

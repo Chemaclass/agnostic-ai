@@ -9,26 +9,33 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// defaultHooksDir is where hook scripts land. `resolveHooksConfigSearchPaths`
-// (sdk/packages/shared/src/storage/paths.ts:487-500) pushes both
-// `<workspace>/.clinerules/hooks` and `<workspace>/.cline/hooks`, so
-// either works. `.cline/hooks` is the default: it is the one
-// `docs.cline.bot/getting-started/config` shows in the project tree, it
-// sits beside `.cline/agents` and `.cline/skills`, and it is where
-// `emit.RewriteHookPath` and `emit.MaterializeHookScript` already put a
-// hook body carried over from a sibling tool. Override with
+// defaultHooksDir is where hook scripts land. Cline has two hook
+// runtimes. The VS Code extension runs only `.clinerules/hooks/<Event>`,
+// an executable file with no extension, through `/bin/sh` and so its
+// shebang (apps/vscode/src/core/hooks/hook-factory.ts:1022-1033,
+// HookProcess.ts:70-77). The SDK runtime the Cline CLI runs scans
+// `.clinerules/hooks` and `.cline/hooks` for any `<Event>` file with an
+// allowed extension, "" included (hook-file-config.ts:49-117), and runs
+// all of them. One extensionless file in `.clinerules/hooks` is the only
+// layout both runtimes run, and run once. Override with
 // `outputs.cline.hooks-dir`.
-const defaultHooksDir = ".cline/hooks"
+const defaultHooksDir = ".clinerules/hooks"
 
-// hookFileExt is the extension every emitted hook script carries.
-// `SUPPORTED_HOOK_FILE_EXTENSIONS` (hook-file-config.ts:49) accepts
-// "", .sh, .bash, .zsh, .js, .mjs, .cjs, .ts, .mts, .cts, .py and .ps1.
-// `.sh` is the one where `inferHookCommand` runs the file as
-// `["bash", path]` without needing a shebang, which matters because the
-// provenance comment has to be the first line for sync to recognize the
-// file as managed. A shebang above it would push the marker down; a
-// shebang below it would not be a shebang.
-const hookFileExt = ".sh"
+// hookShebang is the event script's first line. The extension execs the
+// file, and the SDK reads the shebang to pick bash (hook-file-hooks.ts:
+// 290-354), so both run the commands under bash, as the SDK ran the
+// `.sh` scripts sync wrote before. The provenance comment sits on the
+// line below it, where header.Leads looks.
+const hookShebang = "#!/usr/bin/env bash\n"
+
+// legacyHooksDir and legacyHookExt are where releases before #1723 wrote
+// each event script. The SDK runtime would run a leftover beside the new
+// script, so a managed one is swept even when no ledger lists it, as in
+// a fresh clone.
+const (
+	legacyHooksDir = ".cline/hooks"
+	legacyHookExt  = ".sh"
+)
 
 // clineHookEvents lists the ten file names Cline discovers, in the order
 // `HookConfigFileName` declares them (hook-file-config.ts:17-28).
@@ -79,6 +86,11 @@ var clineInertHookEvents = map[string]bool{"PreCompact": true}
 // `.cline/hooks/` as well, so a hook imported from claude or codex still
 // has its script on disk when it syncs out to cline.
 func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRun bool) error {
+	for _, event := range clineHookEvents {
+		if err := sess.RemoveGenerated(filepath.Join(legacyHooksDir, event+legacyHookExt), dryRun); err != nil {
+			return err
+		}
+	}
 	dir := emit.OutputHooksDir(cfg, target, defaultHooksDir)
 	commands := map[string][]string{}
 	var order []string
@@ -124,8 +136,8 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 		"PreCompact is a file name Cline lists but maps to no runtime event today, so the script is discovered and never run")
 
 	for _, event := range order {
-		path := filepath.Join(dir, event+hookFileExt)
-		body := emit.WithHeader(hookScript(commands[event]), emit.FormatShell)
+		path := filepath.Join(dir, event)
+		body := hookShebang + emit.WithHeader(hookScript(commands[event]), emit.FormatShell)
 		if err := sess.WriteExecutableFile(path, body, dryRun); err != nil {
 			return err
 		}
@@ -165,10 +177,10 @@ func hookScript(commands []string) string {
 // materializes when the same hook syncs out to cline. A command that is
 // a free-form shell expression carries no stashed body and skips.
 //
-// The copies sit beside the event scripts and are invisible to Cline's
-// own discovery: `toHookConfigFileName` returns undefined for any stem
-// that is not one of the ten event names, so a helper script is never
-// mistaken for an event.
+// The copies are invisible to Cline's own discovery:
+// `toHookConfigFileName` returns undefined for any stem that is not one
+// of the ten event names, so a helper script is never mistaken for an
+// event.
 func materializeHookScripts(sess *emit.Session, hooks []spec.Entry, dryRun bool) error {
 	if err := sess.MaterializeNeutralHookScripts(hooks, target, emit.HookScriptsDir(target), dryRun); err != nil {
 		return err

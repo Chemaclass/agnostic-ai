@@ -28,7 +28,7 @@ func TestNeutralHookScripts_EveryHookTargetCopiesAndReferencesSharedScript(t *te
 		{"copilot", "PreToolUse", ".github/hooks/agnostic-ai.json", ".github/hooks/scripts"},
 		{"augment", "PreToolUse", ".augment/settings.json", ".augment/hooks"},
 		{"crush", "PreToolUse", "crush.json", ".crush/hooks"},
-		{"cline", "PreToolUse", ".cline/hooks/PreToolUse.sh", ".cline/hooks/scripts"},
+		{"cline", "PreToolUse", ".clinerules/hooks/PreToolUse", ".cline/hooks/scripts"},
 		{"kiro", "fileEdited", ".kiro/hooks/guard.json", ".kiro/scripts"},
 		{"opencode", "PreToolUse", ".opencode/plugins/guard.ts", ".opencode/hooks"},
 		{"kilo", "PreToolUse", ".kilo/plugin/guard.ts", ".kilo/hooks"},

@@ -14,12 +14,12 @@ import (
 // Source: cline/cline 39ff2359f7e08231281539696e48a166ce49270c, the SDK
 // file-hook runtime the Cline CLI and other SDK hosts run
 // (sdk/packages/core/src/hooks). The VS Code extension turns it off
-// (apps/vscode/src/sdk/vscode-session-host.ts:171-178) and runs only
-// extensionless executables under .clinerules/hooks
-// (apps/vscode/src/core/hooks/hook-factory.ts:1022-1033), so it never runs
-// the .cline/hooks/<Event>.sh scripts sync writes. Read from that source:
-//   - launch: a .sh script with no shebang runs as `bash <file>`, with no
-//     shell parsing of the path (hook-file-hooks.ts:356-368,
+// (apps/vscode/src/sdk/vscode-session-host.ts:171-178) and execs the same
+// extensionless .clinerules/hooks/<Event> script sync writes
+// (apps/vscode/src/core/hooks/hook-factory.ts:1022-1033). Read from the
+// SDK source:
+//   - launch: the script's `#!/usr/bin/env bash` runs it as
+//     `bash <file>`, with no shell parsing of the path (hook-file-hooks.ts:290-368,
 //     subprocess-runner.ts:193-201), in the process env.
 //   - stdin payload: the event as JSON (subprocess-runner.ts:358): the
 //     base fields (hook-file-hooks.ts:234-254) plus tool_call (:842-869),

@@ -16,7 +16,7 @@ func HookScriptPath(cfg *config.Config, event string) string {
 	if !ok {
 		return ""
 	}
-	return filepath.Join(emit.OutputHooksDir(cfg, target, defaultHooksDir), canonical+hookFileExt)
+	return filepath.Join(emit.OutputHooksDir(cfg, target, defaultHooksDir), canonical)
 }
 
 // HookScript renders the event script sync writes for h alone, without
