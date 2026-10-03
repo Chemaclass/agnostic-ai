@@ -192,10 +192,11 @@ func EntryPointRuleInliner(cfg *config.Config, target string) string {
 	return ""
 }
 
-// Kiro steering files remain for native disabled-inheritance workflows.
+// EntryPointInlinedRules returns the rules, by name, that the entry
+// point target reads carries in its inlined rules block, or nil.
 func EntryPointInlinedRules(cfg *config.Config, b spec.Bundle, target string) map[string]spec.Entry {
 	inliner := EntryPointRuleInliner(cfg, target)
-	if inliner == "" || target == "kiro" && kiroAgentListsResources(b) {
+	if inliner == "" {
 		return nil
 	}
 	rules := map[string]spec.Entry{}
@@ -203,15 +204,6 @@ func EntryPointInlinedRules(cfg *config.Config, b spec.Bundle, target string) ma
 		rules[r.Name] = r
 	}
 	return rules
-}
-
-func kiroAgentListsResources(b spec.Bundle) bool {
-	for _, a := range b.For("kiro").Agents {
-		if _, ok := ResolveMeta(a.Meta, "kiro")["resources"]; ok {
-			return true
-		}
-	}
-	return false
 }
 
 // importRulesDir maps each target whose CLI auto-loads its entry-point

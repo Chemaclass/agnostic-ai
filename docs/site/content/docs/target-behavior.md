@@ -42,7 +42,6 @@ To avoid loading a rule twice, `sync` skips a rule file whose text (body and des
 {% <details summary="When sync keeps every rule file"> %}
 - Trae reads `AGENTS.md` only after you turn on **Include AGENTS.md in the context** under Settings > Rules.
 - Windsurf (Devin) keeps rule files for legacy Cascade compatibility. [Cascade](https://docs.devin.ai/desktop/cascade/memories#rules) caps each workspace rule file at 12,000 characters and processes `AGENTS.md` through the same Rules engine.
-- Kiro, when any agent spec sets `x-kiro.resources`: sync keeps steering files for users who enable the native `chat.disableInheritingDefaultResources` opt-out. Custom agents inherit default resources alongside their list by default, so that case can load both copies.
 - A target whose `outputs.<target>.file` moves its entry point off the root `AGENTS.md`.
 - Any target, when `AGENTS.md` is under `sync.unmanaged`. Sync then stops writing `AGENTS.md`, so codex and every other reader stop getting rule changes there.
 

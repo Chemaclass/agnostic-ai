@@ -187,6 +187,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "An MCP spec's `url` or an `args` element holds a reference form only one tool reads, such as Cursor's `${env:NAME}`, OpenCode's `{env:NAME}`, or Continue's `${{ secrets.NAME }}`. Sync copies it as text, so each enabled tool that does not read that form gets the literal. Only the field sync writes for the transport is checked: `args` for stdio, `url` for a remote server. Older imports wrote these.",
 		Fix:      "Write `${NAME}` so sync writes each tool's own form, or move the value under `x-<target>:` for the one tool that reads it.",
 	},
+	"LINT029": {
+		Severity: lintWarn,
+		Title:    "Kiro agent resources without AGENTS.md",
+		Cause:    "A Kiro agent sets `x-kiro.resources` without `file://AGENTS.md`, and the always-on rules reach Kiro only through the `## Rules` block of `AGENTS.md`. Custom agents inherit `AGENTS.md` by default, but with Kiro's `chat.disableInheritingDefaultResources` setting on, that agent loads none of those rules.",
+		Fix:      "Add `file://AGENTS.md` to the agent's `x-kiro.resources`, or ignore the warning if the setting stays off.",
+	},
 }
 
 type explainLintCodeOutput struct {
