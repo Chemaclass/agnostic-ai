@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- `hook run --edit` lists Trae, OpenHands, and Cursor as not run with their reason and runs the other targets; a run where no target can build the input fails naming each reason (#1694).
 - `hook run` runs Cursor hooks on an assumed shell and timeout, marked and not counted unless `--include-assumed` (#1566).
 - `hook run` on Cursor runs hooks with exec-form `args`, matches `--payload` subagent and fixed-name events, blocks a permission reply with a wrongly typed field, and leaves `sessionStart` and `sessionEnd` unjudged (#1566).
 - `sync`, `sync --check`, `doctor`, and `revert` with `--json` write file paths with `/` on Windows too (#1680).
