@@ -108,6 +108,9 @@ func newNewCmd() *cobra.Command {
 			}
 			summaryf("wrote %s\n", path)
 			summaryf("→ edit it, then run `agnostic-ai render %s --target <name>` to preview, or `agnostic-ai sync` to fan out.\n", path)
+			if kind == string(spec.KindMCP) {
+				summaryf("→ real servers to copy: https://agnostic-ai.org/docs/spec-format/mcp-recipes/\n")
+			}
 			return nil
 		},
 	}

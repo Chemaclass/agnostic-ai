@@ -29,6 +29,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Site
 
+- An MCP recipes page gives specs for GitHub, Context7, Playwright, and filesystem servers; `new mcp` links to it (#1741).
 - The Spec packs page uses real pack repos in its examples and lists three public repos that install as packs (#1740).
 - The Why page notes that betagouv/agnostic-ai is a separate project with the same name (#1737).
 
