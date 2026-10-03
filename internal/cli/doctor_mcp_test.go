@@ -121,3 +121,20 @@ func TestDoctorMCP_ChecksDisabledServers(t *testing.T) {
 		t.Errorf("expected a disabled server to be checked:\n%s", got)
 	}
 }
+
+func TestDoctor_ChecksMCPEnvRefsForTheSelectedTarget(t *testing.T) {
+	dir := t.TempDir()
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "local.yaml"),
+		"name: local\ncommand: sh\nx-factory:\n  env:\n    KEY: ${AA_TEST_FACTORY_KEY}\n")
+	testutil.Chdir(t, dir)
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"doctor", "--target", "factory"})
+	out := &bytes.Buffer{}
+	root.SetOut(out)
+	root.SetErr(&bytes.Buffer{})
+	_ = root.Execute()
+	if got := out.String(); !strings.Contains(got, "✗ local reads AA_TEST_FACTORY_KEY,") {
+		t.Errorf("expected the selected target's reference to be checked:\n%s", got)
+	}
+}

@@ -76,16 +76,20 @@ func installHint(command string) string {
 }
 
 // reportMCPUnsetEnvRefs lists each `${NAME}` an MCP server reads that
-// is unset in this shell, for the configured targets the server emits
-// to. Disabled servers count too: several targets cannot write
-// `disabled` and start the server anyway. Most tools pass the unexpanded text or an empty value
-// to the server, and Factory fails the connection. A reference with a
-// default is skipped. The tool may run with a different environment than
-// this shell, so the check is advisory and prints names, never values.
-func reportMCPUnsetEnvRefs(cmd *cobra.Command) {
+// is unset in this shell, for each target in targets (default: the
+// configured ones) the server emits to. Disabled servers count too:
+// several targets cannot write `disabled` and start the server anyway.
+// Most tools pass the unexpanded text or an empty value to the server,
+// and Factory fails the connection. A reference with a default is
+// skipped. The tool may run with a different environment than this
+// shell, so the check is advisory and prints names, never values.
+func reportMCPUnsetEnvRefs(cmd *cobra.Command, targets []string) {
 	cfg, b, err := loadProject(".")
 	if err != nil {
 		return
+	}
+	if len(targets) == 0 {
+		targets = cfg.Targets
 	}
 	type result struct {
 		name  string
@@ -94,7 +98,7 @@ func reportMCPUnsetEnvRefs(cmd *cobra.Command) {
 	var results []result
 	for _, e := range b.MCPs {
 		var names []string
-		for _, target := range cfg.Targets {
+		for _, target := range targets {
 			if e.EmitsTo(target) {
 				names = append(names, mcpEnvRefNames(e.Meta, target)...)
 			}
