@@ -19,6 +19,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - `hook run` runs Cline hook scripts with bash as the Cline CLI does; only stdout `{"cancel": true}` blocks, and the exit code is ignored (#1678).
 
+#### Codex
+
+- A grouped or anchored hook matcher such as `^(Bash|exec)$` no longer gets a false "does not match" note, and specs sharing a command merge into a valid matcher (#1743).
+
 #### Kiro
 
 - `hook run` runs Kiro hooks on an assumed shell; `--bash` and `--edit` are refused, since Kiro documents no tool input for them (#1566).
