@@ -6,6 +6,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+## v0.78.0 - 2026-10-03
+
 ### General
 
 - `hook run` adds Crush, Cursor, Copilot, Factory, Qoder, and Antigravity; assumed results count only with `--include-assumed` (#1566, #1678, #1694).
