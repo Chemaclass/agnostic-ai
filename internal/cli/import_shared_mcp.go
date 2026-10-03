@@ -179,8 +179,9 @@ func (v *mcpURLValue) set(i int, text string) {
 
 func (v *mcpURLValue) String() string { return strings.Join(v.pieces, "") }
 
-// mcpCredentialParams are the words of a query parameter name that make
-// import treat it as a credential.
+// mcpCredentialParams are the last words of a query parameter name that
+// make import treat it as a credential, so `api_key` counts and
+// `key_id` does not.
 var mcpCredentialParams = map[string]bool{
 	"token": true, "key": true, "secret": true, "password": true, "passwd": true, "pwd": true,
 	"apikey": true, "accesstoken": true, "authtoken": true,
@@ -190,12 +191,8 @@ func mcpCredentialParam(name string) bool {
 	if unescaped, err := url.QueryUnescape(name); err == nil {
 		name = unescaped
 	}
-	for _, word := range mcpNameWords(name) {
-		if mcpCredentialParams[word] {
-			return true
-		}
-	}
-	return false
+	words := mcpNameWords(name)
+	return len(words) > 0 && mcpCredentialParams[words[len(words)-1]]
 }
 
 // mcpNameWords splits a name into lower-case words at punctuation and at
@@ -239,7 +236,7 @@ type mcpCredentialSpan struct {
 
 var (
 	mcpSchemePattern     = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.\-]*://`)
-	mcpQueryParamPattern = regexp.MustCompile(`[?&]([^=&?#\s'"]+)=([^&?#\s]*)`)
+	mcpQueryParamPattern = regexp.MustCompile(`[?&;]([^=&;?#\s'"]+)=([^&;?#\s]*)`)
 	mcpRefDefaultPattern = regexp.MustCompile(`\$?\$\{[A-Za-z_][A-Za-z0-9_]*:-([^{}]*)\}`)
 	mcpPlainRefPattern   = regexp.MustCompile(`\$?\$\{[A-Za-z_][A-Za-z0-9_]*\}`)
 )
@@ -307,7 +304,11 @@ func mcpURLCredentialIn(text string) bool {
 		authority := rest[:indexAnyOrLen(rest, "/?#")]
 		at := strings.LastIndex(authority, "@")
 		if at < 0 {
-			if _, port, ok := strings.Cut(authority, ":"); !ok || port != "" && strings.Trim(port, "0123456789"+mcpRefSentinel) == "" {
+			hostPort := authority
+			if strings.HasPrefix(hostPort, "[") {
+				hostPort = hostPort[indexAnyOrLen(hostPort, "]"):]
+			}
+			if _, port, ok := strings.Cut(hostPort, ":"); !ok || port != "" && strings.Trim(port, "0123456789"+mcpRefSentinel) == "" {
 				continue
 			}
 			if at = strings.Index(rest, "@"); at < 0 {
@@ -367,7 +368,7 @@ func mcpURLCredentialSpans(word, mask string) ([]mcpCredentialSpan, bool) {
 	end := pos + indexAnyOrLen(mask[pos:], "#")
 	if q := strings.Index(mask[pos:end], "?"); q >= 0 {
 		for start := pos + q + 1; start <= end; {
-			stop := start + indexAnyOrLen(mask[start:end], "&")
+			stop := start + indexAnyOrLen(mask[start:end], "&;")
 			if eq := strings.Index(mask[start:stop], "="); eq >= 0 {
 				if name := word[start : start+eq]; mcpCredentialParam(name) && mcpCredentialValue(word[start+eq+1:stop]) {
 					spans = append(spans, mcpCredentialSpan{name, start + eq + 1, stop})

@@ -461,6 +461,8 @@ func TestImportMCP_URLWithoutCredentialImportsUnchanged(t *testing.T) {
 		"curl https://example.com/a b@c",
 		"curl https://x.example:8443/a b@c",
 		"postgresql://${DB_USER:-admin}:${DB_PASSWORD}@db/app",
+		"http://[::1]:8080/@org/mcp",
+		"https://x.example/mcp?token_type=bearer&key_id=5&tokenId=3",
 	}
 	specs, out := importMCPServers(t, "claude", map[string]any{
 		"sh":  map[string]any{"command": "sh", "args": args},
@@ -589,5 +591,17 @@ func TestImportGlobal_CursorURLArgsRefsRoundTrip(t *testing.T) {
 	}
 	if got := readGlobalTest(t, cursorPath); got != want {
 		t.Errorf("mcp.json changed after import:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestImportMCP_URLSemicolonQuerySeparatorCredential(t *testing.T) {
+	specs, out := importMCPServers(t, "claude", map[string]any{
+		"api": map[string]any{"url": "https://x.example/mcp?a=1;token=T0KEN"},
+	})
+	if strings.Contains(specs["api"], "T0KEN") || strings.Contains(out, "T0KEN") {
+		t.Fatalf("a credential after a ; separator reaches the spec or output:\n%s\n%s", specs["api"], out)
+	}
+	if !strings.Contains(specs["api"], "url: https://x.example/mcp?a=1;token=${API_TOKEN}") {
+		t.Errorf("spec api lacks the reference:\n%s", specs["api"])
 	}
 }
