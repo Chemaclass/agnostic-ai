@@ -59,16 +59,6 @@ agnostic-ai explain --file services/payments/handler.go --target cursor
 |------|-------------|
 | `--file <path>` | Project file to inspect. The file does not have to exist. Cannot be combined with a spec or error code argument. |
 | `--target <name>` | Required with `--file`. Must be a configured target. Other targets fail with an unsupported-target error. |
-| `--inputs` | List every file and directory whose change can change a generated output, one per line (`--json` for an array). Paths are relative to the repository root, like a hook manager's glob. Takes no spec. See [git hooks](@/docs/git-hooks.md#check-staged-files) and the list below. |
-
-`--inputs` lists:
-
-- the config files
-- `.agnostic-ai/**`
-- source directories outside `.agnostic-ai/`
-- files that reviews inline with `@path` (and the entry point's, with `sync.resolve-imports: inline`)
-- `agnostic.packs.lock`
-- `.gitignore`
 
 | Status | Meaning |
 |--------|---------|
@@ -87,6 +77,21 @@ A root `AGENTS.md` written for a peer target such as Codex reaches Cursor too. T
 {"version": "1", "command": "explain", "file": "...", "target": "cursor", "note": "...",
  "instructions": [{"status": "match", "source": "...", "output": "...", "selector": "...", "reason": "..."}]}
 ```
+
+### List generator inputs
+
+```bash
+agnostic-ai explain --inputs
+```
+
+`--inputs` is its own mode. It lists every file and directory whose change can change a generated output, one per line (`--json` for an array). Paths are relative to the repository root, like a hook manager's glob. It takes no spec and no `--file`. See [git hooks](@/docs/git-hooks.md#check-staged-files). It lists:
+
+- the config files
+- `.agnostic-ai/**`
+- source directories outside `.agnostic-ai/`
+- files that reviews inline with `@path` (and the entry point's, with `sync.resolve-imports: inline`)
+- `agnostic.packs.lock`
+- `.gitignore`
 
 ## compare
 

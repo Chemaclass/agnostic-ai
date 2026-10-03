@@ -648,7 +648,7 @@ targets: [claude, codex, cursor]
 Run `agnostic-ai list --global` to see effective specs with their `global` or `global-local` layer. Run `validate --global` and `lint --global` to check before a sync writes. Global layers never merge with project specs. [Local overrides](@/docs/local-overrides.md) compares this layer with the project one.
 
 - Accepted `sync` flags are in the [CLI reference](@/docs/cli-reference/sync.md#sync).
-- Nested rules, rules with scope, path, glob, or target conditions, commands, settings `permissions`, inheritance, and merging with project specs are unsupported.
+- Nested rules, rules with scope, path, glob, or target conditions, commands, settings `permissions` rule lists (only `permissions.default-mode` is written), inheritance, and merging with project specs are unsupported.
 - Skills render native frontmatter and copy bundled assets verbatim. Claude resolves skill `model` and `effort`, including per-target maps and `x-claude` overrides. Shared directories such as `~/.agents/skills/` keep neutral frontmatter.
 - Codex skills also get `agents/openai.yaml`, so `disable-model-invocation: true` keeps a skill manual-only there. Targets whose copy stays model-invocable print a coverage note.
 - Hooks and skills honor `target`, `targets`, and `targets-exclude`. Set hook events per target; sync does not translate event names.
