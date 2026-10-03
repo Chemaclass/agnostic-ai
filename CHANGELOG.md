@@ -110,6 +110,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - Agents and skills are written back where they live, such as `.github/agents/<name>.md` or `.agents/skills/`, instead of as duplicates.
 - A rule's `description` goes to `.instructions.md` frontmatter, and a rule with `alwaysApply: false` and no globs stays on demand.
+- A hook with `cwd` gets its script path in `command` or `args` written relative to that directory, so it no longer fails to start; import restores the repository-relative path (#1699).
 
 #### Gemini CLI
 
