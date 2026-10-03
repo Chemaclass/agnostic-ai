@@ -92,12 +92,9 @@ func reportMCPUnsetEnvRefs(cmd *cobra.Command) {
 	}
 	var results []result
 	for _, e := range b.MCPs {
-		if disabled, _ := e.Meta["disabled"].(bool); disabled {
-			continue
-		}
 		var names []string
 		for _, target := range cfg.Targets {
-			if e.EmitsTo(target) {
+			if e.EmitsTo(target) && !mcpDisabledFor(e.Meta, target) {
 				names = append(names, mcpEnvRefNames(e.Meta, target)...)
 			}
 		}
@@ -126,6 +123,18 @@ func reportMCPUnsetEnvRefs(cmd *cobra.Command) {
 		}
 		cmd.Printf("  ✗ %s reads %s, unset in this shell. Export it before starting the tool.\n", r.name, strings.Join(r.unset, ", "))
 	}
+}
+
+// mcpDisabledFor reports whether the server is off for target, where
+// an `x-<target>` `disabled` wins over the top-level one.
+func mcpDisabledFor(meta map[string]any, target string) bool {
+	if override, ok := meta["x-"+target].(map[string]any); ok {
+		if disabled, ok := override["disabled"].(bool); ok {
+			return disabled
+		}
+	}
+	disabled, _ := meta["disabled"].(bool)
+	return disabled
 }
 
 // mcpEnvRefNames returns the variables a server reads through `${NAME}`

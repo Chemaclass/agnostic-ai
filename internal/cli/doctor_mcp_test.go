@@ -113,3 +113,12 @@ func TestDoctorMCP_IgnoresWhatNoSelectedTargetReads(t *testing.T) {
 		t.Errorf("expected no references block:\n%s", got)
 	}
 }
+
+func TestDoctorMCP_ChecksAServerAnOverrideTurnsOn(t *testing.T) {
+	got := runDoctorMCPFor(t, "factory", map[string]string{
+		"local": "name: local\ncommand: sh\ndisabled: true\nx-factory:\n  disabled: false\nenv:\n  TOKEN: ${AA_TEST_FACTORY_TOKEN}\n",
+	})
+	if !strings.Contains(got, "✗ local reads AA_TEST_FACTORY_TOKEN,") {
+		t.Errorf("expected the server Factory enables to be checked:\n%s", got)
+	}
+}
