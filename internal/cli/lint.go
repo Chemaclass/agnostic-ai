@@ -185,6 +185,7 @@ func lintScopeReport(scope checkScope) ([]lintFinding, int, error) {
 		}
 		findings = append(findings, protected...)
 		findings = append(findings, lintKiroAgentResources(scope.cfg, scope.targets, scope.bundle)...)
+		findings = append(findings, lintGeminiHookVariables(scope.cfg, scope.targets, scope.bundle)...)
 	}
 	configPath := config.ConfigFileName
 	if scope.global {

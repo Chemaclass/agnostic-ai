@@ -31,6 +31,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Gemini CLI
 
+- `lint` warns (LINT030) when a hook command single-quotes `$GEMINI_PROJECT_DIR` or another variable Gemini replaces, which breaks the quoting (#1697).
 - MCP `headers` keep `${NAME}` references and every field keeps `${NAME:-default}`, since Gemini expands all settings strings (#1668).
 - Project import reads `httpUrl` and SSE `url` MCP servers back with their transport, so sync writes them as before (#1665).
 
