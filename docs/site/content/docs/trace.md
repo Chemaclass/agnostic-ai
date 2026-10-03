@@ -21,9 +21,9 @@ agnostic-ai why <file>
 agnostic-ai why <file> --format json
 ```
 
-`<file>` is relative to the project root. The file does not have to exist yet. Symlinks in the file path and the project root are followed, so a project opened through a link (macOS `/tmp`, a linked checkout) traces the same as its real path. `--format json` returns the same data with stable keys, for editor extensions and CI scripts.
+`<file>` is relative to the project root. The file does not have to exist yet. Symlinks in the file path and the project root are followed, so a project opened through a link (macOS `/tmp`, a linked checkout) traces the same as its real path. `--format json` returns the same data with stable keys for editor extensions and CI scripts.
 
-The [VS Code extension](https://github.com/Chemaclass/agnostic-ai/tree/main/editors/vscode) wraps this. `agnostic-ai: Open canonical source` runs `why --format json` on the open file and opens its source spec. For a merged file, it lists every source to pick from.
+The [VS Code extension](https://github.com/Chemaclass/agnostic-ai/tree/main/editors/vscode) wraps this command. `agnostic-ai: Open canonical source` runs `why --format json` on the open file and opens its source spec. For a merged file, it lists every source to pick from.
 
 ## Example
 

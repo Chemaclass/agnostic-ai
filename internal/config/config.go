@@ -130,6 +130,11 @@ type SyncConfig struct {
 	// a tracked file the manifest lists that no spec produces anymore is a
 	// leftover, with or without a provenance header.
 	OutputManifest bool `yaml:"output-manifest,omitempty" json:"output-manifest,omitempty"`
+	// AllowGlobalNames lists skill and agent names the project shares with
+	// the global home on purpose. sync prints no shared-name warning for
+	// them; doctor still lists each one, marked as allowed. Names match
+	// the way Claude Code folds skill names.
+	AllowGlobalNames []string `yaml:"allow-global-names,omitempty" json:"allow-global-names,omitempty"`
 }
 
 func (c *Config) WithAdditionalTargets(targets ...string) *Config {

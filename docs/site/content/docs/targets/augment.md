@@ -26,7 +26,7 @@ AGENTS.md                     # entry-point pointer body + inlined rules (writte
 .augment-guidelines           # opt-in legacy concatenated rules, only when rules-file is set
 ```
 
-- **Rules**: rule bodies inline into the shared `## Rules` block of `AGENTS.md`, and Augment also loads `.augment/rules/`.
+- **Rules**: rule bodies inline into the shared `## Rules` block of `AGENTS.md`. Augment also loads `.augment/rules/`.
   - An always-applied rule whose text matches the block gets no `.augment/rules/` file. See [target behavior](@/docs/target-behavior.md#entry-point-files).
   - A spec with `alwaysApply: false` gets `type: agent_requested` and a `description` (falling back to the rule name). Rules have no `name` key.
 - **Legacy guidelines**: `outputs.augment.rules-file: .augment-guidelines` also writes the concatenated document. It stays opt-in, because Augment truncates it first under budget pressure.
@@ -37,7 +37,7 @@ AGENTS.md                     # entry-point pointer body + inlined rules (writte
 - **Ignore**: `import augment` restores a hand-authored `.augmentignore`, keeping pattern order and negation.
 
 {% <details summary="Entry point off AGENTS.md"> %}
-A `file` output override can move the entry point off the root `AGENTS.md`, or `AGENTS.md` can be in `sync.unmanaged`, which stops sync writing it, so codex and every other reader miss rule changes there. Either way every rule gets a `.augment/rules/` file, and the default `always_apply` stays implicit.
+A `file` output override can move the entry point off the root `AGENTS.md`. Or `AGENTS.md` can be in `sync.unmanaged`, which stops sync writing it, so codex and every other reader miss rule changes there. Either way every rule gets a `.augment/rules/` file, and the default `always_apply` stays implicit.
 {% </details> %}
 
 ### MCP
@@ -54,7 +54,6 @@ Servers merge into `.augment/settings.json` under `mcpServers`: stdio as `comman
 Hooks merge in under `hooks`, in one write with `mcpServers`. Supported events: `PreToolUse`, `PostToolUse`, `Stop`, `SessionStart`, `SessionEnd` ([hooks docs](https://docs.augmentcode.com/cli/hooks)). [`agnostic-ai hook run`](@/docs/spec-format/hooks.md#hook-run) runs them with Auggie's payload, shell, and timeout before a session does.
 
 - `timeout` is in **milliseconds**: the spec's seconds times 1000 (vendor default 60000).
-
 - `command` must be a script ending in `.sh`, `.ps1`, `.cmd`, or `.bat`, since Augment never runs an inline shell string. Other commands emit verbatim with a coverage note.
 - `matcher` is optional on `PreToolUse`/`PostToolUse` (vendor default `.*`) and omitted on the session events.
 - Matchers use Augment's tool names (`launch-process`, `str-replace-editor`, `save-file`, ...). A Claude-style matcher (`Bash`, `Write`, ...) matches nothing and raises a coverage note.
@@ -75,7 +74,6 @@ These reach nothing, with a coverage note:
 - Path- or URL-scoped rules such as `Read(src/**)`: only `terminal` takes a matcher, and a bare `read` would cover every file.
 
 `x-augment.toolPermissions` writes Augment's rule objects verbatim, ahead of the translated ones. Other `x-augment` keys, such as `shell` or `startupScript`, merge in as written.
-
 
 ## Config keys
 

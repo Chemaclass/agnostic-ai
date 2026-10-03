@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Spec packs
 
-A pack is a versioned directory of specs (agents, skills, rules, hooks, MCPs), published as a Git repo or shared on disk. Use one to reuse conventions across projects instead of copying spec files.
+A pack is a versioned directory of specs (agents, skills, rules, hooks, MCPs), published as a Git repo or shared on disk. Use packs to reuse conventions across projects instead of copying spec files.
 
 ## Install
 
@@ -18,7 +18,7 @@ agnostic-ai packs add github.com/chemaclass/go-rules@v1.2.0
 agnostic-ai packs add ./shared/security-rules
 ```
 
-The pack is fetched into `.agnostic-ai/packs/<name>/` and pinned in `agnostic.packs.lock`. `sync` loads pack specs in a layer below the project layer, so a project spec with the same name wins.
+`packs add` fetches the pack into `.agnostic-ai/packs/<name>/` and pins it in `agnostic.packs.lock`. `sync` loads pack specs in a layer below the project layer, so a project spec with the same name wins.
 
 ## List, update, remove
 
@@ -79,4 +79,4 @@ Layers load in this order:
 packs  →  project  →  project-user
 ```
 
-`project-user` is your ignored [local layer](@/docs/local-overrides.md). A higher layer overrides a lower one by `(kind, name)`. A project rule named `conventional-commits` replaces the pack rule with that name, which is how you adapt a pack convention to one project.
+`project-user` is your ignored [local layer](@/docs/local-overrides.md). A higher layer overrides a lower one by `(kind, name)`. To adapt a pack convention to one project, add a project spec with the same name. A project rule named `conventional-commits` replaces the pack rule with that name.

@@ -21,11 +21,11 @@ CONVENTIONS.md           # pointer body + inlined rules block (written by sync)
 ```
 
 - **Rules**: `CONVENTIONS.md` holds the pointer body plus a sentinel-marked `## Rules` block with unscoped rule bodies inline. `import aider` strips that block. Load it with `aider --read CONVENTIONS.md`.
-- **Auto-load**: set `outputs.aider.conf-file: .aider.conf.yml` to merge a `read:` entry into Aider's [project config](https://aider.chat/docs/config/aider_conf.html). `model` and `weak-model` go into the same file when set. Existing keys are kept, and the `read:` list is de-duplicated. Each sync rewrites the file with sorted keys and drops its comments.
-- **Ignore**: ignore entries write `.aiderignore` in the project root, Aider's default path ([Aider config docs](https://aider.chat/docs/config/aider_conf.html)), so no wiring is needed. If you point `outputs.aider.ignore-file` elsewhere, Aider reads it only when the config file's `aiderignore:` key names that path.
+- **Auto-load**: set `outputs.aider.conf-file: .aider.conf.yml` to merge a `read:` entry into Aider's [project config](https://aider.chat/docs/config/aider_conf.html). `model` and `weak-model` go into the same file when set. Existing keys stay, and the `read:` list has no duplicates. Each sync rewrites the file with sorted keys and drops its comments.
+- **Ignore**: ignore entries go to `.aiderignore` in the project root. That is Aider's default path ([Aider config docs](https://aider.chat/docs/config/aider_conf.html)), so it needs no wiring. If you point `outputs.aider.ignore-file` elsewhere, Aider reads it only when the config file's `aiderignore:` key names that path.
 
 {% <details summary="What sync removes from .aider.conf.yml"> %}
-When aider leaves `targets` or `conf-file` is unset, sync takes out only `model`, `weak-model`, and the `read:` entry it added. It keeps your keys in their order, with the comments they have then, and drops the header. When `rules-file` changes, sync removes the `read:` entry it added for the old path.
+When aider leaves `targets` or `conf-file` is unset, sync removes only `model`, `weak-model`, and the `read:` entry it added. It keeps your keys in their order, with whatever comments they have at that point, and drops the header. When `rules-file` changes, sync removes the `read:` entry it added for the old path.
 {% </details> %}
 
 ## Config keys
@@ -47,5 +47,5 @@ Advisory. This target takes no settings specs, so sync reports a spec with a `pr
 1. Install: `python -m pip install -U aider-chat` (or `pipx install aider-chat`).
 2. Check the tree: `ls CONVENTIONS.md .aider.conf.yml`, and `head -1 .aider.conf.yml` shows the provenance header.
 3. Validate YAML: `python -c "import yaml,sys; yaml.safe_load(open('.aider.conf.yml'))"`.
-4. `aider --config .aider.conf.yml --no-stream --message "list the rules you were told to follow"`. The banner lists the `read:` paths, including `CONVENTIONS.md`, and the reply reflects the rules.
-5. No `Warning:` lines mentioning `CONVENTIONS.md` or `.aider.conf.yml`.
+4. Run `aider --config .aider.conf.yml --no-stream --message "list the rules you were told to follow"`. The banner lists the `read:` paths, including `CONVENTIONS.md`, and the reply reflects the rules.
+5. Check that no `Warning:` line mentions `CONVENTIONS.md` or `.aider.conf.yml`.

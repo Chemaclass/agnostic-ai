@@ -26,12 +26,13 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `explain LINT011` and every other lint code print the cause, fix, severity and config key; `lint` points at it (#1648).
 - MCP `url` and `args` take `${NAME}` references; each tool gets its own form, and a tool that reads none leaves the server out with a note (#1633).
 - The first-sync list of what each tool reads no longer names an MCP server that sync left out for that tool (#1666).
+- `sync.allow-global-names` lists skill and agent names a project shares with the global home on purpose; `sync` stops warning about them, and `doctor` marks them as allowed (#1707).
 
 ### By tool
 
 #### Gemini CLI
 
-- `lint` warns (LINT030) when a hook command single-quotes `$GEMINI_PROJECT_DIR` or another variable Gemini replaces, which breaks the quoting (#1697).
+- `lint` warns (LINT030), also with `--global`, when a hook command holds a bare `$GEMINI_PROJECT_DIR` or another variable Gemini replaces inside quotes; write `"${NAME}"` instead (#1697).
 - MCP `headers` keep `${NAME}` references and every field keeps `${NAME:-default}`, since Gemini expands all settings strings (#1668).
 - Project import reads `httpUrl` and SSE `url` MCP servers back with their transport, so sync writes them as before (#1665).
 

@@ -660,6 +660,12 @@
         },
         "output-manifest": {
           "type": "boolean"
+        },
+        "allow-global-names": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "additionalProperties": false,

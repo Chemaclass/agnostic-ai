@@ -9,13 +9,13 @@ group = "Reference"
 
 # Rules
 
-`rules/` holds the conventions an agent must follow without being asked: commit format, error handling, the money type, the test style. Each tool loads rules on its own terms (Cursor `.mdc` files, Claude Code rules, `AGENTS.md` sections); a rule spec is written once and lands in each.
+`rules/` holds the conventions an agent must follow without being asked: commit format, error handling, the money type, the test style. Each tool loads rules in its own format (Cursor `.mdc` files, Claude Code rules, `AGENTS.md` sections). You write a rule spec once, and it lands in each.
 
-- **Always on, or only where it matters.** A rule can apply to every session, to one directory, or to files that match a pattern, so a payments convention stays out of frontend work.
+- **Always on, or only where it matters.** A rule can apply to every session, to one directory, or to files that match a pattern. A payments convention stays out of frontend work.
 - **Close to the code.** A rule under `rules/services/payments/` applies inside `services/payments/`, and supported tools load it only there.
-- **Checked like code.** `sync --check` fails when a tool's copy drifts from the spec, and `agnostic-ai explain --file <path>` lists which rules apply to a file.
+- **Checked like code.** `sync --check` fails when a tool's copy drifts from the spec. `agnostic-ai explain --file <path>` lists which rules apply to a file.
 
-Keep a rule short and stated as an instruction. Put a multi-step procedure in a [skill](@/docs/spec-format/skills.md) instead, so it loads only when needed.
+Keep a rule short and write it as an instruction. Put a multi-step procedure in a [skill](@/docs/spec-format/skills.md) instead, so it loads only when needed.
 
 ## Write one
 
@@ -44,7 +44,7 @@ globs: "src/**/*.{ts,tsx}"
 Write function components. Keep one exported component per file.
 ```
 
-A rule for one directory. `agnostic-ai new rule payments-context --scope services/payments` creates it, or place the file at `rules/services/payments/payments-context.md`:
+A rule for one directory. Create it with `agnostic-ai new rule payments-context --scope services/payments`, or place the file at `rules/services/payments/payments-context.md`:
 
 ```markdown
 ---
@@ -59,14 +59,14 @@ Claude Code gets a conditional rule. Codex and Cursor share `services/payments/A
 
 ## Headings in merged files
 
-When several rules share a document, such as Codex's `AGENTS.md` or Gemini's `GEMINI.md`, each rule gets a `### <name>` section. Sync shifts the rule body's heading levels together so its shallowest heading is at least `####`. A body with `### Doc versioning` and `#### Details` becomes `#### Doc versioning` and `##### Details`.
+When several rules share a document, such as Codex's `AGENTS.md` or Gemini's `GEMINI.md`, each rule gets a `### <name>` section. Sync shifts the rule body's heading levels together, so its shallowest heading is at least `####`. A body with `### Doc versioning` and `#### Details` becomes `#### Doc versioning` and `##### Details`.
 
 - The `outputs.claude.rules-file` layout writes `## <name>` sections, so there the shallowest body heading is at least `###`.
 - Already nested headings keep their levels.
 - Markdown has six heading levels, so no heading goes past `######`.
 - When a body's deepest heading sits more than two levels below its shallowest (three in the Claude layout), the deepest levels merge at `######`. Import cannot separate them again.
 
-The section's source comment records the shift, as in `<!-- source: .agnostic-ai/rules/content.md headings: +1 -->`. Import moves the headings back, so a rule survives sync and import unchanged.
+The section's source comment records the shift, as in `<!-- source: .agnostic-ai/rules/content.md headings: +1 -->`. Import moves the headings back, so a rule comes through sync and import unchanged.
 
 {% <details summary="Edge cases for heading shifts"> %}
 - Fenced code, including fences inside lists, and raw HTML blocks keep their headings as written.
@@ -90,4 +90,4 @@ The section's source comment records the shift, as in `<!-- source: .agnostic-ai
 | `paths` | no | unset | File patterns, as a string or list. Adds matching files to the same union as `scope` and `globs`; see [selector limits](@/docs/scoped-context.md#narrow-a-rule-to-certain-files). |
 | `alwaysApply` | no | `false` with `globs`, else target-dependent; `new rule` seeds `true` | Requests unconditional activation. Unset on a rule with `globs`, it is `false` in every tool with an activation field, so the rule loads on matching files. A catch-all such as `**/*` keeps the rule always-on. With `scope`, stays within the scope and pattern union. `new rule --scope` omits it. |
 
-Tools differ on what a rule with neither `globs` nor `alwaysApply` does; each target page says how it activates. Set `alwaysApply: true` when a rule must load everywhere.
+Tools differ on what a rule with neither `globs` nor `alwaysApply` does. Each target page says how it activates. Set `alwaysApply: true` when a rule must load everywhere.

@@ -32,7 +32,7 @@ Cursor reads its project configuration from `.cursor/`, including `.cursor/rules
 - **Agents**: [Cursor subagents](https://cursor.com/docs/subagents.md) (Cursor 2.4+). Frontmatter has `name`, `description`, and any declared `model`, `readonly`, and `is_background`. The body is the system prompt.
   - With no `tools` field, a `tools` list is dropped with a coverage note. `readonly: true` is the coarse equivalent.
   - With no effort field, a portable `effort` raises a coverage note. Put it in the model id: `model: {cursor: "claude-opus-5[effort=high]"}`. See [per-target `model` and `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort).
-- **Commands**: Markdown [Cursor commands](https://cursor.com/help/customization/skills.md) under `.cursor/commands/`, body as the prompt. Cursor no longer documents `.cursor/commands`; the closest reference is that "migrate commands to skills" FAQ.
+- **Commands**: Markdown [Cursor commands](https://cursor.com/help/customization/skills.md) under `.cursor/commands/`, body as the prompt. Cursor no longer documents `.cursor/commands`. The closest reference is the "migrate commands to skills" FAQ on that page.
 - **Old copies**: the ledger sweeps older flattened `.mdc`, agent-as-command, and `skill-<name>.mdc` files.
 - **Skills**: `.cursor/skills/<name>/SKILL.md`, the [Agent Skills](https://cursor.com/docs/skills.md) layout (Cursor 2.4+), bundled files copied byte-for-byte.
   - Frontmatter has `name`, `description`, and any declared `paths`, `disable-model-invocation`, `icon`, `color`, and `metadata`. `icon` and `color` style the badge when the skill backs a [Custom Mode](https://cursor.com/docs/agent/prompting.md#custom-modes).
@@ -42,10 +42,10 @@ Cursor reads its project configuration from `.cursor/`, including `.cursor/rules
 - **Review**: [Bugbot](https://cursor.com/docs/bugbot) files, root `.cursor/BUGBOT.md` for unscoped specs and `<scope>/.cursor/BUGBOT.md` for scoped ones.
   - Same-scope specs concatenate. Bugbot always reads the root file, plus per-directory copies above changed files.
   - [Rule limits](https://cursor.com/docs/bugbot#rule-limits): each BUGBOT.md is one rule, truncated at 30,000 characters. One review's rules are capped at 100,000 characters in total, and Bugbot may omit the rest.
-  - agnostic-ai never truncates. An over-cap file emits in full with a surface-gap note, measured on the emitted file (header included). Concatenated small specs can trip it; split the review across sibling scopes.
-  - `sync` also notes a scope whose chain (the scope and its ancestors) passes 100,000 characters. Team and repository rules, kept outside the repo, share that budget, so a chain under it can still lose rules. `bugbot run verbose=true` or `cursor review verbose=true` on a pull request shows what Bugbot included, truncated, or omitted.
+  - agnostic-ai never truncates. An over-cap file emits in full with a surface-gap note. The size is measured on the emitted file, header included. Several small specs concatenated can pass the cap; split the review across sibling scopes.
+  - `sync` also notes a scope whose chain (the scope and its ancestors) passes 100,000 characters. Team and repository rules live outside the repo and share that budget, so a chain under it can still lose rules. To see what Bugbot included, truncated, or omitted, run `bugbot run verbose=true` or `cursor review verbose=true` on a pull request.
 - **Environment**: `.cursor/environment.json` ([background-agent](https://docs.cursor.com/background-agent) bootstrap).
-  - Spec keys pass through verbatim minus agnostic routing fields and `cleanup`, which gets a no-effect note. Specs merge by top-level key.
+  - Spec keys pass through verbatim, except agnostic routing fields and `cleanup`. `cleanup` gets a no-effect note. Specs merge by top-level key.
   - `setup` and `setup-windows` go to `.cursor/worktrees.json` as `setup-worktree` (every OS) and `setup-worktree-windows` (run instead on Windows) ([worktrees](https://cursor.com/docs/configuration/worktrees)).
   - A script path, which Cursor resolves from `.cursor/`, or a unix-only `setup-worktree-unix`, goes under `x-cursor:` with its native key, such as `setup-worktree-unix: setup.sh`.
 - **Ignore**: `.cursorignore` (gitignore syntax). Specs concatenate.
@@ -54,27 +54,27 @@ Cursor reads its project configuration from `.cursor/`, including `.cursor/rules
   - camelCase event names (`beforeShellExecution`, `afterFileEdit`, ...) pass through. `validate` flags unknown ones.
   - Per Cursor's "Available matchers by hook" table, fifteen events take a `matcher`: `preToolUse`, `postToolUse`, `postToolUseFailure` (tool name), `subagentStart`, `subagentStop` (subagent type), `beforeShellExecution`, `afterShellExecution` (full command string), `beforeReadFile`, `afterFileEdit` (tool name), and `beforeTabFileRead`, `afterTabFileEdit`, `beforeSubmitPrompt`, `stop`, `afterAgentResponse`, `afterAgentThought` (one fixed value each).
   - `lint` flags a matcher on any other event, except `beforeMCPExecution` and `afterMCPExecution`, which the table omits.
-  - When a command hook exists, sync adds a `sessionStart` hook that prints `{"env":{"AGNOSTIC_AI_TARGET":"cursor"}}`. Cursor passes that `env` to every later hook in the session, including loaded Claude Code hooks, on Windows too, where a per-command prefix would fail because hooks run through PowerShell. `sessionStart` hooks, and any hook that fires before this one returns, do not see the variable. See [which target ran a hook](@/docs/spec-format/hooks.md#hook-target).
-  - A hook has only `command`, run through `$SHELL -c` or, on Windows, PowerShell. A spec's `args` fold into `command`, each in single quotes (`node 'guard.js'`), in project and global sync.
+  - When a command hook exists, sync adds a `sessionStart` hook that prints `{"env":{"AGNOSTIC_AI_TARGET":"cursor"}}`. Cursor passes that `env` to every later hook in the session, including loaded Claude Code hooks. This works on Windows too, where hooks run through PowerShell and a per-command prefix would fail. `sessionStart` hooks, and any hook that fires before this one returns, do not see the variable. See [which target ran a hook](@/docs/spec-format/hooks.md#hook-target).
+  - A hook has only `command`, run through `$SHELL -c` (PowerShell on Windows). In project and global sync, a spec's `args` fold into `command`, each in single quotes (`node 'guard.js'`).
 - **MCP**: `.cursor/mcp.json` under `mcpServers` (a builder shared with Claude Code). Each sync replaces the whole file from MCP specs. Three fields are Cursor-only ([cursor.com/docs/mcp](https://cursor.com/docs/mcp.md)):
   - A stdio server accepts `envFile`, a path to an env file with extra variables.
   - A `${NAME}` reference in `env`, `headers`, `url`, or `args` is written as Cursor's `${env:NAME}`; `${workspaceFolder}` and Cursor's other variables stay as written. See [environment references](@/docs/spec-format/mcps.md#environment-references).
   - A remote (`url`) server accepts a static-OAuth `auth`, `{CLIENT_ID, CLIENT_SECRET, scopes}` with `CLIENT_ID` required, for providers without OAuth Dynamic Client Registration.
-  - A stdio server carries an explicit `"type": "stdio"`, which Cursor marks required. Claude Code [reads a type-less entry as stdio](https://code.claude.com/docs/en/mcp), so other targets on this builder keep it type-less.
-  - A `roots` list emits as passthrough. Cursor documents no per-server `roots` key: its "Roots: Supported" row is the protocol capability, and config interpolation covers only `command`, `args`, `env`, `url`, and `headers`.
+  - A stdio server carries an explicit `"type": "stdio"`, which Cursor marks required. Other targets on this builder leave `type` out, since Claude Code [reads a type-less entry as stdio](https://code.claude.com/docs/en/mcp).
+  - A `roots` list passes through. Cursor documents no per-server `roots` key. Its "Roots: Supported" row means the protocol capability, and config interpolation covers only `command`, `args`, `env`, `url`, and `headers`.
   - `disabled: true` has no effect here; see [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
 
 {% <details summary="Hook args with apostrophes or spaces"> %}
-PowerShell reads that the same way unless an arg has an apostrophe. A command path with a space is quoted too, which a POSIX shell runs and PowerShell does not. Use a shell-form `command` there.
+PowerShell reads that quoting the same way unless an arg has an apostrophe. A command path with a space is quoted too: a POSIX shell runs it, PowerShell does not. Use a shell-form `command` in those cases.
 {% </details> %}
 
 ### Third-party reads
 
-The **Include Third-Party Plugins, Skills, and Other Configs** setting (Cursor Settings → Agents → Third-Party Imports, [on by default](https://cursor.com/docs/reference/third-party-hooks.md)) enables Claude and Codex compatibility reads. Turn it off to stop those reads, or give the spec a single `target:`. Cursor also reads the native shared `.agents/skills/` directory where the `codex` target writes, independently of that switch.
+The **Include Third-Party Plugins, Skills, and Other Configs** setting (Cursor Settings → Agents → Third-Party Imports, [on by default](https://cursor.com/docs/reference/third-party-hooks.md)) turns on Claude and Codex compatibility reads. Turn it off to stop those reads, or give the spec a single `target:`. Cursor also reads the shared `.agents/skills/` directory, where the `codex` target writes, whatever that setting says.
 
 - **Skills**: Native project roots are `.cursor/skills/` and `.agents/skills/`. Compatibility roots include `.claude/skills/`, `.codex/skills/`, and their home equivalents ([Skills](https://cursor.com/docs/skills.md)). Cross-root precedence and deduplication are undocumented.
 - **Subagents**: [Subagents](https://cursor.com/docs/subagents.md) reads `.claude/agents/` and `.codex/agents/` (current project only) beside `.cursor/agents/`. On a name clash, `.cursor/` wins. The page documents only Markdown agents, so Cursor may not parse the `codex` target's TOML files in `.codex/agents/`.
-- **Hooks**: [Third-party hooks](https://cursor.com/docs/reference/third-party-hooks.md) merges seven sources (`.cursor/hooks.json` at rank 3, `.claude/settings.json` at rank 6), runs every matching hook from each, and maps Claude event names to Cursor ones (`PreToolUse` to `preToolUse`, and so on). So a repo syncing `claude` and `cursor` runs every hook twice. That setting is the only control.
+- **Hooks**: [Third-party hooks](https://cursor.com/docs/reference/third-party-hooks.md) merges seven sources (`.cursor/hooks.json` at rank 3, `.claude/settings.json` at rank 6), runs every matching hook from each, and maps Claude event names to Cursor ones (`PreToolUse` to `preToolUse`, and so on). A repo syncing `claude` and `cursor` runs every hook twice. That setting is the only way to stop it.
 - **Hook `args`**: The third-party hooks docs do not list `args`, so a claude hook spec with `args` may run as a bare interpreter that reads the JSON payload as its program. `sync` notes this when `claude` runs and `cursor` is configured. Use a shell-form `command`, or turn off the setting.
 
 ## Config keys
@@ -93,7 +93,7 @@ The **Include Third-Party Plugins, Skills, and Other Configs** setting (Cursor S
 
 ## Permissions
 
-A settings spec's portable `allow` and `deny` lists become Cursor CLI rules in `permissions.allow` and `permissions.deny` of `.cursor/cli.json`, beside the protected-path rules. Only spellings the [CLI permissions](https://cursor.com/docs/cli/reference/permissions) page documents are written, and a rule is never widened. Like protected paths, the rules guard the Cursor CLI only, not the IDE agent.
+A settings spec's portable `allow` and `deny` lists become Cursor CLI rules in `permissions.allow` and `permissions.deny` of `.cursor/cli.json`, beside the protected-path rules. Sync writes only spellings the [CLI permissions](https://cursor.com/docs/cli/reference/permissions) page documents, and never widens a rule. Like protected paths, the rules guard the Cursor CLI only, not the IDE agent.
 
 | Portable rule | Cursor rule | Notes |
 |---|---|---|
@@ -105,7 +105,7 @@ A settings spec's portable `allow` and `deny` lists become Cursor CLI rules in `
 
 These stay out:
 
-- A multi-word command such as `Bash(go test:*)` or `Bash(git push:*)`. `Shell` takes one command word. The page shows `command:args` only as `curl:*`, without saying how it matches the rest of the line. `Shell(go)` would cover every `go` command.
+- A multi-word command such as `Bash(go test:*)` or `Bash(git push:*)`. `Shell` takes one command word, and `Shell(go)` would cover every `go` command. The page shows `command:args` only as `curl:*`, and does not say how it matches the rest of the line.
 - An exact command such as `Bash(ls)` or `Bash(rm)`, since `Shell(rm)` also matches `rm` with arguments.
 - A path starting with `~` or `!`, or using `[]`, `{}`, or `\`. The page lists only `*`, `**`, and `?`.
 - A `WebFetch` host with a path, a port, or a wildcard other than a leading `*.`.
@@ -116,9 +116,9 @@ A dropped `allow` rule raises a coverage note. A dropped `deny` rule loosens the
 
 The page does not say how `Shell` matches a chained command such as `git status && rm -rf build`, or a pipe. Claude Code requires an `allow` rule to match each subcommand of a chain ([compound commands](https://code.claude.com/docs/en/permissions#compound-commands)), so an `allow` rule may approve more in the Cursor CLI than in Claude Code.
 
-A relative path (`path` or `./path`) means the current directory in Claude Code and the workspace in Cursor, which match when the agent starts at the project root.
+A relative path (`path` or `./path`) means the current directory in Claude Code and the workspace in Cursor. The two match when the agent starts at the project root.
 
-Sync records the rules it added in `.cursor/.agnostic-ai-permissions.json`. A rule you remove from a spec leaves `cli.json` on the next sync, and a rule you wrote there yourself stays.
+Sync records the rules it added in `.cursor/.agnostic-ai-permissions.json`. A rule you remove from a spec leaves `cli.json` on the next sync. A rule you wrote there yourself stays.
 
 ## Import
 
@@ -137,9 +137,9 @@ Sync records the rules it added in `.cursor/.agnostic-ai-permissions.json`. A ru
 
 Import skips a `BUGBOT.md` sync wrote, since reading back its concatenated same-scope specs would emit them twice.
 
-[Skills](https://cursor.com/docs/skills.md) marks both skill directories as project-level, at the root and in nested subdirectories (the nesting becomes the spec scope). `.cursor/skills` wins a same-name clash at the same scope.
+[Skills](https://cursor.com/docs/skills.md) treats both skill directories as project-level, at the root and in nested subdirectories. The nesting becomes the spec scope. `.cursor/skills` wins a same-name clash at the same scope.
 
-A later `sync` regenerates equivalent rules, skill folders, command files, and `BUGBOT.md` files.
+A later `sync` writes equivalent rules, skill folders, command files, and `BUGBOT.md` files.
 
 - Cursor writes no `argument-hint` or `allowed-tools` on a skill, so import leaves both on the spec.
 - Keys Cursor does write, such as a skill's `icon` or an agent's `model`, follow the native file, so deleting one there deletes it from the spec.
@@ -155,7 +155,7 @@ A later `sync` regenerates equivalent rules, skill folders, command files, and `
 Enforced (permission). In the Cursor CLI, each path of a `decision: deny` block becomes `Write(<path>)` and `Write(<path>/**)` rules in `permissions.deny` of `.cursor/cli.json`, the project CLI config ([configuration](https://cursor.com/docs/cli/reference/configuration)). A path that already ends in `**` gets the first rule only. The rules carry no leading `/`: Cursor scopes a relative path to the workspace and reads a leading `/` as an absolute path ([CLI permissions](https://cursor.com/docs/cli/reference/permissions)). The docs list the same `*`, `**`, and `?` wildcards the protected grammar takes, but do not say whether a match ignores case.
 
 - **IDE agent**: not covered. Cursor's IDE permissions page says "The Cursor CLI has its own permissions system" ([permissions](https://cursor.com/docs/reference/permissions.md)), and the IDE's own files take no write rules. State the paths in a rule if the IDE agent should know about them.
-- **`decision: ask`**: advisory, with a coverage note. The CLI lists have `allow` and `deny` but no ask list. The CLI already prompts before a write no `allow` rule covers, and a `deny` rule would block an edit the user means to approve, with no reason shown. Use `decision: deny` to block it.
+- **`decision: ask`**: advisory, with a coverage note. The CLI has `allow` and `deny` lists but no ask list. It already prompts before a write no `allow` rule covers. A `deny` rule would block an edit the user means to approve, with no reason shown. Use `decision: deny` to block it.
 - **`reason`**: not written. A CLI permission rule has no message field.
 - **Other settings fields**: `model`, `effort`, and `x-cursor` raise a coverage note, since a project `cli.json` takes `permissions` only.
 
@@ -167,4 +167,4 @@ Enforced (permission). In the Cursor CLI, each path of a `decision: deny` block 
 2. Check the tree: `ls .cursor/rules/ .cursor/skills/ .cursor/commands/ .cursor/mcp.json`, `grep "Generated by agnostic-ai" .cursor/rules/*.mdc` (the header sits after the frontmatter), `python -m json.tool .cursor/mcp.json > /dev/null`.
 3. Open the project. The Rules panel loads every `.cursor/rules/*.mdc` with the right `alwaysApply` and no "failed to parse" warnings. The Skills list shows each `.cursor/skills/<name>/`, the agent picker lists each `.cursor/agents/<name>.md`, and the `/` picker lists each `.cursor/commands/<name>.md`.
 4. If MCPs are configured, Settings → MCP shows every `mcpServers.<name>` green.
-5. If hooks are configured, `python -m json.tool .cursor/hooks.json > /dev/null` parses. Trigger the matched event (e.g. a shell command for `beforeShellExecution`) and confirm the `command` runs.
+5. If hooks are configured, `python -m json.tool .cursor/hooks.json > /dev/null` parses. Trigger the matched event (for example a shell command for `beforeShellExecution`) and check that the `command` runs.

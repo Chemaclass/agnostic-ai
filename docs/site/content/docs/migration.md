@@ -21,9 +21,9 @@ agnostic-ai init --from claude   # or --from all to detect every tool
 
 Already using agnostic-ai? Run `agnostic-ai import claude` instead.
 
-Import writes source specs only. It does not sync or change your targets. Re-running it after a native edit overwrites the spec with the same filename, while that spec is unchanged since the last sync or import of that tool. Otherwise it stops before writing any spec; pass `--overwrite` to replace it. [Local specs](@/docs/local-overrides.md#import) stay out of the shared source. See [import](@/docs/cli-reference/start.md#import) for how it merges frontmatter and multiple sources.
+Import writes source specs only. It does not sync or change your targets. Re-running it after a native edit overwrites the spec with the same filename, as long as that spec has not changed since the last sync or import of that tool. Otherwise it stops before writing any spec; pass `--overwrite` to replace it. [Local specs](@/docs/local-overrides.md#import) stay out of the shared source. See [import](@/docs/cli-reference/start.md#import) for how it merges frontmatter and multiple sources.
 
-After an import from several tools, a tool whose content was replaced by a later source needs `--overwrite` to replace that source's spec. A sync that skips edited or unmanaged outputs does not approve replacing changed source specs.
+After an import from several tools, a tool whose content was replaced by a later source needs `--overwrite` to replace that source's spec. A sync that skips edited or unmanaged outputs does not count as approval to replace changed source specs.
 
 ## 2. Review
 
@@ -33,7 +33,7 @@ Preview before writing:
 agnostic-ai import claude codex --dry-run --diff
 ```
 
-It shows each spec it would create or change, and flags files two tools disagree on. The last tool listed wins; reorder or merge by hand.
+It shows each spec it would create or change and flags files that two tools disagree on. The last tool listed wins, so reorder the tools or merge by hand.
 
 Then check:
 

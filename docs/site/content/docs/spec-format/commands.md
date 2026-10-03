@@ -9,13 +9,13 @@ group = "Reference"
 
 # Commands
 
-`commands/` holds slash commands: saved prompts a person starts by name, such as `/deploy` or `/review-pr`. The body is the prompt the tool sends when someone runs the command.
+`commands/` holds slash commands: saved prompts a person starts by name, such as `/deploy` or `/review-pr`. The body is the prompt the tool sends when someone runs it.
 
-- **Repeatable prompts.** The team runs the same `/review-pr` instead of retyping it slightly differently each time.
+- **Repeatable prompts.** The team runs the same `/review-pr` instead of retyping a slightly different version each time.
 - **Started by a person.** A command runs when someone types it, which suits steps with side effects, such as a deploy.
 - **Same name everywhere.** Each tool with a command surface lists it in its own picker.
 
-A [skill](@/docs/spec-format/skills.md) is the better fit when the model should pick the workflow itself or when it needs bundled files. Set `outputs.<target>.emit-skills-as-commands: true` to get both from one skill.
+Use a [skill](@/docs/spec-format/skills.md) instead when the model should pick the workflow itself, or when it needs bundled files. Set `outputs.<target>.emit-skills-as-commands: true` to get both from one skill.
 
 ## Write one
 
@@ -58,11 +58,11 @@ Diff the branch against `main` and list bugs with `file:line`, most severe first
 - Gemini writes each command as a `.toml` file named after `name`.
 - Targets without a command surface log a warning and skip.
 
-Each target page gives the exact directory.
+Each target page lists the exact directory.
 
 ## Claude Code body syntax {#claude-code-body-syntax}
 
-A Claude Code command body can use `` !`command` `` lines, ` ```! ` blocks, `$ARGUMENTS`, and `$1`, `$2`, ... ([skill syntax](@/docs/spec-format/skills.md#claude-code-body-syntax)). Sync copies the body as written. Each target below expands only what its docs show:
+A Claude Code command body can use `` !`command` `` lines, ` ```! ` blocks, `$ARGUMENTS`, and `$1`, `$2`, ... ([skill syntax](@/docs/spec-format/skills.md#claude-code-body-syntax)). Sync copies the body as written. Each target expands only what its docs show:
 
 | Target | `` !`command` `` | `$ARGUMENTS` | `$1`, `$2`, ... |
 |--------|------------------|--------------|-----------------|
