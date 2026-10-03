@@ -212,6 +212,81 @@ func TestImportMCP_URLUsernameReferenceKeepsDefault(t *testing.T) {
 	}
 }
 
+func TestImportMCP_URLCredentialInReferenceDefault(t *testing.T) {
+	specs, out := importMCPServers(t, "claude", map[string]any{
+		"api": map[string]any{"url": "${MCP_URL:-https://x.example/mcp?token=T0KEN}"},
+		"db":  map[string]any{"command": "db-mcp", "args": []any{"--dsn=${DB_URL:-postgres://u:PASSW0RD@h/x}", "${PLAIN:-https://h/x}"}},
+	})
+	for name, spec := range specs {
+		if strings.Contains(spec, "T0KEN") || strings.Contains(spec, "PASSW0RD") {
+			t.Errorf("spec %s keeps a credential from a reference default", name)
+		}
+	}
+	if strings.Contains(out, "T0KEN") || strings.Contains(out, "PASSW0RD") {
+		t.Errorf("import output prints a credential value")
+	}
+	for name, wants := range map[string][]string{
+		"api": {"url: ${MCP_URL}"},
+		"db":  {"- --dsn=${DB_URL}", "- ${PLAIN:-https://h/x}"},
+	} {
+		for _, want := range wants {
+			if !strings.Contains(specs[name], want) {
+				t.Errorf("spec %s lacks %q", name, want)
+			}
+		}
+	}
+	for _, want := range []string{
+		"MCP server api: url reference now reads ${MCP_URL} without its default; set MCP_URL",
+		"MCP server db: args[0] reference now reads ${DB_URL} without its default; set DB_URL",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output lacks %q", want)
+		}
+	}
+}
+
+func TestImportMCP_URLCredentialsInEveryURLOfAnArgument(t *testing.T) {
+	specs, out := importMCPServers(t, "claude", map[string]any{
+		"sh": map[string]any{"command": "sh", "args": []any{"-c",
+			"curl https://health.example/ping?a=1&b=2; exec pg-mcp postgresql://admin:PASSW0RD@db/app && echo 'https://h/x?a=1&token=T0KEN'|cat"}},
+	})
+	if strings.Contains(specs["sh"], "PASSW0RD") || strings.Contains(specs["sh"], "T0KEN") || strings.Contains(out, "PASSW0RD") || strings.Contains(out, "T0KEN") {
+		t.Errorf("a credential in a later URL reached the spec or the output")
+	}
+	want := "curl https://health.example/ping?a=1&b=2; exec pg-mcp postgresql://admin:${SH_PASSWORD}@db/app && echo 'https://h/x?a=1&token=${SH_TOKEN}'|cat"
+	if !strings.Contains(specs["sh"], want) {
+		t.Errorf("spec sh lacks %q", want)
+	}
+}
+
+func TestImportMCP_URLArgumentImportCannotRewriteLeavesServerOut(t *testing.T) {
+	dir := t.TempDir()
+	log := captureLog(t)
+	n, err := writeMCPYAMLs("claude", map[string]any{
+		"bad":  map[string]any{"command": "x", "args": []any{"https://a.example,https://u:PASSW0RD@b.example"}, "env": map[string]any{"K": "v"}},
+		"good": map[string]any{"command": "y"},
+	}, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Errorf("wrote %d specs, want 1", n)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "bad.yaml")); !os.IsNotExist(err) {
+		t.Errorf("a server import cannot rewrite must be left out")
+	}
+	out := log.String()
+	if strings.Contains(out, "PASSW0RD") {
+		t.Errorf("import output prints a credential value")
+	}
+	if !strings.Contains(out, "MCP server bad: left out; args[0] has more than one URL in one word") {
+		t.Errorf("output does not name the server and field:\n%s", out)
+	}
+	if strings.Contains(out, "MCP server bad: env") {
+		t.Errorf("a left-out server reports no replacement:\n%s", out)
+	}
+}
+
 // The import from the issue: the specs hold references, and sync writes
 // them back to the native file instead of the credential.
 func TestImportMCP_URLArgsCredentialsRoundTrip(t *testing.T) {
