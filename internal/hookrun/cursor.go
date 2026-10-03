@@ -38,9 +38,10 @@ type assumedContract struct {
 }
 
 var assumedContracts = map[string]assumedContract{
-	"cursor":  {name: "Cursor", docs: "https://cursor.com/docs/hooks", timeoutReason: "Cursor documents its default timeout as \"platform default\"; set timeout in the spec"},
-	"copilot": {name: "Copilot", docs: copilotDocs, assume: copilotAssumptions},
-	"factory": {name: "Factory", docs: factoryDocs, cwdReason: "Factory runs hooks from \"Droid's current working directory, which can differ from your repository root\""},
+	"cursor":      {name: "Cursor", docs: "https://cursor.com/docs/hooks", timeoutReason: "Cursor documents its default timeout as \"platform default\"; set timeout in the spec"},
+	"copilot":     {name: "Copilot", docs: copilotDocs, assume: copilotAssumptions},
+	"factory":     {name: "Factory", docs: factoryDocs, cwdReason: "Factory runs hooks from \"Droid's current working directory, which can differ from your repository root\""},
+	"antigravity": {name: "Antigravity", docs: antigravityDocs, cwdReason: "Antigravity does not document the directory a hook command runs in"},
 }
 
 // cursorAssumedTimeout is the default hook run uses when a Cursor hook

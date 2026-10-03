@@ -51,6 +51,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - `hook run` runs Copilot hooks: exec form, and a script path under an assumed `sh -c`, shown but not counted unless `--include-assumed` (#1566).
 
+#### Antigravity
+
+- `hook run` runs Antigravity hooks on an assumed shell and cwd; only exit 0 with a documented `decision` reply can count, with `--include-assumed` (#1678).
+
 #### Factory
 
 - `hook run` runs Factory hooks, including `"$FACTORY_PROJECT_DIR"/script.sh`, on an assumed shell and cwd, not counted unless `--include-assumed` (#1566).

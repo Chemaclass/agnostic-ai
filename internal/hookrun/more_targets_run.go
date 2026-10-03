@@ -9,15 +9,17 @@ import (
 )
 
 // otherDefaultTimeouts are the documented defaults: Trae 30 seconds,
-// OpenHands 60, Goose 30, Augment 60000 milliseconds, Factory 60.
+// OpenHands 60, Goose 30, Augment 60000 milliseconds, Factory 60,
+// Antigravity 30.
 var otherDefaultTimeouts = map[string]time.Duration{
-	"trae":      30 * time.Second,
-	"openhands": 60 * time.Second,
-	"goose":     30 * time.Second,
-	"augment":   60 * time.Second,
-	"cursor":    cursorAssumedTimeout,
-	"factory":   factoryDefaultTimeout,
-	"copilot":   copilotDefaultTimeout,
+	"trae":        30 * time.Second,
+	"openhands":   60 * time.Second,
+	"goose":       30 * time.Second,
+	"augment":     60 * time.Second,
+	"cursor":      cursorAssumedTimeout,
+	"factory":     factoryDefaultTimeout,
+	"copilot":     copilotDefaultTimeout,
+	"antigravity": antigravityDefaultTimeout,
 }
 
 // otherArgv is how each target starts a command: Trae in Bash, or
@@ -38,7 +40,7 @@ func otherArgv(target, goos string, h Handler) ([]string, bool) {
 		return []string{"/bin/sh", "-c", h.Command}, true
 	case "goose":
 		return []string{"sh", "-c", h.Command}, true
-	case "cursor", "factory":
+	case "cursor", "factory", "antigravity":
 		// Assumed; see Assumptions.
 		return []string{"sh", "-c", h.Command}, true
 	case "copilot":
@@ -77,6 +79,8 @@ func DecideHandler(target, event string, h Handler, r Result) Decision {
 		return decideFactory(event, r)
 	case "copilot":
 		return decideCopilot(event, r)
+	case "antigravity":
+		return readAntigravity(event, r).decision
 	}
 	return Decide(target, event, r)
 }

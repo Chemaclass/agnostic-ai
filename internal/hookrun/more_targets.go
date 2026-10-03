@@ -19,17 +19,19 @@ import (
 //     context-engineering/hooks.md and crates/goose/src/hooks/mod.rs.
 //   - Augment: docs.augmentcode.com/cli/hooks.
 //   - Factory: see factory.go.
+//   - Antigravity: see antigravity.go.
 
 type builder func(event, matcher, root string, in Input) (Payload, error)
 
 var otherBuilders = map[string]builder{
-	"trae":      buildTrae,
-	"openhands": buildOpenHands,
-	"goose":     buildGoose,
-	"augment":   buildAugment,
-	"cursor":    buildCursor,
-	"factory":   buildFactory,
-	"copilot":   buildCopilot,
+	"trae":        buildTrae,
+	"openhands":   buildOpenHands,
+	"goose":       buildGoose,
+	"augment":     buildAugment,
+	"cursor":      buildCursor,
+	"factory":     buildFactory,
+	"copilot":     buildCopilot,
+	"antigravity": buildAntigravity,
 }
 
 func absPath(root, path string) string {

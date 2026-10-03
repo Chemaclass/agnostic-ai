@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/antigravity"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/augment"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
@@ -81,7 +82,8 @@ func HookHandlers(cfg *config.Config, target string, h spec.Entry) ([]hookrun.Ha
 
 // hookDoc renders the hooks file sync writes for h alone on a target
 // whose file shares the `hooks` block shape, or Factory's, which keys
-// the same groups by event at the top level.
+// the same groups by event at the top level, or Antigravity's, which
+// keys them by hook definition name.
 func hookDoc(cfg *config.Config, target string, h spec.Entry) ([]byte, error) {
 	switch target {
 	case "trae":
@@ -94,6 +96,8 @@ func hookDoc(cfg *config.Config, target string, h spec.Entry) ([]byte, error) {
 		return augment.HookDoc(h)
 	case "factory":
 		return factory.HookDoc(h)
+	case "antigravity":
+		return antigravity.HookDoc(h)
 	}
 	return nil, nil
 }
@@ -124,14 +128,19 @@ func HookFile(cfg *config.Config, target string) string {
 		return factory.HooksFilePath(cfg)
 	case "copilot":
 		return copilot.HooksFilePath(cfg)
+	case "antigravity":
+		return antigravity.HooksFilePath(cfg)
 	}
 	return ""
 }
 
 // HookNativeMatcher is the matcher sync writes for a spec's matcher on
-// event: Augment drops it on the events that take none.
+// event: Augment and Antigravity drop it on the events that take none.
 func HookNativeMatcher(target, event, matcher string) string {
 	if target == "augment" && augment.SessionOnlyEvent(event) {
+		return ""
+	}
+	if target == "antigravity" && !antigravity.MatcherEvent(event) {
 		return ""
 	}
 	return matcher

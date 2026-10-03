@@ -103,6 +103,9 @@ func Drift(target string, body []byte, event, matcher, goos string, handlers []H
 // hooks.json files are keyed directly by event name"
 // (docs.factory.com/cli/configuration/hooks-guide).
 func nativeHooks(target string, body []byte) (map[string][]nativeGroup, error) {
+	if target == "antigravity" {
+		return antigravityHooks(body)
+	}
 	if target == "factory" {
 		var events map[string][]nativeGroup
 		err := json.Unmarshal(body, &events)
