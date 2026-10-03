@@ -4,4 +4,5 @@ targets: [claude, codex]
 event: PreToolUse
 matcher: Bash
 command: .agnostic-ai/scripts/no-force-push.sh
+commandWindows: sh .agnostic-ai/scripts/no-force-push.sh
 timeout: 10
