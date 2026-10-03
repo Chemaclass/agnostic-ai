@@ -1084,13 +1084,20 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	emits, sessions, _ := emitTargetsConcurrent(effectiveTargets, b, cfg, false, backup, gitignoreOn, false, jobs, edits)
 	sessions = append(sessions, mainSess)
 	normalizeSharedWriteAttribution(emits)
-	if _, notesErr := applyCoverageAccept(cfg, effectiveTargets); notesErr != nil {
+	_, notesErr := applyCoverageAccept(cfg, effectiveTargets)
+	adapters.OrderBufferedDropsByTarget(effectiveTargets)
+	drops := syncJSONOutput{
+		Warnings: dropRecords(adapters.PendingCapabilityWarnings()),
+		Notes:    dropRecords(adapters.PendingCoverageNotes()),
+	}
+	if notesErr != nil {
 		flushFailedCoverageNotes()
 		if rbErr := rollbackSessions(append([]*adapters.Session{reconciled}, sessions...)); rbErr != nil {
 			fmt.Fprintf(os.Stderr, "! rollback: %v\n", rbErr)
 		}
 		out.addError(notesErr)
-		if err := emitJSON(cmd, out); err != nil {
+		drops.jsonOutput = out.withEmptyLists()
+		if err := writeIndentedJSON(cmd, drops); err != nil {
 			return err
 		}
 		return notesErr
@@ -1213,9 +1220,8 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	for _, p := range trackedIgnored {
 		out.Skipped = append(out.Skipped, fileRecord{Target: "agnostic-ai", Path: p, Action: "tracked"})
 	}
-	// JSON path does not print warnings or notes, so preserve the
-	// previous digests so the next non-JSON run can still
-	// sticky-suppress.
+	// Warnings and notes go into the JSON, not to the terminal, so keep
+	// the previous digests: the next plain sync still prints them.
 	ledger.specSums = prev.SpecSums
 	ledger.modelAliases = prev.ModelAliases
 	if len(out.Errors) == 0 && coversAllConfiguredTargets(effectiveTargets, cfg.Targets) {
@@ -1230,7 +1236,24 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	if err := writeStateFile(root, len(out.Writes), prev.WarningsDigest, prev.NotesDigest, ledger); err != nil {
 		fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 	}
-	return emitJSON(cmd, out)
+	drops.jsonOutput = out.withEmptyLists()
+	return writeIndentedJSON(cmd, drops)
+}
+
+// syncJSONOutput is the `sync --json` output: the shared schema plus the
+// capability warnings and coverage notes a plain sync prints.
+type syncJSONOutput struct {
+	jsonOutput
+	Warnings []dropRecord `json:"warnings"`
+	Notes    []dropRecord `json:"notes"`
+}
+
+func dropRecords(records []adapters.DropRecord) []dropRecord {
+	out := make([]dropRecord, 0, len(records))
+	for _, r := range records {
+		out = append(out, dropRecord{Target: r.Target, Kind: string(r.Kind), Count: r.Count, Message: r.Message})
+	}
+	return out
 }
 
 // printSyncPlan prints a human-readable per-target summary of what sync
