@@ -17,12 +17,12 @@ target_id = "openhands"
 ```
 AGENTS.md                          # pointer body + inlined always-on rules (shared path)
 .agents/agents/<name>.md           # one project agent (shared with Goose)
-.agents/skills/<name>/SKILL.md     # one folder per skill or path-triggered rule (shared with codex/amp/zed/crush)
+.agents/skills/<name>/SKILL.md     # one folder per skill or path-triggered rule (shared tree)
 .openhands/hooks.json              # when hook entries exist
 .openhands/setup.sh                # when an environment spec sets `install`
 ```
 
-- **Skills**: render byte-identical to codex, amp, zed, and crush, so the shared tree is written once.
+- **Skills**: render byte-identical to the other `.agents/skills/` targets, so the shared tree is written once.
 - **Agents**: local conversations auto-register `.agents/agents/<name>.md`. The renderer shared with Goose writes `name`, `description`, optional free-form `model`, and the prompt body.
   - A generic `tools` list drops with a coverage note, since OpenHands names tools its own way (`file_editor`, `terminal`). Set `x-openhands.tools` with native names. For an OpenHands profile that differs from Goose's, move `outputs.openhands.agents-dir` to the secondary `.openhands/agents` path.
   - A portable `color` drops with a coverage note, since [Goose's agent frontmatter](https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/custom-agents.md) has none. Set `x-openhands.color` to a [Rich color name](https://rich.readthedocs.io/en/stable/appendix/colors.html) to emit it.
@@ -89,7 +89,7 @@ Advisory. This target takes no settings specs, so sync reports a spec with a `pr
 ## Verify
 
 1. Install OpenHands ([docs](https://docs.openhands.dev/overview/skills)).
-2. Check the tree: `ls AGENTS.md .agents/agents/ .agents/skills/ .openhands/setup.sh`, `test -f .agents/agents/*.md`, `test -f .agents/skills/*/SKILL.md`.
+2. Check the tree: `ls AGENTS.md .agents/agents/ .agents/skills/ .openhands/setup.sh`, `ls .agents/agents/*.md >/dev/null`, `ls .agents/skills/*/SKILL.md >/dev/null`.
 3. Launch OpenHands:
    - The context loads `AGENTS.md`.
    - Each `.agents/skills/<name>/` appears as a skill.

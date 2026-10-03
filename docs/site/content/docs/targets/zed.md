@@ -16,7 +16,7 @@ Zed reads `.rules`, `.agents/skills/`, `.zed/settings.json` MCP servers, and opt
 
 ```
 .rules                                 # canonical entry-point pointer body + inlined rules (written by sync)
-.agents/skills/<name>/SKILL.md         # one folder per skill (shared tree with codex/amp/crush)
+.agents/skills/<name>/SKILL.md         # one folder per skill (shared tree)
 .zed/settings.json                     # when MCP entries exist (merged with existing user config)
 .zed/tasks.json                        # one task per hook, only when tasks-file is set
 ```
@@ -60,7 +60,7 @@ Advisory. This target takes no settings specs, so sync reports a spec with a `pr
 ## Verify
 
 1. Install Zed from [zed.dev](https://zed.dev).
-2. Check the tree: `ls .rules .agents/skills/ .zed/settings.json .zed/tasks.json`, `test -f .agents/skills/*/SKILL.md`, `python -m json.tool .zed/settings.json > /dev/null`, `python -m json.tool .zed/tasks.json > /dev/null`.
+2. Check the tree: `ls .rules .agents/skills/ .zed/settings.json .zed/tasks.json`, `ls .agents/skills/*/SKILL.md >/dev/null`, `python -m json.tool .zed/settings.json > /dev/null`, `python -m json.tool .zed/tasks.json > /dev/null`.
 3. Open the project. The agent panel reads `.rules` as project instructions and lists each `.agents/skills/<name>/` as a skill (`@skill` / slash command).
 4. The MCP picker shows each `context_servers.<name>` ready.
 5. The command palette runs every entry from `.zed/tasks.json` as a Zed Task.

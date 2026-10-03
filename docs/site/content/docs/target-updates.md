@@ -57,7 +57,7 @@ To prepare a release announcement:
 2. Create `docs/site/content/updates/YYYY-MM-DD-vX.Y.Z.md` from the release announcement contract in `.agnostic-ai/skills/cut-release/references/release-briefing.md`.
 3. Summarize the two or three consequences a reader needs and link the full GitHub release notes. Put only verified upstream news in its own section.
 4. Set `extra.targets` to the registered IDs the article covers in substance. Use `[]` for a general edition. A target that was checked and found clean is not coverage.
-5. Set both `aliases` and `rss_guid` to the permanent `.html` address, then run `make site-build site-test` with Zola 0.22.0 and Node 22.
+5. Set both `aliases` and `rss_guid` to the permanent `.html` address, then run `make site-build site-test` with Zola 0.23.6 and Node 22.
 6. Review `_site/updates/`, `_site/updates/feed.xml`, and `_site/sitemap.xml`. Do not commit `_site/`.
 7. Include the article in the release commit and tag.
 
