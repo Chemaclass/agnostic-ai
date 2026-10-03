@@ -118,6 +118,11 @@ type Result struct {
 // Run starts argv in dir with env and stdin, and kills it, with any
 // child it started, once timeout passes.
 func Run(argv []string, dir string, env []string, stdin []byte, timeout time.Duration) Result {
+	argv, cleanup, err := gitBashScript(argv)
+	if err != nil {
+		return Result{StartErr: err}
+	}
+	defer cleanup()
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
@@ -130,7 +135,7 @@ func Run(argv []string, dir string, env []string, stdin []byte, timeout time.Dur
 	// A grandchild that outlives the kill still holds the output pipes.
 	cmd.WaitDelay = time.Second
 	start := time.Now()
-	err := cmd.Run()
+	err = cmd.Run()
 	r := Result{Stdout: stdout.String(), Stderr: stderr.String(), Elapsed: time.Since(start)}
 	reapTree(cmd)
 	switch {
@@ -284,4 +289,29 @@ func gitBashBeside(git string) string {
 		}
 	}
 	return ""
+}
+
+// gitBashScript hands a Git Bash `-c` command over as a script file. The
+// MSYS2 runtime reads a Windows command line its own way and can end a
+// quoted argument at an escaped `"` (winsup/cygwin/dcrt0.cc, quoted), so
+// `"$CLAUDE_PROJECT_DIR/x.sh"` would reach bash with its quotes unbalanced.
+// A file needs no quoting. Every other argv is returned as is.
+func gitBashScript(argv []string) ([]string, func(), error) {
+	if len(argv) != 3 || argv[1] != "-c" || !strings.HasSuffix(strings.ToLower(strings.ReplaceAll(argv[0], `\`, "/")), "/bash.exe") {
+		return argv, func() {}, nil
+	}
+	f, err := os.CreateTemp("", "agnostic-ai-hook-*.sh")
+	if err != nil {
+		return nil, nil, err
+	}
+	_, werr := f.WriteString(argv[2] + "\n")
+	if cerr := f.Close(); werr == nil {
+		werr = cerr
+	}
+	cleanup := func() { _ = os.Remove(f.Name()) }
+	if werr != nil {
+		cleanup()
+		return nil, nil, werr
+	}
+	return []string{argv[0], f.Name()}, cleanup, nil
 }

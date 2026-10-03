@@ -45,3 +45,23 @@ func TestGitBashBeside_FindsBashInTheGitInstall(t *testing.T) {
 		t.Errorf("a git outside a Git install = %q", got)
 	}
 }
+
+func TestGitBashScript_PassesTheCommandInAFile(t *testing.T) {
+	if got, cleanup, err := gitBashScript([]string{"bash", "-c", "echo hi"}); err != nil || !slices.Equal(got, []string{"bash", "-c", "echo hi"}) {
+		t.Errorf("a bash that is not bash.exe = %q, %v", got, err)
+	} else {
+		cleanup()
+	}
+	got, cleanup, err := gitBashScript([]string{`C:\Git\bin\bash.exe`, "-c", `"$CLAUDE_PROJECT_DIR/x.sh"`})
+	if err != nil || len(got) != 2 || got[0] != `C:\Git\bin\bash.exe` {
+		t.Fatalf("argv = %q, %v", got, err)
+	}
+	body, err := os.ReadFile(got[1])
+	if err != nil || string(body) != "\"$CLAUDE_PROJECT_DIR/x.sh\"\n" {
+		t.Errorf("script = %q, %v", body, err)
+	}
+	cleanup()
+	if _, err := os.Stat(got[1]); !os.IsNotExist(err) {
+		t.Errorf("cleanup leaves the script: %v", err)
+	}
+}
