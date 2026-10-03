@@ -83,6 +83,19 @@ func TestSyncJSON_ListsDroppedSpecsAndPlainSyncStillPrintsThem(t *testing.T) {
 	}
 }
 
+func TestSyncJSON_LeavesOutAcceptedNotes(t *testing.T) {
+	setupCoverageAcceptProject(t, acceptCodexTools)
+	captureNotes(t)
+
+	out := runSyncJSONDrops(t)
+
+	for _, n := range out.Notes {
+		if strings.Contains(n.Message, codexToolsNote) {
+			t.Errorf("an accepted note must not be listed: %+v", out.Notes)
+		}
+	}
+}
+
 func TestSyncJSON_EmptyDropListsWhenNothingIsDropped(t *testing.T) {
 	dir := t.TempDir()
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")

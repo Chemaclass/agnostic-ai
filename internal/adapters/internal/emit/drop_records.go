@@ -2,6 +2,7 @@ package emit
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -71,7 +72,11 @@ func PendingCoverageNotes() []DropRecord {
 			Message: fmt.Sprintf("%s (%s)", surfaceNoteText(p.kind, p.count, p.surface, []string{p.target}), p.reason),
 		})
 	}
-	for _, text := range coverageNoteState.pendingText {
+	// Project notes carry no target to order by, and adapters append
+	// them concurrently, so sort them for a stable output.
+	texts := slices.Clone(coverageNoteState.pendingText)
+	slices.Sort(texts)
+	for _, text := range texts {
 		add("text\x00"+text, DropRecord{Target: projectNoteTarget, Message: text})
 	}
 	return out
