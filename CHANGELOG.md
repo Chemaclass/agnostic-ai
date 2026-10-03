@@ -49,6 +49,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - `hook run` runs Copilot hooks: exec form, and a script path under an assumed `sh -c`, shown but not counted unless `--include-assumed` (#1566).
 
+#### Factory
+
+- `hook run` runs Factory hooks, including `"$FACTORY_PROJECT_DIR"/script.sh`, on an assumed shell and cwd, not counted unless `--include-assumed` (#1566).
+
 ### Site
 
 - The last five release briefings give concise upgrade and feature guidance, with readable code blocks, copy controls and tables (#1652, #1653).

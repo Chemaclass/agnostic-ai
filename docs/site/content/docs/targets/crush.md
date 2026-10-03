@@ -16,12 +16,12 @@ Charm [Crush](https://github.com/charmbracelet/crush) reads `AGENTS.md`, `.agent
 
 ```
 AGENTS.md                          # entry-point pointer body + inlined rules (shared path)
-.agents/skills/<name>/SKILL.md     # one folder per skill (shared tree with codex/amp/zed)
+.agents/skills/<name>/SKILL.md     # one folder per skill (shared tree)
 crush.json                         # when MCP or PreToolUse hook entries exist (merged with existing user config)
 .crushignore                       # project-root ignore patterns
 ```
 - **Rules**: Crush has no per-rule directory, so rule bodies inline into `AGENTS.md`.
-- **Skills**: `.agents/skills/` is the first project path Crush scans. It matches codex/amp/zed byte for byte, so the shared tree dedupes. `x-crush.user-invocable: true` also adds a skill to the command palette (ctrl+p).
+- **Skills**: `.agents/skills/` is the first project path Crush scans. It matches the other `.agents/skills/` targets byte for byte, so the shared tree dedupes. `x-crush.user-invocable: true` also adds a skill to the command palette (ctrl+p).
 - **Agents**: no Crush surface; they skip with a warning.
 - **`crush.json`**: sync keeps your `models`, `providers`, `lsp`, and `options` keys. Crush now prefers `crushrc`, a Bash script it sources on startup, and adds new options only there. JSON is deprecated but stays supported, so sync writes `crush.json` (no `crushrc` emitter). An MCP field that ships only in `crushrc` has no path here.
 - **Ignore**: `.crushignore` uses gitignore syntax, supported since [Crush v0.94.1](https://raw.githubusercontent.com/charmbracelet/crush/v0.94.1/README.md). The shared hand-authored-file protection applies.
