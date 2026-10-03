@@ -179,7 +179,7 @@ Then doctor prints:
 | **Packaging ignores** | Generated paths that an existing root `.npmignore`, `.vscodeignore`, or `.dockerignore` does not cover. Names the ignore file and paths. Unsupported patterns and read errors are reported separately. | No, advisory only |
 | **Tracked despite ignored** | A generated path git tracks and ignores, with the `git rm --cached` command. | No |
 | **Codex hook trust** | With Codex selected: inactive handlers in the project hooks file and user `hooks.json`, with `/hooks` as the next step. Reads only user trust from `CODEX_HOME/config.toml` (default `~/.codex/config.toml`). Untrusted, modified, or unreadable status fails. Disabled status does not. | Never grants trust |
-| **MCP** | Whether each stdio `command:` resolves on PATH, with install hints. `url:`-only servers are skipped. | No |
+| **MCP** | Whether each stdio `command:` resolves on PATH, with install hints. `url:`-only servers are skipped. Then each `${NAME}` a server reads in `env`, `headers`, `url`, or `args` that is unset in this shell, by name only. A reference with a default is skipped. | No |
 | **Nested CLAUDE.md** | With `claude` enabled: a hand-written `<dir>/CLAUDE.md` whose trimmed text equals the body of a rule scoped to `<dir>`, as `import claude` leaves it. Claude Code loads it beside the synced rule. A file whose text differs from every such rule is never listed. | Yes, `--fix` removes it |
 | **Script divergence** | Basenames under `.agnostic-ai/scripts/<tool>/` whose bodies differ across tools, with the suggested path `.agnostic-ai/scripts/<basename>`. | Yes, not auto-fixable |
 | **Unmanaged config** | Markdown and TOML config files with no provenance marker, grouped by the `import` source that adopts each. | No |
@@ -201,7 +201,7 @@ Subcommands run one check:
 |------------|-------|
 | `doctor config` | Validate `agnostic-ai.yaml`. |
 | `doctor install` | Which AI CLIs are on PATH. |
-| `doctor mcp` | Resolve each MCP server's command binary. |
+| `doctor mcp` | Resolve each MCP server's command binary and list its unset `${NAME}` references. |
 
 ## status
 
