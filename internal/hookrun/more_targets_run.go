@@ -10,7 +10,7 @@ import (
 
 // otherDefaultTimeouts are the documented defaults: Trae 30 seconds,
 // OpenHands 60, Goose 30, Augment 60000 milliseconds, Factory 60, Qoder
-// CLI 600, Antigravity 30.
+// CLI 600, Antigravity 30. Cursor's and Devin CLI's are assumed.
 var otherDefaultTimeouts = map[string]time.Duration{
 	"trae":        30 * time.Second,
 	"openhands":   60 * time.Second,
@@ -21,6 +21,7 @@ var otherDefaultTimeouts = map[string]time.Duration{
 	"copilot":     copilotDefaultTimeout,
 	"qoder":       qoderDefaultTimeout,
 	"antigravity": antigravityDefaultTimeout,
+	"windsurf":    windsurfAssumedTimeout,
 }
 
 // otherArgv is how each target starts a command: Trae in Bash, or
@@ -41,7 +42,7 @@ func otherArgv(target, goos string, h Handler) ([]string, bool) {
 		return []string{"/bin/sh", "-c", h.Command}, true
 	case "goose":
 		return []string{"sh", "-c", h.Command}, true
-	case "cursor", "factory", "antigravity":
+	case "cursor", "factory", "antigravity", "windsurf":
 		// Assumed; see Assumptions.
 		return []string{"sh", "-c", h.Command}, true
 	case "copilot":
@@ -86,6 +87,8 @@ func DecideHandler(target, event string, h Handler, r Result) Decision {
 		return decideQoder(event, r)
 	case "antigravity":
 		return readAntigravity(event, r).decision
+	case "windsurf":
+		return readWindsurf(event, r).decision
 	}
 	return Decide(target, event, r)
 }
@@ -196,7 +199,7 @@ func PayloadTool(body []byte) string {
 
 // HandlersFromDoc reads the command handlers out of the hooks file sync
 // writes for one spec, in the `hooks` shape Trae, OpenHands, Goose, and
-// Augment share, or Factory's top-level one.
+// Augment share, or the top-level one of Factory and Devin CLI.
 func HandlersFromDoc(target string, body []byte) ([]Handler, error) {
 	if len(body) == 0 {
 		return nil, nil

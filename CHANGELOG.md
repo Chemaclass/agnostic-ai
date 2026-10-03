@@ -6,6 +6,12 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### By tool
+
+#### Windsurf
+
+- `hook run` runs Windsurf's Devin CLI hooks on an assumed shell; `--edit` is refused, since the edit tools' input is undocumented (#1566).
+
 ## v0.78.0 - 2026-10-03
 
 ### General

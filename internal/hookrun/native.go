@@ -101,12 +101,14 @@ func Drift(target string, body []byte, event, matcher, goos string, handlers []H
 // nativeHooks reads the matcher groups per event out of a hooks file:
 // under `hooks`, or at the top level on Factory, whose "Standalone
 // hooks.json files are keyed directly by event name"
-// (docs.factory.com/cli/configuration/hooks-guide).
+// (docs.factory.com/cli/configuration/hooks-guide), and on Devin CLI,
+// where "the hooks object is the **entire file**" of
+// `.devin/hooks.v1.json` (docs.devin.ai/cli/extensibility/hooks).
 func nativeHooks(target string, body []byte) (map[string][]nativeGroup, error) {
 	if target == "antigravity" {
 		return antigravityHooks(body)
 	}
-	if target == "factory" {
+	if target == "factory" || target == "windsurf" {
 		var events map[string][]nativeGroup
 		err := json.Unmarshal(body, &events)
 		return events, err
