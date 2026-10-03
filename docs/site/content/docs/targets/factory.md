@@ -10,7 +10,7 @@ target_id = "factory"
 
 # Factory (`factory`)
 
-Factory [Droid](https://docs.factory.ai/harness/subagents) reads the root `AGENTS.md` and custom droids in `.factory/droids/`. Factory has no per-rule directory, so rule bodies inline into the `AGENTS.md` `## Rules` block.
+Factory [Droid](https://docs.factory.ai/harness/subagents) reads the root `AGENTS.md` and custom droids in `.factory/droids/`. Factory has no per-rule directory, so rule bodies go inline into the `AGENTS.md` `## Rules` block.
 
 ## Output
 
@@ -28,14 +28,14 @@ AGENTS.md                          # pointer body + inlined rules (shared path)
   - An empty body is skipped with a coverage note, since Droid CLI requires a system prompt.
   - A portable `mcpServers` list emits as-is. `mcpServers: []` excludes every MCP server, even global ones, so list the ones you want. See [`mcpServers`](@/docs/spec-format/agents.md#mcpservers-support-by-target).
   - A portable `effort` emits as `reasoningEffort`, which accepts only `low`, `medium`, and `high`. `xhigh`, `max`, and integer budgets drop with a coverage note. Factory ignores the field under `model: inherit`. See [per-target `model` and `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort).
-  - `readonly: true` emits `tools: read-only`, Factory's category for `Read`, `LS`, `Grep`, `Glob`. It replaces a portable `tools` list rather than narrowing it, with a coverage note naming `x-factory.tools` for a custom list. `x-factory.tools` wins over `readonly`. `readonly: false` is a no-op.
+  - `readonly: true` emits `tools: read-only`, Factory's category for `Read`, `LS`, `Grep`, `Glob`. It replaces a portable `tools` list rather than narrowing it, with a coverage note naming `x-factory.tools` for a custom list. `x-factory.tools` wins over `readonly`. `readonly: false` does nothing.
   - A droid gets its MCP servers' tools, so a read-only droid without an `mcpServers` list writes `mcpServers: []`. A listed set is kept.
 - **Tools**: the generic `tools` list maps onto Droid CLI's IDs (`Read`, `LS`, `Grep`, `Glob`, `Create`, `Edit`, `ApplyPatch`, `Execute`, `WebSearch`, `FetchUrl`). One unknown ID makes Factory reject the droid.
   - `Bash` becomes `Execute`, `Write` becomes `Create`, and `WebFetch` becomes `FetchUrl`, as in Factory's Claude Code importer. The rest already match.
   - `TodoWrite` and `Skill` drop silently, since every droid gets them. `ExitSpecMode` and `GenerateDroid` drop because custom droids cannot enable them. `tools: all` is never written, since an omitted key allows every tool.
   - Any other name drops with a coverage note; translated names still emit.
   - `x-factory.tools` writes Factory's vocabulary directly and wins over the translation. Only it reaches a category (`read-only`, `edit`, `execute`, `web`, `mcp`) or an MCP tool ID. See [`tools` support by target](@/docs/spec-format/agents.md#tools-support-by-target).
-- **Skills**: the tree codex, amp, zed, and crush share, written once. Factory also reads [`.agent/skills/**/SKILL.md`](https://docs.factory.ai/harness/skills), which this adapter does not write.
+- **Skills**: written once to the tree that codex, amp, zed, and crush share. Factory also reads [`.agent/skills/**/SKILL.md`](https://docs.factory.ai/harness/skills), which this adapter does not write.
   - Scoped skills emit at `<scope>/.factory/skills/<name>/SKILL.md` with bundled assets. Unscoped skills keep `.agents/skills/`.
   - `outputs.factory.skills-dir` replaces the directory at the root and in each scope. Unmanaged files keep their contents.
 - **Commands**: `.factory/commands/<name>.md` takes `description` and `argument-hint`. `$ARGUMENTS` is preserved. Factory prefers Skills for new workflows but still loads commands.
@@ -79,7 +79,7 @@ AGENTS.md                          # pointer body + inlined rules (shared path)
 
 ## Import
 
-`agnostic-ai import factory` reverses the Factory layout:
+`agnostic-ai import factory` reads the Factory layout back:
 
 | Source | Becomes |
 |--------|---------|
@@ -94,7 +94,7 @@ AGENTS.md                          # pointer body + inlined rules (shared path)
 | `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
 
 - **Droids**: `tools` renames back (`Execute` to `Bash`, `Create` to `Write`, `FetchUrl` to `WebFetch`). A list with a category (`read-only`) or an MCP tool ID lands under `x-factory.tools` untouched. `reasoningEffort` becomes `effort`. Other droid keys land under `x-factory`.
-- **Command lists**: they read back as `Bash(...)` rules: `commandAllowlist` to `allow`, `commandDenylist` to `ask`, `commandBlocklist` to `deny`. A pattern ending in ` *` becomes `Bash(x:*)`. Other `settings.json` keys stay in the file, which sync merges into.
+- **Command lists**: these read back as `Bash(...)` rules: `commandAllowlist` to `allow`, `commandDenylist` to `ask`, `commandBlocklist` to `deny`. A pattern ending in ` *` becomes `Bash(x:*)`. Other `settings.json` keys stay in the file, which sync merges into.
 
 {% <details summary="Read-only droids on import"> %}
 A `tools: read-only` from a portable `readonly: true` also lands under `x-factory.tools`, since import does not guess `readonly` back. Re-syncing writes the same droid file through that override.

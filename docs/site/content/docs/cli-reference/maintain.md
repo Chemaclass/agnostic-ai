@@ -16,7 +16,7 @@ Undo a `sync --backup`. For every emitted file and entry-point file (`CLAUDE.md`
 | Flag | Description |
 |------|-------------|
 | `-t`, `--only`, `--except` | Select targets, as in [`sync`](@/docs/cli-reference/sync.md#sync). |
-| `--dry-run` | Report intended actions without touching disk |
+| `--dry-run` | Report what it would do without touching disk |
 | `--force` | Also delete emitted files that lack a `.bak`, including generated entry-point files and user files sharing their paths. |
 | `--json` | Same schema as `sync --json`. Actions: `"restore"` (`.bak` applied), `"remove"` (deleted), `"preserve"` (no `.bak`, no `--force`), `"skip"` (already absent). |
 
@@ -33,7 +33,7 @@ agnostic-ai cleanup --dry-run   # preview deletions
 
 ## packs
 
-Manage shareable spec packs. Packs load as a layer below the project, so a project spec overrides a pack entry with the same name. Full guide in [packs](@/docs/packs.md).
+Manage shareable spec packs. Packs load as a layer below the project, so a project spec overrides a pack entry with the same name. See the [packs](@/docs/packs.md) guide.
 
 ```bash
 agnostic-ai packs add github.com/chemaclass/go-rules@v1.2.0
@@ -52,7 +52,7 @@ files=$(agnostic-ai hook paths) || exit 1
 printf '%s\n' "$files" | grep '\.go$' | while IFS= read -r f; do gofmt -w "$f"; done
 ```
 
-`agnostic-ai` must be on the hook's `PATH`. Capture the output first, as above. Piped straight into the loop, a failure of `hook paths` ends with exit 0.
+`agnostic-ai` must be on the hook's `PATH`. Capture the output first, as above. If you pipe it straight into the loop, a failure of `hook paths` ends with exit 0.
 
 It exits 1 on:
 
@@ -68,7 +68,7 @@ It exits 1 on:
 
 ## hook run
 
-Run one hook spec before a session fires it. Run `sync` first, so the scripts that sync copies are in place. For each target the hook reaches, `hook run`:
+Run one hook spec before a session fires it. Run `sync` first, so the scripts sync copies are in place. For each target the hook reaches, `hook run`:
 
 1. Builds that target's payload.
 2. Runs the command sync wrote, from the project root (or Copilot's `cwd`), with that target's env, shell, and timeout.
@@ -90,7 +90,7 @@ It exits 1 when:
 - two targets decide differently
 - a decision is not the one `--expect` names
 
-It warns, without failing, when a target's synced native file does not run the command the spec produces. Such files are `.claude/settings.json` and `.codex/hooks.json`. Run `sync` to fix it.
+It warns, without failing, when a target's synced native file (`.claude/settings.json` or `.codex/hooks.json`) does not run the command the spec produces. Run `sync` to fix it.
 
 | Flag | Description |
 |------|-------------|
@@ -116,7 +116,7 @@ agnostic-ai install-hook --post-checkout            # writes .git/hooks/post-che
 agnostic-ai install-hook --post-checkout --shared   # writes both hooks in .githooks/
 ```
 
-An existing hook keeps its content, and the checks go at its end. A hook that already holds them stays as it is. A hook that would stop before reaching them is left alone, and the command prints the lines to add by hand. Such a hook has no `sh` or `bash` shebang, an `exec`, or an unindented `exit`.
+An existing hook keeps its content, and the checks go at its end. A hook that already holds them stays as it is. A hook that would stop before reaching them is left alone, and the command prints the lines to add by hand. A hook stops early when it has no `sh` or `bash` shebang, an `exec`, or an unindented `exit`.
 
 - `--shared` writes `.githooks/<hook>` at the root of the main working tree, from any linked worktree. It stops when `core.hooksPath` already points elsewhere.
 - `--global` is for the global home, which must be the root of its own git repository. The hook runs `lint --global --strict`, `validate --global`, and `sync --global --check`. The commit fails when any of them fails. In a linked worktree it skips `sync --global --check`. Not with `--shared` or `--post-checkout`.
@@ -152,7 +152,7 @@ agnostic-ai upgrade --version v0.56.1
 | Flag | Description |
 |------|-------------|
 | `--check` | Print install details and exit without changing anything. With `--version`, adds a `Requested:` line and downloads nothing. |
-| `--version <tag>` | Install one release, downgrades included. The leading `v` is optional. Standalone binaries only. Package-manager installs are told to pin through their manager. |
+| `--version <tag>` | Install one release, downgrades included. The leading `v` is optional. Standalone binaries only: for a package-manager install, the command tells you to pin through that manager. |
 | `--requires` | Set this project's `requires` and schema tag to the installed release, then sync. |
 | `--run` | Accepted for compatibility; upgrading is the default. |
 
@@ -162,11 +162,11 @@ After upgrading through a package manager, use its installed CLI from the projec
 pnpm exec agnostic-ai upgrade --requires
 ```
 
-`--requires` replaces a minimum, range, or older pin with the installed exact release. It updates the base config and any existing local `requires` override, including a null override. Comments and unrelated settings stay intact. The command holds the project lock through the config changes and sync. If sync fails, the new pins remain; fix the reported output problem and run `sync` again.
+`--requires` replaces a minimum, range, or older pin with the installed exact release. It updates the base config and any existing local `requires` override, including a null override. Comments and unrelated settings stay intact. The command holds the project lock through the config changes and sync. If sync fails, the new pins stay. Fix the reported output problem and run `sync` again.
 
-This mode requires a stable release build. It works with `agnostic.config.yaml` too. It cannot combine with `--check`, `--version`, or `--run`, and it does not update global home config. Install and dependency files are managed by your package manager.
+This mode needs a stable release build. It works with `agnostic.config.yaml` too. It cannot combine with `--check`, `--version`, or `--run`, and it does not update global home config. Your package manager owns install and dependency files.
 
-The editor keeps unrelated YAML bytes intact. Convert flow-style root mappings, merged root keys, and anchored or multiline `requires` values to a plain block mapping and single-line scalar before running it.
+The config edit keeps unrelated YAML bytes intact. Before running it, convert flow-style root mappings, merged root keys, and anchored or multiline `requires` values to a plain block mapping and a single-line scalar.
 
 | Binary location | Upgrade |
 |-----------------|---------|

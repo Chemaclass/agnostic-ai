@@ -12,7 +12,7 @@ moved = { per-target-body-fences = "@/docs/spec-format/_index.md" }
 
 `hooks/` holds commands the AI tool runs at fixed points: when a session starts, before a tool call, after a file edit, when the agent stops. An instruction asks the model to do something; a hook makes it happen every time.
 
-- **Guardrails.** Block a force push or a write to a generated file before it happens.
+- **Safety checks.** Block a force push or a write to a generated file before it happens.
 - **Automatic follow-up.** Format or lint a file right after the agent edits it.
 - **Fresh context.** Print the branch, open issues, or service status when a session starts.
 - **One script, many tools.** Tools that share event names, such as Claude Code and Codex, run one spec. `AGNOSTIC_AI_TARGET` tells a shared script which tool called it.
@@ -174,7 +174,7 @@ case "$AGNOSTIC_AI_TARGET" in
 esac
 ```
 
-A spec that sets `AGNOSTIC_AI_TARGET` in its own `env` keeps that value. Where sync cannot set it, the parent process's value stays. That can be `claude` for a tool started from Claude Code. Sync sets it per target:
+A spec that sets `AGNOSTIC_AI_TARGET` in its own `env` keeps that value. Where sync cannot set it, the parent process's value stays, such as `claude` for a tool started from Claude Code. Sync sets it per target:
 
 - [Claude Code](@/docs/targets/claude.md): `env` in `.claude/settings.json` (`~/.claude/settings.json` for `sync --global`). Set for the whole session, so the Bash tool sees it too.
 - [Cursor](@/docs/targets/cursor.md): a `sessionStart` hook returns the variable. `sessionStart` hooks and hooks that fire before it returns do not see it.
@@ -258,7 +258,7 @@ For each configured target the hook reaches, it runs every command sync wrote fo
 - **Matcher on `--payload`.** A tool call from `--payload` matches its `tool_name` with the target's matcher rules, including Codex's `Edit` and `Write` aliases for `apply_patch`. On Cursor, the matcher tests what Cursor documents for the event: the `command`, `tool_name`, or `subagent_type`, or a fixed name such as `Read` for `beforeReadFile`. Goose uses the supplied `matcher_context` on every event: the tool name, shell command, file path, or prompt text. On Copilot, the matcher tests `toolName`, `notification_type`, `trigger`, or `agentName`, and a PascalCase `PreToolUse` or `PermissionRequest` uses Claude-format matchers on `tool_name`.
 - **Missing event.** A target without the hook's event, such as Codex for `Notification`, is listed as not run.
 - **Timeout.** The timeout sync writes (Gemini's is in milliseconds), or the tool's default.
-- **Async.** An `async: true` hook runs and prints its output. Its result is `not judged` and stays out of `--expect` and the comparison, because neither tool waits for it. A Cursor `sessionStart` or `sessionEnd` hook, and a Copilot `notification` hook, is `not judged` either, because the tool runs it fire-and-forget.
+- **Async.** An `async: true` hook runs and prints its output. Its result is `not judged` and stays out of `--expect` and the comparison, because neither tool waits for it. Cursor `sessionStart` and `sessionEnd` hooks and Copilot `notification` hooks are `not judged` too, because the tool runs them fire-and-forget.
 - **Background commands.** On macOS and Linux, a command the hook leaves running is killed once the hook exits.
 - **Stale native file.** Commands come from the spec, so the run works before a sync. The target prints a `warning` naming the file when the synced file is missing, or when no handler under the event runs the command the spec produces. It also warns when that handler's group matcher, timeout, or (on Gemini) `env` differs from the spec. An `env` warning names the keys that differ, never their values. A warning does not fail the run; `sync` clears it. The files are `.claude/settings.json`, `.codex/hooks.json`, `.gemini/settings.json`, `.trae/hooks.json`, `.openhands/hooks.json`, the Goose plugin `hooks/hooks.json`, `.augment/settings.json`, `.cursor/hooks.json`, `.github/hooks/agnostic-ai.json`, `.factory/hooks.json`, or the path `outputs` sets. On Cursor it also compares `failClosed`, and on Copilot `cwd`.
 
@@ -278,7 +278,7 @@ Variables listed here are removed from the calling shell's env first. Other vari
 | OpenHands | `OPENHANDS_PROJECT_DIR`, `OPENHANDS_SESSION_ID`, `OPENHANDS_EVENT_TYPE`, `OPENHANDS_TOOL_NAME` |
 | Goose | `PLUGIN_ROOT`, with `AGNOSTIC_AI_TARGET=goose` from its command |
 | Augment | `AUGMENT_PROJECT_DIR`, `AUGMENT_CONVERSATION_ID`, `AUGMENT_HOOK_EVENT`, `AUGMENT_TOOL_NAME` |
-| Cursor | `CURSOR_PROJECT_DIR`, `CURSOR_VERSION` (empty), `CLAUDE_PROJECT_DIR`, and `AGNOSTIC_AI_TARGET=cursor`, which the `sessionStart` entry sync adds sets for later hooks |
+| Cursor | `CURSOR_PROJECT_DIR`, `CURSOR_VERSION` (empty), `CLAUDE_PROJECT_DIR`, and `AGNOSTIC_AI_TARGET=cursor`, which the `sessionStart` entry that sync adds sets for later hooks |
 | Copilot | the handler's `env`, which holds `AGNOSTIC_AI_TARGET=copilot`. A value with `$` is listed as not run, since Copilot does not document its expansion syntax. |
 | Factory | `FACTORY_PROJECT_DIR` |
 {% </details> %}
@@ -345,7 +345,7 @@ Cursor, Copilot, and Factory document their payloads and reply rules, but each l
 
 Sources: [Cursor hooks](https://cursor.com/docs/hooks), the [Copilot hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference), [using hooks with Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/use-hooks) for the `bash` tool's `toolArgs`, and the [Factory hooks guide](https://docs.factory.com/cli/configuration/hooks-guide).
 
-The result line ends in `(assumed: shell, timeout)`, followed by one line per assumption and the docs link. An assumed result is shown but not counted: it stays out of `--expect` and the comparison unless you pass `--include-assumed`. When it disagrees with them, a warning says so, and a summary such as `0 checked, 1 assumed (not counted; --include-assumed to count)` shows what was left out. With `--expect`, a run where only assumed results ran fails and asks for `--include-assumed`, so a CI check never passes on nothing. Without `--expect`, it exits 0. In JSON, each target has `assumptions` (`item`, `value`, `reason`) and `counted`.
+The result line ends in `(assumed: shell, timeout)`, followed by one line per assumption and the docs link. An assumed result is shown but not counted: it stays out of `--expect` and the comparison unless you pass `--include-assumed`. When it disagrees with the counted results, a warning says so, and a summary such as `0 checked, 1 assumed (not counted; --include-assumed to count)` shows what was left out. With `--expect`, a run where only assumed results ran fails and asks for `--include-assumed`, so a CI check never passes on nothing. Without `--expect`, it exits 0. In JSON, each target has `assumptions` (`item`, `value`, `reason`) and `counted`.
 
 A Cursor hook spec uses Cursor's own event names, so it runs only on Cursor; other targets are listed as not run. A Copilot hook spec with a PascalCase event such as `PreToolUse` runs on Claude Code too, which counts, so `--expect` checks Claude Code and shows Copilot beside it.
 
@@ -397,4 +397,4 @@ A Cursor hook spec uses Cursor's own event names, so it runs only on Cursor; oth
 
 On each, `tool_response` holds placeholder values, and session IDs and transcript paths are made up. Gemini matchers compile as Go regular expressions, which reject a few JavaScript forms such as lookahead; Gemini CLI would run those, and `hook run` compares them as a literal name. `GEMINI_PLANS_DIR` is not set.
 
-Every other target is listed as not run: its docs leave out more than `hook run` can assume safely. [#1566](https://github.com/Chemaclass/agnostic-ai/issues/1566) and [#1678](https://github.com/Chemaclass/agnostic-ai/issues/1678) list what each one lacks.
+Every other target is listed as not run. Its docs leave out more than `hook run` can safely assume. [#1566](https://github.com/Chemaclass/agnostic-ai/issues/1566) and [#1678](https://github.com/Chemaclass/agnostic-ai/issues/1678) list what each one lacks.
