@@ -209,3 +209,136 @@ func TestImportGlobal_LeavesOutServersWithCredentials(t *testing.T) {
 		}
 	}
 }
+
+func TestImportMCP_ReviewedCredentialShapesLeaveServerOut(t *testing.T) {
+	for name, tc := range map[string]struct {
+		server        map[string]any
+		field, secret string
+	}{
+		"bearer in a header argument":    {map[string]any{"command": "mcp-remote", "args": []any{"https://h/mcp", "--header", "Authorization:Bearer BEARERARG1"}}, "args[2]", "BEARERARG1"},
+		"bearer inside a command":        {map[string]any{"command": "sh", "args": []any{"-c", "curl -H 'Authorization: Bearer BEARERSH12' https://h"}}, "args[1]", "BEARERSH12"},
+		"bearer in a JSON value":         {map[string]any{"command": "srv", "x-claude": map[string]any{"headers": `{"Authorization": "Bearer ntn_NOTIONSECRET"}`}}, "x-claude.headers", "NOTIONSECRET"},
+		"credential header after -H":     {map[string]any{"command": "mcp-remote", "args": []any{"-H", "X-Api-Key: HDRKEYVAL1"}}, "args[1]", "HDRKEYVAL1"},
+		"cookie header with equals":      {map[string]any{"command": "mcp-remote", "args": []any{"--header=Cookie: sid=COOKIEVAL1"}}, "args[0]", "COOKIEVAL1"},
+		"credential key in a block":      {map[string]any{"command": "srv", "x-claude": map[string]any{"settings": map[string]any{"apiKey": "XKEYSECRET"}}}, "x-claude.settings.apiKey", "XKEYSECRET"},
+		"credential key in options":      {map[string]any{"url": "https://h/mcp", "requestOptions": map[string]any{"clientSecret": "ROPTSECRET"}}, "requestOptions.clientSecret", "ROPTSECRET"},
+		"flag among shell words":         {map[string]any{"command": "sh", "args": []any{"-c", "npx srv --token abcdefgh123"}}, "args[1]", "abcdefgh123"},
+		"glued credential word in sh -c": {map[string]any{"command": "sh", "args": []any{"-c", "PGPASSWORD=GLUEDPW1 exec pg-mcp"}}, "args[1]", "GLUEDPW1"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			log := captureLog(t)
+			if _, err := writeMCPYAMLs("claude", map[string]any{"gh": tc.server}, dir); err != nil {
+				t.Fatal(err)
+			}
+			out := log.String()
+			if strings.Contains(out, tc.secret) {
+				t.Errorf("import output prints a credential value:\n%s", out)
+			}
+			if _, err := os.Stat(filepath.Join(dir, "gh.yaml")); !os.IsNotExist(err) {
+				t.Errorf("a server with a credential import cannot rewrite must be left out")
+			}
+			if want := "MCP server gh: left out; " + tc.field + " holds a credential import cannot rewrite"; !strings.Contains(out, want) {
+				t.Errorf("output lacks %q:\n%s", want, out)
+			}
+		})
+	}
+}
+
+func TestImportMCP_MoreTokenPrefixesBecomeReferences(t *testing.T) {
+	tokens := []string{
+		"npm_" + strings.Repeat("a1", 18),
+		"AIza" + strings.Repeat("B", 35),
+		"sk_live_ABCDEFGH1",
+		"sk_test_ABCDEFGH2",
+		"rk_live_ABCDEFGH3",
+		"xapp-1-ABCDEFGH4",
+		"sk-proj-abcdefghij",
+		"sk-ant-abcdefghij",
+		"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.c2lnbmF0dXJl",
+	}
+	args := []any{"--private-key", "KEYMATERIAL1"}
+	for _, token := range tokens {
+		args = append(args, token)
+	}
+	specs, out := importMCPServers(t, "claude", map[string]any{"gh": map[string]any{"command": "srv", "args": args}})
+	for _, secret := range append(tokens, "KEYMATERIAL1") {
+		if strings.Contains(specs["gh"], secret) || strings.Contains(out, secret) {
+			t.Errorf("token %.12s reached the spec or the output", secret)
+		}
+	}
+	for _, want := range []string{"- ${GH_PRIVATE_KEY}\n", "- ${GH_TOKEN}\n", "- ${GH_TOKEN_9}\n"} {
+		if !strings.Contains(specs["gh"], want) {
+			t.Errorf("spec lacks %q:\n%s", want, specs["gh"])
+		}
+	}
+	if !strings.Contains(out, "MCP server gh: args[1] private-key now reads ${GH_PRIVATE_KEY}; set GH_PRIVATE_KEY") {
+		t.Errorf("output does not name the flag reference:\n%s", out)
+	}
+}
+
+func TestImportMCP_NonCredentialNamesAndValuesImportUnchanged(t *testing.T) {
+	url := "https://x.example/mcp?country_code=US&language_code=en&sortKey=a&primary_key=id&cache_key=x&sort_key=y#code_view=1"
+	args := []any{
+		"--sort-key", "name",
+		"--cache-key", "abcdefghij",
+		"--partition-key", "pk-value-long",
+		"--idempotency-key", "1234abcd-x",
+		"--public-key", "ssh-ed25519AAAA",
+		"--require-api-key", "run",
+		"--api-key", "/run/secrets/key",
+		"--token=true",
+		"--password", "12345678",
+		"--token", "~/t",
+		"--secret", "../s",
+		"--api-key", "short",
+		"--header", "Authorization: Bearer ${TOKEN}",
+		"-H", "X-Region: eu",
+	}
+	specs, out := importMCPServers(t, "claude", map[string]any{
+		"api":   map[string]any{"url": url},
+		"plain": map[string]any{"command": "srv", "args": args, "x-claude": map[string]any{"settings": map[string]any{"sortKey": "name", "token": "${TOKEN}"}}},
+	})
+	if !strings.Contains(specs["api"], "url: "+url) {
+		t.Errorf("a parameter name that only contains a credential word imports unchanged:\n%s", specs["api"])
+	}
+	for _, arg := range args {
+		if !strings.Contains(specs["plain"], arg.(string)) {
+			t.Errorf("spec lacks %q:\n%s", arg, specs["plain"])
+		}
+	}
+	if strings.Contains(out, "left out") || strings.Contains(out, "now reads") {
+		t.Errorf("import reports nothing for values without a credential:\n%s", out)
+	}
+}
+
+func TestImportGlobal_CredentialKeysAndReferenceValues(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(home, ".cursor", "mcp.json"), `{"mcpServers": {
+  "pg": {"command": "x", "env": {"PGPASSWORD": "GL0BALPGPW"}},
+  "notion": {"command": "x", "env": {"OPENAPI_MCP_HEADERS": "{\"Authorization\": \"Bearer ntn_GL0BALNOTION\"}"}},
+  "ref": {"url": "https://h/mcp", "headers": {"Authorization": "Bearer ${env:GH_TOKEN}", "X-Token": "token ${env:X_TOKEN}"}},
+  "paths": {"command": "x", "env": {"PWD": "/home/u", "PORT": "8080", "NODE_ENV": "production"}}}}`+"\n")
+	out, warnings, err := runImportGlobalTest("cursor")
+	if err != nil {
+		t.Fatalf("import: %v\n%s", err, warnings)
+	}
+	for _, secret := range []string{"GL0BALPGPW", "GL0BALNOTION"} {
+		if strings.Contains(out+warnings, secret) {
+			t.Errorf("import --global prints a credential value:\n%s%s", out, warnings)
+		}
+	}
+	for name, field := range map[string]string{"pg": "env.PGPASSWORD", "notion": "env.OPENAPI_MCP_HEADERS"} {
+		if _, err := os.Stat(filepath.Join(source, "mcps", name+".yaml")); !os.IsNotExist(err) {
+			t.Errorf("server %s holds a literal credential and must stay out of the home", name)
+		}
+		if want := "skipped MCP server " + name + ": left out; " + field + " holds a credential"; !strings.Contains(warnings, want) {
+			t.Errorf("warnings lack %q:\n%s", want, warnings)
+		}
+	}
+	for _, name := range []string{"ref", "paths"} {
+		if _, err := os.Stat(filepath.Join(source, "mcps", name+".yaml")); err != nil {
+			t.Errorf("server %s holds no literal credential and is imported: %v\n%s", name, err, warnings)
+		}
+	}
+}

@@ -358,9 +358,9 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, war
 // credential, since the home is meant to be committed and a reference
 // would not write the user's file back unchanged. That is every
 // credential project import finds in a URL, argument, or other field,
-// and an `env` or header value whose key ends in a credential word, is
-// `Authorization`, or holds one by its shape. A plain setting such as
-// `NODE_ENV: production` stays. The warning names the field, never the
+// and an `env` or header value whose key mcpCredentialName names or
+// that holds one by its shape. A plain setting such as `NODE_ENV:
+// production`, a path, a number, and `Bearer ${TOKEN}` stay. The warning names the field, never the
 // value.
 func withoutMCPCredentials(target string, servers map[string]any, skip func(target, name, reason string) error) error {
 	probe, _ := jsonRoundTrip(servers).(map[string]any)
@@ -376,8 +376,10 @@ func withoutMCPCredentials(target string, servers map[string]any, skip func(targ
 		server, _ := servers[r.server].(map[string]any)
 		values, _ := server[r.field].(map[string]any)
 		value, _ := values[r.key].(string)
-		words := mcpNameWords(r.key)
-		if mcpCredentialName(r.key) || len(words) > 0 && words[len(words)-1] == "authorization" || mcpCredentialDetected(value) {
+		if mcpRefOnly(value) {
+			continue
+		}
+		if mcpCredentialName(r.key) && mcpSecretValue(mcpDetectorText(value), false) || mcpCredentialDetected(value) {
 			held[r.server] = r.field + "." + r.key
 		}
 	}
