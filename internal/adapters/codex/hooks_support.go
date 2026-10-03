@@ -104,26 +104,69 @@ func matcherAlternatives(matcher string) ([]string, bool) {
 	return names, inner != strings.TrimSpace(matcher)
 }
 
+// scanRegex calls visit for each ( ) and | in a regex that is not escaped
+// or inside a [...] class, with the group depth before that byte. A class
+// may open with ^, then a literal ], and may hold [:name:] sets.
+func scanRegex(s string, visit func(i int, c byte, depth int)) {
+	depth := 0
+	for i := 0; i < len(s); i++ {
+		switch c := s[i]; c {
+		case '\\':
+			i++
+		case '[':
+			i = classEnd(s, i)
+		case '(', ')', '|':
+			visit(i, c, depth)
+			if c == '(' {
+				depth++
+			} else if c == ')' {
+				depth--
+			}
+		}
+	}
+}
+
+// classEnd returns the index of the ] that closes the class opening at
+// start, or the last index when it never closes.
+func classEnd(s string, start int) int {
+	i := start + 1
+	if i < len(s) && s[i] == '^' {
+		i++
+	}
+	if i < len(s) && s[i] == ']' {
+		i++
+	}
+	for ; i < len(s); i++ {
+		switch {
+		case s[i] == '\\':
+			i++
+		case strings.HasPrefix(s[i:], "[:"):
+			if end := strings.Index(s[i+2:], ":]"); end >= 0 {
+				i += end + 3
+			}
+		case s[i] == ']':
+			return i
+		}
+	}
+	return len(s) - 1
+}
+
 // outerGroup returns the body of s when one (...) or (?:...) group spans
 // all of it.
 func outerGroup(s string) (string, bool) {
 	if !strings.HasPrefix(s, "(") || !strings.HasSuffix(s, ")") {
 		return "", false
 	}
-	depth := 0
-	for i, r := range s {
-		switch r {
-		case '(':
-			depth++
-		case ')':
-			depth--
-			if depth == 0 && i != len(s)-1 {
-				return "", false
-			}
+	spans := true
+	scanRegex(s, func(i int, c byte, depth int) {
+		if c == ')' && depth == 1 && i != len(s)-1 {
+			spans = false
 		}
+	})
+	if !spans {
+		return "", false
 	}
-	body := strings.TrimPrefix(s[1:len(s)-1], "?:")
-	return body, depth == 0
+	return strings.TrimPrefix(s[1:len(s)-1], "?:"), true
 }
 
 func codexMatcherSegment(event, seg string) bool {

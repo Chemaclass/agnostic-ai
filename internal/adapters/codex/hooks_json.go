@@ -378,7 +378,7 @@ func unwrapSegment(seg string) string {
 // joined: it splits on top-level pipes only and unwraps each (?:...).
 func unionSegments(matcher string) []string {
 	var out []string
-	depth, start := 0, 0
+	start := 0
 	flush := func(end int) {
 		seg := strings.TrimSpace(matcher[start:end])
 		if body, ok := outerGroup(seg); ok && strings.HasPrefix(seg, "(?:") {
@@ -386,19 +386,12 @@ func unionSegments(matcher string) []string {
 		}
 		out = append(out, matcherSegments(unwrapSegment(seg))...)
 	}
-	for i, r := range matcher {
-		switch r {
-		case '(':
-			depth++
-		case ')':
-			depth--
-		case '|':
-			if depth == 0 {
-				flush(i)
-				start = i + 1
-			}
+	scanRegex(matcher, func(i int, c byte, depth int) {
+		if c == '|' && depth == 0 {
+			flush(i)
+			start = i + 1
 		}
-	}
+	})
 	flush(len(matcher))
 	return out
 }

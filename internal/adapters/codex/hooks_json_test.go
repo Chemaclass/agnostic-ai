@@ -673,6 +673,27 @@ func TestEmit_HooksJSON_SimilarJoinedMatchersStaySeparate(t *testing.T) {
 	}
 }
 
+// A literal parenthesis or pipe inside an escape or a character class is
+// not a group boundary, so the merged matcher still covers its sources.
+func TestEmit_HooksJSON_UnionCoversRegexesWithLiteralParens(t *testing.T) {
+	for _, regex := range []string{`[^)]*Bash`, `[)]x`, `\)x`, `[]|)]x`, `[^]|)]x`, `(a\))b`, `[[:alpha:])]x`, `x[(]`} {
+		t.Run(regex, func(t *testing.T) {
+			matcher := emittedMatcher(t, regex, "apply_patch")
+			if _, err := regexp.Compile(matcher); err != nil {
+				t.Fatalf("emitted %q: %v", matcher, err)
+			}
+			for _, m := range []string{regex, "apply_patch"} {
+				if !(Adapter{}).HookMatcherCovers(matcher, m) {
+					t.Errorf("emitted %q does not cover %q", matcher, m)
+				}
+			}
+			if (Adapter{}).HookMatcherCovers(matcher, "Read") {
+				t.Errorf("emitted %q covers Read", matcher)
+			}
+		})
+	}
+}
+
 func TestEmit_HooksJSON_SingleSpecMatcherUnchanged(t *testing.T) {
 	for _, m := range []string{"^(Bash|exec)$", "Bash|apply_patch", "mcp__fs__.*"} {
 		if got := emittedMatcher(t, m); got != m {
