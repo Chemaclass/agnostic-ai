@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -87,6 +89,11 @@ func Argv(target, goos string, h Handler) []string {
 	case len(h.Args) > 0:
 		return append([]string{h.Command}, h.Args...)
 	case h.Shell == "powershell" && goos == "windows":
+		return []string{"powershell.exe", "-NoProfile", "-Command", h.Command}
+	case target == "claude" && goos == "windows":
+		if bash := gitBash(); bash != "" {
+			return []string{bash, "-c", h.Command}
+		}
 		return []string{"powershell.exe", "-NoProfile", "-Command", h.Command}
 	case h.Shell == "powershell":
 		return []string{"pwsh", "-NoProfile", "-Command", h.Command}
@@ -246,4 +253,35 @@ func readReply(r Result) (hookReply, bool) {
 		return reply, false
 	}
 	return reply, true
+}
+
+// gitBash is the bash.exe Claude Code runs shell-form hooks with on
+// Windows, or "" when Git Bash is not installed and Claude Code falls back
+// to PowerShell (code.claude.com/docs/en/hooks, `shell`). The first `bash`
+// on PATH can be WSL's launcher, which re-reads quotes, so the lookup
+// follows Claude Code's: CLAUDE_CODE_GIT_BASH_PATH, then the Git install
+// that holds git.exe.
+var gitBash = func() string {
+	if path := os.Getenv("CLAUDE_CODE_GIT_BASH_PATH"); path != "" {
+		return path
+	}
+	git, err := exec.LookPath("git")
+	if err != nil {
+		return ""
+	}
+	return gitBashBeside(git)
+}
+
+// gitBashBeside finds bin\bash.exe in the Git install that holds git,
+// which sits in its cmd\, bin\, or mingw64\bin\ directory.
+func gitBashBeside(git string) string {
+	dir := filepath.Dir(git)
+	for range 2 {
+		dir = filepath.Dir(dir)
+		bash := filepath.Join(dir, "bin", "bash.exe")
+		if info, err := os.Stat(bash); err == nil && !info.IsDir() {
+			return bash
+		}
+	}
+	return ""
 }

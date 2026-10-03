@@ -644,7 +644,7 @@ Variables listed here are removed from the calling shell's env first. Other vari
 {% <details summary="Shell and default timeout per target"> %}
 | Target | Shell | Default timeout |
 |--------|-------|-----------------|
-| Claude Code | `bash -c`; exec-form `args` with no shell; `shell: powershell` with PowerShell | 600 seconds, except 30 on `UserPromptSubmit`, `PreModelSwitch`, and `PostModelSwitch`, and 10 on `MessageDisplay` |
+| Claude Code | `bash -c`, on Windows with Git Bash (`CLAUDE_CODE_GIT_BASH_PATH`, else the Git install that holds `git.exe`) or PowerShell when there is none; exec-form `args` with no shell; `shell: powershell` with PowerShell | 600 seconds, except 30 on `UserPromptSubmit`, `PreModelSwitch`, and `PostModelSwitch`, and 10 on `MessageDisplay` |
 | Codex | `sh -c`; on Windows, `commandWindows` with `powershell.exe -Command` | 600 seconds |
 | Gemini | `bash -c`, or Windows PowerShell on Windows, after Gemini's own replacement of `$GEMINI_PROJECT_DIR`, `$GEMINI_CWD`, `$GEMINI_SESSION_ID`, and `$CLAUDE_PROJECT_DIR` with the quoted root | 60 seconds |
 | Trae | `bash -c`, or PowerShell on Windows | 30 seconds |

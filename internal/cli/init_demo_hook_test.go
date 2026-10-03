@@ -336,12 +336,7 @@ func TestDemoHook_BlocksForcePushOnClaudeAndCodex(t *testing.T) {
 		{"git commit -m \"$(cat <<'EOF'\nfix: stop git push --force\nEOF\n)\"", "allow"},
 		{"git commit -m \"$(cat <<'EOF'\nfix: a\nEOF\n)\" && git push --force", "block"},
 	}
-	// On Windows, the `bash` a runner finds first may be WSL's launcher, not
-	// the Git Bash Claude Code runs hooks with, so only Codex runs there.
 	targets := []string{"claude", "codex"}
-	if runtime.GOOS == "windows" {
-		targets = []string{"codex"}
-	}
 	for _, c := range cases {
 		t.Run(c.command, func(t *testing.T) {
 			args := []string{"no-force-push", "--bash", c.command, "--expect", c.expect}
