@@ -1,7 +1,10 @@
 package cline
 
 import (
+	"encoding/json"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -14,7 +17,7 @@ func TestHookScript_IsTheEventScriptSyncWritesForOneSpec(t *testing.T) {
 	emitTargetHooks(t, &config.Config{}, h)
 
 	got := HookScript(h)
-	if got != "set -e\nexport AGNOSTIC_AI_TARGET=cline\n\n./a.sh\n\n./b.sh\n" {
+	if want := "set -e\nexport AGNOSTIC_AI_TARGET=cline\n" + clineBlockPrelude + "\n(\n./a.sh\n)" + clineBlockOnExit2 + "\n(\n./b.sh\n)" + clineBlockOnExit2; got != want {
 		t.Errorf("HookScript = %q", got)
 	}
 	if synced := readTargetFile(t, ".clinerules/hooks/PreToolUse"); !strings.HasSuffix(synced, got) {
@@ -35,5 +38,48 @@ func TestHookScriptPath_FoldsTheEventAndFollowsHooksDir(t *testing.T) {
 	}
 	if got := HookScriptPath(&config.Config{}, "Stop"); got != "" {
 		t.Errorf("Cline reads no Stop script, got %q", got)
+	}
+}
+
+// The script turns exit 2 into a cancel reply both Cline runtimes read,
+// stops on any other failure, and passes a reply a command prints itself.
+func TestHookScript_TurnsExit2IntoACancelReply(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("runs the script with bash")
+	}
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("bash is not on PATH")
+	}
+	run := func(commands ...string) (string, int) {
+		t.Helper()
+		cmd := exec.Command("bash", "-c", hookScript(commands))
+		cmd.Stdin = strings.NewReader("{}")
+		out, err := cmd.Output()
+		code := 0
+		if exit, ok := err.(*exec.ExitError); ok {
+			code = exit.ExitCode()
+		} else if err != nil {
+			t.Fatal(err)
+		}
+		return string(out), code
+	}
+
+	out, code := run(`printf 'line "one"\n\tline two\n' >&2; exit 2`, "echo never")
+	if code != 0 || out != "HOOK_CONTROL\t{\"cancel\": true, \"errorMessage\": \"line \\\"one\\\"\\n\\tline two\"}\n" {
+		t.Errorf("exit 2 = %d %q", code, out)
+	}
+	var reply map[string]any
+	if err := json.Unmarshal([]byte(strings.TrimPrefix(strings.TrimSpace(out), "HOOK_CONTROL\t")), &reply); err != nil || reply["cancel"] != true {
+		t.Errorf("reply is not a cancel: %v %v", err, reply)
+	}
+
+	if out, code = run("exit 2"); !strings.Contains(out, `"errorMessage": "blocked by a hook that exited 2"`) || code != 0 {
+		t.Errorf("exit 2 without stderr = %d %q", code, out)
+	}
+	if out, code = run("exit 1", "echo never"); code != 1 || out != "" {
+		t.Errorf("exit 1 = %d %q; it must stop the script with its own code", code, out)
+	}
+	if out, code = run(`echo '{"cancel": true}'`); code != 0 || out != "{\"cancel\": true}\n" {
+		t.Errorf("a reply the command prints = %d %q", code, out)
 	}
 }

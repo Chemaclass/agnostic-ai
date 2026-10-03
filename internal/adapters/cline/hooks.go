@@ -146,9 +146,14 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 }
 
 // hookScript renders the body of one event script. Cline never reads
-// the exit code (hook-file-hooks.ts:415-454): a hook blocks only by
-// printing `{"cancel": true}` on stdout. `set -e` stops the script at the
-// first failing command, so the commands after it do not run.
+// the exit code (hook-file-hooks.ts:415-454, and the VS Code extension
+// fails open on any non-zero exit, HookProcess.ts:255-258): a hook blocks
+// only by printing `{"cancel": true}` on stdout. So each command runs in
+// a subshell, and an exit 2, the Claude Code convention for "block",
+// becomes a last `HOOK_CONTROL\t{"cancel": true, ...}` line and exit 0,
+// which both runtimes read as a block. Its stderr becomes the
+// errorMessage. Any other failure exits with its own code, as `set -e`
+// did, so the commands after it do not run.
 //
 // Commands for the same event share one file because the file name is
 // the event: Cline has no second slot to put them in. They also share
@@ -163,13 +168,33 @@ func hookScript(commands []string) string {
 	var b strings.Builder
 	b.WriteString("set -e\n")
 	b.WriteString("export " + emit.HookTargetEnv + "=" + target + "\n")
+	b.WriteString(clineBlockPrelude)
 	for _, cmd := range commands {
-		b.WriteString("\n")
+		b.WriteString("\n(\n")
 		b.WriteString(cmd)
-		b.WriteString("\n")
+		b.WriteString("\n)" + clineBlockOnExit2)
 	}
 	return b.String()
 }
+
+// clineBlockPrelude sets up the stderr file and the JSON string escape
+// every command's exit 2 check uses.
+const clineBlockPrelude = `aai_err=$(mktemp)
+trap 'rm -f "$aai_err"' EXIT
+aai_json() { awk 'BEGIN { ORS = "" } { gsub(/\\/, "\\\\"); gsub(/"/, "\\\""); gsub(/\t/, "\\t"); gsub(/\r/, ""); if (NR > 1) printf "\\n"; print }'; }
+`
+
+// clineBlockOnExit2 follows each command's subshell: it replays stderr,
+// turns exit 2 into a cancel reply, and stops on any other failure.
+const clineBlockOnExit2 = ` 2>"$aai_err" && aai_status=0 || aai_status=$?
+cat "$aai_err" >&2
+if [ "$aai_status" -eq 2 ]; then
+  aai_msg=$(aai_json <"$aai_err")
+  printf 'HOOK_CONTROL\t{"cancel": true, "errorMessage": "%s"}\n' "${aai_msg:-blocked by a hook that exited 2}"
+  exit 0
+fi
+[ "$aai_status" -eq 0 ] || exit "$aai_status"
+`
 
 // materializeHookScripts copies each hook's stashed script body from
 // `.agnostic-ai/scripts/` into `.cline/hooks/`. The lookup keys off the

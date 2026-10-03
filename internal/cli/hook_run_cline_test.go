@@ -81,30 +81,28 @@ func TestHookRun_ClineBlocksOnACancelReply(t *testing.T) {
 	}
 }
 
-func TestHookRun_ClineIgnoresAClaudeStyleExit2(t *testing.T) {
+func TestHookRun_ClineBlocksOnAClaudeStyleExit2(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	clineProject(t, "name: block-rm\nevent: PreToolUse\nmatcher: Bash\ntimeout: 5\ncommand: .agnostic-ai/scripts/block-rm.sh\n", clineExitScript)
 
 	out, err := runHookRun(t, "block-rm", "--bash", "rm -rf /", "--expect", "block")
 	for _, want := range []string{
 		"claude: block (exit 2",
-		"cline: allow (exit 2",
-		`note: Cline ignores the exit code; print {"cancel": true} to block`,
+		"cline: block (exit 0",
+		"note: cancel: Cline skips the tool call and stops the run",
 		`note: Cline has no matcher: sync drops "Bash", and the script runs on every tool call`,
 		"note: Cline has no per-hook timeout: sync drops the spec's 5s, and hook run uses Cline's 120s",
-		"cline: warning: assumed result allow differs from block and is not counted; pass --include-assumed to count it",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output misses %q:\n%s", want, out)
 		}
 	}
-	if err != nil {
-		t.Errorf("an uncounted disagreement only warns: %v", err)
+	if err != nil || strings.Contains(out, "warning:") {
+		t.Errorf("the synced script turns exit 2 into a cancel reply: %v\n%s", err, out)
 	}
 
-	_, err = runHookRun(t, "block-rm", "--bash", "rm -rf /", "--expect", "block", "--include-assumed")
-	if err == nil || !strings.Contains(err.Error(), "expected block, got claude block, cline allow") {
-		t.Errorf("a counted Cline allow must fail --expect block: %v", err)
+	if _, err = runHookRun(t, "block-rm", "--bash", "rm -rf /", "--expect", "block", "--include-assumed"); err != nil {
+		t.Errorf("a counted Cline block passes --expect block: %v", err)
 	}
 }
 
@@ -127,7 +125,7 @@ func TestHookRun_ClinePromptHookIsNotJudged(t *testing.T) {
 
 	out, err := runHookRun(t, "block-rm", "--prompt", "rm -rf /", "--expect", "block", "--include-assumed")
 	for _, want := range []string{
-		"cline: not judged (exit 2", "event: UserPromptSubmit (prompt)", "command: .clinerules/hooks/UserPromptSubmit",
+		"cline: not judged (exit 0", "event: UserPromptSubmit (prompt)", "command: .clinerules/hooks/UserPromptSubmit",
 		"note: cline runs UserPromptSubmit fire-and-forget; it does not wait for the result",
 		"note: Cline may not send this event: its source says orchestrated sessions, which the CLI runs, seed the prompt without it",
 	} {
