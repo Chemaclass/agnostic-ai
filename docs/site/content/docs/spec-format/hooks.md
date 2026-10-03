@@ -104,14 +104,22 @@ description: Block git push --force and allow --force-with-lease.
 targets: [claude, codex]
 event: PreToolUse
 matcher: Bash
-command: .agnostic-ai/scripts/no-force-push.sh
-commandWindows: sh .agnostic-ai/scripts/no-force-push.sh
+command: '"$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/no-force-push.sh"'
+commandWindows: '$LASTEXITCODE = 1; sh "$(git rev-parse --show-toplevel)/.agnostic-ai/scripts/no-force-push.sh"; exit $LASTEXITCODE'
 timeout: 10
 ```
 
-The script reads `tool_input.command` from the event JSON on stdin, with no `jq`. It splits the command into words the way `sh` does, so a quoted `git push --force` in a commit message passes. On a force push it prints the reason on stderr and exits 2, which both tools read as a block.
+The script reads `tool_input.command` from the event JSON on stdin, with no `jq`. It splits the command into words the way `sh` does, so a quoted `git push --force` in a commit message or a comment passes. On a force push it prints the reason on stderr and exits 2, which both tools read as a block.
 
-On Windows, Codex runs `commandWindows` through PowerShell, which ignores the script's `#!/bin/sh` line, so the hook names `sh`. That needs `sh` on `PATH`, as Git for Windows provides. Without it, Codex reports a failed hook and runs the push. Claude Code runs hooks with Git Bash on Windows and needs no change.
+Both tools start a hook in the session directory, which can be below the project root, so the path starts at the root. Claude Code keeps [`$CLAUDE_PROJECT_DIR`](#imported-project-root-paths); Codex gets `$(git rev-parse --show-toplevel)`.
+
+On Windows, Codex runs `commandWindows` with `powershell.exe -Command`:
+
+- PowerShell ignores the script's `#!/bin/sh` line, so the command names `sh`. That needs `sh` on `PATH`, as Git for Windows provides.
+- PowerShell reports a failed native command as exit 1, which Codex reads as a hook error and lets the push run. `exit $LASTEXITCODE` passes on the script's exit 2.
+- `$LASTEXITCODE = 1` makes a missing `sh` fail the hook, which Codex reports, instead of passing.
+
+Claude Code runs hooks with Git Bash on Windows and needs no `commandWindows`.
 
 {% <details summary=".agnostic-ai/scripts/no-force-push.sh"> %}
 ```sh
@@ -120,8 +128,9 @@ On Windows, Codex runs `commandWindows` through PowerShell, which ignores the sc
 # It catches a mistake. It is not a sandbox.
 
 # Reads tool_input.command from the hook JSON on stdin, splits it into
-# words the way sh would (quotes, backslashes, line continuations), and
-# checks each command between unquoted ; & | ( ) and newlines.
+# words the way sh would (quotes, backslashes, line continuations,
+# comments), and checks each command between unquoted ; & | ( ) and
+# newlines.
 awk -v q='"' -v sq="'" '
 function flush() {
   if (inword) words[++n] = w
@@ -217,6 +226,10 @@ END {
     }
     if (c == q) { mode = "double"; inword = 1; continue }
     if (c == sq) { mode = "single"; inword = 1; continue }
+    if (c == "#" && !inword) {
+      while (p < size && substr(cmd, p + 1, 1) != "\n") p++
+      continue
+    }
     if (c == " " || c == "\t" || c == "\r") { flush(); continue }
     if (index(";&|()\n", c)) { end_command(); continue }
     w = w c

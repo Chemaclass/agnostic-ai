@@ -3,8 +3,9 @@
 # It catches a mistake. It is not a sandbox.
 
 # Reads tool_input.command from the hook JSON on stdin, splits it into
-# words the way sh would (quotes, backslashes, line continuations), and
-# checks each command between unquoted ; & | ( ) and newlines.
+# words the way sh would (quotes, backslashes, line continuations,
+# comments), and checks each command between unquoted ; & | ( ) and
+# newlines.
 awk -v q='"' -v sq="'" '
 function flush() {
   if (inword) words[++n] = w
@@ -100,6 +101,10 @@ END {
     }
     if (c == q) { mode = "double"; inword = 1; continue }
     if (c == sq) { mode = "single"; inword = 1; continue }
+    if (c == "#" && !inword) {
+      while (p < size && substr(cmd, p + 1, 1) != "\n") p++
+      continue
+    }
     if (c == " " || c == "\t" || c == "\r") { flush(); continue }
     if (index(";&|()\n", c)) { end_command(); continue }
     w = w c
