@@ -8,6 +8,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- `lint` warns with LINT031 when a spec still has the `TODO` description that `new` writes (#1739).
+- `new agent` leaves `model` out, so a fresh agent lints clean in projects that target more than Claude (#1738).
 - `doctor` lists each MCP `${NAME}` reference that is unset in your shell, by name (#1729).
 - `hook run` no longer hides a timeout or error from one command when another command's result is not counted (#1728).
 
@@ -27,6 +29,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### Site
 
+- An MCP recipes page gives specs for GitHub, Context7, Playwright, and filesystem servers; `new mcp` links to it (#1741).
+- The Spec packs page uses real pack repos in its examples and lists three public repos that install as packs (#1740).
 - The Why page notes that betagouv/agnostic-ai is a separate project with the same name (#1737).
 
 ## v0.78.0 - 2026-10-03

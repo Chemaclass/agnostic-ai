@@ -53,7 +53,7 @@ func newPacksCmd() *cobra.Command {
 			"are loaded as a layer below the project layer, so the project " +
 			"can override any pack-supplied entry by name.",
 		Example: `  # Install a pack at a tag
-  agnostic-ai packs add github.com/chemaclass/go-rules@v1.2.0
+  agnostic-ai packs add github.com/obra/superpowers@v6.4.2
 
   # Install from a local directory
   agnostic-ai packs add ./path/to/pack
@@ -63,10 +63,10 @@ func newPacksCmd() *cobra.Command {
 
   # Update one or all packs
   agnostic-ai packs update
-  agnostic-ai packs update go-rules
+  agnostic-ai packs update superpowers
 
   # Remove a pack
-  agnostic-ai packs remove go-rules`,
+  agnostic-ai packs remove superpowers`,
 	}
 	cmd.AddCommand(newPacksAddCmd(), newPacksRemoveCmd(), newPacksListCmd(), newPacksUpdateCmd())
 	return cmd

@@ -89,6 +89,7 @@ Run `agnostic-ai sync --watch` while you edit specs. Run `agnostic-ai status` to
 
 - [Directory-specific instructions](@/docs/scoped-context.md): keep service conventions inside their subtree.
 - [Spec format](@/docs/spec-format/_index.md): add skills, agents, hooks, and MCP servers.
+- [MCP recipes](@/docs/spec-format/mcp-recipes.md): connect GitHub, Context7, Playwright, or the filesystem.
 - [Configuration](@/docs/configuration.md): select tools and change output paths.
 - [Git hooks](@/docs/git-hooks.md) and [CI gate](@/docs/ci.md): keep outputs current.
 - [Troubleshooting](@/docs/troubleshooting.md): fix missing files or failing syncs.

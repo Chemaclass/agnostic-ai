@@ -199,6 +199,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "A hook that emits to Gemini CLI has a command with a bare `$GEMINI_PROJECT_DIR`, `$GEMINI_CWD`, `$GEMINI_PLANS_DIR`, `$GEMINI_SESSION_ID`, or `$CLAUDE_PROJECT_DIR`. Gemini replaces each bare name with a shell-escaped value as text, before the shell runs, one name after another. Quotes, comments, heredocs, and other shell syntax around it, or a project path holding another such name, can turn the value into code. The braced `${NAME}` form is not replaced. See https://github.com/google-gemini/gemini-cli/blob/fb972b2f87fe7d5b06d37eac711490162d98de2c/packages/core/src/hooks/hookRunner.ts#L526-L531.",
 		Fix:      "Write `\"${NAME}\"`: Gemini leaves the braced form to the shell, which reads the variable Gemini sets.",
 	},
+	"LINT031": {
+		Severity: lintWarn,
+		Title:    "Placeholder description",
+		Cause:    "A spec's `description` still starts with `TODO`, the placeholder `agnostic-ai new` writes. Sync copies it to every target, where it shows in tool pickers and decides when a skill fires.",
+		Fix:      "Replace the `description` with what the spec is for, and when it applies.",
+	},
 }
 
 type explainLintCodeOutput struct {
