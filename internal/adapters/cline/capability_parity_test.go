@@ -32,7 +32,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindRule, []string{".clinerules/r1.md", ".clinerules/r2.md", ".clinerules/r3.md"}},
 		{spec.KindAgent, []string{".cline/agents/alpha.yml", ".cline/agents/beta.yml", ".cline/agents/gamma.yml"}},
 		{spec.KindSkill, []string{".cline/skills/uno/SKILL.md", ".cline/skills/dos/SKILL.md", ".cline/skills/tres/SKILL.md"}},
-		{spec.KindHook, []string{".cline/hooks/PostToolUse.sh", ".cline/hooks/TaskStart.sh"}},
+		{spec.KindHook, []string{".clinerules/hooks/PostToolUse", ".clinerules/hooks/TaskStart"}},
 	}
 	for _, k := range caps.Supports {
 		found := false

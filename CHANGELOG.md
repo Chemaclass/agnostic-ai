@@ -17,6 +17,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Cline
 
+- Hooks sync to `.clinerules/hooks/<Event>`, an executable with a bash shebang and no extension, so the VS Code extension runs them too; old `.cline/hooks/<Event>.sh` files are removed (#1723).
 - `hook run` runs Cline hook scripts with bash as the Cline CLI does; only stdout `{"cancel": true}` blocks, and the exit code is ignored (#1678).
 
 #### Codex
