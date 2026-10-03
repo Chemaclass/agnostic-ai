@@ -293,7 +293,7 @@ Variables listed here are removed from the calling shell's env first. Other vari
 | Goose | `sh -c` on every platform | 30 seconds |
 | Augment | Only a `.sh`, `.ps1`, `.cmd`, or `.bat` script path: the script itself on macOS and Linux, a `.ps1` with `powershell.exe -Command` and a `.cmd` or `.bat` with `cmd.exe /c` on Windows. An inline command is listed as not run. | 60 seconds |
 | Cursor | Assumed `sh -c`, for a script path and plain or single-quoted arguments only. A command with shell syntax, and any command on Windows, is listed as not run. | Assumed 30 seconds |
-| Factory | Assumed `sh -c`, for a script path and plain or single-quoted arguments only, after the quoted root replaces `$FACTORY_PROJECT_DIR`. A command with shell syntax, and any command on Windows, is listed as not run. | 60 seconds |
+| Factory | Assumed `sh -c`, for a script path and plain or single-quoted arguments only, where `"$FACTORY_PROJECT_DIR"` counts as a plain word. A command with shell syntax, and any command on Windows, is listed as not run. | 60 seconds |
 {% </details> %}
 
 {% <details summary="Claude Code `if` rules"> %}
@@ -336,7 +336,7 @@ Cursor and Factory document their payloads and reply rules, but not the shell th
 
 - Shell: `sh -c` on macOS and Linux, only for a script path with plain or single-quoted arguments, as sync writes `args`, which every POSIX shell reads the same way. A command with shell syntax, such as a pipe, is listed as not run with "Cursor does not document its shell; use a script path" (or Factory). Windows is not run.
 - Timeout, Cursor only: 30 seconds when the spec sets none. Set `timeout` in the spec to remove this assumption. Factory documents 60 seconds.
-- Working directory, Factory only: the project root. Factory runs hooks from "Droid's current working directory, which can differ from your repository root". A command written as the guide says, `"$FACTORY_PROJECT_DIR"/path/to/script.sh`, runs as a script path: `hook run` puts the quoted project root in place of `$FACTORY_PROJECT_DIR` and `${FACTORY_PROJECT_DIR}` wherever the shell would expand them, not inside single quotes.
+- Working directory, Factory only: the project root. Factory runs hooks from "Droid's current working directory, which can differ from your repository root". A command written as the guide says, `"$FACTORY_PROJECT_DIR"/path/to/script.sh`, counts as a script path. It runs as written, with `FACTORY_PROJECT_DIR` set to the project root, so the shell expands it.
 
 The result line ends in `(assumed: shell, timeout)`, followed by one line per assumption and the docs link. An assumed result is shown but not counted: it stays out of `--expect` and the comparison unless you pass `--include-assumed`. When it disagrees with them, a warning says so, and a summary such as `0 checked, 1 assumed (not counted; --include-assumed to count)` shows what was left out. With `--expect`, a run where only assumed results ran fails and asks for `--include-assumed`, so a CI check never passes on nothing. Without `--expect`, it exits 0. In JSON, each target has `assumptions` (`item`, `value`, `reason`) and `counted`.
 

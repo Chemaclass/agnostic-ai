@@ -10,7 +10,8 @@ import (
 // Source: docs.factory.com/cli/configuration/hooks-guide (rechecked
 // 2026-10-03). Documented there:
 //   - Project root: "Use `"$FACTORY_PROJECT_DIR"/path/to/script.sh` for
-//     project scripts"; see expandFactoryRoot.
+//     project scripts". The command runs as written, with
+//     FACTORY_PROJECT_DIR in its env; see expandFactoryRoot.
 //   - Timeout: "Per-command timeout in seconds. Defaults to `60`."
 //   - Payload: session_id, transcript_path, cwd, permission_mode, and
 //     hook_event_name on every hook; a Create call's tool_input is
@@ -36,12 +37,13 @@ const factoryDefaultTimeout = 60 * time.Second
 const factoryRootVar = "FACTORY_PROJECT_DIR"
 
 // expandFactoryRoot replaces each project root reference the shell would
-// expand, `$FACTORY_PROJECT_DIR` or `${FACTORY_PROJECT_DIR}`, with root,
-// so a command written as the guide says runs as a script path. root is
-// the quoted project root when the hook runs, and a plain word when hook
-// run checks the command is shell-neutral. A reference inside single
-// quotes or after a backslash is literal to the shell and stays as
-// written; one inside double quotes gets the quotes closed around root.
+// expand, `$FACTORY_PROJECT_DIR` or `${FACTORY_PROJECT_DIR}`, with the
+// word root, only to check that a command written as the guide says is a
+// script path. The command itself runs unchanged, so the shell expands
+// the reference and splits an unquoted one as Factory's would. A
+// reference inside single quotes or after a backslash is literal to the
+// shell and stays as written; one inside other double-quoted text gets
+// the quotes closed around root, which leaves shell syntax.
 func expandFactoryRoot(command, root string) string {
 	var out strings.Builder
 	var quote byte

@@ -78,37 +78,57 @@ func TestAssumptions_FactoryAssumesTheShellAndCwd(t *testing.T) {
 			t.Errorf("%s must run: %s", command, reason)
 		}
 	}
-	if got := ExpandCommand("factory", "linux", `"$FACTORY_PROJECT_DIR"/a.sh`, "/it's a dir"); got != `'/it'\''s a dir'/a.sh` {
-		t.Errorf("ExpandCommand = %s", got)
-	}
 	if DefaultTimeout("factory", "PreToolUse") != 60*time.Second {
 		t.Error("Factory's documented default is 60 seconds")
 	}
 }
 
-func TestExpandCommand_FactoryRootNeverRunsAsShellCode(t *testing.T) {
+func TestFactoryRoot_RunsAsTheShellExpandsIt(t *testing.T) {
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("no sh")
 	}
-	for _, root := range []string{"/tmp/a b", "/tmp/it's", "/tmp/$(printf INJECTED)", "/tmp/`printf INJECTED`"} {
+	for _, root := range []string{"/tmp/a b", "/tmp/it's", "/tmp/$(printf INJECTED)", "/tmp/`printf INJECTED`", "/tmp/project with spaces"} {
 		for command, want := range map[string]string{
 			`printf %s "$FACTORY_PROJECT_DIR"`:     root,
-			`printf %s ${FACTORY_PROJECT_DIR}/x`:   root + "/x",
 			`printf %s "${FACTORY_PROJECT_DIR}/x"`: root + "/x",
 			`printf %s '$FACTORY_PROJECT_DIR'`:     "$FACTORY_PROJECT_DIR",
 			`printf %s \$FACTORY_PROJECT_DIR`:      "$FACTORY_PROJECT_DIR",
 			`printf %s $FACTORY_PROJECT_DIRS`:      "",
 		} {
-			expanded := ExpandCommand("factory", "linux", command, root)
-			cmd := exec.Command("sh", "-c", expanded)
-			cmd.Env = []string{"PATH=" + os.Getenv("PATH")}
+			if got := ExpandCommand("factory", "linux", command, root); got != command {
+				t.Errorf("the command must run as written: %s became %s", command, got)
+			}
+			cmd := exec.Command("sh", "-c", command)
+			cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "FACTORY_PROJECT_DIR=" + root}
 			out, err := cmd.Output()
 			if err != nil || string(out) != want {
-				t.Errorf("root %q: %s ran as %s and printed %q, want %q (%v)", root, command, expanded, out, want, err)
+				t.Errorf("root %q: %s printed %q, want %q (%v)", root, command, out, want, err)
 			}
 		}
 	}
-	if _, reason := Assumptions("factory", "linux", Handler{Command: `.factory/hooks/guard.sh '$FACTORY_PROJECT_DIR'`}); reason != "" {
-		t.Errorf("a single-quoted reference is a literal word and runs as written: %s", reason)
+	for command, runs := range map[string]bool{
+		`"$FACTORY_PROJECT_DIR"/.factory/hooks/guard.sh`:  true,
+		`${FACTORY_PROJECT_DIR}/.factory/hooks/guard.sh`:  true,
+		`.factory/hooks/guard.sh '$FACTORY_PROJECT_DIR'`:  true,
+		`"$FACTORY_PROJECT_DIR/.factory/hooks/guard.sh"`:  false,
+		`$FACTORY_PROJECT_DIRS/.factory/hooks/guard.sh`:   false,
+		`"$FACTORY_PROJECT_DIR"/guard.sh | tee /dev/null`: false,
+	} {
+		if _, reason := Assumptions("factory", "linux", Handler{Command: command}); (reason == "") != runs {
+			t.Errorf("%s: runs = %t, reason %q", command, !runs, reason)
+		}
+	}
+}
+
+func TestFactoryRoot_UnquotedReferenceSplitsAsNativeSh(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("no sh")
+	}
+	const command = `set -- $FACTORY_PROJECT_DIR; printf %s "$#"`
+	argv := Argv("factory", "linux", Handler{Command: ExpandCommand("factory", "linux", command, "/tmp/project with spaces")})
+	cmd := exec.Command(argv[0], argv[1:]...)
+	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "FACTORY_PROJECT_DIR=/tmp/project with spaces"}
+	if out, err := cmd.Output(); err != nil || string(out) != "3" {
+		t.Errorf("an unquoted root splits into 3 words under sh, got %q (%v)", out, err)
 	}
 }
