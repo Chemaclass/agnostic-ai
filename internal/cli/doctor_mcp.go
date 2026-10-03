@@ -145,7 +145,7 @@ func mcpEnvRefNames(meta map[string]any, target string) []string {
 			return
 		}
 		for _, t := range spec.EnvRefTokens(s) {
-			if t.Known() && !t.HasDefault && !(launch && t.EditorVariable()) {
+			if t.Known() && !t.HasDefault && (!launch || !t.EditorVariable()) {
 				names = append(names, t.Name)
 			}
 		}
