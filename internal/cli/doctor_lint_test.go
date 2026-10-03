@@ -102,7 +102,7 @@ func TestDoctorJSON_ListsLintFindingsAndFailsOnError(t *testing.T) {
 	if len(got.Writes) != 0 || len(got.Lint) != 1 {
 		t.Fatalf("want no drift and one lint finding, got %+v\n%s", got, out)
 	}
-	if f := got.Lint[0]; f.Code != "LINT006" || f.Severity != "error" || f.Path != filepath.FromSlash(".agnostic-ai/rules/broken.md") || f.Message == "" {
+	if f := got.Lint[0]; f.Code != "LINT006" || f.Severity != "error" || f.Path != ".agnostic-ai/rules/broken.md" || f.Message == "" {
 		t.Errorf("unexpected lint finding: %+v", f)
 	}
 }
