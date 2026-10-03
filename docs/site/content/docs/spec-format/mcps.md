@@ -122,7 +122,7 @@ A tool's own form at the top level, such as `${env:NAME}`, is copied as text to 
 | [Continue](@/docs/targets/continue.md) | `{% raw %}${{ secrets.NAME }}{% endraw %}` | `{% raw %}${{ secrets.NAME }}{% endraw %}` |
 | [Codex](@/docs/targets/codex.md), [Factory](@/docs/targets/factory.md), [Kiro](@/docs/targets/kiro.md), [Antigravity](@/docs/targets/antigravity.md), [Augment](@/docs/targets/augment.md), [Copilot](@/docs/targets/copilot.md), [Junie](@/docs/targets/junie.md), [Kilo Code](@/docs/targets/kilo.md), [Qoder](@/docs/targets/qoder.md), [Trae](@/docs/targets/trae.md), [Warp](@/docs/targets/warp.md), [Zed](@/docs/targets/zed.md) | Server left out | Server left out |
 
-Import reads each tool's form in `url` and `args` back as `${NAME}`, including a whole-argument `$NAME` on Gemini and Crush. A tool reference to a variable named like one of the four tool variables, such as Cursor's `${env:workspaceFolder}`, is kept as written, so it never becomes the tool variable. Import never turns a literal URL or argument into a reference.
+Import reads each tool's form in `url` and `args` back as `${NAME}`, including a whole-argument `$NAME` on Gemini and Crush. A tool reference to a variable named like one of the four tool variables, such as Cursor's `${env:workspaceFolder}`, is kept as written, so it never becomes the tool variable. Import keeps a literal URL or argument as written, except for the [credentials in it](#what-import-writes).
 
 ### Literal `${NAME}` text {#literal-text}
 
@@ -149,6 +149,7 @@ When sync leaves out a reference a tool cannot read, the note names the `$${NAME
 - A `${NAME:-default}` loses its default, since a default is a value too.
 - A value with text around its references, such as `postgres://u:pw@${HOST}/db` or `Bearer sk-1 ${EXTRA}`, is replaced whole, since that text may be the secret. So is a value with any other `${...}`, such as a VS Code `${input:id}` prompt, which sync could not write. The output names the prompt.
 - A Crush `$(command)` value becomes a reference, and the output names the command it ran.
+- In a URL in `url` or in an argument, only the credentials become references: a `user:password@` password and the value of a query parameter named like `token`, `key`, `secret`, or `password`, such as `api_key` or `access_token`. Each reads `<SERVER>_<NAME>`, so `postgresql://admin:pw@db/app` in server `pg` becomes `postgresql://admin:${PG_PASSWORD}@db/app`. The rest of the URL stays as written.
 
 Import prints each replacement and the variable to set. `import --global` keeps literal values, because the user files it adopts must render back unchanged.
 

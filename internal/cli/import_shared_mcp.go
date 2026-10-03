@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"maps"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -13,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"gopkg.in/yaml.v3"
 
@@ -71,7 +73,8 @@ func readJSONMapAt(srcPath, mapKey string) (map[string]any, error) {
 // target's native file. target's own environment references become the
 // spec's `${NAME}`, and every literal `env` or `headers` value becomes a
 // reference too: import cannot tell a token from a setting, and a spec
-// is a file meant to be committed (#1619).
+// is a file meant to be committed (#1619). So does each credential in a
+// `url` or `args` URL.
 func writeMCPYAMLs(target string, servers map[string]any, dstDir string) (int, error) {
 	for _, raw := range servers {
 		if server, ok := raw.(map[string]any); ok {
@@ -152,8 +155,110 @@ type mcpLiteralRef struct {
 
 type mcpLiteral struct {
 	server, field, key string
-	values             map[string]any
 	prefix, secret     string
+	// replace writes text in place of the secret.
+	replace func(text string)
+	// value is what the field holds now.
+	value func() string
+}
+
+// mcpURLValue is a url or argument split around its credentials, so
+// each one can become a reference while the rest stays as written.
+type mcpURLValue struct {
+	pieces []string
+	write  func(string)
+}
+
+func (v *mcpURLValue) set(i int, text string) {
+	v.pieces[i] = text
+	v.write(v.String())
+}
+
+func (v *mcpURLValue) String() string { return strings.Join(v.pieces, "") }
+
+// mcpCredentialParams are the query parameter names, split on
+// punctuation, that import treats as a credential.
+var mcpCredentialParams = map[string]bool{
+	"token": true, "key": true, "secret": true, "password": true, "passwd": true, "pwd": true,
+	"apikey": true, "accesstoken": true, "authtoken": true,
+}
+
+func mcpCredentialParam(name string) bool {
+	if unescaped, err := url.QueryUnescape(name); err == nil {
+		name = unescaped
+	}
+	for _, word := range strings.FieldsFunc(strings.ToLower(name), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	}) {
+		if mcpCredentialParams[word] {
+			return true
+		}
+	}
+	return false
+}
+
+func mcpLiteralSecret(value string) bool {
+	return value != "" && !spec.OnlyEnvRefs(value) && !spec.OnlyEscapedEnvRefs(value)
+}
+
+// splitMCPURLCredentials finds the `user:password@` password and each
+// credential query parameter in the first URL inside value. It returns
+// the value split into pieces and, for each credential, its piece index
+// and name. It reads the text by hand because a URL may hold `${NAME}`
+// references that net/url rejects.
+func splitMCPURLCredentials(value string) ([]string, map[int]string) {
+	scheme := strings.Index(value, "://")
+	if scheme < 0 {
+		return nil, nil
+	}
+	var pieces []string
+	creds := map[int]string{}
+	text := value[:scheme+3]
+	credential := func(name, secret string) {
+		pieces = append(pieces, text, secret)
+		creds[len(pieces)-1] = name
+		text = ""
+	}
+	rest := value[scheme+3:]
+	end := strings.IndexAny(rest, "/?#")
+	if end < 0 {
+		end = len(rest)
+	}
+	authority := rest[:end]
+	if at := strings.LastIndex(authority, "@"); at >= 0 {
+		if user, password, ok := strings.Cut(authority[:at], ":"); ok && mcpLiteralSecret(password) {
+			text += user + ":"
+			credential("password", password)
+			authority = authority[at:]
+		}
+	}
+	text += authority
+	rest = rest[end:]
+	fragment := ""
+	if hash := strings.Index(rest, "#"); hash >= 0 {
+		rest, fragment = rest[:hash], rest[hash:]
+	}
+	path, query, hasQuery := strings.Cut(rest, "?")
+	text += path
+	if hasQuery {
+		text += "?"
+		for i, pair := range strings.Split(query, "&") {
+			if i > 0 {
+				text += "&"
+			}
+			name, secret, ok := strings.Cut(pair, "=")
+			if ok && mcpCredentialParam(name) && mcpLiteralSecret(secret) {
+				text += name + "="
+				credential(name, secret)
+				continue
+			}
+			text += pair
+		}
+	}
+	if len(creds) == 0 {
+		return nil, nil
+	}
+	return append(pieces, text+fragment), creds
 }
 
 var (
@@ -168,8 +273,9 @@ var (
 // may be the secret (`postgres://u:pw@${HOST}/db`); so does one with a
 // `${...}` sync cannot write, such as `${input:id}`, which would
 // otherwise reach the spec and drop from every target. A `Bearer ` prefix
-// stays outside the reference. See mcpLiteralNames for the variable
-// names.
+// stays outside the reference. A URL credential in `url` or `args`
+// becomes a reference too (see mcpURLLiterals). See mcpLiteralNames for
+// the variable names.
 func referenceMCPLiterals(servers map[string]any) []mcpLiteralRef {
 	var refs []mcpLiteralRef
 	var literals []mcpLiteral
@@ -201,18 +307,24 @@ func referenceMCPLiterals(servers map[string]any) []mcpLiteralRef {
 					}
 					continue
 				}
-				l := mcpLiteral{server: name, field: field, key: key, values: values, secret: value}
+				l := mcpLiteral{server: name, field: field, key: key, secret: value,
+					replace: func(text string) { values[key] = text },
+					value:   func() string { return values[key].(string) }}
 				if token, ok := strings.CutPrefix(value, "Bearer "); ok && field == "headers" && token != "" {
 					l.prefix, l.secret = "Bearer ", token
 				}
 				literals = append(literals, l)
 			}
 		}
+		literals = append(literals, mcpURLLiterals(name, server, referenced)...)
 	}
-	for i, variable := range mcpLiteralNames(literals, referenced) {
+	names := mcpLiteralNames(literals, referenced)
+	for i, variable := range names {
+		literals[i].replace(literals[i].prefix + spec.EnvRef(variable))
+	}
+	for i, variable := range names {
 		l := literals[i]
-		l.values[l.key] = l.prefix + spec.EnvRef(variable)
-		ref := mcpLiteralRef{server: l.server, field: l.field, key: l.key, value: l.values[l.key].(string), variable: variable}
+		ref := mcpLiteralRef{server: l.server, field: l.field, key: l.key, value: l.value(), variable: variable}
 		if m := mcpCommandPattern.FindStringSubmatch(l.secret); m != nil {
 			ref.ran = m[1]
 		}
@@ -222,6 +334,41 @@ func referenceMCPLiterals(servers map[string]any) []mcpLiteralRef {
 		refs = append(refs, ref)
 	}
 	return refs
+}
+
+// mcpURLLiterals returns the credentials in server's `url` and `args`:
+// a URL password and each query parameter mcpCredentialParam names. The
+// rest of the URL stays as written. It records the references a URL
+// already holds in referenced.
+func mcpURLLiterals(name string, server map[string]any, referenced map[string]bool) []mcpLiteral {
+	var literals []mcpLiteral
+	add := func(field, value string, write func(string)) {
+		for _, t := range spec.EnvRefTokens(value) {
+			if t.Known() {
+				referenced[t.Name] = true
+			}
+		}
+		pieces, creds := splitMCPURLCredentials(value)
+		if creds == nil {
+			return
+		}
+		v := &mcpURLValue{pieces: pieces, write: write}
+		for _, i := range slices.Sorted(maps.Keys(creds)) {
+			literals = append(literals, mcpLiteral{server: name, field: field, key: creds[i], secret: pieces[i],
+				replace: func(text string) { v.set(i, text) },
+				value:   v.String})
+		}
+	}
+	if value, ok := server["url"].(string); ok {
+		add("url", value, func(s string) { server["url"] = s })
+	}
+	args, _ := server["args"].([]any)
+	for i, arg := range args {
+		if value, ok := arg.(string); ok {
+			add("args["+strconv.Itoa(i)+"]", value, func(s string) { args[i] = s })
+		}
+	}
+	return literals
 }
 
 // mcpLiteralNames picks one variable per literal. An `env` value reads
@@ -268,7 +415,7 @@ func mcpLiteralNames(literals []mcpLiteral, referenced map[string]bool) []string
 }
 
 func reportMCPLiteralRefs(refs []mcpLiteralRef) {
-	reportMCPLiteralRefsWithHint(refs, "import does not copy env or header values into specs; export each variable above in the shell that starts your tool")
+	reportMCPLiteralRefsWithHint(refs, "import does not copy env or header values or URL credentials into specs; export each variable above in the shell that starts your tool")
 }
 
 func reportMCPLiteralRefsWithHint(refs []mcpLiteralRef, hint string) {

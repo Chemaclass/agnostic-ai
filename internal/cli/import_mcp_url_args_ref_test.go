@@ -67,19 +67,93 @@ func TestImportMCP_URLArgsRefsRoundTrip(t *testing.T) {
 
 func TestImportMCP_URLArgsLiteralsStayLiteral(t *testing.T) {
 	specs, out := importMCPServers(t, "claude", map[string]any{
-		"gh":  map[string]any{"command": "gh-mcp", "args": []any{"--token", "ghp_example", "--host", "$HOST"}},
-		"api": map[string]any{"type": "http", "url": "https://user:pw@api.example.com/mcp"},
+		"gh":    map[string]any{"command": "gh-mcp", "args": []any{"--token", "ghp_example", "--host", "$HOST"}},
+		"plain": map[string]any{"command": "pg-mcp", "args": []any{"postgresql://admin@db:5432/app", "https://x.example/mcp?page=2&monkey=1"}},
+		"api":   map[string]any{"type": "http", "url": "https://api.example.com/mcp?filter=x&keyword=y"},
 	})
-	for name, want := range map[string]string{"gh": "- ghp_example", "api": "url: https://user:pw@api.example.com/mcp"} {
-		if !strings.Contains(specs[name], want) {
-			t.Errorf("import must keep a literal url or argument (%q):\n%s", want, specs[name])
+	for name, wants := range map[string][]string{
+		"gh":    {"- ghp_example", "- $HOST"},
+		"plain": {"- postgresql://admin@db:5432/app", "- https://x.example/mcp?page=2&monkey=1"},
+		"api":   {"url: https://api.example.com/mcp?filter=x&keyword=y"},
+	} {
+		for _, want := range wants {
+			if !strings.Contains(specs[name], want) {
+				t.Errorf("import must keep a url or argument with no credential (%q):\n%s", want, specs[name])
+			}
 		}
 	}
-	if !strings.Contains(specs["gh"], "- $HOST") {
-		t.Errorf("claude does not expand $HOST, so import keeps it:\n%s", specs["gh"])
-	}
 	if strings.Contains(out, "now reads") {
-		t.Errorf("import reports only env and header replacements:\n%s", out)
+		t.Errorf("import reports no replacement when no credential is found:\n%s", out)
+	}
+}
+
+func TestImportMCP_URLArgsCredentialsBecomeReferences(t *testing.T) {
+	secrets := []string{"PASSW0RD", "T0KEN", "K3Y", "S3CRET", "PW2"}
+	specs, out := importMCPServers(t, "claude", map[string]any{
+		"pg":  map[string]any{"command": "npx", "args": []any{"-y", "@modelcontextprotocol/server-postgres", "postgresql://admin:PASSW0RD@db:5432/app"}},
+		"api": map[string]any{"url": "https://x.example/mcp?token=T0KEN&page=2&api_key=K3Y#top"},
+		"db":  map[string]any{"command": "db-mcp", "args": []any{"--url=mysql://root:${DB_PW}@h/x", "https://u:PW2@h/x?client_secret=S3CRET"}},
+	})
+	for name, spec := range specs {
+		for _, secret := range secrets {
+			if strings.Contains(spec, secret) {
+				t.Errorf("spec %s keeps a credential from url or args", name)
+			}
+		}
+	}
+	for _, secret := range secrets {
+		if strings.Contains(out, secret) {
+			t.Errorf("import output prints a credential value")
+		}
+	}
+	for name, wants := range map[string][]string{
+		"pg":  {"- postgresql://admin:${PG_PASSWORD}@db:5432/app"},
+		"api": {"url: https://x.example/mcp?token=${API_TOKEN}&page=2&api_key=${API_API_KEY}#top"},
+		"db":  {"- --url=mysql://root:${DB_PW}@h/x", "- https://u:${DB_PASSWORD}@h/x?client_secret=${DB_CLIENT_SECRET}"},
+	} {
+		for _, want := range wants {
+			if !strings.Contains(specs[name], want) {
+				t.Errorf("spec %s lacks %q", name, want)
+			}
+		}
+	}
+	for _, want := range []string{
+		"MCP server pg: args[2] password now reads postgresql://admin:${PG_PASSWORD}@db:5432/app; set PG_PASSWORD",
+		"MCP server api: url token now reads https://x.example/mcp?token=${API_TOKEN}&page=2&api_key=${API_API_KEY}#top; set API_TOKEN",
+		"MCP server api: url api_key now reads https://x.example/mcp?token=${API_TOKEN}&page=2&api_key=${API_API_KEY}#top; set API_API_KEY",
+		"MCP server db: args[1] password now reads https://u:${DB_PASSWORD}@h/x?client_secret=${DB_CLIENT_SECRET}; set DB_PASSWORD",
+		"MCP server db: args[1] client_secret now reads https://u:${DB_PASSWORD}@h/x?client_secret=${DB_CLIENT_SECRET}; set DB_CLIENT_SECRET",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output lacks %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "DB_PW") {
+		t.Errorf("a reference already in a url is not reported:\n%s", out)
+	}
+}
+
+// The import from the issue: the specs hold references, and sync writes
+// them back to the native file instead of the credential.
+func TestImportMCP_URLArgsCredentialsRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	captureLog(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".mcp.json"), `{"mcpServers":{
+  "pg":{"command":"npx","args":["-y","@modelcontextprotocol/server-postgres","postgresql://admin:PASSW0RD@db:5432/app"]},
+  "api":{"url":"https://x.example/mcp?token=T0KEN"}}}`)
+	execCLI(t, "import", "claude")
+	execCLI(t, "sync", "-t", "claude")
+	native := readFile(t, filepath.Join(dir, ".mcp.json"))
+	if strings.Contains(native, "PASSW0RD") || strings.Contains(native, "T0KEN") {
+		t.Fatal("sync wrote a credential back after import")
+	}
+	for _, want := range []string{"postgresql://admin:${PG_PASSWORD}@db:5432/app", "https://x.example/mcp?token=${API_TOKEN}"} {
+		if !strings.Contains(native, want) {
+			t.Errorf(".mcp.json lacks %q:\n%s", want, native)
+		}
 	}
 }
 
