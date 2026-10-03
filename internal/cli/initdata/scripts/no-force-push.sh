@@ -38,9 +38,9 @@ function program(   i, a, wrapper) {
     a = words[i]
     if (!quoted[i] && a ~ /^(if|then|else|elif|do|while|until|!|time|\{)$/) continue
     if (a ~ /^[A-Za-z_][A-Za-z0-9_]*=/) continue
-    if (a ~ /^(command|exec|env|nohup|nice|sudo)$/) { wrapper = a; continue }
+    if (a ~ /^(command|exec|env|nohup|nice|sudo|xargs)$/) { wrapper = a; continue }
     if (wrapper != "" && a ~ /^-/) {
-      if ((wrapper == "env" && a ~ /^(-[uCS]|--(unset|chdir|split-string))$/) || (wrapper == "exec" && a == "-a") || (wrapper == "nice" && a ~ /^(-n|--adjustment)$/) || (wrapper == "sudo" && a ~ /^(-[ugCDpUrtTR]|--(user|group|close-from|chdir|prompt|other-user|role|type|command-timeout|host))$/)) i++
+      if ((wrapper == "env" && a ~ /^(-[uCS]|--(unset|chdir|split-string))$/) || (wrapper == "exec" && a == "-a") || (wrapper == "nice" && a ~ /^(-n|--adjustment)$/) || (wrapper == "xargs" && a ~ /^-[InLPsEda]$/) || (wrapper == "sudo" && a ~ /^(-[ugCDpUrtTR]|--(user|group|close-from|chdir|prompt|other-user|role|type|command-timeout|host))$/)) i++
       continue
     }
     if (i > 1 && words[i - 1] == "time" && a == "-p") continue
@@ -165,8 +165,9 @@ function skip_bodies(p,   h, rest, end, line) {
 
 # Backs up the parse with a coarse look at the unquoted text, so a wrapper
 # or syntax the parse does not follow still blocks: within a span between
-# separators, git, then push as its subcommand, then a force word.
-function coarse(   spans, count, s, nw, ws, i, j, a, force, lease) {
+# separators, git, then push as its subcommand, then --force, -f, or a
+# +refspec without --force-with-lease.
+function coarse(   spans, count, s, nw, ws, i, j, a, plus, lease) {
   count = split(raw, spans, /[;&|\n]/)
   for (s = 1; s <= count; s++) {
     nw = split(spans[s], ws, /[ \t\r]+/)
@@ -175,14 +176,15 @@ function coarse(   spans, count, s, nw, ws, i, j, a, force, lease) {
       for (j = i + 1; j <= nw && ws[j] ~ /^-/; j++)
         if (ws[j] ~ /^(-C|-c|--git-dir|--work-tree|--namespace)$/) j++
       if (ws[j] != "push") continue
-      force = 0
+      plus = 0
       lease = 0
       for (j++; j <= nw; j++) {
         a = ws[j]
-        if (a ~ /^--force-(with-lease|if-includes)(=|$)/) lease = 1
-        else if (a == "--force" || a ~ /^-[A-Za-z]*f[A-Za-z]*$/ || a ~ /^\+/) force = 1
+        if (a == "--force" || a ~ /^-[A-Za-z]*f[A-Za-z]*$/) return 1
+        if (a ~ /^--force-with-lease(=|$)/) lease = 1
+        else if (a ~ /^\+/) plus = 1
       }
-      if (force && !lease) return 1
+      if (plus && !lease) return 1
     }
   }
   return 0
