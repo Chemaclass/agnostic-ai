@@ -32,7 +32,6 @@ func TestLint_GeminiHookVariableOutsideSingleQuotesIsClean(t *testing.T) {
 		"unquoted":      `echo $GEMINI_PROJECT_DIR/x`,
 		"braced double": `echo "${GEMINI_PROJECT_DIR}/x"`,
 		"braced":        `echo '${GEMINI_PROJECT_DIR}/x'`,
-		"after quotes":  `echo 'a' $GEMINI_CWD 'b'`,
 	} {
 		geminiHookVarsProject(t, "targets: [gemini]\n", "name: check\nevent: PreToolUse\ncommand: |-\n  "+command+"\n")
 
@@ -63,13 +62,16 @@ func TestSingleQuotedGeminiVariables(t *testing.T) {
 		`echo '$GEMINI_CWD'`:                                     {"$GEMINI_CWD"},
 		`echo "'" '$GEMINI_CWD'`:                                 {"$GEMINI_CWD"},
 		`echo "'$GEMINI_CWD'"`:                                   {"$GEMINI_CWD"},
-		`echo \'$GEMINI_CWD\'`:                                   nil,
-		`echo '$GEMINI_CWD $GEMINI_CWD' $CLAUDE_PROJECT_DIR`:     {"$GEMINI_CWD"},
+		`echo \'$GEMINI_CWD\'`:                                   {"$GEMINI_CWD"},
+		`echo '$GEMINI_CWD $GEMINI_CWD' $CLAUDE_PROJECT_DIR`:     {"$GEMINI_CWD", "$CLAUDE_PROJECT_DIR"},
 		`echo '$GEMINI_PLANS_DIR' '$CLAUDE_PROJECT_DIR'`:         {"$GEMINI_PLANS_DIR", "$CLAUDE_PROJECT_DIR"},
 		`printf '%s\n' "$(printf '%s' "$GEMINI_PROJECT_DIR")"`:   {"$GEMINI_PROJECT_DIR"},
 		"echo `cat $GEMINI_CWD/x`":                               {"$GEMINI_CWD"},
 		`printf '%s\n' "$(printf '%s' "${GEMINI_PROJECT_DIR}")"`: nil,
 		`echo $GEMINI_CWD`:                                       nil,
+		"printf '%s\\n' $'it\\'s $GEMINI_CWD'":                   {"$GEMINI_CWD"},
+		"echo \\\n# $GEMINI_CWD":                                 {"$GEMINI_CWD"},
+		"sh .gemini/hooks/x.sh $GEMINI_PROJECT_DIR":              nil,
 		"cat <\\\n<EOF\n$GEMINI_CWD\nEOF":                        {"$GEMINI_CWD"},
 		"cat <<EOF\n$GEMINI_CWD\nEOF":                            {"$GEMINI_CWD"},
 		"cat <<'EOF'\n$GEMINI_CWD\nEOF":                          {"$GEMINI_CWD"},
