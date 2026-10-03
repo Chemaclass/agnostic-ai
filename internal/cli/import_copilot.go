@@ -14,6 +14,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/copilot"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
@@ -175,11 +176,25 @@ func normalizeCopilotHook(event string, native map[string]any) map[string]any {
 	}
 	switch kind {
 	case "command":
+		cwd, _ := native["cwd"].(string)
 		command, _ := native["command"].(string)
+		command = copilot.ScriptFromCwd(command, cwd)
 		if command == "" {
 			command, _ = native["exec"].(string)
-			if args, exists := native["args"]; exists {
-				doc["args"] = args
+			if raw, exists := native["args"]; exists {
+				doc["args"] = raw
+				if list, ok := raw.([]any); ok {
+					args := make([]string, len(list))
+					for i, item := range list {
+						args[i], ok = item.(string)
+						if !ok {
+							break
+						}
+					}
+					if ok {
+						command, doc["args"] = copilot.ExecFromCwd(command, args, cwd)
+					}
+				}
 			}
 		}
 		if command == "" {
