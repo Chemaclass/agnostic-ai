@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -411,5 +412,61 @@ func TestEmit_HooksJSON_MCPToolMissingServerOrToolIsSkipped(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".codex/hooks.json")); !os.IsNotExist(err) {
 		t.Errorf("expected no hooks.json for a hook with no usable identity, err=%v", err)
+	}
+}
+
+// Two grouped matchers that share one command stay whole expressions in
+// the union, so the emitted matcher compiles and covers both (#1733).
+func TestEmit_HooksJSON_UnionsGroupedMatchersAsWholeExpressions(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	const first, second = "^(Bash|exec)$", "^(Bash|apply_patch)$"
+	hook := func(name, matcher string) spec.Entry {
+		return spec.Entry{Kind: spec.KindHook, Name: name, Meta: map[string]any{
+			"event": "PreToolUse", "matcher": matcher, "command": "echo go",
+		}}
+	}
+	entries := []spec.Entry{hook("h1", first), hook("h2", second)}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".codex/hooks.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Hooks map[string][]struct {
+			Matcher string `json:"matcher"`
+		} `json:"hooks"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	groups := doc.Hooks["PreToolUse"]
+	if len(groups) != 1 {
+		t.Fatalf("want one merged group, got:\n%s", raw)
+	}
+	matcher := groups[0].Matcher
+	re, err := regexp.Compile(matcher)
+	if err != nil {
+		t.Fatalf("emitted matcher %q is not a regexp: %v", matcher, err)
+	}
+	for _, tool := range []string{"Bash", "exec", "apply_patch"} {
+		if !re.MatchString(tool) {
+			t.Errorf("matcher %q does not match %s", matcher, tool)
+		}
+	}
+	if re.MatchString("Grep") {
+		t.Errorf("matcher %q matches Grep", matcher)
+	}
+	for _, m := range []string{first, second} {
+		if !(Adapter{}).HookMatcherCovers(matcher, m) {
+			t.Errorf("emitted %q does not cover %q", matcher, m)
+		}
+	}
+	if (Adapter{}).HookMatcherCovers(matcher, "^(Bash|Read)$") {
+		t.Errorf("emitted %q covers a matcher it does not contain", matcher)
+	}
+	if (Adapter{}).HookMatcherCovers("^(Bash|exec)$|apply_patch)$", second) {
+		t.Errorf("a malformed union must not cover %q", second)
 	}
 }

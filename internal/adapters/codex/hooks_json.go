@@ -2,6 +2,7 @@ package codex
 
 import (
 	"encoding/json"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -255,7 +256,7 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 		// but emit the segments in author-supplied order so a hand-
 		// authored matcher round-trips byte-stable.
 		dedupeKey := joinMatcherSegments(a.matcherOrder)
-		display := strings.Join(a.matcherOrder, "|")
+		display := unionMatcher(a.matcherOrder)
 		gk := matcherCmdKey{event: k.event, matcher: dedupeKey}
 		g, ok := groups[gk]
 		if !ok {
@@ -305,20 +306,77 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 	return doc
 }
 
+// plainName matches a tool or source name written without regex syntax.
+var plainName = regexp.MustCompile(`^[\w*:-]+$`)
+
 // matcherSegments splits a Codex/Claude `matcher` string into its
-// pipe-separated alternatives. Empty matcher returns an empty slice so
-// the unioner skips it cleanly.
+// pipe-separated alternatives. A matcher that is not a plain Name|Name
+// list (anchors, groups, other regex syntax) is one expression: splitting
+// it on | would cut a group in half. Empty matcher returns an empty slice
+// so the unioner skips it cleanly.
 func matcherSegments(matcher string) []string {
+	matcher = strings.TrimSpace(matcher)
 	if matcher == "" {
 		return nil
 	}
-	out := make([]string, 0, 2)
-	for _, seg := range strings.Split(matcher, "|") {
+	pieces := strings.Split(matcher, "|")
+	out := make([]string, 0, len(pieces))
+	for _, seg := range pieces {
 		seg = strings.TrimSpace(seg)
+		if seg != "" && !plainName.MatchString(seg) {
+			return []string{matcher}
+		}
 		if seg != "" {
 			out = append(out, seg)
 		}
 	}
+	return out
+}
+
+// unionMatcher joins segments with |. With more than one segment, each
+// regex segment is wrapped so its own | stays inside it.
+func unionMatcher(segments []string) string {
+	if len(segments) < 2 {
+		return strings.Join(segments, "|")
+	}
+	parts := make([]string, len(segments))
+	for i, seg := range segments {
+		parts[i] = seg
+		if !plainName.MatchString(seg) {
+			parts[i] = "(?:" + seg + ")"
+		}
+	}
+	return strings.Join(parts, "|")
+}
+
+// unionSegments reads a native matcher back into the segments unionMatcher
+// joined: it splits on top-level pipes only and unwraps each (?:...).
+func unionSegments(matcher string) []string {
+	var out []string
+	depth, start := 0, 0
+	flush := func(end int) {
+		seg := strings.TrimSpace(matcher[start:end])
+		if body, ok := outerGroup(seg); ok && strings.HasPrefix(seg, "(?:") {
+			seg = body
+		}
+		if seg != "" {
+			out = append(out, seg)
+		}
+	}
+	for i, r := range matcher {
+		switch r {
+		case '(':
+			depth++
+		case ')':
+			depth--
+		case '|':
+			if depth == 0 {
+				flush(i)
+				start = i + 1
+			}
+		}
+	}
+	flush(len(matcher))
 	return out
 }
 
@@ -339,11 +397,11 @@ func joinMatcherSegments(segments []string) string {
 // one command, and writes the group under the order it saw first.
 func (Adapter) HookMatcherCovers(native, spec string) bool {
 	segments := map[string]bool{}
-	for _, seg := range matcherSegments(native) {
+	for _, seg := range unionSegments(native) {
 		segments[seg] = true
 	}
 	for _, seg := range matcherSegments(spec) {
-		if !segments[seg] {
+		if !segments[seg] && strings.TrimSpace(native) != seg {
 			return false
 		}
 	}

@@ -88,13 +88,19 @@ func (Adapter) AcceptsHook(meta map[string]any) string {
 // ^ and $ anchors and one outer group, so `^(Bash|exec)$` yields Bash
 // and exec. regex reports whether it stripped any of them. Other regex
 // syntax stays inside the names.
-func matcherAlternatives(matcher string) (names []string, regex bool) {
+func matcherAlternatives(matcher string) ([]string, bool) {
 	inner := strings.TrimSpace(matcher)
 	inner = strings.TrimSuffix(strings.TrimPrefix(inner, "^"), "$")
 	if body, ok := outerGroup(inner); ok {
 		inner = body
 	}
-	return matcherSegments(inner), inner != strings.TrimSpace(matcher)
+	var names []string
+	for _, name := range strings.Split(inner, "|") {
+		if name = strings.TrimSpace(name); name != "" {
+			names = append(names, name)
+		}
+	}
+	return names, inner != strings.TrimSpace(matcher)
 }
 
 // outerGroup returns the body of s when one (...) or (?:...) group spans
