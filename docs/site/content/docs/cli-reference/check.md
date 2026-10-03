@@ -11,13 +11,13 @@ group = "Reference"
 
 ## validate
 
-Load all specs and report parse errors. On success it prints `loaded 12 entries. ok.`. With no specs, stdout still says `loaded 0 entries. ok.` and stderr suggests `init` or `import`.
+Load all specs and report parse errors. On success it prints `loaded 12 entries. ok.`. With no specs, stdout says `loaded 0 entries. ok.` and stderr suggests `init` or `import`.
 
 | Check | Reports |
 |-------|------------|
 | Hook events | A hook spec with no `event:`, or an event no configured target supports. The report lists the supported events. |
 | Orphaned kinds | Hook or MCP specs that no enabled target consumes. One line per kind names the targets that would. |
-| Declared sources | An explicit `sources.<kind>` path in `agnostic-ai.yaml` with no directory. It prints a `note:` on stderr. The kind loads as empty and the run passes, because a fresh clone lacks empty directories. |
+| Declared sources | An explicit `sources.<kind>` path in `agnostic-ai.yaml` with no directory. It prints a `note:` on stderr. The kind loads empty and the run passes, since a fresh clone has no empty directories. |
 | Entry-point fences | A `::target` or `::targets` name in `.agnostic-ai/AGNOSTIC_AI.md` that is neither a built-in target nor listed in `targets` (external adapter). Also a name whose target reads no entry-point file (`cursor`, or any target with `outputs.<target>.rules-file`). |
 | Global rules | With `--global`: a rule with scope, path, glob, or target conditions. `sync --global` rejects it. |
 | Global settings | With `--global`: a settings `effort` that a target cannot take, such as `max` for Claude. |
@@ -40,7 +40,7 @@ Hook events accepted per target:
 
 ## lint
 
-Run semantic checks beyond the schema. It exits 1 on error findings. It flags empty specs, dead specs (kinds no enabled target supports), and hooks that set a matcher on an event that ignores it.
+Run semantic checks beyond the schema. It exits 1 on errors. It flags empty specs, dead specs (kinds no enabled target supports), and hooks that set a matcher on an event that ignores it.
 
 ```bash
 agnostic-ai lint --strict
@@ -52,7 +52,7 @@ agnostic-ai lint --strict
 | `--global` | Lint the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides. Also reports LINT010 and LINT014. Budgets come from the `lint` key in the home config. Works outside a project. |
 | `--json` | Print `{version, command, findings}` on stdout. Each finding has `code`, `severity` (`error` or `warn`), `path`, and `message`, the shape of the `lint` list in `doctor --json`. The exit status matches the text output. Works with `--global`. |
 
-`agnostic-ai explain LINT011` prints any code's cause, fix, and config key. `lint` names the command after its findings.
+`agnostic-ai explain LINT011` prints a code's cause, fix, and config key. `lint` prints that command after its findings.
 
 | Code | Finding |
 |------|---------|
@@ -115,7 +115,7 @@ LINT011 [warn] apps/engine/src/integrations/AGENTS.md: Codex reads 47812 bytes i
 
 ## verify
 
-Run a project-owned behavior check against each selected AI harness. Omit `--target` for all configured targets. It first runs the target-scoped `sync --check`. A missing or stale generated file stops verification.
+Run your own behavior check against each selected AI harness. Omit `--target` to check every configured target. It first runs `sync --check` for those targets. A missing or stale generated file stops it.
 
 ```bash
 agnostic-ai verify --target codex
@@ -142,7 +142,7 @@ Report four kinds of file:
 - **edited**: changed since the last sync
 - **orphaned**: no longer generated, kept because ownership could not be proven
 
-Doctor is read-only unless you pass `--fix`. It exits non-zero on any drift, [lint](#lint) error, or untrusted or modified Codex hook. Unreadable hook trust state also fails. Intentionally disabled hooks are reported without failing.
+Doctor is read-only unless you pass `--fix`. It exits non-zero on any drift, [lint](#lint) error, or untrusted or modified Codex hook. Unreadable hook trust state also fails. Hooks you disabled on purpose are reported but do not fail.
 
 | Flag | Description |
 |------|-------------|
@@ -153,7 +153,7 @@ Doctor is read-only unless you pass `--fix`. It exits non-zero on any drift, [li
 | `--check-references` | Flag relative Markdown links in generated skills whose file is missing on disk. Off by default. |
 | `--json` | Drift report as JSON, same schema as `sync --check --json`, plus `lint`, `hook_trust`, and `packaging_ignore` lists. With `--check-references`, adds a `references` list. |
 
-`--check-references` reads each Markdown document a selected target writes for its skills. A link is valid when it resolves from the document's own directory or, inside the project, from the project root. It skips code spans, code blocks, URLs, absolute paths, and `#fragment`-only links. For a `file#fragment` link it checks only the file. [`doctor.check-references.ignore`](@/docs/configuration.md#doctorcheck-referencesignore) exempts destinations that can never resolve. Doctor exits non-zero on any broken link. Findings group by source spec and link:
+`--check-references` reads each Markdown file a selected target writes for its skills. A link is valid when it resolves from the document's own directory or, inside the project, from the project root. It skips code spans, code blocks, URLs, absolute paths, and `#fragment`-only links. For a `file#fragment` link it checks only the file. [`doctor.check-references.ignore`](@/docs/configuration.md#doctorcheck-referencesignore) exempts destinations that can never resolve. Doctor exits non-zero on any broken link. Findings group by source spec and link:
 
 ```
 Skill references:
@@ -187,12 +187,12 @@ Then doctor prints:
 | **Global names** | A project skill or agent that shares its name with one in `~/.agnostic-ai/`. Per target, it shows where one hides the other and which wins. A name in [`sync.allow-global-names`](@/docs/configuration.md#syncallow-global-names) shows as allowed. See [shared names](@/docs/configuration.md#global-shared-names). | Never |
 | **Instructions** | A hint when `AGNOSTIC_AI.md` still holds the long default text an earlier release seeded. Replace it with your own instructions. | Never |
 
-Packaging coverage uses the actual outputs for the selected targets, including configured paths and skill assets. It checks missing outputs too, so the warning can appear before sync. Doctor never changes packaging ignore files, and packaging warnings do not change its exit code.
+Packaging coverage uses the real outputs of the selected targets, including configured paths and skill assets. It checks missing outputs too, so the warning can show before sync. Doctor never changes packaging ignore files, and packaging warnings do not change its exit code.
 
 {% <details summary="What the packaging check covers"> %}
 The check handles literal paths, `*`, `?`, character classes, and `**` path segments, with each format's anchoring and negation rules. Braces, extended globs, escaped patterns, and unsupported classes produce a coverage-check warning instead of a claim that paths are uncovered.
 
-It checks the existing root ignore file only. It does not predict package contents. It does not process `package.json` allowlists, built-in package exclusions, nested ignore files, or Dockerfile-specific ignore files. Verify the result with `npm pack --dry-run`, `vsce ls`, or your Docker build context.
+It checks only the existing root ignore file. It does not predict package contents or process `package.json` allowlists, built-in package exclusions, nested ignore files, or Dockerfile-specific ignore files. Verify the result with `npm pack --dry-run`, `vsce ls`, or your Docker build context.
 {% </details> %}
 
 Subcommands run one check:

@@ -10,7 +10,7 @@ scripts = ["assets/scripts/landing.js"]
 
 # Installation
 
-Every installer puts the same prebuilt binary on your machine. You do not need Go. macOS needs 13 Ventura or later.
+Every installer puts the same prebuilt binary on your machine. You don't need Go. macOS needs 13 Ventura or later.
 
 {{ <install_picker /> }}
 
@@ -55,13 +55,13 @@ With npm: `npm install -g agnostic-ai@X.Y.Z`.
 
 ## Pin it per project
 
-A JavaScript project can add the CLI as a dev dependency, so every clone and CI job runs the lockfile's release:
+A JavaScript project can add the CLI as a dev dependency. Then every clone and CI job runs the release in the lockfile:
 
 ```bash
 pnpm add -D agnostic-ai@X.Y.Z    # or npm install -D, yarn add -D, bun add -D
 ```
 
-Run `agnostic-ai upgrade --requires` from the project root using that installed CLI, such as `pnpm exec agnostic-ai upgrade --requires`. It sets [`requires`](@/docs/configuration.md#requires) and the schema URL to the installed release, then syncs. Commit the config and dependency changes together. After a pull bumps both, run your package manager's install; until then, commands stop with AAI-005.
+From the project root, run `agnostic-ai upgrade --requires` with that installed CLI, such as `pnpm exec agnostic-ai upgrade --requires`. It sets [`requires`](@/docs/configuration.md#requires) and the schema URL to the installed release, then syncs. Commit the config and dependency changes together. After a pull bumps both, run your package manager's install. Until then, commands stop with AAI-005.
 
 ## Optional extras
 
@@ -83,7 +83,7 @@ Run `agnostic-ai upgrade --requires` from the project root using that installed 
 ## Troubleshooting
 
 {% <details summary="npm reports a missing platform package"> %}
-npm skipped the optional dependency that carries the binary. That happens with `--omit=optional`, and with a lockfile copied from another platform. Reinstall with the optional dependencies included:
+npm skipped the optional dependency that holds the binary. This happens with `--omit=optional`, and with a lockfile copied from another platform. Reinstall with the optional dependencies included:
 
 ```bash
 npm install -g agnostic-ai --force --include=optional
@@ -93,7 +93,7 @@ Drop `-g` for a project install. `--include=optional` also overrides an `omit=op
 {% </details> %}
 
 {% <details summary="How the npm package works"> %}
-[`agnostic-ai`](https://www.npmjs.com/package/agnostic-ai) is the only package you install. It is a wrapper whose optional dependencies are six platform packages in the [`@agnostic-ai`](https://www.npmjs.com/org/agnostic-ai) organization. npm installs only the one matching your OS and CPU, such as [`@agnostic-ai/darwin-arm64`](https://www.npmjs.com/package/@agnostic-ai/darwin-arm64). Nothing is downloaded and no install script runs, so `--ignore-scripts` and npm 11's install-script prompt change nothing.
+[`agnostic-ai`](https://www.npmjs.com/package/agnostic-ai) is the only package you install. It's a wrapper, and its optional dependencies are six platform packages in the [`@agnostic-ai`](https://www.npmjs.com/org/agnostic-ai) organization. npm installs only the one matching your OS and CPU, such as [`@agnostic-ai/darwin-arm64`](https://www.npmjs.com/package/@agnostic-ai/darwin-arm64). Nothing is downloaded and no install script runs, so `--ignore-scripts` and npm 11's install-script prompt change nothing.
 
 Set `AGNOSTIC_AI_BINARY` to an absolute path to run a binary the package does not ship.
 {% </details> %}

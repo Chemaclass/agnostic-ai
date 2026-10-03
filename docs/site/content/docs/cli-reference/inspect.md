@@ -11,9 +11,9 @@ group = "Reference"
 
 ## explain
 
-List every output file and section that one spec contributes to. This is the reverse of the `<!-- source: ... -->` markers in merged documents. With `--file`, list the instructions configured for one source file instead.
+List every output file and section one spec contributes to. It works in reverse from the `<!-- source: ... -->` markers in merged documents. With `--file`, list the instructions configured for one source file instead.
 
-Given an [error code](@/docs/errors.md) such as `AAI-003` or a [lint code](@/docs/cli-reference/check.md#lint) such as `LINT011`, it prints the code's cause and fix. A lint code also shows its severity and any `lint` config key that tunes it; `--json` adds `severity` and `config` fields.
+Given an [error code](@/docs/errors.md) such as `AAI-003` or a [lint code](@/docs/cli-reference/check.md#lint) such as `LINT011`, it prints the code's cause and fix. A lint code also shows its severity and any `lint` config key that tunes it. `--json` adds `severity` and `config` fields.
 
 ```bash
 agnostic-ai explain rules/conventional-commits.md --json
@@ -36,7 +36,7 @@ With `--global`, contributions read like this:
 | MCP server | Its key in the user MCP file. |
 | Settings | Each key it sets, tagged `(key "<key>")`. |
 
-A spec that sets `model` or `effort` also lists the model and effort that each configured target it reaches resolves to, and the [tier](@/docs/spec-format/agents.md#model-tiers) it names. `tool default` means the target writes no model. The list shows the resolved value. A target with no model or effort key for that kind, such as Codex skills, still drops it with a coverage note on `sync`.
+A spec that sets `model` or `effort` also lists the [tier](@/docs/spec-format/agents.md#model-tiers) it names and the model and effort it resolves to on each configured target it reaches. `tool default` means the target writes no model. The list shows the resolved value. A target with no model or effort key for that kind, such as Codex skills, still drops it with a coverage note on `sync`.
 
 ```json
 {"version": "1", "command": "explain", "spec": {"kind": "rule", "name": "...", "path": "..."},
@@ -49,7 +49,7 @@ A spec that sets `model` or `effort` also lists the model and effort that each c
 
 ### Explain a source file
 
-Start from a project file instead of a spec. The report lists every instruction the target would read from the planned sync output, with its source, output path, selector, and reason. Cursor is the only supported target.
+Start from a project file instead of a spec. The report lists every instruction the target would read from the planned sync output, with its source, output path, selector, and reason. Only Cursor is supported.
 
 ```bash
 agnostic-ai explain --file services/payments/handler.go --target cursor
@@ -57,7 +57,7 @@ agnostic-ai explain --file services/payments/handler.go --target cursor
 
 | Flag | Description |
 |------|-------------|
-| `--file <path>` | Project file to inspect. The file does not have to exist. Cannot be combined with a spec or error code argument. |
+| `--file <path>` | Project file to inspect. The file does not have to exist. Cannot combine with a spec or error code argument. |
 | `--target <name>` | Required with `--file`. Must be a configured target. Other targets fail with an unsupported-target error. |
 
 | Status | Meaning |
@@ -71,7 +71,7 @@ agnostic-ai explain --file services/payments/handler.go --target cursor
 | `excluded` | Target selection (`target`, `targets`, `target-exclude`) leaves the target out. |
 | `not-emitted` | The rule targets Cursor but sync writes nothing for it. |
 
-A root `AGENTS.md` written for a peer target such as Codex reaches Cursor too. The report shows configured applicability, not the active context of the model.
+A root `AGENTS.md` written for a peer target such as Codex reaches Cursor too. The report shows what the config makes apply, not what is in the model's active context.
 
 ```json
 {"version": "1", "command": "explain", "file": "...", "target": "cursor", "note": "...",
@@ -105,7 +105,7 @@ agnostic-ai compare claude cursor
 |------|-------------|
 | `--json` | Stable schema for scripts. |
 
-Coverage is agent and skill fields plus rule `scope`, `paths`, `globs`, and `alwaysApply`. Hooks and the other spec kinds are left out. Skill fields such as `argument-hint`, `effort`, and `disable-model-invocation` are classified from the files each adapter emits, including Codex policy sidecars. Each field gets one result per target:
+It covers agent and skill fields, plus rule `scope`, `paths`, `globs`, and `alwaysApply`. It leaves out hooks and the other spec kinds. Skill fields such as `argument-hint`, `effort`, and `disable-model-invocation` are classified from the files each adapter emits, including Codex policy sidecars. Each field gets one result per target:
 
 | Result | Meaning |
 |---|---|
@@ -142,7 +142,7 @@ Each file prints as `# target: <name>: <output path>` and its body. Targets that
 
 ## graph
 
-Render the spec → target → file dependency graph. It is read-only. Full guide in [graph](@/docs/graph.md).
+Render the spec → target → file dependency graph. It is read-only. See the [graph](@/docs/graph.md) guide.
 
 ```bash
 agnostic-ai graph --format mermaid --target claude
@@ -157,7 +157,7 @@ agnostic-ai graph --format mermaid --target claude
 
 ## why
 
-Show an emitted file's adapter, source spec(s), `outputs.<target>.*` keys, and last sync time. Full guide in [why](@/docs/trace.md).
+Show an emitted file's adapter, source spec(s), `outputs.<target>.*` keys, and last sync time. See the [why](@/docs/trace.md) guide.
 
 ```bash
 agnostic-ai why .claude/rules/no-console-log.md --format json

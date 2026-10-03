@@ -11,7 +11,7 @@ group = "Workflows"
 
 Show which specs reach which targets, and which files they produce.
 
-`graph` walks the loaded specs, asks each configured adapter which files each spec produces, and prints the result. It is read-only: it never invokes Emit on disk. Output is deterministic, sorted by spec name, then target.
+`graph` walks the loaded specs and asks each configured adapter which files each spec produces. Then it prints the result. It is read-only and never invokes Emit on disk. Output is deterministic, sorted by spec name, then target.
 
 ## Synopsis
 
@@ -32,7 +32,7 @@ agnostic-ai graph [flags]
 
 ### text (default)
 
-A matrix: rows are specs, columns are targets. Each cell holds the kind that target emits, or `-` when it emits nothing.
+A matrix with specs as rows and targets as columns. Each cell holds the kind that target emits, or `-` when it emits nothing.
 
 ```text
 spec           | claude cursor codex

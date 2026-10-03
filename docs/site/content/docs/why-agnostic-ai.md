@@ -10,7 +10,7 @@ group = "Reference"
 
 # Why agnostic-ai
 
-Every AI coding tool wants its own config: `CLAUDE.md`, `AGENTS.md`, `.cursor/rules/*.mdc`, skills, hooks, MCP servers. Each one has its own path, format, and keys. Use two tools and you keep two copies. They drift.
+Every AI coding tool wants its own config: `CLAUDE.md`, `AGENTS.md`, `.cursor/rules/*.mdc`, skills, hooks, MCP servers. Each has its own path, format, and keys. Use two tools and you keep two copies, which drift apart.
 
 ## The same server, four formats
 
@@ -37,8 +37,8 @@ Hooks differ the same way. The event before a tool call is `PreToolUse` in Claud
 
 - **A symlink** shares bytes. It cannot turn YAML into TOML or rename a key. On Windows it needs admin rights or Developer Mode, and Git for Windows checks it out as a text file by default.
 - **Copy and paste** works until someone edits one copy.
-- **One `AGENTS.md`** is read by many tools, and it carries plain instructions well. It cannot carry skills, hooks, MCP servers, agents, rules scoped to some files, or per-tool frontmatter such as a model name.
-- **Your own script** works for the formats you know today. Tools change their formats often, and the script is yours to fix each time.
+- **One `AGENTS.md`** is read by many tools and carries plain instructions well. It cannot carry skills, hooks, MCP servers, agents, rules scoped to some files, or per-tool frontmatter such as a model name.
+- **Your own script** works for the formats you know today. Tools change their formats often, and you fix the script each time.
 
 ## What agnostic-ai does
 
@@ -51,7 +51,7 @@ Hooks differ the same way. The event before a tool call is `PreToolUse` in Claud
 
 ## When you do not need it
 
-One tool: use its own files. Two tools that read the same Markdown at the same path: a symlink is enough. agnostic-ai pays off once a second tool wants a different format.
+With one tool, use its own files. With two tools that read the same Markdown at the same path, a symlink is enough. agnostic-ai helps once a second tool wants a different format.
 
 ## Start
 

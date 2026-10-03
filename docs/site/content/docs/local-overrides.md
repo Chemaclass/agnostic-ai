@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Local overrides
 
-A local layer holds your personal setup. It edits shared specs field by field, adds new ones, and extends the shared instructions. It stays out of Git, so the committed `.agnostic-ai/` stays the team's source of truth.
+A local layer holds your personal setup. It edits shared specs field by field, adds new ones, and extends the shared instructions. It stays out of Git, so the committed `.agnostic-ai/` stays the team's setup.
 
 There are two local layers:
 
@@ -22,13 +22,13 @@ A layer loads only when its directory exists. The two never mix: project sync ig
 
 ## Why a local layer
 
-The team agrees on `.agnostic-ai/`, but you work your own way. Without a local layer, you must either edit the shared specs, which leaks into your next commit, or edit generated files, which the next `sync` overwrites. A local layer keeps your changes on your machine and the team's in Git.
+The team agrees on `.agnostic-ai/`, but you work your own way. Without a local layer, you have two bad options. Edit the shared specs, and the change lands in your next commit. Edit generated files, and the next `sync` overwrites them. A local layer keeps your changes on your machine and the team's in Git.
 
 Typical uses:
 
-- **Model and effort.** Your plan includes Opus, the team default is Sonnet. Change one field, keep the rest of the skill.
+- **Model and effort.** Your plan includes Opus; the team default is Sonnet. Change one field, keep the rest of the skill.
 - **Personal steps.** Add "run my local benchmark" to the shared review skill without forking it.
-- **Experiments.** Try a new agent or rule for a week. Promote it to `.agnostic-ai/` if it earns its place, or delete it.
+- **Experiments.** Try a new agent or rule for a week. Move it to `.agnostic-ai/` if it works, or delete it.
 - **Machine specifics.** Point an MCP server at your local port, or add an env var.
 - **Tools.** Drop or add a tool for an agent on your machine only.
 
@@ -53,7 +53,7 @@ The global layer reads `AGNOSTIC_AI.md`, `agents/`, `skills/`, `rules/`, and `ho
 
 ## Add a spec
 
-A local spec with a new name is added to the shared set. Every target receives it like any other spec.
+A local spec with a new name joins the shared set. Every target gets it like any other spec.
 
 ## Override fields
 
@@ -159,7 +159,7 @@ foo for
 bar baz
 ```
 
-`::parent` must start at column 0 and stand alone on its line, like the `::target` and `::end` fences. Keep it outside a `::target` fence, because fences do not nest and the shared body's own fences would end yours. A fence the shared body leaves open is closed after it, so your lines still reach every target. In a local spec with a new name, `::parent` has nothing to extend, so sync drops it.
+`::parent` must start at column 0 and stand alone on its line, like the `::target` and `::end` fences. Keep it outside a `::target` fence. Fences do not nest, so the shared body's own fences would end yours. A fence the shared body leaves open is closed after it, so your lines still reach every target. In a local spec with a new name, `::parent` has nothing to extend, so sync drops it.
 
 ## Skill assets
 
@@ -193,7 +193,7 @@ In the global layer, `local/AGNOSTIC_AI.md` comes last in the managed instructio
 
 ## Import
 
-`agnostic-ai import` keeps local specs out of `.agnostic-ai/`. Sync writes local specs into the same native files that import reads, such as a local rule inlined into `AGENTS.md` or a local agent in `.claude/agents/`. Import writes no shared file for a name the local layer declares, and a shared spec the local layer extends keeps its own content. The run lists the local specs it left out.
+`agnostic-ai import` keeps local specs out of `.agnostic-ai/`. Sync writes local specs into the same native files that import reads, such as a local rule inlined into `AGENTS.md` or a local agent in `.claude/agents/`. Import writes no shared file for a name the local layer declares. A shared spec that the local layer extends keeps its own content. The run lists the local specs it left out.
 
 Native hook settings drop the spec name, so import matches a hook by event, matcher, and handler. A local handler that shares a native entry with a shared one is removed from the imported hook. A hook script that only local hooks run stays out of `.agnostic-ai/scripts/`.
 

@@ -19,13 +19,13 @@ overwrite-behaviour = "@/docs/spec-format/ignore.md"
 
 - **One policy.** Allow `go test`, deny `rm`, and ask before pushing, in every tool that supports permissions.
 - **Safe translation.** A rule a tool cannot express raises a coverage note instead of being widened.
-- **Protected files.** List the files an agent must not edit without asking, and each tool gets its own guard for them.
+- **Protected files.** List the files an agent must not edit without asking. Each tool gets its own guard for them.
 - **One default model.** Set it per tool with a fallback, since model names differ between vendors.
 - **Tool-only keys too.** An `x-<target>` block merges into that tool's own settings file.
 
 ## Write one
 
-Pure YAML, one file per settings group, such as `settings/permissions.yaml`.
+Settings specs are pure YAML, one file per settings group, such as `settings/permissions.yaml`.
 
 ```yaml
 permissions:
@@ -55,7 +55,7 @@ effort:
 
 ## Protected paths
 
-"Do not edit these files without asking" is a common project rule: CI workflows, lock files, generated code, migrations. A `protected` block states it once, and sync writes each target's strongest native form of it.
+"Do not edit these files without asking" is a common project rule for CI workflows, lock files, generated code, and migrations. A `protected` block states it once. Sync writes the strongest native form each target has.
 
 ```yaml
 protected:
@@ -68,7 +68,7 @@ protected:
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `paths` | yes | | Globs relative to the project root. `*` and `?` match inside one path segment, `**` matches across segments, and a path also covers every file under it, so `vendor` protects `vendor/a.go`. A trailing `/` means the directory's contents. |
+| `paths` | yes | | Globs relative to the project root. `*` and `?` match inside one path segment. `**` matches across segments. A path also covers every file under it, so `vendor` protects `vendor/a.go`. A trailing `/` means the directory's contents. |
 | `decision` | no | `ask` | `ask` makes the agent ask first. `deny` blocks the edit. |
 | `reason` | no | empty | Shown to the agent when an edit is blocked. |
 
@@ -88,7 +88,7 @@ A path is anchored at the project root. `composer.lock` protects only the root f
 
 Protection covers the agent's edit tools. A shell command or script that writes the file directly can still change it.
 
-- `agnostic-ai lint` warns (LINT022) when a protected path covers a file sync writes, since sync regenerates that file from its source spec.
+- `agnostic-ai lint` warns (LINT022) when a protected path covers a file sync writes, because sync regenerates that file from its source spec.
 - `lint` reports an invalid block as LINT023.
 - `sync --global` does not write protected paths.
 
@@ -107,9 +107,9 @@ Keep a `Bash` wildcard at the end of an `allow` or `deny` rule.
 
 Multiple files merge. Permission lists concatenate, de-duplicated in source order. The last non-empty `model` and `effort` win. Each target resolves its own map entry first, so `model: {codex: gpt-6-luna}` in a later file changes only Codex.
 
-Removing a rule from a spec removes it from Claude Code's `settings.json` on the next sync; rules you wrote there by hand stay ([Claude settings](@/docs/targets/claude.md#claude-settings)).
+Removing a rule from a spec removes it from Claude Code's `settings.json` on the next sync. Rules you wrote there by hand stay ([Claude settings](@/docs/targets/claude.md#claude-settings)).
 
-`sync --global` also reads settings specs from the home, for `model`, `effort`, target-specific keys, and `permissions.default-mode`; see [default model and effort](@/docs/configuration.md#global-default-model-and-effort).
+`sync --global` also reads settings specs from the home, for `model`, `effort`, target-specific keys, and `permissions.default-mode`. See [default model and effort](@/docs/configuration.md#global-default-model-and-effort).
 
 ## Effort by target
 
@@ -142,12 +142,12 @@ Every other target takes neither. A field a target cannot represent produces a c
 - Codex does too, unless `outputs.codex.exec-policies-from-permissions: true` turns simple Bash rules into exec policies. The rest raise a note ([Bash permission translation](@/docs/targets/codex.md#translate-bash-permissions)).
 - Rules translate only as far as the vendor allows. Augment gates `read`, `edit`, and `write` as whole tools. Factory's command lists take shell patterns. A path-scoped rule raises a note instead of widening.
 - Factory's `commandDenylist` prompts, so portable `ask` goes there and `deny` goes to `commandBlocklist`.
-- Review an imported `model` before enabling more targets, since identifiers differ between vendors.
+- Review an imported `model` before you enable more targets, because identifiers differ between vendors.
 - A shared Claude model name raises the same coverage note as an [agent `model`](@/docs/spec-format/agents.md#per-target-model-and-effort) on Codex, Gemini, OpenCode, Kilo Code, and Factory. Codex skips it when `outputs.codex.config.model` or the [captured overlay](@/docs/targets/codex.md#codex-config) sets the model.
 
 ## Target-specific keys
 
-Target-specific keys go under `x-<target>` and merge into that target's settings file (`x-factory.sandbox` reaches `.factory/settings.json`). Codex is the exception: its `.codex/config.toml` comes from the captured overlay plus `outputs.codex.config`, so an `x-codex` block raises a coverage note naming both routes.
+Target-specific keys go under `x-<target>` and merge into that target's settings file (`x-factory.sandbox` reaches `.factory/settings.json`). Codex is the exception. Its `.codex/config.toml` comes from the captured overlay plus `outputs.codex.config`, so an `x-codex` block raises a coverage note that names both routes.
 
 On a key this tool also writes:
 
@@ -158,4 +158,4 @@ On a key this tool also writes:
 - Maps of whole records (`x-qoder.mcpServers`, `x-augment.mcpServers`) merge by name. A server both sides name comes from the `x-<target>` block entire (#974).
 - Fixed-order blocks (`x-qoder.hooks`, `x-augment.hooks`) keep their order, with your own events appended (#976).
 
-Four keys take one shape each: `x-augment.toolPermissions` a list, and `x-windsurf.permissions`, `x-kilo.permission`, and `x-opencode.permission` an object. Another shape is skipped, the translated rules ship, and a coverage note names the key (#976).
+Four keys take one shape each: `x-augment.toolPermissions` a list, and `x-windsurf.permissions`, `x-kilo.permission`, and `x-opencode.permission` an object. Another shape is skipped, the translated rules are still written, and a coverage note names the key (#976).

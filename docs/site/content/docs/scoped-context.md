@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Directory-specific instructions
 
-Write a service's conventions once. Sync generates each tool's native scoped instructions and keeps them out of root context.
+Write a service's conventions once. Sync writes each tool's native scoped instructions and keeps them out of root context.
 
 ## Start with one directory
 
@@ -53,11 +53,11 @@ Start from the file you are editing:
 agnostic-ai explain --file services/payments/handler.go --target cursor
 ```
 
-The report lists each Cursor instruction with its source spec, output path, selector, and status: `always`, `match`, `no-match`, `model-selected`, `manual`, `excluded`, `not-emitted`, or `unknown`. It reads the planned sync output, so a shared `services/payments/AGENTS.md` replaces a `.mdc` rule when a peer target needs it. It shows configured applicability, not what the model loaded. Only Cursor is supported. See the [CLI reference](@/docs/cli-reference/inspect.md#explain-a-source-file).
+The report lists each Cursor instruction with its source spec, output path, selector, and status: `always`, `match`, `no-match`, `model-selected`, `manual`, `excluded`, `not-emitted`, or `unknown`. It reads the planned sync output. So a shared `services/payments/AGENTS.md` replaces a `.mdc` rule when a peer target needs it. It shows what is configured to apply, not what the model loaded. Only Cursor is supported. See the [CLI reference](@/docs/cli-reference/inspect.md#explain-a-source-file).
 
 ## Scope contract
 
-- `scope` is a project-relative directory and its descendants. Use `/` separators. Absolute paths, `..`, glob-control characters, and symlink escapes are rejected. Omit `scope` for project-wide rules; `scope: .` is invalid.
+- `scope` is a project-relative directory and its descendants. Use `/` separators. Absolute paths, `..`, glob-control characters, and symlink escapes are rejected. Omit `scope` for project-wide rules. `scope: .` is invalid.
 - A folder under `rules/` that names a project directory scopes the rules in it: `.agnostic-ai/rules/services/payments/limits.md` has scope `services/payments`.
 - A `scope:` in the frontmatter wins over the folder. A folder that names no project directory only groups rules, so `rules/modules/a.md` with `scope: src/a` is scoped to `src/a`.
 - Installed packs check rule folders against the consuming project. A directory inside the pack gives a rule no scope.
@@ -69,11 +69,11 @@ The report lists each Cursor instruction with its source spec, output path, sele
 
 ## Codex rules with globs alone
 
-With Codex enabled, an unscoped rule with `globs: [src/app/api/**, prisma/**]` writes `src/app/api/AGENTS.md` and `prisma/AGENTS.md`, which keeps that text out of root context. Compatible `AGENTS.md` readers share those files. `alwaysApply: true` keeps an unscoped rule project-wide. Set `outputs.codex.nested-glob-rules: false` to keep all unscoped rules inline.
+With Codex enabled, an unscoped rule with `globs: [src/app/api/**, prisma/**]` writes `src/app/api/AGENTS.md` and `prisma/AGENTS.md`. That keeps the text out of root context. Compatible `AGENTS.md` readers share those files. `alwaysApply: true` keeps an unscoped rule project-wide. Set `outputs.codex.nested-glob-rules: false` to keep all unscoped rules inline.
 
 Every selector must cover a complete subtree. `src/api/**/*.ts`, `Dockerfile`, and a mix of root files and directory patterns keep the whole rule inline, with a note naming the always-loaded rule. `on-unsupported: error` refuses that fallback. The whole rule also stays inline, with a note, for output overrides, unmanaged destinations, and root readers without verified nested discovery. Configured and one-off command-line targets go through the same reader check. Sync never widens a filename filter to a directory.
 
-Codex loads the instruction chain for its session working directory. Start it in the rule's subtree; starting at the root does not load every nested document for later edits.
+Codex loads the instruction chain for its session working directory. Start it in the rule's subtree. Starting at the root does not load every nested document for later edits.
 
 ## Narrow a rule to certain files
 
@@ -86,14 +86,14 @@ globs: "tests/payments/**"
 
 Claude writes both `services/payments/**` and `tests/payments/**` in `paths`. Codex writes `AGENTS.md` in both directories.
 
-Patterns are project-relative, including `**/*.go`; they are not rewritten relative to the scope. A pattern inside the scope adds no files, because the scope already includes that directory. To apply a rule only to certain files, omit `scope` and keep the rule outside a source folder that implies scope.
+Patterns are project-relative, including `**/*.go`. They are not rewritten relative to the scope. A pattern inside the scope adds no files, because the scope already includes that directory. To apply a rule only to certain files, omit `scope` and keep the rule outside a source folder that implies scope.
 
 `paths` and `globs` feed the same union. Unsupported combinations warn and skip. Set `on-unsupported: error` to fail instead, or `silent` to suppress notices.
 
 **Breaking change:** earlier versions intersected scope and patterns. Remove `scope` from rules that used it to narrow `globs`, and write the full project-relative filters instead. Remove a catch-all `globs: "**/*"` from a rule that should apply only to its scope. See [migration](@/docs/migration.md#scope-and-pattern-unions).
 
 {% <details summary="Selector limits by target"> %}
-- Directory-document targets accept complete subdirectory patterns such as `tests/payments/**`. They reject external file filters such as `tests/payments/**/*.go` rather than apply them to every file in that directory. Root selectors such as `CHANGELOG.md` and `**/*` are also unsupported with scope on those targets. File-filter targets keep those selectors.
+- Directory-document targets accept complete subdirectory patterns such as `tests/payments/**`. They reject external file filters such as `tests/payments/**/*.go` instead of applying them to every file in that directory. Root selectors such as `CHANGELOG.md` and `**/*` are also unsupported with scope on those targets. File-filter targets keep those selectors.
 - Native `regex`, `applyTo`, `fileMatchPattern`, and `glob` keys cannot be combined with `scope`.
 - Cline's empty `paths` array keeps the rule disabled. Continue's empty `globs` array reports unsupported with scope, because replacing it with a directory filter would change activation.
 - Windsurf, Trae, and Antigravity write union rules in the project's rules directory when a selector reaches outside the scope.
@@ -129,7 +129,7 @@ Mappings were checked against vendor documentation on 2026-09-09. Tests verify g
 | Kilo | `<scope>/AGENTS.md`, without unconditional `instructions` entries | [Instructions](https://kilo.ai/docs/customize/agents-md) |
 
 
-Aider, Zed, Junie, Crush, and Jules have no verified automatic directory scope. They skip scoped rules; root rules still work.
+Aider, Zed, Junie, Crush, and Jules have no verified automatic directory scope. They skip scoped rules. Root rules still work.
 
 Runtime limits:
 
@@ -149,6 +149,6 @@ Use compatible targets or separate worktrees. `prefer-spec` cannot bypass scope 
 
 Keep provenance headers enabled. Directory-document targets reject `file` and `rules-dir` overrides. Scoped rules reject `rules-file` overrides, except Goose's `.goosehints` opt-in.
 
-For hand-written files or conflicting aliases, follow [migration](@/docs/migration.md#keep-directory-specific-instructions). After you move or delete a scope, run a full sync to remove obsolete managed output; a partial sync keeps omitted targets' files. Backups and revert cover scoped outputs too.
+For hand-written files or conflicting aliases, follow [migration](@/docs/migration.md#keep-directory-specific-instructions). After you move or delete a scope, run a full sync to remove obsolete managed output. A partial sync keeps the files of omitted targets. Backups and revert cover scoped outputs too.
 
 See [troubleshooting](@/docs/troubleshooting.md#scoped-rules) for common errors.

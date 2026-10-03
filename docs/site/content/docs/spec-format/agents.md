@@ -10,9 +10,9 @@ group = "Reference"
 
 # Agents
 
-`agents/` defines subagents: specialists the main agent hands a task to, each with its own instructions, tools, and model. A reviewer that only reads, an architect on the strongest model, a test writer on a cheaper one.
+`agents/` defines subagents: specialists the main agent hands a task to. Each has its own instructions, tools, and model. Examples: a reviewer that only reads, an architect on the strongest model, a test writer on a cheaper one.
 
-Why a subagent instead of more instructions in the main session:
+Why use a subagent instead of more instructions in the main session:
 
 - **Clean context.** A subagent works in its own context and hands back a result, so its exploration stays out of the main conversation.
 - **Least privilege.** `tools`, `readonly`, and `mcpServers` narrow what it may touch.
@@ -34,9 +34,9 @@ model: sonnet
 You are a code reviewer. Report concise findings with `file:line` references.
 ```
 
-Write `description` for the main agent: it reads it to decide when to delegate, so say what the agent does and when to use it.
+Write `description` for the main agent. It reads it to decide when to delegate, so say what the agent does and when to use it.
 
-A read-only auditor on a stronger model for Claude Code, with a fallback everywhere else and one MCP server:
+This read-only auditor uses a stronger model on Claude Code, a fallback everywhere else, and one MCP server:
 
 ```markdown
 ---
@@ -68,7 +68,7 @@ List each finding with its `file:line`, the attack it enables, and the smallest 
 
 Any other frontmatter field passes through unchanged.
 
-`memory` gives the agent a directory that survives across sessions. Only [Claude Code](@/docs/targets/claude.md#agent-memory) is confirmed to act on it. [Qoder](@/docs/targets/qoder.md#subagent-memory) gets the key unconfirmed, Junie passes it through, and every other adapter drops it.
+`memory` gives the agent a directory that persists across sessions. Only [Claude Code](@/docs/targets/claude.md#agent-memory) is confirmed to act on it. [Qoder](@/docs/targets/qoder.md#subagent-memory) gets the key, unconfirmed. Junie passes it through. Every other adapter drops it.
 
 ### `readonly` by target {#readonly-by-target}
 
@@ -141,7 +141,7 @@ Result:
 | [Copilot](@/docs/targets/copilot.md) | none | Coverage note. `x-copilot.effort` still passes through |
 | Every other target | none | Coverage note |
 
-Cursor encodes effort in the `model` string, so it rides on the `model` map. Factory ignores `reasoningEffort` when `model` resolves to `inherit`.
+Cursor encodes effort in the `model` string, so set it through the `model` map. Factory ignores `reasoningEffort` when `model` resolves to `inherit`.
 
 **Claude model names on other targets.** A shared `model` (a scalar or `default`) set to a Claude model name raises a coverage note on a target that cannot load it. The note names `model: {claude: <name>}`. Sync leaves the value out, so that target uses its own default.
 
@@ -153,7 +153,7 @@ Cursor encodes effort in the `model` string, so it rides on the `model` map. Fac
 - `import claude` writes these names as `model: {claude: <name>}`.
 - `import codex` adds a Codex agent model to an existing spec as `model.codex`.
 
-Claude Code's [aliases](https://code.claude.com/docs/en/model-config) are `sonnet`, `opus`, `haiku`, `fable`, `best`, `opusplan`, `sonnet[1m]`, and `opus[1m]`. The model value `default` resets Claude's model rather than naming one, so it raises no note.
+Claude Code's [aliases](https://code.claude.com/docs/en/model-config) are `sonnet`, `opus`, `haiku`, `fable`, `best`, `opusplan`, `sonnet[1m]`, and `opus[1m]`. The model value `default` resets Claude's model instead of naming one, so it raises no note.
 
 | Target | Claude names that raise the note |
 |--------|----------------------------------|
@@ -164,7 +164,7 @@ Only the targets listed were checked.
 
 ## Model tiers {#model-tiers}
 
-Model ids belong to one vendor, so a per-target map repeats in every agent. Name the roles once under [`models`](@/docs/configuration.md#models) in `agnostic-ai.yaml` and write the tier name instead:
+Model ids belong to one vendor, so the same per-target map repeats in every agent. Name the roles once under [`models`](@/docs/configuration.md#models) in `agnostic-ai.yaml` and write the tier name instead:
 
 ```yaml
 # agnostic-ai.yaml
@@ -180,7 +180,7 @@ model: strong
 ---
 ```
 
-Claude gets `opus` with `xhigh`, Codex `gpt-6.1-sol` with `high`, and every other target its own default. Skills, commands, and settings specs name tiers the same way.
+Claude gets `opus` with `xhigh`. Codex gets `gpt-6.1-sol` with `high`. Every other target uses its own default. Skills, commands, and settings specs name tiers the same way.
 
 Precedence for `model`, high to low:
 
@@ -193,7 +193,7 @@ Precedence for `model`, high to low:
 To override one target, write the tier as the map's `default`: `model: {codex: gpt-6-luna, default: strong}`.
 
 - The tier's `effort` applies only when the spec sets no `effort`. A spec `effort` replaces it whole.
-- The tier's `effort` also skips a target whose model the spec sets itself, since it was chosen for the tier's model.
+- The tier's `effort` also skips a target whose model the spec sets itself, since that effort was chosen for the tier's model.
 - Values under `model.<target>` and `x-<target>.model` never name a tier.
 - A `model.<target>` value can be a [vendor alias](@/docs/configuration.md#models) such as `codex: sol`. `x-<target>.model` is written as given.
 
@@ -206,12 +206,12 @@ To override one target, write the tier as the map's `default`: `model: {codex: g
 - a tier named like a Claude model (LINT025)
 - a Claude model name in a shared `model` or a tier `default` that reaches another vendor's target (LINT026)
 
-`import claude` suggests a tier when two or more agents set the same Claude model. `import claude` and `import codex` keep `model: strong` when the imported model and effort are the ones the tier gives that tool, so sync then import does not pin a model.
+`import claude` suggests a tier when two or more agents set the same Claude model. `import claude` and `import codex` keep `model: strong` when the imported model and effort match what the tier gives that tool. A sync followed by an import then does not pin a model.
 {% </details> %}
 
 ## `tools` support by target
 
-Only the targets listed were checked. A target that cannot honor `tools` prints a coverage note at sync time, so `tools: [Read]` never silently becomes an unrestricted agent.
+Only the targets listed were checked. A target that cannot honor `tools` prints a coverage note at sync time, so `tools: [Read]` never turns into an unrestricted agent without warning.
 
 | Target | Behavior |
 |--------|----------|
@@ -234,13 +234,13 @@ Only the targets listed were checked. A top-level `mcpServers` list narrows whic
 | [Antigravity](@/docs/targets/antigravity.md) | Inline objects only. Set `x-antigravity.mcpServers` |
 | [Kiro](@/docs/targets/kiro.md) | Inline definitions only. Set `x-kiro.mcpServers` |
 
-Every other target drops the list with a coverage note; the three inline targets' notes name the `x-<target>` key to set.
+Every other target drops the list with a coverage note. On the three inline targets, the note names the `x-<target>` key to set.
 
 **An empty list is not portable.** Junie treats `mcpServers: []` as keeping every configured server. Factory treats it as excluding every server. List the servers you want instead.
 
 ## `permissionMode` and agent `hooks` support by target {#agent-policy-support-by-target}
 
-Only the targets listed were checked. `permissionMode` sets one delegated agent's approval boundary; `hooks` scopes lifecycle hooks to it. Omitting either inherits the parent session.
+Only the targets listed were checked. `permissionMode` sets one delegated agent's approval boundary. `hooks` scopes lifecycle hooks to that agent. Omitting either inherits the parent session.
 
 | Target | `permissionMode` | Agent `hooks` |
 |--------|------------------|---------------|
@@ -261,5 +261,5 @@ Only the targets listed were checked. `color` is written verbatim and not valida
 | [Qoder](@/docs/targets/qoder.md) | One of eight names |
 | [OpenHands](@/docs/targets/openhands.md) | Dropped with a note. Set `x-openhands.color` to a [Rich color name](https://rich.readthedocs.io/en/stable/appendix/colors.html) |
 
-`color: blue` is valid on Augment and Qoder but is neither hex nor a Kilo Code theme token. OpenHands shares its `.agents/agents/` tree with [Goose](@/docs/targets/goose.md), whose frontmatter has no `color`, so a portable `color` prints a coverage note there.
+`color: blue` is valid on Augment and Qoder, but it is neither hex nor a Kilo Code theme token. OpenHands shares its `.agents/agents/` tree with [Goose](@/docs/targets/goose.md), whose frontmatter has no `color`, so a portable `color` prints a coverage note there.
 

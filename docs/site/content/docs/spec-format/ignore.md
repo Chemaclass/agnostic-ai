@@ -12,7 +12,7 @@ group = "Reference"
 `ignore/` lists what agents must not read or index: secrets, generated code, vendored dependencies, large fixtures. Most tools read their own ignore file, such as `.cursorignore`, `.geminiignore`, `.aiignore`, or `.aiderignore`. An ignore spec writes the same patterns into each.
 
 - **Secrets stay out of context.** An `.env` file or a key folder is not sent to the model.
-- **Smaller, sharper context.** Build output and vendored code stop crowding search and indexing.
+- **Smaller context.** Build output and vendored code stop crowding search and indexing.
 - **One list.** Add a pattern once instead of in every tool's file.
 
 Tools apply an ignore file to their own reads and indexing. Whether it also stops a shell command differs by tool, so pair it with a [settings](@/docs/spec-format/settings.md) `deny` rule for anything that must never be read.
@@ -31,7 +31,7 @@ dist/
 ```
 ````
 
-With fenced code blocks, only the lines inside them are patterns. The surrounding text is prose, which formatters like Prettier can rewrite safely. A body without a fence is read whole. Prettier strips trailing spaces inside a block, so write a name ending in a space as `name[ ]`.
+With fenced code blocks, only the lines inside them are patterns. The text around them is prose, which formatters like Prettier can safely rewrite. A body without a fence is read whole. Prettier strips trailing spaces inside a block, so write a name ending in a space as `name[ ]`.
 
 ## Output
 

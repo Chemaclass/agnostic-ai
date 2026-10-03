@@ -9,7 +9,7 @@ group = "Start"
 
 # Verify a release
 
-Every release ships proof you can check yourself. Each check answers a different question; pick the ones you need.
+You can check every release yourself. Each check answers a different question, so pick the ones you need.
 
 | Check | Proves | Command |
 |---|---|---|

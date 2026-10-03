@@ -9,12 +9,12 @@ group = "Reference"
 
 # Skills
 
-`skills/` holds procedures the agent loads only when a task calls for them: cut a release, write a migration, triage a bug report. The tool keeps each skill's `description` in view and reads the body, plus any bundled files, when the skill applies.
+`skills/` holds procedures the agent loads only when a task needs them: cut a release, write a migration, triage a bug report. The tool keeps each skill's `description` in view. It reads the body and any bundled files when the skill applies.
 
-- **Small standing context.** A long procedure costs nothing until it is used, unlike a rule, which loads every session.
+- **Small standing context.** A long procedure costs nothing until it is used. A rule, by contrast, loads every session.
 - **Files that travel with it.** Scripts, templates, and fixtures sit next to `SKILL.md` and land beside it in every tool.
 - **Invoked by the model or by name.** The model picks a skill from its description; a person can also call it directly.
-- **One format across tools.** Targets that read the `SKILL.md` layout get the skill as written; targets without a skill surface get a rule and a coverage note.
+- **One format across tools.** Targets that read the `SKILL.md` layout get the skill as written. Targets without a skill surface get a rule and a coverage note.
 
 Use a [rule](@/docs/spec-format/rules.md) for what applies to every task, and a skill for a procedure some tasks need.
 
@@ -40,7 +40,7 @@ description: Validate YAML against a schema. Use when a YAML file changes or the
 
 Write `description` as the trigger: what the skill does and when to use it. The model decides from that line alone.
 
-A manual-only release skill that runs on a stronger model in Claude Code and ships its own script:
+This manual-only release skill runs on a stronger model in Claude Code and ships its own script:
 
 ```
 skills/cut-release/
@@ -87,7 +87,7 @@ Sync reports a coverage note for each skill field a target omits, including `arg
 
 Only `SKILL.md` and flat `skills/*.md` parse as skills. Every other file in a nested skill directory is a bundled asset (scripts, templates, fixtures, extra `*.md`). Assets copy verbatim to the same relative path under each target's skills dir. Import and sync preserve executable bits.
 
-Most targets write `<dir>/<name>/SKILL.md` with assets. Several share `.agents/skills/`, so identical bytes write once. Targets with no skill surface flatten the skill to a `skill-<name>.md` rule and raise a coverage note, since assets cannot follow. Set `outputs.<target>.emit-skills-as-commands: true` to also emit a slash command. Each target page gives the exact directory.
+Most targets write `<dir>/<name>/SKILL.md` with assets. Several share `.agents/skills/`, so identical bytes are written once. Targets with no skill surface flatten the skill to a `skill-<name>.md` rule. Assets cannot follow, so they raise a coverage note. Set `outputs.<target>.emit-skills-as-commands: true` to also emit a slash command. Each target page gives the exact directory.
 
 A body can point at another skill with [`{{$SKILLS_DIR}}`](@/docs/spec-format/_index.md#path-variables-name), which resolves to each target's own skills directory.
 
@@ -99,13 +99,13 @@ Claude Code expands some syntax in a skill body before the model reads it ([skil
 - `$ARGUMENTS` becomes the text typed after the skill name.
 - `$0`, `$1`, ... and `$ARGUMENTS[N]` become one argument each.
 
-No other target documents this syntax for skills, so each one reads it as plain text. Sync copies the body as written and prints one note per target and shape, naming each line:
+No other target documents this syntax for skills, so each one reads it as plain text. Sync copies the body as written. It prints one note per target and shape, naming each line:
 
 ```
   note: `!`command`` on 1 skill has no effect on codex (the command does not run at .agnostic-ai/skills/pr/SKILL.md:8; put the line in a ::target claude fence)
 ```
 
-`on-unsupported: error` fails the sync instead, and `silent` hides the note. `lint` reports each line as LINT019. `sync --global` raises the same notes for the skills it writes to user-level directories, with `on-unsupported` read from the source root's `agnostic-ai.yaml`.
+`on-unsupported: error` fails the sync instead, and `silent` hides the note. `lint` reports each line as LINT019. `sync --global` raises the same notes for the skills it writes to user-level directories. It reads `on-unsupported` from the source root's `agnostic-ai.yaml`.
 
 Put the Claude line in a fence and give other targets their own text:
 
@@ -124,7 +124,7 @@ A `$1` or `` !`command` `` inside a fenced code block counts as an example and i
 
 ## `disable-model-invocation` support by target {#disable-model-invocation-support-by-target}
 
-Only the targets listed were checked. Setting it keeps a skill out of automatic model invocation; the user can still invoke it. Omitting it leaves each target's default, which is model-invocable everywhere below.
+Only the targets listed were checked. Setting it keeps a skill out of automatic model invocation. The user can still invoke it. Omitting it leaves each target's default, which is model-invocable everywhere below.
 
 | Target | Behavior |
 |--------|----------|
@@ -133,6 +133,6 @@ Only the targets listed were checked. Setting it keeps a skill out of automatic 
 | [Crush](@/docs/targets/crush.md) | Dropped with a note. Set `x-crush.disable-model-invocation` |
 | [Factory](@/docs/targets/factory.md) | Dropped with a note. Set `x-factory.disable-model-invocation` |
 
-Crush and Factory skills land in the shared `.agents/skills/` tree, so emitting the key would hand it to targets with no such field. Use the `x-` key. A manual-only skill turning model-invocable is a safety boundary.
+Crush and Factory skills land in the shared `.agents/skills/` tree, so emitting the key would hand it to targets with no such field. Use the `x-` key. A manual-only skill that turns model-invocable crosses a safety boundary.
 
 OpenHands' `triggers` is unrelated: it injects a skill on a keyword. Devin spells this restriction `triggers: [user]`.

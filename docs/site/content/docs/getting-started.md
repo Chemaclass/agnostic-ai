@@ -26,7 +26,7 @@ agnostic-ai sync --plan
 agnostic-ai sync
 ```
 
-`init --from all` creates `agnostic-ai.yaml` and imports existing tool files into `.agnostic-ai/` when it finds them. Pick the tools you use when prompted. Without a terminal, init selects detected tools, or its default set when it finds none. `sync --plan` previews the changes; `sync` writes the native files.
+`init --from all` creates `agnostic-ai.yaml` and imports any existing tool files into `.agnostic-ai/`. Pick the tools you use when prompted. Without a terminal, init selects the tools it detects, or its default set when it finds none. `sync --plan` previews the changes. `sync` writes the native files.
 
 For other installers, see [Installation](@/docs/installation.md). To review an existing setup before generating files, see [Migration](@/docs/migration.md). Already use one tool and want another? Run `agnostic-ai use codex` (see [use](@/docs/cli-reference/start.md#use)).
 
@@ -51,14 +51,14 @@ Use feat:, fix:, docs:, refactor:, test:, or chore: prefixes.
 Keep the subject under 72 characters.
 ```
 
-Run `agnostic-ai sync` again. With Claude Code and Cursor selected, the rule reaches:
+Run `agnostic-ai sync` again. With Claude Code and Cursor selected, the rule lands in:
 
 | Output | Purpose |
 |---|---|
 | `.claude/rules/conventional-commits.md` | Claude Code rule |
 | `.cursor/rules/conventional-commits.mdc` | Cursor rule |
 
-Write shared project instructions in `.agnostic-ai/AGNOSTIC_AI.md`. Sync seeds this file once and keeps your edits. Edit sources under `.agnostic-ai/`, then sync again. To change tools, edit `targets:` in `agnostic-ai.yaml` ([target selection](@/docs/configuration.md#targets)).
+Write shared project instructions in `.agnostic-ai/AGNOSTIC_AI.md`. Sync creates this file once and keeps your edits. Edit sources under `.agnostic-ai/`, then sync again. To change tools, edit `targets:` in `agnostic-ai.yaml` ([target selection](@/docs/configuration.md#targets)).
 
 ## Commit or ignore generated outputs
 
@@ -69,7 +69,7 @@ Write shared project instructions in `.agnostic-ai/AGNOSTIC_AI.md`. Sync seeds t
 
 ## Daily use
 
-Run `agnostic-ai sync --watch` while you edit specs. Run `agnostic-ai status` for loaded specs, tools, and drift. Use `agnostic-ai sync --check` after syncing or in CI to detect drift.
+Run `agnostic-ai sync --watch` while you edit specs. Run `agnostic-ai status` to see loaded specs, tools, and drift. Run `agnostic-ai sync --check` after a sync or in CI to catch drift.
 
 <a id="shell-completion"></a>
 <a id="add-a-single-spec"></a>

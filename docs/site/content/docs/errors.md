@@ -9,7 +9,6 @@ group = "Reference"
 
 # Error codes
 
-
 Every user-facing error starts with a stable code in square brackets, `[AAI-NNN]`. Its fix follows on the next line:
 
 ```
@@ -71,13 +70,13 @@ The config file was found, but it is not valid YAML or its keys do not match the
 
 ### AAI-005: Installed version outside requires
 
-The config's `requires` key names the agnostic-ai releases its specs work with: a minimum, one exact release, or a range. The installed binary is outside it. Every command that reads the specs stops before it reads specs or writes files. That includes `sync`, `lint`, `validate`, `doctor`, `revert`, and `cleanup`. The message names the file, the required version, and the installed one:
+The config's `requires` key names the agnostic-ai releases its specs work with: a minimum, one exact release, or a range. The installed binary is outside it. Every command that reads the specs stops before reading them or writing files. That includes `sync`, `lint`, `validate`, `doctor`, `revert`, and `cleanup`. The message names the file, the required version, and the installed one:
 
 ```
 [AAI-005] agnostic-ai.yaml requires agnostic-ai >=0.71.0, but 0.70.0 is installed; run `agnostic-ai upgrade`
 ```
 
-**Fix:** after installing a newer release, run `agnostic-ai upgrade --requires` from the project root. It aligns `requires` and the schema tag with the installed release, then syncs. Use the installed package-manager CLI, such as `pnpm exec agnostic-ai upgrade --requires`.
+**Fix:** after installing a newer release, run `agnostic-ai upgrade --requires` from the project root. It sets `requires` and the schema tag to the installed release, then syncs. Use the installed package-manager CLI, such as `pnpm exec agnostic-ai upgrade --requires`.
 
 - **Older installed release:** run `agnostic-ai upgrade`, or `upgrade --version vX.Y.Z` for an exact pin or range. Project package-manager installs name their install command, such as `pnpm install`, after pulling a version bump.
 - **Keep an intentional older project pin:** install the release it names through your package manager or `upgrade --version`. The latter also downgrades a standalone binary.
@@ -86,9 +85,9 @@ The config's `requires` key names the agnostic-ai releases its specs work with: 
 
 ### AAI-102: Targets emit to the same output path
 
-Two or more enabled targets would write different content to the same path. Last-writer-wins would mask drift.
+Two or more enabled targets would write different content to the same path. Letting the last writer win would hide drift.
 
-**Fix:** Drop one of the colliding targets from `targets:` in agnostic-ai.yaml, or override the matching `outputs.<target>` path setting, such as `file`, `rules-file`, or `skills-dir`.
+**Fix:** drop one of the colliding targets from `targets:` in agnostic-ai.yaml, or override the matching `outputs.<target>` path setting, such as `file`, `rules-file`, or `skills-dir`.
 
 <a id="aai-103-hand-authored-ignore-file-cannot-be-safely-overwritten"></a>
 
@@ -96,7 +95,7 @@ Two or more enabled targets would write different content to the same path. Last
 
 Replacing a target's ignore file without an agnostic-ai header would remove or reorder existing patterns, or add a negation. These changes can make excluded files readable, so sync refuses the overwrite.
 
-**Fix:** Run `agnostic-ai import <target>` to copy the imported file's patterns into an ignore spec. When a target reads several ignore files, combine their patterns in the spec and preserve their order before syncing. The error names a risky negation or up to five missing or reordered patterns, with a count for the rest. Deleting the file also clears the error, at the cost of those patterns.
+**Fix:** run `agnostic-ai import <target>` to copy the imported file's patterns into an ignore spec. When a target reads several ignore files, combine their patterns in the spec and keep their order before syncing. The error names a risky negation or up to five missing or reordered patterns, with a count for the rest. Deleting the file also clears the error, at the cost of those patterns.
 
 See [ignore overwrite behavior](@/docs/spec-format/ignore.md#overwrite-behaviour).
 
@@ -104,11 +103,11 @@ See [ignore overwrite behavior](@/docs/spec-format/ignore.md#overwrite-behaviour
 
 The argument to `agnostic-ai import` matches no registered source.
 
-**Fix:** run `agnostic-ai import --help` for the supported list. Spelling counts.
+**Fix:** run `agnostic-ai import --help` for the supported list, and check the spelling.
 
 ### AAI-203: Import would replace an existing spec
 
-`import`, `init --from`, or `use` would replace a spec under the source directories with content the importing tool never read: a hand-written spec, one edited since the last sync or import (a comment counts), one the last sync never wrote for that tool, or one another tool's import wrote. The message names the tool the current content came from. The import writes no spec. The message lists each spec and the tool that wanted it. `import --dry-run` fails the same way.
+`import`, `init --from`, or `use` would replace a spec under the source directories with content the importing tool never read: a hand-written spec, one edited since the last sync or import (a comment counts), one the last sync never wrote for that tool, or one another tool's import wrote. The import writes no spec. The message lists each spec, the tool its current content came from, and the tool that wanted it. `import --dry-run` fails the same way.
 
 **Fix:** rename the existing spec to keep both and import again, or run `agnostic-ai import <tool> --overwrite` to replace it.
 
@@ -124,6 +123,6 @@ A known target outside this run (`sync --only codex` with `targets: [claude]`) r
 
 ### AAI-302: Mutually exclusive flags
 
-Two conflicting flags were passed together, such as `--only` with `--except`, or `--watch` with `--check`. Or a flag was passed without the one it needs, such as `--diff` without `--dry-run`.
+You passed two conflicting flags together, such as `--only` with `--except`, or `--watch` with `--check`. Or you passed a flag without the one it needs, such as `--diff` without `--dry-run`.
 
 **Fix:** the message names both flags. Drop one when they conflict; add the missing one when a flag needs another.

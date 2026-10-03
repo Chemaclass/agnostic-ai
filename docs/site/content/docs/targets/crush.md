@@ -27,7 +27,7 @@ crush.json                         # when MCP or PreToolUse hook entries exist (
 - **Ignore**: `.crushignore` uses gitignore syntax, supported since [Crush v0.94.1](https://raw.githubusercontent.com/charmbracelet/crush/v0.94.1/README.md). The shared hand-authored-file protection applies.
 
 {% <details summary="A hand-written crushrc too"> %}
-Crush merges every config file: `./.crushrc`, then `./crushrc`, then `$XDG_CONFIG_HOME/crush/crushrc`, with legacy `crush.json` / `.crush.json` merged in (project over global, `crushrc` over JSON in the same directory). A directory with both logs a startup warning on every launch.
+Crush merges every config file: `./.crushrc`, then `./crushrc`, then `$XDG_CONFIG_HOME/crush/crushrc`. It merges legacy `crush.json` / `.crush.json` in too (project over global, `crushrc` over JSON in the same directory). A directory with both logs a warning on every launch.
 {% </details> %}
 
 ### MCP
@@ -38,13 +38,13 @@ Servers merge into the `mcp` key of `crush.json`:
 - HTTP: `{type: http, url, headers, oauth, oauth_client_id, oauth_client_secret, oauth_callback_port}`
 - SSE: `{type: sse, url, headers, oauth, ...}`
 
-The oauth fields are optional and need Crush v0.87.0. `sse` stays `sse`, since Crush routes it to a different transport than `http`. A spec's `remote` type defaults to `http`.
+The oauth fields are optional and need Crush v0.87.0. `sse` stays `sse`, because Crush routes it to a different transport than `http`. A spec's `remote` type defaults to `http`.
 
 Every transport also takes these fields from [Crush's `schema.json`](https://raw.githubusercontent.com/charmbracelet/crush/main/schema.json):
 
 - `disabled` passes through.
-- `sessionless` marks a server that sends no `Mcp-Session-Id`, so Crush skips the subscription stream (Crush v0.91.2). Unset, Crush auto-detects known cases such as GitHub MCP.
-- `enabled_tools` and `disabled_tools` gate which tools reach the agent.
+- `sessionless` marks a server that sends no `Mcp-Session-Id`, so Crush skips the subscription stream (Crush v0.91.2). When unset, Crush detects known cases such as GitHub MCP.
+- `enabled_tools` and `disabled_tools` choose which tools reach the agent.
 
 Crush rejects unknown MCP keys, so MCP has no `x-crush` passthrough. Skills still take `x-crush` keys.
 
@@ -56,7 +56,7 @@ Hooks merge into `crush.json` under `hooks`, beside `mcp`.
 - Sync reads any case or snake_case spelling (`PreToolUse`, `pretooluse`, `pre_tool_use`, `PRE_TOOL_USE`, ...) and writes `PreToolUse`.
 - Each hook is one flat array item (`{"name": ..., "matcher": ..., "command": ..., "timeout": ...}`), not the Claude-style `{"matcher": ..., "hooks": [...]}` group. `command` is required. `timeout` is in seconds, default 30.
 - Crush runs a command as a script only when it starts with `./`, `../`, or `/`. A hook command that starts with a `.agnostic-ai/scripts/<name>` script, which sync copies, becomes `./.crush/hooks/<name>`. Other commands, such as `bin/guard` or `.crush/hooks/guard`, stay as written, and import keeps every command as written.
-- Tool names are lowercase (`bash`, `edit`, `write`, `mcp_<server>_<tool>`, e.g. `^bash$`). A Claude-style matcher (`Bash`, `Edit`) matches nothing, so `sync` prints a field no-op note.
+- Tool names are lowercase (`bash`, `edit`, `write`, `mcp_<server>_<tool>`, for example `^bash$`). A Claude-style matcher (`Bash`, `Edit`) matches nothing, so `sync` prints a field no-op note.
 
 ## Config keys
 
@@ -75,7 +75,7 @@ Hooks merge into `crush.json` under `hooks`, beside `mcp`.
 | `AGENTS.md` inlined `## Rules` block (`### <name>` children) | `<rules>/<name>.md` per rule |
 | `.agents/skills/<name>/SKILL.md` (+ bundled assets) | `<skills>/<name>/SKILL.md` (folder copied byte-for-byte) |
 | `crush.json` (`mcp.<name>`, `type: stdio` / `type: http` / `type: sse`) | `<mcps>/<name>.yaml` |
-| `crush.json` `hooks.PreToolUse` | hook specs; a named entry's `name` becomes both the spec's `name:` field and its filename, so a re-import lands at the same path |
+| `crush.json` `hooks.PreToolUse` | hook specs; a named entry's `name` becomes the spec's `name:` field and its filename, so a re-import lands at the same path |
 | `.crushignore` | an ignore spec |
 | `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
 

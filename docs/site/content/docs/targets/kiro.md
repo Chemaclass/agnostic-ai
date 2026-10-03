@@ -48,7 +48,7 @@ Kiro's `tools` takes category tags plus `@server_name`, `@server_name/tool_name`
 | `Bash` | `shell` |
 | `WebFetch`, `WebSearch` | `web` |
 
-Duplicates collapse. Categories are bundles, so access widens: `write` also covers `delete_file` (even `Edit` alone grants delete), and `web` covers fetch and search. Other values drop with a coverage note while the rest still emit. `x-kiro.tools` takes Kiro's vocabulary and always wins.
+Duplicates collapse. Categories are bundles, so access widens: `write` also covers `delete_file` (even `Edit` alone grants delete), and `web` covers fetch and search. Other values drop with a coverage note; the rest still emit. `x-kiro.tools` takes Kiro's vocabulary and always wins.
 
 **Hooks** are [native](https://kiro.dev/docs/hooks/): one JSON file per spec, `{"version": "v1", "hooks": [{name, trigger, matcher, action, timeout, enabled, description}]}`.
 
@@ -56,13 +56,13 @@ Duplicates collapse. Categories are bundles, so access widens: `write` also cove
 - Each `command` (string or list) becomes an `action: {"type": "command", "command": ...}` entry in the same file, with `name` suffixed `-2`, `-3`, ... to stay unique.
 - `disabled: true` writes `"enabled": false`. `description` reaches the file as documentation only.
 - `timeout: 0` disables the timeout; omitting it keeps Kiro's 60-second default.
-- `x-kiro` keys pass through per entry, the only way to set `confirm` (ask before a Stop command hook runs, with `question`, `options` of `id`/`label`/`run`, and optional `confirmCommand`).
+- `x-kiro` keys pass through per entry. That is the only way to set `confirm` (ask before a Stop command hook runs, with `question`, `options` of `id`/`label`/`run`, and optional `confirmCommand`).
 - `x-kiro.action` takes `{type: agent, prompt: ...}` or `{type: command, command: ...}`. A valid one needs no generic `command` and replaces the whole list with one action; an invalid one fails sync.
 - Neutral `.agnostic-ai/scripts/<name>` references copy to `.kiro/scripts/<name>`, outside `.kiro/hooks/` where Kiro reads definitions, and the command is rewritten. See [shared hook scripts](@/docs/spec-format/hooks.md#shared-hook-scripts).
 
 **MCP** servers go to `.kiro/settings/mcp.json` under `mcpServers`, Kiro's [workspace-level config](https://kiro.dev/docs/mcp/configuration/). Local servers carry `command` plus optional `args` and `env`; remote ones carry `url` plus optional `headers` and `env`. Kiro expands a `${NAME}` reference only after you approve the variable under **Mcp Approved Env Vars** in its settings; see [environment references](@/docs/spec-format/mcps.md#environment-references). `disabled` passes through (default `false`). Kiro also accepts `autoApprove` (tools approved without prompting, `"*"` for all) and `disabledTools` (tools hidden from the agent). A remote server can add `oauth` (`{clientId, clientSecret, redirectUri, clientMetadataUrl, oauthScopes}`) and a top-level `oauthScopes` fallback; `oauth.oauthScopes` wins. An empty `oauthScopes: []` emits as written, Kiro's documented fix for scope errors. Kiro's `oauth` differs from Claude Code's, so each target maps only its vendor's sub-keys. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
 
-**Ignore** specs concatenate into `.kiroignore` in gitignore syntax ([Kiro ignore](https://kiro.dev/docs/kiroignore/)); override with `outputs.kiro.ignore-file`. Two limits sync cannot change: the IDE honors it only when listed in `kiroAgent.agentIgnoreFiles` (Kiro suggests `[".gitignore", ".kiroignore"]`), and CLI V3 reads only the workspace file, with no global one. There it blocks direct reads of matches and filters them from content and filename search.
+**Ignore** specs concatenate into `.kiroignore` in gitignore syntax ([Kiro ignore](https://kiro.dev/docs/kiroignore/)); override with `outputs.kiro.ignore-file`. Sync cannot change two limits. The IDE honors it only when listed in `kiroAgent.agentIgnoreFiles` (Kiro suggests `[".gitignore", ".kiroignore"]`), CLI V3 reads only the workspace file, with no global one, and there it blocks direct reads of matches and filters them from content and filename search.
 
 ## Config keys
 
@@ -104,7 +104,7 @@ Hook import reads every vendor field:
 - A human-readable name ("Lint on save") slugs into the filename and stays intact on `name:`.
 - An action with no payload (`type: "command"` with no `command`, `type: "agent"` with no `prompt`) skips with a warning.
 
-The rebuilt spec loses some data, though Kiro's output stays the same:
+The rebuilt spec loses some data, but Kiro's output stays the same:
 
 - A rule's source-layout scope collapses into an equivalent `globs:`.
 - A legacy flattened agent or skill keeps only its body; that form never carried a description, model, or bundled assets.
