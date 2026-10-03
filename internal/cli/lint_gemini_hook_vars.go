@@ -62,7 +62,9 @@ func lintGeminiHookVariables(cfg *config.Config, targets []string, b spec.Bundle
 // before the shell parses the command, so the value's own apostrophes
 // show up literally in double quotes and close the quotes in single ones.
 // Unquoted words and `${NAME}` are fine. A `#` at the start of a word
-// outside quotes begins a comment, so its apostrophes open nothing. Quotes
+// outside quotes begins a comment, so its apostrophes open nothing, but a
+// bare variable there still counts: a replaced value holding a newline
+// ends the comment and runs the rest. Quotes
 // inside a command substitution start a new context this scan does not
 // track, so every bare variable after a `$(` or backquote counts.
 func quotedGeminiVariables(command string) []string {
@@ -86,9 +88,16 @@ func quotedGeminiVariables(command string) []string {
 		case c == '\'' && !inDouble:
 			inSingle = true
 		case c == '#' && !inDouble && !inSubstitution && (i == 0 || escaped != i-1 && strings.ContainsRune(" \t\n;&|()", rune(command[i-1]))):
-			for i < len(command) && command[i] != '\n' {
-				i++
+			end := strings.IndexByte(command[i:], '\n')
+			if end < 0 {
+				end = len(command) - i
 			}
+			for _, v := range geminiHookVariables {
+				if strings.Contains(command[i:i+end], v) && !slices.Contains(out, v) {
+					out = append(out, v)
+				}
+			}
+			i += end
 		}
 		if c != '$' || (!inSingle && !inDouble && !inSubstitution) {
 			continue

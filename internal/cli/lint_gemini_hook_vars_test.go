@@ -31,7 +31,6 @@ func TestLint_GeminiHookVariableOutsideSingleQuotesIsClean(t *testing.T) {
 	for name, command := range map[string]string{
 		"unquoted":      `echo $GEMINI_PROJECT_DIR/x`,
 		"braced double": `echo "${GEMINI_PROJECT_DIR}/x"`,
-		"comment":       "echo hi # don't '$GEMINI_CWD'",
 		"braced":        `echo '${GEMINI_PROJECT_DIR}/x'`,
 		"after quotes":  `echo 'a' $GEMINI_CWD 'b'`,
 	} {
@@ -71,9 +70,10 @@ func TestSingleQuotedGeminiVariables(t *testing.T) {
 		"echo `cat $GEMINI_CWD/x`":                               {"$GEMINI_CWD"},
 		`printf '%s\n' "$(printf '%s' "${GEMINI_PROJECT_DIR}")"`: nil,
 		`echo $GEMINI_CWD`:                                       nil,
+		`echo ok # no variable here`:                             nil,
 		`printf '%s\n' tag\ # '$GEMINI_CWD'`:                     {"$GEMINI_CWD"},
 		`echo a\;# '$GEMINI_CWD'`:                                {"$GEMINI_CWD"},
-		`echo ok # don't '$GEMINI_CWD'`:                          nil,
+		`echo ok # don't '$GEMINI_CWD'`:                          {"$GEMINI_CWD"},
 		`echo "$(printf '%s' "Directory: # $GEMINI_CWD")"`:       {"$GEMINI_CWD"},
 	} {
 		got := quotedGeminiVariables(command)
