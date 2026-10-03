@@ -41,7 +41,7 @@ func newHookRunCmd() *cobra.Command {
 			"Prints each command's decision (allow, block, error, or timeout), exit code, time, stdout, and stderr, " +
 			"and warns when the synced native file does not run the command the spec produces. " +
 			"--format json prints one object per target instead. " +
-			"A target whose docs leave out its shell or default timeout runs on stated assumptions, marked (assumed: ...); " +
+			"A target whose docs leave out its shell, working directory, or default timeout runs on stated assumptions, marked (assumed: ...); " +
 			"its result is shown but not counted unless --include-assumed is passed, and a disagreement prints a warning. " +
 			"Exits 1 when a counted command times out or errors, when counted targets decide differently, or when a decision differs from --expect. " +
 			"Run sync first: commands run the scripts sync copied into each target's hook directory.",
@@ -123,7 +123,7 @@ func newHookRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&payloadFile, "payload", "", "Send this JSON file to every target as the payload")
 	cmd.Flags().StringVar(&expect, "expect", "", "Fail unless every target decides allow or block")
 	cmd.Flags().StringVar(&format, "format", "text", "Output format: text or json")
-	cmd.Flags().BoolVar(&includeAssumed, "include-assumed", false, "Count results that rest on an assumed shell or timeout in --expect and the comparison")
+	cmd.Flags().BoolVar(&includeAssumed, "include-assumed", false, "Count results that rest on an assumed shell, working directory, or timeout in --expect and the comparison")
 	_ = cmd.RegisterFlagCompletionFunc("target", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return hookrun.Targets(), cobra.ShellCompDirectiveNoFileComp
 	})
@@ -217,6 +217,12 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 			continue
 		}
 		payload, err := hookrun.Build(target, event, matcher, root, in)
+		var unbuilt hookrun.Unbuilt
+		if errors.As(err, &unbuilt) {
+			run.Reason = unbuilt.Reason
+			add(run)
+			continue
+		}
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", target, err)
 		}
@@ -263,10 +269,17 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 				continue
 			}
 			env := hookRunEnv(target, root, hookEnvContext{event: event, tool: hookrun.PayloadTool(payload.Body), pluginRoot: adapters.HookPluginRoot(cfg, target)}, h)
-			r := hookrun.Run(hookrun.Argv(target, runtime.GOOS, h), root, env, payload.Body, timeout)
+			dir := root
+			if target == "copilot" {
+				dir = hookrun.CopilotDir(root, h)
+			}
+			r := hookrun.Run(hookrun.Argv(target, runtime.GOOS, h), dir, env, payload.Body, timeout)
 			d := hookrun.DecideHandler(target, event, h, r)
 			if target == "cursor" && hookrun.CursorAsks(event, r) {
 				run.Notes = append(run.Notes, "replied ask: Cursor asks the user before the action runs; read as block")
+			}
+			if target == "copilot" && hookrun.CopilotAsks(event, r) {
+				run.Notes = append(run.Notes, "replied ask: Copilot CLI asks the user before the tool runs, and cloud agent denies it; read as block")
 			}
 			run.Commands = append(run.Commands, newHookCommandRun(shown, d, r, hookrun.AddsContext(target, event, r)))
 			run.Decision = strongerDecision(run.Decision, d)

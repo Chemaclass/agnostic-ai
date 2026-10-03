@@ -38,6 +38,10 @@ type Handler struct {
 	Command string
 	// Args switches a Claude Code hook to exec form.
 	Args []string
+	// Exec is Copilot's exec form: Command runs with Args and no shell.
+	Exec bool
+	// Cwd is Copilot's cwd: relative to the repository root, or absolute.
+	Cwd string
 	// Shell is Claude Code's `shell`; "powershell" leaves bash.
 	Shell string
 	// CommandWindows is what Codex runs on Windows.
@@ -178,6 +182,8 @@ func AddsContext(target, event string, r Result) bool {
 		return geminiAddsContext(r)
 	case "goose", "augment":
 		return false
+	case "copilot":
+		return copilotAddsContext(event, r)
 	case "cursor":
 		var reply struct {
 			AdditionalContext string `json:"additional_context"`
