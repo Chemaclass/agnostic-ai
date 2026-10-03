@@ -242,6 +242,7 @@ func crushExec(ctx context.Context, args []string) error {
 	cmd.Args, cmd.Dir, cmd.Env = args, hc.Dir, exportedEnv(hc.Env)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = hc.Stdin, hc.Stdout, hc.Stderr
 	killTree(cmd)
+	crushIsolate(cmd)
 	err = cmd.Run()
 	var exit *exec.ExitError
 	var notStarted *exec.Error
@@ -283,10 +284,7 @@ func (s *crushShell) scriptDispatch(next interp.ExecHandlerFunc) interp.ExecHand
 			return next(ctx, args)
 		}
 		hc := interp.HandlerCtx(ctx)
-		path := args[0]
-		if !filepath.IsAbs(path) {
-			path = filepath.Join(hc.Dir, path)
-		}
+		path := crushJoin(s.goos, hc.Dir, args[0])
 		head, err := readHead(path, 128)
 		if err != nil {
 			return err
@@ -323,6 +321,16 @@ func (s *crushShell) pathPrefixed(arg string) bool {
 	}
 	drive := len(arg) >= 3 && (arg[0]|0x20) >= 'a' && (arg[0]|0x20) <= 'z' && arg[1] == ':' && (arg[2] == '\\' || arg[2] == '/')
 	return drive || strings.HasPrefix(arg, `\`)
+}
+
+// crushJoin follows filepathext.SmartJoin (filepathext/filepath.go:11-27):
+// on Windows a path starting with / or \ is rooted on the current drive,
+// not joined under dir.
+func crushJoin(goos, dir, path string) string {
+	if filepath.IsAbs(path) || (goos == "windows" && strings.HasPrefix(strings.ReplaceAll(path, `\`, "/"), "/")) {
+		return path
+	}
+	return filepath.Join(dir, path)
 }
 
 func readHead(path string, n int) ([]byte, error) {
@@ -372,6 +380,7 @@ func (s *crushShell) shebang(ctx context.Context, path string, head []byte, args
 	}
 	cmd := exec.CommandContext(ctx, program, append(append(extra, path), args[1:]...)...)
 	cmd.Dir, cmd.Env, cmd.Stdin, cmd.Stdout, cmd.Stderr = hc.Dir, exportedEnv(hc.Env), hc.Stdin, hc.Stdout, hc.Stderr
+	crushIsolate(cmd)
 	err = cmd.Run()
 	var exit *exec.ExitError
 	if errors.As(err, &exit) {
@@ -499,20 +508,70 @@ func RunCrush(command, dir string, env []string, stdin []byte, timeout time.Dura
 	return r
 }
 
+// crushReply is what Crush takes from stdout at exit 0.
 type crushReply struct {
-	Decision           string          `json:"decision"`
-	Halt               bool            `json:"halt"`
-	Context            json.RawMessage `json:"context"`
-	HookSpecificOutput *struct {
-		PermissionDecision string `json:"permissionDecision"`
-		AdditionalContext  string `json:"additionalContext"`
-	} `json:"hookSpecificOutput"`
+	deny, halt bool
+	context    string
 }
 
-func readCrushReply(r Result) (crushReply, bool) {
-	var reply crushReply
-	ok := json.Unmarshal([]byte(strings.TrimSpace(r.Stdout)), &reply) == nil
-	return reply, ok
+// parseCrushReply follows hooks/input.go:80-211 step by step, with the
+// same encoding/json decoding, so a field of the wrong type, such as a
+// non-string reason, voids the reply as it does in Crush. A
+// hookSpecificOutput key, even null, switches to Claude Code's shape.
+func parseCrushReply(stdout string) crushReply {
+	stdout = strings.TrimSpace(stdout)
+	if stdout == "" {
+		return crushReply{}
+	}
+	var raw map[string]json.RawMessage
+	if json.Unmarshal([]byte(stdout), &raw) != nil {
+		return crushReply{}
+	}
+	if hso, ok := raw["hookSpecificOutput"]; ok {
+		var cc struct {
+			PermissionDecision       string          `json:"permissionDecision"`
+			PermissionDecisionReason string          `json:"permissionDecisionReason"`
+			UpdatedInput             json.RawMessage `json:"updatedInput"`
+			AdditionalContext        string          `json:"additionalContext"`
+		}
+		if json.Unmarshal(hso, &cc) != nil {
+			return crushReply{}
+		}
+		return crushReply{deny: strings.EqualFold(cc.PermissionDecision, "deny"), context: cc.AdditionalContext}
+	}
+	var parsed struct {
+		Version      int             `json:"version"`
+		Decision     string          `json:"decision"`
+		Halt         bool            `json:"halt"`
+		Reason       string          `json:"reason"`
+		Context      json.RawMessage `json:"context"`
+		UpdatedInput json.RawMessage `json:"updated_input"`
+	}
+	if json.Unmarshal([]byte(stdout), &parsed) != nil {
+		return crushReply{}
+	}
+	return crushReply{deny: strings.EqualFold(parsed.Decision, "deny"), halt: parsed.Halt, context: crushContext(parsed.Context)}
+}
+
+// crushContext follows parseContext (hooks/input.go:128-155): a string,
+// or an array of strings joined without the empty ones.
+func crushContext(raw json.RawMessage) string {
+	if len(raw) == 0 || string(raw) == "null" {
+		return ""
+	}
+	switch raw[0] {
+	case '"':
+		var s string
+		if json.Unmarshal(raw, &s) == nil {
+			return s
+		}
+	case '[':
+		var items []string
+		if json.Unmarshal(raw, &items) == nil {
+			return strings.Join(slices.DeleteFunc(items, func(s string) bool { return s == "" }), "\n")
+		}
+	}
+	return ""
 }
 
 // decideCrush reads a result as hooks/runner.go:210-264 and
@@ -528,15 +587,7 @@ func decideCrush(r Result) Decision {
 	case r.Exit != 0:
 		return Error
 	}
-	reply, ok := readCrushReply(r)
-	switch {
-	case !ok:
-		return Allow
-	case reply.HookSpecificOutput != nil:
-		if strings.EqualFold(reply.HookSpecificOutput.PermissionDecision, "deny") {
-			return Block
-		}
-	case strings.EqualFold(reply.Decision, "deny") || reply.Halt:
+	if reply := parseCrushReply(r.Stdout); reply.deny || reply.halt {
 		return Block
 	}
 	return Allow
@@ -548,32 +599,13 @@ func CrushHalts(r Result) bool {
 	if r.TimedOut || r.StartErr != nil {
 		return false
 	}
-	if r.Exit == crushHaltExit {
-		return true
-	}
-	reply, ok := readCrushReply(r)
-	return r.Exit == 0 && ok && reply.HookSpecificOutput == nil && reply.Halt
+	return r.Exit == crushHaltExit || (r.Exit == 0 && parseCrushReply(r.Stdout).halt)
 }
 
 // crushAddsContext reports whether Crush appends the reply's context to
 // the tool result, which it does only when the tool runs.
 func crushAddsContext(r Result) bool {
-	reply, ok := readCrushReply(r)
-	if !ok || decideCrush(r) != Allow {
-		return false
-	}
-	if reply.HookSpecificOutput != nil {
-		return reply.HookSpecificOutput.AdditionalContext != ""
-	}
-	var text string
-	var list []string
-	switch {
-	case json.Unmarshal(reply.Context, &text) == nil:
-		return text != ""
-	case json.Unmarshal(reply.Context, &list) == nil:
-		return slices.ContainsFunc(list, func(s string) bool { return s != "" })
-	}
-	return false
+	return decideCrush(r) == Allow && parseCrushReply(r.Stdout).context != ""
 }
 
 // CrushAssumptions names what r ran from PATH that Crush runs as its

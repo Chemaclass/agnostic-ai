@@ -155,6 +155,16 @@ func TestDecideCrush_FollowsTheSource(t *testing.T) {
 		"permissionDecision deny blocks":       {Result{Stdout: `{"hookSpecificOutput":{"permissionDecision":"deny"}}`}, Block},
 		"hookSpecificOutput hides decision":    {Result{Stdout: `{"decision":"deny","hookSpecificOutput":{}}`}, Allow},
 		"a JSON reply on a failed exit is off": {Result{Exit: 1, Stdout: `{"decision":"deny"}`}, Error},
+		"a non-string reason voids the reply":  {Result{Stdout: `{"decision":"deny","reason":{}}`}, Allow},
+		"a non-int version voids the reply":    {Result{Stdout: `{"decision":"deny","version":"1"}`}, Allow},
+		"a non-bool halt voids the reply":      {Result{Stdout: `{"halt":"yes"}`}, Allow},
+		"a non-string decision voids it":       {Result{Stdout: `{"decision":true}`}, Allow},
+		"keys match case-insensitively":        {Result{Stdout: `{"Decision":"deny"}`}, Block},
+		"a null hookSpecificOutput still wins": {Result{Stdout: `{"decision":"deny","hookSpecificOutput":null}`}, Allow},
+		"a bad hookSpecificOutput voids it":    {Result{Stdout: `{"hookSpecificOutput":{"permissionDecision":1}}`}, Allow},
+		"a bad hookSpecificOutput reason":      {Result{Stdout: `{"hookSpecificOutput":{"permissionDecision":"deny","permissionDecisionReason":[]}}`}, Allow},
+		"a JSON array is no reply":             {Result{Stdout: `[{"decision":"deny"}]`}, Allow},
+		"null is no reply":                     {Result{Stdout: `null`}, Allow},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := decideCrush(tc.r); got != tc.want {
@@ -237,5 +247,47 @@ func TestCrushHandlers_ReadTheFlatHooksList(t *testing.T) {
 	}
 	if DefaultTimeout("crush", "PreToolUse") != 30*time.Second {
 		t.Error("Crush defaults to 30 seconds")
+	}
+}
+
+func TestCrushAddsContext_ReadsContextAsCrushDoes(t *testing.T) {
+	for out, want := range map[string]bool{
+		`{"context":"note"}`:                                    true,
+		`{"context":["", "note"]}`:                              true,
+		`{"context":["", ""]}`:                                  false,
+		`{"context":[1]}`:                                       false,
+		`{"context":5}`:                                         false,
+		`{"context":"note","reason":5}`:                         false,
+		`{"context":"note","decision":"deny"}`:                  false,
+		`{"hookSpecificOutput":{"additionalContext":"note"}}`:   true,
+		`{"hookSpecificOutput":null,"context":"note"}`:          false,
+		`{"hookSpecificOutput":{"additionalContext":["note"]}}`: false,
+	} {
+		if got := AddsContext("crush", "PreToolUse", Result{Stdout: out}); got != want {
+			t.Errorf("%s: AddsContext = %t, want %t", out, got, want)
+		}
+	}
+}
+
+func TestCrushJoin_KeepsRootedPathsOnWindows(t *testing.T) {
+	dir := filepath.Join("project", "root")
+	for _, tc := range []struct {
+		goos, path, want string
+	}{
+		{"windows", "/scripts/guard.sh", "/scripts/guard.sh"},
+		{"windows", `\scripts\guard.sh`, `\scripts\guard.sh`},
+		{"windows", "./guard.sh", filepath.Join(dir, "guard.sh")},
+		{"linux", "./guard.sh", filepath.Join(dir, "guard.sh")},
+		{runtime.GOOS, "../guard.sh", filepath.Join(dir, "..", "guard.sh")},
+	} {
+		if got := crushJoin(tc.goos, dir, tc.path); got != tc.want {
+			t.Errorf("crushJoin(%s, %q) = %q, want %q", tc.goos, tc.path, got, tc.want)
+		}
+	}
+	if runtime.GOOS == "windows" {
+		abs := filepath.Join(t.TempDir(), "guard.sh")
+		if got := crushJoin("windows", dir, abs); got != abs {
+			t.Errorf("a drive path stays as is: %q", got)
+		}
 	}
 }
