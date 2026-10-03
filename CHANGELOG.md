@@ -40,6 +40,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - **Breaking:** `sync` removes steering copies of `AGENTS.md` rules kept for `x-kiro.resources`; with inheritance off, list `file://AGENTS.md` (#1643).
 - Import skips `manual` and `auto` steering files with a note instead of turning them into always-on rules (#1656).
 
+#### Crush
+
+- Hook commands that run a synced script start with `./`, so Crush runs the script and a guard hook blocks on every OS (#1695, #1698).
+
 #### Copilot
 
 - `hook run` runs Copilot hooks: exec form, and a script path under an assumed `sh -c`, shown but not counted unless `--include-assumed` (#1566).
