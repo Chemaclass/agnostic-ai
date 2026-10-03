@@ -164,9 +164,10 @@ func scanRegex(s string, visit func(i int, c byte, depth int)) {
 			i = classEnd(s, i)
 		case '(', ')', '|':
 			visit(i, c, depth)
-			if c == '(' {
+			switch c {
+			case '(':
 				depth++
-			} else if c == ')' {
+			case ')':
 				depth--
 			}
 		}
