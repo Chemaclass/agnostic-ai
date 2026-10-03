@@ -76,13 +76,13 @@ func installHint(command string) string {
 }
 
 // reportMCPUnsetEnvRefs lists each `${NAME}` an enabled MCP server
-// reads in `env`, `headers`, `url`, or `args` that is unset in this
-// shell. Most tools pass the unexpanded text or an empty value to the
-// server, and Factory fails the connection. A reference with a default
-// is skipped. The tool may run with a different environment than this
-// shell, so the check is advisory and prints names, never values.
+// reads that is unset in this shell, for the configured targets the
+// server emits to. Most tools pass the unexpanded text or an empty value
+// to the server, and Factory fails the connection. A reference with a
+// default is skipped. The tool may run with a different environment than
+// this shell, so the check is advisory and prints names, never values.
 func reportMCPUnsetEnvRefs(cmd *cobra.Command) {
-	_, b, err := loadProject(".")
+	cfg, b, err := loadProject(".")
 	if err != nil {
 		return
 	}
@@ -95,7 +95,14 @@ func reportMCPUnsetEnvRefs(cmd *cobra.Command) {
 		if disabled, _ := e.Meta["disabled"].(bool); disabled {
 			continue
 		}
-		names := mcpEnvRefNames(e.Meta)
+		var names []string
+		for _, target := range cfg.Targets {
+			if e.EmitsTo(target) {
+				names = append(names, mcpEnvRefNames(e.Meta, target)...)
+			}
+		}
+		slices.Sort(names)
+		names = slices.Compact(names)
 		if len(names) == 0 {
 			continue
 		}
@@ -121,35 +128,47 @@ func reportMCPUnsetEnvRefs(cmd *cobra.Command) {
 	}
 }
 
-// mcpEnvRefNames returns the sorted variable names a server reads
-// through `${NAME}` without a default.
-func mcpEnvRefNames(meta map[string]any) []string {
-	var values []string
-	for _, field := range []string{"env", "headers"} {
-		block, _ := meta[field].(map[string]any)
-		for _, v := range block {
-			if s, ok := v.(string); ok {
-				values = append(values, s)
-			}
+// mcpEnvRefNames returns the variables a server reads for target
+// through `${NAME}` without a default. A field in the server's
+// `x-<target>` block replaces the top-level one. Editor variables such
+// as `${workspaceFolder}` are filled in by the tool only in `url` and
+// `args`, and `args` counts only for a stdio server.
+func mcpEnvRefNames(meta map[string]any, target string) []string {
+	override, _ := meta["x-"+target].(map[string]any)
+	field := func(key string) any {
+		if v, ok := override[key]; ok {
+			return v
 		}
-	}
-	if url, ok := meta["url"].(string); ok {
-		values = append(values, url)
-	}
-	args, _ := meta["args"].([]any)
-	for _, v := range args {
-		if s, ok := v.(string); ok {
-			values = append(values, s)
-		}
+		return meta[key]
 	}
 	var names []string
-	for _, v := range values {
-		for _, t := range spec.EnvRefTokens(v) {
-			if t.Known() && !t.HasDefault && !t.EditorVariable() && !slices.Contains(names, t.Name) {
+	add := func(value any, launch bool) {
+		s, ok := value.(string)
+		if !ok {
+			return
+		}
+		for _, t := range spec.EnvRefTokens(s) {
+			if t.Known() && !t.HasDefault && !(launch && t.EditorVariable()) {
 				names = append(names, t.Name)
 			}
 		}
 	}
-	slices.Sort(names)
+	credentials := []any{field("env"), field("headers")}
+	if options, ok := field("requestOptions").(map[string]any); ok {
+		credentials = append(credentials, options["headers"])
+	}
+	for _, block := range credentials {
+		values, _ := block.(map[string]any)
+		for _, v := range values {
+			add(v, false)
+		}
+	}
+	add(field("url"), true)
+	if command, _ := field("command").(string); command != "" {
+		args, _ := field("args").([]any)
+		for _, v := range args {
+			add(v, true)
+		}
+	}
 	return names
 }
