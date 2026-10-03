@@ -20,6 +20,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - MCP `$${NAME}` passes a literal `${NAME}` to every tool; import writes it for `${NAME}` a tool never expands, Codex `env` included, and keeps a native `$${NAME}` as written (#1667).
 - `lint` warns (LINT028) when an MCP `url` or `args` holds one tool's reference form, such as `${env:NAME}`, instead of `${NAME}` (#1633).
 - `sync --json`, also with `--check`, `--plan` or `--dry-run`, lists capability warnings and coverage notes under `warnings` and `notes` (#1607, #1675).
+- `sync --check`, `--plan`, and `--dry-run` with `--only` or `--except` leave out the warnings and notes of unselected targets when a kept orphan is on disk, so `coverage.fail-on-notes` no longer fails on them (#1675).
 - `lint --json` prints findings as JSON on stdout with the same exit status, in a project and with `--global` (#1607).
 - `explain LINT011` and every other lint code print the cause, fix, severity and config key; `lint` points at it (#1648).
 - MCP `url` and `args` take `${NAME}` references; each tool gets its own form, and a tool that reads none leaves the server out with a note (#1633).

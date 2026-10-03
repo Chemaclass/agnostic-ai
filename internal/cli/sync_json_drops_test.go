@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -170,5 +171,28 @@ func TestSyncJSONPreviewModes_EmptyDropListsWhenNothingIsDropped(t *testing.T) {
 				t.Errorf("warnings = %#v, notes = %#v; want empty lists", out.Warnings, out.Notes)
 			}
 		})
+	}
+}
+
+func TestOrphanGeneratedPaths_LeavesUnselectedTargetDropsOutOfTheBuffers(t *testing.T) {
+	dir := t.TempDir()
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, aider]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "srv.yaml"), "command: npx\nargs: [srv]\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+	captureNotes(t)
+	cfg, b, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapters.ResetCapabilityWarnings()
+
+	reports := []driftReport{{Target: "claude", Orphaned: []string{".claude/agents/kept.md"}}}
+	if _, _, err := orphanGeneratedPaths(cfg, b, reports); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := adapters.PendingCapabilityWarnings(); len(got) != 0 {
+		t.Errorf("buffered warnings after orphan capture = %+v, want none from unselected aider", got)
 	}
 }
