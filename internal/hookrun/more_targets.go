@@ -19,6 +19,7 @@ import (
 //   - Goose: aaif-goose/goose bab8ff6, documentation/docs/guides/
 //     context-engineering/hooks.md and crates/goose/src/hooks/mod.rs.
 //   - Augment: docs.augmentcode.com/cli/hooks.
+//   - Factory: see factory.go.
 
 type builder func(event, matcher, root string, in Input) (Payload, error)
 
@@ -28,6 +29,7 @@ var otherBuilders = map[string]builder{
 	"goose":     buildGoose,
 	"augment":   buildAugment,
 	"cursor":    buildCursor,
+	"factory":   buildFactory,
 	"copilot":   buildCopilot,
 }
 

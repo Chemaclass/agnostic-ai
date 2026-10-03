@@ -80,7 +80,7 @@ func TestRunCrush_LeavesNoProcessBehind(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := syscall.Kill(pid, 0); !errors.Is(err, syscall.ESRCH) {
+		if err := syscall.Kill(pid, 0); processRunning(pid) {
 			_ = syscall.Kill(pid, syscall.SIGKILL)
 			t.Errorf("%s: child %d survived the run: %v", command, pid, err)
 		}
@@ -105,9 +105,43 @@ func TestRunCrush_BackgroundJobCannotStartAfterCleanupBegins(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := syscall.Kill(pid, 0); !errors.Is(err, syscall.ESRCH) {
+		if err := syscall.Kill(pid, 0); processRunning(pid) {
 			_ = syscall.Kill(pid, syscall.SIGKILL)
 			t.Errorf("process %d survived the run: %v", pid, err)
 		}
 	}
+}
+
+func TestGroupHasLiveMember_CountsZombiesAsGone(t *testing.T) {
+	stats := func(lines ...string) func() ([]string, bool) {
+		return func() ([]string, bool) { return lines, true }
+	}
+	for name, tc := range map[string]struct {
+		stats func() ([]string, bool)
+		want  bool
+	}{
+		"a running member":         {stats("41 (sleep) S 1 40 40 0", "40 (sh) Z 1 40 40 0"), true},
+		"only zombies":             {stats("40 (sh) Z 1 40 40 0", "41 (sleep) Z 1 40 40 0"), false},
+		"members of other groups":  {stats("50 (sleep) S 1 50 50 0"), false},
+		"a comm with ) and spaces": {stats("41 (a) b (c)) R 1 40 40 0"), true},
+		"no /proc":                 {func() ([]string, bool) { return nil, false }, true},
+	} {
+		if got := groupHasLiveMember(40, tc.stats); got != tc.want {
+			t.Errorf("%s: groupHasLiveMember = %t, want %t", name, got, tc.want)
+		}
+	}
+}
+
+// processRunning reports whether pid has not exited; a zombie left for
+// a missing init to reap has.
+func processRunning(pid int) bool {
+	if errors.Is(syscall.Kill(pid, 0), syscall.ESRCH) {
+		return false
+	}
+	raw, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "stat"))
+	if err != nil {
+		return true
+	}
+	state, _, ok := parseProcStat(string(raw))
+	return !ok || state != "Z"
 }

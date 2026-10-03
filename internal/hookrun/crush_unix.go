@@ -5,7 +5,11 @@ package hookrun
 import (
 	"context"
 	"errors"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -104,7 +108,64 @@ func (g *crushGroups) reap() {
 }
 
 func groupAlive(pid int) bool {
-	return !errors.Is(syscall.Kill(-pid, 0), syscall.ESRCH)
+	if errors.Is(syscall.Kill(-pid, 0), syscall.ESRCH) {
+		return false
+	}
+	return groupHasLiveMember(pid, procStats)
+}
+
+// groupHasLiveMember reports whether a process in group pgid has not
+// exited yet. A zombie, exited but not reaped by a parent that is not
+// hook run (or by no init, in a container), still takes signals, so the
+// group looks alive to kill(2). Where stats can list processes, as from
+// /proc on Linux, zombies do not count; elsewhere the group is alive.
+func groupHasLiveMember(pgid int, stats func() ([]string, bool)) bool {
+	all, ok := stats()
+	if !ok {
+		return true
+	}
+	for _, stat := range all {
+		state, group, ok := parseProcStat(stat)
+		if ok && group == pgid && state != "Z" {
+			return true
+		}
+	}
+	return false
+}
+
+// parseProcStat reads the state and process group from a
+// /proc/<pid>/stat line: "pid (comm) state ppid pgrp ...", where comm
+// may hold spaces and parentheses.
+func parseProcStat(stat string) (string, int, bool) {
+	end := strings.LastIndexByte(stat, ')')
+	if end < 0 {
+		return "", 0, false
+	}
+	fields := strings.Fields(stat[end+1:])
+	if len(fields) < 3 {
+		return "", 0, false
+	}
+	group, err := strconv.Atoi(fields[2])
+	return fields[0], group, err == nil
+}
+
+// procStats lists every /proc/<pid>/stat, or false where there is no
+// /proc, as on macOS.
+func procStats() ([]string, bool) {
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return nil, false
+	}
+	var out []string
+	for _, e := range entries {
+		if _, err := strconv.Atoi(e.Name()); err != nil {
+			continue
+		}
+		if raw, err := os.ReadFile(filepath.Join("/proc", e.Name(), "stat")); err == nil {
+			out = append(out, string(raw))
+		}
+	}
+	return out, true
 }
 
 func waitGroupGone(pid int, limit time.Duration) bool {

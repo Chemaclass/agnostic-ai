@@ -24,10 +24,32 @@ func cleanHookCwd(cwd string) (string, bool) {
 	return clean, true
 }
 
-// scriptWord reports whether word is a repository-relative path: it
-// has a slash and is not absolute, `$`-prefixed, a flag, or quoted.
+// syncedScriptDirs are the hook script locations sync writes or leaves
+// in place; any other path is the user's own argument and stays as is.
+var syncedScriptDirs = []string{".github/hooks/scripts/", ".agnostic-ai/hooks/"}
+
+var hookInterpreters = map[string]bool{
+	"sh": true, "bash": true, "zsh": true, "node": true,
+	"python": true, "python3": true, "pwsh": true, "powershell": true,
+}
+
+func isSyncedScript(repoPath string) bool {
+	for _, dir := range syncedScriptDirs {
+		if strings.HasPrefix(repoPath, dir) {
+			return true
+		}
+	}
+	return false
+}
+
+// scriptWord reports whether word is a plain relative path: it has a
+// slash and is not absolute, a Windows drive or UNC path, `$`-prefixed,
+// a flag, or quoted.
 func scriptWord(word string) bool {
 	if !strings.Contains(word, "/") || strings.ContainsAny(word, "\"'`\\$;|&<>()*?") {
+		return false
+	}
+	if len(word) > 1 && word[1] == ':' {
 		return false
 	}
 	return !strings.HasPrefix(word, "/") && !strings.HasPrefix(word, "-") && !strings.HasPrefix(word, "~")
@@ -35,7 +57,7 @@ func scriptWord(word string) bool {
 
 func relativeToCwd(script, cwd string) (string, bool) {
 	clean := path.Clean(script)
-	if clean == ".." || strings.HasPrefix(clean, "../") || clean == "." {
+	if !isSyncedScript(clean) {
 		return "", false
 	}
 	if rest, ok := strings.CutPrefix(clean, cwd+"/"); ok {
@@ -46,7 +68,7 @@ func relativeToCwd(script, cwd string) (string, bool) {
 
 func relativeToRepository(script, cwd string) (string, bool) {
 	clean := path.Join(cwd, script)
-	if clean == ".." || strings.HasPrefix(clean, "../") || clean == "." {
+	if !isSyncedScript(clean) {
 		return "", false
 	}
 	return clean, true
@@ -55,29 +77,27 @@ func relativeToRepository(script, cwd string) (string, bool) {
 type pathMap func(script, cwd string) (string, bool)
 
 // mapCommand maps the script word of a shell command line: its first
-// word, or the second when the first is a bare interpreter such as
-// `bash`. A line with no such word comes back unchanged.
+// word, or the second when the first is a recognized interpreter. A
+// line with no such word comes back unchanged.
 func mapCommand(command, cwd string, convert pathMap) string {
 	fields := strings.Fields(command)
-	for i := 0; i < len(fields) && i < 2; i++ {
-		if !scriptWord(fields[i]) {
-			if strings.Contains(fields[i], "/") {
-				return command
-			}
-			continue
-		}
-		converted, ok := convert(fields[i], cwd)
-		if !ok {
-			return command
-		}
-		start := 0
-		for n := 0; n < i; n++ {
-			start += strings.Index(command[start:], fields[n]) + len(fields[n])
-		}
-		start += strings.Index(command[start:], fields[i])
-		return command[:start] + converted + command[start+len(fields[i]):]
+	i := 0
+	if len(fields) > 1 && !scriptWord(fields[0]) && hookInterpreters[fields[0]] {
+		i = 1
 	}
-	return command
+	if len(fields) == 0 || !scriptWord(fields[i]) {
+		return command
+	}
+	converted, ok := convert(fields[i], cwd)
+	if !ok {
+		return command
+	}
+	start := 0
+	for n := 0; n < i; n++ {
+		start += strings.Index(command[start:], fields[n]) + len(fields[n])
+	}
+	start += strings.Index(command[start:], fields[i])
+	return command[:start] + converted + command[start+len(fields[i]):]
 }
 
 func mapExec(exec string, args []string, cwd string, convert pathMap) (string, []string) {
@@ -87,7 +107,7 @@ func mapExec(exec string, args []string, cwd string, convert pathMap) (string, [
 		}
 		return exec, args
 	}
-	if len(args) > 0 && scriptWord(args[0]) {
+	if len(args) > 0 && hookInterpreters[exec] && scriptWord(args[0]) {
 		if converted, ok := convert(args[0], cwd); ok {
 			args = append([]string{converted}, args[1:]...)
 		}

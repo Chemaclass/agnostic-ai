@@ -294,6 +294,9 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 			if target == "crush" && hookrun.CrushHalts(r) {
 				run.Notes = append(run.Notes, "halt: Crush ends the whole turn, not only this tool call")
 			}
+			if target == "factory" && hookrun.FactoryAsks(event, r) {
+				run.Notes = append(run.Notes, "replied ask: Factory asks the user before the tool runs; read as block")
+			}
 			if target == "copilot" && hookrun.CopilotAsks(event, r) {
 				run.Notes = append(run.Notes, "replied ask: Copilot CLI asks the user before the tool runs, and cloud agent denies it; read as block")
 			}
@@ -578,7 +581,7 @@ func printHookRunJSON(w io.Writer, name string, runs []hookTargetRun, failure er
 var sessionEnvKeys = []string{
 	adapters.HookTargetEnv, claudeProjectDirEnv, "GEMINI_PROJECT_DIR", "GEMINI_CWD", "GEMINI_SESSION_ID", "GEMINI_PLANS_DIR",
 	"TRAE_PROJECT_DIR", "OPENHANDS_PROJECT_DIR", "OPENHANDS_SESSION_ID", "OPENHANDS_EVENT_TYPE", "OPENHANDS_TOOL_NAME",
-	"PLUGIN_ROOT", "CURSOR_PROJECT_DIR", "CURSOR_VERSION", "CURSOR_USER_EMAIL", "CURSOR_TRANSCRIPT_PATH", "CURSOR_CODE_REMOTE", "AUGMENT_PROJECT_DIR", "AUGMENT_CONVERSATION_ID", "AUGMENT_HOOK_EVENT", "AUGMENT_TOOL_NAME",
+	"PLUGIN_ROOT", "CURSOR_PROJECT_DIR", "CURSOR_VERSION", "CURSOR_USER_EMAIL", "CURSOR_TRANSCRIPT_PATH", "CURSOR_CODE_REMOTE", "FACTORY_PROJECT_DIR", "AUGMENT_PROJECT_DIR", "AUGMENT_CONVERSATION_ID", "AUGMENT_HOOK_EVENT", "AUGMENT_TOOL_NAME",
 	"CRUSH_EVENT", "CRUSH_TOOL_NAME", "CRUSH_SESSION_ID", "CRUSH_CWD", "CRUSH_PROJECT_DIR", "CRUSH_TOOL_INPUT_COMMAND", "CRUSH_TOOL_INPUT_FILE_PATH",
 }
 
@@ -618,6 +621,8 @@ func hookRunEnv(target, root string, ctx hookEnvContext, h hookrun.Handler) []st
 		// The sessionStart entry sync adds sets AGNOSTIC_AI_TARGET for
 		// every later hook in the session.
 		env = append(env, "CURSOR_PROJECT_DIR="+root, "CURSOR_VERSION=", claudeProjectDirEnv+"="+root, adapters.HookTargetEnv+"=cursor")
+	case "factory":
+		env = append(env, "FACTORY_PROJECT_DIR="+root)
 	case "augment":
 		env = append(env, "AUGMENT_PROJECT_DIR="+root, "AUGMENT_CONVERSATION_ID="+hookrun.SessionID, "AUGMENT_HOOK_EVENT="+ctx.event)
 		if ctx.tool != "" {

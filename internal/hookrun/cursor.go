@@ -20,15 +20,27 @@ import (
 // ContractDocs is the page a target's assumptions cite, "" for a target
 // hook run assumes nothing for.
 func ContractDocs(target string) string {
-	switch target {
-	case "cursor":
-		return "https://cursor.com/docs/hooks"
-	case "crush":
+	// Crush's contract is read from source; only the Go programs it
+	// carries and hook run does not are assumed, at run time.
+	if target == "crush" {
 		return crushSource
-	case "copilot":
-		return copilotDocs
 	}
-	return ""
+	return assumedContracts[target].docs
+}
+
+// assumedContract is a target whose docs leave out part of how it runs a
+// hook command. cwdReason and timeoutReason are why its working directory
+// and default timeout are assumed too, "" when the docs give them. assume,
+// when set, replaces the shared rules for a target with its own.
+type assumedContract struct {
+	name, docs, cwdReason, timeoutReason string
+	assume                               func(goos string, h Handler) ([]Assumption, string)
+}
+
+var assumedContracts = map[string]assumedContract{
+	"cursor":  {name: "Cursor", docs: "https://cursor.com/docs/hooks", timeoutReason: "Cursor documents its default timeout as \"platform default\"; set timeout in the spec"},
+	"copilot": {name: "Copilot", docs: copilotDocs, assume: copilotAssumptions},
+	"factory": {name: "Factory", docs: factoryDocs, cwdReason: "Factory runs hooks from \"Droid's current working directory, which can differ from your repository root\""},
 }
 
 // cursorAssumedTimeout is the default hook run uses when a Cursor hook
@@ -363,22 +375,29 @@ func ShellNeutral(command string) bool {
 // goos, and why it cannot run h at all when no safe assumption exists.
 // Targets whose contract is documented return neither.
 func Assumptions(target, goos string, h Handler) ([]Assumption, string) {
-	switch target {
-	case "copilot":
-		return copilotAssumptions(goos, h)
-	case "cursor":
-	default:
+	c, ok := assumedContracts[target]
+	if !ok {
 		return nil, ""
 	}
+	if c.assume != nil {
+		return c.assume(goos, h)
+	}
 	if goos == "windows" {
-		return nil, "Cursor does not document how it runs a hook command on Windows"
+		return nil, c.name + " does not document how it runs a hook command on Windows"
 	}
-	if !ShellNeutral(h.Command) {
-		return nil, "Cursor does not document its shell; use a script path"
+	command := h.Command
+	if target == "factory" {
+		command = expandFactoryRoot(command, "root")
 	}
-	out := []Assumption{{Item: "shell", Value: "sh -c", Reason: "Cursor does not document the shell that runs a hook command"}}
-	if h.Timeout <= 0 {
-		out = append(out, Assumption{Item: "timeout", Value: cursorAssumedTimeout.String(), Reason: "Cursor documents its default timeout as \"platform default\"; set timeout in the spec"})
+	if !ShellNeutral(command) {
+		return nil, c.name + " does not document its shell; use a script path"
+	}
+	out := []Assumption{{Item: "shell", Value: "sh -c", Reason: c.name + " does not document the shell that runs a hook command"}}
+	if c.cwdReason != "" {
+		out = append(out, Assumption{Item: "working directory", Value: "project root", Reason: c.cwdReason})
+	}
+	if h.Timeout <= 0 && c.timeoutReason != "" {
+		out = append(out, Assumption{Item: "timeout", Value: DefaultTimeout(target, "").String(), Reason: c.timeoutReason})
 	}
 	return out, ""
 }

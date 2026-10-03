@@ -17,7 +17,7 @@ Factory [Droid](https://docs.factory.ai/harness/subagents) reads the root `AGENT
 ```
 AGENTS.md                          # pointer body + inlined rules (shared path)
 .factory/droids/<name>.md          # one custom-droid profile per agent
-.agents/skills/<name>/SKILL.md     # one folder per skill (shared with codex/amp/zed/crush)
+.agents/skills/<name>/SKILL.md     # one folder per skill (shared tree)
 .factory/commands/<name>.md        # one Markdown slash command per command spec
 .factory/hooks.json                # when hook entries exist
 .factory/mcp.json                  # when MCP entries exist
