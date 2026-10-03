@@ -85,7 +85,7 @@ func TestDoctorMCP_ChecksEditorNamesInCredentials(t *testing.T) {
 	}
 }
 
-func TestDoctorMCP_UsesTheTargetOverride(t *testing.T) {
+func TestDoctorMCP_ChecksTopLevelAndTargetOverride(t *testing.T) {
 	t.Setenv("AA_TEST_SET_TOKEN", "x")
 	got := runDoctorMCPFor(t, "continue", map[string]string{
 		"remote": "name: remote\nurl: https://example.com/mcp\n" +
@@ -94,6 +94,12 @@ func TestDoctorMCP_UsesTheTargetOverride(t *testing.T) {
 	})
 	if !strings.Contains(got, "✗ remote reads AA_TEST_OVERRIDE,") {
 		t.Errorf("expected the x-continue header to be checked:\n%s", got)
+	}
+	got = runDoctorMCPFor(t, "claude", map[string]string{
+		"local": "name: local\ncommand: sh\nenv:\n  TOKEN: ${AA_TEST_TOP}\nx-claude:\n  env:\n    TOKEN: literal\n",
+	})
+	if !strings.Contains(got, "✗ local reads AA_TEST_TOP,") {
+		t.Errorf("an override must not hide a top-level reference:\n%s", got)
 	}
 }
 

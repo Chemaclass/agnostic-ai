@@ -128,19 +128,14 @@ func reportMCPUnsetEnvRefs(cmd *cobra.Command) {
 	}
 }
 
-// mcpEnvRefNames returns the variables a server reads for target
-// through `${NAME}` without a default. A field in the server's
-// `x-<target>` block replaces the top-level one. Editor variables such
-// as `${workspaceFolder}` are filled in by the tool only in `url` and
-// `args`, and `args` counts only for a stdio server.
+// mcpEnvRefNames returns the variables a server reads through `${NAME}`
+// without a default, in its top-level fields and in its `x-<target>`
+// block. Both count: whether an override replaces a top-level field
+// differs by adapter, and a missed variable costs more than an extra
+// one. Editor variables such as `${workspaceFolder}` are filled in by
+// the tool only in `url` and `args`, and `args` counts only for a stdio
+// server.
 func mcpEnvRefNames(meta map[string]any, target string) []string {
-	override, _ := meta["x-"+target].(map[string]any)
-	field := func(key string) any {
-		if v, ok := override[key]; ok {
-			return v
-		}
-		return meta[key]
-	}
 	var names []string
 	add := func(value any, launch bool) {
 		s, ok := value.(string)
@@ -153,21 +148,33 @@ func mcpEnvRefNames(meta map[string]any, target string) []string {
 			}
 		}
 	}
-	credentials := []any{field("env"), field("headers")}
-	if options, ok := field("requestOptions").(map[string]any); ok {
-		credentials = append(credentials, options["headers"])
+	blocks := []map[string]any{meta}
+	if override, ok := meta["x-"+target].(map[string]any); ok {
+		blocks = append(blocks, override)
 	}
-	for _, block := range credentials {
-		values, _ := block.(map[string]any)
-		for _, v := range values {
-			add(v, false)
+	stdio := false
+	for _, block := range blocks {
+		if command, _ := block["command"].(string); command != "" {
+			stdio = true
 		}
 	}
-	add(field("url"), true)
-	if command, _ := field("command").(string); command != "" {
-		args, _ := field("args").([]any)
-		for _, v := range args {
-			add(v, true)
+	for _, block := range blocks {
+		credentials := []any{block["env"], block["headers"]}
+		if options, ok := block["requestOptions"].(map[string]any); ok {
+			credentials = append(credentials, options["headers"])
+		}
+		for _, c := range credentials {
+			values, _ := c.(map[string]any)
+			for _, v := range values {
+				add(v, false)
+			}
+		}
+		add(block["url"], true)
+		if stdio {
+			args, _ := block["args"].([]any)
+			for _, v := range args {
+				add(v, true)
+			}
 		}
 	}
 	return names
