@@ -70,6 +70,7 @@ func TestSingleQuotedGeminiVariables(t *testing.T) {
 		"echo `cat $GEMINI_CWD/x`":                               {"$GEMINI_CWD"},
 		`printf '%s\n' "$(printf '%s' "${GEMINI_PROJECT_DIR}")"`: nil,
 		`echo $GEMINI_CWD`:                                       nil,
+		"cat <\\\n<EOF\n$GEMINI_CWD\nEOF":                        {"$GEMINI_CWD"},
 		"cat <<EOF\n$GEMINI_CWD\nEOF":                            {"$GEMINI_CWD"},
 		"cat <<'EOF'\n$GEMINI_CWD\nEOF":                          {"$GEMINI_CWD"},
 		`echo "\$GEMINI_CWD"`:                                    {"$GEMINI_CWD"},
