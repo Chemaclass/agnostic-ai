@@ -567,3 +567,22 @@ func TestWhy_DotSlashEntryPointOverrideMatches(t *testing.T) {
 		t.Errorf("got %+v", got)
 	}
 }
+
+func TestWhy_JSONPathsUseSlashes(t *testing.T) {
+	dir := setupWhyFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	got := runWhyJSON(t, filepath.FromSlash(".cursor/rules/no-console-log.mdc"))
+	if got.File != ".cursor/rules/no-console-log.mdc" {
+		t.Errorf("file: want slashes, got %q", got.File)
+	}
+	if len(got.Sources) == 0 {
+		t.Fatal("expected at least one source")
+	}
+	for _, s := range got.Sources {
+		if strings.Contains(s.Path, `\`) {
+			t.Errorf("source path %q has a backslash", s.Path)
+		}
+	}
+}
