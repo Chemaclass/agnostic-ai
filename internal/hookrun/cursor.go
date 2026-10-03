@@ -23,15 +23,18 @@ func ContractDocs(target string) string {
 	return assumedContracts[target].docs
 }
 
-// assumedContract is a target whose docs leave out the shell that runs a
+// assumedContract is a target whose docs leave out part of how it runs a
 // hook command. cwdReason and timeoutReason are why its working directory
-// and default timeout are assumed too, "" when the docs give them.
+// and default timeout are assumed too, "" when the docs give them. assume,
+// when set, replaces the shared rules for a target with its own.
 type assumedContract struct {
 	name, docs, cwdReason, timeoutReason string
+	assume                               func(goos string, h Handler) ([]Assumption, string)
 }
 
 var assumedContracts = map[string]assumedContract{
 	"cursor":  {name: "Cursor", docs: "https://cursor.com/docs/hooks", timeoutReason: "Cursor documents its default timeout as \"platform default\"; set timeout in the spec"},
+	"copilot": {name: "Copilot", docs: copilotDocs, assume: copilotAssumptions},
 	"factory": {name: "Factory", docs: factoryDocs, cwdReason: "Factory runs hooks from \"Droid's current working directory, which can differ from your repository root\""},
 }
 
@@ -73,9 +76,16 @@ func cursorMatchValue(event string, doc map[string]any) string {
 
 // FireAndForget reports whether target starts the hooks of event without
 // waiting for their result. Cursor documents sessionStart and sessionEnd
-// as fire-and-forget.
+// as fire-and-forget, and Copilot notification: "Fire-and-forget: never
+// blocks the session".
 func FireAndForget(target, event string) bool {
-	return target == "cursor" && (event == "sessionStart" || event == "sessionEnd")
+	switch target {
+	case "cursor":
+		return event == "sessionStart" || event == "sessionEnd"
+	case "copilot":
+		return copilotEvent(event) == "notification"
+	}
+	return false
 }
 
 // cursorMatches treats the matcher as an unanchored regular expression,
@@ -364,6 +374,9 @@ func Assumptions(target, goos string, h Handler) ([]Assumption, string) {
 	if !ok {
 		return nil, ""
 	}
+	if c.assume != nil {
+		return c.assume(goos, h)
+	}
 	if goos == "windows" {
 		return nil, c.name + " does not document how it runs a hook command on Windows"
 	}
@@ -376,7 +389,7 @@ func Assumptions(target, goos string, h Handler) ([]Assumption, string) {
 	}
 	out := []Assumption{{Item: "shell", Value: "sh -c", Reason: c.name + " does not document the shell that runs a hook command"}}
 	if c.cwdReason != "" {
-		out = append(out, Assumption{Item: "cwd", Value: "project root", Reason: c.cwdReason})
+		out = append(out, Assumption{Item: "working directory", Value: "project root", Reason: c.cwdReason})
 	}
 	if h.Timeout <= 0 && c.timeoutReason != "" {
 		out = append(out, Assumption{Item: "timeout", Value: DefaultTimeout(target, "").String(), Reason: c.timeoutReason})

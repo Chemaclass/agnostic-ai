@@ -11,6 +11,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `hook run` runs Cursor hooks on an assumed shell and timeout, marked and not counted unless `--include-assumed` (#1566).
 - `hook run` on Cursor runs hooks with exec-form `args`, matches `--payload` subagent and fixed-name events, blocks a permission reply with a wrongly typed field, and leaves `sessionStart` and `sessionEnd` unjudged (#1566).
 - `sync`, `sync --check`, `doctor`, and `revert` with `--json` write file paths with `/` on Windows too (#1680).
+- `explain` (also `--inputs`), `why`, and `status` with JSON output write file paths with `/` on Windows too (#1683).
 - `init` pre-ticks the tools the project uses, else the CLIs on `PATH`, else `claude` and `codex`, and names the picker keys; without a terminal it enables that set instead of 20 targets (#1610).
 - In a terminal, plain `init` offers to import existing tool config, as `init --from all` does (#1610).
 - Polling watch emits edits made during a re-sync and keeps watching roots added by config reload (#1641, #1650).
@@ -19,7 +20,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `sync --check`, `--diff`, `--format github` and `status` show a file several targets share once, naming the targets (#1608).
 - MCP `$${NAME}` passes a literal `${NAME}` to every tool; import writes it for `${NAME}` a tool never expands, Codex `env` included, and keeps a native `$${NAME}` as written (#1667).
 - `lint` warns (LINT028) when an MCP `url` or `args` holds one tool's reference form, such as `${env:NAME}`, instead of `${NAME}` (#1633).
-- `sync --json` lists capability warnings and coverage notes under `warnings` and `notes`; a later plain `sync` still prints them (#1607).
+- `sync --json`, also with `--check`, `--plan` or `--dry-run`, lists capability warnings and coverage notes under `warnings` and `notes` (#1607, #1675).
+- `sync --check`, `--plan`, and `--dry-run` with `--only` or `--except` leave out the warnings and notes of unselected targets when a kept orphan is on disk, so `coverage.fail-on-notes` no longer fails on them (#1675).
 - `lint --json` prints findings as JSON on stdout with the same exit status, in a project and with `--global` (#1607).
 - `explain LINT011` and every other lint code print the cause, fix, severity and config key; `lint` points at it (#1648).
 - MCP `url` and `args` take `${NAME}` references; each tool gets its own form, and a tool that reads none leaves the server out with a note (#1633).
@@ -29,6 +31,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Gemini CLI
 
+- `lint` warns (LINT030) when a hook command single-quotes `$GEMINI_PROJECT_DIR` or another variable Gemini replaces, which breaks the quoting (#1697).
 - MCP `headers` keep `${NAME}` references and every field keeps `${NAME:-default}`, since Gemini expands all settings strings (#1668).
 - Project import reads `httpUrl` and SSE `url` MCP servers back with their transport, so sync writes them as before (#1665).
 
@@ -36,6 +39,14 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - **Breaking:** `sync` removes steering copies of `AGENTS.md` rules kept for `x-kiro.resources`; with inheritance off, list `file://AGENTS.md` (#1643).
 - Import skips `manual` and `auto` steering files with a note instead of turning them into always-on rules (#1656).
+
+#### Crush
+
+- Hook commands that run a synced script start with `./`, so Crush runs the script and a guard hook blocks on every OS (#1695, #1698).
+
+#### Copilot
+
+- `hook run` runs Copilot hooks: exec form, and a script path under an assumed `sh -c`, shown but not counted unless `--include-assumed` (#1566).
 
 #### Factory
 
@@ -112,6 +123,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - Agents and skills are written back where they live, such as `.github/agents/<name>.md` or `.agents/skills/`, instead of as duplicates.
 - A rule's `description` goes to `.instructions.md` frontmatter, and a rule with `alwaysApply: false` and no globs stays on demand.
+- A hook with `cwd` gets its script path in `command` or `args` written relative to that directory, so it no longer fails to start; import restores the repository-relative path (#1699).
 
 #### Gemini CLI
 

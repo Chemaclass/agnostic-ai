@@ -71,7 +71,7 @@ func TestAssumptions_FactoryAssumesTheShellAndCwd(t *testing.T) {
 		t.Error("Windows must not run: the shell is undocumented")
 	}
 	got, reason := Assumptions("factory", "linux", Handler{Command: ".factory/hooks/a.sh"})
-	if reason != "" || len(got) != 2 || got[0].Item != "shell" || got[1].Item != "cwd" {
+	if reason != "" || len(got) != 2 || got[0].Item != "shell" || got[1].Item != "working directory" {
 		t.Errorf("Assumptions = %+v %q; want the shell and cwd, not the documented 60s timeout", got, reason)
 	}
 	for _, command := range []string{`"$FACTORY_PROJECT_DIR"/.factory/hooks/a.sh`, `${FACTORY_PROJECT_DIR}/.factory/hooks/a.sh --strict`} {

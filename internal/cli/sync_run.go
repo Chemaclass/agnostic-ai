@@ -1085,11 +1085,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	sessions = append(sessions, mainSess)
 	normalizeSharedWriteAttribution(emits)
 	_, notesErr := applyCoverageAccept(cfg, effectiveTargets)
-	adapters.OrderBufferedDropsByTarget(effectiveTargets)
-	drops := syncJSONOutput{
-		Warnings: dropRecords(adapters.PendingCapabilityWarnings()),
-		Notes:    dropRecords(adapters.PendingCoverageNotes()),
-	}
+	drops := syncJSONOutput{syncDrops: pendingSyncDrops()}
 	if notesErr != nil {
 		flushFailedCoverageNotes()
 		if rbErr := rollbackSessions(append([]*adapters.Session{reconciled}, sessions...)); rbErr != nil {
@@ -1244,8 +1240,21 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 // capability warnings and coverage notes a plain sync prints.
 type syncJSONOutput struct {
 	jsonOutput
+	syncDrops
+}
+
+type syncDrops struct {
 	Warnings []dropRecord `json:"warnings"`
 	Notes    []dropRecord `json:"notes"`
+}
+
+// pendingSyncDrops returns the buffered capability warnings and coverage
+// notes, ordered by target, without clearing them.
+func pendingSyncDrops() syncDrops {
+	return syncDrops{
+		Warnings: dropRecords(adapters.PendingCapabilityWarnings()),
+		Notes:    dropRecords(adapters.PendingCoverageNotes()),
+	}
 }
 
 func dropRecords(records []adapters.DropRecord) []dropRecord {
@@ -1284,7 +1293,7 @@ func printSyncPlan(cmd *cobra.Command, reports []driftReport) {
 // schema, with the create, update, and delete actions a real run reports,
 // and kept orphans and leftovers in skipped. A dry run also lists each
 // unchanged file as a skip, so every planned output appears once.
-func printSyncPlanJSON(cmd *cobra.Command, command string, reports []driftReport, withCurrent bool, notesErr error) error {
+func printSyncPlanJSON(cmd *cobra.Command, command string, reports []driftReport, withCurrent bool, drops syncDrops, notesErr error) error {
 	out := jsonOutput{Version: "1", Command: command}
 	out.addError(notesErr)
 	for _, r := range reports {
@@ -1310,7 +1319,7 @@ func printSyncPlanJSON(cmd *cobra.Command, command string, reports []driftReport
 			}
 		}
 	}
-	if err := emitJSON(cmd, out); err != nil {
+	if err := writeIndentedJSON(cmd, syncJSONOutput{out.forOutput(), drops}); err != nil {
 		return err
 	}
 	return notesErr
@@ -1318,11 +1327,11 @@ func printSyncPlanJSON(cmd *cobra.Command, command string, reports []driftReport
 
 // printSyncCheckJSON emits a JSON result for `sync --check`. Every drifted
 // file appears in writes, with the actions driftRecords assigns.
-func printSyncCheckJSON(cmd *cobra.Command, reports []driftReport, notesErr error) error {
+func printSyncCheckJSON(cmd *cobra.Command, reports []driftReport, drops syncDrops, notesErr error) error {
 	out := jsonOutput{Version: "1", Command: "sync --check", Writes: driftRecords(reports)}
 	out.addError(notesErr)
 	hasDrift := len(out.Writes) > 0
-	if err := emitJSON(cmd, out); err != nil {
+	if err := writeIndentedJSON(cmd, syncJSONOutput{out.forOutput(), drops}); err != nil {
 		return err
 	}
 	if hasDrift {

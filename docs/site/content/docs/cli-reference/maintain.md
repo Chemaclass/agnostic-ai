@@ -71,7 +71,7 @@ It exits 1 on:
 Run one hook spec before a session fires it. Run `sync` first, so the scripts that sync copies are in place. For each target the hook reaches, `hook run`:
 
 1. Builds that target's payload.
-2. Runs the command sync wrote, from the project root, with that target's env, shell, and timeout.
+2. Runs the command sync wrote, from the project root (or Copilot's `cwd`), with that target's env, shell, and timeout.
 3. Prints the decision, exit code, time, stdout, and stderr.
 
 See [test a hook](@/docs/spec-format/hooks.md#hook-run) for the payloads and decisions.
@@ -100,7 +100,7 @@ It warns, without failing, when a target's synced native file does not run the c
 | `--prompt <text>` | Prompt text for `UserPromptSubmit`. |
 | `--payload <file>` | Send this JSON file to every target as the payload, for events with no builder. |
 | `--expect allow\|block` | Fail unless every target decides this. |
-| `--include-assumed` | Count results that rest on an assumed shell or timeout, such as Cursor's and Factory's, in `--expect` and the comparison. See [assumed results](@/docs/spec-format/hooks.md#assumed-results). |
+| `--include-assumed` | Count results that rest on an assumed shell, timeout, or working directory, such as Cursor's, Copilot's, and Factory's, in `--expect` and the comparison. See [assumed results](@/docs/spec-format/hooks.md#assumed-results). |
 | `--format text\|json` | `json` prints one object per target, with its decision, warnings, and each command's exit code, time, stdout, and stderr. Defaults to `text`. |
 
 ## install-hook

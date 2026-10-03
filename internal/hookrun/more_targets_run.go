@@ -17,6 +17,7 @@ var otherDefaultTimeouts = map[string]time.Duration{
 	"augment":   60 * time.Second,
 	"cursor":    cursorAssumedTimeout,
 	"factory":   factoryDefaultTimeout,
+	"copilot":   copilotDefaultTimeout,
 }
 
 // otherArgv is how each target starts a command: Trae in Bash, or
@@ -38,6 +39,12 @@ func otherArgv(target, goos string, h Handler) ([]string, bool) {
 	case "goose":
 		return []string{"sh", "-c", h.Command}, true
 	case "cursor", "factory":
+		// Assumed; see Assumptions.
+		return []string{"sh", "-c", h.Command}, true
+	case "copilot":
+		if h.Exec {
+			return append([]string{h.Command}, h.Args...), true
+		}
 		// Assumed; see Assumptions.
 		return []string{"sh", "-c", h.Command}, true
 	case "augment":
@@ -66,6 +73,8 @@ func DecideHandler(target, event string, h Handler, r Result) Decision {
 		return decideCursor(event, h, r)
 	case "factory":
 		return decideFactory(event, r)
+	case "copilot":
+		return decideCopilot(event, r)
 	}
 	return Decide(target, event, r)
 }

@@ -52,9 +52,9 @@ func TestHookRun_FactoryRunsOnAnAssumedShellAndCountsOnlyWhenAsked(t *testing.T)
 	out, err := runHookRun(t, "protect-files", "--bash", "rm -rf /", "--expect", "block")
 	for _, want := range []string{
 		"claude: block (exit 2",
-		"factory: block (exit 0", "(assumed: shell, cwd)", "event: PreToolUse (Execute)",
+		"factory: block (exit 0", "(assumed: shell, working directory)", "event: PreToolUse (Execute)",
 		"assumed shell: sh -c (Factory does not document the shell that runs a hook command)",
-		"assumed cwd: project root (Factory runs hooks from \"Droid's current working directory, which can differ from your repository root\")",
+		"assumed working directory: project root (Factory runs hooks from \"Droid's current working directory, which can differ from your repository root\")",
 		"docs: https://docs.factory.com/cli/configuration/hooks-guide",
 		"1 checked, 1 assumed (not counted; --include-assumed to count)",
 	} {
@@ -107,9 +107,9 @@ func TestHookRun_FactoryRefusesAnUndocumentedEditInput(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	factoryProject(t, "name: protect-files\nevent: PreToolUse\nmatcher: Edit\ncommand: .agnostic-ai/scripts/protect-files.sh\n", factoryGuardScript)
 
-	_, err := runHookRun(t, "protect-files", "--edit", "a.go", "--target", "factory")
-	if err == nil || !strings.Contains(err.Error(), "Factory documents no tool_input for its Edit and ApplyPatch tools") {
-		t.Errorf("--edit on Edit must be refused: %v", err)
+	out, _ := runHookRun(t, "protect-files", "--edit", "a.go")
+	if !strings.Contains(out, "factory: not run (Factory documents no tool_input for its Edit and ApplyPatch tools") || !strings.Contains(out, "claude: ") {
+		t.Errorf("--edit on Edit must list Factory as not run and still run the others:\n%s", out)
 	}
 }
 
@@ -158,7 +158,7 @@ func TestHookRun_FactoryJSONListsItsAssumptions(t *testing.T) {
 		if r.Target != "factory" {
 			continue
 		}
-		if r.Decision != "allow" || r.Trigger != "Create" || r.Counted || len(r.Assumptions) != 2 || r.Assumptions[0].Item != "shell" || r.Assumptions[0].Value != "sh -c" || r.Assumptions[1].Item != "cwd" || r.Assumptions[1].Value != "project root" {
+		if r.Decision != "allow" || r.Trigger != "Create" || r.Counted || len(r.Assumptions) != 2 || r.Assumptions[0].Item != "shell" || r.Assumptions[0].Value != "sh -c" || r.Assumptions[1].Item != "working directory" || r.Assumptions[1].Value != "project root" {
 			t.Errorf("factory = %+v; want allow on Create, not counted, shell and cwd assumed", r)
 		}
 		return

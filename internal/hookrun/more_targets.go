@@ -30,6 +30,7 @@ var otherBuilders = map[string]builder{
 	"augment":   buildAugment,
 	"cursor":    buildCursor,
 	"factory":   buildFactory,
+	"copilot":   buildCopilot,
 }
 
 func absPath(root, path string) string {

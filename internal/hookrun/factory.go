@@ -1,7 +1,6 @@
 package hookrun
 
 import (
-	"errors"
 	"slices"
 	"strings"
 	"time"
@@ -137,7 +136,7 @@ func buildFactory(event, matcher, root string, in Input) (Payload, error) {
 		} else {
 			p.Trigger, p.Fires, err = firstMatch(matches, matcher, []string{"Create", "Edit", "ApplyPatch"})
 			if err == nil && p.Fires && p.Trigger != "Create" {
-				return Payload{}, errors.New("--edit: Factory documents no tool_input for its Edit and ApplyPatch tools; pass --payload <file>")
+				return Payload{}, Unbuilt{"Factory documents no tool_input for its Edit and ApplyPatch tools; pass --payload <file>"}
 			}
 			input = map[string]any{"file_path": absPath(root, in.Edit), "content": ""}
 		}
