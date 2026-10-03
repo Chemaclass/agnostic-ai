@@ -15,28 +15,28 @@ func TestReadAntigravity_CountsOnlyTheDocumentedReplies(t *testing.T) {
 		want      Decision
 		uncounted bool
 	}{
-		"allow allows":                          {"PreToolUse", Result{Stdout: `{"decision":"allow"}`}, Allow, false},
-		"deny blocks":                           {"PreToolUse", Result{Stdout: `{"decision":"deny","reason":"no"}`}, Block, false},
-		"deny_unless_prior_grant blocks":        {"PreToolUse", Result{Stdout: `{"decision":"deny_unless_prior_grant"}`}, Block, false},
-		"ask blocks until the user answers":     {"PreToolUse", Result{Stdout: `{"decision":"ask"}`}, Block, false},
-		"force_ask blocks too":                  {"PreToolUse", Result{Stdout: `{"decision":"force_ask"}`}, Block, false},
-		"string overrides are documented":       {"PreToolUse", Result{Stdout: `{"decision":"allow","permissionOverrides":["command(ls)"]}`}, Allow, false},
-		"Stop continue keeps the agent running": {"Stop", Result{Stdout: `{"decision":"continue"}`}, Block, false},
-		"Stop with another value stops":         {"Stop", Result{Stdout: `{"decision":"done"}`}, Allow, false},
-		"PostToolUse returns an empty object":   {"PostToolUse", Result{Stdout: `{}`}, Allow, false},
-		"a non-zero exit":                       {"PreToolUse", Result{Exit: 2}, Error, true},
-		"a non-zero exit with a deny reply":     {"PreToolUse", Result{Exit: 1, Stdout: `{"decision":"deny"}`}, Error, true},
-		"no output":                             {"PreToolUse", Result{}, Error, true},
-		"plain text":                            {"PostToolUse", Result{Stdout: "done"}, Error, true},
-		"invalid JSON":                          {"PreToolUse", Result{Stdout: `{"decision":`}, Error, true},
-		"no decision":                           {"PreToolUse", Result{Stdout: `{"reason":"x"}`}, Error, true},
-		"a decision that is not a string":       {"PreToolUse", Result{Stdout: `{"decision":true}`}, Error, true},
-		"an undocumented decision":              {"PreToolUse", Result{Stdout: `{"decision":"block"}`}, Error, true},
-		"a reason that is not a string":         {"PreToolUse", Result{Stdout: `{"decision":"allow","reason":1}`}, Error, true},
-		"overrides that are not strings":        {"PreToolUse", Result{Stdout: `{"decision":"allow","permissionOverrides":[1]}`}, Error, true},
-		"a Stop reply without decision":         {"Stop", Result{Stdout: `{}`}, Error, true},
-		"a timeout":                             {"PreToolUse", Result{TimedOut: true}, Timeout, true},
-		"a command that did not start":          {"PreToolUse", Result{StartErr: errors.New("missing")}, Error, true},
+		"allow allows": {"PreToolUse", Result{Stdout: `{"decision":"allow"}`}, Allow, false},
+		"deny blocks":  {"PreToolUse", Result{Stdout: `{"decision":"deny","reason":"no"}`}, Block, false},
+		"deny_unless_prior_grant hangs on a grant": {"PreToolUse", Result{Stdout: `{"decision":"deny_unless_prior_grant"}`}, Block, true},
+		"ask hangs on Always Allow":                {"PreToolUse", Result{Stdout: `{"decision":"ask"}`}, Block, true},
+		"force_ask blocks too":                     {"PreToolUse", Result{Stdout: `{"decision":"force_ask"}`}, Block, false},
+		"string overrides are documented":          {"PreToolUse", Result{Stdout: `{"decision":"allow","permissionOverrides":["command(ls)"]}`}, Allow, false},
+		"Stop continue keeps the agent running":    {"Stop", Result{Stdout: `{"decision":"continue"}`}, Block, false},
+		"Stop with another value stops":            {"Stop", Result{Stdout: `{"decision":"done"}`}, Allow, false},
+		"PostToolUse returns an empty object":      {"PostToolUse", Result{Stdout: `{}`}, Allow, false},
+		"a non-zero exit":                          {"PreToolUse", Result{Exit: 2}, Error, true},
+		"a non-zero exit with a deny reply":        {"PreToolUse", Result{Exit: 1, Stdout: `{"decision":"deny"}`}, Error, true},
+		"no output":                                {"PreToolUse", Result{}, Error, true},
+		"plain text":                               {"PostToolUse", Result{Stdout: "done"}, Error, true},
+		"invalid JSON":                             {"PreToolUse", Result{Stdout: `{"decision":`}, Error, true},
+		"no decision":                              {"PreToolUse", Result{Stdout: `{"reason":"x"}`}, Error, true},
+		"a decision that is not a string":          {"PreToolUse", Result{Stdout: `{"decision":true}`}, Error, true},
+		"an undocumented decision":                 {"PreToolUse", Result{Stdout: `{"decision":"block"}`}, Error, true},
+		"a reason that is not a string":            {"PreToolUse", Result{Stdout: `{"decision":"allow","reason":1}`}, Error, true},
+		"overrides that are not strings":           {"PreToolUse", Result{Stdout: `{"decision":"allow","permissionOverrides":[1]}`}, Error, true},
+		"a Stop reply without decision":            {"Stop", Result{Stdout: `{}`}, Error, true},
+		"a timeout":                                {"PreToolUse", Result{TimedOut: true}, Timeout, true},
+		"a command that did not start":             {"PreToolUse", Result{StartErr: errors.New("missing")}, Error, true},
 	} {
 		t.Run(name, func(t *testing.T) {
 			got := readAntigravity(tc.event, tc.r)
@@ -51,8 +51,13 @@ func TestReadAntigravity_CountsOnlyTheDocumentedReplies(t *testing.T) {
 	if got := AntigravityUncounted("PreToolUse", Result{Exit: 1}); got != "Antigravity does not document exit codes" {
 		t.Errorf("AntigravityUncounted = %q", got)
 	}
-	if AntigravityNote("PreToolUse", Result{Stdout: `{"decision":"deny_unless_prior_grant"}`}) == "" {
-		t.Error("deny_unless_prior_grant must explain why it reads as block")
+	for _, decision := range []string{"ask", "deny_unless_prior_grant"} {
+		if got := AntigravityUncounted("PreToolUse", Result{Stdout: `{"decision":"` + decision + `"}`}); got != "replied "+decision+": the result depends on Antigravity's saved permissions" {
+			t.Errorf("%s: AntigravityUncounted = %q", decision, got)
+		}
+	}
+	if AntigravityNote("PreToolUse", Result{Stdout: `{"decision":"force_ask"}`}) == "" {
+		t.Error("force_ask must explain why it reads as block")
 	}
 }
 

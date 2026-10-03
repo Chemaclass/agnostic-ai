@@ -159,3 +159,23 @@ func TestHookRun_AntigravityJSONListsItsAssumptions(t *testing.T) {
 	}
 	t.Fatalf("no antigravity result:\n%s", out)
 }
+
+func TestHookRun_AntigravityDoesNotCountRepliesThatDependOnSavedPermissions(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	for _, decision := range []string{"ask", "deny_unless_prior_grant"} {
+		antigravityProject(t, antigravityHookSpec, "#!/bin/sh\ncat >/dev/null\necho '{\"decision\":\""+decision+"\"}'\n")
+		for _, flags := range [][]string{nil, {"--include-assumed"}} {
+			args := append([]string{"protect-files", "--target", "antigravity", "--bash", "rm -rf /", "--expect", "block"}, flags...)
+			out, err := runHookRun(t, args...)
+			if err == nil || !strings.Contains(out, "not counted: replied "+decision+": the result depends on Antigravity's saved permissions") {
+				t.Errorf("%s %v must not satisfy --expect block: %v\n%s", decision, flags, err, out)
+			}
+		}
+	}
+
+	antigravityProject(t, antigravityHookSpec, "#!/bin/sh\ncat >/dev/null\necho '{\"decision\":\"force_ask\"}'\n")
+	out, err := runHookRun(t, "protect-files", "--target", "antigravity", "--bash", "rm -rf /", "--expect", "block", "--include-assumed")
+	if err != nil || !strings.Contains(out, "replied force_ask: Antigravity asks the user before the tool runs; read as block") {
+		t.Errorf("force_ask ignores saved permissions and must count as block: %v\n%s", err, out)
+	}
+}

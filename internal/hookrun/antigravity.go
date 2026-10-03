@@ -142,7 +142,9 @@ type antigravityRead struct {
 // keeps the agent running and "Any other value allows the stop".
 // PostToolUse "Returns an empty JSON object {}", and PreInvocation and
 // PostInvocation return optional fields. Anything else, a non-zero exit
-// included, is a result the page does not describe.
+// included, is a result the page does not describe. ask and
+// deny_unless_prior_grant depend on saved permissions hook run cannot
+// see, so they are not counted either.
 func readAntigravity(event string, r Result) antigravityRead {
 	switch {
 	case r.TimedOut:
@@ -169,10 +171,10 @@ func readAntigravity(event string, r Result) antigravityRead {
 		return antigravityRead{decision: Allow}
 	case decision == "deny":
 		return antigravityRead{decision: Block}
-	case decision == "deny_unless_prior_grant":
-		return antigravityRead{decision: Block, note: "replied deny_unless_prior_grant: Antigravity allows the call when a prior grant approved the resource; read as block"}
-	case decision == "ask":
-		return antigravityRead{decision: Block, note: "replied ask: Antigravity asks the user unless an Always Allow setting covers the call; read as block"}
+	case decision == "deny_unless_prior_grant" || decision == "ask":
+		// A saved grant or Always Allow setting lets the call run at once,
+		// and hook run cannot see either.
+		return antigravityRead{decision: Block, uncounted: "replied " + decision + ": the result depends on Antigravity's saved permissions"}
 	case decision == "force_ask":
 		return antigravityRead{decision: Block, note: "replied force_ask: Antigravity asks the user before the tool runs; read as block"}
 	}
