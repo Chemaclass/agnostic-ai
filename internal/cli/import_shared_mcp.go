@@ -238,31 +238,43 @@ type mcpCredentialSpan struct {
 }
 
 // splitMCPURLCredentials finds the `user:password@` password and each
-// credential query parameter in every URL inside value. Whitespace,
-// quotes, `;`, `|`, `<`, `>`, parentheses, and a shell `&` or `&&`
-// separate the URLs of a shell command. It returns the value split into
-// pieces and, for each credential, its piece index and name. ok is false
-// when one word holds more than one URL, which import cannot rewrite.
+// credential query parameter in every URL inside value. A value with no
+// whitespace is read as one URL, since `;`, `(`, `)`, and `'` are valid
+// in a password. A value with whitespace, such as a `sh -c` command, is
+// split at whitespace, and a URL right after a quote ends at the closing
+// quote. It returns the value split into pieces and, for each
+// credential, its piece index and name. ok is false when a URL has no
+// single reading, which import cannot rewrite.
 func splitMCPURLCredentials(value string) (pieces []string, creds map[int]string, ok bool) {
 	mask := maskMCPRefs(value)
 	var spans []mcpCredentialSpan
-	for lo := 0; lo < len(mask); {
-		if mcpWordBoundary(mask, lo) {
-			lo++
-			continue
-		}
-		hi := lo
-		for hi < len(mask) && !mcpWordBoundary(mask, hi) {
-			hi++
-		}
-		word, ok := mcpURLCredentialSpans(value[lo:hi], mask[lo:hi])
-		if !ok {
-			return nil, nil, false
-		}
-		for _, s := range word {
+	scan := func(lo, hi int) bool {
+		found, ok := mcpURLCredentialSpans(value[lo:hi], mask[lo:hi])
+		for _, s := range found {
 			spans = append(spans, mcpCredentialSpan{s.name, lo + s.start, lo + s.end})
 		}
-		lo = hi
+		return ok
+	}
+	urls := [][2]int{{0, len(mask)}}
+	if strings.ContainsAny(mask, " \t\r\n") {
+		urls = nil
+		for lo := 0; lo < len(mask); {
+			if isMCPSpace(mask[lo]) {
+				lo++
+				continue
+			}
+			hi := lo
+			for hi < len(mask) && !isMCPSpace(mask[hi]) {
+				hi++
+			}
+			urls = append(urls, mcpWordURLs(mask, lo, hi)...)
+			lo = hi
+		}
+	}
+	for _, span := range urls {
+		if !scan(span[0], span[1]) {
+			return nil, nil, false
+		}
 	}
 	if len(spans) == 0 {
 		return nil, nil, true
@@ -277,12 +289,57 @@ func splitMCPURLCredentials(value string) (pieces []string, creds map[int]string
 	return append(pieces, value[written:]), creds, true
 }
 
-func mcpWordBoundary(mask string, i int) bool {
-	c := mask[i]
-	if strings.IndexByte(" \t\r\n'\"`;|<>()", c) >= 0 {
-		return true
+func isMCPSpace(c byte) bool { return strings.IndexByte(" \t\r\n", c) >= 0 }
+
+// mcpWordURLs returns the [start, end) span of each URL in the shell word
+// mask[lo:hi]. A URL starts at its scheme and runs to the end of the
+// word, or to the closing quote when a quote opens right before it. A
+// word with no `://` is one span, past an opening quote, so a URL with a
+// reference base still counts.
+func mcpWordURLs(mask string, lo, hi int) [][2]int {
+	quoted := func(start int) int {
+		if start > lo && (mask[start-1] == '\'' || mask[start-1] == '"') {
+			if q := strings.IndexByte(mask[start:hi], mask[start-1]); q >= 0 {
+				return start + q
+			}
+		}
+		return hi
 	}
-	return c == '&' && (i+1 == len(mask) || strings.IndexByte(" \t\r\n&", mask[i+1]) >= 0 || (i > 0 && mask[i-1] == '&'))
+	if !strings.Contains(mask[lo:hi], "://") {
+		start := lo
+		if mask[start] == '\'' || mask[start] == '"' {
+			start++
+		}
+		return [][2]int{{start, quoted(start)}}
+	}
+	var urls [][2]int
+	for from := lo; from < hi; {
+		sep := strings.Index(mask[from:hi], "://")
+		if sep < 0 {
+			break
+		}
+		start := from + sep
+		for start > from && isMCPSchemeByte(mask[start-1]) {
+			start--
+		}
+		end := quoted(start)
+		if end == hi {
+			return append(urls, [2]int{start, hi})
+		}
+		urls = append(urls, [2]int{start, end})
+		from = end + 1
+	}
+	return urls
+}
+
+func isMCPSchemeByte(c byte) bool {
+	return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '+' || c == '-' || c == '.'
+}
+
+// mcpPortOrRef reports whether the text after a host's `:` is a port, or
+// a masked reference standing for one.
+func mcpPortOrRef(s string) bool {
+	return strings.Trim(s, "0123456789_") == ""
 }
 
 // mcpURLCredentialSpans finds the credentials in the URL that word is.
@@ -299,6 +356,14 @@ func mcpURLCredentialSpans(word, mask string) ([]mcpCredentialSpan, bool) {
 		pos = scheme + 3
 		end := pos + indexAnyOrLen(mask[pos:], "/?#")
 		authority := mask[pos:end]
+		if strings.Count(authority, "@") > 1 {
+			return nil, false
+		}
+		if !strings.Contains(authority, "@") && strings.Contains(mask[end:], "@") {
+			if _, port, ok := strings.Cut(authority, ":"); ok && !mcpPortOrRef(port) {
+				return nil, false
+			}
+		}
 		if at := strings.LastIndex(authority, "@"); at >= 0 {
 			if colon := strings.Index(authority[:at], ":"); colon >= 0 {
 				if start, stop := pos+colon+1, pos+at; mcpCredentialValue(word[start:stop]) {
@@ -564,7 +629,7 @@ func reportMCPLiteralRefsWithHint(refs []mcpLiteralRef, hint string) {
 	}
 	for _, r := range refs {
 		if r.leftOut {
-			keptf("%s MCP server %s: left out; %s has more than one URL in one word, which import cannot rewrite\n", bang(), r.server, r.field)
+			keptf("%s MCP server %s: left out; %s holds a URL import cannot rewrite safely\n", bang(), r.server, r.field)
 			continue
 		}
 		if r.defaulted {
