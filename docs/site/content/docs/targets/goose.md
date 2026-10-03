@@ -10,7 +10,7 @@ target_id = "goose"
 
 # Goose (`goose`)
 
-Block [Goose](https://goose-docs.ai) reads the root `AGENTS.md` and a `.goosehints` file. Goose is opt-in (see [Selecting targets](@/docs/configuration.md#targets)).
+Block [Goose](https://goose-docs.ai) reads the root `AGENTS.md` and a `.goosehints` file. Goose is opt-in. See [Selecting targets](@/docs/configuration.md#targets).
 
 ## Output
 
@@ -31,8 +31,8 @@ AGENTS.md                          # entry-point pointer body + inlined rules (s
 - **Agents**: `name`, `description`, optional free-form `model`, and the prompt body. OpenHands reads the same path and fields, so sync writes each file once. A generic `tools` list is dropped with a coverage note; Goose does not document it. `x-goose` fields work. If they make the file differ from another target's, set a different `outputs.goose.agents-dir`.
 - **Skills**: `.agents/skills/` is Goose's [recommended path](https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/using-skills.md), read ahead of `.goose/skills/` and `.claude/skills/`. the other `.agents/skills/` targets render the same files, so the shared tree dedupes.
 - **Hooks**: an [Open Plugins](https://goose-docs.ai/docs/guides/context-engineering/hooks/) package (`.agents/plugins/agnostic-ai/plugin.json` plus `hooks/hooks.json`). All 12 documented events pass through. `matcher` is a regular expression. `timeout` is in seconds (default 30). `x-goose.on_failure` takes `allow` or `block` for `PreToolUse` failures. [`agnostic-ai hook run`](@/docs/spec-format/hooks.md#hook-run) runs these hooks with Goose's payload, shell, and timeout before a session does.
-- **Plugin skills**: set `outputs.goose.skills-dir: .agents/plugins/<name>/skills` to bundle skills as a plugin ([plugins](https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/plugins.md)), with or without hooks; both share one manifest. Goose namespaces them, so `review` in `agnostic-ai` loads as `agnostic-ai:review`.
-- **Reviews**: `goose review` reads `.agents/REVIEW.md` and `<scope>/.agents/REVIEW.md` from directories with changed files and their ancestors, so root and scoped guidance compose ([v1.50.0 CLI reference](https://raw.githubusercontent.com/aaif-goose/goose/v1.50.0/documentation/docs/guides/goose-cli-commands.md)). Same-scope bodies concatenate, without routing frontmatter, since Goose reads plain text. Agent-shaped check files are not emitted.
+- **Plugin skills**: set `outputs.goose.skills-dir: .agents/plugins/<name>/skills` to bundle skills as a plugin ([plugins](https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/plugins.md)), with or without hooks. Skills and hooks share one manifest. Goose namespaces them, so `review` in `agnostic-ai` loads as `agnostic-ai:review`.
+- **Reviews**: `goose review` reads `.agents/REVIEW.md` and `<scope>/.agents/REVIEW.md` from directories with changed files and their ancestors, so root and scoped guidance combine ([v1.50.0 CLI reference](https://raw.githubusercontent.com/aaif-goose/goose/v1.50.0/documentation/docs/guides/goose-cli-commands.md)). Same-scope bodies concatenate, without routing frontmatter, because Goose reads plain text. Agent-shaped check files are not emitted.
 - **MCP**: skipped with a warning.
 
 {% <details summary="Skills dir outside skills/"> %}
@@ -64,16 +64,16 @@ A skills dir under a plugin root but outside its `skills/` directory is not a Go
 | `.agents/REVIEW.md` | `<reviews>/review.md` |
 | `AGENTS.md` | `.agnostic-ai/AGNOSTIC_AI.md` |
 
-`.goosehints` is a fallback: with `rules-file` set, both files hold the same rules.
+`.goosehints` is a fallback. With `rules-file` set, both files hold the same rules.
 
 Import reads every plugin, including hand-installed ones.
 
-`agnostic-ai import all` detects Goose only from `.goosehints`, `.agents/plugins/`, or `.agents/REVIEW.md`, since OpenHands, Antigravity, and others share `.agents/agents/` and `.agents/skills/`. For a rules-only Goose project, run `agnostic-ai import goose` directly.
+`agnostic-ai import all` detects Goose only from `.goosehints`, `.agents/plugins/`, or `.agents/REVIEW.md`, because OpenHands, Antigravity, and others share `.agents/agents/` and `.agents/skills/`. For a rules-only Goose project, run `agnostic-ai import goose` directly.
 
-Lossy on import, with no change to Goose's output on the next sync:
+Import loses some detail. Goose's output does not change on the next sync:
 
 - Only the root rules block is read back, the same as `import claude` with nested `CLAUDE.md` files.
-- Review specs sharing a scope re-import as one spec.
+- Review specs with the same scope re-import as one spec.
 - Scoped `<scope>/.agents/REVIEW.md` files are not read back.
 
 See [scoped context](@/docs/scoped-context.md).
@@ -86,4 +86,4 @@ Advisory. This target takes no settings specs, so sync reports a spec with a `pr
 
 1. Install Goose ([docs](https://goose-docs.ai)).
 2. Check the tree: `ls AGENTS.md .agents/agents/ .agents/skills/`, plus `.goosehints` when `outputs.goose.rules-file` is set.
-3. Launch `goose`. It reads `AGENTS.md` (and `.goosehints` when present) as context, lists each `.agents/agents/<name>.md` as a project agent, and each `.agents/skills/<name>/` as a skill.
+3. Launch `goose`. It reads `AGENTS.md` (and `.goosehints` when present) as context. It lists each `.agents/agents/<name>.md` as a project agent and each `.agents/skills/<name>/` as a skill.

@@ -18,7 +18,7 @@ mcp-servers = "@/docs/spec-format/mcps.md"
 
 # Spec format
 
-Every AI coding tool keeps its configuration in its own place and shape: `.claude/agents/`, `.cursor/rules/`, `.codex/config.toml`, `.gemini/settings.json`. A spec is one file under `.agnostic-ai/` that says what you want once. `agnostic-ai sync` writes it into every tool you enable, in that tool's native format.
+Each AI coding tool keeps its configuration in its own place and shape: `.claude/agents/`, `.cursor/rules/`, `.codex/config.toml`, `.gemini/settings.json`. A spec is one file under `.agnostic-ai/` that says what you want, once. `agnostic-ai sync` writes it into every tool you enable, in that tool's native format.
 
 - **One source to review.** A new rule or permission is one diff, not one per tool.
 - **No drift.** `sync --check` fails when a native file no longer matches its spec.
@@ -27,9 +27,9 @@ Every AI coding tool keeps its configuration in its own place and shape: `.claud
 
 ## Folders
 
-Each folder holds one spec kind. Pick the page for what you want the agent to do.
+Each folder holds one spec kind. Pick the one for what you want the agent to do.
 
-| Folder | Holds | Reach for it when |
+| Folder | Holds | Use it when |
 |--------|-------|-------------------|
 | [`agents/`](@/docs/spec-format/agents.md) | Subagents with their own prompt, tools, and model | a task deserves a specialist with a narrow role |
 | [`skills/`](@/docs/spec-format/skills.md) | Procedures loaded on demand, with bundled files | a workflow is long, occasional, or needs scripts |
@@ -48,7 +48,7 @@ Two more entries sit next to them:
 - `AGNOSTIC_AI.md` is the instruction body every entry-point file carries, such as `AGENTS.md` and `CLAUDE.md`. See [entry-point files](@/docs/configuration.md#entry-point-files).
 - `local/` holds personal specs that stay out of Git. See [local overrides](@/docs/local-overrides.md).
 
-Paths are relative to `.agnostic-ai/` by default, so `rules/*.md` means `.agnostic-ai/rules/*.md`. Override the directories with [`sources`](@/docs/configuration.md#sources). The [capability matrix](@/docs/targets/_index.md#capability-matrix) shows which targets receive each kind. Each target page shows how that tool renders it.
+Paths are relative to `.agnostic-ai/` by default, so `rules/*.md` means `.agnostic-ai/rules/*.md`. Override the directories with [`sources`](@/docs/configuration.md#sources). The [capability matrix](@/docs/targets/_index.md#capability-matrix) shows which targets get each kind. Each target page shows how that tool renders it.
 
 `agnostic-ai new <kind> <name>` scaffolds an agent, skill, rule, hook, or MCP server. [Getting started](@/docs/getting-started.md) walks through a first rule.
 
@@ -56,8 +56,6 @@ Discovery is recursive:
 
 - Every `.md` under `agents/`, `skills/`, `rules/`, `commands/`, `reviews/`, and `ignore/` loads.
 - Every `.yaml` under `hooks/`, `mcps/`, `settings/`, and `environments/` loads.
-
-The sections below apply to every kind.
 
 ## Nested layout: per-directory scope
 
@@ -71,13 +69,13 @@ rules/
     └── api/limits.md            # scope: "backend/api"
 ```
 
-For rules, scope controls native activation or directory discovery. A rule may set `scope: services/payments`, which wins over its folder under `rules/`. A folder scopes a rule only when it names a project directory. `agnostic-ai new rule payments-context --scope services/payments` creates one.
+For rules, scope controls native activation or directory discovery. A rule can set `scope: services/payments`, which wins over its folder under `rules/`. A folder scopes a rule only when it names a project directory. `agnostic-ai new rule payments-context --scope services/payments` creates one.
 
 Scoped bodies stay out of root instruction appendices. Supported targets get native path conditions or a nested instruction file. Unsupported targets skip the rule with a warning, or fail under `on-unsupported: error`. [Directory-specific instructions](@/docs/scoped-context.md) has the target matrix and selector limits.
 
 ## Target scoping
 
-Four fields limit where any spec kind emits.
+Four fields limit where a spec of any kind emits.
 
 | Field | Effect |
 |-------|--------|
@@ -104,7 +102,7 @@ A hook imported from a tool gets `target: <tool>` (`codex`, `claude`, or `gemini
 
 ## Per-target body fences
 
-To vary prose per target, wrap the divergent part in `::target` fences. Content outside a fence emits everywhere; content inside emits only to the listed targets. Marker lines never reach the output.
+To vary prose per target, wrap the part that differs in `::target` fences. Content outside a fence emits everywhere. Content inside emits only to the listed targets. Marker lines never reach the output.
 
 ```md
 Shared intro paragraph.
@@ -125,7 +123,7 @@ Codex and Gemini section.
 | `::end` | Closes the most recent fence. A missing `::end` runs to the end of the body. |
 
 - `import` round-trips keep fences intact. `import codex` builds them when Claude and Codex ship the same agent or skill with different bodies.
-- Fences also work in `.agnostic-ai/AGNOSTIC_AI.md`. A block reaches an entry-point file when any target that reads the file is listed. `AGENTS.md` is shared by the whole family, so `::target codex` content reaches every reader; a shared file is never split. See [Entry-point files](@/docs/configuration.md#entry-point-files).
+- Fences also work in `.agnostic-ai/AGNOSTIC_AI.md`. A block reaches an entry-point file when any target that reads the file is listed. The whole family shares `AGENTS.md`, so `::target codex` content reaches every reader. A shared file is never split. See [Entry-point files](@/docs/configuration.md#entry-point-files).
 
 ## Path variables: `{{$NAME}}`
 
@@ -162,7 +160,7 @@ x-cursor:
 ---
 ```
 
-For each target, all `x-*` keys are dropped, then the matching `x-<target>` block is flattened into the top level, overriding keys with the same name.
+For each target, sync drops all `x-*` keys. Then it flattens the matching `x-<target>` block into the top level, overriding keys with the same name.
 
 | Target | Resulting frontmatter |
 |--------|-----------------------|
@@ -178,4 +176,4 @@ Any other key under `x-<target>` emits verbatim into that target's output, in so
 - A target with no surface for a spec kind drops custom keys for that kind.
 - Gemini TOML accepts only a string, bool, number, or string array, and skips nested tables.
 
-On a settings spec the block merges into the target's settings file by the rules in [settings](@/docs/spec-format/settings.md#target-specific-keys).
+On a settings spec, the block merges into the target's settings file by the rules in [settings](@/docs/spec-format/settings.md#target-specific-keys).

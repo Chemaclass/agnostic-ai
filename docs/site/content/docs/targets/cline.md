@@ -10,7 +10,7 @@ target_id = "cline"
 
 # Cline (`cline`)
 
-Cline gets `AGENTS.md`, rules, agents, skills, and hook scripts; workflows are opt-in.
+Cline gets `AGENTS.md`, rules, agents, skills, and hook scripts. Workflows are opt-in.
 
 ## Output
 
@@ -24,38 +24,38 @@ AGENTS.md                            # pointer body, plus the rules block when a
 ```
 
 - **Rules**: one file each under `.clinerules/`.
-  - When codex or another inlining target writes `AGENTS.md`, its `## Rules` block carries every unscoped rule, and Cline loads it by default. A matching always-on rule then gets no `.clinerules/` file and loads once.
+  - When codex or another inlining target writes `AGENTS.md`, its `## Rules` block carries every unscoped rule. Cline loads that file by default, so a matching always-on rule gets no `.clinerules/` file and loads once.
   - Rules with `paths` keep their file, as does one whose text differs for Cline (a `::target cline` fence or a path variable).
   - Keep `AGENTS.md` on in Cline's Rules panel, or Cline misses rules that skipped their file.
-  - Listing `AGENTS.md` under `sync.unmanaged` makes every rule keep its file, but sync then stops writing `AGENTS.md` for every reader, codex included. See [target behavior](@/docs/target-behavior.md#entry-point-files).
-- **Rules layouts**: Cline [searches both](https://docs.cline.bot/customization/cline-rules) `.clinerules/` and `.cline/rules/` in VS Code, Desktop, and the CLI, and [deprecates](https://docs.cline.bot/resources/deprecations) neither. `.clinerules/` is the default because the VS Code Rules panel creates rules there (`outputs.cline.rules-dir: .cline/rules` picks the other). Sync writes one and sweeps a stale managed tree at the other, so rules never load twice.
+  - Listing `AGENTS.md` under `sync.unmanaged` makes every rule keep its file. Sync then stops writing `AGENTS.md` for every reader, codex included. See [target behavior](@/docs/target-behavior.md#entry-point-files).
+- **Rules layouts**: Cline [searches both](https://docs.cline.bot/customization/cline-rules) `.clinerules/` and `.cline/rules/` in VS Code, Desktop, and the CLI, and [deprecates](https://docs.cline.bot/resources/deprecations) neither. `.clinerules/` is the default because the VS Code Rules panel creates rules there (`outputs.cline.rules-dir: .cline/rules` picks the other). Sync writes one and removes a stale managed tree at the other, so rules never load twice.
 - **Rule activation**: scoped rules emit `paths` limited to the directory, even with `alwaysApply: true`. An unscoped rule gets native `paths` from its file selector with `alwaysApply: false`, or with `globs` other than a catch-all such as `**/*` and no `alwaysApply`. With no usable selector, `sync` notes it. See [Cline conditions](https://docs.cline.bot/customization/cline-rules) and [scoped selector limits](@/docs/scoped-context.md#narrow-a-rule-to-certain-files).
-- **Agents**: always at `.cline/agents/`, whatever the rules override. All three shipping readers use `<workspace>/.cline/agents` (`resolveAgentConfigSearchPaths` in `cline/cline`).
+- **Agents**: always at `.cline/agents/`, whatever the rules override. All three Cline readers use `<workspace>/.cline/agents` (`resolveAgentConfigSearchPaths` in `cline/cline`).
   - `<name>.yml` frontmatter (`---`-delimited) carries the required `name` and `description`. The spec body follows as the system prompt, with no added heading.
   - The loader accepts only `.yml` and `.yaml`, needs the content to open with `---`, and rejects an empty `name` or `description`. A missing description falls back to the name.
-  - The provenance comment sits inside the prompt, since above the delimiter the file would not load.
+  - The provenance comment sits inside the prompt. Above the delimiter, the file would not load.
   - `tools`, `skills`, `providerId`, `modelId`, and `maxIterations` go through `x-cline`.
-- **Skills**: `.cline/skills/<name>/SKILL.md`, as [Cline's skills docs](https://docs.cline.bot/customization/skills) recommend (`GlobalFileNames.clineSkillsDir` in the extension). A flat file in the rules directory never loads as a skill. Frontmatter carries `name` and `description`; sibling assets copy byte-for-byte.
+- **Skills**: `.cline/skills/<name>/SKILL.md`, as [Cline's skills docs](https://docs.cline.bot/customization/skills) recommend (`GlobalFileNames.clineSkillsDir` in the extension). A flat file in the rules directory never loads as a skill. Frontmatter carries `name` and `description`. Sibling assets copy byte-for-byte.
 
 {% <details summary="Old agent .md files"> %}
-Older releases wrote `<name>.md` with no frontmatter, which Cline skipped. Sync sweeps a stale managed `.md`; hand-authored files stay.
+Older releases wrote `<name>.md` with no frontmatter, which Cline skipped. Sync removes a stale managed `.md`. Hand-written files stay.
 {% </details> %}
 
 ### Hooks
 
-Cline finds a hook script by file name only. Its source declares ten names (`TaskStart`, `TaskResume`, `TaskCancel`, `TaskComplete`, `TaskError`, `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `PreCompact`, `SessionShutdown`), filters by extension, scans `<workspace>/.clinerules/hooks` and `<workspace>/.cline/hooks`, and runs each file as a subprocess.
+Cline finds a hook script by file name only. Its source lists ten names (`TaskStart`, `TaskResume`, `TaskCancel`, `TaskComplete`, `TaskError`, `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `PreCompact`, `SessionShutdown`), filters by extension, scans `<workspace>/.clinerules/hooks` and `<workspace>/.cline/hooks`, and runs each file as a subprocess.
 
-Cline's source confirms this; its docs barely do. The [hooks page](https://docs.cline.bot/customization/hooks) is a stub pointing at SDK Plugins (a TypeScript API); only the [config reference](https://docs.cline.bot/getting-started/config) lists `.cline/hooks/` as lifecycle hooks.
+Cline's source confirms this, but its docs barely do. The [hooks page](https://docs.cline.bot/customization/hooks) is a stub pointing at SDK Plugins (a TypeScript API). Only the [config reference](https://docs.cline.bot/getting-started/config) lists `.cline/hooks/` as lifecycle hooks.
 
-- Scripts have no shebang: the provenance comment must be the first line for sync to manage the file, and Cline runs `.sh` under `bash` anyway.
-- **`matcher` and `timeout` are inert**, each with a note: a hook runs on every occurrence of its event and must filter itself, and Cline uses its own timeout.
+- Scripts have no shebang. The provenance comment must be the first line for sync to manage the file, and Cline runs `.sh` under `bash` anyway.
+- **`matcher` and `timeout` are inert**, each with a note. A hook runs on every occurrence of its event and must filter itself. Cline uses its own timeout.
 - Two specs on one event share one script, in spec order, under `set -e`, and share stdout. Cline reads stdout as control JSON (the last `HOOK_CONTROL<TAB><json>` line wins), so send anything else to stderr.
-- `PreCompact` has no runtime event yet: its script is written and reported but never runs.
+- `PreCompact` has no runtime event yet. Its script is written and reported but never runs.
 - Any other event gets a coverage note instead of a file.
 
 ### Workflows
 
-With `outputs.cline.workflows-dir` set to `.clinerules/workflows`, each agent also emits as `<dir>/<name>.md`, invokable from chat as `/<name>.md`, with any italic description before the body. The key is opt-in because a workflow duplicates the agent in `.cline/agents/<name>.yml`.
+With `outputs.cline.workflows-dir` set to `.clinerules/workflows`, each agent also emits as `<dir>/<name>.md`, which you run from chat as `/<name>.md`. Any italic description comes before the body. The key is opt-in because a workflow duplicates the agent in `.cline/agents/<name>.yml`.
 
 Cline's workflows doc page is a 404, but its resolver searches `.clinerules/workflows` and `.cline/workflows`. The VS Code extension reads only `.clinerules/workflows` and keeps it out of the rules scan, so a workflow never doubles as a rule. With `.cline/workflows`, only the CLI and SDK see them, and the adapter notes it.
 
@@ -71,14 +71,14 @@ Cline's workflows doc page is a 404, but its resolver searches `.clinerules/work
 
 ## Import
 
-- **Rules**: from `.clinerules/` and `.cline/rules/`. Identical duplicates dedupe; differing files with one destination conflict. The reserved `skills`, `workflows`, and `hooks` subdirectories are skipped. Native `paths` arrays survive through `x-cline.paths`, including brace globs and empty arrays that disable activation. Rules keep the [filename prefix](@/docs/cli-reference/start.md#filename-prefix-reclassification) classification of older layouts.
-- **Agents**: each `.cline/agents/<name>.yml` becomes a `<name>.md` spec, minus the provenance header. `.yaml` is read too, and `.md` last, so older syncs round-trip; `.yml` wins a clash. The `agent-<name>.md` prefix applies only to the old layout where rules and agents shared `.clinerules/`.
+- **Rules**: from `.clinerules/` and `.cline/rules/`. Identical duplicates collapse to one. Different files with one destination conflict. The reserved `skills`, `workflows`, and `hooks` subdirectories are skipped. Native `paths` arrays survive through `x-cline.paths`, including brace globs and empty arrays that disable activation. Rules keep the [filename prefix](@/docs/cli-reference/start.md#filename-prefix-reclassification) classification of older layouts.
+- **Agents**: each `.cline/agents/<name>.yml` becomes a `<name>.md` spec, minus the provenance header. `.yaml` is read too, and `.md` last, so older syncs round-trip. `.yml` wins a clash. The `agent-<name>.md` prefix applies only to the old layout where rules and agents shared `.clinerules/`.
 - **Skills**: from the paths Cline scans, in order: `.cline/skills/`, `.clinerules/skills/`, `.claude/skills/`, `.agents/skills/`. The first same-name skill wins. Bundled assets and executable modes survive. The rules walk skips `.clinerules/skills/`.
 
 Cline's source confirms `.agents/skills`, but [the skills page](https://docs.cline.bot/customization/skills) lists only three paths, so emission stays at the documented `.cline/skills`. To share one copy across targets, turn on `sync.shared-skills` or set `outputs.cline.skills-dir: .agents/skills`.
 
 {% <details summary="Single-file .clinerules"> %}
-A single-file `.clinerules` (still read by Cline) imports as one rule, `clinerules.md`, with its `paths` kept, and the `.clinerules/skills/` lookup is skipped. Sync and `doctor --fix` then replace the file with a `.clinerules/` directory, as Cline does, but only when its content matches a rule spec. Otherwise sync, `--check`, `--dry-run`, and `doctor --fix` fail and leave it alone: run `agnostic-ai import cline` first.
+Cline still reads a single-file `.clinerules`. It imports as one rule, `clinerules.md`, with its `paths` kept, and the `.clinerules/skills/` lookup is skipped. Sync and `doctor --fix` then replace the file with a `.clinerules/` directory, as Cline does, but only when its content matches a rule spec. Otherwise sync, `--check`, `--dry-run`, and `doctor --fix` fail and leave it alone. Run `agnostic-ai import cline` first.
 {% </details> %}
 
 ## Protected paths
@@ -93,6 +93,6 @@ Advisory. This target takes no settings specs, so sync reports a spec with a `pr
    - Each `.clinerules/*.md` appears in the rules list with no "failed to parse" warnings.
    - Each `.cline/agents/<name>.yml` appears where Cline lists project agents (`cline config`, Agent Teams via `--team-name`, the hub's agent list).
    - Each `.cline/skills/<name>/` loads as a skill.
-   - A file matching a `paths` rule triggers the "Conditional rules applied: workspace:&lt;name&gt;.md" notification; an unrelated file does not.
+   - A file matching a `paths` rule triggers the "Conditional rules applied: workspace:&lt;name&gt;.md" notification. An unrelated file does not.
 4. Hooks: `ls .cline/hooks/` shows one `<Event>.sh` per event. Triggering it (edit a file for `PostToolUse`, start a task for `TaskStart`) runs the script.
 5. With workflows on, each `/<name>.md` runs in the extension and the CLI, with the italic description as the preview.

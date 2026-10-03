@@ -43,7 +43,7 @@ curl -fsSL https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts
 irm https://raw.githubusercontent.com/Chemaclass/agnostic-ai/main/scripts/install.ps1 | iex
 ```
 
-Check `--version` again. If not found, add the install directory to `PATH`. See [Installation](@/docs/installation.md) for other methods.
+Run `--version` again. If the command is not found, add the install directory to `PATH`. See [Installation](@/docs/installation.md) for other methods.
 
 ### 2. Detect the project state
 
@@ -53,11 +53,11 @@ Check `--version` again. If not found, add the install directory to `PATH`. See 
 | Existing tool config | `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `.cursor/`, `.github/copilot-instructions.md` | Import during `init`. |
 | Fresh | Neither | Plain `init`. |
 
-If the target list is unclear, ask the user. An installed CLI does not mean the repository uses it.
+If the target list is unclear, ask the user. A tool installed on the machine does not mean the repository uses it.
 
 ### 3. Initialize
 
-Ask the user whether Git should track generated files, and pass `--gitignore=on` (ignore them; teammates run `sync` after cloning) or `--gitignore=off` (commit them; CI runs `sync --check`).
+Ask the user whether Git should track generated files. Pass `--gitignore=on` (ignore them; teammates run `sync` after cloning) or `--gitignore=off` (commit them; CI runs `sync --check`).
 
 Replace `claude,codex` with the project's tools:
 
@@ -69,7 +69,7 @@ printf '%s\n' 'claude,codex' | agnostic-ai init --from all --gitignore=on
 printf '%s\n' 'claude,codex' | agnostic-ai init --gitignore=on
 ```
 
-`--from all` adds each source's missing sections to `.agnostic-ai/AGNOSTIC_AI.md` and names them. Review that file for duplicates before syncing; import tells you when a section needs a manual merge. Details: [Migration](@/docs/migration.md).
+`--from all` adds each source's missing sections to `.agnostic-ai/AGNOSTIC_AI.md` and names them. Review that file for duplicates before you sync. Import tells you when a section needs a manual merge. Details: [Migration](@/docs/migration.md).
 
 Do not use `--demo` unless the user asks. Add rules only from conventions the repository or user already states.
 
@@ -81,7 +81,7 @@ agnostic-ai lint
 agnostic-ai sync --dry-run
 ```
 
-Check that targets, output paths, and preserved instructions match the project. Fix errors in the specs. Understand an unsupported-capability warning before you silence it.
+Check that targets, output paths, and kept instructions match the project. Fix errors in the specs. Understand an unsupported-capability warning before you silence it.
 
 ### 5. Sync and prove the result
 

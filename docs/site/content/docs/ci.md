@@ -33,9 +33,9 @@ It renders the specs as committed and compares them with the committed outputs. 
 
 `actions/checkout` fetches one commit by default. Set `fetch-depth: 2` so the check has the parent commit (in a pull request's merge commit, the base branch). Without it, a note says the comparison was skipped.
 
-A committed output that no spec produces anymore also fails, so this one command catches leftovers without `doctor`. That covers a file with the generated header where a target writes, and any file the parent commit's specs rendered, such as a JSON file with no header.
+A committed output that no spec produces anymore also fails, so this command catches leftovers without `doctor`. That covers a file with the generated header where a target writes, and any file the parent commit's specs rendered, such as a JSON file with no header.
 
-After a project moves its specs into `.agnostic-ai/`, a branch from before the move can still add a skill in the old place, such as `.cursor/skills/<name>/SKILL.md`. Git keeps tracking it inside the ignored folder, and only Cursor reads it. The same check fails on it and names the fix: `agnostic-ai import cursor`, then `git rm --cached` the file.
+After a project moves its specs into `.agnostic-ai/`, a branch from before the move can still add a skill in the old place, such as `.cursor/skills/<name>/SKILL.md`. Git keeps tracking it inside the ignored folder, where only Cursor reads it. The same check fails on it and names the fix: `agnostic-ai import cursor`, then `git rm --cached` the file.
 
 ## Ignored outputs
 
@@ -54,7 +54,7 @@ This repository ignores generated tool files and runs spec lint in CI. See [cont
 
 ## Install the CLI in CI
 
-Install the CLI with the project's dependencies, or use the install script for other projects.
+Install the CLI with the project's dependencies. Other projects use the install script.
 
 ### Node projects
 
@@ -115,7 +115,7 @@ steps:
   - run: agnostic-ai sync --check --diff
 ```
 
-`AGNOSTIC_AI_VERSION` takes a release tag. Without it, the script installs the latest release. It checks the archive against the release checksum. Set `AGNOSTIC_AI_VERIFY_ATTESTATION: 1` to also check the [build provenance](@/docs/verify-a-release.md#build-provenance); this needs the GitHub CLI, which GitHub-hosted runners include. On Windows runners, use `install.ps1`: see [Installation](@/docs/installation.md#pin-a-version-or-directory).
+`AGNOSTIC_AI_VERSION` takes a release tag. Without it, the script installs the latest release. It checks the archive against the release checksum. Set `AGNOSTIC_AI_VERIFY_ATTESTATION: 1` to also check the [build provenance](@/docs/verify-a-release.md#build-provenance). This needs the GitHub CLI, which GitHub-hosted runners include. On Windows runners, use `install.ps1`: see [Installation](@/docs/installation.md#pin-a-version-or-directory).
 
 ## Diagnose drift
 
@@ -139,4 +139,4 @@ Add the gate after installing the AI CLI it needs:
   run: agnostic-ai verify --target codex
 ```
 
-`verify` checks drift first, fingerprints the harness, detects the CLI identity when available, then sends versioned JSON to the script on stdin. The script runs and scores. Its stdout, stderr, and non-zero exit code reach CI unchanged. See the [`verify` command](@/docs/cli-reference/check.md#verify) for the JSON contract.
+`verify` checks drift first, fingerprints the harness, and detects the CLI identity when it can. Then it sends versioned JSON to the script on stdin. The script runs the checks and scores them. Its stdout, stderr, and non-zero exit code reach CI unchanged. See the [`verify` command](@/docs/cli-reference/check.md#verify) for the JSON contract.

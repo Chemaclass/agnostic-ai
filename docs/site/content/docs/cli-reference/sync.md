@@ -11,7 +11,7 @@ group = "Reference"
 
 ## sync
 
-Emit per-target configs. A writing run takes the [project lock](@/docs/cli-reference/_index.md#concurrent-commands); `--watch` holds it until it exits.
+Emit per-target configs. A run that writes takes the [project lock](@/docs/cli-reference/_index.md#concurrent-commands); `--watch` holds it until it exits.
 
 ```bash
 agnostic-ai sync --only claude,cursor
@@ -70,17 +70,17 @@ Paths listed under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) are
 
 Each list shows three paths. `-v` lists all. `config` in the spec line means `agnostic-ai.yaml` changed. The `!` line lists changed files that git tracks or does not ignore. It is absent outside a git repository.
 
-**Tracked despite ignored.** A generated path that git tracks and ignores is usually one committed before it moved into the managed `.gitignore` block. `sync` prints `! 1 file tracked despite being ignored: git rm --cached .claude/rules/tone.md`. `sync --untrack` runs that command for every such path and reports `~ untracked <path>`. `doctor` shows the same finding and never fails on it alone.
+**Tracked despite ignored.** A generated path that git both tracks and ignores was usually committed before it moved into the managed `.gitignore` block. `sync` prints `! 1 file tracked despite being ignored: git rm --cached .claude/rules/tone.md`. `sync --untrack` runs that command for every such path and reports `~ untracked <path>`. `doctor` shows the same finding and never fails on it alone.
 
-**Hand edits.** An output whose bytes changed since the last sync was edited by hand. `sync` still writes the spec's version, so the specs stay the one source. First it saves the edit as `<path>.bak` and prints `! overwrote a hand edit to <path> (saved as <path>.bak)` (on stderr under `--quiet`). `revert` puts the edit back. Move the edit into `.agnostic-ai/` to keep it. `--keep-edits` leaves the edit in place instead.
+**Hand edits.** An output whose bytes changed since the last sync was edited by hand. `sync` still writes the spec's version, so the specs stay the one source. It first saves the edit as `<path>.bak` and prints `! overwrote a hand edit to <path> (saved as <path>.bak)` (on stderr under `--quiet`). `revert` puts the edit back. Move the edit into `.agnostic-ai/` to keep it. `--keep-edits` leaves the edit in place instead.
 
 {% <details summary="Hand edits: backups, merged settings, fresh clones"> %}
-- When `<path>.bak` already exists, sync leaves the new edit in place and says so, so an earlier backup is never replaced.
+- When `<path>.bak` already exists, sync leaves the new edit in place and says so. An earlier backup is never replaced.
 - A merged settings file, such as `.claude/settings.json`, holds your own keys by design. A key you add there is kept in place, not backed up.
 - Without a record of the last sync, as in a fresh clone, there is no proof of an edit.
 {% </details> %}
 
-**Typos.** Before writing, `sync` and `sync --check` stop on a hook event that is a likely typo of a known one, such as `PreToolUze`, and name the closest. Another tool's event passes, in any case or snake_case. An agent `skills:` name that is a likely typo of a project skill, such as `pr-swep`, prints a warning, as `validate` does, because it may be a user or plugin skill. Specs from packs are left to `validate`.
+**Typos.** Before writing, `sync` and `sync --check` stop on a hook event that is a likely typo of a known one, such as `PreToolUze`, and name the closest. Another tool's event passes, in any case or snake_case. An agent `skills:` name that is a likely typo of a project skill, such as `pr-swep`, only prints a warning, as in `validate`. It may be a user or plugin skill. Specs from packs are left to `validate`.
 
 **Hand-written instructions.** Before writing, `sync` stops when an instructions file such as `CLAUDE.md` or `AGENTS.md` holds text that agnostic-ai did not write and `.agnostic-ai/AGNOSTIC_AI.md` does not have. It names the `import` that keeps the text. `sync --backup` replaces the file instead and keeps it as `<path>.bak`, unless that `.bak` already exists. `--check`, `--plan`, and `--json --dry-run` stop the same way.
 
@@ -90,10 +90,10 @@ Each list shows three paths. `-v` lists all. `config` in the spec line means `ag
 - `--keep-edits` keeps a file that Git tracks in place.
 {% </details> %}
 
-**Orphan sweep.** `sync` records every file it writes in `.agnostic-ai/.sync-state`. A full run deletes files it no longer emits and prunes empty directories. It removes only what it can prove it wrote (provenance header or recorded hash). A headerless file is kept as `~ kept orphan <path>`, with the reason named, when it was edited since sync or written by a sync that recorded no checksum. Kept orphans stay in the managed `.gitignore` block, including during partial syncs. They count as drift until you remove them or list them under `sync.unmanaged`. In a terminal, `doctor --fix` offers their removal, defaulting to no.
+**Orphan sweep.** `sync` records every file it writes in `.agnostic-ai/.sync-state`. A full run deletes files it no longer emits and prunes empty directories. It removes only what it can prove it wrote (provenance header or recorded hash). A headerless file is kept as `~ kept orphan <path>`, with the reason, when it was edited since sync or written by a sync that recorded no checksum. Kept orphans stay in the managed `.gitignore` block, including during partial syncs. They count as drift until you remove them or list them under `sync.unmanaged`. In a terminal, `doctor --fix` offers their removal, defaulting to no.
 
 {% <details summary="Orphan sweep without .sync-state (fresh checkout)"> %}
-A fresh checkout of a repo that commits generated files has no `.sync-state`. Then `sync --check` and `doctor` scan git-tracked files instead. A tracked file is a leftover in either case:
+A fresh checkout of a repo that commits generated files has no `.sync-state`. Then `sync --check` and `doctor` scan git-tracked files instead. A tracked file is a leftover in either of these cases:
 
 - It sits where a configured target writes, and its first line carries the provenance header.
 - It still holds exactly what the last commit's specs rendered. This covers a headerless JSON output such as `.claude/launch.json` whose spec you deleted but have not committed.
@@ -107,7 +107,7 @@ A plain full `sync` removes none of these files. It records them under target `u
 
 ### First-sync target picker
 
-On the first `sync` (no `.agnostic-ai/.sync-state` yet), `sync` asks which targets to keep if the config still lists every supported target. It saves the choice to `agnostic-ai.yaml`.
+On the first `sync` (no `.agnostic-ai/.sync-state` yet), if the config still lists every supported target, `sync` asks which ones to keep. It saves the choice to `agnostic-ai.yaml`.
 
 | Context | Behavior |
 |---------|----------|
@@ -173,6 +173,6 @@ Watch mode also polls when a missing external source has no safe parent to watch
 
 `writes` and `skipped` entries have `target`, `path`, `action` (strings), and `bytes` (number), for example `{"target": "claude", "path": "CLAUDE.md", "action": "create", "bytes": 1284}`.
 
-`sync --json` adds `warnings` and `notes`: the capability warnings and coverage notes a plain `sync` prints, with the same entries under `--plan`, `--dry-run`, and `--check`, one entry per target, as empty lists when there are none. Each entry has `target`, `kind`, `count`, and `message`, for example `{"target": "aider", "kind": "mcp", "count": 1, "message": "1 mcp unsupported by aider"}`. A project-wide note has target `agnostic-ai`, an empty `kind`, and `count` 0. The lists are complete on every run, including a set a plain `sync` would hide as unchanged, and a later plain `sync` still prints them. Accepted notes ([`coverage.accept`](@/docs/configuration.md#coverageaccept)) are left out.
+`sync --json` adds `warnings` and `notes`: the capability warnings and coverage notes a plain `sync` prints. `--plan`, `--dry-run`, and `--check` carry the same entries. There is one entry per target, and the lists are empty when there are none. Each entry has `target`, `kind`, `count`, and `message`, for example `{"target": "aider", "kind": "mcp", "count": 1, "message": "1 mcp unsupported by aider"}`. A project-wide note has target `agnostic-ai`, an empty `kind`, and `count` 0. The lists are complete on every run, even for a set a plain `sync` would hide as unchanged. A later plain `sync` still prints them. Accepted notes ([`coverage.accept`](@/docs/configuration.md#coverageaccept)) are left out.
 
 `--plan --json` and `--dry-run --json` write nothing and exit 0. Each leftover they would remove is `"delete"` in `writes`. Kept files are `"orphan"` or `"leftover"` in `skipped`. `--dry-run --json` also lists every unchanged output as `"skip"`. Count `writes` by `target` for the per-target numbers `--plan` prints.

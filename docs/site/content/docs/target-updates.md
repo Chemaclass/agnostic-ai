@@ -9,11 +9,11 @@ group = "Workflows"
 
 # Release and AI tooling updates
 
-AI coding tools change their project configuration often. Each agnostic-ai release ships a short announcement: what changes your work, and which verified upstream CLI or model changes affect project setup, safety, and portability.
+AI coding tools change their project configuration often. Each agnostic-ai release ships a short announcement. It says what changes for you, and which verified upstream CLI or model changes affect project setup, safety, and portability.
 
 Each edition is one dated Markdown file under `docs/site/content/updates/`. Zola renders the article, updates the archive, and adds the item to the [RSS feed](https://agnostic-ai.org/updates/feed.xml).
 
-The archive filters editions by target and searches titles, descriptions, editorial summaries, and highlighted signals. Several targets combine with OR; space-separated search terms combine with AND. Filters stay in the URL, so you can bookmark or share a filtered view. Without JavaScript, every edition stays readable in date order.
+The archive filters editions by target and searches titles, descriptions, editorial summaries, and highlighted signals. Several targets combine with OR. Space-separated search terms combine with AND. Filters stay in the URL, so you can bookmark or share a filtered view. Without JavaScript, every edition stays readable in date order.
 
 ## What each release announcement tells you
 
@@ -22,9 +22,9 @@ Each announcement has two records:
 - **What changed in agnostic-ai.** Two or three consequences for you. The GitHub release notes are the complete record.
 - **Upstream CLI and model news.** Selected external changes with primary sources, user impact, and the current agnostic-ai support state.
 
-Breaking changes, default changes, removals, and deprecations come first. Safety changes and large additions follow. A feature that exists upstream is not necessarily supported by agnostic-ai.
+Breaking changes, default changes, removals, and deprecations come first. Safety changes and large additions follow. A feature that exists upstream may not be supported by agnostic-ai yet.
 
-Same names do not mean same behavior. The audit compares each target's project scope, lifecycle, defaults, and native file shape before it calls two features equivalent.
+Same names don't mean same behavior. The audit compares each target's project scope, lifecycle, defaults, and native file shape before it calls two features equivalent.
 
 ## How observations are classified
 
@@ -49,7 +49,7 @@ Target audit reports and issues are research inputs. They hold the vendor eviden
 
 ## Publishing workflow
 
-The `cut-release` skill creates one `YYYY-MM-DD-vX.Y.Z.md` article just before the release commit. The article, version bump, and dated changelog section share one commit and tag. Its frontmatter carries the release identity, summary signals, permanent RSS GUID, `.html` compatibility alias, and article-level target IDs. It needs no audit counts, audit marker, or report digest.
+The `cut-release` skill creates one `YYYY-MM-DD-vX.Y.Z.md` article right before the release commit. The article, version bump, and dated changelog section share one commit and tag. Its frontmatter carries the release identity, summary signals, permanent RSS GUID, `.html` compatibility alias, and article-level target IDs. It needs no audit counts, audit marker, or report digest.
 
 To prepare a release announcement:
 

@@ -23,34 +23,34 @@ AGENTS.md                        # entry-point pointer body, plus the rules bloc
 .qoder/settings.json             # MCP, hooks, and settings (merged; unrelated keys preserved)
 ```
 
-- **Rules**: Qoder reads `.qoder/rules/` and the root `AGENTS.md`, and per-rule files win a conflict, so rules emit there instead of inlining. When codex or another inlining target adds the `## Rules` block to `AGENTS.md`, an always-on rule gets no file and loads once. A rule whose text differs for Qoder keeps its file. The Qoder CLI reads `AGENTS.md` unless `context.fileName` names other files; keep it listed there, or the CLI misses rules without a file. See [Rule activation](#rule-activation) and [target behavior](@/docs/target-behavior.md#entry-point-files).
-- **Agents**: [Qoder Subagents](https://docs.qoder.com/extensions/subagent) reads `.qoder/agents/<name>.md`. `name` and `description` are required; `model`, `tools`, `color`, `skills`, `mcpServers`, `effort`, `permissionMode`, `memory`, and `hooks` are optional. `effort` takes a scalar or per-target map, and an integer budget stays a number. See [per-target `model` and `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort) and [agent policy support by target](@/docs/spec-format/agents.md#agent-policy-support-by-target).
+- **Rules**: Qoder reads `.qoder/rules/` and the root `AGENTS.md`. Per-rule files win a conflict, so rules go there instead of inline. When codex or another inlining target adds the `## Rules` block to `AGENTS.md`, an always-on rule gets no file and loads once. A rule whose text differs for Qoder keeps its file. The Qoder CLI reads `AGENTS.md` unless `context.fileName` names other files. Keep it listed there, or the CLI misses rules that have no file. See [Rule activation](#rule-activation) and [target behavior](@/docs/target-behavior.md#entry-point-files).
+- **Agents**: [Qoder Subagents](https://docs.qoder.com/extensions/subagent) reads `.qoder/agents/<name>.md`. `name` and `description` are required. `model`, `tools`, `color`, `skills`, `mcpServers`, `effort`, `permissionMode`, `memory`, and `hooks` are optional. `effort` takes a scalar or per-target map, and an integer budget stays a number. See [per-target `model` and `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort) and [agent policy support by target](@/docs/spec-format/agents.md#agent-policy-support-by-target).
   - `color` is one of `red`, `blue`, `green`, `yellow`, `purple`, `orange`, `pink`, `cyan` ([CLI field reference](https://docs.qoder.com/cli/subagent)).
-  - `tools` renders as a comma-separated string (`tools: Read, Grep, Bash`), which `import qoder` splits back. Qoder uses Claude-style names (`Bash`, `Edit`, `Write`, `Glob`, `Grep`, `Read`, `WebFetch`, `WebSearch`), so the generic list passes straight through.
-  - `skills` and `mcpServers` come from `x-qoder`. `memory` passes through unchanged; see [Subagent memory](#subagent-memory).
-  - The adapter manages `name`, `description`, `model`, `tools`, `skills`, and `mcpServers`; any other `x-qoder` key passes through.
-- **Skills**: Qoder's own `.qoder/skills/<name>/SKILL.md` ([Qoder Skills](https://docs.qoder.com/extensions/skills)), with plain `name` and `description` frontmatter and bundled files (scripts, references, templates) copied byte-for-byte next to `SKILL.md`. Qoder does not list `.agents/skills/` as compatible, so no dedupe with the shared tree. The user-level `~/.qoder/skills/` tier is out of reach.
-- **Commands**: `.qoder/commands/<name>.md`, the project path for the [CLI](https://docs.qoder.com/cli/commands) and the [IDE](https://docs.qoder.com/user-guide/commands). The adapter always writes `description` (default: the command's name) and never `name`, since the file path sets it. On a clash, the CLI prefers the user-level command (`~/.qoder/commands/`) and the IDE lists both with a scope indicator; the adapter cannot see that tier to warn.
-- **MCP**: merges `mcpServers` into `.qoder/settings.json` (stdio: `command`/`args`/`env`/`cwd`, no `type`; remote: `type` plus `url`/`headers`); other keys such as `mcp.enableAllProjectMcpServers`, permissions, and custom models survive.
+  - `tools` renders as a comma-separated string (`tools: Read, Grep, Bash`), which `import qoder` splits back. Qoder uses Claude-style names (`Bash`, `Edit`, `Write`, `Glob`, `Grep`, `Read`, `WebFetch`, `WebSearch`), so the generic list passes through unchanged.
+  - `skills` and `mcpServers` come from `x-qoder`. `memory` passes through unchanged. See [Subagent memory](#subagent-memory).
+  - The adapter manages `name`, `description`, `model`, `tools`, `skills`, and `mcpServers`. Any other `x-qoder` key passes through.
+- **Skills**: Qoder's own `.qoder/skills/<name>/SKILL.md` ([Qoder Skills](https://docs.qoder.com/extensions/skills)), with plain `name` and `description` frontmatter. Bundled files (scripts, references, templates) are copied byte-for-byte next to `SKILL.md`. Qoder does not list `.agents/skills/` as compatible, so there is no dedupe with the shared tree. The user-level `~/.qoder/skills/` tier is out of reach.
+- **Commands**: `.qoder/commands/<name>.md`, the project path for the [CLI](https://docs.qoder.com/cli/commands) and the [IDE](https://docs.qoder.com/user-guide/commands). The adapter always writes `description` (default: the command's name) and never `name`, since the file path sets it. On a clash, the CLI prefers the user-level command (`~/.qoder/commands/`), and the IDE lists both with a scope indicator. The adapter cannot see that tier, so it cannot warn.
+- **MCP**: merges `mcpServers` into `.qoder/settings.json` (stdio: `command`/`args`/`env`/`cwd`, no `type`; remote: `type` plus `url`/`headers`). Other keys such as `mcp.enableAllProjectMcpServers`, permissions, and custom models stay.
   - Entries accept the [common optional fields](https://docs.qoder.com/cli/mcp-reference): `timeout` (milliseconds), `description`, `trust` (skip tool-call confirmation), `includeTools`, `excludeTools`, `alwaysAllow`, `disabled` (keep the config, turn the server off), and an `oauth` object as declared. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
   - A `type: ws` spec emits only a coverage note: Qoder's ws transport takes a TCP host and port the spec cannot express.
   - The file may be JSONC ([settings](https://docs.qoder.com/cli/settings)). `sync` keeps the keys but drops comments and trailing commas, with a warning.
-- **Settings**: the shared default model maps to `model.name`; `permissions.allow`, `permissions.deny`, and `permissions.ask` map directly. An `x-qoder` settings block merges in too.
+- **Settings**: the shared default model maps to `model.name`. `permissions.allow`, `permissions.deny`, and `permissions.ask` map directly. An `x-qoder` settings block merges in too.
 - **Hooks**: merge under `hooks` in the same write ([Qoder hooks](https://docs.qoder.com/cli/hooks)), in the nested shape Claude Code, Codex, and OpenHands share.
-  - 27 PascalCase events ([hooks reference](https://docs.qoder.com/cli/hooks-reference)): `SessionStart`, `SessionEnd`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, `PermissionDenied`, `Stop`, `StopFailure`, `SubagentStart`, `SubagentStop`, `PreCompact`, `PostCompact`, `Notification`, `InstructionsLoaded`, `ConfigChange`, `CwdChanged`, `FileChanged`, `WorktreeCreate`, `WorktreeRemove`, `Elicitation`, `ElicitationResult`, `TaskCreated`, `TaskCompleted`, `TeammateIdle`, `Setup`. `event:` passes through verbatim; listed events sort in vendor order, ahead of unlisted ones.
+  - 27 PascalCase events ([hooks reference](https://docs.qoder.com/cli/hooks-reference)): `SessionStart`, `SessionEnd`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, `PermissionDenied`, `Stop`, `StopFailure`, `SubagentStart`, `SubagentStop`, `PreCompact`, `PostCompact`, `Notification`, `InstructionsLoaded`, `ConfigChange`, `CwdChanged`, `FileChanged`, `WorktreeCreate`, `WorktreeRemove`, `Elicitation`, `ElicitationResult`, `TaskCreated`, `TaskCompleted`, `TeammateIdle`, `Setup`. `event:` passes through verbatim. Listed events sort in vendor order, ahead of unlisted ones.
   - `PreToolUse`/`PostToolUse` matchers use Claude Code's tool names (`Bash`, `Write`, `Edit`, `Read`, `Glob`, `Grep`, `mcp__server__tool`), so Claude-authored matchers work unchanged.
-  - Command entries carry `command`, `type: command`, optional `args`, `timeout` (seconds, default 600), `statusMessage`, `async`, `asyncRewake`, `shell` (`bash` or `powershell`), `if` (a permission-rule filter, e.g. `Bash(git *)`), and `once`.
+  - Command entries carry `command`, `type: command`, optional `args`, `timeout` (seconds, default 600), `statusMessage`, `async`, `asyncRewake`, `shell` (`bash` or `powershell`), `if` (a permission-rule filter, for example `Bash(git *)`), and `once`.
   - `args` switches to exec form: `command` is one executable, each `args` element one literal argument, with no shell. Qoder then ignores `shell`; sync still writes both, with a note.
-  - `once` has no effect, since Qoder honors it only for session-scoped hooks ([Hooks](https://docs.qoder.com/cli/hooks), [Subagent](https://docs.qoder.com/cli/subagent)) and portable hooks land in settings; `sync` notes it.
-  - HTTP handlers carry `url`, optional `headers`, and `allowedEnvVars`; prompt handlers carry `prompt` and optional `model`. Both keep filters, timeouts in seconds, and matcher groups.
+  - `once` has no effect, and `sync` notes it. Qoder honors it only for session-scoped hooks ([Hooks](https://docs.qoder.com/cli/hooks), [Subagent](https://docs.qoder.com/cli/subagent)), and portable hooks land in settings.
+  - HTTP handlers carry `url`, optional `headers`, and `allowedEnvVars`. Prompt handlers carry `prompt` and optional `model`. Both keep filters, timeouts in seconds, and matcher groups.
   - Other handler types get a coverage note. Qoder's `env`, `rewakeMessage`, `rewakeSummary`, and agent handlers are not emitted.
 
 {% <details summary="Unmanaged AGENTS.md"> %}
-Listing `AGENTS.md` under `sync.unmanaged` makes every rule keep its file, but sync then stops writing `AGENTS.md`, so other readers such as codex lose rule changes.
+Listing `AGENTS.md` under `sync.unmanaged` makes every rule keep its file. But sync then stops writing `AGENTS.md`, so other readers such as codex miss rule changes.
 {% </details> %}
 
 {% <details summary="Leftover root .mcp.json"> %}
-Older versions wrote MCP servers to the root `.mcp.json` shared with Claude Code; the tools' per-server fields diverged, so Qoder moved to `.qoder/settings.json`, which Claude Code never reads. A leftover `.mcp.json` still loads and wins over `.qoder/settings.json` for a same-named server. Sync cannot remove it (no provenance header, and it may belong to Claude Code); delete it by hand in a Qoder-only project.
+Older versions wrote MCP servers to the root `.mcp.json` shared with Claude Code. The two tools' per-server fields diverged, so Qoder moved to `.qoder/settings.json`, which Claude Code never reads. A leftover `.mcp.json` still loads and wins over `.qoder/settings.json` for a server with the same name. Sync cannot remove it: it has no provenance header and may belong to Claude Code. Delete it by hand in a Qoder-only project.
 {% </details> %}
 
 ## Config keys
@@ -65,7 +65,7 @@ Older versions wrote MCP servers to the root `.mcp.json` shared with Claude Code
 
 ## Rule activation
 
-Qoder rules keep `description`, `alwaysApply`, `trigger`, `glob`, and `paths` frontmatter. Native `trigger`, `glob`, and `paths` import under `x-qoder`; `description` and `alwaysApply` use the existing rule metadata. Scalar and list selectors keep their shape. Native fields under `x-qoder` override top-level metadata.
+Qoder rules keep `description`, `alwaysApply`, `trigger`, `glob`, and `paths` frontmatter. Native `trigger`, `glob`, and `paths` import under `x-qoder`. `description` and `alwaysApply` use the existing rule metadata. Scalar and list selectors keep their shape. Native fields under `x-qoder` override top-level metadata.
 
 [Qoder's rule activation modes](https://docs.qoder.com/cli/memory#rule-activation-methods):
 
@@ -92,15 +92,15 @@ Run release steps only on request.
 
 ## Subagent memory
 
-The portable `memory` field reaches `.qoder/agents/<name>.md` unchanged. Qoder's [subagent reference](https://docs.qoder.com/cli/subagent) accepts the same scopes: `user`, `project`, `local`. Only Markdown carries it; the `--agents` JSON schema has no `memory`.
+The portable `memory` field reaches `.qoder/agents/<name>.md` unchanged. Qoder's [subagent reference](https://docs.qoder.com/cli/subagent) accepts the same scopes: `user`, `project`, `local`. Only Markdown carries it. The `--agents` JSON schema has no `memory`.
 
-It works only with top-level `autoMemoryEnabled` on in [settings](https://docs.qoder.com/cli/settings-reference) (default `false`). Documented, not runtime-verified: only Claude Code is confirmed to act on `memory`.
+It works only when top-level `autoMemoryEnabled` is on in [settings](https://docs.qoder.com/cli/settings-reference) (default `false`). This is documented but not tested at runtime. Only Claude Code is confirmed to act on `memory`.
 
 ## Auto memory
 
-Qoder's own store, separate from the field above ([Qoder memory](https://docs.qoder.com/cli/memory)), lives at `~/.qoder/projects/<project>/memory/` (project) and `~/.qoder/memory/` (user). Each is a `MEMORY.md` index plus one file per topic. `/memory` shows them; `/memory manage` views, edits, or deletes a topic. A session loads the first 200 lines or about 25KB of each active `MEMORY.md`.
+Qoder's own store is separate from the field above ([Qoder memory](https://docs.qoder.com/cli/memory)). It lives at `~/.qoder/projects/<project>/memory/` (project) and `~/.qoder/memory/` (user). Each is a `MEMORY.md` index plus one file per topic. `/memory` shows them. `/memory manage` views, edits, or deletes a topic. A session loads the first 200 lines or about 25KB of each active `MEMORY.md`.
 
-Off by default; agnostic-ai never reads or writes it. See [Memory and local state](@/docs/target-behavior.md#memory-and-local-state).
+It is off by default. agnostic-ai never reads or writes it. See [Memory and local state](@/docs/target-behavior.md#memory-and-local-state).
 
 ## Import
 
@@ -121,4 +121,4 @@ Advisory. This target has no native edit guard that sync writes, so sync prints 
    - The rules panel lists every `.qoder/rules/*.md` with no parse warnings, and the agent picker every `.qoder/agents/*.md`.
    - Each `.qoder/skills/<name>/` loads as a skill, and each `.qoder/commands/<name>.md` runs from `/`.
    - The MCP picker shows each `mcpServers.<name>` connected (project servers need approval on first use).
-   - A hook fires on its event (e.g. a `PreToolUse` hook prints or blocks first).
+   - A hook fires on its event (for example a `PreToolUse` hook prints or blocks first).
