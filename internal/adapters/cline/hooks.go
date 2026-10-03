@@ -28,6 +28,15 @@ const defaultHooksDir = ".clinerules/hooks"
 // line below it, where header.Leads looks.
 const hookShebang = "#!/usr/bin/env bash\n"
 
+// legacyHooksDir and legacyHookExt are where releases before #1723 wrote
+// each event script. The SDK runtime would run a leftover beside the new
+// script, so a managed one is swept even when no ledger lists it, as in
+// a fresh clone.
+const (
+	legacyHooksDir = ".cline/hooks"
+	legacyHookExt  = ".sh"
+)
+
 // clineHookEvents lists the ten file names Cline discovers, in the order
 // `HookConfigFileName` declares them (hook-file-config.ts:17-28).
 // Discovery is by file name alone: `toHookConfigFileName` strips the
@@ -77,6 +86,11 @@ var clineInertHookEvents = map[string]bool{"PreCompact": true}
 // `.cline/hooks/` as well, so a hook imported from claude or codex still
 // has its script on disk when it syncs out to cline.
 func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRun bool) error {
+	for _, event := range clineHookEvents {
+		if err := sess.RemoveGenerated(filepath.Join(legacyHooksDir, event+legacyHookExt), dryRun); err != nil {
+			return err
+		}
+	}
 	dir := emit.OutputHooksDir(cfg, target, defaultHooksDir)
 	commands := map[string][]string{}
 	var order []string

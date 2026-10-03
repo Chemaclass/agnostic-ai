@@ -294,3 +294,38 @@ func TestEmit_Workflows_RecommendedPathIsQuiet(t *testing.T) {
 		t.Errorf("expected no surface note at %s, got: %q", recommendedWorkflowsDir, buf.String())
 	}
 }
+
+// A managed `.cline/hooks/<Event>.sh` from before #1723 goes even with no
+// ledger to list it, since the Cline CLI would run it beside the new
+// script. A hand-written one and a helper script stay.
+func TestEmit_Hook_SweepsLegacyEventScriptsWithoutALedger(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	write := func(rel, body string) {
+		t.Helper()
+		path := filepath.Join(dir, rel)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(".cline/hooks/PreToolUse.sh", header.Line(header.FormatShell)+"set -e\n./old.sh\n")
+	write(".cline/hooks/PostToolUse.sh", "echo mine\n")
+	write(".cline/hooks/fmt.sh", header.Line(header.FormatShell)+"gofmt -w .\n")
+
+	entries := []spec.Entry{
+		{Kind: spec.KindHook, Name: "h", Meta: map[string]any{"event": "PreToolUse", "command": "echo hi"}},
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".cline/hooks/PreToolUse.sh")); !os.IsNotExist(err) {
+		t.Errorf("a managed legacy event script must go; err=%v", err)
+	}
+	for _, kept := range []string{".cline/hooks/PostToolUse.sh", ".cline/hooks/fmt.sh", ".clinerules/hooks/PreToolUse"} {
+		if _, err := os.Stat(filepath.Join(dir, kept)); err != nil {
+			t.Errorf("%s must stay: %v", kept, err)
+		}
+	}
+}
