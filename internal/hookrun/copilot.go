@@ -475,7 +475,7 @@ func copilotAssumptions(goos string, h Handler) ([]Assumption, string) {
 		out = append(out, Assumption{Item: "shell", Value: "sh -c", Reason: "Copilot does not document the interpreter behind its bash field"})
 	}
 	if copilotRelativeExec(h) {
-		out = append(out, Assumption{Item: "exec path", Value: "relative to the project root", Reason: "Copilot does not document what a relative exec path resolves against when cwd is set"})
+		out = append(out, Assumption{Item: "exec path", Value: "relative to cwd", Reason: "Copilot does not document what a relative exec path resolves against when cwd is set"})
 	}
 	if h.Cwd == "" {
 		out = append(out, Assumption{Item: "working directory", Value: "project root", Reason: "Copilot does not document where a hook without cwd runs"})
@@ -484,17 +484,16 @@ func copilotAssumptions(goos string, h Handler) ([]Assumption, string) {
 }
 
 // copilotRelativeExec reports an exec path that a cwd could change: a
-// relative path with a directory in it, as sync writes from the project
-// root.
+// relative path with a directory in it, as sync writes relative to cwd.
 func copilotRelativeExec(h Handler) bool {
 	return h.Exec && h.Cwd != "" && !filepath.IsAbs(h.Command) && strings.ContainsAny(h.Command, `/\`)
 }
 
-// CopilotExec resolves a relative exec path against the project root, the
-// assumed reading, before the process starts in cwd.
+// CopilotExec resolves a relative exec path against cwd, the assumed
+// reading and the one sync writes for, before the process starts there.
 func CopilotExec(root string, h Handler) Handler {
 	if copilotRelativeExec(h) {
-		h.Command = filepath.Join(root, h.Command)
+		h.Command = filepath.Join(CopilotDir(root, h), h.Command)
 	}
 	return h
 }

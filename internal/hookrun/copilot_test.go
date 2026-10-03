@@ -134,9 +134,9 @@ func TestCopilotAssumptions_NameEachUndocumentedItem(t *testing.T) {
 	}
 	assumed, _ = Assumptions("copilot", "linux", Handler{Command: ".github/hooks/scripts/guard.sh", Exec: true, Cwd: "scripts"})
 	if len(assumed) != 1 || assumed[0].Item != "exec path" {
-		t.Errorf("a relative exec path under cwd is assumed to resolve from the root: %+v", assumed)
+		t.Errorf("a relative exec path under cwd is assumed to resolve from cwd: %+v", assumed)
 	}
-	if h := CopilotExec("/project", Handler{Command: "bin/guard", Exec: true, Cwd: "scripts"}); h.Command != filepath.Join("/project", "bin/guard") {
+	if h := CopilotExec("/project", Handler{Command: "bin/guard", Exec: true, Cwd: "scripts"}); h.Command != filepath.Join("/project", "scripts", "bin/guard") {
 		t.Errorf("exec path = %s", h.Command)
 	}
 	for name, h := range map[string]Handler{
