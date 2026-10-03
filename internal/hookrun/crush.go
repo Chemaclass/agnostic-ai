@@ -522,7 +522,9 @@ func RunCrush(command, dir string, env []string, stdin []byte, timeout time.Dura
 	// process groups die on their own. hook run exits right after, so it
 	// waits for them here instead: the run can return up to Crush's
 	// interrupt-to-kill delay later than Crush would, but leaves nothing
-	// running.
+	// running. The interpreter is canceled first, since it does not wait
+	// for background jobs, and reap refuses any program they start later.
+	cancel()
 	shell.groups.reap()
 	shell.mu.Lock()
 	r.FromPath = slices.Clone(shell.fromPath)

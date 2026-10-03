@@ -81,3 +81,28 @@ func TestRunCrush_LeavesNoProcessBehind(t *testing.T) {
 		}
 	}
 }
+
+// The interpreter does not wait for background jobs, so one can start a
+// program while hook run is ending the others; that program must not
+// escape.
+func TestRunCrush_BackgroundJobCannotStartAfterCleanupBegins(t *testing.T) {
+	dir := t.TempDir()
+	stuck := `sh -c 'trap "" INT; echo $$ >> pids; exec sleep 30'`
+	command := stuck + " & (sleep 0.2; " + stuck + ") & sleep 0.1"
+	RunCrush(command, dir, os.Environ(), nil, 5*time.Second, runtime.GOOS)
+	time.Sleep(500 * time.Millisecond)
+	raw, err := os.ReadFile(filepath.Join(dir, "pids"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, field := range strings.Fields(string(raw)) {
+		pid, err := strconv.Atoi(field)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := syscall.Kill(pid, 0); !errors.Is(err, syscall.ESRCH) {
+			_ = syscall.Kill(pid, syscall.SIGKILL)
+			t.Errorf("process %d survived the run: %v", pid, err)
+		}
+	}
+}

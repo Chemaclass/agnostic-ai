@@ -33,10 +33,9 @@ func crushIsolate(cmd *exec.Cmd) {
 // shebang dispatch does (dispatch.go:191-202).
 func crushStart(ctx context.Context, cmd *exec.Cmd, groups *crushGroups, interrupt bool) error {
 	crushIsolate(cmd)
-	if err := cmd.Start(); err != nil {
+	if err := groups.start(cmd); err != nil {
 		return err
 	}
-	groups.add(cmd.Process.Pid)
 	if interrupt {
 		stop := context.AfterFunc(ctx, func() {
 			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGINT)
@@ -50,32 +49,57 @@ func crushStart(ctx context.Context, cmd *exec.Cmd, groups *crushGroups, interru
 
 // crushGroups are the process groups one hook run started.
 type crushGroups struct {
-	mu   sync.Mutex
-	pids []int
+	mu     sync.Mutex
+	closed bool
+	pids   []int
 }
 
-func (g *crushGroups) add(pid int) {
+// errCrushReaped refuses a program a background job starts once the run
+// is cleaning up.
+var errCrushReaped = errors.New("hook run ended; not starting more programs")
+
+// start starts cmd and records its group, or refuses once reap began.
+// Holding the lock across Start leaves no window for a group to escape.
+func (g *crushGroups) start(cmd *exec.Cmd) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	g.pids = append(g.pids, pid)
+	if g.closed {
+		return errCrushReaped
+	}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	g.pids = append(g.pids, cmd.Process.Pid)
+	return nil
 }
 
-// reap ends every group still running: SIGINT, up to crushKillDelay for
-// it to exit, then SIGKILL, and a bounded wait for it to go.
+// reap refuses new programs, then ends every recorded group still
+// running: SIGINT, up to crushKillDelay for it to exit, then SIGKILL,
+// until none is left.
 func (g *crushGroups) reap() {
 	g.mu.Lock()
+	g.closed = true
 	pids := g.pids
 	g.mu.Unlock()
-	for _, pid := range pids {
-		if !groupAlive(pid) {
-			continue
+	// A group that outlives SIGKILL is past what hook run can do; stop
+	// after a few passes rather than hang.
+	for range 5 {
+		live := 0
+		for _, pid := range pids {
+			if !groupAlive(pid) {
+				continue
+			}
+			live++
+			_ = syscall.Kill(-pid, syscall.SIGINT)
+			if waitGroupGone(pid, crushKillDelay) {
+				continue
+			}
+			_ = syscall.Kill(-pid, syscall.SIGKILL)
+			waitGroupGone(pid, crushKillDelay)
 		}
-		_ = syscall.Kill(-pid, syscall.SIGINT)
-		if waitGroupGone(pid, crushKillDelay) {
-			continue
+		if live == 0 {
+			return
 		}
-		_ = syscall.Kill(-pid, syscall.SIGKILL)
-		waitGroupGone(pid, crushKillDelay)
 	}
 }
 
