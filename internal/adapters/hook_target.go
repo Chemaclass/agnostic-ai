@@ -41,3 +41,9 @@ func ExecFormCommand(command string, args []string) string {
 
 // ShellQuote quotes s as one POSIX shell word.
 func ShellQuote(s string) string { return emit.ShellQuote(s) }
+
+// UndoDotSlashHookScript drops the ./ sync adds to a synced hook script
+// path, keeping any other ./ the user wrote.
+func UndoDotSlashHookScript(command, target string) string {
+	return emit.UndoDotSlashHookScript(command, target)
+}

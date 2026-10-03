@@ -20,8 +20,6 @@ import (
 // importer does not reach.
 const crushPreToolUseEvent = "PreToolUse"
 
-const crushHooksDir = ".crush/hooks/"
-
 // crushHookEntry mirrors one flat object in crush.json's
 // `hooks.PreToolUse` array: `{"name": ..., "matcher": ..., "command":
 // ..., "timeout": ...}` (schema.json `$defs.HookConfig`; `command` is
@@ -63,11 +61,7 @@ func importCrushHooks(root, dstDir string) (int, error) {
 	count := 0
 	for _, h := range doc.Hooks[crushPreToolUseEvent] {
 		h.Command = adapters.StripHookTargetExport(h.Command, "crush")
-		// Sync writes a copied script as ./.crush/hooks/<name> so Crush
-		// runs it as a script; the spec never carried that ./.
-		if strings.HasPrefix(h.Command, "./"+crushHooksDir) {
-			h.Command = strings.TrimPrefix(h.Command, "./")
-		}
+		h.Command = adapters.UndoDotSlashHookScript(h.Command, "crush")
 		if h.Command == "" {
 			continue
 		}

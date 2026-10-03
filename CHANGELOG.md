@@ -40,7 +40,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Crush
 
-- Hook commands that run a relative script path start with `./`, so Crush runs the script and a guard hook blocks on every OS (#1695).
+- Hook commands that run a synced script start with `./`, so Crush runs the script and a guard hook blocks on every OS (#1695, #1698).
 
 ### Site
 

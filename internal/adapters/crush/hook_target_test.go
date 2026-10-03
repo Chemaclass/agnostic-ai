@@ -45,30 +45,26 @@ func TestEmit_HookCommandsExportTheTarget(t *testing.T) {
 }
 
 // Crush runs a command as a script only when it starts with ./, ../, or
-// /, so a synced or relative script path gains ./ and everything else
-// stays as written (#1695).
-func TestScriptPathCommand(t *testing.T) {
+// /, so a synced script path gains ./. A user's own path stays as
+// written: on Windows ./bin/guard would skip the PATHEXT lookup (#1695).
+func TestDotSlashHookScript(t *testing.T) {
 	cases := map[string]string{
-		".crush/hooks/guard.sh":         "./.crush/hooks/guard.sh",
-		".crush/hooks/guard.sh --fast":  "./.crush/hooks/guard.sh --fast",
-		"scripts/lint.sh":               "./scripts/lint.sh",
-		"./hooks/guard.sh":              "./hooks/guard.sh",
-		"../hooks/guard.sh":             "../hooks/guard.sh",
-		"/usr/local/bin/guard":          "/usr/local/bin/guard",
-		"~/bin/guard.sh":                "~/bin/guard.sh",
-		"$HOME/bin/guard.sh":            "$HOME/bin/guard.sh",
-		"bash .crush/hooks/guard.sh":    "bash .crush/hooks/guard.sh",
-		"npx foo":                       "npx foo",
-		"guard.sh":                      "guard.sh",
-		"FOO=a/b .crush/hooks/guard.sh": "FOO=a/b .crush/hooks/guard.sh",
-		`"dir with space/guard.sh"`:     `"dir with space/guard.sh"`,
-		"a/b;rm -rf x":                  "a/b;rm -rf x",
-		"a/$(x)":                        "a/$(x)",
-		"":                              "",
+		".crush/hooks/guard.sh":        "./.crush/hooks/guard.sh",
+		".crush/hooks/guard.sh --fast": "./.crush/hooks/guard.sh --fast",
+		"bin/guard":                    "bin/guard",
+		"scripts/lint.sh":              "scripts/lint.sh",
+		"./.crush/hooks/guard.sh":      "./.crush/hooks/guard.sh",
+		"bash .crush/hooks/guard.sh":   "bash .crush/hooks/guard.sh",
+		"npx foo":                      "npx foo",
+		"FOO=1 .crush/hooks/guard.sh":  "FOO=1 .crush/hooks/guard.sh",
+		".crush/hooks/guard.sh&&true":  ".crush/hooks/guard.sh&&true",
+		".crush/hooks/prüfen.sh":       ".crush/hooks/prüfen.sh",
+		`".crush/hooks/my guard.sh"`:   `".crush/hooks/my guard.sh"`,
+		"":                             "",
 	}
 	for in, want := range cases {
-		if got := scriptPathCommand(in); got != want {
-			t.Errorf("scriptPathCommand(%q) = %q, want %q", in, got, want)
+		if got := emit.DotSlashHookScript(in, target); got != want {
+			t.Errorf("DotSlashHookScript(%q) = %q, want %q", in, got, want)
 		}
 	}
 }
