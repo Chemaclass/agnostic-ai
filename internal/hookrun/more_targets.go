@@ -27,6 +27,7 @@ var otherBuilders = map[string]builder{
 	"openhands": buildOpenHands,
 	"goose":     buildGoose,
 	"augment":   buildAugment,
+	"cursor":    buildCursor,
 }
 
 func absPath(root, path string) string {

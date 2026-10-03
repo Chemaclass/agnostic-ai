@@ -6,6 +6,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/augment"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/cursor"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/goose"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/openhands"
@@ -32,6 +33,13 @@ func HookHandlers(cfg *config.Config, target string, h spec.Entry) ([]hookrun.Ha
 		for _, c := range gemini.HookCommands(h) {
 			out = append(out, hookrun.Handler{Command: c.Command, Env: c.Env, Timeout: c.Timeout})
 		}
+	case "cursor":
+		doc, err := cursor.HookDoc(h)
+		if err != nil {
+			return nil, err
+		}
+		event, _ := h.Meta["event"].(string)
+		return hookrun.CursorHandlers(doc, event, cursor.HookTargetCommand)
 	default:
 		doc, err := hookDoc(cfg, target, h)
 		if err != nil {
@@ -76,6 +84,8 @@ func HookFile(cfg *config.Config, target string) string {
 		return goose.HooksFilePath(cfg)
 	case "augment":
 		return augment.SettingsFilePath(cfg)
+	case "cursor":
+		return cursor.HooksFilePath(cfg)
 	}
 	return ""
 }

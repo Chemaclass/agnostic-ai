@@ -61,6 +61,9 @@ type HandlerDrift struct {
 // whether a native matcher can be what sync wrote for the spec's, since
 // Codex joins the matchers of specs that share a command.
 func Drift(target string, body []byte, event, matcher, goos string, handlers []Handler, covers func(native, spec string) bool) ([]HandlerDrift, error) {
+	if target == "cursor" {
+		return cursorDrift(body, event, matcher, handlers)
+	}
 	var doc struct {
 		Hooks map[string][]nativeGroup `json:"hooks"`
 	}
