@@ -2,6 +2,8 @@ package hookrun
 
 import (
 	"encoding/json"
+	"os"
+	"os/exec"
 	"testing"
 	"time"
 )
@@ -81,5 +83,32 @@ func TestAssumptions_FactoryAssumesTheShellAndCwd(t *testing.T) {
 	}
 	if DefaultTimeout("factory", "PreToolUse") != 60*time.Second {
 		t.Error("Factory's documented default is 60 seconds")
+	}
+}
+
+func TestExpandCommand_FactoryRootNeverRunsAsShellCode(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("no sh")
+	}
+	for _, root := range []string{"/tmp/a b", "/tmp/it's", "/tmp/$(printf INJECTED)", "/tmp/`printf INJECTED`"} {
+		for command, want := range map[string]string{
+			`printf %s "$FACTORY_PROJECT_DIR"`:     root,
+			`printf %s ${FACTORY_PROJECT_DIR}/x`:   root + "/x",
+			`printf %s "${FACTORY_PROJECT_DIR}/x"`: root + "/x",
+			`printf %s '$FACTORY_PROJECT_DIR'`:     "$FACTORY_PROJECT_DIR",
+			`printf %s \$FACTORY_PROJECT_DIR`:      "$FACTORY_PROJECT_DIR",
+			`printf %s $FACTORY_PROJECT_DIRS`:      "",
+		} {
+			expanded := ExpandCommand("factory", "linux", command, root)
+			cmd := exec.Command("sh", "-c", expanded)
+			cmd.Env = []string{"PATH=" + os.Getenv("PATH")}
+			out, err := cmd.Output()
+			if err != nil || string(out) != want {
+				t.Errorf("root %q: %s ran as %s and printed %q, want %q (%v)", root, command, expanded, out, want, err)
+			}
+		}
+	}
+	if _, reason := Assumptions("factory", "linux", Handler{Command: `.factory/hooks/guard.sh '$FACTORY_PROJECT_DIR'`}); reason != "" {
+		t.Errorf("a single-quoted reference is a literal word and runs as written: %s", reason)
 	}
 }

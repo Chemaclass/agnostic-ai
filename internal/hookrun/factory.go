@@ -33,20 +33,73 @@ const factoryDocs = "https://docs.factory.com/cli/configuration/hooks-guide"
 
 const factoryDefaultTimeout = 60 * time.Second
 
-// factoryRootRefs are the forms of the project root reference the hooks
-// guide writes, quoted forms first so the quotes go with them.
-var factoryRootRefs = []string{`"$FACTORY_PROJECT_DIR"`, `"${FACTORY_PROJECT_DIR}"`, `${FACTORY_PROJECT_DIR}`, `$FACTORY_PROJECT_DIR`}
+const factoryRootVar = "FACTORY_PROJECT_DIR"
 
-// expandFactoryRoot replaces each project root reference with root, so
-// a command written as the guide says runs as a script path: root is
+// expandFactoryRoot replaces each project root reference the shell would
+// expand, `$FACTORY_PROJECT_DIR` or `${FACTORY_PROJECT_DIR}`, with root,
+// so a command written as the guide says runs as a script path. root is
 // the quoted project root when the hook runs, and a plain word when hook
-// run checks the command is shell-neutral.
+// run checks the command is shell-neutral. A reference inside single
+// quotes or after a backslash is literal to the shell and stays as
+// written; one inside double quotes gets the quotes closed around root.
 func expandFactoryRoot(command, root string) string {
-	pairs := make([]string, 0, 2*len(factoryRootRefs))
-	for _, ref := range factoryRootRefs {
-		pairs = append(pairs, ref, root)
+	var out strings.Builder
+	var quote byte
+	for i := 0; i < len(command); {
+		c := command[i]
+		switch {
+		case quote == '\'':
+			if c == '\'' {
+				quote = 0
+			}
+		case c == '\\' && i+1 < len(command):
+			out.WriteString(command[i : i+2])
+			i += 2
+			continue
+		case c == '\'' && quote == 0:
+			quote = c
+		case c == '"' && quote == 0:
+			// The guide's own form, "$FACTORY_PROJECT_DIR", is the root word.
+			if n := factoryRootRef(command[i+1:]); n > 0 && i+1+n < len(command) && command[i+1+n] == '"' {
+				out.WriteString(root)
+				i += n + 2
+				continue
+			}
+			quote = c
+		case c == '"':
+			quote = 0
+		case c == '$':
+			if n := factoryRootRef(command[i:]); n > 0 {
+				if quote == '"' {
+					out.WriteString(`"` + root + `"`)
+				} else {
+					out.WriteString(root)
+				}
+				i += n
+				continue
+			}
+		}
+		out.WriteByte(c)
+		i++
 	}
-	return strings.NewReplacer(pairs...).Replace(command)
+	return out.String()
+}
+
+// factoryRootRef is the length of the root reference s starts with, or 0
+// when it starts with none, such as $FACTORY_PROJECT_DIRS.
+func factoryRootRef(s string) int {
+	if braced := "${" + factoryRootVar + "}"; strings.HasPrefix(s, braced) {
+		return len(braced)
+	}
+	plain := "$" + factoryRootVar
+	if !strings.HasPrefix(s, plain) || len(s) > len(plain) && rootVariableByte(s[len(plain)]) {
+		return 0
+	}
+	return len(plain)
+}
+
+func rootVariableByte(c byte) bool {
+	return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_'
 }
 
 // factorySources are SessionStart's documented sources: "`source`
