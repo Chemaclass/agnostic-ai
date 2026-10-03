@@ -193,6 +193,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "A Kiro agent sets `x-kiro.resources` without `file://AGENTS.md`, and the always-on rules reach Kiro only through the `## Rules` block of `AGENTS.md`. Custom agents inherit `AGENTS.md` by default, but with Kiro's `chat.disableInheritingDefaultResources` setting on, that agent loads none of those rules.",
 		Fix:      "Add `file://AGENTS.md` to the agent's `x-kiro.resources`, or ignore the warning if the setting stays off.",
 	},
+	"LINT030": {
+		Severity: lintWarn,
+		Title:    "Gemini hook variable inside single quotes",
+		Cause:    "A hook that emits to Gemini CLI has a command with `$GEMINI_PROJECT_DIR`, `$GEMINI_CWD`, `$GEMINI_PLANS_DIR`, `$GEMINI_SESSION_ID`, or `$CLAUDE_PROJECT_DIR` between single quotes. Gemini replaces each bare `$NAME` with a single-quoted value before the shell runs, whatever quoting surrounds it, so the value closes the quotes and a path with shell syntax in it runs as code. The `${NAME}` form is not replaced. See https://github.com/google-gemini/gemini-cli/blob/fb972b2f87fe7d5b06d37eac711490162d98de2c/packages/core/src/hooks/hookRunner.ts#L526-L531.",
+		Fix:      "Drop the single quotes around the variable, or write it in double quotes, or use the `${NAME}` form.",
+	},
 }
 
 type explainLintCodeOutput struct {
