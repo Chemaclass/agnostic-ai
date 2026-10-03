@@ -534,7 +534,9 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 		summaryf("%s %s: %s (%s); the rule loads in every session\n", bang(), filepath.ToSlash(f.Path), f.Message, f.Code)
 	}
 	for _, c := range globalNameClashes(b, effectiveTargets) {
-		summaryf("%s %s\n", bang(), c)
+		if c.silencedBy(cfg.Sync) == "" {
+			summaryf("%s %s\n", bang(), c)
+		}
 	}
 	shared, err := planSharedSkills(cfg, b, effectiveTargets)
 	if err != nil {

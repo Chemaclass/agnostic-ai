@@ -122,6 +122,57 @@ func TestDoctor_ReportsAGlobalNameClashWithoutFailing(t *testing.T) {
 	}
 }
 
+// allowedClashProject shares gh-issue and gh-pr with the home, and the
+// local config allows gh-issue under a name Claude folds to the same.
+func allowedClashProject(t *testing.T) {
+	t.Helper()
+	globalNameClashProject(t, "claude",
+		map[string]string{
+			"skills/gh-issue/SKILL.md": otherSkill("gh-issue"),
+			"skills/gh-pr/SKILL.md":    otherSkill("gh-pr"),
+		},
+		map[string]string{
+			"skills/gh-issue/SKILL.md": skillSpec("gh-issue", ""),
+			"skills/gh-pr/SKILL.md":    skillSpec("gh-pr", ""),
+		})
+	mustWriteFile(t, "agnostic-ai.local.yaml", "sync:\n  allow-global-names: [GH-Issue]\n")
+}
+
+func TestSync_SkipsTheWarningForAnAllowedGlobalName(t *testing.T) {
+	allowedClashProject(t)
+	buf := captureLog(t)
+
+	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
+		t.Fatal(err)
+	}
+
+	if strings.Contains(buf.String(), `skill "gh-issue" also exists in`) {
+		t.Errorf("sync.allow-global-names lists gh-issue, so sync should not warn about it:\n%s", buf.String())
+	}
+	if !strings.Contains(buf.String(), `! .agnostic-ai/skills/gh-pr/SKILL.md: skill "gh-pr" also exists in`) {
+		t.Errorf("gh-pr is not allowed, so sync should still warn about it:\n%s", buf.String())
+	}
+}
+
+func TestDoctor_MarksAnAllowedGlobalNameClash(t *testing.T) {
+	allowedClashProject(t)
+	syncProject(t)
+
+	out, err := runDoctor(t)
+
+	if err != nil {
+		t.Fatalf("a shared name must not fail doctor: %v\n%s", err, out)
+	}
+	want := "  ~ .agnostic-ai/skills/gh-issue/SKILL.md: skill \"gh-issue\" also exists in ~/source/skills/gh-issue/SKILL.md" +
+		"; claude loads the global one, which exists only on this machine; allowed by sync.allow-global-names\n"
+	if !strings.Contains(out, want) {
+		t.Errorf("doctor should list the allowed clash, marked as allowed:\nwant %q\n%s", want, out)
+	}
+	if !strings.Contains(out, `  ! .agnostic-ai/skills/gh-pr/SKILL.md: skill "gh-pr" also exists in`) {
+		t.Errorf("doctor should still warn about the clash nothing allows:\n%s", out)
+	}
+}
+
 func clashesInWorkingDir(t *testing.T) []globalNameClash {
 	t.Helper()
 	cfg, b, err := loadProject(".")

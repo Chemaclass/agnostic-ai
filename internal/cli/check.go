@@ -667,7 +667,7 @@ func newDoctorCmd() *cobra.Command {
 			unmanaged := reportUnmanagedConfig(cmd, ".", cfg)
 			reportUserOwned(cmd, cfg)
 			reportLegacyDefaultInstructions(cmd)
-			reportGlobalNameClashes(cmd, scope.bundle, cfg.Targets)
+			reportGlobalNameClashes(cmd, scope.bundle, cfg)
 
 			// 4. Drift
 			cmd.Println()
