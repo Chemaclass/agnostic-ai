@@ -175,6 +175,7 @@ func (b *lockedBuffer) String() string {
 // crushShell runs hook commands with Crush's handler stack and records
 // each Go program of Crush's that it had to take from PATH.
 type crushShell struct {
+	groups    crushGroups
 	goos      string
 	coreUtils bool
 	mu        sync.Mutex
@@ -198,7 +199,7 @@ func (s *crushShell) runner(dir string, env expand.Environ, stdin io.Reader, std
 		interp.ExecHandlers(s.builtins, s.scriptDispatch, s.coreUtilsFromPath),
 	}
 	if runtime.GOOS != "windows" {
-		opts = append(opts, interp.ExecHandlers(func(interp.ExecHandlerFunc) interp.ExecHandlerFunc { return crushExec }))
+		opts = append(opts, interp.ExecHandlers(func(interp.ExecHandlerFunc) interp.ExecHandlerFunc { return s.exec }))
 	}
 	if len(params) > 0 {
 		opts = append(opts, interp.Params(append([]string{"--"}, params...)...))
@@ -227,11 +228,11 @@ func (s *crushShell) coreUtilsFromPath(next interp.ExecHandlerFunc) interp.ExecH
 	}
 }
 
-// crushExec starts a program as shell/exec_unix.go:44-108 does. Unlike
+// exec starts a program as shell/exec_unix.go:44-108 does. Unlike
 // mvdan's default handler, which Crush keeps on Windows
 // (exec_windows.go:20-23), it does not run a file the kernel cannot
 // execute as a shell script: that fails, and the hook reads as exit 1.
-func crushExec(ctx context.Context, args []string) error {
+func (s *crushShell) exec(ctx context.Context, args []string) error {
 	hc := interp.HandlerCtx(ctx)
 	path, err := interp.LookPathDir(hc.Dir, hc.Env, args[0])
 	if err != nil {
@@ -241,7 +242,7 @@ func crushExec(ctx context.Context, args []string) error {
 	cmd := &exec.Cmd{Path: path}
 	cmd.Args, cmd.Dir, cmd.Env = args, hc.Dir, exportedEnv(hc.Env)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = hc.Stdin, hc.Stdout, hc.Stderr
-	err = crushStart(ctx, cmd)
+	err = crushStart(ctx, cmd, &s.groups, true)
 	var exit *exec.ExitError
 	var notStarted *exec.Error
 	switch {
@@ -378,8 +379,7 @@ func (s *crushShell) shebang(ctx context.Context, path string, head []byte, args
 	}
 	cmd := exec.CommandContext(ctx, program, append(append(extra, path), args[1:]...)...)
 	cmd.Dir, cmd.Env, cmd.Stdin, cmd.Stdout, cmd.Stderr = hc.Dir, exportedEnv(hc.Env), hc.Stdin, hc.Stdout, hc.Stderr
-	crushIsolate(cmd)
-	err = cmd.Run()
+	err = crushStart(ctx, cmd, &s.groups, false)
 	var exit *exec.ExitError
 	if errors.As(err, &exit) {
 		code := exit.ExitCode()
@@ -518,6 +518,12 @@ func RunCrush(command, dir string, env []string, stdin []byte, timeout time.Dura
 		}
 	}
 	r := Result{Stdout: stdout.String(), Stderr: stderr.String(), Elapsed: time.Since(start)}
+	// Crush abandons a hook a second after its timeout and lets its
+	// process groups die on their own. hook run exits right after, so it
+	// waits for them here instead: the run can return up to Crush's
+	// interrupt-to-kill delay later than Crush would, but leaves nothing
+	// running.
+	shell.groups.reap()
 	shell.mu.Lock()
 	r.FromPath = slices.Clone(shell.fromPath)
 	shell.mu.Unlock()

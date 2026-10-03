@@ -3,9 +3,13 @@
 package hookrun
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
+	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -43,5 +47,37 @@ func TestRunCrush_InterruptsBeforeKillingOnTimeout(t *testing.T) {
 	r := RunCrush("hooks/slow.sh", dir, os.Environ(), nil, 200*time.Millisecond, runtime.GOOS)
 	if r.TimedOut || r.Exit != 2 || DecideHandler("crush", "PreToolUse", Handler{}, r) != Block {
 		t.Errorf("result = %+v", r)
+	}
+}
+
+// hook run exits right after a run, so it must end every process the
+// hook started, even one that ignores SIGINT.
+func TestRunCrush_LeavesNoProcessBehind(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "hooks"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	script := "#!/bin/sh\ntrap '' INT\nsleep 30 &\necho $! > child.pid\nwait\n"
+	if err := os.WriteFile(filepath.Join(dir, "hooks", "stuck.sh"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, command := range []string{"hooks/stuck.sh", "./hooks/stuck.sh", `sh -c "trap '' INT; sleep 30 & echo \$! > child.pid; wait"`} {
+		_ = os.Remove(filepath.Join(dir, "child.pid"))
+		r := RunCrush(command, dir, os.Environ(), nil, 200*time.Millisecond, runtime.GOOS)
+		if !r.TimedOut {
+			t.Errorf("%s: result = %+v", command, r)
+		}
+		raw, err := os.ReadFile(filepath.Join(dir, "child.pid"))
+		if err != nil {
+			t.Fatalf("%s: %v", command, err)
+		}
+		pid, err := strconv.Atoi(strings.TrimSpace(string(raw)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := syscall.Kill(pid, 0); !errors.Is(err, syscall.ESRCH) {
+			_ = syscall.Kill(pid, syscall.SIGKILL)
+			t.Errorf("%s: child %d survived the run: %v", command, pid, err)
+		}
 	}
 }
