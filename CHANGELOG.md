@@ -11,6 +11,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `hook run` runs Cursor hooks on an assumed shell and timeout, marked and not counted unless `--include-assumed` (#1566).
 - `hook run` on Cursor runs hooks with exec-form `args`, matches `--payload` subagent and fixed-name events, blocks a permission reply with a wrongly typed field, and leaves `sessionStart` and `sessionEnd` unjudged (#1566).
 - `sync`, `sync --check`, `doctor`, and `revert` with `--json` write file paths with `/` on Windows too (#1680).
+- `explain` (also `--inputs`), `why`, and `status` with JSON output write file paths with `/` on Windows too (#1683).
 - `init` pre-ticks the tools the project uses, else the CLIs on `PATH`, else `claude` and `codex`, and names the picker keys; without a terminal it enables that set instead of 20 targets (#1610).
 - In a terminal, plain `init` offers to import existing tool config, as `init --from all` does (#1610).
 - Polling watch emits edits made during a re-sync and keeps watching roots added by config reload (#1641, #1650).
@@ -30,6 +31,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Gemini CLI
 
+- `lint` warns (LINT030) when a hook command single-quotes `$GEMINI_PROJECT_DIR` or another variable Gemini replaces, which breaks the quoting (#1697).
 - MCP `headers` keep `${NAME}` references and every field keeps `${NAME:-default}`, since Gemini expands all settings strings (#1668).
 - Project import reads `httpUrl` and SSE `url` MCP servers back with their transport, so sync writes them as before (#1665).
 
@@ -41,6 +43,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 #### Crush
 
 - Hook commands that run a synced script start with `./`, so Crush runs the script and a guard hook blocks on every OS (#1695, #1698).
+
+#### Copilot
+
+- `hook run` runs Copilot hooks: exec form, and a script path under an assumed `sh -c`, shown but not counted unless `--include-assumed` (#1566).
 
 ### Site
 
@@ -113,6 +119,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - Agents and skills are written back where they live, such as `.github/agents/<name>.md` or `.agents/skills/`, instead of as duplicates.
 - A rule's `description` goes to `.instructions.md` frontmatter, and a rule with `alwaysApply: false` and no globs stays on demand.
+- A hook with `cwd` gets its script path in `command` or `args` written relative to that directory, so it no longer fails to start; import restores the repository-relative path (#1699).
 
 #### Gemini CLI
 

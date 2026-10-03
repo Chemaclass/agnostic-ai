@@ -183,3 +183,25 @@ func TestFormatSpecCounts_EmptyPointsAtTheFirstSpec(t *testing.T) {
 		t.Errorf("got %q", got)
 	}
 }
+
+func TestStatus_JSONLayerPathsUseSlashes(t *testing.T) {
+	nested := filepath.FromSlash("team/.agnostic-ai") + "/"
+	root := NewRootCmd("test")
+	out := &bytes.Buffer{}
+	root.SetOut(out)
+	err := printStatusJSON(root, &statusResult{Layers: []layerInfo{{Name: "team", Path: nested}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		Layers []struct {
+			Path string `json:"path"`
+		} `json:"layers"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out.String())
+	}
+	if len(got.Layers) != 1 || got.Layers[0].Path != "team/.agnostic-ai/" {
+		t.Errorf("layer path: want team/.agnostic-ai/, got %+v", got.Layers)
+	}
+}
