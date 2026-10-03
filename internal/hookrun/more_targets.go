@@ -22,6 +22,8 @@ import (
 //   - Qoder: see qoder.go.
 //   - Antigravity: see antigravity.go.
 //   - Cline: see cline.go.
+//   - Kiro: see kiro.go.
+//   - Windsurf (Devin CLI): see windsurf.go.
 
 type builder func(event, matcher, root string, in Input) (Payload, error)
 
@@ -36,6 +38,8 @@ var otherBuilders = map[string]builder{
 	"qoder":       buildQoder,
 	"antigravity": buildAntigravity,
 	"cline":       buildCline,
+	"kiro":        buildKiro,
+	"windsurf":    buildWindsurf,
 }
 
 func absPath(root, path string) string {

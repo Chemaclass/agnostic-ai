@@ -10,7 +10,8 @@ import (
 
 // otherDefaultTimeouts are the documented defaults: Trae 30 seconds,
 // OpenHands 60, Goose 30, Augment 60000 milliseconds, Factory 60, Qoder
-// CLI 600, Antigravity 30, and Cline 120 from its source.
+// CLI 600, Antigravity 30, Kiro 60, and Cline 120 from its source. Cursor's and Devin
+// CLI's are assumed.
 var otherDefaultTimeouts = map[string]time.Duration{
 	"trae":        30 * time.Second,
 	"openhands":   60 * time.Second,
@@ -22,6 +23,8 @@ var otherDefaultTimeouts = map[string]time.Duration{
 	"qoder":       qoderDefaultTimeout,
 	"antigravity": antigravityDefaultTimeout,
 	"cline":       clineTimeout,
+	"kiro":        kiroDefaultTimeout,
+	"windsurf":    windsurfAssumedTimeout,
 }
 
 // otherArgv is how each target starts a command: Trae in Bash, or
@@ -42,7 +45,7 @@ func otherArgv(target, goos string, h Handler) ([]string, bool) {
 		return []string{"/bin/sh", "-c", h.Command}, true
 	case "goose":
 		return []string{"sh", "-c", h.Command}, true
-	case "cursor", "factory", "antigravity":
+	case "cursor", "factory", "antigravity", "kiro", "windsurf":
 		// Assumed; see Assumptions.
 		return []string{"sh", "-c", h.Command}, true
 	case "copilot":
@@ -92,6 +95,10 @@ func DecideHandler(target, event string, h Handler, r Result) Decision {
 		return readAntigravity(event, r).decision
 	case "cline":
 		return readCline(event, r).decision
+	case "kiro":
+		return readKiro(event, r).decision
+	case "windsurf":
+		return readWindsurf(event, r).decision
 	}
 	return Decide(target, event, r)
 }
@@ -200,9 +207,18 @@ func PayloadTool(body []byte) string {
 	return call.ToolName
 }
 
+// PayloadPrompt is the prompt a payload carries, "" when it has none.
+func PayloadPrompt(body []byte) string {
+	var doc struct {
+		Prompt string `json:"prompt"`
+	}
+	_ = json.Unmarshal(body, &doc)
+	return doc.Prompt
+}
+
 // HandlersFromDoc reads the command handlers out of the hooks file sync
 // writes for one spec, in the `hooks` shape Trae, OpenHands, Goose, and
-// Augment share, or Factory's top-level one.
+// Augment share, or the top-level one of Factory and Devin CLI.
 func HandlersFromDoc(target string, body []byte) ([]Handler, error) {
 	if len(body) == 0 {
 		return nil, nil

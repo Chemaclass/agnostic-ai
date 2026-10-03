@@ -44,6 +44,8 @@ var assumedContracts = map[string]assumedContract{
 	"qoder":       {name: "Qoder", docs: qoderDocs, assume: qoderAssumptions},
 	"antigravity": {name: "Antigravity", docs: antigravityDocs, cwdReason: "Antigravity does not document the directory a hook command runs in"},
 	"cline":       {name: "Cline", docs: clineSource, assume: clineAssumptions},
+	"kiro":        {name: "Kiro", docs: kiroDocs, assume: kiroAssumptions},
+	"windsurf":    {name: "Devin CLI", docs: windsurfDocs, cwdReason: "Devin CLI does not document the directory a hook command runs in", timeoutReason: "Devin CLI documents no default timeout; set timeout in the spec"},
 }
 
 // cursorAssumedTimeout is the default hook run uses when a Cursor hook

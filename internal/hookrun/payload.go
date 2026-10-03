@@ -17,7 +17,7 @@ import (
 
 // Targets lists the targets Build writes payloads for.
 func Targets() []string {
-	return []string{"claude", "codex", "gemini", "trae", "openhands", "goose", "augment", "cursor", "crush", "copilot", "factory", "qoder", "antigravity", "cline"}
+	return []string{"claude", "codex", "gemini", "trae", "openhands", "goose", "augment", "cursor", "crush", "copilot", "factory", "qoder", "antigravity", "kiro", "windsurf", "cline"}
 }
 
 // Supported reports whether Build writes payloads for target.
@@ -77,6 +77,9 @@ func Build(target, event, matcher, root string, in Input) (Payload, error) {
 	}
 	if target == "cline" && clineInert(event) != "" {
 		return Payload{}, Unbuilt{clineInert(event)}
+	}
+	if target == "kiro" && kiroUndocumented(event) != "" {
+		return Payload{}, Unbuilt{kiroUndocumented(event)}
 	}
 	if in.Raw != nil {
 		return rawPayload(target, event, matcher, in.Raw)
@@ -162,6 +165,12 @@ func rawPayload(target, event, matcher string, body []byte) (Payload, error) {
 	}
 	if target == "cline" {
 		return clineRawPayload(p), nil
+	}
+	if target == "kiro" {
+		return kiroRawPayload(event, matcher, p)
+	}
+	if target == "windsurf" {
+		return windsurfRawPayload(event, matcher, p)
 	}
 	if target == "copilot" {
 		var doc map[string]any

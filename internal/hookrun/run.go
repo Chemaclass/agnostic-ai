@@ -57,6 +57,13 @@ type Handler struct {
 	FailClosed bool
 	// Script is the body of Cline's event script; Command is its path.
 	Script string
+	// Agent is a Kiro agent action, which sends the agent a prompt and
+	// runs no command.
+	Agent bool
+	// Confirm is Kiro's `confirm`: Kiro asks the user before it runs.
+	Confirm bool
+	// Untimed is Kiro's `timeout: 0`, which waits with no limit.
+	Untimed bool
 }
 
 // Argv returns the process target starts for h on goos. Claude Code runs
@@ -195,6 +202,10 @@ func AddsContext(target, event string, r Result) bool {
 		return antigravityAddsContext(event, r)
 	case "cline":
 		return readCline(event, r).context
+	case "kiro":
+		return kiroAddsContext(event, r)
+	case "windsurf":
+		return windsurfAddsContext(event, r)
 	case "cursor":
 		var reply struct {
 			AdditionalContext string `json:"additional_context"`

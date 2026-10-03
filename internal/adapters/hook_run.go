@@ -17,9 +17,11 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/factory"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/goose"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/kiro"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/openhands"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/qoder"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/trae"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/windsurf"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/hookrun"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -94,6 +96,16 @@ func HookHandlers(cfg *config.Config, target string, h spec.Entry) ([]hookrun.Ha
 			return nil, nil
 		}
 		return []hookrun.Handler{{Command: filepath.ToSlash(path), Script: script}}, nil
+	case "kiro":
+		doc, err := kiro.HookDoc(h)
+		if err != nil {
+			return nil, err
+		}
+		handlers, err := hookrun.KiroHandlers(doc)
+		if err != nil {
+			return nil, fmt.Errorf("parse %s: %w", h.Path, err)
+		}
+		return handlers, nil
 	default:
 		doc, err := hookDoc(cfg, target, h)
 		if err != nil {
@@ -105,9 +117,9 @@ func HookHandlers(cfg *config.Config, target string, h spec.Entry) ([]hookrun.Ha
 }
 
 // hookDoc renders the hooks file sync writes for h alone on a target
-// whose file shares the `hooks` block shape, or Factory's, which keys
-// the same groups by event at the top level, or Antigravity's, which
-// keys them by hook definition name.
+// whose file shares the `hooks` block shape, or Factory's and Devin
+// CLI's, which key the same groups by event at the top level, or
+// Antigravity's, which keys them by hook definition name.
 func hookDoc(cfg *config.Config, target string, h spec.Entry) ([]byte, error) {
 	switch target {
 	case "trae":
@@ -122,6 +134,8 @@ func hookDoc(cfg *config.Config, target string, h spec.Entry) ([]byte, error) {
 		return factory.HookDoc(h)
 	case "antigravity":
 		return antigravity.HookDoc(h)
+	case "windsurf":
+		return windsurf.HookDoc(h)
 	}
 	return nil, nil
 }
@@ -151,9 +165,9 @@ func HookScriptSiblings(cfg *config.Config, target string, hooks []spec.Entry, h
 	return names
 }
 
-// HookFile is the native file sync writes target's hooks on event to,
-// for the targets hookrun builds payloads for.
-func HookFile(cfg *config.Config, target, event string) string {
+// HookFile is the native file sync writes the hook spec named hook on
+// event to on target, for the targets hookrun builds payloads for.
+func HookFile(cfg *config.Config, target, hook, event string) string {
 	switch target {
 	case "claude":
 		return claude.SettingsFilePath(cfg)
@@ -183,6 +197,10 @@ func HookFile(cfg *config.Config, target, event string) string {
 		return antigravity.HooksFilePath(cfg)
 	case "cline":
 		return cline.HookScriptPath(cfg, event)
+	case "kiro":
+		return kiro.HookFilePath(cfg, hook)
+	case "windsurf":
+		return windsurf.HooksFilePath(cfg)
 	}
 	return ""
 }
