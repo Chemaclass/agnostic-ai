@@ -8,17 +8,13 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- `hook run` adds Crush, Cursor, Copilot, Factory, Qoder, and Antigravity; assumed results count only with `--include-assumed` (#1566, #1678, #1694).
 - `init` pre-ticks the tools the project uses, else the CLIs on `PATH`, and in a terminal offers to import existing tool config (#1610).
 - MCP `url` and `args` take `${NAME}` in each tool's own form; `$${NAME}` stays literal, and `lint` warns (LINT028) on a wrong form (#1633, #1667, #1666).
-- `sync.allow-global-names` or `global-name-clash: ignore` silence shared-name warnings; watch keeps late edits (#1707, #1708, #1641, #1644, #1650, #1651).
 - `--json` adds warnings, notes and `/` paths; shared files show once; `explain` covers lint codes (#1607, #1608, #1648, #1675, #1680, #1683).
-- `hook run` covers Cursor, Copilot, Factory, and Qoder on an assumed shell, uncounted without `--include-assumed`; `--edit` skips three tools (#1566, #1694).
+- `sync.allow-global-names` or `global-name-clash: ignore` silence shared-name warnings; watch keeps late edits (#1707, #1708, #1641, #1644, #1650, #1651).
 
 ### By tool
-
-#### Claude Code
-
-- `hook run` shows an `asyncRewake` hook as async and keeps it out of `--expect`, since Claude Code runs it in the background (#1716).
 
 #### Gemini CLI
 
@@ -31,27 +27,21 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - **Breaking:** `sync` removes steering copies of `AGENTS.md` rules kept for `x-kiro.resources`; with inheritance off, list `file://AGENTS.md` (#1643).
 - Import skips `manual` and `auto` steering files with a note instead of making them always-on rules (#1656).
 
-#### Crush
+#### Qoder
 
-- Hook commands that run a synced script start with `./`, so the script runs and a guard hook blocks on every OS (#1695, #1698).
-- `hook run` runs Crush hooks in its embedded shell on every platform; exit 2 blocks and exit 49 halts the turn (#1678).
+- `hook paths` reads Qoder `Write` payloads, and `hook run` treats `asyncRewake` hooks as async, since Qoder runs them in the background (#1716, #1717).
 
-#### Antigravity
+#### Claude Code
 
-- `hook run` runs Antigravity hooks on an assumed shell; only exit 0 with a documented `decision` can count (#1678).
+- `hook run` treats `asyncRewake` hooks as async, since Claude Code runs them in the background (#1716).
 
 #### Copilot
 
 - A hook with `cwd` gets its synced script path written relative to that directory, so it starts; import restores the repository path (#1699, #1706).
 
-#### Cursor
+#### Crush
 
-- `hook run` handles exec-form `args`, `--payload` subagent events, and bad permission replies; `sessionStart` and `sessionEnd` go unjudged (#1566).
-
-#### Qoder
-
-- `hook run` shows an `asyncRewake` hook as async and keeps it out of `--expect`, since Qoder runs it in the background (#1716).
-- `hook paths --target qoder` prints the `file_path` of a `Write` payload; an `Edit` payload fails, as Qoder documents no `tool_input` fields (#1717).
+- Synced hook scripts start with `./`, so Crush runs them and a guard hook blocks on every OS (#1695, #1698).
 
 ### Site
 
