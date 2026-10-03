@@ -4,8 +4,9 @@
 
 # Reads tool_input.command from the hook JSON on stdin, splits it into
 # words the way sh would (quotes, backslashes, line continuations,
-# comments), and checks each command between unquoted ; & | ( ) and
-# newlines.
+# comments, heredoc bodies), and checks each command between unquoted
+# ; & | ( ) and newlines. A heredoc it cannot read ends the check, since
+# a missed push beats blocking text.
 awk -v q='"' -v sq="'" '
 function flush() {
   if (inword) words[++n] = w
@@ -37,6 +38,49 @@ function end_command() {
   flush()
   check()
   n = 0
+}
+
+# Queues the delimiter of the heredoc whose word starts at p and returns
+# the position of its last character, or 0 for a form it cannot read.
+function heredoc_word(p,   strip, word, c, closing) {
+  strip = 0
+  if (substr(cmd, p, 1) == "-") { strip = 1; p++ }
+  while (substr(cmd, p, 1) == " " || substr(cmd, p, 1) == "\t") p++
+  word = ""
+  for (; p <= size; p++) {
+    c = substr(cmd, p, 1)
+    if (c == sq || c == q) {
+      closing = index(substr(cmd, p + 1), c)
+      if (!closing) return 0
+      word = word substr(cmd, p + 1, closing - 1)
+      p += closing
+      continue
+    }
+    if (c == "\\") { p++; word = word substr(cmd, p, 1); continue }
+    if (index(" \t\n;&|()<>", c)) break
+    word = word c
+  }
+  if (word == "") return 0
+  heredocs[++pending] = word
+  strips[pending] = strip
+  return p - 1
+}
+
+# Skips the queued heredoc bodies that start after the newline at p and
+# returns the position of the newline that ends the last terminator.
+function skip_bodies(p,   h, rest, end, line) {
+  for (h = 1; h <= pending; h++) {
+    do {
+      if (p >= size) { pending = 0; return size }
+      rest = substr(cmd, p + 1)
+      end = index(rest, "\n")
+      line = end ? substr(rest, 1, end - 1) : rest
+      p = end ? p + end : size
+      if (strips[h]) sub(/^\t+/, "", line)
+    } while (line != heredocs[h])
+  }
+  pending = 0
+  return p
 }
 
 { json = json $0 "\n" }
@@ -105,17 +149,36 @@ END {
       while (p < size && substr(cmd, p + 1, 1) != "\n") p++
       continue
     }
+    if (c == "<" && substr(cmd, p, 3) == "<<<") {
+      w = w "<<<"
+      inword = 1
+      p += 2
+      continue
+    }
+    if (c == "<" && substr(cmd, p + 1, 1) == "<") {
+      flush()
+      p = heredoc_word(p + 2)
+      if (!p) { stopped = 1; break }
+      continue
+    }
     if (c == " " || c == "\t" || c == "\r") { flush(); continue }
-    if (index(";&|()\n", c)) { end_command(); continue }
+    if (index(";&|()\n", c)) {
+      end_command()
+      if (c == "\n" && pending) p = skip_bodies(p)
+      continue
+    }
     w = w c
     inword = 1
   }
-  if (!blocked) end_command()
-  exit (blocked ? 2 : 0)
+  if (!blocked && !stopped) end_command()
+  exit (blocked ? 3 : 0)
 }'
-status=$?
-
-if [ "$status" = 2 ]; then
-  echo "Blocked: git push --force rewrites the remote branch. Use --force-with-lease, or run the push yourself." >&2
-fi
-exit "$status"
+# awk exits 2 on its own errors, so a block comes back as 3.
+case $? in
+  0) exit 0 ;;
+  3)
+    echo "Blocked: git push --force rewrites the remote branch. Use --force-with-lease, or run the push yourself." >&2
+    exit 2
+    ;;
+  *) exit 1 ;;
+esac

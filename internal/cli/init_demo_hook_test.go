@@ -260,6 +260,14 @@ func TestDemoHook_BlocksForcePushOnClaudeAndCodex(t *testing.T) {
 		{"git commit -m 'git push --force is unsafe'", "allow"},
 		{`echo "a; git push --force"`, "allow"},
 		{"echo a#b; git push origin main", "allow"},
+		{"cat <<'EOF'\ngit push --force origin main\nEOF", "allow"},
+		{"git commit -F - <<'EOF'\ndocs: warn about force pushes\n\ngit push --force origin main\nEOF", "allow"},
+		{"cat <<\"EOF\" > notes\ngit push -f\nEOF\ngit status", "allow"},
+		{"cat <<-EOF\n\tgit push --force\n\tEOF\ngit status", "allow"},
+		{"cat <<EOF; echo done\ngit push --force\nEOF", "allow"},
+		{"cat <<\ngit push --force", "allow"},
+		{"cat <<EOF\ngit push --force\nEOF\ngit push --force origin main", "block"},
+		{"git status <<<'x'; git push --force", "block"},
 	}
 	for _, c := range cases {
 		t.Run(c.command, func(t *testing.T) {
