@@ -176,6 +176,42 @@ func TestImportMCP_URLArgsCredentialDefaultsAndTemplatedBase(t *testing.T) {
 	}
 }
 
+func TestImportMCP_URLCamelCaseCredentialNames(t *testing.T) {
+	secrets := []string{"CL1ENT", "AP1TOK", "S3CKEY", "DBP4SS"}
+	specs, out := importMCPServers(t, "claude", map[string]any{
+		"api": map[string]any{"url": "https://x.example/mcp?clientSecret=CL1ENT&apiToken=AP1TOK&secretKey=S3CKEY&dbPassword=DBP4SS&pageSize=2"},
+	})
+	for _, secret := range secrets {
+		if strings.Contains(specs["api"], secret) || strings.Contains(out, secret) {
+			t.Errorf("a camelCase credential parameter reached the spec or the output")
+		}
+	}
+	want := "url: https://x.example/mcp?clientSecret=${API_CLIENTSECRET}&apiToken=${API_APITOKEN}&secretKey=${API_SECRETKEY}&dbPassword=${API_DBPASSWORD}&pageSize=2"
+	if !strings.Contains(specs["api"], want) {
+		t.Errorf("spec api lacks %q", want)
+	}
+}
+
+func TestImportMCP_URLUsernameReferenceKeepsDefault(t *testing.T) {
+	specs, out := importMCPServers(t, "claude", map[string]any{
+		"pg": map[string]any{"command": "pg-mcp", "args": []any{
+			"postgresql://${DB_USER:-admin}:PASSW0RD@db/app",
+			"${BASE:-https://h?x=1}/mcp?token=T0KEN",
+		}},
+	})
+	if strings.Contains(specs["pg"], "PASSW0RD") || strings.Contains(specs["pg"], "T0KEN") || strings.Contains(out, "PASSW0RD") || strings.Contains(out, "T0KEN") {
+		t.Errorf("a credential reached the spec or the output")
+	}
+	for _, want := range []string{
+		"- postgresql://${DB_USER:-admin}:${PG_PASSWORD}@db/app",
+		"- ${BASE:-https://h?x=1}/mcp?token=${PG_TOKEN}",
+	} {
+		if !strings.Contains(specs["pg"], want) {
+			t.Errorf("spec pg lacks %q", want)
+		}
+	}
+}
+
 // The import from the issue: the specs hold references, and sync writes
 // them back to the native file instead of the credential.
 func TestImportMCP_URLArgsCredentialsRoundTrip(t *testing.T) {

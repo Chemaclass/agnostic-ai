@@ -176,8 +176,8 @@ func (v *mcpURLValue) set(i int, text string) {
 
 func (v *mcpURLValue) String() string { return strings.Join(v.pieces, "") }
 
-// mcpCredentialParams are the query parameter names, split on
-// punctuation, that import treats as a credential.
+// mcpCredentialParams are the words of a query parameter name that make
+// import treat it as a credential.
 var mcpCredentialParams = map[string]bool{
 	"token": true, "key": true, "secret": true, "password": true, "passwd": true, "pwd": true,
 	"apikey": true, "accesstoken": true, "authtoken": true,
@@ -187,14 +187,42 @@ func mcpCredentialParam(name string) bool {
 	if unescaped, err := url.QueryUnescape(name); err == nil {
 		name = unescaped
 	}
-	for _, word := range strings.FieldsFunc(strings.ToLower(name), func(r rune) bool {
-		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
-	}) {
+	for _, word := range mcpNameWords(name) {
 		if mcpCredentialParams[word] {
 			return true
 		}
 	}
 	return false
+}
+
+// mcpNameWords splits a name into lower-case words at punctuation and at
+// camelCase boundaries, so `clientSecret` and `APIKey` both end in a
+// credential word.
+func mcpNameWords(name string) []string {
+	runes := []rune(name)
+	var words []string
+	var word []rune
+	flush := func() {
+		if len(word) > 0 {
+			words = append(words, strings.ToLower(string(word)))
+			word = nil
+		}
+	}
+	for i, r := range runes {
+		if !unicode.IsLetter(r) && !unicode.IsDigit(r) {
+			flush()
+			continue
+		}
+		if unicode.IsUpper(r) && len(word) > 0 {
+			nextLower := i+1 < len(runes) && unicode.IsLower(runes[i+1])
+			if !unicode.IsUpper(runes[i-1]) || nextLower {
+				flush()
+			}
+		}
+		word = append(word, r)
+	}
+	flush()
+	return words
 }
 
 func mcpCredentialValue(value string) bool {
@@ -209,58 +237,83 @@ func mcpCredentialValue(value string) bool {
 // the text by hand because a URL may hold `${NAME}` references that
 // net/url rejects.
 func splitMCPURLCredentials(value string) ([]string, map[int]string) {
+	mask := maskMCPRefs(value)
 	var pieces []string
 	creds := map[int]string{}
-	text, rest := "", value
-	credential := func(name, secret string) {
-		pieces = append(pieces, text, secret)
+	written := 0
+	credential := func(name string, start, end int) {
+		pieces = append(pieces, value[written:start], value[start:end])
 		creds[len(pieces)-1] = name
-		text = ""
+		written = end
 	}
-	if scheme := strings.Index(value, "://"); scheme >= 0 {
-		text, rest = value[:scheme+3], value[scheme+3:]
-		end := strings.IndexAny(rest, "/?#")
-		if end < 0 {
-			end = len(rest)
-		}
-		authority := rest[:end]
+	pos := 0
+	if scheme := strings.Index(mask, "://"); scheme >= 0 {
+		pos = scheme + 3
+		end := pos + indexAnyOrLen(mask[pos:], "/?#")
+		authority := mask[pos:end]
 		if at := strings.LastIndex(authority, "@"); at >= 0 {
-			if user, password, ok := strings.Cut(authority[:at], ":"); ok && mcpCredentialValue(password) {
-				text += user + ":"
-				credential("password", password)
-				authority = authority[at:]
+			if colon := strings.Index(authority[:at], ":"); colon >= 0 {
+				if start, stop := pos+colon+1, pos+at; mcpCredentialValue(value[start:stop]) {
+					credential("password", start, stop)
+				}
 			}
 		}
-		text += authority
-		rest = rest[end:]
-	} else if base, _, ok := strings.Cut(value, "?"); !ok || !strings.Contains(base, "${") {
+		pos = end
+	} else if q := strings.Index(mask, "?"); q < 0 || !strings.Contains(value[:q], "${") {
 		return nil, nil
 	}
-	fragment := ""
-	if hash := strings.Index(rest, "#"); hash >= 0 {
-		rest, fragment = rest[:hash], rest[hash:]
-	}
-	path, query, hasQuery := strings.Cut(rest, "?")
-	text += path
-	if hasQuery {
-		text += "?"
-		for i, pair := range strings.Split(query, "&") {
-			if i > 0 {
-				text += "&"
+	end := pos + indexAnyOrLen(mask[pos:], "#")
+	if q := strings.Index(mask[pos:end], "?"); q >= 0 {
+		for start := pos + q + 1; start <= end; {
+			stop := start + indexAnyOrLen(mask[start:end], "&")
+			if eq := strings.Index(mask[start:stop], "="); eq >= 0 {
+				if name := value[start : start+eq]; mcpCredentialParam(name) && mcpCredentialValue(value[start+eq+1:stop]) {
+					credential(name, start+eq+1, stop)
+				}
 			}
-			name, secret, ok := strings.Cut(pair, "=")
-			if ok && mcpCredentialParam(name) && mcpCredentialValue(secret) {
-				text += name + "="
-				credential(name, secret)
-				continue
-			}
-			text += pair
+			start = stop + 1
 		}
 	}
 	if len(creds) == 0 {
 		return nil, nil
 	}
-	return append(pieces, text+fragment), creds
+	return append(pieces, value[written:]), creds
+}
+
+// maskMCPRefs returns value with every `${...}` token, nested ones
+// included, written over with `_`, so a search for a URL delimiter never
+// lands inside a reference such as `${DB_USER:-admin}`. Indexes in the
+// result match value.
+func maskMCPRefs(value string) string {
+	masked := []byte(value)
+	for i := 0; i+1 < len(value); i++ {
+		if value[i] != '$' || value[i+1] != '{' {
+			continue
+		}
+		end, depth := len(value)-1, 0
+		for j := i + 1; j < len(value); j++ {
+			if value[j] == '{' {
+				depth++
+			} else if value[j] == '}' {
+				if depth--; depth == 0 {
+					end = j
+					break
+				}
+			}
+		}
+		for k := i; k <= end; k++ {
+			masked[k] = '_'
+		}
+		i = end
+	}
+	return string(masked)
+}
+
+func indexAnyOrLen(s, chars string) int {
+	if i := strings.IndexAny(s, chars); i >= 0 {
+		return i
+	}
+	return len(s)
 }
 
 var (
