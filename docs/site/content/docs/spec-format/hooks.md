@@ -337,7 +337,7 @@ Cursor and Copilot document their payloads and reply rules, but each leaves out 
 - Shell (Cursor, and Copilot's `command` form): `sh -c` on macOS and Linux, only for a script path with plain or single-quoted arguments, as sync writes `args` for Cursor, which every POSIX shell reads the same way. A command with shell syntax, such as a pipe, is listed as not run with "Cursor does not document its shell; use a script path", or the same for Copilot. Windows is not run. Copilot's exec form, which sync writes when the spec sets `args`, runs with no shell and assumes none.
 - Timeout (Cursor): 30 seconds when the spec sets none. Set `timeout` in the spec to remove this assumption. Copilot documents its 30 second default.
 - Working directory (Copilot): the project root, for a hook without `cwd`. Set `cwd` in the spec to remove this assumption; it runs relative to the project root, as Copilot documents.
-- Exec path (Copilot): with `cwd` set, a relative exec path resolves from `cwd`, and sync writes it relative to `cwd`.
+- Exec path (Copilot): with `cwd` set, a relative exec path resolves from `cwd`. Sync writes a repository path relative to `cwd` when `cwd` is a directory in the repository.
 
 Sources: [Cursor hooks](https://cursor.com/docs/hooks), the [Copilot hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference), and [using hooks with Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/use-hooks) for the `bash` tool's `toolArgs`.
 
