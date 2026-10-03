@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -122,6 +123,16 @@ func TestRead_OtherTargetsReportTheirEditedFile(t *testing.T) {
 			target:  "factory",
 			payload: `{"cwd":"/p","tool_name":"Edit","tool_input":{"file_path":"/p/file.txt"}}`,
 			want:    Payload{Cwd: "/p", Changes: []Change{{Action: ActionUpdate, Path: "/p/file.txt"}}},
+		},
+		{
+			target:  "qoder",
+			payload: `{"cwd":"/p","hook_event_name":"PostToolUse","tool_name":"Write","tool_input":{"file_path":"/p/file.ts","content":"x"}}`,
+			want:    Payload{Cwd: "/p", Changes: []Change{{Action: ActionUpdate, Path: "/p/file.ts"}}},
+		},
+		{
+			target:  "qoder",
+			payload: `{"cwd":"/p","tool_name":"Read","tool_input":{"file_path":"/p/file.ts"}}`,
+			want:    Payload{Cwd: "/p"},
 		},
 		{
 			target:  "augment",
@@ -252,5 +263,12 @@ func TestRelative_UsesTheRootWhenThePayloadHasNoCwd(t *testing.T) {
 	got := Payload{Changes: []Change{{Action: ActionAdd, Path: "a.go"}}}.Relative(t.TempDir())
 	if want := []Change{{Action: ActionAdd, Path: "a.go"}}; !reflect.DeepEqual(got, want) {
 		t.Errorf("Relative() = %#v, want %#v", got, want)
+	}
+}
+
+func TestRead_QoderRefusesEditBecauseItsInputIsUndocumented(t *testing.T) {
+	_, err := Read("qoder", []byte(`{"tool_name":"Edit","tool_input":{"file_path":"/p/a.ts"}}`))
+	if err == nil || !strings.Contains(err.Error(), "Qoder docs") {
+		t.Errorf("Read(qoder Edit) error = %v, want a refusal naming the docs", err)
 	}
 }

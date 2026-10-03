@@ -216,6 +216,7 @@ A plain run skips deleted files and the source of a move, so a formatter sees on
 | Cursor | `file_path` of `afterFileEdit` and `afterTabFileEdit` only; other Cursor events print nothing | [Hooks](https://cursor.com/docs/hooks) |
 | Gemini | `tool_input.file_path` of `write_file` and `replace`, a relative path starting at `cwd` | [Hooks reference](https://geminicli.com/docs/hooks/reference/), [file system tools](https://geminicli.com/docs/tools/file-system/) |
 | Factory | `tool_input.file_path` of `Create` and `Edit` | [Hooks](https://docs.factory.com/harness/hooks) |
+| Qoder | `tool_input.file_path` of `Write`; `Edit` fails, since the docs show none of its `tool_input` fields | [CLI hooks](https://docs.qoder.com/cli/hooks) |
 | Augment | `file_changes[].path` with its `changeType`; before the edit, `tool_input.path` of `str-replace-editor` and `save-file` | [Hooks](https://docs.augmentcode.com/cli/hooks) |
 
 Factory and Augment do not get `AGNOSTIC_AI_TARGET`, so give their hooks their own spec with `--target`. Factory documents no input for `ApplyPatch`, so a Factory patch prints nothing.
@@ -224,7 +225,7 @@ Factory and Augment do not get `AGNOSTIC_AI_TARGET`, so give their hooks their o
 The command fails for these targets:
 
 - Windsurf: sync writes Devin CLI hooks, and the [Devin CLI docs](https://docs.devin.ai/cli/extensibility/hooks) name the `edit`, `write`, and `apply_patch` tools but not their `tool_input` fields.
-- Qoder and Trae: the docs list no `tool_input` fields for the edit tools.
+- Trae: the docs list no `tool_input` fields for the edit tools.
 - Copilot: the docs list no `toolArgs` keys for `edit`, `create`, or `apply_patch`.
 - Goose, Antigravity: the docs name the edit tools' arguments but show no edit hook payload.
 - OpenHands: the docs name no file edit tool.

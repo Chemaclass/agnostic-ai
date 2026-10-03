@@ -38,6 +38,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - MCP `headers` keep `${NAME}` references and every field keeps `${NAME:-default}`, since Gemini expands all settings strings (#1668).
 - Project import reads `httpUrl` and SSE `url` MCP servers back with their transport, so sync writes them as before (#1665).
 
+#### Qoder
+
+- `hook paths --target qoder` prints the `file_path` of a `Write` payload; an `Edit` payload fails, since Qoder documents none of its `tool_input` fields (#1717).
+
 #### Kiro
 
 - **Breaking:** `sync` removes steering copies of `AGENTS.md` rules kept for `x-kiro.resources`; with inheritance off, list `file://AGENTS.md` (#1643).

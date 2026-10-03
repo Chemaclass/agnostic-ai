@@ -60,6 +60,7 @@ var decoders = map[string]decoder{
 	"cursor":  readCursor,
 	"factory": readFactory,
 	"gemini":  readGemini,
+	"qoder":   readQoder,
 }
 
 // GuessTarget names the target for a payload that arrives with none.
@@ -225,6 +226,24 @@ func readToolInput(raw []byte) (Payload, error) {
 
 func readGemini(raw []byte) (Payload, error) {
 	t, in, ok, err := decodeEdit(raw, "write_file", "replace")
+	p := Payload{Cwd: t.Cwd}
+	if ok {
+		p.Changes = single(ActionUpdate, in.FilePath)
+	}
+	return p, err
+}
+
+// readQoder reads Write. Qoder's docs show Write's file_path but none of
+// Edit's tool_input fields, so an Edit is refused instead of guessed.
+func readQoder(raw []byte) (Payload, error) {
+	var t toolPayload
+	if err := json.Unmarshal(raw, &t); err != nil {
+		return Payload{}, err
+	}
+	if t.ToolName == "Edit" {
+		return Payload{}, errors.New("the Qoder docs show no Edit tool_input fields")
+	}
+	t, in, ok, err := decodeEdit(raw, "Write")
 	p := Payload{Cwd: t.Cwd}
 	if ok {
 		p.Changes = single(ActionUpdate, in.FilePath)
