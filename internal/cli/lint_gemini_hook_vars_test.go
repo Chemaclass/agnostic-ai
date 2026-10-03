@@ -61,12 +61,16 @@ func TestLint_GeminiHookWarnsOnlyWhenHookEmitsToGemini(t *testing.T) {
 
 func TestSingleQuotedGeminiVariables(t *testing.T) {
 	for command, want := range map[string][]string{
-		`echo '$GEMINI_CWD'`:                                 {"$GEMINI_CWD"},
-		`echo "'" '$GEMINI_CWD'`:                             {"$GEMINI_CWD"},
-		`echo "'$GEMINI_CWD'"`:                               {"$GEMINI_CWD"},
-		`echo \'$GEMINI_CWD\'`:                               nil,
-		`echo '$GEMINI_CWD $GEMINI_CWD' $CLAUDE_PROJECT_DIR`: {"$GEMINI_CWD"},
-		`echo '$GEMINI_PLANS_DIR' '$CLAUDE_PROJECT_DIR'`:     {"$GEMINI_PLANS_DIR", "$CLAUDE_PROJECT_DIR"},
+		`echo '$GEMINI_CWD'`:                                     {"$GEMINI_CWD"},
+		`echo "'" '$GEMINI_CWD'`:                                 {"$GEMINI_CWD"},
+		`echo "'$GEMINI_CWD'"`:                                   {"$GEMINI_CWD"},
+		`echo \'$GEMINI_CWD\'`:                                   nil,
+		`echo '$GEMINI_CWD $GEMINI_CWD' $CLAUDE_PROJECT_DIR`:     {"$GEMINI_CWD"},
+		`echo '$GEMINI_PLANS_DIR' '$CLAUDE_PROJECT_DIR'`:         {"$GEMINI_PLANS_DIR", "$CLAUDE_PROJECT_DIR"},
+		`printf '%s\n' "$(printf '%s' "$GEMINI_PROJECT_DIR")"`:   {"$GEMINI_PROJECT_DIR"},
+		"echo `cat $GEMINI_CWD/x`":                               {"$GEMINI_CWD"},
+		`printf '%s\n' "$(printf '%s' "${GEMINI_PROJECT_DIR}")"`: nil,
+		`echo $GEMINI_CWD`:                                       nil,
 	} {
 		got := quotedGeminiVariables(command)
 		if strings.Join(got, ",") != strings.Join(want, ",") {

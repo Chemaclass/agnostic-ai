@@ -50,7 +50,7 @@ func lintGeminiHookVariables(cfg *config.Config, targets []string, b spec.Bundle
 			Code:     "LINT030",
 			Severity: lintWarn,
 			Path:     hook.Path,
-			Message: fmt.Sprintf("Hook %q holds %s inside quotes; Gemini replaces it with a shell-escaped value before the shell runs, which breaks the quoting. Write \"${NAME}\" (Gemini leaves the braced form to the shell) or drop the quotes",
+			Message: fmt.Sprintf("Hook %q holds %s inside quotes or a command substitution; Gemini replaces it with a shell-escaped value before the shell runs, which breaks the quoting. Write \"${NAME}\" (Gemini leaves the braced form to the shell) or drop the quotes",
 				hook.Name, strings.Join(found, ", ")),
 		})
 	}
@@ -62,10 +62,12 @@ func lintGeminiHookVariables(cfg *config.Config, targets []string, b spec.Bundle
 // before the shell parses the command, so the value's own apostrophes
 // show up literally in double quotes and close the quotes in single ones.
 // Unquoted words and `${NAME}` are fine. A `#` at the start of a word
-// outside quotes begins a comment, so its apostrophes open nothing.
+// outside quotes begins a comment, so its apostrophes open nothing. Quotes
+// inside a command substitution start a new context this scan does not
+// track, so every bare variable after a `$(` or backquote counts.
 func quotedGeminiVariables(command string) []string {
 	var out []string
-	inSingle, inDouble := false, false
+	inSingle, inDouble, inSubstitution := false, false, false
 	for i := 0; i < len(command); i++ {
 		c := command[i]
 		switch {
@@ -75,6 +77,8 @@ func quotedGeminiVariables(command string) []string {
 			}
 		case c == '\\':
 			i++
+		case c == '`' || c == '$' && i+1 < len(command) && command[i+1] == '(':
+			inSubstitution = true
 		case c == '"':
 			inDouble = !inDouble
 		case c == '\'' && !inDouble:
@@ -84,7 +88,7 @@ func quotedGeminiVariables(command string) []string {
 				i++
 			}
 		}
-		if c != '$' || (!inSingle && !inDouble) {
+		if c != '$' || (!inSingle && !inDouble && !inSubstitution) {
 			continue
 		}
 		for _, v := range geminiHookVariables {
