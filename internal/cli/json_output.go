@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -41,7 +42,7 @@ type jsonOutput struct {
 }
 
 func emitJSON(cmd *cobra.Command, out jsonOutput) error {
-	return writeIndentedJSON(cmd, out.withEmptyLists())
+	return writeIndentedJSON(cmd, out.forOutput())
 }
 
 // writeIndentedJSON encodes v to the command's stdout with two-space
@@ -59,17 +60,23 @@ func (o *jsonOutput) addError(err error) {
 	}
 }
 
-// withEmptyLists replaces nil lists with empty ones so consumers always
-// see `[]` rather than `null`.
-func (o jsonOutput) withEmptyLists() jsonOutput {
-	if o.Writes == nil {
-		o.Writes = []fileRecord{}
-	}
-	if o.Skipped == nil {
-		o.Skipped = []fileRecord{}
-	}
+// forOutput is o as every --json command prints it: nil lists become
+// `[]` rather than `null`, and record paths use `/` on every OS.
+func (o jsonOutput) forOutput() jsonOutput {
+	o.Writes = slashedRecords(o.Writes)
+	o.Skipped = slashedRecords(o.Skipped)
 	if o.Errors == nil {
 		o.Errors = []errorRecord{}
 	}
 	return o
+}
+
+func slashedRecords(records []fileRecord) []fileRecord {
+	out := make([]fileRecord, len(records))
+	for i, r := range records {
+		r.Path = filepath.ToSlash(r.Path)
+		r.Backup = filepath.ToSlash(r.Backup)
+		out[i] = r
+	}
+	return out
 }
