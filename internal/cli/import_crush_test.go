@@ -33,6 +33,15 @@ func TestImportCrush_RoundTripFixedPoint(t *testing.T) {
 		"---\nname: my-skill\ndescription: An example skill\n---\n\nSkill body here.\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "no-rm-rf.yaml"),
 		"name: no-rm-rf\nevent: PreToolUse\nmatcher: \"^bash$\"\ncommand: \"./hooks/no-rm-rf.sh\"\ntimeout: 10\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"),
+		"name: guard\nevent: PreToolUse\ncommand: .crush/hooks/guard\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "shared.yaml"),
+		"name: shared\nevent: PreToolUse\ncommand: .agnostic-ai/scripts/shared.sh\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "scripts", "shared.sh"), "exit 2\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "unicode.yaml"),
+		"name: unicode\nevent: PreToolUse\ncommand: ./.crush/hooks/prüfen.sh\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "operator.yaml"),
+		"name: operator\nevent: PreToolUse\ncommand: ./.crush/hooks/guard.sh&&true\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "stdio-server.yaml"),
 		"name: stdio-server\ncommand: npx\nargs:\n  - -y\n  - \"@modelcontextprotocol/server-filesystem\"\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "http-server.yaml"),
@@ -77,6 +86,18 @@ func TestImportCrush_RoundTripFixedPoint(t *testing.T) {
 	for _, want := range []string{"name: no-rm-rf", "event: PreToolUse", "matcher: ^bash$", "command: ./hooks/no-rm-rf.sh", "timeout: 10"} {
 		if !strings.Contains(hook, want) {
 			t.Errorf("hook not reconstructed, missing %q:\n%s", want, hook)
+		}
+	}
+	// Only the copied script gains ./; import keeps every command as
+	// written, since it does not copy .crush/hooks/ scripts back.
+	for name, want := range map[string]string{
+		"guard":    "command: .crush/hooks/guard\n",
+		"shared":   "command: ./.crush/hooks/shared.sh\n",
+		"unicode":  "command: ./.crush/hooks/prüfen.sh\n",
+		"operator": "command: ./.crush/hooks/guard.sh&&true\n",
+	} {
+		if got := readFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", name+".yaml")); !strings.Contains(got, want) {
+			t.Errorf("%s: want %q in:\n%s", name, want, got)
 		}
 	}
 	// MCP: crush.json carries an explicit `type` on all three transports.
@@ -171,5 +192,37 @@ func TestImportCrush_HookNameCannotEscapeHooksDir(t *testing.T) {
 				t.Errorf("command not preserved: got %q", got.Command)
 			}
 		})
+	}
+}
+
+// Sync writes a copied hook script as ./.crush/hooks/<name> so Crush runs
+// it as a script (#1695). Import does not copy that script back, so it
+// keeps the ./ and the command still runs after a round trip; the older
+// form without ./ also reads back as written.
+func TestImportCrushHooks_KeepsScriptPathsAsWritten(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "crush.json"), `{"hooks":{"PreToolUse":[`+
+		`{"name":"synced","command":"export AGNOSTIC_AI_TARGET=crush; ./.crush/hooks/guard.sh --fast"},`+
+		`{"name":"older","command":"export AGNOSTIC_AI_TARGET=crush; .crush/hooks/guard.sh"},`+
+		`{"name":"own","command":"./x.sh"},`+
+		`{"name":"unicode","command":"./.crush/hooks/prüfen.sh"},`+
+		`{"name":"operator","command":"./.crush/hooks/guard.sh&&true"}]}}`)
+	hooksDir := filepath.Join(dir, ".agnostic-ai", "hooks")
+	if err := os.MkdirAll(hooksDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := importCrushHooks(dir, hooksDir); err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range map[string]string{
+		"synced":   "command: ./.crush/hooks/guard.sh --fast",
+		"older":    "command: .crush/hooks/guard.sh",
+		"own":      "command: ./x.sh",
+		"unicode":  "command: ./.crush/hooks/prüfen.sh",
+		"operator": "command: ./.crush/hooks/guard.sh&&true",
+	} {
+		if got := readFile(t, filepath.Join(hooksDir, name+".yaml")); !strings.Contains(got, want+"\n") {
+			t.Errorf("%s: want %q in:\n%s", name, want, got)
+		}
 	}
 }

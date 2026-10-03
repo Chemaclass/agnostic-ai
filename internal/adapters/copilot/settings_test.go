@@ -364,3 +364,52 @@ func TestEmit_SettingsWritesRepositoryEffortLevel(t *testing.T) {
 		t.Errorf("effortLevel = %#v, want high", got["effortLevel"])
 	}
 }
+
+func emitCwdHook(t *testing.T, meta map[string]any) map[string]any {
+	t.Helper()
+	dir := testutil.TempCwd(t)
+	meta["event"] = "PreToolUse"
+	entries := []spec.Entry{{Kind: spec.KindHook, Name: "guard", Meta: meta}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Hooks map[string][]map[string]any `json:"hooks"`
+	}
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(dir, ".github/hooks/agnostic-ai.json"))), &doc); err != nil {
+		t.Fatal(err)
+	}
+	return doc.Hooks["PreToolUse"][0]
+}
+
+func TestEmit_HookCwdMakesScriptPathRelativeToCwd(t *testing.T) {
+	for name, tc := range map[string]struct {
+		meta map[string]any
+		key  string
+		want string
+	}{
+		"command":        {map[string]any{"command": ".agnostic-ai/hooks/guard.sh", "cwd": "sub"}, "command", "../.agnostic-ai/hooks/guard.sh"},
+		"nested cwd":     {map[string]any{"command": "scripts/guard.sh --x", "cwd": "a/b"}, "command", "../../scripts/guard.sh --x"},
+		"inside cwd":     {map[string]any{"command": "sub/guard.sh", "cwd": "sub"}, "command", "./guard.sh"},
+		"interpreter":    {map[string]any{"command": "bash scripts/guard.sh", "cwd": "sub"}, "command", "bash ../scripts/guard.sh"},
+		"unset cwd":      {map[string]any{"command": ".agnostic-ai/hooks/guard.sh"}, "command", ".agnostic-ai/hooks/guard.sh"},
+		"absolute cwd":   {map[string]any{"command": "scripts/guard.sh", "cwd": "/srv/app"}, "command", "scripts/guard.sh"},
+		"escaping cwd":   {map[string]any{"command": "scripts/guard.sh", "cwd": "../x"}, "command", "scripts/guard.sh"},
+		"absolute path":  {map[string]any{"command": "/usr/bin/guard", "cwd": "sub"}, "command", "/usr/bin/guard"},
+		"variable path":  {map[string]any{"command": "$HOME/guard.sh", "cwd": "sub"}, "command", "$HOME/guard.sh"},
+		"not a path":     {map[string]any{"command": "make build", "cwd": "sub"}, "command", "make build"},
+		"exec path":      {map[string]any{"command": "scripts/guard", "args": []any{"--strict"}, "cwd": "sub"}, "exec", "../scripts/guard"},
+		"exec first arg": {map[string]any{"command": "node", "args": []any{"scripts/guard.js", "--strict"}, "cwd": "sub"}, "exec", "node"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := emitCwdHook(t, tc.meta)
+			if got[tc.key] != tc.want {
+				t.Errorf("%s = %q, want %q (%v)", tc.key, got[tc.key], tc.want, got)
+			}
+		})
+	}
+	got := emitCwdHook(t, map[string]any{"command": "node", "args": []any{"scripts/guard.js", "--strict"}, "cwd": "sub"})
+	if args, _ := got["args"].([]any); len(args) != 2 || args[0] != "../scripts/guard.js" || args[1] != "--strict" {
+		t.Errorf("args = %v", got["args"])
+	}
+}

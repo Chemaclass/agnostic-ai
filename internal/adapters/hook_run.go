@@ -7,6 +7,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/augment"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/copilot"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/crush"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cursor"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
@@ -52,6 +53,17 @@ func HookHandlers(cfg *config.Config, target string, h spec.Entry) ([]hookrun.Ha
 			return nil, err
 		}
 		handlers, err := hookrun.CrushHandlers(doc)
+		if err != nil {
+			return nil, fmt.Errorf("parse %s: %w", h.Path, err)
+		}
+		return handlers, nil
+	case "copilot":
+		doc, err := copilot.HookDoc(h)
+		if err != nil {
+			return nil, err
+		}
+		event, _ := h.Meta["event"].(string)
+		handlers, err := hookrun.CopilotHandlers(doc, event)
 		if err != nil {
 			return nil, fmt.Errorf("parse %s: %w", h.Path, err)
 		}
@@ -104,6 +116,8 @@ func HookFile(cfg *config.Config, target string) string {
 		return cursor.HooksFilePath(cfg)
 	case "crush":
 		return crush.HooksFilePath(cfg)
+	case "copilot":
+		return copilot.HooksFilePath(cfg)
 	}
 	return ""
 }

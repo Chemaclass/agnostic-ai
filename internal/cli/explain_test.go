@@ -281,3 +281,33 @@ func TestExplain_RuleCreditsEntryPointInliners(t *testing.T) {
 		t.Errorf("expected gemini GEMINI.md in would-emit-if-enabled: %s", got)
 	}
 }
+
+func TestExplain_JSONPathsUseSlashes(t *testing.T) {
+	dir := setupExplainFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	var out bytes.Buffer
+	root := NewRootCmd("test")
+	root.SetOut(&out)
+	root.SetArgs([]string{"explain", filepath.FromSlash("rules/no-console-log.md"), "--json"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var got explainOutput
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out.String())
+	}
+	paths := []string{got.Spec.Path}
+	for _, c := range append(got.Contributions, got.WouldEmitIfEnabled...) {
+		paths = append(paths, c.Path)
+	}
+	if len(paths) < 2 {
+		t.Fatalf("expected contribution paths, got %v", paths)
+	}
+	for _, p := range paths {
+		if strings.Contains(p, `\`) {
+			t.Errorf("path %q has a backslash", p)
+		}
+	}
+}

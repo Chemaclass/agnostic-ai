@@ -273,10 +273,9 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 			for _, command := range commands {
 				entry := hookEntry{Type: kind, Matcher: matcher, TimeoutSec: timeout, Cwd: cwd, Env: env}
 				if len(args) > 0 {
-					entry.Exec = emit.RewriteHookPath(command, target, h.Meta)
-					entry.Args = args
+					entry.Exec, entry.Args = ExecForCwd(emit.RewriteHookPath(command, target, h.Meta), args, cwd)
 				} else {
-					entry.Command = emit.RewriteHookPath(command, target, h.Meta)
+					entry.Command = ScriptForCwd(emit.RewriteHookPath(command, target, h.Meta), cwd)
 				}
 				byEvent[event] = append(byEvent[event], entry)
 			}

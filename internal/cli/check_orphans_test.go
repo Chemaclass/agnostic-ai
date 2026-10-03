@@ -115,7 +115,7 @@ func TestPrintSyncCheckJSON_ListsOrphanAsWrite(t *testing.T) {
 	cmd := &cobra.Command{}
 	cmd.SetOut(&out)
 
-	if err := printSyncCheckJSON(cmd, reports, nil); err == nil {
+	if err := printSyncCheckJSON(cmd, reports, syncDrops{}, nil); err == nil {
 		t.Error("orphan drift must fail the check")
 	}
 	if !strings.Contains(out.String(), `"action": "orphan"`) || !strings.Contains(out.String(), keptReference) {

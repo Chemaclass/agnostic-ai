@@ -25,6 +25,8 @@ func ContractDocs(target string) string {
 		return "https://cursor.com/docs/hooks"
 	case "crush":
 		return crushSource
+	case "copilot":
+		return copilotDocs
 	}
 	return ""
 }
@@ -67,9 +69,16 @@ func cursorMatchValue(event string, doc map[string]any) string {
 
 // FireAndForget reports whether target starts the hooks of event without
 // waiting for their result. Cursor documents sessionStart and sessionEnd
-// as fire-and-forget.
+// as fire-and-forget, and Copilot notification: "Fire-and-forget: never
+// blocks the session".
 func FireAndForget(target, event string) bool {
-	return target == "cursor" && (event == "sessionStart" || event == "sessionEnd")
+	switch target {
+	case "cursor":
+		return event == "sessionStart" || event == "sessionEnd"
+	case "copilot":
+		return copilotEvent(event) == "notification"
+	}
+	return false
 }
 
 // cursorMatches treats the matcher as an unanchored regular expression,
@@ -354,7 +363,11 @@ func ShellNeutral(command string) bool {
 // goos, and why it cannot run h at all when no safe assumption exists.
 // Targets whose contract is documented return neither.
 func Assumptions(target, goos string, h Handler) ([]Assumption, string) {
-	if target != "cursor" {
+	switch target {
+	case "copilot":
+		return copilotAssumptions(goos, h)
+	case "cursor":
+	default:
 		return nil, ""
 	}
 	if goos == "windows" {

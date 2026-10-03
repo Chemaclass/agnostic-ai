@@ -287,3 +287,30 @@ func TestCopilotAgentIdentity_MovesADisplayNameAside(t *testing.T) {
 		t.Error("a name equal to the file name should stay as written")
 	}
 }
+
+func TestImportCopilotHooks_RestoresRepositoryRelativeScriptPath(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [copilot]\n")
+	writeFile(t, filepath.Join(copilotHooksDir, "custom.json"), `{"version":1,"hooks":{"PreToolUse":[
+{"type":"command","command":"../.agnostic-ai/hooks/guard.sh","cwd":"sub"},
+{"type":"command","exec":"node","args":["../scripts/guard.js","--strict"],"cwd":"sub"}
+]}}`)
+	execCLI(t, "import", "copilot")
+	execCLI(t, "sync", "-t", "copilot")
+	data := readFile(t, filepath.Join(copilotHooksDir, "agnostic-ai.json"))
+	for _, want := range []string{`"command": "../.agnostic-ai/hooks/guard.sh"`, `"../scripts/guard.js"`} {
+		if !strings.Contains(data, want) {
+			t.Errorf("missing %s in:\n%s", want, data)
+		}
+	}
+	specs, _ := filepath.Glob(filepath.Join(".agnostic-ai", "hooks", "*.yaml"))
+	var all string
+	for _, f := range specs {
+		all += readFile(t, f)
+	}
+	if !strings.Contains(all, "command: .agnostic-ai/hooks/guard.sh") || !strings.Contains(all, "scripts/guard.js") || strings.Contains(all, "../") {
+		t.Errorf("imported specs keep native-relative paths:\n%s", all)
+	}
+}
