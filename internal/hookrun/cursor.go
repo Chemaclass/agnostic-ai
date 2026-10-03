@@ -12,7 +12,8 @@ import (
 
 // Source: cursor.com/docs/hooks (rechecked 2026-10-03). Project hooks run
 // from the project root; exit 2 blocks; another failure fails open unless
-// failClosed is set; a permission hook blocks on invalid JSON at exit 0.
+// failClosed is set; a permission hook blocks on invalid JSON or a reply
+// that does not match its schema at exit 0.
 // The shell that runs a command string and the default timeout ("platform
 // default") are not documented, so hook run assumes them.
 
@@ -34,21 +35,38 @@ const cursorAssumedTimeout = 30 * time.Second
 // exit 0 blocks them.
 var cursorPermissionEvents = []string{"beforeShellExecution", "beforeMCPExecution", "beforeReadFile", "beforeTabFileRead", "subagentStart", "preToolUse"}
 
-// cursorMatchValue is what a Cursor matcher is tested against, for the
-// events hook run builds: the command for the shell events, the tool
-// type for the tool events, and a fixed name for the rest.
-func cursorMatchValue(event, command string) string {
+// cursorFixedMatchValues are the events whose matcher Cursor tests
+// against a fixed name.
+var cursorFixedMatchValues = map[string]string{
+	"beforeReadFile": "Read", "afterFileEdit": "Write", "beforeTabFileRead": "TabRead", "afterTabFileEdit": "TabWrite",
+	"beforeSubmitPrompt": "UserPromptSubmit", "stop": "Stop", "afterAgentResponse": "AgentResponse", "afterAgentThought": "AgentThought",
+}
+
+// cursorMatchValue is what a Cursor matcher is tested against in doc:
+// the command for the shell events, the tool name for the tool events,
+// the subagent type for the subagent events, and a fixed name for the
+// rest. It is "" for an event Cursor names no matcher value for.
+func cursorMatchValue(event string, doc map[string]any) string {
+	field := ""
 	switch event {
 	case "beforeShellExecution", "afterShellExecution":
-		return command
+		field = "command"
 	case "preToolUse", "postToolUse", "postToolUseFailure":
-		return "Shell"
-	case "afterFileEdit":
-		return "Write"
-	case "beforeSubmitPrompt":
-		return "UserPromptSubmit"
+		field = "tool_name"
+	case "subagentStart", "subagentStop":
+		field = "subagent_type"
+	default:
+		return cursorFixedMatchValues[event]
 	}
-	return ""
+	value, _ := doc[field].(string)
+	return value
+}
+
+// FireAndForget reports whether target starts the hooks of event without
+// waiting for their result. Cursor documents sessionStart and sessionEnd
+// as fire-and-forget.
+func FireAndForget(target, event string) bool {
+	return target == "cursor" && (event == "sessionStart" || event == "sessionEnd")
 }
 
 // cursorMatches treats the matcher as an unanchored regular expression,
@@ -118,7 +136,7 @@ func buildCursor(event, matcher, root string, in Input) (Payload, error) {
 		return Payload{}, fmt.Errorf("hook run builds no cursor %s payload; pass --payload <file>", event)
 	}
 	if event != "sessionStart" {
-		fires, err := cursorMatches(matcher, cursorMatchValue(event, in.Bash))
+		fires, err := cursorMatches(matcher, cursorMatchValue(event, doc))
 		if err != nil {
 			return Payload{}, err
 		}
@@ -166,7 +184,7 @@ func decideCursor(event string, h Handler, r Result) Decision {
 		}
 		return Allow
 	}
-	valid := strings.HasPrefix(out, "{") && json.Unmarshal([]byte(out), &reply) == nil
+	valid := strings.HasPrefix(out, "{") && json.Unmarshal([]byte(out), &reply) == nil && cursorReplyFieldsValid(event, out)
 	decided := ""
 	if valid && reply.Permission != nil {
 		decided = *reply.Permission
@@ -183,6 +201,36 @@ func decideCursor(event string, h Handler, r Result) Decision {
 		return Block
 	}
 	return Allow
+}
+
+// cursorReplyFieldsValid reports whether a reply's documented optional
+// fields have their documented types: string messages, and an object
+// `updated_input` on preToolUse. Fields the page does not list are left
+// alone.
+func cursorReplyFieldsValid(event, out string) bool {
+	var reply map[string]json.RawMessage
+	if json.Unmarshal([]byte(out), &reply) != nil {
+		return false
+	}
+	for _, key := range []string{"user_message", "agent_message"} {
+		// A null decodes into a string without error, so require one.
+		var text any
+		if raw, present := reply[key]; present {
+			if json.Unmarshal(raw, &text) != nil {
+				return false
+			}
+			if _, ok := text.(string); !ok {
+				return false
+			}
+		}
+	}
+	if raw, present := reply["updated_input"]; present && event == "preToolUse" {
+		var input map[string]any
+		if json.Unmarshal(raw, &input) != nil || input == nil {
+			return false
+		}
+	}
+	return true
 }
 
 // CursorAsks reports whether a permission hook replied `ask`, which
@@ -274,14 +322,29 @@ type Assumption struct {
 	Reason string `json:"reason"`
 }
 
-// shellSyntax is every character a POSIX shell, cmd.exe, or PowerShell
-// may read differently from plain words.
-const shellSyntax = "|&;<>()$`\\\"'*?[]#~=%{}!\n"
+// shellSyntax is every character outside single quotes that a POSIX
+// shell, or one of its common extensions, may read differently from a
+// plain word.
+const shellSyntax = "|&;<>()$`\\\"*?[]#~{}!\n"
 
 // ShellNeutral reports whether command means the same to any POSIX
-// shell: plain words, such as a script path and its arguments.
+// shell: plain words, such as a script path and its arguments, and
+// single-quoted words with no quote inside, as sync writes exec-form
+// args.
 func ShellNeutral(command string) bool {
-	return strings.TrimSpace(command) != "" && !strings.ContainsAny(command, shellSyntax)
+	if strings.TrimSpace(command) == "" {
+		return false
+	}
+	quoted := false
+	for _, r := range command {
+		switch {
+		case r == '\'':
+			quoted = !quoted
+		case !quoted && strings.ContainsRune(shellSyntax, r):
+			return false
+		}
+	}
+	return !quoted
 }
 
 // Assumptions returns what hook run assumes to run h as target does on

@@ -135,15 +135,9 @@ func rawPayload(target, event, matcher string, body []byte) (Payload, error) {
 		return p, err
 	}
 	if target == "cursor" {
-		var call struct {
-			Command  string `json:"command"`
-			ToolName string `json:"tool_name"`
-		}
-		_ = json.Unmarshal(body, &call)
-		value := cursorMatchValue(event, call.Command)
-		if call.ToolName != "" && (event == "preToolUse" || event == "postToolUse" || event == "postToolUseFailure") {
-			value = call.ToolName
-		}
+		var doc map[string]any
+		_ = json.Unmarshal(body, &doc)
+		value := cursorMatchValue(event, doc)
 		if value == "" {
 			return p, nil
 		}
