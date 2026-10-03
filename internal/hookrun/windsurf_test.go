@@ -62,14 +62,31 @@ func TestWindsurfNote_NamesARewrittenToolInput(t *testing.T) {
 	if WindsurfNote("PostToolUse", rewrite) != "" || WindsurfNote("PreToolUse", Result{Exit: 2, Stdout: rewrite.Stdout}) != "" {
 		t.Error("updatedInput applies only to a PreToolUse call that runs")
 	}
+	for name, stdout := range map[string]string{
+		"no tag":         `{"hookSpecificOutput":{"updatedInput":{"command":"ls"}}}`,
+		"another event":  `{"hookSpecificOutput":{"hookEventName":"PostToolUse","updatedInput":{"command":"ls"}}}`,
+		"different case": `{"hookSpecificOutput":{"hookEventName":"pretooluse","updatedInput":{"command":"ls"}}}`,
+	} {
+		if WindsurfNote("PreToolUse", Result{Stdout: stdout}) != "" {
+			t.Errorf("%s: an output not tagged PreToolUse must not claim a rewrite", name)
+		}
+	}
 }
 
 func TestWindsurfAddsContext_ReadsAdditionalContextOnItsEvents(t *testing.T) {
-	reply := Result{Stdout: `{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"Deploys require a ticket."}}`}
+	tagged := func(event string) Result {
+		return Result{Stdout: `{"hookSpecificOutput":{"hookEventName":"` + event + `","additionalContext":"Deploys require a ticket."}}`}
+	}
 	for event, want := range map[string]bool{"UserPromptSubmit": true, "SessionStart": true, "PostToolUse": true, "PreToolUse": false, "Stop": false} {
-		if got := AddsContext("windsurf", event, reply); got != want {
+		if got := AddsContext("windsurf", event, tagged(event)); got != want {
 			t.Errorf("%s: AddsContext = %t, want %t", event, got, want)
 		}
+	}
+	if AddsContext("windsurf", "SessionStart", tagged("UserPromptSubmit")) {
+		t.Error("an output tagged for another event must not add context")
+	}
+	if AddsContext("windsurf", "UserPromptSubmit", Result{Stdout: `{"hookSpecificOutput":{"additionalContext":"x"}}`}) {
+		t.Error("an output with no hookEventName must not add context")
 	}
 	if AddsContext("windsurf", "UserPromptSubmit", Result{Stdout: "plain text"}) {
 		t.Error("plain stdout is not documented as context")

@@ -188,7 +188,7 @@ func readWindsurf(event string, r Result) windsurfRead {
 	case problem != "":
 		read.uncounted = problem
 	}
-	if event == "PreToolUse" && read.decision == Allow && r.Exit == 0 && windsurfUpdatesInput(r) {
+	if event == "PreToolUse" && read.decision == Allow && r.Exit == 0 && len(windsurfEventOutput(event, r).UpdatedInput) > 0 {
 		read.note = "replied updatedInput: Devin CLI merges it into the tool's arguments before the tool runs"
 	}
 	return read
@@ -213,16 +213,26 @@ func windsurfReply(r Result) (decision string, replied bool, problem string) {
 	return decision, true, ""
 }
 
-// windsurfUpdatesInput reports whether a reply carries
-// hookSpecificOutput.updatedInput, an "Object merged into the tool's
-// arguments before execution".
-func windsurfUpdatesInput(r Result) bool {
+// windsurfOutput is a reply's hookSpecificOutput: additionalContext,
+// "Text injected into the agent's context", and updatedInput, an
+// "Object merged into the tool's arguments before execution".
+type windsurfOutput struct {
+	HookEventName     string         `json:"hookEventName"`
+	AdditionalContext string         `json:"additionalContext"`
+	UpdatedInput      map[string]any `json:"updatedInput"`
+}
+
+// windsurfEventOutput is the reply's hookSpecificOutput when its
+// hookEventName, the "Event the output applies to", is event, and empty
+// otherwise, so an untagged or mistagged output claims no effect.
+func windsurfEventOutput(event string, r Result) windsurfOutput {
 	var reply struct {
-		HookSpecificOutput struct {
-			UpdatedInput map[string]any `json:"updatedInput"`
-		} `json:"hookSpecificOutput"`
+		HookSpecificOutput windsurfOutput `json:"hookSpecificOutput"`
 	}
-	return json.Unmarshal([]byte(strings.TrimSpace(r.Stdout)), &reply) == nil && len(reply.HookSpecificOutput.UpdatedInput) > 0
+	if json.Unmarshal([]byte(strings.TrimSpace(r.Stdout)), &reply) != nil || reply.HookSpecificOutput.HookEventName != event {
+		return windsurfOutput{}
+	}
+	return reply.HookSpecificOutput
 }
 
 // WindsurfNote is the note a reply earns, such as a rewritten tool
@@ -246,6 +256,5 @@ func windsurfAddsContext(event string, r Result) bool {
 	if r.TimedOut || r.StartErr != nil || r.Exit != 0 || !slices.Contains(windsurfContextEvents, event) {
 		return false
 	}
-	reply, ok := readReply(r)
-	return ok && reply.HookSpecificOutput.AdditionalContext != ""
+	return windsurfEventOutput(event, r).AdditionalContext != ""
 }
