@@ -70,7 +70,7 @@ Import reads every plugin, including hand-installed ones.
 
 `agnostic-ai import all` detects Goose only from `.goosehints`, `.agents/plugins/`, or `.agents/REVIEW.md`, because OpenHands, Antigravity, and others share `.agents/agents/` and `.agents/skills/`. For a rules-only Goose project, run `agnostic-ai import goose` directly.
 
-Import loses some detail. Goose's output does not change on the next sync:
+Import loses the following, but Goose's output does not change on the next sync:
 
 - Only the root rules block is read back, the same as `import claude` with nested `CLAUDE.md` files.
 - Review specs with the same scope re-import as one spec.

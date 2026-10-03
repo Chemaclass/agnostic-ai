@@ -80,7 +80,7 @@ Each list shows three paths. `-v` lists all. `config` in the spec line means `ag
 - Without a record of the last sync, as in a fresh clone, there is no proof of an edit.
 {% </details> %}
 
-**Typos.** Before writing, `sync` and `sync --check` stop on a hook event that is a likely typo of a known one, such as `PreToolUze`, and name the closest. Another tool's event passes, in any case or snake_case. An agent `skills:` name that is a likely typo of a project skill, such as `pr-swep`, only prints a warning, as in `validate`. It may be a user or plugin skill. Specs from packs are left to `validate`.
+**Typos.** Before writing, `sync` and `sync --check` stop on a hook event that is a likely typo of a known one, such as `PreToolUze`, and name the closest. Another tool's event passes, in any case or snake_case. An agent `skills:` name that is a likely typo of a project skill, such as `pr-swep`, only prints a warning, as in `validate`, because it may be a user or plugin skill. Specs from packs are left to `validate`.
 
 **Hand-written instructions.** Before writing, `sync` stops when an instructions file such as `CLAUDE.md` or `AGENTS.md` holds text that agnostic-ai did not write and `.agnostic-ai/AGNOSTIC_AI.md` does not have. It names the `import` that keeps the text. `sync --backup` replaces the file instead and keeps it as `<path>.bak`, unless that `.bak` already exists. `--check`, `--plan`, and `--json --dry-run` stop the same way.
 

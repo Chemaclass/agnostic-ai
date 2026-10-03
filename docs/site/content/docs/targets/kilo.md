@@ -64,7 +64,7 @@ A `file` output override that moves the entry point off the root `AGENTS.md`, or
 The portable `allow`, `deny`, and `ask` lists merge into `kilo.jsonc`'s `permission` key ([auto-approving actions](https://kilo.ai/docs/getting-started/settings/auto-approving-actions)):
 
 - Each rule becomes one glob under one tool key, matched against the tool's arguments. `Bash(npm run:*)` becomes `bash: {"npm run *": "allow"}`, `Bash(rm -rf /)` becomes `bash: {"rm -rf /": "deny"}`, `Read(docs/*)` becomes `read: {"docs/*": "allow"}`, a bare `Bash` becomes `bash: {"*": "allow"}`, and `mcp__github__list_issues` becomes `github_list_issues`.
-- Keys sort alphabetically, so `*` comes before every exception. The last match wins.
+- Keys sort alphabetically, so `*` comes before every exception, since the last match wins.
 - A rule in two lists takes the stricter action.
 - `WebFetch(domain:example.test)` drops with a coverage note, because Kilo matches URLs. Unknown tool names drop too.
 - `x-kilo.permission` writes Kilo's own map. It wins for the tool keys it names, and that spec's portable lists are skipped.

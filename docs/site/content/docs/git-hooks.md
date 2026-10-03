@@ -47,7 +47,7 @@ pre-commit install
 
 ## lefthook
 
-[lefthook](https://lefthook.dev) is a single Go binary. This repo uses it, see [`lefthook.yml`](https://github.com/Chemaclass/agnostic-ai/blob/main/lefthook.yml).
+[lefthook](https://lefthook.dev) is a single Go binary. This repo uses it (see [`lefthook.yml`](https://github.com/Chemaclass/agnostic-ai/blob/main/lefthook.yml)).
 
 Add to `lefthook.yml`:
 

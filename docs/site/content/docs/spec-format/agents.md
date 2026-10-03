@@ -66,7 +66,7 @@ List each finding with its `file:line`, the attack it enables, and the smallest 
 | `permissionMode` | no | unset | Approval boundary for this agent. See [`permissionMode` and agent `hooks`](#agent-policy-support-by-target). |
 | `hooks` | no | unset | Lifecycle hooks scoped to this agent. See [`permissionMode` and agent `hooks`](#agent-policy-support-by-target). |
 
-Any other frontmatter field passes through unchanged. The support tables on this page list only the targets that were checked.
+Any other frontmatter field passes through unchanged.
 
 `memory` gives the agent a directory that persists across sessions. Only [Claude Code](@/docs/targets/claude.md#agent-memory) is confirmed to act on it. [Qoder](@/docs/targets/qoder.md#subagent-memory) gets the key, unconfirmed. Junie passes it through. Every other adapter drops it.
 
@@ -128,7 +128,7 @@ Result:
 - Factory gets `gpt-6.1-sol` and no `reasoningEffort`, because `max` is outside its enum (coverage note).
 - Trae drops both, with notes.
 
-**`effort` values by target.** Omitting `effort` inherits the session's level.
+**`effort` values by target.** Only the targets listed were checked. Omitting `effort` inherits the session's level.
 
 | Target | Values | How it lands |
 |--------|--------|--------------|
@@ -159,6 +159,8 @@ Claude Code's [aliases](https://code.claude.com/docs/en/model-config) are `sonne
 |--------|----------------------------------|
 | [Codex](@/docs/targets/codex.md), [Gemini](@/docs/targets/gemini.md), [OpenCode](@/docs/targets/opencode.md), [Kilo Code](@/docs/targets/kilo.md) | The aliases, `inherit`, and `claude-*` ids |
 | [Cursor](@/docs/targets/cursor.md), [Factory](@/docs/targets/factory.md), [Kiro](@/docs/targets/kiro.md) | The aliases |
+
+Only the targets listed were checked.
 
 ## Model tiers {#model-tiers}
 
@@ -209,7 +211,7 @@ To override one target, write the tier as the map's `default`: `model: {codex: g
 
 ## `tools` support by target
 
-A target that cannot honor `tools` prints a coverage note at sync time, so `tools: [Read]` never turns into an unrestricted agent without warning.
+Only the targets listed were checked. A target that cannot honor `tools` prints a coverage note at sync time, so `tools: [Read]` never turns into an unrestricted agent without warning.
 
 | Target | Behavior |
 |--------|----------|
@@ -222,7 +224,7 @@ Translation can widen access: on Kiro, `Edit` alone also permits `delete_file`. 
 
 ## `mcpServers` support by target {#mcpservers-support-by-target}
 
-A top-level `mcpServers` list narrows which MCP servers one agent may reach. Omitting it inherits the session's full set.
+Only the targets listed were checked. A top-level `mcpServers` list narrows which MCP servers one agent may reach. Omitting it inherits the session's full set.
 
 | Target | Behavior |
 |--------|----------|
@@ -238,7 +240,7 @@ Every other target drops the list with a coverage note. On the three inline targ
 
 ## `permissionMode` and agent `hooks` support by target {#agent-policy-support-by-target}
 
-`permissionMode` sets one delegated agent's approval boundary. `hooks` scopes lifecycle hooks to that agent. Omitting either inherits the parent session.
+Only the targets listed were checked. `permissionMode` sets one delegated agent's approval boundary. `hooks` scopes lifecycle hooks to that agent. Omitting either inherits the parent session.
 
 | Target | `permissionMode` | Agent `hooks` |
 |--------|------------------|---------------|
@@ -250,7 +252,7 @@ On Qoder, `bypassPermissions` is demoted to `acceptEdits` when security policy d
 
 ## `color` support by target
 
-`color` is written verbatim and not validated. An unrecognized value is cosmetic: the agent still runs.
+Only the targets listed were checked. `color` is written verbatim and not validated. An unrecognized value is cosmetic: the agent still runs.
 
 | Target | Values |
 |--------|--------|

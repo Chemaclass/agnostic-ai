@@ -125,7 +125,7 @@ That build is checked as release X.Y.Z. Setting `main.version` changes only what
 
 ## `sources`
 
-Sync skips missing directories without a message. See [path semantics](#path-semantics).
+Missing directories are skipped without a message. See [path semantics](#path-semantics).
 
 Source roots can be directory symlinks on macOS or Linux, or directory junctions on Windows. Source provenance uses the configured path.
 
@@ -181,7 +181,7 @@ Claude Code resolves `opus`, `sonnet`, `haiku`, and `fable` to its latest models
 
 The `terra` alias was added after v0.77.0. On v0.77.0, use its full ID, `gpt-5.6-terra`.
 
-Each release fixes the ids. A project that pins [`requires`](#requires) writes the same ids on every machine. Upgrading agnostic-ai can change them. The first `sync` after such an upgrade prints `note: codex: sol now resolves to <new id> (was <old id>)` once. `explain <spec>` shows the resolution, such as `sol → gpt-6.1-sol`.
+Each release fixes the ids. A project that pins [`requires`](#requires) writes the same ids on every machine. Upgrading agnostic-ai changes them. The first `sync` after such an upgrade prints `note: codex: sol now resolves to <new id> (was <old id>)` once. `explain <spec>` shows the resolution, such as `sol → gpt-6.1-sol`.
 
 An alias works anywhere Codex reads a `model`: a tier, `model.codex`, a shared `model`, or a settings spec. `x-codex.model` is written as given, so it can send an id the table does not know.
 
@@ -204,7 +204,7 @@ An alias works anywhere Codex reads a `model`: a tier, `model.codex`, a shared `
 
 ## `targets`
 
-Default: every adapter except `amp`, `warp`, `jules`, `goose`, and `augment` (20 in total). You can enable those alongside `codex`: the shared `AGENTS.md` body is written once. `-t/--target` overrides the list for one run.
+Default: every adapter except `amp`, `warp`, `jules`, `goose`, and `augment` (20 in total). Enabling those alongside `codex` is safe: the shared `AGENTS.md` body is written once. `-t/--target` overrides the list for one run.
 
 A likely typo of a built-in target, such as `cursr`, fails before any file is written. Any other unknown name logs a warning and is skipped. It may be an external adapter missing from this machine's PATH.
 
@@ -489,7 +489,7 @@ A failure that `on-unsupported: error` raises while emitting is not a note eithe
 | `enabled` | `false` when absent; `agnostic-ai init` writes `true` | Every `sync` rewrites a managed `.gitignore` block listing every path the configured adapters emit. |
 | `path` | `.gitignore` | Another file, for monorepos or local-only ignore files. |
 | `commit` | empty | Kinds of generated output to keep in Git, for every target or as `<target>:<kind>` for one. The block leaves out their paths. |
-| `allow` | empty | Gitignore globs written as `!` lines at the end of the block, so a hand-written file at a generated path (such as a `testdata/AGENTS.md` fixture) is not ignored. |
+| `allow` | empty | Gitignore globs written unchanged as `!` lines at the end of the block, so a hand-written file at a generated path (such as a `testdata/AGENTS.md` fixture) is not ignored. |
 | `worktree-include` | `true` | With `claude` in `targets`, keep the same block in `.worktreeinclude`, so Claude Code copies the ignored outputs and the local layer into each worktree it creates. |
 | `ignore-worktree-include` | `false` | Keep managing `.worktreeinclude` and list it in the managed ignore block. Requires `worktree-include: true` and `claude` in `targets`. |
 
@@ -524,7 +524,7 @@ The block sits between `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai 
 
 Claude Code builds a worktree from a checkout with no gitignored files. That covers a CLI `--worktree`, a subagent's worktree, and a Desktop worktree. Desktop runs no `WorktreeCreate` hook. Claude Code then copies the gitignored files that [`.worktreeinclude`](https://code.claude.com/docs/en/worktrees#copy-gitignored-files-into-worktrees) lists from the main checkout.
 
-So with `claude` in `targets`, sync also keeps the block in `.worktreeinclude`, minus `.sync-state`, `.command-lock`, Claude worktree directories, or the task lock. The local layer and packs come along, so the worktree renders what the main checkout does. In the worktree, the first `sync --keep-edits` rewrites a copied output that its specs no longer match.
+So with `claude` in `targets`, sync also keeps the block in `.worktreeinclude`, minus `.sync-state`, `.command-lock`, Claude worktree directories, and the task lock. The local layer and packs come along, so the worktree renders what the main checkout does. In the worktree, the first `sync --keep-edits` rewrites a copied output that its specs no longer match.
 
 - Set `gitignore.ignore-worktree-include: true` to keep the managed file out of Git. It then no longer appears under files to commit. If the file is already tracked, run `agnostic-ai sync --untrack` to remove it from the index and keep the file.
 - Set `gitignore.worktree-include: false` to manage the file yourself. Sync then removes only its own block.

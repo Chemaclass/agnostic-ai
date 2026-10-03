@@ -22,7 +22,7 @@ Each announcement has two records:
 - **What changed in agnostic-ai.** Two or three consequences for you. The GitHub release notes are the complete record.
 - **Upstream CLI and model news.** Selected external changes with primary sources, user impact, and the current agnostic-ai support state.
 
-Breaking changes, default changes, removals, and deprecations come first. Safety changes and large additions follow. A feature that exists upstream may not be supported by agnostic-ai yet.
+Breaking changes, default changes, removals, and deprecations come first. Safety changes and large additions follow. A feature that exists upstream may not be supported by agnostic-ai.
 
 Same names don't mean same behavior. The audit compares each target's project scope, lifecycle, defaults, and native file shape before it calls two features equivalent.
 
