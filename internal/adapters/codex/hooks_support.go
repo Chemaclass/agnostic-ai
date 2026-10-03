@@ -95,7 +95,8 @@ func matcherAlternatives(matcher string) ([]string, bool) {
 		inner = body
 	}
 	var names []string
-	for _, name := range strings.Split(inner, "|") {
+	separators := func(r rune) bool { return r == '|' || (r == ',' && inner == strings.TrimSpace(matcher)) }
+	for _, name := range strings.FieldsFunc(inner, separators) {
 		if name = strings.TrimSpace(name); name != "" {
 			names = append(names, name)
 		}

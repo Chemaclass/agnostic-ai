@@ -310,7 +310,8 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 var plainName = regexp.MustCompile(`^[\w*:-]+$`)
 
 // matcherSegments splits a Codex/Claude `matcher` string into its
-// pipe-separated alternatives. A matcher that is not a plain Name|Name
+// alternatives. Plain names separated by | or , are exact names (the rule
+// Codex shares with Claude Code), so both separators split. A matcher that is not a plain Name|Name
 // list (anchors, groups, other regex syntax) is one expression: splitting
 // it on | would cut a group in half. Empty matcher returns an empty slice
 // so the unioner skips it cleanly.
@@ -319,7 +320,7 @@ func matcherSegments(matcher string) []string {
 	if matcher == "" {
 		return nil
 	}
-	pieces := strings.Split(matcher, "|")
+	pieces := strings.FieldsFunc(matcher, func(r rune) bool { return r == '|' || r == ',' })
 	out := make([]string, 0, len(pieces))
 	for _, seg := range pieces {
 		seg = strings.TrimSpace(seg)
@@ -359,9 +360,7 @@ func unionSegments(matcher string) []string {
 		if body, ok := outerGroup(seg); ok && strings.HasPrefix(seg, "(?:") {
 			seg = body
 		}
-		if seg != "" {
-			out = append(out, seg)
-		}
+		out = append(out, matcherSegments(seg)...)
 	}
 	for i, r := range matcher {
 		switch r {

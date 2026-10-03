@@ -10,6 +10,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/hookrun"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
@@ -468,5 +469,54 @@ func TestEmit_HooksJSON_UnionsGroupedMatchersAsWholeExpressions(t *testing.T) {
 	}
 	if (Adapter{}).HookMatcherCovers("^(Bash|exec)$|apply_patch)$", second) {
 		t.Errorf("a malformed union must not cover %q", second)
+	}
+}
+
+// Claude Code's matcher rules, which Codex shares, read a list of plain
+// names separated by | or , as exact names. Merging such a list with
+// another must not turn it into a regex that reads the comma as a literal.
+func TestEmit_HooksJSON_UnionKeepsCommaListsExact(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	hook := func(name, matcher string) spec.Entry {
+		return spec.Entry{Kind: spec.KindHook, Name: name, Meta: map[string]any{
+			"event": "PreToolUse", "matcher": matcher, "command": "echo go",
+		}}
+	}
+	entries := []spec.Entry{hook("h1", "Bash,apply_patch"), hook("h2", "Edit")}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".codex/hooks.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Hooks map[string][]struct {
+			Matcher string `json:"matcher"`
+		} `json:"hooks"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	groups := doc.Hooks["PreToolUse"]
+	if len(groups) != 1 {
+		t.Fatalf("want one merged group, got:\n%s", raw)
+	}
+	matcher := groups[0].Matcher
+	if matcher != "Bash|apply_patch|Edit" {
+		t.Errorf("matcher = %q, want Bash|apply_patch|Edit", matcher)
+	}
+	for _, tool := range []string{"Bash", "apply_patch", "Edit"} {
+		if ok, err := hookrun.Matches(matcher, tool); err != nil || !ok {
+			t.Errorf("hookrun reads %q as not matching %s (err %v)", matcher, tool, err)
+		}
+	}
+	for _, m := range []string{"Bash,apply_patch", "Edit"} {
+		if !(Adapter{}).HookMatcherCovers(matcher, m) {
+			t.Errorf("emitted %q does not cover %q", matcher, m)
+		}
+	}
+	if !(Adapter{}).HookMatcherCovers("Bash,apply_patch|Edit", "Bash") {
+		t.Error("a comma list written natively must cover its names")
 	}
 }
