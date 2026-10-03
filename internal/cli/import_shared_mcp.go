@@ -292,10 +292,12 @@ func splitMCPURLCredentials(value string) (pieces []string, creds map[int]string
 func isMCPSpace(c byte) bool { return strings.IndexByte(" \t\r\n", c) >= 0 }
 
 // mcpWordURLs returns the [start, end) span of each URL in the shell word
-// mask[lo:hi]. A URL starts at its scheme and runs to the end of the
-// word, or to the closing quote when a quote opens right before it. A
-// word with no `://` is one span, past an opening quote, so a URL with a
-// reference base still counts.
+// mask[lo:hi]. A URL starts at its scheme and runs to the closing quote
+// when a quote opens right before it. Otherwise it runs to the first `|`,
+// which no URL holds unencoded, or to the end of the word, less any
+// trailing `;`, `&`, or `)`, so a shell operator after a credential stays
+// outside its reference. A word with no `://` is one span, past an
+// opening quote, so a URL with a reference base still counts.
 func mcpWordURLs(mask string, lo, hi int) [][2]int {
 	quoted := func(start int) int {
 		if start > lo && (mask[start-1] == '\'' || mask[start-1] == '"') {
@@ -303,7 +305,11 @@ func mcpWordURLs(mask string, lo, hi int) [][2]int {
 				return start + q
 			}
 		}
-		return hi
+		end := start + indexAnyOrLen(mask[start:hi], "|")
+		for end > start && strings.IndexByte(";&)", mask[end-1]) >= 0 {
+			end--
+		}
+		return end
 	}
 	if !strings.Contains(mask[lo:hi], "://") {
 		start := lo

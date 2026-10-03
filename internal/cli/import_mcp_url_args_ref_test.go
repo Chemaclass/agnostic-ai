@@ -346,6 +346,27 @@ func TestImportMCP_URLAmbiguousPasswordLeavesServerOut(t *testing.T) {
 	}
 }
 
+func TestImportMCP_URLCredentialKeepsTrailingShellOperators(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	captureLog(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".mcp.json"), `{"mcpServers":{"sh":{"command":"sh","args":["-c","curl https://x.example/a?token=T0KEN; exec srv && curl https://y.example/b?key=K3Y|cat; (curl https://z.example/c?secret=S3C)||true"]}}}`)
+	execCLI(t, "import", "claude")
+	execCLI(t, "sync", "-t", "claude")
+	native := readFile(t, filepath.Join(dir, ".mcp.json"))
+	for _, secret := range []string{"T0KEN", "K3Y", "S3C"} {
+		if strings.Contains(native, secret) {
+			t.Fatal("sync wrote a credential back after import")
+		}
+	}
+	want := `"curl https://x.example/a?token=${SH_TOKEN}; exec srv && curl https://y.example/b?key=${SH_KEY}|cat; (curl https://z.example/c?secret=${SH_SECRET})||true"`
+	if !strings.Contains(native, want) {
+		t.Errorf(".mcp.json lacks %s:\n%s", want, native)
+	}
+}
+
 // The import from the issue: the specs hold references, and sync writes
 // them back to the native file instead of the credential.
 func TestImportMCP_URLArgsCredentialsRoundTrip(t *testing.T) {
