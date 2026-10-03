@@ -181,19 +181,23 @@ func normalizeCopilotHook(event string, native map[string]any) map[string]any {
 		command = copilot.ScriptFromCwd(command, cwd)
 		if command == "" {
 			command, _ = native["exec"].(string)
-			if raw, exists := native["args"]; exists {
+			var args []string
+			raw, exists := native["args"]
+			if exists {
 				doc["args"] = raw
-				if list, ok := raw.([]any); ok {
-					args := make([]string, len(list))
-					for i, item := range list {
-						args[i], ok = item.(string)
-						if !ok {
-							break
-						}
-					}
-					if ok {
-						command, doc["args"] = copilot.ExecFromCwd(command, args, cwd)
-					}
+			}
+			list, isList := raw.([]any)
+			ok := !exists || isList
+			for _, item := range list {
+				text, isText := item.(string)
+				ok = ok && isText
+				args = append(args, text)
+			}
+			if ok {
+				var restored []string
+				command, restored = copilot.ExecFromCwd(command, args, cwd)
+				if exists {
+					doc["args"] = restored
 				}
 			}
 		}

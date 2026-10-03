@@ -295,12 +295,16 @@ func TestImportCopilotHooks_RestoresRepositoryRelativeScriptPath(t *testing.T) {
 	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [copilot]\n")
 	writeFile(t, filepath.Join(copilotHooksDir, "custom.json"), `{"version":1,"hooks":{"PreToolUse":[
 {"type":"command","command":"../.agnostic-ai/hooks/guard.sh","cwd":"sub"},
-{"type":"command","exec":"node","args":["../scripts/guard.js","--strict"],"cwd":"sub"}
+{"type":"command","exec":"node","args":["../.github/hooks/scripts/guard.js","--strict"],"cwd":"sub"},
+{"type":"command","exec":"./.github/hooks/scripts/guard","cwd":"sub"},
+{"type":"command","exec":"./scripts/user","cwd":"sub"},
+{"type":"command","exec":"C:/Tools/guard.exe","cwd":"sub"},
+{"type":"command","command":"C:/Tools/other.exe","cwd":"sub"}
 ]}}`)
 	execCLI(t, "import", "copilot")
 	execCLI(t, "sync", "-t", "copilot")
 	data := readFile(t, filepath.Join(copilotHooksDir, "agnostic-ai.json"))
-	for _, want := range []string{`"command": "../.agnostic-ai/hooks/guard.sh"`, `"../scripts/guard.js"`} {
+	for _, want := range []string{`"command": "../.agnostic-ai/hooks/guard.sh"`, `"../.github/hooks/scripts/guard.js"`, `"command": "./scripts/user"`, `"command": "C:/Tools/guard.exe"`, `"command": "C:/Tools/other.exe"`, `"command": "../.github/hooks/scripts/guard"`} {
 		if !strings.Contains(data, want) {
 			t.Errorf("missing %s in:\n%s", want, data)
 		}
@@ -310,7 +314,7 @@ func TestImportCopilotHooks_RestoresRepositoryRelativeScriptPath(t *testing.T) {
 	for _, f := range specs {
 		all += readFile(t, f)
 	}
-	if !strings.Contains(all, "command: .agnostic-ai/hooks/guard.sh") || !strings.Contains(all, "scripts/guard.js") || strings.Contains(all, "../") {
+	if !strings.Contains(all, "command: .agnostic-ai/hooks/guard.sh") || !strings.Contains(all, ".github/hooks/scripts/guard.js") || strings.Contains(all, "../") {
 		t.Errorf("imported specs keep native-relative paths:\n%s", all)
 	}
 }
