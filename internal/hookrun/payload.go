@@ -17,7 +17,7 @@ import (
 
 // Targets lists the targets Build writes payloads for.
 func Targets() []string {
-	return []string{"claude", "codex", "gemini", "trae", "openhands", "goose", "augment", "cursor", "copilot"}
+	return []string{"claude", "codex", "gemini", "trae", "openhands", "goose", "augment", "cursor", "copilot", "factory"}
 }
 
 // Supported reports whether Build writes payloads for target.
