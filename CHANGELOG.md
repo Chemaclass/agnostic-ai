@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- `doctor` lists each MCP `${NAME}` reference that is unset in your shell, by name (#1729).
 - `hook run` no longer hides a timeout or error from one command when another command's result is not counted (#1728).
 
 ### By tool

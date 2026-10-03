@@ -2,7 +2,10 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"slices"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -72,9 +75,109 @@ func installHint(command string) string {
 	return fmt.Sprintf("Install or expose %q on PATH.", command)
 }
 
-// touchedKinds is unused but kept here to assert the intent of the
-// MCP-only check; future extensions (e.g. validating the args
-// pointer) should reuse the same single-pass shape.
-var _ = touchedKinds
+// reportMCPUnsetEnvRefs lists each `${NAME}` an MCP server reads that
+// is unset in this shell, for each target in targets (default: the
+// configured ones) the server emits to. Disabled servers count too:
+// several targets cannot write `disabled` and start the server anyway.
+// Most tools pass the unexpanded text or an empty value to the server,
+// and Factory fails the connection. A reference with a default is
+// skipped. The tool may run with a different environment than this
+// shell, so the check is advisory and prints names, never values.
+func reportMCPUnsetEnvRefs(cmd *cobra.Command, targets []string) {
+	cfg, b, err := loadProject(".")
+	if err != nil {
+		return
+	}
+	if len(targets) == 0 {
+		targets = cfg.Targets
+	}
+	type result struct {
+		name  string
+		unset []string
+	}
+	var results []result
+	for _, e := range b.MCPs {
+		var names []string
+		for _, target := range targets {
+			if e.EmitsTo(target) {
+				names = append(names, mcpEnvRefNames(e.Meta, target)...)
+			}
+		}
+		slices.Sort(names)
+		names = slices.Compact(names)
+		if len(names) == 0 {
+			continue
+		}
+		var unset []string
+		for _, name := range names {
+			if _, ok := os.LookupEnv(name); !ok {
+				unset = append(unset, name)
+			}
+		}
+		results = append(results, result{name: e.Name, unset: unset})
+	}
+	if len(results) == 0 {
+		return
+	}
+	cmd.Println()
+	cmd.Println("MCP environment references:")
+	for _, r := range results {
+		if len(r.unset) == 0 {
+			cmd.Printf("  ✓ %s\n", r.name)
+			continue
+		}
+		cmd.Printf("  ✗ %s reads %s, unset in this shell. Export it before starting the tool.\n", r.name, strings.Join(r.unset, ", "))
+	}
+}
 
-func touchedKinds() []spec.Kind { return []spec.Kind{spec.KindMCP} }
+// mcpEnvRefNames returns the variables a server reads through `${NAME}`
+// without a default, in its top-level fields and in its `x-<target>`
+// block. Both count: whether an override replaces a top-level field
+// differs by adapter, and a missed variable costs more than an extra
+// one. Editor variables such as `${workspaceFolder}` are filled in by
+// the tool only in `url` and `args`, and `args` counts only for a stdio
+// server.
+func mcpEnvRefNames(meta map[string]any, target string) []string {
+	var names []string
+	add := func(value any, launch bool) {
+		s, ok := value.(string)
+		if !ok {
+			return
+		}
+		for _, t := range spec.EnvRefTokens(s) {
+			if t.Known() && !t.HasDefault && (!launch || !t.EditorVariable()) {
+				names = append(names, t.Name)
+			}
+		}
+	}
+	blocks := []map[string]any{meta}
+	if override, ok := meta["x-"+target].(map[string]any); ok {
+		blocks = append(blocks, override)
+	}
+	stdio := false
+	for _, block := range blocks {
+		if command, _ := block["command"].(string); command != "" {
+			stdio = true
+		}
+	}
+	for _, block := range blocks {
+		credentials := []any{block["env"], block["headers"]}
+		if options, ok := block["requestOptions"].(map[string]any); ok {
+			credentials = append(credentials, options["headers"])
+		}
+		for _, c := range credentials {
+			values, _ := c.(map[string]any)
+			for _, v := range values {
+				add(v, false)
+			}
+		}
+		add(block["url"], true)
+		if stdio {
+			args, _ := block["args"].([]any)
+			for _, v := range args {
+				add(v, true)
+			}
+		}
+	}
+	return names
+}
