@@ -225,6 +225,25 @@ func TestHookRun_GeminiTimeoutIsMilliseconds(t *testing.T) {
 	}
 }
 
+// The union buildHooksJSON writes for two grouped matchers, read back from
+// Codex, names Bash, exec and apply_patch, so hook run adds no note (#1733).
+func TestHookRun_CodexNotesMatcherOnlyWhenItNamesNoCodexTool(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	for matcher, wantNote := range map[string]bool{
+		"'(?:^(Bash|exec)$)|(?:^(Bash|apply_patch)$)'": false,
+		"'^Grep$'": true,
+	} {
+		hookRunProject(t, "name: guard\nevent: PreToolUse\nmatcher: "+matcher+"\ncommand: 'true'\n")
+		out, err := runHookRun(t, "guard", "--bash", "ls", "--target", "codex")
+		if err != nil {
+			t.Fatalf("%s: %v\n%s", matcher, err, out)
+		}
+		if got := strings.Contains(out, "does not match"); got != wantNote {
+			t.Errorf("%s: note = %v, want %v\n%s", matcher, got, wantNote, out)
+		}
+	}
+}
+
 func TestHookRun_UnknownHookAndTargetOutsideTheHook(t *testing.T) {
 	hookRunProject(t, "name: guard\nevent: PreToolUse\ntarget: claude\ncommand: 'true'\n")
 
