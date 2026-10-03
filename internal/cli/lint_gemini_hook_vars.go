@@ -37,7 +37,7 @@ func lintGeminiHookVariables(cfg *config.Config, targets []string, b spec.Bundle
 		}
 		var found []string
 		for _, h := range handlers {
-			for _, v := range quotedGeminiVariables(h.Command) {
+			for _, v := range bareGeminiVariables(h.Command) {
 				if !slices.Contains(found, v) {
 					found = append(found, v)
 				}
@@ -50,29 +50,24 @@ func lintGeminiHookVariables(cfg *config.Config, targets []string, b spec.Bundle
 			Code:     "LINT030",
 			Severity: lintWarn,
 			Path:     hook.Path,
-			Message: fmt.Sprintf("Hook %q holds %s in a command with quotes, a backslash, a comment, a heredoc, or a command substitution; Gemini replaces it with a shell-escaped value before the shell runs, which breaks the quoting. Write \"${NAME}\" (Gemini leaves the braced form to the shell) or drop the quotes",
+			Message: fmt.Sprintf("Hook %q holds a bare %s; Gemini replaces it as text before the shell runs, and a project path holding shell syntax or another such name can run as code. Write \"${NAME}\" (Gemini leaves the braced form to the shell)",
 				hook.Name, strings.Join(found, ", ")),
 		})
 	}
 	return out
 }
 
-// quotedGeminiVariables returns each Gemini-replaced variable written bare
-// in a command where that is unsafe. Gemini inserts a shell-escaped value
-// before the shell parses the command, so the value is only safe as a
-// plain unquoted word. Any quote, backslash, comment, heredoc, or command
-// substitution in the command can put it somewhere else, and the shell has
-// too many such forms to track, so every bare variable in such a command
-// counts. `${NAME}` is never replaced and always fine.
-func quotedGeminiVariables(command string) []string {
+// bareGeminiVariables returns each Gemini-replaced variable written bare
+// in command. Gemini inserts a shell-escaped value before the shell parses
+// the command, and replaces the names one after another, so a project path
+// that holds another name is replaced again inside the inserted quotes.
+// No bare form is safe; `${NAME}` is never replaced and always is.
+func bareGeminiVariables(command string) []string {
 	var out []string
 	for _, v := range geminiHookVariables {
 		if strings.Contains(command, v) {
 			out = append(out, v)
 		}
-	}
-	if len(out) == 0 || !strings.ContainsAny(command, "'\"`\\#") && !strings.Contains(command, "<<") && !strings.Contains(command, "$(") {
-		return nil
 	}
 	return out
 }
