@@ -103,6 +103,7 @@ See [Claude import](@/docs/targets/claude.md#import) for what `import claude` le
 - Anything a home spec already provides, `local/` included, is left out. An existing spec file is never replaced.
 - Two tools that define one server differently keep the first tool's server, with a warning.
 - Servers that don't round-trip are skipped with a warning.
+- A server with a literal [credential](@/docs/spec-format/mcps.md#what-import-writes) is left out with a warning that names the server and field, so no secret reaches the home. A plain setting such as `NODE_ENV: production` still imports.
 
 | Flag | Effect |
 |---|---|

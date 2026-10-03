@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -254,7 +255,11 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, war
 					delete(servers, name)
 				}
 			}
-			if _, err := writeMCPSpecs(codexMCPDocs(servers), dir); err != nil {
+			docs := codexMCPDocs(servers)
+			if err := withoutMCPCredentials(target, docs, skip); err != nil {
+				return err
+			}
+			if _, err := writeMCPSpecs(docs, dir); err != nil {
 				return err
 			}
 			data, err := os.ReadFile(path)
@@ -278,6 +283,9 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, war
 				native[name] = jsonRoundTrip(server)
 			}
 			normalizeImportedMCP(target, servers)
+			if err := withoutMCPCredentials(target, servers, skip); err != nil {
+				return err
+			}
 			if _, err := writeMCPSpecs(servers, dir); err != nil {
 				return err
 			}
@@ -341,6 +349,44 @@ func stageGlobalMCP(home, stage string, targets []string, have []spec.Entry, war
 		}
 		if err := os.RemoveAll(dir); err != nil {
 			return fmt.Errorf("remove %s: %w", dir, err)
+		}
+	}
+	return nil
+}
+
+// withoutMCPCredentials leaves out each server with a literal
+// credential, since the home is meant to be committed and a reference
+// would not write the user's file back unchanged. That is every
+// credential project import finds in a URL, argument, or other field,
+// and an `env` or header value whose key mcpCredentialKey names or
+// that holds one by its shape. A plain setting such as `NODE_ENV:
+// production`, a path, a number, and `Bearer ${TOKEN}` stay. The warning names the field, never the
+// value.
+func withoutMCPCredentials(target string, servers map[string]any, skip func(target, name, reason string) error) error {
+	probe, _ := jsonRoundTrip(servers).(map[string]any)
+	held := map[string]string{}
+	for _, r := range referenceMCPLiterals(probe) {
+		if _, seen := held[r.server]; seen {
+			continue
+		}
+		if r.field != "env" && r.field != "headers" {
+			held[r.server] = r.field
+			continue
+		}
+		server, _ := servers[r.server].(map[string]any)
+		values, _ := server[r.field].(map[string]any)
+		value, _ := values[r.key].(string)
+		if mcpRefOnly(value) {
+			continue
+		}
+		if mcpCredentialKey(r.key) && mcpSecretValue(mcpDetectorText(value), false, mcpWeakCredential) || mcpCredentialDetected(value) {
+			held[r.server] = r.field + "." + r.key
+		}
+	}
+	for _, name := range slices.Sorted(maps.Keys(held)) {
+		delete(servers, name)
+		if err := skip(target, name, "left out; "+held[name]+" holds a credential import cannot rewrite; add it under local/mcps or write a ${NAME} reference by hand"); err != nil {
+			return fmt.Errorf("write import warning: %w", err)
 		}
 	}
 	return nil
