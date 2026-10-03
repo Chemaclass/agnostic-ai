@@ -139,3 +139,36 @@ func TestHookRun_QoderHonorsIf(t *testing.T) {
 		t.Errorf("an if that does not match must skip the handler:\n%s", out)
 	}
 }
+
+func TestHookRun_AsyncRewakeIsNotJudged(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	qoderProject(t, qoderHookSpec+"asyncRewake: true\n", "#!/bin/sh\ncat >/dev/null\nexit 2\n")
+
+	for _, args := range [][]string{{"--expect", "allow"}, {"--expect", "allow", "--include-assumed"}} {
+		out, err := runHookRun(t, append([]string{"protect-files", "--bash", "ls"}, args...)...)
+		if err != nil {
+			t.Errorf("%v: an asyncRewake hook blocks nothing, so --expect allow passes: %v\n%s", args, err, out)
+		}
+		for _, target := range []string{"claude", "qoder"} {
+			if !strings.Contains(out, target+": not judged (exit 2") || !strings.Contains(out, "note: async hook; "+target+" does not wait for its result") {
+				t.Errorf("%v: %s must be shown as async:\n%s", args, target, out)
+			}
+		}
+	}
+	out, _ := runHookRun(t, "protect-files", "--bash", "ls", "--format", "json")
+	var report struct {
+		Targets []struct {
+			Target  string `json:"target"`
+			Async   bool   `json:"async"`
+			Counted bool   `json:"counted"`
+		} `json:"targets"`
+	}
+	if err := json.Unmarshal([]byte(out), &report); err != nil || len(report.Targets) != 2 {
+		t.Fatalf("invalid JSON: %v\n%s", err, out)
+	}
+	for _, r := range report.Targets {
+		if !r.Async || r.Counted {
+			t.Errorf("%s = %+v; want async and not counted", r.Target, r)
+		}
+	}
+}

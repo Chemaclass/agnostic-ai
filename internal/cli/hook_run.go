@@ -261,8 +261,7 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 				continue
 			}
 		}
-		// Gemini CLI has no async hooks; sync writes none there.
-		run.Async = hookRunAsync(hook.Meta) && slices.Contains(asyncHookTargets, target)
+		run.Async = hookRunAsync(target, hook.Meta)
 		if hookrun.FireAndForget(target, event) {
 			run.Async, run.fireAndForget = true, true
 		}
@@ -676,10 +675,20 @@ func hookRunEnv(target, root string, ctx hookEnvContext, h hookrun.Handler) []st
 	return env
 }
 
-// hookRunAsync reads the spec's async field: both targets run such a
-// hook in the background, so its exit code blocks nothing.
-func hookRunAsync(meta map[string]any) bool {
-	switch v := meta["async"].(type) {
+// hookRunAsync reports whether target runs the hook in the background,
+// so its exit code blocks nothing: `async` on the asyncHookTargets, and
+// `asyncRewake` on Claude Code and Qoder, which both document it as
+// running "in the background" and waking the model on exit 2. Gemini CLI
+// has no async hooks; sync writes none there.
+func hookRunAsync(target string, meta map[string]any) bool {
+	if !slices.Contains(asyncHookTargets, target) {
+		return false
+	}
+	return metaTrue(meta["async"]) || (target == "claude" || target == "qoder") && metaTrue(meta["asyncRewake"])
+}
+
+func metaTrue(v any) bool {
+	switch v := v.(type) {
 	case bool:
 		return v
 	case string:
