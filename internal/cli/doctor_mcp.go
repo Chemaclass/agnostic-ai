@@ -2,7 +2,10 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"slices"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -72,9 +75,81 @@ func installHint(command string) string {
 	return fmt.Sprintf("Install or expose %q on PATH.", command)
 }
 
-// touchedKinds is unused but kept here to assert the intent of the
-// MCP-only check; future extensions (e.g. validating the args
-// pointer) should reuse the same single-pass shape.
-var _ = touchedKinds
+// reportMCPUnsetEnvRefs lists each `${NAME}` an enabled MCP server
+// reads in `env`, `headers`, `url`, or `args` that is unset in this
+// shell. Most tools pass the unexpanded text or an empty value to the
+// server, and Factory fails the connection. A reference with a default
+// is skipped. The tool may run with a different environment than this
+// shell, so the check is advisory and prints names, never values.
+func reportMCPUnsetEnvRefs(cmd *cobra.Command) {
+	_, b, err := loadProject(".")
+	if err != nil {
+		return
+	}
+	type result struct {
+		name  string
+		unset []string
+	}
+	var results []result
+	for _, e := range b.MCPs {
+		if disabled, _ := e.Meta["disabled"].(bool); disabled {
+			continue
+		}
+		names := mcpEnvRefNames(e.Meta)
+		if len(names) == 0 {
+			continue
+		}
+		var unset []string
+		for _, name := range names {
+			if _, ok := os.LookupEnv(name); !ok {
+				unset = append(unset, name)
+			}
+		}
+		results = append(results, result{name: e.Name, unset: unset})
+	}
+	if len(results) == 0 {
+		return
+	}
+	cmd.Println()
+	cmd.Println("MCP environment references:")
+	for _, r := range results {
+		if len(r.unset) == 0 {
+			cmd.Printf("  ✓ %s\n", r.name)
+			continue
+		}
+		cmd.Printf("  ✗ %s reads %s, unset in this shell. Export it before starting the tool.\n", r.name, strings.Join(r.unset, ", "))
+	}
+}
 
-func touchedKinds() []spec.Kind { return []spec.Kind{spec.KindMCP} }
+// mcpEnvRefNames returns the sorted variable names a server reads
+// through `${NAME}` without a default.
+func mcpEnvRefNames(meta map[string]any) []string {
+	var values []string
+	for _, field := range []string{"env", "headers"} {
+		block, _ := meta[field].(map[string]any)
+		for _, v := range block {
+			if s, ok := v.(string); ok {
+				values = append(values, s)
+			}
+		}
+	}
+	if url, ok := meta["url"].(string); ok {
+		values = append(values, url)
+	}
+	args, _ := meta["args"].([]any)
+	for _, v := range args {
+		if s, ok := v.(string); ok {
+			values = append(values, s)
+		}
+	}
+	var names []string
+	for _, v := range values {
+		for _, t := range spec.EnvRefTokens(v) {
+			if t.Known() && !t.HasDefault && !t.EditorVariable() && !slices.Contains(names, t.Name) {
+				names = append(names, t.Name)
+			}
+		}
+	}
+	slices.Sort(names)
+	return names
+}

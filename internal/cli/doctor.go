@@ -165,9 +165,10 @@ func doctorNextStep(cmd *cobra.Command, drift, manualOnly, fixOnly bool, manual 
 func newDoctorMCPCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "mcp",
-		Short: "Check that every MCP server's command binary is present on PATH.",
+		Short: "Check that each MCP server's command is on PATH and its ${NAME} references are set.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reportMCPCommandResolution(cmd)
+			reportMCPUnsetEnvRefs(cmd)
 			return nil
 		},
 	}
