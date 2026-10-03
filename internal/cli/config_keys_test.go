@@ -76,6 +76,13 @@ func TestConfig_UnknownOnUnsupportedValueFails(t *testing.T) {
 	assertConfigRejected(t, outputs, `on-unsupported: "wrn"`, "warn, error, silent")
 }
 
+func TestConfig_UnknownGlobalNameClashValueFails(t *testing.T) {
+	outputs := syncedKeysProject(t)
+	mustWriteFile(t, "agnostic-ai.local.yaml", "sync:\n  global-name-clash: quiet\n")
+
+	assertConfigRejected(t, outputs, `sync.global-name-clash: "quiet"`, "warn, ignore")
+}
+
 // A model tier maps target names inline, so its keys are open.
 func TestConfig_ModelTierTargetKeysAreNotUnknownKeys(t *testing.T) {
 	syncedKeysProject(t)

@@ -28,6 +28,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - MCP `url` and `args` take `${NAME}` references; each tool gets its own form, and a tool that reads none leaves the server out with a note (#1633).
 - The first-sync list of what each tool reads no longer names an MCP server that sync left out for that tool (#1666).
 - `sync.allow-global-names` lists skill and agent names a project shares with the global home on purpose; `sync` stops warning about them, and `doctor` marks them as allowed (#1707).
+- `sync.global-name-clash: ignore` stops the shared-name warning for every skill and agent a project shares with the global home; `doctor` marks them as ignored (#1708).
 
 ### By tool
 

@@ -173,6 +173,57 @@ func TestDoctor_MarksAnAllowedGlobalNameClash(t *testing.T) {
 	}
 }
 
+func TestSync_IgnoresEverySharedGlobalNameWhenTheModeSaysSo(t *testing.T) {
+	allowedClashProject(t)
+	mustWriteFile(t, "agnostic-ai.local.yaml", "sync:\n  global-name-clash: ignore\n")
+	buf := captureLog(t)
+
+	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
+		t.Fatal(err)
+	}
+
+	if strings.Contains(buf.String(), "also exists in") {
+		t.Errorf("sync.global-name-clash: ignore should keep sync quiet about every shared name:\n%s", buf.String())
+	}
+}
+
+func TestSync_WarnModeStillHonoursTheAllowList(t *testing.T) {
+	allowedClashProject(t)
+	mustWriteFile(t, "agnostic-ai.local.yaml", "sync:\n  global-name-clash: warn\n  allow-global-names: [gh-issue]\n")
+	buf := captureLog(t)
+
+	if err := runSyncOnce(".", nil, false, false, "off", 1); err != nil {
+		t.Fatal(err)
+	}
+
+	if strings.Contains(buf.String(), `skill "gh-issue" also exists in`) {
+		t.Errorf("gh-issue is allowed, so sync should not warn about it:\n%s", buf.String())
+	}
+	if !strings.Contains(buf.String(), `skill "gh-pr" also exists in`) {
+		t.Errorf("warn mode should still warn about gh-pr:\n%s", buf.String())
+	}
+}
+
+func TestDoctor_MarksIgnoredGlobalNameClashes(t *testing.T) {
+	allowedClashProject(t)
+	mustWriteFile(t, "agnostic-ai.local.yaml", "sync:\n  global-name-clash: ignore\n")
+	syncProject(t)
+
+	out, err := runDoctor(t)
+
+	if err != nil {
+		t.Fatalf("a shared name must not fail doctor: %v\n%s", err, out)
+	}
+	want := "  ~ .agnostic-ai/skills/gh-pr/SKILL.md: skill \"gh-pr\" also exists in ~/source/skills/gh-pr/SKILL.md" +
+		"; claude loads the global one, which exists only on this machine; ignored by sync.global-name-clash\n"
+	if !strings.Contains(out, want) {
+		t.Errorf("doctor should list the ignored clash, marked as ignored:\nwant %q\n%s", want, out)
+	}
+	if strings.Contains(out, "  ! .agnostic-ai/skills/") {
+		t.Errorf("ignore mode leaves no clash to warn about in doctor:\n%s", out)
+	}
+}
+
 func clashesInWorkingDir(t *testing.T) []globalNameClash {
 	t.Helper()
 	cfg, b, err := loadProject(".")
