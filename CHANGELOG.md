@@ -8,7 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
-- `hook run` no longer hides a timeout or error from one command when another command's result is not counted (#1724, #1725).
+- `hook run` no longer hides a timeout or error from one command when another command's result is not counted (#1728).
 
 ### By tool
 
