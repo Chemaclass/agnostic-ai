@@ -153,7 +153,11 @@ func importContinueMCPs(root, dstDir string) (int, error) {
 	}
 	count := 0
 	for _, file := range files {
-		raw, err := yaml.Marshal(servers[file.serverName])
+		server, kept := servers[file.serverName]
+		if !kept {
+			continue
+		}
+		raw, err := yaml.Marshal(server)
 		if err != nil {
 			return count, fmt.Errorf("marshal MCP %s: %w", file.name, err)
 		}
