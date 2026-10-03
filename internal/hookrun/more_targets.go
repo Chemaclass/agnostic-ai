@@ -2,7 +2,6 @@ package hookrun
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -61,13 +60,13 @@ func unanchoredMatches(matcher, value string) (bool, error) {
 }
 
 // buildTrae writes Trae's payload. The docs list no tool_input fields for
-// the edit tools, so --edit is refused.
+// the edit tools, so --edit is Unbuilt.
 func buildTrae(event, matcher, root string, in Input) (Payload, error) {
 	if err := checkInput("trae", event, "PreToolUse", "PostToolUse", "UserPromptSubmit", in); err != nil {
 		return Payload{}, err
 	}
 	if in.Edit != "" {
-		return Payload{}, errors.New("--edit: Trae documents no tool_input for its edit tools; pass --payload <file>")
+		return Payload{}, Unbuilt{"Trae documents no tool_input for its edit tools; pass --payload <file>"}
 	}
 	doc := map[string]any{"session_id": SessionID, "cwd": root, "hook_event_name": event, "workspace_roots": []string{root}}
 	p := Payload{Fires: true}
@@ -102,7 +101,7 @@ func buildOpenHands(event, matcher, root string, in Input) (Payload, error) {
 		return Payload{}, err
 	}
 	if in.Edit != "" {
-		return Payload{}, errors.New("--edit: OpenHands documents no tool_input for its file editor; pass --payload <file>")
+		return Payload{}, Unbuilt{"OpenHands documents no tool_input for its file editor; pass --payload <file>"}
 	}
 	doc := map[string]any{"event_type": event, "session_id": SessionID, "working_dir": root, "metadata": map[string]any{}}
 	p := Payload{}

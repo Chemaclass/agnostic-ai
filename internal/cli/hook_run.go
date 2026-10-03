@@ -673,8 +673,17 @@ func hookTimeout(target string, meta map[string]any) time.Duration {
 // timed out or errored, on a decision other than expect, and on
 // targets that disagree.
 func judgeHookRuns(name string, runs []hookTargetRun, expect hookrun.Decision) error {
+	var notRunReasons []string
+	for _, r := range runs {
+		if r.Decision == notRun && r.Reason != "" {
+			notRunReasons = append(notRunReasons, r.Target+": "+r.Reason)
+		}
+	}
 	runs = slices.DeleteFunc(slices.Clone(runs), func(r hookTargetRun) bool { return r.Decision == notRun })
 	if len(runs) == 0 {
+		if len(notRunReasons) > 0 {
+			return fmt.Errorf("hook %s ran on no target (%s)", name, strings.Join(notRunReasons, "; "))
+		}
 		return fmt.Errorf("hook %s reaches no target hook run builds payloads for (%s)", name, strings.Join(hookrun.Targets(), ", "))
 	}
 	var assumedOnly []string

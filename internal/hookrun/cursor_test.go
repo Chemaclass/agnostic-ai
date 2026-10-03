@@ -2,6 +2,7 @@ package hookrun
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 )
@@ -60,8 +61,9 @@ func TestBuildCursor_MatchesWhatEachEventDocuments(t *testing.T) {
 	if p, _ := buildCursor("preToolUse", "Read", "/project", Input{Bash: "ls"}); p.Fires {
 		t.Error("a Read matcher must not fire for the Shell tool")
 	}
-	if _, err := buildCursor("preToolUse", "", "/project", Input{Edit: "a.go"}); err == nil {
-		t.Error("--edit on preToolUse must be refused: the Write tool input is undocumented")
+	var unbuilt Unbuilt
+	if _, err := buildCursor("preToolUse", "", "/project", Input{Edit: "a.go"}); !errors.As(err, &unbuilt) {
+		t.Errorf("--edit on preToolUse = %v, want Unbuilt: the Write tool input is undocumented", err)
 	}
 }
 

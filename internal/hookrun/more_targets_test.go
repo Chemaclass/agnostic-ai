@@ -1,6 +1,7 @@
 package hookrun
 
 import (
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -51,8 +52,8 @@ func TestBuild_EditPayloadsWhereTheToolInputIsDocumented(t *testing.T) {
 		t.Errorf("augment edit payload = %s", augment.Body)
 	}
 	for _, target := range []string{"trae", "openhands"} {
-		if _, err := Build(target, "PreToolUse", "", root, Input{Edit: "a.go"}); err == nil || !strings.Contains(err.Error(), "--payload") {
-			t.Errorf("%s: err = %v, want --edit refused for an undocumented edit input", target, err)
+		if _, err := Build(target, "PreToolUse", "", root, Input{Edit: "a.go"}); !errors.As(err, new(Unbuilt)) || !strings.Contains(err.Error(), "--payload") {
+			t.Errorf("%s: err = %v, want Unbuilt for an undocumented edit input", target, err)
 		}
 	}
 }

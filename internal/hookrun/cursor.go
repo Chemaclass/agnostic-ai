@@ -129,7 +129,7 @@ func buildCursor(event, matcher, root string, in Input) (Payload, error) {
 		p.Trigger = in.Bash
 	case "preToolUse", "postToolUse":
 		if in.Edit != "" {
-			return Payload{}, errors.New("--edit: Cursor documents no tool_input for its Write tool; pass --payload <file>")
+			return Payload{}, Unbuilt{"Cursor documents no tool_input for its Write tool; pass --payload <file>"}
 		}
 		if in.Bash == "" {
 			return Payload{}, fmt.Errorf("%s needs --bash <command> or --payload <file>", event)
