@@ -109,7 +109,7 @@ commandWindows: '$s = "$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/no-force-push.sh
 timeout: 10
 ```
 
-The script reads `tool_input.command` from the event JSON on stdin, with no `jq`. It splits the command into words the way `sh` does, so a `git push --force` in quotes, a comment, or a heredoc body passes, and a push with a `+main` refspec counts as forced unless it uses `--force-with-lease`. On a force push it prints the reason on stderr and exits 2, which both tools read as a block.
+The script reads `tool_input.command` from the event JSON on stdin, with no `jq`. It splits the command into words the way `sh` does, so a `git push --force` in quotes, a comment, or a heredoc body passes, and a push with a `+main` refspec counts as forced unless it uses `--force-with-lease`. A force push spelled outside quotes blocks even behind a wrapper the script does not parse, such as `xargs`. On a force push it prints the reason on stderr and exits 2, which both tools read as a block.
 
 Both tools start a hook in the session directory, which can be below the project root, so the path starts at the root. Claude Code keeps [`$CLAUDE_PROJECT_DIR`](#imported-project-root-paths); Codex gets `$(git rev-parse --show-toplevel)`, in both commands, plus the project's path below the Git root.
 
@@ -132,7 +132,8 @@ Claude Code runs hooks with Git Bash on Windows and needs no `commandWindows`.
 # comments, redirections, heredoc bodies, and $( ) or backtick
 # substitutions. It checks each command between unquoted ; & | ( ) and
 # newlines, past reserved words such as if and then. A heredoc it cannot
-# read ends the check, since a missed push beats blocking text.
+# read ends the check, since a missed push beats blocking text. A coarse
+# pass over the unquoted text then blocks a force push the parse missed.
 awk -v q='"' -v sq="'" '
 function flush() {
   if (inword && redirect) redirect = 0
@@ -164,7 +165,7 @@ function program(   i, a, wrapper) {
     if (a ~ /^[A-Za-z_][A-Za-z0-9_]*=/) continue
     if (a ~ /^(command|exec|env|nohup|nice|sudo)$/) { wrapper = a; continue }
     if (wrapper != "" && a ~ /^-/) {
-      if ((wrapper == "env" && a ~ /^-[uCS]$/) || (wrapper == "exec" && a == "-a") || (wrapper == "nice" && a == "-n") || (wrapper == "sudo" && a ~ /^-[ugCDpUrtTR]$/)) i++
+      if ((wrapper == "env" && a ~ /^(-[uCS]|--(unset|chdir|split-string))$/) || (wrapper == "exec" && a == "-a") || (wrapper == "nice" && a ~ /^(-n|--adjustment)$/) || (wrapper == "sudo" && a ~ /^(-[ugCDpUrtTR]|--(user|group|close-from|chdir|prompt|other-user|role|type|command-timeout|host))$/)) i++
       continue
     }
     if (i > 1 && words[i - 1] == "time" && a == "-p") continue
@@ -287,6 +288,31 @@ function skip_bodies(p,   h, rest, end, line) {
   return p
 }
 
+# Backs up the parse with a coarse look at the unquoted text, so a wrapper
+# or syntax the parse does not follow still blocks: within a span between
+# separators, git, then push as its subcommand, then a force word.
+function coarse(   spans, count, s, nw, ws, i, j, a, force, lease) {
+  count = split(raw, spans, /[;&|\n]/)
+  for (s = 1; s <= count; s++) {
+    nw = split(spans[s], ws, /[ \t\r]+/)
+    for (i = 1; i <= nw; i++) {
+      if (ws[i] !~ /(^|\/)git$/) continue
+      for (j = i + 1; j <= nw && ws[j] ~ /^-/; j++)
+        if (ws[j] ~ /^(-C|-c|--git-dir|--work-tree|--namespace)$/) j++
+      if (ws[j] != "push") continue
+      force = 0
+      lease = 0
+      for (j++; j <= nw; j++) {
+        a = ws[j]
+        if (a ~ /^--force-(with-lease|if-includes)(=|$)/) lease = 1
+        else if (a == "--force" || a ~ /^-[A-Za-z]*f[A-Za-z]*$/ || a ~ /^\+/) force = 1
+      }
+      if (force && !lease) return 1
+    }
+  }
+  return 0
+}
+
 { json = json $0 "\n" }
 
 END {
@@ -325,6 +351,7 @@ END {
   w = ""
   inword = 0
   mode = ""
+  raw = ""
   size = length(cmd)
   for (p = 1; p <= size && !blocked; p++) {
     c = substr(cmd, p, 1)
@@ -341,6 +368,7 @@ END {
       w = w e
       wq = 1
       inword = 1
+      if (mode == "") raw = raw " "
       continue
     }
     if (mode == "double") {
@@ -350,6 +378,7 @@ END {
       else w = w c
       continue
     }
+    raw = raw " "
     if (c == q) { mode = "double"; inword = 1; wq = 1; continue }
     if (c == sq) { mode = "single"; inword = 1; wq = 1; continue }
     if (c == "#" && !inword) {
@@ -357,6 +386,7 @@ END {
       continue
     }
     if (c == "$" && e == "(" && substr(cmd, p + 2, 1) != "(") { p++; open_nested("$(", ""); continue }
+    if ((c == "<" || c == ">") && e == "(") { p++; open_nested("$(", ""); continue }
     if (c == "`") {
       if (depth && kinds[depth] == "`") close_nested()
       else open_nested("`", "")
@@ -389,14 +419,17 @@ END {
     }
     if (c == " " || c == "\t" || c == "\r") { flush(); continue }
     if (index(";&|\n", c)) {
+      raw = raw c
       end_command()
       if (c == "\n" && pending) p = skip_bodies(p)
       continue
     }
+    raw = substr(raw, 1, length(raw) - 1) c
     w = w c
     inword = 1
   }
   if (!blocked && !stopped) end_command()
+  if (!blocked && coarse()) blocked = 1
   exit (blocked ? 3 : 0)
 }'
 # awk exits 2 on its own errors, so a block comes back as 3.
