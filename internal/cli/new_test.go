@@ -53,6 +53,21 @@ func TestNew_WritesRule(t *testing.T) {
 	}
 }
 
+func TestNew_MCPHintLinksRecipes(t *testing.T) {
+	dir := setupEmptyProject(t)
+	testutil.Chdir(t, dir)
+	out := captureSummary(t)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"new", "mcp", "filesystem"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "https://agnostic-ai.org/docs/spec-format/mcp-recipes/") {
+		t.Errorf("mcp hint missing recipes URL:\n%s", out.String())
+	}
+}
+
 func TestNew_DryRunPrintsScaffoldWithoutWriting(t *testing.T) {
 	dir := setupEmptyProject(t)
 	testutil.Chdir(t, dir)
