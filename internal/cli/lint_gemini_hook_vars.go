@@ -68,6 +68,7 @@ func lintGeminiHookVariables(cfg *config.Config, targets []string, b spec.Bundle
 func quotedGeminiVariables(command string) []string {
 	var out []string
 	inSingle, inDouble, inSubstitution := false, false, false
+	escaped := -1
 	for i := 0; i < len(command); i++ {
 		c := command[i]
 		switch {
@@ -77,13 +78,14 @@ func quotedGeminiVariables(command string) []string {
 			}
 		case c == '\\':
 			i++
+			escaped = i
 		case c == '`' || c == '$' && i+1 < len(command) && command[i+1] == '(':
 			inSubstitution = true
 		case c == '"':
 			inDouble = !inDouble
 		case c == '\'' && !inDouble:
 			inSingle = true
-		case c == '#' && !inDouble && !inSubstitution && (i == 0 || strings.ContainsRune(" \t\n;&|()", rune(command[i-1]))):
+		case c == '#' && !inDouble && !inSubstitution && (i == 0 || escaped != i-1 && strings.ContainsRune(" \t\n;&|()", rune(command[i-1]))):
 			for i < len(command) && command[i] != '\n' {
 				i++
 			}

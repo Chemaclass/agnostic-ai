@@ -71,6 +71,9 @@ func TestSingleQuotedGeminiVariables(t *testing.T) {
 		"echo `cat $GEMINI_CWD/x`":                               {"$GEMINI_CWD"},
 		`printf '%s\n' "$(printf '%s' "${GEMINI_PROJECT_DIR}")"`: nil,
 		`echo $GEMINI_CWD`:                                       nil,
+		`printf '%s\n' tag\ # '$GEMINI_CWD'`:                     {"$GEMINI_CWD"},
+		`echo a\;# '$GEMINI_CWD'`:                                {"$GEMINI_CWD"},
+		`echo ok # don't '$GEMINI_CWD'`:                          nil,
 		`echo "$(printf '%s' "Directory: # $GEMINI_CWD")"`:       {"$GEMINI_CWD"},
 	} {
 		got := quotedGeminiVariables(command)
