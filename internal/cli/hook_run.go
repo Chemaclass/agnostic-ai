@@ -161,6 +161,9 @@ type hookTargetRun struct {
 	// comparison.
 	Counted bool `json:"counted"`
 	failed  []hookrun.Decision
+	// fireAndForget marks an event the target never waits on, whatever
+	// the spec's async says.
+	fireAndForget bool
 	// disagreement is the warning for an uncounted result that differs
 	// from the counted ones, printed after every target.
 	disagreement string
@@ -246,6 +249,9 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 		}
 		// Gemini CLI has no async hooks; sync writes none there.
 		run.Async = hookRunAsync(hook.Meta) && slices.Contains(asyncHookTargets, target)
+		if hookrun.FireAndForget(target, event) {
+			run.Async, run.fireAndForget = true, true
+		}
 		for _, h := range handlers {
 			timeout := h.Timeout
 			if timeout <= 0 {
@@ -433,7 +439,10 @@ func printHookTarget(w io.Writer, run hookTargetRun) {
 			d = "not judged"
 		}
 		printHookRun(w, run.Target, run.Event, run.Trigger, c, d, assumedItems(run))
-		if run.Async {
+		switch {
+		case run.fireAndForget:
+			_, _ = fmt.Fprintf(w, "  note: %s runs %s fire-and-forget; it does not wait for the result\n", run.Target, run.Event)
+		case run.Async:
 			_, _ = fmt.Fprintf(w, "  note: async hook; %s does not wait for its result\n", run.Target)
 		}
 	}
@@ -600,7 +609,7 @@ func judgeHookRuns(name string, runs []hookTargetRun, expect hookrun.Decision) e
 	var assumedOnly []string
 	for _, r := range runs {
 		if !r.Async && !r.Counted && len(r.Assumptions) > 0 {
-			assumedOnly = append(assumedOnly, r.Target)
+			assumedOnly = append(assumedOnly, r.Target+": "+string(r.Decision))
 		}
 	}
 	runs = slices.DeleteFunc(runs, func(r hookTargetRun) bool { return r.Async || !r.Counted })

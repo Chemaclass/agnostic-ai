@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/augment"
@@ -39,7 +40,11 @@ func HookHandlers(cfg *config.Config, target string, h spec.Entry) ([]hookrun.Ha
 			return nil, err
 		}
 		event, _ := h.Meta["event"].(string)
-		return hookrun.CursorHandlers(doc, event, cursor.HookTargetCommand)
+		handlers, err := hookrun.CursorHandlers(doc, event, cursor.HookTargetCommand)
+		if err != nil {
+			return nil, fmt.Errorf("parse %s: %w", h.Path, err)
+		}
+		return handlers, nil
 	default:
 		doc, err := hookDoc(cfg, target, h)
 		if err != nil {

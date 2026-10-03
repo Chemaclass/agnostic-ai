@@ -22,10 +22,15 @@ echo '{"permission":"allow"}'
 // whose command is hook.
 func cursorProject(t *testing.T, hook string) {
 	t.Helper()
+	cursorProjectWithScript(t, hook, cursorGuardScript)
+}
+
+func cursorProjectWithScript(t *testing.T, hook, body string) {
+	t.Helper()
 	dir := testutil.TempCwd(t)
 	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, cursor]\n")
 	script := filepath.Join(dir, ".agnostic-ai", "scripts", "protect-files.sh")
-	mustWrite(t, script, cursorGuardScript)
+	mustWrite(t, script, body)
 	if err := os.Chmod(script, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +53,7 @@ func TestHookRun_CursorRunsOnAssumptionsAndCountsOnlyWhenAsked(t *testing.T) {
 			t.Errorf("output misses %q:\n%s", want, out)
 		}
 	}
-	if err == nil || !strings.Contains(err.Error(), "--expect checks nothing, since it ran only where hook run assumes part of the contract (cursor); pass --include-assumed") {
+	if err == nil || !strings.Contains(err.Error(), "--expect checks nothing, since it ran only where hook run assumes part of the contract (cursor: block); pass --include-assumed") {
 		t.Errorf("an uncounted run must not pass a check silently: %v", err)
 	}
 	if _, err := runHookRun(t, "protect-files", "--bash", "rm -rf /"); err != nil {
@@ -121,5 +126,46 @@ func TestHookRun_CursorMatcherThatDoesNotFireAssumesNothing(t *testing.T) {
 	out, err := runHookRun(t, "protect-files", "--bash", "ls")
 	if err != nil || !strings.Contains(out, `cursor: allow (not run: matcher "curl" does not match ls)`) || strings.Contains(out, "assumed") {
 		t.Errorf("a matcher that does not fire runs nothing and assumes nothing: %v\n%s", err, out)
+	}
+}
+
+func TestHookRun_CursorExpectErrorNamesTheAssumedDecision(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	cursorProjectWithScript(t, "name: protect-files\nevent: beforeShellExecution\ncommand: .agnostic-ai/scripts/protect-files.sh\n", "#!/bin/sh\nexit 1\n")
+
+	_, err := runHookRun(t, "protect-files", "--bash", "ls", "--expect", "allow")
+	if err == nil || !strings.Contains(err.Error(), "(cursor: error)") {
+		t.Errorf("the error must show the assumed run failed: %v", err)
+	}
+}
+
+func TestHookRun_CursorRunsAnExecFormHook(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	script := "#!/bin/sh\ncat >/dev/null\n[ \"$1\" = --strict ] && [ \"$2\" = 'a b' ] || exit 1\necho '{\"permission\":\"allow\"}'\n"
+	cursorProjectWithScript(t, "name: protect-files\nevent: beforeShellExecution\ncommand: .agnostic-ai/scripts/protect-files.sh\nargs: [--strict, 'a b']\n", script)
+
+	out, err := runHookRun(t, "protect-files", "--bash", "ls", "--include-assumed")
+	if err != nil || !strings.Contains(out, "cursor: allow (exit 0") || !strings.Contains(out, "'--strict' 'a b'") {
+		t.Errorf("sync's quoted args must run under the assumed shell: %v\n%s", err, out)
+	}
+}
+
+func TestHookRun_CursorSessionStartIsNotJudged(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	cursorProjectWithScript(t, "name: protect-files\nevent: sessionStart\ncommand: .agnostic-ai/scripts/protect-files.sh\n", "#!/bin/sh\nexit 1\n")
+
+	out, err := runHookRun(t, "protect-files", "--include-assumed")
+	if err != nil || !strings.Contains(out, "cursor: not judged (exit 1") || !strings.Contains(out, "note: cursor runs sessionStart fire-and-forget") {
+		t.Errorf("sessionStart is fire-and-forget on Cursor: %v\n%s", err, out)
+	}
+}
+
+func TestHookRun_CursorNamesTheSpecOnABadField(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	cursorProject(t, "name: protect-files\nevent: beforeShellExecution\ntimeout: \"30\"\ncommand: .agnostic-ai/scripts/protect-files.sh\n")
+
+	_, err := runHookRun(t, "protect-files", "--bash", "ls")
+	if err == nil || !strings.Contains(err.Error(), filepath.Join(".agnostic-ai", "hooks", "protect-files.yaml")) {
+		t.Errorf("the error must name the hook spec: %v", err)
 	}
 }
