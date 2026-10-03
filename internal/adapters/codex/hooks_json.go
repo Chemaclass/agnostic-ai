@@ -256,7 +256,7 @@ func buildHooksJSON(hooks []spec.Entry) *hooksDoc {
 		// specs with `Edit|Write` and `Write|Edit` collapse together,
 		// but emit the segments in author-supplied order so a hand-
 		// authored matcher round-trips byte-stable.
-		dedupeKey := joinMatcherSegments(a.matcherOrder)
+		dedupeKey := matcherSetKey(a.matcherOrder)
 		display := unionMatcher(a.matcherOrder)
 		gk := matcherCmdKey{event: k.event, matcher: dedupeKey}
 		g, ok := groups[gk]
@@ -403,16 +403,18 @@ func unionSegments(matcher string) []string {
 	return out
 }
 
-// joinMatcherSegments returns `seg1|seg2|...` with segments sorted so
-// equivalent matcher sets produce a byte-stable matcher string. An
-// empty slice yields "" (matcher omitted in JSON via omitempty).
-func joinMatcherSegments(segments []string) string {
+// matcherSetKey identifies a set of matcher segments, sorted so two specs
+// that list the same segments in another order share a group. It encodes
+// the list as JSON because a | join cannot tell the segments Bash and
+// ^apply_patch$ from the one regex Bash|^apply_patch$.
+func matcherSetKey(segments []string) string {
 	if len(segments) == 0 {
 		return ""
 	}
 	cp := append([]string(nil), segments...)
 	sort.Strings(cp)
-	return strings.Join(cp, "|")
+	key, _ := json.Marshal(cp)
+	return string(key)
 }
 
 // HookMatcherCovers reports whether every segment of spec is a segment

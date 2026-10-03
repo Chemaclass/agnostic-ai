@@ -613,6 +613,66 @@ func TestEmit_HooksJSON_MixedUnionKeepsEachSpecsMatchSet(t *testing.T) {
 	}
 }
 
+// Two commands whose segment lists join to the same string must not share
+// a group: Bash + ^apply_patch$ (two specs) and Bash|^apply_patch$ (one
+// regex spec) render differently and match differently.
+func TestEmit_HooksJSON_SimilarJoinedMatchersStaySeparate(t *testing.T) {
+	tools := []string{"Bash", "apply_patch", "mcp__server__Bash", "mcp__server__apply_patch", "Grep"}
+	hook := func(name, matcher, command string) spec.Entry {
+		return spec.Entry{Kind: spec.KindHook, Name: name, Meta: map[string]any{
+			"event": "PreToolUse", "matcher": matcher, "command": command,
+		}}
+	}
+	a1, a2 := hook("a1", "Bash", "echo a"), hook("a2", "^apply_patch$", "echo a")
+	b := hook("b", "Bash|^apply_patch$", "echo b")
+	for name, entries := range map[string][]spec.Entry{"A first": {a1, a2, b}, "B first": {b, a1, a2}} {
+		t.Run(name, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			raw, err := os.ReadFile(filepath.Join(dir, ".codex/hooks.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var doc struct {
+				Hooks map[string][]struct {
+					Matcher string `json:"matcher"`
+					Hooks   []struct {
+						Command string `json:"command"`
+					} `json:"hooks"`
+				} `json:"hooks"`
+			}
+			if err := json.Unmarshal(raw, &doc); err != nil {
+				t.Fatal(err)
+			}
+			own := map[string][]string{"echo a": {"Bash", "^apply_patch$"}, "echo b": {"Bash|^apply_patch$"}}
+			seen := 0
+			for _, group := range doc.Hooks["PreToolUse"] {
+				for _, h := range group.Hooks {
+					seen++
+					for _, tool := range tools {
+						want := false
+						for _, m := range own[h.Command[strings.LastIndex(h.Command, "echo"):]] {
+							ok, err := hookrun.Matches(m, tool)
+							if err != nil {
+								t.Fatal(err)
+							}
+							want = want || ok
+						}
+						if got, err := hookrun.Matches(group.Matcher, tool); err != nil || got != want {
+							t.Errorf("%s: %q matches %s = %v (err %v), want %v", h.Command, group.Matcher, tool, got, err, want)
+						}
+					}
+				}
+			}
+			if seen != 2 {
+				t.Errorf("want 2 commands emitted, got %d:\n%s", seen, raw)
+			}
+		})
+	}
+}
+
 func TestEmit_HooksJSON_SingleSpecMatcherUnchanged(t *testing.T) {
 	for _, m := range []string{"^(Bash|exec)$", "Bash|apply_patch", "mcp__fs__.*"} {
 		if got := emittedMatcher(t, m); got != m {
