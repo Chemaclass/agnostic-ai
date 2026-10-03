@@ -70,6 +70,9 @@ func Drift(target string, body []byte, event, matcher, goos string, handlers []H
 	if target == "copilot" {
 		return copilotDrift(body, event, matcher, handlers)
 	}
+	if target == "cline" {
+		return clineDrift(body, event, handlers), nil
+	}
 	if target == "kiro" {
 		return kiroDrift(body, event, matcher, handlers, covers)
 	}

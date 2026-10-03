@@ -63,8 +63,12 @@ func geminiReply(r Result) (hookReply, bool) {
 // its shell sees it. Gemini CLI replaces $GEMINI_PROJECT_DIR,
 // $GEMINI_CWD, $GEMINI_SESSION_ID, and $CLAUDE_PROJECT_DIR with the
 // quoted value (hookRunner.ts expandCommand); `${...}` forms are left to
-// the shell, which finds the same values in the env.
+// the shell, which finds the same values in the env. Cline starts its
+// event script by absolute path.
 func ExpandCommand(target, goos, command, root string) string {
+	if target == "cline" {
+		return absPath(root, command)
+	}
 	if target != "gemini" {
 		return command
 	}

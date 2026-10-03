@@ -99,7 +99,7 @@ func newHookRunCmd() *cobra.Command {
 			if format == "json" {
 				show = func(hookTargetRun) {}
 			}
-			runs, err := runHookTargets(cfg, hook, targets, root, in, show)
+			runs, err := runHookTargets(cfg, hook, b.Hooks, targets, root, in, show)
 			if err != nil {
 				return err
 			}
@@ -185,7 +185,9 @@ type hookCommandRun struct {
 	result      hookrun.Result
 }
 
-func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root string, in hookrun.Input, show func(hookTargetRun)) ([]hookTargetRun, error) {
+// runHookTargets runs hook on each target. hooks is every hook spec in
+// the project, which a target that joins specs in one file needs.
+func runHookTargets(cfg *config.Config, hook spec.Entry, hooks []spec.Entry, targets []string, root string, in hookrun.Input, show func(hookTargetRun)) ([]hookTargetRun, error) {
 	event, _ := hook.Meta["event"].(string)
 	matcher, _ := hook.Meta["matcher"].(string)
 	var runs []hookTargetRun
@@ -265,6 +267,13 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 		if hookrun.FireAndForget(target, event) {
 			run.Async, run.fireAndForget = true, true
 		}
+		if target == "cline" {
+			run.Notes = append(run.Notes, hookrun.ClineRunNotes(event, matcher, specTimeout(hook.Meta), payload.Trigger)...)
+			if reason := hookrun.ClineSharedScript(adapters.HookScriptSiblings(cfg, target, hooks, hook)); reason != "" && !run.Async {
+				run.uncounted = reason
+				run.Notes = append(run.Notes, "not counted: "+reason)
+			}
+		}
 		var crushResults []hookrun.Result
 		if target == "crush" {
 			handlers = hookrun.CrushDedupe(handlers)
@@ -316,6 +325,9 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 					run.uncounted = reason
 					run.Notes = append(run.Notes, "not counted: "+reason)
 				}
+			}
+			if target == "cline" {
+				run.Notes = append(run.Notes, hookrun.ClineNotes(event, r)...)
 			}
 			if target == "kiro" {
 				if note := hookrun.KiroNote(event, r); note != "" {
@@ -392,7 +404,7 @@ func shownHookCommand(h hookrun.Handler) string {
 // hookFileWarnings names each handler the synced native file of target
 // does not run, so a run that passes cannot hide a stale file.
 func hookFileWarnings(cfg *config.Config, target, name, event, matcher, root string, handlers []hookrun.Handler) []string {
-	file := adapters.HookFile(cfg, target, name)
+	file := adapters.HookFile(cfg, target, name, event)
 	path := file
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(root, path)
@@ -723,6 +735,16 @@ func metaTrue(v any) bool {
 }
 
 func hookTimeout(target string, meta map[string]any) time.Duration {
+	// Sync drops the spec's timeout on Cline, which uses its own.
+	if timeout := specTimeout(meta); timeout > 0 && target != "cline" {
+		return timeout
+	}
+	event, _ := meta["event"].(string)
+	return hookrun.DefaultTimeout(target, event)
+}
+
+// specTimeout is the spec's own timeout, zero when it sets none.
+func specTimeout(meta map[string]any) time.Duration {
 	var seconds int
 	switch v := meta["timeout"].(type) {
 	case int:
@@ -732,11 +754,7 @@ func hookTimeout(target string, meta map[string]any) time.Duration {
 	case float64:
 		seconds = int(v)
 	}
-	if seconds <= 0 {
-		event, _ := meta["event"].(string)
-		return hookrun.DefaultTimeout(target, event)
-	}
-	return time.Duration(seconds) * time.Second
+	return time.Duration(max(seconds, 0)) * time.Second
 }
 
 // judgeHookRuns fails when no target ran the hook, on a command that

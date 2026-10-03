@@ -43,6 +43,7 @@ var assumedContracts = map[string]assumedContract{
 	"factory":     {name: "Factory", docs: factoryDocs, cwdReason: "Factory runs hooks from \"Droid's current working directory, which can differ from your repository root\""},
 	"qoder":       {name: "Qoder", docs: qoderDocs, assume: qoderAssumptions},
 	"antigravity": {name: "Antigravity", docs: antigravityDocs, cwdReason: "Antigravity does not document the directory a hook command runs in"},
+	"cline":       {name: "Cline", docs: clineSource, assume: clineAssumptions},
 	"kiro":        {name: "Kiro", docs: kiroDocs, assume: kiroAssumptions},
 	"windsurf":    {name: "Devin CLI", docs: windsurfDocs, cwdReason: "Devin CLI does not document the directory a hook command runs in", timeoutReason: "Devin CLI documents no default timeout; set timeout in the spec"},
 }
@@ -86,13 +87,15 @@ func cursorMatchValue(event string, doc map[string]any) string {
 // FireAndForget reports whether target starts the hooks of event without
 // waiting for their result. Cursor documents sessionStart and sessionEnd
 // as fire-and-forget, and Copilot notification: "Fire-and-forget: never
-// blocks the session".
+// blocks the session". Cline waits only on its tool events.
 func FireAndForget(target, event string) bool {
 	switch target {
 	case "cursor":
 		return event == "sessionStart" || event == "sessionEnd"
 	case "copilot":
 		return copilotEvent(event) == "notification"
+	case "cline":
+		return !slices.Contains(clineBlockingEvents, event)
 	}
 	return false
 }

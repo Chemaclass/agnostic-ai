@@ -50,7 +50,7 @@ var clineHookEvents = []string{
 
 // clineHookEventByKey folds an event name the way Cline's own lookup
 // does: `HOOK_CONFIG_FILE_LOOKUP` is keyed by the lowercased enum value
-// (hook-file-config.ts:54-56). A spec that writes `pretooluse` or
+// (hook-file-config.ts:45-47). A spec that writes `pretooluse` or
 // `PRETOOLUSE` lands on the same file as `PreToolUse`.
 var clineHookEventByKey = func() map[string]string {
 	m := make(map[string]string, len(clineHookEvents))
@@ -62,8 +62,8 @@ var clineHookEventByKey = func() map[string]string {
 
 // clineInertHookEvents names the file names Cline lists but never runs.
 // `HOOK_CONFIG_FILE_EVENT_MAP` maps `PreCompact` to `undefined`
-// (hook-file-config.ts:40) and `createHookCommandMap` skips every entry
-// with no runtime event (hook-file-hooks.ts:375-377). The file name is
+// (hook-file-config.ts:41) and `createHookCommandMap` skips every entry
+// with no runtime event (hook-file-hooks.ts:404-406). The file name is
 // still the vendor's own, so the script is written and the gap is
 // reported rather than dropped: it starts firing the day Cline wires
 // the event up.
@@ -133,13 +133,14 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 	return materializeHookScripts(sess, hooks, dryRun)
 }
 
-// hookScript renders the body of one event script. `set -e` makes the
-// first failing command the script's exit status, which is what a
-// blocking event such as PreToolUse reads to stop the tool call.
+// hookScript renders the body of one event script. Cline never reads
+// the exit code (hook-file-hooks.ts:415-454): a hook blocks only by
+// printing `{"cancel": true}` on stdout. `set -e` stops the script at the
+// first failing command, so the commands after it do not run.
 //
 // Commands for the same event share one file because the file name is
 // the event: Cline has no second slot to put them in. They also share
-// one stdout, and `parseStdout` (subprocess-runner.ts:29-57) treats a
+// one stdout, and `parseStdout` (subprocess-runner.ts:68-97) treats a
 // non-empty stdout as control JSON, preferring the last
 // `HOOK_CONTROL\t<json>` line when one is present. A hook that wants to
 // print anything else should write to stderr.

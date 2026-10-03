@@ -2,11 +2,14 @@ package adapters
 
 import (
 	"fmt"
+	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/antigravity"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/augment"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/cline"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/copilot"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/crush"
@@ -84,6 +87,15 @@ func HookHandlers(cfg *config.Config, target string, h spec.Entry) ([]hookrun.Ha
 			return nil, fmt.Errorf("parse %s: %w", h.Path, err)
 		}
 		return handlers, nil
+	case "cline":
+		// The script sync would write for h alone; the synced one joins
+		// every spec on the event.
+		event, _ := h.Meta["event"].(string)
+		path, script := cline.HookScriptPath(cfg, event), cline.HookScript(h)
+		if path == "" || script == "" {
+			return nil, nil
+		}
+		return []hookrun.Handler{{Command: filepath.ToSlash(path), Script: script}}, nil
 	case "kiro":
 		doc, err := kiro.HookDoc(h)
 		if err != nil {
@@ -128,9 +140,34 @@ func hookDoc(cfg *config.Config, target string, h spec.Entry) ([]byte, error) {
 	return nil, nil
 }
 
-// HookFile is the native file sync writes the hook spec named hook to on
-// target, for the targets hookrun builds payloads for.
-func HookFile(cfg *config.Config, target, hook string) string {
+// HookScriptSiblings names, sorted, the other specs in hooks that sync
+// writes into the same script as h on target: Cline joins every spec on
+// an event in one script, with one stdout.
+func HookScriptSiblings(cfg *config.Config, target string, hooks []spec.Entry, h spec.Entry) []string {
+	if target != "cline" {
+		return nil
+	}
+	event, _ := h.Meta["event"].(string)
+	path := cline.HookScriptPath(cfg, event)
+	if path == "" {
+		return nil
+	}
+	var names []string
+	for _, other := range hooks {
+		otherEvent, _ := other.Meta["event"].(string)
+		if (other.Name == h.Name && other.Path == h.Path) || !other.EmitsTo(target) ||
+			cline.HookScriptPath(cfg, otherEvent) != path || cline.HookScript(other) == "" {
+			continue
+		}
+		names = append(names, other.Name)
+	}
+	slices.Sort(names)
+	return names
+}
+
+// HookFile is the native file sync writes the hook spec named hook on
+// event to on target, for the targets hookrun builds payloads for.
+func HookFile(cfg *config.Config, target, hook, event string) string {
 	switch target {
 	case "claude":
 		return claude.SettingsFilePath(cfg)
@@ -158,6 +195,8 @@ func HookFile(cfg *config.Config, target, hook string) string {
 		return qoder.SettingsFilePath(cfg)
 	case "antigravity":
 		return antigravity.HooksFilePath(cfg)
+	case "cline":
+		return cline.HookScriptPath(cfg, event)
 	case "kiro":
 		return kiro.HookFilePath(cfg, hook)
 	case "windsurf":
@@ -167,8 +206,12 @@ func HookFile(cfg *config.Config, target, hook string) string {
 }
 
 // HookNativeMatcher is the matcher sync writes for a spec's matcher on
-// event: Augment and Antigravity drop it on the events that take none.
+// event: Augment and Antigravity drop it on the events that take none,
+// and Cline, whose event scripts have no matcher, on every event.
 func HookNativeMatcher(target, event, matcher string) string {
+	if target == "cline" {
+		return ""
+	}
 	if target == "augment" && augment.SessionOnlyEvent(event) {
 		return ""
 	}
