@@ -167,6 +167,10 @@ jobs:
       - name: Lint specs
         run: ./agnostic-ai lint
 
+      - name: Binary size
+        if: matrix.os == 'ubuntu-latest'
+        run: make size-check
+
   plugin:
     name: Plugin version bump
     # The marketplace pins the plugin to plugin.json's version, so an edit that
