@@ -61,7 +61,6 @@ func importCrushHooks(root, dstDir string) (int, error) {
 	count := 0
 	for _, h := range doc.Hooks[crushPreToolUseEvent] {
 		h.Command = adapters.StripHookTargetExport(h.Command, "crush")
-		h.Command = adapters.UndoDotSlashHookScript(h.Command, "crush")
 		if h.Command == "" {
 			continue
 		}

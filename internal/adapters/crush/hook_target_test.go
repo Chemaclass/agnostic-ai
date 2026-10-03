@@ -45,26 +45,27 @@ func TestEmit_HookCommandsExportTheTarget(t *testing.T) {
 }
 
 // Crush runs a command as a script only when it starts with ./, ../, or
-// /, so a synced script path gains ./. A user's own path stays as
-// written: on Windows ./bin/guard would skip the PATHEXT lookup (#1695).
-func TestDotSlashHookScript(t *testing.T) {
+// /, so a script sync copies gains ./. Every other command stays as
+// written: on Windows ./.crush/hooks/guard or ./bin/guard would skip the
+// PATHEXT lookup that finds guard.exe (#1695).
+func TestDotSlashSyncedHookScript(t *testing.T) {
 	cases := map[string]string{
-		".crush/hooks/guard.sh":        "./.crush/hooks/guard.sh",
-		".crush/hooks/guard.sh --fast": "./.crush/hooks/guard.sh --fast",
-		"bin/guard":                    "bin/guard",
-		"scripts/lint.sh":              "scripts/lint.sh",
-		"./.crush/hooks/guard.sh":      "./.crush/hooks/guard.sh",
-		"bash .crush/hooks/guard.sh":   "bash .crush/hooks/guard.sh",
-		"npx foo":                      "npx foo",
-		"FOO=1 .crush/hooks/guard.sh":  "FOO=1 .crush/hooks/guard.sh",
-		".crush/hooks/guard.sh&&true":  ".crush/hooks/guard.sh&&true",
-		".crush/hooks/prüfen.sh":       ".crush/hooks/prüfen.sh",
-		`".crush/hooks/my guard.sh"`:   `".crush/hooks/my guard.sh"`,
-		"":                             "",
+		".agnostic-ai/scripts/guard.sh":        "./.crush/hooks/guard.sh",
+		".agnostic-ai/scripts/guard.sh --fast": "./.crush/hooks/guard.sh --fast",
+		".crush/hooks/guard":                   ".crush/hooks/guard",
+		".crush/hooks/guard.sh":                ".crush/hooks/guard.sh",
+		"bin/guard":                            "bin/guard",
+		"./.crush/hooks/guard.sh":              "./.crush/hooks/guard.sh",
+		"bash .agnostic-ai/scripts/guard.sh":   "bash .crush/hooks/guard.sh",
+		"FOO=1 .agnostic-ai/scripts/guard.sh":  "FOO=1 .crush/hooks/guard.sh",
+		".agnostic-ai/scripts/guard.sh&&true":  ".crush/hooks/guard.sh&&true",
+		".agnostic-ai/scripts/prüfen.sh":       ".crush/hooks/prüfen.sh",
+		"npx foo":                              "npx foo",
+		"":                                     "",
 	}
 	for in, want := range cases {
-		if got := emit.DotSlashHookScript(in, target); got != want {
-			t.Errorf("DotSlashHookScript(%q) = %q, want %q", in, got, want)
+		if got := emit.DotSlashSyncedHookScript(in, emit.RewriteHookPath(in, target), target); got != want {
+			t.Errorf("DotSlashSyncedHookScript(%q) = %q, want %q", in, got, want)
 		}
 	}
 }
