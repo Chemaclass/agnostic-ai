@@ -14,6 +14,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/goose"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/openhands"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/qoder"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/trae"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/hookrun"
@@ -65,6 +66,17 @@ func HookHandlers(cfg *config.Config, target string, h spec.Entry) ([]hookrun.Ha
 		}
 		event, _ := h.Meta["event"].(string)
 		handlers, err := hookrun.CopilotHandlers(doc, event)
+		if err != nil {
+			return nil, fmt.Errorf("parse %s: %w", h.Path, err)
+		}
+		return handlers, nil
+	case "qoder":
+		doc, err := qoder.HookDoc(h)
+		if err != nil {
+			return nil, err
+		}
+		event, _ := h.Meta["event"].(string)
+		handlers, err := hookrun.QoderHandlers(doc, event)
 		if err != nil {
 			return nil, fmt.Errorf("parse %s: %w", h.Path, err)
 		}
@@ -124,6 +136,8 @@ func HookFile(cfg *config.Config, target string) string {
 		return factory.HooksFilePath(cfg)
 	case "copilot":
 		return copilot.HooksFilePath(cfg)
+	case "qoder":
+		return qoder.SettingsFilePath(cfg)
 	}
 	return ""
 }

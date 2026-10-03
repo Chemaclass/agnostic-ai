@@ -10,7 +10,7 @@ import (
 // 2026-10-03). Documented there:
 //   - Project root: "Use `"$FACTORY_PROJECT_DIR"/path/to/script.sh` for
 //     project scripts". The command runs as written, with
-//     FACTORY_PROJECT_DIR in its env; see expandFactoryRoot.
+//     FACTORY_PROJECT_DIR in its env; see expandRootVar.
 //   - Timeout: "Per-command timeout in seconds. Defaults to `60`."
 //   - Payload: session_id, transcript_path, cwd, permission_mode, and
 //     hook_event_name on every hook; a Create call's tool_input is
@@ -35,15 +35,16 @@ const factoryDefaultTimeout = 60 * time.Second
 
 const factoryRootVar = "FACTORY_PROJECT_DIR"
 
-// expandFactoryRoot replaces each project root reference the shell would
-// expand, `$FACTORY_PROJECT_DIR` or `${FACTORY_PROJECT_DIR}`, with the
-// word root, only to check that a command written as the guide says is a
-// script path. The command itself runs unchanged, so the shell expands
-// the reference and splits an unquoted one as Factory's would. A
-// reference inside single quotes or after a backslash is literal to the
-// shell and stays as written; one inside other double-quoted text gets
-// the quotes closed around root, which leaves shell syntax.
-func expandFactoryRoot(command, root string) string {
+// expandRootVar replaces each project root reference the shell would
+// expand, `$VARIABLE` or `${VARIABLE}`, such as `$FACTORY_PROJECT_DIR`,
+// with the word root, only to check that a command written as the
+// vendor guide says is a script path. The command itself runs unchanged,
+// so the shell expands the reference and splits an unquoted one as the
+// target's would. A reference inside single quotes or after a backslash
+// is literal to the shell and stays as written; one inside other
+// double-quoted text gets the quotes closed around root, which leaves
+// shell syntax.
+func expandRootVar(command, variable, root string) string {
 	var out strings.Builder
 	var quote byte
 	for i := 0; i < len(command); {
@@ -60,8 +61,8 @@ func expandFactoryRoot(command, root string) string {
 		case c == '\'' && quote == 0:
 			quote = c
 		case c == '"' && quote == 0:
-			// The guide's own form, "$FACTORY_PROJECT_DIR", is the root word.
-			if n := factoryRootRef(command[i+1:]); n > 0 && i+1+n < len(command) && command[i+1+n] == '"' {
+			// The guides' own form, "$FACTORY_PROJECT_DIR", is the root word.
+			if n := rootVarRef(command[i+1:], variable); n > 0 && i+1+n < len(command) && command[i+1+n] == '"' {
 				out.WriteString(root)
 				i += n + 2
 				continue
@@ -70,7 +71,7 @@ func expandFactoryRoot(command, root string) string {
 		case c == '"':
 			quote = 0
 		case c == '$':
-			if n := factoryRootRef(command[i:]); n > 0 {
+			if n := rootVarRef(command[i:], variable); n > 0 {
 				if quote == '"' {
 					out.WriteString(`"` + root + `"`)
 				} else {
@@ -86,13 +87,13 @@ func expandFactoryRoot(command, root string) string {
 	return out.String()
 }
 
-// factoryRootRef is the length of the root reference s starts with, or 0
-// when it starts with none, such as $FACTORY_PROJECT_DIRS.
-func factoryRootRef(s string) int {
-	if braced := "${" + factoryRootVar + "}"; strings.HasPrefix(s, braced) {
+// rootVarRef is the length of the reference to variable s starts with,
+// or 0 when it starts with none, such as $FACTORY_PROJECT_DIRS.
+func rootVarRef(s, variable string) int {
+	if braced := "${" + variable + "}"; strings.HasPrefix(s, braced) {
 		return len(braced)
 	}
-	plain := "$" + factoryRootVar
+	plain := "$" + variable
 	if !strings.HasPrefix(s, plain) || len(s) > len(plain) && rootVariableByte(s[len(plain)]) {
 		return 0
 	}
