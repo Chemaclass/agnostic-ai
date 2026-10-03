@@ -21,6 +21,7 @@ import (
 //   - Factory: see factory.go.
 //   - Qoder: see qoder.go.
 //   - Antigravity: see antigravity.go.
+//   - Kiro: see kiro.go.
 
 type builder func(event, matcher, root string, in Input) (Payload, error)
 
@@ -34,6 +35,7 @@ var otherBuilders = map[string]builder{
 	"copilot":     buildCopilot,
 	"qoder":       buildQoder,
 	"antigravity": buildAntigravity,
+	"kiro":        buildKiro,
 }
 
 func absPath(root, path string) string {

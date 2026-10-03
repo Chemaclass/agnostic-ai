@@ -230,7 +230,7 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 			return nil, fmt.Errorf("%s: %w", target, err)
 		}
 		run.Event, run.Trigger, run.Decision = event, payload.Trigger, hookrun.Allow
-		run.Warnings = append(run.Warnings, hookFileWarnings(cfg, target, event, adapters.HookNativeMatcher(target, event, matcher), root, handlers)...)
+		run.Warnings = append(run.Warnings, hookFileWarnings(cfg, target, hook.Name, event, adapters.HookNativeMatcher(target, event, matcher), root, handlers)...)
 		if !payload.Fires {
 			run.Reason = fmt.Sprintf("matcher %q does not match %s", matcher, payload.Trigger)
 			add(run)
@@ -281,7 +281,7 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 			if target == "augment" && !hookrun.AugmentRuns(h.Command) {
 				continue
 			}
-			env := hookRunEnv(target, root, hookEnvContext{event: event, tool: hookrun.PayloadTool(payload.Body), pluginRoot: adapters.HookPluginRoot(cfg, target)}, h)
+			env := hookRunEnv(target, root, hookEnvContext{event: event, tool: hookrun.PayloadTool(payload.Body), prompt: hookrun.PayloadPrompt(payload.Body), pluginRoot: adapters.HookPluginRoot(cfg, target)}, h)
 			dir := root
 			if target == "copilot" {
 				dir = hookrun.CopilotDir(root, h)
@@ -313,6 +313,15 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 					run.Notes = append(run.Notes, note)
 				}
 				if reason := hookrun.AntigravityUncounted(event, r); reason != "" && run.uncounted == "" {
+					run.uncounted = reason
+					run.Notes = append(run.Notes, "not counted: "+reason)
+				}
+			}
+			if target == "kiro" {
+				if note := hookrun.KiroNote(event, r); note != "" {
+					run.Notes = append(run.Notes, note)
+				}
+				if reason := hookrun.KiroUncounted(event, r); reason != "" && run.uncounted == "" {
 					run.uncounted = reason
 					run.Notes = append(run.Notes, "not counted: "+reason)
 				}
@@ -373,8 +382,8 @@ func shownHookCommand(h hookrun.Handler) string {
 
 // hookFileWarnings names each handler the synced native file of target
 // does not run, so a run that passes cannot hide a stale file.
-func hookFileWarnings(cfg *config.Config, target, event, matcher, root string, handlers []hookrun.Handler) []string {
-	file := adapters.HookFile(cfg, target)
+func hookFileWarnings(cfg *config.Config, target, name, event, matcher, root string, handlers []hookrun.Handler) []string {
+	file := adapters.HookFile(cfg, target, name)
 	path := file
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(root, path)
@@ -615,6 +624,7 @@ var sessionEnvKeys = []string{
 	"TRAE_PROJECT_DIR", "OPENHANDS_PROJECT_DIR", "OPENHANDS_SESSION_ID", "OPENHANDS_EVENT_TYPE", "OPENHANDS_TOOL_NAME",
 	"PLUGIN_ROOT", "CURSOR_PROJECT_DIR", "CURSOR_VERSION", "CURSOR_USER_EMAIL", "CURSOR_TRANSCRIPT_PATH", "CURSOR_CODE_REMOTE", "FACTORY_PROJECT_DIR", "AUGMENT_PROJECT_DIR", "AUGMENT_CONVERSATION_ID", "AUGMENT_HOOK_EVENT", "AUGMENT_TOOL_NAME",
 	"QODER_PROJECT_DIR", "QODER_PLUGIN_ROOT", "QODER_PLUGIN_DATA",
+	"USER_PROMPT",
 	"CRUSH_EVENT", "CRUSH_TOOL_NAME", "CRUSH_SESSION_ID", "CRUSH_CWD", "CRUSH_PROJECT_DIR", "CRUSH_TOOL_INPUT_COMMAND", "CRUSH_TOOL_INPUT_FILE_PATH",
 }
 
@@ -624,7 +634,7 @@ var asyncHookTargets = []string{"claude", "codex", "openhands", "qoder"}
 
 // hookEnvContext is what a target's hook env names about the event.
 type hookEnvContext struct {
-	event, tool, pluginRoot string
+	event, tool, prompt, pluginRoot string
 }
 
 // hookRunEnv is the environment target gives handler h.
@@ -658,6 +668,10 @@ func hookRunEnv(target, root string, ctx hookEnvContext, h hookrun.Handler) []st
 		env = append(env, "FACTORY_PROJECT_DIR="+root)
 	case "qoder":
 		env = append(env, "QODER_PROJECT_DIR="+root)
+	case "kiro":
+		if ctx.event == "UserPromptSubmit" {
+			env = append(env, "USER_PROMPT="+ctx.prompt)
+		}
 	case "augment":
 		env = append(env, "AUGMENT_PROJECT_DIR="+root, "AUGMENT_CONVERSATION_ID="+hookrun.SessionID, "AUGMENT_HOOK_EVENT="+ctx.event)
 		if ctx.tool != "" {

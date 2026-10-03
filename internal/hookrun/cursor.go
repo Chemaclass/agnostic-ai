@@ -43,6 +43,7 @@ var assumedContracts = map[string]assumedContract{
 	"factory":     {name: "Factory", docs: factoryDocs, cwdReason: "Factory runs hooks from \"Droid's current working directory, which can differ from your repository root\""},
 	"qoder":       {name: "Qoder", docs: qoderDocs, assume: qoderAssumptions},
 	"antigravity": {name: "Antigravity", docs: antigravityDocs, cwdReason: "Antigravity does not document the directory a hook command runs in"},
+	"kiro":        {name: "Kiro", docs: kiroDocs, assume: kiroAssumptions},
 }
 
 // cursorAssumedTimeout is the default hook run uses when a Cursor hook

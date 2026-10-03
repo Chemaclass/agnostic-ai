@@ -6,6 +6,12 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### By tool
+
+#### Kiro
+
+- `hook run` runs Kiro hooks on an assumed shell; `--bash` and `--edit` are refused, since Kiro documents no tool input for them (#1566).
+
 ## v0.78.0 - 2026-10-03
 
 ### General

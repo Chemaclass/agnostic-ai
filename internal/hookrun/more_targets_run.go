@@ -10,7 +10,7 @@ import (
 
 // otherDefaultTimeouts are the documented defaults: Trae 30 seconds,
 // OpenHands 60, Goose 30, Augment 60000 milliseconds, Factory 60, Qoder
-// CLI 600, Antigravity 30.
+// CLI 600, Antigravity 30, Kiro 60.
 var otherDefaultTimeouts = map[string]time.Duration{
 	"trae":        30 * time.Second,
 	"openhands":   60 * time.Second,
@@ -21,6 +21,7 @@ var otherDefaultTimeouts = map[string]time.Duration{
 	"copilot":     copilotDefaultTimeout,
 	"qoder":       qoderDefaultTimeout,
 	"antigravity": antigravityDefaultTimeout,
+	"kiro":        kiroDefaultTimeout,
 }
 
 // otherArgv is how each target starts a command: Trae in Bash, or
@@ -41,7 +42,7 @@ func otherArgv(target, goos string, h Handler) ([]string, bool) {
 		return []string{"/bin/sh", "-c", h.Command}, true
 	case "goose":
 		return []string{"sh", "-c", h.Command}, true
-	case "cursor", "factory", "antigravity":
+	case "cursor", "factory", "antigravity", "kiro":
 		// Assumed; see Assumptions.
 		return []string{"sh", "-c", h.Command}, true
 	case "copilot":
@@ -86,6 +87,8 @@ func DecideHandler(target, event string, h Handler, r Result) Decision {
 		return decideQoder(event, r)
 	case "antigravity":
 		return readAntigravity(event, r).decision
+	case "kiro":
+		return readKiro(event, r).decision
 	}
 	return Decide(target, event, r)
 }
@@ -192,6 +195,15 @@ func PayloadTool(body []byte) string {
 	}
 	_ = json.Unmarshal(body, &call)
 	return call.ToolName
+}
+
+// PayloadPrompt is the prompt a payload carries, "" when it has none.
+func PayloadPrompt(body []byte) string {
+	var doc struct {
+		Prompt string `json:"prompt"`
+	}
+	_ = json.Unmarshal(body, &doc)
+	return doc.Prompt
 }
 
 // HandlersFromDoc reads the command handlers out of the hooks file sync
