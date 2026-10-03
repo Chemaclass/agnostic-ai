@@ -268,6 +268,20 @@ func TestDemoHook_BlocksForcePushOnClaudeAndCodex(t *testing.T) {
 		{"cat <<\ngit push --force", "allow"},
 		{"cat <<EOF\ngit push --force\nEOF\ngit push --force origin main", "block"},
 		{"git status <<<'x'; git push --force", "block"},
+		{"if git status --porcelain; then git push --force origin main; fi", "block"},
+		{"while true; do git push -f origin main; done", "block"},
+		{"if true; then git push --force-with-lease origin main; fi", "allow"},
+		{"! time -p git push --force", "block"},
+		{"{ git push --force; }", "block"},
+		{"env FOO=1 git push --force", "block"},
+		{"env -u HOME -i FOO=1 git push --force", "block"},
+		{"env FOO=1 git push --force-with-lease", "allow"},
+		{"GIT_TRACE=1 git push --force-with-lease", "allow"},
+		{"command git push --force", "block"},
+		{"exec -a pusher git push --force", "block"},
+		{"nohup nice -n 5 git push --force", "block"},
+		{"echo then git push --force", "allow"},
+		{`"if" git push --force`, "allow"},
 	}
 	for _, c := range cases {
 		t.Run(c.command, func(t *testing.T) {

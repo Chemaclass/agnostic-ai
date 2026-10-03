@@ -130,18 +130,39 @@ Claude Code runs hooks with Git Bash on Windows and needs no `commandWindows`.
 # Reads tool_input.command from the hook JSON on stdin, splits it into
 # words the way sh would (quotes, backslashes, line continuations,
 # comments, heredoc bodies), and checks each command between unquoted
-# ; & | ( ) and newlines. A heredoc it cannot read ends the check, since
+# ; & | ( ) and newlines, past reserved words such as if and then. A heredoc it cannot read ends the check, since
 # a missed push beats blocking text.
 awk -v q='"' -v sq="'" '
 function flush() {
-  if (inword) words[++n] = w
+  if (inword) {
+    words[++n] = w
+    quoted[n] = wq
+  }
   w = ""
   inword = 0
+  wq = 0
+}
+
+# Returns the index of the word that names the program, past reserved
+# words, assignments, and wrappers such as env and nohup.
+function program(   i, a, wrapper) {
+  for (i = 1; i <= n; i++) {
+    a = words[i]
+    if (!quoted[i] && a ~ /^(if|then|else|elif|do|while|until|!|time|\{)$/) continue
+    if (a ~ /^[A-Za-z_][A-Za-z0-9_]*=/) continue
+    if (a ~ /^(command|exec|env|nohup|nice)$/) { wrapper = 1; continue }
+    if (wrapper && a ~ /^-/) {
+      if (a ~ /^(-u|-C|-a|-n)$/) i++
+      continue
+    }
+    if (i > 1 && words[i - 1] == "time" && a == "-p") continue
+    return i
+  }
+  return n + 1
 }
 
 function check(   i, j, k, a) {
-  i = 1
-  while (i <= n && words[i] ~ /^[A-Za-z_][A-Za-z0-9_]*=/) i++
+  i = program()
   if (i > n || words[i] !~ /(^|\/)git$/) return
   for (i++; i <= n && words[i] ~ /^-/; i++)
     if (words[i] ~ /^(-C|-c|--git-dir|--work-tree|--namespace)$/) i++
@@ -260,6 +281,7 @@ END {
       if (e == "\n") continue
       if (mode == "double" && e != q && e != "\\" && e != "$" && e != "`") w = w c
       w = w e
+      wq = 1
       inword = 1
       continue
     }
@@ -268,8 +290,8 @@ END {
       else w = w c
       continue
     }
-    if (c == q) { mode = "double"; inword = 1; continue }
-    if (c == sq) { mode = "single"; inword = 1; continue }
+    if (c == q) { mode = "double"; inword = 1; wq = 1; continue }
+    if (c == sq) { mode = "single"; inword = 1; wq = 1; continue }
     if (c == "#" && !inword) {
       while (p < size && substr(cmd, p + 1, 1) != "\n") p++
       continue
