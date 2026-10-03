@@ -223,6 +223,7 @@ Per-run flags such as `--diff`, `--format`, and `--jobs` have no config key. See
 | [`shared-skills`](#syncshared-skills) | `false` | Symlink byte-identical skill folders to one copy. |
 | [`unmanaged`](#syncunmanaged) | empty | Paths sync never touches. |
 | [`output-manifest`](#syncoutput-manifest) | `false` | Write `.agnostic-ai/outputs.lock`, the committed list of generated paths. |
+| [`allow-global-names`](#syncallow-global-names) | empty | Names shared with the global home that `sync` does not warn about. |
 
 ### `sync.collision-policy` {#synccollision-policy}
 
@@ -324,6 +325,21 @@ The manifest is CI's record of what sync wrote. `.sync-state` is never committed
 - With no `.sync-state`, `doctor` and `sync --check` count a tracked file the manifest lists but no spec produces as a leftover. `doctor --fix` removes it.
 - A file edited since sync wrote it no longer matches its sum, so it is left for you.
 - `sync --check --against` reads the manifest of the state it checks. It catches a deleted spec's outputs even in a one-commit shallow clone, as long as the manifest was not regenerated in the same commit.
+
+### `sync.allow-global-names` {#syncallow-global-names}
+
+Skill and agent names this project shares with the [global home](#global-shared-names) on purpose. `sync` prints no shared-name warning for a listed name. Other shared names still warn.
+
+```yaml
+# agnostic-ai.local.yaml
+sync:
+  allow-global-names: [gh-issue, gh-issues]
+```
+
+- The home exists only on your machine, so `agnostic-ai.local.yaml` is the usual place for the list.
+- Names match the way Claude Code folds skill names: case, spacing, and invisible characters do not count.
+- `doctor` still lists each allowed name under **Global names**, marked as allowed.
+- `agnostic-ai.local.yaml` replaces the list whole.
 
 ## `verify`
 
@@ -701,6 +717,8 @@ Other targets document no precedence, so sync does not warn for them.
 {% </details> %}
 
 To layer on purpose, give the project spec its own name. For example, keep a general `gh-issue` skill in the home, and add a project `gh-issue-project` skill with only this repo's branch names and checks. Both then load everywhere, and the project one can point at the global one.
+
+To keep one name in both places, list it in [`sync.allow-global-names`](#syncallow-global-names). `sync` stops warning about it, and `doctor` marks it as allowed.
 
 ### Default model and effort {#global-default-model-and-effort}
 

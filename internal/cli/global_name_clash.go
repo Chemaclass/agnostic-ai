@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/text/unicode/norm"
 
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -58,11 +59,43 @@ const (
 )
 
 func (c globalNameClash) String() string {
-	head := fmt.Sprintf("%s: %s %q", filepath.ToSlash(c.project.Path), c.project.Kind, c.project.Name)
 	global := homeRelative(c.global.Path)
 	if c.content == contentIdentical {
-		return fmt.Sprintf("%s is identical in %s, so every target loads the same content; delete one copy to keep them from drifting apart, and run `agnostic-ai sync --global` after deleting the global one", head, global)
+		return fmt.Sprintf("%s is identical in %s, so every target loads the same content; delete one copy to keep them from drifting apart, and run `agnostic-ai sync --global` after deleting the global one", c.head(), global)
 	}
+	fix := "rename one to load both"
+	if len(c.globalWins) > 0 {
+		fix = fmt.Sprintf("to load both, rename the global one (such as %s-personal), or delete it to drop it, then run `agnostic-ai sync --global`", c.global.Name)
+	}
+	differs := ""
+	if c.content == contentDiffers {
+		differs = " with different content"
+	}
+	return fmt.Sprintf("%s also exists in %s%s; %s; %s",
+		c.head(), global, differs, c.winners(), fix)
+}
+
+// silencedBy names the setting that keeps sync quiet about the clash,
+// or returns "" when sync warns.
+func (c globalNameClash) silencedBy(s config.SyncConfig) string {
+	if slices.ContainsFunc(s.AllowGlobalNames, func(name string) bool {
+		return claudeSkillName(name) == claudeSkillName(c.project.Name)
+	}) {
+		return "allowed by sync.allow-global-names"
+	}
+	return ""
+}
+
+// silenced is doctor's line for a clash sync does not warn about.
+func (c globalNameClash) silenced(by string) string {
+	return fmt.Sprintf("%s also exists in %s; %s; %s", c.head(), homeRelative(c.global.Path), c.winners(), by)
+}
+
+func (c globalNameClash) head() string {
+	return fmt.Sprintf("%s: %s %q", filepath.ToSlash(c.project.Path), c.project.Kind, c.project.Name)
+}
+
+func (c globalNameClash) winners() string {
 	var winners []string
 	if len(c.globalWins) > 0 {
 		winners = append(winners, loaders(c.globalWins)+" the global one, which exists only on this machine")
@@ -74,16 +107,7 @@ func (c globalNameClash) String() string {
 		}
 		winners = append(winners, loads)
 	}
-	fix := "rename one to load both"
-	if len(c.globalWins) > 0 {
-		fix = fmt.Sprintf("to load both, rename the global one (such as %s-personal), or delete it to drop it, then run `agnostic-ai sync --global`", c.global.Name)
-	}
-	differs := ""
-	if c.content == contentDiffers {
-		differs = " with different content"
-	}
-	return fmt.Sprintf("%s also exists in %s%s; %s; %s",
-		head, global, differs, strings.Join(winners, ", "), fix)
+	return strings.Join(winners, ", ")
 }
 
 // compareContent compares the frontmatter two specs load (the name
@@ -293,16 +317,21 @@ func globalNameClashes(b spec.Bundle, targets []string) []globalNameClash {
 	return out
 }
 
-// reportGlobalNameClashes lists them for doctor. A shared name can be
-// on purpose, so it never fails the run.
-func reportGlobalNameClashes(cmd *cobra.Command, b spec.Bundle, targets []string) {
-	clashes := globalNameClashes(b, targets)
+// reportGlobalNameClashes lists them for doctor, including the ones
+// sync is configured to stay quiet about. A shared name can be on
+// purpose, so it never fails the run.
+func reportGlobalNameClashes(cmd *cobra.Command, b spec.Bundle, cfg *config.Config) {
+	clashes := globalNameClashes(b, cfg.Targets)
 	if len(clashes) == 0 {
 		return
 	}
 	cmd.Println()
 	cmd.Println("Global names:")
 	for _, c := range clashes {
+		if by := c.silencedBy(cfg.Sync); by != "" {
+			cmd.Printf("  ~ %s\n", c.silenced(by))
+			continue
+		}
 		cmd.Printf("  ! %s\n", c)
 	}
 }
