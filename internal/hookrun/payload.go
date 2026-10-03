@@ -17,7 +17,7 @@ import (
 
 // Targets lists the targets Build writes payloads for.
 func Targets() []string {
-	return []string{"claude", "codex", "gemini", "trae", "openhands", "goose", "augment", "cursor", "crush", "copilot", "factory"}
+	return []string{"claude", "codex", "gemini", "trae", "openhands", "goose", "augment", "cursor", "crush", "copilot", "factory", "qoder"}
 }
 
 // Supported reports whether Build writes payloads for target.
@@ -71,6 +71,9 @@ var vocabularies = map[string]vocabulary{
 func Build(target, event, matcher, root string, in Input) (Payload, error) {
 	if !Supported(target) {
 		return Payload{}, fmt.Errorf("hook run builds no %s payload", target)
+	}
+	if target == "qoder" && qoderUndecided(event) != "" {
+		return Payload{}, Unbuilt{qoderUndecided(event)}
 	}
 	if in.Raw != nil {
 		return rawPayload(target, event, matcher, in.Raw)

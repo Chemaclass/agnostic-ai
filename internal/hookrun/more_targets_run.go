@@ -9,7 +9,8 @@ import (
 )
 
 // otherDefaultTimeouts are the documented defaults: Trae 30 seconds,
-// OpenHands 60, Goose 30, Augment 60000 milliseconds, Factory 60.
+// OpenHands 60, Goose 30, Augment 60000 milliseconds, Factory 60, Qoder
+// CLI 600.
 var otherDefaultTimeouts = map[string]time.Duration{
 	"trae":      30 * time.Second,
 	"openhands": 60 * time.Second,
@@ -18,6 +19,7 @@ var otherDefaultTimeouts = map[string]time.Duration{
 	"cursor":    cursorAssumedTimeout,
 	"factory":   factoryDefaultTimeout,
 	"copilot":   copilotDefaultTimeout,
+	"qoder":     qoderDefaultTimeout,
 }
 
 // otherArgv is how each target starts a command: Trae in Bash, or
@@ -47,6 +49,8 @@ func otherArgv(target, goos string, h Handler) ([]string, bool) {
 		}
 		// Assumed; see Assumptions.
 		return []string{"sh", "-c", h.Command}, true
+	case "qoder":
+		return qoderArgv(h), true
 	case "augment":
 		switch ext := strings.ToLower(filepath.Ext(h.Command)); {
 		case goos == "windows" && ext == ".ps1":
@@ -77,6 +81,8 @@ func DecideHandler(target, event string, h Handler, r Result) Decision {
 		return decideFactory(event, r)
 	case "copilot":
 		return decideCopilot(event, r)
+	case "qoder":
+		return decideQoder(event, r)
 	}
 	return Decide(target, event, r)
 }
