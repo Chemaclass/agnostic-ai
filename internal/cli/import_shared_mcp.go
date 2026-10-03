@@ -240,7 +240,8 @@ type mcpCredentialSpan struct {
 var (
 	mcpSchemePattern     = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.\-]*://`)
 	mcpQueryParamPattern = regexp.MustCompile(`[?&]([^=&?#\s'"]+)=([^&?#\s]*)`)
-	mcpRefOnlyPattern    = regexp.MustCompile(`^['"]?\$?\$\{[A-Za-z_][A-Za-z0-9_]*\}['"]?[;&|)}'"]*$`)
+	mcpRefDefaultPattern = regexp.MustCompile(`\$?\$\{[A-Za-z_][A-Za-z0-9_]*:-([^{}]*)\}`)
+	mcpPlainRefPattern   = regexp.MustCompile(`\$?\$\{[A-Za-z_][A-Za-z0-9_]*\}`)
 )
 
 // mcpSingleURL reports whether value is one URL import can rewrite: no
@@ -254,40 +255,59 @@ func mcpSingleURL(value string) bool {
 	return mcpSchemePattern.MatchString(value) || strings.HasPrefix(value, "${")
 }
 
+// mcpRefSentinel stands in for a plain `${NAME}` or `$${NAME}` while the
+// detector reads a value.
+const mcpRefSentinel = "\x00"
+
 func mcpLiteralCredential(value string) bool {
-	return strings.Trim(value, `'"`) != "" && !mcpRefOnlyPattern.MatchString(value)
+	return strings.Trim(strings.ReplaceAll(value, mcpRefSentinel, ""), `'"`) != ""
+}
+
+// mcpDetectorText writes each `${NAME:-default}` as its default, so the
+// default is read in URL context, and each plain reference as
+// mcpRefSentinel.
+func mcpDetectorText(value string) string {
+	for {
+		expanded := mcpRefDefaultPattern.ReplaceAllString(value, "$1")
+		if expanded == value {
+			break
+		}
+		value = expanded
+	}
+	return mcpPlainRefPattern.ReplaceAllString(value, mcpRefSentinel)
 }
 
 // mcpURLCredentialDetected reports whether value holds a literal URL
-// password or a literal credential query parameter anywhere, inside
-// references and escaped references included. An `@` after a `/` counts
-// unless the text before the `/` is a host with a port, as in
-// `https://host:8443/@scope/pkg`.
+// password or a literal credential query parameter anywhere, reference
+// defaults and escaped references included. It errs toward finding one,
+// since a false find only leaves a server out with a warning. A password
+// is a literal after a `:` and before an `@` in the text from `://` to
+// the next `/`, `?`, or `#`. An `@` after that counts too, unless the
+// text before it is a host with a port, as in `https://host:8443/@scope`.
 func mcpURLCredentialDetected(value string) bool {
-	for _, m := range mcpQueryParamPattern.FindAllStringSubmatch(value, -1) {
+	text := mcpDetectorText(value)
+	for _, m := range mcpQueryParamPattern.FindAllStringSubmatch(text, -1) {
 		if mcpCredentialParam(m[1]) && mcpLiteralCredential(m[2]) {
 			return true
 		}
 	}
-	for rest := value; ; {
+	for rest := text; ; {
 		sep := strings.Index(rest, "://")
 		if sep < 0 {
 			return false
 		}
 		rest = rest[sep+3:]
-		mask := maskMCPRefs(rest)
-		mask = mask[:indexAnyOrLen(mask, " \t\r\n")]
-		authority := mask[:indexAnyOrLen(mask, "/?#")]
+		authority := rest[:indexAnyOrLen(rest, "/?#")]
 		at := strings.LastIndex(authority, "@")
 		if at < 0 {
-			if _, port, ok := strings.Cut(authority, ":"); !ok || port != "" && mcpPortOrRef(port) {
+			if _, port, ok := strings.Cut(authority, ":"); !ok || port != "" && strings.Trim(port, "0123456789"+mcpRefSentinel) == "" {
 				continue
 			}
-			if at = strings.Index(mask, "@"); at < 0 {
+			if at = strings.Index(rest, "@"); at < 0 {
 				continue
 			}
 		}
-		if colon := strings.Index(mask[:at], ":"); colon >= 0 && mcpLiteralCredential(rest[colon+1:at]) {
+		if colon := strings.Index(rest[:at], ":"); colon >= 0 && mcpLiteralCredential(rest[colon+1:at]) {
 			return true
 		}
 	}
@@ -310,12 +330,6 @@ func splitMCPURLCredentials(value string) (pieces []string, creds map[int]string
 		written = s.end
 	}
 	return append(pieces, value[written:]), creds, true
-}
-
-// mcpPortOrRef reports whether the text after a host's `:` is a port, or
-// a masked reference standing for one.
-func mcpPortOrRef(s string) bool {
-	return strings.Trim(s, "0123456789_") == ""
 }
 
 // mcpURLCredentialSpans finds the credentials in the URL that word is.

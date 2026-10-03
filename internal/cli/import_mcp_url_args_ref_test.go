@@ -366,16 +366,18 @@ func TestImportMCP_URLQuotedQueryCredentialLeavesServerOut(t *testing.T) {
 func TestImportMCP_URLPasswordAfterEmailUsernameLeavesServerOut(t *testing.T) {
 	dir := t.TempDir()
 	log := captureLog(t)
-	fields := map[string]string{"email": "args[1]", "ref": "args[1]", "single": "url"}
+	fields := map[string]string{"email": "args[1]", "ref": "args[1]", "single": "url", "authdef": "args[0]", "space": "args[1]"}
 	if _, err := writeMCPYAMLs("claude", map[string]any{
-		"email":  map[string]any{"command": "sh", "args": []any{"-c", "exec pg-mcp postgresql://service@example.com:PASSW0RD@db/app"}},
-		"ref":    map[string]any{"command": "sh", "args": []any{"-c", "exec pg-mcp postgresql://${DB_USER:-service@example.com}:PASSW0RD@db/app"}},
-		"single": map[string]any{"url": "https://service@example.com:PASSW0RD@x.example/mcp"},
+		"authdef": map[string]any{"command": "pg-mcp", "args": []any{"postgresql://${DB_AUTH:-admin:PASSW0RD}@db:5432/app"}},
+		"space":   map[string]any{"command": "sh", "args": []any{"-c", "exec pg-mcp postgresql://admin:PASS W0RD@db:5432/app"}},
+		"email":   map[string]any{"command": "sh", "args": []any{"-c", "exec pg-mcp postgresql://service@example.com:PASSW0RD@db/app"}},
+		"ref":     map[string]any{"command": "sh", "args": []any{"-c", "exec pg-mcp postgresql://${DB_USER:-service@example.com}:PASSW0RD@db/app"}},
+		"single":  map[string]any{"url": "https://service@example.com:PASSW0RD@x.example/mcp"},
 	}, dir); err != nil {
 		t.Fatal(err)
 	}
 	out := log.String()
-	if strings.Contains(out, "PASSW0RD") {
+	if strings.Contains(out, "PASSW0RD") || strings.Contains(out, "W0RD") {
 		t.Errorf("import output prints a credential value")
 	}
 	for name, field := range fields {
@@ -395,6 +397,9 @@ func TestImportMCP_URLWithoutCredentialImportsUnchanged(t *testing.T) {
 		"https://registry.example:8443/@scope/pkg",
 		"curl 'https://x.example/mcp'?page=2",
 		"--url=https://x.example/mcp?token=${TOKEN}",
+		"curl https://example.com/a b@c",
+		"curl https://x.example:8443/a b@c",
+		"postgresql://${DB_USER:-admin}:${DB_PASSWORD}@db/app",
 	}
 	specs, out := importMCPServers(t, "claude", map[string]any{
 		"sh":  map[string]any{"command": "sh", "args": args},
