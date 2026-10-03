@@ -25,6 +25,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - `hook run` runs Windsurf's Devin CLI hooks on an assumed shell; `--edit` is refused, since the edit tools' input is undocumented (#1566).
 
+### Site
+
+- The Why page notes that betagouv/agnostic-ai is a separate project with the same name (#1737).
+
 ## v0.78.0 - 2026-10-03
 
 ### General
