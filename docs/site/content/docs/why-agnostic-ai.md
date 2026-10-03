@@ -53,6 +53,10 @@ Hooks differ the same way. The event before a tool call is `PreToolUse` in Claud
 
 With one tool, use its own files. With two tools that read the same Markdown at the same path, a symlink is enough. agnostic-ai helps once a second tool wants a different format.
 
+## Another project with this name
+
+[betagouv/agnostic-ai](https://github.com/betagouv/agnostic-ai) is a separate project. It is a Bash template that links one `.ai/` folder into Claude Code and Cursor. These docs cover the `agnostic-ai` command-line tool from [Chemaclass/agnostic-ai](https://github.com/Chemaclass/agnostic-ai), installed through the channels on the [installation page](@/docs/installation.md).
+
 ## Start
 
 [Install agnostic-ai](@/docs/installation.md), then at your project root:
