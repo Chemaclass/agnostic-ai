@@ -252,9 +252,7 @@ func TestSyncCheck_ReportsARuleFileTheNextSyncRemoves(t *testing.T) {
 	mustSync(t, "--only", "codex")
 
 	out, err := runCLI(t, "sync", "--check", "--json")
-	// JSON paths are OS-native, so Windows escapes the separator.
-	path := strings.ReplaceAll(filepath.Join(".clinerules", "always.md"), `\`, `\\`)
-	if err == nil || !strings.Contains(out, path) || !strings.Contains(out, `"leftover"`) {
+	if err == nil || !strings.Contains(out, `".clinerules/always.md"`) || !strings.Contains(out, `"leftover"`) {
 		t.Errorf("sync --check must name the copy a full sync removes, got %v:\n%s", err, out)
 	}
 	if out, _ := runCLI(t, "status"); strings.Contains(out, "in sync") {
