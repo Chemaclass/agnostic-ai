@@ -252,7 +252,13 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 		if hookrun.FireAndForget(target, event) {
 			run.Async, run.fireAndForget = true, true
 		}
-		for _, h := range handlers {
+		var crushResults []hookrun.Result
+		if target == "crush" {
+			handlers = hookrun.CrushDedupe(handlers)
+			env := hookRunEnv(target, root, hookEnvContext{}, hookrun.Handler{})
+			crushResults = hookrun.RunCrushHooks(handlers, root, hookrun.CrushEnv(env, root, payload.Body), payload.Body, hookTimeout(target, hook.Meta), runtime.GOOS)
+		}
+		for i, h := range handlers {
 			timeout := h.Timeout
 			if timeout <= 0 {
 				timeout = hookTimeout(target, hook.Meta)
@@ -265,7 +271,7 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 			env := hookRunEnv(target, root, hookEnvContext{event: event, tool: hookrun.PayloadTool(payload.Body), pluginRoot: adapters.HookPluginRoot(cfg, target)}, h)
 			var r hookrun.Result
 			if target == "crush" {
-				r = hookrun.RunCrush(h.Command, root, hookrun.CrushEnv(env, root, payload.Body), payload.Body, timeout, runtime.GOOS)
+				r = crushResults[i]
 				run.Assumptions = mergeAssumptions(run.Assumptions, hookrun.CrushAssumptions(r))
 			} else {
 				r = hookrun.Run(hookrun.Argv(target, runtime.GOOS, h), root, env, payload.Body, timeout)

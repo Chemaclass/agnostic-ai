@@ -238,12 +238,10 @@ func crushExec(ctx context.Context, args []string) error {
 		_, _ = fmt.Fprintln(hc.Stderr, err)
 		return interp.ExitStatus(127)
 	}
-	cmd := exec.CommandContext(ctx, path)
+	cmd := &exec.Cmd{Path: path}
 	cmd.Args, cmd.Dir, cmd.Env = args, hc.Dir, exportedEnv(hc.Env)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = hc.Stdin, hc.Stdout, hc.Stderr
-	killTree(cmd)
-	crushIsolate(cmd)
-	err = cmd.Run()
+	err = crushStart(ctx, cmd)
 	var exit *exec.ExitError
 	var notStarted *exec.Error
 	switch {
@@ -460,6 +458,35 @@ func crushCoreUtilsOn(goos string) bool {
 		return on
 	}
 	return goos == "windows"
+}
+
+// CrushDedupe keeps the first handler of each command, as Crush runs a
+// repeated command once (hooks/runner.go:96-105).
+func CrushDedupe(handlers []Handler) []Handler {
+	var out []Handler
+	for _, h := range handlers {
+		if !slices.ContainsFunc(out, func(o Handler) bool { return o.Command == h.Command }) {
+			out = append(out, h)
+		}
+	}
+	return out
+}
+
+// RunCrushHooks runs every handler at once and returns the results in
+// handler order, as hooks/runner.go:110-120 does. A handler without its
+// own timeout gets fallback.
+func RunCrushHooks(handlers []Handler, dir string, env []string, stdin []byte, fallback time.Duration, goos string) []Result {
+	results := make([]Result, len(handlers))
+	var wg sync.WaitGroup
+	for i, h := range handlers {
+		timeout := h.Timeout
+		if timeout <= 0 {
+			timeout = fallback
+		}
+		wg.Go(func() { results[i] = RunCrush(h.Command, dir, env, stdin, timeout, goos) })
+	}
+	wg.Wait()
+	return results
 }
 
 // RunCrush runs command in Crush's embedded shell with env and stdin,

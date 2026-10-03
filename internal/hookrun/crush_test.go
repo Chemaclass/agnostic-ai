@@ -291,3 +291,25 @@ func TestCrushJoin_KeepsRootedPathsOnWindows(t *testing.T) {
 		}
 	}
 }
+
+func TestRunCrushHooks_RunsEachCommandOnceAndAllAtOnce(t *testing.T) {
+	dir := t.TempDir()
+	count := "echo x >> count"
+	handlers := CrushDedupe([]Handler{
+		{Command: count},
+		{Command: ": > a; while [ ! -f b ]; do :; done; exit 2"},
+		{Command: count},
+		{Command: ": > b; while [ ! -f a ]; do :; done"},
+	})
+	if len(handlers) != 3 {
+		t.Fatalf("handlers = %+v", handlers)
+	}
+	results := RunCrushHooks(handlers, dir, os.Environ(), nil, 5*time.Second, runtime.GOOS)
+	if results[1].Exit != 2 || results[2].Exit != 0 || results[1].TimedOut || results[2].TimedOut {
+		t.Errorf("the two waiting handlers must run at once, in order: %+v", results)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "count"))
+	if err != nil || string(got) != "x\n" {
+		t.Errorf("a repeated command runs once: %q %v", got, err)
+	}
+}
