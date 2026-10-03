@@ -210,6 +210,7 @@ func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) [
 
 	var findings []lintFinding
 	findings = append(findings, lintEmptySpecs(entries)...)
+	findings = append(findings, lintTodoDescriptions(entries)...)
 	findings = append(findings, lintDuplicateNames(withShadowed)...)
 	findings = append(findings, lintDeadSpecs(entries, targets, support)...)
 	findings = append(findings, lintHookMatcherMisuse(b.Hooks)...)
