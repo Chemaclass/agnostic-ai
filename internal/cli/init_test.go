@@ -225,7 +225,8 @@ func TestScaffold_Demo_SeedsExampleSpecs(t *testing.T) {
 		"skills/yaml-validator.md":      "name: yaml-validator",
 		"skills/memory-curator.md":      "name: memory-curator",
 		"rules/conventional-commits.md": "name: conventional-commits",
-		"hooks/format-on-save.yaml":     "event: PostToolUse",
+		"hooks/no-force-push.yaml":      "command: .agnostic-ai/scripts/no-force-push.sh",
+		"scripts/no-force-push.sh":      "--force-with-lease",
 		"mcps/filesystem.yaml":          "command: npx",
 	}
 	for rel, want := range wantFiles {

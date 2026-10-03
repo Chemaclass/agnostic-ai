@@ -1,0 +1,7 @@
+name: no-force-push
+description: Block git push --force and allow --force-with-lease.
+targets: [claude, codex]
+event: PreToolUse
+matcher: Bash
+command: .agnostic-ai/scripts/no-force-push.sh
+timeout: 10

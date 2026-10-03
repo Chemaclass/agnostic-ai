@@ -140,7 +140,7 @@ func scaffoldDryRun(opts scaffoldOptions, cfgPath string) error {
 	}
 	baseDir := filepath.Join(opts.Root, opts.Base)
 	if opts.Demo {
-		if err := listDemoFiles(baseDir); err != nil {
+		if err := listDemoFiles(opts.Root, baseDir); err != nil {
 			return err
 		}
 	}
@@ -211,7 +211,7 @@ func writeScaffold(opts scaffoldOptions, cfgPath string) error {
 		return err
 	}
 	if opts.Demo {
-		if err := writeDemoFiles(baseDir); err != nil {
+		if err := writeDemoFiles(opts.Root, baseDir); err != nil {
 			return err
 		}
 	}
@@ -224,7 +224,7 @@ func writeScaffold(opts scaffoldOptions, cfgPath string) error {
 }
 
 // listDemoFiles prints the paths that writeDemoFiles would create.
-func listDemoFiles(baseDir string) error {
+func listDemoFiles(root, baseDir string) error {
 	return fs.WalkDir(demoFS, "initdata", func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -232,13 +232,22 @@ func listDemoFiles(baseDir string) error {
 		if d.IsDir() {
 			return nil
 		}
-		rel, err := filepath.Rel("initdata", path)
-		if err != nil {
-			return err
-		}
-		fmt.Printf("create: %s\n", filepath.Join(baseDir, filepath.FromSlash(rel)))
+		dst, _ := demoDestination(root, baseDir, path)
+		fmt.Printf("create: %s\n", dst)
 		return nil
 	})
+}
+
+// demoDestination maps an embedded demo file to its path on disk and
+// mode. Hook scripts land in .agnostic-ai/scripts/ whatever the base,
+// since sync reads shared script bodies only from there, and stay
+// executable because the demo hook runs its script directly.
+func demoDestination(root, baseDir, embedded string) (string, fs.FileMode) {
+	rel := strings.TrimPrefix(embedded, "initdata/")
+	if script, ok := strings.CutPrefix(rel, "scripts/"); ok {
+		return filepath.Join(root, agnosticScriptsDir, filepath.FromSlash(script)), 0o755
+	}
+	return filepath.Join(baseDir, filepath.FromSlash(rel)), 0o644
 }
 
 // listPresetFiles prints the paths that writePresetFiles would create.
@@ -307,9 +316,10 @@ func baseLabel(base string) string {
 }
 
 // writeDemoFiles mirrors every file under initdata/ into baseDir,
-// preserving the kind subfolder. Existing files are left untouched so a
-// rerun against a partially populated tree never clobbers user content.
-func writeDemoFiles(baseDir string) error {
+// preserving the kind subfolder, and hook scripts into root's
+// .agnostic-ai/scripts/. Existing files are left untouched so a rerun
+// against a partially populated tree never clobbers user content.
+func writeDemoFiles(root, baseDir string) error {
 	return fs.WalkDir(demoFS, "initdata", func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -317,11 +327,7 @@ func writeDemoFiles(baseDir string) error {
 		if d.IsDir() {
 			return nil
 		}
-		rel, err := filepath.Rel("initdata", path)
-		if err != nil {
-			return err
-		}
-		dst := filepath.Join(baseDir, filepath.FromSlash(rel))
+		dst, mode := demoDestination(root, baseDir, path)
 		if _, err := os.Stat(dst); err == nil {
 			return nil
 		}
@@ -332,7 +338,7 @@ func writeDemoFiles(baseDir string) error {
 		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 			return err
 		}
-		if err := os.WriteFile(dst, data, 0o644); err != nil {
+		if err := os.WriteFile(dst, data, mode); err != nil {
 			return fmt.Errorf("write %s: %w", dst, err)
 		}
 		return nil
