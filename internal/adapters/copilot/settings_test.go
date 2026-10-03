@@ -389,17 +389,22 @@ func TestEmit_HookCwdMakesScriptPathRelativeToCwd(t *testing.T) {
 		want string
 	}{
 		"command":        {map[string]any{"command": ".agnostic-ai/hooks/guard.sh", "cwd": "sub"}, "command", "../.agnostic-ai/hooks/guard.sh"},
-		"nested cwd":     {map[string]any{"command": "scripts/guard.sh --x", "cwd": "a/b"}, "command", "../../scripts/guard.sh --x"},
-		"inside cwd":     {map[string]any{"command": "sub/guard.sh", "cwd": "sub"}, "command", "./guard.sh"},
-		"interpreter":    {map[string]any{"command": "bash scripts/guard.sh", "cwd": "sub"}, "command", "bash ../scripts/guard.sh"},
+		"nested cwd":     {map[string]any{"command": ".github/hooks/scripts/guard.sh --x", "cwd": "a/b"}, "command", "../../.github/hooks/scripts/guard.sh --x"},
+		"inside cwd":     {map[string]any{"command": ".github/hooks/scripts/guard.sh", "cwd": ".github/hooks"}, "command", "./scripts/guard.sh"},
+		"interpreter":    {map[string]any{"command": "bash .github/hooks/scripts/guard.sh", "cwd": "sub"}, "command", "bash ../.github/hooks/scripts/guard.sh"},
 		"unset cwd":      {map[string]any{"command": ".agnostic-ai/hooks/guard.sh"}, "command", ".agnostic-ai/hooks/guard.sh"},
 		"absolute cwd":   {map[string]any{"command": "scripts/guard.sh", "cwd": "/srv/app"}, "command", "scripts/guard.sh"},
 		"escaping cwd":   {map[string]any{"command": "scripts/guard.sh", "cwd": "../x"}, "command", "scripts/guard.sh"},
 		"absolute path":  {map[string]any{"command": "/usr/bin/guard", "cwd": "sub"}, "command", "/usr/bin/guard"},
 		"variable path":  {map[string]any{"command": "$HOME/guard.sh", "cwd": "sub"}, "command", "$HOME/guard.sh"},
 		"not a path":     {map[string]any{"command": "make build", "cwd": "sub"}, "command", "make build"},
-		"exec path":      {map[string]any{"command": "scripts/guard", "args": []any{"--strict"}, "cwd": "sub"}, "exec", "../scripts/guard"},
-		"exec first arg": {map[string]any{"command": "node", "args": []any{"scripts/guard.js", "--strict"}, "cwd": "sub"}, "exec", "node"},
+		"exec path":      {map[string]any{"command": ".agnostic-ai/hooks/guard", "args": []any{"--strict"}, "cwd": "sub"}, "exec", "../.agnostic-ai/hooks/guard"},
+		"exec first arg": {map[string]any{"command": "node", "args": []any{".agnostic-ai/hooks/guard.js", "--strict"}, "cwd": "sub"}, "exec", "node"},
+		"user argument":  {map[string]any{"command": "rm artifacts/state.json", "cwd": "sub"}, "command", "rm artifacts/state.json"},
+		"user script":    {map[string]any{"command": "./scripts/guard", "cwd": "sub"}, "command", "./scripts/guard"},
+		"drive path":     {map[string]any{"command": "C:/Tools/guard.exe", "cwd": "sub"}, "command", "C:/Tools/guard.exe"},
+		"drive exec":     {map[string]any{"command": "C:/Tools/guard.exe", "args": []any{"x"}, "cwd": "sub"}, "exec", "C:/Tools/guard.exe"},
+		"UNC path":       {map[string]any{"command": `\\srv\share\guard.exe`, "cwd": "sub"}, "command", `\\srv\share\guard.exe`},
 	} {
 		t.Run(name, func(t *testing.T) {
 			got := emitCwdHook(t, tc.meta)
@@ -408,8 +413,8 @@ func TestEmit_HookCwdMakesScriptPathRelativeToCwd(t *testing.T) {
 			}
 		})
 	}
-	got := emitCwdHook(t, map[string]any{"command": "node", "args": []any{"scripts/guard.js", "--strict"}, "cwd": "sub"})
-	if args, _ := got["args"].([]any); len(args) != 2 || args[0] != "../scripts/guard.js" || args[1] != "--strict" {
+	got := emitCwdHook(t, map[string]any{"command": "node", "args": []any{".agnostic-ai/hooks/guard.js", "--strict"}, "cwd": "sub"})
+	if args, _ := got["args"].([]any); len(args) != 2 || args[0] != "../.agnostic-ai/hooks/guard.js" || args[1] != "--strict" {
 		t.Errorf("args = %v", got["args"])
 	}
 }
