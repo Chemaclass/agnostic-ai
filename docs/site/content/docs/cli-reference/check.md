@@ -50,6 +50,7 @@ agnostic-ai lint --strict
 |------|-------------|
 | `--strict` | Exit 1 on warnings too, for CI. |
 | `--global` | Lint the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides. Also reports LINT010 and LINT014. Budgets come from the `lint` key in the home config. Works outside a project. |
+| `--json` | Print `{version, command, findings}` on stdout. Each finding has `code`, `severity` (`error` or `warn`), `path`, and `message`, the shape of the `lint` list in `doctor --json`. The exit status matches the text output. Works with `--global`. |
 
 `agnostic-ai explain LINT011` prints any code's cause, fix, and config key. `lint` names the command after its findings.
 
