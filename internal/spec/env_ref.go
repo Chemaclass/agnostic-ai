@@ -237,6 +237,34 @@ func (s EnvRefSyntax) read(value string, r EnvRefReading, keepEditorNames bool) 
 	return value
 }
 
+// LaunchRefs returns each reference in this syntax that ReadLaunch reads
+// back, as written in value.
+func (s EnvRefSyntax) LaunchRefs(value string) []string {
+	var p *regexp.Regexp
+	switch s {
+	case EnvRefDollarEnv:
+		p = envRefDollarEnvPattern
+	case EnvRefBraceEnv:
+		p = envRefBraceEnvPattern
+	case EnvRefSecrets:
+		p = envRefSecretsPattern
+	default:
+		return nil
+	}
+	var refs []string
+	for _, m := range p.FindAllStringSubmatch(value, -1) {
+		if editorVariables[m[len(m)-1]] {
+			continue
+		}
+		text := m[0]
+		if len(m) == 3 {
+			text = text[len(m[1]):]
+		}
+		refs = append(refs, text)
+	}
+	return refs
+}
+
 // EnvVarName turns s into a variable name: letters, digits, and
 // underscores, never starting with a digit.
 func EnvVarName(s string) string {

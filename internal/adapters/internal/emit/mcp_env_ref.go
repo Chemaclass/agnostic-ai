@@ -145,6 +145,12 @@ func RewriteMCPEnvRefs(target string, view MCPLaunchView, mcps []spec.Entry) []s
 	return out
 }
 
+// MCPLaunchRefSyntax returns the reference form target expands in an
+// MCP `url` or `args` value, EnvRefNone when it documents none.
+func MCPLaunchRefSyntax(target, field string) spec.EnvRefSyntax {
+	return mcpEnvRefTargets[target].launchSyntax(field)
+}
+
 // mcpLaunchFields are the fields that say where a server runs, as
 // opposed to the credentials in `env` and `headers`.
 var mcpLaunchFields = []string{"url", "args"}

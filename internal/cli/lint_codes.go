@@ -184,7 +184,7 @@ var lintCodes = map[string]lintCode{
 	"LINT028": {
 		Severity: lintWarn,
 		Title:    "Tool reference form in an MCP url or args",
-		Cause:    "An MCP spec's `url` or an `args` element holds a reference form only one tool reads, such as Cursor's `${env:NAME}`, OpenCode's `{env:NAME}`, or Continue's `${{ secrets.NAME }}`. Sync copies it as text, so every other tool gets the literal. Older imports wrote these.",
+		Cause:    "An MCP spec's `url` or an `args` element holds a reference form only one tool reads, such as Cursor's `${env:NAME}`, OpenCode's `{env:NAME}`, or Continue's `${{ secrets.NAME }}`. Sync copies it as text, so each enabled tool that does not read that form gets the literal. Only the field sync writes for the transport is checked: `args` for stdio, `url` for a remote server. Older imports wrote these.",
 		Fix:      "Write `${NAME}` so sync writes each tool's own form, or move the value under `x-<target>:` for the one tool that reads it.",
 	},
 }

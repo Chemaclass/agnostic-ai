@@ -274,6 +274,12 @@ func PrintAcceptedNotes(accepted []AcceptedNote) { emit.PrintAcceptedNotes(accep
 // buffered coverage notes that name a target.
 func PendingTargetCoverageNotesCount() int { return emit.PendingTargetCoverageNotesCount() }
 
+// MCPLaunchRefSyntax returns the reference form target expands in an
+// MCP `url` or `args` value, EnvRefNone when it documents none.
+func MCPLaunchRefSyntax(target, field string) spec.EnvRefSyntax {
+	return emit.MCPLaunchRefSyntax(target, field)
+}
+
 // DropRecord is one buffered capability warning or coverage note for one
 // target (re-exported from the emit layer).
 type DropRecord = emit.DropRecord
