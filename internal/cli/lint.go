@@ -57,7 +57,7 @@ func newLintCmd() *cobra.Command {
 			"another spec by one target's native path, skill and command lines with " +
 			"Claude Code body syntax an enabled target reads as plain text, missing or conflicting " +
 			"Codex command prefixes for Bash permissions, coverage.accept entries " +
-			"that match no coverage note, MCP values JSON cannot hold, invalid protected paths and protected " +
+			"that match no coverage note, MCP values JSON cannot hold, one tool's reference form in an MCP url or args, invalid protected paths and protected " +
 			"paths that cover a file sync writes, model tiers with no model for an enabled " +
 			"target, Claude model names that reach another vendor's target, and warns when a " +
 			"target's always-loaded instructions pass the lint.instructions-words " +
@@ -215,6 +215,7 @@ func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) [
 	findings = append(findings, lintNearMissKeys(entries, targets)...)
 	findings = append(findings, lintMCPMissingRequiredField(b.MCPs)...)
 	findings = append(findings, lintMCPNonJSONValues(b.MCPs)...)
+	findings = append(findings, lintMCPToolRefs(b.MCPs)...)
 	findings = append(findings, lintDevCommands(b.Environments)...)
 	findings = append(findings, lintSkillScopeKey(b.Skills)...)
 	findings = append(findings, lintClaudeBodySyntax(b, targets, support)...)

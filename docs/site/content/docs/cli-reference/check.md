@@ -76,6 +76,7 @@ agnostic-ai lint --strict
 | LINT025 | Warning. A [`models`](@/docs/configuration.md#models) tier that an agent, skill, command, or settings spec names has no entry and no `default` for an enabled target that writes the spec, so the spec gets that tool's default model. An effort-only tier is not checked. Also raised for a tier named like a Claude model, such as `opus`, since `model: opus` then names the tier. The editor server reports it too. `lint --strict` fails. |
 | LINT026 | Warning. A Claude model name reaches a target that cannot load it, through an agent's shared `model` (a scalar or `default`) or through the `default` of a tier the agent names. Write `model: {claude: <name>}` or add the target to the tier. `lint --strict` fails. |
 | LINT027 | Error. An MCP spec holds a value JSON cannot hold, such as a YAML `.nan` or `.inf`. The finding names the field, for example `x-amp.timeout`. `validate` reports it too. `sync` fails on it instead of leaving the server out. |
+| LINT028 | Warning. An MCP `url` or `args` element holds a reference form only one tool reads, such as `${env:NAME}`, `{env:NAME}`, or `{% raw %}${{ secrets.NAME }}{% endraw %}`. Sync copies it as text to every other tool. Write `${NAME}`, or move the value under `x-<target>:`. Older imports wrote these. `lint --strict` fails. |
 | LINT008 | Error. A stdio MCP server lacks `command:`, or an `http`/`sse`/`ws` one lacks `url:`. `x-<target>` cannot set either reserved field. |
 
 More warnings:

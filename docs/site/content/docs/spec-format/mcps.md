@@ -107,6 +107,8 @@ args: [--token, "${GH_TOKEN}"]
 
 Sync writes each tool's own form. A tool that reads no reference in that field gets no server at all, and the note names the server, the field, and the variable: dropping one argument would change the command. Sync checks only the field the tool writes for the server's transport, after any `x-<target>` override that tool applies. A `${NAME:-default}` follows the same rule outside Claude Code, Crush, OpenHands, and Gemini.
 
+A tool's own form at the top level, such as `${env:NAME}`, is copied as text to every tool; `agnostic-ai lint` reports it as LINT028. Write `${NAME}`, or put the native text under `x-<target>:`.
+
 `${workspaceFolder}`, `${workspaceFolderBasename}`, `${userHome}`, and `${pathSeparator}` are tool variables, not environment references, and stay as written. So does any other `${...}`, such as `${input:id}`, and every literal URL or argument.
 
 | Target | `url` | `args` |
