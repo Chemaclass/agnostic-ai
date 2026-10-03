@@ -420,6 +420,37 @@ func TestImportMCP_URLShellQuotedCredentialLeavesServerOut(t *testing.T) {
 	}
 }
 
+func TestImportMCP_URLCredentialNeverEchoedInOutput(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	log := captureLog(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".mcp.json"), `{"mcpServers":{
+  "cmd":    {"command": "pg-mcp", "args": ["postgresql://admin:abc$(PASSW0RD)xyz@db/app"]},
+  "tick":   {"command": "pg-mcp", "args": ["postgresql://admin:abc`+"`BACKT1CK`"+`xyz@db/app"]},
+  "query":  {"url": "https://x.example/mcp?token=$(T0KCMD)"},
+  "prompt": {"url": "https://admin:${input:PR0MPT}@x.example/mcp"}}}`)
+	var stderr string
+	stdout := captureStdout(t, func() {
+		stderr = captureStderr(t, func() { execCLI(t, "import", "claude") })
+	})
+	out := stdout + stderr + log.String()
+	specs := ""
+	for _, name := range []string{"cmd", "tick", "query", "prompt"} {
+		if data, err := os.ReadFile(filepath.Join(dir, ".agnostic-ai", "mcps", name+".yaml")); err == nil {
+			specs += string(data)
+		}
+	}
+	for _, secret := range []string{"PASSW0RD", "BACKT1CK", "T0KCMD", "PR0MPT"} {
+		if strings.Contains(out, secret) {
+			t.Errorf("import output echoes text from a URL credential")
+		}
+		if strings.Contains(specs, secret) {
+			t.Errorf("a spec keeps text from a URL credential")
+		}
+	}
+}
+
 func TestImportMCP_URLWithoutCredentialImportsUnchanged(t *testing.T) {
 	args := []any{
 		"curl https://health.example/ping?a=1&b=2; exec srv",

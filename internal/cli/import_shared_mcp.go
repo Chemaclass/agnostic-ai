@@ -488,6 +488,12 @@ func referenceMCPLiterals(servers map[string]any) []mcpLiteralRef {
 	for i, variable := range names {
 		l := literals[i]
 		ref := mcpLiteralRef{server: l.server, field: l.field, key: l.key, value: l.value(), variable: variable}
+		// A URL credential reports only its reference: a command or prompt
+		// id inside it is part of the secret.
+		if l.field != "env" && l.field != "headers" {
+			refs = append(refs, ref)
+			continue
+		}
 		if m := mcpCommandPattern.FindStringSubmatch(l.secret); m != nil {
 			ref.ran = m[1]
 		}
