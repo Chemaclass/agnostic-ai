@@ -44,6 +44,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 #### Crush
 
 - Hook commands that run a synced script start with `./`, so Crush runs the script and a guard hook blocks on every OS (#1695, #1698).
+- `hook run` runs Crush hooks in Crush's embedded shell on every platform, Windows included; exit 2 blocks and exit 49 halts the turn (#1678).
 
 #### Copilot
 

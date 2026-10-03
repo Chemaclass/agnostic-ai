@@ -20,6 +20,11 @@ import (
 // ContractDocs is the page a target's assumptions cite, "" for a target
 // hook run assumes nothing for.
 func ContractDocs(target string) string {
+	// Crush's contract is read from source; only the Go programs it
+	// carries and hook run does not are assumed, at run time.
+	if target == "crush" {
+		return crushSource
+	}
 	return assumedContracts[target].docs
 }
 

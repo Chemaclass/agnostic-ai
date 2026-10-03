@@ -258,7 +258,13 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 		if hookrun.FireAndForget(target, event) {
 			run.Async, run.fireAndForget = true, true
 		}
-		for _, h := range handlers {
+		var crushResults []hookrun.Result
+		if target == "crush" {
+			handlers = hookrun.CrushDedupe(handlers)
+			env := hookRunEnv(target, root, hookEnvContext{}, hookrun.Handler{})
+			crushResults = hookrun.RunCrushHooks(handlers, root, hookrun.CrushEnv(env, root, payload.Body), payload.Body, hookTimeout(target, hook.Meta), runtime.GOOS)
+		}
+		for i, h := range handlers {
 			timeout := h.Timeout
 			if timeout <= 0 {
 				timeout = hookTimeout(target, hook.Meta)
@@ -274,10 +280,19 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 				dir = hookrun.CopilotDir(root, h)
 				h = hookrun.CopilotExec(root, h)
 			}
-			r := hookrun.Run(hookrun.Argv(target, runtime.GOOS, h), dir, env, payload.Body, timeout)
+			var r hookrun.Result
+			if target == "crush" {
+				r = crushResults[i]
+				run.Assumptions = mergeAssumptions(run.Assumptions, hookrun.CrushAssumptions(r))
+			} else {
+				r = hookrun.Run(hookrun.Argv(target, runtime.GOOS, h), dir, env, payload.Body, timeout)
+			}
 			d := hookrun.DecideHandler(target, event, h, r)
 			if target == "cursor" && hookrun.CursorAsks(event, r) {
 				run.Notes = append(run.Notes, "replied ask: Cursor asks the user before the action runs; read as block")
+			}
+			if target == "crush" && hookrun.CrushHalts(r) {
+				run.Notes = append(run.Notes, "halt: Crush ends the whole turn, not only this tool call")
 			}
 			if target == "factory" && hookrun.FactoryAsks(event, r) {
 				run.Notes = append(run.Notes, "replied ask: Factory asks the user before the tool runs; read as block")
@@ -403,13 +418,19 @@ func hookAssumptions(target string, handlers []hookrun.Handler) ([]hookrun.Assum
 		if reason != "" {
 			return nil, reason
 		}
-		for _, a := range assumed {
-			if !slices.ContainsFunc(out, func(b hookrun.Assumption) bool { return b.Item == a.Item }) {
-				out = append(out, a)
-			}
-		}
+		out = mergeAssumptions(out, assumed)
 	}
 	return out, ""
+}
+
+// mergeAssumptions adds each assumption whose item out does not list yet.
+func mergeAssumptions(out, more []hookrun.Assumption) []hookrun.Assumption {
+	for _, a := range more {
+		if !slices.ContainsFunc(out, func(b hookrun.Assumption) bool { return b.Item == a.Item }) {
+			out = append(out, a)
+		}
+	}
+	return out
 }
 
 func assumedItems(run hookTargetRun) string {
@@ -561,6 +582,7 @@ var sessionEnvKeys = []string{
 	adapters.HookTargetEnv, claudeProjectDirEnv, "GEMINI_PROJECT_DIR", "GEMINI_CWD", "GEMINI_SESSION_ID", "GEMINI_PLANS_DIR",
 	"TRAE_PROJECT_DIR", "OPENHANDS_PROJECT_DIR", "OPENHANDS_SESSION_ID", "OPENHANDS_EVENT_TYPE", "OPENHANDS_TOOL_NAME",
 	"PLUGIN_ROOT", "CURSOR_PROJECT_DIR", "CURSOR_VERSION", "CURSOR_USER_EMAIL", "CURSOR_TRANSCRIPT_PATH", "CURSOR_CODE_REMOTE", "FACTORY_PROJECT_DIR", "AUGMENT_PROJECT_DIR", "AUGMENT_CONVERSATION_ID", "AUGMENT_HOOK_EVENT", "AUGMENT_TOOL_NAME",
+	"CRUSH_EVENT", "CRUSH_TOOL_NAME", "CRUSH_SESSION_ID", "CRUSH_CWD", "CRUSH_PROJECT_DIR", "CRUSH_TOOL_INPUT_COMMAND", "CRUSH_TOOL_INPUT_FILE_PATH",
 }
 
 // asyncHookTargets run an `async: true` hook in the background, so its
