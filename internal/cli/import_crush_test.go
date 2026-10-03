@@ -33,6 +33,8 @@ func TestImportCrush_RoundTripFixedPoint(t *testing.T) {
 		"---\nname: my-skill\ndescription: An example skill\n---\n\nSkill body here.\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "no-rm-rf.yaml"),
 		"name: no-rm-rf\nevent: PreToolUse\nmatcher: \"^bash$\"\ncommand: \"./hooks/no-rm-rf.sh\"\ntimeout: 10\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"),
+		"name: guard\nevent: PreToolUse\ncommand: .crush/hooks/guard.sh\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "stdio-server.yaml"),
 		"name: stdio-server\ncommand: npx\nargs:\n  - -y\n  - \"@modelcontextprotocol/server-filesystem\"\n")
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "http-server.yaml"),
@@ -78,6 +80,9 @@ func TestImportCrush_RoundTripFixedPoint(t *testing.T) {
 		if !strings.Contains(hook, want) {
 			t.Errorf("hook not reconstructed, missing %q:\n%s", want, hook)
 		}
+	}
+	if guard := readFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml")); !strings.Contains(guard, "command: .crush/hooks/guard.sh\n") {
+		t.Errorf("synced ./ prefix leaked into the imported hook:\n%s", guard)
 	}
 	// MCP: crush.json carries an explicit `type` on all three transports.
 	stdio := readFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "stdio-server.yaml"))
@@ -171,5 +176,33 @@ func TestImportCrush_HookNameCannotEscapeHooksDir(t *testing.T) {
 				t.Errorf("command not preserved: got %q", got.Command)
 			}
 		})
+	}
+}
+
+// Sync writes a copied hook script as ./.crush/hooks/<name> so Crush runs
+// it as a script (#1695). Import drops that ./ to read back the command
+// it had before, keeps the older form without it, and leaves a user's
+// own ./ command alone.
+func TestImportCrushHooks_ReadsBothScriptPathForms(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "crush.json"), `{"hooks":{"PreToolUse":[`+
+		`{"name":"synced","command":"export AGNOSTIC_AI_TARGET=crush; ./.crush/hooks/guard.sh --fast"},`+
+		`{"name":"older","command":"export AGNOSTIC_AI_TARGET=crush; .crush/hooks/guard.sh"},`+
+		`{"name":"own","command":"./x.sh"}]}}`)
+	hooksDir := filepath.Join(dir, ".agnostic-ai", "hooks")
+	if err := os.MkdirAll(hooksDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := importCrushHooks(dir, hooksDir); err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range map[string]string{
+		"synced": "command: .crush/hooks/guard.sh --fast",
+		"older":  "command: .crush/hooks/guard.sh",
+		"own":    "command: ./x.sh",
+	} {
+		if got := readFile(t, filepath.Join(hooksDir, name+".yaml")); !strings.Contains(got, want+"\n") {
+			t.Errorf("%s: want %q in:\n%s", name, want, got)
+		}
 	}
 }

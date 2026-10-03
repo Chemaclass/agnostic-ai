@@ -86,7 +86,7 @@ func buildHooksBlock(hooks []spec.Entry) map[string]any {
 
 		for _, command := range commands {
 			// Crush's embedded POSIX shell runs hooks on every platform.
-			entry := map[string]any{"command": emit.ExportHookTarget(emit.RewriteHookPath(command, target, h.Meta), target)}
+			entry := map[string]any{"command": emit.ExportHookTarget(scriptPathCommand(emit.RewriteHookPath(command, target, h.Meta)), target)}
 			if h.Name != "" {
 				entry["name"] = h.Name
 			}
@@ -109,4 +109,24 @@ func buildHooksBlock(hooks []spec.Entry) map[string]any {
 		return nil
 	}
 	return map[string]any{crushPreToolUseEvent: entries}
+}
+
+// scriptPathCommand prefixes ./ to a command whose first word is a plain
+// relative path such as .crush/hooks/guard.sh. Crush runs a command as a
+// script, with its shebang or shell fallback, only when it starts with
+// ./, ../, or /; otherwise a script without a shebang exits 1 on Unix and
+// every .sh script exits 1 on Windows, so a guard never blocks.
+func scriptPathCommand(command string) string {
+	word, _, _ := strings.Cut(command, " ")
+	if !strings.Contains(word, "/") || strings.HasPrefix(word, "./") || strings.HasPrefix(word, "../") || strings.HasPrefix(word, "/") {
+		return command
+	}
+	if strings.IndexFunc(word, func(r rune) bool { return !isPlainPathRune(r) }) >= 0 {
+		return command
+	}
+	return "./" + command
+}
+
+func isPlainPathRune(r rune) bool {
+	return r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("_./@%+,-", r)
 }

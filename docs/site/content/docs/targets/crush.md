@@ -55,6 +55,7 @@ Hooks merge into `crush.json` under `hooks`, beside `mcp`.
 - Crush supports only `PreToolUse` ([Crush hooks](https://github.com/charmbracelet/crush/blob/main/docs/hooks/README.md)). Other events get a coverage note.
 - Sync reads any case or snake_case spelling (`PreToolUse`, `pretooluse`, `pre_tool_use`, `PRE_TOOL_USE`, ...) and writes `PreToolUse`.
 - Each hook is one flat array item (`{"name": ..., "matcher": ..., "command": ..., "timeout": ...}`), not the Claude-style `{"matcher": ..., "hooks": [...]}` group. `command` is required. `timeout` is in seconds, default 30.
+- Crush runs a command as a script only when it starts with `./`, `../`, or `/`. Sync writes a relative script path such as `.crush/hooks/guard.sh` as `./.crush/hooks/guard.sh`, and import reads either form back as `.crush/hooks/guard.sh`.
 - Tool names are lowercase (`bash`, `edit`, `write`, `mcp_<server>_<tool>`, e.g. `^bash$`). A Claude-style matcher (`Bash`, `Edit`) matches nothing, so `sync` prints a field no-op note.
 
 ## Config keys
