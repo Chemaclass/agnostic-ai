@@ -42,15 +42,22 @@ func flushFailedCoverageNotes() {
 }
 
 // checkCoverageNotes applies coverage.fail-on-notes to the notes a
-// capture-only run (check, plan, dry-run JSON) buffered. On failure it
-// prints the notes, which those runs otherwise leave out.
-func checkCoverageNotes(cfg *config.Config, targets []string) error {
+// capture-only run (check, plan, dry-run JSON) buffered, and returns the
+// warnings and notes left for its JSON output. On failure it prints the
+// notes, which those runs otherwise leave out.
+func checkCoverageNotes(cfg *config.Config, targets []string) (syncDrops, error) {
 	_, err := applyCoverageAccept(cfg, targets)
+	drops := pendingSyncDrops()
 	if err != nil {
 		flushFailedCoverageNotes()
 	}
+	resetDrops()
+	return drops, err
+}
+
+func resetDrops() {
 	adapters.ResetCoverageNotes()
-	return err
+	adapters.ResetCapabilityWarnings()
 }
 
 // validateCoverageTargets rejects a coverage.accept target that is neither

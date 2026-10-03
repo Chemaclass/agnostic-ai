@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -108,5 +110,89 @@ func TestSyncJSON_EmptyDropListsWhenNothingIsDropped(t *testing.T) {
 
 	if out.Warnings == nil || out.Notes == nil || len(out.Warnings)+len(out.Notes) != 0 {
 		t.Errorf("warnings = %#v, notes = %#v; want empty lists", out.Warnings, out.Notes)
+	}
+}
+
+func runSyncJSONDropsMode(t *testing.T, args ...string) syncJSONDrops {
+	t.Helper()
+	var stdout, stderr bytes.Buffer
+	root := NewRootCmd("test")
+	root.SetOut(&stdout)
+	root.SetErr(&stderr)
+	root.SetArgs(append([]string{"sync", "--json"}, args...))
+	_ = root.Execute()
+	var out syncJSONDrops
+	if err := json.Unmarshal(stdout.Bytes(), &out); err != nil {
+		t.Fatalf("sync --json %v: stdout is not JSON: %v\n%s\n%s", args, err, stdout.String(), stderr.String())
+	}
+	return out
+}
+
+func TestSyncJSONPreviewModes_ListTheDropsSyncJSONLists(t *testing.T) {
+	for _, mode := range []string{"--check", "--plan", "--dry-run"} {
+		t.Run(mode, func(t *testing.T) {
+			dir := t.TempDir()
+			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, aider]\n")
+			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "srv.yaml"), "command: npx\nargs: [srv]\n")
+			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "rev.md"), "---\nname: rev\ndescription: Reviews code.\n---\nReview.\n")
+			testutil.Chdir(t, dir)
+			silence(t)
+			captureLogOut(t)
+			captureNotes(t)
+
+			got := runSyncJSONDropsMode(t, mode)
+			want := runSyncJSONDrops(t)
+
+			wantWarning := dropJSON{Target: "aider", Kind: "mcp", Count: 1, Message: "1 mcp unsupported by aider"}
+			wantNote := dropJSON{Target: "aider", Kind: "agent", Count: 1, Message: "1 agent reaches aider only via outputs.aider.rules-file"}
+			if len(want.Warnings) != 1 || want.Warnings[0] != wantWarning || len(want.Notes) != 1 || want.Notes[0] != wantNote {
+				t.Fatalf("sync --json drops = %+v, want one warning %+v and one note %+v", want, wantWarning, wantNote)
+			}
+			if !slices.Equal(got.Warnings, want.Warnings) || !slices.Equal(got.Notes, want.Notes) {
+				t.Errorf("sync --json %s drops = %+v, want %+v", mode, got, want)
+			}
+		})
+	}
+}
+
+func TestSyncJSONPreviewModes_EmptyDropListsWhenNothingIsDropped(t *testing.T) {
+	for _, mode := range []string{"--check", "--plan", "--dry-run"} {
+		t.Run(mode, func(t *testing.T) {
+			dir := t.TempDir()
+			mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+			mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "style.md"), "Prefer short functions.\n")
+			testutil.Chdir(t, dir)
+			silence(t)
+			captureLogOut(t)
+
+			out := runSyncJSONDropsMode(t, mode)
+
+			if out.Warnings == nil || out.Notes == nil || len(out.Warnings)+len(out.Notes) != 0 {
+				t.Errorf("warnings = %#v, notes = %#v; want empty lists", out.Warnings, out.Notes)
+			}
+		})
+	}
+}
+
+func TestOrphanGeneratedPaths_LeavesUnselectedTargetDropsOutOfTheBuffers(t *testing.T) {
+	dir := t.TempDir()
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, aider]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "srv.yaml"), "command: npx\nargs: [srv]\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+	captureNotes(t)
+	cfg, b, err := loadProject(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapters.ResetCapabilityWarnings()
+
+	reports := []driftReport{{Target: "claude", Orphaned: []string{".claude/agents/kept.md"}}}
+	if _, _, err := orphanGeneratedPaths(cfg, b, reports); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := adapters.PendingCapabilityWarnings(); len(got) != 0 {
+		t.Errorf("buffered warnings after orphan capture = %+v, want none from unselected aider", got)
 	}
 }

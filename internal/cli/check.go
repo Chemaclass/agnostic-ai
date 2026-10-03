@@ -457,6 +457,9 @@ func orphanGeneratedPaths(cfg *config.Config, b spec.Bundle, reports []driftRepo
 	if len(remaining) == 0 {
 		return generated, nil, nil
 	}
+	// Rendering unselected targets only finds their paths; their drops
+	// must not reach the selected targets' warnings and notes.
+	defer adapters.SetAsideNotes()()
 	sess := adapters.NewSession()
 	for _, target := range remaining {
 		adapter, err := adapters.Resolve(target)
