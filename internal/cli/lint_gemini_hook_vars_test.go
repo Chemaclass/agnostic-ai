@@ -27,9 +27,8 @@ func TestLint_GeminiHookSingleQuotedVariableWarns(t *testing.T) {
 	}
 }
 
-func TestLint_GeminiHookVariableOutsideSingleQuotesIsClean(t *testing.T) {
+func TestLint_GeminiHookBracedVariableIsClean(t *testing.T) {
 	for name, command := range map[string]string{
-		"unquoted":      `echo $GEMINI_PROJECT_DIR/x`,
 		"braced double": `echo "${GEMINI_PROJECT_DIR}/x"`,
 		"braced":        `echo '${GEMINI_PROJECT_DIR}/x'`,
 	} {
@@ -57,7 +56,7 @@ func TestLint_GeminiHookWarnsOnlyWhenHookEmitsToGemini(t *testing.T) {
 	}
 }
 
-func TestSingleQuotedGeminiVariables(t *testing.T) {
+func TestBareGeminiVariables(t *testing.T) {
 	for command, want := range map[string][]string{
 		`echo '$GEMINI_CWD'`:                                     {"$GEMINI_CWD"},
 		`echo "'" '$GEMINI_CWD'`:                                 {"$GEMINI_CWD"},
@@ -68,13 +67,13 @@ func TestSingleQuotedGeminiVariables(t *testing.T) {
 		`printf '%s\n' "$(printf '%s' "$GEMINI_PROJECT_DIR")"`:   {"$GEMINI_PROJECT_DIR"},
 		"echo `cat $GEMINI_CWD/x`":                               {"$GEMINI_CWD"},
 		`printf '%s\n' "$(printf '%s' "${GEMINI_PROJECT_DIR}")"`: nil,
-		`echo $GEMINI_CWD`:                                       nil,
+		`echo $GEMINI_CWD`:                                       {"$GEMINI_CWD"},
 		`echo $[$GEMINI_CWD]`:                                    {"$GEMINI_CWD"},
 		`echo ${value:$GEMINI_CWD}`:                              {"$GEMINI_CWD"},
 		`ls $GEMINI_CWD; rm x`:                                   {"$GEMINI_CWD"},
 		"printf '%s\\n' $'it\\'s $GEMINI_CWD'":                   {"$GEMINI_CWD"},
 		"echo \\\n# $GEMINI_CWD":                                 {"$GEMINI_CWD"},
-		"sh .gemini/hooks/x.sh $GEMINI_PROJECT_DIR":              nil,
+		"sh .gemini/hooks/x.sh $GEMINI_PROJECT_DIR":              {"$GEMINI_PROJECT_DIR"},
 		"cat <\\\n<EOF\n$GEMINI_CWD\nEOF":                        {"$GEMINI_CWD"},
 		"cat <<EOF\n$GEMINI_CWD\nEOF":                            {"$GEMINI_CWD"},
 		"cat <<'EOF'\n$GEMINI_CWD\nEOF":                          {"$GEMINI_CWD"},
@@ -86,7 +85,7 @@ func TestSingleQuotedGeminiVariables(t *testing.T) {
 		`echo ok # don't '$GEMINI_CWD'`:                          {"$GEMINI_CWD"},
 		`echo "$(printf '%s' "Directory: # $GEMINI_CWD")"`:       {"$GEMINI_CWD"},
 	} {
-		got := quotedGeminiVariables(command)
+		got := bareGeminiVariables(command)
 		if strings.Join(got, ",") != strings.Join(want, ",") {
 			t.Errorf("%s: got %v, want %v", command, got, want)
 		}

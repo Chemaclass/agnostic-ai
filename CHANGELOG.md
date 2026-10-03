@@ -32,7 +32,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Gemini CLI
 
-- `lint` warns (LINT030), also with `--global`, when a hook command holds a bare `$GEMINI_PROJECT_DIR` or another variable Gemini replaces, unless the command is plain words (letters, digits, spaces, and a few path characters); write `"${NAME}"` instead (#1697).
+- `lint` warns (LINT030), also with `--global`, on any bare `$GEMINI_PROJECT_DIR` or other variable Gemini replaces in a hook command; write `"${NAME}"` (#1697).
 - MCP `headers` keep `${NAME}` references and every field keeps `${NAME:-default}`, since Gemini expands all settings strings (#1668).
 - Project import reads `httpUrl` and SSE `url` MCP servers back with their transport, so sync writes them as before (#1665).
 
