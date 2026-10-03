@@ -109,7 +109,7 @@ commandWindows: '$s = "$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/no-force-push.sh
 timeout: 10
 ```
 
-The script reads `tool_input.command` from the event JSON on stdin, with no `jq`. It splits the command into words the way `sh` does, so a `git push --force` in quotes, a comment, or a heredoc body passes, and a push with a `+main` refspec counts as forced unless it uses `--force-with-lease`. `--force` or `-f` blocks even next to `--force-with-lease`, since git lets it override the lease. A force push spelled outside quotes blocks even behind a wrapper the script does not parse, such as `xargs`. On a force push it prints the reason on stderr and exits 2, which both tools read as a block.
+The script reads `tool_input.command` from the event JSON on stdin, with no `jq`. It splits the command into words the way `sh` does, so a `git push --force` in quotes, a comment, or a heredoc body passes, and a push with a `+main` refspec or `--mirror` counts as forced unless it uses `--force-with-lease`. A quoted command inside `bash -c` or `eval` is text too, so it passes. `--force` or `-f` blocks even next to `--force-with-lease`, since git lets it override the lease. A force push spelled outside quotes blocks even behind a wrapper the script does not parse, such as `xargs`. On a force push it prints the reason on stderr and exits 2, which both tools read as a block.
 
 Both tools start a hook in the session directory, which can be below the project root, so the path starts at the root. Claude Code keeps [`$CLAUDE_PROJECT_DIR`](#imported-project-root-paths); Codex gets `$(git rev-parse --show-toplevel)`, in both commands, plus the project's path below the Git root.
 
@@ -124,8 +124,8 @@ Claude Code runs hooks with Git Bash on Windows and needs no `commandWindows`.
 {% <details summary=".agnostic-ai/scripts/no-force-push.sh"> %}
 ```sh
 #!/bin/sh
-# Blocks git push --force, -f, or a +refspec, and lets --force-with-lease
-# through. It catches a mistake. It is not a sandbox.
+# Blocks git push --force, -f, --mirror, or a +refspec, and lets
+# --force-with-lease through. It catches a mistake. It is not a sandbox.
 
 # Reads tool_input.command from the hook JSON on stdin and splits it into
 # words the way sh would: quotes, backslashes, line continuations,
@@ -176,7 +176,7 @@ function program(   i, a, wrapper) {
 
 function check(   i, j, k, a, plus, lease, positional) {
   i = program()
-  if (i > n || words[i] !~ /(^|\/)git$/) return
+  if (i > n || words[i] !~ /(^|\/)git(\.exe)?$/) return
   for (i++; i <= n && words[i] ~ /^-/; i++)
     if (words[i] ~ /^(-C|-c|--git-dir|--work-tree|--namespace)$/) i++
   if (i > n || words[i] != "push") return
@@ -189,6 +189,7 @@ function check(   i, j, k, a, plus, lease, positional) {
     if (a == "--") { positional = 1; continue }
     if (a == "--force") { blocked = 1; return }
     if (a ~ /^--force-with-lease(=|$)/) { lease = 1; continue }
+    if (a == "--mirror") { plus = 1; continue }
     if (a ~ /^--(repo|receive-pack|exec|push-option)$/) { j++; continue }
     if (a ~ /^--/) continue
     for (k = 2; k <= length(a); k++) {
@@ -291,13 +292,13 @@ function skip_bodies(p,   h, rest, end, line) {
 # Backs up the parse with a coarse look at the unquoted text, so a wrapper
 # or syntax the parse does not follow still blocks: within a span between
 # separators, git, then push as its subcommand, then --force, -f, or a
-# +refspec without --force-with-lease.
+# --mirror or +refspec without --force-with-lease.
 function coarse(   spans, count, s, nw, ws, i, j, a, plus, lease) {
   count = split(raw, spans, /[;&|\n]/)
   for (s = 1; s <= count; s++) {
     nw = split(spans[s], ws, /[ \t\r]+/)
     for (i = 1; i <= nw; i++) {
-      if (ws[i] !~ /(^|\/)git$/) continue
+      if (ws[i] !~ /(^|\/)git(\.exe)?$/) continue
       for (j = i + 1; j <= nw && ws[j] ~ /^-/; j++)
         if (ws[j] ~ /^(-C|-c|--git-dir|--work-tree|--namespace)$/) j++
       if (ws[j] != "push") continue
@@ -307,7 +308,7 @@ function coarse(   spans, count, s, nw, ws, i, j, a, plus, lease) {
         a = ws[j]
         if (a == "--force" || a ~ /^-[A-Za-z]*f[A-Za-z]*$/) return 1
         if (a ~ /^--force-with-lease(=|$)/) lease = 1
-        else if (a ~ /^\+/) plus = 1
+        else if (a ~ /^\+/ || a == "--mirror") plus = 1
       }
       if (plus && !lease) return 1
     }
