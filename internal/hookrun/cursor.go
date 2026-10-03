@@ -213,9 +213,15 @@ func cursorReplyFieldsValid(event, out string) bool {
 		return false
 	}
 	for _, key := range []string{"user_message", "agent_message"} {
-		var text string
-		if raw, present := reply[key]; present && json.Unmarshal(raw, &text) != nil {
-			return false
+		// A null decodes into a string without error, so require one.
+		var text any
+		if raw, present := reply[key]; present {
+			if json.Unmarshal(raw, &text) != nil {
+				return false
+			}
+			if _, ok := text.(string); !ok {
+				return false
+			}
 		}
 	}
 	if raw, present := reply["updated_input"]; present && event == "preToolUse" {

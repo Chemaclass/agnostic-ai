@@ -33,6 +33,8 @@ func TestDecideCursor_FollowsTheDocumentedRules(t *testing.T) {
 		"permission is case sensitive":         {"beforeShellExecution", Handler{}, Result{Stdout: `{"permission":"Deny"}`}, Block},
 		"a wrong permission type blocks":       {"beforeShellExecution", Handler{}, Result{Stdout: `{"permission":true}`}, Block},
 		"a wrong user_message type blocks":     {"beforeShellExecution", Handler{}, Result{Stdout: `{"permission":"allow","user_message":5}`}, Block},
+		"a null user_message blocks":           {"beforeShellExecution", Handler{}, Result{Stdout: `{"permission":"allow","user_message":null}`}, Block},
+		"a null agent_message blocks":          {"beforeShellExecution", Handler{}, Result{Stdout: `{"permission":"allow","agent_message":null}`}, Block},
 		"a wrong agent_message type blocks":    {"beforeShellExecution", Handler{}, Result{Stdout: `{"permission":"allow","agent_message":["no"]}`}, Block},
 		"a wrong updated_input type blocks":    {"preToolUse", Handler{}, Result{Stdout: `{"permission":"allow","updated_input":"npm ci"}`}, Block},
 		"an updated_input object allows":       {"preToolUse", Handler{}, Result{Stdout: `{"permission":"allow","updated_input":{"command":"npm ci"}}`}, Allow},
