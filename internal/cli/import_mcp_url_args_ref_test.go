@@ -138,7 +138,7 @@ func TestImportMCP_URLArgsCredentialDefaultsAndTemplatedBase(t *testing.T) {
 	specs, out := importMCPServers(t, "claude", map[string]any{
 		"api":  map[string]any{"url": "https://x.example/mcp?token=${TOKEN:-SK-L1VE}&key=0THER"},
 		"base": map[string]any{"url": "${API_BASE}/mcp?token=T0KEN&page=2"},
-		"db":   map[string]any{"command": "db-mcp", "args": []any{"postgres://u:${PW:-PW-DEF}@h/x", "--url=${API_BASE}/mcp?api_key=ARG-T0KEN"}},
+		"db":   map[string]any{"command": "db-mcp", "args": []any{"postgres://u:${PW:-PW-DEF}@h/x", "${API_BASE}/mcp?api_key=ARG-T0KEN"}},
 	})
 	for name, spec := range specs {
 		for _, secret := range secrets {
@@ -155,7 +155,7 @@ func TestImportMCP_URLArgsCredentialDefaultsAndTemplatedBase(t *testing.T) {
 	for name, wants := range map[string][]string{
 		"api":  {"url: https://x.example/mcp?token=${TOKEN}&key=${API_KEY}"},
 		"base": {"url: ${API_BASE}/mcp?token=${BASE_TOKEN}&page=2"},
-		"db":   {"- postgres://u:${PW}@h/x", "- --url=${API_BASE}/mcp?api_key=${DB_API_KEY}"},
+		"db":   {"- postgres://u:${PW}@h/x", "- ${API_BASE}/mcp?api_key=${DB_API_KEY}"},
 	} {
 		for _, want := range wants {
 			if !strings.Contains(specs[name], want) {
@@ -215,7 +215,7 @@ func TestImportMCP_URLUsernameReferenceKeepsDefault(t *testing.T) {
 func TestImportMCP_URLCredentialInReferenceDefault(t *testing.T) {
 	specs, out := importMCPServers(t, "claude", map[string]any{
 		"api": map[string]any{"url": "${MCP_URL:-https://x.example/mcp?token=T0KEN}"},
-		"db":  map[string]any{"command": "db-mcp", "args": []any{"--dsn=${DB_URL:-postgres://u:PASSW0RD@h/x}", "${PLAIN:-https://h/x}"}},
+		"db":  map[string]any{"command": "db-mcp", "args": []any{"${DB_URL:-postgres://u:PASSW0RD@h/x}", "${PLAIN:-https://h/x}"}},
 	})
 	for name, spec := range specs {
 		if strings.Contains(spec, "T0KEN") || strings.Contains(spec, "PASSW0RD") {
@@ -227,7 +227,7 @@ func TestImportMCP_URLCredentialInReferenceDefault(t *testing.T) {
 	}
 	for name, wants := range map[string][]string{
 		"api": {"url: ${MCP_URL}"},
-		"db":  {"- --dsn=${DB_URL}", "- ${PLAIN:-https://h/x}"},
+		"db":  {"- ${DB_URL}", "- ${PLAIN:-https://h/x}"},
 	} {
 		for _, want := range wants {
 			if !strings.Contains(specs[name], want) {
@@ -245,125 +245,111 @@ func TestImportMCP_URLCredentialInReferenceDefault(t *testing.T) {
 	}
 }
 
-func TestImportMCP_URLCredentialsInEveryURLOfAnArgument(t *testing.T) {
-	specs, out := importMCPServers(t, "claude", map[string]any{
-		"sh": map[string]any{"command": "sh", "args": []any{"-c",
-			"curl https://health.example/ping?a=1&b=2; exec pg-mcp postgresql://admin:PASSW0RD@db/app && echo 'https://h/x?a=1&token=T0KEN'|cat"}},
-	})
-	if strings.Contains(specs["sh"], "PASSW0RD") || strings.Contains(specs["sh"], "T0KEN") || strings.Contains(out, "PASSW0RD") || strings.Contains(out, "T0KEN") {
-		t.Errorf("a credential in a later URL reached the spec or the output")
-	}
-	want := "curl https://health.example/ping?a=1&b=2; exec pg-mcp postgresql://admin:${SH_PASSWORD}@db/app && echo 'https://h/x?a=1&token=${SH_TOKEN}'|cat"
-	if !strings.Contains(specs["sh"], want) {
-		t.Errorf("spec sh lacks %q", want)
+func TestImportMCP_URLCredentialOutsideOneURLLeavesServerOut(t *testing.T) {
+	for target, servers := range map[string]map[string]any{
+		"claude": {
+			"sh":     map[string]any{"command": "sh", "args": []any{"-c", "curl https://health.example/ping?a=1&b=2; exec pg-mcp postgresql://admin:PASSW0RD@db/app"}, "env": map[string]any{"K": "v"}},
+			"quoted": map[string]any{"command": "sh", "args": []any{"-c", "curl 'https://x.example/mcp'?token=T0KEN"}},
+			"ops":    map[string]any{"command": "sh", "args": []any{"-c", "curl https://x.example/a?token=T0KEN; exec srv"}},
+			"flag":   map[string]any{"command": "x", "args": []any{"--url=${API_BASE}/mcp?api_key=T0KEN"}},
+			"two":    map[string]any{"command": "x", "args": []any{"https://a.example,https://u:PASSW0RD@b.example"}},
+			"quote":  map[string]any{"url": "https://admin:PA;SS(W)'D@x.example/mcp"},
+			"slash":  map[string]any{"url": "https://admin:PA/SSW0RD@x.example/mcp"},
+			"at":     map[string]any{"command": "x", "args": []any{"https://admin:PA@SSW0RD@x.example/mcp"}},
+			"good":   map[string]any{"command": "y"},
+		},
+		"warp": {
+			"escaped": map[string]any{"url": "${MCP_URL:-https://x.example/mcp?token=T0KEN}"},
+			"good":    map[string]any{"command": "y"},
+		},
+	} {
+		t.Run(target, func(t *testing.T) {
+			dir := t.TempDir()
+			log := captureLog(t)
+			fields := map[string]string{}
+			for name, raw := range servers {
+				server := raw.(map[string]any)
+				switch {
+				case server["url"] != nil:
+					fields[name] = "url"
+				case name == "sh" || name == "quoted" || name == "ops":
+					fields[name] = "args[1]"
+				case server["args"] != nil:
+					fields[name] = "args[0]"
+				}
+			}
+			if _, err := writeMCPYAMLs(target, servers, dir); err != nil {
+				t.Fatal(err)
+			}
+			out := log.String()
+			for _, secret := range []string{"PASSW0RD", "T0KEN", "PA;SS", "SSW0RD"} {
+				if strings.Contains(out, secret) {
+					t.Errorf("import output prints a credential value")
+				}
+			}
+			for name, field := range fields {
+				if _, err := os.Stat(filepath.Join(dir, name+".yaml")); !os.IsNotExist(err) {
+					t.Errorf("server %s holds a credential import cannot rewrite and must be left out", name)
+				}
+				if want := "MCP server " + name + ": left out; " + field + " holds a URL credential import cannot rewrite"; !strings.Contains(out, want) {
+					t.Errorf("output lacks %q", want)
+				}
+			}
+			if _, err := os.Stat(filepath.Join(dir, "good.yaml")); err != nil {
+				t.Errorf("a server without a credential is written: %v", err)
+			}
+			if strings.Contains(out, "MCP server sh: env") {
+				t.Errorf("a left-out server reports no replacement:\n%s", out)
+			}
+		})
 	}
 }
 
-func TestImportMCP_URLArgumentImportCannotRewriteLeavesServerOut(t *testing.T) {
-	dir := t.TempDir()
-	log := captureLog(t)
-	n, err := writeMCPYAMLs("claude", map[string]any{
-		"bad":  map[string]any{"command": "x", "args": []any{"https://a.example,https://u:PASSW0RD@b.example"}, "env": map[string]any{"K": "v"}},
-		"good": map[string]any{"command": "y"},
-	}, dir)
-	if err != nil {
-		t.Fatal(err)
+func TestImportMCP_URLWithoutCredentialImportsUnchanged(t *testing.T) {
+	args := []any{
+		"curl https://health.example/ping?a=1&b=2; exec srv",
+		"https://x.example/mcp?upstream=https://y.example/mcp",
+		"https://registry.example:8443/@scope/pkg",
+		"curl 'https://x.example/mcp'?page=2",
+		"--url=https://x.example/mcp?token=${TOKEN}",
 	}
-	if n != 1 {
-		t.Errorf("wrote %d specs, want 1", n)
+	specs, out := importMCPServers(t, "claude", map[string]any{
+		"sh":  map[string]any{"command": "sh", "args": args},
+		"api": map[string]any{"url": "https://x.example/mcp?upstream=https://y.example/mcp"},
+	})
+	for _, arg := range args {
+		if want := "- " + arg.(string); !strings.Contains(specs["sh"], want) && !strings.Contains(specs["sh"], "- '"+arg.(string)+"'") {
+			t.Errorf("spec sh lacks %q:\n%s", arg, specs["sh"])
+		}
 	}
-	if _, err := os.Stat(filepath.Join(dir, "bad.yaml")); !os.IsNotExist(err) {
-		t.Errorf("a server import cannot rewrite must be left out")
+	if !strings.Contains(specs["api"], "url: https://x.example/mcp?upstream=https://y.example/mcp") {
+		t.Errorf("a nested URL without a credential imports unchanged:\n%s", specs["api"])
 	}
-	out := log.String()
-	if strings.Contains(out, "PASSW0RD") {
-		t.Errorf("import output prints a credential value")
-	}
-	if !strings.Contains(out, "MCP server bad: left out; args[0] holds a URL import cannot rewrite safely") {
-		t.Errorf("output does not name the server and field:\n%s", out)
-	}
-	if strings.Contains(out, "MCP server bad: env") {
-		t.Errorf("a left-out server reports no replacement:\n%s", out)
+	if strings.Contains(out, "left out") || strings.Contains(out, "now reads") {
+		t.Errorf("import reports nothing for values without a credential:\n%s", out)
 	}
 }
 
 func TestImportMCP_URLPasswordWithShellCharacters(t *testing.T) {
-	secrets := []string{"PA;SS(W)'D", "PA;SS", "SH;PW(1)"}
 	specs, out := importMCPServers(t, "claude", map[string]any{
-		"api": map[string]any{"url": "https://admin:PA;SS(W)'D@x.example/mcp"},
-		"pg":  map[string]any{"command": "pg-mcp", "args": []any{"postgresql://admin:PA;SS(W)'D@db:5432/app"}},
-		"sh":  map[string]any{"command": "sh", "args": []any{"-c", "exec pg-mcp postgresql://admin:SH;PW(1)@db/app; echo done"}},
+		"api": map[string]any{"url": "https://admin:PA;SS(W)D@x.example/mcp"},
+		"pg":  map[string]any{"command": "pg-mcp", "args": []any{"postgresql://admin:PA;SS(W)D@db:5432/app"}},
 	})
 	for name, spec := range specs {
-		for _, secret := range secrets {
-			if strings.Contains(spec, secret) {
-				t.Errorf("spec %s keeps a password with shell characters", name)
-			}
+		if strings.Contains(spec, "PA;SS") {
+			t.Errorf("spec %s keeps a password with shell characters", name)
 		}
 	}
-	for _, secret := range secrets {
-		if strings.Contains(out, secret) {
-			t.Errorf("import output prints a credential value")
-		}
+	if strings.Contains(out, "PA;SS") {
+		t.Errorf("import output prints a credential value")
 	}
 	for name, want := range map[string]string{
 		"api": "url: https://admin:${API_PASSWORD}@x.example/mcp",
 		"pg":  "- postgresql://admin:${PG_PASSWORD}@db:5432/app",
-		"sh":  "exec pg-mcp postgresql://admin:${SH_PASSWORD}@db/app; echo done",
 	} {
 		if !strings.Contains(specs[name], want) {
 			t.Errorf("spec %s lacks %q", name, want)
 		}
-	}
-}
-
-func TestImportMCP_URLAmbiguousPasswordLeavesServerOut(t *testing.T) {
-	dir := t.TempDir()
-	log := captureLog(t)
-	if _, err := writeMCPYAMLs("claude", map[string]any{
-		"slash": map[string]any{"url": "https://admin:PA/SSW0RD@x.example/mcp"},
-		"two":   map[string]any{"command": "x", "args": []any{"https://admin:PA@SSW0RD@x.example/mcp"}},
-		"scope": map[string]any{"command": "x", "args": []any{"https://registry.example:8443/@scope/pkg"}},
-	}, dir); err != nil {
-		t.Fatal(err)
-	}
-	for _, name := range []string{"slash", "two"} {
-		if _, err := os.Stat(filepath.Join(dir, name+".yaml")); !os.IsNotExist(err) {
-			t.Errorf("server %s has an ambiguous password and must be left out", name)
-		}
-	}
-	if got := readFile(t, filepath.Join(dir, "scope.yaml")); !strings.Contains(got, "- https://registry.example:8443/@scope/pkg") {
-		t.Errorf("an @ in a path is not a password:\n%s", got)
-	}
-	out := log.String()
-	if strings.Contains(out, "SSW0RD") {
-		t.Errorf("import output prints a credential value")
-	}
-	for _, want := range []string{"MCP server slash: left out; url", "MCP server two: left out; args[0]"} {
-		if !strings.Contains(out, want) {
-			t.Errorf("output lacks %q", want)
-		}
-	}
-}
-
-func TestImportMCP_URLCredentialKeepsTrailingShellOperators(t *testing.T) {
-	dir := t.TempDir()
-	testutil.Chdir(t, dir)
-	silence(t)
-	captureLog(t)
-	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-	writeFile(t, filepath.Join(dir, ".mcp.json"), `{"mcpServers":{"sh":{"command":"sh","args":["-c","curl https://x.example/a?token=T0KEN; exec srv && curl https://y.example/b?key=K3Y|cat; (curl https://z.example/c?secret=S3C)||true"]}}}`)
-	execCLI(t, "import", "claude")
-	execCLI(t, "sync", "-t", "claude")
-	native := readFile(t, filepath.Join(dir, ".mcp.json"))
-	for _, secret := range []string{"T0KEN", "K3Y", "S3C"} {
-		if strings.Contains(native, secret) {
-			t.Fatal("sync wrote a credential back after import")
-		}
-	}
-	want := `"curl https://x.example/a?token=${SH_TOKEN}; exec srv && curl https://y.example/b?key=${SH_KEY}|cat; (curl https://z.example/c?secret=${SH_SECRET})||true"`
-	if !strings.Contains(native, want) {
-		t.Errorf(".mcp.json lacks %s:\n%s", want, native)
 	}
 }
 

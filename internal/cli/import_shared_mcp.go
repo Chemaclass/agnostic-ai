@@ -237,47 +237,68 @@ type mcpCredentialSpan struct {
 	start, end int
 }
 
-// splitMCPURLCredentials finds the `user:password@` password and each
-// credential query parameter in every URL inside value. A value with no
-// whitespace is read as one URL, since `;`, `(`, `)`, and `'` are valid
-// in a password. A value with whitespace, such as a `sh -c` command, is
-// split at whitespace, and a URL right after a quote ends at the closing
-// quote. It returns the value split into pieces and, for each
-// credential, its piece index and name. ok is false when a URL has no
-// single reading, which import cannot rewrite.
-func splitMCPURLCredentials(value string) (pieces []string, creds map[int]string, ok bool) {
-	mask := maskMCPRefs(value)
-	var spans []mcpCredentialSpan
-	scan := func(lo, hi int) bool {
-		found, ok := mcpURLCredentialSpans(value[lo:hi], mask[lo:hi])
-		for _, s := range found {
-			spans = append(spans, mcpCredentialSpan{s.name, lo + s.start, lo + s.end})
-		}
-		return ok
+var (
+	mcpSchemePattern     = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.\-]*://`)
+	mcpQueryParamPattern = regexp.MustCompile(`[?&]([^=&?#\s'"]+)=([^&?#\s'"]*)`)
+	mcpRefOnlyPattern    = regexp.MustCompile(`^\$?\$\{[A-Za-z_][A-Za-z0-9_]*\}[;&|)}]*$`)
+)
+
+// mcpSingleURL reports whether value is one URL import can rewrite: no
+// whitespace, quotes, or escaped `$${`, and a scheme or a reference at
+// the start. Any other value, such as a `sh -c` command, is never
+// rewritten.
+func mcpSingleURL(value string) bool {
+	if strings.ContainsAny(value, " \t\r\n'\"`") || strings.Contains(value, "$${") {
+		return false
 	}
-	urls := [][2]int{{0, len(mask)}}
-	if strings.ContainsAny(mask, " \t\r\n") {
-		urls = nil
-		for lo := 0; lo < len(mask); {
-			if isMCPSpace(mask[lo]) {
-				lo++
+	return mcpSchemePattern.MatchString(value) || strings.HasPrefix(value, "${")
+}
+
+func mcpLiteralCredential(value string) bool {
+	return value != "" && !mcpRefOnlyPattern.MatchString(value)
+}
+
+// mcpURLCredentialDetected reports whether value holds a literal URL
+// password or a literal credential query parameter anywhere, inside
+// references and escaped references included. An `@` after a `/` counts
+// unless the text before the `/` is a host with a port, as in
+// `https://host:8443/@scope/pkg`.
+func mcpURLCredentialDetected(value string) bool {
+	for _, m := range mcpQueryParamPattern.FindAllStringSubmatch(value, -1) {
+		if mcpCredentialParam(m[1]) && mcpLiteralCredential(m[2]) {
+			return true
+		}
+	}
+	for rest := value; ; {
+		sep := strings.Index(rest, "://")
+		if sep < 0 {
+			return false
+		}
+		rest = rest[sep+3:]
+		at := strings.Index(rest[:indexAnyOrLen(rest, " \t\r\n")], "@")
+		if at < 0 {
+			continue
+		}
+		user, mask := rest[:at], maskMCPRefs(rest[:at])
+		if slash := strings.Index(mask, "/"); slash >= 0 {
+			if _, port, ok := strings.Cut(mask[:slash], ":"); !ok || port != "" && mcpPortOrRef(port) {
 				continue
 			}
-			hi := lo
-			for hi < len(mask) && !isMCPSpace(mask[hi]) {
-				hi++
-			}
-			urls = append(urls, mcpWordURLs(mask, lo, hi)...)
-			lo = hi
+		}
+		if colon := strings.Index(mask, ":"); colon >= 0 && mcpLiteralCredential(user[colon+1:]) {
+			return true
 		}
 	}
-	for _, span := range urls {
-		if !scan(span[0], span[1]) {
-			return nil, nil, false
-		}
-	}
-	if len(spans) == 0 {
-		return nil, nil, true
+}
+
+// splitMCPURLCredentials finds the `user:password@` password and each
+// credential query parameter in value, one URL. It returns the value
+// split into pieces and, for each credential, its piece index and name.
+// ok is false when the user part has more than one `@`.
+func splitMCPURLCredentials(value string) (pieces []string, creds map[int]string, ok bool) {
+	spans, ok := mcpURLCredentialSpans(value, maskMCPRefs(value))
+	if !ok || len(spans) == 0 {
+		return nil, nil, ok
 	}
 	creds = map[int]string{}
 	written := 0
@@ -287,59 +308,6 @@ func splitMCPURLCredentials(value string) (pieces []string, creds map[int]string
 		written = s.end
 	}
 	return append(pieces, value[written:]), creds, true
-}
-
-func isMCPSpace(c byte) bool { return strings.IndexByte(" \t\r\n", c) >= 0 }
-
-// mcpWordURLs returns the [start, end) span of each URL in the shell word
-// mask[lo:hi]. A URL starts at its scheme and runs to the closing quote
-// when a quote opens right before it. Otherwise it runs to the first `|`,
-// which no URL holds unencoded, or to the end of the word, less any
-// trailing `;`, `&`, or `)`, so a shell operator after a credential stays
-// outside its reference. A word with no `://` is one span, past an
-// opening quote, so a URL with a reference base still counts.
-func mcpWordURLs(mask string, lo, hi int) [][2]int {
-	quoted := func(start int) int {
-		if start > lo && (mask[start-1] == '\'' || mask[start-1] == '"') {
-			if q := strings.IndexByte(mask[start:hi], mask[start-1]); q >= 0 {
-				return start + q
-			}
-		}
-		end := start + indexAnyOrLen(mask[start:hi], "|")
-		for end > start && strings.IndexByte(";&)", mask[end-1]) >= 0 {
-			end--
-		}
-		return end
-	}
-	if !strings.Contains(mask[lo:hi], "://") {
-		start := lo
-		if mask[start] == '\'' || mask[start] == '"' {
-			start++
-		}
-		return [][2]int{{start, quoted(start)}}
-	}
-	var urls [][2]int
-	for from := lo; from < hi; {
-		sep := strings.Index(mask[from:hi], "://")
-		if sep < 0 {
-			break
-		}
-		start := from + sep
-		for start > from && isMCPSchemeByte(mask[start-1]) {
-			start--
-		}
-		end := quoted(start)
-		if end == hi {
-			return append(urls, [2]int{start, hi})
-		}
-		urls = append(urls, [2]int{start, end})
-		from = end + 1
-	}
-	return urls
-}
-
-func isMCPSchemeByte(c byte) bool {
-	return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '+' || c == '-' || c == '.'
 }
 
 // mcpPortOrRef reports whether the text after a host's `:` is a port, or
@@ -353,9 +321,6 @@ func mcpPortOrRef(s string) bool {
 // parseable password, but its query still counts. It reads the text by
 // hand because a URL may hold `${NAME}` references that net/url rejects.
 func mcpURLCredentialSpans(word, mask string) ([]mcpCredentialSpan, bool) {
-	if strings.Count(mask, "://") > 1 {
-		return nil, false
-	}
 	var spans []mcpCredentialSpan
 	pos := 0
 	if scheme := strings.Index(mask, "://"); scheme >= 0 {
@@ -364,11 +329,6 @@ func mcpURLCredentialSpans(word, mask string) ([]mcpCredentialSpan, bool) {
 		authority := mask[pos:end]
 		if strings.Count(authority, "@") > 1 {
 			return nil, false
-		}
-		if !strings.Contains(authority, "@") && strings.Contains(mask[end:], "@") {
-			if _, port, ok := strings.Cut(authority, ":"); ok && !mcpPortOrRef(port) {
-				return nil, false
-			}
 		}
 		if at := strings.LastIndex(authority, "@"); at >= 0 {
 			if colon := strings.Index(authority[:at], ":"); colon >= 0 {
@@ -394,13 +354,6 @@ func mcpURLCredentialSpans(word, mask string) ([]mcpCredentialSpan, bool) {
 		}
 	}
 	return spans, true
-}
-
-// mcpURLHasCredential reports whether value holds a URL credential, or a
-// URL import cannot read.
-func mcpURLHasCredential(value string) bool {
-	_, creds, ok := splitMCPURLCredentials(value)
-	return creds != nil || !ok
 }
 
 // maskMCPRefs returns value with every `${...}` token, nested ones
@@ -527,31 +480,46 @@ func referenceMCPLiterals(servers map[string]any) []mcpLiteralRef {
 // a URL password and each query parameter mcpCredentialParam names. The
 // rest of the URL stays as written. A credential that is already a
 // reference stays one but loses its default, and so does a reference
-// whose default holds a URL credential. It records the references a URL
+// whose default holds a URL credential. Only a value that is one URL is
+// rewritten; any other value with a credential, or a URL that still
+// shows one after the rewrite, sets unreadable to its field, and then
+// the server must be left out. It records the references a value
 // already holds in referenced. A literal reports only its own reference,
-// never the URL around it. unreadable names the first field import
-// cannot rewrite, and then the server must be left out.
+// never the URL around it.
 func mcpURLLiterals(name string, server map[string]any, referenced map[string]bool) (literals []mcpLiteral, refs []mcpLiteralRef, unreadable string) {
 	add := func(field, value string, write func(string)) {
 		if unreadable != "" {
 			return
 		}
 		for _, t := range spec.EnvRefTokens(value) {
-			if !t.Known() {
-				continue
+			if t.Known() {
+				referenced[t.Name] = true
 			}
-			referenced[t.Name] = true
-			if t.HasDefault && mcpURLHasCredential(t.Default) {
+		}
+		if !mcpSingleURL(value) {
+			if mcpURLCredentialDetected(value) {
+				unreadable = field
+			}
+			return
+		}
+		var stripped []mcpLiteralRef
+		for _, t := range spec.EnvRefTokens(value) {
+			if t.Known() && t.HasDefault && mcpURLCredentialDetected(t.Default) {
 				value = strings.Replace(value, t.Text, spec.EnvRef(t.Name), 1)
-				write(value)
-				refs = append(refs, mcpLiteralRef{server: name, field: field, key: "reference", value: spec.EnvRef(t.Name), variable: t.Name, defaulted: true})
+				stripped = append(stripped, mcpLiteralRef{server: name, field: field, key: "reference", value: spec.EnvRef(t.Name), variable: t.Name, defaulted: true})
 			}
 		}
 		pieces, creds, ok := splitMCPURLCredentials(value)
-		if !ok {
+		scrubbed := slices.Clone(pieces)
+		for i := range creds {
+			scrubbed[i] = spec.EnvRef("X")
+		}
+		if !ok || mcpURLCredentialDetected(strings.Join(scrubbed, "")) || creds == nil && mcpURLCredentialDetected(value) {
 			unreadable = field
 			return
 		}
+		write(value)
+		refs = append(refs, stripped...)
 		if creds == nil {
 			return
 		}
@@ -635,7 +603,7 @@ func reportMCPLiteralRefsWithHint(refs []mcpLiteralRef, hint string) {
 	}
 	for _, r := range refs {
 		if r.leftOut {
-			keptf("%s MCP server %s: left out; %s holds a URL import cannot rewrite safely\n", bang(), r.server, r.field)
+			keptf("%s MCP server %s: left out; %s holds a URL credential import cannot rewrite\n", bang(), r.server, r.field)
 			continue
 		}
 		if r.defaulted {
