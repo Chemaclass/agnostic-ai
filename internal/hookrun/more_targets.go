@@ -20,18 +20,20 @@ import (
 //   - Augment: docs.augmentcode.com/cli/hooks.
 //   - Factory: see factory.go.
 //   - Qoder: see qoder.go.
+//   - Antigravity: see antigravity.go.
 
 type builder func(event, matcher, root string, in Input) (Payload, error)
 
 var otherBuilders = map[string]builder{
-	"trae":      buildTrae,
-	"openhands": buildOpenHands,
-	"goose":     buildGoose,
-	"augment":   buildAugment,
-	"cursor":    buildCursor,
-	"factory":   buildFactory,
-	"copilot":   buildCopilot,
-	"qoder":     buildQoder,
+	"trae":        buildTrae,
+	"openhands":   buildOpenHands,
+	"goose":       buildGoose,
+	"augment":     buildAugment,
+	"cursor":      buildCursor,
+	"factory":     buildFactory,
+	"copilot":     buildCopilot,
+	"qoder":       buildQoder,
+	"antigravity": buildAntigravity,
 }
 
 func absPath(root, path string) string {
