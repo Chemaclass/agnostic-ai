@@ -358,6 +358,11 @@ func normalizeImportedMCP(target string, servers map[string]any) {
 		if !ok {
 			continue
 		}
+		// Gemini's httpUrl becomes url first, so the literal escaping
+		// below sees it.
+		if target == "gemini" {
+			normalizeGeminiTransport(server)
+		}
 		adapters.EscapeMCPLiterals(target, server)
 		adapters.ReadMCPEnvRefs(target, server)
 		if target == "copilot" {
@@ -377,9 +382,6 @@ func normalizeImportedMCP(target string, servers map[string]any) {
 			}
 			delete(server, "transport")
 			continue
-		}
-		if target == "gemini" {
-			normalizeGeminiTransport(server)
 		}
 	}
 }

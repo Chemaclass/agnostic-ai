@@ -16,7 +16,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - Linked source roots load specs and assets; both watch modes follow nested edits (#1644, #1651).
 - `list`, `status`, `doctor`, `validate`, `lint` and `sync --check` print results on stdout, so pipes see them; diagnostics stay on stderr (#1607).
 - `sync --check`, `--diff`, `--format github` and `status` show a file several targets share once, naming the targets (#1608).
-- MCP `$${NAME}` passes a literal `${NAME}` to every tool; import writes it for `${NAME}` a tool never expands, Codex `env` included (#1667).
+- MCP `$${NAME}` passes a literal `${NAME}` to every tool; import writes it for `${NAME}` a tool never expands, Codex `env` included, and keeps a native `$${NAME}` as written (#1667).
 - `lint` warns (LINT028) when an MCP `url` or `args` holds one tool's reference form, such as `${env:NAME}`, instead of `${NAME}` (#1633).
 - `sync --json` lists capability warnings and coverage notes under `warnings` and `notes`; a later plain `sync` still prints them (#1607).
 - `lint --json` prints findings as JSON on stdout with the same exit status, in a project and with `--global` (#1607).
