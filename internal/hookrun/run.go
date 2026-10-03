@@ -191,6 +191,8 @@ func AddsContext(target, event string, r Result) bool {
 		return copilotAddsContext(event, r)
 	case "antigravity":
 		return antigravityAddsContext(event, r)
+	case "windsurf":
+		return windsurfAddsContext(event, r)
 	case "cursor":
 		var reply struct {
 			AdditionalContext string `json:"additional_context"`
