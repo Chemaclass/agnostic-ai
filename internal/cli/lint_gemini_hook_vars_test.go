@@ -71,6 +71,7 @@ func TestSingleQuotedGeminiVariables(t *testing.T) {
 		"echo `cat $GEMINI_CWD/x`":                               {"$GEMINI_CWD"},
 		`printf '%s\n' "$(printf '%s' "${GEMINI_PROJECT_DIR}")"`: nil,
 		`echo $GEMINI_CWD`:                                       nil,
+		`echo "$(printf '%s' "Directory: # $GEMINI_CWD")"`:       {"$GEMINI_CWD"},
 	} {
 		got := quotedGeminiVariables(command)
 		if strings.Join(got, ",") != strings.Join(want, ",") {

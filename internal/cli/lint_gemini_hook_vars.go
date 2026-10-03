@@ -83,7 +83,7 @@ func quotedGeminiVariables(command string) []string {
 			inDouble = !inDouble
 		case c == '\'' && !inDouble:
 			inSingle = true
-		case c == '#' && !inDouble && (i == 0 || strings.ContainsRune(" \t\n;&|()", rune(command[i-1]))):
+		case c == '#' && !inDouble && !inSubstitution && (i == 0 || strings.ContainsRune(" \t\n;&|()", rune(command[i-1]))):
 			for i < len(command) && command[i] != '\n' {
 				i++
 			}
