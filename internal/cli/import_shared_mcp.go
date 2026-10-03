@@ -284,8 +284,15 @@ func mcpDetectorText(value string) string {
 // is a literal after a `:` and before an `@` in the text from `://` to
 // the next `/`, `?`, or `#`. An `@` after that counts too, unless the
 // text before it is a host with a port, as in `https://host:8443/@scope`.
+// It reads value as written and again with shell quotes and backslashes
+// removed, so `?'token=x'` counts too.
 func mcpURLCredentialDetected(value string) bool {
-	text := mcpDetectorText(value)
+	return mcpURLCredentialIn(mcpDetectorText(value)) || mcpURLCredentialIn(mcpDetectorText(mcpShellUnquote.Replace(value)))
+}
+
+var mcpShellUnquote = strings.NewReplacer(`'`, "", `"`, "", `\`, "")
+
+func mcpURLCredentialIn(text string) bool {
 	for _, m := range mcpQueryParamPattern.FindAllStringSubmatch(text, -1) {
 		if mcpCredentialParam(m[1]) && mcpLiteralCredential(m[2]) {
 			return true

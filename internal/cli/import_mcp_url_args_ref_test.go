@@ -390,6 +390,36 @@ func TestImportMCP_URLPasswordAfterEmailUsernameLeavesServerOut(t *testing.T) {
 	}
 }
 
+func TestImportMCP_URLShellQuotedCredentialLeavesServerOut(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	log := captureLog(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(dir, ".mcp.json"), `{"mcpServers":{
+  "single": {"command": "sh", "args": ["-c", "exec npx mcp-remote https://x.example/mcp?'token=T0KEN'"]},
+  "double": {"command": "sh", "args": ["-c", "exec npx mcp-remote https://x.example/mcp?\"token=T0KEN\""]},
+  "split":  {"command": "sh", "args": ["-c", "exec npx mcp-remote https://x.example/mcp'?token'='T0KEN'"]},
+  "escaped": {"command": "sh", "args": ["-c", "exec npx mcp-remote https://x.example/mcp?tok\\en=T0KEN"]},
+  "plain":  {"command": "sh", "args": ["-c", "exec npx mcp-remote 'https://x.example/mcp?page=2'"]}}}`)
+	execCLI(t, "import", "claude")
+	out := log.String()
+	if strings.Contains(out, "T0KEN") {
+		t.Errorf("import output prints a credential value")
+	}
+	for _, name := range []string{"single", "double", "split", "escaped"} {
+		if _, err := os.Stat(filepath.Join(dir, ".agnostic-ai", "mcps", name+".yaml")); !os.IsNotExist(err) {
+			t.Errorf("server %s passes a quoted token and must be left out", name)
+		}
+		if want := "MCP server " + name + ": left out; args[1]"; !strings.Contains(out, want) {
+			t.Errorf("output lacks %q", want)
+		}
+	}
+	if got := readFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "plain.yaml")); !strings.Contains(got, "exec npx mcp-remote 'https://x.example/mcp?page=2'") {
+		t.Errorf("a quoted URL without a credential imports unchanged:\n%s", got)
+	}
+}
+
 func TestImportMCP_URLWithoutCredentialImportsUnchanged(t *testing.T) {
 	args := []any{
 		"curl https://health.example/ping?a=1&b=2; exec srv",
