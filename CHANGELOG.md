@@ -8,61 +8,41 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
-- `hook run --edit` lists Trae, OpenHands, and Cursor as not run with their reason and runs the other targets; a run where no target can build the input fails naming each reason (#1694).
-- `hook run` runs Cursor hooks on an assumed shell and timeout, marked and not counted unless `--include-assumed` (#1566).
-- `hook run` on Cursor runs hooks with exec-form `args`, matches `--payload` subagent and fixed-name events, blocks a permission reply with a wrongly typed field, and leaves `sessionStart` and `sessionEnd` unjudged (#1566).
-- `sync`, `sync --check`, `doctor`, and `revert` with `--json` write file paths with `/` on Windows too (#1680).
-- `explain` (also `--inputs`), `why`, and `status` with JSON output write file paths with `/` on Windows too (#1683).
-- `init` pre-ticks the tools the project uses, else the CLIs on `PATH`, else `claude` and `codex`, and names the picker keys; without a terminal it enables that set instead of 20 targets (#1610).
-- In a terminal, plain `init` offers to import existing tool config, as `init --from all` does (#1610).
-- Polling watch emits edits made during a re-sync and keeps watching roots added by config reload (#1641, #1650).
-- Linked source roots load specs and assets; both watch modes follow nested edits (#1644, #1651).
-- `list`, `status`, `doctor`, `validate`, `lint` and `sync --check` print results on stdout, so pipes see them; diagnostics stay on stderr (#1607).
-- `sync --check`, `--diff`, `--format github` and `status` show a file several targets share once, naming the targets (#1608).
-- MCP `$${NAME}` passes a literal `${NAME}` to every tool; import writes it for `${NAME}` a tool never expands, Codex `env` included, and keeps a native `$${NAME}` as written (#1667).
-- `lint` warns (LINT028) when an MCP `url` or `args` holds one tool's reference form, such as `${env:NAME}`, instead of `${NAME}` (#1633).
-- `sync --json`, also with `--check`, `--plan` or `--dry-run`, lists capability warnings and coverage notes under `warnings` and `notes` (#1607, #1675).
-- `sync --check`, `--plan`, and `--dry-run` with `--only` or `--except` leave out the warnings and notes of unselected targets when a kept orphan is on disk, so `coverage.fail-on-notes` no longer fails on them (#1675).
-- `lint --json` prints findings as JSON on stdout with the same exit status, in a project and with `--global` (#1607).
-- `explain LINT011` and every other lint code print the cause, fix, severity and config key; `lint` points at it (#1648).
-- MCP `url` and `args` take `${NAME}` references; each tool gets its own form, and a tool that reads none leaves the server out with a note (#1633).
-- The first-sync list of what each tool reads no longer names an MCP server that sync left out for that tool (#1666).
-- `sync.allow-global-names` lists skill and agent names a project shares with the global home on purpose; `sync` stops warning about them, and `doctor` marks them as allowed (#1707).
-- `sync.global-name-clash: ignore` stops the shared-name warning for every skill and agent a project shares with the global home; `doctor` marks them as ignored (#1708).
+- `init` pre-ticks the tools the project uses, else the CLIs on `PATH`, and in a terminal offers to import existing tool config (#1610).
+- MCP `url` and `args` take `${NAME}` in each tool's own form; `$${NAME}` stays literal, and `lint` warns (LINT028) on a wrong form (#1633, #1667, #1666).
+- `sync.allow-global-names` or `global-name-clash: ignore` silence shared-name warnings; watch keeps late edits (#1707, #1708, #1641, #1644, #1650, #1651).
+- `--json` adds warnings, notes and `/` paths; shared files show once; `explain` covers lint codes (#1607, #1608, #1648, #1675, #1680, #1683).
+- `hook run` covers Cursor, Copilot, Factory, and Qoder on an assumed shell, uncounted without `--include-assumed`; `--edit` skips three tools (#1566, #1694).
 
 ### By tool
 
 #### Gemini CLI
 
-- `lint` warns (LINT030), also with `--global`, when a hook command holds a bare `$GEMINI_PROJECT_DIR` or another variable Gemini replaces, unless the command is plain words with no quotes, backslash, comment, heredoc, or command substitution; write `"${NAME}"` instead (#1697).
+- `lint` warns (LINT030) on a hook command holding a bare `$GEMINI_PROJECT_DIR` or another variable Gemini replaces; write `"${NAME}"` instead (#1697).
 - MCP `headers` keep `${NAME}` references and every field keeps `${NAME:-default}`, since Gemini expands all settings strings (#1668).
-- Project import reads `httpUrl` and SSE `url` MCP servers back with their transport, so sync writes them as before (#1665).
-
-#### Qoder
-
-- `hook paths --target qoder` prints the `file_path` of a `Write` payload; an `Edit` payload fails, since Qoder documents none of its `tool_input` fields (#1717).
+- Project import reads `httpUrl` and SSE `url` MCP servers back with their transport (#1665).
 
 #### Kiro
 
 - **Breaking:** `sync` removes steering copies of `AGENTS.md` rules kept for `x-kiro.resources`; with inheritance off, list `file://AGENTS.md` (#1643).
-- Import skips `manual` and `auto` steering files with a note instead of turning them into always-on rules (#1656).
+- Import skips `manual` and `auto` steering files with a note instead of making them always-on rules (#1656).
 
 #### Crush
 
-- Hook commands that run a synced script start with `./`, so Crush runs the script and a guard hook blocks on every OS (#1695, #1698).
-- `hook run` runs Crush hooks in Crush's embedded shell on every platform, Windows included; exit 2 blocks and exit 49 halts the turn (#1678).
+- Hook commands that run a synced script start with `./`, so the script runs and a guard hook blocks on every OS (#1695, #1698).
+- `hook run` runs Crush hooks in its embedded shell on every platform; exit 2 blocks and exit 49 halts the turn (#1678).
 
 #### Copilot
 
-- `hook run` runs Copilot hooks: exec form, and a script path under an assumed `sh -c`, shown but not counted unless `--include-assumed` (#1566).
+- A hook with `cwd` gets its synced script path written relative to that directory, so it starts; import restores the repository path (#1699, #1706).
 
-#### Factory
+#### Cursor
 
-- `hook run` runs Factory hooks, including `"$FACTORY_PROJECT_DIR"/script.sh`, on an assumed shell and cwd, not counted unless `--include-assumed` (#1566).
+- `hook run` handles exec-form `args`, `--payload` subagent events, and bad permission replies; `sessionStart` and `sessionEnd` go unjudged (#1566).
 
 #### Qoder
 
-- `hook run` runs Qoder hooks: exec form, `shell: bash`, and a script path under an assumed `sh -c` and cwd, not counted unless `--include-assumed` (#1566).
+- `hook paths --target qoder` prints the `file_path` of a `Write` payload; an `Edit` payload fails, as Qoder documents no `tool_input` fields (#1717).
 
 ### Site
 
@@ -135,7 +115,6 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - Agents and skills are written back where they live, such as `.github/agents/<name>.md` or `.agents/skills/`, instead of as duplicates.
 - A rule's `description` goes to `.instructions.md` frontmatter, and a rule with `alwaysApply: false` and no globs stays on demand.
-- A hook with `cwd` gets its script path in `command` or `args` written relative to that directory, so it no longer fails to start; import restores the repository-relative path (#1699).
 
 #### Gemini CLI
 
