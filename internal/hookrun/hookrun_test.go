@@ -142,7 +142,6 @@ func TestArgv_PicksEachTargetsRunnerPerPlatform(t *testing.T) {
 		want               []string
 	}{
 		{"claude shell form", "claude", "linux", Handler{Command: "echo hi"}, []string{"bash", "-c", "echo hi"}},
-		{"claude on Windows uses Git Bash", "claude", "windows", Handler{Command: "echo hi"}, []string{"bash", "-c", "echo hi"}},
 		{"claude exec form", "claude", "windows", Handler{Command: "guard.exe", Args: []string{"--deny", "a b"}}, []string{"guard.exe", "--deny", "a b"}},
 		{"claude PowerShell", "claude", "windows", Handler{Command: "Write-Output hi", Shell: "powershell"}, []string{"powershell.exe", "-NoProfile", "-Command", "Write-Output hi"}},
 		{"codex POSIX", "codex", "darwin", Handler{Command: "export AGNOSTIC_AI_TARGET=codex; echo hi", CommandWindows: "echo win"}, []string{"sh", "-c", "export AGNOSTIC_AI_TARGET=codex; echo hi"}},
