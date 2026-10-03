@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/hookrun"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
@@ -411,5 +413,291 @@ func TestEmit_HooksJSON_MCPToolMissingServerOrToolIsSkipped(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".codex/hooks.json")); !os.IsNotExist(err) {
 		t.Errorf("expected no hooks.json for a hook with no usable identity, err=%v", err)
+	}
+}
+
+// Two grouped matchers that share one command stay whole expressions in
+// the union, so the emitted matcher compiles and covers both (#1733).
+func TestEmit_HooksJSON_UnionsGroupedMatchersAsWholeExpressions(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	const first, second = "^(Bash|exec)$", "^(Bash|apply_patch)$"
+	hook := func(name, matcher string) spec.Entry {
+		return spec.Entry{Kind: spec.KindHook, Name: name, Meta: map[string]any{
+			"event": "PreToolUse", "matcher": matcher, "command": "echo go",
+		}}
+	}
+	entries := []spec.Entry{hook("h1", first), hook("h2", second)}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".codex/hooks.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Hooks map[string][]struct {
+			Matcher string `json:"matcher"`
+		} `json:"hooks"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	groups := doc.Hooks["PreToolUse"]
+	if len(groups) != 1 {
+		t.Fatalf("want one merged group, got:\n%s", raw)
+	}
+	matcher := groups[0].Matcher
+	re, err := regexp.Compile(matcher)
+	if err != nil {
+		t.Fatalf("emitted matcher %q is not a regexp: %v", matcher, err)
+	}
+	for _, tool := range []string{"Bash", "exec", "apply_patch"} {
+		if !re.MatchString(tool) {
+			t.Errorf("matcher %q does not match %s", matcher, tool)
+		}
+	}
+	if re.MatchString("Grep") {
+		t.Errorf("matcher %q matches Grep", matcher)
+	}
+	for _, m := range []string{first, second} {
+		if !(Adapter{}).HookMatcherCovers(matcher, m) {
+			t.Errorf("emitted %q does not cover %q", matcher, m)
+		}
+	}
+	if (Adapter{}).HookMatcherCovers(matcher, "^(Bash|Read)$") {
+		t.Errorf("emitted %q covers a matcher it does not contain", matcher)
+	}
+	if (Adapter{}).HookMatcherCovers("^(Bash|exec)$|apply_patch)$", second) {
+		t.Errorf("a malformed union must not cover %q", second)
+	}
+}
+
+// Claude Code's matcher rules, which Codex shares, read a list of plain
+// names separated by | or , as exact names. Merging such a list with
+// another must not turn it into a regex that reads the comma as a literal.
+func TestEmit_HooksJSON_UnionKeepsCommaListsExact(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	hook := func(name, matcher string) spec.Entry {
+		return spec.Entry{Kind: spec.KindHook, Name: name, Meta: map[string]any{
+			"event": "PreToolUse", "matcher": matcher, "command": "echo go",
+		}}
+	}
+	entries := []spec.Entry{hook("h1", "Bash,apply_patch"), hook("h2", "Edit")}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".codex/hooks.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Hooks map[string][]struct {
+			Matcher string `json:"matcher"`
+		} `json:"hooks"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	groups := doc.Hooks["PreToolUse"]
+	if len(groups) != 1 {
+		t.Fatalf("want one merged group, got:\n%s", raw)
+	}
+	matcher := groups[0].Matcher
+	if matcher != "Bash|apply_patch|Edit" {
+		t.Errorf("matcher = %q, want Bash|apply_patch|Edit", matcher)
+	}
+	for _, tool := range []string{"Bash", "apply_patch", "Edit"} {
+		if ok, err := hookrun.Matches(matcher, tool); err != nil || !ok {
+			t.Errorf("hookrun reads %q as not matching %s (err %v)", matcher, tool, err)
+		}
+	}
+	for _, m := range []string{"Bash,apply_patch", "Edit"} {
+		if !(Adapter{}).HookMatcherCovers(matcher, m) {
+			t.Errorf("emitted %q does not cover %q", matcher, m)
+		}
+	}
+	if !(Adapter{}).HookMatcherCovers("Bash,apply_patch|Edit", "Bash") {
+		t.Error("a comma list written natively must cover its names")
+	}
+}
+
+func emittedMatcher(t *testing.T, matchers ...string) string {
+	t.Helper()
+	dir := testutil.TempCwd(t)
+	var entries []spec.Entry
+	for i, m := range matchers {
+		entries = append(entries, spec.Entry{Kind: spec.KindHook, Name: "h" + string(rune('a'+i)), Meta: map[string]any{
+			"event": "PreToolUse", "matcher": m, "command": "echo go",
+		}})
+	}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, ".codex/hooks.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Hooks map[string][]struct {
+			Matcher string `json:"matcher"`
+		} `json:"hooks"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if len(doc.Hooks["PreToolUse"]) != 1 {
+		t.Fatalf("want one merged group, got:\n%s", raw)
+	}
+	return doc.Hooks["PreToolUse"][0].Matcher
+}
+
+// Once a union holds a regex, hookrun reads the whole matcher as a regex,
+// so exact names must be anchored or they match as substrings.
+func TestEmit_HooksJSON_MixedUnionAnchorsExactNames(t *testing.T) {
+	matcher := emittedMatcher(t, "Bash,apply_patch", "^(Edit|Write)$")
+	for tool, want := range map[string]bool{
+		"Bash": true, "apply_patch": true, "Edit": true, "Write": true,
+		"mcp__server__apply_patch": false, "mcp__x__Bash": false,
+	} {
+		if got, err := hookrun.Matches(matcher, tool); err != nil || got != want {
+			t.Errorf("%q matches %s = %v (err %v), want %v", matcher, tool, got, err, want)
+		}
+	}
+	for _, m := range []string{"Bash,apply_patch", "Bash", "^(Edit|Write)$"} {
+		if !(Adapter{}).HookMatcherCovers(matcher, m) {
+			t.Errorf("emitted %q does not cover %q", matcher, m)
+		}
+	}
+	if (Adapter{}).HookMatcherCovers(matcher, "Read") {
+		t.Errorf("emitted %q covers Read", matcher)
+	}
+}
+
+// A merged matcher fires on exactly the tools one of its specs fires on,
+// under hookrun's rule for exact lists and regexes.
+func TestEmit_HooksJSON_MixedUnionKeepsEachSpecsMatchSet(t *testing.T) {
+	tools := []string{"Bash", "exec", "apply_patch", "Edit", "Write", "Grep", "mcp__fs__read", "mcp__x__Bash", "mcp__server__apply_patch", "mcp__"}
+	cases := [][]string{
+		{"mcp__*", "^(Bash|exec)$"},
+		{"Bash,apply_patch", "^(Edit|Write)$"},
+		{"Bash|Edit", "mcp__.*"},
+		{"*", "^(Bash|exec)$"},
+		{"Bash", "Edit", "^Grep$"},
+		{"Bash,Edit", "mcp__fs__.*", "^Write$"},
+	}
+	for _, specs := range cases {
+		t.Run(strings.Join(specs, " + "), func(t *testing.T) {
+			matcher := emittedMatcher(t, specs...)
+			if _, err := regexp.Compile(matcher); err != nil {
+				t.Fatalf("emitted %q: %v", matcher, err)
+			}
+			for _, tool := range tools {
+				want := false
+				for _, m := range specs {
+					ok, err := hookrun.Matches(m, tool)
+					if err != nil {
+						t.Fatal(err)
+					}
+					want = want || ok
+				}
+				if got, err := hookrun.Matches(matcher, tool); err != nil || got != want {
+					t.Errorf("%q matches %s = %v (err %v), want %v", matcher, tool, got, err, want)
+				}
+			}
+			for _, m := range specs {
+				if !(Adapter{}).HookMatcherCovers(matcher, m) {
+					t.Errorf("emitted %q does not cover %q", matcher, m)
+				}
+			}
+		})
+	}
+}
+
+// Two commands whose segment lists join to the same string must not share
+// a group: Bash + ^apply_patch$ (two specs) and Bash|^apply_patch$ (one
+// regex spec) render differently and match differently.
+func TestEmit_HooksJSON_SimilarJoinedMatchersStaySeparate(t *testing.T) {
+	tools := []string{"Bash", "apply_patch", "mcp__server__Bash", "mcp__server__apply_patch", "Grep"}
+	hook := func(name, matcher, command string) spec.Entry {
+		return spec.Entry{Kind: spec.KindHook, Name: name, Meta: map[string]any{
+			"event": "PreToolUse", "matcher": matcher, "command": command,
+		}}
+	}
+	a1, a2 := hook("a1", "Bash", "echo a"), hook("a2", "^apply_patch$", "echo a")
+	b := hook("b", "Bash|^apply_patch$", "echo b")
+	for name, entries := range map[string][]spec.Entry{"A first": {a1, a2, b}, "B first": {b, a1, a2}} {
+		t.Run(name, func(t *testing.T) {
+			dir := testutil.TempCwd(t)
+			if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+				t.Fatal(err)
+			}
+			raw, err := os.ReadFile(filepath.Join(dir, ".codex/hooks.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var doc struct {
+				Hooks map[string][]struct {
+					Matcher string `json:"matcher"`
+					Hooks   []struct {
+						Command string `json:"command"`
+					} `json:"hooks"`
+				} `json:"hooks"`
+			}
+			if err := json.Unmarshal(raw, &doc); err != nil {
+				t.Fatal(err)
+			}
+			own := map[string][]string{"echo a": {"Bash", "^apply_patch$"}, "echo b": {"Bash|^apply_patch$"}}
+			seen := 0
+			for _, group := range doc.Hooks["PreToolUse"] {
+				for _, h := range group.Hooks {
+					seen++
+					for _, tool := range tools {
+						want := false
+						for _, m := range own[h.Command[strings.LastIndex(h.Command, "echo"):]] {
+							ok, err := hookrun.Matches(m, tool)
+							if err != nil {
+								t.Fatal(err)
+							}
+							want = want || ok
+						}
+						if got, err := hookrun.Matches(group.Matcher, tool); err != nil || got != want {
+							t.Errorf("%s: %q matches %s = %v (err %v), want %v", h.Command, group.Matcher, tool, got, err, want)
+						}
+					}
+				}
+			}
+			if seen != 2 {
+				t.Errorf("want 2 commands emitted, got %d:\n%s", seen, raw)
+			}
+		})
+	}
+}
+
+// A literal parenthesis or pipe inside an escape or a character class is
+// not a group boundary, so the merged matcher still covers its sources.
+func TestEmit_HooksJSON_UnionCoversRegexesWithLiteralParens(t *testing.T) {
+	for _, regex := range []string{`[^)]*Bash`, `[)]x`, `\)x`, `[]|)]x`, `[^]|)]x`, `(a\))b`, `[[:alpha:])]x`, `x[(]`} {
+		t.Run(regex, func(t *testing.T) {
+			matcher := emittedMatcher(t, regex, "apply_patch")
+			if _, err := regexp.Compile(matcher); err != nil {
+				t.Fatalf("emitted %q: %v", matcher, err)
+			}
+			for _, m := range []string{regex, "apply_patch"} {
+				if !(Adapter{}).HookMatcherCovers(matcher, m) {
+					t.Errorf("emitted %q does not cover %q", matcher, m)
+				}
+			}
+			if (Adapter{}).HookMatcherCovers(matcher, "Read") {
+				t.Errorf("emitted %q covers Read", matcher)
+			}
+		})
+	}
+}
+
+func TestEmit_HooksJSON_SingleSpecMatcherUnchanged(t *testing.T) {
+	for _, m := range []string{"^(Bash|exec)$", "Bash|apply_patch", "mcp__fs__.*"} {
+		if got := emittedMatcher(t, m); got != m {
+			t.Errorf("single spec %q emitted as %q", m, got)
+		}
 	}
 }

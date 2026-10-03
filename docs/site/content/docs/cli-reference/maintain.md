@@ -36,11 +36,11 @@ agnostic-ai cleanup --dry-run   # preview deletions
 Manage shareable spec packs. Packs load as a layer below the project, so a project spec overrides a pack entry with the same name. See the [packs](@/docs/packs.md) guide.
 
 ```bash
-agnostic-ai packs add github.com/chemaclass/go-rules@v1.2.0
+agnostic-ai packs add github.com/obra/superpowers@v6.4.2
 agnostic-ai packs add ./path/to/pack
 agnostic-ai packs list
 agnostic-ai packs update [name]
-agnostic-ai packs remove go-rules
+agnostic-ai packs remove superpowers
 ```
 
 ## hook paths
