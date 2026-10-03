@@ -1,6 +1,9 @@
 package emit
 
-import "strings"
+import (
+	"strings"
+	"unicode"
+)
 
 // DotSlashSyncedHookScript prefixes ./ to rewritten when source starts
 // with a plain path into the shared scripts directory, the one script
@@ -23,5 +26,5 @@ func DotSlashSyncedHookScript(source, rewritten, target string) string {
 }
 
 func isPlainPathRune(r rune) bool {
-	return r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("_./@%+,-", r)
+	return unicode.IsLetter(r) || unicode.IsDigit(r) || strings.ContainsRune("_./@%+,-", r)
 }

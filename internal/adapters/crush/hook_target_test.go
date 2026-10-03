@@ -59,7 +59,7 @@ func TestDotSlashSyncedHookScript(t *testing.T) {
 		"bash .agnostic-ai/scripts/guard.sh":   "bash .crush/hooks/guard.sh",
 		"FOO=1 .agnostic-ai/scripts/guard.sh":  "FOO=1 .crush/hooks/guard.sh",
 		".agnostic-ai/scripts/guard.sh&&true":  ".crush/hooks/guard.sh&&true",
-		".agnostic-ai/scripts/prüfen.sh":       ".crush/hooks/prüfen.sh",
+		".agnostic-ai/scripts/prüfen.sh":       "./.crush/hooks/prüfen.sh",
 		"npx foo":                              "npx foo",
 		"":                                     "",
 	}
