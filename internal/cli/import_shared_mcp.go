@@ -75,6 +75,11 @@ func readJSONMapAt(srcPath, mapKey string) (map[string]any, error) {
 func writeMCPYAMLs(target string, servers map[string]any, dstDir string) (int, error) {
 	for _, raw := range servers {
 		if server, ok := raw.(map[string]any); ok {
+			// codexMCPDocs escapes Codex's literals itself, before it
+			// spells forwarded variables as `${NAME}`.
+			if target != "codex" {
+				adapters.EscapeMCPLiterals(target, server)
+			}
 			adapters.ReadMCPEnvRefs(target, server)
 		}
 	}
@@ -176,6 +181,11 @@ func referenceMCPLiterals(servers map[string]any) []mcpLiteralRef {
 			for _, key := range slices.Sorted(maps.Keys(values)) {
 				value, _ := values[key].(string)
 				if value == "" {
+					continue
+				}
+				// An escaped placeholder is text a server expands itself,
+				// not a secret.
+				if spec.OnlyEscapedEnvRefs(value) {
 					continue
 				}
 				if spec.OnlyEnvRefs(value) {

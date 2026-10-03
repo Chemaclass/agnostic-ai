@@ -137,6 +137,7 @@ func importContinueMCPs(root, dstDir string) (int, error) {
 		}
 		names = append(names, file.serverName)
 		unvendorContinueServer(server)
+		adapters.EscapeMCPLiterals("continue", server)
 		if err := normalizeContinueMCPCredentials(server); err != nil {
 			return 0, fmt.Errorf("parse %s: %w", file.source, err)
 		}

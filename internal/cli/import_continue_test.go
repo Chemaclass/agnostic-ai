@@ -188,7 +188,7 @@ func TestImportFromContinue_MCPConnectionOptionsRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := continueai.New().Emit(adapters.NewSession(), spec.NewBundle(entries), cfg, false); err != nil {
+	if err := adapters.EmitWithProvenance(adapters.NewSession(), continueai.New(), spec.NewBundle(entries), cfg, false); err != nil {
 		t.Fatal(err)
 	}
 	for name, want := range servers {

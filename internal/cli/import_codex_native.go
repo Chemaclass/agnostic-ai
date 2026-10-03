@@ -1101,6 +1101,16 @@ func writeCodexMCPs(servers map[string]codexMCPEntry, dstDir string) (int, error
 	return writeMCPYAMLs("codex", codexMCPDocs(servers), dstDir)
 }
 
+func escapedStringAnyMap(m map[string]string) map[string]any {
+	out := stringAnyMap(m)
+	for k, v := range out {
+		if s, ok := v.(string); ok {
+			out[k] = spec.EscapeEnvRefs(s)
+		}
+	}
+	return out
+}
+
 // codexMCPDocs converts each `[mcp_servers.<name>]` table to its spec
 // fields. A variable Codex forwards by name reads back as the spec's
 // `${NAME}`: an `env_vars` name as an `env` entry, `bearer_token_env_var`
@@ -1110,12 +1120,14 @@ func codexMCPDocs(servers map[string]codexMCPEntry) map[string]any {
 	docs := make(map[string]any, len(servers))
 	for name, s := range servers {
 		doc := map[string]any{"name": name}
-		env := stringAnyMap(s.Env)
+		// Codex expands nothing inline, so a `${NAME}` it holds is text:
+		// escape it before forwarded variables become references.
+		env := escapedStringAnyMap(s.Env)
 		switch {
 		case s.URL != "":
 			doc["type"] = "http"
-			doc["url"] = s.URL
-			headers := stringAnyMap(s.HTTPHeaders)
+			doc["url"] = spec.EscapeEnvRefs(s.URL)
+			headers := escapedStringAnyMap(s.HTTPHeaders)
 			if s.BearerTokenEnvVar != "" {
 				if hasHeader(headers, "Authorization") {
 					doc["bearer_token_env_var"] = s.BearerTokenEnvVar
@@ -1158,7 +1170,11 @@ func codexMCPDocs(servers map[string]codexMCPEntry) map[string]any {
 				doc["command"] = s.Command
 			}
 			if len(s.Args) > 0 {
-				doc["args"] = s.Args
+				args := make([]string, len(s.Args))
+				for i, arg := range s.Args {
+					args[i] = spec.EscapeEnvRefs(arg)
+				}
+				doc["args"] = args
 			}
 			if s.Cwd != "" {
 				doc["cwd"] = s.Cwd
