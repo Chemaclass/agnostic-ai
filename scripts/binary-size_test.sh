@@ -63,3 +63,9 @@ function test_fails_without_a_binary() {
   assert_general_error "$?"
   assert_contains "no binary at" "$out"
 }
+
+function test_rejects_a_leading_zero() {
+  printf '0150\n' > "$dir/budget"
+  check_binary_size "$dir/bin" "$dir/budget" >/dev/null 2>&1
+  assert_general_error "$?"
+}

@@ -21,8 +21,8 @@ read_budget() {
   local budget
   budget=$(grep -v -e '^[[:space:]]*#' -e '^[[:space:]]*$' "$1" | tr -d '[:blank:]') || true
   case "$budget" in
-    '' | *[!0-9]* | ?????????????????*)
-      printf 'error: %s must hold one byte count of at most 16 digits, got "%s"\n' "$1" "$budget" >&2
+    '' | 0* | *[!0-9]* | ?????????????????*)
+      printf 'error: %s must hold one byte count: 1 to 16 digits, no leading zero, got "%s"\n' "$1" "$budget" >&2
       return 1
       ;;
   esac
