@@ -16,6 +16,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### By tool
 
+#### Claude Code
+
+- `hook run` shows an `asyncRewake` hook as async and keeps it out of `--expect`, since Claude Code runs it in the background (#1716).
+
 #### Gemini CLI
 
 - `lint` warns (LINT030) on a hook command holding a bare `$GEMINI_PROJECT_DIR` or another variable Gemini replaces; write `"${NAME}"` instead (#1697).
@@ -42,6 +46,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Qoder
 
+- `hook run` shows an `asyncRewake` hook as async and keeps it out of `--expect`, since Qoder runs it in the background (#1716).
 - `hook paths --target qoder` prints the `file_path` of a `Write` payload; an `Edit` payload fails, as Qoder documents no `tool_input` fields (#1717).
 
 ### Site
