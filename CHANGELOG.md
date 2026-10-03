@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- `lint` warns with LINT031 when a spec still has the `TODO` description that `new` writes (#1739).
 - `new agent` leaves `model` out, so a fresh agent lints clean in projects that target more than Claude (#1738).
 - `doctor` lists each MCP `${NAME}` reference that is unset in your shell, by name (#1729).
 - `hook run` no longer hides a timeout or error from one command when another command's result is not counted (#1728).

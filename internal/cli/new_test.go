@@ -169,7 +169,7 @@ targets: [claude]
 	}
 }
 
-func TestNew_AgentScaffoldLintsCleanForEveryTarget(t *testing.T) {
+func TestNew_AgentScaffoldLoadsOnEveryTarget(t *testing.T) {
 	dir := setupEmptyProject(t)
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\nsources:\n  agents: .agnostic-ai/agents\n  skills: .agnostic-ai/skills\n  rules: .agnostic-ai/rules\n  hooks: .agnostic-ai/hooks\n  mcps: .agnostic-ai/mcps\ntargets: [claude, codex, cursor]\n")
 	testutil.Chdir(t, dir)
@@ -183,7 +183,8 @@ func TestNew_AgentScaffoldLintsCleanForEveryTarget(t *testing.T) {
 
 	report, _, _ := runLintJSON(t)
 	for _, f := range report.Findings {
-		if strings.HasSuffix(f.Path, "foo.md") {
+		// LINT031 is the placeholder description, which new writes on purpose.
+		if strings.HasSuffix(f.Path, "foo.md") && f.Code != "LINT031" {
 			t.Errorf("fresh agent scaffold has a finding: %s %s", f.Code, f.Message)
 		}
 	}
