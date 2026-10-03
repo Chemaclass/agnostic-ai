@@ -179,21 +179,31 @@ func (v *mcpURLValue) set(i int, text string) {
 
 func (v *mcpURLValue) String() string { return strings.Join(v.pieces, "") }
 
-// mcpCredentialWords are the last words of a name that make import
-// treat its value as a credential, so `api_token` counts and `token_id`
-// does not.
-var mcpCredentialWords = map[string]bool{
+// mcpStrongCredentialWords are the last words of a name that make
+// import treat its value as a credential, so `api_token` counts and
+// `token_id` does not.
+var mcpStrongCredentialWords = map[string]bool{
 	"token": true, "secret": true, "password": true, "passwd": true, "pwd": true, "pass": true,
-	"apikey": true, "accesstoken": true, "authtoken": true, "credential": true, "credentials": true,
-	"cookie": true, "authentication": true, "authorization": true,
+	"accesstoken": true, "authtoken": true, "credential": true, "credentials": true, "cookie": true, "bearer": true,
 }
 
-// mcpKeyQualifiers are the words before a final `key` that make it a
-// credential, so `api_key` counts and `sort_key` or `public_key` does
-// not.
-var mcpKeyQualifiers = map[string]bool{
-	"api": true, "access": true, "secret": true, "private": true, "client": true, "auth": true,
-	"subscription": true, "license": true, "master": true, "service": true, "signing": true, "encryption": true,
+// mcpWeakCredentialWords count too, but a short value after one in a
+// separate argument may be a mode or a name, as in `--require-api-key
+// run`. `cred` and `auth` count only in a key, such as `X_AUTH`, since a
+// flag such as `--auth oauth` picks a method.
+var mcpWeakCredentialWords = map[string]bool{
+	"apikey": true, "authentication": true, "authorization": true,
+}
+
+// mcpPublicKeyWords are the words before a final `key` that make it no
+// credential, so `sort_key` and `public_key` do not count and
+// `openai_key` does.
+var mcpPublicKeyWords = map[string]bool{
+	"sort": true, "cache": true, "public": true, "partition": true, "primary": true, "foreign": true,
+	"idempotency": true, "routing": true, "object": true, "row": true, "hash": true, "map": true,
+	"lookup": true, "group": true, "dedup": true, "shard": true, "index": true, "unique": true,
+	"composite": true, "natural": true, "surrogate": true, "ssh": true, "gpg": true, "pgp": true,
+	"s3": true, "id": true,
 }
 
 // mcpCredentialQueryNames count only as a whole query or fragment
@@ -205,22 +215,46 @@ var mcpCredentialQueryNames = map[string]bool{
 
 var mcpGluedCredentialWord = regexp.MustCompile(`(password|passwd|secret|token)$`)
 
-// mcpCredentialName reports whether name, an env or header key, flag, or
-// parameter name, holds a credential by its last word. A one-word name
-// that ends in one counts too, as `PGPASSWORD` does.
-func mcpCredentialName(name string) bool {
+type mcpCredentialStrength int
+
+const (
+	mcpNoCredential mcpCredentialStrength = iota
+	mcpWeakCredential
+	mcpStrongCredential
+)
+
+// mcpNameStrength reports whether name holds a credential by its last
+// word, and how surely. A one-word name that ends in a strong word
+// counts too, as `PGPASSWORD` does. key marks an env, header, or block
+// key, where `cred` and `auth` count as well.
+func mcpNameStrength(name string, key bool) mcpCredentialStrength {
 	words := mcpNameWords(name)
 	n := len(words)
 	switch {
 	case n == 0:
-		return false
-	case mcpCredentialWords[words[n-1]]:
-		return true
+		return mcpNoCredential
+	case mcpStrongCredentialWords[words[n-1]]:
+		return mcpStrongCredential
+	case mcpWeakCredentialWords[words[n-1]], key && (words[n-1] == "cred" || words[n-1] == "auth"):
+		return mcpWeakCredential
 	case words[n-1] == "key":
-		return n == 1 || mcpKeyQualifiers[words[n-2]]
+		if n == 1 || !mcpPublicKeyWords[words[n-2]] {
+			return mcpWeakCredential
+		}
+		return mcpNoCredential
+	case n == 1 && mcpGluedCredentialWord.MatchString(words[0]):
+		return mcpStrongCredential
 	}
-	return n == 1 && mcpGluedCredentialWord.MatchString(words[0])
+	return mcpNoCredential
 }
+
+// mcpCredentialName reports whether a flag or parameter name holds a
+// credential.
+func mcpCredentialName(name string) bool { return mcpNameStrength(name, false) != mcpNoCredential }
+
+// mcpCredentialKey reports whether an env, header, or block key holds a
+// credential.
+func mcpCredentialKey(name string) bool { return mcpNameStrength(name, true) != mcpNoCredential }
 
 func mcpCredentialParam(name string) bool {
 	if unescaped, err := url.QueryUnescape(name); err == nil {
@@ -324,7 +358,7 @@ func mcpDetectorText(value string) string {
 func mcpCredentialDetected(value string) bool {
 	for _, text := range []string{mcpDetectorText(value), mcpDetectorText(mcpShellUnquote.Replace(value))} {
 		for _, t := range []string{text, mcpEncodedSeparators.Replace(text)} {
-			if mcpURLCredentialIn(t) || mcpTokenIn(t) || mcpUserPasswordIn(t) || mcpAssignmentIn(t) || mcpBearerIn(t) || mcpFlagIn(t) {
+			if mcpURLCredentialIn(t) || mcpTokenIn(t) || mcpUserPasswordIn(t) || mcpAssignmentIn(t) || mcpBearerIn(t) || mcpFlagIn(t) || mcpKeyValueIn(t) {
 				return true
 			}
 		}
@@ -340,16 +374,18 @@ var (
 // mcpTokenPrefixes are token formats that name their issuer: GitHub,
 // GitLab, Slack, npm, Google API keys, Stripe, OpenAI and Anthropic
 // `sk-`, AWS access key ids, and JWTs.
-const mcpTokenPrefixes = `gh[pousr]_[A-Za-z0-9_]{8,}|github_pat_[A-Za-z0-9_]{8,}|glpat-[A-Za-z0-9_\-]{8,}|xox[bpa]-[A-Za-z0-9\-]{8,}|xapp-[A-Za-z0-9\-]{8,}|npm_[A-Za-z0-9]{30,}|AIza[A-Za-z0-9_\-]{35}|(?:sk|rk)_live_[A-Za-z0-9]{8,}|sk_test_[A-Za-z0-9]{8,}|sk-(?:proj|ant)-[A-Za-z0-9_\-]{8,}|sk-[A-Za-z0-9_\-]{20,}|AKIA[0-9A-Z]{16}|eyJ[A-Za-z0-9_\-]+\.eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+`
+const mcpTokenPrefixes = `gh[pousr]_[A-Za-z0-9_]{8,}|github_pat_[A-Za-z0-9_]{8,}|glpat-[A-Za-z0-9_\-]{8,}|xox[bpa]-[A-Za-z0-9\-]{8,}|xapp-[A-Za-z0-9\-]{8,}|npm_[A-Za-z0-9]{30,}|AIza[A-Za-z0-9_\-]{35}|(?:sk|rk)_live_[A-Za-z0-9]{8,}|sk_test_[A-Za-z0-9]{8,}|sk-(?:proj|ant)-[A-Za-z0-9_\-]{8,}|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|eyJ[A-Za-z0-9_\-]+\.eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+`
 
 var (
 	mcpTokenPattern      = regexp.MustCompile(`^(?:` + mcpTokenPrefixes + `)$`)
 	mcpEmbeddedToken     = regexp.MustCompile(`(?:^|[^A-Za-z0-9_])(` + mcpTokenPrefixes + `)(?:[^A-Za-z0-9]|$)`)
-	mcpUserPasswordAt    = regexp.MustCompile(`(?:^|[\s'"=,])[A-Za-z0-9._%+\-\x00]+:([^\s@/:'"]+)@(\S*)`)
+	mcpUserPasswordAt    = regexp.MustCompile(`(?:^|[\s'"=,])([A-Za-z0-9._%+\-\x00]+):([^\s@/:'"]+)@(\S*)`)
 	mcpAssignment        = regexp.MustCompile(`(?:^|[^A-Za-z0-9_\x00])([A-Za-z_][A-Za-z0-9_\-]*)=([^\s;&|#]+)`)
 	mcpShellVariable     = regexp.MustCompile(`^\$[A-Za-z_][A-Za-z0-9_]*$`)
 	mcpBearer            = regexp.MustCompile(`(?i)(?:^|[^A-Za-z0-9])bearer\s+([^\s'",}\\]+)`)
-	mcpPlainValue        = regexp.MustCompile(`^(?:[/~]|\.\.?/|(?i:true|false|yes|no|on|off)$|[0-9]+$)`)
+	mcpPlainValue        = regexp.MustCompile(`^(?:[/~@]|\.\.?/|[A-Za-z]:[\\/]|(?i:true|false|yes|no|on|off)$|[0-9]+$|[a-z]+(?:-[a-z]+)+$)|(?i)\.(?:json|txt|pem|key|env|ya?ml|toml|crt|p12|db)$`)
+	mcpHeaderLine        = regexp.MustCompile(`(?m)^\s*([A-Za-z0-9_\-]+)\s*:[ \t]*(\S.*?)\s*$`)
+	mcpJSONPair          = regexp.MustCompile(`"([^"]+)"\s*:\s*"([^"]*)"`)
 	mcpSchemeWord        = regexp.MustCompile(`^[A-Za-z]+\s+`)
 	mcpImageDigestSuffix = regexp.MustCompile(`^sha[0-9]+:`)
 )
@@ -368,16 +404,18 @@ func mcpToken(value string) bool {
 }
 
 // mcpSecretValue reports whether text, a value in detector text, is a
-// literal that may be a secret: not a reference, a `$NAME` expansion, a
-// file path, a boolean, or a number. A value in its own argument after
-// a flag must not start with `-` and needs at least 8 characters, so
-// `--require-api-key run` passes.
-func mcpSecretValue(text string, separate bool) bool {
+// literal that may be a secret: not a reference (after an optional
+// scheme word, as in `Bearer ${TOKEN}`), a `$NAME` expansion, a file
+// path or name, an `@` value, a boolean, a number, or lower-case words
+// joined by dashes such as `streamable-http`. A value in its own
+// argument after a flag must not start with `-`, and after a weak name
+// it needs at least 8 characters, so `--require-api-key run` passes.
+func mcpSecretValue(text string, separate bool, strength mcpCredentialStrength) bool {
 	v := strings.Trim(text, `'"`)
-	if !mcpLiteralCredential(v) || strings.HasPrefix(v, "$") || mcpPlainValue.MatchString(v) {
+	if !mcpLiteralCredential(mcpSchemeWord.ReplaceAllString(v, "")) || strings.HasPrefix(v, "$") || mcpPlainValue.MatchString(v) {
 		return false
 	}
-	return !separate || !strings.HasPrefix(v, "-") && len(v) >= 8
+	return !separate || !strings.HasPrefix(v, "-") && (strength == mcpStrongCredential || len(v) >= 8)
 }
 
 // mcpRefOnly reports whether value is only references, after an
@@ -387,12 +425,32 @@ func mcpRefOnly(value string) bool {
 	return spec.OnlyEnvRefs(value) || mcpShellVariable.MatchString(value)
 }
 
-// mcpBearerIn finds a literal `Bearer` token of at least 8 characters,
-// as in `-H 'Authorization: Bearer ...'` or a JSON headers value.
+// mcpBearerIn finds a literal `Bearer` token, as in `-H
+// 'Authorization: Bearer ...'` or a JSON headers value. The token needs
+// a digit, one of `-._~+/=`, or at least 20 characters, so prose such as
+// "uses bearer authentication" does not count.
 func mcpBearerIn(text string) bool {
 	for _, m := range mcpBearer.FindAllStringSubmatch(text, -1) {
-		if len(m[1]) >= 8 && !strings.Contains(m[1], mcpRefSentinel) && !strings.HasPrefix(m[1], "$") {
+		token := m[1]
+		if strings.Contains(token, mcpRefSentinel) || strings.HasPrefix(token, "$") {
+			continue
+		}
+		if len(token) >= 20 || strings.ContainsAny(token, "0123456789-._~+/=") {
 			return true
+		}
+	}
+	return false
+}
+
+// mcpKeyValueIn finds a line `Name: value` or a JSON pair `"name":
+// "value"` whose name is a credential key and whose value is a literal,
+// as in an `X-Api-Key: ...` headers value or `{"apiKey": "..."}`.
+func mcpKeyValueIn(text string) bool {
+	for _, pattern := range []*regexp.Regexp{mcpHeaderLine, mcpJSONPair} {
+		for _, m := range pattern.FindAllStringSubmatch(text, -1) {
+			if mcpCredentialKey(m[1]) && mcpSecretValue(m[2], false, mcpWeakCredential) {
+				return true
+			}
 		}
 	}
 	return false
@@ -406,9 +464,9 @@ func mcpFlagIn(text string) bool {
 		name, value, hasValue := mcpCredentialFlag(word)
 		switch {
 		case name == "":
-		case hasValue && mcpSecretValue(value, false):
+		case hasValue && mcpSecretValue(value, false, mcpWeakCredential):
 			return true
-		case !hasValue && i+1 < len(words) && mcpSecretValue(words[i+1], true):
+		case !hasValue && i+1 < len(words) && mcpSecretValue(words[i+1], true, mcpNameStrength(name, false)):
 			return true
 		}
 	}
@@ -420,7 +478,7 @@ func mcpFlagIn(text string) bool {
 func mcpCredentialHeader(value string) bool {
 	name, v, ok := strings.Cut(value, ":")
 	v = strings.TrimSpace(v)
-	return ok && mcpCredentialName(strings.TrimSpace(name)) && !mcpRefOnly(v) && mcpSecretValue(mcpDetectorText(v), false)
+	return ok && mcpCredentialKey(strings.TrimSpace(name)) && !mcpRefOnly(v) && mcpSecretValue(mcpDetectorText(v), false, mcpWeakCredential)
 }
 
 func mcpTokenIn(text string) bool {
@@ -434,10 +492,12 @@ func mcpTokenIn(text string) bool {
 
 // mcpUserPasswordIn finds a scheme-less `user:password@host`, as in
 // `root:pw@db:3306` or an scp-style `user:pw@host:path`. An image digest
-// such as `node:20@sha256:...` is not one.
+// such as `node:20@sha256:...` is not one, and neither is a Windows path
+// such as `C:\Users\me@corp\a.db`.
 func mcpUserPasswordIn(text string) bool {
 	for _, m := range mcpUserPasswordAt.FindAllStringSubmatch(text, -1) {
-		if mcpLiteralCredential(m[1]) && !mcpImageDigestSuffix.MatchString(m[2]) {
+		drive := len(m[1]) == 1 && unicode.IsLetter(rune(m[1][0]))
+		if !drive && mcpLiteralCredential(m[2]) && !mcpImageDigestSuffix.MatchString(m[3]) {
 			return true
 		}
 	}
@@ -449,7 +509,7 @@ func mcpUserPasswordIn(text string) bool {
 // as `$TOKEN` or `$(cat f)` is not a literal.
 func mcpAssignmentIn(text string) bool {
 	for _, m := range mcpAssignment.FindAllStringSubmatch(text, -1) {
-		if mcpCredentialName(m[1]) && mcpSecretValue(m[2], false) {
+		if mcpCredentialKey(m[1]) && mcpSecretValue(m[2], false, mcpWeakCredential) {
 			return true
 		}
 	}
@@ -793,8 +853,8 @@ func mcpURLLiterals(name string, server map[string]any, referenced map[string]bo
 	}
 	// flagValue reports whether value is a credential flag's value: a
 	// reference, whose default import strips, or a literal secret.
-	flagValue := func(value string, separate bool) bool {
-		return spec.OnlyEnvRefs(value) && (!separate || !strings.HasPrefix(value, "-")) || mcpSecretValue(mcpDetectorText(value), separate)
+	flagValue := func(value string, separate bool, strength mcpCredentialStrength) bool {
+		return spec.OnlyEnvRefs(value) && (!separate || !strings.HasPrefix(value, "-")) || mcpSecretValue(mcpDetectorText(value), separate, strength)
 	}
 	if value, ok := server["url"].(string); ok {
 		add("url", value, func(s string) { server["url"] = s })
@@ -824,11 +884,11 @@ func mcpURLLiterals(name string, server map[string]any, referenced map[string]bo
 		}
 		flag, value, hasValue := mcpCredentialFlag(args[at])
 		switch {
-		case flag != "" && hasValue && flagValue(value, false):
+		case flag != "" && hasValue && flagValue(value, false, mcpWeakCredential):
 			addCredential(field, flag, args[at][:len(args[at])-len(value)], value, write)
 		// A short flag such as `-p` may be a port or profile, so only a
 		// long flag reads the next argument as its value.
-		case flag != "" && !hasValue && at+1 < len(args) && flagValue(args[at+1], true):
+		case flag != "" && !hasValue && at+1 < len(args) && flagValue(args[at+1], true, mcpNameStrength(flag, false)):
 			next := at + 1
 			i = next
 			addCredential("args["+strconv.Itoa(next)+"]", flag, "", args[next], func(s string) { setArg(next, s) })
@@ -844,7 +904,7 @@ func mcpURLLiterals(name string, server map[string]any, referenced map[string]bo
 				if unreadable != "" {
 					return
 				}
-				named := mcpCredentialName(key) && !mcpRefOnly(value) && mcpSecretValue(mcpDetectorText(value), false)
+				named := mcpCredentialKey(key) && !mcpRefOnly(value) && mcpSecretValue(mcpDetectorText(value), false, mcpWeakCredential)
 				if named || mcpCredentialDetected(value) {
 					unreadable = path
 				}
@@ -856,14 +916,15 @@ func mcpURLLiterals(name string, server map[string]any, referenced map[string]bo
 
 // mcpCredentialFlag returns the name of a `--name` or `--name=value`
 // argument whose name ends in a credential word, and the value after
-// `=`, so `--api-key` counts and `--key-id` or `--token-file` does not.
+// `=`, so `--api-key` counts and `--key-id`, `--token-file`, or
+// `--no-token` does not.
 func mcpCredentialFlag(arg string) (name, value string, hasValue bool) {
 	rest, ok := strings.CutPrefix(arg, "--")
 	if !ok {
 		return "", "", false
 	}
 	name, value, hasValue = strings.Cut(rest, "=")
-	if !mcpFlagName.MatchString(name) || !mcpCredentialName(name) {
+	if !mcpFlagName.MatchString(name) || strings.HasPrefix(name, "no-") || !mcpCredentialName(name) {
 		return "", "", false
 	}
 	return name, value, hasValue
