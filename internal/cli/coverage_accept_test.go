@@ -135,6 +135,9 @@ func TestSyncJSON_FailOnNotesFailsAndRollsBack(t *testing.T) {
 	if !strings.Contains(out, "coverage.fail-on-notes") {
 		t.Errorf("the JSON errors should name the failure:\n%s", out)
 	}
+	if !strings.Contains(out, `"message": "`+codexToolsNote) {
+		t.Errorf("the JSON notes should list the note that failed the run:\n%s", out)
+	}
 	if _, statErr := os.Stat(codexAgentFile); !os.IsNotExist(statErr) {
 		t.Errorf("a failed sync --json should roll back its writes: %v", statErr)
 	}

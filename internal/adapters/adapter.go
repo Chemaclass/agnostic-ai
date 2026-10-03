@@ -274,6 +274,18 @@ func PrintAcceptedNotes(accepted []AcceptedNote) { emit.PrintAcceptedNotes(accep
 // buffered coverage notes that name a target.
 func PendingTargetCoverageNotesCount() int { return emit.PendingTargetCoverageNotesCount() }
 
+// DropRecord is one buffered capability warning or coverage note for one
+// target (re-exported from the emit layer).
+type DropRecord = emit.DropRecord
+
+// PendingCapabilityWarnings returns the buffered capability warnings,
+// one per target and kind, without clearing them.
+func PendingCapabilityWarnings() []DropRecord { return emit.PendingCapabilityWarnings() }
+
+// PendingCoverageNotes returns the buffered coverage notes, one per
+// target and note, without clearing them.
+func PendingCoverageNotes() []DropRecord { return emit.PendingCoverageNotes() }
+
 // OrderBufferedDropsByTarget reorders the buffered capability warnings and
 // coverage notes to the given target sequence so their flushed output is
 // deterministic regardless of the order concurrent emission appended them

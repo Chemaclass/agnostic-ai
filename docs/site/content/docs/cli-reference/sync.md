@@ -173,4 +173,6 @@ Watch mode also polls when a missing external source has no safe parent to watch
 
 `writes` and `skipped` entries have `target`, `path`, `action` (strings), and `bytes` (number), for example `{"target": "claude", "path": "CLAUDE.md", "action": "create", "bytes": 1284}`.
 
+`sync --json` adds `warnings` and `notes`: the capability warnings and coverage notes a plain `sync` prints, one entry per target, as empty lists when there are none. Each entry has `target`, `kind`, `count`, and `message`, for example `{"target": "aider", "kind": "mcp", "count": 1, "message": "1 mcp unsupported by aider"}`. A project-wide note has target `agnostic-ai`, an empty `kind`, and `count` 0. The lists are complete on every run, including a set a plain `sync` would hide as unchanged, and a later plain `sync` still prints them. Accepted notes ([`coverage.accept`](@/docs/configuration.md#coverageaccept)) are left out. `--plan`, `--dry-run`, and `--check` do not report them.
+
 `--plan --json` and `--dry-run --json` write nothing and exit 0. Each leftover they would remove is `"delete"` in `writes`. Kept files are `"orphan"` or `"leftover"` in `skipped`. `--dry-run --json` also lists every unchanged output as `"skip"`. Count `writes` by `target` for the per-target numbers `--plan` prints.
