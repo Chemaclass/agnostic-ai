@@ -167,7 +167,6 @@ func newSpecTemplate(kind, name string) string {
 name: %s
 description: TODO short description shown in agent pickers.
 tools: [Read, Grep, Bash]
-model: sonnet
 ---
 
 TODO: agent system prompt body.
