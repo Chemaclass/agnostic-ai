@@ -48,8 +48,11 @@ func TestHookRun_CursorRunsOnAssumptionsAndCountsOnlyWhenAsked(t *testing.T) {
 			t.Errorf("output misses %q:\n%s", want, out)
 		}
 	}
-	if err == nil || !strings.Contains(err.Error(), "ran only where hook run assumes part of the contract (cursor); pass --include-assumed") {
+	if err == nil || !strings.Contains(err.Error(), "--expect checks nothing, since it ran only where hook run assumes part of the contract (cursor); pass --include-assumed") {
 		t.Errorf("an uncounted run must not pass a check silently: %v", err)
+	}
+	if _, err := runHookRun(t, "protect-files", "--bash", "rm -rf /"); err != nil {
+		t.Errorf("without --expect, assumed results do not gate: %v", err)
 	}
 	if strings.Contains(out, "warning:") {
 		t.Errorf("a fresh sync warns:\n%s", out)
@@ -109,4 +112,14 @@ func TestHookRun_CursorJSONListsAssumptions(t *testing.T) {
 		return
 	}
 	t.Fatalf("no cursor result:\n%s", out)
+}
+
+func TestHookRun_CursorMatcherThatDoesNotFireAssumesNothing(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	cursorProject(t, "name: protect-files\nevent: beforeShellExecution\nmatcher: curl\ncommand: 'cat | grep curl'\n")
+
+	out, err := runHookRun(t, "protect-files", "--bash", "ls")
+	if err != nil || !strings.Contains(out, `cursor: allow (not run: matcher "curl" does not match ls)`) || strings.Contains(out, "assumed") {
+		t.Errorf("a matcher that does not fire runs nothing and assumes nothing: %v\n%s", err, out)
+	}
 }

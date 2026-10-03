@@ -13,19 +13,23 @@ func TestDecideCursor_FollowsTheDocumentedRules(t *testing.T) {
 		r     Result
 		want  Decision
 	}{
-		"exit 2 blocks a permission hook":       {"beforeShellExecution", Handler{}, Result{Exit: 2}, Block},
-		"deny blocks":                           {"beforeShellExecution", Handler{}, Result{Stdout: `{"permission":"deny"}`}, Block},
-		"allow allows":                          {"beforeShellExecution", Handler{}, Result{Stdout: `{"permission":"allow"}`}, Allow},
-		"empty output blocks a permission hook": {"beforeShellExecution", Handler{}, Result{}, Block},
-		"ask blocks a shell command":            {"beforeShellExecution", Handler{}, Result{Stdout: `{"permission":"ask"}`}, Block},
-		"ask is not enforced on preToolUse":     {"preToolUse", Handler{}, Result{Stdout: `{"permission":"ask"}`}, Allow},
-		"another exit fails open":               {"beforeShellExecution", Handler{}, Result{Exit: 1}, Error},
-		"failClosed blocks on a failure":        {"beforeShellExecution", Handler{FailClosed: true}, Result{Exit: 1}, Block},
-		"failClosed blocks on a timeout":        {"beforeShellExecution", Handler{FailClosed: true}, Result{TimedOut: true}, Block},
-		"a timeout fails open":                  {"beforeShellExecution", Handler{}, Result{TimedOut: true}, Timeout},
-		"empty output allows a non-permission":  {"afterFileEdit", Handler{}, Result{}, Allow},
-		"exit 2 cannot block afterFileEdit":     {"afterFileEdit", Handler{}, Result{Exit: 2}, Error},
-		"continue false blocks a prompt":        {"beforeSubmitPrompt", Handler{}, Result{Stdout: `{"continue":false}`}, Block},
+		"exit 2 blocks a permission hook":      {"beforeShellExecution", Handler{}, Result{Exit: 2}, Block},
+		"deny blocks":                          {"beforeShellExecution", Handler{}, Result{Stdout: `{"permission":"deny"}`}, Block},
+		"allow allows":                         {"beforeShellExecution", Handler{}, Result{Stdout: `{"permission":"allow"}`}, Allow},
+		"no output fails open":                 {"beforeShellExecution", Handler{}, Result{}, Error},
+		"no output blocks with failClosed":     {"beforeShellExecution", Handler{FailClosed: true}, Result{}, Block},
+		"text that is not JSON blocks":         {"beforeShellExecution", Handler{}, Result{Stdout: "ok"}, Block},
+		"an unknown permission blocks":         {"beforeShellExecution", Handler{}, Result{Stdout: `{"permission":"maybe"}`}, Block},
+		"a reply without permission allows":    {"beforeShellExecution", Handler{}, Result{Stdout: `{"user_message":"hi"}`}, Allow},
+		"ask blocks a shell command":           {"beforeShellExecution", Handler{}, Result{Stdout: `{"permission":"ask"}`}, Block},
+		"ask is not enforced on preToolUse":    {"preToolUse", Handler{}, Result{Stdout: `{"permission":"ask"}`}, Allow},
+		"another exit fails open":              {"beforeShellExecution", Handler{}, Result{Exit: 1}, Error},
+		"failClosed blocks on a failure":       {"beforeShellExecution", Handler{FailClosed: true}, Result{Exit: 1}, Block},
+		"failClosed blocks on a timeout":       {"beforeShellExecution", Handler{FailClosed: true}, Result{TimedOut: true}, Block},
+		"a timeout fails open":                 {"beforeShellExecution", Handler{}, Result{TimedOut: true}, Timeout},
+		"empty output allows a non-permission": {"afterFileEdit", Handler{}, Result{}, Allow},
+		"exit 2 cannot block afterFileEdit":    {"afterFileEdit", Handler{}, Result{Exit: 2}, Error},
+		"continue false blocks a prompt":       {"beforeSubmitPrompt", Handler{}, Result{Stdout: `{"continue":false}`}, Block},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := decideCursor(tc.event, tc.h, tc.r); got != tc.want {
@@ -65,5 +69,17 @@ func TestAssumptions_CursorRunsOnlyShellNeutralCommandsOnUnix(t *testing.T) {
 	}
 	if got, _ := Assumptions("claude", "linux", Handler{Command: "x | y"}); got != nil {
 		t.Errorf("a documented target assumes nothing: %+v", got)
+	}
+}
+
+func TestBuild_CursorPayloadFileHonorsTheMatcher(t *testing.T) {
+	body := []byte(`{"command": "ls -la"}`)
+	p, err := Build("cursor", "beforeShellExecution", "curl", "/project", Input{Raw: body})
+	if err != nil || p.Fires {
+		t.Errorf("a curl matcher must not fire on ls: %+v %v", p, err)
+	}
+	p, _ = Build("cursor", "preToolUse", "Read", "/project", Input{Raw: []byte(`{"tool_name": "Read"}`)})
+	if !p.Fires {
+		t.Errorf("a Read matcher must fire on a Read tool payload: %+v", p)
 	}
 }

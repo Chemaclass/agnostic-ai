@@ -213,13 +213,6 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 			add(run)
 			continue
 		}
-		assumptions, reason := hookAssumptions(target, handlers)
-		if reason != "" {
-			run.Reason = reason
-			add(run)
-			continue
-		}
-		run.Assumptions = assumptions
 		payload, err := hookrun.Build(target, event, matcher, root, in)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", target, err)
@@ -231,6 +224,14 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 			add(run)
 			continue
 		}
+		// A matcher that does not fire runs nothing, so it assumes nothing.
+		assumptions, reason := hookAssumptions(target, handlers)
+		if reason != "" {
+			run.Decision, run.Reason = notRun, reason
+			add(run)
+			continue
+		}
+		run.Assumptions = assumptions
 		// Claude Code writes the spec's `if` on every handler it emits.
 		if rule := handlers[0].If; target == "claude" && rule != "" {
 			runs, err := hookrun.ClaudeIfRuns(rule, event, payload.Body, root)
@@ -258,6 +259,9 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 			env := hookRunEnv(target, root, hookEnvContext{event: event, tool: hookrun.PayloadTool(payload.Body), pluginRoot: adapters.HookPluginRoot(cfg, target)}, h)
 			r := hookrun.Run(hookrun.Argv(target, runtime.GOOS, h), root, env, payload.Body, timeout)
 			d := hookrun.DecideHandler(target, event, h, r)
+			if target == "cursor" && hookrun.CursorAsks(event, r) {
+				run.Notes = append(run.Notes, "replied ask: Cursor asks the user before the action runs; read as block")
+			}
 			run.Commands = append(run.Commands, newHookCommandRun(shown, d, r, hookrun.AddsContext(target, event, r)))
 			run.Decision = strongerDecision(run.Decision, d)
 			if d == hookrun.Timeout || d == hookrun.Error {
@@ -600,8 +604,8 @@ func judgeHookRuns(name string, runs []hookTargetRun, expect hookrun.Decision) e
 		}
 	}
 	runs = slices.DeleteFunc(runs, func(r hookTargetRun) bool { return r.Async || !r.Counted })
-	if len(runs) == 0 && len(assumedOnly) > 0 {
-		return fmt.Errorf("hook %s ran only where hook run assumes part of the contract (%s); pass --include-assumed to count it", name, strings.Join(assumedOnly, ", "))
+	if len(runs) == 0 && len(assumedOnly) > 0 && expect != "" {
+		return fmt.Errorf("hook %s: --expect checks nothing, since it ran only where hook run assumes part of the contract (%s); pass --include-assumed to count it", name, strings.Join(assumedOnly, ", "))
 	}
 	if len(runs) == 0 {
 		return nil

@@ -129,11 +129,12 @@ func buildCursor(event, matcher, root string, in Input) (Payload, error) {
 	return marshal(p, doc)
 }
 
-// decideCursor follows the exit code rules: exit 2 blocks, a crash,
-// timeout, or other exit fails open unless failClosed is set, and at
-// exit 0 a permission hook blocks on `permission: "deny"` or on output
-// that is not a JSON reply. `ask` blocks too, except on preToolUse,
-// which does not enforce it. beforeSubmitPrompt blocks on
+// decideCursor follows the exit code rules: exit 2 blocks, and a crash,
+// timeout, other exit, or no output fails open unless failClosed is set.
+// At exit 0 a permission hook blocks on output that is not a JSON reply
+// or names a permission outside allow, deny, and ask, and on
+// `permission: "deny"`. `ask` blocks until the user answers, except on
+// preToolUse, which does not enforce it. beforeSubmitPrompt blocks on
 // `continue: false`.
 func decideCursor(event string, h Handler, r Result) Decision {
 	permission := slices.Contains(cursorPermissionEvents, event)
@@ -155,22 +156,44 @@ func decideCursor(event string, h Handler, r Result) Decision {
 		return failed
 	}
 	var reply struct {
-		Permission string `json:"permission"`
-		Continue   *bool  `json:"continue"`
+		Permission *string `json:"permission"`
+		Continue   *bool   `json:"continue"`
 	}
 	out := strings.TrimSpace(r.Stdout)
+	if out == "" {
+		if canBlock {
+			return failed
+		}
+		return Allow
+	}
 	valid := strings.HasPrefix(out, "{") && json.Unmarshal([]byte(out), &reply) == nil
+	decided := ""
+	if valid && reply.Permission != nil {
+		decided = *reply.Permission
+		valid = slices.Contains([]string{"allow", "deny", "ask"}, decided)
+	}
 	switch {
 	case permission && !valid:
 		return Block
-	case permission && reply.Permission == "deny":
+	case permission && decided == "deny":
 		return Block
-	case permission && reply.Permission == "ask" && event != "preToolUse":
+	case permission && CursorAsks(event, r):
 		return Block
 	case event == "beforeSubmitPrompt" && valid && reply.Continue != nil && !*reply.Continue:
 		return Block
 	}
 	return Allow
+}
+
+// CursorAsks reports whether a permission hook replied `ask`, which
+// Cursor enforces by asking the user, except on preToolUse.
+func CursorAsks(event string, r Result) bool {
+	var reply struct {
+		Permission string `json:"permission"`
+	}
+	out := strings.TrimSpace(r.Stdout)
+	return event != "preToolUse" && slices.Contains(cursorPermissionEvents, event) && r.Exit == 0 && !r.TimedOut &&
+		json.Unmarshal([]byte(out), &reply) == nil && reply.Permission == "ask"
 }
 
 // cursorEntry is one handler in Cursor's hooks.json.

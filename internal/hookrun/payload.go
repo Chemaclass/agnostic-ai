@@ -134,7 +134,24 @@ func rawPayload(target, event, matcher string, body []byte) (Payload, error) {
 		}
 		return p, err
 	}
-	if !slices.Contains(claudeIfEvents, event) && event != "BeforeTool" && event != "AfterTool" && event != "PreToolUseResult" {
+	if target == "cursor" {
+		var call struct {
+			Command  string `json:"command"`
+			ToolName string `json:"tool_name"`
+		}
+		_ = json.Unmarshal(body, &call)
+		value := cursorMatchValue(event, call.Command)
+		if call.ToolName != "" && (event == "preToolUse" || event == "postToolUse" || event == "postToolUseFailure") {
+			value = call.ToolName
+		}
+		if value == "" {
+			return p, nil
+		}
+		fires, err := cursorMatches(matcher, value)
+		p.Fires, p.Trigger = fires, value
+		return p, err
+	}
+		if !slices.Contains(claudeIfEvents, event) && event != "BeforeTool" && event != "AfterTool" && event != "PreToolUseResult" {
 		return p, nil
 	}
 	p.Trigger = PayloadTool(body)
