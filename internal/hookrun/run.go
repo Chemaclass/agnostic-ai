@@ -94,7 +94,9 @@ func Argv(target, goos string, h Handler) []string {
 		if bash := gitBash(); bash != "" {
 			return []string{bash, "-c", h.Command}
 		}
-		return []string{"powershell.exe", "-NoProfile", "-Command", h.Command}
+		if h.Shell == "" {
+			return []string{"powershell.exe", "-NoProfile", "-Command", h.Command}
+		}
 	case h.Shell == "powershell":
 		return []string{"pwsh", "-NoProfile", "-Command", h.Command}
 	}
@@ -267,7 +269,7 @@ func readReply(r Result) (hookReply, bool) {
 // follows Claude Code's: CLAUDE_CODE_GIT_BASH_PATH, then the Git install
 // that holds git.exe.
 var gitBash = func() string {
-	if path := os.Getenv("CLAUDE_CODE_GIT_BASH_PATH"); path != "" {
+	if path := os.Getenv("CLAUDE_CODE_GIT_BASH_PATH"); isFile(path) {
 		return path
 	}
 	git, err := exec.LookPath("git")
@@ -277,18 +279,28 @@ var gitBash = func() string {
 	return gitBashBeside(git)
 }
 
-// gitBashBeside finds bin\bash.exe in the Git install that holds git,
-// which sits in its cmd\, bin\, or mingw64\bin\ directory.
+// gitBashBeside finds bin\bash.exe in the Git for Windows install that
+// holds git: git sits in its cmd\ or bin\ directory, or in
+// mingw64\bin\ or mingw32\bin\.
 func gitBashBeside(git string) string {
 	dir := filepath.Dir(git)
-	for range 2 {
-		dir = filepath.Dir(dir)
-		bash := filepath.Join(dir, "bin", "bash.exe")
-		if info, err := os.Stat(bash); err == nil && !info.IsDir() {
-			return bash
-		}
+	root := filepath.Dir(dir)
+	switch base := strings.ToLower(filepath.Base(dir)); {
+	case base == "cmd", base == "bin" && !strings.HasPrefix(strings.ToLower(filepath.Base(root)), "mingw"):
+	case base == "bin":
+		root = filepath.Dir(root)
+	default:
+		return ""
+	}
+	if bash := filepath.Join(root, "bin", "bash.exe"); isFile(bash) {
+		return bash
 	}
 	return ""
+}
+
+func isFile(path string) bool {
+	info, err := os.Stat(path)
+	return path != "" && err == nil && !info.IsDir()
 }
 
 // gitBashScript hands a Git Bash `-c` command over as a script file. The

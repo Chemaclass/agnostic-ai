@@ -119,7 +119,7 @@ On Windows, Codex runs `commandWindows` with `powershell.exe -Command`:
 - PowerShell reports a failed native command as exit 1, which Codex reads as a hook error and lets the push run. `exit $LASTEXITCODE` passes on the script's exit 2.
 - The Git root lookup runs first and resets `$LASTEXITCODE`, so the command checks for `sh` with `Get-Command` and exits 1 when it is missing. Codex reports that as a failed hook instead of passing it.
 
-Claude Code runs hooks with Git Bash on Windows and needs no `commandWindows`.
+Claude Code runs hooks with Git Bash on Windows and needs no `commandWindows`. Without Git Bash it runs them with PowerShell, where this guard cannot run.
 
 {% <details summary=".agnostic-ai/scripts/no-force-push.sh"> %}
 ```sh
@@ -644,7 +644,7 @@ Variables listed here are removed from the calling shell's env first. Other vari
 {% <details summary="Shell and default timeout per target"> %}
 | Target | Shell | Default timeout |
 |--------|-------|-----------------|
-| Claude Code | `bash -c`, on Windows with Git Bash (`CLAUDE_CODE_GIT_BASH_PATH`, else the Git install that holds `git.exe`) or PowerShell when there is none; exec-form `args` with no shell; `shell: powershell` with PowerShell | 600 seconds, except 30 on `UserPromptSubmit`, `PreModelSwitch`, and `PostModelSwitch`, and 10 on `MessageDisplay` |
+| Claude Code | `bash -c`, on Windows with Git Bash (`CLAUDE_CODE_GIT_BASH_PATH` from the shell that runs `hook run`, else the Git install that holds `git.exe`), or PowerShell when there is none and the spec sets no `shell`; exec-form `args` with no shell; `shell: powershell` with PowerShell | 600 seconds, except 30 on `UserPromptSubmit`, `PreModelSwitch`, and `PostModelSwitch`, and 10 on `MessageDisplay` |
 | Codex | `sh -c`; on Windows, `commandWindows` with `powershell.exe -Command` | 600 seconds |
 | Gemini | `bash -c`, or Windows PowerShell on Windows, after Gemini's own replacement of `$GEMINI_PROJECT_DIR`, `$GEMINI_CWD`, `$GEMINI_SESSION_ID`, and `$CLAUDE_PROJECT_DIR` with the quoted root | 60 seconds |
 | Trae | `bash -c`, or PowerShell on Windows | 30 seconds |
