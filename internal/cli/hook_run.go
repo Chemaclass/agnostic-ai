@@ -263,10 +263,19 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 				continue
 			}
 			env := hookRunEnv(target, root, hookEnvContext{event: event, tool: hookrun.PayloadTool(payload.Body), pluginRoot: adapters.HookPluginRoot(cfg, target)}, h)
-			r := hookrun.Run(hookrun.Argv(target, runtime.GOOS, h), root, env, payload.Body, timeout)
+			var r hookrun.Result
+			if target == "crush" {
+				r = hookrun.RunCrush(h.Command, root, hookrun.CrushEnv(env, root, payload.Body), payload.Body, timeout, runtime.GOOS)
+				run.Assumptions = mergeAssumptions(run.Assumptions, hookrun.CrushAssumptions(r))
+			} else {
+				r = hookrun.Run(hookrun.Argv(target, runtime.GOOS, h), root, env, payload.Body, timeout)
+			}
 			d := hookrun.DecideHandler(target, event, h, r)
 			if target == "cursor" && hookrun.CursorAsks(event, r) {
 				run.Notes = append(run.Notes, "replied ask: Cursor asks the user before the action runs; read as block")
+			}
+			if target == "crush" && hookrun.CrushHalts(r) {
+				run.Notes = append(run.Notes, "halt: Crush ends the whole turn, not only this tool call")
 			}
 			run.Commands = append(run.Commands, newHookCommandRun(shown, d, r, hookrun.AddsContext(target, event, r)))
 			run.Decision = strongerDecision(run.Decision, d)
@@ -356,13 +365,19 @@ func hookAssumptions(target string, handlers []hookrun.Handler) ([]hookrun.Assum
 		if reason != "" {
 			return nil, reason
 		}
-		for _, a := range assumed {
-			if !slices.ContainsFunc(out, func(b hookrun.Assumption) bool { return b.Item == a.Item }) {
-				out = append(out, a)
-			}
-		}
+		out = mergeAssumptions(out, assumed)
 	}
 	return out, ""
+}
+
+// mergeAssumptions adds each assumption whose item out does not list yet.
+func mergeAssumptions(out, more []hookrun.Assumption) []hookrun.Assumption {
+	for _, a := range more {
+		if !slices.ContainsFunc(out, func(b hookrun.Assumption) bool { return b.Item == a.Item }) {
+			out = append(out, a)
+		}
+	}
+	return out
 }
 
 func assumedItems(run hookTargetRun) string {
@@ -514,6 +529,7 @@ var sessionEnvKeys = []string{
 	adapters.HookTargetEnv, claudeProjectDirEnv, "GEMINI_PROJECT_DIR", "GEMINI_CWD", "GEMINI_SESSION_ID", "GEMINI_PLANS_DIR",
 	"TRAE_PROJECT_DIR", "OPENHANDS_PROJECT_DIR", "OPENHANDS_SESSION_ID", "OPENHANDS_EVENT_TYPE", "OPENHANDS_TOOL_NAME",
 	"PLUGIN_ROOT", "CURSOR_PROJECT_DIR", "CURSOR_VERSION", "CURSOR_USER_EMAIL", "CURSOR_TRANSCRIPT_PATH", "CURSOR_CODE_REMOTE", "AUGMENT_PROJECT_DIR", "AUGMENT_CONVERSATION_ID", "AUGMENT_HOOK_EVENT", "AUGMENT_TOOL_NAME",
+	"CRUSH_EVENT", "CRUSH_TOOL_NAME", "CRUSH_SESSION_ID", "CRUSH_CWD", "CRUSH_PROJECT_DIR", "CRUSH_TOOL_INPUT_COMMAND", "CRUSH_TOOL_INPUT_FILE_PATH",
 }
 
 // asyncHookTargets run an `async: true` hook in the background, so its

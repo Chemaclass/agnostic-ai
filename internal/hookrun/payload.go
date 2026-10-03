@@ -17,7 +17,7 @@ import (
 
 // Targets lists the targets Build writes payloads for.
 func Targets() []string {
-	return []string{"claude", "codex", "gemini", "trae", "openhands", "goose", "augment", "cursor"}
+	return []string{"claude", "codex", "gemini", "trae", "openhands", "goose", "augment", "cursor", "crush"}
 }
 
 // Supported reports whether Build writes payloads for target.
@@ -143,6 +143,12 @@ func rawPayload(target, event, matcher string, body []byte) (Payload, error) {
 		}
 		fires, err := cursorMatches(matcher, value)
 		p.Fires, p.Trigger = fires, value
+		return p, err
+	}
+	if target == "crush" {
+		p.Trigger = PayloadTool(body)
+		fires, err := crushMatches(matcher, p.Trigger)
+		p.Fires = fires
 		return p, err
 	}
 	if !slices.Contains(claudeIfEvents, event) && event != "BeforeTool" && event != "AfterTool" && event != "PreToolUseResult" {

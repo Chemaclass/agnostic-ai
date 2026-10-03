@@ -63,6 +63,8 @@ func DecideHandler(target, event string, h Handler, r Result) Decision {
 		return decideAugment(event, r)
 	case "cursor":
 		return decideCursor(event, h, r)
+	case "crush":
+		return decideCrush(r)
 	}
 	return Decide(target, event, r)
 }

@@ -37,6 +37,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - **Breaking:** `sync` removes steering copies of `AGENTS.md` rules kept for `x-kiro.resources`; with inheritance off, list `file://AGENTS.md` (#1643).
 - Import skips `manual` and `auto` steering files with a note instead of turning them into always-on rules (#1656).
 
+#### Crush
+
+- `hook run` runs Crush hooks in Crush's embedded shell on every platform, Windows included; exit 2 blocks and exit 49 halts the turn (#1678).
+
 ### Site
 
 - The last five release briefings give concise upgrade and feature guidance, with readable code blocks, copy controls and tables (#1652, #1653).

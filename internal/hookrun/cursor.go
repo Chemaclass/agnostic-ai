@@ -20,8 +20,11 @@ import (
 // ContractDocs is the page a target's assumptions cite, "" for a target
 // hook run assumes nothing for.
 func ContractDocs(target string) string {
-	if target == "cursor" {
+	switch target {
+	case "cursor":
 		return "https://cursor.com/docs/hooks"
+	case "crush":
+		return crushSource
 	}
 	return ""
 }

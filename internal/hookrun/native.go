@@ -64,6 +64,9 @@ func Drift(target string, body []byte, event, matcher, goos string, handlers []H
 	if target == "cursor" {
 		return cursorDrift(body, event, matcher, handlers)
 	}
+	if target == "crush" {
+		return crushDrift(body, matcher, handlers)
+	}
 	var doc struct {
 		Hooks map[string][]nativeGroup `json:"hooks"`
 	}

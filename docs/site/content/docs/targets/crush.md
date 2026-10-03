@@ -56,6 +56,7 @@ Hooks merge into `crush.json` under `hooks`, beside `mcp`.
 - Sync reads any case or snake_case spelling (`PreToolUse`, `pretooluse`, `pre_tool_use`, `PRE_TOOL_USE`, ...) and writes `PreToolUse`.
 - Each hook is one flat array item (`{"name": ..., "matcher": ..., "command": ..., "timeout": ...}`), not the Claude-style `{"matcher": ..., "hooks": [...]}` group. `command` is required. `timeout` is in seconds, default 30.
 - Tool names are lowercase (`bash`, `edit`, `write`, `mcp_<server>_<tool>`, e.g. `^bash$`). A Claude-style matcher (`Bash`, `Edit`) matches nothing, so `sync` prints a field no-op note.
+- [`agnostic-ai hook run`](@/docs/spec-format/hooks.md#hook-run) runs them in Crush's embedded shell, with its payload and timeout, before a session does.
 
 ## Config keys
 

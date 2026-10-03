@@ -90,6 +90,9 @@ type Result struct {
 	Elapsed  time.Duration
 	TimedOut bool
 	StartErr error
+	// FromPath names the commands a Crush hook ran from PATH that Crush
+	// runs as its own Go programs.
+	FromPath []string
 }
 
 // Run starts argv in dir with env and stdin, and kills it, with any
@@ -178,6 +181,8 @@ func AddsContext(target, event string, r Result) bool {
 		return geminiAddsContext(r)
 	case "goose", "augment":
 		return false
+	case "crush":
+		return crushAddsContext(r)
 	case "cursor":
 		var reply struct {
 			AdditionalContext string `json:"additional_context"`
