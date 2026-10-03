@@ -85,7 +85,7 @@ func (t EnvRefToken) Display() string {
 // EnvRefTokens returns every `${...}` in value, in order.
 func EnvRefTokens(value string) []EnvRefToken {
 	var tokens []EnvRefToken
-	for _, m := range envRefTokenPattern.FindAllStringSubmatch(value, -1) {
+	for _, m := range envRefTokenPattern.FindAllStringSubmatch(maskEscapes(value), -1) {
 		t := EnvRefToken{Text: m[0]}
 		if p := envRefPlainPattern.FindStringSubmatch(m[1]); p != nil {
 			t.Name = p[1]
@@ -109,7 +109,7 @@ func WholeEnvRef(value string) (string, bool) {
 
 // HasEnvRef reports whether value holds any `${...}`.
 func HasEnvRef(value string) bool {
-	return envRefTokenPattern.MatchString(value)
+	return envRefTokenPattern.MatchString(maskEscapes(value))
 }
 
 // OnlyEnvRefs reports whether value is `${NAME}` or `${NAME:-default}`
@@ -127,7 +127,7 @@ func OnlyEnvRefs(value string) bool {
 			return false
 		}
 	}
-	rest := envRefTokenPattern.ReplaceAllString(strings.TrimPrefix(value, "Bearer "), "")
+	rest := envRefTokenPattern.ReplaceAllString(maskEscapes(strings.TrimPrefix(value, "Bearer ")), "")
 	return strings.TrimSpace(rest) == ""
 }
 
@@ -135,7 +135,7 @@ func OnlyEnvRefs(value string) bool {
 // default into `${NAME}`, and returns the names it changed.
 func StripEnvRefDefaults(value string) (string, []string) {
 	var names []string
-	out := envRefTokenPattern.ReplaceAllStringFunc(value, func(text string) string {
+	out := envRefTokenPattern.ReplaceAllStringFunc(maskEscapes(value), func(text string) string {
 		t := EnvRefTokens(text)[0]
 		if !t.HasDefault || t.Default == "" {
 			return text
@@ -143,12 +143,62 @@ func StripEnvRefDefaults(value string) (string, []string) {
 		names = append(names, t.Name)
 		return EnvRef(t.Name)
 	})
-	return out, names
+	return unmaskEscapes(out), names
 }
 
 // EnvRef renders a spec-form reference to name.
 func EnvRef(name string) string {
 	return "${" + name + "}"
+}
+
+// envRefEscape is how a spec writes a literal `${`: `$${NAME}` reaches
+// every tool as the text `${NAME}`, never as a reference. Compose and
+// Terraform escape the same way.
+const envRefEscape = "$${"
+
+// escapeMask stands in for an escape while a value is tokenized, so no
+// pattern reads the `${` inside it.
+const escapeMask = "\x00{"
+
+var escapedPlaceholderPattern = regexp.MustCompile(`\$\$\{[^}]*\}`)
+
+func maskEscapes(value string) string {
+	return strings.ReplaceAll(value, envRefEscape, escapeMask)
+}
+
+func unmaskEscapes(value string) string {
+	return strings.ReplaceAll(value, escapeMask, envRefEscape)
+}
+
+// DecodeEnvRefEscapes turns each `$${` into the literal `${` a tool
+// receives. Any other `$$` stays as written.
+func DecodeEnvRefEscapes(value string) string {
+	return strings.ReplaceAll(value, envRefEscape, "${")
+}
+
+// EscapeEnvRefs writes each `${NAME}` and `${NAME:-default}` in value as
+// `$${...}`, for import from a field the tool never expands. Editor
+// variables such as `${workspaceFolder}` and other tokens stay as
+// written.
+func EscapeEnvRefs(value string) string {
+	out := envRefTokenPattern.ReplaceAllStringFunc(maskEscapes(value), func(text string) string {
+		t := EnvRefTokens(text)[0]
+		if !t.Known() || t.EditorVariable() {
+			return text
+		}
+		return "$" + text
+	})
+	return unmaskEscapes(out)
+}
+
+// OnlyEscapedEnvRefs reports whether value is escaped placeholders and
+// nothing else, ignoring whitespace and a leading `Bearer `.
+func OnlyEscapedEnvRefs(value string) bool {
+	value = strings.TrimPrefix(value, "Bearer ")
+	if !strings.Contains(value, envRefEscape) {
+		return false
+	}
+	return strings.TrimSpace(escapedPlaceholderPattern.ReplaceAllString(value, "")) == ""
 }
 
 // Write turns each `${NAME}` in value into this syntax. Other tokens are
@@ -164,7 +214,7 @@ func (s EnvRefSyntax) WriteLaunch(value string) string {
 }
 
 func (s EnvRefSyntax) write(value string, keepEditorVariables bool) string {
-	return envRefTokenPattern.ReplaceAllStringFunc(value, func(text string) string {
+	return unmaskEscapes(envRefTokenPattern.ReplaceAllStringFunc(maskEscapes(value), func(text string) string {
 		t := EnvRefTokens(text)[0]
 		if !t.Known() || t.HasDefault || (keepEditorVariables && t.EditorVariable()) {
 			return text
@@ -178,7 +228,7 @@ func (s EnvRefSyntax) write(value string, keepEditorVariables bool) string {
 			return "${{ secrets." + t.Name + " }}"
 		}
 		return text
-	})
+	}))
 }
 
 // EnvRefReading lists the extra forms a tool expands besides its own
@@ -207,6 +257,7 @@ func (s EnvRefSyntax) ReadLaunch(value string, r EnvRefReading) string {
 }
 
 func (s EnvRefSyntax) read(value string, r EnvRefReading, keepEditorNames bool) string {
+	value = maskEscapes(value)
 	replace := func(p *regexp.Regexp, value string) string {
 		return p.ReplaceAllStringFunc(value, func(text string) string {
 			m := p.FindStringSubmatch(text)
@@ -234,7 +285,7 @@ func (s EnvRefSyntax) read(value string, r EnvRefReading, keepEditorNames bool) 
 	if r.Percent {
 		value = replace(envRefPercentPattern, value)
 	}
-	return value
+	return unmaskEscapes(value)
 }
 
 // LaunchRefs returns each reference in this syntax that ReadLaunch reads

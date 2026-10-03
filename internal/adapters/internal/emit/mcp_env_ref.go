@@ -79,6 +79,32 @@ func ReadMCPEnvRefs(target string, server map[string]any) {
 	}
 }
 
+// EscapeMCPLiterals writes each `${NAME}` in a native server field
+// target never expands as the spec's `$${NAME}` escape, so the text
+// comes back unchanged instead of turning into a reference. Call it on
+// the server as the target wrote it, before ReadMCPEnvRefs or any step
+// that turns the target's own form into `${NAME}`.
+func EscapeMCPLiterals(target string, server map[string]any) {
+	forms := mcpEnvRefTargets[target]
+	syntax := map[string]spec.EnvRefSyntax{"env": forms.env, "headers": forms.headers, "requestOptions.headers": forms.headers}
+	for _, name := range mcpRefFields {
+		if syntax[name] == spec.EnvRefDollar {
+			continue
+		}
+		values := (mcpEnvRefField{name: name}).values(server)
+		for key, v := range values {
+			if s, ok := v.(string); ok {
+				values[key] = spec.EscapeEnvRefs(s)
+			}
+		}
+	}
+	for _, field := range mcpLaunchFields {
+		if v, ok := server[field]; ok && forms.launchSyntax(field) != spec.EnvRefDollar {
+			server[field] = mapLaunchValue(v, spec.EscapeEnvRefs)
+		}
+	}
+}
+
 type mcpEnvRefField struct {
 	name   string
 	syntax spec.EnvRefSyntax
@@ -126,7 +152,7 @@ func RewriteMCPEnvRefs(target string, view MCPLaunchView, mcps []spec.Entry) []s
 	for _, e := range mcps {
 		if field, token, why, ok := unwritableLaunchRef(target, view, e.Meta); ok {
 			NoteFieldNoOp(target, spec.KindMCP, field, 1,
-				fmt.Sprintf("server %s reads %s in `%s`: %s, so sync leaves the server out instead of writing the reference as text", e.Name, token.Display(), field, why))
+				fmt.Sprintf("server %s reads %s in `%s`: %s, so sync leaves the server out instead of writing the reference as text. Write %s to pass the text through", e.Name, token.Display(), field, why, escapedDisplay(token)))
 			NoteEntryOmitted(target, spec.KindMCP, e.Name)
 			continue
 		}
@@ -140,6 +166,7 @@ func RewriteMCPEnvRefs(target string, view MCPLaunchView, mcps []spec.Entry) []s
 		if hasLaunchRef(e.Meta) || hasLaunchRef(xBlock(e.Meta, target)) {
 			e.Meta = rewriteLaunchRefs(target, e.Meta)
 		}
+		e.Meta = decodeMCPEscapes(target, e.Meta)
 		out = append(out, e)
 	}
 	return out
@@ -330,13 +357,72 @@ func rewriteLaunchRefs(target string, meta map[string]any) map[string]any {
 	return out
 }
 
+// mcpRefFields are the MCP fields a spec reference or escape can sit in.
+var mcpRefFields = []string{"env", "headers", "requestOptions.headers"}
+
+// decodeMCPEscapes returns meta with each `$${` in a reference field
+// written as the literal `${`, top level and under `x-<target>`. Sync
+// never writes `$$`: Gemini reads `$${X}` as `$` plus the value of X.
+func decodeMCPEscapes(target string, meta map[string]any) map[string]any {
+	decode := func(block map[string]any) map[string]any {
+		out := maps.Clone(block)
+		for _, name := range mcpRefFields {
+			f := mcpEnvRefField{name: name}
+			values := f.values(block)
+			if values == nil {
+				continue
+			}
+			decoded := make(map[string]any, len(values))
+			for key, v := range values {
+				if s, ok := v.(string); ok {
+					v = spec.DecodeEnvRefEscapes(s)
+				}
+				decoded[key] = v
+			}
+			f.setValues(out, decoded)
+		}
+		for _, field := range mcpLaunchFields {
+			if v, ok := block[field]; ok {
+				out[field] = mapLaunchValue(v, spec.DecodeEnvRefEscapes)
+			}
+		}
+		return out
+	}
+	if !hasMCPEscape(meta) && !hasMCPEscape(xBlock(meta, target)) {
+		return meta
+	}
+	out := decode(meta)
+	if x := xBlock(meta, target); x != nil {
+		out[XPrefix+target] = decode(x)
+	}
+	return out
+}
+
+func hasMCPEscape(block map[string]any) bool {
+	for _, name := range mcpRefFields {
+		for _, v := range (mcpEnvRefField{name: name}).values(block) {
+			if s, ok := v.(string); ok && strings.Contains(s, "$${") {
+				return true
+			}
+		}
+	}
+	for _, field := range mcpLaunchFields {
+		for _, s := range launchStrings(block[field]) {
+			if strings.Contains(s, "$${") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func xBlock(meta map[string]any, target string) map[string]any {
 	x, _ := meta[XPrefix+target].(map[string]any)
 	return x
 }
 
 func hasMCPEnvRef(block map[string]any) bool {
-	for _, name := range []string{"env", "headers", "requestOptions.headers"} {
+	for _, name := range mcpRefFields {
 		values := (mcpEnvRefField{name: name}).values(block)
 		for _, v := range values {
 			if s, ok := v.(string); ok && spec.HasEnvRef(s) {
@@ -497,6 +583,15 @@ func setOrDelete(block map[string]any, key string, values map[string]any) {
 }
 
 func noteMCPEnvRefDropped(target, server, field, key string, token spec.EnvRefToken, why string) {
+	hint := ""
+	if token.Known() {
+		hint = ". Write " + escapedDisplay(token) + " to pass the text through"
+	}
 	NoteFieldNoOp(target, spec.KindMCP, field+"."+key, 1,
-		fmt.Sprintf("server %s reads %s: %s, so sync leaves the key out instead of writing the reference as text", server, token.Display(), why))
+		fmt.Sprintf("server %s reads %s: %s, so sync leaves the key out instead of writing the reference as text%s", server, token.Display(), why, hint))
+}
+
+// escapedDisplay spells the escape for a reference, without its default.
+func escapedDisplay(token spec.EnvRefToken) string {
+	return "$" + token.Display()
 }

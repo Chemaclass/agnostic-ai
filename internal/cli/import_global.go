@@ -358,6 +358,7 @@ func normalizeImportedMCP(target string, servers map[string]any) {
 		if !ok {
 			continue
 		}
+		adapters.EscapeMCPLiterals(target, server)
 		adapters.ReadMCPEnvRefs(target, server)
 		if target == "copilot" {
 			if server["type"] == "local" || server["type"] == "stdio" {

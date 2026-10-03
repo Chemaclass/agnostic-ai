@@ -50,6 +50,13 @@ func userMCPs(a Adapter, mcps []spec.Entry) []spec.Entry {
 	return rewriteMCPRefs(a, (spec.Bundle{MCPs: mcps}).For(a.Name()).MCPs)
 }
 
+// EscapeMCPLiterals writes each `${NAME}` in a native server field
+// target never expands as the spec's `$${NAME}` escape. Call it before
+// ReadMCPEnvRefs.
+func EscapeMCPLiterals(target string, server map[string]any) {
+	emit.EscapeMCPLiterals(target, server)
+}
+
 // ReadMCPEnvRefs rewrites target's own environment reference form in a
 // native MCP server's `env`, `headers`, `url`, and `args` values back to
 // the spec's `${NAME}`, in place.
