@@ -105,7 +105,7 @@ targets: [claude, codex]
 event: PreToolUse
 matcher: Bash
 command: '"$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/no-force-push.sh"'
-commandWindows: '$LASTEXITCODE = 1; sh "$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/no-force-push.sh"; exit $LASTEXITCODE'
+commandWindows: '$s = "$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/no-force-push.sh"; if (-not (Get-Command sh -ErrorAction SilentlyContinue)) { exit 1 }; sh $s; exit $LASTEXITCODE'
 timeout: 10
 ```
 
@@ -117,7 +117,7 @@ On Windows, Codex runs `commandWindows` with `powershell.exe -Command`:
 
 - PowerShell ignores the script's `#!/bin/sh` line, so the command names `sh`. That needs `sh` on `PATH`, as Git for Windows provides.
 - PowerShell reports a failed native command as exit 1, which Codex reads as a hook error and lets the push run. `exit $LASTEXITCODE` passes on the script's exit 2.
-- `$LASTEXITCODE = 1` makes a missing `sh` fail the hook, which Codex reports, instead of passing.
+- The Git root lookup runs first and resets `$LASTEXITCODE`, so the command checks for `sh` with `Get-Command` and exits 1 when it is missing. Codex reports that as a failed hook instead of passing it.
 
 Claude Code runs hooks with Git Bash on Windows and needs no `commandWindows`.
 
