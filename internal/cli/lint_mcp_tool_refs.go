@@ -16,12 +16,18 @@ var toolRefSyntaxes = []spec.EnvRefSyntax{spec.EnvRefDollarEnv, spec.EnvRefBrace
 
 // lintMCPToolRefs flags a tool's own reference form at the top level of
 // the MCP `url` or `args` that sync writes for the server's transport,
-// when an enabled target reads it as text. Older imports wrote these. An
+// when an enabled target that writes MCP servers reads it as text. Older imports wrote these. An
 // `x-<target>` block is that tool's own text and is not checked.
-func lintMCPToolRefs(targets []string, mcps []spec.Entry) []lintFinding {
+func lintMCPToolRefs(enabled []string, support kindSupport, mcps []spec.Entry) []lintFinding {
+	var targets []string
+	for _, t := range enabled {
+		if _, ok := support[spec.KindMCP][t]; ok {
+			targets = append(targets, t)
+		}
+	}
 	var out []lintFinding
 	for _, e := range mcps {
-		field := mcpLaunchField(e.Meta)
+		field := adapters.MCPLaunchField(e.Meta)
 		var refs, portable, literal []string
 		for _, value := range mcpLaunchStrings(e.Meta[field]) {
 			for _, syntax := range toolRefSyntaxes {
@@ -59,20 +65,6 @@ func lintMCPToolRefs(targets []string, mcps []spec.Entry) []lintFinding {
 		})
 	}
 	return out
-}
-
-// mcpLaunchField is the field sync writes for the server's transport:
-// `args` for stdio, `url` for a remote server.
-func mcpLaunchField(meta map[string]any) string {
-	switch transport, _ := meta["type"].(string); transport {
-	case "stdio", "local":
-		return "args"
-	case "":
-		if _, hasCommand := meta["command"]; hasCommand || meta["url"] == nil {
-			return "args"
-		}
-	}
-	return "url"
 }
 
 // mcpLaunchStrings returns a url, or each string argument.

@@ -274,6 +274,10 @@ func PrintAcceptedNotes(accepted []AcceptedNote) { emit.PrintAcceptedNotes(accep
 // buffered coverage notes that name a target.
 func PendingTargetCoverageNotesCount() int { return emit.PendingTargetCoverageNotesCount() }
 
+// MCPLaunchField is the MCP launch field sync writes for the server's
+// transport: `args` for stdio, `url` for a remote server.
+func MCPLaunchField(meta map[string]any) string { return emit.MCPLaunchField(meta) }
+
 // MCPLaunchRefSyntax returns the reference form target expands in an
 // MCP `url` or `args` value, EnvRefNone when it documents none.
 func MCPLaunchRefSyntax(target, field string) spec.EnvRefSyntax {

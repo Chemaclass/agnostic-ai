@@ -145,6 +145,22 @@ func RewriteMCPEnvRefs(target string, view MCPLaunchView, mcps []spec.Entry) []s
 	return out
 }
 
+// MCPLaunchField is the launch field a writer emits for the server's
+// transport: `args` for stdio, `url` for a remote server. Writers spell
+// remote transports many ways (http, sse, streamable-http, ...), so
+// anything not stdio counts as remote.
+func MCPLaunchField(meta map[string]any) string {
+	switch transport, _ := meta["type"].(string); transport {
+	case "stdio", "local":
+		return "args"
+	case "":
+		if _, hasCommand := meta["command"]; hasCommand || meta["url"] == nil {
+			return "args"
+		}
+	}
+	return "url"
+}
+
 // MCPLaunchRefSyntax returns the reference form target expands in an
 // MCP `url` or `args` value, EnvRefNone when it documents none.
 func MCPLaunchRefSyntax(target, field string) spec.EnvRefSyntax {
@@ -265,18 +281,7 @@ func (v MCPLaunchView) emittedLaunchValues(target string, meta map[string]any) m
 	if v.Resolved {
 		base = ResolveMeta(meta, target)
 	}
-	// Writers spell remote transports many ways (http, sse,
-	// streamable-http, ...), so anything not stdio counts as remote.
-	field := "args"
-	switch transport, _ := base["type"].(string); transport {
-	case "stdio", "local":
-	case "":
-		if _, hasCommand := base["command"]; !hasCommand && base["url"] != nil {
-			field = "url"
-		}
-	default:
-		field = "url"
-	}
+	field := MCPLaunchField(base)
 	out := map[string][]string{field: launchStrings(base[field])}
 	if !v.Resolved {
 		x := xBlock(meta, target)

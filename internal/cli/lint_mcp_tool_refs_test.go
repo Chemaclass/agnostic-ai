@@ -13,7 +13,7 @@ func TestLintMCPToolRefs_FlagsToolFormsInURLAndArgs(t *testing.T) {
 		{Kind: spec.KindMCP, Name: "local", Path: "mcps/local.yaml", Meta: map[string]any{"command": "npx", "args": []any{"-y", "server", "--token", "{env:GH_TOKEN}"}}},
 		{Kind: spec.KindMCP, Name: "secret", Path: "mcps/secret.yaml", Meta: map[string]any{"command": "npx", "args": []any{"${{ secrets.TOKEN }}"}}},
 	}
-	findings := lintMCPToolRefs([]string{"claude", "cursor"}, mcps)
+	findings := lintMCPToolRefs([]string{"claude", "cursor"}, targetsSupportingKind, mcps)
 	if len(findings) != 3 {
 		t.Fatalf("findings = %+v, want 3", findings)
 	}
@@ -38,7 +38,7 @@ func TestLintMCPToolRefs_FlagsToolFormsInURLAndArgs(t *testing.T) {
 
 func TestLintMCPToolRefs_ReportsEveryArgumentInOneFinding(t *testing.T) {
 	mcps := []spec.Entry{{Kind: spec.KindMCP, Name: "local", Path: "mcps/local.yaml", Meta: map[string]any{"command": "srv", "args": []any{"--a", "${env:A}", "--b", "${env:B}"}}}}
-	findings := lintMCPToolRefs([]string{"claude", "cursor"}, mcps)
+	findings := lintMCPToolRefs([]string{"claude", "cursor"}, targetsSupportingKind, mcps)
 	if len(findings) != 1 || !strings.Contains(findings[0].Message, "${env:A}, ${env:B}") || !strings.Contains(findings[0].Message, "${A}, ${B}") {
 		t.Errorf("findings = %+v, want one naming both references", findings)
 	}
@@ -53,7 +53,7 @@ func TestLintMCPToolRefs_LeavesSpecRefsOverridesAndToolVariablesAlone(t *testing
 		{Kind: spec.KindMCP, Name: "editor", Path: "mcps/editor.yaml", Meta: map[string]any{"command": "srv", "args": []any{"${workspaceFolder}", "${env:workspaceFolder}", "${input:token}"}}},
 		{Kind: spec.KindMCP, Name: "env", Path: "mcps/env.yaml", Meta: map[string]any{"command": "srv", "env": map[string]any{"TOKEN": "${env:TOKEN}"}}},
 	}
-	if findings := lintMCPToolRefs([]string{"claude", "cursor"}, mcps); len(findings) != 0 {
+	if findings := lintMCPToolRefs([]string{"claude", "cursor"}, targetsSupportingKind, mcps); len(findings) != 0 {
 		t.Errorf("findings = %+v, want none", findings)
 	}
 }
@@ -63,10 +63,10 @@ func TestLintMCPToolRefs_SkipsFormEveryEnabledTargetReadsAndFieldSyncDoesNotWrit
 		{Kind: spec.KindMCP, Name: "remote", Path: "mcps/remote.yaml", Meta: map[string]any{"type": "http", "url": "https://x/${env:API_KEY}"}},
 		{Kind: spec.KindMCP, Name: "stray", Path: "mcps/stray.yaml", Meta: map[string]any{"command": "srv", "url": "https://x/${env:API_KEY}"}},
 	}
-	if findings := lintMCPToolRefs([]string{"cursor", "windsurf"}, mcps); len(findings) != 0 {
+	if findings := lintMCPToolRefs([]string{"cursor", "windsurf"}, targetsSupportingKind, mcps); len(findings) != 0 {
 		t.Errorf("every enabled target reads ${env:NAME}, and a stdio server's url is never written: %+v", findings)
 	}
-	findings := lintMCPToolRefs([]string{"cursor", "claude"}, mcps[:1])
+	findings := lintMCPToolRefs([]string{"cursor", "claude", "aider"}, targetsSupportingKind, mcps[:1])
 	if len(findings) != 1 || !strings.Contains(findings[0].Message, "as text to claude.") || strings.Contains(findings[0].Message, "cursor") {
 		t.Errorf("findings = %+v, want one naming claude only", findings)
 	}
