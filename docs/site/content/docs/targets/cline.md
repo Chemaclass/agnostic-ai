@@ -43,13 +43,16 @@ Older releases wrote `<name>.md` with no frontmatter, which Cline skipped. Sync 
 
 ### Hooks
 
-Cline finds a hook script by file name only. Its source lists ten names (`TaskStart`, `TaskResume`, `TaskCancel`, `TaskComplete`, `TaskError`, `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `PreCompact`, `SessionShutdown`), filters by extension, scans `<workspace>/.clinerules/hooks` and `<workspace>/.cline/hooks`, and runs each file as a subprocess.
+Cline finds a hook script by file name only. Its SDK hook runtime, which the Cline CLI runs, lists ten names (`TaskStart`, `TaskResume`, `TaskCancel`, `TaskComplete`, `TaskError`, `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `PreCompact`, `SessionShutdown`), filters by extension, scans `<workspace>/.clinerules/hooks` and `<workspace>/.cline/hooks`, and runs each file as a subprocess.
 
 Cline's source confirms this, but its docs barely do. The [hooks page](https://docs.cline.bot/customization/hooks) is a stub pointing at SDK Plugins (a TypeScript API). Only the [config reference](https://docs.cline.bot/getting-started/config) lists `.cline/hooks/` as lifecycle hooks.
 
 - Scripts have no shebang, because the provenance comment must be the first line for sync to manage the file, and Cline runs `.sh` under `bash` anyway.
 - **`matcher` and `timeout` are inert**, each with a note. A hook runs on every occurrence of its event and must filter itself. Cline uses its own timeout.
 - Two specs on one event share one script, in spec order, under `set -e`, and share stdout. Cline reads stdout as control JSON (the last `HOOK_CONTROL<TAB><json>` line wins), so send anything else to stderr.
+- **Cline ignores the exit code.** Only stdout `{"cancel": true}` blocks, so a hook that blocks with `exit 2`, as on Claude Code, lets the tool run on Cline ([source](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/sdk/packages/core/src/hooks/hook-file-hooks.ts#L415-L454)).
+- **The VS Code extension does not run these scripts.** It turns the SDK hook runtime off ([source](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/sdk/vscode-session-host.ts#L171-L178)) and runs executables under `.clinerules/hooks/` named after the event with no extension, such as `.clinerules/hooks/PreToolUse` ([source](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/core/hooks/hook-factory.ts#L1022-L1033)), or `PreToolUse.ps1` on Windows ([source](https://github.com/cline/cline/blob/39ff2359f7e08231281539696e48a166ce49270c/apps/vscode/src/core/hooks/hook-factory.ts#L988-L997)).
+- [`agnostic-ai hook run`](@/docs/spec-format/hooks.md#hook-run) runs a hook's script with bash, Cline's payload, and its 120 second timeout, before a session does.
 - `PreCompact` has no runtime event yet. Its script is written and reported but never runs.
 - Any other event gets a coverage note instead of a file.
 
@@ -94,5 +97,5 @@ Advisory. This target takes no settings specs, so sync reports a spec with a `pr
    - Each `.cline/agents/<name>.yml` appears where Cline lists project agents (`cline config`, Agent Teams via `--team-name`, the hub's agent list).
    - Each `.cline/skills/<name>/` loads as a skill.
    - A file matching a `paths` rule triggers the "Conditional rules applied: workspace:&lt;name&gt;.md" notification. An unrelated file does not.
-4. Hooks: `ls .cline/hooks/` shows one `<Event>.sh` per event. Triggering it (edit a file for `PostToolUse`, start a task for `TaskStart`) runs the script.
+4. Hooks: `ls .cline/hooks/` shows one `<Event>.sh` per event. In the Cline CLI, triggering it (edit a file for `PostToolUse`, start a task for `TaskStart`) runs the script. The VS Code extension does not run it.
 5. With workflows on, each `/<name>.md` runs in the extension and the CLI, with the italic description as the preview.

@@ -10,7 +10,7 @@ import (
 
 // otherDefaultTimeouts are the documented defaults: Trae 30 seconds,
 // OpenHands 60, Goose 30, Augment 60000 milliseconds, Factory 60, Qoder
-// CLI 600, Antigravity 30.
+// CLI 600, Antigravity 30, and Cline 120 from its source.
 var otherDefaultTimeouts = map[string]time.Duration{
 	"trae":        30 * time.Second,
 	"openhands":   60 * time.Second,
@@ -21,6 +21,7 @@ var otherDefaultTimeouts = map[string]time.Duration{
 	"copilot":     copilotDefaultTimeout,
 	"qoder":       qoderDefaultTimeout,
 	"antigravity": antigravityDefaultTimeout,
+	"cline":       clineTimeout,
 }
 
 // otherArgv is how each target starts a command: Trae in Bash, or
@@ -52,6 +53,9 @@ func otherArgv(target, goos string, h Handler) ([]string, bool) {
 		return []string{"sh", "-c", h.Command}, true
 	case "qoder":
 		return qoderArgv(h), true
+	case "cline":
+		// bash -c with $0 as the script path runs it as `bash <file>` does, minus BASH_SOURCE, and needs no temp file.
+		return []string{"bash", "-c", h.Script, h.Command}, true
 	case "augment":
 		switch ext := strings.ToLower(filepath.Ext(h.Command)); {
 		case goos == "windows" && ext == ".ps1":
@@ -86,6 +90,8 @@ func DecideHandler(target, event string, h Handler, r Result) Decision {
 		return decideQoder(event, r)
 	case "antigravity":
 		return readAntigravity(event, r).decision
+	case "cline":
+		return readCline(event, r).decision
 	}
 	return Decide(target, event, r)
 }

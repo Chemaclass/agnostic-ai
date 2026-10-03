@@ -265,6 +265,9 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 		if hookrun.FireAndForget(target, event) {
 			run.Async, run.fireAndForget = true, true
 		}
+		if target == "cline" {
+			run.Notes = append(run.Notes, hookrun.ClineRunNotes(event, matcher, specTimeout(hook.Meta), payload.Trigger)...)
+		}
 		var crushResults []hookrun.Result
 		if target == "crush" {
 			handlers = hookrun.CrushDedupe(handlers)
@@ -316,6 +319,9 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 					run.uncounted = reason
 					run.Notes = append(run.Notes, "not counted: "+reason)
 				}
+			}
+			if target == "cline" {
+				run.Notes = append(run.Notes, hookrun.ClineNotes(event, r)...)
 			}
 			if target == "qoder" && hookrun.QoderAsks(event, r) {
 				run.Notes = append(run.Notes, "replied ask: Qoder asks the user before the tool runs; read as block")
@@ -374,7 +380,7 @@ func shownHookCommand(h hookrun.Handler) string {
 // hookFileWarnings names each handler the synced native file of target
 // does not run, so a run that passes cannot hide a stale file.
 func hookFileWarnings(cfg *config.Config, target, event, matcher, root string, handlers []hookrun.Handler) []string {
-	file := adapters.HookFile(cfg, target)
+	file := adapters.HookFile(cfg, target, event)
 	path := file
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(root, path)
@@ -698,6 +704,16 @@ func metaTrue(v any) bool {
 }
 
 func hookTimeout(target string, meta map[string]any) time.Duration {
+	// Sync drops the spec's timeout on Cline, which uses its own.
+	if timeout := specTimeout(meta); timeout > 0 && target != "cline" {
+		return timeout
+	}
+	event, _ := meta["event"].(string)
+	return hookrun.DefaultTimeout(target, event)
+}
+
+// specTimeout is the spec's own timeout, zero when it sets none.
+func specTimeout(meta map[string]any) time.Duration {
 	var seconds int
 	switch v := meta["timeout"].(type) {
 	case int:
@@ -707,11 +723,7 @@ func hookTimeout(target string, meta map[string]any) time.Duration {
 	case float64:
 		seconds = int(v)
 	}
-	if seconds <= 0 {
-		event, _ := meta["event"].(string)
-		return hookrun.DefaultTimeout(target, event)
-	}
-	return time.Duration(seconds) * time.Second
+	return time.Duration(max(seconds, 0)) * time.Second
 }
 
 // judgeHookRuns fails when no target ran the hook, on a command that

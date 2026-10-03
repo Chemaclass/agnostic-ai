@@ -2,11 +2,13 @@ package adapters
 
 import (
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/antigravity"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/augment"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/cline"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/copilot"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/crush"
@@ -82,6 +84,15 @@ func HookHandlers(cfg *config.Config, target string, h spec.Entry) ([]hookrun.Ha
 			return nil, fmt.Errorf("parse %s: %w", h.Path, err)
 		}
 		return handlers, nil
+	case "cline":
+		// The script sync would write for h alone; the synced one joins
+		// every spec on the event.
+		event, _ := h.Meta["event"].(string)
+		path, script := cline.HookScriptPath(cfg, event), cline.HookScript(h)
+		if path == "" || script == "" {
+			return nil, nil
+		}
+		return []hookrun.Handler{{Command: filepath.ToSlash(path), Script: script}}, nil
 	default:
 		doc, err := hookDoc(cfg, target, h)
 		if err != nil {
@@ -114,9 +125,9 @@ func hookDoc(cfg *config.Config, target string, h spec.Entry) ([]byte, error) {
 	return nil, nil
 }
 
-// HookFile is the native file sync writes target's hooks to, for the
-// targets hookrun builds payloads for.
-func HookFile(cfg *config.Config, target string) string {
+// HookFile is the native file sync writes target's hooks on event to,
+// for the targets hookrun builds payloads for.
+func HookFile(cfg *config.Config, target, event string) string {
 	switch target {
 	case "claude":
 		return claude.SettingsFilePath(cfg)
@@ -144,13 +155,19 @@ func HookFile(cfg *config.Config, target string) string {
 		return qoder.SettingsFilePath(cfg)
 	case "antigravity":
 		return antigravity.HooksFilePath(cfg)
+	case "cline":
+		return cline.HookScriptPath(cfg, event)
 	}
 	return ""
 }
 
 // HookNativeMatcher is the matcher sync writes for a spec's matcher on
-// event: Augment and Antigravity drop it on the events that take none.
+// event: Augment and Antigravity drop it on the events that take none,
+// and Cline, whose event scripts have no matcher, on every event.
 func HookNativeMatcher(target, event, matcher string) string {
+	if target == "cline" {
+		return ""
+	}
 	if target == "augment" && augment.SessionOnlyEvent(event) {
 		return ""
 	}

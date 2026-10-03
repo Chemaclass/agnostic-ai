@@ -6,6 +6,12 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### By tool
+
+#### Cline
+
+- `hook run` runs Cline hook scripts with bash as the Cline CLI does; only stdout `{"cancel": true}` blocks, and the exit code is ignored (#1678).
+
 ## v0.78.0 - 2026-10-03
 
 ### General

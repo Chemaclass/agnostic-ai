@@ -55,6 +55,8 @@ type Handler struct {
 	If string
 	// FailClosed is Goose's `on_failure: block`: a failed run blocks.
 	FailClosed bool
+	// Script is the body of Cline's event script; Command is its path.
+	Script string
 }
 
 // Argv returns the process target starts for h on goos. Claude Code runs
@@ -191,6 +193,8 @@ func AddsContext(target, event string, r Result) bool {
 		return copilotAddsContext(event, r)
 	case "antigravity":
 		return antigravityAddsContext(event, r)
+	case "cline":
+		return readCline(event, r).context
 	case "cursor":
 		var reply struct {
 			AdditionalContext string `json:"additional_context"`
