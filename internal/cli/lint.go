@@ -45,7 +45,7 @@ func (f lintFinding) String() string {
 }
 
 func newLintCmd() *cobra.Command {
-	var strict, global bool
+	var strict, global, asJSON bool
 	cmd := &cobra.Command{
 		Use:   "lint",
 		Short: "Run semantic lint checks on source specs beyond schema validation.",
@@ -64,7 +64,8 @@ func newLintCmd() *cobra.Command {
 			"budget, the AGENTS.md chain Codex reads in a scope passes lint.codex-chain-bytes, " +
 			"or a skill or agent description passes lint.description-chars. " +
 			"With --global, it " +
-			"also flags rules sync --global rejects and settings values a target cannot take. Exit code 1 on " +
+			"also flags rules sync --global rejects and settings values a target cannot take. --json prints " +
+			"the findings as JSON on stdout with the same exit status. Exit code 1 on " +
 			"error-severity findings, or on warn-severity findings when --strict " +
 			"is set.",
 		Example: `  # Lint all specs
@@ -74,7 +75,10 @@ func newLintCmd() *cobra.Command {
   agnostic-ai lint --strict
 
   # Lint the global specs before sync --global writes them
-  agnostic-ai lint --global`,
+  agnostic-ai lint --global
+
+  # List finding codes in a script
+  agnostic-ai lint --json | jq -r '.findings[].code'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			scope, err := loadCheckScope(global)
 			if err != nil {
@@ -87,8 +91,14 @@ func newLintCmd() *cobra.Command {
 			entries := scope.bundle.All()
 			// A home or project with only AGNOSTIC_AI.md still loads it
 			// every session, so its budget findings count without specs.
-			if len(entries) == 0 && len(findings) == 0 {
+			empty := len(entries) == 0 && len(findings) == 0
+			if empty {
 				cmd.PrintErrln(scope.emptyHint())
+			}
+			if asJSON {
+				return printLintJSON(cmd, findings, strict)
+			}
+			if empty {
 				return nil
 			}
 
@@ -97,30 +107,45 @@ func newLintCmd() *cobra.Command {
 				return nil
 			}
 
-			hasError := false
-			hasWarn := false
 			for _, f := range findings {
 				cmd.Printf("%s\n", f)
-				switch f.Severity {
-				case lintError:
-					hasError = true
-				case lintWarn:
-					hasWarn = true
-				}
 			}
 			cmd.Printf("\n%d finding(s): %d error(s), %d warning(s)\n",
 				len(findings), countSeverity(findings, lintError), countSeverity(findings, lintWarn))
 			cmd.Printf("Run `agnostic-ai explain %s` for a code's cause and fix.\n", findings[0].Code)
-
-			if hasError || (strict && hasWarn) {
-				return fmt.Errorf("lint failed")
-			}
-			return nil
+			return lintExitErr(findings, strict)
 		},
 	}
 	cmd.Flags().BoolVar(&strict, "strict", false, "Treat warnings as errors.")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "Print findings as JSON on stdout.")
 	cmd.Flags().BoolVar(&global, "global", false, "Lint the global specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, against the targets sync --global writes.")
 	return cmd
+}
+
+// lintJSONOutput is the --json schema of `lint`. Findings share their
+// shape with the lint list of `doctor --json`.
+type lintJSONOutput struct {
+	Version  string        `json:"version"`
+	Command  string        `json:"command"`
+	Findings []lintFinding `json:"findings"`
+}
+
+func printLintJSON(cmd *cobra.Command, findings []lintFinding, strict bool) error {
+	if findings == nil {
+		findings = []lintFinding{}
+	}
+	if err := writeIndentedJSON(cmd, lintJSONOutput{Version: "1", Command: "lint", Findings: findings}); err != nil {
+		return err
+	}
+	return lintExitErr(findings, strict)
+}
+
+// lintExitErr fails on any error finding, and on a warning with strict.
+func lintExitErr(findings []lintFinding, strict bool) error {
+	if countSeverity(findings, lintError) > 0 || (strict && countSeverity(findings, lintWarn) > 0) {
+		return fmt.Errorf("lint failed")
+	}
+	return nil
 }
 
 // lintScopeFindings is every finding `lint` reports for a scope. doctor
