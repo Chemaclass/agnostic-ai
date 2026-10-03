@@ -37,6 +37,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - **Breaking:** `sync` removes steering copies of `AGENTS.md` rules kept for `x-kiro.resources`; with inheritance off, list `file://AGENTS.md` (#1643).
 - Import skips `manual` and `auto` steering files with a note instead of turning them into always-on rules (#1656).
 
+#### Factory
+
+- `hook run` runs Factory hooks, including `"$FACTORY_PROJECT_DIR"/script.sh`, on an assumed shell and cwd, not counted unless `--include-assumed` (#1566).
+
 ### Site
 
 - The last five release briefings give concise upgrade and feature guidance, with readable code blocks, copy controls and tables (#1652, #1653).

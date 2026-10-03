@@ -9,13 +9,14 @@ import (
 )
 
 // otherDefaultTimeouts are the documented defaults: Trae 30 seconds,
-// OpenHands 60, Goose 30, Augment 60000 milliseconds.
+// OpenHands 60, Goose 30, Augment 60000 milliseconds, Factory 60.
 var otherDefaultTimeouts = map[string]time.Duration{
 	"trae":      30 * time.Second,
 	"openhands": 60 * time.Second,
 	"goose":     30 * time.Second,
 	"augment":   60 * time.Second,
 	"cursor":    cursorAssumedTimeout,
+	"factory":   factoryDefaultTimeout,
 }
 
 // otherArgv is how each target starts a command: Trae in Bash, or
@@ -36,7 +37,7 @@ func otherArgv(target, goos string, h Handler) ([]string, bool) {
 		return []string{"/bin/sh", "-c", h.Command}, true
 	case "goose":
 		return []string{"sh", "-c", h.Command}, true
-	case "cursor":
+	case "cursor", "factory":
 		// Assumed; see Assumptions.
 		return []string{"sh", "-c", h.Command}, true
 	case "augment":
@@ -63,6 +64,8 @@ func DecideHandler(target, event string, h Handler, r Result) Decision {
 		return decideAugment(event, r)
 	case "cursor":
 		return decideCursor(event, h, r)
+	case "factory":
+		return decideFactory(event, r)
 	}
 	return Decide(target, event, r)
 }
@@ -173,19 +176,17 @@ func PayloadTool(body []byte) string {
 
 // HandlersFromDoc reads the command handlers out of the hooks file sync
 // writes for one spec, in the `hooks` shape Trae, OpenHands, Goose, and
-// Augment share.
+// Augment share, or Factory's top-level one.
 func HandlersFromDoc(target string, body []byte) ([]Handler, error) {
 	if len(body) == 0 {
 		return nil, nil
 	}
-	var doc struct {
-		Hooks map[string][]nativeGroup `json:"hooks"`
-	}
-	if err := json.Unmarshal(body, &doc); err != nil {
+	events, err := nativeHooks(target, body)
+	if err != nil {
 		return nil, err
 	}
 	var out []Handler
-	for _, groups := range doc.Hooks {
+	for _, groups := range events {
 		for _, g := range groups {
 			for _, n := range g.Hooks {
 				if n.Type != "" && n.Type != "command" {

@@ -63,8 +63,13 @@ func geminiReply(r Result) (hookReply, bool) {
 // its shell sees it. Gemini CLI replaces $GEMINI_PROJECT_DIR,
 // $GEMINI_CWD, $GEMINI_SESSION_ID, and $CLAUDE_PROJECT_DIR with the
 // quoted value (hookRunner.ts expandCommand); `${...}` forms are left to
-// the shell, which finds the same values in the env.
+// the shell, which finds the same values in the env. On Factory, hook run
+// writes the quoted root for each project root reference; see
+// expandFactoryRoot.
 func ExpandCommand(target, goos, command, root string) string {
+	if target == "factory" {
+		return expandFactoryRoot(command, posixQuote(root))
+	}
 	if target != "gemini" {
 		return command
 	}

@@ -8,6 +8,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/cursor"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/factory"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/goose"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/openhands"
@@ -56,7 +57,8 @@ func HookHandlers(cfg *config.Config, target string, h spec.Entry) ([]hookrun.Ha
 }
 
 // hookDoc renders the hooks file sync writes for h alone on a target
-// whose file shares the `hooks` block shape.
+// whose file shares the `hooks` block shape, or Factory's, which keys
+// the same groups by event at the top level.
 func hookDoc(cfg *config.Config, target string, h spec.Entry) ([]byte, error) {
 	switch target {
 	case "trae":
@@ -67,6 +69,8 @@ func hookDoc(cfg *config.Config, target string, h spec.Entry) ([]byte, error) {
 		return goose.HookDoc(cfg, h)
 	case "augment":
 		return augment.HookDoc(h)
+	case "factory":
+		return factory.HookDoc(h)
 	}
 	return nil, nil
 }
@@ -91,6 +95,8 @@ func HookFile(cfg *config.Config, target string) string {
 		return augment.SettingsFilePath(cfg)
 	case "cursor":
 		return cursor.HooksFilePath(cfg)
+	case "factory":
+		return factory.HooksFilePath(cfg)
 	}
 	return ""
 }

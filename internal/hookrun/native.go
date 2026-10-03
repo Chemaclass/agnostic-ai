@@ -64,16 +64,14 @@ func Drift(target string, body []byte, event, matcher, goos string, handlers []H
 	if target == "cursor" {
 		return cursorDrift(body, event, matcher, handlers)
 	}
-	var doc struct {
-		Hooks map[string][]nativeGroup `json:"hooks"`
-	}
-	if err := json.Unmarshal(body, &doc); err != nil {
+	events, err := nativeHooks(target, body)
+	if err != nil {
 		return nil, err
 	}
 	var drift []HandlerDrift
 	for _, h := range handlers {
 		reason := fmt.Sprintf("has no %s command %q", event, shownCommand(h, goos))
-		for _, group := range doc.Hooks[event] {
+		for _, group := range events[event] {
 			for _, n := range group.Hooks {
 				if !n.runs(h, goos) {
 					continue
@@ -92,6 +90,23 @@ func Drift(target string, body []byte, event, matcher, goos string, handlers []H
 		}
 	}
 	return drift, nil
+}
+
+// nativeHooks reads the matcher groups per event out of a hooks file:
+// under `hooks`, or at the top level on Factory, whose "Standalone
+// hooks.json files are keyed directly by event name"
+// (docs.factory.com/cli/configuration/hooks-guide).
+func nativeHooks(target string, body []byte) (map[string][]nativeGroup, error) {
+	if target == "factory" {
+		var events map[string][]nativeGroup
+		err := json.Unmarshal(body, &events)
+		return events, err
+	}
+	var doc struct {
+		Hooks map[string][]nativeGroup `json:"hooks"`
+	}
+	err := json.Unmarshal(body, &doc)
+	return doc.Hooks, err
 }
 
 func fieldDrift(target, nativeMatcher, matcher string, n nativeHandler, h Handler, covers func(native, spec string) bool) string {

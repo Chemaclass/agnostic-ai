@@ -20,10 +20,19 @@ import (
 // ContractDocs is the page a target's assumptions cite, "" for a target
 // hook run assumes nothing for.
 func ContractDocs(target string) string {
-	if target == "cursor" {
-		return "https://cursor.com/docs/hooks"
-	}
-	return ""
+	return assumedContracts[target].docs
+}
+
+// assumedContract is a target whose docs leave out the shell that runs a
+// hook command. cwdReason and timeoutReason are why its working directory
+// and default timeout are assumed too, "" when the docs give them.
+type assumedContract struct {
+	name, docs, cwdReason, timeoutReason string
+}
+
+var assumedContracts = map[string]assumedContract{
+	"cursor":  {name: "Cursor", docs: "https://cursor.com/docs/hooks", timeoutReason: "Cursor documents its default timeout as \"platform default\"; set timeout in the spec"},
+	"factory": {name: "Factory", docs: factoryDocs, cwdReason: "Factory runs hooks from \"Droid's current working directory, which can differ from your repository root\""},
 }
 
 // cursorAssumedTimeout is the default hook run uses when a Cursor hook
@@ -351,18 +360,26 @@ func ShellNeutral(command string) bool {
 // goos, and why it cannot run h at all when no safe assumption exists.
 // Targets whose contract is documented return neither.
 func Assumptions(target, goos string, h Handler) ([]Assumption, string) {
-	if target != "cursor" {
+	c, ok := assumedContracts[target]
+	if !ok {
 		return nil, ""
 	}
 	if goos == "windows" {
-		return nil, "Cursor does not document how it runs a hook command on Windows"
+		return nil, c.name + " does not document how it runs a hook command on Windows"
 	}
-	if !ShellNeutral(h.Command) {
-		return nil, "Cursor does not document its shell; use a script path"
+	command := h.Command
+	if target == "factory" {
+		command = expandFactoryRoot(command, "root")
 	}
-	out := []Assumption{{Item: "shell", Value: "sh -c", Reason: "Cursor does not document the shell that runs a hook command"}}
-	if h.Timeout <= 0 {
-		out = append(out, Assumption{Item: "timeout", Value: cursorAssumedTimeout.String(), Reason: "Cursor documents its default timeout as \"platform default\"; set timeout in the spec"})
+	if !ShellNeutral(command) {
+		return nil, c.name + " does not document its shell; use a script path"
+	}
+	out := []Assumption{{Item: "shell", Value: "sh -c", Reason: c.name + " does not document the shell that runs a hook command"}}
+	if c.cwdReason != "" {
+		out = append(out, Assumption{Item: "cwd", Value: "project root", Reason: c.cwdReason})
+	}
+	if h.Timeout <= 0 && c.timeoutReason != "" {
+		out = append(out, Assumption{Item: "timeout", Value: DefaultTimeout(target, "").String(), Reason: c.timeoutReason})
 	}
 	return out, ""
 }
