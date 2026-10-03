@@ -33,10 +33,10 @@ func TestImportMCP_WarpLiteralPlaceholderRoundTrips(t *testing.T) {
 	execCLI(t, "sync")
 	emitted := snapshotEmitted(t, dir)
 	for file, want := range map[string]string{
-		filepath.Join(".warp", ".mcp.json"):    "x-chroma-token: ${X_CHROMA_TOKEN}",
-		filepath.Join(".zed", "settings.json"): "x-chroma-token: ${X_CHROMA_TOKEN}",
-		filepath.Join(".codex", "config.toml"): "x-chroma-token: ${X_CHROMA_TOKEN}",
-		".mcp.json":                            "x-chroma-token: ${X_CHROMA_TOKEN}",
+		".warp/.mcp.json":    "x-chroma-token: ${X_CHROMA_TOKEN}",
+		".zed/settings.json": "x-chroma-token: ${X_CHROMA_TOKEN}",
+		".codex/config.toml": "x-chroma-token: ${X_CHROMA_TOKEN}",
+		".mcp.json":          "x-chroma-token: ${X_CHROMA_TOKEN}",
 	} {
 		if !strings.Contains(emitted[file], want) || strings.Contains(emitted[file], "$${") {
 			t.Errorf("%s should hold %q and no escape:\n%s", file, want, emitted[file])
