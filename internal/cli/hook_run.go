@@ -31,6 +31,7 @@ func newHookRunCmd() *cobra.Command {
 	var only []string
 	var in hookrun.Input
 	var payloadFile, expect, format string
+	var includeAssumed bool
 	cmd := &cobra.Command{
 		Use:   "run <hook>",
 		Short: "Run a hook spec with each target's payload and report what each target decides",
@@ -40,7 +41,9 @@ func newHookRunCmd() *cobra.Command {
 			"Prints each command's decision (allow, block, error, or timeout), exit code, time, stdout, and stderr, " +
 			"and warns when the synced native file does not run the command the spec produces. " +
 			"--format json prints one object per target instead. " +
-			"Exits 1 when a command times out or errors, when targets decide differently, or when a decision differs from --expect. " +
+			"A target whose docs leave out its shell or default timeout runs on stated assumptions, marked (assumed: ...); " +
+			"its result is shown but not counted unless --include-assumed is passed, and a disagreement prints a warning. " +
+			"Exits 1 when a counted command times out or errors, when counted targets decide differently, or when a decision differs from --expect. " +
 			"Run sync first: commands run the scripts sync copied into each target's hook directory.",
 		Example: `  # Check that one protect-files hook blocks on Claude Code and Codex alike
   agnostic-ai hook run protect-files --edit .github/workflows/tests.yml --expect block
@@ -100,6 +103,10 @@ func newHookRunCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			runs = countHookRuns(runs, hookrun.Decision(expect), includeAssumed)
+			if format == "text" {
+				printAssumedSummary(cmd.OutOrStdout(), runs, includeAssumed)
+			}
 			judged := judgeHookRuns(hook.Name, runs, hookrun.Decision(expect))
 			if format == "json" {
 				if err := printHookRunJSON(cmd.OutOrStdout(), hook.Name, runs, judged); err != nil {
@@ -116,6 +123,7 @@ func newHookRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&payloadFile, "payload", "", "Send this JSON file to every target as the payload")
 	cmd.Flags().StringVar(&expect, "expect", "", "Fail unless every target decides allow or block")
 	cmd.Flags().StringVar(&format, "format", "text", "Output format: text or json")
+	cmd.Flags().BoolVar(&includeAssumed, "include-assumed", false, "Count results that rest on an assumed shell or timeout in --expect and the comparison")
 	_ = cmd.RegisterFlagCompletionFunc("target", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return hookrun.Targets(), cobra.ShellCompDirectiveNoFileComp
 	})
@@ -146,7 +154,16 @@ type hookTargetRun struct {
 	Commands []hookCommandRun `json:"commands"`
 	Notes    []string         `json:"notes"`
 	Warnings []string         `json:"warnings"`
-	failed   []hookrun.Decision
+	// Assumptions are the contract items hook run filled in because the
+	// target's docs leave them out.
+	Assumptions []hookrun.Assumption `json:"assumptions"`
+	// Counted is whether the result takes part in --expect and the
+	// comparison.
+	Counted bool `json:"counted"`
+	failed  []hookrun.Decision
+	// disagreement is the warning for an uncounted result that differs
+	// from the counted ones, printed after every target.
+	disagreement string
 }
 
 type hookCommandRun struct {
@@ -171,7 +188,7 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 		runs = append(runs, r)
 	}
 	for _, target := range targets {
-		run := hookTargetRun{Target: target, Decision: notRun, Commands: []hookCommandRun{}, Notes: []string{}, Warnings: []string{}}
+		run := hookTargetRun{Target: target, Decision: notRun, Commands: []hookCommandRun{}, Notes: []string{}, Warnings: []string{}, Assumptions: []hookrun.Assumption{}}
 		if !hookrun.Supported(target) {
 			run.Reason = fmt.Sprintf("hook run builds no %s payload", target)
 			add(run)
@@ -207,6 +224,14 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 			add(run)
 			continue
 		}
+		// A matcher that does not fire runs nothing, so it assumes nothing.
+		assumptions, reason := hookAssumptions(target, handlers)
+		if reason != "" {
+			run.Decision, run.Reason = notRun, reason
+			add(run)
+			continue
+		}
+		run.Assumptions = assumptions
 		// Claude Code writes the spec's `if` on every handler it emits.
 		if rule := handlers[0].If; target == "claude" && rule != "" {
 			runs, err := hookrun.ClaudeIfRuns(rule, event, payload.Body, root)
@@ -234,6 +259,9 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 			env := hookRunEnv(target, root, hookEnvContext{event: event, tool: hookrun.PayloadTool(payload.Body), pluginRoot: adapters.HookPluginRoot(cfg, target)}, h)
 			r := hookrun.Run(hookrun.Argv(target, runtime.GOOS, h), root, env, payload.Body, timeout)
 			d := hookrun.DecideHandler(target, event, h, r)
+			if target == "cursor" && hookrun.CursorAsks(event, r) {
+				run.Notes = append(run.Notes, "replied ask: Cursor asks the user before the action runs; read as block")
+			}
 			run.Commands = append(run.Commands, newHookCommandRun(shown, d, r, hookrun.AddsContext(target, event, r)))
 			run.Decision = strongerDecision(run.Decision, d)
 			if d == hookrun.Timeout || d == hookrun.Error {
@@ -313,6 +341,85 @@ func strongerDecision(a, b hookrun.Decision) hookrun.Decision {
 	return a
 }
 
+// hookAssumptions merges what hook run assumes for each handler, or
+// returns why one handler cannot run.
+func hookAssumptions(target string, handlers []hookrun.Handler) ([]hookrun.Assumption, string) {
+	out := []hookrun.Assumption{}
+	for _, h := range handlers {
+		assumed, reason := hookrun.Assumptions(target, runtime.GOOS, h)
+		if reason != "" {
+			return nil, reason
+		}
+		for _, a := range assumed {
+			if !slices.ContainsFunc(out, func(b hookrun.Assumption) bool { return b.Item == a.Item }) {
+				out = append(out, a)
+			}
+		}
+	}
+	return out, ""
+}
+
+func assumedItems(run hookTargetRun) string {
+	items := make([]string, 0, len(run.Assumptions))
+	for _, a := range run.Assumptions {
+		items = append(items, a.Item)
+	}
+	return strings.Join(items, ", ")
+}
+
+// countHookRuns marks which results take part in --expect and the
+// comparison, and warns on each result left out that disagrees with
+// them, so a skipped check is never silent.
+func countHookRuns(runs []hookTargetRun, expect hookrun.Decision, includeAssumed bool) []hookTargetRun {
+	reference := expect
+	for i := range runs {
+		r := &runs[i]
+		r.Counted = r.Decision != notRun && !r.Async && (len(r.Assumptions) == 0 || includeAssumed)
+		if r.Counted && reference == "" {
+			reference = r.Decision
+		}
+	}
+	for i := range runs {
+		r := &runs[i]
+		if r.Counted || r.Decision == notRun || r.Async || len(r.Assumptions) == 0 || reference == "" || r.Decision == reference {
+			continue
+		}
+		r.disagreement = fmt.Sprintf("assumed result %s differs from %s and is not counted; pass --include-assumed to count it", r.Decision, reference)
+		r.Warnings = append(r.Warnings, r.disagreement)
+	}
+	return runs
+}
+
+// printAssumedSummary counts the results that rested on assumptions, and
+// repeats each disagreement, so CI logs show the reduced coverage.
+func printAssumedSummary(w io.Writer, runs []hookTargetRun, includeAssumed bool) {
+	checked, assumed := 0, 0
+	for _, r := range runs {
+		if r.Decision == notRun || r.Async {
+			continue
+		}
+		if len(r.Assumptions) > 0 {
+			assumed++
+		}
+		if r.Counted {
+			checked++
+		}
+	}
+	if assumed == 0 {
+		return
+	}
+	for _, r := range runs {
+		if r.disagreement != "" {
+			_, _ = fmt.Fprintf(w, "%s: warning: %s\n", r.Target, r.disagreement)
+		}
+	}
+	state := "not counted; --include-assumed to count"
+	if includeAssumed {
+		state = "counted"
+	}
+	_, _ = fmt.Fprintf(w, "\n%d checked, %d assumed (%s)\n", checked, assumed, state)
+}
+
 func printHookTarget(w io.Writer, run hookTargetRun) {
 	switch {
 	case run.Decision == notRun:
@@ -325,10 +432,16 @@ func printHookTarget(w io.Writer, run hookTargetRun) {
 		if run.Async {
 			d = "not judged"
 		}
-		printHookRun(w, run.Target, run.Event, run.Trigger, c, d)
+		printHookRun(w, run.Target, run.Event, run.Trigger, c, d, assumedItems(run))
 		if run.Async {
 			_, _ = fmt.Fprintf(w, "  note: async hook; %s does not wait for its result\n", run.Target)
 		}
+	}
+	for _, a := range run.Assumptions {
+		_, _ = fmt.Fprintf(w, "  assumed %s: %s (%s)\n", a.Item, a.Value, a.Reason)
+	}
+	if docs := hookrun.ContractDocs(run.Target); docs != "" && len(run.Assumptions) > 0 {
+		_, _ = fmt.Fprintf(w, "  docs: %s\n", docs)
 	}
 	for _, note := range run.Notes {
 		_, _ = fmt.Fprintf(w, "  note: %s\n", note)
@@ -338,16 +451,20 @@ func printHookTarget(w io.Writer, run hookTargetRun) {
 	}
 }
 
-func printHookRun(w io.Writer, target, event, trigger string, c hookCommandRun, d hookrun.Decision) {
+func printHookRun(w io.Writer, target, event, trigger string, c hookCommandRun, d hookrun.Decision, assumed string) {
 	r := c.result
 	elapsed := r.Elapsed.Round(time.Millisecond)
+	suffix := ""
+	if assumed != "" {
+		suffix = " (assumed: " + assumed + ")"
+	}
 	switch {
 	case r.TimedOut:
-		_, _ = fmt.Fprintf(w, "%s: %s (after %s)\n", target, d, elapsed)
+		_, _ = fmt.Fprintf(w, "%s: %s (after %s)%s\n", target, d, elapsed, suffix)
 	case r.StartErr != nil:
-		_, _ = fmt.Fprintf(w, "%s: %s (did not start: %v)\n", target, d, r.StartErr)
+		_, _ = fmt.Fprintf(w, "%s: %s (did not start: %v)%s\n", target, d, r.StartErr, suffix)
 	default:
-		_, _ = fmt.Fprintf(w, "%s: %s (exit %d, %s)\n", target, d, r.Exit, elapsed)
+		_, _ = fmt.Fprintf(w, "%s: %s (exit %d, %s)%s\n", target, d, r.Exit, elapsed, suffix)
 	}
 	_, _ = fmt.Fprintf(w, "  event: %s (%s)\n", event, trigger)
 	_, _ = fmt.Fprintf(w, "  command: %s\n", c.Command)
@@ -387,7 +504,7 @@ func printHookRunJSON(w io.Writer, name string, runs []hookTargetRun, failure er
 var sessionEnvKeys = []string{
 	adapters.HookTargetEnv, claudeProjectDirEnv, "GEMINI_PROJECT_DIR", "GEMINI_CWD", "GEMINI_SESSION_ID", "GEMINI_PLANS_DIR",
 	"TRAE_PROJECT_DIR", "OPENHANDS_PROJECT_DIR", "OPENHANDS_SESSION_ID", "OPENHANDS_EVENT_TYPE", "OPENHANDS_TOOL_NAME",
-	"PLUGIN_ROOT", "AUGMENT_PROJECT_DIR", "AUGMENT_CONVERSATION_ID", "AUGMENT_HOOK_EVENT", "AUGMENT_TOOL_NAME",
+	"PLUGIN_ROOT", "CURSOR_PROJECT_DIR", "CURSOR_VERSION", "CURSOR_USER_EMAIL", "CURSOR_TRANSCRIPT_PATH", "CURSOR_CODE_REMOTE", "AUGMENT_PROJECT_DIR", "AUGMENT_CONVERSATION_ID", "AUGMENT_HOOK_EVENT", "AUGMENT_TOOL_NAME",
 }
 
 // asyncHookTargets run an `async: true` hook in the background, so its
@@ -422,6 +539,10 @@ func hookRunEnv(target, root string, ctx hookEnvContext, h hookrun.Handler) []st
 		}
 	case "goose":
 		env = append(env, "PLUGIN_ROOT="+filepath.Join(root, filepath.FromSlash(ctx.pluginRoot)))
+	case "cursor":
+		// The sessionStart entry sync adds sets AGNOSTIC_AI_TARGET for
+		// every later hook in the session.
+		env = append(env, "CURSOR_PROJECT_DIR="+root, "CURSOR_VERSION=", claudeProjectDirEnv+"="+root, adapters.HookTargetEnv+"=cursor")
 	case "augment":
 		env = append(env, "AUGMENT_PROJECT_DIR="+root, "AUGMENT_CONVERSATION_ID="+hookrun.SessionID, "AUGMENT_HOOK_EVENT="+ctx.event)
 		if ctx.tool != "" {
@@ -476,7 +597,16 @@ func judgeHookRuns(name string, runs []hookTargetRun, expect hookrun.Decision) e
 	if len(runs) == 0 {
 		return fmt.Errorf("hook %s reaches no target hook run builds payloads for (%s)", name, strings.Join(hookrun.Targets(), ", "))
 	}
-	runs = slices.DeleteFunc(runs, func(r hookTargetRun) bool { return r.Async })
+	var assumedOnly []string
+	for _, r := range runs {
+		if !r.Async && !r.Counted && len(r.Assumptions) > 0 {
+			assumedOnly = append(assumedOnly, r.Target)
+		}
+	}
+	runs = slices.DeleteFunc(runs, func(r hookTargetRun) bool { return r.Async || !r.Counted })
+	if len(runs) == 0 && len(assumedOnly) > 0 && expect != "" {
+		return fmt.Errorf("hook %s: --expect checks nothing, since it ran only where hook run assumes part of the contract (%s); pass --include-assumed to count it", name, strings.Join(assumedOnly, ", "))
+	}
 	if len(runs) == 0 {
 		return nil
 	}

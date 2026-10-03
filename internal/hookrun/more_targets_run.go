@@ -15,6 +15,7 @@ var otherDefaultTimeouts = map[string]time.Duration{
 	"openhands": 60 * time.Second,
 	"goose":     30 * time.Second,
 	"augment":   60 * time.Second,
+	"cursor":    cursorAssumedTimeout,
 }
 
 // otherArgv is how each target starts a command: Trae in Bash, or
@@ -34,6 +35,9 @@ func otherArgv(target, goos string, h Handler) ([]string, bool) {
 		}
 		return []string{"/bin/sh", "-c", h.Command}, true
 	case "goose":
+		return []string{"sh", "-c", h.Command}, true
+	case "cursor":
+		// Assumed; see Assumptions.
 		return []string{"sh", "-c", h.Command}, true
 	case "augment":
 		switch ext := strings.ToLower(filepath.Ext(h.Command)); {
@@ -57,6 +61,8 @@ func DecideHandler(target, event string, h Handler, r Result) Decision {
 		return decideGoose(event, h, r)
 	case "augment":
 		return decideAugment(event, r)
+	case "cursor":
+		return decideCursor(event, h, r)
 	}
 	return Decide(target, event, r)
 }

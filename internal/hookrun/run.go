@@ -178,6 +178,11 @@ func AddsContext(target, event string, r Result) bool {
 		return geminiAddsContext(r)
 	case "goose", "augment":
 		return false
+	case "cursor":
+		var reply struct {
+			AdditionalContext string `json:"additional_context"`
+		}
+		return !r.TimedOut && r.Exit == 0 && json.Unmarshal([]byte(strings.TrimSpace(r.Stdout)), &reply) == nil && reply.AdditionalContext != ""
 	case "openhands":
 		var reply struct {
 			AdditionalContext string `json:"additionalContext"`
