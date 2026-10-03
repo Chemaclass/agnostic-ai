@@ -41,5 +41,5 @@ func assertContainsAll(t *testing.T, got string, want ...string) {
 func TestEmit_HookScriptExportsTheTarget(t *testing.T) {
 	emitTargetHooks(t, &config.Config{}, spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"event": "PreToolUse", "command": "guard.sh"}})
 	got := readTargetFile(t, ".clinerules/hooks/PreToolUse")
-	assertContainsAll(t, got, "set -e\nexport AGNOSTIC_AI_TARGET=cline\n", "\n(\nguard.sh\n)")
+	assertContainsAll(t, got, "set -e\nexport AGNOSTIC_AI_TARGET=cline\n", "\n(\nset -e\nguard.sh\n)")
 }

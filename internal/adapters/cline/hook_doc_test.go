@@ -17,7 +17,7 @@ func TestHookScript_IsTheEventScriptSyncWritesForOneSpec(t *testing.T) {
 	emitTargetHooks(t, &config.Config{}, h)
 
 	got := HookScript(h)
-	if want := "set -e\nexport AGNOSTIC_AI_TARGET=cline\n" + clineBlockPrelude + "\n(\n./a.sh\n)" + clineBlockOnExit2 + "\n(\n./b.sh\n)" + clineBlockOnExit2; got != want {
+	if want := "set -e\nexport AGNOSTIC_AI_TARGET=cline\n" + clineBlockPrelude + "\nset +e\n(\nset -e\n./a.sh\n)" + clineBlockOnExit2 + "\nset +e\n(\nset -e\n./b.sh\n)" + clineBlockOnExit2; got != want {
 		t.Errorf("HookScript = %q", got)
 	}
 	if synced := readTargetFile(t, ".clinerules/hooks/PreToolUse"); !strings.HasSuffix(synced, got) {
@@ -81,5 +81,21 @@ func TestHookScript_TurnsExit2IntoACancelReply(t *testing.T) {
 	}
 	if out, code = run(`echo '{"cancel": true}'`); code != 0 || out != "{\"cancel\": true}\n" {
 		t.Errorf("a reply the command prints = %d %q", code, out)
+	}
+	if out, code = run("sh -c 'exit 2'; echo checked"); code != 0 || !strings.HasPrefix(out, "HOOK_CONTROL\t") {
+		t.Errorf("exit 2 from the first of two commands in a spec = %d %q", code, out)
+	}
+	if out, code = run("false\necho after"); code != 1 || out != "" {
+		t.Errorf("a failure inside a spec must stop it = %d %q", code, out)
+	}
+	for _, stderr := range []string{`\033[31mred\033[0m`, `bad \377\376`, `missing } here`, `use { x`, `\b\f\001`} {
+		out, code = run(`printf '` + stderr + `\n' >&2; exit 2`)
+		var reply map[string]any
+		if err := json.Unmarshal([]byte(strings.TrimPrefix(strings.TrimSpace(out), "HOOK_CONTROL\t")), &reply); err != nil || reply["cancel"] != true || code != 0 {
+			t.Errorf("stderr %q gives %d %q: %v", stderr, code, out, err)
+		}
+		if strings.Count(out, "{") != 1 || strings.Count(out, "}") != 1 {
+			t.Errorf("stderr %q leaves unbalanced braces: %q", stderr, out)
+		}
 	}
 }

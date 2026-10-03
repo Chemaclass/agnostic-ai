@@ -4,14 +4,18 @@ set -e
 export AGNOSTIC_AI_TARGET=cline
 aai_err=$(mktemp)
 trap 'rm -f "$aai_err"' EXIT
-aai_json() { awk 'BEGIN { ORS = "" } { gsub(/\\/, "\\\\"); gsub(/"/, "\\\""); gsub(/\t/, "\\t"); gsub(/\r/, ""); if (NR > 1) printf "\\n"; print }'; }
+aai_json() { LC_ALL=C tr -d '\000-\010\013-\037\177' | LC_ALL=C awk 'BEGIN { ORS = "" } { gsub(/\\/, "\\\\"); gsub(/"/, "\\\""); gsub(/\t/, "\\t"); gsub(/{/, "\\u007b"); gsub(/}/, "\\u007d"); if (NR > 1) printf "\\n"; print }'; }
 
+set +e
 (
+set -e
 echo edited
-) 2>"$aai_err" && aai_status=0 || aai_status=$?
+) 2>"$aai_err"
+aai_status=$?
+set -e
 cat "$aai_err" >&2
 if [ "$aai_status" -eq 2 ]; then
-  aai_msg=$(aai_json <"$aai_err")
+  aai_msg=$(aai_json <"$aai_err") || aai_msg=
   printf 'HOOK_CONTROL\t{"cancel": true, "errorMessage": "%s"}\n' "${aai_msg:-blocked by a hook that exited 2}"
   exit 0
 fi

@@ -170,7 +170,7 @@ func hookScript(commands []string) string {
 	b.WriteString("export " + emit.HookTargetEnv + "=" + target + "\n")
 	b.WriteString(clineBlockPrelude)
 	for _, cmd := range commands {
-		b.WriteString("\n(\n")
+		b.WriteString("\nset +e\n(\nset -e\n")
 		b.WriteString(cmd)
 		b.WriteString("\n)" + clineBlockOnExit2)
 	}
@@ -178,18 +178,26 @@ func hookScript(commands []string) string {
 }
 
 // clineBlockPrelude sets up the stderr file and the JSON string escape
-// every command's exit 2 check uses.
+// every command's exit 2 check uses. The escape runs in the C locale, so
+// bytes that are not UTF-8 pass through instead of stopping awk; it drops
+// control bytes other than tab and newline, and writes `{` and `}` as
+// \u escapes, since the VS Code extension's fallback parser counts braces
+// without reading quotes (hook-factory.ts:366-466).
 const clineBlockPrelude = `aai_err=$(mktemp)
 trap 'rm -f "$aai_err"' EXIT
-aai_json() { awk 'BEGIN { ORS = "" } { gsub(/\\/, "\\\\"); gsub(/"/, "\\\""); gsub(/\t/, "\\t"); gsub(/\r/, ""); if (NR > 1) printf "\\n"; print }'; }
+aai_json() { LC_ALL=C tr -d '\000-\010\013-\037\177' | LC_ALL=C awk 'BEGIN { ORS = "" } { gsub(/\\/, "\\\\"); gsub(/"/, "\\\""); gsub(/\t/, "\\t"); gsub(/{/, "\\u007b"); gsub(/}/, "\\u007d"); if (NR > 1) printf "\\n"; print }'; }
 `
 
 // clineBlockOnExit2 follows each command's subshell: it replays stderr,
-// turns exit 2 into a cancel reply, and stops on any other failure.
-const clineBlockOnExit2 = ` 2>"$aai_err" && aai_status=0 || aai_status=$?
+// turns exit 2 into a cancel reply, and stops on any other failure. The
+// subshell runs outside an && or || list, where bash would ignore
+// `set -e` inside it.
+const clineBlockOnExit2 = ` 2>"$aai_err"
+aai_status=$?
+set -e
 cat "$aai_err" >&2
 if [ "$aai_status" -eq 2 ]; then
-  aai_msg=$(aai_json <"$aai_err")
+  aai_msg=$(aai_json <"$aai_err") || aai_msg=
   printf 'HOOK_CONTROL\t{"cancel": true, "errorMessage": "%s"}\n' "${aai_msg:-blocked by a hook that exited 2}"
   exit 0
 fi
