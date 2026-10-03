@@ -106,7 +106,7 @@ func TestHookRun_WindsurfDoesNotCountAReplyOnANonZeroExit(t *testing.T) {
 		for _, s := range []string{
 			want,
 			"note: not counted: Devin CLI does not document whether it reads a reply on a non-zero exit",
-			"0 checked, 1 assumed (counted; 1 undocumented result not counted)",
+			"0 checked, 1 assumed (counted; 1 result not counted, see its note)",
 		} {
 			if !strings.Contains(out, s) {
 				t.Errorf("output misses %q:\n%s", s, out)

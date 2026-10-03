@@ -81,7 +81,7 @@ func TestHookRun_KiroDoesNotCountAnExitItsDocsDisagreeOn(t *testing.T) {
 	for _, want := range []string{
 		"kiro: error (exit 1",
 		"note: not counted: Kiro's docs disagree on whether a non-zero exit other than 2 blocks",
-		"0 checked, 1 assumed (counted; 1 undocumented result not counted)",
+		"0 checked, 1 assumed (counted; 1 result not counted, see its note)",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output misses %q:\n%s", want, out)

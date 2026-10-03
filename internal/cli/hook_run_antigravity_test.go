@@ -90,7 +90,7 @@ func TestHookRun_AntigravityDoesNotCountAnUndocumentedExitCode(t *testing.T) {
 	for _, want := range []string{
 		"antigravity: error (exit 2",
 		"note: not counted: Antigravity does not document exit codes",
-		"1 checked, 1 assumed (counted; 1 undocumented result not counted)",
+		"1 checked, 1 assumed (counted; 1 result not counted, see its note)",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output misses %q:\n%s", want, out)
