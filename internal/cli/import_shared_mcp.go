@@ -275,17 +275,19 @@ func mcpURLCredentialDetected(value string) bool {
 			return false
 		}
 		rest = rest[sep+3:]
-		at := strings.Index(rest[:indexAnyOrLen(rest, " \t\r\n")], "@")
+		mask := maskMCPRefs(rest)
+		mask = mask[:indexAnyOrLen(mask, " \t\r\n")]
+		authority := mask[:indexAnyOrLen(mask, "/?#")]
+		at := strings.LastIndex(authority, "@")
 		if at < 0 {
-			continue
-		}
-		user, mask := rest[:at], maskMCPRefs(rest[:at])
-		if slash := strings.Index(mask, "/"); slash >= 0 {
-			if _, port, ok := strings.Cut(mask[:slash], ":"); !ok || port != "" && mcpPortOrRef(port) {
+			if _, port, ok := strings.Cut(authority, ":"); !ok || port != "" && mcpPortOrRef(port) {
+				continue
+			}
+			if at = strings.Index(mask, "@"); at < 0 {
 				continue
 			}
 		}
-		if colon := strings.Index(mask, ":"); colon >= 0 && mcpLiteralCredential(user[colon+1:]) {
+		if colon := strings.Index(mask[:at], ":"); colon >= 0 && mcpLiteralCredential(rest[colon+1:at]) {
 			return true
 		}
 	}

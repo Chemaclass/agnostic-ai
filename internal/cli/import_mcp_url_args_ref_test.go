@@ -363,6 +363,31 @@ func TestImportMCP_URLQuotedQueryCredentialLeavesServerOut(t *testing.T) {
 	}
 }
 
+func TestImportMCP_URLPasswordAfterEmailUsernameLeavesServerOut(t *testing.T) {
+	dir := t.TempDir()
+	log := captureLog(t)
+	fields := map[string]string{"email": "args[1]", "ref": "args[1]", "single": "url"}
+	if _, err := writeMCPYAMLs("claude", map[string]any{
+		"email":  map[string]any{"command": "sh", "args": []any{"-c", "exec pg-mcp postgresql://service@example.com:PASSW0RD@db/app"}},
+		"ref":    map[string]any{"command": "sh", "args": []any{"-c", "exec pg-mcp postgresql://${DB_USER:-service@example.com}:PASSW0RD@db/app"}},
+		"single": map[string]any{"url": "https://service@example.com:PASSW0RD@x.example/mcp"},
+	}, dir); err != nil {
+		t.Fatal(err)
+	}
+	out := log.String()
+	if strings.Contains(out, "PASSW0RD") {
+		t.Errorf("import output prints a credential value")
+	}
+	for name, field := range fields {
+		if _, err := os.Stat(filepath.Join(dir, name+".yaml")); !os.IsNotExist(err) {
+			t.Errorf("server %s has a password after an email username and must be left out", name)
+		}
+		if want := "MCP server " + name + ": left out; " + field; !strings.Contains(out, want) {
+			t.Errorf("output lacks %q", want)
+		}
+	}
+}
+
 func TestImportMCP_URLWithoutCredentialImportsUnchanged(t *testing.T) {
 	args := []any{
 		"curl https://health.example/ping?a=1&b=2; exec srv",
