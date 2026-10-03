@@ -3,7 +3,6 @@ package spec
 import (
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -43,7 +42,7 @@ func IncludeRefs(body string) []string {
 	var out []string
 	for _, inc := range includeLines(strings.Split(body, "\n")) {
 		if filepath.IsLocal(filepath.FromSlash(inc.ref)) {
-			out = append(out, path.Clean(inc.ref))
+			out = append(out, filepath.ToSlash(filepath.Clean(filepath.FromSlash(inc.ref))))
 		}
 	}
 	return out
