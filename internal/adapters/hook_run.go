@@ -14,6 +14,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/factory"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/goose"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/kiro"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/openhands"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/qoder"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/trae"
@@ -83,6 +84,16 @@ func HookHandlers(cfg *config.Config, target string, h spec.Entry) ([]hookrun.Ha
 			return nil, fmt.Errorf("parse %s: %w", h.Path, err)
 		}
 		return handlers, nil
+	case "kiro":
+		doc, err := kiro.HookDoc(h)
+		if err != nil {
+			return nil, err
+		}
+		handlers, err := hookrun.KiroHandlers(doc)
+		if err != nil {
+			return nil, fmt.Errorf("parse %s: %w", h.Path, err)
+		}
+		return handlers, nil
 	default:
 		doc, err := hookDoc(cfg, target, h)
 		if err != nil {
@@ -117,9 +128,9 @@ func hookDoc(cfg *config.Config, target string, h spec.Entry) ([]byte, error) {
 	return nil, nil
 }
 
-// HookFile is the native file sync writes target's hooks to, for the
-// targets hookrun builds payloads for.
-func HookFile(cfg *config.Config, target string) string {
+// HookFile is the native file sync writes the hook spec named hook to on
+// target, for the targets hookrun builds payloads for.
+func HookFile(cfg *config.Config, target, hook string) string {
 	switch target {
 	case "claude":
 		return claude.SettingsFilePath(cfg)
@@ -147,6 +158,8 @@ func HookFile(cfg *config.Config, target string) string {
 		return qoder.SettingsFilePath(cfg)
 	case "antigravity":
 		return antigravity.HooksFilePath(cfg)
+	case "kiro":
+		return kiro.HookFilePath(cfg, hook)
 	case "windsurf":
 		return windsurf.HooksFilePath(cfg)
 	}

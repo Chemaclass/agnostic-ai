@@ -21,6 +21,7 @@ import (
 //   - Factory: see factory.go.
 //   - Qoder: see qoder.go.
 //   - Antigravity: see antigravity.go.
+//   - Kiro: see kiro.go.
 //   - Windsurf (Devin CLI): see windsurf.go.
 
 type builder func(event, matcher, root string, in Input) (Payload, error)
@@ -35,6 +36,7 @@ var otherBuilders = map[string]builder{
 	"copilot":     buildCopilot,
 	"qoder":       buildQoder,
 	"antigravity": buildAntigravity,
+	"kiro":        buildKiro,
 	"windsurf":    buildWindsurf,
 }
 

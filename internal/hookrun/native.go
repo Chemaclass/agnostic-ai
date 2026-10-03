@@ -70,6 +70,9 @@ func Drift(target string, body []byte, event, matcher, goos string, handlers []H
 	if target == "copilot" {
 		return copilotDrift(body, event, matcher, handlers)
 	}
+	if target == "kiro" {
+		return kiroDrift(body, event, matcher, handlers, covers)
+	}
 	events, err := nativeHooks(target, body)
 	if err != nil {
 		return nil, err

@@ -55,6 +55,13 @@ type Handler struct {
 	If string
 	// FailClosed is Goose's `on_failure: block`: a failed run blocks.
 	FailClosed bool
+	// Agent is a Kiro agent action, which sends the agent a prompt and
+	// runs no command.
+	Agent bool
+	// Confirm is Kiro's `confirm`: Kiro asks the user before it runs.
+	Confirm bool
+	// Untimed is Kiro's `timeout: 0`, which waits with no limit.
+	Untimed bool
 }
 
 // Argv returns the process target starts for h on goos. Claude Code runs
@@ -191,6 +198,8 @@ func AddsContext(target, event string, r Result) bool {
 		return copilotAddsContext(event, r)
 	case "antigravity":
 		return antigravityAddsContext(event, r)
+	case "kiro":
+		return kiroAddsContext(event, r)
 	case "windsurf":
 		return windsurfAddsContext(event, r)
 	case "cursor":
