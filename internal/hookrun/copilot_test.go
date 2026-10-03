@@ -3,6 +3,7 @@ package hookrun
 import (
 	"encoding/json"
 	"errors"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -131,6 +132,13 @@ func TestCopilotAssumptions_NameEachUndocumentedItem(t *testing.T) {
 	if reason != "" || len(assumed) != 0 {
 		t.Errorf("exec form with cwd needs no shell and no root: %+v, %q", assumed, reason)
 	}
+	assumed, _ = Assumptions("copilot", "linux", Handler{Command: ".github/hooks/scripts/guard.sh", Exec: true, Cwd: "scripts"})
+	if len(assumed) != 1 || assumed[0].Item != "exec path" {
+		t.Errorf("a relative exec path under cwd is assumed to resolve from the root: %+v", assumed)
+	}
+	if h := CopilotExec("/project", Handler{Command: "bin/guard", Exec: true, Cwd: "scripts"}); h.Command != filepath.Join("/project", "bin/guard") {
+		t.Errorf("exec path = %s", h.Command)
+	}
 	for name, h := range map[string]Handler{
 		"shell syntax":  {Command: "cat | grep rm"},
 		"env expansion": {Command: "guard.sh", Env: map[string]string{"P": "$HOME/x"}},
@@ -183,5 +191,56 @@ func TestCopilotDrift_ComparesMatcherTimeoutAndCwd(t *testing.T) {
 	}
 	if drift, _ := copilotDrift(body, "preToolUse", "edit", []Handler{{Command: "a.sh", Cwd: "scripts"}}); len(drift) != 1 {
 		t.Error("a changed matcher must warn")
+	}
+}
+
+func TestCopilotMatcher_RefusesARegexJavaScriptReadsDifferently(t *testing.T) {
+	for _, matcher := range []string{"(?i)bash", "(?!edit).*", "(?<=b)ash", `(b)\1`, "(?P<t>bash)", `\Abash`, "[[:alpha:]]+"} {
+		var unbuilt Unbuilt
+		if _, err := buildCopilot("preToolUse", matcher, "/project", Input{Bash: "ls"}); !errors.As(err, &unbuilt) {
+			t.Errorf("matcher %q: err = %v, want Unbuilt", matcher, err)
+		}
+	}
+	for _, matcher := range []string{"ba(?:sh)", `bash\.exe|bash`, "(?<t>bash)", "[a-z]+"} {
+		if p, err := buildCopilot("preToolUse", matcher, "/project", Input{Bash: "ls"}); err != nil || !p.Fires {
+			t.Errorf("matcher %q reads alike in both dialects: %+v, %v", matcher, p, err)
+		}
+	}
+}
+
+func TestCopilotMergedBlocks_LaterOutputOverrides(t *testing.T) {
+	deny, allow := Result{Stdout: `{"behavior":"deny"}`}, Result{Stdout: `{"behavior":"allow"}`}
+	for name, tc := range map[string]struct {
+		results []Result
+		want    bool
+	}{
+		"deny then allow allows":        {[]Result{deny, allow}, false},
+		"allow then deny denies":        {[]Result{allow, deny}, true},
+		"an absent behavior keeps deny": {[]Result{deny, {Stdout: `{"message":"x"}`}}, true},
+		"exit 2 denies over its allow":  {[]Result{{Exit: 2, Stdout: `{"behavior":"allow"}`}}, true},
+		"a failed hook is skipped":      {[]Result{deny, {Exit: 1, Stdout: `{"behavior":"allow"}`}}, true},
+	} {
+		if got, ok := CopilotMergedBlocks("PermissionRequest", tc.results); !ok || got != tc.want {
+			t.Errorf("%s: blocks = %t, %t", name, got, ok)
+		}
+	}
+	if _, ok := CopilotMergedBlocks("preToolUse", []Result{deny}); ok {
+		t.Error("preToolUse blocks on any deny and does not merge")
+	}
+}
+
+func TestCopilotErrored_RecordsAFailureThatDenies(t *testing.T) {
+	for name, tc := range map[string]struct {
+		r    Result
+		want bool
+	}{
+		"did not start":      {Result{StartErr: errors.New("no such file")}, true},
+		"exit 1":             {Result{Exit: 1}, true},
+		"exit 2 is a denial": {Result{Exit: 2}, false},
+		"a timeout":          {Result{TimedOut: true}, false},
+	} {
+		if got := CopilotErrored("preToolUse", tc.r); got != tc.want {
+			t.Errorf("%s = %t", name, got)
+		}
 	}
 }

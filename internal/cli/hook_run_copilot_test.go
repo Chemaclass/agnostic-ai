@@ -76,7 +76,7 @@ func TestHookRun_CopilotRunsAnExecFormHookWithoutAShell(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	out, err := runHookRun(t, "guard", "--bash", "ls", "--target", "copilot", "--format", "json")
+	out, err := runHookRun(t, "guard", "--bash", "ls", "--target", "copilot", "--format", "json", "--include-assumed")
 	var report struct {
 		Targets []struct {
 			Target      string `json:"target"`
@@ -91,8 +91,8 @@ func TestHookRun_CopilotRunsAnExecFormHookWithoutAShell(t *testing.T) {
 		t.Fatalf("invalid JSON: %v\n%s", jerr, out)
 	}
 	r := report.Targets[0]
-	if err != nil || r.Decision != "block" || !r.Counted || len(r.Assumptions) != 0 {
-		t.Errorf("exec form with cwd assumes nothing, so it counts; exit 2 denies: %+v, %v\n%s", r, err, out)
+	if err != nil || r.Decision != "block" || !r.Counted || len(r.Assumptions) != 1 || r.Assumptions[0].Item != "exec path" || strings.Contains(out, "start_error") {
+		t.Errorf("exec form with cwd assumes only where its path resolves; the script runs and exit 2 denies: %+v, %v\n%s", r, err, out)
 	}
 }
 
@@ -108,4 +108,41 @@ func TestHookRun_CopilotListsWhatItCannotRunAsNotRun(t *testing.T) {
 	if !strings.Contains(out, "copilot: not run (Copilot documents no toolArgs for edit, create, or apply_patch") {
 		t.Errorf("--edit is refused on Copilot alone: %v\n%s", err, out)
 	}
+}
+
+func TestHookRun_CopilotMissingExecutableFailsACountedCheck(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	copilotProject(t, "name: guard\nevent: PreToolUse\ncwd: .github/hooks/scripts\ncommand: agnostic-ai-missing-guard\nargs: [--strict]\n", copilotGuardScript)
+
+	out, err := runHookRun(t, "guard", "--bash", "ls", "--target", "copilot", "--expect", "block")
+	if err == nil || !strings.Contains(err.Error(), "failed on copilot") || !strings.Contains(out, "copilot: block (did not start") {
+		t.Errorf("a hook that never started must not pass --expect block: %v\n%s", err, out)
+	}
+}
+
+func TestHookRun_CopilotPermissionRequestMergesLaterOutputs(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	dir := testutil.TempCwd(t)
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [copilot]\n")
+	for name, reply := range map[string]string{"deny.sh": "deny", "allow.sh": "allow"} {
+		script := filepath.Join(dir, ".agnostic-ai", "scripts", name)
+		mustWrite(t, script, "#!/bin/sh\ncat >/dev/null\necho '{\"behavior\":\""+reply+"\"}'\n")
+		if err := os.Chmod(script, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\nevent: permissionRequest\ncommand: [.agnostic-ai/scripts/deny.sh, .agnostic-ai/scripts/allow.sh]\n")
+	mustSync(t)
+
+	out, err := runHookRun(t, "guard", "--payload", writePayload(t, dir, `{"toolName":"bash"}`), "--expect", "allow", "--include-assumed")
+	if err != nil || !strings.Contains(out, "copilot: block (exit 0") || !strings.Contains(out, "copilot: allow (exit 0") {
+		t.Errorf("the later allow overrides the earlier deny: %v\n%s", err, out)
+	}
+}
+
+func writePayload(t *testing.T, dir, body string) string {
+	t.Helper()
+	path := filepath.Join(dir, "payload.json")
+	mustWrite(t, path, body)
+	return path
 }

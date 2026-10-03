@@ -272,6 +272,7 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 			dir := root
 			if target == "copilot" {
 				dir = hookrun.CopilotDir(root, h)
+				h = hookrun.CopilotExec(root, h)
 			}
 			r := hookrun.Run(hookrun.Argv(target, runtime.GOOS, h), dir, env, payload.Body, timeout)
 			d := hookrun.DecideHandler(target, event, h, r)
@@ -286,6 +287,13 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, targets []string, root 
 			if d == hookrun.Timeout || d == hookrun.Error {
 				run.failed = append(run.failed, d)
 			}
+			if target == "copilot" && hookrun.CopilotErrored(event, r) {
+				run.failed = append(run.failed, hookrun.Error)
+				run.Notes = append(run.Notes, "the hook failed, and Copilot denies a preToolUse hook that fails; read as block")
+			}
+		}
+		if target == "copilot" {
+			copilotMergeDecision(&run, event)
 		}
 		if adapters.JudgesHooks(target) {
 			if reason := adapters.AcceptsHook(target, hook.Meta); reason != "" {
@@ -348,6 +356,29 @@ func hookFileWarnings(cfg *config.Config, target, event, matcher, root string, h
 		warnings = append(warnings, fmt.Sprintf("%s %s; run agnostic-ai sync", shown, d.Reason))
 	}
 	return warnings
+}
+
+// copilotMergeDecision decides a Copilot permissionRequest from its
+// merged output instead of the strongest command, since a later hook's
+// behavior overrides an earlier one's.
+func copilotMergeDecision(run *hookTargetRun, event string) {
+	results := make([]hookrun.Result, 0, len(run.Commands))
+	for _, c := range run.Commands {
+		results = append(results, c.result)
+	}
+	blocks, ok := hookrun.CopilotMergedBlocks(event, results)
+	if !ok || len(results) == 0 {
+		return
+	}
+	run.Decision = hookrun.Allow
+	for _, c := range run.Commands {
+		if c.Decision != hookrun.Block {
+			run.Decision = strongerDecision(run.Decision, c.Decision)
+		}
+	}
+	if blocks {
+		run.Decision = hookrun.Block
+	}
 }
 
 // strongerDecision combines the handlers of one event: any block stops

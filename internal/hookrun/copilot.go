@@ -2,8 +2,8 @@ package hookrun
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -94,16 +94,54 @@ func copilotClaudeMatches(matcher, claudeName string) (bool, error) {
 	return copilotRegexMatches(matcher, claudeName)
 }
 
-// copilotRegexMatches compiles the matcher as `^(?:PATTERN)$`.
+// copilotRegexMatches compiles the matcher as `^(?:PATTERN)$`. Copilot
+// runs JavaScript regexes, so a pattern Go would read differently, or not
+// at all, leaves the target unbuilt instead of guessing.
 func copilotRegexMatches(matcher, value string) (bool, error) {
 	if matcher == "" {
 		return true, nil
 	}
+	if syntax := jsRegexMismatch(matcher); syntax != "" {
+		return false, Unbuilt{fmt.Sprintf("Copilot matches %q as a JavaScript regex, and hook run reads %s differently; use plain names joined with |", matcher, syntax)}
+	}
 	re, err := regexp.Compile("^(?:" + matcher + ")$")
 	if err != nil {
-		return false, errors.Join(fmt.Errorf("matcher %q", matcher), err)
+		return false, Unbuilt{fmt.Sprintf("Copilot matches %q as a JavaScript regex, which hook run cannot compile: %v", matcher, err)}
 	}
 	return re.MatchString(value), nil
+}
+
+// jsRegexMismatch names the first construct whose meaning differs
+// between Go's RE2 and JavaScript regexes, or that one of them rejects:
+// inline flags and Go's (?P<name>) groups (JavaScript SyntaxErrors),
+// lookaround and backreferences (RE2 rejects them), POSIX classes, and
+// Go-only escapes such as \A, \z, \Q, and \p (a plain letter in
+// JavaScript without the u flag).
+func jsRegexMismatch(pattern string) string {
+	for i := 0; i < len(pattern); i++ {
+		rest := pattern[i:]
+		switch {
+		case rest[0] == '\\' && len(rest) > 1:
+			if strings.ContainsRune("123456789kAzQECpP", rune(rest[1])) {
+				return `\` + string(rest[1])
+			}
+			i++
+		case strings.HasPrefix(rest, "[[:"):
+			return "a POSIX class"
+		case strings.HasPrefix(rest, "(?") && !strings.HasPrefix(rest, "(?:"):
+			switch {
+			case strings.HasPrefix(rest, "(?=") || strings.HasPrefix(rest, "(?!") || strings.HasPrefix(rest, "(?<=") || strings.HasPrefix(rest, "(?<!"):
+				return "lookaround"
+			case strings.HasPrefix(rest, "(?<"):
+				continue
+			case strings.HasPrefix(rest, "(?P"):
+				return "a (?P<name>) group"
+			default:
+				return "an inline flag"
+			}
+		}
+	}
+	return ""
 }
 
 // copilotMatches tests matcher against what event's matcher filters on
@@ -251,6 +289,38 @@ func decideCopilot(event string, r Result) Decision {
 		}
 	}
 	return Allow
+}
+
+// CopilotErrored reports a preToolUse run Copilot denies because the
+// hook failed, not because it decided to: "a crash, or any other non-zero
+// exit (other than a timeout)" apart from exit 2. It blocks, and the run
+// still records the failure.
+func CopilotErrored(event string, r Result) bool {
+	return copilotEvent(event) == "preToolUse" && !r.TimedOut && (r.StartErr != nil || r.Exit != 0 && r.Exit != 2)
+}
+
+// CopilotMergedBlocks merges permissionRequest outputs in run order,
+// "with later hook outputs overriding earlier ones", where exit 2 merges
+// its stdout with `{"behavior":"deny"}`, and reports whether the merged
+// behavior denies. ok is false on other events, which do not merge.
+func CopilotMergedBlocks(event string, results []Result) (blocks, ok bool) {
+	if copilotEvent(event) != "permissionRequest" {
+		return false, false
+	}
+	var behavior any
+	for _, r := range results {
+		if r.TimedOut || r.StartErr != nil || r.Exit != 0 && r.Exit != 2 {
+			continue
+		}
+		reply, _ := copilotReply(r.Stdout)
+		if b, set := reply["behavior"]; set {
+			behavior = b
+		}
+		if r.Exit == 2 {
+			behavior = "deny"
+		}
+	}
+	return behavior == "deny", true
 }
 
 // CopilotAsks reports whether a preToolUse hook replied ask, which
@@ -404,10 +474,29 @@ func copilotAssumptions(goos string, h Handler) ([]Assumption, string) {
 		}
 		out = append(out, Assumption{Item: "shell", Value: "sh -c", Reason: "Copilot does not document the interpreter behind its bash field"})
 	}
+	if copilotRelativeExec(h) {
+		out = append(out, Assumption{Item: "exec path", Value: "relative to the project root", Reason: "Copilot does not document what a relative exec path resolves against when cwd is set"})
+	}
 	if h.Cwd == "" {
 		out = append(out, Assumption{Item: "working directory", Value: "project root", Reason: "Copilot does not document where a hook without cwd runs"})
 	}
 	return out, ""
+}
+
+// copilotRelativeExec reports an exec path that a cwd could change: a
+// relative path with a directory in it, as sync writes from the project
+// root.
+func copilotRelativeExec(h Handler) bool {
+	return h.Exec && h.Cwd != "" && !filepath.IsAbs(h.Command) && strings.ContainsAny(h.Command, `/\`)
+}
+
+// CopilotExec resolves a relative exec path against the project root, the
+// assumed reading, before the process starts in cwd.
+func CopilotExec(root string, h Handler) Handler {
+	if copilotRelativeExec(h) {
+		h.Command = filepath.Join(root, h.Command)
+	}
+	return h
 }
 
 // CopilotDir is the directory Copilot runs h in: its cwd, relative to
