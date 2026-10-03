@@ -142,8 +142,9 @@ func findHook(b spec.Bundle, name string) (spec.Entry, bool) {
 }
 
 // hookTargetRun is one target's combined decision. failed holds every
-// timeout or error among its commands, even when another one blocked.
-// An async run is not judged: the target does not wait for its result.
+// timeout or error among its commands that the target documents, even
+// when another one blocked. An async run is not judged: the target does
+// not wait for its result.
 type hookTargetRun struct {
 	Target   string           `json:"target"`
 	Decision hookrun.Decision `json:"decision"`
@@ -170,6 +171,13 @@ type hookTargetRun struct {
 	// uncounted is why the result is not counted even with
 	// --include-assumed: the target does not document what it does with it.
 	uncounted string
+	// judged is whether failed fails the run. It holds for a counted
+	// result, and for one left out only for uncounted, since one
+	// command's unclear reply says nothing about another's timeout.
+	judged bool
+	// sharedScript marks a result run apart from the specs the target
+	// runs it with, so none of it is judged.
+	sharedScript bool
 }
 
 type hookCommandRun struct {
@@ -270,7 +278,7 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, hooks []spec.Entry, tar
 		if target == "cline" {
 			run.Notes = append(run.Notes, hookrun.ClineRunNotes(event, matcher, specTimeout(hook.Meta), payload.Trigger)...)
 			if reason := hookrun.ClineSharedScript(adapters.HookScriptSiblings(cfg, target, hooks, hook)); reason != "" && !run.Async {
-				run.uncounted = reason
+				run.uncounted, run.sharedScript = reason, true
 				run.Notes = append(run.Notes, "not counted: "+reason)
 			}
 		}
@@ -317,35 +325,25 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, hooks []spec.Entry, tar
 			if target == "factory" && hookrun.FactoryAsks(event, r) {
 				run.Notes = append(run.Notes, "replied ask: Factory asks the user before the tool runs; read as block")
 			}
-			if target == "antigravity" {
-				if note := hookrun.AntigravityNote(event, r); note != "" {
-					run.Notes = append(run.Notes, note)
-				}
-				if reason := hookrun.AntigravityUncounted(event, r); reason != "" && run.uncounted == "" {
-					run.uncounted = reason
-					run.Notes = append(run.Notes, "not counted: "+reason)
-				}
-			}
-			if target == "cline" {
+			// uncounted is why this command's result is not counted, "" when
+			// the target documents it.
+			var note, uncounted string
+			switch target {
+			case "antigravity":
+				note, uncounted = hookrun.AntigravityNote(event, r), hookrun.AntigravityUncounted(event, r)
+			case "kiro":
+				note, uncounted = hookrun.KiroNote(event, r), hookrun.KiroUncounted(event, r)
+			case "windsurf":
+				note, uncounted = hookrun.WindsurfNote(event, r), hookrun.WindsurfUncounted(event, r)
+			case "cline":
 				run.Notes = append(run.Notes, hookrun.ClineNotes(event, r)...)
 			}
-			if target == "kiro" {
-				if note := hookrun.KiroNote(event, r); note != "" {
-					run.Notes = append(run.Notes, note)
-				}
-				if reason := hookrun.KiroUncounted(event, r); reason != "" && run.uncounted == "" {
-					run.uncounted = reason
-					run.Notes = append(run.Notes, "not counted: "+reason)
-				}
+			if note != "" {
+				run.Notes = append(run.Notes, note)
 			}
-			if target == "windsurf" {
-				if note := hookrun.WindsurfNote(event, r); note != "" {
-					run.Notes = append(run.Notes, note)
-				}
-				if reason := hookrun.WindsurfUncounted(event, r); reason != "" && run.uncounted == "" {
-					run.uncounted = reason
-					run.Notes = append(run.Notes, "not counted: "+reason)
-				}
+			if uncounted != "" && run.uncounted == "" {
+				run.uncounted = uncounted
+				run.Notes = append(run.Notes, "not counted: "+uncounted)
 			}
 			if target == "qoder" && hookrun.QoderAsks(event, r) {
 				run.Notes = append(run.Notes, "replied ask: Qoder asks the user before the tool runs; read as block")
@@ -355,7 +353,7 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, hooks []spec.Entry, tar
 			}
 			run.Commands = append(run.Commands, newHookCommandRun(shown, d, r, hookrun.AddsContext(target, event, r)))
 			run.Decision = strongerDecision(run.Decision, d)
-			if d == hookrun.Timeout || d == hookrun.Error {
+			if (d == hookrun.Timeout || d == hookrun.Error) && uncounted == "" {
 				run.failed = append(run.failed, d)
 			}
 			if target == "copilot" && hookrun.CopilotErrored(event, r) {
@@ -501,7 +499,8 @@ func countHookRuns(runs []hookTargetRun, expect hookrun.Decision, includeAssumed
 	reference := expect
 	for i := range runs {
 		r := &runs[i]
-		r.Counted = r.Decision != notRun && !r.Async && r.uncounted == "" && (len(r.Assumptions) == 0 || includeAssumed)
+		r.judged = r.Decision != notRun && !r.Async && !r.sharedScript && (len(r.Assumptions) == 0 || includeAssumed)
+		r.Counted = r.judged && r.uncounted == ""
 		if r.Counted && reference == "" {
 			reference = r.Decision
 		}
@@ -549,9 +548,9 @@ func printAssumedSummary(w io.Writer, runs []hookTargetRun, includeAssumed bool)
 	}
 	switch {
 	case uncounted == 1:
-		state += "; 1 undocumented result not counted"
+		state += "; 1 result not counted, see its note"
 	case uncounted > 1:
-		state += fmt.Sprintf("; %d undocumented results not counted", uncounted)
+		state += fmt.Sprintf("; %d results not counted, see their notes", uncounted)
 	}
 	_, _ = fmt.Fprintf(w, "\n%d checked, %d assumed (%s)\n", checked, assumed, state)
 }
@@ -758,8 +757,8 @@ func specTimeout(meta map[string]any) time.Duration {
 }
 
 // judgeHookRuns fails when no target ran the hook, on a command that
-// timed out or errored, on a decision other than expect, and on
-// targets that disagree.
+// timed out or errored where the result is judged, on a decision other
+// than expect, and on targets that disagree.
 func judgeHookRuns(name string, runs []hookTargetRun, expect hookrun.Decision) error {
 	var notRunReasons []string
 	for _, r := range runs {
@@ -774,29 +773,11 @@ func judgeHookRuns(name string, runs []hookTargetRun, expect hookrun.Decision) e
 		}
 		return fmt.Errorf("hook %s reaches no target hook run builds payloads for (%s)", name, strings.Join(hookrun.Targets(), ", "))
 	}
-	var assumedOnly, undocumented []string
+	var timedOut, errored []string
 	for _, r := range runs {
-		switch {
-		case r.Async || r.Counted:
-		case r.uncounted != "":
-			undocumented = append(undocumented, r.Target+": "+r.uncounted)
-		case len(r.Assumptions) > 0:
-			assumedOnly = append(assumedOnly, r.Target+": "+string(r.Decision))
+		if !r.judged {
+			continue
 		}
-	}
-	runs = slices.DeleteFunc(runs, func(r hookTargetRun) bool { return r.Async || !r.Counted })
-	if len(runs) == 0 && len(assumedOnly) > 0 && expect != "" {
-		return fmt.Errorf("hook %s: --expect checks nothing, since it ran only where hook run assumes part of the contract (%s); pass --include-assumed to count it", name, strings.Join(assumedOnly, ", "))
-	}
-	if len(runs) == 0 && len(undocumented) > 0 && expect != "" {
-		return fmt.Errorf("hook %s: --expect checks nothing, since no result it got is one the target documents (%s)", name, strings.Join(undocumented, "; "))
-	}
-	if len(runs) == 0 {
-		return nil
-	}
-	var timedOut, errored, summary []string
-	for _, r := range runs {
-		summary = append(summary, r.Target+" "+string(r.Decision))
 		if slices.Contains(r.failed, hookrun.Timeout) {
 			timedOut = append(timedOut, r.Target)
 		}
@@ -809,6 +790,30 @@ func judgeHookRuns(name string, runs []hookTargetRun, expect hookrun.Decision) e
 	}
 	if len(errored) > 0 {
 		return fmt.Errorf("hook %s failed on %s", name, strings.Join(errored, ", "))
+	}
+	var assumedOnly, uncounted []string
+	for _, r := range runs {
+		switch {
+		case r.Async || r.Counted:
+		case r.uncounted != "":
+			uncounted = append(uncounted, r.Target+": "+r.uncounted)
+		case len(r.Assumptions) > 0:
+			assumedOnly = append(assumedOnly, r.Target+": "+string(r.Decision))
+		}
+	}
+	runs = slices.DeleteFunc(runs, func(r hookTargetRun) bool { return r.Async || !r.Counted })
+	if len(runs) == 0 && len(assumedOnly) > 0 && expect != "" {
+		return fmt.Errorf("hook %s: --expect checks nothing, since it ran only where hook run assumes part of the contract (%s); pass --include-assumed to count it", name, strings.Join(assumedOnly, ", "))
+	}
+	if len(runs) == 0 && len(uncounted) > 0 && expect != "" {
+		return fmt.Errorf("hook %s: --expect checks nothing, since no result it got can be counted (%s)", name, strings.Join(uncounted, "; "))
+	}
+	if len(runs) == 0 {
+		return nil
+	}
+	var summary []string
+	for _, r := range runs {
+		summary = append(summary, r.Target+" "+string(r.Decision))
 	}
 	if expect != "" {
 		for _, r := range runs {
