@@ -156,9 +156,10 @@ func EnvRef(name string) string {
 // Terraform escape the same way.
 const envRefEscape = "$${"
 
-// escapeMask stands in for an escape while a value is tokenized, so no
-// pattern reads the `${` inside it.
-const escapeMask = "\x00{"
+// escapeMask stands in for an escape while a value is tokenized. It
+// keeps neither `$` nor `{`, so no pattern, OpenCode's `{env:NAME}`
+// included, reads any part of it.
+const escapeMask = "\x00\x01"
 
 var escapedPlaceholderPattern = regexp.MustCompile(`\$\$\{` + envRefName + `\}`)
 
@@ -176,14 +177,19 @@ func DecodeEnvRefEscapes(value string) string {
 	return strings.ReplaceAll(value, envRefEscape, "${")
 }
 
+// EscapeEnvRefEscapes writes each `$${` in value as `$$${`, so decoding
+// gives the text back unchanged. Import uses it on a field whose own
+// `${NAME}` form is the spec's, where the tool reads `$${` as text.
+func EscapeEnvRefEscapes(value string) string {
+	return strings.ReplaceAll(value, envRefEscape, "$"+envRefEscape)
+}
+
 // EscapeEnvRefs writes each `${NAME}` and `${NAME:-default}` in value as
 // `$${...}`, for import from a field the tool never expands. Editor
 // variables such as `${workspaceFolder}` and other tokens stay as
 // written.
 func EscapeEnvRefs(value string) string {
-	// Text that already reads `$${` gains one `$`, so decoding gives it
-	// back unchanged.
-	value = strings.ReplaceAll(value, envRefEscape, "$"+envRefEscape)
+	value = EscapeEnvRefEscapes(value)
 	out := envRefTokenPattern.ReplaceAllStringFunc(maskEscapes(value), func(text string) string {
 		t := EnvRefTokens(text)[0]
 		if !t.Known() || t.EditorVariable() {

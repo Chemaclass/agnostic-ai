@@ -66,3 +66,26 @@ func TestLaunchRefs_SkipsAnEscapedToolForm(t *testing.T) {
 		t.Errorf("LaunchRefs = %v, want only ${env:Y}", refs)
 	}
 }
+
+// OpenCode's `{env:NAME}` must not match the `{` left after a masked
+// escape, or `$${env:X}` reads as a reference.
+func TestEnvRefEscape_BraceEnvIgnoresAnEscape(t *testing.T) {
+	if refs := EnvRefBraceEnv.LaunchRefs("$${env:X}"); len(refs) != 0 {
+		t.Errorf("LaunchRefs = %q, want none", refs)
+	}
+	got := EnvRefBraceEnv.ReadLaunch(EscapeEnvRefs("$${env:X}"), EnvRefReading{})
+	if got != "$$${env:X}" {
+		t.Errorf("ReadLaunch(EscapeEnvRefs) = %q, want %q", got, "$$${env:X}")
+	}
+}
+
+func TestEscapeEnvRefEscapes_KeepsANativeEscapeThroughDecode(t *testing.T) {
+	for _, native := range []string{"$${X}", "a $${X} ${Y}", "${X}", "pa$$word"} {
+		if got := DecodeEnvRefEscapes(EscapeEnvRefEscapes(native)); got != native {
+			t.Errorf("round trip of %q = %q", native, got)
+		}
+	}
+	if got := EscapeEnvRefEscapes("$${X} ${Y}"); got != "$$${X} ${Y}" {
+		t.Errorf("EscapeEnvRefEscapes = %q, want only the escape doubled", got)
+	}
+}

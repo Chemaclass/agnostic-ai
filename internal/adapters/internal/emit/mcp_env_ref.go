@@ -81,26 +81,33 @@ func ReadMCPEnvRefs(target string, server map[string]any) {
 
 // EscapeMCPLiterals writes each `${NAME}` in a native server field
 // target never expands as the spec's `$${NAME}` escape, so the text
-// comes back unchanged instead of turning into a reference. Call it on
-// the server as the target wrote it, before ReadMCPEnvRefs or any step
-// that turns the target's own form into `${NAME}`.
+// comes back unchanged instead of turning into a reference. In a field
+// whose form is `${NAME}`, only a native `$${` is escaped, so sync
+// writes those bytes back: Gemini reads `$${X}` as `$` plus the value
+// of X. Call it on the server as the target wrote it, before
+// ReadMCPEnvRefs or any step that turns the target's own form into
+// `${NAME}`.
 func EscapeMCPLiterals(target string, server map[string]any) {
 	forms := mcpEnvRefTargets[target]
+	escaper := func(syntax spec.EnvRefSyntax) func(string) string {
+		if syntax == spec.EnvRefDollar {
+			return spec.EscapeEnvRefEscapes
+		}
+		return spec.EscapeEnvRefs
+	}
 	syntax := map[string]spec.EnvRefSyntax{"env": forms.env, "headers": forms.headers, "requestOptions.headers": forms.headers}
 	for _, name := range mcpRefFields {
-		if syntax[name] == spec.EnvRefDollar {
-			continue
-		}
+		escape := escaper(syntax[name])
 		values := (mcpEnvRefField{name: name}).values(server)
 		for key, v := range values {
 			if s, ok := v.(string); ok {
-				values[key] = spec.EscapeEnvRefs(s)
+				values[key] = escape(s)
 			}
 		}
 	}
 	for _, field := range mcpLaunchFields {
-		if v, ok := server[field]; ok && forms.launchSyntax(field) != spec.EnvRefDollar {
-			server[field] = mapLaunchValue(v, spec.EscapeEnvRefs)
+		if v, ok := server[field]; ok {
+			server[field] = mapLaunchValue(v, escaper(forms.launchSyntax(field)))
 		}
 	}
 }

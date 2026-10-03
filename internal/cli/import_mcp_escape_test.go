@@ -87,3 +87,68 @@ func TestImportMCP_EscapedDefaultIsNotCommitted(t *testing.T) {
 		t.Errorf("the default must not reach the spec:\n%s", got)
 	}
 }
+
+// OpenCode reads `{env:NAME}`, so its native `$${env:X}` is text. Import
+// keeps it as text, with no masking byte, and sync writes it back.
+func TestImportMCP_OpenCodeEscapedToolFormStaysText(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	captureLog(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [opencode, claude]\n")
+	native := `{"mcp": {"srv": {"type": "local", "command": ["srv", "--t", "$${env:X}"]}}}`
+	writeFile(t, filepath.Join(dir, "opencode.json"), native)
+
+	execCLI(t, "import", "opencode")
+
+	got := readFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "srv.yaml"))
+	if strings.ContainsRune(got, 0) || !strings.Contains(got, "$$${env:X}") {
+		t.Fatalf("spec should hold $$${env:X} and no NUL:\n%q", got)
+	}
+	execCLI(t, "sync")
+	emitted := snapshotEmitted(t, dir)
+	for _, file := range []string{"opencode.json", ".mcp.json"} {
+		if strings.ContainsRune(emitted[file], 0) || !strings.Contains(emitted[file], "$${env:X}") {
+			t.Errorf("%s should hold $${env:X} and no NUL:\n%q", file, emitted[file])
+		}
+	}
+	if out, err := runCLI(t, "lint"); err != nil || strings.Contains(out, "LINT028") {
+		t.Errorf("an escaped tool form is not LINT028: %v\n%s", err, out)
+	}
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check after import: %v\n%s", err, out)
+	}
+}
+
+// Gemini reads `$${X}` as `$` plus the value of X and documents no
+// escape. Import keeps those bytes, so each import and sync cycle writes
+// the same file.
+func TestImportMCP_GeminiNativeEscapeRoundTrips(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	captureLog(t)
+	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [gemini]\n")
+	writeFile(t, filepath.Join(dir, ".gemini", "settings.json"), `{"mcpServers": {"srv": {"command": "srv", "args": ["--price", "$${PRICE}", "${TOKEN}"]}}}`)
+
+	for i := range 3 {
+		execCLI(t, "import", "gemini")
+		execCLI(t, "sync")
+		settings := snapshotEmitted(t, dir)[".gemini/settings.json"]
+		if !strings.Contains(settings, `"$${PRICE}"`) || !strings.Contains(settings, `"${TOKEN}"`) {
+			t.Fatalf("cycle %d changed the args:\n%s", i+1, settings)
+		}
+	}
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check after import: %v\n%s", err, out)
+	}
+}
+
+func TestNormalizeImportedMCP_GeminiHTTPURLKeepsNativeEscape(t *testing.T) {
+	servers := map[string]any{"api": map[string]any{"httpUrl": "https://example.com/$${TENANT}/mcp"}}
+	normalizeImportedMCP("gemini", servers)
+	server := servers["api"].(map[string]any)
+	if server["type"] != "http" || server["url"] != "https://example.com/$$${TENANT}/mcp" {
+		t.Errorf("httpUrl should become an escaped url, got %v", server)
+	}
+}
