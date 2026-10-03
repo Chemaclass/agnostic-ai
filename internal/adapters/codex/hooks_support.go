@@ -67,12 +67,154 @@ func (Adapter) AcceptsHook(meta map[string]any) string {
 		}
 	}
 	matcher, _ := meta["matcher"].(string)
-	for _, seg := range matcherSegments(matcher) {
-		if !codexMatcherSegment(event, seg) {
-			return fmt.Sprintf("Codex %s does not match %q", event, seg)
+	names, exact := exactNameList(matcher)
+	if exact {
+		for _, seg := range names {
+			if !codexMatcherSegment(event, seg) {
+				return fmt.Sprintf("Codex %s does not match %q", event, seg)
+			}
 		}
+		return ""
+	}
+	if slices.Contains(matcherFreeEvents, event) {
+		return ""
+	}
+	re, err := regexp.Compile(matcher)
+	if err != nil {
+		return fmt.Sprintf("Codex %s matcher %q is not a valid regular expression", event, matcher)
+	}
+	if !regexFires(event, matcher, re) {
+		return fmt.Sprintf("Codex %s does not match %q", event, matcher)
 	}
 	return ""
+}
+
+// exactNames is the grammar the tools read as a list of exact names:
+// letters, digits, _, -, spaces, comma, and |. Anything else is a regex.
+var exactNames = regexp.MustCompile(`^[A-Za-z0-9_\- ,|]+$`)
+
+// exactNameList returns the names in an exact-name matcher, or false when
+// the matcher is a regex. An empty matcher lists no names.
+func exactNameList(matcher string) ([]string, bool) {
+	matcher = strings.TrimSpace(matcher)
+	switch {
+	case matcher == "":
+		return nil, true
+	case matcher == "*":
+		return []string{"*"}, true
+	case !exactNames.MatchString(matcher):
+		return nil, false
+	}
+	var names []string
+	for _, name := range strings.FieldsFunc(matcher, func(r rune) bool { return r == '|' || r == ',' }) {
+		if name = strings.TrimSpace(name); name != "" {
+			names = append(names, name)
+		}
+	}
+	return names, true
+}
+
+// regexFires reports whether a regex matcher may fire on a tool or source
+// name Codex reports for the event. It does when it matches a built-in
+// name. MCP server names are unknown, so a tool matcher also counts unless
+// it provably cannot match an mcp__ name; see rejectsMCPNames.
+func regexFires(event, matcher string, re *regexp.Regexp) bool {
+	if !slices.Contains(toolEvents, event) {
+		return slices.ContainsFunc(sourceMatchers[event], re.MatchString)
+	}
+	return slices.ContainsFunc(toolMatchers, re.MatchString) || !rejectsMCPNames(matcher)
+}
+
+// rejectsMCPNames proves the trivial case only: a regex anchored with ^
+// and with no top-level |, whose literal prefix (up to the first
+// metacharacter, minus a quantified last character) neither is a prefix of
+// mcp__ nor starts with it.
+func rejectsMCPNames(matcher string) bool {
+	if !strings.HasPrefix(matcher, "^") {
+		return false
+	}
+	alternation := false
+	scanRegex(matcher, func(_ int, c byte, depth int) {
+		alternation = alternation || (c == '|' && depth == 0)
+	})
+	if alternation {
+		return false
+	}
+	body := matcher[1:]
+	end := strings.IndexAny(body, `\.+*?()[]{}|^$`)
+	if end < 0 {
+		end = len(body)
+	} else if strings.IndexByte("*?+{", body[end]) >= 0 && end > 0 {
+		end--
+	}
+	prefix := body[:end]
+	return !strings.HasPrefix(spec.MCPToolPrefix, prefix) && !strings.HasPrefix(prefix, spec.MCPToolPrefix)
+}
+
+// scanRegex calls visit for each ( ) and | in a regex that is not escaped
+// or inside a [...] class, with the group depth before that byte. A class
+// may open with ^, then a literal ], and may hold [:name:] sets.
+func scanRegex(s string, visit func(i int, c byte, depth int)) {
+	depth := 0
+	for i := 0; i < len(s); i++ {
+		switch c := s[i]; c {
+		case '\\':
+			i++
+		case '[':
+			i = classEnd(s, i)
+		case '(', ')', '|':
+			visit(i, c, depth)
+			switch c {
+			case '(':
+				depth++
+			case ')':
+				depth--
+			}
+		}
+	}
+}
+
+// classEnd returns the index of the ] that closes the class opening at
+// start, or the last index when it never closes.
+func classEnd(s string, start int) int {
+	i := start + 1
+	if i < len(s) && s[i] == '^' {
+		i++
+	}
+	if i < len(s) && s[i] == ']' {
+		i++
+	}
+	for ; i < len(s); i++ {
+		switch {
+		case s[i] == '\\':
+			i++
+		case strings.HasPrefix(s[i:], "[:"):
+			if end := strings.Index(s[i+2:], ":]"); end >= 0 {
+				i += end + 3
+			}
+		case s[i] == ']':
+			return i
+		}
+	}
+	return len(s) - 1
+}
+
+// outerGroup returns the body of s when one (...) or (?:...) group spans
+// all of it.
+func outerGroup(s string) (string, bool) {
+	if !strings.HasPrefix(s, "(") || !strings.HasSuffix(s, ")") {
+		return "", false
+	}
+	spans := true
+	scanRegex(s, func(i int, c byte, depth int) {
+		if c == ')' && depth == 1 && i != len(s)-1 {
+			spans = false
+		}
+	})
+	if !spans {
+		return "", false
+	}
+	return strings.TrimPrefix(s[1:len(s)-1], "?:"), true
 }
 
 func codexMatcherSegment(event, seg string) bool {
@@ -96,6 +238,10 @@ var readsFilePath = regexp.MustCompile(`tool_input\W{1,4}file_path`)
 
 // editMatchers are the matcher segments that fire on a Codex edit.
 var editMatchers = []string{"apply_patch", "Edit", "Write", "*"}
+
+// editToolNames are the concrete names a regex matcher is tried against;
+// `*` is a name-list wildcard, not a tool, so a regex never sees it.
+var editToolNames = []string{"apply_patch", "Edit", "Write"}
 
 // Codex never sends tool_input.file_path; inspect commands and the scripts sync copies.
 func noteEditHookPayload(sess *emit.Session, hooks []spec.Entry, mode string) error {
@@ -145,9 +291,10 @@ func firesOnEdit(meta map[string]any) bool {
 		return false
 	}
 	matcher, _ := meta["matcher"].(string)
-	segments := matcherSegments(matcher)
-	if len(segments) == 0 {
-		return true
+	segments, exact := exactNameList(matcher)
+	if exact {
+		return len(segments) == 0 || slices.ContainsFunc(segments, func(seg string) bool { return slices.Contains(editMatchers, seg) })
 	}
-	return slices.ContainsFunc(segments, func(seg string) bool { return slices.Contains(editMatchers, seg) })
+	re, err := regexp.Compile(matcher)
+	return err == nil && slices.ContainsFunc(editToolNames, re.MatchString)
 }

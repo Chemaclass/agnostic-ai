@@ -53,6 +53,21 @@ func TestNew_WritesRule(t *testing.T) {
 	}
 }
 
+func TestNew_MCPHintLinksRecipes(t *testing.T) {
+	dir := setupEmptyProject(t)
+	testutil.Chdir(t, dir)
+	out := captureSummary(t)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"new", "mcp", "filesystem"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "https://agnostic-ai.org/docs/spec-format/mcp-recipes/") {
+		t.Errorf("mcp hint missing recipes URL:\n%s", out.String())
+	}
+}
+
 func TestNew_DryRunPrintsScaffoldWithoutWriting(t *testing.T) {
 	dir := setupEmptyProject(t)
 	testutil.Chdir(t, dir)
@@ -166,6 +181,27 @@ targets: [claude]
 	}
 	if _, err := os.Stat(filepath.Join(dir, "specs", "rules", "x.md")); err != nil {
 		t.Errorf("expected file under custom sources: %v", err)
+	}
+}
+
+func TestNew_AgentScaffoldLoadsOnEveryTarget(t *testing.T) {
+	dir := setupEmptyProject(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\nsources:\n  agents: .agnostic-ai/agents\n  skills: .agnostic-ai/skills\n  rules: .agnostic-ai/rules\n  hooks: .agnostic-ai/hooks\n  mcps: .agnostic-ai/mcps\ntargets: [claude, codex, cursor]\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"new", "agent", "foo"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	report, _, _ := runLintJSON(t)
+	for _, f := range report.Findings {
+		// LINT031 is the placeholder description, which new writes on purpose.
+		if strings.HasSuffix(f.Path, "foo.md") && f.Code != "LINT031" {
+			t.Errorf("fresh agent scaffold has a finding: %s %s", f.Code, f.Message)
+		}
 	}
 }
 

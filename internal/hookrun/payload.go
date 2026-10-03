@@ -311,6 +311,9 @@ func firstMatch(match matchFunc, matcher string, candidates []string) (string, b
 	return candidates[0], false, nil
 }
 
+// Matches reports whether a Claude-style matcher fires for a tool name.
+func Matches(matcher, value string) (bool, error) { return matches(matcher, value) }
+
 var exactMatcher = regexp.MustCompile(`^[A-Za-z0-9_\-, |]+$`)
 
 // matches follows Claude Code's matcher rules, which Codex shares: empty

@@ -44,6 +44,8 @@ disabled: true
 targets: [claude, codex]
 ```
 
+Real servers to copy are on the [MCP recipes](@/docs/spec-format/mcp-recipes.md) page.
+
 ## Fields
 
 `name` is the server identifier, not the filename. It may contain package-style slashes, such as `npm:@modelcontextprotocol/server-sequential.thinking`. Such names are percent-encoded in YAML filenames and kept as-is in every generated config. Other spec kinds need one safe path segment, because their names become output paths.
