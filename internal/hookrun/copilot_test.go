@@ -139,6 +139,10 @@ func TestCopilotAssumptions_NameEachUndocumentedItem(t *testing.T) {
 	if h := CopilotExec("/project", Handler{Command: "../bin/guard", Exec: true, Cwd: "scripts"}); h.Command != filepath.Join("/project", "bin/guard") {
 		t.Errorf("exec path = %s", h.Command)
 	}
+	abs := filepath.Join(t.TempDir(), "tools")
+	if h := CopilotExec("/project", Handler{Command: "bin/guard", Exec: true, Cwd: abs}); h.Command != filepath.Join(abs, "bin/guard") {
+		t.Errorf("exec path under an absolute cwd = %s", h.Command)
+	}
 	for name, h := range map[string]Handler{
 		"shell syntax":  {Command: "cat | grep rm"},
 		"env expansion": {Command: "guard.sh", Env: map[string]string{"P": "$HOME/x"}},
