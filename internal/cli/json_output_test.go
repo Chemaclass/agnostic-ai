@@ -380,7 +380,7 @@ func TestSyncJSON_AFailedTargetReportsAndLedgersItsEarlierWrites(t *testing.T) {
 	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [amp]\nsync:\n  collision-policy: prefer-spec\n")
 	mustWriteFile(t, ".agnostic-ai/mcps/gh.yaml", "name: gh\ncommand: npx\n")
 	runSyncOK(t)
-	skill := filepath.FromSlash(".agents/skills/review/SKILL.md")
+	skill := ".agents/skills/review/SKILL.md"
 	mustWriteFile(t, ".agnostic-ai/skills/review/SKILL.md", "---\nname: review\ndescription: Review code.\n---\nReview.\n")
 	mustWriteFile(t, ".amp/settings.json", "{")
 
@@ -404,7 +404,8 @@ func TestSyncJSON_AFailedTargetReportsAndLedgersItsEarlierWrites(t *testing.T) {
 	if _, err := os.Stat(skill); err != nil {
 		t.Fatalf("%s: %v", skill, err)
 	}
-	if !slices.Contains(readStateFile(".").Outputs, skill) {
+	// The ledger keeps OS paths; only the JSON uses slashes.
+	if !slices.Contains(readStateFile(".").Outputs, filepath.FromSlash(skill)) {
 		t.Errorf("ledger outputs %v miss %s", readStateFile(".").Outputs, skill)
 	}
 
@@ -417,5 +418,20 @@ func TestSyncJSON_AFailedTargetReportsAndLedgersItsEarlierWrites(t *testing.T) {
 	runSyncOK(t)
 	if _, err := os.Stat(skill); !os.IsNotExist(err) {
 		t.Errorf("%s stayed after its skill went: %v", skill, err)
+	}
+}
+
+func TestJSONOutput_RecordPathsUseSlashesAndListsAreNeverNull(t *testing.T) {
+	out := jsonOutput{
+		Writes:  []fileRecord{{Path: filepath.FromSlash(".agents/skills/style/SKILL.md"), Backup: filepath.FromSlash(".claude/x.md.bak")}},
+		Skipped: []fileRecord{{Path: filepath.FromSlash(".cursor/rules/a.mdc")}},
+	}.forOutput()
+
+	if out.Writes[0].Path != ".agents/skills/style/SKILL.md" || out.Writes[0].Backup != ".claude/x.md.bak" || out.Skipped[0].Path != ".cursor/rules/a.mdc" {
+		t.Errorf("paths not slashed: %+v %+v", out.Writes, out.Skipped)
+	}
+	empty := jsonOutput{}.forOutput()
+	if empty.Writes == nil || empty.Skipped == nil || empty.Errors == nil {
+		t.Errorf("lists must be empty, not nil: %+v", empty)
 	}
 }

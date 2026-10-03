@@ -1096,7 +1096,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 			fmt.Fprintf(os.Stderr, "! rollback: %v\n", rbErr)
 		}
 		out.addError(notesErr)
-		drops.jsonOutput = out.withEmptyLists()
+		drops.jsonOutput = out.forOutput()
 		if err := writeIndentedJSON(cmd, drops); err != nil {
 			return err
 		}
@@ -1236,7 +1236,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	if err := writeStateFile(root, len(out.Writes), prev.WarningsDigest, prev.NotesDigest, ledger); err != nil {
 		fmt.Fprintf(os.Stderr, "! state file: %v\n", err)
 	}
-	drops.jsonOutput = out.withEmptyLists()
+	drops.jsonOutput = out.forOutput()
 	return writeIndentedJSON(cmd, drops)
 }
 

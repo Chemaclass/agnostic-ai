@@ -9,6 +9,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### General
 
 - `hook run` runs Cursor hooks on an assumed shell and timeout, marked and not counted unless `--include-assumed` (#1566).
+- `sync`, `sync --check`, `doctor`, and `revert` with `--json` write file paths with `/` on Windows too (#1680).
 - `init` pre-ticks the tools the project uses, else the CLIs on `PATH`, else `claude` and `codex`, and names the picker keys; without a terminal it enables that set instead of 20 targets (#1610).
 - In a terminal, plain `init` offers to import existing tool config, as `init --from all` does (#1610).
 - Polling watch emits edits made during a re-sync and keeps watching roots added by config reload (#1641, #1650).
