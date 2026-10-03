@@ -75,9 +75,10 @@ func installHint(command string) string {
 	return fmt.Sprintf("Install or expose %q on PATH.", command)
 }
 
-// reportMCPUnsetEnvRefs lists each `${NAME}` an enabled MCP server
-// reads that is unset in this shell, for the configured targets the
-// server emits to. Most tools pass the unexpanded text or an empty value
+// reportMCPUnsetEnvRefs lists each `${NAME}` an MCP server reads that
+// is unset in this shell, for the configured targets the server emits
+// to. Disabled servers count too: several targets cannot write
+// `disabled` and start the server anyway. Most tools pass the unexpanded text or an empty value
 // to the server, and Factory fails the connection. A reference with a
 // default is skipped. The tool may run with a different environment than
 // this shell, so the check is advisory and prints names, never values.
@@ -94,7 +95,7 @@ func reportMCPUnsetEnvRefs(cmd *cobra.Command) {
 	for _, e := range b.MCPs {
 		var names []string
 		for _, target := range cfg.Targets {
-			if e.EmitsTo(target) && !mcpDisabledFor(e.Meta, target) {
+			if e.EmitsTo(target) {
 				names = append(names, mcpEnvRefNames(e.Meta, target)...)
 			}
 		}
@@ -123,18 +124,6 @@ func reportMCPUnsetEnvRefs(cmd *cobra.Command) {
 		}
 		cmd.Printf("  ✗ %s reads %s, unset in this shell. Export it before starting the tool.\n", r.name, strings.Join(r.unset, ", "))
 	}
-}
-
-// mcpDisabledFor reports whether the server is off for target, where
-// an `x-<target>` `disabled` wins over the top-level one.
-func mcpDisabledFor(meta map[string]any, target string) bool {
-	if override, ok := meta["x-"+target].(map[string]any); ok {
-		if disabled, ok := override["disabled"].(bool); ok {
-			return disabled
-		}
-	}
-	disabled, _ := meta["disabled"].(bool)
-	return disabled
 }
 
 // mcpEnvRefNames returns the variables a server reads through `${NAME}`

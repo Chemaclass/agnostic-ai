@@ -69,7 +69,6 @@ func TestDoctorMCP_SkipsRefsThatCannotBeUnset(t *testing.T) {
 		"defaulted": "name: defaulted\ncommand: sh\nenv:\n  KEY: ${AA_TEST_KEY:-fallback}\n",
 		"escaped":   "name: escaped\ncommand: sh\nargs: [\"$${AA_TEST_LITERAL}\"]\n",
 		"editor":    "name: editor\ncommand: sh\nargs: [\"${workspaceFolder}\"]\n",
-		"off":       "name: off\ncommand: sh\ndisabled: true\nenv:\n  KEY: ${AA_TEST_OFF}\n",
 	})
 	if strings.Contains(got, "MCP environment references:") {
 		t.Errorf("expected no references block:\n%s", got)
@@ -114,11 +113,11 @@ func TestDoctorMCP_IgnoresWhatNoSelectedTargetReads(t *testing.T) {
 	}
 }
 
-func TestDoctorMCP_ChecksAServerAnOverrideTurnsOn(t *testing.T) {
-	got := runDoctorMCPFor(t, "factory", map[string]string{
-		"local": "name: local\ncommand: sh\ndisabled: true\nx-factory:\n  disabled: false\nenv:\n  TOKEN: ${AA_TEST_FACTORY_TOKEN}\n",
+func TestDoctorMCP_ChecksDisabledServers(t *testing.T) {
+	got := runDoctorMCPFor(t, "cursor", map[string]string{
+		"off": "name: off\ncommand: sh\ndisabled: true\nenv:\n  KEY: ${AA_TEST_OFF}\n",
 	})
-	if !strings.Contains(got, "✗ local reads AA_TEST_FACTORY_TOKEN,") {
-		t.Errorf("expected the server Factory enables to be checked:\n%s", got)
+	if !strings.Contains(got, "✗ off reads AA_TEST_OFF,") {
+		t.Errorf("expected a disabled server to be checked:\n%s", got)
 	}
 }

@@ -94,7 +94,7 @@ Sync writes each tool's own form. Where a tool cannot read a reference in that f
 
 Kiro expands only the variables approved under **Mcp Approved Env Vars** in its settings. Factory fails the connection when a referenced variable is unset, and Claude Code passes the unexpanded `${NAME}` text to the server.
 
-[`agnostic-ai doctor`](@/docs/cli-reference/check.md#doctor) lists each referenced variable that is unset in your shell, in top-level fields and in the `x-<target>` block of each selected target. It can list a variable that an override replaces. A tool started from a desktop launcher may see a different environment, and Continue also reads `.env` files, so treat the list as a hint.
+[`agnostic-ai doctor`](@/docs/cli-reference/check.md#doctor) lists each referenced variable that is unset in your shell, in top-level fields and in the `x-<target>` block of each selected target. It checks disabled servers too, since several tools start them anyway, and it can list a variable that an override replaces. A tool started from a desktop launcher may see a different environment, and Continue also reads `.env` files, so treat the list as a hint.
 
 Continue's IDE extensions read secrets from project `.env`, `.continue/.env`, or `~/.continue/.env` files. Its CLI also reads process environment variables. See [Continue's secret resolution](https://docs.continue.dev/faqs#managing-local-secrets-and-environment-variables). Keep `.env` files out of Git.
 
