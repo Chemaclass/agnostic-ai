@@ -815,7 +815,7 @@ func printDoctorJSON(cmd *cobra.Command, reports []driftReport, refs []reference
 	if lint == nil {
 		lint = []lintFinding{}
 	}
-	out := doctorJSONOutput{jsonOutput: jsonOutput{Version: "1", Command: "doctor", Writes: driftRecords(reports)}.withEmptyLists(), Lint: lint, HookTrust: hookTrust, PackagingIgnore: packaging, CoverageAccepted: coverageAccepted}
+	out := doctorJSONOutput{jsonOutput: jsonOutput{Version: "1", Command: "doctor", Writes: driftRecords(reports)}.forOutput(), Lint: lint, HookTrust: hookTrust, PackagingIgnore: packaging, CoverageAccepted: coverageAccepted}
 	if out.HookTrust == nil {
 		out.HookTrust = []codex.HookTrustFinding{}
 	}
