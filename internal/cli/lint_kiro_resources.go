@@ -44,6 +44,9 @@ func lintKiroAgentResources(cfg *config.Config, targets []string, b spec.Bundle)
 	return out
 }
 
+// namesAgentsMd reports whether a `file://` resource loads the root
+// AGENTS.md. Kiro resources are globs, so `file://*.md` counts, and a
+// leading `**/` also matches the root.
 func namesAgentsMd(resource any) bool {
 	s, _ := resource.(string)
 	p, ok := strings.CutPrefix(s, "file://")
@@ -51,6 +54,14 @@ func namesAgentsMd(resource any) bool {
 		return false
 	}
 	p = path.Clean(p)
-	matched, _ := path.Match(p, "AGENTS.md")
-	return p == "AGENTS.md" || matched
+	for {
+		if matched, _ := path.Match(p, "AGENTS.md"); matched {
+			return true
+		}
+		rest, deeper := strings.CutPrefix(p, "**/")
+		if !deeper {
+			return false
+		}
+		p = rest
+	}
 }

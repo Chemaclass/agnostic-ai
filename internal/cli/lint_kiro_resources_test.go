@@ -43,3 +43,30 @@ func TestLint_KiroAgentResourcesWithoutInlinedRulesIsClean(t *testing.T) {
 		t.Errorf("without an inlining target the rules stay in steering, so nothing is lost:\n%s", out)
 	}
 }
+
+func TestNamesAgentsMd_MatchesResourcesThatLoadTheRootFile(t *testing.T) {
+	for resource, want := range map[string]bool{
+		"file://AGENTS.md":         true,
+		"file://./AGENTS.md":       true,
+		"file://*.md":              true,
+		"file://**/AGENTS.md":      true,
+		"file://**":                true,
+		"file://docs/AGENTS.md":    false,
+		"file://.kiro/steering/**": false,
+		"AGENTS.md":                false,
+	} {
+		if got := namesAgentsMd(resource); got != want {
+			t.Errorf("namesAgentsMd(%q) = %v, want %v", resource, got, want)
+		}
+	}
+}
+
+func TestLint_KiroAgentResourcesWithOnlyScopedRulesIsClean(t *testing.T) {
+	dir := budgetProject(t, "targets: [codex, kiro]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "go.md"), "---\nglobs: [\"**/*.go\"]\n---\nGo body.\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "helper.md"), strings.Replace(kiroHelperAgent, "%s", `"file://.kiro/steering/**"`, 1))
+
+	if out, _ := runCLI(t, "lint"); len(findingLines(out, "LINT029")) != 0 {
+		t.Errorf("fileMatch rules keep their steering files, so nothing is lost:\n%s", out)
+	}
+}

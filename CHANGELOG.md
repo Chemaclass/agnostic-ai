@@ -30,7 +30,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Kiro
 
-- `x-kiro.resources` no longer keeps steering copies of `AGENTS.md` rules (`sync` removes them); LINT029 flags resources without `file://AGENTS.md` (#1643).
+- **Breaking:** `x-kiro.resources` keeps no steering copies of `AGENTS.md` rules; with inheritance off, list `file://AGENTS.md` (LINT029) (#1643).
 - Import skips `manual` and `auto` steering files with a note instead of turning them into always-on rules (#1656).
 
 ### Site

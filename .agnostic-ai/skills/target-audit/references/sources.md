@@ -241,7 +241,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - decision: MCP `oauth` and `oauthScopes` (remote only), `autoApprove` and `disabledTools` emit behind `emit.WithKiroMCPExtras()` (#634). Skills write natively to `.kiro/skills/` (#642). Hook `description` emits generically, `confirm` only via `x-kiro`.
 - decision: a valid `x-kiro.action` works without a command and replaces the fallback command list; invalid actions error (#772). An omitted timeout uses the vendor default.
 - decision: we emit no powers. Powers install per user with no committed project path. Agents reach installed powers through `x-kiro.includePowers` (#1068).
-- trap: Custom agents inherit default resources alongside listed `resources`. `chat.disableInheritingDefaultResources` defaults false and is workspace-overridable. Keep the conservative steering fallback until its opt-out representation is settled (#1643).
+- trap: Custom agents inherit default resources alongside listed `resources`; `chat.disableInheritingDefaultResources` defaults false. Sync writes no steering copy of `AGENTS.md` rules; LINT029 covers the opt-out (#1643).
 
 ## crush
 
