@@ -9,6 +9,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 ### General
 
 - Skills take neutral `allowed-tools`; agents take file patterns and `delete`. `explain` names native tools and extra access (#1803).
+- A `decision: stdout` hook blocks on raw SOH bytes, including one after an otherwise valid allow reply (#1810).
 
 - `outputs.<target>.agents: skill` writes agents as on-demand skills on Amp, Crush, Warp, and Zed, which have no subagents, unless a tool with subagents reads the same skills directory (#1772).
 - `import` turns MCP credentials into `${NAME}` references or drops the server, as `--global` does; `doctor` names each unset `${NAME}` (#1736, #1742, #1729).

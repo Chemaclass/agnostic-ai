@@ -67,7 +67,7 @@ func TestSync_KiroNotesTheAccessACategoryAdds(t *testing.T) {
 	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [kiro]\n")
 	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "agents", "writer.md"), "---\nname: writer\ndescription: Writes docs.\ncan: [read, edit]\n---\n\nWrite docs.\n")
 	mustSync(t)
-	if want := "kiro: .agnostic-ai/agents/writer.md: edit becomes Kiro's write category, which also allows delete_file"; !strings.Contains(buf.String(), want) {
+	if want := "kiro: " + filepath.Join(".agnostic-ai", "agents", "writer.md") + ": edit becomes Kiro's write category, which also allows delete_file"; !strings.Contains(buf.String(), want) {
 		t.Errorf("sync output misses %q:\n%s", want, buf.String())
 	}
 }
@@ -95,7 +95,7 @@ func TestSync_StopsOnACapabilityItCannotRead(t *testing.T) {
 			if exists(filepath.Join(dir, ".claude", "agents", "a.md")) {
 				t.Error("sync must not write an agent whose can: it cannot read")
 			}
-			if out, err := runCLI(t, "lint"); err == nil || !strings.Contains(out, "LINT036 [error] .agnostic-ai/agents/a.md: ") {
+			if out, err := runCLI(t, "lint"); err == nil || !strings.Contains(out, "LINT036 [error] "+filepath.Join(".agnostic-ai", "agents", "a.md")+": ") {
 				t.Errorf("lint: %v\n%s", err, out)
 			}
 			if out, err := runCLI(t, "validate"); err == nil || !strings.Contains(out, tc.want) {
