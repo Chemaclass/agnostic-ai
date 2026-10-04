@@ -195,6 +195,7 @@ func HookScriptSiblings(cfg *config.Config, target string, hooks []spec.Entry, h
 	}
 	var names []string
 	for _, other := range hooks {
+		other = emit.TargetHook(target, other)
 		otherEvent, _ := other.Meta["event"].(string)
 		if (other.Name == h.Name && other.Path == h.Path) || !other.EmitsTo(target) ||
 			cline.HookScriptPath(cfg, otherEvent) != path || cline.HookScript(other) == "" {
