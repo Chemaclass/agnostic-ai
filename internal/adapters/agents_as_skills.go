@@ -30,6 +30,19 @@ var subagentlessTargets = map[string]bool{"amp": true, "crush": true, "warp": tr
 // AgentsAsSkillsTarget reports whether target can write agents as skills.
 func AgentsAsSkillsTarget(target string) bool { return subagentlessTargets[target] }
 
+// agentsSkillsReaders also read the shared `.agents/skills` tree,
+// wherever they write their own skills, and have subagents: codex,
+// copilot (copilot.go otherSkillsDirs), gemini (gemini.go), cline
+// (cline.go), and cursor, which loads `.agents/skills` natively.
+var agentsSkillsReaders = map[string]bool{"cline": true, "codex": true, "copilot": true, "cursor": true, "gemini": true}
+
+// sharedAgentsSkillsDir is the cross-tool skills tree.
+const sharedAgentsSkillsDir = ".agents/skills"
+
+// WrittenFromAgent reports whether a SKILL.md is an agent sync wrote as
+// a skill, so import leaves it to the agent spec.
+func WrittenFromAgent(skillMD string) bool { return strings.Contains(skillMD, agentSkillPreamble) }
+
 // agentSkillFields are the agent fields a skill carries over.
 var agentSkillFields = map[string]bool{
 	"name": true, "description": true,
@@ -63,7 +76,9 @@ func agentsAsSkills(cfg *config.Config, target string) (bool, []string) {
 		if t == target || subagentlessTargets[t] || !ok || !slices.Contains(other.Capabilities(), spec.KindAgent) {
 			continue
 		}
-		if filepath.Clean(varsFor(cfg, t)[emit.VarSkillsDir]) == filepath.Clean(dir) {
+		reads := filepath.Clean(varsFor(cfg, t)[emit.VarSkillsDir]) == filepath.Clean(dir) ||
+			agentsSkillsReaders[t] && filepath.ToSlash(filepath.Clean(dir)) == sharedAgentsSkillsDir
+		if reads {
 			conflicts = append(conflicts, t)
 		}
 	}

@@ -123,3 +123,60 @@ func TestCompare_ReportsAgentsWrittenAsSkills(t *testing.T) {
 		}
 	}
 }
+
+// Copilot reads .agents/skills beside its own agents directory.
+func TestSync_KeepsAgentsOffASkillsTreeATargetWithSubagentsOnlyReads(t *testing.T) {
+	agentsAsSkillsProject(t, "version: 1\ntargets: [amp, copilot]\noutputs:\n  amp:\n    agents: skill\n")
+
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if _, err := os.Stat(filepath.Join(".agents", "skills", "reviewer")); !os.IsNotExist(err) {
+		t.Errorf("no agent skill where copilot reads it, stat err = %v", err)
+	}
+}
+
+func TestImport_LeavesAnAgentWrittenAsASkillToTheAgentSpec(t *testing.T) {
+	agentsAsSkillsProject(t, "version: 1\ntargets: [amp]\noutputs:\n  amp:\n    agents: skill\n")
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+
+	importCapturing(t, "amp")
+
+	if _, err := os.Stat(filepath.Join(".agnostic-ai", "skills", "reviewer")); !os.IsNotExist(err) {
+		t.Errorf("import must not copy the agent skill back, stat err = %v", err)
+	}
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Errorf("sync after import: %v\n%s", err, out)
+	}
+}
+
+// Amp and Crush share .agents/skills and both write agents there.
+func TestRender_AgentReferenceUsesTheSkillPhraseInASharedSkillsDir(t *testing.T) {
+	agentsAsSkillsProject(t, "version: 1\ntargets: [amp, crush]\noutputs:\n  amp:\n    agents: skill\n  crush:\n    agents: skill\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "skills", "ship", "SKILL.md"), "---\nname: ship\ndescription: Ships.\n---\n\nFirst run {{$AGENT:reviewer}}.\n")
+
+	out, err := runCLI(t, "render", filepath.Join(".agnostic-ai", "skills", "ship", "SKILL.md"), "-t", "amp")
+	if err != nil || !strings.Contains(out, "First run the reviewer skill.") {
+		t.Errorf("want the skill phrase, got %v\n%s", err, out)
+	}
+}
+
+func TestLoad_RejectsTheKeyBesideASurfaceThatCarriesAgents(t *testing.T) {
+	agentsAsSkillsProject(t, "version: 1\ntargets: [warp]\noutputs:\n  warp:\n    agents: skill\n    workflows-dir: .warp/workflows\n")
+
+	out, err := runCLI(t, "validate")
+	if err == nil || !strings.Contains(err.Error()+out, "cannot combine with rules-file or workflows-dir") {
+		t.Errorf("want the combination rejected, got %v\n%s", err, out)
+	}
+}
+
+func TestLint_CountsAgentsWrittenAsSkillsAsConsumed(t *testing.T) {
+	agentsAsSkillsProject(t, "version: 1\ntargets: [crush]\noutputs:\n  crush:\n    agents: skill\n")
+
+	out, _ := runCLI(t, "lint")
+	if strings.Contains(out, "LINT004") {
+		t.Errorf("crush writes the agent as a skill, got:\n%s", out)
+	}
+}

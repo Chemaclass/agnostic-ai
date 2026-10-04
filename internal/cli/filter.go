@@ -82,6 +82,9 @@ func validateAgentsOutput(cfg *config.Config, source string) error {
 		if !adapters.AgentsAsSkillsTarget(t) {
 			return fmt.Errorf("%s: outputs.%s.agents: skill applies to amp, crush, warp, and zed, which write skills and have no subagents", source, t)
 		}
+		if o := cfg.Outputs[t]; o.RulesFile != "" || o.WorkflowsDir != "" {
+			return fmt.Errorf("%s: outputs.%s.agents: skill cannot combine with rules-file or workflows-dir, which already carry the agents; keep one", source, t)
+		}
 	}
 	return nil
 }

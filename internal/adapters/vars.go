@@ -177,17 +177,7 @@ func expandBundleVars(b spec.Bundle, cfg *config.Config, target string) spec.Bun
 	unresolved := map[string]int{}
 	kindOf := map[string]spec.Kind{}
 	forms := emit.RefForms[target]
-	// An agent written as a skill is invoked as one.
-	if WritesAgentsAsSkills(cfg, target) {
-		forms = maps.Clone(forms)
-		if forms == nil {
-			forms = map[string]string{}
-		}
-		forms[emit.RefAgent] = forms[emit.RefSkill]
-		if forms[emit.RefAgent] == "" {
-			forms[emit.RefAgent] = "the %s skill"
-		}
-	}
+	agentsAreSkills := WritesAgentsAsSkills(cfg, target)
 	var emits []spec.Kind
 	if a, ok := Get(target); ok {
 		emits = a.Capabilities()
@@ -207,6 +197,17 @@ func expandBundleVars(b spec.Bundle, cfg *config.Config, target string) spec.Bun
 		kindForms := forms
 		if sharesKindDir(cfg, target, kind, vals) {
 			kindForms = nil
+		}
+		// An agent written as a skill is invoked as one.
+		if agentsAreSkills {
+			kindForms = maps.Clone(kindForms)
+			if kindForms == nil {
+				kindForms = map[string]string{}
+			}
+			kindForms[emit.RefAgent] = kindForms[emit.RefSkill]
+			if kindForms[emit.RefAgent] == "" {
+				kindForms[emit.RefAgent] = "the %s skill"
+			}
 		}
 		out := make([]spec.Entry, len(entries))
 		copy(out, entries)
