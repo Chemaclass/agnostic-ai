@@ -305,22 +305,41 @@ func ClineRunNotes(event, matcher string, timeout time.Duration, trigger string)
 	return notes
 }
 
-// clinePayloadLines are the lines sync adds to an event script when a
-// portable hook filters on the tool name: they read the payload once and
-// feed each command a copy. Whether a script has them depends on its
-// other specs, so clineDrift compares scripts without them.
-var clinePayloadLines = strings.NewReplacer("aai_in=$(cat)\n", "", "exec <<<\"$aai_in\"\n", "")
+// A script with a portable tool filter reads the payload once, after the
+// prologue, and feeds each command a copy right before its block. Whether
+// a script has these lines depends on its other specs, so clineDrift
+// checks they sit there and then compares scripts without them.
+const (
+	clineReadPayload = "aai_in=$(cat)\n"
+	clineFeedPayload = "exec <<<\"$aai_in\"\n"
+	clineBlockStart  = "\nset +e\n(\n"
+)
+
+var clinePayloadLines = strings.NewReplacer(
+	clineReadPayload+clineFeedPayload+clineBlockStart, clineBlockStart,
+	clineFeedPayload+clineBlockStart, clineBlockStart,
+)
+
+// clinePayloadFed reports whether body reads the payload before its
+// first command and feeds a copy to every command.
+func clinePayloadFed(body string) bool {
+	return strings.Contains(body, clineReadPayload+clineFeedPayload+clineBlockStart) &&
+		strings.Count(body, clineFeedPayload+clineBlockStart) == strings.Count(body, clineBlockStart)
+}
 
 // clineDrift names each handler whose commands the synced event script
 // does not hold. Sync writes a prologue, a blank line, then each command
 // with a blank line before it, and joins every spec on the event in one
-// script.
+// script. A handler with a tool filter also needs the payload fed to
+// every command, or a filter before it would leave it an empty stdin.
 func clineDrift(body []byte, event string, handlers []Handler) []HandlerDrift {
+	fed := clinePayloadFed(string(body))
 	body = []byte(clinePayloadLines.Replace(string(body)))
 	var drift []HandlerDrift
 	for _, h := range handlers {
 		prologue, commands, _ := strings.Cut(clinePayloadLines.Replace(h.Script), "\n\n")
-		if !bytes.Contains(body, []byte(prologue+"\n\n")) || !bytes.Contains(body, []byte("\n\n"+commands)) {
+		if !bytes.Contains(body, []byte(prologue+"\n\n")) || !bytes.Contains(body, []byte("\n\n"+commands)) ||
+			strings.Contains(h.Script, clineReadPayload) && !fed {
 			drift = append(drift, HandlerDrift{Handler: h, Reason: fmt.Sprintf("does not run this spec's %s commands", event)})
 		}
 	}

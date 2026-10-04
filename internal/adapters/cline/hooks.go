@@ -193,8 +193,9 @@ func hookScript(commands []hookCommand) string {
 }
 
 // clineReadPayload and clineFeedPayload read the payload once and put a
-// fresh copy on stdin before each command. hookrun's clineDrift drops
-// both lines before it compares a script, so keep the two in step.
+// fresh copy on stdin before each command. hookrun's clineDrift checks
+// where both lines sit and drops them before it compares a script, so
+// keep the two in step.
 const (
 	clineReadPayload = "aai_in=$(cat)\n"
 	clineFeedPayload = "exec <<<\"$aai_in\"\n"

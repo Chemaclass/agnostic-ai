@@ -38,7 +38,7 @@ func TestEmit_PortableBeforeToolHookRunsThroughTheWrapper(t *testing.T) {
 	assertContainsAll(t, readTargetFile(t, ".github/hooks/agnostic-ai.json"),
 		`"command": "../.github/hooks/scripts/agnostic-ai-portable-hook.sh 'bash '\\''../.github/hooks/scripts/guard.sh'\\'''"`)
 	info, err := os.Stat(decisionWrapperPath)
-	if err != nil || info.Mode().Perm()&0o111 == 0 {
+	if err != nil || runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
 		t.Fatalf("wrapper = %v, %v; want an executable file", info, err)
 	}
 }
