@@ -66,6 +66,23 @@ It exits 1 on:
 | `--action` | Print every change as `<action><TAB><path>`, with `add`, `update`, `delete`, or `move`. Deleted files and move sources show only here and in `--json`. |
 | `--json` | Print every change as a JSON array of `{action, path, from}`; `from` is a move's source. Not with `--action`. |
 
+## hook guard
+
+Run inside an `after-edit` or `stop` hook. It exits 2 with a short report for the agent on a problem, and 0 with no output otherwise. See the [spec guard hook](@/docs/spec-format/hooks.md#spec-guard).
+
+```bash
+command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook guard after-edit
+command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook guard stop
+```
+
+- `after-edit` reads the payload on stdin, like [`hook paths`](#hook-paths), and reports the lint errors in the specs the edit touched. An edit outside the spec sources prints nothing.
+- `stop` reports when generated files no longer match the specs. It passes when the payload says the agent already continued from a stop hook, so the notice cannot loop. It never runs sync.
+- Anything it cannot read, such as a payload it does not know or a missing config, exits 0.
+
+| Flag | Description |
+|------|-------------|
+| `-t`, `--target <name>` | Target that sent an `after-edit` payload. Defaults to `AGNOSTIC_AI_TARGET`, as for `hook paths`. |
+
 ## hook run
 
 Run one hook spec before a session fires it. Run `sync` first, so the scripts sync copies are in place. For each target the hook reaches, `hook run`:

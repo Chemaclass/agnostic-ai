@@ -44,7 +44,7 @@ func newInitCmd() *cobra.Command {
 			"else claude and codex. With no terminal and nothing piped, init enables that same set and prints which it picked. " +
 			"In a terminal, when the project has existing tool config, init offers to import it as --from all does. " +
 			"The managed .gitignore block is on by default; pass --gitignore=off to commit generated outputs instead. " +
-			"Pass --demo to seed example specs: a minimal one per source folder, plus the memory-curator skill. " +
+			"Pass --demo to seed example specs: a minimal one per source folder, the spec guard hooks, plus the memory-curator skill. " +
 			"Pass --preset <name> to seed idiomatic specs for a stack (go, ts-react, python). " +
 			"Pass --from <cli> to scaffold and then import existing CLI config in one step.",
 		Example: `  # Default: scaffold under .agnostic-ai/, prompt for targets when TTY

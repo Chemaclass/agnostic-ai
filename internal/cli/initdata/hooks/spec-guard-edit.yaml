@@ -1,0 +1,7 @@
+name: spec-guard-edit
+description: Lint the specs the agent edits and report errors back to it.
+targets: [claude, codex, gemini]
+on: after-edit
+command: 'command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook guard after-edit'
+commandWindows: 'if (-not (Get-Command agnostic-ai -ErrorAction SilentlyContinue)) { exit 0 }; agnostic-ai hook guard after-edit --target codex; exit $LASTEXITCODE'
+timeout: 10

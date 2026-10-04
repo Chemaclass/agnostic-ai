@@ -14,6 +14,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `init --demo` seeds a `no-force-push` guard, `new agent` omits `model`, and `lint` warns (LINT031) on a leftover `TODO` description (#1732, #1738, #1739).
 - `doctor` lists each MCP `${NAME}` reference that is unset in your shell, by name (#1729).
 - Spec bodies can name an agent or skill with `{{$AGENT:name}}` and `{{$SKILL:name}}`, which render each tool's documented invocation phrase; `lint` fails (LINT033) on an unknown name (#1773).
+- `init --demo` seeds a spec guard: after an edit, the agent sees the lint errors in the specs it touched, and when it stops with specs not synced, a one-line notice. `lint --files` and `hook guard` back it (#1774).
 
 ### By tool
 

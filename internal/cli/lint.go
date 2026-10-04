@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"slices"
 	"sort"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/suggest"
 )
@@ -45,9 +47,9 @@ func (f lintFinding) String() string {
 }
 
 func newLintCmd() *cobra.Command {
-	var strict, global, asJSON bool
+	var strict, global, asJSON, onlyFiles bool
 	cmd := &cobra.Command{
-		Use:   "lint",
+		Use:   "lint [--files <path>...]",
 		Short: "Run semantic lint checks on source specs beyond schema validation.",
 		Long: "Checks for empty specs, duplicate names, dead specs (kinds not " +
 			"supported by any enabled target), hooks whose event ignores their " +
@@ -65,7 +67,9 @@ func newLintCmd() *cobra.Command {
 			"or a skill or agent description passes lint.description-chars. " +
 			"With --global, it " +
 			"also flags rules sync --global rejects and settings values a target cannot take. --json prints " +
-			"the findings as JSON on stdout with the same exit status. Exit code 1 on " +
+			"the findings as JSON on stdout with the same exit status. --files reports only the " +
+			"findings on the named files, read one per line from stdin for `-`; checks across " +
+			"specs still load every spec. Exit code 1 on " +
 			"error-severity findings, or on warn-severity findings when --strict " +
 			"is set.",
 		Example: `  # Lint all specs
@@ -78,8 +82,39 @@ func newLintCmd() *cobra.Command {
   agnostic-ai lint --global
 
   # List finding codes in a script
-  agnostic-ai lint --json | jq -r '.findings[].code'`,
+  agnostic-ai lint --json | jq -r '.findings[].code'
+
+  # Lint one spec, as an after-edit hook does
+  agnostic-ai lint --files .agnostic-ai/skills/review/SKILL.md`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 && !onlyFiles {
+				return fmt.Errorf("lint takes paths only with --files")
+			}
+			if onlyFiles && global {
+				return errs.Coded(errs.CodeFlagConflict, "--files cannot be combined with --global")
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if onlyFiles {
+				files, err := lintFileArgs(cmd.InOrStdin(), args)
+				if err != nil {
+					return err
+				}
+				findings, err := lintFindingsForFiles(files)
+				if err != nil {
+					return err
+				}
+				if asJSON {
+					return printLintJSON(cmd, findings, strict)
+				}
+				if len(findings) == 0 {
+					cmd.Printf("ok — %d file(s) clean\n", len(files))
+					return nil
+				}
+				printLintFindings(cmd, findings)
+				return lintExitErr(findings, strict)
+			}
 			scope, err := loadCheckScope(global)
 			if err != nil {
 				return err
@@ -107,19 +142,46 @@ func newLintCmd() *cobra.Command {
 				return nil
 			}
 
-			for _, f := range findings {
-				cmd.Printf("%s\n", f)
-			}
-			cmd.Printf("\n%d finding(s): %d error(s), %d warning(s)\n",
-				len(findings), countSeverity(findings, lintError), countSeverity(findings, lintWarn))
-			cmd.Printf("Run `agnostic-ai explain %s` for a code's cause and fix.\n", findings[0].Code)
+			printLintFindings(cmd, findings)
 			return lintExitErr(findings, strict)
 		},
 	}
 	cmd.Flags().BoolVar(&strict, "strict", false, "Treat warnings as errors.")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Print findings as JSON on stdout.")
+	cmd.Flags().BoolVar(&onlyFiles, "files", false, "Report only findings on the paths given as arguments; - reads paths from stdin.")
 	cmd.Flags().BoolVar(&global, "global", false, "Lint the global specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, against the targets sync --global writes.")
 	return cmd
+}
+
+func printLintFindings(cmd *cobra.Command, findings []lintFinding) {
+	for _, f := range findings {
+		cmd.Printf("%s\n", f)
+	}
+	cmd.Printf("\n%d finding(s): %d error(s), %d warning(s)\n",
+		len(findings), countSeverity(findings, lintError), countSeverity(findings, lintWarn))
+	cmd.Printf("Run `agnostic-ai explain %s` for a code's cause and fix.\n", findings[0].Code)
+}
+
+// lintFileArgs expands a `-` argument to the paths stdin lists, one per
+// line, so a hook can pipe `hook paths` in without word splitting.
+func lintFileArgs(stdin io.Reader, args []string) ([]string, error) {
+	var files []string
+	for _, a := range args {
+		if a != "-" {
+			files = append(files, a)
+			continue
+		}
+		raw, err := io.ReadAll(stdin)
+		if err != nil {
+			return nil, fmt.Errorf("read stdin: %w", err)
+		}
+		for _, line := range strings.Split(string(raw), "\n") {
+			if line = strings.TrimRight(line, "\r"); line != "" {
+				files = append(files, line)
+			}
+		}
+	}
+	return files, nil
 }
 
 // lintJSONOutput is the --json schema of `lint`. Findings share their
