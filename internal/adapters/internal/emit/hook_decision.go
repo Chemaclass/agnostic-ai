@@ -32,7 +32,7 @@ const HookJSONEscape = `aai_json() { LC_ALL=C tr -d '\000-\010\013-\037\177' | L
 // timeout. Parsing also blocks beyond 10,000 values or 64 container
 // levels. A \u escape outside ASCII reads as "?".
 const hookStdoutDecision = `aai_parse() {
-  LC_ALL=C tr -d '\000' <"$1" | cmp -s "$1" - || { printf 'error\n'; return; }
+  LC_ALL=C tr -d '\000\001' <"$1" | cmp -s "$1" - || { printf 'error\n'; return; }
   LC_ALL=C awk '
 function fail() { print "error"; exit 0 }
 function ws() { while (match(substr(s, p, 4096), /^[ \t\n\r]+/)) p += RLENGTH }
