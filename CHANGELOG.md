@@ -13,7 +13,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `hook run` uses Git Bash for Claude Code hooks on Windows and shows a command's timeout or error even when another's result is not counted (#1746, #1728).
 - Hooks take portable `on:` and `match:` on 13 tools; `import` writes them where they map exactly and skips the native hooks a shared hook spec already syncs. `migrate` rewrites old spec forms, output unchanged, and `doctor` and `lint` (LINT034) name them (#1755, #1752, #1768).
 - Hook `args` now reach the command on 12 more tools, folded in and shell-quoted, and `import` matches them; Augment skips such a hook with a note (#1780).
-- `import` matches hooks by exactly what sync writes, keeping Crush script hooks shared; a hook's `x-<target>` `command` and `args` apply on every tool (#1788).
+- Hook `x-<target>` event, matcher, command, and args apply on every tool; `import` matches hooks by what sync writes, Crush scripts too (#1788, #NNNN).
 - `init --demo` seeds a `no-force-push` guard, `new agent` omits `model`, and `lint` warns (LINT031) on a leftover `TODO` description (#1732, #1738, #1739).
 - Spec bodies can name an agent or skill with `{{$AGENT:name}}` and `{{$SKILL:name}}`, which render each tool's documented invocation phrase; `lint` fails (LINT033) on an unknown name (#1773).
 - A rule inlined into `AGENTS.md`, `GEMINI.md`, or another entry point now expands `{{$SKILLS_DIR}}` and the other path variables where every tool reading that file agrees on the path; otherwise a note names the file (#1787).
