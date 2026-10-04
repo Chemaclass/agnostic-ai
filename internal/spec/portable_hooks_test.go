@@ -166,6 +166,9 @@ func TestPortableHookTargets_TranslationTable(t *testing.T) {
 		"goose":     {"SessionStart - PreToolUse - - Stop SessionEnd", "^shell$", "^(write|edit)$", "-", "-", "-"},
 		"augment":   {"SessionStart - PreToolUse - - - SessionEnd", "^launch-process$", "^(str-replace-editor|save-file)$", "-", "^(web-fetch|web-search)$", "-"},
 		"crush":     {"- - PreToolUse - - - -", "^bash$", "^(edit|multiedit|write)$", "-", "-", "-"},
+		"windsurf":  {"- UserPromptSubmit PreToolUse - - Stop -", "^exec$", "^(edit|write|apply_patch)$", "^read$", "^(webfetch|web_search)$", "-"},
+		"copilot":   {"SessionStart - - - - - SessionEnd", "-", "-", "-", "-", "-"},
+		"cline":     {"- - PreToolUse - - - -", "-", "-", "-", "-", "-"},
 	}
 	if got := PortableHookTargets(); len(got) != len(want) {
 		t.Errorf("targets = %v, want %d", got, len(want))

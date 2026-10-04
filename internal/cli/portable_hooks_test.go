@@ -139,6 +139,13 @@ func TestSyncGlobal_PortableHookReachesClaudeAndNotesCursor(t *testing.T) {
 // exit 2 with stderr as Claude Code does, so one script decides alike.
 func TestPortableHookTargets_DecideLikeClaudeCode(t *testing.T) {
 	results := []hookrun.Result{{Exit: 0}, {Exit: 1, Stderr: "failed"}, {Exit: 2, Stderr: "blocked"}}
+	// Sync wraps each Cline command so exit 2 prints a cancel reply.
+	synced := func(target string, r hookrun.Result) hookrun.Result {
+		if target == "cline" && r.Exit == 2 {
+			return hookrun.Result{Stdout: "HOOK_CONTROL\t{\"cancel\": true, \"errorMessage\": \"blocked\"}\n", Stderr: r.Stderr}
+		}
+		return r
+	}
 	for _, target := range spec.PortableHookTargets() {
 		for _, on := range spec.PortableHookEvents {
 			event, ok := spec.PortableHookEvent(target, on)
@@ -151,7 +158,12 @@ func TestPortableHookTargets_DecideLikeClaudeCode(t *testing.T) {
 			claudeEvent, _ := spec.PortableHookEvent("claude", on)
 			for _, r := range results {
 				want := hookrun.DecideHandler("claude", claudeEvent, hookrun.Handler{}, r)
-				if got := hookrun.DecideHandler(target, event, hookrun.Handler{}, r); got != want {
+				got := hookrun.DecideHandler(target, event, hookrun.Handler{}, synced(target, r))
+				// Cline never reads the exit code, so exit 1 lets the call go on unreported.
+				if target == "cline" && r.Exit == 1 && got == hookrun.Allow && want == hookrun.Error {
+					continue
+				}
+				if got != want {
 					t.Errorf("%s %s (%s) exit %d = %s, Claude Code %s", target, on, event, r.Exit, got, want)
 				}
 			}
@@ -162,7 +174,7 @@ func TestPortableHookTargets_DecideLikeClaudeCode(t *testing.T) {
 func TestHookRun_PortableShellHookBlocksOnEveryMappedTarget(t *testing.T) {
 	skipWithoutPOSIXShell(t)
 	dir := testutil.TempCwd(t)
-	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, gemini, factory, qoder, trae, openhands, goose, augment, crush, kiro]\n")
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, gemini, factory, qoder, trae, openhands, goose, augment, crush, windsurf, cline, copilot, kiro]\n")
 	script := filepath.Join(dir, ".agnostic-ai", "scripts", "guard.sh")
 	mustWrite(t, script, "#!/bin/sh\nif grep -q \"push --force\"; then echo \"no force push\" >&2; exit 2; fi\n")
 	if err := os.Chmod(script, 0o755); err != nil {
@@ -175,12 +187,35 @@ func TestHookRun_PortableShellHookBlocksOnEveryMappedTarget(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err = %v\n%s", err, out)
 	}
-	for _, target := range []string{"claude", "codex", "gemini", "factory", "qoder", "openhands", "goose", "augment", "crush"} {
+	for _, target := range []string{"claude", "codex", "gemini", "factory", "qoder", "openhands", "goose", "augment", "crush", "windsurf"} {
 		if !strings.Contains(out, target+": block (exit 2") {
 			t.Errorf("%s must block:\n%s", target, out)
 		}
 	}
 	if !strings.Contains(out, "kiro: not run (on: has no kiro mapping yet") {
 		t.Errorf("kiro has no mapping, so it must not run:\n%s", out)
+	}
+	if !strings.Contains(out, "copilot: not run (copilot has no before-tool event that reads exit codes as Claude Code does") {
+		t.Errorf("copilot fails a tool call closed on exit 1, so it must not run:\n%s", out)
+	}
+	if !strings.Contains(out, "cline: not run (cline has no shell tool a hook can match)") {
+		t.Errorf("cline has no matcher, so match: shell must not run there:\n%s", out)
+	}
+}
+
+func TestHookRun_PortableHookWithoutMatchBlocksOnCline(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	dir := hookRunProject(t, "name: guard\non: before-tool\n"+
+		`command: 'if grep -q "push --force"; then echo "no force push" >&2; exit 2; fi'`+"\n")
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, cline]\n")
+
+	out, err := runHookRun(t, "guard", "--bash", "git push --force", "--expect", "block", "--include-assumed")
+	if err != nil {
+		t.Fatalf("err = %v\n%s", err, out)
+	}
+	for _, want := range []string{"claude: block (exit 2", "cline: block"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output misses %q:\n%s", want, out)
+		}
 	}
 }

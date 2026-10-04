@@ -14,7 +14,8 @@ import (
 var portableHookDocNames = []struct{ target, name string }{
 	{"claude", "Claude Code"}, {"codex", "Codex"}, {"gemini", "Gemini"}, {"factory", "Factory"},
 	{"qoder", "Qoder"}, {"openhands", "OpenHands"}, {"goose", "Goose"},
-	{"augment", "Augment"}, {"crush", "Crush"},
+	{"augment", "Augment"}, {"crush", "Crush"}, {"windsurf", "Windsurf"},
+	{"copilot", "Copilot"}, {"cline", "Cline"},
 }
 
 // portableHookDocRow is the hooks page's table row for target.

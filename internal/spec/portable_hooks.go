@@ -45,7 +45,9 @@ var sharedHookEvents = map[string]string{
 // for. An event is listed only where the target reads exit 0, exit 1,
 // and exit 2 with stderr as Claude Code does on it, so one script decides
 // the same everywhere; hookrun's per-target models are the source, and a
-// test holds the table to them. Tool names come from the same models.
+// test holds the table to them. Cline counts because sync turns exit 2
+// into its cancel reply. Tool names come from the same models; a target
+// with no matcher gets `any` only.
 // Claude Code's edit names every edit tool a version may have; a name it
 // lacks never matches. Codex takes Edit and Write as aliases for
 // apply_patch. A target whose matcher is an unanchored regular
@@ -92,6 +94,18 @@ var portableHookTargets = map[string]nativeHookNames{
 	"crush": {
 		events: pickEvents("before-tool"),
 		tools:  map[string]string{"shell": "^bash$", "edit": "^(edit|multiedit|write)$", "any": ""},
+	},
+	"windsurf": {
+		events: pickEvents("prompt-submit", "before-tool", "stop"),
+		tools:  map[string]string{"shell": "^exec$", "edit": "^(edit|write|apply_patch)$", "read": "^read$", "web": "^(webfetch|web_search)$", "any": ""},
+	},
+	"copilot": {
+		events: pickEvents("session-start", "session-end"),
+		tools:  map[string]string{"any": ""},
+	},
+	"cline": {
+		events: pickEvents("before-tool"),
+		tools:  map[string]string{"any": ""},
 	},
 }
 
