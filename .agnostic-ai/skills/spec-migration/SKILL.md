@@ -13,10 +13,11 @@ Ask this for every change to a spec kind, a frontmatter field, a YAML key, or `a
 
 | The change | What to ship |
 | --- | --- |
-| Renames a field, or adds a new form that exactly replaces an old one | A migration and a lint warning on the old form; the old form stays accepted |
-| Deprecates a form with no exact replacement | No migration: a lint warning that explains the manual rewrite |
+| Renames a field, or adds a new form that some or all entries map to one to one | A migration and a lint warning on the old form; the old form stays accepted |
+| Deprecates a form that no entry maps to one to one | No migration: a lint warning that explains the manual rewrite |
 | Adds a new optional field | Nothing |
-| Changes a form's meaning or default, or rejects specs that used to load | Not a migration: a behavior change with a CHANGELOG entry and a lint warning at least one release ahead |
+| Rejects specs that used to load, where a rewrite that keeps their meaning makes them load again | A migration, plus a lint warning at least one release before the rejection |
+| Changes a form's meaning or default | Not a migration: a behavior change with a CHANGELOG entry and a lint warning at least one release ahead |
 | Removes a form | Only in a breaking release, after its migration shipped, no earlier than the migration's issue allows |
 | A style preference with no change in meaning or output | Nothing, or a lint note. Never a migration |
 
@@ -35,7 +36,7 @@ While the project is 0.x, a breaking release is a minor release whose CHANGELOG 
 
 ## Steps
 
-1. Name the migration `<group>-<what>`, where `<group>` is the name `migrate --only` takes, such as `hooks-portable-events`. Record the release from the CHANGELOG's Unreleased section as the one that adds it.
+1. Name the migration `<group>-<what>`, where `<group>` is the name `migrate --only` takes, such as `hooks-portable-events`. Record the next release version, the one the CHANGELOG's Unreleased section will become, as the one that adds it.
 2. Write the fixture first: old-form specs with comments and odd formatting, both-forms and unmappable cases, and the expected rewrite. Use placeholder values such as `${TOKEN}` or `REDACTED`, never a real credential.
 3. Implement the rewrite as a pure function from a parsed spec to a rewritten spec plus skip reasons, and register it.
 4. Add or update the lint warning for the old form, pointing at `agnostic-ai migrate`.
