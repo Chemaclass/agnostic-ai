@@ -87,7 +87,7 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindRule, Name: "r2", Path: "rules/r2.md", Body: "rule 2 body", Meta: map[string]any{"globs": "**/*.ts"}},
 		{Kind: spec.KindRule, Name: "r3", Path: "rules/r3.md", Body: "rule 3 body"},
 		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Body: "alpha body"},
-		{Kind: spec.KindAgent, Name: "beta", Path: "agents/beta.md", Body: "beta body"},
+		{Kind: spec.KindAgent, Name: "beta", Path: "agents/beta.md", Meta: map[string]any{"tools": []any{"mcp__stdio-server", "mcp__stdio-server__read_file"}}, Body: "beta body"},
 		{Kind: spec.KindAgent, Name: "gamma", Path: "agents/gamma.md", Body: "gamma body"},
 		{Kind: spec.KindSkill, Name: "uno", Path: "skills/uno/SKILL.md", Body: "uno skill body", Meta: map[string]any{"description": "handles uno"}},
 		{Kind: spec.KindSkill, Name: "dos", Path: "skills/dos/SKILL.md", Body: "dos skill body", Meta: map[string]any{"description": "handles dos"}},

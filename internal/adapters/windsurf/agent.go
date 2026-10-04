@@ -8,33 +8,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// devinTool maps agnostic-ai's Claude-style tool identifiers onto the
-// subagent `allowed-tools` vocabulary. `/cli/reference/permissions`
-// still lists only "**Available tool names:** `read`, `edit`, `grep`,
-// `glob`, `exec`", but the CLI changelog's v3000.11.1 entry (September
-// 21, 2026) adds a sixth under `### Fixed`: "Custom subagent profiles
-// and skills can grant the `write` tool using `allowed-tools`, and
-// permission rules recognize it." `Write` and `Edit` used to collapse
-// onto the same `edit` name; they now map onto distinct Devin tools,
-// `write` and `edit` (#1022), the same lag the reference page already
-// showed for `web_search` (#951). Names outside this table are never
-// guessed at: they drop and fold into one coverage note per sync.
-//
-// This is keyed separately from devinPermissionTool in settings.go
-// (#951). `/cli/subagents` enumerates no vocabulary for
-// `allowed-tools` at all: it defaults to "all tools" and names only
-// `ask_user_question` as never grantable. Nothing there licenses the
-// names `permissions` has grown, so one shared map would let an edit
-// for one surface silently change the other.
-var devinTool = map[string]string{
-	"Read":  "read",
-	"Grep":  "grep",
-	"Glob":  "glob",
-	"Bash":  "exec",
-	"Write": "write",
-	"Edit":  "edit",
-}
-
 // emitAgents also removes the project agent files emitted by older versions.
 func emitAgents(sess *emit.Session, agents []spec.Entry, dir, rulesDir string, dryRun bool) error {
 	if err := (Adapter{}).EmitAgents(sess, agents, dir, dryRun); err != nil {
@@ -52,18 +25,18 @@ func emitAgents(sess *emit.Session, agents []spec.Entry, dir, rulesDir string, d
 
 // EmitAgents writes native agent profiles without other project outputs.
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
-	unmappedTools := 0
+	var unmappedTools []spec.Entry
 	for _, a := range agents {
 		md, hasUnmapped := agentMarkdown(a)
 		if hasUnmapped {
-			unmappedTools++
+			unmappedTools = append(unmappedTools, a)
 		}
 		path := filepath.Join(dir, a.Name+".md")
 		if err := sess.WriteFile(path, emit.WithHeader(md, emit.FormatMarkdown), dryRun); err != nil {
 			return err
 		}
 	}
-	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", unmappedTools,
+	emit.NoteAgentToolsNoOp(target, unmappedTools,
 		"value(s) outside agnostic-ai's Read/Write/Edit/Bash/Grep/Glob set have no documented Devin tool name; set x-windsurf.allowed-tools directly for those")
 	return nil
 }
@@ -127,7 +100,7 @@ func agentMarkdown(a spec.Entry) (string, bool) {
 }
 
 // translateTools maps a spec's Claude-style tools list onto Devin's own
-// vocabulary (devinTool), deduplicated in first-seen order in case a
+// vocabulary (toolCapabilities), deduplicated in first-seen order in case a
 // spec repeats a name or a future table entry collapses two names onto
 // one, the way Write and Edit did before #1022. An `mcp__server__tool`
 // name passes through untranslated. Anything else is left out and
@@ -136,7 +109,7 @@ func agentMarkdown(a spec.Entry) (string, bool) {
 func translateTools(names []string) (mapped []string, hasUnmapped bool) {
 	seen := make(map[string]bool, len(names))
 	for _, n := range names {
-		out := devinTool[n]
+		out, _ := emit.CapabilityTool(toolCapabilities, n, false)
 		// Devin documents the same `mcp__<server>__<tool>` spelling
 		// this repo uses, so those names pass through untouched.
 		if out == "" && strings.HasPrefix(n, spec.MCPToolPrefix) {

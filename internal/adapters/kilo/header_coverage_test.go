@@ -105,14 +105,14 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 // diff byte-for-byte against theirs (target-audit 2026-08-01).
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
-		{Kind: spec.KindSettings, Name: "defaults", Path: "settings/defaults.yaml", Meta: map[string]any{"model": "example/model"}},
+		{Kind: spec.KindSettings, Name: "defaults", Path: "settings/defaults.yaml", Meta: map[string]any{"model": "example/model", "permissions": map[string]any{"allow": []any{"Write"}, "deny": []any{"Edit(.env)"}}}},
 		{Kind: spec.KindIgnore, Name: "exclusions", Body: "private/"},
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body"},
 		{Kind: spec.KindRule, Name: "r2", Path: "rules/r2.md", Body: "rule 2 body"},
 		{Kind: spec.KindRule, Name: "r3", Path: "rules/r3.md", Body: "rule 3 body"},
 		{Kind: spec.KindAgent, Name: "alpha", Path: "agents/alpha.md", Meta: map[string]any{"description": "handles alpha"}, Body: "alpha body"},
 		{Kind: spec.KindAgent, Name: "beta", Path: "agents/beta.md", Meta: map[string]any{"description": "handles beta", "model": "opus"}, Body: "beta body"},
-		{Kind: spec.KindAgent, Name: "gamma", Path: "agents/gamma.md", Meta: map[string]any{"description": "handles gamma", "tools": []any{"Read"}}, Body: "gamma body"},
+		{Kind: spec.KindAgent, Name: "gamma", Path: "agents/gamma.md", Meta: map[string]any{"description": "handles gamma", "tools": []any{"Read(src/**)", "Edit(docs/**)"}}, Body: "gamma body"},
 		{Kind: spec.KindSkill, Name: "uno", Path: "skills/uno/SKILL.md", Body: "uno skill body"},
 		{Kind: spec.KindSkill, Name: "dos", Path: "skills/dos/SKILL.md", Body: "dos skill body"},
 		{Kind: spec.KindSkill, Name: "tres", Path: "skills/tres/SKILL.md", Body: "tres skill body"},

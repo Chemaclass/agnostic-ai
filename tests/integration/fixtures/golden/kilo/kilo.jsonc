@@ -6,6 +6,9 @@
       "rm *": "deny",
       "rm -rf /": "deny"
     },
+    "edit": {
+      ".env": "deny"
+    },
     "github_create_issue": {
       "*": "deny"
     },
@@ -16,6 +19,8 @@
       "*": "deny"
     },
     "write": {
+      "*": "allow",
+      ".env": "deny",
       ".env*": "ask"
     }
   }

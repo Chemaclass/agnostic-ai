@@ -255,7 +255,7 @@ func TestImportFromGemini_NativeAgents(t *testing.T) {
 		t.Fatalf("missing agents/security-auditor.md: %v", err)
 	}
 	out := string(data)
-	for _, want := range []string{"name: security-auditor", "description: Finds vulnerabilities.", "read_file", "ruthless Security Auditor"} {
+	for _, want := range []string{"name: security-auditor", "description: Finds vulnerabilities.", "can:", "- read", "ruthless Security Auditor"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("expected %q in agent file:\n%s", want, out)
 		}

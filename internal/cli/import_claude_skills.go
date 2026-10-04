@@ -102,7 +102,7 @@ func importClaudeAgents(root, dstDir string, layout claudeLayout) (int, error) {
 		if err != nil {
 			return count, fmt.Errorf("read %s: %w", srcPath, err)
 		}
-		out := scopeClaudeModel(header.Strip(string(data)))
+		out := importNeutralToolNames(scopeClaudeModel(header.Strip(string(data))), "tools", true)
 		name := strings.TrimSuffix(e.Name(), ".md")
 		if codexPresent && !codexHasAgent(root, canonicalSpecSlug(name)) {
 			out = addTargetFrontmatter(out, "claude")
@@ -157,8 +157,16 @@ func importClaudeSkills(root, dstDir string, layout claudeLayout) (int, error) {
 		if err := copyDirTree(skillSrc, skillDst); err != nil {
 			return count, fmt.Errorf("copy skill %s: %w", e.Name(), err)
 		}
-		if err := moveClaudeOnlyKeysInFile(filepath.Join(skillDst, "SKILL.md")); err != nil {
-			return count, err
+		skillPath := filepath.Join(skillDst, "SKILL.md")
+		skillData, err := os.ReadFile(skillPath)
+		if err != nil {
+			return count, fmt.Errorf("read %s: %w", skillPath, err)
+		}
+		neutral := importNeutralToolNames(string(skillData), "allowed-tools", false)
+		if neutral != string(skillData) {
+			if err := importWriteFile(skillPath, []byte(neutral), 0o644); err != nil {
+				return count, err
+			}
 		}
 		if codexPresent && !codexHasSkill(root, e.Name()) {
 			if err := injectTargetInSkillMD(filepath.Join(skillDst, "SKILL.md"), "claude"); err != nil {

@@ -44,9 +44,11 @@ var AllKinds = []Kind{KindAgent, KindSkill, KindRule, KindHook, KindMCP, KindCom
 
 // Entry is a single loaded spec.
 type Entry struct {
-	Kind Kind
-	Name string
-	Path string
+	// CapabilityField preserves the source name after tool normalization.
+	CapabilityField string
+	Kind            Kind
+	Name            string
+	Path            string
 	// Scope is the relative directory under the source kind directory in
 	// which the spec lives, with forward slashes. A spec at
 	// `rules/backend/auth.md` has Scope "backend"; a spec at the root of
@@ -660,6 +662,9 @@ func filterEntriesFor(entries []Entry, target string) []Entry {
 		if native, reason = native.NativeTools(); reason != "" {
 			continue
 		}
+		if native, reason = native.NativeAllowedTools(); reason != "" {
+			continue
+		}
 		e = native.NativePermissions()
 		if resolved := e.BodyFor(target); resolved != e.Body {
 			e.Body = resolved
@@ -1159,9 +1164,8 @@ func nodeToOrderedMap(n *yaml.Node) (map[string]any, []string, map[string]yaml.S
 		valNode := n.Content[i+1]
 		var v any
 		if err := valNode.Decode(&v); err != nil {
-			// A dropped can: would sync the agent with every tool, so it
-			// stays as a value the capability check rejects.
-			if keyNode.Value != capabilityKey {
+			// Keep malformed restrictions for capability validation.
+			if keyNode.Value != capabilityKey && keyNode.Value != "allowed-tools" {
 				continue
 			}
 			v = valNode

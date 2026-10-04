@@ -25,5 +25,14 @@
       "type": "local"
     }
   },
-  "model": "example/model"
+  "model": "example/model",
+  "permission": {
+    "edit": {
+      ".env": "deny"
+    },
+    "write": {
+      "*": "allow",
+      ".env": "deny"
+    }
+  }
 }

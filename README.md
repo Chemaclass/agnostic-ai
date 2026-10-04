@@ -60,6 +60,8 @@ agnostic-ai migrate --dry-run                    # preview rewrites of old spec 
 
 Support spans [Claude Code, Codex, Cursor, Gemini CLI, Copilot, and more](https://agnostic-ai.org/docs/targets/#capability-matrix). Each tool supports a different set of spec kinds. The [spec format](https://agnostic-ai.org/docs/spec-format/) and [target reference](https://agnostic-ai.org/docs/targets/) show the exact paths and fields.
 
+Agents, skills, and permissions share neutral capabilities such as `read(src/**)`, `shell(git diff *)`, and `mcp:github`. `explain` shows each target's native names and any extra access. See [Capabilities](https://agnostic-ai.org/docs/spec-format/agents/#capabilities).
+
 Model tiers share roles across tools. Codex aliases resolve to explicit IDs; see [Models and aliases](https://agnostic-ai.org/docs/configuration/#models).
 
 MCP import replaces literal environment and header values, and credentials in MCP URLs and arguments, with portable references. Continue sync writes its secret syntax for `.env` files. See [MCP references](https://agnostic-ai.org/docs/spec-format/mcps/#environment-references).

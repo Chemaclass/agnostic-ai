@@ -34,6 +34,8 @@ kilo.jsonc                         # instructions, mcp, and permission maps (mer
 - Kilo has no `tools:` key, so a `tools` list becomes a [`permission`](https://kilo.ai/docs/customize/agent-permissions) map: `tools: [Read, Grep]` emits `permission: {"*": deny, read: allow, grep: allow}`. The catch-all sorts first because the last matching rule wins.
 - Translated names: `Read`, `Glob`, `Grep`, `Edit`, `Write`, `Bash`, `WebFetch`, `WebSearch`, `Task`, `Skill`, `TodoRead`, `TodoWrite`, and `mcp__<server>__<tool>` as `{server}_{tool}` ([permission keys](https://kilo.ai/docs/getting-started/settings/auto-approving-actions), [tool groups](https://kilo.ai/docs/automate/tools)). Other names drop with a coverage note. If nothing translates, no map is written: `{"*": deny}` alone would lock the agent out. `x-kilo: {permission: {...}}` wins outright.
 
+A scoped `edit` deny also sets Kilo's `write` deny for that path. An unscoped `write` allow cannot bypass the protected path.
+
 **Skills** go to the shared `.agents/skills/<name>/SKILL.md` tree, which Kilo loads by default beside its own `.kilo/skills/`. It dedupes with codex, amp, zed, crush, openhands, windsurf, and augment. Kilo also scans `.claude/skills/` (in the VS Code extension, only with Claude Code Compatibility enabled). Any other `outputs.kilo.skills-dir` is added to `kilo.jsonc`'s `skills.paths` ([skills](https://github.com/Kilo-Org/kilocode/blob/main/packages/kilo-docs/pages/customize/skills.md)); your `skills.paths` entries and `skills.urls` stay.
 
 **Rules**:

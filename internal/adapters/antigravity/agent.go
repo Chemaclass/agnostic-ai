@@ -35,11 +35,12 @@ func emitAgents(sess *emit.Session, agents []spec.Entry, dir string, rulesDirs [
 
 // EmitAgents writes native agents for project or user-level sync.
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
-	droppedTools, droppedModel := 0, 0
+	var droppedTools []spec.Entry
+	droppedModel := 0
 	for _, a := range agents {
 		md, drops := agentMarkdown(a)
 		if drops.tools {
-			droppedTools++
+			droppedTools = append(droppedTools, a)
 		}
 		if drops.model {
 			droppedModel++
@@ -49,7 +50,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 			return err
 		}
 	}
-	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", droppedTools,
+	emit.NoteAgentToolsNoOp(target, droppedTools,
 		"Antigravity's tool vocabulary (view_file, run_command, ...) shares no name with agnostic-ai's, and the vendor warns an unmapped name can hang the subagent; set x-antigravity.tools directly")
 	emit.NoteFieldNoOp(target, spec.KindAgent, "model", droppedModel,
 		"Antigravity's model field is the tier enum inherit/flash/pro, not a model ID")

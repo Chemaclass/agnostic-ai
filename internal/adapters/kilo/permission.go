@@ -22,36 +22,6 @@ const permissionKey = "permission"
 // the same rule ... `permission: {"*": ask, bash: allow}`").
 const anyPattern = "*"
 
-// kiloPermissionTool maps agnostic-ai's Claude-style tool identifiers
-// onto Kilo Code's own permission keys. The vendor publishes both
-// halves of this: the permission table on
-// kilo.ai/docs/getting-started/settings/auto-approving-actions rows
-// `external_directory`, `bash`, `read`, `edit`, `glob`, `grep`, `task`,
-// `skill`, `lsp`, `todoread`/`todowrite`, `websearch`, `webfetch`, and
-// `doom_loop`, and kilo.ai/docs/automate/tools groups the tool names
-// themselves, including `write` ("Edit Group | `edit`, `write`,
-// `apply_patch`"), which the agent-permissions page then names outright:
-// "File tools such as `read`, `edit`, and `write` resolve the input
-// path first".
-//
-// A name with no row here is never guessed at. It drops and folds into
-// one coverage note per sync, the same deal windsurf's `allowed-tools`
-// translation gives an unknown name.
-var kiloPermissionTool = map[string]string{
-	"Read":      "read",
-	"Glob":      "glob",
-	"Grep":      "grep",
-	"Edit":      "edit",
-	"Write":     "write",
-	"Bash":      "bash",
-	"WebFetch":  "webfetch",
-	"WebSearch": "websearch",
-	"Task":      "task",
-	"Skill":     "skill",
-	"TodoRead":  "todoread",
-	"TodoWrite": "todowrite",
-}
-
 // permissionUntranslatedReason explains, in the flushed coverage note,
 // why some rules did not reach `kilo.jsonc`.
 const permissionUntranslatedReason = "rule(s) outside Kilo Code's own permission vocabulary have no key there; set x-kilo.permission with Kilo's own rules for those"
@@ -87,7 +57,7 @@ func permissionRule(rule string) (tool, pattern string, ok bool) {
 		return server + "_" + name, anyPattern, true
 	}
 	if scope, arg, found := spec.SplitPermissionRule(rule); found {
-		key, known := kiloPermissionTool[scope]
+		key, known := emit.CapabilityTool(toolCapabilities, scope, true)
 		if !known {
 			return "", "", false
 		}
@@ -104,7 +74,7 @@ func permissionRule(rule string) (tool, pattern string, ok bool) {
 		}
 		return key, arg, true
 	}
-	if key, known := kiloPermissionTool[rule]; known {
+	if key, known := emit.CapabilityTool(toolCapabilities, rule, true); known {
 		return key, anyPattern, true
 	}
 	return "", "", false
@@ -145,6 +115,14 @@ func settingsPermission(settings []spec.Entry) (map[string]any, int) {
 					out[tool] = patterns
 				}
 				patterns[pattern] = list
+				if scope, _, scoped := spec.SplitPermissionRule(rule); scoped && scope == "Edit" && list == "deny" {
+					writes, _ := out["write"].(map[string]any)
+					if writes == nil {
+						writes = map[string]any{}
+						out["write"] = writes
+					}
+					writes[pattern] = list
+				}
 			}
 		}
 	}
@@ -189,17 +167,26 @@ func entryRules(entry spec.Entry, list string) (rules []string, native bool) {
 func agentPermission(tools []string) (perms map[string]any, unmapped bool) {
 	allowed := map[string]any{}
 	for _, name := range tools {
-		key, known := kiloPermissionTool[name]
+		key, pattern, known := permissionRule(name)
 		if !known {
-			if server, tool, isMCP := spec.SplitMCPPermissionRule(name); isMCP {
-				allowed[server+"_"+tool] = "allow"
-				continue
-			}
 			unmapped = true
 			continue
 		}
-		allowed[key] = "allow"
+		if pattern == anyPattern {
+			allowed[key] = "allow"
+			continue
+		}
+		if allowed[key] == "allow" {
+			continue
+		}
+		patterns, _ := allowed[key].(map[string]any)
+		if patterns == nil {
+			patterns = map[string]any{anyPattern: "deny"}
+			allowed[key] = patterns
+		}
+		patterns[pattern] = "allow"
 	}
+
 	if len(allowed) == 0 {
 		return nil, unmapped
 	}

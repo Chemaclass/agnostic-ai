@@ -23,6 +23,7 @@ var kiroCategoryTools = map[string][]string{
 // and Write each change files, as Claude Code's Edit rules cover every
 // tool that edits files; neither deletes one.
 var kiroToolAsks = map[string][]string{
+	"Delete":    {"delete_file"},
 	"Edit":      {"fs_write", "fs_append", "str_replace"},
 	"Write":     {"fs_write", "fs_append", "str_replace"},
 	"WebFetch":  {"web_fetch"},
@@ -47,7 +48,7 @@ func widerTools(names []string) []string {
 	var order []string
 	selected := map[string][]string{}
 	for _, n := range names {
-		category, ok := kiroToolCategory[n]
+		category, ok := emit.CapabilityTool(toolCapabilities, n, false)
 		if !ok {
 			continue
 		}
@@ -90,3 +91,5 @@ func widerTools(names []string) []string {
 	}
 	return out
 }
+
+func (Adapter) CapabilityWidening(names []string) []string { return widerTools(names) }

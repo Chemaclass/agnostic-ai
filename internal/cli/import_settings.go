@@ -61,7 +61,14 @@ func importPortableSettings(root, nativePath, dstDir string, shape portableSetti
 			portable := map[string]any{}
 			for _, key := range []string{"allow", "deny", "ask"} {
 				if entries, ok := value[key].([]any); ok && len(entries) > 0 {
-					portable[key] = entries
+					neutral := make([]any, len(entries))
+					for i, raw := range entries {
+						neutral[i] = raw
+						if rule, ok := raw.(string); ok {
+							neutral[i] = importNeutralPermissionRule(rule)
+						}
+					}
+					portable[key] = neutral
 				}
 			}
 			if len(portable) > 0 {

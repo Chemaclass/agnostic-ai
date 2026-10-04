@@ -103,15 +103,16 @@ A rule is a [capability](@/docs/spec-format/agents.md#capabilities), the same na
 | `read`, `read(<path>)` | Reading files, or the files that match | `Read`, `Read(<path>)` |
 | `edit`, `edit(<path>)` | Changing files, or the files that match | `Edit`, `Edit(<path>)` |
 | `write` | The write tool | `Write` |
+| `delete` | Deleting files, where the target has a delete tool | No native tool |
 | `shell`, `shell(<pattern>)` | Every command, or the commands that match | `Bash`, `Bash(<pattern>)` |
 | `web` | Fetching pages and searching the web | `WebFetch` and `WebSearch` |
 | `mcp:<server>`, `mcp:<server>/<tool>` | One MCP server, or one of its tools | `mcp__<server>`, `mcp__<server>__<tool>` |
 
-- Each rule syncs to every target as its Claude Code rule would, byte for byte.
+- Each rule maps to the target's native permission names. Existing Claude Code aliases keep the same mappings. `delete` raises a coverage note where a target has no native delete permission.
 - A Claude Code rule stays valid as an alias, such as `WebFetch(domain:go.dev)`. A list can mix both.
 - `write` takes no path. Claude Code checks file writes against `Edit` rules only and never consults a `Write(<path>)` rule, so write `edit(<path>)` to cover a file.
 - `validate`, `lint` (LINT036), and `sync` stop on a rule they cannot read, including one in a pack and an unquoted rule that YAML reads as a mapping, since a target would drop it.
-- `agnostic-ai migrate --only capabilities` rewrites each Claude Code rule a capability stands for alone. The rest stay as aliases, and sync writes the same files.
+- `agnostic-ai migrate --only capabilities` rewrites each Claude Code rule a capability stands for alone. An adjacent `WebFetch, WebSearch` pair becomes `web`. The rest stay as aliases, and sync writes the same files.
 
 A Claude Code rule is a bare tool name (whole tool) or `Scope(argument)`. An MCP tool is `mcp__<server>__<tool>`. `Scope()` with an empty argument is dropped, not read as the bare tool, which would widen it.
 
@@ -121,6 +122,8 @@ Keep a `shell` wildcard at the end of an `allow` or `deny` rule.
 - Claude Code matches a mid-command `*` in a `deny` rule literally, so it blocks nothing.
 
 `agnostic-ai lint` reports both as LINT009.
+
+`explain settings/<name>.yaml` lists the native rules each configured target gets. It names any extra access the translation grants. `on-unsupported: error` fails when a rule widens, including a Codex exact shell allow that becomes a command prefix.
 
 ## Merging
 

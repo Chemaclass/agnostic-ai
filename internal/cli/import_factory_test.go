@@ -62,20 +62,9 @@ func TestImportFactory_RoundTripFixedPoint(t *testing.T) {
 	execCLI(t, "import", "factory")
 
 	droid := readFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"))
-	for _, want := range []string{"- Bash", "- Write", "- WebFetch"} {
+	for _, want := range []string{"x-factory:", "- Execute", "- Create", "- FetchUrl", "- Grep"} {
 		if !strings.Contains(droid, want) {
-			t.Errorf("droid tools not renamed back, missing %q:\n%s", want, droid)
-		}
-	}
-	for _, native := range []string{"Execute", "Create", "FetchUrl"} {
-		if strings.Contains(droid, native) {
-			t.Errorf("droid kept Factory tool ID %q:\n%s", native, droid)
-		}
-	}
-	settings := readFile(t, filepath.Join(dir, ".agnostic-ai", "settings", "factory.yaml"))
-	for _, want := range []string{"model: claude-sonnet-5", "Bash(npm run:*)", "Bash(git push:*)", "Bash(rm -rf:*)"} {
-		if !strings.Contains(settings, want) {
-			t.Errorf("settings missing %q:\n%s", want, settings)
+			t.Errorf("native-only droid list lost %q:\n%s", want, droid)
 		}
 	}
 

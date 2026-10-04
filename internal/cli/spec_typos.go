@@ -82,6 +82,7 @@ func stopOnSpecTypos(b spec.Bundle, targets []string) error {
 	own := ownSpecs(b)
 	issues := append(hookEventTypos(own, targets), portableHookProblems(own.Hooks)...)
 	issues = append(issues, agentCapabilityIssues(own.Agents)...)
+	issues = append(issues, skillCapabilityIssues(b.Skills)...)
 	return stopOnIssues(append(issues, permissionCapabilityIssues(b.Settings)...))
 }
 
@@ -182,4 +183,14 @@ func agentSkills(v any) []string {
 		return toStringSlice(v)
 	}
 	return nil
+}
+
+func skillCapabilityIssues(skills []spec.Entry) []validationIssue {
+	var out []validationIssue
+	for _, e := range skills {
+		if problem := spec.SkillCapabilityProblem(e.Meta); problem != "" {
+			out = append(out, validationIssue{Path: e.Path, Field: "allowed-tools", Message: problem})
+		}
+	}
+	return out
 }

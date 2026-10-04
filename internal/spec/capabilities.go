@@ -10,22 +10,17 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/suggest"
 )
 
-// Capabilities are the neutral names an agent's `can:` takes, besides
-// shell(<pattern>), mcp:<server>, and mcp:<server>/<tool>. Every hook
-// tool kind but any is one, so one vocabulary covers both.
-var Capabilities = []string{"read", "write", "edit", "shell", "web"}
+// Capabilities are the neutral names accepted by tool and permission lists.
+var Capabilities = []string{"read", "write", "edit", "delete", "shell", "web"}
 
-// capabilityTools are the Claude-style tool names each capability stands
-// for. Every adapter already translates these names, so `can:` and the
-// `tools:` it stands for sync to the same files on every target. A test
-// holds each list to the names Claude Code's hook matcher uses for the
-// same kind.
+// Delete is an internal token; adapters map it only where a native tool exists.
 var capabilityTools = map[string][]string{
-	"read":  {"Read"},
-	"write": {"Write"},
-	"edit":  {"Edit"},
-	"shell": {"Bash"},
-	"web":   {"WebFetch", "WebSearch"},
+	"read":   {"Read"},
+	"write":  {"Write"},
+	"edit":   {"Edit"},
+	"delete": {"Delete"},
+	"shell":  {"Bash"},
+	"web":    {"WebFetch", "WebSearch"},
 }
 
 const (
@@ -89,14 +84,12 @@ func capabilityToolNames(raw any) ([]string, string) {
 	return CapabilityTools(can)
 }
 
-// capabilityForm is where a capability is written: the field its
-// messages name, and whether read and edit take a path pattern there.
 type capabilityForm struct {
 	field string
 	paths bool
 }
 
-var agentForm = capabilityForm{field: "can:"}
+var agentForm = capabilityForm{field: "can:", paths: true}
 
 // pathTools are the Claude Code rules a path pattern scopes in a
 // permission list. Claude Code checks file writes against Edit(path)
@@ -163,6 +156,14 @@ func isClaudeToolAlias(name string) bool {
 // stands for alone, or false when no capability maps to it one to one.
 // CapabilityTools turns the result back into exactly tool.
 func NeutralCapability(tool string) (string, bool) {
+	for name, native := range pathTools {
+		if pattern, ok := strings.CutPrefix(tool, native+"("); ok {
+			if p, closed := strings.CutSuffix(pattern, ")"); closed && strings.TrimSpace(p) != "" {
+				return name + "(" + p + ")", true
+			}
+			return "", false
+		}
+	}
 	for _, c := range Capabilities {
 		if names := capabilityTools[c]; len(names) == 1 && names[0] == tool {
 			return c, true
@@ -188,9 +189,6 @@ func NeutralCapability(tool string) (string, bool) {
 	return mcpToolKind + server, true
 }
 
-// NativeTools returns the agent with `can:` replaced by the `tools:`
-// list it stands for, at the same key position, or why it cannot be
-// read. An agent without `can:` returns unchanged.
 func (e Entry) NativeTools() (Entry, string) {
 	if e.Kind != KindAgent {
 		return e, ""
@@ -207,6 +205,7 @@ func (e Entry) NativeTools() (Entry, string) {
 	for i, n := range names {
 		tools[i] = n
 	}
+	e.CapabilityField = capabilityKey
 	meta := maps.Clone(e.Meta)
 	delete(meta, capabilityKey)
 	meta[toolsKey] = tools

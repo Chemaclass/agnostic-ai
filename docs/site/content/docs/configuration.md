@@ -156,7 +156,7 @@ outputs:
 Two Codex keys change how rules and permissions are written:
 
 - `outputs.codex.nested-glob-rules` defaults to `true`: exact whole-subtree rule selectors write nested `AGENTS.md` files. Set it to `false` to inline those rules in the root file. Filename filters and root-file selectors stay inline, with an always-loaded note under `on-unsupported`. See [Codex rules](@/docs/targets/codex.md).
-- `outputs.codex.exec-policies-from-permissions` defaults to `false`. Set it to `true` to translate simple Bash entries from portable Settings specs and `outputs.claude.settings.permissions` into Codex command rules. Explicit inline, file, or imported Codex policies take precedence. Every translated rule matches a command prefix, so extra arguments match too. Sync notes each exact `allow` rule that [Codex widens](@/docs/targets/codex.md#translate-bash-permissions). See [Bash permission translation](@/docs/targets/codex.md#translate-bash-permissions) for limits and LINT021 drift checks.
+- `outputs.codex.exec-policies-from-permissions` defaults to `false`. Set it to `true` to translate simple Bash entries from portable Settings specs and `outputs.claude.settings.permissions` into Codex command rules. Explicit inline, file, or imported Codex policies take precedence. Every translated rule matches a command prefix, so extra arguments match too. Sync notes each exact `allow` rule that [Codex widens](@/docs/targets/codex.md#translate-bash-permissions). `on-unsupported: error` fails on this widening. See [Bash permission translation](@/docs/targets/codex.md#translate-bash-permissions) for limits and LINT021 drift checks.
 
 ## `models`
 

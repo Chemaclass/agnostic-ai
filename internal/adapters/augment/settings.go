@@ -11,22 +11,6 @@ import (
 // toolPermissionsKey is the settings.json key holding the rule array.
 const toolPermissionsKey = "toolPermissions"
 
-// augmentTool maps agnostic-ai's Claude-style tool identifiers onto the
-// six Augment publishes across its Shell, File Operations, and Web
-// tables (docs.augmentcode.com/cli/permissions). The shell is one tool,
-// `terminal`: "One `terminal` rule gates all shell commands." The four
-// legacy names that page lists (`launch-process`, `view`,
-// `str-replace-editor`, `save-file`) are aliases of these, so the
-// current spelling is the one written.
-var augmentTool = map[string]string{
-	"Read":      "read",
-	"Edit":      "edit",
-	"Write":     "write",
-	"Bash":      "terminal",
-	"WebFetch":  "web-fetch",
-	"WebSearch": "web-search",
-}
-
 // mcpToolNameLimit is the length Augment truncates an MCP tool name to:
 // "Truncated to 64 characters if longer". A composed name past it would
 // never match the tool it was written for.
@@ -133,7 +117,7 @@ func augmentRule(rule, permissionType string) (map[string]any, bool) {
 			"permission":      permission,
 		}, true
 	}
-	name, ok := augmentTool[rule]
+	name, ok := emit.CapabilityTool(toolCapabilities, rule, true)
 	if !ok {
 		return nil, false
 	}

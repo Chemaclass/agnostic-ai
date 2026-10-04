@@ -49,7 +49,7 @@ func (f lintFinding) String() string {
 }
 
 func newLintCmd() *cobra.Command {
-	var strict, global, asJSON, onlyFiles bool
+	var strict, global, asJSON, onlyFiles, neutralCapabilities bool
 	cmd := &cobra.Command{
 		Use:   "lint [--files <path>...]",
 		Short: "Run semantic lint checks on source specs beyond schema validation.",
@@ -116,6 +116,14 @@ func newLintCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
+				if neutralCapabilities {
+					scope, loadErr := loadCheckScope(false)
+					if loadErr != nil {
+						return loadErr
+					}
+					notes := lintNeutralCapabilities(scope.bundle)
+					findings = append(findings, filterLintToFiles(notes, files)...)
+				}
 				if asJSON {
 					return printLintJSON(cmd, findings, strict)
 				}
@@ -133,6 +141,9 @@ func newLintCmd() *cobra.Command {
 			findings, err := lintScopeFindings(scope)
 			if err != nil {
 				return err
+			}
+			if neutralCapabilities {
+				findings = append(findings, lintNeutralCapabilities(scope.bundle)...)
 			}
 			entries := scope.bundle.All()
 			// A home or project with only AGNOSTIC_AI.md still loads it
@@ -157,6 +168,7 @@ func newLintCmd() *cobra.Command {
 			return lintExitErr(findings, strict)
 		},
 	}
+	cmd.Flags().BoolVar(&neutralCapabilities, "suggest-capabilities", false, "Suggest neutral capability names for native tool aliases.")
 	cmd.Flags().BoolVar(&strict, "strict", false, "Treat warnings as errors.")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Print findings as JSON on stdout.")
 	cmd.Flags().BoolVar(&onlyFiles, "files", false, "Report only findings on the paths given as arguments; - reads paths from stdin.")
@@ -290,6 +302,9 @@ func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) [
 	findings = append(findings, lintHookMatcherMisuse(b.Hooks)...)
 	findings = append(findings, lintPortableHooks(b.Hooks, targets)...)
 	findings = append(findings, lintAgentCapabilities(b.Agents, b.Settings)...)
+	for _, issue := range skillCapabilityIssues(b.Skills) {
+		findings = append(findings, lintFinding{Code: "LINT036", Severity: lintError, Path: issue.Path, Message: issue.Message})
+	}
 	findings = append(findings, lintUnterminatedFrontmatter(entries)...)
 	findings = append(findings, lintNearMissKeys(entries, targets)...)
 	findings = append(findings, lintMCPMissingRequiredField(b.MCPs)...)
@@ -658,6 +673,9 @@ func lintNearMissKeys(entries []spec.Entry, targets []string) []lintFinding {
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
+			if e.Kind == spec.KindSkill && k == "allowed-tools" {
+				continue
+			}
 			miss, ok := nearMissKeys[k]
 			if !ok {
 				miss, ok = keyTypo(e.Kind, k, targets)

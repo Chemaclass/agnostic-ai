@@ -52,6 +52,8 @@ func kindKeys(kind spec.Kind) []string {
 		return append(slices.Clone(specKeys), hookKeys...)
 	case spec.KindAgent:
 		return append(slices.Clone(specKeys), agentKeys...)
+	case spec.KindSkill:
+		return append(slices.Clone(specKeys), "allowed-tools")
 	}
 	return specKeys
 }

@@ -78,7 +78,7 @@ func TestSync_StopsOnACapabilityItCannotRead(t *testing.T) {
 		{"can: [read]\ntools: [Read]", "sets both can: and tools:; keep one"},
 		{"can: read", "can: must be a list"},
 		{"can: [shell()]", `can: "shell()" needs a command pattern`},
-		{"can: [read(src/**)]", `can: "read(src/**)": only shell takes a pattern`},
+		{"can: [write(src/**)]", `can: "write(src/**)": Claude Code checks file writes against Edit rules only`},
 		{"can: [mcp:git hub]", `can: "mcp:git hub" needs an MCP server and tool name`},
 		{"x-claude:\n  can: [read]", "x-claude.can is not read"},
 	}
@@ -119,7 +119,6 @@ func TestMigrate_CapabilitiesRewritesToolsInPlaceAndKeepsAliases(t *testing.T) {
 		"skipped .agnostic-ai/agents/explorer.md: keeps tools: as written: no entry has a capability of its own",
 		"skipped .agnostic-ai/agents/reviewer.md: keeps Grep as an alias: no capability stands for it alone",
 		"skipped .agnostic-ai/agents/writer.md: keeps WebFetch as an alias: web also grants WebSearch",
-		"skipped .agnostic-ai/agents/reviewer.md: keeps WebFetch and WebSearch as aliases: web stands for them together; write it in their place by hand",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("dry run misses %q:\n%s", want, out)
@@ -130,7 +129,7 @@ func TestMigrate_CapabilitiesRewritesToolsInPlaceAndKeepsAliases(t *testing.T) {
 	}
 	for name, want := range map[string]string{
 		"reviewer.md": "---\n# Keep this comment: migrations must not reformat frontmatter.\nname: reviewer\ndescription: Reviews a diff.\n" +
-			"can: [read, Grep, shell(git diff *), mcp:github, mcp:github/get_issue, WebFetch, WebSearch]   # least privilege\n---\n\nReview the diff and report findings with `file:line`.\n",
+			"can: [read, Grep, shell(git diff *), mcp:github, mcp:github/get_issue, web]   # least privilege\n---\n\nReview the diff and report findings with `file:line`.\n",
 		"writer.md":   "---\nname: writer\ndescription: Writes docs.\ncan:\n  - read     # look first\n  - 'edit'\n  - \"write\"\n  - WebFetch\n  - shell\n---\n\nWrite the docs page the task asks for.\n",
 		"explorer.md": "---\nname: explorer\ndescription: Maps the codebase.\ntools: [Grep, Glob]\n---\n\nList the files that matter for the task.\n",
 	} {

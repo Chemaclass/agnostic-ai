@@ -138,6 +138,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emit.ReportUnsupported(coverage, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
+	if err := reportPermissionWidening(b.Settings, cfg.OnUnsupported); err != nil {
+		return err
+	}
 	b = emit.WithoutForeignClaudeModels(coverage, b)
 	if err := emit.ValidateNames(b.Skills, target, "skill", skillNameRule); err != nil {
 		return err

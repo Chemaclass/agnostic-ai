@@ -37,15 +37,6 @@ const (
 // (docs.factory.com/harness/skills), which scoped skills also use.
 var factorySkillDirs = []string{".agents/skills", ".factory/skills"}
 
-// factoryToolPortable reverses the three renames the factory adapter
-// applies to a droid's `tools`. Factory's other tool IDs are spelled
-// the same on both sides.
-var factoryToolPortable = map[string]string{
-	"Read": "Read", "LS": "LS", "Grep": "Grep", "Glob": "Glob", "Edit": "Edit",
-	"ApplyPatch": "ApplyPatch", "WebSearch": "WebSearch",
-	"Execute": "Bash", "Create": "Write", "FetchUrl": "WebFetch",
-}
-
 // factoryDroidPortableKeys are the droid frontmatter keys that map onto
 // spec fields. Every other key lands under x-factory, which the adapter
 // passes through verbatim.
@@ -153,14 +144,7 @@ func importFactoryDroids(srcDir, dstDir string) (int, error) {
 	return count, nil
 }
 
-// factoryDroidSpecMeta translates droid frontmatter into agent spec
-// frontmatter. `reasoningEffort` becomes the portable `effort`, which
-// the adapter writes back under Factory's own key.
-//
-// `tools` renames back only when every entry is a Factory tool ID. A
-// category (`read-only`) or an MCP tool ID has no portable spelling, so
-// such a list moves under x-factory whole, where the adapter writes it
-// untranslated, rather than losing the names it cannot map.
+// Native tool lists stay intact when any entry has no exact neutral form.
 func factoryDroidSpecMeta(meta map[string]any) map[string]any {
 	out := map[string]any{}
 	native := map[string]any{}
@@ -170,7 +154,7 @@ func factoryDroidSpecMeta(meta map[string]any) map[string]any {
 			out["effort"] = v
 		case k == "tools":
 			if portable, ok := portableFactoryTools(v); ok {
-				out["tools"] = portable
+				out["can"] = portable
 			} else {
 				native["tools"] = v
 			}
@@ -186,21 +170,8 @@ func factoryDroidSpecMeta(meta map[string]any) map[string]any {
 	return out
 }
 
-func portableFactoryTools(v any) ([]string, bool) {
-	list, ok := v.([]any)
-	if !ok {
-		return nil, false
-	}
-	out := make([]string, 0, len(list))
-	for _, item := range list {
-		name, _ := item.(string)
-		portable, known := factoryToolPortable[name]
-		if !known {
-			return nil, false
-		}
-		out = append(out, portable)
-	}
-	return out, true
+func portableFactoryTools(value any) ([]string, bool) {
+	return importNativeAgentCan(value, "factory")
 }
 
 // importFactoryHooks reads `.factory/hooks.json`, falling back to the
@@ -252,7 +223,7 @@ func importFactorySettings(src, dstDir string) (int, error) {
 	permissions := map[string][]string{}
 	for _, list := range factoryCommandList {
 		for _, pattern := range stringSliceFromAny(native[list.native]) {
-			permissions[list.portable] = appendUnique(permissions[list.portable], portableFactoryCommand(pattern))
+			permissions[list.portable] = appendUnique(permissions[list.portable], importNeutralPermissionRule(portableFactoryCommand(pattern)))
 		}
 	}
 	if len(permissions) > 0 {

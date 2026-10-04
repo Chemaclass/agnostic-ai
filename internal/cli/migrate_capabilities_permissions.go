@@ -43,6 +43,9 @@ func planCapabilitiesSettingsPermissions(s migrationScope) ([]migrationChange, [
 		var kept []string
 		for _, list := range spec.PermissionLists {
 			rules, _ := perms[list].([]any)
+			if hasWebPair(rules) {
+				rewrites[list] = map[int]string{}
+			}
 			for i, raw := range rules {
 				rule, _ := raw.(string)
 				c, ok := spec.NeutralPermission(rule)
@@ -85,7 +88,10 @@ func planCapabilitiesSettingsPermissions(s migrationScope) ([]migrationChange, [
 			if rewrites[list] == nil {
 				continue
 			}
-			if after, err = rewriteYAMLSequenceItems(after, []string{"permissions", list}, rewrites[list]); err != nil {
+			if after, err = rewriteYAMLSequenceItems(after, []string{"permissions", list}, rewrites[list]); err == nil {
+				after, err = collapseWebPairs(after, []string{"permissions", list})
+			}
+			if err != nil {
 				break
 			}
 		}

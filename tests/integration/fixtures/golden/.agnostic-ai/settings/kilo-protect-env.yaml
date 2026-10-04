@@ -1,0 +1,7 @@
+name: kilo-protect-env
+target: kilo
+permissions:
+  allow:
+    - write
+  deny:
+    - edit(.env)

@@ -730,6 +730,14 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 	if err != nil {
 		return err
 	}
+	mode := ""
+	if cfg != nil {
+		mode = cfg.OnUnsupported
+	}
+	own, err = emit.WithoutUnsupportedDelete(own, a.Name(), mode)
+	if err != nil {
+		return err
+	}
 	own = expandBundleVars(own, cfg, a.Name())
 	own.Hooks = emit.TargetHooks(a.Name(), own.Hooks)
 	if slices.Contains(a.Capabilities(), spec.KindHook) {

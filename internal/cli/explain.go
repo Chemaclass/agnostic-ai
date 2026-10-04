@@ -37,8 +37,9 @@ type explainOutput struct {
 	WouldEmitIfEnabled []contribution `json:"would_emit_if_enabled"`
 	// ModelTier and Models report the tier and the model and effort the
 	// spec resolves to on each configured target it reaches.
-	ModelTier string         `json:"model_tier,omitempty"`
-	Models    []explainModel `json:"models,omitempty"`
+	ModelTier    string              `json:"model_tier,omitempty"`
+	Models       []explainModel      `json:"models,omitempty"`
+	Capabilities []explainCapability `json:"capabilities,omitempty"`
 }
 
 type explainSpecRef struct {
@@ -145,6 +146,7 @@ func newExplainCmd() *cobra.Command {
 					WouldEmitIfEnabled: extra,
 					ModelTier:          entry.ModelTier,
 					Models:             explainModels(entry, configured),
+					Capabilities:       explainCapabilities(entry, cfg, bundle.Settings...),
 				})
 			}
 			out := cmd.OutOrStdout()
@@ -156,6 +158,7 @@ func newExplainCmd() *cobra.Command {
 				_, _ = fmt.Fprintf(out, "  %s\n", formatContribution(c))
 			}
 			printExplainModels(out, entry.ModelTier, explainModels(entry, configured))
+			printExplainCapabilities(out, explainCapabilities(entry, cfg, bundle.Settings...))
 			if len(extra) > 0 {
 				_, _ = fmt.Fprintln(out, "")
 				_, _ = fmt.Fprintln(out, "would emit if enabled:")
@@ -198,6 +201,9 @@ func formatContribution(c contribution) string {
 // disappears, the spec owns the file; if the content shrinks, the spec
 // contributes a section. Avoids parsing each adapter's output format.
 func computeContributions(e spec.Entry, b spec.Bundle, cfg *config.Config) ([]contribution, []contribution, error) {
+	view := *cfg
+	view.OnUnsupported = "silent"
+	cfg = &view
 	// Silence per-adapter capability warnings while we render every
 	// adapter twice. Without this, hooks/MCPs would emit "X not
 	// supported" lines repeatedly even though they're informational.

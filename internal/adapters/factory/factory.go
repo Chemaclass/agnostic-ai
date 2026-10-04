@@ -298,7 +298,8 @@ func factoryMCPs(entries []spec.Entry) []spec.Entry {
 // true` folds into its own note (see droidMarkdown).
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
 	noteUnsupportedEffort(agents)
-	var emptyBody, droppedTools, readonlyOverrodeTools int
+	var emptyBody int
+	var droppedTools, readonlyOverrodeTools []spec.Entry
 	for _, a := range agents {
 		if strings.TrimSpace(a.Body) == "" {
 			emptyBody++
@@ -307,10 +308,10 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 		path := filepath.Join(dir, a.Name+".md")
 		md, dropped, overrodeList := droidMarkdown(a)
 		if dropped {
-			droppedTools++
+			droppedTools = append(droppedTools, a)
 		}
 		if overrodeList {
-			readonlyOverrodeTools++
+			readonlyOverrodeTools = append(readonlyOverrodeTools, a)
 		}
 		if err := sess.WriteFile(path, emit.WithHeader(md, emit.FormatMarkdown), dryRun); err != nil {
 			return err
@@ -318,9 +319,9 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 	}
 	emit.NoteCoverageGap(target, spec.KindAgent, emptyBody,
 		"empty spec body; Droid CLI requires a non-empty system prompt")
-	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", droppedTools,
+	emit.NoteAgentToolsNoOp(target, droppedTools,
 		"name(s) outside Factory's tool-ID table (Read, LS, Grep, Glob, Create, Edit, ApplyPatch, Execute, WebSearch, FetchUrl) fail Droid CLI's load-time validation and are dropped; set x-factory.tools for a category name or an MCP tool ID")
-	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", readonlyOverrodeTools,
+	emit.NoteAgentToolsNoOp(target, readonlyOverrodeTools,
 		"readonly: true replaces the portable tools list with the tools: read-only category; set x-factory.tools to keep a custom list instead")
 	return nil
 }

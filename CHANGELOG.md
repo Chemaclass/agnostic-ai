@@ -8,6 +8,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- Skills take neutral `allowed-tools`; agents take file patterns and `delete`. `explain` names native tools and extra access (#1803).
+
 - `outputs.<target>.agents: skill` writes agents as on-demand skills on Amp, Crush, Warp, and Zed, which have no subagents, unless a tool with subagents reads the same skills directory (#1772).
 - `import` turns MCP credentials into `${NAME}` references or drops the server, as `--global` does; `doctor` names each unset `${NAME}` (#1736, #1742, #1729).
 - `hook run` uses Git Bash for Claude Code hooks on Windows and shows a command's timeout or error even when another's result is not counted (#1746, #1728).
@@ -35,6 +37,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Codex
 
+- An exact shell allow translated to a command prefix now fails with `on-unsupported: error`, since extra arguments match too (#1803).
+
 - A hook `commandWindows` keeps the project root path, so a script under the project runs from any subdirectory (#1732).
 - A grouped hook matcher such as `^(Bash|exec)$` no longer gets a false "does not match" note, and specs sharing a command merge validly (#1743).
 
@@ -49,7 +53,13 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - A portable hook synced to `claude` and `cursor` runs once on Cursor: its Claude Code copy exits when Cursor runs it (#1790).
 - `sync --global` writes the wrapper to `~/.cursor/hooks/`, so a portable `before-tool` hook reaches Cursor's user hooks (#1790).
 
+#### Kilo Code
+
+- A scoped edit deny also denies `write` for the same path, so a separate write allow cannot bypass it (#1803).
+
 #### Kiro
+
+- Kiro maps agent MCP tools to `@server` or `@server/tool`; `on-unsupported: error` rejects tool bundles that grant extra access (#1803).
 
 - `hook run` runs Kiro hooks on an assumed shell; `--bash` and `--edit` are refused, since Kiro documents no tool input for them (#1566).
 

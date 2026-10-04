@@ -130,10 +130,10 @@ func TestEmit_SettingsDropsBareWebFetch(t *testing.T) {
 // all, so nothing there licenses `web_search` either way, and one
 // shared map would let a future edit for one surface change the other.
 func TestAgent_AllowedToolsExcludesWebSearch(t *testing.T) {
-	if _, ok := devinTool["WebSearch"]; ok {
+	if _, ok := emit.CapabilityTool(toolCapabilities, "WebSearch", false); ok {
 		t.Errorf("devinTool must not carry WebSearch: the subagent docs enumerate no tool vocabulary")
 	}
-	if _, ok := devinPermissionTool["WebSearch"]; !ok {
+	if _, ok := emit.CapabilityTool(toolCapabilities, "WebSearch", true); !ok {
 		t.Errorf("devinPermissionTool must carry WebSearch")
 	}
 }

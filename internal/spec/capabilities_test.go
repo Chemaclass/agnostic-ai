@@ -70,7 +70,7 @@ func TestNeutralCapability_RoundTripsThroughCapabilityTools(t *testing.T) {
 			t.Errorf("CapabilityTools(%q) = %v, %q; want [%s]", got, back, problem, tool)
 		}
 	}
-	for _, tool := range []string{"Grep", "WebFetch", "WebSearch", "Bash()", "Bash(x", "mcp__a__b__c", "mcp__a__", "Read(src/**)"} {
+	for _, tool := range []string{"Grep", "WebFetch", "WebSearch", "Bash()", "Bash(x", "mcp__a__b__c", "mcp__a__"} {
 		if got, ok := NeutralCapability(tool); ok {
 			t.Errorf("NeutralCapability(%q) = %q, want no capability", tool, got)
 		}
@@ -85,13 +85,13 @@ func TestAgentCapabilityProblem_NamesWhatIsWrong(t *testing.T) {
 		{map[string]any{"can": []any{"read", "shell(git diff *)", "Grep"}}, ""},
 		{map[string]any{"tools": []any{"Read"}}, ""},
 		{map[string]any{"can": []any{"raed"}}, `unknown capability "raed" for can: (did you mean read?)`},
-		{map[string]any{"can": []any{"delete"}}, `unknown capability "delete" for can:; use one of read, write, edit, shell, web`},
+		{map[string]any{"can": []any{"delete"}}, ""},
 		{map[string]any{"can": []any{"read"}, "tools": []any{"Read"}}, "sets both can: and tools:; keep one"},
 		{map[string]any{"can": "read"}, "can: must be a list"},
 		{map[string]any{"can": []any{1}}, "can: entry 1 is not a capability name"},
 		{map[string]any{"can": []any{"shell( )"}}, `can: "shell( )" needs a command pattern`},
 		{map[string]any{"can": []any{"shell(git"}}, `can: "shell(git" is missing its closing parenthesis`},
-		{map[string]any{"can": []any{"edit(src/**)"}}, `can: "edit(src/**)": only shell takes a pattern`},
+		{map[string]any{"can": []any{"edit(src/**)"}}, ""},
 		{map[string]any{"can": []any{"mcp:"}}, `can: "mcp:" needs an MCP server`},
 		{map[string]any{"can": []any{"mcp:gh/a.b"}}, `can: "mcp:gh/a.b" needs an MCP server`},
 		{map[string]any{"tools": []any{"Read"}, "x-kiro": map[string]any{"can": []any{"read"}}}, "x-kiro.can is not read"},

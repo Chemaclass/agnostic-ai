@@ -307,3 +307,17 @@ func TestEmit_NotesRulesWithNoOpenCodeKey(t *testing.T) {
 		}
 	}
 }
+
+func TestPermissionWidening_SiblingNativeEditOverridesWrite(t *testing.T) {
+	settings := []spec.Entry{
+		{Kind: spec.KindSettings, Path: "settings/write.yaml", Meta: map[string]any{"permissions": map[string]any{"allow": []any{"Write"}}}},
+		{Kind: spec.KindSettings, Path: "settings/native.yaml", Meta: map[string]any{"x-opencode": map[string]any{"permission": map[string]any{"edit": "deny"}}}},
+	}
+	if err := reportPermissionWidening(settings, "error"); err != nil {
+		t.Errorf("unused portable widening failed: %v", err)
+	}
+	permissions, _ := buildPermissions(settings)
+	if permissions["edit"] != "deny" {
+		t.Errorf("effective edit = %#v, want deny", permissions["edit"])
+	}
+}

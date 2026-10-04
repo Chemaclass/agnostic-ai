@@ -59,12 +59,8 @@ const (
 // without changing Kiro's output): a rule's source-layout scope collapses
 // into an equivalent `globs:`; a legacy steering agent or skill keeps only
 // its body (the flattened forms held no description/model, and no bundled
-// assets); an agent's generic `tools` list re-imports as whatever Kiro
-// category name is actually on disk (e.g. `read`), not the Claude-style
-// names it collapsed from (`Read`, `Grep`, and `Glob` all emit as `read`
-// and are indistinguishable once written), since that many-to-one
-// translation (see the kiro adapter's package doc) has no confident
-// reverse. A hook's explicit `enabled: true` leaves no key, since that
+// assets). Native tool names become capabilities only when the reverse
+// mapping is exact. A hook's explicit `enabled: true` leaves no key, since that
 // is the vendor default the emit side writes nothing for, and a hook
 // name declared by two files keeps only one of the two labels, since a
 // spec name is unique across the bundle.
@@ -144,6 +140,11 @@ func importKiroAgents(root, dstDir string) (int, error) {
 }
 
 func importKiroAgentDocument(data []byte, canonicalName string) ([]byte, error) {
+	var err error
+	data, err = importNativeAgentTools(data, "kiro", "tools")
+	if err != nil {
+		return nil, err
+	}
 	meta, body := splitMdcFrontmatter(data)
 	displayName, _ := meta["name"].(string)
 	if displayName == "" {

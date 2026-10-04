@@ -159,13 +159,13 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 }
 
 func noteDroppedAgentTools(agents []spec.Entry) {
-	dropped := 0
+	var dropped []spec.Entry
 	for _, agent := range agents {
 		if emit.SharedAgentToolsDropped(agent, target) {
-			dropped++
+			dropped = append(dropped, agent)
 		}
 	}
-	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", dropped,
+	emit.NoteAgentToolsNoOp(target, dropped,
 		"OpenHands project agents use the file_editor and terminal tool vocabulary")
 }
 

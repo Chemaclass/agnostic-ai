@@ -30,7 +30,7 @@ func TestImportPortableSettings_TargetShapes(t *testing.T) {
 			nestedModel: true,
 			permissions: true,
 			wantFragments: []string{
-				"model: qoder-model", "permissions:", "allow:", "- Read(**)", "deny:", "- Bash(rm:*)",
+				"model: qoder-model", "permissions:", "allow:", "- read(**)", "deny:", "- shell(rm:*)",
 			},
 		},
 	}

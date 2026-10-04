@@ -227,3 +227,61 @@ id = "augment"
 name = "Augment"
 href = "@/docs/targets/augment.md"
 statuses = ["native", "native", "native", "native", "native", "native", "native", "no", "no", "native"]
+
+# Native tool names from the adapter capability tables.
+
+[tool_translations.augment]
+read = ["read"]
+write = ["write"]
+edit = ["edit"]
+delete = []
+shell = ["terminal"]
+web = ["web-fetch", "web-search"]
+
+[tool_translations.factory]
+read = ["Read"]
+write = ["Create"]
+edit = ["Edit"]
+delete = []
+shell = ["Execute"]
+web = ["FetchUrl", "WebSearch"]
+
+[tool_translations.gemini]
+read = ["read_file"]
+write = ["write_file"]
+edit = ["replace"]
+delete = []
+shell = ["run_shell_command"]
+web = ["web_fetch", "google_web_search"]
+
+[tool_translations.kilo]
+read = ["read"]
+write = ["write"]
+edit = ["edit"]
+delete = []
+shell = ["bash"]
+web = ["webfetch", "websearch"]
+
+[tool_translations.kiro]
+read = ["read"]
+write = ["write"]
+edit = ["write"]
+delete = ["write"]
+shell = ["shell"]
+web = ["web"]
+
+[tool_translations.opencode]
+read = ["read"]
+write = ["edit"]
+edit = ["edit"]
+delete = []
+shell = ["bash"]
+web = ["webfetch", "websearch"]
+
+[tool_translations.windsurf]
+read = ["read"]
+write = ["write"]
+edit = ["edit"]
+delete = []
+shell = ["exec"]
+web = ["web_search"]

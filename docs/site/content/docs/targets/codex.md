@@ -217,7 +217,7 @@ Sync names each exact `allow` rule that Codex widens, with its source:
 note: codex: agnostic-ai.yaml: permissions.allow rule Bash(git push) becomes a Codex prefix rule, so Codex also allows `git push` with extra arguments; add a deny or ask rule for arguments that need review
 ```
 
-A deny or ask rule on the same or a shorter prefix silences the note, as does a wildcard `allow` such as `Bash(git:*)` that already allows the extra arguments in Claude Code. `on-unsupported: error` does not fail on it; `silent` omits it. Exact `deny` and `ask` rules only get stricter as a prefix, so they raise no note.
+A deny or ask rule on the same or a shorter prefix silences the note, as does a wildcard `allow` such as `Bash(git:*)` that already allows the extra arguments in Claude Code. `on-unsupported: error` fails on this widening; `silent` omits the note. Exact `deny` and `ask` rules only get stricter as a prefix, so they raise no note.
 
 Only plain, unquoted words translate. A Bash rule with quotes, escapes, a `*` other than one trailing ` *` or `:*`, shell operators, expansions, assignments, or shell keywords gets a coverage note naming the rule and source. `on-unsupported: error` fails on it; `silent` omits it. Rules for other tools, such as `Read(.env)` or `WebFetch`, share one `permissions` coverage note and never fail the sync. Use explicit `exec-policies` for a command that cannot translate.
 

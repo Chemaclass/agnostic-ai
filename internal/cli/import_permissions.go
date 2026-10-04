@@ -168,7 +168,11 @@ func writePermissionsSpec(dstDir, name string, lists map[string][]string) (int, 
 	permissions := map[string][]string{}
 	for list, rules := range lists {
 		if len(rules) > 0 {
-			permissions[list] = rules
+			neutral := make([]string, len(rules))
+			for i, rule := range rules {
+				neutral[i] = importNeutralPermissionRule(rule)
+			}
+			permissions[list] = neutral
 		}
 	}
 	if len(permissions) == 0 {

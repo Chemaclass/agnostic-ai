@@ -47,6 +47,15 @@ A spec that sets `model` or `effort` also lists the [tier](@/docs/spec-format/ag
 
 `model_tier` and `models` are omitted when the spec sets neither `model` nor `effort`.
 
+For an agent's `can` or `tools`, and for settings `permissions`, the report lists each configured target's native names. Unsupported rules stay visible. A widening line names the extra access a target grants. Native overrides show their values directly and name the field that won. Codex widening follows the merged permission policy and any explicit exec policy source.
+
+```bash
+agnostic-ai explain agents/reviewer.md
+agnostic-ai explain settings/permissions.yaml --json
+```
+
+The JSON `capabilities` array holds `target`, `field`, `capability`, `native`, and `supported`. `widening` lists extra access when present. `override` names a native field or policy source that replaces the portable rule. The array is omitted for specs without these fields. `explain` still shows translations with `on-unsupported: error`; `sync` fails on widening.
+
 ### Explain a source file
 
 Start from a project file instead of a spec. The report lists every instruction the target would read from the planned sync output, with its source, output path, selector, and reason. Only Cursor is supported.

@@ -2,33 +2,6 @@ package factory
 
 import "github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 
-// factoryToolID maps agnostic-ai's Claude-style tool identifiers onto
-// Droid CLI's own tool IDs (docs.factory.com/harness/subagents, "Tool
-// categories"). Factory's table is the complete set of valid IDs:
-// `Read`, `LS`, `Grep`, `Glob`, `Create`, `Edit`, `ApplyPatch`,
-// `Execute`, `WebSearch`, `FetchUrl`. Seven Claude-style names are
-// already spelled that way and pass through; `Bash`, `Write`, and
-// `WebFetch` are not, and Factory's own Claude Code importer renames
-// them the same way this table does. IDs are case-sensitive, so the
-// lookup is exact: `bash` is an unknown ID, not a spelling of `Bash`.
-var factoryToolID = map[string]string{
-	// Already valid Factory IDs.
-	"Read":       "Read",
-	"LS":         "LS",
-	"Grep":       "Grep",
-	"Glob":       "Glob",
-	"Create":     "Create",
-	"Edit":       "Edit",
-	"ApplyPatch": "ApplyPatch",
-	"Execute":    "Execute",
-	"WebSearch":  "WebSearch",
-	"FetchUrl":   "FetchUrl",
-	// Claude-style names Factory spells differently.
-	"Bash":     "Execute",
-	"Write":    "Create",
-	"WebFetch": "FetchUrl",
-}
-
 // factoryAlwaysOnTool holds the two tools Factory grants every droid
 // unconditionally: "`TodoWrite` and `Skill` are always included for
 // every droid so it can track tasks and load skills. You do not list
@@ -38,7 +11,7 @@ var factoryToolID = map[string]string{
 var factoryAlwaysOnTool = map[string]bool{"TodoWrite": true, "Skill": true}
 
 // translateTools maps a spec's generic Claude-style tools list onto
-// Factory's tool IDs (factoryToolID), deduplicated in first-seen order
+// Factory's tool IDs (toolCapabilities), deduplicated in first-seen order
 // because two Claude-style names can share one ID and Factory's
 // DroidValidator warns on duplicate tools. A name with no table entry
 // is never written verbatim: "Unknown IDs cause a validation error", so
@@ -54,7 +27,7 @@ func translateTools(names []string) (mapped []string, hasDropped bool) {
 		if factoryAlwaysOnTool[n] {
 			continue
 		}
-		id, ok := factoryToolID[n]
+		id, ok := emit.CapabilityTool(toolCapabilities, n, false)
 		if !ok {
 			hasDropped = true
 			continue

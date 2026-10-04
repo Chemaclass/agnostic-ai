@@ -305,8 +305,15 @@ func TestEmit_PermissionPoliciesNameExactAllowRulesCodexWidens(t *testing.T) {
 			t.Cleanup(func() { emit.Warner = previous })
 			cfg := permissionPolicyConfig(t, "on-unsupported: "+mode+"\noutputs:\n  codex:\n    exec-policies-from-permissions: true\n  claude:\n    settings:\n      permissions:\n        allow: [\"Bash(git push)\", \"Bash(git diff:*)\", \"Bash(go *)\", \"Bash(go test)\", \"Bash(npm run check)\", \"Bash(tar x)\"]\n        deny: [\"Bash(rm -rf)\", \"Bash(git push --force)\"]\n        ask: [\"Bash(npm run:*)\", \"Bash(tar)\"]\n")
 			b := spec.NewBundle([]spec.Entry{{Kind: spec.KindSettings, Name: "security", Path: "settings/security.yaml", Meta: map[string]any{"permissions": map[string]any{"allow": []any{"Bash(make lint)"}}}}})
-			if err := New().Emit(emit.NewSession(), b, cfg, false); err != nil {
-				t.Fatalf("a widened allow rule failed the sync: %v", err)
+			err := New().Emit(emit.NewSession(), b, cfg, false)
+			if mode == "error" {
+				if err == nil || !strings.Contains(err.Error(), "Bash(make lint)") {
+					t.Errorf("error = %v, want source widening", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("sync: %v", err)
 			}
 			data, err := os.ReadFile(defaultExecPoliciesFile)
 			if err != nil || !strings.Contains(string(data), `pattern = ["git", "push"]`) {

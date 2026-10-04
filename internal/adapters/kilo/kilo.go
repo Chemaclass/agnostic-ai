@@ -312,19 +312,19 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 // the whole batch surfaces one coverage note for those instead of a
 // silent loss.
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
-	unmapped := 0
+	var unmapped []spec.Entry
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+".md")
 		md, hadUnmapped := agentMarkdown(a)
 		if hadUnmapped {
-			unmapped++
+			unmapped = append(unmapped, a)
 		}
 		body := emit.WithHeader(md, emit.FormatMarkdown)
 		if err := sess.WriteFile(path, body, dryRun); err != nil {
 			return err
 		}
 	}
-	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", unmapped, agentToolsUntranslatedReason)
+	emit.NoteAgentToolsNoOp(target, unmapped, agentToolsUntranslatedReason)
 	return nil
 }
 
