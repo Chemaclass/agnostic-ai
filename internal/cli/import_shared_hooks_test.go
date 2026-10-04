@@ -234,3 +234,12 @@ func TestImport_KeepsANativeClaudeHookWithOtherArgs(t *testing.T) {
 		}
 	}
 }
+
+// Gemini emits an x-gemini handler group as written, without the
+// spec's top-level args.
+func TestImport_SkipsAGeminiHandlerGroupBesideTopLevelArgs(t *testing.T) {
+	hook := "name: sh\nevent: BeforeTool\nmatcher: run_shell_command\nargs: [a]\nx-gemini:\n  hooks:\n    - type: command\n      command: echo one\n"
+	syncSharedHook(t, "gemini", hook)
+
+	assertOnlySharedHook(t, hook, importCapturing(t, "gemini"))
+}

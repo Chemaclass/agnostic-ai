@@ -108,9 +108,9 @@ func hookHandlerKeys(target string, meta map[string]any) []string {
 	return nil
 }
 
-// hookArgsTargets write a hook's exec-form args into the command; the
-// other importable targets drop them (#1775). Claude Code keeps them in a
-// field, which its importer folds in before matching.
+// hookArgsTargets write a hook's exec-form args: Codex and Gemini into
+// the command, Claude Code and Copilot into a field their importers fold
+// in before matching. The other importable targets drop them (#1775).
 var hookArgsTargets = map[string]bool{"claude": true, "codex": true, "copilot": true, "gemini": true}
 
 // Metadata renders a source command, with its args where the target
@@ -118,7 +118,9 @@ var hookArgsTargets = map[string]bool{"claude": true, "codex": true, "copilot": 
 func hookCommandKey(target, command string, metadata ...map[string]any) string {
 	if len(metadata) > 0 {
 		command = adapters.RewriteHookPath(command, target, metadata...)
-		if hookArgsTargets[target] {
+		// Args go with `command`; the handlers under `x-gemini.hooks`
+		// emit as written.
+		if _, ok := metadata[0]["command"]; ok && hookArgsTargets[target] {
 			command = adapters.ExecFormCommand(command, stringSliceFromAny(metadata[0]["args"]))
 		}
 	} else {
