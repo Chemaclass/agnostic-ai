@@ -75,7 +75,7 @@ func bareCapabilityNativePermissions(rule, list, target string) []string {
 		return nil
 	}
 	switch target {
-	case "claude":
+	case "claude", "qoder":
 		return aliases
 	case "cursor":
 		if server, ok := strings.CutPrefix(rule, "mcp:"); ok && list == "allow" {

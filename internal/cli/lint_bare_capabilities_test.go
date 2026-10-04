@@ -35,6 +35,17 @@ func TestLintBareCapabilities_SkipsScopedDeniedAndNativeRules(t *testing.T) {
 	}
 }
 
+func TestLintBareCapabilities_WarnsForQoderPermissions(t *testing.T) {
+	entry := spec.Entry{Kind: spec.KindSettings, Meta: map[string]any{"permissions": map[string]any{"allow": []any{"shell"}}}}
+	got := lintBareCapabilities([]spec.Entry{entry}, []string{"qoder"})
+	if len(got) != 1 {
+		t.Fatalf("findings = %v", got)
+	}
+	if !strings.Contains(got[0].Message, "qoder: Bash") {
+		t.Errorf("message = %s", got[0].Message)
+	}
+}
+
 func TestLintBareCapabilities_NamesMCPServerScope(t *testing.T) {
 	entry := spec.Entry{Kind: spec.KindSettings, Meta: map[string]any{"permissions": map[string]any{"allow": []any{"mcp:github"}}}}
 	got := lintBareCapabilities([]spec.Entry{entry}, []string{"claude", "cursor"})
