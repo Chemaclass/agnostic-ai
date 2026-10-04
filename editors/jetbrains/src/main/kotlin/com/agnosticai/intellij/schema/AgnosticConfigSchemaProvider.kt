@@ -7,7 +7,6 @@
 package com.agnosticai.intellij.schema
 
 import com.agnosticai.intellij.AgnosticAi
-
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.jetbrains.jsonSchema.extension.JsonSchemaFileProvider

@@ -37,6 +37,19 @@ class AgnosticAiConfigFileTest {
         assertEquals(module, AgnosticAi.projectRoot(dir))
     }
 
+    @Test fun projectRootPicksChildrenInNameOrder() {
+        Files.writeString(Files.createDirectory(dir.resolve("b")).resolve("agnostic-ai.yaml"), "targets: []\n")
+        val a = Files.createDirectory(dir.resolve("a"))
+        Files.writeString(a.resolve("agnostic.config.yaml"), "targets: []\n")
+        assertEquals(a, AgnosticAi.projectRoot(dir))
+    }
+
+    @Test fun projectRootPrefersARootConfigOverAChild() {
+        Files.writeString(Files.createDirectory(dir.resolve("module")).resolve("agnostic-ai.yaml"), "targets: []\n")
+        Files.writeString(dir.resolve("agnostic.config.yaml"), "targets: []\n")
+        assertEquals(dir, AgnosticAi.projectRoot(dir))
+    }
+
     @Test fun schemaAttachesToBothNamesOnly() {
         assertTrue(AgnosticAi.isConfigFileName("agnostic-ai.yaml"))
         assertTrue(AgnosticAi.isConfigFileName("agnostic.config.yaml"))

@@ -63,7 +63,7 @@ the token from your JetBrains Marketplace account: Profile ▸ Marketplace ▸
 Tokens. Publishing is intentionally a manual step rather than tied to
 agnostic-ai release tags — Marketplace review has its own SLA.
 
-## Limits in v0.1.0
+## Limits
 
 - Status bar polls on a schedule; it does not reactively watch
   `agnostic-ai.yaml` for changes (planned).
