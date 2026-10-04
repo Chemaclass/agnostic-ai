@@ -54,7 +54,7 @@ echo "claude,codex" | agnostic-ai init
 | Flag | Description |
 |------|-------------|
 | `[dir]` | Base directory for the source folders (`.` for the legacy root layout). Writes matching `sources:` paths; the default `.agnostic-ai/` writes none. |
-| `--demo` | Seed example specs, one per source folder plus the `memory-curator` skill, so the first `sync` produces output. The [`no-force-push` hook](@/docs/spec-format/hooks.md#shared-hook-scripts) script goes to `.agnostic-ai/scripts/` whatever the base dir. Never overwrites files. |
+| `--demo` | Seed example specs, one per source folder plus the `memory-curator` skill, so the first `sync` produces output. The [`no-force-push` hook](@/docs/spec-format/hooks.md#shared-hook-scripts) script goes to `.agnostic-ai/scripts/` whatever the base dir. The two [spec guard hooks](@/docs/spec-format/hooks.md#spec-guard) report spec lint errors and unsynced specs to the agent. Never overwrites files. |
 | `--preset <name>` | Seed starter specs for a stack: `go`, `ts-react`, `python`. Combines with `--demo` and `--all`. Never overwrites files. |
 | `-a, --all` | Skip the target picker and enable every supported target. |
 | `--gitignore[=on\|off]` | On by default: generated outputs go into a managed `.gitignore` block. `--gitignore=off` commits them instead. `true` and `false` work too, here and on `sync`. Give the value after `=`. `--gitignore off` stops with a hint, because `off` would read as the folder argument. |
