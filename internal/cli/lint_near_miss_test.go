@@ -265,3 +265,17 @@ func TestLintNearMissKeys_HookKeysCountOnlyOnHooks(t *testing.T) {
 		t.Errorf("a hook's mach: must suggest match:, and on: is known: %v", got)
 	}
 }
+
+func TestLintNearMissKeys_SkillAllowedToolsStaysAccepted(t *testing.T) {
+	entry := spec.Entry{Kind: spec.KindSkill, Meta: map[string]any{"allowed-tools": []any{"read"}}}
+	if !slices.Contains(specKeys, "allowed-tools") {
+		t.Error("shared field inventory must include allowed-tools")
+	}
+	if findings := lintNearMissKeys([]spec.Entry{entry}, []string{"claude"}); len(findings) != 0 {
+		t.Errorf("valid skill field = %v", findings)
+	}
+	entry.Kind = spec.KindAgent
+	if findings := lintNearMissKeys([]spec.Entry{entry}, []string{"claude"}); len(findings) != 1 {
+		t.Errorf("agent near miss = %v", findings)
+	}
+}

@@ -238,7 +238,7 @@ func TestImportFromCodex_SkillMerge_PreservesScalarStyle(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, "skills", "test", "SKILL.md"))
-	if !strings.Contains(got, `allowed-tools: "Read, Bash(*)"`) {
+	if !strings.Contains(got, `allowed-tools: "read, shell(*)"`) {
 		t.Errorf("hand-quoted allowed-tools must keep its quotes:\n%s", got)
 	}
 }

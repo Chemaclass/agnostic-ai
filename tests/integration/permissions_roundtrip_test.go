@@ -12,24 +12,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-// TestPermissionsRoundTrip_SyncThenImportReadsBackThePolicy binds each
-// target's permission emitter to its importer. The two sides are
-// separate vocabulary tables with no compile-time link between them
-// (augmentTool vs augmentBareTool, devinTool vs devinBareTool,
-// kiloPermissionTool vs kiloToolToPortable), so a key renamed on one
-// side leaves the other reading a spelling nobody writes. That is
-// exactly how `import augment` shipped in v0.61.0 looking for
-// `tool-name` where the emitter writes `toolName`: every rule was
-// skipped and the unit test passed because its fixture carried the
-// same wrong key.
-//
-// This is the only test that runs a policy through both sides. The
-// per-adapter unit tests each build their own input and assert one
-// direction, so neither side can notice the other drifting away.
-//
-// Lossy edges are asserted, not tolerated. Where a vendor's vocabulary
-// cannot express the portable rule, the documented widening is written
-// down as an expectation so that changing it fails loudly.
 func TestPermissionsRoundTrip_SyncThenImportReadsBackThePolicy(t *testing.T) {
 	cases := []struct {
 		target string
@@ -56,23 +38,20 @@ func TestPermissionsRoundTrip_SyncThenImportReadsBackThePolicy(t *testing.T) {
 				"deny":  {"Write", "Bash(go test:*)"},
 			},
 			want: map[string][]string{
-				"allow": {"Read"},
-				"deny":  {"Write"},
+				"allow": {"read"},
+				"deny":  {"write"},
 			},
-			absent: []string{"Bash(go test:*)", "Bash"},
+			absent: []string{"shell(go test:*)", "shell"},
 		},
 		{
-			// Kilo spells an exact command as its own pattern, and
-			// every tool in the policy has a portable name, so this
-			// row is a fixed point: what goes in comes back out.
 			target: "kilo",
 			spec: map[string][]string{
 				"allow": {"Read(docs/*)", "Bash(npm run:*)"},
 				"deny":  {"Bash(rm -rf /)"},
 			},
 			want: map[string][]string{
-				"allow": {"Read(docs/*)", "Bash(npm run:*)"},
-				"deny":  {"Bash(rm -rf /)"},
+				"allow": {"read(docs/*)", "shell(npm run:*)"},
+				"deny":  {"shell(rm -rf /)"},
 			},
 		},
 		{
@@ -91,11 +70,11 @@ func TestPermissionsRoundTrip_SyncThenImportReadsBackThePolicy(t *testing.T) {
 				"ask":   {"Write(.env*)", "Edit(src/**)"},
 			},
 			want: map[string][]string{
-				"allow": {"Read(**)", "Bash(go test:*)"},
-				"deny":  {"Bash(rm:*)", "Bash(rm -rf /:*)"},
+				"allow": {"read(**)", "shell(go test:*)"},
+				"deny":  {"shell(rm:*)", "shell(rm -rf /:*)"},
 				"ask":   {"Write(.env*)", "Write(src/**)"},
 			},
-			absent: []string{"Bash(rm -rf /)", "Edit(src/**)"},
+			absent: []string{"shell(rm -rf /)", "edit(src/**)"},
 		},
 		{
 			// OpenCode's `edit` covers Edit and Write both, so Write
@@ -111,9 +90,9 @@ func TestPermissionsRoundTrip_SyncThenImportReadsBackThePolicy(t *testing.T) {
 				"ask":   {"Bash(git push:*)"},
 			},
 			want: map[string][]string{
-				"allow": {"Read", "Bash(go test:*)"},
-				"deny":  {"Bash(rm -rf /)", "Edit(.env*)"},
-				"ask":   {"Bash(git push:*)"},
+				"allow": {"read", "shell(go test:*)"},
+				"deny":  {"shell(rm -rf /)", "edit(.env*)"},
+				"ask":   {"shell(git push:*)"},
 			},
 			absent: []string{"Write(.env*)"},
 		},

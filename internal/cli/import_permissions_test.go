@@ -30,11 +30,11 @@ func TestImportWindsurfPermissions_ReversesDevinsVocabulary(t *testing.T) {
 	}
 	got := readFileString(t, filepath.Join(dst, "permissions.yaml"))
 	for _, want := range []string{
-		"Read(src/**)",
+		"read(src/**)",
 		// Devin's Exec is a prefix matcher, so the portable spelling
 		// has to be the prefix form, not the exact one.
-		"Bash(git:*)",
-		"mcp__slack__post",
+		"shell(git:*)",
+		"mcp:slack/post",
 		"Write(secrets/**)",
 		"WebFetch(https://example.com)",
 		// Devin takes `web_search` in all three lists since
@@ -46,7 +46,7 @@ func TestImportWindsurfPermissions_ReversesDevinsVocabulary(t *testing.T) {
 			t.Errorf("spec missing %q:\n%s", want, got)
 		}
 	}
-	if strings.Contains(got, "Bash(git)\n") {
+	if strings.Contains(got, "Bash(git)\n") || strings.Contains(got, "shell(git)\n") {
 		t.Errorf("imported Devin's prefix rule as an exact command:\n%s", got)
 	}
 }
@@ -83,12 +83,12 @@ func TestImportAugmentPermissions_SkipsWhatCannotRoundTrip(t *testing.T) {
 		t.Fatalf("import: %v", err)
 	}
 	got := readFileString(t, filepath.Join(dst, "permissions-augment.yaml"))
-	if !strings.Contains(got, "Read") || !strings.Contains(got, "Write") {
+	if !strings.Contains(got, "- read\n") || !strings.Contains(got, "- write\n") {
 		t.Errorf("spec missing the mappable rules:\n%s", got)
 	}
 	// The regex entry and the malformed bare-string entry both name
 	// `terminal`, which maps to Bash. Neither may produce a rule.
-	if strings.Contains(got, "Bash") {
+	if strings.Contains(got, "Bash") || strings.Contains(got, "shell") {
 		t.Errorf("imported a rule that cannot round-trip:\n%s", got)
 	}
 }

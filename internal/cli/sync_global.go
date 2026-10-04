@@ -218,7 +218,9 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 		return err
 	}
 	own := ownSpecs(bundle)
-	if err := stopOnIssues(append(portableHookProblems(own.Hooks), agentCapabilityIssues(own.Agents)...)); err != nil {
+	issues := append(portableHookProblems(own.Hooks), agentCapabilityIssues(own.Agents)...)
+	issues = append(issues, skillCapabilityIssues(bundle.Skills)...)
+	if err := stopOnIssues(issues); err != nil {
 		return err
 	}
 	tiers, unloaded, err := loadGlobalModels(source, skipBroken)
@@ -856,6 +858,10 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 			}
 		}
 		if g.skills != "" {
+			skills, err := adapters.PrepareSkillCapabilities(target, b.Skills, onUnsupported)
+			if err != nil {
+				return nil, next, err
+			}
 			dir := g.path(home, g.skills)
 			adapters.NoteDroppedSkillFields(target, b.Skills, sharedGlobalSkillsDir(home, dir))
 			if err := adapters.NoteManualOnlySkillDrops(target, b.Skills, sharedGlobalSkillsDir(home, dir)); err != nil {
@@ -871,7 +877,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 				next.Skills[target] = append(next.Skills[target], path)
 				return nil
 			}
-			for _, skill := range b.Skills {
+			for _, skill := range skills {
 				if !skill.EmitsTo(target) {
 					continue
 				}
