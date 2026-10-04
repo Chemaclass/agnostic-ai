@@ -27,15 +27,17 @@ type ManualOnlySkillReader interface {
 }
 
 func PrepareSkillCapabilities(target string, skills []spec.Entry, mode string) ([]spec.Entry, error) {
+	normalized := spec.Bundle{}
 	for _, skill := range skills {
 		if !skill.EmitsTo(target) {
 			continue
 		}
-		if problem := spec.SkillCapabilityProblem(skill.Meta); problem != "" {
+		native, problem := skill.NativeAllowedTools()
+		if problem != "" {
 			return nil, fmt.Errorf("%s: %s", skill.Path, problem)
 		}
+		normalized.Skills = append(normalized.Skills, native)
 	}
-	normalized := (spec.Bundle{Skills: skills}).For(target)
 	filtered, err := emit.WithoutUnsupportedDelete(normalized, target, mode)
 	if err != nil {
 		return nil, err

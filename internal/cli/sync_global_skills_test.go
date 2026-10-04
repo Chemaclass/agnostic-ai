@@ -388,3 +388,29 @@ func TestSyncGlobal_UnsupportedSkillDeleteHonorsMode(t *testing.T) {
 		})
 	}
 }
+
+func TestSyncGlobal_SharedSkillFencesStayNeutralAcrossTargetSelections(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	body := "Shared instructions.\n\n::target codex\nCodex instructions.\n::end\n\n::target amp\nAmp instructions.\n::end\n"
+	mustWriteGlobalTest(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Review code.\nallowed-tools: [read]\n---\n\n"+body)
+	var baseline []byte
+	for _, only := range []string{"codex", "amp", "codex,amp"} {
+		if _, warnings, err := runGlobalAgentTest("--only", only); err != nil {
+			t.Fatalf("--only %s: %v, %s", only, err, warnings)
+		}
+		data, err := os.ReadFile(filepath.Join(home, ".agents", "skills", "review", "SKILL.md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, want := range []string{"::target codex", "Codex instructions.", "::target amp", "Amp instructions."} {
+			if !strings.Contains(string(data), want) {
+				t.Errorf("--only %s misses %q: %s", only, want, data)
+			}
+		}
+		if baseline == nil {
+			baseline = data
+		} else if !bytes.Equal(baseline, data) {
+			t.Errorf("--only %s changed the shared skill: %s", only, data)
+		}
+	}
+}
