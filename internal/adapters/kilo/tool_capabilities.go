@@ -55,27 +55,29 @@ func (Adapter) TranslateAgentCapability(rule string) ([]string, bool) {
 func (Adapter) TranslatePermissionContext(list, rule string, entry spec.Entry, settings []spec.Entry, _ *config.Config) emit.CapabilityTranslation {
 	names, ok := (Adapter{}).TranslatePermission(list, rule)
 	result := emit.CapabilityTranslation{Native: names, Supported: ok}
-	if custom, overridden := emit.SettingsCustomObject(entry, target, permissionKey); overridden {
-		result.Native = nil
-		result.Override = "x-kilo.permission"
-		for _, native := range names {
-			key, _, _ := strings.Cut(native, "(")
-			if value, set := custom[key]; set {
-				body, _ := json.Marshal(value)
-				result.Native = append(result.Native, key+": "+string(body))
-			}
-		}
-		return result
+	own, authoritative := emit.SettingsCustomObject(entry, target, permissionKey)
+	finalNative := map[string]any{}
+	for key, value := range own {
+		finalNative[key] = value
 	}
 	for _, candidate := range settings {
-		custom, _ := emit.SettingsCustomObject(candidate, target, permissionKey)
-		for i, native := range result.Native {
-			key, _, _ := strings.Cut(native, "(")
-			if value, overridden := custom[key]; overridden {
-				body, _ := json.Marshal(value)
-				result.Native[i] = key + ": " + string(body)
-				result.Override = "x-kilo.permission"
-			}
+		native, _ := emit.SettingsCustomObject(candidate, target, permissionKey)
+		for key, value := range native {
+			finalNative[key] = value
+		}
+	}
+	result.Native = nil
+	if authoritative {
+		result.Override = "x-kilo.permission"
+	}
+	for _, native := range names {
+		key, _, _ := strings.Cut(native, "(")
+		if value, overridden := finalNative[key]; overridden {
+			body, _ := json.Marshal(value)
+			result.Native = append(result.Native, key+": "+string(body))
+			result.Override = "x-kilo.permission"
+		} else if !authoritative {
+			result.Native = append(result.Native, native)
 		}
 	}
 	return result

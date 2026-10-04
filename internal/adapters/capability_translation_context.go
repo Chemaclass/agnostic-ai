@@ -63,19 +63,23 @@ func TranslatePermissionCapabilityIn(target, list, rule string, entry spec.Entry
 	}
 	result := TranslatePermissionCapability(target, list, rule, cfg)
 	if target == "opencode" {
+		finalNative := map[string]any{}
 		for _, candidate := range normalized {
-			custom, _ := candidate.Meta["x-opencode"].(map[string]any)
-			permission, _ := custom["permission"].(map[string]any)
-			for i, native := range result.Native {
-				key, _, _ := strings.Cut(native, "(")
-				if value, overridden := permission[key]; overridden {
-					body, _ := json.Marshal(value)
-					result.Native[i] = key + ": " + string(body)
-					result.Override = "x-opencode.permission"
-					result.Widening = nil
-				}
+			permission, _ := emit.SettingsCustomObject(candidate, target, "permission")
+			for key, value := range permission {
+				finalNative[key] = value
+			}
+		}
+		for i, native := range result.Native {
+			key, _, _ := strings.Cut(native, "(")
+			if value, overridden := finalNative[key]; overridden {
+				body, _ := json.Marshal(value)
+				result.Native[i] = key + ": " + string(body)
+				result.Override = "x-opencode.permission"
+				result.Widening = nil
 			}
 		}
 	}
+
 	return result
 }

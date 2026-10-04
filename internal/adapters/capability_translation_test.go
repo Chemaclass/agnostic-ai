@@ -1,6 +1,7 @@
 package adapters_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -47,5 +48,34 @@ func TestCapabilityTranslation_UnsupportedDeleteDoesNotLeak(t *testing.T) {
 	err := adapters.EmitWithProvenance(adapters.NewSession(), a, b, &config.Config{OnUnsupported: "error"}, true)
 	if err == nil || !strings.Contains(err.Error(), "can capability delete") {
 		t.Errorf("error = %v, want source delete failure", err)
+	}
+}
+
+func TestPermissionTranslation_LastNativeToolOverrideWins(t *testing.T) {
+	for _, tc := range []struct {
+		target      string
+		ownOverride bool
+	}{
+		{"kilo", true},
+		{"kilo", false},
+		{"opencode", false},
+	} {
+		t.Run(tc.target+fmt.Sprint(tc.ownOverride), func(t *testing.T) {
+			entry := spec.Entry{Kind: spec.KindSettings, Path: "settings/a.yaml", Meta: map[string]any{"permissions": map[string]any{"allow": []any{"read"}}}}
+			native := func(path, action string) spec.Entry {
+				return spec.Entry{Kind: spec.KindSettings, Path: path, Meta: map[string]any{"x-" + tc.target: map[string]any{"permission": map[string]any{"read": action}}}}
+			}
+			var settings []spec.Entry
+			if tc.ownOverride {
+				entry.Meta["x-"+tc.target] = map[string]any{"permission": map[string]any{"read": "allow"}}
+				settings = []spec.Entry{entry, native("settings/z.yaml", "deny")}
+			} else {
+				settings = []spec.Entry{entry, native("settings/b.yaml", "allow"), native("settings/z.yaml", "deny")}
+			}
+			got := adapters.TranslatePermissionCapabilityIn(tc.target, "allow", "read", entry, settings, &config.Config{})
+			if !got.Supported || strings.Join(got.Native, ",") != `read: "deny"` || got.Override != "x-"+tc.target+".permission" {
+				t.Errorf("translation = %+v, want final read deny", got)
+			}
+		})
 	}
 }
