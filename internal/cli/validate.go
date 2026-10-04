@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/suggest"
 )
@@ -55,6 +57,9 @@ func newValidateCmd() *cobra.Command {
 			issues := lintEntries(entries)
 			issues = append(issues, lintHookEvents(entries, scope.hookTargets)...)
 			issues = append(issues, lintOrphanKinds(b, scope.targets, scope.support)...)
+			if !global {
+				issues = append(issues, agentSkillClashes(scope.cfg, b, scope.targets)...)
+			}
 			issues = append(issues, scopeIssues...)
 			if !fix {
 				reportIssues(cmd, issues)
@@ -473,4 +478,28 @@ func splitFrontmatter(data []byte) (yamlBytes []byte, body string, hadFrontmatte
 	yamlBytes = rest[:idx]
 	body = string(bytes.TrimLeft(rest[idx+len("\n"+delim):], "\n"))
 	return yamlBytes, body, true
+}
+
+// agentSkillClashes reports an agent and a skill of one name on a target
+// that writes agents as skills, where both would write one folder.
+func agentSkillClashes(cfg *config.Config, b spec.Bundle, targets []string) []validationIssue {
+	var out []validationIssue
+	for _, t := range targets {
+		if !adapters.WritesAgentsAsSkills(cfg, t) {
+			continue
+		}
+		skills := map[string]bool{}
+		for _, sk := range b.Skills {
+			if sk.EmitsTo(t) {
+				skills[sk.Name] = true
+			}
+		}
+		for _, a := range b.Agents {
+			if a.EmitsTo(t) && skills[a.Name] {
+				out = append(out, validationIssue{Path: a.Path, Field: "name", Message: fmt.Sprintf(
+					"agent and skill %q both write the %s skill folder %q, since outputs.%s.agents is skill; rename one", a.Name, t, a.Name, t)})
+			}
+		}
+	}
+	return out
 }

@@ -1,6 +1,9 @@
 package adapters
 
-import "github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
+import (
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
+)
 
 // HookTargetEnv names the variable a synced hook reads to learn which
 // target ran it.
@@ -31,6 +34,12 @@ func WithoutHookTarget[V any](env map[string]V, target V) map[string]V {
 // drops the value sync added, keeping the other keys in order.
 func SetHookTargetEnv(doc *OrderedJSON, target string, want bool) error {
 	return emit.SetHookTargetEnv(doc, target, want)
+}
+
+// TargetHooks returns hooks with `command` and `args` read after each
+// spec's `x-<target>` override.
+func TargetHooks(target string, hooks []spec.Entry) []spec.Entry {
+	return emit.TargetHooks(target, hooks)
 }
 
 // ExecFormCommand folds an exec-form hook's args into a quoted

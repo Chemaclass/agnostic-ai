@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"fmt"
+	"maps"
 	"path/filepath"
 	"slices"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/factory"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/gemini"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/goose"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/kiro"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/openhands"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/qoder"
@@ -30,6 +32,7 @@ import (
 // HookHandlers returns the command handlers sync writes for h on target,
 // for the targets hookrun builds payloads for.
 func HookHandlers(cfg *config.Config, target string, h spec.Entry) ([]hookrun.Handler, error) {
+	h = emit.TargetHook(target, h)
 	var out []hookrun.Handler
 	switch target {
 	case "claude":
@@ -115,6 +118,44 @@ func HookHandlers(cfg *config.Config, target string, h spec.Entry) ([]hookrun.Ha
 	}
 	return out, nil
 }
+
+// SyncedHookCommands returns each command handler sync writes for h on
+// target as the native file spells it, without the target export sync
+// prepends and with exec-form args folded in. It returns false for a
+// target with no renderer here, and for Cline, whose handler is the
+// event script. A disabled hook counts: sync still writes it, and only
+// hook run leaves it out. The coverage notes the render raises are set
+// aside.
+func SyncedHookCommands(cfg *config.Config, target string, h spec.Entry) ([]string, bool) {
+	if !hookrun.Supported(target) || target == "cline" {
+		return nil, false
+	}
+	defer SetAsideNotes()()
+	if _, ok := h.Meta["disabled"]; ok {
+		h.Meta = maps.Clone(h.Meta)
+		delete(h.Meta, "disabled")
+	}
+	handlers, err := HookHandlers(cfg, target, h)
+	if err != nil {
+		return nil, false
+	}
+	var out []string
+	for _, c := range handlers {
+		if c.Command == "" {
+			continue
+		}
+		command := c.Command
+		if exportsHookTarget[target] {
+			command = StripHookTargetExport(command, target)
+		}
+		out = append(out, ExecFormCommand(command, c.Args))
+	}
+	return out, true
+}
+
+// exportsHookTarget are the targets whose sync prepends the target
+// export to a hook command; the others set it in the environment.
+var exportsHookTarget = map[string]bool{"codex": true, "crush": true, "goose": true}
 
 // hookDoc renders the hooks file sync writes for h alone on a target
 // whose file shares the `hooks` block shape, or Factory's and Devin

@@ -12,6 +12,8 @@ target_id = "warp"
 
 Warp reads `AGENTS.md`, `.agents/skills/`, and `.warp/.mcp.json`, plus optional workflows.
 
+Set `outputs.warp.agents: skill` to write agents as on-demand skills; see [agents as skills](@/docs/spec-format/agents.md#agents-as-skills).
+
 ## Output
 
 ```
