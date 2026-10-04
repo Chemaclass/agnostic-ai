@@ -1,6 +1,9 @@
 package suggest
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestName(t *testing.T) {
 	names := []string{"claude", "cline", "codex", "cursor", "kiro"}
@@ -20,6 +23,12 @@ func TestName(t *testing.T) {
 		if got := Name(in, names); got != want {
 			t.Errorf("Name(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestName_LongInputSuggestsNothing(t *testing.T) {
+	if got := Name(strings.Repeat("a", maxInput+1), []string{"a"}); got != "" {
+		t.Errorf("an input past maxInput should suggest nothing, got %q", got)
 	}
 }
 
