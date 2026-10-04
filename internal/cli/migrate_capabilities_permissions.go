@@ -1,0 +1,122 @@
+package cli
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+
+	"github.com/chemaclass/agnostic-ai/internal/spec"
+)
+
+// capabilitiesSettingsPermissionsMigration rewrites each settings
+// permission rule a capability stands for alone as that capability.
+// Every other rule stays as an alias, which sync reads the same, so it
+// writes the same files after it.
+var capabilitiesSettingsPermissionsMigration = specMigration{
+	ID:      "capabilities-settings-permissions",
+	Group:   "capabilities",
+	Release: "0.79.0",
+	Summary: "rewrite settings permission rules with neutral capability names",
+	Plan:    planCapabilitiesSettingsPermissions,
+}
+
+func planCapabilitiesSettingsPermissions(root string) ([]migrationChange, []migrationSkip, error) {
+	cfg, b, err := loadProject(root)
+	if err != nil {
+		return nil, nil, err
+	}
+	extended, err := extendedSpecNames(root, cfg, func(lb spec.Bundle) []spec.Entry { return lb.Settings })
+	if err != nil {
+		return nil, nil, err
+	}
+	realRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return nil, nil, err
+	}
+	var changes []migrationChange
+	var skips []migrationSkip
+	for _, s := range b.Settings {
+		perms, ok := s.Meta["permissions"].(map[string]any)
+		if !ok {
+			continue
+		}
+		skip := func(reason string) { skips = append(skips, migrationSkip{Path: s.Path, Reason: reason}) }
+		rewrites := map[string]map[int]string{}
+		var kept []string
+		for _, list := range spec.PermissionLists {
+			rules, _ := perms[list].([]any)
+			for i, raw := range rules {
+				rule, _ := raw.(string)
+				c, ok := spec.NeutralPermission(rule)
+				if !ok {
+					if rule != "" && isClaudeAliasRule(rule) && !slices.Contains(kept, rule) {
+						kept = append(kept, rule)
+					}
+					continue
+				}
+				if got, problem := spec.PermissionRules(list, c); problem != "" || len(got) != 1 || got[0] != rule {
+					continue
+				}
+				if rewrites[list] == nil {
+					rewrites[list] = map[int]string{}
+				}
+				rewrites[list][i] = c
+			}
+		}
+		if len(rewrites) == 0 {
+			continue
+		}
+		if pack, ok := strings.CutPrefix(s.Layer, "pack:"); ok {
+			skip("comes from pack " + pack + "; its author migrates it")
+			continue
+		}
+		if extended[s.Name] {
+			skips = append(skips, migrationSkip{Path: s.Path, Reason: "a local/ spec extends these settings; rewrite both files by hand", Actionable: true})
+			continue
+		}
+		if real, err := filepath.EvalSymlinks(s.Path); err != nil || !pathWithin(realRoot, real) {
+			skip("resolves outside the project")
+			continue
+		}
+		body, err := os.ReadFile(s.Path)
+		if err != nil {
+			return nil, nil, err
+		}
+		after := string(body)
+		for _, list := range spec.PermissionLists {
+			if rewrites[list] == nil {
+				continue
+			}
+			if after, err = rewriteYAMLSequenceItems(after, []string{"permissions", list}, rewrites[list]); err != nil {
+				break
+			}
+		}
+		if err != nil {
+			skip("cannot rewrite in place: " + err.Error())
+			continue
+		}
+		changes = append(changes, migrationChange{Path: s.Path, Before: string(body), After: after})
+		for _, rule := range kept {
+			skip(fmt.Sprintf("keeps %s as an alias: %s", rule, permissionAliasReason(rule)))
+		}
+	}
+	return changes, skips, nil
+}
+
+// isClaudeAliasRule reports whether a rule is written in Claude Code
+// names, so a kept one is worth a reason.
+func isClaudeAliasRule(rule string) bool {
+	_, problem := spec.PermissionRules("allow", rule)
+	return problem == "" && rule[0] >= 'A' && rule[0] <= 'Z'
+}
+
+// permissionAliasReason says why a Claude Code rule has no capability of
+// its own.
+func permissionAliasReason(rule string) string {
+	if strings.HasPrefix(rule, "Write(") {
+		return "Claude Code never consults a Write(path) rule, and edit(<path>) would also cover edits"
+	}
+	return "no capability stands for it alone"
+}

@@ -231,9 +231,9 @@ var lintCodes = map[string]lintCode{
 	},
 	"LINT036": {
 		Severity: lintError,
-		Title:    "Agent capability sync cannot read",
-		Cause:    "An agent's `can:` holds an unknown capability, a malformed `shell(<pattern>)` or `mcp:<server>`, or a value that is not a list, sits beside `tools:`, or sits under `x-<target>`. Sync stops rather than write the agent without its restriction.",
-		Fix:      "Use a capability from the agents page or a Claude Code tool name, and keep one of `can:` and `tools:`.",
+		Title:    "Capability sync cannot read",
+		Cause:    "An agent's `can:` holds an unknown capability, a malformed `shell(<pattern>)` or `mcp:<server>`, or a value that is not a list, sits beside `tools:`, or sits under `x-<target>`. Or a settings permission rule is an unknown capability, a pattern on a capability that takes none, such as `write(.env)`, or an empty pattern. Sync stops rather than write the agent or settings without their restriction.",
+		Fix:      "Use a capability from the agents or settings page or a Claude Code name, and keep one of `can:` and `tools:`.",
 	},
 }
 

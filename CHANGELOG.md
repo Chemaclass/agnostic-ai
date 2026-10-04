@@ -20,6 +20,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `init --demo` seeds a spec guard: after an edit, the agent sees the lint errors in the specs it touched, and when it stops with specs not synced, a one-line notice. `lint --files` and `hook guard` back it (#1774).
 - MCP `env` and `headers` values are references unless marked `NODE_ENV: !literal production`; `lint` warns (LINT035) and sync counts the rest, which a later release fails on. Run `agnostic-ai migrate --only secrets` (#1753).
 - Agents take a neutral `can:` list, such as `[read, edit, shell(git diff *), mcp:github]`, that syncs as the Claude Code `tools` it stands for. Kiro notes the access a category adds, `lint` fails (LINT036) on an unknown capability, and `migrate --only capabilities` rewrites `tools` (#1754).
+- Settings `permissions` take the same capabilities, plus `read(<path>)` and `edit(<path>)`, and sync each as the Claude Code rule it stands for; `migrate --only capabilities` rewrites them. A lowercase rule such as `read`, which no tool read before, now applies (#1796).
 
 ### By tool
 

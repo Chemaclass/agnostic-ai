@@ -74,13 +74,26 @@ func agentSkillTypos(b spec.Bundle) []validationIssue {
 }
 
 // stopOnSpecTypos stops a sync on a hook event typo, an invalid portable
-// hook, or an agent `can:` it cannot read, before it is written into
-// every tool's files. Pack specs are not the user's to edit, so validate
-// reports them.
+// hook, or an agent `can:` or permission rule it cannot read, before it
+// is written into every tool's files. Pack specs are not the user's to
+// edit, so validate reports them.
 func stopOnSpecTypos(b spec.Bundle, targets []string) error {
 	own := ownSpecs(b)
 	issues := append(hookEventTypos(own, targets), portableHookProblems(own.Hooks)...)
-	return stopOnIssues(append(issues, agentCapabilityIssues(own.Agents)...))
+	issues = append(issues, agentCapabilityIssues(own.Agents)...)
+	return stopOnIssues(append(issues, permissionCapabilityIssues(own.Settings)...))
+}
+
+// permissionCapabilityIssues reports each settings permission rule
+// written as a capability that cannot be read.
+func permissionCapabilityIssues(settings []spec.Entry) []validationIssue {
+	var out []validationIssue
+	for _, e := range settings {
+		for _, problem := range spec.SettingsPermissionProblems(e.Meta) {
+			out = append(out, validationIssue{Path: e.Path, Field: "permissions", Message: problem})
+		}
+	}
+	return out
 }
 
 // agentCapabilityIssues reports each agent whose `can:` cannot be read.
@@ -96,9 +109,9 @@ func agentCapabilityIssues(agents []spec.Entry) []validationIssue {
 
 // lintAgentCapabilities reports the `can:` problems validate reports
 // (LINT036, error).
-func lintAgentCapabilities(agents []spec.Entry) []lintFinding {
+func lintAgentCapabilities(agents, settings []spec.Entry) []lintFinding {
 	var out []lintFinding
-	for _, issue := range agentCapabilityIssues(agents) {
+	for _, issue := range append(agentCapabilityIssues(agents), permissionCapabilityIssues(settings)...) {
 		out = append(out, lintFinding{Code: "LINT036", Severity: lintError, Path: issue.Path, Message: issue.Message})
 	}
 	return out
@@ -129,7 +142,7 @@ func stopOnIssues(issues []validationIssue) error {
 	return fmt.Errorf("%s", strings.Join(lines, "\n"))
 }
 
-// ownSpecs keeps the hooks and agents outside packs, with every skill an
+// ownSpecs keeps the hooks, agents, and settings outside packs, with every skill an
 // agent may name.
 func ownSpecs(b spec.Bundle) spec.Bundle {
 	own := spec.Bundle{Skills: b.Skills}
@@ -141,6 +154,11 @@ func ownSpecs(b spec.Bundle) spec.Bundle {
 	for _, e := range b.Agents {
 		if !strings.HasPrefix(e.Layer, "pack:") {
 			own.Agents = append(own.Agents, e)
+		}
+	}
+	for _, e := range b.Settings {
+		if !strings.HasPrefix(e.Layer, "pack:") {
+			own.Settings = append(own.Settings, e)
 		}
 	}
 	return own
