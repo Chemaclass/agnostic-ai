@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
@@ -130,13 +128,8 @@ func importZedTasks(root, dstDir string) (int, error) {
 		if len(xzed) > 0 {
 			doc["x-zed"] = xzed
 		}
-		raw, err := yaml.Marshal(doc)
-		if err != nil {
-			return count, fmt.Errorf("marshal hook %s: %w", name, err)
-		}
-		path := filepath.Join(dstDir, name+".yaml")
-		if err := importWriteFile(path, raw, 0o644); err != nil {
-			return count, fmt.Errorf("write %s: %w", path, err)
+		if err := writeHookSpecFile(dstDir, name, doc); err != nil {
+			return count, err
 		}
 		count++
 	}

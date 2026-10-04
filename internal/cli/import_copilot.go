@@ -143,13 +143,8 @@ func importCopilotHooks(root, dstDir string) (int, error) {
 				matcher, _ := handler["matcher"].(string)
 				name := hookSpecName(event, matcher, []string{string(payload)})
 				doc["name"], doc["target"] = name, "copilot"
-				raw, err := yaml.Marshal(doc)
-				if err != nil {
-					return count, fmt.Errorf("marshal hook %s: %w", name, err)
-				}
-				dst := filepath.Join(dstDir, name+".yaml")
-				if err := importWriteFile(dst, raw, 0o644); err != nil {
-					return count, fmt.Errorf("write %s: %w", dst, err)
+				if err := writeHookSpecFile(dstDir, name, doc); err != nil {
+					return count, err
 				}
 				count++
 			}

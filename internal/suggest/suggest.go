@@ -2,12 +2,17 @@ package suggest
 
 import "strings"
 
+// maxInput bounds the input Name compares. Every name is far shorter, so
+// a longer input is never two edits from one, and the bound keeps a
+// value read from a spec file from sizing the distance table.
+const maxInput = 256
+
 // Name returns the name in names closest to a mistyped input, or ""
 // when nothing is close enough to be a likely typo, when two names are
 // equally close, or when input already is one of the names.
 func Name(input string, names []string) string {
 	in := strings.ToLower(input)
-	if in == "" {
+	if in == "" || len(in) > maxInput {
 		return ""
 	}
 	// Two edits on a short name reach unrelated targets ("amp" to "zed").

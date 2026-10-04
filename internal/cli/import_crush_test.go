@@ -82,8 +82,9 @@ func TestImportCrush_RoundTripFixedPoint(t *testing.T) {
 	}
 	// Hook: crush's own `name` field becomes both the spec filename and
 	// its `name:` key, so a named hook re-imports at the same path.
+	// `^bash$` is Crush's shell matcher, so the hook imports portable.
 	hook := readFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", "no-rm-rf.yaml"))
-	for _, want := range []string{"name: no-rm-rf", "event: PreToolUse", "matcher: ^bash$", "command: ./hooks/no-rm-rf.sh", "timeout: 10"} {
+	for _, want := range []string{"name: no-rm-rf", "on: before-tool", "match: shell", "command: ./hooks/no-rm-rf.sh", "timeout: 10"} {
 		if !strings.Contains(hook, want) {
 			t.Errorf("hook not reconstructed, missing %q:\n%s", want, hook)
 		}
