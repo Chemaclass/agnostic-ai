@@ -653,7 +653,8 @@ func newDoctorCmd() *cobra.Command {
 				return err
 			}
 			cfg := scope.cfg
-			cmd.Printf("  ✓ agnostic-ai.yaml valid (version %d, %d target(s))\n", cfg.Version, len(cfg.Targets))
+			configPath, _, _ := config.ResolveConfigPath(".")
+			cmd.Printf("  ✓ %s valid (version %d, %d target(s))\n", filepath.Base(configPath), cfg.Version, len(cfg.Targets))
 
 			// 3. Unsupported kinds, then what `lint` reports.
 			reportUnsupportedKinds(cmd, cfg)
@@ -668,6 +669,11 @@ func newDoctorCmd() *cobra.Command {
 			reportUserOwned(cmd, cfg)
 			reportLegacyDefaultInstructions(cmd)
 			reportGlobalNameClashes(cmd, scope.bundle, cfg)
+			if hint := pendingMigrationHint("."); hint != "" {
+				cmd.Println()
+				cmd.Println("Spec migrations:")
+				cmd.Printf("  ! %s\n", hint)
+			}
 
 			// 4. Drift
 			cmd.Println()

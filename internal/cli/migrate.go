@@ -390,3 +390,36 @@ func writeMigrationChange(c migrationChange) error {
 	}
 	return os.Rename(tmp.Name(), target)
 }
+
+// pendingMigrationHint is the line doctor and upgrade --requires print
+// when migrations apply here, or "" when none do or the plan fails. A
+// migration that only skips needs a manual step, and says so.
+func pendingMigrationHint(root string) string {
+	pending, err := planMigrations(root, specMigrations)
+	if err != nil || len(pending) == 0 {
+		return ""
+	}
+	var apply, manual []string
+	for _, p := range pending {
+		if len(p.changes) > 0 {
+			apply = append(apply, p.ID)
+		} else {
+			manual = append(manual, p.ID)
+		}
+	}
+	var parts []string
+	if len(apply) > 0 {
+		parts = append(parts, fmt.Sprintf("%d spec %s (%s)", len(apply), migrationWord(len(apply), "migration applies", "migrations apply"), strings.Join(apply, ", ")))
+	}
+	if len(manual) > 0 {
+		parts = append(parts, fmt.Sprintf("%d spec %s a manual step (%s)", len(manual), migrationWord(len(manual), "migration needs", "migrations need"), strings.Join(manual, ", ")))
+	}
+	return strings.Join(parts, "; ") + ". Preview: agnostic-ai migrate --dry-run"
+}
+
+func migrationWord(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
+}

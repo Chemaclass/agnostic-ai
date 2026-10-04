@@ -38,6 +38,9 @@ func runUpgradeRequires() error {
 	} else {
 		summaryf("%s adopted agnostic-ai %s in %s\n", tick(), version, strings.Join(changed, ", "))
 	}
+	if hint := pendingMigrationHint("."); hint != "" {
+		summaryf("%s %s\n", bang(), hint)
+	}
 	return nil
 }
 

@@ -182,7 +182,7 @@ Scoop, WinGet, and `node_modules` markers match case-insensitively. `upgrade` al
 
 ## migrate
 
-Rewrite old spec forms into their current replacements, such as a renamed field or file. A migration never changes what sync writes for the targets a spec already reaches, so `sync --check` stays clean after it. Old forms keep working, so you never have to run it before a sync.
+Rewrite old spec forms into their current replacements, such as a renamed field or file. A migration never changes what sync writes for the targets a spec already reaches, so `sync --check` stays clean after it. Old forms keep working, so you never have to run it before a sync. `doctor` and `upgrade --requires` name the migrations that apply.
 
 ```bash
 agnostic-ai migrate --list      # which migrations apply here

@@ -3,7 +3,6 @@ package cli
 import (
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 
@@ -221,8 +220,8 @@ func newDoctorInstallCmd() *cobra.Command {
 	}
 }
 
-// doctorConfigOK returns true when agnostic-ai.yaml loads without error.
+// doctorConfigOK reports whether agnostic-ai.yaml or the legacy agnostic.config.yaml exists.
 func doctorConfigOK() bool {
-	_, err := os.Stat(config.ConfigFileName)
+	_, _, err := config.ResolveConfigPath(".")
 	return err == nil
 }

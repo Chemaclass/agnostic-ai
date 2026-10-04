@@ -225,3 +225,23 @@ func TestUpgradeRequires_RefusesGlobalHome(t *testing.T) {
 	}
 	assertAbsent(t, filepath.Join(".agnostic-ai", projectLockName))
 }
+
+func TestUpgradeRequires_NamesPendingMigrations(t *testing.T) {
+	requiresProject(t, "0.76.0")
+	if err := os.Rename(config.ConfigFileName, config.LegacyConfigFileName); err != nil {
+		t.Fatal(err)
+	}
+	setRunningVersion(t, "v0.77.0")
+	log := captureLogOut(t)
+	root := NewRootCmd("9.9.9")
+	root.SetArgs([]string{"upgrade", "--requires"})
+	root.SetIn(strings.NewReader(""))
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(log.String(), "1 spec migration applies (config-file-name). Preview: agnostic-ai migrate --dry-run") {
+		t.Errorf("upgrade --requires must name the pending migration:\n%s", log)
+	}
+}
