@@ -108,10 +108,19 @@ func hookHandlerKeys(target string, meta map[string]any) []string {
 	return nil
 }
 
-// Metadata renders a source command; native commands already contain their runtime root.
+// hookArgsTargets write a hook's exec-form args into the command; the
+// other importable targets drop them (#1775). Claude Code keeps them in a
+// field, which its importer folds in before matching.
+var hookArgsTargets = map[string]bool{"claude": true, "codex": true, "copilot": true, "gemini": true}
+
+// Metadata renders a source command, with its args where the target
+// writes them; native commands already contain their runtime root.
 func hookCommandKey(target, command string, metadata ...map[string]any) string {
 	if len(metadata) > 0 {
 		command = adapters.RewriteHookPath(command, target, metadata...)
+		if hookArgsTargets[target] {
+			command = adapters.ExecFormCommand(command, stringSliceFromAny(metadata[0]["args"]))
+		}
 	} else {
 		command = adapters.RewriteHookDirectories(command, target)
 	}
