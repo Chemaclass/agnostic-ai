@@ -677,7 +677,7 @@ targets: [claude, codex, cursor]
 - Other keys except `version` print a warning and are ignored.
 - A target dropped from the list keeps its synced files and ownership records until you remove them by hand.
 
-Run `agnostic-ai list --global` to see effective specs with their `global` or `global-local` layer. Run `validate --global` and `lint --global` to check before a sync writes. Global layers never merge with project specs. [Local overrides](@/docs/local-overrides.md) compares this layer with the project one.
+Run `agnostic-ai list --global` to see effective specs with their `global` or `global-local` layer. Run `validate --global` and `lint --global` to check before a sync writes. Run `migrate --global` to rewrite old spec forms there. Global layers never merge with project specs. [Local overrides](@/docs/local-overrides.md) compares this layer with the project one.
 
 - Accepted `sync` flags are in the [CLI reference](@/docs/cli-reference/sync.md#sync).
 - Nested rules, rules with scope, path, glob, or target conditions, commands, settings `permissions` rule lists (only `permissions.default-mode` is written), inheritance, and merging with project specs are unsupported.

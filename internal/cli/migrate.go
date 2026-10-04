@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -17,17 +18,27 @@ import (
 
 // specMigration rewrites one old spec form into its replacement without
 // changing what sync writes for the targets a spec already reaches. Plan
-// reads the project at root and returns the edits plus a reason for each
-// entry it leaves alone; it never writes.
+// reads the scope and returns the edits plus a reason for each entry it
+// leaves alone; it never writes.
 type specMigration struct {
 	ID      string
 	Group   string
 	Release string
 	Summary string
-	Plan    func(root string) ([]migrationChange, []migrationSkip, error)
+	// ProjectOnly marks an old form the global home never had, such as
+	// the legacy config file name.
+	ProjectOnly bool
+	Plan        func(s migrationScope) ([]migrationChange, []migrationSkip, error)
 	// Note, when set, returns a line printed once after the migration's
 	// rewrites, such as what the new form does not cover yet.
-	Note func(root string) string
+	Note func(s migrationScope) string
+}
+
+// migrationScope is the spec tree a migration reads and writes: the
+// project at root, or the global home at root that sync --global reads.
+type migrationScope struct {
+	root   string
+	global bool
 }
 
 // migrationChange is one file edit: new content for Path, written to
@@ -44,11 +55,18 @@ type migrationChange struct {
 
 // migrationSkip is an entry a migration leaves as written. Actionable
 // marks one the user should change by hand; the rest are fine as they
-// are, so doctor does not ask about them.
+// are, so doctor does not ask about them. Pack names the pack that holds
+// the file, which --list tells the user to update.
 type migrationSkip struct {
 	Path       string
 	Reason     string
 	Actionable bool
+	Pack       string
+}
+
+// packSkip is a skip for a file in a pack, which migrate never rewrites.
+func packSkip(path, pack string) migrationSkip {
+	return migrationSkip{Path: path, Pack: pack, Reason: "is in pack " + pack + ", which migrate never rewrites; update the pack once its author migrates it"}
 }
 
 // specMigrations is the registry, in release order. Each entry is
@@ -72,7 +90,7 @@ func (p pendingMigration) needsUser() bool {
 }
 
 func newMigrateCmd() *cobra.Command {
-	var dryRun, list bool
+	var dryRun, list, global bool
 	var only []string
 	cmd := &cobra.Command{
 		Use:   "migrate",
@@ -90,19 +108,23 @@ func newMigrateCmd() *cobra.Command {
 
   # Apply every pending migration, or one group
   agnostic-ai migrate
-  agnostic-ai migrate --only config`,
+  agnostic-ai migrate --only config
+
+  # Rewrite the global specs sync --global reads
+  agnostic-ai migrate --global`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
-				return err
-			}
-			if _, _, err := config.ResolveConfigPath("."); err != nil {
+			scope, err := resolveMigrationScope(global)
+			if err != nil {
 				return err
 			}
 			selected, err := selectMigrations(cmd.Flags().Changed("only"), only)
 			if err != nil {
 				return err
 			}
-			pending := planMigrations(".", selected)
+			if global {
+				selected = slices.DeleteFunc(slices.Clone(selected), func(m specMigration) bool { return m.ProjectOnly })
+			}
+			pending := planMigrations(scope, selected)
 			out := cmd.OutOrStdout()
 			if list {
 				printMigrationList(out, selected, pending)
@@ -119,11 +141,13 @@ func newMigrateCmd() *cobra.Command {
 				printMigrationPlan(out, pending, true, quiet)
 				return planFailures(pending)
 			}
-			lock, err := acquireProjectLock(".", "migrate")
-			if err != nil {
-				return err
+			if !global {
+				lock, err := acquireProjectLock(".", "migrate")
+				if err != nil {
+					return err
+				}
+				defer func() { _ = lock.Close() }()
 			}
-			defer func() { _ = lock.Close() }()
 			if err := applyMigrations(pending); err != nil {
 				return err
 			}
@@ -134,8 +158,28 @@ func newMigrateCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print the rewrites without writing them.")
 	cmd.Flags().BoolVar(&list, "list", false, "List every migration and whether it applies here.")
 	cmd.Flags().StringSliceVar(&only, "only", nil, "Run only these migration groups (comma-separated).")
+	cmd.Flags().BoolVar(&global, "global", false, "Rewrite the global specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, checked against the targets sync --global writes.")
 	cmd.MarkFlagsMutuallyExclusive("list", "dry-run")
 	return cmd
+}
+
+// resolveMigrationScope is the global home with --global, else the
+// project in the working directory.
+func resolveMigrationScope(global bool) (migrationScope, error) {
+	if global {
+		source, err := globalSourceRoot()
+		if err != nil {
+			return migrationScope{}, err
+		}
+		return migrationScope{root: source, global: true}, nil
+	}
+	if err := refuseGlobalHome(".", globalHomeMigrateRemedy); err != nil {
+		return migrationScope{}, err
+	}
+	if _, _, err := config.ResolveConfigPath("."); err != nil {
+		return migrationScope{}, err
+	}
+	return migrationScope{root: "."}, nil
 }
 
 func selectMigrations(set bool, only []string) ([]specMigration, error) {
@@ -165,19 +209,106 @@ func selectMigrations(set bool, only []string) ([]specMigration, error) {
 
 // planMigrations plans each selected migration. One whose plan fails is
 // kept with its error, so the others still run.
-func planMigrations(root string, selected []specMigration) []pendingMigration {
+func planMigrations(s migrationScope, selected []specMigration) []pendingMigration {
 	var pending []pendingMigration
 	for _, m := range selected {
-		changes, skips, err := m.Plan(root)
+		changes, skips, err := m.Plan(s)
+		if err == nil {
+			var outside []migrationSkip
+			changes, outside = s.keepInSpecRoots(changes)
+			skips = append(skips, outside...)
+		}
 		if err != nil || len(changes)+len(skips) > 0 {
 			p := pendingMigration{specMigration: m, changes: changes, skips: skips, planErr: err}
 			if err == nil && len(changes) > 0 && m.Note != nil {
-				p.note = m.Note(root)
+				p.note = m.Note(s)
 			}
 			pending = append(pending, p)
 		}
 	}
 	return pending
+}
+
+// keepInSpecRoots moves each change whose file resolves outside the
+// scope's spec roots, such as a symlink into a pack, to the skips. The
+// registry checks this once, so no migration can write there.
+func (s migrationScope) keepInSpecRoots(changes []migrationChange) ([]migrationChange, []migrationSkip) {
+	roots, packs := s.specRoots()
+	var kept []migrationChange
+	var skips []migrationSkip
+	for _, c := range changes {
+		if skip, outside := s.outsideSpecRoots(c, roots, packs); outside {
+			skips = append(skips, skip)
+			continue
+		}
+		kept = append(kept, c)
+	}
+	return kept, skips
+}
+
+// specRoots resolves the directories a migration may write in, and the
+// directory of each pack by name. Packs sit inside the project, but
+// migrate never rewrites them.
+func (s migrationScope) specRoots() ([]string, map[string]string) {
+	local := filepath.Join(s.root, defaultProjectUser)
+	if s.global {
+		local = filepath.Join(s.root, "local")
+	}
+	var roots []string
+	for _, dir := range []string{s.root, local} {
+		if real, err := migrationRealPath(dir); err == nil {
+			roots = append(roots, real)
+		}
+	}
+	packs := map[string]string{}
+	if s.global {
+		return roots, packs
+	}
+	entries, _ := os.ReadDir(filepath.Join(s.root, packsDir))
+	for _, e := range entries {
+		if real, err := migrationRealPath(filepath.Join(s.root, packsDir, e.Name())); err == nil {
+			packs[e.Name()] = real
+		}
+	}
+	return roots, packs
+}
+
+// migrationRealPath is path made absolute with every symlink resolved,
+// so a working directory reached through a symlink still compares equal.
+func migrationRealPath(path string) (string, error) {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	return filepath.EvalSymlinks(abs)
+}
+
+// outsideSpecRoots returns the skip for a change whose file, or the
+// directory a rename writes into, resolves into a pack or outside roots.
+func (s migrationScope) outsideSpecRoots(c migrationChange, roots []string, packs map[string]string) (migrationSkip, bool) {
+	paths := []string{c.Path}
+	if c.NewPath != "" && !c.Remove {
+		paths = append(paths, filepath.Dir(c.NewPath))
+	}
+	where := "the project"
+	if s.global {
+		where = "the global home"
+	}
+	for _, path := range paths {
+		real, err := migrationRealPath(path)
+		if err != nil {
+			return migrationSkip{Path: c.Path, Reason: "cannot resolve its real path: " + err.Error()}, true
+		}
+		for _, name := range slices.Sorted(maps.Keys(packs)) {
+			if pathWithin(packs[name], real) {
+				return packSkip(c.Path, name), true
+			}
+		}
+		if !slices.ContainsFunc(roots, func(root string) bool { return pathWithin(root, real) }) {
+			return migrationSkip{Path: c.Path, Reason: "resolves outside " + where}, true
+		}
+	}
+	return migrationSkip{}, false
 }
 
 // planFailures is the command's error when a plan failed, after the
@@ -218,12 +349,25 @@ func printMigrationList(out io.Writer, selected []specMigration, pending []pendi
 		state := "does not apply"
 		if p, ok := applies[m.ID]; ok {
 			state = fmt.Sprintf("%d to rewrite, %d skipped", len(p.changes), len(p.skips))
+			if packs := skippedPacks(p.skips); len(packs) > 0 {
+				state += fmt.Sprintf("; update %s %s", migrationWord(len(packs), "pack", "packs"), strings.Join(packs, ", "))
+			}
 			if p.planErr != nil {
 				state = "cannot plan: " + planErrorText(p.planErr)
 			}
 		}
 		_, _ = fmt.Fprintf(out, "%s (%s): %s: %s\n", m.ID, m.Release, m.Summary, state)
 	}
+}
+
+func skippedPacks(skips []migrationSkip) []string {
+	var packs []string
+	for _, s := range skips {
+		if s.Pack != "" {
+			packs = append(packs, s.Pack)
+		}
+	}
+	return slices.Compact(slices.Sorted(slices.Values(packs)))
 }
 
 // printMigrationPlan prints each rewrite and skip; under -q only the skips,
@@ -288,34 +432,58 @@ var migrationValueLine = regexp.MustCompile(`^(\s*-?\s*"?([A-Za-z0-9_.-]+)"?\s*:
 
 var migrationListItem = regexp.MustCompile(`^(\s*-\s+)(.*)$`)
 
+// migrationValueKeys hold values a diff prints only as a reference: each
+// value under env: or headers:, and each item of args:.
+var migrationValueKeys = map[string]bool{"env": true, "headers": true, "args": true}
+
+var migrationURL = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.-]*://`)
+
 // redactMigrationLines hides the values a diff could leak. It reads YAML
-// line by line, so it errs toward hiding: a value under a credential-named
-// key, including the lines of a `|` or `>` block under one; a value import
-// reads as a credential; a list item that follows a credential flag; and a
-// flow sequence that holds either. A ${NAME} reference stays.
+// line by line, so it errs toward hiding: every value under env: or
+// headers:, every item of args:, and every URL; a value under a
+// credential-named key, including the lines of a `|` or `>` block under
+// one; a value import reads as a credential; a list item that follows a
+// credential flag; and a flow sequence that holds either. A ${NAME}
+// reference stays.
 func redactMigrationLines(lines []string) []string {
 	out := make([]string, len(lines))
-	blockIndent := -1
+	blockIndent, valuesIndent := -1, -1
 	afterFlag := false
 	for i, line := range lines {
 		out[i] = line
+		trimmed := strings.TrimSpace(line)
 		indentWidth := len(line) - len(strings.TrimLeft(line, " \t"))
 		if blockIndent >= 0 {
-			if strings.TrimSpace(line) == "" || indentWidth > blockIndent {
+			if trimmed == "" || indentWidth > blockIndent {
 				out[i] = strings.Repeat(" ", indentWidth) + "<redacted>"
 				continue
 			}
 			blockIndent = -1
 		}
+		if valuesIndent >= 0 {
+			// A block sequence may sit at its key's own indent.
+			if trimmed == "" || indentWidth > valuesIndent || indentWidth == valuesIndent && strings.HasPrefix(trimmed, "-") {
+				out[i] = redactedValueLine(line, indentWidth)
+				continue
+			}
+			valuesIndent = -1
+		}
 		if m := migrationValueLine.FindStringSubmatch(line); m != nil {
 			afterFlag = false
 			value := strings.Trim(strings.TrimSpace(m[3]), `"'`)
+			if strings.HasPrefix(strings.TrimSpace(m[3]), "#") {
+				value = ""
+			}
 			switch {
-			case mcpCredentialKey(m[2]) && strings.HasPrefix(value, "|") || mcpCredentialKey(m[2]) && strings.HasPrefix(value, ">"):
+			case migrationValueKeys[m[2]] && value == "":
+				valuesIndent = strings.Index(line, m[2])
+			case migrationValueKeys[m[2]] && !envRefOnly(value):
+				out[i] = m[1] + "<redacted>"
+			case mcpCredentialKey(m[2]) && (strings.HasPrefix(value, "|") || strings.HasPrefix(value, ">")):
 				blockIndent = indentWidth
 				out[i] = m[1] + "<redacted>"
 			case value == "" || envRefOnly(value):
-			case mcpCredentialKey(m[2]) || migrationSecretText(value):
+			case mcpCredentialKey(m[2]) || migrationSecretText(value) || migrationURLText(value):
 				out[i] = m[1] + "<redacted>"
 			}
 			continue
@@ -326,7 +494,7 @@ func redactMigrationLines(lines []string) []string {
 			isFlag := strings.HasPrefix(item, "--") && mcpCredentialName(strings.SplitN(strings.TrimPrefix(item, "--"), "=", 2)[0])
 			switch {
 			case envRefOnly(item):
-			case afterFlag || migrationSecretText(item) || isFlag && flagHasValue:
+			case afterFlag || migrationSecretText(item) || migrationURLText(item) || isFlag && flagHasValue:
 				out[i] = m[1] + "<redacted>"
 			}
 			afterFlag = isFlag && !flagHasValue
@@ -338,6 +506,35 @@ func redactMigrationLines(lines []string) []string {
 		}
 	}
 	return out
+}
+
+// redactedValueLine is a line under env:, headers:, or args: with its
+// value hidden unless it is a reference.
+func redactedValueLine(line string, indentWidth int) string {
+	if strings.TrimSpace(line) == "" {
+		return line
+	}
+	if m := migrationValueLine.FindStringSubmatch(line); m != nil {
+		if value := strings.Trim(strings.TrimSpace(m[3]), `"'`); value == "" || envRefOnly(value) {
+			return line
+		}
+		return m[1] + "<redacted>"
+	}
+	if m := migrationListItem.FindStringSubmatch(line); m != nil {
+		if envRefOnly(strings.Trim(strings.TrimSpace(m[2]), `"'`)) {
+			return line
+		}
+		return m[1] + "<redacted>"
+	}
+	return strings.Repeat(" ", indentWidth) + "<redacted>"
+}
+
+// migrationURLText reports a URL, or a flow collection that holds one.
+func migrationURLText(value string) bool {
+	if migrationURL.MatchString(value) {
+		return true
+	}
+	return (strings.HasPrefix(value, "[") || strings.HasPrefix(value, "{")) && strings.Contains(value, "://")
 }
 
 // migrationSecretText reports a value import's detector reads as a
@@ -407,12 +604,15 @@ func writeMigrationChange(c migrationChange) error {
 		return os.Remove(c.Path)
 	}
 	target := c.target()
-	if c.NewPath != "" {
-		if _, err := os.Lstat(c.NewPath); err == nil {
-			return fmt.Errorf("%s already exists", filepath.ToSlash(c.NewPath))
-		} else if !errors.Is(err, os.ErrNotExist) {
+	if c.NewPath == "" {
+		// Writing the file a symlink resolves to keeps the symlink.
+		if target, err = filepath.EvalSymlinks(c.Path); err != nil {
 			return err
 		}
+	} else if _, err := os.Lstat(c.NewPath); err == nil {
+		return fmt.Errorf("%s already exists", filepath.ToSlash(c.NewPath))
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
 	}
 	tmp, err := os.CreateTemp(filepath.Dir(target), ".agnostic-ai-migrate-*")
 	if err != nil {
@@ -453,7 +653,7 @@ func writeMigrationChange(c migrationChange) error {
 // is actionable, and says so; other skips need nothing.
 func pendingMigrationHint(root string) string {
 	var apply, manual []string
-	for _, p := range planMigrations(root, specMigrations) {
+	for _, p := range planMigrations(migrationScope{root: root}, specMigrations) {
 		switch {
 		case !p.needsUser():
 		case len(p.changes) > 0:

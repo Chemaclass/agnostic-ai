@@ -1,0 +1,4 @@
+name: stop-check
+description: Run the quick checks when the agent stops.
+event: Stop
+command: 'true'

@@ -47,12 +47,162 @@ func TestMigrate_EveryMigrationKeepsSyncedOutputAndIsIdempotent(t *testing.T) {
 			if out, err := runCLI(t, "sync", "--check", "--gitignore=off"); err != nil {
 				t.Errorf("sync --check after migrate: %v\n%s", err, out)
 			}
-			for _, p := range planMigrations(".", []specMigration{m}) {
+			for _, p := range planMigrations(migrationScope{root: "."}, []specMigration{m}) {
 				if p.planErr != nil || len(p.changes) > 0 {
 					t.Errorf("a second run must find nothing to rewrite, only skips: %+v", p.changes)
 				}
 			}
 		})
+	}
+}
+
+// The same invariant for the global home: sync --global, migrate
+// --global, then sync --global --check passes, against the fixture in
+// testdata/migrate-global/<id>.
+func TestMigrate_EveryGlobalMigrationKeepsSyncedOutputAndIsIdempotent(t *testing.T) {
+	for _, m := range specMigrations {
+		if m.ProjectOnly {
+			continue
+		}
+		t.Run(m.ID, func(t *testing.T) {
+			src, err := filepath.Abs(filepath.Join("testdata", "migrate-global", m.ID))
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, source := globalAgentTestHome(t)
+			if _, err := os.Stat(src); err != nil {
+				t.Fatalf("migration %s has no global fixture at testdata/migrate-global/%s; mark it ProjectOnly if the global home never had its old form: %v", m.ID, m.ID, err)
+			}
+			if err := copyTree(src, source); err != nil {
+				t.Fatal(err)
+			}
+			silence(t)
+			captureLogOut(t)
+			if out, err := runCLI(t, "sync", "--global"); err != nil {
+				t.Fatalf("sync --global: %v\n%s", err, out)
+			}
+
+			out, err := runCLI(t, "migrate", "--global", "--only", m.Group)
+			if err != nil || !strings.Contains(out, m.ID+": ") {
+				t.Fatalf("migrate --global: %v\n%s", err, out)
+			}
+			if out, err := runCLI(t, "sync", "--global", "--check"); err != nil {
+				t.Errorf("sync --global --check after migrate: %v\n%s", err, out)
+			}
+			for _, p := range planMigrations(migrationScope{root: source, global: true}, []specMigration{m}) {
+				if p.planErr != nil || len(p.changes) > 0 {
+					t.Errorf("a second run must find nothing to rewrite, only skips: %+v", p.changes)
+				}
+			}
+		})
+	}
+}
+
+func TestMigrate_GlobalRewritesTheHomeAndLocalLayerAndKeepsModes(t *testing.T) {
+	src, err := filepath.Abs(filepath.Join("testdata", "migrate-global", "hooks-portable-events"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, source := globalAgentTestHome(t)
+	if err := copyTree(src, source); err != nil {
+		t.Fatal(err)
+	}
+	silence(t)
+	local := filepath.Join(source, "local", "hooks", "stop-check.yaml")
+	if err := os.Chmod(local, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := runCLI(t, "migrate", "--global", "--list")
+	if err != nil || strings.Contains(out, "config-file-name") || !strings.Contains(out, "hooks-portable-events (0.79.0): rewrite a hook's event: and matcher: as the portable on: and match:: 2 to rewrite, 0 skipped") {
+		t.Fatalf("--global --list must leave out project-only migrations: %v\n%s", err, out)
+	}
+	if out, err := runCLI(t, "migrate", "--global"); err != nil || !strings.Contains(out, "rewrote "+filepath.ToSlash(local)) {
+		t.Fatalf("migrate --global: %v\n%s", err, out)
+	}
+	got, err := os.ReadFile(filepath.Join(source, "hooks", "guard-shell.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "# Keep this comment: migrations must not reformat hooks.\n" +
+		"name: guard-shell\n" +
+		"description: Block force pushes.\n" +
+		"targets: [claude, codex]\n" +
+		"on: before-tool   # before the tool runs\n" +
+		"match: 'shell'\n" +
+		"command: \"$HOME/.agnostic-ai/scripts/guard-shell.py\"\n"
+	if string(got) != want {
+		t.Errorf("guard-shell.yaml =\n%s\nwant:\n%s", got, want)
+	}
+	if info, err := os.Stat(local); err != nil || (runtime.GOOS != "windows" && info.Mode().Perm() != 0o600) {
+		t.Errorf("a local/ rewrite must keep the file mode: %v %v", err, info.Mode())
+	}
+
+	testutil.Chdir(t, source)
+	if _, err := runCLI(t, "migrate"); err == nil || !strings.Contains(err.Error(), "run `agnostic-ai migrate --global`") {
+		t.Errorf("migrate in the global home must point at --global: %v", err)
+	}
+}
+
+func TestMigrate_SkipsASymlinkIntoAPackAndNamesThePack(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks need privileges on Windows")
+	}
+	dir := migrationFixture(t, "hooks-portable-events")
+	silence(t)
+	packHook := filepath.Join(dir, ".agnostic-ai", "packs", "acme", "hooks", "pack-stop.yaml")
+	mustWrite(t, packHook, "name: pack-stop\nevent: Stop\ncommand: 'true'\n")
+	if err := os.Symlink(filepath.Join("..", "packs", "acme", "hooks", "pack-stop.yaml"), filepath.Join(dir, ".agnostic-ai", "hooks", "pack-stop.yaml")); err != nil {
+		t.Fatal(err)
+	}
+
+	if out, err := runCLI(t, "migrate", "--list"); err != nil || !strings.Contains(out, "skipped; update pack acme") {
+		t.Errorf("--list must name the pack to update: %v\n%s", err, out)
+	}
+	out, err := runCLI(t, "migrate", "--only", "hooks")
+	if err != nil || !strings.Contains(out, "skipped .agnostic-ai/hooks/pack-stop.yaml: is in pack acme, which migrate never rewrites") {
+		t.Fatalf("a symlink into a pack must be a skip that names the pack: %v\n%s", err, out)
+	}
+	if got, _ := os.ReadFile(packHook); string(got) != "name: pack-stop\nevent: Stop\ncommand: 'true'\n" {
+		t.Errorf("the pack's file must stay as written:\n%s", got)
+	}
+}
+
+func TestMigrate_RewritesTheFileASymlinkPointsAtAndKeepsTheLink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks need privileges on Windows")
+	}
+	dir := migrationFixture(t, "hooks-portable-events")
+	silence(t)
+	link := filepath.Join(dir, ".agnostic-ai", "hooks", "stop-check.yaml")
+	shared := filepath.Join(dir, "shared", "stop-check.yaml")
+	body, err := os.ReadFile(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, shared, string(body))
+	if err := os.Chmod(shared, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(link); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join("..", "..", "shared", "stop-check.yaml"), link); err != nil {
+		t.Fatal(err)
+	}
+
+	if out, err := runCLI(t, "migrate", "--only", "hooks"); err != nil || !strings.Contains(out, "rewrote .agnostic-ai/hooks/stop-check.yaml") {
+		t.Fatalf("migrate: %v\n%s", err, out)
+	}
+	if info, err := os.Lstat(link); err != nil || info.Mode()&os.ModeSymlink == 0 {
+		t.Errorf("the symlink must stay a symlink: %v", err)
+	}
+	got, err := os.ReadFile(shared)
+	if err != nil || !strings.Contains(string(got), "on: stop\n") {
+		t.Errorf("the file the symlink points at must hold the rewrite: %v\n%s", err, got)
+	}
+	if info, err := os.Stat(shared); err != nil || info.Mode().Perm() != 0o600 {
+		t.Errorf("the rewrite must keep the file mode: %v %v", err, info.Mode())
 	}
 }
 
@@ -161,12 +311,25 @@ func TestRedactMigrationLines_HidesSecretsAndKeepsReferences(t *testing.T) {
 		"  - https://user:pa55word@host/mcp",
 		"  - --port",
 		"  - 8080",
+		"headers:   # sent on every request",
+		"  X-Team: platform",
+		"  Authorization: ${AUTH_HEADER}",
+		"url: https://mcp.example.com/sse",
+		"servers:",
+		"  - env:",
+		"      REGION: eu-west-1",
+		"    args:",
+		"    - ${WORKSPACE}",
+		"    - --verbose",
+		"  - name: kept",
+		"color: \"#fff\"",
+		"password: \"#hunter2\"",
 	})
 	want := []string{
 		"env:",
 		"  GITHUB_TOKEN: <redacted>",
 		"  API_KEY: ${API_KEY}",
-		"  NODE_ENV: production",
+		"  NODE_ENV: <redacted>",
 		"  - <redacted>",
 		"url: <redacted>",
 		"password: <redacted>",
@@ -174,11 +337,27 @@ func TestRedactMigrationLines_HidesSecretsAndKeepsReferences(t *testing.T) {
 		"next: kept",
 		"args: <redacted>",
 		"args:",
-		"  - --api-key",
 		"  - <redacted>",
 		"  - <redacted>",
-		"  - --port",
-		"  - 8080",
+		"  - <redacted>",
+		"  - <redacted>",
+		"  - <redacted>",
+		"headers:   # sent on every request",
+		"  X-Team: <redacted>",
+		"  Authorization: ${AUTH_HEADER}",
+		"url: <redacted>",
+		"servers:",
+		"  - env:",
+		"      REGION: <redacted>",
+		"    args:",
+		"    - ${WORKSPACE}",
+		"    - <redacted>",
+		"  - name: kept",
+		"color: \"#fff\"",
+		"password: <redacted>",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %d lines, want %d", len(got), len(want))
 	}
 	for i := range want {
 		if got[i] != want[i] {
@@ -253,12 +432,12 @@ func TestMigrate_ContentRewriteShowsARedactedDiffAndWritesInPlace(t *testing.T) 
 	t.Cleanup(func() { specMigrations = registry })
 	specMigrations = []specMigration{{
 		ID: "test-rewrite", Group: "test", Release: "0.0.0", Summary: "rewrite mode",
-		Plan: func(root string) ([]migrationChange, []migrationSkip, error) {
-			body, err := os.ReadFile(filepath.Join(root, "spec.yaml"))
+		Plan: func(s migrationScope) ([]migrationChange, []migrationSkip, error) {
+			body, err := os.ReadFile(filepath.Join(s.root, "spec.yaml"))
 			if err != nil || string(body) != before {
 				return nil, nil, err
 			}
-			return []migrationChange{{Path: filepath.Join(root, "spec.yaml"), Before: before, After: after}}, nil, nil
+			return []migrationChange{{Path: filepath.Join(s.root, "spec.yaml"), Before: before, After: after}}, nil, nil
 		},
 	}}
 
@@ -420,7 +599,7 @@ func TestMigrate_APlanThatFailsDoesNotStopTheOthers(t *testing.T) {
 	dir := migrationFixture(t, "config-file-name")
 	silence(t)
 	broken := specMigration{ID: "hooks-broken", Group: "hooks", Release: "0.79.0", Summary: "fails to plan",
-		Plan: func(string) ([]migrationChange, []migrationSkip, error) {
+		Plan: func(migrationScope) ([]migrationChange, []migrationSkip, error) {
 			return nil, nil, errors.New("parse hooks/x.yaml:\n  token: ghp_abcdefghijklmnop1234")
 		}}
 	registry := specMigrations

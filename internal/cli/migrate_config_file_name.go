@@ -13,13 +13,15 @@ import (
 
 // configFileNameMigration renames the legacy agnostic.config.yaml to
 // agnostic-ai.yaml. Both load the same config, so sync writes the same
-// files after it.
+// files after it. The global home only ever read agnostic-ai.yaml.
 var configFileNameMigration = specMigration{
-	ID:      "config-file-name",
-	Group:   "config",
-	Release: "0.79.0",
-	Summary: "rename " + config.LegacyConfigFileName + " to " + config.ConfigFileName,
-	Plan: func(root string) ([]migrationChange, []migrationSkip, error) {
+	ID:          "config-file-name",
+	Group:       "config",
+	Release:     "0.79.0",
+	Summary:     "rename " + config.LegacyConfigFileName + " to " + config.ConfigFileName,
+	ProjectOnly: true,
+	Plan: func(s migrationScope) ([]migrationChange, []migrationSkip, error) {
+		root := s.root
 		legacy := filepath.Join(root, config.LegacyConfigFileName)
 		info, err := os.Lstat(legacy)
 		if errors.Is(err, os.ErrNotExist) {

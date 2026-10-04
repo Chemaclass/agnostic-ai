@@ -63,7 +63,7 @@ The lock file is `.agnostic-ai/.command-lock`, ignored by the managed `.gitignor
 
 | Var | Default | Description |
 |-----|---------|-------------|
-| `AGNOSTIC_AI_HOME` | `~/.agnostic-ai` | Source root for `sync --global`, `list --global`, `lint --global`, and `validate --global`, including their `local/` override layer. Project sync does not load it. See [global configuration](@/docs/configuration.md#global-configuration). |
+| `AGNOSTIC_AI_HOME` | `~/.agnostic-ai` | Source root for `sync --global`, `list --global`, `lint --global`, `validate --global`, and `migrate --global`, including their `local/` override layer. Project sync does not load it. See [global configuration](@/docs/configuration.md#global-configuration). |
 
 ## Config precedence
 
