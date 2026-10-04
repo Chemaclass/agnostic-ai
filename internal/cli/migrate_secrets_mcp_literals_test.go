@@ -130,6 +130,23 @@ func TestMigrate_SecretsSkipsWhatItCannotDecide(t *testing.T) {
 	}
 }
 
+func TestRedactMigrationLines_HidesMultilineFlowQuotedKeysAndDefaults(t *testing.T) {
+	in := []string{
+		"env: {",
+		"  NODE_ENV: SENTINEL1,",
+		"}",
+		"'headers':",
+		"  X-Mode: SENTINEL2",
+		"env:",
+		"  TOKEN: ${TOKEN:-SENTINEL3}",
+	}
+	for _, line := range redactMigrationLines(in) {
+		if strings.Contains(line, "SENTINEL") {
+			t.Errorf("value leaks: %q", line)
+		}
+	}
+}
+
 func TestRedactMigrationLines_HidesEnvAndHeadersValuesButKeepsTagsAndReferences(t *testing.T) {
 	in := []string{
 		"env:",

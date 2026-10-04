@@ -26,7 +26,7 @@ func literalTags(n *yaml.Node) map[string]map[string]bool {
 	}
 	var out map[string]map[string]bool
 	for i := 0; i+1 < len(n.Content); i += 2 {
-		field, values := n.Content[i].Value, n.Content[i+1]
+		field, values := n.Content[i].Value, resolveAlias(n.Content[i+1])
 		delete(out, field)
 		if values.Kind != yaml.MappingNode {
 			continue
@@ -34,7 +34,7 @@ func literalTags(n *yaml.Node) map[string]map[string]bool {
 		marked := map[string]bool{}
 		for j := 0; j+1 < len(values.Content); j += 2 {
 			key := values.Content[j].Value
-			if values.Content[j+1].Tag == LiteralTag {
+			if resolveAlias(values.Content[j+1]).Tag == LiteralTag {
 				marked[key] = true
 			} else {
 				delete(marked, key)
@@ -49,6 +49,14 @@ func literalTags(n *yaml.Node) map[string]map[string]bool {
 		out[field] = marked
 	}
 	return out
+}
+
+// resolveAlias returns the node an alias such as `*plain` stands for.
+func resolveAlias(n *yaml.Node) *yaml.Node {
+	if n.Kind == yaml.AliasNode && n.Alias != nil {
+		return n.Alias
+	}
+	return n
 }
 
 // mergeLiterals keeps the LiteralTag mark of each merged map value from

@@ -286,7 +286,7 @@ func indent(text string) string {
 
 // migrationValueLine is a YAML `key: value` line or list item, in a spec
 // body or in frontmatter. A URL's scheme is not a key.
-var migrationValueLine = regexp.MustCompile(`^(\s*-?\s*"?([A-Za-z0-9_.-]+)"?\s*:(?:\s+|$))(.*)$`)
+var migrationValueLine = regexp.MustCompile(`^(\s*-?\s*["']?([A-Za-z0-9_.-]+)["']?\s*:(?:\s+|$))(.*)$`)
 
 var migrationListItem = regexp.MustCompile(`^(\s*-\s+)(.*)$`)
 
@@ -328,11 +328,12 @@ func redactMigrationLines(lines []string) []string {
 			case hidden && (strings.HasPrefix(value, "|") || strings.HasPrefix(value, ">")):
 				blockIndent = indentWidth
 				out[i] = m[1] + tag + "<redacted>"
-			case value == "" || envRefOnly(strings.TrimPrefix(value, "Bearer ")):
+			case value == "" || envRefOnly(strings.TrimPrefix(value, "Bearer ")) && !strings.Contains(value, ":-"):
 			case hidden || secretField || migrationSecretText(value):
 				out[i] = m[1] + tag + "<redacted>"
 			}
-			if secretField && value == "" {
+			// A flow mapping may run over the next lines.
+			if secretField && (value == "" || !strings.HasSuffix(value, "}")) {
 				secretIndent = indentWidth
 			}
 			continue

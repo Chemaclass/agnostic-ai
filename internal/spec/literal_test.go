@@ -39,6 +39,17 @@ func TestParseYAMLBytes_RepeatedKeyKeepsTheMarkOfTheValueThatWins(t *testing.T) 
 	}
 }
 
+func TestParseYAMLBytes_AliasOfATaggedValueIsMarked(t *testing.T) {
+	t.Parallel()
+	e, err := ParseYAMLBytes(KindMCP, []byte("name: s\nenv: {A: &plain !literal production, B: *plain}\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !e.MarkedLiteral("env", "A") || !e.MarkedLiteral("env", "B") {
+		t.Errorf("literals = %v, want the alias marked like its anchor", e.Literals)
+	}
+}
+
 func TestLoadLayered_LocalLayerKeepsTheMarkOfTheLayerThatSetsTheValue(t *testing.T) {
 	t.Parallel()
 	base, local := t.TempDir(), t.TempDir()
