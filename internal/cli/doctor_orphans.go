@@ -33,7 +33,7 @@ func orphanRemovalPrompt(cmd *cobra.Command) func(string) (bool, error) {
 }
 
 func confirmOrphanRemoval(cmd *cobra.Command, reader *bufio.Reader, path string) (bool, error) {
-	cmd.Printf("Remove kept orphan %s? Its ownership could not be proven. [y/N] ", filepath.ToSlash(path))
+	cmd.PrintErrf("Remove kept orphan %s? Its ownership could not be proven. [y/N] ", filepath.ToSlash(path))
 	line, err := reader.ReadString('\n')
 	if errors.Is(err, io.EOF) {
 		return false, nil
