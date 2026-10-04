@@ -187,6 +187,25 @@ function test_unauthorized_stops_after_one_call() {
   assert_equals "lexical" "$(cut -f8 "$RUN/triage.tsv" | sort -u)"
 }
 
+function test_parallel_requests_failing_together_leave_every_page_unjudged() {
+  # GNU cp creates a missing target exclusively, so of two cps onto the same
+  # new file one fails. The pause makes every job look before any creates.
+  cat >"$FIXTURES/bin/cp" <<'EOF'
+#!/usr/bin/env bash
+sleep 0.2
+set -o noclobber
+cat "$1" >"$2"
+EOF
+  chmod +x "$FIXTURES/bin/cp"
+  local out code
+  out=$(FAKE_CURL_CODE=401 JEV_JOBS=4 triage "$RUN")
+  code=$?
+  assert_equals 0 "$code"
+  assert_contains "(HTTP 401)" "$out"
+  assert_equals 3 "$(wc -l <"$FAKE_CURL_LOG.calls" | tr -d ' ')"
+  assert_equals "unjudged" "$(cut -f5 "$RUN/triage-pages.tsv" | sort -u)"
+}
+
 function test_unreachable_host_falls_back_with_the_real_curl() {
   local out code
   out=$(TYPESAFE_API_URL=http://127.0.0.1:9/v1/systemone TYPESAFE_API_KEY="$SECRET" \
