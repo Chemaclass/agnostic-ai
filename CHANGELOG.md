@@ -49,6 +49,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 #### Kilo Code
 
 - An `Edit` deny or ask rule, such as `edit(.env)`, also denies Kilo's separate `write` permission, so the file is not writable (#1803).
+- Each tool's permission patterns go allow, then ask, then deny, so a narrower allow no longer bypasses a broader deny or ask, as Claude Code decides (#1803).
 
 #### Kiro
 

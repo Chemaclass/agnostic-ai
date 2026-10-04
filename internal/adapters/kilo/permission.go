@@ -1,6 +1,7 @@
 package kilo
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -119,11 +120,13 @@ func permissionRule(rule string) (tool, pattern string, ok bool) {
 // repeated across lists resolves to the most restrictive action rather
 // than to whichever spec happened to come last.
 //
-// Ordering inside the emitted object is alphabetical, because both the
-// JSON and the YAML encoder sort map keys. That lands `*` ahead of
-// every tool name and every command pattern, which is the order Kilo
-// asks for: "Put broad fallbacks first and exceptions after them",
-// since "the last matching rule wins".
+// Tool keys sort alphabetically, so the top-level `*` comes first. Inside
+// one tool, "the last matching rule wins" in Kilo, while Claude Code
+// evaluates deny, then ask, then allow, whatever the pattern. So the
+// patterns are written allow first, then ask, then deny, each group in
+// alphabetical order (`*` first, as Kilo asks: "Put broad fallbacks
+// first and exceptions after them"). A deny or ask then wins over any
+// allow it overlaps, as it does in Claude Code.
 func settingsPermission(settings []spec.Entry) (map[string]any, int) {
 	dropped := map[int]bool{}
 	out := map[string]any{}
@@ -150,6 +153,9 @@ func settingsPermission(settings []spec.Entry) (map[string]any, int) {
 			}
 		}
 	}
+	for tool, value := range out {
+		out[tool] = byAction(value.(map[string]any))
+	}
 	// Native maps merge last, one tool key at a time, so an author
 	// writing under the kilo namespace wins over any translated rule
 	// for the same tool without wiping a sibling spec's rules for
@@ -165,6 +171,25 @@ func settingsPermission(settings []spec.Entry) (map[string]any, int) {
 		return nil, len(dropped)
 	}
 	return out, len(dropped)
+}
+
+// byAction orders one tool's patterns allow, ask, then deny, each group
+// alphabetical, so the strictest action is the last match.
+func byAction(patterns map[string]any) *emit.OrderedJSON {
+	out := emit.NewOrderedJSON()
+	for _, action := range []string{"allow", "ask", "deny"} {
+		var group []string
+		for pattern, a := range patterns {
+			if a == action {
+				group = append(group, pattern)
+			}
+		}
+		slices.Sort(group)
+		for _, pattern := range group {
+			_ = out.Set(pattern, action)
+		}
+	}
+	return out
 }
 
 // restrictedKeys returns the Kilo keys a rule for tool lands under in
