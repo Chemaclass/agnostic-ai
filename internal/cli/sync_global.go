@@ -256,22 +256,13 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if err := applyGlobalTiers(&bundle, tiers, unloaded, warn); err != nil {
 		return err
 	}
-	for _, target := range targets {
-		if globalTargets[target].agents != "" {
-			continue
-		}
-		var skipped []string
-		for _, agent := range bundle.Agents {
-			if agent.EmitsTo(target) {
-				skipped = append(skipped, agent.Name)
-			}
-		}
-		if len(skipped) == 0 {
-			continue
-		}
-		if _, err := fmt.Fprintf(warn, "warning: %s: global agents are unsupported; skipping %s\n", target, strings.Join(skipped, ", ")); err != nil {
-			return fmt.Errorf("write global agent warning: %w", err)
-		}
+	agentWarn := warn
+	if o.jsonOut {
+		agentWarn = io.Discard
+	}
+	globalAgentWarnings, err := warnUnsupportedGlobalAgents(agentWarn, source, targets, bundle.Agents)
+	if err != nil {
+		return err
 	}
 	if err := warnUnsupportedGlobalMCP(warn, targets, bundle.MCPs); err != nil {
 		return err
@@ -296,6 +287,9 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	}
 	adapters.ResetCoverageNotes()
 	adapters.SetWarner(warn)
+	if o.jsonOut {
+		adapters.SetWarner(io.Discard)
+	}
 	defer adapters.SetWarner(os.Stderr)
 	defer adapters.ResetCoverageNotes()
 	if slices.Contains(targets, "claude") && slices.Contains(configured, "cursor") {
@@ -310,6 +304,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if err != nil {
 		return err
 	}
+	drops := syncDrops{Warnings: globalAgentWarnings, Notes: dropRecords(adapters.PendingCoverageNotes())}
 	adapters.FlushCoverageNotes()
 	if err := checkUnselectedGlobalAgents(writes, old, targets); err != nil {
 		return err
@@ -330,7 +325,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	removals := removedGlobalFiles(old.Files, next.Files)
 	if o.check && o.jsonOut {
 		records := globalFileRecords(writes, existingPaths(removals), statePath, next, true)
-		if err := emitGlobalJSON(cmd, "sync --global --check", records); err != nil {
+		if err := emitGlobalJSON(cmd, "sync --global --check", records, drops); err != nil {
 			return err
 		}
 		if len(records) > 0 {
@@ -362,7 +357,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 			if o.dryRun {
 				command = "sync --global --dry-run"
 			}
-			return emitGlobalJSON(cmd, command, records)
+			return emitGlobalJSON(cmd, command, records, drops)
 		}
 		return printGlobalPlan(cmd, records)
 	}
@@ -434,7 +429,7 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	}
 	pruneEmptyGlobalDirs(removals, trees)
 	if o.jsonOut {
-		return emitGlobalJSON(cmd, "sync --global", applied)
+		return emitGlobalJSON(cmd, "sync --global", applied, drops)
 	}
 	for _, link := range linked {
 		if _, err := fmt.Fprintln(warn, link); err != nil {
@@ -464,9 +459,43 @@ type globalFileRecord struct {
 	Keys []string `json:"keys,omitempty"`
 }
 
-// emitGlobalJSON prints records in the jsonOutput layout: version,
-// command, writes, skipped, and errors.
-func emitGlobalJSON(cmd *cobra.Command, command string, records []globalFileRecord) error {
+func warnUnsupportedGlobalAgents(w io.Writer, source string, targets []string, agents []spec.Entry) ([]dropRecord, error) {
+	warnings := []dropRecord{}
+	var unsupported []string
+	for _, target := range targets {
+		if globalTargets[target].agents != "" {
+			continue
+		}
+		var skipped []string
+		for _, agent := range agents {
+			if agent.EmitsTo(target) {
+				skipped = append(skipped, agent.Name)
+			}
+		}
+		if len(skipped) == 0 {
+			continue
+		}
+		message := "global agents are unsupported; skipping " + strings.Join(skipped, ", ")
+		if _, err := fmt.Fprintf(w, "warning: %s: %s\n", target, message); err != nil {
+			return nil, fmt.Errorf("write global agent warning: %w", err)
+		}
+		warnings = append(warnings, dropRecord{Target: target, Kind: string(spec.KindAgent), Count: len(skipped), Message: message})
+		unsupported = append(unsupported, target)
+	}
+	if len(warnings) > 0 {
+		configs := globalConfigPaths(source)
+		suggestion := fmt.Sprintf("set `targets:` to the tools you use in %s (or in %s, which overrides it), or add `targets-exclude: [%s]` to each affected agent", configs[0], configs[1], strings.Join(unsupported, ", "))
+		for i := range warnings {
+			warnings[i].Suggestion = suggestion
+		}
+		if _, err := fmt.Fprintf(w, "    fix: %s\n", suggestion); err != nil {
+			return nil, fmt.Errorf("write global agent suggestion: %w", err)
+		}
+	}
+	return warnings, nil
+}
+
+func emitGlobalJSON(cmd *cobra.Command, command string, records []globalFileRecord, drops syncDrops) error {
 	if records == nil {
 		records = []globalFileRecord{}
 	}
@@ -476,7 +505,8 @@ func emitGlobalJSON(cmd *cobra.Command, command string, records []globalFileReco
 		Writes  []globalFileRecord `json:"writes"`
 		Skipped []fileRecord       `json:"skipped"`
 		Errors  []errorRecord      `json:"errors"`
-	}{"1", command, records, []fileRecord{}, []errorRecord{}})
+		syncDrops
+	}{"1", command, records, []fileRecord{}, []errorRecord{}, drops})
 }
 
 // globalFileRecords describes each file a run would change, in the

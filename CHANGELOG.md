@@ -6,6 +6,7 @@ Changes by release, following [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### General
 
+- `sync` adds a `fix:` line under notes for dropped skill and agent fields and unsupported global agents, naming what to write instead. `sync --json` carries it in an optional `suggestion` field, and `sync --global --json` now includes its warnings and notes (#2329).
 - The homepage sync figure has a "With agnostic-ai" and "Without" toggle: with it, one note flows into every tool file; without it, each file holds a different rule you keep in step by hand.
 - The homepage explorer explains why Claude Code rules live in separate files while Codex and Gemini CLI show an inline rules block.
 - Documentation links to shared permission and ownership guidance, sorts lint codes in one lookup, and explains how to diagnose plugin hook timeouts.

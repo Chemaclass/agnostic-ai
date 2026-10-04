@@ -1409,7 +1409,7 @@ func pendingSyncDrops() syncDrops {
 func dropRecords(records []adapters.DropRecord) []dropRecord {
 	out := make([]dropRecord, 0, len(records))
 	for _, r := range records {
-		out = append(out, dropRecord{Target: r.Target, Kind: string(r.Kind), Count: r.Count, Message: r.Message})
+		out = append(out, dropRecord{Target: r.Target, Kind: string(r.Kind), Count: r.Count, Message: r.Message, Suggestion: r.Suggestion})
 	}
 	return out
 }

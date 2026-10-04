@@ -66,7 +66,7 @@ func RenderSkillMarkdown(target string, skill spec.Entry, shared bool) (string, 
 }
 
 func NoteDroppedSkillFields(target string, skills []spec.Entry, shared bool) {
-	coverage := emit.SkillFieldCoverage{Handled: []string{"disable-model-invocation"}}
+	coverage := emit.SkillFieldCoverage{Handled: []string{"disable-model-invocation"}, Shared: shared}
 	if shared {
 		coverage.Markdown = func(skill spec.Entry) string { return emit.SkillMarkdown(skill, "") }
 	} else if adapter, ok := Get(target); ok {
@@ -130,8 +130,8 @@ func NoteManualOnlySkillDrops(target string, skills []spec.Entry, shared bool) e
 			}
 		}
 	}
-	emit.NoteFieldNoOp(target, spec.KindSkill, "disable-model-invocation", dropped, "its global copy stays model-invocable")
-	emit.NoteFieldNoOp(target, spec.KindSkill, "disable-model-invocation", omitted, "the skill file has no disable-model-invocation field")
+	emit.NoteSkillFieldNoOp(target, "disable-model-invocation", dropped, "its global copy stays model-invocable", shared)
+	emit.NoteSkillFieldNoOp(target, "disable-model-invocation", omitted, "the skill file has no disable-model-invocation field", shared)
 	return nil
 }
 

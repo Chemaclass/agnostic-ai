@@ -10,10 +10,11 @@ import (
 // DropRecord is one buffered capability warning or coverage note for one
 // target, with the sentence a plain sync prints for it.
 type DropRecord struct {
-	Target  string
-	Kind    spec.Kind
-	Count   int
-	Message string
+	Target     string
+	Kind       spec.Kind
+	Count      int
+	Message    string
+	Suggestion string
 }
 
 // projectNoteTarget names the source of a project-wide note, which
@@ -63,7 +64,8 @@ func PendingCoverageNotes() []DropRecord {
 	for _, p := range coverageNoteState.pendingField {
 		add("field\x00"+p.target+"\x00"+string(p.kind)+"\x00"+p.field+"\x00"+p.reason, DropRecord{
 			Target: p.target, Kind: p.kind, Count: p.count,
-			Message: fmt.Sprintf("%s (%s)", fieldNoteText(p.kind, p.field, p.count, []string{p.target}), p.reason),
+			Message:    fmt.Sprintf("%s (%s)", fieldNoteText(p.kind, p.field, p.count, []string{p.target}), p.reason),
+			Suggestion: p.suggestion,
 		})
 	}
 	for _, p := range coverageNoteState.pendingSurface {

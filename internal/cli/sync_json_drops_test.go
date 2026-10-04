@@ -18,10 +18,11 @@ type syncJSONDrops struct {
 }
 
 type dropJSON struct {
-	Target  string `json:"target"`
-	Kind    string `json:"kind"`
-	Count   int    `json:"count"`
-	Message string `json:"message"`
+	Target     string `json:"target"`
+	Kind       string `json:"kind"`
+	Count      int    `json:"count"`
+	Message    string `json:"message"`
+	Suggestion string `json:"suggestion"`
 }
 
 func runSyncJSONDrops(t *testing.T) syncJSONDrops {

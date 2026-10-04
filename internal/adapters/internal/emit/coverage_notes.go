@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -47,7 +48,8 @@ type pendingFieldNote struct {
 	// reason is a short, user-facing phrase explaining why the field has
 	// no effect, e.g. "no file-based way to pre-disable a project-scoped
 	// MCP server".
-	reason string
+	reason     string
+	suggestion string
 }
 
 // pendingSurfaceNote is a coverage note for a spec that emits in full
@@ -208,12 +210,23 @@ func NoteCoverageGap(target string, kind spec.Kind, count int, via string) {
 // file-based way to pre-disable a project-scoped MCP server". No-op when
 // count is zero. Notes buffer until FlushCoverageNotes renders them.
 func NoteFieldNoOp(target string, kind spec.Kind, field string, count int, reason string) {
+	noteFieldNoOp(target, kind, field, count, reason, false)
+}
+
+// NoteSkillFieldNoOp is NoteFieldNoOp for a skill; shared marks a copy
+// in a shared global skills directory, which carries no target overrides.
+func NoteSkillFieldNoOp(target, field string, count int, reason string, shared bool) {
+	noteFieldNoOp(target, spec.KindSkill, field, count, reason, shared)
+}
+
+func noteFieldNoOp(target string, kind spec.Kind, field string, count int, reason string, shared bool) {
 	if count <= 0 || notesSkipped.Load() {
 		return
 	}
 	coverageNoteState.mu.Lock()
 	coverageNoteState.pendingField = append(coverageNoteState.pendingField, pendingFieldNote{
 		target: target, kind: kind, field: field, count: count, reason: reason,
+		suggestion: fieldNoteSuggestion(kind, field, reason, shared),
 	})
 	coverageNoteState.mu.Unlock()
 }
@@ -332,6 +345,7 @@ func flushFieldNotesLocked() {
 	}
 	order := []key{}
 	groups := map[key][]string{}
+	suggestions := map[key][]string{}
 	seen := map[string]bool{} // target+kind+field+reason dedup within one flush
 	for _, p := range coverageNoteState.pendingField {
 		dedupKey := p.target + "\x00" + string(p.kind) + "\x00" + p.field + "\x00" + p.reason
@@ -344,10 +358,16 @@ func flushFieldNotesLocked() {
 			order = append(order, k)
 		}
 		groups[k] = append(groups[k], p.target)
+		if p.suggestion != "" && !slices.Contains(suggestions[k], p.suggestion) {
+			suggestions[k] = append(suggestions[k], p.suggestion)
+		}
 	}
 	for _, k := range order {
 		targets := groups[k]
 		_, _ = fmt.Fprintf(Warner, "  note: %s (%s)\n", fieldNoteText(k.kind, k.field, k.count, targets), k.reason)
+		for _, suggestion := range suggestions[k] {
+			_, _ = fmt.Fprintf(Warner, "    fix: %s\n", suggestion)
+		}
 	}
 	coverageNoteState.pendingField = nil
 	coverageNoteState.environmentFields = nil
