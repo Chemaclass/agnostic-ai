@@ -53,7 +53,7 @@ func lspLinter(root string) map[string][]lsp.Diagnostic {
 		return nil
 	}
 	b.ApplyModelTiers(cfg.Models)
-	findings := collectLintFindings(cfg.Targets, targetsSupportingKind, b)
+	findings := collectLintFindings(cfg.Targets, projectKindSupport(cfg), b)
 	findings = append(findings, lintModels(cfg.Models, filepath.Join(root, config.ConfigFileName), cfg.Targets, targetsSupportingKind, b)...)
 
 	out := map[string][]lsp.Diagnostic{}

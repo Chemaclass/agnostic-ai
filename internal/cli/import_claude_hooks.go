@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 	"sort"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claudehooks"
 )
@@ -126,14 +124,9 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 			if ifRule != "" {
 				doc["if"] = ifRule
 			}
-			path := filepath.Join(dstDir, name+".yaml")
-			pin.apply(doc, root, path)
-			raw, err := yaml.Marshal(doc)
-			if err != nil {
-				return count, fmt.Errorf("marshal hook %s: %w", name, err)
-			}
-			if err := importWriteFile(path, raw, 0o644); err != nil {
-				return count, fmt.Errorf("write %s: %w", path, err)
+			pin.apply(doc, root, filepath.Join(dstDir, name+".yaml"))
+			if err := writeHookSpecFile(dstDir, name, doc); err != nil {
+				return count, err
 			}
 			count++
 		}
@@ -175,14 +168,9 @@ func importClaudeNonCommandHook(root, dstDir, event, matcher string, h claudehoo
 		map[string]any{"type": h.Type, "url": h.URL, "server": h.Server, "tool": h.Tool, "prompt": h.Prompt})
 	doc["name"], doc["event"], doc["matcher"] = name, event, matcher
 	doc["description"] = hookHandlerDescription(h.Type, target, event, matcher)
-	path := filepath.Join(dstDir, name+".yaml")
-	pin.apply(doc, root, path)
-	raw, err := yaml.Marshal(doc)
-	if err != nil {
-		return 0, fmt.Errorf("marshal hook %s: %w", name, err)
-	}
-	if err := importWriteFile(path, raw, 0o644); err != nil {
-		return 0, fmt.Errorf("write %s: %w", path, err)
+	pin.apply(doc, root, filepath.Join(dstDir, name+".yaml"))
+	if err := writeHookSpecFile(dstDir, name, doc); err != nil {
+		return 0, err
 	}
 	return 1, nil
 }

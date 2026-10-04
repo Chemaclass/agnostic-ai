@@ -726,7 +726,11 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 		}
 		sess.SetSkillsDirWriters(writers)
 	}
-	own := expandBundleVars(b.For(a.Name()), cfg, a.Name())
+	own, err := withAgentsAsSkills(b.For(a.Name()), cfg, a.Name())
+	if err != nil {
+		return err
+	}
+	own = expandBundleVars(own, cfg, a.Name())
 	if slices.Contains(a.Capabilities(), spec.KindHook) {
 		NotePortableHookGaps(a.Name(), b.Hooks)
 	}

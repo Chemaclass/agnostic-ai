@@ -137,7 +137,7 @@ func TestImportOpenhands_ReadsNativeSnakeCaseHooks(t *testing.T) {
 	for _, h := range hooks {
 		all += readFile(t, filepath.Join(dir, ".agnostic-ai", "hooks", h))
 	}
-	for _, want := range []string{"event: Stop", "event: PreToolUse", "command: .openhands/hooks/quality_gate.sh", "timeout: 120"} {
+	for _, want := range []string{"event: Stop", "on: before-tool", "match: shell", "command: .openhands/hooks/quality_gate.sh", "timeout: 120"} {
 		if !strings.Contains(all, want) {
 			t.Errorf("missing %q in imported hooks:\n%s", want, all)
 		}

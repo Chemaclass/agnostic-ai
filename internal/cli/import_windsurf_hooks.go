@@ -8,8 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-
-	"gopkg.in/yaml.v3"
 )
 
 // windsurfHookGroup mirrors one `{matcher, hooks}` object in a
@@ -101,7 +99,7 @@ func writeWindsurfHookGroup(dstDir, event string, g windsurfHookGroup) (int, err
 			if h.Timeout != 0 {
 				docMap["timeout"] = h.Timeout
 			}
-			if err := writeWindsurfHookSpec(dstDir, name, docMap); err != nil {
+			if err := writeHookSpecFile(dstDir, name, docMap); err != nil {
 				return count, err
 			}
 			count++
@@ -133,20 +131,8 @@ func writeWindsurfHookGroup(dstDir, event string, g windsurfHookGroup) (int, err
 	if timeout != 0 {
 		docMap["timeout"] = timeout
 	}
-	if err := writeWindsurfHookSpec(dstDir, name, docMap); err != nil {
+	if err := writeHookSpecFile(dstDir, name, docMap); err != nil {
 		return count, err
 	}
 	return count + 1, nil
-}
-
-func writeWindsurfHookSpec(dstDir, name string, docMap map[string]any) error {
-	raw, err := yaml.Marshal(docMap)
-	if err != nil {
-		return fmt.Errorf("marshal hook %s: %w", name, err)
-	}
-	path := filepath.Join(dstDir, name+".yaml")
-	if err := importWriteFile(path, raw, 0o644); err != nil {
-		return fmt.Errorf("write %s: %w", path, err)
-	}
-	return nil
 }

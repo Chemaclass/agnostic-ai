@@ -12,6 +12,8 @@ target_id = "amp"
 
 Amp gets `AGENTS.md`, skills, MCP servers, `x-amp` settings, and orb setup from environment specs. It has no file-based agents or commands.
 
+Set `outputs.amp.agents: skill` to write agents as on-demand skills; see [agents as skills](@/docs/spec-format/agents.md#agents-as-skills).
+
 ## Output
 
 ```
