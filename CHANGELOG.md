@@ -36,6 +36,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - A hook `commandWindows` keeps the project root path, so a script under the project runs from any subdirectory (#1732).
 - A grouped hook matcher such as `^(Bash|exec)$` no longer gets a false "does not match" note, and specs sharing a command merge validly (#1743).
+- With `exec-policies-from-permissions`, an exact allow such as `Bash(git push)` is no longer written as a prefix rule that also allows extra arguments; a note names it, and `on-unsupported: error` fails (#1803).
 
 #### Copilot
 
@@ -44,6 +45,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 #### Cursor
 
 - A portable `before-tool` hook lands on `preToolUse` through a wrapper script that turns exit 2 into a deny reply with stderr as the message (#1752).
+
+#### Kilo Code
+
+- An `Edit` deny or ask rule, such as `edit(.env)`, also denies Kilo's separate `write` permission, so the file is not writable (#1803).
 
 #### Kiro
 

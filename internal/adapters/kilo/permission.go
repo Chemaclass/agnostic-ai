@@ -139,12 +139,14 @@ func settingsPermission(settings []spec.Entry) (map[string]any, int) {
 					dropped[i] = true
 					continue
 				}
-				patterns, _ := out[tool].(map[string]any)
-				if patterns == nil {
-					patterns = map[string]any{}
-					out[tool] = patterns
+				for _, key := range restrictedKeys(tool, list) {
+					patterns, _ := out[key].(map[string]any)
+					if patterns == nil {
+						patterns = map[string]any{}
+						out[key] = patterns
+					}
+					patterns[pattern] = list
 				}
-				patterns[pattern] = list
 			}
 		}
 	}
@@ -163,6 +165,20 @@ func settingsPermission(settings []spec.Entry) (map[string]any, int) {
 		return nil, len(dropped)
 	}
 	return out, len(dropped)
+}
+
+// restrictedKeys returns the Kilo keys a rule for tool lands under in
+// list. Claude Code's Edit rules "apply to all built-in tools that edit
+// files" (code.claude.com/docs/en/permissions), and Kilo keeps `write`
+// apart from `edit` ("File tools such as `read`, `edit`, and `write`
+// resolve the input path first"), so an Edit deny or ask also covers
+// `write`; otherwise `edit(.env)` would leave `.env` writable. An allow
+// stays on `edit` alone, which grants no more than it says.
+func restrictedKeys(tool, list string) []string {
+	if tool == "edit" && list != "allow" {
+		return []string{"edit", "write"}
+	}
+	return []string{tool}
 }
 
 // entryRules returns one settings spec's rules for list, and whether
