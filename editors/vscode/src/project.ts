@@ -61,9 +61,12 @@ export function findProjectRoot(
  * reader cannot follow, so a caller falls back instead of showing none.
  */
 export function parseTargetList(text: string): string[] | undefined {
-  const lines = text
-    .split(/\r?\n/)
-    .map((l) => l.replace(/(^|\s)#.*$/, "").trimEnd());
+  const all = text.split(/\r?\n/);
+  // The CLI reads only the first YAML document.
+  const docEnd = all.findIndex((l, i) => i > 0 && /^(---|\.\.\.)(\s|$)/.test(l));
+  const lines = (docEnd < 0 ? all : all.slice(0, docEnd)).map((l) =>
+    l.replace(/(^|\s)#.*$/, "").trimEnd(),
+  );
   const start = lines.findIndex((l) => l.startsWith("targets:"));
   if (start < 0) return undefined;
   const value = lines[start].slice("targets:".length).trim();
@@ -73,11 +76,21 @@ export function parseTargetList(text: string): string[] | undefined {
   const flow = [value, ...lines.slice(start + 1)].join(" ");
   const end = flow.indexOf("]");
   if (end < 0) return undefined;
-  return flow
-    .slice(1, end)
-    .split(",")
-    .map(unquote)
-    .filter((t) => t !== "");
+  return targetNames(
+    flow
+      .slice(1, end)
+      .split(",")
+      .map(unquote)
+      .filter((t) => t !== ""),
+  );
+}
+
+// An alias, escape, or nested collection is not a plain target name, so
+// the whole list is unreadable here.
+function targetNames(items: string[]): string[] | undefined {
+  return items.every((t) => /^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(t))
+    ? items
+    : undefined;
 }
 
 function blockItems(lines: string[]): string[] | undefined {
@@ -92,7 +105,7 @@ function blockItems(lines: string[]): string[] | undefined {
     if (/^[^\s-]/.test(line)) break;
     return undefined;
   }
-  return items;
+  return targetNames(items);
 }
 
 /** The entries of the top-level `targets:` list in a config file. */

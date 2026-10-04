@@ -77,6 +77,11 @@ class AgnosticAiConfigFileTest {
         assertEquals(listOf("claude", "cursor"), AgnosticAi.parseTargetList("targets: [\n  claude, # first\n  cursor\n]\n"))
         assertEquals(emptyList<String>(), AgnosticAi.parseTargetList("targets:\nsources: []\n"))
         assertNull(AgnosticAi.parseTargetList("targets:\n  nested: x\n"))
+        assertNull(AgnosticAi.parseTargetList("targets: [cursor,\nsources: []\n"))
+        assertNull(AgnosticAi.parseTargetList("targets: [[cursor], codex]\n"))
+        assertNull(AgnosticAi.parseTargetList("targets:\n  - *mine\n"))
+        assertNull(AgnosticAi.parseTargetList("targets: [\"cl\\u0061ude\"]\n"))
+        assertNull(AgnosticAi.parseTargetList("version: 1\n---\ntargets: [cursor]\n"))
         assertNull(AgnosticAi.parseTargetList("version: 1\n"))
     }
 

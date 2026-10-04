@@ -69,7 +69,10 @@ object AgnosticAi {
      * so a caller falls back instead of showing none.
      */
     fun parseTargetList(text: String): List<String>? {
-        val lines = text.lines().map { it.replace(Regex("""(^|\s)#.*$"""), "").trimEnd() }
+        val all = text.lines()
+        // The CLI reads only the first YAML document.
+        val docEnd = all.withIndex().indexOfFirst { (i, l) -> i > 0 && Regex("""^(---|\.\.\.)(\s|$)""").containsMatchIn(l) }
+        val lines = (if (docEnd < 0) all else all.take(docEnd)).map { it.replace(Regex("""(^|\s)#.*$"""), "").trimEnd() }
         val start = lines.indexOfFirst { it.startsWith("targets:") }
         if (start < 0) return null
         val value = lines[start].removePrefix("targets:").trim()
@@ -79,8 +82,13 @@ object AgnosticAi {
         val flow = (listOf(value) + lines.drop(start + 1)).joinToString(" ")
         val end = flow.indexOf(']')
         if (end < 0) return null
-        return flow.substring(1, end).split(",").map(::unquote).filter { it.isNotEmpty() }
+        return targetNames(flow.substring(1, end).split(",").map(::unquote).filter { it.isNotEmpty() })
     }
+
+    // An alias, escape, or nested collection is not a plain target name, so
+    // the whole list is unreadable here.
+    private fun targetNames(items: List<String>): List<String>? =
+        if (items.all { Regex("""^[A-Za-z0-9][A-Za-z0-9_.-]*$""").matches(it) }) items else null
 
     private fun blockItems(lines: List<String>): List<String>? {
         val items = mutableListOf<String>()
@@ -93,7 +101,7 @@ object AgnosticAi {
             if (Regex("""^[^\s-]""").containsMatchIn(line)) break
             return null
         }
-        return items
+        return targetNames(items)
     }
 
     private fun unquote(value: String): String = value.trim().replace(Regex("""^(["'])(.*)\1$"""), "$2")

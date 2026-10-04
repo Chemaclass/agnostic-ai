@@ -164,6 +164,11 @@ describe("configuredTargets", () => {
     assert.deepEqual(configuredTargets(base), both);
     assert.deepEqual(configuredTargets(base, "targets: [claude,\n"), both);
     assert.deepEqual(configuredTargets(base, "targets:\n  nested: x\n"), both);
+    assert.deepEqual(configuredTargets(base, "targets: [cursor,\nsources: []\n"), both);
+    assert.deepEqual(configuredTargets(base, "targets: [[cursor], codex]\n"), both);
+    assert.deepEqual(configuredTargets(base, "targets:\n  - *mine\n"), both);
+    assert.deepEqual(configuredTargets(base, 'targets: ["cl\\u0061ude"]\n'), both);
+    assert.deepEqual(configuredTargets(base, "version: 1\n---\ntargets: [cursor]\n"), both);
   });
 });
 
