@@ -309,3 +309,17 @@ func TestWriteMigrationChange_RemoveNeedsTheKeptFile(t *testing.T) {
 		t.Fatalf("a removal whose kept file vanished must fail and keep the old file: %v", err)
 	}
 }
+
+func TestDoctor_NamesPendingMigrations(t *testing.T) {
+	migrationFixture(t, "config-file-name")
+	out, _ := runCLI(t, "doctor")
+	if !strings.Contains(out, "Spec migrations:\n  ! 1 spec migration applies (config-file-name). Preview: agnostic-ai migrate --dry-run") {
+		t.Errorf("doctor must name the pending migration:\n%s", out)
+	}
+	if _, err := runCLI(t, "migrate"); err != nil {
+		t.Fatal(err)
+	}
+	if out, _ := runCLI(t, "doctor"); strings.Contains(out, "Spec migrations:") {
+		t.Errorf("doctor must say nothing once no migration applies:\n%s", out)
+	}
+}

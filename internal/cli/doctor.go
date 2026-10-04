@@ -3,7 +3,6 @@ package cli
 import (
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 
@@ -223,6 +222,6 @@ func newDoctorInstallCmd() *cobra.Command {
 
 // doctorConfigOK returns true when agnostic-ai.yaml loads without error.
 func doctorConfigOK() bool {
-	_, err := os.Stat(config.ConfigFileName)
+	_, _, err := config.ResolveConfigPath(".")
 	return err == nil
 }

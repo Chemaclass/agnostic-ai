@@ -390,3 +390,21 @@ func writeMigrationChange(c migrationChange) error {
 	}
 	return os.Rename(tmp.Name(), target)
 }
+
+// pendingMigrationHint is the line doctor and upgrade --requires print
+// when migrations apply here, or "" when none do or the plan fails.
+func pendingMigrationHint(root string) string {
+	pending, err := planMigrations(root, specMigrations)
+	if err != nil || len(pending) == 0 {
+		return ""
+	}
+	ids := make([]string, len(pending))
+	for i, p := range pending {
+		ids[i] = p.ID
+	}
+	noun := "migration applies"
+	if len(pending) > 1 {
+		noun = "migrations apply"
+	}
+	return fmt.Sprintf("%d spec %s (%s). Preview: agnostic-ai migrate --dry-run", len(pending), noun, strings.Join(ids, ", "))
+}

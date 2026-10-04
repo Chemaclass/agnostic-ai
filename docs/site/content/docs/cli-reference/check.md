@@ -143,7 +143,7 @@ Report four kinds of file:
 - **edited**: changed since the last sync
 - **orphaned**: no longer generated, kept because ownership could not be proven
 
-Doctor is read-only unless you pass `--fix`. It exits non-zero on any drift, [lint](#lint) error, or untrusted or modified Codex hook. Unreadable hook trust state also fails. Hooks you disabled on purpose are reported but do not fail.
+Doctor is read-only unless you pass `--fix`. It exits non-zero on any drift, [lint](#lint) error, or untrusted or modified Codex hook. Unreadable hook trust state also fails. Hooks you disabled on purpose are reported but do not fail. It also names any [spec migration](@/docs/cli-reference/maintain.md#migrate) that applies, without failing.
 
 | Flag | Description |
 |------|-------------|

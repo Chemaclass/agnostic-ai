@@ -668,6 +668,11 @@ func newDoctorCmd() *cobra.Command {
 			reportUserOwned(cmd, cfg)
 			reportLegacyDefaultInstructions(cmd)
 			reportGlobalNameClashes(cmd, scope.bundle, cfg)
+			if hint := pendingMigrationHint("."); hint != "" {
+				cmd.Println()
+				cmd.Println("Spec migrations:")
+				cmd.Printf("  ! %s\n", hint)
+			}
 
 			// 4. Drift
 			cmd.Println()

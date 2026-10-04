@@ -10,7 +10,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - `import` turns MCP credentials in URLs, `--token X` args, and bare tokens into `${NAME}` references, or drops the server, as `--global` does (#1736, #1742).
 - `hook run` uses Git Bash for Claude Code hooks on Windows and shows a command's timeout or error even when another's result is not counted (#1746, #1728).
-- `agnostic-ai migrate` rewrites old spec forms into their replacements without changing synced output; the first renames `agnostic.config.yaml` (#1755).
+- `agnostic-ai migrate` rewrites old spec forms without changing synced output, and `doctor` and `upgrade --requires` name pending ones (#1755).
+- `doctor` checks a project whose config is still the legacy `agnostic.config.yaml` instead of saying no config exists (#1755).
 - `init --demo` seeds a `no-force-push` guard, `new agent` omits `model`, and `lint` warns (LINT031) on a leftover `TODO` description (#1732, #1738, #1739).
 - `doctor` lists each MCP `${NAME}` reference that is unset in your shell, by name (#1729).
 
