@@ -717,6 +717,7 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 		return err
 	}
 	own = expandBundleVars(own, cfg, a.Name())
+	own.Hooks = emit.TargetHooks(a.Name(), own.Hooks)
 	if slices.Contains(a.Capabilities(), spec.KindHook) {
 		NotePortableHookGaps(a.Name(), b.Hooks)
 	}

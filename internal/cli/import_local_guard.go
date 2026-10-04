@@ -36,6 +36,8 @@ type localImportGuard struct {
 	hooks, sharedHooks *hookOwners
 	// hooksDir is the shared hooks directory, absolute, or "".
 	hooksDir string
+	// cfg renders a hook as sync writes it.
+	cfg *config.Config
 	// source is the target the running importer reads, or "".
 	source string
 	// overlays maps an overlay file, absolute, to the kind whose specs
@@ -123,8 +125,9 @@ func newLocalImportGuard(root string, cfg *config.Config) (*localImportGuard, er
 	g := &localImportGuard{
 		dirs:        map[string]spec.Kind{},
 		names:       map[spec.Kind]map[string]bool{},
-		hooks:       newHookOwners(local.Hooks),
-		sharedHooks: newHookOwners(shared),
+		hooks:       newHookOwners(local.Hooks, cfg),
+		sharedHooks: newHookOwners(shared, cfg),
+		cfg:         cfg,
 		overlays:    map[string]spec.Kind{},
 		skipped:     map[string]bool{},
 		synced:      map[string]bool{},
