@@ -49,7 +49,7 @@ func TestEntryPointRules_ExpandsWhatEveryReaderOfTheFileAgreesOn(t *testing.T) {
 // A reader with no surface for a variable cannot share another
 // reader's path for it.
 func TestEntryPointVars_AReaderWithoutTheSurfaceContestsIt(t *testing.T) {
-	vals, contested := entryPointVars(&config.Config{Targets: []string{"codex", "kiro"}}, "codex")
+	vals, contested := emit.EntryPointVars(&config.Config{Targets: []string{"codex", "kiro"}}, "codex")
 	if _, ok := vals[emit.VarSkillsDir]; ok || !slices.Contains(contested, emit.VarSkillsDir) {
 		t.Errorf("want SKILLS_DIR contested, got vals %v, contested %v", vals, contested)
 	}
