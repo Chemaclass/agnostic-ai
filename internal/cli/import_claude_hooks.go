@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/claudehooks"
 )
 
@@ -61,7 +62,7 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 					count += n
 					continue
 				}
-				if h.Command == "" || claudehooks.IsWorktreeSetupCommand(h.Command) || importLocal.dropsHookCommand("claude", event, g.Matcher, h.Command) {
+				if h.Command == "" || claudehooks.IsWorktreeSetupCommand(h.Command) || importLocal.dropsHookCommand("claude", event, g.Matcher, adapters.ExecFormCommand(h.Command, h.Args)) {
 					continue
 				}
 				cmds = append(cmds, h.Command)

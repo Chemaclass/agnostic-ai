@@ -10,9 +10,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - `import` turns MCP credentials in URLs, `--token X` args, and bare tokens into `${NAME}` references, or drops the server, as `--global` does (#1736, #1742).
 - `hook run` uses Git Bash for Claude Code hooks on Windows and shows a command's timeout or error even when another's result is not counted (#1746, #1728).
-- Hooks take portable `on:` and `match:` on 12 tools; `import` writes them where they map exactly and skips the native hooks a shared hook spec already syncs. `migrate` rewrites old spec forms, output unchanged, and `doctor` and `lint` (LINT033) name them (#1755, #1752, #1768).
+- Hooks take portable `on:` and `match:` on 12 tools; `import` writes them where they map exactly and skips the native hooks a shared hook spec already syncs. `migrate` rewrites old spec forms, output unchanged, and `doctor` and `lint` (LINT034) name them (#1755, #1752, #1768).
 - `init --demo` seeds a `no-force-push` guard, `new agent` omits `model`, and `lint` warns (LINT031) on a leftover `TODO` description (#1732, #1738, #1739).
 - `doctor` lists each MCP `${NAME}` reference that is unset in your shell, by name (#1729).
+- Spec bodies can name an agent or skill with `{{$AGENT:name}}` and `{{$SKILL:name}}`, which render each tool's documented invocation phrase; `lint` fails (LINT033) on an unknown name (#1773).
 
 ### By tool
 

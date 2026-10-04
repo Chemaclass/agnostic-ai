@@ -83,7 +83,7 @@ type plannedPortableHook struct {
 }
 
 // planPortableHooks plans the hooks-portable-events rewrites for the
-// project at root, loaded as cfg and b. LINT033 reads the same plan, so
+// project at root, loaded as cfg and b. LINT034 reads the same plan, so
 // lint suggests the portable form exactly where migrate writes it.
 func planPortableHooks(root string, cfg *config.Config, b spec.Bundle) ([]plannedPortableHook, []migrationSkip, error) {
 	extended, err := extendedHookNames(root, cfg)

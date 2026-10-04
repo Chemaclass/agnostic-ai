@@ -94,7 +94,7 @@ func TestImport_UnpinnedClaudeHookIsPortableOnClaudeAndCodex(t *testing.T) {
 
 // A re-import leaves a native spec an older import wrote as it is: the
 // spec already syncs the hook, so import skips it and needs no
-// --overwrite. LINT033 offers the rewrite instead.
+// --overwrite. LINT034 offers the rewrite instead.
 func TestImport_KeepsAnIdenticalNativeSpecOnReimport(t *testing.T) {
 	syncSharedHook(t, "claude", "name: sh\nevent: PreToolUse\nmatcher: Bash\ncommand: echo shared\n")
 	if err := os.Remove(filepath.Join(".agnostic-ai", "hooks", "sh.yaml")); err != nil {

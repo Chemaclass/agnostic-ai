@@ -41,7 +41,7 @@ func lintPortableHooks(hooks []spec.Entry, targets []string) []lintFinding {
 }
 
 // lintPortableHookForms names the on: and match: for each native hook
-// the hooks-portable-events migration rewrites (LINT033, warn). A plan
+// the hooks-portable-events migration rewrites (LINT034, warn). A plan
 // that fails suggests nothing, since migrate then rewrites nothing, and
 // so does the global home, where migrate refuses to run.
 func lintPortableHookForms(root string, cfg *config.Config, b spec.Bundle) []lintFinding {
@@ -54,7 +54,7 @@ func lintPortableHookForms(root string, cfg *config.Config, b spec.Bundle) []lin
 	}
 	var out []lintFinding
 	for _, p := range planned {
-		out = append(out, lintFinding{Code: "LINT033", Severity: lintWarn, Path: p.hook.Path, Message: p.form.suggestion(p.hook.Name)})
+		out = append(out, lintFinding{Code: "LINT034", Severity: lintWarn, Path: p.hook.Path, Message: p.form.suggestion(p.hook.Name)})
 	}
 	return out
 }

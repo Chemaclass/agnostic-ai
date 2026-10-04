@@ -97,3 +97,38 @@ func TestExpandVars_IgnoresLowercaseNames(t *testing.T) {
 		t.Errorf("lowercase is not a variable at all, got %v", unresolved)
 	}
 }
+
+func TestExpandRefs_RendersTheTargetForm(t *testing.T) {
+	forms := map[string]string{RefAgent: "the %s subagent", RefSkill: "/%s"}
+
+	got, missing := ExpandRefs("Run {{$AGENT:reviewer}}, then {{$SKILL:commit}}.", forms)
+
+	if want := "Run the reviewer subagent, then /commit."; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+	if len(missing) != 0 {
+		t.Errorf("expected no missing forms, got %v", missing)
+	}
+}
+
+// A target with no documented form gets plain words, not the raw token.
+func TestExpandRefs_FallsBackToANeutralPhrase(t *testing.T) {
+	got, missing := ExpandRefs("Run {{$AGENT:reviewer}} or {{$SKILL:commit}}.", nil)
+
+	if want := "Run the reviewer agent or the commit skill."; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+	if strings.Join(missing, ",") != "AGENT,SKILL" {
+		t.Errorf("want AGENT and SKILL missing, got %v", missing)
+	}
+}
+
+func TestExpandRefs_LeavesNonReferencesAlone(t *testing.T) {
+	body := "Keep {{AGENT:reviewer}}, {{$agent:reviewer}} and {{$AGENTS_DIR}}."
+
+	got, missing := ExpandRefs(body, map[string]string{RefAgent: "the %s subagent"})
+
+	if got != body || len(missing) != 0 {
+		t.Errorf("got %q, missing %v", got, missing)
+	}
+}

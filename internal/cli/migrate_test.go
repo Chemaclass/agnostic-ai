@@ -398,7 +398,7 @@ func TestMigrate_HooksPortableEventsSkipsATargetWithoutPortableEvents(t *testing
 	}
 }
 
-// LINT033 suggests the portable form for exactly the hooks
+// LINT034 suggests the portable form for exactly the hooks
 // `migrate --only hooks` rewrites, and for none once it ran.
 func TestLint_SuggestsThePortableFormExactlyWhereMigrateRewrites(t *testing.T) {
 	cases := []struct {
@@ -431,7 +431,7 @@ func TestLint_SuggestsThePortableFormExactlyWhereMigrateRewrites(t *testing.T) {
 				}
 			}
 			sort.Strings(rewritten)
-			suggested := lintCodeHooks(t, "LINT033")
+			suggested := lintCodeHooks(t, "LINT034")
 			if strings.Join(rewritten, ",") != strings.Join(tc.want, ",") || strings.Join(suggested, ",") != strings.Join(tc.want, ",") {
 				t.Errorf("migrate rewrites %v and lint suggests %v, want both %v", rewritten, suggested, tc.want)
 			}
@@ -439,7 +439,7 @@ func TestLint_SuggestsThePortableFormExactlyWhereMigrateRewrites(t *testing.T) {
 			if _, err := runCLI(t, "migrate", "--only", "hooks"); err != nil {
 				t.Fatal(err)
 			}
-			if left := lintCodeHooks(t, "LINT033"); len(left) > 0 {
+			if left := lintCodeHooks(t, "LINT034"); len(left) > 0 {
 				t.Errorf("after migrate, lint still suggests %v", left)
 			}
 		})
@@ -452,9 +452,9 @@ func TestLint_PortableFormSuggestionWarnsAndNamesTheValues(t *testing.T) {
 
 	out, err := runCLI(t, "lint")
 	if err != nil {
-		t.Errorf("LINT033 is a warning, so lint passes: %v\n%s", err, out)
+		t.Errorf("LINT034 is a warning, so lint passes: %v\n%s", err, out)
 	}
-	want := "LINT033 [warn] .agnostic-ai/hooks/no-force-push.yaml: Hook \"no-force-push\": `on: before-tool` with `match: shell` gives every target it reaches the same native hook as `event: PreToolUse` with `matcher: Bash`. Run `agnostic-ai migrate --only hooks` to rewrite it"
+	want := "LINT034 [warn] .agnostic-ai/hooks/no-force-push.yaml: Hook \"no-force-push\": `on: before-tool` with `match: shell` gives every target it reaches the same native hook as `event: PreToolUse` with `matcher: Bash`. Run `agnostic-ai migrate --only hooks` to rewrite it"
 	if !strings.Contains(filepath.ToSlash(out), want) {
 		t.Errorf("lint misses %q:\n%s", want, out)
 	}
@@ -462,7 +462,7 @@ func TestLint_PortableFormSuggestionWarnsAndNamesTheValues(t *testing.T) {
 		t.Errorf("a hook without matcher names on: alone:\n%s", out)
 	}
 	if _, err := runCLI(t, "lint", "--strict"); err == nil {
-		t.Error("lint --strict must fail on LINT033")
+		t.Error("lint --strict must fail on LINT034")
 	}
 }
 

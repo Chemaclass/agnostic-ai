@@ -212,6 +212,12 @@ var lintCodes = map[string]lintCode{
 		Fix:      "Use a value from the hooks page, keep one of `on:` and `event:`, or scope the hook away from that target with `target-exclude:`.",
 	},
 	"LINT033": {
+		Severity: lintError,
+		Title:    "Reference to an unknown agent or skill",
+		Cause:    "A spec body holds `{{$AGENT:<name>}}` or `{{$SKILL:<name>}}`, and no agent or skill in the project has that name, or that agent or skill does not sync to a target the spec reaches. Sync would render an invocation phrase that points at nothing.",
+		Fix:      "Use one of the names the finding lists, add the agent or skill, or scope both specs to the same targets.",
+	},
+	"LINT034": {
 		Severity: lintWarn,
 		Title:    "Native hook event with an exact portable form",
 		Cause:    "A hook's `event:` and `matcher:` have a portable `on:` and `match:` that give every enabled target the hook reaches the same native event and matcher, so the portable form syncs the same files. The finding names the values. It is raised for exactly the hooks `agnostic-ai migrate --only hooks` rewrites.",

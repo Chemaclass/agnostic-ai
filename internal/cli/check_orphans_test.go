@@ -221,15 +221,19 @@ func TestDoctorFix_ConfirmationDefaultsToKeepingOrphan(t *testing.T) {
 		{"\n", false}, {"no\n", false}, {"yes\n", true}, {"Y\n", true}, {"", false},
 	} {
 		t.Run(tc.input, func(t *testing.T) {
-			var out bytes.Buffer
+			var out, prompt bytes.Buffer
 			cmd := &cobra.Command{}
 			cmd.SetOut(&out)
+			cmd.SetErr(&prompt)
 			got, err := confirmOrphanRemoval(cmd, bufio.NewReader(strings.NewReader(tc.input)), keptReference)
 			if err != nil || got != tc.want {
 				t.Errorf("confirm=%v err=%v want=%v", got, err, tc.want)
 			}
-			if !strings.Contains(out.String(), keptReference) || !strings.Contains(out.String(), "[y/N]") {
-				t.Errorf("missing path or safe default: %s", out.String())
+			if !strings.Contains(prompt.String(), keptReference) || !strings.Contains(prompt.String(), "[y/N]") {
+				t.Errorf("missing path or safe default on stderr: %s", prompt.String())
+			}
+			if out.Len() > 0 {
+				t.Errorf("prompt reached stdout, which a redirected report hides: %s", out.String())
 			}
 		})
 	}
