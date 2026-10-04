@@ -79,7 +79,7 @@ func TestLintAndSync_HandWrittenLiteralWarnsWithoutTheValue(t *testing.T) {
 	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "api.yaml"), "name: api\ncommand: srv\nenv: {API_KEY: sk-live-abc}\n")
 
 	out, err := runCLI(t, "lint")
-	if err != nil || !strings.Contains(out, `LINT035 [warn] .agnostic-ai/mcps/api.yaml: MCP server "api": env API_KEY is a literal value`) {
+	if err != nil || !strings.Contains(out, "LINT035 [warn] "+filepath.Join(".agnostic-ai", "mcps", "api.yaml")+`: MCP server "api": env API_KEY is a literal value`) {
 		t.Errorf("lint: %v\n%s", err, out)
 	}
 	if out, err := runCLI(t, "lint", "--strict"); err == nil {
