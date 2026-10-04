@@ -177,7 +177,7 @@ func expandBundleVars(b spec.Bundle, cfg *config.Config, target string) spec.Bun
 	unresolved := map[string]int{}
 	kindOf := map[string]spec.Kind{}
 	forms := emit.RefForms[target]
-	agentsAreSkills := WritesAgentsAsSkills(cfg, target)
+	agentsAreSkills := agentsInSkillsDir(cfg, target)
 	var emits []spec.Kind
 	if a, ok := Get(target); ok {
 		emits = a.Capabilities()

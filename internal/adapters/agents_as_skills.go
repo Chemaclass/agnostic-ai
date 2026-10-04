@@ -33,8 +33,34 @@ func AgentsAsSkillsTarget(target string) bool { return subagentlessTargets[targe
 // agentsSkillsReaders also read the shared `.agents/skills` tree,
 // wherever they write their own skills, and have subagents: codex,
 // copilot (copilot.go otherSkillsDirs), gemini (gemini.go), cline
-// (cline.go), and cursor, which loads `.agents/skills` natively.
-var agentsSkillsReaders = map[string]bool{"cline": true, "codex": true, "copilot": true, "cursor": true, "gemini": true}
+// (cline.go), cursor, which loads `.agents/skills` natively, and
+// opencode and junie (their target pages).
+var agentsSkillsReaders = map[string]bool{
+	"cline": true, "codex": true, "copilot": true, "cursor": true, "gemini": true, "junie": true, "opencode": true,
+}
+
+// agentsInSkillsDir reports whether an agent sync writes as a skill lands
+// in target's skills directory, from target or another enabled target
+// that writes the same directory. Every writer then renders an agent
+// reference as a skill, so the shared files agree.
+func agentsInSkillsDir(cfg *config.Config, target string) bool {
+	if WritesAgentsAsSkills(cfg, target) {
+		return true
+	}
+	if cfg == nil {
+		return false
+	}
+	dir := varsFor(cfg, target)[emit.VarSkillsDir]
+	if dir == "" {
+		return false
+	}
+	for _, t := range cfg.Targets {
+		if t != target && WritesAgentsAsSkills(cfg, t) && filepath.Clean(varsFor(cfg, t)[emit.VarSkillsDir]) == filepath.Clean(dir) {
+			return true
+		}
+	}
+	return false
+}
 
 // sharedAgentsSkillsDir is the cross-tool skills tree.
 const sharedAgentsSkillsDir = ".agents/skills"

@@ -224,7 +224,7 @@ outputs:
 - Fields a skill cannot carry, such as `tools` and `model`, drop with a coverage note.
 - An [agent reference](@/docs/spec-format/_index.md#agent-and-skill-references) renders that target's skill phrase.
 - An agent and a skill with the same name would share a folder, so `validate` fails on them.
-- These four tools write `.agents/skills/`. Codex, Copilot, Gemini, Cline, and Cursor read it too, and several other tools with subagents write there. When one of them is enabled, sync keeps the agents off that directory and names the tool, so it does not get the role twice. Set `outputs.<target>.skills-dir` to a private directory to use the fallback beside them.
+- These four tools write `.agents/skills/`. Codex, Copilot, Gemini, Cline, Cursor, OpenCode, and Junie read it too, and several other tools with subagents write there. When one of them is enabled, sync keeps the agents off that directory and names the tool, so it does not get the role twice. Set `outputs.<target>.skills-dir` to a private directory to use the fallback beside them.
 - The key cannot combine with `rules-file` or, on Warp, `workflows-dir`, which already carry the agents.
 
 Other targets reject the key.

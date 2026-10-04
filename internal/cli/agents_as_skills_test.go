@@ -180,3 +180,31 @@ func TestLint_CountsAgentsWrittenAsSkillsAsConsumed(t *testing.T) {
 		t.Errorf("crush writes the agent as a skill, got:\n%s", out)
 	}
 }
+
+// Crush writes the same .agents/skills files as Amp, so it renders the
+// skill phrase too, or the two would collide.
+func TestSync_AgentReferenceAgreesAcrossASharedSkillsDir(t *testing.T) {
+	agentsAsSkillsProject(t, "version: 1\ntargets: [amp, crush]\noutputs:\n  amp:\n    agents: skill\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "skills", "ship", "SKILL.md"), "---\nname: ship\ndescription: Ships.\n---\n\nFirst run {{$AGENT:reviewer}}.\n")
+
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if got := readFile(t, filepath.Join(".agents", "skills", "ship", "SKILL.md")); !strings.Contains(got, "First run the reviewer skill.") {
+		t.Errorf("want the skill phrase:\n%s", got)
+	}
+}
+
+func TestSync_KeepsAgentsOffASkillsTreeOpenCodeAndJunieRead(t *testing.T) {
+	for _, peer := range []string{"opencode", "junie"} {
+		t.Run(peer, func(t *testing.T) {
+			agentsAsSkillsProject(t, "version: 1\ntargets: [amp, "+peer+"]\noutputs:\n  amp:\n    agents: skill\n")
+			if out, err := runCLI(t, "sync"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+			if _, err := os.Stat(filepath.Join(".agents", "skills", "reviewer")); !os.IsNotExist(err) {
+				t.Errorf("no agent skill where %s reads it, stat err = %v", peer, err)
+			}
+		})
+	}
+}
