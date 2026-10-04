@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
@@ -56,6 +57,30 @@ func validateConfigTargets(cfg *config.Config, source string) error {
 		}
 		if _, err := adapters.Resolve(t); err != nil {
 			return errs.Coded(errs.CodeSyncTargetUnknown, "%s: targets: unknown target %q (did you mean %s?)", source, t, s)
+		}
+	}
+	return nil
+}
+
+// validateAgentsOutput fails on an `outputs.<target>.agents` value sync
+// cannot honor: one other than skill, or a target that has subagents of
+// its own or writes no skills.
+func validateAgentsOutput(cfg *config.Config, source string) error {
+	targets := make([]string, 0, len(cfg.Outputs))
+	for t := range cfg.Outputs {
+		targets = append(targets, t)
+	}
+	slices.Sort(targets)
+	for _, t := range targets {
+		v := cfg.Outputs[t].Agents
+		if v == "" {
+			continue
+		}
+		if v != adapters.AgentsAsSkills {
+			return fmt.Errorf("%s: outputs.%s.agents: unknown value %q; the only value is %s", source, t, v, adapters.AgentsAsSkills)
+		}
+		if !adapters.AgentsAsSkillsTarget(t) {
+			return fmt.Errorf("%s: outputs.%s.agents: skill applies to amp, crush, warp, and zed, which write skills and have no subagents", source, t)
 		}
 	}
 	return nil

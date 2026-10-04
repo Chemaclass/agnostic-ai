@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- `outputs.<target>.agents: skill` writes agents as on-demand skills on Amp, Crush, Warp, and Zed, which have no subagents, unless a tool with subagents reads the same skills directory (#1772).
 - `import` turns MCP credentials into `${NAME}` references or drops the server, as `--global` does; `doctor` names each unset `${NAME}` (#1736, #1742, #1729).
 - `hook run` uses Git Bash for Claude Code hooks on Windows and shows a command's timeout or error even when another's result is not counted (#1746, #1728).
 - Hooks take portable `on:` and `match:` on 12 tools; `import` writes them where they map exactly and skips the native hooks a shared hook spec already syncs. `migrate` rewrites old spec forms, output unchanged, and `doctor` and `lint` (LINT034) name them (#1755, #1752, #1768).
