@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 
@@ -19,26 +18,19 @@ var capabilitiesAgentToolsMigration = specMigration{
 	Group:   "capabilities",
 	Release: "0.79.0",
 	Summary: "rewrite an agent's tools: as can:, with neutral capability names",
-	// The plan reads the project config and layers; global agents are
-	// not planned yet.
-	ProjectOnly: true,
-	Plan:        planCapabilitiesAgentTools,
+	Plan:    planCapabilitiesAgentTools,
 }
 
 func planCapabilitiesAgentTools(s migrationScope) ([]migrationChange, []migrationSkip, error) {
-	root := s.root
-	cfg, b, err := loadProject(root)
+	b, layers, err := s.loadSpecs()
 	if err != nil {
 		return nil, nil, err
 	}
-	extended, err := extendedSpecNames(resolveLayers(root, cfg), func(lb spec.Bundle) []spec.Entry { return lb.Agents })
+	extended, err := extendedSpecNames(layers, func(lb spec.Bundle) []spec.Entry { return lb.Agents })
 	if err != nil {
 		return nil, nil, err
 	}
-	realRoot, err := filepath.EvalSymlinks(root)
-	if err != nil {
-		return nil, nil, err
-	}
+	roots, packs := s.specRoots()
 	var changes []migrationChange
 	var skips []migrationSkip
 	for _, a := range b.Agents {
@@ -80,8 +72,8 @@ func planCapabilitiesAgentTools(s migrationScope) ([]migrationChange, []migratio
 			skip("keeps tools: as written: no entry has a capability of its own")
 			continue
 		}
-		if real, err := filepath.EvalSymlinks(a.Path); err != nil || !pathWithin(realRoot, real) {
-			skip("resolves outside the project")
+		if outside, ok := s.outsideSpecRoots(migrationChange{Path: a.Path}, roots, packs); ok {
+			skips = append(skips, outside)
 			continue
 		}
 		can := slices.Clone(tools)

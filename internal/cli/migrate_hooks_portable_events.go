@@ -43,11 +43,7 @@ func loadHookMigrationSpecs(s migrationScope) (hookMigrationSpecs, error) {
 		}
 		return projectHookMigrationSpecs(s.root, cfg, b), nil
 	}
-	if err := requireGlobalVersion(s.root, nil); err != nil {
-		return hookMigrationSpecs{}, err
-	}
-	layers := globalLayers(s.root)
-	b, err := spec.LoadLayered(layers)
+	b, layers, err := s.loadGlobalSpecs()
 	if err != nil {
 		return hookMigrationSpecs{}, err
 	}

@@ -12,7 +12,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `import` turns MCP credentials into `${NAME}` references or drops the server, as `--global` does; `doctor` names each unset `${NAME}` (#1736, #1742, #1729).
 - `hook run` uses Git Bash for Claude Code hooks on Windows and shows a command's timeout or error even when another's result is not counted (#1746, #1728).
 - Hooks take portable `on:` and `match:` on 13 tools; `import` writes them where they map exactly and skips the native hooks a shared hook spec already syncs. `migrate` rewrites old spec forms, output unchanged, and `doctor` and `lint` (LINT034) name them (#1755, #1752, #1768).
-- `migrate --global` rewrites old spec forms in the global home; `migrate` never rewrites a pack, even through a symlink, and `--list` names it (#1755).
+- `migrate --global` rewrites old spec forms in the global home, MCP secrets and agent `tools:` too; a pack stays as written (#1755, #1804).
 - Hook `args` now reach the command on 12 more tools, folded in and shell-quoted, and `import` matches them; Augment skips such a hook with a note (#1780).
 - Hook `x-<target>` event, matcher, command, and args apply on every tool; `import` matches hooks by what sync writes, Crush scripts too (#1788, #1797).
 - `init --demo` seeds a `no-force-push` guard, `new agent` omits `model`, and `lint` warns (LINT031) on a leftover `TODO` description (#1732, #1738, #1739).

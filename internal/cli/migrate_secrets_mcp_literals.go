@@ -2,7 +2,6 @@ package cli
 
 import (
 	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 
@@ -19,11 +18,8 @@ var secretsMCPLiteralsMigration = specMigration{
 	Group:   "secrets",
 	Release: "0.79.0",
 	Summary: "mark a plain MCP env or headers value !literal, and turn a credential into a ${NAME} reference",
-	// The plan reads the project config and layers; global MCP specs
-	// are not planned yet.
-	ProjectOnly: true,
-	Plan:        planSecretsMCPLiterals,
-	Note:        secretsMCPLiteralsNote,
+	Plan:    planSecretsMCPLiterals,
+	Note:    secretsMCPLiteralsNote,
 }
 
 // mcpLiteralsPlan is the migration's plan plus the variables its
@@ -44,37 +40,34 @@ type mcpLiteralsFile struct {
 }
 
 func planSecretsMCPLiterals(s migrationScope) ([]migrationChange, []migrationSkip, error) {
-	p, err := planMCPLiterals(s.root)
+	p, err := planMCPLiterals(s)
 	return p.changes, p.skips, err
 }
 
 func secretsMCPLiteralsNote(s migrationScope) string {
-	p, err := planMCPLiterals(s.root)
+	p, err := planMCPLiterals(s)
 	if err != nil || len(p.variables) == 0 {
 		return ""
 	}
 	return "the rewritten credentials read a variable now; set " + andList(p.variables) + " in the shell that starts your tools"
 }
 
-// planMCPLiterals reads every MCP spec file of the project and its
-// local/ layer on its own, so a local/ spec that extends a shared one
+// planMCPLiterals reads every MCP spec file of the scope, the project or
+// the global home, and its local/ layer on its own, so a local/ spec that extends a shared one
 // marks only the values it sets. Variable names follow import: an `env`
 // value reads its key, a header reads `<SERVER>_<HEADER>` and keeps a
 // `Bearer ` prefix, and a name already in use gets the server prefix.
-func planMCPLiterals(root string) (mcpLiteralsPlan, error) {
+func planMCPLiterals(s migrationScope) (mcpLiteralsPlan, error) {
 	var plan mcpLiteralsPlan
-	cfg, _, err := loadProject(root)
+	_, layers, err := s.loadSpecs()
 	if err != nil {
 		return plan, err
 	}
-	realRoot, err := filepath.EvalSymlinks(root)
-	if err != nil {
-		return plan, err
-	}
+	roots, packs := s.specRoots()
 	referenced := map[string]bool{}
 	var files []mcpLiteralsFile
 	var credentials []mcpLiteral
-	for _, layer := range resolveLayers(root, cfg) {
+	for _, layer := range layers {
 		lb, err := spec.LoadLayered([]spec.Layer{layer})
 		if err != nil {
 			return plan, err
@@ -89,8 +82,8 @@ func planMCPLiterals(root string) (mcpLiteralsPlan, error) {
 				plan.skips = append(plan.skips, packSkip(e.Path, pack))
 				continue
 			}
-			if real, err := filepath.EvalSymlinks(e.Path); err != nil || !pathWithin(realRoot, real) {
-				plan.skips = append(plan.skips, migrationSkip{Path: e.Path, Reason: "resolves outside the project"})
+			if outside, ok := s.outsideSpecRoots(migrationChange{Path: e.Path}, roots, packs); ok {
+				plan.skips = append(plan.skips, outside)
 				continue
 			}
 			f := mcpLiteralsFile{entry: e, credential: map[int]int{}}
