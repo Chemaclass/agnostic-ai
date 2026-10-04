@@ -27,7 +27,7 @@ func HookScript(h spec.Entry) string {
 		return ""
 	}
 	for i, cmd := range cmds {
-		cmds[i] = emit.RewriteHookPath(cmd, target, h.Meta)
+		cmds[i] = emit.ShellHookCommand(cmd, target, h.Meta)
 	}
 	return hookScript(cmds)
 }

@@ -122,6 +122,41 @@ func ExecFormCommand(command string, args []string) string {
 	return command
 }
 
+// HookArgs returns a hook spec's exec-form args on target, after its
+// `x-<target>` override, the same view RewriteHookPath reads.
+func HookArgs(target string, meta map[string]any) []string {
+	return StringSlice(ResolveMeta(meta, target)["args"])
+}
+
+// ShellHookCommand is one entry of a hook spec's command as a target
+// with no `args` field writes it: the path rewritten for target, then
+// the exec-form args folded in. Use it only where the target hands the
+// command to a shell.
+func ShellHookCommand(command, target string, meta map[string]any) string {
+	return ExecFormCommand(RewriteHookPath(command, target, meta), HookArgs(target, meta))
+}
+
+// PowerShellReadsFold reports whether PowerShell runs ExecFormCommand's
+// result with the same words as a POSIX shell. It does not when the
+// command is quoted, which PowerShell reads as a string, not a program,
+// or when an arg is empty or holds a quote: PowerShell doubles an
+// apostrophe to escape it, and Windows PowerShell drops an empty arg and
+// mangles a double quote.
+func PowerShellReadsFold(command string, args []string) bool {
+	if len(args) == 0 {
+		return true
+	}
+	if strings.IndexFunc(command, func(r rune) bool { return !isShellWordRune(r) }) >= 0 {
+		return false
+	}
+	for _, arg := range args {
+		if arg == "" || strings.ContainsAny(arg, `'"`) {
+			return false
+		}
+	}
+	return true
+}
+
 func isShellWordRune(r rune) bool {
 	return r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("_./:@%+=,-", r)
 }
