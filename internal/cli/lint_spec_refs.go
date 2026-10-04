@@ -11,9 +11,9 @@ import (
 
 // lintSpecRefs flags a {{$AGENT:<name>}} or {{$SKILL:<name>}} that names
 // no agent or skill in the project, or one that does not reach a target
-// the referring spec reaches (LINT033, error). Sync would still render a
+// the referring spec reaches, by its own targets or the target's kinds (LINT033, error). Sync would still render a
 // phrase there, which points the model at nothing.
-func lintSpecRefs(targets []string, b spec.Bundle) []lintFinding {
+func lintSpecRefs(targets []string, support kindSupport, b spec.Bundle) []lintFinding {
 	known := map[string][]string{
 		adapters.RefAgent: sortedSpecNames(b.Agents),
 		adapters.RefSkill: sortedSpecNames(b.Skills),
@@ -40,7 +40,8 @@ func lintSpecRefs(targets []string, b spec.Bundle) []lintFinding {
 			if named, ok := byName[ref.Keyword][ref.Name]; ok {
 				var missing []string
 				for _, t := range targets {
-					if e.EmitsTo(t) && !named.EmitsTo(t) && strings.Contains(spec.FilterFences(e.Body, []string{t}), ref.Token) {
+					_, syncsKind := support[named.Kind][t]
+					if e.EmitsTo(t) && (!named.EmitsTo(t) || !syncsKind) && strings.Contains(spec.FilterFences(e.Body, []string{t}), ref.Token) {
 						missing = append(missing, t)
 					}
 				}

@@ -58,3 +58,20 @@ func TestLint_AcceptsAFencedReferenceToAScopedAgent(t *testing.T) {
 		t.Errorf("want no LINT033 for a fenced reference, got:\n%s", out)
 	}
 }
+
+// Jules reads rules but writes no agents, so a reference there points
+// at nothing.
+func TestLint_FailsOnAReferenceToAKindATargetDoesNotSync(t *testing.T) {
+	dir := budgetProject(t, "targets: [claude, jules]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews diffs.\n---\n\nReview.\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "push.md"), "---\nname: push\n---\n\nRun {{$AGENT:reviewer}}.\n")
+
+	out, err := runCLI(t, "lint")
+	if err == nil {
+		t.Fatalf("LINT033 is an error, lint passed:\n%s", out)
+	}
+	lines := findingLines(out, "LINT033")
+	if len(lines) != 1 || !strings.Contains(lines[0], `{{$AGENT:reviewer}} reaches jules, where agent "reviewer" does not sync`) {
+		t.Errorf("want one LINT033 naming jules, got:\n%s", out)
+	}
+}

@@ -227,7 +227,7 @@ func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) [
 	findings = append(findings, lintMidWildcard(b.Settings)...)
 	findings = append(findings, lintMalformedGlobs(b.Rules)...)
 	findings = append(findings, lintNativeSpecPaths(b)...)
-	findings = append(findings, lintSpecRefs(targets, b)...)
+	findings = append(findings, lintSpecRefs(targets, support, b)...)
 	return findings
 }
 
