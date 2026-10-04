@@ -91,6 +91,10 @@ func newValidateCmd() *cobra.Command {
 func lintEntries(entries []spec.Entry) []validationIssue {
 	var out []validationIssue
 	for _, e := range entries {
+		if e.Kind == spec.KindSkill {
+			out = append(out, skillCapabilityIssues([]spec.Entry{e})...)
+			continue
+		}
 		if e.Kind == spec.KindAgent {
 			out = append(out, agentCapabilityIssues([]spec.Entry{e})...)
 			continue

@@ -89,6 +89,10 @@ func importCursorSkills(root, dstDir string) (int, error) {
 // `.cursor/commands/*.md`, and Cline's `.cline/agents/*.md`
 // (target-audit 2026-08-01, #534).
 func importFlatMarkdownFiles(src, dstDir string, fields specFields) (int, error) {
+	return importFlatMarkdownFilesWith(src, dstDir, fields, nil)
+}
+
+func importFlatMarkdownFilesWith(src, dstDir string, fields specFields, transform func([]byte) ([]byte, error)) (int, error) {
 	entries, err := os.ReadDir(src)
 	if errors.Is(err, fs.ErrNotExist) {
 		return 0, nil
@@ -107,6 +111,13 @@ func importFlatMarkdownFiles(src, dstDir string, fields specFields) (int, error)
 			return count, fmt.Errorf("read %s: %w", srcPath, err)
 		}
 		out := header.Strip(string(data))
+		if transform != nil {
+			transformed, err := transform([]byte(out))
+			if err != nil {
+				return count, fmt.Errorf("transform %s: %w", srcPath, err)
+			}
+			out = string(transformed)
+		}
 		dstPath := filepath.Join(dstDir, e.Name())
 		if err := importWriteSpecMarkdown(dstPath, []byte(out), 0o644, fields); err != nil {
 			return count, fmt.Errorf("write %s: %w", dstPath, err)

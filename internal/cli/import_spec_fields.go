@@ -32,7 +32,12 @@ func fieldsOf(keys ...string) specFields {
 }
 
 // expresses reports whether the target's native file has a home for key.
-func (f specFields) expresses(key string) bool { return !f.omitted[key] && (f.all || f.keys[key]) }
+func (f specFields) expresses(key string) bool {
+	if key == "can" {
+		return !f.omitted[key] && (f.all || f.keys["tools"] || f.keys["allowed-tools"])
+	}
+	return !f.omitted[key] && (f.all || f.keys[key])
+}
 
 // Skills: every target writes the Agent Skills `name`, `description`,
 // and `license` and nothing else, except Claude (the format the spec

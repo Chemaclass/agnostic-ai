@@ -18,26 +18,6 @@ const permissionKey = "permission"
 // and more specific rules after it" (opencode.ai/docs/permissions).
 const catchAllPattern = "*"
 
-// opencodePermissionTool maps this project's Claude-style tool
-// identifiers onto the keys OpenCode's `permission` map accepts.
-//
-// `Write` and `Edit` both land on `edit`, which the vendor says
-// "covers edit, write, patch". That collapse is lossy in one
-// direction only: a project denying `Write` also denies `Edit` here,
-// which is the safe way round.
-var opencodePermissionTool = map[string]string{
-	"Bash":      "bash",
-	"Read":      "read",
-	"Edit":      "edit",
-	"Write":     "edit",
-	"Glob":      "glob",
-	"Grep":      "grep",
-	"Task":      "task",
-	"Skill":     "skill",
-	"WebFetch":  "webfetch",
-	"WebSearch": "websearch",
-}
-
 // opencodePatternTool reports which of those keys accept a pattern
 // object rather than a bare action. OpenCode's schema types `webfetch`,
 // `websearch`, `todowrite`, `question`, and `doom_loop` as an action
@@ -161,13 +141,13 @@ func translateRule(rule string) (tool, pattern string, ok bool) {
 	}
 	scope, arg, scoped := spec.SplitPermissionRule(rule)
 	if !scoped {
-		key, known := opencodePermissionTool[rule]
+		key, known := emit.CapabilityTool(toolCapabilities, rule, true)
 		if !known {
 			return "", "", false
 		}
 		return key, catchAllPattern, true
 	}
-	key, known := opencodePermissionTool[scope]
+	key, known := emit.CapabilityTool(toolCapabilities, scope, true)
 	if !known || !opencodePatternTool[key] {
 		return "", "", false
 	}

@@ -61,17 +61,17 @@ func agentMarkdown(a spec.Entry) (string, bool) {
 
 // EmitAgents writes native Cursor agent definitions to dir.
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
-	droppedTools := 0
+	var droppedTools []spec.Entry
 	for _, a := range agents {
 		hadTools, err := emitAgent(sess, a, dir, dryRun)
 		if err != nil {
 			return err
 		}
 		if hadTools {
-			droppedTools++
+			droppedTools = append(droppedTools, a)
 		}
 	}
-	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", droppedTools,
+	emit.NoteAgentToolsNoOp(target, droppedTools,
 		"Cursor subagents have no tools field (name, description, model, readonly, is_background); use readonly: true for a coarse restriction")
 	return nil
 }

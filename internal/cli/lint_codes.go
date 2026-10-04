@@ -229,6 +229,7 @@ var lintCodes = map[string]lintCode{
 		Cause:    "A hook's `event:` and `matcher:` have a portable `on:` and `match:` that give every enabled target the hook reaches the same native event and matcher, so the portable form syncs the same files. The finding names the values. It is raised for exactly the hooks `agnostic-ai migrate --only hooks` rewrites.",
 		Fix:      "Run `agnostic-ai migrate --only hooks`, or write the `on:` and `match:` the finding names in place of `event:` and `matcher:`.",
 	},
+	"LINT037": {Title: "Native tool alias has a neutral capability", Severity: lintWarn, Cause: "A tool alias has an exact neutral form. This suggestion is enabled only by --suggest-capabilities.", Fix: "Use the suggested capability or run migrate --only capabilities."},
 	"LINT038": {Severity: lintWarn, Title: "Bare capability covers every operation", Cause: "A bare capability in permissions.allow or permissions.ask now becomes a native permission for every operation it covers. Before permission capabilities, the lowercase spelling matched no tool.", Fix: "Scope shell, read, or edit, name one MCP tool, or restrict web access through a target-native permission field. write takes no path; edit(path) also covers edits."},
 	"LINT036": {
 		Severity: lintError,

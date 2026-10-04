@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- Skills take neutral `allowed-tools`; agents take file patterns and `delete`. `explain` names native tools and extra access (#1803).
 - A `decision: stdout` hook blocks on raw SOH bytes, including one after an otherwise valid allow reply (#1810).
 
 - `outputs.<target>.agents: skill` writes agents as on-demand skills on Amp, Crush, Warp, and Zed, which have no subagents, unless a tool with subagents reads the same skills directory (#1772).
@@ -40,6 +41,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - A hook `commandWindows` keeps the project root path, so a script under the project runs from any subdirectory (#1732).
 - A grouped hook matcher such as `^(Bash|exec)$` no longer gets a false "does not match" note, and specs sharing a command merge validly (#1743).
+- Codex skips exact allows that would grant extra arguments; `on-unsupported: error` fails. Use `Bash(git push:*)` to allow the prefix (#1808).
 
 #### Copilot
 
@@ -52,7 +54,14 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - A portable hook synced to `claude` and `cursor` runs once on Cursor: its Claude Code copy exits when Cursor runs it (#1790).
 - `sync --global` writes the wrapper to `~/.cursor/hooks/`, so a portable `before-tool` hook reaches Cursor's user hooks (#1790).
 
+#### Kilo Code
+
+- An `Edit` deny or ask rule also restricts Kilo's separate `write` permission (#1808).
+- Kilo writes allow, then ask, then deny patterns, so overlapping rules keep the strictest action (#1808).
+
 #### Kiro
+
+- Kiro maps agent MCP tools to `@server` or `@server/tool`; `on-unsupported: error` rejects tool bundles that grant extra access (#1803).
 
 - `hook run` runs Kiro hooks on an assumed shell; `--bash` and `--edit` are refused, since Kiro documents no tool input for them (#1566).
 

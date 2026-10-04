@@ -20,27 +20,6 @@ import (
 // the file: agentMCPServers writes it as `mcp_servers` instead.
 var resolvedAgentKeys = []string{"name", "description", "kind", "model", "temperature", "max_turns", "timeout_mins", "mcp_servers", "mcpServers"}
 
-// geminiToolName maps agnostic-ai's Claude-style tool identifiers onto
-// Gemini CLI's own tool names (geminicli.com/docs/reference/tools, whose
-// "Available tools" tables name each one). The vocabularies share no
-// spelling at all: Gemini's are snake_case, the terminal tool is
-// `run_shell_command`, edit is `replace`, and search is `grep_search`
-// ("Legacy alias: `search_file_content`"). A `tools` list carried over
-// from a Claude-shaped spec would therefore restrict the subagent to
-// tools that do not exist, which is worse than the vendor's documented
-// default for an absent list ("If omitted, it inherits all tools from
-// the parent session"). See the package doc.
-var geminiToolName = map[string]string{
-	"Read":      "read_file",
-	"Write":     "write_file",
-	"Edit":      "replace",
-	"Glob":      "glob",
-	"Grep":      "grep_search",
-	"Bash":      "run_shell_command",
-	"WebFetch":  "web_fetch",
-	"WebSearch": "google_web_search",
-}
-
 // EmitAgents writes one native subagent per agent at
 // `<dir>/<name>.md`: "Custom agents are defined as Markdown files
 // (`.md`) with YAML frontmatter ... Project-level: `.gemini/agents/*.md`"
@@ -51,11 +30,12 @@ var geminiToolName = map[string]string{
 // entry for fold into one coverage note per sync rather than emitting a
 // restriction that silences the subagent.
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
-	unmappedTools, renamedMCP := 0, 0
+	var unmappedTools []spec.Entry
+	renamedMCP := 0
 	for _, a := range agents {
 		md, hasUnmapped, renamed := agentMarkdown(a)
 		if hasUnmapped {
-			unmappedTools++
+			unmappedTools = append(unmappedTools, a)
 		}
 		if renamed {
 			renamedMCP++
@@ -65,7 +45,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 			return err
 		}
 	}
-	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", unmappedTools,
+	emit.NoteAgentToolsNoOp(target, unmappedTools,
 		"value(s) outside agnostic-ai's Read/Write/Edit/Bash/Grep/Glob/WebFetch/WebSearch set have no confirmed Gemini tool name; set x-gemini.tools directly for those, or drop the field to inherit every tool from the parent session")
 	if renamedMCP > 0 {
 		emit.NoteProject(fmt.Sprintf("gemini: x-gemini.mcpServers on %d agent spec(s) is written as mcp_servers, the only per-agent MCP key Gemini's agent loader accepts; rename it in the spec", renamedMCP))
@@ -78,7 +58,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 // emit (`description` falls back to the spec name). `kind`, `model`,
 // `temperature`, `max_turns`, and `timeout_mins` pass through verbatim
 // when declared, and `tools` translates onto Gemini's own vocabulary
-// (see geminiToolName). `mcp_servers` (inline per-agent MCP servers)
+// (see toolCapabilities). `mcp_servers` (inline per-agent MCP servers)
 // passes through too; see agentMCPServers. Arbitrary `x-gemini` keys
 // merge on top.
 //
@@ -160,20 +140,7 @@ func agentMCPServers(meta, resolved map[string]any) (servers any, renamed bool) 
 // than written verbatim, since an unknown name in this list restricts
 // the subagent to a tool that does not exist.
 func translateTools(names []string) (mapped []string, hasUnmapped bool) {
-	seen := make(map[string]bool, len(names))
-	for _, n := range names {
-		tool, ok := geminiToolName[n]
-		if !ok {
-			hasUnmapped = true
-			continue
-		}
-		if seen[tool] {
-			continue
-		}
-		seen[tool] = true
-		mapped = append(mapped, tool)
-	}
-	return mapped, hasUnmapped
+	return emit.TranslateCapabilityTools(toolCapabilities, names)
 }
 
 // xGeminiSetsTools reports whether the spec carries an explicit

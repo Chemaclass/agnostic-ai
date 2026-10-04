@@ -160,14 +160,29 @@ func resolveExecPolicies(settings []spec.Entry, cfg *config.Config) ([]config.Co
 			exactAllows = append(exactAllows, rule)
 		}
 	}
-	if cfg.OnUnsupported != emit.OnUnsupportedSilent {
-		for _, rule := range exactAllows {
-			pattern, _ := bashPermissionPrefix(rule.rule)
-			if prefixDecision(policies, pattern) == "allow" && prefixDecision(wildcards, pattern) != "allow" {
-				emit.NoteProject(fmt.Sprintf("codex: %s: permissions.%s rule %s becomes a Codex prefix rule, so Codex also allows `%s` with extra arguments; add a deny or ask rule for arguments that need review", rule.path, rule.list, rule.rule, strings.Join(pattern, " ")))
-			}
+	// Codex has no exact-match rule: a prefix also matches extra
+	// arguments. An exact allow whose prefix nothing stricter or wider
+	// already decides would allow more than Claude Code does, so it is
+	// left out.
+	var widened [][]string
+	for _, rule := range exactAllows {
+		pattern, _ := bashPermissionPrefix(rule.rule)
+		if prefixDecision(policies, pattern) != "allow" || prefixDecision(wildcards, pattern) == "allow" {
+			continue
+		}
+		widened = append(widened, pattern)
+		unsupported := fmt.Errorf("%s: permissions.%s rule %s is not written: Codex has no exact-match rule, and a `%s` prefix rule also allows extra arguments; write Bash(%s:*) to allow them, or use outputs.codex.exec-policies", rule.path, rule.list, rule.rule, strings.Join(pattern, " "), strings.Join(pattern, " "))
+		switch cfg.OnUnsupported {
+		case emit.OnUnsupportedError:
+			return nil, true, unsupported
+		case emit.OnUnsupportedSilent:
+		default:
+			emit.NoteProject("codex: " + unsupported.Error())
 		}
 	}
+	policies = slices.DeleteFunc(policies, func(p config.CodexExecPolicy) bool {
+		return p.Decision == "allow" && slices.ContainsFunc(widened, func(w []string) bool { return slices.Equal(w, p.Pattern) })
+	})
 	return policies, true, nil
 }
 

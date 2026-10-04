@@ -59,7 +59,7 @@
 // it does not matter functionally, since both pages agree on the four
 // categories this adapter actually emits. This adapter translates
 // agnostic-ai's Claude-style names onto that vocabulary
-// (kiroToolCategory): `Read`, `Grep`, and `Glob` collapse onto `read`;
+// (toolCapabilities): `Read`, `Grep`, and `Glob` collapse onto `read`;
 // `Write` and `Edit` onto `write`; `Bash` onto `shell`; `WebFetch` and
 // `WebSearch` onto `web`, deduplicated so several Claude-style names
 // sharing a category emit that tag once.
@@ -231,6 +231,16 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
+	for _, agent := range b.Agents {
+		if xKiroSetsTools(agent.Meta) {
+			continue
+		}
+		for _, line := range widerTools(emit.StringSlice(agent.Meta["tools"])) {
+			if err := emit.ReportWidening(target, agent.Path, line, cfg.OnUnsupported); err != nil {
+				return err
+			}
+		}
+	}
 	b = emit.WithoutForeignClaudeModels(caps, b)
 	dir := emit.OutputRulesDir(cfg, target, defaultSteeringDir)
 	if err := emitRules(sess, b.Rules, dir, dryRun); err != nil {
@@ -283,19 +293,18 @@ func emitRules(sess *emit.Session, rules []spec.Entry, dir string, dryRun bool) 
 // category that grants more than the names that select it ask for gets
 // a note naming the extra tools.
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, agentsDir string, dryRun bool) error {
-	unmappedTools := 0
+	var unmappedTools []spec.Entry
 	for _, a := range agents {
 		path := filepath.Join(agentsDir, a.Name+".md")
 		md, hasUnmapped := agentMarkdown(a)
 		if hasUnmapped {
-			unmappedTools++
+			unmappedTools = append(unmappedTools, a)
 		}
-		noteWiderTools(a)
 		if err := sess.WriteFile(path, emit.WithHeader(md, emit.FormatMarkdown), dryRun); err != nil {
 			return err
 		}
 	}
-	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", unmappedTools,
+	emit.NoteAgentToolsNoOp(target, unmappedTools,
 		"value(s) outside agnostic-ai's Read/Write/Edit/Bash/Grep/Glob/WebFetch/WebSearch set have no confirmed Kiro category; set x-kiro.tools directly for those")
 	return nil
 }
@@ -367,26 +376,8 @@ func fileMatchPatternFor(e spec.Entry) (pattern any, ok bool) {
 	return nil, false
 }
 
-// kiroToolCategory maps agnostic-ai's Claude-style tool identifiers onto
-// Kiro's own `tools` category tags (kiro.dev/docs/custom-agents/configuration-reference/,
-// kiro.dev/docs/tools/). Several Claude-style names collapse onto the
-// same Kiro category because Kiro's category granularity is coarser
-// than agnostic-ai's; see the package doc for what each category
-// bundles and which of these mappings widen access beyond what a single
-// Claude-style name implies on its own.
-var kiroToolCategory = map[string]string{
-	"Read":      "read",
-	"Grep":      "read",
-	"Glob":      "read",
-	"Write":     "write",
-	"Edit":      "write",
-	"Bash":      "shell",
-	"WebFetch":  "web",
-	"WebSearch": "web",
-}
-
 // translateTools maps a spec's generic Claude-style tools list onto
-// Kiro's own category vocabulary (kiroToolCategory), deduplicated in
+// Kiro's own category vocabulary (toolCapabilities), deduplicated in
 // first-seen order since several Claude-style names collapse onto the
 // same category. A name with no table entry is left out of mapped and
 // reported via hasUnmapped instead of being written verbatim or dropped
@@ -394,7 +385,10 @@ var kiroToolCategory = map[string]string{
 func translateTools(names []string) (mapped []string, hasUnmapped bool) {
 	seen := make(map[string]bool, len(names))
 	for _, n := range names {
-		cat, ok := kiroToolCategory[n]
+		cat, ok := emit.CapabilityTool(toolCapabilities, n, false)
+		if !ok {
+			cat, ok = emit.MCPAtName(n)
+		}
 		if !ok {
 			hasUnmapped = true
 			continue

@@ -68,7 +68,7 @@ func planCapabilitiesAgentTools(s migrationScope) ([]migrationChange, []migratio
 				kept = append(kept, name)
 			}
 		}
-		if len(items) == 0 {
+		if len(items) == 0 && !hasWebPair(list) {
 			skip("keeps tools: as written: no entry has a capability of its own")
 			continue
 		}
@@ -89,14 +89,18 @@ func planCapabilitiesAgentTools(s migrationScope) ([]migrationChange, []migratio
 			return nil, nil, err
 		}
 		after, err := rewriteFrontmatter(string(body), func(front string) (string, error) {
-			return rewriteTopLevelYAMLSequence(front, yamlSequenceRewrite{Key: "tools", NewKey: "can", Items: items})
+			rewritten, err := rewriteTopLevelYAMLSequence(front, yamlSequenceRewrite{Key: "tools", NewKey: "can", Items: items})
+			if err != nil {
+				return "", err
+			}
+			return collapseWebPairs(rewritten, []string{"can"})
 		})
 		if err != nil {
 			skip("cannot rewrite in place: " + err.Error())
 			continue
 		}
 		changes = append(changes, migrationChange{Path: a.Path, Before: string(body), After: after})
-		for _, reason := range aliasReasons(kept) {
+		for _, reason := range aliasReasons(withoutAdjacentWebPair(kept)) {
 			skip(reason)
 		}
 	}

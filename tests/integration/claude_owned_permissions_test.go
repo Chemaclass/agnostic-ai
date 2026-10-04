@@ -49,7 +49,7 @@ func TestClaudePermissions_RemovedRulesLeaveAndImportKeepsOnlyHandWrittenOnes(t 
 	if strings.Contains(all, "Bash(rm:*)") || strings.Count(all, "Bash(git push:*)") != 1 {
 		t.Errorf("import brought back a generated rule:\n%s", all)
 	}
-	if !strings.Contains(all, "Bash(mine:*)") {
+	if !strings.Contains(all, "shell(mine:*)") {
 		t.Errorf("import dropped the hand-written rule:\n%s", all)
 	}
 }

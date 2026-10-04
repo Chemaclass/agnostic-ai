@@ -103,15 +103,22 @@ A rule is a [capability](@/docs/spec-format/agents.md#capabilities), the same na
 | `read`, `read(<path>)` | Reading files, or the files that match | `Read`, `Read(<path>)` |
 | `edit`, `edit(<path>)` | Changing files, or the files that match | `Edit`, `Edit(<path>)` |
 | `write` | The write tool | `Write` |
+| `delete` | Deleting files, where the target has a delete tool | No native tool |
 | `shell`, `shell(<pattern>)` | Every command, or the commands that match | `Bash`, `Bash(<pattern>)` |
 | `web` | Fetching pages and searching the web | `WebFetch` and `WebSearch` |
 | `mcp:<server>`, `mcp:<server>/<tool>` | One MCP server, or one of its tools | `mcp__<server>`, `mcp__<server>__<tool>` |
 
-- Each rule syncs to every target as its Claude Code rule would, byte for byte.
+- Each rule maps to the target's native permission names. Existing Claude Code aliases keep the same mappings. `delete` raises a coverage note where a target has no native delete permission.
 - A Claude Code rule stays valid as an alias, such as `WebFetch(domain:go.dev)`. A list can mix both.
 - `write` takes no path. Claude Code checks file writes against `Edit` rules only and never consults a `Write(<path>)` rule, so write `edit(<path>)` to cover a file.
 - `validate`, `lint` (LINT036), and `sync` stop on a rule they cannot read, including one in a pack and an unquoted rule that YAML reads as a mapping, since a target would drop it.
-- `agnostic-ai migrate --only capabilities` rewrites each Claude Code rule a capability stands for alone. The rest stay as aliases, and sync writes the same files.
+- `agnostic-ai migrate --only capabilities` rewrites each Claude Code rule a capability stands for alone. An adjacent `WebFetch, WebSearch` pair becomes `web`. The rest stay as aliases, and sync writes the same files.
+
+Bare capabilities under `allow` or `ask` cover the whole native tool. Before permission capabilities, these lowercase rules matched no tool and did nothing. `lint` warns (LINT038) and `sync` prints the same note once each run, naming the native permissions on enabled targets that take the rule. Scoped rules, `deny` rules, and target-native overrides that replace the rule get no warning.
+
+Use `shell(git status)`, `read(src/**)`, `edit(src/**)`, or `mcp:github/get_issue` to limit the rule. `edit(<path>)` also covers writes and edits. `web` has no scoped neutral form; use target-native permission fields to limit web access, or the `WebFetch(domain:example.com)` alias to allow fetches from a named domain.
+
+Set `on-unsupported: silent` or pass `sync --quiet` to hide this sync note. `lint` still reports LINT038, and `lint --strict` fails on it. Global permission lists have no native allow or ask rule and raise no LINT038.
 
 Bare capabilities under `allow` or `ask` cover the whole native tool. Before permission capabilities, these lowercase rules matched no tool and did nothing. `lint` warns (LINT038) and `sync` prints the same note once each run, naming the native permissions on enabled targets that take the rule. Scoped rules, `deny` rules, and target-native overrides that replace the rule get no warning.
 
@@ -127,6 +134,8 @@ Keep a `shell` wildcard at the end of an `allow` or `deny` rule.
 - Claude Code matches a mid-command `*` in a `deny` rule literally, so it blocks nothing.
 
 `agnostic-ai lint` reports both as LINT009.
+
+`explain settings/<name>.yaml` lists the native rules each configured target gets. It names any extra access the translation grants. `on-unsupported: error` fails when a rule widens, including a Codex exact shell allow that becomes a command prefix.
 
 ## Merging
 

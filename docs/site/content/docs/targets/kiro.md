@@ -44,11 +44,13 @@ Kiro's `tools` takes category tags plus `@server_name`, `@server_name/tool_name`
 | Spec `can` values | Spec `tools` values | Kiro category |
 | --- | --- | --- |
 | `read` | `Read`, `Grep`, `Glob` | `read` |
-| `write`, `edit` | `Write`, `Edit` | `write` |
+| `write`, `edit`, `delete` | `Write`, `Edit` | `write` |
 | `shell` | `Bash` | `shell` |
 | `web` | `WebFetch`, `WebSearch` | `web` |
+| `mcp:<server>` | `mcp__<server>` | `@<server>` |
+| `mcp:<server>/<tool>` | `mcp__<server>__<tool>` | `@<server>/<tool>` |
 
-Duplicates collapse. Categories are bundles, so access widens: `write` also covers `delete_file`, and `web` covers fetch and search. Sync prints a note naming the extra access, such as `kiro: .agnostic-ai/agents/writer.md: edit becomes Kiro's write category, which also allows delete_file`. Other values, such as `shell(git diff *)`, drop with a coverage note; the rest still emit. `x-kiro.tools` takes Kiro's vocabulary and always wins.
+Duplicates collapse. Categories are bundles, so access widens: `write` also covers `delete_file`, and `web` covers fetch and search. Sync prints a note naming the extra access, such as `kiro: .agnostic-ai/agents/writer.md: edit becomes Kiro's write category, which also allows delete_file`. `on-unsupported: error` fails on widening, including a Claude Code alias such as `Edit`. Scoped values, such as `shell(git diff *)` and `read(src/**)`, drop with a coverage note; the rest still emit. `x-kiro.tools` takes Kiro's vocabulary and always wins.
 
 **Hooks** are [native](https://kiro.dev/docs/hooks/): one JSON file per spec, `{"version": "v1", "hooks": [{name, trigger, matcher, action, timeout, enabled, description}]}`.
 

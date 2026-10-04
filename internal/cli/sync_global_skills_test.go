@@ -322,3 +322,95 @@ func TestSyncGlobal_ReportsOmittedFalseSkillInvocationFlag(t *testing.T) {
 		}
 	}
 }
+
+func TestSyncGlobal_NormalizesSkillCapabilitiesAndKeepsNativeOverride(t *testing.T) {
+	for _, tc := range []struct{ meta, want string }{
+		{"allowed-tools: [read, 'shell(git log --format=%h,%s)']\n", "allowed-tools:\n  - Read\n  - Bash(git log --format=%h,%s)"},
+		{"allowed-tools: [read]\nx-claude:\n  allowed-tools: [Bash(pwd)]\n", "allowed-tools:\n  - Bash(pwd)"},
+	} {
+		t.Run(tc.want, func(t *testing.T) {
+			home, source := globalAgentTestHome(t)
+			mustWriteGlobalTest(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Review code.\n"+tc.meta+"---\nReview code.\n")
+			if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
+				t.Fatalf("sync = %v, %s", err, warnings)
+			}
+			data, err := os.ReadFile(filepath.Join(home, ".claude", "skills", "review", "SKILL.md"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(data), tc.want) {
+				t.Errorf("skill = %s; want %s", data, tc.want)
+			}
+		})
+	}
+}
+
+func TestSyncGlobal_RejectsMalformedSkillCapability(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\nallowed-tools: [raed]\n---\nReview code.\n")
+	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err == nil || !strings.Contains(err.Error(), "unknown capability") {
+		t.Errorf("sync = %v, %s", err, warnings)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".claude", "skills", "review", "SKILL.md")); !os.IsNotExist(err) {
+		t.Errorf("invalid skill was emitted: %v", err)
+	}
+}
+
+func TestSyncGlobal_UnsupportedSkillDeleteHonorsMode(t *testing.T) {
+	for _, mode := range []string{"warn", "silent", "error"} {
+		t.Run(mode, func(t *testing.T) {
+			home, source := globalAgentTestHome(t)
+			mustWriteGlobalTest(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\non-unsupported: "+mode+"\n")
+			mustWriteGlobalTest(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\nallowed-tools: [read, delete]\n---\nReview code.\n")
+			_, warnings, err := runGlobalAgentTest("--only", "claude")
+			if mode == "error" {
+				if err == nil || !strings.Contains(err.Error(), "delete has no native") {
+					t.Errorf("error = %v, %s", err, warnings)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("sync = %v, %s", err, warnings)
+			}
+			if mode == "warn" && !strings.Contains(warnings, "delete has no native") {
+				t.Errorf("warning = %s", warnings)
+			}
+			if mode == "silent" && strings.Contains(warnings, "delete has no native") {
+				t.Errorf("silent = %s", warnings)
+			}
+			data, err := os.ReadFile(filepath.Join(home, ".claude", "skills", "review", "SKILL.md"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(string(data), "Delete") || strings.Contains(string(data), "- delete") || !strings.Contains(string(data), "- Read") {
+				t.Errorf("skill = %s", data)
+			}
+		})
+	}
+}
+
+func TestSyncGlobal_SharedSkillFencesStayNeutralAcrossTargetSelections(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	body := "Shared instructions.\n\n::target codex\nCodex instructions.\n::end\n\n::target amp\nAmp instructions.\n::end\n"
+	mustWriteGlobalTest(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Review code.\nallowed-tools: [read]\n---\n\n"+body)
+	var baseline []byte
+	for _, only := range []string{"codex", "amp", "codex,amp"} {
+		if _, warnings, err := runGlobalAgentTest("--only", only); err != nil {
+			t.Fatalf("--only %s: %v, %s", only, err, warnings)
+		}
+		data, err := os.ReadFile(filepath.Join(home, ".agents", "skills", "review", "SKILL.md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, want := range []string{"::target codex", "Codex instructions.", "::target amp", "Amp instructions."} {
+			if !strings.Contains(string(data), want) {
+				t.Errorf("--only %s misses %q: %s", only, want, data)
+			}
+		}
+		if baseline == nil {
+			baseline = data
+		} else if !bytes.Equal(baseline, data) {
+			t.Errorf("--only %s changed the shared skill: %s", only, data)
+		}
+	}
+}

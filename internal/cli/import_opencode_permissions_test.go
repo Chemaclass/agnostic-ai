@@ -36,7 +36,7 @@ func TestImportOpencode_ReadsPermissionMapBack(t *testing.T) {
 	}
 	got := readFile(t, filepath.Join(dst, "permissions-opencode.yaml"))
 	for _, want := range []string{
-		"- Bash", "- Bash(git:*)", "- Bash(rm -rf:*)", "- Read(docs/*)", "- WebSearch",
+		"- shell\n", "- shell(git:*)", "- shell(rm -rf:*)", "- read(docs/*)", "- WebSearch",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)

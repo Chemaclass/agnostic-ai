@@ -34,6 +34,8 @@ kilo.jsonc                         # instructions, mcp, and permission maps (mer
 - Kilo has no `tools:` key, so a `tools` list becomes a [`permission`](https://kilo.ai/docs/customize/agent-permissions) map: `tools: [Read, Grep]` emits `permission: {"*": deny, read: allow, grep: allow}`. The catch-all sorts first because the last matching rule wins.
 - Translated names: `Read`, `Glob`, `Grep`, `Edit`, `Write`, `Bash`, `WebFetch`, `WebSearch`, `Task`, `Skill`, `TodoRead`, `TodoWrite`, and `mcp__<server>__<tool>` as `{server}_{tool}` ([permission keys](https://kilo.ai/docs/getting-started/settings/auto-approving-actions), [tool groups](https://kilo.ai/docs/automate/tools)). Other names drop with a coverage note. If nothing translates, no map is written: `{"*": deny}` alone would lock the agent out. `x-kilo: {permission: {...}}` wins outright.
 
+A scoped `edit` deny also sets Kilo's `write` deny for that path. An unscoped `write` allow cannot bypass the protected path.
+
 **Skills** go to the shared `.agents/skills/<name>/SKILL.md` tree, which Kilo loads by default beside its own `.kilo/skills/`. It dedupes with codex, amp, zed, crush, openhands, windsurf, and augment. Kilo also scans `.claude/skills/` (in the VS Code extension, only with Claude Code Compatibility enabled). Any other `outputs.kilo.skills-dir` is added to `kilo.jsonc`'s `skills.paths` ([skills](https://github.com/Kilo-Org/kilocode/blob/main/packages/kilo-docs/pages/customize/skills.md)); your `skills.paths` entries and `skills.urls` stay.
 
 **Rules**:
@@ -64,8 +66,10 @@ A `file` output override that moves the entry point off the root `AGENTS.md`, or
 The portable `allow`, `deny`, and `ask` lists merge into `kilo.jsonc`'s `permission` key ([auto-approving actions](https://kilo.ai/docs/getting-started/settings/auto-approving-actions)):
 
 - Each rule becomes one glob under one tool key, matched against the tool's arguments. `Bash(npm run:*)` becomes `bash: {"npm run *": "allow"}`, `Bash(rm -rf /)` becomes `bash: {"rm -rf /": "deny"}`, `Read(docs/*)` becomes `read: {"docs/*": "allow"}`, a bare `Bash` becomes `bash: {"*": "allow"}`, and `mcp__github__list_issues` becomes `github_list_issues`.
-- Keys sort alphabetically, so `*` comes before every exception, since the last match wins.
+- Tool keys sort alphabetically.
 - A rule in two lists takes the stricter action.
+- An `Edit` deny or ask also lands under `write`, since Claude Code's `Edit` rules cover every tool that edits files and Kilo keeps `write` apart. `Edit(.env)` in `deny` blocks writing `.env` too. An `Edit` allow stays under `edit`.
+- Inside one tool, patterns go allow, then ask, then deny. Kilo takes the last match, and Claude Code lets a deny or ask win over any allow, so a narrower allow never bypasses a broader deny.
 - `WebFetch(domain:example.test)` drops with a coverage note, because Kilo matches URLs. Unknown tool names drop too.
 - `x-kilo.permission` writes Kilo's own map. It wins for the tool keys it names, and that spec's portable lists are skipped.
 - Your entries for tools agnostic-ai does not set survive.

@@ -35,7 +35,7 @@ func rewriteTopLevelYAMLSequence(src string, rw yamlSequenceRewrite) (string, er
 	if key == nil {
 		return "", fmt.Errorf("no top-level key %q", rw.Key)
 	}
-	if newKey, _ := topLevelPair(mapping, rw.NewKey); newKey != nil {
+	if newKey, _ := topLevelPair(mapping, rw.NewKey); newKey != nil && rw.NewKey != rw.Key {
 		return "", fmt.Errorf("%s: is already set", rw.NewKey)
 	}
 	if key.Style != 0 || value.Kind != yaml.SequenceNode || value.Anchor != "" || value.Tag != "!!seq" {

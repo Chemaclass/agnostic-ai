@@ -68,11 +68,11 @@ func TestEmit_SettingsWritesPermissionMap(t *testing.T) {
 	}
 }
 
-// "Put broad fallbacks first and exceptions after them", because "the
-// last matching rule wins". Both encoders sort map keys, and `*` sorts
-// ahead of every tool name and command pattern, so the emitted order
-// already satisfies the contract. Hold that, since it is load-bearing.
-func TestEmit_SettingsPermissionPutsCatchAllFirst(t *testing.T) {
+// "The last matching rule wins" in Kilo, while Claude Code evaluates
+// deny, then ask, then allow. So an ask on every command beats an allow
+// for git, as it does in Claude Code: the allow comes first, then the
+// ask, then the deny. Hold that, since it is load-bearing.
+func TestEmit_SettingsPermissionPutsStricterActionsLast(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	entries := []spec.Entry{
 		{Kind: spec.KindSettings, Name: "base", Meta: map[string]any{"permissions": map[string]any{
@@ -91,8 +91,8 @@ func TestEmit_SettingsPermissionPutsCatchAllFirst(t *testing.T) {
 	if catchAll < 0 || git < 0 || rm < 0 {
 		t.Fatalf("expected all three bash rules, got:\n%s", raw)
 	}
-	if catchAll > git || catchAll > rm {
-		t.Errorf("the catch-all must sort before every exception, got:\n%s", raw)
+	if git > catchAll || catchAll > rm {
+		t.Errorf("allow, ask, and deny must come in that order, got:\n%s", raw)
 	}
 }
 

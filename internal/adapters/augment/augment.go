@@ -433,18 +433,18 @@ func ruleMarkdown(e spec.Entry) string {
 // (see agentMarkdown), so the whole batch surfaces one coverage note
 // instead of a silent drop.
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
-	droppedTools := 0
+	var droppedTools []spec.Entry
 	for _, a := range agents {
 		path := filepath.Join(dir, a.Name+".md")
 		md, dropped := agentMarkdown(a)
 		if dropped {
-			droppedTools++
+			droppedTools = append(droppedTools, a)
 		}
 		if err := sess.WriteFile(path, emit.WithHeader(md, emit.FormatMarkdown), dryRun); err != nil {
 			return err
 		}
 	}
-	emit.NoteFieldNoOp(target, spec.KindAgent, "tools", droppedTools,
+	emit.NoteAgentToolsNoOp(target, droppedTools,
 		"Augment's tool names (view, codebase-retrieval, str-replace-editor, ...) differ from agnostic-ai's Claude-style tools; set x-augment.tools / x-augment.disabled_tools directly instead")
 	return nil
 }

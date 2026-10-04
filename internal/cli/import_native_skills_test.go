@@ -94,13 +94,25 @@ func TestImport_SyncThenImportKeepsAgentSpecFrontmatter(t *testing.T) {
 			writeFile(t, ".agnostic-ai/agents/reviewer.md", spec)
 
 			execCLI(t, "sync")
+			var before map[string]string
+			if target == "kiro" {
+				before = snapshotEmitted(t, dir)
+			}
 			execCLI(t, "import", target)
 
 			got := readFile(t, ".agnostic-ai/agents/reviewer.md")
-			for _, key := range []string{"tools:", "effort:"} {
+			toolsKey := "tools:"
+			if target == "kiro" {
+				toolsKey = "can:"
+			}
+			for _, key := range []string{toolsKey, "effort:"} {
 				if !strings.Contains(got, key) {
 					t.Errorf("%s dropped from the spec after sync and import:\n%s", key, got)
 				}
+			}
+			if target == "kiro" {
+				execCLI(t, "sync")
+				assertEmittedEqual(t, before, snapshotEmitted(t, dir))
 			}
 		})
 	}

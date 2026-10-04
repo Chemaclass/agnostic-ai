@@ -71,6 +71,7 @@ model: {claude: opus}
 | `disable-model-invocation` | no | unset | `true` keeps the skill out of automatic invocation; a person can still call it. See [support by target](#disable-model-invocation-support-by-target). |
 | `model` | no | unset | Claude Code model for the rest of the turn. Scalar, per-target map, or [tier](@/docs/spec-format/agents.md#model-tiers) name; `x-claude.model` wins. |
 | `effort` | no | unset | Claude Code effort for the rest of the turn. Scalar or per-target map; `x-claude.effort` wins. |
+| `allowed-tools` | no | unset | Neutral capabilities the skill may use, such as `[read, shell(git diff *)]`. See [allowed tools](#allowed-tools). |
 | `license` | no | unset | The Agent Skills license, kept in every target's `SKILL.md`. |
 | `workspaces` | no | empty | Project directories where Cursor also gets a copy, such as `[apps/web]`. Cursor loads skills only from the workspace it opens, so a session or SDK agent started in `apps/web` misses a root skill. The skill stays at the root for every tool. |
 
@@ -82,6 +83,20 @@ Sync reports a coverage note for each skill field a target omits, including `arg
 - `agnostic-ai compare claude codex` shows which skill fields each target keeps, translates, or drops.
 - Use `{claude: opus}` to choose a model only for Claude.
 - Global sync uses the same renderers. Shared global directories omit target overrides.
+
+## Allowed tools {#allowed-tools}
+
+Write `allowed-tools` with the same [capabilities](@/docs/spec-format/agents.md#capabilities) as an agent's `can`:
+
+```yaml
+allowed-tools: [read(src/**), edit(src/**), shell(git diff *), mcp:github]
+```
+
+The names are `read`, `write`, `edit`, `delete`, `shell`, `web`, `mcp:<server>`, and `mcp:<server>/<tool>`. `read` and `edit` take path patterns. `shell` takes a command pattern. Each target writes its own names where it supports this field. A target that drops a restriction or grants more access raises a coverage note. `on-unsupported: error` fails on widening.
+
+Claude Code names stay valid aliases: `Read`, `Write`, `Edit`, `Bash`, `WebFetch`, `WebSearch`, and `mcp__<server>__<tool>`. Scoped aliases such as `Read(src/**)` and `Bash(git diff *)` stay valid too. A list can mix neutral names and aliases.
+
+`agnostic-ai migrate --only capabilities` rewrites aliases that map exactly, including an adjacent `WebFetch, WebSearch` pair as `web`. `import` writes neutral names where the native names map one to one. Neither guesses a narrower restriction from a target's tool bundle. `lint --suggest-capabilities` suggests neutral names for aliases (LINT037), with no suggestions by default.
 
 ## Bundled files and output
 

@@ -23,22 +23,11 @@ var kiroCategoryTools = map[string][]string{
 // and Write each change files, as Claude Code's Edit rules cover every
 // tool that edits files; neither deletes one.
 var kiroToolAsks = map[string][]string{
+	"Delete":    {"delete_file"},
 	"Edit":      {"fs_write", "fs_append", "str_replace"},
 	"Write":     {"fs_write", "fs_append", "str_replace"},
 	"WebFetch":  {"web_fetch"},
 	"WebSearch": {"web_search"},
-}
-
-// noteWiderTools notes each Kiro category an agent's tools select that
-// also grants a tool none of them asks for, such as `delete_file` for
-// edit. An x-kiro.tools override is the author's own choice.
-func noteWiderTools(a spec.Entry) {
-	if xKiroSetsTools(a.Meta) {
-		return
-	}
-	for _, line := range widerTools(emit.StringSlice(a.Meta["tools"])) {
-		emit.NoteProject(fmt.Sprintf("%s: %s: %s", target, a.Path, line))
-	}
 }
 
 // widerTools returns one sentence per category that grants more than
@@ -47,7 +36,7 @@ func widerTools(names []string) []string {
 	var order []string
 	selected := map[string][]string{}
 	for _, n := range names {
-		category, ok := kiroToolCategory[n]
+		category, ok := emit.CapabilityTool(toolCapabilities, n, false)
 		if !ok {
 			continue
 		}
@@ -90,3 +79,5 @@ func widerTools(names []string) []string {
 	}
 	return out
 }
+
+func (Adapter) CapabilityWidening(names []string) []string { return widerTools(names) }

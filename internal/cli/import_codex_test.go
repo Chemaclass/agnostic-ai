@@ -417,7 +417,7 @@ func TestImportFromCodex_CopiesSkillAssets(t *testing.T) {
 // `recordCodexSkillAssets` rewrites the SKILL.md frontmatter to inject
 // `x-codex.assets`. The rewrite must not round-trip every other key
 // through a map (which strips yaml scalar style) so a hand-quoted
-// `allowed-tools: "Read, Bash(*)"` survives byte-for-byte (#315).
+// The neutral allowed-tools scalar keeps its quotes through the asset rewrite.
 func TestImportFromCodex_RecordCodexSkillAssets_PreservesScalarStyle(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".claude/skills/probe/SKILL.md"),
@@ -433,7 +433,7 @@ func TestImportFromCodex_RecordCodexSkillAssets_PreservesScalarStyle(t *testing.
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, "skills/probe/SKILL.md"))
-	if !strings.Contains(got, `allowed-tools: "Read, Bash(*)"`) {
+	if !strings.Contains(got, `allowed-tools: "read, shell(*)"`) {
 		t.Errorf("hand-quoted allowed-tools must keep its quotes after recordCodexSkillAssets:\n%s", got)
 	}
 	if !strings.Contains(got, "- scripts") {

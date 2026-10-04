@@ -32,11 +32,11 @@ func TestEmit_PermissionPoliciesTranslateConfigAndPortableLists(t *testing.T) {
   claude:
     settings:
       permissions:
-        allow: ["Bash(npm run check)", "Bash(npx vitest run:*)", "Bash(git diff:*)"]
+        allow: ["Bash(npm run check:*)", "Bash(npx vitest run:*)", "Bash(git diff:*)"]
         deny: ["Bash(rm -rf:*)"]
         ask: ["Bash(git push:*)"]
 `)
-	b := spec.NewBundle([]spec.Entry{{Kind: spec.KindSettings, Name: "portable", Meta: map[string]any{"permissions": map[string]any{"allow": []any{"Bash(go test:*)", "Bash(npm run check)"}}}}})
+	b := spec.NewBundle([]spec.Entry{{Kind: spec.KindSettings, Name: "portable", Meta: map[string]any{"permissions": map[string]any{"allow": []any{"Bash(go test:*)", "Bash(npm run check:*)"}}}}})
 	if err := New().Emit(emit.NewSession(), b, cfg, false); err != nil {
 		t.Fatal(err)
 	}
@@ -293,7 +293,10 @@ func TestEmit_PermissionPoliciesSkipExactAllowListedBeforeCoveringWildcard(t *te
 	}
 }
 
-func TestEmit_PermissionPoliciesNameExactAllowRulesCodexWidens(t *testing.T) {
+// Codex has no exact-match rule, so a prefix also allows extra
+// arguments. An exact allow whose prefix nothing else decides would
+// allow more than Claude Code does, so it is never written.
+func TestEmit_PermissionPoliciesSkipExactAllowRulesCodexWouldWiden(t *testing.T) {
 	for _, mode := range []string{"warn", "error", "silent"} {
 		t.Run(mode, func(t *testing.T) {
 			testutil.TempCwd(t)
@@ -305,12 +308,29 @@ func TestEmit_PermissionPoliciesNameExactAllowRulesCodexWidens(t *testing.T) {
 			t.Cleanup(func() { emit.Warner = previous })
 			cfg := permissionPolicyConfig(t, "on-unsupported: "+mode+"\noutputs:\n  codex:\n    exec-policies-from-permissions: true\n  claude:\n    settings:\n      permissions:\n        allow: [\"Bash(git push)\", \"Bash(git diff:*)\", \"Bash(go *)\", \"Bash(go test)\", \"Bash(npm run check)\", \"Bash(tar x)\"]\n        deny: [\"Bash(rm -rf)\", \"Bash(git push --force)\"]\n        ask: [\"Bash(npm run:*)\", \"Bash(tar)\"]\n")
 			b := spec.NewBundle([]spec.Entry{{Kind: spec.KindSettings, Name: "security", Path: "settings/security.yaml", Meta: map[string]any{"permissions": map[string]any{"allow": []any{"Bash(make lint)"}}}}})
-			if err := New().Emit(emit.NewSession(), b, cfg, false); err != nil {
-				t.Fatalf("a widened allow rule failed the sync: %v", err)
+			err := New().Emit(emit.NewSession(), b, cfg, false)
+			if mode == "error" {
+				if err == nil || !strings.Contains(err.Error(), "permissions.allow rule Bash(make lint) is not written: Codex has no exact-match rule") {
+					t.Errorf("error mode must fail on a widening allow: %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
 			}
 			data, err := os.ReadFile(defaultExecPoliciesFile)
-			if err != nil || !strings.Contains(string(data), `pattern = ["git", "push"]`) {
-				t.Errorf("exact rule not translated: %v\n%s", err, data)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, widened := range []string{`pattern = ["git", "push"]`, `pattern = ["make", "lint"]`} {
+				if strings.Contains(string(data), widened) {
+					t.Errorf("a widening allow was written (%s):\n%s", widened, data)
+				}
+			}
+			for _, kept := range []string{`pattern = ["git", "diff"]`, `pattern = ["go", "test"]`, `pattern = ["npm", "run", "check"]`, `pattern = ["git", "push", "--force"]`} {
+				if !strings.Contains(string(data), kept) {
+					t.Errorf("policy lacks %s:\n%s", kept, data)
+				}
 			}
 			emit.FlushCoverageNotes()
 			got := notes.String()
@@ -321,8 +341,8 @@ func TestEmit_PermissionPoliciesNameExactAllowRulesCodexWidens(t *testing.T) {
 				return
 			}
 			for _, want := range []string{
-				"note: codex: settings/security.yaml: permissions.allow rule Bash(make lint) becomes a Codex prefix rule",
-				"note: codex: " + config.ConfigFileName + ": permissions.allow rule Bash(git push) becomes a Codex prefix rule",
+				"note: codex: settings/security.yaml: permissions.allow rule Bash(make lint) is not written",
+				"note: codex: " + config.ConfigFileName + ": permissions.allow rule Bash(git push) is not written",
 			} {
 				if !strings.Contains(got, want) {
 					t.Errorf("notes lack %q:\n%s", want, got)

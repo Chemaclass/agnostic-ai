@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -70,63 +71,20 @@ func bareCapabilityScope(rule string) (string, string) {
 }
 
 func bareCapabilityNativePermissions(rule, list, target string) []string {
-	aliases, problem := spec.PermissionRules(list, rule)
-	if problem != "" {
+	if target == "cursor" {
+		if server, ok := strings.CutPrefix(rule, "mcp:"); ok && list == "allow" {
+			if _, problem := spec.PermissionRules(list, rule); problem == "" {
+				return []string{"Mcp(" + server + ":*)"}
+			}
+		}
 		return nil
 	}
-	switch target {
-	case "claude", "qoder":
-		return aliases
-	case "cursor":
-		if server, ok := strings.CutPrefix(rule, "mcp:"); ok && list == "allow" {
-			return []string{"Mcp(" + server + ":*)"}
-		}
-	case "kilo", "opencode":
-		if strings.HasPrefix(rule, "mcp:") {
-			return nil
-		}
-		switch rule {
-		case "shell":
-			return []string{"bash"}
-		case "read":
-			return []string{"read"}
-		case "edit":
-			return []string{"edit"}
-		case "write":
-			if target == "opencode" {
-				return []string{"edit"}
-			}
-			return []string{"write"}
-		case "web":
-			return []string{"webfetch", "websearch"}
-		}
-	case "windsurf":
-		switch rule {
-		case "shell":
-			return []string{"exec"}
-		case "read", "edit", "write":
-			return []string{rule}
-		case "web":
-			return []string{"web_search"}
-		default:
-			if strings.HasPrefix(rule, "mcp:") {
-				return aliases
-			}
-		}
-	case "augment":
-		if list == "ask" {
-			return nil
-		}
-		switch rule {
-		case "shell":
-			return []string{"terminal"}
-		case "read", "edit", "write":
-			return []string{rule}
-		case "web":
-			return []string{"web-fetch", "web-search"}
-		}
+	adapter, registered := adapters.Get(target)
+	if !registered || !slices.Contains(adapter.Capabilities(), spec.KindSettings) {
+		return nil
 	}
-	return nil
+	return adapters.TranslatePermissionCapability(target, list, rule, nil).Native
+
 }
 
 func barePermissionOverridden(settings []spec.Entry, entry spec.Entry, target, name string) bool {

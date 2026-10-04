@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -139,5 +141,39 @@ func TestLint_BareCapabilitiesWarnByDefaultAndFailStrict(t *testing.T) {
 	}
 	if out, err := runCLI(t, "lint", "--strict"); err == nil || !strings.Contains(out, "LINT038") {
 		t.Errorf("strict = %v, %s", err, out)
+	}
+}
+
+func TestLintBareCapabilities_KiloEditAskNamesWriteRestriction(t *testing.T) {
+	entry := spec.Entry{Kind: spec.KindSettings, Path: "settings/edit.yaml", Meta: map[string]any{"permissions": map[string]any{"ask": []any{"edit"}}}}
+	got := lintBareCapabilities([]spec.Entry{entry}, []string{"kilo"})
+	if len(got) != 1 || !strings.Contains(got[0].Message, "kilo: edit, write") {
+		t.Errorf("findings = %v, want edit and write", got)
+	}
+}
+
+func TestBareCapabilityPermissions_FollowsAdapterTranslation(t *testing.T) {
+	for _, tc := range []struct{ target, list, rule string }{
+		{"kilo", "ask", "edit"},
+		{"windsurf", "allow", "shell"},
+		{"opencode", "allow", "web"},
+		{"augment", "ask", "web"},
+		{"factory", "allow", "shell"},
+		{"qoder", "allow", "read"},
+	} {
+		t.Run(tc.target+"/"+tc.list+"/"+tc.rule, func(t *testing.T) {
+			want := adapters.TranslatePermissionCapability(tc.target, tc.list, tc.rule, nil).Native
+			got := bareCapabilityNativePermissions(tc.rule, tc.list, tc.target)
+			if !slices.Equal(got, want) {
+				t.Errorf("native permissions = %v, adapter translates %v", got, want)
+			}
+		})
+	}
+}
+
+func TestLintBareCapabilities_SkipsTargetsWithoutNativePermissions(t *testing.T) {
+	entry := spec.Entry{Kind: spec.KindSettings, Meta: map[string]any{"permissions": map[string]any{"allow": []any{"shell", "mcp:github"}, "ask": []any{"web"}}}}
+	if got := lintBareCapabilities([]spec.Entry{entry}, []string{"kiro", "factory", "augment"}); len(got) != 1 || !strings.Contains(got[0].Message, "augment: terminal") {
+		t.Errorf("findings = %v, want only Augment terminal allow", got)
 	}
 }

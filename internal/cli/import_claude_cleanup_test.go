@@ -9,7 +9,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-func TestImportFromClaude_MovesSkillAllowedToolsUnderXClaude(t *testing.T) {
+func TestImportFromClaude_KeepsNeutralSkillAllowedTools(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".claude/skills/style/SKILL.md"),
 		"---\nname: style\ndescription: Style guide.\nallowed-tools: \"Read, Bash(*)\"\nmodel: sonnet\n---\n\nBody.\n")
@@ -17,7 +17,7 @@ func TestImportFromClaude_MovesSkillAllowedToolsUnderXClaude(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := readFile(t, filepath.Join(dir, "skills/style/SKILL.md"))
-	want := "---\nname: style\ndescription: Style guide.\nx-claude:\n  allowed-tools: \"Read, Bash(*)\"\nmodel: sonnet\n---\n\nBody.\n"
+	want := "---\nname: style\ndescription: Style guide.\nallowed-tools: \"read, shell(*)\"\nmodel: sonnet\n---\n\nBody.\n"
 	if got != want {
 		t.Errorf("SKILL.md:\ngot:\n%s\nwant:\n%s", got, want)
 	}

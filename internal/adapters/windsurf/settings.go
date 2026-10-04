@@ -121,40 +121,6 @@ func entryRules(entry spec.Entry, list string) (rules []string, native bool) {
 	return emit.StringSlice(permissions[list]), false
 }
 
-// devinPermissionTool maps agnostic-ai's Claude-style tool identifiers
-// onto the bare tool names Devin's `permissions` lists accept. It is
-// keyed separately from the subagent map in agent.go: the two surfaces
-// draw their vocabularies from different pages and have already moved
-// apart once (#951).
-//
-// `/cli/reference/permissions` enumerates five names, "**Available
-// tool names:** `read`, `edit`, `grep`, `glob`, `exec`", and lags its
-// own changelog. The CLI changelog's v3000.10.21 entry (2026-09-10)
-// adds a sixth under `### Fixed`: "`web_search` can now be used as a
-// tool name in `permissions.deny` / `permissions.ask` /
-// `permissions.allow`; previously it was rejected and web searches
-// were always auto-approved." The v3000.11.1 entry (September 21,
-// 2026) adds a seventh the same way: "Custom subagent profiles and
-// skills can grant the `write` tool using `allowed-tools`, and
-// permission rules recognize it." `Write` now maps onto `write`
-// instead of collapsing onto `Edit`'s `edit` (#1022).
-//
-// `webfetch` stays out. It is a real tool name, but only in the
-// lifecycle-hooks tool table and a user-tier `disabled_tools` example,
-// and neither governs `permissions`. `web_search` itself is the proof:
-// it shipped as a tool in May 2026 and `permissions` rejected it until
-// September. Only a sentence about `permissions` licenses an entry
-// here.
-var devinPermissionTool = map[string]string{
-	"Read":      "read",
-	"Grep":      "grep",
-	"Glob":      "glob",
-	"Bash":      "exec",
-	"Write":     "write",
-	"Edit":      "edit",
-	"WebSearch": "web_search",
-}
-
 // devinPermissionRule translates one agnostic-ai permission rule onto
 // Devin's own vocabulary, reporting false for anything with no faithful
 // spelling there rather than guessing one
@@ -203,7 +169,7 @@ func devinPermissionRule(rule, list string) (string, bool) {
 		}
 		return "", false
 	}
-	if name, ok := devinPermissionTool[rule]; ok {
+	if name, ok := emit.CapabilityTool(toolCapabilities, rule, true); ok {
 		return name, true
 	}
 	return "", false

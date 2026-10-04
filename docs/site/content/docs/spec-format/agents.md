@@ -88,28 +88,29 @@ An explicit `x-claude.disallowedTools`, `x-codex.sandbox_mode`, or `x-factory.to
 `can` lists what an agent may do, in names no single tool owns:
 
 ```yaml
-can: [read, edit, shell(go test *), mcp:github]
+can: [read(src/**), edit(src/**), shell(go test *), mcp:github]
 ```
 
 | `can` value | Grants | Claude Code name |
 |-------------|--------|------------------|
-| `read` | Read files | `Read` |
+| `read`, `read(<path>)` | Read files, or matching files | `Read`, `Read(<path>)` |
 | `write` | Create or overwrite files | `Write` |
-| `edit` | Edit existing files | `Edit` |
+| `edit`, `edit(<path>)` | Edit files, or matching files | `Edit`, `Edit(<path>)` |
+| `delete` | Delete files | No native tool |
 | `shell` | Run any command | `Bash` |
 | `shell(<pattern>)` | Run the commands that match the pattern | `Bash(<pattern>)` |
 | `web` | Fetch pages and search the web | `WebFetch`, `WebSearch` |
 | `mcp:<server>` | Use every tool of one MCP server | `mcp__<server>` |
 | `mcp:<server>/<tool>` | Use one MCP tool | `mcp__<server>__<tool>` |
 
-- Each capability syncs to every target as its Claude Code names in `tools` would, byte for byte.
+- Each capability maps to the target's native names. Existing Claude Code aliases keep the same mappings. `delete` raises a coverage note on targets with no native delete tool.
 - Claude Code names stay valid as aliases, with no deprecation planned. A list can mix both: `can: [read, Grep]`.
 - The names match the hook [`match:` tool kinds](@/docs/spec-format/hooks.md#portable-events).
-- A target that can only grant more prints a note naming the extra access. On Kiro, `edit` also allows `delete_file`.
+- A target that grants more prints a note naming the extra access. On Kiro, `edit` also allows `delete_file`. `on-unsupported: error` fails on widening, for capabilities and Claude Code aliases alike.
 - `validate`, `lint` (LINT036), and `sync` stop on an unknown capability, on `can` beside `tools`, and on `can` under `x-<target>`. A typo never syncs an agent with every tool.
 - A capability is only as strong as the tool's own permission system. agnostic-ai adds no sandbox.
 
-`agnostic-ai migrate --only capabilities` rewrites `tools` as `can`. Each name a capability stands for alone becomes that capability. The rest stay as aliases, and sync writes the same files.
+`agnostic-ai migrate --only capabilities` rewrites `tools` as `can`. Each name a capability stands for alone becomes that capability. An adjacent `WebFetch, WebSearch` pair becomes `web`. The rest stay as aliases, and sync writes the same files. `import` writes capabilities when the native names map one to one. `lint --suggest-capabilities` suggests neutral names for aliases (LINT037). These suggestions are off by default.
 
 ## Per-target `model` and `effort` {#per-target-model-and-effort}
 
@@ -266,10 +267,10 @@ Only the targets listed were checked. Sync reads `can` as the `tools` it stands 
 |--------|----------|
 | [Claude Code](@/docs/targets/claude.md), [Copilot](@/docs/targets/copilot.md), [Junie](@/docs/targets/junie.md) | Passed through as a YAML list |
 | [Qoder](@/docs/targets/qoder.md), [Trae](@/docs/targets/trae.md) | Passed through as a comma-separated string (`tools: Read, Bash`) |
-| [Windsurf](@/docs/targets/windsurf.md), [Kiro](@/docs/targets/kiro.md), [Factory](@/docs/targets/factory.md), [Gemini](@/docs/targets/gemini.md) | Translated to native names |
-| [Antigravity](@/docs/targets/antigravity.md), [OpenHands](@/docs/targets/openhands.md), [Goose](@/docs/targets/goose.md), [Codex](@/docs/targets/codex.md), [Cursor](@/docs/targets/cursor.md), [Augment](@/docs/targets/augment.md), [Kilo Code](@/docs/targets/kilo.md) | Dropped with a note |
+| [Windsurf](@/docs/targets/windsurf.md), [Kiro](@/docs/targets/kiro.md), [Factory](@/docs/targets/factory.md), [Gemini](@/docs/targets/gemini.md), [Kilo Code](@/docs/targets/kilo.md) | Translated to native names or a permission map |
+| [Antigravity](@/docs/targets/antigravity.md), [OpenHands](@/docs/targets/openhands.md), [Goose](@/docs/targets/goose.md), [Codex](@/docs/targets/codex.md), [Cursor](@/docs/targets/cursor.md), [Augment](@/docs/targets/augment.md) | Dropped with a note |
 
-Translation can widen access: on Kiro, `edit` also permits `delete_file`, and sync prints a note naming it. Most targets accept native names through `x-<target>.tools`, which bypasses translation.
+Translation can widen access: on Kiro, `edit` also permits `delete_file`. Sync prints a note naming the extra access, and `on-unsupported: error` fails. `explain agents/<name>.md` lists each configured target's native names and widening. Most targets accept native names through `x-<target>.tools`, which bypasses translation.
 
 ## `mcpServers` support by target {#mcpservers-support-by-target}
 

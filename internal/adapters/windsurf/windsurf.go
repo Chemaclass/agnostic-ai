@@ -284,6 +284,10 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
 		return err
 	}
+	if err := reportPermissionWidening(b.Settings, cfg.OnUnsupported); err != nil {
+		return err
+	}
+
 	rulesDir := emit.OutputRulesDir(cfg, target, defaultDir)
 	if err := sess.RulesDirectory(b, emit.RulesDirOpts{
 		Dir:         rulesDir,

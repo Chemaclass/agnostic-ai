@@ -26,6 +26,25 @@ type ManualOnlySkillReader interface {
 	SkillInvocationPolicySet(skill spec.Entry) bool
 }
 
+func PrepareSkillCapabilities(target string, skills []spec.Entry, mode string) ([]spec.Entry, error) {
+	normalized := spec.Bundle{}
+	for _, skill := range skills {
+		if !skill.EmitsTo(target) {
+			continue
+		}
+		native, problem := skill.NativeAllowedTools()
+		if problem != "" {
+			return nil, fmt.Errorf("%s: %s", skill.Path, problem)
+		}
+		normalized.Skills = append(normalized.Skills, native)
+	}
+	filtered, err := emit.WithoutUnsupportedDelete(normalized, target, mode)
+	if err != nil {
+		return nil, err
+	}
+	return filtered.Skills, nil
+}
+
 // RenderSkillMarkdown keeps shared user directories free of target-specific metadata.
 func RenderSkillMarkdown(target string, skill spec.Entry, shared bool) (string, error) {
 	content := ""

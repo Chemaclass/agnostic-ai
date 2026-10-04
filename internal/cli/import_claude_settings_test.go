@@ -41,9 +41,9 @@ func TestImportClaudeSettingsOverlay_MovesPermissionListsToSpec(t *testing.T) {
 		t.Fatalf("parse spec: %v", err)
 	}
 	want := map[string][]string{
-		"allow": {"Bash(git log * --oneline:*)", "Read(src/**)"},
-		"ask":   {"Bash(git push:*)"},
-		"deny":  {"Bash(git push origin +*:*)"},
+		"allow": {"shell(git log * --oneline:*)", "read(src/**)"},
+		"ask":   {"shell(git push:*)"},
+		"deny":  {"shell(git push origin +*:*)"},
 	}
 	for list, rules := range want {
 		if strings.Join(doc.Permissions[list], ",") != strings.Join(rules, ",") {
@@ -99,10 +99,10 @@ func TestImportClaudeSettingsOverlay_SkipsRulesAnotherSpecOwns(t *testing.T) {
 		t.Fatalf("import: %v", err)
 	}
 	spec := readFileString(t, filepath.Join(settingsDir, claudePermissionsSpec+".yaml"))
-	if strings.Contains(spec, "Bash(rm:*)") || strings.Contains(spec, "WebFetch") {
+	if strings.Contains(spec, "Bash(rm:*)") || strings.Contains(spec, "shell(rm:*)") || strings.Contains(spec, "WebFetch") {
 		t.Errorf("spec copied a rule another spec owns:\n%s", spec)
 	}
-	if !strings.Contains(spec, "Read(.env)") {
+	if !strings.Contains(spec, "read(.env)") {
 		t.Errorf("spec lost the Claude-only rule:\n%s", spec)
 	}
 }
@@ -121,7 +121,7 @@ func TestImportClaudeSettingsOverlay_KeepsRulesASpecForAnotherTargetAlsoLists(t 
 		t.Fatalf("import: %v", err)
 	}
 	spec := readFileString(t, filepath.Join(settingsDir, claudePermissionsSpec+".yaml"))
-	if !strings.Contains(spec, "Bash(rm:*)") || !strings.Contains(spec, "WebFetch") {
+	if !strings.Contains(spec, "shell(rm:*)") || !strings.Contains(spec, "WebFetch") {
 		t.Errorf("spec dropped a rule only a spec for another target lists:\n%s", spec)
 	}
 }

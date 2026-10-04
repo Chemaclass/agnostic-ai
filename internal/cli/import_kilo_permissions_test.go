@@ -40,7 +40,7 @@ func TestImportKilo_ReadsPermissionMapBack(t *testing.T) {
 	}
 	got := readFile(t, filepath.Join(dst, "permissions-kilo.yaml"))
 	for _, want := range []string{
-		"- Bash(git:*)", "- WebSearch", "- Bash", "- Read(docs/*)", "- Bash(rm -rf:*)",
+		"- shell(git:*)", "- WebSearch", "- shell\n", "- read(docs/*)", "- shell(rm -rf:*)",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
