@@ -42,7 +42,8 @@ func TestSync_WritesAnAgentAsASkillOnATargetWithoutSubagents(t *testing.T) {
 				t.Errorf("sync --check: %v\n%s", err, out)
 			}
 			out, err := runCLI(t, "why", filepath.Join(".agents", "skills", "reviewer", "SKILL.md"))
-			if err != nil || !strings.Contains(out, filepath.Join(".agnostic-ai", "agents", "reviewer.md")) {
+			// why prints slash paths on every platform.
+			if err != nil || !strings.Contains(out, ".agnostic-ai/agents/reviewer.md") {
 				t.Errorf("why must name the agent spec, got %v\n%s", err, out)
 			}
 		})
