@@ -36,8 +36,9 @@ func newHookOwners(entries []spec.Entry, cfg *config.Config) *hookOwners {
 
 // owner names the hook spec whose target rendering holds handler key
 // for event and matcher, or returns "". A command handler is what sync
-// writes. The event and matcher count in the spec's own view and its
-// `x-<target>` view. A target may join matchers on emit, so a handler
+// writes. Another handler's payload counts in the spec's own view and its
+// `x-<target>` view. Both sit under the event and matcher sync writes. A
+// target may join matchers on emit, so a handler
 // whose matcher covers a spec's is that spec's, even when another spec
 // feeds it too.
 func (l *hookOwners) owner(target, event, matcher, key string) string {
@@ -52,20 +53,18 @@ func (l *hookOwners) owner(target, event, matcher, key string) string {
 			if reason != "" {
 				continue
 			}
-			command := commandHook(native.Meta)
-			var synced []string
-			if command {
-				synced = syncedHookKeys(l.cfg, target, native)
+			// Sync reads the event and matcher after the `x-<target>`
+			// override on every target.
+			meta := adapters.TargetHook(target, native).Meta
+			var keys []string
+			if commandHook(native.Meta) {
+				keys = syncedHookKeys(l.cfg, target, native)
+			} else {
+				keys = append(writtenHookKeys(native.Meta), writtenHookKeys(adapters.ResolveMeta(native.Meta, target))...)
 			}
-			for _, meta := range []map[string]any{native.Meta, adapters.ResolveMeta(native.Meta, target)} {
-				keys := synced
-				if !command {
-					keys = writtenHookKeys(meta)
-				}
-				for _, k := range keys {
-					id := hookIdentity(hookEventKey(meta), k)
-					index[id] = append(index[id], hookOwnerMatcher{matcher: hookMatcher(meta), name: e.Name})
-				}
+			for _, k := range keys {
+				id := hookIdentity(hookEventKey(meta), k)
+				index[id] = append(index[id], hookOwnerMatcher{matcher: hookMatcher(meta), name: e.Name})
 			}
 		}
 		l.byTarget[target] = index

@@ -42,6 +42,11 @@ func TargetHooks(target string, hooks []spec.Entry) []spec.Entry {
 	return emit.TargetHooks(target, hooks)
 }
 
+// TargetHook is TargetHooks for one hook.
+func TargetHook(target string, h spec.Entry) spec.Entry {
+	return emit.TargetHook(target, h)
+}
+
 // ExecFormCommand folds an exec-form hook's args into a quoted
 // shell-form command.
 func ExecFormCommand(command string, args []string) string {

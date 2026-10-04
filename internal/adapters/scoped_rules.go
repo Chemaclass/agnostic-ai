@@ -22,7 +22,7 @@ func EntryPointRules(b spec.Bundle, target string, configs ...*config.Config) sp
 		cfg = configs[0]
 	}
 	out := emit.EntryPointRules(b, target, cfg)
-	vals, _ := entryPointVars(cfg, target)
+	vals, _ := emit.EntryPointVars(cfg, target)
 	rules := make([]spec.Entry, len(out.Rules))
 	for i, r := range out.Rules {
 		r.Body, _ = emit.ExpandVars(r.Body, vals)
@@ -36,44 +36,13 @@ func EntryPointRules(b spec.Bundle, target string, configs ...*config.Config) sp
 // target's entry point keeps verbatim because the tools reading that
 // file do not resolve them to one path.
 func NoteEntryPointVars(cfg *config.Config, b spec.Bundle, target string) {
-	vals, contested := entryPointVars(cfg, target)
-	if len(contested) == 0 {
-		return
+	vals, contested := emit.EntryPointVars(cfg, target)
+	rules := emit.EntryPointRules(b, target, cfg).Rules
+	bodies := make([]string, len(rules))
+	for i, r := range rules {
+		bodies[i] = r.Body
 	}
-	used := map[string]bool{}
-	count := 0
-	for _, r := range emit.EntryPointRules(b, target, cfg).Rules {
-		hit := false
-		_, missing := emit.ExpandVars(r.Body, vals)
-		for _, name := range missing {
-			if slices.Contains(contested, name) {
-				used[name] = true
-				hit = true
-			}
-		}
-		if hit {
-			count++
-		}
-	}
-	if count == 0 {
-		return
-	}
-	tokens := make([]string, 0, len(used))
-	for _, name := range contested {
-		if used[name] {
-			tokens = append(tokens, "{{$"+name+"}}")
-		}
-	}
-	subject, pronoun := "1 rule keeps", "it"
-	if count > 1 {
-		subject = fmt.Sprintf("%d rules keep", count)
-	}
-	if len(tokens) > 1 {
-		pronoun = "them"
-	}
-	emit.NoteProject(fmt.Sprintf("%s: %s %s verbatim, because the tools that read the file (%s) do not resolve %s to one path",
-		emit.EntryPointPath(cfg, target), subject, strings.Join(tokens, ", "),
-		strings.Join(entryPointReaders(cfg, target), ", "), pronoun))
+	emit.NoteSharedVars(emit.EntryPointPath(cfg, target), emit.EntryPointReaders(cfg, target), spec.KindRule, bodies, vals, contested)
 }
 
 // ScopedDocuments lists the files target writes inside a scope directory,
@@ -201,9 +170,7 @@ func ValidateScopedRules(cfg *config.Config, b spec.Bundle, requested []string) 
 }
 
 // ReviewSections returns the Codex code review section per review scope
-// ("" for the root), with variables expanded for codex so the text
-// matches what cursor writes to BUGBOT.md. Nil unless the project, or
-// this run, syncs codex.
+// ("" for the root). Nil unless the project, or this run, syncs codex.
 func ReviewSections(b spec.Bundle, cfg *config.Config, requested ...string) map[string]string {
 	b = b.For("codex")
 	// The sections land in AGENTS.md, which other tools read too, so
@@ -212,7 +179,7 @@ func ReviewSections(b spec.Bundle, cfg *config.Config, requested ...string) map[
 	for i := range b.Reviews {
 		b.Reviews[i].Body, _ = emit.ExpandRefs(b.Reviews[i].Body, nil)
 	}
-	return emit.ReviewSections(expandBundleVars(b, cfg, "codex"), cfg, requested...)
+	return emit.ReviewSections(b, cfg, requested...)
 }
 
 // AppendReviewSection returns body with the review section appended.

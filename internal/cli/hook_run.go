@@ -209,6 +209,7 @@ func runHookTargets(cfg *config.Config, source spec.Entry, hooks []spec.Entry, t
 			continue
 		}
 		hook, reason := source.NativeHook(target)
+		hook = adapters.TargetHook(target, hook)
 		if reason != "" {
 			run.Reason = reason
 			add(run)

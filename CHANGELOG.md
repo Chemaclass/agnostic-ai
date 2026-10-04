@@ -14,12 +14,13 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - Hooks take portable `on:` and `match:` on 13 tools; `import` writes them where they map exactly and skips the native hooks a shared hook spec already syncs. `migrate` rewrites old spec forms, output unchanged, and `doctor` and `lint` (LINT034) name them (#1755, #1752, #1768).
 - `migrate --global` rewrites old spec forms in the global home; `migrate` never rewrites a pack, even through a symlink, and `--list` names it (#1755).
 - Hook `args` now reach the command on 12 more tools, folded in and shell-quoted, and `import` matches them; Augment skips such a hook with a note (#1780).
-- `import` matches hooks by exactly what sync writes, keeping Crush script hooks shared; a hook's `x-<target>` `command` and `args` apply on every tool (#1788).
+- Hook `x-<target>` event, matcher, command, and args apply on every tool; `import` matches hooks by what sync writes, Crush scripts too (#1788, #1797).
 - `init --demo` seeds a `no-force-push` guard, `new agent` omits `model`, and `lint` warns (LINT031) on a leftover `TODO` description (#1732, #1738, #1739).
 - Spec bodies can name an agent or skill with `{{$AGENT:name}}` and `{{$SKILL:name}}`, which render each tool's documented invocation phrase; `lint` fails (LINT033) on an unknown name (#1773).
 - A rule inlined into `AGENTS.md`, `GEMINI.md`, or another entry point now expands `{{$SKILLS_DIR}}` and the other path variables where every tool reading that file agrees on the path; otherwise a note names the file (#1787).
 - `init --demo` seeds a spec guard: after an edit, the agent sees the lint errors in the specs it touched, and when it stops with specs not synced, a one-line notice. `lint --files` and `hook guard` back it (#1774).
 - MCP `env` and `headers` values are references unless marked `NODE_ENV: !literal production`; `lint` warns (LINT035) and sync counts the rest, which a later release fails on. Run `agnostic-ai migrate --only secrets` (#1753).
+- Agents take a neutral `can:` list, such as `[read, edit, shell(git diff *), mcp:github]`, that syncs as the Claude Code `tools` it stands for. Kiro notes the access a category adds, `lint` fails (LINT036) on an unknown capability, and `migrate --only capabilities` rewrites `tools` (#1754).
 
 ### By tool
 

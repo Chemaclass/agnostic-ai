@@ -327,7 +327,7 @@ func TestMigrate_ListAndOnly(t *testing.T) {
 	if out, err := runCLI(t, "migrate"); err != nil || !strings.Contains(out, "no migrations apply") {
 		t.Errorf("nothing to do: %v\n%s", err, out)
 	}
-	if _, err := runCLI(t, "migrate", "--only", "nope"); err == nil || !strings.Contains(err.Error(), `no migration group "nope"; groups: config, hooks`) {
+	if _, err := runCLI(t, "migrate", "--only", "nope"); err == nil || !strings.Contains(err.Error(), `no migration group "nope"; groups: capabilities, config, hooks, secrets`) {
 		t.Errorf("an unknown group must fail and list the groups: %v", err)
 	}
 	if _, err := runCLI(t, "migrate", "--only", ""); err == nil || !strings.Contains(err.Error(), `no migration group ""`) {

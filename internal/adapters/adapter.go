@@ -539,7 +539,7 @@ func EntryPointRuleInliner(cfg *config.Config, target string) string {
 // text, and that file would load r in every session too.
 func RuleInEntryPoint(cfg *config.Config, b spec.Bundle, target string, r spec.Entry) bool {
 	own := slices.Clone(b.For(target).Rules)
-	vals := varsFor(cfg, target)
+	vals := emit.VarsFor(cfg, target)
 	for i := range own {
 		own[i].Body, _ = emit.ExpandVars(own[i].Body, vals)
 		own[i].Body, _ = emit.ExpandRefs(own[i].Body, emit.RefForms[target])
@@ -720,7 +720,7 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 		sess.SetCodexSkillsDir(codexSkills)
 		writers := map[string][]string{}
 		for _, t := range cfg.Targets {
-			if dir := varsFor(cfg, t)[emit.VarSkillsDir]; dir != "" {
+			if dir := emit.VarsFor(cfg, t)[emit.VarSkillsDir]; dir != "" {
 				writers[filepath.Clean(dir)] = append(writers[filepath.Clean(dir)], t)
 			}
 		}

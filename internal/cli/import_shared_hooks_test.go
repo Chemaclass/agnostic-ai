@@ -345,3 +345,60 @@ func TestImport_SkipsASharedHookThatExportsTheTargetItself(t *testing.T) {
 		})
 	}
 }
+
+// Sync reads a hook's event and matcher after its `x-<target>` override,
+// as it reads the command, so import matches the synced hook there and
+// keeps a native one under the top-level event and matcher.
+func TestImport_MatchesAnOverriddenEventAndMatcher(t *testing.T) {
+	hook := "name: sh\nevent: BeforeTool\nmatcher: run_shell_command\ncommand: echo base\nx-gemini:\n  event: AfterTool\n  matcher: write_file\n  command: echo target\n"
+	syncSharedHook(t, "gemini", hook)
+
+	assertOnlySharedHook(t, hook, importCapturing(t, "gemini"))
+
+	path := filepath.Join(".gemini", "settings.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var settings map[string]any
+	if err := json.Unmarshal(data, &settings); err != nil {
+		t.Fatal(err)
+	}
+	hooks := settings["hooks"].(map[string]any)
+	if _, ok := hooks["BeforeTool"]; ok {
+		t.Fatalf("sync wrote the top-level event: %s", data)
+	}
+	hooks["BeforeTool"] = []any{map[string]any{"matcher": "run_shell_command", "hooks": []any{map[string]any{"type": "command", "command": "echo target"}}}}
+	if data, err = json.Marshal(settings); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, path, string(data))
+
+	importCapturing(t, "gemini")
+
+	files := sharedHookFiles(t)
+	if len(files) != 2 || files["sh.yaml"] != hook {
+		t.Fatalf("want sh.yaml and the native hook, got %v", files)
+	}
+	for name, data := range files {
+		if name != "sh.yaml" && (!strings.Contains(data, "BeforeTool") || !strings.Contains(data, "echo target")) {
+			t.Errorf("%s: want the native BeforeTool hook:\n%s", name, data)
+		}
+	}
+}
+
+// A non-command hook moved to another event by its override leaves a
+// native one under the original event to import.
+func TestImport_KeepsANativeHookUnderTheEventAnOverrideLeft(t *testing.T) {
+	hook := "name: sh\nevent: PreToolUse\nmatcher: Bash\ntype: http\nurl: https://example.com/hook\nx-claude:\n  event: PostToolUse\n"
+	syncSharedHook(t, "claude", hook)
+	writeFile(t, filepath.Join(".claude", "settings.json"),
+		`{"hooks":{"PostToolUse":[{"matcher":"Bash","hooks":[{"type":"http","url":"https://example.com/hook"}]}],"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"http","url":"https://example.com/hook"}]}]}}`)
+
+	importCapturing(t, "claude")
+
+	files := sharedHookFiles(t)
+	if len(files) != 2 || files["sh.yaml"] != hook {
+		t.Fatalf("want sh.yaml and the native PreToolUse hook, got %v", files)
+	}
+}

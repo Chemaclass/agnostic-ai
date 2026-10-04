@@ -229,6 +229,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "A hook's `event:` and `matcher:` have a portable `on:` and `match:` that give every enabled target the hook reaches the same native event and matcher, so the portable form syncs the same files. The finding names the values. It is raised for exactly the hooks `agnostic-ai migrate --only hooks` rewrites.",
 		Fix:      "Run `agnostic-ai migrate --only hooks`, or write the `on:` and `match:` the finding names in place of `event:` and `matcher:`.",
 	},
+	"LINT036": {
+		Severity: lintError,
+		Title:    "Agent capability sync cannot read",
+		Cause:    "An agent's `can:` holds an unknown capability, a malformed `shell(<pattern>)` or `mcp:<server>`, or a value that is not a list, sits beside `tools:`, or sits under `x-<target>`. Sync stops rather than write the agent without its restriction.",
+		Fix:      "Use a capability from the agents page or a Claude Code tool name, and keep one of `can:` and `tools:`.",
+	},
 }
 
 type explainLintCodeOutput struct {

@@ -217,7 +217,8 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if err != nil {
 		return err
 	}
-	if err := stopOnIssues(portableHookProblems(ownSpecs(bundle).Hooks)); err != nil {
+	own := ownSpecs(bundle)
+	if err := stopOnIssues(append(portableHookProblems(own.Hooks), agentCapabilityIssues(own.Agents)...)); err != nil {
 		return err
 	}
 	tiers, unloaded, err := loadGlobalModels(source, skipBroken)
