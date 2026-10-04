@@ -136,6 +136,8 @@ A file several targets read, such as `.agents/skills/<name>/SKILL.md`, is listed
 
 Neither has a config-file key.
 
+Bare capabilities in settings `permissions.allow` or `permissions.ask` print a LINT038 note once each sync run. It names the native permissions and a scoped alternative. `on-unsupported: silent` and `--quiet` hide it. With `--json`, the note goes to stderr. See [permission rules](@/docs/spec-format/settings.md#permission-rules).
+
 ### Watch mode
 
 `sync --watch` watches these paths, including ones that appear later:

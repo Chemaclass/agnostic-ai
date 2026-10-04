@@ -115,7 +115,7 @@ func newSyncCmd() *cobra.Command {
 				}
 				defer func() { _ = lock.Close() }()
 			}
-			cfg, _, err := loadProject(".")
+			cfg, bundle, err := loadProject(".")
 			if err != nil {
 				return err
 			}
@@ -155,6 +155,9 @@ func newSyncCmd() *cobra.Command {
 				}
 			}
 
+			if plan || check || jsonOut && dryRun {
+				warnBareCapabilitiesTo(cmd.ErrOrStderr(), cfg, bundle, effective)
+			}
 			if plan {
 				resetDrops()
 				if err := checkHandWrittenInstructions(effective, backup); err != nil {

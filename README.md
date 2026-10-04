@@ -36,6 +36,8 @@ agnostic-ai sync
 
 `init --from all` creates the project config and imports existing tool files when it finds them. Pick the tools you use when prompted. `sync --plan` previews the changes; `sync` writes the native files.
 
+`lint` and `sync` warn when a bare permission capability covers a whole tool. Scope it, such as `shell(git status)` or `edit(src/**)`.
+
 Edit sources under `.agnostic-ai/`, including `AGNOSTIC_AI.md` for shared project instructions, then sync again. Generated files such as `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules/` are outputs.
 
 `sync`, `import`, `use`, `init`, and `upgrade --requires` take a project lock. A second writer stops and names the running command; retry when it finishes. Read-only checks and previews can still run.
