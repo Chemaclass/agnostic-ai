@@ -37,7 +37,7 @@ command: .agnostic-ai/scripts/no-force-push.sh
 
 `match` takes a tool kind: `shell`, `edit`, `read`, `web`, `any`, or `mcp:<server>`. It applies only to `before-tool` and `after-tool`. Leave it out, or write `any`, to run on every tool. `edit` names every edit tool, including ones an older or newer version of the tool lacks, so a guard does not miss one.
 
-Each tool below gets the events and tool kinds it reads the way Claude Code does: exit 0 lets the call go on, and exit 2 blocks it with stderr as the reason. `before-tool` blocks the tool call, `prompt-submit` blocks the prompt, and `stop` keeps the agent working. `after-tool` and `after-edit` map to the tool's own after-tool event, on the `edit` matcher for `after-edit`. Codex reads `Edit|Write` as `apply_patch`. `any` writes no matcher on every tool.
+Each tool below gets the events and tool kinds it reads the way Claude Code does: exit 0 lets the call go on, and exit 2 blocks it with stderr as the reason. `before-tool` blocks the tool call, `prompt-submit` blocks the prompt, and `stop` keeps the agent working. `after-tool` and `after-edit` map to the tool's own after-tool event, on the `edit` matcher for `after-edit`. Codex reads `Edit|Write` as `apply_patch`. `any` writes no matcher on every tool. Cline has no matcher, so it takes `any` only, and its exit 2 cancels the tool call and stops the run. Copilot fails a tool call closed on exit 1 and only warns on exit 2 elsewhere, so it maps the session events only.
 
 | Tool | `on` | `match` |
 |---|---|---|
@@ -50,10 +50,13 @@ Each tool below gets the events and tool kinds it reads the way Claude Code does
 | Goose | `session-start`, `before-tool`, `stop`, `session-end` | `shell` `^shell$`, `edit` `^(write\|edit)$` |
 | Augment | `session-start`, `before-tool`, `session-end` | `shell` `^launch-process$`, `edit` `^(str-replace-editor\|save-file)$`, `web` `^(web-fetch\|web-search)$` |
 | Crush | `before-tool` | `shell` `^bash$`, `edit` `^(edit\|multiedit\|write)$` |
+| Windsurf | `prompt-submit`, `before-tool`, `stop` | `shell` `^exec$`, `edit` `^(edit\|write\|apply_patch)$`, `read` `^read$`, `web` `^(webfetch\|web_search)$` |
+| Copilot | `session-start`, `session-end` | `any` only |
+| Cline | `before-tool` | `any` only |
 
 A spec sets `on` or `event`, never both. `match` goes with `on`, and `matcher` with `event`. `validate` and `lint` (LINT032) report an unknown value, a mixed form, an event that a target the hook reaches does not read the same way, such as `on: stop` on Crush, and a tool kind it has no tool for, such as `match: read` on Codex.
 
-A portable hook does not reach any other tool yet, including Cursor, which needs a JSON reply to allow a call, Cline, which ignores exit codes, and Kiro, Trae, and Windsurf, which are not mapped yet. Sync prints a note with the count, and [`hook run`](#hook-run) lists them as not run with the reason. Write `event` for those tools, or scope the hook with `targets`.
+A portable hook does not reach any other tool yet, including Cursor, which needs a JSON reply to allow a call, and Kiro and Trae, which are not mapped yet. Sync prints a note with the count, and [`hook run`](#hook-run) lists them as not run with the reason. Write `event` for those tools, or scope the hook with `targets`.
 
 `agnostic-ai migrate --only hooks` rewrites `event` and `matcher` as `on` and `match` when the portable form gives every target the hook reaches the same event and matcher, so synced files stay the same. It leaves every other hook as written and says why. A Claude Code hook on `Edit|Write` stays native, since `match: edit` there also runs on `MultiEdit` and `NotebookEdit`.
 
