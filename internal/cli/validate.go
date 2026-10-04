@@ -95,6 +95,10 @@ func lintEntries(entries []spec.Entry) []validationIssue {
 			out = append(out, agentCapabilityIssues([]spec.Entry{e})...)
 			continue
 		}
+		if e.Kind == spec.KindSettings {
+			out = append(out, permissionCapabilityIssues([]spec.Entry{e})...)
+			continue
+		}
 		if e.Kind == spec.KindMCP {
 			if field, value, ok := spec.NonJSONValue(e.Meta); ok {
 				out = append(out, validationIssue{Path: e.Path, Field: field, Message: nonJSONValueMessage(e.Name, field, value), entry: e})

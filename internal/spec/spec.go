@@ -645,7 +645,8 @@ func (b Bundle) For(target string) Bundle {
 // portable hook arrives in target's native form, or not at all when
 // target has no exact mapping for it. An agent's `can:` arrives as the
 // `tools:` it stands for; an agent whose `can:` cannot be read is left
-// out, so a typo never syncs an agent with every tool.
+// out, so a typo never syncs an agent with every tool. A settings spec's
+// permission capabilities arrive as the Claude Code rules they stand for.
 func filterEntriesFor(entries []Entry, target string) []Entry {
 	out := make([]Entry, 0, len(entries))
 	for _, e := range entries {
@@ -659,7 +660,7 @@ func filterEntriesFor(entries []Entry, target string) []Entry {
 		if native, reason = native.NativeTools(); reason != "" {
 			continue
 		}
-		e = native
+		e = native.NativePermissions()
 		if resolved := e.BodyFor(target); resolved != e.Body {
 			e.Body = resolved
 			e.BodyLine = 0

@@ -183,6 +183,7 @@ func claudeOwnedPermissionRules(root, settingsDir string) (map[string]map[string
 		if !entry.EmitsTo("claude") {
 			continue
 		}
+		entry = entry.NativePermissions()
 		layers := []any{entry.Meta["permissions"]}
 		if hatch, ok := entry.Meta["x-claude"].(map[string]any); ok {
 			layers = append(layers, hatch["permissions"])

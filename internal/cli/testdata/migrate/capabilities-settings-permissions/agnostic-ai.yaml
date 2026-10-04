@@ -1,0 +1,5 @@
+version: 1
+targets: [claude, codex, cursor, kilo, opencode, factory, windsurf, augment, qoder]
+outputs:
+  codex:
+    exec-policies-from-permissions: true

@@ -289,7 +289,7 @@ func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) [
 	findings = append(findings, lintDeadSpecs(entries, targets, support)...)
 	findings = append(findings, lintHookMatcherMisuse(b.Hooks)...)
 	findings = append(findings, lintPortableHooks(b.Hooks, targets)...)
-	findings = append(findings, lintAgentCapabilities(b.Agents)...)
+	findings = append(findings, lintAgentCapabilities(b.Agents, b.Settings)...)
 	findings = append(findings, lintUnterminatedFrontmatter(entries)...)
 	findings = append(findings, lintNearMissKeys(entries, targets)...)
 	findings = append(findings, lintMCPMissingRequiredField(b.MCPs)...)
@@ -554,7 +554,11 @@ func lintMidWildcard(settings []spec.Entry) []lintFinding {
 			rules, _ := perms[list].([]any)
 			for _, raw := range rules {
 				rule, _ := raw.(string)
-				scope, arg, ok := spec.SplitPermissionRule(rule)
+				native, _ := spec.PermissionRules(list, rule)
+				if len(native) != 1 {
+					continue
+				}
+				scope, arg, ok := spec.SplitPermissionRule(native[0])
 				if !ok || scope != "Bash" {
 					continue
 				}

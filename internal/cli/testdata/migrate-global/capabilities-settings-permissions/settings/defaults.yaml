@@ -1,0 +1,7 @@
+# Keep this comment: migrations must not reformat settings.
+permissions:
+  default-mode: plan
+  allow: [Read, Bash(go test:*)]
+  deny:
+    - Edit(.env)
+model: sonnet
