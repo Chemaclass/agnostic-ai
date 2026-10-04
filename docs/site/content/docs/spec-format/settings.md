@@ -30,7 +30,7 @@ Settings specs are pure YAML, one file per settings group, such as `settings/per
 ```yaml
 permissions:
   allow:
-    - read
+    - read(src/**)
     - shell(go test:*)
   deny:
     - shell(rm:*)
@@ -112,6 +112,12 @@ A rule is a [capability](@/docs/spec-format/agents.md#capabilities), the same na
 - `write` takes no path. Claude Code checks file writes against `Edit` rules only and never consults a `Write(<path>)` rule, so write `edit(<path>)` to cover a file.
 - `validate`, `lint` (LINT036), and `sync` stop on a rule they cannot read, including one in a pack and an unquoted rule that YAML reads as a mapping, since a target would drop it.
 - `agnostic-ai migrate --only capabilities` rewrites each Claude Code rule a capability stands for alone. The rest stay as aliases, and sync writes the same files.
+
+Bare capabilities under `allow` or `ask` cover the whole native tool. Before permission capabilities, these lowercase rules matched no tool and did nothing. `lint` warns (LINT038) and `sync` prints the same note once each run, naming the native permissions on enabled targets that take the rule. Scoped rules, `deny` rules, and target-native overrides that replace the rule get no warning.
+
+Use `shell(git status)`, `read(src/**)`, `edit(src/**)`, or `mcp:github/get_issue` to limit the rule. `edit(<path>)` also covers writes and edits. `web` has no scoped neutral form; use target-native permission fields to limit web access, or the `WebFetch(domain:example.com)` alias to allow fetches from a named domain.
+
+Set `on-unsupported: silent` or pass `sync --quiet` to hide this sync note. `lint` still reports LINT038, and `lint --strict` fails on it. Global permission lists have no native allow or ask rule and raise no LINT038.
 
 A Claude Code rule is a bare tool name (whole tool) or `Scope(argument)`. An MCP tool is `mcp__<server>__<tool>`. `Scope()` with an empty argument is dropped, not read as the bare tool, which would widen it.
 
