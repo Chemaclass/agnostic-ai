@@ -646,7 +646,11 @@ command: 'command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook gua
 
 Both fail open: with `agnostic-ai` missing from `PATH`, or a payload [`hook guard`](@/docs/cli-reference/maintain.md#hook-guard) cannot read, they exit 0 with no output. Other tools keep the commit-time check of [`install-hook`](@/docs/cli-reference/maintain.md#install-hook).
 
-Factory runs `after-edit` and `stop` too, but it does not document the shell its hooks run in, so the inline `command -v` fallback is not left on by default there.
+Limits:
+
+- Gemini on Windows runs hook commands in Windows PowerShell, which cannot parse the `command -v` line, so each run there fails with a non-blocking error. Remove `gemini` from the hooks' `targets` on Windows.
+- Factory runs `after-edit` and `stop` too, but it does not document the shell its hooks run in, so the hooks leave it out.
+- The stop notice covers specs that changed without a sync. A hand edit to a generated file is left to `sync --check`.
 
 ## Test a hook {#hook-run}
 

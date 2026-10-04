@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"os"
 	"slices"
 	"sort"
 	"strings"
@@ -100,6 +102,14 @@ func newLintCmd() *cobra.Command {
 				files, err := lintFileArgs(cmd.InOrStdin(), args)
 				if err != nil {
 					return err
+				}
+				if len(files) == 0 {
+					return errors.New("--files needs at least one path; pass - to read them from stdin")
+				}
+				for _, f := range files {
+					if _, err := os.Stat(f); err != nil {
+						return fmt.Errorf("--files: %w", err)
+					}
 				}
 				findings, err := lintFindingsForFiles(files)
 				if err != nil {

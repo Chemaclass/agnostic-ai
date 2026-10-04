@@ -97,6 +97,7 @@ func TestLint_FilesReportsOnlyTheNamedSpecs(t *testing.T) {
 	guardProject(t)
 	broken := filepath.Join(".agnostic-ai", "skills", "x", "SKILL.md")
 	writeFile(t, broken, "---\nname: x\ndescription: X.\n\nBody\n")
+	writeFile(t, "README.md", "# Readme\n")
 
 	out, err := runCLI(t, "lint", "--files", filepath.Join(".agnostic-ai", "skills", "ok", "SKILL.md"))
 	if err != nil || !strings.Contains(out, "ok — 1 file(s) clean") {
@@ -119,5 +120,50 @@ func TestLint_PathsNeedFiles(t *testing.T) {
 
 	if _, err := runCLI(t, "lint", "README.md"); err == nil {
 		t.Error("lint with a path and no --files must fail")
+	}
+}
+
+// Claude Code and Codex can start a hook in the session directory, below
+// the project root.
+func TestHookGuard_FindsTheProjectFromASubdirectory(t *testing.T) {
+	dir := guardProject(t)
+	rel := filepath.Join(".agnostic-ai", "skills", "x", "SKILL.md")
+	writeFile(t, rel, "---\nname: x\ndescription: X.\n\nBody\n")
+	writeFile(t, filepath.Join("sub", "keep"), "")
+	testutil.Chdir(t, filepath.Join(dir, "sub"))
+
+	_, err := runHookGuard(t, editPayload(dir, rel), "after-edit")
+	wantGuardReport(t, err, "LINT006")
+
+	_, err = runHookGuard(t, `{}`, "stop")
+	wantGuardReport(t, err, "run `agnostic-ai sync`")
+}
+
+// A hand edit to a generated file may predate the session, and a sync
+// would only move it aside, so stop leaves it to sync --check.
+func TestHookGuard_StopIgnoresAHandEditedOutput(t *testing.T) {
+	guardProject(t)
+	path := filepath.Join(".claude", "skills", "ok", "SKILL.md")
+	writeFile(t, path, readFile(t, path)+"Hand edit.\n")
+
+	out, err := runHookGuard(t, `{}`, "stop")
+	if err != nil || out != "" {
+		t.Errorf("want no output and exit 0, got %v %q", err, out)
+	}
+}
+
+func TestLint_FilesMatchesADirectoryAndRejectsMissingPaths(t *testing.T) {
+	guardProject(t)
+	writeFile(t, filepath.Join(".agnostic-ai", "skills", "x", "SKILL.md"), "---\nname: x\ndescription: X.\n\nBody\n")
+
+	out, err := runCLI(t, "lint", "--files", filepath.Join(".agnostic-ai", "skills", "x"))
+	if err == nil || !strings.Contains(out, "LINT006") {
+		t.Errorf("a skill folder must report its SKILL.md, got %v\n%s", err, out)
+	}
+	if _, err := runCLI(t, "lint", "--files", "nope.md"); err == nil {
+		t.Error("a missing path must fail")
+	}
+	if _, err := runCLI(t, "lint", "--files"); err == nil {
+		t.Error("no path must fail")
 	}
 }

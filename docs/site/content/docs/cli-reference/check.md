@@ -51,7 +51,7 @@ agnostic-ai lint --strict
 | `--strict` | Exit 1 on warnings too, for CI. |
 | `--global` | Lint the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides. Also reports LINT010 and LINT014. Budgets come from the `lint` key in the home config. Works outside a project. |
 | `--json` | Print `{version, command, findings}` on stdout. Each finding has `code`, `severity` (`error` or `warn`), `path`, and `message`, the shape of the `lint` list in `doctor --json`. The exit status matches the text output. Works with `--global`. |
-| `--files <path>...` | Report only the findings on these files; `-` reads paths from stdin, one per line. Checks across specs, such as duplicate names, still load every spec. Not with `--global`. The [spec guard hook](@/docs/spec-format/hooks.md#spec-guard) uses it after each edit. |
+| `--files <path>...` | Report only the findings on these files, or on the specs below a directory; `-` reads paths from stdin, one per line. A path that does not exist, or no path, fails. Checks across specs, such as duplicate names, still load every spec. Not with `--global`. The [spec guard hook](@/docs/spec-format/hooks.md#spec-guard) uses it after each edit. |
 
 `agnostic-ai explain LINT011` prints a code's cause, fix, and config key. `lint` prints that command after its findings.
 

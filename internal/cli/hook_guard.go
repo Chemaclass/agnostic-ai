@@ -39,6 +39,16 @@ func newHookGuardCmd() *cobra.Command {
 		ValidArgs: []string{"after-edit", "stop"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			raw, _ := io.ReadAll(cmd.InOrStdin())
+			// A hook can start in a directory below the project root.
+			root := guardProjectRoot()
+			if root == "" {
+				return nil
+			}
+			wd, err := os.Getwd()
+			if err != nil || os.Chdir(root) != nil {
+				return nil
+			}
+			defer func() { _ = os.Chdir(wd) }()
 			adapters.SetWarner(io.Discard)
 			defer adapters.SetWarner(os.Stderr)
 			switch args[0] {
@@ -73,7 +83,9 @@ func guardAfterEdit(raw []byte, target string) error {
 	}
 	var edited []string
 	for _, c := range payload.Relative(root) {
-		edited = append(edited, c.Path)
+		if c.Action != hookpaths.ActionDelete {
+			edited = append(edited, c.Path)
+		}
 	}
 	cfg, err := config.Load(".")
 	if err != nil || len(specPaths(cfg, edited)) == 0 {
@@ -110,10 +122,37 @@ func guardStop(raw []byte) error {
 		return nil
 	}
 	reports, err := collectDrift(cfg.Targets)
-	if err != nil || !slices.ContainsFunc(reports, driftReport.hasDrift) {
+	if err != nil || !slices.ContainsFunc(reports, driftReport.specsChanged) {
 		return nil
 	}
 	return &guardReport{"Specs changed since the last sync: run `agnostic-ai sync`."}
+}
+
+// specsChanged reports whether sync would write a file it has not yet,
+// or rewrite one nobody edited by hand. Other drift, such as a hand edit
+// to a generated file, may predate the session and is not the agent's to
+// settle with a sync.
+func (r driftReport) specsChanged() bool {
+	return len(r.Missing) > 0 || len(r.Stale) > 0
+}
+
+// guardProjectRoot returns the nearest directory at or above the working
+// directory that holds a project config, or "".
+func guardProjectRoot() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	for {
+		if _, _, err := config.ResolveConfigPath(dir); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
 }
 
 // lintFindingsForFiles runs every project lint check and keeps the
@@ -127,14 +166,15 @@ func lintFindingsForFiles(files []string) ([]lintFinding, error) {
 	if err != nil {
 		return nil, err
 	}
-	keep := map[string]bool{}
-	for _, f := range files {
-		keep[cleanRelPath(f)] = true
-	}
 	var out []lintFinding
 	for _, f := range findings {
-		if keep[cleanRelPath(f.Path)] {
-			out = append(out, f)
+		p := cleanRelPath(f.Path)
+		for _, file := range files {
+			// A directory names every spec below it, such as a skill folder.
+			if want := cleanRelPath(file); p == want || strings.HasPrefix(p, want+"/") {
+				out = append(out, f)
+				break
+			}
 		}
 	}
 	return out, nil
