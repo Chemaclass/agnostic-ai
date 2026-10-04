@@ -86,7 +86,8 @@ func buildHooksBlock(hooks []spec.Entry) map[string]any {
 
 		for _, command := range commands {
 			// Crush's embedded POSIX shell runs hooks on every platform.
-			rewritten := emit.DotSlashSyncedHookScript(command, emit.RewriteHookPath(command, target, h.Meta), target)
+			// The ./ goes on before the args fold may quote the path.
+			rewritten := emit.ExecFormCommand(emit.DotSlashSyncedHookScript(command, emit.RewriteHookPath(command, target, h.Meta), target), emit.HookArgs(target, h.Meta))
 			entry := map[string]any{"command": emit.ExportHookTarget(rewritten, target)}
 			if h.Name != "" {
 				entry["name"] = h.Name

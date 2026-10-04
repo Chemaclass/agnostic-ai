@@ -78,3 +78,18 @@ func TestExecFormCommand_QuotesACommandOnlyWhenItNeedsIt(t *testing.T) {
 		t.Errorf("shell form = %q", got)
 	}
 }
+
+func TestShellHookCommand_FoldsTheTargetsArgsAfterThePathRewrite(t *testing.T) {
+	t.Parallel()
+	meta := map[string]any{"args": []any{"two words"}}
+	if got := ShellHookCommand(".agnostic-ai/scripts/guard.sh", "crush", meta); got != ".crush/hooks/guard.sh 'two words'" {
+		t.Errorf("script path = %q", got)
+	}
+	meta["x-trae"] = map[string]any{"args": []any{"it's"}}
+	if got := ShellHookCommand("echo", "trae", meta); got != `echo 'it'\''s'` {
+		t.Errorf("x-trae args = %q", got)
+	}
+	if got := ShellHookCommand("echo hi", "trae", nil); got != "echo hi" {
+		t.Errorf("shell form = %q", got)
+	}
+}

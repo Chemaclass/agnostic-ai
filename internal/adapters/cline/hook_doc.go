@@ -28,7 +28,7 @@ func HookScript(h spec.Entry) string {
 	}
 	commands := make([]hookCommand, len(cmds))
 	for i, cmd := range cmds {
-		commands[i] = hookCommand{command: emit.RewriteHookPath(cmd, target, h.Meta), tools: h.FilteredTools(target)}
+		commands[i] = hookCommand{command: emit.ShellHookCommand(cmd, target, h.Meta), tools: h.FilteredTools(target)}
 	}
 	return hookScript(commands)
 }

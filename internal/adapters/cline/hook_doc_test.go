@@ -142,6 +142,12 @@ func TestHookScript_RunsAPortableHookOnlyOnItsKindsTools(t *testing.T) {
 	if out := run(editor); out != "" {
 		t.Errorf("an editor call must skip a shell guard, got %q", out)
 	}
+	withArgs, _ := spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{
+		"on": "before-tool", "match": "shell", "command": "./guard.sh", "args": []any{"push --force"},
+	}}.NativeHook("cline")
+	if script := HookScript(withArgs); !strings.Contains(script, "esac\n./guard.sh 'push --force'\n)") {
+		t.Errorf("a filtered command keeps its folded args:\n%s", script)
+	}
 	native := spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"event": "PreToolUse", "matcher": "run_commands|execute_command", "command": "./a.sh"}}
 	if strings.Contains(HookScript(native), "toolName") {
 		t.Error("a native hook's matcher must not filter: Cline has no matcher, and its script stays as it was")

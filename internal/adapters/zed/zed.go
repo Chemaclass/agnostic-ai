@@ -153,7 +153,8 @@ func emitTasks(sess *emit.Session, hooks []spec.Entry, path string, dryRun bool)
 	tasks := make([]map[string]any, 0, len(hooks))
 	for _, h := range hooks {
 		cmd, _ := h.Meta["command"].(string)
-		cmd = emit.RewriteNeutralHookPath(emit.RewriteHookRoot(cmd, target, h.Meta), emit.HookScriptsDir(target))
+		args := emit.HookArgs(target, h.Meta)
+		cmd = emit.RewriteNeutralHookPath(emit.RewriteHookRoot(cmd, target, h.Meta), emit.HookScriptsDir(target), len(args) > 0)
 		if cmd == "" {
 			continue
 		}
@@ -167,7 +168,7 @@ func emitTasks(sess *emit.Session, hooks []spec.Entry, path string, dryRun bool)
 		task := map[string]any{
 			"label":   label,
 			"command": "sh",
-			"args":    []string{"-c", cmd},
+			"args":    []string{"-c", emit.ExecFormCommand(cmd, args)},
 		}
 		native, _ := emit.CustomTargetMeta(h.Meta, target)
 		hooks := emit.StringSlice(native["hooks"])

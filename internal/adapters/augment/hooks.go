@@ -97,7 +97,7 @@ func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 	type matcherKey struct{ event, matcher string }
 	byKey := map[matcherKey][]claudehooks.CommandEntry{}
 	var keyOrder []matcherKey
-	var badExtension, claudeMatchers int
+	var badExtension, claudeMatchers, execForm int
 
 	for _, h := range hooks {
 		event, _ := h.Meta["event"].(string)
@@ -106,6 +106,10 @@ func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 		}
 		commands := emit.HookCommands(h.Meta["command"])
 		if len(commands) == 0 {
+			continue
+		}
+		if ExecFormHook(h) {
+			execForm++
 			continue
 		}
 		matcher, _ := h.Meta["matcher"].(string)
@@ -132,6 +136,8 @@ func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 			})
 		}
 	}
+	emit.NoteCoverageGap(target, spec.KindHook, execForm,
+		"Augment runs a hook command as a script path, with no shell to read `args` and no field for them, so a hook with `args` is skipped")
 	emit.NoteFieldNoOp(target, spec.KindHook, "command", badExtension,
 		"Augment only runs a hook command that is a path to a script ending in .sh, .ps1, .cmd, or .bat, not an inline shell string; a command missing one of these extensions is written but never executes")
 	emit.NoteFieldNoOp(target, spec.KindHook, "matcher", claudeMatchers,
@@ -197,6 +203,10 @@ func hasScriptExtension(command string) bool {
 // SessionOnlyEvent reports whether event takes no matcher, so a user
 // hooks entry for it leaves the key out, as the vendor examples do.
 func SessionOnlyEvent(event string) bool { return sessionOnlyEvents[event] }
+
+// ExecFormHook reports whether h sets `args`, which Augment cannot run:
+// sync writes no hook for it, in the project or the user settings.
+func ExecFormHook(h spec.Entry) bool { return len(emit.HookArgs(target, h.Meta)) > 0 }
 
 // NoteUserHookGaps raises the coverage notes the project hooks block
 // raises (a command that is not a script path, a Claude-style matcher)
