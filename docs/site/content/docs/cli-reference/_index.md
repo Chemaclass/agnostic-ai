@@ -29,13 +29,13 @@ agnostic-ai [command] [flags]
 | Restore or remove generated files | [revert](@/docs/cli-reference/maintain.md#revert), [cleanup](@/docs/cli-reference/maintain.md#cleanup) |
 | Share specs | [packs](@/docs/cli-reference/maintain.md#packs) |
 | Write and test hook commands | [hook paths](@/docs/cli-reference/maintain.md#hook-paths), [hook run](@/docs/cli-reference/maintain.md#hook-run) |
-| Set up your environment | [completion](@/docs/cli-reference/maintain.md#completion), [upgrade or update](@/docs/cli-reference/maintain.md#upgrade), [install-hook](@/docs/cli-reference/maintain.md#install-hook), [lsp](@/docs/cli-reference/maintain.md#lsp) |
+| Set up your environment | [completion](@/docs/cli-reference/maintain.md#completion), [upgrade or update](@/docs/cli-reference/maintain.md#upgrade), [migrate](@/docs/cli-reference/maintain.md#migrate), [install-hook](@/docs/cli-reference/maintain.md#install-hook), [lsp](@/docs/cli-reference/maintain.md#lsp) |
 
 Walkthroughs: [Getting started](@/docs/getting-started.md), [Migration](@/docs/migration.md). Automation: [exit codes](#exit-codes), [CI guide](@/docs/ci.md).
 
 ## Concurrent commands
 
-`sync`, `import`, `use`, and `init` hold one project lock while they run. A second writer exits with the running command's name and process ID. Retry after that command finishes. `sync --watch` holds the lock until it exits.
+`sync`, `import`, `use`, `init`, and `migrate` hold one project lock while they run. A second writer exits with the running command's name and process ID. Retry after that command finishes. `sync --watch` holds the lock until it exits.
 
 The lock file is `.agnostic-ai/.command-lock`, ignored by the managed `.gitignore` block. It stays on disk after the command exits; leave it in place. The operating system releases the lock when the process exits or is killed. Writing commands refresh the fixed runtime ignores even when generated outputs are committed.
 

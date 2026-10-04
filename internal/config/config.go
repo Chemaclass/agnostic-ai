@@ -633,7 +633,7 @@ func warnLegacyOnce(path string) {
 		return
 	}
 	fmt.Fprintf(os.Stderr,
-		"! %s is deprecated. Rename to %s.\n",
+		"! %s is deprecated. Rename to %s, or run `agnostic-ai migrate`.\n",
 		LegacyConfigFileName, ConfigFileName)
 }
 

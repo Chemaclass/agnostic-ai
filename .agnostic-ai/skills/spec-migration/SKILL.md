@@ -5,7 +5,7 @@ description: Decide whether a change to the spec format needs a migration, and w
 
 # spec-migration
 
-A spec migration rewrites a user's old spec form into the new one without changing what sync writes. `agnostic-ai migrate` will run every pending migration from one registry (#1755). Users should never have to rewrite specs by hand after an upgrade.
+A spec migration rewrites a user's old spec form into the new one without changing what sync writes. `agnostic-ai migrate` runs every pending migration from one registry, `specMigrations` in `internal/cli/migrate.go` (#1755). Users should never have to rewrite specs by hand after an upgrade.
 
 ## When a change needs one
 
@@ -37,17 +37,14 @@ While the project is 0.x, a breaking release is a minor release whose CHANGELOG 
 ## Steps
 
 1. Name the migration `<group>-<what>`, where `<group>` is the name `migrate --only` takes, such as `hooks-portable-events`. Record the next release version, the one the CHANGELOG's Unreleased section will become, as the one that adds it.
-2. Write the fixture first: old-form specs with comments and odd formatting, both-forms and unmappable cases, and the expected rewrite. Use placeholder values such as `${TOKEN}` or `REDACTED`, never a real credential.
-3. Implement the rewrite as a pure function from a parsed spec to a rewritten spec plus skip reasons, and register it.
+2. Write the fixture first, as a project under `internal/cli/testdata/migrate/<id>/`: old-form specs with comments and odd formatting, both-forms and unmappable cases, and the expected rewrite. Use placeholder values such as `${TOKEN}` or `REDACTED`, never a real credential.
+3. Implement `Plan` in `internal/cli/migrate_<what>.go`: it reads the project and returns changes plus skip reasons, and never writes. Add it to `specMigrations` in release order.
 4. Add or update the lint warning for the old form, pointing at `agnostic-ai migrate`.
-5. Run the shared invariant test (`sync`, `migrate`, `sync --check` on the fixtures) and `migrate` twice to prove idempotence.
+5. Run `go test ./internal/cli -run Migrate`. The shared test runs `sync`, `migrate`, and `sync --check` on every registered migration's fixture, then `migrate` again to prove idempotence.
 6. Make `import` write the new form.
 7. Document the new form first on its spec-format page, keep the old form there as an alias, and add a CHANGELOG line that says "run `agnostic-ai migrate`".
 8. In the PR body, state the migration ID, what it rewrites, what it skips, and the earliest release that may remove the old form.
 
-## Until #1755 lands
+## Until the shared editor lands
 
-The registry, the shared editor, and the shared invariant test do not exist yet, so steps 3 and 5 wait for them. Steps 1, 2, 4, 6, 7, and 8 still apply, with these changes:
-
-- The lint warning and the CHANGELOG line describe the manual rewrite instead of naming `agnostic-ai migrate`.
-- The PR adds a comment on #1755 (never an edit of its body) with the migration ID, the fixture path, and the mapping, so the first registry PR picks it up.
+The format-preserving editor from #1755 does not exist yet. A migration that renames a file, or rewrites content byte for byte without reformatting, can ship now. One that must edit YAML nodes waits for the editor; until then, its PR keeps the old form working, adds the lint warning with the manual rewrite, and comments on #1755 (never an edit of its body) with the migration ID, fixture path, and mapping.

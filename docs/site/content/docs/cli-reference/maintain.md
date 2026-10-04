@@ -180,6 +180,31 @@ The config edit keeps unrelated YAML bytes intact. Before running it, convert fl
 
 Scoop, WinGet, and `node_modules` markers match case-insensitively. `upgrade` also lists any other `agnostic-ai` on `PATH` that shadows the resolved executable.
 
+## migrate
+
+Rewrite old spec forms into their current replacements, such as a renamed field or file. A migration never changes what sync writes for the targets a spec already reaches, so `sync --check` stays clean after it. Old forms keep working, so you never have to run it before a sync.
+
+```bash
+agnostic-ai migrate --list      # which migrations apply here
+agnostic-ai migrate --dry-run   # preview the rewrites
+agnostic-ai migrate             # apply them
+```
+
+| Flag | Description |
+|------|-------------|
+| `--dry-run` | Print each rename and a diff of each rewrite, and write nothing. Values under credential-named keys, and values that look like a credential, print as `<redacted>`. |
+| `--list` | List every migration with the release that added it and whether it applies here. |
+| `--only <group>` | Run only these groups, comma-separated. A migration ID starts with its group, such as `config-file-name` in group `config`. |
+
+- A migration rewrites only what maps one to one. Anything else stays as written, and the output says why.
+- It writes each file atomically and keeps its mode. A rename writes the new file before it removes the old one.
+- It refuses to run in the global home; edit those specs by hand.
+- Running it twice changes nothing.
+
+| Migration | Release | Rewrites |
+|-----------|---------|----------|
+| `config-file-name` | 0.79.0 | `agnostic.config.yaml` to `agnostic-ai.yaml`. When both exist with the same content, it removes the old file. Skipped when they differ, since `agnostic-ai.yaml` wins, and when Git ignores `agnostic-ai.yaml`. |
+
 ## lsp
 
 Start the Language Server on stdin/stdout. Point your editor at `agnostic-ai lsp` for spec files (`.agnostic-ai/**/*.md`, `*.mdc`). It pushes lint diagnostics on open and save.

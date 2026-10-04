@@ -83,6 +83,8 @@ It restores backups and leaves other files. `revert --force` also deletes genera
 
 ## Upgrading from older versions
 
+After an upgrade, run `agnostic-ai migrate --dry-run` to see which old spec forms it can rewrite for you, then `agnostic-ai migrate` to apply them. See [migrate](@/docs/cli-reference/maintain.md#migrate). The changes below are the ones it cannot make, because they change what sync writes.
+
 ### Scope and pattern unions
 
 **Breaking change:** `scope` plus `globs` or `paths` now applies to both, not their overlap. Remove `scope` when a rule should match only its patterns, and remove `globs: "**/*"` when it should match only its scope. Preview with `agnostic-ai render`. See [scoped context](@/docs/scoped-context.md#narrow-a-rule-to-certain-files).

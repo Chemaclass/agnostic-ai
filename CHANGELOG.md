@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- `agnostic-ai migrate` rewrites old spec forms into their replacements without changing synced output; the first renames `agnostic.config.yaml` (#1755).
 - `hook run` runs Claude Code hooks on Windows with Git Bash, as Claude Code does, not the first `bash` on `PATH` (#1746).
 - `init --demo` seeds a `no-force-push` guard for Claude Code and Codex in place of a format hook that did nothing; `--force-with-lease` passes (#1732).
 - `import` turns a password or credential query parameter in an MCP `url` or URL argument into a `${NAME}` reference, or leaves the server out (#1736).
