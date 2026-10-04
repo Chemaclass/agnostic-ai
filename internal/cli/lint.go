@@ -249,6 +249,7 @@ func lintScopeReport(scope checkScope) ([]lintFinding, int, error) {
 	}
 	findings := collectLintFindings(scope.targets, scope.support, scope.bundle)
 	if scope.global {
+		findings = slices.DeleteFunc(findings, func(f lintFinding) bool { return f.Code == "LINT038" })
 		findings = append(findings, lintGlobalRuleFindings(scope.bundle.Rules)...)
 		findings = append(findings, lintGlobalSettingsFindings(scope.bundle.Settings, scope.targets)...)
 	}
@@ -316,6 +317,7 @@ func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) [
 	findings = append(findings, lintClaudeBodySyntax(b, targets, support)...)
 	findings = append(findings, lintRuleFolderScope(b.Rules)...)
 	findings = append(findings, lintMidWildcard(b.Settings)...)
+	findings = append(findings, lintBareCapabilities(b.Settings, targets)...)
 	findings = append(findings, lintMalformedGlobs(b.Rules)...)
 	findings = append(findings, lintNativeSpecPaths(b)...)
 	findings = append(findings, lintSpecRefs(targets, support, b)...)

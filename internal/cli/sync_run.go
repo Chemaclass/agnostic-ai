@@ -496,6 +496,7 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	if err := stopOnSpecTypos(b, append(slices.Clone(cfg.Targets), effectiveTargets...)); err != nil {
 		return err
 	}
+	warnBareCapabilities(cfg, b, effectiveTargets)
 	if err := stopOnPendingImports(root, cfg); err != nil {
 		return err
 	}
@@ -1045,6 +1046,7 @@ func runSyncJSON(cmd *cobra.Command, root string, targets []string, backup, keep
 	if err := stopOnSpecTypos(b, append(slices.Clone(cfg.Targets), effectiveTargets...)); err != nil {
 		return err
 	}
+	warnBareCapabilitiesTo(cmd.ErrOrStderr(), cfg, b, effectiveTargets)
 	if err := stopOnPendingImports(root, cfg); err != nil {
 		return err
 	}
