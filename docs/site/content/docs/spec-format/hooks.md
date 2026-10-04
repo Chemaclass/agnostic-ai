@@ -641,6 +641,28 @@ The command fails for these targets:
 - Zed: no hook fires on an edit.
 {% </details> %}
 
+## Spec guard hook {#spec-guard}
+
+`agnostic-ai init --demo` seeds two hooks that check your specs while the agent works, on Claude Code, Codex, and Gemini:
+
+- `spec-guard-edit` runs after each edit. When the agent edits a spec, the agent sees the lint errors in that file on its next turn. Any other edit prints nothing.
+- `spec-guard-stop` runs when the agent stops. When specs changed without a sync, the agent sees one line: `Specs changed since the last sync: run agnostic-ai sync.` It never runs sync itself.
+
+```yaml
+name: spec-guard-edit
+targets: [claude, codex, gemini]
+on: after-edit
+command: 'command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook guard after-edit'
+```
+
+Both fail open: with `agnostic-ai` missing from `PATH`, or a payload [`hook guard`](@/docs/cli-reference/maintain.md#hook-guard) cannot read, they exit 0 with no output. Other tools keep the commit-time check of [`install-hook`](@/docs/cli-reference/maintain.md#install-hook).
+
+Limits:
+
+- Gemini on Windows runs hook commands in Windows PowerShell, which cannot parse the `command -v` line, so each run there fails with a non-blocking error. Remove `gemini` from the hooks' `targets` on Windows.
+- Factory runs `after-edit` and `stop` too, but it does not document the shell its hooks run in, so the hooks leave it out.
+- The stop notice covers specs that changed without a sync. A hand edit to a generated file is left to `sync --check`.
+
 ## Test a hook {#hook-run}
 
 `agnostic-ai hook run <hook>` runs a hook spec the way each target would, before a session fires it. A hook that blocks on Claude Code and does nothing on Codex shows up here, not in a live session:
