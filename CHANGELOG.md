@@ -8,7 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
-- `import` turns MCP credentials in URLs, `--token X` args, and bare tokens into `${NAME}` references, or drops the server, as `--global` does (#1736, #1742).
+- `import` turns MCP credentials into `${NAME}` references or drops the server, and skips hooks a shared hook spec already syncs (#1736, #1742, #1768).
 - `hook run` uses Git Bash for Claude Code hooks on Windows and shows a command's timeout or error even when another's result is not counted (#1746, #1728).
 - Hooks take portable `on:` and `match:` on 9 tools; `migrate` rewrites old spec forms, output unchanged, and `doctor` names them (#1755, #1752).
 - `init --demo` seeds a `no-force-push` guard, `new agent` omits `model`, and `lint` warns (LINT031) on a leftover `TODO` description (#1732, #1738, #1739).

@@ -19,6 +19,8 @@ import (
 // native files import reads, so without it a personal rule, agent, or
 // skill would land in the shared source, and a shared spec the local
 // layer extends would be overwritten with the merged content (#1174).
+// It also leaves out the native hooks a shared hook spec renders, which
+// import would otherwise store a second time under a generated name.
 //
 // Importers read back what they wrote (a later source merges into an
 // earlier one's file, codex re-reads a skill to fix quoting), so the
@@ -29,9 +31,9 @@ type localImportGuard struct {
 	dirs map[string]spec.Kind
 	// names holds, per kind, the names the local layer declares.
 	names map[spec.Kind]map[string]bool
-	// hooks indexes the local hook specs by content, the only identity
-	// native hook settings keep.
-	hooks *localHooks
+	// hooks and sharedHooks index the local and shared hook specs by
+	// content, the only identity native hook settings keep.
+	hooks, sharedHooks *hookOwners
 	// hooksDir is the shared hooks directory, absolute, or "".
 	hooksDir string
 	// overlays maps an overlay file, absolute, to the kind whose specs
@@ -39,6 +41,9 @@ type localImportGuard struct {
 	overlays map[string]spec.Kind
 	// skipped collects "<kind> <name>" labels for the closing note.
 	skipped map[string]bool
+	// synced collects the shared hooks whose native handlers the run
+	// left out, for the closing note.
+	synced map[string]bool
 	// kept lists the merged kinds whose import the run undid.
 	kept map[spec.Kind]bool
 	// saved holds, per absolute path of a local spec file the run wrote,
@@ -94,30 +99,33 @@ func withLocalImportGuard(root string, cfg *config.Config, fn func() error) erro
 	return runErr
 }
 
-// newLocalImportGuard loads the project local layer. It returns nil when
-// the layer does not exist or declares no specs.
+// newLocalImportGuard loads the project local layer and the shared hook
+// specs, before the run writes any. It returns nil when neither holds a
+// spec.
 func newLocalImportGuard(root string, cfg *config.Config) (*localImportGuard, error) {
-	layer, ok := resolveProjectUserLayer(root)
-	if !ok {
-		return nil, nil
+	var local spec.Bundle
+	if layer, ok := resolveProjectUserLayer(root); ok {
+		var err error
+		if local, err = spec.LoadLayered([]spec.Layer{layer}); err != nil {
+			return nil, fmt.Errorf("load %s: %w", defaultProjectUser, err)
+		}
 	}
-	bundle, err := spec.LoadLayered([]spec.Layer{layer})
-	if err != nil {
-		return nil, fmt.Errorf("load %s: %w", defaultProjectUser, err)
-	}
-	entries := bundle.All()
-	if len(entries) == 0 {
+	entries := local.All()
+	shared := loadSharedHooks(root, cfg)
+	if len(entries) == 0 && len(shared) == 0 {
 		return nil, nil
 	}
 	g := &localImportGuard{
-		dirs:       map[string]spec.Kind{},
-		names:      map[spec.Kind]map[string]bool{},
-		hooks:      newLocalHooks(bundle.Hooks),
-		overlays:   map[string]spec.Kind{},
-		skipped:    map[string]bool{},
-		kept:       map[spec.Kind]bool{},
-		saved:      map[string]*savedImportFile{},
-		skillFiles: map[string]*savedImportFile{},
+		dirs:        map[string]spec.Kind{},
+		names:       map[spec.Kind]map[string]bool{},
+		hooks:       newHookOwners(local.Hooks),
+		sharedHooks: newHookOwners(shared),
+		overlays:    map[string]spec.Kind{},
+		skipped:     map[string]bool{},
+		synced:      map[string]bool{},
+		kept:        map[spec.Kind]bool{},
+		saved:       map[string]*savedImportFile{},
+		skillFiles:  map[string]*savedImportFile{},
 	}
 	for _, e := range entries {
 		if g.names[e.Kind] == nil {
@@ -148,6 +156,20 @@ func newLocalImportGuard(root string, cfg *config.Config) (*localImportGuard, er
 		g.overlays[abs] = spec.KindSettings
 	}
 	return g, nil
+}
+
+// loadSharedHooks returns the shared hook specs. A hook source it cannot
+// load gives none, so the import still runs; sync reports the error.
+func loadSharedHooks(root string, cfg *config.Config) []spec.Entry {
+	if cfg.Sources.Hooks == "" {
+		return nil
+	}
+	bundle, err := spec.LoadLayered([]spec.Layer{{Name: "project", Root: root, Sources: config.Sources{Hooks: cfg.Sources.Hooks}}})
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "! %v; import cannot tell which native hooks the shared hooks render\n", err)
+		return nil
+	}
+	return bundle.Hooks
 }
 
 // sourceDirsByKind pairs each spec kind with its configured directory.
@@ -196,11 +218,11 @@ func (g *localImportGuard) track(path string, data []byte, isDir bool) error {
 	case mergedKinds[kind] != "" && len(g.names[kind]) > 0:
 		g.kept[kind] = true
 	default:
-		label, ok := g.localName(kind, rel, data, isDir)
-		if !ok {
+		if label, ok := g.localName(kind, rel, data, isDir); ok {
+			g.skipped[label] = true
+		} else if isDir || kind != spec.KindHook || !g.ownsHookDoc(data) {
 			return nil
 		}
-		g.skipped[label] = true
 	}
 	if isDir {
 		g.created = g.appendMissingDirs(g.created, abs)
@@ -391,8 +413,7 @@ func (g *localImportGuard) locate(path string) (spec.Kind, string, string, bool)
 
 // localName returns the "<kind> <name>" label of the local spec a write
 // under a kind directory belongs to. A spec is one file named after it
-// or declaring its name. An imported hook has a generated name, so it
-// also matches on content. Skills are sorted out by claimLocalSkills.
+// or declaring its name. Skills are sorted out by claimLocalSkills.
 func (g *localImportGuard) localName(kind spec.Kind, rel string, data []byte, isDir bool) (string, bool) {
 	names := g.names[kind]
 	if len(names) == 0 || isDir {
@@ -401,11 +422,6 @@ func (g *localImportGuard) localName(kind spec.Kind, rel string, data []byte, is
 	base := rel[strings.LastIndex(rel, "/")+1:]
 	for _, name := range specNamesOf(kind, base, data) {
 		if names[name] {
-			return string(kind) + " " + name, true
-		}
-	}
-	if kind == spec.KindHook {
-		if name, ok := g.localHookName(data); ok {
 			return string(kind) + " " + name, true
 		}
 	}
@@ -432,14 +448,20 @@ func specNamesOf(kind spec.Kind, base string, data []byte) []string {
 	return names
 }
 
-// printNote lists the local specs the import left out and the merged
-// kinds it kept as they were, if any.
+// printNote lists the local specs the import left out, the shared hooks
+// whose native handlers it skipped, and the merged kinds it kept as they
+// were, if any.
 func (g *localImportGuard) printNote() {
 	if len(g.skipped) > 0 {
 		labels := slices.Sorted(maps.Keys(g.skipped))
 		_, _ = fmt.Fprintf(os.Stdout,
 			"  note: left %d local spec(s) out of the shared source; edit them under %s/: %s\n",
 			len(labels), defaultProjectUser, strings.Join(labels, ", "))
+	}
+	if len(g.synced) > 0 {
+		_, _ = fmt.Fprintf(os.Stdout,
+			"  note: skipped native hooks the shared hook spec(s) already sync: %s\n",
+			strings.Join(slices.Sorted(maps.Keys(g.synced)), ", "))
 	}
 	if len(g.kept) > 0 {
 		kinds := make(map[string]bool, len(g.kept))

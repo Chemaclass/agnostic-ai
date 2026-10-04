@@ -184,10 +184,10 @@ func TestImport_LeavesLocalHooksOutOfTheSharedSource(t *testing.T) {
 					sharedCopies++
 				}
 			}
-			if sharedCopies < 2 {
-				t.Errorf("want the shared handler imported next to start.yaml, found it in %d file(s)", sharedCopies)
+			if sharedCopies != 1 {
+				t.Errorf("want the shared handler only in start.yaml, found it in %d file(s)", sharedCopies)
 			}
-			for _, name := range []string{"hook boot", "hook guard"} {
+			for _, name := range []string{"hook boot", "hook guard", "already sync: start"} {
 				if !strings.Contains(out, name) {
 					t.Errorf("want the note to name %q:\n%s", name, out)
 				}
