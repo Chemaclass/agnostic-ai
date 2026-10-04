@@ -17,29 +17,131 @@ const HookJSONEscape = `aai_json() { LC_ALL=C tr -d '\000-\010\013-\037\177' | L
 `
 
 // hookStdoutDecision defines aai_decide, which reads the portable
-// decision protocol: at exit 0, a JSON object on stdout with "decision"
-// "allow", "deny", or "ask" and an optional "reason". deny and ask become
-// exit 2 with the reason on stderr; ask blocks too, since not every tool
-// can ask the user. allow drops the object and goes on as a plain exit 0,
-// so it never grants more than the tool's own rules do. An object that
-// names a decision the wrapper cannot read blocks, so a typo never lets a
-// call through. The reason is decoded for \", \\, \/, \n, and \t; a \u
-// escape stays as written. Other stdout passes through unchanged.
-const hookStdoutDecision = `aai_unescape() { LC_ALL=C awk 'BEGIN { ORS = "" } { s = $0; out = ""; while ((i = index(s, "\\")) > 0) { c = substr(s, i + 1, 1); if (c == "n") c = "\n"; else if (c == "t") c = "\t"; else if (c == "r" || c == "b" || c == "f") c = ""; else if (c == "u") c = "\\u"; out = out substr(s, 1, i - 1) c; s = substr(s, i + 2) } print out s }'; }
+// decision protocol at exit 0. stdout carries only the decision: empty
+// stdout goes on as a plain exit 0, and anything else must be one JSON
+// object with a single top-level "decision" of "allow", "deny", or "ask"
+// and an optional top-level "reason". aai_parse walks the JSON in awk, so
+// a "decision" in a nested object or a string never counts, and escaped
+// keys read as the key they spell. deny and ask become exit 2 with the
+// reason on stderr; ask blocks too, since not every tool can ask the
+// user. allow drops the object and goes on as a plain exit 0, so it never
+// grants more than the tool's own rules do. Output that is not one JSON
+// object, a duplicate or missing top-level decision, or another value
+// blocks, so a broken guard never lets a call through, and so does
+// stdout over 1,000,000 bytes, which keeps the parse inside any hook
+// timeout. A \u escape
+// outside ASCII reads as "?".
+const hookStdoutDecision = `aai_parse() {
+  LC_ALL=C awk '
+function fail() { print "error"; exit 0 }
+function ws() { if (match(substr(s, p), /^[ \t\n\r]+/)) p += RLENGTH }
+function hex(h, v, i) {
+  v = 0
+  for (i = 1; i <= 4; i++) v = v * 16 + index("0123456789abcdef", tolower(substr(h, i, 1))) - 1
+  return v
+}
+function str(out, c, h) {
+  if (substr(s, p, 1) != "\"") fail()
+  p++
+  out = ""
+  while (p <= n) {
+    if (match(substr(s, p), /^[^"\\]+/)) {
+      c = substr(s, p, RLENGTH)
+      if (c ~ /[\001-\037]/) fail()
+      out = out c
+      p += RLENGTH
+      continue
+    }
+    c = substr(s, p, 1)
+    if (c == "\"") { p++; return out }
+    if (c != "\\") fail()
+    c = substr(s, p + 1, 1)
+    p += 2
+    if (c == "n") out = out "\n"
+    else if (c == "t") out = out "\t"
+    else if (c == "r" || c == "b" || c == "f") out = out ""
+    else if (c == "\"" || c == "\\" || c == "/") out = out c
+    else if (c == "u") {
+      h = substr(s, p, 4)
+      if (h !~ /^[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]$/) fail()
+      h = hex(h)
+      out = out ((h >= 32 && h < 127) ? sprintf("%c", h) : "?")
+      p += 4
+    } else fail()
+  }
+  fail()
+}
+function value(c) {
+  ws()
+  c = substr(s, p, 1)
+  if (c == "{") return obj(0)
+  if (c == "[") return arr()
+  if (c == "\"") { last = str(); return "s" }
+  if (substr(s, p, 4) == "true" || substr(s, p, 4) == "null") { p += 4; return "x" }
+  if (substr(s, p, 5) == "false") { p += 5; return "x" }
+  if (match(substr(s, p), /^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][-+]?[0-9]+)?/)) { p += RLENGTH; return "x" }
+  fail()
+}
+function arr() {
+  p++
+  ws()
+  if (substr(s, p, 1) == "]") { p++; return "x" }
+  while (1) {
+    value()
+    ws()
+    if (substr(s, p, 1) == ",") { p++; continue }
+    if (substr(s, p, 1) == "]") { p++; return "x" }
+    fail()
+  }
+}
+function obj(top, k, t) {
+  p++
+  ws()
+  if (substr(s, p, 1) == "}") { p++; return "x" }
+  while (1) {
+    ws()
+    k = str()
+    ws()
+    if (substr(s, p, 1) != ":") fail()
+    p++
+    t = value()
+    if (top && k == "decision") { count++; verdict = (t == "s") ? last : "" }
+    if (top && k == "reason" && t == "s") reason = last
+    ws()
+    if (substr(s, p, 1) == ",") { p++; continue }
+    if (substr(s, p, 1) == "}") { p++; return "x" }
+    fail()
+  }
+}
+BEGIN { RS = "\001" }
+{ s = (NR > 1 ? s "\001" : "") $0 }
+END {
+  n = length(s)
+  p = 1
+  ws()
+  if (p > n) { print "empty"; exit 0 }
+  if (n > 1000000 || substr(s, p, 1) != "{") fail()
+  obj(1)
+  ws()
+  if (p <= n || count != 1) fail()
+  print verdict
+  printf "%s", reason
+}' "$1"
+}
 aai_decide() {
   [ "$aai_status" -eq 0 ] || return 0
-  aai_flat=$(tr '\n\r\t' '   ' <"$aai_out")
-  printf '%s\n' "$aai_flat" | grep -Eq '"decision"[[:space:]]*:' || return 0
-  aai_verdict=$(printf '%s\n' "$aai_flat" | sed -n -E 's/.*"decision"[[:space:]]*:[[:space:]]*"(allow|deny|ask)"[[:space:]]*[,}].*/\1/p')
-  aai_reason=$(printf '%s\n' "$aai_flat" | sed -n -E 's/.*"reason"[[:space:]]*:[[:space:]]*"(([^"\\]|\\.)*)".*/\1/p' | aai_unescape)
+  aai_parsed=$(aai_parse "$aai_out") || aai_parsed=error
+  aai_verdict=${aai_parsed%%$'\n'*}
+  aai_reason=
+  case $aai_parsed in *$'\n'*) aai_reason=${aai_parsed#*$'\n'} ;; esac
   : >"$aai_out"
   case $aai_verdict in
-  allow) ;;
+  allow | empty) ;;
   deny | ask)
     printf '%s\n' "${aai_reason:-blocked by the hook decision}" >>"$aai_err"
     aai_status=2 ;;
   *)
-    printf '%s\n' 'blocked: the hook printed a decision that is not "allow", "deny", or "ask"' >>"$aai_err"
+    printf '%s\n' 'blocked: stdout is not one JSON object with a single "decision" of "allow", "deny", or "ask"' >>"$aai_err"
     aai_status=2 ;;
   esac
 }
@@ -79,8 +181,8 @@ while :; do
   esac
   shift
 done
-aai_out=$(mktemp) || exit 1
-aai_err=$(mktemp) || { rm -f "$aai_out"; exit 1; }
+aai_out=$(mktemp) || { echo "agnostic-ai hook wrapper: mktemp failed" >&2; exit 2; }
+aai_err=$(mktemp) || { rm -f "$aai_out"; echo "agnostic-ai hook wrapper: mktemp failed" >&2; exit 2; }
 trap 'rm -f "$aai_out" "$aai_err"' EXIT
 ` + HookJSONEscape + hookStdoutDecision + `bash -c "$1" >"$aai_out" 2>"$aai_err"
 aai_status=$?
@@ -150,9 +252,24 @@ const copilotReply = `2)
   exit "$aai_status" ;;
 `
 
+// geminiReply keeps the exit code, and at exit 2 prints the deny Gemini
+// CLI reads: it takes stdout, or stderr when stdout is empty, as JSON
+// whatever the exit code, so a reason that looks like JSON would
+// otherwise read as no decision (hookrun's decideGemini, from gemini-cli
+// hookRunner.ts).
+const geminiReply = `2)
+  printf '{"decision":"deny","reason":"%s"}\n' "$aai_msg"
+  exit 2 ;;
+*)
+  cat "$aai_out"
+  exit "$aai_status" ;;
+`
+
 // PortableHookWrapper renders the wrapper script for target.
 func PortableHookWrapper(target string) string {
 	switch target {
+	case "gemini":
+		return DecisionWrapper(geminiReply)
 	case "cursor":
 		return DecisionWrapper(cursorReply)
 	case "copilot":
@@ -219,12 +336,24 @@ func UnwrapDecisionCommand(command string) (path string, options []string, inner
 }
 
 // writesPortableHookWrapper reports whether a hook in hooks runs its
-// command through the wrapper on target.
+// command through the wrapper on target: a portable hook sync wraps, or
+// one whose command already calls the wrapper, as a hook imported from a
+// synced file does. The wrapper is sync output that import leaves behind,
+// so sync writes it again.
 func writesPortableHookWrapper(hooks []spec.Entry, target string) bool {
 	for _, h := range hooks {
 		kind, _ := h.Meta["type"].(string)
-		if h.WrapsCommand(target) && (kind == "" || kind == "command") && len(HookCommands(h.Meta["command"])) > 0 {
+		if kind != "" && kind != "command" {
+			continue
+		}
+		commands := HookCommands(h.Meta["command"])
+		if h.WrapsCommand(target) && len(commands) > 0 {
 			return true
+		}
+		for _, command := range commands {
+			if _, _, _, ok := UnwrapDecisionCommand(StripCursorGuard(StripHookTargetExport(command, target))); ok {
+				return true
+			}
 		}
 	}
 	return false

@@ -39,6 +39,7 @@ func TestPortableHookWrapper_ReadsTheStdoutDecision(t *testing.T) {
 		}
 		return string(out), stderr.String(), code
 	}
+	blocked := "blocked: stdout is not one JSON object with a single \"decision\" of \"allow\", \"deny\", or \"ask\"\n"
 	for _, c := range []struct {
 		name, command, stdout, stderr string
 		code                          int
@@ -47,11 +48,24 @@ func TestPortableHookWrapper_ReadsTheStdoutDecision(t *testing.T) {
 		{"deny without a reason", `echo '{"decision":"deny"}'`, "", "blocked by the hook decision\n", 2},
 		{"ask blocks", `printf '{\n  "reason": "ask first",\n  "decision": "ask"\n}\n'`, "", "ask first\n", 2},
 		{"allow drops the object", `echo '{"decision":"allow","reason":"fine"}'`, "", "", 0},
-		{"an unknown decision blocks", `echo '{"decision":"block"}'`, "", "blocked: the hook printed a decision that is not \"allow\", \"deny\", or \"ask\"\n", 2},
-		{"a decision that is no string blocks", `echo '{"decision":null}'`, "", "blocked: the hook printed a decision that is not \"allow\", \"deny\", or \"ask\"\n", 2},
-		{"plain stdout passes", `echo hello`, "hello\n", "", 0},
-		{"a reason naming a decision is no decision", `echo '{"reason":"the \"decision\": \"allow\" key"}'`, "{\"reason\":\"the \\\"decision\\\": \\\"allow\\\" key\"}\n", "", 0},
-		{"exit 2 stays", `echo '{"decision":"allow"}'; echo stop >&2; exit 2`, "{\"decision\":\"allow\"}\n", "stop\n", 2},
+		{"allow beside other keys", `echo '{"decision":"allow","meta":{"n":[1,2.5,-3e2,true,null,"x"]}}'`, "", "", 0},
+		{"empty stdout allows", `true`, "", "", 0},
+		{"an unknown decision blocks", `echo '{"decision":"block"}'`, "", blocked, 2},
+		{"a decision that is no string blocks", `echo '{"decision":null}'`, "", blocked, 2},
+		{"plain stdout blocks", `echo hello`, "", blocked, 2},
+		{"no decision blocks", `echo '{"reason":"the \"decision\": \"allow\" key"}'`, "", blocked, 2},
+		{"a nested decision cannot override a deny", `echo '{"decision":"deny","context":{"decision":"allow"}}'`, "", "blocked by the hook decision\n", 2},
+		{"a nested decision alone is no decision", `echo '{"context":{"decision":"allow"}}'`, "", blocked, 2},
+		{"a duplicate decision blocks", `echo '{"decision":"allow","decision":"allow"}'`, "", blocked, 2},
+		{"an escaped key is the key it spells", `echo '{"decision":"deny","reason":"esc"}'`, "", "esc\n", 2},
+		{"an escaped allow is allow", `echo '{"decision":"allow"}'`, "", "", 0},
+		{"a second object blocks", `echo '{"decision":"allow"} {"decision":"deny"}'`, "", blocked, 2},
+		{"broken JSON blocks", `echo '{"decision":"allow",}'`, "", blocked, 2},
+		{"an unterminated string blocks", `echo '{"decision":"allow'`, "", blocked, 2},
+		{"leading log lines block", `echo checking; echo '{"decision":"allow"}'`, "", blocked, 2},
+		{"a raw newline inside a string blocks", `printf '{"decision":"allow","reason":"a\nb"}\n'`, "", blocked, 2},
+		{"whitespace-only stdout allows", `printf ' \n\t\n'`, "", "", 0},
+		{"exit 2 with allow still blocks", `echo '{"decision":"allow"}'; echo stop >&2; exit 2`, "{\"decision\":\"allow\"}\n", "stop\n", 2},
 		{"exit 1 stays", `echo '{"decision":"deny"}'; exit 1`, "{\"decision\":\"deny\"}\n", "", 1},
 		{"the command reads the payload", `grep -q '"ls"' && echo '{"decision":"deny","reason":"saw ls"}'`, "", "saw ls\n", 2},
 	} {

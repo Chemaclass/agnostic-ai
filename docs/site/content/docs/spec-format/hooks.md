@@ -81,9 +81,9 @@ command: .agnostic-ai/scripts/no-force-push.sh
 echo '{"decision": "deny", "reason": "Use --force-with-lease."}'
 ```
 
-At exit 0, `"decision": "deny"` blocks the call with `reason` as the message, the same as exit 2 with that message on stderr. `"ask"` blocks too, since not every tool can ask the user. `"allow"` goes on as a plain exit 0, so it never grants more than the tool's own permission rules do. An object whose `decision` is anything else blocks, so a typo never lets a call through. Other stdout, and any other exit code, keep their usual meaning.
+With `decision: stdout`, stdout carries only the decision. At exit 0, `"decision": "deny"` blocks the call with `reason` as the message, the same as exit 2 with that message on stderr. `"ask"` blocks too, since not every tool can ask the user. `"allow"`, or empty stdout, goes on as a plain exit 0, so it never grants more than the tool's own permission rules do. Anything else blocks, so a broken guard never lets a call through: stdout that is not one JSON object, an object with no top-level `decision` or more than one, or a `decision` of another value. Only the top level counts, so a `decision` inside a nested object never overrides the verdict. Print logs to stderr. Any exit code other than 0 keeps its usual meaning.
 
-No tool reads this object natively, so sync runs the command through the same wrapper on every tool, which turns the decision into that tool's block. Augment runs a hook command only as a bare script path, so it cannot run the wrapper: `validate` names a `decision: stdout` hook that reaches it. The wrapper needs bash, so `decision: stdout` cannot go with `commandWindows` or `shell: powershell`. A `\u` escape in `reason` stays as written.
+No tool reads this object natively, so sync runs the command through the same wrapper on every tool, which turns the decision into that tool's block. Augment runs a hook command only as a bare script path, so it cannot run the wrapper: `validate` names a `decision: stdout` hook that reaches it. The wrapper needs bash, so `decision: stdout` cannot go with `commandWindows` or `shell: powershell`. A `\u` escape outside ASCII reads as `?`. Sync writes the wrapper again for a hook imported from a synced file that calls it.
 
 #### Hooks Cursor and Copilot also read {#claude-settings-copies}
 
