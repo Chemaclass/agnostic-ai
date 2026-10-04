@@ -2,6 +2,7 @@ package trae
 
 import (
 	"encoding/json"
+	"slices"
 	"sort"
 	"strings"
 
@@ -139,7 +140,7 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 	byKey := map[matcherKey][]claudehooks.CommandEntry{}
 	loopLimits := map[matcherKey]int{}
 	var keyOrder []matcherKey
-	var foreignMatchers int
+	var foreignMatchers, windowsFolds int
 
 	for _, h := range hooks {
 		event, _ := h.Meta["event"].(string)
@@ -161,6 +162,10 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 		if limit := emit.HookIntMeta(h.Meta, "loop_limit"); limit > 0 {
 			loopLimits[k] = limit
 		}
+		args := emit.HookArgs(target, h.Meta)
+		if slices.ContainsFunc(commands, func(c string) bool { return !emit.PowerShellReadsFold(emit.RewriteHookPath(c, target, h.Meta), args) }) {
+			windowsFolds++
+		}
 		for _, command := range commands {
 			byKey[k] = append(byKey[k], claudehooks.CommandEntry{
 				Type:    "command",
@@ -169,6 +174,8 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 			})
 		}
 	}
+	emit.NoteSurfaceGap(target, spec.KindHook, windowsFolds, "Windows",
+		"Trae runs a hook in PowerShell there, which does not read POSIX-quoted args the same way when the command needs quotes or an arg is empty or holds a quote")
 	emit.NoteFieldNoOp(target, spec.KindHook, "matcher", foreignMatchers,
 		"Trae's hook tool names are not its subagent tool names: the terminal tool is RunCommand, not Bash, and there is no TodoWrite, so a Claude-style matcher parses as a valid regex and then matches nothing; use Read/Write/Edit/Glob/Grep/LS/RunCommand/WebSearch/WebFetch/AskUserQuestion/Skill, an mcp__<server>__<tool> name, `*`, or a regex")
 	if len(keyOrder) == 0 {

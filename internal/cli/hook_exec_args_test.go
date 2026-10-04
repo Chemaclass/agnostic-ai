@@ -71,6 +71,50 @@ func TestSync_FoldsExecFormArgsOnTargetsWithoutAnArgsField(t *testing.T) {
 	}
 }
 
+// Crush runs a synced script by its ./ path, so the path keeps it when
+// the args fold has to quote it.
+func TestHookRun_CrushRunsAQuotedScriptPathWithArgs(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	dir := testutil.TempCwd(t)
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [crush]\n")
+	script := filepath.Join(dir, ".agnostic-ai", "scripts", "prüfen.sh")
+	mustWrite(t, script, "[ \"$1\" = --strict ] && exit 2\nexit 0\n")
+	if err := os.Chmod(script, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"),
+		"name: guard\nevent: PreToolUse\ncommand: .agnostic-ai/scripts/prüfen.sh\nargs: [--strict]\n")
+	mustSync(t)
+
+	if body, err := os.ReadFile(filepath.Join(dir, "crush.json")); err != nil || !strings.Contains(string(body), `'./.crush/hooks/prüfen.sh' '--strict'`) {
+		t.Errorf("crush.json = %s, %v", body, err)
+	}
+	if out, err := runHookRun(t, "guard", "--bash", "ls", "--expect", "block"); err != nil {
+		t.Errorf("hook run: %v\n%s", err, out)
+	}
+}
+
+// Trae and OpenHands fold args for a POSIX shell, which their Windows
+// shells read differently, so sync says so.
+func TestSync_NotesExecFormArgsWindowsCannotRead(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	captureLogOut(t)
+	var notes bytes.Buffer
+	adapters.ResetCoverageNotes()
+	adapters.SetWarner(&notes)
+	t.Cleanup(func() { adapters.ResetCoverageNotes(); adapters.SetWarner(os.Stderr) })
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [trae, openhands]\n")
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "plain.yaml"), execFormHook)
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "quote.yaml"), "name: quote\nevent: PreToolUse\ncommand: echo\nargs: [\"it's\"]\n")
+	mustSync(t)
+
+	for _, want := range []string{"1 hook reaches trae but not Windows (Trae runs a hook in PowerShell", "2 hooks reach openhands but not Windows (OpenHands runs a hook with cmd.exe"} {
+		if !strings.Contains(notes.String(), want) {
+			t.Errorf("notes miss %q:\n%s", want, notes.String())
+		}
+	}
+}
+
 // Augment starts a hook command as a script path, so it cannot pass
 // args: sync writes no hook and names `args` in a note.
 func TestSync_SkipsExecFormHooksOnAugmentWithANote(t *testing.T) {
@@ -110,12 +154,18 @@ func TestSyncGlobal_SkipsExecFormHooksOnAugmentWithANote(t *testing.T) {
 // Import reads the folded command back as the shared spec's own, so it
 // does not copy the hook again.
 func TestImport_SkipsExecFormHooksASharedSpecSyncs(t *testing.T) {
-	hook := "name: sh\nevent: PreToolUse\nmatcher: Bash\ncommand: echo\nargs: [shared, two words]\n"
-	for _, target := range []string{"claude", "codex", "copilot", "crush", "factory", "gemini", "goose", "kiro", "openhands", "trae", "windsurf"} {
-		t.Run(target, func(t *testing.T) {
-			syncSharedHook(t, target, hook)
+	hooks := map[string]string{
+		"words": "name: sh\nevent: PreToolUse\nmatcher: Bash\ncommand: echo\nargs: [shared, two words]\n",
+		// Sync leaves a hook path in an arg as written.
+		"paths": "name: sh\nevent: PreToolUse\nmatcher: Bash\ncommand: cat\nargs: [.agnostic-ai/scripts/policy.json, .claude/hooks/policy.json]\n",
+	}
+	for kind, hook := range hooks {
+		for _, target := range []string{"claude", "codex", "copilot", "crush", "factory", "gemini", "goose", "kiro", "openhands", "trae", "windsurf"} {
+			t.Run(kind+"/"+target, func(t *testing.T) {
+				syncSharedHook(t, target, hook)
 
-			assertOnlySharedHook(t, hook, importCapturing(t, target))
-		})
+				assertOnlySharedHook(t, hook, importCapturing(t, target))
+			})
+		}
 	}
 }
