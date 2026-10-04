@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 // specMigration rewrites one old spec form into its replacement without
@@ -70,7 +72,10 @@ func newMigrateCmd() *cobra.Command {
   agnostic-ai migrate
   agnostic-ai migrate --only config`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			selected, err := selectMigrations(only)
+			if _, _, err := config.ResolveConfigPath("."); err != nil {
+				return err
+			}
+			selected, err := selectMigrations(cmd.Flags().Changed("only"), only)
 			if err != nil {
 				return err
 			}
@@ -83,12 +88,15 @@ func newMigrateCmd() *cobra.Command {
 				printMigrationList(out, selected, pending)
 				return nil
 			}
+			quiet := verbosity < levelDefault
 			if len(pending) == 0 {
-				_, _ = fmt.Fprintln(out, "no migrations apply")
+				if !quiet {
+					_, _ = fmt.Fprintln(out, "no migrations apply")
+				}
 				return nil
 			}
-			printMigrationPlan(out, pending, dryRun)
 			if dryRun {
+				printMigrationPlan(out, pending, true, quiet)
 				return nil
 			}
 			lock, err := acquireProjectLock(".", "migrate")
@@ -96,7 +104,11 @@ func newMigrateCmd() *cobra.Command {
 				return err
 			}
 			defer func() { _ = lock.Close() }()
-			return applyMigrations(pending)
+			if err := applyMigrations(pending); err != nil {
+				return err
+			}
+			printMigrationPlan(out, pending, false, quiet)
+			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print the rewrites without writing them.")
@@ -105,8 +117,8 @@ func newMigrateCmd() *cobra.Command {
 	return cmd
 }
 
-func selectMigrations(only []string) ([]specMigration, error) {
-	if len(only) == 0 {
+func selectMigrations(set bool, only []string) ([]specMigration, error) {
+	if !set {
 		return specMigrations, nil
 	}
 	var groups []string
@@ -114,6 +126,9 @@ func selectMigrations(only []string) ([]specMigration, error) {
 		groups = append(groups, m.Group)
 	}
 	var out []specMigration
+	if len(only) == 0 {
+		only = []string{""}
+	}
 	for _, g := range only {
 		if !slices.Contains(groups, g) {
 			return nil, fmt.Errorf("--only: no migration group %q; groups: %s", g, strings.Join(slices.Compact(slices.Sorted(slices.Values(groups))), ", "))
@@ -155,12 +170,20 @@ func printMigrationList(out io.Writer, selected []specMigration, pending []pendi
 	}
 }
 
-func printMigrationPlan(out io.Writer, pending []pendingMigration, dryRun bool) {
+// printMigrationPlan prints each rewrite and skip; under -q only the skips,
+// since they need the user.
+func printMigrationPlan(out io.Writer, pending []pendingMigration, dryRun, quiet bool) {
 	verb, rename := "rewrote", "renamed"
 	if dryRun {
 		verb, rename = "would rewrite", "would rename"
 	}
 	for _, p := range pending {
+		if quiet {
+			for _, s := range p.skips {
+				_, _ = fmt.Fprintf(out, "%s: skipped %s: %s\n", p.ID, filepath.ToSlash(s.Path), s.Reason)
+			}
+			continue
+		}
 		_, _ = fmt.Fprintf(out, "%s: %s\n", p.ID, p.Summary)
 		for _, c := range p.changes {
 			switch {
@@ -194,30 +217,87 @@ func indent(text string) string {
 	return "    " + strings.ReplaceAll(strings.TrimSuffix(text, "\n"), "\n", "\n    ") + "\n"
 }
 
-// migrationValueLine is a YAML `key: value` line, in a spec body or in
-// frontmatter.
-var migrationValueLine = regexp.MustCompile(`^(\s*-?\s*"?([A-Za-z0-9_.-]+)"?\s*:\s*)(\S.*)$`)
+// migrationValueLine is a YAML `key: value` line or list item, in a spec
+// body or in frontmatter. A URL's scheme is not a key.
+var migrationValueLine = regexp.MustCompile(`^(\s*-?\s*"?([A-Za-z0-9_.-]+)"?\s*:(?:\s+|$))(.*)$`)
 
-// redactMigrationLines hides the values a diff could leak: a value under
-// a credential-named key, or one import's detector reads as a credential.
-// A ${NAME} reference stays, since it holds no secret.
+var migrationListItem = regexp.MustCompile(`^(\s*-\s+)(.*)$`)
+
+// redactMigrationLines hides the values a diff could leak. It reads YAML
+// line by line, so it errs toward hiding: a value under a credential-named
+// key, including the lines of a `|` or `>` block under one; a value import
+// reads as a credential; a list item that follows a credential flag; and a
+// flow sequence that holds either. A ${NAME} reference stays.
 func redactMigrationLines(lines []string) []string {
 	out := make([]string, len(lines))
+	blockIndent := -1
+	afterFlag := false
 	for i, line := range lines {
 		out[i] = line
-		m := migrationValueLine.FindStringSubmatch(line)
-		value := ""
-		if m != nil {
-			value = strings.Trim(m[3], `"'`)
+		indentWidth := len(line) - len(strings.TrimLeft(line, " \t"))
+		if blockIndent >= 0 {
+			if strings.TrimSpace(line) == "" || indentWidth > blockIndent {
+				out[i] = strings.Repeat(" ", indentWidth) + "<redacted>"
+				continue
+			}
+			blockIndent = -1
 		}
-		switch {
-		case m != nil && (mcpCredentialKey(m[2]) || mcpCredentialDetected(value)) && !envRefOnly(value):
-			out[i] = m[1] + "<redacted>"
-		case m == nil && mcpCredentialDetected(line):
+		if m := migrationValueLine.FindStringSubmatch(line); m != nil {
+			afterFlag = false
+			value := strings.Trim(strings.TrimSpace(m[3]), `"'`)
+			switch {
+			case mcpCredentialKey(m[2]) && strings.HasPrefix(value, "|") || mcpCredentialKey(m[2]) && strings.HasPrefix(value, ">"):
+				blockIndent = indentWidth
+				out[i] = m[1] + "<redacted>"
+			case value == "" || envRefOnly(value):
+			case mcpCredentialKey(m[2]) || migrationSecretText(value):
+				out[i] = m[1] + "<redacted>"
+			}
+			continue
+		}
+		if m := migrationListItem.FindStringSubmatch(line); m != nil {
+			item := strings.Trim(strings.TrimSpace(m[2]), `"'`)
+			_, _, flagHasValue := mcpCredentialFlag(item)
+			isFlag := strings.HasPrefix(item, "--") && mcpCredentialName(strings.SplitN(strings.TrimPrefix(item, "--"), "=", 2)[0])
+			switch {
+			case envRefOnly(item):
+			case afterFlag || migrationSecretText(item) || isFlag && flagHasValue:
+				out[i] = m[1] + "<redacted>"
+			}
+			afterFlag = isFlag && !flagHasValue
+			continue
+		}
+		afterFlag = false
+		if migrationSecretText(line) {
 			out[i] = "<redacted>"
 		}
 	}
 	return out
+}
+
+// migrationSecretText reports a value import's detector reads as a
+// credential, reading a flow sequence item by item.
+func migrationSecretText(value string) bool {
+	if mcpCredentialDetected(value) {
+		return true
+	}
+	if !strings.HasPrefix(value, "[") {
+		return false
+	}
+	items := strings.Split(strings.Trim(value, "[]"), ",")
+	for i, item := range items {
+		item = strings.Trim(strings.TrimSpace(item), `"'`)
+		if mcpCredentialDetected(item) {
+			return true
+		}
+		if _, _, hasValue := mcpCredentialFlag(item); hasValue && !envRefOnly(strings.SplitN(item, "=", 2)[1]) {
+			return true
+		}
+		if strings.HasPrefix(item, "--") && mcpCredentialName(strings.TrimPrefix(item, "--")) && i+1 < len(items) && !envRefOnly(strings.Trim(strings.TrimSpace(items[i+1]), `"'`)) {
+			return true
+		}
+	}
+	return false
 }
 
 var migrationEnvRef = regexp.MustCompile(`^\$\{[A-Za-z_][A-Za-z0-9_]*(:-[^}]*)?\}$`)
@@ -263,21 +343,20 @@ func writeMigrationChange(c migrationChange) error {
 		return err
 	}
 	defer func() { _ = os.Remove(tmp.Name()) }()
-	if _, err := tmp.WriteString(c.After); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
+	_, werr := tmp.WriteString(c.After)
+	if err := errors.Join(werr, tmp.Sync(), tmp.Close()); err != nil {
+		return fmt.Errorf("%s: %w", tmp.Name(), err)
 	}
 	if err := os.Chmod(tmp.Name(), info.Mode().Perm()); err != nil {
 		return err
 	}
-	if err := os.Rename(tmp.Name(), target); err != nil {
-		return err
-	}
 	if c.NewPath != "" {
+		// A hard link fails when the target exists, so a file another
+		// program created since the check above is never replaced.
+		if err := os.Link(tmp.Name(), target); err != nil {
+			return err
+		}
 		return os.Remove(c.Path)
 	}
-	return nil
+	return os.Rename(tmp.Name(), target)
 }

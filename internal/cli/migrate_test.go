@@ -118,6 +118,25 @@ func TestMigrate_ListAndOnly(t *testing.T) {
 	if _, err := runCLI(t, "migrate", "--only", "nope"); err == nil || !strings.Contains(err.Error(), `no migration group "nope"; groups: config`) {
 		t.Errorf("an unknown group must fail and list the groups: %v", err)
 	}
+	if _, err := runCLI(t, "migrate", "--only", ""); err == nil || !strings.Contains(err.Error(), `no migration group ""`) {
+		t.Errorf("an empty --only must fail, not run everything: %v", err)
+	}
+}
+
+func TestMigrate_QuietPrintsOnlySkips(t *testing.T) {
+	dir := migrationFixture(t, "config-file-name")
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
+	out, err := runCLI(t, "-q", "migrate")
+	if err != nil || strings.TrimSpace(out) != "config-file-name: skipped agnostic.config.yaml: agnostic-ai.yaml exists and wins; remove agnostic.config.yaml by hand once it holds nothing you need" {
+		t.Errorf("-q output = %q, %v", out, err)
+	}
+}
+
+func TestMigrate_OutsideAProjectFailsLikeOtherCommands(t *testing.T) {
+	testutil.TempCwd(t)
+	if _, err := runCLI(t, "migrate"); err == nil || !strings.Contains(err.Error(), "no agnostic-ai.yaml") {
+		t.Errorf("migrate outside a project = %v", err)
+	}
 }
 
 func TestRedactMigrationLines_HidesSecretsAndKeepsReferences(t *testing.T) {
@@ -128,14 +147,34 @@ func TestRedactMigrationLines_HidesSecretsAndKeepsReferences(t *testing.T) {
 		"  NODE_ENV: production",
 		"  - --token=sk-live-abcdefghij123456",
 		"url: https://h/mcp?token=abc123secret",
+		"password: |",
+		"  hunter2-plain",
+		"next: kept",
+		`args: ["--api-key", "abc123secretvalue"]`,
+		"args:",
+		"  - --api-key",
+		"  - abc123secretvalue",
+		"  - https://user:pa55word@host/mcp",
+		"  - --port",
+		"  - 8080",
 	})
 	want := []string{
 		"env:",
 		"  GITHUB_TOKEN: <redacted>",
 		"  API_KEY: ${API_KEY}",
 		"  NODE_ENV: production",
-		"<redacted>",
+		"  - <redacted>",
 		"url: <redacted>",
+		"password: <redacted>",
+		"  <redacted>",
+		"next: kept",
+		"args: <redacted>",
+		"args:",
+		"  - --api-key",
+		"  - <redacted>",
+		"  - <redacted>",
+		"  - --port",
+		"  - 8080",
 	}
 	for i := range want {
 		if got[i] != want[i] {
