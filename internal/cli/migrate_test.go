@@ -351,7 +351,7 @@ func TestMigrate_HooksPortableEventsRewritesInPlaceAndSkipsWhatDoesNotMap(t *tes
 		`skipped .agnostic-ai/hooks/gofmt-on-edit.yaml: no portable form gives PostToolUse with matcher "Edit|Write" on claude; match: edit there also covers MultiEdit and NotebookEdit`,
 		`skipped .agnostic-ai/hooks/read-guard.yaml: no portable form gives PreToolUse with matcher "Read" on codex`,
 		"skipped .agnostic-ai/local/hooks/session-status.yaml: a local/ spec extends this hook; rewrite both files by hand",
-		"note: portable hooks reach augment, claude, codex, crush, factory, gemini, goose, openhands, and qoder today; other targets skip them until their mapping lands",
+		"note: portable hooks reach augment, claude, cline, codex, copilot, crush, factory, gemini, goose, openhands, qoder, and windsurf today; other targets skip them until their mapping lands",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output misses %q:\n%s", want, out)
@@ -387,7 +387,7 @@ func TestMigrate_HooksPortableEventsSkipsATargetWithoutPortableEvents(t *testing
 	if err != nil || !strings.Contains(out, "skipped .agnostic-ai/hooks/stop-check.yaml: no portable form gives Stop on cursor") {
 		t.Errorf("a hook that reaches cursor must stay native: %v\n%s", err, out)
 	}
-	if !strings.Contains(out, "note: portable hooks reach augment, claude, codex, crush, factory, gemini, goose, openhands, and qoder today; cursor skips them until its mapping lands") {
+	if !strings.Contains(out, "note: portable hooks reach augment, claude, cline, codex, copilot, crush, factory, gemini, goose, openhands, qoder, and windsurf today; cursor skips them until its mapping lands") {
 		t.Errorf("want the note to name cursor:\n%s", out)
 	}
 	if !strings.Contains(out, "would rewrite .agnostic-ai/hooks/no-force-push.yaml") {
