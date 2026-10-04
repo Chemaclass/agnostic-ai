@@ -155,7 +155,7 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 		for _, command := range commands {
 			byKey[k] = append(byKey[k], hookEntry{
 				Type:    "command",
-				Command: emit.RewriteHookPath(command, target, h.Meta),
+				Command: emit.ShellHookCommand(command, target, h.Meta),
 				Timeout: timeout,
 			})
 		}

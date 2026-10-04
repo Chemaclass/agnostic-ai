@@ -164,7 +164,7 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 		for _, command := range commands {
 			byKey[k] = append(byKey[k], claudehooks.CommandEntry{
 				Type:    "command",
-				Command: emit.RewriteHookPath(command, target, h.Meta),
+				Command: emit.ShellHookCommand(command, target, h.Meta),
 				Timeout: emit.HookIntMeta(h.Meta, "timeout"),
 			})
 		}

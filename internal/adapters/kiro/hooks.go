@@ -172,7 +172,7 @@ func hookActions(h spec.Entry) ([]any, error) {
 	commands := hookCommands(h.Meta["command"])
 	actions := make([]any, 0, len(commands))
 	for _, command := range commands {
-		actions = append(actions, commandHookAction{Type: "command", Command: emit.RewriteHookPath(command, target, h.Meta)})
+		actions = append(actions, commandHookAction{Type: "command", Command: emit.ShellHookCommand(command, target, h.Meta)})
 	}
 	return actions, nil
 }

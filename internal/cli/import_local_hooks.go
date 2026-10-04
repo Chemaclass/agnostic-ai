@@ -108,10 +108,13 @@ func hookHandlerKeys(target string, meta map[string]any) []string {
 	return nil
 }
 
-// Metadata renders a source command; native commands already contain their runtime root.
+// Metadata renders a source command, with its exec-form args folded in
+// as a target with no `args` field writes them, so a native handler
+// that keeps them apart must fold them before it is matched. Native
+// commands already contain their runtime root.
 func hookCommandKey(target, command string, metadata ...map[string]any) string {
 	if len(metadata) > 0 {
-		command = adapters.RewriteHookPath(command, target, metadata...)
+		command = adapters.ShellHookCommand(command, target, metadata[0])
 	} else {
 		command = adapters.RewriteHookDirectories(command, target)
 	}

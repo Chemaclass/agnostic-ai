@@ -122,6 +122,20 @@ func ExecFormCommand(command string, args []string) string {
 	return command
 }
 
+// HookArgs returns a hook spec's exec-form args on target, after its
+// `x-<target>` override, the same view RewriteHookPath reads.
+func HookArgs(target string, meta map[string]any) []string {
+	return StringSlice(ResolveMeta(meta, target)["args"])
+}
+
+// ShellHookCommand is one entry of a hook spec's command as a target
+// with no `args` field writes it: the path rewritten for target, then
+// the exec-form args folded in. Use it only where the target hands the
+// command to a shell.
+func ShellHookCommand(command, target string, meta map[string]any) string {
+	return ExecFormCommand(RewriteHookPath(command, target, meta), HookArgs(target, meta))
+}
+
 func isShellWordRune(r rune) bool {
 	return r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("_./:@%+=,-", r)
 }

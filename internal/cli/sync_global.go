@@ -890,6 +890,10 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		path := g.path(home, g.hooks)
 		hooks := b.HooksFor(target)
 		adapters.NotePortableHookGaps(target, b.Hooks)
+		if g.hooksFormat == "augment" {
+			augment.NoteUserHookGaps(hooks)
+			hooks = slices.DeleteFunc(slices.Clone(hooks), augment.ExecFormHook)
+		}
 		scriptsDir := filepath.Join(filepath.Dir(path), "hooks")
 		for _, hook := range hooks {
 			if event, _ := hook.Meta["event"].(string); event == "" {
@@ -923,9 +927,6 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		}
 		if err := adapters.ReportHookProjectRoot(target, hooks, onUnsupported, true); err != nil {
 			return nil, next, err
-		}
-		if g.hooksFormat == "augment" {
-			augment.NoteUserHookGaps(hooks)
 		}
 		hookTarget := globalHookTarget{name: target, mode: g.hookTarget, args: g.hookArgs, foldArgs: g.hookFoldArgs, timeout: g.hookTimeout, specHooks: len(hooks), scriptsDir: scriptsDir}
 		if g.bridge && body != "" {
