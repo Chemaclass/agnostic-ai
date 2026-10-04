@@ -1,0 +1,3 @@
+# Keep this comment: migrations must not reformat config.
+version: 1
+targets: [claude, codex]

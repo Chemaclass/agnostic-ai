@@ -99,6 +99,7 @@ func NewRootCmd(version string) *cobra.Command {
 		newLSPCmd(),
 		newUpgradeCmd(),
 		newUseCmd(),
+		newMigrateCmd(),
 	)
 	root.InitDefaultCompletionCmd()
 	profileEachRun(root, &profilePath)
