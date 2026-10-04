@@ -36,6 +36,8 @@ type localImportGuard struct {
 	hooks, sharedHooks *hookOwners
 	// hooksDir is the shared hooks directory, absolute, or "".
 	hooksDir string
+	// source is the target the running importer reads, or "".
+	source string
 	// overlays maps an overlay file, absolute, to the kind whose specs
 	// sync renders into the native file the overlay captures.
 	overlays map[string]spec.Kind
@@ -111,7 +113,10 @@ func newLocalImportGuard(root string, cfg *config.Config) (*localImportGuard, er
 		}
 	}
 	entries := local.All()
-	shared := loadSharedHooks(root, cfg)
+	shared, err := loadSharedHooks(root, cfg)
+	if err != nil {
+		return nil, err
+	}
 	if len(entries) == 0 && len(shared) == 0 {
 		return nil, nil
 	}
@@ -158,18 +163,24 @@ func newLocalImportGuard(root string, cfg *config.Config) (*localImportGuard, er
 	return g, nil
 }
 
-// loadSharedHooks returns the shared hook specs. A hook source it cannot
-// load gives none, so the import still runs; sync reports the error.
-func loadSharedHooks(root string, cfg *config.Config) []spec.Entry {
+// loadSharedHooks returns the shared hook specs. Without them import
+// cannot tell which native hooks sync wrote, so a load error stops it.
+func loadSharedHooks(root string, cfg *config.Config) ([]spec.Entry, error) {
 	if cfg.Sources.Hooks == "" {
-		return nil
+		return nil, nil
 	}
 	bundle, err := spec.LoadLayered([]spec.Layer{{Name: "project", Root: root, Sources: config.Sources{Hooks: cfg.Sources.Hooks}}})
 	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "! %v; import cannot tell which native hooks the shared hooks render\n", err)
-		return nil
+		return nil, fmt.Errorf("load shared hooks: %w", err)
 	}
-	return bundle.Hooks
+	return bundle.Hooks, nil
+}
+
+// beginSource records the target the next importer reads. Nil-safe.
+func (g *localImportGuard) beginSource(source string) {
+	if g != nil {
+		g.source = source
+	}
 }
 
 // sourceDirsByKind pairs each spec kind with its configured directory.
@@ -460,7 +471,7 @@ func (g *localImportGuard) printNote() {
 	}
 	if len(g.synced) > 0 {
 		_, _ = fmt.Fprintf(os.Stdout,
-			"  note: skipped native hooks the shared hook spec(s) already sync: %s\n",
+			"  note: skipped native hooks the shared hook spec(s) already sync: %s. A hand edit to those native hooks is not imported; edit the spec instead.\n",
 			strings.Join(slices.Sorted(maps.Keys(g.synced)), ", "))
 	}
 	if len(g.kept) > 0 {

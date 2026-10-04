@@ -42,6 +42,9 @@ func (l *hookOwners) owner(target, event, matcher, key string) string {
 	if !ok {
 		index = map[string][]hookOwnerMatcher{}
 		for _, e := range l.entries {
+			if !e.EmitsTo(target) {
+				continue
+			}
 			native, reason := e.NativeHook(target)
 			if reason != "" {
 				continue
@@ -223,7 +226,10 @@ func (g *localImportGuard) ownsHookDoc(data []byte) bool {
 	if err != nil {
 		return false
 	}
-	target, _ := e.Meta["target"].(string)
+	target := g.source
+	if target == "" {
+		target, _ = e.Meta["target"].(string)
+	}
 	meta := adapters.ResolveMeta(e.Meta, target)
 	event, matcher := hookEventKey(meta), hookMatcher(meta)
 	keys := hookHandlerKeys(target, meta)
