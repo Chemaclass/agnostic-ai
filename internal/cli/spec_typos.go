@@ -73,12 +73,35 @@ func agentSkillTypos(b spec.Bundle) []validationIssue {
 	return out
 }
 
-// stopOnSpecTypos stops a sync on a hook event typo, or an invalid
-// portable hook, before it is written into every tool's files. Pack specs
-// are not the user's to edit, so validate reports them.
+// stopOnSpecTypos stops a sync on a hook event typo, an invalid portable
+// hook, or an agent `can:` it cannot read, before it is written into
+// every tool's files. Pack specs are not the user's to edit, so validate
+// reports them.
 func stopOnSpecTypos(b spec.Bundle, targets []string) error {
 	own := ownSpecs(b)
-	return stopOnIssues(append(hookEventTypos(own, targets), portableHookProblems(own.Hooks)...))
+	issues := append(hookEventTypos(own, targets), portableHookProblems(own.Hooks)...)
+	return stopOnIssues(append(issues, agentCapabilityIssues(own.Agents)...))
+}
+
+// agentCapabilityIssues reports each agent whose `can:` cannot be read.
+func agentCapabilityIssues(agents []spec.Entry) []validationIssue {
+	var out []validationIssue
+	for _, e := range agents {
+		if problem := spec.AgentCapabilityProblem(e.Meta); problem != "" {
+			out = append(out, validationIssue{Path: e.Path, Field: "can", Message: problem})
+		}
+	}
+	return out
+}
+
+// lintAgentCapabilities reports the `can:` problems validate reports
+// (LINT035, error).
+func lintAgentCapabilities(agents []spec.Entry) []lintFinding {
+	var out []lintFinding
+	for _, issue := range agentCapabilityIssues(agents) {
+		out = append(out, lintFinding{Code: "LINT035", Severity: lintError, Path: issue.Path, Message: issue.Message})
+	}
+	return out
 }
 
 // portableHookProblems reports each portable hook no target can read.

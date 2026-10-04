@@ -14,6 +14,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - Hook `args` now reach the command on 12 more tools, folded in and shell-quoted, and `import` matches them; Augment skips such a hook with a note (#1780).
 - `init --demo` seeds a `no-force-push` guard, `new agent` omits `model`, and `lint` warns (LINT031) on a leftover `TODO` description (#1732, #1738, #1739).
 - Spec bodies can name an agent or skill with `{{$AGENT:name}}` and `{{$SKILL:name}}`, which render each tool's documented invocation phrase; `lint` fails (LINT033) on an unknown name (#1773).
+- Agents take a neutral `can:` list, such as `[read, edit, shell(git diff *), mcp:github]`, that syncs as the Claude Code `tools` it stands for. Kiro notes the access a category adds, `lint` fails (LINT035) on an unknown capability, and `migrate --only capabilities` rewrites `tools` (#1754).
 
 ### By tool
 

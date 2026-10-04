@@ -15,7 +15,7 @@ group = "Reference"
 Why use a subagent instead of more instructions in the main session:
 
 - **Clean context.** A subagent works in its own context and hands back a result, so its exploration stays out of the main conversation.
-- **Least privilege.** `tools`, `readonly`, and `mcpServers` narrow what it may touch.
+- **Least privilege.** `can`, `readonly`, and `mcpServers` narrow what it may touch.
 - **The right model per role.** `model` and `effort` set cost and depth per agent, and per tool.
 - **One definition.** Every target with an agent surface gets its native file from the same spec; the rest get a coverage note.
 
@@ -27,7 +27,7 @@ Why use a subagent instead of more instructions in the main session:
 ---
 name: code-reviewer
 description: Reviews diffs for bugs, style, and architectural issues. Use after a change set is complete.
-tools: [Read, Grep, Bash]
+can: [read, shell(git diff *)]
 model: sonnet
 ---
 
@@ -56,7 +56,8 @@ List each finding with its `file:line`, the attack it enables, and the smallest 
 |-------|----------|---------|-------------|
 | `name` | no | filename without `.md` | Agent identifier and output filename. |
 | `description` | no | empty | When to delegate to the agent. Tools show it in listings and use it to pick an agent. |
-| `tools` | no | unset | Tools the agent may invoke. See [`tools` support by target](#tools-support-by-target). |
+| `can` | no | unset | What the agent may do, in neutral names. See [capabilities](#capabilities). |
+| `tools` | no | unset | The same list in Claude Code tool names. A spec sets `can` or `tools`, not both. See [`tools` support by target](#tools-support-by-target). |
 | `model` | no | unset | A string for every target, a map per target, or a [tier](#model-tiers) name. See [per-target `model` and `effort`](#per-target-model-and-effort). |
 | `effort` | no | unset | A string or integer for every target, or a map per target. See [per-target `model` and `effort`](#per-target-model-and-effort). |
 | `color` | no | unset | Badge color. See [`color` support by target](#color-support-by-target). |
@@ -81,6 +82,34 @@ Any other frontmatter field passes through unchanged.
 | Other targets | Coverage note |
 
 An explicit `x-claude.disallowedTools`, `x-codex.sandbox_mode`, or `x-factory.tools` wins.
+
+## Capabilities {#capabilities}
+
+`can` lists what an agent may do, in names no single tool owns:
+
+```yaml
+can: [read, edit, shell(go test *), mcp:github]
+```
+
+| `can` value | Grants | Claude Code name |
+|-------------|--------|------------------|
+| `read` | Read files | `Read` |
+| `write` | Create or overwrite files | `Write` |
+| `edit` | Edit existing files | `Edit` |
+| `shell` | Run any command | `Bash` |
+| `shell(<pattern>)` | Run the commands that match the pattern | `Bash(<pattern>)` |
+| `web` | Fetch pages and search the web | `WebFetch`, `WebSearch` |
+| `mcp:<server>` | Use every tool of one MCP server | `mcp__<server>` |
+| `mcp:<server>/<tool>` | Use one MCP tool | `mcp__<server>__<tool>` |
+
+- Each capability syncs to every target as its Claude Code names in `tools` would, byte for byte.
+- Claude Code names stay valid as aliases, with no deprecation planned. A list can mix both: `can: [read, Grep]`.
+- The names match the hook [`match:` tool kinds](@/docs/spec-format/hooks.md#portable-events).
+- A target that can only grant more prints a note naming the extra access. On Kiro, `edit` also allows `delete_file`.
+- `validate`, `lint` (LINT035), and `sync` stop on an unknown capability, on `can` beside `tools`, and on `can` under `x-<target>`. A typo never syncs an agent with every tool.
+- A capability is only as strong as the tool's own permission system. agnostic-ai adds no sandbox.
+
+`agnostic-ai migrate --only capabilities` rewrites `tools` as `can`. Each name a capability stands for alone becomes that capability. The rest stay as aliases, and sync writes the same files.
 
 ## Per-target `model` and `effort` {#per-target-model-and-effort}
 
@@ -209,9 +238,9 @@ To override one target, write the tier as the map's `default`: `model: {codex: g
 `import claude` suggests a tier when two or more agents set the same Claude model. `import claude` and `import codex` keep `model: strong` when the imported model and effort match what the tier gives that tool. A sync followed by an import then does not pin a model.
 {% </details> %}
 
-## `tools` support by target
+## `can` and `tools` support by target {#tools-support-by-target}
 
-Only the targets listed were checked. A target that cannot honor `tools` prints a coverage note at sync time, so `tools: [Read]` never turns into an unrestricted agent without warning.
+Only the targets listed were checked. Sync reads `can` as the `tools` it stands for. A target that cannot honor the list prints a coverage note at sync time, so `can: [read]` never turns into an unrestricted agent without warning.
 
 | Target | Behavior |
 |--------|----------|
@@ -220,7 +249,7 @@ Only the targets listed were checked. A target that cannot honor `tools` prints 
 | [Windsurf](@/docs/targets/windsurf.md), [Kiro](@/docs/targets/kiro.md), [Factory](@/docs/targets/factory.md), [Gemini](@/docs/targets/gemini.md) | Translated to native names |
 | [Antigravity](@/docs/targets/antigravity.md), [OpenHands](@/docs/targets/openhands.md), [Goose](@/docs/targets/goose.md), [Codex](@/docs/targets/codex.md), [Cursor](@/docs/targets/cursor.md), [Augment](@/docs/targets/augment.md), [Kilo Code](@/docs/targets/kilo.md) | Dropped with a note |
 
-Translation can widen access: on Kiro, `Edit` alone also permits `delete_file`. Most targets accept native names through `x-<target>.tools`, which bypasses translation.
+Translation can widen access: on Kiro, `edit` also permits `delete_file`, and sync prints a note naming it. Most targets accept native names through `x-<target>.tools`, which bypasses translation.
 
 ## `mcpServers` support by target {#mcpservers-support-by-target}
 

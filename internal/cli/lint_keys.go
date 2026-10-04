@@ -37,14 +37,21 @@ var specKeys = []string{
 	"headersHelper", "envFile", "dev",
 }
 
-// hookKeys are keys only hook specs read. Short keys such as `on:` sit
-// one edit from many words, so other kinds do not count them.
-var hookKeys = []string{"on", "match"}
+// hookKeys and agentKeys are keys only hook or agent specs read. Short
+// keys such as `on:` sit one edit from many words, so other kinds do not
+// count them.
+var (
+	hookKeys  = []string{"on", "match"}
+	agentKeys = []string{"can"}
+)
 
 // kindKeys lists the keys a spec of kind reads.
 func kindKeys(kind spec.Kind) []string {
-	if kind == spec.KindHook {
+	switch kind {
+	case spec.KindHook:
 		return append(slices.Clone(specKeys), hookKeys...)
+	case spec.KindAgent:
+		return append(slices.Clone(specKeys), agentKeys...)
 	}
 	return specKeys
 }
