@@ -13,9 +13,67 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// EntryPointRules is the root-context projection of the shared scope contract.
+// EntryPointRules is the root-context projection of the shared scope
+// contract, with each path variable expanded where every tool reading
+// target's entry point resolves it to the same path.
 func EntryPointRules(b spec.Bundle, target string, configs ...*config.Config) spec.Bundle {
-	return emit.EntryPointRules(b, target, configs...)
+	var cfg *config.Config
+	if len(configs) > 0 {
+		cfg = configs[0]
+	}
+	out := emit.EntryPointRules(b, target, cfg)
+	vals, _ := entryPointVars(cfg, target)
+	rules := make([]spec.Entry, len(out.Rules))
+	for i, r := range out.Rules {
+		r.Body, _ = emit.ExpandVars(r.Body, vals)
+		rules[i] = r
+	}
+	out.Rules = rules
+	return out
+}
+
+// NoteEntryPointVars notes the path variables that the rules block in
+// target's entry point keeps verbatim because the tools reading that
+// file do not resolve them to one path.
+func NoteEntryPointVars(cfg *config.Config, b spec.Bundle, target string) {
+	vals, contested := entryPointVars(cfg, target)
+	if len(contested) == 0 {
+		return
+	}
+	used := map[string]bool{}
+	count := 0
+	for _, r := range emit.EntryPointRules(b, target, cfg).Rules {
+		hit := false
+		_, missing := emit.ExpandVars(r.Body, vals)
+		for _, name := range missing {
+			if slices.Contains(contested, name) {
+				used[name] = true
+				hit = true
+			}
+		}
+		if hit {
+			count++
+		}
+	}
+	if count == 0 {
+		return
+	}
+	tokens := make([]string, 0, len(used))
+	for _, name := range contested {
+		if used[name] {
+			tokens = append(tokens, "{{$"+name+"}}")
+		}
+	}
+	subject, pronoun := "1 rule keeps", "it"
+	if count > 1 {
+		subject = fmt.Sprintf("%d rules keep", count)
+	}
+	if len(tokens) > 1 {
+		pronoun = "them"
+	}
+	emit.NoteProject(fmt.Sprintf("%s: %s %s verbatim, because the tools that read the file (%s) do not resolve %s to one path",
+		emit.EntryPointPath(cfg, target), subject, strings.Join(tokens, ", "),
+		strings.Join(entryPointReaders(cfg, target), ", "), pronoun))
 }
 
 // ScopedDocuments lists the files target writes inside a scope directory,
