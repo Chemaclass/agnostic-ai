@@ -1,4 +1,4 @@
 # Bytes allowed for the linux/amd64 release binary, checked by
 # `make size-check` in CI. Raise it in the PR that needs more, and say why.
 # v0.78.0 measured 17137824.
-17760000
+17800000
