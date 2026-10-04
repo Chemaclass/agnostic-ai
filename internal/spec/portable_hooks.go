@@ -260,6 +260,28 @@ func (e Entry) FilteredTools(target string) []string {
 	return strings.Split(matcher, "|")
 }
 
+// WrappedPortableHook returns the `on:` and `match:` of the portable
+// hook that sync wraps into event and matcher on target, so import can
+// restore a wrapped hook to the form that keeps its wrapper. ok is false
+// when no wrapped portable hook has that event and matcher.
+func WrappedPortableHook(target, event, matcher string) (on, match string, ok bool) {
+	names := portableHookTargets[target]
+	for _, on := range PortableHookEvents {
+		if !names.wrapped[on] || names.events[on] != event {
+			continue
+		}
+		if matcher == "" {
+			return on, "", true
+		}
+		for _, kind := range HookToolKinds {
+			if kind != "any" && names.tools[kind] == matcher {
+				return on, kind, true
+			}
+		}
+	}
+	return "", "", false
+}
+
 // rewritesCommands reports whether sync writes the commands of a portable
 // hook with this event and native matcher differently on target than
 // those of the same hook in the native form.

@@ -209,7 +209,10 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 	if err := sess.MaterializeNeutralHookScripts(hooks, target, emit.HookScriptsDir(target), dryRun); err != nil {
 		return err
 	}
-	if slices.ContainsFunc(hooks, func(h spec.Entry) bool { return h.WrapsDecision(target) }) {
+	if slices.ContainsFunc(hooks, func(h spec.Entry) bool {
+		kind, _ := h.Meta["type"].(string)
+		return h.WrapsDecision(target) && (kind == "" || kind == "command") && len(emit.HookCommands(h.Meta["command"])) > 0
+	}) {
 		if err := sess.WriteExecutableFile(decisionWrapperPath, emit.DecisionWrapper(decisionReply), dryRun); err != nil {
 			return err
 		}
@@ -309,8 +312,13 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 				entry := hookEntry{Type: kind, Matcher: matcher, TimeoutSec: timeout, Cwd: cwd, Env: env}
 				switch {
 				case h.WrapsDecision(target):
-					// The wrapper runs a command line, so args fold in.
-					inner := ScriptForCwd(emit.ExecFormCommand(emit.RewriteHookPath(command, target, h.Meta), args), cwd)
+					// The wrapper runs a command line, so args fold in, after
+					// the script path is made relative to cwd: a quoted word
+					// is no longer a path ScriptForCwd maps.
+					inner := ScriptForCwd(emit.RewriteHookPath(command, target, h.Meta), cwd)
+					if len(args) > 0 {
+						inner = emit.ExecFormCommand(ExecForCwd(emit.RewriteHookPath(command, target, h.Meta), args, cwd))
+					}
 					entry.Command = emit.DecisionWrapperCommand(ScriptForCwd(decisionWrapperPath, cwd), inner)
 				case len(args) > 0:
 					entry.Exec, entry.Args = ExecForCwd(emit.RewriteHookPath(command, target, h.Meta), args, cwd)

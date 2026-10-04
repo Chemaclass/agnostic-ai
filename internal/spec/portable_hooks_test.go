@@ -110,6 +110,17 @@ func TestNativeHook_MarksWhereSyncRewritesThePortableCommand(t *testing.T) {
 	if h, _ := portableHook(map[string]any{"event": "PreToolUse", "matcher": "run_commands"}).NativeHook("cline"); h.FilteredTools("cline") != nil {
 		t.Error("a native Cline matcher is not a filter")
 	}
+	for _, c := range []struct{ event, matcher, on, match string }{
+		{"PreToolUse", "Bash", "before-tool", "shell"},
+		{"PreToolUse", "", "before-tool", ""},
+		{"SessionStart", "", "", ""},
+		{"PreToolUse", "Grep", "", ""},
+	} {
+		on, match, ok := WrappedPortableHook("copilot", c.event, c.matcher)
+		if on != c.on || match != c.match || ok != (c.on != "") {
+			t.Errorf("WrappedPortableHook(copilot, %s, %q) = %q %q %v", c.event, c.matcher, on, match, ok)
+		}
+	}
 }
 
 func TestPortableHookProblem(t *testing.T) {

@@ -2,6 +2,7 @@ package cline
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -165,12 +166,24 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 //
 // The script owns the process every command runs in, so one export
 // line hands the target to all of them and to any script they call.
+//
+// A tool filter reads the payload, so a script with one reads it once
+// and hands each command its own copy on stdin; a filter that skips its
+// command must not leave the next one an empty stdin. A script with no
+// filter stays as it was.
 func hookScript(commands []hookCommand) string {
 	var b strings.Builder
 	b.WriteString("set -e\n")
 	b.WriteString("export " + emit.HookTargetEnv + "=" + target + "\n")
 	b.WriteString(clineBlockPrelude)
+	feed := slices.ContainsFunc(commands, func(c hookCommand) bool { return len(c.tools) > 0 })
+	if feed {
+		b.WriteString(clineReadPayload)
+	}
 	for _, cmd := range commands {
+		if feed {
+			b.WriteString(clineFeedPayload)
+		}
 		b.WriteString("\nset +e\n(\nset -e\n")
 		b.WriteString(toolFilter(cmd.tools))
 		b.WriteString(cmd.command)
@@ -179,6 +192,14 @@ func hookScript(commands []hookCommand) string {
 	return b.String()
 }
 
+// clineReadPayload and clineFeedPayload read the payload once and put a
+// fresh copy on stdin before each command. hookrun's clineDrift drops
+// both lines before it compares a script, so keep the two in step.
+const (
+	clineReadPayload = "aai_in=$(cat)\n"
+	clineFeedPayload = "exec <<<\"$aai_in\"\n"
+)
+
 // hookCommand is one command of an event script. tools, when set, are
 // the tool names it runs on: a portable hook's match kind.
 type hookCommand struct {
@@ -186,9 +207,8 @@ type hookCommand struct {
 	tools   []string
 }
 
-// toolFilter reads the payload and ends the command's subshell with no
-// reply unless the call is to one of tools, then hands the payload to
-// the command on stdin. Both runtimes write the payload with
+// toolFilter ends the command's subshell with no reply unless the call
+// is to one of tools. Both runtimes write the payload with
 // JSON.stringify, so the name appears as `"toolName":"<name>"`: the SDK
 // as preToolUse.toolName (hook-file-hooks.ts:863-866,
 // subprocess-runner.ts:358), the VS Code extension as the same field of
@@ -201,7 +221,7 @@ func toolFilter(tools []string) string {
 	for i, tool := range tools {
 		patterns[i] = `*'"toolName":"` + tool + `"'*`
 	}
-	return "aai_in=$(cat)\ncase $aai_in in " + strings.Join(patterns, "|") + ") ;; *) exit 0 ;; esac\nexec <<<\"$aai_in\"\n"
+	return "case $aai_in in " + strings.Join(patterns, "|") + ") ;; *) exit 0 ;; esac\n"
 }
 
 // clineBlockPrelude sets up the stderr file and the JSON string escape

@@ -31,6 +31,12 @@ func TestEmit_PortableBeforeToolHookRunsThroughTheWrapper(t *testing.T) {
 	if strings.Contains(got, `"exec"`) {
 		t.Errorf("a wrapped hook runs a command line, not the exec form:\n%s", got)
 	}
+
+	emitTargetHooks(t, &config.Config{}, spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{
+		"on": "before-tool", "command": "bash", "args": []any{".github/hooks/scripts/guard.sh"}, "cwd": "app",
+	}})
+	assertContainsAll(t, readTargetFile(t, ".github/hooks/agnostic-ai.json"),
+		`"command": "../.github/hooks/scripts/agnostic-ai-portable-hook.sh 'bash '\\''../.github/hooks/scripts/guard.sh'\\'''"`)
 	info, err := os.Stat(decisionWrapperPath)
 	if err != nil || info.Mode().Perm()&0o111 == 0 {
 		t.Fatalf("wrapper = %v, %v; want an executable file", info, err)

@@ -258,7 +258,10 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 	if err := sess.WriteFile(path, string(raw)+"\n", dryRun); err != nil {
 		return err
 	}
-	if slices.ContainsFunc(hooks, func(h spec.Entry) bool { return h.WrapsDecision(target) }) {
+	if slices.ContainsFunc(hooks, func(h spec.Entry) bool {
+		kind, _ := h.Meta["type"].(string)
+		return h.WrapsDecision(target) && kind != "prompt" && len(hookCommands(h.Meta["command"])) > 0
+	}) {
 		if err := sess.WriteExecutableFile(decisionWrapperPath, emit.DecisionWrapper(decisionReply), dryRun); err != nil {
 			return err
 		}

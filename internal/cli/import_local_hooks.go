@@ -230,6 +230,9 @@ func (g *localImportGuard) ownsHookDoc(data []byte) bool {
 	if target == "" {
 		target, _ = e.Meta["target"].(string)
 	}
+	if native, reason := e.NativeHook(target); reason == "" {
+		e = native
+	}
 	meta := adapters.ResolveMeta(e.Meta, target)
 	event, matcher := hookEventKey(meta), hookMatcher(meta)
 	keys := hookHandlerKeys(target, meta)

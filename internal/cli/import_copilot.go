@@ -17,6 +17,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters/copilot"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 var (
@@ -178,8 +179,19 @@ func normalizeCopilotHook(event string, native map[string]any) map[string]any {
 	case "command":
 		cwd, _ := native["cwd"].(string)
 		command, _ := native["command"].(string)
-		if inner, ok := copilot.UnwrapPortableCommand(command, cwd); ok {
-			command = inner
+		// A wrapped command came from a portable hook; only that form
+		// syncs the wrapper back.
+		matcher, _ := native["matcher"].(string)
+		if on, match, ok := spec.WrappedPortableHook("copilot", event, matcher); ok {
+			if inner, wrapped := copilot.UnwrapPortableCommand(command, cwd); wrapped {
+				command = inner
+				delete(doc, "event")
+				delete(doc, "matcher")
+				doc["on"] = on
+				if match != "" {
+					doc["match"] = match
+				}
+			}
 		}
 		command = copilot.ScriptFromCwd(command, cwd)
 		if command == "" {

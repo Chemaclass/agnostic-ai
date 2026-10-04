@@ -147,3 +147,26 @@ func TestHookScript_RunsAPortableHookOnlyOnItsKindsTools(t *testing.T) {
 		t.Error("a native hook's matcher must not filter: Cline has no matcher, and its script stays as it was")
 	}
 }
+
+// Commands sharing a script each read the whole payload, so a filter
+// that skips its command, or a command that reads stdin, does not leave
+// the next one an empty stdin.
+func TestHookScript_GivesEachCommandThePayload(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("runs the script with bash")
+	}
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("bash is not on PATH")
+	}
+	script := hookScript([]hookCommand{
+		{command: "cat >/dev/null", tools: []string{"editor"}},
+		{command: "cat >/dev/null"},
+		{command: `if grep -q "push --force"; then echo "no force push" >&2; exit 2; fi`, tools: []string{"run_commands"}},
+	})
+	cmd := exec.Command("bash", "-c", script)
+	cmd.Stdin = strings.NewReader(`{"preToolUse":{"toolName":"run_commands","parameters":{"commands":"[\"git push --force\"]"}}}`)
+	out, err := cmd.Output()
+	if err != nil || !strings.Contains(string(out), "no force push") {
+		t.Errorf("the last guard must see the payload: %q %v", out, err)
+	}
+}

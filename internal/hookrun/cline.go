@@ -305,14 +305,21 @@ func ClineRunNotes(event, matcher string, timeout time.Duration, trigger string)
 	return notes
 }
 
+// clinePayloadLines are the lines sync adds to an event script when a
+// portable hook filters on the tool name: they read the payload once and
+// feed each command a copy. Whether a script has them depends on its
+// other specs, so clineDrift compares scripts without them.
+var clinePayloadLines = strings.NewReplacer("aai_in=$(cat)\n", "", "exec <<<\"$aai_in\"\n", "")
+
 // clineDrift names each handler whose commands the synced event script
 // does not hold. Sync writes a prologue, a blank line, then each command
 // with a blank line before it, and joins every spec on the event in one
 // script.
 func clineDrift(body []byte, event string, handlers []Handler) []HandlerDrift {
+	body = []byte(clinePayloadLines.Replace(string(body)))
 	var drift []HandlerDrift
 	for _, h := range handlers {
-		prologue, commands, _ := strings.Cut(h.Script, "\n\n")
+		prologue, commands, _ := strings.Cut(clinePayloadLines.Replace(h.Script), "\n\n")
 		if !bytes.Contains(body, []byte(prologue+"\n\n")) || !bytes.Contains(body, []byte("\n\n"+commands)) {
 			drift = append(drift, HandlerDrift{Handler: h, Reason: fmt.Sprintf("does not run this spec's %s commands", event)})
 		}

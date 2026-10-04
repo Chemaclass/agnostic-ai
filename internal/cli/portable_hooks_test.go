@@ -140,8 +140,33 @@ func TestImportCopilot_UnwrapsAPortableHookCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	var doc map[string]any
-	if err := yaml.Unmarshal(body, &doc); err != nil || doc["command"] != `./guard.sh 'it'\''s'` || doc["event"] != "PreToolUse" {
-		t.Errorf("import must restore the spec's command, not the wrapper:\n%s %v", body, err)
+	if err := yaml.Unmarshal(body, &doc); err != nil || doc["command"] != `./guard.sh 'it'\''s'` || doc["on"] != "before-tool" || doc["match"] != "shell" || doc["event"] != nil {
+		t.Errorf("import must restore the portable spec, not the wrapper:\n%s %v", body, err)
+	}
+}
+
+// sync, import copilot, sync again: the hook keeps its wrapper, so a
+// guard's exit 1 still lets the call go on.
+func TestImportCopilot_PortableHookRoundTrips(t *testing.T) {
+	dir := newProject(t)
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [copilot]\n")
+	guard := filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml")
+	mustWrite(t, guard, "on: before-tool\nmatch: shell\ncommand: ./guard.sh\n")
+	mustSync(t)
+	synced, err := os.ReadFile(filepath.Join(dir, ".github", "hooks", "agnostic-ai.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Remove(guard); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := importCopilotHooks(dir, filepath.Join(dir, ".agnostic-ai", "hooks")); err != nil {
+		t.Fatal(err)
+	}
+	mustSync(t)
+	if again, err := os.ReadFile(filepath.Join(dir, ".github", "hooks", "agnostic-ai.json")); err != nil || string(again) != string(synced) {
+		t.Errorf("round trip changed the hooks file:\n%s\nwant:\n%s", again, synced)
 	}
 }
 
@@ -292,6 +317,23 @@ func TestHookRun_PortableShellHookBlocksOnEveryMappedTarget(t *testing.T) {
 	}
 	if !strings.Contains(allowed, `stdout: {"permission":"allow"}`) {
 		t.Errorf("cursor needs an allow reply at exit 0:\n%s", allowed)
+	}
+}
+
+// A native hook that shares Cline's script with a filtered portable one
+// is still found in the synced script, so hook run warns of no drift.
+func TestHookRun_NativeClineHookBesideAFilteredOneShowsNoDrift(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	dir := hookRunProject(t, "name: guard\non: before-tool\nmatch: shell\ncommand: 'exit 0'\n")
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [cline]\n")
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "audit.yaml"), "name: audit\nevent: PreToolUse\ncommand: [\"cat >/dev/null\", 'exit 0']\n")
+	mustSync(t)
+
+	for _, hook := range []string{"guard", "audit"} {
+		out, err := runHookRun(t, hook, "--bash", "ls", "--include-assumed")
+		if err != nil || strings.Contains(out, "warning:") {
+			t.Errorf("%s: %v\n%s", hook, err, out)
+		}
 	}
 }
 
