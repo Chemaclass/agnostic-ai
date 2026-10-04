@@ -1,8 +1,8 @@
 // Contributes the published config.schema.json to IntelliJ's JSON
 // schema service so agnostic-ai.yaml, and the legacy agnostic.config.yaml,
-// get validation, completion, and hover docs out of the box. Same schema URL the YAML Language
-// Server hint in init-generated configs points at; keeping it in sync
-// is the publishing pipeline's job, not this plugin's.
+// get validation, completion, and hover docs out of the box. Same schema
+// URL the YAML Language Server hint in init-generated configs points at;
+// keeping it in sync is the publishing pipeline's job, not this plugin's.
 
 package com.agnosticai.intellij.schema
 
