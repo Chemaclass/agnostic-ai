@@ -50,6 +50,55 @@ class AgnosticAiConfigFileTest {
         assertEquals(dir, AgnosticAi.projectRoot(dir))
     }
 
+    @Test fun localOverrideTargetsReplaceALegacyBaseList() {
+        Files.writeString(dir.resolve("agnostic.config.yaml"), "targets: [claude, codex]\n")
+        Files.writeString(dir.resolve("agnostic-ai.local.yaml"), "targets: [cursor]\n")
+        assertEquals(listOf("cursor"), AgnosticAi.configuredTargets(dir))
+    }
+
+    @Test fun localOverrideTargetsReplaceTheBaseList() {
+        Files.writeString(dir.resolve("agnostic-ai.yaml"), "targets:\n  - claude\n  - codex\n")
+        assertEquals(listOf("claude", "codex"), AgnosticAi.configuredTargets(dir))
+
+        Files.writeString(dir.resolve("agnostic-ai.local.yaml"), "sources:\n  - specs\n")
+        assertEquals(listOf("claude", "codex"), AgnosticAi.configuredTargets(dir))
+
+        Files.writeString(dir.resolve("agnostic-ai.local.yaml"), "targets: [claude] # mine\n")
+        assertEquals(listOf("claude"), AgnosticAi.configuredTargets(dir))
+
+        Files.writeString(dir.resolve("agnostic-ai.local.yaml"), "targets:\n  - 'cursor'\n")
+        assertEquals(listOf("cursor"), AgnosticAi.configuredTargets(dir))
+
+        Files.writeString(dir.resolve("agnostic-ai.local.yaml"), "targets: []\n")
+        assertEquals(emptyList<String>(), AgnosticAi.configuredTargets(dir))
+
+        Files.writeString(dir.resolve("agnostic-ai.local.yaml"), "targets: [claude,\n")
+        assertEquals(listOf("claude", "codex"), AgnosticAi.configuredTargets(dir))
+
+        Files.write(dir.resolve("agnostic-ai.local.yaml"), byteArrayOf(0xff.toByte(), 0xfe.toByte(), 0x00))
+        assertEquals(listOf("claude", "codex"), AgnosticAi.configuredTargets(dir))
+    }
+
+    @Test fun parseTargetListReadsTheShapesYamlAllows() {
+        assertEquals(listOf("cursor"), AgnosticAi.parseTargetList("targets: # mine\r\n  - cursor\r\n"))
+        assertEquals(listOf("claude", "codex"), AgnosticAi.parseTargetList("targets:\n  - claude\n# note\n  - codex\nsources: []\n"))
+        assertEquals(listOf("claude", "codex"), AgnosticAi.parseTargetList("targets:\n- claude\n- codex\n"))
+        assertEquals(listOf("claude", "cursor"), AgnosticAi.parseTargetList("targets: [\n  claude, # first\n  cursor\n]\n"))
+        assertEquals(emptyList<String>(), AgnosticAi.parseTargetList("targets:\nsources: []\n"))
+        assertNull(AgnosticAi.parseTargetList("targets:\n  nested: x\n"))
+        assertNull(AgnosticAi.parseTargetList("targets: [cursor,\nsources: []\n"))
+        assertNull(AgnosticAi.parseTargetList("targets: [[cursor], codex]\n"))
+        assertNull(AgnosticAi.parseTargetList("targets:\n  - *mine\n"))
+        assertNull(AgnosticAi.parseTargetList("targets: [\"cl\\u0061ude\"]\n"))
+        assertNull(AgnosticAi.parseTargetList("version: 1\n---\ntargets: [cursor]\n"))
+        assertNull(AgnosticAi.parseTargetList("version: 1\n"))
+        assertEquals(listOf("claude"), AgnosticAi.parseTargetList("# mine\n---\ntargets: [claude]\n"))
+        assertEquals(listOf("claude"), AgnosticAi.parseTargetList("%YAML 1.2\n---\ntargets: [claude]\n...\n"))
+        for (n in listOf("null", "Null", "NULL", "~")) assertEquals(emptyList<String>(), AgnosticAi.parseTargetList("targets: $n\n"))
+        assertEquals(listOf("claude"), AgnosticAi.parseTargetList("\uFEFFtargets: [claude]\n"))
+        assertEquals(listOf("claude"), AgnosticAi.parseTargetList("\"targets\": [claude]\n"))
+    }
+
     @Test fun schemaAttachesToBothNamesOnly() {
         assertTrue(AgnosticAi.isConfigFileName("agnostic-ai.yaml"))
         assertTrue(AgnosticAi.isConfigFileName("agnostic.config.yaml"))

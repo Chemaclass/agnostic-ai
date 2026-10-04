@@ -9,6 +9,9 @@ import * as path from "path";
 
 export const CONFIG_FILE_NAMES = ["agnostic-ai.yaml", "agnostic.config.yaml"];
 
+/** The per-developer file the CLI merges over the base config. */
+export const LOCAL_OVERRIDE_FILE_NAME = "agnostic-ai.local.yaml";
+
 /** The config file in dir, preferring agnostic-ai.yaml like the CLI. */
 export function findConfigFile(
   dir: string,
@@ -52,23 +55,82 @@ export function findProjectRoot(
   }
 }
 
-/** The entries of the top-level `targets:` list in a config file. */
-export function parseTargets(text: string): string[] {
-  const targets: string[] = [];
-  let inTargets = false;
-  for (const line of text.split("\n")) {
-    if (/^targets:\s*$/.test(line)) {
-      inTargets = true;
+/**
+ * The entries of the top-level `targets:` list, in block or flow style.
+ * Undefined when the file sets no targets or uses a shape this line
+ * reader cannot follow, so a caller falls back instead of showing none.
+ */
+export function parseTargetList(text: string): string[] | undefined {
+  const all = text
+    .replace(/^\uFEFF/, "")
+    .split(/\r?\n/)
+    .map((l) => l.replace(/(^|\s)#.*$/, "").trimEnd());
+  // The CLI reads only the first YAML document. A marker before any
+  // content starts that document instead of ending it.
+  const docEnd = all.findIndex(
+    (l, i) =>
+      /^(---|\.\.\.)(\s|$)/.test(l) &&
+      all.slice(0, i).some((p) => p !== "" && !p.startsWith("%") && !/^(---|\.\.\.)(\s|$)/.test(p)),
+  );
+  const lines = docEnd < 0 ? all : all.slice(0, docEnd);
+  const key = /^(targets|"targets"|'targets'):(\s|$)/;
+  const start = lines.findIndex((l) => key.test(l));
+  if (start < 0) return undefined;
+  const value = lines[start].replace(/^[^:]*:/, "").trim();
+  if (value === "") return blockItems(lines.slice(start + 1));
+  if (/^(null|Null|NULL|~)$/.test(value)) return [];
+  if (!value.startsWith("[")) return undefined;
+  const flow = [value, ...lines.slice(start + 1)].join(" ");
+  const end = flow.indexOf("]");
+  if (end < 0) return undefined;
+  return targetNames(
+    flow
+      .slice(1, end)
+      .split(",")
+      .map(unquote)
+      .filter((t) => t !== ""),
+  );
+}
+
+// An alias, escape, or nested collection is not a plain target name, so
+// the whole list is unreadable here.
+function targetNames(items: string[]): string[] | undefined {
+  return items.every((t) => /^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(t))
+    ? items
+    : undefined;
+}
+
+function blockItems(lines: string[]): string[] | undefined {
+  const items: string[] = [];
+  for (const line of lines) {
+    if (line === "") continue;
+    const m = /^\s*-\s+(\S+)$/.exec(line);
+    if (m) {
+      items.push(unquote(m[1]));
       continue;
     }
-    if (inTargets) {
-      const m = /^\s+-\s+(\S+)/.exec(line);
-      if (m) {
-        targets.push(m[1]);
-        continue;
-      }
-      if (/^\S/.test(line)) inTargets = false;
-    }
+    if (/^[^\s-]/.test(line)) break;
+    return undefined;
   }
-  return targets;
+  return targetNames(items);
+}
+
+/** The entries of the top-level `targets:` list in a config file. */
+export function parseTargets(text: string): string[] {
+  return parseTargetList(text) ?? [];
+}
+
+/**
+ * The targets sync uses: a `targets:` list in the local override replaces
+ * the base list, as the CLI's merge does.
+ */
+export function configuredTargets(base: string, local?: string): string[] {
+  return (
+    (local === undefined ? undefined : parseTargetList(local)) ??
+    parseTargets(base)
+  );
+}
+
+function unquote(value: string): string {
+  return value.trim().replace(/^(["'])(.*)\1$/, "$2");
 }

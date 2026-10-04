@@ -9,6 +9,9 @@ in this file.
   preferring the new name like the CLI. Projects on the new name get root
   detection, configured targets, schema validation, and the drift status bar.
   `agnostic.config.yml`, which the CLI never read, no longer gets the schema.
+- The Render banner offers the targets sync uses: a `targets:` list in
+  `agnostic-ai.local.yaml` replaces the base list, and flow lists such as
+  `targets: [claude]` are read (#1759).
 
 ## 0.1.0 — 2026-05-13
 

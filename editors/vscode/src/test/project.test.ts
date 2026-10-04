@@ -9,6 +9,7 @@ import { describe, it } from "node:test";
 
 import {
   CONFIG_FILE_NAMES,
+  configuredTargets,
   findConfigFile,
   findProjectRoot,
   parseTargets,
@@ -109,6 +110,75 @@ describe("parseTargets", () => {
 
   it("returns nothing without a targets block", () => {
     assert.deepEqual(parseTargets("version: 1\n"), []);
+  });
+
+  it("reads a flow list, quotes, and trailing comments", () => {
+    assert.deepEqual(parseTargets('targets: [claude, "codex"] # mine\n'), [
+      "claude",
+      "codex",
+    ]);
+    assert.deepEqual(parseTargets("targets: # mine\n  - 'cursor'\n"), [
+      "cursor",
+    ]);
+  });
+
+  it("reads CRLF, comment lines, indentless items, and multiline flow", () => {
+    assert.deepEqual(parseTargets("targets: # mine\r\n  - cursor\r\n"), [
+      "cursor",
+    ]);
+    assert.deepEqual(
+      parseTargets("targets:\n  - claude\n# note\n  - codex\nsources: []\n"),
+      ["claude", "codex"],
+    );
+    assert.deepEqual(parseTargets("targets:\n- claude\n- codex\n"), [
+      "claude",
+      "codex",
+    ]);
+    assert.deepEqual(
+      parseTargets("targets: [\n  claude, # first\n  cursor\n]\n"),
+      ["claude", "cursor"],
+    );
+  });
+});
+
+describe("configuredTargets", () => {
+  const base = "targets:\n  - claude\n  - codex\n";
+
+  it("lets the local override's targets replace the base list", () => {
+    assert.deepEqual(configuredTargets(base, "targets: [claude]\n"), [
+      "claude",
+    ]);
+    assert.deepEqual(configuredTargets(base, "targets:\n  - cursor\n"), [
+      "cursor",
+    ]);
+  });
+
+  it("empties the list when the override sets an empty or null list", () => {
+    assert.deepEqual(configuredTargets(base, "targets: []\n"), []);
+    assert.deepEqual(configuredTargets(base, "targets:\nsources: []\n"), []);
+  });
+
+  it("keeps the base list when the override sets none or one it cannot read", () => {
+    const both = ["claude", "codex"];
+    assert.deepEqual(configuredTargets(base, "sources:\n  - specs\n"), both);
+    assert.deepEqual(configuredTargets(base), both);
+    assert.deepEqual(configuredTargets(base, "targets: [claude,\n"), both);
+    assert.deepEqual(configuredTargets(base, "targets:\n  nested: x\n"), both);
+    assert.deepEqual(configuredTargets(base, "targets: [cursor,\nsources: []\n"), both);
+    assert.deepEqual(configuredTargets(base, "targets: [[cursor], codex]\n"), both);
+    assert.deepEqual(configuredTargets(base, "targets:\n  - *mine\n"), both);
+    assert.deepEqual(configuredTargets(base, 'targets: ["cl\\u0061ude"]\n'), both);
+    assert.deepEqual(configuredTargets(base, "version: 1\n---\ntargets: [cursor]\n"), both);
+  });
+
+  it("reads a document that opens with a marker after comments, and every null spelling", () => {
+    assert.deepEqual(configuredTargets(base, "# mine\n---\ntargets: [claude]\n"), ["claude"]);
+    assert.deepEqual(configuredTargets(base, "%YAML 1.2\n---\ntargets: [claude]\n...\n"), ["claude"]);
+    for (const n of ["null", "Null", "NULL", "~"]) {
+      assert.deepEqual(configuredTargets(base, `targets: ${n}\n`), []);
+    }
+    assert.deepEqual(configuredTargets(base, "\uFEFFtargets: [claude]\n"), ["claude"]);
+    assert.deepEqual(configuredTargets(base, '"targets": [claude]\n'), ["claude"]);
   });
 });
 
