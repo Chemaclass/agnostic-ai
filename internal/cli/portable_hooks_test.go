@@ -226,9 +226,13 @@ func TestSyncGlobal_PortableHookReachesClaudeAndCursor(t *testing.T) {
 	}
 	wrapper := filepath.ToSlash(filepath.Join(home, ".cursor", "hooks", "agnostic-ai-portable-hook.sh"))
 	entries, _ := readGlobalJSON(t, filepath.Join(home, ".cursor", "hooks.json"))["hooks"].(map[string]any)["preToolUse"].([]any)
-	if len(entries) != 1 || entries[0].(map[string]any)["command"] != wrapper+" 'exit 2'" {
-		got := entries
-		t.Errorf("cursor preToolUse handler = %v, want it through %s", got, wrapper)
+	if len(entries) != 1 {
+		t.Fatalf("cursor preToolUse handlers = %v, want one", entries)
+	}
+	command, _ := entries[0].(map[string]any)["command"].(string)
+	quoted := adapters.ShellQuote(filepath.ToSlash(filepath.Dir(wrapper))) + "/" + filepath.Base(wrapper)
+	if command != wrapper+" 'exit 2'" && command != quoted+" 'exit 2'" {
+		t.Errorf("cursor preToolUse handler = %q, want exit 2 through %s", command, wrapper)
 	}
 	if info, err := os.Stat(filepath.FromSlash(wrapper)); err != nil || runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
 		t.Errorf("wrapper = %v, %v; want an executable file", info, err)
