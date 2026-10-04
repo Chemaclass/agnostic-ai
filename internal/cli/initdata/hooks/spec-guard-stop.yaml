@@ -1,0 +1,7 @@
+name: spec-guard-stop
+description: Tell the agent when specs changed without a sync before it stops.
+targets: [claude, codex, gemini]
+on: stop
+command: 'command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook guard stop'
+commandWindows: 'if (-not (Get-Command agnostic-ai -ErrorAction SilentlyContinue)) { exit 0 }; agnostic-ai hook guard stop; exit $LASTEXITCODE'
+timeout: 30

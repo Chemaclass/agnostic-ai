@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- `outputs.<target>.agents: skill` writes agents as on-demand skills on Amp, Crush, Warp, and Zed, which have no subagents, unless a tool with subagents reads the same skills directory (#1772).
 - `import` turns MCP credentials into `${NAME}` references or drops the server, as `--global` does; `doctor` names each unset `${NAME}` (#1736, #1742, #1729).
 - `hook run` uses Git Bash for Claude Code hooks on Windows and shows a command's timeout or error even when another's result is not counted (#1746, #1728).
 - Hooks take portable `on:` and `match:` on 12 tools; `import` writes them where they map exactly and skips the native hooks a shared hook spec already syncs. `migrate` rewrites old spec forms, output unchanged, and `doctor` and `lint` (LINT034) name them (#1755, #1752, #1768).
@@ -15,6 +16,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `import` matches hooks by exactly what sync writes, keeping Crush script hooks shared; a hook's `x-<target>` `command` and `args` apply on every tool (#1788).
 - `init --demo` seeds a `no-force-push` guard, `new agent` omits `model`, and `lint` warns (LINT031) on a leftover `TODO` description (#1732, #1738, #1739).
 - Spec bodies can name an agent or skill with `{{$AGENT:name}}` and `{{$SKILL:name}}`, which render each tool's documented invocation phrase; `lint` fails (LINT033) on an unknown name (#1773).
+- `init --demo` seeds a spec guard: after an edit, the agent sees the lint errors in the specs it touched, and when it stops with specs not synced, a one-line notice. `lint --files` and `hook guard` back it (#1774).
 
 ### By tool
 

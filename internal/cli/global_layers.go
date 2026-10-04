@@ -89,7 +89,7 @@ func loadSpecScope(global bool, skipBroken io.Writer) (checkScope, error) {
 		if err != nil {
 			return checkScope{}, err
 		}
-		return checkScope{cfg: cfg, models: cfg.Models, targets: cfg.Targets, hookTargets: cfg.Targets, support: targetsSupportingKind, bundle: b}, nil
+		return checkScope{cfg: cfg, models: cfg.Models, targets: cfg.Targets, hookTargets: cfg.Targets, support: projectKindSupport(cfg), bundle: b}, nil
 	}
 	source, err := globalSourceRoot()
 	if err != nil {
