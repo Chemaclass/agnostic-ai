@@ -163,8 +163,7 @@ func EmitPluginHooks(sess *Session, host PluginHookHost, hooks []spec.Entry, dir
 			return err
 		}
 		for _, raw := range commands {
-			cmd := RewriteHookPath(raw, host.Target, h.Meta)
-			rewritten = append(rewritten, cmd)
+			rewritten = append(rewritten, ShellHookCommand(raw, host.Target, h.Meta))
 			vendorCommand := RewriteNeutralHookPath(raw, ".")
 			sourceTool, _ := SourceToolFromHookCommand(vendorCommand)
 			if err := sess.MaterializeHookScript(RewriteHookPath(vendorCommand, host.Target, h.Meta), host.Target, sourceTool, dryRun); err != nil {

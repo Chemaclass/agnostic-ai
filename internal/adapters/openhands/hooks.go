@@ -109,7 +109,7 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 	type matcherKey struct{ event, matcher string }
 	byKey := map[matcherKey][]claudehooks.CommandEntry{}
 	keyOrder := []matcherKey{}
-	var claudeMatchers int
+	var claudeMatchers, windowsFolds int
 
 	for _, h := range hooks {
 		event, _ := h.Meta["event"].(string)
@@ -128,15 +128,20 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 		if _, seen := byKey[k]; !seen {
 			keyOrder = append(keyOrder, k)
 		}
+		if len(emit.HookArgs(target, h.Meta)) > 0 {
+			windowsFolds++
+		}
 		for _, command := range commands {
 			byKey[k] = append(byKey[k], claudehooks.CommandEntry{
 				Type:    "command",
-				Command: emit.RewriteHookPath(command, target, h.Meta),
+				Command: emit.ShellHookCommand(command, target, h.Meta),
 				Timeout: emit.HookIntMeta(h.Meta, "timeout"),
 				Async:   emit.HookBoolMeta(h.Meta, "async"),
 			})
 		}
 	}
+	emit.NoteSurfaceGap(target, spec.KindHook, windowsFolds, "Windows",
+		"OpenHands runs a hook with cmd.exe there, which does not read the POSIX quotes the args fold into")
 	emit.NoteFieldNoOp(target, spec.KindHook, "matcher", claudeMatchers,
 		"OpenHands names its own tools (terminal, not Bash), so a Claude-style matcher parses but matches nothing; use the OpenHands tool name, `*`, or a regex")
 	if len(keyOrder) == 0 {

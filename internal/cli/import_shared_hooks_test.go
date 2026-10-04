@@ -216,6 +216,18 @@ func TestImport_SkipsSharedHooksWithArgs(t *testing.T) {
 	}
 }
 
+// Sync leaves a hook path in an arg as written, and import matches it.
+func TestImport_SkipsSharedHooksWithHookPathsInArgs(t *testing.T) {
+	hook := "name: sh\nevent: PreToolUse\nmatcher: Bash\ncommand: cat\nargs: [.agnostic-ai/scripts/policy.json, .claude/hooks/policy.json]\n"
+	for _, target := range []string{"claude", "codex", "copilot", "crush", "factory", "gemini", "goose", "kiro", "openhands", "trae", "windsurf"} {
+		t.Run(target, func(t *testing.T) {
+			syncSharedHook(t, target, hook)
+
+			assertOnlySharedHook(t, hook, importCapturing(t, target))
+		})
+	}
+}
+
 func TestImport_KeepsANativeClaudeHookWithOtherArgs(t *testing.T) {
 	hook := "name: sh\nevent: PreToolUse\nmatcher: Bash\ncommand: echo\nargs: [shared]\n"
 	syncSharedHook(t, "claude", hook)

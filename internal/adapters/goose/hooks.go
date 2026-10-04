@@ -117,10 +117,12 @@ func buildHooks(hooks []spec.Entry, scriptDirs ...string) *hooksDoc {
 		if _, exists := byKey[key]; !exists {
 			order = append(order, key)
 		}
+		args := emit.HookArgs(target, hook.Meta)
 		for _, command := range commands {
+			// Goose runs every command with `sh -c`, Windows included.
+			command = emit.ExecFormCommand(emit.RewriteNeutralHookPath(emit.RewriteHookRoot(command, target, hook.Meta), scriptsDir, len(args) > 0), args)
 			byKey[key] = append(byKey[key], hookAction{
-				// Goose runs every command with `sh -c`, Windows included.
-				Type: "command", Command: emit.ExportHookTarget(emit.RewriteNeutralHookPath(emit.RewriteHookRoot(command, target, hook.Meta), scriptsDir), target),
+				Type: "command", Command: emit.ExportHookTarget(command, target),
 				Timeout: emit.HookIntMeta(hook.Meta, "timeout"), OnFailure: onFailure,
 			})
 		}
