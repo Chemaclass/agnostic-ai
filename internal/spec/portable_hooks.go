@@ -51,9 +51,10 @@ var sharedHookEvents = map[string]string{
 // and exit 2 with stderr as Claude Code does on it, so one script decides
 // the same everywhere; hookrun's per-target models are the source, and a
 // test holds the table to them. Cline, Cursor, and Copilot count because
-// sync wraps each command to turn exit 2 into their deny reply. Cline
-// reads no exit code and Copilot denies on exit 1, so there exit 1 lets
-// the call go on unreported. Tool names come from the same models.
+// sync wraps each command to turn exit 2 into their deny reply. Exit 1
+// differs on two: Cline reads no exit code, so the call goes on
+// unreported, and Copilot fails the call closed, so a broken guard keeps
+// blocking. Tool names come from the same models.
 // Claude Code's edit names every edit tool a version may have; a name it
 // lacks never matches. Codex takes Edit and Write as aliases for
 // apply_patch. A target whose matcher is an unanchored regular

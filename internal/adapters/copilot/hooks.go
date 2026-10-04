@@ -229,17 +229,16 @@ var decisionWrapperPath = emit.HookScriptsDir(target) + "/" + emit.DecisionWrapp
 // hooks-reference). Exit 2 stays, since it "denies the tool call", and
 // its "stdout JSON is merged with the deny decision", so the reply adds
 // stderr as permissionDecisionReason, the "Reason fed to the LLM when
-// denying". Exit 0 passes stdout. Copilot denies on any other exit, where
-// Claude Code reports an error and goes on, so the wrapper exits 0 with
-// no reply: preToolUse has no field that reports an error without
-// denying, and only stderr is left.
+// denying". Exit 0 passes stdout. Another exit stays, so Copilot denies
+// the call where Claude Code reports an error and goes on: a guard that
+// breaks keeps blocking instead of letting every call through.
 const decisionReply = `2)
   printf '{"permissionDecision":"deny","permissionDecisionReason":"%s"}\n' "$aai_msg"
   exit 2 ;;
 0)
   cat "$aai_out" ;;
 *)
-  exit 0 ;;
+  exit "$aai_status" ;;
 `
 
 // UnwrapPortableCommand returns the command a synced entry runs through

@@ -107,7 +107,7 @@ func TestDecisionWrapper_RepliesAsACopilotPreToolUseHook(t *testing.T) {
 	if out, code = run(`echo '{"permissionDecision":"ask"}'`); code != 0 || out != "{\"permissionDecision\":\"ask\"}\n" {
 		t.Errorf("exit 0 must pass stdout = %d %q", code, out)
 	}
-	if out, code = run(`echo '{"permissionDecision":"allow"}'; exit 1`); code != 0 || out != "" {
-		t.Errorf("exit 1 = %d %q; Copilot would deny it, where Claude Code reports an error and goes on", code, out)
+	if out, code = run(`echo '{"permissionDecision":"allow"}'; exit 1`); code != 1 || out != "" {
+		t.Errorf("exit 1 = %d %q; it must stay, so Copilot denies the call when a guard breaks", code, out)
 	}
 }

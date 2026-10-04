@@ -31,7 +31,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Copilot
 
-- A portable `before-tool` hook runs through a wrapper script: exit 2 denies the call with stderr as the reason, and exit 1 lets it go on instead of denying it (#1752).
+- A portable `before-tool` hook runs through a wrapper script that denies the call on exit 2 with stderr as the reason; exit 1 still denies, as Copilot fails closed (#1752).
 
 #### Cursor
 

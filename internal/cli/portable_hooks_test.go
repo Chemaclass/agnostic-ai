@@ -146,7 +146,7 @@ func TestImportCopilot_UnwrapsAPortableHookCommand(t *testing.T) {
 }
 
 // sync, import copilot, sync again: the hook keeps its wrapper, so a
-// guard's exit 1 still lets the call go on.
+// guard's exit 2 still denies with its reason.
 func TestImportCopilot_PortableHookRoundTrips(t *testing.T) {
 	dir := newProject(t)
 	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [copilot]\n")
@@ -247,8 +247,6 @@ func TestPortableHookTargets_DecideLikeClaudeCode(t *testing.T) {
 			return hookrun.Result{Stdout: `{"permission":"deny","user_message":"blocked","agent_message":"blocked"}` + "\n", Stderr: r.Stderr}
 		case target == "copilot" && on == "before-tool" && r.Exit == 2:
 			return hookrun.Result{Exit: 2, Stdout: `{"permissionDecision":"deny","permissionDecisionReason":"blocked"}` + "\n", Stderr: r.Stderr}
-		case target == "copilot" && on == "before-tool" && r.Exit != 0:
-			return hookrun.Result{Stderr: r.Stderr}
 		}
 		return r
 	}
@@ -265,9 +263,14 @@ func TestPortableHookTargets_DecideLikeClaudeCode(t *testing.T) {
 			for _, r := range results {
 				want := hookrun.DecideHandler("claude", claudeEvent, hookrun.Handler{}, r)
 				got := hookrun.DecideHandler(target, event, hookrun.Handler{}, synced(target, on, r))
-				// Cline never reads the exit code, and Copilot would deny,
-				// so exit 1 lets the call go on unreported.
-				if (target == "cline" || target == "copilot" && on == "before-tool") && r.Exit == 1 && got == hookrun.Allow && want == hookrun.Error {
+				// Cline never reads the exit code, so exit 1 lets the call
+				// go on unreported.
+				if target == "cline" && r.Exit == 1 && got == hookrun.Allow && want == hookrun.Error {
+					continue
+				}
+				// Copilot fails a tool call closed on exit 1, the safe side:
+				// a broken guard keeps blocking.
+				if target == "copilot" && on == "before-tool" && r.Exit == 1 && got == hookrun.Block && want == hookrun.Error {
 					continue
 				}
 				if got != want {
