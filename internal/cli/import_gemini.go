@@ -420,7 +420,7 @@ func geminiHookSpec(event string, definition map[string]any) map[string]any {
 				continue
 			}
 			command, _ := handler["command"].(string)
-			if command != "" && !gemini.IsProtectHookCommand(command) {
+			if command != "" && !gemini.IsProtectHookCommand(command) && !importLocal.dropsHookCommand("gemini", event, matcher, command) {
 				dropHookTargetEnv(handler, "gemini")
 				handlers = append(handlers, handler)
 				commands = append(commands, command)
@@ -431,8 +431,12 @@ func geminiHookSpec(event string, definition map[string]any) map[string]any {
 		}
 	} else {
 		// Older agnostic-ai versions emitted flat command entries.
+		command, _ := definition["command"].(string)
+		if command != "" && importLocal.dropsHookCommand("gemini", event, matcher, command) {
+			return nil
+		}
 		handlers = []any{definition}
-		if command, _ := definition["command"].(string); command != "" {
+		if command != "" {
 			commands = append(commands, command)
 		}
 	}

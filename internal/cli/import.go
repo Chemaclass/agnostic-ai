@@ -163,6 +163,9 @@ func runImportSource(root, source string, cfg *config.Config) error {
 	if importRecording != nil && source != "all" {
 		importRecording.beginSource(source)
 	}
+	if source != "all" {
+		importLocal.beginSource(source)
+	}
 	src := cfg.Sources
 	switch source {
 	case "all":
