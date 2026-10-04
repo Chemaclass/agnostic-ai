@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 
@@ -22,27 +21,24 @@ var capabilitiesSettingsPermissionsMigration = specMigration{
 	Plan:    planCapabilitiesSettingsPermissions,
 }
 
-func planCapabilitiesSettingsPermissions(root string) ([]migrationChange, []migrationSkip, error) {
-	cfg, b, err := loadProject(root)
+func planCapabilitiesSettingsPermissions(s migrationScope) ([]migrationChange, []migrationSkip, error) {
+	b, layers, err := s.loadSpecs()
 	if err != nil {
 		return nil, nil, err
 	}
-	extended, err := extendedSpecNames(root, cfg, func(lb spec.Bundle) []spec.Entry { return lb.Settings })
+	extended, err := extendedSpecNames(layers, func(lb spec.Bundle) []spec.Entry { return lb.Settings })
 	if err != nil {
 		return nil, nil, err
 	}
-	realRoot, err := filepath.EvalSymlinks(root)
-	if err != nil {
-		return nil, nil, err
-	}
+	roots, packs := s.specRoots()
 	var changes []migrationChange
 	var skips []migrationSkip
-	for _, s := range b.Settings {
-		perms, ok := s.Meta["permissions"].(map[string]any)
+	for _, e := range b.Settings {
+		perms, ok := e.Meta["permissions"].(map[string]any)
 		if !ok {
 			continue
 		}
-		skip := func(reason string) { skips = append(skips, migrationSkip{Path: s.Path, Reason: reason}) }
+		skip := func(reason string) { skips = append(skips, migrationSkip{Path: e.Path, Reason: reason}) }
 		rewrites := map[string]map[int]string{}
 		var kept []string
 		for _, list := range spec.PermissionLists {
@@ -68,19 +64,19 @@ func planCapabilitiesSettingsPermissions(root string) ([]migrationChange, []migr
 		if len(rewrites) == 0 {
 			continue
 		}
-		if pack, ok := strings.CutPrefix(s.Layer, "pack:"); ok {
-			skip("comes from pack " + pack + "; its author migrates it")
+		if pack, ok := strings.CutPrefix(e.Layer, layerNamePackPrefix); ok {
+			skips = append(skips, packSkip(e.Path, pack))
 			continue
 		}
-		if extended[s.Name] {
-			skips = append(skips, migrationSkip{Path: s.Path, Reason: "a local/ spec extends these settings; rewrite both files by hand", Actionable: true})
+		if extended[e.Name] {
+			skips = append(skips, migrationSkip{Path: e.Path, Reason: "a local/ spec extends these settings; rewrite both files by hand", Actionable: true})
 			continue
 		}
-		if real, err := filepath.EvalSymlinks(s.Path); err != nil || !pathWithin(realRoot, real) {
-			skip("resolves outside the project")
+		if outside, ok := s.outsideSpecRoots(migrationChange{Path: e.Path}, roots, packs); ok {
+			skips = append(skips, outside)
 			continue
 		}
-		body, err := os.ReadFile(s.Path)
+		body, err := os.ReadFile(e.Path)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -97,7 +93,7 @@ func planCapabilitiesSettingsPermissions(root string) ([]migrationChange, []migr
 			skip("cannot rewrite in place: " + err.Error())
 			continue
 		}
-		changes = append(changes, migrationChange{Path: s.Path, Before: string(body), After: after})
+		changes = append(changes, migrationChange{Path: e.Path, Before: string(body), After: after})
 		for _, rule := range kept {
 			skip(fmt.Sprintf("keeps %s as an alias: %s", rule, permissionAliasReason(rule)))
 		}
