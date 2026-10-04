@@ -76,7 +76,7 @@ command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook guard stop
 ```
 
 - `after-edit` reads the payload on stdin, like [`hook paths`](#hook-paths), and reports the lint errors in the specs the edit touched. An edit outside the spec sources prints nothing.
-- `stop` reports when specs changed without a sync: a file sync would add or rewrite. A hand edit to a generated file is left to `sync --check`. It passes when the payload says the agent already continued from a stop hook, so the notice cannot loop. It never runs sync.
+- `stop` reports when specs changed without a sync: a file sync would add, rewrite, or remove. A hand edit to a generated file is left to `sync --check`. It passes when the payload says the agent already continued from a stop hook, so the notice cannot loop. It never runs sync.
 - It finds the project from the nearest `agnostic-ai.yaml` at or above the directory the hook runs in. Anything it cannot read, such as a payload it does not know or no config, exits 0.
 
 | Flag | Description |

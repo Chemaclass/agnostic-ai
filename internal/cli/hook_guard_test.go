@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -165,5 +166,26 @@ func TestLint_FilesMatchesADirectoryAndRejectsMissingPaths(t *testing.T) {
 	}
 	if _, err := runCLI(t, "lint", "--files"); err == nil {
 		t.Error("no path must fail")
+	}
+}
+
+// A deleted spec leaves its generated file loading until the next sync.
+func TestHookGuard_StopReportsADeletedSpec(t *testing.T) {
+	guardProject(t)
+	if err := os.RemoveAll(filepath.Join(".agnostic-ai", "skills", "ok")); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := runHookGuard(t, `{}`, "stop")
+	wantGuardReport(t, err, "run `agnostic-ai sync`")
+}
+
+func TestLint_FilesDotCoversEverySpec(t *testing.T) {
+	guardProject(t)
+	writeFile(t, filepath.Join(".agnostic-ai", "skills", "x", "SKILL.md"), "---\nname: x\ndescription: X.\n\nBody\n")
+
+	out, err := runCLI(t, "lint", "--files", ".")
+	if err == nil || !strings.Contains(out, "LINT006") {
+		t.Errorf("want LINT006 under ., got %v\n%s", err, out)
 	}
 }

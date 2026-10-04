@@ -128,12 +128,11 @@ func guardStop(raw []byte) error {
 	return &guardReport{"Specs changed since the last sync: run `agnostic-ai sync`."}
 }
 
-// specsChanged reports whether sync would write a file it has not yet,
-// or rewrite one nobody edited by hand. Other drift, such as a hand edit
-// to a generated file, may predate the session and is not the agent's to
-// settle with a sync.
+// specsChanged reports whether sync would add, rewrite, or remove a file
+// because a spec changed. A hand edit to a generated file may predate
+// the session, and sync only moves it aside, so it does not count.
 func (r driftReport) specsChanged() bool {
-	return len(r.Missing) > 0 || len(r.Stale) > 0
+	return len(r.Missing) > 0 || len(r.Stale) > 0 || len(r.Leftover) > 0 || len(r.Orphaned) > 0
 }
 
 // guardProjectRoot returns the nearest directory at or above the working
@@ -171,7 +170,7 @@ func lintFindingsForFiles(files []string) ([]lintFinding, error) {
 		p := cleanRelPath(f.Path)
 		for _, file := range files {
 			// A directory names every spec below it, such as a skill folder.
-			if want := cleanRelPath(file); p == want || strings.HasPrefix(p, want+"/") {
+			if want := cleanRelPath(file); want == "." || p == want || strings.HasPrefix(p, want+"/") {
 				out = append(out, f)
 				break
 			}
