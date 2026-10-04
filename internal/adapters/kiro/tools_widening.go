@@ -30,18 +30,6 @@ var kiroToolAsks = map[string][]string{
 	"WebSearch": {"web_search"},
 }
 
-// noteWiderTools notes each Kiro category an agent's tools select that
-// also grants a tool none of them asks for, such as `delete_file` for
-// edit. An x-kiro.tools override is the author's own choice.
-func noteWiderTools(a spec.Entry) {
-	if xKiroSetsTools(a.Meta) {
-		return
-	}
-	for _, line := range widerTools(emit.StringSlice(a.Meta["tools"])) {
-		emit.NoteProject(fmt.Sprintf("%s: %s: %s", target, a.Path, line))
-	}
-}
-
 // widerTools returns one sentence per category that grants more than
 // the names selecting it ask for, in first-seen order.
 func widerTools(names []string) []string {

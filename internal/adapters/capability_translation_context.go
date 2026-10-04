@@ -16,9 +16,10 @@ type permissionContextTranslator interface {
 func TranslateAgentCapabilityIn(target, rule string, entry spec.Entry) CapabilityTranslation {
 	custom, _ := entry.Meta["x-"+target].(map[string]any)
 	keys := []string{"tools"}
-	if target == "kilo" {
+	switch target {
+	case "kilo":
 		keys = []string{"permission"}
-	} else if target == "windsurf" {
+	case "windsurf":
 		keys = []string{"allowed-tools"}
 	}
 	for _, key := range keys {

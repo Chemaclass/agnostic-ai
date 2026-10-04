@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/BurntSushi/toml"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
