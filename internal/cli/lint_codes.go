@@ -217,6 +217,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "A spec body holds `{{$AGENT:<name>}}` or `{{$SKILL:<name>}}`, and no agent or skill in the project has that name, or that agent or skill does not sync to a target the spec reaches. Sync would render an invocation phrase that points at nothing.",
 		Fix:      "Use one of the names the finding lists, add the agent or skill, or scope both specs to the same targets.",
 	},
+	"LINT034": {
+		Severity: lintWarn,
+		Title:    "Native hook event with an exact portable form",
+		Cause:    "A hook's `event:` and `matcher:` have a portable `on:` and `match:` that give every enabled target the hook reaches the same native event and matcher, so the portable form syncs the same files. The finding names the values. It is raised for exactly the hooks `agnostic-ai migrate --only hooks` rewrites.",
+		Fix:      "Run `agnostic-ai migrate --only hooks`, or write the `on:` and `match:` the finding names in place of `event:` and `matcher:`.",
+	},
 }
 
 type explainLintCodeOutput struct {

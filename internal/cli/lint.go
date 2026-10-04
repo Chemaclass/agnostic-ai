@@ -58,7 +58,8 @@ func newLintCmd() *cobra.Command {
 			"Claude Code body syntax an enabled target reads as plain text, missing or conflicting " +
 			"Codex command prefixes for Bash permissions, coverage.accept entries " +
 			"that match no coverage note, MCP values JSON cannot hold, one tool's reference form in an MCP url or args, invalid protected paths and protected " +
-			"paths that cover a file sync writes, Kiro agents whose resources omit the AGENTS.md that carries the rules, model tiers with no model for an enabled " +
+			"paths that cover a file sync writes, Kiro agents whose resources omit the AGENTS.md that carries the rules, " +
+			"native hook events `migrate --only hooks` can rewrite as on: and match:, model tiers with no model for an enabled " +
 			"target, Claude model names that reach another vendor's target, and warns when a " +
 			"target's always-loaded instructions pass the lint.instructions-words " +
 			"budget, the AGENTS.md chain Codex reads in a scope passes lint.codex-chain-bytes, " +
@@ -185,6 +186,7 @@ func lintScopeReport(scope checkScope) ([]lintFinding, int, error) {
 		}
 		findings = append(findings, protected...)
 		findings = append(findings, lintKiroAgentResources(scope.cfg, scope.targets, scope.bundle)...)
+		findings = append(findings, lintPortableHookForms(".", scope.cfg, scope.bundle)...)
 	}
 	findings = append(findings, lintGeminiHookVariables(scope.cfg, scope.targets, scope.bundle)...)
 	configPath := config.ConfigFileName

@@ -64,6 +64,28 @@ func planHooksPortableEvents(root string) ([]migrationChange, []migrationSkip, e
 	if err != nil {
 		return nil, nil, err
 	}
+	planned, skips, err := planPortableHooks(root, cfg, b)
+	if err != nil {
+		return nil, nil, err
+	}
+	var changes []migrationChange
+	for _, p := range planned {
+		changes = append(changes, p.change)
+	}
+	return changes, skips, nil
+}
+
+// plannedPortableHook is one hook spec hooks-portable-events rewrites.
+type plannedPortableHook struct {
+	hook   spec.Entry
+	form   portableHookForm
+	change migrationChange
+}
+
+// planPortableHooks plans the hooks-portable-events rewrites for the
+// project at root, loaded as cfg and b. LINT034 reads the same plan, so
+// lint suggests the portable form exactly where migrate writes it.
+func planPortableHooks(root string, cfg *config.Config, b spec.Bundle) ([]plannedPortableHook, []migrationSkip, error) {
 	extended, err := extendedHookNames(root, cfg)
 	if err != nil {
 		return nil, nil, err
@@ -72,7 +94,7 @@ func planHooksPortableEvents(root string) ([]migrationChange, []migrationSkip, e
 	if err != nil {
 		return nil, nil, err
 	}
-	var changes []migrationChange
+	var planned []plannedPortableHook
 	var skips []migrationSkip
 	for _, h := range b.Hooks {
 		event, ok := h.Meta["event"].(string)
@@ -92,24 +114,9 @@ func planHooksPortableEvents(root string) ([]migrationChange, []migrationSkip, e
 			skips = append(skips, migrationSkip{Path: h.Path, Reason: "a local/ spec extends this hook; rewrite both files by hand", Actionable: true})
 			continue
 		}
-		rawMatcher, hasMatcher := h.Meta["matcher"]
-		matcher, ok := rawMatcher.(string)
-		if hasMatcher && !ok {
-			skip("matcher: is not a string")
-			continue
-		}
-		reach := hookMigrationTargets(cfg, h)
-		if len(reach) == 0 {
-			skip("reaches no configured target that runs hooks")
-			continue
-		}
-		on, match, blocker := spec.PortableHookForm(reach, event, matcher, hasMatcher)
-		if blocker != "" {
-			native := event
-			if hasMatcher {
-				native = fmt.Sprintf("%s with matcher %q", event, matcher)
-			}
-			skip(fmt.Sprintf("no portable form gives %s on %s", native, blocker) + widerEditNote(blocker, matcher))
+		form, reason := portableFormOf(h, hookMigrationTargets(cfg, h))
+		if reason != "" {
+			skip(reason)
 			continue
 		}
 		if real, err := filepath.EvalSymlinks(h.Path); err != nil || !pathWithin(realRoot, real) {
@@ -120,18 +127,55 @@ func planHooksPortableEvents(root string) ([]migrationChange, []migrationSkip, e
 		if err != nil {
 			return nil, nil, err
 		}
-		rewrites := []yamlKeyRewrite{{Key: "event", NewKey: "on", Value: on}}
-		if hasMatcher {
-			rewrites = append(rewrites, yamlKeyRewrite{Key: "matcher", NewKey: "match", Value: match})
-		}
-		after, err := rewriteTopLevelYAMLKeys(string(body), rewrites)
+		after, err := rewriteTopLevelYAMLKeys(string(body), form.rewrites())
 		if err != nil {
 			skip("cannot rewrite in place: " + err.Error())
 			continue
 		}
-		changes = append(changes, migrationChange{Path: h.Path, Before: string(body), After: after})
+		planned = append(planned, plannedPortableHook{hook: h, form: form, change: migrationChange{Path: h.Path, Before: string(body), After: after}})
 	}
-	return changes, skips, nil
+	return planned, skips, nil
+}
+
+// portableHookForm is a native hook's event and matcher, with the on:
+// and match: that give them back on every target the hook reaches.
+type portableHookForm struct {
+	event, matcher string
+	hasMatcher     bool
+	on, match      string
+}
+
+// portableFormOf returns the portable form of native hook h, which
+// reaches targets, or why no portable form gives each of them the same
+// event and matcher. The migration and import both apply it.
+func portableFormOf(h spec.Entry, targets []string) (portableHookForm, string) {
+	event, _ := h.Meta["event"].(string)
+	rawMatcher, hasMatcher := h.Meta["matcher"]
+	matcher, ok := rawMatcher.(string)
+	if hasMatcher && !ok {
+		return portableHookForm{}, "matcher: is not a string"
+	}
+	if len(targets) == 0 {
+		return portableHookForm{}, "reaches no configured target that runs hooks"
+	}
+	on, match, blocker := spec.PortableHookForm(targets, event, matcher, hasMatcher)
+	if blocker != "" {
+		native := event
+		if hasMatcher {
+			native = fmt.Sprintf("%s with matcher %q", event, matcher)
+		}
+		return portableHookForm{}, fmt.Sprintf("no portable form gives %s on %s", native, blocker) + widerEditNote(blocker, matcher)
+	}
+	return portableHookForm{event: event, matcher: matcher, hasMatcher: hasMatcher, on: on, match: match}, ""
+}
+
+// rewrites renames event: and matcher: to on: and match: in place.
+func (f portableHookForm) rewrites() []yamlKeyRewrite {
+	out := []yamlKeyRewrite{{Key: "event", NewKey: "on", Value: f.on}}
+	if f.hasMatcher {
+		out = append(out, yamlKeyRewrite{Key: "matcher", NewKey: "match", Value: f.match})
+	}
+	return out
 }
 
 // extendedHookNames names the hooks a local/ spec merges into a lower

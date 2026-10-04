@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 // A spec a person wrote at the readable name belongs to another hook, so
@@ -73,6 +75,35 @@ func TestImportClaudeHooks_RerunUpdatesItsReadableSpec(t *testing.T) {
 	want := []string{"pretooluse-bash-guard-sh.yaml", "stop-hooks-example-com.yaml"}
 	if strings.Join(names, ",") != strings.Join(want, ",") {
 		t.Errorf("specs after rerun = %v, want %v", names, want)
+	}
+}
+
+// A rerun finds the readable spec it wrote in the portable form and
+// updates it instead of adding a hashed copy.
+func TestImportClaudeHooks_RerunUpdatesItsPortableSpec(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, ".claude", "settings.json"),
+		`{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"guard.sh"}]}]}}`)
+	dst := filepath.Join(root, "hooks")
+	if err := os.MkdirAll(dst, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	prior := importHookConfig
+	importHookConfig = &config.Config{Targets: []string{"claude"}}
+	t.Cleanup(func() { importHookConfig = prior })
+
+	for run := 1; run <= 2; run++ {
+		if _, err := importClaudeHooks(root, dst); err != nil {
+			t.Fatalf("import run %d: %v", run, err)
+		}
+	}
+
+	names := readDirNames(t, dst)
+	if strings.Join(names, ",") != "pretooluse-bash-guard-sh.yaml" {
+		t.Errorf("specs after rerun = %v, want only pretooluse-bash-guard-sh.yaml", names)
+	}
+	if got := readFileString(t, filepath.Join(dst, "pretooluse-bash-guard-sh.yaml")); !strings.Contains(got, "on: before-tool\n") {
+		t.Errorf("want the portable form:\n%s", got)
 	}
 }
 
