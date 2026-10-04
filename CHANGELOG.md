@@ -16,6 +16,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `import` matches hooks by exactly what sync writes, keeping Crush script hooks shared; a hook's `x-<target>` `command` and `args` apply on every tool (#1788).
 - `init --demo` seeds a `no-force-push` guard, `new agent` omits `model`, and `lint` warns (LINT031) on a leftover `TODO` description (#1732, #1738, #1739).
 - Spec bodies can name an agent or skill with `{{$AGENT:name}}` and `{{$SKILL:name}}`, which render each tool's documented invocation phrase; `lint` fails (LINT033) on an unknown name (#1773).
+- A rule inlined into `AGENTS.md`, `GEMINI.md`, or another entry point now expands `{{$SKILLS_DIR}}` and the other path variables where every tool reading that file agrees on the path; otherwise a note names the file (#1787).
 - `init --demo` seeds a spec guard: after an edit, the agent sees the lint errors in the specs it touched, and when it stops with specs not synced, a one-line notice. `lint --files` and `hook guard` back it (#1774).
 
 ### By tool

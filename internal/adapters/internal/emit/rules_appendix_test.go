@@ -191,15 +191,3 @@ func TestEntryPointRuleInliner(t *testing.T) {
 		})
 	}
 }
-
-func TestEntryPointInlinedRules_ListsTheInlinersUnscopedRules(t *testing.T) {
-	b := spec.NewBundle([]spec.Entry{
-		{Kind: spec.KindRule, Name: "always", Body: "a"},
-		{Kind: spec.KindRule, Name: "pkg", Scope: "pkg", Body: "p"},
-		{Kind: spec.KindRule, Name: "cline-only", Meta: map[string]any{"targets": []any{"cline"}}, Body: "c"},
-	})
-	got := EntryPointInlinedRules(&config.Config{Targets: []string{"codex", "cline"}}, b, "cline")
-	if _, ok := got["always"]; !ok || len(got) != 1 {
-		t.Errorf("want only the rule codex inlines, got %v", got)
-	}
-}

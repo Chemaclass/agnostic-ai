@@ -558,7 +558,7 @@ func RuleInEntryPoint(cfg *config.Config, b spec.Bundle, target string, r spec.E
 // A rule whose text differs, from a `::target` fence or an expanded
 // variable, keeps its file: dropping it would lose that text.
 func entryPointRules(cfg *config.Config, b spec.Bundle, target string, own []spec.Entry) []spec.Entry {
-	inlined := emit.EntryPointInlinedRules(cfg, b, target)
+	inlined := entryPointInlinedRules(cfg, b, target)
 	if len(inlined) == 0 {
 		return nil
 	}
@@ -570,6 +570,20 @@ func entryPointRules(cfg *config.Config, b spec.Bundle, target string, own []spe
 		}
 	}
 	return out
+}
+
+// entryPointInlinedRules returns the rules, by name, that the entry
+// point target reads carries in its inlined rules block, or nil.
+func entryPointInlinedRules(cfg *config.Config, b spec.Bundle, target string) map[string]spec.Entry {
+	inliner := emit.EntryPointRuleInliner(cfg, target)
+	if inliner == "" {
+		return nil
+	}
+	rules := map[string]spec.Entry{}
+	for _, r := range EntryPointRules(b, inliner, cfg).Rules {
+		rules[r.Name] = r
+	}
+	return rules
 }
 
 // withoutEntryPointRules drops the rules entryPointRules reports, so
