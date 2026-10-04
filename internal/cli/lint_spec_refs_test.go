@@ -46,3 +46,15 @@ func TestLint_FailsOnAReferenceToAnAgentScopedAwayFromATarget(t *testing.T) {
 		t.Errorf("want one LINT033 for push.md on codex, got:\n%s", out)
 	}
 }
+
+// A reference fenced to one target only has to resolve there.
+func TestLint_AcceptsAFencedReferenceToAScopedAgent(t *testing.T) {
+	dir := budgetProject(t, "targets: [claude, codex]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews diffs.\ntarget: claude\n---\n\nReview.\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "push.md"), "---\nname: push\n---\n\nBefore pushing:\n\n::target claude\nRun {{$AGENT:reviewer}}.\n::end\n")
+
+	out, _ := runCLI(t, "lint")
+	if lines := findingLines(out, "LINT033"); len(lines) != 0 {
+		t.Errorf("want no LINT033 for a fenced reference, got:\n%s", out)
+	}
+}

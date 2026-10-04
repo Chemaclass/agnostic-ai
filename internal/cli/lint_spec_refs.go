@@ -40,7 +40,7 @@ func lintSpecRefs(targets []string, b spec.Bundle) []lintFinding {
 			if named, ok := byName[ref.Keyword][ref.Name]; ok {
 				var missing []string
 				for _, t := range targets {
-					if e.EmitsTo(t) && !named.EmitsTo(t) {
+					if e.EmitsTo(t) && !named.EmitsTo(t) && strings.Contains(spec.FilterFences(e.Body, []string{t}), ref.Token) {
 						missing = append(missing, t)
 					}
 				}

@@ -119,3 +119,23 @@ func TestSync_ScopedRuleInASharedAGENTSMdUsesTheNeutralPhrase(t *testing.T) {
 		t.Errorf("want the neutral phrase in the root review section:\n%s", root)
 	}
 }
+
+// Codex and Windsurf write one file under .agents/skills, so a skill
+// there takes the neutral phrase rather than colliding.
+func TestSync_SkillInASharedSkillsDirUsesTheNeutralPhrase(t *testing.T) {
+	testutil.TempCwd(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex, windsurf]\n")
+	writeAgnosticFile(t, "# Shared\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "skills", "commit", "SKILL.md"), "---\nname: commit\ndescription: Writes commits.\n---\n\nCommit.\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "skills", "release", "SKILL.md"), "---\nname: release\ndescription: Cuts a release.\n---\n\nFinish with {{$SKILL:commit}}.\n")
+
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	if got := readFile(t, filepath.Join(".agents", "skills", "release", "SKILL.md")); !strings.Contains(got, "Finish with the commit skill.") {
+		t.Errorf("want the neutral phrase in the shared skill:\n%s", got)
+	}
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check: %v\n%s", err, out)
+	}
+}
