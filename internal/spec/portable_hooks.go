@@ -24,10 +24,15 @@ var mcpServerName = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 // nativeHookNames is one target's translation of the portable form. An
 // event or tool kind missing from it has no exact native form there. mcp
 // formats a server name into the matcher for its tools, or is empty.
+// wrapped lists the events whose commands sync wraps to turn exit 2 into
+// the target's reply. filters marks a target with no matcher, where sync
+// runs the command only when the payload names one of the kind's tools.
 type nativeHookNames struct {
-	events map[string]string
-	tools  map[string]string
-	mcp    string
+	events  map[string]string
+	tools   map[string]string
+	mcp     string
+	wrapped map[string]bool
+	filters bool
 }
 
 // sharedHookEvents are the event names Claude Code and Codex share.
@@ -45,13 +50,16 @@ var sharedHookEvents = map[string]string{
 // for. An event is listed only where the target reads exit 0, exit 1,
 // and exit 2 with stderr as Claude Code does on it, so one script decides
 // the same everywhere; hookrun's per-target models are the source, and a
-// test holds the table to them. Cline counts because sync turns exit 2
-// into its cancel reply; it reads no exit 1, so the call goes on unreported. Tool names come from the same models; a target
-// with no matcher gets `any` only.
+// test holds the table to them. Cline, Cursor, and Copilot count because
+// sync wraps each command to turn exit 2 into their deny reply. Cline
+// reads no exit code and Copilot denies on exit 1, so there exit 1 lets
+// the call go on unreported. Tool names come from the same models.
 // Claude Code's edit names every edit tool a version may have; a name it
 // lacks never matches. Codex takes Edit and Write as aliases for
 // apply_patch. A target whose matcher is an unanchored regular
-// expression gets anchored names, so no other tool matches.
+// expression gets anchored names, so no other tool matches. Cline's
+// names cover its CLI (run_commands, editor) and its VS Code extension
+// (execute_command, replace_in_file), which run the same script.
 var portableHookTargets = map[string]nativeHookNames{
 	"claude": {
 		events: sharedHookEvents,
@@ -99,13 +107,23 @@ var portableHookTargets = map[string]nativeHookNames{
 		events: pickEvents("prompt-submit", "before-tool", "stop"),
 		tools:  map[string]string{"shell": "^exec$", "edit": "^(edit|write|apply_patch)$", "read": "^read$", "web": "^(webfetch|web_search)$", "any": ""},
 	},
+	"cursor": {
+		events:  map[string]string{"before-tool": "preToolUse"},
+		tools:   map[string]string{"shell": "^Shell$", "edit": "^Write$", "read": "^Read$", "any": ""},
+		wrapped: map[string]bool{"before-tool": true},
+	},
 	"copilot": {
-		events: pickEvents("session-start", "session-end"),
-		tools:  map[string]string{"any": ""},
+		events:  pickEvents("session-start", "before-tool", "session-end"),
+		tools:   map[string]string{"shell": "Bash", "edit": "Edit|Write", "read": "Read", "web": "WebFetch|WebSearch", "any": ""},
+		wrapped: map[string]bool{"before-tool": true},
 	},
 	"cline": {
 		events: pickEvents("before-tool"),
-		tools:  map[string]string{"any": ""},
+		tools: map[string]string{
+			"shell": "run_commands|execute_command", "edit": "editor|apply_patch|replace_in_file|write_to_file",
+			"read": "read_files|read_file", "web": "fetch_web_content|web_fetch|web_search", "any": "",
+		},
+		filters: true,
 	},
 }
 
@@ -208,6 +226,7 @@ func (e Entry) NativeHook(target string) (Entry, string) {
 		meta["matcher"] = matcher
 	}
 	e.Meta = meta
+	e.PortableOn = on
 	if e.MetaKeys != nil {
 		keys := slices.Clone(e.MetaKeys)
 		for i, k := range keys {
@@ -221,6 +240,32 @@ func (e Entry) NativeHook(target string) (Entry, string) {
 		e.MetaKeys = keys
 	}
 	return e, ""
+}
+
+// WrapsDecision reports whether sync wraps the hook's commands on target
+// so exit 2 becomes the target's deny reply: a portable hook on an event
+// the target reads another way than Claude Code.
+func (e Entry) WrapsDecision(target string) bool {
+	return e.PortableOn != "" && portableHookTargets[target].wrapped[e.PortableOn]
+}
+
+// FilteredTools returns the tool names a portable hook runs on where
+// target has no matcher, so sync checks the payload's tool name instead.
+// It is nil for a hook that runs on every tool.
+func (e Entry) FilteredTools(target string) []string {
+	matcher, _ := e.Meta["matcher"].(string)
+	if e.PortableOn == "" || !portableHookTargets[target].filters || matcher == "" {
+		return nil
+	}
+	return strings.Split(matcher, "|")
+}
+
+// rewritesCommands reports whether sync writes the commands of a portable
+// hook with this event and native matcher differently on target than
+// those of the same hook in the native form.
+func rewritesCommands(target, on, matcher string) bool {
+	names := portableHookTargets[target]
+	return names.wrapped[on] || names.filters && matcher != ""
 }
 
 // PortableHookEvent returns target's native event for a portable one, or
@@ -273,9 +318,10 @@ func nativeHookFor(target, on, kind string) (event, matcher, reason string) {
 }
 
 // PortableHookForm returns the `on:` and `match:` that translate to
-// exactly event and matcher on every one of targets. A spec without a
-// matcher gets no match:, so the rewrite renames keys one to one.
-// blocker names the first target no common form reaches.
+// exactly event and matcher on every one of targets, with the same
+// commands. A spec without a matcher gets no match:, so the rewrite
+// renames keys one to one. blocker names the first target no common form
+// reaches.
 func PortableHookForm(targets []string, event, matcher string, hasMatcher bool) (on, match, blocker string) {
 	type form struct{ on, match string }
 	var candidates []form
@@ -303,7 +349,7 @@ func PortableHookForm(targets []string, event, matcher string, hasMatcher bool) 
 				kind = "edit"
 			}
 			e, m, reason := nativeHookFor(target, f.on, kind)
-			return reason != "" || e != event || m != matcher
+			return reason != "" || e != event || m != matcher || rewritesCommands(target, f.on, m)
 		})
 		if len(candidates) == 0 {
 			return "", "", target

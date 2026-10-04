@@ -103,7 +103,7 @@ func globalContributions(home, target string, entry spec.Entry, b spec.Bundle) (
 	case spec.KindHook:
 		hook, _ := entry.NativeHook(target)
 		event, _ := hook.Meta["event"].(string)
-		if g.hooks != "" && entry.EmitsTo(target) && event != "" {
+		if g.hooks != "" && entry.EmitsTo(target) && event != "" && !hook.WrapsDecision(target) {
 			out = append(out, contribution{Target: target, Path: g.path(home, g.hooks), Section: event, Mode: "section"})
 		}
 	case spec.KindMCP:

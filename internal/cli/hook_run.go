@@ -282,7 +282,12 @@ func runHookTargets(cfg *config.Config, source spec.Entry, hooks []spec.Entry, t
 			run.Async, run.fireAndForget = true, true
 		}
 		if target == "cline" {
-			run.Notes = append(run.Notes, hookrun.ClineRunNotes(event, matcher, specTimeout(hook.Meta), payload.Trigger)...)
+			// A portable match kind is a tool name check in the script.
+			dropped := matcher
+			if hook.FilteredTools(target) != nil {
+				dropped = ""
+			}
+			run.Notes = append(run.Notes, hookrun.ClineRunNotes(event, dropped, specTimeout(hook.Meta), payload.Trigger)...)
 			if reason := hookrun.ClineSharedScript(adapters.HookScriptSiblings(cfg, target, spec.Bundle{Hooks: hooks}.HooksFor(target), hook)); reason != "" && !run.Async {
 				run.uncounted, run.sharedScript = reason, true
 				run.Notes = append(run.Notes, "not counted: "+reason)

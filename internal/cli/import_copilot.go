@@ -178,6 +178,9 @@ func normalizeCopilotHook(event string, native map[string]any) map[string]any {
 	case "command":
 		cwd, _ := native["cwd"].(string)
 		command, _ := native["command"].(string)
+		if inner, ok := copilot.UnwrapPortableCommand(command, cwd); ok {
+			command = inner
+		}
 		command = copilot.ScriptFromCwd(command, cwd)
 		if command == "" {
 			command, _ = native["exec"].(string)

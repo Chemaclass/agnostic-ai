@@ -890,6 +890,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		path := g.path(home, g.hooks)
 		hooks := b.HooksFor(target)
 		adapters.NotePortableHookGaps(target, b.Hooks)
+		hooks = adapters.WithoutWrappedHooks(target, hooks)
 		scriptsDir := filepath.Join(filepath.Dir(path), "hooks")
 		for _, hook := range hooks {
 			if event, _ := hook.Meta["event"].(string); event == "" {

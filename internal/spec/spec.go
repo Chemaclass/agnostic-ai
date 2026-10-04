@@ -92,6 +92,9 @@ type Entry struct {
 	// ModelTier names the `models:` tier the spec's `model` resolved
 	// through, or "" for a literal model. See Bundle.ApplyModelTiers.
 	ModelTier string
+	// PortableOn is the `on:` a hook was translated from by NativeHook,
+	// or "" for a hook written in the native form.
+	PortableOn string
 }
 
 // SkillAssetDir returns the folder whose sibling files ship with a skill,

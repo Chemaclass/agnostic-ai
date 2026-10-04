@@ -10,7 +10,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - `import` turns MCP credentials in URLs, `--token X` args, and bare tokens into `${NAME}` references, or drops the server, as `--global` does (#1736, #1742).
 - `hook run` uses Git Bash for Claude Code hooks on Windows and shows a command's timeout or error even when another's result is not counted (#1746, #1728).
-- Hooks take portable `on:` and `match:` on 12 tools, and `import` skips the native hooks a shared hook spec already syncs; `migrate` rewrites old spec forms, output unchanged, and `doctor` names them (#1755, #1752, #1768).
+- Hooks take portable `on:` and `match:` on 13 tools, and `import` skips the native hooks a shared hook spec already syncs; `migrate` rewrites old spec forms, output unchanged, and `doctor` names them (#1755, #1752, #1768).
 - `init --demo` seeds a `no-force-push` guard, `new agent` omits `model`, and `lint` warns (LINT031) on a leftover `TODO` description (#1732, #1738, #1739).
 - `doctor` lists each MCP `${NAME}` reference that is unset in your shell, by name (#1729).
 
@@ -21,11 +21,20 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - A hook command that exits 2 now blocks on Cline: the synced script prints a `{"cancel": true}` reply with its stderr (#1722).
 - Hooks sync to `.clinerules/hooks/<Event>`, so the VS Code extension runs them too; sync removes the old `.cline/hooks/<Event>.sh` files (#1723).
 - `hook run` runs Cline hook scripts with bash as the Cline CLI does; only stdout `{"cancel": true}` blocks, and the exit code is ignored (#1678).
+- A portable `before-tool` hook with `match:` runs only on that kind's tools: the event script checks the tool name in the payload (#1752).
 
 #### Codex
 
 - A hook `commandWindows` keeps the project root path, so a script under the project runs from any subdirectory (#1732).
 - A grouped hook matcher such as `^(Bash|exec)$` no longer gets a false "does not match" note, and specs sharing a command merge validly (#1743).
+
+#### Copilot
+
+- A portable `before-tool` hook runs through a wrapper script: exit 2 denies the call with stderr as the reason, and exit 1 lets it go on instead of denying it (#1752).
+
+#### Cursor
+
+- A portable `before-tool` hook lands on `preToolUse` through a wrapper script that turns exit 2 into a deny reply with stderr as the message (#1752).
 
 #### Kiro
 
