@@ -9,7 +9,7 @@ group = "Reference"
 
 # Configuration
 
-`agnostic-ai.yaml` lives at the project root. Commands read it from the current working directory. Every section is optional. The legacy filename `agnostic.config.yaml` still loads, with a deprecation warning.
+`agnostic-ai.yaml` lives at the project root. Commands read it from the current working directory. Every section is optional. The legacy filename `agnostic.config.yaml` still loads, with a deprecation warning. Run `agnostic-ai migrate` to rename it.
 
 ## Minimal project config
 

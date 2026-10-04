@@ -198,11 +198,12 @@ agnostic-ai migrate             # apply them
 
 - A migration rewrites only what maps one to one. Anything else stays as written, and the output says why.
 - It writes each file atomically and keeps its mode. A rename writes the new file before it removes the old one.
+- It refuses to run in the global home; edit those specs by hand.
 - Running it twice changes nothing.
 
 | Migration | Release | Rewrites |
 |-----------|---------|----------|
-| `config-file-name` | 0.79.0 | `agnostic.config.yaml` to `agnostic-ai.yaml`. Skipped when both exist, since `agnostic-ai.yaml` wins. |
+| `config-file-name` | 0.79.0 | `agnostic.config.yaml` to `agnostic-ai.yaml`. When both exist with the same content, it removes the old file. Skipped when they differ, since `agnostic-ai.yaml` wins, and when Git ignores `agnostic-ai.yaml`. |
 
 ## lsp
 

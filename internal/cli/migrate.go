@@ -28,12 +28,14 @@ type specMigration struct {
 }
 
 // migrationChange is one file edit: new content for Path, written to
-// NewPath when the migration also renames the file.
+// NewPath when the migration also renames the file. Remove deletes Path
+// instead, such as the old file an interrupted rename left behind.
 type migrationChange struct {
 	Path    string
 	NewPath string
 	Before  string
 	After   string
+	Remove  bool
 }
 
 type migrationSkip struct {
@@ -72,6 +74,9 @@ func newMigrateCmd() *cobra.Command {
   agnostic-ai migrate
   agnostic-ai migrate --only config`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
+				return err
+			}
 			if _, _, err := config.ResolveConfigPath("."); err != nil {
 				return err
 			}
@@ -114,6 +119,7 @@ func newMigrateCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print the rewrites without writing them.")
 	cmd.Flags().BoolVar(&list, "list", false, "List every migration and whether it applies here.")
 	cmd.Flags().StringSliceVar(&only, "only", nil, "Run only these migration groups (comma-separated).")
+	cmd.MarkFlagsMutuallyExclusive("list", "dry-run")
 	return cmd
 }
 
@@ -173,9 +179,9 @@ func printMigrationList(out io.Writer, selected []specMigration, pending []pendi
 // printMigrationPlan prints each rewrite and skip; under -q only the skips,
 // since they need the user.
 func printMigrationPlan(out io.Writer, pending []pendingMigration, dryRun, quiet bool) {
-	verb, rename := "rewrote", "renamed"
+	verb, rename, remove := "rewrote", "renamed", "removed"
 	if dryRun {
-		verb, rename = "would rewrite", "would rename"
+		verb, rename, remove = "would rewrite", "would rename", "would remove"
 	}
 	for _, p := range pending {
 		if quiet {
@@ -187,6 +193,8 @@ func printMigrationPlan(out io.Writer, pending []pendingMigration, dryRun, quiet
 		_, _ = fmt.Fprintf(out, "%s: %s\n", p.ID, p.Summary)
 		for _, c := range p.changes {
 			switch {
+			case c.Remove:
+				_, _ = fmt.Fprintf(out, "  %s %s\n", remove, filepath.ToSlash(c.Path))
 			case c.NewPath != "" && c.Before == c.After:
 				_, _ = fmt.Fprintf(out, "  %s %s -> %s\n", rename, filepath.ToSlash(c.Path), filepath.ToSlash(c.NewPath))
 			default:
@@ -306,7 +314,8 @@ func envRefOnly(value string) bool { return migrationEnvRef.MatchString(value) }
 
 // applyMigrations writes each change atomically and keeps the file mode.
 // A rename writes the new path first and removes the old one after, so an
-// interrupted run leaves both, which the loader resolves to the new one.
+// interrupted run leaves both, which the loader resolves to the new one and
+// the next run finishes.
 func applyMigrations(pending []pendingMigration) error {
 	for _, p := range pending {
 		for _, c := range p.changes {
@@ -330,6 +339,9 @@ func writeMigrationChange(c migrationChange) error {
 	if string(current) != c.Before {
 		return fmt.Errorf("%s changed since the plan; run migrate again", filepath.ToSlash(c.Path))
 	}
+	if c.Remove {
+		return os.Remove(c.Path)
+	}
 	target := c.target()
 	if c.NewPath != "" {
 		if _, err := os.Lstat(c.NewPath); err == nil {
@@ -352,11 +364,35 @@ func writeMigrationChange(c migrationChange) error {
 	}
 	if c.NewPath != "" {
 		// A hard link fails when the target exists, so a file another
-		// program created since the check above is never replaced.
-		if err := os.Link(tmp.Name(), target); err != nil {
+		// program created since the check above is never replaced. Where
+		// the filesystem has no hard links, an exclusive create keeps that.
+		if err := os.Link(tmp.Name(), target); errors.Is(err, os.ErrExist) {
 			return err
+		} else if err != nil {
+			if err := writeExclusive(target, c.After, info.Mode().Perm()); err != nil {
+				return err
+			}
+		}
+		// A save to the old file while the copy was written must not be
+		// deleted with it.
+		if now, err := os.ReadFile(c.Path); err != nil || string(now) != c.Before {
+			_ = os.Remove(target)
+			return fmt.Errorf("%s changed during the migration; run migrate again", filepath.ToSlash(c.Path))
 		}
 		return os.Remove(c.Path)
 	}
 	return os.Rename(tmp.Name(), target)
+}
+
+func writeExclusive(path, content string, perm os.FileMode) error {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, perm)
+	if err != nil {
+		return err
+	}
+	_, werr := f.WriteString(content)
+	if err := errors.Join(werr, f.Sync(), f.Close()); err != nil {
+		_ = os.Remove(path)
+		return fmt.Errorf("%s: %w", filepath.ToSlash(path), err)
+	}
+	return os.Chmod(path, perm)
 }

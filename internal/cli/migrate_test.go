@@ -182,3 +182,90 @@ func TestRedactMigrationLines_HidesSecretsAndKeepsReferences(t *testing.T) {
 		}
 	}
 }
+
+func TestMigrate_ConfigFileNameFinishesAnInterruptedRename(t *testing.T) {
+	dir := migrationFixture(t, "config-file-name")
+	body, err := os.ReadFile(filepath.Join(dir, "agnostic.config.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), string(body))
+
+	out, err := runCLI(t, "migrate")
+	if err != nil || !strings.Contains(out, "removed agnostic.config.yaml") {
+		t.Fatalf("both files with the same bytes: %v\n%s", err, out)
+	}
+	if exists(filepath.Join(dir, "agnostic.config.yaml")) || !exists(filepath.Join(dir, "agnostic-ai.yaml")) {
+		t.Error("the run must remove only the old file")
+	}
+}
+
+func TestMigrate_ConfigFileNameSkipsWhenTheNewNameIsABrokenSymlink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks need privileges on Windows")
+	}
+	dir := migrationFixture(t, "config-file-name")
+	if err := os.Symlink("missing.yaml", filepath.Join(dir, "agnostic-ai.yaml")); err != nil {
+		t.Fatal(err)
+	}
+	out, err := runCLI(t, "migrate")
+	if err != nil || !strings.Contains(out, "skipped agnostic.config.yaml: agnostic-ai.yaml is a broken symlink") {
+		t.Fatalf("broken symlink: %v\n%s", err, out)
+	}
+}
+
+func TestMigrate_ConfigFileNameSkipsWhenGitIgnoresTheNewName(t *testing.T) {
+	dir := setupGitRepo(t)
+	testutil.Chdir(t, dir)
+	mustWriteFile(t, filepath.Join(dir, "agnostic.config.yaml"), "version: 1\n")
+	mustWriteFile(t, filepath.Join(dir, ".gitignore"), "*.yaml\n")
+	git(t, dir, "add", "-f", ".gitignore", "agnostic.config.yaml")
+
+	out, err := runCLI(t, "migrate")
+	if err != nil || !strings.Contains(out, "skipped agnostic.config.yaml: git ignores agnostic-ai.yaml") {
+		t.Fatalf("ignored new name: %v\n%s", err, out)
+	}
+	if !exists(filepath.Join(dir, "agnostic.config.yaml")) {
+		t.Error("a skip must leave the tracked file")
+	}
+}
+
+func TestMigrate_ListAndDryRunAreExclusive(t *testing.T) {
+	newProject(t)
+	if _, err := runCLI(t, "migrate", "--list", "--dry-run"); err == nil {
+		t.Error("--list with --dry-run must fail, not ignore --dry-run")
+	}
+}
+
+// A content rewrite is the path the first config rename never takes: the
+// dry run prints a redacted diff, and the run rewrites in place.
+func TestMigrate_ContentRewriteShowsARedactedDiffAndWritesInPlace(t *testing.T) {
+	dir := newProject(t)
+	spec := filepath.Join(dir, "spec.yaml")
+	before := "token: ghp_abcdefghijklmnop1234\nmode: old\n"
+	after := "token: ghp_abcdefghijklmnop1234\nmode: new\n"
+	mustWriteFile(t, spec, before)
+	registry := specMigrations
+	t.Cleanup(func() { specMigrations = registry })
+	specMigrations = []specMigration{{
+		ID: "test-rewrite", Group: "test", Release: "0.0.0", Summary: "rewrite mode",
+		Plan: func(root string) ([]migrationChange, []migrationSkip, error) {
+			body, err := os.ReadFile(filepath.Join(root, "spec.yaml"))
+			if err != nil || string(body) != before {
+				return nil, nil, err
+			}
+			return []migrationChange{{Path: filepath.Join(root, "spec.yaml"), Before: before, After: after}}, nil, nil
+		},
+	}}
+
+	out, err := runCLI(t, "migrate", "--dry-run")
+	if err != nil || !strings.Contains(out, "would rewrite spec.yaml") || !strings.Contains(out, "+mode: new") || strings.Contains(out, "ghp_") {
+		t.Fatalf("dry run: %v\n%s", err, out)
+	}
+	if out, err := runCLI(t, "migrate"); err != nil || !strings.Contains(out, "rewrote spec.yaml") {
+		t.Fatalf("migrate: %v\n%s", err, out)
+	}
+	if got, _ := os.ReadFile(spec); string(got) != after {
+		t.Errorf("spec.yaml = %q, want %q", got, after)
+	}
+}

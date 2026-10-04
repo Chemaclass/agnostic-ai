@@ -1,9 +1,12 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
 )
@@ -25,12 +28,6 @@ var configFileNameMigration = specMigration{
 		if err != nil {
 			return nil, nil, err
 		}
-		switch _, err := os.Lstat(filepath.Join(root, config.ConfigFileName)); {
-		case err == nil:
-			return nil, []migrationSkip{{legacy, config.ConfigFileName + " exists and wins; remove " + config.LegacyConfigFileName + " by hand once it holds nothing you need"}}, nil
-		case !errors.Is(err, os.ErrNotExist):
-			return nil, nil, err
-		}
 		if !info.Mode().IsRegular() {
 			return nil, []migrationSkip{{legacy, "not a regular file, such as a symlink; rename it by hand"}}, nil
 		}
@@ -38,6 +35,34 @@ var configFileNameMigration = specMigration{
 		if err != nil {
 			return nil, nil, err
 		}
-		return []migrationChange{{Path: legacy, NewPath: filepath.Join(root, config.ConfigFileName), Before: string(body), After: string(body)}}, nil, nil
+		current := filepath.Join(root, config.ConfigFileName)
+		if _, err := os.Lstat(current); errors.Is(err, os.ErrNotExist) {
+			if gitIgnores(root, config.ConfigFileName) && !gitIgnores(root, config.LegacyConfigFileName) {
+				return nil, []migrationSkip{{legacy, "git ignores " + config.ConfigFileName + ", so a commit after the rename would drop the config; unignore it, then run migrate again"}}, nil
+			}
+			return []migrationChange{{Path: legacy, NewPath: current, Before: string(body), After: string(body)}}, nil, nil
+		} else if err != nil {
+			return nil, nil, err
+		}
+		// The loader stats the new name, so a broken symlink there loads
+		// the legacy file.
+		if _, err := os.Stat(current); errors.Is(err, os.ErrNotExist) {
+			return nil, []migrationSkip{{legacy, config.ConfigFileName + " is a broken symlink, so this file still loads; fix or remove the symlink by hand"}}, nil
+		}
+		if kept, err := os.ReadFile(current); err == nil && string(kept) == string(body) {
+			return []migrationChange{{Path: legacy, Before: string(body), Remove: true}}, nil, nil
+		}
+		return nil, []migrationSkip{{legacy, config.ConfigFileName + " exists and wins; remove " + config.LegacyConfigFileName + " by hand once it holds nothing you need"}}, nil
 	},
+}
+
+// gitIgnores reports whether git ignores name under root. A tracked file
+// is never ignored; outside a work tree nothing is. check-ignore rejects
+// runGit's --literal-pathspecs, so it runs on its own.
+func gitIgnores(root, name string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "git", "--no-optional-locks", "check-ignore", "-q", "--", name)
+	cmd.Dir = root
+	return cmd.Run() == nil
 }

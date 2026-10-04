@@ -222,6 +222,7 @@ func TestProjectWriters_RefuseToRunInTheGlobalHome(t *testing.T) {
 		{"cleanup"},
 		{"revert"},
 		{"install-hook"},
+		{"migrate"},
 	} {
 		var out bytes.Buffer
 		cmd := NewRootCmd("test")
