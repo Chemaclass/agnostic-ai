@@ -46,7 +46,7 @@ var sharedHookEvents = map[string]string{
 // and exit 2 with stderr as Claude Code does on it, so one script decides
 // the same everywhere; hookrun's per-target models are the source, and a
 // test holds the table to them. Cline counts because sync turns exit 2
-// into its cancel reply. Tool names come from the same models; a target
+// into its cancel reply; it reads no exit 1, so the call goes on unreported. Tool names come from the same models; a target
 // with no matcher gets `any` only.
 // Claude Code's edit names every edit tool a version may have; a name it
 // lacks never matches. Codex takes Edit and Write as aliases for
@@ -263,6 +263,9 @@ func nativeHookFor(target, on, kind string) (event, matcher, reason string) {
 		return event, fmt.Sprintf(names.mcp, server), ""
 	}
 	matcher, ok = names.tools[kind]
+	if !ok && len(names.tools) == 1 {
+		return "", "", fmt.Sprintf("%s hooks take no matcher; write match: any or leave match out", target)
+	}
 	if !ok {
 		return "", "", fmt.Sprintf("%s has no %s tool a hook can match", target, kind)
 	}

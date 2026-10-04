@@ -198,7 +198,7 @@ func TestHookRun_PortableShellHookBlocksOnEveryMappedTarget(t *testing.T) {
 	if !strings.Contains(out, "copilot: not run (copilot has no before-tool event that reads exit codes as Claude Code does") {
 		t.Errorf("copilot fails a tool call closed on exit 1, so it must not run:\n%s", out)
 	}
-	if !strings.Contains(out, "cline: not run (cline has no shell tool a hook can match)") {
+	if !strings.Contains(out, "cline: not run (cline hooks take no matcher; write match: any or leave match out)") {
 		t.Errorf("cline has no matcher, so match: shell must not run there:\n%s", out)
 	}
 }
