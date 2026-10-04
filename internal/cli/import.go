@@ -166,6 +166,9 @@ func runImportSource(root, source string, cfg *config.Config) error {
 	if source != "all" {
 		importLocal.beginSource(source)
 	}
+	prior := importHookConfig
+	importHookConfig = cfg
+	defer func() { importHookConfig = prior }()
 	src := cfg.Sources
 	switch source {
 	case "all":

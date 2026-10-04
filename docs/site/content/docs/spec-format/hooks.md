@@ -60,6 +60,8 @@ A portable hook does not reach any other tool yet, including Cursor, which needs
 
 `agnostic-ai migrate --only hooks` rewrites `event` and `matcher` as `on` and `match` when the portable form gives every target the hook reaches the same event and matcher, so synced files stay the same. It leaves every other hook as written and says why. A Claude Code hook on `Edit|Write` stays native, since `match: edit` there also runs on `MultiEdit` and `NotebookEdit`.
 
+`lint` warns on each hook the migration would rewrite (LINT034) and names the `on` and `match` to write. `agnostic-ai import` follows the same rule: it writes `on` and `match` when they give every target the imported hook reaches the same event and matcher, and the native names otherwise. Sync then writes the imported tool's file back unchanged.
+
 ### Native events
 
 `agnostic-ai new hook session-status` creates `hooks/session-status.yaml`. Pure YAML, no markdown body.

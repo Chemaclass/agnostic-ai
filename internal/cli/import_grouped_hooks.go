@@ -13,6 +13,8 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // groupedHookEntry is the inner hook object every claude-style grouped
@@ -101,12 +103,12 @@ func writeGroupedHookSpec(dstDir, target, event, matcher string, entries []group
 }
 
 // writeHookSpecFile marshals one hook spec document into
-// `<dstDir>/<name>.yaml`. Importers that build the document key by key
-// (crush, kiro) call this directly instead of writeGroupedHookSpec,
-// which owns the claude-style matcher-group collapse they have no
-// groups to apply.
+// `<dstDir>/<name>.yaml`. Every hook importer writes through it.
+// Importers that build the document key by key (crush, kiro) call this
+// directly instead of writeGroupedHookSpec, which owns the claude-style
+// matcher-group collapse they have no groups to apply.
 func writeHookSpecFile(dstDir, name string, doc map[string]any) error {
-	raw, err := yaml.Marshal(doc)
+	raw, err := marshalImportedHook(doc)
 	if err != nil {
 		return fmt.Errorf("marshal hook %s: %w", name, err)
 	}
@@ -115,6 +117,36 @@ func writeHookSpecFile(dstDir, name string, doc map[string]any) error {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
+}
+
+// importHookConfig is the config of the project the running import
+// writes into, or nil. Sequential use only, like importLocal.
+var importHookConfig *config.Config
+
+// marshalImportedHook marshals an imported hook spec with on: and match:
+// in place of event: and matcher: where the hooks-portable-events
+// migration would rewrite it: the portable form gives every configured
+// target the hook reaches the same native event and matcher. Elsewhere
+// it keeps the native names. The keys stay where the native ones sort,
+// so the file reads as import and migrate in a row would leave it.
+func marshalImportedHook(doc map[string]any) ([]byte, error) {
+	raw, err := yaml.Marshal(doc)
+	if err != nil || importHookConfig == nil {
+		return raw, err
+	}
+	h, err := spec.ParseYAMLBytes(spec.KindHook, raw)
+	if err != nil {
+		return raw, nil
+	}
+	form, reason := portableFormOf(h, hookMigrationTargets(importHookConfig, h))
+	if reason != "" {
+		return raw, nil
+	}
+	portable, err := rewriteTopLevelYAMLKeys(string(raw), form.rewrites())
+	if err != nil {
+		return raw, nil
+	}
+	return []byte(portable), nil
 }
 
 // readEventKeyedHooks decodes a standalone hooks.json into its event

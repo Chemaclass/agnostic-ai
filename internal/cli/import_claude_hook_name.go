@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // hookDescriptionCommandMax caps how much of a command a hook
@@ -74,6 +76,11 @@ func (n *claudeHookNamer) heldByOtherHook(name, event, matcher string, fields ma
 	if yaml.Unmarshal(raw, &doc) != nil {
 		return true
 	}
+	native, reason := spec.Entry{Kind: spec.KindHook, Meta: doc}.NativeHook("claude")
+	if reason != "" {
+		return true
+	}
+	doc = native.Meta
 	want := map[string]any{"event": event, "matcher": matcher}
 	for k, v := range fields {
 		want[k] = v
