@@ -175,8 +175,9 @@ func entryPointReaders(cfg *config.Config, target string) []string {
 	if cfg == nil || path == "" {
 		return readers
 	}
+	path = filepath.Clean(path)
 	for _, t := range cfg.Targets {
-		if !slices.Contains(readers, t) && emit.EntryPointPath(cfg, t) == path && !emit.LegacyRulesFileOwnsEntryPoint(cfg, t) {
+		if !slices.Contains(readers, t) && filepath.Clean(emit.EntryPointPath(cfg, t)) == path && !emit.LegacyRulesFileOwnsEntryPoint(cfg, t) {
 			readers = append(readers, t)
 		}
 	}

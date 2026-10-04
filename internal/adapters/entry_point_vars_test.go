@@ -23,6 +23,10 @@ func TestEntryPointRules_ExpandsWhatEveryReaderOfTheFileAgreesOn(t *testing.T) {
 			"Skills in .agents/skills, MCP in {{$MCP_FILE}}."},
 		{"readers disagree", config.Config{Targets: []string{"codex", "opencode"}}, "codex",
 			"Skills in {{$SKILLS_DIR}}, MCP in {{$MCP_FILE}}."},
+		{"another spelling of the same file", config.Config{
+			Targets: []string{"codex", "opencode"},
+			Outputs: map[string]config.Output{"opencode": {File: "./AGENTS.md"}},
+		}, "codex", "Skills in {{$SKILLS_DIR}}, MCP in {{$MCP_FILE}}."},
 		{"an override makes readers agree", config.Config{
 			Targets: []string{"codex", "opencode"},
 			Outputs: map[string]config.Output{"opencode": {SkillsDir: ".agents/skills"}},
