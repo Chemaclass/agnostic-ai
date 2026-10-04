@@ -21,27 +21,32 @@ object AgnosticAi {
         return if (configured.isEmpty()) "agnostic-ai" else configured
     }
 
+    /** Config file names in lookup order: the CLI prefers agnostic-ai.yaml. */
+    val CONFIG_FILE_NAMES = listOf("agnostic-ai.yaml", "agnostic.config.yaml")
+
+    /** The config file in dir, preferring agnostic-ai.yaml like the CLI. */
+    fun configFile(dir: Path): Path? = CONFIG_FILE_NAMES.map { dir.resolve(it) }.firstOrNull { Files.exists(it) }
+
     /**
-     * Returns the first workspace folder that contains agnostic.config.yaml,
+     * Returns the first workspace folder that contains a config file,
      * or the project base path as a fallback so a clean tree can still
      * launch the binary (which surfaces its own error).
      */
     fun projectRoot(project: Project): Path? {
         val base = project.basePath ?: return null
         val basePath = Path.of(base)
-        if (Files.exists(basePath.resolve("agnostic.config.yaml"))) return basePath
+        if (configFile(basePath) != null) return basePath
         // Walk one level deep for a Gradle/Maven multi-module setup.
         val children = runCatching { Files.list(basePath).use { it.toList() } }.getOrNull() ?: emptyList()
         for (child in children) {
-            if (Files.exists(child.resolve("agnostic.config.yaml"))) return child
+            if (configFile(child) != null) return child
         }
         return basePath
     }
 
-    /** Reads the configured targets straight from agnostic.config.yaml without spawning a process. */
+    /** Reads the configured targets straight from the config file without spawning a process. */
     fun configuredTargets(root: Path): List<String> {
-        val cfg = root.resolve("agnostic.config.yaml")
-        if (!Files.exists(cfg)) return emptyList()
+        val cfg = configFile(root) ?: return emptyList()
         val text = Files.readString(cfg)
         val out = mutableListOf<String>()
         var inTargets = false

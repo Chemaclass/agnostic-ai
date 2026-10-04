@@ -1,6 +1,6 @@
 // Contributes the published config.schema.json to IntelliJ's JSON
-// schema service so agnostic.config.yaml gets validation, completion,
-// and hover docs out of the box. Same schema URL the YAML Language
+// schema service so agnostic-ai.yaml, and the legacy agnostic.config.yaml,
+// get validation, completion, and hover docs out of the box. Same schema URL the YAML Language
 // Server hint in init-generated configs points at; keeping it in sync
 // is the publishing pipeline's job, not this plugin's.
 
@@ -19,9 +19,9 @@ class AgnosticConfigSchemaProvider : JsonSchemaProviderFactory {
 
 private class AgnosticConfigFileProvider : JsonSchemaFileProvider {
     override fun isAvailable(file: VirtualFile): Boolean =
-        file.name == "agnostic.config.yaml" || file.name == "agnostic.config.yml"
+        file.name == "agnostic-ai.yaml" || file.name == "agnostic.config.yaml" || file.name == "agnostic.config.yml"
 
-    override fun getName(): String = "agnostic.config.yaml"
+    override fun getName(): String = "agnostic-ai.yaml"
 
     override fun getSchemaFile(): VirtualFile? = null
 
