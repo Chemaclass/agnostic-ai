@@ -95,11 +95,11 @@ func agentCapabilityIssues(agents []spec.Entry) []validationIssue {
 }
 
 // lintAgentCapabilities reports the `can:` problems validate reports
-// (LINT035, error).
+// (LINT036, error).
 func lintAgentCapabilities(agents []spec.Entry) []lintFinding {
 	var out []lintFinding
 	for _, issue := range agentCapabilityIssues(agents) {
-		out = append(out, lintFinding{Code: "LINT035", Severity: lintError, Path: issue.Path, Message: issue.Message})
+		out = append(out, lintFinding{Code: "LINT036", Severity: lintError, Path: issue.Path, Message: issue.Message})
 	}
 	return out
 }

@@ -106,7 +106,7 @@ can: [read, edit, shell(go test *), mcp:github]
 - Claude Code names stay valid as aliases, with no deprecation planned. A list can mix both: `can: [read, Grep]`.
 - The names match the hook [`match:` tool kinds](@/docs/spec-format/hooks.md#portable-events).
 - A target that can only grant more prints a note naming the extra access. On Kiro, `edit` also allows `delete_file`.
-- `validate`, `lint` (LINT035), and `sync` stop on an unknown capability, on `can` beside `tools`, and on `can` under `x-<target>`. A typo never syncs an agent with every tool.
+- `validate`, `lint` (LINT036), and `sync` stop on an unknown capability, on `can` beside `tools`, and on `can` under `x-<target>`. A typo never syncs an agent with every tool.
 - A capability is only as strong as the tool's own permission system. agnostic-ai adds no sandbox.
 
 `agnostic-ai migrate --only capabilities` rewrites `tools` as `can`. Each name a capability stands for alone becomes that capability. The rest stay as aliases, and sync writes the same files.

@@ -24,6 +24,7 @@ func extendEntry(base, over Entry) Entry {
 	out.Meta = mergeMeta(base.Meta, over.Meta)
 	out.MetaKeys = mergeMetaKeys(base.MetaKeys, over.MetaKeys, out.Meta)
 	out.MetaStyles = mergeMetaStyles(base.MetaStyles, over.MetaStyles, out.Meta)
+	out.Literals = mergeLiterals(base, over, out.Meta)
 	switch {
 	case strings.TrimSpace(over.Body) == "":
 		out.Body = base.Body

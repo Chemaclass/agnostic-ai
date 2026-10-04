@@ -30,7 +30,7 @@ args:
   - -y
   - "@modelcontextprotocol/server-filesystem"
 env:
-  ROOT: /tmp
+  ROOT: !literal /tmp
 ```
 
 A remote server for two tools, defined but switched off:
@@ -59,14 +59,35 @@ A server needs `command` (stdio) or `url` (remote). `agnostic-ai lint` reports a
 | `type` | no | `stdio` | `stdio`, `http`, `sse`, or `ws`. Remote transports write an explicit `type`; `stdio` stays implicit. A `ws` entry emits no server on Augment, Factory, and Qoder. |
 | `command` | stdio only | none | Executable to launch. |
 | `args` | no | empty | Argument list for the command. An element can hold a [reference](#references-in-url-and-args). |
-| `env` | no | empty | Environment variables for the server. Write a secret as a [reference](#environment-references). |
+| `env` | no | empty | Environment variables for the server. Each value is a [reference](#environment-references) or a [plain setting marked `!literal`](#plain-settings). |
 | `url` | http/sse/ws only | none | Endpoint URL. It can hold a [reference](#references-in-url-and-args). |
-| `headers` | no | empty | HTTP headers for `http`/`sse`. Write a secret as a [reference](#environment-references). |
+| `headers` | no | empty | HTTP headers for `http`/`sse`. Each value is a [reference](#environment-references) or a [plain setting marked `!literal`](#plain-settings). |
 | `cwd` | no | empty | Working directory for a stdio server, where supported. |
 | `timeout` | no | empty | Units vary by target: milliseconds on most. |
 | `oauth` | no | empty | OAuth settings. The shape is target-specific; see the target page. |
 | `disabled` | no | `false` | See [`disabled` support by target](#disabled-support-by-target). |
 | `roots` | no | empty | List of `{uri, name}` objects, for targets that support MCP roots. |
+
+## Secrets and plain settings {#plain-settings}
+
+A value in `env` or `headers` is a reference by default: `${NAME}`, `${NAME:-default}`, or `$${NAME}` text. A header may put one word before it, as in `Bearer ${API_KEY}`. Mark a plain setting that is not a secret with `!literal`:
+
+```yaml
+env:
+  GITHUB_TOKEN: ${GITHUB_TOKEN}
+  NODE_ENV: !literal production
+```
+
+`!literal` is YAML only. Sync writes `NODE_ENV: production` to every tool, the same file a plain `production` gave. An editor using the YAML language server reports an unknown tag until you add `!literal scalar` to its `yaml.customTags` setting.
+
+`agnostic-ai lint` warns on any other value (LINT035). The finding names the server, the field, and the key, never the value. `sync` prints how many there are. A value with text around a reference, such as `postgres://u:pw@${HOST}/db`, counts, since that text may be the secret. Empty values, numbers, booleans, `x-<target>` blocks, `url`, and `args` are not checked.
+
+The rule comes in two phases:
+
+1. Now, LINT035 is a warning, and sync writes the value as before. `lint --strict` fails on it.
+2. A later release makes it an error, and `lint` and `sync` fail on it. The CHANGELOG announces the switch one release ahead.
+
+[`agnostic-ai migrate --only secrets`](@/docs/cli-reference/maintain.md#migrate) rewrites existing specs. A value import reads as a [credential](#what-import-writes) becomes a reference, such as `GITHUB_TOKEN: ${GITHUB_TOKEN}`, named the way import names it. The command lists each variable to set, never the value. Sync then writes the reference instead of the value. Every other value gets `!literal`, so sync writes the same files. The migration leaves two cases to you: a key with a [credential name](#credential-names) whose value has no credential shape, such as `API_KEY: sk-live-abc`, and a credential around a reference.
 
 ## Environment references
 
@@ -176,7 +197,7 @@ When sync leaves out a reference a tool cannot read, the note names the `$${NAME
   - a token format not listed above.
 - A query or fragment parameter named exactly `auth` or `code` always becomes a reference, even when it holds no secret.
 
-Import prints each replacement and the variable to set. `import --global` cannot change a server, because the user files it adopts must render back unchanged. It leaves out each server with a literal credential and names the server and field, never the value. That is any credential above, and an `env` or header value that has a [credential name](#credential-names) or holds a credential by its shape. A plain setting such as `NODE_ENV: production`, a path, a number, and a value that is only a reference after one word, such as `Bearer ${TOKEN}`, still import as written. Add a left-out server by hand under `local/mcps`, or write it with a `${NAME}` reference.
+Import prints each replacement and the variable to set. `import --global` cannot change a server, because the user files it adopts must render back unchanged. It leaves out each server with a literal credential and names the server and field, never the value. That is any credential above, and an `env` or header value that has a [credential name](#credential-names) or holds a credential by its shape. A plain setting such as `NODE_ENV: production`, a path, a number, and a value that is only a reference after one word, such as `Bearer ${TOKEN}`, still import as written, a plain string marked [`!literal`](#plain-settings). A value under a [credential name](#credential-names) without a credential shape stays unmarked, so `lint` asks about it. Add a left-out server by hand under `local/mcps`, or write it with a `${NAME}` reference.
 
 #### Credential names
 

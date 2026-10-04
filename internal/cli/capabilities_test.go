@@ -95,7 +95,7 @@ func TestSync_StopsOnACapabilityItCannotRead(t *testing.T) {
 			if exists(filepath.Join(dir, ".claude", "agents", "a.md")) {
 				t.Error("sync must not write an agent whose can: it cannot read")
 			}
-			if out, err := runCLI(t, "lint"); err == nil || !strings.Contains(out, "LINT035 [error] .agnostic-ai/agents/a.md: ") {
+			if out, err := runCLI(t, "lint"); err == nil || !strings.Contains(out, "LINT036 [error] .agnostic-ai/agents/a.md: ") {
 				t.Errorf("lint: %v\n%s", err, out)
 			}
 			if out, err := runCLI(t, "validate"); err == nil || !strings.Contains(out, tc.want) {

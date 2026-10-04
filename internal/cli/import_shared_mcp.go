@@ -98,7 +98,9 @@ func writeMCPYAMLs(target string, servers map[string]any, dstDir string) (int, e
 // writeMCPSpecs writes one yaml file per server into dstDir. Each
 // destination doc has `name: <key>` prepended; server fields pass
 // through verbatim so transport-specific keys (command/args/env or
-// url/headers) survive a round-trip. When the source JSON omits an
+// url/headers) survive a round-trip. An `env` or `headers` value that
+// is still a literal, such as a plain setting `import --global` keeps,
+// is written `!literal`. When the source JSON omits an
 // explicit `type` field, the transport is inferred from the entry's
 // shape (`url` present → `type: http`) so re-emit picks the same
 // branch in adapter buildMCPEntry helpers and the round-trip
@@ -116,6 +118,7 @@ func writeMCPSpecs(servers map[string]any, dstDir string) (int, error) {
 	for _, name := range names {
 		entry, _ := servers[name].(map[string]any)
 		doc := map[string]any{"name": name}
+		entry = markMCPLiterals(entry)
 		for k, v := range entry {
 			doc[k] = v
 		}
