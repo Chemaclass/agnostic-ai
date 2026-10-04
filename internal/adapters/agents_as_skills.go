@@ -50,12 +50,12 @@ func agentsInSkillsDir(cfg *config.Config, target string) bool {
 	if cfg == nil {
 		return false
 	}
-	dir := varsFor(cfg, target)[emit.VarSkillsDir]
+	dir := emit.VarsFor(cfg, target)[emit.VarSkillsDir]
 	if dir == "" {
 		return false
 	}
 	for _, t := range cfg.Targets {
-		if t != target && WritesAgentsAsSkills(cfg, t) && filepath.Clean(varsFor(cfg, t)[emit.VarSkillsDir]) == filepath.Clean(dir) {
+		if t != target && WritesAgentsAsSkills(cfg, t) && filepath.Clean(emit.VarsFor(cfg, t)[emit.VarSkillsDir]) == filepath.Clean(dir) {
 			return true
 		}
 	}
@@ -92,7 +92,7 @@ func agentsAsSkills(cfg *config.Config, target string) (bool, []string) {
 	if !subagentlessTargets[target] {
 		return false, nil
 	}
-	dir := varsFor(cfg, target)[emit.VarSkillsDir]
+	dir := emit.VarsFor(cfg, target)[emit.VarSkillsDir]
 	if dir == "" {
 		return false, nil
 	}
@@ -102,7 +102,7 @@ func agentsAsSkills(cfg *config.Config, target string) (bool, []string) {
 		if t == target || subagentlessTargets[t] || !ok || !slices.Contains(other.Capabilities(), spec.KindAgent) {
 			continue
 		}
-		reads := filepath.Clean(varsFor(cfg, t)[emit.VarSkillsDir]) == filepath.Clean(dir) ||
+		reads := filepath.Clean(emit.VarsFor(cfg, t)[emit.VarSkillsDir]) == filepath.Clean(dir) ||
 			agentsSkillsReaders[t] && filepath.ToSlash(filepath.Clean(dir)) == sharedAgentsSkillsDir
 		if reads {
 			conflicts = append(conflicts, t)

@@ -107,3 +107,66 @@ func TestSync_KiloSkipsARuleWhoseVariableAGENTSMdNowExpands(t *testing.T) {
 		t.Error(".kilo/rules/push.md loads the rule a second time next to AGENTS.md")
 	}
 }
+
+func sharedDocVarsProject(t *testing.T, targets string) {
+	t.Helper()
+	testutil.TempCwd(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+targets+"]\n")
+	writeAgnosticFile(t, "# S\n")
+	writeFile(t, filepath.Join("services", "api", "main.go"), "package main\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "reviews", "paths.md"), "---\nname: paths\n---\n\nFlag skills added outside {{$SKILLS_DIR}}.\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "rules", "api.md"), "---\nname: api\nscope: services/api\n---\n\nAPI skills live in {{$SKILLS_DIR}}.\n")
+}
+
+func notesNaming(notes []string, file string) []string {
+	var out []string
+	for _, note := range notes {
+		if strings.Contains(note, "{{$SKILLS_DIR}}") && strings.Contains(note, "note: "+file+":") {
+			out = append(out, note)
+		}
+	}
+	return out
+}
+
+func TestSync_SharedDocumentsExpandAVariableEveryReaderAgreesOn(t *testing.T) {
+	sharedDocVarsProject(t, "codex, amp")
+
+	notes := syncNotes(t)
+
+	if got := readFile(t, "AGENTS.md"); !strings.Contains(got, "Flag skills added outside .agents/skills.") {
+		t.Errorf("want .agents/skills in the root review section:\n%s", got)
+	}
+	if got := readFile(t, filepath.Join("services", "api", "AGENTS.md")); !strings.Contains(got, "API skills live in .agents/skills.") {
+		t.Errorf("want .agents/skills in the nested AGENTS.md:\n%s", got)
+	}
+	for _, note := range notes {
+		if strings.Contains(note, "{{$SKILLS_DIR}}") {
+			t.Errorf("no note expected when every reader agrees: %s", note)
+		}
+	}
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check: %v\n%s", err, out)
+	}
+}
+
+func TestSync_SharedDocumentsKeepAVariableTheirReadersResolveApart(t *testing.T) {
+	sharedDocVarsProject(t, "codex, opencode")
+
+	notes := syncNotes(t)
+
+	if got := readFile(t, "AGENTS.md"); !strings.Contains(got, "Flag skills added outside {{$SKILLS_DIR}}.") {
+		t.Errorf("want the token verbatim in the root review section:\n%s", got)
+	}
+	if got := readFile(t, filepath.Join("services", "api", "AGENTS.md")); !strings.Contains(got, "API skills live in {{$SKILLS_DIR}}.") {
+		t.Errorf("want the token verbatim in the nested AGENTS.md:\n%s", got)
+	}
+	if n := notesNaming(notes, "AGENTS.md"); len(n) != 1 {
+		t.Errorf("want one note naming AGENTS.md, got:\n%s", strings.Join(notes, "\n"))
+	}
+	if n := notesNaming(notes, "services/api/AGENTS.md"); len(n) != 1 {
+		t.Errorf("want one note naming services/api/AGENTS.md, got:\n%s", strings.Join(notes, "\n"))
+	}
+	if out, err := runCLI(t, "sync", "--check"); err != nil {
+		t.Errorf("sync --check: %v\n%s", err, out)
+	}
+}
