@@ -14,6 +14,9 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
+// repoWrapperPath is where sync writes the portable hook wrapper.
+const repoWrapperPath = ".github/hooks/scripts/agnostic-ai-portable-hook.sh"
+
 func TestEmit_PortableBeforeToolHookRunsThroughTheWrapper(t *testing.T) {
 	emitTargetHooks(t, &config.Config{},
 		spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{
@@ -37,7 +40,7 @@ func TestEmit_PortableBeforeToolHookRunsThroughTheWrapper(t *testing.T) {
 	}})
 	assertContainsAll(t, readTargetFile(t, ".github/hooks/agnostic-ai.json"),
 		`"command": "../.github/hooks/scripts/agnostic-ai-portable-hook.sh 'bash '\\''../.github/hooks/scripts/guard.sh'\\'''"`)
-	info, err := os.Stat(decisionWrapperPath)
+	info, err := os.Stat(repoWrapperPath)
 	if err != nil || runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
 		t.Fatalf("wrapper = %v, %v; want an executable file", info, err)
 	}
@@ -50,23 +53,27 @@ func TestEmit_NativeHookSyncsAsWrittenWithNoWrapper(t *testing.T) {
 	if got := readTargetFile(t, ".github/hooks/agnostic-ai.json"); !strings.Contains(got, `"command": "./guard.sh"`) || strings.Contains(got, emit.DecisionWrapperName) {
 		t.Errorf("native hook must keep its command:\n%s", got)
 	}
-	if _, err := os.Stat(decisionWrapperPath); !os.IsNotExist(err) {
+	if _, err := os.Stat(repoWrapperPath); !os.IsNotExist(err) {
 		t.Errorf("no portable hook, so no wrapper: %v", err)
 	}
 }
 
 func TestUnwrapPortableCommand_RestoresTheCommandSyncWrapped(t *testing.T) {
-	for _, c := range []struct{ inner, cwd string }{
-		{".github/hooks/scripts/guard.sh", ""},
-		{`../.github/hooks/scripts/guard.sh 'it'\''s'`, "app"},
+	for _, c := range []struct {
+		inner, cwd string
+		options    []string
+	}{
+		{".github/hooks/scripts/guard.sh", "", nil},
+		{`../.github/hooks/scripts/guard.sh 'it'\''s'`, "app", []string{"--decision"}},
 	} {
-		wrapped := emit.DecisionWrapperCommand(ScriptForCwd(decisionWrapperPath, c.cwd), c.inner)
-		if got, ok := UnwrapPortableCommand(wrapped, c.cwd); !ok || got != c.inner {
-			t.Errorf("unwrap %q = %q %v, want %q", wrapped, got, ok, c.inner)
+		wrapped := emit.DecisionWrapperCommand(ScriptForCwd(repoWrapperPath, c.cwd), c.options, c.inner)
+		options, got, ok := UnwrapPortableCommand(wrapped, c.cwd)
+		if !ok || got != c.inner || strings.Join(options, " ") != strings.Join(c.options, " ") {
+			t.Errorf("unwrap %q = %q %v %v, want %q", wrapped, got, options, ok, c.inner)
 		}
 	}
-	for _, command := range []string{"./guard.sh", decisionWrapperPath + " unquoted", decisionWrapperPath + " 'a' 'b'"} {
-		if got, ok := UnwrapPortableCommand(command, ""); ok {
+	for _, command := range []string{"./guard.sh", repoWrapperPath + " unquoted", repoWrapperPath + " 'a' 'b'", "other/agnostic-ai-portable-hook.sh 'x'"} {
+		if _, got, ok := UnwrapPortableCommand(command, ""); ok {
 			t.Errorf("%q is no wrapped command, got %q", command, got)
 		}
 	}
@@ -82,7 +89,7 @@ func TestDecisionWrapper_RepliesAsACopilotPreToolUseHook(t *testing.T) {
 		t.Skip("bash is not on PATH")
 	}
 	wrapper := filepath.Join(t.TempDir(), emit.DecisionWrapperName)
-	if err := os.WriteFile(wrapper, []byte(emit.DecisionWrapper(decisionReply)), 0o755); err != nil {
+	if err := os.WriteFile(wrapper, []byte(emit.PortableHookWrapper(target)), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	run := func(command string) (string, int) {

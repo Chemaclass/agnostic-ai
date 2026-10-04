@@ -30,6 +30,10 @@ func hookHandlers(h spec.Entry) []claudehooks.CommandEntry {
 		for _, command := range hookCommands(meta["command"]) {
 			handler := base
 			handler.Command = emit.RewriteHookPath(command, target, meta)
+			// The wrapper runs a command line, so args fold in.
+			if h.WrapsCommand(target) {
+				handler.Command, handler.Args = emit.WrapPortableHook(h, target, emit.ShellHookCommand(command, target, meta)), nil
+			}
 			handlers = append(handlers, handler)
 		}
 		return handlers

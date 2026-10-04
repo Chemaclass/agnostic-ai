@@ -24,15 +24,19 @@ var mcpServerName = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 // nativeHookNames is one target's translation of the portable form. An
 // event or tool kind missing from it has no exact native form there. mcp
 // formats a server name into the matcher for its tools, or is empty.
-// wrapped lists the events whose commands sync wraps to turn exit 2 into
-// the target's reply. filters marks a target with no matcher, where sync
-// runs the command only when the payload names one of the kind's tools.
+// wrapped lists the events whose commands sync runs through the portable
+// hook wrapper to turn exit 2 into the target's reply, each with the
+// wrapper option that picks the reply. filters marks a target with no
+// matcher, where sync runs the command only when the payload names one
+// of the kind's tools. noDecision is why the target cannot run a hook
+// that sets `decision: stdout`, "" when it can.
 type nativeHookNames struct {
-	events  map[string]string
-	tools   map[string]string
-	mcp     string
-	wrapped map[string]bool
-	filters bool
+	events     map[string]string
+	tools      map[string]string
+	mcp        string
+	wrapped    map[string]string
+	filters    bool
+	noDecision string
 }
 
 // sharedHookEvents are the event names Claude Code and Codex share.
@@ -99,6 +103,9 @@ var portableHookTargets = map[string]nativeHookNames{
 	"augment": {
 		events: pickEvents("session-start", "before-tool", "session-end"),
 		tools:  map[string]string{"shell": "^launch-process$", "edit": "^(str-replace-editor|save-file)$", "web": "^(web-fetch|web-search)$", "any": ""},
+		// hookrun.AugmentRuns: a command that is not a bare script path
+		// never starts.
+		noDecision: "augment runs a hook command only as a bare script path, so it cannot run the wrapper that reads decision: stdout",
 	},
 	"crush": {
 		events: pickEvents("before-tool"),
@@ -109,14 +116,16 @@ var portableHookTargets = map[string]nativeHookNames{
 		tools:  map[string]string{"shell": "^exec$", "edit": "^(edit|write|apply_patch)$", "read": "^read$", "web": "^(webfetch|web_search)$", "any": ""},
 	},
 	"cursor": {
-		events:  map[string]string{"before-tool": "preToolUse"},
+		events: map[string]string{
+			"session-start": "sessionStart", "prompt-submit": "beforeSubmitPrompt", "before-tool": "preToolUse", "session-end": "sessionEnd",
+		},
 		tools:   map[string]string{"shell": "^Shell$", "edit": "^Write$", "read": "^Read$", "any": ""},
-		wrapped: map[string]bool{"before-tool": true},
+		wrapped: map[string]string{"before-tool": "", "prompt-submit": "--prompt"},
 	},
 	"copilot": {
 		events:  pickEvents("session-start", "before-tool", "session-end"),
 		tools:   map[string]string{"shell": "Bash", "edit": "Edit|Write", "read": "Read", "web": "WebFetch|WebSearch", "any": ""},
-		wrapped: map[string]bool{"before-tool": true},
+		wrapped: map[string]string{"before-tool": ""},
 	},
 	"cline": {
 		events: pickEvents("before-tool"),
@@ -152,13 +161,21 @@ func TranslatesPortableHooks(target string) bool {
 func IsPortableHook(meta map[string]any) bool {
 	_, on := meta["on"]
 	_, match := meta["match"]
-	return on || match
+	_, decision := meta["decision"]
+	return on || match || decision
 }
+
+// StdoutDecision is the value of `decision:` that has a portable hook
+// read its verdict from a JSON object on stdout.
+const StdoutDecision = "stdout"
 
 // PortableHookProblem returns why a portable hook spec is invalid on
 // every target, or "" when it is valid.
 func PortableHookProblem(meta map[string]any) string {
 	on, onSet := meta["on"]
+	if _, set := meta["decision"]; set && !onSet {
+		return "decision: needs on: before-tool"
+	}
 	if !onSet {
 		return "match: needs on:; set on: to before-tool or after-tool"
 	}
@@ -175,6 +192,9 @@ func PortableHookProblem(meta map[string]any) string {
 	}
 	if _, set := meta["matcher"]; set {
 		return "matcher: goes with event:; with on:, write match:"
+	}
+	if problem := decisionProblem(meta, event); problem != "" {
+		return problem
 	}
 	match, matchSet := meta["match"]
 	if !matchSet {
@@ -200,6 +220,32 @@ func PortableHookProblem(meta map[string]any) string {
 	return ""
 }
 
+// decisionProblem returns why a hook's `decision:` is invalid, or "".
+// The wrapper that reads it is a bash script, so a Windows-only command
+// or a PowerShell handler would skip it and let a denied call through.
+func decisionProblem(meta map[string]any, on string) string {
+	decision, set := meta["decision"]
+	if !set {
+		return ""
+	}
+	if decision != StdoutDecision {
+		return fmt.Sprintf("decision: %v is not a decision source; write decision: stdout", decision)
+	}
+	if on != "before-tool" {
+		return fmt.Sprintf("decision: stdout applies only to on: before-tool, not %s", on)
+	}
+	if kind, _ := meta["type"].(string); kind != "" && kind != "command" {
+		return fmt.Sprintf("decision: stdout applies only to command hooks, not type: %s", kind)
+	}
+	if _, set := meta["commandWindows"]; set {
+		return "decision: stdout runs through a bash wrapper, which commandWindows would skip; remove commandWindows"
+	}
+	if shell, _ := meta["shell"].(string); shell == "powershell" {
+		return "decision: stdout runs through a bash wrapper; remove shell: powershell"
+	}
+	return ""
+}
+
 // NativeHook returns the hook with target's native `event:` and
 // `matcher:` in place of `on:` and `match:`, or why it does not emit to
 // target. A hook in the native form returns unchanged.
@@ -219,15 +265,21 @@ func (e Entry) NativeHook(target string) (Entry, string) {
 	if reason != "" {
 		return e, reason
 	}
+	_, decision := e.Meta["decision"]
+	if decision && portableHookTargets[target].noDecision != "" {
+		return e, portableHookTargets[target].noDecision
+	}
+	match, _ := e.Meta["match"].(string)
 	meta := maps.Clone(e.Meta)
 	delete(meta, "on")
 	delete(meta, "match")
+	delete(meta, "decision")
 	meta["event"] = event
 	if matcher != "" {
 		meta["matcher"] = matcher
 	}
 	e.Meta = meta
-	e.PortableOn = on
+	e.PortableOn, e.PortableMatch, e.PortableDecision = on, match, decision
 	if e.MetaKeys != nil {
 		keys := slices.Clone(e.MetaKeys)
 		for i, k := range keys {
@@ -243,11 +295,45 @@ func (e Entry) NativeHook(target string) (Entry, string) {
 	return e, ""
 }
 
-// WrapsDecision reports whether sync wraps the hook's commands on target
-// so exit 2 becomes the target's deny reply: a portable hook on an event
-// the target reads another way than Claude Code.
-func (e Entry) WrapsDecision(target string) bool {
-	return e.PortableOn != "" && portableHookTargets[target].wrapped[e.PortableOn]
+// WrapsCommand reports whether sync runs the hook's commands on target
+// through the portable hook wrapper: a portable hook on an event the
+// target reads another way than Claude Code, or one that sets
+// `decision: stdout`.
+func (e Entry) WrapsCommand(target string) bool {
+	if e.PortableOn == "" {
+		return false
+	}
+	_, wrapped := portableHookTargets[target].wrapped[e.PortableOn]
+	return wrapped || e.PortableDecision
+}
+
+// WrapperOptions returns the wrapper options sync passes before the
+// command of a hook WrapsCommand wraps on target.
+func (e Entry) WrapperOptions(target string) []string {
+	var out []string
+	if e.PortableDecision {
+		out = append(out, "--decision")
+	}
+	if option := portableHookTargets[target].wrapped[e.PortableOn]; option != "" {
+		out = append(out, option)
+	}
+	return out
+}
+
+// ReachesPortably reports whether a hook NativeHook translated reaches
+// target too, with the same portable event and tool kind.
+func (e Entry) ReachesPortably(target string) bool {
+	if e.PortableOn == "" || !e.EmitsTo(target) {
+		return false
+	}
+	kind := e.PortableMatch
+	if e.PortableOn == "after-edit" {
+		kind = "edit"
+	}
+	if _, _, reason := nativeHookFor(target, e.PortableOn, kind); reason != "" {
+		return false
+	}
+	return !e.PortableDecision || portableHookTargets[target].noDecision == ""
 }
 
 // FilteredTools returns the tool names a portable hook runs on where
@@ -268,7 +354,7 @@ func (e Entry) FilteredTools(target string) []string {
 func WrappedPortableHook(target, event, matcher string) (on, match string, ok bool) {
 	names := portableHookTargets[target]
 	for _, on := range PortableHookEvents {
-		if !names.wrapped[on] || names.events[on] != event {
+		if _, wrapped := names.wrapped[on]; !wrapped || names.events[on] != event {
 			continue
 		}
 		if matcher == "" {
@@ -288,7 +374,8 @@ func WrappedPortableHook(target, event, matcher string) (on, match string, ok bo
 // those of the same hook in the native form.
 func rewritesCommands(target, on, matcher string) bool {
 	names := portableHookTargets[target]
-	return names.wrapped[on] || names.filters && matcher != ""
+	_, wrapped := names.wrapped[on]
+	return wrapped || names.filters && matcher != ""
 }
 
 // PortableHookEvent returns target's native event for a portable one, or

@@ -41,7 +41,7 @@ var specKeys = []string{
 // keys such as `on:` sit one edit from many words, so other kinds do not
 // count them.
 var (
-	hookKeys  = []string{"on", "match"}
+	hookKeys  = []string{"on", "match", "decision"}
 	agentKeys = []string{"can"}
 )
 
