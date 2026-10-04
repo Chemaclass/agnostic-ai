@@ -386,3 +386,19 @@ func TestImport_MatchesAnOverriddenEventAndMatcher(t *testing.T) {
 		}
 	}
 }
+
+// A non-command hook moved to another event by its override leaves a
+// native one under the original event to import.
+func TestImport_KeepsANativeHookUnderTheEventAnOverrideLeft(t *testing.T) {
+	hook := "name: sh\nevent: PreToolUse\nmatcher: Bash\ntype: http\nurl: https://example.com/hook\nx-claude:\n  event: PostToolUse\n"
+	syncSharedHook(t, "claude", hook)
+	writeFile(t, filepath.Join(".claude", "settings.json"),
+		`{"hooks":{"PostToolUse":[{"matcher":"Bash","hooks":[{"type":"http","url":"https://example.com/hook"}]}],"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"http","url":"https://example.com/hook"}]}]}}`)
+
+	importCapturing(t, "claude")
+
+	files := sharedHookFiles(t)
+	if len(files) != 2 || files["sh.yaml"] != hook {
+		t.Fatalf("want sh.yaml and the native PreToolUse hook, got %v", files)
+	}
+}
