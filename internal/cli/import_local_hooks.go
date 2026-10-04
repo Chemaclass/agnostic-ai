@@ -145,7 +145,8 @@ func syncedHookKeys(cfg *config.Config, target string, h spec.Entry) []string {
 	}
 	keys := make([]string, 0, len(commands))
 	for _, c := range commands {
-		keys = append(keys, hookCommandKey(c))
+		// Import drops sync's Cursor check before it matches a handler.
+		keys = append(keys, hookCommandKey(adapters.StripCursorGuard(c)))
 	}
 	return keys
 }

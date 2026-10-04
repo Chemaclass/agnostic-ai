@@ -37,7 +37,7 @@ command: .agnostic-ai/scripts/no-force-push.sh
 
 `match` takes a tool kind: `shell`, `edit`, `read`, `web`, `any`, or `mcp:<server>`. It applies only to `before-tool` and `after-tool`. Leave it out, or write `any`, to run on every tool. `edit` names every edit tool, including ones an older or newer version of the tool lacks, so a guard does not miss one.
 
-Each tool below gets the events and tool kinds it reads the way Claude Code does: exit 0 lets the call go on, and exit 2 blocks it with stderr as the reason. `before-tool` blocks the tool call, `prompt-submit` blocks the prompt, and `stop` keeps the agent working. `after-tool` and `after-edit` map to the tool's own after-tool event, on the `edit` matcher for `after-edit`. Codex reads `Edit|Write` as `apply_patch`. `any` writes no matcher on every tool. Copilot only warns on exit 2 outside `before-tool`, so it maps the session events and `before-tool`. Cursor maps `before-tool` only; its other events need their own reply in the wrapper below.
+Each tool below gets the events and tool kinds it reads the way Claude Code does: exit 0 lets the call go on, and exit 2 blocks it with stderr as the reason. `before-tool` blocks the tool call, `prompt-submit` blocks the prompt, and `stop` keeps the agent working. `after-tool` and `after-edit` map to the tool's own after-tool event, on the `edit` matcher for `after-edit`. Codex reads `Edit|Write` as `apply_patch`. `any` writes no matcher on every tool. Copilot only warns on exit 2 outside `before-tool`, so it maps the session events and `before-tool`.
 
 | Tool | `on` | `match` |
 |---|---|---|
@@ -51,17 +51,48 @@ Each tool below gets the events and tool kinds it reads the way Claude Code does
 | Augment | `session-start`, `before-tool`, `session-end` | `shell` `^launch-process$`, `edit` `^(str-replace-editor\|save-file)$`, `web` `^(web-fetch\|web-search)$` |
 | Crush | `before-tool` | `shell` `^bash$`, `edit` `^(edit\|multiedit\|write)$` |
 | Windsurf | `prompt-submit`, `before-tool`, `stop` | `shell` `^exec$`, `edit` `^(edit\|write\|apply_patch)$`, `read` `^read$`, `web` `^(webfetch\|web_search)$` |
-| Cursor | `before-tool` | `shell` `^Shell$`, `edit` `^Write$`, `read` `^Read$` |
+| Cursor | `session-start`, `prompt-submit`, `before-tool`, `session-end` | `shell` `^Shell$`, `edit` `^Write$`, `read` `^Read$` |
 | Copilot | `session-start`, `before-tool`, `session-end` | `shell` `Bash`, `edit` `Edit\|Write`, `read` `Read`, `web` `WebFetch\|WebSearch` |
 | Cline | `before-tool` | `shell` `run_commands\|execute_command`, `edit` `editor\|apply_patch\|replace_in_file\|write_to_file`, `read` `read_files\|read_file`, `web` `fetch_web_content\|web_fetch\|web_search` |
 
-Cursor, Copilot, and Cline read a block another way, so sync runs each portable `before-tool` command through a wrapper. Exit 2 becomes the tool's deny reply, with stderr as the reason:
+Cursor, Copilot, and Cline read a block another way, so sync runs each portable `before-tool` command, and on Cursor each `prompt-submit` command, through a wrapper. Exit 2 becomes the tool's deny reply, with stderr as the reason:
 
-- **Cursor** gets `"permission": "deny"`, with stderr as `user_message` and `agent_message`. At exit 0 the wrapper replies `"permission": "allow"`, or passes the JSON reply the command prints. Exit 1 stays, and Cursor goes on as Claude Code does. The wrapper is `.cursor/hooks/agnostic-ai-portable-hook.sh`.
+- **Cursor** gets `"permission": "deny"`, with stderr as `user_message` and `agent_message`. At exit 0 the wrapper replies `"permission": "allow"`, or passes the JSON reply the command prints. On `prompt-submit` (`beforeSubmitPrompt`) it replies `"continue": false` with stderr as `user_message`, or `"continue": true`. Exit 1 stays, and Cursor goes on as Claude Code does. The wrapper is `.cursor/hooks/agnostic-ai-portable-hook.sh`.
 - **Copilot** gets exit 2 with `"permissionDecision": "deny"` and stderr as `permissionDecisionReason`. Exit 1 and any other failure stay, and Copilot denies the call, where Claude Code reports an error and goes on. That difference is on purpose: a guard with a typo or a missing dependency keeps blocking on Copilot instead of letting every call through. The wrapper is `.github/hooks/scripts/agnostic-ai-portable-hook.sh`.
 - **Cline** gets `{"cancel": true}` with stderr as `errorMessage`, written into its event script. A cancel also stops the run, where Claude Code keeps working with the reason. Cline reads no exit 1, so the call goes on unreported. Cline has no matcher, so the script runs the command only when the payload names one of the kind's tools, in the Cline CLI and the VS Code extension alike.
 
-The Cursor and Copilot wrappers are bash scripts. On Windows those tools run hook commands through PowerShell, which cannot start them: Cursor goes on with an error, and Copilot denies the call. A hook written with `event` syncs as written, with no wrapper. `sync --global` writes no wrapper, so it skips a portable `before-tool` hook for Cursor with a note.
+The wrappers are bash scripts. On Windows, where a tool runs hook commands through PowerShell, it cannot start them: Cursor goes on with an error, and Copilot denies the call. A hook written with `event` syncs as written, with no wrapper. `sync --global` writes the wrapper beside the user hooks file, such as `~/.cursor/hooks/agnostic-ai-portable-hook.sh`.
+
+Cursor's other events stay unmapped. Its `postToolUse` and `afterFileEdit` (for `after-tool` and `after-edit`) and its `stop` cannot block: exit 2 there is a failure Cursor moves past, where Claude Code feeds stderr to the model or keeps the agent working. Its `stop` can only send a follow-up message, which is not the same as a block ([Cursor hooks](https://cursor.com/docs/hooks)). `session-start` and `session-end` map without a wrapper, since neither tool can block there. Cursor runs both fire-and-forget, so it does not wait for them, and it does not add plain stdout to the session as Claude Code does on `session-start`.
+
+#### Decision on stdout {#decision-on-stdout}
+
+Set `decision: stdout` on a `before-tool` hook to decide with a JSON object instead of an exit code:
+
+```yaml
+name: no-force-push
+on: before-tool
+match: shell
+decision: stdout
+command: .agnostic-ai/scripts/no-force-push.sh
+```
+
+```sh
+echo '{"decision": "deny", "reason": "Use --force-with-lease."}'
+```
+
+With `decision: stdout`, stdout carries only the decision. At exit 0, `"decision": "deny"` blocks the call with `reason` as the message, the same as exit 2 with that message on stderr. `"ask"` blocks too, since not every tool can ask the user. `"allow"`, or empty stdout, goes on as a plain exit 0, so it never grants more than the tool's own permission rules do. Anything else blocks, so a broken guard never lets a call through: stdout that is not one JSON object, an object with no top-level `decision` or more than one, or a `decision` of another value. Only the top level counts, so a `decision` inside a nested object never overrides the verdict. Escaped control characters stay distinct in keys and values; raw NUL and SOH bytes block. Print logs to stderr. Any exit code other than 0 keeps its usual meaning.
+
+No tool reads this object natively, so sync runs the command through the same wrapper on every tool, including each `x-gemini.hooks` command handler, which turns the decision into that tool's block. Augment runs a hook command only as a bare script path, so it cannot run the wrapper: `validate` names a `decision: stdout` hook that reaches it. The wrapper needs bash, so `decision: stdout` cannot go with `commandWindows` or `shell: powershell`. Parsing blocks on stdout over 1,000,000 bytes, more than 10,000 values, or more than 64 nested containers. A `\u` escape outside ASCII reads as `?`. Sync writes the wrapper again for a hook imported from a synced file that calls it.
+
+#### Hooks Cursor and Copilot also read {#claude-settings-copies}
+
+Cursor and Copilot also run `.claude/settings.json` hooks. When `cursor` is a target, sync puts a check before the Claude Code copy of each portable hook that reaches Cursor too: `[ "$AGNOSTIC_AI_TARGET" = cursor ] && exit 0;`. Cursor's `sessionStart` hook sets that variable, so the Claude Code copy exits under Cursor and the hook runs once there, as Cursor's own copy. Claude Code sets the variable to `claude`, and an unset variable runs the hook, so Claude Code never skips it.
+
+- A hook that fires before Cursor's `sessionStart` hook returns still runs twice.
+- A hook with `args` or `shell: powershell` has no POSIX shell to read the check, so it runs twice on Cursor.
+- Copilot gives the Claude Code copy no variable, so a hook synced to `claude` and `copilot` still runs twice on Copilot. Both copies block on exit 2.
+- `sync --global` adds no check, so a user hook synced to both runs twice on Cursor.
 
 A spec sets `on` or `event`, never both. `match` goes with `on`, and `matcher` with `event`. `validate` and `lint` (LINT032) report an unknown value, a mixed form, an event that a target the hook reaches does not read the same way, such as `on: stop` on Crush, and a tool kind it has no tool for, such as `match: read` on Codex.
 
@@ -118,6 +149,7 @@ Command hooks receive event JSON on stdin. Read the shell command from the targe
 | `description` | no | empty | Free-form documentation. |
 | `on` | `on` or `event` | none | Portable event, translated per target. See [portable events](#portable-events). |
 | `match` | no | every tool | Tool kind for `on: before-tool` or `after-tool`. See [portable events](#portable-events). |
+| `decision` | no | none | `stdout` reads a `{"decision": ..., "reason": ...}` object at exit 0 on `on: before-tool`. See [decision on stdout](#decision-on-stdout). |
 | `event` | `on` or `event` | none | Hook event, written verbatim. See [events](#events). |
 | `matcher` | no | empty | Regex on the tool name, or another event-specific selector. |
 | `command` | command handlers only | none | Shell command, or a list where each entry becomes its own handler. |

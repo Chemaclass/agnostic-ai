@@ -124,7 +124,7 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 			order = append(order, canonical)
 		}
 		for _, cmd := range cmds {
-			commands[canonical] = append(commands[canonical], hookCommand{command: emit.ShellHookCommand(cmd, target, h.Meta), tools: tools})
+			commands[canonical] = append(commands[canonical], hookCommand{command: emit.WrapPortableHook(h, target, emit.ShellHookCommand(cmd, target, h.Meta)), tools: tools})
 		}
 	}
 

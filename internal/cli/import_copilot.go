@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -178,13 +179,16 @@ func normalizeCopilotHook(event string, native map[string]any) map[string]any {
 		// syncs the wrapper back.
 		matcher, _ := native["matcher"].(string)
 		if on, match, ok := spec.WrappedPortableHook("copilot", event, matcher); ok {
-			if inner, wrapped := copilot.UnwrapPortableCommand(command, cwd); wrapped {
+			if options, inner, wrapped := copilot.UnwrapPortableCommand(command, cwd); wrapped {
 				command = inner
 				delete(doc, "event")
 				delete(doc, "matcher")
 				doc["on"] = on
 				if match != "" {
 					doc["match"] = match
+				}
+				if slices.Contains(options, "--decision") {
+					doc["decision"] = spec.StdoutDecision
 				}
 			}
 		}

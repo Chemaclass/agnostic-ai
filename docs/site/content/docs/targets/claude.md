@@ -76,6 +76,8 @@ Hooks support `command`, `http`, `mcp_tool`, and `prompt` handlers:
 
 With a command hook present, sync adds `AGNOSTIC_AI_TARGET: claude` to the settings `env` (Claude Code hooks have no `env`). Shell, exec, and PowerShell hooks and every other session process see it. `outputs.claude.settings.env` or `x-claude.env` wins. See [which target ran a hook](@/docs/spec-format/hooks.md#hook-target).
 
+When `cursor` is also a target, a portable hook that reaches Cursor gets `[ "$AGNOSTIC_AI_TARGET" = cursor ] && exit 0;` before its command, so Cursor, which also loads `.claude/settings.json`, runs it once. `import claude` drops the check. See [hooks Cursor and Copilot also read](@/docs/spec-format/hooks.md#claude-settings-copies).
+
 `import claude` preserves these handlers. Experimental agent handlers are not emitted. `once` is written but inert, with a sync note: [Claude Code hooks](https://code.claude.com/docs/en/hooks) honor it only in skill frontmatter, and portable hooks land in `.claude/settings.json`. See [hook fields](@/docs/spec-format/hooks.md).
 
 `event` passes through verbatim. Common events:

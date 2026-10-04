@@ -155,10 +155,15 @@ func buildHooksBlock(hooks []spec.Entry) *emit.OrderedJSON {
 			keyOrder = append(keyOrder, k)
 		}
 		for _, command := range commands {
+			rewritten, handlerArgs := emit.RewriteHookPath(command, target, h.Meta), args
+			// The wrapper runs a command line, so args fold in.
+			if h.WrapsCommand(target) {
+				rewritten, handlerArgs = emit.WrapPortableHook(h, target, emit.ShellHookCommand(command, target, h.Meta)), nil
+			}
 			byKey[k] = append(byKey[k], hookEntry{CommandEntry: claudehooks.CommandEntry{
 				Type:          "command",
-				Command:       emit.RewriteHookPath(command, target, h.Meta),
-				Args:          args,
+				Command:       rewritten,
+				Args:          handlerArgs,
 				Timeout:       timeout,
 				StatusMessage: statusMessage,
 				Async:         async,

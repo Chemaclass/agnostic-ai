@@ -55,3 +55,14 @@ func ExecFormCommand(command string, args []string) string {
 
 // ShellQuote quotes s as one POSIX shell word.
 func ShellQuote(s string) string { return emit.ShellQuote(s) }
+
+// StripCursorGuard undoes the check sync puts before a Claude Code hook
+// Cursor would also run, so an import reads back the spec's command.
+func StripCursorGuard(command string) string { return emit.StripCursorGuard(command) }
+
+// UnwrapPortableHook returns the command a portable hook wrapper command
+// line runs, and its options, or false for any other command.
+func UnwrapPortableHook(command string) (options []string, inner string, ok bool) {
+	_, options, inner, ok = emit.UnwrapDecisionCommand(command)
+	return options, inner, ok
+}

@@ -61,6 +61,11 @@ func NeutralHookScripts(command, target, sourceDir, outputDir string, literal ..
 }
 
 func (s *Session) MaterializeNeutralHookScripts(hooks []spec.Entry, target, outputDir string, dryRun bool) error {
+	if wrapper, ok := PortableHookWrapperScript(hooks, target, outputDir); ok {
+		if err := s.writeFileWithMode(wrapper.Path, string(wrapper.Body), wrapper.Mode, true, dryRun); err != nil {
+			return err
+		}
+	}
 	for _, hook := range hooks {
 		if event, _ := hook.Meta["event"].(string); event == "" {
 			continue

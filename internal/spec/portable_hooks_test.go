@@ -84,17 +84,60 @@ func TestNativeHook_LeavesNativeHooksAlone(t *testing.T) {
 	}
 }
 
+func TestNativeHook_WrapsAStdoutDecisionOnEveryTargetThatRunsIt(t *testing.T) {
+	h := portableHook(map[string]any{"on": "before-tool", "match": "shell", "decision": "stdout"})
+	for _, target := range []string{"claude", "codex", "gemini", "factory", "qoder", "openhands", "goose", "crush", "windsurf", "cline", "copilot", "cursor"} {
+		native, reason := h.NativeHook(target)
+		if reason != "" || !native.WrapsCommand(target) || native.WrapperOptions(target)[0] != "--decision" {
+			t.Errorf("%s: %q wraps=%v options=%v", target, reason, native.WrapsCommand(target), native.WrapperOptions(target))
+		}
+		if _, set := native.Meta["decision"]; set {
+			t.Errorf("%s: decision: must not reach the adapter", target)
+		}
+	}
+	if _, reason := h.NativeHook("augment"); !strings.Contains(reason, "bare script path") {
+		t.Errorf("augment cannot run the wrapper, got %q", reason)
+	}
+	prompt, _ := portableHook(map[string]any{"on": "prompt-submit"}).NativeHook("cursor")
+	if prompt.Meta["event"] != "beforeSubmitPrompt" || strings.Join(prompt.WrapperOptions("cursor"), " ") != "--prompt" {
+		t.Errorf("cursor prompt-submit = %v %v", prompt.Meta["event"], prompt.WrapperOptions("cursor"))
+	}
+	if start, _ := portableHook(map[string]any{"on": "session-start"}).NativeHook("cursor"); start.WrapsCommand("cursor") {
+		t.Error("cursor session-start reads exit codes as Claude Code does, so it is not wrapped")
+	}
+}
+
+func TestPortableHookProblem_Decision(t *testing.T) {
+	for _, c := range []struct {
+		meta map[string]any
+		want string
+	}{
+		{map[string]any{"on": "before-tool", "decision": "stdout"}, ""},
+		{map[string]any{"on": "before-tool", "decision": "json"}, "write decision: stdout"},
+		{map[string]any{"on": "stop", "decision": "stdout"}, "applies only to on: before-tool"},
+		{map[string]any{"decision": "stdout"}, "decision: needs on: before-tool"},
+		{map[string]any{"on": "before-tool", "decision": "stdout", "commandWindows": "x"}, "remove commandWindows"},
+		{map[string]any{"on": "before-tool", "decision": "stdout", "shell": "powershell"}, "remove shell: powershell"},
+		{map[string]any{"on": "before-tool", "decision": "stdout", "type": "http"}, "only to command hooks"},
+	} {
+		got := PortableHookProblem(c.meta)
+		if c.want == "" && got != "" || c.want != "" && !strings.Contains(got, c.want) {
+			t.Errorf("%v = %q, want %q", c.meta, got, c.want)
+		}
+	}
+}
+
 func TestNativeHook_MarksWhereSyncRewritesThePortableCommand(t *testing.T) {
 	shell := portableHook(map[string]any{"on": "before-tool", "match": "shell"})
 	for _, target := range []string{"cursor", "copilot"} {
-		if h, _ := shell.NativeHook(target); !h.WrapsDecision(target) {
+		if h, _ := shell.NativeHook(target); !h.WrapsCommand(target) {
 			t.Errorf("%s: a portable before-tool hook must be wrapped", target)
 		}
 	}
-	if h, _ := shell.NativeHook("claude"); h.WrapsDecision("claude") || h.FilteredTools("claude") != nil {
+	if h, _ := shell.NativeHook("claude"); h.WrapsCommand("claude") || h.FilteredTools("claude") != nil {
 		t.Error("claude reads exit 2 itself, so nothing is wrapped or filtered")
 	}
-	if h, _ := portableHook(map[string]any{"on": "session-start"}).NativeHook("copilot"); h.WrapsDecision("copilot") {
+	if h, _ := portableHook(map[string]any{"on": "session-start"}).NativeHook("copilot"); h.WrapsCommand("copilot") {
 		t.Error("copilot reads its session events as Claude Code does, so they are not wrapped")
 	}
 	if h, _ := shell.NativeHook("cline"); strings.Join(h.FilteredTools("cline"), " ") != "run_commands execute_command" {
@@ -104,7 +147,7 @@ func TestNativeHook_MarksWhereSyncRewritesThePortableCommand(t *testing.T) {
 		t.Error("a hook without match runs on every Cline tool")
 	}
 	native := portableHook(map[string]any{"event": "preToolUse", "matcher": "^Shell$"})
-	if h, _ := native.NativeHook("cursor"); h.WrapsDecision("cursor") {
+	if h, _ := native.NativeHook("cursor"); h.WrapsCommand("cursor") {
 		t.Error("a native hook syncs as written")
 	}
 	if h, _ := portableHook(map[string]any{"event": "PreToolUse", "matcher": "run_commands"}).NativeHook("cline"); h.FilteredTools("cline") != nil {
@@ -161,8 +204,8 @@ func TestBundleFor_TranslatesPortableHooksAndDropsTheRest(t *testing.T) {
 	if got := b.HooksFor("kiro"); len(got) != 0 {
 		t.Errorf("kiro hooks = %+v, want none until it translates", got)
 	}
-	if got := b.HooksFor("cursor"); len(got) != 1 || got[0].Name != "guard" || got[0].PortableOn != "before-tool" || !got[0].WrapsDecision("cursor") {
-		t.Errorf("cursor hooks = %+v, want only guard, marked for the wrapper", got)
+	if got := b.HooksFor("cursor"); len(got) != 2 || got[0].PortableOn != "before-tool" || !got[0].WrapsCommand("cursor") || got[1].WrapsCommand("cursor") {
+		t.Errorf("cursor hooks = %+v, want guard wrapped and status as written", got)
 	}
 	if b.Hooks[0].Meta["event"] != nil {
 		t.Error("For must not change the source entry")
@@ -219,7 +262,7 @@ func TestPortableHookTargets_TranslationTable(t *testing.T) {
 		"augment":   {"SessionStart - PreToolUse - - - SessionEnd", "^launch-process$", "^(str-replace-editor|save-file)$", "-", "^(web-fetch|web-search)$", "-"},
 		"crush":     {"- - PreToolUse - - - -", "^bash$", "^(edit|multiedit|write)$", "-", "-", "-"},
 		"windsurf":  {"- UserPromptSubmit PreToolUse - - Stop -", "^exec$", "^(edit|write|apply_patch)$", "^read$", "^(webfetch|web_search)$", "-"},
-		"cursor":    {"- - preToolUse - - - -", "^Shell$", "^Write$", "^Read$", "-", "-"},
+		"cursor":    {"sessionStart beforeSubmitPrompt preToolUse - - - sessionEnd", "^Shell$", "^Write$", "^Read$", "-", "-"},
 		"copilot":   {"SessionStart - PreToolUse - - - SessionEnd", "Bash", "Edit|Write", "Read", "WebFetch|WebSearch", "-"},
 		"cline":     {"- - PreToolUse - - - -", "run_commands|execute_command", "editor|apply_patch|replace_in_file|write_to_file", "read_files|read_file", "fetch_web_content|web_fetch|web_search", "-"},
 	}

@@ -54,6 +54,7 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 			async, asyncRewake, once := false, false, false
 			var args []string
 			for _, h := range g.Hooks {
+				h.Command = adapters.StripCursorGuard(h.Command)
 				if h.Type != "" && h.Type != "command" {
 					n, err := importClaudeNonCommandHook(root, dstDir, event, g.Matcher, h, pin, namer)
 					if err != nil {
