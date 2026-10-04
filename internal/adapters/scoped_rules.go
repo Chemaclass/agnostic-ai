@@ -13,9 +13,36 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// EntryPointRules is the root-context projection of the shared scope contract.
+// EntryPointRules is the root-context projection of the shared scope
+// contract, with each path variable expanded where every tool reading
+// target's entry point resolves it to the same path.
 func EntryPointRules(b spec.Bundle, target string, configs ...*config.Config) spec.Bundle {
-	return emit.EntryPointRules(b, target, configs...)
+	var cfg *config.Config
+	if len(configs) > 0 {
+		cfg = configs[0]
+	}
+	out := emit.EntryPointRules(b, target, cfg)
+	vals, _ := emit.EntryPointVars(cfg, target)
+	rules := make([]spec.Entry, len(out.Rules))
+	for i, r := range out.Rules {
+		r.Body, _ = emit.ExpandVars(r.Body, vals)
+		rules[i] = r
+	}
+	out.Rules = rules
+	return out
+}
+
+// NoteEntryPointVars notes the path variables that the rules block in
+// target's entry point keeps verbatim because the tools reading that
+// file do not resolve them to one path.
+func NoteEntryPointVars(cfg *config.Config, b spec.Bundle, target string) {
+	vals, contested := emit.EntryPointVars(cfg, target)
+	rules := emit.EntryPointRules(b, target, cfg).Rules
+	bodies := make([]string, len(rules))
+	for i, r := range rules {
+		bodies[i] = r.Body
+	}
+	emit.NoteSharedVars(emit.EntryPointPath(cfg, target), emit.EntryPointReaders(cfg, target), spec.KindRule, bodies, vals, contested)
 }
 
 // ScopedDocuments lists the files target writes inside a scope directory,
@@ -143,9 +170,7 @@ func ValidateScopedRules(cfg *config.Config, b spec.Bundle, requested []string) 
 }
 
 // ReviewSections returns the Codex code review section per review scope
-// ("" for the root), with variables expanded for codex so the text
-// matches what cursor writes to BUGBOT.md. Nil unless the project, or
-// this run, syncs codex.
+// ("" for the root). Nil unless the project, or this run, syncs codex.
 func ReviewSections(b spec.Bundle, cfg *config.Config, requested ...string) map[string]string {
 	b = b.For("codex")
 	// The sections land in AGENTS.md, which other tools read too, so
@@ -154,7 +179,7 @@ func ReviewSections(b spec.Bundle, cfg *config.Config, requested ...string) map[
 	for i := range b.Reviews {
 		b.Reviews[i].Body, _ = emit.ExpandRefs(b.Reviews[i].Body, nil)
 	}
-	return emit.ReviewSections(expandBundleVars(b, cfg, "codex"), cfg, requested...)
+	return emit.ReviewSections(b, cfg, requested...)
 }
 
 // AppendReviewSection returns body with the review section appended.

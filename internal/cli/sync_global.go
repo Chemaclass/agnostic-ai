@@ -217,7 +217,8 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	if err != nil {
 		return err
 	}
-	if err := stopOnIssues(portableHookProblems(ownSpecs(bundle).Hooks)); err != nil {
+	own := ownSpecs(bundle)
+	if err := stopOnIssues(append(portableHookProblems(own.Hooks), agentCapabilityIssues(own.Agents)...)); err != nil {
 		return err
 	}
 	tiers, unloaded, err := loadGlobalModels(source, skipBroken)
@@ -888,7 +889,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		}
 		next.Hooks[target] = map[string][]any{}
 		path := g.path(home, g.hooks)
-		hooks := b.HooksFor(target)
+		hooks := adapters.TargetHooks(target, b.HooksFor(target))
 		adapters.NotePortableHookGaps(target, b.Hooks)
 		if g.hooksFormat == "augment" {
 			augment.NoteUserHookGaps(hooks)

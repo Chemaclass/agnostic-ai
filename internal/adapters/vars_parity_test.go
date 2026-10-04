@@ -11,7 +11,7 @@ import (
 )
 
 // A declared variable must name the place the adapter actually writes
-// that kind. Without this, targetVarPaths is a second copy of every
+// that kind. Without this, emit.TargetVarPaths is a second copy of every
 // adapter's path constants and drifts the first time one moves.
 func TestTargetVarPaths_MatchRealEmission(t *testing.T) {
 	probes := map[string]spec.Entry{
@@ -25,10 +25,10 @@ func TestTargetVarPaths_MatchRealEmission(t *testing.T) {
 	// A rule the root AGENTS.md carries inline gets no rule file of its
 	// own (#1224). Owning that file keeps the probe rule in RULES_DIR.
 	cfg := &config.Config{Sync: config.SyncConfig{Unmanaged: []string{"AGENTS.md"}}}
-	for target, declared := range targetVarPaths {
+	for target, declared := range emit.TargetVarPaths {
 		adapter, err := Resolve(target)
 		if err != nil {
-			t.Errorf("%s: declared in targetVarPaths but not a registered target", target)
+			t.Errorf("%s: declared in emit.TargetVarPaths but not a registered target", target)
 			continue
 		}
 		for name, want := range declared {
@@ -78,7 +78,7 @@ func TestTargetVarPaths_FollowDirOverride(t *testing.T) {
 	const moved = "vendor/.claude"
 	cfg := &config.Config{Outputs: map[string]config.Output{"claude": {Dir: moved}}}
 
-	vars := varsFor(cfg, "claude")
+	vars := emit.VarsFor(cfg, "claude")
 	if len(vars) == 0 {
 		t.Fatal("claude resolved no variables")
 	}
@@ -127,8 +127,8 @@ func TestTargetVarPaths_FollowDirOverride(t *testing.T) {
 // leaving every variable unresolved there.
 func TestTargetVarPaths_CoverEveryRegisteredTarget(t *testing.T) {
 	for _, target := range Names() {
-		if _, ok := targetVarPaths[target]; !ok {
-			t.Errorf("%s has no targetVarPaths entry; add one (empty is fine when the target has no per-kind dirs)", target)
+		if _, ok := emit.TargetVarPaths[target]; !ok {
+			t.Errorf("%s has no emit.TargetVarPaths entry; add one (empty is fine when the target has no per-kind dirs)", target)
 		}
 	}
 }
@@ -162,7 +162,7 @@ func TestTargetVarPaths_FollowPerKindDirOverride(t *testing.T) {
 		emit.VarRulesDir:    {Kind: spec.KindRule, Name: "probe", Path: "rules/probe.md", Body: "b"},
 	}
 
-	for target, declared := range targetVarPaths {
+	for target, declared := range emit.TargetVarPaths {
 		adapter, err := Resolve(target)
 		if err != nil {
 			continue
@@ -184,7 +184,7 @@ func TestTargetVarPaths_FollowPerKindDirOverride(t *testing.T) {
 				Sync:    config.SyncConfig{Unmanaged: []string{"AGENTS.md"}},
 			}
 
-			if got := varsFor(cfg, target)[name]; got != moved {
+			if got := emit.VarsFor(cfg, target)[name]; got != moved {
 				t.Errorf("%s: %s resolves to %q under its per-kind override, want %q", target, name, got, moved)
 			}
 

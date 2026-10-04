@@ -379,7 +379,7 @@ func withoutMCPCredentials(target string, servers map[string]any, skip func(targ
 		if mcpRefOnly(value) {
 			continue
 		}
-		if mcpCredentialKey(r.key) && mcpSecretValue(mcpDetectorText(value), false, mcpWeakCredential) || mcpCredentialDetected(value) {
+		if mcpCredentialSetting(r.key, value) {
 			held[r.server] = r.field + "." + r.key
 		}
 	}

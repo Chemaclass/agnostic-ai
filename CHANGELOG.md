@@ -13,10 +13,16 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `hook run` uses Git Bash for Claude Code hooks on Windows and shows a command's timeout or error even when another's result is not counted (#1746, #1728).
 - Hooks take portable `on:` and `match:` on 13 tools; `import` writes them where they map exactly and skips the native hooks a shared hook spec already syncs. `migrate` rewrites old spec forms, output unchanged, and `doctor` and `lint` (LINT034) name them (#1755, #1752, #1768).
 - A portable `before-tool` hook can decide with `decision: stdout` and a `{"decision": "deny", "reason": ...}` object at exit 0, on every tool that maps `before-tool` but Augment; `ask` blocks too (#1790).
+- `migrate --global` rewrites old spec forms in the global home, MCP secrets and agent `tools:` too; a pack stays as written (#1755, #1804).
 - Hook `args` now reach the command on 12 more tools, folded in and shell-quoted, and `import` matches them; Augment skips such a hook with a note (#1780).
+- Hook `x-<target>` event, matcher, command, and args apply on every tool; `import` matches hooks by what sync writes, Crush scripts too (#1788, #1797).
 - `init --demo` seeds a `no-force-push` guard, `new agent` omits `model`, and `lint` warns (LINT031) on a leftover `TODO` description (#1732, #1738, #1739).
 - Spec bodies can name an agent or skill with `{{$AGENT:name}}` and `{{$SKILL:name}}`, which render each tool's documented invocation phrase; `lint` fails (LINT033) on an unknown name (#1773).
+- Shared files (an entry point's rules block, the `AGENTS.md` review section, a nested `AGENTS.md`) now expand `{{$SKILLS_DIR}}` and the other path variables where every tool reading the file agrees on the path; otherwise a note names the file, and a scoped rule no longer fails sync (#1787, #1800).
 - `init --demo` seeds a spec guard: after an edit, the agent sees the lint errors in the specs it touched, and when it stops with specs not synced, a one-line notice. `lint --files` and `hook guard` back it (#1774).
+- MCP `env` and `headers` values are references unless marked `NODE_ENV: !literal production`; `lint` warns (LINT035) and sync counts the rest, which a later release fails on. Run `agnostic-ai migrate --only secrets` (#1753).
+- Agents take a neutral `can:` list, such as `[read, edit, shell(git diff *), mcp:github]`, that syncs as the Claude Code `tools` it stands for. Kiro notes the access a category adds, `lint` fails (LINT036) on an unknown capability, and `migrate --only capabilities` rewrites `tools` (#1754).
+- Settings `permissions` take the same capabilities, plus `read(<path>)` and `edit(<path>)`, and sync each as the Claude Code rule it stands for; `migrate --only capabilities` rewrites them. A lowercase rule such as `read`, which no tool read before, now applies (#1796).
 
 ### By tool
 

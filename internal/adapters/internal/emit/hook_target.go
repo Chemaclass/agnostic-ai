@@ -3,7 +3,11 @@ package emit
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
+
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // HookTargetEnv names the variable a synced hook reads to learn which
@@ -139,6 +143,47 @@ func ExecFormCommand(command string, args []string) string {
 	}
 	return command
 }
+
+// TargetHooks returns hooks with the keys that decide when and what runs
+// (targetHookKeys) read after each spec's `x-<target>` override, as the
+// spec format documents for every key. Emitters read them from the top
+// level, so a hook fires and runs as its override says on every target.
+// Other keys under `x-<target>` stay for the adapter that reads them.
+func TargetHooks(target string, hooks []spec.Entry) []spec.Entry {
+	if len(hooks) == 0 {
+		return hooks
+	}
+	out := make([]spec.Entry, len(hooks))
+	for i, h := range hooks {
+		out[i] = TargetHook(target, h)
+	}
+	return out
+}
+
+// TargetHook is TargetHooks for one hook.
+func TargetHook(target string, h spec.Entry) spec.Entry {
+	override, _ := h.Meta[XPrefix+target].(map[string]any)
+	if !slices.ContainsFunc(targetHookKeys, func(key string) bool { _, ok := override[key]; return ok }) {
+		return h
+	}
+	resolved := ResolveMeta(h.Meta, target)
+	meta := maps.Clone(h.Meta)
+	for _, key := range targetHookKeys {
+		value, ok := resolved[key]
+		if !ok {
+			delete(meta, key)
+			continue
+		}
+		meta[key] = value
+		if h.MetaKeys != nil && !slices.Contains(h.MetaKeys, key) {
+			h.MetaKeys = append(slices.Clone(h.MetaKeys), key)
+		}
+	}
+	h.Meta = meta
+	return h
+}
+
+var targetHookKeys = []string{"event", "matcher", "command", "args"}
 
 // HookArgs returns a hook spec's exec-form args on target, after its
 // `x-<target>` override, the same view RewriteHookPath reads.

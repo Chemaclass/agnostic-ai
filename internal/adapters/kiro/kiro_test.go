@@ -186,7 +186,8 @@ func TestTranslateTools_UnmappedNameReportedSeparately(t *testing.T) {
 // tags (kiro.dev/docs/custom-agents/configuration-reference/), instead
 // of a permanent no-op: Read/Grep/Glob collapse onto `read`, Write/Edit
 // onto `write`, Bash onto `shell`, WebFetch/WebSearch onto `web`, so 8
-// Claude-style names dedupe to 4 Kiro categories with no coverage note.
+// Claude-style names dedupe to 4 Kiro categories. The only note names
+// the delete_file access `write` adds.
 func TestEmit_Agent_ToolsTranslateToKiroCategories(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	emit.ResetCoverageNotes()
@@ -216,8 +217,8 @@ func TestEmit_Agent_ToolsTranslateToKiroCategories(t *testing.T) {
 			t.Errorf("expected Claude-style names to translate, not pass through, got:\n%s", got)
 		}
 	}
-	if n := emit.PendingCoverageNotesCount(); n != 0 {
-		t.Errorf("expected no coverage note when every tool name maps, got %d", n)
+	if n := emit.PendingCoverageNotesCount(); n != 1 {
+		t.Errorf("expected only the delete_file note when every tool name maps, got %d", n)
 	}
 }
 

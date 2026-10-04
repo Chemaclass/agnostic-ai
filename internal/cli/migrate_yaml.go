@@ -61,6 +61,26 @@ func rewriteTopLevelYAMLKeys(src string, rewrites []yamlKeyRewrite) (string, err
 	return out, nil
 }
 
+// rewriteFrontmatterKeys applies rewrites to the frontmatter of the
+// Markdown spec src, which it finds as the spec loader does, and keeps
+// the body byte for byte.
+func rewriteFrontmatterKeys(src string, rewrites []yamlKeyRewrite) (string, error) {
+	const delim = "---"
+	rest, ok := strings.CutPrefix(src, delim)
+	if !ok {
+		return "", fmt.Errorf("no frontmatter")
+	}
+	end := strings.Index(rest, "\n"+delim)
+	if end < 0 {
+		return "", fmt.Errorf("no closing %s", delim)
+	}
+	frontmatter, err := rewriteTopLevelYAMLKeys(rest[:end], rewrites)
+	if err != nil {
+		return "", err
+	}
+	return delim + frontmatter + rest[end:], nil
+}
+
 func topLevelPair(mapping *yaml.Node, key string) (*yaml.Node, *yaml.Node) {
 	for i := 0; i+1 < len(mapping.Content); i += 2 {
 		if mapping.Content[i].Value == key {

@@ -122,7 +122,8 @@ func TestImport_DryRunDoesNotListLocalSpecs(t *testing.T) {
 
 	out := importCapturing(t, "codex", "--dry-run")
 
-	if strings.Contains(out, filepath.Join(".agnostic-ai", "rules", "personal.md")) {
+	// The dry-run lists slash paths on every platform.
+	if strings.Contains(out, ".agnostic-ai/rules/personal.md") {
 		t.Errorf("dry-run lists the local rule as a shared write:\n%s", out)
 	}
 	if !strings.Contains(out, "rule personal") {

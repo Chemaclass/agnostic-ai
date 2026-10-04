@@ -224,7 +224,9 @@ func PrepareScopedDocuments(b spec.Bundle, cfg *config.Config, target string, re
 		}
 		out.Rules = append(out.Rules, r)
 	}
+	vals := VarsFor(cfg, target)
 	for i := range out.Rules {
+		out.Rules[i].Body, _ = ExpandVars(out.Rules[i].Body, vals)
 		out.Rules[i].Body, _ = ExpandRefs(out.Rules[i].Body, RefForms[target])
 	}
 	noteSharedDocumentRefs(target, grouped)
@@ -244,7 +246,8 @@ func PrepareScopedDocuments(b spec.Bundle, cfg *config.Config, target string, re
 	sort.Strings(paths)
 	files := make([]CapturedFile, 0, len(paths))
 	for _, p := range paths {
-		files = append(files, CapturedFile{Path: p, Content: scopedDocument(grouped[p], sections[p])})
+		noteScopedDocumentVars(cfg, target, p, grouped[p])
+		files = append(files, CapturedFile{Path: p, Content: scopedDocument(cfg, target, p, grouped[p], sections[p])})
 	}
 	return out, files, nil
 }
@@ -450,11 +453,14 @@ func scopeDirectories(patterns []string) ([]string, error) {
 // that rule's text as written, inside the sentinel markers: the file is
 // the rule, so a "## Rules" and a "### <name>" heading would only add
 // words to a hand-written file that import brought in whole.
-func scopedDocument(rules []spec.Entry, reviewSection string) string {
+func scopedDocument(cfg *config.Config, target, path string, rules []spec.Entry, reviewSection string) string {
 	// A scope document can have other readers, so no single tool's
-	// invocation phrase fits it.
+	// invocation phrase fits it, and a path variable expands only where
+	// they all agree.
+	vals, _ := SharedVars(cfg, ScopeDocumentReaders(cfg, target, filepath.Base(path)))
 	rules = slices.Clone(rules)
 	for i := range rules {
+		rules[i].Body, _ = ExpandVars(rules[i].Body, vals)
 		rules[i].Body, _ = ExpandRefs(rules[i].Body, nil)
 	}
 	sort.SliceStable(rules, func(i, j int) bool { return rules[i].Name < rules[j].Name })
@@ -585,7 +591,7 @@ func CheckScopeReaders(bundles map[string]spec.Bundle, files map[string]Captured
 					}
 				}
 				section := reviews[scope]
-				if len(expected) == 0 && section == "" || scopedDocument(expected, section) != file.Content {
+				if len(expected) == 0 && section == "" || scopedDocument(cfg, target, path, expected, section) != file.Content {
 					return fmt.Errorf("%s: shared instructions differ for %s; use the same target conditions and bodies or separate worktrees", path, target)
 				}
 			}
@@ -622,6 +628,18 @@ func noteSharedDocumentRefs(target string, grouped map[string][]spec.Entry) {
 	for keyword, count := range counts {
 		NoteFieldNoOp(target, spec.KindRule, "{{$"+keyword+":<name>}}", count, SharedRefReason)
 	}
+}
+
+// noteScopedDocumentVars notes the path variables the scope document at
+// path keeps verbatim in rules, because its readers disagree on them.
+func noteScopedDocumentVars(cfg *config.Config, target, path string, rules []spec.Entry) {
+	readers := ScopeDocumentReaders(cfg, target, filepath.Base(path))
+	vals, contested := SharedVars(cfg, readers)
+	bodies := make([]string, len(rules))
+	for i, r := range rules {
+		bodies[i] = r.Body
+	}
+	NoteSharedVars(path, readers, spec.KindRule, bodies, vals, contested)
 }
 
 // SharedRefReason explains a reference that renders the neutral phrase.

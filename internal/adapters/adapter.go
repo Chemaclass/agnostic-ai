@@ -539,7 +539,7 @@ func EntryPointRuleInliner(cfg *config.Config, target string) string {
 // text, and that file would load r in every session too.
 func RuleInEntryPoint(cfg *config.Config, b spec.Bundle, target string, r spec.Entry) bool {
 	own := slices.Clone(b.For(target).Rules)
-	vals := varsFor(cfg, target)
+	vals := emit.VarsFor(cfg, target)
 	for i := range own {
 		own[i].Body, _ = emit.ExpandVars(own[i].Body, vals)
 		own[i].Body, _ = emit.ExpandRefs(own[i].Body, emit.RefForms[target])
@@ -558,7 +558,7 @@ func RuleInEntryPoint(cfg *config.Config, b spec.Bundle, target string, r spec.E
 // A rule whose text differs, from a `::target` fence or an expanded
 // variable, keeps its file: dropping it would lose that text.
 func entryPointRules(cfg *config.Config, b spec.Bundle, target string, own []spec.Entry) []spec.Entry {
-	inlined := emit.EntryPointInlinedRules(cfg, b, target)
+	inlined := entryPointInlinedRules(cfg, b, target)
 	if len(inlined) == 0 {
 		return nil
 	}
@@ -570,6 +570,20 @@ func entryPointRules(cfg *config.Config, b spec.Bundle, target string, own []spe
 		}
 	}
 	return out
+}
+
+// entryPointInlinedRules returns the rules, by name, that the entry
+// point target reads carries in its inlined rules block, or nil.
+func entryPointInlinedRules(cfg *config.Config, b spec.Bundle, target string) map[string]spec.Entry {
+	inliner := emit.EntryPointRuleInliner(cfg, target)
+	if inliner == "" {
+		return nil
+	}
+	rules := map[string]spec.Entry{}
+	for _, r := range EntryPointRules(b, inliner, cfg).Rules {
+		rules[r.Name] = r
+	}
+	return rules
 }
 
 // withoutEntryPointRules drops the rules entryPointRules reports, so
@@ -706,7 +720,7 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 		sess.SetCodexSkillsDir(codexSkills)
 		writers := map[string][]string{}
 		for _, t := range cfg.Targets {
-			if dir := varsFor(cfg, t)[emit.VarSkillsDir]; dir != "" {
+			if dir := emit.VarsFor(cfg, t)[emit.VarSkillsDir]; dir != "" {
 				writers[filepath.Clean(dir)] = append(writers[filepath.Clean(dir)], t)
 			}
 		}
@@ -717,6 +731,7 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 		return err
 	}
 	own = expandBundleVars(own, cfg, a.Name())
+	own.Hooks = emit.TargetHooks(a.Name(), own.Hooks)
 	if slices.Contains(a.Capabilities(), spec.KindHook) {
 		NotePortableHookGaps(a.Name(), b.Hooks)
 	}

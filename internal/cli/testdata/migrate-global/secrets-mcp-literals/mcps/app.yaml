@@ -1,0 +1,10 @@
+# Plain settings next to values that stay.
+name: app
+description: App server.
+command: npx
+args: ["-y", "@example/app-mcp"]
+env:
+  NODE_ENV: production   # keep this comment
+  REGION: 'eu-west-1'
+  GITHUB_TOKEN: ${GITHUB_TOKEN}
+  ALREADY: !literal yes

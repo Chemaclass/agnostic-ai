@@ -14,11 +14,20 @@
       "description": "One-line summary shown in tool listings."
     },
     "tools": {
-      "description": "Tools the agent may invoke. Format depends on target CLI.",
+      "description": "Tools the agent may invoke, in Claude Code tool names. Set can or tools, not both.",
       "oneOf": [
         { "type": "string" },
         { "type": "array", "items": { "type": "string" } }
       ]
+    },
+    "can": {
+      "type": "array",
+      "description": "What the agent may do, in neutral capability names, which sync writes as the Claude Code tools they stand for. A Claude Code tool name is an alias. Set can or tools, not both. See https://agnostic-ai.org/docs/spec-format/agents/#capabilities",
+      "items": {
+        "type": "string",
+        "pattern": "^(read|write|edit|shell|web|shell\\(.*\\S.*\\)|mcp:[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)?|[A-Z].*|mcp__.+)$"
+      },
+      "examples": [["read", "shell(git diff *)", "mcp:github"]]
     },
     "model": {
       "description": "Preferred model: a scalar for every target, or a map keyed by target name with an optional `default`. See https://agnostic-ai.org/docs/spec-format/agents/#per-target-model-and-effort",

@@ -10,168 +10,11 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// targetVarPaths declares, per target, the directory or file each spec
-// variable resolves to. A kind is listed only when the target has a
-// dedicated surface for it. Several targets flatten agents into their
-// rules directory with a filename prefix (continue, trae, windsurf) or
-// render them as commands (gemini); naming those
-// AGENTS_DIR would point users at a directory that is not an agents
-// directory, so they are left out and the variable stays unresolved.
-//
-// TestTargetVarPaths_MatchRealEmission keeps this honest: every entry
-// here must be where the adapter actually writes that kind.
-var targetVarPaths = map[string]map[string]string{
-	"claude": {
-		emit.VarSkillsDir: ".claude/skills", emit.VarAgentsDir: ".claude/agents",
-		emit.VarCommandsDir: ".claude/commands", emit.VarRulesDir: ".claude/rules",
-		emit.VarMCPFile: ".mcp.json",
-	},
-	"codex": {
-		emit.VarSkillsDir: ".agents/skills", emit.VarAgentsDir: ".codex/agents",
-		emit.VarMCPFile: ".codex/config.toml",
-	},
-	"gemini": {
-		emit.VarSkillsDir: ".gemini/skills", emit.VarCommandsDir: ".gemini/commands",
-		emit.VarMCPFile: ".gemini/settings.json",
-	},
-	"cursor": {
-		emit.VarSkillsDir: ".cursor/skills", emit.VarAgentsDir: ".cursor/agents",
-		emit.VarCommandsDir: ".cursor/commands", emit.VarRulesDir: ".cursor/rules",
-		emit.VarMCPFile: ".cursor/mcp.json",
-	},
-	"copilot": {
-		emit.VarSkillsDir: ".github/skills", emit.VarAgentsDir: ".github/agents",
-		emit.VarRulesDir: ".github/instructions", emit.VarMCPFile: ".vscode/mcp.json",
-	},
-	"cline": {
-		emit.VarSkillsDir: ".cline/skills", emit.VarAgentsDir: ".cline/agents",
-		emit.VarRulesDir: ".clinerules",
-	},
-	"windsurf": {
-		emit.VarSkillsDir: ".agents/skills", emit.VarRulesDir: ".devin/rules",
-		emit.VarMCPFile: ".devin/mcp_config.json",
-	},
-	"continue": {
-		emit.VarRulesDir: ".continue/rules",
-	},
-	// No COMMANDS_DIR: Amp documents no file surface for commands, so
-	// the adapter skips that kind with a warning (#553).
-	"amp": {
-		emit.VarSkillsDir: ".agents/skills", emit.VarMCPFile: ".amp/settings.json",
-	},
-	"zed": {
-		emit.VarSkillsDir: ".agents/skills", emit.VarMCPFile: ".zed/settings.json",
-	},
-	"warp": {
-		emit.VarSkillsDir: ".agents/skills", emit.VarMCPFile: ".warp/.mcp.json",
-	},
-	"opencode": {
-		emit.VarSkillsDir: ".opencode/skills", emit.VarAgentsDir: ".opencode/agents",
-		emit.VarCommandsDir: ".opencode/commands", emit.VarMCPFile: "opencode.json",
-	},
-	"antigravity": {
-		emit.VarSkillsDir: ".agents/skills", emit.VarAgentsDir: ".agents/agents", emit.VarRulesDir: ".agents/rules",
-		emit.VarMCPFile: ".agents/mcp_config.json",
-	},
-	"junie": {
-		emit.VarSkillsDir: ".junie/skills", emit.VarAgentsDir: ".junie/agents",
-		emit.VarCommandsDir: ".junie/commands", emit.VarMCPFile: ".junie/mcp/mcp.json",
-	},
-	"kiro": {
-		emit.VarAgentsDir: ".kiro/agents", emit.VarRulesDir: ".kiro/steering",
-		emit.VarMCPFile: ".kiro/settings/mcp.json",
-	},
-	"crush": {
-		emit.VarSkillsDir: ".agents/skills", emit.VarMCPFile: "crush.json",
-	},
-	"trae": {
-		emit.VarSkillsDir: ".trae/skills", emit.VarCommandsDir: ".trae/commands",
-		emit.VarRulesDir: ".trae/rules", emit.VarMCPFile: ".trae/mcp.json",
-	},
-	"augment": {
-		emit.VarSkillsDir: ".agents/skills", emit.VarAgentsDir: ".augment/agents",
-		emit.VarCommandsDir: ".augment/commands", emit.VarRulesDir: ".augment/rules",
-	},
-	"qoder": {
-		emit.VarSkillsDir: ".qoder/skills", emit.VarAgentsDir: ".qoder/agents",
-		emit.VarRulesDir: ".qoder/rules", emit.VarMCPFile: ".qoder/settings.json",
-	},
-	"openhands": {
-		emit.VarSkillsDir: ".agents/skills", emit.VarAgentsDir: ".agents/agents",
-	},
-	"factory": {
-		emit.VarAgentsDir: ".factory/droids", emit.VarCommandsDir: ".factory/commands",
-		emit.VarMCPFile: ".factory/mcp.json",
-	},
-	"kilo": {
-		emit.VarSkillsDir: ".agents/skills", emit.VarAgentsDir: ".kilo/agents",
-		emit.VarRulesDir: ".kilo/rules", emit.VarMCPFile: "kilo.jsonc",
-	},
-	// aider and jules carry every spec kind in one entry-point document
-	// and have no per-kind directory to point at.
-	"aider": {},
-	"jules": {},
-	"goose": {emit.VarAgentsDir: ".agents/agents"},
-}
-
-// dirRelativeVars maps each *_DIR variable to its sub-directory under
-// the target's output dir, for the targets that honor
-// `outputs.<target>.dir`. Claude is the only one today: its directories
-// move with a bare `dir` override, so a spec body that names
-// `{{rules_dir}}` must name the moved path, not the default (#849).
-var dirRelativeVars = map[string]map[string]string{
-	"claude": {
-		emit.VarSkillsDir: "skills", emit.VarAgentsDir: "agents",
-		emit.VarCommandsDir: "commands", emit.VarRulesDir: "rules",
-	},
-}
-
-// rulesDirIsInstructionsDir lists targets whose native name for the
-// rules directory is `instructions-dir`. Copilot writes
-// `*.instructions.md` and reads `outputs.copilot.instructions-dir`, so
-// `{{rules_dir}}` must resolve from that key; `rules-dir` would expand
-// to a directory the sync never writes to.
-var rulesDirIsInstructionsDir = map[string]bool{"copilot": true}
-
-// varsFor resolves the variable table for target, letting an
-// outputs.<target>.<field> override win over the declared default so a
-// spec body and the emitted tree never disagree about where files land.
-func varsFor(cfg *config.Config, target string) map[string]string {
-	declared := targetVarPaths[target]
-	if len(declared) == 0 {
-		return nil
-	}
-	out := make(map[string]string, len(declared))
-	subs := dirRelativeVars[target]
-	for name, fallback := range declared {
-		if sub, ok := subs[name]; ok {
-			fallback = emit.OutputSubDir(cfg, target, sub, fallback)
-		}
-		switch name {
-		case emit.VarSkillsDir:
-			out[name] = emit.OutputSkillsDir(cfg, target, fallback)
-		case emit.VarAgentsDir:
-			out[name] = emit.OutputAgentsDir(cfg, target, fallback)
-		case emit.VarCommandsDir:
-			out[name] = emit.OutputCommandsDir(cfg, target, fallback)
-		case emit.VarRulesDir:
-			if rulesDirIsInstructionsDir[target] {
-				out[name] = emit.OutputInstructionsDir(cfg, target, fallback)
-				break
-			}
-			out[name] = emit.OutputRulesDir(cfg, target, fallback)
-		case emit.VarMCPFile:
-			out[name] = emit.OutputMCPFile(cfg, target, fallback)
-		}
-	}
-	return out
-}
-
 // expandBundleVars returns b with every entry body expanded for target.
 // Entries are copied, so the caller's bundle is untouched and each
 // target expands the same source spec to its own paths.
 func expandBundleVars(b spec.Bundle, cfg *config.Config, target string) spec.Bundle {
-	vals := varsFor(cfg, target)
+	vals := emit.VarsFor(cfg, target)
 	// Count entries per unresolved variable so the coverage note says
 	// how much of the project is affected, not just that it happened.
 	unresolved := map[string]int{}
@@ -188,9 +31,10 @@ func expandBundleVars(b spec.Bundle, cfg *config.Config, target string) spec.Bun
 	}
 	neutral := map[plainRef]int{}
 	expand := func(entries []spec.Entry, kind spec.Kind) []spec.Entry {
-		// A rule keeps its references until emit.PrepareScopedDocuments
-		// knows whether it lands in a document other tools share.
-		keepRefs := kind == spec.KindRule
+		// A rule keeps its variables and references until
+		// emit.PrepareScopedDocuments knows whether it lands in a
+		// document other tools share.
+		keepRaw := kind == spec.KindRule
 		if len(entries) == 0 {
 			return entries
 		}
@@ -213,7 +57,9 @@ func expandBundleVars(b spec.Bundle, cfg *config.Config, target string) spec.Bun
 		copy(out, entries)
 		for i := range out {
 			body, missing := emit.ExpandVars(out[i].Body, vals)
-			out[i].Body = body
+			if !keepRaw {
+				out[i].Body = body
+			}
 			for _, name := range missing {
 				unresolved[name]++
 				if _, seen := kindOf[name]; !seen {
@@ -221,7 +67,7 @@ func expandBundleVars(b spec.Bundle, cfg *config.Config, target string) spec.Bun
 				}
 			}
 			expanded, plain := emit.ExpandRefs(out[i].Body, kindForms)
-			if !keepRefs {
+			if !keepRaw {
 				out[i].Body = expanded
 			}
 			if !slices.Contains(emits, kind) {
@@ -229,7 +75,7 @@ func expandBundleVars(b spec.Bundle, cfg *config.Config, target string) spec.Bun
 			}
 			// A target with no rules directory reads its rules from an
 			// entry point, where references take the neutral phrase.
-			if kind == spec.KindRule && targetVarPaths[target][emit.VarRulesDir] == "" {
+			if kind == spec.KindRule && emit.TargetVarPaths[target][emit.VarRulesDir] == "" {
 				plain = refKeywords(out[i].Body)
 			}
 			for _, keyword := range plain {
@@ -278,7 +124,7 @@ func sharesKindDir(cfg *config.Config, target string, kind spec.Kind, vals map[s
 	}
 	dir := filepath.Clean(vals[name])
 	for _, t := range cfg.Targets {
-		if t != target && filepath.Clean(varsFor(cfg, t)[name]) == dir {
+		if t != target && filepath.Clean(emit.VarsFor(cfg, t)[name]) == dir {
 			return true
 		}
 	}

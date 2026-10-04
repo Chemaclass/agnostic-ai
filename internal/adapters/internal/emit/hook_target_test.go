@@ -2,7 +2,10 @@ package emit
 
 import (
 	"os/exec"
+	"reflect"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 func TestExportHookTarget_ReachesEveryCommandInAList(t *testing.T) {
@@ -91,5 +94,34 @@ func TestShellHookCommand_FoldsTheTargetsArgsAfterThePathRewrite(t *testing.T) {
 	}
 	if got := ShellHookCommand("echo hi", "trae", nil); got != "echo hi" {
 		t.Errorf("shell form = %q", got)
+	}
+}
+
+func TestTargetHook_ReadsCommandAndArgsAfterTheOverride(t *testing.T) {
+	t.Parallel()
+	h := spec.Entry{Kind: spec.KindHook, Meta: map[string]any{
+		"command": "echo", "args": []any{"base"},
+		"x-factory": map[string]any{"command": "printf", "args": []any{"target"}, "loop_limit": 2},
+	}}
+	got := TargetHook("factory", h)
+	if got.Meta["command"] != "printf" || !reflect.DeepEqual(got.Meta["args"], []any{"target"}) {
+		t.Errorf("factory meta = %v", got.Meta)
+	}
+	if _, ok := got.Meta["x-factory"].(map[string]any)["loop_limit"]; !ok {
+		t.Errorf("the override lost its other keys: %v", got.Meta)
+	}
+	if h.Meta["command"] != "echo" {
+		t.Errorf("the source spec changed: %v", h.Meta)
+	}
+	moved := spec.Entry{Kind: spec.KindHook, Meta: map[string]any{"event": "BeforeTool", "matcher": "a", "x-gemini": map[string]any{"event": "AfterTool", "matcher": "b"}}}
+	if got := TargetHook("gemini", moved); got.Meta["event"] != "AfterTool" || got.Meta["matcher"] != "b" {
+		t.Errorf("gemini event and matcher = %v", got.Meta)
+	}
+	if got := TargetHook("trae", h); got.Meta["command"] != "echo" {
+		t.Errorf("another target read the override: %v", got.Meta)
+	}
+	unset := spec.Entry{Kind: spec.KindHook, Meta: map[string]any{"command": "echo", "args": []any{"a"}, "x-trae": map[string]any{"args": nil}}}
+	if got := TargetHook("trae", unset); got.Meta["args"] != nil {
+		t.Errorf("a null override kept args: %v", got.Meta)
 	}
 }

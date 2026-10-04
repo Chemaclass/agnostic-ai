@@ -80,7 +80,10 @@ type Entry struct {
 	// programmatically (e.g. WASM playground) and for keys whose source
 	// style was the YAML default (PlainStyle, value 0).
 	MetaStyles map[string]yaml.Style
-	Body       string
+	// Literals holds, by top-level field, the keys whose value a YAML
+	// spec tags LiteralTag. Read it through MarkedLiteral.
+	Literals map[string]map[string]bool
+	Body     string
 	// BodyLine is the 1-based line of Path where Body starts, or 0 once
 	// Body no longer maps line for line onto the file (an include,
 	// ::parent, or ::target fence rewrote it).
@@ -640,7 +643,9 @@ func (b Bundle) For(target string) Bundle {
 // is true, with each survivor's Body materialized for target via
 // BodyFor (a no-op when the body carries no `::target` fences). A
 // portable hook arrives in target's native form, or not at all when
-// target has no exact mapping for it.
+// target has no exact mapping for it. An agent's `can:` arrives as the
+// `tools:` it stands for; an agent whose `can:` cannot be read is left
+// out, so a typo never syncs an agent with every tool.
 func filterEntriesFor(entries []Entry, target string) []Entry {
 	out := make([]Entry, 0, len(entries))
 	for _, e := range entries {
@@ -649,6 +654,9 @@ func filterEntriesFor(entries []Entry, target string) []Entry {
 		}
 		native, reason := e.NativeHook(target)
 		if reason != "" {
+			continue
+		}
+		if native, reason = native.NativeTools(); reason != "" {
 			continue
 		}
 		e = native
@@ -1039,18 +1047,12 @@ func ParseMarkdownBytes(kind Kind, data []byte) (Entry, error) {
 // ParseYAMLBytes parses an in-memory YAML spec (hook, MCP, settings, or
 // environment; no frontmatter) and returns the Entry.
 func ParseYAMLBytes(kind Kind, data []byte) (Entry, error) {
-	meta, keys, styles, err := decodeYAMLOrdered(data)
+	e, err := decodeYAMLEntry(data)
 	if err != nil {
 		return Entry{}, err
 	}
-	name, _ := meta["name"].(string)
-	return Entry{
-		Kind:       kind,
-		Name:       name,
-		Meta:       meta,
-		MetaKeys:   keys,
-		MetaStyles: styles,
-	}, nil
+	e.Kind = kind
+	return e, nil
 }
 
 func parseMarkdown(path string) (Entry, error) {
@@ -1081,17 +1083,32 @@ func parseYAML(path string) (Entry, error) {
 	if err != nil {
 		return Entry{}, fmt.Errorf("read: %w", err)
 	}
-	meta, keys, styles, err := decodeYAMLOrdered(data)
+	e, err := decodeYAMLEntry(data)
 	if err != nil {
 		return Entry{}, formatYAMLError(path, err, 0)
 	}
+	e.Path = path
+	return e, nil
+}
+
+// decodeYAMLEntry parses a pure YAML spec into an Entry without Kind or
+// Path.
+func decodeYAMLEntry(data []byte) (Entry, error) {
+	var node yaml.Node
+	if err := yaml.Unmarshal(data, &node); err != nil {
+		return Entry{}, err
+	}
+	meta, keys, styles := nodeToOrderedMap(&node)
+	if meta == nil {
+		meta = map[string]any{}
+	}
 	name, _ := meta["name"].(string)
 	return Entry{
-		Path:       path,
 		Name:       name,
 		Meta:       meta,
 		MetaKeys:   keys,
 		MetaStyles: styles,
+		Literals:   literalTags(&node),
 	}, nil
 }
 
@@ -1141,7 +1158,12 @@ func nodeToOrderedMap(n *yaml.Node) (map[string]any, []string, map[string]yaml.S
 		valNode := n.Content[i+1]
 		var v any
 		if err := valNode.Decode(&v); err != nil {
-			continue
+			// A dropped can: would sync the agent with every tool, so it
+			// stays as a value the capability check rejects.
+			if keyNode.Value != capabilityKey {
+				continue
+			}
+			v = valNode
 		}
 		if _, dup := meta[keyNode.Value]; !dup {
 			keys = append(keys, keyNode.Value)

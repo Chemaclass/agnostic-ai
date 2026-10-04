@@ -79,7 +79,27 @@ func ReviewSections(b spec.Bundle, cfg *config.Config, requested ...string) map[
 	}
 	out := make(map[string]string, len(byScope))
 	for scope, reviews := range byScope {
-		out[scope] = RenderReviewSection(reviews)
+		out[scope] = RenderReviewSection(expandSharedReviews(cfg, scope, reviews))
 	}
+	return out
+}
+
+// expandSharedReviews expands the variables in reviews that every reader
+// of the AGENTS.md for scope resolves to one path, and notes the rest.
+func expandSharedReviews(cfg *config.Config, scope string, reviews []spec.Entry) []spec.Entry {
+	path := EntryPointPath(cfg, reviewSectionTarget)
+	readers := EntryPointReaders(cfg, reviewSectionTarget)
+	if scope != "" {
+		path = filepath.Join(scope, "AGENTS.md")
+		readers = ScopeDocumentReaders(cfg, reviewSectionTarget, "AGENTS.md")
+	}
+	vals, contested := SharedVars(cfg, readers)
+	bodies := make([]string, len(reviews))
+	out := slices.Clone(reviews)
+	for i := range out {
+		bodies[i] = out[i].Body
+		out[i].Body, _ = ExpandVars(out[i].Body, vals)
+	}
+	NoteSharedVars(path, readers, spec.KindReview, bodies, vals, contested)
 	return out
 }

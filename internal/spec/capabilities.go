@@ -1,0 +1,199 @@
+package spec
+
+import (
+	"fmt"
+	"maps"
+	"regexp"
+	"slices"
+	"strings"
+
+	"github.com/chemaclass/agnostic-ai/internal/suggest"
+)
+
+// Capabilities are the neutral names an agent's `can:` takes, besides
+// shell(<pattern>), mcp:<server>, and mcp:<server>/<tool>. Every hook
+// tool kind but any is one, so one vocabulary covers both.
+var Capabilities = []string{"read", "write", "edit", "shell", "web"}
+
+// capabilityTools are the Claude-style tool names each capability stands
+// for. Every adapter already translates these names, so `can:` and the
+// `tools:` it stands for sync to the same files on every target. A test
+// holds each list to the names Claude Code's hook matcher uses for the
+// same kind.
+var capabilityTools = map[string][]string{
+	"read":  {"Read"},
+	"write": {"Write"},
+	"edit":  {"Edit"},
+	"shell": {"Bash"},
+	"web":   {"WebFetch", "WebSearch"},
+}
+
+const (
+	capabilityKey = "can"
+	toolsKey      = "tools"
+	shellTool     = "Bash"
+	mcpToolPrefix = "mcp__"
+)
+
+var mcpToolName = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+
+// AgentCapabilityProblem returns why an agent's `can:` cannot be read,
+// or "" when it is valid or unset.
+func AgentCapabilityProblem(meta map[string]any) string {
+	for _, key := range slices.Sorted(maps.Keys(meta)) {
+		if custom, ok := meta[key].(map[string]any); ok && strings.HasPrefix(key, "x-") {
+			if _, set := custom[capabilityKey]; set {
+				return fmt.Sprintf("%s.can is not read; write can: at the top level, or %s.tools with the tool's own names", key, key)
+			}
+		}
+	}
+	raw, set := meta[capabilityKey]
+	if !set {
+		return ""
+	}
+	if _, both := meta[toolsKey]; both {
+		return "sets both can: and tools:; keep one"
+	}
+	_, problem := capabilityToolNames(raw)
+	return problem
+}
+
+// CapabilityTools returns the Claude-style tool names a `can:` list
+// stands for, or why it cannot be read. A Claude-style name passes
+// through as an alias, so a list may mix both forms.
+func CapabilityTools(can []string) ([]string, string) {
+	var out []string
+	for _, c := range can {
+		names, problem := capabilityToolsOf(c)
+		if problem != "" {
+			return nil, problem
+		}
+		out = append(out, names...)
+	}
+	return out, ""
+}
+
+func capabilityToolNames(raw any) ([]string, string) {
+	list, ok := raw.([]any)
+	if !ok {
+		return nil, "can: must be a list, such as [read, shell(git diff *)]"
+	}
+	can := make([]string, 0, len(list))
+	for _, item := range list {
+		s, ok := item.(string)
+		if !ok {
+			return nil, fmt.Sprintf("can: entry %v is not a capability name", item)
+		}
+		can = append(can, s)
+	}
+	return CapabilityTools(can)
+}
+
+func capabilityToolsOf(c string) ([]string, string) {
+	if names, ok := capabilityTools[c]; ok {
+		return slices.Clone(names), ""
+	}
+	if pattern, ok := strings.CutPrefix(c, "shell("); ok {
+		pattern, closed := strings.CutSuffix(pattern, ")")
+		if !closed {
+			return nil, fmt.Sprintf("can: %q is missing its closing parenthesis", c)
+		}
+		if strings.TrimSpace(pattern) == "" {
+			return nil, fmt.Sprintf("can: %q needs a command pattern; write shell for every command", c)
+		}
+		return []string{shellTool + "(" + pattern + ")"}, ""
+	}
+	if rest, ok := strings.CutPrefix(c, mcpToolKind); ok {
+		server, tool, hasTool := strings.Cut(rest, "/")
+		if !mcpServerName.MatchString(server) || (hasTool && !mcpToolName.MatchString(tool)) {
+			return nil, fmt.Sprintf("can: %q needs an MCP server and tool name of letters, digits, _, or -", c)
+		}
+		if hasTool {
+			return []string{mcpToolPrefix + server + "__" + tool}, ""
+		}
+		return []string{mcpToolPrefix + server}, ""
+	}
+	if isClaudeToolAlias(c) {
+		return []string{c}, ""
+	}
+	if name, _, scoped := strings.Cut(c, "("); scoped && slices.Contains(Capabilities, name) {
+		return nil, fmt.Sprintf("can: %q: only shell takes a pattern", c)
+	}
+	if s := suggest.Name(c, Capabilities); s != "" {
+		return nil, fmt.Sprintf("unknown capability %q for can: (did you mean %s?)", c, s)
+	}
+	return nil, fmt.Sprintf("unknown capability %q for can:; use one of %s, shell(<pattern>), mcp:<server>, or a Claude Code tool name", c, strings.Join(Capabilities, ", "))
+}
+
+// isClaudeToolAlias reports whether name reads as a Claude Code tool
+// name, such as Grep, Bash(git diff *), or mcp__github__get_issue.
+func isClaudeToolAlias(name string) bool {
+	return name != "" && (name[0] >= 'A' && name[0] <= 'Z' || strings.HasPrefix(name, mcpToolPrefix))
+}
+
+// NeutralCapability returns the capability a Claude-style tool name
+// stands for alone, or false when no capability maps to it one to one.
+// CapabilityTools turns the result back into exactly tool.
+func NeutralCapability(tool string) (string, bool) {
+	for _, c := range Capabilities {
+		if names := capabilityTools[c]; len(names) == 1 && names[0] == tool {
+			return c, true
+		}
+	}
+	if pattern, ok := strings.CutPrefix(tool, shellTool+"("); ok {
+		if p, closed := strings.CutSuffix(pattern, ")"); closed && strings.TrimSpace(p) != "" {
+			return "shell(" + p + ")", true
+		}
+		return "", false
+	}
+	rest, ok := strings.CutPrefix(tool, mcpToolPrefix)
+	if !ok {
+		return "", false
+	}
+	server, name, hasTool := strings.Cut(rest, "__")
+	if !mcpServerName.MatchString(server) || hasTool && (!mcpToolName.MatchString(name) || strings.Contains(name, "__")) {
+		return "", false
+	}
+	if hasTool {
+		return mcpToolKind + server + "/" + name, true
+	}
+	return mcpToolKind + server, true
+}
+
+// NativeTools returns the agent with `can:` replaced by the `tools:`
+// list it stands for, at the same key position, or why it cannot be
+// read. An agent without `can:` returns unchanged.
+func (e Entry) NativeTools() (Entry, string) {
+	if e.Kind != KindAgent {
+		return e, ""
+	}
+	if problem := AgentCapabilityProblem(e.Meta); problem != "" {
+		return e, problem
+	}
+	raw, set := e.Meta[capabilityKey]
+	if !set {
+		return e, ""
+	}
+	names, _ := capabilityToolNames(raw)
+	tools := make([]any, len(names))
+	for i, n := range names {
+		tools[i] = n
+	}
+	meta := maps.Clone(e.Meta)
+	delete(meta, capabilityKey)
+	meta[toolsKey] = tools
+	e.Meta = meta
+	if e.MetaKeys != nil {
+		keys := slices.Clone(e.MetaKeys)
+		if i := slices.Index(keys, capabilityKey); i >= 0 {
+			keys[i] = toolsKey
+		}
+		e.MetaKeys = keys
+	}
+	if _, styled := e.MetaStyles[capabilityKey]; styled {
+		styles := maps.Clone(e.MetaStyles)
+		delete(styles, capabilityKey)
+		e.MetaStyles = styles
+	}
+	return e, ""
+}
