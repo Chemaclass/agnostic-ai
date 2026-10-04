@@ -8,28 +8,24 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- `import` turns MCP credentials in URLs, `--token X` args, and bare tokens into `${NAME}` references, or drops the server, as `--global` does (#1736, #1742).
+- `hook run` uses Git Bash for Claude Code hooks on Windows and shows a command's timeout or error even when another's result is not counted (#1746, #1728).
 - `agnostic-ai migrate` rewrites old spec forms into their replacements without changing synced output; the first renames `agnostic.config.yaml` (#1755).
-- `hook run` runs Claude Code hooks on Windows with Git Bash, as Claude Code does, not the first `bash` on `PATH` (#1746).
-- `init --demo` seeds a `no-force-push` guard for Claude Code and Codex in place of a format hook that did nothing; `--force-with-lease` passes (#1732).
-- `import` turns a password or credential query parameter in an MCP `url` or URL argument into a `${NAME}` reference, or leaves the server out (#1736).
-- `import` catches more MCP credential shapes, such as `--token X` and bare tokens; `import --global` leaves out any server with a literal credential (#1742).
-- `lint` warns with LINT031 when a spec still has the `TODO` description that `new` writes (#1739).
-- `new agent` leaves `model` out, so a fresh agent lints clean in projects that target more than Claude (#1738).
+- `init --demo` seeds a `no-force-push` guard, `new agent` omits `model`, and `lint` warns (LINT031) on a leftover `TODO` description (#1732, #1738, #1739).
 - `doctor` lists each MCP `${NAME}` reference that is unset in your shell, by name (#1729).
-- `hook run` no longer hides a timeout or error from one command when another command's result is not counted (#1728).
 
 ### By tool
 
 #### Cline
 
 - A hook command that exits 2 now blocks on Cline: the synced script prints a `{"cancel": true}` reply with its stderr (#1722).
-- Hooks sync to `.clinerules/hooks/<Event>`, an executable with a bash shebang and no extension, so the VS Code extension runs them too; old `.cline/hooks/<Event>.sh` files are removed (#1723).
+- Hooks sync to `.clinerules/hooks/<Event>`, so the VS Code extension runs them too; sync removes the old `.cline/hooks/<Event>.sh` files (#1723).
 - `hook run` runs Cline hook scripts with bash as the Cline CLI does; only stdout `{"cancel": true}` blocks, and the exit code is ignored (#1678).
 
 #### Codex
 
 - A hook `commandWindows` keeps the project root path, so a script under the project runs from any subdirectory (#1732).
-- A grouped or anchored hook matcher such as `^(Bash|exec)$` no longer gets a false "does not match" note, and specs sharing a command merge into a valid matcher (#1743).
+- A grouped hook matcher such as `^(Bash|exec)$` no longer gets a false "does not match" note, and specs sharing a command merge validly (#1743).
 
 #### Kiro
 
