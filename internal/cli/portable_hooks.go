@@ -43,12 +43,13 @@ func lintPortableHooks(hooks []spec.Entry, targets []string) []lintFinding {
 // lintPortableHookForms names the on: and match: for each native hook
 // the hooks-portable-events migration rewrites (LINT034, warn). A plan
 // that fails suggests nothing, since migrate then rewrites nothing, and
-// so does the global home, where migrate refuses to run.
+// so does a project command run in the global home, where migrate needs
+// --global.
 func lintPortableHookForms(root string, cfg *config.Config, b spec.Bundle) []lintFinding {
 	if refuseGlobalHome(root, "") != nil {
 		return nil
 	}
-	planned, _, err := planPortableHooks(root, cfg, b)
+	planned, _, err := planPortableHooks(migrationScope{root: root}, projectHookMigrationSpecs(root, cfg, b))
 	if err != nil {
 		return nil
 	}

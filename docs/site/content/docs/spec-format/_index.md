@@ -140,7 +140,7 @@ A spec body can name a directory without hardcoding one target's layout. `{{$SKI
 - **Bodies only.** Frontmatter values do not expand.
 - **An `outputs.<target>.<field>` override wins.** With `outputs.claude.skills-dir: custom/skills`, `{{$SKILLS_DIR}}` follows it.
 - **A variable with no target surface stays verbatim** and raises a coverage note. aider and jules resolve no variables.
-- **A rule in an entry point's rules block** resolves for every tool that reads that file. `GEMINI.md` has one reader, so it gets `.gemini/skills`. Codex and Amp both read `AGENTS.md` and use `.agents/skills`, so it expands. Codex and OpenCode use different paths, so the token stays verbatim and raises one coverage note naming the file.
+- **A shared file resolves for every tool that reads it.** This covers the rules block of an entry point, the review section of `AGENTS.md`, and a nested `AGENTS.md`. `GEMINI.md` has one reader, so it gets `.gemini/skills`. Codex and Amp both read `AGENTS.md` and use `.agents/skills`, so it expands. Codex and OpenCode use different paths, so the token stays verbatim and raises one coverage note naming the file.
 - **Only where the target has a dedicated surface.** Targets that flatten agents into rules (continue, trae, windsurf) or commands (gemini) declare no `{{$AGENTS_DIR}}`. Antigravity, Goose, and OpenHands resolve it to `.agents/agents`.
 - **The `$` sigil is required.** Plain `{{placeholder}}` stays untouched, so Warp workflow arguments and Handlebars or Jinja survive. Lowercase names such as `{{$skills_dir}}` do not resolve.
 

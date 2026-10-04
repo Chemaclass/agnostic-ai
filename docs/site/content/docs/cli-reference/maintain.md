@@ -205,25 +205,27 @@ Rewrite old spec forms into their current replacements, such as a renamed field 
 agnostic-ai migrate --list      # which migrations apply here
 agnostic-ai migrate --dry-run   # preview the rewrites
 agnostic-ai migrate             # apply them
+agnostic-ai migrate --global    # rewrite the global specs
 ```
 
 | Flag | Description |
 |------|-------------|
-| `--dry-run` | Print each rename and a diff of each rewrite, and write nothing. Values under `env` and `headers`, values under credential-named keys, and values that look like a credential print as `<redacted>`. A `${NAME}` reference and a `!literal` tag still show. |
-| `--list` | List every migration with the release that added it and whether it applies here. |
+| `--dry-run` | Print each rename and a diff of each rewrite, and write nothing. Every value under `env` and `headers`, every `args` item, every URL, and any other value that looks like a credential prints as `<redacted>`. A `${NAME}` reference and a `!literal` tag still show. |
+| `--list` | List every migration with the release that added it and whether it applies here. It names each pack whose specs need an update from the pack's author. |
 | `--only <group>` | Run only these groups, comma-separated. A migration ID starts with its group, such as `config-file-name` in group `config`. |
+| `--global` | Rewrite the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` layer, checked against the targets `sync --global` writes. Then `sync --global --check` stays clean. |
 
 - A migration rewrites only what maps one to one. Anything else stays as written, and the output says why.
 - When `secrets-mcp-literals` turns a credential into a reference, its output names each variable to set, never the value.
-- It writes each file atomically and keeps its mode. A rename writes the new file before it removes the old one.
-- It refuses to run in the global home; edit those specs by hand.
+- It writes each file atomically and keeps its mode. A rename writes the new file before it removes the old one. A symlinked spec keeps its symlink; the file it points at gets the rewrite.
+- It never rewrites a pack. A spec in a pack, or a symlink into one, is a skip that names the pack. So is any file that resolves outside the project, or outside the global home with `--global`.
 - Running it twice changes nothing.
 - A migration that cannot plan, for example on a spec that does not parse, prints `cannot plan` with the reason. The others still run, and `migrate` exits 1.
 - `doctor` names a migration only when it rewrites something or a skip asks you to act, such as a spec that sets both the old and the new form. `--dry-run` and `--list` show every skip.
 
 | Migration | Release | Rewrites |
 |-----------|---------|----------|
-| `config-file-name` | 0.79.0 | `agnostic.config.yaml` to `agnostic-ai.yaml`. When both exist with the same content, it removes the old file. Skipped when they differ, since `agnostic-ai.yaml` wins, and when Git ignores `agnostic-ai.yaml`. |
+| `config-file-name` | 0.79.0 | `agnostic.config.yaml` to `agnostic-ai.yaml`, in a project only. When both exist with the same content, it removes the old file. Skipped when they differ, since `agnostic-ai.yaml` wins, and when Git ignores `agnostic-ai.yaml`. |
 | `hooks-portable-events` | 0.79.0 | A hook's `event` and `matcher` to the [portable](@/docs/spec-format/hooks.md#portable-events) `on` and `match`, such as `PreToolUse` on `Bash` to `before-tool` on `shell`. Comments, quoting, and key order stay. Skipped when the portable form would give a target the hook reaches another event or matcher, such as `matcher: Read` on Codex or `matcher: Edit\|Write` on Claude Code, where `match: edit` also covers `MultiEdit` and `NotebookEdit`; when a `local/` spec extends the hook; and for a pack's hook. |
 | `secrets-mcp-literals` | 0.79.0 | Each MCP `env` and `headers` value that is neither a reference nor marked: a value import reads as a credential becomes a `${NAME}` reference named as import names it, and every other value gets [`!literal`](@/docs/spec-format/mcps.md#plain-settings). Each file in `local/` is rewritten on its own. Skipped for a key with a credential name whose value has no credential shape, a credential around a reference, and a pack's spec. Run it alone with `--only secrets`. |
 

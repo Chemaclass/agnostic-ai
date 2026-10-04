@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 
@@ -22,19 +21,16 @@ var capabilitiesAgentToolsMigration = specMigration{
 	Plan:    planCapabilitiesAgentTools,
 }
 
-func planCapabilitiesAgentTools(root string) ([]migrationChange, []migrationSkip, error) {
-	cfg, b, err := loadProject(root)
+func planCapabilitiesAgentTools(s migrationScope) ([]migrationChange, []migrationSkip, error) {
+	b, layers, err := s.loadSpecs()
 	if err != nil {
 		return nil, nil, err
 	}
-	extended, err := extendedSpecNames(root, cfg, func(lb spec.Bundle) []spec.Entry { return lb.Agents })
+	extended, err := extendedSpecNames(layers, func(lb spec.Bundle) []spec.Entry { return lb.Agents })
 	if err != nil {
 		return nil, nil, err
 	}
-	realRoot, err := filepath.EvalSymlinks(root)
-	if err != nil {
-		return nil, nil, err
-	}
+	roots, packs := s.specRoots()
 	var changes []migrationChange
 	var skips []migrationSkip
 	for _, a := range b.Agents {
@@ -47,8 +43,8 @@ func planCapabilitiesAgentTools(root string) ([]migrationChange, []migrationSkip
 			skips = append(skips, migrationSkip{Path: a.Path, Reason: "sets both tools: and can:; keep one by hand", Actionable: true})
 			continue
 		}
-		if pack, ok := strings.CutPrefix(a.Layer, "pack:"); ok {
-			skip("comes from pack " + pack + "; its author migrates it")
+		if pack, ok := strings.CutPrefix(a.Layer, layerNamePackPrefix); ok {
+			skips = append(skips, packSkip(a.Path, pack))
 			continue
 		}
 		if extended[a.Name] {
@@ -76,8 +72,8 @@ func planCapabilitiesAgentTools(root string) ([]migrationChange, []migrationSkip
 			skip("keeps tools: as written: no entry has a capability of its own")
 			continue
 		}
-		if real, err := filepath.EvalSymlinks(a.Path); err != nil || !pathWithin(realRoot, real) {
-			skip("resolves outside the project")
+		if outside, ok := s.outsideSpecRoots(migrationChange{Path: a.Path}, roots, packs); ok {
+			skips = append(skips, outside)
 			continue
 		}
 		can := slices.Clone(tools)

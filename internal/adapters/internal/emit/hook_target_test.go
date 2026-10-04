@@ -113,6 +113,10 @@ func TestTargetHook_ReadsCommandAndArgsAfterTheOverride(t *testing.T) {
 	if h.Meta["command"] != "echo" {
 		t.Errorf("the source spec changed: %v", h.Meta)
 	}
+	moved := spec.Entry{Kind: spec.KindHook, Meta: map[string]any{"event": "BeforeTool", "matcher": "a", "x-gemini": map[string]any{"event": "AfterTool", "matcher": "b"}}}
+	if got := TargetHook("gemini", moved); got.Meta["event"] != "AfterTool" || got.Meta["matcher"] != "b" {
+		t.Errorf("gemini event and matcher = %v", got.Meta)
+	}
 	if got := TargetHook("trae", h); got.Meta["command"] != "echo" {
 		t.Errorf("another target read the override: %v", got.Meta)
 	}

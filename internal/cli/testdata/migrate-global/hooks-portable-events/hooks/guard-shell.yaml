@@ -1,0 +1,7 @@
+# Keep this comment: migrations must not reformat hooks.
+name: guard-shell
+description: Block force pushes.
+targets: [claude, codex]
+event: PreToolUse   # before the tool runs
+matcher: 'Bash'
+command: "$HOME/.agnostic-ai/scripts/guard-shell.py"

@@ -2,8 +2,8 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 
@@ -25,14 +25,72 @@ var hooksPortableEventsMigration = specMigration{
 	Note:    portableHookTargetsNote,
 }
 
-// portableHookTargetsNote names the configured targets that run hooks but
-// skip a portable one until their mapping lands.
-func portableHookTargetsNote(root string) string {
+// hookMigrationSpecs is what the hooks migration reads in a scope: the
+// hooks, the layers they come from, and the targets that run them.
+type hookMigrationSpecs struct {
+	bundle  spec.Bundle
+	layers  []spec.Layer
+	targets []string
+}
+
+// loadHookMigrationSpecs loads the project, or the global layers and the
+// targets a default sync --global writes hooks for.
+func loadHookMigrationSpecs(s migrationScope) (hookMigrationSpecs, error) {
+	if !s.global {
+		cfg, b, err := loadProject(s.root)
+		if err != nil {
+			return hookMigrationSpecs{}, err
+		}
+		return projectHookMigrationSpecs(s.root, cfg, b), nil
+	}
+	b, layers, err := s.loadGlobalSpecs()
+	if err != nil {
+		return hookMigrationSpecs{}, err
+	}
+	targets, err := loadGlobalTargets(s.root, io.Discard)
+	if err != nil {
+		return hookMigrationSpecs{}, err
+	}
+	if targets == nil {
+		targets = globalTargetNames()
+	}
+	return hookMigrationSpecs{bundle: b, layers: layers, targets: globalHookTargets(targets)}, nil
+}
+
+// projectHookMigrationSpecs is the project at root, loaded as cfg and b.
+// An adapter outside the tree may run hooks, so it counts.
+func projectHookMigrationSpecs(root string, cfg *config.Config, b spec.Bundle) hookMigrationSpecs {
+	var targets []string
+	for _, t := range cfg.Targets {
+		if _, inTree := adapters.Get(t); inTree {
+			if _, runs := targetsSupportingKind[spec.KindHook][t]; !runs {
+				continue
+			}
+		}
+		targets = append(targets, t)
+	}
+	return hookMigrationSpecs{bundle: b, layers: resolveLayers(root, cfg), targets: targets}
+}
+
+// reach lists the targets h reaches that run hooks.
+func (hs hookMigrationSpecs) reach(h spec.Entry) []string {
+	var out []string
+	for _, t := range hs.targets {
+		if h.EmitsTo(t) {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// portableHookTargetsNote names the targets that run hooks but skip a
+// portable one until their mapping lands.
+func portableHookTargetsNote(s migrationScope) string {
 	reach := andList(spec.PortableHookTargets())
 	var missing []string
-	if cfg, _, err := loadProject(root); err == nil {
-		for _, t := range cfg.Targets {
-			if _, runs := targetsSupportingKind[spec.KindHook][t]; runs && !spec.TranslatesPortableHooks(t) {
+	if hs, err := loadHookMigrationSpecs(s); err == nil {
+		for _, t := range hs.targets {
+			if _, inTree := adapters.Get(t); inTree && !spec.TranslatesPortableHooks(t) {
 				missing = append(missing, t)
 			}
 		}
@@ -59,12 +117,12 @@ func andList(names []string) string {
 	return strings.Join(names[:len(names)-1], ", ") + ", and " + names[len(names)-1]
 }
 
-func planHooksPortableEvents(root string) ([]migrationChange, []migrationSkip, error) {
-	cfg, b, err := loadProject(root)
+func planHooksPortableEvents(s migrationScope) ([]migrationChange, []migrationSkip, error) {
+	hs, err := loadHookMigrationSpecs(s)
 	if err != nil {
 		return nil, nil, err
 	}
-	planned, skips, err := planPortableHooks(root, cfg, b)
+	planned, skips, err := planPortableHooks(s, hs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -82,21 +140,19 @@ type plannedPortableHook struct {
 	change migrationChange
 }
 
-// planPortableHooks plans the hooks-portable-events rewrites for the
-// project at root, loaded as cfg and b. LINT034 reads the same plan, so
-// lint suggests the portable form exactly where migrate writes it.
-func planPortableHooks(root string, cfg *config.Config, b spec.Bundle) ([]plannedPortableHook, []migrationSkip, error) {
-	extended, err := extendedSpecNames(root, cfg, func(lb spec.Bundle) []spec.Entry { return lb.Hooks })
+// planPortableHooks plans the hooks-portable-events rewrites for scope s,
+// loaded as hs. LINT034 reads the same plan, so lint suggests the
+// portable form exactly where migrate writes it; that includes the spec
+// roots check the registry repeats for every migration.
+func planPortableHooks(s migrationScope, hs hookMigrationSpecs) ([]plannedPortableHook, []migrationSkip, error) {
+	extended, err := extendedSpecNames(hs.layers, func(lb spec.Bundle) []spec.Entry { return lb.Hooks })
 	if err != nil {
 		return nil, nil, err
 	}
-	realRoot, err := filepath.EvalSymlinks(root)
-	if err != nil {
-		return nil, nil, err
-	}
+	roots, packs := s.specRoots()
 	var planned []plannedPortableHook
 	var skips []migrationSkip
-	for _, h := range b.Hooks {
+	for _, h := range hs.bundle.Hooks {
 		event, ok := h.Meta["event"].(string)
 		if !ok || event == "" {
 			continue
@@ -106,21 +162,21 @@ func planPortableHooks(root string, cfg *config.Config, b spec.Bundle) ([]planne
 			skips = append(skips, migrationSkip{Path: h.Path, Reason: "sets both the native and the portable form; keep one by hand", Actionable: true})
 			continue
 		}
-		if pack, ok := strings.CutPrefix(h.Layer, "pack:"); ok {
-			skip("comes from pack " + pack + "; its author migrates it")
+		if pack, ok := strings.CutPrefix(h.Layer, layerNamePackPrefix); ok {
+			skips = append(skips, packSkip(h.Path, pack))
 			continue
 		}
 		if extended[h.Name] {
 			skips = append(skips, migrationSkip{Path: h.Path, Reason: "a local/ spec extends this hook; rewrite both files by hand", Actionable: true})
 			continue
 		}
-		form, reason := portableFormOf(h, hookMigrationTargets(cfg, h))
+		form, reason := portableFormOf(h, hs.reach(h))
 		if reason != "" {
 			skip(reason)
 			continue
 		}
-		if real, err := filepath.EvalSymlinks(h.Path); err != nil || !pathWithin(realRoot, real) {
-			skip("resolves outside the project")
+		if outside, ok := s.outsideSpecRoots(migrationChange{Path: h.Path}, roots, packs); ok {
+			skips = append(skips, outside)
 			continue
 		}
 		body, err := os.ReadFile(h.Path)
@@ -181,10 +237,10 @@ func (f portableHookForm) rewrites() []yamlKeyRewrite {
 // extendedSpecNames names the specs of one kind, which kind picks from
 // a layer, that a local/ spec merges into a lower layer's spec of the
 // same name. Their fields come from two files.
-func extendedSpecNames(root string, cfg *config.Config, kind func(spec.Bundle) []spec.Entry) (map[string]bool, error) {
+func extendedSpecNames(layers []spec.Layer, kind func(spec.Bundle) []spec.Entry) (map[string]bool, error) {
 	seen := map[string]bool{}
 	extended := map[string]bool{}
-	for _, layer := range resolveLayers(root, cfg) {
+	for _, layer := range layers {
 		lb, err := spec.LoadLayered([]spec.Layer{layer})
 		if err != nil {
 			return nil, err
