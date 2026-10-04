@@ -18,7 +18,7 @@
 // Skills emit as one folder per skill at `.agents/skills/<name>/SKILL.md`
 // (override via outputs.factory.skills-dir), the same cross-tool tree
 // codex, amp, zed, crush, and others already write byte-identically, so
-// the shared tree dedupes into one write. docs.factory.ai/harness/skills
+// the shared tree dedupes into one write. docs.factory.com/harness/skills
 // documents this compatibility path alongside a second one this adapter
 // does not additionally write, `.agent/skills/**/SKILL.md`: "Droid can
 // load skills from several scopes. A skill is any directory under a
@@ -29,7 +29,7 @@
 // `tools` is translated, not passed through. Droid CLI's tool IDs are
 // its own vocabulary and "Arrays must use valid IDs from this table or
 // exact registered MCP tool IDs. Unknown IDs cause a validation error"
-// (docs.factory.ai/harness/subagents), so a Claude-style name Factory
+// (docs.factory.com/harness/subagents), so a Claude-style name Factory
 // does not know costs the author the whole droid at load time, not just
 // that one tool. factoryToolID renames `Bash` to `Execute`, `Write` to
 // `Create`, and `WebFetch` to `FetchUrl`, the same three renames
@@ -53,7 +53,7 @@
 //
 // The portable `readonly: true` maps onto that same `read-only` category
 // ("Analysis and file exploration" over `Read`, `LS`, `Grep`, `Glob`,
-// docs.factory.ai/harness/subagents), so a portable readonly agent gets
+// docs.factory.com/harness/subagents), so a portable readonly agent gets
 // a real Factory tool boundary instead of the field silently dropping.
 // It wins outright over any portable `tools` list on the same agent
 // rather than narrowing it, because the category can never grant more
@@ -66,7 +66,7 @@
 //
 // Droid CLI's own schema requires a non-empty system prompt after the
 // frontmatter ("The body after the frontmatter is the system prompt
-// and cannot be empty", docs.factory.ai/harness/subagents), so an
+// and cannot be empty", docs.factory.com/harness/subagents), so an
 // agent spec with an empty body is skipped rather than written as a
 // file Droid CLI itself would call invalid; the skip surfaces through
 // a coverage note instead of failing silently.
@@ -88,13 +88,13 @@
 // cursor, junie, and kiro. Say it plainly here because the vendor sends
 // users to hand-edit it: "**Project servers cannot be removed** with
 // `droid mcp remove` or the `/mcp` manager. To remove them, edit
-// `.factory/mcp.json` directly" (docs.factory.ai/harness/mcp). That
+// `.factory/mcp.json` directly" (docs.factory.com/harness/mcp). That
 // edit is lost on the next sync (target-audit 2026-09-11, #737).
 //
 // Hooks are written to `.factory/hooks.json` (override via
 // outputs.factory.hooks-file), keyed directly by event name with no
 // surrounding "hooks" wrapper: "Standalone `hooks.json` files are
-// keyed directly by event name" (docs.factory.ai/harness/hooks), the
+// keyed directly by event name" (docs.factory.com/harness/hooks), the
 // one other divergence Windsurf/Devin CLI's own `.devin/hooks.v1.json`
 // also carries. Nine events: `PreToolUse`, `PostToolUse`,
 // `UserPromptSubmit`, `Notification`, `Stop`, `SubagentStop`,
@@ -121,9 +121,9 @@
 // `<git-root>/.factory/`", and "Each `.factory/` folder can contain:
 // `settings.json`: general settings (models, safety, preferences,
 // telemetry)"
-// (docs.factory.ai/enterprise/hierarchical-settings-and-org-control).
+// (docs.factory.com/enterprise/hierarchical-settings-and-org-control).
 // The skills page names the same file: "the **Project** tab writes to
-// `<project>/.factory/settings.json`" (docs.factory.ai/harness/skills).
+// `<project>/.factory/settings.json`" (docs.factory.com/harness/skills).
 // `model`, the three command lists, and any key written under
 // `x-factory` are set, and through MergeJSONFile, so `disabledSkills`
 // and every other key in that file survive the sync.
@@ -161,7 +161,7 @@ const (
 	// hierarchy: "Settings are authored in `.factory/` folders, using
 	// the same schema at every level", levels table row "**Project** |
 	// `<git-root>/.factory/`"
-	// (docs.factory.ai/enterprise/hierarchical-settings-and-org-control).
+	// (docs.factory.com/enterprise/hierarchical-settings-and-org-control).
 	defaultSettingsFile = ".factory/settings.json"
 )
 
@@ -340,7 +340,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 //
 // A portable `readonly: true` maps onto Factory's own `read-only`
 // category ("Analysis and file exploration", `Read`, `LS`, `Grep`,
-// `Glob`; docs.factory.ai/harness/subagents), the same coarse mapping
+// `Glob`; docs.factory.com/harness/subagents), the same coarse mapping
 // #1149 gives Codex's `sandbox_mode = "read-only"` and #1152 gives
 // Cursor's own `readonly` field. It wins outright over any portable
 // `tools` list rather than narrowing it: Factory's category never

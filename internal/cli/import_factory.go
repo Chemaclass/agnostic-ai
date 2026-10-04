@@ -25,7 +25,7 @@ const (
 	factoryMCPKey      = "mcpServers"
 	factoryHooksFile   = ".factory/hooks.json"
 	// factoryLegacyHooksFile "still loads" when the current file is
-	// absent (docs.factory.ai/harness/hooks).
+	// absent (docs.factory.com/harness/hooks).
 	factoryLegacyHooksFile = ".factory/hooks/hooks.json"
 	factorySettingsFile    = ".factory/settings.json"
 	factorySettingsSpec    = "factory"
@@ -34,7 +34,7 @@ const (
 
 // factorySkillDirs lists sync's root skill path first, then Factory's
 // own project path, "<repo>/.factory/skills/<skill-name>/SKILL.md"
-// (docs.factory.ai/harness/skills), which scoped skills also use.
+// (docs.factory.com/harness/skills), which scoped skills also use.
 var factorySkillDirs = []string{".agents/skills", ".factory/skills"}
 
 // factoryToolPortable reverses the three renames the factory adapter

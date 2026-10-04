@@ -108,7 +108,7 @@ func TestEmit_Agent_XFactoryPassthrough(t *testing.T) {
 }
 
 // Droid CLI's own schema says the body after the frontmatter "is the
-// system prompt and cannot be empty" (docs.factory.ai/harness/subagents).
+// system prompt and cannot be empty" (docs.factory.com/harness/subagents).
 // A spec with an empty body must not become a frontmatter-only file
 // Droid CLI itself calls invalid; it skips instead, and the skip
 // surfaces through a coverage note rather than staying silent.
@@ -185,7 +185,7 @@ func TestEmit_AgentsDirOverride(t *testing.T) {
 }
 
 // Skills land in the shared cross-tool tree at `.agents/skills/`
-// (docs.factory.ai/harness/skills, #632), the same folder codex, amp,
+// (docs.factory.com/harness/skills, #632), the same folder codex, amp,
 // zed, and crush already write.
 func TestEmit_Skill_WritesSkillFolder(t *testing.T) {
 	dir := testutil.TempCwd(t)

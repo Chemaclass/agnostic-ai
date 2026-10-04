@@ -3,7 +3,7 @@ package factory
 import "github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 
 // factoryToolID maps agnostic-ai's Claude-style tool identifiers onto
-// Droid CLI's own tool IDs (docs.factory.ai/harness/subagents, "Tool
+// Droid CLI's own tool IDs (docs.factory.com/harness/subagents, "Tool
 // categories"). Factory's table is the complete set of valid IDs:
 // `Read`, `LS`, `Grep`, `Glob`, `Create`, `Edit`, `ApplyPatch`,
 // `Execute`, `WebSearch`, `FetchUrl`. Seven Claude-style names are
