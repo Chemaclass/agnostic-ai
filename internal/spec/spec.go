@@ -631,13 +631,20 @@ func (b Bundle) For(target string) Bundle {
 
 // filterEntriesFor returns the subset of entries whose EmitsTo(target)
 // is true, with each survivor's Body materialized for target via
-// BodyFor (a no-op when the body carries no `::target` fences).
+// BodyFor (a no-op when the body carries no `::target` fences). A
+// portable hook arrives in target's native form, or not at all when
+// target has no exact mapping for it.
 func filterEntriesFor(entries []Entry, target string) []Entry {
 	out := make([]Entry, 0, len(entries))
 	for _, e := range entries {
 		if !e.EmitsTo(target) {
 			continue
 		}
+		native, reason := e.NativeHook(target)
+		if reason != "" {
+			continue
+		}
+		e = native
 		if resolved := e.BodyFor(target); resolved != e.Body {
 			e.Body = resolved
 			e.BodyLine = 0

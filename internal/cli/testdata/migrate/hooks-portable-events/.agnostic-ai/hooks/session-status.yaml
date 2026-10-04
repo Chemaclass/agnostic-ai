@@ -1,0 +1,4 @@
+name: session-status
+description: Show repository status when a session starts.
+event: SessionStart
+command: git status --short

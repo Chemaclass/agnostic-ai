@@ -1,0 +1,6 @@
+# Codex has no read tool to match, so this stays native.
+name: read-guard
+description: Log every file read.
+event: PreToolUse
+matcher: Read
+command: echo read >&2

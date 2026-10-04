@@ -178,6 +178,10 @@ func lintHookEvents(entries []spec.Entry, targets []string) []validationIssue {
 		if e.Kind != spec.KindHook {
 			continue
 		}
+		if spec.IsPortableHook(e.Meta) {
+			out = append(out, portableHookIssues(e, targets)...)
+			continue
+		}
 		event, _ := e.Meta["event"].(string)
 		if event == "" {
 			out = append(out, validationIssue{

@@ -1,0 +1,8 @@
+# Keep this comment: migrations must not reformat hooks.
+name: no-force-push
+description: Block git push --force.
+
+event: "PreToolUse"   # the tool call, before it runs
+matcher: Bash
+command: 'echo "blocked" >&2; exit 2'
+timeout: 10

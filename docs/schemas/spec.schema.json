@@ -53,6 +53,16 @@
       "type": "string",
       "description": "Routing prefix override. Relative path with forward slashes."
     },
+    "on": {
+      "type": "string",
+      "description": "Portable hook event, which sync translates to each target's own event. Set on or event, not both. See https://agnostic-ai.org/docs/spec-format/hooks/#portable-events",
+      "enum": ["session-start", "prompt-submit", "before-tool", "after-tool", "after-edit", "stop", "session-end"]
+    },
+    "match": {
+      "type": "string",
+      "description": "Tool kind a before-tool or after-tool hook runs on, which sync translates to each target's matcher.",
+      "pattern": "^(shell|edit|read|web|any|mcp:[A-Za-z0-9_-]+)$"
+    },
     "event": {
       "type": "string",
       "description": "Hook event that triggers this hook (Claude Code).",

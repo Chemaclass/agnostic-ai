@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -29,7 +30,7 @@ func migrationFixture(t *testing.T, id string) string {
 }
 
 // Every registered migration keeps what sync writes: sync, migrate, then
-// sync --check passes. A second run finds nothing to do.
+// sync --check passes. A second run finds nothing to rewrite.
 func TestMigrate_EveryMigrationKeepsSyncedOutputAndIsIdempotent(t *testing.T) {
 	for _, m := range specMigrations {
 		t.Run(m.ID, func(t *testing.T) {
@@ -45,8 +46,10 @@ func TestMigrate_EveryMigrationKeepsSyncedOutputAndIsIdempotent(t *testing.T) {
 			if out, err := runCLI(t, "sync", "--check", "--gitignore=off"); err != nil {
 				t.Errorf("sync --check after migrate: %v\n%s", err, out)
 			}
-			if out, err := runCLI(t, "migrate", "--only", m.Group); err != nil || !strings.Contains(out, "no migrations apply") {
-				t.Errorf("a second run must find nothing: %v\n%s", err, out)
+			for _, p := range planMigrations(".", []specMigration{m}) {
+				if p.planErr != nil || len(p.changes) > 0 {
+					t.Errorf("a second run must find nothing to rewrite, only skips: %+v", p.changes)
+				}
 			}
 		})
 	}
@@ -115,7 +118,7 @@ func TestMigrate_ListAndOnly(t *testing.T) {
 	if out, err := runCLI(t, "migrate"); err != nil || !strings.Contains(out, "no migrations apply") {
 		t.Errorf("nothing to do: %v\n%s", err, out)
 	}
-	if _, err := runCLI(t, "migrate", "--only", "nope"); err == nil || !strings.Contains(err.Error(), `no migration group "nope"; groups: config`) {
+	if _, err := runCLI(t, "migrate", "--only", "nope"); err == nil || !strings.Contains(err.Error(), `no migration group "nope"; groups: config, hooks`) {
 		t.Errorf("an unknown group must fail and list the groups: %v", err)
 	}
 	if _, err := runCLI(t, "migrate", "--only", ""); err == nil || !strings.Contains(err.Error(), `no migration group ""`) {
@@ -329,5 +332,106 @@ func TestPendingMigrationHint_SaysManualWhenOnlySkips(t *testing.T) {
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
 	if got := pendingMigrationHint("."); got != "1 spec migration needs a manual step (config-file-name). Preview: agnostic-ai migrate --dry-run" {
 		t.Errorf("hint = %q", got)
+	}
+}
+
+func TestMigrate_HooksPortableEventsRewritesInPlaceAndSkipsWhatDoesNotMap(t *testing.T) {
+	dir := migrationFixture(t, "hooks-portable-events")
+	silence(t)
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "local", "hooks", "session-status.yaml"), "timeout: 5\n")
+
+	out, err := runCLI(t, "migrate", "--only", "hooks")
+	if err != nil {
+		t.Fatalf("migrate: %v\n%s", err, out)
+	}
+	for _, want := range []string{
+		"rewrote .agnostic-ai/hooks/no-force-push.yaml",
+		`skipped .agnostic-ai/hooks/gofmt-on-edit.yaml: no portable form gives PostToolUse with matcher "Edit|Write" on claude; match: edit there also covers MultiEdit and NotebookEdit`,
+		`skipped .agnostic-ai/hooks/read-guard.yaml: no portable form gives PreToolUse with matcher "Read" on codex`,
+		"skipped .agnostic-ai/local/hooks/session-status.yaml: a local/ spec extends this hook; rewrite both files by hand",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output misses %q:\n%s", want, out)
+		}
+	}
+	got, err := os.ReadFile(filepath.Join(dir, ".agnostic-ai", "hooks", "no-force-push.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "# Keep this comment: migrations must not reformat hooks.\n" +
+		"name: no-force-push\n" +
+		"description: Block git push --force.\n" +
+		"\n" +
+		"on: \"before-tool\"   # the tool call, before it runs\n" +
+		"match: shell\n" +
+		"command: 'echo \"blocked\" >&2; exit 2'\n" +
+		"timeout: 10\n"
+	if string(got) != want {
+		t.Errorf("no-force-push.yaml =\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestMigrate_HooksPortableEventsSkipsATargetWithoutPortableEvents(t *testing.T) {
+	dir := migrationFixture(t, "hooks-portable-events")
+	silence(t)
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, cursor]\n")
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "stop.yaml"), "targets: [claude, codex]\nevent: Stop\ncommand: 'true'\n")
+
+	out, err := runCLI(t, "migrate", "--only", "hooks", "--dry-run")
+	if err != nil || !strings.Contains(out, "skipped .agnostic-ai/hooks/no-force-push.yaml: no portable form gives PreToolUse with matcher \"Bash\" on cursor") {
+		t.Errorf("a hook that reaches cursor must stay native: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "would rewrite .agnostic-ai/hooks/stop.yaml") {
+		t.Errorf("a hook scoped to claude and codex still migrates:\n%s", out)
+	}
+}
+
+func TestPendingMigrationHint_CountsOnlyRewritesAndActionableSkips(t *testing.T) {
+	dir := migrationFixture(t, "hooks-portable-events")
+	silence(t)
+	if got := pendingMigrationHint("."); !strings.HasPrefix(got, "1 spec migration applies (hooks-portable-events)") {
+		t.Errorf("before the run: %q", got)
+	}
+	if _, err := runCLI(t, "migrate"); err != nil {
+		t.Fatal(err)
+	}
+	if got := pendingMigrationHint("."); got != "" {
+		t.Errorf("only skips that need nothing remain, so doctor must stay quiet: %q", got)
+	}
+	if out, _ := runCLI(t, "migrate", "--list"); !strings.Contains(out, "hooks-portable-events (0.79.0): rewrite a hook's event: and matcher: as the portable on: and match:: 0 to rewrite, 2 skipped") {
+		t.Errorf("--list still counts every skip:\n%s", out)
+	}
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "both.yaml"), "on: stop\nevent: Stop\ncommand: 'true'\n")
+	if got := pendingMigrationHint("."); !strings.HasPrefix(got, "1 spec migration needs a manual step (hooks-portable-events)") {
+		t.Errorf("a spec with both forms needs the user: %q", got)
+	}
+}
+
+func TestMigrate_APlanThatFailsDoesNotStopTheOthers(t *testing.T) {
+	dir := migrationFixture(t, "config-file-name")
+	silence(t)
+	broken := specMigration{ID: "hooks-broken", Group: "hooks", Release: "0.79.0", Summary: "fails to plan",
+		Plan: func(string) ([]migrationChange, []migrationSkip, error) {
+			return nil, nil, errors.New("parse hooks/x.yaml:\n  token: ghp_abcdefghijklmnop1234")
+		}}
+	registry := specMigrations
+	specMigrations = append([]specMigration{broken}, registry...)
+	t.Cleanup(func() { specMigrations = registry })
+
+	if out, _ := runCLI(t, "migrate", "--list"); !strings.Contains(out, "hooks-broken (0.79.0): fails to plan: cannot plan: parse hooks/x.yaml: token: <redacted>") {
+		t.Errorf("--list must show the failed plan:\n%s", out)
+	}
+	if got := pendingMigrationHint("."); !strings.HasPrefix(got, "1 spec migration applies (config-file-name)") {
+		t.Errorf("the hint ignores a failed plan: %q", got)
+	}
+	out, err := runCLI(t, "migrate")
+	if err == nil || !strings.Contains(err.Error(), "1 migration could not plan: hooks-broken") {
+		t.Errorf("migrate must exit non-zero after the rest ran: %v", err)
+	}
+	if !strings.Contains(out, "hooks-broken: cannot plan: parse hooks/x.yaml: token: <redacted>") || strings.Contains(out, "ghp_") {
+		t.Errorf("the failure must print without its secret:\n%s", out)
+	}
+	if !exists(filepath.Join(dir, "agnostic-ai.yaml")) || exists(filepath.Join(dir, "agnostic.config.yaml")) {
+		t.Errorf("the other migrations must still run:\n%s", out)
 	}
 }

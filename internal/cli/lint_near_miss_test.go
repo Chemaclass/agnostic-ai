@@ -106,7 +106,7 @@ func TestCollectLintFindings_IncludesNearMissKeys(t *testing.T) {
 // A key one edit from a documented key is a typo, not an extension:
 // `glob:` leaves a rule meant for Go files applying everywhere.
 func TestLintNearMissKeys_FlagsTyposOfDocumentedKeys(t *testing.T) {
-	cases := map[string]string{"glob": "globs", "descriptin": "description", "alwaysapply": "alwaysApply", "matchr": "matcher", "mode": "model"}
+	cases := map[string]string{"glob": "globs", "descriptin": "description", "alwaysapply": "alwaysApply", "macher": "matcher", "mode": "model"}
 	for key, want := range cases {
 		entries := []spec.Entry{{
 			Kind: spec.KindRule, Name: "r", Path: "rules/r.md",
@@ -169,7 +169,8 @@ func TestSpecKeys_CoverEveryDocumentedField(t *testing.T) {
 		if header == "" {
 			header = line
 		}
-		if skip[section] {
+		// A table headed by a field name lists that field's values.
+		if skip[section] || strings.HasPrefix(header, "| `") {
 			continue
 		}
 		cols := strings.Split(line, "|")

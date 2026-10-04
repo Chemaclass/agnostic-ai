@@ -21,6 +21,49 @@ Sync never runs a hook. The configured tools do. [`agnostic-ai hook run`](#hook-
 
 ## Write one
 
+### Portable events {#portable-events}
+
+Write `on` and `match` instead of one tool's own event name. Sync writes each tool's native event and matcher, so one spec runs on every tool that has a mapping.
+
+```yaml
+name: no-force-push
+description: Block git push --force.
+on: before-tool
+match: shell
+command: .agnostic-ai/scripts/no-force-push.sh
+```
+
+`on` takes `session-start`, `prompt-submit`, `before-tool`, `after-tool`, `after-edit`, `stop`, or `session-end`. `after-edit` runs after a file edit, so it takes no `match`.
+
+`match` takes a tool kind: `shell`, `edit`, `read`, `web`, `any`, or `mcp:<server>`. It applies only to `before-tool` and `after-tool`. Leave it out, or write `any`, to run on every tool. `edit` names every edit tool, including ones an older or newer version of the tool lacks, so a guard does not miss one.
+
+| `on` | Claude Code | Codex |
+|---|---|---|
+| `session-start` | `SessionStart` | `SessionStart` |
+| `prompt-submit` | `UserPromptSubmit` | `UserPromptSubmit` |
+| `before-tool` | `PreToolUse` | `PreToolUse` |
+| `after-tool` | `PostToolUse` | `PostToolUse` |
+| `after-edit` | `PostToolUse` on the `edit` matcher | `PostToolUse` on the `edit` matcher |
+| `stop` | `Stop` | `Stop` |
+| `session-end` | `SessionEnd` | `SessionEnd` |
+
+| `match` | Claude Code | Codex |
+|---|---|---|
+| `shell` | `Bash` | `Bash` |
+| `edit` | `Edit\|MultiEdit\|Write\|NotebookEdit` | `Edit\|Write`, which Codex reads as `apply_patch` |
+| `read` | `Read` | none |
+| `web` | `WebFetch\|WebSearch` | none |
+| `any` | no matcher | no matcher |
+| `mcp:<server>` | `mcp__<server>__.*` | `mcp__<server>__.*` |
+
+A spec sets `on` or `event`, never both. `match` goes with `on`, and `matcher` with `event`. `validate` and `lint` (LINT032) report an unknown value, a mixed form, and a tool kind that a target the hook reaches has no tool for, such as `match: read` on Codex.
+
+Other targets come next. Until then, a portable hook does not reach them: sync prints a note with the count, and [`hook run`](#hook-run) lists them as not run with the reason. Write `event` for those tools, or scope the hook with `targets`.
+
+`agnostic-ai migrate --only hooks` rewrites `event` and `matcher` as `on` and `match` when the portable form gives every target the hook reaches the same event and matcher, so synced files stay the same. It leaves every other hook as written and says why. A Claude Code hook on `Edit|Write` stays native, since `match: edit` there also runs on `MultiEdit` and `NotebookEdit`.
+
+### Native events
+
 `agnostic-ai new hook session-status` creates `hooks/session-status.yaml`. Pure YAML, no markdown body.
 
 ```yaml
@@ -64,7 +107,9 @@ Command hooks receive event JSON on stdin. Read the shell command from the targe
 |-------|----------|---------|-------------|
 | `name` | no | filename | Hook identifier. |
 | `description` | no | empty | Free-form documentation. |
-| `event` | yes | none | Hook event, written verbatim. See [events](#events). |
+| `on` | `on` or `event` | none | Portable event, translated per target. See [portable events](#portable-events). |
+| `match` | no | every tool | Tool kind for `on: before-tool` or `after-tool`. See [portable events](#portable-events). |
+| `event` | `on` or `event` | none | Hook event, written verbatim. See [events](#events). |
 | `matcher` | no | empty | Regex on the tool name, or another event-specific selector. |
 | `command` | command handlers only | none | Shell command, or a list where each entry becomes its own handler. |
 | `args` | no | empty | Switches to **exec form**: `command` runs as an executable with `args` as its argument vector and no shell, so spaces, `$`, and backticks pass verbatim. Leave unset when the command needs a pipe or `&&`. Codex, Gemini, and Cursor have no exec form, so they get the args folded into `command`, each quoted for a POSIX shell. |
@@ -86,7 +131,7 @@ Handler-specific fields emit only where the target's schema defines them:
 
 ## Events
 
-`event` is written verbatim. Names are never translated between tools.
+`event` is written verbatim. Names are never translated between tools; for one spec across tools, use [portable events](#portable-events).
 
 - Claude Code and Codex share `PreToolUse`, `PostToolUse`, and `UserPromptSubmit`, so one spec feeds both.
 - Other tools need their own names, such as Cursor's `beforeShellExecution` or Gemini's `BeforeTool`.

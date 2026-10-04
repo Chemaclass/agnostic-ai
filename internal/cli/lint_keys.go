@@ -16,7 +16,7 @@ var specKeys = []string{
 	// Rules.
 	"globs", "paths", "alwaysApply",
 	// Hooks.
-	"event", "matcher", "command", "args", "type", "timeout", "disabled", "async", "asyncRewake",
+	"on", "match", "event", "matcher", "command", "args", "type", "timeout", "disabled", "async", "asyncRewake",
 	"shell", "if", "commandWindows", "additionalContextLimit", "continueOnBlock", "failClosed",
 	"loop_limit", "prompt", "server", "tool", "input", "statusMessage", "sequential",
 	// MCP servers.

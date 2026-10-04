@@ -73,12 +73,19 @@ func agentSkillTypos(b spec.Bundle) []validationIssue {
 	return out
 }
 
-// stopOnSpecTypos stops a sync on a hook event typo before it is written
-// into every tool's files. Pack specs are not the user's to edit, so
-// validate reports them.
+// stopOnSpecTypos stops a sync on a hook event typo, or an invalid
+// portable hook, before it is written into every tool's files. Pack specs
+// are not the user's to edit, so validate reports them.
 func stopOnSpecTypos(b spec.Bundle, targets []string) error {
 	own := ownSpecs(b)
 	issues := hookEventTypos(own, targets)
+	for _, e := range own.Hooks {
+		if spec.IsPortableHook(e.Meta) {
+			if problem := spec.PortableHookProblem(e.Meta); problem != "" {
+				issues = append(issues, validationIssue{Path: e.Path, Field: "on", Message: problem})
+			}
+		}
+	}
 	if len(issues) == 0 {
 		return nil
 	}

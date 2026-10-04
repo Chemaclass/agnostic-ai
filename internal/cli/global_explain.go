@@ -101,7 +101,8 @@ func globalContributions(home, target string, entry spec.Entry, b spec.Bundle) (
 			out = append(out, contribution{Target: target, Path: filepath.Join(g.path(home, g.rules), entry.Name+".md"), Mode: "full"})
 		}
 	case spec.KindHook:
-		event, _ := entry.Meta["event"].(string)
+		hook, _ := entry.NativeHook(target)
+		event, _ := hook.Meta["event"].(string)
 		if g.hooks != "" && entry.EmitsTo(target) && event != "" {
 			out = append(out, contribution{Target: target, Path: g.path(home, g.hooks), Section: event, Mode: "section"})
 		}

@@ -205,6 +205,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "A spec's `description` still starts with `TODO`, the placeholder `agnostic-ai new` writes. Sync copies it to every target, where it shows in tool pickers and decides when a skill fires.",
 		Fix:      "Replace the `description` with what the spec is for, and when it applies.",
 	},
+	"LINT032": {
+		Severity: lintError,
+		Title:    "Portable hook a target cannot run",
+		Cause:    "A hook's `on:` or `match:` holds an unknown value, mixes with `event:` or `matcher:`, or names a tool kind an enabled target it reaches has no tool for, so sync leaves it out there.",
+		Fix:      "Use a value from the hooks page, keep one of `on:` and `event:`, or scope the hook away from that target with `target-exclude:`.",
+	},
 }
 
 type explainLintCodeOutput struct {

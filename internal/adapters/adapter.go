@@ -712,6 +712,9 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 		sess.SetSkillsDirWriters(writers)
 	}
 	own := expandBundleVars(b.For(a.Name()), cfg, a.Name())
+	if slices.Contains(a.Capabilities(), spec.KindHook) {
+		notePortableHookGaps(a.Name(), b.Hooks)
+	}
 	prepared, files, err := emit.PrepareScopedDocuments(own, cfg, a.Name(), ReviewSections(b, cfg, a.Name()))
 	if err != nil {
 		return err
@@ -741,6 +744,27 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 		}
 	}
 	return nil
+}
+
+// notePortableHookGaps notes the portable hooks that reach target but
+// have no exact native form there, one note per reason.
+func notePortableHookGaps(target string, hooks []spec.Entry) {
+	counts := map[string]int{}
+	var reasons []string
+	for _, h := range hooks {
+		if !h.EmitsTo(target) {
+			continue
+		}
+		if _, reason := h.NativeHook(target); reason != "" {
+			if counts[reason] == 0 {
+				reasons = append(reasons, reason)
+			}
+			counts[reason]++
+		}
+	}
+	for _, reason := range reasons {
+		emit.NoteCoverageGap(target, spec.KindHook, counts[reason], reason)
+	}
 }
 
 var registry = map[string]Adapter{
