@@ -323,3 +323,11 @@ func TestDoctor_NamesPendingMigrations(t *testing.T) {
 		t.Errorf("doctor must say nothing once no migration applies:\n%s", out)
 	}
 }
+
+func TestPendingMigrationHint_SaysManualWhenOnlySkips(t *testing.T) {
+	dir := migrationFixture(t, "config-file-name")
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
+	if got := pendingMigrationHint("."); got != "1 spec migration needs a manual step (config-file-name). Preview: agnostic-ai migrate --dry-run" {
+		t.Errorf("hint = %q", got)
+	}
+}
