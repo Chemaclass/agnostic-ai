@@ -890,6 +890,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		path := g.path(home, g.hooks)
 		hooks := b.HooksFor(target)
 		adapters.NotePortableHookGaps(target, b.Hooks)
+		hooks = adapters.WithoutWrappedHooks(target, hooks)
 		if g.hooksFormat == "augment" {
 			augment.NoteUserHookGaps(hooks)
 			hooks = slices.DeleteFunc(slices.Clone(hooks), augment.ExecFormHook)

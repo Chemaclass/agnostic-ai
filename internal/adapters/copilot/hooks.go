@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"regexp/syntax"
+	"slices"
 	"sort"
 	"strings"
 
@@ -208,7 +209,43 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 	if err := sess.MaterializeNeutralHookScripts(hooks, target, emit.HookScriptsDir(target), dryRun); err != nil {
 		return err
 	}
+	if slices.ContainsFunc(hooks, func(h spec.Entry) bool {
+		kind, _ := h.Meta["type"].(string)
+		return h.WrapsDecision(target) && (kind == "" || kind == "command") && len(emit.HookCommands(h.Meta["command"])) > 0
+	}) {
+		if err := sess.WriteExecutableFile(decisionWrapperPath, emit.DecisionWrapper(decisionReply), dryRun); err != nil {
+			return err
+		}
+	}
 	return sess.WriteFile(path, string(body)+"\n", dryRun)
+}
+
+// decisionWrapperPath is where the wrapper for portable hooks lands,
+// relative to the repository root.
+var decisionWrapperPath = emit.HookScriptsDir(target) + "/" + emit.DecisionWrapperName
+
+// decisionReply turns a portable hook's exit code into what a Copilot
+// preToolUse hook gives (docs.github.com/en/copilot/reference/
+// hooks-reference). Exit 2 stays, since it "denies the tool call", and
+// its "stdout JSON is merged with the deny decision", so the reply adds
+// stderr as permissionDecisionReason, the "Reason fed to the LLM when
+// denying". Exit 0 passes stdout. Another exit stays, so Copilot denies
+// the call where Claude Code reports an error and goes on: a guard that
+// breaks keeps blocking instead of letting every call through.
+const decisionReply = `2)
+  printf '{"permissionDecision":"deny","permissionDecisionReason":"%s"}\n' "$aai_msg"
+  exit 2 ;;
+0)
+  cat "$aai_out" ;;
+*)
+  exit "$aai_status" ;;
+`
+
+// UnwrapPortableCommand returns the command a synced entry runs through
+// the portable hook wrapper, resolved for cwd as sync wrote it, and false
+// for an entry that does not run the wrapper.
+func UnwrapPortableCommand(command, cwd string) (string, bool) {
+	return emit.UnwrapDecisionCommand(ScriptForCwd(decisionWrapperPath, cwd), command)
 }
 
 // buildHooks returns the rendered document, or nil when no spec
@@ -258,7 +295,7 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 		case "command":
 			commands := emit.HookCommands(h.Meta["command"])
 			args := emit.StringSlice(h.Meta["args"])
-			if len(args) > 0 {
+			if len(args) > 0 && !h.WrapsDecision(target) {
 				execForm++
 			}
 			// Resolved rather than read raw, so `x-copilot.cwd` and
@@ -272,9 +309,19 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 			env := emit.WithHookTarget(emit.StringMap(resolved["env"]), target)
 			for _, command := range commands {
 				entry := hookEntry{Type: kind, Matcher: matcher, TimeoutSec: timeout, Cwd: cwd, Env: env}
-				if len(args) > 0 {
+				switch {
+				case h.WrapsDecision(target):
+					// The wrapper runs a command line, so args fold in, after
+					// the script path is made relative to cwd: a quoted word
+					// is no longer a path ScriptForCwd maps.
+					inner := ScriptForCwd(emit.RewriteHookPath(command, target, h.Meta), cwd)
+					if len(args) > 0 {
+						inner = emit.ExecFormCommand(ExecForCwd(emit.RewriteHookPath(command, target, h.Meta), args, cwd))
+					}
+					entry.Command = emit.DecisionWrapperCommand(ScriptForCwd(decisionWrapperPath, cwd), inner)
+				case len(args) > 0:
 					entry.Exec, entry.Args = ExecForCwd(emit.RewriteHookPath(command, target, h.Meta), args, cwd)
-				} else {
+				default:
 					entry.Command = ScriptForCwd(emit.RewriteHookPath(command, target, h.Meta), cwd)
 				}
 				byEvent[event] = append(byEvent[event], entry)

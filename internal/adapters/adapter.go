@@ -772,6 +772,17 @@ func NotePortableHookGaps(target string, hooks []spec.Entry) {
 	}
 }
 
+// WithoutWrappedHooks drops, with one note, the portable hooks whose
+// commands project sync wraps on target to turn exit 2 into its deny
+// reply. sync --global writes no wrapper, and an unwrapped command would
+// fail open or deny where Claude Code allows.
+func WithoutWrappedHooks(target string, hooks []spec.Entry) []spec.Entry {
+	kept := slices.DeleteFunc(slices.Clone(hooks), func(h spec.Entry) bool { return h.WrapsDecision(target) })
+	emit.NoteCoverageGap(target, spec.KindHook, len(hooks)-len(kept),
+		"sync --global writes no wrapper to turn exit 2 into the "+target+" deny reply; write event: for "+target)
+	return kept
+}
+
 var registry = map[string]Adapter{
 	"claude":      claude.New(),
 	"codex":       codex.New(),
