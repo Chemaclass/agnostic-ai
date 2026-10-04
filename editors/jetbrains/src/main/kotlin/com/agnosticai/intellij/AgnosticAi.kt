@@ -63,31 +63,37 @@ object AgnosticAi {
         return override ?: parseTargetList(Files.readString(cfg)) ?: emptyList()
     }
 
-    /** The top-level `targets:` list, in block or flow style, or null when the file sets none. */
+    /**
+     * The top-level `targets:` list, in block or flow style. Null when the
+     * file sets no targets or uses a shape this line reader cannot follow,
+     * so a caller falls back instead of showing none.
+     */
     fun parseTargetList(text: String): List<String>? {
-        var out: MutableList<String>? = null
-        var inTargets = false
-        for (raw in text.lineSequence()) {
-            val line = raw.replace(Regex("""\s+#.*$"""), "").trimEnd()
-            val key = Regex("""^targets:(.*)$""").find(line)
-            if (key != null) {
-                val value = key.groupValues[1].trim()
-                out = if (value.startsWith("[")) {
-                    value.removePrefix("[").removeSuffix("]").split(",").map(::unquote).filter { it.isNotEmpty() }.toMutableList()
-                } else {
-                    mutableListOf()
-                }
-                inTargets = value.isEmpty()
-                continue
-            }
-            if (!inTargets) continue
-            val match = Regex("""^\s+-\s+(\S+)""").find(line)
+        val lines = text.lines().map { it.replace(Regex("""(^|\s)#.*$"""), "").trimEnd() }
+        val start = lines.indexOfFirst { it.startsWith("targets:") }
+        if (start < 0) return null
+        val value = lines[start].removePrefix("targets:").trim()
+        if (value.isEmpty()) return blockItems(lines.drop(start + 1))
+        if (value == "null" || value == "~") return emptyList()
+        if (!value.startsWith("[")) return null
+        val flow = (listOf(value) + lines.drop(start + 1)).joinToString(" ")
+        val end = flow.indexOf(']')
+        if (end < 0) return null
+        return flow.substring(1, end).split(",").map(::unquote).filter { it.isNotEmpty() }
+    }
+
+    private fun blockItems(lines: List<String>): List<String>? {
+        val items = mutableListOf<String>()
+        for (line in lines) {
+            if (line.isEmpty()) continue
+            val match = Regex("""^\s*-\s+(\S+)$""").find(line)
             if (match != null) {
-                out?.add(unquote(match.groupValues[1])); continue
+                items += unquote(match.groupValues[1]); continue
             }
-            if (line.isNotEmpty() && !line.startsWith(" ") && !line.startsWith("\t")) inTargets = false
+            if (Regex("""^[^\s-]""").containsMatchIn(line)) break
+            return null
         }
-        return out
+        return items
     }
 
     private fun unquote(value: String): String = value.trim().replace(Regex("""^(["'])(.*)\1$"""), "$2")

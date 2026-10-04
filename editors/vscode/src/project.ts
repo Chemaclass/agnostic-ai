@@ -56,33 +56,43 @@ export function findProjectRoot(
 }
 
 /**
- * The entries of the top-level `targets:` list, in block or flow style,
- * or undefined when the file sets no targets.
+ * The entries of the top-level `targets:` list, in block or flow style.
+ * Undefined when the file sets no targets or uses a shape this line
+ * reader cannot follow, so a caller falls back instead of showing none.
  */
 export function parseTargetList(text: string): string[] | undefined {
-  let targets: string[] | undefined;
-  let inTargets = false;
-  for (const raw of text.split("\n")) {
-    const line = raw.replace(/\s+#.*$/, "").trimEnd();
-    const key = /^targets:(.*)$/.exec(line);
-    if (key) {
-      const value = key[1].trim();
-      targets = value.startsWith("[")
-        ? value.replace(/^\[|\]$/g, "").split(",").map(unquote).filter((t) => t !== "")
-        : [];
-      inTargets = value === "";
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.replace(/(^|\s)#.*$/, "").trimEnd());
+  const start = lines.findIndex((l) => l.startsWith("targets:"));
+  if (start < 0) return undefined;
+  const value = lines[start].slice("targets:".length).trim();
+  if (value === "") return blockItems(lines.slice(start + 1));
+  if (value === "null" || value === "~") return [];
+  if (!value.startsWith("[")) return undefined;
+  const flow = [value, ...lines.slice(start + 1)].join(" ");
+  const end = flow.indexOf("]");
+  if (end < 0) return undefined;
+  return flow
+    .slice(1, end)
+    .split(",")
+    .map(unquote)
+    .filter((t) => t !== "");
+}
+
+function blockItems(lines: string[]): string[] | undefined {
+  const items: string[] = [];
+  for (const line of lines) {
+    if (line === "") continue;
+    const m = /^\s*-\s+(\S+)$/.exec(line);
+    if (m) {
+      items.push(unquote(m[1]));
       continue;
     }
-    if (inTargets) {
-      const m = /^\s+-\s+(\S+)/.exec(line);
-      if (m) {
-        targets?.push(unquote(m[1]));
-        continue;
-      }
-      if (/^\S/.test(line)) inTargets = false;
-    }
+    if (/^[^\s-]/.test(line)) break;
+    return undefined;
   }
-  return targets;
+  return items;
 }
 
 /** The entries of the top-level `targets:` list in a config file. */
@@ -95,7 +105,10 @@ export function parseTargets(text: string): string[] {
  * the base list, as the CLI's merge does.
  */
 export function configuredTargets(base: string, local?: string): string[] {
-  return (local === undefined ? undefined : parseTargetList(local)) ?? parseTargets(base);
+  return (
+    (local === undefined ? undefined : parseTargetList(local)) ??
+    parseTargets(base)
+  );
 }
 
 function unquote(value: string): string {

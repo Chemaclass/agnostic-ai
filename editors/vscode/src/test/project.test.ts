@@ -113,8 +113,31 @@ describe("parseTargets", () => {
   });
 
   it("reads a flow list, quotes, and trailing comments", () => {
-    assert.deepEqual(parseTargets('targets: [claude, "codex"] # mine\n'), ["claude", "codex"]);
-    assert.deepEqual(parseTargets("targets: # mine\n  - 'cursor'\n"), ["cursor"]);
+    assert.deepEqual(parseTargets('targets: [claude, "codex"] # mine\n'), [
+      "claude",
+      "codex",
+    ]);
+    assert.deepEqual(parseTargets("targets: # mine\n  - 'cursor'\n"), [
+      "cursor",
+    ]);
+  });
+
+  it("reads CRLF, comment lines, indentless items, and multiline flow", () => {
+    assert.deepEqual(parseTargets("targets: # mine\r\n  - cursor\r\n"), [
+      "cursor",
+    ]);
+    assert.deepEqual(
+      parseTargets("targets:\n  - claude\n# note\n  - codex\nsources: []\n"),
+      ["claude", "codex"],
+    );
+    assert.deepEqual(parseTargets("targets:\n- claude\n- codex\n"), [
+      "claude",
+      "codex",
+    ]);
+    assert.deepEqual(
+      parseTargets("targets: [\n  claude, # first\n  cursor\n]\n"),
+      ["claude", "cursor"],
+    );
   });
 });
 
@@ -122,13 +145,25 @@ describe("configuredTargets", () => {
   const base = "targets:\n  - claude\n  - codex\n";
 
   it("lets the local override's targets replace the base list", () => {
-    assert.deepEqual(configuredTargets(base, "targets: [claude]\n"), ["claude"]);
-    assert.deepEqual(configuredTargets(base, "targets:\n  - cursor\n"), ["cursor"]);
+    assert.deepEqual(configuredTargets(base, "targets: [claude]\n"), [
+      "claude",
+    ]);
+    assert.deepEqual(configuredTargets(base, "targets:\n  - cursor\n"), [
+      "cursor",
+    ]);
   });
 
-  it("keeps the base list when the override sets no targets", () => {
-    assert.deepEqual(configuredTargets(base, "sources:\n  - specs\n"), ["claude", "codex"]);
-    assert.deepEqual(configuredTargets(base), ["claude", "codex"]);
+  it("empties the list when the override sets an empty or null list", () => {
+    assert.deepEqual(configuredTargets(base, "targets: []\n"), []);
+    assert.deepEqual(configuredTargets(base, "targets:\nsources: []\n"), []);
+  });
+
+  it("keeps the base list when the override sets none or one it cannot read", () => {
+    const both = ["claude", "codex"];
+    assert.deepEqual(configuredTargets(base, "sources:\n  - specs\n"), both);
+    assert.deepEqual(configuredTargets(base), both);
+    assert.deepEqual(configuredTargets(base, "targets: [claude,\n"), both);
+    assert.deepEqual(configuredTargets(base, "targets:\n  nested: x\n"), both);
   });
 });
 

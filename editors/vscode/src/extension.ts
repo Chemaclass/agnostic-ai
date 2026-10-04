@@ -199,7 +199,7 @@ async function resolveTargets(
   const targets = await listConfiguredTargets(cwd);
   if (targets.length === 0) {
     vscode.window.showErrorMessage(
-      "agnostic-ai: no targets configured in agnostic-ai.yaml or agnostic.config.yaml.",
+      "agnostic-ai: no targets configured in agnostic-ai.yaml, agnostic.config.yaml, or agnostic-ai.local.yaml.",
     );
     return undefined;
   }

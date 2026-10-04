@@ -62,6 +62,22 @@ class AgnosticAiConfigFileTest {
 
         Files.writeString(dir.resolve("agnostic-ai.local.yaml"), "targets:\n  - 'cursor'\n")
         assertEquals(listOf("cursor"), AgnosticAi.configuredTargets(dir))
+
+        Files.writeString(dir.resolve("agnostic-ai.local.yaml"), "targets: []\n")
+        assertEquals(emptyList<String>(), AgnosticAi.configuredTargets(dir))
+
+        Files.writeString(dir.resolve("agnostic-ai.local.yaml"), "targets: [claude,\n")
+        assertEquals(listOf("claude", "codex"), AgnosticAi.configuredTargets(dir))
+    }
+
+    @Test fun parseTargetListReadsTheShapesYamlAllows() {
+        assertEquals(listOf("cursor"), AgnosticAi.parseTargetList("targets: # mine\r\n  - cursor\r\n"))
+        assertEquals(listOf("claude", "codex"), AgnosticAi.parseTargetList("targets:\n  - claude\n# note\n  - codex\nsources: []\n"))
+        assertEquals(listOf("claude", "codex"), AgnosticAi.parseTargetList("targets:\n- claude\n- codex\n"))
+        assertEquals(listOf("claude", "cursor"), AgnosticAi.parseTargetList("targets: [\n  claude, # first\n  cursor\n]\n"))
+        assertEquals(emptyList<String>(), AgnosticAi.parseTargetList("targets:\nsources: []\n"))
+        assertNull(AgnosticAi.parseTargetList("targets:\n  nested: x\n"))
+        assertNull(AgnosticAi.parseTargetList("version: 1\n"))
     }
 
     @Test fun schemaAttachesToBothNamesOnly() {
