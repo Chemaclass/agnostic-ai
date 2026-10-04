@@ -2,10 +2,13 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
 
@@ -393,6 +396,95 @@ func TestMigrate_HooksPortableEventsSkipsATargetWithoutPortableEvents(t *testing
 	if !strings.Contains(out, "would rewrite .agnostic-ai/hooks/no-force-push.yaml") {
 		t.Errorf("a hook scoped to claude and codex still migrates:\n%s", out)
 	}
+}
+
+// LINT033 suggests the portable form for exactly the hooks
+// `migrate --only hooks` rewrites, and for none once it ran.
+func TestLint_SuggestsThePortableFormExactlyWhereMigrateRewrites(t *testing.T) {
+	cases := []struct {
+		name, config, local string
+		want                []string
+	}{
+		{"every target maps", "", "", []string{"no-force-push", "session-status", "stop-check"}},
+		{"cursor has no mapping", "version: 1\ntargets: [claude, codex, cursor]\n", "", []string{"no-force-push"}},
+		{"a local spec extends one", "", "timeout: 5\n", []string{"no-force-push", "stop-check"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := migrationFixture(t, "hooks-portable-events")
+			silence(t)
+			if tc.config != "" {
+				mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), tc.config)
+			}
+			if tc.local != "" {
+				mustWrite(t, filepath.Join(dir, ".agnostic-ai", "local", "hooks", "session-status.yaml"), tc.local)
+			}
+
+			plan, err := runCLI(t, "migrate", "--only", "hooks", "--dry-run")
+			if err != nil {
+				t.Fatalf("migrate --dry-run: %v\n%s", err, plan)
+			}
+			var rewritten []string
+			for _, line := range strings.Split(plan, "\n") {
+				if path, ok := strings.CutPrefix(line, "  would rewrite .agnostic-ai/hooks/"); ok {
+					rewritten = append(rewritten, strings.TrimSuffix(path, ".yaml"))
+				}
+			}
+			sort.Strings(rewritten)
+			suggested := lintCodeHooks(t, "LINT033")
+			if strings.Join(rewritten, ",") != strings.Join(tc.want, ",") || strings.Join(suggested, ",") != strings.Join(tc.want, ",") {
+				t.Errorf("migrate rewrites %v and lint suggests %v, want both %v", rewritten, suggested, tc.want)
+			}
+
+			if _, err := runCLI(t, "migrate", "--only", "hooks"); err != nil {
+				t.Fatal(err)
+			}
+			if left := lintCodeHooks(t, "LINT033"); len(left) > 0 {
+				t.Errorf("after migrate, lint still suggests %v", left)
+			}
+		})
+	}
+}
+
+func TestLint_PortableFormSuggestionWarnsAndNamesTheValues(t *testing.T) {
+	migrationFixture(t, "hooks-portable-events")
+	silence(t)
+
+	out, err := runCLI(t, "lint")
+	if err != nil {
+		t.Errorf("LINT033 is a warning, so lint passes: %v\n%s", err, out)
+	}
+	want := "LINT033 [warn] .agnostic-ai/hooks/no-force-push.yaml: Hook \"no-force-push\": `on: before-tool` with `match: shell` gives every target it reaches the same native hook as `event: PreToolUse` with `matcher: Bash`. Run `agnostic-ai migrate --only hooks` to rewrite it"
+	if !strings.Contains(filepath.ToSlash(out), want) {
+		t.Errorf("lint misses %q:\n%s", want, out)
+	}
+	if !strings.Contains(out, "`on: stop` gives every target it reaches the same native hook as `event: Stop`.") {
+		t.Errorf("a hook without matcher names on: alone:\n%s", out)
+	}
+	if _, err := runCLI(t, "lint", "--strict"); err == nil {
+		t.Error("lint --strict must fail on LINT033")
+	}
+}
+
+// lintCodeHooks runs `lint --json` and returns the sorted names of the
+// hook files with a finding of code.
+func lintCodeHooks(t *testing.T, code string) []string {
+	t.Helper()
+	out, _ := runCLI(t, "lint", "--json")
+	var report struct {
+		Findings []struct{ Code, Path string }
+	}
+	if err := json.Unmarshal([]byte(out), &report); err != nil {
+		t.Fatalf("lint --json: %v\n%s", err, out)
+	}
+	var names []string
+	for _, f := range report.Findings {
+		if f.Code == code {
+			names = append(names, strings.TrimSuffix(path.Base(f.Path), ".yaml"))
+		}
+	}
+	sort.Strings(names)
+	return names
 }
 
 func TestPendingMigrationHint_CountsOnlyRewritesAndActionableSkips(t *testing.T) {

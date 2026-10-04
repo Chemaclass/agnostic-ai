@@ -1,6 +1,9 @@
 package cli
 
 import (
+	"fmt"
+
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -35,4 +38,42 @@ func lintPortableHooks(hooks []spec.Entry, targets []string) []lintFinding {
 		}
 	}
 	return out
+}
+
+// lintPortableHookForms names the on: and match: for each native hook
+// the hooks-portable-events migration rewrites (LINT033, warn). A plan
+// that fails suggests nothing, since migrate then rewrites nothing, and
+// so does the global home, where migrate refuses to run.
+func lintPortableHookForms(root string, cfg *config.Config, b spec.Bundle) []lintFinding {
+	if refuseGlobalHome(root, "") != nil {
+		return nil
+	}
+	planned, _, err := planPortableHooks(root, cfg, b)
+	if err != nil {
+		return nil
+	}
+	var out []lintFinding
+	for _, p := range planned {
+		out = append(out, lintFinding{Code: "LINT033", Severity: lintWarn, Path: p.hook.Path, Message: p.form.suggestion(p.hook.Name)})
+	}
+	return out
+}
+
+// suggestion names the on: and match: that replace hook name's native
+// event: and matcher:.
+func (f portableHookForm) suggestion(name string) string {
+	native, portable := yamlPair("event", f.event), yamlPair("on", f.on)
+	if f.hasMatcher {
+		native += " with " + yamlPair("matcher", f.matcher)
+		portable += " with " + yamlPair("match", f.match)
+	}
+	return fmt.Sprintf("Hook %q: %s gives every target it reaches the same native hook as %s. Run `agnostic-ai migrate --only hooks` to rewrite it",
+		name, portable, native)
+}
+
+func yamlPair(key, value string) string {
+	if value == "" {
+		value = `""`
+	}
+	return "`" + key + ": " + value + "`"
 }

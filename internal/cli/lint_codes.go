@@ -211,6 +211,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "A hook's `on:` or `match:` holds an unknown value, mixes with `event:` or `matcher:`, names an event an enabled target it reaches does not read the same way, or names a tool kind an enabled target it reaches has no tool for, so sync leaves it out there.",
 		Fix:      "Use a value from the hooks page, keep one of `on:` and `event:`, or scope the hook away from that target with `target-exclude:`.",
 	},
+	"LINT033": {
+		Severity: lintWarn,
+		Title:    "Native hook event with an exact portable form",
+		Cause:    "A hook's `event:` and `matcher:` have a portable `on:` and `match:` that give every enabled target the hook reaches the same native event and matcher, so the portable form syncs the same files. The finding names the values. It is raised for exactly the hooks `agnostic-ai migrate --only hooks` rewrites.",
+		Fix:      "Run `agnostic-ai migrate --only hooks`, or write the `on:` and `match:` the finding names in place of `event:` and `matcher:`.",
+	},
 }
 
 type explainLintCodeOutput struct {
