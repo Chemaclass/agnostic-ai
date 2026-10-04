@@ -24,6 +24,9 @@ in this file.
   status bar, codelens, `Render current spec`, and the sync commands
   all accept it next to the legacy `agnostic.config.yaml`. When both
   exist, `agnostic-ai.yaml` wins, as it does for the CLI.
+- `Render to <target>` offers the targets sync uses: a `targets:` list
+  in `agnostic-ai.local.yaml` replaces the base list, and flow lists
+  such as `targets: [claude]` are read (#1759).
 
 ## 0.1.0 — 2026-05-13
 

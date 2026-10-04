@@ -50,6 +50,20 @@ class AgnosticAiConfigFileTest {
         assertEquals(dir, AgnosticAi.projectRoot(dir))
     }
 
+    @Test fun localOverrideTargetsReplaceTheBaseList() {
+        Files.writeString(dir.resolve("agnostic-ai.yaml"), "targets:\n  - claude\n  - codex\n")
+        assertEquals(listOf("claude", "codex"), AgnosticAi.configuredTargets(dir))
+
+        Files.writeString(dir.resolve("agnostic-ai.local.yaml"), "sources:\n  - specs\n")
+        assertEquals(listOf("claude", "codex"), AgnosticAi.configuredTargets(dir))
+
+        Files.writeString(dir.resolve("agnostic-ai.local.yaml"), "targets: [claude] # mine\n")
+        assertEquals(listOf("claude"), AgnosticAi.configuredTargets(dir))
+
+        Files.writeString(dir.resolve("agnostic-ai.local.yaml"), "targets:\n  - 'cursor'\n")
+        assertEquals(listOf("cursor"), AgnosticAi.configuredTargets(dir))
+    }
+
     @Test fun schemaAttachesToBothNamesOnly() {
         assertTrue(AgnosticAi.isConfigFileName("agnostic-ai.yaml"))
         assertTrue(AgnosticAi.isConfigFileName("agnostic.config.yaml"))

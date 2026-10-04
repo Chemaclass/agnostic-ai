@@ -9,6 +9,7 @@ import { describe, it } from "node:test";
 
 import {
   CONFIG_FILE_NAMES,
+  configuredTargets,
   findConfigFile,
   findProjectRoot,
   parseTargets,
@@ -109,6 +110,25 @@ describe("parseTargets", () => {
 
   it("returns nothing without a targets block", () => {
     assert.deepEqual(parseTargets("version: 1\n"), []);
+  });
+
+  it("reads a flow list, quotes, and trailing comments", () => {
+    assert.deepEqual(parseTargets('targets: [claude, "codex"] # mine\n'), ["claude", "codex"]);
+    assert.deepEqual(parseTargets("targets: # mine\n  - 'cursor'\n"), ["cursor"]);
+  });
+});
+
+describe("configuredTargets", () => {
+  const base = "targets:\n  - claude\n  - codex\n";
+
+  it("lets the local override's targets replace the base list", () => {
+    assert.deepEqual(configuredTargets(base, "targets: [claude]\n"), ["claude"]);
+    assert.deepEqual(configuredTargets(base, "targets:\n  - cursor\n"), ["cursor"]);
+  });
+
+  it("keeps the base list when the override sets no targets", () => {
+    assert.deepEqual(configuredTargets(base, "sources:\n  - specs\n"), ["claude", "codex"]);
+    assert.deepEqual(configuredTargets(base), ["claude", "codex"]);
   });
 });
 

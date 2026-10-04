@@ -9,6 +9,9 @@ import * as path from "path";
 
 export const CONFIG_FILE_NAMES = ["agnostic-ai.yaml", "agnostic.config.yaml"];
 
+/** The per-developer file the CLI merges over the base config. */
+export const LOCAL_OVERRIDE_FILE_NAME = "agnostic-ai.local.yaml";
+
 /** The config file in dir, preferring agnostic-ai.yaml like the CLI. */
 export function findConfigFile(
   dir: string,
@@ -52,23 +55,49 @@ export function findProjectRoot(
   }
 }
 
-/** The entries of the top-level `targets:` list in a config file. */
-export function parseTargets(text: string): string[] {
-  const targets: string[] = [];
+/**
+ * The entries of the top-level `targets:` list, in block or flow style,
+ * or undefined when the file sets no targets.
+ */
+export function parseTargetList(text: string): string[] | undefined {
+  let targets: string[] | undefined;
   let inTargets = false;
-  for (const line of text.split("\n")) {
-    if (/^targets:\s*$/.test(line)) {
-      inTargets = true;
+  for (const raw of text.split("\n")) {
+    const line = raw.replace(/\s+#.*$/, "").trimEnd();
+    const key = /^targets:(.*)$/.exec(line);
+    if (key) {
+      const value = key[1].trim();
+      targets = value.startsWith("[")
+        ? value.replace(/^\[|\]$/g, "").split(",").map(unquote).filter((t) => t !== "")
+        : [];
+      inTargets = value === "";
       continue;
     }
     if (inTargets) {
       const m = /^\s+-\s+(\S+)/.exec(line);
       if (m) {
-        targets.push(m[1]);
+        targets?.push(unquote(m[1]));
         continue;
       }
       if (/^\S/.test(line)) inTargets = false;
     }
   }
   return targets;
+}
+
+/** The entries of the top-level `targets:` list in a config file. */
+export function parseTargets(text: string): string[] {
+  return parseTargetList(text) ?? [];
+}
+
+/**
+ * The targets sync uses: a `targets:` list in the local override replaces
+ * the base list, as the CLI's merge does.
+ */
+export function configuredTargets(base: string, local?: string): string[] {
+  return (local === undefined ? undefined : parseTargetList(local)) ?? parseTargets(base);
+}
+
+function unquote(value: string): string {
+  return value.trim().replace(/^(["'])(.*)\1$/, "$2");
 }

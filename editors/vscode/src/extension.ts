@@ -32,9 +32,10 @@ import {
   whyArgs,
 } from "./provenance";
 import {
+  LOCAL_OVERRIDE_FILE_NAME,
+  configuredTargets,
   findConfigFile,
   findProjectRoot,
-  parseTargets,
   pickWorkspaceRoot,
 } from "./project";
 
@@ -213,7 +214,11 @@ async function resolveTargets(
 async function listConfiguredTargets(cwd: string): Promise<string[]> {
   const cfg = findConfigFile(cwd, fs.existsSync);
   if (!cfg) return [];
-  return parseTargets(fs.readFileSync(cfg, "utf8"));
+  const local = path.join(cwd, LOCAL_OVERRIDE_FILE_NAME);
+  return configuredTargets(
+    fs.readFileSync(cfg, "utf8"),
+    fs.existsSync(local) ? fs.readFileSync(local, "utf8") : undefined,
+  );
 }
 
 // ---------------------------------------------------------------------------

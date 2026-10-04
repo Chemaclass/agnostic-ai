@@ -24,6 +24,9 @@ object AgnosticAi {
     /** Config file names in lookup order: the CLI prefers agnostic-ai.yaml. */
     val CONFIG_FILE_NAMES = listOf("agnostic-ai.yaml", "agnostic.config.yaml")
 
+    /** The per-developer file the CLI merges over the base config. */
+    const val LOCAL_OVERRIDE_FILE_NAME = "agnostic-ai.local.yaml"
+
     /** Whether a file name is one of the config file names. */
     fun isConfigFileName(name: String): Boolean = name in CONFIG_FILE_NAMES
 
@@ -48,26 +51,46 @@ object AgnosticAi {
         return basePath
     }
 
-    /** Reads the configured targets straight from the config file without spawning a process. */
+    /**
+     * Reads the configured targets straight from the config files without
+     * spawning a process. A `targets:` list in the local override replaces
+     * the base list, as the CLI's merge does.
+     */
     fun configuredTargets(root: Path): List<String> {
         val cfg = configFile(root) ?: return emptyList()
-        val text = Files.readString(cfg)
-        val out = mutableListOf<String>()
+        val local = root.resolve(LOCAL_OVERRIDE_FILE_NAME)
+        val override = if (Files.exists(local)) parseTargetList(Files.readString(local)) else null
+        return override ?: parseTargetList(Files.readString(cfg)) ?: emptyList()
+    }
+
+    /** The top-level `targets:` list, in block or flow style, or null when the file sets none. */
+    fun parseTargetList(text: String): List<String>? {
+        var out: MutableList<String>? = null
         var inTargets = false
         for (raw in text.lineSequence()) {
-            val line = raw.trimEnd()
-            if (line.matches(Regex("""^targets:\s*$"""))) {
-                inTargets = true; continue
+            val line = raw.replace(Regex("""\s+#.*$"""), "").trimEnd()
+            val key = Regex("""^targets:(.*)$""").find(line)
+            if (key != null) {
+                val value = key.groupValues[1].trim()
+                out = if (value.startsWith("[")) {
+                    value.removePrefix("[").removeSuffix("]").split(",").map(::unquote).filter { it.isNotEmpty() }.toMutableList()
+                } else {
+                    mutableListOf()
+                }
+                inTargets = value.isEmpty()
+                continue
             }
             if (!inTargets) continue
             val match = Regex("""^\s+-\s+(\S+)""").find(line)
             if (match != null) {
-                out += match.groupValues[1]; continue
+                out?.add(unquote(match.groupValues[1])); continue
             }
             if (line.isNotEmpty() && !line.startsWith(" ") && !line.startsWith("\t")) inTargets = false
         }
         return out
     }
+
+    private fun unquote(value: String): String = value.trim().replace(Regex("""^(["'])(.*)\1$"""), "$2")
 
     /** Quick check used by the line marker to suppress non-spec files. */
     fun isInsideSpecSources(root: Path, file: VirtualFile): Boolean {
