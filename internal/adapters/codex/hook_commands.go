@@ -35,7 +35,7 @@ func HookCommands(h spec.Entry) []HookCommand {
 // specCommand is one entry of h's command as Codex runs it, before the
 // target export.
 func specCommand(h spec.Entry, raw string) string {
-	return emit.ShellHookCommand(raw, target, h.Meta)
+	return emit.WrapPortableHook(h, target, emit.ShellHookCommand(raw, target, h.Meta))
 }
 
 func specCommandWindows(h spec.Entry) string {

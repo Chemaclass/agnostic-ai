@@ -59,7 +59,6 @@ package cursor
 import (
 	"fmt"
 	"path/filepath"
-	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -258,41 +257,8 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 	if err := sess.WriteFile(path, string(raw)+"\n", dryRun); err != nil {
 		return err
 	}
-	if slices.ContainsFunc(hooks, func(h spec.Entry) bool {
-		kind, _ := h.Meta["type"].(string)
-		return h.WrapsDecision(target) && kind != "prompt" && len(hookCommands(h.Meta["command"])) > 0
-	}) {
-		if err := sess.WriteExecutableFile(decisionWrapperPath, emit.DecisionWrapper(decisionReply), dryRun); err != nil {
-			return err
-		}
-	}
 	return materializeHookScripts(sess, hooks, dryRun)
 }
-
-// decisionWrapperPath is where the wrapper for portable hooks lands.
-// Project hooks run from the project root, so the relative path resolves.
-var decisionWrapperPath = emit.HookScriptsDir(target) + "/" + emit.DecisionWrapperName
-
-// decisionReply turns a portable hook's exit code into the reply a
-// Cursor permission hook gives (cursor.com/docs/hooks). Exit 2 becomes
-// `permission: "deny"`, with stderr as user_message ("shown in client
-// when denied") and agent_message ("sent to agent when denied"): the docs
-// read exit 2 as that deny but name no message for it. Exit 0 passes a
-// JSON reply the command prints, or becomes `permission: "allow"`, since
-// a permission hook blocks on output that is not JSON. Another exit
-// stays, and Cursor fails open on it ("Hook failed, action proceeds"),
-// as Claude Code reports a non-blocking error.
-const decisionReply = `2)
-  printf '{"permission":"deny","user_message":"%s","agent_message":"%s"}\n' "$aai_msg" "$aai_msg" ;;
-0)
-  aai_reply=$(cat "$aai_out")
-  case ${aai_reply#"${aai_reply%%[![:space:]]*}"} in
-  "{"*) printf '%s\n' "$aai_reply" ;;
-  *) printf '{"permission":"allow"}\n' ;;
-  esac ;;
-*)
-  exit "$aai_status" ;;
-`
 
 // buildHooks groups hook specs by their `event` frontmatter into Cursor's
 // `hooks.<event> = [{command, matcher?}, ...]` shape. Cursor passes the
@@ -335,10 +301,7 @@ func buildHooks(hooks []spec.Entry) map[string]any {
 		// args without `'`.
 		args := emit.StringSlice(h.Meta["args"])
 		for _, cmd := range cmds {
-			command := emit.ExecFormCommand(emit.RewriteHookPath(cmd, target, h.Meta), args)
-			if h.WrapsDecision(target) {
-				command = emit.DecisionWrapperCommand(decisionWrapperPath, command)
-			}
+			command := emit.PortableHookCommand(h, target, emit.ExecFormCommand(emit.RewriteHookPath(cmd, target, h.Meta), args), rewriteHookPath)
 			entry := map[string]any{"command": command}
 			if matcher != "" {
 				entry["matcher"] = matcher
@@ -380,6 +343,11 @@ func materializeHookScripts(sess *emit.Session, hooks []spec.Entry, dryRun bool)
 		}
 	}
 	return nil
+}
+
+// rewriteHookPath maps a shared script path to Cursor's hook directory.
+func rewriteHookPath(path string) string {
+	return emit.RewriteHookPath(path, target)
 }
 
 // hookCommands normalizes a `command:` field that may be a string or a

@@ -30,6 +30,24 @@ func hookTargetExport(target string) string {
 	return "export " + HookTargetEnv + "=" + target + "; "
 }
 
+// cursorCopyGuard ends a command Cursor runs from another tool's hooks
+// file, so the hook runs once there, as Cursor's own copy. Cursor's
+// sessionStart hook sets AGNOSTIC_AI_TARGET=cursor for later hooks; any
+// other value, or none, runs the command.
+const cursorCopyGuard = `[ "$` + HookTargetEnv + `" = cursor ] && exit 0; `
+
+// GuardCursorCopy prefixes command with the Cursor copy guard.
+func GuardCursorCopy(command string) string {
+	return cursorCopyGuard + command
+}
+
+// StripCursorGuard undoes GuardCursorCopy, so an import reads back the
+// command the spec declared.
+func StripCursorGuard(command string) string {
+	stripped, _ := strings.CutPrefix(command, cursorCopyGuard)
+	return stripped
+}
+
 // WithHookTarget returns env with the target variable added. A value the
 // spec set already wins, so an author can pin or override it.
 func WithHookTarget[V any](env map[string]V, target V) map[string]V {

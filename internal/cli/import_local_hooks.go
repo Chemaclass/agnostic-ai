@@ -132,6 +132,12 @@ func hookCommandKey(target, command string, metadata ...map[string]any) string {
 		}
 	}
 	command = adapters.RewriteHookDirectories(command, target)
+	// Sync's Cursor guard and portable hook wrapper do not change which
+	// spec a handler comes from.
+	command = adapters.StripCursorGuard(command)
+	if _, inner, ok := adapters.UnwrapPortableHook(command); ok {
+		command = inner
+	}
 	if target != "" {
 		command = strings.ReplaceAll(command, "."+target+"/hooks/", "\x00hooks/")
 	}

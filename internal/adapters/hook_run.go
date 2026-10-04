@@ -33,7 +33,7 @@ func HookHandlers(cfg *config.Config, target string, h spec.Entry) ([]hookrun.Ha
 	var out []hookrun.Handler
 	switch target {
 	case "claude":
-		for _, c := range claude.CommandHandlers(h) {
+		for _, c := range claude.CommandHandlers(claude.GuardCursorCopies(cfg, []spec.Entry{h})[0]) {
 			out = append(out, hookrun.Handler{Command: c.Command, Args: c.Args, Shell: c.Shell, If: c.If, Timeout: time.Duration(c.Timeout) * time.Second})
 		}
 	case "codex":

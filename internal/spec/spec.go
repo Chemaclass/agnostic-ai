@@ -95,6 +95,10 @@ type Entry struct {
 	// PortableOn is the `on:` a hook was translated from by NativeHook,
 	// or "" for a hook written in the native form.
 	PortableOn string
+	// PortableMatch is the `match:` it was translated from, and
+	// PortableDecision whether it set `decision: stdout`.
+	PortableMatch    string
+	PortableDecision bool
 }
 
 // SkillAssetDir returns the folder whose sibling files ship with a skill,

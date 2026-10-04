@@ -890,12 +890,16 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		path := g.path(home, g.hooks)
 		hooks := b.HooksFor(target)
 		adapters.NotePortableHookGaps(target, b.Hooks)
-		hooks = adapters.WithoutWrappedHooks(target, hooks)
 		if g.hooksFormat == "augment" {
 			augment.NoteUserHookGaps(hooks)
 			hooks = slices.DeleteFunc(slices.Clone(hooks), augment.ExecFormHook)
 		}
 		scriptsDir := filepath.Join(filepath.Dir(path), "hooks")
+		if wrapper, ok := adapters.PortableHookWrapperScript(hooks, target, scriptsDir); ok {
+			if err := add(wrapper.Path, wrapper.Body, wrapper.Mode); err != nil {
+				return nil, next, err
+			}
+		}
 		for _, hook := range hooks {
 			if event, _ := hook.Meta["event"].(string); event == "" {
 				continue
@@ -1364,11 +1368,19 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 		if event == "" {
 			continue
 		}
+		args := stringSliceFromAny(entry.Meta["args"])
+		wraps := entry.WrapsCommand(target.name)
 		for _, command := range globalHookCommands(entry.Meta["command"]) {
-			if target.scriptsDir != "" {
-				command = adapters.RewriteGlobalHookPath(command, target.name, filepath.ToSlash(target.scriptsDir), entry.Meta)
-			} else {
-				command = adapters.RewriteGlobalHookRoot(command, target.name, entry.Meta)
+			rewrite := func(command string, meta ...map[string]any) string {
+				if target.scriptsDir != "" {
+					return adapters.RewriteGlobalHookPath(command, target.name, filepath.ToSlash(target.scriptsDir), meta...)
+				}
+				return adapters.RewriteGlobalHookRoot(command, target.name, meta...)
+			}
+			command = rewrite(command, entry.Meta)
+			// The wrapper runs a command line, so args fold in first.
+			if wraps {
+				command = adapters.PortableHookCommand(entry, target.name, adapters.ExecFormCommand(command, args), func(path string) string { return rewrite(path) })
 			}
 			var item, plain any
 			switch format {
@@ -1396,7 +1408,7 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 						commandHook[key] = value
 					}
 				}
-				if args := stringSliceFromAny(entry.Meta["args"]); len(args) > 0 {
+				if len(args) > 0 && !wraps {
 					switch {
 					case target.args:
 						commandHook["args"] = args
@@ -1415,7 +1427,7 @@ func mergeGlobalHooks(path, format string, target globalHookTarget, entries []sp
 				target.tell(commandHook, entry.Meta)
 				item = map[string]any{"matcher": matcher, "hooks": []any{commandHook}}
 			default:
-				if args := stringSliceFromAny(entry.Meta["args"]); target.foldArgs {
+				if target.foldArgs && !wraps {
 					command = adapters.ExecFormCommand(command, args)
 				}
 				cursorHook := map[string]any{"command": command}

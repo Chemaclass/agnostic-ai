@@ -121,6 +121,9 @@ func buildHooks(hooks []spec.Entry, scriptDirs ...string) *hooksDoc {
 		for _, command := range commands {
 			// Goose runs every command with `sh -c`, Windows included.
 			command = emit.ExecFormCommand(emit.RewriteNeutralHookPath(emit.RewriteHookRoot(command, target, hook.Meta), scriptsDir, len(args) > 0), args)
+			command = emit.PortableHookCommand(hook, target, command, func(path string) string {
+				return emit.RewriteNeutralHookPath(emit.RewriteHookRoot(path, target), scriptsDir)
+			})
 			byKey[key] = append(byKey[key], hookAction{
 				Type: "command", Command: emit.ExportHookTarget(command, target),
 				Timeout: emit.HookIntMeta(hook.Meta, "timeout"), OnFailure: onFailure,

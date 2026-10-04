@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -91,7 +92,7 @@ func TestSync_WrapsAPortableBeforeToolHookOnCursorAndCopilotOnly(t *testing.T) {
 	mustSync(t)
 
 	for path, want := range map[string]string{
-		".claude/settings.json":          `"command": "./guard.sh"`,
+		".claude/settings.json":          `"command": "[ \"$AGNOSTIC_AI_TARGET\" = cursor ] && exit 0; ./guard.sh"`,
 		".cursor/hooks.json":             `"command": ".cursor/hooks/agnostic-ai-portable-hook.sh './guard.sh'"`,
 		".github/hooks/agnostic-ai.json": `"command": ".github/hooks/scripts/agnostic-ai-portable-hook.sh './guard.sh'"`,
 	} {
@@ -213,7 +214,7 @@ func TestSyncGlobal_StopsOnAnInvalidPortableHook(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_PortableHookReachesClaudeAndNotesCursor(t *testing.T) {
+func TestSyncGlobal_PortableHookReachesClaudeAndCursor(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\non: before-tool\nmatch: shell\ncommand: 'exit 2'\n")
 	_, warnings, err := runGlobalAgentTest("--only", "claude,cursor")
@@ -223,11 +224,17 @@ func TestSyncGlobal_PortableHookReachesClaudeAndNotesCursor(t *testing.T) {
 	if got := firstGlobalHandler(t, readGlobalJSON(t, filepath.Join(home, ".claude", "settings.json")), "PreToolUse")["command"]; got != "exit 2" {
 		t.Errorf("claude PreToolUse handler = %v", got)
 	}
-	if !strings.Contains(warnings, "1 hook reaches cursor only in the source dir (sync --global writes no wrapper to turn exit 2 into the cursor deny reply; write event: for cursor)") {
-		t.Errorf("want one cursor note:\n%s", warnings)
+	wrapper := filepath.ToSlash(filepath.Join(home, ".cursor", "hooks", "agnostic-ai-portable-hook.sh"))
+	entries, _ := readGlobalJSON(t, filepath.Join(home, ".cursor", "hooks.json"))["hooks"].(map[string]any)["preToolUse"].([]any)
+	if len(entries) != 1 || entries[0].(map[string]any)["command"] != wrapper+" 'exit 2'" {
+		got := entries
+		t.Errorf("cursor preToolUse handler = %v, want it through %s", got, wrapper)
 	}
-	if _, err := os.Stat(filepath.Join(home, ".cursor", "hooks.json")); !os.IsNotExist(err) {
-		t.Errorf("an unwrapped portable hook must not reach ~/.cursor/hooks.json: %v", err)
+	if info, err := os.Stat(filepath.FromSlash(wrapper)); err != nil || runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
+		t.Errorf("wrapper = %v, %v; want an executable file", info, err)
+	}
+	if strings.Contains(warnings, "reaches cursor only in the source dir") {
+		t.Errorf("cursor gets the hook, so no note:\n%s", warnings)
 	}
 }
 
@@ -241,6 +248,10 @@ func TestPortableHookTargets_DecideLikeClaudeCode(t *testing.T) {
 		switch {
 		case target == "cline" && r.Exit == 2:
 			return hookrun.Result{Stdout: "HOOK_CONTROL\t{\"cancel\": true, \"errorMessage\": \"blocked\"}\n", Stderr: r.Stderr}
+		case target == "cursor" && on == "prompt-submit" && r.Exit == 0:
+			return hookrun.Result{Stdout: `{"continue":true}` + "\n"}
+		case target == "cursor" && on == "prompt-submit" && r.Exit == 2:
+			return hookrun.Result{Stdout: `{"continue":false,"user_message":"blocked"}` + "\n", Stderr: r.Stderr}
 		case target == "cursor" && on == "before-tool" && r.Exit == 0:
 			return hookrun.Result{Stdout: `{"permission":"allow"}` + "\n"}
 		case target == "cursor" && on == "before-tool" && r.Exit == 2:

@@ -39,7 +39,7 @@ var specKeys = []string{
 
 // hookKeys are keys only hook specs read. Short keys such as `on:` sit
 // one edit from many words, so other kinds do not count them.
-var hookKeys = []string{"on", "match"}
+var hookKeys = []string{"on", "match", "decision"}
 
 // kindKeys lists the keys a spec of kind reads.
 func kindKeys(kind spec.Kind) []string {

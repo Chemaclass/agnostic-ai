@@ -48,7 +48,7 @@ func hookHandlers(h spec.Entry) []map[string]any {
 	for _, command := range emit.HookCommands(meta["command"]) {
 		// No args field: the args fold into the command, quoted for bash,
 		// which PowerShell on Windows also reads for args without `'`.
-		handler := map[string]any{"type": "command", "command": emit.ShellHookCommand(command, target, meta)}
+		handler := map[string]any{"type": "command", "command": emit.WrapPortableHook(h, target, emit.ShellHookCommand(command, target, meta))}
 		if description, _ := meta["description"].(string); description != "" {
 			handler["description"] = description
 		}
