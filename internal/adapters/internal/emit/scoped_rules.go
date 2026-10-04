@@ -495,6 +495,9 @@ func EntryPointRules(b spec.Bundle, target string, configs ...*config.Config) sp
 			if directories, _ := codexGlobDirectories(cfg, target, resolved); len(directories) > 0 {
 				continue
 			}
+			// Several tools read one entry point, so no single tool's
+			// invocation phrase fits there.
+			r.Body, _ = ExpandRefs(r.Body, nil)
 			rules = append(rules, r)
 		}
 	}

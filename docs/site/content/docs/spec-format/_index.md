@@ -143,6 +143,27 @@ A spec body can name a directory without hardcoding one target's layout. `{{$SKI
 - **Only where the target has a dedicated surface.** Targets that flatten agents into rules (continue, trae, windsurf) or commands (gemini) declare no `{{$AGENTS_DIR}}`. Antigravity, Goose, and OpenHands resolve it to `.agents/agents`.
 - **The `$` sigil is required.** Plain `{{placeholder}}` stays untouched, so Warp workflow arguments and Handlebars or Jinja survive. Lowercase names such as `{{$skills_dir}}` do not resolve.
 
+## Agent and skill references
+
+A spec body can name another agent or skill by how each target invokes it. `{{$AGENT:reviewer}}` and `{{$SKILL:commit}}` render that target's documented phrase.
+
+```md
+Before pushing, run {{$AGENT:reviewer}}, then {{$SKILL:commit}}.
+```
+
+| Target | `{{$AGENT:reviewer}}` | `{{$SKILL:commit}}` | Source |
+|---|---|---|---|
+| claude | the reviewer subagent | /commit | [subagents](https://code.claude.com/docs/en/sub-agents#invoke-subagents-explicitly), [skills](https://code.claude.com/docs/en/skills#control-who-invokes-a-skill) |
+| codex | the reviewer agent (neutral) | $commit | [skills](https://learn.chatgpt.com/docs/build-skills.md) |
+| cursor | the reviewer subagent | /commit | [subagents](https://cursor.com/docs/subagents#explicit-invocation), [skills](https://cursor.com/docs/skills) |
+| copilot | the reviewer agent | the /commit skill | [custom agents](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/create-custom-agents-for-cli), [skills](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-skills) |
+| every other target | the reviewer agent | the commit skill | |
+
+- **Bodies only**, with the `$` sigil and an uppercase keyword, like path variables. `{{AGENT:reviewer}}` stays untouched.
+- **A target with no documented form renders a neutral phrase** and raises one coverage note. Unlike a path variable, the token does not stay verbatim: a raw `{{$AGENT:reviewer}}` reads worse to a model than plain words.
+- **A rule inlined into a shared entry point**, such as the rules block of `AGENTS.md`, renders the neutral phrase, because several tools read that file.
+- **An unknown name fails `lint`** with LINT033, which lists the known agents or skills.
+
 ## Target-specific extensions: `x-<target>` namespace
 
 Use an `x-<target>:` block for fields only one adapter reads. Other adapters strip it, so the spec stays portable.

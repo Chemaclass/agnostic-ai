@@ -172,6 +172,12 @@ func expandBundleVars(b spec.Bundle, cfg *config.Config, target string) spec.Bun
 	// how much of the project is affected, not just that it happened.
 	unresolved := map[string]int{}
 	kindOf := map[string]spec.Kind{}
+	forms := targetRefForms[target]
+	type plainRef struct {
+		keyword string
+		kind    spec.Kind
+	}
+	neutral := map[plainRef]int{}
 	expand := func(entries []spec.Entry, kind spec.Kind) []spec.Entry {
 		if len(entries) == 0 {
 			return entries
@@ -186,6 +192,11 @@ func expandBundleVars(b spec.Bundle, cfg *config.Config, target string) spec.Bun
 				if _, seen := kindOf[name]; !seen {
 					kindOf[name] = kind
 				}
+			}
+			body, plain := emit.ExpandRefs(out[i].Body, forms)
+			out[i].Body = body
+			for _, keyword := range plain {
+				neutral[plainRef{keyword, kind}]++
 			}
 		}
 		return out
@@ -205,6 +216,10 @@ func expandBundleVars(b spec.Bundle, cfg *config.Config, target string) spec.Bun
 	for name, count := range unresolved {
 		emit.NoteFieldNoOp(target, kindOf[name], "{{$"+name+"}}", count,
 			"this target has no surface for that path, so the variable is left verbatim rather than blanked")
+	}
+	for ref, count := range neutral {
+		emit.NoteFieldNoOp(target, ref.kind, "{{$"+ref.keyword+":<name>}}", count,
+			"this target documents no way to invoke one by name, so the reference renders as a plain phrase")
 	}
 	return b
 }

@@ -211,6 +211,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "A hook's `on:` or `match:` holds an unknown value, mixes with `event:` or `matcher:`, names an event an enabled target it reaches does not read the same way, or names a tool kind an enabled target it reaches has no tool for, so sync leaves it out there.",
 		Fix:      "Use a value from the hooks page, keep one of `on:` and `event:`, or scope the hook away from that target with `target-exclude:`.",
 	},
+	"LINT033": {
+		Severity: lintError,
+		Title:    "Reference to an unknown agent or skill",
+		Cause:    "A spec body holds `{{$AGENT:<name>}}` or `{{$SKILL:<name>}}`, and no agent or skill in the project has that name. Sync would render an invocation phrase that points at nothing.",
+		Fix:      "Use one of the names the finding lists, or add the agent or skill.",
+	},
 }
 
 type explainLintCodeOutput struct {
