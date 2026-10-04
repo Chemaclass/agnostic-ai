@@ -236,9 +236,10 @@ func loadGlobalLint(source string) (config.LintConfig, error) {
 
 // Remedies refuseGlobalHome offers besides pointing AGNOSTIC_AI_HOME away.
 const (
-	globalHomeSyncRemedy  = "run `agnostic-ai sync --global`"
-	globalHomeSpecsRemedy = "edit its specs by hand and run `agnostic-ai sync --global`"
-	globalHomeHookRemedy  = "run `agnostic-ai install-hook --global`"
+	globalHomeSyncRemedy    = "run `agnostic-ai sync --global`"
+	globalHomeSpecsRemedy   = "edit its specs by hand and run `agnostic-ai sync --global`"
+	globalHomeHookRemedy    = "run `agnostic-ai install-hook --global`"
+	globalHomeMigrateRemedy = "run `agnostic-ai migrate --global`"
 )
 
 // refuseGlobalHome stops a project command in the global source root or

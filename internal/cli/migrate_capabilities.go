@@ -19,15 +19,19 @@ var capabilitiesAgentToolsMigration = specMigration{
 	Group:   "capabilities",
 	Release: "0.79.0",
 	Summary: "rewrite an agent's tools: as can:, with neutral capability names",
-	Plan:    planCapabilitiesAgentTools,
+	// The plan reads the project config and layers; global agents are
+	// not planned yet.
+	ProjectOnly: true,
+	Plan:        planCapabilitiesAgentTools,
 }
 
-func planCapabilitiesAgentTools(root string) ([]migrationChange, []migrationSkip, error) {
+func planCapabilitiesAgentTools(s migrationScope) ([]migrationChange, []migrationSkip, error) {
+	root := s.root
 	cfg, b, err := loadProject(root)
 	if err != nil {
 		return nil, nil, err
 	}
-	extended, err := extendedSpecNames(root, cfg, func(lb spec.Bundle) []spec.Entry { return lb.Agents })
+	extended, err := extendedSpecNames(resolveLayers(root, cfg), func(lb spec.Bundle) []spec.Entry { return lb.Agents })
 	if err != nil {
 		return nil, nil, err
 	}
@@ -47,8 +51,8 @@ func planCapabilitiesAgentTools(root string) ([]migrationChange, []migrationSkip
 			skips = append(skips, migrationSkip{Path: a.Path, Reason: "sets both tools: and can:; keep one by hand", Actionable: true})
 			continue
 		}
-		if pack, ok := strings.CutPrefix(a.Layer, "pack:"); ok {
-			skip("comes from pack " + pack + "; its author migrates it")
+		if pack, ok := strings.CutPrefix(a.Layer, layerNamePackPrefix); ok {
+			skips = append(skips, packSkip(a.Path, pack))
 			continue
 		}
 		if extended[a.Name] {

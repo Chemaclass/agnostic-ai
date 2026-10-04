@@ -19,8 +19,11 @@ var secretsMCPLiteralsMigration = specMigration{
 	Group:   "secrets",
 	Release: "0.79.0",
 	Summary: "mark a plain MCP env or headers value !literal, and turn a credential into a ${NAME} reference",
-	Plan:    planSecretsMCPLiterals,
-	Note:    secretsMCPLiteralsNote,
+	// The plan reads the project config and layers; global MCP specs
+	// are not planned yet.
+	ProjectOnly: true,
+	Plan:        planSecretsMCPLiterals,
+	Note:        secretsMCPLiteralsNote,
 }
 
 // mcpLiteralsPlan is the migration's plan plus the variables its
@@ -40,13 +43,13 @@ type mcpLiteralsFile struct {
 	credential map[int]int
 }
 
-func planSecretsMCPLiterals(root string) ([]migrationChange, []migrationSkip, error) {
-	p, err := planMCPLiterals(root)
+func planSecretsMCPLiterals(s migrationScope) ([]migrationChange, []migrationSkip, error) {
+	p, err := planMCPLiterals(s.root)
 	return p.changes, p.skips, err
 }
 
-func secretsMCPLiteralsNote(root string) string {
-	p, err := planMCPLiterals(root)
+func secretsMCPLiteralsNote(s migrationScope) string {
+	p, err := planMCPLiterals(s.root)
 	if err != nil || len(p.variables) == 0 {
 		return ""
 	}
@@ -83,7 +86,7 @@ func planMCPLiterals(root string) (mcpLiteralsPlan, error) {
 				continue
 			}
 			if pack, ok := strings.CutPrefix(layer.Name, layerNamePackPrefix); ok {
-				plan.skips = append(plan.skips, migrationSkip{Path: e.Path, Reason: "comes from pack " + pack + "; its author migrates it"})
+				plan.skips = append(plan.skips, packSkip(e.Path, pack))
 				continue
 			}
 			if real, err := filepath.EvalSymlinks(e.Path); err != nil || !pathWithin(realRoot, real) {
