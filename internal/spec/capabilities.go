@@ -64,7 +64,7 @@ func AgentCapabilityProblem(meta map[string]any) string {
 func CapabilityTools(can []string) ([]string, string) {
 	var out []string
 	for _, c := range can {
-		names, problem := capabilityToolsOf(c)
+		names, problem := capabilityToolsOf(c, agentForm)
 		if problem != "" {
 			return nil, problem
 		}
@@ -89,24 +89,46 @@ func capabilityToolNames(raw any) ([]string, string) {
 	return CapabilityTools(can)
 }
 
-func capabilityToolsOf(c string) ([]string, string) {
+// capabilityForm is where a capability is written: the field its
+// messages name, and whether read and edit take a path pattern there.
+type capabilityForm struct {
+	field string
+	paths bool
+}
+
+var agentForm = capabilityForm{field: "can:"}
+
+// pathTools are the Claude Code rules a path pattern scopes in a
+// permission list. Claude Code checks file writes against Edit(path)
+// rules only and never consults a Write(path) rule, so write takes no
+// path: Edit(path) would also grant or deny edits.
+var pathTools = map[string]string{"read": "Read", "edit": "Edit"}
+
+func capabilityToolsOf(c string, form capabilityForm) ([]string, string) {
 	if names, ok := capabilityTools[c]; ok {
 		return slices.Clone(names), ""
 	}
-	if pattern, ok := strings.CutPrefix(c, "shell("); ok {
+	if name, pattern, scoped := strings.Cut(c, "("); scoped && (name == "shell" || form.paths && pathTools[name] != "") {
 		pattern, closed := strings.CutSuffix(pattern, ")")
 		if !closed {
-			return nil, fmt.Sprintf("can: %q is missing its closing parenthesis", c)
+			return nil, fmt.Sprintf("%s %q is missing its closing parenthesis", form.field, c)
+		}
+		if strings.TrimSpace(pattern) == "" && name == "shell" {
+			return nil, fmt.Sprintf("%s %q needs a command pattern; write shell for every command", form.field, c)
 		}
 		if strings.TrimSpace(pattern) == "" {
-			return nil, fmt.Sprintf("can: %q needs a command pattern; write shell for every command", c)
+			return nil, fmt.Sprintf("%s %q needs a path pattern; write %s for every file", form.field, c, name)
 		}
-		return []string{shellTool + "(" + pattern + ")"}, ""
+		tool := shellTool
+		if name != "shell" {
+			tool = pathTools[name]
+		}
+		return []string{tool + "(" + pattern + ")"}, ""
 	}
 	if rest, ok := strings.CutPrefix(c, mcpToolKind); ok {
 		server, tool, hasTool := strings.Cut(rest, "/")
 		if !mcpServerName.MatchString(server) || (hasTool && !mcpToolName.MatchString(tool)) {
-			return nil, fmt.Sprintf("can: %q needs an MCP server and tool name of letters, digits, _, or -", c)
+			return nil, fmt.Sprintf("%s %q needs an MCP server and tool name of letters, digits, _, or -", form.field, c)
 		}
 		if hasTool {
 			return []string{mcpToolPrefix + server + "__" + tool}, ""
@@ -117,12 +139,18 @@ func capabilityToolsOf(c string) ([]string, string) {
 		return []string{c}, ""
 	}
 	if name, _, scoped := strings.Cut(c, "("); scoped && slices.Contains(Capabilities, name) {
-		return nil, fmt.Sprintf("can: %q: only shell takes a pattern", c)
+		if !form.paths {
+			return nil, fmt.Sprintf("%s %q: only shell takes a pattern", form.field, c)
+		}
+		if name == "write" {
+			return nil, fmt.Sprintf("%s %q: Claude Code checks file writes against Edit rules only, so write takes no path; write edit(<path>), which also covers edits", form.field, c)
+		}
+		return nil, fmt.Sprintf("%s %q: only shell, read, and edit take a pattern", form.field, c)
 	}
 	if s := suggest.Name(c, Capabilities); s != "" {
-		return nil, fmt.Sprintf("unknown capability %q for can: (did you mean %s?)", c, s)
+		return nil, fmt.Sprintf("unknown capability %q for %s (did you mean %s?)", c, form.field, s)
 	}
-	return nil, fmt.Sprintf("unknown capability %q for can:; use one of %s, shell(<pattern>), mcp:<server>, or a Claude Code tool name", c, strings.Join(Capabilities, ", "))
+	return nil, fmt.Sprintf("unknown capability %q for %s; use one of %s, shell(<pattern>), mcp:<server>, or a Claude Code tool name", c, form.field, strings.Join(Capabilities, ", "))
 }
 
 // isClaudeToolAlias reports whether name reads as a Claude Code tool

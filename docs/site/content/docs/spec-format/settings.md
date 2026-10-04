@@ -30,11 +30,13 @@ Settings specs are pure YAML, one file per settings group, such as `settings/per
 ```yaml
 permissions:
   allow:
-    - Bash(go test:*)
+    - read
+    - shell(go test:*)
   deny:
-    - Bash(rm:*)
+    - shell(rm:*)
+    - edit(.env)
   ask:
-    - Bash(git push:*)
+    - shell(git push:*)
 model: claude-opus-4-8
 effort:
   claude: xhigh
@@ -94,11 +96,28 @@ Protection covers the agent's edit tools. A shell command or script that writes 
 
 ## Permission rules
 
-A rule is a bare tool name (whole tool) or `Scope(argument)`. An MCP tool is `mcp__<server>__<tool>`. `Scope()` with an empty argument is dropped, not read as the bare tool, which would widen it.
+A rule is a [capability](@/docs/spec-format/agents.md#capabilities), the same names an agent's `can:` takes. In a permission list, `read` and `edit` also take a path pattern.
 
-Keep a `Bash` wildcard at the end of an `allow` or `deny` rule.
+| Rule | Covers | Claude Code rule |
+|------|--------|------------------|
+| `read`, `read(<path>)` | Reading files, or the files that match | `Read`, `Read(<path>)` |
+| `edit`, `edit(<path>)` | Changing files, or the files that match | `Edit`, `Edit(<path>)` |
+| `write` | The write tool | `Write` |
+| `shell`, `shell(<pattern>)` | Every command, or the commands that match | `Bash`, `Bash(<pattern>)` |
+| `web` | Fetching pages and searching the web | `WebFetch` and `WebSearch` |
+| `mcp:<server>`, `mcp:<server>/<tool>` | One MCP server, or one of its tools | `mcp__<server>`, `mcp__<server>__<tool>` |
 
-- `Bash(git * main)` also approves options inserted at the `*`.
+- Each rule syncs to every target as its Claude Code rule would, byte for byte.
+- A Claude Code rule stays valid as an alias, such as `WebFetch(domain:go.dev)`. A list can mix both.
+- `write` takes no path. Claude Code checks file writes against `Edit` rules only and never consults a `Write(<path>)` rule, so write `edit(<path>)` to cover a file.
+- `validate`, `lint` (LINT036), and `sync` stop on a rule they cannot read, including one in a pack and an unquoted rule that YAML reads as a mapping, since a target would drop it.
+- `agnostic-ai migrate --only capabilities` rewrites each Claude Code rule a capability stands for alone. The rest stay as aliases, and sync writes the same files.
+
+A Claude Code rule is a bare tool name (whole tool) or `Scope(argument)`. An MCP tool is `mcp__<server>__<tool>`. `Scope()` with an empty argument is dropped, not read as the bare tool, which would widen it.
+
+Keep a `shell` wildcard at the end of an `allow` or `deny` rule.
+
+- `shell(git * main)` also approves options inserted at the `*`.
 - Claude Code matches a mid-command `*` in a `deny` rule literally, so it blocks nothing.
 
 `agnostic-ai lint` reports both as LINT009.

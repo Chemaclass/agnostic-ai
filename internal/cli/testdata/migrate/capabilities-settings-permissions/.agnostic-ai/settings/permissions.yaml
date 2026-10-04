@@ -1,0 +1,12 @@
+# Keep this comment: migrations must not reformat settings.
+permissions:
+  allow:
+    - Read                 # look anywhere
+    - 'Bash(go test:*)'
+    - Edit(src/**)
+    - WebFetch(domain:go.dev)
+  ask: [Bash(git push:*), mcp__github__create_issue]
+  deny:
+    - "Bash(rm:*)"
+    - Write(.env)
+model: sonnet

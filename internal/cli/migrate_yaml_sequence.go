@@ -131,3 +131,110 @@ func rewriteFrontmatter(src string, rewrite func(string) (string, error)) (strin
 	}
 	return delim + "\n" + front + rest[end:], nil
 }
+
+// rewriteYAMLSequenceItems replaces the items of the list at path, a
+// chain of block mapping keys from the top, that items holds by index,
+// each in the quote style it had, and leaves every other byte as
+// written. It fails, writing nothing, when the result would not decode
+// to the same document apart from those items.
+func rewriteYAMLSequenceItems(src string, path []string, items map[int]string) (string, error) {
+	var doc yaml.Node
+	if err := yaml.Unmarshal([]byte(src), &doc); err != nil {
+		return "", err
+	}
+	if doc.Kind != yaml.DocumentNode || len(doc.Content) != 1 {
+		return "", fmt.Errorf("not a block mapping")
+	}
+	node := doc.Content[0]
+	for _, key := range path {
+		if node.Kind != yaml.MappingNode || node.Style&yaml.FlowStyle != 0 || node.Anchor != "" {
+			return "", fmt.Errorf("%s: is not in a block mapping", strings.Join(path, "."))
+		}
+		_, value := topLevelPair(node, key)
+		if value == nil {
+			return "", fmt.Errorf("no key %q", strings.Join(path, "."))
+		}
+		node = value
+	}
+	if node.Kind != yaml.SequenceNode || node.Anchor != "" || node.Tag != "!!seq" {
+		return "", fmt.Errorf("%s: is not a list", strings.Join(path, "."))
+	}
+	lines := strings.SplitAfter(src, "\n")
+	type edit struct {
+		line, start, end int
+		text             string
+	}
+	var edits []edit
+	for i, item := range node.Content {
+		next, rewrite := items[i]
+		if !rewrite {
+			continue
+		}
+		if item.Kind != yaml.ScalarNode || item.Anchor != "" || item.Style&(yaml.LiteralStyle|yaml.FoldedStyle|yaml.TaggedStyle) != 0 {
+			return "", fmt.Errorf("%s: item %d is not a one-line value", strings.Join(path, "."), i+1)
+		}
+		end, ok := scalarEnd([]rune(lines[item.Line-1]), item.Column-1, item)
+		if !ok {
+			return "", fmt.Errorf("%s: item %d is not a one-line value", strings.Join(path, "."), i+1)
+		}
+		edits = append(edits, edit{item.Line, item.Column - 1, end, quoteLike(item.Style, next)})
+	}
+	slices.SortFunc(edits, func(a, b edit) int {
+		if a.line != b.line {
+			return b.line - a.line
+		}
+		return b.start - a.start
+	})
+	for _, e := range edits {
+		line := []rune(lines[e.line-1])
+		lines[e.line-1] = string(line[:e.start]) + e.text + string(line[e.end:])
+	}
+	out := strings.Join(lines, "")
+	var before, after any
+	if err := yaml.Unmarshal([]byte(src), &before); err != nil {
+		return "", err
+	}
+	if err := yaml.Unmarshal([]byte(out), &after); err != nil {
+		return "", fmt.Errorf("the rewrite does not parse: %w", err)
+	}
+	want, err := withSequenceItems(before, path, items)
+	if err != nil {
+		return "", err
+	}
+	if !reflect.DeepEqual(after, want) {
+		return "", fmt.Errorf("the rewrite changes more than %s", strings.Join(path, "."))
+	}
+	return out, nil
+}
+
+// withSequenceItems returns doc with the items of the list at path
+// replaced, without changing doc.
+func withSequenceItems(doc any, path []string, items map[int]string) (any, error) {
+	if len(path) == 0 {
+		list, ok := doc.([]any)
+		if !ok {
+			return nil, fmt.Errorf("not a list")
+		}
+		list = slices.Clone(list)
+		for i, v := range items {
+			if i < len(list) {
+				list[i] = v
+			}
+		}
+		return list, nil
+	}
+	m, ok := doc.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("not a mapping")
+	}
+	inner, err := withSequenceItems(m[path[0]], path[1:], items)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	out[path[0]] = inner
+	return out, nil
+}
