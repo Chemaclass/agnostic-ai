@@ -101,4 +101,3 @@ func (e Entry) NativePermissions() Entry {
 	e.Meta = meta
 	return e
 }
-
