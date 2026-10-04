@@ -39,7 +39,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - A hook `commandWindows` keeps the project root path, so a script under the project runs from any subdirectory (#1732).
 - A grouped hook matcher such as `^(Bash|exec)$` no longer gets a false "does not match" note, and specs sharing a command merge validly (#1743).
-- With `exec-policies-from-permissions`, an exact allow such as `Bash(git push)` is no longer written as a prefix rule that also allows extra arguments; a note names it, and `on-unsupported: error` fails (#1803).
+- Codex skips exact allows that would grant extra arguments; `on-unsupported: error` fails. Use `Bash(git push:*)` to allow the prefix (#1808).
 
 #### Copilot
 
@@ -54,8 +54,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Kilo Code
 
-- An `Edit` deny or ask rule, such as `edit(.env)`, also denies Kilo's separate `write` permission, so the file is not writable (#1803).
-- Each tool's permission patterns go allow, then ask, then deny, so a narrower allow no longer bypasses a broader deny or ask, as Claude Code decides (#1803).
+- An `Edit` deny or ask rule also restricts Kilo's separate `write` permission (#1808).
+- Kilo writes allow, then ask, then deny patterns, so overlapping rules keep the strictest action (#1808).
 
 #### Kiro
 
