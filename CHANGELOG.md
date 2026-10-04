@@ -38,10 +38,9 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Codex
 
-- An exact shell allow translated to a command prefix now fails with `on-unsupported: error`, since extra arguments match too (#1803).
-
 - A hook `commandWindows` keeps the project root path, so a script under the project runs from any subdirectory (#1732).
 - A grouped hook matcher such as `^(Bash|exec)$` no longer gets a false "does not match" note, and specs sharing a command merge validly (#1743).
+- Codex skips exact allows that would grant extra arguments; `on-unsupported: error` fails. Use `Bash(git push:*)` to allow the prefix (#1808).
 
 #### Copilot
 
@@ -56,7 +55,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Kilo Code
 
-- A scoped edit deny also denies `write` for the same path, so a separate write allow cannot bypass it (#1803).
+- An `Edit` deny or ask rule also restricts Kilo's separate `write` permission (#1808).
+- Kilo writes allow, then ask, then deny patterns, so overlapping rules keep the strictest action (#1808).
 
 #### Kiro
 

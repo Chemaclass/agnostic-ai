@@ -42,7 +42,7 @@ outputs:
   claude:
     settings:
       permissions:
-        allow: ["Bash(npm run check)", "Bash(npx vitest run:*)", "Bash(git diff:*)"]
+        allow: ["Bash(npm run check:*)", "Bash(npx vitest run:*)", "Bash(git diff:*)"]
 `
 	must(t, os.MkdirAll(filepath.Join(dir, ".agnostic-ai/settings"), 0o755))
 	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/settings/security.yaml"), []byte("name: security\npermissions:\n  deny: [\"Bash(rm -rf:*)\"]\n  ask: [\"Bash(git push:*)\"]\n"), 0o644))
@@ -63,7 +63,7 @@ outputs:
 	if out, err := run("sync", "--check"); err != nil {
 		t.Fatalf("check after sync: %v\n%s", err, out)
 	}
-	unsupported := strings.Replace(cfg, "Bash(npm run check)", "Bash(npm * check)", 1) + "on-unsupported: error\n"
+	unsupported := strings.Replace(cfg, "Bash(npm run check:*)", "Bash(npm * check)", 1) + "on-unsupported: error\n"
 	must(t, os.WriteFile(configPath, []byte(unsupported), 0o644))
 	if out, err := run("sync"); err == nil || !strings.Contains(out, "Bash(npm * check)") || !strings.Contains(out, "agnostic-ai.yaml") {
 		t.Errorf("unsupported rule should fail and name its source: %v\n%s", err, out)

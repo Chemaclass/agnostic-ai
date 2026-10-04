@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -8,9 +9,9 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-func (Adapter) TranslatePermission(_ string, rule string) ([]string, bool) {
+func (Adapter) TranslatePermission(list string, rule string) ([]string, bool) {
 	pattern, ok := bashPermissionPrefix(rule)
-	if !ok {
+	if !ok || list == "allow" && isExactBashRule(rule) {
 		return nil, false
 	}
 	return []string{"prefix_rule(" + strings.Join(pattern, " ") + ")"}, true
@@ -42,21 +43,21 @@ func (Adapter) TranslatePermissionContext(list, rule string, _ spec.Entry, setti
 	if !ok {
 		return emit.CapabilityTranslation{}
 	}
-	var policies, wildcards []config.CodexExecPolicy
-	for _, candidate := range permissionRules(settings, cfg) {
-		command, valid := bashPermissionPrefix(candidate.rule)
-		if !valid {
-			continue
-		}
-		policy := config.CodexExecPolicy{Pattern: command, Decision: permissionDecision(candidate.list)}
-		policies = append(policies, policy)
-		if !isExactBashRule(candidate.rule) {
-			wildcards = append(wildcards, policy)
-		}
+	view := *cfg
+	view.OnUnsupported = emit.OnUnsupportedSilent
+	policies, _, err := resolveExecPolicies(settings, &view)
+	if err != nil {
+		return emit.CapabilityTranslation{}
 	}
-	result := emit.CapabilityTranslation{Native: []string{"prefix_rule(" + strings.Join(pattern, " ") + ")"}, Supported: true}
-	if list == "allow" && isExactBashRule(rule) && prefixDecision(policies, pattern) == "allow" && prefixDecision(wildcards, pattern) != "allow" {
-		result.Widening = []string{"Codex exec policies match command prefixes, so extra arguments are also allowed"}
+	present := slices.ContainsFunc(policies, func(policy config.CodexExecPolicy) bool {
+		return policy.Decision == permissionDecision(list) && slices.Equal(policy.Pattern, pattern)
+	})
+	if !present {
+		result := emit.CapabilityTranslation{}
+		if list == "allow" && isExactBashRule(rule) {
+			result.Widening = []string{"Exact allow is not written: Codex command prefixes also allow extra arguments"}
+		}
+		return result
 	}
-	return result
+	return emit.CapabilityTranslation{Native: []string{"prefix_rule(" + strings.Join(pattern, " ") + ")"}, Supported: true}
 }

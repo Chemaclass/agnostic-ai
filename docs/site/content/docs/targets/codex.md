@@ -198,7 +198,7 @@ outputs:
     settings:
       permissions:
         allow:
-          - Bash(npm run check)
+          - Bash(npm run check:*)
           - Bash(npx vitest run:*)
           - Bash(git diff:*)
   codex:
@@ -207,17 +207,17 @@ outputs:
 
 This writes three `prefix_rule` entries. `Bash(a b c)`, `Bash(a b c *)`, and `Bash(a b c:*)` all become `pattern = ["a", "b", "c"]`. `allow`, `deny`, and `ask` become `allow`, `forbidden`, and `prompt`.
 
-Translation is opt-in because Codex has no exact-match rule. A prefix matches extra arguments, even from a bare rule without `:*`. Claude Code allows `Bash(git push)` only as a bare `git push`, but Codex also allows `git push --force origin main`. Translation covers a subset of command prefixes, not exact Claude permission equivalence.
+Codex has no exact-match rule. A prefix matches extra arguments, even from a bare rule without `:*`. Claude Code allows `Bash(git push)` only as a bare `git push`, but a `git push` prefix rule would also allow `git push --force origin main`. Translation covers a subset of command prefixes, not exact Claude permission equivalence.
 
 Codex rules govern requests to run outside the sandbox. An `allow` match runs the command without asking, outside the sandbox when every segment matches an `allow` rule. Project rules load only in a trusted project config layer.
 
-Sync names each exact `allow` rule that Codex widens, with its source:
+So sync leaves out an exact `allow` rule that Codex would widen, and names it with its source:
 
 ```text
-note: codex: agnostic-ai.yaml: permissions.allow rule Bash(git push) becomes a Codex prefix rule, so Codex also allows `git push` with extra arguments; add a deny or ask rule for arguments that need review
+note: codex: agnostic-ai.yaml: permissions.allow rule Bash(git push) is not written: Codex has no exact-match rule, and a `git push` prefix rule also allows extra arguments; write Bash(git push:*) to allow them, or use outputs.codex.exec-policies
 ```
 
-A deny or ask rule on the same or a shorter prefix silences the note, as does a wildcard `allow` such as `Bash(git:*)` that already allows the extra arguments in Claude Code. `on-unsupported: error` fails on this widening; `silent` omits the note. Exact `deny` and `ask` rules only get stricter as a prefix, so they raise no note.
+The rule is written when a deny or ask rule on the same or a shorter prefix already decides every command it would match, or when a wildcard `allow` such as `Bash(git:*)` already allows the extra arguments in Claude Code. `on-unsupported: error` fails on a left-out rule; `silent` omits the note. Exact `deny` and `ask` rules only get stricter as a prefix, so they are always written.
 
 Only plain, unquoted words translate. A Bash rule with quotes, escapes, a `*` other than one trailing ` *` or `:*`, shell operators, expansions, assignments, or shell keywords gets a coverage note naming the rule and source. `on-unsupported: error` fails on it; `silent` omits it. Rules for other tools, such as `Read(.env)` or `WebFetch`, share one `permissions` coverage note and never fail the sync. Use explicit `exec-policies` for a command that cannot translate.
 

@@ -20,8 +20,8 @@
     },
     "write": {
       "*": "allow",
-      ".env": "deny",
-      ".env*": "ask"
+      ".env*": "ask",
+      ".env": "deny"
     }
   }
 }

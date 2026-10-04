@@ -30,14 +30,14 @@ func (Adapter) TranslatePermission(list, rule string) ([]string, bool) {
 	if !ok {
 		return nil, false
 	}
-	native := tool
-	if pattern != "*" {
-		native += "(" + pattern + ")"
+	var out []string
+	for _, key := range restrictedKeys(tool, list) {
+		if pattern != "*" {
+			key += "(" + pattern + ")"
+		}
+		out = append(out, key)
 	}
-	out := []string{native}
-	if scope, _, scoped := spec.SplitPermissionRule(rule); scoped && scope == "Edit" && list == "deny" {
-		out = append(out, "write("+pattern+")")
-	}
+
 	return out, true
 }
 

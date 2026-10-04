@@ -231,3 +231,48 @@ func TestExplainCapabilities_CodexNativeToolMapMatchesEmission(t *testing.T) {
 		t.Errorf("native Codex tool table absent: %+v", files)
 	}
 }
+
+func TestExplainCapabilities_CodexDroppedExactAllowHasNoNativePrefix(t *testing.T) {
+	entry := spec.Entry{Kind: spec.KindSettings, Name: "policy", Path: "settings/policy.yaml", Meta: map[string]any{"permissions": map[string]any{"allow": []any{"shell(git push)"}}}}
+	cfg := &config.Config{Targets: []string{"codex"}, OnUnsupported: "silent", Outputs: map[string]config.Output{"codex": {ExecPoliciesFromPermissions: true}}}
+	got := explainCapabilities(entry, cfg, entry)
+	if len(got) != 1 || got[0].Supported || len(got[0].Native) != 0 || len(got[0].Widening) == 0 {
+		t.Errorf("dropped exact allow=%+v,want unsupported with no native prefix and widening reason", got)
+	}
+	translated := adapters.TranslatePermissionCapability("codex", "allow", "shell(git push)", cfg)
+	if translated.Supported || len(translated.Native) != 0 {
+		t.Errorf("context-free exact allow=%+v,want unsupported", translated)
+	}
+	adapter, err := adapters.Resolve("codex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	files, err := captureEmit(adapter, spec.Bundle{Settings: []spec.Entry{entry}}, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range files {
+		if strings.Contains(file.Content, "prefix_rule(pattern = [\"git\", \"push\"]") {
+			t.Errorf("dropped exact allow still emits prefix: %s", file.Content)
+		}
+	}
+}
+
+func TestExplainCapabilities_CodexCoveredExactAllowKeepsNativePrefix(t *testing.T) {
+	cases := []struct{ list, rule string }{
+		{"deny", "shell(git *)"},
+		{"ask", "shell(git *)"},
+		{"allow", "shell(git *)"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.list, func(t *testing.T) {
+			entry := spec.Entry{Kind: spec.KindSettings, Name: "policy", Path: "settings/policy.yaml", Meta: map[string]any{"permissions": map[string]any{"allow": []any{"shell(git push)"}}}}
+			covering := spec.Entry{Kind: spec.KindSettings, Name: "covering", Path: "settings/covering.yaml", Meta: map[string]any{"permissions": map[string]any{tc.list: []any{tc.rule}}}}
+			cfg := &config.Config{Targets: []string{"codex"}, OnUnsupported: "silent", Outputs: map[string]config.Output{"codex": {ExecPoliciesFromPermissions: true}}}
+			got := explainCapabilities(entry, cfg, entry, covering)
+			if len(got) != 1 || !got[0].Supported || len(got[0].Native) == 0 || len(got[0].Widening) != 0 {
+				t.Errorf("covered exact allow=%+v,want supported prefix without widening", got)
+			}
+		})
+	}
+}
