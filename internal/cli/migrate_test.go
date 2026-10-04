@@ -169,7 +169,7 @@ func TestRedactMigrationLines_HidesSecretsAndKeepsReferences(t *testing.T) {
 		"env:",
 		"  GITHUB_TOKEN: <redacted>",
 		"  API_KEY: ${API_KEY}",
-		"  NODE_ENV: production",
+		"  NODE_ENV: <redacted>",
 		"  - <redacted>",
 		"url: <redacted>",
 		"password: <redacted>",

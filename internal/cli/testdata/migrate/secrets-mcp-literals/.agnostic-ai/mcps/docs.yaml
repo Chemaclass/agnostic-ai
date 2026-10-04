@@ -1,0 +1,4 @@
+name: docs
+type: http
+url: https://docs.example.com/mcp
+headers: {X-Mode: fast, Authorization: "Bearer ${DOCS_TOKEN}"}
