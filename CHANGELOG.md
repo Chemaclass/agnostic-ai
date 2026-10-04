@@ -12,6 +12,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `hook run` uses Git Bash for Claude Code hooks on Windows and shows a command's timeout or error even when another's result is not counted (#1746, #1728).
 - Hooks take portable `on:` and `match:` on 12 tools, and `import` skips the native hooks a shared hook spec already syncs; `migrate` rewrites old spec forms, output unchanged, and `doctor` names them (#1755, #1752, #1768).
 - Hook `args` now reach the command on 12 more tools, folded in and shell-quoted, and `import` matches them; Augment skips such a hook with a note (#1780).
+- `import` matches hooks by exactly what sync writes, keeping Crush script hooks shared; a hook's `x-<target>` `command` and `args` apply on every tool (#1784).
 - `init --demo` seeds a `no-force-push` guard, `new agent` omits `model`, and `lint` warns (LINT031) on a leftover `TODO` description (#1732, #1738, #1739).
 - Spec bodies can name an agent or skill with `{{$AGENT:name}}` and `{{$SKILL:name}}`, which render each tool's documented invocation phrase; `lint` fails (LINT033) on an unknown name (#1773).
 

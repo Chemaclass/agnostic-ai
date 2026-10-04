@@ -255,3 +255,68 @@ func TestImport_SkipsAGeminiHandlerGroupBesideTopLevelArgs(t *testing.T) {
 
 	assertOnlySharedHook(t, hook, importCapturing(t, "gemini"))
 }
+
+// Crush runs a synced script by its ./ path, and import reads that path
+// back as the shared spec's, with or without args.
+func TestImport_SkipsSharedCrushHooksThatRunASyncedScript(t *testing.T) {
+	for name, hook := range map[string]string{
+		"plain":  "name: sh\nevent: PreToolUse\ncommand: .agnostic-ai/scripts/guard.sh\n",
+		"args":   "name: sh\nevent: PreToolUse\ncommand: .agnostic-ai/scripts/guard.sh\nargs: [--strict]\n",
+		"quoted": "name: sh\nevent: PreToolUse\ncommand: .agnostic-ai/scripts/prüfen.sh\nargs: [--strict]\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			testutil.TempCwd(t)
+			writeFile(t, filepath.Join(".agnostic-ai", "scripts", "guard.sh"), "#!/bin/sh\nexit 0\n")
+			writeFile(t, filepath.Join(".agnostic-ai", "scripts", "prüfen.sh"), "#!/bin/sh\nexit 0\n")
+			syncSharedHookIn(t, "crush", hook)
+
+			assertOnlySharedHook(t, hook, importCapturing(t, "crush"))
+		})
+	}
+}
+
+// An `x-<target>` override of command and args applies to both, and
+// import matches what sync wrote.
+func TestImport_SkipsASharedHookWithATargetOverride(t *testing.T) {
+	hook := "name: sh\nevent: PreToolUse\nmatcher: Execute\ncommand: echo\nargs: [base]\nx-factory:\n  command: printf\n  args: [target]\n"
+	syncSharedHook(t, "factory", hook)
+	data, err := os.ReadFile(filepath.Join(".factory", "hooks.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"command": "printf 'target'"`) {
+		t.Errorf("want the override's command and args:\n%s", data)
+	}
+
+	assertOnlySharedHook(t, hook, importCapturing(t, "factory"))
+}
+
+// A native hook that differs from a shared one only in the hooks
+// directory its argument names is a different hook, so import keeps it.
+func TestImport_KeepsANativeHookNamingAnotherHooksDirectory(t *testing.T) {
+	hook := "name: sh\nevent: PreToolUse\nmatcher: Bash\ncommand: cat\nargs: [.agnostic-ai/scripts/policy.json]\n"
+	cases := []struct{ target, path, native string }{
+		{"claude", filepath.Join(".claude", "settings.json"),
+			`{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"cat","args":[".agnostic-ai/scripts/policy.json"]},{"type":"command","command":"cat","args":[".claude/hooks/policy.json"]}]}]}}`},
+		{"trae", filepath.Join(".trae", "hooks.json"),
+			`{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"cat '.agnostic-ai/scripts/policy.json'"},{"type":"command","command":"cat '.claude/hooks/policy.json'"}]}]}}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.target, func(t *testing.T) {
+			syncSharedHook(t, tc.target, hook)
+			writeFile(t, tc.path, tc.native)
+
+			importCapturing(t, tc.target)
+
+			files := sharedHookFiles(t)
+			if len(files) != 2 || files["sh.yaml"] != hook {
+				t.Fatalf("want sh.yaml and the native hook, got %v", files)
+			}
+			for name, data := range files {
+				if name != "sh.yaml" && !strings.Contains(data, ".claude/hooks/policy.json") {
+					t.Errorf("%s: want the native hook:\n%s", name, data)
+				}
+			}
+		})
+	}
+}

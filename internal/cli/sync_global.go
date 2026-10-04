@@ -888,7 +888,7 @@ func buildGlobalWrites(home, source string, targets []string, intro []byte, b sp
 		}
 		next.Hooks[target] = map[string][]any{}
 		path := g.path(home, g.hooks)
-		hooks := b.HooksFor(target)
+		hooks := adapters.TargetHooks(target, b.HooksFor(target))
 		adapters.NotePortableHookGaps(target, b.Hooks)
 		if g.hooksFormat == "augment" {
 			augment.NoteUserHookGaps(hooks)
