@@ -147,7 +147,14 @@ func ValidateScopedRules(cfg *config.Config, b spec.Bundle, requested []string) 
 // matches what cursor writes to BUGBOT.md. Nil unless the project, or
 // this run, syncs codex.
 func ReviewSections(b spec.Bundle, cfg *config.Config, requested ...string) map[string]string {
-	return emit.ReviewSections(expandBundleVars(b.For("codex"), cfg, "codex"), cfg, requested...)
+	b = b.For("codex")
+	// The sections land in AGENTS.md, which other tools read too, so
+	// references take the neutral phrase rather than codex's.
+	b.Reviews = slices.Clone(b.Reviews)
+	for i := range b.Reviews {
+		b.Reviews[i].Body, _ = emit.ExpandRefs(b.Reviews[i].Body, nil)
+	}
+	return emit.ReviewSections(expandBundleVars(b, cfg, "codex"), cfg, requested...)
 }
 
 // AppendReviewSection returns body with the review section appended.

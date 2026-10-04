@@ -301,6 +301,16 @@ jev_request() {
     }'
 }
 
+# jev_fatal <fail file> <fatal file> publishes a fatal failure. Jobs run in
+# parallel and can fail together. GNU cp creates a missing target
+# exclusively, so of two cps onto <fatal file> one fails with EEXIST, and a
+# job that fails under set -e skips its cleanup and leaves its error body as
+# a response. Each job renames a private copy into place, which is atomic.
+jev_fatal() {
+  local tmp="$2.${1##*/}"
+  cp "$1" "$tmp" && mv -f "$tmp" "$2" || true
+}
+
 # jev_post <request> <response> <fail file> <fatal file> sends one request,
 # retrying 429, 5xx, and no answer with a linear backoff. A failure that
 # will hit every request (no response, 401, 403, retries spent) also writes
@@ -333,11 +343,11 @@ jev_post() {
         else
           printf 'HTTP %s after %d tries' "$code" "$try" >"$fail"
         fi
-        cp "$fail" "$fatal"
+        jev_fatal "$fail" "$fatal"
         ;;
       401 | 403)
         printf 'HTTP %s' "$code" >"$fail"
-        cp "$fail" "$fatal"
+        jev_fatal "$fail" "$fatal"
         ;;
       *)
         printf 'HTTP %s' "$code" >"$fail"

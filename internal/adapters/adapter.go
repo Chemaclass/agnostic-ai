@@ -542,6 +542,7 @@ func RuleInEntryPoint(cfg *config.Config, b spec.Bundle, target string, r spec.E
 	vals := varsFor(cfg, target)
 	for i := range own {
 		own[i].Body, _ = emit.ExpandVars(own[i].Body, vals)
+		own[i].Body, _ = emit.ExpandRefs(own[i].Body, emit.RefForms[target])
 	}
 	for _, skipped := range entryPointRules(cfg, b, target, own) {
 		if skipped.Name == r.Name {

@@ -1,6 +1,9 @@
 package adapters
 
 import (
+	"path/filepath"
+	"slices"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -172,9 +175,26 @@ func expandBundleVars(b spec.Bundle, cfg *config.Config, target string) spec.Bun
 	// how much of the project is affected, not just that it happened.
 	unresolved := map[string]int{}
 	kindOf := map[string]spec.Kind{}
+	forms := emit.RefForms[target]
+	var emits []spec.Kind
+	if a, ok := Get(target); ok {
+		emits = a.Capabilities()
+	}
+	type plainRef struct {
+		keyword string
+		kind    spec.Kind
+	}
+	neutral := map[plainRef]int{}
 	expand := func(entries []spec.Entry, kind spec.Kind) []spec.Entry {
+		// A rule keeps its references until emit.PrepareScopedDocuments
+		// knows whether it lands in a document other tools share.
+		keepRefs := kind == spec.KindRule
 		if len(entries) == 0 {
 			return entries
+		}
+		kindForms := forms
+		if sharesKindDir(cfg, target, kind, vals) {
+			kindForms = nil
 		}
 		out := make([]spec.Entry, len(entries))
 		copy(out, entries)
@@ -186,6 +206,21 @@ func expandBundleVars(b spec.Bundle, cfg *config.Config, target string) spec.Bun
 				if _, seen := kindOf[name]; !seen {
 					kindOf[name] = kind
 				}
+			}
+			expanded, plain := emit.ExpandRefs(out[i].Body, kindForms)
+			if !keepRefs {
+				out[i].Body = expanded
+			}
+			if !slices.Contains(emits, kind) {
+				continue
+			}
+			// A target with no rules directory reads its rules from an
+			// entry point, where references take the neutral phrase.
+			if kind == spec.KindRule && targetVarPaths[target][emit.VarRulesDir] == "" {
+				plain = refKeywords(out[i].Body)
+			}
+			for _, keyword := range plain {
+				neutral[plainRef{keyword, kind}]++
 			}
 		}
 		return out
@@ -206,5 +241,47 @@ func expandBundleVars(b spec.Bundle, cfg *config.Config, target string) spec.Bun
 		emit.NoteFieldNoOp(target, kindOf[name], "{{$"+name+"}}", count,
 			"this target has no surface for that path, so the variable is left verbatim rather than blanked")
 	}
+	for ref, count := range neutral {
+		emit.NoteFieldNoOp(target, ref.kind, "{{$"+ref.keyword+":<name>}}", count,
+			emit.SharedRefReason)
+	}
 	return b
+}
+
+// kindDirVars names the variable for the directory each kind lands in.
+var kindDirVars = map[spec.Kind]string{
+	spec.KindSkill:   emit.VarSkillsDir,
+	spec.KindAgent:   emit.VarAgentsDir,
+	spec.KindCommand: emit.VarCommandsDir,
+}
+
+// sharesKindDir reports whether another configured target writes kind to
+// the same directory as target. Both write one file there, so it takes
+// the neutral phrase rather than either tool's own.
+func sharesKindDir(cfg *config.Config, target string, kind spec.Kind, vals map[string]string) bool {
+	name, ok := kindDirVars[kind]
+	if !ok || cfg == nil || vals[name] == "" {
+		return false
+	}
+	dir := filepath.Clean(vals[name])
+	for _, t := range cfg.Targets {
+		if t != target && filepath.Clean(varsFor(cfg, t)[name]) == dir {
+			return true
+		}
+	}
+	return false
+}
+
+// refKeywords returns the distinct reference keywords in body, sorted.
+func refKeywords(body string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, ref := range BodyRefs(body) {
+		if !seen[ref.Keyword] {
+			seen[ref.Keyword] = true
+			out = append(out, ref.Keyword)
+		}
+	}
+	slices.Sort(out)
+	return out
 }

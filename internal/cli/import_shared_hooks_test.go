@@ -201,3 +201,45 @@ func TestImport_FailsWhenTheSharedHooksDoNotLoad(t *testing.T) {
 		t.Fatalf("want a shared hook load error, got err=%v\n%s", err, out)
 	}
 }
+
+// Exec-form args are part of a handler where the target writes them:
+// some fold them into the command, Claude Code keeps them beside it, and
+// the rest drop them (#1775).
+func TestImport_SkipsSharedHooksWithArgs(t *testing.T) {
+	hook := "name: sh\nevent: PreToolUse\nmatcher: Bash\ncommand: echo\nargs: [shared, two words]\n"
+	for _, target := range []string{"claude", "codex", "copilot", "crush", "factory", "gemini", "goose", "kiro", "openhands", "trae", "windsurf"} {
+		t.Run(target, func(t *testing.T) {
+			syncSharedHook(t, target, hook)
+
+			assertOnlySharedHook(t, hook, importCapturing(t, target))
+		})
+	}
+}
+
+func TestImport_KeepsANativeClaudeHookWithOtherArgs(t *testing.T) {
+	hook := "name: sh\nevent: PreToolUse\nmatcher: Bash\ncommand: echo\nargs: [shared]\n"
+	syncSharedHook(t, "claude", hook)
+	writeFile(t, filepath.Join(".claude", "settings.json"),
+		`{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"echo","args":["shared"]},{"type":"command","command":"echo","args":["native"]}]}]}}`)
+
+	importCapturing(t, "claude")
+
+	files := sharedHookFiles(t)
+	if len(files) != 2 || files["sh.yaml"] != hook {
+		t.Fatalf("want sh.yaml and the native hook, got %v", files)
+	}
+	for name, data := range files {
+		if name != "sh.yaml" && !strings.Contains(data, "native") {
+			t.Errorf("%s: want the native args:\n%s", name, data)
+		}
+	}
+}
+
+// Gemini emits an x-gemini handler group as written, without the
+// spec's top-level args.
+func TestImport_SkipsAGeminiHandlerGroupBesideTopLevelArgs(t *testing.T) {
+	hook := "name: sh\nevent: BeforeTool\nmatcher: run_shell_command\nargs: [a]\nx-gemini:\n  hooks:\n    - type: command\n      command: echo one\n"
+	syncSharedHook(t, "gemini", hook)
+
+	assertOnlySharedHook(t, hook, importCapturing(t, "gemini"))
+}
