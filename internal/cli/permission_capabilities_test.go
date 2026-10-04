@@ -54,13 +54,18 @@ func TestSync_StopsOnAPermissionCapabilityItCannotRead(t *testing.T) {
 		{"write(.env)", `permissions.deny: "write(.env)": Claude Code checks file writes against Edit rules only`},
 		{"read()", `permissions.deny: "read()" needs a path pattern`},
 		{"web(go.dev)", `permissions.deny: "web(go.dev)": only shell, read, and edit take a pattern`},
+		{"shell(curl -H Authorization: x)", "permissions.deny: entry map[shell(curl -H Authorization:x)] is not a rule"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.rule, func(t *testing.T) {
 			dir := testutil.TempCwd(t)
 			silence(t)
 			mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
-			mustWrite(t, filepath.Join(dir, ".agnostic-ai", "settings", "p.yaml"), "permissions:\n  deny: ['"+tc.rule+"']\n")
+			rule := "'" + tc.rule + "'"
+			if strings.Contains(tc.rule, ": ") {
+				rule = tc.rule
+			}
+			mustWrite(t, filepath.Join(dir, ".agnostic-ai", "settings", "p.yaml"), "permissions:\n  deny:\n    - "+rule+"\n")
 			if out, err := runCLI(t, "sync", "--gitignore=off"); err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Errorf("sync: %v\n%s", err, out)
 			}
@@ -122,5 +127,18 @@ func TestMigrate_CapabilitiesRewritesPermissionRulesInPlace(t *testing.T) {
 		"model: sonnet\n"
 	if string(got) != want {
 		t.Errorf("permissions.yaml =\n%s\nwant:\n%s", got, want)
+	}
+}
+
+// A pack's permission rule a target would drop stops sync too, since the
+// lost rule may be a deny.
+func TestSync_StopsOnAPackPermissionItCannotRead(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	silence(t)
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "packs", "p", "settings", "p.yaml"), "permissions:\n  allow: [edit]\n  deny: ['edit(.env']\n")
+	mustWrite(t, filepath.Join(dir, "agnostic.packs.lock"), "version: 1\npacks:\n  - name: p\n")
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [opencode]\n")
+	if out, err := runCLI(t, "sync", "--gitignore=off"); err == nil || !strings.Contains(err.Error(), "is missing its closing parenthesis") {
+		t.Errorf("sync: %v\n%s", err, out)
 	}
 }

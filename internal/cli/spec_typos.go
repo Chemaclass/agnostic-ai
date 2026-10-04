@@ -76,12 +76,13 @@ func agentSkillTypos(b spec.Bundle) []validationIssue {
 // stopOnSpecTypos stops a sync on a hook event typo, an invalid portable
 // hook, or an agent `can:` or permission rule it cannot read, before it
 // is written into every tool's files. Pack specs are not the user's to
-// edit, so validate reports them.
+// edit, so validate reports them, except a permission rule: a target
+// drops one it cannot read, so a lost deny rule would widen access.
 func stopOnSpecTypos(b spec.Bundle, targets []string) error {
 	own := ownSpecs(b)
 	issues := append(hookEventTypos(own, targets), portableHookProblems(own.Hooks)...)
 	issues = append(issues, agentCapabilityIssues(own.Agents)...)
-	return stopOnIssues(append(issues, permissionCapabilityIssues(own.Settings)...))
+	return stopOnIssues(append(issues, permissionCapabilityIssues(b.Settings)...))
 }
 
 // permissionCapabilityIssues reports each settings permission rule
@@ -142,7 +143,7 @@ func stopOnIssues(issues []validationIssue) error {
 	return fmt.Errorf("%s", strings.Join(lines, "\n"))
 }
 
-// ownSpecs keeps the hooks, agents, and settings outside packs, with every skill an
+// ownSpecs keeps the hooks and agents outside packs, with every skill an
 // agent may name.
 func ownSpecs(b spec.Bundle) spec.Bundle {
 	own := spec.Bundle{Skills: b.Skills}
@@ -154,11 +155,6 @@ func ownSpecs(b spec.Bundle) spec.Bundle {
 	for _, e := range b.Agents {
 		if !strings.HasPrefix(e.Layer, "pack:") {
 			own.Agents = append(own.Agents, e)
-		}
-	}
-	for _, e := range b.Settings {
-		if !strings.HasPrefix(e.Layer, "pack:") {
-			own.Settings = append(own.Settings, e)
 		}
 	}
 	return own

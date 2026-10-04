@@ -1,6 +1,7 @@
 package spec
 
 import (
+	"fmt"
 	"maps"
 	"strings"
 )
@@ -19,15 +20,26 @@ func PermissionRules(list, rule string) ([]string, string) {
 }
 
 // SettingsPermissionProblems returns why each permission rule in a
-// settings spec cannot be read.
+// settings spec cannot be read. A list that is not a list of strings is
+// a problem too: an unquoted `: ` turns a rule into a mapping, which
+// every target drops, so a deny rule would vanish.
 func SettingsPermissionProblems(meta map[string]any) []string {
 	perms, _ := meta[permissionsKey].(map[string]any)
 	var out []string
 	for _, list := range PermissionLists {
-		rules, _ := perms[list].([]any)
+		value, set := perms[list]
+		if !set || value == nil {
+			continue
+		}
+		rules, ok := value.([]any)
+		if !ok {
+			out = append(out, fmt.Sprintf("permissions.%s: must be a list of rules", list))
+			continue
+		}
 		for _, raw := range rules {
 			rule, ok := raw.(string)
 			if !ok {
+				out = append(out, fmt.Sprintf("permissions.%s: entry %v is not a rule; quote a rule that holds \": \"", list, raw))
 				continue
 			}
 			if _, problem := PermissionRules(list, rule); problem != "" {
