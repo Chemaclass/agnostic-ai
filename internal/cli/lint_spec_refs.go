@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"slices"
 	"sort"
 	"strings"
 
@@ -11,26 +10,52 @@ import (
 )
 
 // lintSpecRefs flags a {{$AGENT:<name>}} or {{$SKILL:<name>}} that names
-// no agent or skill in the project (LINT033, error). Sync would still
-// render a phrase for it, which points the model at nothing.
-func lintSpecRefs(b spec.Bundle) []lintFinding {
+// no agent or skill in the project, or one that does not reach a target
+// the referring spec reaches (LINT033, error). Sync would still render a
+// phrase there, which points the model at nothing.
+func lintSpecRefs(targets []string, b spec.Bundle) []lintFinding {
 	known := map[string][]string{
 		adapters.RefAgent: sortedSpecNames(b.Agents),
 		adapters.RefSkill: sortedSpecNames(b.Skills),
+	}
+	byName := map[string]map[string]spec.Entry{adapters.RefAgent: {}, adapters.RefSkill: {}}
+	for _, a := range b.Agents {
+		byName[adapters.RefAgent][a.Name] = a
+	}
+	for _, sk := range b.Skills {
+		byName[adapters.RefSkill][sk.Name] = sk
 	}
 	var out []lintFinding
 	for _, e := range b.All() {
 		reported := map[string]bool{}
 		for _, ref := range adapters.BodyRefs(e.Body) {
 			names := known[ref.Keyword]
-			if slices.Contains(names, ref.Name) || reported[ref.Token] {
+			if reported[ref.Token] {
 				continue
 			}
-			reported[ref.Token] = true
 			kind := "agent"
 			if ref.Keyword == adapters.RefSkill {
 				kind = "skill"
 			}
+			if named, ok := byName[ref.Keyword][ref.Name]; ok {
+				var missing []string
+				for _, t := range targets {
+					if e.EmitsTo(t) && !named.EmitsTo(t) {
+						missing = append(missing, t)
+					}
+				}
+				if len(missing) > 0 {
+					reported[ref.Token] = true
+					out = append(out, lintFinding{
+						Code:     "LINT033",
+						Severity: lintError,
+						Path:     e.Path,
+						Message:  fmt.Sprintf("%s reaches %s, where %s %q does not sync; scope this spec or the %s to the same targets", ref.Token, strings.Join(missing, ", "), kind, ref.Name, kind),
+					})
+				}
+				continue
+			}
+			reported[ref.Token] = true
 			have := "none"
 			if len(names) > 0 {
 				have = strings.Join(names, ", ")

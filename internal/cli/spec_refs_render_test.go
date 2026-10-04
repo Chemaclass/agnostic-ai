@@ -83,7 +83,7 @@ func TestSync_NotesTargetsThatRenderTheNeutralPhrase(t *testing.T) {
 	joined := strings.Join(notes, "\n")
 	for _, want := range []string{
 		"`{{$AGENT:<name>}}` on 1 rule has no effect on codex, gemini",
-		"`{{$SKILL:<name>}}` on 1 rule has no effect on gemini",
+		"`{{$SKILL:<name>}}` on 1 rule has no effect on codex, gemini",
 		"`{{$SKILL:<name>}}` on 1 skill has no effect on gemini",
 	} {
 		if !strings.Contains(joined, want) {
@@ -92,5 +92,30 @@ func TestSync_NotesTargetsThatRenderTheNeutralPhrase(t *testing.T) {
 	}
 	if len(notes) != 3 {
 		t.Errorf("want one note per keyword and kind, got:\n%s", joined)
+	}
+}
+
+// Several tools read a nested AGENTS.md, so a scoped rule there takes
+// the neutral phrase instead of failing on per-tool text.
+func TestSync_ScopedRuleInASharedAGENTSMdUsesTheNeutralPhrase(t *testing.T) {
+	testutil.TempCwd(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex, cursor, opencode]\n")
+	writeAgnosticFile(t, "# Shared\n")
+	writeFile(t, filepath.Join("services", "api", "main.go"), "package main\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Reviews diffs.\n---\n\nReview.\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "skills", "commit", "SKILL.md"), "---\nname: commit\ndescription: Writes commits.\n---\n\nCommit.\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "rules", "api.md"), "---\nname: api\nscope: services/api\n---\n\nRun {{$AGENT:reviewer}} and {{$SKILL:commit}}.\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "reviews", "commits.md"), "---\nname: commits\n---\n\nFlag commits not made with {{$SKILL:commit}}.\n")
+
+	if out, err := runCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+
+	nested := readFile(t, filepath.Join("services", "api", "AGENTS.md"))
+	if !strings.Contains(nested, "Run the reviewer agent and the commit skill.") {
+		t.Errorf("want the neutral phrase in the nested AGENTS.md:\n%s", nested)
+	}
+	if root := readFile(t, "AGENTS.md"); !strings.Contains(root, "Flag commits not made with the commit skill.") {
+		t.Errorf("want the neutral phrase in the root review section:\n%s", root)
 	}
 }

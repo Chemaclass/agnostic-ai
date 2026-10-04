@@ -161,8 +161,8 @@ Before pushing, run {{$AGENT:reviewer}}, then {{$SKILL:commit}}.
 
 - **Bodies only**, with the `$` sigil and an uppercase keyword, like path variables. `{{AGENT:reviewer}}` stays untouched.
 - **A target with no documented form renders a neutral phrase** and raises one coverage note. Unlike a path variable, the token does not stay verbatim: a raw `{{$AGENT:reviewer}}` reads worse to a model than plain words.
-- **A rule inlined into a shared entry point**, such as the rules block of `AGENTS.md`, renders the neutral phrase, because several tools read that file.
-- **An unknown name fails `lint`** with LINT033, which lists the known agents or skills.
+- **A rule or review in a shared document**, such as the rules block of `AGENTS.md` or a nested `AGENTS.md`, renders the neutral phrase, because several tools read that file. Codex reads its rules there, so a Codex rule always gets the neutral phrase; its agents and skills get `$commit`.
+- **An unknown name fails `lint`** with LINT033, which lists the known agents or skills. So does a name whose spec does not sync to every target the referring spec reaches. Only project specs count: a teammate without your global agent would get a phrase that points at nothing.
 
 ## Target-specific extensions: `x-<target>` namespace
 

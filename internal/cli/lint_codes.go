@@ -214,8 +214,8 @@ var lintCodes = map[string]lintCode{
 	"LINT033": {
 		Severity: lintError,
 		Title:    "Reference to an unknown agent or skill",
-		Cause:    "A spec body holds `{{$AGENT:<name>}}` or `{{$SKILL:<name>}}`, and no agent or skill in the project has that name. Sync would render an invocation phrase that points at nothing.",
-		Fix:      "Use one of the names the finding lists, or add the agent or skill.",
+		Cause:    "A spec body holds `{{$AGENT:<name>}}` or `{{$SKILL:<name>}}`, and no agent or skill in the project has that name, or that agent or skill does not sync to a target the spec reaches. Sync would render an invocation phrase that points at nothing.",
+		Fix:      "Use one of the names the finding lists, add the agent or skill, or scope both specs to the same targets.",
 	},
 }
 

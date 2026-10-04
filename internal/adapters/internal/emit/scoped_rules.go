@@ -224,6 +224,9 @@ func PrepareScopedDocuments(b spec.Bundle, cfg *config.Config, target string, re
 		}
 		out.Rules = append(out.Rules, r)
 	}
+	for i := range out.Rules {
+		out.Rules[i].Body, _ = ExpandRefs(out.Rules[i].Body, RefForms[target])
+	}
 	sections, err := scopedReviewSections(cfg, target, reviews, grouped)
 	if err != nil {
 		return out, nil, err
@@ -447,6 +450,12 @@ func scopeDirectories(patterns []string) ([]string, error) {
 // the rule, so a "## Rules" and a "### <name>" heading would only add
 // words to a hand-written file that import brought in whole.
 func scopedDocument(rules []spec.Entry, reviewSection string) string {
+	// A scope document can have other readers, so no single tool's
+	// invocation phrase fits it.
+	rules = slices.Clone(rules)
+	for i := range rules {
+		rules[i].Body, _ = ExpandRefs(rules[i].Body, nil)
+	}
 	sort.SliceStable(rules, func(i, j int) bool { return rules[i].Name < rules[j].Name })
 	content := ""
 	switch len(rules) {

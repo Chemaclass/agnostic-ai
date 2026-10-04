@@ -1,6 +1,8 @@
 package adapters
 
 import (
+	"slices"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -172,13 +174,20 @@ func expandBundleVars(b spec.Bundle, cfg *config.Config, target string) spec.Bun
 	// how much of the project is affected, not just that it happened.
 	unresolved := map[string]int{}
 	kindOf := map[string]spec.Kind{}
-	forms := targetRefForms[target]
+	forms := emit.RefForms[target]
+	var emits []spec.Kind
+	if a, ok := Get(target); ok {
+		emits = a.Capabilities()
+	}
 	type plainRef struct {
 		keyword string
 		kind    spec.Kind
 	}
 	neutral := map[plainRef]int{}
 	expand := func(entries []spec.Entry, kind spec.Kind) []spec.Entry {
+		// A rule keeps its references until emit.PrepareScopedDocuments
+		// knows whether it lands in a document other tools share.
+		keepRefs := kind == spec.KindRule
 		if len(entries) == 0 {
 			return entries
 		}
@@ -193,8 +202,18 @@ func expandBundleVars(b spec.Bundle, cfg *config.Config, target string) spec.Bun
 					kindOf[name] = kind
 				}
 			}
-			body, plain := emit.ExpandRefs(out[i].Body, forms)
-			out[i].Body = body
+			expanded, plain := emit.ExpandRefs(out[i].Body, forms)
+			if !keepRefs {
+				out[i].Body = expanded
+			}
+			if !slices.Contains(emits, kind) {
+				continue
+			}
+			// A target with no rules directory reads its rules from an
+			// entry point, where references take the neutral phrase.
+			if kind == spec.KindRule && targetVarPaths[target][emit.VarRulesDir] == "" {
+				plain = refKeywords(out[i].Body)
+			}
 			for _, keyword := range plain {
 				neutral[plainRef{keyword, kind}]++
 			}
@@ -219,7 +238,21 @@ func expandBundleVars(b spec.Bundle, cfg *config.Config, target string) spec.Bun
 	}
 	for ref, count := range neutral {
 		emit.NoteFieldNoOp(target, ref.kind, "{{$"+ref.keyword+":<name>}}", count,
-			"this target documents no way to invoke one by name, so the reference renders as a plain phrase")
+			"the reference renders as a plain phrase: the target documents no invocation form, or reads the spec from a file other tools share")
 	}
 	return b
+}
+
+// refKeywords returns the distinct reference keywords in body, sorted.
+func refKeywords(body string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, ref := range BodyRefs(body) {
+		if !seen[ref.Keyword] {
+			seen[ref.Keyword] = true
+			out = append(out, ref.Keyword)
+		}
+	}
+	slices.Sort(out)
+	return out
 }
