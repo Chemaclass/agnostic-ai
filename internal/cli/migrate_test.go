@@ -168,6 +168,61 @@ func TestMigrate_SkipsASymlinkIntoAPackAndNamesThePack(t *testing.T) {
 	}
 }
 
+// A global home can be a project's .agnostic-ai, with its packs beside
+// the global specs.
+func TestMigrate_GlobalSkipsASymlinkIntoAPack(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks need privileges on Windows")
+	}
+	_, source := globalAgentTestHome(t)
+	silence(t)
+	mustWrite(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\n")
+	packHook := filepath.Join(source, "packs", "acme", "hooks", "guard.yaml")
+	body := "name: guard\ntarget: claude\nevent: Stop\ncommand: 'true'\n"
+	mustWrite(t, packHook, body)
+	if err := os.MkdirAll(filepath.Join(source, "hooks"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join("..", "packs", "acme", "hooks", "guard.yaml"), filepath.Join(source, "hooks", "guard.yaml")); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := runCLI(t, "migrate", "--global")
+	if err != nil || !strings.Contains(out, "is in pack acme, which migrate never rewrites") {
+		t.Fatalf("a global symlink into a pack must be a skip: %v\n%s", err, out)
+	}
+	if got, _ := os.ReadFile(packHook); string(got) != body {
+		t.Errorf("the pack's file must stay as written:\n%s", got)
+	}
+}
+
+func TestWriteMigrationChange_RefusesASymlinkRetargetedSinceThePlan(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks need privileges on Windows")
+	}
+	dir := t.TempDir()
+	checked, other, link := filepath.Join(dir, "checked.yaml"), filepath.Join(dir, "other.yaml"), filepath.Join(dir, "link.yaml")
+	mustWrite(t, checked, "event: Stop\n")
+	mustWrite(t, other, "event: Stop\n")
+	if err := os.Symlink(checked, link); err != nil {
+		t.Fatal(err)
+	}
+	planned, _ := migrationScope{root: dir}.keepInSpecRoots([]migrationChange{{Path: link, Before: "event: Stop\n", After: "on: stop\n"}})
+	if err := os.Remove(link); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(other, link); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := writeMigrationChange(planned[0]); err == nil || !strings.Contains(err.Error(), "not the file the plan checked") {
+		t.Errorf("a retargeted symlink must fail: %v", err)
+	}
+	if got, _ := os.ReadFile(other); string(got) != "event: Stop\n" {
+		t.Errorf("the new target must stay as written: %s", got)
+	}
+}
+
 func TestMigrate_RewritesTheFileASymlinkPointsAtAndKeepsTheLink(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("symlinks need privileges on Windows")
@@ -324,6 +379,15 @@ func TestRedactMigrationLines_HidesSecretsAndKeepsReferences(t *testing.T) {
 		"  - name: kept",
 		"color: \"#fff\"",
 		"password: \"#hunter2\"",
+		"args: &shared",
+		"  - M4c5W7p9Q2z3",
+		"env: !!map",
+		"  REGION: eu-west-1",
+		"'headers':",
+		"  X-Team: platform",
+		"password:",
+		"  hunter2-plain",
+		"after: kept",
 	})
 	want := []string{
 		"env:",
@@ -355,6 +419,15 @@ func TestRedactMigrationLines_HidesSecretsAndKeepsReferences(t *testing.T) {
 		"  - name: kept",
 		"color: \"#fff\"",
 		"password: <redacted>",
+		"args: &shared",
+		"  - <redacted>",
+		"env: !!map",
+		"  REGION: <redacted>",
+		"'headers':",
+		"  X-Team: <redacted>",
+		"password:",
+		"  <redacted>",
+		"after: kept",
 	}
 	if len(got) != len(want) {
 		t.Fatalf("got %d lines, want %d", len(got), len(want))

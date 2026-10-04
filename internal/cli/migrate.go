@@ -44,13 +44,16 @@ type migrationScope struct {
 // migrationChange is one file edit: new content for Path, written to
 // NewPath when the migration also renames the file. Remove deletes Path
 // instead, once NewPath, the file that stays, still holds the same bytes,
-// such as after an interrupted rename.
+// such as after an interrupted rename. realPath is the file Path resolved
+// to when the registry checked it, so a symlink retargeted since then
+// fails instead of writing somewhere unchecked.
 type migrationChange struct {
-	Path    string
-	NewPath string
-	Before  string
-	After   string
-	Remove  bool
+	Path     string
+	NewPath  string
+	Before   string
+	After    string
+	Remove   bool
+	realPath string
 }
 
 // migrationSkip is an entry a migration leaves as written. Actionable
@@ -241,6 +244,9 @@ func (s migrationScope) keepInSpecRoots(changes []migrationChange) ([]migrationC
 			skips = append(skips, skip)
 			continue
 		}
+		if c.NewPath == "" {
+			c.realPath, _ = migrationRealPath(c.Path)
+		}
 		kept = append(kept, c)
 	}
 	return kept, skips
@@ -248,11 +254,14 @@ func (s migrationScope) keepInSpecRoots(changes []migrationChange) ([]migrationC
 
 // specRoots resolves the directories a migration may write in, and the
 // directory of each pack by name. Packs sit inside the project, but
-// migrate never rewrites them.
+// migrate never rewrites them. A global home kept as a project's source
+// dir holds its packs under packs/.
 func (s migrationScope) specRoots() ([]string, map[string]string) {
 	local := filepath.Join(s.root, defaultProjectUser)
+	packDirs := []string{filepath.Join(s.root, packsDir)}
 	if s.global {
 		local = filepath.Join(s.root, "local")
+		packDirs = append(packDirs, filepath.Join(s.root, filepath.Base(packsDir)))
 	}
 	var roots []string
 	for _, dir := range []string{s.root, local} {
@@ -261,13 +270,12 @@ func (s migrationScope) specRoots() ([]string, map[string]string) {
 		}
 	}
 	packs := map[string]string{}
-	if s.global {
-		return roots, packs
-	}
-	entries, _ := os.ReadDir(filepath.Join(s.root, packsDir))
-	for _, e := range entries {
-		if real, err := migrationRealPath(filepath.Join(s.root, packsDir, e.Name())); err == nil {
-			packs[e.Name()] = real
+	for _, dir := range packDirs {
+		entries, _ := os.ReadDir(dir)
+		for _, e := range entries {
+			if real, err := migrationRealPath(filepath.Join(dir, e.Name())); err == nil {
+				packs[e.Name()] = real
+			}
 		}
 	}
 	return roots, packs
@@ -428,9 +436,13 @@ func indent(text string) string {
 
 // migrationValueLine is a YAML `key: value` line or list item, in a spec
 // body or in frontmatter. A URL's scheme is not a key.
-var migrationValueLine = regexp.MustCompile(`^(\s*-?\s*"?([A-Za-z0-9_.-]+)"?\s*:(?:\s+|$))(.*)$`)
+var migrationValueLine = regexp.MustCompile(`^(\s*-?\s*["']?([A-Za-z0-9_.-]+)["']?\s*:(?:\s+|$))(.*)$`)
 
 var migrationListItem = regexp.MustCompile(`^(\s*-\s+)(.*)$`)
+
+// migrationNodeProps is the anchor and tag a YAML value may start with,
+// such as `&a` or `!!seq`, which leave the value itself on the next lines.
+var migrationNodeProps = regexp.MustCompile(`^(?:[&!]\S*(?:\s+|$))+`)
 
 // migrationValueKeys hold values a diff prints only as a reference: each
 // value under env: or headers:, and each item of args:.
@@ -470,8 +482,9 @@ func redactMigrationLines(lines []string) []string {
 		}
 		if m := migrationValueLine.FindStringSubmatch(line); m != nil {
 			afterFlag = false
-			value := strings.Trim(strings.TrimSpace(m[3]), `"'`)
-			if strings.HasPrefix(strings.TrimSpace(m[3]), "#") {
+			raw := migrationNodeProps.ReplaceAllString(strings.TrimSpace(m[3]), "")
+			value := strings.Trim(raw, `"'`)
+			if strings.HasPrefix(raw, "#") {
 				value = ""
 			}
 			switch {
@@ -479,9 +492,12 @@ func redactMigrationLines(lines []string) []string {
 				valuesIndent = strings.Index(line, m[2])
 			case migrationValueKeys[m[2]] && !envRefOnly(value):
 				out[i] = m[1] + "<redacted>"
-			case mcpCredentialKey(m[2]) && (strings.HasPrefix(value, "|") || strings.HasPrefix(value, ">")):
+			case mcpCredentialKey(m[2]) && (value == "" || strings.HasPrefix(value, "|") || strings.HasPrefix(value, ">")):
+				// The value, or what the key holds, sits on the lines below.
 				blockIndent = indentWidth
-				out[i] = m[1] + "<redacted>"
+				if value != "" {
+					out[i] = m[1] + "<redacted>"
+				}
 			case value == "" || envRefOnly(value):
 			case mcpCredentialKey(m[2]) || migrationSecretText(value) || migrationURLText(value):
 				out[i] = m[1] + "<redacted>"
@@ -606,8 +622,11 @@ func writeMigrationChange(c migrationChange) error {
 	target := c.target()
 	if c.NewPath == "" {
 		// Writing the file a symlink resolves to keeps the symlink.
-		if target, err = filepath.EvalSymlinks(c.Path); err != nil {
+		if target, err = migrationRealPath(c.Path); err != nil {
 			return err
+		}
+		if c.realPath != "" && target != c.realPath {
+			return fmt.Errorf("%s now resolves to %s, not the file the plan checked; run migrate again", filepath.ToSlash(c.Path), filepath.ToSlash(target))
 		}
 	} else if _, err := os.Lstat(c.NewPath); err == nil {
 		return fmt.Errorf("%s already exists", filepath.ToSlash(c.NewPath))
