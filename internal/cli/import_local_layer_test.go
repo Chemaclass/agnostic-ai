@@ -506,3 +506,25 @@ func TestImport_FactoryKeepsDistinctRootBesideLocalPowerShellHook(t *testing.T) 
 		t.Errorf("local emitted handler was not recognized: %s", out)
 	}
 }
+
+// A portable local hook owns the native entry sync wrote for it.
+func TestImport_MatchesPortableLocalHooks(t *testing.T) {
+	for _, target := range []string{"claude", "codex"} {
+		t.Run(target, func(t *testing.T) {
+			testutil.TempCwd(t)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+target+"]\n")
+			writeAgnosticFile(t, "# Shared\n")
+			writeFile(t, filepath.Join(defaultProjectUser, "hooks", "zguard.yaml"), "name: zguard\non: before-tool\nmatch: shell\ncommand: echo local-guard\n")
+			if out, err := runCLI(t, "sync"); err != nil {
+				t.Fatalf("sync: %v\n%s", err, out)
+			}
+
+			out := importCapturing(t, target)
+
+			assertNoLocalContentShared(t)
+			if !strings.Contains(out, "hook zguard") {
+				t.Errorf("want the note to name the local hook:\n%s", out)
+			}
+		})
+	}
+}

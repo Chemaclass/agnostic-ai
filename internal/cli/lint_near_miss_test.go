@@ -185,7 +185,7 @@ func TestSpecKeys_CoverEveryDocumentedField(t *testing.T) {
 			continue
 		}
 		for _, m := range field.FindAllStringSubmatch(keys, -1) {
-			if _, targetOnly := targetKeys[m[1]]; !targetOnly && !slices.Contains(specKeys, m[1]) {
+			if _, targetOnly := targetKeys[m[1]]; !targetOnly && !slices.Contains(kindKeys(spec.KindHook), m[1]) {
 				t.Errorf("%s documents `%s`, missing from specKeys", section, m[1])
 			}
 		}
@@ -245,5 +245,23 @@ func TestLintNearMissKeys_IgnoresTargetMCPFields(t *testing.T) {
 
 	if got := lintNearMissKeys(entries, nil); len(got) != 0 {
 		t.Errorf("documented MCP fields must pass, got %v", got)
+	}
+}
+
+// on: and match: are hook keys, so a short key on another kind is not
+// taken for one.
+func TestLintNearMissKeys_HookKeysCountOnlyOnHooks(t *testing.T) {
+	for _, key := range []string{"os", "un", "latch"} {
+		rule := []spec.Entry{{Kind: spec.KindRule, Name: "r", Path: "rules/r.md", Meta: map[string]any{key: "x"}, Body: "b"}}
+		for _, f := range lintNearMissKeys(rule, nil) {
+			if strings.Contains(f.Message, "`on:`") || strings.Contains(f.Message, "`match:`") {
+				t.Errorf("rule key %s: %s", key, f.Message)
+			}
+		}
+	}
+	hook := []spec.Entry{{Kind: spec.KindHook, Name: "h", Path: "hooks/h.yaml", Meta: map[string]any{"on": "stop", "mach": "shell", "command": "x"}}}
+	got := lintNearMissKeys(hook, nil)
+	if len(got) != 1 || !strings.Contains(got[0].Message, "`match:`") {
+		t.Errorf("a hook's mach: must suggest match:, and on: is known: %v", got)
 	}
 }

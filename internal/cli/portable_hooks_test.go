@@ -108,3 +108,26 @@ func TestHookRun_PortableEditHookRunsOnEveryEditTool(t *testing.T) {
 		}
 	}
 }
+
+func TestSyncGlobal_StopsOnAnInvalidPortableHook(t *testing.T) {
+	_, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\non: befor-tool\ncommand: 'true'\n")
+	if _, _, err := runGlobalAgentTest("--only", "claude"); err == nil || !strings.Contains(err.Error(), "did you mean before-tool") {
+		t.Errorf("sync --global = %v, want it to stop on the typo", err)
+	}
+}
+
+func TestSyncGlobal_PortableHookReachesClaudeAndNotesCursor(t *testing.T) {
+	home, source := globalAgentTestHome(t)
+	mustWriteGlobalTest(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\non: before-tool\nmatch: shell\ncommand: 'exit 2'\n")
+	_, warnings, err := runGlobalAgentTest("--only", "claude,cursor")
+	if err != nil {
+		t.Fatalf("sync --global: %v\n%s", err, warnings)
+	}
+	if got := firstGlobalHandler(t, readGlobalJSON(t, filepath.Join(home, ".claude", "settings.json")), "PreToolUse")["command"]; got != "exit 2" {
+		t.Errorf("claude PreToolUse handler = %v", got)
+	}
+	if !strings.Contains(warnings, "1 hook reaches cursor only in the source dir (on: is translated for claude and codex only so far; write event: for cursor)") {
+		t.Errorf("want one cursor note:\n%s", warnings)
+	}
+}

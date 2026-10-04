@@ -22,6 +22,28 @@ var hooksPortableEventsMigration = specMigration{
 	Release: "0.79.0",
 	Summary: "rewrite a hook's event: and matcher: as the portable on: and match:",
 	Plan:    planHooksPortableEvents,
+	Note:    portableHookTargetsNote,
+}
+
+// portableHookTargetsNote names the configured targets that run hooks but
+// skip a portable one until their mapping lands.
+func portableHookTargetsNote(root string) string {
+	reach := strings.Join(spec.PortableHookTargets(), " and ")
+	var missing []string
+	if cfg, _, err := loadProject(root); err == nil {
+		for _, t := range cfg.Targets {
+			if _, runs := targetsSupportingKind[spec.KindHook][t]; runs && !spec.TranslatesPortableHooks(t) {
+				missing = append(missing, t)
+			}
+		}
+	}
+	switch len(missing) {
+	case 0:
+		return "portable hooks reach " + reach + " today; other targets skip them until their mapping lands"
+	case 1:
+		return "portable hooks reach " + reach + " today; " + missing[0] + " skips them until its mapping lands"
+	}
+	return "portable hooks reach " + reach + " today; " + strings.Join(missing, ", ") + " skip them until their mapping lands"
 }
 
 func planHooksPortableEvents(root string) ([]migrationChange, []migrationSkip, error) {
@@ -54,7 +76,7 @@ func planHooksPortableEvents(root string) ([]migrationChange, []migrationSkip, e
 			continue
 		}
 		if extended[h.Name] {
-			skip("a local/ spec extends this hook; rewrite both files by hand")
+			skips = append(skips, migrationSkip{Path: h.Path, Reason: "a local/ spec extends this hook; rewrite both files by hand", Actionable: true})
 			continue
 		}
 		rawMatcher, hasMatcher := h.Meta["matcher"]

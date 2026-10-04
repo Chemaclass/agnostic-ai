@@ -44,7 +44,11 @@ func (l *localHooks) owner(target, event, matcher, key string) string {
 	if !ok {
 		index = map[string][]localHookMatcher{}
 		for _, e := range l.entries {
-			for _, meta := range []map[string]any{e.Meta, adapters.ResolveMeta(e.Meta, target)} {
+			native, reason := e.NativeHook(target)
+			if reason != "" {
+				continue
+			}
+			for _, meta := range []map[string]any{native.Meta, adapters.ResolveMeta(native.Meta, target)} {
 				for _, k := range hookHandlerKeys(target, meta) {
 					id := hookIdentity(hookEventKey(meta), k)
 					index[id] = append(index[id], localHookMatcher{matcher: hookMatcher(meta), name: e.Name})

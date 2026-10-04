@@ -25,6 +25,9 @@ type specMigration struct {
 	Release string
 	Summary string
 	Plan    func(root string) ([]migrationChange, []migrationSkip, error)
+	// Note, when set, returns a line printed once after the migration's
+	// rewrites, such as what the new form does not cover yet.
+	Note func(root string) string
 }
 
 // migrationChange is one file edit: new content for Path, written to
@@ -59,6 +62,7 @@ type pendingMigration struct {
 	changes []migrationChange
 	skips   []migrationSkip
 	planErr error
+	note    string
 }
 
 // needsUser reports whether the migration rewrites something or asks the
@@ -166,7 +170,11 @@ func planMigrations(root string, selected []specMigration) []pendingMigration {
 	for _, m := range selected {
 		changes, skips, err := m.Plan(root)
 		if err != nil || len(changes)+len(skips) > 0 {
-			pending = append(pending, pendingMigration{specMigration: m, changes: changes, skips: skips, planErr: err})
+			p := pendingMigration{specMigration: m, changes: changes, skips: skips, planErr: err}
+			if err == nil && len(changes) > 0 && m.Note != nil {
+				p.note = m.Note(root)
+			}
+			pending = append(pending, p)
 		}
 	}
 	return pending
@@ -189,8 +197,12 @@ func planFailures(pending []pendingMigration) error {
 
 // planErrorText is a plan error on one line, with the values a parse
 // error may quote redacted.
-func planErrorText(err error) string {
-	lines := redactMigrationLines(strings.Split(err.Error(), "\n"))
+func planErrorText(err error) string { return migrationLine(err.Error()) }
+
+// migrationLine is text for one output line, such as a skip reason that
+// quotes a parse error, with the values it may quote redacted.
+func migrationLine(text string) string {
+	lines := redactMigrationLines(strings.Split(text, "\n"))
 	for i, line := range lines {
 		lines[i] = strings.TrimSpace(line)
 	}
@@ -228,7 +240,7 @@ func printMigrationPlan(out io.Writer, pending []pendingMigration, dryRun, quiet
 		}
 		if quiet {
 			for _, s := range p.skips {
-				_, _ = fmt.Fprintf(out, "%s: skipped %s: %s\n", p.ID, filepath.ToSlash(s.Path), s.Reason)
+				_, _ = fmt.Fprintf(out, "%s: skipped %s: %s\n", p.ID, filepath.ToSlash(s.Path), migrationLine(s.Reason))
 			}
 			continue
 		}
@@ -248,7 +260,10 @@ func printMigrationPlan(out io.Writer, pending []pendingMigration, dryRun, quiet
 			}
 		}
 		for _, s := range p.skips {
-			_, _ = fmt.Fprintf(out, "  skipped %s: %s\n", filepath.ToSlash(s.Path), s.Reason)
+			_, _ = fmt.Fprintf(out, "  skipped %s: %s\n", filepath.ToSlash(s.Path), migrationLine(s.Reason))
+		}
+		if p.note != "" {
+			_, _ = fmt.Fprintf(out, "  note: %s\n", p.note)
 		}
 	}
 }

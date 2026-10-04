@@ -545,14 +545,14 @@ var nearMissKeys = map[string]nearMiss{
 // they pass their keys through to native files the tool owns.
 func keyTypo(kind spec.Kind, key string, targets []string) (nearMiss, bool) {
 	if kind == spec.KindEnvironment || kind == spec.KindSettings ||
-		strings.HasPrefix(key, "x-") || slices.Contains(specKeys, key) {
+		strings.HasPrefix(key, "x-") || slices.Contains(kindKeys(kind), key) {
 		return nearMiss{}, false
 	}
 	readers, targetOnly := targetKeys[key]
 	if targetOnly && slices.ContainsFunc(readers, func(t string) bool { return slices.Contains(targets, t) }) {
 		return nearMiss{}, false
 	}
-	s := suggest.Name(key, specKeys)
+	s := suggest.Name(key, kindKeys(kind))
 	switch {
 	case s == "":
 		return nearMiss{}, false

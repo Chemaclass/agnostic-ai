@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
@@ -349,10 +350,14 @@ func TestMigrate_HooksPortableEventsRewritesInPlaceAndSkipsWhatDoesNotMap(t *tes
 		`skipped .agnostic-ai/hooks/gofmt-on-edit.yaml: no portable form gives PostToolUse with matcher "Edit|Write" on claude; match: edit there also covers MultiEdit and NotebookEdit`,
 		`skipped .agnostic-ai/hooks/read-guard.yaml: no portable form gives PreToolUse with matcher "Read" on codex`,
 		"skipped .agnostic-ai/local/hooks/session-status.yaml: a local/ spec extends this hook; rewrite both files by hand",
+		"note: portable hooks reach claude and codex today; other targets skip them until their mapping lands",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output misses %q:\n%s", want, out)
 		}
+	}
+	if hint := pendingMigrationHint("."); !strings.HasPrefix(hint, "1 spec migration needs a manual step (hooks-portable-events)") {
+		t.Errorf("a local extension needs the user, so doctor names it: %q", hint)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".agnostic-ai", "hooks", "no-force-push.yaml"))
 	if err != nil {
@@ -380,6 +385,9 @@ func TestMigrate_HooksPortableEventsSkipsATargetWithoutPortableEvents(t *testing
 	out, err := runCLI(t, "migrate", "--only", "hooks", "--dry-run")
 	if err != nil || !strings.Contains(out, "skipped .agnostic-ai/hooks/no-force-push.yaml: no portable form gives PreToolUse with matcher \"Bash\" on cursor") {
 		t.Errorf("a hook that reaches cursor must stay native: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "note: portable hooks reach claude and codex today; cursor skips them until its mapping lands") {
+		t.Errorf("want the note to name cursor:\n%s", out)
 	}
 	if !strings.Contains(out, "would rewrite .agnostic-ai/hooks/stop.yaml") {
 		t.Errorf("a hook scoped to claude and codex still migrates:\n%s", out)
@@ -433,5 +441,16 @@ func TestMigrate_APlanThatFailsDoesNotStopTheOthers(t *testing.T) {
 	}
 	if !exists(filepath.Join(dir, "agnostic-ai.yaml")) || exists(filepath.Join(dir, "agnostic.config.yaml")) {
 		t.Errorf("the other migrations must still run:\n%s", out)
+	}
+}
+
+func TestPrintMigrationPlan_PutsEachSkipOnOneLine(t *testing.T) {
+	var out bytes.Buffer
+	pending := []pendingMigration{{specMigration: specMigration{ID: "hooks-x", Summary: "s"}, skips: []migrationSkip{
+		{Path: "hooks/a.yaml", Reason: "cannot rewrite in place: yaml: line 3:\n  mapping key \"on\" already defined at line 2"},
+	}}}
+	printMigrationPlan(&out, pending, true, false)
+	if !strings.Contains(out.String(), "  skipped hooks/a.yaml: cannot rewrite in place: yaml: line 3: mapping key \"on\" already defined at line 2\n") {
+		t.Errorf("a skip reason must print on one line:\n%s", out.String())
 	}
 }

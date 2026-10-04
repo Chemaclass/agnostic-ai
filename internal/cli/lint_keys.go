@@ -1,5 +1,11 @@
 package cli
 
+import (
+	"slices"
+
+	"github.com/chemaclass/agnostic-ai/internal/spec"
+)
+
 // specKeys lists every frontmatter key agnostic-ai or an adapter reads on
 // agents, skills, rules, hooks, MCP servers, commands, reviews, and ignore
 // files. It only decides what counts as a typo (see keyTypo), so a key
@@ -16,7 +22,7 @@ var specKeys = []string{
 	// Rules.
 	"globs", "paths", "alwaysApply",
 	// Hooks.
-	"on", "match", "event", "matcher", "command", "args", "type", "timeout", "disabled", "async", "asyncRewake",
+	"event", "matcher", "command", "args", "type", "timeout", "disabled", "async", "asyncRewake",
 	"shell", "if", "commandWindows", "additionalContextLimit", "continueOnBlock", "failClosed",
 	"loop_limit", "prompt", "server", "tool", "input", "statusMessage", "sequential",
 	// MCP servers.
@@ -29,6 +35,18 @@ var specKeys = []string{
 	"scopes", "sessionless", "startup_timeout_ms", "startup_timeout_sec", "tool_timeout_sec",
 	"experimental_environment", "autoApprove", "disabledTools", "oauthScopes", "connectTimeout",
 	"headersHelper", "envFile", "dev",
+}
+
+// hookKeys are keys only hook specs read. Short keys such as `on:` sit
+// one edit from many words, so other kinds do not count them.
+var hookKeys = []string{"on", "match"}
+
+// kindKeys lists the keys a spec of kind reads.
+func kindKeys(kind spec.Kind) []string {
+	if kind == spec.KindHook {
+		return append(slices.Clone(specKeys), hookKeys...)
+	}
+	return specKeys
 }
 
 // targetKeys are top-level keys only some targets read. On a project that

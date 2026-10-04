@@ -713,7 +713,7 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 	}
 	own := expandBundleVars(b.For(a.Name()), cfg, a.Name())
 	if slices.Contains(a.Capabilities(), spec.KindHook) {
-		notePortableHookGaps(a.Name(), b.Hooks)
+		NotePortableHookGaps(a.Name(), b.Hooks)
 	}
 	prepared, files, err := emit.PrepareScopedDocuments(own, cfg, a.Name(), ReviewSections(b, cfg, a.Name()))
 	if err != nil {
@@ -746,9 +746,9 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 	return nil
 }
 
-// notePortableHookGaps notes the portable hooks that reach target but
+// NotePortableHookGaps notes the portable hooks that reach target but
 // have no exact native form there, one note per reason.
-func notePortableHookGaps(target string, hooks []spec.Entry) {
+func NotePortableHookGaps(target string, hooks []spec.Entry) {
 	counts := map[string]int{}
 	var reasons []string
 	for _, h := range hooks {
