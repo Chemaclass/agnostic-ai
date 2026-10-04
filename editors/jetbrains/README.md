@@ -13,7 +13,7 @@ review surface as `agnostic-ai sync --check`.
 
 | Surface | What you get |
 |---------|--------------|
-| YAML schema | `agnostic.config.yaml` validates and autocompletes against the published JSON Schema (no `# yaml-language-server:` line needed). |
+| YAML schema | `agnostic-ai.yaml`, or the legacy `agnostic.config.yaml`, validates and autocompletes against the published JSON Schema (no `# yaml-language-server:` line needed). |
 | Tools menu | `Tools ▸ agnostic-ai ▸ Sync / Sync — check / Doctor — auto-fix / Status`. Each runs in a background task and reports via IDE notification. |
 | Render banner | Above each spec in `<base>/{agents,skills,rules,hooks,mcps}/`: an editor banner with one **Render to <target>** link per configured target. Output streams to a notification. |
 | Status bar | Polls `sync --check --json` and shows the current drift count. Click runs `Sync — check`. |
@@ -66,7 +66,7 @@ agnostic-ai release tags — Marketplace review has its own SLA.
 ## Limits in v0.1.0
 
 - Status bar polls on a schedule; it does not reactively watch
-  `agnostic.config.yaml` for changes (planned).
+  `agnostic-ai.yaml` for changes (planned).
 - "Render" surfaces output as a notification snippet (last 40 lines).
   A dedicated tool window is planned once the surface settles.
 - No live hover preview yet (line markers cover the iteration loop).

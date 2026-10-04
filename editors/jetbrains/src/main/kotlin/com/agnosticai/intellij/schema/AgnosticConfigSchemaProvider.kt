@@ -6,6 +6,8 @@
 
 package com.agnosticai.intellij.schema
 
+import com.agnosticai.intellij.AgnosticAi
+
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.jetbrains.jsonSchema.extension.JsonSchemaFileProvider
@@ -19,7 +21,7 @@ class AgnosticConfigSchemaProvider : JsonSchemaProviderFactory {
 
 private class AgnosticConfigFileProvider : JsonSchemaFileProvider {
     override fun isAvailable(file: VirtualFile): Boolean =
-        file.name == "agnostic-ai.yaml" || file.name == "agnostic.config.yaml" || file.name == "agnostic.config.yml"
+        AgnosticAi.isConfigFileName(file.name)
 
     override fun getName(): String = "agnostic-ai.yaml"
 

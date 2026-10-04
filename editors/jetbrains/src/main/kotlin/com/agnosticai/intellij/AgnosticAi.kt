@@ -24,6 +24,9 @@ object AgnosticAi {
     /** Config file names in lookup order: the CLI prefers agnostic-ai.yaml. */
     val CONFIG_FILE_NAMES = listOf("agnostic-ai.yaml", "agnostic.config.yaml")
 
+    /** Whether a file name is one of the config file names. */
+    fun isConfigFileName(name: String): Boolean = name in CONFIG_FILE_NAMES
+
     /** The config file in dir, preferring agnostic-ai.yaml like the CLI. */
     fun configFile(dir: Path): Path? = CONFIG_FILE_NAMES.map { dir.resolve(it) }.firstOrNull { Files.exists(it) }
 
@@ -32,12 +35,13 @@ object AgnosticAi {
      * or the project base path as a fallback so a clean tree can still
      * launch the binary (which surfaces its own error).
      */
-    fun projectRoot(project: Project): Path? {
-        val base = project.basePath ?: return null
-        val basePath = Path.of(base)
+    fun projectRoot(project: Project): Path? = project.basePath?.let { projectRoot(Path.of(it)) }
+
+    /** The folder under basePath that holds the config, children sorted by name. */
+    fun projectRoot(basePath: Path): Path {
         if (configFile(basePath) != null) return basePath
         // Walk one level deep for a Gradle/Maven multi-module setup.
-        val children = runCatching { Files.list(basePath).use { it.toList() } }.getOrNull() ?: emptyList()
+        val children = runCatching { Files.list(basePath).use { it.sorted().toList() } }.getOrNull() ?: emptyList()
         for (child in children) {
             if (configFile(child) != null) return child
         }
