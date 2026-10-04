@@ -224,6 +224,10 @@ func PrepareScopedDocuments(b spec.Bundle, cfg *config.Config, target string, re
 		}
 		out.Rules = append(out.Rules, r)
 	}
+	for i := range out.Rules {
+		out.Rules[i].Body, _ = ExpandRefs(out.Rules[i].Body, RefForms[target])
+	}
+	noteSharedDocumentRefs(target, grouped)
 	sections, err := scopedReviewSections(cfg, target, reviews, grouped)
 	if err != nil {
 		return out, nil, err
@@ -447,6 +451,12 @@ func scopeDirectories(patterns []string) ([]string, error) {
 // the rule, so a "## Rules" and a "### <name>" heading would only add
 // words to a hand-written file that import brought in whole.
 func scopedDocument(rules []spec.Entry, reviewSection string) string {
+	// A scope document can have other readers, so no single tool's
+	// invocation phrase fits it.
+	rules = slices.Clone(rules)
+	for i := range rules {
+		rules[i].Body, _ = ExpandRefs(rules[i].Body, nil)
+	}
 	sort.SliceStable(rules, func(i, j int) bool { return rules[i].Name < rules[j].Name })
 	content := ""
 	switch len(rules) {
@@ -495,6 +505,9 @@ func EntryPointRules(b spec.Bundle, target string, configs ...*config.Config) sp
 			if directories, _ := codexGlobDirectories(cfg, target, resolved); len(directories) > 0 {
 				continue
 			}
+			// Several tools read one entry point, so no single tool's
+			// invocation phrase fits there.
+			r.Body, _ = ExpandRefs(r.Body, nil)
 			rules = append(rules, r)
 		}
 	}
@@ -580,3 +593,36 @@ func CheckScopeReaders(bundles map[string]spec.Bundle, files map[string]Captured
 	}
 	return nil
 }
+
+// noteSharedDocumentRefs notes the rules whose references take the
+// neutral phrase because they land in a scope document, for a target
+// that otherwise renders its own form. A target with no forms is noted
+// where its bundle is expanded.
+func noteSharedDocumentRefs(target string, grouped map[string][]spec.Entry) {
+	if len(RefForms[target]) == 0 {
+		return
+	}
+	counts := map[string]int{}
+	seen := map[string]bool{}
+	for _, rules := range grouped {
+		for _, r := range rules {
+			if seen[r.Name] {
+				continue
+			}
+			seen[r.Name] = true
+			keywords := map[string]bool{}
+			for _, m := range RefPattern.FindAllStringSubmatch(r.Body, -1) {
+				keywords[m[1]] = true
+			}
+			for k := range keywords {
+				counts[k]++
+			}
+		}
+	}
+	for keyword, count := range counts {
+		NoteFieldNoOp(target, spec.KindRule, "{{$"+keyword+":<name>}}", count, SharedRefReason)
+	}
+}
+
+// SharedRefReason explains a reference that renders the neutral phrase.
+const SharedRefReason = "the reference renders as a plain phrase: the target documents no invocation form, or reads the spec from a file other tools share"

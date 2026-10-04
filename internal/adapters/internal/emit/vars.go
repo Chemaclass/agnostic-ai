@@ -1,6 +1,7 @@
 package emit
 
 import (
+	"fmt"
 	"regexp"
 	"sort"
 )
@@ -51,4 +52,53 @@ func ExpandVars(body string, vals map[string]string) (string, []string) {
 	}
 	sort.Strings(names)
 	return out, names
+}
+
+// Reference keywords for {{$AGENT:<name>}} and {{$SKILL:<name>}}, which
+// name another spec by how the target invokes it rather than by path.
+const (
+	RefAgent = "AGENT"
+	RefSkill = "SKILL"
+)
+
+// RefPattern matches {{$AGENT:<name>}} and {{$SKILL:<name>}}. The name
+// is whatever sits before the braces close, so a misspelled one still
+// matches and lint can name it.
+var RefPattern = regexp.MustCompile(`\{\{\$(AGENT|SKILL):([^{}\s]+)\}\}`)
+
+// ExpandRefs replaces every reference in body with forms[keyword] filled
+// with the spec name, and returns the result plus the distinct keywords
+// with no form, sorted. A keyword with no form renders a neutral phrase
+// ("the reviewer agent") instead of staying verbatim like a path
+// variable: a raw token in a prompt reads worse to a model than plain
+// words.
+func ExpandRefs(body string, forms map[string]string) (string, []string) {
+	if !RefPattern.MatchString(body) {
+		return body, nil
+	}
+	missing := map[string]bool{}
+	out := RefPattern.ReplaceAllStringFunc(body, func(match string) string {
+		m := RefPattern.FindStringSubmatch(match)
+		if form := forms[m[1]]; form != "" {
+			return fmt.Sprintf(form, m[2])
+		}
+		missing[m[1]] = true
+		return neutralRef(m[1], m[2])
+	})
+	if len(missing) == 0 {
+		return out, nil
+	}
+	keywords := make([]string, 0, len(missing))
+	for k := range missing {
+		keywords = append(keywords, k)
+	}
+	sort.Strings(keywords)
+	return out, keywords
+}
+
+func neutralRef(keyword, name string) string {
+	if keyword == RefAgent {
+		return "the " + name + " agent"
+	}
+	return "the " + name + " skill"
 }
