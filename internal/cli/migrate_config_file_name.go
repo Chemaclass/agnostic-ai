@@ -29,14 +29,14 @@ var configFileNameMigration = specMigration{
 			return nil, nil, err
 		}
 		if !info.Mode().IsRegular() {
-			return nil, []migrationSkip{{legacy, "not a regular file, such as a symlink; rename it by hand"}}, nil
+			return nil, []migrationSkip{{Path: legacy, Reason: "not a regular file, such as a symlink; rename it by hand", Actionable: true}}, nil
 		}
 		body, err := os.ReadFile(legacy)
 		if err != nil {
 			return nil, nil, err
 		}
 		if gitIgnores(root, config.ConfigFileName) && !gitIgnores(root, config.LegacyConfigFileName) {
-			return nil, []migrationSkip{{legacy, "git ignores " + config.ConfigFileName + ", so a commit after the migration would drop the config; unignore it, then run migrate again"}}, nil
+			return nil, []migrationSkip{{Path: legacy, Reason: "git ignores " + config.ConfigFileName + ", so a commit after the migration would drop the config; unignore it, then run migrate again", Actionable: true}}, nil
 		}
 		current := filepath.Join(root, config.ConfigFileName)
 		currentInfo, err := os.Lstat(current)
@@ -48,14 +48,14 @@ var configFileNameMigration = specMigration{
 		// The loader stats the new name, so a broken symlink there loads
 		// the legacy file.
 		if _, err := os.Stat(current); errors.Is(err, os.ErrNotExist) {
-			return nil, []migrationSkip{{legacy, config.ConfigFileName + " is a broken symlink, so this file still loads; fix or remove the symlink by hand"}}, nil
+			return nil, []migrationSkip{{Path: legacy, Reason: config.ConfigFileName + " is a broken symlink, so this file still loads; fix or remove the symlink by hand", Actionable: true}}, nil
 		}
 		// A symlink may point at the legacy file, so only a regular file
 		// can stand in for it.
 		if kept, err := os.ReadFile(current); err == nil && currentInfo.Mode().IsRegular() && string(kept) == string(body) {
 			return []migrationChange{{Path: legacy, NewPath: current, Before: string(body), Remove: true}}, nil, nil
 		}
-		return nil, []migrationSkip{{legacy, config.ConfigFileName + " exists and wins; remove " + config.LegacyConfigFileName + " by hand once it holds nothing you need"}}, nil
+		return nil, []migrationSkip{{Path: legacy, Reason: config.ConfigFileName + " exists and wins; remove " + config.LegacyConfigFileName + " by hand once it holds nothing you need", Actionable: true}}, nil
 	},
 }
 

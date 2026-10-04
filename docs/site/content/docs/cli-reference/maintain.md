@@ -200,10 +200,13 @@ agnostic-ai migrate             # apply them
 - It writes each file atomically and keeps its mode. A rename writes the new file before it removes the old one.
 - It refuses to run in the global home; edit those specs by hand.
 - Running it twice changes nothing.
+- A migration that cannot plan, for example on a spec that does not parse, prints `cannot plan` with the reason. The others still run, and `migrate` exits 1.
+- `doctor` names a migration only when it rewrites something or a skip asks you to act, such as a spec that sets both the old and the new form. `--dry-run` and `--list` show every skip.
 
 | Migration | Release | Rewrites |
 |-----------|---------|----------|
 | `config-file-name` | 0.79.0 | `agnostic.config.yaml` to `agnostic-ai.yaml`. When both exist with the same content, it removes the old file. Skipped when they differ, since `agnostic-ai.yaml` wins, and when Git ignores `agnostic-ai.yaml`. |
+| `hooks-portable-events` | 0.79.0 | A hook's `event` and `matcher` to the [portable](@/docs/spec-format/hooks.md#portable-events) `on` and `match`, such as `PreToolUse` on `Bash` to `before-tool` on `shell`. Comments, quoting, and key order stay. Skipped when the portable form would give a target the hook reaches another event or matcher, such as `matcher: Read` on Codex or `matcher: Edit\|Write` on Claude Code, where `match: edit` also covers `MultiEdit` and `NotebookEdit`; when a `local/` spec extends the hook; and for a pack's hook. |
 
 ## lsp
 

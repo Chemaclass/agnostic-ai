@@ -195,9 +195,7 @@ type hookCommandRun struct {
 
 // runHookTargets runs hook on each target. hooks is every hook spec in
 // the project, which a target that joins specs in one file needs.
-func runHookTargets(cfg *config.Config, hook spec.Entry, hooks []spec.Entry, targets []string, root string, in hookrun.Input, show func(hookTargetRun)) ([]hookTargetRun, error) {
-	event, _ := hook.Meta["event"].(string)
-	matcher, _ := hook.Meta["matcher"].(string)
+func runHookTargets(cfg *config.Config, source spec.Entry, hooks []spec.Entry, targets []string, root string, in hookrun.Input, show func(hookTargetRun)) ([]hookTargetRun, error) {
 	var runs []hookTargetRun
 	add := func(r hookTargetRun) {
 		show(r)
@@ -210,6 +208,14 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, hooks []spec.Entry, tar
 			add(run)
 			continue
 		}
+		hook, reason := source.NativeHook(target)
+		if reason != "" {
+			run.Reason = reason
+			add(run)
+			continue
+		}
+		event, _ := hook.Meta["event"].(string)
+		matcher, _ := hook.Meta["matcher"].(string)
 		if _, ok := hookEventsByTarget[target][event]; !ok {
 			run.Reason = fmt.Sprintf("%s has no %s event", target, event)
 			add(run)
@@ -277,7 +283,7 @@ func runHookTargets(cfg *config.Config, hook spec.Entry, hooks []spec.Entry, tar
 		}
 		if target == "cline" {
 			run.Notes = append(run.Notes, hookrun.ClineRunNotes(event, matcher, specTimeout(hook.Meta), payload.Trigger)...)
-			if reason := hookrun.ClineSharedScript(adapters.HookScriptSiblings(cfg, target, hooks, hook)); reason != "" && !run.Async {
+			if reason := hookrun.ClineSharedScript(adapters.HookScriptSiblings(cfg, target, spec.Bundle{Hooks: hooks}.HooksFor(target), hook)); reason != "" && !run.Async {
 				run.uncounted, run.sharedScript = reason, true
 				run.Notes = append(run.Notes, "not counted: "+reason)
 			}

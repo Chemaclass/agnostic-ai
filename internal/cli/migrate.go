@@ -25,6 +25,9 @@ type specMigration struct {
 	Release string
 	Summary string
 	Plan    func(root string) ([]migrationChange, []migrationSkip, error)
+	// Note, when set, returns a line printed once after the migration's
+	// rewrites, such as what the new form does not cover yet.
+	Note func(root string) string
 }
 
 // migrationChange is one file edit: new content for Path, written to
@@ -39,19 +42,33 @@ type migrationChange struct {
 	Remove  bool
 }
 
+// migrationSkip is an entry a migration leaves as written. Actionable
+// marks one the user should change by hand; the rest are fine as they
+// are, so doctor does not ask about them.
 type migrationSkip struct {
-	Path   string
-	Reason string
+	Path       string
+	Reason     string
+	Actionable bool
 }
 
 // specMigrations is the registry, in release order. Each entry is
 // idempotent: it plans nothing once its old form is gone.
-var specMigrations = []specMigration{configFileNameMigration}
+var specMigrations = []specMigration{configFileNameMigration, hooksPortableEventsMigration}
 
+// pendingMigration is a migration that applies here, or whose plan
+// failed with planErr.
 type pendingMigration struct {
 	specMigration
 	changes []migrationChange
 	skips   []migrationSkip
+	planErr error
+	note    string
+}
+
+// needsUser reports whether the migration rewrites something or asks the
+// user to change something by hand.
+func (p pendingMigration) needsUser() bool {
+	return p.planErr == nil && (len(p.changes) > 0 || slices.ContainsFunc(p.skips, func(s migrationSkip) bool { return s.Actionable }))
 }
 
 func newMigrateCmd() *cobra.Command {
@@ -85,10 +102,7 @@ func newMigrateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			pending, err := planMigrations(".", selected)
-			if err != nil {
-				return err
-			}
+			pending := planMigrations(".", selected)
 			out := cmd.OutOrStdout()
 			if list {
 				printMigrationList(out, selected, pending)
@@ -103,7 +117,7 @@ func newMigrateCmd() *cobra.Command {
 			}
 			if dryRun {
 				printMigrationPlan(out, pending, true, quiet)
-				return nil
+				return planFailures(pending)
 			}
 			lock, err := acquireProjectLock(".", "migrate")
 			if err != nil {
@@ -114,7 +128,7 @@ func newMigrateCmd() *cobra.Command {
 				return err
 			}
 			printMigrationPlan(out, pending, false, quiet)
-			return nil
+			return planFailures(pending)
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print the rewrites without writing them.")
@@ -149,18 +163,50 @@ func selectMigrations(set bool, only []string) ([]specMigration, error) {
 	return out, nil
 }
 
-func planMigrations(root string, selected []specMigration) ([]pendingMigration, error) {
+// planMigrations plans each selected migration. One whose plan fails is
+// kept with its error, so the others still run.
+func planMigrations(root string, selected []specMigration) []pendingMigration {
 	var pending []pendingMigration
 	for _, m := range selected {
 		changes, skips, err := m.Plan(root)
-		if err != nil {
-			return nil, fmt.Errorf("migration %s: %w", m.ID, err)
-		}
-		if len(changes)+len(skips) > 0 {
-			pending = append(pending, pendingMigration{m, changes, skips})
+		if err != nil || len(changes)+len(skips) > 0 {
+			p := pendingMigration{specMigration: m, changes: changes, skips: skips, planErr: err}
+			if err == nil && len(changes) > 0 && m.Note != nil {
+				p.note = m.Note(root)
+			}
+			pending = append(pending, p)
 		}
 	}
-	return pending, nil
+	return pending
+}
+
+// planFailures is the command's error when a plan failed, after the
+// other migrations ran.
+func planFailures(pending []pendingMigration) error {
+	var ids []string
+	for _, p := range pending {
+		if p.planErr != nil {
+			ids = append(ids, p.ID)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	return fmt.Errorf("%d %s could not plan: %s", len(ids), migrationWord(len(ids), "migration", "migrations"), strings.Join(ids, ", "))
+}
+
+// planErrorText is a plan error on one line, with the values a parse
+// error may quote redacted.
+func planErrorText(err error) string { return migrationLine(err.Error()) }
+
+// migrationLine is text for one output line, such as a skip reason that
+// quotes a parse error, with the values it may quote redacted.
+func migrationLine(text string) string {
+	lines := redactMigrationLines(strings.Split(text, "\n"))
+	for i, line := range lines {
+		lines[i] = strings.TrimSpace(line)
+	}
+	return strings.Join(lines, " ")
 }
 
 func printMigrationList(out io.Writer, selected []specMigration, pending []pendingMigration) {
@@ -172,6 +218,9 @@ func printMigrationList(out io.Writer, selected []specMigration, pending []pendi
 		state := "does not apply"
 		if p, ok := applies[m.ID]; ok {
 			state = fmt.Sprintf("%d to rewrite, %d skipped", len(p.changes), len(p.skips))
+			if p.planErr != nil {
+				state = "cannot plan: " + planErrorText(p.planErr)
+			}
 		}
 		_, _ = fmt.Fprintf(out, "%s (%s): %s: %s\n", m.ID, m.Release, m.Summary, state)
 	}
@@ -185,9 +234,13 @@ func printMigrationPlan(out io.Writer, pending []pendingMigration, dryRun, quiet
 		verb, rename, remove = "would rewrite", "would rename", "would remove"
 	}
 	for _, p := range pending {
+		if p.planErr != nil {
+			_, _ = fmt.Fprintf(out, "%s: cannot plan: %s\n", p.ID, planErrorText(p.planErr))
+			continue
+		}
 		if quiet {
 			for _, s := range p.skips {
-				_, _ = fmt.Fprintf(out, "%s: skipped %s: %s\n", p.ID, filepath.ToSlash(s.Path), s.Reason)
+				_, _ = fmt.Fprintf(out, "%s: skipped %s: %s\n", p.ID, filepath.ToSlash(s.Path), migrationLine(s.Reason))
 			}
 			continue
 		}
@@ -207,7 +260,10 @@ func printMigrationPlan(out io.Writer, pending []pendingMigration, dryRun, quiet
 			}
 		}
 		for _, s := range p.skips {
-			_, _ = fmt.Fprintf(out, "  skipped %s: %s\n", filepath.ToSlash(s.Path), s.Reason)
+			_, _ = fmt.Fprintf(out, "  skipped %s: %s\n", filepath.ToSlash(s.Path), migrationLine(s.Reason))
+		}
+		if p.note != "" {
+			_, _ = fmt.Fprintf(out, "  note: %s\n", p.note)
 		}
 	}
 }
@@ -392,20 +448,22 @@ func writeMigrationChange(c migrationChange) error {
 }
 
 // pendingMigrationHint is the line doctor and upgrade --requires print
-// when migrations apply here, or "" when none do or the plan fails. A
-// migration that only skips needs a manual step, and says so.
+// when migrations apply here, or "" when none do. A migration whose plan
+// fails is left out. One that only skips needs a manual step when a skip
+// is actionable, and says so; other skips need nothing.
 func pendingMigrationHint(root string) string {
-	pending, err := planMigrations(root, specMigrations)
-	if err != nil || len(pending) == 0 {
-		return ""
-	}
 	var apply, manual []string
-	for _, p := range pending {
-		if len(p.changes) > 0 {
+	for _, p := range planMigrations(root, specMigrations) {
+		switch {
+		case !p.needsUser():
+		case len(p.changes) > 0:
 			apply = append(apply, p.ID)
-		} else {
+		default:
 			manual = append(manual, p.ID)
 		}
+	}
+	if len(apply)+len(manual) == 0 {
+		return ""
 	}
 	var parts []string
 	if len(apply) > 0 {

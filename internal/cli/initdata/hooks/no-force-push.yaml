@@ -1,8 +1,8 @@
 name: no-force-push
 description: Block git push --force and allow --force-with-lease.
 targets: [claude, codex]
-event: PreToolUse
-matcher: Bash
+on: before-tool
+match: shell
 command: '"$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/no-force-push.sh"'
 commandWindows: '$s = "$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/no-force-push.sh"; if (-not (Get-Command sh -ErrorAction SilentlyContinue)) { exit 1 }; sh $s; exit $LASTEXITCODE'
 timeout: 10

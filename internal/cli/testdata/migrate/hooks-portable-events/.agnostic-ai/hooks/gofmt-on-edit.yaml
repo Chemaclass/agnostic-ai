@@ -1,0 +1,6 @@
+name: gofmt-on-edit
+description: Format the Go files the agent edits.
+targets: [claude, codex]
+event: PostToolUse
+matcher: 'Edit|Write'
+command: 'files=$(agnostic-ai hook paths) || exit 1; printf "%s\n" "$files" | grep "\.go$" | while IFS= read -r f; do gofmt -w "$f"; done'
