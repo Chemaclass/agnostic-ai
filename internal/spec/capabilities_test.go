@@ -104,6 +104,18 @@ func TestAgentCapabilityProblem_NamesWhatIsWrong(t *testing.T) {
 	}
 }
 
+// A can: value YAML cannot decode stays set, so the check rejects it
+// instead of the loader dropping the restriction.
+func TestParseMarkdown_KeepsAnUndecodableCan(t *testing.T) {
+	e, err := ParseMarkdownBytes(KindAgent, []byte("---\nname: a\ncan: [read, !!float nope]\n---\n\nBody.\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if problem := AgentCapabilityProblem(e.Meta); !strings.HasPrefix(problem, "can: must be a list") {
+		t.Errorf("problem = %q", problem)
+	}
+}
+
 func TestNativeTools_PutsToolsWhereCanWas(t *testing.T) {
 	e := Entry{
 		Kind:       KindAgent,
@@ -128,11 +140,13 @@ func TestNativeTools_PutsToolsWhereCanWas(t *testing.T) {
 }
 
 // An agent whose can: sync cannot read is left out, so a typo never
-// writes an agent with every tool.
+// writes an agent with every tool. That holds for a pack agent too,
+// which the sync stop does not check.
 func TestBundleFor_LeavesOutAnAgentWithAnUnreadableCan(t *testing.T) {
 	b := NewBundle([]Entry{
 		{Kind: KindAgent, Name: "ok", Meta: map[string]any{"can": []any{"read"}}},
 		{Kind: KindAgent, Name: "typo", Meta: map[string]any{"can": []any{"raed"}}},
+		{Kind: KindAgent, Name: "nested", Layer: "pack:p", Meta: map[string]any{"x-claude": map[string]any{"can": []any{"read"}}}},
 	})
 	agents := b.For("claude").Agents
 	if len(agents) != 1 || agents[0].Name != "ok" {

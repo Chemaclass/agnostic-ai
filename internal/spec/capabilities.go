@@ -167,12 +167,12 @@ func (e Entry) NativeTools() (Entry, string) {
 	if e.Kind != KindAgent {
 		return e, ""
 	}
+	if problem := AgentCapabilityProblem(e.Meta); problem != "" {
+		return e, problem
+	}
 	raw, set := e.Meta[capabilityKey]
 	if !set {
 		return e, ""
-	}
-	if problem := AgentCapabilityProblem(e.Meta); problem != "" {
-		return e, problem
 	}
 	names, _ := capabilityToolNames(raw)
 	tools := make([]any, len(names))

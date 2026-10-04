@@ -1142,7 +1142,12 @@ func nodeToOrderedMap(n *yaml.Node) (map[string]any, []string, map[string]yaml.S
 		valNode := n.Content[i+1]
 		var v any
 		if err := valNode.Decode(&v); err != nil {
-			continue
+			// A dropped can: would sync the agent with every tool, so it
+			// stays as a value the capability check rejects.
+			if keyNode.Value != capabilityKey {
+				continue
+			}
+			v = valNode
 		}
 		if _, dup := meta[keyNode.Value]; !dup {
 			keys = append(keys, keyNode.Value)
