@@ -151,6 +151,8 @@ outputs:
     mcp-file: .cursor/mcp.json
 ```
 
+`outputs.<target>.agents: skill` writes agents as on-demand skills on Amp, Crush, Warp, and Zed, which have no subagents. See [agents as skills](@/docs/spec-format/agents.md#agents-as-skills).
+
 Two Codex keys change how rules and permissions are written:
 
 - `outputs.codex.nested-glob-rules` defaults to `true`: exact whole-subtree rule selectors write nested `AGENTS.md` files. Set it to `false` to inline those rules in the root file. Filename filters and root-file selectors stay inline, with an always-loaded note under `on-unsupported`. See [Codex rules](@/docs/targets/codex.md).

@@ -217,6 +217,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "A spec body holds `{{$AGENT:<name>}}` or `{{$SKILL:<name>}}`, and no agent or skill in the project has that name, or that agent or skill does not sync to a target the spec reaches. Sync would render an invocation phrase that points at nothing.",
 		Fix:      "Use one of the names the finding lists, add the agent or skill, or scope both specs to the same targets.",
 	},
+	"LINT035": {
+		Severity: lintWarn,
+		Title:    "MCP env or headers value that is a literal",
+		Cause:    "An MCP spec's `env` or `headers` value is neither a `${NAME}` reference nor marked `!literal`, so it may be a secret that sync writes into every tool's config. Empty values, numbers, booleans, and `x-<target>` blocks are not checked. A later release fails `lint` and `sync` on it.",
+		Fix:      "Write a secret as `${NAME}` and set the variable, or mark a plain setting `NODE_ENV: !literal production`. `agnostic-ai migrate --only secrets` does both.",
+	},
 	"LINT034": {
 		Severity: lintWarn,
 		Title:    "Native hook event with an exact portable form",

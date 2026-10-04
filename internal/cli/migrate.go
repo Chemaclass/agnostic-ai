@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // specMigration rewrites one old spec form into its replacement without
@@ -74,7 +75,7 @@ func packSkip(path, pack string) migrationSkip {
 
 // specMigrations is the registry, in release order. Each entry is
 // idempotent: it plans nothing once its old form is gone.
-var specMigrations = []specMigration{configFileNameMigration, hooksPortableEventsMigration}
+var specMigrations = []specMigration{configFileNameMigration, hooksPortableEventsMigration, secretsMCPLiteralsMigration}
 
 // pendingMigration is a migration that applies here, or whose plan
 // failed with planErr.
@@ -101,7 +102,8 @@ func newMigrateCmd() *cobra.Command {
 		Long: "migrate applies every pending spec migration: a rewrite of an old spec\n" +
 			"form, such as a renamed field or file, into its replacement. A migration\n" +
 			"never changes what sync writes for the targets a spec already reaches,\n" +
-			"so `sync --check` stays clean after it. Old forms keep working, so\n" +
+			"so `sync --check` stays clean after it, except where a literal MCP\n" +
+			"credential becomes a ${NAME} reference. Old forms keep working, so\n" +
 			"running it is never required to sync.",
 		Example: `  # Show which migrations apply to this project
   agnostic-ai migrate --list
@@ -452,11 +454,12 @@ var migrationURL = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.-]*://`)
 
 // redactMigrationLines hides the values a diff could leak. It reads YAML
 // line by line, so it errs toward hiding: every value under env: or
-// headers:, every item of args:, and every URL; a value under a
-// credential-named key, including the lines of a `|` or `>` block under
-// one; a value import reads as a credential; a list item that follows a
-// credential flag; and a flow sequence that holds either. A ${NAME}
-// reference stays.
+// headers:, every item of args:, and every URL, including a flow value
+// that runs over the next lines; a value under a credential-named key,
+// including the lines of a `|` or `>` block under one; a value import
+// reads as a credential; a list item that follows a credential flag; and
+// a flow sequence that holds either. A ${NAME} reference, with or without
+// `Bearer `, and a `!literal` tag stay.
 func redactMigrationLines(lines []string) []string {
 	out := make([]string, len(lines))
 	blockIndent, valuesIndent := -1, -1
@@ -482,25 +485,23 @@ func redactMigrationLines(lines []string) []string {
 		}
 		if m := migrationValueLine.FindStringSubmatch(line); m != nil {
 			afterFlag = false
-			raw := migrationNodeProps.ReplaceAllString(strings.TrimSpace(m[3]), "")
-			value := strings.Trim(raw, `"'`)
-			if strings.HasPrefix(raw, "#") {
-				value = ""
-			}
+			tag, value := migrationLineValue(m[3])
 			switch {
-			case migrationValueKeys[m[2]] && value == "":
+			case migrationValueKeys[m[2]]:
+				// The value, or the rest of a flow value, may sit on the
+				// lines below.
 				valuesIndent = strings.Index(line, m[2])
-			case migrationValueKeys[m[2]] && !envRefOnly(value):
-				out[i] = m[1] + "<redacted>"
+				if value != "" && !migrationRefOnly(value) {
+					out[i] = m[1] + tag + "<redacted>"
+				}
 			case mcpCredentialKey(m[2]) && (value == "" || strings.HasPrefix(value, "|") || strings.HasPrefix(value, ">")):
-				// The value, or what the key holds, sits on the lines below.
 				blockIndent = indentWidth
 				if value != "" {
-					out[i] = m[1] + "<redacted>"
+					out[i] = m[1] + tag + "<redacted>"
 				}
-			case value == "" || envRefOnly(value):
+			case value == "" || migrationRefOnly(value):
 			case mcpCredentialKey(m[2]) || migrationSecretText(value) || migrationURLText(value):
-				out[i] = m[1] + "<redacted>"
+				out[i] = m[1] + tag + "<redacted>"
 			}
 			continue
 		}
@@ -509,7 +510,7 @@ func redactMigrationLines(lines []string) []string {
 			_, _, flagHasValue := mcpCredentialFlag(item)
 			isFlag := strings.HasPrefix(item, "--") && mcpCredentialName(strings.SplitN(strings.TrimPrefix(item, "--"), "=", 2)[0])
 			switch {
-			case envRefOnly(item):
+			case migrationRefOnly(item):
 			case afterFlag || migrationSecretText(item) || migrationURLText(item) || isFlag && flagHasValue:
 				out[i] = m[1] + "<redacted>"
 			}
@@ -524,6 +525,24 @@ func redactMigrationLines(lines []string) []string {
 	return out
 }
 
+// migrationLineValue splits a YAML value into its `!literal` tag, which a
+// diff keeps, and the value without quotes, anchors, other tags, or a
+// trailing-only comment.
+func migrationLineValue(text string) (tag, value string) {
+	tag, raw := cutLiteralTag(strings.TrimSpace(text))
+	raw = migrationNodeProps.ReplaceAllString(raw, "")
+	if strings.HasPrefix(raw, "#") {
+		return tag, ""
+	}
+	return tag, strings.Trim(raw, `"'`)
+}
+
+// migrationRefOnly reports a ${NAME} reference, alone or after `Bearer `,
+// with no default that could hold a value.
+func migrationRefOnly(value string) bool {
+	return envRefOnly(strings.TrimPrefix(value, "Bearer ")) && !strings.Contains(value, ":-")
+}
+
 // redactedValueLine is a line under env:, headers:, or args: with its
 // value hidden unless it is a reference.
 func redactedValueLine(line string, indentWidth int) string {
@@ -531,13 +550,14 @@ func redactedValueLine(line string, indentWidth int) string {
 		return line
 	}
 	if m := migrationValueLine.FindStringSubmatch(line); m != nil {
-		if value := strings.Trim(strings.TrimSpace(m[3]), `"'`); value == "" || envRefOnly(value) {
+		tag, value := migrationLineValue(m[3])
+		if value == "" || migrationRefOnly(value) {
 			return line
 		}
-		return m[1] + "<redacted>"
+		return m[1] + tag + "<redacted>"
 	}
 	if m := migrationListItem.FindStringSubmatch(line); m != nil {
-		if envRefOnly(strings.Trim(strings.TrimSpace(m[2]), `"'`)) {
+		if migrationRefOnly(strings.Trim(strings.TrimSpace(m[2]), `"'`)) {
 			return line
 		}
 		return m[1] + "<redacted>"
@@ -576,6 +596,14 @@ func migrationSecretText(value string) bool {
 		}
 	}
 	return false
+}
+
+// cutLiteralTag splits a leading `!literal ` tag off a YAML value.
+func cutLiteralTag(value string) (tag, rest string) {
+	if rest, ok := strings.CutPrefix(value, spec.LiteralTag+" "); ok {
+		return spec.LiteralTag + " ", strings.TrimSpace(rest)
+	}
+	return "", value
 }
 
 var migrationEnvRef = regexp.MustCompile(`^\$\{[A-Za-z_][A-Za-z0-9_]*(:-[^}]*)?\}$`)

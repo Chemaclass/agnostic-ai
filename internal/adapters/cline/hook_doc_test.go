@@ -52,7 +52,11 @@ func TestHookScript_TurnsExit2IntoACancelReply(t *testing.T) {
 	}
 	run := func(commands ...string) (string, int) {
 		t.Helper()
-		cmd := exec.Command("bash", "-c", hookScript(commands))
+		var script []hookCommand
+		for _, c := range commands {
+			script = append(script, hookCommand{command: c})
+		}
+		cmd := exec.Command("bash", "-c", hookScript(script))
 		cmd.Stdin = strings.NewReader("{}")
 		out, err := cmd.Output()
 		code := 0
@@ -97,5 +101,78 @@ func TestHookScript_TurnsExit2IntoACancelReply(t *testing.T) {
 		if strings.Count(out, "{") != 1 || strings.Count(out, "}") != 1 {
 			t.Errorf("stderr %q leaves unbalanced braces: %q", stderr, out)
 		}
+	}
+}
+
+// A portable hook's match kind becomes a check on the payload's tool
+// name, for the CLI's and the VS Code extension's tool names alike, and
+// the command still reads the whole payload on stdin.
+func TestHookScript_RunsAPortableHookOnlyOnItsKindsTools(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("runs the script with bash")
+	}
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("bash is not on PATH")
+	}
+	h, reason := spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{
+		"on": "before-tool", "match": "shell", "command": `if grep -q "push --force"; then echo "no force push" >&2; exit 2; fi`,
+	}}.NativeHook("cline")
+	if reason != "" {
+		t.Fatal(reason)
+	}
+	run := func(payload string) string {
+		t.Helper()
+		cmd := exec.Command("bash", "-c", HookScript(h))
+		cmd.Stdin = strings.NewReader(payload)
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("%s: %v", payload, err)
+		}
+		return string(out)
+	}
+	for _, payload := range []string{
+		`{"hookName":"tool_call","tool_call":{"id":"1","name":"run_commands","input":{"commands":["git push --force"]}},"preToolUse":{"toolName":"run_commands","parameters":{"commands":"[\"git push --force\"]"}}}`,
+		`{"clineVersion":"","hookName":"PreToolUse","preToolUse":{"toolName":"execute_command","parameters":{"command":"git push --force"}}}`,
+	} {
+		if out := run(payload); !strings.HasPrefix(out, "HOOK_CONTROL\t") || !strings.Contains(out, "no force push") {
+			t.Errorf("a shell call must reach the guard:\n%s\n%q", payload, out)
+		}
+	}
+	editor := `{"hookName":"tool_call","preToolUse":{"toolName":"editor","parameters":{"path":"/p/push --force.md"}}}`
+	if out := run(editor); out != "" {
+		t.Errorf("an editor call must skip a shell guard, got %q", out)
+	}
+	withArgs, _ := spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{
+		"on": "before-tool", "match": "shell", "command": "./guard.sh", "args": []any{"push --force"},
+	}}.NativeHook("cline")
+	if script := HookScript(withArgs); !strings.Contains(script, "esac\n./guard.sh 'push --force'\n)") {
+		t.Errorf("a filtered command keeps its folded args:\n%s", script)
+	}
+	native := spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"event": "PreToolUse", "matcher": "run_commands|execute_command", "command": "./a.sh"}}
+	if strings.Contains(HookScript(native), "toolName") {
+		t.Error("a native hook's matcher must not filter: Cline has no matcher, and its script stays as it was")
+	}
+}
+
+// Commands sharing a script each read the whole payload, so a filter
+// that skips its command, or a command that reads stdin, does not leave
+// the next one an empty stdin.
+func TestHookScript_GivesEachCommandThePayload(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("runs the script with bash")
+	}
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("bash is not on PATH")
+	}
+	script := hookScript([]hookCommand{
+		{command: "cat >/dev/null", tools: []string{"editor"}},
+		{command: "cat >/dev/null"},
+		{command: `if grep -q "push --force"; then echo "no force push" >&2; exit 2; fi`, tools: []string{"run_commands"}},
+	})
+	cmd := exec.Command("bash", "-c", script)
+	cmd.Stdin = strings.NewReader(`{"preToolUse":{"toolName":"run_commands","parameters":{"commands":"[\"git push --force\"]"}}}`)
+	out, err := cmd.Output()
+	if err != nil || !strings.Contains(string(out), "no force push") {
+		t.Errorf("the last guard must see the payload: %q %v", out, err)
 	}
 }

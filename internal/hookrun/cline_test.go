@@ -260,6 +260,31 @@ func TestClineDrift_FindsTheSpecInTheSharedScript(t *testing.T) {
 	}
 }
 
+// A filtered spec runs only where the script feeds every command the
+// payload; a script that reads it inside one command's filter drifts.
+func TestClineDrift_NeedsThePayloadFedToEveryCommand(t *testing.T) {
+	prologue := "set -e\nexport AGNOSTIC_AI_TARGET=cline\n"
+	block := func(lines ...string) string { return "\nset +e\n(\nset -e\n" + strings.Join(lines, "\n") + "\n)\n" }
+	editFilter := `case $aai_in in *'"toolName":"editor"'*) ;; *) exit 0 ;; esac`
+	shellFilter := `case $aai_in in *'"toolName":"run_commands"'*) ;; *) exit 0 ;; esac`
+	read, feed := "aai_in=$(cat)\n", "exec <<<\"$aai_in\"\n"
+	guard := Handler{Command: ".clinerules/hooks/PreToolUse", Script: prologue + read + feed + block(shellFilter, "./guard.sh")}
+	native := Handler{Command: ".clinerules/hooks/PreToolUse", Script: prologue + block("./audit.sh")}
+
+	fed := []byte(prologue + read + feed + block(editFilter, "./edit.sh") + feed + block("./audit.sh") + feed + block(shellFilter, "./guard.sh"))
+	if drift, err := Drift("cline", fed, "PreToolUse", "", "darwin", []Handler{guard, native}, nil); err != nil || len(drift) != 0 {
+		t.Errorf("a script that feeds each command runs both specs: %+v %v", drift, err)
+	}
+	for name, body := range map[string]string{
+		"read inside each filter": prologue + block("aai_in=$(cat)", editFilter, feed+"./edit.sh") + block("aai_in=$(cat)", shellFilter, feed+"./guard.sh"),
+		"a command left unfed":    prologue + read + feed + block(editFilter, "./edit.sh") + block(shellFilter, "./guard.sh"),
+	} {
+		if drift, _ := Drift("cline", []byte(body), "PreToolUse", "", "darwin", []Handler{guard}, nil); len(drift) != 1 {
+			t.Errorf("%s: drift = %+v, want the guard named", name, drift)
+		}
+	}
+}
+
 func TestClineSharedScript_NamesTheSiblings(t *testing.T) {
 	if ClineSharedScript(nil) != "" {
 		t.Error("a spec alone in its script counts")

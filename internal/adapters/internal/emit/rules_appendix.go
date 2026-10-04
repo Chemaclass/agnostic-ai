@@ -192,20 +192,6 @@ func EntryPointRuleInliner(cfg *config.Config, target string) string {
 	return ""
 }
 
-// EntryPointInlinedRules returns the rules, by name, that the entry
-// point target reads carries in its inlined rules block, or nil.
-func EntryPointInlinedRules(cfg *config.Config, b spec.Bundle, target string) map[string]spec.Entry {
-	inliner := EntryPointRuleInliner(cfg, target)
-	if inliner == "" {
-		return nil
-	}
-	rules := map[string]spec.Entry{}
-	for _, r := range EntryPointRules(b, inliner, cfg).Rules {
-		rules[r.Name] = r
-	}
-	return rules
-}
-
 // importRulesDir maps each target whose CLI auto-loads its entry-point
 // file but NOT its per-rule directory to that directory's default. These
 // targets emit one file per rule but the runtime never reads the folder,

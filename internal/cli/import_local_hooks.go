@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -18,6 +19,7 @@ import (
 // hook is matched on its event, matcher, and handler instead.
 type hookOwners struct {
 	entries []spec.Entry
+	cfg     *config.Config
 	// byTarget maps, per target, an event and handler to the specs that
 	// render it. Built on first use: only the imported targets need one.
 	byTarget map[string]map[string][]hookOwnerMatcher
@@ -28,15 +30,16 @@ type hookOwnerMatcher struct {
 	matcher, name string
 }
 
-func newHookOwners(entries []spec.Entry) *hookOwners {
-	return &hookOwners{entries: entries, byTarget: map[string]map[string][]hookOwnerMatcher{}}
+func newHookOwners(entries []spec.Entry, cfg *config.Config) *hookOwners {
+	return &hookOwners{entries: entries, cfg: cfg, byTarget: map[string]map[string][]hookOwnerMatcher{}}
 }
 
 // owner names the hook spec whose target rendering holds handler key
-// for event and matcher, or returns "". Adapters differ on whether they
-// apply `x-<target>` overrides to hooks, so both views count. A target
-// may join matchers on emit, so a handler whose matcher covers a spec's
-// is that spec's, even when another spec feeds it too.
+// for event and matcher, or returns "". A command handler is what sync
+// writes. The event and matcher count in the spec's own view and its
+// `x-<target>` view. A target may join matchers on emit, so a handler
+// whose matcher covers a spec's is that spec's, even when another spec
+// feeds it too.
 func (l *hookOwners) owner(target, event, matcher, key string) string {
 	index, ok := l.byTarget[target]
 	if !ok {
@@ -49,8 +52,17 @@ func (l *hookOwners) owner(target, event, matcher, key string) string {
 			if reason != "" {
 				continue
 			}
+			command := commandHook(native.Meta)
+			var synced []string
+			if command {
+				synced = syncedHookKeys(l.cfg, target, native)
+			}
 			for _, meta := range []map[string]any{native.Meta, adapters.ResolveMeta(native.Meta, target)} {
-				for _, k := range hookHandlerKeys(target, meta) {
+				keys := synced
+				if !command {
+					keys = writtenHookKeys(meta)
+				}
+				for _, k := range keys {
 					id := hookIdentity(hookEventKey(meta), k)
 					index[id] = append(index[id], hookOwnerMatcher{matcher: hookMatcher(meta), name: e.Name})
 				}
@@ -86,16 +98,28 @@ func hookMatcher(meta map[string]any) string {
 	return m
 }
 
-// hookHandlerKeys returns one key per handler a hook spec declares for
-// target: each command of a command hook, or the payload of an http,
-// mcp_tool, or prompt hook.
-func hookHandlerKeys(target string, meta map[string]any) []string {
+func commandHook(meta map[string]any) bool {
+	kind, _ := meta["type"].(string)
+	return kind == "" || kind == "command"
+}
+
+// writtenHookKeys returns one key per handler a native hook or an
+// imported hook doc holds, as written: each command of a command hook
+// with its args folded in, or the payload of an http, mcp_tool, or
+// prompt hook.
+func writtenHookKeys(meta map[string]any) []string {
 	str := func(k string) string { s, _ := meta[k].(string); return s }
 	switch str("type") {
 	case "", "command":
+		// Args go with `command`; the handlers under `x-gemini.hooks`
+		// stand alone.
+		var args []string
+		if _, ok := meta["command"]; ok {
+			args = stringSliceFromAny(meta["args"])
+		}
 		var keys []string
 		for _, c := range hookCommands(meta) {
-			keys = append(keys, hookCommandKey(target, c, meta))
+			keys = append(keys, hookCommandKey(adapters.ExecFormCommand(c, args)))
 		}
 		return keys
 	case "http":
@@ -108,33 +132,29 @@ func hookHandlerKeys(target string, meta map[string]any) []string {
 	return nil
 }
 
-// hookArgsTargets write a hook's exec-form args: Claude Code, Copilot,
-// and Qoder into a field of their own, which an importer folds in
-// before matching, the others into the command. Augment writes no hook
-// with args (#1775).
-var hookArgsTargets = map[string]bool{
-	"antigravity": true, "claude": true, "cline": true, "codex": true, "copilot": true, "crush": true,
-	"cursor": true, "factory": true, "gemini": true, "goose": true, "kilo": true, "kiro": true,
-	"opencode": true, "openhands": true, "qoder": true, "trae": true, "windsurf": true, "zed": true,
-}
-
-// Metadata renders a source command, with its args where the target
-// writes them; native commands already contain their runtime root. Both
-// then take the native rewrite, which also reaches a hook path inside a
-// folded arg.
-func hookCommandKey(target, command string, metadata ...map[string]any) string {
-	if len(metadata) > 0 {
-		command = adapters.RewriteHookPath(command, target, metadata...)
-		// Args go with `command`; the handlers under `x-gemini.hooks`
-		// emit as written.
-		if _, ok := metadata[0]["command"]; ok && hookArgsTargets[target] {
-			command = adapters.ExecFormCommand(command, stringSliceFromAny(metadata[0]["args"]))
+// syncedHookKeys returns one key per command handler sync writes for h
+// on target, as the native file spells it. A target hook run cannot
+// render, such as Zed, gets its path rewrite and args fold instead.
+func syncedHookKeys(cfg *config.Config, target string, h spec.Entry) []string {
+	commands, ok := adapters.SyncedHookCommands(cfg, target, h)
+	if !ok {
+		meta := adapters.ResolveMeta(h.Meta, target)
+		args := stringSliceFromAny(meta["args"])
+		for _, c := range hookCommands(meta) {
+			commands = append(commands, adapters.ExecFormCommand(adapters.RewriteHookPath(c, target, meta), args))
 		}
 	}
-	command = adapters.RewriteHookDirectories(command, target)
-	if target != "" {
-		command = strings.ReplaceAll(command, "."+target+"/hooks/", "\x00hooks/")
+	keys := make([]string, 0, len(commands))
+	for _, c := range commands {
+		keys = append(keys, hookCommandKey(c))
 	}
+	return keys
+}
+
+// hookCommandKey is the key of one command handler as the native file
+// holds it, after the importer removes what sync adds around it, such as
+// the target export.
+func hookCommandKey(command string) string {
 	return "command\x00" + command
 }
 
@@ -180,7 +200,7 @@ func (g *localImportGuard) feedsOnlyLocalHooks(event string, raw json.RawMessage
 	handlers := 0
 	for _, group := range groups {
 		for _, h := range group.Hooks {
-			keys := hookHandlerKeys("claude", h)
+			keys := writtenHookKeys(h)
 			if len(keys) == 0 {
 				return false
 			}
@@ -216,7 +236,7 @@ func (g *localImportGuard) dropsHookCommand(target, event, matcher, command stri
 	if g == nil {
 		return false
 	}
-	return g.ownsHookHandler(target, foldHookEvent(event), matcher, hookCommandKey(target, command))
+	return g.ownsHookHandler(target, foldHookEvent(event), matcher, hookCommandKey(command))
 }
 
 // ownsHookHandler reports whether a local or shared hook spec renders
@@ -237,7 +257,9 @@ func (g *localImportGuard) ownsHookHandler(target, event, matcher, key string) b
 // ownsHookDoc reports whether every handler of an imported hook doc
 // comes from a local or shared hook spec, and names those specs in the
 // closing notes. Importers that write one spec per native handler rely
-// on it.
+// on it. The doc counts as written, or as sync writes it: an importer
+// may map a handler back to a portable form, such as Copilot's path
+// relative to `cwd`.
 func (g *localImportGuard) ownsHookDoc(data []byte) bool {
 	e, err := spec.ParseYAMLBytes(spec.KindHook, data)
 	if err != nil {
@@ -253,19 +275,25 @@ func (g *localImportGuard) ownsHookDoc(data []byte) bool {
 	}
 	meta := adapters.ResolveMeta(native.Meta, target)
 	event, matcher := hookEventKey(meta), hookMatcher(meta)
-	keys := hookHandlerKeys(target, meta)
-	if event == "" || len(keys) == 0 {
+	if event == "" {
 		return false
 	}
-	for _, k := range keys {
-		if g.hooks.owner(target, event, matcher, k) == "" && g.sharedHooks.owner(target, event, matcher, k) == "" {
-			return false
+	views := [][]string{writtenHookKeys(meta)}
+	if commandHook(meta) {
+		views = append(views, syncedHookKeys(g.cfg, target, native))
+	}
+	for _, keys := range views {
+		if len(keys) == 0 || slices.ContainsFunc(keys, func(k string) bool {
+			return g.hooks.owner(target, event, matcher, k) == "" && g.sharedHooks.owner(target, event, matcher, k) == ""
+		}) {
+			continue
 		}
+		for _, k := range keys {
+			g.ownsHookHandler(target, event, matcher, k)
+		}
+		return true
 	}
-	for _, k := range keys {
-		g.ownsHookHandler(target, event, matcher, k)
-	}
-	return true
+	return false
 }
 
 // leavesHookScript reports whether the hook script named base runs only

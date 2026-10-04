@@ -1,0 +1,15 @@
+# Plain settings in every quoting style, next to values that stay.
+name: app
+description: App server.
+command: npx
+args: ["-y", "@example/app-mcp"]
+env:
+  NODE_ENV: production   # keep this comment
+  LOG_LEVEL: "debug"
+  REGION: 'eu-west-1'
+  DATABASE_URL: postgres://localhost:${PGPORT}/app
+  GITHUB_TOKEN: ${GITHUB_TOKEN}
+  TEMPLATE: $${USER}
+  RETRIES: 3
+  EMPTY: ""
+  ALREADY: !literal yes

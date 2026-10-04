@@ -1,0 +1,2 @@
+version: 1
+targets: [claude, codex, cursor, gemini, opencode, continue, kiro, zed, copilot]

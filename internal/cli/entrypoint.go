@@ -155,6 +155,7 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 				}
 				rulesAppendix = next
 			}
+			adapters.NoteEntryPointVars(cfg, b, inliners[0])
 			content = adapters.AppendRulesAppendix(content, rulesAppendix)
 			layers = append(layers, instructionLayer{Name: "rules", Text: rulesAppendix})
 		} else if importer := pathRulesImporter(cfg, consumers[path]); importer != "" {
