@@ -72,7 +72,7 @@ func TestSync_StopsOnAPermissionCapabilityItCannotRead(t *testing.T) {
 			if exists(filepath.Join(dir, ".claude", "settings.json")) {
 				t.Error("sync must not write settings it cannot read")
 			}
-			if out, err := runCLI(t, "lint"); err == nil || !strings.Contains(out, "LINT036 [error] .agnostic-ai/settings/p.yaml: ") {
+			if out, err := runCLI(t, "lint"); err == nil || !strings.Contains(out, "LINT036 [error] "+filepath.Join(".agnostic-ai", "settings", "p.yaml")+": ") {
 				t.Errorf("lint: %v\n%s", err, out)
 			}
 			if out, err := runCLI(t, "validate"); err == nil || !strings.Contains(out, tc.want) {
