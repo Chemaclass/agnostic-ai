@@ -320,3 +320,28 @@ func TestImport_KeepsANativeHookNamingAnotherHooksDirectory(t *testing.T) {
 		})
 	}
 }
+
+// Sync still writes a disabled hook, so import matches it.
+func TestImport_SkipsADisabledSharedHook(t *testing.T) {
+	hook := "name: sh\nevent: Stop\ncommand: echo done\ndisabled: true\n"
+	for _, target := range []string{"kiro", "codex", "trae"} {
+		t.Run(target, func(t *testing.T) {
+			syncSharedHook(t, target, hook)
+
+			assertOnlySharedHook(t, hook, importCapturing(t, target))
+		})
+	}
+}
+
+// A command that sets the target variable itself keeps it where sync
+// sets the variable in the environment instead.
+func TestImport_SkipsASharedHookThatExportsTheTargetItself(t *testing.T) {
+	for _, target := range []string{"claude", "gemini", "codex"} {
+		t.Run(target, func(t *testing.T) {
+			hook := "name: sh\nevent: PreToolUse\ncommand: 'export AGNOSTIC_AI_TARGET=" + target + "; echo shared'\n"
+			syncSharedHook(t, target, hook)
+
+			assertOnlySharedHook(t, hook, importCapturing(t, target))
+		})
+	}
+}

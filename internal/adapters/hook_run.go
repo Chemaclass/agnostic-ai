@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"fmt"
+	"maps"
 	"path/filepath"
 	"slices"
 	"time"
@@ -119,27 +120,42 @@ func HookHandlers(cfg *config.Config, target string, h spec.Entry) ([]hookrun.Ha
 }
 
 // SyncedHookCommands returns each command handler sync writes for h on
-// target as the native file spells it, with the target export left off
-// and exec-form args folded in. It returns false for a target with no
-// renderer here, and for Cline, whose handler is the event script. The
-// coverage notes the render raises are set aside.
+// target as the native file spells it, without the target export sync
+// prepends and with exec-form args folded in. It returns false for a
+// target with no renderer here, and for Cline, whose handler is the
+// event script. A disabled hook counts: sync still writes it, and only
+// hook run leaves it out. The coverage notes the render raises are set
+// aside.
 func SyncedHookCommands(cfg *config.Config, target string, h spec.Entry) ([]string, bool) {
 	if !hookrun.Supported(target) || target == "cline" {
 		return nil, false
 	}
 	defer SetAsideNotes()()
+	if _, ok := h.Meta["disabled"]; ok {
+		h.Meta = maps.Clone(h.Meta)
+		delete(h.Meta, "disabled")
+	}
 	handlers, err := HookHandlers(cfg, target, h)
 	if err != nil {
 		return nil, false
 	}
 	var out []string
 	for _, c := range handlers {
-		if c.Command != "" {
-			out = append(out, ExecFormCommand(StripHookTargetExport(c.Command, target), c.Args))
+		if c.Command == "" {
+			continue
 		}
+		command := c.Command
+		if exportsHookTarget[target] {
+			command = StripHookTargetExport(command, target)
+		}
+		out = append(out, ExecFormCommand(command, c.Args))
 	}
 	return out, true
 }
+
+// exportsHookTarget are the targets whose sync prepends the target
+// export to a hook command; the others set it in the environment.
+var exportsHookTarget = map[string]bool{"codex": true, "crush": true, "goose": true}
 
 // hookDoc renders the hooks file sync writes for h alone on a target
 // whose file shares the `hooks` block shape, or Factory's and Devin
