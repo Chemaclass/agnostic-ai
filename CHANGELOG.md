@@ -14,6 +14,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - Hook `args` now reach the command on 12 more tools, folded in and shell-quoted, and `import` matches them; Augment skips such a hook with a note (#1780).
 - `init --demo` seeds a `no-force-push` guard, `new agent` omits `model`, and `lint` warns (LINT031) on a leftover `TODO` description (#1732, #1738, #1739).
 - Spec bodies can name an agent or skill with `{{$AGENT:name}}` and `{{$SKILL:name}}`, which render each tool's documented invocation phrase; `lint` fails (LINT033) on an unknown name (#1773).
+- MCP `env` and `headers` values are references unless marked `NODE_ENV: !literal production`; `lint` warns (LINT035) and sync counts the rest, which a later release fails on. Run `agnostic-ai migrate --only secrets` (#1753).
 
 ### By tool
 

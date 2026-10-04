@@ -182,7 +182,7 @@ Scoop, WinGet, and `node_modules` markers match case-insensitively. `upgrade` al
 
 ## migrate
 
-Rewrite old spec forms into their current replacements, such as a renamed field or file. A migration never changes what sync writes for the targets a spec already reaches, so `sync --check` stays clean after it. Old forms keep working, so you never have to run it before a sync. `doctor` and `upgrade --requires` name the migrations that apply.
+Rewrite old spec forms into their current replacements, such as a renamed field or file. A migration never changes what sync writes for the targets a spec already reaches, so `sync --check` stays clean after it. The one exception is a literal MCP credential, which becomes a `${NAME}` reference. Old forms keep working, so you never have to run it before a sync. `doctor` and `upgrade --requires` name the migrations that apply.
 
 ```bash
 agnostic-ai migrate --list      # which migrations apply here
@@ -192,11 +192,12 @@ agnostic-ai migrate             # apply them
 
 | Flag | Description |
 |------|-------------|
-| `--dry-run` | Print each rename and a diff of each rewrite, and write nothing. Values under credential-named keys, and values that look like a credential, print as `<redacted>`. |
+| `--dry-run` | Print each rename and a diff of each rewrite, and write nothing. Values under `env` and `headers`, values under credential-named keys, and values that look like a credential print as `<redacted>`. A `${NAME}` reference and a `!literal` tag still show. |
 | `--list` | List every migration with the release that added it and whether it applies here. |
 | `--only <group>` | Run only these groups, comma-separated. A migration ID starts with its group, such as `config-file-name` in group `config`. |
 
 - A migration rewrites only what maps one to one. Anything else stays as written, and the output says why.
+- When `secrets-mcp-literals` turns a credential into a reference, its output names each variable to set, never the value.
 - It writes each file atomically and keeps its mode. A rename writes the new file before it removes the old one.
 - It refuses to run in the global home; edit those specs by hand.
 - Running it twice changes nothing.
@@ -207,6 +208,7 @@ agnostic-ai migrate             # apply them
 |-----------|---------|----------|
 | `config-file-name` | 0.79.0 | `agnostic.config.yaml` to `agnostic-ai.yaml`. When both exist with the same content, it removes the old file. Skipped when they differ, since `agnostic-ai.yaml` wins, and when Git ignores `agnostic-ai.yaml`. |
 | `hooks-portable-events` | 0.79.0 | A hook's `event` and `matcher` to the [portable](@/docs/spec-format/hooks.md#portable-events) `on` and `match`, such as `PreToolUse` on `Bash` to `before-tool` on `shell`. Comments, quoting, and key order stay. Skipped when the portable form would give a target the hook reaches another event or matcher, such as `matcher: Read` on Codex or `matcher: Edit\|Write` on Claude Code, where `match: edit` also covers `MultiEdit` and `NotebookEdit`; when a `local/` spec extends the hook; and for a pack's hook. |
+| `secrets-mcp-literals` | 0.79.0 | Each MCP `env` and `headers` value that is neither a reference nor marked: a value import reads as a credential becomes a `${NAME}` reference named as import names it, and every other value gets [`!literal`](@/docs/spec-format/mcps.md#plain-settings). Each file in `local/` is rewritten on its own. Skipped for a key with a credential name whose value has no credential shape, a credential around a reference, and a pack's spec. Run it alone with `--only secrets`. |
 
 ## lsp
 

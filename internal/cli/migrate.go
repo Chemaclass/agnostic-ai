@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // specMigration rewrites one old spec form into its replacement without
@@ -53,7 +54,7 @@ type migrationSkip struct {
 
 // specMigrations is the registry, in release order. Each entry is
 // idempotent: it plans nothing once its old form is gone.
-var specMigrations = []specMigration{configFileNameMigration, hooksPortableEventsMigration}
+var specMigrations = []specMigration{configFileNameMigration, hooksPortableEventsMigration, secretsMCPLiteralsMigration}
 
 // pendingMigration is a migration that applies here, or whose plan
 // failed with planErr.
@@ -80,7 +81,8 @@ func newMigrateCmd() *cobra.Command {
 		Long: "migrate applies every pending spec migration: a rewrite of an old spec\n" +
 			"form, such as a renamed field or file, into its replacement. A migration\n" +
 			"never changes what sync writes for the targets a spec already reaches,\n" +
-			"so `sync --check` stays clean after it. Old forms keep working, so\n" +
+			"so `sync --check` stays clean after it, except where a literal MCP\n" +
+			"credential becomes a ${NAME} reference. Old forms keep working, so\n" +
 			"running it is never required to sync.",
 		Example: `  # Show which migrations apply to this project
   agnostic-ai migrate --list
@@ -289,13 +291,16 @@ var migrationValueLine = regexp.MustCompile(`^(\s*-?\s*"?([A-Za-z0-9_.-]+)"?\s*:
 var migrationListItem = regexp.MustCompile(`^(\s*-\s+)(.*)$`)
 
 // redactMigrationLines hides the values a diff could leak. It reads YAML
-// line by line, so it errs toward hiding: a value under a credential-named
-// key, including the lines of a `|` or `>` block under one; a value import
-// reads as a credential; a list item that follows a credential flag; and a
-// flow sequence that holds either. A ${NAME} reference stays.
+// line by line, so it errs toward hiding: every value under an `env:` or
+// `headers:` key, and a value under a credential-named key, including the
+// lines of a `|` or `>` block under either; a value import reads as a
+// credential; a list item that follows a credential flag; and a flow
+// sequence that holds either. A ${NAME} reference, with or without
+// `Bearer `, and a `!literal` tag stay.
 func redactMigrationLines(lines []string) []string {
 	out := make([]string, len(lines))
 	blockIndent := -1
+	secretIndent := -1
 	afterFlag := false
 	for i, line := range lines {
 		out[i] = line
@@ -307,16 +312,28 @@ func redactMigrationLines(lines []string) []string {
 			}
 			blockIndent = -1
 		}
+		if secretIndent >= 0 && strings.TrimSpace(line) != "" && indentWidth <= secretIndent {
+			secretIndent = -1
+		}
 		if m := migrationValueLine.FindStringSubmatch(line); m != nil {
 			afterFlag = false
-			value := strings.Trim(strings.TrimSpace(m[3]), `"'`)
+			tag, raw := cutLiteralTag(strings.TrimSpace(m[3]))
+			value := strings.Trim(raw, `"'`)
+			if strings.HasPrefix(value, "#") {
+				value = ""
+			}
+			secretField := m[2] == "env" || m[2] == "headers"
+			hidden := secretIndent >= 0 || mcpCredentialKey(m[2])
 			switch {
-			case mcpCredentialKey(m[2]) && strings.HasPrefix(value, "|") || mcpCredentialKey(m[2]) && strings.HasPrefix(value, ">"):
+			case hidden && (strings.HasPrefix(value, "|") || strings.HasPrefix(value, ">")):
 				blockIndent = indentWidth
-				out[i] = m[1] + "<redacted>"
-			case value == "" || envRefOnly(value):
-			case mcpCredentialKey(m[2]) || migrationSecretText(value):
-				out[i] = m[1] + "<redacted>"
+				out[i] = m[1] + tag + "<redacted>"
+			case value == "" || envRefOnly(strings.TrimPrefix(value, "Bearer ")):
+			case hidden || secretField || migrationSecretText(value):
+				out[i] = m[1] + tag + "<redacted>"
+			}
+			if secretField && value == "" {
+				secretIndent = indentWidth
 			}
 			continue
 		}
@@ -326,14 +343,16 @@ func redactMigrationLines(lines []string) []string {
 			isFlag := strings.HasPrefix(item, "--") && mcpCredentialName(strings.SplitN(strings.TrimPrefix(item, "--"), "=", 2)[0])
 			switch {
 			case envRefOnly(item):
-			case afterFlag || migrationSecretText(item) || isFlag && flagHasValue:
+			case secretIndent >= 0 || afterFlag || migrationSecretText(item) || isFlag && flagHasValue:
 				out[i] = m[1] + "<redacted>"
 			}
 			afterFlag = isFlag && !flagHasValue
 			continue
 		}
 		afterFlag = false
-		if migrationSecretText(line) {
+		if secretIndent >= 0 && strings.TrimSpace(line) != "" {
+			out[i] = strings.Repeat(" ", indentWidth) + "<redacted>"
+		} else if migrationSecretText(line) {
 			out[i] = "<redacted>"
 		}
 	}
@@ -363,6 +382,14 @@ func migrationSecretText(value string) bool {
 		}
 	}
 	return false
+}
+
+// cutLiteralTag splits a leading `!literal ` tag off a YAML value.
+func cutLiteralTag(value string) (tag, rest string) {
+	if rest, ok := strings.CutPrefix(value, spec.LiteralTag+" "); ok {
+		return spec.LiteralTag + " ", strings.TrimSpace(rest)
+	}
+	return "", value
 }
 
 var migrationEnvRef = regexp.MustCompile(`^\$\{[A-Za-z_][A-Za-z0-9_]*(:-[^}]*)?\}$`)
