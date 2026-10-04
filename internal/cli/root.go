@@ -151,6 +151,9 @@ func loadProject(root string) (*config.Config, spec.Bundle, error) {
 	if err := validateConfigTargets(cfg, strings.Join(sources, " + ")); err != nil {
 		return nil, spec.Bundle{}, err
 	}
+	if err := validateAgentsOutput(cfg, strings.Join(sources, " + ")); err != nil {
+		return nil, spec.Bundle{}, err
+	}
 	if err := validateCoverageTargets(cfg); err != nil {
 		return nil, spec.Bundle{}, err
 	}

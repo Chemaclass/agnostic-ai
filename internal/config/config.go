@@ -303,6 +303,7 @@ type Output struct {
 	MCPFile                     string            `yaml:"mcp-file,omitempty"                 json:"mcp-file,omitempty"`
 	CLIMCPFile                  string            `yaml:"cli-mcp-file,omitempty"             json:"cli-mcp-file,omitempty"`
 	RootMCPFile                 string            `yaml:"root-mcp-file,omitempty"            json:"root-mcp-file,omitempty"`
+	Agents                      string            `yaml:"agents,omitempty"                   json:"agents,omitempty"`
 	AgentsDir                   string            `yaml:"agents-dir,omitempty"               json:"agents-dir,omitempty"`
 	SkillsDir                   string            `yaml:"skills-dir,omitempty"               json:"skills-dir,omitempty"`
 	InstructionsDir             string            `yaml:"instructions-dir,omitempty"         json:"instructions-dir,omitempty"`
