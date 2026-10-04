@@ -153,3 +153,41 @@ func TestPortableHookForm(t *testing.T) {
 		}
 	}
 }
+
+func TestPortableHookTargets_TranslationTable(t *testing.T) {
+	type row struct{ events, shell, edit, read, web, mcp string }
+	want := map[string]row{
+		"claude":    {"SessionStart UserPromptSubmit PreToolUse PostToolUse PostToolUse Stop SessionEnd", "Bash", "Edit|MultiEdit|Write|NotebookEdit", "Read", "WebFetch|WebSearch", "mcp__s__.*"},
+		"codex":     {"SessionStart UserPromptSubmit PreToolUse PostToolUse PostToolUse Stop SessionEnd", "Bash", "Edit|Write", "-", "-", "mcp__s__.*"},
+		"gemini":    {"SessionStart BeforeAgent BeforeTool AfterTool AfterTool AfterAgent SessionEnd", "^run_shell_command$", "^(write_file|replace)$", "^(read_file|read_many_files)$", "^(web_fetch|google_web_search)$", "-"},
+		"factory":   {"SessionStart UserPromptSubmit PreToolUse PostToolUse PostToolUse Stop SessionEnd", "^Execute$", "^(Create|Edit|ApplyPatch)$", "^Read$", "^(FetchUrl|WebSearch)$", "-"},
+		"qoder":     {"SessionStart UserPromptSubmit PreToolUse - - Stop SessionEnd", "Bash", "Edit|Write", "Read", "WebFetch|WebSearch", "mcp__s__.*"},
+		"openhands": {"SessionStart UserPromptSubmit PreToolUse - - Stop SessionEnd", "terminal", "-", "-", "-", "-"},
+		"goose":     {"SessionStart - PreToolUse - - Stop SessionEnd", "^shell$", "^(write|edit)$", "-", "-", "-"},
+		"augment":   {"SessionStart - PreToolUse - - - SessionEnd", "^launch-process$", "^(str-replace-editor|save-file)$", "-", "^(web-fetch|web-search)$", "-"},
+		"crush":     {"- - PreToolUse - - - -", "^bash$", "^(edit|multiedit|write)$", "-", "-", "-"},
+	}
+	if got := PortableHookTargets(); len(got) != len(want) {
+		t.Errorf("targets = %v, want %d", got, len(want))
+	}
+	or := func(s string, ok bool) string {
+		if !ok {
+			return "-"
+		}
+		return s
+	}
+	for target, w := range want {
+		var events []string
+		for _, on := range PortableHookEvents {
+			events = append(events, or(PortableHookEvent(target, on)))
+		}
+		got := row{strings.Join(events, " "), or(HookToolMatcher(target, "shell")), or(HookToolMatcher(target, "edit")),
+			or(HookToolMatcher(target, "read")), or(HookToolMatcher(target, "web")), or(HookToolMatcher(target, "mcp:s"))}
+		if got != w {
+			t.Errorf("%s =\n  %+v\nwant\n  %+v", target, got, w)
+		}
+		if m, ok := HookToolMatcher(target, "any"); !ok || m != "" {
+			t.Errorf("%s: any must write no matcher", target)
+		}
+	}
+}

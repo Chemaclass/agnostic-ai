@@ -28,7 +28,7 @@ var hooksPortableEventsMigration = specMigration{
 // portableHookTargetsNote names the configured targets that run hooks but
 // skip a portable one until their mapping lands.
 func portableHookTargetsNote(root string) string {
-	reach := strings.Join(spec.PortableHookTargets(), " and ")
+	reach := andList(spec.PortableHookTargets())
 	var missing []string
 	if cfg, _, err := loadProject(root); err == nil {
 		for _, t := range cfg.Targets {
@@ -43,7 +43,20 @@ func portableHookTargetsNote(root string) string {
 	case 1:
 		return "portable hooks reach " + reach + " today; " + missing[0] + " skips them until its mapping lands"
 	}
-	return "portable hooks reach " + reach + " today; " + strings.Join(missing, ", ") + " skip them until their mapping lands"
+	return "portable hooks reach " + reach + " today; " + andList(missing) + " skip them until their mapping lands"
+}
+
+// andList joins names as "a, b, and c".
+func andList(names []string) string {
+	switch len(names) {
+	case 0:
+		return ""
+	case 1:
+		return names[0]
+	case 2:
+		return names[0] + " and " + names[1]
+	}
+	return strings.Join(names[:len(names)-1], ", ") + ", and " + names[len(names)-1]
 }
 
 func planHooksPortableEvents(root string) ([]migrationChange, []migrationSkip, error) {

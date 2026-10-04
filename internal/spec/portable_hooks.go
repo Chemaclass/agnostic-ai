@@ -21,11 +21,13 @@ const mcpToolKind = "mcp:"
 
 var mcpServerName = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 
-// nativeHookNames is one target's translation of the portable form. A
-// tool kind missing from tools has no exact matcher on the target.
+// nativeHookNames is one target's translation of the portable form. An
+// event or tool kind missing from it has no exact native form there. mcp
+// formats a server name into the matcher for its tools, or is empty.
 type nativeHookNames struct {
 	events map[string]string
 	tools  map[string]string
+	mcp    string
 }
 
 // sharedHookEvents are the event names Claude Code and Codex share.
@@ -40,18 +42,66 @@ var sharedHookEvents = map[string]string{
 }
 
 // portableHookTargets holds every target the portable form translates
-// for. Claude Code's edit names every edit tool a version may have; a
-// name it lacks never matches. Codex takes Edit and Write as aliases for
-// apply_patch and has no read or web tool a hook can match.
+// for. An event is listed only where the target reads exit 0, exit 1,
+// and exit 2 with stderr as Claude Code does on it, so one script decides
+// the same everywhere; hookrun's per-target models are the source, and a
+// test holds the table to them. Tool names come from the same models.
+// Claude Code's edit names every edit tool a version may have; a name it
+// lacks never matches. Codex takes Edit and Write as aliases for
+// apply_patch. A target whose matcher is an unanchored regular
+// expression gets anchored names, so no other tool matches.
 var portableHookTargets = map[string]nativeHookNames{
 	"claude": {
 		events: sharedHookEvents,
 		tools:  map[string]string{"shell": "Bash", "edit": "Edit|MultiEdit|Write|NotebookEdit", "read": "Read", "web": "WebFetch|WebSearch", "any": ""},
+		mcp:    "mcp__%s__.*",
 	},
 	"codex": {
 		events: sharedHookEvents,
 		tools:  map[string]string{"shell": "Bash", "edit": "Edit|Write", "any": ""},
+		mcp:    "mcp__%s__.*",
 	},
+	"gemini": {
+		events: map[string]string{
+			"session-start": "SessionStart", "prompt-submit": "BeforeAgent", "before-tool": "BeforeTool",
+			"after-tool": "AfterTool", "after-edit": "AfterTool", "stop": "AfterAgent", "session-end": "SessionEnd",
+		},
+		tools: map[string]string{"shell": "^run_shell_command$", "edit": "^(write_file|replace)$", "read": "^(read_file|read_many_files)$", "web": "^(web_fetch|google_web_search)$", "any": ""},
+	},
+	"factory": {
+		events: sharedHookEvents,
+		tools:  map[string]string{"shell": "^Execute$", "edit": "^(Create|Edit|ApplyPatch)$", "read": "^Read$", "web": "^(FetchUrl|WebSearch)$", "any": ""},
+	},
+	"qoder": {
+		events: pickEvents("session-start", "prompt-submit", "before-tool", "stop", "session-end"),
+		tools:  map[string]string{"shell": "Bash", "edit": "Edit|Write", "read": "Read", "web": "WebFetch|WebSearch", "any": ""},
+		mcp:    "mcp__%s__.*",
+	},
+	"openhands": {
+		events: pickEvents("session-start", "prompt-submit", "before-tool", "stop", "session-end"),
+		tools:  map[string]string{"shell": "terminal", "any": ""},
+	},
+	"goose": {
+		events: pickEvents("session-start", "before-tool", "stop", "session-end"),
+		tools:  map[string]string{"shell": "^shell$", "edit": "^(write|edit)$", "any": ""},
+	},
+	"augment": {
+		events: pickEvents("session-start", "before-tool", "session-end"),
+		tools:  map[string]string{"shell": "^launch-process$", "edit": "^(str-replace-editor|save-file)$", "web": "^(web-fetch|web-search)$", "any": ""},
+	},
+	"crush": {
+		events: pickEvents("before-tool"),
+		tools:  map[string]string{"shell": "^bash$", "edit": "^(edit|multiedit|write)$", "any": ""},
+	},
+}
+
+// pickEvents is the subset of sharedHookEvents a target reads alike.
+func pickEvents(on ...string) map[string]string {
+	out := make(map[string]string, len(on))
+	for _, o := range on {
+		out[o] = sharedHookEvents[o]
+	}
+	return out
 }
 
 // PortableHookTargets lists the targets the portable form translates for.
@@ -159,9 +209,23 @@ func (e Entry) NativeHook(target string) (Entry, string) {
 	return e, ""
 }
 
-// HookToolMatcher returns target's native matcher for a tool kind, or
+// PortableHookEvent returns target's native event for a portable one, or
 // false when the target has none.
+func PortableHookEvent(target, on string) (string, bool) {
+	event, ok := portableHookTargets[target].events[on]
+	return event, ok
+}
+
+// HookToolMatcher returns target's native matcher for a tool kind, or
+// false when the target has none. An MCP kind takes the server name.
 func HookToolMatcher(target, kind string) (string, bool) {
+	if server, ok := strings.CutPrefix(kind, mcpToolKind); ok {
+		format := portableHookTargets[target].mcp
+		if format == "" {
+			return "", false
+		}
+		return fmt.Sprintf(format, server), true
+	}
 	matcher, ok := portableHookTargets[target].tools[kind]
 	return matcher, ok
 }
@@ -169,19 +233,26 @@ func HookToolMatcher(target, kind string) (string, bool) {
 func nativeHookFor(target, on, kind string) (event, matcher, reason string) {
 	names, ok := portableHookTargets[target]
 	if !ok {
-		return "", "", fmt.Sprintf("on: is translated for %s only so far; write event: for %s", strings.Join(PortableHookTargets(), " and "), target)
+		return "", "", fmt.Sprintf("on: has no %s mapping yet; write event: for %s", target, target)
+	}
+	event, ok = names.events[on]
+	if !ok {
+		return "", "", fmt.Sprintf("%s has no %s event that reads exit codes as Claude Code does", target, on)
 	}
 	if kind == "" {
-		return names.events[on], "", ""
+		return event, "", ""
 	}
 	if server, ok := strings.CutPrefix(kind, mcpToolKind); ok {
-		return names.events[on], "mcp__" + server + "__.*", ""
+		if names.mcp == "" {
+			return "", "", fmt.Sprintf("%s has no MCP tool name a hook can match", target)
+		}
+		return event, fmt.Sprintf(names.mcp, server), ""
 	}
 	matcher, ok = names.tools[kind]
 	if !ok {
 		return "", "", fmt.Sprintf("%s has no %s tool a hook can match", target, kind)
 	}
-	return names.events[on], matcher, ""
+	return event, matcher, ""
 }
 
 // PortableHookForm returns the `on:` and `match:` that translate to

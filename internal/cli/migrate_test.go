@@ -347,10 +347,11 @@ func TestMigrate_HooksPortableEventsRewritesInPlaceAndSkipsWhatDoesNotMap(t *tes
 	}
 	for _, want := range []string{
 		"rewrote .agnostic-ai/hooks/no-force-push.yaml",
+		"rewrote .agnostic-ai/hooks/stop-check.yaml",
 		`skipped .agnostic-ai/hooks/gofmt-on-edit.yaml: no portable form gives PostToolUse with matcher "Edit|Write" on claude; match: edit there also covers MultiEdit and NotebookEdit`,
 		`skipped .agnostic-ai/hooks/read-guard.yaml: no portable form gives PreToolUse with matcher "Read" on codex`,
 		"skipped .agnostic-ai/local/hooks/session-status.yaml: a local/ spec extends this hook; rewrite both files by hand",
-		"note: portable hooks reach claude and codex today; other targets skip them until their mapping lands",
+		"note: portable hooks reach augment, claude, codex, crush, factory, gemini, goose, openhands, and qoder today; other targets skip them until their mapping lands",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output misses %q:\n%s", want, out)
@@ -366,6 +367,7 @@ func TestMigrate_HooksPortableEventsRewritesInPlaceAndSkipsWhatDoesNotMap(t *tes
 	want := "# Keep this comment: migrations must not reformat hooks.\n" +
 		"name: no-force-push\n" +
 		"description: Block git push --force.\n" +
+		"targets: [claude, codex]\n" +
 		"\n" +
 		"on: \"before-tool\"   # the tool call, before it runs\n" +
 		"match: shell\n" +
@@ -380,16 +382,15 @@ func TestMigrate_HooksPortableEventsSkipsATargetWithoutPortableEvents(t *testing
 	dir := migrationFixture(t, "hooks-portable-events")
 	silence(t)
 	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, cursor]\n")
-	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "stop.yaml"), "targets: [claude, codex]\nevent: Stop\ncommand: 'true'\n")
 
 	out, err := runCLI(t, "migrate", "--only", "hooks", "--dry-run")
-	if err != nil || !strings.Contains(out, "skipped .agnostic-ai/hooks/no-force-push.yaml: no portable form gives PreToolUse with matcher \"Bash\" on cursor") {
+	if err != nil || !strings.Contains(out, "skipped .agnostic-ai/hooks/stop-check.yaml: no portable form gives Stop on cursor") {
 		t.Errorf("a hook that reaches cursor must stay native: %v\n%s", err, out)
 	}
-	if !strings.Contains(out, "note: portable hooks reach claude and codex today; cursor skips them until its mapping lands") {
+	if !strings.Contains(out, "note: portable hooks reach augment, claude, codex, crush, factory, gemini, goose, openhands, and qoder today; cursor skips them until its mapping lands") {
 		t.Errorf("want the note to name cursor:\n%s", out)
 	}
-	if !strings.Contains(out, "would rewrite .agnostic-ai/hooks/stop.yaml") {
+	if !strings.Contains(out, "would rewrite .agnostic-ai/hooks/no-force-push.yaml") {
 		t.Errorf("a hook scoped to claude and codex still migrates:\n%s", out)
 	}
 }
