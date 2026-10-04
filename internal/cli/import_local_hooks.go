@@ -280,7 +280,7 @@ func (g *localImportGuard) ownsHookDoc(data []byte) bool {
 	}
 	views := [][]string{writtenHookKeys(meta)}
 	if commandHook(meta) {
-		views = append(views, syncedHookKeys(g.cfg, target, e))
+		views = append(views, syncedHookKeys(g.cfg, target, native))
 	}
 	for _, keys := range views {
 		if len(keys) == 0 || slices.ContainsFunc(keys, func(k string) bool {
