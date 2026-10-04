@@ -29,12 +29,13 @@ const HookJSONEscape = `aai_json() { LC_ALL=C tr -d '\000-\010\013-\037\177' | L
 // object, a duplicate or missing top-level decision, or another value
 // blocks, so a broken guard never lets a call through, and so does
 // stdout over 1,000,000 bytes, which keeps the parse inside any hook
-// timeout. A \u escape
-// outside ASCII reads as "?".
+// timeout. Parsing also blocks beyond 10,000 values or 64 container
+// levels. A \u escape outside ASCII reads as "?".
 const hookStdoutDecision = `aai_parse() {
+  LC_ALL=C tr -d '\000' <"$1" | cmp -s "$1" - || { printf 'error\n'; return; }
   LC_ALL=C awk '
 function fail() { print "error"; exit 0 }
-function ws() { if (match(substr(s, p), /^[ \t\n\r]+/)) p += RLENGTH }
+function ws() { while (match(substr(s, p, 4096), /^[ \t\n\r]+/)) p += RLENGTH }
 function hex(h, v, i) {
   v = 0
   for (i = 1; i <= 4; i++) v = v * 16 + index("0123456789abcdef", tolower(substr(h, i, 1))) - 1
@@ -45,7 +46,7 @@ function str(out, c, h) {
   p++
   out = ""
   while (p <= n) {
-    if (match(substr(s, p), /^[^"\\]+/)) {
+    if (match(substr(s, p, 4096), /^[^"\\]+/)) {
       c = substr(s, p, RLENGTH)
       if (c ~ /[\001-\037]/) fail()
       out = out c
@@ -59,7 +60,9 @@ function str(out, c, h) {
     p += 2
     if (c == "n") out = out "\n"
     else if (c == "t") out = out "\t"
-    else if (c == "r" || c == "b" || c == "f") out = out ""
+    else if (c == "r") out = out sprintf("%c", 13)
+    else if (c == "b") out = out sprintf("%c", 8)
+    else if (c == "f") out = out sprintf("%c", 12)
     else if (c == "\"" || c == "\\" || c == "/") out = out c
     else if (c == "u") {
       h = substr(s, p, 4)
@@ -71,30 +74,36 @@ function str(out, c, h) {
   }
   fail()
 }
-function value(c) {
+function value(depth, c, start, number) {
+  if (++tokens > 10000) fail()
   ws()
   c = substr(s, p, 1)
-  if (c == "{") return obj(0)
-  if (c == "[") return arr()
+  if (c == "{") return obj(0, depth + 1)
+  if (c == "[") return arr(depth + 1)
   if (c == "\"") { last = str(); return "s" }
   if (substr(s, p, 4) == "true" || substr(s, p, 4) == "null") { p += 4; return "x" }
   if (substr(s, p, 5) == "false") { p += 5; return "x" }
-  if (match(substr(s, p), /^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][-+]?[0-9]+)?/)) { p += RLENGTH; return "x" }
+  start = p
+  while (match(substr(s, p, 4096), /^[-+0-9.eE]+/)) p += RLENGTH
+  number = substr(s, start, p - start)
+  if (number ~ /^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][-+]?[0-9]+)?$/) return "x"
   fail()
 }
-function arr() {
+function arr(depth) {
+  if (depth > 64) fail()
   p++
   ws()
   if (substr(s, p, 1) == "]") { p++; return "x" }
   while (1) {
-    value()
+    value(depth)
     ws()
     if (substr(s, p, 1) == ",") { p++; continue }
     if (substr(s, p, 1) == "]") { p++; return "x" }
     fail()
   }
 }
-function obj(top, k, t) {
+function obj(top, depth, k, t) {
+  if (depth > 64) fail()
   p++
   ws()
   if (substr(s, p, 1) == "}") { p++; return "x" }
@@ -104,7 +113,7 @@ function obj(top, k, t) {
     ws()
     if (substr(s, p, 1) != ":") fail()
     p++
-    t = value()
+    t = value(depth)
     if (top && k == "decision") { count++; verdict = (t == "s") ? last : "" }
     if (top && k == "reason" && t == "s") reason = last
     ws()
@@ -117,11 +126,12 @@ BEGIN { RS = "\001" }
 { s = (NR > 1 ? s "\001" : "") $0 }
 END {
   n = length(s)
+  if (n > 1000000) fail()
   p = 1
   ws()
   if (p > n) { print "empty"; exit 0 }
-  if (n > 1000000 || substr(s, p, 1) != "{") fail()
-  obj(1)
+  if (substr(s, p, 1) != "{") fail()
+  obj(1, 1)
   ws()
   if (p <= n || count != 1) fail()
   print verdict
@@ -346,7 +356,7 @@ func writesPortableHookWrapper(hooks []spec.Entry, target string) bool {
 		if kind != "" && kind != "command" {
 			continue
 		}
-		commands := HookCommands(h.Meta["command"])
+		commands, _ := hookSourceCommands(h, target)
 		if h.WrapsCommand(target) && len(commands) > 0 {
 			return true
 		}

@@ -41,7 +41,7 @@ func buildHooks(hooks []spec.Entry) map[string]any {
 func hookHandlers(h spec.Entry) []map[string]any {
 	native, _ := h.Meta["x-gemini"].(map[string]any)
 	if raw, exists := native["hooks"]; exists {
-		return nativeHookHandlers(raw)
+		return nativeHookHandlers(h, raw)
 	}
 	meta := emit.ResolveMeta(h.Meta, target)
 	var handlers []map[string]any
@@ -81,10 +81,10 @@ func hookSourceCommands(h spec.Entry) []string {
 	return emit.HookCommands(emit.ResolveMeta(h.Meta, target)["command"])
 }
 
-func nativeHookHandlers(raw any) []map[string]any {
+func nativeHookHandlers(h spec.Entry, raw any) []map[string]any {
 	var handlers []map[string]any
 	for _, meta := range emit.HookCommandEntries(raw) {
-		handler := map[string]any{"type": "command", "command": emit.RewriteHookPath(meta["command"].(string), target, meta)}
+		handler := map[string]any{"type": "command", "command": emit.WrapPortableHook(h, target, emit.RewriteHookPath(meta["command"].(string), target, meta))}
 		for _, key := range []string{"name", "description", "timeout", "env"} {
 			if value, exists := meta[key]; exists {
 				handler[key] = value

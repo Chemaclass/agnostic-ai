@@ -12,7 +12,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - `import` turns MCP credentials into `${NAME}` references or drops the server, as `--global` does; `doctor` names each unset `${NAME}` (#1736, #1742, #1729).
 - `hook run` uses Git Bash for Claude Code hooks on Windows and shows a command's timeout or error even when another's result is not counted (#1746, #1728).
 - Hooks take portable `on:` and `match:` on 13 tools; `import` writes them where they map exactly and skips the native hooks a shared hook spec already syncs. `migrate` rewrites old spec forms, output unchanged, and `doctor` and `lint` (LINT034) name them (#1755, #1752, #1768).
-- A portable `before-tool` hook can decide with `decision: stdout` and a `{"decision": "deny", "reason": ...}` object at exit 0, on every tool that maps `before-tool` but Augment; `ask` blocks too (#1790).
+- A portable `before-tool` hook can decide with `decision: stdout` and a `{"decision": "deny", "reason": ...}` object at exit 0, on every tool that maps `before-tool` but Augment; `ask` blocks too, malformed output blocks, and parser limits apply on every platform, including Gemini native handler overrides (#1790).
 - `migrate --global` rewrites old spec forms in the global home, MCP secrets and agent `tools:` too; a pack stays as written (#1755, #1804).
 - Hook `args` now reach the command on 12 more tools, folded in and shell-quoted, and `import` matches them; Augment skips such a hook with a note (#1780).
 - Hook `x-<target>` event, matcher, command, and args apply on every tool; `import` matches hooks by what sync writes, Crush scripts too (#1788, #1797).

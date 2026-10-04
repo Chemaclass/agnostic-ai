@@ -49,6 +49,8 @@ func TestPortableHookWrapper_ReadsALargeStdoutQuickly(t *testing.T) {
 		"a 2 MB allow":               `printf '{"decision":"allow","reason":"'; head -c 2000000 /dev/zero | tr '\0' x; printf '"}\n'`,
 		"2 MB of plain text":         `head -c 2000000 /dev/zero | tr '\0' 'x\n'`,
 		"2 MB of log lines":          `head -c 2000000 /dev/zero | tr '\0' '\n'; echo '{"decision":"allow"}' | tr -d '\n'; echo x`,
+		"more than 10,000 values":    `printf '{"decision":"allow","n":['; head -c 10000 /dev/zero | tr '\0' 1 | sed 's/1/1,/g'; printf '1]}\n'`,
+		"more than 64 nested arrays": `printf '{"decision":"allow","n":'; head -c 65 /dev/zero | tr '\0' '['; printf '1'; head -c 65 /dev/zero | tr '\0' ']'; printf '}\n'`,
 		"900 KB of tokens in arrays": `printf '{"decision":"allow","n":['; head -c 300000 /dev/zero | tr '\0' '1' | sed 's/1/1,/g'; printf '1]}\n'`,
 	} {
 		start := time.Now()

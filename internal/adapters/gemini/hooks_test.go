@@ -3,7 +3,10 @@ package gemini
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -66,5 +69,49 @@ func TestEmit_HookCopiesScriptStashedUnderSourceTool(t *testing.T) {
 	}
 	if got := readFile(t, filepath.Join(dir, ".gemini", "hooks", "fmt.sh")); got != "#!/bin/sh\necho hi\n" {
 		t.Errorf("script body = %q", got)
+	}
+}
+
+func TestEmit_StdoutDecisionWrapsNativeHandlers(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("runs the wrapper with bash")
+	}
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("bash is not on PATH")
+	}
+	dir := testutil.TempCwd(t)
+	hook, problem := (spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{
+		"on": "before-tool", "decision": "stdout", "x-gemini": map[string]any{"hooks": []any{map[string]any{"type": "command", "command": "printf bad"}}},
+	}}).NativeHook("gemini")
+	if problem != "" {
+		t.Fatal(problem)
+	}
+	bundle := spec.NewBundle([]spec.Entry{hook})
+	if err := New().Emit(emit.NewSession(), bundle, &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	var settings struct {
+		Hooks map[string][]struct{ Hooks []struct{ Command string } }
+	}
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(dir, ".gemini/settings.json"))), &settings); err != nil {
+		t.Fatal(err)
+	}
+	groups := settings.Hooks["BeforeTool"]
+	if len(groups) != 1 || len(groups[0].Hooks) != 1 {
+		t.Fatalf("handlers = %+v", groups)
+	}
+	command := groups[0].Hooks[0].Command
+	if !strings.Contains(command, "--decision") {
+		t.Errorf("native handler must read the decision: %q", command)
+	}
+	out, err := exec.Command("bash", "-c", command).Output()
+	if exit, ok := err.(*exec.ExitError); !ok || exit.ExitCode() != 2 {
+		t.Errorf("native handler must block malformed stdout: %v, %q", err, out)
+	}
+	var reply struct{ Decision string }
+	if err := json.Unmarshal(out, &reply); err != nil {
+		t.Errorf("reply = %q: %v", out, err)
+	} else if reply.Decision != "deny" {
+		t.Errorf("decision = %q", reply.Decision)
 	}
 }
