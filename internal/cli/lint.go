@@ -289,6 +289,7 @@ func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) [
 	findings = append(findings, lintDeadSpecs(entries, targets, support)...)
 	findings = append(findings, lintHookMatcherMisuse(b.Hooks)...)
 	findings = append(findings, lintPortableHooks(b.Hooks, targets)...)
+	findings = append(findings, lintAgentCapabilities(b.Agents)...)
 	findings = append(findings, lintUnterminatedFrontmatter(entries)...)
 	findings = append(findings, lintNearMissKeys(entries, targets)...)
 	findings = append(findings, lintMCPMissingRequiredField(b.MCPs)...)

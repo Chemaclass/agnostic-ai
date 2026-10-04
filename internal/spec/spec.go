@@ -639,7 +639,9 @@ func (b Bundle) For(target string) Bundle {
 // is true, with each survivor's Body materialized for target via
 // BodyFor (a no-op when the body carries no `::target` fences). A
 // portable hook arrives in target's native form, or not at all when
-// target has no exact mapping for it.
+// target has no exact mapping for it. An agent's `can:` arrives as the
+// `tools:` it stands for; an agent whose `can:` cannot be read is left
+// out, so a typo never syncs an agent with every tool.
 func filterEntriesFor(entries []Entry, target string) []Entry {
 	out := make([]Entry, 0, len(entries))
 	for _, e := range entries {
@@ -648,6 +650,9 @@ func filterEntriesFor(entries []Entry, target string) []Entry {
 		}
 		native, reason := e.NativeHook(target)
 		if reason != "" {
+			continue
+		}
+		if native, reason = native.NativeTools(); reason != "" {
 			continue
 		}
 		e = native
@@ -1149,7 +1154,12 @@ func nodeToOrderedMap(n *yaml.Node) (map[string]any, []string, map[string]yaml.S
 		valNode := n.Content[i+1]
 		var v any
 		if err := valNode.Decode(&v); err != nil {
-			continue
+			// A dropped can: would sync the agent with every tool, so it
+			// stays as a value the capability check rejects.
+			if keyNode.Value != capabilityKey {
+				continue
+			}
+			v = valNode
 		}
 		if _, dup := meta[keyNode.Value]; !dup {
 			keys = append(keys, keyNode.Value)

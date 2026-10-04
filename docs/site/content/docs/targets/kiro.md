@@ -37,18 +37,18 @@ Listing `AGENTS.md` under `sync.unmanaged` also keeps every steering file, but s
 Older versions flattened skills into `.kiro/steering/skill-<name>.md` and agents into `.kiro/steering/agent-<name>.md`, which never reached the pickers. `sync` sweeps them.
 {% </details> %}
 
-Kiro's [agent schema](https://kiro.dev/docs/custom-agents/configuration-reference/) also carries `tools`, `mcpServers`, `permissions`, `hooks`, `keyboardShortcut`, `welcomeMessage`, `excludedTools`, `includeMcpJson`, and `includePowers`. `tools` translates from the portable field. Kiro's `mcpServers` holds inline definitions, not names: set `x-kiro.mcpServers`. The rest, and any arbitrary key, pass through `x-kiro`.
+Kiro's [agent schema](https://kiro.dev/docs/custom-agents/configuration-reference/) also carries `tools`, `mcpServers`, `permissions`, `hooks`, `keyboardShortcut`, `welcomeMessage`, `excludedTools`, `includeMcpJson`, and `includePowers`. `tools` translates from the portable `can` or `tools` field. Kiro's `mcpServers` holds inline definitions, not names: set `x-kiro.mcpServers`. The rest, and any arbitrary key, pass through `x-kiro`.
 
 Kiro's `tools` takes category tags plus `@server_name`, `@server_name/tool_name`, `@mcp`, `@builtin`, and `*`. The [configuration reference](https://kiro.dev/docs/custom-agents/configuration-reference/) and [tools page](https://kiro.dev/docs/tools/) disagree on some categories (`knowledge`, `todo_list`, `spec`, `context`) but agree on the four the portable list uses:
 
-| Spec `tools` values | Kiro category |
-| --- | --- |
-| `Read`, `Grep`, `Glob` | `read` |
-| `Write`, `Edit` | `write` |
-| `Bash` | `shell` |
-| `WebFetch`, `WebSearch` | `web` |
+| Spec `can` values | Spec `tools` values | Kiro category |
+| --- | --- | --- |
+| `read` | `Read`, `Grep`, `Glob` | `read` |
+| `write`, `edit` | `Write`, `Edit` | `write` |
+| `shell` | `Bash` | `shell` |
+| `web` | `WebFetch`, `WebSearch` | `web` |
 
-Duplicates collapse. Categories are bundles, so access widens: `write` also covers `delete_file` (even `Edit` alone grants delete), and `web` covers fetch and search. Other values drop with a coverage note; the rest still emit. `x-kiro.tools` takes Kiro's vocabulary and always wins.
+Duplicates collapse. Categories are bundles, so access widens: `write` also covers `delete_file`, and `web` covers fetch and search. Sync prints a note naming the extra access, such as `kiro: .agnostic-ai/agents/writer.md: edit becomes Kiro's write category, which also allows delete_file`. Other values, such as `shell(git diff *)`, drop with a coverage note; the rest still emit. `x-kiro.tools` takes Kiro's vocabulary and always wins.
 
 **Hooks** are [native](https://kiro.dev/docs/hooks/): one JSON file per spec, `{"version": "v1", "hooks": [{name, trigger, matcher, action, timeout, enabled, description}]}`.
 

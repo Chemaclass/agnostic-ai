@@ -86,7 +86,7 @@ type plannedPortableHook struct {
 // project at root, loaded as cfg and b. LINT034 reads the same plan, so
 // lint suggests the portable form exactly where migrate writes it.
 func planPortableHooks(root string, cfg *config.Config, b spec.Bundle) ([]plannedPortableHook, []migrationSkip, error) {
-	extended, err := extendedHookNames(root, cfg)
+	extended, err := extendedSpecNames(root, cfg, func(lb spec.Bundle) []spec.Entry { return lb.Hooks })
 	if err != nil {
 		return nil, nil, err
 	}
@@ -178,9 +178,10 @@ func (f portableHookForm) rewrites() []yamlKeyRewrite {
 	return out
 }
 
-// extendedHookNames names the hooks a local/ spec merges into a lower
-// layer's spec of the same name. Their fields come from two files.
-func extendedHookNames(root string, cfg *config.Config) (map[string]bool, error) {
+// extendedSpecNames names the specs of one kind, which kind picks from
+// a layer, that a local/ spec merges into a lower layer's spec of the
+// same name. Their fields come from two files.
+func extendedSpecNames(root string, cfg *config.Config, kind func(spec.Bundle) []spec.Entry) (map[string]bool, error) {
 	seen := map[string]bool{}
 	extended := map[string]bool{}
 	for _, layer := range resolveLayers(root, cfg) {
@@ -188,7 +189,7 @@ func extendedHookNames(root string, cfg *config.Config) (map[string]bool, error)
 		if err != nil {
 			return nil, err
 		}
-		for _, h := range lb.Hooks {
+		for _, h := range kind(lb) {
 			if layer.Extends && seen[h.Name] {
 				extended[h.Name] = true
 			}

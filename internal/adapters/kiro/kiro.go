@@ -279,7 +279,9 @@ func emitRules(sess *emit.Session, rules []spec.Entry, dir string, dryRun bool) 
 // agentMarkdown). A generic `tools` value translates onto Kiro's own
 // category vocabulary (see the package doc and translateTools); any
 // name with no table entry is dropped from the emitted list and folded
-// into one coverage note per sync instead of vanishing silently.
+// into one coverage note per sync instead of vanishing silently. A
+// category that grants more than the names that select it ask for gets
+// a note naming the extra tools.
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, agentsDir string, dryRun bool) error {
 	unmappedTools := 0
 	for _, a := range agents {
@@ -288,6 +290,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, agentsDir str
 		if hasUnmapped {
 			unmappedTools++
 		}
+		noteWiderTools(a)
 		if err := sess.WriteFile(path, emit.WithHeader(md, emit.FormatMarkdown), dryRun); err != nil {
 			return err
 		}

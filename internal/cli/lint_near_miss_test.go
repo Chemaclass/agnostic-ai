@@ -185,7 +185,7 @@ func TestSpecKeys_CoverEveryDocumentedField(t *testing.T) {
 			continue
 		}
 		for _, m := range field.FindAllStringSubmatch(keys, -1) {
-			if _, targetOnly := targetKeys[m[1]]; !targetOnly && !slices.Contains(kindKeys(spec.KindHook), m[1]) {
+			if _, targetOnly := targetKeys[m[1]]; !targetOnly && !slices.Contains(kindKeys(spec.KindHook), m[1]) && !slices.Contains(kindKeys(spec.KindAgent), m[1]) {
 				t.Errorf("%s documents `%s`, missing from specKeys", section, m[1])
 			}
 		}

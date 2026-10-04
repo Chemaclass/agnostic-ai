@@ -169,7 +169,7 @@ func newSpecTemplate(kind, name string) string {
 		return fmt.Sprintf(`---
 name: %s
 description: TODO short description shown in agent pickers.
-tools: [Read, Grep, Bash]
+can: [read, Grep, shell]
 ---
 
 TODO: agent system prompt body.

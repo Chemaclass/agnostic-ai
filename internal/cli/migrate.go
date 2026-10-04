@@ -54,7 +54,7 @@ type migrationSkip struct {
 
 // specMigrations is the registry, in release order. Each entry is
 // idempotent: it plans nothing once its old form is gone.
-var specMigrations = []specMigration{configFileNameMigration, hooksPortableEventsMigration, secretsMCPLiteralsMigration}
+var specMigrations = []specMigration{configFileNameMigration, hooksPortableEventsMigration, secretsMCPLiteralsMigration, capabilitiesAgentToolsMigration}
 
 // pendingMigration is a migration that applies here, or whose plan
 // failed with planErr.
