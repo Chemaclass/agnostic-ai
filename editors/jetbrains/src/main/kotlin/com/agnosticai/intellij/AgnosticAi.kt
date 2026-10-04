@@ -59,8 +59,8 @@ object AgnosticAi {
     fun configuredTargets(root: Path): List<String> {
         val cfg = configFile(root) ?: return emptyList()
         val local = root.resolve(LOCAL_OVERRIDE_FILE_NAME)
-        val override = if (Files.exists(local)) parseTargetList(Files.readString(local)) else null
-        return override ?: parseTargetList(Files.readString(cfg)) ?: emptyList()
+        val override = if (Files.exists(local)) runCatching { parseTargetList(Files.readString(local)) }.getOrNull() else null
+        return override ?: runCatching { parseTargetList(Files.readString(cfg)) }.getOrNull() ?: emptyList()
     }
 
     /**
@@ -69,15 +69,20 @@ object AgnosticAi {
      * so a caller falls back instead of showing none.
      */
     fun parseTargetList(text: String): List<String>? {
-        val all = text.lines()
-        // The CLI reads only the first YAML document.
-        val docEnd = all.withIndex().indexOfFirst { (i, l) -> i > 0 && Regex("""^(---|\.\.\.)(\s|$)""").containsMatchIn(l) }
-        val lines = (if (docEnd < 0) all else all.take(docEnd)).map { it.replace(Regex("""(^|\s)#.*$"""), "").trimEnd() }
-        val start = lines.indexOfFirst { it.startsWith("targets:") }
+        val all = text.removePrefix("\uFEFF").lines().map { it.replace(Regex("""(^|\s)#.*$"""), "").trimEnd() }
+        // The CLI reads only the first YAML document. A marker before any
+        // content starts that document instead of ending it.
+        val marker = Regex("""^(---|\.\.\.)(\s|$)""")
+        val docEnd = all.withIndex().indexOfFirst { (i, l) ->
+            marker.containsMatchIn(l) && all.take(i).any { it.isNotEmpty() && !it.startsWith("%") && !marker.containsMatchIn(it) }
+        }
+        val lines = if (docEnd < 0) all else all.take(docEnd)
+        val key = Regex("""^(targets|"targets"|'targets'):(\s|$)""")
+        val start = lines.indexOfFirst { key.containsMatchIn(it) }
         if (start < 0) return null
-        val value = lines[start].removePrefix("targets:").trim()
+        val value = lines[start].substringAfter(':').trim()
         if (value.isEmpty()) return blockItems(lines.drop(start + 1))
-        if (value == "null" || value == "~") return emptyList()
+        if (value in setOf("null", "Null", "NULL", "~")) return emptyList()
         if (!value.startsWith("[")) return null
         val flow = (listOf(value) + lines.drop(start + 1)).joinToString(" ")
         val end = flow.indexOf(']')

@@ -50,6 +50,12 @@ class AgnosticAiConfigFileTest {
         assertEquals(dir, AgnosticAi.projectRoot(dir))
     }
 
+    @Test fun localOverrideTargetsReplaceALegacyBaseList() {
+        Files.writeString(dir.resolve("agnostic.config.yaml"), "targets: [claude, codex]\n")
+        Files.writeString(dir.resolve("agnostic-ai.local.yaml"), "targets: [cursor]\n")
+        assertEquals(listOf("cursor"), AgnosticAi.configuredTargets(dir))
+    }
+
     @Test fun localOverrideTargetsReplaceTheBaseList() {
         Files.writeString(dir.resolve("agnostic-ai.yaml"), "targets:\n  - claude\n  - codex\n")
         assertEquals(listOf("claude", "codex"), AgnosticAi.configuredTargets(dir))
@@ -68,6 +74,9 @@ class AgnosticAiConfigFileTest {
 
         Files.writeString(dir.resolve("agnostic-ai.local.yaml"), "targets: [claude,\n")
         assertEquals(listOf("claude", "codex"), AgnosticAi.configuredTargets(dir))
+
+        Files.write(dir.resolve("agnostic-ai.local.yaml"), byteArrayOf(0xff.toByte(), 0xfe.toByte(), 0x00))
+        assertEquals(listOf("claude", "codex"), AgnosticAi.configuredTargets(dir))
     }
 
     @Test fun parseTargetListReadsTheShapesYamlAllows() {
@@ -83,6 +92,11 @@ class AgnosticAiConfigFileTest {
         assertNull(AgnosticAi.parseTargetList("targets: [\"cl\\u0061ude\"]\n"))
         assertNull(AgnosticAi.parseTargetList("version: 1\n---\ntargets: [cursor]\n"))
         assertNull(AgnosticAi.parseTargetList("version: 1\n"))
+        assertEquals(listOf("claude"), AgnosticAi.parseTargetList("# mine\n---\ntargets: [claude]\n"))
+        assertEquals(listOf("claude"), AgnosticAi.parseTargetList("%YAML 1.2\n---\ntargets: [claude]\n...\n"))
+        for (n in listOf("null", "Null", "NULL", "~")) assertEquals(emptyList<String>(), AgnosticAi.parseTargetList("targets: $n\n"))
+        assertEquals(listOf("claude"), AgnosticAi.parseTargetList("\uFEFFtargets: [claude]\n"))
+        assertEquals(listOf("claude"), AgnosticAi.parseTargetList("\"targets\": [claude]\n"))
     }
 
     @Test fun schemaAttachesToBothNamesOnly() {

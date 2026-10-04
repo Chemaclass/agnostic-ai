@@ -170,6 +170,16 @@ describe("configuredTargets", () => {
     assert.deepEqual(configuredTargets(base, 'targets: ["cl\\u0061ude"]\n'), both);
     assert.deepEqual(configuredTargets(base, "version: 1\n---\ntargets: [cursor]\n"), both);
   });
+
+  it("reads a document that opens with a marker after comments, and every null spelling", () => {
+    assert.deepEqual(configuredTargets(base, "# mine\n---\ntargets: [claude]\n"), ["claude"]);
+    assert.deepEqual(configuredTargets(base, "%YAML 1.2\n---\ntargets: [claude]\n...\n"), ["claude"]);
+    for (const n of ["null", "Null", "NULL", "~"]) {
+      assert.deepEqual(configuredTargets(base, `targets: ${n}\n`), []);
+    }
+    assert.deepEqual(configuredTargets(base, "\uFEFFtargets: [claude]\n"), ["claude"]);
+    assert.deepEqual(configuredTargets(base, '"targets": [claude]\n'), ["claude"]);
+  });
 });
 
 describe("findProjectRoot", () => {

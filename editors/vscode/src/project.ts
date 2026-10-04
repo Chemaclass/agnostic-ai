@@ -61,17 +61,24 @@ export function findProjectRoot(
  * reader cannot follow, so a caller falls back instead of showing none.
  */
 export function parseTargetList(text: string): string[] | undefined {
-  const all = text.split(/\r?\n/);
-  // The CLI reads only the first YAML document.
-  const docEnd = all.findIndex((l, i) => i > 0 && /^(---|\.\.\.)(\s|$)/.test(l));
-  const lines = (docEnd < 0 ? all : all.slice(0, docEnd)).map((l) =>
-    l.replace(/(^|\s)#.*$/, "").trimEnd(),
+  const all = text
+    .replace(/^\uFEFF/, "")
+    .split(/\r?\n/)
+    .map((l) => l.replace(/(^|\s)#.*$/, "").trimEnd());
+  // The CLI reads only the first YAML document. A marker before any
+  // content starts that document instead of ending it.
+  const docEnd = all.findIndex(
+    (l, i) =>
+      /^(---|\.\.\.)(\s|$)/.test(l) &&
+      all.slice(0, i).some((p) => p !== "" && !p.startsWith("%") && !/^(---|\.\.\.)(\s|$)/.test(p)),
   );
-  const start = lines.findIndex((l) => l.startsWith("targets:"));
+  const lines = docEnd < 0 ? all : all.slice(0, docEnd);
+  const key = /^(targets|"targets"|'targets'):(\s|$)/;
+  const start = lines.findIndex((l) => key.test(l));
   if (start < 0) return undefined;
-  const value = lines[start].slice("targets:".length).trim();
+  const value = lines[start].replace(/^[^:]*:/, "").trim();
   if (value === "") return blockItems(lines.slice(start + 1));
-  if (value === "null" || value === "~") return [];
+  if (/^(null|Null|NULL|~)$/.test(value)) return [];
   if (!value.startsWith("[")) return undefined;
   const flow = [value, ...lines.slice(start + 1)].join(" ");
   const end = flow.indexOf("]");
