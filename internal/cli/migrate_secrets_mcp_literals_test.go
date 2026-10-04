@@ -34,7 +34,7 @@ env:
   EMPTY: ""
   ALREADY: !literal yes
 `,
-		filepath.Join(".agnostic-ai", "mcps", "docs.yaml"):          "name: docs\ntype: http\nurl: https://docs.example.com/mcp\nheaders: {X-Mode: !literal fast, Authorization: \"Bearer ${DOCS_TOKEN}\"}\n",
+		filepath.Join(".agnostic-ai", "mcps", "docs.yaml"):         "name: docs\ntype: http\nurl: https://docs.example.com/mcp\nheaders: {X-Mode: !literal fast, Authorization: \"Bearer ${DOCS_TOKEN}\"}\n",
 		filepath.Join(".agnostic-ai", "local", "mcps", "app.yaml"): "name: app\nenv:\n  DEBUG: !literal \"1\"\n",
 	}
 	for path, want := range wants {
