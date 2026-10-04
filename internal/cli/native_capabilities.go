@@ -152,7 +152,7 @@ var hookEventsByTarget = map[string]map[string]struct{}{
 		"PreToolUse", "pretooluse", "PRETOOLUSE",
 		"pre_tool_use", "PRE_TOOL_USE",
 	),
-	// The nine events docs.factory.ai/harness/hooks' own Event
+	// The nine events docs.factory.com/harness/hooks' own Event
 	// reference table lists for Droid CLI's `.factory/hooks.json`
 	// (verified 2026-09-11; #629).
 	"factory": setOf(

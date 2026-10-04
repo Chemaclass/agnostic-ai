@@ -12,7 +12,7 @@ import (
 
 const defaultHooksFile = ".factory/hooks.json"
 
-// hookLifecycle is the event order docs.factory.ai/harness/hooks' own
+// hookLifecycle is the event order docs.factory.com/harness/hooks' own
 // Event Reference table uses: PreToolUse, PostToolUse, UserPromptSubmit,
 // Notification, Stop, SubagentStop, PreCompact, SessionStart,
 // SessionEnd (re-verified 2026-09-11 against that page; #629). Events
@@ -23,7 +23,7 @@ var hookLifecycle = []string{
 }
 
 // claudeToolNames flags the Claude-style matcher values Droid CLI's own
-// tool vocabulary spells differently. docs.factory.ai/harness/hooks'
+// tool vocabulary spells differently. docs.factory.com/harness/hooks'
 // own "Common tool matchers" are Execute, Read, Edit, Create,
 // ApplyPatch, LS, Glob, Grep, Task, FetchUrl, and WebSearch, the same
 // table tools.go's factoryToolID already translates for the `tools`
@@ -35,7 +35,7 @@ var hookLifecycle = []string{
 var claudeToolNames = map[string]bool{"Bash": true, "Write": true, "WebFetch": true}
 
 // hookEntry mirrors one `{type, command, timeout}` object in a matcher
-// group's `hooks` array. docs.factory.ai/harness/hooks' own field
+// group's `hooks` array. docs.factory.com/harness/hooks' own field
 // table marks `type` required and states "Currently only \"command\"
 // is supported", so this always writes "command"; there is no `type:
 // mcp_tool` or `type: prompt` alternative the way Codex and
@@ -65,7 +65,7 @@ type hookGroup struct {
 // hooksDoc is `.factory/hooks.json`'s exact top-level shape:
 // `{"<Event>": [{matcher, hooks: [...]}]}`, with no wrapper key.
 // "Standalone `hooks.json` files are keyed directly by event name"
-// (docs.factory.ai/harness/hooks), the one other divergence
+// (docs.factory.com/harness/hooks), the one other divergence
 // Windsurf/Devin CLI's `.devin/hooks.v1.json` also carries, so this
 // borrows that adapter's side-order MarshalJSON rather than the
 // wrapped `{"hooks": {...}}` shape claude/codex/qoder/openhands share.
@@ -102,7 +102,7 @@ func (d *hooksDoc) MarshalJSON() ([]byte, error) {
 // emitHooks writes `.factory/hooks.json` (override via
 // outputs.factory.hooks-file), the project-tier file Droid CLI reads
 // for hooks: "Project | `.factory/hooks.json` | Commit to share with
-// teammates." (docs.factory.ai/harness/hooks, #629). This is its own
+// teammates." (docs.factory.com/harness/hooks, #629). This is its own
 // file, separate from `.factory/mcp.json`, so it takes its own single
 // `WriteFile` call rather than merging into an existing one. No-op
 // when no hooks emit.

@@ -16,7 +16,7 @@ import (
 // TestEmit_Hooks_NoWrapperKey confirms the rendered document is
 // `{"<Event>": [...]}` with no surrounding `"hooks"` key: "Standalone
 // `hooks.json` files are keyed directly by event name"
-// (docs.factory.ai/harness/hooks). Every Claude-shaped hook target
+// (docs.factory.com/harness/hooks). Every Claude-shaped hook target
 // (claude, codex, gemini, qoder, openhands) nests the same shape under
 // that key, so this is Factory's one structural divergence, shared
 // only with Windsurf/Devin CLI's `.devin/hooks.v1.json` (#629).
@@ -168,7 +168,7 @@ func TestEmit_Hooks_NoHooksWritesNothing(t *testing.T) {
 // make. The vendor sends users to hand-edit its sibling file
 // ("**Project servers cannot be removed** with `droid mcp remove` or
 // the `/mcp` manager. To remove them, edit `.factory/mcp.json`
-// directly", docs.factory.ai/harness/mcp), so the docs had to stop
+// directly", docs.factory.com/harness/mcp), so the docs had to stop
 // promising a merge that never happened (#745).
 func TestEmit_Hooks_OverwritesUserEdits(t *testing.T) {
 	dir := testutil.TempCwd(t)

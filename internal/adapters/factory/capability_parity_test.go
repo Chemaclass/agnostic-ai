@@ -103,7 +103,7 @@ func TestEmit_UnsupportedKindsWarn(t *testing.T) {
 	}
 }
 
-// docs.factory.ai/enterprise/hierarchical-settings-and-org-control:
+// docs.factory.com/enterprise/hierarchical-settings-and-org-control:
 // "Settings are authored in `.factory/` folders, using the same schema
 // at every level", levels table row "**Project** |
 // `<git-root>/.factory/`". A portable `model` must reach that file, and
@@ -177,7 +177,7 @@ func pathSetContains(paths []string, needle string) bool {
 // untouched, and leaves the keys this adapter manages alone. Factory's
 // `sandbox` block is the reason the hatch exists: a real project-tier
 // key ("sandbox object Built-in sandboxing for command execution and
-// file access", docs.factory.ai/enterprise/hierarchical-settings-and-org-control)
+// file access", docs.factory.com/enterprise/hierarchical-settings-and-org-control)
 // that maps onto no portable field (#949).
 func TestEmit_SettingsCustomTargetKeysReachTheFile(t *testing.T) {
 	dir := testutil.TempCwd(t)
@@ -251,7 +251,7 @@ func TestEmit_SettingsCustomCommandListJoinsTheTranslatedOne(t *testing.T) {
 }
 
 // The three command lists carry the portable policy, in the vendor's
-// own grammar. docs.factory.ai/enterprise/hierarchical-settings-and-org-control
+// own grammar. docs.factory.com/enterprise/hierarchical-settings-and-org-control
 // types each as `string[]` of "Shell command patterns", and both
 // spellings appear in vendor examples: bare
 // (`"commandAllowlist": ["ls", "pwd", "dir"]`, /droid-cli/settings)

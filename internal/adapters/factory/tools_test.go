@@ -13,7 +13,7 @@ import (
 
 // Droid CLI's tool IDs are its own vocabulary: "Arrays must use valid
 // IDs from this table or exact registered MCP tool IDs. Unknown IDs
-// cause a validation error" (docs.factory.ai/harness/subagents). Seven
+// cause a validation error" (docs.factory.com/harness/subagents). Seven
 // Claude-style names are already valid IDs and carry over; Bash, Write,
 // and WebFetch are not, and translate onto Execute, Create, and FetchUrl.
 func TestEmit_Agent_ToolsTranslateToFactoryIDs(t *testing.T) {
@@ -272,7 +272,7 @@ func TestEmit_Agent_XFactoryToolsCategoryStringPassesThrough(t *testing.T) {
 }
 
 // A portable `readonly: true` with no explicit tools maps to Factory's
-// own `read-only` category (docs.factory.ai/harness/subagents, "Tool
+// own `read-only` category (docs.factory.com/harness/subagents, "Tool
 // categories" table: `Read`, `LS`, `Grep`, `Glob`), the same way readonly
 // maps to Codex's `sandbox_mode = "read-only"` (#1149) and to Cursor's
 // own `readonly` field (#1152). No coverage note fires, since the field
