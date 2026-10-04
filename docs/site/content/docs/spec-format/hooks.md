@@ -45,15 +45,15 @@ Each tool below gets the events and tool kinds it reads the way Claude Code does
 | Codex | `session-start`, `prompt-submit`, `before-tool`, `after-tool`, `after-edit`, `stop`, `session-end` | `shell` `Bash`, `edit` `Edit\|Write`, `mcp:<server>` `mcp__<server>__.*` |
 | Gemini | `session-start`, `prompt-submit`, `before-tool`, `after-tool`, `after-edit`, `stop`, `session-end` | `shell` `^run_shell_command$`, `edit` `^(write_file\|replace)$`, `read` `^(read_file\|read_many_files)$`, `web` `^(web_fetch\|google_web_search)$` |
 | Factory | `session-start`, `prompt-submit`, `before-tool`, `after-tool`, `after-edit`, `stop`, `session-end` | `shell` `^Execute$`, `edit` `^(Create\|Edit\|ApplyPatch)$`, `read` `^Read$`, `web` `^(FetchUrl\|WebSearch)$` |
-| Qoder | `session-start`, `prompt-submit`, `before-tool`, `stop`, `session-end` | `shell` `Bash`, `edit` `Edit\|Write`, `read` `Read`, `web` `WebFetch\|WebSearch`, `mcp:<server>` `mcp__<server>__.*` |
+| Qoder | `session-start`, `prompt-submit`, `before-tool`, `stop`, `session-end` | `shell` `Bash`, `edit` `Edit\|Write\|NotebookEdit`, `read` `Read`, `web` `WebFetch\|WebSearch`, `mcp:<server>` `mcp__<server>__.*` |
 | OpenHands | `session-start`, `prompt-submit`, `before-tool`, `stop`, `session-end` | `shell` `terminal` |
 | Goose | `session-start`, `before-tool`, `stop`, `session-end` | `shell` `^shell$`, `edit` `^(write\|edit)$` |
 | Augment | `session-start`, `before-tool`, `session-end` | `shell` `^launch-process$`, `edit` `^(str-replace-editor\|save-file)$`, `web` `^(web-fetch\|web-search)$` |
 | Crush | `before-tool` | `shell` `^bash$`, `edit` `^(edit\|multiedit\|write)$` |
 
-A spec sets `on` or `event`, never both. `match` goes with `on`, and `matcher` with `event`. `validate` and `lint` (LINT032) report an unknown value, a mixed form, and a tool kind that a target the hook reaches has no tool for, such as `match: read` on Codex.
+A spec sets `on` or `event`, never both. `match` goes with `on`, and `matcher` with `event`. `validate` and `lint` (LINT032) report an unknown value, a mixed form, an event that a target the hook reaches does not read the same way, such as `on: stop` on Crush, and a tool kind it has no tool for, such as `match: read` on Codex.
 
-A portable hook does not reach any other tool yet, including Cursor, Cline, and Windsurf, which block with a JSON reply instead of exit 2, and Kiro and Trae, whose docs do not settle how they read exit codes. Sync prints a note with the count, and [`hook run`](#hook-run) lists them as not run with the reason. Write `event` for those tools, or scope the hook with `targets`.
+A portable hook does not reach any other tool yet, including Cursor, which needs a JSON reply to allow a call, Cline, which ignores exit codes, and Kiro, Trae, and Windsurf, which are not mapped yet. Sync prints a note with the count, and [`hook run`](#hook-run) lists them as not run with the reason. Write `event` for those tools, or scope the hook with `targets`.
 
 `agnostic-ai migrate --only hooks` rewrites `event` and `matcher` as `on` and `match` when the portable form gives every target the hook reaches the same event and matcher, so synced files stay the same. It leaves every other hook as written and says why. A Claude Code hook on `Edit|Write` stays native, since `match: edit` there also runs on `MultiEdit` and `NotebookEdit`.
 

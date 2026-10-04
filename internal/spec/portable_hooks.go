@@ -74,7 +74,7 @@ var portableHookTargets = map[string]nativeHookNames{
 	},
 	"qoder": {
 		events: pickEvents("session-start", "prompt-submit", "before-tool", "stop", "session-end"),
-		tools:  map[string]string{"shell": "Bash", "edit": "Edit|Write", "read": "Read", "web": "WebFetch|WebSearch", "any": ""},
+		tools:  map[string]string{"shell": "Bash", "edit": "Edit|Write|NotebookEdit", "read": "Read", "web": "WebFetch|WebSearch", "any": ""},
 		mcp:    "mcp__%s__.*",
 	},
 	"openhands": {

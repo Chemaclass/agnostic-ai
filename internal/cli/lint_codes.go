@@ -208,7 +208,7 @@ var lintCodes = map[string]lintCode{
 	"LINT032": {
 		Severity: lintError,
 		Title:    "Portable hook a target cannot run",
-		Cause:    "A hook's `on:` or `match:` holds an unknown value, mixes with `event:` or `matcher:`, or names a tool kind an enabled target it reaches has no tool for, so sync leaves it out there.",
+		Cause:    "A hook's `on:` or `match:` holds an unknown value, mixes with `event:` or `matcher:`, names an event an enabled target it reaches does not read the same way, or names a tool kind an enabled target it reaches has no tool for, so sync leaves it out there.",
 		Fix:      "Use a value from the hooks page, keep one of `on:` and `event:`, or scope the hook away from that target with `target-exclude:`.",
 	},
 }
