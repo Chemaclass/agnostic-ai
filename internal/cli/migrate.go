@@ -212,6 +212,31 @@ func selectMigrations(set bool, only []string) ([]specMigration, error) {
 	return out, nil
 }
 
+// loadSpecs loads the specs the scope syncs and the layers they come
+// from: the project with its packs and local/ layer, or the global home
+// and its local/ layer.
+func (s migrationScope) loadSpecs() (spec.Bundle, []spec.Layer, error) {
+	if s.global {
+		return s.loadGlobalSpecs()
+	}
+	cfg, b, err := loadProject(s.root)
+	if err != nil {
+		return spec.Bundle{}, nil, err
+	}
+	return b, resolveLayers(s.root, cfg), nil
+}
+
+// loadGlobalSpecs loads the global layers as sync --global reads them,
+// after the home config's requires holds.
+func (s migrationScope) loadGlobalSpecs() (spec.Bundle, []spec.Layer, error) {
+	if err := requireGlobalVersion(s.root, nil); err != nil {
+		return spec.Bundle{}, nil, err
+	}
+	layers := globalLayers(s.root)
+	b, err := spec.LoadLayered(layers)
+	return b, layers, err
+}
+
 // planMigrations plans each selected migration. One whose plan fails is
 // kept with its error, so the others still run.
 func planMigrations(s migrationScope, selected []specMigration) []pendingMigration {

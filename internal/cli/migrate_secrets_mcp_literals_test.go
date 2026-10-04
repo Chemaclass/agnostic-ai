@@ -94,7 +94,7 @@ func TestMigrate_SecretsTurnsCredentialsIntoReferencesAndNamesTheVariables(t *te
 	if got, _ := os.ReadFile(docs); !strings.HasSuffix(string(got), "  Authorization: Bearer ${DOCS_AUTHORIZATION}\n") {
 		t.Errorf("docs.yaml =\n%s", got)
 	}
-	if p, err := planMCPLiterals("."); err != nil || len(p.changes)+len(p.skips) != 0 {
+	if p, err := planMCPLiterals(migrationScope{root: "."}); err != nil || len(p.changes)+len(p.skips) != 0 {
 		t.Errorf("a second run must find nothing: %v %+v", err, p)
 	}
 }

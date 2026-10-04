@@ -101,6 +101,104 @@ func TestMigrate_EveryGlobalMigrationKeepsSyncedOutputAndIsIdempotent(t *testing
 	}
 }
 
+// globalMigrationFixture copies testdata/migrate-global/<id> into a fresh
+// global home and returns its source root.
+func globalMigrationFixture(t *testing.T, id string) string {
+	t.Helper()
+	src, err := filepath.Abs(filepath.Join("testdata", "migrate-global", id))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, source := globalAgentTestHome(t)
+	if err := copyTree(src, source); err != nil {
+		t.Fatal(err)
+	}
+	silence(t)
+	return source
+}
+
+func TestMigrate_GlobalSecretsDryRunRedactsAndTheRunKeepsSyncedOutput(t *testing.T) {
+	source := globalMigrationFixture(t, "secrets-mcp-literals")
+	captureLogOut(t)
+	if out, err := runCLI(t, "sync", "--global"); err != nil {
+		t.Fatalf("sync --global: %v\n%s", err, out)
+	}
+
+	out, err := runCLI(t, "migrate", "--global", "--only", "secrets", "--dry-run")
+	if err != nil || !strings.Contains(out, "would rewrite "+filepath.ToSlash(filepath.Join(source, "mcps", "app.yaml"))) || !strings.Contains(out, "+  NODE_ENV: !literal <redacted>") {
+		t.Fatalf("dry run: %v\n%s", err, out)
+	}
+	if strings.Contains(out, "production") || strings.Contains(out, "eu-west-1") {
+		t.Errorf("the dry run must not print a value:\n%s", out)
+	}
+	if out, err := runCLI(t, "migrate", "--global", "--only", "secrets"); err != nil {
+		t.Fatalf("migrate --global: %v\n%s", err, out)
+	}
+	got, err := os.ReadFile(filepath.Join(source, "mcps", "app.yaml"))
+	if err != nil || !strings.Contains(string(got), "NODE_ENV: !literal production   # keep this comment\n") {
+		t.Errorf("app.yaml must mark the plain value: %v\n%s", err, got)
+	}
+	if local, _ := os.ReadFile(filepath.Join(source, "local", "mcps", "app.yaml")); !strings.Contains(string(local), "DEBUG: !literal \"1\"") {
+		t.Errorf("the local/ layer must be rewritten on its own:\n%s", local)
+	}
+	if out, err := runCLI(t, "sync", "--global", "--check"); err != nil {
+		t.Errorf("sync --global --check: %v\n%s", err, out)
+	}
+}
+
+func TestMigrate_GlobalCapabilitiesRewritesToolsAsCan(t *testing.T) {
+	source := globalMigrationFixture(t, "capabilities-agent-tools")
+	captureLogOut(t)
+	if out, err := runCLI(t, "sync", "--global"); err != nil {
+		t.Fatalf("sync --global: %v\n%s", err, out)
+	}
+	if out, err := runCLI(t, "migrate", "--global", "--only", "capabilities"); err != nil {
+		t.Fatalf("migrate --global: %v\n%s", err, out)
+	}
+	got, err := os.ReadFile(filepath.Join(source, "agents", "reviewer.md"))
+	if err != nil || !strings.Contains(string(got), "\ncan: [") || strings.Contains(string(got), "\ntools:") {
+		t.Errorf("reviewer.md must use can:: %v\n%s", err, got)
+	}
+	if out, err := runCLI(t, "sync", "--global", "--check"); err != nil {
+		t.Errorf("sync --global --check: %v\n%s", err, out)
+	}
+}
+
+func TestMigrate_GlobalLeavesPackSpecsAndNamesThePack(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks need privileges on Windows")
+	}
+	_, source := globalAgentTestHome(t)
+	silence(t)
+	mustWrite(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude]\n")
+	files := map[string]string{
+		filepath.Join("mcps", "app.yaml"):      "name: app\ncommand: npx\nenv:\n  NODE_ENV: production\n",
+		filepath.Join("agents", "explorer.md"): "---\nname: explorer\ndescription: Maps the codebase.\ntools: [Read, WebFetch]\n---\n\nList files.\n",
+	}
+	for rel, body := range files {
+		mustWrite(t, filepath.Join(source, "packs", "acme", rel), body)
+		if err := os.MkdirAll(filepath.Join(source, filepath.Dir(rel)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(filepath.Join("..", "packs", "acme", rel), filepath.Join(source, rel)); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	out, err := runCLI(t, "migrate", "--global", "--only", "secrets,capabilities")
+	if err != nil {
+		t.Fatalf("migrate --global: %v\n%s", err, out)
+	}
+	for rel, body := range files {
+		if !strings.Contains(out, "skipped "+filepath.ToSlash(filepath.Join(source, rel))+": is in pack acme") {
+			t.Errorf("%s must be a skip that names the pack:\n%s", rel, out)
+		}
+		if got, _ := os.ReadFile(filepath.Join(source, "packs", "acme", rel)); string(got) != body {
+			t.Errorf("the pack's %s must stay as written:\n%s", rel, got)
+		}
+	}
+}
+
 func TestMigrate_GlobalRewritesTheHomeAndLocalLayerAndKeepsModes(t *testing.T) {
 	src, err := filepath.Abs(filepath.Join("testdata", "migrate-global", "hooks-portable-events"))
 	if err != nil {
