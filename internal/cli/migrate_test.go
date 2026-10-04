@@ -269,3 +269,43 @@ func TestMigrate_ContentRewriteShowsARedactedDiffAndWritesInPlace(t *testing.T) 
 		t.Errorf("spec.yaml = %q, want %q", got, after)
 	}
 }
+
+func TestMigrate_ConfigFileNameKeepsTheLegacyFileASymlinkPointsAt(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks need privileges on Windows")
+	}
+	dir := migrationFixture(t, "config-file-name")
+	if err := os.Symlink("agnostic.config.yaml", filepath.Join(dir, "agnostic-ai.yaml")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runCLI(t, "migrate"); err != nil {
+		t.Fatal(err)
+	}
+	if !exists(filepath.Join(dir, "agnostic.config.yaml")) {
+		t.Error("the file a symlink points at must stay")
+	}
+}
+
+func TestMigrate_ConfigFileNameKeepsATrackedDuplicateWhenGitIgnoresTheNewName(t *testing.T) {
+	dir := setupGitRepo(t)
+	testutil.Chdir(t, dir)
+	mustWriteFile(t, filepath.Join(dir, "agnostic.config.yaml"), "version: 1\n")
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\n")
+	mustWriteFile(t, filepath.Join(dir, ".gitignore"), "agnostic-ai.yaml\n")
+	git(t, dir, "add", ".gitignore", "agnostic.config.yaml")
+
+	out, err := runCLI(t, "migrate")
+	if err != nil || !strings.Contains(out, "skipped agnostic.config.yaml: git ignores agnostic-ai.yaml") || !exists(filepath.Join(dir, "agnostic.config.yaml")) {
+		t.Fatalf("ignored duplicate: %v\n%s", err, out)
+	}
+}
+
+func TestWriteMigrationChange_RemoveNeedsTheKeptFile(t *testing.T) {
+	dir := t.TempDir()
+	legacy, current := filepath.Join(dir, "agnostic.config.yaml"), filepath.Join(dir, "agnostic-ai.yaml")
+	mustWriteFile(t, legacy, "version: 1\n")
+	err := writeMigrationChange(migrationChange{Path: legacy, NewPath: current, Before: "version: 1\n", Remove: true})
+	if err == nil || !exists(legacy) {
+		t.Fatalf("a removal whose kept file vanished must fail and keep the old file: %v", err)
+	}
+}

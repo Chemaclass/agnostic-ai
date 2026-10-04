@@ -29,7 +29,8 @@ type specMigration struct {
 
 // migrationChange is one file edit: new content for Path, written to
 // NewPath when the migration also renames the file. Remove deletes Path
-// instead, such as the old file an interrupted rename left behind.
+// instead, once NewPath, the file that stays, still holds the same bytes,
+// such as after an interrupted rename.
 type migrationChange struct {
 	Path    string
 	NewPath string
@@ -340,6 +341,13 @@ func writeMigrationChange(c migrationChange) error {
 		return fmt.Errorf("%s changed since the plan; run migrate again", filepath.ToSlash(c.Path))
 	}
 	if c.Remove {
+		kept, err := os.Lstat(c.NewPath)
+		if err != nil || !kept.Mode().IsRegular() {
+			return fmt.Errorf("%s is gone or no longer a regular file; run migrate again", filepath.ToSlash(c.NewPath))
+		}
+		if body, err := os.ReadFile(c.NewPath); err != nil || string(body) != c.Before {
+			return fmt.Errorf("%s changed since the plan; run migrate again", filepath.ToSlash(c.NewPath))
+		}
 		return os.Remove(c.Path)
 	}
 	target := c.target()
@@ -364,14 +372,13 @@ func writeMigrationChange(c migrationChange) error {
 	}
 	if c.NewPath != "" {
 		// A hard link fails when the target exists, so a file another
-		// program created since the check above is never replaced. Where
-		// the filesystem has no hard links, an exclusive create keeps that.
+		// program created since the check above is never replaced. A
+		// filesystem without hard links has no portable no-replace rename,
+		// and writing the target in place could leave it half written.
 		if err := os.Link(tmp.Name(), target); errors.Is(err, os.ErrExist) {
 			return err
 		} else if err != nil {
-			if err := writeExclusive(target, c.After, info.Mode().Perm()); err != nil {
-				return err
-			}
+			return fmt.Errorf("%w; rename %s to %s by hand", err, filepath.ToSlash(c.Path), filepath.ToSlash(target))
 		}
 		// A save to the old file while the copy was written must not be
 		// deleted with it.
@@ -382,17 +389,4 @@ func writeMigrationChange(c migrationChange) error {
 		return os.Remove(c.Path)
 	}
 	return os.Rename(tmp.Name(), target)
-}
-
-func writeExclusive(path, content string, perm os.FileMode) error {
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, perm)
-	if err != nil {
-		return err
-	}
-	_, werr := f.WriteString(content)
-	if err := errors.Join(werr, f.Sync(), f.Close()); err != nil {
-		_ = os.Remove(path)
-		return fmt.Errorf("%s: %w", filepath.ToSlash(path), err)
-	}
-	return os.Chmod(path, perm)
 }
