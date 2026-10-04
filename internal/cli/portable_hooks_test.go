@@ -8,6 +8,9 @@ import (
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/hookrun"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestValidateAndLint_ReportInvalidPortableHooks(t *testing.T) {
@@ -70,7 +73,7 @@ func TestSync_PortableHookReachesClaudeAndCodexAndNotesTheRest(t *testing.T) {
 	if body, err := os.ReadFile(filepath.Join(dir, ".cursor", "hooks.json")); err == nil && strings.Contains(string(body), "exit 2") {
 		t.Errorf("cursor got the portable hook before it translates: %s", body)
 	}
-	if !strings.Contains(notes.String(), "1 hook reaches cursor only in the source dir (on: is translated for claude and codex only so far; write event: for cursor)") {
+	if !strings.Contains(notes.String(), "1 hook reaches cursor only in the source dir (on: has no cursor mapping yet; write event: for cursor)") {
 		t.Errorf("notes = %q, want one cursor note", notes.String())
 	}
 }
@@ -86,7 +89,7 @@ func TestHookRun_PortableHookRunsOnClaudeAndCodex(t *testing.T) {
 	}
 	for _, want := range []string{
 		"claude: block (exit 2", "codex: block (exit 2", "event: PreToolUse (Bash)",
-		"cursor: not run (on: is translated for claude and codex only so far; write event: for cursor)",
+		"cursor: not run (on: has no cursor mapping yet; write event: for cursor)",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output misses %q:\n%s", want, out)
@@ -127,7 +130,57 @@ func TestSyncGlobal_PortableHookReachesClaudeAndNotesCursor(t *testing.T) {
 	if got := firstGlobalHandler(t, readGlobalJSON(t, filepath.Join(home, ".claude", "settings.json")), "PreToolUse")["command"]; got != "exit 2" {
 		t.Errorf("claude PreToolUse handler = %v", got)
 	}
-	if !strings.Contains(warnings, "1 hook reaches cursor only in the source dir (on: is translated for claude and codex only so far; write event: for cursor)") {
+	if !strings.Contains(warnings, "1 hook reaches cursor only in the source dir (on: has no cursor mapping yet; write event: for cursor)") {
 		t.Errorf("want one cursor note:\n%s", warnings)
+	}
+}
+
+// A portable event maps only where the target reads exit 0, exit 1, and
+// exit 2 with stderr as Claude Code does, so one script decides alike.
+func TestPortableHookTargets_DecideLikeClaudeCode(t *testing.T) {
+	results := []hookrun.Result{{Exit: 0}, {Exit: 1, Stderr: "failed"}, {Exit: 2, Stderr: "blocked"}}
+	for _, target := range spec.PortableHookTargets() {
+		for _, on := range spec.PortableHookEvents {
+			event, ok := spec.PortableHookEvent(target, on)
+			if !ok {
+				continue
+			}
+			if _, known := hookEventsByTarget[target][event]; !known {
+				t.Errorf("%s %s: %s is not one of its events", target, on, event)
+			}
+			claudeEvent, _ := spec.PortableHookEvent("claude", on)
+			for _, r := range results {
+				want := hookrun.DecideHandler("claude", claudeEvent, hookrun.Handler{}, r)
+				if got := hookrun.DecideHandler(target, event, hookrun.Handler{}, r); got != want {
+					t.Errorf("%s %s (%s) exit %d = %s, Claude Code %s", target, on, event, r.Exit, got, want)
+				}
+			}
+		}
+	}
+}
+
+func TestHookRun_PortableShellHookBlocksOnEveryMappedTarget(t *testing.T) {
+	skipWithoutPOSIXShell(t)
+	dir := testutil.TempCwd(t)
+	mustWrite(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex, gemini, factory, qoder, trae, openhands, goose, augment, crush, kiro]\n")
+	script := filepath.Join(dir, ".agnostic-ai", "scripts", "guard.sh")
+	mustWrite(t, script, "#!/bin/sh\nif grep -q \"push --force\"; then echo \"no force push\" >&2; exit 2; fi\n")
+	if err := os.Chmod(script, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, filepath.Join(dir, ".agnostic-ai", "hooks", "guard.yaml"), "name: guard\non: before-tool\nmatch: shell\ncommand: .agnostic-ai/scripts/guard.sh\n")
+	mustSync(t)
+
+	out, err := runHookRun(t, "guard", "--bash", "git push --force", "--expect", "block", "--include-assumed")
+	if err != nil {
+		t.Fatalf("err = %v\n%s", err, out)
+	}
+	for _, target := range []string{"claude", "codex", "gemini", "factory", "qoder", "openhands", "goose", "augment", "crush"} {
+		if !strings.Contains(out, target+": block (exit 2") {
+			t.Errorf("%s must block:\n%s", target, out)
+		}
+	}
+	if !strings.Contains(out, "kiro: not run (on: has no kiro mapping yet") {
+		t.Errorf("kiro has no mapping, so it must not run:\n%s", out)
 	}
 }

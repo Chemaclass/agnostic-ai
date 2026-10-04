@@ -37,28 +37,23 @@ command: .agnostic-ai/scripts/no-force-push.sh
 
 `match` takes a tool kind: `shell`, `edit`, `read`, `web`, `any`, or `mcp:<server>`. It applies only to `before-tool` and `after-tool`. Leave it out, or write `any`, to run on every tool. `edit` names every edit tool, including ones an older or newer version of the tool lacks, so a guard does not miss one.
 
-| `on` | Claude Code | Codex |
+Each tool below gets the events and tool kinds it reads the way Claude Code does: exit 0 lets the call go on, and exit 2 blocks it with stderr as the reason. `before-tool` blocks the tool call, `prompt-submit` blocks the prompt, and `stop` keeps the agent working. `after-tool` and `after-edit` map to the tool's own after-tool event, on the `edit` matcher for `after-edit`. Codex reads `Edit|Write` as `apply_patch`. `any` writes no matcher on every tool.
+
+| Tool | `on` | `match` |
 |---|---|---|
-| `session-start` | `SessionStart` | `SessionStart` |
-| `prompt-submit` | `UserPromptSubmit` | `UserPromptSubmit` |
-| `before-tool` | `PreToolUse` | `PreToolUse` |
-| `after-tool` | `PostToolUse` | `PostToolUse` |
-| `after-edit` | `PostToolUse` on the `edit` matcher | `PostToolUse` on the `edit` matcher |
-| `stop` | `Stop` | `Stop` |
-| `session-end` | `SessionEnd` | `SessionEnd` |
+| Claude Code | `session-start`, `prompt-submit`, `before-tool`, `after-tool`, `after-edit`, `stop`, `session-end` | `shell` `Bash`, `edit` `Edit\|MultiEdit\|Write\|NotebookEdit`, `read` `Read`, `web` `WebFetch\|WebSearch`, `mcp:<server>` `mcp__<server>__.*` |
+| Codex | `session-start`, `prompt-submit`, `before-tool`, `after-tool`, `after-edit`, `stop`, `session-end` | `shell` `Bash`, `edit` `Edit\|Write`, `mcp:<server>` `mcp__<server>__.*` |
+| Gemini | `session-start`, `prompt-submit`, `before-tool`, `after-tool`, `after-edit`, `stop`, `session-end` | `shell` `^run_shell_command$`, `edit` `^(write_file\|replace)$`, `read` `^(read_file\|read_many_files)$`, `web` `^(web_fetch\|google_web_search)$` |
+| Factory | `session-start`, `prompt-submit`, `before-tool`, `after-tool`, `after-edit`, `stop`, `session-end` | `shell` `^Execute$`, `edit` `^(Create\|Edit\|ApplyPatch)$`, `read` `^Read$`, `web` `^(FetchUrl\|WebSearch)$` |
+| Qoder | `session-start`, `prompt-submit`, `before-tool`, `stop`, `session-end` | `shell` `Bash`, `edit` `Edit\|Write\|NotebookEdit`, `read` `Read`, `web` `WebFetch\|WebSearch`, `mcp:<server>` `mcp__<server>__.*` |
+| OpenHands | `session-start`, `prompt-submit`, `before-tool`, `stop`, `session-end` | `shell` `terminal` |
+| Goose | `session-start`, `before-tool`, `stop`, `session-end` | `shell` `^shell$`, `edit` `^(write\|edit)$` |
+| Augment | `session-start`, `before-tool`, `session-end` | `shell` `^launch-process$`, `edit` `^(str-replace-editor\|save-file)$`, `web` `^(web-fetch\|web-search)$` |
+| Crush | `before-tool` | `shell` `^bash$`, `edit` `^(edit\|multiedit\|write)$` |
 
-| `match` | Claude Code | Codex |
-|---|---|---|
-| `shell` | `Bash` | `Bash` |
-| `edit` | `Edit\|MultiEdit\|Write\|NotebookEdit` | `Edit\|Write`, which Codex reads as `apply_patch` |
-| `read` | `Read` | none |
-| `web` | `WebFetch\|WebSearch` | none |
-| `any` | no matcher | no matcher |
-| `mcp:<server>` | `mcp__<server>__.*` | `mcp__<server>__.*` |
+A spec sets `on` or `event`, never both. `match` goes with `on`, and `matcher` with `event`. `validate` and `lint` (LINT032) report an unknown value, a mixed form, an event that a target the hook reaches does not read the same way, such as `on: stop` on Crush, and a tool kind it has no tool for, such as `match: read` on Codex.
 
-A spec sets `on` or `event`, never both. `match` goes with `on`, and `matcher` with `event`. `validate` and `lint` (LINT032) report an unknown value, a mixed form, and a tool kind that a target the hook reaches has no tool for, such as `match: read` on Codex.
-
-Other targets come next. Until then, a portable hook does not reach them: sync prints a note with the count, and [`hook run`](#hook-run) lists them as not run with the reason. Write `event` for those tools, or scope the hook with `targets`.
+A portable hook does not reach any other tool yet, including Cursor, which needs a JSON reply to allow a call, Cline, which ignores exit codes, and Kiro, Trae, and Windsurf, which are not mapped yet. Sync prints a note with the count, and [`hook run`](#hook-run) lists them as not run with the reason. Write `event` for those tools, or scope the hook with `targets`.
 
 `agnostic-ai migrate --only hooks` rewrites `event` and `matcher` as `on` and `match` when the portable form gives every target the hook reaches the same event and matcher, so synced files stay the same. It leaves every other hook as written and says why. A Claude Code hook on `Edit|Write` stays native, since `match: edit` there also runs on `MultiEdit` and `NotebookEdit`.
 
