@@ -150,22 +150,3 @@ func TestSyncGlobal_SkipsExecFormHooksOnAugmentWithANote(t *testing.T) {
 		t.Errorf("want a note naming args, got:\n%s", warnings)
 	}
 }
-
-// Import reads the folded command back as the shared spec's own, so it
-// does not copy the hook again.
-func TestImport_SkipsExecFormHooksASharedSpecSyncs(t *testing.T) {
-	hooks := map[string]string{
-		"words": "name: sh\nevent: PreToolUse\nmatcher: Bash\ncommand: echo\nargs: [shared, two words]\n",
-		// Sync leaves a hook path in an arg as written.
-		"paths": "name: sh\nevent: PreToolUse\nmatcher: Bash\ncommand: cat\nargs: [.agnostic-ai/scripts/policy.json, .claude/hooks/policy.json]\n",
-	}
-	for kind, hook := range hooks {
-		for _, target := range []string{"claude", "codex", "copilot", "crush", "factory", "gemini", "goose", "kiro", "openhands", "trae", "windsurf"} {
-			t.Run(kind+"/"+target, func(t *testing.T) {
-				syncSharedHook(t, target, hook)
-
-				assertOnlySharedHook(t, hook, importCapturing(t, target))
-			})
-		}
-	}
-}

@@ -108,14 +108,28 @@ func hookHandlerKeys(target string, meta map[string]any) []string {
 	return nil
 }
 
-// Metadata renders a source command, with its exec-form args folded in
-// as a target with no `args` field writes them, so a native handler
-// that keeps them apart must fold them before it is matched. Native
-// commands already contain their runtime root. Both then take the
-// native rewrite, which also reaches a hook path inside a folded arg.
+// hookArgsTargets write a hook's exec-form args: Claude Code, Copilot,
+// and Qoder into a field of their own, which an importer folds in
+// before matching, the others into the command. Augment writes no hook
+// with args (#1775).
+var hookArgsTargets = map[string]bool{
+	"antigravity": true, "claude": true, "cline": true, "codex": true, "copilot": true, "crush": true,
+	"cursor": true, "factory": true, "gemini": true, "goose": true, "kilo": true, "kiro": true,
+	"opencode": true, "openhands": true, "qoder": true, "trae": true, "windsurf": true, "zed": true,
+}
+
+// Metadata renders a source command, with its args where the target
+// writes them; native commands already contain their runtime root. Both
+// then take the native rewrite, which also reaches a hook path inside a
+// folded arg.
 func hookCommandKey(target, command string, metadata ...map[string]any) string {
 	if len(metadata) > 0 {
-		command = adapters.ShellHookCommand(command, target, metadata[0])
+		command = adapters.RewriteHookPath(command, target, metadata...)
+		// Args go with `command`; the handlers under `x-gemini.hooks`
+		// emit as written.
+		if _, ok := metadata[0]["command"]; ok && hookArgsTargets[target] {
+			command = adapters.ExecFormCommand(command, stringSliceFromAny(metadata[0]["args"]))
+		}
 	}
 	command = adapters.RewriteHookDirectories(command, target)
 	if target != "" {

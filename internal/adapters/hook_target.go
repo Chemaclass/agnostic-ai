@@ -39,11 +39,5 @@ func ExecFormCommand(command string, args []string) string {
 	return emit.ExecFormCommand(command, args)
 }
 
-// ShellHookCommand is one entry of a hook spec's command as a target
-// with no `args` field writes it, with the args folded in.
-func ShellHookCommand(command, target string, meta map[string]any) string {
-	return emit.ShellHookCommand(command, target, meta)
-}
-
 // ShellQuote quotes s as one POSIX shell word.
 func ShellQuote(s string) string { return emit.ShellQuote(s) }
