@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"maps"
 	"path/filepath"
 	"slices"
 
@@ -166,6 +167,62 @@ func varsFor(cfg *config.Config, target string) map[string]string {
 	return out
 }
 
+// entryPointReaders returns, sorted, target and every configured target
+// that reads the same entry-point file. Mirrors the reader grouping in
+// internal/cli/entrypoint.go.
+func entryPointReaders(cfg *config.Config, target string) []string {
+	readers := []string{target}
+	path := emit.EntryPointPath(cfg, target)
+	if cfg == nil || path == "" {
+		return readers
+	}
+	path = filepath.Clean(path)
+	for _, t := range cfg.Targets {
+		if !slices.Contains(readers, t) && filepath.Clean(emit.EntryPointPath(cfg, t)) == path && !emit.LegacyRulesFileOwnsEntryPoint(cfg, t) {
+			readers = append(readers, t)
+		}
+	}
+	slices.Sort(readers)
+	return readers
+}
+
+// entryPointVars resolves the variable table for the rules block in the
+// entry point target reads. Every reader of that file sees one text, so
+// a variable expands only when each reader resolves it to the same
+// path. contested lists, sorted, the variables some reader resolves
+// that the readers do not agree on.
+func entryPointVars(cfg *config.Config, target string) (vals map[string]string, contested []string) {
+	if cfg == nil {
+		cfg = &config.Config{}
+	}
+	readers := entryPointReaders(cfg, target)
+	tables := make([]map[string]string, len(readers))
+	names := map[string]bool{}
+	for i, t := range readers {
+		tables[i] = varsFor(cfg, t)
+		for name, v := range tables[i] {
+			if v != "" {
+				names[name] = true
+			}
+		}
+	}
+	vals = map[string]string{}
+	for name := range names {
+		v := tables[0][name]
+		agreed := true
+		for _, table := range tables[1:] {
+			agreed = agreed && table[name] == v
+		}
+		if agreed {
+			vals[name] = v
+		} else {
+			contested = append(contested, name)
+		}
+	}
+	slices.Sort(contested)
+	return vals, contested
+}
+
 // expandBundleVars returns b with every entry body expanded for target.
 // Entries are copied, so the caller's bundle is untouched and each
 // target expands the same source spec to its own paths.
@@ -176,6 +233,7 @@ func expandBundleVars(b spec.Bundle, cfg *config.Config, target string) spec.Bun
 	unresolved := map[string]int{}
 	kindOf := map[string]spec.Kind{}
 	forms := emit.RefForms[target]
+	agentsAreSkills := agentsInSkillsDir(cfg, target)
 	var emits []spec.Kind
 	if a, ok := Get(target); ok {
 		emits = a.Capabilities()
@@ -195,6 +253,17 @@ func expandBundleVars(b spec.Bundle, cfg *config.Config, target string) spec.Bun
 		kindForms := forms
 		if sharesKindDir(cfg, target, kind, vals) {
 			kindForms = nil
+		}
+		// An agent written as a skill is invoked as one.
+		if agentsAreSkills {
+			kindForms = maps.Clone(kindForms)
+			if kindForms == nil {
+				kindForms = map[string]string{}
+			}
+			kindForms[emit.RefAgent] = kindForms[emit.RefSkill]
+			if kindForms[emit.RefAgent] == "" {
+				kindForms[emit.RefAgent] = "the %s skill"
+			}
 		}
 		out := make([]spec.Entry, len(entries))
 		copy(out, entries)

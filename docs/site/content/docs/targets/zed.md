@@ -12,6 +12,8 @@ target_id = "zed"
 
 Zed reads `.rules`, `.agents/skills/`, `.zed/settings.json` MCP servers, and optional tasks.
 
+Set `outputs.zed.agents: skill` to write agents as on-demand skills; see [agents as skills](@/docs/spec-format/agents.md#agents-as-skills).
+
 ## Output
 
 ```

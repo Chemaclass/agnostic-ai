@@ -209,6 +209,26 @@ To override one target, write the tier as the map's `default`: `model: {codex: g
 `import claude` suggests a tier when two or more agents set the same Claude model. `import claude` and `import codex` keep `model: strong` when the imported model and effort match what the tier gives that tool. A sync followed by an import then does not pin a model.
 {% </details> %}
 
+## Agents as skills {#agents-as-skills}
+
+Amp, Crush, Warp, and Zed have no subagents, so sync drops agents there by default. Set `outputs.<target>.agents: skill` to write each agent as an on-demand skill instead. A skill loads only when the model needs it, so the agent costs no context until then.
+
+```yaml
+outputs:
+  amp:
+    agents: skill
+```
+
+- The skill is `<skills-dir>/<agent>/SKILL.md`, with the agent's `name` and `description`.
+- Its body starts with a short preamble: the tool has no subagents, so the model runs the role inline, follows only these instructions, and says in one line that the role ran inline. Nothing enforces that isolation.
+- Fields a skill cannot carry, such as `tools` and `model`, drop with a coverage note.
+- In skills, agents, and commands, an [agent reference](@/docs/spec-format/_index.md#agent-and-skill-references) renders that target's skill phrase. A rule in a shared entry point such as `AGENTS.md` keeps the neutral phrase.
+- An agent and a skill with the same name would share a folder, so `validate` fails on them.
+- These four tools write `.agents/skills/`. Codex, Copilot, Gemini, Cline, Cursor, OpenCode, and Junie read it too, and several other tools with subagents write there. When one of them is enabled, sync keeps the agents off that directory and names the tool, so it does not get the role twice. Set `outputs.<target>.skills-dir` to a private directory to use the fallback beside them.
+- The key cannot combine with `rules-file` or, on Warp, `workflows-dir`, which already carry the agents.
+
+Other targets reject the key.
+
 ## `tools` support by target
 
 Only the targets listed were checked. A target that cannot honor `tools` prints a coverage note at sync time, so `tools: [Read]` never turns into an unrestricted agent without warning.

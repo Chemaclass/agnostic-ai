@@ -20,6 +20,7 @@ Cursor reads its project configuration from `.cursor/`, including `.cursor/rules
 .cursor/skills/<name>/SKILL.md       # one folder per skill, bundled assets included
 .cursor/commands/<name>.md           # one per command spec
 .cursor/hooks.json                   # when hook specs exist (managed, overwritten each sync)
+.cursor/hooks/agnostic-ai-portable-hook.sh  # when a portable before-tool hook exists
 .cursor/mcp.json                     # when MCP entries exist
 .cursor/cli.json                     # from settings permissions and deny protected paths (merged)
 ```
@@ -56,6 +57,7 @@ Cursor reads its project configuration from `.cursor/`, including `.cursor/rules
   - `lint` flags a matcher on any other event, except `beforeMCPExecution` and `afterMCPExecution`, which the table omits.
   - When a command hook exists, sync adds a `sessionStart` hook that prints `{"env":{"AGNOSTIC_AI_TARGET":"cursor"}}`. Cursor passes that `env` to every later hook in the session, including loaded Claude Code hooks. This works on Windows too, where hooks run through PowerShell and a per-command prefix would fail. `sessionStart` hooks, and any hook that fires before this one returns, do not see the variable. See [which target ran a hook](@/docs/spec-format/hooks.md#hook-target).
   - A hook has only `command`, run through `$SHELL -c` (PowerShell on Windows). In project and global sync, a spec's `args` fold into `command`, each in single quotes (`node 'guard.js'`).
+  - A [portable](@/docs/spec-format/hooks.md#portable-events) `before-tool` hook lands on `preToolUse` and runs through `.cursor/hooks/agnostic-ai-portable-hook.sh`. Exit 2 becomes `"permission": "deny"` with stderr as the message, and exit 0 becomes `"permission": "allow"`. `sync --global` skips it with a note.
 - **MCP**: `.cursor/mcp.json` under `mcpServers` (a builder shared with Claude Code). Each sync replaces the whole file from MCP specs. Three fields are Cursor-only ([cursor.com/docs/mcp](https://cursor.com/docs/mcp.md)):
   - A stdio server accepts `envFile`, a path to an env file with extra variables.
   - A `${NAME}` reference in `env`, `headers`, `url`, or `args` is written as Cursor's `${env:NAME}`; `${workspaceFolder}` and Cursor's other variables stay as written. See [environment references](@/docs/spec-format/mcps.md#environment-references).

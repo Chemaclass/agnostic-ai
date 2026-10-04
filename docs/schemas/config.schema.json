@@ -517,6 +517,9 @@
         "root-mcp-file": {
           "type": "string"
         },
+        "agents": {
+          "type": "string"
+        },
         "agents-dir": {
           "type": "string"
         },

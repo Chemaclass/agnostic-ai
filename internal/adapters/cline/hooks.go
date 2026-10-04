@@ -2,6 +2,7 @@ package cline
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -92,7 +93,7 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 		}
 	}
 	dir := emit.OutputHooksDir(cfg, target, defaultHooksDir)
-	commands := map[string][]string{}
+	commands := map[string][]hookCommand{}
 	var order []string
 	var unmapped, matchers, timeouts, inert int
 
@@ -109,7 +110,8 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 		if len(cmds) == 0 {
 			continue
 		}
-		if matcher, _ := h.Meta["matcher"].(string); matcher != "" {
+		tools := h.FilteredTools(target)
+		if matcher, _ := h.Meta["matcher"].(string); matcher != "" && tools == nil {
 			matchers++
 		}
 		if emit.HookIntMeta(h.Meta, "timeout") > 0 {
@@ -122,7 +124,7 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 			order = append(order, canonical)
 		}
 		for _, cmd := range cmds {
-			commands[canonical] = append(commands[canonical], emit.ShellHookCommand(cmd, target, h.Meta))
+			commands[canonical] = append(commands[canonical], hookCommand{command: emit.ShellHookCommand(cmd, target, h.Meta), tools: tools})
 		}
 	}
 
@@ -164,29 +166,70 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 //
 // The script owns the process every command runs in, so one export
 // line hands the target to all of them and to any script they call.
-func hookScript(commands []string) string {
+//
+// A tool filter reads the payload, so a script with one reads it once
+// and hands each command its own copy on stdin; a filter that skips its
+// command must not leave the next one an empty stdin. A script with no
+// filter stays as it was.
+func hookScript(commands []hookCommand) string {
 	var b strings.Builder
 	b.WriteString("set -e\n")
 	b.WriteString("export " + emit.HookTargetEnv + "=" + target + "\n")
 	b.WriteString(clineBlockPrelude)
+	feed := slices.ContainsFunc(commands, func(c hookCommand) bool { return len(c.tools) > 0 })
+	if feed {
+		b.WriteString(clineReadPayload)
+	}
 	for _, cmd := range commands {
+		if feed {
+			b.WriteString(clineFeedPayload)
+		}
 		b.WriteString("\nset +e\n(\nset -e\n")
-		b.WriteString(cmd)
+		b.WriteString(toolFilter(cmd.tools))
+		b.WriteString(cmd.command)
 		b.WriteString("\n)" + clineBlockOnExit2)
 	}
 	return b.String()
 }
 
+// clineReadPayload and clineFeedPayload read the payload once and put a
+// fresh copy on stdin before each command. hookrun's clineDrift checks
+// where both lines sit and drops them before it compares a script, so
+// keep the two in step.
+const (
+	clineReadPayload = "aai_in=$(cat)\n"
+	clineFeedPayload = "exec <<<\"$aai_in\"\n"
+)
+
+// hookCommand is one command of an event script. tools, when set, are
+// the tool names it runs on: a portable hook's match kind.
+type hookCommand struct {
+	command string
+	tools   []string
+}
+
+// toolFilter ends the command's subshell with no reply unless the call
+// is to one of tools. Both runtimes write the payload with
+// JSON.stringify, so the name appears as `"toolName":"<name>"`: the SDK
+// as preToolUse.toolName (hook-file-hooks.ts:863-866,
+// subprocess-runner.ts:358), the VS Code extension as the same field of
+// its HookInput (hook-factory.ts:331-338, proto/cline/hooks.proto:44-47).
+func toolFilter(tools []string) string {
+	if len(tools) == 0 {
+		return ""
+	}
+	patterns := make([]string, len(tools))
+	for i, tool := range tools {
+		patterns[i] = `*'"toolName":"` + tool + `"'*`
+	}
+	return "case $aai_in in " + strings.Join(patterns, "|") + ") ;; *) exit 0 ;; esac\n"
+}
+
 // clineBlockPrelude sets up the stderr file and the JSON string escape
-// every command's exit 2 check uses. The escape runs in the C locale, so
-// bytes that are not UTF-8 pass through instead of stopping awk; it drops
-// control bytes other than tab and newline, and writes `{` and `}` as
-// \u escapes, since the VS Code extension's fallback parser counts braces
-// without reading quotes (hook-factory.ts:366-466).
+// every command's exit 2 check uses.
 const clineBlockPrelude = `aai_err=$(mktemp)
 trap 'rm -f "$aai_err"' EXIT
-aai_json() { LC_ALL=C tr -d '\000-\010\013-\037\177' | LC_ALL=C awk 'BEGIN { ORS = "" } { gsub(/\\/, "\\\\"); gsub(/"/, "\\\""); gsub(/\t/, "\\t"); gsub(/{/, "\\u007b"); gsub(/}/, "\\u007d"); if (NR > 1) printf "\\n"; print }'; }
-`
+` + emit.HookJSONEscape
 
 // clineBlockOnExit2 follows each command's subshell: it replays stderr,
 // turns exit 2 into a cancel reply, and stops on any other failure. The

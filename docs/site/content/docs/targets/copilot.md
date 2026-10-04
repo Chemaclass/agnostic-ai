@@ -23,6 +23,7 @@ GitHub Copilot reads most project configuration from `.github/`, and VS Code rea
 .github/mcp.json                                           # when MCP entries exist; Copilot CLI's file, mcpServers key
 .mcp.json                                                  # only with outputs.copilot.root-mcp-file; mcpServers key
 .github/hooks/agnostic-ai.json                              # when hook entries exist
+.github/hooks/scripts/agnostic-ai-portable-hook.sh          # when a portable before-tool hook exists
 .github/copilot/settings.json                              # when a Settings model or a disabled MCP server exists
 ```
 - **Rules**: a rule with `globs` or a source-layout scope (like `rules/backend/auth.md`) gets its own `.instructions.md` with `applyTo`.
@@ -84,6 +85,8 @@ Hooks go to `.github/hooks/agnostic-ai.json` (override with `outputs.copilot.hoo
 - Command hooks also carry `cwd` (relative to the repository root, or absolute) and `env` (with variable expansion), set at the spec's top level or under `x-copilot`. Both are copilot-only and round-trip. With a relative `cwd`, sync writes the script path relative to that directory. The path sits in `command` (its first word, or the second after an interpreter such as `bash`) or in exec `exec` and `args`. So `.agnostic-ai/hooks/guard.sh` with `cwd: sub` becomes `../.agnostic-ai/hooks/guard.sh`, and import restores the repository-relative path. Absolute, `$`-prefixed, and non-path commands stay as written, as does every path when `cwd` is absolute or leaves the repository.
 - Command, HTTP (`url`, `headers`, `allowedEnvVars`), and `sessionStart` prompt handlers round-trip through `import copilot`.
 - A spec with `args` emits Copilot's shell-free form, `{"type": "command", "exec": <command>, "args": [...]}`, for paths or arguments with spaces. Copilot does not allow `exec` next to `command`, so the executable moves out of `command`. Claude Code's exec form keeps it there. Only Copilot CLI runs it. Cloud agent honors only `bash` or `command` entries, so `sync` raises a coverage note. Leave `args` unset for a hook that must run under cloud agent.
+
+- A [portable](@/docs/spec-format/hooks.md#portable-events) `before-tool` hook lands on `PreToolUse` and runs through `.github/hooks/scripts/agnostic-ai-portable-hook.sh`. Exit 2 denies the call with stderr as `permissionDecisionReason`. Exit 1 still denies, so a broken guard keeps blocking, where Claude Code reports an error and goes on. Import reads it back as the portable spec.
 
 **Every hook runs twice when you sync `claude` and `copilot` together.** Copilot also reads `.claude/settings.json` and `.claude/settings.local.json` and runs every entry for an event. Both targets are defaults, so a formatter runs twice, an audit hook writes twice, and a blocking `preToolUse` returns two decisions. Unlike Cursor and Trae, Copilot has no toggle. Give the hook spec a single `target:`.
 
