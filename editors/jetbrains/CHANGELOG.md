@@ -3,6 +3,13 @@
 All notable changes to the agnostic-ai JetBrains plugin are documented
 in this file.
 
+## Unreleased
+
+- Read `agnostic-ai.yaml` as well as the legacy `agnostic.config.yaml`,
+  preferring the new name like the CLI. Projects on the new name get root
+  detection, configured targets, schema validation, and the drift status bar.
+  `agnostic.config.yml`, which the CLI never read, no longer gets the schema.
+
 ## 0.1.0 — 2026-05-13
 
 Initial release.

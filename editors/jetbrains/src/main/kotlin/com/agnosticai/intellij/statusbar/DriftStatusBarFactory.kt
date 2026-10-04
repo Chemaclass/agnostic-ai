@@ -22,7 +22,7 @@ class DriftStatusBarFactory : StatusBarWidgetFactory {
     override fun getId(): String = "com.agnosticai.intellij.statusbar.DriftStatusBarFactory"
     override fun getDisplayName(): String = "agnostic-ai drift"
     override fun isAvailable(project: Project): Boolean =
-        AgnosticAi.projectRoot(project)?.let { java.nio.file.Files.exists(it.resolve("agnostic.config.yaml")) } == true
+        AgnosticAi.projectRoot(project)?.let { AgnosticAi.configFile(it) } != null
     override fun createWidget(project: Project): StatusBarWidget = DriftWidget(project)
     override fun disposeWidget(widget: StatusBarWidget) = Disposer.dispose(widget)
 }

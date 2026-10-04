@@ -13,7 +13,7 @@
         <br/><br/>
         <b>Features</b>
         <ul>
-            <li><b>Schema-backed editing</b> for <code>agnostic.config.yaml</code> via the published JSON Schema.</li>
+            <li><b>Schema-backed editing</b> for <code>agnostic-ai.yaml</code> (or the legacy <code>agnostic.config.yaml</code>) via the published JSON Schema.</li>
             <li><b>Tools menu actions</b>: sync, sync --check, doctor --fix, status.</li>
             <li><b>Render banner</b> above each spec: one "Render to &lt;target&gt;" link per configured target.</li>
             <li><b>Status bar widget</b> showing the current drift count, polled from <code>sync --check --json</code>.</li>
@@ -54,7 +54,7 @@
         <editorNotificationProvider
             implementation="com.agnosticai.intellij.codeinsight.SpecRenderBannerProvider"/>
 
-        <!-- JSON schema for agnostic.config.yaml. -->
+        <!-- JSON schema for agnostic-ai.yaml and the legacy agnostic.config.yaml. -->
         <json.jsonSchemaProviderFactory
             implementation="com.agnosticai.intellij.schema.AgnosticConfigSchemaProvider"/>
     </extensions>
