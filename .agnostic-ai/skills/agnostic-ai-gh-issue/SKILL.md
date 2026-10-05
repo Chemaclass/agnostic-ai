@@ -1,5 +1,5 @@
 ---
-name: gh-issue
+name: agnostic-ai-gh-issue
 description: Take one GitHub issue from branch to merged PR with TDD. Use when asked to work, fix, or implement an issue by number.
 argument-hint: "[issue-number]"
 x-claude:
