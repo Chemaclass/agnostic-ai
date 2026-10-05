@@ -120,12 +120,6 @@ Use `shell(git status)`, `read(src/**)`, `edit(src/**)`, or `mcp:github/get_issu
 
 Set `on-unsupported: silent` or pass `sync --quiet` to hide this sync note. `lint` still reports LINT038, and `lint --strict` fails on it. Global permission lists have no native allow or ask rule and raise no LINT038.
 
-Bare capabilities under `allow` or `ask` cover the whole native tool. Before permission capabilities, these lowercase rules matched no tool and did nothing. `lint` warns (LINT038) and `sync` prints the same note once each run, naming the native permissions on enabled targets that take the rule. Scoped rules, `deny` rules, and target-native overrides that replace the rule get no warning.
-
-Use `shell(git status)`, `read(src/**)`, `edit(src/**)`, or `mcp:github/get_issue` to limit the rule. `edit(<path>)` also covers writes and edits. `web` has no scoped neutral form; use target-native permission fields to limit web access, or the `WebFetch(domain:example.com)` alias to allow fetches from a named domain.
-
-Set `on-unsupported: silent` or pass `sync --quiet` to hide this sync note. `lint` still reports LINT038, and `lint --strict` fails on it. Global permission lists have no native allow or ask rule and raise no LINT038.
-
 A Claude Code rule is a bare tool name (whole tool) or `Scope(argument)`. An MCP tool is `mcp__<server>__<tool>`. `Scope()` with an empty argument is dropped, not read as the bare tool, which would widen it.
 
 Keep a `shell` wildcard at the end of an `allow` or `deny` rule.

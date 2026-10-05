@@ -205,7 +205,7 @@ outputs:
     exec-policies-from-permissions: true
 ```
 
-This writes three `prefix_rule` entries. `Bash(a b c)`, `Bash(a b c *)`, and `Bash(a b c:*)` all become `pattern = ["a", "b", "c"]`. `allow`, `deny`, and `ask` become `allow`, `forbidden`, and `prompt`.
+This writes three `prefix_rule` entries. `Bash(a b c *)` and `Bash(a b c:*)` become `pattern = ["a", "b", "c"]`. An exact `Bash(a b c)` allow is omitted unless another rule already covers its extra arguments, as described below. `allow`, `deny`, and `ask` become `allow`, `forbidden`, and `prompt`.
 
 Codex has no exact-match rule. A prefix matches extra arguments, even from a bare rule without `:*`. Claude Code allows `Bash(git push)` only as a bare `git push`, but a `git push` prefix rule would also allow `git push --force origin main`. Translation covers a subset of command prefixes, not exact Claude permission equivalence.
 

@@ -6,6 +6,8 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+## v0.79.0 - 2026-10-05
+
 ### General
 
 - Agents, skills, and permissions take neutral capabilities; bare allow/ask warns on broad access (#1754, #1796, #1803, #1807, #1809, #1814, #1815).
