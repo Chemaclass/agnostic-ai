@@ -5,6 +5,8 @@ import (
 	"os"
 	"regexp"
 	"strings"
+
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // File-import resolution modes for the shared entry-point body. They
@@ -29,12 +31,6 @@ func SupportsFileImports(target string) bool {
 	return fileImportTargets[target]
 }
 
-// importLineRe matches a line that is a lone `@path` file-import token:
-// optional surrounding whitespace, a leading `@`, then a single non-space
-// path. Prose `@mentions` embedded in a sentence never match because the
-// whole line must be the token.
-var importLineRe = regexp.MustCompile(`^[ \t]*@(\S+)[ \t]*$`)
-
 // Sentinel markers wrapping a resolved import in inline mode. The start
 // marker carries the original `@path` so import can rebuild the lone
 // `@path` line, keeping the AGNOSTIC_AI.md round-trip lossless.
@@ -48,8 +44,9 @@ const (
 var importInlineBlockRe = regexp.MustCompile(`(?s)<!-- agnostic-ai:import:start (\S+) -->\n.*?\n<!-- agnostic-ai:import:end -->`)
 
 // ApplyImportMode rewrites lone `@path` file-import lines in body per mode
-// for a target that cannot resolve them. passthrough (and any unknown
-// mode) returns body unchanged. strip drops the lines. inline replaces
+// for a target that cannot resolve them. A line inside a code fence is an
+// example and stays. passthrough (and any unknown mode) returns body
+// unchanged. strip drops the lines. inline replaces
 // each with the referenced file's content wrapped in a sentinel block
 // that import restores to the original `@path` line.
 func ApplyImportMode(body, mode string) (string, error) {
@@ -66,12 +63,15 @@ func ApplyImportMode(body, mode string) (string, error) {
 // stripImportLines drops every lone `@path` import line from body.
 func stripImportLines(body string) string {
 	lines := strings.Split(body, "\n")
+	drop := map[int]bool{}
+	for _, imp := range spec.IncludeLines(lines) {
+		drop[imp.Line] = true
+	}
 	out := lines[:0]
-	for _, ln := range lines {
-		if importLineRe.MatchString(ln) {
-			continue
+	for i, ln := range lines {
+		if !drop[i] {
+			out = append(out, ln)
 		}
-		out = append(out, ln)
 	}
 	return strings.Join(out, "\n")
 }
@@ -82,18 +82,13 @@ func stripImportLines(body string) string {
 // dangling reference must surface rather than ship silently.
 func inlineImportLines(body string) (string, error) {
 	lines := strings.Split(body, "\n")
-	for i, ln := range lines {
-		m := importLineRe.FindStringSubmatch(ln)
-		if m == nil {
-			continue
-		}
-		path := m[1]
-		data, err := os.ReadFile(path)
+	for _, imp := range spec.IncludeLines(lines) {
+		data, err := os.ReadFile(imp.Ref)
 		if err != nil {
-			return "", fmt.Errorf("%s: %w", path, err)
+			return "", fmt.Errorf("%s: %w", imp.Ref, err)
 		}
 		content := strings.TrimRight(string(data), "\n")
-		lines[i] = fmt.Sprintf(importInlineStartFmt, path) + "\n" + content + "\n" + importInlineEnd
+		lines[imp.Line] = fmt.Sprintf(importInlineStartFmt, imp.Ref) + "\n" + content + "\n" + importInlineEnd
 	}
 	return strings.Join(lines, "\n"), nil
 }
