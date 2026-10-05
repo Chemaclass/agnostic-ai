@@ -8,72 +8,63 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
-- Skills take neutral `allowed-tools`; agents take file patterns and `delete`. `explain` names native tools and extra access (#1803).
-- A `decision: stdout` hook blocks on raw SOH bytes, including one after an otherwise valid allow reply (#1810).
-
-- `outputs.<target>.agents: skill` writes agents as on-demand skills on Amp, Crush, Warp, and Zed, which have no subagents, unless a tool with subagents reads the same skills directory (#1772).
-- `import` turns MCP credentials into `${NAME}` references or drops the server, as `--global` does; `doctor` names each unset `${NAME}` (#1736, #1742, #1729).
-- `hook run` uses Git Bash for Claude Code hooks on Windows and shows a command's timeout or error even when another's result is not counted (#1746, #1728).
-- Hooks take portable `on:` and `match:` on 13 tools; `import` writes them where they map exactly and skips the native hooks a shared hook spec already syncs. `migrate` rewrites old spec forms, output unchanged, and `doctor` and `lint` (LINT034) name them (#1755, #1752, #1768).
-- A portable `before-tool` hook can decide with `decision: stdout` and a `{"decision": "deny", "reason": ...}` object at exit 0, on every tool that maps `before-tool` but Augment; `ask` blocks too, malformed output blocks, and parser limits apply on every platform, including Gemini native handler overrides (#1790).
-- `migrate --global` rewrites old spec forms in the global home, MCP secrets and agent `tools:` too; a pack stays as written (#1755, #1804).
-- Hook `args` now reach the command on 12 more tools, folded in and shell-quoted, and `import` matches them; Augment skips such a hook with a note (#1780).
-- Hook `x-<target>` event, matcher, command, and args apply on every tool; `import` matches hooks by what sync writes, Crush scripts too (#1788, #1797).
-- `init --demo` seeds a `no-force-push` guard, `new agent` omits `model`, and `lint` warns (LINT031) on a leftover `TODO` description (#1732, #1738, #1739).
-- Spec bodies can name an agent or skill with `{{$AGENT:name}}` and `{{$SKILL:name}}`, which render each tool's documented invocation phrase; `lint` fails (LINT033) on an unknown name (#1773).
-- Shared files (an entry point's rules block, the `AGENTS.md` review section, a nested `AGENTS.md`) now expand `{{$SKILLS_DIR}}` and the other path variables where every tool reading the file agrees on the path; otherwise a note names the file, and a scoped rule no longer fails sync (#1787, #1800).
-- `init --demo` seeds a spec guard: after an edit, the agent sees the lint errors in the specs it touched, and when it stops with specs not synced, a one-line notice. `lint --files` and `hook guard` back it (#1774).
-- MCP `env` and `headers` values are references unless marked `NODE_ENV: !literal production`; `lint` warns (LINT035) and sync counts the rest, which a later release fails on. Run `agnostic-ai migrate --only secrets` (#1753).
-- Agents take a neutral `can:` list, such as `[read, edit, shell(git diff *), mcp:github]`, that syncs as the Claude Code `tools` it stands for. Kiro notes the access a category adds, `lint` fails (LINT036) on an unknown capability, and `migrate --only capabilities` rewrites `tools` (#1754).
-- Bare lowercase permission rules did nothing before; now they grant or ask for the whole capability (#1796, #1807).
-- `lint` warns (LINT038) and `sync` names the native permissions a bare capability in `allow` or `ask` now covers (#1809).
+- Agents, skills, and permissions take neutral capabilities; bare allow/ask warns on broad access (#1754, #1796, #1803, #1807, #1809, #1814, #1815).
+- Hooks share events, matchers, args, and JSON decisions; runs show failures (#1728, #1752, #1755, #1768, #1780, #1788, #1790, #1797, #1806, #1810, #1811).
+- MCP imports protect secrets and doctor checks references; literals need `!literal`; global migration works (#1729, #1736, #1742, #1753, #1804, #1805).
+- Bodies render native calls and shared paths; agents can sync as skills on tools without subagents (#1772, #1773, #1779, #1787, #1789, #1800).
+- Demo hooks guard force pushes, lint and drift; scaffolds omit models and flag TODOs (#1732, #1738, #1739, #1774, #1785).
 
 ### By tool
 
+#### Cursor
+
+- Portable hooks cover session events, prompts, and `before-tool`; unmapped events raise coverage notes (#1806).
+- A portable hook synced to Claude Code and Cursor runs once on Cursor; global hooks get wrappers under `~/.cursor/hooks/` (#1806).
+
 #### Cline
 
-- A hook command that exits 2 now blocks on Cline: the synced script prints a `{"cancel": true}` reply with its stderr (#1722).
-- Hooks sync to `.clinerules/hooks/<Event>`, so the VS Code extension runs them too; sync removes the old `.cline/hooks/<Event>.sh` files (#1723).
-- `hook run` runs Cline hook scripts with bash as the Cline CLI does; only stdout `{"cancel": true}` blocks, and the exit code is ignored (#1678).
-- A portable `before-tool` hook with `match:` runs only on that kind's tools: the event script checks the tool name in the payload (#1752).
+- Hooks land in `.clinerules/hooks/` for the CLI and VS Code extension, with exit 2 blocking and portable tool-kind matching (#1722, #1723, #1752, #1783).
+- `hook run` runs scripts with bash and checks stdout for `{"cancel": true}`, as the Cline CLI does (#1678, #1726).
 
 #### Codex
 
-- A hook `commandWindows` keeps the project root path, so a script under the project runs from any subdirectory (#1732).
-- A grouped hook matcher such as `^(Bash|exec)$` no longer gets a false "does not match" note, and specs sharing a command merge validly (#1743).
-- Codex skips exact allows that would grant extra arguments; `on-unsupported: error` fails. Use `Bash(git push:*)` to allow the prefix (#1808).
+- Exact allows that would grant extra arguments are skipped; to allow a prefix, use `Bash(git push:*)` (#1808, #1815).
+- Windows hook commands keep project-root paths, grouped matchers work, and hooks sharing a command merge correctly (#1743, #1744).
 
-#### Copilot
+#### JetBrains
 
-- A portable `before-tool` hook runs through a wrapper script that denies the call on exit 2 with stderr as the reason; exit 1 still denies, as Copilot fails closed (#1752).
-
-#### Cursor
-
-- A portable `before-tool` hook lands on `preToolUse` through a wrapper script that turns exit 2 into a deny reply with stderr as the message (#1752).
-- Portable hooks also map `session-start`, `prompt-submit`, and `session-end`; `after-tool`, `after-edit`, and `stop` stay unmapped, since Cursor cannot block there (#1790).
-- A portable hook synced to `claude` and `cursor` runs once on Cursor: its Claude Code copy exits when Cursor runs it (#1790).
-- `sync --global` writes the wrapper to `~/.cursor/hooks/`, so a portable `before-tool` hook reaches Cursor's user hooks (#1790).
-
-#### Kilo Code
-
-- An `Edit` deny or ask rule also restricts Kilo's separate `write` permission (#1808).
-- Kilo writes allow, then ask, then deny patterns, so overlapping rules keep the strictest action (#1808).
+- Projects using `agnostic-ai.yaml` get root detection, schema validation, and drift status (#1757).
+- Render pickers honor `agnostic-ai.local.yaml` targets and YAML flow lists (#1761).
 
 #### Kiro
 
-- Kiro maps agent MCP tools to `@server` or `@server/tool`; `on-unsupported: error` rejects tool bundles that grant extra access (#1803).
+- Agent MCP tools map to `@server` or `@server/tool`; access widening raises a note or fails with `on-unsupported: error` (#1815).
+- `hook run` uses an assumed shell and refuses `--bash` and `--edit` (#1566, #1725).
 
-- `hook run` runs Kiro hooks on an assumed shell; `--bash` and `--edit` are refused, since Kiro documents no tool input for them (#1566).
+#### Claude Code
+
+- `hook run` uses Git Bash for Claude Code hooks on Windows (#1746, #1751).
+
+#### Copilot
+
+- Portable `before-tool` hooks block on exit 2 with stderr as the reason; exit 1 still denies the call (#1783).
+
+#### Kilo Code
+
+- Edit deny/ask rules also restrict writes, and overlapping permission patterns let deny and ask win over allow (#1808, #1815).
+
+#### VS Code
+
+- Render pickers honor `agnostic-ai.local.yaml` targets and YAML flow lists (#1761).
 
 #### Windsurf
 
-- `hook run` runs Windsurf's Devin CLI hooks on an assumed shell; `--edit` is refused, since the edit tools' input is undocumented (#1566).
+- `hook run` uses an assumed shell for Devin CLI hooks and refuses `--edit` (#1724).
 
 ### Site
 
-- An MCP recipes page gives specs for GitHub, Context7, Playwright, and filesystem servers; `new mcp` links to it (#1741).
-- The Spec packs page uses real pack repos in its examples and lists three public repos that install as packs (#1740).
-- The Why page notes that betagouv/agnostic-ai is a separate project with the same name (#1737).
+- MCP recipes and pack guides use practical examples and public repositories (#1740, #1741).
+- The Why page distinguishes betagouv/agnostic-ai, and Factory links point to its current docs (#1737, #1763).
 
 ## v0.78.0 - 2026-10-03
 
