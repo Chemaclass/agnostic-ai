@@ -423,3 +423,99 @@ func TestSyncCheckAgainstIndex_NamesStagingAsTheOneStep(t *testing.T) {
 		}
 	}
 }
+
+func TestEnterAgainstTree_ExportsOnlyWhatTheCheckReads(t *testing.T) {
+	dir := committedProject(t, "instructions")
+	if err := os.MkdirAll(filepath.Join(dir, "src", "app"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "src", "app", "main.go"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	git(t, dir, "add", "-A")
+
+	tree, err := enterAgainstTree(againstIndex)
+	if err != nil {
+		t.Fatalf("enter: %v", err)
+	}
+	defer tree.leave()
+
+	if fileExists(filepath.Join("src", "app", "main.go")) {
+		t.Error("a tracked file the check never reads should stay out of the export")
+	}
+	if info, err := os.Stat(filepath.Join("src", "app")); err != nil || !info.IsDir() {
+		t.Error("every tracked directory should exist, since scoped outputs depend on it")
+	}
+	for _, p := range []string{"CLAUDE.md", "agnostic-ai.yaml", ".gitignore", filepath.Join(".agnostic-ai", "rules", "r1.md")} {
+		if !fileExists(p) {
+			t.Errorf("%s should be exported", p)
+		}
+	}
+}
+
+func TestAgainstTreeSameInputs_OnlyWhenSpecsAndDirectoriesMatch(t *testing.T) {
+	cases := []struct {
+		name  string
+		stage func(t *testing.T, dir string)
+		want  bool
+	}{
+		{"unchanged", func(t *testing.T, dir string) {}, true},
+		{"a source file changed", func(t *testing.T, dir string) {
+			mustWriteFile(t, filepath.Join(dir, "main.go"), "package main\n")
+		}, true},
+		{"a spec changed", func(t *testing.T, dir string) { editRuleSpec(t, dir, "Changed rule.\n") }, false},
+		{"a directory was added", func(t *testing.T, dir string) {
+			mustWriteFile(t, filepath.Join(dir, "src", "app", "main.go"), "package main\n")
+		}, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := committedProject(t, "instructions")
+			mustWriteFile(t, filepath.Join(dir, "main.go"), "package base\n")
+			git(t, dir, "add", "-A")
+			git(t, dir, "commit", "-q", "-m", "source")
+			tc.stage(t, dir)
+			git(t, dir, "add", "-A")
+			tree, err := enterAgainstTree(againstIndex)
+			if err != nil {
+				t.Fatalf("enter: %v", err)
+			}
+			defer tree.leave()
+
+			got, err := tree.sameInputs("HEAD", specRoots(nil))
+
+			if err != nil || got != tc.want {
+				t.Errorf("sameInputs = %v, %v, want %v", got, err, tc.want)
+			}
+		})
+	}
+}
+
+func TestAgainstTreeExportMissing_ChecksOutATrackedOutputTheGuessLeftOut(t *testing.T) {
+	dir := committedProject(t, "instructions")
+	mustWriteFile(t, filepath.Join(dir, "docs", "guide.md"), "tracked\n")
+	git(t, dir, "add", "-A")
+	tree, err := enterAgainstTree(againstIndex)
+	if err != nil {
+		t.Fatalf("enter: %v", err)
+	}
+	defer tree.leave()
+	guide := filepath.Join("docs", "guide.md")
+	untracked := filepath.Join("docs", "new.md")
+	reports := []driftReport{{Target: "claude", Missing: []adapters.CapturedFile{{Path: guide}, {Path: untracked}}}}
+
+	late, err := tree.exportMissing(reports)
+
+	if err != nil || !late {
+		t.Fatalf("exportMissing = %v, %v, want true", late, err)
+	}
+	if !fileExists(guide) {
+		t.Error("the tracked output should now be in the export")
+	}
+	if fileExists(untracked) {
+		t.Error("a path Git does not track has nothing to check out")
+	}
+	if late, _ := tree.exportMissing(reports); late {
+		t.Error("an output already exported should not ask for a second pass")
+	}
+}
