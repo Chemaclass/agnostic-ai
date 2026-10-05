@@ -54,6 +54,11 @@ var (
 // is itself a ClaudeShell use. A backslash before `$` escapes it, as in
 // Claude Code.
 func FindClaudeSyntax(body string) []ClaudeSyntaxUse {
+	// Every syntax needs a `$` or a `!`; most bodies have neither, and the
+	// regexps cost most of a sync that changes nothing.
+	if !strings.ContainsAny(body, "$!") {
+		return nil
+	}
 	var out []ClaudeSyntaxUse
 	var fence []string
 	fenced := false
@@ -80,6 +85,9 @@ func FindClaudeSyntax(body string) []ClaudeSyntaxUse {
 			case strings.HasPrefix(marker, code):
 				code = ""
 			}
+			continue
+		}
+		if !strings.ContainsAny(line, "$!") {
 			continue
 		}
 		if code == "" && claudeShellRe.MatchString(line) {
