@@ -152,6 +152,10 @@ func (t *againstTree) exportInputs(entries string) error {
 // does not load gets every tracked file, so the check reports the failure
 // the way a full export would.
 func (t *againstTree) exportOutputs() error {
+	// A linked config layer loads only once its target is exported.
+	if err := t.exportLinkTargets(); err != nil {
+		return err
+	}
 	// The config alone: loading the specs resolves includes not exported yet.
 	cfg, _, err := config.LoadWithSources(".")
 	if err != nil {
@@ -198,14 +202,20 @@ func (t *againstTree) exportProjectInputs(cfg *config.Config) error {
 	}
 	t.inputs = t.inputs[:0]
 	for _, in := range inputs {
-		if dir, ok := strings.CutSuffix(in, "/**"); ok {
-			in = dir + "/"
+		dir, isDir := strings.CutSuffix(in, "/**")
+		// From the top level: a source may sit outside the project.
+		in = path.Clean(t.prefix + dir)
+		if in == ".." || strings.HasPrefix(in, "../") {
+			continue
+		}
+		if isDir {
+			in += "/"
 		}
 		t.inputs = append(t.inputs, in)
 	}
 	var paths []string
 	for _, p := range t.tracked {
-		if rel, ok := strings.CutPrefix(p, t.prefix); ok && underRoots(rel, t.inputs) {
+		if underRoots(p, t.inputs) {
 			paths = append(paths, p)
 		}
 	}
@@ -218,16 +228,13 @@ func (t *againstTree) exportProjectInputs(cfg *config.Config) error {
 // scopeCandidates lists the directories a spec folder can scope to: a
 // rule or skill under `<kind>/backend/` applies to `backend/` only when
 // that directory exists (spec.assignScopes). Every directory path that
-// a spec file's folders spell is a candidate, a superset of the scopes.
+// an exported file's folders spell is a candidate, a superset of the
+// scopes that also covers specs reached through a link.
 func (t *againstTree) scopeCandidates() []string {
 	seen := map[string]bool{}
 	var out []string
-	for _, p := range t.tracked {
-		rel, ok := strings.CutPrefix(p, t.prefix)
-		if !ok || !underRoots(rel, t.inputs) {
-			continue
-		}
-		segs := strings.Split(path.Dir(rel), "/")
+	for p := range t.exported {
+		segs := strings.Split(path.Dir(p), "/")
 		for i := range segs {
 			for j := i + 1; j <= len(segs); j++ {
 				if d := t.prefix + strings.Join(segs[i:j], "/"); !seen[d] {
@@ -387,8 +394,8 @@ type againstTree struct {
 	exported  map[string]bool
 	// blobs and modes map each tracked path to its object id and mode.
 	blobs, modes map[string]string
-	// inputs lists what `explain --inputs` reports, relative to the
-	// project; a directory ends in a slash.
+	// inputs lists what `explain --inputs` reports, from the top level;
+	// a directory ends in a slash.
 	inputs []string
 }
 
@@ -482,10 +489,7 @@ func (t *againstTree) sameInputs(ref string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	isInput := func(p string) bool {
-		rel, ok := strings.CutPrefix(p, t.prefix)
-		return ok && underRoots(rel, t.inputs)
-	}
+	isInput := func(p string) bool { return underRoots(p, t.inputs) }
 	var paths []string
 	inputs := 0
 	for _, rec := range strings.Split(listed, "\x00") {

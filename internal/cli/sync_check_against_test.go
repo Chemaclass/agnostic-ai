@@ -667,3 +667,63 @@ func TestSyncCheckAgainst_ScopesARuleFolderToADirectoryOnlyTheIndexHolds(t *test
 		t.Errorf("backend/ now scopes the rule, so the committed global output is stale:\n%s", stdout)
 	}
 }
+
+func TestSyncCheckAgainst_LoadsALinkedLocalOverride(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Git for Windows checks a symlink out as a text file unless core.symlinks is set")
+	}
+	dir := setupFixture(t)
+	isolateGit(t)
+	git(t, dir, "init", "-q")
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\n")
+	mustWriteFile(t, filepath.Join(dir, "config", "override.yaml"), "sources:\n  rules: policies\n")
+	mustWriteFile(t, filepath.Join(dir, "policies", "p1.md"), "---\nname: p1\n---\nPolicy rule.\n")
+	if err := os.Symlink(filepath.Join("config", "override.yaml"), filepath.Join(dir, "agnostic-ai.local.yaml")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	testutil.Chdir(t, dir)
+	silence(t)
+	if err := runSyncArgs(t); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	git(t, dir, "add", "-A")
+	git(t, dir, "add", "-f", "agnostic-ai.local.yaml")
+	git(t, dir, "commit", "-q", "-m", "base")
+	mustWriteFile(t, filepath.Join(dir, "policies", "p2.md"), "---\nname: p2\n---\nNew policy.\n")
+	git(t, dir, "add", "policies/p2.md")
+
+	stdout, _, err := checkAgainst(t, "index")
+
+	if err == nil || !strings.Contains(stdout, ".claude/rules/p2.md") {
+		t.Errorf("the linked override moves the rules source, so the staged rule should report its output, got %v:\n%s", err, stdout)
+	}
+}
+
+func TestSyncCheckAgainst_ScopesALinkedSourceFolder(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Git for Windows checks a symlink out as a text file unless core.symlinks is set")
+	}
+	dir := setupFixture(t)
+	isolateGit(t)
+	git(t, dir, "init", "-q")
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\nsources:\n  rules: rules\n")
+	mustWriteFile(t, filepath.Join(dir, "policies", "backend", "auth.md"), "---\nname: auth\n---\nAuth rule.\n")
+	if err := os.Symlink("policies", filepath.Join(dir, "rules")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	testutil.Chdir(t, dir)
+	silence(t)
+	if err := runSyncArgs(t); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	git(t, dir, "add", "-A")
+	git(t, dir, "commit", "-q", "-m", "base")
+	mustWriteFile(t, filepath.Join(dir, "backend", "handler.go"), "package backend\n")
+	git(t, dir, "add", "backend/handler.go")
+
+	stdout, _, err := checkAgainst(t, "index")
+
+	if err == nil {
+		t.Errorf("backend/ now scopes the linked rule, so the committed output is stale:\n%s", stdout)
+	}
+}
