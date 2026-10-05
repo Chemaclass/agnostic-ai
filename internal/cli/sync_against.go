@@ -205,10 +205,13 @@ func (t *againstTree) exportProjectInputs(cfg *config.Config) error {
 		dir, isDir := strings.CutSuffix(in, "/**")
 		// From the top level: a source may sit outside the project.
 		in = path.Clean(t.prefix + dir)
-		if in == ".." || strings.HasPrefix(in, "../") {
+		switch {
+		case in == ".." || strings.HasPrefix(in, "../"):
 			continue
-		}
-		if isDir {
+		case in == "." && isDir:
+			// The repository root: every tracked file is an input.
+			in = ""
+		case isDir:
 			in += "/"
 		}
 		t.inputs = append(t.inputs, in)
@@ -600,10 +603,11 @@ func renderRef(toplevel, prefix, ref, dir string, sources []string) (map[string]
 }
 
 // underRoots reports whether rel is one of roots, a root directory
-// itself, such as a link to the real one, or sits in one of them.
+// itself, such as a link to the real one, or sits in one of them. An
+// empty root is the repository root and holds every path.
 func underRoots(rel string, roots []string) bool {
 	for _, r := range roots {
-		if rel == r || rel+"/" == r || strings.HasSuffix(r, "/") && strings.HasPrefix(rel, r) {
+		if r == "" || rel == r || rel+"/" == r || strings.HasSuffix(r, "/") && strings.HasPrefix(rel, r) {
 			return true
 		}
 	}
