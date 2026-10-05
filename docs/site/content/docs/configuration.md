@@ -258,7 +258,7 @@ sync:
 
 ### `sync.resolve-imports` {#syncresolve-imports}
 
-Sets how a line holding only an `@path` import in `AGNOSTIC_AI.md` reaches targets that can't resolve it. `CLAUDE.md` always keeps it. An `@mention` inside a sentence is untouched. Paths resolve from the project root.
+Sets how a line holding only an `@path` import in `AGNOSTIC_AI.md` reaches targets that can't resolve it. `CLAUDE.md` always keeps it. An `@mention` inside a sentence is untouched, and so is a line inside a fenced code block. Paths resolve from the project root.
 
 | Value | Non-resolving targets get |
 |-------|---------------------------|

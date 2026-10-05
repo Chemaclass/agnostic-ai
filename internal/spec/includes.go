@@ -22,8 +22,8 @@ var includeLineRe = regexp.MustCompile(`^[ \t]*@(\S+)[ \t]*$`)
 // shipping as text.
 func resolveIncludes(body, root string) (string, error) {
 	lines := strings.Split(body, "\n")
-	for _, inc := range includeLines(lines) {
-		ref := inc.ref
+	for _, inc := range IncludeLines(lines) {
+		ref := inc.Ref
 		if !filepath.IsLocal(filepath.FromSlash(ref)) {
 			return "", errs.Coded(errs.CodeSpecParse, "include @%s: the path must stay inside the project root", ref)
 		}
@@ -31,7 +31,7 @@ func resolveIncludes(body, root string) (string, error) {
 		if err != nil {
 			return "", errs.Coded(errs.CodeSpecParse, "include @%s: %w", ref, err)
 		}
-		lines[inc.line] = strings.TrimRight(string(normalizeLineEndings(data)), "\n")
+		lines[inc.Line] = strings.TrimRight(string(normalizeLineEndings(data)), "\n")
 	}
 	return strings.Join(lines, "\n"), nil
 }
@@ -40,9 +40,9 @@ func resolveIncludes(body, root string) (string, error) {
 // lines inline, cleaned, skipping any that leave the project root.
 func IncludeRefs(body string) []string {
 	var out []string
-	for _, inc := range includeLines(strings.Split(body, "\n")) {
-		if filepath.IsLocal(filepath.FromSlash(inc.ref)) {
-			out = append(out, filepath.ToSlash(filepath.Clean(filepath.FromSlash(inc.ref))))
+	for _, inc := range IncludeLines(strings.Split(body, "\n")) {
+		if filepath.IsLocal(filepath.FromSlash(inc.Ref)) {
+			out = append(out, filepath.ToSlash(filepath.Clean(filepath.FromSlash(inc.Ref))))
 		}
 	}
 	return out
@@ -62,15 +62,16 @@ func StripFrontmatter(data string) string {
 	return data
 }
 
-type includeLine struct {
-	line int
-	ref  string
+// IncludeLine is a line index and the `@path` reference it holds.
+type IncludeLine struct {
+	Line int
+	Ref  string
 }
 
-// includeLines finds the lines holding only `@path`, outside fenced code
+// IncludeLines finds the lines holding only `@path`, outside fenced code
 // blocks.
-func includeLines(lines []string) []includeLine {
-	var out []includeLine
+func IncludeLines(lines []string) []IncludeLine {
+	var out []IncludeLine
 	fence := ""
 	for i, line := range lines {
 		if marker := fenceMarker(line); marker != "" {
@@ -83,7 +84,7 @@ func includeLines(lines []string) []includeLine {
 			continue
 		}
 		if m := includeLineRe.FindStringSubmatch(line); fence == "" && m != nil {
-			out = append(out, includeLine{i, m[1]})
+			out = append(out, IncludeLine{i, m[1]})
 		}
 	}
 	return out

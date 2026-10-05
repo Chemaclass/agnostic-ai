@@ -727,3 +727,51 @@ func TestSyncCheckAgainst_ScopesALinkedSourceFolder(t *testing.T) {
 		t.Errorf("backend/ now scopes the linked rule, so the committed output is stale:\n%s", stdout)
 	}
 }
+
+// A fenced `@path` line is an example, not an import: sync leaves it as
+// written, explain --inputs leaves the file out, and --against agrees
+// with a full check.
+func TestSyncCheckAgainstIndex_MatchesFullCheckWithAFencedImportLine(t *testing.T) {
+	dir := setupFixture(t)
+	isolateGit(t)
+	git(t, dir, "init", "-q")
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\ngitignore:\n  enabled: true\n  commit: [instructions]\nsync:\n  resolve-imports: inline\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), "# Project\n\n```markdown\n@docs/guide.md\n```\n")
+	mustWriteFile(t, filepath.Join(dir, "docs", "guide.md"), "Guide text.\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	git(t, dir, "add", "-A")
+	git(t, dir, "commit", "-q", "-m", "base")
+
+	agents, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(agents), "Guide text.") || !strings.Contains(string(agents), "```markdown\n@docs/guide.md\n```") {
+		t.Errorf("a fenced @path line should stay as written:\n%s", agents)
+	}
+	var inputs bytes.Buffer
+	explain := NewRootCmd("test")
+	explain.SetOut(&inputs)
+	explain.SetArgs([]string{"explain", "--inputs"})
+	if err := explain.Execute(); err != nil {
+		t.Fatalf("explain --inputs: %v", err)
+	}
+	if strings.Contains(inputs.String(), "docs/guide.md") {
+		t.Errorf("a fenced @path is not an input:\n%s", inputs.String())
+	}
+	if _, stderr, err := runCheckPlain(t); err != nil {
+		t.Fatalf("sync --check: %v\n%s", err, stderr)
+	}
+
+	stdout, stderr, err := checkAgainst(t, "index")
+
+	if err != nil {
+		t.Errorf("sync --check --against index should match sync --check: %v\n%s%s", err, stdout, stderr)
+	}
+}
