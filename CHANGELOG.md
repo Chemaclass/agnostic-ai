@@ -8,7 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
-- `sync --check --against` checks out only the files it reads, so it runs about 4x faster in a repository with 20k+ tracked files (#1819).
+- `sync --check --against` checks out only the files it reads, so it runs about 5x faster in a repository with 20k+ tracked files (#1819).
 
 ## v0.79.0 - 2026-10-05
 
