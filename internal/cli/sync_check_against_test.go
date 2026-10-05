@@ -443,9 +443,6 @@ func TestEnterAgainstTree_ExportsOnlyWhatTheCheckReads(t *testing.T) {
 	if fileExists(filepath.Join("src", "app", "main.go")) {
 		t.Error("a tracked file the check never reads should stay out of the export")
 	}
-	if info, err := os.Stat(filepath.Join("src", "app")); err != nil || !info.IsDir() {
-		t.Error("every tracked directory should exist, since scoped outputs depend on it")
-	}
 	for _, p := range []string{"CLAUDE.md", "agnostic-ai.yaml", ".gitignore", filepath.Join(".agnostic-ai", "rules", "r1.md")} {
 		if !fileExists(p) {
 			t.Errorf("%s should be exported", p)
@@ -464,9 +461,9 @@ func TestAgainstTreeSameInputs_OnlyWhenSpecsAndDirectoriesMatch(t *testing.T) {
 			mustWriteFile(t, filepath.Join(dir, "main.go"), "package main\n")
 		}, true},
 		{"a spec changed", func(t *testing.T, dir string) { editRuleSpec(t, dir, "Changed rule.\n") }, false},
-		{"a directory was added", func(t *testing.T, dir string) {
+		{"a source directory was added", func(t *testing.T, dir string) {
 			mustWriteFile(t, filepath.Join(dir, "src", "app", "main.go"), "package main\n")
-		}, false},
+		}, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -482,7 +479,7 @@ func TestAgainstTreeSameInputs_OnlyWhenSpecsAndDirectoriesMatch(t *testing.T) {
 			}
 			defer tree.leave()
 
-			got, err := tree.sameInputs("HEAD", specRoots(nil))
+			got, err := tree.sameInputs("HEAD")
 
 			if err != nil || got != tc.want {
 				t.Errorf("sameInputs = %v, %v, want %v", got, err, tc.want)
@@ -517,5 +514,101 @@ func TestAgainstTreeExportMissing_ChecksOutATrackedOutputTheGuessLeftOut(t *test
 	}
 	if late, _ := tree.exportMissing(reports); late {
 		t.Error("an output already exported should not ask for a second pass")
+	}
+}
+
+func TestSyncCheckAgainst_PassesWithAnIncludeGitDoesNotTrack(t *testing.T) {
+	dir := committedProject(t, "instructions")
+	entry := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
+	data, err := os.ReadFile(entry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, entry, string(data)+"\n@~/.claude/personal.md\n")
+	if err := runSyncArgs(t); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	git(t, dir, "add", "-A")
+	git(t, dir, "commit", "-q", "-m", "include")
+
+	if _, stderr, err := checkAgainst(t, "HEAD"); err != nil {
+		t.Errorf("a reference outside the repository is not an input to export: %v\n%s", err, stderr)
+	}
+}
+
+func TestSyncCheckAgainst_ReadsASpecLinkedOutsideTheDotPaths(t *testing.T) {
+	dir := committedProject(t, "instructions")
+	entry := filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md")
+	data, err := os.ReadFile(entry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, filepath.Join(dir, "shared", "instructions.md"), string(data)+"\nShared line.\n")
+	if err := os.Remove(entry); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join("..", "shared", "instructions.md"), entry); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := runSyncArgs(t); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	git(t, dir, "add", "-A")
+	git(t, dir, "commit", "-q", "-m", "linked instructions")
+
+	if stdout, _, err := checkAgainst(t, "HEAD"); err != nil {
+		t.Errorf("the linked spec should be exported with its target: %v\n%s", err, stdout)
+	}
+}
+
+func TestSyncCheckAgainst_ReadsALinkedSourceDirectory(t *testing.T) {
+	dir := committedProject(t, "instructions")
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), againstConfig("instructions")+"sources:\n  rules: rules\n")
+	mustWriteFile(t, filepath.Join(dir, "policies", "r9.md"), "---\nalwaysApply: true\n---\nLinked rule.\n")
+	if err := os.Symlink("policies", filepath.Join(dir, "rules")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := runSyncArgs(t); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	git(t, dir, "add", "-A")
+	git(t, dir, "commit", "-q", "-m", "linked rules")
+
+	if stdout, _, err := checkAgainst(t, "HEAD"); err != nil {
+		t.Errorf("the linked source directory should be exported with its target: %v\n%s", err, stdout)
+	}
+}
+
+func TestSyncCheckAgainst_ComparesAScopedOutputWithoutItsDirectoryExported(t *testing.T) {
+	dir := setupFixture(t)
+	isolateGit(t)
+	git(t, dir, "init", "-q")
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\ngitignore:\n  enabled: true\n  commit: [instructions]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "api.md"), "---\nname: api\nglobs: [src/api/**]\n---\nAPI rule.\n")
+	mustWriteFile(t, filepath.Join(dir, "src", "api", "handler.go"), "package api\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if !fileExists(filepath.Join(dir, "src", "api", "AGENTS.md")) {
+		t.Fatal("sync should write the scoped AGENTS.md")
+	}
+	git(t, dir, "add", "-A")
+	git(t, dir, "add", "-f", "src/api/AGENTS.md")
+	git(t, dir, "commit", "-q", "-m", "base")
+	if stdout, _, err := checkAgainst(t, "HEAD"); err != nil {
+		t.Fatalf("a synced commit should pass: %v\n%s", err, stdout)
+	}
+
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "api.md"), "---\nname: api\nglobs: [src/api/**]\n---\nChanged API rule.\n")
+	git(t, dir, "add", ".agnostic-ai/rules/api.md")
+
+	stdout, _, err := checkAgainst(t, "index")
+
+	if err == nil || !strings.Contains(stdout, "src/api/AGENTS.md") {
+		t.Errorf("the staged rule should report its scoped output, got %v:\n%s", err, stdout)
 	}
 }

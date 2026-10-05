@@ -101,7 +101,7 @@ func enterAgainstTree(ref string) (_ *againstTree, err error) {
 	t := &againstTree{
 		origin: origin, scratch: scratch, root: root,
 		toplevel: toplevel, prefix: strings.TrimSpace(prefix), ref: ref,
-		exportEnv: env, exported: map[string]bool{}, blobs: map[string]string{},
+		exportEnv: env, exported: map[string]bool{}, blobs: map[string]string{}, modes: map[string]string{},
 	}
 	t.project = filepath.Join(root, filepath.FromSlash(t.prefix))
 	if err := t.exportInputs(entries); err != nil {
@@ -118,13 +118,12 @@ func enterAgainstTree(ref string) (_ *againstTree, err error) {
 	return t, nil
 }
 
-// exportInputs creates every tracked directory, since scoped outputs
-// depend on which directories exist, and checks out the paths a check
-// reads whatever the specs say: the config files, which also mark a
-// nested project, and every path with a dot segment, which holds the
-// specs, the .gitignore files, the tool folders, and the root dotfiles.
+// exportInputs checks out the paths a check reads whatever the specs
+// say: the config files, which also mark a
+// nested project, the packs lockfile, and every path with a dot segment,
+// which holds the specs, the .gitignore files, the tool folders, and the
+// root dotfiles.
 func (t *againstTree) exportInputs(entries string) error {
-	dirs := map[string]bool{}
 	var paths []string
 	for _, rec := range strings.Split(entries, "\x00") {
 		meta, p, ok := strings.Cut(rec, "\t")
@@ -133,50 +132,37 @@ func (t *againstTree) exportInputs(entries string) error {
 		}
 		t.tracked = append(t.tracked, p)
 		if f := strings.Fields(meta); len(f) > 1 {
-			t.blobs[p] = f[1]
+			t.modes[p], t.blobs[p] = f[0], f[1]
 		}
-		dirs[path.Dir(p)] = true
-		base := path.Base(p)
-		if base == config.ConfigFileName || base == config.LegacyConfigFileName || strings.HasPrefix(p, ".") || strings.Contains(p, "/.") {
+		switch base := path.Base(p); {
+		case base == config.ConfigFileName, base == config.LegacyConfigFileName, base == config.LocalOverrideFileName, base == packsLockfile,
+			strings.HasPrefix(p, "."), strings.Contains(p, "/."):
 			paths = append(paths, p)
-		}
-	}
-	for d := range dirs {
-		if err := os.MkdirAll(filepath.Join(t.root, filepath.FromSlash(d)), 0o755); err != nil {
-			return err
 		}
 	}
 	return t.export(paths)
 }
 
 // exportOutputs checks out the rest of what a check of the project in the
-// working directory reads: the configured source directories, the files
-// reviews inline with `@path`, the entry points, and every tracked file
-// where a target could write one. An output elsewhere comes through
-// exportMissing. A project whose config does not load gets every tracked
-// file, so the check reports the failure the way a full export would.
+// working directory reads: the inputs `explain --inputs` lists, the files
+// at the project root, the entry points, the files a scoped AGENTS.md
+// checks beside it, the outputs a tracked ledger lists, every tracked file
+// where a target could write one, and what exported links point to. An
+// output elsewhere comes through exportMissing. A project whose config
+// does not load gets every tracked file, so the check reports the failure
+// the way a full export would.
 func (t *againstTree) exportOutputs() error {
-	restore := quiet()
-	cfg, _, err := loadProject(".")
-	restore()
+	// The config alone: loading the specs resolves includes not exported yet.
+	cfg, _, err := config.LoadWithSources(".")
 	if err != nil {
 		return t.export(t.tracked)
 	}
-	roots := specRoots(configuredSources(cfg))
-	var specs []string
-	for _, p := range t.tracked {
-		if rel, ok := strings.CutPrefix(p, t.prefix); ok && underRoots(rel, roots) {
-			specs = append(specs, p)
+	// Twice: a linked source directory lists its review includes only once
+	// its target is exported.
+	for range 2 {
+		if err := t.exportProjectInputs(cfg); err != nil {
+			return err
 		}
-	}
-	if err := t.export(specs); err != nil {
-		return err
-	}
-	if t.includes, err = includePaths(roots, t.prefix); err != nil {
-		return err
-	}
-	if err := t.export(t.includes); err != nil {
-		return err
 	}
 	loc := newOutputLocations(cfg, nil)
 	entry := map[string]bool{}
@@ -185,11 +171,86 @@ func (t *againstTree) exportOutputs() error {
 	}
 	var outputs []string
 	for _, p := range t.tracked {
-		if rel, ok := strings.CutPrefix(p, t.prefix); ok && (entry[rel] || loc.holds(rel) != noLocation) {
+		rel, ok := strings.CutPrefix(p, t.prefix)
+		if ok && (entry[rel] || !strings.Contains(rel, "/") || scopeSiblings[path.Base(rel)] || loc.holds(rel) != noLocation) {
 			outputs = append(outputs, p)
 		}
 	}
-	return t.export(outputs)
+	for _, p := range readStateFile(".").Outputs {
+		outputs = append(outputs, t.prefix+filepath.ToSlash(p))
+	}
+	if err := t.export(t.trackedOf(outputs)); err != nil {
+		return err
+	}
+	return t.exportLinkTargets()
+}
+
+// exportProjectInputs checks out the tracked inputs `explain --inputs`
+// lists for cfg, and what their links point to, and records them for
+// sameInputs.
+func (t *againstTree) exportProjectInputs(cfg *config.Config) error {
+	inputs, err := projectInputs(cfg)
+	if err != nil {
+		return err
+	}
+	t.inputs = t.inputs[:0]
+	for _, in := range inputs {
+		if dir, ok := strings.CutSuffix(in, "/**"); ok {
+			in = dir + "/"
+		}
+		t.inputs = append(t.inputs, in)
+	}
+	var paths []string
+	for _, p := range t.tracked {
+		if rel, ok := strings.CutPrefix(p, t.prefix); ok && underRoots(rel, t.inputs) {
+			paths = append(paths, p)
+		}
+	}
+	if err := t.export(paths); err != nil {
+		return err
+	}
+	return t.exportLinkTargets()
+}
+
+// scopeSiblings are the files a scoped AGENTS.md refuses to sit beside,
+// as emit.CheckScopedDestination lists them.
+var scopeSiblings = map[string]bool{"AGENTS.override.md": true, "WARP.md": true, "CLAUDE.md": true}
+
+// exportLinkTargets checks out the tracked files an exported symlink
+// points to, or holds when it points to a directory, and their links in
+// turn, so a linked output or source reads as
+// Git holds it.
+func (t *againstTree) exportLinkTargets() error {
+	done := map[string]bool{}
+	for {
+		var targets []string
+		for p := range t.exported {
+			if done[p] || t.modes[p] != "120000" {
+				continue
+			}
+			done[p] = true
+			dest, err := os.Readlink(filepath.Join(t.root, filepath.FromSlash(p)))
+			if err != nil || filepath.IsAbs(dest) {
+				continue
+			}
+			targets = append(targets, path.Clean(path.Join(path.Dir(p), filepath.ToSlash(dest))))
+		}
+		var files []string
+		for _, dest := range targets {
+			for _, p := range t.tracked {
+				if p == dest || strings.HasPrefix(p, dest+"/") {
+					files = append(files, p)
+				}
+			}
+		}
+		targets = files
+		if len(targets) == 0 {
+			return nil
+		}
+		if err := t.export(targets); err != nil {
+			return err
+		}
+	}
 }
 
 // exportMissing checks out each output reports find missing that Git
@@ -210,19 +271,25 @@ func (t *againstTree) exportMissing(reports []driftReport) (bool, error) {
 
 // trackedOf keeps the paths Git tracks in the state.
 func (t *againstTree) trackedOf(paths []string) []string {
+	var out []string
+	for _, p := range paths {
+		if t.isTrackedPath(p) {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// isTrackedPath reports whether Git tracks p, a path from the top level,
+// in the state.
+func (t *againstTree) isTrackedPath(p string) bool {
 	if t.isTracked == nil {
 		t.isTracked = make(map[string]bool, len(t.tracked))
 		for _, p := range t.tracked {
 			t.isTracked[p] = true
 		}
 	}
-	var out []string
-	for _, p := range paths {
-		if t.isTracked[p] {
-			out = append(out, p)
-		}
-	}
-	return out
+	return t.isTracked[p]
 }
 
 // export checks out the listed tracked paths not exported yet.
@@ -264,10 +331,11 @@ type againstTree struct {
 	tracked   []string
 	isTracked map[string]bool
 	exported  map[string]bool
-	// blobs maps each tracked path to its object id.
-	blobs map[string]string
-	// includes lists the files the reviews inline with `@path`.
-	includes []string
+	// blobs and modes map each tracked path to its object id and mode.
+	blobs, modes map[string]string
+	// inputs lists what `explain --inputs` reports, relative to the
+	// project; a directory ends in a slash.
+	inputs []string
 }
 
 // previousRef is the state before the one the check reads: the last
@@ -310,7 +378,7 @@ func (t *againstTree) droppedOutputs(filtered bool, reports []driftReport) ([]st
 	if err != nil {
 		return nil, "", err
 	}
-	if same, err := t.sameInputs(prev, specRoots(configuredSources(cfg))); err != nil {
+	if same, err := t.sameInputs(prev); err != nil {
 		return skipped(err)
 	} else if same {
 		return nil, "", nil
@@ -352,36 +420,24 @@ func (t *againstTree) droppedOutputs(filtered bool, reports []driftReport) ([]st
 	return dropped, "", nil
 }
 
-// sameInputs reports whether ref holds the checked state's spec inputs
-// and directories, so it renders the same files and no output can be
-// dropped. The inputs are the files under roots and the review includes.
-func (t *againstTree) sameInputs(ref string, roots []string) (bool, error) {
+// sameInputs reports whether ref holds the checked state's inputs, the
+// ones `explain --inputs` lists, so it renders the same files and no
+// output can be dropped.
+func (t *againstTree) sameInputs(ref string) (bool, error) {
 	listed, err := gitOutput(t.toplevel, nil, "ls-tree", "-r", "-z", "--full-tree", ref)
 	if err != nil {
 		return false, err
 	}
-	input := map[string]bool{}
-	for _, p := range t.includes {
-		input[p] = true
-	}
 	isInput := func(p string) bool {
 		rel, ok := strings.CutPrefix(p, t.prefix)
-		return input[p] || ok && underRoots(rel, roots)
+		return ok && underRoots(rel, t.inputs)
 	}
-	dirs := map[string]bool{}
-	for _, p := range t.tracked {
-		dirs[path.Dir(p)] = true
-	}
-	seen, inputs := map[string]bool{}, 0
+	inputs := 0
 	for _, rec := range strings.Split(listed, "\x00") {
 		meta, p, ok := strings.Cut(rec, "\t")
 		if !ok {
 			continue
 		}
-		if !dirs[path.Dir(p)] {
-			return false, nil
-		}
-		seen[path.Dir(p)] = true
 		if isInput(p) {
 			if f := strings.Fields(meta); len(f) < 3 || f[2] != t.blobs[p] {
 				return false, nil
@@ -394,15 +450,14 @@ func (t *againstTree) sameInputs(ref string, roots []string) (bool, error) {
 			inputs--
 		}
 	}
-	return inputs == 0 && len(seen) == len(dirs), nil
+	return inputs == 0, nil
 }
 
 // renderRef exports the spec inputs of ref into dir, renders the project
 // at prefix there, and returns each path sync would write with its
 // content. Only the config, `.agnostic-ai/`, the configured source
-// directories, and the files reviews inline with `@path` are exported;
-// every other tracked directory is created empty, since scoped outputs
-// depend on which directories exist. A file sync merges into, such as a
+// directories, and the files reviews inline with `@path` are exported.
+// A file sync merges into, such as a
 // settings file, is not exported, so its render can differ from the
 // committed bytes and never counts as proof. The working directory is
 // restored. A project directory ref does not hold renders nothing.
@@ -423,22 +478,23 @@ func renderRef(toplevel, prefix, ref, dir string, sources []string) (map[string]
 	if err != nil {
 		return nil, err
 	}
-	roots := specRoots(sources)
+	roots := []string{config.SourceBaseDir + "/", config.ConfigFileName, config.LegacyConfigFileName}
+	for _, s := range sources {
+		if s != "" {
+			roots = append(roots, strings.TrimSuffix(filepath.ToSlash(filepath.Clean(s)), "/")+"/")
+		}
+	}
 	var specs []string
-	dirs := map[string]bool{}
 	for _, f := range strings.Split(listed, "\x00") {
 		rel, ok := strings.CutPrefix(f, prefix)
 		if f == "" || !ok {
 			continue
 		}
-		dirs[path.Dir(f)] = true
-		if underRoots(rel, roots) {
-			specs = append(specs, f)
-		}
-	}
-	for d := range dirs {
-		if err := os.MkdirAll(filepath.Join(dir, filepath.FromSlash(d)), 0o755); err != nil {
-			return nil, err
+		for _, r := range roots {
+			if rel == r || strings.HasSuffix(r, "/") && strings.HasPrefix(rel, r) {
+				specs = append(specs, f)
+				break
+			}
 		}
 	}
 	if err := checkoutPaths(toplevel, env, dir, specs); err != nil {
@@ -448,45 +504,7 @@ func renderRef(toplevel, prefix, ref, dir string, sources []string) (map[string]
 	if err := os.Chdir(project); err != nil {
 		return map[string]string{}, nil
 	}
-	includes, err := includePaths(roots, prefix)
-	if err != nil {
-		return nil, err
-	}
-	if err := checkoutPaths(toplevel, env, dir, includes); err != nil {
-		return nil, err
-	}
-	return plannedOutputs()
-}
-
-// specRoots lists the paths, relative to the project, that hold spec
-// inputs: the config files, `.agnostic-ai/`, and each source directory.
-// A directory ends in a slash.
-func specRoots(sources []string) []string {
-	roots := []string{config.SourceBaseDir + "/", config.ConfigFileName, config.LegacyConfigFileName}
-	for _, s := range sources {
-		if s != "" {
-			roots = append(roots, strings.TrimSuffix(filepath.ToSlash(filepath.Clean(s)), "/")+"/")
-		}
-	}
-	return roots
-}
-
-// underRoots reports whether rel is one of roots or sits in one of its
-// directories.
-func underRoots(rel string, roots []string) bool {
-	for _, r := range roots {
-		if rel == r || strings.HasSuffix(r, "/") && strings.HasPrefix(rel, r) {
-			return true
-		}
-	}
-	return false
-}
-
-// includePaths lists the files the reviews under the root directories
-// inline with `@path`, from the top level. The working directory is the
-// project.
-func includePaths(roots []string, prefix string) ([]string, error) {
-	var out []string
+	var includes []string
 	for _, r := range roots {
 		if strings.HasSuffix(r, "/") {
 			refs, err := reviewIncludes(filepath.FromSlash(strings.TrimSuffix(r, "/")))
@@ -494,11 +512,25 @@ func includePaths(roots []string, prefix string) ([]string, error) {
 				return nil, err
 			}
 			for _, inc := range refs {
-				out = append(out, prefix+inc)
+				includes = append(includes, prefix+inc)
 			}
 		}
 	}
-	return out, nil
+	if err := checkoutPaths(toplevel, env, dir, includes); err != nil {
+		return nil, err
+	}
+	return plannedOutputs()
+}
+
+// underRoots reports whether rel is one of roots, a root directory
+// itself, such as a link to the real one, or sits in one of them.
+func underRoots(rel string, roots []string) bool {
+	for _, r := range roots {
+		if rel == r || rel+"/" == r || strings.HasSuffix(r, "/") && strings.HasPrefix(rel, r) {
+			return true
+		}
+	}
+	return false
 }
 
 // checkoutPaths writes the listed index entries under dir.
@@ -603,8 +635,8 @@ func (t *againstTree) ignored(paths []string) (map[string]bool, error) {
 		stdin.WriteString(filepath.ToSlash(p))
 		stdin.WriteByte(0)
 	}
-	// --no-index: exportMissing checked out every tracked missing output,
-	// so none is tracked, and the index lookup costs most of the run.
+	// --no-index skips the index lookup that costs most of the run; a
+	// tracked path is never ignored, which the filter below keeps.
 	cmd := exec.Command("git", "check-ignore", "--no-index", "-z", "--stdin")
 	cmd.Env = isolatedGitEnv()
 	cmd.Stdin = &stdin
@@ -618,7 +650,7 @@ func (t *againstTree) ignored(paths []string) (map[string]bool, error) {
 		}
 	}
 	for _, p := range strings.Split(stdout.String(), "\x00") {
-		if p != "" {
+		if p != "" && !t.isTrackedPath(t.prefix+p) {
 			out[p] = true
 		}
 	}
@@ -855,8 +887,11 @@ func quiet() func() {
 	adapters.SetWarner(io.Discard)
 	prevVerbosity, prevWarn, prevSkipped := verbosity, requiresWarnOut, requiresSkipped
 	verbosity, requiresWarnOut, requiresSkipped = levelQuiet, io.Discard, true
+	prevDrift := driftQuiet
+	driftQuiet = true
 	return func() {
 		adapters.SetWarner(os.Stderr)
 		verbosity, requiresWarnOut, requiresSkipped = prevVerbosity, prevWarn, prevSkipped
+		driftQuiet = prevDrift
 	}
 }

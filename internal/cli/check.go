@@ -131,6 +131,16 @@ func orphanedCount(reports []driftReport) int {
 	return n
 }
 
+// driftQuiet silences the warnings collectDrift prints itself.
+var driftQuiet bool
+
+// driftWarnf prints a collectDrift warning to the current stderr.
+func driftWarnf(format string, args ...any) {
+	if !driftQuiet {
+		fmt.Fprintf(os.Stderr, format, args...)
+	}
+}
+
 // collectDrift runs each target adapter in capture mode and compares each
 // would-be file against disk. Also checks entry-point files (CLAUDE.md,
 // AGENTS.md, AGNOSTIC_AI.md). No files are written.
@@ -183,7 +193,7 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 	for _, t := range targets {
 		adapter, err := adapters.Resolve(t)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "! %v\n", err)
+			driftWarnf("! %v\n", err)
 			resolvedAll = false
 			continue
 		}
@@ -235,11 +245,11 @@ func collectDriftWithEntryPointTargets(targets, entryPointTargets []string) ([]d
 	for _, target := range unloaded {
 		// A requested target that failed to resolve was reported above.
 		if !slices.Contains(targets, target) {
-			fmt.Fprintf(os.Stderr, "! could not load %s to check orphans; orphans it may still generate stay listed\n", target)
+			driftWarnf("! could not load %s to check orphans; orphans it may still generate stay listed\n", target)
 		}
 	}
 	if renderErr != nil {
-		fmt.Fprintf(os.Stderr, "! could not render entry points to check orphans, so orphans they may still generate stay listed: %v\n", renderErr)
+		driftWarnf("! could not render entry points to check orphans, so orphans they may still generate stay listed: %v\n", renderErr)
 	}
 	for i := range reports {
 		reports[i].Orphaned = slices.DeleteFunc(reports[i].Orphaned, func(path string) bool {
