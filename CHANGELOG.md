@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- A one-line code span such as ```` ```example``` ```` no longer hides the `@path` lines after it from includes and imports (#1828).
 - `sync --check --against` checks out only the files it reads, so it runs about 5x faster in a repository with 20k+ tracked files (#1819).
 - A `sync` or `sync --check` that changes nothing runs 2 to 5x faster: the Claude syntax scan skips lines without `$` or `!` (#1821).
 - `resolve-imports` leaves an `@path` line inside a code fence as written, so `sync --check --against` no longer fails on it (#1823).
