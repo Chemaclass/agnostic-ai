@@ -78,7 +78,7 @@ func IncludeLines(lines []string) []IncludeLine {
 			switch {
 			case fence == "":
 				fence = marker
-			case strings.HasPrefix(marker, fence):
+			case strings.HasPrefix(marker, fence) && strings.TrimSpace(strings.TrimLeft(line, " ")[len(marker):]) == "":
 				fence = ""
 			}
 			continue
@@ -91,7 +91,8 @@ func IncludeLines(lines []string) []IncludeLine {
 }
 
 // fenceMarker returns the run of three or more backticks or tildes that
-// opens or closes a fenced code block on line, or "".
+// opens or closes a fenced code block on line, or "". A backtick run
+// followed by another backtick is an inline code span, not a fence.
 func fenceMarker(line string) string {
 	trimmed := strings.TrimLeft(line, " ")
 	if len(line)-len(trimmed) > 3 || len(trimmed) < 3 {
@@ -105,7 +106,7 @@ func fenceMarker(line string) string {
 	for n < len(trimmed) && trimmed[n] == char {
 		n++
 	}
-	if n < 3 {
+	if n < 3 || char == '`' && strings.Contains(trimmed[n:], "`") {
 		return ""
 	}
 	return trimmed[:n]
