@@ -192,6 +192,11 @@ func newSyncCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
+				if tree != nil {
+					if reports, err = tree.recollect(reports, effective); err != nil {
+						return err
+					}
+				}
 				drops, notesErr := checkCoverageNotes(cfg, effective)
 				if tree != nil {
 					filtered := len(targets) > 0 || len(only) > 0 || len(except) > 0

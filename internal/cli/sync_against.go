@@ -46,8 +46,10 @@ func validateAgainst(ref string, check, plan, watch, global bool) error {
 
 // enterAgainstTree exports the Git index or HEAD to a temporary directory
 // and makes the matching project directory the working directory, so a
-// check reads the specs and outputs as Git holds them. The directory is a
-// repository of its own, which lets againstIgnored apply the exported
+// check reads the specs and outputs as Git holds them. Only the files a
+// check reads are checked out, since a large repository spends seconds
+// writing and removing the rest. The directory is a repository of its
+// own with the full index, which lets ignored apply the exported
 // .gitignore. The caller ends with leave.
 func enterAgainstTree(ref string) (_ *againstTree, err error) {
 	origin, err := os.Getwd()
@@ -83,27 +85,287 @@ func enterAgainstTree(ref string) (_ *againstTree, err error) {
 			return nil, fmt.Errorf("--against %s: %w", ref, err)
 		}
 	}
-	if _, err := gitOutput(toplevel, env, "checkout-index", "--all", "--force", "--prefix="+root+string(filepath.Separator)); err != nil {
-		return nil, fmt.Errorf("--against %s: export: %w", ref, err)
-	}
-	if _, err := gitOutput(root, isolatedGitEnv(), "init", "--quiet"); err != nil {
-		return nil, fmt.Errorf("--against %s: %w", ref, err)
+	if env == nil {
+		env = os.Environ()
 	}
 	entries, err := gitOutput(toplevel, env, "ls-files", "--stage", "-z")
 	if err != nil {
 		return nil, fmt.Errorf("--against %s: %w", ref, err)
 	}
+	if _, err := gitOutput(root, isolatedGitEnv(), "init", "--quiet"); err != nil {
+		return nil, fmt.Errorf("--against %s: %w", ref, err)
+	}
 	if err := gitInput(root, isolatedGitEnv(), entries, "update-index", "-z", "--index-info"); err != nil {
 		return nil, fmt.Errorf("--against %s: index: %w", ref, err)
 	}
-	project := filepath.Join(root, filepath.FromSlash(strings.TrimSpace(prefix)))
-	if err := os.Chdir(project); err != nil {
+	t := &againstTree{
+		origin: origin, scratch: scratch, root: root,
+		toplevel: toplevel, prefix: strings.TrimSpace(prefix), ref: ref,
+		exportEnv: env, exported: map[string]bool{}, blobs: map[string]string{}, modes: map[string]string{},
+	}
+	t.project = filepath.Join(root, filepath.FromSlash(t.prefix))
+	if err := t.exportInputs(entries); err != nil {
+		return nil, fmt.Errorf("--against %s: export: %w", ref, err)
+	}
+	if err := os.Chdir(t.project); err != nil {
 		return nil, fmt.Errorf("--against %s: %w", ref, err)
 	}
-	return &againstTree{
-		origin: origin, scratch: scratch, root: root, project: project,
-		toplevel: toplevel, prefix: strings.TrimSpace(prefix), ref: ref, gitEnv: isolateGitEnv(),
-	}, nil
+	if err := t.exportOutputs(); err != nil {
+		_ = os.Chdir(origin)
+		return nil, fmt.Errorf("--against %s: export: %w", ref, err)
+	}
+	t.gitEnv = isolateGitEnv()
+	return t, nil
+}
+
+// exportInputs checks out the paths a check reads whatever the specs
+// say: the config files, which also mark a nested project, the packs
+// lockfile, every symlink, which may hold a source root or a scope, and
+// every path with a dot segment, which holds the specs, the .gitignore
+// files, the tool folders, and the root dotfiles.
+func (t *againstTree) exportInputs(entries string) error {
+	var paths []string
+	for _, rec := range strings.Split(entries, "\x00") {
+		meta, p, ok := strings.Cut(rec, "\t")
+		if !ok {
+			continue
+		}
+		t.tracked = append(t.tracked, p)
+		if f := strings.Fields(meta); len(f) > 1 {
+			t.modes[p], t.blobs[p] = f[0], f[1]
+		}
+		switch base := path.Base(p); {
+		case base == config.ConfigFileName, base == config.LegacyConfigFileName, base == config.LocalOverrideFileName, base == packsLockfile,
+			strings.HasPrefix(p, "."), strings.Contains(p, "/."), t.modes[p] == "120000":
+			paths = append(paths, p)
+		}
+	}
+	return t.export(paths)
+}
+
+// exportOutputs checks out the rest of what a check of the project in the
+// working directory reads: the inputs `explain --inputs` lists, the files
+// at the project root, the entry points, the files a scoped AGENTS.md
+// checks beside it, the outputs a tracked ledger lists, every tracked file
+// where a target could write one, and what exported links point to. An
+// output elsewhere comes through exportMissing. A project whose config
+// does not load gets every tracked file, so the check reports the failure
+// the way a full export would.
+func (t *againstTree) exportOutputs() error {
+	// A linked config layer loads only once its target is exported.
+	if err := t.exportLinkTargets(); err != nil {
+		return err
+	}
+	// The config alone: loading the specs resolves includes not exported yet.
+	cfg, _, err := config.LoadWithSources(".")
+	if err != nil {
+		return t.export(t.tracked)
+	}
+	// Twice: a linked source directory lists its review includes only once
+	// its target is exported.
+	for range 2 {
+		if err := t.exportProjectInputs(cfg); err != nil {
+			return err
+		}
+	}
+	if err := t.makeScopeDirs(); err != nil {
+		return err
+	}
+	loc := newOutputLocations(cfg, nil)
+	entry := map[string]bool{}
+	for _, p := range entryPointPaths(cfg, cfg.Targets) {
+		entry[filepath.ToSlash(p)] = true
+	}
+	var outputs []string
+	for _, p := range t.tracked {
+		rel, ok := strings.CutPrefix(p, t.prefix)
+		if ok && (entry[rel] || !strings.Contains(rel, "/") || scopeSiblings[path.Base(rel)] || loc.holds(rel) != noLocation) {
+			outputs = append(outputs, p)
+		}
+	}
+	for _, p := range readStateFile(".").Outputs {
+		outputs = append(outputs, t.prefix+filepath.ToSlash(p))
+	}
+	if err := t.export(t.trackedOf(outputs)); err != nil {
+		return err
+	}
+	return t.exportLinkTargets()
+}
+
+// exportProjectInputs checks out the tracked inputs `explain --inputs`
+// lists for cfg, and what their links point to, and records them for
+// sameInputs.
+func (t *againstTree) exportProjectInputs(cfg *config.Config) error {
+	inputs, err := projectInputs(cfg)
+	if err != nil {
+		return err
+	}
+	t.inputs = t.inputs[:0]
+	for _, in := range inputs {
+		dir, isDir := strings.CutSuffix(in, "/**")
+		// From the top level: a source may sit outside the project.
+		in = path.Clean(t.prefix + dir)
+		switch {
+		case in == ".." || strings.HasPrefix(in, "../"):
+			continue
+		case in == "." && isDir:
+			// The repository root: every tracked file is an input.
+			in = ""
+		case isDir:
+			in += "/"
+		}
+		t.inputs = append(t.inputs, in)
+	}
+	var paths []string
+	for _, p := range t.tracked {
+		if underRoots(p, t.inputs) {
+			paths = append(paths, p)
+		}
+	}
+	if err := t.export(paths); err != nil {
+		return err
+	}
+	return t.exportLinkTargets()
+}
+
+// scopeCandidates lists the directories a spec folder can scope to: a
+// rule or skill under `<kind>/backend/` applies to `backend/` only when
+// that directory exists (spec.assignScopes). Every directory path that
+// an exported file's folders spell is a candidate, a superset of the
+// scopes that also covers specs reached through a link.
+func (t *againstTree) scopeCandidates() []string {
+	seen := map[string]bool{}
+	var out []string
+	for p := range t.exported {
+		segs := strings.Split(path.Dir(p), "/")
+		for i := range segs {
+			for j := i + 1; j <= len(segs); j++ {
+				if d := t.prefix + strings.Join(segs[i:j], "/"); !seen[d] {
+					seen[d] = true
+					out = append(out, d)
+				}
+			}
+		}
+	}
+	return out
+}
+
+// trackedDirs returns every directory that holds one of paths.
+func trackedDirs(paths []string) map[string]bool {
+	dirs := map[string]bool{}
+	for _, p := range paths {
+		for d := path.Dir(p); d != "." && !dirs[d]; d = path.Dir(d) {
+			dirs[d] = true
+		}
+	}
+	return dirs
+}
+
+// makeScopeDirs creates the scope candidates the state holds.
+func (t *againstTree) makeScopeDirs() error {
+	dirs := trackedDirs(t.tracked)
+	for _, d := range t.scopeCandidates() {
+		if !dirs[d] {
+			continue
+		}
+		dir := filepath.Join(t.root, filepath.FromSlash(d))
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return fmt.Errorf("%s: %w", dir, err)
+		}
+	}
+	return nil
+}
+
+// scopeSiblings are the files a scoped AGENTS.md refuses to sit beside,
+// as emit.CheckScopedDestination lists them.
+var scopeSiblings = map[string]bool{"AGENTS.override.md": true, "WARP.md": true, "CLAUDE.md": true}
+
+// exportLinkTargets checks out the tracked files an exported symlink
+// points to, or holds when it points to a directory, and their links in
+// turn, so a linked output or source reads as
+// Git holds it.
+func (t *againstTree) exportLinkTargets() error {
+	done := map[string]bool{}
+	for {
+		var targets []string
+		for p := range t.exported {
+			if done[p] || t.modes[p] != "120000" {
+				continue
+			}
+			done[p] = true
+			dest, err := os.Readlink(filepath.Join(t.root, filepath.FromSlash(p)))
+			if err != nil || filepath.IsAbs(dest) {
+				continue
+			}
+			targets = append(targets, path.Clean(path.Join(path.Dir(p), filepath.ToSlash(dest))))
+		}
+		var files []string
+		for _, dest := range targets {
+			for _, p := range t.tracked {
+				if p == dest || strings.HasPrefix(p, dest+"/") {
+					files = append(files, p)
+				}
+			}
+		}
+		targets = files
+		if len(targets) == 0 {
+			return nil
+		}
+		if err := t.export(targets); err != nil {
+			return err
+		}
+	}
+}
+
+// exportMissing checks out each output reports find missing that Git
+// tracks in the state, and reports whether it found one: exportOutputs
+// left it out, so the drift has to be collected again.
+func (t *againstTree) exportMissing(reports []driftReport) (bool, error) {
+	var late []string
+	for _, r := range reports {
+		for _, f := range r.Missing {
+			if p := t.prefix + filepath.ToSlash(f.Path); !t.exported[p] {
+				late = append(late, p)
+			}
+		}
+	}
+	late = t.trackedOf(late)
+	return len(late) > 0, t.export(late)
+}
+
+// trackedOf keeps the paths Git tracks in the state.
+func (t *againstTree) trackedOf(paths []string) []string {
+	var out []string
+	for _, p := range paths {
+		if t.isTrackedPath(p) {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// isTrackedPath reports whether Git tracks p, a path from the top level,
+// in the state.
+func (t *againstTree) isTrackedPath(p string) bool {
+	if t.isTracked == nil {
+		t.isTracked = make(map[string]bool, len(t.tracked))
+		for _, p := range t.tracked {
+			t.isTracked[p] = true
+		}
+	}
+	return t.isTracked[p]
+}
+
+// export checks out the listed tracked paths not exported yet.
+func (t *againstTree) export(paths []string) error {
+	var todo []string
+	for _, p := range paths {
+		if !t.exported[p] {
+			t.exported[p] = true
+			todo = append(todo, p)
+		}
+	}
+	return checkoutPaths(t.toplevel, t.exportEnv, t.root, todo)
 }
 
 // isolateGitEnv unsets the variables that point git at another
@@ -127,6 +389,17 @@ type againstTree struct {
 	origin, scratch, root, project string
 	toplevel, prefix, ref          string
 	gitEnv                         map[string]string
+	// exportEnv points git at the index the export reads.
+	exportEnv []string
+	// tracked lists every path Git tracks in the state, from the top level.
+	tracked   []string
+	isTracked map[string]bool
+	exported  map[string]bool
+	// blobs and modes map each tracked path to its object id and mode.
+	blobs, modes map[string]string
+	// inputs lists what `explain --inputs` reports, from the top level;
+	// a directory ends in a slash.
+	inputs []string
 }
 
 // previousRef is the state before the one the check reads: the last
@@ -169,6 +442,11 @@ func (t *againstTree) droppedOutputs(filtered bool, reports []driftReport) ([]st
 	if err != nil {
 		return nil, "", err
 	}
+	if same, err := t.sameInputs(prev); err != nil {
+		return skipped(err)
+	} else if same {
+		return nil, "", nil
+	}
 	before, err := renderRef(t.toplevel, t.prefix, prev, filepath.Join(t.scratch, "previous"), configuredSources(cfg))
 	if err != nil {
 		return skipped(err)
@@ -180,6 +458,13 @@ func (t *againstTree) droppedOutputs(filtered bool, reports []driftReport) ([]st
 				now[filepath.ToSlash(f.Path)] = true
 			}
 		}
+	}
+	var previous []string
+	for p := range before {
+		previous = append(previous, t.prefix+p)
+	}
+	if err := t.export(t.trackedOf(previous)); err != nil {
+		return nil, "", err
 	}
 	tracked, ok := trackedFiles(".")
 	if !ok {
@@ -197,6 +482,47 @@ func (t *againstTree) droppedOutputs(filtered bool, reports []driftReport) ([]st
 		}
 	}
 	return dropped, "", nil
+}
+
+// sameInputs reports whether ref holds the checked state's inputs, the
+// ones `explain --inputs` lists, and the same scope directories, so it
+// renders the same files and no output can be dropped.
+func (t *againstTree) sameInputs(ref string) (bool, error) {
+	listed, err := gitOutput(t.toplevel, nil, "ls-tree", "-r", "-z", "--full-tree", ref)
+	if err != nil {
+		return false, err
+	}
+	isInput := func(p string) bool { return underRoots(p, t.inputs) }
+	var paths []string
+	inputs := 0
+	for _, rec := range strings.Split(listed, "\x00") {
+		meta, p, ok := strings.Cut(rec, "\t")
+		if !ok {
+			continue
+		}
+		paths = append(paths, p)
+		if isInput(p) {
+			if f := strings.Fields(meta); len(f) < 3 || f[2] != t.blobs[p] {
+				return false, nil
+			}
+			inputs++
+		}
+	}
+	for _, p := range t.tracked {
+		if isInput(p) {
+			inputs--
+		}
+	}
+	if inputs != 0 {
+		return false, nil
+	}
+	before, now := trackedDirs(paths), trackedDirs(t.tracked)
+	for _, d := range t.scopeCandidates() {
+		if before[d] != now[d] {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 // renderRef exports the spec inputs of ref into dir, renders the project
@@ -276,6 +602,18 @@ func renderRef(toplevel, prefix, ref, dir string, sources []string) (map[string]
 	return plannedOutputs()
 }
 
+// underRoots reports whether rel is one of roots, a root directory
+// itself, such as a link to the real one, or sits in one of them. An
+// empty root is the repository root and holds every path.
+func underRoots(rel string, roots []string) bool {
+	for _, r := range roots {
+		if r == "" || rel == r || rel+"/" == r || strings.HasSuffix(r, "/") && strings.HasPrefix(rel, r) {
+			return true
+		}
+	}
+	return false
+}
+
 // checkoutPaths writes the listed index entries under dir.
 func checkoutPaths(toplevel string, env []string, dir string, paths []string) error {
 	if len(paths) == 0 {
@@ -322,11 +660,7 @@ func renderedAtHEAD(sources []string) map[string]string {
 // content. Its warnings, notes, and verbose lines stay quiet: the checked
 // state's render already reported what applies.
 func plannedOutputs() (map[string]string, error) {
-	adapters.SetWarner(io.Discard)
-	defer adapters.SetWarner(os.Stderr)
-	prevVerbosity, prevWarn, prevSkipped := verbosity, requiresWarnOut, requiresSkipped
-	verbosity, requiresWarnOut, requiresSkipped = levelQuiet, io.Discard, true
-	defer func() { verbosity, requiresWarnOut, requiresSkipped = prevVerbosity, prevWarn, prevSkipped }()
+	defer quiet()()
 	cfg, b, err := loadProject(".")
 	if err != nil {
 		return nil, err
@@ -382,7 +716,9 @@ func (t *againstTree) ignored(paths []string) (map[string]bool, error) {
 		stdin.WriteString(filepath.ToSlash(p))
 		stdin.WriteByte(0)
 	}
-	cmd := exec.Command("git", "check-ignore", "-z", "--stdin")
+	// --no-index skips the index lookup that costs most of the run; a
+	// tracked path is never ignored, which the filter below keeps.
+	cmd := exec.Command("git", "check-ignore", "--no-index", "-z", "--stdin")
 	cmd.Env = isolatedGitEnv()
 	cmd.Stdin = &stdin
 	var stdout, stderr bytes.Buffer
@@ -395,7 +731,7 @@ func (t *againstTree) ignored(paths []string) (map[string]bool, error) {
 		}
 	}
 	for _, p := range strings.Split(stdout.String(), "\x00") {
-		if p != "" {
+		if p != "" && !t.isTrackedPath(t.prefix+p) {
 			out[p] = true
 		}
 	}
@@ -610,5 +946,33 @@ func configuredSources(cfg *config.Config) []string {
 	return []string{
 		cfg.Sources.Agents, cfg.Sources.Skills, cfg.Sources.Rules, cfg.Sources.Hooks, cfg.Sources.MCPs,
 		cfg.Sources.Commands, cfg.Sources.Settings, cfg.Sources.Reviews, cfg.Sources.Environments, cfg.Sources.Ignore,
+	}
+}
+
+// recollect collects the drift again when exportMissing checks out an
+// output the first pass found missing. The first pass already printed its
+// warnings, so the second runs quietly and replaces the pending ones.
+func (t *againstTree) recollect(reports []driftReport, targets []string) ([]driftReport, error) {
+	late, err := t.exportMissing(reports)
+	if err != nil || !late {
+		return reports, err
+	}
+	defer quiet()()
+	resetDrops()
+	return collectDrift(targets)
+}
+
+// quiet silences warnings, notes, and verbose lines until the returned
+// function restores them.
+func quiet() func() {
+	adapters.SetWarner(io.Discard)
+	prevVerbosity, prevWarn, prevSkipped := verbosity, requiresWarnOut, requiresSkipped
+	verbosity, requiresWarnOut, requiresSkipped = levelQuiet, io.Discard, true
+	prevDrift := driftQuiet
+	driftQuiet = true
+	return func() {
+		adapters.SetWarner(os.Stderr)
+		verbosity, requiresWarnOut, requiresSkipped = prevVerbosity, prevWarn, prevSkipped
+		driftQuiet = prevDrift
 	}
 }
