@@ -72,6 +72,10 @@ outputs:
   opencode:
     # Emit skills as commands under .opencode/command/.
     emit-skills-as-commands: true
+  codex:
+    # Inline glob-scoped rules in the root AGENTS.md. Codex nested files
+    # cannot express file filters such as **/*.go, so they load always.
+    nested-glob-rules: false
   zed:
     # Render hooks as on-demand Zed Tasks (Zed has no hook surface).
     tasks-file: .zed/tasks.json
