@@ -28,3 +28,4 @@ factory-image-model-default	factory	Default image-generation model that the `Gen
 claude-per-model-auto-compact-window	claude	autoCompactWindow : a number of tokens from 100000 to 1000000 , or "auto" for the window tuned for the model. /autocompact saves here.	yes	signal:cap-claude-per-model-auto-compact-window
 antigravity-rules-json-inherits	antigravity	To share rules stored outside .agents/rules/ or to include nested subdirectories of rules while preserving their YAML frontmatter and triggers, create .agents/rules.json	yes	signal:cap-antigravity-shared-customization-manifests
 copilot-dynamic-workflows-project-extension	copilot	to share the dynamic workflow with everyone working in a repository, copy the directory containing the extension.mjs file into the .github/extensions/ directory	yes	signal:cap-project-agent-workflows
+kiro-cli-prompts-slash-commands	kiro	In V3, workspace, global, and MCP prompts appear in slash-command completion.	yes	issue:1822

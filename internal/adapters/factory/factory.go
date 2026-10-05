@@ -52,8 +52,7 @@
 // express.
 //
 // The portable `readonly: true` maps onto that same `read-only` category
-// ("Analysis and file exploration" over `Read`, `LS`, `Grep`, `Glob`,
-// docs.factory.com/harness/subagents), so a portable readonly agent gets
+// (docs.factory.com/harness/subagents), so a portable readonly agent gets
 // a real Factory tool boundary instead of the field silently dropping.
 // It wins outright over any portable `tools` list on the same agent
 // rather than narrowing it, because the category can never grant more
@@ -340,8 +339,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 // outright instead of merging alongside a translated value.
 //
 // A portable `readonly: true` maps onto Factory's own `read-only`
-// category ("Analysis and file exploration", `Read`, `LS`, `Grep`,
-// `Glob`; docs.factory.com/harness/subagents), the same coarse mapping
+// category (docs.factory.com/harness/subagents), the same coarse mapping
 // #1149 gives Codex's `sandbox_mode = "read-only"` and #1152 gives
 // Cursor's own `readonly` field. It wins outright over any portable
 // `tools` list rather than narrowing it: Factory's category never
