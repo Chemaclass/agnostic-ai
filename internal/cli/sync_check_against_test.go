@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -562,6 +563,9 @@ func TestSyncCheckAgainst_ReadsASpecLinkedOutsideTheDotPaths(t *testing.T) {
 }
 
 func TestSyncCheckAgainst_ReadsALinkedSourceDirectory(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Git for Windows checks a symlink out as a text file unless core.symlinks is set")
+	}
 	dir := committedProject(t, "instructions")
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), againstConfig("instructions")+"sources:\n  rules: rules\n")
 	mustWriteFile(t, filepath.Join(dir, "policies", "r9.md"), "---\nalwaysApply: true\n---\nLinked rule.\n")
@@ -610,5 +614,56 @@ func TestSyncCheckAgainst_ComparesAScopedOutputWithoutItsDirectoryExported(t *te
 
 	if err == nil || !strings.Contains(stdout, "src/api/AGENTS.md") {
 		t.Errorf("the staged rule should report its scoped output, got %v:\n%s", err, stdout)
+	}
+}
+
+func TestSyncCheckAgainst_RejectsAConflictingSiblingOfACurrentScopedOutput(t *testing.T) {
+	dir := setupFixture(t)
+	isolateGit(t)
+	git(t, dir, "init", "-q")
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "api.md"), "---\nname: api\nglobs: [src/api/**]\n---\nAPI rule.\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+	root := NewRootCmd("test")
+	root.SetArgs([]string{"sync", "--gitignore=off"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	git(t, dir, "add", "-A")
+	git(t, dir, "commit", "-q", "-m", "base")
+	mustWriteFile(t, filepath.Join(dir, "src", "api", "AGENTS.override.md"), "Hand-written override.\n")
+	git(t, dir, "add", "src/api/AGENTS.override.md")
+
+	_, _, err := checkAgainst(t, "index")
+
+	if err == nil {
+		t.Error("a staged override beside the scoped AGENTS.md should fail the check, as a full export does")
+	}
+}
+
+func TestSyncCheckAgainst_ScopesARuleFolderToADirectoryOnlyTheIndexHolds(t *testing.T) {
+	dir := setupFixture(t)
+	isolateGit(t)
+	git(t, dir, "init", "-q")
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\ngitignore:\n  enabled: false\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "rules", "backend", "auth.md"), "---\nname: auth\n---\nAuth rule.\n")
+	testutil.Chdir(t, dir)
+	silence(t)
+	if err := runSyncArgs(t); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	git(t, dir, "add", "-A")
+	git(t, dir, "commit", "-q", "-m", "base")
+	if stdout, _, err := checkAgainst(t, "index"); err != nil {
+		t.Fatalf("a synced index should pass: %v\n%s", err, stdout)
+	}
+	mustWriteFile(t, filepath.Join(dir, "backend", "handler.go"), "package backend\n")
+	git(t, dir, "add", "backend/handler.go")
+
+	stdout, _, err := checkAgainst(t, "index")
+
+	if err == nil {
+		t.Errorf("backend/ now scopes the rule, so the committed global output is stale:\n%s", stdout)
 	}
 }

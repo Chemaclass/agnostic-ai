@@ -119,10 +119,10 @@ func enterAgainstTree(ref string) (_ *againstTree, err error) {
 }
 
 // exportInputs checks out the paths a check reads whatever the specs
-// say: the config files, which also mark a
-// nested project, the packs lockfile, and every path with a dot segment,
-// which holds the specs, the .gitignore files, the tool folders, and the
-// root dotfiles.
+// say: the config files, which also mark a nested project, the packs
+// lockfile, every symlink, which may hold a source root or a scope, and
+// every path with a dot segment, which holds the specs, the .gitignore
+// files, the tool folders, and the root dotfiles.
 func (t *againstTree) exportInputs(entries string) error {
 	var paths []string
 	for _, rec := range strings.Split(entries, "\x00") {
@@ -136,7 +136,7 @@ func (t *againstTree) exportInputs(entries string) error {
 		}
 		switch base := path.Base(p); {
 		case base == config.ConfigFileName, base == config.LegacyConfigFileName, base == config.LocalOverrideFileName, base == packsLockfile,
-			strings.HasPrefix(p, "."), strings.Contains(p, "/."):
+			strings.HasPrefix(p, "."), strings.Contains(p, "/."), t.modes[p] == "120000":
 			paths = append(paths, p)
 		}
 	}
@@ -163,6 +163,9 @@ func (t *againstTree) exportOutputs() error {
 		if err := t.exportProjectInputs(cfg); err != nil {
 			return err
 		}
+	}
+	if err := t.makeScopeDirs(); err != nil {
+		return err
 	}
 	loc := newOutputLocations(cfg, nil)
 	entry := map[string]bool{}
@@ -210,6 +213,57 @@ func (t *againstTree) exportProjectInputs(cfg *config.Config) error {
 		return err
 	}
 	return t.exportLinkTargets()
+}
+
+// scopeCandidates lists the directories a spec folder can scope to: a
+// rule or skill under `<kind>/backend/` applies to `backend/` only when
+// that directory exists (spec.assignScopes). Every directory path that
+// a spec file's folders spell is a candidate, a superset of the scopes.
+func (t *againstTree) scopeCandidates() []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, p := range t.tracked {
+		rel, ok := strings.CutPrefix(p, t.prefix)
+		if !ok || !underRoots(rel, t.inputs) {
+			continue
+		}
+		segs := strings.Split(path.Dir(rel), "/")
+		for i := range segs {
+			for j := i + 1; j <= len(segs); j++ {
+				if d := t.prefix + strings.Join(segs[i:j], "/"); !seen[d] {
+					seen[d] = true
+					out = append(out, d)
+				}
+			}
+		}
+	}
+	return out
+}
+
+// trackedDirs returns every directory that holds one of paths.
+func trackedDirs(paths []string) map[string]bool {
+	dirs := map[string]bool{}
+	for _, p := range paths {
+		for d := path.Dir(p); d != "." && !dirs[d]; d = path.Dir(d) {
+			dirs[d] = true
+		}
+	}
+	return dirs
+}
+
+// makeScopeDirs creates the scope candidates the state holds.
+func (t *againstTree) makeScopeDirs() error {
+	dirs := trackedDirs(t.tracked)
+	for _, d := range t.scopeCandidates() {
+		if !dirs[d] {
+			continue
+		}
+		dir := filepath.Join(t.root, filepath.FromSlash(d))
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return fmt.Errorf("%s: %w", dir, err)
+		}
+	}
+	return nil
 }
 
 // scopeSiblings are the files a scoped AGENTS.md refuses to sit beside,
@@ -421,8 +475,8 @@ func (t *againstTree) droppedOutputs(filtered bool, reports []driftReport) ([]st
 }
 
 // sameInputs reports whether ref holds the checked state's inputs, the
-// ones `explain --inputs` lists, so it renders the same files and no
-// output can be dropped.
+// ones `explain --inputs` lists, and the same scope directories, so it
+// renders the same files and no output can be dropped.
 func (t *againstTree) sameInputs(ref string) (bool, error) {
 	listed, err := gitOutput(t.toplevel, nil, "ls-tree", "-r", "-z", "--full-tree", ref)
 	if err != nil {
@@ -432,12 +486,14 @@ func (t *againstTree) sameInputs(ref string) (bool, error) {
 		rel, ok := strings.CutPrefix(p, t.prefix)
 		return ok && underRoots(rel, t.inputs)
 	}
+	var paths []string
 	inputs := 0
 	for _, rec := range strings.Split(listed, "\x00") {
 		meta, p, ok := strings.Cut(rec, "\t")
 		if !ok {
 			continue
 		}
+		paths = append(paths, p)
 		if isInput(p) {
 			if f := strings.Fields(meta); len(f) < 3 || f[2] != t.blobs[p] {
 				return false, nil
@@ -450,14 +506,24 @@ func (t *againstTree) sameInputs(ref string) (bool, error) {
 			inputs--
 		}
 	}
-	return inputs == 0, nil
+	if inputs != 0 {
+		return false, nil
+	}
+	before, now := trackedDirs(paths), trackedDirs(t.tracked)
+	for _, d := range t.scopeCandidates() {
+		if before[d] != now[d] {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 // renderRef exports the spec inputs of ref into dir, renders the project
 // at prefix there, and returns each path sync would write with its
 // content. Only the config, `.agnostic-ai/`, the configured source
-// directories, and the files reviews inline with `@path` are exported.
-// A file sync merges into, such as a
+// directories, and the files reviews inline with `@path` are exported;
+// every other tracked directory is created empty, since scoped outputs
+// depend on which directories exist. A file sync merges into, such as a
 // settings file, is not exported, so its render can differ from the
 // committed bytes and never counts as proof. The working directory is
 // restored. A project directory ref does not hold renders nothing.
@@ -485,16 +551,23 @@ func renderRef(toplevel, prefix, ref, dir string, sources []string) (map[string]
 		}
 	}
 	var specs []string
+	dirs := map[string]bool{}
 	for _, f := range strings.Split(listed, "\x00") {
 		rel, ok := strings.CutPrefix(f, prefix)
 		if f == "" || !ok {
 			continue
 		}
+		dirs[path.Dir(f)] = true
 		for _, r := range roots {
 			if rel == r || strings.HasSuffix(r, "/") && strings.HasPrefix(rel, r) {
 				specs = append(specs, f)
 				break
 			}
+		}
+	}
+	for d := range dirs {
+		if err := os.MkdirAll(filepath.Join(dir, filepath.FromSlash(d)), 0o755); err != nil {
+			return nil, err
 		}
 	}
 	if err := checkoutPaths(toplevel, env, dir, specs); err != nil {
