@@ -31,8 +31,9 @@
 // the working directory, so a project that emitted no CLAUDE.md handed
 // Claude Code the AGENTS.md codex, amp, or warp wrote, rule bodies
 // routed away from claude included. The user-facing toggle for that
-// fallback (`agents-md@builtin` `instructionFiles`) is user or managed
-// scope and "Claude Code ignores it in project and local settings
+// fallback (`cc-plugin-agents-md@builtin`, `agents-md@builtin` before
+// v2.1.285; option `instructionFiles`) is user or managed scope and
+// "Claude Code ignores it in project and local settings
 // files", so this repo cannot turn it off; writing CLAUDE.md is the only
 // lever it has. A `rules-file` off the entry point additionally gets an
 // `@<path>` import in the pointer body, since a merged file outside
