@@ -78,6 +78,84 @@ func TestBuiltinHandoff(t *testing.T) {
 	}
 	paths := []string{".claude/skills/handoff/SKILL.md", ".agents/skills/handoff/SKILL.md"}
 
+	t.Run("learning-proposal-contract", func(t *testing.T) {
+		dir := project(t)
+		run(t, dir, "sync", "--gitignore=off")
+		for _, path := range paths {
+			data, err := os.ReadFile(filepath.Join(dir, path))
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, body, found := strings.Cut(string(data), "# handoff\n")
+			if !found {
+				t.Fatalf("%s: missing handoff skill body", path)
+			}
+			for _, want := range []string{
+				".agnostic-ai/rules/learnings.md",
+				".agnostic-ai/local/rules/learnings-local.md",
+				"~/.agnostic-ai/rules/learnings.md",
+				"`agnostic-ai sync`",
+				"`agnostic-ai sync --global`",
+				"sources.rules",
+				"AGNOSTIC_AI_HOME",
+			} {
+				if !strings.Contains(body, want) {
+					t.Errorf("%s: handoff skill body missing %q", path, want)
+				}
+			}
+		}
+	})
+
+	t.Run("project-and-personal-learnings", func(t *testing.T) {
+		dir := project(t)
+		must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(string(fixture)+"outputs:\n  claude:\n    rules-file: CLAUDE.md\n"), 0o644))
+		projectRule := filepath.Join(dir, ".agnostic-ai", "rules", "learnings.md")
+		personalRule := filepath.Join(dir, ".agnostic-ai", "local", "rules", "learnings-local.md")
+		must(t, os.MkdirAll(filepath.Dir(projectRule), 0o755))
+		must(t, os.MkdirAll(filepath.Dir(personalRule), 0o755))
+		must(t, os.WriteFile(projectRule, []byte("---\nname: learnings\ndescription: Project learnings.\nalwaysApply: true\n---\n\nKeep the shared project learning.\n"), 0o644))
+		must(t, os.WriteFile(personalRule, []byte("---\nname: learnings-local\ndescription: Personal learnings for this project.\nalwaysApply: true\n---\n\nKeep the personal project learning.\n"), 0o644))
+		run(t, dir, "sync", "--gitignore=off")
+		assertContains(t, filepath.Join(dir, "CLAUDE.md"),
+			"Keep the shared project learning.",
+			"Keep the personal project learning.",
+		)
+		run(t, dir, "sync", "--check", "--gitignore=off")
+	})
+
+	t.Run("configured-learning-destinations", func(t *testing.T) {
+		dir := project(t)
+		home := t.TempDir()
+		globalSource := filepath.Join(home, "portable")
+		t.Setenv("HOME", home)
+		t.Setenv("USERPROFILE", home)
+		t.Setenv("AGNOSTIC_AI_HOME", globalSource)
+		cfg := string(fixture) + "sources:\n  rules: guidance/rules\noutputs:\n  claude:\n    rules-file: CLAUDE.md\n"
+		must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(cfg), 0o644))
+		for _, rule := range []struct {
+			path string
+			name string
+			body string
+		}{
+			{filepath.Join(dir, "guidance", "rules", "learnings.md"), "learnings", "Keep the configured project learning."},
+			{filepath.Join(dir, ".agnostic-ai", "local", "rules", "learnings-local.md"), "learnings-local", "Keep the fixed personal learning."},
+			{filepath.Join(globalSource, "rules", "learnings.md"), "learnings", "Keep the configured global learning."},
+		} {
+			must(t, os.MkdirAll(filepath.Dir(rule.path), 0o755))
+			must(t, os.WriteFile(rule.path, []byte("---\nname: "+rule.name+"\nalwaysApply: true\n---\n\n"+rule.body+"\n"), 0o644))
+		}
+		must(t, os.WriteFile(filepath.Join(globalSource, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [claude]\n"), 0o644))
+		run(t, dir, "sync", "--gitignore=off")
+		assertContains(t, filepath.Join(dir, "CLAUDE.md"),
+			"Keep the configured project learning.",
+			"Keep the fixed personal learning.",
+		)
+		run(t, dir, "sync", "--check", "--gitignore=off")
+		run(t, dir, "sync", "--global")
+		assertContains(t, filepath.Join(home, ".claude", "CLAUDE.md"), "Keep the configured global learning.")
+		run(t, dir, "sync", "--global", "--check")
+	})
+
 	t.Run("project-dogfood-requires-builtins-release", func(t *testing.T) {
 		data, err := os.ReadFile(filepath.Join(repoRoot, "agnostic-ai.yaml"))
 		if err != nil {

@@ -8,7 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
-- `builtins: [handoff]` enables session handoffs; upgrades can cause `sync --check` drift, and older schemas flag the key until v0.80.0 ships.
+- `builtins: [handoff]` carries sessions between tools and proposes durable learnings for approved project, personal, or global rules.
 - A one-line code span such as ```` ```example``` ```` no longer hides the `@path` lines after it from includes and imports (#1828).
 - `sync --check --against` checks out only the files it reads, so it runs about 5x faster in a repository with 20k+ tracked files (#1819).
 - A `sync` or `sync --check` that changes nothing runs 2 to 5x faster: the Claude syntax scan skips lines without `$` or `!` (#1821).
