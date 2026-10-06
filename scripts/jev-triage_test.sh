@@ -454,3 +454,19 @@ function test_the_committed_surface_cases_file_is_well_formed() {
   assert_empty "$(awk -F '\t' '!/^#/ && $4 !~ /^(yes|no)$/ { print NR ": " $4 }' "$cases")"
   assert_empty "$(awk -F '\t' '!/^#/ && seen[$1]++ { print "duplicate " $1 }' "$cases")"
 }
+
+function test_claims_name_each_shipped_builtin_hook_event() {
+  cat >"$FIXTURES/builtin-facts.sh" <<'EOF2'
+#!/usr/bin/env bash
+cat <<'FACTS'
+--- shipped built-ins this target emits ---
+handoff-hook: Hook handoff-session-end, event SessionEnd (internal/builtins/data/handoff-hook/hooks/handoff-session-end.yaml)
+handoff: Skill handoff (internal/builtins/data/handoff/skills/handoff/SKILL.md)
+FACTS
+EOF2
+  chmod +x "$FIXTURES/builtin-facts.sh"
+  local out
+  out=$(JEV_TARGET_FACTS="$FIXTURES/builtin-facts.sh" bash -c '. "$1"; jev_claims copilot' _ "$JEV")
+  assert_contains 'copilot runs project hooks on its `SessionEnd` event, which the shipped `handoff-session-end` hook relies on.' "$out"
+  assert_contains 'copilot loads project skills such as the shipped `handoff` skill.' "$out"
+}

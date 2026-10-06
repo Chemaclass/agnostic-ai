@@ -174,6 +174,23 @@ jev_claims() {
       }
       next
     }
+    sec ~ /shipped built-ins/ && / Hook .*, event / {
+      name = $0
+      sub(/^[^:]*: Hook /, "", name)
+      sub(/,.*$/, "", name)
+      event = $0
+      sub(/^.*, event /, "", event)
+      sub(/[, ].*$/, "", event)
+      emit(t " runs project hooks on its `" event "` event, which the shipped `" name "` hook relies on.")
+      next
+    }
+    sec ~ /shipped built-ins/ && / Skill / {
+      name = $0
+      sub(/^[^:]*: Skill /, "", name)
+      sub(/ .*$/, "", name)
+      emit(t " loads project skills such as the shipped `" name "` skill.")
+      next
+    }
     sec ~ /target-behavior\.md lines/ && /^[0-9]+:/ {
       l = $0
       sub(/^[0-9]+:/, "", l)

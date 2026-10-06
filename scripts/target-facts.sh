@@ -19,6 +19,7 @@
 #   scripts/target-facts.sh --batches 5  # registry split into N batches
 #   scripts/target-facts.sh --sources zed warp  # selected vendor references
 #   scripts/target-facts.sh --changed <run>/docfetch.tsv  # batches sized by drift
+#   scripts/target-facts.sh --changed <tsv> 5 --builtins-since <rev>  # plus built-in changes
 #
 # Portable: POSIX-ish bash + awk + grep only. No GNU-only flags.
 
@@ -29,6 +30,7 @@ REGISTRY="$ROOT/internal/adapters/adapter.go"
 LOCK="${TARGET_AUDIT_LOCK:-$ROOT/scripts/target-audit/sources.lock}"
 TARGETS_DIR="$ROOT/docs/site/content/docs/targets"
 BEHAVIOR_PAGE="$ROOT/docs/site/content/docs/target-behavior.md"
+BUILTINS_DIR="$ROOT/internal/builtins/data"
 
 usage() {
   cat <<'EOF'
@@ -42,11 +44,12 @@ Usage: scripts/target-facts.sh [--list | --batches N | --sources <target>... | <
                  "<n>: <target> <target> ...". Used by the target-audit
                  skill to size its parallel fan-out from the registry
                  rather than a hardcoded table.
-  --changed <docfetch.tsv> [N]
+  --changed <docfetch.tsv> [N] [--builtins-since <rev>]
                  classify targets by what scripts/docfetch.sh found this
                  run. Targets whose pages or changelog moved are split
                  into at most N deep batches; the rest print on one
-                 "sweep:" line.
+                 "sweep:" line. With --builtins-since, a target whose
+                 shipped built-ins changed since <rev> is deep as well.
   -h, --help     this message
 EOF
 }
@@ -189,18 +192,136 @@ source_sections() {
   ' "$ROOT/.agnostic-ai/skills/target-audit/references/sources.md"
 }
 
+# builtin_specs prints one tab-separated row per shipped built-in spec:
+# built-in, kind, name, spec file, declared targets, hook event, and the
+# x-<target> override keys. An empty target list means every target that
+# supports the kind.
+builtin_specs() {
+  [ -d "$BUILTINS_DIR" ] || return 0
+  local file rel builtin kinddir kind name
+  find "$BUILTINS_DIR" -type f \( -name SKILL.md -o -path '*/hooks/*.yaml' -o -path '*/hooks/*.yml' \
+    -o -path '*/agents/*.md' -o -path '*/rules/*.md' -o -path '*/commands/*.md' \) | sort |
+    while IFS= read -r file; do
+      rel=${file#"$BUILTINS_DIR"/}
+      builtin=${rel%%/*}
+      kinddir=${rel#*/}
+      kinddir=${kinddir%%/*}
+      case "$kinddir" in
+        skills) kind=Skill name=$(basename "$(dirname "$file")") ;;
+        hooks) kind=Hook name=$(basename "$file") name=${name%.*} ;;
+        agents) kind=Agent name=$(basename "$file" .md) ;;
+        rules) kind=Rule name=$(basename "$file" .md) ;;
+        commands) kind=Command name=$(basename "$file" .md) ;;
+        *) continue ;;
+      esac
+      awk -v b="$builtin" -v k="$kind" -v n="$name" -v f="$file" '
+        /^targets:[[:space:]]*\[/ {
+          line = $0
+          sub(/^targets:[[:space:]]*\[/, "", line); sub(/\].*$/, "", line)
+          gsub(/[,[:space:]]+/, " ", line); sub(/^ /, "", line); sub(/ $/, "", line)
+          targets = line; next
+        }
+        /^targets:[[:space:]]*$/ { list = 1; next }
+        list && /^[[:space:]]+-[[:space:]]*/ {
+          item = $0; sub(/^[[:space:]]+-[[:space:]]*/, "", item); sub(/[[:space:]]*$/, "", item)
+          targets = targets (targets ? " " : "") item; next
+        }
+        { list = 0 }
+        /^event:/ { event = $0; sub(/^event:[[:space:]]*/, "", event) }
+        /^x-[a-z0-9-]+:/ { key = $0; sub(/:.*$/, "", key); overrides = overrides (overrides ? " " : "") key }
+        END { printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", b, k, n, f, targets, event, overrides }
+      ' "$file"
+    done
+}
+
+# builtin_rows <target> prints the shipped built-ins the target emits: the
+# spec must list the target, or list none, and the adapter must declare its
+# kind. These are the native behaviors an audit has to keep working.
+builtin_rows() {
+  local target="$1" pkg src supports
+  pkg=$(pkg_for "$target")
+  [ -n "$pkg" ] || return 1
+  src=$(src_for "$pkg")
+  supports=$(caps "$src")
+  printf '%s\n' "${BUILTIN_SPECS-$(builtin_specs)}" | awk -F '\t' -v t="$target" -v supports="$supports" -v root="$ROOT/" '
+    NF {
+      if ($5 != "" && (" " $5 " ") !~ (" " t " ")) next
+      if (supports !~ ("[^A-Za-z]" $2 "[^A-Za-z]")) next
+      path = $4
+      if (index(path, root) == 1) path = substr(path, length(root) + 1)
+      line = $1 ": " $2 " " $3
+      if ($6 != "") line = line ", event " $6
+      if ((" " $7 " ") ~ (" x-" t " ")) line = line ", override x-" t
+      print line " (" path ")"
+    }
+  '
+}
+
+# builtin_targets_for_paths <path>... prints, in registry order, the targets
+# whose shipped built-in behavior those changed paths can affect. A spec file
+# or a file inside a skill maps to that spec's targets; loader code, or a
+# built-in file that no longer names a spec, maps to every target with a
+# built-in.
+builtin_targets_for_paths() {
+  local path all="" affected="" target matched file rows BUILTIN_SPECS
+  BUILTIN_SPECS=$(builtin_specs)
+  for target in $(list_targets); do
+    [ -n "$(builtin_rows "$target")" ] && all="$all $target"
+  done
+  for path in "$@"; do
+    case "$path" in /*) ;; *) path="$ROOT/$path" ;; esac
+    case "$path" in
+      "$BUILTINS_DIR"/*)
+        matched=$(printf '%s\n' "$BUILTIN_SPECS" | awk -F '\t' -v p="$path" '
+          $4 == p { print; next }
+          $2 == "Skill" { dir = $4; sub(/\/[^\/]*$/, "/", dir); if (index(p, dir) == 1) print }
+        ')
+        if [ -z "$matched" ]; then
+          affected="$affected $all"
+          continue
+        fi
+        for target in $all; do
+          rows=$(builtin_rows "$target")
+          for file in $(printf '%s\n' "$matched" | cut -f4); do
+            case "$rows" in *"(${file#"$ROOT"/})"*) affected="$affected $target" ;; esac
+          done
+        done
+        ;;
+      "$ROOT"/internal/builtins/* | "$ROOT"/internal/cli/builtin_layers.go)
+        affected="$affected $all"
+        ;;
+    esac
+  done
+  for target in $all; do
+    case " $affected " in *" $target "*) printf '%s\n' "$target" ;; esac
+  done
+}
+
+# builtin_changed_targets <rev> prints the targets whose shipped built-ins
+# changed between <rev> and the working tree.
+builtin_changed_targets() {
+  local paths
+  paths=$(git -C "$ROOT" diff --name-only "$1" -- internal/builtins internal/cli/builtin_layers.go) || return 1
+  [ -n "$paths" ] || return 0
+  # shellcheck disable=SC2086
+  builtin_targets_for_paths $paths
+}
+
 # changed_classes <docfetch.tsv> prints "deep: ..." and "sweep: ..." lines.
 # A target is deep when any of its pages is new, changed, or unrecovered, or
-# when its changelog moved at all. Everything else is hash-identical to the
-# committed lock and only needs a coverage row.
+# when its changelog moved at all, or when it is named in [forced], the
+# targets whose shipped built-ins changed. Everything else is hash-identical
+# to the committed lock and only needs a coverage row.
 changed_classes() {
-  local file="$1"
+  local file="$1" forced="${2:-}"
   if [ ! -r "$file" ]; then
     echo "cannot read $file" >&2
     return 1
   fi
-  awk -F '\t' -v lock="$LOCK" '
+  awk -F '\t' -v lock="$LOCK" -v forced="$forced" '
     BEGIN {
+      count = split(forced, names, /[[:space:]]+/)
+      for (i = 1; i <= count; i++) if (names[i] != "") deep[names[i]] = 1
       while ((getline line < lock) > 0) {
         if (substr(line, 1, 1) == "#") continue
         split(line, f, "\t")
@@ -233,10 +354,11 @@ changed_classes() {
   ' "$file"
 }
 
-# changed_batches <docfetch.tsv> [n] formats the classification as batches.
+# changed_batches <docfetch.tsv> [n] [forced] formats the classification as
+# batches.
 changed_batches() {
-  local file="$1" n="${2:-5}" classes deep sweep
-  classes=$(changed_classes "$file") || return 1
+  local file="$1" n="${2:-5}" forced="${3:-}" classes deep sweep
+  classes=$(changed_classes "$file" "$forced") || return 1
   deep=$(printf '%s\n' "$classes" | sed -n 's/^deep: //p')
   sweep=$(printf '%s\n' "$classes" | sed -n 's/^sweep: //p')
   [ -n "$deep" ] && batch_list "$n" $deep
@@ -272,6 +394,9 @@ dump_target() {
   echo "--- docs/site/content/docs/targets/$t.md ---"
   doc_section "$t"
   echo
+  echo "--- shipped built-ins this target emits ---"
+  builtin_rows "$t"
+  echo
 }
 
 main() {
@@ -302,7 +427,20 @@ main() {
         echo "--changed needs a docfetch.tsv path" >&2
         return 2
       fi
-      changed_batches "$2" "${3:-5}"
+      local file="$2" n=5 forced=""
+      shift 2
+      if [ "$#" -gt 0 ] && [ "$1" != --builtins-since ]; then
+        n="$1"
+        shift
+      fi
+      if [ "${1:-}" = --builtins-since ]; then
+        if [ -z "${2:-}" ]; then
+          echo "--builtins-since needs a revision" >&2
+          return 2
+        fi
+        forced=$(builtin_changed_targets "$2" | tr "\n" " ") || return 1
+      fi
+      changed_batches "$file" "$n" "$forced"
       return
       ;;
   esac

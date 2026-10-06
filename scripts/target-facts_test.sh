@@ -212,6 +212,7 @@ function set_up() {
   CHANGED_RUN="$CHANGED_DIR/docfetch.tsv"
   export TARGET_AUDIT_LOCK="$CHANGED_DIR/sources.lock"
   LOCK="$TARGET_AUDIT_LOCK"
+  BUILTINS_DIR="$ROOT/internal/builtins/data"
 }
 
 function tear_down() {
@@ -294,4 +295,103 @@ function test_changed_rejects_a_missing_file() {
   local status=0
   main --changed "$CHANGED_DIR/missing.tsv" 2>/dev/null || status=$?
   assert_equals 1 "$status"
+}
+
+# ---- built-ins ---------------------------------------------------------------
+
+# write_builtins builds a fixture built-in tree: a hook limited to claude and
+# amp with an amp override, and a skill with no target list.
+function write_builtins() {
+  BUILTINS_DIR="$CHANGED_DIR/builtins"
+  mkdir -p "$BUILTINS_DIR/demo-hook/hooks" "$BUILTINS_DIR/demo/skills/demo/references"
+  printf 'name: demo-end\ntargets: [claude, amp]\nevent: SessionEnd\ncommand: |\n  echo hi\nx-amp:\n  async: true\n' \
+    >"$BUILTINS_DIR/demo-hook/hooks/demo-end.yaml"
+  printf -- '---\nname: demo\ndescription: Demo.\n---\n\n# demo\n' >"$BUILTINS_DIR/demo/skills/demo/SKILL.md"
+  printf 'notes\n' >"$BUILTINS_DIR/demo/skills/demo/references/notes.md"
+}
+
+function test_builtin_rows_lists_a_hook_and_skill_the_target_supports() {
+  write_builtins
+  local out
+  out=$(builtin_rows claude)
+  assert_contains "demo-hook: Hook demo-end, event SessionEnd" "$out"
+  assert_contains "demo: Skill demo" "$out"
+}
+
+function test_builtin_rows_skips_a_hook_the_target_cannot_emit() {
+  # amp is listed by the hook but does not declare the Hook kind.
+  write_builtins
+  local out
+  out=$(builtin_rows amp)
+  assert_not_contains "demo-end" "$out"
+  assert_contains "demo: Skill demo" "$out"
+}
+
+function test_builtin_rows_skips_a_hook_that_does_not_list_the_target() {
+  write_builtins
+  assert_not_contains "demo-end" "$(builtin_rows codex)"
+}
+
+function test_builtin_rows_names_target_overrides() {
+  write_builtins
+  printf 'x-claude:\n  timeout: 5\n' >>"$BUILTINS_DIR/demo-hook/hooks/demo-end.yaml"
+  assert_contains "override x-claude" "$(builtin_rows claude)"
+  assert_not_contains "x-amp" "$(builtin_rows claude)"
+}
+
+function test_builtin_rows_reads_the_shipped_handoff_hooks() {
+  local out
+  out=$(builtin_rows claude)
+  assert_contains "handoff-hook: Hook handoff-session-end, event SessionEnd" "$out"
+  assert_contains "handoff: Skill handoff" "$out"
+}
+
+function test_dump_target_includes_the_builtin_section() {
+  assert_contains "--- shipped built-ins this target emits ---" "$(dump_target claude)"
+}
+
+function test_builtin_targets_for_paths_maps_a_hook_to_its_targets() {
+  write_builtins
+  assert_equals "claude" "$(builtin_targets_for_paths "$BUILTINS_DIR/demo-hook/hooks/demo-end.yaml")"
+}
+
+function test_builtin_targets_for_paths_maps_a_skill_file_to_skill_targets() {
+  write_builtins
+  local out
+  out=$(builtin_targets_for_paths "$BUILTINS_DIR/demo/skills/demo/references/notes.md")
+  assert_contains "amp" "$out"
+  assert_contains "claude" "$out"
+}
+
+function test_builtin_targets_for_paths_maps_loader_code_to_every_builtin_target() {
+  write_builtins
+  local out
+  out=$(builtin_targets_for_paths internal/builtins/materialize.go)
+  assert_equals "$(builtin_targets_for_paths "$BUILTINS_DIR/demo/skills/demo/SKILL.md")" "$out"
+}
+
+function test_builtin_targets_for_paths_ignores_unrelated_paths() {
+  write_builtins
+  assert_empty "$(builtin_targets_for_paths internal/adapters/amp/amp.go docs/site/content/docs/handoff.md)"
+}
+
+function test_changed_moves_a_builtin_target_out_of_the_sweep() {
+  write_run "claude docs https://a/1 unchanged" "claude changelog https://a/c unchanged" \
+    "zed docs https://z/1 unchanged" "zed changelog https://z/c unchanged"
+  local out
+  out=$(changed_batches "$CHANGED_RUN" 5 claude)
+  assert_contains "1: claude" "$out"
+  assert_contains "sweep: zed" "$out"
+}
+
+function test_changed_rejects_builtins_since_without_a_revision() {
+  write_run "zed docs https://z/1 unchanged"
+  local status=0
+  main --changed "$CHANGED_RUN" 5 --builtins-since 2>/dev/null || status=$?
+  assert_equals 2 "$status"
+}
+
+function test_changed_with_builtins_since_head_keeps_the_sweep() {
+  write_run "zed docs https://z/1 unchanged" "zed changelog https://z/c unchanged"
+  assert_equals "sweep: zed" "$(main --changed "$CHANGED_RUN" 5 --builtins-since HEAD)"
 }
