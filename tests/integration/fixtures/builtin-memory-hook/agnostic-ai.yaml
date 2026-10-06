@@ -1,0 +1,3 @@
+version: 1
+targets: [codex, copilot, cursor, qoder, factory]
+builtins: [memory]

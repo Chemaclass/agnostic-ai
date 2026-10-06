@@ -19,7 +19,7 @@ func newHookCmd() *cobra.Command {
 		Use:   "hook",
 		Short: "Helpers for commands that run inside a tool's hook",
 	}
-	cmd.AddCommand(newHookPathsCmd(), newHookRunCmd(), newHookGuardCmd())
+	cmd.AddCommand(newHookPathsCmd(), newHookRunCmd(), newHookGuardCmd(), newHookMemoryCmd())
 	return cmd
 }
 

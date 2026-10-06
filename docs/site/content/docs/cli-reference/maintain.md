@@ -83,6 +83,22 @@ command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook guard stop
 |------|-------------|
 | `-t`, `--target <name>` | Target that sent an `after-edit` payload. Defaults to `AGNOSTIC_AI_TARGET`, as for `hook paths`. |
 
+## hook memory
+
+Run inside a `session-start` hook. It prints the project's shared memory index, `.agnostic-ai/memory/MEMORY.md`, in the reply the target adds to the model's context. The [`memory` built-in](@/docs/memory.md) wires it up.
+
+```bash
+agnostic-ai hook memory --target codex
+```
+
+- Codex, Qoder, and Factory get plain text. Cursor gets `{"additional_context": ...}` and Copilot `{"additionalContext": ...}`.
+- Output stays under 6,000 bytes. A longer index is cut at a whole line and ends with a note naming the index.
+- It finds the project like the `shared-memory` skill: the nearest `agnostic-ai.yaml` other than the global source root, else the Git checkout. With no project or no index, it prints nothing.
+
+| Flag | Description |
+|------|-------------|
+| `-t`, `--target <name>` | Target that runs the hook. Defaults to `AGNOSTIC_AI_TARGET`. |
+
 ## hook run
 
 Run one hook spec before a session fires it. Run `sync` first, so the scripts sync copies are in place. For each target the hook reaches, `hook run`:
