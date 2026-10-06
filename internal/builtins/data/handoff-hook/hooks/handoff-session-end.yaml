@@ -1,0 +1,249 @@
+name: handoff-session-end
+description: Save Git state when a session ends.
+targets: [claude, codex, gemini, qoder, factory]
+event: SessionEnd
+shell: bash
+command: |
+  echo '
+  handoff_resolve_root() {
+    handoff_root=$(pwd -P) || return 1
+    handoff_global=${AGNOSTIC_AI_HOME:-${HOME-}/.agnostic-ai}
+    handoff_global=$(cd "$handoff_global" 2>/dev/null && pwd -P) || handoff_global=
+    handoff_cursor=$handoff_root
+    while :; do
+      if [ "$handoff_cursor" != "$handoff_global" ] &&
+         { [ -f "$handoff_cursor/agnostic-ai.yaml" ] ||
+           [ -f "$handoff_cursor/agnostic.config.yaml" ]; }; then
+        handoff_root=$handoff_cursor
+        return 0
+      fi
+      handoff_parent=$(dirname "$handoff_cursor") || return 1
+      [ "$handoff_parent" = "$handoff_cursor" ] && break
+      handoff_cursor=$handoff_parent
+    done
+    handoff_root=$(git rev-parse --show-toplevel) || return 1
+  }
+  handoff_cleanup() {
+    if [ -n "${handoff_temp-}" ]; then
+      rm -f "$handoff_temp" >/dev/null 2>&1
+    fi
+  }
+  handoff_reply() {
+    if [ "$handoff_tool" != factory ]; then
+      printf "%s
+  " "{}"
+    fi
+  }
+  handoff_stop() {
+    handoff_cleanup
+    handoff_reply
+    exit 0
+  }
+  handoff_snapshot() {
+    handoff_resolve_root || return 1
+    cd "$handoff_root" || return 1
+    handoff_inside=$(git rev-parse --is-inside-work-tree) || return 1
+    [ "$handoff_inside" = true ] || return 1
+    handoff_head=$(git rev-parse HEAD) || return 1
+    handoff_branch=$(git symbolic-ref --quiet --short HEAD)
+    handoff_branch_status=$?
+    case "$handoff_branch_status" in
+      0) ;;
+      1) handoff_branch=detached ;;
+      *) return 1 ;;
+    esac
+    handoff_date=$(date -u "+%Y-%m-%dT%H:%M:%SZ") || return 1
+    handoff_status=$(git status --short) || return 1
+    handoff_commits=$(git -c log.showSignature=false --no-pager log -5 --format=%s) || return 1
+    case "$handoff_tool" in
+      claude|codex|gemini|qoder|factory) ;;
+      *) return 1 ;;
+    esac
+    umask 077
+    handoff_dir=$handoff_root/.agnostic-ai/local
+    mkdir -p "$handoff_dir" || return 1
+    handoff_temp=$(mktemp "$handoff_dir/HANDOFF.auto.md.XXXXXX") || return 1
+    trap handoff_cleanup 0
+    trap handoff_stop HUP INT TERM
+    printf "# Automatic handoff
+  tool: %s | date: %s | branch: %s | head: %s
+
+  ## Git status
+
+  %s
+
+  ## Last five commits
+
+  %s
+  " "$handoff_tool" "$handoff_date" "$handoff_branch" "$handoff_head" "$handoff_status" "$handoff_commits" >"$handoff_temp" || return 1
+    mv -f "$handoff_temp" "$handoff_dir/HANDOFF.auto.md" || return 1
+    handoff_temp=
+  }
+  handoff_tool=${1:-${AGNOSTIC_AI_TARGET-}}
+  handoff_snapshot "$@" </dev/null 2>/dev/null
+  handoff_reply
+  exit 0
+  #' | sh -c "read -r handoff_transport; exec sh -s"; exit 0
+commandWindows: |
+  echo '
+  handoff_resolve_root() {
+    handoff_root=$(pwd -P) || return 1
+    handoff_global=${AGNOSTIC_AI_HOME:-${HOME-}/.agnostic-ai}
+    handoff_global=$(cd "$handoff_global" 2>/dev/null && pwd -P) || handoff_global=
+    handoff_cursor=$handoff_root
+    while :; do
+      if [ "$handoff_cursor" != "$handoff_global" ] &&
+         { [ -f "$handoff_cursor/agnostic-ai.yaml" ] ||
+           [ -f "$handoff_cursor/agnostic.config.yaml" ]; }; then
+        handoff_root=$handoff_cursor
+        return 0
+      fi
+      handoff_parent=$(dirname "$handoff_cursor") || return 1
+      [ "$handoff_parent" = "$handoff_cursor" ] && break
+      handoff_cursor=$handoff_parent
+    done
+    handoff_root=$(git rev-parse --show-toplevel) || return 1
+  }
+  handoff_cleanup() {
+    if [ -n "${handoff_temp-}" ]; then
+      rm -f "$handoff_temp" >/dev/null 2>&1
+    fi
+  }
+  handoff_reply() {
+    if [ "$handoff_tool" != factory ]; then
+      printf "%s
+  " "{}"
+    fi
+  }
+  handoff_stop() {
+    handoff_cleanup
+    handoff_reply
+    exit 0
+  }
+  handoff_snapshot() {
+    handoff_resolve_root || return 1
+    cd "$handoff_root" || return 1
+    handoff_inside=$(git rev-parse --is-inside-work-tree) || return 1
+    [ "$handoff_inside" = true ] || return 1
+    handoff_head=$(git rev-parse HEAD) || return 1
+    handoff_branch=$(git symbolic-ref --quiet --short HEAD)
+    handoff_branch_status=$?
+    case "$handoff_branch_status" in
+      0) ;;
+      1) handoff_branch=detached ;;
+      *) return 1 ;;
+    esac
+    handoff_date=$(date -u "+%Y-%m-%dT%H:%M:%SZ") || return 1
+    handoff_status=$(git status --short) || return 1
+    handoff_commits=$(git -c log.showSignature=false --no-pager log -5 --format=%s) || return 1
+    case "$handoff_tool" in
+      claude|codex|gemini|qoder|factory) ;;
+      *) return 1 ;;
+    esac
+    umask 077
+    handoff_dir=$handoff_root/.agnostic-ai/local
+    mkdir -p "$handoff_dir" || return 1
+    handoff_temp=$(mktemp "$handoff_dir/HANDOFF.auto.md.XXXXXX") || return 1
+    trap handoff_cleanup 0
+    trap handoff_stop HUP INT TERM
+    printf "# Automatic handoff
+  tool: %s | date: %s | branch: %s | head: %s
+
+  ## Git status
+
+  %s
+
+  ## Last five commits
+
+  %s
+  " "$handoff_tool" "$handoff_date" "$handoff_branch" "$handoff_head" "$handoff_status" "$handoff_commits" >"$handoff_temp" || return 1
+    mv -f "$handoff_temp" "$handoff_dir/HANDOFF.auto.md" || return 1
+    handoff_temp=
+  }
+  handoff_tool=${1:-${AGNOSTIC_AI_TARGET-}}
+  handoff_snapshot "$@" </dev/null 2>/dev/null
+  handoff_reply
+  exit 0
+  #' | sh -c "read -r handoff_transport; exec sh -s codex"; exit 0
+x-factory:
+  command: |
+    echo '
+    handoff_resolve_root() {
+      handoff_root=$(pwd -P) || return 1
+      handoff_global=${AGNOSTIC_AI_HOME:-${HOME-}/.agnostic-ai}
+      handoff_global=$(cd "$handoff_global" 2>/dev/null && pwd -P) || handoff_global=
+      handoff_cursor=$handoff_root
+      while :; do
+        if [ "$handoff_cursor" != "$handoff_global" ] &&
+           { [ -f "$handoff_cursor/agnostic-ai.yaml" ] ||
+             [ -f "$handoff_cursor/agnostic.config.yaml" ]; }; then
+          handoff_root=$handoff_cursor
+          return 0
+        fi
+        handoff_parent=$(dirname "$handoff_cursor") || return 1
+        [ "$handoff_parent" = "$handoff_cursor" ] && break
+        handoff_cursor=$handoff_parent
+      done
+      handoff_root=$(git rev-parse --show-toplevel) || return 1
+    }
+    handoff_cleanup() {
+      if [ -n "${handoff_temp-}" ]; then
+        rm -f "$handoff_temp" >/dev/null 2>&1
+      fi
+    }
+    handoff_reply() {
+      if [ "$handoff_tool" != factory ]; then
+        printf "%s
+    " "{}"
+      fi
+    }
+    handoff_stop() {
+      handoff_cleanup
+      handoff_reply
+      exit 0
+    }
+    handoff_snapshot() {
+      handoff_resolve_root || return 1
+      cd "$handoff_root" || return 1
+      handoff_inside=$(git rev-parse --is-inside-work-tree) || return 1
+      [ "$handoff_inside" = true ] || return 1
+      handoff_head=$(git rev-parse HEAD) || return 1
+      handoff_branch=$(git symbolic-ref --quiet --short HEAD)
+      handoff_branch_status=$?
+      case "$handoff_branch_status" in
+        0) ;;
+        1) handoff_branch=detached ;;
+        *) return 1 ;;
+      esac
+      handoff_date=$(date -u "+%Y-%m-%dT%H:%M:%SZ") || return 1
+      handoff_status=$(git status --short) || return 1
+      handoff_commits=$(git -c log.showSignature=false --no-pager log -5 --format=%s) || return 1
+      case "$handoff_tool" in
+        claude|codex|gemini|qoder|factory) ;;
+        *) return 1 ;;
+      esac
+      umask 077
+      handoff_dir=$handoff_root/.agnostic-ai/local
+      mkdir -p "$handoff_dir" || return 1
+      handoff_temp=$(mktemp "$handoff_dir/HANDOFF.auto.md.XXXXXX") || return 1
+      trap handoff_cleanup 0
+      trap handoff_stop HUP INT TERM
+      printf "# Automatic handoff
+    tool: %s | date: %s | branch: %s | head: %s
+
+    ## Git status
+
+    %s
+
+    ## Last five commits
+
+    %s
+    " "$handoff_tool" "$handoff_date" "$handoff_branch" "$handoff_head" "$handoff_status" "$handoff_commits" >"$handoff_temp" || return 1
+      mv -f "$handoff_temp" "$handoff_dir/HANDOFF.auto.md" || return 1
+      handoff_temp=
+    }
+    handoff_tool=${1:-${AGNOSTIC_AI_TARGET-}}
+    handoff_snapshot "$@" </dev/null 2>/dev/null
+    handoff_reply
+    exit 0
+    #' | sh -c "read -r handoff_transport; exec sh -s factory"; exit 0

@@ -8,10 +8,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
-- `builtins: [handoff]` carries sessions between tools and proposes durable learnings for approved project, personal, or global rules.
+- Opt-in `handoff` built-ins carry tasks between tools, promote approved rules, and add Git snapshots with startup resume notices (#1829, #1830, #1831).
+- Built-in text updates cause `sync --check` drift; older editor schemas flag `builtins:` until release. Run `sync` after upgrading (#1829).
 - A one-line code span such as ```` ```example``` ```` no longer hides the `@path` lines after it from includes and imports (#1828).
-- `sync --check --against` checks out only the files it reads, so it runs about 5x faster in a repository with 20k+ tracked files (#1819).
-- A `sync` or `sync --check` that changes nothing runs 2 to 5x faster: the Claude syntax scan skips lines without `$` or `!` (#1821).
+- When no files change, `sync` and `sync --check` run 2 to 5x faster; `sync --check --against` is about 5x faster at 20k+ tracked files (#1819, #1821).
 - `resolve-imports` leaves an `@path` line inside a code fence as written, so `sync --check --against` no longer fails on it (#1823).
 
 ## v0.79.0 - 2026-10-05

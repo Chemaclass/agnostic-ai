@@ -64,7 +64,7 @@ func skillPath(root string) string {
 }
 
 func TestNames_ReturnsValidNamesWithoutSharingTheList(t *testing.T) {
-	want := []string{"handoff"}
+	want := []string{"handoff", "handoff-hook"}
 	if got := builtins.Names(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("Names() = %v, want %v", got, want)
 	}
@@ -367,5 +367,44 @@ func TestMaterialize_ProcessHelper(t *testing.T) {
 	}
 	if err := cleanup(); err != nil {
 		t.Error(fmt.Errorf("cleanup %s: %w", root, err))
+	}
+}
+
+func TestMaterialize_LoadsHandoffHooksAsAnOrdinaryLayer(t *testing.T) {
+	cacheForTest(t)
+	root, cleanup, err := builtins.Materialize("handoff-hook")
+	if err != nil {
+		t.Fatalf("materialize handoff-hook: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := cleanup(); err != nil {
+			t.Errorf("cleanup %s: %v", root, err)
+		}
+	})
+	bundle, err := spec.LoadLayered([]spec.Layer{{Name: "builtin", Root: root, Sources: config.Sources{Hooks: "hooks"}}})
+	if err != nil {
+		t.Fatalf("load handoff-hook layer: %v", err)
+	}
+	if len(bundle.All()) != 3 || len(bundle.Hooks) != 3 {
+		t.Fatalf("entries = %v, want three hooks", bundle.All())
+	}
+	for _, target := range []string{"claude", "codex", "gemini", "qoder", "factory"} {
+		if hooks := bundle.HooksFor(target); len(hooks) != 3 {
+			t.Errorf("%s hook count = %d, want three", target, len(hooks))
+		}
+	}
+	for _, target := range []string{"goose", "copilot", "augment", "openhands"} {
+		if hooks := bundle.HooksFor(target); len(hooks) != 0 {
+			t.Errorf("unverified target %s received %d hooks", target, len(hooks))
+		}
+	}
+	wantEvents := map[string]string{"handoff-pre-compact": "PreCompact", "handoff-session-end": "SessionEnd", "handoff-session-start": "SessionStart"}
+	for _, hook := range bundle.Hooks {
+		if hook.Layer != "builtin" || hook.Meta["event"] != wantEvents[hook.Name] {
+			t.Errorf("hook %s layer %s event %v", hook.Name, hook.Layer, hook.Meta["event"])
+		}
+		if _, exists := hook.Meta["matcher"]; exists {
+			t.Errorf("hook %s filters lifecycle sources", hook.Name)
+		}
 	}
 }

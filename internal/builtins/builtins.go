@@ -13,7 +13,7 @@ import (
 //go:embed data
 var sourceFS embed.FS
 
-var names = []string{"handoff"}
+var names = []string{"handoff", "handoff-hook"}
 
 type builtinFile struct {
 	path string

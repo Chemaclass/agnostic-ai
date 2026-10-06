@@ -1,0 +1,195 @@
+name: handoff-session-start
+description: Suggest resuming an available handoff.
+targets: [claude, codex, gemini, qoder, factory]
+event: SessionStart
+shell: bash
+command: |
+  echo '
+  handoff_resolve_root() {
+    handoff_root=$(pwd -P) || return 1
+    handoff_global=${AGNOSTIC_AI_HOME:-${HOME-}/.agnostic-ai}
+    handoff_global=$(cd "$handoff_global" 2>/dev/null && pwd -P) || handoff_global=
+    handoff_cursor=$handoff_root
+    while :; do
+      if [ "$handoff_cursor" != "$handoff_global" ] &&
+         { [ -f "$handoff_cursor/agnostic-ai.yaml" ] ||
+           [ -f "$handoff_cursor/agnostic.config.yaml" ]; }; then
+        handoff_root=$handoff_cursor
+        return 0
+      fi
+      handoff_parent=$(dirname "$handoff_cursor") || return 1
+      [ "$handoff_parent" = "$handoff_cursor" ] && break
+      handoff_cursor=$handoff_parent
+    done
+    handoff_root=$(git rev-parse --show-toplevel) || return 1
+  }
+  handoff_notice() {
+    handoff_resolve_root || return 1
+    handoff_dir=$handoff_root/.agnostic-ai/local
+    if [ -f "$handoff_dir/HANDOFF.md" ] && [ -f "$handoff_dir/HANDOFF.auto.md" ]; then
+      if [ "$handoff_tool" = factory ]; then
+        printf "%s
+  " "Handoff available: .agnostic-ai/local/HANDOFF.md and HANDOFF.auto.md. Ask to resume the handoff."
+      else
+        cat <<EOF
+  {"systemMessage":"Handoff available: .agnostic-ai/local/HANDOFF.md and HANDOFF.auto.md. Ask to resume the handoff."}
+  EOF
+      fi
+    elif [ -f "$handoff_dir/HANDOFF.md" ]; then
+      if [ "$handoff_tool" = factory ]; then
+        printf "%s
+  " "Handoff available: .agnostic-ai/local/HANDOFF.md. Ask to resume the handoff."
+      else
+        cat <<EOF
+  {"systemMessage":"Handoff available: .agnostic-ai/local/HANDOFF.md. Ask to resume the handoff."}
+  EOF
+      fi
+    elif [ -f "$handoff_dir/HANDOFF.auto.md" ]; then
+      if [ "$handoff_tool" = factory ]; then
+        printf "%s
+  " "Git snapshot available: .agnostic-ai/local/HANDOFF.auto.md. Ask to resume the handoff."
+      else
+        cat <<EOF
+  {"systemMessage":"Git snapshot available: .agnostic-ai/local/HANDOFF.auto.md. Ask to resume the handoff."}
+  EOF
+      fi
+    else
+      return 1
+    fi
+  }
+  handoff_tool=${1:-${AGNOSTIC_AI_TARGET-}}
+  if ! handoff_notice </dev/null 2>/dev/null; then
+    if [ "$handoff_tool" != factory ]; then
+      printf "%s
+  " "{}"
+    fi
+  fi
+  exit 0
+  #' | sh -c "read -r handoff_transport; exec sh -s"; exit 0
+commandWindows: |
+  echo '
+  handoff_resolve_root() {
+    handoff_root=$(pwd -P) || return 1
+    handoff_global=${AGNOSTIC_AI_HOME:-${HOME-}/.agnostic-ai}
+    handoff_global=$(cd "$handoff_global" 2>/dev/null && pwd -P) || handoff_global=
+    handoff_cursor=$handoff_root
+    while :; do
+      if [ "$handoff_cursor" != "$handoff_global" ] &&
+         { [ -f "$handoff_cursor/agnostic-ai.yaml" ] ||
+           [ -f "$handoff_cursor/agnostic.config.yaml" ]; }; then
+        handoff_root=$handoff_cursor
+        return 0
+      fi
+      handoff_parent=$(dirname "$handoff_cursor") || return 1
+      [ "$handoff_parent" = "$handoff_cursor" ] && break
+      handoff_cursor=$handoff_parent
+    done
+    handoff_root=$(git rev-parse --show-toplevel) || return 1
+  }
+  handoff_notice() {
+    handoff_resolve_root || return 1
+    handoff_dir=$handoff_root/.agnostic-ai/local
+    if [ -f "$handoff_dir/HANDOFF.md" ] && [ -f "$handoff_dir/HANDOFF.auto.md" ]; then
+      if [ "$handoff_tool" = factory ]; then
+        printf "%s
+  " "Handoff available: .agnostic-ai/local/HANDOFF.md and HANDOFF.auto.md. Ask to resume the handoff."
+      else
+        cat <<EOF
+  {"systemMessage":"Handoff available: .agnostic-ai/local/HANDOFF.md and HANDOFF.auto.md. Ask to resume the handoff."}
+  EOF
+      fi
+    elif [ -f "$handoff_dir/HANDOFF.md" ]; then
+      if [ "$handoff_tool" = factory ]; then
+        printf "%s
+  " "Handoff available: .agnostic-ai/local/HANDOFF.md. Ask to resume the handoff."
+      else
+        cat <<EOF
+  {"systemMessage":"Handoff available: .agnostic-ai/local/HANDOFF.md. Ask to resume the handoff."}
+  EOF
+      fi
+    elif [ -f "$handoff_dir/HANDOFF.auto.md" ]; then
+      if [ "$handoff_tool" = factory ]; then
+        printf "%s
+  " "Git snapshot available: .agnostic-ai/local/HANDOFF.auto.md. Ask to resume the handoff."
+      else
+        cat <<EOF
+  {"systemMessage":"Git snapshot available: .agnostic-ai/local/HANDOFF.auto.md. Ask to resume the handoff."}
+  EOF
+      fi
+    else
+      return 1
+    fi
+  }
+  handoff_tool=${1:-${AGNOSTIC_AI_TARGET-}}
+  if ! handoff_notice </dev/null 2>/dev/null; then
+    if [ "$handoff_tool" != factory ]; then
+      printf "%s
+  " "{}"
+    fi
+  fi
+  exit 0
+  #' | sh -c "read -r handoff_transport; exec sh -s codex"; exit 0
+x-factory:
+  command: |
+    echo '
+    handoff_resolve_root() {
+      handoff_root=$(pwd -P) || return 1
+      handoff_global=${AGNOSTIC_AI_HOME:-${HOME-}/.agnostic-ai}
+      handoff_global=$(cd "$handoff_global" 2>/dev/null && pwd -P) || handoff_global=
+      handoff_cursor=$handoff_root
+      while :; do
+        if [ "$handoff_cursor" != "$handoff_global" ] &&
+           { [ -f "$handoff_cursor/agnostic-ai.yaml" ] ||
+             [ -f "$handoff_cursor/agnostic.config.yaml" ]; }; then
+          handoff_root=$handoff_cursor
+          return 0
+        fi
+        handoff_parent=$(dirname "$handoff_cursor") || return 1
+        [ "$handoff_parent" = "$handoff_cursor" ] && break
+        handoff_cursor=$handoff_parent
+      done
+      handoff_root=$(git rev-parse --show-toplevel) || return 1
+    }
+    handoff_notice() {
+      handoff_resolve_root || return 1
+      handoff_dir=$handoff_root/.agnostic-ai/local
+      if [ -f "$handoff_dir/HANDOFF.md" ] && [ -f "$handoff_dir/HANDOFF.auto.md" ]; then
+        if [ "$handoff_tool" = factory ]; then
+          printf "%s
+    " "Handoff available: .agnostic-ai/local/HANDOFF.md and HANDOFF.auto.md. Ask to resume the handoff."
+        else
+          cat <<EOF
+    {"systemMessage":"Handoff available: .agnostic-ai/local/HANDOFF.md and HANDOFF.auto.md. Ask to resume the handoff."}
+    EOF
+        fi
+      elif [ -f "$handoff_dir/HANDOFF.md" ]; then
+        if [ "$handoff_tool" = factory ]; then
+          printf "%s
+    " "Handoff available: .agnostic-ai/local/HANDOFF.md. Ask to resume the handoff."
+        else
+          cat <<EOF
+    {"systemMessage":"Handoff available: .agnostic-ai/local/HANDOFF.md. Ask to resume the handoff."}
+    EOF
+        fi
+      elif [ -f "$handoff_dir/HANDOFF.auto.md" ]; then
+        if [ "$handoff_tool" = factory ]; then
+          printf "%s
+    " "Git snapshot available: .agnostic-ai/local/HANDOFF.auto.md. Ask to resume the handoff."
+        else
+          cat <<EOF
+    {"systemMessage":"Git snapshot available: .agnostic-ai/local/HANDOFF.auto.md. Ask to resume the handoff."}
+    EOF
+        fi
+      else
+        return 1
+      fi
+    }
+    handoff_tool=${1:-${AGNOSTIC_AI_TARGET-}}
+    if ! handoff_notice </dev/null 2>/dev/null; then
+      if [ "$handoff_tool" != factory ]; then
+        printf "%s
+    " "{}"
+      fi
+    fi
+    exit 0
+    #' | sh -c "read -r handoff_transport; exec sh -s factory"; exit 0

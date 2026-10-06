@@ -79,6 +79,16 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 		return err
 	}
 
+	localRoot, err := filepath.Abs(filepath.Join(root, defaultProjectUser))
+	if err != nil {
+		return fmt.Errorf("watch local files %s: %w", root, err)
+	}
+	localSnapshot := collectMtimes([]string{localRoot})
+	// Reconcile edits made after the initial sync while watches were armed.
+	if err := runSyncOnce(root, targets, dryRun, backup, gitignoreFlag, jobs); err != nil {
+		fmt.Fprintf(os.Stderr, "! sync: %v\n", err)
+	}
+
 	printWatchBanner(len(w.WatchList()), "fsnotify")
 
 	var (
@@ -104,6 +114,15 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 			// inotify joins names onto the watch path unclean, so a watch on
 			// "." reports "./file" where kqueue reports "file".
 			ev.Name = filepath.Clean(ev.Name)
+			if paths, directoryWrite := localWatchChanges(root, localRoot, ev, localSnapshot); directoryWrite {
+				if len(paths) == 0 {
+					continue
+				}
+				for _, path := range paths {
+					changed[path] = struct{}{}
+				}
+				ev.Name = paths[0]
+			}
 			newDir := false
 			if ev.Op&(fsnotify.Create|fsnotify.Rename|fsnotify.Remove) != 0 {
 				info, err := os.Stat(ev.Name)
@@ -182,6 +201,46 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 			}
 		}
 	}
+}
+
+// Directory writes can report child changes without naming the files.
+func localWatchChanges(root, localRoot string, ev fsnotify.Event, snapshot map[string]time.Time) ([]string, bool) {
+	if !pathWithin(localRoot, ev.Name) {
+		return nil, false
+	}
+	path, err := filepath.Abs(ev.Name)
+	if err != nil {
+		return nil, false
+	}
+	info, err := os.Stat(path)
+	if err == nil && info.IsDir() {
+		if ev.Op&fsnotify.Write == 0 || ev.Op&(fsnotify.Create|fsnotify.Rename|fsnotify.Remove) != 0 {
+			return nil, false
+		}
+		current := collectMtimes([]string{localRoot})
+		paths := changedPaths(snapshot, current)
+		clear(snapshot)
+		for path, mtime := range current {
+			snapshot[path] = mtime
+		}
+		kept := paths[:0]
+		for _, path := range paths {
+			if !isIgnoredEvent(fsnotify.Event{Name: path, Op: fsnotify.Write}, root) {
+				kept = append(kept, path)
+			}
+		}
+		return kept, true
+	}
+	if err == nil {
+		snapshot[path] = info.ModTime()
+	} else {
+		for prior := range snapshot {
+			if pathWithin(path, prior) {
+				delete(snapshot, prior)
+			}
+		}
+	}
+	return nil, false
 }
 
 // watchError logs a watcher error and keeps the session. An event
@@ -547,7 +606,7 @@ func sortedPaths(mtimes map[string]time.Time) []string {
 }
 
 // isIgnoredEvent filters out events that should never trigger a re-sync:
-// chmod-only events, the .sync-state file, and local handoff notes.
+// chmod-only events, the .sync-state file, and local handoff files.
 func isIgnoredEvent(ev fsnotify.Event, root string) bool {
 	if ev.Op == fsnotify.Chmod {
 		return true
@@ -560,7 +619,7 @@ func isIgnoredEvent(ev fsnotify.Event, root string) bool {
 
 func isHandoffPath(root, path string) bool {
 	name := filepath.Base(path)
-	if name != "HANDOFF.md" && name != "HANDOFF.auto.md" {
+	if name != "HANDOFF.md" && name != "HANDOFF.auto.md" && !strings.HasPrefix(name, "HANDOFF.auto.md.") {
 		return false
 	}
 	absPath, err := filepath.Abs(path)

@@ -93,7 +93,15 @@ requires: ">=0.80.0"
 builtins: [handoff]
 ```
 
-The available name is `handoff`. See [session handoffs](@/docs/handoff.md) for writing and resuming one. Unknown names fail as AAI-004 and list the valid names. A project, pack, or personal spec with the same kind and name takes precedence.
+The available names are `handoff` (the skill) and `handoff-hook` (optional Git snapshots and resume notices). See [session handoffs](@/docs/handoff.md) for supported targets, runtime requirements, and Factory's display setting. Unknown names fail as AAI-004 and list the valid names. A project, pack, or personal spec with the same kind and name takes precedence.
+
+Enable both explicitly to add hooks:
+
+```yaml
+builtins: [handoff, handoff-hook]
+```
+
+`handoff-hook` emits for Claude Code, Codex, Gemini CLI, Qoder CLI, and Factory / Droid. Factory's notice requires user-owned `showHookOutput: true`; its hooks are project-only.
 
 The same list works in the [global home config](#global-configuration). A `builtins` list in either local config replaces the shared list. Set `builtins: []` to disable it there. Removing a built-in removes its ledger-owned outputs on the next sync.
 
