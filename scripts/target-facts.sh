@@ -294,10 +294,28 @@ run_targets() {
 
 # builtin_changed_paths <rev> prints, NUL-separated, every path that differs
 # from <rev>: committed, staged, unstaged, deleted, both sides of a rename,
-# and untracked files Git does not ignore.
+# untracked files Git does not ignore, and ignored files the binary embeds.
 builtin_changed_paths() {
   git -C "$ROOT" diff --no-renames --name-only -z "$1" -- || return 1
   git -C "$ROOT" ls-files -z --others --exclude-standard || return 1
+  builtin_embedded_ignored || return 1
+}
+
+# builtin_embedded_ignored prints, NUL-separated, ignored files under the
+# built-in data folder. go:embed reads that folder whatever .gitignore says,
+# skipping only names that start with "." or "_".
+builtin_embedded_ignored() {
+  local data="${BUILTINS_DIR#"$ROOT"/}" list path
+  list=$(mktemp) || return 1
+  if ! git -C "$ROOT" ls-files -z --others --ignored --exclude-standard -- "$data" >"$list"; then
+    rm -f "$list"
+    return 1
+  fi
+  while IFS= read -r -d '' path; do
+    case "/${path#"$data"/}" in */.* | */_*) continue ;; esac
+    printf '%s\0' "$path"
+  done <"$list"
+  rm -f "$list"
 }
 
 # builtin_deep_targets <docfetch.tsv> [rev] prints the run's targets whose
