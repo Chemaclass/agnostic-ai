@@ -81,6 +81,12 @@ func memoryContext(index string) string {
 func memoryHookReply(target, text string) (string, error) {
 	var key string
 	switch target {
+	case "gemini":
+		data, err := json.Marshal(map[string]map[string]string{"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}})
+		if err != nil {
+			return "", fmt.Errorf("encode %s reply: %w", target, err)
+		}
+		return string(data) + "\n", nil
 	case "cursor":
 		key = "additional_context"
 	case "copilot":
@@ -98,6 +104,7 @@ func memoryHookReply(target, text string) (string, error) {
 // hookProjectDirEnv names the variable a target sets to the workspace
 // when its hooks run elsewhere, such as Cursor's user hooks in ~/.cursor/.
 var hookProjectDirEnv = map[string]string{
+	"gemini":  "GEMINI_PROJECT_DIR",
 	"cursor":  "CURSOR_PROJECT_DIR",
 	"qoder":   "QODER_PROJECT_DIR",
 	"factory": "FACTORY_PROJECT_DIR",

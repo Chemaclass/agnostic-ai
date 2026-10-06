@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "sh -c 'command -v agnostic-ai >/dev/null 2>&1 || exit 0; exec agnostic-ai hook memory --target gemini'",
+            "description": "Load the shared memory index into the session.",
+            "env": {
+              "AGNOSTIC_AI_TARGET": "gemini"
+            },
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  }
+}

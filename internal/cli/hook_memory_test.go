@@ -210,3 +210,32 @@ func TestHookMemory_StartsFromTheWorkspaceTheTargetNames(t *testing.T) {
 		t.Errorf("got %q", got)
 	}
 }
+
+func TestHookMemory_RepliesWithHookSpecificContextForGemini(t *testing.T) {
+	memoryHookProject(t, sampleIndex)
+
+	var reply struct {
+		HookSpecificOutput struct {
+			HookEventName     string `json:"hookEventName"`
+			AdditionalContext string `json:"additionalContext"`
+		} `json:"hookSpecificOutput"`
+	}
+	out := runHookMemory(t, "--target", "gemini")
+	if err := json.Unmarshal([]byte(out), &reply); err != nil {
+		t.Fatalf("invalid JSON %q: %v", out, err)
+	}
+	if reply.HookSpecificOutput.HookEventName != "SessionStart" || !strings.Contains(reply.HookSpecificOutput.AdditionalContext, "CI is Ubuntu only") {
+		t.Errorf("gemini reply = %+v", reply)
+	}
+}
+
+func TestHookMemory_StartsFromTheGeminiProjectDir(t *testing.T) {
+	memoryHookProject(t, sampleIndex)
+	project, _ := os.Getwd()
+	t.Setenv("GEMINI_PROJECT_DIR", project)
+	testutil.Chdir(t, t.TempDir())
+
+	if got := runHookMemory(t, "--target", "gemini"); !strings.Contains(got, "CI is Ubuntu only") {
+		t.Errorf("got %q", got)
+	}
+}

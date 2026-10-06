@@ -121,7 +121,7 @@ func TestBuiltinMemory(t *testing.T) {
 		dir := project(t, hookFixture)
 		t.Setenv("PATH", filepath.Dir(binary)+string(os.PathListSeparator)+os.Getenv("PATH"))
 		run(t, dir, "sync", "--gitignore=off")
-		paths := []string{".codex/hooks.json", ".github/hooks/agnostic-ai.json", ".cursor/hooks.json", ".qoder/settings.json", ".factory/hooks.json"}
+		paths := []string{".codex/hooks.json", ".github/hooks/agnostic-ai.json", ".cursor/hooks.json", ".gemini/settings.json", ".qoder/settings.json", ".factory/hooks.json"}
 		output := map[string]string{}
 		for _, path := range paths {
 			data, err := os.ReadFile(filepath.Join(dir, path))
@@ -145,7 +145,7 @@ func TestBuiltinMemory(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		targets := []string{"codex", "copilot", "cursor", "qoder", "factory"}
+		targets := []string{"codex", "copilot", "cursor", "gemini", "qoder", "factory"}
 		for _, target := range targets {
 			if out := run(t, dir, "hook", "run", "memory-session-start", "--target", target, "--format", "json"); !strings.Contains(out, `"adds_context": false`) {
 				t.Errorf("%s: an empty store adds context:\n%s", target, out)
