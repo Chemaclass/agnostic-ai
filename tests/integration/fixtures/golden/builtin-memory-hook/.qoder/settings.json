@@ -6,13 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "agnostic-ai",
-            "args": [
-              "hook",
-              "memory",
-              "--target",
-              "qoder"
-            ],
+            "command": "sh -c 'command -v agnostic-ai >/dev/null 2>&1 || exit 0; exec agnostic-ai hook memory --target qoder'",
             "env": {
               "AGNOSTIC_AI_TARGET": "qoder"
             }

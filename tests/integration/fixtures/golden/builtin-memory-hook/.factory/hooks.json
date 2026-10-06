@@ -5,7 +5,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "agnostic-ai 'hook' 'memory' '--target' 'factory'"
+          "command": "sh -c 'command -v agnostic-ai \u003e/dev/null 2\u003e\u00261 || exit 0; exec agnostic-ai hook memory --target factory'"
         }
       ]
     }

@@ -6,16 +6,19 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 // memoryContextLimit keeps the session-start context under every hook
 // target's cap: Codex keeps 2,500 tokens by default and Claude Code
-// 10,000 characters.
-const memoryContextLimit = 8000
+// 10,000 characters. At 6,000 bytes, text over the Codex cap needs
+// fewer than 2.4 bytes per token, which dense non-Latin text can reach.
+const memoryContextLimit = 6000
 
 func newHookMemoryCmd() *cobra.Command {
 	var target string
@@ -32,7 +35,7 @@ func newHookMemoryCmd() *cobra.Command {
 			if target == "" {
 				target = os.Getenv(adapters.HookTargetEnv)
 			}
-			root := guardProjectRoot()
+			root := memoryProjectRoot()
 			if root == "" {
 				return nil
 			}
@@ -61,9 +64,14 @@ func memoryContext(index string) string {
 	if len(text) <= memoryContextLimit {
 		return text
 	}
-	keep := text[:memoryContextLimit-len(cut)]
-	if i := strings.LastIndex(keep, "\n"); i >= 0 {
+	keep := text[:memoryContextLimit-len(cut)-1]
+	if i := strings.LastIndex(keep, "\n"); i >= len(head) {
 		keep = keep[:i+1]
+	} else {
+		for len(keep) > len(head) && !utf8.RuneStart(text[len(keep)]) {
+			keep = keep[:len(keep)-1]
+		}
+		keep += "\n"
 	}
 	return keep + cut
 }
@@ -84,4 +92,48 @@ func memoryHookReply(target, text string) (string, error) {
 		return "", fmt.Errorf("encode %s reply: %w", target, err)
 	}
 	return string(data) + "\n", nil
+}
+
+// memoryProjectRoot finds the project the shared-memory skill uses: the
+// nearest ancestor with a project config, never the global source root,
+// or else the Git checkout, since a global install reaches projects with
+// no config of their own.
+func memoryProjectRoot() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	global := ""
+	if source, err := globalSourceRoot(); err == nil {
+		global = canonicalDir(source)
+	}
+	for dir := canonicalDir(wd); ; {
+		if dir != global {
+			if _, _, err := config.ResolveConfigPath(dir); err == nil {
+				return dir
+			}
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	top, err := gitOutput(wd, nil, "rev-parse", "--show-toplevel")
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(top)
+}
+
+// canonicalDir resolves symlinks in dir, or returns it absolute when it
+// cannot.
+func canonicalDir(dir string) string {
+	if real, err := filepath.EvalSymlinks(dir); err == nil {
+		return real
+	}
+	if abs, err := filepath.Abs(dir); err == nil {
+		return abs
+	}
+	return dir
 }

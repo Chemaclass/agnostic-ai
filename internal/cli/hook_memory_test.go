@@ -3,9 +3,12 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
@@ -105,5 +108,47 @@ func TestHookMemory_CutsALongIndexAtAWholeLine(t *testing.T) {
 		if strings.HasPrefix(l, "- [Fact]") && l != strings.TrimSuffix(line, "\n") {
 			t.Fatalf("a line was cut in half: %q", l)
 		}
+	}
+}
+
+func TestHookMemory_CutsOneLongLineAtACharacter(t *testing.T) {
+	memoryHookProject(t, "- [Fact](fact.md): "+strings.Repeat("é", 6000)+"\n")
+
+	got := runHookMemory(t, "--target", "codex")
+	if len(got) > memoryContextLimit || !utf8.ValidString(got) {
+		t.Fatalf("output is %d bytes, valid UTF-8 %v", len(got), utf8.ValidString(got))
+	}
+	if !strings.Contains(got, "- [Fact](fact.md): éé") {
+		t.Errorf("the index body was dropped:\n%s", got)
+	}
+}
+
+// A global install reaches checkouts with no project config of their own.
+func TestHookMemory_FallsBackToTheGitCheckout(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	if out, err := exec.Command("git", "init", "-q").CombinedOutput(); err != nil {
+		t.Skipf("git init: %v %s", err, out)
+	}
+	writeFile(t, filepath.Join(".agnostic-ai", "memory", "MEMORY.md"), sampleIndex)
+	if err := os.MkdirAll(filepath.Join(dir, "src"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	testutil.Chdir(t, filepath.Join(dir, "src"))
+
+	if got := runHookMemory(t, "--target", "codex"); !strings.Contains(got, "CI is Ubuntu only") {
+		t.Errorf("got %q", got)
+	}
+}
+
+// The global source root holds a config but is never a project.
+func TestHookMemory_SkipsTheGlobalSourceRoot(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	t.Setenv("AGNOSTIC_AI_HOME", dir)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\n")
+	writeFile(t, filepath.Join(".agnostic-ai", "memory", "MEMORY.md"), sampleIndex)
+	t.Setenv("GIT_CEILING_DIRECTORIES", filepath.Dir(dir))
+
+	if got := runHookMemory(t, "--target", "codex"); got != "" {
+		t.Errorf("got %q, want nothing", got)
 	}
 }

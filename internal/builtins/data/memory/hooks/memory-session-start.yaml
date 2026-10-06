@@ -2,15 +2,15 @@ name: memory-session-start
 description: Load the shared memory index into the session.
 on: session-start
 targets: [codex, copilot, cursor, qoder, factory]
-command: agnostic-ai
-args: [hook, memory]
+command: "sh -c 'command -v agnostic-ai >/dev/null 2>&1 || exit 0; exec agnostic-ai hook memory --target codex'"
 x-codex:
-  args: [hook, memory, --target, codex]
+  command: "sh -c 'command -v agnostic-ai >/dev/null 2>&1 || exit 0; exec agnostic-ai hook memory --target codex'"
+  commandWindows: "if (Get-Command agnostic-ai -ErrorAction SilentlyContinue) { agnostic-ai hook memory --target codex }"
 x-copilot:
-  args: [hook, memory, --target, copilot]
+  command: "sh -c 'command -v agnostic-ai >/dev/null 2>&1 || exit 0; exec agnostic-ai hook memory --target copilot'"
 x-cursor:
-  args: [hook, memory, --target, cursor]
+  command: "sh -c 'command -v agnostic-ai >/dev/null 2>&1 || exit 0; exec agnostic-ai hook memory --target cursor'"
 x-qoder:
-  args: [hook, memory, --target, qoder]
+  command: "sh -c 'command -v agnostic-ai >/dev/null 2>&1 || exit 0; exec agnostic-ai hook memory --target qoder'"
 x-factory:
-  args: [hook, memory, --target, factory]
+  command: "sh -c 'command -v agnostic-ai >/dev/null 2>&1 || exit 0; exec agnostic-ai hook memory --target factory'"

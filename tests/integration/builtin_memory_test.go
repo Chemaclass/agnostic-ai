@@ -141,6 +141,10 @@ func TestBuiltinMemory(t *testing.T) {
 			// hook run lists Cursor, Qoder, and Factory hooks as not run on Windows.
 			return
 		}
+		sh, err := exec.LookPath("sh")
+		if err != nil {
+			t.Fatal(err)
+		}
 		targets := []string{"codex", "copilot", "cursor", "qoder", "factory"}
 		for _, target := range targets {
 			if out := run(t, dir, "hook", "run", "memory-session-start", "--target", target, "--format", "json"); !strings.Contains(out, `"adds_context": false`) {
@@ -157,6 +161,13 @@ func TestBuiltinMemory(t *testing.T) {
 		for _, target := range targets {
 			if out := run(t, dir, "hook", "run", "memory-session-start", "--target", target, "--format", "json"); !strings.Contains(out, `"adds_context": true`) {
 				t.Errorf("%s: the index does not reach the model:\n%s", target, out)
+			}
+		}
+		t.Setenv("PATH", filepath.Dir(sh))
+		for _, target := range targets {
+			out := run(t, dir, "hook", "run", "memory-session-start", "--target", target, "--format", "json")
+			if !strings.Contains(out, `"adds_context": false`) || !strings.Contains(out, `"decision": "allow"`) {
+				t.Errorf("%s: without agnostic-ai on PATH the hook must allow quietly:\n%s", target, out)
 			}
 		}
 		run(t, dir, "sync", "--check", "--gitignore=off")

@@ -6,7 +6,7 @@
         "command": "echo '{\"env\":{\"AGNOSTIC_AI_TARGET\":\"cursor\"}}'"
       },
       {
-        "command": "agnostic-ai 'hook' 'memory' '--target' 'cursor'"
+        "command": "sh -c 'command -v agnostic-ai >/dev/null 2>&1 || exit 0; exec agnostic-ai hook memory --target cursor'"
       }
     ]
   }
