@@ -1584,3 +1584,147 @@ func TestWatchSync_HandoffChangesDoNotResync(t *testing.T) {
 		})
 	}
 }
+
+func TestWatchSync_LocalDirectoryWritesTrackFiles(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeTestFile(t, config.ConfigFileName, "version: 1\ntargets: [claude]\n")
+	local := defaultProjectUser
+	rules := filepath.Join(local, "rules")
+	rule := filepath.Join(rules, "directory-rule.md")
+	writeTestFile(t, rule, "---\nname: directory-rule\n---\nInitial local rule.\n")
+	writeTestFile(t, filepath.Join(local, "HANDOFF.auto.md"), "Initial snapshot.\n")
+	watcherReady := make(chan *fsnotify.Watcher, 1)
+	var directoryOnly atomic.Bool
+	prev := watchAdd
+	watchAdd = func(w *fsnotify.Watcher, p string) error {
+		select {
+		case watcherReady <- w:
+		default:
+		}
+		if directoryOnly.Load() && pathWithin(rules, p) {
+			return nil
+		}
+		return prev(w, p)
+	}
+	t.Cleanup(func() { watchAdd = prev })
+	buf, stop := startWatch(t, []string{"claude"}, false)
+	defer stop()
+	if !strings.Contains(buf.String(), "fsnotify") {
+		t.Fatalf("fsnotify test fell back to polling: %s", buf.String())
+	}
+	watcher := <-watcherReady
+	localWatch := ""
+	for _, path := range watcher.WatchList() {
+		if pathWithin(local, path) && pathWithin(path, local) {
+			localWatch = path
+			break
+		}
+	}
+	if localWatch == "" {
+		t.Fatalf("local directory is not registered: %v", watcher.WatchList())
+	}
+	directoryWrite := func() {
+		t.Helper()
+		select {
+		case watcher.Events <- fsnotify.Event{Name: localWatch, Op: fsnotify.Write}:
+		case <-time.After(time.Second):
+			t.Fatal("watcher did not receive directory event")
+		}
+	}
+	temp := filepath.Join(local, "HANDOFF.auto.md.a1B2c3")
+	for _, stage := range []struct {
+		name string
+		run  func()
+	}{
+		{"unchanged", func() {}},
+		{"create", func() { writeTestFile(t, temp, "Incomplete snapshot.\n") }},
+		{"write", func() { writeAndBumpMtime(t, temp, []byte("Complete snapshot.\n")) }},
+		{"remove", func() {
+			if err := os.Remove(temp); err != nil {
+				t.Fatal(err)
+			}
+		}},
+	} {
+		before := buf.String()
+		stage.run()
+		directoryWrite()
+		time.Sleep(200 * time.Millisecond)
+		if got := strings.TrimPrefix(buf.String(), before); strings.Contains(got, "re-sync") {
+			t.Errorf("snapshot-only directory %s triggered sync: %s", stage.name, got)
+		}
+	}
+	directoryOnly.Store(true)
+	dropWatchesUnder(watcher, rules)
+	writeAndBumpMtime(t, rule, []byte("---\nname: directory-rule\n---\nUpdated local rule.\n"))
+	directoryWrite()
+	waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "directory-rule.md"), "Updated local rule.", 3*time.Second)
+	added := filepath.Join(rules, "added-rule.md")
+	writeTestFile(t, added, "---\nname: added-rule\n---\nAdded local rule.\n")
+	directoryWrite()
+	waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "added-rule.md"), "Added local rule.", 3*time.Second)
+	renamed := filepath.Join(rules, "renamed-rule.md")
+	if err := os.Rename(added, renamed); err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, renamed, "---\nname: renamed-rule\n---\nRenamed local rule.\n")
+	directoryWrite()
+	waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "renamed-rule.md"), "Renamed local rule.", 3*time.Second)
+	waitForRemoval := func(path string) {
+		t.Helper()
+		deadline := time.Now().Add(3 * time.Second)
+		for time.Now().Before(deadline) {
+			if _, err := os.Stat(path); os.IsNotExist(err) {
+				return
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+		t.Errorf("orphan rule output remains: %s", path)
+	}
+	waitForRemoval(filepath.Join(dir, ".claude", "rules", "added-rule.md"))
+	if err := os.Remove(renamed); err != nil {
+		t.Fatal(err)
+	}
+	directoryWrite()
+	waitForRemoval(filepath.Join(dir, ".claude", "rules", "renamed-rule.md"))
+}
+
+func TestWatchSync_LocalRuleEditedWhileArmingIsReconciled(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeTestFile(t, config.ConfigFileName, "version: 1\ntargets: [claude]\n")
+	local := defaultProjectUser
+	rules := filepath.Join(local, "rules")
+	rule := filepath.Join(rules, "registration-rule.md")
+	writeTestFile(t, rule, "---\nname: registration-rule\n---\nBefore registration.\n")
+	prevAdd := watchAdd
+	watchAdd = func(w *fsnotify.Watcher, p string) error {
+		if pathWithin(rules, p) {
+			return nil
+		}
+		return prevAdd(w, p)
+	}
+	t.Cleanup(func() { watchAdd = prevAdd })
+	var edited atomic.Bool
+	prevPause := armPause
+	armPause = func() {
+		if edited.CompareAndSwap(false, true) {
+			writeAndBumpMtime(t, rule, []byte("---\nname: registration-rule\n---\nEdited during registration.\n"))
+		}
+	}
+	t.Cleanup(func() { armPause = prevPause })
+	buf, stop := startWatch(t, []string{"claude"}, false)
+	defer stop()
+	if !strings.Contains(buf.String(), "fsnotify") {
+		t.Fatalf("fsnotify test fell back to polling: %s", buf.String())
+	}
+	output, err := os.ReadFile(filepath.Join(dir, ".claude", "rules", "registration-rule.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(output), "Edited during registration.") {
+		t.Errorf("ready watcher retained stale rule: %s", output)
+	}
+}

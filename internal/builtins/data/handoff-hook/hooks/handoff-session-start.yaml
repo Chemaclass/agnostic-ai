@@ -65,7 +65,7 @@ command: |
     fi
   fi
   exit 0
-  #' | sh -s; exit 0
+  #' | sh -c "read -r handoff_transport; exec sh -s"; exit 0
 commandWindows: |
   echo '
   handoff_resolve_root() {
@@ -128,7 +128,7 @@ commandWindows: |
     fi
   fi
   exit 0
-  #' | sh -s codex; exit 0
+  #' | sh -c "read -r handoff_transport; exec sh -s codex"; exit 0
 x-factory:
   command: |
     echo '
@@ -192,4 +192,4 @@ x-factory:
       fi
     fi
     exit 0
-    #' | sh -s factory; exit 0
+    #' | sh -c "read -r handoff_transport; exec sh -s factory"; exit 0

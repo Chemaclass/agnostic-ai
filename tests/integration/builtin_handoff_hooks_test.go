@@ -97,12 +97,18 @@ func TestBuiltinHandoffHooks(t *testing.T) {
 				if (target == "claude" || target == "qoder") && h.Shell != "bash" {
 					t.Errorf("%s shell = %q", target, h.Shell)
 				}
-				handoffAssertTransport(t, h.Command)
+				body := handoffAssertTransport(t, h.Command)
+				if event != "SessionStart" && (!strings.Contains(body, "cd \"$handoff_root\" || return 1") || strings.Contains(body, "git -C")) {
+					t.Errorf("%s %s does not run Git from the resolved root", target, event)
+				}
+				if target == "factory" && !strings.Contains(h.Command, "| sh -c \"read -r handoff_transport; exec sh -s factory\"; exit 0") {
+					t.Error("Factory hook lacks fixed identity")
+				}
 				if target == "codex" {
 					if body := handoffAssertTransport(t, h.CommandWindows); body != handoffAssertTransport(t, h.Command) {
 						t.Errorf("Codex Windows %s body differs", event)
 					}
-					if !strings.Contains(h.CommandWindows, "| sh -s codex; exit 0") {
+					if !strings.Contains(h.CommandWindows, "| sh -c \"read -r handoff_transport; exec sh -s codex\"; exit 0") {
 						t.Error("Windows snapshot lacks fixed Codex identity")
 					}
 				}
@@ -124,6 +130,72 @@ func TestBuiltinHandoffHooks(t *testing.T) {
 	})
 
 	for _, target := range handoffHookTargets {
+		t.Run("bom-leading-blank-line-"+target, func(t *testing.T) {
+			transports := []string{"command"}
+			if target == "codex" && runtime.GOOS != "windows" {
+				transports = append(transports, "commandWindows")
+			}
+			for _, transport := range transports {
+				t.Run(transport, func(t *testing.T) {
+					dir := project(t)
+					handlers := syncHooks(t, dir)[target]
+					handoffInitGit(t, dir)
+					cwd := filepath.Join(dir, "nested")
+					if err := os.MkdirAll(cwd, 0o755); err != nil {
+						t.Fatal(err)
+					}
+					withBOM := func(h handoffNativeHandler) handoffNativeHandler {
+						inject := func(command string) string {
+							if strings.Count(command, "echo '\n") != 1 {
+								t.Fatalf("%s lacks one leading echo blank line: %q", target, command)
+							}
+							return strings.Replace(command, "echo '\n", "echo '\ufeff\n", 1)
+						}
+						h.Command = inject(h.Command)
+						if h.CommandWindows != "" {
+							h.CommandWindows = inject(h.CommandWindows)
+						}
+						if transport == "commandWindows" {
+							h.Command = h.CommandWindows
+						}
+						return h
+					}
+					out := handoffExecute(t, target, withBOM(handlers["SessionStart"]), cwd, "{}", "foreign", "")
+					handoffAssertReply(t, target, out, "")
+					event := "PreCompact"
+					if target == "gemini" {
+						event = "PreCompress"
+					}
+					for _, event := range []string{event, "SessionEnd"} {
+						t.Run(event, func(t *testing.T) {
+							handoffWrite(t, filepath.Join(dir, "tracked.txt"), event+" dirty\n")
+							out := handoffExecute(t, target, withBOM(handlers[event]), cwd, "{}", "foreign", "")
+							handoffAssertReply(t, target, out, "")
+							snapshot := handoffRead(t, filepath.Join(dir, ".agnostic-ai", "local", "HANDOFF.auto.md"))
+							branch := strings.TrimSpace(handoffGit(t, dir, "symbolic-ref", "--short", "HEAD"))
+							head := strings.TrimSpace(handoffGit(t, dir, "rev-parse", "HEAD"))
+							for _, want := range []string{"# Automatic handoff", "tool: " + target, "branch: " + branch, "head: " + head, "## Last five commits", strings.TrimSpace(handoffGit(t, dir, "status", "--short"))} {
+								if !strings.Contains(snapshot, want) {
+									t.Errorf("snapshot missing %q:\n%s", want, snapshot)
+								}
+							}
+							lines := strings.Split(snapshot, "\n")
+							if len(lines) < 2 {
+								t.Fatalf("snapshot lacks metadata: %q", snapshot)
+							}
+							metadata := strings.Split(lines[1], " | ")
+							if len(metadata) != 4 {
+								t.Fatalf("metadata = %v", metadata)
+							}
+							if _, err := time.Parse(time.RFC3339, strings.TrimPrefix(metadata[1], "date: ")); err != nil {
+								t.Errorf("UTC metadata: %v", err)
+							}
+						})
+					}
+				})
+			}
+		})
+
 		t.Run("snapshot-and-notice-"+target, func(t *testing.T) {
 			dir := project(t)
 			handlers := syncHooks(t, dir)[target]
@@ -300,16 +372,18 @@ func TestBuiltinHandoffHooks(t *testing.T) {
 		for _, mode := range []string{"status", "symbolic-ref", "rename", "signal"} {
 			t.Run(mode, func(t *testing.T) {
 				shim := t.TempDir()
+				marker := filepath.Join(shim, "failure-hit")
+				mark := "printf '%s\\n' " + handoffShellQuote(mode) + " > " + handoffShellQuote(filepath.ToSlash(marker)) + "\n"
 				if mode == "status" || mode == "symbolic-ref" {
-					script := "#!/bin/sh\nfor argument do\n  if [ \"$argument\" = " + mode + " ]; then exit 128; fi\ndone\nexec " + handoffShellQuote(filepath.ToSlash(realGit)) + " \"$@\"\n"
+					script := "#!/bin/sh\nif [ \"$1\" = " + handoffShellQuote(mode) + " ]; then\n" + mark + "exit 128\nfi\nexec " + handoffShellQuote(filepath.ToSlash(realGit)) + " \"$@\"\n"
 					handoffWrite(t, filepath.Join(shim, "git"), script)
 					if err := os.Chmod(filepath.Join(shim, "git"), 0o755); err != nil {
 						t.Fatal(err)
 					}
 				} else {
-					script := "#!/bin/sh\nexit 1\n"
+					script := "#!/bin/sh\n" + mark + "exit 1\n"
 					if mode == "signal" {
-						script = "#!/bin/sh\nkill -TERM \"$PPID\"\nexit 1\n"
+						script = "#!/bin/sh\n" + mark + "kill -TERM \"$PPID\"\nexit 1\n"
 					}
 					handoffWrite(t, filepath.Join(shim, "mv"), script)
 					if err := os.Chmod(filepath.Join(shim, "mv"), 0o755); err != nil {
@@ -317,6 +391,9 @@ func TestBuiltinHandoffHooks(t *testing.T) {
 					}
 				}
 				for _, target := range handoffHookTargets {
+					if err := os.Remove(marker); err != nil && !os.IsNotExist(err) {
+						t.Fatal(err)
+					}
 					event := "PreCompact"
 					if target == "gemini" {
 						event = "PreCompress"
@@ -325,6 +402,9 @@ func TestBuiltinHandoffHooks(t *testing.T) {
 					handoffWrite(t, filepath.Join(dir, ".agnostic-ai", "local", "HANDOFF.auto.md"), "PREVIOUS_COMPLETE_AUTO\n")
 					out := handoffExecute(t, target, handlers[target][event], dir, "{}", "foreign", shim)
 					handoffAssertReply(t, target, out, "")
+					if hit, err := os.ReadFile(marker); err != nil || string(hit) != mode+"\n" {
+						t.Errorf("%s did not reach %s failure shim: marker = %q, err = %v", target, mode, hit, err)
+					}
 					handoffAssertLocal(t, dir, "MANUAL\n", "PREVIOUS_COMPLETE_AUTO\n")
 				}
 			})
@@ -536,7 +616,7 @@ func handoffAssertTransport(t *testing.T, command string) string {
 	if !ok {
 		t.Fatalf("command does not transport readable stdin: %q", command)
 	}
-	body, suffix, ok := strings.Cut(after, "' | sh -s")
+	body, suffix, ok := strings.Cut(after, "' | sh -c ")
 	if !ok || !strings.HasSuffix(body, "\n#") || strings.ContainsAny(body, "'\\\r") {
 		t.Errorf("unsafe stdin body: %q", command)
 	}
@@ -546,7 +626,12 @@ func handoffAssertTransport(t *testing.T, command string) string {
 			break
 		}
 	}
-	if strings.Contains(command, "agnostic-ai-builtin-") || strings.Contains(command, "$(go ") || !strings.HasSuffix(strings.TrimSpace(suffix), "; exit 0") {
+	tails := []string{
+		"\"read -r handoff_transport; exec sh -s\"; exit 0",
+		"\"read -r handoff_transport; exec sh -s codex\"; exit 0",
+		"\"read -r handoff_transport; exec sh -s factory\"; exit 0",
+	}
+	if strings.Contains(command, "agnostic-ai-builtin-") || strings.Contains(command, "$(go ") || !slices.Contains(tails, strings.TrimSpace(suffix)) {
 		t.Errorf("unexpected hook transport: %q", command)
 	}
 	return body
@@ -571,11 +656,11 @@ func handoffExecute(t *testing.T, target string, h handoffNativeHandler, dir, st
 		if strings.HasPrefix(strings.ToLower(filepath.Base(filepath.Dir(filepath.Dir(git)))), "mingw") {
 			root = filepath.Dir(root)
 		}
-		bash := filepath.Join(root, "bin", "bash.exe")
+		bash := filepath.Join(root, "usr", "bin", "bash.exe")
 		if _, err := os.Stat(bash); err != nil {
 			t.Fatalf("Git Bash required for native boundary test: %v", err)
 		}
-		pathParts = append(pathParts, filepath.Dir(bash), filepath.Join(root, "usr", "bin"))
+		pathParts = append(pathParts, filepath.Dir(bash), filepath.Join(root, "bin"))
 		if target == "codex" || target == "gemini" {
 			command := h.Command
 			if target == "codex" {
