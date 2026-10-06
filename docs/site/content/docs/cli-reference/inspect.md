@@ -17,6 +17,7 @@ Given an [error code](@/docs/errors.md) such as `AAI-003` or a [lint code](@/doc
 
 ```bash
 agnostic-ai explain rules/conventional-commits.md --json
+agnostic-ai explain builtin:handoff --json
 ```
 
 | Flag | Description |
@@ -101,6 +102,7 @@ agnostic-ai explain --inputs
 - files that reviews inline with `@path` (and the entry point's, with `sync.resolve-imports: inline`)
 - `agnostic.packs.lock`
 - `.gitignore`
+- `builtin:<name>@<content-hash>` for each enabled built-in
 
 ## compare
 
@@ -175,4 +177,4 @@ agnostic-ai why .claude/rules/no-console-log.md --format json
 | Flag | Description |
 |------|-------------|
 | `--format` | `text` (default) or `json`. |
-
+| `--json` | Alias for JSON output. |

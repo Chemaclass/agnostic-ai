@@ -14,7 +14,10 @@ func TestResolveLayers_ProjectOnlyByDefault(t *testing.T) {
 	root := t.TempDir()
 	cfg := &config.Config{Sources: defaultLayerSources()}
 
-	layers := resolveLayers(root, cfg)
+	layers, err := resolveLayers(root, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(layers) != 1 {
 		t.Fatalf("expected 1 layer, got %d (%+v)", len(layers), layers)
 	}
@@ -31,7 +34,10 @@ func TestResolveLayers_DoesNotLoadGlobalHome(t *testing.T) {
 	}
 
 	root := t.TempDir()
-	layers := resolveLayers(root, &config.Config{Sources: defaultLayerSources()})
+	layers, err := resolveLayers(root, &config.Config{Sources: defaultLayerSources()})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(layers) != 1 || layers[0].Name != layerNameProject {
 		t.Fatalf("global home joined project layers: %+v", layers)
 	}
@@ -44,7 +50,10 @@ func TestResolveLayers_ProjectUserDetected(t *testing.T) {
 	}
 	cfg := &config.Config{Sources: defaultLayerSources()}
 
-	layers := resolveLayers(root, cfg)
+	layers, err := resolveLayers(root, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(layers) != 2 {
 		t.Fatalf("expected 2 layers, got %d", len(layers))
 	}
@@ -63,7 +72,10 @@ func TestResolveLayers_ProjectAndProjectUserPrecedenceOrder(t *testing.T) {
 	}
 	cfg := &config.Config{Sources: defaultLayerSources()}
 
-	layers := resolveLayers(root, cfg)
+	layers, err := resolveLayers(root, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(layers) != 2 {
 		t.Fatalf("expected 2 layers, got %d", len(layers))
 	}
@@ -82,13 +94,16 @@ func TestResolveLayers_ReadsLocalInsideTheSourceDirOnly(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(root, ".agnostic-ai.local"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if layers := resolveLayers(root, &config.Config{Sources: defaultLayerSources()}); len(layers) != 1 {
+	if layers, err := resolveLayers(root, &config.Config{Sources: defaultLayerSources()}); err != nil || len(layers) != 1 {
 		t.Fatalf("old .agnostic-ai.local was loaded: %+v", layers)
 	}
 	if err := os.MkdirAll(filepath.Join(root, ".agnostic-ai", "local"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	layers := resolveLayers(root, &config.Config{Sources: defaultLayerSources()})
+	layers, err := resolveLayers(root, &config.Config{Sources: defaultLayerSources()})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(layers) != 2 || layers[1].Root != filepath.Join(root, ".agnostic-ai", "local") {
 		t.Fatalf("want .agnostic-ai/local as the project-user layer, got %+v", layers)
 	}

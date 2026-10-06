@@ -26,8 +26,9 @@ type statusResult struct {
 }
 
 type layerInfo struct {
-	Name string
-	Path string
+	Name    string
+	Path    string
+	Builtin *builtinRef
 }
 
 type specCounts struct {
@@ -85,10 +86,14 @@ func gatherStatus(projectRoot string) (*statusResult, error) {
 	}
 
 	syncedAt, filesChanged := readSyncState(projectRoot, allPaths)
+	layers, err := buildLayerInfos(projectRoot, cfg)
+	if err != nil {
+		return nil, err
+	}
 
 	return &statusResult{
 		ProjectName:  filepath.Base(abs),
-		Layers:       buildLayerInfos(projectRoot, cfg),
+		Layers:       layers,
 		Specs:        countSpecs(b),
 		Targets:      cfg.Targets,
 		LastSync:     syncedAt,
@@ -183,17 +188,25 @@ func readSyncState(projectRoot string, fallbackPaths []string) (syncedAt *time.T
 
 // buildLayerInfos returns display-friendly layer entries. The display path for
 // each layer is the directory that contains the spec subdirectories.
-func buildLayerInfos(projectRoot string, cfg *config.Config) []layerInfo {
-	layers := resolveLayers(projectRoot, cfg)
+func buildLayerInfos(projectRoot string, cfg *config.Config) ([]layerInfo, error) {
+	layers, err := resolveLayers(projectRoot, cfg)
+	if err != nil {
+		return nil, err
+	}
 	infos := make([]layerInfo, 0, len(layers))
 	for _, l := range layers {
+		if l.Name == layerNameBuiltin {
+			origin := builtinForEntry(spec.Entry{Layer: l.Name, Path: filepath.Join(l.Root, ".complete")})
+			infos = append(infos, layerInfo{Name: l.Name, Builtin: origin})
+			continue
+		}
 		displayPath := filepath.Dir(filepath.Join(l.Root, l.Sources.Agents))
 		if rel, relErr := filepath.Rel(projectRoot, displayPath); relErr == nil && !strings.HasPrefix(rel, "..") {
 			displayPath = rel
 		}
 		infos = append(infos, layerInfo{Name: l.Name, Path: displayPath + "/"})
 	}
-	return infos
+	return infos, nil
 }
 
 func countSpecs(b spec.Bundle) specCounts {
@@ -216,7 +229,11 @@ func printStatus(cmd *cobra.Command, r *statusResult) {
 
 	parts := make([]string, len(r.Layers))
 	for i, l := range r.Layers {
-		parts[i] = fmt.Sprintf("%s (%s)", l.Name, l.Path)
+		if l.Builtin != nil {
+			parts[i] = l.Builtin.String()
+		} else {
+			parts[i] = fmt.Sprintf("%s (%s)", l.Name, l.Path)
+		}
 	}
 	cmd.Printf("Layers:  %s\n", strings.Join(parts, ", "))
 
@@ -244,8 +261,10 @@ func printStatus(cmd *cobra.Command, r *statusResult) {
 
 func printStatusJSON(cmd *cobra.Command, r *statusResult) error {
 	type layerJSON struct {
-		Name string `json:"name"`
-		Path string `json:"path"`
+		Name    string      `json:"name"`
+		Path    string      `json:"path"`
+		Layer   string      `json:"layer,omitempty"`
+		Builtin *builtinRef `json:"builtin,omitempty"`
 	}
 	type specJSON struct {
 		Agents       int `json:"agents"`
@@ -289,7 +308,10 @@ func printStatusJSON(cmd *cobra.Command, r *statusResult) error {
 		DriftFiles:           r.DriftFiles,
 	}
 	for i, l := range r.Layers {
-		out.Layers[i] = layerJSON{Name: l.Name, Path: filepath.ToSlash(l.Path)}
+		out.Layers[i] = layerJSON{Name: l.Name, Path: filepath.ToSlash(l.Path), Builtin: l.Builtin}
+		if l.Builtin != nil {
+			out.Layers[i].Layer = layerNameBuiltin
+		}
 	}
 	if r.LastSync != nil {
 		s := r.LastSync.UTC().Format(time.RFC3339)

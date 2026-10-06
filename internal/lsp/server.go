@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strings"
 )
@@ -60,13 +59,12 @@ type Server struct {
 	w      *Writer
 	linter Linter
 	root   string
-	exitFn func(int) // defaults to os.Exit
 }
 
 // New returns a Server that reads from r, writes to w, and delegates
 // diagnostics to linter.
 func New(r io.Reader, w io.Writer, linter Linter) *Server {
-	return &Server{r: NewReader(r), w: NewWriter(w), linter: linter, exitFn: os.Exit}
+	return &Server{r: NewReader(r), w: NewWriter(w), linter: linter}
 }
 
 // Run reads messages until the stream closes or exit is received.
@@ -78,6 +76,9 @@ func (s *Server) Run() error {
 				return nil
 			}
 			return fmt.Errorf("lsp read: %w", err)
+		}
+		if msg.Method == "exit" {
+			return nil
 		}
 		s.dispatch(msg)
 	}
@@ -99,8 +100,6 @@ func (s *Server) dispatch(msg *Message) {
 		s.handleDidClose(msg)
 	case "shutdown":
 		s.reply(msg.ID, struct{}{})
-	case "exit":
-		s.exitFn(0)
 	default:
 		if msg.ID != nil {
 			s.replyError(msg.ID, errCodeMethodNotFound,

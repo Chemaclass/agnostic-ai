@@ -279,7 +279,7 @@ func lintScopeReport(scope checkScope) ([]lintFinding, int, error) {
 		configPath = globalConfigPaths(scope.source)[0]
 	}
 	findings = append(findings, lintModels(scope.models, configPath, scope.targets, scope.support, scope.bundle)...)
-	return findings, accepted, nil
+	return withoutBuiltinFindings(findings, scope.bundle), accepted, nil
 }
 
 // collectLintFindings runs every rule against a loaded bundle. Both `lint`
@@ -321,7 +321,7 @@ func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) [
 	findings = append(findings, lintMalformedGlobs(b.Rules)...)
 	findings = append(findings, lintNativeSpecPaths(b)...)
 	findings = append(findings, lintSpecRefs(targets, support, b)...)
-	return findings
+	return withoutBuiltinFindings(findings, b)
 }
 
 // lintEmptySpecs flags specs with no body and no description (LINT001,

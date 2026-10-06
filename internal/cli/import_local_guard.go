@@ -14,11 +14,11 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// localImportGuard keeps an import from storing a spec the project local
-// layer supplies. Sync renders `.agnostic-ai/local/` specs into the same
+// localImportGuard keeps an import from storing a local or built-in spec.
+// Sync renders these specs into the same
 // native files import reads, so without it a personal rule, agent, or
 // skill would land in the shared source, and a shared spec the local
-// layer extends would be overwritten with the merged content (#1174).
+// layer extends would be overwritten with the merged content.
 // It also leaves out the native hooks a shared hook spec renders, which
 // import would otherwise store a second time under a generated name.
 //
@@ -44,7 +44,9 @@ type localImportGuard struct {
 	// sync renders into the native file the overlay captures.
 	overlays map[string]spec.Kind
 	// skipped collects "<kind> <name>" labels for the closing note.
-	skipped map[string]bool
+	skipped         map[string]bool
+	builtinLabels   map[string]bool
+	builtinCommands map[string]map[string]bool
 	// synced collects the shared hooks whose native handlers the run
 	// left out, for the closing note.
 	synced map[string]bool
@@ -78,8 +80,7 @@ var mergedKinds = map[spec.Kind]string{
 	spec.KindEnvironment: "environments",
 }
 
-// importLocal is the active guard, or nil when the project has no local
-// layer. Sequential use only, like importSandbox.
+// importLocal is the active guard. Sequential use only, like importSandbox.
 var importLocal *localImportGuard
 
 // withLocalImportGuard runs fn with a guard built from the project local
@@ -103,9 +104,8 @@ func withLocalImportGuard(root string, cfg *config.Config, fn func() error) erro
 	return runErr
 }
 
-// newLocalImportGuard loads the project local layer and the shared hook
-// specs, before the run writes any. It returns nil when neither holds a
-// spec.
+// newLocalImportGuard loads local and effective built-in specs and shared hooks
+// before import writes any source files.
 func newLocalImportGuard(root string, cfg *config.Config) (*localImportGuard, error) {
 	var local spec.Bundle
 	if layer, ok := resolveProjectUserLayer(root); ok {
@@ -115,6 +115,44 @@ func newLocalImportGuard(root string, cfg *config.Config) (*localImportGuard, er
 		}
 	}
 	entries := local.All()
+	builtinLabels := map[string]bool{}
+	builtinCommands := map[string]map[string]bool{}
+	if len(cfg.Builtins) > 0 {
+		mapped := *cfg
+		mapped.Sources = importMappedSources(root, cfg.Sources)
+		layers, err := resolveLayers(root, &mapped)
+		if err != nil {
+			return nil, err
+		}
+		bundle, err := spec.LoadLayered(layers)
+		if err != nil {
+			return nil, fmt.Errorf("load built-ins for import: %w", err)
+		}
+		for _, e := range bundle.All() {
+			if e.Layer == layerNameBuiltin {
+				entries = append(entries, e)
+				builtinLabels[string(e.Kind)+" "+e.Name] = true
+				if e.Kind == spec.KindHook {
+					local.Hooks = append(local.Hooks, e)
+				}
+			}
+		}
+		for _, target := range cfg.Targets {
+			if (target != "gemini" && target != "opencode") || !cfg.Outputs[target].EmitSkillsAsCommands {
+				continue
+			}
+			for _, e := range bundle.For(target).Skills {
+				if e.Layer == layerNameBuiltin {
+					if builtinCommands[target] == nil {
+						builtinCommands[target] = map[string]bool{}
+					}
+					name := "skill-" + e.Name
+					builtinCommands[target][name] = true
+					builtinLabels[string(spec.KindCommand)+" "+name] = true
+				}
+			}
+		}
+	}
 	shared, err := loadSharedHooks(root, cfg)
 	if err != nil {
 		return nil, err
@@ -123,17 +161,19 @@ func newLocalImportGuard(root string, cfg *config.Config) (*localImportGuard, er
 		return nil, nil
 	}
 	g := &localImportGuard{
-		dirs:        map[string]spec.Kind{},
-		names:       map[spec.Kind]map[string]bool{},
-		hooks:       newHookOwners(local.Hooks, cfg),
-		sharedHooks: newHookOwners(shared, cfg),
-		cfg:         cfg,
-		overlays:    map[string]spec.Kind{},
-		skipped:     map[string]bool{},
-		synced:      map[string]bool{},
-		kept:        map[spec.Kind]bool{},
-		saved:       map[string]*savedImportFile{},
-		skillFiles:  map[string]*savedImportFile{},
+		dirs:            map[string]spec.Kind{},
+		names:           map[spec.Kind]map[string]bool{},
+		hooks:           newHookOwners(local.Hooks, cfg),
+		sharedHooks:     newHookOwners(shared, cfg),
+		cfg:             cfg,
+		overlays:        map[string]spec.Kind{},
+		skipped:         map[string]bool{},
+		builtinLabels:   builtinLabels,
+		builtinCommands: builtinCommands,
+		synced:          map[string]bool{},
+		kept:            map[spec.Kind]bool{},
+		saved:           map[string]*savedImportFile{},
+		skillFiles:      map[string]*savedImportFile{},
 	}
 	for _, e := range entries {
 		if g.names[e.Kind] == nil {
@@ -284,6 +324,24 @@ func (g *localImportGuard) leaves(path string) bool {
 		g.skipped[label] = true
 	}
 	return ok
+}
+
+func (g *localImportGuard) leavesBuiltinCommand(path string, data []byte) bool {
+	mirrors := g.builtinCommands[g.source]
+	if len(mirrors) == 0 {
+		return false
+	}
+	kind, rel, _, ok := g.locate(path)
+	if !ok || kind != spec.KindCommand {
+		return false
+	}
+	for _, name := range specNamesOf(kind, filepath.Base(rel), data) {
+		if mirrors[name] {
+			g.skipped[string(kind)+" "+name] = true
+			return true
+		}
+	}
+	return false
 }
 
 // appendMissingDirs adds dir and each missing parent inside a kind
@@ -467,10 +525,22 @@ func specNamesOf(kind spec.Kind, base string, data []byte) []string {
 // were, if any.
 func (g *localImportGuard) printNote() {
 	if len(g.skipped) > 0 {
-		labels := slices.Sorted(maps.Keys(g.skipped))
-		_, _ = fmt.Fprintf(os.Stdout,
-			"  note: left %d local spec(s) out of the shared source; edit them under %s/: %s\n",
-			len(labels), defaultProjectUser, strings.Join(labels, ", "))
+		var local, bundled []string
+		for _, label := range slices.Sorted(maps.Keys(g.skipped)) {
+			if g.builtinLabels[label] {
+				bundled = append(bundled, label)
+			} else {
+				local = append(local, label)
+			}
+		}
+		if len(local) > 0 {
+			_, _ = fmt.Fprintf(os.Stdout,
+				"  note: left %d local spec(s) out of the shared source; edit them under %s/: %s\n",
+				len(local), defaultProjectUser, strings.Join(local, ", "))
+		}
+		if len(bundled) > 0 {
+			_, _ = fmt.Fprintf(os.Stdout, "  note: left built-in specs out of the shared source: %s; create a project spec with the same name to customize one\n", strings.Join(bundled, ", "))
+		}
 	}
 	if len(g.synced) > 0 {
 		_, _ = fmt.Fprintf(os.Stdout,

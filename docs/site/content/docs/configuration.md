@@ -29,6 +29,7 @@ For directory-specific instructions, give a rule a `scope`. See [scoped context]
 | Change | Section |
 |---|---|
 | Select tools | [Targets](#targets) |
+| Share session state across tools | [Built-ins](#built-ins) |
 | Change paths | [Sources](#sources), [Outputs](#outputs) |
 | Keep generated files out of Git | [Gitignore](#gitignore) |
 | Tune sync | [Sync](#sync), [`sync.unmanaged`](#syncunmanaged) |
@@ -71,6 +72,7 @@ A key not listed in this reference fails every command that reads the config wit
 | [`requires`](#requires) | string | none | agnostic-ai releases the specs work with: a minimum, one release, or a range. |
 | [`sources`](#sources) | map | `.agnostic-ai/<kind>/` | Source directories. |
 | [`targets`](#targets) | list | 20 adapters | Adapters to emit. |
+| [`builtins`](#built-ins) | list | none | Built-in specs to enable. `init` enables `handoff`. |
 | [`outputs`](#outputs) | map | per target | Output path overrides. |
 | [`models`](#models) | map | none | Model tiers that agents, skills, commands, and settings name. |
 | [`on-unsupported`](#on-unsupported) | string | `warn` | Unsupported kind handling. |
@@ -81,6 +83,23 @@ A key not listed in this reference fails every command that reads the config wit
 | [`lint`](#lint) | map | see section | Budgets for always-loaded text. |
 | [`doctor`](#doctor) | map | see section | Opt-in diagnostic checks. |
 | [`coverage`](#coverage) | map | none | Accepted coverage notes and the note gate. |
+
+## Built-ins
+
+`builtins` selects specs bundled inside the binary. Existing projects enable none by default. `agnostic-ai init` writes `builtins: [handoff]` for new projects.
+
+```yaml
+requires: ">=0.80.0"
+builtins: [handoff]
+```
+
+The available name is `handoff`. See [session handoffs](@/docs/handoff.md) for writing and resuming one. Unknown names fail as AAI-004 and list the valid names. A project, pack, or personal spec with the same kind and name takes precedence.
+
+The same list works in the [global home config](#global-configuration). A `builtins` list in either local config replaces the shared list. Set `builtins: []` to disable it there. Removing a built-in removes its ledger-owned outputs on the next sync.
+
+Bump `requires` to at least 0.80.0 when enabling built-ins so an older binary cannot silently omit them. Editors using an older schema flag the key until the release ships. An upgrade that changes built-in text causes `sync --check` drift until you sync.
+
+Legacy merged documents include built-in skill instructions inline.
 
 ## `requires`
 
@@ -632,10 +651,11 @@ Last wins:
 
 ## Layered specs
 
-Specs load from three layers, lowest first. A higher layer overrides a spec of the same kind and name. New names append. The `project-user` layer merges into the shared spec field by field. See [local overrides](@/docs/local-overrides.md#override-fields). `agnostic-ai list` shows each spec's layer.
+Specs load from four layers, lowest first. A higher layer overrides a spec of the same kind and name. New names append. The `project-user` layer merges into the shared spec field by field. See [local overrides](@/docs/local-overrides.md#override-fields). `agnostic-ai list` shows each spec's layer.
 
 | Layer | Root | Loaded when |
 |-------|------|-------------|
+| `builtin` | bundled specs | enabled with `builtins` |
 | packs | `.agnostic-ai/packs/` from `agnostic.packs.lock` | packs are installed |
 | `project` | `agnostic-ai.yaml` `sources` paths | always |
 | `project-user` | `<project>/.agnostic-ai/local` | directory exists |
@@ -650,7 +670,7 @@ Source root: `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when unset.
 
 ```text
 ~/.agnostic-ai/
-├── agnostic-ai.yaml        # optional: targets, requires, lint, on-unsupported, models
+├── agnostic-ai.yaml        # optional: targets, builtins, requires, lint, on-unsupported, models
 ├── AGNOSTIC_AI.md
 ├── agents/*.md
 ├── rules/*.md
@@ -670,6 +690,7 @@ targets: [claude, codex, cursor]
 ```
 
 - `sync --global`, `lint --global`, and `validate --global` then use only those targets. A `targets` list in `local/agnostic-ai.yaml` replaces the shared one.
+- [`builtins`](#built-ins) enables bundled specs before the `global` and `global-local` layers. A local list replaces the shared list.
 - `--only` and `--except` narrow the list for one run and must name configured targets. `--target` replaces it and skips the home config's `targets`.
 - A target with no user-level surface, such as `aider` or `continue`, is skipped with one warning. An unknown name stops the run.
 - [`requires`](#requires) stops the `--global` commands on an older binary. `local/agnostic-ai.yaml` replaces the shared value.
@@ -679,7 +700,7 @@ targets: [claude, codex, cursor]
 - Other keys except `version` print a warning and are ignored.
 - A target dropped from the list keeps its synced files and ownership records until you remove them by hand.
 
-Run `agnostic-ai list --global` to see effective specs with their `global` or `global-local` layer. Run `validate --global` and `lint --global` to check before a sync writes. Run `migrate --global` to rewrite old spec forms there. Global layers never merge with project specs. [Local overrides](@/docs/local-overrides.md) compares this layer with the project one.
+Run `agnostic-ai list --global` to see effective specs with their `builtin`, `global`, or `global-local` layer. Run `validate --global` and `lint --global` to check before a sync writes. Run `migrate --global` to rewrite old spec forms there. Global layers never merge with project specs. [Local overrides](@/docs/local-overrides.md) compares this layer with the project one.
 
 - Accepted `sync` flags are in the [CLI reference](@/docs/cli-reference/sync.md#sync).
 - Nested rules, rules with scope, path, glob, or target conditions, commands, settings `permissions` rule lists (only `permissions.default-mode` is written), inheritance, and merging with project specs are unsupported.

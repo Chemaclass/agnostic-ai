@@ -46,6 +46,7 @@ stop duplicating prompt files per tool.
 - [CI](https://agnostic-ai.org/docs/ci/): the `sync --check` drift gate.
 - [Packs](https://agnostic-ai.org/docs/packs/): sharing and reusing spec bundles.
 - [Local overrides](https://agnostic-ai.org/docs/local-overrides/): personal specs and instructions kept out of Git, per project or per machine.
+- [Session handoffs](https://agnostic-ai.org/docs/handoff/): carry a task between AI tools on the same machine.
 - [Git hooks](https://agnostic-ai.org/docs/git-hooks/): keeping generated files in step with commits.
 - [Graph](https://agnostic-ai.org/docs/graph/): visualising what reaches which tool.
 - [Errors](https://agnostic-ai.org/docs/errors/): every diagnostic, and what fixes it.

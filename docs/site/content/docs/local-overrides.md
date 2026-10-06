@@ -20,6 +20,8 @@ There are two local layers:
 
 A layer loads only when its directory exists. The two never mix: project sync ignores `~/.agnostic-ai/`, and global sync ignores every project.
 
+Enabled [built-ins](@/docs/configuration.md#built-ins) load first. Project order is `builtin`, packs, `project`, `project-user`. Global order is `builtin`, `global`, `global-local`. A higher layer wins by kind and name; the two local layers extend the winning spec.
+
 ## Why a local layer
 
 The team agrees on `.agnostic-ai/`, but you work your own way. Without a local layer, you have two bad options. Edit the shared specs, and the change lands in your next commit. Edit generated files, and the next `sync` overwrites them. A local layer keeps your changes on your machine and the team's in Git.

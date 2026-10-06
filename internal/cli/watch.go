@@ -121,7 +121,7 @@ func watchSyncFsnotify(ctx context.Context, root string, targets []string, dryRu
 			if newDir {
 				stale = dropStaleWatches(w)
 			}
-			if len(stale) == 0 && (isIgnoredEvent(ev) || isWatchNoise(ev, watched)) {
+			if len(stale) == 0 && (isIgnoredEvent(ev, root) || isWatchNoise(ev, watched)) {
 				continue
 			}
 			// New directory holding or leading to a watched input: add it
@@ -547,16 +547,28 @@ func sortedPaths(mtimes map[string]time.Time) []string {
 }
 
 // isIgnoredEvent filters out events that should never trigger a re-sync:
-// chmod-only events (editor "touch" on save) and writes to the .sync-state
-// file we own.
-func isIgnoredEvent(ev fsnotify.Event) bool {
+// chmod-only events, the .sync-state file, and local handoff notes.
+func isIgnoredEvent(ev fsnotify.Event, root string) bool {
 	if ev.Op == fsnotify.Chmod {
 		return true
 	}
 	if filepath.Base(ev.Name) == ".sync-state" {
 		return true
 	}
-	return false
+	return isHandoffPath(root, ev.Name)
+}
+
+func isHandoffPath(root, path string) bool {
+	name := filepath.Base(path)
+	if name != "HANDOFF.md" && name != "HANDOFF.auto.md" {
+		return false
+	}
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return false
+	}
+	expected, err := filepath.Abs(filepath.Join(root, defaultProjectUser, name))
+	return err == nil && absPath == expected
 }
 
 // watchDirs returns the config files and source directories to watch.
@@ -647,6 +659,16 @@ type affectedResync struct {
 // runSyncOnce so the affected subset gets the identical ledger, gitignore,
 // and orphan-sweep handling a partial `--only` sync already gets.
 func resyncForChanges(root string, configured, changed []string, dryRun, backup bool, gitignoreFlag string, jobs int) error {
+	paths := make([]string, 0, len(changed))
+	for _, path := range changed {
+		if !isHandoffPath(root, path) {
+			paths = append(paths, path)
+		}
+	}
+	if len(paths) == 0 {
+		return nil
+	}
+	changed = paths
 	cfg, b, err := loadProject(root)
 	if err != nil {
 		// Without a loadable project the change cannot be attributed;

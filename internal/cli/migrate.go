@@ -223,7 +223,8 @@ func (s migrationScope) loadSpecs() (spec.Bundle, []spec.Layer, error) {
 	if err != nil {
 		return spec.Bundle{}, nil, err
 	}
-	return b, resolveLayers(s.root, cfg), nil
+	layers, err := resolveLayers(s.root, cfg)
+	return withoutBuiltinEntries(b), withoutBuiltinLayers(layers), err
 }
 
 // loadGlobalSpecs loads the global layers as sync --global reads them,
@@ -232,7 +233,15 @@ func (s migrationScope) loadGlobalSpecs() (spec.Bundle, []spec.Layer, error) {
 	if err := requireGlobalVersion(s.root, nil); err != nil {
 		return spec.Bundle{}, nil, err
 	}
-	layers := globalLayers(s.root)
+	names, err := loadGlobalBuiltins(s.root, nil)
+	if err != nil {
+		return spec.Bundle{}, nil, err
+	}
+	layers, err := globalLayers(s.root, names)
+	if err != nil {
+		return spec.Bundle{}, nil, err
+	}
+	layers = withoutBuiltinLayers(layers)
 	b, err := spec.LoadLayered(layers)
 	return b, layers, err
 }

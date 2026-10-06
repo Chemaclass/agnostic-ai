@@ -257,6 +257,13 @@
           },
           "type": "array"
         },
+        "builtins": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Built-in specs to enable. User specs override them."
+        },
         "outputs": {
           "additionalProperties": {
             "$ref": "#/$defs/Output"

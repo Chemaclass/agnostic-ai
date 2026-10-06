@@ -42,11 +42,7 @@ type explainOutput struct {
 	Capabilities []explainCapability `json:"capabilities,omitempty"`
 }
 
-type explainSpecRef struct {
-	Kind string `json:"kind"`
-	Name string `json:"name"`
-	Path string `json:"path"`
-}
+type explainSpecRef = specSourceRef
 
 func newExplainCmd() *cobra.Command {
 	var (
@@ -135,13 +131,9 @@ func newExplainCmd() *cobra.Command {
 					extra = []contribution{}
 				}
 				return emitExplainJSON(cmd, explainOutput{
-					Version: "1",
-					Command: "explain",
-					Spec: explainSpecRef{
-						Kind: string(entry.Kind),
-						Name: entry.Name,
-						Path: filepath.ToSlash(entry.Path),
-					},
+					Version:            "1",
+					Command:            "explain",
+					Spec:               entrySourceRef(entry),
 					Contributions:      configured,
 					WouldEmitIfEnabled: extra,
 					ModelTier:          entry.ModelTier,
@@ -150,7 +142,7 @@ func newExplainCmd() *cobra.Command {
 				})
 			}
 			out := cmd.OutOrStdout()
-			_, _ = fmt.Fprintf(out, "%s →\n", filepath.ToSlash(entry.Path))
+			_, _ = fmt.Fprintf(out, "%s →\n", entrySourceText(entry))
 			if len(configured) == 0 {
 				_, _ = fmt.Fprintln(out, "  (no configured target emits output for this spec)")
 			}

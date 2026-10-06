@@ -18,12 +18,16 @@ func globalSourceHome(home string) string {
 	return filepath.Join(home, ".agnostic-ai")
 }
 
-func globalLayers(source string) []spec.Layer {
+func globalLayers(source string, names []string) ([]spec.Layer, error) {
+	layers, err := resolveBuiltinLayers(names, "")
+	if err != nil {
+		return nil, err
+	}
 	sources := config.Sources{Agents: "agents", Skills: "skills", Rules: "rules", Hooks: "hooks", Settings: "settings", MCPs: "mcps"}
-	return []spec.Layer{
+	return append(layers, []spec.Layer{
 		{Name: "global", Root: source, Sources: sources},
 		{Name: "global-local", Root: filepath.Join(source, "local"), Sources: sources, Extends: true},
-	}
+	}...), nil
 }
 
 // globalSourceRoot resolves the source root as sync --global does,
@@ -98,7 +102,15 @@ func loadSpecScope(global bool, skipBroken io.Writer) (checkScope, error) {
 	if err := requireGlobalVersion(source, skipBroken); err != nil {
 		return checkScope{}, err
 	}
-	b, err := spec.LoadLayered(globalLayers(source))
+	names, err := loadGlobalBuiltins(source, skipBroken)
+	if err != nil {
+		return checkScope{}, err
+	}
+	layers, err := globalLayers(source, names)
+	if err != nil {
+		return checkScope{}, err
+	}
+	b, err := spec.LoadLayered(layers)
 	if err != nil {
 		return checkScope{}, err
 	}

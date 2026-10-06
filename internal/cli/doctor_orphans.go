@@ -51,7 +51,11 @@ func offerOrphanRemoval(cfg *config.Config, reports []driftReport, backup bool, 
 	if orphanedCount(reports) == 0 {
 		return 0, nil
 	}
-	bundle, err := spec.LoadLayered(resolveLayers(".", cfg))
+	layers, err := resolveLayers(".", cfg)
+	if err != nil {
+		return 0, err
+	}
+	bundle, err := spec.LoadLayered(layers)
 	if err != nil {
 		return 0, err
 	}

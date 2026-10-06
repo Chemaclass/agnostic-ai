@@ -17,6 +17,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -916,15 +917,15 @@ func TestSiteDocs_BuildsPlainTextAgentEntryPoints(t *testing.T) {
 func TestSiteDocs_FooterPublishesTheReleasedVersion(t *testing.T) {
 	t.Parallel()
 
-	var config struct {
+	var siteConfig struct {
 		Extra struct {
 			Version string `toml:"version"`
 		} `toml:"extra"`
 	}
-	if _, err := toml.DecodeFile("../../docs/site/config.toml", &config); err != nil {
+	if _, err := toml.DecodeFile("../../docs/site/config.toml", &siteConfig); err != nil {
 		t.Fatalf("parse site config: %v", err)
 	}
-	published := config.Extra.Version
+	published := siteConfig.Extra.Version
 	if published == "" {
 		t.Fatal("the site config publishes no version")
 	}
@@ -952,8 +953,12 @@ func TestSiteDocs_FooterPublishesTheReleasedVersion(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(project), &pins); err != nil {
 		t.Fatalf("parse project config: %v", err)
 	}
-	if want := strings.TrimPrefix(published, "v"); pins.Requires != want {
-		t.Errorf("project requires = %q, released version = %q", pins.Requires, want)
+	releasedMinimum, err := config.ParseRequirement(">=" + strings.TrimPrefix(published, "v"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if allowed, _ := releasedMinimum.Allows(pins.Requires); !allowed {
+		t.Errorf("project requires = %q, want an exact pin at least %s", pins.Requires, published)
 	}
 	schema := regexp.MustCompile(`(?m)^# yaml-language-server: \$schema=(\S+)`).FindStringSubmatch(project)
 	wantSchema := "https://raw.githubusercontent.com/Chemaclass/agnostic-ai/" + published + "/docs/schemas/config.schema.json"

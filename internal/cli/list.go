@@ -8,6 +8,7 @@ import (
 
 func newListCmd() *cobra.Command {
 	var global bool
+	var jsonOut bool
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List loaded specs.",
@@ -29,20 +30,38 @@ func newListCmd() *cobra.Command {
 			}
 			entries := scope.bundle.All()
 			if len(entries) == 0 {
-				cmd.PrintErrln(scope.emptyHint())
-				return nil
+				if !jsonOut {
+					cmd.PrintErrln(scope.emptyHint())
+					return nil
+				}
+			}
+			if jsonOut {
+				refs := make([]specSourceRef, 0, len(entries))
+				for _, e := range entries {
+					refs = append(refs, entrySourceRef(e))
+				}
+				return writeIndentedJSON(cmd, struct {
+					Version string          `json:"version"`
+					Command string          `json:"command"`
+					Entries []specSourceRef `json:"entries"`
+				}{"1", "list", refs})
 			}
 			for _, e := range entries {
 				layer := e.Layer
 				if layer == "" {
 					layer = layerNameProject
 				}
-				cmd.Printf("%s\t%s\t%s\n", e.Kind, e.Name, layer)
+				if origin := builtinForEntry(e); origin != nil {
+					cmd.Printf("%s\t%s\t%s\t%s\n", e.Kind, e.Name, layer, origin.String())
+				} else {
+					cmd.Printf("%s\t%s\t%s\n", e.Kind, e.Name, layer)
+				}
 			}
 			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&global, "global", false, "List effective global specs and their layers")
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output specs and their provenance as JSON")
 	return cmd
 }
 

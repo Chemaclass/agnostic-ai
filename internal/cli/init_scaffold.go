@@ -20,6 +20,7 @@ func renderConfig(base string, targets []string, gitignoreEnabled bool, version 
 	var sb strings.Builder
 	sb.WriteString("# yaml-language-server: $schema=" + schemaURL(version) + "\n")
 	sb.WriteString("version: 1\n")
+	sb.WriteString("builtins: [handoff]\n")
 	if !isDefaultBase(base) {
 		prefix := ""
 		if base != "." {

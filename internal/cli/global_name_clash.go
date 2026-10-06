@@ -60,7 +60,14 @@ const (
 
 func (c globalNameClash) String() string {
 	global := homeRelative(c.global.Path)
+	if c.global.Layer == layerNameBuiltin {
+		global = entrySourceText(c.global)
+		return fmt.Sprintf("%s also exists in %s; %s; rename the project spec to load both, or remove %s from the global home config's builtins list and run `agnostic-ai sync --global`", c.head(), global, c.winners(), c.global.Name)
+	}
 	if c.content == contentIdentical {
+		if c.project.Layer == layerNameBuiltin {
+			return fmt.Sprintf("%s is identical in %s, so every target loads the same content; delete the custom global copy and run `agnostic-ai sync --global`, or remove %s from the project's builtins list", c.head(), global, c.project.Name)
+		}
 		return fmt.Sprintf("%s is identical in %s, so every target loads the same content; delete one copy to keep them from drifting apart, and run `agnostic-ai sync --global` after deleting the global one", c.head(), global)
 	}
 	fix := "rename one to load both"
@@ -91,11 +98,15 @@ func (c globalNameClash) silencedBy(s config.SyncConfig) string {
 
 // silenced is doctor's line for a clash sync does not warn about.
 func (c globalNameClash) silenced(by string) string {
-	return fmt.Sprintf("%s also exists in %s; %s; %s", c.head(), homeRelative(c.global.Path), c.winners(), by)
+	global := homeRelative(c.global.Path)
+	if c.global.Layer == layerNameBuiltin {
+		global = entrySourceText(c.global)
+	}
+	return fmt.Sprintf("%s also exists in %s; %s; %s", c.head(), global, c.winners(), by)
 }
 
 func (c globalNameClash) head() string {
-	return fmt.Sprintf("%s: %s %q", filepath.ToSlash(c.project.Path), c.project.Kind, c.project.Name)
+	return fmt.Sprintf("%s: %s %q", entrySourceText(c.project), c.project.Kind, c.project.Name)
 }
 
 func (c globalNameClash) winners() string {
@@ -268,7 +279,15 @@ func globalNameClashes(b spec.Bundle, targets []string) []globalNameClash {
 	if info, err := os.Stat(source); err != nil || !info.IsDir() {
 		return nil
 	}
-	global, err := spec.LoadLayered(globalLayers(source))
+	names, err := loadGlobalBuiltins(source, nil)
+	if err != nil {
+		return nil
+	}
+	layers, err := globalLayers(source, names)
+	if err != nil {
+		return nil
+	}
+	global, err := spec.LoadLayered(layers)
 	if err != nil {
 		return nil
 	}

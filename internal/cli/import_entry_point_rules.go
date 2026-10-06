@@ -39,7 +39,11 @@ func importInlinedEntryPointRules(root, source string, cfg *config.Config) error
 	specs := map[string]bool{}
 	mapped := *cfg
 	mapped.Sources = importMappedSources(root, cfg.Sources)
-	if b, err := spec.LoadLayered(resolveLayers(root, &mapped)); err == nil {
+	layers, err := resolveLayers(root, &mapped)
+	if err != nil {
+		return err
+	}
+	if b, err := spec.LoadLayered(layers); err == nil {
 		for _, r := range b.Rules {
 			specs[r.Name] = true
 		}

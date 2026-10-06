@@ -97,6 +97,14 @@ func newRenderCmd() *cobra.Command {
 // back to a "did you mean" hint based on file basename.
 func findSpecEntry(input string, b spec.Bundle) (spec.Entry, error) {
 	all := b.All()
+	if name, ok := strings.CutPrefix(input, "builtin:"); ok {
+		for _, e := range all {
+			if origin := builtinForEntry(e); origin != nil && origin.Name == name {
+				return e, nil
+			}
+		}
+		return spec.Entry{}, fmt.Errorf("builtin %q is not enabled or has been overridden", name)
+	}
 	for _, e := range all {
 		if e.Path == input {
 			return e, nil
@@ -118,7 +126,7 @@ func findSpecEntry(input string, b spec.Bundle) (spec.Entry, error) {
 	var hints []string
 	for _, e := range all {
 		if filepath.Base(e.Path) == base {
-			hints = append(hints, e.Path)
+			hints = append(hints, entrySourceText(e))
 		}
 	}
 	sort.Strings(hints)

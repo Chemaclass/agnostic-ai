@@ -41,14 +41,17 @@ func defaultLayerSources() config.Sources {
 // resolveLayers returns the ordered list of layers to load, low- to
 // high-precedence. Optional layers are skipped when their root does
 // not exist.
-func resolveLayers(projectRoot string, cfg *config.Config) []spec.Layer {
-	var layers []spec.Layer
+func resolveLayers(projectRoot string, cfg *config.Config) ([]spec.Layer, error) {
+	layers, err := resolveBuiltinLayers(cfg.Builtins, projectRoot)
+	if err != nil {
+		return nil, err
+	}
 	layers = append(layers, resolvePacksLayers(projectRoot)...)
 	layers = append(layers, resolveProjectLayer(projectRoot, cfg))
 	if l, ok := resolveProjectUserLayer(projectRoot); ok {
 		layers = append(layers, l)
 	}
-	return layers
+	return layers, nil
 }
 
 // resolveProjectLayer returns the always-present project layer using

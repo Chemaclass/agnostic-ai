@@ -366,17 +366,17 @@ func TestWatchSync_ReEmitsOnCodexOverlayChange(t *testing.T) {
 }
 
 func TestIsIgnoredEvent_Chmod(t *testing.T) {
-	if !isIgnoredEvent(fsnotify.Event{Name: "x", Op: fsnotify.Chmod}) {
+	if !isIgnoredEvent(fsnotify.Event{Name: "x", Op: fsnotify.Chmod}, ".") {
 		t.Error("chmod-only events must be ignored")
 	}
-	if isIgnoredEvent(fsnotify.Event{Name: "x", Op: fsnotify.Write}) {
+	if isIgnoredEvent(fsnotify.Event{Name: "x", Op: fsnotify.Write}, ".") {
 		t.Error("write events must not be ignored")
 	}
 }
 
 func TestIsIgnoredEvent_SyncStateFile(t *testing.T) {
 	ev := fsnotify.Event{Name: filepath.Join("anywhere", ".sync-state"), Op: fsnotify.Write}
-	if !isIgnoredEvent(ev) {
+	if !isIgnoredEvent(ev, ".") {
 		t.Error(".sync-state writes must be ignored to avoid feedback loops")
 	}
 }
@@ -1445,4 +1445,104 @@ func TestWatchSync_KeepsWatchingWhenReloadedSourceCannotBeRegistered(t *testing.
 
 	writeTestFile(t, filepath.Join("extra", "rules", "r3.md"), "---\nname: r3\n---\nlater rule body\n")
 	waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "r3.md"), "later rule body", 5*time.Second)
+}
+
+func TestResyncForChanges_IgnoresHandoffBeforeLoadingConfig(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	writeTestFile(t, config.ConfigFileName, "invalid: [")
+	for _, name := range []string{"HANDOFF.md", "HANDOFF.auto.md"} {
+		path := filepath.Join(dir, defaultProjectUser, name)
+		if err := resyncForChanges(dir, []string{"claude"}, []string{path}, false, false, "off", 1); err != nil {
+			t.Errorf("ignored %s loaded broken config: %v", name, err)
+		}
+	}
+}
+
+func TestResyncForChanges_MixedHandoffAndRuleSyncsRule(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	buf := captureWatchOutput(t)
+	rule := filepath.Join(dir, ".agnostic-ai", "rules", "r1.md")
+	writeTestFile(t, rule, "---\nname: r1\n---\nUpdated rule.\n")
+	if err := resyncForChanges(dir, []string{"claude"}, []string{filepath.Join(dir, defaultProjectUser, "HANDOFF.md"), rule}, false, false, "off", 1); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".claude", "rules", "r1.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "Updated rule.") {
+		t.Errorf("rule did not sync: %s", data)
+	}
+	if strings.Contains(buf.String(), "full re-sync") {
+		t.Errorf("ignored handoff forced full sync: %s", buf.String())
+	}
+}
+
+func TestResyncForChanges_HandoffNamedRuleSyncs(t *testing.T) {
+	dir := setupFixture(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	path := filepath.Join(dir, ".agnostic-ai", "rules", "HANDOFF.md")
+	writeTestFile(t, path, "---\nname: handoff-rule\n---\nKeep this ordinary rule.\n")
+	if err := resyncForChanges(dir, []string{"claude"}, []string{path}, false, false, "off", 1); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".claude", "rules", "handoff-rule.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "Keep this ordinary rule.") {
+		t.Errorf("handoff-named rule did not sync: %s", data)
+	}
+}
+
+func TestIsIgnoredEvent_HandoffPaths(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	for _, name := range []string{"HANDOFF.md", "HANDOFF.auto.md"} {
+		for _, path := range []string{filepath.Join(defaultProjectUser, name), filepath.Join(dir, defaultProjectUser, name)} {
+			root := "."
+			if filepath.IsAbs(path) {
+				root = dir
+			}
+			if !isIgnoredEvent(fsnotify.Event{Name: path, Op: fsnotify.Write}, root) {
+				t.Errorf("handoff event not ignored: %s", path)
+			}
+		}
+		for _, path := range []string{filepath.Join(".agnostic-ai", "rules", name), filepath.Join(defaultProjectUser, "rules", name)} {
+			if isIgnoredEvent(fsnotify.Event{Name: path, Op: fsnotify.Write}, ".") {
+				t.Errorf("legitimate spec event ignored: %s", path)
+			}
+		}
+	}
+}
+
+func TestWatchSync_HandoffChangesDoNotResync(t *testing.T) {
+	for _, forcePoll := range []bool{false, true} {
+		t.Run(map[bool]string{false: "fsnotify", true: "poll"}[forcePoll], func(t *testing.T) {
+			dir := setupFixture(t)
+			testutil.Chdir(t, dir)
+			silence(t)
+			for _, name := range []string{"HANDOFF.md", "HANDOFF.auto.md"} {
+				writeTestFile(t, filepath.Join(dir, defaultProjectUser, name), "Initial handoff.\n")
+			}
+			buf, stop := startWatch(t, []string{"claude"}, forcePoll)
+			defer stop()
+			for _, name := range []string{"HANDOFF.md", "HANDOFF.auto.md"} {
+				before := buf.String()
+				writeAndBumpMtime(t, filepath.Join(dir, defaultProjectUser, name), []byte("Updated handoff.\n"))
+				time.Sleep(200 * time.Millisecond)
+				if got := strings.TrimPrefix(buf.String(), before); strings.Contains(got, "re-sync") {
+					t.Errorf("%s triggered sync: %s", name, got)
+				}
+			}
+			rule := filepath.Join(dir, ".agnostic-ai", "rules", "r1.md")
+			writeAndBumpMtime(t, rule, []byte("---\nname: r1\n---\nOrdinary change.\n"))
+			waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "r1.md"), "Ordinary change.", 3*time.Second)
+		})
+	}
 }

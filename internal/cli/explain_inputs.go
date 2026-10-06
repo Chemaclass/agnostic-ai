@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/builtins"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -40,7 +41,9 @@ func runExplainInputs(cmd *cobra.Command, jsonOut bool) error {
 	if prefix, ok := runGit(".", "rev-parse", "--show-prefix"); ok {
 		if prefix = strings.TrimSpace(prefix); prefix != "" {
 			for i, p := range inputs {
-				inputs[i] = prefix + p
+				if !strings.HasPrefix(p, "builtin:") {
+					inputs[i] = prefix + p
+				}
 			}
 		}
 	}
@@ -59,6 +62,9 @@ func runExplainInputs(cmd *cobra.Command, jsonOut bool) error {
 // project root, sorted.
 func projectInputs(cfg *config.Config) ([]string, error) {
 	set := map[string]bool{".gitignore": true, config.ConfigFileName: true, config.LocalOverrideFileName: true}
+	for _, name := range cfg.Builtins {
+		set["builtin:"+name+"@"+builtins.Hash(name)] = true
+	}
 	for _, f := range []string{config.LegacyConfigFileName, packsLockfile} {
 		if _, err := os.Stat(f); err == nil {
 			set[f] = true

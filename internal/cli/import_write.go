@@ -104,6 +104,9 @@ func importWriteFile(path string, data []byte, mode fs.FileMode) error {
 		defer importTxn.mu.Unlock()
 	}
 	if importLocal != nil && inImportSandbox(path) {
+		if importLocal.leavesBuiltinCommand(path, data) {
+			return nil
+		}
 		if err := importLocal.track(path, data, false); err != nil {
 			return err
 		}
