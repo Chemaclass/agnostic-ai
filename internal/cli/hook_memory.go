@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,8 +40,8 @@ func newHookMemoryCmd() *cobra.Command {
 			if root == "" {
 				return nil
 			}
-			index, err := os.ReadFile(filepath.Join(root, adapters.ProjectMemoryIndexPath))
-			if err != nil || strings.TrimSpace(string(index)) == "" {
+			index, ok := readMemoryIndex(root)
+			if !ok {
 				return nil
 			}
 			reply, err := memoryHookReply(target, memoryContext(string(index)))
@@ -136,4 +137,35 @@ func canonicalDir(dir string) string {
 		return abs
 	}
 	return dir
+}
+
+// memoryIndexMaxBytes bounds the read; the context keeps far less.
+const memoryIndexMaxBytes = 1 << 20
+
+// readMemoryIndex reads the project's memory index when it is a regular
+// file inside root. A hook reads it into the model's context unasked, so
+// a symlink that leaves the project, such as one a cloned checkout ships
+// to a credentials file, is skipped.
+func readMemoryIndex(root string) (string, bool) {
+	root = canonicalDir(root)
+	real, err := filepath.EvalSymlinks(filepath.Join(root, adapters.ProjectMemoryIndexPath))
+	if err != nil {
+		return "", false
+	}
+	if rel, err := filepath.Rel(root, real); err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+		return "", false
+	}
+	f, err := os.Open(real)
+	if err != nil {
+		return "", false
+	}
+	defer func() { _ = f.Close() }()
+	if info, err := f.Stat(); err != nil || !info.Mode().IsRegular() {
+		return "", false
+	}
+	data, err := io.ReadAll(io.LimitReader(f, memoryIndexMaxBytes))
+	if err != nil || strings.TrimSpace(string(data)) == "" {
+		return "", false
+	}
+	return string(data), true
 }

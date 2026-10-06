@@ -152,3 +152,39 @@ func TestHookMemory_SkipsTheGlobalSourceRoot(t *testing.T) {
 		t.Errorf("got %q, want nothing", got)
 	}
 }
+
+func TestHookMemory_SkipsAnIndexThatLeavesTheProject(t *testing.T) {
+	secret := filepath.Join(t.TempDir(), "credentials")
+	if err := os.WriteFile(secret, []byte("token=hunter2\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for name, link := range map[string]func(dir string) error{
+		"file": func(dir string) error {
+			if err := os.MkdirAll(filepath.Join(dir, ".agnostic-ai", "memory"), 0o755); err != nil {
+				return err
+			}
+			return os.Symlink(secret, filepath.Join(dir, ".agnostic-ai", "memory", "MEMORY.md"))
+		},
+		"folder": func(dir string) error {
+			if err := os.Rename(secret, filepath.Join(filepath.Dir(secret), "MEMORY.md")); err != nil {
+				return err
+			}
+			secret = filepath.Join(filepath.Dir(secret), "MEMORY.md")
+			if err := os.MkdirAll(filepath.Join(dir, ".agnostic-ai"), 0o755); err != nil {
+				return err
+			}
+			return os.Symlink(filepath.Dir(secret), filepath.Join(dir, ".agnostic-ai", "memory"))
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			memoryHookProject(t, "")
+			dir, _ := os.Getwd()
+			if err := link(dir); err != nil {
+				t.Skipf("symlink: %v", err)
+			}
+			if got := runHookMemory(t, "--target", "codex"); strings.Contains(got, "hunter2") {
+				t.Errorf("hook leaked a file outside the project: %q", got)
+			}
+		})
+	}
+}
