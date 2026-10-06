@@ -1,0 +1,49 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '\nhandoff_resolve_root() {\n  handoff_root=$(pwd -P) || return 1\n  handoff_global=${AGNOSTIC_AI_HOME:-${HOME-}/.agnostic-ai}\n  handoff_global=$(cd \"$handoff_global\" 2>/dev/null && pwd -P) || handoff_global=\n  handoff_cursor=$handoff_root\n  while :; do\n    if [ \"$handoff_cursor\" != \"$handoff_global\" ] &&\n       { [ -f \"$handoff_cursor/agnostic-ai.yaml\" ] ||\n         [ -f \"$handoff_cursor/agnostic.config.yaml\" ]; }; then\n      handoff_root=$handoff_cursor\n      return 0\n    fi\n    handoff_parent=$(dirname \"$handoff_cursor\") || return 1\n    [ \"$handoff_parent\" = \"$handoff_cursor\" ] && break\n    handoff_cursor=$handoff_parent\n  done\n  handoff_root=$(git rev-parse --show-toplevel) || return 1\n}\nhandoff_notice() {\n  handoff_resolve_root || return 1\n  handoff_dir=$handoff_root/.agnostic-ai/local\n  if [ -f \"$handoff_dir/HANDOFF.md\" ] && [ -f \"$handoff_dir/HANDOFF.auto.md\" ]; then\n    if [ \"$handoff_tool\" = factory ]; then\n      printf \"%s\n\" \"Handoff available: .agnostic-ai/local/HANDOFF.md and HANDOFF.auto.md. Ask to resume the handoff.\"\n    else\n      cat <<EOF\n{\"systemMessage\":\"Handoff available: .agnostic-ai/local/HANDOFF.md and HANDOFF.auto.md. Ask to resume the handoff.\"}\nEOF\n    fi\n  elif [ -f \"$handoff_dir/HANDOFF.md\" ]; then\n    if [ \"$handoff_tool\" = factory ]; then\n      printf \"%s\n\" \"Handoff available: .agnostic-ai/local/HANDOFF.md. Ask to resume the handoff.\"\n    else\n      cat <<EOF\n{\"systemMessage\":\"Handoff available: .agnostic-ai/local/HANDOFF.md. Ask to resume the handoff.\"}\nEOF\n    fi\n  elif [ -f \"$handoff_dir/HANDOFF.auto.md\" ]; then\n    if [ \"$handoff_tool\" = factory ]; then\n      printf \"%s\n\" \"Git snapshot available: .agnostic-ai/local/HANDOFF.auto.md. Ask to resume the handoff.\"\n    else\n      cat <<EOF\n{\"systemMessage\":\"Git snapshot available: .agnostic-ai/local/HANDOFF.auto.md. Ask to resume the handoff.\"}\nEOF\n    fi\n  else\n    return 1\n  fi\n}\nhandoff_tool=${1:-${AGNOSTIC_AI_TARGET-}}\nif ! handoff_notice </dev/null 2>/dev/null; then\n  if [ \"$handoff_tool\" != factory ]; then\n    printf \"%s\n\" \"{}\"\n  fi\nfi\nexit 0\n#' | sh -s; exit 0\n",
+            "shell": "bash",
+            "env": {
+              "AGNOSTIC_AI_TARGET": "qoder"
+            }
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '\nhandoff_resolve_root() {\n  handoff_root=$(pwd -P) || return 1\n  handoff_global=${AGNOSTIC_AI_HOME:-${HOME-}/.agnostic-ai}\n  handoff_global=$(cd \"$handoff_global\" 2>/dev/null && pwd -P) || handoff_global=\n  handoff_cursor=$handoff_root\n  while :; do\n    if [ \"$handoff_cursor\" != \"$handoff_global\" ] &&\n       { [ -f \"$handoff_cursor/agnostic-ai.yaml\" ] ||\n         [ -f \"$handoff_cursor/agnostic.config.yaml\" ]; }; then\n      handoff_root=$handoff_cursor\n      return 0\n    fi\n    handoff_parent=$(dirname \"$handoff_cursor\") || return 1\n    [ \"$handoff_parent\" = \"$handoff_cursor\" ] && break\n    handoff_cursor=$handoff_parent\n  done\n  handoff_root=$(git rev-parse --show-toplevel) || return 1\n}\nhandoff_cleanup() {\n  if [ -n \"${handoff_temp-}\" ]; then\n    rm -f \"$handoff_temp\" >/dev/null 2>&1\n  fi\n}\nhandoff_reply() {\n  if [ \"$handoff_tool\" != factory ]; then\n    printf \"%s\n\" \"{}\"\n  fi\n}\nhandoff_stop() {\n  handoff_cleanup\n  handoff_reply\n  exit 0\n}\nhandoff_snapshot() {\n  handoff_resolve_root || return 1\n  handoff_inside=$(git -C \"$handoff_root\" rev-parse --is-inside-work-tree) || return 1\n  [ \"$handoff_inside\" = true ] || return 1\n  handoff_head=$(git -C \"$handoff_root\" rev-parse HEAD) || return 1\n  handoff_branch=$(git -C \"$handoff_root\" symbolic-ref --quiet --short HEAD)\n  handoff_branch_status=$?\n  case \"$handoff_branch_status\" in\n    0) ;;\n    1) handoff_branch=detached ;;\n    *) return 1 ;;\n  esac\n  handoff_date=$(date -u \"+%Y-%m-%dT%H:%M:%SZ\") || return 1\n  handoff_status=$(git -C \"$handoff_root\" status --short) || return 1\n  handoff_commits=$(git -C \"$handoff_root\" -c log.showSignature=false --no-pager log -5 --format=%s) || return 1\n  case \"$handoff_tool\" in\n    claude|codex|gemini|qoder|factory) ;;\n    *) return 1 ;;\n  esac\n  umask 077\n  handoff_dir=$handoff_root/.agnostic-ai/local\n  mkdir -p \"$handoff_dir\" || return 1\n  handoff_temp=$(mktemp \"$handoff_dir/HANDOFF.auto.md.XXXXXX\") || return 1\n  trap handoff_cleanup 0\n  trap handoff_stop HUP INT TERM\n  printf \"# Automatic handoff\ntool: %s | date: %s | branch: %s | head: %s\n\n## Git status\n\n%s\n\n## Last five commits\n\n%s\n\" \"$handoff_tool\" \"$handoff_date\" \"$handoff_branch\" \"$handoff_head\" \"$handoff_status\" \"$handoff_commits\" >\"$handoff_temp\" || return 1\n  mv -f \"$handoff_temp\" \"$handoff_dir/HANDOFF.auto.md\" || return 1\n  handoff_temp=\n}\nhandoff_tool=${1:-${AGNOSTIC_AI_TARGET-}}\nhandoff_snapshot \"$@\" </dev/null 2>/dev/null\nhandoff_reply\nexit 0\n#' | sh -s; exit 0\n",
+            "shell": "bash",
+            "env": {
+              "AGNOSTIC_AI_TARGET": "qoder"
+            }
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '\nhandoff_resolve_root() {\n  handoff_root=$(pwd -P) || return 1\n  handoff_global=${AGNOSTIC_AI_HOME:-${HOME-}/.agnostic-ai}\n  handoff_global=$(cd \"$handoff_global\" 2>/dev/null && pwd -P) || handoff_global=\n  handoff_cursor=$handoff_root\n  while :; do\n    if [ \"$handoff_cursor\" != \"$handoff_global\" ] &&\n       { [ -f \"$handoff_cursor/agnostic-ai.yaml\" ] ||\n         [ -f \"$handoff_cursor/agnostic.config.yaml\" ]; }; then\n      handoff_root=$handoff_cursor\n      return 0\n    fi\n    handoff_parent=$(dirname \"$handoff_cursor\") || return 1\n    [ \"$handoff_parent\" = \"$handoff_cursor\" ] && break\n    handoff_cursor=$handoff_parent\n  done\n  handoff_root=$(git rev-parse --show-toplevel) || return 1\n}\nhandoff_cleanup() {\n  if [ -n \"${handoff_temp-}\" ]; then\n    rm -f \"$handoff_temp\" >/dev/null 2>&1\n  fi\n}\nhandoff_reply() {\n  if [ \"$handoff_tool\" != factory ]; then\n    printf \"%s\n\" \"{}\"\n  fi\n}\nhandoff_stop() {\n  handoff_cleanup\n  handoff_reply\n  exit 0\n}\nhandoff_snapshot() {\n  handoff_resolve_root || return 1\n  handoff_inside=$(git -C \"$handoff_root\" rev-parse --is-inside-work-tree) || return 1\n  [ \"$handoff_inside\" = true ] || return 1\n  handoff_head=$(git -C \"$handoff_root\" rev-parse HEAD) || return 1\n  handoff_branch=$(git -C \"$handoff_root\" symbolic-ref --quiet --short HEAD)\n  handoff_branch_status=$?\n  case \"$handoff_branch_status\" in\n    0) ;;\n    1) handoff_branch=detached ;;\n    *) return 1 ;;\n  esac\n  handoff_date=$(date -u \"+%Y-%m-%dT%H:%M:%SZ\") || return 1\n  handoff_status=$(git -C \"$handoff_root\" status --short) || return 1\n  handoff_commits=$(git -C \"$handoff_root\" -c log.showSignature=false --no-pager log -5 --format=%s) || return 1\n  case \"$handoff_tool\" in\n    claude|codex|gemini|qoder|factory) ;;\n    *) return 1 ;;\n  esac\n  umask 077\n  handoff_dir=$handoff_root/.agnostic-ai/local\n  mkdir -p \"$handoff_dir\" || return 1\n  handoff_temp=$(mktemp \"$handoff_dir/HANDOFF.auto.md.XXXXXX\") || return 1\n  trap handoff_cleanup 0\n  trap handoff_stop HUP INT TERM\n  printf \"# Automatic handoff\ntool: %s | date: %s | branch: %s | head: %s\n\n## Git status\n\n%s\n\n## Last five commits\n\n%s\n\" \"$handoff_tool\" \"$handoff_date\" \"$handoff_branch\" \"$handoff_head\" \"$handoff_status\" \"$handoff_commits\" >\"$handoff_temp\" || return 1\n  mv -f \"$handoff_temp\" \"$handoff_dir/HANDOFF.auto.md\" || return 1\n  handoff_temp=\n}\nhandoff_tool=${1:-${AGNOSTIC_AI_TARGET-}}\nhandoff_snapshot \"$@\" </dev/null 2>/dev/null\nhandoff_reply\nexit 0\n#' | sh -s; exit 0\n",
+            "shell": "bash",
+            "env": {
+              "AGNOSTIC_AI_TARGET": "qoder"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

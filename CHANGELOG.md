@@ -8,7 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
-- `builtins: [handoff]` carries sessions between tools and proposes durable learnings for approved project, personal, or global rules.
+- Opt-in `handoff` built-ins carry tasks between tools, promote approved rules, and add Git snapshots with startup resume notices (#1829, #1830).
 - A one-line code span such as ```` ```example``` ```` no longer hides the `@path` lines after it from includes and imports (#1828).
 - `sync --check --against` checks out only the files it reads, so it runs about 5x faster in a repository with 20k+ tracked files (#1819).
 - A `sync` or `sync --check` that changes nothing runs 2 to 5x faster: the Claude syntax scan skips lines without `$` or `!` (#1821).

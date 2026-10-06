@@ -64,6 +64,57 @@ Project learnings can be committed for teammates. Personal learnings stay in the
 
 If `agnostic-ai` is not on PATH, the skill prints the command to run. After approved writes and sync attempts, it refreshes the handoff's git header, completed work, and verification notes. Failed or pending syncs stay recorded as unfinished work.
 
+## Add automatic Git snapshots
+
+Enable the separate `handoff-hook` built-in alongside the skill, then run `agnostic-ai sync`:
+
+```yaml
+requires: ">=0.80.0"
+builtins: [handoff, handoff-hook]
+```
+
+`init` enables only the skill. The hooks are opt-in and support these targets:
+
+| Target | Snapshot events | Arrival event and notice |
+| --- | --- | --- |
+| [Claude Code](https://code.claude.com/docs/en/hooks) | `PreCompact`, `SessionEnd` | `SessionStart`, JSON `systemMessage` |
+| [Codex](https://learn.chatgpt.com/docs/hooks) | `PreCompact`, `SessionEnd` | `SessionStart`, JSON `systemMessage` |
+| [Gemini CLI](https://geminicli.com/docs/hooks/reference/) | `PreCompress`, `SessionEnd` | `SessionStart`, JSON `systemMessage` |
+| [Qoder CLI](https://docs.qoder.com/cli/hooks-reference.md) | `PreCompact`, `SessionEnd` | `SessionStart`, JSON `systemMessage` |
+| [Factory / Droid](https://docs.factory.com/harness/hooks) | `PreCompact`, `SessionEnd` | `SessionStart`, one text line with `showHookOutput: true` |
+
+The snapshot records the tool, UTC date, branch, full HEAD, `git status --short`, and the last five commit subjects in `.agnostic-ai/local/HANDOFF.auto.md`. It replaces that file atomically and leaves the last complete snapshot in place on a failed update. Detached HEAD is recorded as `detached`. Non-Git, bare, and unborn repositories produce no new snapshot. The hooks never open `HANDOFF.md`, diffs, transcripts, ignored file contents, or tool-owned memory stores.
+
+The hooks use the same nearest-config root as the skill, starting from the hook process's working directory. They exclude the global source directory (`AGNOSTIC_AI_HOME`, or `~/.agnostic-ai` by default) from project-root discovery, including an ancestor directory or a symlink to it. With no project config, they fall back to the current Git worktree root. A configured subproject keeps its own snapshot. If the working directory has neither root, the hook skips the snapshot and notice.
+
+On session start, a notice names the existing manual handoff, Git snapshot, or both, and suggests asking to resume. It checks only file existence. The automatic file holds Git evidence; the manual handoff supplies the goal and next steps. No task resumes until you request it.
+
+The commands require `sh`, Git, `date`, `dirname`, `mkdir`, `mktemp`, `mv`, `rm`, and `cat` on PATH. Claude Code and Qoder use explicit Bash. Windows requires Git for Windows with its POSIX utilities available on PATH; native Windows vendor launches have not been verified. Commands execute inline and do not use helper scripts or cache paths.
+
+Start Claude Code at the project root so it loads the emitted `.claude/settings.json`. [Claude reads shared project settings from its starting directory](https://code.claude.com/docs/en/settings#where-claude-code-keeps-the-local-file-in-a-git-repository).
+
+The vendor's hook enablement and trust settings still apply. Review changed Codex definitions with `/hooks` and approve Gemini project hooks when prompted. Managed-only policies can exclude these hooks. Claude and Codex can cut off session-end work at their deadlines. Gemini `PreCompress` is asynchronous and `SessionEnd` is best effort, so neither event promises a completed update before compression or exit.
+
+### Factory notices
+
+Factory snapshots produce no stdout. To display its startup notice in the transcript, add this user-owned settings spec and sync. [Factory documents `showHookOutput`](https://docs.factory.com/droid-cli/settings) as the setting that displays hook stdout and stderr:
+
+```yaml
+# .agnostic-ai/settings/handoff-notices.yaml
+name: handoff-notices
+targets: [factory]
+x-factory:
+  showHookOutput: true
+```
+
+The built-in does not enable this preference. With neither handoff file present, the Factory startup hook prints nothing. With a file present, the single notice also enters session context. Handoff file contents are never injected. Factory hooks use project configuration; `sync --global` has no Factory hook surface.
+
+### Global hooks and local files
+
+Claude Code, Codex, Gemini CLI, and Qoder CLI can receive these hooks from the global home config through `agnostic-ai sync --global`. They still resolve the current project's root at runtime.
+
+Project `agnostic-ai sync` adds the `.agnostic-ai/local/` ignore rule. A global-only hook or skill installation does not change a checkout's ignore files. Users running only global hooks or skills must ignore `.agnostic-ai/local/` in that checkout themselves.
+
 ## Resume in another tool
 
 Open the other tool in the same checkout and say "continue where Codex left off" or "resume the handoff". The skill reads the handoff only after a request. It reports the goal and next steps, compares the branch and HEAD with git, and asks before continuing on a mismatch. This check also catches a handoff copied into another worktree.
@@ -72,7 +123,7 @@ If a newer `.agnostic-ai/local/HANDOFF.auto.md` exists, the skill uses that snap
 
 ## Scope and overrides
 
-Handoffs stay on the same machine. `.agnostic-ai/local/` is gitignored, so another checkout or teammate does not receive the file through a push. A globally installed skill still writes into the current project's local folder.
+Handoffs stay on the same machine. Project sync ignores `.agnostic-ai/local/`, so another checkout or teammate does not receive the file through a push. A globally installed skill still writes into the current project's local folder.
 
 A project skill named `handoff` overrides the built-in. Pack skills also override it, and a personal local skill can extend the winning skill. `list` shows the winning layer. A custom project `handoff` next to a global built-in produces the usual shared-name warning. The same built-in enabled at both scopes shares one source and produces no warning.
 

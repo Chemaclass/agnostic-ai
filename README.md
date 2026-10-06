@@ -68,6 +68,8 @@ Model tiers share roles across tools. Codex aliases resolve to explicit IDs; see
 
 Enable `builtins: [handoff]` to write a session handoff in one tool and resume it in another on the same machine. The skill proposes durable rules and saves them after confirmation. `init` enables it for new projects. See [Session handoffs](https://agnostic-ai.org/docs/handoff/).
 
+Add `handoff-hook` to `builtins` to record Git snapshots and show startup resume notices in supported tools. See [Automatic handoffs](https://agnostic-ai.org/docs/handoff/#add-automatic-git-snapshots).
+
 MCP import replaces literal environment and header values, and credentials in MCP URLs and arguments, with portable references. Continue sync writes its secret syntax for `.env` files. See [MCP references](https://agnostic-ai.org/docs/spec-format/mcps/#environment-references).
 
 Claude MCP import and sync preserve `alwaysLoad` and `bareElicitationCapability`, including explicit `false` values. See [Claude MCP options](https://agnostic-ai.org/docs/targets/claude/#output) for tool loading and connection compatibility.

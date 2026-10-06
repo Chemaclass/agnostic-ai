@@ -1,0 +1,3 @@
+version: 1
+targets: [claude, codex, gemini, qoder, factory]
+builtins: [handoff-hook]
