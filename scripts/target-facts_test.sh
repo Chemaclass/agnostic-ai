@@ -466,10 +466,23 @@ function test_builtin_regression_tracked_path_with_newline_is_not_split() {
   assert_builtin_regression_shared_deep "$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")"
 }
 
-function test_builtin_regression_ignored_untracked_asset_is_not_a_change() {
+function test_builtin_regression_ignored_file_the_binary_embeds_is_a_change() {
+  # go:embed reads the data folder regardless of .gitignore.
   builtin_regression_fixture
-  printf 'ignored.txt\n' >"$ROOT/.git/info/exclude"
-  printf 'ignored\n' >"$BUILTINS_DIR/demo/skills/demo/references/ignored.txt"
+  printf 'AGENT.md\n' >"$ROOT/.git/info/exclude"
+  mkdir -p "$BUILTINS_DIR/demo/agents"
+  printf 'agent\n' >"$BUILTINS_DIR/demo/agents/AGENT.md"
+  assert_builtin_regression_shared_deep "$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")"
+}
+
+function test_builtin_regression_ignored_files_the_binary_skips_are_not_a_change() {
+  # go:embed skips dot and underscore names in a directory, and ignored
+  # files outside the data folder never reach the binary.
+  builtin_regression_fixture
+  printf '.DS_Store\n_scratch.md\nnotes.local\n' >"$ROOT/.git/info/exclude"
+  printf 'x\n' >"$BUILTINS_DIR/demo/skills/demo/references/.DS_Store"
+  printf 'x\n' >"$BUILTINS_DIR/demo/skills/demo/_scratch.md"
+  printf 'x\n' >"$ROOT/internal/spec/notes.local"
   assert_equals 'sweep: factory claude continue' "$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")"
 }
 
