@@ -1452,7 +1452,7 @@ func TestResyncForChanges_IgnoresHandoffBeforeLoadingConfig(t *testing.T) {
 	testutil.Chdir(t, dir)
 	silence(t)
 	writeTestFile(t, config.ConfigFileName, "invalid: [")
-	for _, name := range []string{"HANDOFF.md", "HANDOFF.auto.md"} {
+	for _, name := range []string{"HANDOFF.md", "HANDOFF.auto.md", "HANDOFF.auto.md.a1B2c3"} {
 		path := filepath.Join(dir, defaultProjectUser, name)
 		if err := resyncForChanges(dir, []string{"claude"}, []string{path}, false, false, "off", 1); err != nil {
 			t.Errorf("ignored %s loaded broken config: %v", name, err)
@@ -1467,7 +1467,7 @@ func TestResyncForChanges_MixedHandoffAndRuleSyncsRule(t *testing.T) {
 	buf := captureWatchOutput(t)
 	rule := filepath.Join(dir, ".agnostic-ai", "rules", "r1.md")
 	writeTestFile(t, rule, "---\nname: r1\n---\nUpdated rule.\n")
-	if err := resyncForChanges(dir, []string{"claude"}, []string{filepath.Join(dir, defaultProjectUser, "HANDOFF.md"), rule}, false, false, "off", 1); err != nil {
+	if err := resyncForChanges(dir, []string{"claude"}, []string{filepath.Join(dir, defaultProjectUser, "HANDOFF.md"), filepath.Join(dir, defaultProjectUser, "HANDOFF.auto.md.a1B2c3"), rule}, false, false, "off", 1); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(filepath.Join(dir, ".claude", "rules", "r1.md"))
@@ -1503,19 +1503,21 @@ func TestResyncForChanges_HandoffNamedRuleSyncs(t *testing.T) {
 func TestIsIgnoredEvent_HandoffPaths(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
-	for _, name := range []string{"HANDOFF.md", "HANDOFF.auto.md"} {
-		for _, path := range []string{filepath.Join(defaultProjectUser, name), filepath.Join(dir, defaultProjectUser, name)} {
-			root := "."
-			if filepath.IsAbs(path) {
-				root = dir
+	for _, name := range []string{"HANDOFF.md", "HANDOFF.auto.md", "HANDOFF.auto.md.a1B2c3"} {
+		for _, op := range []fsnotify.Op{fsnotify.Create, fsnotify.Write, fsnotify.Rename, fsnotify.Remove, fsnotify.Create | fsnotify.Write} {
+			for _, path := range []string{filepath.Join(defaultProjectUser, name), filepath.Join(dir, defaultProjectUser, name)} {
+				root := "."
+				if filepath.IsAbs(path) {
+					root = dir
+				}
+				if !isIgnoredEvent(fsnotify.Event{Name: path, Op: op}, root) {
+					t.Errorf("handoff %s event not ignored: %s", op, path)
+				}
 			}
-			if !isIgnoredEvent(fsnotify.Event{Name: path, Op: fsnotify.Write}, root) {
-				t.Errorf("handoff event not ignored: %s", path)
-			}
-		}
-		for _, path := range []string{filepath.Join(".agnostic-ai", "rules", name), filepath.Join(defaultProjectUser, "rules", name)} {
-			if isIgnoredEvent(fsnotify.Event{Name: path, Op: fsnotify.Write}, ".") {
-				t.Errorf("legitimate spec event ignored: %s", path)
+			for _, path := range []string{filepath.Join(".agnostic-ai", "rules", name), filepath.Join(defaultProjectUser, "rules", name), filepath.Join("child", defaultProjectUser, name)} {
+				if isIgnoredEvent(fsnotify.Event{Name: path, Op: op}, ".") {
+					t.Errorf("legitimate %s event ignored: %s", op, path)
+				}
 			}
 		}
 	}
@@ -1532,6 +1534,9 @@ func TestWatchSync_HandoffChangesDoNotResync(t *testing.T) {
 			}
 			buf, stop := startWatch(t, []string{"claude"}, forcePoll)
 			defer stop()
+			if !forcePoll && !strings.Contains(buf.String(), "fsnotify") {
+				t.Fatalf("fsnotify test fell back to polling: %s", buf.String())
+			}
 			for _, name := range []string{"HANDOFF.md", "HANDOFF.auto.md"} {
 				before := buf.String()
 				writeAndBumpMtime(t, filepath.Join(dir, defaultProjectUser, name), []byte("Updated handoff.\n"))
@@ -1540,6 +1545,39 @@ func TestWatchSync_HandoffChangesDoNotResync(t *testing.T) {
 					t.Errorf("%s triggered sync: %s", name, got)
 				}
 			}
+			auto := filepath.Join(dir, defaultProjectUser, "HANDOFF.auto.md")
+			temp := filepath.Join(dir, defaultProjectUser, "HANDOFF.auto.md.a1B2c3")
+			for _, stage := range []struct {
+				name string
+				run  func()
+			}{
+				{"create", func() { writeTestFile(t, temp, "Incomplete snapshot.\n") }},
+				{"write", func() { writeAndBumpMtime(t, temp, []byte("Complete snapshot.\n")) }},
+				{"replace", func() {
+					if err := os.Remove(auto); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.Rename(temp, auto); err != nil {
+						t.Fatal(err)
+					}
+				}},
+				{"create-for-cleanup", func() { writeTestFile(t, temp, "Failed snapshot.\n") }},
+				{"remove", func() {
+					if err := os.Remove(temp); err != nil {
+						t.Fatal(err)
+					}
+				}},
+			} {
+				before := buf.String()
+				stage.run()
+				time.Sleep(200 * time.Millisecond)
+				if got := strings.TrimPrefix(buf.String(), before); strings.Contains(got, "re-sync") {
+					t.Errorf("snapshot temporary-file %s triggered sync: %s", stage.name, got)
+				}
+			}
+			outside := filepath.Join(dir, ".agnostic-ai", "rules", "HANDOFF.auto.md.a1B2c3")
+			writeTestFile(t, outside, "Ordinary watched file.\n")
+			waitForOutput(t, buf, "full re-sync", 3*time.Second)
 			rule := filepath.Join(dir, ".agnostic-ai", "rules", "r1.md")
 			writeAndBumpMtime(t, rule, []byte("---\nname: r1\n---\nOrdinary change.\n"))
 			waitForFileContaining(t, filepath.Join(dir, ".claude", "rules", "r1.md"), "Ordinary change.", 3*time.Second)

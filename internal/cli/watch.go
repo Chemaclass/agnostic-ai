@@ -547,7 +547,7 @@ func sortedPaths(mtimes map[string]time.Time) []string {
 }
 
 // isIgnoredEvent filters out events that should never trigger a re-sync:
-// chmod-only events, the .sync-state file, and local handoff notes.
+// chmod-only events, the .sync-state file, and local handoff files.
 func isIgnoredEvent(ev fsnotify.Event, root string) bool {
 	if ev.Op == fsnotify.Chmod {
 		return true
@@ -560,7 +560,7 @@ func isIgnoredEvent(ev fsnotify.Event, root string) bool {
 
 func isHandoffPath(root, path string) bool {
 	name := filepath.Base(path)
-	if name != "HANDOFF.md" && name != "HANDOFF.auto.md" {
+	if name != "HANDOFF.md" && name != "HANDOFF.auto.md" && !strings.HasPrefix(name, "HANDOFF.auto.md.") {
 		return false
 	}
 	absPath, err := filepath.Abs(path)

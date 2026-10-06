@@ -42,7 +42,7 @@ tool: codex | date: 2026-10-05T14:02Z | branch: feat/x | head: abc1234
 ## Verify
 ```
 
-Each write replaces the previous handoff in that checkout. It excludes secrets and tool-owned memory stores. Git records the code's history. `sync --watch` ignores both `HANDOFF.md` and `HANDOFF.auto.md` in this local folder.
+Each write replaces the previous handoff in that checkout. It excludes secrets and tool-owned memory stores. Git records the code's history. `sync --watch` ignores both `HANDOFF.md` and `HANDOFF.auto.md`, including temporary snapshot files, in this local folder.
 
 The skill uses the nearest ancestor with `agnostic-ai.yaml` or the legacy `agnostic.config.yaml` as the project root. It compares canonical paths and skips the effective global source root (`AGNOSTIC_AI_HOME` when nonempty, otherwise `~/.agnostic-ai`), whose home config never identifies a project. Separately configured subprojects keep separate handoffs, including requests from a nested directory. When no project config remains, it falls back to the current Git worktree root.
 
