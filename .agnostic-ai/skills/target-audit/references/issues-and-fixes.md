@@ -27,6 +27,7 @@ Include applicable checklist items, marking exclusions with a reason:
 - `CHANGELOG.md` under Unreleased.
 - Source-registry URL corrections, plus `scripts/target-audit/sources.lock` and `signals.tsv`.
 - Target tests, `capability_parity_test.go`, `kitsink_golden_test.go`, and `tests/integration/fixtures/golden/<target>/`. Check whether a round-trip test exists; golden trees often exist without one.
+- For a shipped built-in: per-target vendor evidence and a behavioral test, per `.agnostic-ai/skills/target-audit/references/builtins.md`. Hook capability alone never adds a target.
 - `make playground-build` if capabilities change. The playground derives capabilities from the compiled registry; never add a second list.
 - Build the current binary, sync generated outputs, review tracked changes, and verify `sync --check`. Keep ignored generated files ignored.
 

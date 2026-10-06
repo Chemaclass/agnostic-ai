@@ -118,7 +118,15 @@ Read-only means no repository or GitHub changes. Temporary reproduction projects
    a temporary project when an existing kind or `x-<target>` escape hatch
    could cover it. Record the reproduction and result. Do not recommend a
    generic schema from documentation alone.
-10. Compare another target only after opening that target's own vendor
+10. When the fact sheet lists shipped built-ins, check the native behavior
+   they depend on with the checklist in
+   `.agnostic-ai/skills/target-audit/references/builtins.md`, even when the
+   declared capability did not change. When the prompt says the target's
+   built-ins changed, read `git diff <rev> -- internal/builtins` with the
+   revision it gives and recheck the change against current vendor pages.
+   Report broken behavior as a finding, and a target that gained compatible
+   support as a capability signal.
+11. Compare another target only after opening that target's own vendor
    evidence and checking its semantics independently. Similar names are
    not equivalent behavior. Omit unverified targets from the comparison.
 
