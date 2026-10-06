@@ -92,7 +92,7 @@ func renderSetupScript(install string) string {
 
 // buildServices turns each named terminal into an Amp supervised service. The
 // remaining keys pass through so x-amp.terminals can use Amp's documented cwd,
-// port, env, health, portal, portals, review, agent, and platforms controls
+// port, env, health, portal, portals, review, and platforms controls
 // without adding them to the portable Environment contract.
 func buildServices(terminals []any) (map[string]any, error) {
 	services := make(map[string]any, len(terminals))
