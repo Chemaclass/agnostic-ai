@@ -56,7 +56,7 @@ AGENTS.md                              # canonical entry-point pointer body (wri
   - **Nearest wins, with no merging.** A subdirectory with its own `.amp/` hides the root file for that subtree, for settings and `amp.mcpServers`. Delete the nested `.amp/` or copy the generated keys into it.
 - **Environments**: `install` writes executable [`.agents/setup`](https://ampcode.com/docs/orbs/customizing), which Amp runs while preparing a project orb or snapshot. Named `terminals` write [`.amp/services.yaml`](https://ampcode.com/docs/orbs/portals): supervised services that run apart from the setup script.
   - Each service needs `command`. Its name uses only lowercase letters, numbers, and hyphens, starts with a letter or number, and has at most 32 characters.
-  - `x-amp.terminals` can set `cwd`, `port`, `env`, `health`, `portal`, `portals`, `review`, `agent`, and `platforms`.
+  - `x-amp.terminals` can set `cwd`, `port`, `env`, `health`, `portal`, `portals`, `review`, and `platforms`.
   - `platforms` is an optional nonempty list of `linux` or `darwin`. Amp skips a service that excludes the executor's OS. An empty list is invalid.
   - No `.agents/resume`. It runs after activation and on every wake with thread credentials, so it's neither dependency setup nor a service.
   - Environment specs merge by top-level field. The last wins.
