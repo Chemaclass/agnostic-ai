@@ -552,16 +552,20 @@ function test_builtin_inventory_keeps_block_list_selectors_and_portable_events()
   assert_not_contains 'BODY_HOOK_SENTINEL' "$out"
 }
 
-function test_builtin_regression_cli_file_naming_builtins_invalidates() {
+function test_builtin_regression_cli_source_invalidates_and_cli_tests_do_not() {
   builtin_regression_fixture
   printf 'package cli\n// resolves builtins layers\n' >"$ROOT/internal/cli/root.go"
-  printf 'package cli\n' >"$ROOT/internal/cli/version.go"
+  printf 'package cli\n' >"$ROOT/internal/cli/version_test.go"
+  printf 'package cli\n' >"$ROOT/internal/cli/settings_json_edit.go"
   git -C "$ROOT" add .
   git -C "$ROOT" -c user.name=Test -c user.email=test@example.invalid -c commit.gpgsign=false commit -qm cli
   BUILTIN_BASE=$(git -C "$ROOT" rev-parse HEAD)
-  printf 'changed\n' >>"$ROOT/internal/cli/version.go"
+  printf 'changed\n' >>"$ROOT/internal/cli/version_test.go"
   assert_equals 'sweep: factory claude continue' "$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")"
   printf 'changed\n' >>"$ROOT/internal/cli/root.go"
+  assert_builtin_regression_shared_deep "$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")"
+  git -C "$ROOT" checkout -- internal/cli/root.go
+  printf 'changed\n' >>"$ROOT/internal/cli/settings_json_edit.go"
   assert_builtin_regression_shared_deep "$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")"
 }
 

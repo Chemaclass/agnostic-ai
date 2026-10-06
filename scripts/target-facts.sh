@@ -199,18 +199,11 @@ source_sections() {
 
 # BUILTIN_SHARED_PATHS are repository paths whose change can alter what every
 # shipped built-in emits or how it runs: the built-ins themselves, spec
-# selection, config, the project and global sync pipeline, shared emit and
-# hook runtime, and their docs and tests.
+# selection, config, shared emit and hook runtime, and their docs and tests.
+# CLI source is covered by builtin_cli_path.
 # Each entry matches as a prefix.
 BUILTIN_SHARED_PATHS="internal/builtins/
 internal/cli/builtin
-internal/cli/hook_run.go
-internal/cli/global_layers.go
-internal/cli/skills_share.go
-internal/cli/import.go
-internal/cli/layers
-internal/cli/global_
-internal/cli/sync
 internal/spec/
 internal/config/
 internal/adapters/internal/
@@ -218,6 +211,7 @@ internal/markdown/
 internal/mdlink/
 internal/hookrun/
 internal/hookpaths/
+internal/applypatch/
 go.mod
 go.sum
 tests/integration/builtin
@@ -329,7 +323,7 @@ builtin_deep_targets() {
   fi
   if [ "$all" -eq 0 ]; then
     while IFS= read -r -d '' path; do
-      if builtin_shared_path "$path" || builtin_cli_path "$path" "$rev"; then
+      if builtin_shared_path "$path" || builtin_cli_path "$path"; then
         all=1
         break
       fi
@@ -377,13 +371,15 @@ builtin_shared_path() {
   return 1
 }
 
-# builtin_cli_path <path> <rev> succeeds for a CLI source file that names
-# built-ins now or at <rev>: loading, enabling, and layering them is spread
-# across the CLI, and a fixed list would miss the next file.
+# builtin_cli_path <path> succeeds for CLI source outside tests. Loading,
+# layering, enabling, and editing built-in output spans the whole sync
+# pipeline, so any CLI change can alter what a built-in emits.
 builtin_cli_path() {
-  case "$1" in internal/cli/*.go) ;; *) return 1 ;; esac
-  grep -qi builtin "$ROOT/$1" 2>/dev/null && return 0
-  git -C "$ROOT" show "$2:$1" 2>/dev/null | grep -qi builtin
+  case "$1" in
+    internal/cli/*_test.go) return 1 ;;
+    internal/cli/*.go) return 0 ;;
+  esac
+  return 1
 }
 
 # target_for_pkg <pkg> prints the registered target an adapter package backs.
