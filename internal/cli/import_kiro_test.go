@@ -7,6 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
+	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
@@ -177,6 +180,125 @@ func TestImportKiroAgent_PreservesDisplayNameSeparatelyFromPath(t *testing.T) {
 	}
 	if strings.HasPrefix(got, "---\nname: Display Name") {
 		t.Errorf("display name replaced the canonical filename identity:\n%s", got)
+	}
+}
+
+func TestImportFromKiro_PreservesPromptTemplatesInConfiguredCommandsSource(t *testing.T) {
+	for _, layout := range []string{"default", "relative", "absolute"} {
+		t.Run(layout, func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.Chdir(t, dir)
+			silence(t)
+			src := rootSources()
+			switch layout {
+			case "relative":
+				src.Commands = "portable/prompts"
+			case "absolute":
+				src.Commands = filepath.Join(t.TempDir(), "prompts")
+			}
+			const body = "# Review\n\nReview ${1} with ${10}; full input: $ARGUMENTS or ${@}.\n"
+			writeFile(t, filepath.Join(dir, ".kiro/prompts/review.md"), body)
+			writeFile(t, filepath.Join(dir, ".kiro/prompts/notes.txt"), "not a command\n")
+			writeFile(t, filepath.Join(dir, ".kiro/prompts/nested/ignored.md"), "not a top-level command\n")
+
+			if err := importFromKiro(dir, &config.Config{Sources: src}); err != nil {
+				t.Fatal(err)
+			}
+			dst := importSourcePath(dir, src.Commands)
+			got := readFile(t, filepath.Join(dst, "review.md"))
+			if got != body {
+				t.Errorf("prompt templates changed on import:\ngot:\n%s\nwant:\n%s", got, body)
+			}
+			entries, err := os.ReadDir(dst)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(entries) != 1 {
+				t.Errorf("imported %d entries, want only review.md", len(entries))
+			}
+		})
+	}
+}
+
+func TestImportFromKiro_MissingPromptsDirectoryImportsNoCommands(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	if err := importFromKiro(dir, &config.Config{Sources: rootSources()}); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(filepath.Join(dir, "commands"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("missing prompts directory imported %d commands", len(entries))
+	}
+}
+
+func TestImportFromKiro_LeadingYAMLRemainsLiteralPromptBody(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	src := rootSources()
+	const body = "---\nname: other\n---\nReview $ARGUMENTS.\n"
+	writeFile(t, filepath.Join(dir, ".kiro/prompts/review.md"), body)
+	if err := importFromKiro(dir, &config.Config{Sources: src}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, src.Commands, "review.md")); err != nil {
+		t.Fatalf("missing filename-based command source: %v", err)
+	}
+	bundle, err := spec.LoadLayered([]spec.Layer{{Root: dir, Sources: src}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bundle.Commands) != 1 {
+		t.Fatalf("imported %d commands, want 1", len(bundle.Commands))
+	}
+	command := bundle.Commands[0]
+	if command.Name != "review" {
+		t.Errorf("literal YAML changed command identity: got %q, want review", command.Name)
+	}
+	if command.Body != body {
+		t.Errorf("literal YAML was consumed as portable frontmatter:\ngot:\n%s\nwant:\n%s", command.Body, body)
+	}
+}
+
+func TestImportFromKiro_GeneratedPromptsPreserveLeadingBlankLines(t *testing.T) {
+	for _, tc := range []struct {
+		name, leading string
+	}{
+		{"none", ""},
+		{"one", "\n"},
+		{"three", "\n\n\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.Chdir(t, dir)
+			silence(t)
+			src := rootSources()
+			body := tc.leading + "# Review\nReview $ARGUMENTS.\n"
+			generated := header.Line(header.FormatMarkdown) + "\n" + body
+			writeFile(t, filepath.Join(dir, ".kiro/prompts/review.md"), generated)
+			if err := importFromKiro(dir, &config.Config{Sources: src}); err != nil {
+				t.Fatal(err)
+			}
+			got := readFile(t, filepath.Join(dir, src.Commands, "review.md"))
+			if got != body {
+				t.Errorf("import changed leading body blank lines: got %q, want %q", got, body)
+			}
+			bundle, err := spec.LoadLayered([]spec.Layer{{Root: dir, Sources: src}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(bundle.Commands) != 1 {
+				t.Fatalf("imported %d commands, want 1", len(bundle.Commands))
+			}
+			if bundle.Commands[0].Body != body {
+				t.Errorf("portable command lost leading body blank lines: got %q, want %q", bundle.Commands[0].Body, body)
+			}
+		})
 	}
 }
 

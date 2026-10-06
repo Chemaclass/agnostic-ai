@@ -10,7 +10,7 @@ target_id = "kiro"
 
 # Kiro (`kiro`)
 
-agnostic-ai writes AWS Kiro steering files, native skills, agents, and hooks under `.kiro/`, plus MCP servers and `.kiroignore`.
+agnostic-ai writes AWS Kiro steering files, native skills, agents, commands, and hooks under `.kiro/`, plus MCP servers and `.kiroignore`.
 
 ## Output
 
@@ -19,6 +19,7 @@ AGENTS.md                          # entry-point pointer body, plus the rules bl
 .kiro/steering/<name>.md           # one per rule (inclusion: always, or fileMatch + fileMatchPattern from globs)
 .kiro/skills/<name>/SKILL.md       # one per skill (+ bundled scripts/, references/, assets/)
 .kiro/agents/<name>.md             # one per agent
+.kiro/prompts/<name>.md            # one per command, for CLI V3 slash commands
 .kiro/hooks/<name>.json            # one per hook
 .kiro/settings/mcp.json            # when MCP entries exist
 .kiroignore                        # when ignore entries exist
@@ -28,6 +29,16 @@ AGENTS.md                          # entry-point pointer body, plus the rules bl
 - **`AGENTS.md`**: Kiro includes it in default resources. When codex or another inlining target adds the `## Rules` block, matching always-on rules normally get no steering file; `fileMatch` rules keep theirs. [Custom agents inherit default resources](https://kiro.dev/docs/custom-agents/configuration-reference/) alongside their own list unless `chat.disableInheritingDefaultResources` is enabled. An agent that sets `x-kiro.resources` does not change this. If you turn that setting on, add `file://AGENTS.md` to each agent's `x-kiro.resources`; `agnostic-ai lint` warns (LINT029) when an agent with resources leaves it out. See [target behavior](@/docs/target-behavior.md#entry-point-files).
 - **Skills**: [native](https://kiro.dev/docs/skills/) at `.kiro/skills/<name>/SKILL.md`, read by the skill picker. The render (`name` and `description` frontmatter) is byte-identical with the shared `.agents/skills/` one. Bundled `scripts/`, `references/`, and `assets/` copy alongside.
 - **Agents**: [native custom agents](https://kiro.dev/docs/custom-agents/) in YAML-frontmatter Markdown, read by the agent picker. `description` (default: agent name) and `model` pass through. The spec name stays the filename; `x-kiro.name` sets Kiro's optional display name and survives import.
+
+## Commands
+
+Kiro CLI 2.27.0 and newer exposes [workspace prompts](https://kiro.dev/docs/cli/chat/manage-prompts/) as `/name` commands in V3. Sync writes the command body to `.kiro/prompts/<name>.md`, with provenance and no metadata frontmatter.
+
+Kiro expands `$ARGUMENTS`, `${1}` through `${10}`, and `${@}`. Sync preserves these tokens. Use a `::target kiro` fence for Kiro-specific templates; bare `$1` and `$ARGUMENTS[0]` keep the unsupported-syntax checks.
+
+`outputs.kiro.commands-dir` overrides the prompt directory. Otherwise, `outputs.kiro.dir` places prompts under `<dir>/prompts`. Import reads the same configured directory into `sources.commands`.
+
+Kiro also has a native global prompt directory. agnostic-ai's global sync does not emit commands.
 
 {% <details summary="Unmanaged AGENTS.md"> %}
 Listing `AGENTS.md` under `sync.unmanaged` also keeps every steering file, but sync then stops writing `AGENTS.md`, so codex and every other reader lose rule changes there.
@@ -74,6 +85,7 @@ Duplicates collapse. Categories are bundles, so access widens: `write` also cove
 | `outputs.kiro.rules-dir` | `.kiro/steering` |
 | `outputs.kiro.agents-dir` | `.kiro/agents` |
 | `outputs.kiro.skills-dir` | `.kiro/skills` |
+| `outputs.kiro.commands-dir` | `.kiro/prompts` |
 | `outputs.kiro.hooks-dir` | `.kiro/hooks` |
 | `outputs.kiro.mcp-file` | `.kiro/settings/mcp.json` |
 | `outputs.kiro.ignore-file` | `.kiroignore` |
@@ -84,6 +96,7 @@ Duplicates collapse. Categories are bundles, so access widens: `write` also cove
 
 | Source | Becomes |
 |--------|---------|
+| `.kiro/prompts/<name>.md` (or the configured command directory) | `<commands>/<name>.md` |
 | `.kiro/agents/<name>.md` (native agent profile) | `<agents>/<name>.md` |
 | `.kiro/skills/<name>/SKILL.md` (native skill folder) | `<skills>/<name>/SKILL.md`, bundled sibling assets included |
 | `.kiro/steering/<name>.md` (`inclusion: always`) | `<rules>/<name>.md` (unscoped rule) |
@@ -125,3 +138,4 @@ Advisory. This target takes no settings specs, so sync reports a spec with a `pr
 2. Check the tree: `ls AGENTS.md .kiro/steering/ .kiro/skills/ .kiro/agents/ .kiro/hooks/ .kiro/settings/mcp.json .kiroignore`, `head -2 .kiro/steering/*.md .kiro/skills/*/SKILL.md .kiro/agents/*.md` (frontmatter first, no leading blank lines), `python -m json.tool .kiro/settings/mcp.json > /dev/null`, and `python -m json.tool .kiro/hooks/*.json > /dev/null`.
 3. Open the project. The steering panel lists every rule with its inclusion mode and no parse warnings; the skill and agent pickers list every `.kiro/skills/<name>/` and `.kiro/agents/<name>.md`.
 4. Trigger a hook's event (e.g. save a file for `PostFileSave`). The command runs with no schema warning.
+5. In Kiro CLI 2.27.0 or newer, start `kiro-cli chat --v3`. Type `/` and select a synced command. Check that its prompt and native arguments expand.

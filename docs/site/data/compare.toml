@@ -671,7 +671,7 @@
 
   [[targets.kinds]]
     id = "command"
-    paths = []
+    paths = [".kiro/prompts/deploy.md"]
 
   [[targets.kinds]]
     id = "settings"

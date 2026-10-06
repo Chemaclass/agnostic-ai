@@ -84,6 +84,39 @@ func TestReportClaudeBodySyntax_SilentModeNotesNothing(t *testing.T) {
 	}
 }
 
+func TestReportClaudeBodySyntax_KiroCommandArguments(t *testing.T) {
+	buf := swapWarnerForNotes(t)
+	command := spec.Entry{Kind: spec.KindCommand, Name: "review", Path: "commands/review.md",
+		Body: "Review $ARGUMENTS, from ${1} to ${10}, using ${@}.\n"}
+	if err := ReportClaudeBodySyntax("kiro", spec.KindCommand, []spec.Entry{command}, OnUnsupportedError); err != nil {
+		t.Errorf("Kiro's native command arguments rejected: %v", err)
+	}
+	FlushCoverageNotes()
+	if buf.Len() != 0 {
+		t.Errorf("native Kiro command arguments got a note: %s", buf)
+	}
+}
+
+func TestReportClaudeBodySyntax_KiroKeepsUnsupportedSyntaxChecks(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		kind spec.Kind
+		body string
+	}{
+		{"command-shell", spec.KindCommand, "!`git status`\n"},
+		{"command-positional", spec.KindCommand, "Review $1 and $ARGUMENTS[0].\n"},
+		{"skill-arguments", spec.KindSkill, "Review $ARGUMENTS.\n"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			swapWarnerForNotes(t)
+			entry := spec.Entry{Kind: tt.kind, Name: "review", Path: "review.md", Body: tt.body}
+			if err := ReportClaudeBodySyntax("kiro", tt.kind, []spec.Entry{entry}, OnUnsupportedError); err == nil {
+				t.Error("unsupported syntax accepted")
+			}
+		})
+	}
+}
+
 func TestReportUnsupported_NotesClaudeSyntaxInSkillsAndCommands(t *testing.T) {
 	buf := swapWarnerForNotes(t)
 	command := spec.Entry{Kind: spec.KindCommand, Name: "fix", Path: "commands/fix.md", BodyLine: 1, Body: "Fix $ARGUMENTS.\n"}

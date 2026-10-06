@@ -15,9 +15,8 @@ import (
 )
 
 // TestEmit_ProvenanceHeaderOnEveryEmittedFile is the kiro adapter's
-// header-coverage contract: every Markdown file the adapter writes
-// must carry the agnostic-ai provenance marker, and land after the
-// frontmatter block Kiro requires as the file's first bytes. JSON
+// header-coverage contract: every Markdown file must carry provenance.
+// Prompts have no frontmatter; other Markdown surfaces require it. JSON
 // output (`.kiro/settings/mcp.json`, `.kiro/hooks/<name>.json`) is
 // exempt: JSON has no comment syntax to carry the marker in.
 // `.kiroignore` still carries the marker, as a `#` comment, but is
@@ -43,6 +42,7 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 		if err != nil {
 			return err
 		}
+		rel = filepath.ToSlash(rel)
 		if strings.HasPrefix(rel, ".agnostic-ai/") {
 			return nil
 		}
@@ -64,7 +64,8 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 		if !header.Has(content) {
 			t.Errorf("missing provenance header in %s:\n%s", rel, headFor(t, data))
 		}
-		if rel != defaultIgnoreFile && !strings.HasPrefix(content, "---\n") {
+		isPrompt := strings.HasPrefix(rel, defaultCommandsDir+"/")
+		if rel != defaultIgnoreFile && !isPrompt && !strings.HasPrefix(content, "---\n") {
 			t.Errorf("%s must start with frontmatter, got:\n%s", rel, headFor(t, data))
 		}
 		checked++
@@ -92,6 +93,7 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindSkill, Name: "uno", Path: "skills/uno/SKILL.md", Body: "uno skill body", Meta: map[string]any{"description": "handles uno"}},
 		{Kind: spec.KindSkill, Name: "dos", Path: "skills/dos/SKILL.md", Body: "dos skill body", Meta: map[string]any{"description": "handles dos"}},
 		{Kind: spec.KindSkill, Name: "tres", Path: "skills/tres/SKILL.md", Body: "tres skill body", Meta: map[string]any{"description": "handles tres"}},
+		{Kind: spec.KindCommand, Name: "review", Path: "commands/review.md", Body: "Review ${1} through ${10}. All: ${@}. Legacy: $ARGUMENTS.", Meta: map[string]any{"description": "Review changes"}},
 		{
 			Kind: spec.KindHook, Name: "fmt-go",
 			Meta: map[string]any{

@@ -51,6 +51,15 @@ func TestLintClaudeBodySyntax_CommandSkipsTargetsThatSubstitute(t *testing.T) {
 	}
 }
 
+func TestLintClaudeBodySyntax_KiroCommandArguments(t *testing.T) {
+	command := spec.Entry{Kind: spec.KindCommand, Name: "review", Path: "commands/review.md",
+		Body: "Review $ARGUMENTS, from ${1} to ${10}, using ${@}.\n"}
+	support := kindSupport{spec.KindCommand: setOf("kiro")}
+	if got := lintClaudeBodySyntax(spec.Bundle{Commands: []spec.Entry{command}}, []string{"kiro"}, support); len(got) != 0 {
+		t.Errorf("native Kiro command arguments flagged: %+v", got)
+	}
+}
+
 // A Claude project imported with Codex enabled keeps its Claude body,
 // then sync notes and lint flags each Claude-only line for Codex (#1436).
 func TestImportClaude_ClaudeSyntaxKeepsTheBodyAndWarnsForCodex(t *testing.T) {

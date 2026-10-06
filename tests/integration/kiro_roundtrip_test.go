@@ -3,12 +3,227 @@ package integration
 import (
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
+
+func TestKiroRoundTrip_PromptsPreserveNativeTemplates(t *testing.T) {
+	packageDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	name := "agnostic-ai"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	binary := filepath.Join(t.TempDir(), name)
+	build := exec.Command("go", "build", "-o", binary, "./cmd/agnostic-ai")
+	build.Dir = filepath.Join(packageDir, "..", "..")
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build CLI: %v\n%s", err, out)
+	}
+	for _, layout := range []string{"default", "configured", "absolute-source", "absolute-native", "target-dir", "per-kind-precedence"} {
+		t.Run(layout, func(t *testing.T) {
+			dir := t.TempDir()
+			testutil.Chdir(t, dir)
+			source := ".agnostic-ai/commands"
+			native := ".kiro/prompts"
+			outputs := ""
+			if layout != "default" {
+				source = "portable/commands"
+				native = ".kiro/custom-prompts"
+				outputs = "outputs:\n  kiro:\n    commands-dir: " + native + "\n"
+			}
+			if layout == "absolute-source" {
+				source = filepath.Join(t.TempDir(), "commands")
+			}
+			if layout == "absolute-native" {
+				native = filepath.Join(t.TempDir(), "prompts")
+				outputs = "outputs:\n  kiro:\n    commands-dir: " + filepath.ToSlash(native) + "\n"
+			}
+			if layout == "target-dir" {
+				native = ".kiro-alt/prompts"
+				outputs = "outputs:\n  kiro:\n    dir: .kiro-alt\n"
+			}
+			if layout == "per-kind-precedence" {
+				outputs = "outputs:\n  kiro:\n    dir: .kiro-alt\n    commands-dir: " + native + "\n"
+			}
+			must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [kiro]\nsources:\n  commands: "+filepath.ToSlash(source)+"\n"+outputs+"gitignore:\n  enabled: false\n"), 0o644))
+			const body = "\n\n# Review\n\nReview ${1} with ${10}; full input: $ARGUMENTS or ${@}.\n"
+			nativeDir := native
+			if !filepath.IsAbs(nativeDir) {
+				nativeDir = filepath.Join(dir, nativeDir)
+			}
+			prompt := filepath.Join(nativeDir, "review.md")
+			must(t, os.MkdirAll(filepath.Dir(prompt), 0o755))
+			must(t, os.WriteFile(prompt, []byte(body), 0o644))
+			for _, candidate := range []string{".kiro/prompts", ".kiro-alt/prompts"} {
+				if candidate == native {
+					continue
+				}
+				ignored := filepath.Join(dir, candidate, "ignored.md")
+				must(t, os.MkdirAll(filepath.Dir(ignored), 0o755))
+				must(t, os.WriteFile(ignored, []byte("This directory is not selected.\n"), 0o644))
+			}
+			run := func(args ...string) string {
+				t.Helper()
+				cmd := exec.Command(binary, args...)
+				cmd.Dir = dir
+				out, err := cmd.CombinedOutput()
+				if err != nil {
+					t.Fatalf("%v: %v\n%s", args, err, out)
+				}
+				return string(out)
+			}
+			sourceDir := source
+			if !filepath.IsAbs(sourceDir) {
+				sourceDir = filepath.Join(dir, sourceDir)
+			}
+			imported := filepath.Join(sourceDir, "review.md")
+			for _, flags := range [][]string{{"--dry-run"}, {"--dry-run", "--diff"}} {
+				out := run(append([]string{"import", "kiro"}, flags...)...)
+				if !strings.Contains(filepath.ToSlash(out), filepath.ToSlash(source+"/review.md")) {
+					t.Errorf("preview did not propose the configured command destination:\n%s", out)
+				}
+				if _, err := os.Stat(sourceDir); !os.IsNotExist(err) {
+					t.Errorf("preview created the commands source directory: %v", err)
+				}
+				got, err := os.ReadFile(prompt)
+				if err != nil {
+					t.Fatalf("read native prompt after preview: %v", err)
+				}
+				if string(got) != body {
+					t.Errorf("preview changed native prompt:\n%s", got)
+				}
+			}
+			run("import", "kiro")
+			got, err := os.ReadFile(imported)
+			if err != nil {
+				t.Fatalf("read imported prompt: %v", err)
+			}
+			if string(got) != body {
+				t.Errorf("native templates changed on import:\n%s", got)
+			}
+			if _, err := os.Stat(filepath.Join(sourceDir, "ignored.md")); !os.IsNotExist(err) {
+				t.Errorf("import read the unconfigured native directory: %v", err)
+			}
+			must(t, os.Remove(prompt))
+			run("sync", "-t", "kiro")
+			first, err := os.ReadFile(prompt)
+			if err != nil {
+				t.Fatalf("sync did not recreate prompt: %v", err)
+			}
+			if emitted, ok := strings.CutPrefix(string(first), header.Line(header.FormatMarkdown)+"\n"); !ok || emitted != body {
+				t.Errorf("emitted prompt body changed: got %q, want %q", emitted, body)
+			}
+			for _, template := range []string{"${1}", "${10}", "$ARGUMENTS", "${@}"} {
+				if !strings.Contains(string(first), template) {
+					t.Errorf("emitted prompt lost %s:\n%s", template, first)
+				}
+			}
+			run("sync", "--check", "-t", "kiro")
+			run("lint")
+			must(t, os.Remove(imported))
+			run("import", "kiro")
+			got, err = os.ReadFile(imported)
+			if err != nil {
+				t.Fatalf("read reimported prompt: %v", err)
+			}
+			if string(got) != body {
+				t.Errorf("reimport changed content or retained generated metadata:\n%s", got)
+			}
+			must(t, os.Remove(prompt))
+			run("sync", "-t", "kiro")
+			second, err := os.ReadFile(prompt)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(first) != string(second) {
+				t.Errorf("prompt emit is not a fixed point:\n%s", unifiedDiffLines(string(first), string(second)))
+			}
+			run("sync", "--check", "-t", "kiro")
+			run("lint")
+		})
+	}
+}
+
+func TestKiroRoundTrip_PromptsPreserveLeadingYAML(t *testing.T) {
+	packageDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	name := "agnostic-ai"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	binary := filepath.Join(t.TempDir(), name)
+	build := exec.Command("go", "build", "-o", binary, "./cmd/agnostic-ai")
+	build.Dir = filepath.Join(packageDir, "..", "..")
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build CLI: %v\n%s", err, out)
+	}
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	must(t, os.WriteFile("agnostic-ai.yaml", []byte("version: 1\ntargets: [kiro]\ngitignore:\n  enabled: false\n"), 0o644))
+	const body = "---\nname: other\n---\nReview $ARGUMENTS.\n"
+	native := filepath.Join(dir, ".kiro/prompts/review.md")
+	must(t, os.MkdirAll(filepath.Dir(native), 0o755))
+	must(t, os.WriteFile(native, []byte(body), 0o644))
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command(binary, args...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, out)
+		}
+	}
+	run("import", "kiro")
+	sourceDir := filepath.Join(dir, ".agnostic-ai/commands")
+	if _, err := os.Stat(filepath.Join(sourceDir, "review.md")); err != nil {
+		t.Fatalf("missing imported review.md: %v", err)
+	}
+	must(t, os.WriteFile(filepath.Join(sourceDir, "source-review.md"), []byte("---\nname: source-review\n---\n\n"+body), 0o644))
+	must(t, os.Remove(native))
+	run("sync", "-t", "kiro")
+	first := map[string]string{}
+	for _, command := range []string{"review", "source-review"} {
+		path := filepath.Join(dir, ".kiro/prompts", command+".md")
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("sync lost filename-based prompt %s: %v", command, err)
+		}
+		if got, ok := strings.CutPrefix(string(data), header.Line(header.FormatMarkdown)+"\n"); !ok || got != body {
+			t.Errorf("%s lost literal leading YAML:\ngot:\n%s\nwant:\n%s", command, got, body)
+		}
+		first[command] = string(data)
+		must(t, os.Remove(filepath.Join(sourceDir, command+".md")))
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".kiro/prompts/other.md")); !os.IsNotExist(err) {
+		t.Errorf("literal YAML created an unintended other.md prompt: %v", err)
+	}
+	run("import", "kiro")
+	for _, command := range []string{"review", "source-review"} {
+		must(t, os.Remove(filepath.Join(dir, ".kiro/prompts", command+".md")))
+	}
+	run("sync", "-t", "kiro")
+	for _, command := range []string{"review", "source-review"} {
+		data, err := os.ReadFile(filepath.Join(dir, ".kiro/prompts", command+".md"))
+		if err != nil {
+			t.Fatalf("reimport lost filename-based prompt %s: %v", command, err)
+		}
+		if string(data) != first[command] {
+			t.Errorf("%s changed across reimport/sync:\n%s", command, unifiedDiffLines(first[command], string(data)))
+		}
+	}
+	run("sync", "--check", "-t", "kiro")
+	run("lint")
+}
 
 // TestKiroRoundTrip_HooksSurviveSyncImportSync is the gate for #952.
 // Before it, `.kiro/hooks/*.json` was emit-only: a sync wrote the files
