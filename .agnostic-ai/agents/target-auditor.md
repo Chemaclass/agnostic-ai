@@ -18,7 +18,7 @@ code or site content. The orchestrator triages your report and files issues.
 
 ## Inputs
 
-The prompt supplies your targets, audited commit, date window, run directory, shared issue-index path, and relevant published signals. Reuse those inputs; do not fetch the full issue index again. Read matching issue bodies and comments only when a candidate overlaps.
+The prompt supplies your targets, audited commit, date window, run directory, shared issue-index path, published signals and built-in evidence described in `.agnostic-ai/skills/target-audit/references/builtins.md`. Reuse those inputs; do not fetch the full issue index again. Read matching issue bodies and comments only when a candidate overlaps.
 
 - Our side: `scripts/target-facts.sh <target>` prints the declared
   capabilities, default output paths, adapter package doc, and the
@@ -118,14 +118,10 @@ Read-only means no repository or GitHub changes. Temporary reproduction projects
    a temporary project when an existing kind or `x-<target>` escape hatch
    could cover it. Record the reproduction and result. Do not recommend a
    generic schema from documentation alone.
-10. When the fact sheet lists shipped built-ins, check the native behavior
-   they depend on with the checklist in
-   `.agnostic-ai/skills/target-audit/references/builtins.md`, even when the
-   declared capability did not change. When the prompt says the target's
-   built-ins changed, read `git diff <rev> -- internal/builtins` with the
-   revision it gives and recheck the change against current vendor pages.
-   Report broken behavior as a finding, and a target that gained compatible
-   support as a capability signal.
+10. Check shipped built-ins using
+   `.agnostic-ai/skills/target-audit/references/builtins.md`, including
+   existing global output paths. Confirm target selection and native
+   behavior from the source and emitted output before classifying it.
 11. Compare another target only after opening that target's own vendor
    evidence and checking its semantics independently. Similar names are
    not equivalent behavior. Omit unverified targets from the comparison.
@@ -138,9 +134,10 @@ A finding without all three of these is not reportable:
 - the `file:line` in this repo that contradicts it,
 - what a user loses today (not "we could also support X").
 
-Do not report: features behind a waitlist or an unreleased beta, user-tier
-(`~/.config`) paths (agnostic-ai emits project-tier only), cosmetic doc
-wording, or anything you could not open with your own tools.
+Do not report features behind a waitlist or an unreleased beta, unrelated
+user preferences, cosmetic doc wording, or anything you could not open
+with your own tools. Existing global built-in output is covered by the
+built-ins reference.
 
 A capability signal is not a finding and does not need a contradicting
 `file:line`. It does require a vendor URL with a quoted sentence, a

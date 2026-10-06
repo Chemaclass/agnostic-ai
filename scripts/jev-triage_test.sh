@@ -455,18 +455,41 @@ function test_the_committed_surface_cases_file_is_well_formed() {
   assert_empty "$(awk -F '\t' '!/^#/ && seen[$1]++ { print "duplicate " $1 }' "$cases")"
 }
 
-function test_claims_name_each_shipped_builtin_hook_event() {
+function test_claims_ignore_portable_builtin_evidence_and_keep_native_claims() {
   cat >"$FIXTURES/builtin-facts.sh" <<'EOF2'
 #!/usr/bin/env bash
 cat <<'FACTS'
+--- declared capabilities ---
+Supports: []{Hook, Skill},
+--- default output paths ---
+defaultSettingsFile = ".gemini/settings.json"
+--- adapter package doc (what we claim the tool does) ---
+// Gemini CLI loads `PreCompress` hooks from `.gemini/settings.json`.
 --- shipped built-ins this target emits ---
-handoff-hook: Hook handoff-session-end, event SessionEnd (internal/builtins/data/handoff-hook/hooks/handoff-session-end.yaml)
-handoff: Skill handoff, override x-copilot (internal/builtins/data/handoff/skills/handoff/SKILL.md)
+handoff-hook: Hook handoff-pre-compact, event PreCompact (internal/builtins/data/handoff-hook/hooks/handoff-pre-compact.yaml)
+event: PreCompact
+x-gemini:
+  event: PreCompress
+targets: [claude, codex, gemini, qoder, factory]
+handoff: Skill handoff (internal/builtins/data/handoff/skills/handoff/SKILL.md)
+name: handoff
+targets: [claude]
+--- docs/site/content/docs/target-behavior.md lines ---
+12:| gemini | hooks | settings lifecycle hooks |
 FACTS
 EOF2
   chmod +x "$FIXTURES/builtin-facts.sh"
   local out
-  out=$(JEV_TARGET_FACTS="$FIXTURES/builtin-facts.sh" bash -c '. "$1"; jev_claims copilot' _ "$JEV")
-  assert_contains 'copilot runs project hooks on its `SessionEnd` event, which the shipped `handoff-session-end` hook relies on.' "$out"
-  assert_contains 'copilot loads project skills such as the shipped `handoff` skill.' "$out"
+  out=$(JEV_TARGET_FACTS="$FIXTURES/builtin-facts.sh" bash -c '. "$1"; jev_claims gemini' _ "$JEV")
+  assert_not_contains 'PreCompact' "$out"
+  assert_not_contains 'handoff-pre-compact' "$out"
+  assert_not_contains 'shipped `handoff` skill' "$out"
+  assert_not_contains 'targets:' "$out"
+  assert_not_contains 'x-gemini:' "$out"
+  assert_contains 'gemini natively reads project-scoped hook configuration' "$out"
+  assert_contains 'gemini natively reads project-scoped skill configuration' "$out"
+  assert_contains 'gemini reads its settings file from `.gemini/settings.json`' "$out"
+  assert_contains 'Gemini CLI loads `PreCompress` hooks from `.gemini/settings.json`.' "$out"
+  assert_contains '| gemini | hooks | settings lifecycle hooks |' "$out"
+  assert_equals 5 "$(printf '%s\n' "$out" | wc -l | tr -d ' ')"
 }
