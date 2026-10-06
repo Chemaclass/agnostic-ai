@@ -578,3 +578,11 @@ function test_builtin_regression_cli_file_that_stops_naming_builtins_invalidates
   printf 'package cli\n' >"$ROOT/internal/cli/init_scaffold.go"
   assert_builtin_regression_shared_deep "$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")"
 }
+
+function test_builtin_regression_dirty_built_in_against_head_is_deep() {
+  # A report may name built-in coverage only when this check is clean, so a
+  # run that audited an uncommitted hook edit never becomes a baseline.
+  builtin_regression_fixture
+  printf 'name: end\ntargets: [claude]\nevent: Stop\n' >"$BUILTINS_DIR/demo-hook/hooks/end.yaml"
+  assert_builtin_regression_shared_deep "$(main --changed "$CHANGED_RUN" 2 --builtins-since HEAD)"
+}

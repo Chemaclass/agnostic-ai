@@ -14,7 +14,7 @@ Run `scripts/target-facts.sh --builtins` once and save its compact source invent
 
 ## Coverage since the last audit
 
-Use the audited commit from a completed report whose `Built-ins` coverage line names every requested target as `--builtins-since <rev>`. A report without that line, including every report written before built-ins entered the audit, a date, a vendor lock update, or a partial report cannot establish that baseline. Without a usable revision, `--changed` keeps the requested targets deep.
+Use the audited commit from a completed report whose `Built-ins` coverage line names every requested target as `--builtins-since <rev>`. A report without that line, including a run whose built-in inputs differed from its recorded commit and every report written before built-ins entered the audit, a date, a vendor lock update, or a partial report cannot establish that baseline. Without a usable revision, `--changed` keeps the requested targets deep.
 
 The `builtin-deep:` line names a reason for the numbered batches, not an extra assignment. Changes to built-in specs, assets or shared behavior conservatively invalidate the requested targets; adapter changes invalidate that adapter's requested target. This covers committed, staged, unstaged, untracked, removed and renamed paths. These targets cannot take either the unchanged-vendor or Jev-clear fast path. Other targets retain the vendor classification.
 
