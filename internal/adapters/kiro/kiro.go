@@ -163,6 +163,10 @@
 // blocking direct reads of matching files and filtering them from
 // content- and filename-search results.
 //
+// Commands emit their bodies as `.kiro/prompts/<name>.md`, with Markdown
+// provenance and native argument placeholders preserved. No command
+// frontmatter is emitted (kiro.dev/docs/cli/chat/manage-prompts/).
+//
 // The root `AGENTS.md` entry-point (which Kiro reads directly and
 // always includes) is written centrally by `sync`, not by this
 // adapter.
@@ -182,6 +186,7 @@ const (
 	defaultSteeringDir = ".kiro/steering"
 	defaultAgentsDir   = ".kiro/agents"
 	defaultSkillsDir   = ".kiro/skills"
+	defaultCommandsDir = ".kiro/prompts"
 	defaultHooksDir    = ".kiro/hooks"
 	defaultMCPFile     = ".kiro/settings/mcp.json"
 	defaultIgnoreFile  = ".kiroignore"
@@ -201,7 +206,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindHook, spec.KindIgnore},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindHook, spec.KindCommand, spec.KindIgnore},
 	AgentFieldReasons: map[string]string{
 		"mcpServers": "Kiro takes inline server definitions only; set x-kiro.mcpServers",
 	},
@@ -224,8 +229,8 @@ func (Adapter) Capabilities() []spec.Kind { return caps.Supports }
 func (Adapter) ForeignClaudeModels() []string { return caps.ForeignClaudeModels }
 
 // Emit writes one steering file per rule, one native agent profile per
-// agent, one native skill folder per skill, one hook definition file
-// per hook, `.kiroignore` when ignore entries exist, plus
+// agent, one native skill folder per skill, one prompt per command,
+// one hook definition file per hook, `.kiroignore` when ignore entries exist, plus
 // `.kiro/settings/mcp.json` when MCP entries exist.
 func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
 	if err := emit.ReportUnsupported(caps, b, cfg.OnUnsupported); err != nil {
@@ -258,6 +263,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 	skillsDir := emit.OutputSkillsDir(cfg, target, defaultSkillsDir)
 	if err := emitSkills(sess, b.Skills, skillsDir, dir, dryRun); err != nil {
+		return err
+	}
+	if err := emitCommands(sess, b.Commands, commandsDir(cfg), dryRun); err != nil {
 		return err
 	}
 	hooksDir := emit.OutputHooksDir(cfg, target, defaultHooksDir)

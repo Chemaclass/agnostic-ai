@@ -10,6 +10,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -19,6 +20,7 @@ const (
 	kiroSteeringDir = ".kiro/steering"
 	kiroAgentsDir   = ".kiro/agents"
 	kiroSkillsDir   = ".kiro/skills"
+	kiroCommandsDir = ".kiro/prompts"
 	kiroMCPFile     = ".kiro/settings/mcp.json"
 	kiroMCPKey      = "mcpServers"
 	kiroMainFile    = "AGENTS.md"
@@ -50,6 +52,8 @@ const (
 //   - `.kiro/hooks/*.json` reconstructs one hook spec per group of
 //     entries that differ only in `action.command`, splitting a file
 //     that carries several `trigger` values. See import_kiro_hooks.go.
+//   - `.kiro/prompts/*.md` copies command bodies and argument templates
+//     from the configured native output directory.
 //   - `.kiro/settings/mcp.json` (`mcpServers` map) reconstructs MCP specs.
 //   - a hand-authored `.kiroignore` reconstructs an ignore spec (#754).
 //   - `AGENTS.md` (the shared entry-point Kiro reads directly) mirrors to
@@ -64,8 +68,9 @@ const (
 // is the vendor default the emit side writes nothing for, and a hook
 // name declared by two files keeps only one of the two labels, since a
 // spec name is unique across the bundle.
-func importFromKiro(root string, src config.Sources) error {
-	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs); err != nil {
+func importFromKiro(root string, cfg *config.Config) error {
+	src := cfg.Sources
+	if err := mkdirAllSources(root, src.Rules, src.Agents, src.Skills, src.Hooks, src.MCPs, src.Commands); err != nil {
 		return err
 	}
 	c, err := importKiroSteering(root, src)
@@ -84,6 +89,10 @@ func importFromKiro(root string, src config.Sources) error {
 	if err != nil {
 		return err
 	}
+	commands, err := importKiroCommands(root, importSourcePath(root, src.Commands), cfg)
+	if err != nil {
+		return err
+	}
 	mcps, err := importJSONMCPMap("kiro", filepath.Join(root, kiroMCPFile), kiroMCPKey,
 		importSourcePath(root, src.MCPs))
 	if err != nil {
@@ -96,10 +105,56 @@ func importFromKiro(root string, src config.Sources) error {
 	if _, err := mirrorMainFile(root, kiroMainFile); err != nil {
 		return err
 	}
-	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d ignores\n",
-		c.rules, c.agents+agents, c.skills+skills, hooks, mcps, ignores)
+	summaryf("imported %d rules, %d agents, %d skills, %d hooks, %d mcps, %d commands, %d ignores\n",
+		c.rules, c.agents+agents, c.skills+skills, hooks, mcps, commands, ignores)
 	printImportNextSteps(root, "kiro")
 	return nil
+}
+
+func importKiroCommands(root, dstDir string, cfg *config.Config) (int, error) {
+	dir := kiroCommandsDir
+	for _, artifact := range adapters.NativeArtifactsFor("kiro", cfg) {
+		if artifact.Label == "Commands" {
+			dir = filepath.Clean(filepath.FromSlash(strings.TrimSuffix(artifact.Location, "/")))
+			break
+		}
+	}
+	src := config.ResolveSourcePath(root, dir)
+	entries, err := os.ReadDir(src)
+	if errors.Is(err, fs.ErrNotExist) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("read %s: %w", src, err)
+	}
+	count := 0
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
+			continue
+		}
+		path := filepath.Join(src, entry.Name())
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return count, fmt.Errorf("read %s: %w", path, err)
+		}
+		body, generated := strings.CutPrefix(string(data), header.Line(header.FormatMarkdown)+"\n")
+		if !generated {
+			body = header.Strip(string(data))
+		}
+		if strings.HasPrefix(body, "---") {
+			name := strings.TrimSuffix(entry.Name(), ".md")
+			body = "---\n" + yamlFrontmatterLine("name", name) + "---\n" + body
+		}
+		dst := filepath.Join(dstDir, entry.Name())
+		if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
+			return count, fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
+		}
+		if err := importWriteFile(dst, []byte(body), 0o644); err != nil {
+			return count, fmt.Errorf("write %s: %w", dst, err)
+		}
+		count++
+	}
+	return count, nil
 }
 
 // importKiroAgents copies every native agent profile under

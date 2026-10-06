@@ -139,6 +139,20 @@ anchor = "agents"
 docs_label = "Agents"
 
 [[explorer.entries]]
+id = "commands"
+name = "commands/"
+hint = "slash prompts"
+file = "commands/review.md"
+summary = "Saved prompts you run by name."
+outputs = [
+  { tool = "Kiro", path = ".kiro/prompts/review.md" },
+]
+reach = "Kiro CLI V3 reads workspace prompts as slash commands."
+href = "@/docs/spec-format/commands.md"
+anchor = "write-one"
+docs_label = "Commands"
+
+[[explorer.entries]]
 id = "hooks"
 name = "hooks/"
 hint = "tool events"

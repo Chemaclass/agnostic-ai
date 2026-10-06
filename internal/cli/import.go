@@ -205,7 +205,7 @@ func runImportSource(root, source string, cfg *config.Config) error {
 	case "continue":
 		return importFromContinue(root, src)
 	case "kiro":
-		return importFromKiro(root, src)
+		return importFromKiro(root, cfg)
 	case "kilo":
 		return importKiloIgnore(root, src)
 	case "crush":

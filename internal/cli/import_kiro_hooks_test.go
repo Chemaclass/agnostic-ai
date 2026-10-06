@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 // writeKiroHookFile drops one `.kiro/hooks/<name>.json` under root.
@@ -368,7 +370,7 @@ func TestImportFromKiro_ReportsHooksInSummary(t *testing.T) {
     "action": {"type": "command", "command": "gofmt -l ."}}]
 }`)
 
-	if err := importFromKiro(dir, rootSources()); err != nil {
+	if err := importFromKiro(dir, &config.Config{Sources: rootSources()}); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(buf.String(), "1 hooks") {

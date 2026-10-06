@@ -14,6 +14,12 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - When no files change, `sync` and `sync --check` run 2 to 5x faster; `sync --check --against` is about 5x faster at 20k+ tracked files (#1819, #1821).
 - `resolve-imports` leaves an `@path` line inside a code fence as written, so `sync --check --against` no longer fails on it (#1823).
 
+### By tool
+
+#### Kiro
+
+- Commands emit and import `.kiro/prompts/` files for CLI V3; native argument templates stay intact (#1822).
+
 ## v0.79.0 - 2026-10-05
 
 ### General

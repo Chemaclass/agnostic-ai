@@ -14,6 +14,10 @@
   body = "---\nname: test-writer\ndescription: Writes a failing test for a bug.\ntools: [Read, Grep, Edit]\nmodel:\n  claude: claude-sonnet-5\n  codex: gpt-6-sol\neffort: medium\n---\n\nReproduce the bug in a failing test. Do not touch production code.\n"
 
 [[files]]
+  path = ".agnostic-ai/commands/review.md"
+  body = "---\nname: review\ndescription: Review a change against main.\ntargets: [kiro]\n---\n\nReview $ARGUMENTS against main and report bugs with file and line references.\n"
+
+[[files]]
   path = ".agnostic-ai/hooks/format.yaml"
   body = "name: format\ntargets: [claude, codex]\nevent: PostToolUse\nmatcher: Edit|Write\ncommand: .claude/hooks/format.sh\n"
 
@@ -104,6 +108,10 @@
 [[files]]
   path = ".gemini/skills/release/SKILL.md"
   body = "---\nname: release\ndescription: Cut a release and verify it.\n---\n\nRun `./check.sh`, bump the version, and push the tag.\n"
+
+[[files]]
+  path = ".kiro/prompts/review.md"
+  body = "Review $ARGUMENTS against main and report bugs with file and line references.\n"
 
 [[files]]
   path = ".mcp.json"
