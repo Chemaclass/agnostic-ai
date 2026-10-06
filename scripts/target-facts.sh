@@ -199,7 +199,8 @@ source_sections() {
 
 # BUILTIN_SHARED_PATHS are repository paths whose change can alter what every
 # shipped built-in emits or how it runs: the built-ins themselves, spec
-# selection, config, shared emit and hook runtime, and their docs and tests.
+# selection, config, the project and global sync pipeline, shared emit and
+# hook runtime, and their docs and tests.
 # Each entry matches as a prefix.
 BUILTIN_SHARED_PATHS="internal/builtins/
 internal/cli/builtin
@@ -207,6 +208,9 @@ internal/cli/hook_run.go
 internal/cli/global_layers.go
 internal/cli/skills_share.go
 internal/cli/import.go
+internal/cli/layers
+internal/cli/global_
+internal/cli/sync
 internal/spec/
 internal/config/
 internal/adapters/internal/
@@ -214,6 +218,8 @@ internal/markdown/
 internal/mdlink/
 internal/hookrun/
 internal/hookpaths/
+go.mod
+go.sum
 tests/integration/builtin
 tests/integration/fixtures/builtin-
 tests/integration/fixtures/golden/builtin-
@@ -259,8 +265,14 @@ builtin_inventory() {
           function show() { print path ":" FNR ":" $0 }
           FNR == 1 && /^---[[:space:]]*$/ { md = 1; next }
           md && /^---[[:space:]]*$/ { exit }
+          list && /^[[:space:]]+-/ { show(); next }
+          { list = 0 }
           /^(command|args|description):/ { xblock = 0; next }
-          /^(name|target|targets|target-exclude|targets-exclude|event|matcher|async|timeout|shell):/ { xblock = 0; show(); next }
+          /^(name|target|targets|target-exclude|targets-exclude|event|on|matcher|match|async|timeout|shell):/ {
+            xblock = 0
+            list = /^(target|targets|target-exclude|targets-exclude):[[:space:]]*$/
+            show(); next
+          }
           /^x-[A-Za-z0-9-]+:/ { xblock = 1; show(); next }
           /^[^[:space:]]/ { xblock = 0; next }
           xblock && /^  [A-Za-z0-9_-]+:/ && !/^  (command|args):/ { show() }

@@ -363,7 +363,7 @@ EOF
   printf 'unrelated docs\n' >"$ROOT/docs/site/content/docs/releases.md"
   printf 'vendor lock\n' >"$ROOT/scripts/target-audit/sources.lock"
   local path
-  for path in internal/adapters/vars.go internal/adapters/header/header.go internal/markdown/markdown.go internal/mdlink/mdlink.go internal/hookrun/run.go internal/hookpaths/path.go internal/cli/global_layers.go internal/cli/skills_share.go internal/cli/import.go tests/integration/builtins_test.go tests/integration/builtin_handoff_hooks_test.go tests/integration/fixtures/golden/builtin-handoff/example.md docs/site/content/docs/configuration.md docs/site/content/docs/spec-format/hooks.md docs/site/content/docs/targets/continue.md; do
+  for path in internal/adapters/vars.go internal/adapters/header/header.go internal/markdown/markdown.go internal/mdlink/mdlink.go internal/hookrun/run.go internal/hookpaths/path.go internal/cli/global_layers.go internal/cli/skills_share.go internal/cli/import.go internal/cli/layers.go internal/cli/global_config.go internal/cli/global_targets.go internal/cli/sync_global.go internal/cli/sync_run.go go.mod go.sum tests/integration/builtins_test.go tests/integration/builtin_handoff_hooks_test.go tests/integration/fixtures/golden/builtin-handoff/example.md docs/site/content/docs/configuration.md docs/site/content/docs/spec-format/hooks.md docs/site/content/docs/targets/continue.md; do
     mkdir -p "$(dirname "$ROOT/$path")"
     printf 'baseline\n' >"$ROOT/$path"
   done
@@ -413,7 +413,7 @@ function test_builtin_regression_committed_change_is_compared_to_baseline() {
 function test_builtin_regression_shared_runtime_selection_config_and_emit_invalidate() {
   builtin_regression_fixture
   local path out
-  for path in internal/cli/hook_run.go internal/spec/spec.go internal/config/config.go internal/adapters/internal/emit/output.go internal/adapters/vars.go internal/adapters/header/header.go internal/markdown/markdown.go internal/mdlink/mdlink.go internal/hookrun/run.go internal/hookpaths/path.go internal/cli/global_layers.go internal/cli/skills_share.go internal/cli/import.go tests/integration/builtins_test.go tests/integration/builtin_handoff_hooks_test.go tests/integration/fixtures/golden/builtin-handoff/example.md docs/site/content/docs/handoff.md docs/site/content/docs/configuration.md docs/site/content/docs/spec-format/hooks.md; do
+  for path in internal/cli/hook_run.go internal/spec/spec.go internal/config/config.go internal/adapters/internal/emit/output.go internal/adapters/vars.go internal/adapters/header/header.go internal/markdown/markdown.go internal/mdlink/mdlink.go internal/hookrun/run.go internal/hookpaths/path.go internal/cli/global_layers.go internal/cli/skills_share.go internal/cli/import.go internal/cli/layers.go internal/cli/global_config.go internal/cli/global_targets.go internal/cli/sync_global.go internal/cli/sync_run.go go.mod go.sum tests/integration/builtins_test.go tests/integration/builtin_handoff_hooks_test.go tests/integration/fixtures/golden/builtin-handoff/example.md docs/site/content/docs/handoff.md docs/site/content/docs/configuration.md docs/site/content/docs/spec-format/hooks.md; do
     printf 'changed\n' >>"$ROOT/$path"
     out=$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")
     assert_builtin_regression_shared_deep "$out"
@@ -537,4 +537,17 @@ function test_builtin_regression_inventory_is_raw_registered_evidence_without_bo
   assert_not_contains 'STRAY_SENTINEL' "$out"
   assert_not_contains 'stray/SKILL.md' "$out"
   assert_not_contains 'this target emits' "$out"
+}
+
+function test_builtin_inventory_keeps_block_list_selectors_and_portable_events() {
+  builtin_regression_fixture
+  printf 'name: end\ntargets:\n  - claude\n  - codex\ntarget-exclude:\n  - gemini\non: pre-compact\nmatch: x\ncommand: |\n  echo BODY_HOOK_SENTINEL\n' >"$BUILTINS_DIR/demo-hook/hooks/end.yaml"
+  local out
+  out=$(main --builtins)
+  assert_contains 'end.yaml:3:  - claude' "$out"
+  assert_contains 'end.yaml:4:  - codex' "$out"
+  assert_contains 'end.yaml:6:  - gemini' "$out"
+  assert_contains 'end.yaml:7:on: pre-compact' "$out"
+  assert_contains 'end.yaml:8:match: x' "$out"
+  assert_not_contains 'BODY_HOOK_SENTINEL' "$out"
 }
