@@ -2,6 +2,7 @@ package emit
 
 import (
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -117,20 +118,17 @@ func (s *Session) MergedDocument(b spec.Bundle, opts MergedOpts, dryRun bool) er
 		}
 	}
 
-	if len(b.Skills) > 0 {
+	if slices.ContainsFunc(b.Skills, func(e spec.Entry) bool { return e.Layer != "builtin" }) {
 		sb.WriteString("## " + opts.SkillsHeading + "\n\n")
 		sb.WriteString(opts.SkillsIntro + "\n\n")
 		for _, sk := range b.Skills {
-			sb.WriteString("### " + sk.Name + "\n\n")
-			sb.WriteString(SourceComment(sk.Path))
-			if d := sk.Description(); d != "" {
-				sb.WriteString("_" + d + "_\n\n")
+			if sk.Layer == "builtin" {
+				continue
 			}
-			if sk.Path != "" {
-				sb.WriteString("Source: `" + filepath.ToSlash(sk.Path) + "`\n\n")
-			}
+			WriteReference(&sb, sk, sk.Path)
 		}
 	}
+	sb.WriteString(renderBuiltinSkills(b.Skills))
 
 	return s.WriteFile(opts.OutFile, AppendLocalInstructions(sb.String(), opts.local), dryRun)
 }
@@ -142,7 +140,7 @@ func (s *Session) MergedDocument(b spec.Bundle, opts MergedOpts, dryRun bool) er
 // prepend a prefix like "Agent: ".
 func WriteSection(sb *strings.Builder, heading string, e spec.Entry) {
 	body, shift := e.Body, 0
-	if e.Kind == spec.KindRule {
+	if e.Kind == spec.KindRule || e.Kind == spec.KindSkill {
 		body, shift = markdown.NestHeadings(body, 3)
 	}
 	sb.WriteString("### " + heading + "\n\n")

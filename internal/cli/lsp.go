@@ -47,7 +47,10 @@ func lspLinter(root string) map[string][]lsp.Diagnostic {
 	if err != nil {
 		return nil
 	}
-	layers := resolveLayers(root, cfg)
+	layers, err := resolveLayers(root, cfg)
+	if err != nil {
+		return nil
+	}
 	b, err := spec.LoadLayered(layers)
 	if err != nil {
 		return nil
@@ -55,6 +58,7 @@ func lspLinter(root string) map[string][]lsp.Diagnostic {
 	b.ApplyModelTiers(cfg.Models)
 	findings := collectLintFindings(cfg.Targets, projectKindSupport(cfg), b)
 	findings = append(findings, lintModels(cfg.Models, filepath.Join(root, config.ConfigFileName), cfg.Targets, targetsSupportingKind, b)...)
+	findings = withoutBuiltinFindings(findings, b)
 
 	out := map[string][]lsp.Diagnostic{}
 	for _, f := range findings {

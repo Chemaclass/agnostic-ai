@@ -52,7 +52,15 @@ func runImportGlobal(cmd *cobra.Command, args []string, dryRun bool) error {
 	// Anything a home spec already provides, shared or local, is left
 	// out: importing it again would copy a local secret into the
 	// shared home, or add a second spec for one key.
-	bundle, err := spec.LoadLayered(globalLayers(source))
+	names, err := loadGlobalBuiltins(source, nil)
+	if err != nil {
+		return err
+	}
+	layers, err := globalLayers(source, names)
+	if err != nil {
+		return err
+	}
+	bundle, err := spec.LoadLayered(layers)
 	if err != nil {
 		return err
 	}

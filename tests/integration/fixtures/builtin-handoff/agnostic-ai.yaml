@@ -1,0 +1,3 @@
+version: 1
+targets: [claude, codex]
+builtins: [handoff]

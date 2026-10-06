@@ -8,7 +8,37 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/markdown"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
+
+func TestMergedDocument_InlinesBuiltinSkillsWithoutCachePaths(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	cachePath := filepath.Join(dir, "temporary-builtin", "skills", "handoff", "SKILL.md")
+	b := spec.Bundle{Skills: []spec.Entry{
+		{Kind: spec.KindSkill, Name: "handoff", Layer: "builtin", Path: cachePath, Body: "# Handoff\n\n## Resume\nRead the handoff when asked.\n"},
+		{Kind: spec.KindSkill, Name: "custom", Layer: "project", Path: "skills/custom.md", Body: "Custom source body.\n"},
+	}}
+	if err := NewSession().MergedDocument(b, MergedOpts{OutFile: "CONVENTIONS.md", Title: "Conventions"}, false); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile("CONVENTIONS.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := string(data)
+	for _, want := range []string{"source: builtin:handoff", "#### Handoff", "##### Resume", "Read the handoff when asked.", "Source: `skills/custom.md`"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("merged document missing %q: %s", want, out)
+		}
+	}
+	if strings.Contains(out, "temporary-builtin") || strings.Contains(out, "Custom source body.") {
+		t.Errorf("merged skill sources are unusable or changed: %s", out)
+	}
+	stripped := StripGeneratedAppendices(out)
+	if strings.Contains(stripped, "builtin:handoff") || strings.Contains(stripped, "Read the handoff when asked.") || !strings.Contains(stripped, "Source: `skills/custom.md`") {
+		t.Errorf("import cannot separate bundled and user skills: %s", stripped)
+	}
+}
 
 func TestMergedDocument_SkipsWhenEmpty(t *testing.T) {
 	t.Parallel()

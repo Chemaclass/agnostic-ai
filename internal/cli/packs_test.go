@@ -150,7 +150,10 @@ func TestResolveLayers_PacksLayerInsertedBeforeProject(t *testing.T) {
 	}
 
 	cfg := &config.Config{Sources: defaultLayerSources()}
-	layers := resolveLayers(root, cfg)
+	layers, err := resolveLayers(root, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(layers) != 2 {
 		t.Fatalf("expected 2 layers (pack + project), got %d (%+v)", len(layers), layers)
 	}
@@ -176,7 +179,11 @@ func TestResolveLayers_PackRuleFoldersUseConsumingProjectDirectories(t *testing.
 	if err := runPacksAdd(root, src, "", &out); err != nil {
 		t.Fatalf("add: %v", err)
 	}
-	b, err := spec.LoadLayered(resolveLayers(root, &config.Config{Sources: defaultLayerSources()}))
+	layers, err := resolveLayers(root, &config.Config{Sources: defaultLayerSources()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := spec.LoadLayered(layers)
 	if err != nil {
 		t.Fatal(err)
 	}

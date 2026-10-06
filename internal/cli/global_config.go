@@ -44,7 +44,7 @@ func readGlobalConfig(path string) (map[string]yaml.Node, error) {
 
 // loadGlobalTargets reads the targets the home configs select. It
 // returns nil when neither file sets targets. Global mode reads only
-// targets, requires, lint, on-unsupported, and models, so each other key warns.
+// targets, builtins, requires, lint, on-unsupported, and models.
 func loadGlobalTargets(source string, warn io.Writer) ([]string, error) {
 	var targets []string
 	for _, path := range globalConfigPaths(source) {
@@ -55,13 +55,13 @@ func loadGlobalTargets(source string, warn io.Writer) ([]string, error) {
 		var ignored []string
 		for key := range doc {
 			// Every agnostic-ai.yaml carries version, so it is not a surprise.
-			if key != "targets" && key != "requires" && key != "lint" && key != "on-unsupported" && key != "models" && key != "version" {
+			if key != "targets" && key != "builtins" && key != "requires" && key != "lint" && key != "on-unsupported" && key != "models" && key != "version" {
 				ignored = append(ignored, key)
 			}
 		}
 		if len(ignored) > 0 {
 			slices.Sort(ignored)
-			if _, err := fmt.Fprintf(warn, "warning: %s: global mode reads only targets, requires, lint, on-unsupported, and models; ignoring %s\n", path, strings.Join(ignored, ", ")); err != nil {
+			if _, err := fmt.Fprintf(warn, "warning: %s: global mode reads only targets, builtins, requires, lint, on-unsupported, and models; ignoring %s\n", path, strings.Join(ignored, ", ")); err != nil {
 				return nil, fmt.Errorf("write global config warning: %w", err)
 			}
 		}
@@ -102,6 +102,32 @@ func loadGlobalTargets(source string, warn io.Writer) ([]string, error) {
 		targets = kept
 	}
 	return targets, nil
+}
+
+func loadGlobalBuiltins(source string, skipBroken io.Writer) ([]string, error) {
+	var names []string
+	for _, path := range globalConfigPaths(source) {
+		doc, err := readGlobalConfig(path)
+		if err != nil {
+			if skipBroken != nil {
+				continue
+			}
+			return nil, err
+		}
+		node, ok := doc["builtins"]
+		if !ok {
+			continue
+		}
+		var list []string
+		if err := node.Decode(&list); err != nil {
+			return nil, errs.Coded(errs.CodeConfigDecode, "parse %s: builtins: %w", path, err)
+		}
+		if err := validateBuiltinNames(list, path); err != nil {
+			return nil, err
+		}
+		names = list
+	}
+	return names, nil
 }
 
 // loadGlobalModels reads the model tiers the home configs name. A tier in

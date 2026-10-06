@@ -139,12 +139,12 @@ func sliceMainFileByH2(root, srcName, dstDir string) (int, error) {
 	// specs from that block alone and ignore the regenerable pointer
 	// body (and target-overview). A no-op on hand-authored or legacy
 	// concatenated files, which slice in full as before.
-	body := reduceToGeneratedRules(header.Strip(string(data)))
+	body := reduceToGeneratedRules(header.Strip(adapters.StripBuiltinSkills(string(data))))
 
 	preamble, sections := splitH2Sections(body)
 	preamble = stripMergedDocPreamble(preamble)
 	if len(sections) == 0 {
-		flat := strings.TrimSpace(body)
+		flat := strings.TrimSpace(preamble)
 		if flat == "" {
 			return 0, nil
 		}

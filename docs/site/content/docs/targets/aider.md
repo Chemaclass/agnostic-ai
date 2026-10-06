@@ -38,6 +38,8 @@ When aider leaves `targets` or `conf-file` is unset, sync removes only `model`, 
 | `outputs.aider.rules-file` | unset | writes a legacy merged document and skips the pointer-body write |
 | `outputs.aider.ignore-file` | `.aiderignore` | |
 
+With [`builtins: [handoff]`](@/docs/handoff.md), a configured `rules-file` includes the handoff instructions inline.
+
 ## Protected paths
 
 Advisory. This target takes no settings specs, so sync reports a spec with a `protected` block as unsupported. See [Protected paths](@/docs/spec-format/settings.md#protected-paths). State the paths in a rule if the agent should know about them.

@@ -41,7 +41,7 @@ func loadHookMigrationSpecs(s migrationScope) (hookMigrationSpecs, error) {
 		if err != nil {
 			return hookMigrationSpecs{}, err
 		}
-		return projectHookMigrationSpecs(s.root, cfg, b), nil
+		return projectHookMigrationSpecs(s.root, cfg, b)
 	}
 	b, layers, err := s.loadGlobalSpecs()
 	if err != nil {
@@ -59,7 +59,7 @@ func loadHookMigrationSpecs(s migrationScope) (hookMigrationSpecs, error) {
 
 // projectHookMigrationSpecs is the project at root, loaded as cfg and b.
 // An adapter outside the tree may run hooks, so it counts.
-func projectHookMigrationSpecs(root string, cfg *config.Config, b spec.Bundle) hookMigrationSpecs {
+func projectHookMigrationSpecs(root string, cfg *config.Config, b spec.Bundle) (hookMigrationSpecs, error) {
 	var targets []string
 	for _, t := range cfg.Targets {
 		if _, inTree := adapters.Get(t); inTree {
@@ -69,7 +69,11 @@ func projectHookMigrationSpecs(root string, cfg *config.Config, b spec.Bundle) h
 		}
 		targets = append(targets, t)
 	}
-	return hookMigrationSpecs{bundle: b, layers: resolveLayers(root, cfg), targets: targets}
+	layers, err := resolveLayers(root, cfg)
+	if err != nil {
+		return hookMigrationSpecs{}, err
+	}
+	return hookMigrationSpecs{bundle: withoutBuiltinEntries(b), layers: withoutBuiltinLayers(layers), targets: targets}, nil
 }
 
 // reach lists the targets h reaches that run hooks.

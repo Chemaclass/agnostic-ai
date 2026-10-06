@@ -42,7 +42,7 @@ revision=${GITHUB_SHA:-$(git -C "$root" rev-parse --verify HEAD 2>/dev/null || p
   echo "https://github.com/Chemaclass/agnostic-ai"
   for doc in _index installation agent-setup getting-started migration troubleshooting \
              trace spec-format targets target-updates configuration \
-             cli-reference ci packs git-hooks graph errors \
+             cli-reference ci packs handoff git-hooks graph errors \
              why-agnostic-ai; do
     echo
     echo "---"

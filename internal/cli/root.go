@@ -112,7 +112,8 @@ func NewRootCmd(version string) *cobra.Command {
 // run between the pre-run hooks and RunE.
 func profileEachRun(cmd *cobra.Command, path *string) {
 	if run := cmd.RunE; run != nil {
-		cmd.RunE = func(c *cobra.Command, args []string) error {
+		cmd.RunE = func(c *cobra.Command, args []string) (runErr error) {
+			defer func() { runErr = errors.Join(runErr, cleanupBuiltinLayers()) }()
 			f, err := startCPUProfile(*path)
 			if err != nil {
 				return err
@@ -151,6 +152,9 @@ func loadProject(root string) (*config.Config, spec.Bundle, error) {
 	if err := validateConfigTargets(cfg, strings.Join(sources, " + ")); err != nil {
 		return nil, spec.Bundle{}, err
 	}
+	if err := validateBuiltinNames(cfg.Builtins, strings.Join(sources, " + ")); err != nil {
+		return nil, spec.Bundle{}, err
+	}
 	if err := validateAgentsOutput(cfg, strings.Join(sources, " + ")); err != nil {
 		return nil, spec.Bundle{}, err
 	}
@@ -164,7 +168,11 @@ func loadProject(root string) (*config.Config, spec.Bundle, error) {
 		verbosef("→ merged %d config layers: %s\n",
 			len(sources), strings.Join(sources, ", "))
 	}
-	b, err := spec.LoadLayered(resolveLayers(root, cfg))
+	layers, err := resolveLayers(root, cfg)
+	if err != nil {
+		return nil, spec.Bundle{}, err
+	}
+	b, err := spec.LoadLayered(layers)
 	if err != nil {
 		return nil, spec.Bundle{}, err
 	}

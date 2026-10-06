@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -22,7 +23,7 @@ func runExplainGlobal(cmd *cobra.Command, input string, jsonOut bool) error {
 	if err != nil {
 		return err
 	}
-	if !filepath.IsAbs(input) {
+	if !filepath.IsAbs(input) && !strings.HasPrefix(input, "builtin:") {
 		if _, statErr := os.Stat(input); statErr != nil {
 			input = filepath.Join(scope.source, input)
 		}
@@ -50,13 +51,13 @@ func runExplainGlobal(cmd *cobra.Command, input string, jsonOut bool) error {
 		return emitExplainJSON(cmd, explainOutput{
 			Version:            "1",
 			Command:            "explain",
-			Spec:               explainSpecRef{Kind: string(entry.Kind), Name: entry.Name, Path: filepath.ToSlash(entry.Path)},
+			Spec:               entrySourceRef(entry),
 			Contributions:      contributions,
 			WouldEmitIfEnabled: []contribution{},
 		})
 	}
 	out := cmd.OutOrStdout()
-	if _, err := fmt.Fprintf(out, "%s →\n", filepath.ToSlash(entry.Path)); err != nil {
+	if _, err := fmt.Fprintf(out, "%s →\n", entrySourceText(entry)); err != nil {
 		return fmt.Errorf("write explain output: %w", err)
 	}
 	if len(contributions) == 0 {

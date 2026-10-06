@@ -152,9 +152,12 @@ Import strips the leading `# <heading>` block that the adapter adds on emit. It 
 
 Print all loaded specs as `kind<tab>name<tab>layer`. With no specs, a hint goes to stderr and stdout stays empty.
 
+Built-in entries add their name and running version after the layer. JSON entries carry `kind`, `name`, `path`, and `layer`; a built-in has an empty `path` and a `builtin` object with `name` and `version`.
+
 | Flag | Description |
 |------|-------------|
-| `--global` | List effective specs from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides. Layers are `global` and `global-local`. Works outside a project. |
+| `--global` | List effective specs from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides, including enabled built-ins. Works outside a project. |
+| `--json` | Print an `entries` array with source provenance. An empty scope prints an empty array. |
 
 ## new
 

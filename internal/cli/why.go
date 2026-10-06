@@ -21,10 +21,12 @@ import (
 
 // whySource describes one source spec that contributes to the emitted file.
 type whySource struct {
-	Kind string `json:"kind"`
-	Name string `json:"name"`
-	Path string `json:"path"`
-	Mode string `json:"mode"` // "full" or "section"
+	Kind    string      `json:"kind"`
+	Name    string      `json:"name"`
+	Path    string      `json:"path"`
+	Mode    string      `json:"mode"` // "full" or "section"
+	Layer   string      `json:"layer,omitempty"`
+	Builtin *builtinRef `json:"builtin,omitempty"`
 }
 
 // whyOutput is the JSON envelope for `why --format json`.
@@ -41,6 +43,7 @@ type whyOutput struct {
 
 func newWhyCmd() *cobra.Command {
 	var format string
+	var jsonOut bool
 	cmd := &cobra.Command{
 		Use:   "why <file>",
 		Short: "Trace an emitted file back to the source spec(s) and adapter that produced it.",
@@ -65,7 +68,7 @@ func newWhyCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if format == "json" {
+			if format == "json" || jsonOut {
 				return emitWhyJSON(cmd, report)
 			}
 			printWhyText(cmd, report)
@@ -73,6 +76,7 @@ func newWhyCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&format, "format", "text", "Output format: text or json.")
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON")
 	return cmd
 }
 
@@ -188,12 +192,7 @@ func traceEntryPointFile(rel string, cfg *config.Config, b spec.Bundle, projectR
 	sources := []whySource{instructionsSource(appended)}
 	var ruleSources []whySource
 	for _, r := range rules {
-		ruleSources = append(ruleSources, whySource{
-			Kind: string(r.Kind),
-			Name: r.Name,
-			Path: filepath.ToSlash(r.Path),
-			Mode: "section",
-		})
+		ruleSources = append(ruleSources, whyEntrySource(r, "section"))
 	}
 	sort.SliceStable(ruleSources, func(i, j int) bool { return ruleSources[i].Name < ruleSources[j].Name })
 	sources = append(sources, ruleSources...)
@@ -375,21 +374,11 @@ func tracedSources(adapter adapters.Adapter, hit adapters.CapturedFile, b spec.B
 			}
 		}
 		if matched == nil {
-			sources = append(sources, whySource{
-				Kind: string(e.Kind),
-				Name: e.Name,
-				Path: filepath.ToSlash(e.Path),
-				Mode: "full",
-			})
+			sources = append(sources, whyEntrySource(e, "full"))
 			continue
 		}
 		if matched.Content != hit.Content {
-			sources = append(sources, whySource{
-				Kind: string(e.Kind),
-				Name: e.Name,
-				Path: filepath.ToSlash(e.Path),
-				Mode: "section",
-			})
+			sources = append(sources, whyEntrySource(e, "section"))
 		}
 	}
 	sort.SliceStable(sources, func(i, j int) bool {
@@ -399,6 +388,11 @@ func tracedSources(adapter adapters.Adapter, hit adapters.CapturedFile, b spec.B
 		return sources[i].Name < sources[j].Name
 	})
 	return sources, nil
+}
+
+func whyEntrySource(e spec.Entry, mode string) whySource {
+	r := entrySourceRef(e)
+	return whySource{Kind: r.Kind, Name: r.Name, Path: r.Path, Mode: mode, Layer: r.Layer, Builtin: r.Builtin}
 }
 
 // outputKeysUsed walks the per-target Output struct and returns every
@@ -506,6 +500,10 @@ func printWhyText(cmd *cobra.Command, r whyOutput) {
 		if mode == "" {
 			mode = "section"
 		}
-		_, _ = fmt.Fprintf(out, "    [%s] %s (%s): %s\n", s.Kind, s.Name, s.Path, mode)
+		path := s.Path
+		if s.Builtin != nil {
+			path = s.Builtin.String()
+		}
+		_, _ = fmt.Fprintf(out, "    [%s] %s (%s): %s\n", s.Kind, s.Name, path, mode)
 	}
 }

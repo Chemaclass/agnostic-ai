@@ -647,6 +647,10 @@ func StripGeneratedAppendices(body string) string {
 	return emit.StripGeneratedAppendices(body)
 }
 
+func StripBuiltinSkills(body string) string {
+	return emit.StripBuiltinSkills(body)
+}
+
 // SupportsFileImports reports whether target's CLI resolves `@path`
 // file-import lines in its entry-point file (re-exported from the emit
 // layer).

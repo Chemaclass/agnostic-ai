@@ -49,7 +49,11 @@ func lintPortableHookForms(root string, cfg *config.Config, b spec.Bundle) []lin
 	if refuseGlobalHome(root, "") != nil {
 		return nil
 	}
-	planned, _, err := planPortableHooks(migrationScope{root: root}, projectHookMigrationSpecs(root, cfg, b))
+	hs, err := projectHookMigrationSpecs(root, cfg, b)
+	if err != nil {
+		return nil
+	}
+	planned, _, err := planPortableHooks(migrationScope{root: root}, hs)
 	if err != nil {
 		return nil
 	}
