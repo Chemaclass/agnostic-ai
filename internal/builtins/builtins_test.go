@@ -154,10 +154,30 @@ func TestMaterialize_LoadsTheFullHandoffAsAnOrdinaryLayer(t *testing.T) {
 			t.Errorf("skill is missing rule %q", rule)
 		}
 	}
-	for _, path := range []string{"rules/learnings.md", "learnings-local.md", "hooks/"} {
-		if strings.Contains(skill.Body, path) {
-			t.Errorf("Slice 1 skill unexpectedly names %q", path)
+	rootInstructions, _, _ := strings.Cut(skill.Body, "\n## Write\n")
+	for _, rule := range []string{
+		"canonical", "AGNOSTIC_AI_HOME", "~/.agnostic-ai",
+		"exclude the effective global source root", "git rev-parse --show-toplevel",
+	} {
+		if !strings.Contains(rootInstructions, rule) {
+			t.Errorf("skill root lookup is missing rule %q", rule)
 		}
+	}
+	for _, rule := range []string{
+		"Write the file before proposing learnings",
+		"[project]", "[personal]", "[global]",
+		"append-only diff per file", "YAML frontmatter", "alwaysApply: true",
+		"name: learnings-local", "omit `scope`, `globs`, and `paths`",
+		"confirmation of each item's content and scope", "only approved items",
+		"never rewrite existing entries", "explicitly picks it for that item",
+		"Refresh the handoff header, Done, and Verify", "failed or pending syncs",
+	} {
+		if !strings.Contains(skill.Body, rule) {
+			t.Errorf("skill is missing learning contract %q", rule)
+		}
+	}
+	if strings.Contains(skill.Body, "hooks/") {
+		t.Error("handoff skill unexpectedly names a hooks path")
 	}
 }
 

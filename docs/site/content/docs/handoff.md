@@ -44,7 +44,25 @@ tool: codex | date: 2026-10-05T14:02Z | branch: feat/x | head: abc1234
 
 Each write replaces the previous handoff in that checkout. It excludes secrets and tool-owned memory stores. Git records the code's history. `sync --watch` ignores both `HANDOFF.md` and `HANDOFF.auto.md` in this local folder.
 
-The skill uses the nearest ancestor with `agnostic-ai.yaml` or the legacy `agnostic.config.yaml` as the project root. Separately configured subprojects keep separate handoffs, including requests from a nested directory. A globally installed skill falls back to the Git worktree root when no project config exists.
+The skill uses the nearest ancestor with `agnostic-ai.yaml` or the legacy `agnostic.config.yaml` as the project root. It compares canonical paths and skips the effective global source root (`AGNOSTIC_AI_HOME` when nonempty, otherwise `~/.agnostic-ai`), whose home config never identifies a project. Separately configured subprojects keep separate handoffs, including requests from a nested directory. When no project config remains, it falls back to the current Git worktree root.
+
+## Promote durable learnings
+
+After saving the handoff, the skill proposes learnings from the session. It skips facts already in loaded rules or obvious from the code. Each proposal has a scope tag and a diff for its destination file. Confirm both the content and scope before the skill writes it.
+
+| Scope | Default destination | Sync after approval |
+| --- | --- | --- |
+| [project] | `.agnostic-ai/rules/learnings.md` | `agnostic-ai sync` |
+| [personal] | `.agnostic-ai/local/rules/learnings-local.md` | `agnostic-ai sync` |
+| [global] | `~/.agnostic-ai/rules/learnings.md` | `agnostic-ai sync --global` |
+
+Project `learnings.md` follows the effective `sources.rules` from the project config and any `agnostic-ai.local.yaml` override. Relative paths start at the project root; absolute paths are used directly, without `~` expansion. The personal path stays fixed. A nonempty `AGNOSTIC_AI_HOME` moves the global file to that directory's `rules/learnings.md`; global `sources` config does not change the `rules/` folder. Proposals and diffs show each resolved destination before confirmation.
+
+Approved items append to existing entries. New files receive valid rule frontmatter. The personal rule is named `learnings-local` so it keeps the project rule's body. Global writes require an explicit global choice for each item; global rules have no `scope`, `globs`, or `paths`.
+
+Project learnings can be committed for teammates. Personal learnings stay in the checkout's gitignored local folder. Global learnings apply across projects on the machine. Claude Code loads project and personal learnings through its native rule files by default. Set `outputs.claude.rules-file: CLAUDE.md` to include both bodies in `CLAUDE.md`.
+
+If `agnostic-ai` is not on PATH, the skill prints the command to run. After approved writes and sync attempts, it refreshes the handoff's git header, completed work, and verification notes. Failed or pending syncs stay recorded as unfinished work.
 
 ## Resume in another tool
 
