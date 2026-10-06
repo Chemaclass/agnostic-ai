@@ -79,22 +79,18 @@ func memoryContext(index string) string {
 
 // memoryHookReply wraps text in the reply each target reads as context.
 func memoryHookReply(target, text string) (string, error) {
-	var key string
+	var reply any
 	switch target {
 	case "gemini":
-		data, err := json.Marshal(map[string]map[string]string{"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}})
-		if err != nil {
-			return "", fmt.Errorf("encode %s reply: %w", target, err)
-		}
-		return string(data) + "\n", nil
+		reply = map[string]map[string]string{"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}}
 	case "cursor":
-		key = "additional_context"
+		reply = map[string]string{"additional_context": text}
 	case "copilot":
-		key = "additionalContext"
+		reply = map[string]string{"additionalContext": text}
 	default:
 		return text, nil
 	}
-	data, err := json.Marshal(map[string]string{key: text})
+	data, err := json.Marshal(reply)
 	if err != nil {
 		return "", fmt.Errorf("encode %s reply: %w", target, err)
 	}
