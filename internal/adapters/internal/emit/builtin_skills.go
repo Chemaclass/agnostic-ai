@@ -17,7 +17,6 @@ func renderBuiltinSkills(skills []spec.Entry) string {
 		if sk.Layer != "builtin" {
 			continue
 		}
-		sk.Path = "builtin:" + sk.Name
 		WriteSection(&sb, sk.Name, sk)
 	}
 	if sb.Len() == 0 {

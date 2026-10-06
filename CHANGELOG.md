@@ -6,6 +6,11 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### General
+
+- Opt-in `memory` built-in keeps one project memory in `.agnostic-ai/memory/` that every tool reads and writes; Claude Code imports its index (#1844).
+- A built-in spec inlined into a shared instructions file names its source as `builtin:<name>` instead of a cache path (#1844).
+
 ## v0.80.0 - 2026-10-06
 
 ### General
