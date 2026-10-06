@@ -36,7 +36,7 @@ func newHookMemoryCmd() *cobra.Command {
 			if target == "" {
 				target = os.Getenv(adapters.HookTargetEnv)
 			}
-			root := memoryProjectRoot()
+			root := memoryProjectRoot(target)
 			if root == "" {
 				return nil
 			}
@@ -95,14 +95,25 @@ func memoryHookReply(target, text string) (string, error) {
 	return string(data) + "\n", nil
 }
 
+// hookProjectDirEnv names the variable a target sets to the workspace
+// when its hooks run elsewhere, such as Cursor's user hooks in ~/.cursor/.
+var hookProjectDirEnv = map[string]string{
+	"cursor":  "CURSOR_PROJECT_DIR",
+	"qoder":   "QODER_PROJECT_DIR",
+	"factory": "FACTORY_PROJECT_DIR",
+}
+
 // memoryProjectRoot finds the project the shared-memory skill uses: the
 // nearest ancestor with a project config, never the global source root,
 // or else the Git checkout, since a global install reaches projects with
 // no config of their own.
-func memoryProjectRoot() string {
-	wd, err := os.Getwd()
-	if err != nil {
-		return ""
+func memoryProjectRoot(target string) string {
+	wd := os.Getenv(hookProjectDirEnv[target])
+	if wd == "" {
+		var err error
+		if wd, err = os.Getwd(); err != nil {
+			return ""
+		}
 	}
 	global := ""
 	if source, err := globalSourceRoot(); err == nil {
@@ -143,16 +154,16 @@ func canonicalDir(dir string) string {
 const memoryIndexMaxBytes = 1 << 20
 
 // readMemoryIndex reads the project's memory index when it is a regular
-// file inside root. A hook reads it into the model's context unasked, so
-// a symlink that leaves the project, such as one a cloned checkout ships
-// to a credentials file, is skipped.
+// file at its own path under root. A hook reads it into the model's
+// context unasked, so any symlink on the way, such as one a cloned
+// checkout ships to .env or a credentials file, is skipped.
 func readMemoryIndex(root string) (string, bool) {
 	root = canonicalDir(root)
 	real, err := filepath.EvalSymlinks(filepath.Join(root, adapters.ProjectMemoryIndexPath))
 	if err != nil {
 		return "", false
 	}
-	if rel, err := filepath.Rel(root, real); err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+	if real != filepath.Join(root, adapters.ProjectMemoryIndexPath) {
 		return "", false
 	}
 	f, err := os.Open(real)

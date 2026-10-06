@@ -165,6 +165,15 @@ func TestHookMemory_SkipsAnIndexThatLeavesTheProject(t *testing.T) {
 			}
 			return os.Symlink(secret, filepath.Join(dir, ".agnostic-ai", "memory", "MEMORY.md"))
 		},
+		"file in the project": func(dir string) error {
+			if err := os.WriteFile(filepath.Join(dir, ".env"), []byte("token=hunter2\n"), 0o600); err != nil {
+				return err
+			}
+			if err := os.MkdirAll(filepath.Join(dir, ".agnostic-ai", "memory"), 0o755); err != nil {
+				return err
+			}
+			return os.Symlink(filepath.Join("..", "..", ".env"), filepath.Join(dir, ".agnostic-ai", "memory", "MEMORY.md"))
+		},
 		"folder": func(dir string) error {
 			if err := os.Rename(secret, filepath.Join(filepath.Dir(secret), "MEMORY.md")); err != nil {
 				return err
@@ -186,5 +195,18 @@ func TestHookMemory_SkipsAnIndexThatLeavesTheProject(t *testing.T) {
 				t.Errorf("hook leaked a file outside the project: %q", got)
 			}
 		})
+	}
+}
+
+// Cursor runs user hooks from ~/.cursor/ and names the workspace in
+// CURSOR_PROJECT_DIR.
+func TestHookMemory_StartsFromTheWorkspaceTheTargetNames(t *testing.T) {
+	memoryHookProject(t, sampleIndex)
+	project, _ := os.Getwd()
+	t.Setenv("CURSOR_PROJECT_DIR", project)
+	testutil.Chdir(t, t.TempDir())
+
+	if got := runHookMemory(t, "--target", "cursor"); !strings.Contains(got, "CI is Ubuntu only") {
+		t.Errorf("got %q", got)
 	}
 }
