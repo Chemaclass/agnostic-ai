@@ -551,3 +551,26 @@ function test_builtin_inventory_keeps_block_list_selectors_and_portable_events()
   assert_contains 'end.yaml:8:match: x' "$out"
   assert_not_contains 'BODY_HOOK_SENTINEL' "$out"
 }
+
+function test_builtin_regression_cli_file_naming_builtins_invalidates() {
+  builtin_regression_fixture
+  printf 'package cli\n// resolves builtins layers\n' >"$ROOT/internal/cli/root.go"
+  printf 'package cli\n' >"$ROOT/internal/cli/version.go"
+  git -C "$ROOT" add .
+  git -C "$ROOT" -c user.name=Test -c user.email=test@example.invalid -c commit.gpgsign=false commit -qm cli
+  BUILTIN_BASE=$(git -C "$ROOT" rev-parse HEAD)
+  printf 'changed\n' >>"$ROOT/internal/cli/version.go"
+  assert_equals 'sweep: factory claude continue' "$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")"
+  printf 'changed\n' >>"$ROOT/internal/cli/root.go"
+  assert_builtin_regression_shared_deep "$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")"
+}
+
+function test_builtin_regression_cli_file_that_stops_naming_builtins_invalidates() {
+  builtin_regression_fixture
+  printf 'package cli\n// enables builtins in new projects\n' >"$ROOT/internal/cli/init_scaffold.go"
+  git -C "$ROOT" add .
+  git -C "$ROOT" -c user.name=Test -c user.email=test@example.invalid -c commit.gpgsign=false commit -qm cli
+  BUILTIN_BASE=$(git -C "$ROOT" rev-parse HEAD)
+  printf 'package cli\n' >"$ROOT/internal/cli/init_scaffold.go"
+  assert_builtin_regression_shared_deep "$(main --changed "$CHANGED_RUN" 2 --builtins-since "$BUILTIN_BASE")"
+}
