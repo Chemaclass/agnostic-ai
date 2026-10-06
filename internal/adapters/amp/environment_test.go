@@ -24,7 +24,7 @@ func TestEmit_Environment_WritesSetupAndServices(t *testing.T) {
 				"install": "go mod download",
 				"terminals": []any{
 					map[string]any{"name": "dev", "command": "go run ./cmd/agnostic-ai"},
-					map[string]any{"name": "docs", "command": "zola serve", "cwd": "docs/site", "agent": "observe"},
+					map[string]any{"name": "docs", "command": "zola serve", "cwd": "docs/site", "health": "/healthz", "review": false},
 				},
 			},
 		},
@@ -59,7 +59,8 @@ func TestEmit_Environment_WritesSetupAndServices(t *testing.T) {
 		"docs:",
 		"command: zola serve",
 		"cwd: docs/site",
-		"agent: observe",
+		"health: /healthz",
+		"review: false",
 	} {
 		if !strings.Contains(services, want) {
 			t.Errorf("services file missing %q:\n%s", want, services)
