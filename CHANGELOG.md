@@ -8,17 +8,20 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
-- Opt-in `handoff` built-ins carry tasks between tools, promote approved rules, and add Git snapshots with startup resume notices (#1829, #1830, #1831).
-- Built-in text updates cause `sync --check` drift; older editor schemas flag `builtins:` until release. Run `sync` after upgrading (#1829).
-- A one-line code span such as ```` ```example``` ```` no longer hides the `@path` lines after it from includes and imports (#1828).
-- When no files change, `sync` and `sync --check` run 2 to 5x faster; `sync --check --against` is about 5x faster at 20k+ tracked files (#1819, #1821).
-- `resolve-imports` leaves an `@path` line inside a code fence as written, so `sync --check --against` no longer fails on it (#1823).
+- Opt-in `handoff` built-ins carry a task between tools, save approved rules, and add Git snapshots with resume notices (#1829, #1830, #1831).
+- Built-in text can change with a release and show as `sync --check` drift. Run `sync` after upgrading (#1829).
+- With no changed files, `sync` and `sync --check` run 2 to 5x faster; `sync --check --against` is about 5x faster at 20k+ files (#1819, #1821).
+- `@path` lines inside a code fence stay as written, and a one-line code span no longer hides the lines after it (#1823, #1828).
 
 ### By tool
 
 #### Kiro
 
-- Commands emit and import `.kiro/prompts/` files for CLI V3; native argument templates stay intact (#1822).
+- Commands sync to and import from `.kiro/prompts/` for CLI V3 slash commands, with native argument templates intact (#1822).
+
+### Site
+
+- The Amp page drops the services `agent` key, which Amp no longer documents (#1835, #1839).
 
 ## v0.79.0 - 2026-10-05
 
