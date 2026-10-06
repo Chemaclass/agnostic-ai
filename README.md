@@ -9,7 +9,7 @@ agnostic-ai is for developers and teams using more than one AI coding tool, or p
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Chemaclass/agnostic-ai/badge)](https://scorecard.dev/viewer/?uri=github.com/Chemaclass/agnostic-ai)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15088/badge)](https://www.bestpractices.dev/projects/15088)
 
-AI tools store instructions in different files. Keeping those files by hand makes them drift. agnostic-ai keeps the editable source in plain Markdown and YAML in your repository. It needs no account or service.
+Each AI tool reads its instructions from different files. Kept by hand, those files drift apart. agnostic-ai keeps one editable source in plain Markdown and YAML inside your repository. No account, no service.
 
 ## Set up with a coding agent
 
@@ -34,19 +34,13 @@ agnostic-ai sync --plan
 agnostic-ai sync
 ```
 
-`init --from all` creates the project config and imports existing tool files when it finds them. Pick the tools you use when prompted. `sync --plan` previews the changes; `sync` writes the native files.
+`init --from all` creates the project config and imports the tool files it finds. Pick your tools when prompted. `sync --plan` previews the changes. `sync` writes the native files.
 
-`lint` and `sync` warn when a bare permission capability covers a whole tool. Scope it, such as `shell(git status)` or `edit(src/**)`.
+From then on, edit sources under `.agnostic-ai/`, then sync again. `AGNOSTIC_AI.md` holds the shared project instructions. Files such as `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules/` are generated outputs.
 
-Edit sources under `.agnostic-ai/`, including `AGNOSTIC_AI.md` for shared project instructions, then sync again. Generated files such as `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules/` are outputs.
+After installing a newer release, run `agnostic-ai upgrade --requires` from the project root. It pins the project to that release and syncs again.
 
-`sync`, `import`, `use`, `init`, and `upgrade --requires` take a project lock. A second writer stops and names the running command; retry when it finishes. Read-only checks and previews can still run.
-
-See [Getting started](https://agnostic-ai.org/docs/getting-started/) to add your first rule, [all install options](https://agnostic-ai.org/docs/installation/) for other installers, and [Migration](https://agnostic-ai.org/docs/migration/) to review an existing setup.
-
-`import`, `sync`, and `validate` use the same `sources` paths, including absolute directories and linked source roots. Watch mode follows their edits too. Polling picks up edits made during a re-sync on the next tick. `import --dry-run` previews those destinations without writing them.
-
-After installing a newer release, run `agnostic-ai upgrade --requires` from the project root. It pins `requires` and the config's schema URL to the installed release, then syncs the generated files. See the [upgrade reference](https://agnostic-ai.org/docs/cli-reference/maintain/#upgrade).
+Next: [Getting started](https://agnostic-ai.org/docs/getting-started/) to add your first rule, [Installation](https://agnostic-ai.org/docs/installation/) for other installers, and [Migration](https://agnostic-ai.org/docs/migration/) to review an existing setup.
 
 ## Daily commands
 
@@ -60,21 +54,15 @@ agnostic-ai doctor --fix                         # repair drift, choose kept orp
 agnostic-ai migrate --dry-run                    # preview rewrites of old spec forms
 ```
 
-Support spans [Claude Code, Codex, Cursor, Gemini CLI, Copilot, and more](https://agnostic-ai.org/docs/targets/#capability-matrix). Each tool supports a different set of spec kinds. The [spec format](https://agnostic-ai.org/docs/spec-format/) and [target reference](https://agnostic-ai.org/docs/targets/) show the exact paths and fields.
+## What you can share
 
-Kiro project commands sync to `.kiro/prompts/` for Kiro CLI V3 slash commands. See [Kiro commands](https://agnostic-ai.org/docs/targets/kiro/#commands).
+Support spans [Claude Code, Codex, Cursor, Gemini CLI, Copilot, Kiro, and more](https://agnostic-ai.org/docs/targets/#capability-matrix). Each tool supports a different set of spec kinds; the [target reference](https://agnostic-ai.org/docs/targets/) shows the exact paths.
 
-Agents, skills, and permissions share neutral capabilities such as `read(src/**)`, `shell(git diff *)`, and `mcp:github`. `explain` shows each target's native names and any extra access. See [Capabilities](https://agnostic-ai.org/docs/spec-format/agents/#capabilities).
-
-Model tiers share roles across tools. Codex aliases resolve to explicit IDs; see [Models and aliases](https://agnostic-ai.org/docs/configuration/#models).
-
-Enable `builtins: [handoff]` to write a session handoff in one tool and resume it in another on the same machine. The skill proposes durable rules and saves them after confirmation. `init` enables it for new projects. See [Session handoffs](https://agnostic-ai.org/docs/handoff/).
-
-Add `handoff-hook` to `builtins` to record Git snapshots and show startup resume notices in supported tools. See [Automatic handoffs](https://agnostic-ai.org/docs/handoff/#add-automatic-git-snapshots).
-
-MCP import replaces literal environment and header values, and credentials in MCP URLs and arguments, with portable references. Continue sync writes its secret syntax for `.env` files. See [MCP references](https://agnostic-ai.org/docs/spec-format/mcps/#environment-references).
-
-Claude MCP import and sync preserve `alwaysLoad` and `bareElicitationCapability`, including explicit `false` values. See [Claude MCP options](https://agnostic-ai.org/docs/targets/claude/#output) for tool loading and connection compatibility.
+- **Rules, agents, skills, and commands** in one [spec format](https://agnostic-ai.org/docs/spec-format/). Kiro commands land in `.kiro/prompts/` for CLI V3.
+- **Capabilities** such as `read(src/**)`, `shell(git diff *)`, and `mcp:github` map to each tool's own names. `lint` warns when one covers a whole tool. See [Capabilities](https://agnostic-ai.org/docs/spec-format/agents/#capabilities).
+- **Model tiers** name roles once for every tool. See [Models and aliases](https://agnostic-ai.org/docs/configuration/#models).
+- **MCP servers** keep secrets as references, never literal values. See [MCP references](https://agnostic-ai.org/docs/spec-format/mcps/#environment-references).
+- **Session handoffs** carry a task from one tool to another on the same machine. `builtins: [handoff]` adds the skill; `handoff-hook` adds Git snapshots and resume notices. See [Session handoffs](https://agnostic-ai.org/docs/handoff/).
 
 ## Develop agnostic-ai
 
