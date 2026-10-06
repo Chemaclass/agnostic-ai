@@ -116,8 +116,7 @@ func findSpecEntry(input string, b spec.Bundle) (spec.Entry, error) {
 		case 0:
 			return spec.Entry{}, fmt.Errorf("builtin %q is not enabled or has been overridden", name)
 		}
-		origin := builtinForEntry(named[0]).Name
-		return spec.Entry{}, fmt.Errorf("builtin %q names several specs; render the whole built-in with builtin:%s", name, origin)
+		return spec.Entry{}, fmt.Errorf("builtin %q names several built-in specs; give each its own name", name)
 	}
 	for _, e := range all {
 		if e.Path == input {

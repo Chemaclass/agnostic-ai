@@ -58,10 +58,10 @@ func TestBuiltinMemory(t *testing.T) {
 			"CLAUDE.md",
 			"AGENTS.md",
 			"GEMINI.md",
-			".claude/rules/shared-memory.md",
+			".claude/rules/shared-memory-policy.md",
 			".claude/skills/shared-memory/SKILL.md",
 			".agents/skills/shared-memory/SKILL.md",
-			".cursor/rules/shared-memory.mdc",
+			".cursor/rules/shared-memory-policy.mdc",
 		}
 		output := map[string]string{}
 		for _, path := range paths {

@@ -5,7 +5,7 @@ description: Recall or curate the project memory that every AI coding tool share
 
 # shared-memory
 
-Recall or curate the shared project memory when the user asks. Choose the mode from the request: "what do we know about X" recalls; "clean up memory" curates. The `shared-memory` rule covers when and how to save a fact.
+Recall or curate the shared project memory when the user asks. Choose the mode from the request: "what do we know about X" recalls; "clean up memory" curates. The `shared-memory-policy` rule covers when and how to save a fact.
 
 The store is `.agnostic-ai/memory/` in the current project root, including when this skill is installed globally. For root lookup, use canonical paths for the current directory, candidate ancestors, and the effective global source root (`AGNOSTIC_AI_HOME` when nonempty, otherwise `~/.agnostic-ai`). Find the nearest ancestor containing `agnostic-ai.yaml` or the legacy `agnostic.config.yaml`, but exclude the effective global source root: its home config never identifies a project. The remaining nearest configured ancestor is the project root. If none exists, use `git rev-parse --show-toplevel` for the current checkout.
 

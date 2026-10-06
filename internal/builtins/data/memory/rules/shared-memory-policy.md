@@ -1,5 +1,5 @@
 ---
-name: shared-memory
+name: shared-memory-policy
 description: Read and save the project memory that every AI coding tool shares.
 alwaysApply: true
 ---

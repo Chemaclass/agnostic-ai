@@ -1,6 +1,7 @@
 package emit
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -70,5 +71,20 @@ func TestRenderMemoryBlock_ImportsTheProjectIndexFromAnAbsoluteEntryPoint(t *tes
 
 	if !strings.Contains(got, "\n@../.agnostic-ai/memory/MEMORY.md\n") {
 		t.Errorf("import not resolved from the project root:\n%s", got)
+	}
+}
+
+func TestRenderMemoryBlock_EscapesSpacesInTheImportPath(t *testing.T) {
+	parent := t.TempDir()
+	project := filepath.Join(parent, "My Project")
+	if err := os.Mkdir(project, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	testutil.Chdir(t, project)
+
+	got := RenderMemoryBlock(filepath.Join(parent, "CLAUDE.md"))
+
+	if !strings.Contains(got, "\n@My\\ Project/.agnostic-ai/memory/MEMORY.md\n") {
+		t.Errorf("space not escaped:\n%s", got)
 	}
 }

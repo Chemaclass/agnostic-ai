@@ -10,9 +10,9 @@ CLAUDE.md, AGENTS.md, and the other AI tool files are generated from `.agnostic-
 
 ## Rules
 
-### shared-memory
+### shared-memory-policy
 
-<!-- source: builtin:shared-memory -->
+<!-- source: builtin:shared-memory-policy -->
 _Read and save the project memory that every AI coding tool shares._
 
 This project keeps one memory that every AI coding tool shares. Its index is `.agnostic-ai/memory/MEMORY.md` at the project root: one line per fact, each linking a topic file in the same folder. If the index is not already in your context, read it before you start a task. Open a topic file only when its line is relevant.

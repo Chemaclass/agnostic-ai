@@ -76,7 +76,7 @@ func TestWriteAgnosticEntryPoints_ClaudeWritesAgentsWithTheMemoryRule(t *testing
 			t.Fatal(err)
 		}
 	}
-	rule := spec.Entry{Kind: spec.KindRule, Name: "shared-memory", Layer: "builtin", Body: "Save facts.", Meta: map[string]any{"alwaysApply": true}}
+	rule := spec.Entry{Kind: spec.KindRule, Name: "shared-memory-policy", Layer: "builtin", Body: "Save facts.", Meta: map[string]any{"alwaysApply": true}}
 	cfg := &config.Config{Targets: []string{"claude"}, Builtins: []string{"memory"}}
 
 	if err := writeAgnosticEntryPoints(adapters.NewSession(), cfg, spec.Bundle{Rules: []spec.Entry{rule}}, cfg.Targets, false); err != nil {

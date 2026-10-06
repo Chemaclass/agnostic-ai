@@ -36,20 +36,24 @@ func TestWhy_CreditsTheSharedMemoryImport(t *testing.T) {
 	t.Errorf("no memory built-in source: %+v", got.Sources)
 }
 
-func TestRender_ResolvesTheBuiltinSourceSyncStamps(t *testing.T) {
+func TestRender_ResolvesTheBuiltinSourcesSyncStamps(t *testing.T) {
 	setupMemoryProject(t, "claude")
 
-	root := NewRootCmd("test")
-	root.SetArgs([]string{"render", "builtin:shared-memory"})
-	err := root.Execute()
-	if err == nil || !strings.Contains(err.Error(), "builtin:memory") {
-		t.Fatalf("a name shared by the rule and the skill should point at builtin:memory, got %v", err)
-	}
-
-	root = NewRootCmd("test")
-	root.SetArgs([]string{"render", "builtin:memory"})
-	if err := root.Execute(); err != nil {
-		t.Errorf("render builtin:memory: %v", err)
+	for selector, want := range map[string]string{
+		"builtin:shared-memory-policy": ".claude/rules/shared-memory-policy.md",
+		"builtin:shared-memory":        ".claude/skills/shared-memory/SKILL.md",
+	} {
+		var out strings.Builder
+		root := NewRootCmd("test")
+		root.SetOut(&out)
+		root.SetArgs([]string{"render", selector})
+		if err := root.Execute(); err != nil {
+			t.Errorf("render %s: %v", selector, err)
+			continue
+		}
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("render %s did not render %s:\n%s", selector, want, out.String())
+		}
 	}
 }
 
@@ -68,7 +72,7 @@ func TestExplainFile_ReportsABuiltinRuleUnderOneSource(t *testing.T) {
 			}
 		}
 	}
-	if len(sources) != 1 || !sources["builtin:shared-memory"] {
-		t.Errorf("want only builtin:shared-memory, got %v", sources)
+	if len(sources) != 1 || !sources["builtin:shared-memory-policy"] {
+		t.Errorf("want only builtin:shared-memory-policy, got %v", sources)
 	}
 }

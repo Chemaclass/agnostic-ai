@@ -55,7 +55,7 @@ The type is one of `user`, `feedback`, `project`, or `reference`. The folder is 
 
 ## How tools save
 
-Every target gets the always-on `shared-memory` rule. It tells the tool to save a fact a later session needs and cannot get from the code, the git history, or the rules. The tool proposes each fact and writes it only after you confirm. It updates an existing fact instead of adding a duplicate, and it never saves secrets.
+Every target gets the always-on `shared-memory-policy` rule. It tells the tool to save a fact a later session needs and cannot get from the code, the git history, or the rules. The tool proposes each fact and writes it only after you confirm. It updates an existing fact instead of adding a duplicate, and it never saves secrets.
 
 Ask for the `shared-memory` skill to recall what the project knows about a topic, or to clean up the store. Cleanup merges duplicates, drops stale facts, and fixes the index, and it applies nothing until you confirm.
 
@@ -64,7 +64,7 @@ Ask for the `shared-memory` skill to recall what the project knows about a topic
 | Target | How the index loads |
 | --- | --- |
 | Claude Code | `CLAUDE.md` imports `.agnostic-ai/memory/MEMORY.md`, so the tool loads it at session start. |
-| Every other target | The `shared-memory` rule names the index, and the tool reads it before a task. |
+| Every other target | The `shared-memory-policy` rule names the index, and the tool reads it before a task. |
 
 The import goes only into files whose readers all follow `@` lines. A file that `sync.resolve-imports` rewrites never carries memory text, so saves never show up as `sync --check` drift.
 
