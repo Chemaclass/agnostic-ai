@@ -63,6 +63,7 @@ Support spans [Claude Code, Codex, Cursor, Gemini CLI, Copilot, Kiro, and more](
 - **Model tiers** name roles once for every tool. See [Models and aliases](https://agnostic-ai.org/docs/configuration/#models).
 - **MCP servers** keep secrets as references, never literal values. See [MCP references](https://agnostic-ai.org/docs/spec-format/mcps/#environment-references).
 - **Session handoffs** carry a task from one tool to another on the same machine. `builtins: [handoff]` adds the skill; `handoff-hook` adds Git snapshots and resume notices. See [Session handoffs](https://agnostic-ai.org/docs/handoff/).
+- **Shared memory** keeps one project memory that every tool reads and writes. `builtins: [memory]` adds it. See [Shared memory](https://agnostic-ai.org/docs/memory/).
 
 ## Develop agnostic-ai
 

@@ -882,3 +882,26 @@ func Names() []string {
 	sort.Strings(out)
 	return out
 }
+
+// RenderMemoryBlock returns the block importing the shared memory index
+// into the entry-point file at entryPath (re-exported from the emit
+// layer).
+func RenderMemoryBlock(entryPath string) string {
+	return emit.RenderMemoryBlock(entryPath)
+}
+
+// AppendMemoryBlock appends the memory block to body, replacing any
+// earlier one (re-exported from the emit layer).
+func AppendMemoryBlock(body, block string) string {
+	return emit.AppendMemoryBlock(body, block)
+}
+
+// EntrySourcePath is the provenance path sync stamps for e: its spec path,
+// or `builtin:<name>` for a built-in (re-exported from the emit layer).
+func EntrySourcePath(e spec.Entry) string {
+	return emit.EntrySourcePath(e)
+}
+
+// ProjectMemoryIndexPath is the project-relative index of the shared
+// memory store (re-exported from the emit layer).
+const ProjectMemoryIndexPath = emit.ProjectMemoryIndexPath

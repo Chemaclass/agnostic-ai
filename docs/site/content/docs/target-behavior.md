@@ -102,6 +102,7 @@ Put durable team knowledge in a spec:
 - a [rule](@/docs/spec-format/rules.md) for a convention needed every session,
 - a [skill](@/docs/spec-format/skills.md) for a procedure loaded on demand,
 - an agent's [`memory: project`](@/docs/targets/claude.md#agent-memory) for knowledge one subagent builds up in a directory Git tracks.
+- the [`memory` built-in](@/docs/memory.md) for facts any tool learns as it works, in one store every target reads.
 
 The `memory-curator` skill curates a store in place. It edits only that tool's own memory, during that tool's own session, and applies nothing until you confirm. `agnostic-ai init --demo` seeds it into `.agnostic-ai/skills/`, and the next `sync` writes it to Claude Code and Qoder.
 

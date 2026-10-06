@@ -187,7 +187,8 @@ func traceEntryPointFile(rel string, cfg *config.Config, b spec.Bundle, projectR
 		rules = adapters.EntryPointRules(b, importer, cfg).Rules
 	}
 	local, _ := adapters.ReadLocalInstructions()
-	appended := len(rules) > 0 || local != "" || cfg.Sync.TargetOverview
+	memory := memoryBlockFor(cfg, rel, consumers) != ""
+	appended := len(rules) > 0 || local != "" || memory || cfg.Sync.TargetOverview
 
 	sources := []whySource{instructionsSource(appended)}
 	var ruleSources []whySource
@@ -198,6 +199,9 @@ func traceEntryPointFile(rel string, cfg *config.Config, b spec.Bundle, projectR
 	sources = append(sources, ruleSources...)
 	if local != "" {
 		sources = append(sources, whySource{Kind: "instructions", Name: "AGNOSTIC_AI.md (local)", Path: filepath.ToSlash(adapters.ProjectLocalEntryPointPath), Mode: "section"})
+	}
+	if memory {
+		sources = append(sources, whySource{Kind: "instructions", Name: "shared memory import", Path: adapters.ProjectMemoryIndexPath, Mode: "section", Layer: layerNameBuiltin, Builtin: &builtinRef{Name: memoryBuiltin, Version: builtinVersion()}})
 	}
 	return whyOutput{
 		Version:    "1",

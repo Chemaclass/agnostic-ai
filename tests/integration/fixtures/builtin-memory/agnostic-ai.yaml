@@ -1,0 +1,3 @@
+version: 1
+targets: [claude, codex, gemini, cursor]
+builtins: [memory]

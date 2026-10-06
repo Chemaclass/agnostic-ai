@@ -179,6 +179,10 @@ func renderEntryPointFiles(cfg *config.Config, b spec.Bundle, targets []string, 
 			content = adapters.AppendLocalInstructions(content, localView)
 			layers = append(layers, instructionLayer{Name: "local/AGNOSTIC_AI.md", Text: localView})
 		}
+		if memory := memoryBlockFor(cfg, path, consumers[path]); memory != "" {
+			content = adapters.AppendMemoryBlock(content, memory)
+			layers = append(layers, instructionLayer{Name: "shared memory", Text: memory})
+		}
 		if cfg.Sync.TargetOverview {
 			var sections []adapters.TargetArtifacts
 			for _, t := range consumers[path] {
@@ -255,6 +259,7 @@ func importAgentsFromClaude(cfg *config.Config, files []entryPointFile, body, lo
 			parts = append(parts, only)
 		}
 	}
+	parts = appendMemoryPart(cfg, parts, files[claudeAt].Path)
 	companion := header.With(strings.Join(parts, "\n\n")+"\n", header.FormatMarkdown)
 	files[claudeAt].Content = strings.TrimRight(companion, "\n") + "\n"
 	files[claudeAt].Layers = []instructionLayer{{Name: "AGNOSTIC_AI.md (Claude Code only)", Text: strings.Join(parts[1:], "\n\n")}}
@@ -289,6 +294,7 @@ func claudeWritesAgents(cfg *config.Config, files []entryPointFile, claudeAt int
 		agentsText = adapters.AppendLocalInstructions(agentsText, shared[1])
 	}
 	rendered := strings.TrimRight(header.With(agentsText, header.FormatMarkdown), "\n") + "\n"
+	parts = appendMemoryPart(cfg, parts, files[claudeAt].Path)
 	companion := header.With(strings.Join(parts, "\n\n")+"\n", header.FormatMarkdown)
 	files[claudeAt].Content = strings.TrimRight(companion, "\n") + "\n"
 	files[claudeAt].Layers = []instructionLayer{{Name: "AGNOSTIC_AI.md (Claude Code only)", Text: strings.Join(parts[1:], "\n\n")}}
@@ -453,4 +459,29 @@ func resolveAgnosticBody(sess *adapters.Session, dryRun bool) (string, error) {
 		return "", fmt.Errorf("write %s: %w", adapters.AgnosticEntryPointPath, err)
 	}
 	return body, nil
+}
+
+// memoryBuiltin names the built-in whose shared memory index sync
+// imports into entry points.
+const memoryBuiltin = "memory"
+
+// memoryBlockFor returns the shared memory import block for the
+// entry-point file at path, or "" when the memory built-in is off or a
+// reader of path cannot follow `@` lines. Those readers find the index
+// through the always-on shared-memory rule instead, so the block never
+// reaches a file resolve-imports rewrites.
+func memoryBlockFor(cfg *config.Config, path string, readers []string) string {
+	if !slices.Contains(cfg.Builtins, memoryBuiltin) || len(readers) == 0 || !pathSupportsFileImports(readers) {
+		return ""
+	}
+	return adapters.RenderMemoryBlock(path)
+}
+
+// appendMemoryPart adds the shared memory import block to the parts of
+// the CLAUDE.md companion at path.
+func appendMemoryPart(cfg *config.Config, parts []string, path string) []string {
+	if memory := memoryBlockFor(cfg, path, []string{"claude"}); memory != "" {
+		return append(parts, strings.TrimRight(memory, "\n"))
+	}
+	return parts
 }
