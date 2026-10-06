@@ -27,7 +27,7 @@ Run `scripts/target-facts.sh --list`. Record the audited commit, worktree state,
 
 Run `scripts/docfetch.sh` once. It fetches every source URL fresh, runs the recovery ladder on pages that do not serve usable text, saves the bodies under `local/target-audit/<date>-run/pages/`, and writes `docfetch.tsv` with one row per URL carrying its mode, content hash, and status against `scripts/target-audit/sources.lock`. Read its summary line and the `failed` rows before delegating.
 
-Then run `scripts/target-facts.sh --changed local/target-audit/<date>-run/docfetch.tsv 5 --builtins-since <rev>`, where `<rev>` is the audited commit of the last completed audit (see the window below). A target whose shipped built-ins changed since then lands in a deep batch even when no vendor page moved, so a vendor-only fast path never covers a changed built-in. When it prints no numbered batch, nothing moved, nothing failed, and no built-in changed: write the report with every target as a fast-path Clean row and stop. Skip the issue index, signals, auditors, and filing. The lock does not move on such a day, so there is nothing to commit.
+Then run `scripts/target-facts.sh --changed local/target-audit/<date>-run/docfetch.tsv 5 --builtins-since <rev>`. `<rev>` is the last commit that moved the lock, `git log -1 --format=%H -- scripts/target-audit/sources.lock`, since a completed run moves it in step 4. When that prints nothing, use the root commit, `git rev-list --max-parents=0 HEAD`, so every target with a built-in is read deep. Never drop the flag. A target whose shipped built-ins changed since then lands in a deep batch even when no vendor page moved, so a vendor-only fast path never covers a changed built-in. When it prints no numbered batch, nothing moved, nothing failed, and no built-in changed: write the report with every target as a fast-path Clean row and stop. Skip the issue index, signals, auditors, and filing. The lock does not move on such a day, so there is nothing to commit.
 
 Fetch the `target-audit` issue index into the run directory with three scoped calls rather than paginating the whole collection: `--state open`, `--state all --search 'created:>=<window start>'`, and `--state closed --search 'closed:>=<window start>'`. Before treating a candidate as new, run one title-scoped search for it (`--state all --search '<target> in:title <keyword>'`). Fetch bodies and comments only for relevant matches. Refresh matching issue state before filing.
 
@@ -57,7 +57,7 @@ Use `target-auditor` agents named Frodo, Sam, Gandalf, Aragorn, Legolas in batch
 - the run directory and the target's own `docfetch.tsv` rows;
 - the target's `triage.tsv` leads, when the file exists;
 - shared issue-index path and relevant published signals;
-- whether the target's built-ins changed since the last audit, and the path to the built-ins reference;
+- whether the target's built-ins changed since `<rev>`, that `<rev>`, and the path to the built-ins reference;
 - read-only scope and validation budget.
 
 Do not paste this skill, the full issue history, or unrelated source sections into each prompt. Auditors already have their role instructions. No broad tests during research. Build one current binary for compatible read-only reproductions when needed.

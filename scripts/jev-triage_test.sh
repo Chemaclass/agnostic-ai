@@ -461,7 +461,7 @@ function test_claims_name_each_shipped_builtin_hook_event() {
 cat <<'FACTS'
 --- shipped built-ins this target emits ---
 handoff-hook: Hook handoff-session-end, event SessionEnd (internal/builtins/data/handoff-hook/hooks/handoff-session-end.yaml)
-handoff: Skill handoff (internal/builtins/data/handoff/skills/handoff/SKILL.md)
+handoff: Skill handoff, override x-copilot (internal/builtins/data/handoff/skills/handoff/SKILL.md)
 FACTS
 EOF2
   chmod +x "$FIXTURES/builtin-facts.sh"

@@ -193,12 +193,13 @@ source_sections() {
 }
 
 # builtin_specs prints one tab-separated row per shipped built-in spec:
-# built-in, kind, name, spec file, declared targets, hook event, and the
-# x-<target> override keys. An empty target list means every target that
-# supports the kind.
+# built-in, kind, name, spec file, include targets, exclude targets, hook
+# event, x-<target> override keys, and per-target event overrides as
+# "<target>=<event>". The target keys follow spec.Entry.EmitsTo: no include
+# list means every target that supports the kind, and an exclude wins.
 builtin_specs() {
   [ -d "$BUILTINS_DIR" ] || return 0
-  local file rel builtin kinddir kind name
+  local file rel builtin kinddir kind name md
   find "$BUILTINS_DIR" -type f \( -name SKILL.md -o -path '*/hooks/*.yaml' -o -path '*/hooks/*.yml' \
     -o -path '*/agents/*.md' -o -path '*/rules/*.md' -o -path '*/commands/*.md' \) | sort |
     while IFS= read -r file; do
@@ -214,29 +215,51 @@ builtin_specs() {
         commands) kind=Command name=$(basename "$file" .md) ;;
         *) continue ;;
       esac
-      awk -v b="$builtin" -v k="$kind" -v n="$name" -v f="$file" '
-        /^targets:[[:space:]]*\[/ {
-          line = $0
-          sub(/^targets:[[:space:]]*\[/, "", line); sub(/\].*$/, "", line)
-          gsub(/[,[:space:]]+/, " ", line); sub(/^ /, "", line); sub(/ $/, "", line)
-          targets = line; next
+      case "$file" in *.md) md=1 ;; *) md=0 ;; esac
+      awk -v b="$builtin" -v k="$kind" -v n="$name" -v f="$file" -v md="$md" '
+        function scalar(s) {
+          sub(/^[^:]*:[[:space:]]*/, "", s)
+          gsub(/[\[\],"]/, " ", s)
+          gsub(/[[:space:]]+/, " ", s)
+          sub(/^ /, "", s); sub(/ $/, "", s)
+          return s
         }
-        /^targets:[[:space:]]*$/ { list = 1; next }
-        list && /^[[:space:]]+-[[:space:]]*/ {
-          item = $0; sub(/^[[:space:]]+-[[:space:]]*/, "", item); sub(/[[:space:]]*$/, "", item)
-          targets = targets (targets ? " " : "") item; next
+        function add(key, val) {
+          if (key == "target" || key == "targets") inc = inc (inc ? " " : "") val
+          else exc = exc (exc ? " " : "") val
         }
-        { list = 0 }
-        /^event:/ { event = $0; sub(/^event:[[:space:]]*/, "", event) }
-        /^x-[a-z0-9-]+:/ { key = $0; sub(/:.*$/, "", key); overrides = overrides (overrides ? " " : "") key }
-        END { printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", b, k, n, f, targets, event, overrides }
+        # A Markdown spec keeps its fields in the front matter; its body may
+        # quote YAML that must not count.
+        md && FNR == 1 { if ($0 ~ /^---[[:space:]]*$/) { fm = 1; next } else exit }
+        md && /^---[[:space:]]*$/ { exit }
+        /^(target|targets|target-exclude|targets-exclude):/ {
+          listkey = $0; sub(/:.*$/, "", listkey)
+          value = scalar($0)
+          if (value != "") { add(listkey, value); listkey = "" }
+          next
+        }
+        listkey != "" && /^[[:space:]]+-/ {
+          value = $0; sub(/^[[:space:]]+-[[:space:]]*/, "", value)
+          add(listkey, scalar(":" value)); next
+        }
+        { listkey = "" }
+        /^[^[:space:]]/ { xkey = "" }
+        /^event:/ { event = scalar($0) }
+        /^x-[a-z0-9-]+:/ {
+          xkey = $0; sub(/:.*$/, "", xkey)
+          overrides = overrides (overrides ? " " : "") xkey
+          next
+        }
+        xkey != "" && /^[[:space:]]+event:/ { events = events (events ? " " : "") substr(xkey, 3) "=" scalar($0) }
+        END { printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", b, k, n, f, inc, exc, event, overrides, events }
       ' "$file"
     done
 }
 
 # builtin_rows <target> prints the shipped built-ins the target emits: the
-# spec must list the target, or list none, and the adapter must declare its
-# kind. These are the native behaviors an audit has to keep working.
+# spec must select the target and the adapter must declare its kind. The
+# event is the one this target gets, after its x-<target> override. These
+# are the native behaviors an audit has to keep working.
 builtin_rows() {
   local target="$1" pkg src supports
   pkg=$(pkg_for "$target")
@@ -245,13 +268,17 @@ builtin_rows() {
   supports=$(caps "$src")
   printf '%s\n' "${BUILTIN_SPECS-$(builtin_specs)}" | awk -F '\t' -v t="$target" -v supports="$supports" -v root="$ROOT/" '
     NF {
+      if ((" " $6 " ") ~ (" " t " ")) next
       if ($5 != "" && (" " $5 " ") !~ (" " t " ")) next
       if (supports !~ ("[^A-Za-z]" $2 "[^A-Za-z]")) next
       path = $4
       if (index(path, root) == 1) path = substr(path, length(root) + 1)
+      event = $7
+      count = split($9, events, " ")
+      for (i = 1; i <= count; i++) if (index(events[i], t "=") == 1) event = substr(events[i], length(t) + 2)
       line = $1 ": " $2 " " $3
-      if ($6 != "") line = line ", event " $6
-      if ((" " $7 " ") ~ (" x-" t " ")) line = line ", override x-" t
+      if (event != "") line = line ", event " event
+      if ((" " $8 " ") ~ (" x-" t " ")) line = line ", override x-" t
       print line " (" path ")"
     }
   '
@@ -438,7 +465,8 @@ main() {
           echo "--builtins-since needs a revision" >&2
           return 2
         fi
-        forced=$(builtin_changed_targets "$2" | tr "\n" " ") || return 1
+        forced=$(builtin_changed_targets "$2") || return 1
+        forced=$(printf '%s\n' "$forced" | tr '\n' ' ')
       fi
       changed_batches "$file" "$n" "$forced"
       return

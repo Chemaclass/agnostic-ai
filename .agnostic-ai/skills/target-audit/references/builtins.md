@@ -8,7 +8,7 @@ Built-ins are specs that agnostic-ai ships inside the binary, such as the handof
 
 The built-in specs are the support list. Never copy a target table into this skill or a report.
 
-- Specs: `internal/builtins/data/<built-in>/`. A spec's `targets:` names where it emits; no list means every target that supports its kind. `x-<target>` blocks carry per-target settings.
+- Specs: `internal/builtins/data/<built-in>/`. A spec's `target:`, `targets:`, `target-exclude:`, and `targets-exclude:` select where it emits, as for any spec; with no include list it emits to every target that supports its kind. `x-<target>` blocks carry per-target settings, such as a different event name.
 - Per target: the `--- shipped built-ins this target emits ---` section of `scripts/target-facts.sh <target>` lists each spec, its event, and its overrides.
 - Docs: the pages under `docs/site/content/docs/` that name the built-in or its specs (for handoff, `handoff.md` and `configuration.md`).
 - Behavior: `tests/integration/builtin*_test.go`, their fixtures under `tests/integration/fixtures/builtin-*`, and `internal/builtins/builtins_test.go`.

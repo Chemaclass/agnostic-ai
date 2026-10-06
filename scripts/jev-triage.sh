@@ -187,7 +187,7 @@ jev_claims() {
     sec ~ /shipped built-ins/ && / Skill / {
       name = $0
       sub(/^[^:]*: Skill /, "", name)
-      sub(/ .*$/, "", name)
+      sub(/[, ].*$/, "", name)
       emit(t " loads project skills such as the shipped `" name "` skill.")
       next
     }

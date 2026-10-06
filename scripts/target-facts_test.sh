@@ -364,10 +364,13 @@ function test_builtin_targets_for_paths_maps_a_skill_file_to_skill_targets() {
 }
 
 function test_builtin_targets_for_paths_maps_loader_code_to_every_builtin_target() {
+  # Limit the skill to amp, so "every built-in target" is claude (hook) plus
+  # amp (skill) and nothing else.
   write_builtins
+  printf -- '---\nname: demo\ntargets: [amp]\n---\n' >"$BUILTINS_DIR/demo/skills/demo/SKILL.md"
   local out
-  out=$(builtin_targets_for_paths internal/builtins/materialize.go)
-  assert_equals "$(builtin_targets_for_paths "$BUILTINS_DIR/demo/skills/demo/SKILL.md")" "$out"
+  out=$(builtin_targets_for_paths internal/builtins/materialize.go | sort | tr '\n' ' ')
+  assert_equals "amp claude " "$out"
 }
 
 function test_builtin_targets_for_paths_ignores_unrelated_paths() {
@@ -391,7 +394,49 @@ function test_changed_rejects_builtins_since_without_a_revision() {
   assert_equals 2 "$status"
 }
 
-function test_changed_with_builtins_since_head_keeps_the_sweep() {
-  write_run "zed docs https://z/1 unchanged" "zed changelog https://z/c unchanged"
-  assert_equals "sweep: zed" "$(main --changed "$CHANGED_RUN" 5 --builtins-since HEAD)"
+function test_changed_with_builtins_since_and_no_count_moves_changed_targets_deep() {
+  write_run "claude docs https://a/1 unchanged" "claude changelog https://a/c unchanged" \
+    "zed docs https://z/1 unchanged" "zed changelog https://z/c unchanged"
+  local out
+  out=$(
+    builtin_changed_targets() { printf 'claude\n'; }
+    main --changed "$CHANGED_RUN" --builtins-since abc123
+  )
+  assert_contains "1: claude" "$out"
+  assert_contains "sweep: zed" "$out"
+}
+
+function test_changed_fails_on_an_unknown_builtins_revision() {
+  write_run "zed docs https://z/1 unchanged"
+  local status=0
+  main --changed "$CHANGED_RUN" 5 --builtins-since no-such-rev-1832 >/dev/null 2>&1 || status=$?
+  assert_equals 1 "$status"
+}
+
+function test_builtin_rows_prints_the_event_a_target_override_sets() {
+  write_builtins
+  printf 'x-claude:\n  event: PreCompress\n' >>"$BUILTINS_DIR/demo-hook/hooks/demo-end.yaml"
+  assert_contains "Hook demo-end, event PreCompress, override x-claude" "$(builtin_rows claude)"
+}
+
+function test_builtin_rows_honors_a_target_exclude() {
+  write_builtins
+  printf -- '---\nname: demo\ntargets-exclude: [claude]\n---\n' >"$BUILTINS_DIR/demo/skills/demo/SKILL.md"
+  assert_not_contains "Skill demo" "$(builtin_rows claude)"
+  assert_contains "Skill demo" "$(builtin_rows amp)"
+}
+
+function test_builtin_rows_honors_a_single_target_and_a_block_list() {
+  write_builtins
+  printf -- '---\nname: demo\ntarget: amp\n---\n' >"$BUILTINS_DIR/demo/skills/demo/SKILL.md"
+  assert_not_contains "Skill demo" "$(builtin_rows claude)"
+  printf 'name: demo-end\ntargets:\n  - codex\nevent: Stop\n' >"$BUILTINS_DIR/demo-hook/hooks/demo-end.yaml"
+  assert_contains "Hook demo-end, event Stop" "$(builtin_rows codex)"
+  assert_not_contains "demo-end" "$(builtin_rows claude)"
+}
+
+function test_builtin_rows_ignores_yaml_quoted_in_a_skill_body() {
+  write_builtins
+  printf 'targets: [amp]\n' >>"$BUILTINS_DIR/demo/skills/demo/SKILL.md"
+  assert_contains "Skill demo" "$(builtin_rows claude)"
 }
