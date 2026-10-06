@@ -1,0 +1,16 @@
+name: memory-session-start
+description: Load the shared memory index into the session.
+on: session-start
+targets: [codex, copilot, cursor, qoder, factory]
+command: agnostic-ai
+args: [hook, memory]
+x-codex:
+  args: [hook, memory, --target, codex]
+x-copilot:
+  args: [hook, memory, --target, copilot]
+x-cursor:
+  args: [hook, memory, --target, cursor]
+x-qoder:
+  args: [hook, memory, --target, qoder]
+x-factory:
+  args: [hook, memory, --target, factory]

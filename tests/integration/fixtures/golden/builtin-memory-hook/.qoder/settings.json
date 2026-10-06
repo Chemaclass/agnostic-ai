@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "agnostic-ai",
+            "args": [
+              "hook",
+              "memory",
+              "--target",
+              "qoder"
+            ],
+            "env": {
+              "AGNOSTIC_AI_TARGET": "qoder"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

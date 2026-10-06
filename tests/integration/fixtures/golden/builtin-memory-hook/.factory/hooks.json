@@ -1,0 +1,13 @@
+{
+  "SessionStart": [
+    {
+      "matcher": "",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "agnostic-ai 'hook' 'memory' '--target' 'factory'"
+        }
+      ]
+    }
+  ]
+}

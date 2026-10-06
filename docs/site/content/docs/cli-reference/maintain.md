@@ -79,6 +79,22 @@ command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook guard stop
 - `stop` reports when specs changed without a sync: a file sync would add, rewrite, or remove. A hand edit to a generated file is left to `sync --check`. It passes when the payload says the agent already continued from a stop hook, so the notice cannot loop. It never runs sync.
 - It finds the project from the nearest `agnostic-ai.yaml` at or above the directory the hook runs in. Anything it cannot read, such as a payload it does not know or no config, exits 0.
 
+## hook memory
+
+Run inside a `session-start` hook. It prints the project's shared memory index, `.agnostic-ai/memory/MEMORY.md`, in the reply the target adds to the model's context. The [`memory` built-in](@/docs/memory.md) wires it up.
+
+```bash
+agnostic-ai hook memory --target codex
+```
+
+- Codex, Qoder, and Factory get plain text. Cursor gets `{"additional_context": ...}` and Copilot `{"additionalContext": ...}`.
+- Output stays under 8,000 characters. A longer index is cut at a whole line and ends with a note naming the index.
+- It finds the project like `hook guard`. With no project or no index, it prints nothing.
+
+| Flag | Description |
+|------|-------------|
+| `-t`, `--target <name>` | Target that runs the hook. Defaults to `AGNOSTIC_AI_TARGET`. |
+
 | Flag | Description |
 |------|-------------|
 | `-t`, `--target <name>` | Target that sent an `after-edit` payload. Defaults to `AGNOSTIC_AI_TARGET`, as for `hook paths`. |

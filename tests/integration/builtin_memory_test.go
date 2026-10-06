@@ -113,6 +113,55 @@ func TestBuiltinMemory(t *testing.T) {
 		run(t, dir, "sync", "--check", "--gitignore=off")
 	})
 
+	t.Run("session-start-hook-adds-the-index-to-context", func(t *testing.T) {
+		hookFixture, err := os.ReadFile(filepath.Join(packageDir, "fixtures", "builtin-memory-hook", "agnostic-ai.yaml"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		dir := project(t, hookFixture)
+		t.Setenv("PATH", filepath.Dir(binary)+string(os.PathListSeparator)+os.Getenv("PATH"))
+		run(t, dir, "sync", "--gitignore=off")
+		paths := []string{".codex/hooks.json", ".github/hooks/agnostic-ai.json", ".cursor/hooks.json", ".qoder/settings.json", ".factory/hooks.json"}
+		output := map[string]string{}
+		for _, path := range paths {
+			data, err := os.ReadFile(filepath.Join(dir, path))
+			if err != nil {
+				t.Fatal(err)
+			}
+			output[path] = string(data)
+		}
+		expectedDir := filepath.Join(packageDir, "fixtures", "golden", "builtin-memory-hook")
+		if os.Getenv("UPDATE_GOLDEN") == "1" {
+			updateGolden(t, expectedDir, output)
+		} else {
+			compareGolden(t, expectedDir, output, "builtin-memory-hook")
+		}
+
+		if runtime.GOOS == "windows" {
+			// hook run lists Cursor, Qoder, and Factory hooks as not run on Windows.
+			return
+		}
+		targets := []string{"codex", "copilot", "cursor", "qoder", "factory"}
+		for _, target := range targets {
+			if out := run(t, dir, "hook", "run", "memory-session-start", "--target", target, "--format", "json"); !strings.Contains(out, `"adds_context": false`) {
+				t.Errorf("%s: an empty store adds context:\n%s", target, out)
+			}
+		}
+		store := filepath.Join(dir, ".agnostic-ai", "memory")
+		if err := os.MkdirAll(store, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(store, "MEMORY.md"), []byte("- [CI is Ubuntu only](ci-ubuntu.md): PR CI runs on Ubuntu alone\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		for _, target := range targets {
+			if out := run(t, dir, "hook", "run", "memory-session-start", "--target", target, "--format", "json"); !strings.Contains(out, `"adds_context": true`) {
+				t.Errorf("%s: the index does not reach the model:\n%s", target, out)
+			}
+		}
+		run(t, dir, "sync", "--check", "--gitignore=off")
+	})
+
 	t.Run("every-target-syncs", func(t *testing.T) {
 		config := "version: 1\nbuiltins: [memory]\ntargets: [" + strings.Join(adapters.Names(), ", ") + "]\n"
 		dir := project(t, []byte(config))

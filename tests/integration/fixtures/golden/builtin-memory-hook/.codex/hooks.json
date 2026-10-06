@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "export AGNOSTIC_AI_TARGET=codex; agnostic-ai 'hook' 'memory' '--target' 'codex'",
+            "commandWindows": "agnostic-ai 'hook' 'memory' '--target' 'codex'"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "exec": "agnostic-ai",
+        "args": [
+          "hook",
+          "memory",
+          "--target",
+          "copilot"
+        ],
+        "env": {
+          "AGNOSTIC_AI_TARGET": "copilot"
+        }
+      }
+    ]
+  }
+}

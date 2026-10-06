@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "echo '{\"env\":{\"AGNOSTIC_AI_TARGET\":\"cursor\"}}'"
+      },
+      {
+        "command": "agnostic-ai 'hook' 'memory' '--target' 'cursor'"
+      }
+    ]
+  }
+}
