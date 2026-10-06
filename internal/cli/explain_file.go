@@ -138,7 +138,7 @@ func explainFile(input, target string, cfg *config.Config, b spec.Bundle, projec
 		item := classifyMDC(f.Content, rel)
 		item.Output = filepath.ToSlash(f.Path)
 		if r, ok := byName[name]; ok {
-			item.Source = filepath.ToSlash(r.Path)
+			item.Source = filepath.ToSlash(adapters.EntrySourcePath(r))
 			reached[item.Source] = true
 		}
 		items = append(items, item)
@@ -268,7 +268,7 @@ func agentsDocItems(d agentsDoc, rel string, reached map[string]bool) []fileCont
 
 // unreachedRuleItems explains rules with no instruction reaching the
 // target: dropped by target selection, or skipped during emission.
-// reached is keyed by slash-separated source path.
+// reached is keyed by the slash-separated source sync stamps.
 func unreachedRuleItems(all, included []spec.Entry, reached map[string]bool, target string) []fileContextItem {
 	in := make(map[string]bool, len(included))
 	for _, r := range included {
@@ -276,7 +276,7 @@ func unreachedRuleItems(all, included []spec.Entry, reached map[string]bool, tar
 	}
 	var items []fileContextItem
 	for _, r := range all {
-		source := filepath.ToSlash(r.Path)
+		source := filepath.ToSlash(adapters.EntrySourcePath(r))
 		switch {
 		case !in[r.Path]:
 			items = append(items, fileContextItem{

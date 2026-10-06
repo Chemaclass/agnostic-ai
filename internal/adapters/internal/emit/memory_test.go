@@ -1,10 +1,12 @@
 package emit
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/spec"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestRenderMemoryBlock_ImportsTheIndexFromTheProjectRoot(t *testing.T) {
@@ -57,5 +59,16 @@ func TestWriteSection_NamesABuiltinSourceInsteadOfItsCachePath(t *testing.T) {
 
 	if got := sb.String(); !strings.Contains(got, "<!-- source: builtin:shared-memory -->") || strings.Contains(got, "/cache/") {
 		t.Errorf("got:\n%s", got)
+	}
+}
+
+func TestRenderMemoryBlock_ImportsTheProjectIndexFromAnAbsoluteEntryPoint(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+
+	got := RenderMemoryBlock(filepath.Join(dir, ".claude", "CLAUDE.md"))
+
+	if !strings.Contains(got, "\n@../.agnostic-ai/memory/MEMORY.md\n") {
+		t.Errorf("import not resolved from the project root:\n%s", got)
 	}
 }

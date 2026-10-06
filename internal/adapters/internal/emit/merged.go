@@ -148,7 +148,7 @@ func WriteSection(sb *strings.Builder, heading string, e spec.Entry) {
 		body = "_" + d + "_\n\n" + body
 	}
 	body += "\n\n"
-	sb.WriteString(BodySourceComment(entrySourcePath(e), body, shift))
+	sb.WriteString(BodySourceComment(EntrySourcePath(e), body, shift))
 	sb.WriteString(body)
 }
 
@@ -160,7 +160,7 @@ func WriteSection(sb *strings.Builder, heading string, e spec.Entry) {
 // them.
 func WriteReference(sb *strings.Builder, e spec.Entry, sourcePath string) {
 	sb.WriteString("### " + e.Name + "\n\n")
-	sb.WriteString(SourceComment(entrySourcePath(e)))
+	sb.WriteString(SourceComment(EntrySourcePath(e)))
 	if d := e.Description(); d != "" {
 		sb.WriteString("_" + d + "_\n\n")
 	}
@@ -169,9 +169,9 @@ func WriteReference(sb *strings.Builder, e spec.Entry, sourcePath string) {
 	}
 }
 
-// entrySourcePath is the provenance path stamped for e. A built-in spec
+// EntrySourcePath is the provenance path stamped for e. A built-in spec
 // lives in a per-machine cache, so it is named `builtin:<name>` instead.
-func entrySourcePath(e spec.Entry) string {
+func EntrySourcePath(e spec.Entry) string {
 	if e.Layer == "builtin" {
 		return "builtin:" + e.Name
 	}

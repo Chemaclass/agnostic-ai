@@ -19,14 +19,45 @@ const (
 )
 
 // RenderMemoryBlock returns the sentinel-marked block that imports the
-// shared memory index into the entry-point file at entryPath. The import
-// is relative to that file, as `@path` lines resolve.
+// shared memory index into the entry-point file at entryPath, relative or
+// absolute. Sync runs from the project root. The import is relative to
+// that file, as `@path` lines resolve, or absolute when no relative path
+// exists (another Windows volume).
 func RenderMemoryBlock(entryPath string) string {
-	ref, err := filepath.Rel(filepath.Dir(entryPath), ProjectMemoryIndexPath)
+	return MemoryStartMarker + "\n\n## Shared memory\n\n@" + filepath.ToSlash(memoryIndexRef(entryPath)) + "\n\n" + MemoryEndMarker + "\n"
+}
+
+func memoryIndexRef(entryPath string) string {
+	index, err := filepath.Abs(ProjectMemoryIndexPath)
 	if err != nil {
-		ref = ProjectMemoryIndexPath
+		return ProjectMemoryIndexPath
 	}
-	return MemoryStartMarker + "\n\n## Shared memory\n\n@" + filepath.ToSlash(ref) + "\n\n" + MemoryEndMarker + "\n"
+	dir, err := filepath.Abs(filepath.Dir(entryPath))
+	if err != nil {
+		return index
+	}
+	if ref, err := filepath.Rel(realPath(dir), realPath(index)); err == nil {
+		return ref
+	}
+	return index
+}
+
+// realPath resolves symlinks in the longest existing prefix of the
+// absolute path p, so two spellings of one directory (macOS /var and
+// /private/var) compare equal even before p itself exists.
+func realPath(p string) string {
+	rest := ""
+	for {
+		if resolved, err := filepath.EvalSymlinks(p); err == nil {
+			return filepath.Join(resolved, rest)
+		}
+		parent := filepath.Dir(p)
+		if parent == p {
+			return filepath.Join(p, rest)
+		}
+		rest = filepath.Join(filepath.Base(p), rest)
+		p = parent
+	}
 }
 
 // AppendMemoryBlock returns body with block appended after one blank

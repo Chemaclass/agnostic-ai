@@ -103,7 +103,21 @@ func findSpecEntry(input string, b spec.Bundle) (spec.Entry, error) {
 				return e, nil
 			}
 		}
-		return spec.Entry{}, fmt.Errorf("builtin %q is not enabled or has been overridden", name)
+		// Sync stamps `builtin:<spec name>`, so a copied marker resolves too.
+		var named []spec.Entry
+		for _, e := range all {
+			if e.Layer == layerNameBuiltin && e.Name == name {
+				named = append(named, e)
+			}
+		}
+		switch len(named) {
+		case 1:
+			return named[0], nil
+		case 0:
+			return spec.Entry{}, fmt.Errorf("builtin %q is not enabled or has been overridden", name)
+		}
+		origin := builtinForEntry(named[0]).Name
+		return spec.Entry{}, fmt.Errorf("builtin %q names several specs; render the whole built-in with builtin:%s", name, origin)
 	}
 	for _, e := range all {
 		if e.Path == input {

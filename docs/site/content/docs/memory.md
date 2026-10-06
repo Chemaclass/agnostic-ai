@@ -24,6 +24,8 @@ builtins: [handoff, memory]
 
 Saving a fact needs no further sync.
 
+To use it in every project, add `memory` to `builtins` in `~/.agnostic-ai/agnostic-ai.yaml` and run `agnostic-ai sync --global`. The rule then reaches each tool's global instructions, and each project still keeps its own store. Only a project sync adds the Claude Code import.
+
 ## The store
 
 ```
