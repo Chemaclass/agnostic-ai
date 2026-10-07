@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/Chemaclass/agnostic-ai/v0.80.0/docs/schemas/config.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Chemaclass/agnostic-ai/v0.81.0/docs/schemas/config.schema.json
 # agnostic-ai project config
 #
 # This repo dogfoods the tool: source specs live under .agnostic-ai/
