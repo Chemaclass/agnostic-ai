@@ -15,6 +15,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 #### OpenCode
 
 - In repo mode, OpenCode saves personal memory without asking each time: sync allows its folder under `permission.external_directory` (#1881).
+- In repo mode, moving `AGNOSTIC_AI_HOME` no longer leaves the old personal memory index in `instructions` (#1886).
 
 #### Windsurf
 

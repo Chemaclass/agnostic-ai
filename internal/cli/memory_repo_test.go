@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
@@ -150,6 +151,56 @@ func TestSync_LeavingRepoModeDropsTheRepoIndexFromInstructions(t *testing.T) {
 		if strings.Contains(text, filepath.ToSlash(parent)) || !strings.Contains(text, `".agnostic-ai/local/memory/MEMORY.md"`) {
 			t.Errorf("%s instructions after leaving repo mode:\n%s", file, text)
 		}
+	}
+}
+
+func TestSync_MovingTheHomeDropsTheOldRepoIndexFromInstructions(t *testing.T) {
+	oldStores := repoMemoryProject(t, true)
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Instructions []string `json:"instructions"`
+	}
+	if err := json.Unmarshal([]byte(readText(t, "opencode.json")), &doc); err != nil {
+		t.Fatal(err)
+	}
+	i := slices.IndexFunc(doc.Instructions, func(s string) bool { return strings.HasPrefix(s, filepath.ToSlash(oldStores)) })
+	if i < 0 {
+		t.Fatalf("first sync instructions: %v", doc.Instructions)
+	}
+	oldIndex := doc.Instructions[i]
+	// A path the user listed in the old home is theirs, not sync's.
+	userIndex := filepath.ToSlash(filepath.Join(oldStores, "notes", "MEMORY.md"))
+	doc.Instructions = append(doc.Instructions, userIndex)
+	raw, err := json.Marshal(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, "opencode.json", string(raw))
+
+	newHome, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AGNOSTIC_AI_HOME", newHome)
+	for range 2 {
+		if err := runSync(t); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := runSync(t, "--check"); err != nil {
+		t.Fatalf("sync --check after moving the home: %v", err)
+	}
+
+	doc.Instructions = nil
+	if err := json.Unmarshal([]byte(readText(t, "opencode.json")), &doc); err != nil {
+		t.Fatal(err)
+	}
+	newStores := filepath.ToSlash(filepath.Join(newHome, "local", "memory"))
+	if slices.Contains(doc.Instructions, oldIndex) || !slices.Contains(doc.Instructions, userIndex) ||
+		!slices.ContainsFunc(doc.Instructions, func(s string) bool { return strings.HasPrefix(s, newStores) }) {
+		t.Errorf("instructions after moving the home: %v", doc.Instructions)
 	}
 }
 

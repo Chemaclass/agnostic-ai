@@ -169,7 +169,7 @@ func TestWithoutStalePersonalIndexes_DropsAnIndexWrittenThroughALink(t *testing.
 	old := filepath.ToSlash(filepath.Join(link, "local", "memory", "proj-1", "MEMORY.md"))
 	current := filepath.ToSlash(filepath.Join(real, "local", "memory", "proj-1", "MEMORY.md"))
 
-	got := WithoutStalePersonalIndexes([]string{"AGENTS.md", old, current}, []string{current})
+	got := WithoutStalePersonalIndexes("opencode.json", []string{"AGENTS.md", old, current}, []string{current})
 	if strings.Join(got, ",") != "AGENTS.md,"+current {
 		t.Errorf("list = %v, want the linked path dropped", got)
 	}
