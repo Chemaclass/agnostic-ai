@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
@@ -31,7 +32,7 @@ import (
 // values, so a JSONC input keeps every key and loses every comment.
 // The user hears about that once, on the sync that drops them (#725).
 func (s *Session) MergeJSONFile(path string, keys map[string]any, dryRun bool) error {
-	return s.mergeJSONFile(path, keys, nil, dryRun)
+	return s.mergeJSONFile(path, keys, nil, nil, dryRun)
 }
 
 // MergeJSONFileNested merges the named object keys one level deep while
@@ -43,7 +44,7 @@ func (s *Session) MergeJSONFileNested(path string, keys map[string]any, nestedKe
 	for _, key := range nestedKeys {
 		nested[key] = true
 	}
-	return s.mergeJSONFile(path, keys, nested, dryRun)
+	return s.mergeJSONFile(path, keys, nested, nil, dryRun)
 }
 
 // RemoveJSONKey, as a key's value in a merge, deletes that key from the
@@ -109,16 +110,27 @@ func (s *Session) ExistingNestedStrings(path, key, child string, dryRun bool) []
 	return StringSlice(parent[child])
 }
 
-func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[string]bool, dryRun bool) error {
+func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[string]bool, order []string, dryRun bool) error {
 	doc, err := s.readExistingJSON(path, dryRun)
 	if err != nil {
 		return err
 	}
+	// Keys in order come first, so a new file gets them in that order;
+	// the rest follow sorted.
 	names := make([]string, 0, len(keys))
-	for k := range keys {
-		names = append(names, k)
+	for _, k := range order {
+		if _, ok := keys[k]; ok && !slices.Contains(names, k) {
+			names = append(names, k)
+		}
 	}
-	sort.Strings(names)
+	var rest []string
+	for k := range keys {
+		if !slices.Contains(names, k) {
+			rest = append(rest, k)
+		}
+	}
+	sort.Strings(rest)
+	names = append(names, rest...)
 	var owned []MergedKey
 	var released [][]string
 	claim := func(path []string, kind mergeClaimKind, items []string, follows string) {
@@ -147,6 +159,36 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 				continue
 			}
 			kind = claimKeep
+		}
+		if children, ok := value.(orderedChildren); ok {
+			// Claims move to the children, so a claim on the whole
+			// object, as older versions made, goes.
+			released = append(released, []string{k})
+			existing := NewOrderedJSON()
+			if raw, found := doc.Get(k); found && json.Unmarshal(raw, existing) != nil {
+				existing = NewOrderedJSON()
+			}
+			for _, child := range children.order {
+				childValue, childKind, childItems, childFollows := mergeClaim(children.values[child])
+				if _, remove := childValue.(removeJSONKey); remove {
+					existing.Delete(child)
+					released = append(released, []string{k, child})
+					continue
+				}
+				if err := existing.Set(child, childValue); err != nil {
+					return fmt.Errorf("marshal %s key %s.%s: %w", path, k, child, err)
+				}
+				claim([]string{k, child}, childKind, childItems, childFollows)
+			}
+			if len(existing.Keys()) == 0 {
+				doc.Delete(k)
+				released = append(released, []string{k})
+				continue
+			}
+			if err := doc.Set(k, existing); err != nil {
+				return fmt.Errorf("marshal %s key %s: %w", path, k, err)
+			}
+			continue
 		}
 		if entries, ok := value.(entriesJSONValue); ok {
 			merged, claimed, err := s.mergeJSONEntries(path, doc, k, entries.entries)
@@ -186,6 +228,13 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 			return false
 		}
 		unwrapped, _, _, _ := mergeClaim(value)
+		if children, ok := unwrapped.(orderedChildren); ok {
+			if len(keyPath) == 1 {
+				return true
+			}
+			_, child := children.values[keyPath[1]]
+			return child
+		}
 		incoming, isObject := unwrapped.(map[string]any)
 		if !nested[keyPath[0]] || !isObject || len(keyPath) == 1 {
 			return true
@@ -440,4 +489,14 @@ func (s *Session) WarnIfLegacyFileOutranksEntryPoint(cfg *config.Config, target,
 	newName := filepath.Base(defaultNewPath)
 	_, _ = fmt.Fprintf(Warner, "%s: %s takes priority over %s; it is not agnostic-ai-generated, so none of the synced rules reach %s until you rename or remove it\n",
 		target, legacyPath, newName, target)
+}
+
+// MergeJSONFileOrdered is MergeJSONFileNested with the keys a new file
+// gets written in order, such as a version key before the data.
+func (s *Session) MergeJSONFileOrdered(path string, keys map[string]any, nestedKeys, order []string, dryRun bool) error {
+	nested := make(map[string]bool, len(nestedKeys))
+	for _, key := range nestedKeys {
+		nested[key] = true
+	}
+	return s.mergeJSONFile(path, keys, nested, order, dryRun)
 }

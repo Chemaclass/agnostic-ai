@@ -909,3 +909,7 @@ const ProjectMemoryIndexPath = emit.ProjectMemoryIndexPath
 // PersonalMemoryIndexPath is the project-relative index of the personal
 // memory store (re-exported from the emit layer).
 const PersonalMemoryIndexPath = emit.PersonalMemoryIndexPath
+
+// SetPriorOutputSum tells the merge writers where to find the sum the
+// last sync recorded for a file it wrote whole.
+func SetPriorOutputSum(prior func(path string) string) { emit.PriorOutputSum = prior }

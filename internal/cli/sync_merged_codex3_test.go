@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 // doctor --fix must not delete a merged file an older ledger lists
@@ -26,15 +27,19 @@ func TestDoctorFix_LegacyLedgerKeepsMergedUserSettings(t *testing.T) {
 // .bak under --backup, as a whole-file removal does.
 func TestDoctorFix_BackupKeepsConfirmedMergedRelease(t *testing.T) {
 	const settings = ".gemini/settings.json"
-	syncedGeminiWithHook(t, "")
+	const model = ".agnostic-ai/settings/model.yaml"
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [gemini]\n")
+	mustWriteFile(t, model, "model: example-model\n")
+	runSyncOK(t)
 	doc := readJSONMap(t, settings)
-	doc["hooks"] = map[string]any{"Mine": []any{}}
+	doc["model"] = map[string]any{"name": "edited"}
 	writeJSONFile(t, settings, doc)
 	original, err := os.ReadFile(settings)
 	if err != nil {
 		t.Fatal(err)
 	}
-	removeSpecs(t, geminiFmtHookSpec)
+	removeSpecs(t, model)
 	runSyncOK(t)
 	cfg, err := config.Load(".")
 	if err != nil {
@@ -50,6 +55,30 @@ func TestDoctorFix_BackupKeepsConfirmedMergedRelease(t *testing.T) {
 	backup, err := os.ReadFile(settings + ".bak")
 	if err != nil || string(backup) != string(original) {
 		t.Errorf("backup = %q, %v; want %q", backup, err, original)
+	}
+}
+
+// Sync claims its hook entries one by one, so a hook event the user wrote
+// in place of sync's stays after a confirmed release (#1858).
+func TestDoctorFix_ConfirmedMergedReleaseKeepsTheUsersHookEvent(t *testing.T) {
+	const settings = ".gemini/settings.json"
+	syncedGeminiWithHook(t, "")
+	doc := readJSONMap(t, settings)
+	doc["hooks"] = map[string]any{"Mine": []any{}}
+	writeJSONFile(t, settings, doc)
+	removeSpecs(t, geminiFmtHookSpec)
+	runSyncOK(t)
+	cfg, err := config.Load(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reports := []driftReport{{Target: "agnostic-ai", Orphaned: []string{settings}}}
+	if _, err := offerOrphanRemoval(cfg, reports, true, func(string) (bool, error) { return true, nil }); err != nil {
+		t.Fatal(err)
+	}
+	hooks, _ := readJSONMap(t, settings)["hooks"].(map[string]any)
+	if _, ok := hooks["Mine"]; !ok {
+		t.Errorf("the user's hook event was released: %#v", readJSONMap(t, settings))
 	}
 }
 

@@ -31,6 +31,9 @@ func init() {
 	adapters.SetPriorMergedKeys(func(path string) []adapters.MergedKey {
 		return readStateFile(".").Merged[path].Keys
 	})
+	adapters.SetPriorOutputSum(func(path string) string {
+		return readStateFile(".").OutputSums[path]
+	})
 }
 
 // mergedOutput is what the ledger keeps about a JSON file sync merges
