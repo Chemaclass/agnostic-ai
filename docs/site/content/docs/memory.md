@@ -86,7 +86,7 @@ Claude Code keeps an auto memory that it writes without being asked, in the same
 
 - The file holds this checkout's absolute path, so sync adds it to the repository's `info/exclude` and Git never commits it.
 - A value you set yourself stays. Sync writes the key only when the file lacks it or sync wrote it before.
-- Claude Code honors the setting in a project only after you trust the workspace.
+- Claude Code uses the setting only after you trust the workspace.
 - Codex, Gemini CLI, and Qoder keep their own memory off by default. Leave it off so they save here. Windsurf's legacy Cascade agent keeps memories in `~/.codeium/windsurf/memories/`, which no project setting moves.
 
 ## Load at session start

@@ -53,7 +53,7 @@ agnostic-ai memory index    # rebuild each MEMORY.md from its fact files
 agnostic-ai memory list     # print each fact's scope, type, and title
 ```
 
-- `memory lint` reports [LINT039 to LINT042](@/docs/cli-reference/check.md#lint), the memory findings `lint` and `doctor` also report. It exits 1 on an error, or on a warning with `--strict`. `--json` prints the same schema as `lint --json`, with `command` set to `memory lint`.
+- `memory lint` reports [LINT039 to LINT042](@/docs/cli-reference/check.md#lint), the memory findings `lint` and `doctor` also report. It exits 1 on an error, or on a warning with `--strict`. `--json` prints the same format as `lint --json`, with `command` set to `memory lint`.
 - `memory index` drops merge conflict markers, links to missing files, and repeated links. Every other line stays in place, headings and notes included. It then adds a `- [name](file.md): description` line from the frontmatter of each fact without one. Run it after two tools edit the index at once.
 - The type comes from `metadata.type`, or from a top-level `type` as Claude Code's auto memory writes it.
 - With no store, `memory lint` says so and exits 0.

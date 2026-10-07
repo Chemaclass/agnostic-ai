@@ -19,7 +19,7 @@ Cursor reads its project configuration from `.cursor/`, including `.cursor/rules
 .cursor/agents/<name>.md             # one native subagent per agent spec
 .cursor/skills/<name>/SKILL.md       # one folder per skill, bundled assets included
 .cursor/commands/<name>.md           # one per command spec
-.cursor/hooks.json                   # when hook specs exist (sync's entries managed, yours kept)
+.cursor/hooks.json                   # when hook specs exist (sync updates its entries, keeps yours)
 .cursor/hooks/agnostic-ai-portable-hook.sh  # when a portable before-tool hook exists
 .cursor/mcp.json                     # when MCP entries exist
 .cursor/cli.json                     # from settings permissions and deny protected paths (merged)
