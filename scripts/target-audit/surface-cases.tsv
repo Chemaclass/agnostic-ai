@@ -29,3 +29,5 @@ claude-per-model-auto-compact-window	claude	autoCompactWindow : a number of toke
 antigravity-rules-json-inherits	antigravity	To share rules stored outside .agents/rules/ or to include nested subdirectories of rules while preserving their YAML frontmatter and triggers, create .agents/rules.json	yes	signal:cap-antigravity-shared-customization-manifests
 copilot-dynamic-workflows-project-extension	copilot	to share the dynamic workflow with everyone working in a repository, copy the directory containing the extension.mjs file into the .github/extensions/ directory	yes	signal:cap-project-agent-workflows
 kiro-cli-prompts-slash-commands	kiro	In V3, workspace, global, and MCP prompts appear in slash-command completion.	yes	issue:1822
+kilo-memory-model-setting	kilo	Choose a separate model for automatic project memory saves with the new `memory_model` setting in `kilo.jsonc`.	yes	signal:cap-kilo-project-memory
+cursor-sandbox-json	cursor	`<workspace>/.cursor/sandbox.json` | Single workspace (per-repo) | Higher. Commit it when the project should share the same sandbox rules.	yes	signal:cap-cursor-sandbox-json

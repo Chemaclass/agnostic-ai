@@ -38,7 +38,7 @@ cap-project-provider-policy	2026-09-18	2026-09-18
 cap-prompt-hook-continue-on-block	2026-09-15	2026-09-15						
 cap-rule-activation-policy	2026-09-22	2026-09-24	adapter-gap	1029,1113			2026-09-23	Both legs shipped: Qoder rule activation metadata round-trips (#1032), and Antigravity rules carry trigger frontmatter (#1117).
 cap-scheduled-project-agents	2026-09-15	2026-09-15						
-cap-session-start-prompt-injection	2026-09-15	2026-09-15						
+cap-session-start-prompt-injection	2026-09-15	2026-10-07	watch					Trae and Devin CLI document SessionStart context injection on hook files we emit; memory built-in coverage blocked on Trae sandbox default and Devin launcher/timeout evidence.
 cap-subagent-project-context-exclusion	2026-09-15	2026-09-15						
 cap-factory-permission-rules	2026-09-28	2026-09-28	target-extension	1376			2026-09-28	Factory permissionRules (ID-resolved, test-verified command rules) replaces the deprecated command lists; x-factory.permissionRules reaches it today.
 cap-cursor-security-review	2026-09-28	2026-10-02	watch		2026-09-23			Cursor Security Review has no documented repo rules file; vendor changelog announcement is 2026-09-23, first observed 2026-09-28.
@@ -56,3 +56,5 @@ cap-antigravity-shared-customization-manifests	2026-10-03	2026-10-03	watch			cha
 cap-kiro-workflow-recipes	2026-10-04	2026-10-06	watch		2026-09-30	changelog		.kiro/workflows/<name>.workflow.{json,yaml,yml} project recipes, opt-in via kiroAgent.workflows.enabled; large schema with no portable equivalent.
 cap-kiro-steering-file-references	2026-10-04	2026-10-06	watch		2026-10-01	changelog		#[[file:...]] in steering bodies (line ranges and #[[folder:...]] CLI V3 only); rule bodies pass it through verbatim.
 cap-kiro-prompt-slash-commands	2026-10-04	2026-10-04	adapter-gap	1822	2026-10-01	changelog	2026-10-06	CLI V3 exposes workspace prompts in .kiro/prompts/ as slash commands; commands sync there since #1838.
+cap-kilo-project-memory	2026-10-07	2026-10-07	target-extension			changelog		Kilo memory_model in kilo.jsonc picks the model for project memory saves; x-kilo settings passthrough already emits it.
+cap-cursor-sandbox-json	2026-10-07	2026-10-07	target-extension			docs		.cursor/sandbox.json project sandbox policy (network allow/deny, extra read/write paths); no x-cursor route to it today.
