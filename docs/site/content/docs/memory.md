@@ -88,7 +88,7 @@ On Codex, Copilot, Cursor, Gemini CLI, Qoder, and Factory, the `memory` built-in
 - The hook does nothing if `agnostic-ai` is not on your PATH.
 - Codex runs it only after you trust the project's hooks.
 - Turn on `memory` in your home config or in the project, not both. With both, `sync --global` also writes the hook into your home tool settings, and each session loads the index twice.
-- On Windows, Copilot, Cursor, and Gemini CLI need `sh` on PATH, for example from Git Bash.
+- On Windows, Cursor and Gemini CLI need `sh` on PATH, for example from Git Bash. They have no separate Windows command.
 
 ## Memory never overrides you
 

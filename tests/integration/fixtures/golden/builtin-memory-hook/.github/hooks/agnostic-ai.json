@@ -4,7 +4,8 @@
     "SessionStart": [
       {
         "type": "command",
-        "command": "sh -c 'command -v agnostic-ai \u003e/dev/null 2\u003e\u00261 || exit 0; exec agnostic-ai hook memory --target copilot'",
+        "bash": "sh -c 'command -v agnostic-ai \u003e/dev/null 2\u003e\u00261 || exit 0; exec agnostic-ai hook memory --target copilot'",
+        "powershell": "if (Get-Command agnostic-ai -ErrorAction SilentlyContinue) { agnostic-ai hook memory --target copilot }",
         "env": {
           "AGNOSTIC_AI_TARGET": "copilot"
         }

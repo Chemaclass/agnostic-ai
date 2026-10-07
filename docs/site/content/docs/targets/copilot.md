@@ -78,7 +78,7 @@ The `claude` target writes `.mcp.json` too. A plain server is identical from bot
 
 ### Hooks
 
-Hooks go to `.github/hooks/agnostic-ai.json` (override with `outputs.copilot.hooks-file`). Copilot CLI and cloud agent load every `.github/hooks/*.json` and merge them ([hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference)). Copilot documents 14 events. With `builtins: [memory]`, a `sessionStart` hook adds the [shared memory](@/docs/memory.md) index to the session.
+Hooks go to `.github/hooks/agnostic-ai.json` (override with `outputs.copilot.hooks-file`). Copilot CLI and cloud agent load every `.github/hooks/*.json` and merge them ([hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference)). Copilot documents 14 events. With `builtins: [memory]`, a `sessionStart` hook adds the [shared memory](@/docs/memory.md) index to the session. A spec with `commandWindows` writes `bash` (from `command`) and `powershell` (from `commandWindows`) instead of one `command`, which Copilot would run in both shells.
 
 - The wrapper is `{"version": 1, "hooks": {...}}` with an **integer** version. Each entry is flat, `{"type": "command", "matcher": ..., "command": ..., "timeoutSec": ...}`, not Claude Code's nested `{matcher, hooks: [...]}` group.
 - `event:` is copied as written. Copilot accepts PascalCase (`PreToolUse`, the "VS Code compatible" format) and camelCase (`preToolUse`).
