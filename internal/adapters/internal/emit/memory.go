@@ -71,17 +71,29 @@ func (s *Session) CreateRepoMemoryStore(cfg *config.Config, dir string, dryRun b
 	return nil
 }
 
-// repoMemoryStores returns the folder that holds every repo store.
+// repoMemoryStores returns the folder that holds every repo store, with
+// symlinks resolved: Codex refuses a writable root whose path holds one,
+// as when ~/.agnostic-ai links to a clone elsewhere.
 func repoMemoryStores() (string, error) {
-	home := os.Getenv("AGNOSTIC_AI_HOME")
-	if home == "" {
-		user, err := os.UserHomeDir()
-		if err != nil {
-			return "", err
-		}
-		home = filepath.Join(user, ".agnostic-ai")
+	home, err := repoMemoryHome()
+	if err != nil {
+		return "", err
+	}
+	if resolved, err := filepath.EvalSymlinks(home); err == nil {
+		home = resolved
 	}
 	return filepath.Join(home, "local", "memory"), nil
+}
+
+func repoMemoryHome() (string, error) {
+	if home := os.Getenv("AGNOSTIC_AI_HOME"); home != "" {
+		return home, nil
+	}
+	user, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(user, ".agnostic-ai"), nil
 }
 
 // WithoutStalePersonalIndexes drops from list each personal memory index
@@ -89,15 +101,21 @@ func repoMemoryStores() (string, error) {
 // store. It is the entry an earlier sync added before memory.personal or
 // the gitignore setup changed.
 func WithoutStalePersonalIndexes(list, current []string) []string {
-	stores, err := repoMemoryStores()
-	if err != nil {
-		stores = ""
+	// An earlier sync may have written the store through the symlink.
+	var prefixes []string
+	if stores, err := repoMemoryStores(); err == nil {
+		prefixes = append(prefixes, filepath.ToSlash(stores)+"/")
 	}
-	prefix := filepath.ToSlash(stores) + "/"
+	if home, err := repoMemoryHome(); err == nil {
+		prefixes = append(prefixes, filepath.ToSlash(filepath.Join(home, "local", "memory"))+"/")
+	}
+	inStores := func(entry string) bool {
+		return slices.ContainsFunc(prefixes, func(prefix string) bool { return strings.HasPrefix(entry, prefix) })
+	}
 	out := make([]string, 0, len(list))
 	for _, entry := range list {
 		personal := entry == PersonalMemoryIndexPath ||
-			stores != "" && strings.HasPrefix(entry, prefix) && strings.HasSuffix(entry, "/MEMORY.md")
+			inStores(entry) && strings.HasSuffix(entry, "/MEMORY.md")
 		if personal && !slices.Contains(current, entry) {
 			continue
 		}
@@ -118,8 +136,21 @@ func PersonalMemoryDirFor(cfg *config.Config, path string, targets ...string) (s
 }
 
 // PersonalMemoryLeavesCheckout reports whether the project files of
-// targets name the repo store rather than the checkout one.
+// targets name the repo store rather than the checkout one. Any
+// gitignore.commit kind for a target keeps its files on the checkout
+// store, since one of them may hold the path.
 func PersonalMemoryLeavesCheckout(cfg *config.Config, path string, targets ...string) bool {
+	return personalMemoryLeavesCheckout(cfg, path, nil, targets)
+}
+
+// PersonalMemoryLeavesCheckoutIn is PersonalMemoryLeavesCheckout for a
+// file that only the given gitignore.commit kinds write, so a committed
+// kind that never reaches it leaves the repo store in place.
+func PersonalMemoryLeavesCheckoutIn(cfg *config.Config, path string, kinds []string, targets ...string) bool {
+	return personalMemoryLeavesCheckout(cfg, path, kinds, targets)
+}
+
+func personalMemoryLeavesCheckout(cfg *config.Config, path string, kinds, targets []string) bool {
 	if !cfg.RepoPersonalMemory() || !cfg.Gitignore.Enabled || filepath.IsAbs(path) {
 		return false
 	}
@@ -139,8 +170,14 @@ func PersonalMemoryLeavesCheckout(cfg *config.Config, path string, targets ...st
 		return false
 	}
 	for _, t := range targets {
-		if len(cfg.Gitignore.CommitKinds(t)) > 0 {
+		committed := cfg.Gitignore.CommitKinds(t)
+		if kinds == nil && len(committed) > 0 {
 			return false
+		}
+		for _, kind := range kinds {
+			if slices.Contains(committed, kind) {
+				return false
+			}
 		}
 	}
 	return true

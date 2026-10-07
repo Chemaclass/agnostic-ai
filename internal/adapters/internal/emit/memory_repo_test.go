@@ -1,6 +1,7 @@
 package emit
 
 import (
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -58,7 +59,11 @@ func TestPersonalMemoryDir_SharesOneRepoStoreAcrossWorktrees(t *testing.T) {
 	if main != wt {
 		t.Errorf("worktree store %s, main store %s", wt, main)
 	}
-	if want := filepath.Join(home, "local", "memory") + string(filepath.Separator) + "proj-"; !strings.HasPrefix(main, want) {
+	resolved, err := filepath.EvalSymlinks(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(resolved, "local", "memory") + string(filepath.Separator) + "proj-"; !strings.HasPrefix(main, want) {
 		t.Errorf("store = %s, want under %s", main, want)
 	}
 }
@@ -121,5 +126,51 @@ func TestPersonalMemoryDirFor_RequiresAProjectRelativeIgnoredOutput(t *testing.T
 		if err != nil || filepath.IsAbs(got) {
 			t.Errorf("output %s: got %q, %v; want the checkout store", path, got, err)
 		}
+	}
+}
+
+// Codex refuses a writable root whose path goes through a symlink, so a
+// linked AGNOSTIC_AI_HOME resolves to the folder it points at.
+func TestPersonalMemoryDir_ResolvesALinkedHome(t *testing.T) {
+	real, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(t.TempDir(), "home-link")
+	if err := os.Symlink(real, link); err != nil {
+		t.Skip("symlinks unavailable:", err)
+	}
+	t.Setenv("AGNOSTIC_AI_HOME", link)
+	repo := filepath.Join(t.TempDir(), "proj")
+	gitIn(t, filepath.Dir(repo), "init", "-q", "proj")
+	cfg := &config.Config{Memory: config.MemoryConfig{Personal: config.PersonalMemoryRepo}}
+
+	got, err := PersonalMemoryDir(cfg, repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(real, "local", "memory") + string(filepath.Separator); !strings.HasPrefix(got, want) {
+		t.Errorf("store = %s, want under %s", got, want)
+	}
+}
+
+// An index an earlier sync wrote through the symlink is still recognised
+// as a personal index, so it leaves the list.
+func TestWithoutStalePersonalIndexes_DropsAnIndexWrittenThroughALink(t *testing.T) {
+	real, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(t.TempDir(), "home-link")
+	if err := os.Symlink(real, link); err != nil {
+		t.Skip("symlinks unavailable:", err)
+	}
+	t.Setenv("AGNOSTIC_AI_HOME", link)
+	old := filepath.ToSlash(filepath.Join(link, "local", "memory", "proj-1", "MEMORY.md"))
+	current := filepath.ToSlash(filepath.Join(real, "local", "memory", "proj-1", "MEMORY.md"))
+
+	got := WithoutStalePersonalIndexes([]string{"AGENTS.md", old, current}, []string{current})
+	if strings.Join(got, ",") != "AGENTS.md,"+current {
+		t.Errorf("list = %v, want the linked path dropped", got)
 	}
 }
