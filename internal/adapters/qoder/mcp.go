@@ -83,7 +83,7 @@ func emitSettings(sess *emit.Session, cfg *config.Config, mcps, hooks, settings 
 	// `url` beside a `command` (#974).
 	emit.MergeSettingsCustomKeys(keys, settings, target, qoderMCPKey)
 	emit.MergeSettingsCustomRecordMap(keys, settings, target, qoderMCPKey)
-	if err := addMemoryDirectory(sess, keys, cfg, path, dryRun); err != nil {
+	if err := mergeAdditionalDirectories(sess, keys, cfg, path, dryRun); err != nil {
 		return err
 	}
 	// Hook entries sync did not write stay; sync claims only its own,
@@ -233,34 +233,43 @@ func (Adapter) MCPLaunchView() emit.MCPLaunchView {
 	return emit.MCPLaunchView{Passthrough: emit.LaunchPassthrough(mcpBuiltKeys...)}
 }
 
-// addMemoryDirectory adds the repo store of personal memory to
-// permissions.additionalDirectories when it lies outside the checkout, so
-// Qoder approves the saves there instead of sending them to its
-// classifier. The user's own entries stay.
-func addMemoryDirectory(sess *emit.Session, keys map[string]any, cfg *config.Config, path string, dryRun bool) error {
-	if cfg == nil || !slices.Contains(cfg.Builtins, emit.MemoryBuiltin) || !emit.PersonalMemoryLeavesCheckout(cfg, path, target) {
+// mergeAdditionalDirectories owns permissions.additionalDirectories item by
+// item, so the user's own entries and any other list in the same file stay
+// across syncs. It adds the repo store of personal memory when that store
+// lies outside the checkout, so Qoder approves the saves there instead of
+// sending them to its classifier, and removes it again once it no longer
+// does.
+func mergeAdditionalDirectories(sess *emit.Session, keys map[string]any, cfg *config.Config, path string, dryRun bool) error {
+	permissions, _ := keys["permissions"].(map[string]any)
+	planned, _ := permissions["additionalDirectories"].([]any)
+	if cfg != nil && slices.Contains(cfg.Builtins, emit.MemoryBuiltin) && emit.PersonalMemoryLeavesCheckout(cfg, path, target) {
+		dir, err := emit.PersonalMemoryDirFor(cfg, path, target)
+		if err != nil {
+			return err
+		}
+		if err := sess.CreateRepoMemoryStore(cfg, dir, dryRun); err != nil {
+			return err
+		}
+		if slash := filepath.ToSlash(dir); !slices.Contains(planned, any(slash)) {
+			planned = append(planned, slash)
+		}
+	}
+	existing, _ := sess.ExistingJSONObject(path, "permissions", dryRun)["additionalDirectories"].([]any)
+	if len(planned) == 0 && len(existing) == 0 {
 		return nil
 	}
-	dir, err := emit.PersonalMemoryDirFor(cfg, path, target)
-	if err != nil {
-		return err
-	}
-	if err := sess.CreateRepoMemoryStore(cfg, dir, dryRun); err != nil {
-		return err
-	}
-	permissions, _ := keys["permissions"].(map[string]any)
+	merged, claims := emit.MergeOwnedLists(path, []string{"permissions"},
+		map[string][]any{"additionalDirectories": existing},
+		map[string][]any{"additionalDirectories": planned})
 	if permissions == nil {
 		permissions = map[string]any{}
 		keys["permissions"] = permissions
 	}
-	planned, _ := permissions["additionalDirectories"].([]any)
-	if slash := filepath.ToSlash(dir); !slices.Contains(planned, any(slash)) {
-		planned = append(planned, slash)
+	list := merged["additionalDirectories"]
+	if len(list) == 0 {
+		permissions["additionalDirectories"] = emit.RemoveJSONKey
+		return nil
 	}
-	existing, _ := sess.ExistingJSONObject(path, "permissions", dryRun)["additionalDirectories"].([]any)
-	merged, claims := emit.MergeOwnedLists(path, []string{"permissions"},
-		map[string][]any{"additionalDirectories": existing},
-		map[string][]any{"additionalDirectories": planned})
-	permissions["additionalDirectories"] = emit.ClaimedJSONItems(merged["additionalDirectories"], claims["additionalDirectories"])
+	permissions["additionalDirectories"] = emit.ClaimedJSONItems(list, claims["additionalDirectories"])
 	return nil
 }

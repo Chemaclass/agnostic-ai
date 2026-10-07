@@ -214,6 +214,10 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 			for child, childValue := range incoming {
 				childValue, childKind, childItems, childFollows := mergeClaim(childValue)
 				children[child] = childValue
+				if _, remove := childValue.(removeJSONKey); remove {
+					released = append(released, []string{k, child})
+					continue
+				}
 				claim([]string{k, child}, childKind, childItems, childFollows)
 			}
 			value = mergeJSONObject(doc, k, children)
@@ -259,6 +263,10 @@ func mergeJSONObject(doc *OrderedJSON, key string, value any) any {
 		_ = json.Unmarshal(raw, &existing)
 	}
 	for child, childValue := range incoming {
+		if _, remove := childValue.(removeJSONKey); remove {
+			delete(existing, child)
+			continue
+		}
 		existing[child] = childValue
 	}
 	return existing

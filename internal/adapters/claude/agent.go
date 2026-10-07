@@ -24,14 +24,30 @@ var agentNameRule = emit.NameRule{
 	Rule:    `not start with "-" and not contain ":"; Claude Code skips such agents`,
 }
 
-// EmitAgents writes native agents for project or user-level sync.
+// EmitAgents writes native agents for project or user-level sync. Claude
+// Code names an agent by its frontmatter `name`, so the rule applies to the
+// resolved value, `x-claude.name` overrides included, and every agent is
+// checked before the first file is written.
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
-	if err := emit.ValidateNames(agents, target, "agent", agentNameRule); err != nil {
+	type resolved struct {
+		meta map[string]any
+		keys []string
+	}
+	all := make([]resolved, len(agents))
+	named := make([]spec.Entry, len(agents))
+	for i, agent := range agents {
+		meta, keys := agentMeta(agent)
+		all[i] = resolved{meta, keys}
+		named[i] = agent
+		if name, ok := meta["name"].(string); ok && name != "" {
+			named[i].Name = name
+		}
+	}
+	if err := emit.ValidateNames(named, target, "agent", agentNameRule); err != nil {
 		return err
 	}
-	for _, agent := range agents {
-		meta, keys := agentMeta(agent)
-		body := emit.WithHeader(emit.DocumentStyled(meta, keys, agent.MetaStyles, agent.Body, target), emit.FormatMarkdown)
+	for i, agent := range agents {
+		body := emit.WithHeader(emit.DocumentStyled(all[i].meta, all[i].keys, agent.MetaStyles, agent.Body, target), emit.FormatMarkdown)
 		if err := sess.WriteFile(filepath.Join(dir, agent.Name+".md"), body, dryRun); err != nil {
 			return err
 		}
