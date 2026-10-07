@@ -606,7 +606,8 @@ func sortedPaths(mtimes map[string]time.Time) []string {
 }
 
 // isIgnoredEvent filters out events that should never trigger a re-sync:
-// chmod-only events, the .sync-state file, and local handoff files.
+// chmod-only events, the .sync-state file, and local handoff and
+// personal memory files.
 func isIgnoredEvent(ev fsnotify.Event, root string) bool {
 	if ev.Op == fsnotify.Chmod {
 		return true
@@ -614,7 +615,22 @@ func isIgnoredEvent(ev fsnotify.Event, root string) bool {
 	if filepath.Base(ev.Name) == ".sync-state" {
 		return true
 	}
-	return isHandoffPath(root, ev.Name)
+	return isLocalStatePath(root, ev.Name)
+}
+
+// isLocalStatePath reports whether path is tool state in the project-user
+// layer that no spec reads: a handoff file or the personal memory store.
+func isLocalStatePath(root, path string) bool {
+	return isHandoffPath(root, path) || isPersonalMemoryPath(root, path)
+}
+
+func isPersonalMemoryPath(root, path string) bool {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return false
+	}
+	store, err := filepath.Abs(filepath.Join(root, filepath.Dir(adapters.PersonalMemoryIndexPath)))
+	return err == nil && pathWithin(store, absPath)
 }
 
 func isHandoffPath(root, path string) bool {
@@ -720,7 +736,7 @@ type affectedResync struct {
 func resyncForChanges(root string, configured, changed []string, dryRun, backup bool, gitignoreFlag string, jobs int) error {
 	paths := make([]string, 0, len(changed))
 	for _, path := range changed {
-		if !isHandoffPath(root, path) {
+		if !isLocalStatePath(root, path) {
 			paths = append(paths, path)
 		}
 	}

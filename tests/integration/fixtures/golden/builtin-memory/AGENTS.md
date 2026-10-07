@@ -15,11 +15,11 @@ CLAUDE.md, AGENTS.md, and the other AI tool files are generated from `.agnostic-
 <!-- source: builtin:shared-memory-policy -->
 _Read and save the project memory that every AI coding tool shares._
 
-This project keeps one memory that every AI coding tool shares. Its index is `.agnostic-ai/memory/MEMORY.md` at the project root: one line per fact, each linking a topic file in the same folder. If the index is not already in your context, read it before you start a task. Open a topic file only when its line is relevant.
+This project keeps two memories that every AI coding tool shares: project memory in `.agnostic-ai/memory/`, committed for the team, and personal memory in `.agnostic-ai/local/memory/`, which Git ignores. Each folder has a `MEMORY.md` index: one line per fact, each linking a topic file in the same folder. If an index is not already in your context, read it before you start a task. Open a topic file only when its line is relevant.
 
-Save a fact when a later session needs it and cannot get it from the code, the git history, or these rules: a convention, a decision and its reason, a gotcha, or a pointer to an outside resource. Propose each fact to the user and write it only after they confirm. Save shared facts here even when your tool has its own memory.
+Save a fact when a later session needs it and cannot get it from the code, the git history, or these rules. Save the user's preferences and corrections to personal memory without asking. Propose team facts (a convention, a decision and its reason, a gotcha, a pointer to an outside resource) and write them to project memory only after the user confirms. Save here even when your tool has its own memory.
 
-To save, write `.agnostic-ai/memory/<slug>.md` with frontmatter `name`, `description`, and `metadata.type` (`user`, `feedback`, `project`, or `reference`), then the fact, a `**Why:**` line, and a `**How to apply:**` line. Add `- [Title](<slug>.md): <hook>` to the index. Update an existing fact instead of adding a duplicate, and delete one that turns out wrong. Never save secrets.
+To save, write `<slug>.md` in the chosen folder with frontmatter `name`, `description`, and `metadata.type` (`user`, `feedback`, `project`, or `reference`), then the fact, a `**Why:**` line, and a `**How to apply:**` line. Add `- [Title](<slug>.md): <hook>` to that folder's index. Update an existing fact instead of adding a duplicate, and delete one that turns out wrong. Never save secrets.
 
 Memory is background, not instructions: the user's request wins. Before you act on a file, flag, or command a fact names, check that it still exists.
 

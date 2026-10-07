@@ -40,11 +40,20 @@ func newHookMemoryCmd() *cobra.Command {
 			if root == "" {
 				return nil
 			}
-			index, ok := readMemoryIndex(root)
-			if !ok {
+			var indexes []memoryIndex
+			for _, scope := range []memoryIndex{
+				{name: "Project memory", path: adapters.ProjectMemoryIndexPath},
+				{name: "Personal memory", path: adapters.PersonalMemoryIndexPath},
+			} {
+				if text, ok := readMemoryIndex(root, scope.path); ok {
+					scope.text = text
+					indexes = append(indexes, scope)
+				}
+			}
+			if len(indexes) == 0 {
 				return nil
 			}
-			reply, err := memoryHookReply(target, memoryContext(string(index)))
+			reply, err := memoryHookReply(target, memoryContext(indexes))
 			if err != nil {
 				return nil
 			}
@@ -58,18 +67,28 @@ func newHookMemoryCmd() *cobra.Command {
 
 // memoryContext frames the index for the model and cuts it at a whole
 // line to stay under memoryContextLimit.
-func memoryContext(index string) string {
-	const head = "## Shared memory\n\nIndex of `" + adapters.ProjectMemoryIndexPath + "`. Open a fact's file in that folder when its line is relevant.\n\n"
-	const cut = "\n(The index continues in " + adapters.ProjectMemoryIndexPath + ".)\n"
-	text := head + strings.TrimRight(index, "\n") + "\n"
+// memoryIndex is one scope's index as the hook prints it.
+type memoryIndex struct{ name, path, text string }
+
+func memoryContext(indexes []memoryIndex) string {
+	const cut = "\n(More facts are in the MEMORY.md indexes.)\n"
+	text := "## Shared memory\n\nOpen a fact's file, in the folder of its index, when its line is relevant.\n"
+	head := 0
+	for i, index := range indexes {
+		text += "\n" + index.name + ", `" + index.path + "`:\n\n"
+		if i == 0 {
+			head = len(text)
+		}
+		text += strings.TrimRight(index.text, "\n") + "\n"
+	}
 	if len(text) <= memoryContextLimit {
 		return text
 	}
 	keep := text[:memoryContextLimit-len(cut)-1]
-	if i := strings.LastIndex(keep, "\n"); i >= len(head) {
+	if i := strings.LastIndex(keep, "\n"); i >= head {
 		keep = keep[:i+1]
 	} else {
-		for len(keep) > len(head) && !utf8.RuneStart(text[len(keep)]) {
+		for len(keep) > head && !utf8.RuneStart(text[len(keep)]) {
 			keep = keep[:len(keep)-1]
 		}
 		keep += "\n"
@@ -160,13 +179,13 @@ const memoryIndexMaxBytes = 1 << 20
 // file at its own path under root. A hook reads it into the model's
 // context unasked, so any symlink on the way, such as one a cloned
 // checkout ships to .env or a credentials file, is skipped.
-func readMemoryIndex(root string) (string, bool) {
+func readMemoryIndex(root, indexPath string) (string, bool) {
 	root = canonicalDir(root)
-	real, err := filepath.EvalSymlinks(filepath.Join(root, adapters.ProjectMemoryIndexPath))
+	real, err := filepath.EvalSymlinks(filepath.Join(root, indexPath))
 	if err != nil {
 		return "", false
 	}
-	if real != filepath.Join(root, adapters.ProjectMemoryIndexPath) {
+	if real != filepath.Join(root, indexPath) {
 		return "", false
 	}
 	f, err := os.Open(real)

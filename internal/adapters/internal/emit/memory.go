@@ -10,6 +10,10 @@ import (
 // it at runtime, so it never follows `sources:` paths.
 const ProjectMemoryIndexPath = ".agnostic-ai/memory/MEMORY.md"
 
+// PersonalMemoryIndexPath is the index of the personal store, under the
+// git-ignored project-user layer.
+const PersonalMemoryIndexPath = ".agnostic-ai/local/memory/MEMORY.md"
+
 // Sentinel markers delimiting the memory import block inside an
 // entry-point file. Import strips the block (StripGeneratedAppendices)
 // so it never flows back into AGNOSTIC_AI.md.
@@ -19,20 +23,23 @@ const (
 )
 
 // RenderMemoryBlock returns the sentinel-marked block that imports the
-// shared memory index into the entry-point file at entryPath, relative or
-// absolute. Sync runs from the project root. The import is relative to
-// that file, as `@path` lines resolve, or absolute when no relative path
-// exists (another Windows volume).
+// project and personal memory indexes into the entry-point file at
+// entryPath, relative or absolute. Sync runs from the project root. Each
+// import is relative to that file, as `@path` lines resolve, or absolute
+// when no relative path exists (another Windows volume).
 func RenderMemoryBlock(entryPath string) string {
-	// Claude Code ends an import path at the first unescaped space.
-	ref := strings.ReplaceAll(filepath.ToSlash(memoryIndexRef(entryPath)), " ", `\ `)
-	return MemoryStartMarker + "\n\n## Shared memory\n\n@" + ref + "\n\n" + MemoryEndMarker + "\n"
+	var lines []string
+	for _, index := range []string{ProjectMemoryIndexPath, PersonalMemoryIndexPath} {
+		// Claude Code ends an import path at the first unescaped space.
+		lines = append(lines, "@"+strings.ReplaceAll(filepath.ToSlash(memoryIndexRef(entryPath, index)), " ", `\ `))
+	}
+	return MemoryStartMarker + "\n\n## Shared memory\n\n" + strings.Join(lines, "\n") + "\n\n" + MemoryEndMarker + "\n"
 }
 
-func memoryIndexRef(entryPath string) string {
-	index, err := filepath.Abs(ProjectMemoryIndexPath)
+func memoryIndexRef(entryPath, indexPath string) string {
+	index, err := filepath.Abs(indexPath)
 	if err != nil {
-		return ProjectMemoryIndexPath
+		return indexPath
 	}
 	dir, err := filepath.Abs(filepath.Dir(entryPath))
 	if err != nil {

@@ -30,7 +30,7 @@ CLAUDE.md                # canonical entry-point pointer body (written by sync)
   - A full copy stays when the files would differ (a rules appendix in `AGENTS.md`, or a `::target` block Claude Code skips).
   - If `CLAUDE.md` already imports `AGENTS.md` and no other target writes it, sync keeps that layout and writes the shared body to `AGENTS.md`.
   - Sessions started in a subfolder treat the root `@AGENTS.md` as an outside import: interactive ones ask once, headless `claude -p` skips it.
-  - With `builtins: [memory]`, `CLAUDE.md` ends with an import of `.agnostic-ai/memory/MEMORY.md`. See [shared memory](@/docs/memory.md).
+  - With `builtins: [memory]`, `CLAUDE.md` ends with imports of the project and personal memory indexes. See [shared memory](@/docs/memory.md).
 - **Rules**: Claude Code loads every `.md` file under `.claude/rules/` (recursively) at session start. `globs` (or a native `paths` list) emits `paths:` frontmatter, which scopes the rule to matching files. A comma-separated string gives one entry per pattern. Once translated into `paths`, the portable `scope`, `globs`, and `alwaysApply` keys are dropped.
 
   Scope and patterns form a union: `scope: src/a` with `globs: tests/a/**` emits `src/a/**` and `tests/a/**`. To filter by file only, omit `scope` and keep the source outside a folder that implies one.

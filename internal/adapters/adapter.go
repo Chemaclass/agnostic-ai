@@ -905,3 +905,7 @@ func EntrySourcePath(e spec.Entry) string {
 // ProjectMemoryIndexPath is the project-relative index of the shared
 // memory store (re-exported from the emit layer).
 const ProjectMemoryIndexPath = emit.ProjectMemoryIndexPath
+
+// PersonalMemoryIndexPath is the project-relative index of the personal
+// memory store (re-exported from the emit layer).
+const PersonalMemoryIndexPath = emit.PersonalMemoryIndexPath
