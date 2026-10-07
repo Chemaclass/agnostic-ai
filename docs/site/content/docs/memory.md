@@ -126,14 +126,15 @@ What each tool does with personal memory in this mode:
 | Copilot, Factory | Loads | Loads |
 | Codex, Gemini CLI, Qoder | Loads | Loads and saves |
 | Cursor | Loads | Loads; the CLI saves, the editor asks first |
-| OpenCode | Nothing | Loads |
+| OpenCode | Nothing | Loads and saves |
+| Windsurf | Finds it with `agnostic-ai memory path` | Same; Devin CLI saves without asking |
 | Kilo Code, every other tool | Finds it with `agnostic-ai memory path` | Same |
 
 Project memory loads the same way in both columns.
 
 Notes:
 
-- **Saving outside the project.** Codex, Gemini CLI, Qoder, and the Cursor CLI write only inside the project without asking, so sync gives them the folder: Codex `writable_roots` (read in `workspace-write` mode, in a trusted project), Gemini CLI `context.includeDirectories`, Qoder `permissions.additionalDirectories`, and a `Write(<folder>/**)` rule in `.cursor/cli.json`. Gemini CLI, Qoder, and Cursor keep your own entries. If your Codex overlay sets `[sandbox_workspace_write]`, sync leaves it alone; add the folder there yourself.
+- **Saving outside the project.** Codex, Gemini CLI, Qoder, OpenCode, the Cursor CLI, and Devin CLI write only inside the project without asking, so sync gives them the folder: Codex `writable_roots` (read in `workspace-write` mode, in a trusted project), Gemini CLI `context.includeDirectories`, Qoder `permissions.additionalDirectories`, OpenCode `permission.external_directory` in `opencode.json`, and a `Write(<folder>/**)` rule in `.cursor/cli.json` and in `permissions.allow` of `.devin/config.json`. Every tool but Codex keeps your own entries. If your Codex overlay sets `[sandbox_workspace_write]`, sync leaves it alone; add the folder there yourself.
 - **Committed config.** A file you keep in Git through `gitignore.commit` or `gitignore.allow` never gets the path, so that tool works as without the block. `sync --gitignore off` does the same for one run.
 - **Kilo Code** ignores project config entries outside the project. To load personal memory every session, add its `MEMORY.md` to `instructions` in `~/.config/kilo/kilo.jsonc`.
 - **Tools with only the rule** need `agnostic-ai` on PATH, and may ask before they read or write outside the project.

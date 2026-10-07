@@ -6,6 +6,20 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### By tool
+
+#### Codex
+
+- `outputs.codex.config.sandbox` now reaches Codex: sync writes it as `sandbox_mode`, since Codex ignored the old `sandbox` key (#1880).
+
+#### OpenCode
+
+- In repo mode, OpenCode saves personal memory without asking each time: sync allows its folder under `permission.external_directory` (#1881).
+
+#### Windsurf
+
+- In repo mode, Devin CLI saves personal memory without asking: sync allows writes to its folder in `.devin/config.json` (#1882).
+
 ## v0.81.0 - 2026-10-07
 
 ### General
