@@ -890,6 +890,13 @@ func RenderMemoryBlock(entryPath string) string {
 	return emit.RenderMemoryBlock(entryPath)
 }
 
+// RenderProjectMemoryBlock imports the project memory index alone, for
+// a file only Claude Code reads: Claude loads the personal index itself
+// once sync points its auto memory there.
+func RenderProjectMemoryBlock(entryPath string) string {
+	return emit.RenderMemoryImports(entryPath, []string{emit.ProjectMemoryIndexPath})
+}
+
 // AppendMemoryBlock appends the memory block to body, replacing any
 // earlier one (re-exported from the emit layer).
 func AppendMemoryBlock(body, block string) string {

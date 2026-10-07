@@ -68,7 +68,7 @@ Ask for the `shared-memory` skill to recall what the project knows about a topic
 
 | Tool | How the index loads |
 | --- | --- |
-| Claude Code | `CLAUDE.md` imports both indexes at session start. |
+| Claude Code | `CLAUDE.md` imports the project index. Sync points Claude's own auto memory at the personal store, so Claude loads that index itself and saves there too. |
 | Codex, Copilot, Cursor, Gemini CLI, Qoder, Factory | A session-start hook loads both indexes. See [Load at session start](#load-at-session-start). |
 | OpenCode, Kilo Code | `opencode.json` or `kilo.jsonc` lists both indexes under `instructions`. A missing index is skipped. |
 | Other tools | The rule names both indexes, and the tool reads them before a task. |
@@ -79,6 +79,15 @@ Aider and Kiro get the rule only, because a missing index file causes an error o
 - Kiro: `#[[file:.agnostic-ai/memory/MEMORY.md]]` in a steering file.
 
 Saving a fact never makes `sync --check` report drift.
+
+## Claude Code's own memory
+
+Claude Code keeps an auto memory that it writes without being asked, in the same `MEMORY.md` plus topic-file format. With `memory` on, sync sets `autoMemoryDirectory` in `.claude/settings.local.json` to the absolute path of `.agnostic-ai/local/memory/`. Claude's own saves then land in the personal store, and every other tool reads them.
+
+- The file is personal and kept out of Git, so the absolute path never reaches the team.
+- A value you set yourself stays. Sync writes the key only when the file lacks it or sync wrote it before.
+- Claude Code honors the setting in a project only after you trust the workspace.
+- Codex, Gemini CLI, and Qoder keep their own memory off by default. Leave it off so they save here. Windsurf's legacy Cascade agent keeps memories in `~/.codeium/windsurf/memories/`, which no project setting moves.
 
 ## Load at session start
 

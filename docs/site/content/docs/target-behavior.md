@@ -92,7 +92,7 @@ The [spec format guide](@/docs/spec-format/_index.md) defines every portable kin
 
 [Claude Code](@/docs/targets/claude.md) (`~/.claude/projects/<project>/memory/`) and [Qoder](@/docs/targets/qoder.md) (`~/.qoder/projects/<project>/memory/`) each keep a memory store on your machine that they write themselves: a `MEMORY.md` index plus one topic file per memory.
 
-agnostic-ai does not sync them, for two reasons:
+With the [`memory` built-in](@/docs/memory.md) on, sync points Claude Code's store at the shared personal store instead: it writes `autoMemoryDirectory` to `.claude/settings.local.json`. Without it, agnostic-ai does not touch either store, for two reasons:
 
 - A guessed path would often be wrong. Claude Code can move its store (`autoMemoryDirectory`, `CLAUDE_CONFIG_DIR`, `CLAUDE_CODE_PROJECT_DIR_NAME`), and Qoder has no such setting.
 - The contents are one person's corrections and session context, not a project convention.

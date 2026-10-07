@@ -281,6 +281,14 @@ func ClaimsItemsUnder(path, key string) bool {
 	})
 }
 
+// ClaimsKey reports whether the last sync claimed the top-level key in
+// the merged file at path.
+func ClaimsKey(path, key string) bool {
+	return slices.ContainsFunc(priorMergedKeys(path), func(k MergedKey) bool {
+		return len(k.Path) == 1 && k.Path[0] == key
+	})
+}
+
 // PriorOutputSum returns the sum the last sync recorded for a file it
 // wrote whole, or "". The CLI sets it from the ledger.
 var PriorOutputSum func(path string) string

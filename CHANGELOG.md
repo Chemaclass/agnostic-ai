@@ -21,6 +21,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - `hook run` reports `adds_context` for `SessionStart` stdout or `additionalContext`, which Augment injects (#1853).
 
+#### Claude Code
+
+- With the `memory` built-in, sync points Claude's auto memory at the shared personal store via `autoMemoryDirectory` (#1846).
+
 #### OpenHands
 
 - `hook run` no longer reports `adds_context` on `SessionStart`, which OpenHands only logs (#1853).
