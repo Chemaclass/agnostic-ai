@@ -103,14 +103,7 @@ func repoMemoryHome() (string, error) {
 // store. It is the entry an earlier sync added before memory.personal or
 // the gitignore setup changed.
 func WithoutStalePersonalIndexes(list, current []string) []string {
-	// An earlier sync may have written the store through the symlink.
-	var prefixes []string
-	if stores, err := repoMemoryStores(); err == nil {
-		prefixes = append(prefixes, filepath.ToSlash(stores)+"/")
-	}
-	if home, err := repoMemoryHome(); err == nil {
-		prefixes = append(prefixes, filepath.ToSlash(filepath.Join(home, "local", "memory"))+"/")
-	}
+	prefixes := repoStorePrefixes()
 	inStores := func(entry string) bool {
 		return slices.ContainsFunc(prefixes, func(prefix string) bool { return strings.HasPrefix(entry, prefix) })
 	}
@@ -124,6 +117,33 @@ func WithoutStalePersonalIndexes(list, current []string) []string {
 		out = append(out, entry)
 	}
 	return out
+}
+
+// repoStorePrefixes returns the folder holding every repo store, with a
+// trailing slash, both resolved and as written: an earlier sync may have
+// written the store through the symlink.
+func repoStorePrefixes() []string {
+	var prefixes []string
+	if stores, err := repoMemoryStores(); err == nil {
+		prefixes = append(prefixes, filepath.ToSlash(stores)+"/")
+	}
+	if home, err := repoMemoryHome(); err == nil {
+		prefixes = append(prefixes, filepath.ToSlash(filepath.Join(home, "local", "memory"))+"/")
+	}
+	return prefixes
+}
+
+// IsRepoStoreGlob reports whether pattern is `<store>/**` for a repo
+// store of personal memory, the rule sync writes so a tool may save
+// there.
+func IsRepoStoreGlob(pattern string) bool {
+	for _, prefix := range repoStorePrefixes() {
+		slug, ok := strings.CutSuffix(strings.TrimPrefix(pattern, prefix), "/**")
+		if ok && strings.HasPrefix(pattern, prefix) && slug != "" && !strings.Contains(slug, "/") {
+			return true
+		}
+	}
+	return false
 }
 
 // PersonalMemoryDirFor returns the personal store the project files of

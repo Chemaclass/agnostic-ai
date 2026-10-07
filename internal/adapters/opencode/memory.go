@@ -56,8 +56,8 @@ func mergeExternalDirectories(sess *emit.Session, keys map[string]any, settings 
 		return false, err
 	}
 	if len(patterns) == 0 {
-		// A store entry an earlier sync wrote goes with its claim.
-		return false, nil
+		// A store entry sync claimed on its own goes with its claim.
+		return dropStoreRules(sess, keys, path, dryRun), nil
 	}
 	keyPath := []string{permissionKey, externalDirectoryKey}
 	// A map the last sync wrote whole from a spec that is gone now goes
@@ -104,6 +104,37 @@ func mergeExternalDirectories(sess *emit.Session, keys map[string]any, settings 
 	}
 	keys[permissionKey] = permission
 	return true, nil
+}
+
+// dropStoreRules takes the store entries sync wrote out of a map the last
+// sync wrote whole and the user has edited since, once no store rule is
+// wanted. That map stays the user's, so its whole claim cannot take the
+// store entry out. An unchanged map goes whole on its own. It reports
+// whether `permission` merges one level deep.
+func dropStoreRules(sess *emit.Session, keys map[string]any, path string, dryRun bool) bool {
+	if !emit.ClaimsWholeValue(path, permissionKey) || sess.ClaimsUnchangedValue(path, dryRun, permissionKey) {
+		return false
+	}
+	rules := sess.ExistingObjectAt(path, []string{permissionKey, externalDirectoryKey}, dryRun)
+	if rules == nil {
+		return false
+	}
+	dropped := false
+	for _, pattern := range rules.Keys() {
+		if emit.IsRepoStoreGlob(pattern) && isAllow(rules, pattern) {
+			rules.Delete(pattern)
+			dropped = true
+		}
+	}
+	if !dropped {
+		return false
+	}
+	value := emit.CarriedJSONValue(rules)
+	if rules.Len() == 0 {
+		value = emit.RemoveJSONKey
+	}
+	keys[permissionKey] = map[string]any{externalDirectoryKey: value}
+	return true
 }
 
 // existingAction returns the `permission` value on disk when it is a
