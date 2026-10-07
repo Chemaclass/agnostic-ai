@@ -50,7 +50,7 @@ Cline finds a hook script by file name only, and it has two hook runtimes.
 
 So sync writes one file per event to `.clinerules/hooks/<Event>`, the only layout both run, once each. The next sync removes an older `.cline/hooks/<Event>.sh` that sync wrote. Sync overwrites a hand-written `.clinerules/hooks/<Event>` for an event a spec uses. List it under `sync.unmanaged` to keep your own. A single-file `.clinerules` blocks `.clinerules/hooks/`. Sync replaces it only when a rule spec holds its content. So run `agnostic-ai import cline` first, or set `outputs.cline.hooks-dir: .cline/hooks`, which only the Cline CLI reads.
 
-Cline's docs barely cover this. The [hooks page](https://docs.cline.bot/customization/hooks) is a stub that points to SDK Plugins (a TypeScript API). Only the [config reference](https://docs.cline.bot/getting-started/config) lists `.cline/hooks/` as lifecycle hooks.
+Cline's docs barely cover this. The [hooks page](https://docs.cline.bot/customization/hooks) is a stub that points to SDK Plugins (a TypeScript API). Only the [config reference](https://docs.cline.bot/getting-started/config) lists hooks, under `.cline/hooks/` and in the older `.clinerules/hooks/` folder.
 
 - Each script starts with `#!/usr/bin/env bash`, and the generated-file comment follows it. The extension runs the file through its shebang, and the SDK reads the shebang to pick bash.
 - **`matcher` and `timeout` do nothing**, and sync says so. A hook runs on every occurrence of its event and must filter itself. Cline uses its own timeout. A [portable](@/docs/spec-format/hooks.md#portable-events) `match` kind is the exception: the script runs the command only when the event data names one of the kind's tools, such as `run_commands` (Cline CLI) or `execute_command` (VS Code extension) for `shell`.
@@ -65,7 +65,7 @@ Cline's docs barely cover this. The [hooks page](https://docs.cline.bot/customiz
 
 With `outputs.cline.workflows-dir` set to `.clinerules/workflows`, each agent is also written as `<dir>/<name>.md`, which you run from chat as `/<name>.md`. An italic description, if any, comes before the body. The key is opt-in because a workflow repeats the agent in `.cline/agents/<name>.yml`.
 
-Cline's workflows doc page is a 404, but its resolver searches `.clinerules/workflows` and `.cline/workflows`. The VS Code extension reads only `.clinerules/workflows` and keeps it out of the rules scan, so a workflow never doubles as a rule. With `.cline/workflows`, only the CLI and SDK see them, and sync says so.
+Cline's workflows doc page now redirects to the [rules page](https://docs.cline.bot/customization/cline-rules). The [config reference](https://docs.cline.bot/getting-started/config) lists `.cline/workflows/` and the older `.clinerules/workflows/`, and Cline's resolver searches both. The VS Code extension reads only `.clinerules/workflows` and keeps it out of the rules scan, so a workflow never doubles as a rule. With `.cline/workflows`, only the CLI and SDK see them, and sync says so.
 
 ## Config keys
 
@@ -83,7 +83,7 @@ Cline's workflows doc page is a 404, but its resolver searches `.clinerules/work
 - **Agents**: each `.cline/agents/<name>.yml` becomes a `<name>.md` spec, without the generated-file header. `.yaml` is read too, and `.md` last, so files from older syncs still import. `.yml` wins a clash. The `agent-<name>.md` prefix applies only to the old layout where rules and agents shared `.clinerules/`.
 - **Skills**: from the paths Cline scans, in order: `.cline/skills/`, `.clinerules/skills/`, `.claude/skills/`, `.agents/skills/`. The first same-name skill wins. Bundled assets and executable file modes are kept. The rules import skips `.clinerules/skills/`.
 
-Cline's source confirms `.agents/skills`, but [the skills page](https://docs.cline.bot/customization/skills) lists only three paths, so sync keeps writing to the documented `.cline/skills`. To share one copy across tools, turn on `sync.shared-skills` or set `outputs.cline.skills-dir: .agents/skills`.
+The [config reference](https://docs.cline.bot/getting-started/config) lists `.agents/skills/`, but [the skills page](https://docs.cline.bot/customization/skills) lists only three paths, so sync keeps writing to the documented `.cline/skills`. To share one copy across tools, turn on `sync.shared-skills` or set `outputs.cline.skills-dir: .agents/skills`.
 
 {% <details summary="Single-file .clinerules"> %}
 Cline still reads a single-file `.clinerules`. It imports as one rule, `clinerules.md`, with its `paths` kept, and the `.clinerules/skills/` lookup is skipped. Sync and `doctor --fix` then replace the file with a `.clinerules/` folder, as Cline does, but only when its content matches a rule spec. Otherwise sync, `--check`, `--dry-run`, and `doctor --fix` fail and leave it alone. Run `agnostic-ai import cline` first.
