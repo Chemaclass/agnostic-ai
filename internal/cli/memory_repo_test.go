@@ -437,3 +437,67 @@ func TestMemoryPath_FailsOutsideAProject(t *testing.T) {
 		t.Errorf("want an error, got:\n%s", out)
 	}
 }
+
+// The user's global source root is often a Git checkout. It is never a
+// project, whichever path reaches it.
+func TestMemoryProjectRoot_RejectsTheGlobalSourceRootCheckout(t *testing.T) {
+	real := t.TempDir()
+	link := filepath.Join(t.TempDir(), "home-link")
+	if err := os.Symlink(real, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	t.Setenv("AGNOSTIC_AI_HOME", link)
+	if out, err := exec.Command("git", "-C", real, "init", "-q").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, out)
+	}
+	writeFile(t, filepath.Join(real, "sub", "keep"), "")
+	for _, dir := range []string{real, filepath.Join(real, "sub"), link, filepath.Join(link, "sub")} {
+		t.Run(filepath.Base(dir), func(t *testing.T) {
+			testutil.Chdir(t, dir)
+			if out, err := runRoot(t, "memory", "path"); err == nil {
+				t.Errorf("memory path treated the global root as a project:\n%s", out)
+			}
+			if got := runHookMemory(t); got != "" {
+				t.Errorf("hook memory printed for the global root:\n%s", got)
+			}
+		})
+	}
+}
+
+// A repo-mode project whose config does not load must not fall back to
+// the checkout folder: tools would save to a store that disappears once the
+// config is fixed.
+func TestMemoryPath_InvalidConfigInRepoModeIsAnError(t *testing.T) {
+	for name, local := range map[string]string{
+		"malformed":   "memory: [personal\n",
+		"unknown key": "memory:\n  personal: repo\nnot-a-key: 1\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			repoMemoryProject(t, true)
+			writeFile(t, "agnostic-ai.local.yaml", local)
+
+			if out, err := runRoot(t, "memory", "path"); err == nil {
+				t.Errorf("want an error, got:\n%s", out)
+			}
+			if _, err := runRoot(t, "memory", "list"); err == nil {
+				t.Error("memory list used the checkout store")
+			}
+			got := runHookMemory(t, "--target", "codex")
+			if strings.Contains(got, ".agnostic-ai/local/memory") || !strings.Contains(got, "agnostic-ai memory path") {
+				t.Errorf("hook should not name the checkout folder, and should point to memory path:\n%s", got)
+			}
+		})
+	}
+}
+
+func TestMemoryPath_NoConfigUsesTheCheckoutFolders(t *testing.T) {
+	testutil.TempCwd(t)
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	if out, err := exec.Command("git", "init", "-q").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, out)
+	}
+	got := memoryPaths(t)
+	if !strings.HasSuffix(got["personal"], "/.agnostic-ai/local/memory") {
+		t.Errorf("personal = %q", got["personal"])
+	}
+}

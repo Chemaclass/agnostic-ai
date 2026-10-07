@@ -39,10 +39,19 @@ func memoryStores() ([]memoryStore, error) {
 	return memoryStoresAt(".")
 }
 
-// memoryStoresAt returns the stores of the project at root.
+// memoryStoresAt returns the stores of the project at root. A project
+// with no config has the checkout stores. A config that does not load is
+// an error: it may set memory.personal: repo, and the checkout folder
+// would be the wrong one to save to.
 func memoryStoresAt(root string) ([]memoryStore, error) {
 	cfg, err := config.Load(root)
-	if err != nil || !cfg.RepoPersonalMemory() {
+	if err != nil {
+		if _, _, missing := config.ResolveConfigPath(root); missing != nil {
+			return defaultMemoryStores, nil
+		}
+		return nil, err
+	}
+	if !cfg.RepoPersonalMemory() {
 		return defaultMemoryStores, nil
 	}
 	dir, err := adapters.PersonalMemoryDir(cfg, root)

@@ -53,6 +53,7 @@ agnostic-ai sync --check                         # find local drift
 agnostic-ai doctor --fix                         # repair drift, choose kept orphan removal
 agnostic-ai migrate --dry-run                    # preview rewrites of old spec forms
 agnostic-ai memory lint                          # check the shared memory index and facts
+agnostic-ai memory path                          # print the memory folders, including the repo store
 ```
 
 ## What you can share
