@@ -35,9 +35,9 @@ command: .agnostic-ai/scripts/no-force-push.sh
 
 `on` takes `session-start`, `prompt-submit`, `before-tool`, `after-tool`, `after-edit`, `stop`, or `session-end`. `after-edit` runs after a file edit, so it takes no `match`.
 
-`match` takes a tool kind: `shell`, `edit`, `read`, `web`, `any`, or `mcp:<server>`. It applies only to `before-tool` and `after-tool`. Leave it out, or write `any`, to run on every tool. `edit` names every edit tool, including ones an older or newer version of the tool lacks, so a guard does not miss one.
+`match` takes a tool kind: `shell`, `edit`, `read`, `web`, `any`, or `mcp:<server>`. It applies only to `before-tool` and `after-tool`. Leave it out, or write `any`, to run on every tool. `edit` covers every edit tool, including ones some versions lack, so a guard misses none.
 
-Each tool below gets the events and tool kinds it reads the way Claude Code does: exit 0 lets the call go on, and exit 2 blocks it with stderr as the reason. `before-tool` blocks the tool call, `prompt-submit` blocks the prompt, and `stop` keeps the agent working. `after-tool` and `after-edit` map to the tool's own after-tool event, on the `edit` matcher for `after-edit`. Codex reads `Edit|Write` as `apply_patch`. `any` writes no matcher on every tool. Copilot only warns on exit 2 outside `before-tool`, so it maps the session events and `before-tool`.
+Each tool below gets the events and tool kinds where exit codes work as in Claude Code: exit 0 lets the call go on, and exit 2 blocks it with stderr as the reason. `before-tool` blocks the tool call, `prompt-submit` blocks the prompt, and `stop` keeps the agent working. `after-tool` and `after-edit` map to the tool's own after-tool event, with the `edit` matcher for `after-edit`. Codex reads `Edit|Write` as `apply_patch`. `any` writes no matcher on any tool. Copilot only warns on exit 2 outside `before-tool`, so it maps the session events and `before-tool`.
 
 | Tool | `on` | `match` |
 |---|---|---|
@@ -55,15 +55,15 @@ Each tool below gets the events and tool kinds it reads the way Claude Code does
 | Copilot | `session-start`, `before-tool`, `session-end` | `shell` `Bash`, `edit` `Edit\|Write`, `read` `Read`, `web` `WebFetch\|WebSearch` |
 | Cline | `before-tool` | `shell` `run_commands\|execute_command`, `edit` `editor\|apply_patch\|replace_in_file\|write_to_file`, `read` `read_files\|read_file`, `web` `fetch_web_content\|web_fetch\|web_search` |
 
-Cursor, Copilot, and Cline read a block another way, so sync runs each portable `before-tool` command, and on Cursor each `prompt-submit` command, through a wrapper. Exit 2 becomes the tool's deny reply, with stderr as the reason:
+Cursor, Copilot, and Cline signal a block in their own way. For them, sync runs each portable `before-tool` command (and on Cursor each `prompt-submit` command) through a wrapper. The wrapper turns exit 2 into the tool's deny reply, with stderr as the reason:
 
-- **Cursor** gets `"permission": "deny"`, with stderr as `user_message` and `agent_message`. At exit 0 the wrapper replies `"permission": "allow"`, or passes the JSON reply the command prints. On `prompt-submit` (`beforeSubmitPrompt`) it replies `"continue": false` with stderr as `user_message`, or `"continue": true`. Exit 1 stays, and Cursor goes on as Claude Code does. The wrapper is `.cursor/hooks/agnostic-ai-portable-hook.sh`.
-- **Copilot** gets exit 2 with `"permissionDecision": "deny"` and stderr as `permissionDecisionReason`. Exit 1 and any other failure stay, and Copilot denies the call, where Claude Code reports an error and goes on. That difference is on purpose: a guard with a typo or a missing dependency keeps blocking on Copilot instead of letting every call through. The wrapper is `.github/hooks/scripts/agnostic-ai-portable-hook.sh`.
-- **Cline** gets `{"cancel": true}` with stderr as `errorMessage`, written into its event script. A cancel also stops the run, where Claude Code keeps working with the reason. Cline reads no exit 1, so the call goes on unreported. Cline has no matcher, so the script runs the command only when the payload names one of the kind's tools, in the Cline CLI and the VS Code extension alike.
+- **Cursor** gets `"permission": "deny"`, with stderr as `user_message` and `agent_message`. At exit 0 the wrapper replies `"permission": "allow"`, or passes on the JSON reply the command prints. On `prompt-submit` (`beforeSubmitPrompt`) it replies `"continue": false` with stderr as `user_message`, or `"continue": true`. Exit 1 passes through, and Cursor goes on, as Claude Code does. The wrapper is `.cursor/hooks/agnostic-ai-portable-hook.sh`.
+- **Copilot** gets exit 2 with `"permissionDecision": "deny"` and stderr as `permissionDecisionReason`. Exit 1 and any other failure pass through, and Copilot denies the call, where Claude Code reports an error and goes on. This is on purpose: a guard with a typo or a missing dependency keeps blocking on Copilot instead of letting every call through. The wrapper is `.github/hooks/scripts/agnostic-ai-portable-hook.sh`.
+- **Cline** gets `{"cancel": true}` with stderr as `errorMessage`, written into its event script. A cancel also stops the run, where Claude Code keeps working and passes on the reason. Cline ignores exit 1, so the call goes on with no report. Cline has no matcher, so the script runs the command only when the event data names one of the kind's tools, in the Cline CLI and the VS Code extension alike.
 
 The wrappers are bash scripts. On Windows, where a tool runs hook commands through PowerShell, it cannot start them: Cursor goes on with an error, and Copilot denies the call. A hook written with `event` syncs as written, with no wrapper. `sync --global` writes the wrapper beside the user hooks file, such as `~/.cursor/hooks/agnostic-ai-portable-hook.sh`.
 
-Cursor's other events stay unmapped. Its `postToolUse` and `afterFileEdit` (for `after-tool` and `after-edit`) and its `stop` cannot block: exit 2 there is a failure Cursor moves past, where Claude Code feeds stderr to the model or keeps the agent working. Its `stop` can only send a follow-up message, which is not the same as a block ([Cursor hooks](https://cursor.com/docs/hooks)). `session-start` and `session-end` map without a wrapper, since neither tool can block there. Cursor runs both fire-and-forget, so it does not wait for them, and it does not add plain stdout to the session as Claude Code does on `session-start`.
+Cursor's other events stay unmapped. Its `postToolUse` and `afterFileEdit` (for `after-tool` and `after-edit`) and its `stop` cannot block. Exit 2 there is a failure Cursor moves past, where Claude Code feeds stderr to the model or keeps the agent working. Its `stop` can only send a follow-up message, which is not a block ([Cursor hooks](https://cursor.com/docs/hooks)). `session-start` and `session-end` map without a wrapper, since neither tool can block there. Cursor does not wait for either one, and on `session-start` it does not add plain stdout to the session as Claude Code does.
 
 #### Decision on stdout {#decision-on-stdout}
 
@@ -81,30 +81,42 @@ command: .agnostic-ai/scripts/no-force-push.sh
 echo '{"decision": "deny", "reason": "Use --force-with-lease."}'
 ```
 
-With `decision: stdout`, stdout carries only the decision. At exit 0, `"decision": "deny"` blocks the call with `reason` as the message, the same as exit 2 with that message on stderr. `"ask"` blocks too, since not every tool can ask the user. `"allow"`, or empty stdout, goes on as a plain exit 0, so it never grants more than the tool's own permission rules do. Anything else blocks, so a broken guard never lets a call through: stdout that is not one JSON object, an object with no top-level `decision` or more than one, or a `decision` of another value. Only the top level counts, so a `decision` inside a nested object never overrides the verdict. Escaped control characters stay distinct in keys and values; raw NUL and SOH bytes block. Print logs to stderr. Any exit code other than 0 keeps its usual meaning.
+With `decision: stdout`, stdout carries only the decision. Print logs to stderr. At exit 0:
 
-No tool reads this object natively, so sync runs the command through the same wrapper on every tool, including each `x-gemini.hooks` command handler, which turns the decision into that tool's block. Augment runs a hook command only as a bare script path, so it cannot run the wrapper: `validate` names a `decision: stdout` hook that reaches it. The wrapper needs bash, so `decision: stdout` cannot go with `commandWindows` or `shell: powershell`. Parsing blocks on stdout over 1,000,000 bytes, more than 10,000 values, or more than 64 nested containers. A `\u` escape outside ASCII reads as `?`. Sync writes the wrapper again for a hook imported from a synced file that calls it.
+- `"decision": "deny"` blocks the call with `reason` as the message, the same as exit 2 with that message on stderr.
+- `"ask"` blocks too, since not every tool can ask the user.
+- `"allow"`, or empty stdout, goes on as a plain exit 0. It never grants more than the tool's own permission rules do.
+- Anything else blocks, so a broken guard never lets a call through. That covers stdout that is not one JSON object, an object with no top-level `decision` or more than one, and a `decision` of another value.
+
+Only the top level counts, so a `decision` inside a nested object never overrides the verdict. Escaped control characters stay distinct in keys and values; raw NUL and SOH bytes block. Any exit code other than 0 keeps its usual meaning.
+
+No tool reads this object itself. On every tool, sync runs the command through one wrapper that turns the decision into that tool's block. That includes each `x-gemini.hooks` command handler. Augment runs a hook command only as a bare script path, so it cannot run the wrapper: `validate` names a `decision: stdout` hook that reaches it. The wrapper needs bash, so `decision: stdout` cannot go with `commandWindows` or `shell: powershell`. Stdout over 1,000,000 bytes, more than 10,000 values, or more than 64 nested containers blocks. A `\u` escape outside ASCII reads as `?`. Sync writes the wrapper again for a hook imported from a synced file that calls it.
 
 #### Hooks Cursor and Copilot also read {#claude-settings-copies}
 
-Cursor and Copilot also run `.claude/settings.json` hooks. When `cursor` is a target, sync puts a check before the Claude Code copy of each portable hook that reaches Cursor too: `[ "$AGNOSTIC_AI_TARGET" = cursor ] && exit 0;`. Cursor's `sessionStart` hook sets that variable, so the Claude Code copy exits under Cursor and the hook runs once there, as Cursor's own copy. Claude Code sets the variable to `claude`, and an unset variable runs the hook, so Claude Code never skips it.
+Cursor and Copilot also run `.claude/settings.json` hooks. When `cursor` is a target, sync adds a check before the Claude Code copy of each portable hook that also reaches Cursor: `[ "$AGNOSTIC_AI_TARGET" = cursor ] && exit 0;`. Cursor's `sessionStart` hook sets that variable, so the Claude Code copy exits under Cursor and the hook runs once there, as Cursor's own copy. Claude Code sets the variable to `claude`, and an unset variable runs the hook, so Claude Code never skips it.
 
 - A hook that fires before Cursor's `sessionStart` hook returns still runs twice.
-- A hook with `args` or `shell: powershell` has no POSIX shell to read the check, so it runs twice on Cursor.
-- Copilot gives the Claude Code copy no variable, so a hook synced to `claude` and `copilot` still runs twice on Copilot. Both copies block on exit 2.
+- A hook with `args` or `shell: powershell` has no POSIX shell to run the check, so it runs twice on Cursor.
+- Copilot sets no variable for the Claude Code copy, so a hook synced to `claude` and `copilot` still runs twice on Copilot. Both copies block on exit 2.
 - `sync --global` adds no check, so a user hook synced to both runs twice on Cursor.
 
-A spec sets `on` or `event`, never both. `match` goes with `on`, and `matcher` with `event`. `validate` and `lint` (LINT032) report an unknown value, a mixed form, an event that a target the hook reaches does not read the same way, such as `on: stop` on Crush, and a tool kind it has no tool for, such as `match: read` on Codex.
+A spec sets `on` or `event`, never both. `match` goes with `on`, and `matcher` with `event`. `validate` and `lint` (LINT032) report:
 
-A portable hook does not reach Kiro or Trae yet. Sync prints a note with the count, and [`hook run`](#hook-run) lists them as not run with the reason. Write `event` for those tools, or scope the hook with `targets`.
+- an unknown value
+- both forms mixed in one spec
+- an event that a tool the hook reaches reads differently, such as `on: stop` on Crush
+- a tool kind that a tool the hook reaches lacks, such as `match: read` on Codex
 
-`agnostic-ai migrate --only hooks` rewrites `event` and `matcher` as `on` and `match` when the portable form gives every target the hook reaches the same event and matcher, so synced files stay the same. It leaves every other hook as written and says why. A Claude Code hook on `Edit|Write` stays native, since `match: edit` there also runs on `MultiEdit` and `NotebookEdit`.
+A portable hook does not reach Kiro or Trae yet. Sync prints a note with the count, and [`hook run`](#hook-run) lists them as not run with the reason. Write `event` for those tools, or limit the hook with `targets`.
 
-`lint` warns on each hook the migration would rewrite (LINT034) and names the `on` and `match` to write. `agnostic-ai import` follows the same rule: it writes `on` and `match` when they give every target the imported hook reaches the same event and matcher, and the native names otherwise. Sync then writes the imported tool's file back unchanged.
+`agnostic-ai migrate --only hooks` rewrites `event` and `matcher` as `on` and `match` when the portable form gives every tool the hook reaches the same event and matcher, so synced files stay the same. It leaves every other hook as written and says why. A Claude Code hook on `Edit|Write` stays native, since `match: edit` there also runs on `MultiEdit` and `NotebookEdit`.
+
+`lint` warns on each hook the migration would rewrite (LINT034) and names the `on` and `match` to write. `agnostic-ai import` follows the same rule: it writes `on` and `match` when they give every tool the imported hook reaches the same event and matcher, and the native names otherwise. Sync then writes the imported tool's file back unchanged.
 
 ### Native events
 
-`agnostic-ai new hook session-status` creates `hooks/session-status.yaml`. Pure YAML, no markdown body.
+`agnostic-ai new hook session-status` creates `hooks/session-status.yaml`. It is plain YAML with no markdown body.
 
 ```yaml
 name: session-status
@@ -125,7 +137,7 @@ matcher: Edit|Write
 command: 'files=$(agnostic-ai hook paths) || exit 1; printf "%s\n" "$files" | grep "\.go$" | while IFS= read -r f; do gofmt -w "$f"; done'
 ```
 
-Codex takes `Edit` and `Write` as aliases for `apply_patch`, so the one matcher fires on both tools. `agnostic-ai` must be on the hook's `PATH`. The `|| exit 1` fails the hook when `hook paths` fails, for example on a missing target, bad JSON, or a missing binary. A plain pipe into the loop would exit 0.
+Codex takes `Edit` and `Write` as aliases for `apply_patch`, so the one matcher fires on both tools. `agnostic-ai` must be on the hook's `PATH`. The `|| exit 1` fails the hook when `hook paths` fails, for example on a missing target, bad JSON, or a missing binary. Without it, a plain pipe into the loop would exit 0.
 
 Run a script with exact arguments and no shell, so spaces and `$` pass through untouched:
 
@@ -139,7 +151,7 @@ args: ["--deny", "git push --force"]
 timeout: 10
 ```
 
-Command hooks receive event JSON on stdin. Read the shell command from the target's `tool_input` fields. Read the edited paths with [`agnostic-ai hook paths`](#edited-paths). `AGNOSTIC_AI_TARGET` names the target that ran the hook; see [which target ran a hook](#hook-target).
+Command hooks receive event JSON on stdin. Read the shell command from the tool's `tool_input` fields. Read the edited paths with [`agnostic-ai hook paths`](#edited-paths). `AGNOSTIC_AI_TARGET` names the tool that ran the hook; see [which target ran a hook](#hook-target).
 
 ## Fields
 
@@ -147,18 +159,18 @@ Command hooks receive event JSON on stdin. Read the shell command from the targe
 |-------|----------|---------|-------------|
 | `name` | no | filename | Hook identifier. |
 | `description` | no | empty | Free-form documentation. |
-| `on` | `on` or `event` | none | Portable event, translated per target. See [portable events](#portable-events). |
+| `on` | `on` or `event` | none | Portable event, written as each tool's native event. See [portable events](#portable-events). |
 | `match` | no | every tool | Tool kind for `on: before-tool` or `after-tool`. See [portable events](#portable-events). |
 | `decision` | no | none | `stdout` reads a `{"decision": ..., "reason": ...}` object at exit 0 on `on: before-tool`. See [decision on stdout](#decision-on-stdout). |
-| `event` | `on` or `event` | none | Hook event, written verbatim. See [events](#events). |
-| `matcher` | no | empty | Regex on the tool name, or another event-specific selector. |
+| `event` | `on` or `event` | none | Hook event, written as is. See [events](#events). |
+| `matcher` | no | empty | Regex on the tool name, or another selector the event uses. |
 | `command` | command handlers only | none | Shell command, or a list where each entry becomes its own handler. |
-| `args` | no | empty | Switches to **exec form**: `command` runs as an executable with `args` as its argument vector and no shell, so spaces, `$`, and backticks pass verbatim. Leave unset when the command needs a pipe or `&&`. Claude Code, Qoder, and Copilot keep `args` apart. The other targets have no exec form and run `command` in a shell, so they get the args folded into it, each quoted for a POSIX shell (`echo 'shared' 'two words'`). On Windows, Trae's PowerShell and OpenHands' cmd.exe can read those quotes differently, and sync notes it. Augment runs only a script path, so it skips a hook with `args`, with a note. |
-| `type` | no | `command` | `command`, `http`, `mcp_tool`, or `prompt`, where the target supports it. |
-| `timeout` | no | none | Seconds before the tool cancels the hook. Some targets convert to milliseconds or apply their own default. |
-| `disabled` | no | `false` | Keep the hook defined but stop it running. Antigravity and Kiro write `enabled: false`; OpenCode and Kilo write no plugin module; other targets emit the hook unchanged. |
+| `args` | no | empty | Switches to **exec form**: `command` runs as a program with `args` as its arguments and no shell, so spaces, `$`, and backticks pass through unchanged. Leave unset when the command needs a pipe or `&&`. Claude Code, Qoder, and Copilot keep `args` apart. The other tools have no exec form and run `command` in a shell, so sync adds the args to it, each quoted for a POSIX shell (`echo 'shared' 'two words'`). On Windows, Trae's PowerShell and OpenHands' cmd.exe can read those quotes differently, and sync notes it. Augment runs only a script path, so it skips a hook with `args`, with a note. |
+| `type` | no | `command` | `command`, `http`, `mcp_tool`, or `prompt`, where the tool supports it. |
+| `timeout` | no | none | Seconds before the tool cancels the hook. Some tools convert to milliseconds or apply their own default. |
+| `disabled` | no | `false` | Keep the hook defined but stop it running. Antigravity and Kiro write `enabled: false`; OpenCode and Kilo write no plugin module; other tools write the hook unchanged. |
 
-Handler-specific fields emit only where the target's schema defines them:
+Handler-specific fields are written only where the tool's schema defines them:
 
 - `server`, `tool`, `input` (`type: mcp_tool`): Claude Code, Codex.
 - `url`, `headers`, `allowedEnvVars` (HTTP handler): Claude Code, Qoder, Copilot.
@@ -168,21 +180,21 @@ Handler-specific fields emit only where the target's schema defines them:
 - `continueOnBlock`: Claude Code. `commandWindows`, `additionalContextLimit`: Codex. `failClosed`: Cursor. `loop_limit`: Cursor, Trae.
 - `x-goose.on_failure` (Goose), `x-kiro.action` (Kiro), `x-gemini.hooks`, `x-gemini.sequential`, `x-gemini.name`, `x-gemini.env` (Gemini).
 
-`command` is not needed for a non-command handler, a valid `x-kiro.action`, or a hook that sets `x-gemini.hooks`. Scope a non-command hook to the targets that support it with `target` or `targets`.
+`command` is not needed for a non-command handler, a valid `x-kiro.action`, or a hook that sets `x-gemini.hooks`. Limit a non-command hook to the tools that support it with `target` or `targets`.
 
 ## Events
 
-`event` is written verbatim. Names are never translated between tools; for one spec across tools, use [portable events](#portable-events).
+`event` is written as is. Names are never translated between tools; for one spec across tools, use [portable events](#portable-events).
 
-- Claude Code and Codex share `PreToolUse`, `PostToolUse`, and `UserPromptSubmit`, so one spec feeds both.
+- Claude Code and Codex share `PreToolUse`, `PostToolUse`, and `UserPromptSubmit`, so one spec works on both.
 - Other tools need their own names, such as Cursor's `beforeShellExecution` or Gemini's `BeforeTool`.
-- `agnostic-ai validate` flags an event a target does not recognize.
-- `sync` and `sync --check` stop before writing on an event that is a likely typo of a known one, such as `PreToolUze`, and name the closest.
-- Targets without hook support log a warning and skip.
+- `agnostic-ai validate` flags an event a tool does not recognize.
+- `sync` and `sync --check` stop before writing when an event looks like a typo of a known one, such as `PreToolUze`, and name the closest.
+- Tools without hook support log a warning and skip the hook.
 
 ## Shared hook scripts
 
-Keep one script under `.agnostic-ai/scripts/` and reference that path in `command`. `agnostic-ai init --demo` seeds this guard, which blocks `git push --force` and allows `--force-with-lease` on Claude Code and Codex:
+Keep one script under `.agnostic-ai/scripts/` and use that path in `command`. `agnostic-ai init --demo` seeds this guard, which blocks `git push --force` and allows `--force-with-lease` on Claude Code and Codex:
 
 ```yaml
 name: no-force-push
@@ -195,15 +207,15 @@ commandWindows: '$s = "$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/no-force-push.sh
 timeout: 10
 ```
 
-The script reads `tool_input.command` from the event JSON on stdin, with no `jq`. It splits the command into words the way `sh` does, so a `git push --force` in quotes, a comment, or a heredoc body passes, and a push with a `+main` refspec or `--mirror` counts as forced unless it uses `--force-with-lease`. A quoted command inside `bash -c` or `eval` is text too, so it passes. `--force` or `-f` blocks even next to `--force-with-lease`, since git lets it override the lease. A force push spelled outside quotes blocks even behind a wrapper the script does not parse, such as `xargs`. On a force push it prints the reason on stderr and exits 2, which both tools read as a block.
+The script reads `tool_input.command` from the event JSON on stdin, with no `jq`. It splits the command into words the way `sh` does. A `git push --force` inside quotes, a comment, or a heredoc body passes, and so does a quoted command inside `bash -c` or `eval`. A push with a `+main` refspec or `--mirror` counts as forced unless it uses `--force-with-lease`. `--force` or `-f` blocks even next to `--force-with-lease`, since git lets it override the lease. A force push written outside quotes blocks even behind a wrapper the script does not parse, such as `xargs`. On a force push it prints the reason on stderr and exits 2, which both tools read as a block.
 
-Both tools start a hook in the session directory, which can be below the project root, so the path starts at the root. Claude Code keeps [`$CLAUDE_PROJECT_DIR`](#imported-project-root-paths); Codex gets `$(git rev-parse --show-toplevel)`, in both commands, plus the project's path below the Git root.
+Both tools start a hook in the session directory, which can be below the project root, so the path starts at the root. Claude Code keeps [`$CLAUDE_PROJECT_DIR`](#imported-project-root-paths). Codex gets `$(git rev-parse --show-toplevel)` in both commands, plus the project's path below the Git root.
 
 On Windows, Codex runs `commandWindows` with `powershell.exe -Command`:
 
 - PowerShell ignores the script's `#!/bin/sh` line, so the command names `sh`. That needs `sh` on `PATH`, as Git for Windows provides.
 - PowerShell reports a failed native command as exit 1, which Codex reads as a hook error and lets the push run. `exit $LASTEXITCODE` passes on the script's exit 2.
-- The Git root lookup runs first and resets `$LASTEXITCODE`, so the command checks for `sh` with `Get-Command` and exits 1 when it is missing. Codex reports that as a failed hook instead of passing it.
+- The Git root lookup runs first and resets `$LASTEXITCODE`, so the command checks for `sh` with `Get-Command` and exits 1 when it is missing. Codex then reports a failed hook instead of letting the push run.
 
 Claude Code runs hooks with Git Bash on Windows and needs no `commandWindows`. Without Git Bash it runs them with PowerShell, where this guard cannot run.
 
@@ -540,21 +552,21 @@ agnostic-ai hook run no-force-push --bash 'git push --force origin main' --expec
 agnostic-ai hook run no-force-push --bash 'git status' --expect allow
 ```
 
-A guard like this catches a mistake. It is not a sandbox: a command written to get around it, such as a push from a script file or an alias, gets through. To stop a command for good, use [`permissions.deny`](@/docs/spec-format/settings.md#permission-rules) and each tool's own sandbox: [Claude Code](https://code.claude.com/docs/en/sandboxing), [Codex](https://learn.chatgpt.com/docs/sandboxing).
+A guard like this catches a mistake. It is not a sandbox: a command written to get around it, such as a push from a script file or an alias, gets through. To block a command for good, use [`permissions.deny`](@/docs/spec-format/settings.md#permission-rules) and each tool's own sandbox: [Claude Code](https://code.claude.com/docs/en/sandboxing), [Codex](https://learn.chatgpt.com/docs/sandboxing).
 
-`sync` copies the script into each target's script directory and rewrites the command to run that copy.
+`sync` copies the script into each tool's script directory and changes the command to run that copy.
 
-- Script bytes, permissions, and subdirectories under `scripts/` stay intact.
+- Script contents, permissions, and subdirectories under `scripts/` stay as they are.
 - Make the source executable when the command runs it directly.
-- A missing referenced script fails sync.
-- A file at `.agnostic-ai/scripts/<target>/guard.sh` overrides the shared body for that target.
+- A missing script fails sync.
+- A file at `.agnostic-ai/scripts/<target>/guard.sh` replaces the shared script for that tool.
 
-For a shell command that starts an interpreter, quote the path: `command: 'node ".agnostic-ai/scripts/guard.mjs"'`. The reference can also follow a [project-root variable](#imported-project-root-paths). Existing `.claude/hooks/`, `.codex/hooks/`, and `.gemini/hooks/` references keep their current behavior.
+For a shell command that starts an interpreter, quote the path: `command: 'node ".agnostic-ai/scripts/guard.mjs"'`. The path can also follow a [project-root variable](#imported-project-root-paths). Existing `.claude/hooks/`, `.codex/hooks/`, and `.gemini/hooks/` paths keep working as before.
 
-`sync --global` reads bodies from the global source root's `scripts/` directory and copies them into the selected tools' user hook directories. Its commands use absolute paths to those user copies. Script sharing does not translate event names or reply formats, so choose ones each target supports.
+`sync --global` reads scripts from the global source root's `scripts/` directory and copies them into the selected tools' user hook directories. Its commands use absolute paths to those copies. Script sharing does not translate event names or reply formats, so pick ones every tool supports.
 
-{% <details summary="Where each target keeps its scripts"> %}
-Most targets use `.<target>/hooks/`. The exceptions:
+{% <details summary="Where each tool keeps its scripts"> %}
+Most tools use `.<target>/hooks/`. The exceptions:
 
 | Target | Script directory |
 |--------|------------------|
@@ -569,7 +581,7 @@ Most targets use `.<target>/hooks/`. The exceptions:
 
 ## Imported project-root paths
 
-A shell-form command imported from Claude Code can use `$CLAUDE_PROJECT_DIR` or `${CLAUDE_PROJECT_DIR}` to name a script:
+A shell-form command imported from Claude Code can use `$CLAUDE_PROJECT_DIR` or `${CLAUDE_PROJECT_DIR}` in a script path:
 
 ```yaml
 name: guard
@@ -580,29 +592,29 @@ command: 'sh "$CLAUDE_PROJECT_DIR/.claude/hooks/guard.sh"'
 What `sync` writes for the variable:
 
 - Claude Code, Cursor, and Trae provide it, so sync keeps it.
-- Gemini, Qoder, and Factory use their native project-root variable.
-- Other targets use `$(git rev-parse --show-toplevel)` in a POSIX shell. Codex uses it in `commandWindows` too, since PowerShell reads `$(...)` the same way.
+- Gemini, Qoder, and Factory use their own project-root variable.
+- Other tools get `$(git rev-parse --show-toplevel)` in a POSIX shell. Codex gets it in `commandWindows` too, since PowerShell reads `$(...)` the same way.
 
-If the configuration lives in a subdirectory of a Git worktree, the emitted path includes that subdirectory. A hook started from a descendant still resolves to the configured project. The sibling hook-directory rewrite applies too, such as `.claude/hooks/` to `.codex/hooks/`. Custom script paths keep their directory.
+If the configuration lives in a subdirectory of a Git worktree, the written path includes that subdirectory. A hook started from a deeper directory still finds the configured project. The hook-directory rename applies too, such as `.claude/hooks/` to `.codex/hooks/`. Custom script paths keep their directory.
 
 {% <details summary="Global sync"> %}
-`sync --global` uses the runtime Git root for those targets. It never binds a command to the global specs checkout. This fallback needs Git and a hook running inside the intended Git worktree. It cannot locate a project outside Git, or tell apart multiple configured projects within one worktree.
+`sync --global` uses the Git root at run time for those tools. It never ties a command to the global specs checkout. This needs Git and a hook running inside the intended Git worktree. It cannot find a project outside Git, or tell apart several configured projects in one worktree.
 {% </details> %}
 
 These stay literal: exec-form `args`, escaped dollars, and single-quoted variables.
 
-These get a note naming the hook when the target cannot preserve them:
+These get a note naming the hook when the tool cannot keep them:
 
 - parameter operators such as `${CLAUDE_PROJECT_DIR:-fallback}` and <code>${&#35;CLAUDE_PROJECT_DIR}</code>
 - nested substitutions and here-documents
 - non-POSIX root syntax
 - a project without a Git worktree
 
-`on-unsupported: error` fails the sync; `silent` hides the note. Use a target-specific command or `target: claude` for these cases. For Windows, set the target's Windows command explicitly.
+`on-unsupported: error` fails the sync; `silent` hides the note. For these cases, write a command for the specific tool or set `target: claude`. For Windows, set the tool's Windows command yourself.
 
 ## Which target ran a hook {#hook-target}
 
-A shared script reads `AGNOSTIC_AI_TARGET` to pick the reply protocol (Claude Code and Codex read exit code 2 and stderr; Cursor reads JSON).
+A shared script reads `AGNOSTIC_AI_TARGET` to pick how to reply (Claude Code and Codex read exit code 2 and stderr; Cursor reads JSON).
 
 ```sh
 case "$AGNOSTIC_AI_TARGET" in
@@ -611,7 +623,7 @@ case "$AGNOSTIC_AI_TARGET" in
 esac
 ```
 
-A spec that sets `AGNOSTIC_AI_TARGET` in its own `env` keeps that value. Where sync cannot set it, the parent process's value stays, such as `claude` for a tool started from Claude Code. Sync sets it per target:
+A spec that sets `AGNOSTIC_AI_TARGET` in its own `env` keeps that value. Where sync cannot set it, the parent process's value stays, such as `claude` for a tool started from Claude Code. Sync sets it for each tool:
 
 - [Claude Code](@/docs/targets/claude.md): `env` in `.claude/settings.json` (`~/.claude/settings.json` for `sync --global`). Set for the whole session, so the Bash tool sees it too.
 - [Cursor](@/docs/targets/cursor.md): a `sessionStart` hook returns the variable. `sessionStart` hooks and hooks that fire before it returns do not see it.
@@ -622,17 +634,17 @@ A spec that sets `AGNOSTIC_AI_TARGET` in its own `env` keeps that value. Where s
 
 Trae, Factory, OpenHands, Antigravity, Kiro, Windsurf, and Augment do not get the variable. None has a per-hook `env`, and a prefix would break hooks that work today. Tell them apart by their own variables, such as `TRAE_PROJECT_DIR`, `FACTORY_PROJECT_DIR`, `OPENHANDS_PROJECT_DIR`, `DEVIN_PROJECT_DIR`, or `AUGMENT_PROJECT_DIR`. `CLAUDE_PROJECT_DIR` does not identify Claude Code, because Cursor and Trae provide it too.
 
-`sync --global` leaves a matching hand-written hook alone, so an adopted Codex, Gemini, or Qoder entry does not get the variable. Cursor and Copilot also run `.claude/settings.json` hooks but read no `env` from it. Cursor still gets `cursor` from `sessionStart`. Copilot gets nothing.
+`sync --global` leaves a matching hand-written hook alone, so an adopted Codex, Gemini, or Qoder entry does not get the variable. Cursor and Copilot also run `.claude/settings.json` hooks but read no `env` from it. Cursor still gets `cursor` from `sessionStart`. Copilot gets no value.
 
 ## Read the edited paths {#edited-paths}
 
-`agnostic-ai hook paths` reads a hook payload on stdin and prints each file the edit leaves on disk, one per line.
+`agnostic-ai hook paths` reads the event data a hook gets on stdin and prints each file the edit leaves on disk, one per line.
 
 - Paths print relative to the directory the hook runs in. A path outside it prints in full.
-- A tool call that is no edit prints nothing.
-- The target comes from `AGNOSTIC_AI_TARGET`, or from `--target`, which wins. Codex on Windows (`commandWindows`) gets no `AGNOSTIC_AI_TARGET`, so pass `--target codex` there.
-- With no target, a payload whose `tool_input` object holds `file_path`, `edits`, or `notebook_path` reads as Claude Code. Cursor and Copilot run `.claude/settings.json` hooks with that payload and no variable.
-- Any other payload with no target fails. Invalid JSON, and an edit tool's `tool_input` that is not an object, fail too (exit 1).
+- A tool call that is not an edit prints nothing.
+- The tool comes from `AGNOSTIC_AI_TARGET`, or from `--target`, which wins. Codex on Windows (`commandWindows`) gets no `AGNOSTIC_AI_TARGET`, so pass `--target codex` there.
+- With no tool named, event data whose `tool_input` object holds `file_path`, `edits`, or `notebook_path` reads as Claude Code. Cursor and Copilot run `.claude/settings.json` hooks with that data and no variable.
+- Any other event data with no tool named fails. Invalid JSON, and an edit tool's `tool_input` that is not an object, fail too (exit 1).
 
 ```sh
 agnostic-ai hook paths            # src/app.go
@@ -642,34 +654,34 @@ agnostic-ai hook paths --json     # [{"action": "update", "path": "src/app.go"}]
 
 A plain run skips deleted files and the source of a move, so a formatter sees only files that exist. `--action` and `--json` list every change as `add`, `update`, `delete`, or `move`.
 
-- A move reads as a `delete` of its source and a `move` of its destination. `--json` gives the destination a `from`.
-- When a tool does not say whether a write created the file, the change reads as `update`.
-- A hook that runs before the edit sees no new file on disk yet, so run formatters after the edit.
+- A move shows as a `delete` of its source and a `move` of its destination. `--json` gives the destination a `from`.
+- When a tool does not say whether a write created the file, the change shows as `update`.
+- A hook that runs before the edit finds no new file on disk yet, so run formatters after the edit.
 
 | Target | What it reads | Vendor docs |
 |---|---|---|
 | Claude Code | `tool_input.file_path` of `Edit`, `Write`, and `MultiEdit`; `tool_input.notebook_path` of `NotebookEdit` | [Hooks guide](https://code.claude.com/docs/en/hooks-guide) |
-| Codex | The `*** Add File:`, `*** Update File:`, `*** Delete File:`, and `*** Move to:` headers of the `apply_patch` body in `tool_input.command`, every file in the patch | [Hooks](https://learn.chatgpt.com/docs/hooks) |
+| Codex | The `*** Add File:`, `*** Update File:`, `*** Delete File:`, and `*** Move to:` headers in the `apply_patch` text in `tool_input.command`, so every file in the patch | [Hooks](https://learn.chatgpt.com/docs/hooks) |
 | Cursor | `file_path` of `afterFileEdit` and `afterTabFileEdit` only; other Cursor events print nothing | [Hooks](https://cursor.com/docs/hooks) |
 | Gemini | `tool_input.file_path` of `write_file` and `replace`, a relative path starting at `cwd` | [Hooks reference](https://geminicli.com/docs/hooks/reference/), [file system tools](https://geminicli.com/docs/tools/file-system/) |
 | Factory | `tool_input.file_path` of `Create` and `Edit` | [Hooks](https://docs.factory.com/harness/hooks) |
 | Qoder | `tool_input.file_path` of `Write`; `Edit` fails, since the docs show none of its `tool_input` fields | [CLI hooks](https://docs.qoder.com/cli/hooks) |
 | Augment | `file_changes[].path` with its `changeType`; before the edit, `tool_input.path` of `str-replace-editor` and `save-file` | [Hooks](https://docs.augmentcode.com/cli/hooks) |
 
-Factory and Augment do not get `AGNOSTIC_AI_TARGET`, so give their hooks their own spec with `--target`. Factory documents no input for `ApplyPatch`, so a Factory patch prints nothing.
+Factory and Augment do not get `AGNOSTIC_AI_TARGET`, so give their hooks their own spec and pass `--target`. Factory documents no input for `ApplyPatch`, so a Factory patch prints nothing.
 
-{% <details summary="Targets the command does not read"> %}
-The command fails for these targets:
+{% <details summary="Tools the command does not read"> %}
+The command fails for these tools:
 
 - Windsurf: sync writes Devin CLI hooks, and the [Devin CLI docs](https://docs.devin.ai/cli/extensibility/hooks) name the `edit`, `write`, and `apply_patch` tools but not their `tool_input` fields.
 - Trae: the docs list no `tool_input` fields for the edit tools.
 - Copilot: the docs list no `toolArgs` keys for `edit`, `create`, or `apply_patch`.
-- Goose, Antigravity: the docs name the edit tools' arguments but show no edit hook payload.
+- Goose, Antigravity: the docs name the edit tools' arguments but show no event data for an edit hook.
 - OpenHands: the docs name no file edit tool.
 - Kiro: the docs list no `fs_write` input. A `PostFileSave` command can use its `filePath` template variable.
-- Cline: the current docs do not describe the script payload.
+- Cline: the current docs do not describe the event data a script gets.
 - Crush: only `PreToolUse` runs, and it sets `CRUSH_TOOL_INPUT_FILE_PATH`.
-- OpenCode and Kilo: plugins get tool arguments as JavaScript objects, not a payload on stdin.
+- OpenCode and Kilo: plugins get tool arguments as JavaScript objects, not as event data on stdin.
 - Zed: no hook fires on an edit.
 {% </details> %}
 
@@ -677,7 +689,7 @@ The command fails for these targets:
 
 `agnostic-ai init --demo` seeds two hooks that check your specs while the agent works, on Claude Code, Codex, and Gemini:
 
-- `spec-guard-edit` runs after each edit. When the agent edits a spec, the agent sees the lint errors in that file on its next turn. Any other edit prints nothing.
+- `spec-guard-edit` runs after each edit. When the agent edits a spec, it sees the lint errors in that file on its next turn. Any other edit prints nothing.
 - `spec-guard-stop` runs when the agent stops. When specs changed without a sync, the agent sees one line: `Specs changed since the last sync: run agnostic-ai sync.` It never runs sync itself.
 
 ```yaml
@@ -687,17 +699,17 @@ on: after-edit
 command: 'command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook guard after-edit'
 ```
 
-Both fail open: with `agnostic-ai` missing from `PATH`, or a payload [`hook guard`](@/docs/cli-reference/maintain.md#hook-guard) cannot read, they exit 0 with no output. Other tools keep the commit-time check of [`install-hook`](@/docs/cli-reference/maintain.md#install-hook).
+Both fail open: with `agnostic-ai` missing from `PATH`, or event data [`hook guard`](@/docs/cli-reference/maintain.md#hook-guard) cannot read, they exit 0 with no output. Other tools keep the commit-time check of [`install-hook`](@/docs/cli-reference/maintain.md#install-hook).
 
 Limits:
 
 - Gemini on Windows runs hook commands in Windows PowerShell, which cannot parse the `command -v` line, so each run there fails with a non-blocking error. Remove `gemini` from the hooks' `targets` on Windows.
 - Factory runs `after-edit` and `stop` too, but it does not document the shell its hooks run in, so the hooks leave it out.
-- The stop notice covers specs that changed without a sync. A hand edit to a generated file is left to `sync --check`.
+- The stop notice covers specs that changed without a sync. `sync --check` catches a hand edit to a generated file.
 
 ## Test a hook {#hook-run}
 
-`agnostic-ai hook run <hook>` runs a hook spec the way each target would, before a session fires it. A hook that blocks on Claude Code and does nothing on Codex shows up here, not in a live session:
+`agnostic-ai hook run <hook>` runs a hook spec the way each tool would, before a session fires it. A hook that blocks on Claude Code and does nothing on Codex shows up here, not in a live session:
 
 ```text
 $ agnostic-ai hook run protect-files --edit .github/workflows/tests.yml
@@ -711,23 +723,23 @@ codex: allow (exit 0, 9ms)
 hook protect-files: targets decide differently: claude block, codex allow
 ```
 
-For each configured target the hook reaches, it runs every command sync wrote for that target, from the project root, or from the handler's `cwd` on Copilot.
+For each configured tool the hook reaches, it runs every command sync wrote for that tool, from the project root, or from the handler's `cwd` on Copilot.
 
-- **Payload.** `--edit <path>` and `--bash <command>` build a `PreToolUse` or `PostToolUse` tool call (`BeforeTool` or `AfterTool` on Gemini). `--prompt <text>` builds `UserPromptSubmit` (`BeforeAgent` on Gemini). `SessionStart` takes its `source` from the matcher, or `startup` when the matcher is empty. `--payload <file>` sends a JSON file as is, for any event.
-- **Matcher.** If the matcher does not match the tool or source, the target would not run the hook. That target reports `allow` and why.
-- **Matcher on `--payload`.** A tool call from `--payload` matches its `tool_name` with the target's matcher rules, including Codex's `Edit` and `Write` aliases for `apply_patch`. On Cursor, the matcher tests what Cursor documents for the event: the `command`, `tool_name`, or `subagent_type`, or a fixed name such as `Read` for `beforeReadFile`. Goose uses the supplied `matcher_context` on every event: the tool name, shell command, file path, or prompt text. On Copilot, the matcher tests `toolName`, `notification_type`, `trigger`, or `agentName`, and a PascalCase `PreToolUse` or `PermissionRequest` uses Claude-format matchers on `tool_name`. On Kiro, it tests `tool_name` or its documented alias, such as `shell` for `execute_bash`, and the `prompt` on `UserPromptSubmit`.
-- **Missing event.** A target without the hook's event, such as Codex for `Notification`, is listed as not run.
+- **Event data.** `--edit <path>` and `--bash <command>` build a `PreToolUse` or `PostToolUse` tool call (`BeforeTool` or `AfterTool` on Gemini). `--prompt <text>` builds `UserPromptSubmit` (`BeforeAgent` on Gemini). `SessionStart` takes its `source` from the matcher, or `startup` when the matcher is empty. `--payload <file>` sends a JSON file as is, for any event.
+- **Matcher.** If the matcher does not match the tool or source, the tool would not run the hook. That tool reports `allow` and why.
+- **Matcher on `--payload`.** A tool call from `--payload` matches its `tool_name` with the tool's matcher rules, including Codex's `Edit` and `Write` aliases for `apply_patch`. On Cursor, the matcher tests what Cursor documents for the event: the `command`, `tool_name`, or `subagent_type`, or a fixed name such as `Read` for `beforeReadFile`. Goose uses the supplied `matcher_context` on every event: the tool name, shell command, file path, or prompt text. On Copilot, the matcher tests `toolName`, `notification_type`, `trigger`, or `agentName`, and a PascalCase `PreToolUse` or `PermissionRequest` uses Claude-format matchers on `tool_name`. On Kiro, it tests `tool_name` or its documented alias, such as `shell` for `execute_bash`, and the `prompt` on `UserPromptSubmit`.
+- **Missing event.** A tool without the hook's event, such as Codex for `Notification`, is listed as not run.
 - **Timeout.** The timeout sync writes (Gemini's is in milliseconds), or the tool's default.
-- **Async.** An `async: true` hook, or an `asyncRewake: true` one on Claude Code and Qoder, runs and prints its output. Its result is `not judged` and stays out of `--expect` and the comparison, because Claude Code, Codex, OpenHands, and Qoder do not wait for it. Cursor `sessionStart` and `sessionEnd` hooks, Copilot `notification` hooks, and Cline hooks on any event but `PreToolUse` and `PostToolUse` are `not judged` too, because the tool runs them fire-and-forget.
+- **Async.** An `async: true` hook, or an `asyncRewake: true` one on Claude Code and Qoder, runs and prints its output. Its result is `not judged` and stays out of `--expect` and the comparison, because Claude Code, Codex, OpenHands, and Qoder do not wait for it. Cursor `sessionStart` and `sessionEnd` hooks, Copilot `notification` hooks, and Cline hooks on any event but `PreToolUse` and `PostToolUse` are `not judged` too, because the tool does not wait for them.
 - **Background commands.** On macOS and Linux, a command the hook leaves running is killed once the hook exits.
-- **Stale native file.** Commands come from the spec, so the run works before a sync. The target prints a `warning` naming the file when the synced file is missing, or when no handler under the event runs the command the spec produces. It also warns when that handler's group matcher, timeout, or (on Gemini) `env` differs from the spec. An `env` warning names the keys that differ, never their values. A warning does not fail the run; `sync` clears it. The files are `.claude/settings.json`, `.codex/hooks.json`, `.gemini/settings.json`, `.trae/hooks.json`, `.openhands/hooks.json`, the Goose plugin `hooks/hooks.json`, `.augment/settings.json`, `.cursor/hooks.json`, `.github/hooks/agnostic-ai.json`, `crush.json`, `.factory/hooks.json`, `.qoder/settings.json`, `.agents/hooks.json` (Antigravity), `.kiro/hooks/<name>.json`, `.devin/hooks.v1.json` (Windsurf), `.clinerules/hooks/<Event>`, or the path `outputs` sets. On Cursor it also compares `failClosed`, on Copilot `cwd`, and on Kiro `confirm`.
+- **Stale tool file.** Commands come from the spec, so the run works before a sync. The tool prints a `warning` naming the file when the synced file is missing, or when no handler under the event runs the command the spec produces. It also warns when that handler's group matcher, timeout, or (on Gemini) `env` differs from the spec. An `env` warning names the keys that differ, never their values. A warning does not fail the run; `sync` clears it. The files are `.claude/settings.json`, `.codex/hooks.json`, `.gemini/settings.json`, `.trae/hooks.json`, `.openhands/hooks.json`, the Goose plugin `hooks/hooks.json`, `.augment/settings.json`, `.cursor/hooks.json`, `.github/hooks/agnostic-ai.json`, `crush.json`, `.factory/hooks.json`, `.qoder/settings.json`, `.agents/hooks.json` (Antigravity), `.kiro/hooks/<name>.json`, `.devin/hooks.v1.json` (Windsurf), `.clinerules/hooks/<Event>`, or the path `outputs` sets. On Cursor it also compares `failClosed`, on Copilot `cwd`, and on Kiro `confirm`.
 
 {% <details summary="Codex sync checks"> %}
 A Codex matcher that joins this spec's segments with another spec's counts as in sync, since sync merges them. So does a Codex timeout when the spec sets none. On Windows, Codex compares `commandWindows`.
 {% </details> %}
 
-{% <details summary="Environment variables per target"> %}
-Variables listed here are removed from the calling shell's env first. Other variables pass through.
+{% <details summary="Environment variables per tool"> %}
+`hook run` first removes the variables listed here from the calling shell's env. Other variables pass through.
 
 | Target | Variables set |
 |--------|---------------|
@@ -749,7 +761,7 @@ Variables listed here are removed from the calling shell's env first. Other vari
 | Windsurf | `DEVIN_PROJECT_DIR` |
 {% </details> %}
 
-{% <details summary="Shell and default timeout per target"> %}
+{% <details summary="Shell and default timeout per tool"> %}
 | Target | Shell | Default timeout |
 |--------|-------|-----------------|
 | Claude Code | `bash -c`, on Windows with Git Bash (`CLAUDE_CODE_GIT_BASH_PATH` from the shell that runs `hook run`, else the Git install that holds `git.exe`), or PowerShell when there is none and the spec sets no `shell`; exec-form `args` with no shell; `shell: powershell` with PowerShell | 600 seconds, except 30 on `UserPromptSubmit`, `PreModelSwitch`, and `PostModelSwitch`, and 10 on `MessageDisplay` |
@@ -771,11 +783,11 @@ Variables listed here are removed from the calling shell's env first. Other vari
 {% </details> %}
 
 {% <details summary="Claude Code `if` rules"> %}
-A handler's `if` permission rule decides whether it runs, as in Claude Code. It applies only on `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, and `PermissionDenied`, never on other events.
+A handler's `if` permission rule decides whether it runs, as in Claude Code. It applies only on `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, and `PermissionDenied`.
 
-- `Bash(git *)` matches any subcommand of `&&`, `||`, `;`, `|`, and `&`, and commands inside `$()` and backticks, after leading `VAR=value` assignments and wrappers such as `timeout 30` are stripped.
+- `Bash(git *)` matches any part of a command split by `&&`, `||`, `;`, `|`, and `&`, and commands inside `$()` and backticks, after leading `VAR=value` assignments and wrappers such as `timeout 30` are dropped.
 - A trailing ` *` also matches the bare command. `:*` is the same as ` *`.
-- A pattern naming more than the command runs on any `$()`, backtick, or `$VAR`. A command that does not parse always runs.
+- A pattern that names more than the command runs on any `$()`, backtick, or `$VAR`. A command that does not parse always runs.
 - `Edit(path)` covers `Edit`, `Write`, `MultiEdit`, and `NotebookEdit`, with gitignore patterns. `//path` is from the filesystem root, `~/path` from home, and `/path` and `path` from the project root.
 - A bare name such as `.env` matches at any depth. A single directory such as `src/**` matches only under the project root, as in Claude Code v2.1.214 and later.
 - `Tool(param:value)` matches a top-level input field.
@@ -786,13 +798,13 @@ See the [`if` field](https://code.claude.com/docs/en/hooks) and [permission rule
 Each command reports one decision.
 
 - `block`: exit 2, or exit 0 with a JSON reply that has `"permissionDecision": "deny"`, `"decision": "block"`, or `"continue": false`.
-- `allow`: exit 0 otherwise.
+- `allow`: any other exit 0.
 - `error`: any other non-zero exit.
 - `timeout`: the command ran past its timeout.
 
-Exit 2 cannot stop anything on `SessionStart`, `SessionEnd`, `Notification`, `PreCompact`, and `PostCompact`, so it reads as `error` there. On `PostToolUse` the tool already ran, so `block` sends stderr back to the model. A `context` line marks output the target adds to the session: plain stdout on `SessionStart` and `UserPromptSubmit`, or a JSON reply's `additionalContext`.
+Exit 2 cannot stop anything on `SessionStart`, `SessionEnd`, `Notification`, `PreCompact`, and `PostCompact`, so it reads as `error` there. On `PostToolUse` the tool already ran, so `block` sends stderr back to the model. A `context` line marks output the tool adds to the session: plain stdout on `SessionStart` and `UserPromptSubmit`, or a JSON reply's `additionalContext`.
 
-{% <details summary="How other targets read replies"> %}
+{% <details summary="How other tools read replies"> %}
 - **Gemini.** It reads stdout, or stderr when stdout is empty. A JSON reply with `"decision": "deny"` or `"block"`, or `"continue": false`, is `block`. Plain text with an exit other than 0 and 1 is `block`. With no text at all, Gemini decides nothing and the run reads `error`. Exit 1 is `error`. `SessionStart`, `SessionEnd`, `Notification`, and `PreCompress` ignore decisions, so a block there reads as `error`. Only a JSON `additionalContext` reaches the model; plain stdout is a message for the user.
 - **Trae.** It reads replies as Claude Code does.
 - **OpenHands.** It blocks on exit 2, or on a JSON `"decision": "deny"` or `"continue": false` whatever the exit code. It acts on a block only on `PreToolUse`, `UserPromptSubmit`, and `Stop`.
@@ -801,7 +813,7 @@ Exit 2 cannot stop anything on `SessionStart`, `SessionEnd`, `Notification`, `Pr
 - **Crush.** Exit 2 blocks the tool call. Exit 49 blocks too and halts the whole turn, which a note says. Any other non-zero exit, a timeout, and a command that does not parse do not block. At exit 0, a JSON reply with `"decision": "deny"` (any case) or `"halt": true` blocks. A reply with a `hookSpecificOutput` key, even `null`, is read as Claude Code's instead: `"permissionDecision": "deny"` blocks, and the top-level fields are ignored. A field of the wrong type, such as a `reason` that is not a string, voids the reply, which then allows. A `context` line marks a reply's `context` or `additionalContext`, which Crush appends to the tool result.
 - **Factory.** It blocks on exit 2, except on `Notification`, `SubagentStop`, `PreCompact`, `SessionStart`, and `SessionEnd`, where exit 2 only shows stderr and reads as `error`. At exit 0, `PreToolUse` blocks on `permissionDecision` `"deny"` or `"ask"` (a note says Factory asks the user); `PostToolUse`, `UserPromptSubmit`, `Stop`, and `SubagentStop` block on `"decision": "block"`; and every event but `SessionEnd` blocks on `"continue": false`.
 - **Copilot.** It drops `{"type": "progress"}` lines from stdout and parses the rest as one JSON reply; text that does not parse, or two objects, is no reply. `preToolUse` blocks on any non-zero exit, a command that did not start, `"permissionDecision": "deny"`, or `"ask"` (a note says Copilot CLI asks the user). A failure other than exit 2 still blocks but also counts as `error`, so `--expect block` fails on a hook that never ran. `permissionRequest` blocks on exit 2 or `"behavior": "deny"`, after merging the commands' replies in order, so a later `"behavior": "allow"` overrides an earlier deny. `agentStop` and `subagentStop` block on `"decision": "block"`. Other events cannot block: exit 2 and other failures read as `error`, except exit 2 on `postToolUseFailure`, which adds context. A timeout fails open on every event. PascalCase events decide as their camelCase twins.
-- **Qoder.** It blocks on exit 2 on `UserPromptSubmit`, `PreToolUse`, `Stop`, `SubagentStop`, `PreCompact`, `ConfigChange`, `Elicitation`, and `ElicitationResult`, and on any non-zero exit on `WorktreeCreate`. Other failures read as `error`, and `StopFailure` and `InstructionsLoaded` ignore the result. At exit 0, a JSON reply blocks on `"continue": false`, on `"decision": "deny"` where exit 2 blocks, on `PreToolUse` on `permissionDecision` `"deny"` or `"ask"` (a note says Qoder asks the user), which takes precedence over `decision`, on `PermissionRequest` on a `decision.behavior` of `"deny"`, and on the elicitation events on an `action` of `"decline"` or `"cancel"`. A `hookSpecificOutput` without `hookEventName` voids the reply and reads as `error`. A `ConfigChange` with `source: policy_settings` cannot block, so a block there reads as `error` with a note. `TaskCreated`, `TaskCompleted`, `TeammateIdle`, and `Setup` have no documented decision rules, so Qoder is listed as not run for them. A handler's `if` runs it only when the tool name matches, with the matcher's rules, and the glob in parentheses matches the `command` of `Bash` or the `file_path` of a file tool; another tool with a glob is listed as not run.
+- **Qoder.** It blocks on exit 2 on `UserPromptSubmit`, `PreToolUse`, `Stop`, `SubagentStop`, `PreCompact`, `ConfigChange`, `Elicitation`, and `ElicitationResult`, and on any non-zero exit on `WorktreeCreate`. Other failures read as `error`, and `StopFailure` and `InstructionsLoaded` ignore the result. At exit 0, a JSON reply blocks on `"continue": false`, on `"decision": "deny"` where exit 2 blocks, on `PreToolUse` on `permissionDecision` `"deny"` or `"ask"` (a note says Qoder asks the user), which wins over `decision`, on `PermissionRequest` on a `decision.behavior` of `"deny"`, and on the elicitation events on an `action` of `"decline"` or `"cancel"`. A `hookSpecificOutput` without `hookEventName` voids the reply and reads as `error`. A `ConfigChange` with `source: policy_settings` cannot block, so a block there reads as `error` with a note. `TaskCreated`, `TaskCompleted`, `TeammateIdle`, and `Setup` have no documented decision rules, so Qoder is listed as not run for them. A handler's `if` runs it only when the tool name matches, with the matcher's rules, and the glob in parentheses matches the `command` of `Bash` or the `file_path` of a file tool; another tool with a glob is listed as not run.
 - **Antigravity.** Only exit 0 with a JSON reply of the documented shape counts. On `PreToolUse`, `"decision": "allow"` allows; `"deny"` blocks; `"force_ask"` blocks (a note says Antigravity asks the user). `"ask"` and `"deny_unless_prior_grant"` read as `block` but are not counted, since a saved Always Allow setting or a prior grant lets the call run at once, and `hook run` cannot see either. On `Stop`, `"decision": "continue"` keeps the agent running and reads as `block`; any other value allows. `PostToolUse`, `PreInvocation`, and `PostInvocation` allow on a JSON object. A missing or unlisted `decision`, a field of the wrong type, output that is not a JSON object, a non-zero exit, a timeout, and a command that did not start read as `error` or `timeout` and are [not counted](#assumed-results).
 - **Cline.** It never reads the exit code. It reads stdout as JSON: the last line starting `HOOK_CONTROL` and a tab, else the whole stdout. On `PreToolUse` and `PostToolUse`, an object with `"cancel": true` blocks, and Cline stops the run; on `PostToolUse` the tool already ran. Empty stdout and any other JSON allow, whatever the exit code; a non-zero exit adds a note that Cline ignores it. Stdout that is not JSON reads as `error`, and a timeout as `timeout`, each with a note that Cline logs it and goes on as if the hook allowed. A `context` line marks a reply's `context`, `contextModification`, or `errorMessage`. When other specs reach Cline on the same event, sync writes them into one script that shares stdout, so the result is [not counted](#assumed-results), even with `--include-assumed`, and a note names those specs.
 - **Kiro.** It blocks on exit 2 on `PreToolUse` and `UserPromptSubmit`. Another non-zero exit there reads as `error` and is [not counted](#assumed-results), since Kiro's docs disagree on whether it blocks. On `PostToolUse` and `Stop`, any non-zero exit is `error`. At exit 0, `Stop` reads `"decision": "block"` from a JSON reply as `block`, since Kiro keeps the agent running (a note says so); other events read no reply. A `context` line marks stdout on `UserPromptSubmit` and a `Stop` block's `reason`.
@@ -809,37 +821,37 @@ Exit 2 cannot stop anything on `SessionStart`, `SessionEnd`, `Notification`, `Pr
 - **Augment.** It blocks on exit 2 on `PreToolUse` only. It also blocks on exit 0 with `permissionDecision: "deny"`, a `decision: "block"` (inside `hookSpecificOutput` on `Stop` and `PostToolUse`), or `"continue": false`.
 {% </details> %}
 
-The run exits 1 when a counted command times out or errors, when two counted targets decide differently, or, with `--expect allow` or `--expect block`, when a counted target decides otherwise. That makes it a CI check.
+The run exits 1 when a counted command times out or errors, when two counted tools decide differently, or, with `--expect allow` or `--expect block`, when a counted tool decides otherwise. That makes it a CI check.
 
 ### Assumed results {#assumed-results}
 
-Cursor, Copilot, Factory, Qoder, Antigravity, Kiro, and Windsurf (Devin CLI) document their payloads and reply rules, but each leaves out part of how a command runs. `hook run` runs them on stated assumptions instead of leaving them out:
+Cursor, Copilot, Factory, Qoder, Antigravity, Kiro, and Windsurf (Devin CLI) document their event data and reply rules, but each leaves out part of how a command runs. `hook run` runs them on stated assumptions instead of skipping them:
 
-- Shell (Cursor, Factory, Antigravity, Kiro, Windsurf, Copilot's `command` form, and Qoder without `shell`): `sh -c` on macOS and Linux, only for a script path with plain or single-quoted arguments, as sync writes `args` for Cursor, which every POSIX shell reads the same way. A command with shell syntax, such as a pipe, is listed as not run with "Cursor does not document its shell; use a script path", or the same for Copilot, Factory, Qoder, Antigravity, Kiro, or Devin CLI. Windows is not run. Copilot's and Qoder's exec form, which sync writes when the spec sets `args`, runs with no shell and assumes none. Qoder documents `shell: bash` as `bash -c`, which assumes none on macOS and Linux.
+- Shell (Cursor, Factory, Antigravity, Kiro, Windsurf, Copilot's `command` form, and Qoder without `shell`): `sh -c` on macOS and Linux, only for a script path with plain or single-quoted arguments, as sync writes `args` for Cursor, which every POSIX shell reads the same way. A command with shell syntax, such as a pipe, is listed as not run with "Cursor does not document its shell; use a script path", or the same for Copilot, Factory, Qoder, Antigravity, Kiro, or Devin CLI. Windows is not run. Copilot's and Qoder's exec form, which sync writes when the spec sets `args`, runs with no shell and assumes none. Qoder documents `shell: bash` as `bash -c`, which assumes nothing on macOS and Linux.
 - Timeout (Cursor, Windsurf): 30 seconds when the spec sets none. Set `timeout` in the spec to remove this assumption. Copilot and Antigravity document their 30 second default, and Factory and Kiro 60 seconds.
 - Timeout (Kiro): 60 seconds for `timeout: 0`, which Kiro documents as no limit.
 - Working directory (Copilot): the project root, for a hook without `cwd`. Set `cwd` in the spec to remove this assumption; it runs relative to the project root, as Copilot documents.
-- Working directory (Factory): the project root. Factory runs hooks from "Droid's current working directory, which can differ from your repository root". A command written as the guide says, `"$FACTORY_PROJECT_DIR"/path/to/script.sh`, counts as a script path. It runs as written, with `FACTORY_PROJECT_DIR` set to the project root, so the shell expands it.
+- Working directory (Factory): the project root. Factory runs hooks from "Droid's current working directory, which can differ from your repository root". A command written as the guide says, `"$FACTORY_PROJECT_DIR"/path/to/script.sh`, counts as a script path. It runs as written, with `FACTORY_PROJECT_DIR` set to the project root, so the shell fills it in.
 - Working directory (Qoder): the project root. Qoder documents `QODER_PROJECT_DIR` as the project's directory but not where a hook runs. A command written as the guide says, `"${QODER_PROJECT_DIR}"/path/to/script.sh`, counts as a script path and runs as written, with `QODER_PROJECT_DIR` set to the project root.
 - Working directory (Antigravity): the project root. The docs do not say where a hook command runs.
 - Working directory (Windsurf): the project root, with `DEVIN_PROJECT_DIR` set to it as Devin CLI documents. The docs do not say where a hook command runs.
 - Exit codes (Antigravity): the docs give no exit code a meaning. Only exit 0 with a reply of the documented shape is counted. Any other result is shown with a `not counted` note and its reason, such as "Antigravity does not document exit codes", and stays out of `--expect` and the comparison even with `--include-assumed`. So do the `"ask"` and `"deny_unless_prior_grant"` replies, whose result "depends on Antigravity's saved permissions".
 - Exit codes (Kiro): exit 2 blocks `PreToolUse` and `UserPromptSubmit`. Kiro's hook actions page says any other non-zero exit blocks them too, while its hook types, IDE 1.0, and troubleshooting pages say it does not. That result reads as `error` with a `not counted` note, "Kiro's docs disagree on whether a non-zero exit other than 2 blocks", and stays out of `--expect` and the comparison even with `--include-assumed`.
-- Not run (Kiro): an `agent` action, which runs no command; a hook with `confirm`, which asks the user first; and every trigger but `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, and `Stop`, whose payload the docs do not show.
+- Not run (Kiro): an `agent` action, which runs no command; a hook with `confirm`, which asks the user first; and every trigger but `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, and `Stop`, whose event data the docs do not show.
 - Replies (Windsurf): results the Devin CLI docs give no meaning are shown with a `not counted` note, such as "Devin CLI does not document whether it reads a reply on a non-zero exit", and stay out of `--expect` and the comparison even with `--include-assumed`.
 - Exec path (Copilot): with `cwd` set, a relative exec path resolves from `cwd`, as a process started there reads it and as sync writes it.
 
 Sources: [Cursor hooks](https://cursor.com/docs/hooks), the [Copilot hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference), [using hooks with Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/use-hooks) for the `bash` tool's `toolArgs`, the [Factory hooks guide](https://docs.factory.com/cli/configuration/hooks-guide), Qoder CLI [hooks](https://docs.qoder.com/cli/hooks) and its [hooks reference](https://docs.qoder.com/cli/hooks-reference), [Antigravity hooks](https://antigravity.google/docs/hooks), Kiro [hooks](https://kiro.dev/docs/hooks), [hook types](https://kiro.dev/docs/hooks/types), [hook actions](https://kiro.dev/docs/hooks/actions), and Devin CLI [hooks](https://docs.devin.ai/cli/extensibility/hooks) and [lifecycle hooks](https://docs.devin.ai/cli/extensibility/hooks/lifecycle-hooks).
 
-The result line ends in `(assumed: shell, timeout)`, followed by one line per assumption and the docs link. An assumed result is shown but not counted: it stays out of `--expect` and the comparison unless you pass `--include-assumed`. When it disagrees with the counted results, a warning says so, and a summary such as `0 checked, 1 assumed (not counted; --include-assumed to count)` shows what was left out. With `--expect`, a run where only assumed results ran fails and asks for `--include-assumed`, so a CI check never passes on nothing. A result with a `not counted` note stays out of `--expect`, but with `--include-assumed` a timeout or error from another of its commands, one the target documents, still fails the run. Without `--expect`, it exits 0. In JSON, each target has `assumptions` (`item`, `value`, `reason`) and `counted`.
+The result line ends in `(assumed: shell, timeout)`, followed by one line per assumption and the docs link. An assumed result is shown but not counted: it stays out of `--expect` and the comparison unless you pass `--include-assumed`. When it disagrees with the counted results, a warning says so, and a summary such as `0 checked, 1 assumed (not counted; --include-assumed to count)` shows what was left out. With `--expect`, a run where only assumed results ran fails and asks for `--include-assumed`, so a CI check never passes on nothing. A result with a `not counted` note stays out of `--expect`, but with `--include-assumed` a timeout or error from another of its commands, one the tool documents, still fails the run. Without `--expect`, it exits 0. In JSON, each target has `assumptions` (`item`, `value`, `reason`) and `counted`.
 
-A Cursor hook spec uses Cursor's own event names, so it runs only on Cursor; other targets are listed as not run. A Copilot hook spec with a PascalCase event such as `PreToolUse` runs on Claude Code too, which counts, so `--expect` checks Claude Code and shows Copilot beside it.
+A Cursor hook spec uses Cursor's own event names, so it runs only on Cursor; other tools are listed as not run. A Copilot hook spec with a PascalCase event such as `PreToolUse` runs on Claude Code too, which counts, so `--expect` checks Claude Code and shows Copilot beside it.
 
-Cline's contract comes from its source at [`39ff235`](https://github.com/cline/cline/tree/39ff2359f7e08231281539696e48a166ce49270c/sdk/packages/core/src/hooks), from the SDK hook runtime the Cline CLI runs. A Cline run assumes only the working directory: the project root, while Cline uses the directory the CLI started in. The VS Code extension runs the same script but does not read stdout when it exits non-zero, so a reply printed before a failing exit blocks in the CLI and not in the extension.
+Cline's behavior comes from its source at [`39ff235`](https://github.com/cline/cline/tree/39ff2359f7e08231281539696e48a166ce49270c/sdk/packages/core/src/hooks), from the SDK hook runtime the Cline CLI runs. A Cline run assumes only the working directory: the project root, while Cline uses the directory the CLI started in. The VS Code extension runs the same script but does not read stdout when it exits non-zero, so a reply printed before a failing exit blocks in the CLI and not in the extension.
 
-Crush's contract comes from its source, so a Crush run assumes nothing until a command reaches one of Crush's own Go programs. Its shell runs `jq` as a built-in [gojq](https://github.com/itchyny/gojq), and on Windows `cat`, `ls`, `rm`, `find`, and the other [core utilities](https://github.com/mvdan/sh/blob/b5028a3332a4d5d5a6cc62a999c1ba7993eb3627/x/coreutils/coreutils.go) in Go too, unless `CRUSH_CORE_UTILS=false`. `hook run` runs the ones on `PATH` instead, and adds a `jq` or `coreutils` assumption for each it reached. A script that starts through a shebang runs its own shell, so this applies only to inline commands and to `./` scripts without a shebang.
+Crush's behavior comes from its source, so a Crush run assumes nothing until a command reaches one of Crush's own Go programs. Its shell runs `jq` as a built-in [gojq](https://github.com/itchyny/gojq), and on Windows `cat`, `ls`, `rm`, `find`, and the other [core utilities](https://github.com/mvdan/sh/blob/b5028a3332a4d5d5a6cc62a999c1ba7993eb3627/x/coreutils/coreutils.go) in Go too, unless `CRUSH_CORE_UTILS=false`. `hook run` runs the ones on `PATH` instead, and adds a `jq` or `coreutils` assumption for each it reached. A script that starts through a shebang runs its own shell, so this applies only to inline commands and to `./` scripts without a shebang.
 
-`--format json` prints the same results as one JSON object, for a CI job to read. Each target has a `decision` (`allow`, `block`, `error`, `timeout`, or `not run` with a `reason`), its `warnings`, its `assumptions`, whether it is `counted`, and one entry per command. `exit_code` is `null` after a timeout or a command that did not start. `error` holds the reason the run fails, and the exit code is the same as in text:
+`--format json` prints the same results as one JSON object, for a CI job to read. Each target has a `decision` (`allow`, `block`, `error`, `timeout`, or `not run` with a `reason`), its `warnings`, its `assumptions`, whether it is `counted`, and one entry per command. `exit_code` is `null` after a timeout or a command that did not start. `error` holds the reason the run fails. The exit code is the same as in text:
 
 ```json
 {
@@ -872,7 +884,7 @@ Crush's contract comes from its source, so a Crush run assumes nothing until a c
 }
 ```
 
-| Target | Payload | Vendor docs |
+| Target | Sample event | Vendor docs |
 |---|---|---|
 | Claude Code | Documented shape. `--edit` calls the first of `Write`, `Edit`, and `MultiEdit` the matcher matches, with an absolute `tool_input.file_path`. | [Hooks reference](https://code.claude.com/docs/en/hooks) |
 | Codex | Documented shape. `--edit` calls `apply_patch` with an `*** Add File:` or `*** Update File:` patch in `tool_input.command`, and `Edit` and `Write` match it. | [Hooks](https://learn.chatgpt.com/docs/hooks) |
@@ -891,6 +903,6 @@ Crush's contract comes from its source, so a Crush run assumes nothing until a c
 | Windsurf | Documented Devin CLI shape: `hook_event_name`, `session_id`, `prompt_id`, plus the event's own. `--bash` builds `PreToolUse`, `PostToolUse`, and `PermissionRequest` on `exec` with `tool_input.command` and `shell_id`, and `PostToolUse` adds `tool_response`. `--prompt` builds `UserPromptSubmit`; `Stop` and `PostCompaction` need no input. `--edit` is refused, since the docs name `edit`, `write`, and `apply_patch` but not their `tool_input`; Windsurf is listed as not run and the other targets still run. `SessionStart` and `SessionEnd` list no `source` or `reason` values, so they take `--payload`. The matcher is an unanchored regular expression on `tool_name`, so a Claude-style `Bash` matcher does not fire; a matcher on another event is listed as not run. | [Hooks](https://docs.devin.ai/cli/extensibility/hooks), [lifecycle hooks](https://docs.devin.ai/cli/extensibility/hooks/lifecycle-hooks) |
 | Augment | Documented shape. `--bash` calls `launch-process`; `--edit` calls the first of `str-replace-editor` and `save-file` the matcher matches, with a `path` relative to the workspace root, and `PostToolUse` adds `file_changes`. Augment has no prompt event. The matcher is an unanchored regular expression. | [Hooks](https://docs.augmentcode.com/cli/hooks) |
 
-On each, `tool_response` holds placeholder values, and session IDs and transcript paths are made up. Gemini matchers compile as Go regular expressions, which reject a few JavaScript forms such as lookahead; Gemini CLI would run those, and `hook run` compares them as a literal name. `GEMINI_PLANS_DIR` is not set.
+On each, `tool_response` holds placeholder values, and session IDs and transcript paths are made up. Gemini matchers compile as Go regular expressions, which reject a few JavaScript forms such as lookahead. Gemini CLI would run those, and `hook run` compares them as a literal name. `GEMINI_PLANS_DIR` is not set.
 
-OpenCode and Kilo run hooks as plugins and Zed as tasks, with no payload on stdin, so `hook run` lists them as not run.
+OpenCode and Kilo run hooks as plugins and Zed as tasks, with no event data on stdin, so `hook run` lists them as not run.
