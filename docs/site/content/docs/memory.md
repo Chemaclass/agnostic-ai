@@ -73,7 +73,8 @@ Anyone who can push can change what every tool reads, so review memory changes i
 | --- | --- | --- |
 | Claude Code | `CLAUDE.md` imports both `MEMORY.md` files. Claude's own memory also saves into personal memory. | Loads and saves |
 | Codex, Gemini CLI, Qoder | A [session-start hook](#load-at-session-start) adds both files to the conversation. | Loads; saves only with the [`.gitignore` block](#one-store-per-repository) |
-| Copilot, Cursor, Factory | A [session-start hook](#load-at-session-start) adds both files to the conversation. | Loads |
+| Cursor | A [session-start hook](#load-at-session-start) adds both files to the conversation. | Loads; the Cursor CLI saves only with the [`.gitignore` block](#one-store-per-repository), and the editor asks before it saves |
+| Copilot, Factory | A [session-start hook](#load-at-session-start) adds both files to the conversation. | Loads |
 | OpenCode | `opencode.json` lists both files under `instructions`. | Loads only with the [`.gitignore` block](#one-store-per-repository) |
 | Kilo Code | `kilo.jsonc` lists both files under `instructions`. | Project memory loads; personal memory as for [rule-only tools](#one-store-per-repository), or [add the file yourself](#one-store-per-repository) |
 | Every other tool | The rule names both files, and the tool reads them before a task. | Finds personal memory with `agnostic-ai memory path` |
@@ -113,21 +114,22 @@ memory:
   personal: repo
 ```
 
-Personal memory then lives in `~/.agnostic-ai/local/memory/<repository name>-<hash>/` (under `$AGNOSTIC_AI_HOME` when set). Moving or recloning the repository starts a new folder. Sync creates it, readable only by you.
+Personal memory then lives in `~/.agnostic-ai/local/memory/<repository name>-<hash>/` (under `$AGNOSTIC_AI_HOME` when set). Moving or recloning the repository starts a new folder. Sync creates it, readable only by you, and writes its real path, so a `~/.agnostic-ai` that links elsewhere works.
 
 Some tools need that folder's absolute path in their config. Sync never writes it to a file Git could commit, so what each tool gets depends on the [`.gitignore` block](@/docs/configuration.md#gitignore) sync manages in the project root:
 
-- **With the block**, sync also writes the path to `CLAUDE.md`, `opencode.json`, `.codex/config.toml`, `.gemini/settings.json`, and `.qoder/settings.json`. A tool with a `gitignore.commit` kind, or a file matched by `gitignore.allow`, keeps the project path. `--gitignore off` turns this off, including in previews.
+- **With the block**, sync also writes the path to `CLAUDE.md`, `opencode.json`, `.codex/config.toml`, `.gemini/settings.json`, `.qoder/settings.json`, and `.cursor/cli.json`. A tool with a `gitignore.commit` kind, or a file matched by `gitignore.allow`, keeps the project path. `--gitignore off` turns this off, including in previews.
 - **Without it**, those files keep the project paths. Claude Code still uses personal memory through its own setting, and the hook tools still load it, but OpenCode loads none, and Codex, Gemini CLI, and Qoder cannot save there.
 - If one of those files was committed before you added the block, run `agnostic-ai sync --untrack` to stop tracking it.
 
-Codex, Gemini CLI, and Qoder only write inside the project. So they can save to personal memory, sync adds its folder to:
+Codex, Gemini CLI, Qoder, and the Cursor CLI only write inside the project without asking. So they can save to personal memory, sync adds its folder to:
 
 - Codex: `writable_roots` under `[sandbox_workspace_write]` in `.codex/config.toml`. Codex reads it in `workspace-write` mode, in a [trusted project](https://learn.chatgpt.com/docs/config-file/config-reference). If your Codex overlay defines `[sandbox_workspace_write]`, sync leaves that table alone; add the folder to it yourself.
 - Gemini CLI: `context.includeDirectories` in `.gemini/settings.json` ([configuration reference](https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md)).
 - Qoder: `permissions.additionalDirectories` in `.qoder/settings.json` ([permissions](https://docs.qoder.com/cli/permissions.md)).
+- Cursor CLI: a `Write(<folder>/**)` rule in `permissions.allow` of `.cursor/cli.json` ([CLI permissions](https://cursor.com/docs/cli/reference/permissions)). Only a committed `settings` kind for Cursor keeps it out.
 
-Gemini CLI and Qoder keep your own entries in those lists.
+Gemini CLI, Qoder, and Cursor keep your own entries in those lists.
 
 Some tools need more steps in this mode:
 

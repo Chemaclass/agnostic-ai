@@ -217,7 +217,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitHooks(sess, b.HooksFor(target), cfg, dryRun); err != nil {
 		return err
 	}
-	if err := emitCLIConfig(sess, b.Settings, dryRun); err != nil {
+	if err := emitCLIConfig(sess, cfg, b.Settings, dryRun); err != nil {
 		return err
 	}
 	mcps := emit.StripMCPDisabled(target, b.MCPs, mcpDisabledNoOpReason)

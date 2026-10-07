@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -30,7 +31,7 @@ func (Adapter) ProtectedPaths() (enforcement, reason string) { return "permissio
 // emitCLIConfig writes the translated portable permissions and the deny
 // protected paths into .cursor/cli.json, and notes the settings fields
 // Cursor has no project key for.
-func emitCLIConfig(sess *emit.Session, settings []spec.Entry, dryRun bool) error {
+func emitCLIConfig(sess *emit.Session, cfg *config.Config, settings []spec.Entry, dryRun bool) error {
 	noteSettingsNoOps(settings)
 	groups, err := spec.ProtectedPaths(settings)
 	if err != nil {
@@ -58,8 +59,12 @@ func emitCLIConfig(sess *emit.Session, settings []spec.Entry, dryRun bool) error
 		}
 	}
 	emit.NoteFieldNoOp(target, spec.KindSettings, "protected", protectAsks, protectAskNoOpReason)
+	memory, err := memoryWriteRules(sess, cfg, dryRun)
+	if err != nil {
+		return err
+	}
 	owned, err := emit.ReadOwnedRules(filepath.Join(filepath.Dir(cliConfigFile), OwnedPermissionsFile))
-	if err != nil || (len(portable) == 0 && len(protected) == 0 && !owned.Exists()) {
+	if err != nil || (len(portable) == 0 && len(protected) == 0 && len(memory) == 0 && !owned.Exists()) {
 		return err
 	}
 	onDisk := map[string]any{}
@@ -69,7 +74,7 @@ func emitCLIConfig(sess *emit.Session, settings []spec.Entry, dryRun bool) error
 		}
 	}
 	base := owned.Strip(onDisk)
-	generated := []map[string]any{{"allow": toAny(portable["allow"]), "deny": toAny(portable["deny"])}, {"deny": toAny(protected)}}
+	generated := []map[string]any{{"allow": toAny(portable["allow"]), "deny": toAny(portable["deny"])}, {"deny": toAny(protected)}, {"allow": toAny(memory)}}
 	final := map[string]any{}
 	for _, list := range cliPermissionLists {
 		merged, _ := base[list].([]any)
@@ -88,6 +93,22 @@ func emitCLIConfig(sess *emit.Session, settings []spec.Entry, dryRun bool) error
 		}
 		final[list] = merged
 	}
+	empty := true
+	for _, list := range cliPermissionLists {
+		if rules, _ := final[list].([]any); len(rules) > 0 {
+			empty = false
+		}
+	}
+	if empty {
+		// With no rule left, the files sync wrote leave with its claims.
+		return nil
+	}
+	// Cursor CLI rejects a permissions object that lacks either list.
+	for _, list := range cliPermissionLists {
+		if final[list] == nil {
+			final[list] = []any{}
+		}
+	}
 	if err := owned.Record(sess, final, base, generated, dryRun); err != nil {
 		return err
 	}
@@ -100,9 +121,31 @@ func emitCLIConfig(sess *emit.Session, settings []spec.Entry, dryRun bool) error
 		permissions[list] = emit.CarriedJSONValue(rules)
 		if len(owns[list]) > 0 {
 			permissions[list] = emit.ClaimedJSONItems(rules, owns[list])
+		} else if onDisk[list] == nil {
+			// An empty list sync adds so Cursor loads the file is sync's.
+			permissions[list] = rules
 		}
 	}
 	return sess.MergeJSONFileNested(cliConfigFile, map[string]any{"permissions": permissions}, []string{"permissions"}, dryRun)
+}
+
+// memoryWriteRules allows writes to the repo store of personal memory
+// when it lies outside the checkout. Cursor asks before it writes outside
+// the workspace, and a headless run rejects the write.
+func memoryWriteRules(sess *emit.Session, cfg *config.Config, dryRun bool) ([]string, error) {
+	// cli.json holds permissions alone, so only a committed settings kind
+	// keeps the absolute path out of it.
+	if cfg == nil || !slices.Contains(cfg.Builtins, emit.MemoryBuiltin) || !emit.PersonalMemoryLeavesCheckoutIn(cfg, cliConfigFile, []string{"settings"}, target) {
+		return nil, nil
+	}
+	dir, err := emit.PersonalMemoryDir(cfg, ".")
+	if err != nil {
+		return nil, err
+	}
+	if err := sess.CreateRepoMemoryStore(cfg, dir, dryRun); err != nil {
+		return nil, err
+	}
+	return []string{"Write(" + filepath.ToSlash(dir) + "/**)"}, nil
 }
 
 // cliPermissionLists are the two lists Cursor CLI permissions take.

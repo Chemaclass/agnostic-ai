@@ -16,13 +16,18 @@ import (
 // sets memory.personal: repo, and returns the repo store it should use.
 func repoMemoryProject(t *testing.T, gitignore bool) string {
 	t.Helper()
-	home := t.TempDir()
+	// Sync names the store by its resolved path; macOS temp dirs sit
+	// behind the /var link.
+	home, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Setenv("AGNOSTIC_AI_HOME", home)
 	testutil.TempCwd(t)
 	if out, err := exec.Command("git", "init", "-q").CombinedOutput(); err != nil {
 		t.Fatalf("git init: %v\n%s", err, out)
 	}
-	cfg := "version: 1\ntargets: [claude, codex, gemini, opencode, kilo, qoder]\nbuiltins: [memory]\n"
+	cfg := "version: 1\ntargets: [claude, codex, cursor, gemini, opencode, kilo, qoder]\nbuiltins: [memory]\n"
 	if gitignore {
 		cfg += "gitignore:\n  enabled: true\n"
 	}
@@ -96,6 +101,9 @@ func TestSync_RepoPersonalMemoryReachesEveryTarget(t *testing.T) {
 	}
 	if err := json.Unmarshal([]byte(readText(t, filepath.Join(".qoder", "settings.json"))), &qoder); err != nil || len(qoder.Permissions.AdditionalDirectories) != 1 || qoder.Permissions.AdditionalDirectories[0] != store {
 		t.Errorf("qoder additionalDirectories = %v (%v)", qoder.Permissions.AdditionalDirectories, err)
+	}
+	if text := readText(t, filepath.Join(".cursor", "cli.json")); !strings.Contains(text, `"Write(`+store+`/**)"`) {
+		t.Errorf("cursor cli.json:\n%s", text)
 	}
 	if err := runSync(t, "--check"); err != nil {
 		t.Errorf("sync --check after sync: %v", err)
@@ -526,5 +534,62 @@ func TestMemoryProjectRoot_RejectsTheGlobalRootSpelledInAnotherCase(t *testing.T
 		if out, err := runRoot(t, "memory", "path"); err == nil {
 			t.Errorf("memory path treated the global root as a project from %s:\n%s", dir, out)
 		}
+	}
+}
+
+// cli.json holds permissions alone, so a committed Cursor kind that never
+// writes it keeps the repo store's Write rule, and committed settings drop it.
+func TestSync_CursorRepoMemoryRuleFollowsTheCommittedKinds(t *testing.T) {
+	for _, tc := range []struct {
+		commit string
+		want   bool
+	}{
+		{"cursor:reviews", true},
+		{"cursor:settings", false},
+	} {
+		t.Run(tc.commit, func(t *testing.T) {
+			parent := repoMemoryProject(t, true)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n  commit: ["+tc.commit+"]\n")
+			if err := runSync(t); err != nil {
+				t.Fatal(err)
+			}
+			text, _ := os.ReadFile(filepath.Join(".cursor", "cli.json"))
+			if got := strings.Contains(string(text), "Write("+filepath.ToSlash(parent)); got != tc.want {
+				t.Errorf("Write rule for the store = %v, want %v:\n%s", got, tc.want, text)
+			}
+			if err := runSync(t, "--check"); err != nil {
+				t.Errorf("sync --check after sync: %v", err)
+			}
+		})
+	}
+}
+
+// Cursor CLI refuses a cli.json without both lists, and the file sync
+// created leaves again with the repo store.
+func TestSync_CursorCLIConfigHasBothListsAndLeavesWithRepoMode(t *testing.T) {
+	repoMemoryProject(t, true)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n")
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Permissions map[string][]string `json:"permissions"`
+	}
+	if err := json.Unmarshal([]byte(readText(t, filepath.Join(".cursor", "cli.json"))), &doc); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := doc.Permissions["deny"]; !ok || len(doc.Permissions["allow"]) != 1 {
+		t.Errorf("permissions = %v, want the Write rule and a deny list", doc.Permissions)
+	}
+	writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: checkout\n")
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(".cursor", "cli.json")); !os.IsNotExist(err) {
+		text, _ := os.ReadFile(filepath.Join(".cursor", "cli.json"))
+		t.Errorf("cli.json stayed after repo mode: %s", text)
+	}
+	if err := runSync(t, "--check"); err != nil {
+		t.Errorf("sync --check: %v", err)
 	}
 }
