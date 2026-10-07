@@ -190,10 +190,38 @@ func TestMemoryLint_CleanStore(t *testing.T) {
 	}
 }
 
+func TestMemoryLint_SaysWhenNoStoreExists(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+
+	out, err := runRoot(t, "memory", "lint")
+
+	if err != nil || !strings.Contains(out, "No memory store found") || strings.Contains(out, "ok") {
+		t.Fatalf("want a no-store notice (err %v):\n%s", err, out)
+	}
+}
+
+func TestMemoryList_ReadsTopLevelTypeWhenMetadataTypeIsMissing(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	writeMemory(t, dir, ".agnostic-ai/memory", map[string]string{
+		"MEMORY.md": "- [Old style](old.md): auto memory fact\n",
+		"old.md":    "---\nname: old\ndescription: auto memory fact\ntype: feedback\n---\n\nThe fact.\n",
+	})
+
+	out, err := runRoot(t, "memory", "list")
+
+	if err != nil || !strings.Contains(out, "feedback") {
+		t.Fatalf("want the top-level type (err %v):\n%s", err, out)
+	}
+}
+
 func TestMemoryIndex_RepairsConflictedIndexKeepingOrder(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	conflicted := strings.Join([]string{
+		"# Team memory",
+		"",
+		"Facts the team confirmed.",
 		"- [CI runs on Ubuntu](ci.md): PR CI is Ubuntu only",
 		"<<<<<<< HEAD",
 		"- [Zola pin](zola.md): pin 0.23.6",
@@ -218,7 +246,8 @@ func TestMemoryIndex_RepairsConflictedIndexKeepingOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "- [CI runs on Ubuntu](ci.md): PR CI is Ubuntu only\n" +
+	want := "# Team memory\n\nFacts the team confirmed.\n" +
+		"- [CI runs on Ubuntu](ci.md): PR CI is Ubuntu only\n" +
 		"- [Zola pin](zola.md): pin 0.23.6\n" +
 		"- [alpha-fact](alpha.md): Where alpha lives\n"
 	if string(data) != want {

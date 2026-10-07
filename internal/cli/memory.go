@@ -116,6 +116,10 @@ func parseMemoryTopic(file, text string) memoryTopic {
 	if m, ok := meta["metadata"].(map[string]any); ok {
 		t.typ, _ = m["type"].(string)
 	}
+	if t.typ == "" {
+		// Claude Code's auto memory writes the type at the top level.
+		t.typ, _ = meta["type"].(string)
+	}
 	return t
 }
 
@@ -127,6 +131,15 @@ func memoryLinkTarget(link string) (string, bool) {
 	}
 	link, _, _ = strings.Cut(link, "#")
 	return filepath.Clean(filepath.FromSlash(link)), true
+}
+
+func anyMemoryStore() bool {
+	for _, s := range memoryStores {
+		if info, err := os.Stat(s.dir); err == nil && info.IsDir() {
+			return true
+		}
+	}
+	return false
 }
 
 func (c memoryContents) linked() map[string]bool {
@@ -244,19 +257,30 @@ func lintMemorySecrets(path string) []lintFinding {
 	return out
 }
 
-// rebuildIndex returns the index with one line per fact: the lines of
-// facts still present in their order, then the other facts by file name.
+// rebuildIndex returns the index without conflict markers, dead links,
+// or repeated links, then a line for each fact no line links, by file
+// name. Every other line stays: personal memory has no Git copy.
 func (c memoryContents) rebuildIndex() string {
 	present := map[string]bool{}
 	for _, t := range c.topics {
 		present[t.file] = true
 	}
+	entryAt := map[int]memoryEntry{}
+	for _, e := range c.entries {
+		entryAt[e.line] = e
+	}
 	var lines []string
 	seen := map[string]bool{}
-	for _, e := range c.entries {
-		if present[e.target] && !seen[e.target] {
-			seen[e.target] = true
-			lines = append(lines, e.text)
+	for i, line := range c.index {
+		if e, ok := entryAt[i+1]; ok {
+			if present[e.target] && !seen[e.target] {
+				seen[e.target] = true
+				lines = append(lines, e.text)
+			}
+			continue
+		}
+		if !memoryConflictMarker(line) {
+			lines = append(lines, line)
 		}
 	}
 	for _, t := range c.topics {
@@ -273,6 +297,15 @@ func (c memoryContents) rebuildIndex() string {
 		return ""
 	}
 	return strings.Join(lines, "\n") + "\n"
+}
+
+func memoryConflictMarker(line string) bool {
+	for _, marker := range []string{"<<<<<<<", "|||||||", "=======", ">>>>>>>"} {
+		if line == marker || strings.HasPrefix(line, marker+" ") {
+			return true
+		}
+	}
+	return false
 }
 
 func (t memoryTopic) title() string {
@@ -314,6 +347,10 @@ func newMemoryLintCmd() *cobra.Command {
 			if asJSON {
 				return printLintJSON(cmd, "memory lint", findings, strict)
 			}
+			if !anyMemoryStore() {
+				cmd.Printf("No memory store found in %s/ or %s/.\n", filepath.ToSlash(memoryStores[0].dir), filepath.ToSlash(memoryStores[1].dir))
+				return nil
+			}
 			if len(findings) == 0 {
 				cmd.Println("ok, no memory findings")
 				return nil
@@ -331,10 +368,9 @@ func newMemoryIndexCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "index",
 		Short: "Rebuild each MEMORY.md from its fact files",
-		Long: "Rewrites each store's MEMORY.md with one line per fact file. Lines for facts that " +
-			"still exist keep their text and order; other lines, such as merge conflict markers " +
-			"and links to missing files, are dropped. A fact without a line gets " +
-			"`- [name](file.md): description` from its frontmatter.",
+		Long: "Rewrites each store's MEMORY.md without merge conflict markers, links to missing " +
+			"files, or repeated links. Every other line keeps its text and order. A fact without " +
+			"a line gets `- [name](file.md): description` from its frontmatter.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			for _, s := range memoryStores {
