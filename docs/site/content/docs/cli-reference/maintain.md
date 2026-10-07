@@ -85,19 +85,19 @@ command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook guard stop
 
 ## hook memory
 
-Run inside a `session-start` hook. It prints the personal memory index, `.agnostic-ai/local/memory/MEMORY.md`, then the project one, `.agnostic-ai/memory/MEMORY.md`, in the reply the target adds to the model's context. The [`memory-hook` built-in](@/docs/memory.md#load-at-session-start) wires it up.
+Prints the memory indexes for a `session-start` hook, so the tool adds them to the model's context. Personal memory comes first, then project memory. The [`memory-hook` built-in](@/docs/memory.md#load-at-session-start) sets this up for you.
 
 ```bash
 agnostic-ai hook memory --target codex
 ```
 
-- Codex, Qoder, and Factory get plain text. Cursor gets `{"additional_context": ...}`, Copilot `{"additionalContext": ...}`, and Gemini CLI `{"hookSpecificOutput": {"additionalContext": ...}}`.
-- Output stays under 6,000 bytes. A longer index is cut at a whole line and ends with a note naming the index.
-- It finds the project like the `shared-memory` skill: the nearest `agnostic-ai.yaml` other than the global source root, else the Git checkout. With no project or no index, it prints nothing.
+- Codex, Qoder, and Factory get plain text. Cursor, Copilot, and Gemini CLI get the JSON shape each one expects.
+- Output stays under 6,000 bytes. A longer index is cut at the end of a line, with a note saying where the full index is.
+- With no project or no index, it prints nothing. It finds the project the same way the `shared-memory` skill does.
 
 | Flag | Description |
 |------|-------------|
-| `-t`, `--target <name>` | Target that runs the hook. Defaults to `AGNOSTIC_AI_TARGET`. |
+| `-t`, `--target <name>` | Tool that runs the hook. Defaults to `AGNOSTIC_AI_TARGET`. |
 
 ## hook run
 
