@@ -2,6 +2,7 @@ package emit
 
 import (
 	"encoding/json"
+	"os"
 	"slices"
 )
 
@@ -25,6 +26,14 @@ func MergeOwnedLists(path string, keyPath []string, onDisk, planned map[string][
 	var wholeOwned bool
 	if whole, err := json.Marshal(onDisk); err == nil {
 		wholeOwned = unchangedSince(prior, keyPath, whole)
+	}
+	// A file an older version wrote whole, unchanged since, is all sync's.
+	if len(prior) == 0 && PriorOutputSum != nil {
+		if sum := PriorOutputSum(path); sum != "" {
+			if existing, err := os.ReadFile(path); err == nil && ContentSum(string(existing)) == sum {
+				wholeOwned = true
+			}
+		}
 	}
 	return mergeOwnedLists(priorItems, wholeOwned, onDisk, planned)
 }
@@ -245,3 +254,7 @@ func ClaimsItemsUnder(path, key string) bool {
 		return len(k.Path) == 2 && k.Path[0] == key && k.Items != nil
 	})
 }
+
+// PriorOutputSum returns the sum the last sync recorded for a file it
+// wrote whole, or "". The CLI sets it from the ledger.
+var PriorOutputSum func(path string) string

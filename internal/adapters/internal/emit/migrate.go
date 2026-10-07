@@ -161,6 +161,9 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 			kind = claimKeep
 		}
 		if children, ok := value.(orderedChildren); ok {
+			// Claims move to the children, so a claim on the whole
+			// object, as older versions made, goes.
+			released = append(released, []string{k})
 			existing := NewOrderedJSON()
 			if raw, found := doc.Get(k); found && json.Unmarshal(raw, existing) != nil {
 				existing = NewOrderedJSON()
