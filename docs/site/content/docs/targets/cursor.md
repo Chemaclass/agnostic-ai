@@ -19,7 +19,7 @@ Cursor reads its project configuration from `.cursor/`, including `.cursor/rules
 .cursor/agents/<name>.md             # one native subagent per agent spec
 .cursor/skills/<name>/SKILL.md       # one folder per skill, bundled assets included
 .cursor/commands/<name>.md           # one per command spec
-.cursor/hooks.json                   # when hook specs exist (managed, overwritten each sync)
+.cursor/hooks.json                   # when hook specs exist (sync's entries managed, yours kept)
 .cursor/hooks/agnostic-ai-portable-hook.sh  # when a portable before-tool hook exists
 .cursor/mcp.json                     # when MCP entries exist
 .cursor/cli.json                     # from settings permissions and deny protected paths (merged)
@@ -50,7 +50,7 @@ Cursor reads its project configuration from `.cursor/`, including `.cursor/rules
   - `setup` and `setup-windows` go to `.cursor/worktrees.json` as `setup-worktree` (every OS) and `setup-worktree-windows` (run instead on Windows) ([worktrees](https://cursor.com/docs/configuration/worktrees)).
   - A script path, which Cursor resolves from `.cursor/`, or a unix-only `setup-worktree-unix`, goes under `x-cursor:` with its native key, such as `setup-worktree-unix: setup.sh`.
 - **Ignore**: `.cursorignore` (gitignore syntax). Specs are joined into one file.
-- **Hooks**: [Cursor Hooks](https://cursor.com/docs/hooks) in a managed `.cursor/hooks.json` (`version` + per-event arrays). With `builtins: [memory, memory-hook]`, a `sessionStart` hook adds the [shared memory](@/docs/memory.md) index to the session.
+- **Hooks**: [Cursor Hooks](https://cursor.com/docs/hooks) in a managed `.cursor/hooks.json` (`version` + per-event arrays). With `builtins: [memory]`, a `sessionStart` hook adds the [shared memory](@/docs/memory.md) index to the session.
   - Command hooks keep their `{command, matcher?}` shape. A `type: prompt` hook writes `prompt` and optional `model`. Both keep `timeout`, `loop_limit` (including `null`), `failClosed`, and `matcher`.
   - camelCase event names (`beforeShellExecution`, `afterFileEdit`, ...) pass through. `validate` flags unknown ones.
   - Per Cursor's "Available matchers by hook" table, fifteen events take a `matcher`: `preToolUse`, `postToolUse`, `postToolUseFailure` (tool name), `subagentStart`, `subagentStop` (subagent type), `beforeShellExecution`, `afterShellExecution` (full command string), `beforeReadFile`, `afterFileEdit` (tool name), and `beforeTabFileRead`, `afterTabFileEdit`, `beforeSubmitPrompt`, `stop`, `afterAgentResponse`, `afterAgentThought` (one fixed value each).

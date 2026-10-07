@@ -348,6 +348,9 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 	for _, key := range claimed {
 		produced = append(produced, key.Path)
 	}
+	if len(hooks) > 0 {
+		produced = append(produced, []string{"hooks"})
+	}
 	var released [][]string
 	if overlay == nil {
 		released = sess.DropRetiredMergedParents(path, doc, claimed, produced)
@@ -397,12 +400,21 @@ func writeSettings(sess *emit.Session, hooks, settings, mcps []spec.Entry, dir s
 			return fmt.Errorf("claude settings: marshal %s: %w", k, err)
 		}
 	}
-	if hasHooks {
+	switch {
+	case overlay == nil:
+		// Merging into the file on disk: keep the hook entries sync did
+		// not write, and claim only its own (#1858).
+		hookClaims, err := mergeHooksInto(doc, path, hooks)
+		if err != nil {
+			return err
+		}
+		claimed = append(claimed, hookClaims...)
+	case hasHooks:
 		order := loadCapturedHookOrder()
 		if err := doc.SetAt(order.Index(doc.Keys()), "hooks", hookSettingsJSONWithOrder(hooks, order.Events)); err != nil {
 			return fmt.Errorf("claude settings: marshal hooks: %w", err)
 		}
-	} else if overlay != nil {
+	default:
 		doc.Delete("hooks")
 	}
 	if err := addHookTargetEnv(doc, hooks); err != nil {
@@ -517,9 +529,6 @@ func producedCustomSettingsKeys(custom map[string]any) [][]string {
 // object under it may hold the user's entries.
 func claimedSettingsKeys(hooks []spec.Entry, custom map[string]any, layers ...map[string]any) []emit.MergedKey {
 	var claimed []emit.MergedKey
-	if len(hooks) > 0 {
-		claimed = append(claimed, emit.MergedKey{Path: []string{"hooks"}})
-	}
 	if hasCommandHook(hooks) {
 		claimed = append(claimed, emit.MergedKey{Path: []string{"env", emit.HookTargetEnv}})
 	}
@@ -1038,3 +1047,57 @@ func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
 // userMCPDisabledReason explains a dropped `disabled: true` under sync
 // --global: user-scope servers have no per-server disable key.
 const userMCPDisabledReason = "a disabled server is left out of ~/.claude.json, where a user server is live in every project"
+
+// mergeHooksInto sets doc's `hooks` to the entries on disk sync did not
+// write plus the ones hooks plan, per event, and returns the claims on
+// sync's own entries. A new event lands in the captured import order.
+func mergeHooksInto(doc *emit.OrderedJSON, path string, hooks []spec.Entry) ([]emit.MergedKey, error) {
+	order := loadCapturedHookOrder()
+	var planned map[string][]any
+	var plannedOrder []string
+	if rendered := hookSettingsJSONWithOrder(hooks, order.Events); rendered != nil {
+		raw, err := emit.MarshalJSONCompact(rendered)
+		if err != nil {
+			return nil, fmt.Errorf("claude settings: marshal hooks: %w", err)
+		}
+		if planned, err = emit.RawEventLists(raw); err != nil {
+			return nil, fmt.Errorf("claude settings: hooks: %w", err)
+		}
+		plannedOrder = rendered.Keys()
+	}
+	onDisk := map[string][]any{}
+	diskOrder := emit.NewOrderedJSON()
+	if raw, ok := doc.Get("hooks"); ok {
+		var err error
+		if onDisk, err = emit.RawEventLists(raw); err != nil || json.Unmarshal(raw, diskOrder) != nil {
+			// A hooks value sync cannot read stays as the user wrote it.
+			return nil, nil
+		}
+	}
+	merged, claims := emit.MergeOwnedLists(path, []string{"hooks"}, onDisk, planned)
+	if len(merged) == 0 {
+		doc.Delete("hooks")
+		return nil, nil
+	}
+	out := emit.NewOrderedJSON()
+	for _, event := range append(diskOrder.Keys(), plannedOrder...) {
+		if _, done := out.Get(event); done {
+			continue
+		}
+		if entries, ok := merged[event]; ok {
+			if err := out.Set(event, entries); err != nil {
+				return nil, fmt.Errorf("claude settings: marshal hooks: %w", err)
+			}
+		}
+	}
+	if err := doc.SetAt(order.Index(doc.Keys()), "hooks", out); err != nil {
+		return nil, fmt.Errorf("claude settings: marshal hooks: %w", err)
+	}
+	var claimed []emit.MergedKey
+	for _, event := range out.Keys() {
+		if items := claims[event]; len(items) > 0 {
+			claimed = append(claimed, emit.MergedKey{Path: []string{"hooks", event}, Items: items})
+		}
+	}
+	return claimed, nil
+}

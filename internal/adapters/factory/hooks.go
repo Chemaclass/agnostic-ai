@@ -2,6 +2,7 @@ package factory
 
 import (
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -89,7 +90,7 @@ func (d *hooksDoc) MarshalJSON() ([]byte, error) {
 		}
 		buf.Write(key)
 		buf.WriteByte(':')
-		val, err := json.Marshal(d.events[event])
+		val, err := emit.MarshalJSONCompact(d.events[event])
 		if err != nil {
 			return nil, err
 		}
@@ -99,27 +100,40 @@ func (d *hooksDoc) MarshalJSON() ([]byte, error) {
 	return []byte(buf.String()), nil
 }
 
-// emitHooks writes `.factory/hooks.json` (override via
+// emitHooks merges sync's hooks into `.factory/hooks.json` (override via
 // outputs.factory.hooks-file), the project-tier file Droid CLI reads
 // for hooks: "Project | `.factory/hooks.json` | Commit to share with
-// teammates." (docs.factory.com/harness/hooks, #629). This is its own
-// file, separate from `.factory/mcp.json`, so it takes its own single
-// `WriteFile` call rather than merging into an existing one. No-op
-// when no hooks emit.
+// teammates." (docs.factory.com/harness/hooks, #629). Entries sync did
+// not write stay, and only sync's own leave when the specs go (#1858).
 func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRun bool) error {
-	doc := buildHooks(hooks)
-	if doc == nil {
+	path := emit.OutputHooksFile(cfg, target, defaultHooksFile)
+	var planned any
+	var order []string
+	if doc := buildHooks(hooks); doc != nil {
+		order = doc.order
+		body, err := emit.MarshalJSONCompact(doc)
+		if err != nil {
+			return err
+		}
+		object := emit.NewOrderedJSON()
+		if err := json.Unmarshal(body, object); err != nil {
+			return fmt.Errorf("%s: %w", path, err)
+		}
+		planned = object
+		if err := sess.MaterializeNeutralHookScripts(hooks, target, emit.HookScriptsDir(target), dryRun); err != nil {
+			return err
+		}
+	}
+	if planned == nil {
+		// Releasing the file takes out only sync's entries.
 		return nil
 	}
-	body, err := json.MarshalIndent(doc, "", "  ")
-	if err != nil {
+	// Hook entries sync did not write stay; sync claims only its own (#1858).
+	keys, ok, err := sess.OwnedRootLists(path, planned, dryRun)
+	if err != nil || !ok {
 		return err
 	}
-	path := emit.OutputHooksFile(cfg, target, defaultHooksFile)
-	if err := sess.MaterializeNeutralHookScripts(hooks, target, emit.HookScriptsDir(target), dryRun); err != nil {
-		return err
-	}
-	return sess.WriteFile(path, string(body)+"\n", dryRun)
+	return sess.MergeJSONFileOrdered(path, keys, nil, order, dryRun)
 }
 
 // buildHooks returns the rendered document, or nil when no spec

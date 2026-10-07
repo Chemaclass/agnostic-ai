@@ -206,7 +206,7 @@ func AddsContext(target, event string, r Result) bool {
 	switch target {
 	case "gemini":
 		return geminiAddsContext(r)
-	case "goose", "augment":
+	case "goose":
 		return false
 	case "crush":
 		return crushAddsContext(r)
@@ -226,6 +226,11 @@ func AddsContext(target, event string, r Result) bool {
 		}
 		return !r.TimedOut && r.Exit == 0 && json.Unmarshal([]byte(strings.TrimSpace(r.Stdout)), &reply) == nil && reply.AdditionalContext != ""
 	case "openhands":
+		// The SDK reads additionalContext only on UserPromptSubmit and Stop;
+		// other events just log a HookExecutionEvent.
+		if event != "UserPromptSubmit" && event != "Stop" {
+			return false
+		}
 		var reply struct {
 			AdditionalContext string `json:"additionalContext"`
 		}

@@ -64,7 +64,7 @@ func skillPath(root string) string {
 }
 
 func TestNames_ReturnsValidNamesWithoutSharingTheList(t *testing.T) {
-	want := []string{"handoff", "handoff-hook", "memory", "memory-hook"}
+	want := []string{"handoff", "handoff-hook", "memory"}
 	if got := builtins.Names(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("Names() = %v, want %v", got, want)
 	}

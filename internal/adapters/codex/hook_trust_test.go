@@ -277,6 +277,11 @@ func TestEmit_HookTrustRecognizesUserTrustAndChangedCommand(t *testing.T) {
 		t.Errorf("already trusted hook reported: %s", notes.String())
 	}
 	notes.Reset()
+	// Without a ledger the old entry would count as the user's; sync's
+	// ledger claims it, so it goes, which removing the file stands for.
+	if err := os.Remove(".codex/hooks.json"); err != nil {
+		t.Fatal(err)
+	}
 	entry.Meta["command"] = "changed-guard"
 	if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{entry}), &config.Config{}, false); err != nil {
 		t.Fatal(err)
@@ -292,5 +297,35 @@ func TestHookTrust_RejectsMalformedHooksFile(t *testing.T) {
 		if _, err := inspectHookTrust("/hooks.json", []byte(body), nil, "linux"); err == nil {
 			t.Errorf("runtime-invalid hooks accepted: %s", body)
 		}
+	}
+}
+
+// A trusted hook the user wrote keeps its position, and so its trust,
+// when sync adds its own hooks to the same event (#1858).
+func TestEmit_HookTrustKeepsTheUsersTrustedHook(t *testing.T) {
+	testutil.TempCwd(t)
+	home := t.TempDir()
+	t.Setenv("CODEX_HOME", home)
+	if err := os.MkdirAll(".codex", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(".codex/hooks.json", []byte(`{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"./mine.sh"}]}]}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var notes bytes.Buffer
+	prev := emit.Warner
+	emit.Warner = &notes
+	emit.ResetCoverageNotes()
+	t.Cleanup(func() { emit.Warner = prev; emit.ResetCoverageNotes() })
+	entry := spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"event": "PreToolUse", "matcher": "Bash", "command": "guard"}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle([]spec.Entry{entry}), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(".codex/hooks.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if i, j := strings.Index(string(data), "./mine.sh"), strings.Index(string(data), "guard"); i < 0 || j < 0 || i > j {
+		t.Errorf("the user's hook moved after sync's:\n%s", data)
 	}
 }
