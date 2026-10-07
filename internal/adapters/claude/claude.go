@@ -1112,7 +1112,8 @@ const autoMemoryDirectoryKey = "autoMemoryDirectory"
 
 // emitAutoMemoryDirectory points Claude Code's auto memory at the shared
 // personal store, so what Claude saves on its own reaches every tool
-// (#1846). A value the user set stays theirs.
+// (#1846). A value the user set stays theirs. CLAUDE.md still imports the
+// personal index: Claude ignores the key until the workspace is trusted.
 func emitAutoMemoryDirectory(sess *emit.Session, dir string, cfg *config.Config, dryRun bool) error {
 	if emit.MemoryIndexPaths(cfg) == nil {
 		return nil
@@ -1124,6 +1125,13 @@ func emitAutoMemoryDirectory(sess *emit.Session, dir string, cfg *config.Config,
 	store, err := filepath.Abs(filepath.Dir(emit.PersonalMemoryIndexPath))
 	if err != nil {
 		return fmt.Errorf("resolve %s: %w", emit.PersonalMemoryIndexPath, err)
+	}
+	// The file holds this checkout's absolute path, so it must never be
+	// committed, even when sync creates it before Claude Code ignores it.
+	if !dryRun && !sess.IsCapturing() {
+		if err := emit.ExcludeFromGit("**/" + filepath.ToSlash(path)); err != nil {
+			return err
+		}
 	}
 	return sess.MergeJSONFile(path, map[string]any{autoMemoryDirectoryKey: filepath.ToSlash(store)}, dryRun)
 }

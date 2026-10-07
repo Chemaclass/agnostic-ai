@@ -44,13 +44,8 @@ const (
 // import is relative to that file, as `@path` lines resolve, or absolute
 // when no relative path exists (another Windows volume).
 func RenderMemoryBlock(entryPath string) string {
-	return RenderMemoryImports(entryPath, []string{ProjectMemoryIndexPath, PersonalMemoryIndexPath})
-}
-
-// RenderMemoryImports is RenderMemoryBlock for the given indexes only.
-func RenderMemoryImports(entryPath string, indexes []string) string {
 	var lines []string
-	for _, index := range indexes {
+	for _, index := range []string{ProjectMemoryIndexPath, PersonalMemoryIndexPath} {
 		// Claude Code ends an import path at the first unescaped space.
 		lines = append(lines, "@"+strings.ReplaceAll(filepath.ToSlash(memoryIndexRef(entryPath, index)), " ", `\ `))
 	}

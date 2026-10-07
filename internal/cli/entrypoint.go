@@ -474,9 +474,6 @@ func memoryBlockFor(cfg *config.Config, path string, readers []string) string {
 	if !slices.Contains(cfg.Builtins, memoryBuiltin) || len(readers) == 0 || !pathSupportsFileImports(readers) {
 		return ""
 	}
-	if !slices.ContainsFunc(readers, func(r string) bool { return r != "claude" }) {
-		return adapters.RenderProjectMemoryBlock(path)
-	}
 	return adapters.RenderMemoryBlock(path)
 }
 

@@ -3,6 +3,7 @@ package claude
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -70,5 +71,24 @@ func TestEmit_KeepsTheUsersOwnAutoMemoryDirectory(t *testing.T) {
 	doc := readLocalSettings(t)
 	if doc["autoMemoryDirectory"] != "~/notes" || doc["theme"] != "dark" {
 		t.Errorf("user settings changed: %v", doc)
+	}
+}
+
+// The file holds an absolute checkout path, so sync keeps it out of Git
+// even before Claude Code ignores it.
+func TestEmit_ExcludesLocalSettingsFromGit(t *testing.T) {
+	testutil.TempCwd(t)
+	if out, err := exec.Command("git", "init", "-q").CombinedOutput(); err != nil {
+		t.Skipf("git init: %v %s", err, out)
+	}
+
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(nil), &config.Config{Builtins: []string{"memory"}}, false); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := exec.Command("git", "check-ignore", "-q", filepath.Join(".claude", "settings.local.json"))
+	cmd.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL=/dev/null")
+	if err := cmd.Run(); err != nil {
+		t.Errorf("settings.local.json is not ignored: %v", err)
 	}
 }
