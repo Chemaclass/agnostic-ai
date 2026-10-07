@@ -263,8 +263,8 @@ func emitSettings(sess *emit.Session, b spec.Bundle, hooks []spec.Entry, path st
 	if servers := buildMCPServers(b.MCPs); len(servers) > 0 {
 		keys["mcpServers"] = servers
 	}
-	if hooks := buildHooks(hooks); len(hooks) > 0 {
-		keys["hooks"] = hooks
+	if block := buildHooks(hooks); len(block) > 0 {
+		keys["hooks"] = block
 	}
 	if model := emit.SettingsModel(b.Settings, target); model != "" {
 		keys["model"] = map[string]any{"name": model}
@@ -273,10 +273,19 @@ func emitSettings(sess *emit.Session, b spec.Bundle, hooks []spec.Entry, path st
 		"portable permission lists have no Gemini mapping; use x-gemini for native settings")
 	emit.MergeSettingsCustomKeys(keys, b.Settings, target, "mcpServers")
 	emit.MergeSettingsCustomRecordMap(keys, b.Settings, target, "mcpServers")
+	// Hook entries sync did not write stay; sync claims only its own,
+	// x-gemini hooks included, once they joined the block (#1858).
+	if value, ok := sess.OwnedEventLists(path, "hooks", keys["hooks"], dryRun); ok {
+		keys["hooks"] = value
+	} else {
+		delete(keys, "hooks")
+	}
 	if len(keys) == 0 {
 		return nil
 	}
-	if _, writing := keys["hooks"]; !writing {
+	// A ledger from before per-entry claims holds the whole key; releasing
+	// item claims already takes out sync's entries, the protect hook too.
+	if _, writing := keys["hooks"]; !writing && !emit.ClaimsItemsUnder(path, "hooks") {
 		existing := sess.ExistingJSONObject(path, "hooks", dryRun)
 		if kept, stale := withoutProtectHook(existing); stale {
 			// No hook spec is left, so hooks sync wrote are retired too.
@@ -287,7 +296,7 @@ func emitSettings(sess *emit.Session, b spec.Bundle, hooks []spec.Entry, path st
 		}
 	}
 	emit.MergeEntriesOf(keys, "mcpServers")
-	return sess.MergeJSONFileNested(path, keys, []string{"model"}, dryRun)
+	return sess.MergeJSONFileNested(path, keys, []string{"model", "hooks"}, dryRun)
 }
 
 // buildMCPServers renders Gemini-shaped MCP servers. Stdio specs emit

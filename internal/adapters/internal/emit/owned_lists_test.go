@@ -1,0 +1,94 @@
+package emit
+
+import (
+	"encoding/json"
+	"reflect"
+	"testing"
+)
+
+func decodeLists(t *testing.T, raw string) map[string][]any {
+	t.Helper()
+	var out map[string][]any
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+func TestMergeOwnedLists_KeepsEntriesSyncDidNotWrite(t *testing.T) {
+	disk := decodeLists(t, `{"PreToolUse": [{"matcher": "Bash", "command": "./guard.sh"}]}`)
+	planned := decodeLists(t, `{"SessionStart": [{"command": "memory"}]}`)
+
+	merged, claims := mergeOwnedLists(nil, false, disk, planned)
+
+	want := decodeLists(t, `{"PreToolUse": [{"matcher": "Bash", "command": "./guard.sh"}], "SessionStart": [{"command": "memory"}]}`)
+	if !reflect.DeepEqual(merged, want) {
+		t.Errorf("merged = %v, want %v", merged, want)
+	}
+	if len(claims["SessionStart"]) != 1 || len(claims["PreToolUse"]) != 0 {
+		t.Errorf("claims = %v", claims)
+	}
+}
+
+func TestMergeOwnedLists_ReplacesWhatSyncClaimedBefore(t *testing.T) {
+	old := map[string]any{"command": "old"}
+	disk := map[string][]any{"SessionStart": {old, map[string]any{"command": "mine"}}}
+	planned := map[string][]any{"SessionStart": {map[string]any{"command": "new"}}}
+	prior := map[string][]string{"SessionStart": {ContentSum(canonicalJSON(old))}}
+
+	merged, _ := mergeOwnedLists(prior, false, disk, planned)
+
+	want := map[string][]any{"SessionStart": {map[string]any{"command": "mine"}, map[string]any{"command": "new"}}}
+	if !reflect.DeepEqual(merged, want) {
+		t.Errorf("merged = %v, want %v", merged, want)
+	}
+}
+
+func TestMergeOwnedLists_AdoptsAnEqualEntryInsteadOfDoublingIt(t *testing.T) {
+	entry := map[string]any{"command": "memory"}
+	disk := map[string][]any{"SessionStart": {entry}}
+	planned := map[string][]any{"SessionStart": {entry}}
+
+	merged, claims := mergeOwnedLists(nil, false, disk, planned)
+
+	if len(merged["SessionStart"]) != 1 || len(claims["SessionStart"]) != 1 {
+		t.Errorf("merged = %v, claims = %v", merged, claims)
+	}
+}
+
+func TestMergeOwnedLists_DropsAnEventLeftEmpty(t *testing.T) {
+	old := map[string]any{"command": "old"}
+	disk := map[string][]any{"SessionStart": {old}}
+	prior := map[string][]string{"SessionStart": {ContentSum(canonicalJSON(old))}}
+
+	merged, _ := mergeOwnedLists(prior, false, disk, nil)
+
+	if _, ok := merged["SessionStart"]; ok {
+		t.Errorf("empty event kept: %v", merged)
+	}
+}
+
+// An earlier version claimed the whole hook map; while it is unchanged,
+// every entry in it is sync's.
+func TestMergeOwnedLists_TreatsAnUnchangedWholeClaimAsSyncs(t *testing.T) {
+	disk := map[string][]any{"SessionStart": {map[string]any{"command": "old"}}}
+	planned := map[string][]any{"SessionStart": {map[string]any{"command": "new"}}}
+
+	merged, _ := mergeOwnedLists(nil, true, disk, planned)
+
+	want := map[string][]any{"SessionStart": {map[string]any{"command": "new"}}}
+	if !reflect.DeepEqual(merged, want) {
+		t.Errorf("merged = %v, want %v", merged, want)
+	}
+}
+
+func TestWithoutItems_DropsClaimedObjectEntries(t *testing.T) {
+	entry := map[string]any{"command": "memory"}
+	raw, _ := json.Marshal([]any{entry, map[string]any{"command": "mine"}})
+
+	value, keep, changed := withoutItems(raw, []string{ContentSum(canonicalJSON(entry))})
+
+	if !changed || !keep || len(value.([]any)) != 1 {
+		t.Errorf("value %v keep %v changed %v", value, keep, changed)
+	}
+}

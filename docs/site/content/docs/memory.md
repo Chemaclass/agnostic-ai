@@ -84,7 +84,7 @@ builtins: [handoff, memory, memory-hook]
 
 The hook runs [`agnostic-ai hook memory`](@/docs/cli-reference/maintain.md#hook-memory), which adds the index to the model's context.
 
-- Import hand-written hooks first (`agnostic-ai import <target>`). Sync rewrites each target's hook file and drops entries it did not write (#1858).
+- Hooks you wrote by hand in those files stay. Sync replaces only its own entries.
 - Without `agnostic-ai` on `PATH`, the hook does nothing.
 - Codex runs it only after you trust the project's hooks.
 - On Windows, Copilot, Cursor, and Gemini CLI need `sh` on `PATH`, such as Git Bash (#1856).

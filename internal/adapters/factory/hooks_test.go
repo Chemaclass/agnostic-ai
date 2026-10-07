@@ -163,14 +163,8 @@ func TestEmit_Hooks_NoHooksWritesNothing(t *testing.T) {
 	}
 }
 
-// TestEmit_Hooks_OverwritesUserEdits pins the write as a plain
-// overwrite, the claim the package doc and docs/site/content/docs/targets/factory.md now
-// make. The vendor sends users to hand-edit its sibling file
-// ("**Project servers cannot be removed** with `droid mcp remove` or
-// the `/mcp` manager. To remove them, edit `.factory/mcp.json`
-// directly", docs.factory.com/harness/mcp), so the docs had to stop
-// promising a merge that never happened (#745).
-func TestEmit_Hooks_OverwritesUserEdits(t *testing.T) {
+// A hook entry sync did not write stays beside the emitted ones (#1858).
+func TestEmit_Hooks_KeepsHandWrittenEntries(t *testing.T) {
 	dir := testutil.TempCwd(t)
 
 	path := filepath.Join(dir, ".factory/hooks.json")
@@ -188,11 +182,8 @@ func TestEmit_Hooks_OverwritesUserEdits(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := readFile(t, path)
-	if strings.Contains(got, "hand-written") {
-		t.Errorf("hooks.json is documented as overwritten whole; the hand edit survived:\n%s", got)
-	}
-	if !strings.Contains(got, "PreToolUse") {
-		t.Errorf("expected the emitted hook to replace the file:\n%s", got)
+	if !strings.Contains(got, "hand-written") || !strings.Contains(got, "PreToolUse") {
+		t.Errorf("hooks.json should keep the hand-written hook beside the emitted one (#1858):\n%s", got)
 	}
 }
 

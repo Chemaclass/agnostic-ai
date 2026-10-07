@@ -239,23 +239,26 @@ type hooksDoc struct {
 }
 
 // emitHooks writes the managed `.cursor/hooks.json` from the hook specs
-// scoped to cursor. The file is overwritten each sync; a no-op when no
-// hooks resolve to output. The path is overridable via
+// scoped to cursor. Entries sync did not write stay, and only sync's own
+// leave when the specs go (#1858). The path is overridable via
 // `outputs.cursor.hooks-file`. Hook scripts stashed under
 // `.agnostic-ai/scripts/` materialize into `.cursor/hooks/` so the
 // emitted `command:` paths resolve.
 func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRun bool) error {
+	path := emit.OutputHooksFile(cfg, target, defaultHooksFile)
 	byEvent := buildHooks(hooks)
 	if len(byEvent) == 0 {
+		// Releasing the file takes out only sync's entries.
 		return nil
 	}
-	raw, err := emit.MarshalJSONIndent(hooksDoc{Version: 1, Hooks: byEvent})
-	if err != nil {
-		return fmt.Errorf("cursor hooks: %w", err)
+	// Hook entries sync did not write stay; sync claims only its own (#1858).
+	value, ok := sess.OwnedEventLists(path, "hooks", byEvent, dryRun)
+	if !ok {
+		return nil
 	}
-	path := emit.OutputHooksFile(cfg, target, defaultHooksFile)
-	if err := sess.WriteFile(path, string(raw)+"\n", dryRun); err != nil {
-		return err
+	keys := map[string]any{"hooks": value, "version": 1}
+	if err := sess.MergeJSONFileOrdered(path, keys, []string{"hooks"}, []string{"version", "hooks"}, dryRun); err != nil {
+		return fmt.Errorf("cursor hooks: %w", err)
 	}
 	return materializeHookScripts(sess, hooks, dryRun)
 }

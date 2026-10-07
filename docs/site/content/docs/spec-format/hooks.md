@@ -141,6 +141,8 @@ timeout: 10
 
 Command hooks receive event JSON on stdin. Read the shell command from the target's `tool_input` fields. Read the edited paths with [`agnostic-ai hook paths`](#edited-paths). `AGNOSTIC_AI_TARGET` names the target that ran the hook; see [which target ran a hook](#hook-target).
 
+Sync keeps the hook entries it did not write. In `.claude/settings.json`, `.codex/hooks.json`, `.cursor/hooks.json`, `.gemini/settings.json`, `.qoder/settings.json`, and `.factory/hooks.json`, it records its own entries and replaces or removes only those. An entry you wrote by hand that equals one a spec produces counts as sync's from then on, so it is not written twice.
+
 ## Fields
 
 | Field | Required | Default | Description |

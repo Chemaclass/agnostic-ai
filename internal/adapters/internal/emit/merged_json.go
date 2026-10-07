@@ -319,8 +319,7 @@ func withoutItems(raw json.RawMessage, items []string) (value any, keep, changed
 		return nil, true, false
 	}
 	kept := slices.DeleteFunc(slices.Clone(list), func(entry any) bool {
-		s, ok := entry.(string)
-		return ok && slices.Contains(items, ContentSum(s))
+		return slices.Contains(items, ContentSum(canonicalJSON(entry)))
 	})
 	if len(kept) == len(list) {
 		return nil, true, false
