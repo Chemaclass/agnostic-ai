@@ -13,7 +13,7 @@ import (
 func TestRenderMemoryBlock_ImportsTheIndexFromTheProjectRoot(t *testing.T) {
 	got := RenderMemoryBlock("CLAUDE.md")
 
-	want := MemoryStartMarker + "\n\n## Shared memory\n\n@.agnostic-ai/memory/MEMORY.md\n\n" + MemoryEndMarker + "\n"
+	want := MemoryStartMarker + "\n\n## Shared memory\n\n@.agnostic-ai/memory/MEMORY.md\n@.agnostic-ai/local/memory/MEMORY.md\n\n" + MemoryEndMarker + "\n"
 	if got != want {
 		t.Errorf("got:\n%q\nwant:\n%q", got, want)
 	}

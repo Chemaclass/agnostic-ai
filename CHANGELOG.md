@@ -10,6 +10,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - Opt-in `memory-hook` built-in loads the memory index at session start on Codex, Copilot, Cursor, Gemini CLI, Qoder, and Factory (#1850, #1851).
 - Opt-in `memory` built-in keeps one project memory in `.agnostic-ai/memory/` that every tool reads and writes; Claude Code imports its index (#1844).
+- The `memory` built-in adds personal memory in `.agnostic-ai/local/memory/`, saved without asking and ignored by Git (#1852).
 - A built-in spec inlined into a shared instructions file names its source as `builtin:<name>` instead of a cache path (#1844).
 
 ## v0.80.0 - 2026-10-06

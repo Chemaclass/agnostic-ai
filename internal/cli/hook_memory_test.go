@@ -101,7 +101,7 @@ func TestHookMemory_CutsALongIndexAtAWholeLine(t *testing.T) {
 	if len(got) > memoryContextLimit {
 		t.Errorf("output is %d characters, over %d", len(got), memoryContextLimit)
 	}
-	if !strings.Contains(got, "index continues in .agnostic-ai/memory/MEMORY.md") {
+	if !strings.Contains(got, "More facts are in .agnostic-ai/local/memory/MEMORY.md and .agnostic-ai/memory/MEMORY.md") {
 		t.Errorf("no note naming the cut index:\n%s", got[len(got)-200:])
 	}
 	for _, l := range strings.Split(strings.TrimSpace(got), "\n") {
@@ -237,5 +237,35 @@ func TestHookMemory_StartsFromTheGeminiProjectDir(t *testing.T) {
 
 	if got := runHookMemory(t, "--target", "gemini"); !strings.Contains(got, "CI is Ubuntu only") {
 		t.Errorf("got %q", got)
+	}
+}
+
+func TestHookMemory_PrintsThePersonalIndexToo(t *testing.T) {
+	memoryHookProject(t, sampleIndex)
+	writeFile(t, filepath.Join(".agnostic-ai", "local", "memory", "MEMORY.md"), "- [Prefers tabs](tabs.md): the user indents with tabs\n")
+
+	got := runHookMemory(t, "--target", "codex")
+	for _, want := range []string{"Project memory, `.agnostic-ai/memory/MEMORY.md`", "CI is Ubuntu only", "Personal memory, `.agnostic-ai/local/memory/MEMORY.md`", "Prefers tabs"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
+func TestHookMemory_PrintsThePersonalIndexAlone(t *testing.T) {
+	memoryHookProject(t, "")
+	writeFile(t, filepath.Join(".agnostic-ai", "local", "memory", "MEMORY.md"), "- [Prefers tabs](tabs.md): the user indents with tabs\n")
+
+	if got := runHookMemory(t, "--target", "codex"); !strings.Contains(got, "Prefers tabs") || strings.Contains(got, "Project memory") {
+		t.Errorf("got %q", got)
+	}
+}
+
+func TestHookMemory_KeepsThePersonalIndexWhenTheProjectIndexIsLong(t *testing.T) {
+	memoryHookProject(t, strings.Repeat("- [Fact](fact.md): "+strings.Repeat("x", 80)+"\n", 100))
+	writeFile(t, filepath.Join(".agnostic-ai", "local", "memory", "MEMORY.md"), "- [Prefers tabs](tabs.md): the user indents with tabs\n")
+
+	if got := runHookMemory(t, "--target", "codex"); !strings.Contains(got, "Prefers tabs") {
+		t.Errorf("personal index dropped:\n%s", got[:300])
 	}
 }

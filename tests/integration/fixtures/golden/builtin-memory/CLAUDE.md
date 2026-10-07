@@ -11,5 +11,6 @@ CLAUDE.md, AGENTS.md, and the other AI tool files are generated from `.agnostic-
 ## Shared memory
 
 @.agnostic-ai/memory/MEMORY.md
+@.agnostic-ai/local/memory/MEMORY.md
 
 <!-- agnostic-ai:memory:end -->

@@ -1728,3 +1728,45 @@ func TestWatchSync_LocalRuleEditedWhileArmingIsReconciled(t *testing.T) {
 		t.Errorf("ready watcher retained stale rule: %s", output)
 	}
 }
+
+func TestIsIgnoredEvent_PersonalMemoryPaths(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	memory := filepath.Join(defaultProjectUser, "memory")
+	for _, path := range []string{memory, filepath.Join(memory, "MEMORY.md"), filepath.Join(memory, "tabs.md"), filepath.Join(dir, memory, "MEMORY.md")} {
+		root := "."
+		if filepath.IsAbs(path) {
+			root = dir
+		}
+		if !isIgnoredEvent(fsnotify.Event{Name: path, Op: fsnotify.Write}, root) {
+			t.Errorf("personal memory event not ignored: %s", path)
+		}
+	}
+	for _, path := range []string{filepath.Join(defaultProjectUser, "rules", "memory.md"), filepath.Join(defaultProjectUser, "memory-notes.md")} {
+		if isIgnoredEvent(fsnotify.Event{Name: path, Op: fsnotify.Write}, ".") {
+			t.Errorf("legitimate event ignored: %s", path)
+		}
+	}
+}
+
+func TestWatchSync_PersonalMemoryChangesDoNotResync(t *testing.T) {
+	for _, forcePoll := range []bool{false, true} {
+		t.Run(map[bool]string{false: "fsnotify", true: "poll"}[forcePoll], func(t *testing.T) {
+			dir := setupFixture(t)
+			testutil.Chdir(t, dir)
+			silence(t)
+			buf, stop := startWatch(t, []string{"claude"}, forcePoll)
+			defer stop()
+			memory := filepath.Join(dir, defaultProjectUser, "memory")
+			before := buf.String()
+			writeTestFile(t, filepath.Join(memory, "MEMORY.md"), "- [Prefers tabs](tabs.md): tabs\n")
+			writeTestFile(t, filepath.Join(memory, "tabs.md"), "The user indents with tabs.\n")
+			time.Sleep(300 * time.Millisecond)
+			writeAndBumpMtime(t, filepath.Join(memory, "MEMORY.md"), []byte("- [Prefers tabs](tabs.md): tabs, always\n"))
+			time.Sleep(300 * time.Millisecond)
+			if got := strings.TrimPrefix(buf.String(), before); strings.Contains(got, "re-sync") {
+				t.Errorf("personal memory triggered sync: %s", got)
+			}
+		})
+	}
+}
