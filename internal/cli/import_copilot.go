@@ -179,7 +179,8 @@ func normalizeCopilotHook(event string, native map[string]any) map[string]any {
 			command, _ = native["bash"].(string)
 		}
 		if windows, _ := native["powershell"].(string); windows != "" {
-			doc["commandWindows"] = windows
+			cwd, _ := native["cwd"].(string)
+			doc["commandWindows"] = copilot.ScriptFromCwd(windows, cwd)
 		}
 		// A wrapped command came from a portable hook; only that form
 		// syncs the wrapper back.

@@ -213,7 +213,7 @@ The script reads `tool_input.command` from the event JSON on stdin, with no `jq`
 
 Both tools start a hook in the session directory, which can be below the project root, so the path starts at the root. Claude Code keeps [`$CLAUDE_PROJECT_DIR`](#imported-project-root-paths). Codex gets `$(git rev-parse --show-toplevel)` in both commands, plus the project's path below the Git root.
 
-For Copilot, `commandWindows` becomes the `powershell` field and `command` becomes `bash`. Cursor and Gemini CLI have no Windows command field, so they ignore it.
+For Copilot, a hook with one plain command writes `commandWindows` as the `powershell` field and `command` as `bash`. A portable `on:` hook, `args`, or a command list keeps one `command`, with a coverage note. Cursor and Gemini CLI have no Windows command field, so they ignore it.
 
 On Windows, Codex runs `commandWindows` with `powershell.exe -Command`:
 

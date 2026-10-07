@@ -247,7 +247,7 @@ func UnwrapPortableCommand(command, cwd string) (options []string, inner string,
 func buildHooks(hooks []spec.Entry) *hooksDoc {
 	byEvent := map[string][]hookEntry{}
 	var eventOrder []string
-	var camelMatcherTraps, nonToolMatchers, unsupportedMatchers, invalidMatchers, execForm, promptWrongEvent int
+	var camelMatcherTraps, nonToolMatchers, unsupportedMatchers, invalidMatchers, execForm, promptWrongEvent, windowsUnused int
 
 	for _, h := range hooks {
 		event, _ := h.Meta["event"].(string)
@@ -289,6 +289,15 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 			// The target rides in `env`, which Copilot sets for the
 			// `bash` and `powershell` forms and for exec alike.
 			env := emit.WithHookTarget(emit.StringMap(resolved["env"]), target)
+			windows, _ := resolved["commandWindows"].(string)
+			// Only a plain single command splits into `bash` and
+			// `powershell`: the portable wrapper and the exec form have no
+			// Windows half, and a list would run the Windows command once
+			// per entry.
+			splits := windows != "" && len(commands) == 1 && !h.WrapsCommand(target) && len(args) == 0
+			if windows != "" && !splits {
+				windowsUnused++
+			}
 			for _, command := range commands {
 				entry := hookEntry{Type: kind, Matcher: matcher, TimeoutSec: timeout, Cwd: cwd, Env: env}
 				switch {
@@ -308,9 +317,9 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 				}
 				// Copilot copies `command` into both shells, so a spec's
 				// Windows command splits it into `bash` and `powershell`.
-				if windows, _ := resolved["commandWindows"].(string); windows != "" && entry.Command != "" {
+				if splits {
 					entry.Bash, entry.Command = entry.Command, ""
-					entry.Powershell = emit.RewriteWindowsHookRoot(emit.RewriteHookDirectories(windows, target), target)
+					entry.Powershell = ScriptForCwd(emit.RewriteWindowsHookRoot(emit.RewriteHookDirectories(windows, target), target), cwd)
 				}
 				byEvent[event] = append(byEvent[event], entry)
 			}
@@ -348,6 +357,8 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 		"Copilot skips a hook whose matcher is not a valid regular expression, so the hook never fires")
 	emit.NoteSurfaceGap(target, spec.KindHook, execForm, "Copilot cloud agent",
 		"`args` writes the exec form, which runs the executable directly with no shell and is Copilot CLI only; a cloud agent job reads the same .github/hooks file and honors `bash` or `command` entries only, so unset `args` for a hook that must run there")
+	emit.NoteFieldNoOp(target, spec.KindHook, "commandWindows", windowsUnused,
+		"Copilot gets a separate `powershell` command only for a hook with one plain command; a portable `on:` hook, `args`, or a command list keeps one `command` that Copilot runs in both shells")
 	emit.NoteFieldNoOp(target, spec.KindHook, "prompt", promptWrongEvent,
 		"Copilot supports prompt handlers only on sessionStart")
 	if len(eventOrder) == 0 {
