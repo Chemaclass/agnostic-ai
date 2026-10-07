@@ -22,7 +22,7 @@ func repoMemoryProject(t *testing.T, gitignore bool) string {
 	if out, err := exec.Command("git", "init", "-q").CombinedOutput(); err != nil {
 		t.Fatalf("git init: %v\n%s", err, out)
 	}
-	cfg := "version: 1\ntargets: [claude, codex, gemini, opencode, kilo]\nbuiltins: [memory]\n"
+	cfg := "version: 1\ntargets: [claude, codex, gemini, opencode, kilo, qoder]\nbuiltins: [memory]\n"
 	if gitignore {
 		cfg += "gitignore:\n  enabled: true\n"
 	}
@@ -82,10 +82,20 @@ func TestSync_RepoPersonalMemoryReachesEveryTarget(t *testing.T) {
 	if err := json.Unmarshal([]byte(readText(t, filepath.Join(".gemini", "settings.json"))), &gemini); err != nil || len(gemini.Context.IncludeDirectories) != 1 || gemini.Context.IncludeDirectories[0] != store {
 		t.Errorf("gemini includeDirectories = %v (%v)", gemini.Context.IncludeDirectories, err)
 	}
-	for _, file := range []string{"opencode.json", "kilo.jsonc"} {
-		if text := readText(t, file); !strings.Contains(text, `"`+store+`/MEMORY.md"`) || strings.Contains(text, ".agnostic-ai/local/memory") {
-			t.Errorf("%s instructions:\n%s", file, text)
-		}
+	if text := readText(t, "opencode.json"); !strings.Contains(text, `"`+store+`/MEMORY.md"`) || strings.Contains(text, ".agnostic-ai/local/memory") {
+		t.Errorf("opencode.json instructions:\n%s", text)
+	}
+	// Kilo drops project-declared files outside the root, so the store index stays out.
+	if text := readText(t, "kilo.jsonc"); strings.Contains(text, filepath.ToSlash(parent)) || !strings.Contains(text, `".agnostic-ai/memory/MEMORY.md"`) {
+		t.Errorf("kilo.jsonc instructions:\n%s", text)
+	}
+	var qoder struct {
+		Permissions struct {
+			AdditionalDirectories []string `json:"additionalDirectories"`
+		} `json:"permissions"`
+	}
+	if err := json.Unmarshal([]byte(readText(t, filepath.Join(".qoder", "settings.json"))), &qoder); err != nil || len(qoder.Permissions.AdditionalDirectories) != 1 || qoder.Permissions.AdditionalDirectories[0] != store {
+		t.Errorf("qoder additionalDirectories = %v (%v)", qoder.Permissions.AdditionalDirectories, err)
 	}
 	if err := runSync(t, "--check"); err != nil {
 		t.Errorf("sync --check after sync: %v", err)
@@ -100,7 +110,7 @@ func TestSync_RepoPersonalMemoryStaysOutOfCommittableFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, file := range []string{"CLAUDE.md", "opencode.json", "kilo.jsonc", filepath.Join(".gemini", "settings.json"), filepath.Join(".codex", "config.toml")} {
+	for _, file := range []string{"CLAUDE.md", "opencode.json", "kilo.jsonc", filepath.Join(".gemini", "settings.json"), filepath.Join(".codex", "config.toml"), filepath.Join(".qoder", "settings.json")} {
 		data, err := os.ReadFile(file)
 		if err != nil {
 			continue

@@ -2,8 +2,11 @@ package qoder
 
 import (
 	"fmt"
+	"path/filepath"
+	"slices"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -52,7 +55,7 @@ const mcpWebSocketGapReason = "WebSocket transport is not supported; Qoder's ws 
 // (#629).
 //
 // No file is written when MCP, hook, and settings inputs all render empty.
-func emitSettings(sess *emit.Session, mcps, hooks, settings []spec.Entry, path string, dryRun bool) error {
+func emitSettings(sess *emit.Session, cfg *config.Config, mcps, hooks, settings []spec.Entry, path string, dryRun bool) error {
 	keys := map[string]any{}
 	mcps = emit.DropMCPWebSocket(target, mcps, mcpWebSocketGapReason)
 	if servers := buildMCPMap(mcps); len(servers) > 0 {
@@ -80,6 +83,9 @@ func emitSettings(sess *emit.Session, mcps, hooks, settings []spec.Entry, path s
 	// `url` beside a `command` (#974).
 	emit.MergeSettingsCustomKeys(keys, settings, target, qoderMCPKey)
 	emit.MergeSettingsCustomRecordMap(keys, settings, target, qoderMCPKey)
+	if err := addMemoryDirectory(sess, keys, cfg, path, dryRun); err != nil {
+		return err
+	}
 	// Hook entries sync did not write stay; sync claims only its own,
 	// x-qoder hooks included, once they joined the block (#1858).
 	value, ok, err := sess.OwnedEventLists(path, qoderHooksKey, keys[qoderHooksKey], dryRun)
@@ -225,4 +231,36 @@ var mcpBuiltKeys = []string{
 // copies from `x-<target>` as written.
 func (Adapter) MCPLaunchView() emit.MCPLaunchView {
 	return emit.MCPLaunchView{Passthrough: emit.LaunchPassthrough(mcpBuiltKeys...)}
+}
+
+// addMemoryDirectory adds the repo store of personal memory to
+// permissions.additionalDirectories when it lies outside the checkout, so
+// Qoder approves the saves there instead of sending them to its
+// classifier. The user's own entries stay.
+func addMemoryDirectory(sess *emit.Session, keys map[string]any, cfg *config.Config, path string, dryRun bool) error {
+	if cfg == nil || !slices.Contains(cfg.Builtins, emit.MemoryBuiltin) || !emit.PersonalMemoryLeavesCheckout(cfg, path, target) {
+		return nil
+	}
+	dir, err := emit.PersonalMemoryDirFor(cfg, path, target)
+	if err != nil {
+		return err
+	}
+	if err := sess.CreateRepoMemoryStore(cfg, dir, dryRun); err != nil {
+		return err
+	}
+	permissions, _ := keys["permissions"].(map[string]any)
+	if permissions == nil {
+		permissions = map[string]any{}
+		keys["permissions"] = permissions
+	}
+	planned, _ := permissions["additionalDirectories"].([]any)
+	if slash := filepath.ToSlash(dir); !slices.Contains(planned, any(slash)) {
+		planned = append(planned, slash)
+	}
+	existing, _ := sess.ExistingJSONObject(path, "permissions", dryRun)["additionalDirectories"].([]any)
+	merged, claims := emit.MergeOwnedLists(path, []string{"permissions"},
+		map[string][]any{"additionalDirectories": existing},
+		map[string][]any{"additionalDirectories": planned})
+	permissions["additionalDirectories"] = emit.ClaimedJSONItems(merged["additionalDirectories"], claims["additionalDirectories"])
+	return nil
 }

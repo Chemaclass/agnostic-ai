@@ -91,6 +91,8 @@ This adapter never writes `.kilo/kilo.jsonc`. A hand-written one merges over the
 
 With `builtins: [memory]`, sync adds both [shared memory](@/docs/memory.md) indexes to `instructions`. While rules go into `AGENTS.md` (the default), your own entries stay, and dropping the built-in removes only those two. When sync lists rule files in `instructions`, it owns the whole list.
 
+With `memory.personal: repo`, the personal store lies outside the project root, and Kilo [ignores project-declared files there](https://github.com/Kilo-Org/kilocode/blob/v7.8.8/packages/opencode/src/session/instruction.ts). Sync writes only the shared index and prints a note. Add the store's `MEMORY.md` to `instructions` in `~/.config/kilo/kilo.jsonc` to load it. See [repo mode](@/docs/memory.md#one-store-per-repository).
+
 ## Import
 
 `agnostic-ai import kilo` reads `.kilocodeignore` and two fields from the root `kilo.jsonc`: the default `model` (into `settings/kilo.yaml`) and portable entries in the `permission` map (into `settings/permissions-kilo.yaml`). Keys with no portable spelling (`external_directory`, `lsp`, `doom_loop`, namespaced MCP keys) stay in the file.

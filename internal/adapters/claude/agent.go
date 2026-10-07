@@ -2,6 +2,7 @@ package claude
 
 import (
 	"path/filepath"
+	"regexp"
 	"slices"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -14,8 +15,20 @@ import (
 // shell commands.
 const readonlyDisallowedTools = "Write, Edit, NotebookEdit"
 
+// agentNameRule is what Claude Code's subagent docs say it skips: a name
+// that starts with "-" or contains ":", the separator of plugin-scoped
+// identifiers. The 256-character cap needs no check here, since a longer
+// name already exceeds the filename limit.
+var agentNameRule = emit.NameRule{
+	Pattern: regexp.MustCompile(`^[^-:][^:]*$`),
+	Rule:    `not start with "-" and not contain ":"; Claude Code skips such agents`,
+}
+
 // EmitAgents writes native agents for project or user-level sync.
 func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, dryRun bool) error {
+	if err := emit.ValidateNames(agents, target, "agent", agentNameRule); err != nil {
+		return err
+	}
 	for _, agent := range agents {
 		meta, keys := agentMeta(agent)
 		body := emit.WithHeader(emit.DocumentStyled(meta, keys, agent.MetaStyles, agent.Body, target), emit.FormatMarkdown)

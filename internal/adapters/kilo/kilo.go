@@ -309,6 +309,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err != nil {
 		return err
 	}
+	memory = withoutOutOfRootIndexes(memory)
 	return emitKiloJSONC(sess, b, rulesDir, skillsDir, memory, path, dryRun)
 }
 
@@ -632,4 +633,20 @@ func combineCommand(cmd string, meta map[string]any) []string {
 // `x-<target>` url, args, or type replaces the top-level one.
 func (Adapter) MCPLaunchView() emit.MCPLaunchView {
 	return emit.MCPLaunchView{Resolved: true}
+}
+
+// withoutOutOfRootIndexes drops the absolute repo-store index from list and
+// says so. Kilo reads no file outside the project root from a project
+// kilo.jsonc and drops it without a trace, so writing the entry would
+// only imply personal memory loads.
+func withoutOutOfRootIndexes(list []string) []string {
+	out := make([]string, 0, len(list))
+	for _, index := range list {
+		if !filepath.IsAbs(index) {
+			out = append(out, index)
+			continue
+		}
+		emit.NoteProject("kilo: " + index + " is not written to " + defaultMCPFile + ", since Kilo ignores project instruction files outside the project root; add it to instructions in ~/.config/kilo/kilo.jsonc to load personal memory")
+	}
+	return out
 }
