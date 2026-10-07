@@ -47,8 +47,9 @@ func mergeMemoryAllow(sess *emit.Session, keys map[string]any, path string, rule
 		// A rule an earlier sync wrote goes with its claim.
 		return
 	}
-	if emit.ClaimsWholeValue(path, permissionsKey, "allow") {
-		// The last sync wrote the whole list, so this one replaces it.
+	if sess.ClaimsUnchangedValue(path, dryRun, permissionsKey, "allow") {
+		// The last sync wrote the whole list and nobody edited it since,
+		// so this one replaces it.
 		if permissions == nil {
 			permissions = map[string]any{}
 			keys[permissionsKey] = permissions
@@ -61,7 +62,12 @@ func mergeMemoryAllow(sess *emit.Session, keys map[string]any, path string, rule
 	for i, rule := range rules {
 		planned[i] = rule
 	}
-	planned = emit.WithoutUserItems(path, []string{permissionsKey, "allow"}, existing, planned)
+	// A list the last sync wrote whole and the user edited since stays
+	// as it is, but the store rule in it is still sync's, so the item
+	// claim below takes over from the whole one.
+	if !emit.ClaimsWholeValue(path, permissionsKey, "allow") {
+		planned = emit.WithoutUserItems(path, []string{permissionsKey, "allow"}, existing, planned)
+	}
 	if len(planned) == 0 {
 		// The user already allows the store; the list stays theirs.
 		return

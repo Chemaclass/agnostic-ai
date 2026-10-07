@@ -215,6 +215,9 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 		if !nested[k] || !isObject || kind != claimWhole {
 			claim([]string{k}, kind, items, follows)
 		} else {
+			if _, release := keys[k].(releasedObject); release {
+				released = append(released, []string{k})
+			}
 			children := make(map[string]any, len(incoming))
 			for child, childValue := range incoming {
 				childValue, childKind, childItems, childFollows := mergeClaim(childValue)

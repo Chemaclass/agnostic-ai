@@ -5,6 +5,7 @@ import (
 	"os"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -126,6 +127,38 @@ func TestMergeJSONFileNested_KeepsTheObjectOrderOnDisk(t *testing.T) {
 		if !slices.Equal(child.Keys(), want) {
 			t.Errorf("%s keys = %v, want %v", key, child.Keys(), want)
 		}
+	}
+}
+
+func TestReleasedJSONObject_DropsTheWholeClaimOnceEdited(t *testing.T) {
+	testutil.TempCwd(t)
+	const path = "opencode.json"
+	if err := os.WriteFile(path, []byte(`{"permission":{"read":"allow","bash":"deny"}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	PriorMergedKeys = func(string) []MergedKey {
+		return []MergedKey{{Path: []string{"permission"}, Sum: jsonValueSum(json.RawMessage(`{"read":"allow"}`))}}
+	}
+	defer func() { PriorMergedKeys = nil }()
+	sess := NewSession()
+	if sess.ClaimsUnchangedValue(path, false, "permission") {
+		t.Error("an edited value counts as unchanged")
+	}
+	sess.StartDetailedRecording()
+	err := sess.MergeJSONFileNested(path, map[string]any{
+		"permission": ReleasedJSONObject(map[string]any{"external_directory": ClaimedJSONEntries(map[string]any{"s/**": "allow"}, []string{"s/**"})}),
+	}, []string{"permission"}, false)
+	writes := sess.StopDetailedRecording()
+	if err != nil {
+		t.Fatal(err)
+	}
+	released := slices.Clone(writes[0].Released)
+	slices.SortFunc(released, slices.Compare[[]string])
+	if want := [][]string{{"permission"}, {"permission", "external_directory"}}; !reflect.DeepEqual(released, want) {
+		t.Errorf("released = %v, want %v", released, want)
+	}
+	if text := readFileString(t, path); !strings.Contains(text, `"bash": "deny"`) || !strings.Contains(text, `"s/**": "allow"`) {
+		t.Errorf("file = %s", text)
 	}
 }
 

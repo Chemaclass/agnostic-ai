@@ -59,8 +59,9 @@ func mergeExternalDirectories(sess *emit.Session, keys map[string]any, settings 
 		// A store entry an earlier sync wrote goes with its claim.
 		return false, nil
 	}
-	if emit.ClaimsWholeValue(path, permissionKey) {
-		// The last sync wrote the whole map, so this one replaces it.
+	if sess.ClaimsUnchangedValue(path, dryRun, permissionKey) {
+		// The last sync wrote the whole map and nobody edited it since,
+		// so this one replaces it.
 		rules, err := withAllowed(emit.NewOrderedJSON(), patterns)
 		keys[permissionKey] = map[string]any{externalDirectoryKey: rules}
 		return false, err
@@ -76,6 +77,11 @@ func mergeExternalDirectories(sess *emit.Session, keys map[string]any, settings 
 		}
 	}
 	prior := emit.PriorClaimedEntries(path, keyPath)
+	if emit.ClaimsWholeValue(path, permissionKey) {
+		// The user edited a map the last sync wrote whole. The map stays
+		// theirs, but the store rules in it are still sync's.
+		prior = append(prior, patterns...)
+	}
 	for _, pattern := range prior {
 		if isAllow(rules, pattern) && !slices.Contains(patterns, pattern) {
 			rules.Delete(pattern)
@@ -99,7 +105,8 @@ func mergeExternalDirectories(sess *emit.Session, keys map[string]any, settings 
 		// catch-all key, which stays the user's and leads the object.
 		permission[catchAllPattern] = emit.CarriedJSONValue(action)
 	}
-	keys[permissionKey] = permission
+	// Sync owns only the entries it claims here, never the whole map.
+	keys[permissionKey] = emit.ReleasedJSONObject(permission)
 	return true, nil
 }
 
