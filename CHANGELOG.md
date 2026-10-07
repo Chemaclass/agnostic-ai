@@ -14,6 +14,16 @@ Entry style, section order, and what belongs here instead of the issue or the do
 - With `memory`, OpenCode and Kilo Code list both memory indexes in `instructions`, so each loads them at session start (#1845).
 - A built-in spec inlined into a shared instructions file names its source as `builtin:<name>` instead of a cache path (#1844).
 
+### By tool
+
+#### Augment
+
+- `hook run` reports `adds_context` for `SessionStart` stdout or `additionalContext`, which Augment injects (#1853).
+
+#### OpenHands
+
+- `hook run` no longer reports `adds_context` on `SessionStart`, which OpenHands only logs (#1853).
+
 ## v0.80.0 - 2026-10-06
 
 ### General
