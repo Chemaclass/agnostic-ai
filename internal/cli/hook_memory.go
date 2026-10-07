@@ -177,12 +177,9 @@ func memoryProjectRoot(target string) string {
 			return ""
 		}
 	}
-	global := ""
-	if source, err := globalSourceRoot(); err == nil {
-		global = canonicalDir(source)
-	}
+	isGlobal := globalRootMatcher()
 	for dir := canonicalDir(wd); ; {
-		if dir != global {
+		if !isGlobal(dir) {
 			if _, _, err := config.ResolveConfigPath(dir); err == nil {
 				return dir
 			}
@@ -198,10 +195,28 @@ func memoryProjectRoot(target string) string {
 		return ""
 	}
 	top = canonicalDir(strings.TrimSpace(top))
-	if top == global {
+	if isGlobal(top) {
 		return ""
 	}
 	return top
+}
+
+// globalRootMatcher returns a test for the global source root. It compares
+// files, not path strings, so symlinks and a different path case on a
+// case-insensitive filesystem still match, as refuseGlobalHome does.
+func globalRootMatcher() func(dir string) bool {
+	source, err := globalSourceRoot()
+	if err != nil {
+		return func(string) bool { return false }
+	}
+	root, err := os.Stat(source)
+	if err != nil {
+		return func(string) bool { return false }
+	}
+	return func(dir string) bool {
+		info, err := os.Stat(dir)
+		return err == nil && os.SameFile(info, root)
+	}
 }
 
 // canonicalDir resolves symlinks in dir, or returns it absolute when it

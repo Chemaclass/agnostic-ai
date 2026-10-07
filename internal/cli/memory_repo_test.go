@@ -501,3 +501,30 @@ func TestMemoryPath_NoConfigUsesTheCheckoutFolders(t *testing.T) {
 		t.Errorf("personal = %q", got["personal"])
 	}
 }
+
+// On a case-insensitive filesystem, a global root spelled with another
+// case is still the same folder as Git's top level.
+func TestMemoryProjectRoot_RejectsTheGlobalRootSpelledInAnotherCase(t *testing.T) {
+	real := filepath.Join(t.TempDir(), "Global-Home")
+	if err := os.MkdirAll(real, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	other := filepath.Join(filepath.Dir(real), "global-home")
+	a, errA := os.Stat(real)
+	b, errB := os.Stat(other)
+	if errA != nil || errB != nil || !os.SameFile(a, b) {
+		t.Skip("the temp filesystem is case-sensitive")
+	}
+	t.Setenv("AGNOSTIC_AI_HOME", other)
+	if out, err := exec.Command("git", "-C", real, "init", "-q").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, out)
+	}
+	writeFile(t, filepath.Join(real, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(real, "sub", "keep"), "")
+	for _, dir := range []string{real, filepath.Join(real, "sub")} {
+		testutil.Chdir(t, dir)
+		if out, err := runRoot(t, "memory", "path"); err == nil {
+			t.Errorf("memory path treated the global root as a project from %s:\n%s", dir, out)
+		}
+	}
+}
