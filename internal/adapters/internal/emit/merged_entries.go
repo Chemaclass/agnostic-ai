@@ -53,7 +53,7 @@ func priorClaim(prior []MergedKey, keyPath []string) (MergedKey, bool) {
 // claim on keyPath recorded.
 func unchangedSince(prior []MergedKey, keyPath []string, raw json.RawMessage) bool {
 	claim, ok := priorClaim(prior, keyPath)
-	return ok && claim.Items == nil && claim.Sum != "" && jsonValueSum(raw) == claim.Sum
+	return ok && claim.Items == nil && unchangedFrom(claim, raw)
 }
 
 // mergeJSONEntries returns the object at key in doc with entries merged
@@ -166,7 +166,7 @@ func (s *Session) dropStaleClaims(path string, doc *OrderedJSON, settled, overla
 			editJSONPath(doc, claim.Path, func(raw json.RawMessage) (any, bool, bool) {
 				return withoutItems(raw, claim.Items)
 			})
-		case claim.Sum != "" && jsonValueSum(raw) == claim.Sum:
+		case unchangedFrom(claim, raw):
 			editJSONPath(doc, claim.Path, func(json.RawMessage) (any, bool, bool) { return nil, false, true })
 		case claim.Within != nil:
 			editJSONPath(doc, claim.Path, func(raw json.RawMessage) (any, bool, bool) {

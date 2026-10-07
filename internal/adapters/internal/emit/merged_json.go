@@ -1,6 +1,7 @@
 package emit
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -13,6 +14,10 @@ type MergedKey struct {
 	// Sum fingerprints the value sync wrote, so a value the user edited
 	// since stays when the file is released.
 	Sum string `json:"sum,omitempty"`
+	// Order fingerprints the same value with its key order, which Sum
+	// ignores. Some tools apply the last matching key, so a reordered
+	// value is an edit. A claim an older version wrote has none.
+	Order string `json:"order,omitempty"`
 	// Items names sync's entries in a list it shares with the user, by
 	// content sum once written, so the ledger holds no rule text.
 	// Releasing the file takes out only these.
@@ -267,6 +272,9 @@ func withValueSums(content string, keys []MergedKey) []MergedKey {
 			key.Items = itemSums(key.Items)
 		} else if raw, found := jsonValueAt(doc, key.Path); found {
 			key.Sum = jsonValueSum(raw)
+			if bytes.ContainsRune(raw, '{') {
+				key.Order = jsonOrderSum(raw)
+			}
 		}
 		if key.Within != nil {
 			key.Within = itemSums(key.Within)
@@ -292,6 +300,23 @@ func jsonValueSum(raw json.RawMessage) string {
 		return ContentSum(string(raw))
 	}
 	return canonicalValueSum(value, string(raw))
+}
+
+// jsonOrderSum fingerprints a JSON value regardless of its formatting,
+// keeping its key order.
+func jsonOrderSum(raw json.RawMessage) string {
+	var compact bytes.Buffer
+	if err := json.Compact(&compact, raw); err != nil {
+		return ContentSum(string(raw))
+	}
+	return ContentSum(compact.String())
+}
+
+// unchangedFrom reports whether raw still holds the value claim
+// fingerprinted, key order included when the claim recorded it.
+func unchangedFrom(claim MergedKey, raw json.RawMessage) bool {
+	return claim.Sum != "" && jsonValueSum(raw) == claim.Sum &&
+		(claim.Order == "" || jsonOrderSum(raw) == claim.Order)
 }
 
 // canonicalValueSum fingerprints a decoded value as canonical JSON, so
@@ -353,7 +378,7 @@ func (s *Session) ReleaseMergedJSON(path string, keys []MergedKey, created, forc
 			changed = editJSONPath(doc, key.Path, func(raw json.RawMessage) (any, bool, bool) {
 				return withoutItems(raw, key.Items)
 			}) || changed
-		case !force && key.Sum != "" && jsonValueSum(raw) != key.Sum:
+		case !force && key.Sum != "" && !unchangedFrom(key, raw):
 			edited = append(edited, key)
 			if key.Within != nil {
 				changed = editJSONPath(doc, key.Path, func(raw json.RawMessage) (any, bool, bool) {
