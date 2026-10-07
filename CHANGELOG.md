@@ -21,6 +21,11 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### By tool
 
+#### Claude Code
+
+- With the `memory` built-in, sync points Claude's auto memory at the shared personal store via `autoMemoryDirectory` (#1846).
+- Sync fails on an agent name that starts with `-` or contains `:`, which Claude Code skips; rename the spec (#1870).
+
 #### Copilot
 
 - A hook's `commandWindows` writes Copilot's `powershell` field, with `command` as `bash`; the memory hook runs on Windows without `sh` (#1856).
@@ -29,13 +34,17 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - `hook run` reports `adds_context` for `SessionStart` stdout or `additionalContext`, which Augment injects (#1853).
 
-#### Claude Code
-
-- With the `memory` built-in, sync points Claude's auto memory at the shared personal store via `autoMemoryDirectory` (#1846).
-
 #### OpenHands
 
 - `hook run` no longer reports `adds_context` on `SessionStart`, which OpenHands only logs (#1853).
+
+#### Kilo Code
+
+- With `memory.personal: repo`, `kilo.jsonc` no longer lists the store index, which Kilo ignores outside the project root; sync notes it (#1871).
+
+#### Qoder
+
+- With `memory.personal: repo`, the store joins `permissions.additionalDirectories`, so Qoder saves memory there without a prompt (#1872).
 
 ## v0.80.0 - 2026-10-06
 

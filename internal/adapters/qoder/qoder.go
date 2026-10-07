@@ -134,7 +134,9 @@
 // Other handler types produce a coverage note. Import does not recover hooks.
 // Settings specs join that write: `model` maps to `model.name`, while
 // allow, deny, and ask permission lists map directly. Native sibling
-// fields inside both objects are preserved.
+// fields inside both objects are preserved. With memory.personal: repo
+// and a gitignored settings file, the repo store joins
+// permissions.additionalDirectories, which Qoder approves writes in.
 package qoder
 
 import (
@@ -215,7 +217,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitCommands(sess, b.Commands, commandsDir, dryRun); err != nil {
 		return err
 	}
-	return emitSettings(sess, b.MCPs, b.Hooks, b.Settings, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	return emitSettings(sess, cfg, b.MCPs, b.Hooks, b.Settings, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
 // EmitAgents writes one `<dir>/<name>.md` per agent spec.
