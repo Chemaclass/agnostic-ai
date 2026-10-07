@@ -408,11 +408,12 @@ func hasNativePermission(e spec.Entry) bool {
 // every source is empty.
 func emitKiloJSONC(sess *emit.Session, b spec.Bundle, rulesDir, skillsDir string, memory []string, path string, dryRun bool) error {
 	keys := map[string]any{}
-	carriedInstructions, memoryOnly := false, false
+	carriedInstructions, memoryOnly, memoryCleaned := false, false, false
 	var addedMemory []string
+	existing := sess.ExistingStrings(path, "instructions", dryRun)
 	if instructions := ruleInstructions(b.Rules, rulesDir); len(instructions) > 0 {
 		keys["instructions"] = append(instructions, memory...)
-	} else if kept, stale := withoutInlinedRules(sess.ExistingStrings(path, "instructions", dryRun), sess.InlinedRules(), rulesDir); stale && len(memory) == 0 {
+	} else if kept, stale := withoutInlinedRules(existing, sess.InlinedRules(), rulesDir); stale && len(memory) == 0 {
 		keys["instructions"] = kept
 		carriedInstructions = true
 	} else if len(memory) > 0 {
@@ -426,7 +427,7 @@ func emitKiloJSONC(sess *emit.Session, b spec.Bundle, rulesDir, skillsDir string
 			}
 		}
 		keys["instructions"] = list
-		memoryOnly = true
+		memoryOnly, memoryCleaned = true, stale
 	}
 	if servers := buildMCPMap(b.MCPs); len(servers) > 0 {
 		keys["mcp"] = servers
@@ -459,6 +460,10 @@ func emitKiloJSONC(sess *emit.Session, b spec.Bundle, rulesDir, skillsDir string
 	// paths ride along beside the one sync adds.
 	if carriedInstructions {
 		keys["instructions"] = emit.CarriedJSONValue(keys["instructions"])
+	} else if memoryCleaned {
+		// Rules moved into AGENTS.md: the claim on the old list moves to
+		// the cleaned one, as for carried instructions.
+		keys["instructions"] = emit.CleanedJSONValue(existing, keys["instructions"])
 	} else if memoryOnly {
 		keys["instructions"] = emit.ClaimedJSONItems(keys["instructions"], addedMemory)
 	}

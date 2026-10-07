@@ -55,3 +55,18 @@ func TestEmit_NoMemoryInstructionsWithoutTheBuiltin(t *testing.T) {
 		t.Errorf("opencode.json written without the built-in: %v", err)
 	}
 }
+
+func TestEmit_KeepsSettingsInstructionsBesideTheMemoryIndexes(t *testing.T) {
+	testutil.TempCwd(t)
+	settings := spec.Entry{Kind: spec.KindSettings, Name: "s", Meta: map[string]any{"x-opencode": map[string]any{"instructions": []any{"docs/custom.md"}}}}
+
+	if err := New().Emit(emit.NewSession(), spec.Bundle{Settings: []spec.Entry{settings}}, &config.Config{Builtins: []string{"memory"}}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readInstructions(t)
+	for _, want := range []string{"docs/custom.md", ".agnostic-ai/local/memory/MEMORY.md", ".agnostic-ai/memory/MEMORY.md"} {
+		if !slices.Contains(got, want) {
+			t.Errorf("instructions = %v, missing %s", got, want)
+		}
+	}
+}

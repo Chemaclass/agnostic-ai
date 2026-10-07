@@ -223,10 +223,19 @@ func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, memory [
 	if len(permissions) > 0 {
 		keys[permissionKey] = permissions
 	}
+	emit.MergeSettingsCustomKeys(keys, settings, target, permissionKey)
 	if len(memory) > 0 {
-		// The merge replaces the whole array, so the user's entries ride
-		// along and sync claims only the indexes it adds.
+		// The merge replaces the whole array, so the user's entries and
+		// any x-opencode instructions ride along, and sync claims only
+		// the indexes it adds. Ownership wraps last, after that merge.
 		list := sess.ExistingStrings(path, "instructions", dryRun)
+		if custom, ok := keys["instructions"].([]any); ok {
+			for _, v := range custom {
+				if s, ok := v.(string); ok && !slices.Contains(list, s) {
+					list = append(list, s)
+				}
+			}
+		}
 		var added []string
 		for _, index := range memory {
 			if !slices.Contains(list, index) {
@@ -236,7 +245,6 @@ func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, memory [
 		}
 		keys["instructions"] = emit.ClaimedJSONItems(list, added)
 	}
-	emit.MergeSettingsCustomKeys(keys, settings, target, permissionKey)
 	emit.MergeEntriesOf(keys, "mcp")
 	return sess.MergeJSONFile(path, keys, dryRun)
 }

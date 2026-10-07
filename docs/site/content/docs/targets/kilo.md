@@ -90,7 +90,7 @@ This adapter never writes `.kilo/kilo.jsonc`. A hand-written one merges over the
 | `outputs.kilo.mcp-file` | `kilo.jsonc` | |
 | `outputs.kilo.ignore-file` | `.kilocodeignore` | |
 
-With `builtins: [memory]`, sync adds both [shared memory](@/docs/memory.md) indexes to `instructions` and keeps your own entries. Dropping the built-in removes only those two.
+With `builtins: [memory]`, sync adds both [shared memory](@/docs/memory.md) indexes to `instructions`. While rules inline into AGENTS.md (the default), your own entries stay and dropping the built-in removes only those two. When sync lists rule files in `instructions`, it owns the whole list.
 
 ## Import
 

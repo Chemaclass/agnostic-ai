@@ -189,6 +189,20 @@ func TestBuiltinMemory(t *testing.T) {
 		})
 	}
 
+	t.Run("kilo-gives-the-indexes-back-after-rules-move-into-agents-md", func(t *testing.T) {
+		dir := project(t, []byte("version: 1\ntargets: [kilo]\nbuiltins: [memory]\nsync:\n  unmanaged: [AGENTS.md]\n"))
+		run(t, dir, "sync", "--gitignore=off")
+		for _, config := range []string{"version: 1\ntargets: [kilo]\nbuiltins: [memory]\n", "version: 1\ntargets: [kilo]\n"} {
+			if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(config), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			run(t, dir, "sync", "--gitignore=off")
+		}
+		if data, _ := os.ReadFile(filepath.Join(dir, "kilo.jsonc")); strings.Contains(string(data), "MEMORY.md") {
+			t.Errorf("memory indexes stuck in kilo.jsonc:\n%s", data)
+		}
+	})
+
 	t.Run("every-target-syncs", func(t *testing.T) {
 		config := "version: 1\nbuiltins: [memory]\ntargets: [" + strings.Join(adapters.Names(), ", ") + "]\n"
 		dir := project(t, []byte(config))
