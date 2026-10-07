@@ -158,6 +158,109 @@ func TestSync_OpenCodeLocalSettingsLayerKeepsTheSharedOrder(t *testing.T) {
 	}
 }
 
+// A spec's permissions with the store rule beside them stay the same
+// across syncs, and leaving repo mode takes out the store rule alone.
+func TestSync_SpecPermissionsWithTheStoreRuleStayStable(t *testing.T) {
+	for _, tc := range []struct{ target, file, kept string }{
+		{"opencode", "opencode.json", `"src/**": "allow"`},
+		{"windsurf", filepath.Join(".devin", "config.json"), `"Read(src/**)"`},
+	} {
+		t.Run(tc.target, func(t *testing.T) {
+			parent := repoMemoryProject(t, true)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n")
+			writeFile(t, ".agnostic-ai/settings/policy.yaml", "permissions:\n  allow: [Read, Read(src/**)]\n")
+			if err := runSync(t); err != nil {
+				t.Fatal(err)
+			}
+			first := readText(t, tc.file)
+			if !strings.Contains(first, tc.kept) || !strings.Contains(first, filepath.ToSlash(parent)) {
+				t.Errorf("first sync:\n%s", first)
+			}
+			if err := runSync(t); err != nil {
+				t.Fatal(err)
+			}
+			if second := readText(t, tc.file); second != first {
+				t.Errorf("second sync changed the file:\n%s\nwant:\n%s", second, first)
+			}
+			if err := runSync(t, "--check"); err != nil {
+				t.Errorf("sync --check: %v", err)
+			}
+			writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: checkout\n")
+			if err := runSync(t); err != nil {
+				t.Fatal(err)
+			}
+			if text := readText(t, tc.file); !strings.Contains(text, tc.kept) || strings.Contains(text, filepath.ToSlash(parent)) {
+				t.Errorf("after leaving repo mode:\n%s", text)
+			}
+			if err := runSync(t, "--check"); err != nil {
+				t.Errorf("sync --check after leaving repo mode: %v", err)
+			}
+		})
+	}
+}
+
+// Retiring a spec whose map the user only reordered behaves as it does
+// without repo memory, plus the store rule: the value sum ignores key
+// order, so the map counts as sync's and goes either way.
+func TestSync_OpenCodeRetiredSpecAfterAnOrderOnlyEdit(t *testing.T) {
+	retire := func(t *testing.T, repo bool) map[string]any {
+		t.Helper()
+		repoMemoryProject(t, true)
+		if !repo {
+			writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: checkout\n")
+		}
+		writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [opencode]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n")
+		writeFile(t, ".agnostic-ai/settings/policy.yaml", "x-opencode:\n  permission:\n    external_directory:\n      /tmp/a/**: allow\n      \"*\": deny\n")
+		if err := runSync(t); err != nil {
+			t.Fatal(err)
+		}
+		before := externalDirectoryOrder(t)
+		// Go maps encode sorted, so the round trip moves "*" ahead of
+		// /tmp/a/** and changes nothing else.
+		editJSON(t, "opencode.json", func(map[string]any) {})
+		if after := externalDirectoryOrder(t); slices.Equal(after, before) || after[0] != "*" {
+			t.Fatalf("the edit did not reorder: %v -> %v", before, after)
+		}
+		if err := os.Remove(".agnostic-ai/settings/policy.yaml"); err != nil {
+			t.Fatal(err)
+		}
+		for range 2 {
+			if err := runSync(t); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := runSync(t, "--check"); err != nil {
+			t.Errorf("sync --check: %v", err)
+		}
+		var doc map[string]any
+		if err := json.Unmarshal([]byte(readText(t, "opencode.json")), &doc); err != nil {
+			t.Fatal(err)
+		}
+		permission, _ := doc["permission"].(map[string]any)
+		return permission
+	}
+	var without map[string]any
+	t.Run("checkout", func(t *testing.T) { without = retire(t, false) })
+	t.Run("repo", func(t *testing.T) {
+		with := retire(t, true)
+		directories, _ := with["external_directory"].(map[string]any)
+		if len(directories) != 1 {
+			t.Errorf("want the store rule alone, got %v", with)
+		}
+		delete(with, "external_directory")
+		if len(with) != len(without) {
+			t.Errorf("repo mode left %v beside the store rule; without it sync left %v", with, without)
+		}
+		writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: checkout\n")
+		if err := runSync(t); err != nil {
+			t.Fatal(err)
+		}
+		if text := readText(t, "opencode.json"); strings.Contains(text, `"permission"`) {
+			t.Errorf("the store rule stayed after repo mode:\n%s", text)
+		}
+	})
+}
+
 // editJSON decodes the JSON file at path, lets edit change it, and
 // writes it back.
 func editJSON(t *testing.T, path string, edit func(doc map[string]any)) {

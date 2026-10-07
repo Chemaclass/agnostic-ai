@@ -47,24 +47,19 @@ func mergeMemoryAllow(sess *emit.Session, keys map[string]any, path string, rule
 		// A rule an earlier sync wrote goes with its claim.
 		return
 	}
-	if sess.ClaimsUnchangedValue(path, dryRun, permissionsKey, "allow") {
-		// The last sync wrote the whole list and nobody edited it since,
-		// so this one replaces it.
-		if permissions == nil {
-			permissions = map[string]any{}
-			keys[permissionsKey] = permissions
-		}
-		permissions["allow"] = slices.Clone(rules)
-		return
+	// A list the last sync wrote whole from a spec that is gone now goes
+	// while nobody has edited it, as a stale claim's release would take
+	// it, and stays as the user's once edited. Either way the store rule
+	// in it was sync's, and the item claim below takes over from the
+	// whole one.
+	var existing []any
+	if !sess.ClaimsUnchangedValue(path, dryRun, permissionsKey, "allow") {
+		existing, _ = sess.ExistingJSONObject(path, permissionsKey, dryRun)["allow"].([]any)
 	}
-	existing, _ := sess.ExistingJSONObject(path, permissionsKey, dryRun)["allow"].([]any)
 	planned := make([]any, len(rules))
 	for i, rule := range rules {
 		planned[i] = rule
 	}
-	// A list the last sync wrote whole and the user edited since stays
-	// as it is, but the store rule in it is still sync's, so the item
-	// claim below takes over from the whole one.
 	if !emit.ClaimsWholeValue(path, permissionsKey, "allow") {
 		planned = emit.WithoutUserItems(path, []string{permissionsKey, "allow"}, existing, planned)
 	}

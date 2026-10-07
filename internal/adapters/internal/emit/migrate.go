@@ -215,8 +215,15 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 		if !nested[k] || !isObject || kind != claimWhole {
 			claim([]string{k}, kind, items, follows)
 		} else {
-			if _, release := keys[k].(releasedObject); release {
+			// A value an earlier sync wrote whole now merges child by
+			// child, so the claims move to the children. The old value
+			// goes first while nobody has edited it, as it would if no
+			// spec wrote the key any more; an edited one stays.
+			if prior, ok := priorClaim(priorMergedKeys(path), []string{k}); ok && prior.Items == nil {
 				released = append(released, []string{k})
+				if raw, found := doc.Get(k); found && unchangedSince(priorMergedKeys(path), []string{k}, raw) {
+					doc.Delete(k)
+				}
 			}
 			children := make(map[string]any, len(incoming))
 			for child, childValue := range incoming {

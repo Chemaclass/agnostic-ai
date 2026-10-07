@@ -130,35 +130,49 @@ func TestMergeJSONFileNested_KeepsTheObjectOrderOnDisk(t *testing.T) {
 	}
 }
 
-func TestReleasedJSONObject_DropsTheWholeClaimOnceEdited(t *testing.T) {
-	testutil.TempCwd(t)
-	const path = "opencode.json"
-	if err := os.WriteFile(path, []byte(`{"permission":{"read":"allow","bash":"deny"}}`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	PriorMergedKeys = func(string) []MergedKey {
-		return []MergedKey{{Path: []string{"permission"}, Sum: jsonValueSum(json.RawMessage(`{"read":"allow"}`))}}
-	}
-	defer func() { PriorMergedKeys = nil }()
-	sess := NewSession()
-	if sess.ClaimsUnchangedValue(path, false, "permission") {
-		t.Error("an edited value counts as unchanged")
-	}
-	sess.StartDetailedRecording()
-	err := sess.MergeJSONFileNested(path, map[string]any{
-		"permission": ReleasedJSONObject(map[string]any{"external_directory": ClaimedJSONEntries(map[string]any{"s/**": "allow"}, []string{"s/**"})}),
-	}, []string{"permission"}, false)
-	writes := sess.StopDetailedRecording()
-	if err != nil {
-		t.Fatal(err)
-	}
-	released := slices.Clone(writes[0].Released)
-	slices.SortFunc(released, slices.Compare[[]string])
-	if want := [][]string{{"permission"}, {"permission", "external_directory"}}; !reflect.DeepEqual(released, want) {
-		t.Errorf("released = %v, want %v", released, want)
-	}
-	if text := readFileString(t, path); !strings.Contains(text, `"bash": "deny"`) || !strings.Contains(text, `"s/**": "allow"`) {
-		t.Errorf("file = %s", text)
+// A key an earlier sync claimed whole that now merges child by child
+// loses the whole claim. Its old value goes first while unchanged, as a
+// stale claim's release would take it, and stays once edited.
+func TestMergeJSONFileNested_MovesAWholeClaimToTheChildren(t *testing.T) {
+	for _, tc := range []struct {
+		name, onDisk string
+		kept         bool
+	}{
+		{"edited", `{"permission":{"read":"allow","bash":"deny"}}`, true},
+		{"unchanged", `{"permission":{"read":"allow"}}`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			testutil.TempCwd(t)
+			const path = "opencode.json"
+			if err := os.WriteFile(path, []byte(tc.onDisk), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			PriorMergedKeys = func(string) []MergedKey {
+				return []MergedKey{{Path: []string{"permission"}, Sum: jsonValueSum(json.RawMessage(`{"read":"allow"}`))}}
+			}
+			defer func() { PriorMergedKeys = nil }()
+			sess := NewSession()
+			if got := sess.ClaimsUnchangedValue(path, false, "permission"); got == tc.kept {
+				t.Errorf("ClaimsUnchangedValue = %v", got)
+			}
+			sess.StartDetailedRecording()
+			err := sess.MergeJSONFileNested(path, map[string]any{
+				"permission": map[string]any{"external_directory": ClaimedJSONEntries(map[string]any{"s/**": "allow"}, []string{"s/**"})},
+			}, []string{"permission"}, false)
+			writes := sess.StopDetailedRecording()
+			if err != nil {
+				t.Fatal(err)
+			}
+			released := slices.Clone(writes[0].Released)
+			slices.SortFunc(released, slices.Compare[[]string])
+			if want := [][]string{{"permission"}, {"permission", "external_directory"}}; !reflect.DeepEqual(released, want) {
+				t.Errorf("released = %v, want %v", released, want)
+			}
+			text := readFileString(t, path)
+			if strings.Contains(text, `"read": "allow"`) != tc.kept || !strings.Contains(text, `"s/**": "allow"`) {
+				t.Errorf("file = %s", text)
+			}
+		})
 	}
 }
 

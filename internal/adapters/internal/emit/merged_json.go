@@ -116,18 +116,6 @@ func ClaimedJSONEntries(value any, entries []string) any {
 	return claimedEntries{value: value, entries: slices.Clone(entries)}
 }
 
-// releasedObject is an object merge value whose own claim goes.
-type releasedObject struct{ value map[string]any }
-
-// ReleasedJSONObject, as a key's value in a merge that goes one level
-// into the key, merges value's children and drops any claim an earlier
-// sync made on the key as a whole: from now on sync owns only what the
-// children claim. Use it once the user has edited a value sync wrote
-// whole, so a later release does not treat their edit as sync's.
-func ReleasedJSONObject(value map[string]any) any {
-	return releasedObject{value: value}
-}
-
 // ClaimsUnchangedValue reports whether the last sync claimed the whole
 // value at keyPath in the merged file at path and the file still holds
 // exactly that value, the test a stale claim's release uses.
@@ -192,8 +180,6 @@ func mergeClaimOf(value any) (unwrapped any, kind mergeClaimKind, items []string
 		return v.value, claimItems, v.items
 	case claimedEntries:
 		return v.value, claimEntries, v.entries
-	case releasedObject:
-		return v.value, claimWhole, nil
 	}
 	return value, claimWhole, nil
 }

@@ -59,18 +59,17 @@ func mergeExternalDirectories(sess *emit.Session, keys map[string]any, settings 
 		// A store entry an earlier sync wrote goes with its claim.
 		return false, nil
 	}
-	if sess.ClaimsUnchangedValue(path, dryRun, permissionKey) {
-		// The last sync wrote the whole map and nobody edited it since,
-		// so this one replaces it.
-		rules, err := withAllowed(emit.NewOrderedJSON(), patterns)
-		keys[permissionKey] = map[string]any{externalDirectoryKey: rules}
-		return false, err
-	}
 	keyPath := []string{permissionKey, externalDirectoryKey}
-	rules := sess.ExistingObjectAt(path, keyPath, dryRun)
-	if rules == nil {
-		rules = emit.NewOrderedJSON()
-		if action, ok := sess.ExistingJSONObject(path, permissionKey, dryRun)[externalDirectoryKey].(string); ok {
+	// A map the last sync wrote whole from a spec that is gone now goes
+	// in this write while nobody has edited it (the nested merge drops
+	// it), and stays as the user's once edited. Either way the store
+	// rules in it were sync's.
+	retired := sess.ClaimsUnchangedValue(path, dryRun, permissionKey)
+	rules := emit.NewOrderedJSON()
+	if !retired {
+		if existing := sess.ExistingObjectAt(path, keyPath, dryRun); existing != nil {
+			rules = existing
+		} else if action, ok := sess.ExistingJSONObject(path, permissionKey, dryRun)[externalDirectoryKey].(string); ok {
 			if err := rules.Set(catchAllPattern, action); err != nil {
 				return false, err
 			}
@@ -78,8 +77,6 @@ func mergeExternalDirectories(sess *emit.Session, keys map[string]any, settings 
 	}
 	prior := emit.PriorClaimedEntries(path, keyPath)
 	if emit.ClaimsWholeValue(path, permissionKey) {
-		// The user edited a map the last sync wrote whole. The map stays
-		// theirs, but the store rules in it are still sync's.
 		prior = append(prior, patterns...)
 	}
 	for _, pattern := range prior {
@@ -105,8 +102,7 @@ func mergeExternalDirectories(sess *emit.Session, keys map[string]any, settings 
 		// catch-all key, which stays the user's and leads the object.
 		permission[catchAllPattern] = emit.CarriedJSONValue(action)
 	}
-	// Sync owns only the entries it claims here, never the whole map.
-	keys[permissionKey] = emit.ReleasedJSONObject(permission)
+	keys[permissionKey] = permission
 	return true, nil
 }
 
