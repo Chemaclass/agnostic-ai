@@ -21,10 +21,8 @@ func TestSync_RuleSyncDroppedIsTheUsersWhenReadded(t *testing.T) {
 	rule := before["permissions"].(map[string]any)["deny"].([]any)[0]
 	mustWriteFile(t, ".agnostic-ai/settings/perms.yaml", "permissions:\n  allow: [\"Bash(ls)\"]\n")
 	runSyncOK(t)
-	doc := readJSONMap(t, file)
-	perms := doc["permissions"].(map[string]any)
-	perms["deny"] = []any{rule}
-	writeJSONFile(t, file, doc)
+	// With no rule left, the file sync created left too; the user writes it back.
+	writeJSONFile(t, file, map[string]any{"permissions": map[string]any{"allow": []any{}, "deny": []any{rule}}})
 	runSyncOK(t)
 	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
 	runSyncOK(t)

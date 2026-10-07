@@ -174,3 +174,35 @@ func TestWithoutStalePersonalIndexes_DropsAnIndexWrittenThroughALink(t *testing.
 		t.Errorf("list = %v, want the linked path dropped", got)
 	}
 }
+
+// A home sync has yet to create resolves through its existing parent, so
+// the path it names does not change once the folder exists.
+func TestPersonalMemoryDir_KeepsOnePathForAHomeNotYetCreated(t *testing.T) {
+	real, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(t.TempDir(), "parent-link")
+	if err := os.Symlink(real, link); err != nil {
+		t.Skip("symlinks unavailable:", err)
+	}
+	t.Setenv("AGNOSTIC_AI_HOME", filepath.Join(link, "home"))
+	repo := filepath.Join(t.TempDir(), "proj")
+	gitIn(t, filepath.Dir(repo), "init", "-q", "proj")
+	cfg := &config.Config{Memory: config.MemoryConfig{Personal: config.PersonalMemoryRepo}}
+
+	before, err := PersonalMemoryDir(cfg, repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(before, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	after, err := PersonalMemoryDir(cfg, repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before != after || !strings.HasPrefix(before, filepath.Join(real, "home")) {
+		t.Errorf("store before %s, after %s, want both under %s", before, after, filepath.Join(real, "home"))
+	}
+}

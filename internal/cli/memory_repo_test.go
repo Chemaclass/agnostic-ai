@@ -581,6 +581,10 @@ func TestSync_CursorCLIConfigHasBothListsAndLeavesWithRepoMode(t *testing.T) {
 	if _, ok := doc.Permissions["deny"]; !ok || len(doc.Permissions["allow"]) != 1 {
 		t.Errorf("permissions = %v, want the Write rule and a deny list", doc.Permissions)
 	}
+	// A second sync finds the empty list on disk and keeps claiming it.
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
 	writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: checkout\n")
 	if err := runSync(t); err != nil {
 		t.Fatal(err)

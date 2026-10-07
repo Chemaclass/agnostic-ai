@@ -79,8 +79,10 @@ func repoMemoryStores() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if resolved, err := filepath.EvalSymlinks(home); err == nil {
-		home = resolved
+	// A home that does not exist yet resolves through its existing
+	// parent, so the path stays the same once sync creates it.
+	if abs, err := filepath.Abs(home); err == nil {
+		home = realPath(abs)
 	}
 	return filepath.Join(home, "local", "memory"), nil
 }
