@@ -511,6 +511,74 @@ func TestSync_RetiringASpecAndTheMemoryBuiltinTogetherDropsTheStoreRule(t *testi
 	}
 }
 
+// permissionSection returns the permission object of a target's config
+// file as JSON, leaving out keys such as `instructions`.
+func permissionSection(t *testing.T, file string) string {
+	t.Helper()
+	var doc map[string]any
+	if err := json.Unmarshal([]byte(readText(t, file)), &doc); err != nil {
+		t.Fatal(err)
+	}
+	section := doc["permission"]
+	if section == nil {
+		section = doc["permissions"]
+	}
+	data, err := json.Marshal(section)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
+}
+
+// Retiring the spec while the store moves takes the old store rule out of
+// the edited value, adds the new one, and leaving repo mode later takes
+// that out too. The user's rule stays throughout.
+func TestSync_RetiringASpecWhileTheStoreMovesDropsTheOldStoreRule(t *testing.T) {
+	for _, tc := range storeRuleCases {
+		t.Run(tc.target, func(t *testing.T) {
+			oldParent := repoMemoryProject(t, true)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n")
+			writeFile(t, ".agnostic-ai/settings/policy.yaml", "permissions:\n  allow: [Read, Read(src/**)]\n")
+			if err := runSync(t); err != nil {
+				t.Fatal(err)
+			}
+			oldStore := repoStore(t, oldParent, readText(t, tc.file))
+			mine := "/tmp/mine/**"
+			editJSON(t, tc.file, func(doc map[string]any) { tc.addRule(doc, mine) })
+			if err := os.Remove(".agnostic-ai/settings/policy.yaml"); err != nil {
+				t.Fatal(err)
+			}
+			home, err := filepath.EvalSymlinks(t.TempDir())
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("AGNOSTIC_AI_HOME", home)
+			newParent := filepath.Join(home, "local", "memory")
+			for _, when := range []string{"after the move", "on the next sync"} {
+				if err := runSync(t); err != nil {
+					t.Fatal(err)
+				}
+				text := permissionSection(t, tc.file)
+				if strings.Contains(text, oldStore) || !strings.Contains(text, filepath.ToSlash(newParent)) || !strings.Contains(text, mine) {
+					t.Errorf("%s: want the new store rule and the user's rule only:\n%s", when, text)
+				}
+			}
+			if err := runSync(t, "--check"); err != nil {
+				t.Errorf("sync --check: %v", err)
+			}
+
+			writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: checkout\n")
+			if err := runSync(t); err != nil {
+				t.Fatal(err)
+			}
+			if text := permissionSection(t, tc.file); strings.Contains(text, oldStore) || strings.Contains(text, filepath.ToSlash(newParent)) || !strings.Contains(text, mine) {
+				t.Errorf("after leaving repo mode, want the user's rule only:\n%s", text)
+			}
+			checkKeepsOnlyTheEditedFile(t, tc.file)
+		})
+	}
+}
+
 // A permission map a settings spec produces is sync's whole, so the store
 // rule joins it, and a native external_directory action stays the default.
 func TestSync_OpenCodeRepoMemoryJoinsSettingsPermissions(t *testing.T) {

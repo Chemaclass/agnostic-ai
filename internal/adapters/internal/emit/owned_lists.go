@@ -22,8 +22,9 @@ func MergeOwnedLists(path string, keyPath []string, onDisk, planned map[string][
 	prior := priorMergedKeys(path)
 	priorItems := map[string][]string{}
 	for key := range onDisk {
-		claim, _ := priorClaim(prior, append(slices.Clone(keyPath), key))
-		priorItems[key] = claim.Items
+		// An item sync recorded within a list it claimed whole is sync's
+		// too, so it leaves once no longer planned.
+		priorItems[key] = PriorClaimedItems(path, append(slices.Clone(keyPath), key))
 	}
 	var wholeOwned bool
 	if whole, err := json.Marshal(onDisk); err == nil {
