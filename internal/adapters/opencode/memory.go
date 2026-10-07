@@ -93,8 +93,22 @@ func mergeExternalDirectories(sess *emit.Session, keys map[string]any, settings 
 	if err != nil {
 		return false, err
 	}
-	keys[permissionKey] = map[string]any{externalDirectoryKey: emit.ClaimedJSONEntries(rules, owned)}
+	permission := map[string]any{externalDirectoryKey: emit.ClaimedJSONEntries(rules, owned)}
+	if action, ok := existingAction(sess, path, dryRun); ok {
+		// A bare action sets every permission. Its object form is the
+		// catch-all key, which stays the user's and leads the object.
+		permission[catchAllPattern] = emit.CarriedJSONValue(action)
+	}
+	keys[permissionKey] = permission
 	return true, nil
+}
+
+// existingAction returns the `permission` value on disk when it is a
+// bare action, such as "deny", rather than an object.
+func existingAction(sess *emit.Session, path string, dryRun bool) (string, bool) {
+	raw, found := sess.ExistingObjectAt(path, nil, dryRun).Get(permissionKey)
+	var action string
+	return action, found && json.Unmarshal(raw, &action) == nil
 }
 
 // specRules returns the external_directory value settings produced as an
