@@ -231,6 +231,30 @@ var lintCodes = map[string]lintCode{
 	},
 	"LINT037": {Title: "Native tool alias has a neutral capability", Severity: lintWarn, Cause: "A tool alias has an exact neutral form. This suggestion is enabled only by --suggest-capabilities.", Fix: "Use the suggested capability or run migrate --only capabilities."},
 	"LINT038": {Severity: lintWarn, Title: "Bare capability covers every operation", Cause: "A bare capability in permissions.allow or permissions.ask now becomes a native permission for every operation it covers. Before permission capabilities, the lowercase spelling matched no tool.", Fix: "Scope shell, read, or edit, name one MCP tool, or restrict web access through a target-native permission field. write takes no path; edit(path) also covers edits."},
+	"LINT039": {
+		Severity: lintWarn,
+		Title:    "Memory index over 100 lines",
+		Cause:    "A shared memory index, `.agnostic-ai/memory/MEMORY.md` or `.agnostic-ai/local/memory/MEMORY.md`, has more than 100 lines. Tools load the whole index every session, and some cut it.",
+		Fix:      "Merge duplicate facts and drop stale ones. The `shared-memory` skill does this when asked to clean up memory.",
+	},
+	"LINT040": {
+		Severity: lintError,
+		Title:    "Memory index links a missing file",
+		Cause:    "A line in a memory index links a fact file that does not exist, so a tool that follows it finds nothing.",
+		Fix:      "Restore the file, or run `agnostic-ai memory index` to drop the line.",
+	},
+	"LINT041": {
+		Severity: lintWarn,
+		Title:    "Memory fact missing from the index",
+		Cause:    "A fact file in a memory folder has no index line, so no tool loads it.",
+		Fix:      "Run `agnostic-ai memory index` to add a line from the fact's frontmatter, or delete the file.",
+	},
+	"LINT042": {
+		Severity: lintError,
+		Title:    "Secret in a memory file",
+		Cause:    "A line in a memory index or fact file looks like a credential, such as a token by its prefix, a URL password, or a `Bearer` token. Every tool reads memory as plain text, and project memory is committed. The finding names the line, never the value.",
+		Fix:      "Remove the secret from the file and from Git history if it was committed, and rotate it.",
+	},
 	"LINT036": {
 		Severity: lintError,
 		Title:    "Capability sync cannot read",

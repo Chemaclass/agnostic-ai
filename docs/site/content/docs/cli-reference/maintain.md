@@ -43,6 +43,25 @@ agnostic-ai packs update [name]
 agnostic-ai packs remove superpowers
 ```
 
+## memory
+
+Check, list, and repair the [shared memory](@/docs/memory.md) in the working directory. Each subcommand reads project memory in `.agnostic-ai/memory/`, then personal memory in `.agnostic-ai/local/memory/`. A store whose folder is missing is skipped.
+
+```bash
+agnostic-ai memory lint     # run only the memory checks
+agnostic-ai memory index    # rebuild each MEMORY.md from its fact files
+agnostic-ai memory list     # print each fact's scope, type, and title
+```
+
+- `memory lint` reports [LINT039 to LINT042](@/docs/cli-reference/check.md#lint), the memory findings `lint` and `doctor` also report. It exits 1 on an error, or on a warning with `--strict`. `--json` prints the same schema as `lint --json`, with `command` set to `memory lint`.
+- `memory index` keeps the lines of facts that still exist, in their order, and adds a `- [name](file.md): description` line from the frontmatter of each fact without one. It drops every other line, such as merge conflict markers or a link to a missing file. Run it after two tools edit the index at once.
+- `memory list` prints facts in index order. The title is the index line's link text, or the fact's `name` when no line links it.
+
+| Flag | Description |
+|------|-------------|
+| `--strict` | With `memory lint`, exit 1 on warnings too. |
+| `--json` | With `memory lint`, print `{version, command, findings}` on stdout. |
+
 ## hook paths
 
 Run inside an edit hook. It reads the hook's event data on stdin and prints the files the edit leaves on disk, one per line, relative to the current directory. A tool call that is not an edit prints nothing. See [edited paths](@/docs/spec-format/hooks.md#edited-paths) for the event data each tool sends.

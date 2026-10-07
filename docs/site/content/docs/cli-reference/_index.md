@@ -28,6 +28,7 @@ agnostic-ai [command] [flags]
 | Inspect routing | [list](@/docs/cli-reference/start.md#list), [explain](@/docs/cli-reference/inspect.md#explain), [compare](@/docs/cli-reference/inspect.md#compare), [graph](@/docs/cli-reference/inspect.md#graph), [why](@/docs/cli-reference/inspect.md#why) |
 | Restore or remove generated files | [revert](@/docs/cli-reference/maintain.md#revert), [cleanup](@/docs/cli-reference/maintain.md#cleanup) |
 | Share specs | [packs](@/docs/cli-reference/maintain.md#packs) |
+| Check and repair shared memory | [memory](@/docs/cli-reference/maintain.md#memory) |
 | Write and test hook commands | [hook paths](@/docs/cli-reference/maintain.md#hook-paths), [hook run](@/docs/cli-reference/maintain.md#hook-run) |
 | Set up your environment | [completion](@/docs/cli-reference/maintain.md#completion), [upgrade or update](@/docs/cli-reference/maintain.md#upgrade), [migrate](@/docs/cli-reference/maintain.md#migrate), [install-hook](@/docs/cli-reference/maintain.md#install-hook), [lsp](@/docs/cli-reference/maintain.md#lsp) |
 

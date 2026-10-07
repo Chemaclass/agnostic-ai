@@ -52,6 +52,7 @@ agnostic-ai why AGENTS.md                        # trace an output to its source
 agnostic-ai sync --check                         # find local drift
 agnostic-ai doctor --fix                         # repair drift, choose kept orphan removal
 agnostic-ai migrate --dry-run                    # preview rewrites of old spec forms
+agnostic-ai memory lint                          # check the shared memory index and facts
 ```
 
 ## What you can share
