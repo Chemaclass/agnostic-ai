@@ -42,8 +42,10 @@ func newHookMemoryCmd() *cobra.Command {
 			}
 			var indexes []memoryIndex
 			for _, scope := range []memoryIndex{
-				{name: "Project memory", path: adapters.ProjectMemoryIndexPath},
+				// Personal first: it is short, and a long project index must
+				// not push the user's own corrections out of the limit.
 				{name: "Personal memory", path: adapters.PersonalMemoryIndexPath},
+				{name: "Project memory", path: adapters.ProjectMemoryIndexPath},
 			} {
 				if text, ok := readMemoryIndex(root, scope.path); ok {
 					scope.text = text
@@ -65,13 +67,13 @@ func newHookMemoryCmd() *cobra.Command {
 	return cmd
 }
 
-// memoryContext frames the index for the model and cuts it at a whole
-// line to stay under memoryContextLimit.
 // memoryIndex is one scope's index as the hook prints it.
 type memoryIndex struct{ name, path, text string }
 
+// memoryContext frames the indexes for the model and cuts them at a
+// whole line to stay under memoryContextLimit.
 func memoryContext(indexes []memoryIndex) string {
-	const cut = "\n(More facts are in the MEMORY.md indexes.)\n"
+	const cut = "\n(More facts are in " + adapters.PersonalMemoryIndexPath + " and " + adapters.ProjectMemoryIndexPath + ".)\n"
 	text := "## Shared memory\n\nOpen a fact's file, in the folder of its index, when its line is relevant.\n"
 	head := 0
 	for i, index := range indexes {
