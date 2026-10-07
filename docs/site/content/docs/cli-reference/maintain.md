@@ -11,14 +11,14 @@ group = "Reference"
 
 ## revert
 
-Undo a `sync --backup`. For every generated file and entry-point file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.agnostic-ai/AGNOSTIC_AI.md`), `revert` restores `<path>.bak` and removes the `.bak`. It also restores a nested `CLAUDE.md` that sync deleted for Claude's scoped rules. Files without a `.bak` stay unless you pass `--force`.
+Undo a `sync --backup`. For every generated file and entry-point file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CONVENTIONS.md`, `.agnostic-ai/AGNOSTIC_AI.md`), `revert` restores `<path>.bak` and removes it. It also restores a nested `CLAUDE.md` that sync deleted. Files without a `.bak` stay unless you pass `--force`.
 
 | Flag | Description |
 |------|-------------|
 | `-t`, `--only`, `--except` | Select targets, as in [`sync`](@/docs/cli-reference/sync.md#sync). |
 | `--dry-run` | Show what it would do and change nothing. |
 | `--force` | Also delete generated files that have no `.bak`, including generated entry-point files and your own files at the same paths. |
-| `--json` | Same format as `sync --json`. Actions: `"restore"` (`.bak` applied), `"remove"` (deleted), `"preserve"` (no `.bak`, no `--force`), `"skip"` (already gone). |
+| `--json` | Same format as `sync --json`. Actions: `"restore"`, `"remove"`, `"preserve"` (no `.bak`, no `--force`), `"skip"` (already gone). |
 
 Paths under [`sync.unmanaged`](@/docs/configuration.md#syncunmanaged) are never restored or removed.
 
@@ -66,30 +66,26 @@ agnostic-ai memory list     # print each fact's scope, type, and title
 
 ## hook paths
 
-Run inside an edit hook. It reads the hook's event data on stdin and prints the files the edit leaves on disk, one per line, relative to the current directory. A tool call that is not an edit prints nothing. See [edited paths](@/docs/spec-format/hooks.md#edited-paths) for the event data each tool sends.
+Run inside an edit hook. It reads the hook's event data on stdin and prints the files the edit leaves on disk, one per line, relative to the current directory. A tool call that is not an edit prints nothing. See [edited paths](@/docs/spec-format/hooks.md#edited-paths).
 
 ```bash
 files=$(agnostic-ai hook paths) || exit 1
 printf '%s\n' "$files" | grep '\.go$' | while IFS= read -r f; do gofmt -w "$f"; done
 ```
 
-`agnostic-ai` must be on the hook's `PATH`. Capture the output first, as above. If you pipe it straight into the loop, a failure of `hook paths` is lost and the hook exits 0.
+`agnostic-ai` must be on the hook's `PATH`. Capture the output first, as above: piped straight into the loop, a failure is lost and the hook exits 0.
 
-It exits 1 on:
-
-- invalid JSON
-- a `tool_input` that is not an object, for an edit tool
-- a missing or unsupported target
+It exits 1 on invalid JSON, a `tool_input` that is not an object for an edit tool, or a missing or unsupported target.
 
 | Flag | Description |
 |------|-------------|
 | `-t`, `--target <name>` | Tool that sent the event data. Defaults to `AGNOSTIC_AI_TARGET`. With neither, a Claude Code file-tool event reads as `claude`, and any other event fails. |
-| `--action` | Print every change as `<action><TAB><path>`, with `add`, `update`, `delete`, or `move`. Deleted files and move sources appear only here and in `--json`. |
+| `--action` | Print every change as `<action><TAB><path>`: `add`, `update`, `delete`, or `move`. Deleted files and move sources appear only here and in `--json`. |
 | `--json` | Print every change as a JSON array of `{action, path, from}`; `from` is a move's source. Not with `--action`. |
 
 ## hook guard
 
-Run inside an `after-edit` or `stop` hook. It exits 2 with a short report for the agent when it finds a problem, and 0 with no output otherwise. See the [spec guard hook](@/docs/spec-format/hooks.md#spec-guard).
+Run inside an `after-edit` or `stop` hook. It exits 2 with a short report for the agent on a problem, and 0 with no output otherwise. See the [spec guard hook](@/docs/spec-format/hooks.md#spec-guard).
 
 ```bash
 command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook guard after-edit
@@ -97,7 +93,7 @@ command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook guard stop
 ```
 
 - `after-edit` reads the event data on stdin, like [`hook paths`](#hook-paths), and reports the lint errors in the specs the edit touched. An edit outside the spec sources prints nothing.
-- `stop` reports when specs changed without a sync, meaning sync would add, rewrite, or remove a file. A hand edit to a generated file is left to `sync --check`. It passes when the agent already continued from a stop hook, so the notice cannot loop. It never runs sync.
+- `stop` reports when specs changed without a sync. A hand edit to a generated file is left to `sync --check`. It passes when the agent already continued from a stop hook, so the notice cannot loop. It never runs sync.
 - It finds the project from the nearest `agnostic-ai.yaml` in the current directory or above. If it cannot read something, such as unknown event data or no config, it exits 0.
 
 | Flag | Description |
@@ -155,7 +151,7 @@ If `.claude/settings.json` or `.codex/hooks.json` is out of date with the spec, 
 
 ## install-hook
 
-Install git hooks. By default it installs a pre-commit hook that runs `sync --check --against index`, so a commit fails if regenerated files are not staged. With `--post-checkout`, it installs hooks that regenerate the tool files after a checkout or a pull that merges. See [git hooks](@/docs/git-hooks.md).
+Install git hooks. By default it installs a pre-commit hook that runs `sync --check --against index`, so a commit fails if regenerated files are not staged. With `--post-checkout`, it installs hooks that regenerate the tool files after a checkout or a pull. See [git hooks](@/docs/git-hooks.md).
 
 ```bash
 agnostic-ai install-hook            # writes .git/hooks/pre-commit (local)
@@ -166,17 +162,11 @@ agnostic-ai install-hook --post-checkout            # writes .git/hooks/post-che
 agnostic-ai install-hook --post-checkout --shared   # writes both hooks in .githooks/
 ```
 
-An existing hook keeps its content, and the checks go at its end. A hook that already has them stays as it is. A hook that would stop before reaching them is left alone, and the command prints the lines to add by hand. A hook stops early when it has no `sh` or `bash` shebang, an `exec`, or an unindented `exit`.
+An existing hook keeps its content, and the checks go at its end. A hook that would stop before reaching them is left alone, and the command prints the lines to add by hand. A hook stops early when it has no `sh` or `bash` shebang, an `exec`, or an unindented `exit`.
 
 - `--shared` writes `.githooks/<hook>` at the root of the main working tree, even from a linked worktree. It stops if `core.hooksPath` already points elsewhere.
-- `--global` is for the global home, which must be the root of its own git repository. The hook runs `lint --global --strict`, `validate --global`, and `sync --global --check`. The commit fails if any of them fails. In a linked worktree it skips `sync --global --check`. It cannot combine with `--shared` or `--post-checkout`.
-- `--post-checkout` installs `post-checkout` and `post-merge`. They run `agnostic-ai sync -q` from the worktree root after a branch or worktree checkout (never a single-file checkout) or a merge, including a pull. Both skip if the binary or `agnostic-ai.yaml` is missing. Linked worktrees share the hooks directory.
-
-{% <details summary="When install-hook --global stops, and older setups"> %}
-`--global` stops when run anywhere but the root of the global home's repository, when `core.hooksPath` points elsewhere, or when the hook already runs the project `sync --check`.
-
-If you installed `--post-checkout` before it covered pulls, install it again to add pull coverage.
-{% </details> %}
+- `--global` is for the global home, which must be the root of its own git repository. The hook runs `lint --global --strict`, `validate --global`, and `sync --global --check` (skipped in a linked worktree), and the commit fails if any fails. It cannot combine with `--shared` or `--post-checkout`, and it stops when `core.hooksPath` points elsewhere or the hook already runs the project `sync --check`.
+- `--post-checkout` installs `post-checkout` and `post-merge`. They run `agnostic-ai sync -q` from the worktree root after a branch or worktree checkout (not a single-file checkout) or a merge, including a pull. Both skip if the binary or `agnostic-ai.yaml` is missing.
 
 ## completion
 
@@ -189,7 +179,7 @@ agnostic-ai completion fish > ~/.config/fish/completions/agnostic-ai.fish
 agnostic-ai completion powershell | Out-String | Invoke-Expression
 ```
 
-Restart your shell or `source` the file. Completing `--target` reads `agnostic-ai.yaml` in the current directory, or offers every target if there is none. See `agnostic-ai completion <shell> --help`.
+Restart your shell or `source` the file. Completing `--target` reads `agnostic-ai.yaml` in the current directory, or offers every target if there is none.
 
 ## upgrade
 
@@ -201,22 +191,22 @@ agnostic-ai upgrade --version v0.56.1
 
 | Flag | Description |
 |------|-------------|
-| `--check` | Print install details and change nothing. With `--version`, adds a `Requested:` line and downloads nothing. |
-| `--version <tag>` | Install one release, including an older one. The leading `v` is optional. Standalone binaries only: for a package-manager install, the command tells you to pin the version through that manager. |
+| `--check` | Print install details and change nothing. With `--version`, adds a `Requested:` line. |
+| `--version <tag>` | Install one release, including an older one. The leading `v` is optional. Standalone binaries only: for a package-manager install, pin the version through that manager. |
 | `--requires` | Set this project's `requires` and schema tag to the installed release, then sync. |
 | `--run` | Accepted for compatibility; upgrading is the default. |
 
-After upgrading through a package manager, use its installed CLI from the project root:
+After a package-manager upgrade, run its installed CLI from the project root:
 
 ```bash
 pnpm exec agnostic-ai upgrade --requires
 ```
 
-`--requires` replaces a minimum, range, or older pin with the installed exact release. It updates the base config and any existing local `requires` override, including a null override. Comments and other settings stay as they are. The command locks the project while it changes the config and syncs. If sync fails, the new pins stay. Fix the problem it reports and run `sync` again.
+`--requires` replaces a minimum, range, or older pin with the installed exact release. It updates the base config and any existing local `requires` override, including a null override. Comments and other settings stay. If sync fails, the new pins stay: fix the problem it reports and run `sync` again.
 
 This mode needs a stable release build. It works with `agnostic.config.yaml` too. It cannot combine with `--check`, `--version`, or `--run`, and it does not update the global home config. Your package manager owns install and dependency files.
 
-The edit leaves the rest of the YAML untouched. Before you run it, rewrite flow-style root mappings, merged root keys, and anchored or multiline `requires` values as a plain block mapping and a single-line value.
+Before you run it, rewrite flow-style root mappings, merged root keys, and anchored or multiline `requires` values as a plain block mapping and a single-line value.
 
 | Binary location | Upgrade |
 |-----------------|---------|
@@ -225,14 +215,14 @@ The edit leaves the rest of the YAML untouched. Before you run it, rewrite flow-
 | `*\scoop\apps\*`, `*\scoop\shims\*` | `scoop update agnostic-ai` |
 | `*\Microsoft\WinGet\*` | `winget upgrade Chemaclass.agnostic-ai` |
 | `*/node_modules/*` | `npm install -g agnostic-ai@latest` |
-| Standalone binary on macOS or Linux | Download the release, check its checksum and version, and replace the binary. |
+| Standalone binary on macOS or Linux | `upgrade` downloads the release, checks it, and replaces the binary. |
 | Standalone binary on Windows | Use the [PowerShell install script](@/docs/installation.md). Windows cannot replace a running program. |
 
 The Scoop, WinGet, and `node_modules` paths match in any letter case. `upgrade` also lists any other `agnostic-ai` on `PATH` that hides the one it found.
 
 ## migrate
 
-Rewrite old spec forms into their current replacements, such as a renamed field or file. A migration does not change what sync writes for the tools a spec already reaches, so `sync --check` stays clean. The one exception is a literal MCP credential, which becomes a `${NAME}` reference. Old forms keep working, so you never have to run it before a sync. `doctor` and `upgrade --requires` name the migrations that apply.
+Rewrite old spec forms into their current replacements, such as a renamed field or file. Sync writes the same files afterward, so `sync --check` stays clean. The one exception is a literal MCP credential, which becomes a `${NAME}` reference. Old forms keep working, so you never have to run it before a sync. `doctor` and `upgrade --requires` name the migrations that apply.
 
 ```bash
 agnostic-ai migrate --list      # which migrations apply here
@@ -243,26 +233,25 @@ agnostic-ai migrate --global    # rewrite the global specs
 
 | Flag | Description |
 |------|-------------|
-| `--dry-run` | Print each rename and a diff of each rewrite, and write nothing. Every value under `env` and `headers`, every `args` item, every URL, and any other value that looks like a credential prints as `<redacted>`. A `${NAME}` reference and a `!literal` tag still show. |
-| `--list` | List every migration with the release that added it and whether it applies here. It names each pack whose author needs to update its specs. |
+| `--dry-run` | Print each rename and a diff of each rewrite, and write nothing. Every `env` and `headers` value, `args` item, URL, and credential-like value prints as `<redacted>`. A `${NAME}` reference and a `!literal` tag still show. |
+| `--list` | List every migration with its release and whether it applies here. It names each pack whose author needs to update its specs. |
 | `--only <group>` | Run only these groups, comma-separated. A migration ID starts with its group, such as `config-file-name` in group `config`. |
-| `--global` | Rewrite the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` folder, checked against the tools `sync --global` writes. Then `sync --global --check` stays clean. |
+| `--global` | Rewrite the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` folder. |
 
 - A migration rewrites only what maps one to one. Anything else stays as written, and the output says why.
 - When `secrets-mcp-literals` turns a credential into a reference, its output names each variable to set, never the value.
-- It writes each file in one step and keeps its permissions. A rename writes the new file before it removes the old one. A symlinked spec keeps its symlink; the file it points to gets the rewrite.
+- A symlinked spec keeps its symlink; the file it points to gets the rewrite.
 - It never rewrites a pack. A spec in a pack, or a symlink into one, is skipped, and the output names the pack. So is any file outside the project, or outside the global home with `--global`.
-- Running it twice changes nothing more.
 - A migration that cannot plan, for example on a spec that does not parse, prints `cannot plan` with the reason. The others still run, and `migrate` exits 1.
 - `doctor` names a migration only when it rewrites something or a skip needs your action, such as a spec that sets both the old and the new form. `--dry-run` and `--list` show every skip.
 
 | Migration | Release | Rewrites |
 |-----------|---------|----------|
-| `config-file-name` | 0.79.0 | `agnostic.config.yaml` to `agnostic-ai.yaml`, in a project only. When both exist with the same content, it removes the old file. Skipped when they differ, since `agnostic-ai.yaml` wins, and when Git ignores `agnostic-ai.yaml`. |
-| `hooks-portable-events` | 0.79.0 | A hook's `event` and `matcher` to the [portable](@/docs/spec-format/hooks.md#portable-events) `on` and `match`, such as `PreToolUse` on `Bash` to `before-tool` on `shell`. Comments, quoting, and key order stay. Skipped when the portable form would give a tool the hook reaches another event or matcher, such as `matcher: Read` on Codex or `matcher: Edit\|Write` on Claude Code, where `match: edit` also covers `MultiEdit` and `NotebookEdit`; when a `local/` spec extends the hook; and for a pack's hook. |
-| `capabilities-agent-tools`, `capabilities-settings-permissions` | 0.79.0 | Agent `tools` to `can`, and Claude Code aliases in settings permissions to neutral capabilities. An adjacent `WebFetch, WebSearch` pair becomes `web`. Names with no exact neutral form stay as aliases. Run them with `--only capabilities`. |
-| `capabilities-skill-tools` | 0.79.0 | Claude Code aliases in skill `allowed-tools` to neutral capabilities, including an adjacent `WebFetch, WebSearch` pair as `web`. Run it with `--only capabilities`. |
-| `secrets-mcp-literals` | 0.79.0 | Each MCP `env` and `headers` value that is neither a reference nor marked: a value import reads as a credential becomes a `${NAME}` reference named as import names it, and every other value gets [`!literal`](@/docs/spec-format/mcps.md#plain-settings). Each file in `local/` is rewritten on its own. Skipped for a key with a credential name whose value has no credential shape, a credential around a reference, and a pack's spec. Run it alone with `--only secrets`. |
+| `config-file-name` | 0.79.0 | `agnostic.config.yaml` to `agnostic-ai.yaml`, in a project only. When both exist with the same content, it removes the old file. Skipped when they differ, and when Git ignores `agnostic-ai.yaml`. |
+| `hooks-portable-events` | 0.79.0 | A hook's `event` and `matcher` to the [portable](@/docs/spec-format/hooks.md#portable-events) `on` and `match`, such as `PreToolUse` on `Bash` to `before-tool` on `shell`. Comments, quoting, and key order stay. Skipped when the portable form would give a tool another event or matcher (such as `matcher: Read` on Codex, or `matcher: Edit\|Write` on Claude Code, since `match: edit` also covers `MultiEdit` and `NotebookEdit`), when a `local/` spec extends the hook, and for a pack's hook. |
+| `capabilities-agent-tools`, `capabilities-settings-permissions` | 0.79.0 | Agent `tools` to `can`, and Claude Code aliases in settings permissions to neutral capabilities. An adjacent `WebFetch, WebSearch` pair becomes `web`. Names with no neutral form stay as aliases. Run with `--only capabilities`. |
+| `capabilities-skill-tools` | 0.79.0 | Claude Code aliases in skill `allowed-tools` to neutral capabilities, with the same `web` pair rule. Run with `--only capabilities`. |
+| `secrets-mcp-literals` | 0.79.0 | Each MCP `env` and `headers` value that is neither a reference nor marked. A value import reads as a credential becomes a `${NAME}` reference, named as import names it. Every other value gets [`!literal`](@/docs/spec-format/mcps.md#plain-settings). Skipped for a key with a credential name whose value has no credential shape, a credential around a reference, and a pack's spec. Run with `--only secrets`. |
 
 ## lsp
 
