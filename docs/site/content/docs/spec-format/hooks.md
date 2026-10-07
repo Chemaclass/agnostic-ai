@@ -179,7 +179,7 @@ Handler-specific fields are written only where the tool's schema defines them:
 - `prompt`, `model` (prompt handler): Claude Code, Qoder, Cursor, Copilot (`sessionStart` only).
 - `statusMessage`, `async`: Claude Code, Codex, Qoder.
 - `asyncRewake`, `shell`, `if`: Claude Code, Qoder.
-- `continueOnBlock`: Claude Code. `commandWindows`, `additionalContextLimit`: Codex. `failClosed`: Cursor. `loop_limit`: Cursor, Trae.
+- `continueOnBlock`: Claude Code. `commandWindows`: Codex, Copilot. `additionalContextLimit`: Codex. `failClosed`: Cursor. `loop_limit`: Cursor, Trae.
 - `x-goose.on_failure` (Goose), `x-kiro.action` (Kiro), `x-gemini.hooks`, `x-gemini.sequential`, `x-gemini.name`, `x-gemini.env` (Gemini).
 
 `command` is not needed for a non-command handler, a valid `x-kiro.action`, or a hook that sets `x-gemini.hooks`. Limit a non-command hook to the tools that support it with `target` or `targets`.
@@ -212,6 +212,8 @@ timeout: 10
 The script reads `tool_input.command` from the event JSON on stdin, with no `jq`. It splits the command into words the way `sh` does. A `git push --force` inside quotes, a comment, or a heredoc body passes, and so does a quoted command inside `bash -c` or `eval`. A push with a `+main` refspec or `--mirror` counts as forced unless it uses `--force-with-lease`. `--force` or `-f` blocks even next to `--force-with-lease`, since git lets it override the lease. A force push written outside quotes blocks even behind a wrapper the script does not parse, such as `xargs`. On a force push it prints the reason on stderr and exits 2, which both tools read as a block.
 
 Both tools start a hook in the session directory, which can be below the project root, so the path starts at the root. Claude Code keeps [`$CLAUDE_PROJECT_DIR`](#imported-project-root-paths). Codex gets `$(git rev-parse --show-toplevel)` in both commands, plus the project's path below the Git root.
+
+For Copilot, a hook with one plain command writes `commandWindows` as the `powershell` field and `command` as `bash`. A portable `on:` hook, `args`, or a command list keeps one `command`, with a coverage note. Cursor and Gemini CLI have no Windows command field, so they ignore it.
 
 On Windows, Codex runs `commandWindows` with `powershell.exe -Command`:
 

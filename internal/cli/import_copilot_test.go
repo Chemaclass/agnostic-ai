@@ -318,3 +318,25 @@ func TestImportCopilotHooks_RestoresRepositoryRelativeScriptPath(t *testing.T) {
 		t.Errorf("imported specs keep native-relative paths:\n%s", all)
 	}
 }
+
+func TestImportCopilotHooks_RoundTripsBashAndPowershell(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	silence(t)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [copilot]\n")
+	writeFile(t, filepath.Join(copilotHooksDir, "custom.json"), `{"version":1,"hooks":{"sessionStart":[{"type":"command","bash":"./start.sh","powershell":"./start.ps1"}]}}`)
+	execCLI(t, "import", "copilot")
+	execCLI(t, "sync", "-t", "copilot")
+
+	var got struct {
+		Hooks map[string][]map[string]any `json:"hooks"`
+	}
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(copilotHooksDir, "agnostic-ai.json"))), &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Hooks["sessionStart"]) != 1 {
+		t.Fatalf("handlers = %#v", got.Hooks)
+	}
+	if h := got.Hooks["sessionStart"][0]; h["bash"] != "./start.sh" || h["powershell"] != "./start.ps1" {
+		t.Errorf("handler = %#v", h)
+	}
+}

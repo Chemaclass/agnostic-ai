@@ -412,3 +412,67 @@ func TestEmit_Hook_JavaScriptOnlyRegexDoesNotNote(t *testing.T) {
 		}
 	}
 }
+
+// Copilot copies `command` into both shells, so a Windows command
+// splits the entry into `bash` and `powershell` (#1856).
+func TestEmit_Hook_WindowsCommandSplitsTheShells(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{
+		"event": "SessionStart", "command": "sh -c 'echo hi'", "commandWindows": "Write-Output hi",
+	}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readHooksFile(t, filepath.Join(dir, ".github/hooks/agnostic-ai.json"))
+	for _, want := range []string{`"bash": "sh -c 'echo hi'"`, `"powershell": "Write-Output hi"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+	if strings.Contains(got, `"command":`) {
+		t.Errorf("command kept beside bash and powershell: %s", got)
+	}
+}
+
+func TestEmit_Hook_WindowsCommandFollowsCwd(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindHook, Name: "start", Meta: map[string]any{
+		"event": "sessionStart", "cwd": "sub", "command": ".agnostic-ai/hooks/start.sh", "commandWindows": ".agnostic-ai/hooks/start.ps1",
+	}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readHooksFile(t, filepath.Join(dir, ".github/hooks/agnostic-ai.json"))
+	if !strings.Contains(got, `"powershell": "../.agnostic-ai/hooks/start.ps1"`) {
+		t.Errorf("powershell path not relative to cwd: %s", got)
+	}
+}
+
+// The portable wrapper turns exit 2 into a deny; a raw Windows command
+// would skip it and let a guard fail open.
+func TestEmit_Hook_PortableHookKeepsOneWrappedCommand(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{
+		"on": "before-tool", "match": "shell", "command": "./check.sh", "commandWindows": "./check.ps1",
+	}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readHooksFile(t, filepath.Join(dir, ".github/hooks/agnostic-ai.json"))
+	if strings.Contains(got, `"powershell"`) || strings.Contains(got, "check.ps1") {
+		t.Errorf("portable hook got a raw Windows command: %s", got)
+	}
+}
+
+func TestEmit_Hook_CommandListKeepsOneCommandEach(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindHook, Name: "pair", Meta: map[string]any{
+		"event": "sessionStart", "command": []any{"./one.sh", "./two.sh"}, "commandWindows": "./both.ps1",
+	}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	if got := readHooksFile(t, filepath.Join(dir, ".github/hooks/agnostic-ai.json")); strings.Contains(got, "both.ps1") {
+		t.Errorf("Windows command copied into each list entry: %s", got)
+	}
+}

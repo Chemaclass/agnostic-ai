@@ -8,6 +8,7 @@ x-codex:
   command: "sh -c 'command -v agnostic-ai >/dev/null 2>&1 || exit 0; exec agnostic-ai hook memory --target codex'"
 x-copilot:
   command: "sh -c 'command -v agnostic-ai >/dev/null 2>&1 || exit 0; exec agnostic-ai hook memory --target copilot'"
+  commandWindows: "if (Get-Command agnostic-ai -ErrorAction SilentlyContinue) { agnostic-ai hook memory --target copilot }"
 x-cursor:
   command: "sh -c 'command -v agnostic-ai >/dev/null 2>&1 || exit 0; exec agnostic-ai hook memory --target cursor'"
 x-qoder:

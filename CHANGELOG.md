@@ -19,6 +19,10 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### By tool
 
+#### Copilot
+
+- A hook's `commandWindows` writes Copilot's `powershell` field, with `command` as `bash`; the memory hook runs on Windows without `sh` (#1856).
+
 #### Augment
 
 - `hook run` reports `adds_context` for `SessionStart` stdout or `additionalContext`, which Augment injects (#1853).
