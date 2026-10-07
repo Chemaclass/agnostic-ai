@@ -38,7 +38,7 @@ func TestMergeOwnedLists_ReplacesWhatSyncClaimedBefore(t *testing.T) {
 
 	merged, _ := mergeOwnedLists(prior, false, disk, planned)
 
-	want := map[string][]any{"SessionStart": {map[string]any{"command": "new"}, map[string]any{"command": "mine"}}}
+	want := map[string][]any{"SessionStart": {map[string]any{"command": "mine"}, map[string]any{"command": "new"}}}
 	if !reflect.DeepEqual(merged, want) {
 		t.Errorf("merged = %v, want %v", merged, want)
 	}
@@ -103,5 +103,32 @@ func TestMergeOwnedLists_AdoptsAnImportedEntryInItsOriginalShape(t *testing.T) {
 
 	if len(merged["PreToolUse"]) != 1 {
 		t.Errorf("hook written twice: %v", merged)
+	}
+}
+
+func TestMergeOwnedLists_KeepsAUserHookThatDiffersOnlyInArgs(t *testing.T) {
+	disk := map[string][]any{"PreToolUse": {json.RawMessage(`{"matcher":"Bash","hooks":[{"type":"command","command":"./guard","args":["--deny"]}]}`)}}
+	planned := map[string][]any{"PreToolUse": {json.RawMessage(`{"matcher":"Bash","hooks":[{"type":"command","command":"./guard","args":["--audit"]}]}`)}}
+
+	merged, _ := mergeOwnedLists(nil, false, disk, planned)
+
+	if len(merged["PreToolUse"]) != 2 {
+		t.Errorf("distinct user hook dropped: %v", merged)
+	}
+}
+
+// import turns two groups that share a matcher into specs that sync
+// renders as one group; neither original group stays.
+func TestMergeOwnedLists_AdoptsImportedGroupsSyncConsolidates(t *testing.T) {
+	disk := map[string][]any{"PreToolUse": {
+		json.RawMessage(`{"matcher":"Bash","hooks":[{"type":"command","command":"./a.sh"}]}`),
+		json.RawMessage(`{"matcher":"Bash","hooks":[{"type":"command","command":"./b.sh"}]}`),
+	}}
+	planned := map[string][]any{"PreToolUse": {json.RawMessage(`{"matcher":"Bash","hooks":[{"type":"command","command":"export AGNOSTIC_AI_TARGET=codex; ./a.sh"},{"type":"command","command":"export AGNOSTIC_AI_TARGET=codex; ./b.sh"}]}`)}}
+
+	merged, _ := mergeOwnedLists(nil, false, disk, planned)
+
+	if len(merged["PreToolUse"]) != 1 {
+		t.Errorf("imported groups kept beside sync's: %v", merged)
 	}
 }

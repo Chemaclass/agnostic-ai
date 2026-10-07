@@ -252,7 +252,10 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 		return nil
 	}
 	// Hook entries sync did not write stay; sync claims only its own (#1858).
-	value, ok := sess.OwnedEventLists(path, "hooks", byEvent, dryRun)
+	value, ok, err := sess.OwnedEventLists(path, "hooks", byEvent, dryRun)
+	if err != nil {
+		return fmt.Errorf("cursor hooks: %w", err)
+	}
 	if !ok {
 		return nil
 	}

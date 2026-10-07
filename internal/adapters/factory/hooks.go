@@ -129,9 +129,9 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 		return nil
 	}
 	// Hook entries sync did not write stay; sync claims only its own (#1858).
-	keys, ok := sess.OwnedRootLists(path, planned, dryRun)
-	if !ok {
-		return nil
+	keys, ok, err := sess.OwnedRootLists(path, planned, dryRun)
+	if err != nil || !ok {
+		return err
 	}
 	return sess.MergeJSONFileOrdered(path, keys, nil, order, dryRun)
 }

@@ -3,6 +3,7 @@ package codex
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"regexp"
 	"slices"
 	"sort"
@@ -46,17 +47,22 @@ func emitHooksJSON(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, d
 		return nil
 	}
 	// Hook entries sync did not write stay; sync claims only its own (#1858).
-	value, ok := sess.OwnedEventLists(path, "hooks", planned, dryRun)
-	if !ok {
-		return nil
+	value, ok, err := sess.OwnedEventLists(path, "hooks", planned, dryRun)
+	if err != nil || !ok {
+		return err
 	}
 	if err := sess.MergeJSONFileNested(path, map[string]any{"hooks": value}, []string{"hooks"}, dryRun); err != nil {
 		return err
 	}
-	// Codex keys trust by position; sync's entries lead each event, so
-	// their positions match body's.
-	if body != nil && !sess.IsCapturing() && !sess.IsUnmanaged(path) {
+	// Codex keys trust by position, so check the file as merged, the
+	// user's hooks included; a dry run previews sync's alone.
+	if sess.IsCapturing() || sess.IsUnmanaged(path) {
+		return nil
+	}
+	if dryRun {
 		NoteHookTrust(path, body)
+	} else if merged, err := os.ReadFile(path); err == nil {
+		NoteHookTrust(path, merged)
 	}
 	return nil
 }

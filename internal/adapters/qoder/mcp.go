@@ -1,6 +1,8 @@
 package qoder
 
 import (
+	"fmt"
+
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
@@ -80,7 +82,11 @@ func emitSettings(sess *emit.Session, mcps, hooks, settings []spec.Entry, path s
 	emit.MergeSettingsCustomRecordMap(keys, settings, target, qoderMCPKey)
 	// Hook entries sync did not write stay; sync claims only its own,
 	// x-qoder hooks included, once they joined the block (#1858).
-	if value, ok := sess.OwnedEventLists(path, qoderHooksKey, keys[qoderHooksKey], dryRun); ok {
+	value, ok, err := sess.OwnedEventLists(path, qoderHooksKey, keys[qoderHooksKey], dryRun)
+	if err != nil {
+		return fmt.Errorf("qoder hooks: %w", err)
+	}
+	if ok {
 		keys[qoderHooksKey] = value
 	} else {
 		delete(keys, qoderHooksKey)

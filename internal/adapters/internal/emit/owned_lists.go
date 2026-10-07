@@ -2,6 +2,7 @@ package emit
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"slices"
 	"strings"
@@ -42,31 +43,34 @@ func MergeOwnedLists(path string, keyPath []string, onDisk, planned map[string][
 func mergeOwnedLists(prior map[string][]string, wholeOwned bool, onDisk, planned map[string][]any) (map[string][]any, map[string][]string) {
 	merged := map[string][]any{}
 	claims := map[string][]string{}
-	// Sync's entries lead each list, so their positions match the
-	// rendered specs (Codex keys hook trust by position).
-	for key, entries := range planned {
-		for _, entry := range entries {
-			merged[key] = append(merged[key], entry)
-			claims[key] = append(claims[key], canonicalJSON(entry))
-		}
-	}
 	for key, entries := range onDisk {
-		var plannedSums, plannedShapes []string
+		var plannedSums []string
+		plannedHandlers := map[string][]string{}
 		for _, entry := range planned[key] {
 			plannedSums = append(plannedSums, ContentSum(canonicalJSON(entry)))
-			plannedShapes = append(plannedShapes, hookShape(entry))
+			matcher, handlers := hookHandlers(entry)
+			plannedHandlers[matcher] = append(plannedHandlers[matcher], handlers...)
 		}
 		for _, entry := range entries {
 			sum := ContentSum(canonicalJSON(entry))
 			if wholeOwned || slices.Contains(prior[key], sum) || slices.Contains(plannedSums, sum) {
 				continue
 			}
-			// An entry `import` turned into a spec stays on disk in the
-			// shape the user wrote; sync renders it with its own extras.
-			if shape := hookShape(entry); shape != "" && slices.Contains(plannedShapes, shape) {
+			// An entry `import` turned into specs stays on disk in the
+			// shape the user wrote, possibly split across groups sync
+			// renders as one, and without the fields sync adds.
+			if matcher, handlers := hookHandlers(entry); len(handlers) > 0 && containsAll(plannedHandlers[matcher], handlers) {
 				continue
 			}
 			merged[key] = append(merged[key], entry)
+		}
+	}
+	// The user's entries keep their positions (Codex keys hook trust by
+	// position); sync's follow.
+	for key, entries := range planned {
+		for _, entry := range entries {
+			merged[key] = append(merged[key], entry)
+			claims[key] = append(claims[key], canonicalJSON(entry))
 		}
 	}
 	for key, entries := range merged {
@@ -75,6 +79,15 @@ func mergeOwnedLists(prior map[string][]string, wholeOwned bool, onDisk, planned
 		}
 	}
 	return merged, claims
+}
+
+func containsAll(set, items []string) bool {
+	for _, item := range items {
+		if !slices.Contains(set, item) {
+			return false
+		}
+	}
+	return true
 }
 
 // canonicalJSON is entry as JSON with sorted keys, the form a claimed
@@ -122,49 +135,50 @@ func RawEventLists(raw []byte) (map[string][]any, error) {
 // plus planned's, with only sync's entries claimed, and a list left empty
 // is removed. ok is false with no planned entries: the merge then leaves
 // the key alone, and releasing sync's claims takes out only its entries.
-func (s *Session) OwnedEventLists(path, key string, planned any, dryRun bool) (value any, ok bool) {
-	children, ok := s.ownedLists(path, []string{key}, planned, dryRun)
-	if !ok {
-		return nil, false
+func (s *Session) OwnedEventLists(path, key string, planned any, dryRun bool) (value any, ok bool, err error) {
+	children, ok, err := s.ownedLists(path, []string{key}, planned, dryRun)
+	if err != nil || !ok {
+		return nil, false, err
 	}
-	return children, true
+	return children, true, nil
 }
 
 // OwnedRootLists is OwnedEventLists for a file whose top-level keys hold
 // the lists, such as Factory's `hooks.json`. It returns the merge keys.
-func (s *Session) OwnedRootLists(path string, planned any, dryRun bool) (keys map[string]any, ok bool) {
-	children, ok := s.ownedLists(path, nil, planned, dryRun)
-	if !ok {
-		return nil, false
+func (s *Session) OwnedRootLists(path string, planned any, dryRun bool) (keys map[string]any, ok bool, err error) {
+	children, ok, err := s.ownedLists(path, nil, planned, dryRun)
+	if err != nil || !ok {
+		return nil, false, err
 	}
-	return children.values, true
+	return children.values, true, nil
 }
 
-func (s *Session) ownedLists(path string, keyPath []string, planned any, dryRun bool) (orderedChildren, bool) {
+func (s *Session) ownedLists(path string, keyPath []string, planned any, dryRun bool) (orderedChildren, bool, error) {
 	onDisk := map[string][]any{}
 	existing := s.existingObject(path, keyPath, dryRun)
 	if existing != nil {
 		raw, err := MarshalJSONCompact(existing)
 		if err != nil {
-			return orderedChildren{}, false
+			return orderedChildren{}, false, fmt.Errorf("%s: %w", path, err)
 		}
 		if onDisk, err = RawEventLists(raw); err != nil {
-			return orderedChildren{}, false
+			// A value sync cannot read as lists stays as the user wrote it.
+			return orderedChildren{}, false, fmt.Errorf("%s: %s is not an object of lists: %w", path, strings.Join(keyPath, "."), err)
 		}
 	}
 	plannedLists := map[string][]any{}
 	if planned != nil && !isNilOrdered(planned) {
 		raw, err := MarshalJSONCompact(planned)
 		if err != nil {
-			return orderedChildren{}, false
+			return orderedChildren{}, false, fmt.Errorf("%s: %w", path, err)
 		}
 		if plannedLists, err = RawEventLists(raw); err != nil {
-			return orderedChildren{}, false
+			return orderedChildren{}, false, fmt.Errorf("%s: %w", path, err)
 		}
 	}
 	if len(plannedLists) == 0 {
 		// Releasing the claims takes out only sync's entries.
-		return orderedChildren{}, false
+		return orderedChildren{}, false, nil
 	}
 	merged, claims := MergeOwnedLists(path, keyPath, onDisk, plannedLists)
 	out := orderedChildren{values: map[string]any{}}
@@ -190,7 +204,7 @@ func (s *Session) ownedLists(path string, keyPath []string, planned any, dryRun 
 		}
 		out.order = append(out.order, event)
 	}
-	return out, true
+	return out, true, nil
 }
 
 // existingObject reads the object at keyPath, the whole document when
@@ -271,42 +285,78 @@ func ClaimsItemsUnder(path, key string) bool {
 // wrote whole, or "". The CLI sets it from the ledger.
 var PriorOutputSum func(path string) string
 
-// hookShape is what a hook entry runs, without the fields sync adds when
-// it renders one: its matcher, empty when unset, and each handler's
-// command without the AGNOSTIC_AI_TARGET export. It is "" for an entry
-// with no command. Two entries with the same shape run the same hooks.
-func hookShape(entry any) string {
+// hookHandlers returns a hook entry's matcher, empty when unset, and
+// each handler as canonical JSON without the fields sync adds when it
+// renders one: the AGNOSTIC_AI_TARGET export and env value, and
+// commandWindows. An entry that is itself one handler counts as one.
+// Every other field, such as args or a prompt, stays, so two handlers
+// match only when they do the same work.
+func hookHandlers(entry any) (string, []string) {
 	var decoded any
 	if raw, ok := entry.(json.RawMessage); ok {
 		if json.Unmarshal(raw, &decoded) != nil {
-			return ""
+			return "", nil
 		}
 	} else {
 		decoded = entry
 	}
 	object, ok := decoded.(map[string]any)
 	if !ok {
-		return ""
+		return "", nil
 	}
 	matcher, _ := object["matcher"].(string)
-	var commands []string
-	add := func(handler map[string]any) {
-		if command, ok := handler["command"].(string); ok && command != "" {
-			commands = append(commands, stripHookTargetExport(command))
-		}
-	}
-	add(object)
-	if handlers, ok := object["hooks"].([]any); ok {
-		for _, h := range handlers {
-			if handler, ok := h.(map[string]any); ok {
-				add(handler)
+	list, nested := object["hooks"].([]any)
+	if !nested {
+		rest := map[string]any{}
+		for k, v := range object {
+			if k != "matcher" {
+				rest[k] = v
 			}
 		}
+		list = []any{rest}
 	}
-	if len(commands) == 0 {
-		return ""
+	var handlers []string
+	for _, h := range list {
+		handler, ok := h.(map[string]any)
+		if !ok {
+			return "", nil
+		}
+		handlers = append(handlers, canonicalJSON(withoutSyncExtras(handler)))
 	}
-	return matcher + "\x00" + strings.Join(commands, "\x00")
+	return matcher, handlers
+}
+
+// withoutSyncExtras copies a hook handler without the fields sync adds.
+func withoutSyncExtras(handler map[string]any) map[string]any {
+	out := map[string]any{}
+	for k, v := range handler {
+		switch k {
+		case "commandWindows":
+		case "command":
+			if s, ok := v.(string); ok {
+				out[k] = stripHookTargetExport(s)
+			} else {
+				out[k] = v
+			}
+		case "env":
+			if env, ok := v.(map[string]any); ok {
+				rest := map[string]any{}
+				for name, value := range env {
+					if name != HookTargetEnv {
+						rest[name] = value
+					}
+				}
+				if len(rest) > 0 {
+					out[k] = rest
+				}
+			} else {
+				out[k] = v
+			}
+		default:
+			out[k] = v
+		}
+	}
+	return out
 }
 
 // stripHookTargetExport drops the `export AGNOSTIC_AI_TARGET=<t>; `

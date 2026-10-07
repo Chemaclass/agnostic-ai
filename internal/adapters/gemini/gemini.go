@@ -88,6 +88,7 @@
 package gemini
 
 import (
+	"fmt"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -275,7 +276,11 @@ func emitSettings(sess *emit.Session, b spec.Bundle, hooks []spec.Entry, path st
 	emit.MergeSettingsCustomRecordMap(keys, b.Settings, target, "mcpServers")
 	// Hook entries sync did not write stay; sync claims only its own,
 	// x-gemini hooks included, once they joined the block (#1858).
-	if value, ok := sess.OwnedEventLists(path, "hooks", keys["hooks"], dryRun); ok {
+	value, ok, err := sess.OwnedEventLists(path, "hooks", keys["hooks"], dryRun)
+	if err != nil {
+		return fmt.Errorf("gemini hooks: %w", err)
+	}
+	if ok {
 		keys["hooks"] = value
 	} else {
 		delete(keys, "hooks")
