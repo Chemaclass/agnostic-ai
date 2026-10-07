@@ -2,6 +2,8 @@ package codex
 
 import (
 	"encoding/json"
+	"fmt"
+	"os"
 	"regexp"
 	"slices"
 	"sort"
@@ -28,22 +30,39 @@ func HooksFilePath(cfg *config.Config) string {
 //
 // No-op when no hooks emit.
 func emitHooksJSON(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRun bool) error {
-	doc := buildHooksJSON(hooks)
-	if doc == nil {
+	path := HooksFilePath(cfg)
+	var planned any
+	var body []byte
+	if doc := buildHooksJSON(hooks); doc != nil {
+		var err error
+		if body, err = emit.MarshalJSONIndent(doc); err != nil {
+			return err
+		}
+		if planned, err = emit.ObjectAt(body, "hooks"); err != nil {
+			return fmt.Errorf("%s: %w", path, err)
+		}
+	}
+	if planned == nil {
+		// Releasing the file takes out only sync's entries.
 		return nil
 	}
-	body, err := json.MarshalIndent(doc, "", "  ")
-	if err != nil {
+	// Hook entries sync did not write stay; sync claims only its own (#1858).
+	value, ok, err := sess.OwnedEventLists(path, "hooks", planned, dryRun)
+	if err != nil || !ok {
 		return err
 	}
-	path := HooksFilePath(cfg)
-	// `.codex/hooks.json` lives under .codex/ alongside config.toml;
-	// WriteFile already handles parent-dir creation.
-	if err := sess.WriteFile(path, string(body)+"\n", dryRun); err != nil {
+	if err := sess.MergeJSONFileNested(path, map[string]any{"hooks": value}, []string{"hooks"}, dryRun); err != nil {
 		return err
 	}
-	if !sess.IsCapturing() && !sess.IsUnmanaged(path) {
+	// Codex keys trust by position, so check the file as merged, the
+	// user's hooks included; a dry run previews sync's alone.
+	if sess.IsCapturing() || sess.IsUnmanaged(path) {
+		return nil
+	}
+	if dryRun {
 		NoteHookTrust(path, body)
+	} else if merged, err := os.ReadFile(path); err == nil {
+		NoteHookTrust(path, merged)
 	}
 	return nil
 }
@@ -74,7 +93,7 @@ func (d *hooksDoc) MarshalJSON() ([]byte, error) {
 		}
 		buf.Write(key)
 		buf.WriteByte(':')
-		val, err := json.Marshal(d.Events[event])
+		val, err := emit.MarshalJSONCompact(d.Events[event])
 		if err != nil {
 			return nil, err
 		}
