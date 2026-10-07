@@ -275,3 +275,71 @@ func TestSync_RepoPersonalMemoryHonorsAllowedOutputPaths(t *testing.T) {
 		})
 	}
 }
+
+// A directory the user adds by hand after sync stopped managing it stays,
+// even when it is the path an earlier sync wrote.
+func TestSync_ReaddedStoreDirectorySurvivesAfterLeavingRepoMode(t *testing.T) {
+	for _, tc := range []struct{ target, file, object, key string }{
+		{"qoder", filepath.Join(".qoder", "settings.json"), "permissions", "additionalDirectories"},
+		{"gemini", filepath.Join(".gemini", "settings.json"), "context", "includeDirectories"},
+	} {
+		t.Run(tc.target, func(t *testing.T) {
+			parent := repoMemoryProject(t, true)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n")
+			writeFile(t, tc.file, `{"`+tc.object+`":{"`+tc.key+`":["native"]}}`)
+			list := func() []string {
+				t.Helper()
+				var doc map[string]map[string]any
+				if err := json.Unmarshal([]byte(readText(t, tc.file)), &doc); err != nil {
+					t.Fatal(err)
+				}
+				var out []string
+				for _, v := range doc[tc.object][tc.key].([]any) {
+					out = append(out, v.(string))
+				}
+				return out
+			}
+			addByHand := func(dir string) {
+				t.Helper()
+				var doc map[string]any
+				if err := json.Unmarshal([]byte(readText(t, tc.file)), &doc); err != nil {
+					t.Fatal(err)
+				}
+				object := doc[tc.object].(map[string]any)
+				object[tc.key] = append(object[tc.key].([]any), dir)
+				data, err := json.Marshal(doc)
+				if err != nil {
+					t.Fatal(err)
+				}
+				writeFile(t, tc.file, string(data))
+			}
+
+			if err := runSync(t); err != nil {
+				t.Fatal(err)
+			}
+			got := list()
+			if len(got) != 2 || !strings.HasPrefix(got[1], filepath.ToSlash(parent)+"/") {
+				t.Fatalf("repo mode list = %v", got)
+			}
+			store := got[1]
+
+			writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: checkout\n")
+			if err := runSync(t); err != nil {
+				t.Fatal(err)
+			}
+			if got := list(); len(got) != 1 || got[0] != "native" {
+				t.Fatalf("after leaving repo mode = %v", got)
+			}
+
+			addByHand(store)
+			for range 2 {
+				if err := runSync(t); err != nil {
+					t.Fatal(err)
+				}
+				if got := list(); len(got) != 2 || got[1] != store {
+					t.Fatalf("hand-added directory lost: %v", got)
+				}
+			}
+		})
+	}
+}

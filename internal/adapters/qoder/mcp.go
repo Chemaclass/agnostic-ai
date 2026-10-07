@@ -270,6 +270,12 @@ func mergeAdditionalDirectories(sess *emit.Session, keys map[string]any, cfg *co
 		permissions["additionalDirectories"] = emit.RemoveJSONKey
 		return nil
 	}
+	// With no entry of its own left, sync releases its earlier claim, so a
+	// directory the user adds by hand later is not taken out again.
+	if len(claims["additionalDirectories"]) == 0 {
+		permissions["additionalDirectories"] = emit.CarriedJSONValue(list)
+		return nil
+	}
 	permissions["additionalDirectories"] = emit.ClaimedJSONItems(list, claims["additionalDirectories"])
 	return nil
 }
