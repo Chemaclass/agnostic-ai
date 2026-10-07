@@ -385,9 +385,128 @@ func TestSync_RetiringASpecAndRepoModeTogetherDropsTheStoreRule(t *testing.T) {
 			if second := readText(t, tc.file); second != first {
 				t.Errorf("second sync changed the file:\n%s\nwant:\n%s", second, first)
 			}
-			if err := runSync(t, "--check"); err != nil {
-				t.Errorf("sync --check: %v", err)
+			checkKeepsOnlyTheEditedFile(t, tc.file)
+		})
+	}
+}
+
+// checkKeepsOnlyTheEditedFile runs `sync --check` and accepts either no
+// drift or the one drift sync reports for a file it no longer writes that
+// holds a user's edit to a value sync wrote: the kept orphan, which waits
+// for `doctor --fix` or `sync.unmanaged`.
+func checkKeepsOnlyTheEditedFile(t *testing.T, file string) {
+	t.Helper()
+	if runSync(t, "--check") == nil {
+		return
+	}
+	// Keeping the file as the user's, as sync suggests, must leave no
+	// other drift.
+	writeFile(t, "agnostic-ai.yaml", readText(t, "agnostic-ai.yaml")+"sync:\n  unmanaged: ["+filepath.ToSlash(file)+"]\n")
+	if err := runSync(t, "--check"); err != nil {
+		t.Errorf("sync --check reported more than the kept %s: %v", file, err)
+	}
+}
+
+// storeRuleCase describes, per target, where a spec's allow rules and the
+// store rule land, and how a user adds a rule of their own.
+type storeRuleCase struct {
+	target, file string
+	userRule     func(glob string) string
+	addRule      func(doc map[string]any, rule string)
+}
+
+var storeRuleCases = []storeRuleCase{
+	{"opencode", "opencode.json",
+		func(glob string) string { return `"` + glob + `": "allow"` },
+		func(doc map[string]any, glob string) {
+			permission := doc["permission"].(map[string]any)
+			directories, _ := permission["external_directory"].(map[string]any)
+			if directories == nil {
+				directories = map[string]any{}
 			}
+			directories[glob] = "allow"
+			permission["external_directory"] = directories
+		}},
+	{"windsurf", filepath.Join(".devin", "config.json"),
+		func(glob string) string { return `"Write(` + glob + `)"` },
+		func(doc map[string]any, glob string) {
+			permissions := doc["permissions"].(map[string]any)
+			permissions["allow"] = append(permissions["allow"].([]any), "Write("+glob+")")
+		}},
+}
+
+// A rule the user adds whose path looks like a memory folder is theirs:
+// retiring the spec keeps it, whether repo memory was ever on or not.
+func TestSync_RetiringASpecKeepsAUserRuleThatLooksLikeTheStore(t *testing.T) {
+	for _, tc := range storeRuleCases {
+		for _, repo := range []bool{false, true} {
+			t.Run(tc.target+map[bool]string{true: "/repo", false: "/checkout"}[repo], func(t *testing.T) {
+				parent := repoMemoryProject(t, true)
+				if !repo {
+					writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: checkout\n")
+				}
+				writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n")
+				writeFile(t, ".agnostic-ai/settings/policy.yaml", "permissions:\n  allow: [Read, Read(src/**)]\n")
+				if err := runSync(t); err != nil {
+					t.Fatal(err)
+				}
+				glob := filepath.ToSlash(parent) + "/other-1a2b3c4d/**"
+				editJSON(t, tc.file, func(doc map[string]any) { tc.addRule(doc, glob) })
+				if err := os.Remove(".agnostic-ai/settings/policy.yaml"); err != nil {
+					t.Fatal(err)
+				}
+				for range 2 {
+					if err := runSync(t); err != nil {
+						t.Fatal(err)
+					}
+					if text := readText(t, tc.file); !strings.Contains(text, tc.userRule(glob)) {
+						t.Errorf("the user's rule left:\n%s", text)
+					}
+				}
+				checkKeepsOnlyTheEditedFile(t, tc.file)
+			})
+		}
+	}
+}
+
+// Removing the spec and the memory built-in together after a user edit
+// keeps the edit and takes out only the store rule sync recorded.
+func TestSync_RetiringASpecAndTheMemoryBuiltinTogetherDropsTheStoreRule(t *testing.T) {
+	for _, tc := range storeRuleCases {
+		t.Run(tc.target, func(t *testing.T) {
+			parent := repoMemoryProject(t, true)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n")
+			writeFile(t, ".agnostic-ai/settings/policy.yaml", "permissions:\n  allow: [Read, Read(src/**)]\n")
+			if err := runSync(t); err != nil {
+				t.Fatal(err)
+			}
+			store := repoStore(t, parent, readText(t, tc.file))
+			mine := "/tmp/mine/**"
+			editJSON(t, tc.file, func(doc map[string]any) { tc.addRule(doc, mine) })
+			if err := os.Remove(".agnostic-ai/settings/policy.yaml"); err != nil {
+				t.Fatal(err)
+			}
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\nbuiltins: []\ngitignore:\n  enabled: true\n")
+			if err := runSync(t); err != nil {
+				t.Fatal(err)
+			}
+			first, err := os.ReadFile(tc.file)
+			if err != nil {
+				t.Fatalf("the edited file left: %v", err)
+			}
+			if !strings.Contains(string(first), tc.userRule(mine)) {
+				t.Errorf("lost the user's rule:\n%s", first)
+			}
+			if strings.Contains(string(first), store) {
+				t.Errorf("the store rule stayed:\n%s", first)
+			}
+			if err := runSync(t); err != nil {
+				t.Fatal(err)
+			}
+			if second := readText(t, tc.file); second != string(first) {
+				t.Errorf("second sync changed the file:\n%s\nwant:\n%s", second, first)
+			}
+			checkKeepsOnlyTheEditedFile(t, tc.file)
 		})
 	}
 }

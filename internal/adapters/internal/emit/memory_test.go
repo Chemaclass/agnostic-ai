@@ -10,27 +10,6 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestIsRepoStoreGlob_MatchesOnlyAStoreFolderRule(t *testing.T) {
-	home, err := filepath.EvalSymlinks(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("AGNOSTIC_AI_HOME", home)
-	stores := filepath.ToSlash(filepath.Join(home, "local", "memory"))
-	for pattern, want := range map[string]bool{
-		stores + "/app-1a2b/**":   true,
-		stores + "/app-1a2b":      false,
-		stores + "/app-1a2b/x/**": false,
-		stores + "/**":            false,
-		"/tmp/other/app-1a2b/**":  false,
-		"~/.agnostic-ai/local/**": false,
-	} {
-		if got := IsRepoStoreGlob(pattern); got != want {
-			t.Errorf("IsRepoStoreGlob(%q) = %v, want %v", pattern, got, want)
-		}
-	}
-}
-
 func TestRenderMemoryBlock_ImportsTheIndexFromTheProjectRoot(t *testing.T) {
 	got := RenderMemoryBlock("CLAUDE.md", PersonalMemoryIndexPath)
 

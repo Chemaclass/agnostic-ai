@@ -148,6 +148,21 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 			released = append(released, path)
 		}
 	}
+	// claimWithin records what sync added inside a value it just claimed
+	// whole at path (ClaimedJSONWithItems, ClaimedJSONWithEntries).
+	claimWithin := func(path []string, raw any) {
+		within, ok := raw.(claimedWithin)
+		if !ok || len(owned) == 0 {
+			return
+		}
+		owned[len(owned)-1].Within = within.items
+		if within.entries != nil {
+			released = append(released, path)
+		}
+		for _, entry := range within.entries {
+			owned = append(owned, MergedKey{Path: append(slices.Clone(path), entry...)})
+		}
+	}
 	for _, k := range names {
 		value, kind, items, follows := mergeClaim(keys[k])
 		if _, remove := value.(removeJSONKey); remove {
@@ -214,6 +229,7 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 		incoming, isObject := value.(map[string]any)
 		if !nested[k] || !isObject || kind != claimWhole {
 			claim([]string{k}, kind, items, follows)
+			claimWithin([]string{k}, keys[k])
 		} else {
 			// A value an earlier sync wrote whole now merges child by
 			// child, so the claims move to the children. The old value
@@ -226,14 +242,15 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 				}
 			}
 			children := make(map[string]any, len(incoming))
-			for child, childValue := range incoming {
-				childValue, childKind, childItems, childFollows := mergeClaim(childValue)
+			for child, raw := range incoming {
+				childValue, childKind, childItems, childFollows := mergeClaim(raw)
 				children[child] = childValue
 				if _, remove := childValue.(removeJSONKey); remove {
 					released = append(released, []string{k, child})
 					continue
 				}
 				claim([]string{k, child}, childKind, childItems, childFollows)
+				claimWithin([]string{k, child}, raw)
 			}
 			value = mergeJSONObject(doc, k, children)
 		}

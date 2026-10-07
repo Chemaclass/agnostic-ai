@@ -176,6 +176,32 @@ func TestMergeJSONFileNested_MovesAWholeClaimToTheChildren(t *testing.T) {
 	}
 }
 
+// An edited list sync claimed whole stays, minus only the items sync
+// recorded adding to it, and an item the user wrote alike elsewhere is
+// not sync's to take.
+func TestReleaseMergedJSON_TakesOnlyTheRecordedItemOutOfAnEditedList(t *testing.T) {
+	testutil.TempCwd(t)
+	const path = "config.json"
+	if err := os.WriteFile(path, []byte(`{"permissions":{"allow":["Read(src/**)","Write(/s/**)","Exec(make)"]}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	keys := []MergedKey{{
+		Path:   []string{"permissions", "allow"},
+		Sum:    jsonValueSum(json.RawMessage(`["Read(src/**)","Write(/s/**)"]`)),
+		Within: []string{ContentSum("Write(/s/**)")},
+	}}
+	result, edited, err := NewSession().ReleaseMergedJSON(path, keys, true, false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result == MergedRemoved || len(edited) != 1 {
+		t.Errorf("result = %v, edited = %v", result, edited)
+	}
+	if got := readFileString(t, path); !strings.Contains(got, `"Read(src/**)"`) || !strings.Contains(got, `"Exec(make)"`) || strings.Contains(got, "/s/**") {
+		t.Errorf("file = %s", got)
+	}
+}
+
 func TestReleaseMergedJSON(t *testing.T) {
 	const path = "settings.json"
 	sum := func(v string) string { return jsonValueSum(json.RawMessage(v)) }
