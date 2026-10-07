@@ -129,6 +129,30 @@ func TestDecide_MoreTargets(t *testing.T) {
 	}
 }
 
+func TestAddsContext_AugmentAndOpenHandsSessionStart(t *testing.T) {
+	for _, tc := range []struct {
+		target, event string
+		r             Result
+		want          bool
+	}{
+		{"augment", "SessionStart", Result{Stdout: "sprint 23\n"}, true},
+		{"augment", "SessionStart", Result{Stdout: `{"hookSpecificOutput":{"additionalContext":"sprint 23"}}`}, true},
+		{"augment", "SessionStart", Result{Stdout: `{"hookSpecificOutput":{"hookEventName":"SessionStart"}}`}, false},
+		{"augment", "SessionStart", Result{Exit: 1, Stdout: "sprint 23"}, false},
+		{"augment", "SessionStart", Result{Exit: 2, Stdout: "sprint 23"}, false},
+		{"augment", "PostToolUse", Result{Stdout: `{"hookSpecificOutput":{"additionalContext":"lint passed"}}`}, true},
+		{"augment", "PostToolUse", Result{Stdout: "lint passed"}, false},
+		{"openhands", "SessionStart", Result{Stdout: `{"additionalContext":"sprint 23"}`}, false},
+		{"openhands", "SessionStart", Result{Stdout: `{"hookSpecificOutput":{"additionalContext":"sprint 23"}}`}, false},
+		{"openhands", "SessionStart", Result{Stdout: "sprint 23"}, false},
+		{"openhands", "UserPromptSubmit", Result{Stdout: `{"additionalContext":"sprint 23"}`}, true},
+	} {
+		if got := AddsContext(tc.target, tc.event, tc.r); got != tc.want {
+			t.Errorf("%s %s %+v adds context = %v, want %v", tc.target, tc.event, tc.r, got, tc.want)
+		}
+	}
+}
+
 func TestArgv_MoreTargets(t *testing.T) {
 	for _, tc := range []struct {
 		target, goos, command string

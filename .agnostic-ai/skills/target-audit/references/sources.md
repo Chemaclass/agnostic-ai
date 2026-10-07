@@ -300,6 +300,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - trap: `/cli/permissions` marks `launch-process`, `view`, `str-replace-editor` and `save-file` as legacy aliases of `terminal`, `read`, `edit` and `write`. That rename is permissions-only. `/cli/subagents` and `/cli/hooks` still use the old names. Check which page a name came from; do not rename hook matchers.
 - fact: `toolPermissions` (#856) is an ordered array, first match wins. `permission` must be an object with `type`; a bare string is dropped. Types are `allow`, `deny`, `webhook-policy`, `script-policy`, with no prompt type, so `ask` raises a coverage note. Only `terminal` takes a matcher (`shellInputRegex`), so a path-scoped rule raises one too. MCP tools are named `{tool-name}_{server-name}`, truncated at 64 characters.
 - decision: the optional rule field `eventType` (`tool-call` default, `tool-response`) is omitted. `x-augment` is the route for the response phase.
+- fact: SessionStart output reaches the model. `/cli/hooks.md`, "Output Routing", lists under "**To Agent (injected into conversation):**" the line "* SessionStart stdout or `additionalContext`", and the matrix row "| 0 | SessionStart | stdout | Agent | Inject context at session start |". `hook run` reads Augment context as Claude Code does (#1853, checked 2026-10-07).
 
 ## qoder
 
@@ -328,6 +329,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - decision: `.openhands/hooks.json` uses the Claude-compatible PascalCase wrapper, with a coverage note for OpenHands matchers (`file_editor`, `terminal`).
 - quirk: the agent loader skips subdirectories, so Antigravity coexists at `.agents/agents/<name>/agent.md` (#717).
 - decision: agent `color` stays unemitted with a coverage note (#864). Goose shares `.agents/agents/` and has no such key. Use `x-openhands.color`. Re-open only if Goose adds `color` or OpenHands stops sharing the path.
+- fact: SessionStart adds no context. In software-agent-sdk [`608a102`](https://github.com/OpenHands/software-agent-sdk/blob/608a102c637d8d8a999f49d7b04846524bd8bd1c/openhands-sdk/openhands/sdk/hooks/conversation_hooks.py), `run_session_start` only calls `self._emit_hook_execution_event(...)` and logs `result.error`; `additional_context` is read only in `_handle_user_prompt_submit` (into `extended_content`) and `run_stop` (as feedback when stopping is denied). `hook run` reports context on `UserPromptSubmit` and `Stop` only (#1853, checked 2026-10-07).
 
 ## factory
 
