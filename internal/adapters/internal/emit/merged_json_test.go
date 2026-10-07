@@ -88,6 +88,47 @@ func TestMergeJSONFileNested_ClaimsOnlyTheNamedObjectEntries(t *testing.T) {
 	}
 }
 
+func TestMergeJSONFileNested_KeepsTheObjectOrderOnDisk(t *testing.T) {
+	testutil.TempCwd(t)
+	const path = "opencode.json"
+	if err := os.WriteFile(path, []byte(`{"permission":{"read":"allow","bash":{"*":"ask","git *":"allow","git push *":"deny","a":"allow"}}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ordered := NewOrderedJSON()
+	for _, key := range []string{"/tmp/b/**", "*"} {
+		if err := ordered.Set(key, "allow"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := NewSession().MergeJSONFileNested(path, map[string]any{
+		"permission": map[string]any{"external_directory": ordered},
+	}, []string{"permission"}, false); err != nil {
+		t.Fatal(err)
+	}
+	doc := NewOrderedJSON()
+	if err := json.Unmarshal([]byte(readFileString(t, path)), doc); err != nil {
+		t.Fatal(err)
+	}
+	permission, _ := doc.Get("permission")
+	object := NewOrderedJSON()
+	if err := json.Unmarshal(permission, object); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"read", "bash", "external_directory"}; !slices.Equal(object.Keys(), want) {
+		t.Errorf("permission keys = %v, want %v", object.Keys(), want)
+	}
+	for key, want := range map[string][]string{"bash": {"*", "git *", "git push *", "a"}, "external_directory": {"/tmp/b/**", "*"}} {
+		raw, _ := object.Get(key)
+		child := NewOrderedJSON()
+		if err := json.Unmarshal(raw, child); err != nil {
+			t.Fatal(err)
+		}
+		if !slices.Equal(child.Keys(), want) {
+			t.Errorf("%s keys = %v, want %v", key, child.Keys(), want)
+		}
+	}
+}
+
 func TestReleaseMergedJSON(t *testing.T) {
 	const path = "settings.json"
 	sum := func(v string) string { return jsonValueSum(json.RawMessage(v)) }

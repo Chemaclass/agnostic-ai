@@ -257,7 +257,10 @@ func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, memory, 
 		}
 		keys["instructions"] = emit.ClaimedJSONItems(list, added)
 	}
-	nested := mergeExternalDirectories(sess, keys, path, directories, dryRun)
+	nested, err := mergeExternalDirectories(sess, keys, settings, path, directories, dryRun)
+	if err != nil {
+		return err
+	}
 	emit.MergeEntriesOf(keys, "mcp")
 	if nested {
 		return sess.MergeJSONFileNested(path, keys, []string{permissionKey}, dryRun)

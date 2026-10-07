@@ -54,6 +54,80 @@ func TestSync_OpenCodeRepoMemoryAllowsTheStoreAndKeepsUserRules(t *testing.T) {
 	}
 }
 
+// externalDirectoryOrder returns the patterns of permission.external_directory
+// in opencode.json in file order.
+func externalDirectoryOrder(t *testing.T) []string {
+	t.Helper()
+	var doc struct {
+		Permission struct {
+			ExternalDirectory json.RawMessage `json:"external_directory"`
+		} `json:"permission"`
+	}
+	if err := json.Unmarshal([]byte(readText(t, "opencode.json")), &doc); err != nil {
+		t.Fatal(err)
+	}
+	dec := json.NewDecoder(strings.NewReader(string(doc.Permission.ExternalDirectory)))
+	if _, err := dec.Token(); err != nil {
+		t.Fatal(err)
+	}
+	var keys []string
+	for dec.More() {
+		key, err := dec.Token()
+		if err != nil {
+			t.Fatal(err)
+		}
+		keys = append(keys, key.(string))
+		var skip json.RawMessage
+		if err := dec.Decode(&skip); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return keys
+}
+
+// OpenCode applies the last matching rule, so the user's entries keep
+// their order and the store entry comes last, through every sync.
+func TestSync_OpenCodeRepoMemoryKeepsTheUserOrder(t *testing.T) {
+	for _, user := range [][]string{{"*", "/tmp/a/**"}, {"/tmp/a/**", "*"}} {
+		t.Run(strings.Join(user, ","), func(t *testing.T) {
+			parent := repoMemoryProject(t, true)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [opencode]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n")
+			action := map[string]string{"*": "deny", "/tmp/a/**": "allow"}
+			writeFile(t, "opencode.json", `{"permission": {"external_directory": {"`+user[0]+`": "`+action[user[0]]+`", "`+user[1]+`": "`+action[user[1]]+`"}}}`)
+			for range 2 {
+				if err := runSync(t); err != nil {
+					t.Fatal(err)
+				}
+				store := repoStore(t, parent, readText(t, "opencode.json"))
+				if got, want := externalDirectoryOrder(t), append(slices.Clone(user), store+"/**"); !slices.Equal(got, want) {
+					t.Errorf("external_directory order = %v, want %v", got, want)
+				}
+			}
+			if err := runSync(t, "--check"); err != nil {
+				t.Errorf("sync --check: %v", err)
+			}
+		})
+	}
+}
+
+// A spec that owns the permission map keeps its own external_directory
+// order, with the store entry last.
+func TestSync_OpenCodeRepoMemoryKeepsTheSpecOrder(t *testing.T) {
+	parent := repoMemoryProject(t, true)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [opencode]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n")
+	writeFile(t, ".agnostic-ai/settings/policy.yaml", "x-opencode:\n  permission:\n    external_directory:\n      /tmp/a/**: allow\n      \"*\": deny\n")
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	store := repoStore(t, parent, readText(t, "opencode.json"))
+	if got, want := externalDirectoryOrder(t), []string{"/tmp/a/**", "*", store + "/**"}; !slices.Equal(got, want) {
+		t.Errorf("external_directory order = %v, want %v", got, want)
+	}
+	if err := runSync(t, "--check"); err != nil {
+		t.Errorf("sync --check: %v", err)
+	}
+}
+
 // A permission map a settings spec produces is sync's whole, so the store
 // rule joins it, and a native external_directory action stays the default.
 func TestSync_OpenCodeRepoMemoryJoinsSettingsPermissions(t *testing.T) {

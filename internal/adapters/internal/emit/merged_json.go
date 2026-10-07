@@ -103,7 +103,7 @@ func ClaimedJSONItems(value any, items []string) any {
 // claimedEntries is an object merge value of which sync owns only the
 // named entries.
 type claimedEntries struct {
-	value   map[string]any
+	value   any
 	entries []string
 }
 
@@ -112,7 +112,7 @@ type claimedEntries struct {
 // own. Every earlier claim in the object goes, so the caller names each
 // entry of sync's it keeps. Releasing the file later takes out only the
 // named entries, each while it is unchanged.
-func ClaimedJSONEntries(value map[string]any, entries []string) any {
+func ClaimedJSONEntries(value any, entries []string) any {
 	return claimedEntries{value: value, entries: slices.Clone(entries)}
 }
 

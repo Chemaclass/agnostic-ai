@@ -263,16 +263,27 @@ func mergeJSONObject(doc *OrderedJSON, key string, value any) any {
 	if !ok {
 		return value
 	}
-	existing := map[string]any{}
-	if raw, found := doc.Get(key); found {
-		_ = json.Unmarshal(raw, &existing)
+	// The object keeps the file's key order, and a value it does not set
+	// keeps its bytes: a tool such as OpenCode reads the last matching
+	// rule, so order is meaning.
+	existing := NewOrderedJSON()
+	if raw, found := doc.Get(key); found && json.Unmarshal(raw, existing) != nil {
+		existing = NewOrderedJSON()
 	}
-	for child, childValue := range incoming {
+	children := make([]string, 0, len(incoming))
+	for child := range incoming {
+		children = append(children, child)
+	}
+	sort.Strings(children)
+	for _, child := range children {
+		childValue := incoming[child]
 		if _, remove := childValue.(removeJSONKey); remove {
-			delete(existing, child)
+			existing.Delete(child)
 			continue
 		}
-		existing[child] = childValue
+		if err := existing.Set(child, childValue); err != nil {
+			return value
+		}
 	}
 	return existing
 }
