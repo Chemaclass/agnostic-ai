@@ -6,12 +6,12 @@ targets: [claude, qoder]
 
 # memory-curator
 
-Curates the auto memory store of the tool you are running in. agnostic-ai never writes there, so the tool prunes its own store, during its own session, with the user watching.
+Curates the auto memory store of the tool you are running in. The tool prunes its own store, during its own session, with the user watching.
 
 ## Store
 
 ::target claude
-Auto memory usually lives in `~/.claude/projects/<project>/memory/`, but the location is configurable: `autoMemoryDirectory` in any settings scope moves it, `CLAUDE_CONFIG_DIR` moves the whole config root, and `CLAUDE_CODE_PROJECT_DIR_NAME` changes the project segment. Never assume the default path. Run `/memory`, pick the auto memory folder, and curate whatever store it opens. `MEMORY.md` is the index and every other file holds one topic.
+Auto memory usually lives in `~/.claude/projects/<project>/memory/`, but the location is configurable: `autoMemoryDirectory` in any settings scope moves it, `CLAUDE_CONFIG_DIR` moves the whole config root, and `CLAUDE_CODE_PROJECT_DIR_NAME` changes the project segment. Never assume the default path. Run `/memory`, pick the auto memory folder, and curate whatever store it opens. With the `memory` built-in on, sync sets `autoMemoryDirectory` to `.agnostic-ai/local/memory/`, the personal store every tool shares, so Claude's own saves land there and other tools read them. `MEMORY.md` is the index and every other file holds one topic.
 
 Each session loads the first 200 lines or 25KB of `MEMORY.md`, whichever comes first. Everything past that is dropped on load.
 ::end

@@ -138,7 +138,7 @@ memory: project
 | `project` | `.claude/agent-memory/<name>/` | shareable; commit it if the team wants it shared |
 | `local` | `.claude/agent-memory-local/<name>/` | do not commit |
 
-Claude Code creates the directory on first use; agnostic-ai only writes the key. Session auto memory (`~/.claude/projects/<project>/memory/`) is separate and left alone, but `memory` needs it: with `autoMemoryEnabled` off or `CLAUDE_CODE_DISABLE_AUTO_MEMORY` set, `memory` does nothing. See [Memory and local state](@/docs/target-behavior.md#memory-and-local-state).
+Claude Code creates the directory on first use; agnostic-ai only writes the key. Session auto memory (`~/.claude/projects/<project>/memory/`) is separate. Sync leaves it alone unless the [`memory` built-in](@/docs/memory.md#claude-code-s-own-memory) points it at the shared personal store, but `memory` needs it: with `autoMemoryEnabled` off or `CLAUDE_CODE_DISABLE_AUTO_MEMORY` set, `memory` does nothing. See [Memory and local state](@/docs/target-behavior.md#memory-and-local-state).
 
 ## Claude settings
 

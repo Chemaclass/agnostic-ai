@@ -118,6 +118,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	}
 
 	dir := emit.OutputDir(cfg, target, defaultDir)
+	if err := emitAutoMemoryDirectory(sess, dir, cfg, dryRun); err != nil {
+		return err
+	}
 
 	agentsDir := emit.OutputAgentsDir(cfg, target, emit.OutputSubDir(cfg, target, "agents", defaultAgentsDir))
 	if err := (Adapter{}).EmitAgents(sess, b.Agents, agentsDir, dryRun); err != nil {
@@ -1100,4 +1103,35 @@ func mergeHooksInto(doc *emit.OrderedJSON, path string, hooks []spec.Entry) ([]e
 		}
 	}
 	return claimed, nil
+}
+
+// autoMemoryDirectoryKey is Claude Code's setting for where auto memory
+// lives. It takes an absolute path only, so sync writes it to the
+// personal, git-ignored settings.local.json (code.claude.com/docs/en/memory).
+const autoMemoryDirectoryKey = "autoMemoryDirectory"
+
+// emitAutoMemoryDirectory points Claude Code's auto memory at the shared
+// personal store, so what Claude saves on its own reaches every tool
+// (#1846). A value the user set stays theirs. CLAUDE.md still imports the
+// personal index: Claude ignores the key until the workspace is trusted.
+func emitAutoMemoryDirectory(sess *emit.Session, dir string, cfg *config.Config, dryRun bool) error {
+	if emit.MemoryIndexPaths(cfg) == nil {
+		return nil
+	}
+	path := filepath.Join(dir, "settings.local.json")
+	if sess.HasJSONKey(path, autoMemoryDirectoryKey, dryRun) && !emit.ClaimsKey(path, autoMemoryDirectoryKey) {
+		return nil
+	}
+	store, err := filepath.Abs(filepath.Dir(emit.PersonalMemoryIndexPath))
+	if err != nil {
+		return fmt.Errorf("resolve %s: %w", emit.PersonalMemoryIndexPath, err)
+	}
+	// The file holds this checkout's absolute path, so it must never be
+	// committed, even when sync creates it before Claude Code ignores it.
+	if !dryRun && !sess.IsCapturing() {
+		if err := emit.ExcludeFromGit("**/" + filepath.ToSlash(path)); err != nil {
+			return err
+		}
+	}
+	return sess.MergeJSONFile(path, map[string]any{autoMemoryDirectoryKey: filepath.ToSlash(store)}, dryRun)
 }
