@@ -85,7 +85,7 @@ command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook guard stop
 
 ## hook memory
 
-Prints the memory indexes for a `session-start` hook, so the tool adds them to the model's context. Personal memory comes first, then project memory. The [`memory-hook` built-in](@/docs/memory.md#load-at-session-start) sets this up for you.
+Prints the memory indexes for a `session-start` hook, so the tool adds them to the model's context. Personal memory comes first, then project memory. The [`memory` built-in](@/docs/memory.md#load-at-session-start) sets this up for you.
 
 ```bash
 agnostic-ai hook memory --target codex
