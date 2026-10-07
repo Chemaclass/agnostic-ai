@@ -40,13 +40,14 @@ func newHookMemoryCmd() *cobra.Command {
 			if root == "" {
 				return nil
 			}
-			var indexes []memoryIndex
-			for _, scope := range []memoryIndex{
+			scopes := []memoryIndex{
 				// Personal first: it is short, and a long project index must
 				// not push the user's own corrections out of the limit.
-				{name: "Personal memory", path: adapters.PersonalMemoryIndexPath},
+				personalMemoryIndex(root),
 				{name: "Project memory", path: adapters.ProjectMemoryIndexPath},
-			} {
+			}
+			var indexes []memoryIndex
+			for _, scope := range scopes {
 				if text, ok := readMemoryIndex(root, scope.path); ok {
 					scope.text = text
 					indexes = append(indexes, scope)
@@ -55,7 +56,7 @@ func newHookMemoryCmd() *cobra.Command {
 			if len(indexes) == 0 {
 				return nil
 			}
-			reply, err := memoryHookReply(target, memoryContext(indexes))
+			reply, err := memoryHookReply(target, memoryContext(indexes, scopes))
 			if err != nil {
 				return nil
 			}
@@ -67,13 +68,33 @@ func newHookMemoryCmd() *cobra.Command {
 	return cmd
 }
 
-// memoryIndex is one scope's index as the hook prints it.
+// memoryIndex is one scope's index as the hook prints it. path is
+// relative to the project root, or absolute for the repo store.
 type memoryIndex struct{ name, path, text string }
 
+// personalMemoryIndex returns the personal index of the project at root,
+// in the checkout unless its config sets memory.personal: repo.
+func personalMemoryIndex(root string) memoryIndex {
+	index := memoryIndex{name: "Personal memory", path: adapters.PersonalMemoryIndexPath}
+	cfg, err := config.Load(root)
+	if err != nil || !cfg.RepoPersonalMemory() {
+		return index
+	}
+	if dir, err := adapters.PersonalMemoryDir(cfg, root); err == nil {
+		index.path = filepath.ToSlash(filepath.Join(dir, "MEMORY.md"))
+	}
+	return index
+}
+
 // memoryContext frames the indexes for the model and cuts them at a
-// whole line to stay under memoryContextLimit.
-func memoryContext(indexes []memoryIndex) string {
-	const cut = "\n(More facts are in " + adapters.PersonalMemoryIndexPath + " and " + adapters.ProjectMemoryIndexPath + ".)\n"
+// whole line to stay under memoryContextLimit. The cut note names every
+// scope's index.
+func memoryContext(indexes, scopes []memoryIndex) string {
+	paths := make([]string, len(scopes))
+	for i, index := range scopes {
+		paths[i] = index.path
+	}
+	cut := "\n(More facts are in " + strings.Join(paths, " and ") + ".)\n"
 	text := "## Shared memory\n\nOpen a fact's file, in the folder of its index, when its line is relevant.\n"
 	head := 0
 	for i, index := range indexes {
@@ -182,12 +203,15 @@ const memoryIndexMaxBytes = 1 << 20
 // context unasked, so any symlink on the way, such as one a cloned
 // checkout ships to .env or a credentials file, is skipped.
 func readMemoryIndex(root, indexPath string) (string, bool) {
-	root = canonicalDir(root)
-	real, err := filepath.EvalSymlinks(filepath.Join(root, indexPath))
+	want := filepath.Join(canonicalDir(root), indexPath)
+	if filepath.IsAbs(indexPath) {
+		want = filepath.Join(canonicalDir(filepath.Dir(indexPath)), filepath.Base(indexPath))
+	}
+	real, err := filepath.EvalSymlinks(want)
 	if err != nil {
 		return "", false
 	}
-	if real != filepath.Join(root, indexPath) {
+	if real != want {
 		return "", false
 	}
 	f, err := os.Open(real)

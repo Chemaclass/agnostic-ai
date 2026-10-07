@@ -1115,15 +1115,18 @@ const autoMemoryDirectoryKey = "autoMemoryDirectory"
 // (#1846). A value the user set stays theirs. CLAUDE.md still imports the
 // personal index: Claude ignores the key until the workspace is trusted.
 func emitAutoMemoryDirectory(sess *emit.Session, dir string, cfg *config.Config, dryRun bool) error {
-	if emit.MemoryIndexPaths(cfg) == nil {
+	if !slices.Contains(cfg.Builtins, emit.MemoryBuiltin) {
 		return nil
 	}
 	path := filepath.Join(dir, "settings.local.json")
 	if sess.HasJSONKey(path, autoMemoryDirectoryKey, dryRun) && !emit.ClaimsKey(path, autoMemoryDirectoryKey) {
 		return nil
 	}
-	store, err := filepath.Abs(filepath.Dir(emit.PersonalMemoryIndexPath))
+	store, err := emit.PersonalMemoryDir(cfg, ".")
 	if err != nil {
+		return err
+	}
+	if store, err = filepath.Abs(store); err != nil {
 		return fmt.Errorf("resolve %s: %w", emit.PersonalMemoryIndexPath, err)
 	}
 	// The file holds this checkout's absolute path, so it must never be

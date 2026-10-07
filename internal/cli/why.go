@@ -187,7 +187,8 @@ func traceEntryPointFile(rel string, cfg *config.Config, b spec.Bundle, projectR
 		rules = adapters.EntryPointRules(b, importer, cfg).Rules
 	}
 	local, _ := adapters.ReadLocalInstructions()
-	memory := memoryBlockFor(cfg, rel, consumers) != ""
+	block, _ := memoryBlockFor(cfg, rel, consumers)
+	memory := block != ""
 	appended := len(rules) > 0 || local != "" || memory || cfg.Sync.TargetOverview
 
 	sources := []whySource{instructionsSource(appended)}

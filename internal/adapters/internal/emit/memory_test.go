@@ -11,7 +11,7 @@ import (
 )
 
 func TestRenderMemoryBlock_ImportsTheIndexFromTheProjectRoot(t *testing.T) {
-	got := RenderMemoryBlock("CLAUDE.md")
+	got := RenderMemoryBlock("CLAUDE.md", PersonalMemoryIndexPath)
 
 	want := MemoryStartMarker + "\n\n## Shared memory\n\n@.agnostic-ai/memory/MEMORY.md\n@.agnostic-ai/local/memory/MEMORY.md\n\n" + MemoryEndMarker + "\n"
 	if got != want {
@@ -20,7 +20,7 @@ func TestRenderMemoryBlock_ImportsTheIndexFromTheProjectRoot(t *testing.T) {
 }
 
 func TestRenderMemoryBlock_ImportsRelativeToANestedEntryPoint(t *testing.T) {
-	got := RenderMemoryBlock(".claude/CLAUDE.md")
+	got := RenderMemoryBlock(".claude/CLAUDE.md", PersonalMemoryIndexPath)
 
 	if !strings.Contains(got, "\n@../.agnostic-ai/memory/MEMORY.md\n") {
 		t.Errorf("import not relative to .claude/:\n%s", got)
@@ -28,8 +28,8 @@ func TestRenderMemoryBlock_ImportsRelativeToANestedEntryPoint(t *testing.T) {
 }
 
 func TestAppendMemoryBlock_ReplacesAnEarlierBlock(t *testing.T) {
-	once := AppendMemoryBlock("# Shared\n", RenderMemoryBlock("CLAUDE.md"))
-	twice := AppendMemoryBlock(once, RenderMemoryBlock("CLAUDE.md"))
+	once := AppendMemoryBlock("# Shared\n", RenderMemoryBlock("CLAUDE.md", PersonalMemoryIndexPath))
+	twice := AppendMemoryBlock(once, RenderMemoryBlock("CLAUDE.md", PersonalMemoryIndexPath))
 
 	if strings.Count(twice, MemoryStartMarker) != 1 {
 		t.Errorf("blocks stacked:\n%s", twice)
@@ -46,7 +46,7 @@ func TestAppendMemoryBlock_NoOpWithoutBlock(t *testing.T) {
 }
 
 func TestStripGeneratedAppendices_DropsTheMemoryBlock(t *testing.T) {
-	body := AppendMemoryBlock("# Shared\n", RenderMemoryBlock("CLAUDE.md"))
+	body := AppendMemoryBlock("# Shared\n", RenderMemoryBlock("CLAUDE.md", PersonalMemoryIndexPath))
 	body = AppendLocalInstructions(body, "Private note.")
 
 	if got := StripGeneratedAppendices(body); got != "# Shared\n" {
@@ -67,7 +67,7 @@ func TestRenderMemoryBlock_ImportsTheProjectIndexFromAnAbsoluteEntryPoint(t *tes
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 
-	got := RenderMemoryBlock(filepath.Join(dir, ".claude", "CLAUDE.md"))
+	got := RenderMemoryBlock(filepath.Join(dir, ".claude", "CLAUDE.md"), PersonalMemoryIndexPath)
 
 	if !strings.Contains(got, "\n@../.agnostic-ai/memory/MEMORY.md\n") {
 		t.Errorf("import not resolved from the project root:\n%s", got)
@@ -82,7 +82,7 @@ func TestRenderMemoryBlock_EscapesSpacesInTheImportPath(t *testing.T) {
 	}
 	testutil.Chdir(t, project)
 
-	got := RenderMemoryBlock(filepath.Join(parent, "CLAUDE.md"))
+	got := RenderMemoryBlock(filepath.Join(parent, "CLAUDE.md"), PersonalMemoryIndexPath)
 
 	if !strings.Contains(got, "\n@My\\ Project/.agnostic-ai/memory/MEMORY.md\n") {
 		t.Errorf("space not escaped:\n%s", got)

@@ -37,7 +37,7 @@ To use it in every project, add `memory` to `builtins` in `~/.agnostic-ai/agnost
   prefers-tabs.md
 ```
 
-Your preferences and corrections go to personal memory right away. Team facts go to project memory only after you confirm. Personal memory stays in this checkout, so cloud agents never see it. A new Claude Code worktree gets a copy through `.worktreeinclude`.
+Your preferences and corrections go to personal memory right away. Team facts go to project memory only after you confirm. Personal memory stays in this checkout, so cloud agents never see it. A new Claude Code worktree gets a copy through `.worktreeinclude`. To share one personal store across worktrees, see [one store per repository](#one-store-per-repository).
 
 A fact file looks like this:
 
@@ -56,7 +56,7 @@ PR CI runs on Ubuntu alone.
 **How to apply:** dispatch the full OS matrix before merging a change to paths or file watching.
 ```
 
-The type is `user`, `feedback`, `project`, or `reference`. The two folders are fixed; `sources:` does not move them.
+The type is `user`, `feedback`, `project`, or `reference`. `sources:` does not move the folders; only `memory.personal` moves the personal one.
 
 ## How tools save
 
@@ -88,6 +88,41 @@ Claude Code keeps an auto memory that it writes without being asked, in the same
 - A value you set yourself stays. Sync writes the key only when the file lacks it or sync wrote it before.
 - Claude Code honors the setting in a project only after you trust the workspace.
 - Codex, Gemini CLI, and Qoder keep their own memory off by default. Leave it off so they save here. Windsurf's legacy Cascade agent keeps memories in `~/.codeium/windsurf/memories/`, which no project setting moves.
+
+## One store per repository
+
+Personal memory lives in each checkout by default, so a new worktree starts with a copy and loses what it saved when you remove it. Set `memory.personal: repo` in `agnostic-ai.local.yaml` to keep one store per repository instead, then run `agnostic-ai sync`:
+
+```yaml
+# agnostic-ai.local.yaml
+memory:
+  personal: repo
+```
+
+The store is `$AGNOSTIC_AI_HOME/local/memory/<repo-slug>/` (default `~/.agnostic-ai/local/memory/`). The slug is the repository's folder name plus a hash of its Git common directory, so every worktree of one clone shares it. Moving or recloning the repository starts a new store.
+
+The store's absolute path goes only into files that never reach Git:
+
+- `.claude/settings.local.json` points `autoMemoryDirectory` at it.
+- With a managed [`.gitignore` block](@/docs/configuration.md#gitignore), and no `gitignore.commit` kind for that tool, sync also writes it to `CLAUDE.md`, `opencode.json`, `kilo.jsonc`, `.codex/config.toml`, and `.gemini/settings.json`.
+- Otherwise those files may be committed, so they keep the checkout paths. Claude Code still loads the store through auto memory, and the other tools through the session-start hook. OpenCode and Kilo Code then load no personal memory, and Codex and Gemini CLI cannot save there.
+
+The session-start hook, `memory lint`, `memory index`, and `memory list` read the store from your local config.
+
+### Sandbox settings
+
+Codex and Gemini CLI write only inside the workspace. So that they can save a fact, sync adds the store to:
+
+- Codex: `writable_roots` under `[sandbox_workspace_write]` in `.codex/config.toml`. It applies when `sandbox_mode` is `workspace-write`, and only in a [trusted project](https://learn.chatgpt.com/docs/config-file/config-reference). An overlay that sets `[sandbox_workspace_write]` keeps its own table; add the store to it yourself.
+- Gemini CLI: `context.includeDirectories` in `.gemini/settings.json` ([configuration reference](https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md)). Your own entries stay.
+
+### Claude Code import prompt
+
+`CLAUDE.md` imports the store's index by absolute path. Because the file is outside the project, Claude Code asks once per project whether to allow the import ([external imports](https://code.claude.com/docs/en/memory)). If you decline, Claude Code still reads the store through `autoMemoryDirectory` once you trust the workspace.
+
+### Cloud agents
+
+Cloud agents work from a fresh clone, without your local config or your home directory. They never see personal memory, in either mode.
 
 ## Load at session start
 

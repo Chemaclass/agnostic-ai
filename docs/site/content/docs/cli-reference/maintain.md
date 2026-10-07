@@ -45,7 +45,7 @@ agnostic-ai packs remove superpowers
 
 ## memory
 
-Check, list, and repair the [shared memory](@/docs/memory.md) in the working directory. Each subcommand reads project memory in `.agnostic-ai/memory/`, then personal memory in `.agnostic-ai/local/memory/`. A store whose folder is missing is skipped.
+Check, list, and repair the [shared memory](@/docs/memory.md) in the working directory. Each subcommand reads project memory in `.agnostic-ai/memory/`, then personal memory in `.agnostic-ai/local/memory/`, or in the [repository store](@/docs/memory.md#one-store-per-repository) with `memory.personal: repo`. A store whose folder is missing is skipped.
 
 ```bash
 agnostic-ai memory lint     # run only the memory checks

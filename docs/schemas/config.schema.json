@@ -336,6 +336,9 @@
         },
         "coverage": {
           "$ref": "#/$defs/CoverageConfig"
+        },
+        "memory": {
+          "$ref": "#/$defs/MemoryConfig"
         }
       },
       "additionalProperties": false,
@@ -481,6 +484,20 @@
         "codex-chain-bytes": {
           "type": "integer",
           "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "MemoryConfig": {
+      "properties": {
+        "personal": {
+          "type": "string",
+          "enum": [
+            "checkout",
+            "repo"
+          ],
+          "description": "Where personal memory lives: checkout (default) keeps it in .agnostic-ai/local/memory/ of each checkout; repo keeps one store per repository under $AGNOSTIC_AI_HOME/local/memory/, shared by every worktree. Set it in agnostic-ai.local.yaml only."
         }
       },
       "additionalProperties": false,

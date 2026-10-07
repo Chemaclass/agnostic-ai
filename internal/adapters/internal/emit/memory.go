@@ -1,6 +1,11 @@
 package emit
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -20,14 +25,85 @@ const PersonalMemoryIndexPath = ".agnostic-ai/local/memory/MEMORY.md"
 // MemoryBuiltin names the built-in that owns the shared memory store.
 const MemoryBuiltin = "memory"
 
-// MemoryIndexPaths returns the memory indexes a target that lists its
-// context files loads, personal first, or nil when the memory built-in
-// is off.
-func MemoryIndexPaths(cfg *config.Config) []string {
+// MemoryIndexPaths returns the memory indexes target loads when it
+// lists its context files, personal first, or nil when the memory
+// built-in is off.
+func MemoryIndexPaths(cfg *config.Config, target string) ([]string, error) {
 	if cfg == nil || !slices.Contains(cfg.Builtins, MemoryBuiltin) {
-		return nil
+		return nil, nil
 	}
-	return []string{PersonalMemoryIndexPath, ProjectMemoryIndexPath}
+	dir, err := PersonalMemoryDirFor(cfg, target)
+	if err != nil {
+		return nil, err
+	}
+	return []string{filepath.ToSlash(filepath.Join(dir, "MEMORY.md")), ProjectMemoryIndexPath}, nil
+}
+
+// PersonalMemoryDir returns the personal store of the project at root:
+// .agnostic-ai/local/memory under root, or with memory.personal: repo,
+// $AGNOSTIC_AI_HOME/local/memory/<repo-slug>, one store for every
+// worktree of the repository.
+func PersonalMemoryDir(cfg *config.Config, root string) (string, error) {
+	if !cfg.RepoPersonalMemory() {
+		return filepath.Join(root, filepath.Dir(filepath.FromSlash(PersonalMemoryIndexPath))), nil
+	}
+	out, err := exec.Command("git", "-C", root, "rev-parse", "--path-format=absolute", "--git-common-dir").Output()
+	if err != nil {
+		return "", fmt.Errorf("memory.personal: repo needs a Git repository at %s: %w", root, err)
+	}
+	home := os.Getenv("AGNOSTIC_AI_HOME")
+	if home == "" {
+		user, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("memory.personal: repo: %w", err)
+		}
+		home = filepath.Join(user, ".agnostic-ai")
+	}
+	return filepath.Join(home, "local", "memory", RepoSlug(strings.TrimSpace(string(out)))), nil
+}
+
+// PersonalMemoryDirFor returns the personal store the project files of
+// targets may name. The repo store is an absolute path, so it lands only
+// in files the managed .gitignore block keeps out of Git; otherwise the
+// files keep the checkout store, as a project without repo mode has.
+func PersonalMemoryDirFor(cfg *config.Config, targets ...string) (string, error) {
+	if !PersonalMemoryLeavesCheckout(cfg, targets...) {
+		return PersonalMemoryDir(nil, ".")
+	}
+	return PersonalMemoryDir(cfg, ".")
+}
+
+// PersonalMemoryLeavesCheckout reports whether the project files of
+// targets name the repo store rather than the checkout one.
+func PersonalMemoryLeavesCheckout(cfg *config.Config, targets ...string) bool {
+	if !cfg.RepoPersonalMemory() || !cfg.Gitignore.Enabled {
+		return false
+	}
+	for _, t := range targets {
+		if len(cfg.Gitignore.CommitKinds(t)) > 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// RepoSlug names the repository whose Git common dir is commonDir: its
+// folder name plus a hash of the path, so every worktree of one
+// repository gets one slug and two clones of one name get two.
+func RepoSlug(commonDir string) string {
+	dir := realPath(filepath.Clean(commonDir))
+	name := filepath.Base(dir)
+	if name == ".git" {
+		name = filepath.Base(filepath.Dir(dir))
+	}
+	name = strings.Map(func(r rune) rune {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-' || r == '_' || r == '.' {
+			return r
+		}
+		return '-'
+	}, strings.TrimSuffix(name, ".git"))
+	sum := sha256.Sum256([]byte(filepath.ToSlash(dir)))
+	return strings.Trim(name, ".-") + "-" + hex.EncodeToString(sum[:4])
 }
 
 // Sentinel markers delimiting the memory import block inside an
@@ -39,15 +115,20 @@ const (
 )
 
 // RenderMemoryBlock returns the sentinel-marked block that imports the
-// project and personal memory indexes into the entry-point file at
-// entryPath, relative or absolute. Sync runs from the project root. Each
-// import is relative to that file, as `@path` lines resolve, or absolute
-// when no relative path exists (another Windows volume).
-func RenderMemoryBlock(entryPath string) string {
+// project memory index into the entry-point file at
+// entryPath, relative or absolute, with personalIndex. Sync runs from
+// the project root. A project-relative import is relative to that file,
+// as `@path` lines resolve, or absolute when no relative path exists
+// (another Windows volume). An absolute personalIndex stays absolute.
+func RenderMemoryBlock(entryPath, personalIndex string) string {
 	var lines []string
-	for _, index := range []string{ProjectMemoryIndexPath, PersonalMemoryIndexPath} {
+	for _, index := range []string{ProjectMemoryIndexPath, personalIndex} {
+		ref := index
+		if !filepath.IsAbs(index) {
+			ref = memoryIndexRef(entryPath, index)
+		}
 		// Claude Code ends an import path at the first unescaped space.
-		lines = append(lines, "@"+strings.ReplaceAll(filepath.ToSlash(memoryIndexRef(entryPath, index)), " ", `\ `))
+		lines = append(lines, "@"+strings.ReplaceAll(filepath.ToSlash(ref), " ", `\ `))
 	}
 	return MemoryStartMarker + "\n\n## Shared memory\n\n" + strings.Join(lines, "\n") + "\n\n" + MemoryEndMarker + "\n"
 }

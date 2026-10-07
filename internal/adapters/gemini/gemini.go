@@ -218,7 +218,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := sess.EmitLegacyRulesFile(b, cfg, target, emit.MergedOpts{Title: "GEMINI.md"}, dryRun); err != nil {
 		return err
 	}
-	if err := emitSettings(sess, b, emitted, SettingsFilePath(cfg), dryRun); err != nil {
+	if err := emitSettings(sess, b, cfg, emitted, SettingsFilePath(cfg), dryRun); err != nil {
 		return err
 	}
 	if err := emitProtectScript(sess, protected, dryRun); err != nil {
@@ -259,8 +259,11 @@ func materializeHookScripts(sess *emit.Session, hooks []spec.Entry, dryRun bool)
 // emitSettings writes (or merges into) .gemini/settings.json with the
 // `mcpServers`, `hooks`, and settings keys. Routes through a nested merge so
 // any user-managed Gemini settings survive the sync.
-func emitSettings(sess *emit.Session, b spec.Bundle, hooks []spec.Entry, path string, dryRun bool) error {
+func emitSettings(sess *emit.Session, b spec.Bundle, cfg *config.Config, hooks []spec.Entry, path string, dryRun bool) error {
 	keys := map[string]any{}
+	if err := includeMemoryDirectory(sess, keys, cfg, path, dryRun); err != nil {
+		return err
+	}
 	if servers := buildMCPServers(b.MCPs); len(servers) > 0 {
 		keys["mcpServers"] = servers
 	}
@@ -301,7 +304,32 @@ func emitSettings(sess *emit.Session, b spec.Bundle, hooks []spec.Entry, path st
 		}
 	}
 	emit.MergeEntriesOf(keys, "mcpServers")
-	return sess.MergeJSONFileNested(path, keys, []string{"model", "hooks"}, dryRun)
+	return sess.MergeJSONFileNested(path, keys, []string{"model", "hooks", "context"}, dryRun)
+}
+
+// includeMemoryDirectory adds the repo store of personal memory to
+// context.includeDirectories when it lies outside the checkout, so Gemini
+// CLI's file tools can save there. The user's own entries stay.
+func includeMemoryDirectory(sess *emit.Session, keys map[string]any, cfg *config.Config, path string, dryRun bool) error {
+	if !slices.Contains(cfg.Builtins, emit.MemoryBuiltin) || !emit.PersonalMemoryLeavesCheckout(cfg, target) {
+		return nil
+	}
+	dir, err := emit.PersonalMemoryDirFor(cfg, target)
+	if err != nil {
+		return err
+	}
+	dir = filepath.ToSlash(dir)
+	var list []any
+	if existing, ok := sess.ExistingJSONObject(path, "context", dryRun)["includeDirectories"].([]any); ok {
+		list = existing
+	}
+	var added []string
+	if !slices.Contains(list, any(dir)) {
+		list = append(list, dir)
+		added = append(added, dir)
+	}
+	keys["context"] = map[string]any{"includeDirectories": emit.ClaimedJSONItems(list, added)}
+	return nil
 }
 
 // buildMCPServers renders Gemini-shaped MCP servers. Stdio specs emit
