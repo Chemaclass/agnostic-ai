@@ -412,3 +412,24 @@ func TestEmit_Hook_JavaScriptOnlyRegexDoesNotNote(t *testing.T) {
 		}
 	}
 }
+
+// Copilot copies `command` into both shells, so a Windows command
+// splits the entry into `bash` and `powershell` (#1856).
+func TestEmit_Hook_WindowsCommandSplitsTheShells(t *testing.T) {
+	dir := testutil.TempCwd(t)
+	entries := []spec.Entry{{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{
+		"event": "SessionStart", "command": "sh -c 'echo hi'", "commandWindows": "Write-Output hi",
+	}}}
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(entries), &config.Config{}, false); err != nil {
+		t.Fatal(err)
+	}
+	got := readHooksFile(t, filepath.Join(dir, ".github/hooks/agnostic-ai.json"))
+	for _, want := range []string{`"bash": "sh -c 'echo hi'"`, `"powershell": "Write-Output hi"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+	if strings.Contains(got, `"command":`) {
+		t.Errorf("command kept beside bash and powershell: %s", got)
+	}
+}

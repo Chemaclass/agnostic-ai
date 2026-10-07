@@ -175,6 +175,12 @@ func normalizeCopilotHook(event string, native map[string]any) map[string]any {
 	case "command":
 		cwd, _ := native["cwd"].(string)
 		command, _ := native["command"].(string)
+		if command == "" {
+			command, _ = native["bash"].(string)
+		}
+		if windows, _ := native["powershell"].(string); windows != "" {
+			doc["commandWindows"] = windows
+		}
 		// A wrapped command came from a portable hook; only that form
 		// syncs the wrapper back.
 		matcher, _ := native["matcher"].(string)

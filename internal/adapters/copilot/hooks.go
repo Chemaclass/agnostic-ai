@@ -148,6 +148,8 @@ type hookEntry struct {
 	Type           string            `json:"type"`
 	Matcher        string            `json:"matcher,omitempty"`
 	Command        string            `json:"command,omitempty"`
+	Bash           string            `json:"bash,omitempty"`
+	Powershell     string            `json:"powershell,omitempty"`
 	Exec           string            `json:"exec,omitempty"`
 	Args           []string          `json:"args,omitempty"`
 	Cwd            string            `json:"cwd,omitempty"`
@@ -303,6 +305,12 @@ func buildHooks(hooks []spec.Entry) *hooksDoc {
 					entry.Exec, entry.Args = ExecForCwd(emit.RewriteHookPath(command, target, h.Meta), args, cwd)
 				default:
 					entry.Command = ScriptForCwd(emit.RewriteHookPath(command, target, h.Meta), cwd)
+				}
+				// Copilot copies `command` into both shells, so a spec's
+				// Windows command splits it into `bash` and `powershell`.
+				if windows, _ := resolved["commandWindows"].(string); windows != "" && entry.Command != "" {
+					entry.Bash, entry.Command = entry.Command, ""
+					entry.Powershell = emit.RewriteWindowsHookRoot(emit.RewriteHookDirectories(windows, target), target)
 				}
 				byEvent[event] = append(byEvent[event], entry)
 			}
