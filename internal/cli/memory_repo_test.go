@@ -230,7 +230,9 @@ func TestSync_MovingTheHomeDropsAnUnclaimedIndexOfThisRepository(t *testing.T) {
 	// unclaimed after the move.
 	slug := filepath.Base(filepath.Dir(list[i]))
 	stale := filepath.ToSlash(filepath.Join(t.TempDir(), "local", "memory", slug, "MEMORY.md"))
-	raw, err := json.Marshal(map[string]any{"instructions": append(list, stale)})
+	// A relative path is the user's: sync writes store indexes absolute.
+	archive := "archives/local/memory/" + slug + "/MEMORY.md"
+	raw, err := json.Marshal(map[string]any{"instructions": append(list, stale, archive)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,8 +241,8 @@ func TestSync_MovingTheHomeDropsAnUnclaimedIndexOfThisRepository(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got := opencodeInstructions(t); slices.Contains(got, stale) {
-		t.Errorf("instructions keep the former home's index: %v", got)
+	if got := opencodeInstructions(t); slices.Contains(got, stale) || !slices.Contains(got, archive) {
+		t.Errorf("instructions after the sync: %v", got)
 	}
 	if err := runSync(t, "--check"); err != nil {
 		t.Fatalf("sync --check: %v", err)

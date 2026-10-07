@@ -125,8 +125,9 @@ func WithoutStalePersonalIndexes(path string, list, current []string) []string {
 			ownStores = append(ownStores, "/local/memory/"+filepath.Base(filepath.Dir(entry))+"/MEMORY.md")
 		}
 	}
+	// Sync writes a store index as an absolute path.
 	ownStore := func(entry string) bool {
-		return slices.ContainsFunc(ownStores, func(suffix string) bool { return strings.HasSuffix(entry, suffix) })
+		return filepath.IsAbs(entry) && slices.ContainsFunc(ownStores, func(suffix string) bool { return strings.HasSuffix(entry, suffix) })
 	}
 	out := make([]string, 0, len(list))
 	for _, entry := range list {
