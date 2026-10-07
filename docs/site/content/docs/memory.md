@@ -90,6 +90,18 @@ On Codex, Copilot, Cursor, Gemini CLI, Qoder, and Factory, the `memory` built-in
 - Turn on `memory` in your home config or in the project, not both. With both, `sync --global` also writes the hook into your home tool settings, and each session loads the index twice.
 - On Windows, Copilot, Cursor, and Gemini CLI need `sh` on PATH, for example from Git Bash.
 
+## Check and repair memory
+
+`agnostic-ai lint` and `doctor` flag an index over 100 lines, an index line whose file is missing, a fact no index line links, and a line that looks like a secret. A missing store is skipped, so CI never checks personal memory.
+
+```bash
+agnostic-ai memory lint     # run only the memory checks
+agnostic-ai memory index    # rebuild each MEMORY.md, for example after a merge conflict
+agnostic-ai memory list     # print each fact's scope, type, and title
+```
+
+See [memory](@/docs/cli-reference/maintain.md#memory) in the CLI reference.
+
 ## Memory never overrides you
 
 The rule tells each tool that your request beats memory, and to check that a file, flag, or command named in a fact still exists before using it.

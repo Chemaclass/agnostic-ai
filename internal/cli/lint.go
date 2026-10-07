@@ -64,7 +64,8 @@ func newLintCmd() *cobra.Command {
 			"that match no coverage note, MCP values JSON cannot hold, one tool's reference form in an MCP url or args, MCP env and headers values that are neither a reference nor marked !literal, invalid protected paths and protected " +
 			"paths that cover a file sync writes, Kiro agents whose resources omit the AGENTS.md that carries the rules, " +
 			"native hook events `migrate --only hooks` can rewrite as on: and match:, model tiers with no model for an enabled " +
-			"target, Claude model names that reach another vendor's target, and warns when a " +
+			"target, Claude model names that reach another vendor's target, shared memory problems " +
+			"(see `memory lint`), and warns when a " +
 			"target's always-loaded instructions pass the lint.instructions-words " +
 			"budget, the AGENTS.md chain Codex reads in a scope passes lint.codex-chain-bytes, " +
 			"or a skill or agent description passes lint.description-chars. " +
@@ -125,7 +126,7 @@ func newLintCmd() *cobra.Command {
 					findings = append(findings, filterLintToFiles(notes, files)...)
 				}
 				if asJSON {
-					return printLintJSON(cmd, findings, strict)
+					return printLintJSON(cmd, "lint", findings, strict)
 				}
 				if len(findings) == 0 {
 					cmd.Printf("ok — %d file(s) clean\n", len(files))
@@ -153,7 +154,7 @@ func newLintCmd() *cobra.Command {
 				cmd.PrintErrln(scope.emptyHint())
 			}
 			if asJSON {
-				return printLintJSON(cmd, findings, strict)
+				return printLintJSON(cmd, "lint", findings, strict)
 			}
 			if empty {
 				return nil
@@ -215,11 +216,11 @@ type lintJSONOutput struct {
 	Findings []lintFinding `json:"findings"`
 }
 
-func printLintJSON(cmd *cobra.Command, findings []lintFinding, strict bool) error {
+func printLintJSON(cmd *cobra.Command, command string, findings []lintFinding, strict bool) error {
 	if findings == nil {
 		findings = []lintFinding{}
 	}
-	if err := writeIndentedJSON(cmd, lintJSONOutput{Version: "1", Command: "lint", Findings: slashLintPaths(findings)}); err != nil {
+	if err := writeIndentedJSON(cmd, lintJSONOutput{Version: "1", Command: command, Findings: slashLintPaths(findings)}); err != nil {
 		return err
 	}
 	return lintExitErr(findings, strict)
@@ -272,6 +273,11 @@ func lintScopeReport(scope checkScope) ([]lintFinding, int, error) {
 		findings = append(findings, protected...)
 		findings = append(findings, lintKiroAgentResources(scope.cfg, scope.targets, scope.bundle)...)
 		findings = append(findings, lintPortableHookForms(".", scope.cfg, scope.bundle)...)
+		memory, err := lintMemory()
+		if err != nil {
+			return nil, 0, err
+		}
+		findings = append(findings, memory...)
 	}
 	findings = append(findings, lintGeminiHookVariables(scope.cfg, scope.targets, scope.bundle)...)
 	configPath := config.ConfigFileName
