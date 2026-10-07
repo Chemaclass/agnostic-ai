@@ -123,7 +123,7 @@ func specRules(value any, settings []spec.Entry) (*emit.OrderedJSON, error) {
 		var order []string
 		for _, entry := range settings {
 			if _, ok := nativePermission(entry)[externalDirectoryKey]; ok {
-				order = emit.SpecKeyOrder(entry, "x-"+target, permissionKey, externalDirectoryKey)
+				order = entry.KeyOrder("x-"+target, permissionKey, externalDirectoryKey)
 			}
 		}
 		return emit.OrderedObject(v, order)

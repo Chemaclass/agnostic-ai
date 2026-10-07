@@ -128,6 +128,36 @@ func TestSync_OpenCodeRepoMemoryKeepsTheSpecOrder(t *testing.T) {
 	}
 }
 
+// A local settings layer that repeats a shared deny keeps it after the
+// shared catch-all allow, so OpenCode's last match still denies, with
+// repo memory on or off.
+func TestSync_OpenCodeLocalSettingsLayerKeepsTheSharedOrder(t *testing.T) {
+	for _, repo := range []bool{true, false} {
+		t.Run(map[bool]string{true: "repo", false: "checkout"}[repo], func(t *testing.T) {
+			parent := repoMemoryProject(t, true)
+			if !repo {
+				writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: checkout\n")
+			}
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [opencode]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n")
+			writeFile(t, ".agnostic-ai/settings/policy.yaml", "x-opencode:\n  permission:\n    external_directory:\n      \"*\": allow\n      /secret/**: deny\n")
+			writeFile(t, ".agnostic-ai/local/settings/policy.yaml", "x-opencode:\n  permission:\n    external_directory:\n      /secret/**: deny\n")
+			if err := runSync(t); err != nil {
+				t.Fatal(err)
+			}
+			want := []string{"*", "/secret/**"}
+			if repo {
+				want = append(want, repoStore(t, parent, readText(t, "opencode.json"))+"/**")
+			}
+			if got := externalDirectoryOrder(t); !slices.Equal(got, want) {
+				t.Errorf("external_directory order = %v, want %v", got, want)
+			}
+			if err := runSync(t, "--check"); err != nil {
+				t.Errorf("sync --check: %v", err)
+			}
+		})
+	}
+}
+
 // A permission map a settings spec produces is sync's whole, so the store
 // rule joins it, and a native external_directory action stays the default.
 func TestSync_OpenCodeRepoMemoryJoinsSettingsPermissions(t *testing.T) {
