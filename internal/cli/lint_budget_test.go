@@ -343,3 +343,24 @@ func TestLintGlobal_LocalConfigReplacesBudget(t *testing.T) {
 		t.Errorf("the shared description budget must survive a local file that does not set it, got:\n%s", out)
 	}
 }
+
+// A CLAUDE.md that is `@AGENTS.md` plus Claude-only text loads AGENTS.md
+// whole every session, so the count includes it.
+func TestLintBudget_CountsTheAGENTSMdClaudeMdImports(t *testing.T) {
+	dir := budgetProject(t, "targets: [claude, codex]\nlint:\n  instructions-words: 100\n")
+	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "AGNOSTIC_AI.md"), words(150)+"\n\n::target claude\n\n"+words(5)+"\n\n::end\n")
+
+	out, _ := runCLI(t, "lint")
+	var claude string
+	for _, line := range findingLines(out, "LINT011") {
+		if strings.Contains(line, "claude loads") {
+			claude = line
+		}
+	}
+	if claude == "" {
+		t.Fatalf("expected a LINT011 line for claude, got:\n%s", out)
+	}
+	if !strings.Contains(claude, "AGENTS.md import 1") {
+		t.Errorf("claude's line lacks the imported AGENTS.md:\n%s", claude)
+	}
+}

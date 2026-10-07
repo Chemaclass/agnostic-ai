@@ -145,13 +145,21 @@ func projectSessionLoads(cfg *config.Config, support kindSupport, b spec.Bundle)
 		return nil, err
 	}
 	fileOf := map[string]entryPointFile{}
-	for _, f := range files {
+	var agentsFile *entryPointFile
+	for i, f := range files {
 		// A user-owned file holds whatever the user wrote, not this.
 		if cfg.IsUnmanaged(f.Path) {
 			continue
 		}
+		if f.Path == "AGENTS.md" {
+			agentsFile = &files[i]
+		}
 		for _, t := range f.Readers {
-			fileOf[t] = f
+			// The first file a target reads is its entry point; a
+			// CLAUDE.md that imports AGENTS.md comes before it.
+			if _, seen := fileOf[t]; !seen {
+				fileOf[t] = f
+			}
 		}
 	}
 	loads := make([]sessionLoad, 0, len(cfg.Targets))
@@ -160,6 +168,10 @@ func projectSessionLoads(cfg *config.Config, support kindSupport, b spec.Bundle)
 		if f, ok := fileOf[t]; ok {
 			load.path = f.Path
 			load.setFile(f.Path, f.Content, f.Layers)
+			// `@AGENTS.md` in the entry point loads that file whole too.
+			if agentsFile != nil && f.Path != agentsFile.Path && importsAgents(f.Content) {
+				load.add("AGENTS.md import", wordsIn(agentsFile.Content))
+			}
 		}
 		load.add("always-on rule files", alwaysOnRuleWords(cfg, b, t))
 		addDescriptions(&load, support, b.For(t))
@@ -199,6 +211,15 @@ func globalSessionLoads(source string, targets []string, b spec.Bundle) ([]sessi
 		loads = append(loads, load)
 	}
 	return loads, nil
+}
+
+func importsAgents(content string) bool {
+	for _, line := range strings.Split(content, "\n") {
+		if strings.TrimSpace(line) == "@AGENTS.md" {
+			return true
+		}
+	}
+	return false
 }
 
 // addDescriptions counts the skill and agent descriptions a target
