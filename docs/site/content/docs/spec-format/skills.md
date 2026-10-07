@@ -9,12 +9,12 @@ group = "Reference"
 
 # Skills
 
-`skills/` holds procedures the agent loads only when a task needs them: cut a release, write a migration, triage a bug report. The tool keeps each skill's `description` in view. It reads the body and any bundled files when the skill applies.
+`skills/` holds procedures the agent loads only when a task needs them: cut a release, write a migration, triage a bug report. The tool keeps each skill's `description` in view. It reads the body and any bundled files only when the skill applies.
 
 - **Small standing context.** A long procedure costs nothing until it is used. A rule, by contrast, loads every session.
-- **Files that travel with it.** Scripts, templates, and fixtures sit next to `SKILL.md` and land beside it in every tool.
-- **Invoked by the model or by name.** The model picks a skill from its description; a person can also call it directly.
-- **One format across tools.** Targets that read the `SKILL.md` layout get the skill as written. Targets without a skill surface get a rule and a coverage note.
+- **Files that travel with it.** Scripts, templates, and fixtures sit next to `SKILL.md` and are copied beside it for every tool.
+- **Used by the model or by name.** The model picks a skill from its description. A person can also call it directly.
+- **One format across tools.** Tools that read the `SKILL.md` layout get the skill as written. Tools without skill support get a rule and a coverage note.
 
 Use a [rule](@/docs/spec-format/rules.md) for what applies to every task, and a skill for a procedure some tasks need.
 
@@ -65,24 +65,24 @@ model: {claude: opus}
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `name` | no | dir or filename | Skill identifier and output directory. Some targets restrict the format. |
-| `description` | no | empty | One-liner the model uses to decide whether to invoke the skill. |
-| `argument-hint` | no | unset | Hint for the arguments to a Claude Code slash command. Other targets omit it unless set under their `x-<target>` block. |
-| `disable-model-invocation` | no | unset | `true` keeps the skill out of automatic invocation; a person can still call it. See [support by target](#disable-model-invocation-support-by-target). |
+| `name` | no | dir or filename | Skill name and output directory. Some tools restrict the format. |
+| `description` | no | empty | One line the model uses to decide whether to use the skill. |
+| `argument-hint` | no | unset | Hint for the arguments to a Claude Code slash command. Other tools leave it out unless you set it under their `x-<target>` block. |
+| `disable-model-invocation` | no | unset | `true` stops the model from using the skill on its own. A person can still call it. See [support by target](#disable-model-invocation-support-by-target). |
 | `model` | no | unset | Claude Code model for the rest of the turn. Scalar, per-target map, or [tier](@/docs/spec-format/agents.md#model-tiers) name; `x-claude.model` wins. |
 | `effort` | no | unset | Claude Code effort for the rest of the turn. Scalar or per-target map; `x-claude.effort` wins. |
-| `allowed-tools` | no | unset | Neutral capabilities the skill may use, such as `[read, shell(git diff *)]`. See [allowed tools](#allowed-tools). |
-| `license` | no | unset | The Agent Skills license, kept in every target's `SKILL.md`. |
+| `allowed-tools` | no | unset | Tool-neutral capabilities the skill may use, such as `[read, shell(git diff *)]`. See [allowed tools](#allowed-tools). |
+| `license` | no | unset | The Agent Skills license, kept in every tool's `SKILL.md`. |
 | `workspaces` | no | empty | Project directories where Cursor also gets a copy, such as `[apps/web]`. Cursor loads skills only from the workspace it opens, so a session or SDK agent started in `apps/web` misses a root skill. The skill stays at the root for every tool. |
 
-A skill's scope comes from its folder. `skills/services/api/review/SKILL.md` moves the skill under `services/api/`, where only sessions in that directory load it. `scope:` in the frontmatter has no effect, and `lint` warns about it (LINT018). `import cursor` writes `workspaces` when a root `.cursor/skills/<name>` links to a skill folder under a project directory.
+A skill's scope comes from its folder. `skills/services/api/review/SKILL.md` puts the skill under `services/api/`, where only sessions in that directory load it. `scope:` in the frontmatter has no effect, and `lint` warns about it (LINT018). `import cursor` writes `workspaces` when a root `.cursor/skills/<name>` links to a skill folder under a project directory.
 
-Sync reports a coverage note for each skill field a target omits, including `argument-hint`, `model`, and `effort`.
+Sync reports a coverage note for each skill field a tool leaves out, including `argument-hint`, `model`, and `effort`.
 
-- Fields kept in native frontmatter, an enabled command mirror, or a policy sidecar get no drop note.
-- `agnostic-ai compare claude codex` shows which skill fields each target keeps, translates, or drops.
+- A field that is kept in the tool's own frontmatter, in a command copy of the skill, or in a policy file gets no note.
+- `agnostic-ai compare claude codex` shows which skill fields each tool keeps, translates, or drops.
 - Use `{claude: opus}` to choose a model only for Claude.
-- Global sync uses the same renderers. Shared global directories omit target overrides.
+- Global sync works the same way. Shared global directories leave out per-target overrides.
 
 ## Allowed tools {#allowed-tools}
 
@@ -92,37 +92,37 @@ Write `allowed-tools` with the same [capabilities](@/docs/spec-format/agents.md#
 allowed-tools: [read(src/**), edit(src/**), shell(git diff *), mcp:github]
 ```
 
-The names are `read`, `write`, `edit`, `delete`, `shell`, `web`, `mcp:<server>`, and `mcp:<server>/<tool>`. `read` and `edit` take path patterns. `shell` takes a command pattern. Each target writes its own names where it supports this field. A target that drops a restriction or grants more access raises a coverage note. `on-unsupported: error` fails on widening.
+The names are `read`, `write`, `edit`, `delete`, `shell`, `web`, `mcp:<server>`, and `mcp:<server>/<tool>`. `read` and `edit` take path patterns. `shell` takes a command pattern. Each tool gets its own names where it supports this field. A tool that drops a restriction or grants more access raises a coverage note. `on-unsupported: error` fails when a tool would grant more access.
 
-Claude Code names stay valid aliases: `Read`, `Write`, `Edit`, `Bash`, `WebFetch`, `WebSearch`, and `mcp__<server>__<tool>`. Scoped aliases such as `Read(src/**)` and `Bash(git diff *)` stay valid too. A list can mix neutral names and aliases.
+Claude Code names also work: `Read`, `Write`, `Edit`, `Bash`, `WebFetch`, `WebSearch`, and `mcp__<server>__<tool>`. So do scoped names such as `Read(src/**)` and `Bash(git diff *)`. A list can mix neutral and Claude Code names.
 
-`agnostic-ai migrate --only capabilities` rewrites aliases that map exactly, including an adjacent `WebFetch, WebSearch` pair as `web`. `import` writes neutral names where the native names map one to one. Neither guesses a narrower restriction from a target's tool bundle. `lint --suggest-capabilities` suggests neutral names for aliases (LINT037), with no suggestions by default.
+`agnostic-ai migrate --only capabilities` rewrites Claude Code names that map exactly, including an adjacent `WebFetch, WebSearch` pair as `web`. `import` writes neutral names where the tool's own names map one to one. Neither guesses a narrower restriction from a tool's bundle of tools. `lint --suggest-capabilities` suggests neutral names for Claude Code names (LINT037). It suggests nothing by default.
 
 ## Bundled files and output
 
-Only `SKILL.md` and flat `skills/*.md` parse as skills. Every other file in a nested skill directory is a bundled asset (scripts, templates, fixtures, extra `*.md`). Assets copy verbatim to the same relative path under each target's skills dir. Import and sync preserve executable bits.
+Only `SKILL.md` and flat `skills/*.md` files are read as skills. Every other file in a nested skill directory is a bundled file (scripts, templates, fixtures, extra `*.md`). Bundled files are copied unchanged to the same relative path under each tool's skills directory. Import and sync keep executable bits.
 
-Most targets write `<dir>/<name>/SKILL.md` with assets. Several share `.agents/skills/`, so identical bytes are written once. Targets with no skill surface flatten the skill to a `skill-<name>.md` rule. Assets cannot follow, so they raise a coverage note. Set `outputs.<target>.emit-skills-as-commands: true` to also emit a slash command. Each target page gives the exact directory.
+Most tools get `<dir>/<name>/SKILL.md` with the bundled files. Several share `.agents/skills/`, so identical files are written once. Tools without skill support get the skill as a `skill-<name>.md` rule. Bundled files cannot follow, so they raise a coverage note. Set `outputs.<target>.emit-skills-as-commands: true` to also write a slash command. Each target page gives the exact directory.
 
-A body can point at another skill with [`{{$SKILLS_DIR}}`](@/docs/spec-format/_index.md#path-variables-name), which resolves to each target's own skills directory.
+A body can point at another skill with [`{{$SKILLS_DIR}}`](@/docs/spec-format/_index.md#path-variables-name), which becomes each tool's own skills directory.
 
 ## Claude Code body syntax {#claude-code-body-syntax}
 
-Claude Code expands some syntax in a skill body before the model reads it ([skills docs](https://code.claude.com/docs/en/skills)):
+Claude Code replaces some syntax in a skill body before the model reads it ([skills docs](https://code.claude.com/docs/en/skills)):
 
 - `` !`command` `` lines and ` ```! ` blocks run the command and insert its output.
 - `$ARGUMENTS` becomes the text typed after the skill name.
 - `$0`, `$1`, ... and `$ARGUMENTS[N]` become one argument each.
 
-No other target documents this syntax for skills, so each one reads it as plain text. Sync copies the body as written. It prints one note per target and shape, naming each line:
+No other tool documents this syntax for skills, so each one reads it as plain text. Sync copies the body as written. It prints one note per tool and syntax, naming each line:
 
 ```
   note: `!`command`` on 1 skill has no effect on codex (the command does not run at .agnostic-ai/skills/pr/SKILL.md:8; put the line in a ::target claude fence)
 ```
 
-`on-unsupported: error` fails the sync instead, and `silent` hides the note. `lint` reports each line as LINT019. `sync --global` raises the same notes for the skills it writes to user-level directories. It reads `on-unsupported` from the source root's `agnostic-ai.yaml`.
+`on-unsupported: error` fails the sync instead, and `silent` hides the note. `lint` reports each line as LINT019. `sync --global` prints the same notes for the skills it writes to user-level directories. It reads `on-unsupported` from the `agnostic-ai.yaml` in the source root.
 
-Put the Claude line in a fence and give other targets their own text:
+Put the Claude line in a fence and give other tools their own text:
 
 ```markdown
 ::target claude
@@ -133,13 +133,13 @@ Run `git log main..HEAD --oneline` first. `$ARGUMENTS` below means the text pass
 ::end
 ```
 
-A `$1` or `` !`command` `` inside a fenced code block counts as an example and is not reported. `$ARGUMENTS` is reported there too. Escape a literal dollar as `\$1`, as Claude Code expects. `import claude` keeps the body as written, so Claude Code keeps its dynamic context.
+A `$1` or `` !`command` `` inside a fenced code block counts as an example and is not reported. `$ARGUMENTS` is still reported there. Escape a literal dollar as `\$1`, as Claude Code expects. `import claude` keeps the body as written, so Claude Code keeps its dynamic context.
 
-[Commands](@/docs/spec-format/commands.md#claude-code-body-syntax) use the same syntax, and a few targets expand part of it there.
+[Commands](@/docs/spec-format/commands.md#claude-code-body-syntax) use the same syntax, and a few tools support part of it there.
 
 ## `disable-model-invocation` support by target {#disable-model-invocation-support-by-target}
 
-Only the targets listed were checked. Setting it keeps a skill out of automatic model invocation. The user can still invoke it. Omitting it leaves each target's default, which is model-invocable everywhere below.
+Only the tools listed were checked. Setting it stops the model from using a skill on its own. The user can still call it. Without it, each tool uses its default, which lets the model use the skill, in every tool below.
 
 | Target | Behavior |
 |--------|----------|
@@ -148,6 +148,6 @@ Only the targets listed were checked. Setting it keeps a skill out of automatic 
 | [Crush](@/docs/targets/crush.md) | Dropped with a note. Set `x-crush.disable-model-invocation` |
 | [Factory](@/docs/targets/factory.md) | Dropped with a note. Set `x-factory.disable-model-invocation` |
 
-Crush and Factory skills land in the shared `.agents/skills/` tree, so emitting the key would hand it to targets with no such field. Use the `x-` key. A manual-only skill that turns model-invocable crosses a safety boundary.
+Crush and Factory skills go in the shared `.agents/skills/` folder, so writing the key there would hand it to tools with no such field. Use the `x-` key. A manual-only skill that becomes usable by the model crosses a safety boundary.
 
-OpenHands' `triggers` is unrelated: it injects a skill on a keyword. Devin spells this restriction `triggers: [user]`.
+OpenHands' `triggers` is unrelated: it loads a skill when a keyword appears. Devin spells this restriction `triggers: [user]`.

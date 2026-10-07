@@ -37,16 +37,16 @@ Walkthroughs: [Getting started](@/docs/getting-started.md), [Migration](@/docs/m
 
 `sync`, `import`, `use`, `init`, and `migrate` hold one project lock while they run. A second writer exits with the running command's name and process ID. Retry after that command finishes. `sync --watch` holds the lock until it exits.
 
-The lock file is `.agnostic-ai/.command-lock`, ignored by the managed `.gitignore` block. It stays on disk after the command exits; leave it in place. The operating system releases the lock when the process exits or is killed. Writing commands refresh the fixed runtime ignores even when generated outputs are committed.
+The lock file is `.agnostic-ai/.command-lock`, which the managed `.gitignore` block ignores. It stays on disk after the command exits; leave it in place. The operating system releases the lock when the process exits or is killed. Writing commands refresh the runtime `.gitignore` entries even when generated outputs are committed.
 
-`sync --check`, `sync --plan`, dry runs, `status`, and `list` do not take the lock. Global commands are outside the project lock. Locks coordinate processes on one machine; network file systems are outside this guarantee.
+`sync --check`, `sync --plan`, dry runs, `status`, and `list` do not take the lock. Global commands do not use the project lock. The lock works between processes on one machine, not across a network file system.
 
 ## Global flags
 
 | Flag | Description |
 |------|-------------|
 | `-h, --help` | Help for any command, same as `agnostic-ai help <command>`. |
-| `--version` | Print version and exit |
+| `--version` | Print the version and exit |
 | `-q, --quiet` | Errors only, plus the `~ kept` lines of `sync --keep-edits`, on stderr |
 | `-v, --verbose` | Increase output verbosity (repeatable). Mutually exclusive with `--quiet`. |
 | `--profile <file>` | Write a `runtime/pprof` CPU profile to `<file>` (or set `AGNOSTIC_AI_PROFILE`). Read it with `go tool pprof <file>`. |
@@ -56,7 +56,7 @@ The lock file is `.agnostic-ai/.command-lock`, ignored by the managed `.gitignor
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
-| 1 | Any error (parse failure, IO error, missing config) |
+| 1 | Any error (parse failure, I/O error, missing config) |
 | verifier exit code | `verify` returns the external verifier's non-zero code unchanged. |
 
 ## Environment variables
@@ -67,7 +67,7 @@ The lock file is `.agnostic-ai/.command-lock`, ignored by the managed `.gitignor
 
 ## Config precedence
 
-Last wins:
+The last one wins:
 
 1. Built-in defaults (see [configuration](@/docs/configuration.md))
 2. `agnostic-ai.yaml`

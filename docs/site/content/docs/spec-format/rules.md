@@ -9,11 +9,11 @@ group = "Reference"
 
 # Rules
 
-`rules/` holds the conventions an agent must follow without being asked: commit format, error handling, the money type, the test style. Each tool loads rules in its own format (Cursor `.mdc` files, Claude Code rules, `AGENTS.md` sections). You write a rule spec once, and it lands in each.
+`rules/` holds the conventions an agent must follow without being asked: commit format, error handling, the money type, the test style. Each tool loads rules in its own format (Cursor `.mdc` files, Claude Code rules, `AGENTS.md` sections). You write a rule once, and every tool gets it.
 
 - **Always on, or only where it matters.** A rule can apply to every session, to one directory, or to files that match a pattern. A payments convention stays out of frontend work.
 - **Close to the code.** A rule under `rules/services/payments/` applies inside `services/payments/`, and supported tools load it only there.
-- **Checked like code.** `sync --check` fails when a tool's copy drifts from the spec. `agnostic-ai explain --file <path>` lists which rules apply to a file.
+- **Checked like code.** `sync --check` fails when a tool's copy differs from the spec. `agnostic-ai explain --file <path>` lists which rules apply to a file.
 
 Keep a rule short and write it as an instruction. Put a multi-step procedure in a [skill](@/docs/spec-format/skills.md) instead, so it loads only when needed.
 
@@ -55,28 +55,28 @@ scope: services/payments
 Use integer minor units for monetary values.
 ```
 
-Claude Code gets a conditional rule. Codex and Cursor share `services/payments/AGENTS.md`. Gemini gets `services/payments/GEMINI.md`. [Directory-specific instructions](@/docs/scoped-context.md) lists every target and the selector limits.
+Claude Code gets a rule that applies only there. Codex and Cursor share `services/payments/AGENTS.md`. Gemini gets `services/payments/GEMINI.md`. [Directory-specific instructions](@/docs/scoped-context.md) lists every tool and the selector limits.
 
 ## Headings in merged files
 
-When several rules share a document, such as Codex's `AGENTS.md` or Gemini's `GEMINI.md`, each rule gets a `### <name>` section. Sync shifts the rule body's heading levels together, so its shallowest heading is at least `####`. A body with `### Doc versioning` and `#### Details` becomes `#### Doc versioning` and `##### Details`.
+When several rules share a file, such as Codex's `AGENTS.md` or Gemini's `GEMINI.md`, each rule gets a `### <name>` section. Sync moves all the headings in the rule body down together, so its top heading is at least `####`. A body with `### Doc versioning` and `#### Details` becomes `#### Doc versioning` and `##### Details`.
 
-- The `outputs.claude.rules-file` layout writes `## <name>` sections, so there the shallowest body heading is at least `###`.
-- Already nested headings keep their levels.
+- The `outputs.claude.rules-file` layout writes `## <name>` sections, so there the top body heading is at least `###`.
+- Headings that are already deep enough keep their levels.
 - Markdown has six heading levels, so no heading goes past `######`.
-- When a body's deepest heading sits more than two levels below its shallowest (three in the Claude layout), the deepest levels merge at `######`. Import cannot separate them again.
+- When a body's deepest heading is more than two levels below its top heading (three in the Claude layout), the deepest levels merge at `######`. Import cannot separate them again.
 
 The section's source comment records the shift, as in `<!-- source: .agnostic-ai/rules/content.md headings: +1 -->`. Import moves the headings back, so a rule comes through sync and import unchanged.
 
 {% <details summary="Edge cases for heading shifts"> %}
-- Fenced code, including fences inside lists, and raw HTML blocks keep their headings as written.
-- Link reference definitions stay separate from Setext headings.
+- Fenced code (including fences inside lists) and raw HTML blocks keep their headings as written.
+- Link reference definitions stay separate from underlined (Setext) headings.
 - List items followed by a thematic break remain lists.
 - Raw HTML blocks follow CommonMark. A line such as `<b>Note:</b> read first` is paragraph text, so a `---` under it forms a heading that nests too.
-- Standalone rule files, and a nested document containing one rule without a section wrapper, keep the source heading levels.
-- A Setext heading comes back from import as a `#` heading. Hard line breaks in its text become `<br>` tags.
-- Literal headings and source-comment examples inside fenced code and raw HTML stay in their rule body instead of starting another rule.
-- When a rule leaves a code or HTML block open, its source comment also records `body-lines: <count>`. Import uses that extent to find the next section. Sync updates the count from the spec.
+- A rule file written on its own keeps its heading levels. So does a nested file with one rule and no section wrapper.
+- An underlined (Setext) heading comes back from import as a `#` heading. Hard line breaks in its text become `<br>` tags.
+- Headings and source-comment examples inside fenced code and raw HTML stay in their rule body. They do not start another rule.
+- When a rule leaves a code or HTML block open, its source comment also records `body-lines: <count>`. Import uses that count to find the next section. Sync updates the count from the spec.
 {% </details> %}
 
 ## Fields
@@ -85,9 +85,9 @@ The section's source comment records the shift, as in `<!-- source: .agnostic-ai
 |-------|----------|---------|-------------|
 | `name` | no | filename | Rule identifier. |
 | `description` | no | empty | Short summary. |
-| `scope` | no | project-wide | Project-relative directory and its descendants. It wins over the rule's folder. A folder that names a project directory scopes a rule without `scope`; any other folder only groups rules. A scope inside `node_modules` is refused. See [scoped context](@/docs/scoped-context.md). |
-| `globs` | no | target-dependent; `new rule` seeds `**/*` | Project-relative patterns, as a comma-separated string (`"*.go,*.mod"`) or a list. A comma inside a brace set does not separate patterns, so `"src/**/*.{ts,tsx}"` is one pattern. With `scope`, applies to the whole scope directory and every matching file. `new rule --scope` omits it. |
-| `paths` | no | unset | File patterns, as a string or list. Adds matching files to the same union as `scope` and `globs`; see [selector limits](@/docs/scoped-context.md#narrow-a-rule-to-certain-files). |
-| `alwaysApply` | no | `false` with `globs`, else target-dependent; `new rule` seeds `true` | Requests unconditional activation. Unset on a rule with `globs`, it is `false` in every tool with an activation field, so the rule loads on matching files. A catch-all such as `**/*` keeps the rule always-on. With `scope`, stays within the scope and pattern union. `new rule --scope` omits it. |
+| `scope` | no | project-wide | A project-relative directory and everything under it. It wins over the rule's folder. A folder that names a project directory scopes a rule without `scope`; any other folder only groups rules. A scope inside `node_modules` is refused. See [scoped context](@/docs/scoped-context.md). |
+| `globs` | no | depends on the tool; `new rule` seeds `**/*` | Project-relative patterns, as a comma-separated string (`"*.go,*.mod"`) or a list. A comma inside a brace set does not separate patterns, so `"src/**/*.{ts,tsx}"` is one pattern. With `scope`, applies to the whole scope directory and every matching file. `new rule --scope` omits it. |
+| `paths` | no | unset | File patterns, as a string or list. Adds matching files to the same set as `scope` and `globs`; see [selector limits](@/docs/scoped-context.md#narrow-a-rule-to-certain-files). |
+| `alwaysApply` | no | `false` with `globs`, else depends on the tool; `new rule` seeds `true` | Asks the tool to always load the rule. Unset on a rule with `globs`, it is `false` in every tool that has an activation field, so the rule loads only on matching files. A catch-all such as `**/*` keeps the rule always-on. With `scope`, the rule stays within the scope plus patterns. `new rule --scope` omits it. |
 
-Tools differ on what a rule with neither `globs` nor `alwaysApply` does. Each target page says how it activates. Set `alwaysApply: true` when a rule must load everywhere.
+Tools differ on what a rule with neither `globs` nor `alwaysApply` does. Each target page says when its rules load. Set `alwaysApply: true` when a rule must load everywhere.

@@ -13,13 +13,13 @@ group = "Reference"
 
 - **Repeatable prompts.** The team runs the same `/review-pr` instead of retyping a slightly different version each time.
 - **Started by a person.** A command runs when someone types it, which suits steps with side effects, such as a deploy.
-- **Same name everywhere.** Each tool with a command surface lists it in its own picker.
+- **Same name everywhere.** Each tool that supports commands lists it in its own picker.
 
 Use a [skill](@/docs/spec-format/skills.md) instead when the model should pick the workflow itself, or when it needs bundled files. Set `outputs.<target>.emit-skills-as-commands: true` to get both from one skill.
 
 ## Write one
 
-Markdown with optional YAML frontmatter. Each spec becomes one native slash command.
+Markdown with optional YAML frontmatter. Each spec becomes one slash command in the tool's own format.
 
 ```markdown
 ---
@@ -37,9 +37,9 @@ Deploy the app to the environment the user names. Run the smoke tests afterwards
 |-------|----------|---------|-------------|
 | `name` | no | filename | Command identifier and slash name, such as `/deploy`. |
 | `description` | no | empty | One-liner shown in slash-command pickers. |
-| `argument-hint` | no | empty | Hint shown after the command, on Claude Code, Augment, and Factory. |
+| `argument-hint` | no | empty | Hint shown after the command in Claude Code, Augment, and Factory. |
 
-Any other frontmatter passes through. Put target-specific keys under `x-<target>`, for example `x-claude.allowed-tools`:
+Other frontmatter is kept. Put keys for one tool under `x-<target>`, for example `x-claude.allowed-tools`:
 
 ```markdown
 ---
@@ -54,15 +54,15 @@ Diff the branch against `main` and list bugs with `file:line`, most severe first
 
 ## Output
 
-- Codex emits commands only when `outputs.codex.commands-dir` is set.
+- Codex gets commands only when `outputs.codex.commands-dir` is set.
 - Gemini writes each command as a `.toml` file named after `name`.
-- Targets without a command surface log a warning and skip.
+- Tools without command support log a warning and skip them.
 
 Each target page lists the exact directory.
 
 ## Claude Code body syntax {#claude-code-body-syntax}
 
-A Claude Code command body can use `` !`command` `` lines, ` ```! ` blocks, `$ARGUMENTS`, and `$1`, `$2`, ... ([skill syntax](@/docs/spec-format/skills.md#claude-code-body-syntax)). Sync copies the body as written. Each target expands only what its docs show:
+A Claude Code command body can use `` !`command` `` lines, ` ```! ` blocks, `$ARGUMENTS`, and `$1`, `$2`, ... ([skill syntax](@/docs/spec-format/skills.md#claude-code-body-syntax)). Sync copies the body as written. Each tool supports only what its docs show:
 
 | Target | `` !`command` `` | `$ARGUMENTS` | `$1`, `$2`, ... |
 |--------|------------------|--------------|-----------------|
@@ -73,6 +73,6 @@ A Claude Code command body can use `` !`command` `` lines, ` ```! ` blocks, `$AR
 | [Kiro CLI V3](@/docs/targets/kiro.md#commands) | no | yes | no |
 | Cursor, Gemini, Junie, Kilo, Qoder, Trae | no | no | no |
 
-A target that reads the syntax as plain text gets a note naming each line. `on-unsupported: error` fails the sync, and `lint` reports LINT019. Gemini has its own argument and shell placeholders ([custom commands](https://geminicli.com/docs/cli/custom-commands)). Write them in a `::target gemini` fence.
+A tool that reads the syntax as plain text gets a note naming each line. `on-unsupported: error` fails the sync, and `lint` reports LINT019. Gemini has its own argument and shell placeholders ([custom commands](https://geminicli.com/docs/cli/custom-commands)). Write them in a `::target gemini` fence.
 
-Kiro uses `${1}` through `${10}` and `${@}` for native arguments. Put Kiro-specific templates in a `::target kiro` fence. Sync preserves them without mapping bare `$1`.
+Kiro uses `${1}` through `${10}` and `${@}` for its own arguments. Put Kiro-specific templates in a `::target kiro` fence. Sync keeps them as written and does not map a bare `$1`.

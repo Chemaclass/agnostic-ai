@@ -9,7 +9,7 @@ group = "Reference"
 
 # Error codes
 
-Every user-facing error starts with a stable code in square brackets, `[AAI-NNN]`. Its fix follows on the next line:
+Every error starts with a code in square brackets, `[AAI-NNN]`. The fix follows on the next line:
 
 ```
 [AAI-003] read config: no agnostic-ai.yaml or agnostic.config.yaml in /path/to/project
@@ -29,32 +29,32 @@ Fix:
   Run `agnostic-ai init` to scaffold a config, or `cd` into the directory that already contains one. Run `agnostic-ai doctor` for a full diagnosis.
 ```
 
-Pass `--json` for machine-readable output.
+Pass `--json` for JSON output.
 
 ## Numbering
 
 | Range     | Area                       |
 | --------- | -------------------------- |
-| `001-099` | spec / config load + parse |
-| `100-199` | emit (collisions, hooks)   |
+| `001-099` | reading specs and config |
+| `100-199` | writing output (collisions, hooks) |
 | `200-299` | import                     |
-| `300-399` | sync / validate            |
+| `300-399` | sync and validate |
 
-Codes are stable across releases. New codes are added at the end; existing codes never change number.
+Codes keep their number across releases. New codes are added at the end.
 
 ## Codes
 
 ### AAI-001: Spec parse failed
 
-A spec file could not be parsed. Markdown specs use YAML frontmatter; hooks and MCPs are pure YAML. The error gives the path and, when available, the line:col of the offending byte. A review `@path` include that cannot be read reports here too.
+A spec file could not be read. Markdown specs use YAML frontmatter; hooks and MCPs are plain YAML. The error gives the path and, when known, the line and column. A review `@path` include that cannot be read reports here too.
 
-**Fix:** open the file at the reported position. Check that the frontmatter delimiters (`---`) wrap the metadata and that the YAML is valid: correct indentation, no tabs, quoted strings where needed. For an include, create the file or use a path inside the project.
+**Fix:** open the file at the reported position. Check that `---` lines wrap the frontmatter and that the YAML is valid: correct indentation, no tabs, quotes where needed. For an include, create the file or use a path inside the project.
 
 ### AAI-002: Spec kind not supported by target
 
-A spec kind (hook, mcp, command, ...) is in the bundle, but the target adapter does not emit it. By default this logs a warning. `on-unsupported: error` makes it a hard failure.
+A spec kind (hook, mcp, command, ...) is in your project, but the tool does not support it. By default this logs a warning. `on-unsupported: error` makes it a hard failure.
 
-**Fix:** drop the spec, switch to a target that supports the kind, or set `on-unsupported: warn` (or `silent`) in `agnostic-ai.yaml`.
+**Fix:** remove the spec, use a tool that supports the kind, or set `on-unsupported: warn` (or `silent`) in `agnostic-ai.yaml`.
 
 ### AAI-003: Config file missing
 
@@ -64,13 +64,13 @@ Neither `agnostic-ai.yaml` nor the legacy `agnostic.config.yaml` exists in the p
 
 ### AAI-004: Config decode failed
 
-The config file was found, but it is not valid YAML or its keys do not match the schema. Each unknown key is named with its file, line, and dotted path, such as `agnostic-ai.yaml:4: unknown key "sync.collsion-policy" (did you mean collision-policy?)`. A [`requires`](@/docs/configuration.md#requires) value that is not a version constraint, such as `latest` or `>=0.73.0,<0.74.0`, fails here too.
+The config file was found, but it is not valid YAML or has keys the config does not accept. Each unknown key is named with its file, line, and dotted path, such as `agnostic-ai.yaml:4: unknown key "sync.collsion-policy" (did you mean collision-policy?)`. A [`requires`](@/docs/configuration.md#requires) value that is not a version constraint, such as `latest` or `>=0.73.0,<0.74.0`, fails here too.
 
-**Fix:** rename or remove each unknown key the message names. Use its did-you-mean suggestion when there is one. Otherwise validate against `docs/schemas/config.schema.json`. Check indentation and that list keys (e.g. `targets:`) hold a YAML sequence. Run `agnostic-ai doctor` for a full diagnosis.
+**Fix:** rename or remove each unknown key the message names. Use its did-you-mean suggestion when there is one. Otherwise check the file against `docs/schemas/config.schema.json`. Check indentation and that list keys such as `targets:` hold a YAML list. Run `agnostic-ai doctor` for a full diagnosis.
 
 ### AAI-005: Installed version outside requires
 
-The config's `requires` key names the agnostic-ai releases its specs work with: a minimum, one exact release, or a range. The installed binary is outside it. Every command that reads the specs stops before reading them or writing files. That includes `sync`, `lint`, `validate`, `doctor`, `revert`, and `cleanup`. The message names the file, the required version, and the installed one:
+The config's `requires` key names the agnostic-ai releases your specs work with: a minimum, one exact release, or a range. The installed binary is outside it. Every command that reads the specs stops before it reads them or writes files, including `sync`, `lint`, `validate`, `doctor`, `revert`, and `cleanup`. The message names the file, the required version, and the installed one:
 
 ```
 [AAI-005] agnostic-ai.yaml requires agnostic-ai >=0.71.0, but 0.70.0 is installed; run `agnostic-ai upgrade`
@@ -78,14 +78,14 @@ The config's `requires` key names the agnostic-ai releases its specs work with: 
 
 **Fix:** after installing a newer release, run `agnostic-ai upgrade --requires` from the project root. It sets `requires` and the schema tag to the installed release, then syncs. Use the installed package-manager CLI, such as `pnpm exec agnostic-ai upgrade --requires`.
 
-- **Older installed release:** run `agnostic-ai upgrade`, or `upgrade --version vX.Y.Z` for an exact pin or range. Project package-manager installs name their install command, such as `pnpm install`, after pulling a version bump.
-- **Keep an intentional older project pin:** install the release it names through your package manager or `upgrade --version`. The latter also downgrades a standalone binary.
+- **Installed release is older:** run `agnostic-ai upgrade`, or `upgrade --version vX.Y.Z` for an exact pin or range. For a project install through a package manager, the message names the install command, such as `pnpm install`.
+- **You want to keep an older pin:** install the release it names through your package manager or `upgrade --version`. The latter also downgrades a standalone binary.
 - **Global home config:** edit `requires` in the named file to adopt the installed release. `upgrade --requires` changes project config only.
 - **The version does not change:** `agnostic-ai upgrade --check` shows which binary runs and any older copy that shadows it on PATH.
 
 ### AAI-102: Targets emit to the same output path
 
-Two or more enabled targets would write different content to the same path. Letting the last writer win would hide drift.
+Two or more enabled targets would write different content to the same path. Sync stops instead of letting the last one win.
 
 **Fix:** drop one of the colliding targets from `targets:` in agnostic-ai.yaml, or override the matching `outputs.<target>` path setting, such as `file`, `rules-file`, or `skills-dir`.
 
@@ -93,9 +93,9 @@ Two or more enabled targets would write different content to the same path. Lett
 
 ### AAI-103: Hand-authored ignore file would lose patterns
 
-Replacing a target's ignore file without an agnostic-ai header would remove or reorder existing patterns, or add a negation. These changes can make excluded files readable, so sync refuses the overwrite.
+Replacing a tool's ignore file that has no agnostic-ai header would remove or reorder patterns, or add a negation. These changes can make excluded files readable, so sync refuses.
 
-**Fix:** run `agnostic-ai import <target>` to copy the imported file's patterns into an ignore spec. When a target reads several ignore files, combine their patterns in the spec and keep their order before syncing. The error names a risky negation or up to five missing or reordered patterns, with a count for the rest. Deleting the file also clears the error, at the cost of those patterns.
+**Fix:** run `agnostic-ai import <target>` to copy the imported file's patterns into an ignore spec. When a tool reads several ignore files, combine their patterns in the spec, in the same order, before syncing. The error names a risky negation or up to five missing or reordered patterns, with a count for the rest. Deleting the file also clears the error, at the cost of those patterns.
 
 See [ignore overwrite behavior](@/docs/spec-format/ignore.md#overwrite-behaviour).
 
@@ -107,17 +107,17 @@ The argument to `agnostic-ai import` matches no registered source.
 
 ### AAI-203: Import would replace an existing spec
 
-`import`, `init --from`, or `use` would replace a spec under the source directories with content the importing tool never read: a hand-written spec, one edited since the last sync or import (a comment counts), one the last sync never wrote for that tool, or one another tool's import wrote. The import writes no spec. The message lists each spec, the tool its current content came from, and the tool that wanted it. `import --dry-run` fails the same way.
+`import`, `init --from`, or `use` would replace a spec with content the importing tool never read: a hand-written spec, one edited since the last sync or import (a comment counts), one the last sync never wrote for that tool, or one another tool's import wrote. The import writes no spec. The message lists each spec, the tool its current content came from, and the tool that wanted it. `import --dry-run` fails the same way.
 
 **Fix:** rename the existing spec to keep both and import again, or run `agnostic-ai import <tool> --overwrite` to replace it.
 
 ### AAI-301: Unknown sync target
 
-A target requested via `--target`, `--only`, or the config is not a built-in adapter and no `agnostic-ai-adapter-<name>` binary is on PATH.
+A target named in `--target`, `--only`, or the config is not built in, and no `agnostic-ai-adapter-<name>` binary is on PATH.
 
-A name passed with `--target` fails the run. A config target that does not resolve only warns, so a teammate without an external adapter can still sync. When the name is one edit from a built-in (two for longer names), the message suggests the built-in: `unknown target: claud (did you mean claude? no agnostic-ai-adapter-claud on PATH)`.
+A name passed with `--target` fails the run. A config target that does not resolve only warns, so a teammate without an external adapter can still sync. When the name is close to a built-in name, the message suggests it: `unknown target: claud (did you mean claude? no agnostic-ai-adapter-claud on PATH)`.
 
-A known target outside this run (`sync --only codex` with `targets: [claude]`) reports `codex is not in this run's targets (claude)`.
+A known target that is not in this run (`sync --only codex` with `targets: [claude]`) reports `codex is not in this run's targets (claude)`.
 
 **Fix:** check the spelling. If the target exists but is not in this run, add it to `targets` or pass it with `-t`. Built-ins: `claude`, `codex`, `gemini`, `cursor`, `copilot`, `aider`, `cline`, `windsurf`, `continue`, `amp`, `zed`, `warp`, `opencode`, `antigravity`, `junie`, `kiro`, `crush`, `trae`, `qoder`, `openhands`, `factory`, `kilo`, `jules`, `goose`, `augment`. External adapters live on PATH as `agnostic-ai-adapter-<name>`.
 

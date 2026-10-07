@@ -9,9 +9,9 @@ group = "Workflows"
 
 # Shared memory
 
-The built-in `memory` gives a project one memory that every AI tool shares. When Codex learns that PR CI runs on Ubuntu only, Claude Code knows it in its next session, and the other way round.
+The built-in `memory` gives a project one memory that all your AI tools share. If Codex learns that PR CI runs only on Ubuntu, Claude Code knows it next session.
 
-It follows the shape of Claude Code's own memory: a short index loaded each session, one Markdown file per fact, and a rule that tells the tool when to save. The difference is that the files live in your project, so every tool can read them and your team can review them.
+It works like Claude Code's own memory: a short index loaded each session, one Markdown file per fact, and a rule that tells the tool when to save. The files live in your project, so every tool can read them and your team can review them.
 
 ## Enable it
 
@@ -22,22 +22,22 @@ requires: ">=0.81.0"
 builtins: [handoff, memory]
 ```
 
-Saving a fact needs no further sync.
+You only sync once. Saving a fact later needs no sync.
 
-To use it in every project, add `memory` to `builtins` in `~/.agnostic-ai/agnostic-ai.yaml` and run `agnostic-ai sync --global`. The rule then reaches each tool's global instructions, and each project still keeps its own store. Only a project sync adds the Claude Code import.
+To use it in every project, add `memory` to `builtins` in `~/.agnostic-ai/agnostic-ai.yaml` and run `agnostic-ai sync --global`. Each project still keeps its own memory. Claude Code loads the index only after a project sync.
 
-## The store
+## Where facts live
 
 ```
 .agnostic-ai/memory/           # project memory, committed for the team
   MEMORY.md                    # index: one "- [Title](slug.md): hook" line per fact
   ci-ubuntu.md                 # one fact
-.agnostic-ai/local/memory/     # personal memory, ignored by Git
+.agnostic-ai/local/memory/     # personal memory, not committed
   MEMORY.md
   prefers-tabs.md
 ```
 
-Tools save your preferences and corrections to personal memory without asking. Team facts go to project memory only after you confirm. Personal memory stays in this checkout: cloud agents never see it, and a new Claude Code worktree gets a copy through `.worktreeinclude`.
+Your preferences and corrections go to personal memory right away. Team facts go to project memory only after you confirm. Personal memory stays in this checkout, so cloud agents never see it. A new Claude Code worktree gets a copy through `.worktreeinclude`.
 
 A fact file looks like this:
 
@@ -56,27 +56,33 @@ PR CI runs on Ubuntu alone.
 **How to apply:** dispatch the full OS matrix before merging a change to paths or file watching.
 ```
 
-The type is one of `user`, `feedback`, `project`, or `reference`. Both folders are fixed and do not follow `sources:`. Commit `.agnostic-ai/memory/`: it is how the team shares what its tools learn.
+The type is `user`, `feedback`, `project`, or `reference`. The two folders are fixed; `sources:` does not move them.
 
 ## How tools save
 
-Every target gets the always-on `shared-memory-policy` rule. It tells the tool to save a fact a later session needs and cannot get from the code, the git history, or the rules: personal facts right away, team facts after you confirm. It updates an existing fact instead of adding a duplicate, and it never saves secrets.
+Every tool gets the `shared-memory-policy` rule. It tells the tool to save facts a later session needs and cannot find in the code, git history, or rules. The tool updates an existing fact instead of adding a duplicate, and never saves secrets.
 
-Ask for the `shared-memory` skill to recall what the project knows about a topic, or to clean up the store. Cleanup merges duplicates, drops stale facts, and fixes the index, and it applies nothing until you confirm.
+Ask for the `shared-memory` skill to recall what the project knows about a topic, or to clean up memory. Cleanup merges duplicates, drops stale facts, and fixes the index. You confirm before it changes anything.
 
 ## How tools load it
 
-| Target | How the index loads |
+| Tool | How the index loads |
 | --- | --- |
-| Claude Code | `CLAUDE.md` imports both `MEMORY.md` indexes, so the tool loads them at session start. |
-| Codex, Copilot, Cursor, Gemini CLI, Qoder, Factory | With `memory-hook`, a session-start hook adds the index to the model's context. See [load at session start](#load-at-session-start). |
-| Every other target | The `shared-memory-policy` rule names both indexes, and the tool reads them before a task. |
+| Claude Code | `CLAUDE.md` imports both indexes at session start. |
+| Codex, Copilot, Cursor, Gemini CLI, Qoder, Factory | Add `memory-hook` to load them at session start. See [Load at session start](#load-at-session-start). |
+| OpenCode, Kilo Code | `opencode.json` or `kilo.jsonc` lists both indexes under `instructions`. A missing index is skipped. |
+| Other tools | The rule names both indexes, and the tool reads them before a task. |
 
-The import goes only into files whose readers all follow `@` lines. A file that `sync.resolve-imports` rewrites never carries memory text, so saves never show up as `sync --check` drift.
+Aider and Kiro get the rule only, because a missing index file causes an error or a visible marker there. Once both indexes exist, add them yourself:
+
+- Aider: `read: [.agnostic-ai/local/memory/MEMORY.md, .agnostic-ai/memory/MEMORY.md]` in `.aider.conf.yml`.
+- Kiro: `#[[file:.agnostic-ai/memory/MEMORY.md]]` in a steering file.
+
+Saving a fact never makes `sync --check` report drift.
 
 ## Load at session start
 
-Without a hook, Codex, Copilot, Cursor, Gemini CLI, Qoder, and Factory read the index only when the model follows the rule. Add `memory-hook` to load it at every session start:
+Without a hook, Codex, Copilot, Cursor, Gemini CLI, Qoder, and Factory read the index only when the model follows the rule. Add `memory-hook` to load it every session:
 
 ```yaml
 builtins: [handoff, memory, memory-hook]
@@ -85,10 +91,12 @@ builtins: [handoff, memory, memory-hook]
 The hook runs [`agnostic-ai hook memory`](@/docs/cli-reference/maintain.md#hook-memory), which adds the index to the model's context.
 
 - Hooks you wrote by hand in those files stay. Sync replaces only its own entries.
-- Without `agnostic-ai` on `PATH`, the hook does nothing.
+- The hook does nothing if `agnostic-ai` is not on your PATH.
 - Codex runs it only after you trust the project's hooks.
-- On Windows, Copilot, Cursor, and Gemini CLI need `sh` on `PATH`, such as Git Bash (#1856).
+- On Windows, Copilot, Cursor, and Gemini CLI need `sh` on PATH, for example from Git Bash.
 
-## Memory is background
+## Memory never overrides you
 
-The rule tells each tool that memory never overrides your request, and to check that a file, flag, or command a fact names still exists before acting on it. Review memory changes in pull requests like any other project file: anyone who can push can change what every tool reads.
+The rule tells each tool that your request beats memory, and to check that a file, flag, or command named in a fact still exists before using it.
+
+Review memory changes in pull requests like any other file. Anyone who can push can change what every tool reads.

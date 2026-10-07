@@ -1,6 +1,6 @@
 +++
 title = "Cursor"
-description = "How agnostic-ai emits Cursor configuration: native paths, capability limits, and output options."
+description = "How agnostic-ai writes Cursor configuration: native paths, what Cursor cannot hold, and output options."
 weight = 40
 
 [extra]
@@ -28,30 +28,30 @@ Cursor reads its project configuration from `.cursor/`, including `.cursor/rules
   - A catch-all such as `**/*` stays always-on (override in frontmatter). An always-apply rule omits `globs`.
   - A non-always rule without `globs` falls back to the Claude-spelled `paths` list (comma-joined).
   - With neither, `globs` is omitted, not defaulted to `**/*`, so Cursor treats the rule as "Apply Intelligently" (description-driven) or "Apply Manually".
-  - Scalar globs keep minimal quoting, so a hand-authored `.mdc` round-trips clean.
+  - Scalar globs keep minimal quoting, so a hand-written `.mdc` round-trips unchanged.
 - **Per-file check**: `agnostic-ai explain --file <path> --target cursor` checks each planned `.mdc` rule and every `AGENTS.md` Cursor reads (root and nested) against one file, using the `alwaysApply`/`description`/`globs` matrix from [Rules](https://cursor.com/docs/rules).
 - **Agents**: [Cursor subagents](https://cursor.com/docs/subagents.md) (Cursor 2.4+). Frontmatter has `name`, `description`, and any declared `model`, `readonly`, and `is_background`. The body is the system prompt.
-  - With no `tools` field, a `tools` list is dropped with a coverage note. `readonly: true` is the coarse equivalent.
-  - With no effort field, a portable `effort` raises a coverage note. Put it in the model id: `model: {cursor: "claude-opus-5[effort=high]"}`. See [per-target `model` and `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort).
+  - Cursor has no `tools` field, so sync drops a `tools` list with a coverage note. `readonly: true` is the coarse equivalent.
+  - Cursor has no effort field, so a portable `effort` raises a coverage note. Put it in the model id: `model: {cursor: "claude-opus-5[effort=high]"}`. See [per-target `model` and `effort`](@/docs/spec-format/agents.md#per-target-model-and-effort).
 - **Commands**: Markdown [Cursor commands](https://cursor.com/help/customization/skills.md) under `.cursor/commands/`, body as the prompt. Cursor no longer documents `.cursor/commands`. The closest reference is the "migrate commands to skills" FAQ on that page.
-- **Old copies**: the ledger sweeps older flattened `.mdc`, agent-as-command, and `skill-<name>.mdc` files.
+- **Old copies**: sync removes older flattened `.mdc`, agent-as-command, and `skill-<name>.mdc` files.
 - **Skills**: `.cursor/skills/<name>/SKILL.md`, the [Agent Skills](https://cursor.com/docs/skills.md) layout (Cursor 2.4+), bundled files copied byte-for-byte.
   - Frontmatter has `name`, `description`, and any declared `paths`, `disable-model-invocation`, `icon`, `color`, and `metadata`. `icon` and `color` style the badge when the skill backs a [Custom Mode](https://cursor.com/docs/agent/prompting.md#custom-modes).
   - A source-layout scope moves the tree under that directory and survives import.
   - Cursor loads skills only from the workspace it opens, so a skill's `workspaces` list adds a `<dir>/.cursor/skills/<name>/` copy per directory, beside the root copy.
   - Skill `model` and `effort` are omitted with a coverage note when a value resolves for Cursor, in project and global sync.
 - **Review**: [Bugbot](https://cursor.com/docs/bugbot) files, root `.cursor/BUGBOT.md` for unscoped specs and `<scope>/.cursor/BUGBOT.md` for scoped ones.
-  - Same-scope specs concatenate. Bugbot always reads the root file, plus per-directory copies above changed files.
+  - Same-scope specs are joined into one file. Bugbot always reads the root file, plus per-directory copies above changed files.
   - [Rule limits](https://cursor.com/docs/bugbot#rule-limits): each BUGBOT.md is one rule, truncated at 30,000 characters. One review's rules are capped at 100,000 characters in total, and Bugbot may omit the rest.
-  - agnostic-ai never truncates. An over-cap file emits in full with a surface-gap note. The size is measured on the emitted file, header included. Several small specs concatenated can pass the cap; split the review across sibling scopes.
-  - `sync` also notes a scope whose chain (the scope and its ancestors) passes 100,000 characters. Team and repository rules live outside the repo and share that budget, so a chain under it can still lose rules. To see what Bugbot included, truncated, or omitted, run `bugbot run verbose=true` or `cursor review verbose=true` on a pull request.
+  - agnostic-ai never truncates. An over-cap file is written in full, with a coverage note. The size counts the whole written file, header included. Several small specs joined together can pass the cap; split the review across sibling scopes.
+  - `sync` also notes a scope whose chain (the scope and its parent directories) passes 100,000 characters. Team and repository rules live outside the repo and share that budget, so a chain under it can still lose rules. To see what Bugbot included, truncated, or omitted, run `bugbot run verbose=true` or `cursor review verbose=true` on a pull request.
 - **Environment**: `.cursor/environment.json` ([background-agent](https://docs.cursor.com/background-agent) bootstrap).
-  - Spec keys pass through verbatim, except agnostic routing fields and `cleanup`. `cleanup` gets a no-effect note. Specs merge by top-level key.
+  - Spec keys pass through as written, except agnostic routing fields and `cleanup`. `cleanup` gets a no-effect note. Specs merge by top-level key.
   - `setup` and `setup-windows` go to `.cursor/worktrees.json` as `setup-worktree` (every OS) and `setup-worktree-windows` (run instead on Windows) ([worktrees](https://cursor.com/docs/configuration/worktrees)).
   - A script path, which Cursor resolves from `.cursor/`, or a unix-only `setup-worktree-unix`, goes under `x-cursor:` with its native key, such as `setup-worktree-unix: setup.sh`.
-- **Ignore**: `.cursorignore` (gitignore syntax). Specs concatenate.
+- **Ignore**: `.cursorignore` (gitignore syntax). Specs are joined into one file.
 - **Hooks**: [Cursor Hooks](https://cursor.com/docs/hooks) in a managed `.cursor/hooks.json` (`version` + per-event arrays). With `builtins: [memory, memory-hook]`, a `sessionStart` hook adds the [shared memory](@/docs/memory.md) index to the session.
-  - Command hooks keep their `{command, matcher?}` shape. A `type: prompt` hook emits `prompt` and optional `model`. Both keep `timeout`, `loop_limit` (including `null`), `failClosed`, and `matcher`.
+  - Command hooks keep their `{command, matcher?}` shape. A `type: prompt` hook writes `prompt` and optional `model`. Both keep `timeout`, `loop_limit` (including `null`), `failClosed`, and `matcher`.
   - camelCase event names (`beforeShellExecution`, `afterFileEdit`, ...) pass through. `validate` flags unknown ones.
   - Per Cursor's "Available matchers by hook" table, fifteen events take a `matcher`: `preToolUse`, `postToolUse`, `postToolUseFailure` (tool name), `subagentStart`, `subagentStop` (subagent type), `beforeShellExecution`, `afterShellExecution` (full command string), `beforeReadFile`, `afterFileEdit` (tool name), and `beforeTabFileRead`, `afterTabFileEdit`, `beforeSubmitPrompt`, `stop`, `afterAgentResponse`, `afterAgentThought` (one fixed value each).
   - `lint` flags a matcher on any other event, except `beforeMCPExecution` and `afterMCPExecution`, which the table omits.
@@ -74,10 +74,10 @@ PowerShell reads that quoting the same way unless an arg has an apostrophe. A co
 
 The **Include Third-Party Plugins, Skills, and Other Configs** setting (Cursor Settings → Agents → Third-Party Imports, [on by default](https://cursor.com/docs/reference/third-party-hooks.md)) turns on Claude and Codex compatibility reads. Turn it off to stop those reads, or give the spec a single `target:`. Cursor also reads the shared `.agents/skills/` directory, where the `codex` target writes, whatever that setting says.
 
-- **Skills**: Native project roots are `.cursor/skills/` and `.agents/skills/`. Compatibility roots include `.claude/skills/`, `.codex/skills/`, and their home equivalents ([Skills](https://cursor.com/docs/skills.md)). Cross-root precedence and deduplication are undocumented.
+- **Skills**: Native project roots are `.cursor/skills/` and `.agents/skills/`. Compatibility roots include `.claude/skills/`, `.codex/skills/`, and their home equivalents ([Skills](https://cursor.com/docs/skills.md)). Cursor does not document which root wins or how it handles duplicates.
 - **Subagents**: [Subagents](https://cursor.com/docs/subagents.md) reads `.claude/agents/` and `.codex/agents/` (current project only) beside `.cursor/agents/`. On a name clash, `.cursor/` wins. The page documents only Markdown agents, so Cursor may not parse the `codex` target's TOML files in `.codex/agents/`.
 - **Hooks**: [Third-party hooks](https://cursor.com/docs/reference/third-party-hooks.md) merges seven sources (`.cursor/hooks.json` at rank 3, `.claude/settings.json` at rank 6), runs every matching hook from each, and maps Claude event names to Cursor ones (`PreToolUse` to `preToolUse`, and so on). A repo syncing `claude` and `cursor` runs every hook twice, except a portable hook, whose Claude Code copy exits under Cursor ([details](@/docs/spec-format/hooks.md#claude-settings-copies)). That setting is the only way to stop the rest.
-- **Hook `args`**: The third-party hooks docs do not list `args`, so a claude hook spec with `args` may run as a bare interpreter that reads the JSON payload as its program. `sync` notes this when `claude` runs and `cursor` is configured. Use a shell-form `command`, or turn off the setting.
+- **Hook `args`**: The third-party hooks docs do not list `args`, so a claude hook spec with `args` may run as a bare interpreter that reads the JSON event data as its program. `sync` notes this when `claude` runs and `cursor` is configured. Use a shell-form `command`, or turn off the setting.
 
 ## Config keys
 
@@ -130,14 +130,14 @@ Sync records the rules it added in `.cursor/.agnostic-ai-permissions.json`. A ru
 |--------|---------|
 | `.cursor/rules/<name>.mdc` | `<rules>/<name>.md` with frontmatter (`description`, `globs`, `alwaysApply`, plus any custom keys) preserved verbatim |
 | `.cursor/rules/<sub>/<name>.mdc` | `<rules>/<sub>/<name>.md`, nested subdirectories preserved |
-| (no `name:` in frontmatter) | `name:` injected from the filename |
+| (no `name:` in frontmatter) | `name:` added from the filename |
 | `.cursor/agents/<name>.md` | `<agents>/<name>.md`, provenance header stripped and the spec's own frontmatter keys kept |
 | `.cursor/skills/<name>/` and `.agents/skills/<name>/` | `<skills>/<name>/`, full folder tree: bundled assets byte-for-byte, SKILL.md merged onto the existing spec |
 | `.cursor/commands/<name>.md` | `<commands>/<name>.md`, provenance header stripped and the spec's own frontmatter keys kept |
 | `.cursor/BUGBOT.md` | `<reviews>/review.md` |
 | `<scope>/.cursor/BUGBOT.md` | `<reviews>/<scope-slug>.md` with `scope: <scope>`, for example `services-api.md` for `services/api` |
 
-Import skips a `BUGBOT.md` sync wrote, since reading back its concatenated same-scope specs would emit them twice.
+Import skips a `BUGBOT.md` sync wrote, since reading back its joined same-scope specs would write them twice.
 
 [Skills](https://cursor.com/docs/skills.md) treats both skill directories as project-level, at the root and in nested subdirectories. The nesting becomes the spec scope. `.cursor/skills` wins a same-name clash at the same scope.
 

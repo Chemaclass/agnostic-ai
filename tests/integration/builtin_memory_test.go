@@ -179,10 +179,59 @@ func TestBuiltinMemory(t *testing.T) {
 		run(t, dir, "sync", "--check", "--gitignore=off")
 	})
 
+	for _, c := range []struct{ target, file, targets string }{
+		{"opencode", "opencode.json", "opencode"},
+		{"kilo", "kilo.jsonc", "kilo"},
+		{"kilo-with-codex", "kilo.jsonc", "kilo, codex"},
+	} {
+		t.Run(c.target+"-lists-the-indexes-and-gives-them-back", func(t *testing.T) {
+			testContextListMemory(t, project, run, c.file, c.targets)
+		})
+	}
+
+	t.Run("kilo-gives-the-indexes-back-after-rules-move-into-agents-md", func(t *testing.T) {
+		dir := project(t, []byte("version: 1\ntargets: [kilo]\nbuiltins: [memory]\nsync:\n  unmanaged: [AGENTS.md]\n"))
+		run(t, dir, "sync", "--gitignore=off")
+		for _, config := range []string{"version: 1\ntargets: [kilo]\nbuiltins: [memory]\n", "version: 1\ntargets: [kilo]\n"} {
+			if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(config), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			run(t, dir, "sync", "--gitignore=off")
+		}
+		if data, _ := os.ReadFile(filepath.Join(dir, "kilo.jsonc")); strings.Contains(string(data), "MEMORY.md") {
+			t.Errorf("memory indexes stuck in kilo.jsonc:\n%s", data)
+		}
+	})
+
 	t.Run("every-target-syncs", func(t *testing.T) {
 		config := "version: 1\nbuiltins: [memory]\ntargets: [" + strings.Join(adapters.Names(), ", ") + "]\n"
 		dir := project(t, []byte(config))
 		run(t, dir, "sync", "--gitignore=off")
 		run(t, dir, "sync", "--check", "--gitignore=off")
 	})
+}
+
+func testContextListMemory(t *testing.T, project func(*testing.T, []byte) string, run func(*testing.T, string, ...string) string, file, targets string) {
+	dir := project(t, []byte("version: 1\ntargets: ["+targets+"]\nbuiltins: [memory]\n"))
+	config := filepath.Join(dir, file)
+	if err := os.WriteFile(config, []byte(`{"instructions": ["CONTRIBUTING.md"]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	run(t, dir, "sync", "--gitignore=off")
+	run(t, dir, "sync", "--gitignore=off")
+	data, _ := os.ReadFile(config)
+	for _, want := range []string{"CONTRIBUTING.md", ".agnostic-ai/local/memory/MEMORY.md", ".agnostic-ai/memory/MEMORY.md"} {
+		if !strings.Contains(string(data), want) {
+			t.Errorf("%s lacks %s:\n%s", file, want, data)
+		}
+	}
+	run(t, dir, "sync", "--check", "--gitignore=off")
+	if err := os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte("version: 1\ntargets: ["+targets+"]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	run(t, dir, "sync", "--gitignore=off")
+	data, _ = os.ReadFile(config)
+	if strings.Contains(string(data), "MEMORY.md") || !strings.Contains(string(data), "CONTRIBUTING.md") {
+		t.Errorf("dropping the built-in should keep only the user's entry in %s:\n%s", file, data)
+	}
 }

@@ -1,6 +1,6 @@
 +++
 title = "CI"
-description = "Catch drift between specs and generated output in CI."
+description = "Fail CI when generated files no longer match your specs."
 weight = 50
 
 [extra]
@@ -13,48 +13,48 @@ Pick the check that matches your Git strategy. Run it from the project root, aft
 
 ## Committed outputs
 
-Fail when the checked-in tool files no longer match the specs:
+Fail when the committed tool files no longer match the specs:
 
 ```bash
 agnostic-ai sync --check
 ```
 
-`--check` compares the planned output with the files on disk and writes nothing. Missing or changed output exits non-zero. To fix drift, run `agnostic-ai sync` locally and commit the result.
+`--check` compares the files sync would write with the files on disk and writes nothing. A missing or changed file exits non-zero. To fix it, run `agnostic-ai sync` locally and commit the result.
 
-Never run `sync` right before this check in CI. It erases the drift you are testing for.
+Never run `sync` right before this check in CI. It would hide the problem you are testing for.
 
-If an earlier step already rewrote the files, as a `postinstall` sync does, compare the commit instead:
+If an earlier step already rewrote the files, as a `postinstall` sync does, check against the commit instead:
 
 ```bash
 agnostic-ai sync --check --against HEAD
 ```
 
-It renders the specs as committed and compares them with the committed outputs. Outputs that `gitignore` leaves out are skipped.
+It builds the files from the committed specs and compares them with the committed files. Ignored files are skipped.
 
 `actions/checkout` fetches one commit by default. Set `fetch-depth: 2` so the check has the parent commit (in a pull request's merge commit, the base branch). Without it, a note says the comparison was skipped.
 
-A committed output that no spec produces anymore also fails, so this command catches leftovers without `doctor`. That covers a file with the generated header where a target writes, and any file the parent commit's specs rendered, such as a JSON file with no header.
+A committed file that no spec produces anymore also fails, so this command catches leftovers without `doctor`. That covers a file with the generated header where a tool writes, and any file the parent commit's specs produced, such as a JSON file with no header.
 
-After a project moves its specs into `.agnostic-ai/`, a branch from before the move can still add a skill in the old place, such as `.cursor/skills/<name>/SKILL.md`. Git keeps tracking it inside the ignored folder, where only Cursor reads it. The same check fails on it and names the fix: `agnostic-ai import cursor`, then `git rm --cached` the file.
+After a project moves its specs into `.agnostic-ai/`, a branch from before the move can still add a skill in the old place, such as `.cursor/skills/<name>/SKILL.md`. Only Cursor reads it there. The same check fails on it and names the fix: `agnostic-ai import cursor`, then `git rm --cached` the file.
 
 ## Ignored outputs
 
-A fresh checkout has no generated files. Validate the source and confirm that generation succeeds:
+A fresh checkout has no generated files. Check the specs and confirm that sync works:
 
 ```bash
 agnostic-ai validate
 agnostic-ai sync
 ```
 
-Add `agnostic-ai lint` for source quality. A `sync --check` afterwards confirms the generated output is consistent. It says nothing about committed files.
+Add `agnostic-ai lint` to check spec quality. `sync --check` after `sync` adds nothing, because the files were just written.
 
 In a Node workspace that pins the CLI and syncs on `postinstall`, `pnpm install --frozen-lockfile` already runs `sync`. See [Node monorepos](@/docs/git-hooks.md#node-monorepos).
 
-This repository ignores generated tool files and runs spec lint in CI. See [contributor checks](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/contributing.md#choose-checks-for-your-change).
+This repository ignores generated tool files and runs `lint` in CI. See [contributor checks](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/contributing.md#choose-checks-for-your-change).
 
 ## Install the CLI in CI
 
-Install the CLI with the project's dependencies. Other projects use the install script.
+In Node projects, install the CLI with the project's dependencies. Other projects use the install script.
 
 ### Node projects
 
@@ -72,9 +72,9 @@ npm install -D -E agnostic-ai    # or pnpm add -D -E, yarn add -D -E, bun add -D
 }
 ```
 
-The lockfile carries the platform packages for every OS and CPU, so one pin works on macOS, Linux, and Windows runners. For workspaces and git hooks, see [Node monorepos](@/docs/git-hooks.md#node-monorepos).
+The lockfile covers every OS and CPU, so one pin works on macOS, Linux, and Windows runners. For workspaces and git hooks, see [Node monorepos](@/docs/git-hooks.md#node-monorepos).
 
-With ignored outputs, `npm ci` already runs `postinstall`, so the job only checks the source:
+With ignored generated files, `npm ci` already runs `postinstall`, so the job only checks the specs:
 
 ```yaml
 steps:
@@ -86,7 +86,7 @@ steps:
   - run: npx agnostic-ai lint --strict && npx agnostic-ai validate
 ```
 
-With committed outputs, skip `postinstall` so it cannot rewrite the files before the check:
+With committed generated files, skip `postinstall` so it cannot rewrite the files before the check:
 
 ```yaml
 steps:
@@ -119,11 +119,11 @@ steps:
 
 ## Diagnose drift
 
-Run `agnostic-ai sync --check --diff` to see the changes. The [CLI reference](@/docs/cli-reference/sync.md#reading-a-failing---check) explains the output formats and failure categories.
+Run `agnostic-ai sync --check --diff` to see the changes. The [CLI reference](@/docs/cli-reference/sync.md#reading-a-failing---check) explains the output and the failure types.
 
 ## Gate model and CLI changes
 
-`sync --check` proves the generated files match their specs. It does not show whether a model or CLI still gives good results for your project.
+`sync --check` proves the generated files match your specs. It does not show whether a model or CLI still gives good results for your project.
 
 Configure a project-owned verifier:
 
@@ -139,4 +139,4 @@ Add the gate after installing the AI CLI it needs:
   run: agnostic-ai verify --target codex
 ```
 
-`verify` checks drift first, fingerprints the harness, and detects the CLI identity when it can. Then it sends versioned JSON to the script on stdin. The script runs the checks and scores them. Its stdout, stderr, and non-zero exit code reach CI unchanged. See the [`verify` command](@/docs/cli-reference/check.md#verify) for the JSON contract.
+`verify` first checks that generated files are current, then sends JSON to the script on stdin. The script runs the checks and scores them. Its stdout, stderr, and non-zero exit code reach CI unchanged. See the [`verify` command](@/docs/cli-reference/check.md#verify) for the JSON contract.
