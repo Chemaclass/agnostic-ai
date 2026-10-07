@@ -101,13 +101,9 @@ agnostic-ai hook memory --target codex
 
 ## hook run
 
-Run one hook spec before a session fires it. Run `sync` first, so the scripts sync copies are in place. For each target the hook reaches, `hook run`:
+Test a hook spec without starting a session. Run `sync` first so the hook's scripts are in place. For each tool the hook applies to, `hook run` sends a sample event to the synced command and prints the result: allow or block, exit code, time, stdout, and stderr.
 
-1. Builds that target's payload.
-2. Runs the command sync wrote, from the project root (or Copilot's `cwd`), with that target's env, shell, and timeout.
-3. Prints the decision, exit code, time, stdout, and stderr.
-
-See [test a hook](@/docs/spec-format/hooks.md#hook-run) for the payloads and decisions.
+See [test a hook](@/docs/spec-format/hooks.md#hook-run) for the sample events and results.
 
 ```bash
 agnostic-ai hook run protect-files --edit .github/workflows/tests.yml --expect block
@@ -119,22 +115,22 @@ agnostic-ai hook run protect-files --edit .env --format json
 
 It exits 1 when:
 
-- a command times out or errors (such as a missing script)
-- two targets decide differently
-- a decision is not the one `--expect` names
+- a command times out or fails, for example a missing script
+- two tools give different results
+- a result does not match `--expect`
 
-It warns, without failing, when a target's synced native file (`.claude/settings.json` or `.codex/hooks.json`) does not run the command the spec produces. Run `sync` to fix it.
+If `.claude/settings.json` or `.codex/hooks.json` is out of date with the spec, it warns and tells you to run `sync`.
 
 | Flag | Description |
 |------|-------------|
-| `-t`, `--target <names>` | Run only for these targets. Defaults to every configured target the hook reaches. |
-| `--edit <path>` | Build a `PreToolUse` or `PostToolUse` event that edits this path. |
-| `--bash <command>` | Build a `PreToolUse` or `PostToolUse` event that runs this shell command. |
+| `-t`, `--target <names>` | Test only these tools. Defaults to every configured tool the hook applies to. |
+| `--edit <path>` | Send a `PreToolUse` or `PostToolUse` event that edits this file. |
+| `--bash <command>` | Send a `PreToolUse` or `PostToolUse` event that runs this shell command. |
 | `--prompt <text>` | Prompt text for `UserPromptSubmit`. |
-| `--payload <file>` | Send this JSON file to every target as the payload, for events with no builder. |
-| `--expect allow\|block` | Fail unless every target decides this. |
-| `--include-assumed` | Count results that rest on an assumed shell, timeout, or working directory, such as Cursor's, Copilot's, Factory's, Antigravity's, Cline's, Kiro's, and Windsurf's, in `--expect` and the comparison. See [assumed results](@/docs/spec-format/hooks.md#assumed-results). |
-| `--format text\|json` | `json` prints one object per target, with its decision, warnings, and each command's exit code, time, stdout, and stderr. Defaults to `text`. |
+| `--payload <file>` | Send this JSON file to every tool, for events the flags above do not cover. |
+| `--expect allow\|block` | Fail unless every tool gives this result. |
+| `--include-assumed` | Count tools whose shell, timeout, or working directory is a guess (Cursor, Copilot, Factory, Antigravity, Cline, Kiro, Windsurf) toward `--expect` and the comparison between tools. See [assumed results](@/docs/spec-format/hooks.md#assumed-results). |
+| `--format text\|json` | `json` prints one object per tool with its result, warnings, and each command's exit code, time, stdout, and stderr. Defaults to `text`. |
 
 ## install-hook
 
