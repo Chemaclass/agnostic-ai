@@ -31,3 +31,5 @@ copilot-dynamic-workflows-project-extension	copilot	to share the dynamic workflo
 kiro-cli-prompts-slash-commands	kiro	In V3, workspace, global, and MCP prompts appear in slash-command completion.	yes	issue:1822
 kilo-memory-model-setting	kilo	Choose a separate model for automatic project memory saves with the new `memory_model` setting in `kilo.jsonc`.	yes	signal:cap-kilo-project-memory
 cursor-sandbox-json	cursor	`<workspace>/.cursor/sandbox.json` | Single workspace (per-repo) | Higher. Commit it when the project should share the same sandbox rules.	yes	signal:cap-cursor-sandbox-json
+windsurf-write-allow	windsurf	In **Accept Edits mode**, file edits within the workspace are auto-approved, but shell commands and writes outside the workspace still prompt.	yes	signal:cap-windsurf-repo-memory-write-allow
+junie-model-profiles	junie	Project-scope: .junie/models/*.json.	yes	signal:cap-junie-custom-model-profiles

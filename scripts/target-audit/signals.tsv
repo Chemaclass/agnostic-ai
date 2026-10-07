@@ -58,3 +58,5 @@ cap-kiro-steering-file-references	2026-10-04	2026-10-06	watch		2026-10-01	change
 cap-kiro-prompt-slash-commands	2026-10-04	2026-10-04	adapter-gap	1822	2026-10-01	changelog	2026-10-06	CLI V3 exposes workspace prompts in .kiro/prompts/ as slash commands; commands sync there since #1838.
 cap-kilo-project-memory	2026-10-07	2026-10-07	target-extension			changelog		Kilo memory_model in kilo.jsonc picks the model for project memory saves; x-kilo settings passthrough already emits it.
 cap-cursor-sandbox-json	2026-10-07	2026-10-07	target-extension			docs		.cursor/sandbox.json project sandbox policy (network allow/deny, extra read/write paths); no x-cursor route to it today.
+cap-windsurf-repo-memory-write-allow	2026-10-07	2026-10-07	adapter-gap	1882		docs		Devin CLI permissions.allow Write(<path>/**) in .devin/config.json lets Windsurf save to the repo-mode personal memory folder without a prompt.
+cap-junie-custom-model-profiles	2026-10-07	2026-10-07	watch			docs		Junie project model profiles in .junie/models/<id>.json (baseUrl, apiKey as ${VAR}); no route writes them today.
