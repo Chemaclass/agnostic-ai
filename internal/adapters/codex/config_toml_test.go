@@ -932,13 +932,17 @@ func TestEmit_CodexConfig_SandboxAndApprovalPolicy(t *testing.T) {
 	}
 	got := readFile(t, filepath.Join(dir, ".codex/config.toml"))
 	for _, want := range []string{
-		`sandbox = "workspace-write"`,
+		`sandbox_mode = "workspace-write"`,
 		`approval_policy = "on-failure"`,
 		`model = "o4-mini"`,
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
 		}
+	}
+	// Codex has no root `sandbox` key and its schema rejects unknown root keys.
+	if strings.Contains(got, "\nsandbox = ") {
+		t.Errorf("wrote a root sandbox key Codex does not read:\n%s", got)
 	}
 }
 
@@ -1043,7 +1047,7 @@ func TestEmit_CodexConfig_OverlayWinsOnDuplicate(t *testing.T) {
 	if !strings.Contains(got, `model = "from-overlay"`) {
 		t.Errorf("expected overlay model value to win:\n%s", got)
 	}
-	if !strings.Contains(got, `sandbox = "workspace-write"`) {
+	if !strings.Contains(got, `sandbox_mode = "workspace-write"`) {
 		t.Errorf("expected outputs.codex.config.sandbox to still emit:\n%s", got)
 	}
 }

@@ -127,7 +127,7 @@ func TestEdgeCase_CodexOverlayWinsOverFirstClassConfig(t *testing.T) {
 	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/AGNOSTIC_AI.md"), []byte("# P\n"), 0o644))
 	must(t, os.WriteFile(filepath.Join(dir, ".agnostic-ai/overlays/codex.config.toml"),
 		[]byte(`model = "overlay-model"
-sandbox = "overlay-sandbox"
+sandbox_mode = "read-only"
 `), 0o644))
 	testutil.Chdir(t, dir)
 	// outputs.codex.config declares the same keys with different values.
@@ -146,7 +146,7 @@ outputs:
   codex:
     config:
       model: config-model
-      sandbox: config-sandbox
+      sandbox: danger-full-access
 gitignore:
   enabled: false
 `), 0o644))
@@ -161,14 +161,14 @@ gitignore:
 	if !strings.Contains(body, `model = "overlay-model"`) {
 		t.Errorf("overlay model should win; got:\n%s", body)
 	}
-	if !strings.Contains(body, `sandbox = "overlay-sandbox"`) {
+	if !strings.Contains(body, `sandbox_mode = "read-only"`) {
 		t.Errorf("overlay sandbox should win; got:\n%s", body)
 	}
 	if strings.Contains(body, `model = "config-model"`) {
 		t.Errorf("first-class config-model should have been dropped; got:\n%s", body)
 	}
-	if strings.Contains(body, `sandbox = "config-sandbox"`) {
-		t.Errorf("first-class config-sandbox should have been dropped; got:\n%s", body)
+	if strings.Contains(body, `sandbox_mode = "danger-full-access"`) {
+		t.Errorf("first-class sandbox should have been dropped; got:\n%s", body)
 	}
 }
 

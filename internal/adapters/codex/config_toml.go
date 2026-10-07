@@ -95,7 +95,7 @@ func writeCodexConfigScalars(sb *strings.Builder, cfg *config.CodexConfig, overl
 	wrote := false
 	for _, field := range []struct{ key, value string }{
 		{"model", cfg.Model},
-		{"sandbox", cfg.Sandbox},
+		{"sandbox_mode", cfg.Sandbox},
 		{"approval_policy", cfg.ApprovalPolicy},
 		{"model_reasoning_effort", cfg.ModelReasoningEffort},
 		{"model_reasoning_summary", cfg.ModelReasoningSummary},
