@@ -93,7 +93,7 @@ requires: ">=0.80.0"
 builtins: [handoff]
 ```
 
-The available names are `handoff` (the skill), `handoff-hook` (optional Git snapshots and resume notices), `memory` (a project memory every tool shares), and `memory-hook` (optional session-start loading of that memory). See [session handoffs](@/docs/handoff.md) for supported targets, runtime requirements, and Factory's display setting, and [shared memory](@/docs/memory.md) for the memory store. Unknown names fail as AAI-004 and list the valid names. A project, pack, or personal spec with the same kind and name wins over the built-in.
+The available names are `handoff` (the skill), `handoff-hook` (optional Git snapshots and resume notices), and `memory` (a project memory every tool shares, loaded at session start where a tool runs hooks). See [session handoffs](@/docs/handoff.md) for supported targets, runtime requirements, and Factory's display setting, and [shared memory](@/docs/memory.md) for the memory store. Unknown names fail as AAI-004 and list the valid names. A project, pack, or personal spec with the same kind and name wins over the built-in.
 
 Enable both explicitly to add hooks:
 
