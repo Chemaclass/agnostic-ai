@@ -91,7 +91,7 @@ Prints the memory indexes for a `session-start` hook, so the tool adds them to t
 agnostic-ai hook memory --target codex
 ```
 
-- Codex, Qoder, and Factory get plain text. Cursor, Copilot, and Gemini CLI get the JSON shape each one expects.
+- Codex, Qoder, and Factory get plain text. Cursor gets `{"additional_context": ...}`, Copilot `{"additionalContext": ...}`, and Gemini CLI `{"hookSpecificOutput": {"additionalContext": ...}}`.
 - Output stays under 6,000 bytes. A longer index is cut at the end of a line, with a note saying where the full index is.
 - With no project or no index, it prints nothing. It finds the project the same way the `shared-memory` skill does.
 
