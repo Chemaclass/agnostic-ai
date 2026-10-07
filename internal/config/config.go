@@ -19,6 +19,10 @@ var OnUnsupportedModes = []string{"warn", "error", "silent"}
 // GlobalNameClashModes are the values sync.global-name-clash accepts.
 var GlobalNameClashModes = []string{"warn", "ignore"}
 
+// CodexSandboxModes are the values outputs.codex.config.sandbox accepts,
+// the ones Codex's `sandbox_mode` takes.
+var CodexSandboxModes = []string{"read-only", "workspace-write", "danger-full-access"}
+
 // File names recognized by Load.
 const (
 	ConfigFileName        = "agnostic-ai.yaml"
@@ -405,7 +409,7 @@ type ClaudePermissions struct {
 // Notify, Profiles, and ModelProviders still parse but are never written:
 // Codex ignores those keys in a project config.toml, so sync prints a note.
 type CodexConfig struct {
-	Sandbox               string                        `yaml:"sandbox,omitempty"                 json:"sandbox,omitempty"`
+	Sandbox               string                        `yaml:"sandbox,omitempty"                 json:"sandbox,omitempty" jsonschema:"enum=read-only,enum=workspace-write,enum=danger-full-access"`
 	ApprovalPolicy        string                        `yaml:"approval-policy,omitempty"         json:"approval-policy,omitempty"`
 	Model                 string                        `yaml:"model,omitempty"                   json:"model,omitempty"`
 	ModelReasoningEffort  string                        `yaml:"model-reasoning-effort,omitempty"  json:"model-reasoning-effort,omitempty"`
@@ -501,6 +505,10 @@ func LoadWithSources(root string) (*Config, []string, error) {
 	if mode := cfg.Sync.GlobalNameClash; mode != "" && !slices.Contains(GlobalNameClashModes, mode) {
 		return nil, nil, errs.Coded(errs.CodeConfigDecode, "%s: sync.global-name-clash: %q is not one of %s",
 			strings.Join(sources, " + "), mode, strings.Join(GlobalNameClashModes, ", "))
+	}
+	if codex := cfg.Outputs["codex"].Config; codex != nil && codex.Sandbox != "" && !slices.Contains(CodexSandboxModes, codex.Sandbox) {
+		return nil, nil, errs.Coded(errs.CodeConfigDecode, "%s: outputs.codex.config.sandbox: %q is not one of %s",
+			strings.Join(sources, " + "), codex.Sandbox, strings.Join(CodexSandboxModes, ", "))
 	}
 	if err := validateUnmanaged(cfg.Sync.Unmanaged, strings.Join(sources, " + ")); err != nil {
 		return nil, nil, err

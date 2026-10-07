@@ -10,7 +10,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 #### Codex
 
-- `outputs.codex.config.sandbox` now reaches Codex: sync writes it as `sandbox_mode`, since Codex ignored the old `sandbox` key (#1880).
+- **Breaking:** Codex now applies the sandbox you set in `outputs.codex.config.sandbox`, and an invalid value such as `workspace` stops sync; use `read-only`, `workspace-write`, or `danger-full-access` (#1880).
 
 #### OpenCode
 
