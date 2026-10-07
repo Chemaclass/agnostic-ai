@@ -271,3 +271,21 @@ func TestReleaseMergedJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestUnchangedFrom_SeesAReorderOnlyWhenTheClaimRecordedOrder(t *testing.T) {
+	written := json.RawMessage(`{"/tmp/a/**": "allow", "*": "deny"}`)
+	reordered := json.RawMessage(`{"*":"deny","/tmp/a/**":"allow"}`)
+	reformatted := json.RawMessage("{\n  \"/tmp/a/**\": \"allow\",\n  \"*\": \"deny\"\n}")
+	current := MergedKey{Sum: jsonValueSum(written), Order: jsonOrderSum(written)}
+	older := MergedKey{Sum: jsonValueSum(written)}
+
+	if !unchangedFrom(current, reformatted) {
+		t.Error("a reformatted value counts as an edit")
+	}
+	if unchangedFrom(current, reordered) {
+		t.Error("a reordered value counts as unchanged")
+	}
+	if !unchangedFrom(older, reordered) {
+		t.Error("a claim without an order sum now treats a reorder as an edit")
+	}
+}

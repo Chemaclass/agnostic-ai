@@ -202,8 +202,10 @@ func TestSync_SpecPermissionsWithTheStoreRuleStayStable(t *testing.T) {
 // Retiring a spec whose map the user only reordered behaves as it does
 // without repo memory, plus the store rule: the value sum ignores key
 // order, so the map counts as sync's and goes either way.
-func TestSync_OpenCodeRetiredSpecAfterAnOrderOnlyEdit(t *testing.T) {
-	retire := func(t *testing.T, repo bool) map[string]any {
+func TestSync_OpenCodeRetiredSpecKeepsAnOrderOnlyEdit(t *testing.T) {
+	// OpenCode applies the last matching rule, so a reordered map is an
+	// edit and stays the user's once the spec that wrote it retires.
+	retire := func(t *testing.T, repo bool) []string {
 		t.Helper()
 		repoMemoryProject(t, true)
 		if !repo {
@@ -232,31 +234,24 @@ func TestSync_OpenCodeRetiredSpecAfterAnOrderOnlyEdit(t *testing.T) {
 		if err := runSync(t, "--check"); err != nil {
 			t.Errorf("sync --check: %v", err)
 		}
-		var doc map[string]any
-		if err := json.Unmarshal([]byte(readText(t, "opencode.json")), &doc); err != nil {
-			t.Fatal(err)
-		}
-		permission, _ := doc["permission"].(map[string]any)
-		return permission
+		return externalDirectoryOrder(t)
 	}
-	var without map[string]any
-	t.Run("checkout", func(t *testing.T) { without = retire(t, false) })
-	t.Run("repo", func(t *testing.T) {
-		with := retire(t, true)
-		directories, _ := with["external_directory"].(map[string]any)
-		if len(directories) != 1 {
-			t.Errorf("want the store rule alone, got %v", with)
+	t.Run("checkout", func(t *testing.T) {
+		if got := retire(t, false); !slices.Equal(got, []string{"*", "/tmp/a/**"}) {
+			t.Errorf("want the reordered rules kept, got %v", got)
 		}
-		delete(with, "external_directory")
-		if len(with) != len(without) {
-			t.Errorf("repo mode left %v beside the store rule; without it sync left %v", with, without)
+	})
+	t.Run("repo", func(t *testing.T) {
+		got := retire(t, true)
+		if len(got) != 3 || !slices.Equal(got[:2], []string{"*", "/tmp/a/**"}) {
+			t.Errorf("want the reordered rules kept before the store rule, got %v", got)
 		}
 		writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: checkout\n")
 		if err := runSync(t); err != nil {
 			t.Fatal(err)
 		}
-		if text := readText(t, "opencode.json"); strings.Contains(text, `"permission"`) {
-			t.Errorf("the store rule stayed after repo mode:\n%s", text)
+		if got := externalDirectoryOrder(t); !slices.Equal(got, []string{"*", "/tmp/a/**"}) {
+			t.Errorf("after leaving repo mode want only the user's rules, got %v", got)
 		}
 	})
 }
