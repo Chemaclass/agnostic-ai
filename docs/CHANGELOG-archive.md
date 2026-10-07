@@ -1,25 +1,6 @@
 # Changelog archive
 
-Releases before v0.81.0. Everything from v0.81.0 on lives in [CHANGELOG.md](../CHANGELOG.md). Releases up to v0.72.0 group entries as Added, Changed, Fixed, and Removed.
-
-## v0.80.0 - 2026-10-06
-
-### General
-
-- Opt-in `handoff` built-ins carry a task between tools, save approved rules, and add Git snapshots with resume notices (#1829, #1830, #1831).
-- Built-in text can change with a release and show as `sync --check` drift. Run `sync` after upgrading (#1829).
-- With no changed files, `sync` and `sync --check` run 2 to 5x faster; `sync --check --against` is about 5x faster at 20k+ files (#1819, #1821).
-- `@path` lines inside a code fence stay as written, and a one-line code span no longer hides the lines after it (#1823, #1828).
-
-### By tool
-
-#### Kiro
-
-- Commands sync to and import from `.kiro/prompts/` for CLI V3 slash commands, with native argument templates intact (#1822).
-
-### Site
-
-- The Amp page drops the services `agent` key, which Amp no longer documents (#1835, #1839).
+Releases before v0.80.0. Everything from v0.80.0 on lives in [CHANGELOG.md](../CHANGELOG.md). Releases up to v0.72.0 group entries as Added, Changed, Fixed, and Removed.
 
 ## v0.79.0 - 2026-10-05
 

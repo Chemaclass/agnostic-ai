@@ -45,6 +45,13 @@ The user asks to release, tag, ship, or cut a new version.
    A path, flag, or case it drops must already be on the docs page or in the
    PR; if it is not, add it to the docs, not back to the bullet.
 
+   `CHANGELOG.md` keeps the current group of ten minor versions. When you
+   release v0.81.0, v0.91.0, and so on, move every dated section older than
+   v0.80.0, v0.90.0, and so on to the top of `docs/CHANGELOG-archive.md`.
+   Update the "Releases before" line at the end of `CHANGELOG.md` and at the
+   top of the archive. `scripts/release-notes.sh` and
+   `scripts/signals-shipped.sh` read both files.
+
    Then run `scripts/signals-shipped.sh`. It sets `shipped-date` in
    `scripts/target-audit/signals.tsv` to the release date on every signal
    whose issue the new section cites, and never moves a date already set.
