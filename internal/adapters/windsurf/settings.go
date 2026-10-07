@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -33,9 +34,12 @@ const rulesUntranslatedReason = "rule(s) outside Devin's Read/Write/Exec/Fetch/m
 // accepts in a project config, plus any sibling inside `permissions`
 // itself that a newer CLI writes there. Only `permissions` is ever set.
 //
+// With `memory.personal: repo`, the allow list also takes a Write rule
+// for the personal memory store (mergeMemoryAllow).
+//
 // No file is written when no rule translated, so a project with only a
 // portable `model` never gains a `.devin/config.json` at all.
-func emitConfig(sess *emit.Session, settings []spec.Entry, path string, dryRun bool) error {
+func emitConfig(sess *emit.Session, cfg *config.Config, settings []spec.Entry, path string, dryRun bool) error {
 	emit.NoteFieldNoOp(target, spec.KindSettings, "model", specsWithModel(settings), modelUserOnlyReason)
 	permissions, dropped := devinPermissions(settings)
 	emit.NoteFieldNoOp(target, spec.KindSettings, permissionsKey, dropped, rulesUntranslatedReason)
@@ -51,6 +55,11 @@ func emitConfig(sess *emit.Session, settings []spec.Entry, path string, dryRun b
 	// vocabulary for that spec while a sibling spec still translates.
 	// The general key-by-key merge cannot express that (#949, #966).
 	emit.MergeSettingsCustomKeys(keys, settings, target, permissionsKey)
+	memory, err := memoryWriteRules(sess, cfg, path, dryRun)
+	if err != nil {
+		return err
+	}
+	mergeMemoryAllow(sess, keys, path, memory, dryRun)
 	if len(keys) == 0 {
 		return nil
 	}

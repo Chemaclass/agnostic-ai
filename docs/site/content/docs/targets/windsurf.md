@@ -24,7 +24,7 @@ AGENTS.md                            # shared pointer body, plus the rules block
 .windsurfignore                      # when ignore entries exist (legacy name, older builds)
 .devin/mcp_config.json               # when MCP entries exist
 .devin/hooks.v1.json                 # when hook entries exist
-.devin/config.json                   # when settings entries carry permission rules
+.devin/config.json                   # when settings entries carry permission rules, or with repo-mode memory
 ```
 
 - **Rules**: Devin prefers `.devin/rules/*.md` and still reads `.windsurf/rules/` (`.windsurfrules` is legacy). Set `outputs.windsurf.rules-dir: .windsurf/rules` to keep the old layout. Otherwise sync removes the files it wrote there earlier and leaves hand-written files alone.
@@ -71,6 +71,7 @@ AGENTS.md                            # shared pointer body, plus the rules block
   - Bare tool names map to Devin's own (`Bash` to `exec`, and so on), the same way as in `allowed-tools`. `WebSearch` becomes `web_search`, accepted since Devin CLI v3000.10.21 ([CLI changelog](https://docs.devin.ai/cli/changelog/stable.md)), and imports back. A bare `WebFetch` is dropped, because `webfetch` is not a permissions name.
   - Devin's `Exec` matches only the start of a command, so an exact `Bash(...)` rule without `:*` would match more commands. On `allow` and `ask` that would approve commands you did not list, so the rule is dropped with a coverage note. On `deny` it blocks more, which is safe: `Bash(rm -rf /)` becomes `Exec(rm -rf /)`. A command deny wins over a broader `ask` or `allow` (Devin CLI v3000.10.31).
   - `x-windsurf.permissions` writes Devin's rules directly and replaces that spec's portable ones.
+  - With `memory.personal: repo`, sync adds `Write(<folder>/**)` to `permissions.allow`, so Devin CLI saves to the [personal memory folder](@/docs/memory.md#one-store-per-repository) without asking. Your own rules stay. A committed settings kind (`gitignore.commit`) keeps the rule out.
 - **Workflows**: `outputs.windsurf.workflows-dir` writes nothing. It only prints a warning about moving to skills. `.devin/agents/<name>.md` is written either way.
 
 {% <details summary="Older paths and removed features"> %}
