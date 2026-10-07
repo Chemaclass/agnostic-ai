@@ -121,7 +121,7 @@ func emitCLIConfig(sess *emit.Session, cfg *config.Config, settings []spec.Entry
 		permissions[list] = emit.CarriedJSONValue(rules)
 		if len(owns[list]) > 0 {
 			permissions[list] = emit.ClaimedJSONItems(rules, owns[list])
-		} else if len(emit.StringSlice(rules)) == 0 && (onDisk[list] == nil || emit.ClaimsPath(cliConfigFile, "permissions", list)) {
+		} else if len(emit.StringSlice(rules)) == 0 && (onDisk[list] == nil || emit.ClaimsWholeValue(cliConfigFile, "permissions", list)) {
 			// An empty list sync adds so Cursor loads the file stays sync's.
 			permissions[list] = rules
 		}

@@ -281,11 +281,11 @@ func ClaimsItemsUnder(path, key string) bool {
 	})
 }
 
-// ClaimsPath reports whether the last sync claimed the value at keyPath
-// in the merged file at path.
-func ClaimsPath(path string, keyPath ...string) bool {
+// ClaimsWholeValue reports whether the last sync claimed the whole value
+// at keyPath in the merged file at path, not only items of a list there.
+func ClaimsWholeValue(path string, keyPath ...string) bool {
 	return slices.ContainsFunc(priorMergedKeys(path), func(k MergedKey) bool {
-		return slices.Equal(k.Path, keyPath)
+		return slices.Equal(k.Path, keyPath) && k.Items == nil
 	})
 }
 

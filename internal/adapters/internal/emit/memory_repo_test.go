@@ -154,7 +154,7 @@ func TestPersonalMemoryDir_ResolvesALinkedHome(t *testing.T) {
 	}
 }
 
-// An index an earlier sync wrote through the symlink is still recognised
+// An index an earlier sync wrote through the symlink is still recognized
 // as a personal index, so it leaves the list.
 func TestWithoutStalePersonalIndexes_DropsAnIndexWrittenThroughALink(t *testing.T) {
 	real, err := filepath.EvalSymlinks(t.TempDir())

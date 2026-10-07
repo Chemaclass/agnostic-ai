@@ -102,3 +102,24 @@ func TestSync_ProtectCleanupKeepsAHandWrittenHook(t *testing.T) {
 		t.Errorf("want the hand-written hook kept and the protect hook gone:\n%s", body)
 	}
 }
+
+// An empty list the user wrote stays theirs after sync's rule in it comes
+// and goes, so dropping Cursor leaves both lists Cursor needs.
+func TestSync_CursorUsersEmptyListOutlivesSyncsRule(t *testing.T) {
+	const file = ".cursor/cli.json"
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor, cline]\n")
+	writeJSONFile(t, file, map[string]any{"permissions": map[string]any{"allow": []any{"Shell(ls)"}, "deny": []any{}}})
+	mustWriteFile(t, ".agnostic-ai/settings/perms.yaml", "permissions:\n  deny: [\"Bash(rm:*)\"]\n")
+	runSyncOK(t)
+	removeSpecs(t, ".agnostic-ai/settings/perms.yaml")
+	runSyncOK(t)
+	runSyncOK(t)
+	runSyncOK(t, "--check")
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cline]\n")
+	runSyncOK(t)
+	got, _ := readJSONMap(t, file)["permissions"].(map[string]any)
+	if !reflect.DeepEqual(got, map[string]any{"allow": []any{"Shell(ls)"}, "deny": []any{}}) {
+		t.Errorf("permissions = %#v, want the user's lists as written", got)
+	}
+}
