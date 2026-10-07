@@ -73,6 +73,8 @@ Sync removes a generated file at the old `.opencode/AGENTS.md` path, which OpenC
 
 With `builtins: [memory]`, sync adds both [shared memory](@/docs/memory.md) indexes to `instructions` and keeps your own entries. Dropping the built-in removes only those two.
 
+With `memory.personal: repo`, sync also adds `"<folder>/**": "allow"` to `permission.external_directory`, so OpenCode saves to the [personal memory folder](@/docs/memory.md#one-store-per-repository) without asking. Your own entries stay. A bare action you set there, such as `"deny"`, becomes the `"*"` entry.
+
 ## Import
 
 `agnostic-ai import opencode` reads:

@@ -137,6 +137,11 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 		switch kind {
 		case claimWhole, claimItems:
 			owned = append(owned, MergedKey{Path: path, Items: items})
+		case claimEntries:
+			released = append(released, path)
+			for _, entry := range items {
+				owned = append(owned, MergedKey{Path: append(slices.Clone(path), entry)})
+			}
 		case claimFollow:
 			owned = append(owned, MergedKey{Path: path, Follows: follows})
 		case claimNothing:

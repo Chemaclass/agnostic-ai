@@ -100,6 +100,35 @@ func ClaimedJSONItems(value any, items []string) any {
 	return claimedItems{value: value, items: slices.Clone(items)}
 }
 
+// claimedEntries is an object merge value of which sync owns only the
+// named entries.
+type claimedEntries struct {
+	value   map[string]any
+	entries []string
+}
+
+// ClaimedJSONEntries, as an object value in a merge, sets the object and
+// claims only the named entries, the ones sync wrote beside the user's
+// own. Every earlier claim in the object goes, so the caller names each
+// entry of sync's it keeps. Releasing the file later takes out only the
+// named entries, each while it is unchanged.
+func ClaimedJSONEntries(value map[string]any, entries []string) any {
+	return claimedEntries{value: value, entries: slices.Clone(entries)}
+}
+
+// PriorClaimedEntries returns the names of the entries the last sync
+// claimed one by one in the object at keyPath in the merged file at
+// path (ClaimedJSONEntries).
+func PriorClaimedEntries(path string, keyPath []string) []string {
+	var names []string
+	for _, claim := range priorMergedKeys(path) {
+		if len(claim.Path) == len(keyPath)+1 && claim.Items == nil && isPathPrefix(keyPath, claim.Path) {
+			names = append(names, claim.Path[len(keyPath)])
+		}
+	}
+	return names
+}
+
 // mergeClaimKind says how much of a merge value sync claims.
 type mergeClaimKind int
 
@@ -110,6 +139,7 @@ const (
 	claimKeep
 	claimFollow
 	claimRetire
+	claimEntries
 )
 
 // mergeClaim unwraps a merge value and says how much of it sync claims.
@@ -136,6 +166,8 @@ func mergeClaimOf(value any) (unwrapped any, kind mergeClaimKind, items []string
 			return v.value, claimKeep, nil
 		}
 		return v.value, claimItems, v.items
+	case claimedEntries:
+		return v.value, claimEntries, v.entries
 	}
 	return value, claimWhole, nil
 }

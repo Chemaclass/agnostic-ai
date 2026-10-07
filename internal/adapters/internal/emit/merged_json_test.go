@@ -55,6 +55,39 @@ func TestMergeJSONFileNested_RecordsTheValuesSyncSet(t *testing.T) {
 	}
 }
 
+func TestMergeJSONFileNested_ClaimsOnlyTheNamedObjectEntries(t *testing.T) {
+	testutil.TempCwd(t)
+	const path = "opencode.json"
+	if err := os.WriteFile(path, []byte(`{"permission":{"bash":"ask","external_directory":{"mine/**":"allow"}}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sess := NewSession()
+	sess.StartDetailedRecording()
+	err := sess.MergeJSONFileNested(path, map[string]any{
+		"permission": map[string]any{"external_directory": ClaimedJSONEntries(map[string]any{"mine/**": "allow", "ours/**": "allow"}, []string{"ours/**"})},
+	}, []string{"permission"}, false)
+	writes := sess.StopDetailedRecording()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(writes) != 1 {
+		t.Fatalf("want one write, got %#v", writes)
+	}
+	if want := []MergedKey{{Path: []string{"permission", "external_directory", "ours/**"}, Sum: jsonValueSum(json.RawMessage(`"allow"`))}}; !reflect.DeepEqual(writes[0].Keys, want) {
+		t.Errorf("keys = %#v, want %#v", writes[0].Keys, want)
+	}
+	if want := [][]string{{"permission", "external_directory"}}; !reflect.DeepEqual(writes[0].Released, want) {
+		t.Errorf("released = %v, want %v", writes[0].Released, want)
+	}
+	var doc map[string]map[string]any
+	if err := json.Unmarshal([]byte(readFileString(t, path)), &doc); err != nil {
+		t.Fatal(err)
+	}
+	if doc["permission"]["bash"] != "ask" || len(doc["permission"]["external_directory"].(map[string]any)) != 2 {
+		t.Errorf("permission = %v", doc["permission"])
+	}
+}
+
 func TestReleaseMergedJSON(t *testing.T) {
 	const path = "settings.json"
 	sum := func(v string) string { return jsonValueSum(json.RawMessage(v)) }

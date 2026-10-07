@@ -25,7 +25,10 @@
 // writes the command form. Command specs emit at
 // `.opencode/commands/<name>.md`.
 // Settings specs merge their last non-empty `model` into the project
-// `opencode.json` file without replacing unrelated native keys.
+// `opencode.json` file without replacing unrelated native keys. With
+// `memory.personal: repo`, that file also allows the personal memory
+// store under `permission.external_directory`, since OpenCode asks
+// before a tool touches a path outside the project.
 //
 // Hooks are the one surface here that is codegen rather than a config
 // key. opencode.ai/docs/plugins documents `.opencode/plugins/` as a
@@ -177,7 +180,11 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err != nil {
 		return err
 	}
-	return emitProjectConfig(sess, b.MCPs, b.Settings, memory, path, dryRun)
+	directories, err := memoryDirectoryRules(sess, cfg, path, dryRun)
+	if err != nil {
+		return err
+	}
+	return emitProjectConfig(sess, b.MCPs, b.Settings, memory, directories, path, dryRun)
 }
 
 // sweepLegacyEntryPoint removes the agnostic-ai-managed entry-point a
@@ -202,7 +209,7 @@ func sweepLegacyEntryPoint(sess *emit.Session, cfg *config.Config, dryRun bool) 
 // map and a `$schema` link. Routes through emit.MergeJSONFile so any
 // pre-existing user-managed keys (theme, small_model, ...) survive the
 // sync; only `$schema`, `mcp`, and the portable `model` field are owned.
-func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, memory []string, path string, dryRun bool) error {
+func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, memory, directories []string, path string, dryRun bool) error {
 	permissions, dropped := buildPermissions(settings)
 	emit.NoteFieldNoOp(target, spec.KindSettings, "permissions", dropped, permissionUnmappableReason)
 	// An `x-opencode` block on a settings spec carries the keys this
@@ -250,7 +257,11 @@ func emitProjectConfig(sess *emit.Session, mcps, settings []spec.Entry, memory [
 		}
 		keys["instructions"] = emit.ClaimedJSONItems(list, added)
 	}
+	nested := mergeExternalDirectories(sess, keys, path, directories, dryRun)
 	emit.MergeEntriesOf(keys, "mcp")
+	if nested {
+		return sess.MergeJSONFileNested(path, keys, []string{permissionKey}, dryRun)
+	}
 	return sess.MergeJSONFile(path, keys, dryRun)
 }
 
