@@ -343,3 +343,188 @@ func TestSync_ReaddedStoreDirectorySurvivesAfterLeavingRepoMode(t *testing.T) {
 		})
 	}
 }
+
+// memoryPaths runs `memory path` in the working directory and returns
+// each store's folder by scope.
+func memoryPaths(t *testing.T) map[string]string {
+	t.Helper()
+	out, err := runRoot(t, "memory", "path")
+	if err != nil {
+		t.Fatalf("memory path: %v\n%s", err, out)
+	}
+	paths := map[string]string{}
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		scope, dir, ok := strings.Cut(line, " ")
+		if !ok {
+			t.Fatalf("line %q in:\n%s", line, out)
+		}
+		paths[scope] = strings.TrimSpace(dir)
+	}
+	return paths
+}
+
+func TestMemoryPath_CheckoutFoldersFromASubdirectory(t *testing.T) {
+	root := t.TempDir()
+	testutil.Chdir(t, root)
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [codex]\nbuiltins: [memory]\n")
+	if err := os.MkdirAll(filepath.Join(root, "pkg", "deep"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	testutil.Chdir(t, filepath.Join(root, "pkg", "deep"))
+
+	got := memoryPaths(t)
+
+	real, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.ToSlash(filepath.Join(real, ".agnostic-ai", "memory")); got["project"] != want {
+		t.Errorf("project = %q, want %q", got["project"], want)
+	}
+	if want := filepath.ToSlash(filepath.Join(real, ".agnostic-ai", "local", "memory")); got["personal"] != want {
+		t.Errorf("personal = %q, want %q", got["personal"], want)
+	}
+	if _, err := os.Stat(got["personal"]); err == nil {
+		t.Errorf("memory path created %s", got["personal"])
+	}
+}
+
+func TestMemoryPath_RepoModeSharesOneFolderAcrossWorktrees(t *testing.T) {
+	parent := repoMemoryProject(t, true)
+	project, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	git := func(dir string, args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", append([]string{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	writeFile(t, ".gitignore", "agnostic-ai.local.yaml\n")
+	git(project, "add", "agnostic-ai.yaml", ".gitignore")
+	git(project, "commit", "-q", "-m", "init")
+	linked := filepath.Join(t.TempDir(), "linked")
+	git(project, "worktree", "add", "-q", linked)
+	writeFile(t, filepath.Join(linked, "agnostic-ai.local.yaml"), "memory:\n  personal: repo\n")
+	if err := os.MkdirAll(filepath.Join(linked, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	main := memoryPaths(t)
+	testutil.Chdir(t, filepath.Join(linked, "sub"))
+	other := memoryPaths(t)
+
+	if !strings.HasPrefix(main["personal"], filepath.ToSlash(parent)+"/") {
+		t.Errorf("personal = %q, want a folder under %s", main["personal"], parent)
+	}
+	if other["personal"] != main["personal"] {
+		t.Errorf("worktrees differ: %q and %q", main["personal"], other["personal"])
+	}
+	if other["project"] == main["project"] || !strings.HasSuffix(other["project"], "linked/.agnostic-ai/memory") {
+		t.Errorf("project folder should follow the worktree: %q", other["project"])
+	}
+	if _, err := os.Stat(main["personal"]); err == nil {
+		t.Errorf("memory path created %s", main["personal"])
+	}
+}
+
+func TestMemoryPath_FailsOutsideAProject(t *testing.T) {
+	testutil.TempCwd(t)
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	if out, err := runRoot(t, "memory", "path"); err == nil {
+		t.Errorf("want an error, got:\n%s", out)
+	}
+}
+
+// The user's global source root is often a Git checkout. It is never a
+// project, whichever path reaches it.
+func TestMemoryProjectRoot_RejectsTheGlobalSourceRootCheckout(t *testing.T) {
+	real := t.TempDir()
+	link := filepath.Join(t.TempDir(), "home-link")
+	if err := os.Symlink(real, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	t.Setenv("AGNOSTIC_AI_HOME", link)
+	if out, err := exec.Command("git", "-C", real, "init", "-q").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, out)
+	}
+	writeFile(t, filepath.Join(real, "sub", "keep"), "")
+	for _, dir := range []string{real, filepath.Join(real, "sub"), link, filepath.Join(link, "sub")} {
+		t.Run(filepath.Base(dir), func(t *testing.T) {
+			testutil.Chdir(t, dir)
+			if out, err := runRoot(t, "memory", "path"); err == nil {
+				t.Errorf("memory path treated the global root as a project:\n%s", out)
+			}
+			if got := runHookMemory(t); got != "" {
+				t.Errorf("hook memory printed for the global root:\n%s", got)
+			}
+		})
+	}
+}
+
+// A repo-mode project whose config does not load must not fall back to
+// the checkout folder: tools would save to a store that disappears once the
+// config is fixed.
+func TestMemoryPath_InvalidConfigInRepoModeIsAnError(t *testing.T) {
+	for name, local := range map[string]string{
+		"malformed":   "memory: [personal\n",
+		"unknown key": "memory:\n  personal: repo\nnot-a-key: 1\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			repoMemoryProject(t, true)
+			writeFile(t, "agnostic-ai.local.yaml", local)
+
+			if out, err := runRoot(t, "memory", "path"); err == nil {
+				t.Errorf("want an error, got:\n%s", out)
+			}
+			if _, err := runRoot(t, "memory", "list"); err == nil {
+				t.Error("memory list used the checkout store")
+			}
+			got := runHookMemory(t, "--target", "codex")
+			if strings.Contains(got, ".agnostic-ai/local/memory") || !strings.Contains(got, "agnostic-ai memory path") {
+				t.Errorf("hook should not name the checkout folder, and should point to memory path:\n%s", got)
+			}
+		})
+	}
+}
+
+func TestMemoryPath_NoConfigUsesTheCheckoutFolders(t *testing.T) {
+	testutil.TempCwd(t)
+	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
+	if out, err := exec.Command("git", "init", "-q").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, out)
+	}
+	got := memoryPaths(t)
+	if !strings.HasSuffix(got["personal"], "/.agnostic-ai/local/memory") {
+		t.Errorf("personal = %q", got["personal"])
+	}
+}
+
+// On a case-insensitive filesystem, a global root spelled with another
+// case is still the same folder as Git's top level.
+func TestMemoryProjectRoot_RejectsTheGlobalRootSpelledInAnotherCase(t *testing.T) {
+	real := filepath.Join(t.TempDir(), "Global-Home")
+	if err := os.MkdirAll(real, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	other := filepath.Join(filepath.Dir(real), "global-home")
+	a, errA := os.Stat(real)
+	b, errB := os.Stat(other)
+	if errA != nil || errB != nil || !os.SameFile(a, b) {
+		t.Skip("the temp filesystem is case-sensitive")
+	}
+	t.Setenv("AGNOSTIC_AI_HOME", other)
+	if out, err := exec.Command("git", "-C", real, "init", "-q").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, out)
+	}
+	writeFile(t, filepath.Join(real, "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	writeFile(t, filepath.Join(real, "sub", "keep"), "")
+	for _, dir := range []string{real, filepath.Join(real, "sub")} {
+		testutil.Chdir(t, dir)
+		if out, err := runRoot(t, "memory", "path"); err == nil {
+			t.Errorf("memory path treated the global root as a project from %s:\n%s", dir, out)
+		}
+	}
+}

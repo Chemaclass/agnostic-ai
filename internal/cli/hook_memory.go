@@ -40,11 +40,16 @@ func newHookMemoryCmd() *cobra.Command {
 			if root == "" {
 				return nil
 			}
+			personal, configErr := personalMemoryIndex(root)
 			scopes := []memoryIndex{
 				// Personal first: it is short, and a long project index must
 				// not push the user's own corrections out of the limit.
-				personalMemoryIndex(root),
+				personal,
 				{name: "Project memory", path: adapters.ProjectMemoryIndexPath},
+			}
+			if configErr != nil {
+				// The folder is unknown, and the checkout one may be wrong.
+				scopes = scopes[1:]
 			}
 			var indexes []memoryIndex
 			for _, scope := range scopes {
@@ -57,10 +62,17 @@ func newHookMemoryCmd() *cobra.Command {
 				}
 				indexes = append(indexes, scope)
 			}
-			if len(indexes) == 0 {
+			text := ""
+			if len(indexes) > 0 {
+				text = memoryContext(indexes, scopes)
+			}
+			if configErr != nil {
+				text += "\nPersonal memory is not loaded: its folder is unknown. Run `agnostic-ai memory path` to see why.\n"
+			}
+			if text == "" {
 				return nil
 			}
-			reply, err := memoryHookReply(target, memoryContext(indexes, scopes))
+			reply, err := memoryHookReply(target, text)
 			if err != nil {
 				return nil
 			}
@@ -77,17 +89,18 @@ func newHookMemoryCmd() *cobra.Command {
 type memoryIndex struct{ name, path, text string }
 
 // personalMemoryIndex returns the personal index of the project at root,
-// in the checkout unless its config sets memory.personal: repo.
-func personalMemoryIndex(root string) memoryIndex {
+// in the checkout unless its config sets memory.personal: repo. A config
+// that does not load is returned as the error, since it may set repo mode.
+func personalMemoryIndex(root string) (memoryIndex, error) {
 	index := memoryIndex{name: "Personal memory", path: adapters.PersonalMemoryIndexPath}
-	cfg, err := config.Load(root)
-	if err != nil || !cfg.RepoPersonalMemory() {
-		return index
+	stores, err := memoryStoresAt(root)
+	if err != nil {
+		return index, err
 	}
-	if dir, err := adapters.PersonalMemoryDir(cfg, root); err == nil {
+	if dir := stores[1].dir; filepath.IsAbs(dir) {
 		index.path = filepath.ToSlash(filepath.Join(dir, "MEMORY.md"))
 	}
-	return index
+	return index, nil
 }
 
 // memoryContext frames the indexes for the model and cuts them at a
@@ -164,12 +177,9 @@ func memoryProjectRoot(target string) string {
 			return ""
 		}
 	}
-	global := ""
-	if source, err := globalSourceRoot(); err == nil {
-		global = canonicalDir(source)
-	}
+	isGlobal := globalRootMatcher()
 	for dir := canonicalDir(wd); ; {
-		if dir != global {
+		if !isGlobal(dir) {
 			if _, _, err := config.ResolveConfigPath(dir); err == nil {
 				return dir
 			}
@@ -184,7 +194,29 @@ func memoryProjectRoot(target string) string {
 	if err != nil {
 		return ""
 	}
-	return strings.TrimSpace(top)
+	top = canonicalDir(strings.TrimSpace(top))
+	if isGlobal(top) {
+		return ""
+	}
+	return top
+}
+
+// globalRootMatcher returns a test for the global source root. It compares
+// files, not path strings, so symlinks and a different path case on a
+// case-insensitive filesystem still match, as refuseGlobalHome does.
+func globalRootMatcher() func(dir string) bool {
+	source, err := globalSourceRoot()
+	if err != nil {
+		return func(string) bool { return false }
+	}
+	root, err := os.Stat(source)
+	if err != nil {
+		return func(string) bool { return false }
+	}
+	return func(dir string) bool {
+		info, err := os.Stat(dir)
+		return err == nil && os.SameFile(info, root)
+	}
 }
 
 // canonicalDir resolves symlinks in dir, or returns it absolute when it

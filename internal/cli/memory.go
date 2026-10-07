@@ -36,11 +36,25 @@ var defaultMemoryStores = []memoryStore{
 // memoryStores returns the stores of the project in the working
 // directory, with the personal one where memory.personal puts it.
 func memoryStores() ([]memoryStore, error) {
-	cfg, err := config.Load(".")
-	if err != nil || !cfg.RepoPersonalMemory() {
+	return memoryStoresAt(".")
+}
+
+// memoryStoresAt returns the stores of the project at root. A project
+// with no config has the checkout stores. A config that does not load is
+// an error: it may set memory.personal: repo, and the checkout folder
+// would be the wrong one to save to.
+func memoryStoresAt(root string) ([]memoryStore, error) {
+	cfg, err := config.Load(root)
+	if err != nil {
+		if _, _, missing := config.ResolveConfigPath(root); missing != nil {
+			return defaultMemoryStores, nil
+		}
+		return nil, err
+	}
+	if !cfg.RepoPersonalMemory() {
 		return defaultMemoryStores, nil
 	}
-	dir, err := adapters.PersonalMemoryDir(cfg, ".")
+	dir, err := adapters.PersonalMemoryDir(cfg, root)
 	if err != nil {
 		return nil, err
 	}
@@ -342,7 +356,7 @@ func newMemoryCmd() *cobra.Command {
 			filepath.ToSlash(defaultMemoryStores[0].dir) + "/ and personal memory in " + filepath.ToSlash(defaultMemoryStores[1].dir) +
 			"/, or in the repository store with memory.personal: repo. A store whose folder is missing is skipped.",
 	}
-	cmd.AddCommand(newMemoryLintCmd(), newMemoryIndexCmd(), newMemoryListCmd())
+	cmd.AddCommand(newMemoryLintCmd(), newMemoryIndexCmd(), newMemoryListCmd(), newMemoryPathCmd())
 	return cmd
 }
 
@@ -481,4 +495,36 @@ func (c memoryContents) facts() []memoryTopic {
 		}
 	}
 	return out
+}
+
+func newMemoryPathCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "path",
+		Short: "Print each memory folder's absolute path",
+		Long: "Prints one line per store, project memory first: its scope, then its absolute folder. " +
+			"It finds the project from the working directory or any folder below it, and prints a folder " +
+			"that does not exist yet. With memory.personal: repo, every worktree of the repository gets " +
+			"the same personal folder. Tools with no session-start hook run this to find where to save.",
+		Example: "  agnostic-ai memory path",
+		Args:    cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			root := memoryProjectRoot("")
+			if root == "" {
+				return errors.New("no project found: run this inside a project with an agnostic-ai.yaml or a Git checkout")
+			}
+			stores, err := memoryStoresAt(root)
+			if err != nil {
+				return err
+			}
+			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
+			for _, store := range stores {
+				dir := store.dir
+				if !filepath.IsAbs(dir) {
+					dir = filepath.Join(root, dir)
+				}
+				_, _ = fmt.Fprintf(w, "%s\t%s\n", store.scope, filepath.ToSlash(dir))
+			}
+			return w.Flush()
+		},
+	}
 }

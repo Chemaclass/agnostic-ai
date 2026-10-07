@@ -75,8 +75,8 @@ Anyone who can push can change what every tool reads, so review memory changes i
 | Codex, Gemini CLI, Qoder | A [session-start hook](#load-at-session-start) adds both files to the conversation. | Loads; saves only with the [`.gitignore` block](#one-store-per-repository) |
 | Copilot, Cursor, Factory | A [session-start hook](#load-at-session-start) adds both files to the conversation. | Loads |
 | OpenCode | `opencode.json` lists both files under `instructions`. | Loads only with the [`.gitignore` block](#one-store-per-repository) |
-| Kilo Code | `kilo.jsonc` lists both files under `instructions`. | Project memory only, unless you [add the file yourself](#one-store-per-repository) |
-| Every other tool | The rule names both files, and the tool reads them before a task. | Project memory only |
+| Kilo Code | `kilo.jsonc` lists both files under `instructions`. | Project memory loads; personal memory as for [rule-only tools](#one-store-per-repository), or [add the file yourself](#one-store-per-repository) |
+| Every other tool | The rule names both files, and the tool reads them before a task. | Finds personal memory with `agnostic-ai memory path` |
 
 Aider and Kiro get the rule only, because they show an error or a marker for a missing file. Once both `MEMORY.md` files exist, add them yourself:
 
@@ -129,11 +129,11 @@ Codex, Gemini CLI, and Qoder only write inside the project. So they can save to 
 
 Gemini CLI and Qoder keep your own entries in those lists.
 
-Three tools have limits in this mode:
+Some tools need more steps in this mode:
 
 - **Claude Code** asks once per project whether to allow the import from outside the project ([external imports](https://code.claude.com/docs/en/memory)). If you decline, it still uses personal memory through its own setting.
-- **Kilo Code** ignores files outside the project when the project config lists them. With the block, sync leaves the path out of `kilo.jsonc` and prints a note. To load personal memory, add its `MEMORY.md` to `instructions` in `~/.config/kilo/kilo.jsonc`.
-- **Tools with only the rule** (Windsurf, Cline, Trae, Warp, Zed, and the other tools in the last table row) are not told where the folder is. They use project memory only.
+- **Kilo Code** ignores files outside the project when the project config lists them. With the block, sync leaves the path out of `kilo.jsonc` and prints a note. Kilo still finds the folder through the rule, as below. To load it every session, add its `MEMORY.md` to `instructions` in `~/.config/kilo/kilo.jsonc`.
+- **Tools with only the rule** (Windsurf, Cline, Trae, Warp, Zed, and the other tools in the last table row) are not told where the folder is, so the rule has them run [`agnostic-ai memory path`](@/docs/cli-reference/maintain.md#memory) to print it. They need `agnostic-ai` on PATH, and may ask before they read or write outside the project.
 
 Cloud agents start from a fresh clone, so they never see personal memory in either mode.
 
@@ -145,6 +145,7 @@ Cloud agents start from a fresh clone, so they never see personal memory in eith
 agnostic-ai memory lint     # run only the memory checks
 agnostic-ai memory index    # rebuild each MEMORY.md, for example after a merge conflict
 agnostic-ai memory list     # print each fact's scope, type, and title
+agnostic-ai memory path     # print each memory folder's absolute path
 ```
 
 See [memory](@/docs/cli-reference/maintain.md#memory) in the CLI reference.
