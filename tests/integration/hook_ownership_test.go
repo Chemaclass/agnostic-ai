@@ -42,7 +42,7 @@ func TestSync_KeepsHandWrittenHooks(t *testing.T) {
 		{"qoder", ".qoder/settings.json", `{"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "./guard.sh"}]}], "SessionStart": [{"hooks": [{"type": "command", "command": "./hello.sh"}]}]}}`, "handoff, handoff-hook", "handoff"},
 		{"gemini", ".gemini/settings.json", `{"hooks": {"BeforeTool": [{"matcher": "run_shell_command", "hooks": [{"type": "command", "command": "./guard.sh"}]}], "SessionStart": [{"hooks": [{"type": "command", "command": "./hello.sh"}]}]}}`, "handoff, handoff-hook", "handoff"},
 		{"codex", ".codex/hooks.json", `{"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "./guard.sh"}]}], "SessionStart": [{"hooks": [{"type": "command", "command": "./hello.sh"}]}]}}`, "handoff, handoff-hook", "handoff"},
-		{"cursor", ".cursor/hooks.json", `{"version": 1, "hooks": {"preToolUse": [{"command": "./guard.sh"}], "sessionStart": [{"command": "./hello.sh"}]}}`, "memory, memory-hook", "hook memory"},
+		{"cursor", ".cursor/hooks.json", `{"version": 1, "hooks": {"preToolUse": [{"command": "./guard.sh"}], "sessionStart": [{"command": "./hello.sh"}]}}`, "memory", "hook memory"},
 		{"factory", ".factory/hooks.json", `{"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "./guard.sh"}]}], "SessionStart": [{"matcher": "", "hooks": [{"type": "command", "command": "./hello.sh"}]}]}`, "handoff, handoff-hook", "handoff"},
 	}
 	for _, c := range cases {
