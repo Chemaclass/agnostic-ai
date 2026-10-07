@@ -97,7 +97,7 @@ Codex, Gemini CLI, and Qoder have their own memory too, off by default. Leave it
 
 On Codex, Copilot, Cursor, Gemini CLI, Qoder, and Factory, sync adds a hook that runs when a session starts. It calls [`agnostic-ai hook memory`](@/docs/cli-reference/maintain.md#hook-memory), which adds both `MEMORY.md` files to the conversation.
 
-- It does nothing if `agnostic-ai` is not on your PATH.
+- It runs the `agnostic-ai` on your PATH, not a copy pinned in the project, and does nothing if there is none. Keep that one at 0.81.0 or newer with [`agnostic-ai upgrade`](@/docs/cli-reference/maintain.md#upgrade); an older one fails the hook and loads no memory.
 - With `memory.personal: repo`, it names the personal memory folder even before the first fact, so the tool knows where to save.
 - Codex, Qoder, Gemini CLI, and Cursor run it only in a folder you trust.
 - On Windows, Cursor and Gemini CLI need `sh` on PATH, for example from Git Bash.

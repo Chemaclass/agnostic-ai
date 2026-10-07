@@ -20,6 +20,11 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 - **Breaking:** sync stops on an agent name that starts with `-` or contains `:`, which Claude Code would skip; rename the agent (#1870).
 - With `memory`, Claude Code's own memory saves into the shared personal memory, so other tools see it (#1846).
+- `lint` counts the `AGENTS.md` that `CLAUDE.md` imports in Claude Code's word total, which it used to leave out.
+
+#### Cursor
+
+- Turning off the last Cursor hook removes `.cursor/hooks.json` instead of leaving `{"version": 1}` behind.
 
 #### Copilot
 

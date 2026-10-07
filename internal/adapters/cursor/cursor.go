@@ -260,7 +260,7 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 		return nil
 	}
 	keys := map[string]any{"hooks": value, "version": 1}
-	if sess.HasJSONKey(path, "version", dryRun) {
+	if sess.HasJSONKey(path, "version", dryRun) && !emit.ClaimsKey(path, "version") {
 		// The user's own version key stays theirs when sync lets go.
 		keys["version"] = emit.CarriedJSONValue(1)
 	}

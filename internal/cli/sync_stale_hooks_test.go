@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -118,5 +119,39 @@ func TestSync_ClaudePortableHookMovesToUnclaimedCustomHooks(t *testing.T) {
 			}
 			runSyncOK(t, "--check")
 		})
+	}
+}
+
+// Sync writes `.cursor/hooks.json` whole, version key included, so once its
+// last hook goes a later sync removes the file instead of leaving
+// `{"version": 1}` behind.
+func TestSync_CursorHooksFileLeavesWithItsLastHook(t *testing.T) {
+	const hooksFile = ".cursor/hooks.json"
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\n")
+	mustWriteFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: afterFileEdit\ncommand: echo hi\n")
+	runSyncOK(t)
+	runSyncOK(t)
+	removeSpecs(t, ".agnostic-ai/hooks/fmt.yaml")
+	runSyncOK(t)
+	if _, err := os.Stat(hooksFile); !os.IsNotExist(err) {
+		t.Errorf("%s stayed after its last hook left: %v", hooksFile, err)
+	}
+	runSyncOK(t, "--check")
+}
+
+// A version key the user wrote stays when sync's hooks leave.
+func TestSync_CursorHooksFileKeepsTheUsersVersionKey(t *testing.T) {
+	const hooksFile = ".cursor/hooks.json"
+	testutil.Chdir(t, t.TempDir())
+	mustWriteFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\n")
+	mustWriteFile(t, hooksFile, `{"version": 1}`)
+	mustWriteFile(t, ".agnostic-ai/hooks/fmt.yaml", "name: fmt\nevent: afterFileEdit\ncommand: echo hi\n")
+	runSyncOK(t)
+	runSyncOK(t)
+	removeSpecs(t, ".agnostic-ai/hooks/fmt.yaml")
+	runSyncOK(t)
+	if got := readJSONMap(t, hooksFile); got["version"] != float64(1) || got["hooks"] != nil {
+		t.Errorf("hooks file = %#v, want the user's version key alone", got)
 	}
 }
