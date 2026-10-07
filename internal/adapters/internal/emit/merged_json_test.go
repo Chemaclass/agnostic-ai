@@ -5,6 +5,7 @@ import (
 	"os"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
@@ -52,6 +53,152 @@ func TestMergeJSONFileNested_RecordsTheValuesSyncSet(t *testing.T) {
 	slices.SortFunc(released, slices.Compare[[]string])
 	if want := [][]string{{"kept"}, {"skills", "paths"}}; !reflect.DeepEqual(released, want) {
 		t.Errorf("released = %v, want %v", released, want)
+	}
+}
+
+func TestMergeJSONFileNested_ClaimsOnlyTheNamedObjectEntries(t *testing.T) {
+	testutil.TempCwd(t)
+	const path = "opencode.json"
+	if err := os.WriteFile(path, []byte(`{"permission":{"bash":"ask","external_directory":{"mine/**":"allow"}}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sess := NewSession()
+	sess.StartDetailedRecording()
+	err := sess.MergeJSONFileNested(path, map[string]any{
+		"permission": map[string]any{"external_directory": ClaimedJSONEntries(map[string]any{"mine/**": "allow", "ours/**": "allow"}, []string{"ours/**"})},
+	}, []string{"permission"}, false)
+	writes := sess.StopDetailedRecording()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(writes) != 1 {
+		t.Fatalf("want one write, got %#v", writes)
+	}
+	if want := []MergedKey{{Path: []string{"permission", "external_directory", "ours/**"}, Sum: jsonValueSum(json.RawMessage(`"allow"`))}}; !reflect.DeepEqual(writes[0].Keys, want) {
+		t.Errorf("keys = %#v, want %#v", writes[0].Keys, want)
+	}
+	if want := [][]string{{"permission", "external_directory"}}; !reflect.DeepEqual(writes[0].Released, want) {
+		t.Errorf("released = %v, want %v", writes[0].Released, want)
+	}
+	var doc map[string]map[string]any
+	if err := json.Unmarshal([]byte(readFileString(t, path)), &doc); err != nil {
+		t.Fatal(err)
+	}
+	if doc["permission"]["bash"] != "ask" || len(doc["permission"]["external_directory"].(map[string]any)) != 2 {
+		t.Errorf("permission = %v", doc["permission"])
+	}
+}
+
+func TestMergeJSONFileNested_KeepsTheObjectOrderOnDisk(t *testing.T) {
+	testutil.TempCwd(t)
+	const path = "opencode.json"
+	if err := os.WriteFile(path, []byte(`{"permission":{"read":"allow","bash":{"*":"ask","git *":"allow","git push *":"deny","a":"allow"}}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ordered := NewOrderedJSON()
+	for _, key := range []string{"/tmp/b/**", "*"} {
+		if err := ordered.Set(key, "allow"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := NewSession().MergeJSONFileNested(path, map[string]any{
+		"permission": map[string]any{"external_directory": ordered},
+	}, []string{"permission"}, false); err != nil {
+		t.Fatal(err)
+	}
+	doc := NewOrderedJSON()
+	if err := json.Unmarshal([]byte(readFileString(t, path)), doc); err != nil {
+		t.Fatal(err)
+	}
+	permission, _ := doc.Get("permission")
+	object := NewOrderedJSON()
+	if err := json.Unmarshal(permission, object); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"read", "bash", "external_directory"}; !slices.Equal(object.Keys(), want) {
+		t.Errorf("permission keys = %v, want %v", object.Keys(), want)
+	}
+	for key, want := range map[string][]string{"bash": {"*", "git *", "git push *", "a"}, "external_directory": {"/tmp/b/**", "*"}} {
+		raw, _ := object.Get(key)
+		child := NewOrderedJSON()
+		if err := json.Unmarshal(raw, child); err != nil {
+			t.Fatal(err)
+		}
+		if !slices.Equal(child.Keys(), want) {
+			t.Errorf("%s keys = %v, want %v", key, child.Keys(), want)
+		}
+	}
+}
+
+// A key an earlier sync claimed whole that now merges child by child
+// loses the whole claim. Its old value goes first while unchanged, as a
+// stale claim's release would take it, and stays once edited.
+func TestMergeJSONFileNested_MovesAWholeClaimToTheChildren(t *testing.T) {
+	for _, tc := range []struct {
+		name, onDisk string
+		kept         bool
+	}{
+		{"edited", `{"permission":{"read":"allow","bash":"deny"}}`, true},
+		{"unchanged", `{"permission":{"read":"allow"}}`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			testutil.TempCwd(t)
+			const path = "opencode.json"
+			if err := os.WriteFile(path, []byte(tc.onDisk), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			PriorMergedKeys = func(string) []MergedKey {
+				return []MergedKey{{Path: []string{"permission"}, Sum: jsonValueSum(json.RawMessage(`{"read":"allow"}`))}}
+			}
+			defer func() { PriorMergedKeys = nil }()
+			sess := NewSession()
+			if got := sess.ClaimsUnchangedValue(path, false, "permission"); got == tc.kept {
+				t.Errorf("ClaimsUnchangedValue = %v", got)
+			}
+			sess.StartDetailedRecording()
+			err := sess.MergeJSONFileNested(path, map[string]any{
+				"permission": map[string]any{"external_directory": ClaimedJSONEntries(map[string]any{"s/**": "allow"}, []string{"s/**"})},
+			}, []string{"permission"}, false)
+			writes := sess.StopDetailedRecording()
+			if err != nil {
+				t.Fatal(err)
+			}
+			released := slices.Clone(writes[0].Released)
+			slices.SortFunc(released, slices.Compare[[]string])
+			if want := [][]string{{"permission"}, {"permission", "external_directory"}}; !reflect.DeepEqual(released, want) {
+				t.Errorf("released = %v, want %v", released, want)
+			}
+			text := readFileString(t, path)
+			if strings.Contains(text, `"read": "allow"`) != tc.kept || !strings.Contains(text, `"s/**": "allow"`) {
+				t.Errorf("file = %s", text)
+			}
+		})
+	}
+}
+
+// An edited list sync claimed whole stays, minus only the items sync
+// recorded adding to it, and an item the user wrote alike elsewhere is
+// not sync's to take.
+func TestReleaseMergedJSON_TakesOnlyTheRecordedItemOutOfAnEditedList(t *testing.T) {
+	testutil.TempCwd(t)
+	const path = "config.json"
+	if err := os.WriteFile(path, []byte(`{"permissions":{"allow":["Read(src/**)","Write(/s/**)","Exec(make)"]}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	keys := []MergedKey{{
+		Path:   []string{"permissions", "allow"},
+		Sum:    jsonValueSum(json.RawMessage(`["Read(src/**)","Write(/s/**)"]`)),
+		Within: []string{ContentSum("Write(/s/**)")},
+	}}
+	result, edited, err := NewSession().ReleaseMergedJSON(path, keys, true, false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result == MergedRemoved || len(edited) != 1 {
+		t.Errorf("result = %v, edited = %v", result, edited)
+	}
+	if got := readFileString(t, path); !strings.Contains(got, `"Read(src/**)"`) || !strings.Contains(got, `"Exec(make)"`) || strings.Contains(got, "/s/**") {
+		t.Errorf("file = %s", got)
 	}
 }
 

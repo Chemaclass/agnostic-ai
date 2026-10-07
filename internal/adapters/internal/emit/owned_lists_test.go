@@ -157,3 +157,16 @@ func TestMergeOwnedLists_KeepsASequentialGroupSyncRendersApart(t *testing.T) {
 		t.Errorf("sequential user group dropped: %v", merged)
 	}
 }
+
+func TestWithoutUserItems_LeavesTheUserEntryAndKeepsSyncsOwn(t *testing.T) {
+	PriorMergedKeys = func(string) []MergedKey {
+		return []MergedKey{{Path: []string{"permissions", "allow"}, Items: []string{ContentSum("Write(/ours/**)")}}}
+	}
+	defer func() { PriorMergedKeys = nil }()
+	onDisk := []any{"Write(/mine/**)", "Write(/ours/**)"}
+	planned := []any{"Write(/mine/**)", "Write(/ours/**)", "Write(/new/**)"}
+	got := WithoutUserItems("config.json", []string{"permissions", "allow"}, onDisk, planned)
+	if want := []any{"Write(/ours/**)", "Write(/new/**)"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("planned = %v, want %v", got, want)
+	}
+}

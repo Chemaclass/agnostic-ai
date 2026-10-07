@@ -23,6 +23,7 @@ func extendEntry(base, over Entry) Entry {
 	out := over
 	out.Meta = mergeMeta(base.Meta, over.Meta)
 	out.MetaKeys = mergeMetaKeys(base.MetaKeys, over.MetaKeys, out.Meta)
+	out.NestedKeys = mergeNestedKeys(base.NestedKeys, over.NestedKeys, out.Meta)
 	out.MetaStyles = mergeMetaStyles(base.MetaStyles, over.MetaStyles, out.Meta)
 	out.Literals = mergeLiterals(base, over, out.Meta)
 	switch {

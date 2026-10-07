@@ -126,7 +126,12 @@
     "CodexConfig": {
       "properties": {
         "sandbox": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "read-only",
+            "workspace-write",
+            "danger-full-access"
+          ]
         },
         "approval-policy": {
           "type": "string"

@@ -323,7 +323,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitHooks(sess, b.Hooks, cfg, dryRun); err != nil {
 		return err
 	}
-	if err := emitConfig(sess, b.Settings, emit.OutputConfFile(cfg, target, defaultConfigFile), dryRun); err != nil {
+	if err := emitConfig(sess, cfg, b.Settings, emit.OutputConfFile(cfg, target, defaultConfigFile), dryRun); err != nil {
 		return err
 	}
 	warnWorkflowsDirRemoved(sess, cfg)

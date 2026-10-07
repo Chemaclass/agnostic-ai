@@ -22,8 +22,9 @@ func MergeOwnedLists(path string, keyPath []string, onDisk, planned map[string][
 	prior := priorMergedKeys(path)
 	priorItems := map[string][]string{}
 	for key := range onDisk {
-		claim, _ := priorClaim(prior, append(slices.Clone(keyPath), key))
-		priorItems[key] = claim.Items
+		// An item sync recorded within a list it claimed whole is sync's
+		// too, so it leaves once no longer planned.
+		priorItems[key] = PriorClaimedItems(path, append(slices.Clone(keyPath), key))
 	}
 	var wholeOwned bool
 	if whole, err := json.Marshal(onDisk); err == nil {
@@ -38,6 +39,24 @@ func MergeOwnedLists(path string, keyPath []string, onDisk, planned map[string][
 		}
 	}
 	return mergeOwnedLists(priorItems, wholeOwned, onDisk, planned)
+}
+
+// WithoutUserItems drops from planned each entry the user already has in
+// onDisk, the list at keyPath in the merged file at path, that the last
+// sync did not claim. MergeOwnedLists adopts an entry equal to a planned
+// one, so without this a rule the user wrote first would become sync's
+// and leave with sync's claims.
+func WithoutUserItems(path string, keyPath []string, onDisk, planned []any) []any {
+	prior := PriorClaimedItems(path, keyPath)
+	var user []string
+	for _, entry := range onDisk {
+		if sum := ContentSum(canonicalJSON(entry)); !slices.Contains(prior, sum) {
+			user = append(user, sum)
+		}
+	}
+	return slices.DeleteFunc(slices.Clone(planned), func(entry any) bool {
+		return slices.Contains(user, ContentSum(canonicalJSON(entry)))
+	})
 }
 
 func mergeOwnedLists(prior map[string][]string, wholeOwned bool, onDisk, planned map[string][]any) (map[string][]any, map[string][]string) {

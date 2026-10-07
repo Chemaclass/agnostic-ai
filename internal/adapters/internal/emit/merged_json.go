@@ -17,6 +17,10 @@ type MergedKey struct {
 	// content sum once written, so the ledger holds no rule text.
 	// Releasing the file takes out only these.
 	Items []string `json:"items,omitempty"`
+	// Within names, by content sum, the items sync added to a list it
+	// claims whole. Once the user edits the list it stays theirs, and
+	// releasing it takes out only these, each while unchanged.
+	Within []string `json:"within,omitempty"`
 	// Follows, when set, is the sum of the value this write replaced. The
 	// key is claimed only if an earlier sync's claim still has that sum;
 	// otherwise the earlier claim stays as it was. It is never stored.
@@ -100,6 +104,69 @@ func ClaimedJSONItems(value any, items []string) any {
 	return claimedItems{value: value, items: slices.Clone(items)}
 }
 
+// claimedEntries is an object merge value of which sync owns only the
+// named entries.
+type claimedEntries struct {
+	value   any
+	entries []string
+}
+
+// ClaimedJSONEntries, as an object value in a merge, sets the object and
+// claims only the named entries, the ones sync wrote beside the user's
+// own. Every earlier claim in the object goes, so the caller names each
+// entry of sync's it keeps. Releasing the file later takes out only the
+// named entries, each while it is unchanged.
+func ClaimedJSONEntries(value any, entries []string) any {
+	return claimedEntries{value: value, entries: slices.Clone(entries)}
+}
+
+// claimedWithin is a value sync claims whole that also records what sync
+// added inside it, so that part can leave on its own once the user has
+// edited the value and it stays theirs.
+type claimedWithin struct {
+	value   any
+	items   []string
+	entries [][]string
+}
+
+// ClaimedJSONWithItems, as a list value in a merge, claims the list whole
+// and records items, the entries sync added to it (MergedKey.Within).
+func ClaimedJSONWithItems(value any, items []string) any {
+	return claimedWithin{value: value, items: slices.Clone(items)}
+}
+
+// ClaimedJSONWithEntries, as an object value in a merge, claims the
+// object whole and each entry at the paths below it on its own. Every
+// earlier claim inside the object goes.
+func ClaimedJSONWithEntries(value any, entries [][]string) any {
+	return claimedWithin{value: value, entries: slices.Clone(entries)}
+}
+
+// ClaimsUnchangedValue reports whether the last sync claimed the whole
+// value at keyPath in the merged file at path and the file still holds
+// exactly that value, the test a stale claim's release uses.
+func (s *Session) ClaimsUnchangedValue(path string, dryRun bool, keyPath ...string) bool {
+	doc, err := s.readExistingJSON(path, dryRun)
+	if err != nil {
+		return false
+	}
+	raw, found := jsonValueAt(doc, keyPath)
+	return found && unchangedSince(priorMergedKeys(path), keyPath, raw)
+}
+
+// PriorClaimedEntries returns the names of the entries the last sync
+// claimed one by one in the object at keyPath in the merged file at
+// path (ClaimedJSONEntries).
+func PriorClaimedEntries(path string, keyPath []string) []string {
+	var names []string
+	for _, claim := range priorMergedKeys(path) {
+		if len(claim.Path) == len(keyPath)+1 && claim.Items == nil && isPathPrefix(keyPath, claim.Path) {
+			names = append(names, claim.Path[len(keyPath)])
+		}
+	}
+	return names
+}
+
 // mergeClaimKind says how much of a merge value sync claims.
 type mergeClaimKind int
 
@@ -110,6 +177,7 @@ const (
 	claimKeep
 	claimFollow
 	claimRetire
+	claimEntries
 )
 
 // mergeClaim unwraps a merge value and says how much of it sync claims.
@@ -136,6 +204,10 @@ func mergeClaimOf(value any) (unwrapped any, kind mergeClaimKind, items []string
 			return v.value, claimKeep, nil
 		}
 		return v.value, claimItems, v.items
+	case claimedEntries:
+		return v.value, claimEntries, v.entries
+	case claimedWithin:
+		return v.value, claimWhole, nil
 	}
 	return value, claimWhole, nil
 }
@@ -195,6 +267,9 @@ func withValueSums(content string, keys []MergedKey) []MergedKey {
 			key.Items = itemSums(key.Items)
 		} else if raw, found := jsonValueAt(doc, key.Path); found {
 			key.Sum = jsonValueSum(raw)
+		}
+		if key.Within != nil {
+			key.Within = itemSums(key.Within)
 		}
 		out = append(out, key)
 	}
@@ -280,6 +355,11 @@ func (s *Session) ReleaseMergedJSON(path string, keys []MergedKey, created, forc
 			}) || changed
 		case !force && key.Sum != "" && jsonValueSum(raw) != key.Sum:
 			edited = append(edited, key)
+			if key.Within != nil {
+				changed = editJSONPath(doc, key.Path, func(raw json.RawMessage) (any, bool, bool) {
+					return withoutItems(raw, key.Within)
+				}) || changed
+			}
 		default:
 			changed = editJSONPath(doc, key.Path, func(json.RawMessage) (any, bool, bool) { return nil, false, true }) || changed
 		}

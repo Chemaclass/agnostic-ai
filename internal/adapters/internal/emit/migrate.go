@@ -137,10 +137,30 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 		switch kind {
 		case claimWhole, claimItems:
 			owned = append(owned, MergedKey{Path: path, Items: items})
+		case claimEntries:
+			released = append(released, path)
+			for _, entry := range items {
+				owned = append(owned, MergedKey{Path: append(slices.Clone(path), entry)})
+			}
 		case claimFollow:
 			owned = append(owned, MergedKey{Path: path, Follows: follows})
 		case claimNothing:
 			released = append(released, path)
+		}
+	}
+	// claimWithin records what sync added inside a value it just claimed
+	// whole at path (ClaimedJSONWithItems, ClaimedJSONWithEntries).
+	claimWithin := func(path []string, raw any) {
+		within, ok := raw.(claimedWithin)
+		if !ok || len(owned) == 0 {
+			return
+		}
+		owned[len(owned)-1].Within = within.items
+		if within.entries != nil {
+			released = append(released, path)
+		}
+		for _, entry := range within.entries {
+			owned = append(owned, MergedKey{Path: append(slices.Clone(path), entry...)})
 		}
 	}
 	for _, k := range names {
@@ -209,16 +229,28 @@ func (s *Session) mergeJSONFile(path string, keys map[string]any, nested map[str
 		incoming, isObject := value.(map[string]any)
 		if !nested[k] || !isObject || kind != claimWhole {
 			claim([]string{k}, kind, items, follows)
+			claimWithin([]string{k}, keys[k])
 		} else {
+			// A value an earlier sync wrote whole now merges child by
+			// child, so the claims move to the children. The old value
+			// goes first while nobody has edited it, as it would if no
+			// spec wrote the key any more; an edited one stays.
+			if prior, ok := priorClaim(priorMergedKeys(path), []string{k}); ok && prior.Items == nil {
+				released = append(released, []string{k})
+				if raw, found := doc.Get(k); found && unchangedSince(priorMergedKeys(path), []string{k}, raw) {
+					doc.Delete(k)
+				}
+			}
 			children := make(map[string]any, len(incoming))
-			for child, childValue := range incoming {
-				childValue, childKind, childItems, childFollows := mergeClaim(childValue)
+			for child, raw := range incoming {
+				childValue, childKind, childItems, childFollows := mergeClaim(raw)
 				children[child] = childValue
 				if _, remove := childValue.(removeJSONKey); remove {
 					released = append(released, []string{k, child})
 					continue
 				}
 				claim([]string{k, child}, childKind, childItems, childFollows)
+				claimWithin([]string{k, child}, raw)
 			}
 			value = mergeJSONObject(doc, k, children)
 		}
@@ -258,16 +290,27 @@ func mergeJSONObject(doc *OrderedJSON, key string, value any) any {
 	if !ok {
 		return value
 	}
-	existing := map[string]any{}
-	if raw, found := doc.Get(key); found {
-		_ = json.Unmarshal(raw, &existing)
+	// The object keeps the file's key order, and a value it does not set
+	// keeps its bytes: a tool such as OpenCode reads the last matching
+	// rule, so order is meaning.
+	existing := NewOrderedJSON()
+	if raw, found := doc.Get(key); found && json.Unmarshal(raw, existing) != nil {
+		existing = NewOrderedJSON()
 	}
-	for child, childValue := range incoming {
+	children := make([]string, 0, len(incoming))
+	for child := range incoming {
+		children = append(children, child)
+	}
+	sort.Strings(children)
+	for _, child := range children {
+		childValue := incoming[child]
 		if _, remove := childValue.(removeJSONKey); remove {
-			delete(existing, child)
+			existing.Delete(child)
 			continue
 		}
-		existing[child] = childValue
+		if err := existing.Set(child, childValue); err != nil {
+			return value
+		}
 	}
 	return existing
 }

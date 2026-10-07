@@ -242,6 +242,7 @@ func (Adapter) MCPLaunchView() emit.MCPLaunchView {
 func mergeAdditionalDirectories(sess *emit.Session, keys map[string]any, cfg *config.Config, path string, dryRun bool) error {
 	permissions, _ := keys["permissions"].(map[string]any)
 	planned, _ := permissions["additionalDirectories"].([]any)
+	existing, _ := sess.ExistingJSONObject(path, "permissions", dryRun)["additionalDirectories"].([]any)
 	if cfg != nil && slices.Contains(cfg.Builtins, emit.MemoryBuiltin) && emit.PersonalMemoryLeavesCheckout(cfg, path, target) {
 		dir, err := emit.PersonalMemoryDirFor(cfg, path, target)
 		if err != nil {
@@ -250,11 +251,12 @@ func mergeAdditionalDirectories(sess *emit.Session, keys map[string]any, cfg *co
 		if err := sess.CreateRepoMemoryStore(cfg, dir, dryRun); err != nil {
 			return err
 		}
-		if slash := filepath.ToSlash(dir); !slices.Contains(planned, any(slash)) {
-			planned = append(planned, slash)
+		// A folder the user listed first stays theirs.
+		store := emit.WithoutUserItems(path, []string{"permissions", "additionalDirectories"}, existing, []any{filepath.ToSlash(dir)})
+		if len(store) > 0 && !slices.Contains(planned, store[0]) {
+			planned = append(planned, store[0])
 		}
 	}
-	existing, _ := sess.ExistingJSONObject(path, "permissions", dryRun)["additionalDirectories"].([]any)
 	if len(planned) == 0 && len(existing) == 0 {
 		return nil
 	}

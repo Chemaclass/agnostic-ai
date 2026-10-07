@@ -116,7 +116,7 @@ outputs:
   codex:
     config:
       model: gpt-6-luna
-      sandbox: workspace
+      sandbox: workspace-write
       approval-policy: on-request
       model-reasoning-effort: high
       model-reasoning-summary: auto
@@ -126,7 +126,7 @@ outputs:
 | Field | Type | Notes |
 |-------|------|-------|
 | `model` | string | Model identifier Codex uses for this project. |
-| `sandbox` | string | Sandbox profile (e.g. `workspace`). |
+| `sandbox` | string | Written as `sandbox_mode`: `read-only`, `workspace-write`, or `danger-full-access`. Any other value stops sync. |
 | `approval-policy` | string | `on-request` for interactive approvals or `never` to reject approval prompts. `on-failure` is deprecated; `untrusted` is unsupported ([config reference](https://learn.chatgpt.com/docs/config-file/config-reference)). |
 | `model-reasoning-effort` | string | Passed through unchanged. Use an effort the selected model and client advertise, such as `low`, `medium`, `high`, `xhigh`, `max`, or `ultra`. |
 | `model-reasoning-summary` | string | Reasoning summary verbosity: `auto`, `concise`, `detailed`. |

@@ -74,6 +74,9 @@ type Entry struct {
 	// preserved key order); emit falls back to alphabetical order in
 	// that case.
 	MetaKeys []string
+	// NestedKeys records the key order of each object below the top
+	// level of a pure YAML spec, by key path. Read it through KeyOrder.
+	NestedKeys map[string][]string
 	// MetaStyles records the YAML scalar style of each top-level
 	// frontmatter value as it appeared in source. Adapters pass this to
 	// emit.FrontmatterStyled / emit.DocumentStyled so a value that the
@@ -1113,6 +1116,7 @@ func decodeYAMLEntry(data []byte) (Entry, error) {
 		Name:       name,
 		Meta:       meta,
 		MetaKeys:   keys,
+		NestedKeys: nestedKeyOrders(&node, meta),
 		MetaStyles: styles,
 		Literals:   literalTags(&node),
 	}, nil

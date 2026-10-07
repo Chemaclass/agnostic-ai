@@ -168,6 +168,10 @@ func (s *Session) dropStaleClaims(path string, doc *OrderedJSON, settled, overla
 			})
 		case claim.Sum != "" && jsonValueSum(raw) == claim.Sum:
 			editJSONPath(doc, claim.Path, func(json.RawMessage) (any, bool, bool) { return nil, false, true })
+		case claim.Within != nil:
+			editJSONPath(doc, claim.Path, func(raw json.RawMessage) (any, bool, bool) {
+				return withoutItems(raw, claim.Within)
+			})
 		}
 	}
 	return dropped
@@ -178,8 +182,9 @@ func isPathPrefix(prefix, path []string) bool {
 }
 
 // PriorClaimedItems returns the sums of the list entries the last sync
-// claimed at keyPath in the merged file at path.
+// claimed at keyPath in the merged file at path, one by one or within a
+// list it claimed whole.
 func PriorClaimedItems(path string, keyPath []string) []string {
 	claim, _ := priorClaim(priorMergedKeys(path), keyPath)
-	return claim.Items
+	return append(slices.Clone(claim.Items), claim.Within...)
 }

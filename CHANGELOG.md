@@ -6,6 +6,20 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ## [Unreleased]
 
+### By tool
+
+#### Codex
+
+- **Breaking:** Codex now applies the sandbox you set in `outputs.codex.config.sandbox`, and an invalid value such as `workspace` stops sync; use `read-only`, `workspace-write`, or `danger-full-access` (#1880).
+
+#### OpenCode
+
+- In repo mode, OpenCode saves personal memory without asking each time: sync allows its folder under `permission.external_directory` (#1881).
+
+#### Windsurf
+
+- In repo mode, Devin CLI saves personal memory without asking: sync allows writes to its folder in `.devin/config.json` (#1882).
+
 ## v0.81.0 - 2026-10-07
 
 ### General
