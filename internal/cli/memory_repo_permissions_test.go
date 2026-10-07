@@ -266,3 +266,96 @@ func TestSync_StoreRulesStayOutOfCommittableFiles(t *testing.T) {
 		}
 	}
 }
+
+// A bare `permission` action sets every permission in OpenCode. Repo mode
+// keeps it as the catch-all key ahead of the store rule, and leaving repo
+// mode keeps the user's policy.
+func TestSync_OpenCodeRepoMemoryKeepsABarePermissionAction(t *testing.T) {
+	for _, action := range []string{"deny", "ask"} {
+		t.Run(action, func(t *testing.T) {
+			parent := repoMemoryProject(t, true)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [opencode]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n")
+			writeFile(t, "opencode.json", `{"permission": "`+action+`"}`)
+			read := func() map[string]any {
+				t.Helper()
+				var doc struct {
+					Permission map[string]any `json:"permission"`
+				}
+				if err := json.Unmarshal([]byte(readText(t, "opencode.json")), &doc); err != nil {
+					t.Fatalf("permission is not an object: %v\n%s", err, readText(t, "opencode.json"))
+				}
+				return doc.Permission
+			}
+			for range 2 {
+				if err := runSync(t); err != nil {
+					t.Fatal(err)
+				}
+				store := repoStore(t, parent, readText(t, "opencode.json"))
+				permission := read()
+				directories, _ := permission["external_directory"].(map[string]any)
+				if permission["*"] != action || directories[store+"/**"] != "allow" || len(permission) != 2 {
+					t.Errorf("permission = %v", permission)
+				}
+				if text := readText(t, "opencode.json"); strings.Index(text, `"*"`) > strings.Index(text, `"external_directory"`) {
+					t.Errorf("the catch-all should lead the store rule:\n%s", text)
+				}
+			}
+			if err := runSync(t, "--check"); err != nil {
+				t.Errorf("sync --check: %v", err)
+			}
+
+			writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: checkout\n")
+			if err := runSync(t); err != nil {
+				t.Fatal(err)
+			}
+			if permission := read(); permission["*"] != action || len(permission) != 1 {
+				t.Errorf("permission after leaving repo mode = %v, want the %s catch-all alone", permission, action)
+			}
+			if err := runSync(t, "--check"); err != nil {
+				t.Errorf("sync --check after leaving repo mode: %v", err)
+			}
+		})
+	}
+}
+
+// A rule for the store the user wrote before repo mode stays theirs:
+// sync neither adds a copy nor takes it out when repo mode ends.
+func TestSync_RepoMemoryKeepsTheUserStoreRule(t *testing.T) {
+	for _, tc := range []struct {
+		target, file, body, entry string
+	}{
+		{"windsurf", filepath.Join(".devin", "config.json"), `{"permissions": {"allow": ["%s"]}}`, "Write(%s/**)"},
+		{"cursor", filepath.Join(".cursor", "cli.json"), `{"permissions": {"allow": ["%s"], "deny": []}}`, "Write(%s/**)"},
+		{"qoder", filepath.Join(".qoder", "settings.json"), `{"permissions": {"additionalDirectories": ["%s"]}}`, "%s"},
+	} {
+		t.Run(tc.target, func(t *testing.T) {
+			repoMemoryProject(t, true)
+			writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: ["+tc.target+"]\nbuiltins: [memory]\ngitignore:\n  enabled: true\n")
+			store := filepath.ToSlash(memoryPaths(t)["personal"])
+			entry := strings.Replace(tc.entry, "%s", store, 1)
+			writeFile(t, tc.file, strings.Replace(tc.body, "%s", entry, 1))
+			for range 2 {
+				if err := runSync(t); err != nil {
+					t.Fatal(err)
+				}
+				if text := readText(t, tc.file); strings.Count(text, `"`+entry+`"`) != 1 {
+					t.Errorf("want the user's rule once:\n%s", text)
+				}
+			}
+			if err := runSync(t, "--check"); err != nil {
+				t.Errorf("sync --check: %v", err)
+			}
+
+			writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: checkout\n")
+			if err := runSync(t); err != nil {
+				t.Fatal(err)
+			}
+			if data, err := os.ReadFile(tc.file); err != nil || strings.Count(string(data), `"`+entry+`"`) != 1 {
+				t.Errorf("the user's rule left with repo mode (%v):\n%s", err, data)
+			}
+			if err := runSync(t, "--check"); err != nil {
+				t.Errorf("sync --check after leaving repo mode: %v", err)
+			}
+		})
+	}
+}

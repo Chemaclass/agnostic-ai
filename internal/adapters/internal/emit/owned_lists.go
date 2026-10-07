@@ -40,6 +40,24 @@ func MergeOwnedLists(path string, keyPath []string, onDisk, planned map[string][
 	return mergeOwnedLists(priorItems, wholeOwned, onDisk, planned)
 }
 
+// WithoutUserItems drops from planned each entry the user already has in
+// onDisk, the list at keyPath in the merged file at path, that the last
+// sync did not claim. MergeOwnedLists adopts an entry equal to a planned
+// one, so without this a rule the user wrote first would become sync's
+// and leave with sync's claims.
+func WithoutUserItems(path string, keyPath []string, onDisk, planned []any) []any {
+	prior := PriorClaimedItems(path, keyPath)
+	var user []string
+	for _, entry := range onDisk {
+		if sum := ContentSum(canonicalJSON(entry)); !slices.Contains(prior, sum) {
+			user = append(user, sum)
+		}
+	}
+	return slices.DeleteFunc(slices.Clone(planned), func(entry any) bool {
+		return slices.Contains(user, ContentSum(canonicalJSON(entry)))
+	})
+}
+
 func mergeOwnedLists(prior map[string][]string, wholeOwned bool, onDisk, planned map[string][]any) (map[string][]any, map[string][]string) {
 	merged := map[string][]any{}
 	claims := map[string][]string{}

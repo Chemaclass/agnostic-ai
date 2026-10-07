@@ -47,12 +47,12 @@ func mergeMemoryAllow(sess *emit.Session, keys map[string]any, path string, rule
 		// A rule an earlier sync wrote goes with its claim.
 		return
 	}
-	if permissions == nil {
-		permissions = map[string]any{}
-		keys[permissionsKey] = permissions
-	}
 	if emit.ClaimsWholeValue(path, permissionsKey, "allow") {
 		// The last sync wrote the whole list, so this one replaces it.
+		if permissions == nil {
+			permissions = map[string]any{}
+			keys[permissionsKey] = permissions
+		}
 		permissions["allow"] = slices.Clone(rules)
 		return
 	}
@@ -60,6 +60,15 @@ func mergeMemoryAllow(sess *emit.Session, keys map[string]any, path string, rule
 	planned := make([]any, len(rules))
 	for i, rule := range rules {
 		planned[i] = rule
+	}
+	planned = emit.WithoutUserItems(path, []string{permissionsKey, "allow"}, existing, planned)
+	if len(planned) == 0 {
+		// The user already allows the store; the list stays theirs.
+		return
+	}
+	if permissions == nil {
+		permissions = map[string]any{}
+		keys[permissionsKey] = permissions
 	}
 	merged, claims := emit.MergeOwnedLists(path, []string{permissionsKey},
 		map[string][]any{"allow": existing},
