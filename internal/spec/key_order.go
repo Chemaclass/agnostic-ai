@@ -22,7 +22,10 @@ func (e Entry) KeyOrder(path ...string) []string {
 
 // nestedKeyOrders records, by key path, the key order of every mapping
 // below the top level of a YAML document. MetaKeys holds the top level.
-func nestedKeyOrders(n *yaml.Node) map[string][]string {
+// Only a top-level value that decoded into meta is walked, and an alias
+// back to a node on the current path stops the walk there: such a value
+// is a cycle, which decoding already rejected.
+func nestedKeyOrders(n *yaml.Node, meta map[string]any) map[string][]string {
 	if n == nil {
 		return nil
 	}
@@ -32,13 +35,19 @@ func nestedKeyOrders(n *yaml.Node) map[string][]string {
 		}
 		n = n.Content[0]
 	}
+	if n.Kind != yaml.MappingNode {
+		return nil
+	}
 	out := map[string][]string{}
+	active := map[*yaml.Node]bool{}
 	var walk func(node *yaml.Node, path []string)
 	walk = func(node *yaml.Node, path []string) {
 		node = resolveAlias(node)
-		if node.Kind != yaml.MappingNode {
+		if node.Kind != yaml.MappingNode || active[node] {
 			return
 		}
+		active[node] = true
+		defer delete(active, node)
 		var keys []string
 		for i := 0; i+1 < len(node.Content); i += 2 {
 			key := node.Content[i].Value
@@ -47,11 +56,16 @@ func nestedKeyOrders(n *yaml.Node) map[string][]string {
 			}
 			walk(node.Content[i+1], append(slices.Clone(path), key))
 		}
-		if len(path) > 0 && len(keys) > 0 {
+		if len(keys) > 0 {
 			out[strings.Join(path, keyPathSep)] = keys
 		}
 	}
-	walk(n, nil)
+	for i := 0; i+1 < len(n.Content); i += 2 {
+		key := n.Content[i].Value
+		if _, decoded := meta[key]; decoded {
+			walk(n.Content[i+1], []string{key})
+		}
+	}
 	if len(out) == 0 {
 		return nil
 	}

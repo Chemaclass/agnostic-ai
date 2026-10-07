@@ -3,7 +3,28 @@ package spec
 import (
 	"slices"
 	"testing"
+	"time"
 )
+
+// A YAML alias that refers to its own ancestor is a cycle. Loading the
+// spec finishes, whatever kind it is.
+func TestKeyOrder_CyclicAliasFinishes(t *testing.T) {
+	for _, kind := range []Kind{KindMCP, KindSettings, KindHook} {
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			e, err := ParseYAMLBytes(kind, []byte("name: x\ncommand: y\nenv: &loop\n  SELF: *loop\n"))
+			if err == nil && e.KeyOrder("env") != nil {
+				t.Errorf("%s: recorded an order for a value that did not decode: %v", kind, e.KeyOrder("env"))
+			}
+		}()
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			t.Fatalf("%s: loading a cyclic alias did not finish", kind)
+		}
+	}
+}
 
 func TestKeyOrder_RecordsNestedObjectsInSourceOrder(t *testing.T) {
 	e, err := ParseYAMLBytes(KindSettings, []byte("x-opencode:\n  permission:\n    external_directory:\n      /tmp/a/**: allow\n      \"*\": deny\n"))

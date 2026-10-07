@@ -1116,7 +1116,7 @@ func decodeYAMLEntry(data []byte) (Entry, error) {
 		Name:       name,
 		Meta:       meta,
 		MetaKeys:   keys,
-		NestedKeys: nestedKeyOrders(&node),
+		NestedKeys: nestedKeyOrders(&node, meta),
 		MetaStyles: styles,
 		Literals:   literalTags(&node),
 	}, nil
