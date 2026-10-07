@@ -8,44 +8,42 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
-- **Breaking:** `lint` and `sync` fail on an MCP `env` or `headers` literal not marked `!literal`; run `agnostic-ai migrate --only secrets` (#1794).
-- Sync keeps hand-written hook entries on Claude Code, Codex, Cursor, Gemini CLI, Qoder, and Factory; adding a hook no longer deletes them (#1858).
-- `memory` built-in loads the memory index at session start on Codex, Copilot, Cursor, Gemini CLI, Qoder, and Factory (#1850, #1851).
-- Opt-in `memory` built-in keeps one project memory in `.agnostic-ai/memory/` that every tool reads and writes; Claude Code imports its index (#1844).
-- The `memory` built-in adds personal memory in `.agnostic-ai/local/memory/`, saved without asking and ignored by Git (#1852).
-- With `memory`, OpenCode and Kilo Code list both memory indexes in `instructions`, so each loads them at session start (#1845).
-- `memory.personal: repo` in `agnostic-ai.local.yaml` keeps one personal memory store per repository, shared by every worktree (#1859).
-- Repo memory names its store before the first fact, respects output ignore exceptions, and keeps Gemini's custom context directories (#1869).
-- `agnostic-ai memory path` prints each memory folder; in repo mode the `memory` rule has tools without a hook run it to find personal memory (#1877).
-- `memory lint`, `memory index`, and `memory list` check, rebuild, and list shared memory; `lint` and `doctor` flag dead links and secrets (#1847).
-- A built-in spec inlined into a shared instructions file names its source as `builtin:<name>` instead of a cache path (#1844).
+- **Breaking:** `lint` and `sync` stop on a plain MCP `env` or `headers` value not marked `!literal`; run `agnostic-ai migrate --only secrets` (#1794).
+- New `memory` built-in: one memory every tool loads at session start and saves to, for the team and for you (#1844, #1845, #1850, #1851, #1852).
+- `memory.personal: repo` in `agnostic-ai.local.yaml` shares one personal memory across every worktree of a repository (#1859, #1869, #1877).
+- New `memory lint`, `index`, `list`, and `path` commands check, rebuild, list, and locate memory; `doctor` flags broken links and secrets (#1847, #1877).
+- Sync keeps hooks you wrote by hand when it adds its own, on Claude Code, Codex, Cursor, Gemini CLI, Qoder, and Factory (#1858).
 
 ### By tool
 
 #### Claude Code
 
-- With the `memory` built-in, sync points Claude's auto memory at the shared personal store via `autoMemoryDirectory` (#1846).
-- Sync fails on an agent name that starts with `-` or contains `:`, which Claude Code skips; rename the spec (#1870).
+- **Breaking:** sync stops on an agent name that starts with `-` or contains `:`, which Claude Code would skip; rename the agent (#1870).
+- With `memory`, Claude Code's own memory saves into the shared personal memory, so other tools see it (#1846).
 
 #### Copilot
 
-- A hook's `commandWindows` writes Copilot's `powershell` field, with `command` as `bash`; the memory hook runs on Windows without `sh` (#1856).
-
-#### Augment
-
-- `hook run` reports `adds_context` for `SessionStart` stdout or `additionalContext`, which Augment injects (#1853).
-
-#### OpenHands
-
-- `hook run` no longer reports `adds_context` on `SessionStart`, which OpenHands only logs (#1853).
-
-#### Kilo Code
-
-- With `memory.personal: repo`, `kilo.jsonc` no longer lists the store index, which Kilo ignores outside the project root; sync notes it (#1871).
+- A hook with a Windows command now runs on Windows: sync writes separate `bash` and `powershell` commands (#1856).
 
 #### Qoder
 
-- With `memory.personal: repo`, the store joins `permissions.additionalDirectories`, so Qoder saves memory there without a prompt (#1872).
+- In repo mode, Qoder saves personal memory without asking for approval each time (#1872).
+
+#### Kilo Code
+
+- In repo mode, Kilo finds personal memory through the rule; sync no longer lists a file Kilo ignores (#1871).
+
+#### Augment
+
+- `hook run` now shows that a `SessionStart` hook's output reaches the model (#1853).
+
+#### OpenHands
+
+- `hook run` no longer claims a `SessionStart` hook's output reaches the model; OpenHands only logs it (#1853).
+
+### Site
+
+- Docs rewritten in plain words and trimmed, with a new shared memory guide.
 
 ## v0.80.0 - 2026-10-06
 
