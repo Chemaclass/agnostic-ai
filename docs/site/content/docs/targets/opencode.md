@@ -71,6 +71,8 @@ Sync removes a managed leftover at the old `.opencode/AGENTS.md` path, which Ope
 | `outputs.opencode.emit-skills-as-commands` | `false` | |
 | `outputs.opencode.rules-file` | unset | writes legacy concatenated rules and skips the pointer-body write |
 
+With `builtins: [memory]`, sync adds both [shared memory](@/docs/memory.md) indexes to `instructions` and keeps your own entries. Dropping the built-in removes only those two.
+
 ## Import
 
 `agnostic-ai import opencode` reads:

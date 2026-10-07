@@ -193,6 +193,7 @@ package kilo
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
@@ -303,7 +304,7 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err := emitHooks(sess, b.Hooks, hooksDir, dryRun); err != nil {
 		return err
 	}
-	return emitKiloJSONC(sess, b, rulesDir, skillsDir, emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
+	return emitKiloJSONC(sess, b, rulesDir, skillsDir, emit.MemoryIndexPaths(cfg), emit.OutputMCPFile(cfg, target, defaultMCPFile), dryRun)
 }
 
 // EmitAgents writes one `<dir>/<name>.md` per agent spec. A spec's
@@ -405,14 +406,27 @@ func hasNativePermission(e spec.Entry) bool {
 // `skills.urls` survives alongside the managed `skills.paths`. Each key
 // is set only when its source contributes, and no file is written when
 // every source is empty.
-func emitKiloJSONC(sess *emit.Session, b spec.Bundle, rulesDir, skillsDir, path string, dryRun bool) error {
+func emitKiloJSONC(sess *emit.Session, b spec.Bundle, rulesDir, skillsDir string, memory []string, path string, dryRun bool) error {
 	keys := map[string]any{}
-	carriedInstructions := false
+	carriedInstructions, memoryOnly := false, false
+	var addedMemory []string
 	if instructions := ruleInstructions(b.Rules, rulesDir); len(instructions) > 0 {
-		keys["instructions"] = instructions
-	} else if kept, stale := withoutInlinedRules(sess.ExistingStrings(path, "instructions", dryRun), sess.InlinedRules(), rulesDir); stale {
+		keys["instructions"] = append(instructions, memory...)
+	} else if kept, stale := withoutInlinedRules(sess.ExistingStrings(path, "instructions", dryRun), sess.InlinedRules(), rulesDir); stale && len(memory) == 0 {
 		keys["instructions"] = kept
 		carriedInstructions = true
+	} else if len(memory) > 0 {
+		// The rules reach Kilo through AGENTS.md, so the user's entries
+		// ride along and sync claims only the indexes it adds.
+		list := kept
+		for _, index := range memory {
+			if !slices.Contains(list, index) {
+				list = append(list, index)
+				addedMemory = append(addedMemory, index)
+			}
+		}
+		keys["instructions"] = list
+		memoryOnly = true
 	}
 	if servers := buildMCPMap(b.MCPs); len(servers) > 0 {
 		keys["mcp"] = servers
@@ -445,6 +459,8 @@ func emitKiloJSONC(sess *emit.Session, b spec.Bundle, rulesDir, skillsDir, path 
 	// paths ride along beside the one sync adds.
 	if carriedInstructions {
 		keys["instructions"] = emit.CarriedJSONValue(keys["instructions"])
+	} else if memoryOnly {
+		keys["instructions"] = emit.ClaimedJSONItems(keys["instructions"], addedMemory)
 	}
 	if skills, ok := keys["skills"].(map[string]any); ok && len(paths) > 0 {
 		skills["paths"] = emit.ClaimedJSONItems(skills["paths"], addedPaths)

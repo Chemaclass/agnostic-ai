@@ -90,6 +90,8 @@ This adapter never writes `.kilo/kilo.jsonc`. A hand-written one merges over the
 | `outputs.kilo.mcp-file` | `kilo.jsonc` | |
 | `outputs.kilo.ignore-file` | `.kilocodeignore` | |
 
+With `builtins: [memory]`, sync adds both [shared memory](@/docs/memory.md) indexes to `instructions` and keeps your own entries. Dropping the built-in removes only those two.
+
 ## Import
 
 `agnostic-ai import kilo` reads `.kilocodeignore` and two fields from the root `kilo.jsonc`: the default `model` (into `settings/kilo.yaml`) and portable entries in the `permission` map (into `settings/permissions-kilo.yaml`). Keys with no portable spelling (`external_directory`, `lsp`, `doom_loop`, namespaced MCP keys) stay in the file.

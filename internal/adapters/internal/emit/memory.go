@@ -2,7 +2,10 @@ package emit
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
+
+	"github.com/chemaclass/agnostic-ai/internal/config"
 )
 
 // ProjectMemoryIndexPath is the project-relative index of the shared
@@ -13,6 +16,19 @@ const ProjectMemoryIndexPath = ".agnostic-ai/memory/MEMORY.md"
 // PersonalMemoryIndexPath is the index of the personal store, under the
 // git-ignored project-user layer.
 const PersonalMemoryIndexPath = ".agnostic-ai/local/memory/MEMORY.md"
+
+// MemoryBuiltin names the built-in that owns the shared memory store.
+const MemoryBuiltin = "memory"
+
+// MemoryIndexPaths returns the memory indexes a target that lists its
+// context files loads, personal first, or nil when the memory built-in
+// is off.
+func MemoryIndexPaths(cfg *config.Config) []string {
+	if cfg == nil || !slices.Contains(cfg.Builtins, MemoryBuiltin) {
+		return nil
+	}
+	return []string{PersonalMemoryIndexPath, ProjectMemoryIndexPath}
+}
 
 // Sentinel markers delimiting the memory import block inside an
 // entry-point file. Import strips the block (StripGeneratedAppendices)
