@@ -41,11 +41,22 @@ func TestMigrate_EveryMigrationKeepsSyncedOutputAndIsIdempotent(t *testing.T) {
 			migrationFixture(t, m.ID)
 			silence(t)
 			captureLogOut(t)
-			mustSync(t)
+			// Sync refuses an unmarked MCP literal (LINT035), so that old
+			// form has no output to keep; migrate is how it syncs again.
+			if m.ID == secretsMCPLiteralsMigration.ID {
+				if _, err := runCLI(t, "sync"); err == nil {
+					t.Fatal("sync must refuse the unmarked literals before migrate")
+				}
+			} else {
+				mustSync(t)
+			}
 
 			out, err := runCLI(t, "migrate", "--only", m.Group)
 			if err != nil || !strings.Contains(out, m.ID+": ") {
 				t.Fatalf("migrate: %v\n%s", err, out)
+			}
+			if m.ID == secretsMCPLiteralsMigration.ID {
+				mustSync(t)
 			}
 			if out, err := runCLI(t, "sync", "--check", "--gitignore=off"); err != nil {
 				t.Errorf("sync --check after migrate: %v\n%s", err, out)

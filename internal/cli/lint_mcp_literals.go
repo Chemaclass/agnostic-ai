@@ -49,18 +49,16 @@ func mcpUnmarkedLiterals(e spec.Entry) []mcpUnmarked {
 	return out
 }
 
-// lintMCPLiterals flags each MCP `env` and `headers` value that is
-// neither a reference nor marked `!literal` (LINT035, warn). The
-// finding names the server, field, and key, never the value, since lint
-// output lands in CI logs.
-func lintMCPLiterals(mcps []spec.Entry) []lintFinding {
-	var out []lintFinding
+// mcpLiteralIssues reports each MCP `env` and `headers` value that is
+// neither a reference nor marked `!literal`. The message names the
+// server, field, and key, never the value, since it lands in CI logs.
+func mcpLiteralIssues(mcps []spec.Entry) []validationIssue {
+	var out []validationIssue
 	for _, e := range mcps {
 		for _, l := range mcpUnmarkedLiterals(e) {
-			out = append(out, lintFinding{
-				Code:     "LINT035",
-				Severity: lintWarn,
-				Path:     e.Path,
+			out = append(out, validationIssue{
+				Path:  e.Path,
+				Field: l.field,
 				Message: fmt.Sprintf("MCP server %q: %s %s is a literal value; write a ${NAME} reference, or mark a plain setting `!literal`. `agnostic-ai migrate --only secrets` does both",
 					e.Name, l.field, l.key),
 			})
@@ -69,16 +67,13 @@ func lintMCPLiterals(mcps []spec.Entry) []lintFinding {
 	return out
 }
 
-// countMCPLiterals is the number of unmarked literals in the MCP specs
-// among entries.
-func countMCPLiterals(entries []spec.Entry) int {
-	n := 0
-	for _, e := range entries {
-		if e.Kind == spec.KindMCP {
-			n += len(mcpUnmarkedLiterals(e))
-		}
+// lintMCPLiterals reports mcpLiteralIssues as LINT035 errors.
+func lintMCPLiterals(mcps []spec.Entry) []lintFinding {
+	var out []lintFinding
+	for _, issue := range mcpLiteralIssues(mcps) {
+		out = append(out, lintFinding{Code: "LINT035", Severity: lintError, Path: issue.Path, Message: issue.Message})
 	}
-	return n
+	return out
 }
 
 // mcpCredentialSetting reports whether import's detector reads an `env`

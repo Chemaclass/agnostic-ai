@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -29,8 +30,8 @@ func TestLintMCPLiterals_NamesServerFieldAndKeyNeverTheValue(t *testing.T) {
 	}
 	for i, want := range []string{`"api": env API_KEY`, `"api": headers X-Tenant`} {
 		f := findings[i]
-		if f.Code != "LINT035" || f.Severity != lintWarn || f.Path != "mcps/api.yaml" || !strings.Contains(f.Message, want) {
-			t.Errorf("finding %d = %+v, want a LINT035 warning naming %s", i, f, want)
+		if f.Code != "LINT035" || f.Severity != lintError || f.Path != "mcps/api.yaml" || !strings.Contains(f.Message, want) {
+			t.Errorf("finding %d = %+v, want a LINT035 error naming %s", i, f, want)
 		}
 		if strings.Contains(f.Message, "sk-live-abc") || strings.Contains(f.Message, "acme-corp") {
 			t.Errorf("finding %d quotes the value: %s", i, f.Message)
@@ -70,82 +71,74 @@ func TestLintMCPLiterals_TextAroundAReferenceIsALiteral(t *testing.T) {
 	}
 }
 
-// The issue's first scenario, in phase 1: lint warns and fails under
-// --strict, and sync still writes the value but says so, all without
-// printing it.
-func TestLintAndSync_HandWrittenLiteralWarnsWithoutTheValue(t *testing.T) {
+// The issue's first scenario: lint and sync both fail, naming the
+// server and key without printing the value, and sync writes nothing.
+func TestLintAndSync_HandWrittenLiteralFailsWithoutTheValue(t *testing.T) {
 	dir := newProject(t)
 	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
 	mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "api.yaml"), "name: api\ncommand: srv\nenv: {API_KEY: sk-live-abc}\n")
 
 	out, err := runCLI(t, "lint")
-	if err != nil || !strings.Contains(out, "LINT035 [warn] "+filepath.Join(".agnostic-ai", "mcps", "api.yaml")+`: MCP server "api": env API_KEY is a literal value`) {
-		t.Errorf("lint: %v\n%s", err, out)
-	}
-	if out, err := runCLI(t, "lint", "--strict"); err == nil {
-		t.Errorf("lint --strict must fail on LINT035:\n%s", out)
+	if err == nil || !strings.Contains(out, "LINT035 [error] "+filepath.Join(".agnostic-ai", "mcps", "api.yaml")+`: MCP server "api": env API_KEY is a literal value`) {
+		t.Errorf("lint must fail on LINT035: %v\n%s", err, out)
 	}
 
-	log := captureLogOut(t)
-	mustSync(t)
-	if !strings.Contains(log.String(), "1 MCP env or headers value is neither a ${NAME} reference nor marked !literal (LINT035)") {
-		t.Errorf("sync must say why the value is a problem:\n%s", log)
+	syncOut, syncErr := runCLI(t, "sync")
+	if syncErr == nil || !strings.Contains(syncErr.Error(), `MCP server "api": env API_KEY is a literal value`) {
+		t.Errorf("sync must refuse the spec with the lint message: %v\n%s", syncErr, syncOut)
 	}
-	for _, text := range []string{out, log.String()} {
+	for _, text := range []string{out, syncOut, fmt.Sprint(syncErr)} {
 		if strings.Contains(text, "sk-live-abc") {
 			t.Errorf("output quotes the value:\n%s", text)
 		}
 	}
-	got, err := os.ReadFile(filepath.Join(dir, ".mcp.json"))
-	if err != nil || !strings.Contains(string(got), `"API_KEY": "sk-live-abc"`) {
-		t.Errorf("phase 1 sync writes the literal as before: %v\n%s", err, got)
+	if _, err := os.Stat(filepath.Join(dir, ".mcp.json")); !os.IsNotExist(err) {
+		t.Errorf("sync must write nothing: %v", err)
 	}
 }
 
-// `!literal production` syncs exactly as a plain `production` did, on
-// every target that writes MCP servers.
+// `!literal production` syncs as the bare value on every target that
+// writes MCP servers, where the unmarked value no longer syncs.
 func TestSync_LiteralTagWritesTheBareValueOnEveryTarget(t *testing.T) {
 	var targets []string
 	for target := range targetsSupportingKind[spec.KindMCP] {
 		targets = append(targets, target)
 	}
-	config := "version: 1\ntargets: [" + strings.Join(targets, ", ") + "]\n"
-	outputs := func(env string) map[string]string {
-		t.Helper()
-		dir := testutil.TempCwd(t)
-		silence(t)
-		captureLogOut(t)
-		mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), config)
-		mustWriteFile(t, filepath.Join(dir, ".agnostic-ai", "mcps", "app.yaml"), "name: app\ncommand: srv\nenv:\n  NODE_ENV: "+env+"\n")
-		mustSync(t)
-		files := map[string]string{}
-		err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-			if err != nil || d.IsDir() || strings.Contains(path, ".agnostic-ai") {
-				return err
-			}
-			data, err := os.ReadFile(path)
-			rel, _ := filepath.Rel(dir, path)
-			files[rel] = string(data)
+	dir := testutil.TempCwd(t)
+	silence(t)
+	captureLogOut(t)
+	mustWriteFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: ["+strings.Join(targets, ", ")+"]\n")
+	mcp := filepath.Join(dir, ".agnostic-ai", "mcps", "app.yaml")
+	mustWriteFile(t, mcp, "name: app\ncommand: srv\nenv:\n  NODE_ENV: production\n")
+	if _, err := runCLI(t, "sync"); err == nil {
+		t.Fatal("sync must refuse the unmarked value")
+	}
+	mustWriteFile(t, mcp, "name: app\ncommand: srv\nenv:\n  NODE_ENV: !literal production\n")
+	mustSync(t)
+	written := 0
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || strings.Contains(path, ".agnostic-ai") {
 			return err
-		})
-		if err != nil {
-			t.Fatal(err)
 		}
-		return files
-	}
-	plain, marked := outputs("production"), outputs("!literal production")
-	if len(plain) == 0 || len(plain) != len(marked) {
-		t.Fatalf("outputs differ in files: %d plain, %d marked", len(plain), len(marked))
-	}
-	for path, want := range plain {
-		if marked[path] != want {
-			t.Errorf("%s differs:\nplain:\n%s\nmarked:\n%s", path, want, marked[path])
-		}
-		if strings.Contains(marked[path], "!literal") {
+		data, err := os.ReadFile(path)
+		if strings.Contains(string(data), "!literal") {
 			t.Errorf("%s keeps the YAML-only tag", path)
 		}
+		if strings.Contains(string(data), "NODE_ENV") {
+			written++
+			if !strings.Contains(string(data), "production") {
+				t.Errorf("%s lost the value:\n%s", path, data)
+			}
+		}
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
-	if !strings.Contains(marked[".mcp.json"], `"NODE_ENV": "production"`) {
-		t.Errorf(".mcp.json = %s, want the bare value", marked[".mcp.json"])
+	if written == 0 {
+		t.Fatal("no target wrote the server")
+	}
+	if got, _ := os.ReadFile(filepath.Join(dir, ".mcp.json")); !strings.Contains(string(got), `"NODE_ENV": "production"`) {
+		t.Errorf(".mcp.json = %s, want the bare value", got)
 	}
 }
