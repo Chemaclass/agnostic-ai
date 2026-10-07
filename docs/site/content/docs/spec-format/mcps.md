@@ -80,12 +80,7 @@ env:
 
 `!literal` is for YAML only. Sync writes `NODE_ENV: production` to every tool, the same output a plain `production` gave. An editor with the YAML language server reports an unknown tag until you add `!literal scalar` to its `yaml.customTags` setting.
 
-`agnostic-ai lint` warns on any other value (LINT035). The warning names the server, the field, and the key, never the value. `sync` prints how many there are. A value with text around a reference, such as `postgres://u:pw@${HOST}/db`, counts, since that text may be the secret. Empty values, numbers, booleans, `x-<target>` blocks, `url`, and `args` are not checked.
-
-The rule comes in two phases:
-
-1. Now, LINT035 is a warning, and sync writes the value as before. `lint --strict` fails on it.
-2. A later release makes it an error, and `lint` and `sync` fail on it. The CHANGELOG announces the change one release ahead.
+`agnostic-ai lint` fails on any other value (LINT035), and `sync` refuses to write it unless the spec comes from a [pack](@/docs/packs.md). The message names the server, the field, and the key, never the value. A value with text around a reference, such as `postgres://u:pw@${HOST}/db`, counts, since that text may be the secret. Empty values, numbers, booleans, `x-<target>` blocks, `url`, and `args` are not checked.
 
 [`agnostic-ai migrate --only secrets`](@/docs/cli-reference/maintain.md#migrate) rewrites existing specs. A value that import would treat as a [credential](#what-import-writes) becomes a reference, such as `GITHUB_TOKEN: ${GITHUB_TOKEN}`, named the way import names it. The command lists each variable to set, never the value. Sync then writes the reference instead of the value. Every other value gets `!literal`, so sync writes the same files. The migration leaves two cases to you: a key with a [credential name](#credential-names) whose value does not look like a credential, such as `API_KEY: sk-live-abc`, and a credential around a reference.
 

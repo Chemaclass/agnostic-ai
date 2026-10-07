@@ -8,6 +8,7 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- **Breaking:** `lint` and `sync` fail on an MCP `env` or `headers` literal not marked `!literal`; run `agnostic-ai migrate --only secrets` (#1794).
 - Sync keeps hand-written hook entries on Claude Code, Codex, Cursor, Gemini CLI, Qoder, and Factory; adding a hook no longer deletes them (#1858).
 - Opt-in `memory-hook` built-in loads the memory index at session start on Codex, Copilot, Cursor, Gemini CLI, Qoder, and Factory (#1850, #1851).
 - Opt-in `memory` built-in keeps one project memory in `.agnostic-ai/memory/` that every tool reads and writes; Claude Code imports its index (#1844).
