@@ -12,9 +12,7 @@ group = "Reference"
 
 `agents/` defines subagents: specialists the main agent hands a task to. Each has its own instructions, tools, and model. Examples: a reviewer that only reads, an architect on the strongest model, a test writer on a cheaper one.
 
-Why use a subagent instead of more instructions in the main session:
-
-- **Clean context.** A subagent works in its own context and hands back a result, so its exploration stays out of the main conversation.
+- **Clean context.** A subagent works in its own context and hands back a result.
 - **Least access.** `can`, `readonly`, and `mcpServers` limit what it may touch.
 - **The right model per role.** `model` and `effort` set cost and depth per agent, and per tool.
 - **One definition.** Every tool that supports agents gets its own file from the same spec. The rest get a coverage note.
@@ -34,9 +32,9 @@ model: sonnet
 You are a code reviewer. Report concise findings with `file:line` references.
 ```
 
-Write `description` for the main agent. It reads it to decide when to hand off a task, so say what the agent does and when to use it.
+Write `description` for the main agent: what the agent does and when to use it.
 
-This read-only auditor uses a stronger model on Claude Code, another model everywhere else, and one MCP server:
+This read-only auditor uses a stronger model on Claude Code, another everywhere else, and one MCP server:
 
 ```markdown
 ---
@@ -69,7 +67,7 @@ List each finding with its `file:line`, the attack it enables, and the smallest 
 
 Any other frontmatter field is written as given.
 
-`memory` gives the agent a directory that lasts across sessions. Only [Claude Code](@/docs/targets/claude.md#agent-memory) is confirmed to use it. [Qoder](@/docs/targets/qoder.md#subagent-memory) gets the key, unconfirmed. Junie gets it as written. Every other tool drops it.
+`memory` gives the agent a directory that lasts across sessions. [Claude Code](@/docs/targets/claude.md#agent-memory) uses it. [Qoder](@/docs/targets/qoder.md#subagent-memory) gets the key, unconfirmed. Junie gets it as written. Every other tool drops it.
 
 ### `readonly` by target {#readonly-by-target}
 
@@ -104,24 +102,24 @@ can: [read(src/**), edit(src/**), shell(go test *), mcp:github]
 | `mcp:<server>/<tool>` | Use one MCP tool | `mcp__<server>__<tool>` |
 
 - Each capability becomes the tool's own name for it. `delete` raises a coverage note on tools with no delete tool.
-- Claude Code names still work as aliases, with no plan to remove them. A list can mix both: `can: [read, Grep]`.
+- Claude Code names still work as aliases. A list can mix both: `can: [read, Grep]`.
 - The names match the hook [`match:` tool kinds](@/docs/spec-format/hooks.md#portable-events).
-- A tool that grants more than you asked for prints a note naming the extra access. On Kiro, `edit` also allows `delete_file`. `on-unsupported: error` fails on this, for capabilities and Claude Code aliases alike.
-- `validate`, `lint` (LINT036), and `sync` stop on an unknown capability, on `can` beside `tools`, and on `can` under `x-<target>`. A typo never gives an agent every tool.
+- A tool that grants more than you asked for prints a note naming the extra access. On Kiro, `edit` also allows `delete_file`. `on-unsupported: error` fails on this.
+- `validate`, `lint` (LINT036), and `sync` stop on an unknown capability, on `can` beside `tools`, and on `can` under `x-<target>`.
 - A capability is only as strong as the tool's own permission system. agnostic-ai adds no sandbox.
 
-`agnostic-ai migrate --only capabilities` rewrites `tools` as `can`. Each name that has a capability of its own becomes that capability. An adjacent `WebFetch, WebSearch` pair becomes `web`. The rest stay as aliases, and sync writes the same files. `import` writes capabilities when each tool name matches one capability. `lint --suggest-capabilities` suggests neutral names for aliases (LINT037). These suggestions are off by default.
+`agnostic-ai migrate --only capabilities` rewrites `tools` as `can`. Names with no capability of their own stay as aliases. `import` writes capabilities when each tool name matches one. `lint --suggest-capabilities` suggests neutral names for aliases (LINT037), off by default.
 
 ## Per-target `model` and `effort` {#per-target-model-and-effort}
 
-`model:` and `effort:` each take a single value or a map keyed by target name, with an optional `default`. The first match in this list wins:
+`model:` and `effort:` each take a single value or a map keyed by target name, with an optional `default`. The first match wins:
 
 1. `x-<target>.<key>`
 2. `<key>.<target>`
 3. `<key>.default`
 4. The key is not written and the tool uses its own default.
 
-`x-<target>.<key>: null` deletes the key. A value under a target key that is not a single value falls back to `default`.
+`x-<target>.<key>: null` deletes the key. A target value that is not a single value falls back to `default`.
 
 | Want | Write |
 |------|-------|
@@ -158,7 +156,7 @@ Result:
 - Factory gets `gpt-6.1-sol` and no `reasoningEffort`, because `max` is not one of its values (coverage note).
 - Trae drops both, with notes.
 
-**`effort` values by target.** Only the listed tools were checked. Without `effort`, the agent uses the session's level.
+**`effort` values by target.** Without `effort`, the agent uses the session's level. The by-target tables on this page list only the tools that were checked.
 
 | Target | Values | How it lands |
 |--------|--------|--------------|
@@ -171,30 +169,25 @@ Result:
 | [Copilot](@/docs/targets/copilot.md) | none | Coverage note. `x-copilot.effort` still passes through |
 | Every other target | none | Coverage note |
 
-Cursor takes effort in the `model` string, so set it through the `model` map. Factory ignores `reasoningEffort` when `model` is `inherit`.
+Factory ignores `reasoningEffort` when `model` is `inherit`.
 
 **Claude model names on other targets.** A shared `model` (a single value or `default`) set to a Claude model name raises a coverage note on a tool that cannot load it. The note names `model: {claude: <name>}`. Sync leaves the value out, so that tool uses its own default.
 
-- A map keeps its other entries.
 - `on-unsupported: error` fails the sync instead.
-- A Claude name in a later settings spec no longer hides the model from an earlier one.
 - A value under `model.<target>` or `x-<target>.model` is written as given.
-- When the name comes from a tier's `default`, the note names the tier to fix.
-- `import claude` writes these names as `model: {claude: <name>}`.
-- `import codex` adds a Codex agent model to an existing spec as `model.codex`.
+- A Claude name in a tier's `default` makes the note name the tier to fix.
+- `import claude` writes these names as `model: {claude: <name>}`. `import codex` adds a Codex agent model as `model.codex`.
 
-Claude Code's [aliases](https://code.claude.com/docs/en/model-config) are `sonnet`, `opus`, `haiku`, `fable`, `best`, `opusplan`, `sonnet[1m]`, and `opus[1m]`. The model value `default` resets Claude's model instead of naming one, so it raises no note.
+Claude Code's [aliases](https://code.claude.com/docs/en/model-config) are `sonnet`, `opus`, `haiku`, `fable`, `best`, `opusplan`, `sonnet[1m]`, and `opus[1m]`. The value `default` resets Claude's model instead of naming one, so it raises no note.
 
 | Target | Claude names that raise the note |
 |--------|----------------------------------|
 | [Codex](@/docs/targets/codex.md), [Gemini](@/docs/targets/gemini.md), [OpenCode](@/docs/targets/opencode.md), [Kilo Code](@/docs/targets/kilo.md) | The aliases, `inherit`, and `claude-*` ids |
 | [Cursor](@/docs/targets/cursor.md), [Factory](@/docs/targets/factory.md), [Kiro](@/docs/targets/kiro.md) | The aliases |
 
-Only the listed tools were checked.
-
 ## Model tiers {#model-tiers}
 
-Model ids belong to one vendor, so the same per-target map repeats in every agent. Name the roles once under [`models`](@/docs/configuration.md#models) in `agnostic-ai.yaml`, then write the tier name in each agent:
+Name roles once under [`models`](@/docs/configuration.md#models) in `agnostic-ai.yaml` instead of repeating a per-target map in every agent, then write the tier name in each agent:
 
 ```yaml
 # agnostic-ai.yaml
@@ -210,9 +203,9 @@ model: strong
 ---
 ```
 
-Claude gets `opus` with `xhigh`. Codex gets `gpt-6.1-sol` with `high`. Every other target uses its own default. Skills, commands, and settings specs name tiers the same way.
+Claude gets `opus` with `xhigh`, Codex gets `gpt-6.1-sol` with `high`, and every other target uses its own default. Skills, commands, and settings specs name tiers the same way.
 
-For `model`, the first match in this list wins:
+For `model`, the first match wins:
 
 1. `x-<target>.model`
 2. `model.<target>` in the spec
@@ -222,10 +215,8 @@ For `model`, the first match in this list wins:
 
 To override one target, write the tier as the map's `default`: `model: {codex: gpt-6-luna, default: strong}`.
 
-- The tier's `effort` applies only when the spec sets no `effort`. A spec `effort` replaces it.
-- The tier's `effort` is also skipped for a target whose model the spec sets itself, since that effort was chosen for the tier's model.
-- A value under `model.<target>` or `x-<target>.model` is never a tier name.
-- A `model.<target>` value can be a [vendor alias](@/docs/configuration.md#models) such as `codex: sol`. `x-<target>.model` is written as given.
+- The tier's `effort` applies only when the spec sets no `effort`, and is skipped for a target whose model the spec sets itself.
+- A value under `model.<target>` or `x-<target>.model` is never a tier name. `model.<target>` can be a [vendor alias](@/docs/configuration.md#models) such as `codex: sol`. `x-<target>.model` is written as given.
 
 `explain agents/architect.md` lists the model and effort each configured tool gets.
 
@@ -236,12 +227,12 @@ To override one target, write the tier as the map's `default`: `model: {codex: g
 - a tier named like a Claude model (LINT025)
 - a Claude model name in a shared `model` or a tier `default` that reaches another vendor's target (LINT026)
 
-`import claude` suggests a tier when two or more agents set the same Claude model. `import claude` and `import codex` keep `model: strong` when the imported model and effort match what the tier gives that tool. A sync followed by an import then does not write a fixed model.
+`import claude` suggests a tier when two or more agents set the same Claude model. `import claude` and `import codex` keep `model: strong` when the imported model and effort match what the tier gives that tool.
 {% </details> %}
 
 ## Agents as skills {#agents-as-skills}
 
-Amp, Crush, Warp, and Zed have no subagents, so sync drops agents there by default. Set `outputs.<target>.agents: skill` to write each agent as a skill instead. A skill loads only when the model needs it, so the agent costs no context until then.
+Amp, Crush, Warp, and Zed have no subagents, so sync drops agents there by default. Set `outputs.<target>.agents: skill` to write each agent as a skill instead. A skill loads only when the model needs it.
 
 ```yaml
 outputs:
@@ -250,18 +241,16 @@ outputs:
 ```
 
 - The skill is `<skills-dir>/<agent>/SKILL.md`, with the agent's `name` and `description`.
-- Its body starts with a short note: the tool has no subagents, so the model plays the role in the main session, follows only these instructions, and says in one line that it did. Nothing enforces that separation.
-- Fields a skill cannot carry, such as `tools` and `model`, are dropped with a coverage note.
-- In skills, agents, and commands, an [agent reference](@/docs/spec-format/_index.md#agent-and-skill-references) becomes that tool's skill phrase. A rule in a shared entry-point file such as `AGENTS.md` keeps the neutral phrase.
+- Its body starts with a short note: the tool has no subagents, so the model plays the role in the main session and says so. Nothing enforces that separation.
+- Fields a skill cannot carry, such as `tools` and `model`, are dropped with a note.
+- An [agent reference](@/docs/spec-format/_index.md#agent-and-skill-references) in skills, agents, and commands becomes that tool's skill phrase. A rule in a shared entry-point file such as `AGENTS.md` keeps the neutral phrase.
 - An agent and a skill with the same name would share a folder, so `validate` fails on them.
-- These four tools write `.agents/skills/`. Codex, Copilot, Gemini, Cline, Cursor, OpenCode, and Junie read it too, and several other tools with subagents write there. When one of them is enabled, sync keeps the agents out of that directory and names the tool, so it does not get the role twice. Set `outputs.<target>.skills-dir` to a separate directory to use this option beside them.
-- The key cannot be combined with `rules-file` or, on Warp, `workflows-dir`, which already carry the agents.
-
-Other targets reject the key.
+- These four tools write `.agents/skills/`, which Codex, Copilot, Gemini, Cline, Cursor, OpenCode, and Junie read too, and several other tools with subagents write there. When one of them is enabled, sync keeps the agents out of that directory and names the tool. Set `outputs.<target>.skills-dir` to a separate directory to use this option beside them.
+- The key cannot be combined with `rules-file` or, on Warp, `workflows-dir`. Other targets reject the key.
 
 ## `can` and `tools` support by target {#tools-support-by-target}
 
-Only the listed tools were checked. Sync reads `can` as the `tools` it stands for. A tool that cannot honor the list prints a coverage note at sync time, so `can: [read]` never becomes an unrestricted agent without warning.
+Sync reads `can` as the `tools` it stands for. A tool that cannot honor the list prints a coverage note, so `can: [read]` never becomes an unrestricted agent without warning.
 
 | Target | Behavior |
 |--------|----------|
@@ -270,11 +259,11 @@ Only the listed tools were checked. Sync reads `can` as the `tools` it stands fo
 | [Windsurf](@/docs/targets/windsurf.md), [Kiro](@/docs/targets/kiro.md), [Factory](@/docs/targets/factory.md), [Gemini](@/docs/targets/gemini.md), [Kilo Code](@/docs/targets/kilo.md) | Changed to the tool's own names or a permission map |
 | [Antigravity](@/docs/targets/antigravity.md), [OpenHands](@/docs/targets/openhands.md), [Goose](@/docs/targets/goose.md), [Codex](@/docs/targets/codex.md), [Cursor](@/docs/targets/cursor.md), [Augment](@/docs/targets/augment.md) | Dropped with a note |
 
-The change can widen access: on Kiro, `edit` also permits `delete_file`. Sync prints a note naming the extra access, and `on-unsupported: error` fails. `explain agents/<name>.md` lists each configured tool's own names and any widening. Most tools accept their own names through `x-<target>.tools`, which skips the change.
+The change can widen access: on Kiro, `edit` also permits `delete_file`. Sync prints a note naming the extra access, and `on-unsupported: error` fails. `explain agents/<name>.md` lists each tool's own names and any widening. Most tools accept their own names through `x-<target>.tools`, which skips the change.
 
 ## `mcpServers` support by target {#mcpservers-support-by-target}
 
-Only the listed tools were checked. A top-level `mcpServers` list limits which MCP servers one agent may reach. Without it, the agent gets the session's full set.
+A top-level `mcpServers` list limits which MCP servers one agent may reach. Without it, the agent gets the session's full set.
 
 | Target | Behavior |
 |--------|----------|
@@ -290,7 +279,7 @@ Every other tool drops the list with a coverage note. On the three inline tools,
 
 ## `permissionMode` and agent `hooks` support by target {#agent-policy-support-by-target}
 
-Only the listed tools were checked. `permissionMode` sets how much one agent may do without approval. `hooks` sets lifecycle hooks for that agent only. Without either, the agent uses the main session's setting.
+`permissionMode` sets how much one agent may do without approval. `hooks` sets lifecycle hooks for that agent only. Without either, the agent uses the main session's setting.
 
 | Target | `permissionMode` | Agent `hooks` |
 |--------|------------------|---------------|
@@ -302,7 +291,7 @@ On Qoder, `bypassPermissions` becomes `acceptEdits` when security policy disable
 
 ## `color` support by target
 
-Only the listed tools were checked. `color` is written as given and not checked. An unrecognized value only affects looks: the agent still runs.
+`color` is written as given and not checked. An unrecognized value only affects looks.
 
 | Target | Values |
 |--------|--------|
@@ -311,5 +300,5 @@ Only the listed tools were checked. `color` is written as given and not checked.
 | [Qoder](@/docs/targets/qoder.md) | One of eight names |
 | [OpenHands](@/docs/targets/openhands.md) | Dropped with a note. Set `x-openhands.color` to a [Rich color name](https://rich.readthedocs.io/en/stable/appendix/colors.html) |
 
-`color: blue` is valid on Augment and Qoder, but it is neither hex nor a Kilo Code theme token. OpenHands shares its `.agents/agents/` folder with [Goose](@/docs/targets/goose.md), whose frontmatter has no `color`, so a portable `color` prints a coverage note there.
+`color: blue` is valid on Augment and Qoder, but it is neither hex nor a Kilo Code theme token. OpenHands shares its `.agents/agents/` folder with [Goose](@/docs/targets/goose.md), which has no `color`, so a portable `color` prints a coverage note there.
 

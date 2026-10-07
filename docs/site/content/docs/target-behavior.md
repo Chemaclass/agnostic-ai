@@ -13,11 +13,11 @@ These behaviors apply to several tools. For one tool's output files and settings
 
 ## Directory-specific instructions
 
-Rules with `scope` work on 20 tools, through native file conditions or nested instruction files. Five tools skip them because their scope support is unverified. Check the [scope matrix and compatibility rules](@/docs/scoped-context.md#native-support) before combining tools.
+Rules with `scope` work on 20 tools, through native file conditions or nested instruction files. Five tools skip them. See the [scope matrix](@/docs/scoped-context.md#native-support) before combining tools.
 
 ## Entry-point files
 
-`sync` copies `.agnostic-ai/AGNOSTIC_AI.md` into a root entry-point file for each enabled tool. Edit `AGNOSTIC_AI.md`. Sync creates it once from a short template and never rewrites it. The root entry-point files are generated, so the next sync overwrites any edit made there.
+`sync` copies `.agnostic-ai/AGNOSTIC_AI.md` into a root entry-point file for each enabled tool. Edit `AGNOSTIC_AI.md`; sync creates it once from a short template and never rewrites it. The next sync overwrites any edit to a root entry-point file.
 
 | Entry-point file | Targets |
 |---|---|
@@ -29,26 +29,26 @@ Rules with `scope` work on 20 tools, through native file conditions or nested in
 | `.rules` | [zed](@/docs/targets/zed.md) |
 | `.agents/AGENTS.md` | [antigravity](@/docs/targets/antigravity.md) |
 
-Tools that share a path write it once. Cursor and continue have no root entry point. They write only files under their own directory. Tool-specific details, such as Warp's legacy `WARP.md`, Junie's `.junie/AGENTS.md`, and Zed's `.rules`, are on the target pages.
+Tools that share a path write it once. Cursor and continue have no root entry point. The target pages cover tool-specific files such as Warp's legacy `WARP.md`, Junie's `.junie/AGENTS.md`, and Zed's `.rules`.
 
 ### Inlined rules
 
-These tools have no native rules directory: codex, amp, warp, zed, gemini, aider, opencode, crush, jules, goose, openhands, factory, and junie. Sync copies their unscoped rules into the entry-point file, under a `## Rules` heading after the shared instructions. `import` removes that block, so nothing is lost on a round trip. Junie and Zed use `.junie/AGENTS.md` and `.rules`, not the shared path.
+These tools have no native rules directory: codex, amp, warp, zed, gemini, aider, opencode, crush, jules, goose, openhands, factory, and junie. Sync copies their unscoped rules into the entry-point file, under a `## Rules` heading after the shared instructions. `import` removes that block.
 
-Augment (`.augment/rules/`) and Kilo Code (`.kilo/rules/`) have a rules directory but still inline into `AGENTS.md`. OpenHands inlines always-on rules. For OpenHands, a rule with `globs` or `paths`, or one scoped by its folder or frontmatter, goes to `.agents/skills/<name>/SKILL.md` as a path-triggered rule.
+Augment (`.augment/rules/`) and Kilo Code (`.kilo/rules/`) have a rules directory but still inline into `AGENTS.md`. OpenHands inlines always-on rules. Its scoped rules (`globs`, `paths`, a folder, or frontmatter) go to `.agents/skills/<name>/SKILL.md`.
 
-So a rule doesn't load twice, `sync` skips a rule file when its text matches the `## Rules` block of an `AGENTS.md` the tool reads. It keeps files that load only on a path match, and rules whose text differs for that tool (a `::target` fence or a path variable). This applies to Cline, Kiro, Qoder, Kilo Code, and Augment whenever the root `AGENTS.md` has the block: when codex or another inlining tool is enabled, and always for Kilo Code and Augment.
+So a rule doesn't load twice, `sync` skips a rule file when its text matches the `## Rules` block of an `AGENTS.md` the tool reads. It keeps path-triggered rules and rules whose text differs for that tool (a `::target` fence or a path variable). This applies to Cline, Kiro, Qoder, Kilo Code, and Augment whenever the root `AGENTS.md` has the block: when codex or another inlining tool is enabled, and always for Kilo Code and Augment.
 
 {% <details summary="When sync keeps every rule file"> %}
 - Trae reads `AGENTS.md` only after you turn on **Include AGENTS.md in the context** under Settings > Rules.
-- Windsurf (Devin) keeps rule files for legacy Cascade support. [Cascade](https://docs.devin.ai/desktop/cascade/memories#rules) caps each workspace rule file at 12,000 characters and reads `AGENTS.md` through the same Rules system.
+- Windsurf (Devin) keeps rule files for legacy Cascade, which [caps](https://docs.devin.ai/desktop/cascade/memories#rules) each file at 12,000 characters.
 - A tool whose `outputs.<target>.file` moves its entry point off the root `AGENTS.md`.
-- Any tool, when `AGENTS.md` is under `sync.unmanaged`. Sync then stops writing `AGENTS.md`, so codex and every other reader stop getting rule changes there.
+- Any tool, when `AGENTS.md` is under `sync.unmanaged`. Sync stops writing `AGENTS.md` for codex and every other reader too.
 
 If you turn `AGENTS.md` off in the tool itself (Cline's Rules panel, or a Qoder CLI `context.fileName` without it), turn it back on. Rules that skipped their file reach that tool only through `AGENTS.md`.
 {% </details> %}
 
-The next full sync removes a rule file it no longer writes, edited or not, while the file still has the agnostic-ai header. Until then, `sync --check`, `doctor`, and `status` report it as `ledger` drift, and `doctor --fix` removes it.
+The next full sync removes a rule file it no longer writes, edited or not, if it still has the agnostic-ai header. Until then, `sync --check`, `doctor`, and `status` report `ledger` drift; `doctor --fix` removes it.
 
 ### Shared settings files
 
@@ -56,12 +56,10 @@ Some settings files also hold your own keys, such as `.gemini/settings.json`, `.
 
 - In a permission list you share with it, sync tracks only the rules it added.
 - MCP servers merge by name. Servers you add stay. A server whose spec goes away is removed. A spec server with the same name as one of yours replaces it, with a note.
-- Once no spec writes the file, or its tool leaves `targets`, sync and `doctor --fix` remove only the keys and rules they added. The file is deleted only when sync created it and nothing else is left.
+- Once no spec writes the file, or its tool leaves `targets`, sync and `doctor --fix` remove only what they added. The file is deleted only when sync created it and nothing else is left.
 
 {% <details summary="Keys a spec no longer produces"> %}
-While a spec still writes the file, the next sync removes a key it set that no spec produces any more, unless you edited it since. A value you edited stays. Sync reports the file as a kept orphan, and `doctor --fix` asks before it removes the edited value too. A file that no longer parses is kept and reported the same way.
-
-If the ledger comes from a version that did not record these keys, sync keeps a JSON file or Aider config it no longer writes, as a kept orphan.
+While a spec still writes the file, the next sync removes a key it set that no spec produces any more. A value you edited stays: sync reports the file as a kept orphan, and `doctor --fix` asks before removing it. A file that no longer parses is kept and reported the same way.
 {% </details> %}
 
 ### Other entry-point options
@@ -77,25 +75,22 @@ The [spec format guide](@/docs/spec-format/_index.md) defines every portable kin
 - **Skills** are written as native skill folders (`SKILL.md` plus assets). Most tools read `.agents/skills/`; codex, windsurf, amp, zed, warp, antigravity, crush, augment, goose, openhands, factory, and kilo write it by default, so identical folders are written once. The rest read their own folder. [`sync.shared-skills`](@/docs/configuration.md#syncshared-skills) replaces byte-identical folders with one copy plus symlinks. Aider flattens skills to rule files.
 - **Agents** are written as native subagent profiles. Goose and OpenHands write flat files to `.agents/agents/`, Antigravity writes nested files there, and Devin reads that shared folder plus `.devin/agents/`.
 
-  **Syncing `windsurf` with `antigravity`, `goose`, or `openhands` gives Devin two profiles with one name.** Only the `.devin/agents/<name>.md` copy carries translated `allowed-tools`. Devin gives the shared copy every tool. Give the agent spec one `target:`. `sync` names every conflicting file (#863).
-- **Hooks** differ per tool in event names, paths, wrappers, and timeout units. When the event names differ, a matcher can parse but match nothing. Read the target page before sharing a hook. Imported shell-form `$CLAUDE_PROJECT_DIR` paths use the tool's own root variable or a POSIX Git-root lookup. [Project-root paths](@/docs/spec-format/hooks.md#imported-project-root-paths) lists the limits. A shared script reads `AGNOSTIC_AI_TARGET` to learn which tool ran it; see [which target ran a hook](@/docs/spec-format/hooks.md#hook-target).
+  **Syncing `windsurf` with `antigravity`, `goose`, or `openhands` gives Devin two profiles with one name.** Only the `.devin/agents/<name>.md` copy carries translated `allowed-tools`. Devin gives the shared copy every tool. Give the agent spec one `target:`. `sync` names every conflicting file.
+- **Hooks** differ per tool in event names, paths, wrappers, and timeout units. A matcher can parse but match nothing when event names differ, so read the target page before sharing a hook. See [project-root paths](@/docs/spec-format/hooks.md#imported-project-root-paths) for imported `$CLAUDE_PROJECT_DIR` paths and [which target ran a hook](@/docs/spec-format/hooks.md#hook-target) for `AGNOSTIC_AI_TARGET`.
 
-  **Syncing `claude` with another tool can run a hook twice.** Copilot, Cursor, and Trae can read `.claude/settings.json` beside their own hook files. Copilot reads it by default. Cursor's third-party switch is on by default. Trae requires opting in. See the [Cursor](@/docs/targets/cursor.md) and [Trae](@/docs/targets/trae.md) pages.
+  **Syncing `claude` with another tool can run a hook twice.** Copilot, Cursor, and Trae can read `.claude/settings.json` beside their own hook files. Copilot and Cursor (third-party switch) do so by default. Trae requires opting in. See the [Cursor](@/docs/targets/cursor.md) and [Trae](@/docs/targets/trae.md) pages.
 
-  **Cursor may drop a Claude hook's `args`.** Its third-party hooks docs don't list `args`, so an exec-form hook (`command: node`, `args: [guard.js]`) may run as a bare `node`. `sync` notes this when `claude` runs and `cursor` is configured. Copilot's docs don't cover Claude's `args` either. Write a shell-form `command`, or turn off Cursor's third-party hooks.
+  **Cursor may drop a Claude hook's `args`.** An exec-form hook (`command: node`, `args: [guard.js]`) may run as a bare `node`. `sync` notes this when both are configured. Write a shell-form `command`, or turn off Cursor's third-party hooks.
 - **MCP servers** reach every tool with a project-level MCP file. OpenHands reads them only from `~/.openhands/mcp.json`, which `sync --global` writes. Aider, Cline, Jules, and Goose have no MCP support. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
 - **Settings** map portable fields into the tool's native settings. Gemini maps the default model to `model.name`, keeps sibling options, and accepts `x-gemini` keys. [Protected paths](@/docs/spec-format/settings.md#protected-paths) are enforced on Claude Code (permission rules), Codex and Gemini CLI (a generated hook), and the Cursor CLI (deny rules for `decision: deny`). Everywhere else they are advisory.
-- **Commands** are written as native slash-prompt files where supported. Kiro uses `.kiro/prompts/` for CLI V3 slash commands. Codex project prompts need the legacy opt-in `outputs.codex.commands-dir`. Amp registers commands through TypeScript plugins, so it has no file output.
-- **Ignore** specs merge into each supported tool's ignore file. Before it replaces a hand-written file, `sync` checks that every existing pattern survives in order. If it can't prove that, `AAI-103` leaves the file untouched. Import existing patterns first. See [overwrite behavior](@/docs/spec-format/ignore.md#overwrite-behaviour).
+- **Commands** are written as native slash-prompt files where supported. Kiro uses `.kiro/prompts/`. Codex project prompts need the legacy opt-in `outputs.codex.commands-dir`. Amp has no file output.
+- **Ignore** specs merge into each supported tool's ignore file. Before it replaces a hand-written file, `sync` checks that every existing pattern survives in order. If it can't, `AAI-103` leaves the file untouched, so import existing patterns first. See [overwrite behavior](@/docs/spec-format/ignore.md#overwrite-behaviour).
 
 ## Memory and local state
 
-[Claude Code](@/docs/targets/claude.md) (`~/.claude/projects/<project>/memory/`) and [Qoder](@/docs/targets/qoder.md) (`~/.qoder/projects/<project>/memory/`) each keep a memory store on your machine that they write themselves: a `MEMORY.md` index plus one topic file per memory.
+[Claude Code](@/docs/targets/claude.md) (`~/.claude/projects/<project>/memory/`) and [Qoder](@/docs/targets/qoder.md) (`~/.qoder/projects/<project>/memory/`) each keep a memory store on your machine: a `MEMORY.md` index plus one topic file per memory.
 
-With the [`memory` built-in](@/docs/memory.md) on, sync points Claude Code's store at the shared personal store instead: it writes `autoMemoryDirectory` to `.claude/settings.local.json`. Without it, agnostic-ai does not touch either store, for two reasons:
-
-- A guessed path would often be wrong. Claude Code can move its store (`autoMemoryDirectory`, `CLAUDE_CONFIG_DIR`, `CLAUDE_CODE_PROJECT_DIR_NAME`), and Qoder has no such setting.
-- The contents are one person's corrections and session context, not a project convention.
+With the [`memory` built-in](@/docs/memory.md) on, sync points Claude Code's store at the shared personal store by writing `autoMemoryDirectory` to `.claude/settings.local.json`. Without it, agnostic-ai does not touch either store. The contents are one person's corrections and session context, not a project convention.
 
 Put durable team knowledge in a spec:
 
@@ -104,9 +99,9 @@ Put durable team knowledge in a spec:
 - an agent's [`memory: project`](@/docs/targets/claude.md#agent-memory) for knowledge one subagent builds up in a directory Git tracks,
 - the [`memory` built-in](@/docs/memory.md) for facts any tool learns as it works, in one store every tool reads.
 
-The `memory-curator` skill cleans up a store in place. It edits only that tool's own memory, during that tool's own session, and changes nothing until you confirm. `agnostic-ai init --demo` adds it to `.agnostic-ai/skills/`, and the next `sync` writes it to Claude Code and Qoder.
+The `memory-curator` skill cleans up a store in place, in that tool's own session, and changes nothing until you confirm. `agnostic-ai init --demo` adds it to `.agnostic-ai/skills/`, and the next `sync` writes it to Claude Code and Qoder.
 
-`init` refuses to run where `agnostic-ai.yaml` already exists. In that case, run `agnostic-ai new skill memory-curator` and replace the whole generated file, frontmatter included, with [the repository copy](https://github.com/Chemaclass/agnostic-ai/blob/main/.agnostic-ai/skills/memory-curator/SKILL.md). Keep its `targets: [claude, qoder]` line, or the skill reaches every tool.
+`init` refuses to run where `agnostic-ai.yaml` already exists. There, run `agnostic-ai new skill memory-curator` and replace the whole generated file, frontmatter included, with [the repository copy](https://github.com/Chemaclass/agnostic-ai/blob/main/.agnostic-ai/skills/memory-curator/SKILL.md). Keep its `targets: [claude, qoder]` line, or the skill reaches every tool.
 
 ## Selecting targets
 
@@ -162,19 +157,18 @@ A new adapter is about 50 lines plus one registry entry. See [adding adapters](h
 
 - **MCP** reaches the user MCP files of Augment, Claude Code, Codex, Cursor, Copilot, Gemini, OpenHands, and Qoder. See [MCP servers](@/docs/configuration.md#global-mcp-servers).
 - **Settings** reach the user settings of Claude Code, Codex, Copilot, Qoder, Gemini (model only), and Augment (`x-augment` keys only). Claude also maps `permissions.default-mode`; global permission lists are unsupported. Other tools raise a coverage note. See [default model and effort](@/docs/configuration.md#global-default-model-and-effort).
-- **Agents** use the same formats as project agents. Amp, Zed, Warp, and Crush have no global agent output. See [global configuration](@/docs/configuration.md#global-configuration) for setup and migration.
-- **Rules** are inlined into the instructions file, in the same `## Rules` block as the shared body. Augment is the exception. Its docs describe no user-level instructions file for the CLI (`~/.augment/user-guidelines.md` is VS Code only). Its `~/.augment/rules/` entries are always on, which is what a global rule is.
+- **Agents** use the same formats as project agents. Amp, Zed, Warp, and Crush have no global agent output. See [global configuration](@/docs/configuration.md#global-configuration).
+- **Rules** are inlined into the instructions file, in the same `## Rules` block as the shared body. Augment has no user-level instructions file for the CLI, so its `~/.augment/rules/` entries are always on.
 
-Paths marked `~/.config/` follow `XDG_CONFIG_HOME` when set, except Devin agents.
+Paths marked `~/.config/` follow `XDG_CONFIG_HOME` when set. Devin agents use `~/.config/devin/agents/` on Linux and macOS and `%APPDATA%\devin\agents\` on Windows.
 
 ### Notes
 
-- **Discovery**: Copilot's path is for its CLI. OpenHands discovery applies to local conversations. Devin custom profiles are experimental. Trae requires **Settings > Beta > Subagents > Enable Subagents Directory**. Its English docs give `~/.trae-cn/agents/`, with no verified international alternative.
+- **Discovery**: Copilot's path is for its CLI. OpenHands discovery applies to local conversations. Devin custom profiles are experimental. Trae needs **Settings > Beta > Subagents > Enable Subagents Directory**.
 - **Configuration roots**: `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `COPILOT_HOME`, `CLINE_DIR`, `QODER_CONFIG_DIR`, `KIRO_HOME`, and `JUNIE_HOME` replace the matching `~/.<tool>/` folder. `GEMINI_CLI_HOME` is the parent of `.gemini/`. Everything under that folder moves together. Paths outside it, such as `~/.agents/skills/`, stay put. Use absolute paths.
-- **Platform paths**: OpenCode and Kilo agent folders follow `XDG_CONFIG_HOME`. Devin agents use `~/.config/devin/agents/` on Linux and macOS and `%APPDATA%\devin\agents\` on Windows.
 - **Shared paths** are written once: `~/.agents/skills/` (codex, windsurf, amp, zed, warp, goose, openhands), `~/.agents/agents/` (goose, openhands), `~/.agents/AGENTS.md` (cline, warp), `~/.gemini/GEMINI.md` (gemini, antigravity). If two tools would write different content to one path, the run stops before writing and names the path.
-- **Copilot agent effort**: Copilot agent profiles have no effort key. A portable agent `effort` of `low`, `medium`, `high`, or `xhigh` goes to `subagents.agents.<name>.effortLevel` in `~/.copilot/settings.json` instead. Sync owns only those keys and accepts JSONC. An unchanged effort leaves the file byte for byte. A rewrite drops comments, so sync stops when the file has any. Rerun with `--backup` to rewrite it and keep `settings.json.bak`. A hand-set `effortLevel` with a different value stops the run. Other effort values raise a coverage note.
-- **Cursor** does not load the home-level `AGENTS.md`. Global sync installs a `sessionStart` hook and a script under `~/.cursor/hooks/` (POSIX shell on macOS and Linux, PowerShell on Windows) that passes the instructions to Cursor. It needs neither agnostic-ai, Python, nor jq. It adds context and does not enforce policy. Existing `sessionStart` entries stay. Every other instructions path above loads on its own.
+- **Copilot agent effort**: Copilot agent profiles have no effort key. A portable agent `effort` of `low`, `medium`, `high`, or `xhigh` goes to `subagents.agents.<name>.effortLevel` in `~/.copilot/settings.json`. Sync stops when the file has comments, since a rewrite drops them. Rerun with `--backup` to rewrite it and keep `settings.json.bak`. A hand-set `effortLevel` with a different value stops the run. Other effort values raise a coverage note.
+- **Cursor** does not load the home-level `AGENTS.md`. Global sync installs a `sessionStart` hook and a script under `~/.cursor/hooks/` (POSIX shell on macOS and Linux, PowerShell on Windows) that passes the instructions to Cursor. It needs neither agnostic-ai, Python, nor jq, and it adds context without enforcing policy. Existing `sessionStart` entries stay.
 - **OpenCode** reads `~/.claude/CLAUDE.md` only when `~/.config/opencode/AGENTS.md` does not exist. Syncing both tools moves OpenCode onto its own file, so text that lived only in the Claude file stops reaching it.
 - **Devin CLI and VS Code Copilot** read `~/.claude/` by default, so syncing claude plus windsurf or copilot delivers the same instructions through two paths.
 
@@ -187,9 +181,7 @@ Paths marked `~/.config/` follow `XDG_CONFIG_HOME` when set, except Devin agents
 Hooks reach six tools at user level: Claude Code, Codex, Gemini, Qoder, Cursor, and Augment. The other tools have no user-level hook output:
 
 - Factory, Devin CLI, Antigravity, Kiro, Goose, and Crush use hook formats that global sync does not write. Crush supports only `PreToolUse`. Junie's hooks are Early Access.
-- Amp, OpenCode, and Kilo expose hooks only as TypeScript plugins. OpenCode's project folder (`.opencode/plugins/`) is written since #892, Kilo's (`.kilo/plugin/`) since #1105. Their user-level twins are out of scope.
-- Cline names a hook by file name, one executable script per event, written at project level since #889. `~/.cline/hooks` is out of scope.
+- Amp, OpenCode, and Kilo expose hooks only as TypeScript plugins. Only OpenCode (`.opencode/plugins/`) and Kilo (`.kilo/plugin/`) get project-level ones.
+- Cline and Copilot hooks are project-level only.
 
-Copilot also documents `~/.copilot/hooks/`, which agnostic-ai doesn't write at user level yet. Project-level Copilot hooks are supported (#629).
-
-Each adapter writes its tool's native format: separate files where supported, a merged document otherwise. By default, an unsupported feature, such as a hook for a tool without hooks, is skipped with a warning. Change that with `on-unsupported` in [configuration](@/docs/configuration.md).
+An unsupported feature, such as a hook for a tool without hooks, is skipped with a warning by default. Change that with `on-unsupported` in [configuration](@/docs/configuration.md).
