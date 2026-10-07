@@ -518,11 +518,6 @@ func runSyncPass(root string, targets []string, dryRun, backup, keepEdits, untra
 	for _, f := range lintNearMissKeys(own, cfg.Targets) {
 		summaryf("%s %s: %s\n", bang(), filepath.ToSlash(f.Path), f.Message)
 	}
-	// Sync still writes these, until a later release fails on them.
-	if n := countMCPLiterals(own); n > 0 {
-		summaryf("%s %d MCP env or headers %s neither a ${NAME} reference nor marked !literal (LINT035); a later release fails sync on such values. Run `agnostic-ai migrate --only secrets`\n",
-			bang(), n, migrationWord(n, "value is", "values are"))
-	}
 	// Targets read a malformed globs as none, so the rule loads in every
 	// session. A scoped rule already fails its scope check instead.
 	var unscoped []spec.Entry

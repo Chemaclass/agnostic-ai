@@ -83,7 +83,11 @@ It restores backups and leaves other files. `revert --force` also deletes genera
 
 ## Upgrading from older versions
 
-After an upgrade, run `agnostic-ai migrate --dry-run` to see which old spec forms it can rewrite for you, then `agnostic-ai migrate` to apply them. See [migrate](@/docs/cli-reference/maintain.md#migrate). It cannot make the changes below, because they change what sync writes.
+After an upgrade, run `agnostic-ai migrate --dry-run` to see which old spec forms it can rewrite for you, then `agnostic-ai migrate` to apply them. See [migrate](@/docs/cli-reference/maintain.md#migrate). The changes below need more than `migrate`.
+
+### Unmarked MCP literals
+
+**Breaking change:** `lint` and `sync` fail on an MCP `env` or `headers` value that is neither a `${NAME}` reference nor marked `!literal` (LINT035). Run `agnostic-ai migrate --only secrets`, then fix the values it leaves to you. See [secrets and plain settings](@/docs/spec-format/mcps.md#plain-settings).
 
 ### Scope and pattern unions
 
