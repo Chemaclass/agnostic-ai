@@ -8,13 +8,24 @@ Entry style, section order, and what belongs here instead of the issue or the do
 
 ### General
 
+- **Breaking:** `lint` and `sync` fail on an MCP `env` or `headers` literal not marked `!literal`; run `agnostic-ai migrate --only secrets` (#1794).
 - Sync keeps hand-written hook entries on Claude Code, Codex, Cursor, Gemini CLI, Qoder, and Factory; adding a hook no longer deletes them (#1858).
-- Opt-in `memory-hook` built-in loads the memory index at session start on Codex, Copilot, Cursor, Gemini CLI, Qoder, and Factory (#1850, #1851).
+- `memory` built-in loads the memory index at session start on Codex, Copilot, Cursor, Gemini CLI, Qoder, and Factory (#1850, #1851).
 - Opt-in `memory` built-in keeps one project memory in `.agnostic-ai/memory/` that every tool reads and writes; Claude Code imports its index (#1844).
 - The `memory` built-in adds personal memory in `.agnostic-ai/local/memory/`, saved without asking and ignored by Git (#1852).
 - With `memory`, OpenCode and Kilo Code list both memory indexes in `instructions`, so each loads them at session start (#1845).
 - `memory lint`, `memory index`, and `memory list` check, rebuild, and list shared memory; `lint` and `doctor` flag dead links and secrets (#1847).
 - A built-in spec inlined into a shared instructions file names its source as `builtin:<name>` instead of a cache path (#1844).
+
+### By tool
+
+#### Augment
+
+- `hook run` reports `adds_context` for `SessionStart` stdout or `additionalContext`, which Augment injects (#1853).
+
+#### OpenHands
+
+- `hook run` no longer reports `adds_context` on `SessionStart`, which OpenHands only logs (#1853).
 
 ## v0.80.0 - 2026-10-06
 

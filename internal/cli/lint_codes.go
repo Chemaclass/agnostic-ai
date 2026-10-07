@@ -218,9 +218,9 @@ var lintCodes = map[string]lintCode{
 		Fix:      "Use one of the names the finding lists, add the agent or skill, or scope both specs to the same targets.",
 	},
 	"LINT035": {
-		Severity: lintWarn,
+		Severity: lintError,
 		Title:    "MCP env or headers value that is a literal",
-		Cause:    "An MCP spec's `env` or `headers` value is neither a `${NAME}` reference nor marked `!literal`, so it may be a secret that sync writes into every tool's config. Empty values, numbers, booleans, and `x-<target>` blocks are not checked. A later release fails `lint` and `sync` on it.",
+		Cause:    "An MCP spec's `env` or `headers` value is neither a `${NAME}` reference nor marked `!literal`, so it may be a secret that sync writes into every tool's config. Empty values, numbers, booleans, and `x-<target>` blocks are not checked. `sync` stops on it.",
 		Fix:      "Write a secret as `${NAME}` and set the variable, or mark a plain setting `NODE_ENV: !literal production`. `agnostic-ai migrate --only secrets` does both.",
 	},
 	"LINT034": {
