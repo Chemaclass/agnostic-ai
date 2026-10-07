@@ -1,6 +1,6 @@
 +++
 title = "Warp"
-description = "How agnostic-ai emits Warp configuration: native paths, capability limits, and output options."
+description = "What agnostic-ai writes for Warp: file paths, what it supports, and output settings."
 weight = 120
 
 [extra]
@@ -23,22 +23,22 @@ AGENTS.md                              # canonical entry-point pointer body (wri
 .warp/.mcp.json                        # when MCP entries exist
 ```
 
-- **Rules**: root rules inline into `AGENTS.md`. Scoped rules use `<scope>/AGENTS.md` ([shared readers](@/docs/scoped-context.md)).
-- **Skills**: [Warp skills](https://docs.warp.dev/agents/capabilities/skills) at `.agents/skills/<name>/SKILL.md`, the path Warp recommends. A source-layout scope moves the tree and survives import. Identical root renders are written once.
-  - Warp also scans `.warp/skills/`, `.claude/skills/`, `.codex/skills/`, `.cursor/skills/`, `.gemini/skills/`, `.copilot/skills/`, `.factory/skills/`, `.github/skills/`, and `.opencode/skills/`. The adapter writes only `.agents/skills/`. Warp picks up OpenCode's default `.opencode/skills/` with no extra write.
-  - `WARP_SKILL_DIRS` adds directories outside the repo for Cloud agents to index skills from. It does not change the project scan list.
+- **Rules**: root rules go inline into `AGENTS.md`. Scoped rules go to `<scope>/AGENTS.md` ([tools that share it](@/docs/scoped-context.md)).
+- **Skills**: [Warp skills](https://docs.warp.dev/agents/capabilities/skills) at `.agents/skills/<name>/SKILL.md`, the path Warp recommends. A skill in a scope folder moves under that scope, and import keeps it there. Identical root copies are written once.
+  - Warp also scans `.warp/skills/`, `.claude/skills/`, `.codex/skills/`, `.cursor/skills/`, `.gemini/skills/`, `.copilot/skills/`, `.factory/skills/`, `.github/skills/`, and `.opencode/skills/`. agnostic-ai writes only `.agents/skills/`. Warp also picks up OpenCode's default `.opencode/skills/`, with no extra file.
+  - `WARP_SKILL_DIRS` adds directories outside the repo for Cloud agents to index skills from. It does not change which project folders Warp scans.
 - **Workflows**: with `outputs.warp.workflows-dir` set, each agent becomes a [Warp Workflow](https://docs.warp.dev/terminal/entry/yaml-workflows) at `<dir>/<name>.yaml` (`name`/`command`/`description`/`tags`). Warp now recommends Warp Drive workflows stored in the cloud, but <code>{&#123;path_to_git_repo}}/.warp/workflows/</code> still loads.
-  - `command:` is the agent body verbatim, so write it as a Warp-friendly shell snippet.
-  - `shells`, `arguments`, `source_url`, `author`, and `author_url` pass through under `x-warp`. `import warp` reads them back.
-- **MCP**: `mcpServers` carries only the keys in [Warp's MCP docs](https://docs.warp.dev/agents/capabilities/mcp):
-  - Stdio: `command`/`args`/`env`, plus `working_directory` (Warp's `cwd`). `args` is required, so a server with no arguments emits `"args": []`.
-  - Remote (HTTP/SSE/WS): `url`/`headers`, with no `type`, because Warp has no transport discriminant.
-  - `description`, `disabled`, and `roots` are not emitted. `disabled` raises a coverage note (Warp never auto-spawns project servers). Write `description` and `roots` through `x-warp`.
-  - Warp also loads Claude Code's `.mcp.json`, Codex's `.codex/config.toml`, and `.agents/.mcp.json`, each after explicit approval ([provider table](https://docs.warp.dev/agents/capabilities/mcp)). With `claude` or `codex` synced too, one server can appear in up to three files, and Warp documents no same-name dedupe. Approve only one copy.
-  - `import warp` renames `working_directory` back to `cwd`. An entry missing `command` (stdio) or `url` (remote) emits nothing, as in trae, antigravity, and windsurf.
+  - `command:` is the agent body as written, so write it as a shell snippet Warp can run.
+  - Set `shells`, `arguments`, `source_url`, `author`, and `author_url` under `x-warp`. `import warp` reads them back.
+- **MCP**: `mcpServers` has only the keys in [Warp's MCP docs](https://docs.warp.dev/agents/capabilities/mcp):
+  - Stdio: `command`/`args`/`env`, plus `working_directory` (Warp's `cwd`). `args` is required, so a server with no arguments gets `"args": []`.
+  - Remote (HTTP/SSE/WS): `url`/`headers`, with no `type`, because Warp has no transport field.
+  - `description`, `disabled`, and `roots` are not written. `disabled` raises a coverage note (Warp never starts project servers on its own). Set `description` and `roots` through `x-warp`.
+  - Warp also loads Claude Code's `.mcp.json`, Codex's `.codex/config.toml`, and `.agents/.mcp.json`, each after explicit approval ([provider table](https://docs.warp.dev/agents/capabilities/mcp)). With `claude` or `codex` synced too, one server can appear in up to three files, and Warp documents no handling of same-name servers. Approve only one copy.
+  - `import warp` renames `working_directory` back to `cwd`. An entry missing `command` (stdio) or `url` (remote) is skipped, as in trae, antigravity, and windsurf.
 
 {% <details summary="Upgrading from WARP.md"> %}
-Warp recommends `AGENTS.md` but still supports `WARP.md`, which wins in a directory holding both ([Warp rules docs](https://docs.warp.dev/agents/capabilities/rules)). The first sync after upgrading renames an agnostic-generated `WARP.md` at the configured root to `WARP.md.bak`. Sync leaves a user-authored `WARP.md` (no `Generated by agnostic-ai` marker) alone. It warns that Warp misses synced rules until you rename or remove that file.
+Warp recommends `AGENTS.md` but still supports `WARP.md`, which wins in a directory holding both ([Warp rules docs](https://docs.warp.dev/agents/capabilities/rules)). The first sync after upgrading renames a `WARP.md` that agnostic-ai wrote at the configured root to `WARP.md.bak`. Sync leaves a `WARP.md` you wrote (no `Generated by agnostic-ai` marker) alone. It warns that Warp misses the synced rules until you rename or remove that file.
 {% </details> %}
 
 ## Config keys
@@ -48,7 +48,7 @@ Warp recommends `AGENTS.md` but still supports `WARP.md`, which wins in a direct
 | `outputs.warp.skills-dir` | `.agents/skills` | |
 | `outputs.warp.workflows-dir` | empty | opt-in |
 | `outputs.warp.mcp-file` | `.warp/.mcp.json` | |
-| `outputs.warp.rules-file` | unset | writes legacy concatenated rules and skips the pointer-body write |
+| `outputs.warp.rules-file` | unset | writes all rules into one legacy file and skips the pointer-body write |
 
 ## Import
 
@@ -63,7 +63,7 @@ Advisory. This target takes no settings specs, so sync reports a spec with a `pr
 ## Verify
 
 1. Install Warp from [warp.dev](https://www.warp.dev).
-2. Check the tree: `ls AGENTS.md .agents/skills/ .warp/workflows/ .warp/.mcp.json`, `ls .agents/skills/*/SKILL.md >/dev/null`, `grep "Generated by agnostic-ai" .warp/workflows/*.yaml` for the provenance header, `python -m json.tool .warp/.mcp.json > /dev/null`.
+2. Check the files: `ls AGENTS.md .agents/skills/ .warp/workflows/ .warp/.mcp.json`, `ls .agents/skills/*/SKILL.md >/dev/null`, `grep "Generated by agnostic-ai" .warp/workflows/*.yaml` for the provenance header, `python -m json.tool .warp/.mcp.json > /dev/null`.
 3. Open the project and confirm:
    - the rules panel shows `AGENTS.md`, with no "unrecognized file" warnings;
    - the skills picker lists each `.agents/skills/<name>/`;

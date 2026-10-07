@@ -14,7 +14,7 @@ group = "Reference"
 - **Ready worktrees.** Every new worktree runs the same setup, so an agent does not start on a tree with no dependencies.
 - **Preview buttons.** `dev-commands` become the dev servers a tool can start and preview.
 - **Clean exits.** `cleanup` stops what setup started when the worktree goes away.
-- **One spec for every tool.** A field one tool ignores raises no note when another enabled tool reads it.
+- **One spec for every tool.** A field one tool ignores raises no note when another enabled tool uses it.
 
 ## Write one
 
@@ -50,17 +50,17 @@ terminals:
 
 A string command with shell syntax (pipe, several lines, `VAR=value`, a builtin like `cd`) runs through `sh -c`. On Windows that needs a POSIX shell such as Git Bash on the `PATH`. A list runs with no shell. `env` values are written as text.
 
-Specs merge by top-level key, and the last value wins. A field that no enabled tool reads gets a no-effect note.
+Specs merge by top-level key, and the last value wins. A field that no enabled tool uses gets a note that it has no effect.
 
-`lint` reports a dev command with no `name` or `command`, a repeated name, an unknown key, or a wrong-typed value (LINT016).
+`lint` reports a dev command with no `name` or `command`, a repeated name, an unknown key, or a value of the wrong type (LINT016).
 
 ## Support by target
 
-- [Cursor](@/docs/targets/cursor.md): `setup` and `setup-windows` go to `.cursor/worktrees.json`. The rest goes to `environment.json`, except the routing fields (`name`, `scope`, `target(s)`, `target(s)-exclude`, `description`), `dev-commands`, and `cleanup`. Those get a no-effect note. `import cursor` reads both files back.
-- [Codex](@/docs/targets/codex.md): `setup`, `setup-windows`, `cleanup`, and `dev-commands` go to `.codex/environments/environment.toml` as scripts and action buttons. Other fields get a no-effect note. `import codex` reads the file back.
-- [Claude Code](@/docs/targets/claude.md): `setup` runs from generated hooks (see [Claude Code worktree setup](#claude-code-worktree-setup)). `dev-commands` goes to `.claude/launch.json`. Claude Code reads a relative `cwd` there from the project root, so the spec needs no `${workspaceFolder}`. Every other field, `setup-windows` and `cleanup` included, gets a no-effect note.
-- [OpenHands](@/docs/targets/openhands.md) and [Amp](@/docs/targets/amp.md): `install` becomes a setup script. Amp also turns `terminals` into services. Both note `setup`, `cleanup`, and `dev-commands` as having no effect.
-- Other targets report the spec as unsupported.
+- [Cursor](@/docs/targets/cursor.md): `setup` and `setup-windows` go to `.cursor/worktrees.json`. The rest goes to `environment.json`, except the routing fields (`name`, `scope`, `target(s)`, `target(s)-exclude`, `description`), `dev-commands`, and `cleanup`. Those get a note that they have no effect. `import cursor` reads both files back.
+- [Codex](@/docs/targets/codex.md): `setup`, `setup-windows`, `cleanup`, and `dev-commands` go to `.codex/environments/environment.toml` as scripts and action buttons. Other fields get a note that they have no effect. `import codex` reads the file back.
+- [Claude Code](@/docs/targets/claude.md): `setup` runs from generated hooks (see [Claude Code worktree setup](#claude-code-worktree-setup)). `dev-commands` goes to `.claude/launch.json`. Claude Code reads a relative `cwd` there from the project root, so the spec needs no `${workspaceFolder}`. Every other field, `setup-windows` and `cleanup` included, gets a note that it has no effect.
+- [OpenHands](@/docs/targets/openhands.md) and [Amp](@/docs/targets/amp.md): `install` becomes a setup script. Amp also turns `terminals` into services. Both note that `setup`, `cleanup`, and `dev-commands` have no effect.
+- Other tools report the spec as unsupported.
 
 ## Claude Code worktree setup {#claude-code-worktree-setup}
 
@@ -76,14 +76,14 @@ Claude Code runs matching hooks in parallel. Delete a hand-written `SessionStart
 
 How the script runs:
 
-- It reads the worktree from the hook payload's `cwd`, since `$CLAUDE_PROJECT_DIR` stays at the directory the session started in.
+- It takes the worktree from the `cwd` in the hook's event data, because `$CLAUDE_PROJECT_DIR` stays at the directory the session started in.
 - It runs `setup` from the worktree root through `sh`, only in a linked Git worktree and never in the main checkout.
 - A successful run leaves a marker in the worktree's own Git directory, so later sessions in that worktree skip setup.
 - A failed run leaves no marker. The next new session, subagent, or worktree entry tries again.
-- A linked worktree created before the first sync with `setup` has no marker either, so setup runs there once too.
+- A linked worktree made before the first sync with `setup` has no marker either, so setup runs there once.
 - Claude Code stops a command hook after 600 seconds by default, so a longer setup fails and runs again next time.
 - Setup output goes to stderr, because Claude Code adds a `SessionStart` hook's stdout to the session context.
-- The script exits when `AGNOSTIC_AI_TARGET` is not `claude`. A tool that also reads `.claude/settings.json` hooks, such as Cursor, then does not run setup a second time.
+- The script exits when `AGNOSTIC_AI_TARGET` is not `claude`. A tool that also reads the hooks in `.claude/settings.json`, such as Cursor, then does not run setup a second time.
 
 A new worktree needs `.claude/settings.json` and the script.
 
@@ -102,4 +102,4 @@ x-claude:
 
 ## Import
 
-When several tools keep their own environment file, `import` scopes each spec it writes to its tool with `targets: [<tool>]`. The next sync then writes every file back as it was, instead of merging one tool's dev commands or setup into the others. Remove the line to share a spec across tools. A project with one tool's environment file gets one shared spec.
+When several tools keep their own environment file, `import` limits each spec it writes to its tool with `targets: [<tool>]`. The next sync then writes every file back as it was, instead of mixing one tool's dev commands or setup into the others. Remove the line to share a spec across tools. A project with one tool's environment file gets one shared spec.

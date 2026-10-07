@@ -1,6 +1,6 @@
 +++
 title = "Jules"
-description = "How agnostic-ai emits Jules configuration: native paths, capability limits, and output options."
+description = "What agnostic-ai writes for Jules: file paths, what it supports, and output settings."
 weight = 230
 
 [extra]
@@ -18,7 +18,7 @@ Google [Jules](https://jules.google/docs) is a cloud agent that reads the root `
 AGENTS.md                     # canonical entry-point pointer body + inlined rules (written by sync, shared path)
 ```
 
-Jules has no project-local surface. It adds no output of its own, so it is opt-in (see [Selecting targets](@/docs/configuration.md#targets)). Agents, skills, hooks, and MCP are skipped with a warning.
+Jules has no project-level settings, so agnostic-ai writes no file for it beyond `AGENTS.md`. Jules is opt-in (see [Selecting targets](@/docs/configuration.md#targets)). Agents, skills, hooks, and MCP are skipped with a warning.
 
 ## Config keys
 
@@ -31,5 +31,5 @@ Advisory. This target takes no settings specs, so sync reports a spec with a `pr
 ## Verify
 
 1. Sign in to Jules ([docs](https://jules.google/docs)).
-2. Check the tree: `ls AGENTS.md`.
+2. Check the file: `ls AGENTS.md`.
 3. Point Jules at the repo. It reads `AGENTS.md` as project context.

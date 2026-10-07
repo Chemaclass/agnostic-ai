@@ -9,11 +9,11 @@ group = "Reference"
 
 # MCP recipes
 
-Four servers to start from. Copy one into `.agnostic-ai/mcps/<name>.yaml` (or the directory set by `sources.mcps` in `agnostic-ai.yaml`) and run `agnostic-ai sync`. Each selected tool gets the entry in its own form. A tool that cannot read a `${NAME}` reference in that field gets a note instead, as the [reference tables](@/docs/spec-format/mcps.md#environment-references) show. Field meanings are in [MCP servers](@/docs/spec-format/mcps.md).
+Four servers to start from. Copy one into `.agnostic-ai/mcps/<name>.yaml` (or the directory set by `sources.mcps` in `agnostic-ai.yaml`) and run `agnostic-ai sync`. Each selected tool gets the entry in its own format. A tool that cannot read a `${NAME}` reference in that field gets a note instead, as the [reference tables](@/docs/spec-format/mcps.md#environment-references) show. Field meanings are in [MCP servers](@/docs/spec-format/mcps.md).
 
-Checked on 2026-10-03. Upstream changes names and URLs often, so compare against the linked source before you rely on one.
+Checked on 2026-10-03. Upstream names and URLs change often, so compare with the linked source before you rely on one.
 
-No recipe holds a secret. Each reads one from your shell with a [`${NAME}` reference](@/docs/spec-format/mcps.md#environment-references). Export the variable before you start the tool.
+No recipe contains a secret. Each reads one from your shell with a [`${NAME}` reference](@/docs/spec-format/mcps.md#environment-references). Export the variable before you start the tool.
 
 ## GitHub (remote)
 
@@ -32,9 +32,9 @@ Create a personal access token on GitHub and export it as `GITHUB_PAT`.
 
 ### Keep it personal
 
-A GitHub token is yours, not the team's. Save the spec as `.agnostic-ai/local/mcps/github.yaml` instead, whatever `sources.mcps` says. The [local layer](@/docs/local-overrides.md) stays out of version control, so only you get the server. Teammates who want it add their own file.
+A GitHub token is yours, not the team's. Save the spec as `.agnostic-ai/local/mcps/github.yaml` instead, whatever `sources.mcps` says. [Local files](@/docs/local-overrides.md) stay out of version control, so only you get the server. Teammates who want it add their own file.
 
-`disabled: true` does not keep a server off on Cursor, Augment, Junie, Trae, or Warp. Sync strips the key there. The local layer always loads, so it does not turn a server off. To keep a server off, leave it out of every loaded layer, or turn it off in the tool itself. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
+`disabled: true` does not keep a server off on Cursor, Augment, Junie, Trae, or Warp. Sync strips the key there. Local files always load, so they cannot turn a server off. To keep a server off, leave it out of every spec that loads, or turn it off in the tool itself. See [`disabled` support by target](@/docs/spec-format/mcps.md#disabled-support-by-target).
 
 ## Context7 (remote)
 
