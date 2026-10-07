@@ -306,6 +306,19 @@ func hookHandlers(entry any) (string, []string) {
 	}
 	matcher, _ := object["matcher"].(string)
 	list, nested := object["hooks"].([]any)
+	if nested {
+		// Group settings such as Gemini's `sequential` are part of what
+		// the group does, so they join the matcher in its identity.
+		extras := map[string]any{}
+		for k, v := range object {
+			if k != "matcher" && k != "hooks" {
+				extras[k] = v
+			}
+		}
+		if len(extras) > 0 {
+			matcher += "\x00" + canonicalJSON(extras)
+		}
+	}
 	if !nested {
 		rest := map[string]any{}
 		for k, v := range object {
@@ -332,6 +345,11 @@ func withoutSyncExtras(handler map[string]any) map[string]any {
 	for k, v := range handler {
 		switch k {
 		case "commandWindows":
+			// Sync's default runs the command as written; a distinct
+			// Windows command is the user's own behavior.
+			if s, ok := v.(string); !ok || s != stripHookTargetExport(stringField(handler, "command")) {
+				out[k] = v
+			}
 		case "command":
 			if s, ok := v.(string); ok {
 				out[k] = stripHookTargetExport(s)

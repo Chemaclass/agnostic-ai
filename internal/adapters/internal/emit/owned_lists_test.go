@@ -132,3 +132,28 @@ func TestMergeOwnedLists_AdoptsImportedGroupsSyncConsolidates(t *testing.T) {
 		t.Errorf("imported groups kept beside sync's: %v", merged)
 	}
 }
+
+func TestMergeOwnedLists_KeepsAUserHookWithItsOwnWindowsCommand(t *testing.T) {
+	disk := map[string][]any{"PreToolUse": {json.RawMessage(`{"matcher":"Bash","hooks":[{"type":"command","command":"lint.sh","commandWindows":"guard.ps1"}]}`)}}
+	planned := map[string][]any{"PreToolUse": {json.RawMessage(`{"matcher":"Bash","hooks":[{"type":"command","command":"export AGNOSTIC_AI_TARGET=codex; lint.sh","commandWindows":"lint.sh"}]}`)}}
+
+	merged, _ := mergeOwnedLists(nil, false, disk, planned)
+
+	if len(merged["PreToolUse"]) != 2 {
+		t.Errorf("user's Windows command dropped: %v", merged)
+	}
+}
+
+func TestMergeOwnedLists_KeepsASequentialGroupSyncRendersApart(t *testing.T) {
+	disk := map[string][]any{"BeforeTool": {json.RawMessage(`{"matcher":"run_shell_command","sequential":true,"hooks":[{"type":"command","command":"prepare.sh"},{"type":"command","command":"consume.sh"}]}`)}}
+	planned := map[string][]any{"BeforeTool": {
+		json.RawMessage(`{"matcher":"run_shell_command","hooks":[{"type":"command","command":"prepare.sh"}]}`),
+		json.RawMessage(`{"matcher":"run_shell_command","hooks":[{"type":"command","command":"consume.sh"}]}`),
+	}}
+
+	merged, _ := mergeOwnedLists(nil, false, disk, planned)
+
+	if len(merged["BeforeTool"]) != 3 {
+		t.Errorf("sequential user group dropped: %v", merged)
+	}
+}
