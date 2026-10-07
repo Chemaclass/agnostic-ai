@@ -1126,6 +1126,9 @@ func emitAutoMemoryDirectory(sess *emit.Session, dir string, cfg *config.Config,
 	if err != nil {
 		return err
 	}
+	if err := sess.CreateRepoMemoryStore(cfg, store, dryRun); err != nil {
+		return err
+	}
 	if store, err = filepath.Abs(store); err != nil {
 		return fmt.Errorf("resolve %s: %w", emit.PersonalMemoryIndexPath, err)
 	}

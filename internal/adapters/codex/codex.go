@@ -388,7 +388,7 @@ func emitConfigTOML(sess *emit.Session, b spec.Bundle, cfg *config.Config, overl
 		codexCfg = o.Config
 	}
 	noteIgnoredConfigFields(codexCfg)
-	roots, err := memoryWritableRoots(cfg)
+	roots, err := memoryWritableRoots(sess, cfg, dryRun)
 	if err != nil {
 		return err
 	}

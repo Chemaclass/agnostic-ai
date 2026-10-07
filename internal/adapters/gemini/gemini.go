@@ -318,6 +318,9 @@ func includeMemoryDirectory(sess *emit.Session, keys map[string]any, cfg *config
 	if err != nil {
 		return err
 	}
+	if err := sess.CreateRepoMemoryStore(cfg, dir, dryRun); err != nil {
+		return err
+	}
 	dir = filepath.ToSlash(dir)
 	var list []any
 	if existing, ok := sess.ExistingJSONObject(path, "context", dryRun)["includeDirectories"].([]any); ok {

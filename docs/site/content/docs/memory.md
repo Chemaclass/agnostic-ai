@@ -104,10 +104,11 @@ The store is `$AGNOSTIC_AI_HOME/local/memory/<repo-slug>/` (default `~/.agnostic
 The store's absolute path goes only into files that never reach Git:
 
 - `.claude/settings.local.json` points `autoMemoryDirectory` at it.
-- With a managed [`.gitignore` block](@/docs/configuration.md#gitignore), and no `gitignore.commit` kind for that tool, sync also writes it to `CLAUDE.md`, `opencode.json`, `kilo.jsonc`, `.codex/config.toml`, and `.gemini/settings.json`.
+- With a managed [`.gitignore` block](@/docs/configuration.md#gitignore), no `gitignore.allow` line, and no `gitignore.commit` kind for that tool, sync also writes it to `CLAUDE.md`, `opencode.json`, `kilo.jsonc`, `.codex/config.toml`, and `.gemini/settings.json`.
 - Otherwise those files may be committed, so they keep the checkout paths. Claude Code still loads the store through auto memory, and the other tools through the session-start hook. OpenCode and Kilo Code then load no personal memory, and Codex and Gemini CLI cannot save there.
+- If one of those files was committed before the managed block existed, run `agnostic-ai sync --untrack` to stop tracking it.
 
-The session-start hook, `memory lint`, `memory index`, and `memory list` read the store from your local config.
+Sync creates the store folder, readable only by you. The session-start hook, `memory lint`, `memory index`, and `memory list` read the store from your local config. Switching back to `checkout` removes the repo index from the OpenCode and Kilo Code `instructions` lists.
 
 ### Sandbox settings
 

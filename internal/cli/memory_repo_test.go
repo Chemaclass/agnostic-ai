@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -113,6 +114,46 @@ func TestSync_RepoPersonalMemoryStaysOutOfCommittableFiles(t *testing.T) {
 	}
 	if local := readText(t, filepath.Join(".claude", "settings.local.json")); !strings.Contains(local, filepath.ToSlash(parent)) {
 		t.Errorf("settings.local.json is personal and should name the repo store:\n%s", local)
+	}
+}
+
+func TestSync_LeavingRepoModeDropsTheRepoIndexFromInstructions(t *testing.T) {
+	parent := repoMemoryProject(t, true)
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: checkout\n")
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, file := range []string{"opencode.json", "kilo.jsonc"} {
+		text := readText(t, file)
+		if strings.Contains(text, filepath.ToSlash(parent)) || !strings.Contains(text, `".agnostic-ai/local/memory/MEMORY.md"`) {
+			t.Errorf("%s instructions after leaving repo mode:\n%s", file, text)
+		}
+	}
+}
+
+func TestSync_CreatesThePrivateRepoStore(t *testing.T) {
+	parent := repoMemoryProject(t, true)
+	if err := runSync(t, "--dry-run"); err != nil {
+		t.Fatal(err)
+	}
+	if entries, _ := os.ReadDir(parent); len(entries) != 0 {
+		t.Fatalf("dry run created %v", entries)
+	}
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+
+	store := filepath.FromSlash(repoStore(t, parent, readText(t, "CLAUDE.md")))
+	info, err := os.Stat(store)
+	if err != nil || !info.IsDir() {
+		t.Fatalf("store %s not created: %v", store, err)
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o700 {
+		t.Errorf("store mode = %v, want 0700", info.Mode().Perm())
 	}
 }
 

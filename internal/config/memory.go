@@ -29,14 +29,14 @@ func (c *Config) RepoPersonalMemory() bool {
 
 // validateMemory rejects an unknown memory.personal value, and the key
 // in the shared config: the store path is one user's choice.
-func validateMemory(m MemoryConfig, base map[string]any, source string) error {
+func validateMemory(m MemoryConfig, base map[string]any, basePath, source string) error {
 	if m.Personal != "" && !slices.Contains(PersonalMemoryModes, m.Personal) {
 		return errs.Coded(errs.CodeConfigDecode, "%s: memory.personal: %q is not one of %s",
 			source, m.Personal, strings.Join(PersonalMemoryModes, ", "))
 	}
 	if memory, ok := base["memory"].(map[string]any); ok {
 		if _, set := memory["personal"]; set {
-			return errs.Coded(errs.CodeConfigDecode, "%s: memory.personal is personal; move it to %s", source, LocalOverrideFileName)
+			return errs.Coded(errs.CodeConfigDecode, "%s: memory.personal is personal; move it to %s", basePath, LocalOverrideFileName)
 		}
 	}
 	return nil

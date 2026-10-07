@@ -37,7 +37,7 @@ func TestLoad_RejectsPersonalMemoryInTheSharedConfig(t *testing.T) {
 
 func TestLoad_RejectsAnUnknownPersonalMemoryMode(t *testing.T) {
 	_, err := Load(writeConfigFiles(t, "version: 1\n", "memory:\n  personal: home\n"))
-	if err == nil || !strings.Contains(err.Error(), "memory.personal") {
-		t.Errorf("err = %v", err)
+	if err == nil || !strings.Contains(err.Error(), "memory.personal") || !strings.Contains(err.Error(), LocalOverrideFileName) {
+		t.Errorf("err = %v, want it to name memory.personal and %s", err, LocalOverrideFileName)
 	}
 }

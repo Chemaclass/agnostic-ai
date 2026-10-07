@@ -524,7 +524,7 @@ func LoadWithSources(root string) (*Config, []string, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	if err := validateMemory(cfg.Memory, base, basePath); err != nil {
+	if err := validateMemory(cfg.Memory, base, basePath, strings.Join(sources, " + ")); err != nil {
 		return nil, nil, err
 	}
 	return cfg, sources, nil

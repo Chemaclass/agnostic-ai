@@ -51,15 +51,59 @@ func PersonalMemoryDir(cfg *config.Config, root string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("memory.personal: repo needs a Git repository at %s: %w", root, err)
 	}
+	stores, err := repoMemoryStores()
+	if err != nil {
+		return "", fmt.Errorf("memory.personal: repo: %w", err)
+	}
+	return filepath.Join(stores, RepoSlug(strings.TrimSpace(string(out)))), nil
+}
+
+// CreateRepoMemoryStore creates the repo store dir, private to the user,
+// so a tool setting that names it never points at a missing folder. The
+// checkout store, a dry run, and a capture write nothing.
+func (s *Session) CreateRepoMemoryStore(cfg *config.Config, dir string, dryRun bool) error {
+	if !cfg.RepoPersonalMemory() || !filepath.IsAbs(dir) || dryRun || s.IsCapturing() {
+		return nil
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return fmt.Errorf("%s: %w", dir, err)
+	}
+	return nil
+}
+
+// repoMemoryStores returns the folder that holds every repo store.
+func repoMemoryStores() (string, error) {
 	home := os.Getenv("AGNOSTIC_AI_HOME")
 	if home == "" {
 		user, err := os.UserHomeDir()
 		if err != nil {
-			return "", fmt.Errorf("memory.personal: repo: %w", err)
+			return "", err
 		}
 		home = filepath.Join(user, ".agnostic-ai")
 	}
-	return filepath.Join(home, "local", "memory", RepoSlug(strings.TrimSpace(string(out)))), nil
+	return filepath.Join(home, "local", "memory"), nil
+}
+
+// WithoutStalePersonalIndexes drops from list each personal memory index
+// that current does not name: the checkout index, or one in a repo
+// store. It is the entry an earlier sync added before memory.personal or
+// the gitignore setup changed.
+func WithoutStalePersonalIndexes(list, current []string) []string {
+	stores, err := repoMemoryStores()
+	if err != nil {
+		stores = ""
+	}
+	prefix := filepath.ToSlash(stores) + "/"
+	out := make([]string, 0, len(list))
+	for _, entry := range list {
+		personal := entry == PersonalMemoryIndexPath ||
+			stores != "" && strings.HasPrefix(entry, prefix) && strings.HasSuffix(entry, "/MEMORY.md")
+		if personal && !slices.Contains(current, entry) {
+			continue
+		}
+		out = append(out, entry)
+	}
+	return out
 }
 
 // PersonalMemoryDirFor returns the personal store the project files of
@@ -76,7 +120,8 @@ func PersonalMemoryDirFor(cfg *config.Config, targets ...string) (string, error)
 // PersonalMemoryLeavesCheckout reports whether the project files of
 // targets name the repo store rather than the checkout one.
 func PersonalMemoryLeavesCheckout(cfg *config.Config, targets ...string) bool {
-	if !cfg.RepoPersonalMemory() || !cfg.Gitignore.Enabled {
+	// An allow line can re-track any output, so it counts as committed.
+	if !cfg.RepoPersonalMemory() || !cfg.Gitignore.Enabled || len(cfg.Gitignore.Allow) > 0 {
 		return false
 	}
 	for _, t := range targets {

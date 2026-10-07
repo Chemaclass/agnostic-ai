@@ -90,6 +90,16 @@ func TestPersonalMemoryDirFor_KeepsTheCheckoutStoreInCommittedFiles(t *testing.T
 	}
 }
 
+func TestPersonalMemoryDirFor_KeepsTheCheckoutStoreWithAnAllowLine(t *testing.T) {
+	cfg := &config.Config{
+		Memory:    config.MemoryConfig{Personal: config.PersonalMemoryRepo},
+		Gitignore: config.Gitignore{Enabled: true, Allow: []string{"opencode.json"}},
+	}
+	if got, err := PersonalMemoryDirFor(cfg, "opencode"); err != nil || filepath.IsAbs(got) {
+		t.Errorf("got %q, %v; want the checkout store", got, err)
+	}
+}
+
 func TestRenderMemoryBlock_KeepsAnAbsolutePersonalIndex(t *testing.T) {
 	index := filepath.Join(t.TempDir(), "store", "MEMORY.md")
 
