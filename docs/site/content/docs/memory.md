@@ -132,7 +132,7 @@ Gemini CLI and Qoder keep your own entries in those lists.
 Some tools need more steps in this mode:
 
 - **Claude Code** asks once per project whether to allow the import from outside the project ([external imports](https://code.claude.com/docs/en/memory)). If you decline, it still uses personal memory through its own setting.
-- **Kilo Code** ignores files outside the project when the project config lists them. With the block, sync leaves the path out of `kilo.jsonc` and prints a note. To load personal memory, add its `MEMORY.md` to `instructions` in `~/.config/kilo/kilo.jsonc`.
+- **Kilo Code** ignores files outside the project when the project config lists them. With the block, sync leaves the path out of `kilo.jsonc` and prints a note. Kilo still finds the folder through the rule, as below. To load it every session, add its `MEMORY.md` to `instructions` in `~/.config/kilo/kilo.jsonc`.
 - **Tools with only the rule** (Windsurf, Cline, Trae, Warp, Zed, and the other tools in the last table row) are not told where the folder is, so the rule has them run [`agnostic-ai memory path`](@/docs/cli-reference/maintain.md#memory) to print it. They need `agnostic-ai` on PATH, and may ask before they read or write outside the project.
 
 Cloud agents start from a fresh clone, so they never see personal memory in either mode.
