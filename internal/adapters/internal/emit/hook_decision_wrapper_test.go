@@ -62,7 +62,9 @@ func TestPortableHookWrapper_ReadsALargeStdoutQuickly(t *testing.T) {
 		if !ok || exit.ExitCode() != 2 || len(out) != 0 {
 			t.Errorf("%s: exit %v, stdout %d bytes; want a block", name, err, len(out))
 		}
-		if elapsed := time.Since(start); elapsed > 10*time.Second {
+		// 20s stays under the shortest default hook timeout (30s on Copilot and
+		// Trae) and leaves room for a loaded machine running packages in parallel.
+		if elapsed := time.Since(start); elapsed > 20*time.Second {
 			t.Errorf("%s took %s", name, elapsed)
 		}
 		if name == "a 900 KB reason" && len(stderr.String()) < 900000 {
